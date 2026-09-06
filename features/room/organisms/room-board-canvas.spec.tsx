@@ -339,6 +339,19 @@ describe("RoomBoardCanvas", () => {
       ).toBeInTheDocument();
     });
 
+    it("決定課題・HMWバナーの位置はガイドの開閉状態に連動させない", () => {
+      setup({
+        phase: buildPhaseStep(5, 3),
+        hmwDecidedIssue: "宿題を後回しにしてしまう",
+        decidedHmw: "もっと安心して取り組める？",
+      });
+
+      const positioner = screen.getAllByTestId("hmw-decided-issue-banner")[0]
+        ?.parentElement;
+      expect(positioner).toHaveClass("top-3");
+      expect(positioner?.className).not.toContain("guide-expanded");
+    });
+
     it("hmwDecidedIssue が null のときは決定課題バナーを表示しない", () => {
       setup({ hmwDecidedIssue: null });
 

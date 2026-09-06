@@ -23,9 +23,12 @@ function setupProps(
     hostUserId: ME,
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
+    isGuideExpanded: true,
+    isSprintComplete: false,
     voteRemaining: { subjective: 5, objective: 10 },
     isLeaving: false,
     onShowVoteResult: vi.fn(),
+    onGuideExpandedChange: vi.fn(),
     onLeaveClick: vi.fn(),
     onNextPhase: vi.fn(),
     onTimerStart: vi.fn(),
@@ -102,6 +105,56 @@ describe("RoomBoardHeader", () => {
     ).toHaveAttribute("aria-valuenow", "2");
   });
 
+  describe("ファシリテーションガイド", () => {
+    it("現在地HUDと一体で表示し、開閉操作を通知する", () => {
+      const onGuideExpandedChange = vi.fn();
+      setup({ isHost: true, onGuideExpandedChange });
+
+      const toggle = screen.getByRole("button", {
+        name: "ファシリテーションガイドを折り畳む",
+      });
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      expect(toggle).toHaveAttribute(
+        "aria-controls",
+        "facilitation-guide-content",
+      );
+      expect(screen.getByText("3分")).toBeInTheDocument();
+      expect(screen.getByText("進行役へ")).toBeInTheDocument();
+
+      fireEvent.click(toggle);
+
+      expect(onGuideExpandedChange).toHaveBeenCalledWith(false);
+    });
+
+    it("参加者にはホスト限定の進行指示を表示しない", () => {
+      setup({ isHost: false });
+
+      expect(screen.getByText(/最近あった困ったこと/)).toBeInTheDocument();
+      expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
+    });
+
+    it.each([
+      [buildPhaseStep(1), "03"],
+      [buildPhaseStep(3), "04"],
+      [buildPhaseStep(2), "06"],
+      [buildPhaseStep(3, 3), "07"],
+      [buildPhaseStep(5), "10"],
+    ] as const)("$phase の推奨$minutes分をタイマー初期値にするが自動開始しない", (phase, minutes) => {
+      const onTimerStart = vi.fn();
+      setup({
+        isHost: true,
+        phase,
+        onTimerStart,
+      });
+
+      fireEvent.click(screen.getByTestId("room-timer"));
+
+      expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue(minutes);
+      expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("00");
+      expect(onTimerStart).not.toHaveBeenCalled();
+    });
+  });
+
   it("フェーズ番号を表示して、フェーズ1とフェーズ2を識別できる", () => {
     const { rerender } = render(
       <RoomBoardHeader {...setupProps({ phase: buildPhaseStep(1) })} />,
@@ -163,7 +216,25 @@ describe("RoomBoardHeader", () => {
       ).toBeDisabled();
     });
 
-    it("結果ステップでもホストには「次のステップへ」を表示する", () => {
+    it("最終ステップではホストにも「次のステップへ」を表示しない", () => {
+      setup({ isHost: true, phase: buildPhaseStep(5, 3) });
+
+      expect(
+        screen.queryByRole("button", { name: "次のステップへ" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("最終アイデア決定後は全員に完了ステータスを表示する", () => {
+      setup({
+        isHost: false,
+        phase: buildPhaseStep(5, 3),
+        isSprintComplete: true,
+      });
+
+      expect(screen.getByRole("status")).toHaveTextContent("スプリント完了");
+    });
+
+    it("途中の結果ステップではホストに「次のステップへ」を表示する", () => {
       setup({ isHost: true, phase: buildPhaseStep(5) });
 
       expect(

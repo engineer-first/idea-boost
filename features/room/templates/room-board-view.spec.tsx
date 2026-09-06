@@ -96,9 +96,9 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     interactions: props.interactions ?? buildInteractions(props.notes, []),
   };
 
-  render(<RoomBoardView {...resolvedProps} />);
+  const renderResult = render(<RoomBoardView {...resolvedProps} />);
 
-  return resolvedProps;
+  return { ...renderResult, props: resolvedProps };
 }
 
 function openRoomMenu() {
@@ -132,6 +132,73 @@ function clickNote(card: HTMLElement) {
 }
 
 describe("RoomBoardView", () => {
+  describe("ファシリテーションガイド", () => {
+    it("既定で展開し、同じステップ中は利用者が折り畳める", () => {
+      setup();
+
+      const root = screen.getByTestId("room-board-view-root");
+      expect(root).toHaveAttribute("data-guide-expanded", "true");
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "ファシリテーションガイドを折り畳む",
+        }),
+      );
+
+      expect(root).toHaveAttribute("data-guide-expanded", "false");
+      expect(screen.getByTestId("facilitation-guide-shell")).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
+    });
+
+    it("ステップが変わると再展開する", () => {
+      const { props, rerender } = setup();
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "ファシリテーションガイドを折り畳む",
+        }),
+      );
+
+      rerender(<RoomBoardView {...props} phase={buildPhaseStep(2)} />);
+
+      expect(screen.getByTestId("room-board-view-root")).toHaveAttribute(
+        "data-guide-expanded",
+        "true",
+      );
+      expect(screen.getByText("6分")).toBeInTheDocument();
+    });
+  });
+
+  it("Step 3-5 は決定前後とも次へを表示せず、決定後だけ完了を表示する", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5, 3),
+      decision: null,
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "次のステップへ" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+
+    rerender(
+      <RoomBoardView
+        {...props}
+        phase={buildPhaseStep(5, 3)}
+        decision={buildDecision({ phase: 3, noteId: "note-1" })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.getByText("スプリント完了")).toHaveAttribute(
+      "role",
+      "status",
+    );
+    expect(
+      screen.queryByRole("button", { name: "次のステップへ" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("非ホストにはタイマー状態だけを表示し操作を出さない", () => {
     setup({
       isHost: false,

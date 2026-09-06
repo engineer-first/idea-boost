@@ -97,3 +97,11 @@
     @apply font-sans;
   }
 }
+
+@media (prefers-reduced-transparency: reduce) {
+  .facilitation-guide-material {
+    background: var(--background);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
