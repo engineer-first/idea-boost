@@ -26,3 +26,10 @@ export const Closed: Story = {
     isOpen: false,
   },
 };
+
+export const Required: Story = {
+  args: {
+    isOpen: true,
+    canClose: false,
+  },
+};

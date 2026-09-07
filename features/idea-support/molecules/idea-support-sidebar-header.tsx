@@ -7,11 +7,13 @@ import { cn } from "@/lib/utils";
 
 export type IdeaSupportSidebarHeaderProps = {
   isOpen: boolean;
+  canClose?: boolean;
   onToggle: () => void;
 };
 
 export function IdeaSupportSidebarHeader({
   isOpen,
+  canClose = true,
   onToggle,
 }: IdeaSupportSidebarHeaderProps) {
   return (
@@ -29,14 +31,16 @@ export function IdeaSupportSidebarHeader({
             <span className="font-semibold">Inspiration Tools</span>
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggle}
-            aria-label="発想支援を閉じる"
-          >
-            <X aria-hidden="true" />
-          </Button>
+          {canClose ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggle}
+              aria-label="発想支援を閉じる"
+            >
+              <X aria-hidden="true" />
+            </Button>
+          ) : null}
         </>
       ) : (
         <Button
