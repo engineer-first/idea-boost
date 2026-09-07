@@ -143,62 +143,6 @@ export function RoomBoardView({
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
   const permissions = getBoardPermissions(phase);
 
-  const {
-    camera,
-    gridStyle,
-    isPanning,
-    worldPointFromClient,
-    fitToNotes,
-    zoomIn,
-    zoomOut,
-    resetZoom,
-    handlePointerDown: handleCanvasPointerDown,
-    handlePointerMove: handleCanvasPointerMove,
-    handlePointerEnd: handleCanvasPointerEnd,
-  } = useCanvasCamera({
-    viewportRef: boardScrollerRef,
-    notes,
-    fitViewport: phase.kind === "step" && phase.phase === 3 && phase.step >= 2,
-  });
-
-  const {
-    ideaMapPlaneRef,
-    isIdeaValueFeasibilityMappingStep,
-    pointFromClient,
-  } = useIdeaValueFeasibilityMapInput({
-    phase,
-    fallbackPointFromClient: worldPointFromClient,
-  });
-
-  const {
-    drag,
-    renderedNotes,
-    renderedPrivateNotes,
-    handleSharedNoteDragStart,
-    handlePrivateDragStart,
-    handlePointerMove,
-    handlePointerEnd,
-  } = useBoardDrag({
-    notes,
-    privateNotes,
-    currentUserId,
-    boardRootRef,
-    boardScrollerRef,
-    worldPointFromClient: pointFromClient,
-    privateToolbarRef,
-    preservePrivateGrabOffset: !isIdeaValueFeasibilityMappingStep,
-    clampCoordinate: isIdeaValueFeasibilityMappingStep
-      ? clampIdeaValueFeasibilityMapCoordinate
-      : undefined,
-    canPublish: isPublishAllowedStep(phase),
-    onPublishBlocked: roomNotify.cannotPublishNote,
-    onNoteDragStart,
-    onNoteDragMove,
-    onNoteDragEnd,
-    onPrivateNotePublish,
-    onPrivateNoteUnpublish,
-  });
-
   const voteRemaining = {
     subjective: Math.max(
       0,

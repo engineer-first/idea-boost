@@ -17,7 +17,6 @@ const STEP_1_3 = buildPhaseStep(3);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_1 = buildPhaseStep(1, 2);
-const STEP_3_5 = buildPhaseStep(5, 3);
 const CANVAS_HUD_POSITIONS = [
   [180, 120],
   [380, 220],
@@ -401,6 +400,5 @@ export const IdeaMapInteraction: Story = {
       x: [1, 50, 99][index],
       y: [99, 50, 1][index],
     })),
-    privateNotes: [],
   },
 };
