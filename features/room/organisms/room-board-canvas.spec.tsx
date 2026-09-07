@@ -126,6 +126,27 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("note-group-card")).toBeInTheDocument();
   });
 
+  it.each([
+    2, 3, 4, 5,
+  ])("フェーズ3 Step3-%i では近接付箋や既存グループを描画しない", (step) => {
+    setup({
+      phase: buildPhaseStep(step, 3),
+      notes: [
+        buildNote({ id: "note-1", x: 100, y: 100 }),
+        buildNote({ id: "note-2", x: 350, y: 100 }),
+      ],
+      groups: [
+        {
+          id: "group-1",
+          name: "フェーズ1の残存グループ",
+          noteIds: ["note-1", "note-2"],
+        },
+      ],
+    });
+
+    expect(screen.queryByTestId("note-group-card")).not.toBeInTheDocument();
+  });
+
   it("ドラッグ中のゴースト付箋を描画する", () => {
     const ghost = buildNote({ id: "ghost-note", content: "運んでいる付箋" });
     setup({ dragGhost: { note: ghost, x: 120, y: 80 } });

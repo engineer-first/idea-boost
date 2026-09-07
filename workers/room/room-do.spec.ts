@@ -1092,6 +1092,191 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
+  it("Step 3-2 は複数参加者へ共有付箋を配信し、近接してもグループ化せず投票を拒否する", async () => {
+    const roomName = "room-phase3-share-and-operation-gates";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(1, 3), USER_A);
+
+    const authorWs = await connectDirectly(roomName, USER_A, USER_A);
+    const memberWs = await connectDirectly(roomName, USER_B, USER_A);
+
+    authorWs.send(
+      JSON.stringify({ type: "note:create", content: "作者のアイデア" }),
+    );
+    const authorNote = (await nextJson(authorWs)) as { note: { id: string } };
+    memberWs.send(
+      JSON.stringify({ type: "note:create", content: "参加者のアイデア" }),
+    );
+    const memberNote = (await nextJson(memberWs)) as { note: { id: string } };
+
+    await stub.setPhase(buildPhaseStep(2, 3), USER_A);
+
+    const publishForBoth = async (
+      ws: WebSocket,
+      noteId: string,
+      x: number,
+      y: number,
+    ): Promise<void> => {
+      const authorMessage = nextJson(authorWs);
+      const memberMessage = nextJson(memberWs);
+      ws.send(JSON.stringify({ type: "note:publish", noteId, x, y }));
+
+      const [authorPublished, memberPublished] = await Promise.all([
+        authorMessage,
+        memberMessage,
+      ]);
+      expect(authorPublished).toMatchObject({
+        type: "note:inserted",
+        note: { id: noteId, visibility: "shared" },
+      });
+      expect(memberPublished).toMatchObject({
+        type: "note:inserted",
+        note: { id: noteId, visibility: "shared" },
+      });
+    };
+
+    await publishForBoth(authorWs, authorNote.note.id, 40, 40);
+    await publishForBoth(memberWs, memberNote.note.id, 41, 41);
+
+    const groupCount = await runInRoomDO(roomName, (_instance, state) => {
+      return state.storage.sql
+        .exec("SELECT COUNT(*) AS count FROM groups")
+        .one().count as number;
+    });
+    expect(groupCount).toBe(0);
+
+    authorWs.send(
+      JSON.stringify({
+        type: "note:vote",
+        noteId: authorNote.note.id,
+        kind: "subjective",
+      }),
+    );
+    expect(await nextJson(authorWs)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec(
+              "SELECT COUNT(*) AS count FROM note_votes WHERE note_id = ?1",
+              authorNote.note.id,
+            )
+            .one().count as number,
+      ),
+    ).toBe(0);
+
+    authorWs.close();
+    memberWs.close();
+  });
+
+  it.each([
+    2, 3, 4, 5,
+  ])("フェーズ3 Step3-%i ではグループ操作を拒否し、グループを保存しない", async (step) => {
+    const roomName = `room-phase3-group-operation-gate-${step}`;
+    const noteIds = [
+      "77777777-7777-4777-8777-777777777777",
+      "66666666-6666-4666-8666-666666666666",
+    ];
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      for (const noteId of noteIds) {
+        state.storage.sql.exec(
+          `INSERT INTO notes
+               (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
+             VALUES (?1, ?2, '共有アイデア', 'shared', 'yellow', 40, 40, ?3, ?3, 3)`,
+          noteId,
+          USER_A,
+          now,
+        );
+      }
+    });
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    const now = new Date().toISOString();
+    ws.send(
+      JSON.stringify({
+        type: "group:create",
+        group: {
+          id: "88888888-8888-4888-8888-888888888888",
+          name: "フェーズ3のグループ",
+          noteIds,
+          createdAt: now,
+          updatedAt: now,
+        },
+      }),
+    );
+
+    expect(await nextJson(ws)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql.exec("SELECT COUNT(*) AS count FROM groups").one()
+            .count as number,
+      ),
+    ).toBe(0);
+    ws.close();
+  });
+
+  it("Step 3-3 で付箋を近づけても自動グルーピングしない", async () => {
+    const roomName = "room-phase3-map-no-auto-grouping";
+    const noteIds = [
+      "55555555-5555-4555-8555-555555555555",
+      "44444444-4444-4444-8444-444444444444",
+    ];
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(3, 3), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
+         VALUES (?1, ?2, '共有アイデア1', 'shared', 'yellow', 10, 10, ?3, ?3, 3),
+                (?4, ?2, '共有アイデア2', 'shared', 'blue', 80, 80, ?3, ?3, 3)`,
+        noteIds[0],
+        USER_A,
+        now,
+        noteIds[1],
+      );
+    });
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(
+      JSON.stringify({
+        type: "note:move",
+        noteId: noteIds[0],
+        x: 40,
+        y: 40,
+      }),
+    );
+    expect(await nextJson(ws)).toMatchObject({
+      type: "note:updated",
+      note: { id: noteIds[0], x: 40, y: 40 },
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql.exec("SELECT COUNT(*) AS count FROM groups").one()
+            .count as number,
+      ),
+    ).toBe(0);
+    ws.close();
+  });
+
   it.each([
     {
       step: 2,
