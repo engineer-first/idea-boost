@@ -7,6 +7,7 @@ import {
   buildMembers,
   buildNotes,
 } from "@/contracts/room-protocol.fixture";
+import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView } from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -16,6 +17,7 @@ const STEP_1_3 = buildPhaseStep(3);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_1 = buildPhaseStep(1, 2);
+const STEP_3_5 = buildPhaseStep(5, 3);
 const CANVAS_HUD_POSITIONS = [
   [180, 120],
   [380, 220],
@@ -38,10 +40,45 @@ const CANVAS_HUD_NOTES = buildNotes(6).map((note, index) => ({
   x: CANVAS_HUD_POSITIONS[index]?.[0] ?? note.x,
   y: CANVAS_HUD_POSITIONS[index]?.[1] ?? note.y,
 }));
+const INTERACTIONS: RoomBoardInteractions = {
+  boardRootRef: { current: null },
+  boardScrollerRef: { current: null },
+  ideaMapPlaneRef: { current: null },
+  privateToolbarRef: { current: null },
+  notes: buildNotes(3),
+  privateNotes: [],
+  dragGhost: null,
+  isReturnDropTarget: false,
+  camera: { x: 0, y: 0, zoom: 1 },
+  gridStyle: {
+    backgroundImage:
+      "radial-gradient(circle at 1px 1px, var(--foreground) 1px, transparent 1.5px)",
+    backgroundPosition: "0 0",
+    backgroundSize: "20px 20px",
+  },
+  isPanning: false,
+  onCanvasPointerDown: fn(),
+  onCanvasPointerMove: fn(),
+  onCanvasPointerEnd: fn(),
+  onZoomIn: fn(),
+  onZoomOut: fn(),
+  onResetZoom: fn(),
+  onFitToNotes: fn(),
+  onPointerMove: fn(),
+  onPointerEnd: fn(),
+  onNoteDragStart: fn(),
+  onPrivateNoteDragStart: fn(),
+};
 
 const meta = {
   title: "Room/RoomBoardView",
   component: RoomBoardView,
+  render: (args) => (
+    <RoomBoardView
+      {...args}
+      interactions={{ ...args.interactions, notes: args.notes }}
+    />
+  ),
   parameters: {
     layout: "fullscreen",
   },
@@ -61,7 +98,7 @@ const meta = {
     hostUserId: ME,
     isNextPhasePending: false,
     signOutAction: fn(),
-    privateNotes: [],
+    interactions: INTERACTIONS,
     hmwDecidedIssue: null,
     decidedHmw: null,
     onAddPrivateNote: fn(),
@@ -69,11 +106,6 @@ const meta = {
     onIdeaHintSelect: fn(),
     onPrivateNoteContentChange: fn(),
     onPrivateNoteDelete: fn(),
-    onPrivateNotePublish: fn(),
-    onPrivateNoteUnpublish: fn(),
-    onNoteDragStart: fn(),
-    onNoteDragMove: fn(),
-    onNoteDragEnd: fn(),
     onNoteContentChange: fn(),
     onNoteDelete: fn(),
     onGroupCreate: fn(),
@@ -265,10 +297,13 @@ export const Step1_1_PersonalWriting: Story = {
   args: {
     phase: STEP_1_1,
     notes: [],
-    privateNotes: buildNotes(2).map((note) => ({
-      ...note,
-      visibility: "private" as const,
-    })),
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(2).map((note) => ({
+        ...note,
+        visibility: "private" as const,
+      })),
+    },
   },
 };
 
@@ -276,10 +311,13 @@ export const Step1_2_Sharing: Story = {
   args: {
     phase: STEP_1_2,
     notes: buildNotes(3),
-    privateNotes: buildNotes(2).map((note) => ({
-      ...note,
-      visibility: "private" as const,
-    })),
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(2).map((note) => ({
+        ...note,
+        visibility: "private" as const,
+      })),
+    },
   },
 };
 
@@ -288,7 +326,6 @@ export const Step1_3_Grouping: Story = {
     phase: STEP_1_3,
     notes: buildNotes(5),
     groups: [],
-    privateNotes: [],
   },
 };
 
@@ -331,10 +368,13 @@ export const HmwWritingStep: Story = {
     phase: STEP_2_1,
     notes: [],
     hmwDecidedIssue: buildCarryover().content,
-    privateNotes: buildNotes(2).map((note) => ({
-      ...note,
-      visibility: "private" as const,
-    })),
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(2).map((note) => ({
+        ...note,
+        visibility: "private" as const,
+      })),
+    },
   },
 };
 

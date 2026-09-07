@@ -13,6 +13,7 @@ import type { ClientMessage } from "../../contracts/room-protocol";
 import { getDecision } from "./decisions";
 import type { MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
+import { resetTimerState } from "./timer";
 import { haveAllMembersCompletedVoting } from "./votes";
 
 export function getPhase(sql: SqlStorage): RoomPhase {
@@ -250,7 +251,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     });
   },
 
-  // Step 1-1 → Step 1-5。ホストのみ。lobby では不可。
+  // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
   "phase:next": (ctx, message) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
       ctx.reply({
@@ -269,12 +270,14 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       });
       return;
     }
-    // force はフェーズ1だけで使える脱出ハッチ。フェーズ2以降は全員投票を
-    // 必須にし、結果ステップへ未完了のまま進めない。
+    // force はフェーズ1・2の投票ステップで使える脱出ハッチ。離脱者などが
+    // 投票を完了できなくても、ホストは結果ステップへ進められる。
+    const canForceIncompleteVoting =
+      (current.phase === 1 || current.phase === 2) && message.force === true;
     if (
       isVotingStep(current) &&
       !haveAllMembersCompletedVoting(ctx.sql, current.phase) &&
-      (current.phase !== 1 || !message.force)
+      !canForceIncompleteVoting
     ) {
       ctx.reply({
         type: "error",
@@ -310,27 +313,33 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     // 破棄する。掃除のタイミングはこの1箇所に一本化し、フェーズ境界では
     // 掃除しない（同じ判断が2箇所にあると、どちらが真実か分からなくなる）。
     const leavesSharingStep = isSharingStep(current) && !isSharingStep(next);
-    if (leavesSharingStep) {
-      // 付箋の掃除と遷移を同じストレージトランザクションで確定する。途中失敗時に
-      // 「個人付箋だけ消えてステップは進んでいない」という状態を残さない。
-      ctx.storage.transactionSync(() => {
+    const refreshesSnapshot =
+      (!isResultStep(current) && isResultStep(next)) ||
+      crossesPhaseBoundary ||
+      leavesSharingStep;
+    let timerWasReset = false;
+    // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
+    // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
+    ctx.storage.transactionSync(() => {
+      if (leavesSharingStep) {
         discardPrivateNotes(ctx.sql);
-        savePhase(ctx.sql, next);
-      });
-    } else {
+      }
       savePhase(ctx.sql, next);
-    }
+      timerWasReset = resetTimerState(ctx.sql);
+    });
     // 投票ステップでは note:updated の count を秘匿しているため、結果ステップ
     // へ遷移した接続中の参加者にも完全な投票集計を届け直す。フェーズ境界を
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから
     // phase:updated を配る。マイ付箋を破棄したときも、破棄をクライアントへ
     // 伝える経路は snapshot の再送しかない（note:deleted は配信しない）。
-    if (
-      (!isResultStep(current) && isResultStep(next)) ||
-      crossesPhaseBoundary ||
-      leavesSharingStep
-    ) {
+    if (refreshesSnapshot) {
       ctx.refreshSnapshots();
+    } else if (timerWasReset) {
+      ctx.broadcaster.broadcastToAll({
+        type: "timer:updated",
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      });
     }
     ctx.broadcaster.broadcastToAll({ type: "phase:updated", phase: next });
   },

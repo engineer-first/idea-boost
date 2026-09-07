@@ -39,7 +39,7 @@ describe("NextPhaseConfirmDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
     expect(screen.getByText("次のステップへ進みますか？")).toBeInTheDocument();
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("1-2 共有する");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("1-2 課題共有");
   });
 
   it("「移行する」で onConfirm を呼ぶ（確認前には呼ばない）", () => {

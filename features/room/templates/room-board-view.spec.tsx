@@ -9,17 +9,46 @@ import {
   buildNotes,
 } from "@/contracts/room-protocol.fixture";
 import { HMW_TEMPLATES } from "@/features/hmw";
-import { RoomBoardView } from "./room-board-view";
-
-const notifyMocks = vi.hoisted(() => ({
-  cannotPublishNote: vi.fn(),
-}));
-
-vi.mock("../logic/room-notify", () => ({
-  roomNotify: notifyMocks,
-}));
+import type { Note } from "@/features/notes";
+import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
+import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
+
+function buildInteractions(
+  notes: Note[],
+  privateNotes: Note[],
+): RoomBoardInteractions {
+  return {
+    boardRootRef: { current: null },
+    boardScrollerRef: { current: null },
+    ideaMapPlaneRef: { current: null },
+    privateToolbarRef: { current: null },
+    notes,
+    privateNotes,
+    dragGhost: null,
+    isReturnDropTarget: false,
+    camera: { x: 0, y: 0, zoom: 1 },
+    gridStyle: {
+      backgroundImage:
+        "radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--foreground) 30%, transparent) 1px, transparent 1.5px)",
+      backgroundPosition: "0 0",
+      backgroundSize: "20px 20px",
+    },
+    isPanning: false,
+    onCanvasPointerDown: vi.fn(),
+    onCanvasPointerMove: vi.fn(),
+    onCanvasPointerEnd: vi.fn(),
+    onZoomIn: vi.fn(),
+    onZoomOut: vi.fn(),
+    onResetZoom: vi.fn(),
+    onFitToNotes: vi.fn(),
+    onPointerMove: vi.fn(),
+    onPointerEnd: vi.fn(),
+    onNoteDragStart: vi.fn(),
+    onPrivateNoteDragStart: vi.fn(),
+  };
+}
 
 function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
   const props = {
@@ -32,7 +61,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     timerServerOffsetMs: 0,
     isHost: false,
     isNextPhasePending: false,
-    privateNotes: [],
     hmwDecidedIssue: null,
     decidedHmw: null,
     onHmwTemplateSelect: vi.fn(),
@@ -50,11 +78,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     onAddPrivateNote: vi.fn(),
     onPrivateNoteContentChange: vi.fn(),
     onPrivateNoteDelete: vi.fn(),
-    onPrivateNotePublish: vi.fn(),
-    onPrivateNoteUnpublish: vi.fn(),
-    onNoteDragStart: vi.fn(),
-    onNoteDragMove: vi.fn(),
-    onNoteDragEnd: vi.fn(),
     onNoteContentChange: vi.fn(),
     onNoteDelete: vi.fn(),
     onGroupCreate: vi.fn(),
@@ -67,11 +90,15 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     connectionStatus: "open" as const,
     groups: [],
     ...overrides,
+  } as RoomBoardViewProps;
+  const resolvedProps: RoomBoardViewProps = {
+    ...props,
+    interactions: props.interactions ?? buildInteractions(props.notes, []),
   };
 
-  render(<RoomBoardView {...props} />);
+  const renderResult = render(<RoomBoardView {...resolvedProps} />);
 
-  return props;
+  return { ...renderResult, props: resolvedProps };
 }
 
 function openRoomMenu() {
@@ -105,6 +132,73 @@ function clickNote(card: HTMLElement) {
 }
 
 describe("RoomBoardView", () => {
+  describe("ファシリテーションガイド", () => {
+    it("既定で展開し、同じステップ中は利用者が折り畳める", () => {
+      setup();
+
+      const root = screen.getByTestId("room-board-view-root");
+      expect(root).toHaveAttribute("data-guide-expanded", "true");
+
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "ファシリテーションガイドを折り畳む",
+        }),
+      );
+
+      expect(root).toHaveAttribute("data-guide-expanded", "false");
+      expect(screen.getByTestId("facilitation-guide-shell")).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
+    });
+
+    it("ステップが変わると再展開する", () => {
+      const { props, rerender } = setup();
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "ファシリテーションガイドを折り畳む",
+        }),
+      );
+
+      rerender(<RoomBoardView {...props} phase={buildPhaseStep(2)} />);
+
+      expect(screen.getByTestId("room-board-view-root")).toHaveAttribute(
+        "data-guide-expanded",
+        "true",
+      );
+      expect(screen.getByText("6分")).toBeInTheDocument();
+    });
+  });
+
+  it("Step 3-5 は決定前後とも次へを表示せず、決定後だけ完了を表示する", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5, 3),
+      decision: null,
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "次のステップへ" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+
+    rerender(
+      <RoomBoardView
+        {...props}
+        phase={buildPhaseStep(5, 3)}
+        decision={buildDecision({ phase: 3, noteId: "note-1" })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.getByText("スプリント完了")).toHaveAttribute(
+      "role",
+      "status",
+    );
+    expect(
+      screen.queryByRole("button", { name: "次のステップへ" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("非ホストにはタイマー状態だけを表示し操作を出さない", () => {
     setup({
       isHost: false,

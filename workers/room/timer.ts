@@ -161,6 +161,14 @@ function saveTimerState(sql: SqlStorage, timer: TimerState): void {
   );
 }
 
+// phase:next と同じトランザクション内で使う内部操作。すでに idle なら
+// 書き込みも追加配信も不要なので false を返す。
+export function resetTimerState(sql: SqlStorage): boolean {
+  if (getTimerState(sql).status === "idle") return false;
+  saveTimerState(sql, { status: "idle" });
+  return true;
+}
+
 function canControlTimer(sql: SqlStorage, userId: string): boolean {
   return isHostUser(sql, userId);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-// Step 1-4 の全員投票ゲートで phase:next が拒否された（voting-incomplete）
+// フェーズ1・2の投票ステップの全員投票ゲートで phase:next が拒否された（voting-incomplete）
 // とき、ホストへ「未投票メンバーを待たずに強制的に進むか」を確認する Dialog。
 // 離脱したまま戻らないメンバーが居ても進行を止めないための脱出ハッチ。
 import {

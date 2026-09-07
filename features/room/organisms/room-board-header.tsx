@@ -1,8 +1,7 @@
 "use client";
 
-// ボード画面の進行レールとフローティング HUD。
-// 常設するのは現在地だけに絞り、参加者・招待・退出はポップオーバーへ退避する。
-import { LogOut, MoreHorizontal } from "lucide-react";
+// ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
+import { Check, ChevronUp, LogOut, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +11,7 @@ import {
 } from "@/components/ui/popover";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
+  isPhaseStep,
   isResultStep,
   isVotingStep,
   PHASE_STEP_COUNTS,
@@ -26,8 +26,10 @@ import {
   CONNECTION_STATUS_LABELS,
   type RoomScreenConnectionStatus,
 } from "../logic/connection-status";
+import { getFacilitationGuide } from "../logic/facilitation-guide";
 import { getPhaseLabel } from "../logic/phase-labels";
 import type { Member } from "../logic/room-reducer";
+import { FacilitationGuide } from "../molecules/facilitation-guide";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { RoomTimer } from "./room-timer";
 
@@ -56,10 +58,13 @@ export type RoomBoardHeaderProps = {
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
+  isGuideExpanded: boolean;
+  isSprintComplete: boolean;
   voteRemaining: DotVoteRemaining;
   isLeaving: boolean;
   signOutAction?: () => Promise<void>;
   onShowVoteResult: () => void;
+  onGuideExpandedChange: (isExpanded: boolean) => void;
   onLeaveClick: () => void;
   onNextPhase: () => void;
   onTimerStart: (durationMs: number) => void;
@@ -109,10 +114,13 @@ export function RoomBoardHeader({
   hostUserId,
   isNextPhasePending,
   isNextPhaseBlocked,
+  isGuideExpanded,
+  isSprintComplete,
   voteRemaining,
   isLeaving,
   signOutAction,
   onShowVoteResult,
+  onGuideExpandedChange,
   onLeaveClick,
   onNextPhase,
   onTimerStart,
@@ -123,6 +131,8 @@ export function RoomBoardHeader({
 }: RoomBoardHeaderProps) {
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const context = getPhaseContext(phase);
+  const guide = getFacilitationGuide(phase);
+  const isFinalStep = isPhaseStep(phase, 3, 5);
   const currentMember = members.find(
     (member) => member.userId === currentUserId,
   );
@@ -138,43 +148,78 @@ export function RoomBoardHeader({
   return (
     <TooltipProvider delayDuration={300}>
       <header
-        className="pointer-events-auto absolute top-3 left-3 z-40 flex h-12 max-w-[calc(100%-34rem)] items-center gap-3 overflow-hidden rounded-xl border border-border bg-background/85 px-3 shadow-lg shadow-black/5 backdrop-blur-xl"
+        className={`facilitation-guide-material pointer-events-auto absolute top-3 left-3 z-40 overflow-hidden rounded-xl border border-border bg-background/85 shadow-lg shadow-black/5 backdrop-blur-xl ${
+          guide === null
+            ? "max-w-[calc(100%-34rem)]"
+            : "w-[min(40rem,calc(100%-34rem))]"
+        }`}
         data-testid="board-context-hud"
       >
-        <p className="shrink-0 text-sm font-semibold tracking-tight">
-          IdeaFlow
-        </p>
-        <span aria-hidden="true" className="h-4 w-px bg-border" />
-        {context.phaseLabel !== null ? (
-          <p className="shrink-0 text-xs font-semibold text-muted-foreground">
-            {context.phaseLabel}
+        <div className="flex h-12 items-center gap-3 px-3">
+          <p className="shrink-0 text-sm font-semibold tracking-tight">
+            IdeaFlow
           </p>
-        ) : null}
-        <p className="shrink-0 text-xs font-semibold">{context.title}</p>
-        <p className="flex min-w-0 shrink items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
-          <span className="shrink-0 font-medium text-foreground">
-            Step {context.step}/{context.stepCount}
-          </span>
-          <span className="min-w-0 truncate">{context.stepLabel}</span>
-        </p>
-        <div
-          role="progressbar"
-          aria-label={`${context.title}の進行状況`}
-          aria-valuemin={0}
-          aria-valuemax={context.stepCount}
-          aria-valuenow={context.step}
-          className="flex h-1 w-56 min-w-28 shrink gap-1"
-          data-testid="board-progress-rail"
-        >
-          {PROGRESS_STEPS.slice(0, context.stepCount).map((stepNumber) => (
-            <span
-              key={stepNumber}
-              className={`h-full flex-1 rounded-full ${
-                stepNumber <= context.step ? "bg-foreground" : "bg-muted"
+          <span aria-hidden="true" className="h-4 w-px bg-border" />
+          {context.phaseLabel !== null ? (
+            <p className="shrink-0 text-xs font-semibold text-muted-foreground">
+              {context.phaseLabel}
+            </p>
+          ) : null}
+          <p className="shrink-0 text-xs font-semibold">{context.title}</p>
+          <p className="flex min-w-0 flex-1 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
+            <span className="shrink-0 font-medium text-foreground">
+              Step {context.step}/{context.stepCount}
+            </span>
+            <span className="min-w-0 truncate">{context.stepLabel}</span>
+          </p>
+          <div
+            role="progressbar"
+            aria-label={`${context.title}の進行状況`}
+            aria-valuemin={0}
+            aria-valuemax={context.stepCount}
+            aria-valuenow={context.step}
+            className="flex h-1 w-24 min-w-16 shrink gap-1 sm:w-32"
+            data-testid="board-progress-rail"
+          >
+            {PROGRESS_STEPS.slice(0, context.stepCount).map((stepNumber) => (
+              <span
+                key={stepNumber}
+                className={`h-full flex-1 rounded-full ${
+                  stepNumber <= context.step ? "bg-foreground" : "bg-muted"
+                }`}
+              />
+            ))}
+          </div>
+          {guide !== null ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0 rounded-full"
+              aria-label={`ファシリテーションガイドを${
+                isGuideExpanded ? "折り畳む" : "展開する"
               }`}
-            />
-          ))}
+              aria-expanded={isGuideExpanded}
+              aria-controls="facilitation-guide-content"
+              onClick={() => onGuideExpandedChange(!isGuideExpanded)}
+            >
+              <ChevronUp
+                aria-hidden="true"
+                className={`transition-transform duration-200 ease-out motion-reduce:duration-100 ${
+                  isGuideExpanded ? "rotate-0" : "rotate-180"
+                }`}
+              />
+            </Button>
+          ) : null}
         </div>
+        {guide !== null ? (
+          <FacilitationGuide
+            id="facilitation-guide-content"
+            guide={guide}
+            isHost={isHost}
+            isExpanded={isGuideExpanded}
+          />
+        ) : null}
       </header>
 
       <div
@@ -183,10 +228,14 @@ export function RoomBoardHeader({
       >
         <div className="pointer-events-auto shrink-0">
           <RoomTimer
+            key={
+              phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
+            }
             timer={timer}
             serverOffsetMs={timerServerOffsetMs}
             isHost={isHost}
             disabled={isDisconnected}
+            initialDurationMs={(guide?.durationMinutes ?? 3) * 60_000}
             onStart={onTimerStart}
             onPause={onTimerPause}
             onResume={onTimerResume}
@@ -279,7 +328,15 @@ export function RoomBoardHeader({
               >
                 投票結果を表示
               </Button>
-              {isHost ? (
+              {isFinalStep && isSprintComplete ? (
+                <span
+                  role="status"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-foreground px-3 text-xs font-semibold text-background"
+                >
+                  <Check aria-hidden="true" className="size-4" />
+                  スプリント完了
+                </span>
+              ) : !isFinalStep && isHost ? (
                 <NextPhaseConfirmDialog
                   phase={phase}
                   disabled={

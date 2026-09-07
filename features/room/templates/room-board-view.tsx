@@ -6,14 +6,10 @@
 // 「どの付箋を選択中か」「どのダイアログが開いているか」は同期不要な
 // 純粋にUIの関心事なので、ここでローカルに持つ。
 // 描画の実体はヘッダー（room-board-header）とボード面（room-board-canvas）が
-// 持ち、この view は UI 状態とドラッグ機械（use-board-drag）の配線に徹する。
-import { useEffect, useRef, useState } from "react";
+// 持ち、この view は UI 状態と表示用 props・コールバックの配線に徹する。
+import { useEffect, useState } from "react";
 import type { PersistentGroup } from "@/contracts/grouping";
-import {
-  isPublishAllowedStep,
-  isResultStep,
-  type RoomPhase,
-} from "@/contracts/phase";
+import { isPhaseStep, isResultStep, type RoomPhase } from "@/contracts/phase";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
@@ -22,12 +18,8 @@ import {
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
-import { clampIdeaValueFeasibilityMapCoordinate } from "../logic/idea-value-feasibility-map";
-import { roomNotify } from "../logic/room-notify";
 import type { Decision, Member } from "../logic/room-reducer";
-import { useBoardDrag } from "../logic/use-board-drag";
-import { useCanvasCamera } from "../logic/use-canvas-camera";
-import { useIdeaValueFeasibilityMapInput } from "../logic/use-idea-value-feasibility-map-input";
+import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
@@ -52,8 +44,8 @@ export type RoomBoardViewProps = {
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
   isNextPhasePending: boolean;
+  interactions: RoomBoardInteractions;
   signOutAction?: () => Promise<void>;
-  privateNotes: Note[];
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
   hmwDecidedIssue: string | null;
@@ -64,11 +56,6 @@ export type RoomBoardViewProps = {
   onIdeaHintSelect: (content: string) => void;
   onPrivateNoteContentChange: (noteId: string, content: string) => void;
   onPrivateNoteDelete: (noteId: string) => void;
-  onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
-  onPrivateNoteUnpublish: (noteId: string) => void;
-  onNoteDragStart: (noteId: string) => void;
-  onNoteDragMove: (noteId: string, x: number, y: number) => void;
-  onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
@@ -105,8 +92,8 @@ export function RoomBoardView({
   currentUserId,
   hostUserId,
   isNextPhasePending,
+  interactions,
   signOutAction,
-  privateNotes,
   hmwDecidedIssue,
   decidedHmw,
   onAddPrivateNote,
@@ -114,11 +101,6 @@ export function RoomBoardView({
   onIdeaHintSelect,
   onPrivateNoteContentChange,
   onPrivateNoteDelete,
-  onPrivateNotePublish,
-  onPrivateNoteUnpublish,
-  onNoteDragStart,
-  onNoteDragMove,
-  onNoteDragEnd,
   onNoteContentChange,
   onNoteDelete,
   onGroupCreate,
@@ -135,14 +117,19 @@ export function RoomBoardView({
   onTimerExtend,
   onTimerStop,
 }: RoomBoardViewProps) {
+  const phaseKey =
+    phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
-  const boardRootRef = useRef<HTMLDivElement>(null);
-  const boardScrollerRef = useRef<HTMLDivElement>(null);
-  const privateToolbarRef = useRef<HTMLDivElement>(null);
+  const [guideDisplay, setGuideDisplay] = useState({
+    phaseKey,
+    isExpanded: true,
+  });
 
   const [isMounted, setIsMounted] = useState(false);
+  const isGuideExpanded =
+    guideDisplay.phaseKey === phaseKey ? guideDisplay.isExpanded : true;
 
   useEffect(() => {
     setIsMounted(true);
@@ -235,25 +222,39 @@ export function RoomBoardView({
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
   const isNextPhaseBlocked = isResultStep(phase) && decision === null;
+  const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
 
-  // ツールバー発のドラッグでボード側にまだ実体がない間だけ、ゴーストを描く。
-  const dragGhost =
-    drag?.status === "shared" && !notes.some((note) => note.id === drag.note.id)
-      ? { note: drag.note, x: drag.x, y: drag.y }
-      : null;
-
-  // ボードへ出て行った付箋・共有ドラッグ中の付箋はドックに出さない。
-  const toolbarNotes = renderedPrivateNotes.filter(
-    (note) =>
-      !(note.id === drag?.note.id && drag.status === "shared") &&
-      note.id !== draggingNoteId,
-  );
+  const {
+    boardRootRef,
+    boardScrollerRef,
+    ideaMapPlaneRef,
+    privateToolbarRef,
+    notes: renderedNotes,
+    privateNotes: toolbarNotes,
+    dragGhost,
+    isReturnDropTarget,
+    camera,
+    gridStyle,
+    isPanning,
+    onCanvasPointerDown: handleCanvasPointerDown,
+    onCanvasPointerMove: handleCanvasPointerMove,
+    onCanvasPointerEnd: handleCanvasPointerEnd,
+    onZoomIn: zoomIn,
+    onZoomOut: zoomOut,
+    onResetZoom: resetZoom,
+    onFitToNotes: fitToNotes,
+    onPointerMove: handlePointerMove,
+    onPointerEnd: handlePointerEnd,
+    onNoteDragStart: handleSharedNoteDragStart,
+    onPrivateNoteDragStart: handlePrivateDragStart,
+  } = interactions;
 
   return (
     <div
       ref={boardRootRef}
       data-testid="room-board-view-root"
-      className="relative flex h-full flex-col"
+      data-guide-expanded={String(isGuideExpanded)}
+      className="group/board relative flex h-full flex-col"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
@@ -272,10 +273,15 @@ export function RoomBoardView({
         hostUserId={hostUserId}
         isNextPhasePending={isNextPhasePending}
         isNextPhaseBlocked={isNextPhaseBlocked}
+        isGuideExpanded={isGuideExpanded}
+        isSprintComplete={isSprintComplete}
         signOutAction={signOutAction}
         voteRemaining={voteRemaining}
         isLeaving={isLeaving}
         onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
+        onGuideExpandedChange={(isExpanded) =>
+          setGuideDisplay({ phaseKey, isExpanded })
+        }
         onLeaveClick={() => setLeaveDialogOpen(true)}
         onNextPhase={onNextPhase}
         onTimerStart={onTimerStart}
@@ -298,9 +304,7 @@ export function RoomBoardView({
         isDisconnected={isDisconnected}
         voteRemaining={voteRemaining}
         dragGhost={dragGhost}
-        isReturnDropTarget={
-          drag?.status === "shared" && drag.note.authorId === currentUserId
-        }
+        isReturnDropTarget={isReturnDropTarget}
         hmwDecidedIssue={hmwDecidedIssue}
         decidedHmw={decidedHmw}
         boardScrollerRef={boardScrollerRef}

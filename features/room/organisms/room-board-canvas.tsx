@@ -367,6 +367,7 @@ export function RoomBoardCanvas({
         {hmwDecidedIssue !== null || decidedHmw !== null ? (
           <div
             className={cn(
+              // 決定済みの内容は参照点として固定し、ガイド開閉では動かさない。
               "pointer-events-none absolute inset-x-3 top-3 z-30 flex flex-col items-center gap-2",
               // テンプレートパネル（left-3 + w-64）と重なる帯を、
               // パネル表示中はバナー側の左余白として予約する。
@@ -394,7 +395,7 @@ export function RoomBoardCanvas({
         {isHmwWritingStep(phase) ? (
           // 下端はマイ付箋ドック（h-48 + 余白）を避ける。ボードが縦に狭い
           // 画面ではパネル内スクロールに逃がす（#198 の全画面化で緩和される）。
-          <div className="pointer-events-none absolute top-16 bottom-56 left-3 z-30 flex items-start">
+          <div className="pointer-events-none absolute top-16 bottom-56 left-3 z-30 flex items-start transition-[top] duration-200 ease-out motion-reduce:duration-100 group-data-[guide-expanded=true]/board:top-56">
             <HmwTemplatePanel
               className="pointer-events-auto max-h-full overflow-y-auto"
               onTemplateSelect={onHmwTemplateSelect}
@@ -403,7 +404,7 @@ export function RoomBoardCanvas({
           </div>
         ) : null}
         {isPhaseStep(phase, 3, 1) ? (
-          <div className="pointer-events-none absolute top-16 bottom-56 left-3 z-30 flex items-start">
+          <div className="pointer-events-none absolute top-16 bottom-56 left-3 z-30 flex items-start transition-[top] duration-200 ease-out motion-reduce:duration-100 group-data-[guide-expanded=true]/board:top-56">
             <IdeaGuidePanel
               className="pointer-events-auto max-h-full overflow-y-auto"
               onHintSelect={onIdeaHintSelect}

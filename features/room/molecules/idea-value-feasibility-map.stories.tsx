@@ -9,7 +9,7 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="relative h-[760px] overflow-hidden bg-muted/20">
+      <div className="relative h-[760px] overflow-hidden bg-muted/20 [container-type:size]">
         <Story />
       </div>
     ),

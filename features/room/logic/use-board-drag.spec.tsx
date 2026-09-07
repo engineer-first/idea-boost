@@ -344,6 +344,42 @@ describe("useBoardDrag", () => {
     expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
   });
 
+  it("共有付箋の移動が許可されていないステップではドラッグを開始しない", () => {
+    const { args, result } = setup({ canMoveSharedNotes: false });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+    });
+
+    expect(result.current.drag).toBeNull();
+    expect(args.onNoteDragStart).not.toHaveBeenCalled();
+  });
+
+  it("ドラッグ中に共有付箋の移動が禁止された場合は移動・確定を送信しない", () => {
+    const { args, result, rerender } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+    });
+    args.canMoveSharedNotes = false;
+    rerender();
+
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(1, 250, 180));
+      result.current.handlePointerEnd(pointerEvent(1, 250, 180));
+    });
+
+    expect(args.onNoteDragMove).not.toHaveBeenCalled();
+    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+    expect(result.current.drag).toBeNull();
+  });
+
   it("shared 状態でポインターを離すと最終座標で onNoteDragEnd を呼び、状態を解放する", () => {
     const { args, result } = setup();
 

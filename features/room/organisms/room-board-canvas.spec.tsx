@@ -126,6 +126,27 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("note-group-card")).toBeInTheDocument();
   });
 
+  it.each([
+    2, 3, 4, 5,
+  ])("フェーズ3 Step3-%i では近接付箋や既存グループを描画しない", (step) => {
+    setup({
+      phase: buildPhaseStep(step, 3),
+      notes: [
+        buildNote({ id: "note-1", x: 100, y: 100 }),
+        buildNote({ id: "note-2", x: 350, y: 100 }),
+      ],
+      groups: [
+        {
+          id: "group-1",
+          name: "フェーズ1の残存グループ",
+          noteIds: ["note-1", "note-2"],
+        },
+      ],
+    });
+
+    expect(screen.queryByTestId("note-group-card")).not.toBeInTheDocument();
+  });
+
   it("ドラッグ中のゴースト付箋を描画する", () => {
     const ghost = buildNote({ id: "ghost-note", content: "運んでいる付箋" });
     setup({ dragGhost: { note: ghost, x: 120, y: 80 } });
@@ -190,6 +211,24 @@ describe("RoomBoardCanvas", () => {
         name: "価値と実現可能性の2軸マップ",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("2軸マップを無限キャンバスの世界レイヤー内に描画する", () => {
+    const phase = buildPhaseStep(2, 3);
+
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      camera: { x: 30, y: -20, zoom: 2 },
+    });
+
+    const boardCanvas = screen.getByTestId("board-canvas");
+    const map = screen.getByTestId("idea-value-feasibility-map");
+
+    expect(boardCanvas).toContainElement(map);
+    expect(boardCanvas).toHaveStyle({
+      transform: "translate3d(30px, -20px, 0) scale(2)",
+    });
   });
 
   it.each([
@@ -354,6 +393,19 @@ describe("RoomBoardCanvas", () => {
       expect(
         screen.getByTestId("hmw-decided-issue-banner"),
       ).toBeInTheDocument();
+    });
+
+    it("決定課題・HMWバナーの位置はガイドの開閉状態に連動させない", () => {
+      setup({
+        phase: buildPhaseStep(5, 3),
+        hmwDecidedIssue: "宿題を後回しにしてしまう",
+        decidedHmw: "もっと安心して取り組める？",
+      });
+
+      const positioner = screen.getAllByTestId("hmw-decided-issue-banner")[0]
+        ?.parentElement;
+      expect(positioner).toHaveClass("top-3");
+      expect(positioner?.className).not.toContain("guide-expanded");
     });
 
     it("hmwDecidedIssue が null のときは決定課題バナーを表示しない", () => {
