@@ -189,6 +189,9 @@ describe("RoomBoardCanvas", () => {
       "top-20",
     );
     expect(screen.getByText("オズボーンのチェックリスト")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "発想支援を閉じる" }),
+    ).not.toBeInTheDocument();
   });
 
   it("Step3-2では右側の発想支援サイドバーを参加者が開閉できる", () => {
@@ -202,6 +205,14 @@ describe("RoomBoardCanvas", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "発想支援を開く" }));
     expect(screen.getByText("オズボーンのチェックリスト")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "発想支援を閉じる" }));
+    expect(
+      screen.queryByText("オズボーンのチェックリスト"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "発想支援を開く" }),
+    ).toBeInTheDocument();
   });
 
   it.each([3, 4, 5])("Step3-%iでは発想支援サイドバーを表示しない", (step) => {
