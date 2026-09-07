@@ -27,3 +27,45 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const Osborn: Story = {
+  args: {
+    defaultContentId: "osborn",
+  },
+};
+
+export const Scamper: Story = {
+  args: {
+    defaultContentId: "scamper",
+  },
+};
+
+export const Reverse: Story = {
+  args: {
+    defaultContentId: "reverse",
+  },
+};
+
+export const Industry: Story = {
+  args: {
+    defaultContentId: "industry",
+  },
+};
+
+export const Loading: Story = {
+  args: {
+    status: "loading",
+  },
+};
+
+export const Empty: Story = {
+  args: {
+    status: "empty",
+  },
+};
+
+export const Failure: Story = {
+  args: {
+    status: "error",
+  },
+};

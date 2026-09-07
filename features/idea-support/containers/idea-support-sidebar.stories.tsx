@@ -26,4 +26,14 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const Default: Story = {};
+export const Optional: Story = {
+  args: {
+    mode: "optional",
+  },
+};
+
+export const Required: Story = {
+  args: {
+    mode: "required",
+  },
+};

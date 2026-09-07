@@ -179,6 +179,41 @@ describe("RoomBoardCanvas", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("Step3-1では右側の発想支援サイドバーを必須表示する", () => {
+    const phase = buildPhaseStep(1, 3);
+
+    setup({ phase, permissions: getBoardPermissions(phase) });
+
+    expect(screen.getByTestId("idea-support-sidebar-container")).toHaveClass(
+      "right-3",
+      "top-20",
+    );
+    expect(screen.getByText("オズボーンのチェックリスト")).toBeInTheDocument();
+  });
+
+  it("Step3-2では右側の発想支援サイドバーを参加者が開閉できる", () => {
+    const phase = buildPhaseStep(2, 3);
+
+    setup({ phase, permissions: getBoardPermissions(phase) });
+
+    expect(screen.getByTestId("idea-support-sidebar-container")).toHaveClass(
+      "right-3",
+      "top-20",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "発想支援を開く" }));
+    expect(screen.getByText("オズボーンのチェックリスト")).toBeInTheDocument();
+  });
+
+  it.each([3, 4, 5])("Step3-%iでは発想支援サイドバーを表示しない", (step) => {
+    const phase = buildPhaseStep(step, 3);
+
+    setup({ phase, permissions: getBoardPermissions(phase) });
+
+    expect(
+      screen.queryByTestId("idea-support-sidebar-container"),
+    ).not.toBeInTheDocument();
+  });
+
   it("Step3-1では価値×実現可能性の2軸マップを表示しない", () => {
     const phase = buildPhaseStep(1, 3);
 

@@ -15,7 +15,6 @@ import {
 } from "@/contracts/grouping";
 import {
   isAtOrAfterGroupingStep,
-  isIdeaSupportAvailableStep,
   isPhaseStep,
   isResultStep,
   type RoomPhase,
@@ -163,6 +162,11 @@ export function RoomBoardCanvas({
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+  const ideaSupportMode = isPhaseStep(phase, 3, 1)
+    ? "required"
+    : isPhaseStep(phase, 3, 2)
+      ? "optional"
+      : null;
 
   function handleBoardPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     // 付箋の上のpointerdownはバブリングしてくるので、ボード背景を
@@ -434,9 +438,12 @@ export function RoomBoardCanvas({
             />
           </div>
         ) : null}
-        {isIdeaSupportAvailableStep(phase) ? (
-          <div className="pointer-events-none absolute inset-y-3 right-3 z-30">
-            <IdeaSupportSidebar />
+        {ideaSupportMode !== null ? (
+          <div
+            className="pointer-events-none absolute top-20 right-3 bottom-56 z-30 flex items-start"
+            data-testid="idea-support-sidebar-container"
+          >
+            <IdeaSupportSidebar mode={ideaSupportMode} />
           </div>
         ) : null}
       </div>
