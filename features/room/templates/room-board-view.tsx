@@ -9,7 +9,7 @@
 // 持ち、この view は UI 状態と表示用 props・コールバックの配線に徹する。
 import { useEffect, useState } from "react";
 import type { PersistentGroup } from "@/contracts/grouping";
-import { isResultStep, type RoomPhase } from "@/contracts/phase";
+import { isPhaseStep, isResultStep, type RoomPhase } from "@/contracts/phase";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
@@ -117,11 +117,19 @@ export function RoomBoardView({
   onTimerExtend,
   onTimerStop,
 }: RoomBoardViewProps) {
+  const phaseKey =
+    phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
+  const [guideDisplay, setGuideDisplay] = useState({
+    phaseKey,
+    isExpanded: true,
+  });
 
   const [isMounted, setIsMounted] = useState(false);
+  const isGuideExpanded =
+    guideDisplay.phaseKey === phaseKey ? guideDisplay.isExpanded : true;
 
   useEffect(() => {
     setIsMounted(true);
@@ -158,6 +166,7 @@ export function RoomBoardView({
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
   const isNextPhaseBlocked = isResultStep(phase) && decision === null;
+  const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
 
   const {
     boardRootRef,
@@ -188,7 +197,8 @@ export function RoomBoardView({
     <div
       ref={boardRootRef}
       data-testid="room-board-view-root"
-      className="relative flex h-full flex-col"
+      data-guide-expanded={String(isGuideExpanded)}
+      className="group/board relative flex h-full flex-col"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
@@ -207,10 +217,15 @@ export function RoomBoardView({
         hostUserId={hostUserId}
         isNextPhasePending={isNextPhasePending}
         isNextPhaseBlocked={isNextPhaseBlocked}
+        isGuideExpanded={isGuideExpanded}
+        isSprintComplete={isSprintComplete}
         signOutAction={signOutAction}
         voteRemaining={voteRemaining}
         isLeaving={isLeaving}
         onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
+        onGuideExpandedChange={(isExpanded) =>
+          setGuideDisplay({ phaseKey, isExpanded })
+        }
         onLeaveClick={() => setLeaveDialogOpen(true)}
         onNextPhase={onNextPhase}
         onTimerStart={onTimerStart}

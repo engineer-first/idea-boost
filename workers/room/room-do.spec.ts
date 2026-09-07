@@ -662,13 +662,63 @@ describe("RoomDO note:decide", () => {
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
       code: "forbidden",
-      message: expect.stringContaining("1-4 ステルス投票"),
+      message: expect.stringContaining("1-4 投票"),
     });
     ws.close();
   });
 });
 
 describe("RoomDO phase:next", () => {
+  it("成功した通常のステップ移行で実行中タイマーを idle に戻して配信する", async () => {
+    const roomName = "room-phase-next-resets-running-timer";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(1), USER_A);
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "timer:start", durationMs: 60_000 }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "timer:updated",
+      timer: { status: "running" },
+    });
+
+    ws.send(JSON.stringify({ type: "phase:next" }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "timer:updated",
+      timer: { status: "idle" },
+    });
+    expect(await nextJson(ws)).toMatchObject({
+      type: "phase:updated",
+      phase: buildPhaseStep(2),
+    });
+    expect(await stub.getTimerState()).toEqual({ status: "idle" });
+    ws.close();
+  });
+
+  it("snapshot を再配信するステップ移行では idle 化したタイマーを含める", async () => {
+    const roomName = "room-phase-next-snapshot-has-idle-timer";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(2), USER_A);
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "timer:start", durationMs: 60_000 }));
+    await nextJson(ws);
+
+    ws.send(JSON.stringify({ type: "phase:next" }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "snapshot",
+      phase: buildPhaseStep(3),
+      timer: { status: "idle" },
+    });
+    expect(await nextJson(ws)).toMatchObject({
+      type: "phase:updated",
+      phase: buildPhaseStep(3),
+    });
+    expect(await stub.getTimerState()).toEqual({ status: "idle" });
+    ws.close();
+  });
+
   it("全参加者の主観・客観投票が完了するまで Step 1-4 を終了できない", async () => {
     const stub = roomStub("room-phase-voting-incomplete");
     await stub.initializeNewRoom(USER_A, "Host");
@@ -690,6 +740,9 @@ describe("RoomDO phase:next", () => {
       ws.addEventListener("message", resolve, { once: true });
     });
 
+    ws.send(JSON.stringify({ type: "timer:start", durationMs: 60_000 }));
+    await nextJson(ws);
+
     ws.send(JSON.stringify({ type: "phase:next" }));
     const message = await new Promise<MessageEvent>((resolve) => {
       ws.addEventListener("message", resolve, { once: true });
@@ -702,6 +755,10 @@ describe("RoomDO phase:next", () => {
       code: "voting-incomplete",
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(4));
+    expect(await stub.getTimerState()).toMatchObject({
+      status: "running",
+      durationMs: 60_000,
+    });
     ws.close();
   });
 
@@ -733,6 +790,13 @@ describe("RoomDO phase:next", () => {
     await stub.initializeNewRoom(USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(4), USER_A);
+    const endsAt = Date.now() + 60_000;
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE timer_state SET status = 'running', ends_at = ?1, remaining_ms = NULL, duration_ms = 60000 WHERE id = 1",
+        endsAt,
+      );
+    });
 
     const ws = await connectDirectly(roomName, USER_B, USER_A);
     ws.send(JSON.stringify({ type: "phase:next", force: true }));
@@ -742,6 +806,11 @@ describe("RoomDO phase:next", () => {
       code: "forbidden",
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(4));
+    expect(await stub.getTimerState()).toEqual({
+      status: "running",
+      endsAt,
+      durationMs: 60_000,
+    });
     ws.close();
   });
 
@@ -752,6 +821,8 @@ describe("RoomDO phase:next", () => {
     await stub.setPhase(buildPhaseStep(5), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "timer:start", durationMs: 60_000 }));
+    await nextJson(ws);
     ws.send(JSON.stringify({ type: "phase:next" }));
 
     expect(await nextJsonWithin(ws)).toMatchObject({
@@ -759,6 +830,10 @@ describe("RoomDO phase:next", () => {
       code: "forbidden",
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(5));
+    expect(await stub.getTimerState()).toMatchObject({
+      status: "running",
+      durationMs: 60_000,
+    });
     ws.close();
   });
 
@@ -1841,7 +1916,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
       code: "forbidden",
-      message: expect.stringContaining("2-2 共有する"),
+      message: expect.stringContaining("2-2 HMW共有"),
     });
     ws.close();
   });
@@ -1870,7 +1945,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
       code: "forbidden",
-      message: expect.stringContaining("1-1 課題を個人で書く"),
+      message: expect.stringContaining("1-1 自分の課題（個人）"),
     });
     ws.close();
   });
@@ -1878,7 +1953,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
   it.each([
     {
       step: 1,
-      label: "1-1 課題を個人で書く",
+      label: "1-1 自分の課題（個人）",
       operation: "note:publish",
       message: {
         type: "note:publish",
@@ -1889,7 +1964,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 1,
-      label: "1-1 課題を個人で書く",
+      label: "1-1 自分の課題（個人）",
       operation: "note:move",
       message: {
         type: "note:move",
@@ -1900,7 +1975,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 1,
-      label: "1-1 課題を個人で書く",
+      label: "1-1 自分の課題（個人）",
       operation: "group:create",
       message: {
         type: "group:create",
@@ -1918,13 +1993,13 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 2,
-      label: "1-2 共有する",
+      label: "1-2 課題共有",
       operation: "note:create",
       message: { type: "note:create" },
     },
     {
       step: 2,
-      label: "1-2 共有する",
+      label: "1-2 課題共有",
       operation: "note:vote",
       message: {
         type: "note:vote",
@@ -1934,7 +2009,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 2,
-      label: "1-2 共有する",
+      label: "1-2 課題共有",
       operation: "group:create",
       message: {
         type: "group:create",
@@ -1978,13 +2053,13 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 4,
-      label: "1-4 ステルス投票",
+      label: "1-4 投票",
       operation: "note:create",
       message: { type: "note:create" },
     },
     {
       step: 4,
-      label: "1-4 ステルス投票",
+      label: "1-4 投票",
       operation: "note:update-content",
       message: {
         type: "note:update-content",
@@ -1994,7 +2069,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 4,
-      label: "1-4 ステルス投票",
+      label: "1-4 投票",
       operation: "note:move",
       message: {
         type: "note:move",
@@ -2005,7 +2080,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 4,
-      label: "1-4 ステルス投票",
+      label: "1-4 投票",
       operation: "note:drag",
       message: {
         type: "note:drag",
@@ -2016,7 +2091,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 4,
-      label: "1-4 ステルス投票",
+      label: "1-4 投票",
       operation: "group:update-name",
       message: {
         type: "group:update-name",
@@ -2026,7 +2101,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       step: 4,
-      label: "1-4 ステルス投票",
+      label: "1-4 投票",
       operation: "group:create",
       message: {
         type: "group:create",
@@ -2137,7 +2212,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
       code: "forbidden",
-      message: expect.stringContaining("1-5 集計確認・絞り込み"),
+      message: expect.stringContaining("1-5 課題決定"),
     });
     ws.close();
   });
@@ -3286,7 +3361,7 @@ describe("RoomDO Step 3-1 の境界ゲート", () => {
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
       code: "forbidden",
-      message: expect.stringContaining("3-1 アイデアを個人で書く"),
+      message: expect.stringContaining("3-1 アイデアを書き出す（個人）"),
     });
     ws.close();
   });

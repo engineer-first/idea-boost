@@ -17,6 +17,7 @@ const STEP_1_3 = buildPhaseStep(3);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_1 = buildPhaseStep(1, 2);
+const STEP_3_5 = buildPhaseStep(5, 3);
 const CANVAS_HUD_POSITIONS = [
   [180, 120],
   [380, 220],
@@ -388,5 +389,16 @@ export const IdeaWritingWithCarryovers: Story = {
       phase: 2,
       content: "どうすれば、楽しく最初の一歩を踏み出せるだろうか？",
     }).content,
+  },
+};
+
+export const Step3_5_SprintComplete: Story = {
+  args: {
+    phase: STEP_3_5,
+    decision: buildDecision({
+      phase: 3,
+      noteId: "note-1",
+      decidedBy: ME,
+    }),
   },
 };

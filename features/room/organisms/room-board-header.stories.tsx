@@ -9,6 +9,7 @@ const ME = "11111111-1111-4111-8111-111111111111";
 const STEP_1_1 = buildPhaseStep(1);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
+const STEP_3_5 = buildPhaseStep(5, 3);
 
 const meta = {
   title: "Room/RoomBoardHeader",
@@ -30,10 +31,13 @@ const meta = {
     hostUserId: ME,
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
+    isGuideExpanded: true,
+    isSprintComplete: false,
     signOutAction: fn(),
     voteRemaining: { subjective: 5, objective: 10 },
     isLeaving: false,
     onShowVoteResult: fn(),
+    onGuideExpandedChange: fn(),
     onLeaveClick: fn(),
     onNextPhase: fn(),
     onTimerStart: fn(),
@@ -65,6 +69,12 @@ export const NonHost: Story = {
   },
 };
 
+export const CollapsedGuide: Story = {
+  args: {
+    isGuideExpanded: false,
+  },
+};
+
 // loading相当: WebSocket 接続の確立中（操作が無効化される）。
 export const Connecting: Story = {
   args: {
@@ -85,6 +95,13 @@ export const Reconnecting: Story = {
 export const VoteTotaled: Story = {
   args: {
     phase: STEP_1_5,
+  },
+};
+
+export const SprintComplete: Story = {
+  args: {
+    phase: STEP_3_5,
+    isSprintComplete: true,
   },
 };
 
