@@ -17,7 +17,6 @@ const STEP_1_3 = buildPhaseStep(3);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_1 = buildPhaseStep(1, 2);
-const STEP_3_5 = buildPhaseStep(5, 3);
 const CANVAS_HUD_POSITIONS = [
   [180, 120],
   [380, 220],
@@ -392,13 +391,14 @@ export const IdeaWritingWithCarryovers: Story = {
   },
 };
 
-export const Step3_5_SprintComplete: Story = {
+// 背景パン・付箋移動・ズームを同じカメラ上で確認する。
+export const IdeaMapInteraction: Story = {
   args: {
-    phase: STEP_3_5,
-    decision: buildDecision({
-      phase: 3,
-      noteId: "note-1",
-      decidedBy: ME,
-    }),
+    phase: buildPhaseStep(3, 3),
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: [1, 50, 99][index],
+      y: [99, 50, 1][index],
+    })),
   },
 };

@@ -232,6 +232,43 @@ describe("RoomBoardCanvas", () => {
   });
 
   it.each([
+    0.5, 2,
+  ])("倍率%sでグラフ・付箋・ゴーストを同じカメラ倍率で拡縮する", (zoom) => {
+    setup({
+      phase: buildPhaseStep(3, 3),
+      camera: { x: 80, y: -40, zoom },
+      notes: [buildNote({ id: "fixed-size", x: 25, y: 75 })],
+      dragGhost: {
+        note: buildNote({ id: "fixed-ghost", content: "固定サイズゴースト" }),
+        x: 75,
+        y: 25,
+      },
+    });
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-note-fixed-size"),
+    ).not.toHaveStyle({ transform: `scale(${1 / zoom})` });
+    expect(
+      screen
+        .getByText("固定サイズゴースト")
+        .closest("[data-slot='sticky-note']"),
+    ).not.toHaveStyle({ transform: `scale(${1 / zoom})` });
+    expect(screen.getByTestId("board-canvas")).toHaveStyle({
+      transform: `translate3d(80px, -40px, 0) scale(${zoom})`,
+    });
+  });
+
+  it("マップ・軸・付箋は同じカメラ変換内に配置する", () => {
+    setup({ phase: buildPhaseStep(3, 3), camera: { x: 80, y: -40, zoom: 2 } });
+    const world = screen.getByTestId("board-canvas");
+    expect(world).toContainElement(
+      screen.getByTestId("idea-value-feasibility-map"),
+    );
+    expect(world).toHaveStyle({
+      transform: "translate3d(80px, -40px, 0) scale(2)",
+    });
+  });
+
+  it.each([
     { id: "bottom-left", x: 0, y: 0 },
     { id: "bottom-right", x: 100, y: 0 },
     { id: "top-left", x: 0, y: 100 },
@@ -253,9 +290,9 @@ describe("RoomBoardCanvas", () => {
     const mappedNote = screen.getByTestId(
       `idea-value-feasibility-map-note-${id}`,
     );
-    expect(mappedNote).toHaveStyle({ left: `${x}%`, bottom: `${y}%` });
     expect(mappedNote).toHaveStyle({
-      transform: `translate(${x === 0 ? 0 : -100}%, ${y === 0 ? 0 : 100}%)`,
+      // clampの複合式はjsdomで未対応。範囲補正の式は純関数のspecで検証する。
+      transform: "none",
     });
 
     const surface = within(mappedNote).getByRole("button", { name: "付箋" });
@@ -290,9 +327,7 @@ describe("RoomBoardCanvas", () => {
     if (!ghost) throw new Error("ドラッグゴーストがありません");
 
     expect(ghost).toHaveStyle({
-      left: "0%",
-      bottom: "100%",
-      transform: "translate(0%, 100%)",
+      transform: "none",
     });
   });
 

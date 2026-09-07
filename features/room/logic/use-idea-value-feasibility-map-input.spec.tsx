@@ -22,6 +22,9 @@ describe("useIdeaValueFeasibilityMapInput", () => {
     } as HTMLDivElement;
 
     expect(result.current.pointFromClient(300, 300)).toEqual({ x: 50, y: 50 });
+    // つかみ位置を差し引いた後でuseBoardDragが制限する。先に丸めると端まで届かない。
+    expect(result.current.pointFromClient(540, 540)?.x).toBeCloseTo(110);
+    expect(result.current.pointFromClient(540, 540)?.y).toBeCloseTo(-10);
     expect(fallbackPointFromClient).not.toHaveBeenCalled();
   });
 

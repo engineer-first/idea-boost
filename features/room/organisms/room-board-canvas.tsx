@@ -274,7 +274,7 @@ export function RoomBoardCanvas({
           }`}
           data-testid="board-scroller"
           style={gridStyle}
-          onPointerDown={handleViewportPointerDown}
+          onPointerDownCapture={handleViewportPointerDown}
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerEnd}
           onPointerCancel={onCanvasPointerEnd}
@@ -282,14 +282,17 @@ export function RoomBoardCanvas({
           <div
             data-testid="board-canvas"
             data-canvas-background="true"
-            className="absolute top-0 left-0 min-h-full min-w-full"
+            className={
+              isIdeaValueFeasibilityMapVisible
+                ? "absolute top-0 left-0 h-full w-full"
+                : "absolute top-0 left-0 min-h-full min-w-full"
+            }
             style={{
               transform: `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`,
               transformOrigin: "0 0",
               willChange: "transform",
             }}
           >
-            {/* マップも世界レイヤーに含め、付箋と同じカメラ変換で拡大縮小・パンする。 */}
             {isIdeaValueFeasibilityMapVisible ? (
               <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
                 {notes.map(renderIdeaMapNote)}

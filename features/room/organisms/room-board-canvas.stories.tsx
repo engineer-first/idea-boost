@@ -269,3 +269,26 @@ export const Step3IdeaMap: Story = {
     notes: [],
   },
 };
+
+const fixedSizeMapArgs = {
+  phase: buildPhaseStep(3, 3),
+  permissions: getBoardPermissions(buildPhaseStep(3, 3)),
+  notes: [
+    buildNote({ id: "map-left", content: "アイデア A", x: 25, y: 25 }),
+    buildNote({ id: "map-right", content: "アイデア B", x: 75, y: 75 }),
+  ],
+};
+
+export const IdeaMapZoom50: Story = {
+  args: {
+    ...fixedSizeMapArgs,
+    camera: { x: 0, y: 0, zoom: 0.5 },
+  },
+};
+
+export const IdeaMapZoom200: Story = {
+  args: {
+    ...fixedSizeMapArgs,
+    camera: { x: -400, y: -300, zoom: 2 },
+  },
+};

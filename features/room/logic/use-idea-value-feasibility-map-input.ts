@@ -35,6 +35,8 @@ export function useIdeaValueFeasibilityMapInput({
         clientX,
         clientY,
         plane.getBoundingClientRect(),
+        // つかみ位置補正後の最終座標だけをuseBoardDragで0〜100に制限する。
+        false,
       );
       return point ? { x: point.feasibility, y: point.value } : null;
     },

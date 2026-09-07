@@ -2,7 +2,14 @@
 // フェイク WebSocket を注入し、「サーバーメッセージ → 画面反映」と
 // 「ユーザー操作 → プロトコルメッセージ送信」の両方向の配線を検証する。
 // RoomBoardView / NoteCard / notes-reducer 自体の仕様は各ファイルの spec が担う。
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // useRouter の戻り値は毎レンダー同じ参照にする（effect の再実行ループ防止）。
@@ -1211,11 +1218,59 @@ describe("Step 3-1（アイデア個人執筆）", () => {
 });
 
 describe("Step 3-2〜3-5（2軸マッピング）", () => {
-  it("Step 3-2で共有付箋を2軸平面内に描画し、ドラッグ位置を0〜100座標で送る", () => {
+  it("Step3-3のパン・ズームはカメラだけを変更し、付箋座標を送信しない", async () => {
     const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
-      phase: buildPhaseStep(2, 3),
+      phase: buildPhaseStep(3, 3),
+    });
+    const plane = screen.getByTestId("idea-value-feasibility-map-plane");
+    const world = screen.getByTestId("board-canvas");
+    expect(world).toContainElement(plane);
+    fireEvent.pointerDown(plane, {
+      button: 0,
+      pointerId: 7,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(screen.getByTestId("board-scroller"), {
+      pointerId: 7,
+      clientX: 160,
+      clientY: 130,
+    });
+    fireEvent.pointerUp(screen.getByTestId("board-scroller"), { pointerId: 7 });
+    await waitFor(() =>
+      expect(world.style.transform).toBe("translate3d(60px, 30px, 0) scale(1)"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
+    await waitFor(() => expect(world.style.transform).toContain("scale(1.25)"));
+    const surface = within(plane).getByRole("button", { name: "付箋" });
+    fireEvent.keyDown(window, { code: "Space" });
+    fireEvent.pointerDown(surface, {
+      button: 0,
+      pointerId: 8,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 8,
+      clientX: 160,
+      clientY: 130,
+    });
+    fireEvent.pointerUp(surface, { pointerId: 8 });
+    fireEvent.keyUp(window, { code: "Space" });
+    expect(
+      socket.sent
+        .map((raw) => JSON.parse(raw))
+        .filter((m) => m.type === "note:move" || m.type === "note:drag"),
+    ).toEqual([]);
+  });
+  it.each([
+    2, 3,
+  ])("Step 3-%iでは付箋だけを移動し、カメラを動かさない", (step) => {
+    const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
+      phase: buildPhaseStep(step, 3),
     });
     const canvas = screen.getByTestId("board-canvas");
+    const cameraBefore = canvas.style.transform;
     const scroller = canvas.parentElement;
     if (!scroller) throw new Error("ボードスクローラーがありません");
     Object.defineProperty(scroller, "getBoundingClientRect", {
@@ -1244,8 +1299,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       "idea-value-feasibility-map-note-cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     );
     expect(mappedNote).toHaveStyle({
-      left: "25%",
-      bottom: "75%",
+      transform: "none",
     });
     const note = within(mappedNote).getByTestId("note-card");
 
@@ -1278,6 +1332,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       x: 50,
       y: 50,
     });
+    expect(canvas.style.transform).toBe(cameraBefore);
   });
 
   it("Step 3-2でマイ付箋を2軸マップへ共有し、正規化した位置で公開する", () => {

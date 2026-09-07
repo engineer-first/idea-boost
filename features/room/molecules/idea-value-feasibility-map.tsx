@@ -1,6 +1,10 @@
 import { ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
 import type { CSSProperties, ReactNode, Ref } from "react";
-import { IDEA_VALUE_FEASIBILITY_MAP_LABELS } from "../logic/idea-value-feasibility-map";
+import {
+  IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+  IDEA_VALUE_FEASIBILITY_MAP_LABELS,
+  IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
+} from "../logic/idea-value-feasibility-map";
 
 const MAP_GRID_STYLE = {
   backgroundImage:
@@ -24,8 +28,12 @@ export function IdeaValueFeasibilityMap({
   return (
     <section
       aria-label={labels.ariaLabel}
-      className="pointer-events-none absolute left-1/2 top-1/2 z-10 grid h-[90cqh] w-[90cqw] -translate-x-1/2 -translate-y-1/2 grid-cols-[4rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_4rem] gap-3 select-none"
+      className="pointer-events-none absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-[4rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_4rem] gap-3 select-none"
       data-testid="idea-value-feasibility-map"
+      style={{
+        width: IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
+        height: IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+      }}
     >
       <span className="sr-only absolute">{labels.title}</span>
       <fieldset
@@ -55,13 +63,15 @@ export function IdeaValueFeasibilityMap({
 
       <div
         ref={planeRef}
-        className="relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-sky-50/90 shadow-sm"
+        className="pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-sky-50/90 shadow-sm"
+        data-canvas-background="true"
         data-coordinate-range="0-100"
         data-testid="idea-value-feasibility-map-plane"
       >
         <div
           aria-hidden="true"
-          className="absolute inset-0"
+          className="pointer-events-none absolute inset-0"
+          data-canvas-background="true"
           data-testid="idea-value-feasibility-map-plane-grid"
           style={MAP_GRID_STYLE}
         />
