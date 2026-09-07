@@ -171,6 +171,7 @@ export function RoomBoardView({
   } = useCanvasCamera({
     viewportRef: boardScrollerRef,
     notes,
+    fitViewport: phase.kind === "step" && phase.phase === 3 && phase.step >= 2,
   });
 
   const {

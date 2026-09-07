@@ -217,10 +217,13 @@ export function RoomBoardCanvas({
   }
 
   function renderIdeaMapNote(note: Note) {
-    const position = getIdeaValueFeasibilityMapNotePosition({
-      value: note.y,
-      feasibility: note.x,
-    });
+    const position = getIdeaValueFeasibilityMapNotePosition(
+      {
+        value: note.y,
+        feasibility: note.x,
+      },
+      camera.zoom,
+    );
     const isSelectedDecidableNote = canDecide && selectedNote?.id === note.id;
 
     return (
@@ -244,10 +247,13 @@ export function RoomBoardCanvas({
 
   function renderIdeaMapDragGhost() {
     if (!dragGhost) return null;
-    const position = getIdeaValueFeasibilityMapNotePosition({
-      value: dragGhost.y,
-      feasibility: dragGhost.x,
-    });
+    const position = getIdeaValueFeasibilityMapNotePosition(
+      {
+        value: dragGhost.y,
+        feasibility: dragGhost.x,
+      },
+      camera.zoom,
+    );
 
     return (
       <StickyNote
@@ -274,27 +280,31 @@ export function RoomBoardCanvas({
           }`}
           data-testid="board-scroller"
           style={gridStyle}
-          onPointerDown={handleViewportPointerDown}
+          onPointerDownCapture={handleViewportPointerDown}
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerEnd}
           onPointerCancel={onCanvasPointerEnd}
         >
-          {isIdeaValueFeasibilityMapVisible ? (
-            <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
-              {notes.map(renderIdeaMapNote)}
-              {renderIdeaMapDragGhost()}
-            </IdeaValueFeasibilityMap>
-          ) : null}
           <div
             data-testid="board-canvas"
             data-canvas-background="true"
-            className="absolute top-0 left-0 min-h-full min-w-full"
+            className={
+              isIdeaValueFeasibilityMapVisible
+                ? "absolute top-0 left-0 h-full w-full"
+                : "absolute top-0 left-0 min-h-full min-w-full"
+            }
             style={{
               transform: `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`,
               transformOrigin: "0 0",
               willChange: "transform",
             }}
           >
+            {isIdeaValueFeasibilityMapVisible ? (
+              <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
+                {notes.map(renderIdeaMapNote)}
+                {renderIdeaMapDragGhost()}
+              </IdeaValueFeasibilityMap>
+            ) : null}
             {renderGroups.map((rg) => {
               const handleUpdateName = (newName: string) => {
                 if (rg.isTemp && rg.representativeNoteId) {

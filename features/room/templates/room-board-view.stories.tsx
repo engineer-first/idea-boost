@@ -351,3 +351,16 @@ export const IdeaWritingWithCarryovers: Story = {
     }).content,
   },
 };
+
+// 背景パン・付箋移動・ズームを同じカメラ上で確認する。
+export const IdeaMapInteraction: Story = {
+  args: {
+    phase: buildPhaseStep(3, 3),
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: [1, 50, 99][index],
+      y: [99, 50, 1][index],
+    })),
+    privateNotes: [],
+  },
+};

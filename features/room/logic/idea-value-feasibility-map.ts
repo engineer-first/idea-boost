@@ -1,4 +1,8 @@
-import { IDEA_VALUE_FEASIBILITY_MAP_RANGE } from "@/contracts/board";
+import {
+  IDEA_VALUE_FEASIBILITY_MAP_RANGE,
+  NOTE_HEIGHT,
+  NOTE_WIDTH,
+} from "@/contracts/board";
 
 export { IDEA_VALUE_FEASIBILITY_MAP_RANGE } from "@/contracts/board";
 
@@ -28,6 +32,7 @@ export type IdeaValueFeasibilityMapPosition = {
 export type IdeaValueFeasibilityMapNotePosition =
   IdeaValueFeasibilityMapPosition & {
     transform: string;
+    transformOrigin: string;
   };
 
 export type IdeaValueFeasibilityMapBounds = {
@@ -60,17 +65,21 @@ export function getIdeaValueFeasibilityMapPosition({
 }
 
 /**
- * マップ端では付箋全体が平面内に収まるよう、座標に応じたtransformを返す。
+ * カメラの倍率を相殺して付箋の見た目を固定し、そのワールド寸法で端を補正する。
  */
 export function getIdeaValueFeasibilityMapNotePosition(
   point: IdeaValueFeasibilityPoint,
+  zoom = 1,
 ): IdeaValueFeasibilityMapNotePosition {
-  const position = getIdeaValueFeasibilityMapPosition(point);
   const feasibility = clampIdeaValueFeasibilityMapCoordinate(point.feasibility);
   const value = clampIdeaValueFeasibilityMapCoordinate(point.value);
+  const width = NOTE_WIDTH / zoom;
+  const height = NOTE_HEIGHT / zoom;
   return {
-    ...position,
-    transform: `translate(${feasibility === 0 ? 0 : feasibility === 100 ? -100 : -50}%, ${value === 0 ? 0 : value === 100 ? 100 : 50}%)`,
+    left: `clamp(0px, calc(${feasibility}% - ${width / 2}px), max(0px, calc(100% - ${width}px)))`,
+    bottom: `clamp(0px, calc(${value}% - ${height / 2}px), max(0px, calc(100% - ${height}px)))`,
+    transform: zoom === 1 ? "none" : `scale(${1 / zoom})`,
+    transformOrigin: "left bottom",
   };
 }
 
@@ -80,17 +89,18 @@ export function getIdeaValueFeasibilityMapPointFromClientPosition(
   clientX: number,
   clientY: number,
   bounds: IdeaValueFeasibilityMapBounds,
+  clamp = true,
 ): IdeaValueFeasibilityPoint | null {
   const width = bounds.right - bounds.left;
   const height = bounds.bottom - bounds.top;
   if (width <= 0 || height <= 0) return null;
 
+  const feasibility = ((clientX - bounds.left) / width) * 100;
+  const value = ((bounds.bottom - clientY) / height) * 100;
   return {
-    feasibility: clampIdeaValueFeasibilityMapCoordinate(
-      ((clientX - bounds.left) / width) * 100,
-    ),
-    value: clampIdeaValueFeasibilityMapCoordinate(
-      ((bounds.bottom - clientY) / height) * 100,
-    ),
+    feasibility: clamp
+      ? clampIdeaValueFeasibilityMapCoordinate(feasibility)
+      : feasibility,
+    value: clamp ? clampIdeaValueFeasibilityMapCoordinate(value) : value,
   };
 }

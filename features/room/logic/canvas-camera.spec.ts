@@ -40,6 +40,7 @@ function pointerEvent(
     target: element,
     currentTarget: element,
     preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
     ...overrides,
   } as unknown as ReactPointerEvent<HTMLDivElement>;
 }
