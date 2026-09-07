@@ -6,6 +6,9 @@ import {
 
 export { IDEA_VALUE_FEASIBILITY_MAP_RANGE } from "@/contracts/board";
 
+export const IDEA_VALUE_FEASIBILITY_MAP_WIDTH = 1600;
+export const IDEA_VALUE_FEASIBILITY_MAP_HEIGHT = 900;
+
 // アイデアを価値と実現可能性で位置付ける2軸マップの固定表示内容。
 // 文言をコンポーネントから分離し、ガイドやラベルの変更箇所を一つに保つ。
 export const IDEA_VALUE_FEASIBILITY_MAP_LABELS = {
@@ -28,12 +31,6 @@ export type IdeaValueFeasibilityMapPosition = {
   bottom: string;
   left: string;
 };
-
-export type IdeaValueFeasibilityMapNotePosition =
-  IdeaValueFeasibilityMapPosition & {
-    transform: string;
-    transformOrigin: string;
-  };
 
 export type IdeaValueFeasibilityMapBounds = {
   left: number;
@@ -65,21 +62,16 @@ export function getIdeaValueFeasibilityMapPosition({
 }
 
 /**
- * カメラの倍率を相殺して付箋の見た目を固定し、そのワールド寸法で端を補正する。
+ * 付箋をワールド座標へ配置する。拡縮は親のカメラ変換へまとめる。
  */
 export function getIdeaValueFeasibilityMapNotePosition(
   point: IdeaValueFeasibilityPoint,
-  zoom = 1,
-): IdeaValueFeasibilityMapNotePosition {
+): IdeaValueFeasibilityMapPosition {
   const feasibility = clampIdeaValueFeasibilityMapCoordinate(point.feasibility);
   const value = clampIdeaValueFeasibilityMapCoordinate(point.value);
-  const width = NOTE_WIDTH / zoom;
-  const height = NOTE_HEIGHT / zoom;
   return {
-    left: `clamp(0px, calc(${feasibility}% - ${width / 2}px), max(0px, calc(100% - ${width}px)))`,
-    bottom: `clamp(0px, calc(${value}% - ${height / 2}px), max(0px, calc(100% - ${height}px)))`,
-    transform: zoom === 1 ? "none" : `scale(${1 / zoom})`,
-    transformOrigin: "left bottom",
+    left: `clamp(0px, calc(${feasibility}% - ${NOTE_WIDTH / 2}px), max(0px, calc(100% - ${NOTE_WIDTH}px)))`,
+    bottom: `clamp(0px, calc(${value}% - ${NOTE_HEIGHT / 2}px), max(0px, calc(100% - ${NOTE_HEIGHT}px)))`,
   };
 }
 

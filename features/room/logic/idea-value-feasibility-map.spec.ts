@@ -8,20 +8,6 @@ import {
 describe("getIdeaValueFeasibilityMapPosition", () => {
   it.each([
     0.5, 2,
-  ])("倍率%sでも付箋の見た目の寸法を固定し、端を補正する", (zoom) => {
-    const position = getIdeaValueFeasibilityMapNotePosition(
-      { feasibility: 25, value: 75 },
-      zoom,
-    );
-    expect(position).toEqual({
-      left: `clamp(0px, calc(25% - ${100 / zoom}px), max(0px, calc(100% - ${200 / zoom}px)))`,
-      bottom: `clamp(0px, calc(75% - ${75 / zoom}px), max(0px, calc(100% - ${150 / zoom}px)))`,
-      transform: `scale(${1 / zoom})`,
-      transformOrigin: "left bottom",
-    });
-  });
-  it.each([
-    0.5, 2,
   ])("倍率%sでもパン後のポインターを同じ相対座標に変換する", (zoom) => {
     expect(
       getIdeaValueFeasibilityMapPointFromClientPosition(
@@ -42,8 +28,6 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     ).toEqual({
       left: "clamp(0px, calc(1% - 100px), max(0px, calc(100% - 200px)))",
       bottom: "clamp(0px, calc(99% - 75px), max(0px, calc(100% - 150px)))",
-      transform: "none",
-      transformOrigin: "left bottom",
     });
   });
   it("価値と実現可能性の0〜100を連続座標へ変換する", () => {

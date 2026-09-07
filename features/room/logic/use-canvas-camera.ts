@@ -22,6 +22,10 @@ import {
   screenToWorld,
   zoomAtScreenPoint,
 } from "./canvas-camera";
+import {
+  IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+  IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
+} from "./idea-value-feasibility-map";
 
 type CanvasPan = {
   pointerId: number;
@@ -73,6 +77,21 @@ function notesBounds(notes: Note[]) {
     width: maxX - minX + CANVAS_FIT_PADDING * 2,
     height: maxY - minY + CANVAS_FIT_PADDING * 2,
   };
+}
+
+function fitIdeaMapCamera(viewport: {
+  width: number;
+  height: number;
+}): CanvasCamera {
+  return fitCanvasCamera(
+    {
+      x: (viewport.width - IDEA_VALUE_FEASIBILITY_MAP_WIDTH) / 2,
+      y: (viewport.height - IDEA_VALUE_FEASIBILITY_MAP_HEIGHT) / 2,
+      width: IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
+      height: IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+    },
+    viewport,
+  );
 }
 
 export function useCanvasCamera({
@@ -148,7 +167,9 @@ export function useCanvasCamera({
 
   const fitToNotes = useCallback(() => {
     if (fitViewport) {
-      setCameraImmediately({ x: 0, y: 0, zoom: 1 });
+      const element = viewportRef.current;
+      const size = element ? viewportSize(element) : null;
+      if (size) setCameraImmediately(fitIdeaMapCamera(size));
       return;
     }
     const element = viewportRef.current;
@@ -249,8 +270,11 @@ export function useCanvasCamera({
   );
 
   useEffect(() => {
-    if (fitViewport) setCameraImmediately({ x: 0, y: 0, zoom: 1 });
-  }, [fitViewport, setCameraImmediately]);
+    if (!fitViewport) return;
+    const element = viewportRef.current;
+    const size = element ? viewportSize(element) : null;
+    if (size) setCameraImmediately(fitIdeaMapCamera(size));
+  }, [fitViewport, setCameraImmediately, viewportRef]);
 
   useEffect(() => {
     const element = viewportRef.current;

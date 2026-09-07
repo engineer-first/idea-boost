@@ -5,17 +5,20 @@ import { buildNotes } from "@/contracts/room-protocol.fixture";
 import { useCanvasCamera } from "./use-canvas-camera";
 
 describe("useCanvasCamera", () => {
-  it("マップでは正規化された付箋座標に自動フィットせず、平面全体を初期表示する", () => {
+  it("マップでは付箋座標ではなく1600×900の平面全体を初期表示する", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 800);
+    const viewportRef = { current: viewport };
     const { result } = renderHook(() =>
       useCanvasCamera({
-        viewportRef: { current: viewport },
+        viewportRef,
         notes: buildNotes(2),
         fitViewport: true,
       }),
     );
-    expect(result.current.camera).toEqual({ x: 0, y: 0, zoom: 1 });
+    expect(result.current.camera.zoom).toBeCloseTo(0.545);
+    expect(result.current.camera.x).toBeCloseTo(227.5);
+    expect(result.current.camera.y).toBeCloseTo(182);
   });
 
   it("中ボタンのパンは付箋に伝播せず、通常の付箋ドラッグはパンしない", () => {

@@ -194,7 +194,7 @@ describe("RoomBoardCanvas", () => {
 
   it.each([
     0.5, 2,
-  ])("倍率%sで付箋とゴーストの見た目だけを逆倍率で補正する", (zoom) => {
+  ])("倍率%sでグラフ・付箋・ゴーストを同じカメラ倍率で拡縮する", (zoom) => {
     setup({
       phase: buildPhaseStep(3, 3),
       camera: { x: 80, y: -40, zoom },
@@ -205,18 +205,14 @@ describe("RoomBoardCanvas", () => {
         y: 25,
       },
     });
-    const style = {
-      transform: `scale(${1 / zoom})`,
-      transformOrigin: "left bottom",
-    };
     expect(
       screen.getByTestId("idea-value-feasibility-map-note-fixed-size"),
-    ).toHaveStyle(style);
+    ).not.toHaveStyle({ transform: `scale(${1 / zoom})` });
     expect(
       screen
         .getByText("固定サイズゴースト")
         .closest("[data-slot='sticky-note']"),
-    ).toHaveStyle(style);
+    ).not.toHaveStyle({ transform: `scale(${1 / zoom})` });
     expect(screen.getByTestId("board-canvas")).toHaveStyle({
       transform: `translate3d(80px, -40px, 0) scale(${zoom})`,
     });

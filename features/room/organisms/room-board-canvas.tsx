@@ -217,13 +217,10 @@ export function RoomBoardCanvas({
   }
 
   function renderIdeaMapNote(note: Note) {
-    const position = getIdeaValueFeasibilityMapNotePosition(
-      {
-        value: note.y,
-        feasibility: note.x,
-      },
-      camera.zoom,
-    );
+    const position = getIdeaValueFeasibilityMapNotePosition({
+      value: note.y,
+      feasibility: note.x,
+    });
     const isSelectedDecidableNote = canDecide && selectedNote?.id === note.id;
 
     return (
@@ -247,13 +244,10 @@ export function RoomBoardCanvas({
 
   function renderIdeaMapDragGhost() {
     if (!dragGhost) return null;
-    const position = getIdeaValueFeasibilityMapNotePosition(
-      {
-        value: dragGhost.y,
-        feasibility: dragGhost.x,
-      },
-      camera.zoom,
-    );
+    const position = getIdeaValueFeasibilityMapNotePosition({
+      value: dragGhost.y,
+      feasibility: dragGhost.x,
+    });
 
     return (
       <StickyNote

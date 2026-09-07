@@ -1,6 +1,10 @@
 import { ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
 import type { CSSProperties, ReactNode, Ref } from "react";
-import { IDEA_VALUE_FEASIBILITY_MAP_LABELS } from "../logic/idea-value-feasibility-map";
+import {
+  IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+  IDEA_VALUE_FEASIBILITY_MAP_LABELS,
+  IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
+} from "../logic/idea-value-feasibility-map";
 
 const MAP_GRID_STYLE = {
   backgroundImage:
@@ -24,8 +28,12 @@ export function IdeaValueFeasibilityMap({
   return (
     <section
       aria-label={labels.ariaLabel}
-      className="pointer-events-none absolute left-1/2 top-1/2 z-10 grid size-[min(90cqh,90cqw)] -translate-x-1/2 -translate-y-1/2 aspect-square grid-cols-[4rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_4rem] gap-3 select-none"
+      className="pointer-events-none absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-[4rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_4rem] gap-3 select-none"
       data-testid="idea-value-feasibility-map"
+      style={{
+        width: IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
+        height: IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+      }}
     >
       <span className="sr-only absolute">{labels.title}</span>
       <fieldset
