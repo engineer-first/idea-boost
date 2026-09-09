@@ -1,7 +1,7 @@
 "use client";
 
 // ログイン後画面共通のヘッダー。
-// 左: アプリ名 IdeaFlow / 右: ユーザー名 + ログアウト。
+// 左: アプリ名 Idea Boost / 右: ユーザー名 + ログアウト。
 // login など未ログイン画面では root layout が描画しない。
 
 import { usePathname } from "next/navigation";
@@ -29,7 +29,7 @@ export function AppHeader({ userName }: AppHeaderProps) {
         className="text-base font-semibold tracking-tight"
         data-testid="app-header-brand"
       >
-        IdeaFlow
+        Idea Boost
       </p>
       <div className="flex min-w-0 items-center gap-3">
         {userName ? (

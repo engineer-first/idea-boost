@@ -1,4 +1,4 @@
 interface:
   display_name: "PBI DemoGoal"
   short_description: "Create PBI and DemoGoal issues only"
-  default_prompt: "Use $pbi-demogoal to create a PBI and its consolidated DemoGoal for idea-flow-app."
+  default_prompt: "Use $pbi-demogoal to create a PBI and its consolidated DemoGoal for idea-boost."

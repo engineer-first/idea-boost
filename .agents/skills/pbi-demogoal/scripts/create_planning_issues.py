@@ -95,7 +95,10 @@ def demo_section(index, demo):
 
 def demo_body(spec, pbi_number, pbi_title):
     pbi = spec["pbi"]
-    overview = spec.get("demo_overview") or f"{issue_title(pbi)} として、以下の状態をスプリントレビューでデモする。"
+    overview = (
+        spec.get("demo_overview")
+        or f"{issue_title(pbi)} として、以下の状態をスプリントレビューでデモする。"
+    )
     parts = ["## デモゴール", overview]
     for index, demo in enumerate(spec["demo_goals"], start=1):
         parts.append(demo_section(index, demo))
@@ -198,7 +201,9 @@ def add_to_project(project_number, project_owner, url, issue_number):
             ]
         )
     except RuntimeError:
-        existing_item_id = find_project_item_id(project_number, project_owner, issue_number)
+        existing_item_id = find_project_item_id(
+            project_number, project_owner, issue_number
+        )
         if existing_item_id:
             return existing_item_id
         raise
@@ -206,7 +211,18 @@ def add_to_project(project_number, project_owner, url, issue_number):
 
 
 def project_id(project_number, project_owner):
-    output = run(["gh", "project", "view", str(project_number), "--owner", project_owner, "--format", "json"])
+    output = run(
+        [
+            "gh",
+            "project",
+            "view",
+            str(project_number),
+            "--owner",
+            project_owner,
+            "--format",
+            "json",
+        ]
+    )
     return json.loads(output)["id"]
 
 
@@ -274,9 +290,15 @@ def render_dry_run(spec):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create idea-flow-app PBI and consolidated DemoGoal issues.")
+    parser = argparse.ArgumentParser(
+        description="Create idea-boost PBI and consolidated DemoGoal issues."
+    )
     parser.add_argument("spec", type=Path, help="Path to a JSON planning spec")
-    parser.add_argument("--dry-run", action="store_true", help="Render issue bodies without creating issues")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Render issue bodies without creating issues",
+    )
     args = parser.parse_args()
 
     spec = json.loads(args.spec.read_text(encoding="utf-8"))
@@ -299,7 +321,9 @@ def main():
     _, demo_status = field_option(fields, "Status", "Demo Goal")
 
     pbi_created = create_issue(repo, issue_title(pbi), pbi_body(pbi), "PBI", milestone)
-    pbi_item_id = add_to_project(project_number, owner, pbi_created["url"], pbi_created["number"])
+    pbi_item_id = add_to_project(
+        project_number, owner, pbi_created["url"], pbi_created["number"]
+    )
     set_project_status(pbi_item_id, pid, status_field, pbi_status)
 
     demo_created = create_issue(
@@ -309,7 +333,9 @@ def main():
         "DemoGoal",
         milestone,
     )
-    demo_item_id = add_to_project(project_number, owner, demo_created["url"], demo_created["number"])
+    demo_item_id = add_to_project(
+        project_number, owner, demo_created["url"], demo_created["number"]
+    )
     set_project_status(demo_item_id, pid, status_field, demo_status)
 
     for item in [{"kind": "PBI", **pbi_created}, {"kind": "DemoGoal", **demo_created}]:

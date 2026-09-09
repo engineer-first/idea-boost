@@ -3,7 +3,7 @@
   // api-worker: D1（ロビー）と RoomDO（ルームの中身）への唯一の入口。
   // テスト (vitest-pool-workers)・ローカル開発 (npm run dev:api)・デプロイの
   // すべてでこの構成を使う。
-  "name": "idea-flow-api",
+  "name": "idea-boost-api",
   "main": "api-worker.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -14,10 +14,10 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "idea-flow-lobby",
+      "database_name": "idea-boost-lobby",
       // ローカル開発・テストでは placeholder のままでよい。
-      // デプロイ時は `wrangler d1 create idea-flow-lobby` の ID に置き換える。
-      "database_id": "8e57430c-fd84-4b6d-b9b3-62b4c74ee6dd",
+      // デプロイ時は `wrangler d1 create idea-boost-lobby` の ID に置き換える。
+      "database_id": "REPLACE_WITH_IDEA_BOOST_LOBBY_DATABASE_ID",
       "migrations_dir": "migrations"
     }
   ]

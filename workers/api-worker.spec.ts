@@ -36,7 +36,7 @@ async function sessionCookie(user: typeof OWNER): Promise<string> {
     audience: TOKEN_AUDIENCE.session,
     expiresInSeconds: 600,
   });
-  return `idea_flow_session=${token}`;
+  return `idea_boost_session=${token}`;
 }
 
 async function createRoomAs(

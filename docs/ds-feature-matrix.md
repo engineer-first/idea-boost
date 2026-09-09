@@ -108,7 +108,7 @@ end
   ステップ構成の変更は必ず本表を起点とし、`dezain-supurinto.md` 側を追従させる。
 - ステップ単位でのWSメッセージ実装ゲーティング（`isBoardMutation()` の
   拡張対象表）は実装が変わるたびに変更が必要な実装レベルの詳細のため、
-  本表ではなく [Discussion #36](https://github.com/engineer-first/idea-flow-app/discussions/36)
+  本表ではなく [Discussion #36](https://github.com/engineer-first/idea-boost/discussions/36)
   で管理する。
 
 ---

@@ -14,7 +14,7 @@
 set -euo pipefail
 
 OWNER="engineer-first"
-NAME="idea-flow-app"
+NAME="idea-boost"
 
 MODE="text"
 SCOPE="open"   # open: 未完了タスクが残るスプリントのみ / all: 全スプリント

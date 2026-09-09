@@ -2,16 +2,16 @@
 skinparam backgroundColor #FFFFFF
 skinparam defaultFontName sans-serif
 
-title IdeaFlow 全体構成図
+title Idea Boost 全体構成図
 
 actor "ブラウザ" as users
 
 cloud "インターネット" as internet
 
 rectangle "Cloudflare" as cf #FFF3E0 {
-  component "idea-flow-app\nOpenNext + Assets\nideaboost.dev" as app
-  component "idea-flow-api\nREST + WS 入口\nセッション / 認可" as api
-  database "D1 idea-flow-lobby\nusers / rooms" as d1
+  component "idea-boost-app\nOpenNext + Assets\nideaboost.dev" as app
+  component "idea-boost-api\nREST + WS 入口\nセッション / 認可" as api
+  database "D1 idea-boost-lobby\nusers / rooms" as d1
   component "RoomDO x N\n1 room = 1 DO\nmembers / notes / WS" as roomdo
 }
 

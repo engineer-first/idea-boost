@@ -1,6 +1,6 @@
-# idea-flow-app
+# idea-boost
 
-アイデア出しに慣れていないチームが、迷わずアイデアを出し、整理し、1つに絞るための Web アプリ **IdeaFlow** のリポジトリです。
+アイデア出しに慣れていないチームが、迷わずアイデアを出し、整理し、1つに絞るための Web アプリ **Idea Boost** のリポジトリです。
 
 ハッカソン・ビジコン・チーム制作の初期で起きる「何を作ればいいか分からない」「アイデアが出ない」「どれを選べばいいか分からない」といった課題を、発散・整理・選定の流れに沿ったブレスト体験で支援します。Miro や FigJam のような自由なホワイトボードではなく、初学者でも迷わず進められるフレームワーク型のアイデア創出支援を目指しています。
 
@@ -8,7 +8,7 @@
 
 ## ドキュメント
 
-プロダクトの詳細（PRD、ペルソナ、競合分析、画面イメージなど）は [idea-flow-app Wiki](https://github.com/engineer-first/idea-flow-app/wiki) にまとめています。仕様や設計の確認は Wiki を参照してください。
+プロダクトの詳細（PRD、ペルソナ、競合分析、画面イメージなど）は [Idea Boost Wiki](https://github.com/engineer-first/idea-boost/wiki) にまとめています。仕様や設計の確認は Wiki を参照してください。
 
 技術構成は **Next.js（UI）+ Cloudflare Workers（api-worker）+ Durable Objects（1ルーム = 1 権威サーバー）+ D1（ロビー）** です。採用の経緯と移行の記録は [`docs/refactor-cloudflare-do.md`](docs/refactor-cloudflare-do.md) を参照してください。
 
@@ -24,8 +24,8 @@ Docker や外部サービスのアカウントは不要です（wrangler がロ�
 ### 手順
 
 ```bash
-git clone git@github.com:engineer-first/idea-flow-app.git
-cd idea-flow-app
+git clone git@github.com:engineer-first/idea-boost.git
+cd idea-boost
 
 # mise で Node.js LTS をインストール（初回のみ）
 mise install
@@ -98,14 +98,14 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 
 2 Worker + D1 + RoomDO 構成です。デプロイ順は **api → app**（`npm run deploy`）。CI と同じ D1 migration → api → app をこの 1 行で実行します。
 
-| Worker          | 設定ファイル             | 役割                                                         |
-| --------------- | ------------------------ | ------------------------------------------------------------ |
-| `idea-flow-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
-| `idea-flow-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
+| Worker           | 設定ファイル             | 役割                                                         |
+| ---------------- | ------------------------ | ------------------------------------------------------------ |
+| `idea-boost-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
+| `idea-boost-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
 
 **本番の更新方法:** `develop` の変更を `release` にマージ（または push）すると GitHub Actions（`deploy.yml`）が自動で D1 migrate → api → app → health を実行します。手動で出すときは `npm run deploy`（`wrangler login` 済みであること）。Actions には `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
 
-秘密・初回手順・カスタムドメイン・CI・動作確認の詳細は **[デプロイ構成図](docs/site/deploy-map/index.html)**（公開後: [GitHub Pages](https://engineer-first.github.io/idea-flow-app/deploy-map/)）を参照してください。
+秘密・初回手順・カスタムドメイン・CI・動作確認の詳細は **[デプロイ構成図](docs/site/deploy-map/index.html)**（公開後: [GitHub Pages](https://engineer-first.github.io/idea-boost/deploy-map/)）を参照してください。
 
 ### MSW (Mock Service Worker)
 

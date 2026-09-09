@@ -6,7 +6,7 @@ describe("buildDiscordPayload", () => {
     const payload = buildDiscordPayload({
       number: 215,
       title: "PRマージ時にDiscordへ通知を送る",
-      url: "https://github.com/engineer-first/idea-flow-app/pull/215",
+      url: "https://github.com/engineer-first/idea-boost/pull/215",
       author: "junhat6",
       baseRef: "develop",
       headRef: "feature/215",
@@ -17,7 +17,7 @@ describe("buildDiscordPayload", () => {
       embeds: [
         {
           title: "#215 PRマージ時にDiscordへ通知を送る",
-          url: "https://github.com/engineer-first/idea-flow-app/pull/215",
+          url: "https://github.com/engineer-first/idea-boost/pull/215",
           description: "`feature/215` → `develop`\nby junhat6",
           color: 0x57f287,
           fields: [
@@ -35,7 +35,7 @@ describe("buildDiscordPayload", () => {
     const payload = buildDiscordPayload({
       number: 217,
       title: "大きな変更",
-      url: "https://github.com/engineer-first/idea-flow-app/pull/217",
+      url: "https://github.com/engineer-first/idea-boost/pull/217",
       author: "junhat6",
       baseRef: "develop",
       headRef: "feature/217",

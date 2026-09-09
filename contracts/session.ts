@@ -35,10 +35,10 @@ export type LoginAssertion = z.infer<typeof LoginAssertionSchema>;
 // audience でトークンの用途を分離する。セッショントークンを
 // ログイン主張として（またはその逆に）流用するリプレイを防ぐ。
 export const TOKEN_AUDIENCE = {
-  session: "idea-flow:session",
-  loginAssertion: "idea-flow:login-assertion",
+  session: "idea-boost:session",
+  loginAssertion: "idea-boost:login-assertion",
 } as const;
 
 // セッショントークンを保持する Cookie の名前。
 // Next（発行側）と api-worker（検証側）の両方が参照する。
-export const SESSION_COOKIE_NAME = "idea_flow_session";
+export const SESSION_COOKIE_NAME = "idea_boost_session";

@@ -6,7 +6,7 @@ describe("buildDiscordAssignPayload", () => {
     const payload = buildDiscordAssignPayload({
       number: 219,
       title: "issueがassignされたらDiscordへ通知する",
-      url: "https://github.com/engineer-first/idea-flow-app/issues/219",
+      url: "https://github.com/engineer-first/idea-boost/issues/219",
       assignee: "junhat6",
     });
 
@@ -14,7 +14,7 @@ describe("buildDiscordAssignPayload", () => {
       embeds: [
         {
           title: "#219 issueがassignされたらDiscordへ通知する",
-          url: "https://github.com/engineer-first/idea-flow-app/issues/219",
+          url: "https://github.com/engineer-first/idea-boost/issues/219",
           description: "👤 junhat6 が着手します",
           color: 0x5865f2,
         },

@@ -5,7 +5,7 @@ description: idea-flow-app の PBI issue と、それに紐づく DemoGoal issue
 
 # PBI DemoGoal
 
-`engineer-first/idea-flow-app` に PBI issue 1件と、それに紐づく DemoGoal issue 1件を作成するスキル。
+`engineer-first/idea-boost` に PBI issue 1件と、それに紐づく DemoGoal issue 1件を作成するスキル。
 
 スプリントタスクやバグ issue にはこのスキルを使わない。スプリントタスク・バグは通常 GitHub の GUI から issue テンプレートで作成され、Project の自動追加ワークフローが `Task` / `Bug` の Issue Type を取り込み、デフォルトのワークフローで `Todo` に配置する。
 
@@ -19,7 +19,7 @@ description: idea-flow-app の PBI issue と、それに紐づく DemoGoal issue
 4. `create_planning_issues.py <spec.json>` を実行して issue を作成する。
 5. 作成した2件の issue が以下を満たすことを確認する:
    - Issue Type: `PBI` または `DemoGoal`
-   - Project: `idea-flow-app`
+   - Project: `idea-boost`
    - Status: PBI は `PBI`、デモゴールは `Demo Goal`
 6. 作成した issue の URL と、Project フィールドの確認結果を報告する。
 
@@ -100,7 +100,7 @@ description: idea-flow-app の PBI issue と、それに紐づく DemoGoal issue
 
 ```json
 {
-  "repo": "engineer-first/idea-flow-app",
+  "repo": "engineer-first/idea-boost",
   "project_owner": "engineer-first",
   "project_number": 3,
   "milestone": "Sprint 2",

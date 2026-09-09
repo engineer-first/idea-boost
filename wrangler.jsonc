@@ -3,7 +3,7 @@
   // Next.js アプリ本体の Worker。/api/* は api-worker（workers/wrangler.jsonc）へ
   // サービスバインディングで転送する。ローカルで両方を同時に動かす場合は
   // `npm run preview:cf`（wrangler dev の複数構成起動）を使う。
-  "name": "idea-flow-app",
+  "name": "idea-boost-app",
   "main": "workers/app-worker.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -14,7 +14,7 @@
   "services": [
     {
       "binding": "API_WORKER",
-      "service": "idea-flow-api"
+      "service": "idea-boost-api"
     }
   ]
 }

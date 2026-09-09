@@ -6,7 +6,7 @@
 import { jwtVerify, SignJWT } from "jose";
 import type { z } from "zod";
 
-const ISSUER = "idea-flow";
+const ISSUER = "idea-boost";
 
 export type SignTokenOptions = {
   secret: string;
