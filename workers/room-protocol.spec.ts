@@ -1351,7 +1351,7 @@ describe("note:drag（エフェメラル同期）", () => {
 });
 
 describe("cursor presence（名前付きの一時同期）", () => {
-  it("共有作業中はサーバー由来の名前・色を付けて他メンバーだけへ中継する", async () => {
+  it("共有作業中はメンバー・付箋と同じサーバー由来の色を付けて他メンバーだけへ中継する", async () => {
     const room = await setupStartedRoom();
     const noteId = await createNote(room);
     await arrangeStep(room.owner, 2);
@@ -1367,6 +1367,18 @@ describe("cursor presence（名前付きの一時同期）", () => {
     });
 
     const received = await expectType(room.member, "cursor:updated");
+    const assignedColors = await runInRoomDO(
+      room.roomId,
+      (_instance, state) => {
+        const member = state.storage.sql
+          .exec("SELECT color FROM members WHERE user_id = ?1", OWNER.sub)
+          .toArray()[0] as { color: string } | undefined;
+        const note = state.storage.sql
+          .exec("SELECT color FROM notes WHERE id = ?1", noteId)
+          .toArray()[0] as { color: string } | undefined;
+        return { member: member?.color, note: note?.color };
+      },
+    );
     expect(received.cursor).toEqual({
       userId: OWNER.sub,
       name: OWNER.name,
@@ -1375,6 +1387,8 @@ describe("cursor presence（名前付きの一時同期）", () => {
       y: 240,
       draggingNoteId: noteId,
     });
+    expect(received.cursor.color).toBe(assignedColors.member);
+    expect(assignedColors.note).toBe(assignedColors.member);
 
     // 送信者にはエコーされない。後続の確定操作が次の受信になる。
     send(room.owner, { type: "note:move", noteId, x: 321, y: 241 });

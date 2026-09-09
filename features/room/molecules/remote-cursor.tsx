@@ -36,20 +36,19 @@ export function RemoteCursor({
       }}
     >
       <MousePointer2
-        className="absolute top-0 left-0 size-5 -translate-x-0.5 -translate-y-0.5 text-slate-950 drop-shadow-sm"
-        style={{ fill: color }}
+        className="absolute top-0 left-0 size-5 -translate-x-0.5 -translate-y-0.5 drop-shadow-sm"
+        style={{ color, fill: color }}
       />
       <div
-        className="absolute top-5 left-3 flex w-max max-w-44 items-center gap-1 rounded-md border border-white/80 bg-slate-950/90 px-2 py-1 text-xs font-medium text-white shadow-md"
-        style={{ transform: `translateY(${labelOffset * 20}px)` }}
+        className="absolute top-5 left-3 flex w-max max-w-44 items-center gap-1 rounded-md border border-slate-950/15 px-2 py-1 text-xs font-medium text-slate-950 shadow-md"
+        style={{
+          backgroundColor: color,
+          transform: `translateY(${labelOffset * 20}px)`,
+        }}
       >
-        <span
-          className="size-2 shrink-0 rounded-full border border-white/80"
-          style={{ backgroundColor: color }}
-        />
         <span className="truncate">{cursor.name || "名前未設定"}</span>
         {cursor.draggingNoteId ? (
-          <span className="shrink-0 text-[10px] text-slate-300">
+          <span className="shrink-0 text-[10px] text-slate-700">
             付箋を移動中
           </span>
         ) : null}

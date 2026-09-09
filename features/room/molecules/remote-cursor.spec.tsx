@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { RemoteCursor } from "./remote-cursor";
 
 describe("RemoteCursor", () => {
@@ -30,5 +31,34 @@ describe("RemoteCursor", () => {
     );
     expect(screen.getByText(/Very Long Participant Name/)).toBeInTheDocument();
     expect(screen.getByText("付箋を移動中")).toBeInTheDocument();
+  });
+
+  it("カーソルと名前ラベルにメンバーの付箋色を適用する", () => {
+    render(
+      <RemoteCursor
+        cursor={{
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 100,
+          y: 200,
+          draggingNoteId: null,
+          lastSeenAt: 1_000,
+        }}
+        isIdle={false}
+      />,
+    );
+
+    const expectedColor = NOTE_COLOR_STYLES.green.backgroundColor;
+    const cursor = screen.getByTestId(
+      "remote-cursor-22222222-2222-4222-8222-222222222222",
+    );
+    expect(cursor.querySelector("svg")).toHaveStyle({
+      color: expectedColor,
+      fill: expectedColor,
+    });
+    expect(screen.getByText("Taro").parentElement).toHaveStyle({
+      backgroundColor: expectedColor,
+    });
   });
 });
