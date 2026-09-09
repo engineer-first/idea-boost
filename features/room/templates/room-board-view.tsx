@@ -18,6 +18,7 @@ import {
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
+import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -45,6 +46,9 @@ export type RoomBoardViewProps = {
   hostUserId: string;
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
+  remoteCursors: RenderedRemoteCursorPresence[];
+  areCursorsVisible: boolean;
+  onToggleCursors: () => void;
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
@@ -93,6 +97,9 @@ export function RoomBoardView({
   hostUserId,
   isNextPhasePending,
   interactions,
+  remoteCursors,
+  areCursorsVisible,
+  onToggleCursors,
   signOutAction,
   hmwDecidedIssue,
   decidedHmw,
@@ -189,6 +196,8 @@ export function RoomBoardView({
     onFitToNotes: fitToNotes,
     onPointerMove: handlePointerMove,
     onPointerEnd: handlePointerEnd,
+    onPresencePointerMove: handlePresencePointerMove,
+    onPresencePointerLeave: handlePresencePointerLeave,
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
@@ -260,6 +269,8 @@ export function RoomBoardView({
         onCanvasPointerDown={handleCanvasPointerDown}
         onCanvasPointerMove={handleCanvasPointerMove}
         onCanvasPointerEnd={handleCanvasPointerEnd}
+        onPresencePointerMove={handlePresencePointerMove}
+        onPresencePointerLeave={handlePresencePointerLeave}
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
         onResetZoom={resetZoom}
@@ -279,6 +290,9 @@ export function RoomBoardView({
         onPrivateNoteContentChange={onPrivateNoteContentChange}
         onPrivateNoteDelete={onPrivateNoteDelete}
         onPrivateNoteDragStart={handlePrivateDragStart}
+        remoteCursors={remoteCursors}
+        areCursorsVisible={areCursorsVisible}
+        onToggleCursors={onToggleCursors}
       />
 
       <VoteTotalingDialog

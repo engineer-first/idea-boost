@@ -36,6 +36,8 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onCanvasPointerDown: vi.fn(),
     onCanvasPointerMove: vi.fn(),
     onCanvasPointerEnd: vi.fn(),
+    onPresencePointerMove: vi.fn(),
+    onPresencePointerLeave: vi.fn(),
     onZoomIn: vi.fn(),
     onZoomOut: vi.fn(),
     onResetZoom: vi.fn(),
@@ -55,6 +57,9 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onPrivateNoteContentChange: vi.fn(),
     onPrivateNoteDelete: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
+    remoteCursors: [],
+    areCursorsVisible: true,
+    onToggleCursors: vi.fn(),
     ...overrides,
   };
   render(<RoomBoardCanvas {...props} />);
@@ -62,6 +67,53 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("他ユーザーの名前付きカーソルを表示し、表示を切り替えられる", () => {
+    const onToggleCursors = vi.fn();
+    setup({
+      remoteCursors: [
+        {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 120,
+          y: 240,
+          draggingNoteId: null,
+          lastSeenAt: Date.now(),
+          isIdle: false,
+        },
+      ],
+      onToggleCursors,
+    });
+
+    expect(screen.getByText("Taro")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "参加者のカーソルを非表示にする" }),
+    );
+    expect(onToggleCursors).toHaveBeenCalledOnce();
+  });
+
+  it("パン・ズーム後の camera で board 座標を画面座標へ変換する", () => {
+    setup({
+      camera: { x: 30, y: -20, zoom: 2 },
+      remoteCursors: [
+        {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 100,
+          y: 200,
+          draggingNoteId: null,
+          lastSeenAt: Date.now(),
+          isIdle: false,
+        },
+      ],
+    });
+
+    expect(
+      screen.getByTestId("remote-cursor-22222222-2222-4222-8222-222222222222"),
+    ).toHaveStyle({ transform: "translate3d(230px, 380px, 0)" });
+  });
+
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
 

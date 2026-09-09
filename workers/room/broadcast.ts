@@ -14,6 +14,7 @@ import { visibleTo } from "../visibility";
 // ハイバネーション復帰後も deserializeAttachment で取り出せる。
 export type SocketAttachment = {
   userId: string;
+  hasCursor?: boolean;
 };
 
 export class RoomBroadcaster {

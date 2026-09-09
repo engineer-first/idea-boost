@@ -82,6 +82,8 @@ export function applyServerMessage(
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "cursor:updated":
+    case "cursor:left":
     case "error": {
       // ノート以外の状態は別リデューサが担当する（room-reducer.ts）。
       // グループ・フェーズの同期は RoomBoard 側で管理するため、ここでは付箋状態を変えない。

@@ -59,6 +59,8 @@ const INTERACTIONS: RoomBoardInteractions = {
   onCanvasPointerDown: fn(),
   onCanvasPointerMove: fn(),
   onCanvasPointerEnd: fn(),
+  onPresencePointerMove: fn(),
+  onPresencePointerLeave: fn(),
   onZoomIn: fn(),
   onZoomOut: fn(),
   onResetZoom: fn(),
@@ -121,6 +123,9 @@ const meta = {
     onTimerResume: fn(),
     onTimerExtend: fn(),
     onTimerStop: fn(),
+    remoteCursors: [],
+    areCursorsVisible: true,
+    onToggleCursors: fn(),
   },
   decorators: [
     (Story) => (

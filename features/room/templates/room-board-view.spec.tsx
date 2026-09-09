@@ -39,6 +39,8 @@ function buildInteractions(
     onCanvasPointerDown: vi.fn(),
     onCanvasPointerMove: vi.fn(),
     onCanvasPointerEnd: vi.fn(),
+    onPresencePointerMove: vi.fn(),
+    onPresencePointerLeave: vi.fn(),
     onZoomIn: vi.fn(),
     onZoomOut: vi.fn(),
     onResetZoom: vi.fn(),
@@ -89,6 +91,9 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     onNoteDecide: vi.fn(),
     connectionStatus: "open" as const,
     groups: [],
+    remoteCursors: [],
+    areCursorsVisible: true,
+    onToggleCursors: vi.fn(),
     ...overrides,
   } as RoomBoardViewProps;
   const resolvedProps: RoomBoardViewProps = {

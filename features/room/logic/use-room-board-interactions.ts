@@ -13,8 +13,11 @@ import {
 } from "@/contracts/phase";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "./board-permissions";
-import type { CanvasCamera } from "./canvas-camera";
-import { clampIdeaValueFeasibilityMapCoordinate } from "./idea-value-feasibility-map";
+import { type CanvasCamera, clampCanvasCoordinate } from "./canvas-camera";
+import {
+  clampIdeaValueFeasibilityMapCoordinate,
+  getIdeaValueFeasibilityMapPointFromClientPosition,
+} from "./idea-value-feasibility-map";
 import { roomNotify } from "./room-notify";
 import { useBoardDrag } from "./use-board-drag";
 import { useCanvasCamera } from "./use-canvas-camera";
@@ -31,6 +34,11 @@ export type UseRoomBoardInteractionsArgs = {
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
   onPrivateNoteUnpublish: (noteId: string) => void;
+  onCursorMove: (
+    point: { x: number; y: number },
+    draggingNoteId: string | null,
+  ) => void;
+  onCursorLeave: () => void;
 };
 
 export type RoomBoardInteractions = {
@@ -54,6 +62,8 @@ export type RoomBoardInteractions = {
   onFitToNotes: () => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPresencePointerLeave: () => void;
   onNoteDragStart: (
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
@@ -75,6 +85,8 @@ export function useRoomBoardInteractions({
   onNoteDragEnd,
   onPrivateNotePublish,
   onPrivateNoteUnpublish,
+  onCursorMove,
+  onCursorLeave,
 }: UseRoomBoardInteractionsArgs): RoomBoardInteractions {
   const boardRootRef = useRef<HTMLDivElement>(null);
   const boardScrollerRef = useRef<HTMLDivElement>(null);
@@ -112,6 +124,8 @@ export function useRoomBoardInteractions({
     isPhaseStep(phase, 3, 2) ||
     isPhaseStep(phase, 3, 3) ||
     getBoardPermissions(phase).canMoveNote;
+  const isIdeaMapCursorSurface =
+    phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
 
   const {
     drag,
@@ -154,6 +168,72 @@ export function useRoomBoardInteractions({
       note.id !== draggingNoteId,
   );
 
+  const presencePointFromPointer = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    const target = event.target as HTMLElement;
+    if (
+      event.pointerType === "touch" ||
+      target.closest(
+        "input, textarea, select, [contenteditable='true'], [data-cursor-private='true']",
+      )
+    ) {
+      return null;
+    }
+    const surface = isIdeaMapCursorSurface
+      ? ideaMapPlaneRef.current
+      : boardScrollerRef.current;
+    const bounds = surface?.getBoundingClientRect();
+    if (
+      !bounds ||
+      event.clientX < bounds.left ||
+      event.clientX > bounds.right ||
+      event.clientY < bounds.top ||
+      event.clientY > bounds.bottom
+    ) {
+      return null;
+    }
+    const mapPoint = isIdeaMapCursorSurface
+      ? getIdeaValueFeasibilityMapPointFromClientPosition(
+          event.clientX,
+          event.clientY,
+          bounds,
+        )
+      : null;
+    const point = isIdeaMapCursorSurface
+      ? mapPoint
+        ? { x: mapPoint.feasibility, y: mapPoint.value }
+        : null
+      : pointFromClient(event.clientX, event.clientY);
+    if (!point) return null;
+    const clamp = isIdeaValueFeasibilityMappingStep
+      ? clampIdeaValueFeasibilityMapCoordinate
+      : clampCanvasCoordinate;
+    return { x: clamp(point.x), y: clamp(point.y) };
+  };
+
+  const handlePresencePointerMove = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    const point = presencePointFromPointer(event);
+    if (!point) {
+      onCursorLeave();
+      return;
+    }
+    onCursorMove(point, drag?.status === "shared" ? drag.note.id : null);
+  };
+
+  const handleBoardPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    handlePointerEnd(event);
+    const point = presencePointFromPointer(event);
+    if (point) {
+      // ドラッグ終了は次の pointermove を待たず、操作対象を即座に解除する。
+      onCursorMove(point, null);
+    } else {
+      onCursorLeave();
+    }
+  };
+
   return {
     boardRootRef,
     boardScrollerRef,
@@ -175,7 +255,9 @@ export function useRoomBoardInteractions({
     onResetZoom: resetZoom,
     onFitToNotes: fitToNotes,
     onPointerMove: handlePointerMove,
-    onPointerEnd: handlePointerEnd,
+    onPointerEnd: handleBoardPointerEnd,
+    onPresencePointerMove: handlePresencePointerMove,
+    onPresencePointerLeave: onCursorLeave,
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: handlePrivateDragStart,
   };

@@ -18,6 +18,7 @@ import { useNoteGroups, useRoomNotes } from "@/features/notes";
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import type { Member } from "../logic/room-reducer";
+import { useCursorPresence } from "../logic/use-cursor-presence";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
@@ -71,6 +72,12 @@ export function RoomBoard({
   const notes = useRoomNotes({ send });
   const noteGroups = useNoteGroups({ send });
   const roomState = useRoomState({ initialMembers, initialPhase });
+  const cursorPresence = useCursorPresence({
+    currentUserId,
+    phase: roomState.phase,
+    connectionStatus,
+    send,
+  });
 
   function handleServerMessage(message: ServerMessage) {
     const receivedAt = Date.now();
@@ -101,6 +108,7 @@ export function RoomBoard({
     notes.applyMessage(message);
     noteGroups.applyMessage(message);
     roomState.applyMessage(message, receivedAt);
+    cursorPresence.applyMessage(message, receivedAt);
   }
 
   const handleNextPhase = useCallback(() => {
@@ -195,6 +203,8 @@ export function RoomBoard({
     onNoteDragEnd: notes.endNoteDrag,
     onPrivateNotePublish: notes.publishNote,
     onPrivateNoteUnpublish: notes.unpublishNote,
+    onCursorMove: cursorPresence.updateCursor,
+    onCursorLeave: cursorPresence.leaveCanvas,
   });
 
   return (
@@ -224,6 +234,9 @@ export function RoomBoard({
         isNextPhasePending={isNextPhasePending}
         signOutAction={signOutAction}
         interactions={boardInteractions}
+        remoteCursors={cursorPresence.remoteCursors}
+        areCursorsVisible={cursorPresence.areCursorsVisible}
+        onToggleCursors={cursorPresence.toggleCursors}
         onAddPrivateNote={handleAddPrivateNote}
         onHmwTemplateSelect={handleHmwTemplateSelect}
         onIdeaHintSelect={handleIdeaHintSelect}

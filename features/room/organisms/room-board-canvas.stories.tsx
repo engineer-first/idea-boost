@@ -9,6 +9,7 @@ import {
   buildNotes,
 } from "@/contracts/room-protocol.fixture";
 import { getBoardPermissions } from "../logic/board-permissions";
+import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
 const STEP_1_1 = buildPhaseStep(1);
@@ -17,6 +18,38 @@ const STEP_1_3 = buildPhaseStep(3);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
 const STEP_3_2 = buildPhaseStep(2, 3);
+const REMOTE_CURSORS: RenderedRemoteCursorPresence[] = [
+  {
+    userId: "22222222-2222-4222-8222-222222222222",
+    name: "Taro Yamada",
+    color: "green",
+    x: 120,
+    y: 180,
+    draggingNoteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    lastSeenAt: Date.now(),
+    isIdle: false,
+  },
+  {
+    userId: "33333333-3333-4333-8333-333333333333",
+    name: "A Participant With An Extremely Long Display Name",
+    color: "zinc",
+    x: 120,
+    y: 180,
+    draggingNoteId: null,
+    lastSeenAt: Date.now() - 10_000,
+    isIdle: true,
+  },
+  ...(["blue", "pink", "orange", "purple"] as const).map((color, index) => ({
+    userId: `${index + 4}${"0".repeat(7)}-0000-4000-8000-000000000000`,
+    name: `Member ${index + 4}`,
+    color,
+    x: 300 + index * 140,
+    y: 120 + index * 80,
+    draggingNoteId: null,
+    lastSeenAt: Date.now(),
+    isIdle: false,
+  })),
+];
 
 const meta = {
   title: "Room/RoomBoardCanvas",
@@ -49,6 +82,8 @@ const meta = {
     onCanvasPointerDown: fn(),
     onCanvasPointerMove: fn(),
     onCanvasPointerEnd: fn(),
+    onPresencePointerMove: fn(),
+    onPresencePointerLeave: fn(),
     onZoomIn: fn(),
     onZoomOut: fn(),
     onResetZoom: fn(),
@@ -68,6 +103,9 @@ const meta = {
     onPrivateNoteContentChange: fn(),
     onPrivateNoteDelete: fn(),
     onPrivateNoteDragStart: fn(),
+    remoteCursors: [],
+    areCursorsVisible: true,
+    onToggleCursors: fn(),
   },
   decorators: [
     (Story) => (
@@ -141,6 +179,16 @@ export const WithPrivateNotes: Story = {
 export const Disconnected: Story = {
   args: {
     isDisconnected: true,
+    remoteCursors: [],
+  },
+};
+
+// 多人数・同位置・長い名前・淡色・idle をまとめて視覚確認する。
+export const ManyRemoteCursors: Story = {
+  args: {
+    phase: STEP_1_2,
+    permissions: getBoardPermissions(STEP_1_2),
+    remoteCursors: REMOTE_CURSORS,
   },
 };
 

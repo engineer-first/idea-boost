@@ -59,6 +59,8 @@ export function applyMemberServerMessage(
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "cursor:updated":
+    case "cursor:left":
     case "error":
       return members;
     default: {
@@ -113,6 +115,8 @@ export function applyDecisionServerMessage(
     case "group:updated":
     case "group:deleted":
     case "timer:updated":
+    case "cursor:updated":
+    case "cursor:left":
     case "error":
       return decision;
     default: {
@@ -157,6 +161,8 @@ export function applyPhaseServerMessage(
     case "group:deleted":
     case "timer:updated":
     case "decision:updated":
+    case "cursor:updated":
+    case "cursor:left":
     case "error":
       return phase;
     default: {

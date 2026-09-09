@@ -1350,6 +1350,121 @@ describe("note:drag（エフェメラル同期）", () => {
   });
 });
 
+describe("cursor presence（名前付きの一時同期）", () => {
+  it("共有作業中はサーバー由来の名前・色を付けて他メンバーだけへ中継する", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+    await arrangeStep(room.owner, 2);
+
+    send(room.owner, {
+      type: "cursor:update",
+      x: 320,
+      y: 240,
+      draggingNoteId: noteId,
+      userId: MEMBER.sub,
+      name: "spoofed",
+      color: "red",
+    });
+
+    const received = await expectType(room.member, "cursor:updated");
+    expect(received.cursor).toEqual({
+      userId: OWNER.sub,
+      name: OWNER.name,
+      color: expect.stringMatching(NOTE_COLOR_PATTERN),
+      x: 320,
+      y: 240,
+      draggingNoteId: noteId,
+    });
+
+    // 送信者にはエコーされない。後続の確定操作が次の受信になる。
+    send(room.owner, { type: "note:move", noteId, x: 321, y: 241 });
+    expect((await room.owner.next()).type).toBe("note:updated");
+
+    room.owner.close();
+    room.member.close();
+  });
+
+  it("個人執筆・ステルス投票ではカーソルを配信しない", async () => {
+    const room = await setupStartedRoom();
+
+    send(room.owner, {
+      type: "cursor:update",
+      x: 10,
+      y: 20,
+      draggingNoteId: null,
+    });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+
+    await arrangeStep(room.owner, 4);
+    send(room.owner, {
+      type: "cursor:update",
+      x: 30,
+      y: 40,
+      draggingNoteId: null,
+    });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+
+    room.owner.close();
+    room.member.close();
+  });
+
+  it("private・存在しない付箋を操作対象として漏らさない", async () => {
+    const room = await setupStartedRoom();
+    send(room.owner, { type: "note:create" });
+    const drafted = await expectType(room.owner, "note:inserted");
+    await arrangeStep(room.owner, 2);
+
+    send(room.owner, {
+      type: "cursor:update",
+      x: 10,
+      y: 20,
+      draggingNoteId: drafted.note.id,
+    });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+
+    room.owner.close();
+    room.member.close();
+  });
+
+  it("cursor:leave と WebSocket 切断を他メンバーへ通知する", async () => {
+    const room = await setupStartedRoom();
+    await arrangeStep(room.owner, 2);
+
+    send(room.owner, { type: "cursor:update", x: 10, y: 20 });
+    await expectType(room.member, "cursor:updated");
+    send(room.owner, { type: "cursor:leave" });
+    expect(await expectType(room.member, "cursor:left")).toEqual({
+      type: "cursor:left",
+      userId: OWNER.sub,
+    });
+
+    send(room.owner, { type: "cursor:update", x: 30, y: 40 });
+    await expectType(room.member, "cursor:updated");
+    room.owner.close();
+    expect(await expectType(room.member, "cursor:left")).toEqual({
+      type: "cursor:left",
+      userId: OWNER.sub,
+    });
+
+    room.member.close();
+  });
+});
+
 describe("入力検証（コントラクト境界）", () => {
   it("不正な JSON は invalid-message エラーになり、接続は維持される", async () => {
     const { owner, member } = await setupStartedRoom();
