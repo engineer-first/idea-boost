@@ -535,8 +535,8 @@ CREATE TABLE rooms (
     <p>
       部品が出揃ったので、実際の構成を通して見ます。このリポジトリには Worker が<strong>2つ</strong>あります
       （<span class="mono">wrangler.jsonc</span> が2枚あるのはこのため）。
-      Next.js アプリ本体を配る <code>idea-boost-app</code>（app-worker）と、
-      データへの唯一の入口 <code>idea-boost-api</code>（api-worker）です。
+      Next.js アプリ本体を配る <code>idea-flow-app</code>（app-worker）と、
+      データへの唯一の入口 <code>idea-flow-api</code>（api-worker）です。
     </p>
   </div>
 
@@ -545,13 +545,13 @@ CREATE TABLE rooms (
       <div class="flow-row">
         <div class="node"><span class="tag">BROWSER</span><span class="name">Next.js UI</span><span class="sub">app/ + lib/room-client</span></div>
         <span class="arrow"><span class="lbl">HTTPS / WS</span>→</span>
-        <div class="node orange"><span class="tag">WORKER ①</span><span class="name">idea-boost-app</span><span class="sub">app-worker.ts<br>Next.js を配信</span></div>
+        <div class="node orange"><span class="tag">WORKER ①</span><span class="name">idea-flow-app</span><span class="sub">app-worker.ts<br>Next.js を配信</span></div>
         <span class="arrow"><span class="lbl">/api/* を転送<br>Service Binding</span>→</span>
-        <div class="node orange"><span class="tag">WORKER ②</span><span class="name">idea-boost-api</span><span class="sub">api-worker.ts<br>セッション検証・認可</span></div>
+        <div class="node orange"><span class="tag">WORKER ②</span><span class="name">idea-flow-api</span><span class="sub">api-worker.ts<br>セッション検証・認可</span></div>
         <div class="flow-col" style="gap: 0.8rem">
           <div class="flow-row">
             <span class="arrow"><span class="lbl">env.DB</span>→</span>
-            <div class="node store"><span class="tag">D1</span><span class="name">idea-boost-lobby</span><span class="sub">users / rooms</span></div>
+            <div class="node store"><span class="tag">D1</span><span class="name">idea-flow-lobby</span><span class="sub">users / rooms</span></div>
           </div>
           <div class="flow-row">
             <span class="arrow"><span class="lbl">env.ROOM_DO</span>→</span>
@@ -585,7 +585,7 @@ CREATE TABLE rooms (
   "bindings": [{ "name": <span class="s">"ROOM_DO"</span>, "class_name": <span class="s">"RoomDO"</span> }]
 },
 "d1_databases": [
-  { "binding": <span class="s">"DB"</span>, "database_name": <span class="s">"idea-boost-lobby"</span>, ... }
+  { "binding": <span class="s">"DB"</span>, "database_name": <span class="s">"idea-flow-lobby"</span>, ... }
 ]</code></pre>
 
   <div class="why">
@@ -622,7 +622,7 @@ CREATE TABLE rooms (
         </tr>
         <tr>
           <td class="plain">ユーザー・招待コード</td>
-          <td class="cf">D1（idea-boost-lobby）</td>
+          <td class="cf">D1（idea-flow-lobby）</td>
           <td class="plain">ルーム横断で検索する → SQL が必要</td>
         </tr>
         <tr>

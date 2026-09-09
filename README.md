@@ -98,10 +98,10 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 
 2 Worker + D1 + RoomDO 構成です。デプロイ順は **api → app**（`npm run deploy`）。CI と同じ D1 migration → api → app をこの 1 行で実行します。
 
-| Worker           | 設定ファイル             | 役割                                                         |
-| ---------------- | ------------------------ | ------------------------------------------------------------ |
-| `idea-boost-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
-| `idea-boost-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
+| Worker          | 設定ファイル             | 役割                                                         |
+| --------------- | ------------------------ | ------------------------------------------------------------ |
+| `idea-flow-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
+| `idea-flow-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
 
 **本番の更新方法:** `develop` の変更を `release` にマージ（または push）すると GitHub Actions（`deploy.yml`）が自動で D1 migrate → api → app → health を実行します。手動で出すときは `npm run deploy`（`wrangler login` 済みであること）。Actions には `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
 

@@ -456,8 +456,8 @@
     <section id="architecture">
       <h2><span class="num">§</span>アーキテクチャ</h2>
       <p class="lede">
-        本番は 2 つの Cloudflare Worker で構成される。<code>idea-boost-app</code> が配信を、
-        <code>idea-boost-api</code> がデータへの唯一の入口を担う。箱の入れ子は「誰が何を内包し、唯一の到達経路になっているか」を表す。
+        本番は 2 つの Cloudflare Worker で構成される。<code>idea-flow-app</code> が配信を、
+        <code>idea-flow-api</code> がデータへの唯一の入口を担う。箱の入れ子は「誰が何を内包し、唯一の到達経路になっているか」を表す。
       </p>
 
       <div class="diagram">
@@ -469,7 +469,7 @@
         <div class="connector"><span class="arrow">▼</span></div>
 
         <div class="dbox edge">
-          <div class="role"><span class="swatch edge"></span>idea-boost-app Worker <span class="mono" style="font-size:.75rem;color:var(--muted);font-weight:400;">— エッジ配信層</span></div>
+          <div class="role"><span class="swatch edge"></span>idea-flow-app Worker <span class="mono" style="font-size:.75rem;color:var(--muted);font-weight:400;">— エッジ配信層</span></div>
           <div class="entry">main: workers/app-worker.ts</div>
           <div class="note">Next.js（OpenNext ビルド）ハンドラ + 静的アセット配信。<code>/api/*</code> はサービスバインディングで丸ごと転送</div>
           <div class="binding-row"><span class="binding">ASSETS</span><span class="binding">API_WORKER (service binding)</span></div>
@@ -478,13 +478,13 @@
         <div class="connector"><span class="arrow">▼</span><span class="label">API_WORKER サービスバインディング</span></div>
 
         <div class="dbox gateway">
-          <div class="role"><span class="swatch gateway"></span>idea-boost-api Worker <span class="mono" style="font-size:.75rem;color:var(--muted);font-weight:400;">— 唯一のデータ入口</span></div>
+          <div class="role"><span class="swatch gateway"></span>idea-flow-api Worker <span class="mono" style="font-size:.75rem;color:var(--muted);font-weight:400;">— 唯一のデータ入口</span></div>
           <div class="entry">main: workers/api-worker.ts</div>
           <div class="note">すべてのエンドポイントでセッション（または署名済みログイン主張）を要求し、入力を zod で検証</div>
 
           <div class="children">
             <div class="dbox data">
-              <div class="role"><span class="swatch data"></span>D1: idea-boost-lobby</div>
+              <div class="role"><span class="swatch data"></span>D1: idea-flow-lobby</div>
               <div class="note">users / rooms（招待コード → ルーム解決の<b>ディレクトリ</b>だけ）</div>
               <div class="binding-row"><span class="binding">binding: DB</span></div>
             </div>
@@ -644,7 +644,7 @@
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th></th><th class="mono">idea-boost-app</th><th class="mono">idea-boost-api</th></tr></thead>
+          <thead><tr><th></th><th class="mono">idea-flow-app</th><th class="mono">idea-flow-api</th></tr></thead>
           <tbody>
             <tr><td>設定ファイル</td><td class="mono">wrangler.jsonc</td><td class="mono">workers/wrangler.jsonc</td></tr>
             <tr><td>エントリ</td><td class="mono">workers/app-worker.ts</td><td class="mono">workers/api-worker.ts</td></tr>
@@ -657,7 +657,7 @@
       </div>
 
       <ol class="steps">
-        <li><code>wrangler d1 create idea-boost-lobby</code> で D1 を作成し、<code>workers/wrangler.jsonc</code> の <code>database_id</code> を置き換える</li>
+        <li><code>wrangler d1 create idea-flow-lobby</code> で D1 を作成し、<code>workers/wrangler.jsonc</code> の <code>database_id</code> を置き換える</li>
         <li><code>wrangler d1 migrations apply DB --remote --config workers/wrangler.jsonc</code></li>
         <li>両 Worker に同一の <code>SESSION_SECRET</code>（app 側は root の wrangler、api 側は <code>--config workers/wrangler.jsonc</code>）</li>
         <li><code>npm run deploy:api</code> → <code>NEXT_PUBLIC_SITE_URL=… npm run deploy:app</code>（順は api → app）</li>
