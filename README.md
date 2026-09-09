@@ -98,8 +98,8 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 
 2 Worker + D1 + RoomDO 構成です。デプロイ順は **api → app**（`npm run deploy`）。CI と同じ D1 migration → api → app をこの 1 行で実行します。
 
-| Worker          | 設定ファイル             | 役割                                                         |
-| --------------- | ------------------------ | ------------------------------------------------------------ |
+| Worker           | 設定ファイル             | 役割                                                         |
+| ---------------- | ------------------------ | ------------------------------------------------------------ |
 | `idea-boost-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
 | `idea-boost-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
 
