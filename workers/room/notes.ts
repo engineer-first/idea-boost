@@ -7,7 +7,12 @@ import { projectNoteForViewer, visibleTo } from "../visibility";
 import type { RoomBroadcaster } from "./broadcast";
 import { type HandlerCtx, replyNotFound } from "./handler-context";
 import { getPhase } from "./phase";
-import { countNoteVotes, countUserNoteVotes, hasVote } from "./votes";
+import {
+  countNoteVotes,
+  countUserNoteVotes,
+  hasVote,
+  listVoteStickers,
+} from "./votes";
 
 export type NoteRow = {
   id: string;
@@ -212,6 +217,7 @@ export function toProtocolNote(
   row: NoteRow,
   viewerId: string,
 ): ProtocolNote {
+  const phase = getPhase(sql);
   return {
     id: row.id,
     authorId: row.author_id,
@@ -234,6 +240,9 @@ export function toProtocolNote(
         ownCount: countUserNoteVotes(sql, row.id, viewerId, "objective"),
       },
     },
+    dotVoteStickers: isVotingStep(phase)
+      ? listVoteStickers(sql, row.id, viewerId)
+      : listVoteStickers(sql, row.id),
   };
 }
 
@@ -275,6 +284,7 @@ export function broadcastVoteUpdated(
   broadcaster: RoomBroadcaster,
   row: NoteRow,
   userId: string,
+  operationId?: string,
 ): void {
   const phase = getPhase(sql);
   if (!isVotingStep(phase)) {
@@ -288,5 +298,6 @@ export function broadcastVoteUpdated(
       { viewerId, phase },
       toProtocolNote(sql, row, viewerId),
     ),
+    ...(operationId === undefined ? {} : { operationId }),
   }));
 }

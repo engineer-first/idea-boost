@@ -81,6 +81,20 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...presenceHandlers,
 };
 
+function voteOperationIdOf(message: ClientMessage): string | undefined {
+  switch (message.type) {
+    case "note:vote":
+    case "note:vote-reset":
+    case "note:vote-remove":
+    case "note:vote-sticker:add":
+    case "note:vote-sticker:move":
+    case "note:vote-sticker:remove":
+      return message.operationId;
+    default:
+      return undefined;
+  }
+}
+
 export class RoomDO extends DurableObject {
   private readonly broadcaster: RoomBroadcaster;
 
@@ -285,7 +299,11 @@ export class RoomDO extends DurableObject {
     attachment: SocketAttachment,
     message: ClientMessage,
   ): Promise<void> {
-    const ctx = this.createHandlerCtx(ws, attachment.userId);
+    const ctx = this.createHandlerCtx(
+      ws,
+      attachment.userId,
+      voteOperationIdOf(message),
+    );
     const phase = getPhase(this.sql);
     const forbiddenMessage = getBoardMutationForbiddenMessage(phase, message);
     if (forbiddenMessage) {
@@ -306,13 +324,24 @@ export class RoomDO extends DurableObject {
     await handler(ctx, message);
   }
 
-  private createHandlerCtx(ws: WebSocket, userId: string): HandlerCtx {
+  private createHandlerCtx(
+    ws: WebSocket,
+    userId: string,
+    voteOperationId?: string,
+  ): HandlerCtx {
     return {
       sql: this.sql,
       storage: this.ctx.storage,
       userId,
       ws,
-      reply: (message) => this.broadcaster.sendTo(ws, message),
+      reply: (message) =>
+        this.broadcaster.sendTo(
+          ws,
+          message.type === "error" && voteOperationId !== undefined
+            ? { ...message, operationId: voteOperationId }
+            : message,
+        ),
+      voteOperationId,
       broadcaster: this.broadcaster,
       refreshSnapshots: () => this.refreshSnapshots(),
     };

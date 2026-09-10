@@ -74,6 +74,10 @@ function nextRoomPhase(current: RoomPhase): RoomPhase {
 // 掃除する。
 function discardPrivateNotes(sql: SqlStorage): void {
   sql.exec(
+    `DELETE FROM note_vote_stickers
+     WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
+  );
+  sql.exec(
     `DELETE FROM note_votes
      WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
   );
@@ -115,6 +119,10 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:delete":
     case "note:vote":
     case "note:vote-reset":
+    case "note:vote-remove":
+    case "note:vote-sticker:add":
+    case "note:vote-sticker:move":
+    case "note:vote-sticker:remove":
     case "note:decide":
     case "group:create":
     case "group:update-name":
@@ -148,7 +156,14 @@ const allowedBoardMutationsByPhase: {
       "note:drag",
     ],
     3: ["note:move", "note:drag", "group:create", "group:update-name"],
-    4: ["note:vote", "note:vote-reset"],
+    4: [
+      "note:vote",
+      "note:vote-reset",
+      "note:vote-remove",
+      "note:vote-sticker:add",
+      "note:vote-sticker:move",
+      "note:vote-sticker:remove",
+    ],
     5: ["note:decide"],
   },
   2: {
@@ -163,7 +178,14 @@ const allowedBoardMutationsByPhase: {
       "note:move",
       "note:drag",
     ],
-    3: ["note:vote", "note:vote-reset"],
+    3: [
+      "note:vote",
+      "note:vote-reset",
+      "note:vote-remove",
+      "note:vote-sticker:add",
+      "note:vote-sticker:move",
+      "note:vote-sticker:remove",
+    ],
     4: ["note:decide"],
   },
   3: {
@@ -176,7 +198,14 @@ const allowedBoardMutationsByPhase: {
       "note:drag",
     ],
     3: ["note:move", "note:drag"],
-    4: ["note:vote", "note:vote-reset"],
+    4: [
+      "note:vote",
+      "note:vote-reset",
+      "note:vote-remove",
+      "note:vote-sticker:add",
+      "note:vote-sticker:move",
+      "note:vote-sticker:remove",
+    ],
     5: ["note:decide"],
   },
 };

@@ -1200,9 +1200,16 @@ describe("note:vote（課題ドット投票）", () => {
       await expectType(member, "note:updated");
     }
 
-    send(member, { type: "note:vote", noteId: noteIds[3], kind: "objective" });
+    const operationId = "55555555-5555-4555-8555-555555555555";
+    send(member, {
+      type: "note:vote",
+      noteId: noteIds[3] ?? "",
+      kind: "objective",
+      operationId,
+    });
     const error = await expectType(member, "error");
     expect(error.code).toBe("forbidden");
+    expect(error.operationId).toBe(operationId);
 
     member.close();
     const reconnected = await connectRoomAs(MEMBER, roomId);
@@ -1281,6 +1288,152 @@ describe("note:vote（課題ドット投票）", () => {
       ownCount: 0,
     });
     expect(toMember.note.dotVotes.objective).not.toHaveProperty("count");
+
+    owner.close();
+    member.close();
+  });
+
+  it("客観ドットは自分の票だけを1票ずつ取り消せ、操作IDで確定を対応付ける", async () => {
+    const { owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+    const addOperationId = "33333333-3333-4333-8333-333333333333";
+    const removeOperationId = "44444444-4444-4444-8444-444444444444";
+
+    await arrangeStep(owner, 4);
+    send(member, {
+      type: "note:vote",
+      noteId,
+      kind: "objective",
+      operationId: addOperationId,
+    });
+    const added = await expectType(member, "note:updated");
+    expect(added.operationId).toBe(addOperationId);
+
+    send(member, {
+      type: "note:vote-remove",
+      noteId,
+      kind: "objective",
+      operationId: removeOperationId,
+    });
+    const removed = await expectType(member, "note:updated");
+    expect(removed.operationId).toBe(removeOperationId);
+    expect(removed.note.dotVotes.objective).toEqual({
+      votedByMe: false,
+      ownCount: 0,
+    });
+
+    owner.close();
+    member.close();
+  });
+
+  it("シールを付箋上へドロップすると、投票中は本人だけに座標を示し、結果では従来集計へ反映する", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+    const stickerId = "33333333-3333-4333-8333-333333333333";
+    const operationId = "44444444-4444-4444-8444-444444444444";
+
+    await arrangeStep(owner, 4);
+    send(member, {
+      type: "note:vote-sticker:add",
+      noteId,
+      stickerId,
+      kind: "objective",
+      x: 0.25,
+      y: 0.75,
+      operationId,
+    });
+    const duringVoting = await expectType(member, "note:updated");
+
+    expect(duringVoting.operationId).toBe(operationId);
+    expect(duringVoting.note.dotVotes.objective).toEqual({
+      votedByMe: true,
+      ownCount: 1,
+    });
+    expect(duringVoting.note.dotVoteStickers).toEqual([
+      { id: stickerId, kind: "objective", x: 0.25, y: 0.75 },
+    ]);
+
+    await arrangeStep(owner, 5);
+    member.close();
+    const reconnected = await connectRoomAs(MEMBER, roomId);
+    const result = await expectType(reconnected, "snapshot");
+    const resultNote = result.notes.find((note) => note.id === noteId);
+
+    expect(resultNote?.dotVotes.objective.count).toBe(1);
+    expect(resultNote?.dotVoteStickers).toEqual([
+      { id: stickerId, kind: "objective", x: 0.25, y: 0.75 },
+    ]);
+
+    reconnected.close();
+    owner.close();
+  });
+
+  it("投票中は自分のシールを別の付箋へ移動し、個別に削除できる", async () => {
+    const { owner, member } = await setupStartedRoom();
+    const sourceNoteId = await createNote({ owner, member });
+    const targetNoteId = await createNote({ owner, member });
+    const stickerId = "55555555-5555-4555-8555-555555555555";
+    const addOperationId = "66666666-6666-4666-8666-666666666666";
+    const moveOperationId = "77777777-7777-4777-8777-777777777777";
+    const removeOperationId = "88888888-8888-4888-8888-888888888888";
+
+    await arrangeStep(owner, 4);
+    send(member, {
+      type: "note:vote-sticker:add",
+      noteId: sourceNoteId,
+      stickerId,
+      kind: "objective",
+      x: 0.2,
+      y: 0.3,
+      operationId: addOperationId,
+    });
+    await expectType(member, "note:updated");
+
+    send(member, {
+      type: "note:vote-sticker:move",
+      stickerId,
+      noteId: targetNoteId,
+      x: 0.8,
+      y: 0.9,
+      operationId: moveOperationId,
+    });
+    const movedSource = await expectType(member, "note:updated");
+    const movedTarget = await expectType(member, "note:updated");
+
+    expect(movedSource.note).toMatchObject({
+      id: sourceNoteId,
+      dotVotes: {
+        objective: { votedByMe: false, ownCount: 0 },
+      },
+      dotVoteStickers: [],
+    });
+    expect(movedTarget).toMatchObject({
+      operationId: moveOperationId,
+      note: {
+        id: targetNoteId,
+        dotVotes: {
+          objective: { votedByMe: true, ownCount: 1 },
+        },
+        dotVoteStickers: [{ id: stickerId, kind: "objective", x: 0.8, y: 0.9 }],
+      },
+    });
+
+    send(member, {
+      type: "note:vote-sticker:remove",
+      stickerId,
+      operationId: removeOperationId,
+    });
+    const removed = await expectType(member, "note:updated");
+    expect(removed).toMatchObject({
+      operationId: removeOperationId,
+      note: {
+        id: targetNoteId,
+        dotVotes: {
+          objective: { votedByMe: false, ownCount: 0 },
+        },
+        dotVoteStickers: [],
+      },
+    });
 
     owner.close();
     member.close();

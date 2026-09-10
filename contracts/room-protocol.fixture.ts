@@ -45,6 +45,7 @@ export function buildNote(overrides: Partial<ProtocolNote> = {}): ProtocolNote {
       subjective: { count: 0, votedByMe: false, ownCount: 0 },
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
+    dotVoteStickers: [],
     ...overrides,
   };
 }
