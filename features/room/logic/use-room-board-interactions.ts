@@ -50,6 +50,7 @@ export type RoomBoardInteractions = {
   privateNotes: Note[];
   dragGhost: { note: Note; x: number; y: number } | null;
   isReturnDropTarget: boolean;
+  isNoteDragging: boolean;
   camera: CanvasCamera;
   gridStyle: CSSProperties;
   isPanning: boolean;
@@ -244,6 +245,7 @@ export function useRoomBoardInteractions({
     dragGhost,
     isReturnDropTarget:
       drag?.status === "shared" && drag.note.authorId === currentUserId,
+    isNoteDragging: drag !== null,
     camera,
     gridStyle,
     isPanning,

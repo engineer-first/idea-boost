@@ -529,9 +529,11 @@ describe("サーバーメッセージ → 画面反映", () => {
       within(toolbar).queryByRole("button", { name: "付箋" }),
     ).toBeInTheDocument();
     const root = screen.getByTestId("room-board-view-root");
+    expect(root).toHaveClass("cursor-grabbing");
     fireEvent.pointerMove(root, { pointerId: 1, clientX: 120, clientY: 140 });
     expect(within(toolbar).queryByRole("button", { name: "付箋" })).toBeNull();
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
+    expect(root).not.toHaveClass("cursor-grabbing");
 
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:publish", noteId: NOTE_ID, x: 120, y: 140 }),

@@ -186,6 +186,7 @@ export function RoomBoardView({
     privateNotes: toolbarNotes,
     dragGhost,
     isReturnDropTarget,
+    isNoteDragging,
     camera,
     gridStyle,
     isPanning,
@@ -209,7 +210,9 @@ export function RoomBoardView({
       ref={boardRootRef}
       data-testid="room-board-view-root"
       data-guide-expanded={String(isGuideExpanded)}
-      className="group/board relative flex h-full flex-col"
+      className={`group/board relative flex h-full flex-col ${
+        isNoteDragging ? "cursor-grabbing" : ""
+      }`}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}

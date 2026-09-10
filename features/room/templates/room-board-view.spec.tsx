@@ -28,6 +28,7 @@ function buildInteractions(
     privateNotes,
     dragGhost: null,
     isReturnDropTarget: false,
+    isNoteDragging: false,
     camera: { x: 0, y: 0, zoom: 1 },
     gridStyle: {
       backgroundImage:

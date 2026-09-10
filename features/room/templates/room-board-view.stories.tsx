@@ -48,6 +48,7 @@ const INTERACTIONS: RoomBoardInteractions = {
   privateNotes: [],
   dragGhost: null,
   isReturnDropTarget: false,
+  isNoteDragging: false,
   camera: { x: 0, y: 0, zoom: 1 },
   gridStyle: {
     backgroundImage:
@@ -154,6 +155,10 @@ export const Empty: Story = {
 export const Dragging: Story = {
   args: {
     draggingNoteId: "note-1",
+    interactions: {
+      ...INTERACTIONS,
+      isNoteDragging: true,
+    },
   },
 };
 
