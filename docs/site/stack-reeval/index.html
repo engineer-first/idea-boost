@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="実装負荷を除外して技術選定を採点し直した意思決定メモ。Cloudflare Workers + Durable Objects を1位とした理由、コスト試算、判断が反転する条件を記録する。">
-<title>IdeaFlow 技術選定の再評価 — 実装負荷を除外した場合</title>
+<title>Idea Boost 技術選定の再評価 — 実装負荷を除外した場合</title>
 <style>
   :root {
     --paper: #FBFAF6;
@@ -391,8 +391,8 @@
 </head>
 <body>
 <div class="wrap">
-  <p class="eyebrow">IdeaFlow — 技術選定メモ / 2026-07-07</p>
-  <h1>実装負荷をゼロと仮定したとき、IdeaFlow のベスト構成はどこに動くか</h1>
+  <p class="eyebrow">Idea Boost — 技術選定メモ / 2026-07-07</p>
+  <h1>実装負荷をゼロと仮定したとき、Idea Boost のベスト構成はどこに動くか</h1>
   <div class="prose">
     <p class="lead">既存の調査（<code>docs/tech-stack-research.md</code>）は「認証の再構築・テスト戦略の再構築・学習コスト」という移行負荷を重く見て、現行の Next.js + Supabase + Vercel 継続を推奨した。本メモはその前提を外し、同じ MVP 要件を<mark>コスト・ユーザビリティ・機能との構造適合・継続性</mark>の4軸だけで採点し直す。</p>
     <div class="callout">

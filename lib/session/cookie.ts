@@ -7,7 +7,7 @@ export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7日
 
 // Google OAuth の state / nonce を保持する一時 Cookie の名前。
 // サインイン開始（Server Action）と callback（Route Handler）で共有する。
-export const OAUTH_STATE_COOKIE = "idea_flow_oauth";
+export const OAUTH_STATE_COOKIE = "idea_boost_oauth";
 
 export async function setSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies();

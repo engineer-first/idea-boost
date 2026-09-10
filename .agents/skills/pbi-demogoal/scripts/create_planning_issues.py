@@ -274,7 +274,7 @@ def render_dry_run(spec):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create idea-flow-app PBI and consolidated DemoGoal issues.")
+    parser = argparse.ArgumentParser(description="Create idea-boost PBI and consolidated DemoGoal issues.")
     parser.add_argument("spec", type=Path, help="Path to a JSON planning spec")
     parser.add_argument("--dry-run", action="store_true", help="Render issue bodies without creating issues")
     args = parser.parse_args()

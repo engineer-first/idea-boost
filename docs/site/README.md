@@ -1,6 +1,6 @@
 # docs/site — GitHub Pages 公開ディレクトリ
 
-このディレクトリ配下がそのまま [https://engineer-first.github.io/idea-flow-app/](https://engineer-first.github.io/idea-flow-app/) として公開される。
+このディレクトリ配下がそのまま [https://engineer-first.github.io/idea-boost/](https://engineer-first.github.io/idea-boost/) として公開される。
 主な読者・書き手は AI エージェント。ここへページを追加・変更する前にこのファイルを読むこと。
 
 ## デプロイの仕組み
@@ -41,4 +41,3 @@
 - 公開済みページの URL（= ディレクトリ名）は変えない。外部にリンクが共有されている前提で扱う。
 - ページの削除・改名は URL を壊す操作なので、ユーザーの明示的な指示があるときだけ行う。
 - 既存ページの内容更新は自由。ただし slug と `<title>` の同一性は保つ（別テーマになるなら新ページとして追加する）。
-

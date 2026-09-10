@@ -59,7 +59,7 @@ import { getTimerState, timerHandlers } from "./timer";
 
 // api-worker がセッション検証済みのユーザーIDを DO へ引き継ぐヘッダー。
 // DO は外部から直接到達できないため、これは常に api-worker が設定する。
-export const USER_ID_HEADER = "X-Idea-Flow-User-Id";
+export const USER_ID_HEADER = "X-Idea-Boost-User-Id";
 
 // ルーム作成者のユーザーID。api-worker が D1 rooms.host_id を解決してセットする。
 // 認可判定（isHostUser）はこのヘッダーを参照せず、常に room_owner だけを見る。
@@ -67,7 +67,7 @@ export const USER_ID_HEADER = "X-Idea-Flow-User-Id";
 // 追加した DO migration は D1 に到達できないため host_id を埋められず、
 // それ以前に作られた旧ルームは WS 接続時にこの値でバックフィルしないと
 // ホスト不在（誰もフェーズを進められない）のまま固定される。
-export const HOST_ID_HEADER = "X-Idea-Flow-Host-Id";
+export const HOST_ID_HEADER = "X-Idea-Boost-Host-Id";
 
 // 全 ClientMessage を網羅するハンドラ表。メッセージ型を追加すると、
 // ここでキー漏れがコンパイルエラーになる（旧 switch の never 網羅性チェック相当）。

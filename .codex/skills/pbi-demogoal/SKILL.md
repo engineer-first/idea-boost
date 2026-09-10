@@ -5,7 +5,7 @@ description: Create idea-flow-app PBI and consolidated DemoGoal GitHub Issues on
 
 # PBI DemoGoal
 
-Use this skill to create one PBI issue and one consolidated DemoGoal issue for `engineer-first/idea-flow-app`.
+Use this skill to create one PBI issue and one consolidated DemoGoal issue for `engineer-first/idea-boost`.
 
 Do not use this skill for sprint task or bug issues. Sprint tasks and bugs are usually created through the GitHub GUI from their issue templates; the Project auto-add workflow imports `Task` and `Bug` issue types and the default workflow places them in `Todo`.
 
@@ -19,7 +19,7 @@ Do not use this skill for sprint task or bug issues. Sprint tasks and bugs are u
 4. Run `create_planning_issues.py <spec.json>` to create the issues.
 5. Verify both created issues have:
    - Issue Type: `PBI` or `DemoGoal`
-   - Project: `idea-flow-app`
+   - Project: `idea-boost`
    - Status: `PBI` for PBI, `Demo Goal` for demo goals
 6. Report the created issue URLs and the Project field verification.
 
@@ -98,7 +98,7 @@ Create a temporary JSON file outside the skill folder, for example under `/tmp`.
 
 ```json
 {
-  "repo": "engineer-first/idea-flow-app",
+  "repo": "engineer-first/idea-boost",
   "project_owner": "engineer-first",
   "project_number": 3,
   "milestone": "Sprint 2",

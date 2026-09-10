@@ -1,6 +1,6 @@
-# PRD（IdeaFlow）
+# PRD（Idea Boost）
 
-> チーム向けアイデア創出支援アプリ **IdeaFlow** のプロダクト要求仕様。
+> チーム向けアイデア創出支援アプリ **Idea Boost** のプロダクト要求仕様。
 > MVP は **デザインスプリント形式**（課題整理 → 問いの作成 → アイデア決定）として具体化した。
 > 本ドキュメントは Wiki 上のインセプションデッキと、[`docs/ds-feature-matrix.md`](./ds-feature-matrix.md) / [`docs/dezain-supurinto.md`](./dezain-supurinto.md) で検討したデザインスプリント設計を統合したものです。
 
@@ -351,9 +351,9 @@ Miro の代替ではなく、**Miro を使いこなす前段階のチーム**に
 
 ### イメージ
 
-実際の画面をそのまま実装するための設計図ではなく、IdeaFlow の見え方・空気感・パッケージとしての印象を共有するためのビジュアルイメージ。
+実際の画面をそのまま実装するための設計図ではなく、Idea Boost の見え方・空気感・パッケージとしての印象を共有するためのビジュアルイメージ。
 
-![IdeaFlow のパッケージデザインイメージ](./images/screen-package-design.png)
+![Idea Boost のパッケージデザインイメージ](./images/screen-package-design.png)
 
 ---
 
@@ -363,9 +363,9 @@ Miro の代替ではなく、**Miro を使いこなす前段階のチーム**に
 - [`docs/dezain-supurinto.md`](./dezain-supurinto.md) — 各フェーズの機能・ガイド設計の詳細
 - [`docs/tech-stack-research.md`](./tech-stack-research.md) — MVP 技術スタック調査
 - 以下のリポジトリ Wiki（インセプションデッキ）
-  - [Home](https://github.com/engineer-first/idea-flow-app/wiki/Home)
-  - [PRD](https://github.com/engineer-first/idea-flow-app/wiki/PRD)
-  - [エレベーターピッチ](https://github.com/engineer-first/idea-flow-app/wiki/エレベーターピッチ)
-  - [ペルソナ](https://github.com/engineer-first/idea-flow-app/wiki/ペルソナ)
-  - [競合との差別化](https://github.com/engineer-first/idea-flow-app/wiki/競合との差別化)
-  - [パッケージデザイン](https://github.com/engineer-first/idea-flow-app/wiki/パッケージデザイン)
+  - [Home](https://github.com/engineer-first/idea-boost/wiki/Home)
+  - [PRD](https://github.com/engineer-first/idea-boost/wiki/PRD)
+  - [エレベーターピッチ](https://github.com/engineer-first/idea-boost/wiki/エレベーターピッチ)
+  - [ペルソナ](https://github.com/engineer-first/idea-boost/wiki/ペルソナ)
+  - [競合との差別化](https://github.com/engineer-first/idea-boost/wiki/競合との差別化)
+  - [パッケージデザイン](https://github.com/engineer-first/idea-boost/wiki/パッケージデザイン)

@@ -2,7 +2,7 @@
 skinparam backgroundColor #FFFFFF
 skinparam defaultFontName sans-serif
 
-title IdeaFlow 全体構成図
+title Idea Boost 全体構成図
 
 actor "ブラウザ" as users
 

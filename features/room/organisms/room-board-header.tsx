@@ -157,7 +157,7 @@ export function RoomBoardHeader({
       >
         <div className="flex h-12 items-center gap-3 px-3">
           <p className="shrink-0 text-sm font-semibold tracking-tight">
-            IdeaFlow
+            Idea Boost
           </p>
           <span aria-hidden="true" className="h-4 w-px bg-border" />
           {context.phaseLabel !== null ? (

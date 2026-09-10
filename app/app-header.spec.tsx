@@ -24,10 +24,10 @@ describe("AppHeader", () => {
     expect(screen.getByTestId("app-header")).toBeInTheDocument();
   });
 
-  it("左に IdeaFlow を表示する", () => {
+  it("左に Idea Boost を表示する", () => {
     render(<AppHeader userName="田中太郎" />);
     expect(screen.getByTestId("app-header-brand")).toHaveTextContent(
-      "IdeaFlow",
+      "Idea Boost",
     );
   });
 
