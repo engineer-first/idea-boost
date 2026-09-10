@@ -28,7 +28,7 @@ export function BoardOperationMatrix({
   permissions,
 }: BoardOperationMatrixProps) {
   return (
-    <div className="rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur-sm">
+    <div className="board-hud rounded-lg border bg-background px-3 py-2 shadow-sm">
       <TooltipProvider>
         <div className="flex items-center gap-4">
           {OPERATIONS.map((operation) => {

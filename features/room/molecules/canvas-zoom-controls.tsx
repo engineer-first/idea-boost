@@ -20,7 +20,7 @@ export function CanvasZoomControls({
 }: CanvasZoomControlsProps) {
   return (
     <fieldset
-      className="pointer-events-auto flex items-center gap-1 rounded-xl border border-border bg-background/85 p-1 shadow-lg shadow-black/5 backdrop-blur-xl"
+      className="board-hud pointer-events-auto flex items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-lg shadow-black/5"
       data-testid="canvas-zoom-controls"
       aria-label="キャンバス表示操作"
     >

@@ -139,7 +139,8 @@ describe("PrivateNotesToolbar", () => {
     expect(toolbar).toHaveAttribute("data-expanded", "true");
     expect(within(toolbar).getByTestId("private-notes-scroll")).toHaveClass(
       "overflow-y-auto",
-      "max-h-[min(44rem,calc(100vh-10rem))]",
+      "min-h-0",
+      "flex-1",
     );
     expect(
       within(toolbar).getByTestId("private-notes-scroll").parentElement,

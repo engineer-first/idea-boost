@@ -89,12 +89,13 @@ describe("RoomBoardHeader", () => {
   it("現在地をキャンバス左上のフローティングHUDに表示する", () => {
     setup({ phase: buildPhaseStep(2) });
 
-    expect(screen.getByTestId("board-context-hud")).toHaveClass(
-      "absolute",
-      "top-3",
-      "left-3",
-      "rounded-xl",
+    expect(screen.getByTestId("board-header-row")).toContainElement(
+      screen.getByTestId("board-context-hud"),
     );
+    expect(screen.getByTestId("board-header-row")).toContainElement(
+      screen.getByTestId("board-control-hud"),
+    );
+    expect(screen.getByTestId("board-context-hud")).not.toHaveClass("absolute");
     expect(screen.getByText("課題整理")).toBeInTheDocument();
     expect(screen.getByText(/Step 2\/5/).parentElement).toHaveClass(
       "whitespace-nowrap",
@@ -180,7 +181,7 @@ describe("RoomBoardHeader", () => {
     const membersButton = within(sessionControls).getByRole("button", {
       name: "参加者 2人",
     });
-    expect(membersButton.parentElement).toHaveClass("backdrop-blur-xl");
+    expect(membersButton.parentElement).toHaveClass("bg-background");
   });
 
   it("投票ステップでも投票パレットを上部HUDには表示しない", () => {

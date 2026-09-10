@@ -23,3 +23,7 @@ export const LongContent: Story = {
     className: "max-w-sm",
   },
 };
+
+export const CompactLongContent: Story = {
+  args: { content: LONG_DECIDED_ISSUE, compact: true },
+};

@@ -9,3 +9,4 @@ export type {
 export { IdeaSupportSidebar } from "./containers/idea-support-sidebar";
 export type { IdeaGuidePanelProps } from "./molecules/idea-guide-panel";
 export { IdeaGuidePanel } from "./molecules/idea-guide-panel";
+export { IdeaSupportSidebarContent } from "./molecules/idea-support-sidebar-content";

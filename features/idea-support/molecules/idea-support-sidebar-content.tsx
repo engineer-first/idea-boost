@@ -1,4 +1,3 @@
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
@@ -45,43 +44,33 @@ export function IdeaSupportSidebarContent({
   }
 
   return (
-    <div className="flex-1 overflow-auto">
-      <Tabs defaultValue={defaultContentId} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+    <div className="px-4 py-2">
+      <Tabs defaultValue={defaultContentId} className="w-full gap-0">
+        <TabsList
+          variant="line"
+          className="grid w-full grid-cols-4 gap-0 border-b border-border p-0 group-data-horizontal/tabs:h-7"
+          aria-label="発想法"
+        >
           {contents.map((item) => (
             <TabsTrigger
               key={item.id}
               value={item.id}
-              className="
-                flex-1
-                rounded-none
-                border-0
-                border-b-2
-                border-transparent
-                bg-transparent
-                shadow-none
-                focus-visible:ring-0
-                data-[state=active]:border-primary
-                data-[state=active]:bg-transparent
-                data-[state=active]:shadow-none
-              "
+              className="h-7 rounded-none px-0 text-xs group-data-horizontal/tabs:after:bottom-0"
             >
               {item.label}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        <Separator />
-
-        <div className="p-4">
+        <div className="pt-2">
           {contents.map((item) => (
             <TabsContent key={item.id} value={item.id}>
-              <h3 className="mb-3 font-semibold">{item.title}</h3>
+              <h3 className="mb-2 font-semibold">{item.title}</h3>
 
-              <ul className="space-y-2">
+              <ul className="list-disc space-y-2 pl-4 marker:text-muted-foreground">
                 {item.content.map((text) => (
-                  <li key={text} className="text-sm">
-                    ・{text}
+                  <li key={text} className="text-sm leading-relaxed">
+                    {text}
                   </li>
                 ))}
               </ul>

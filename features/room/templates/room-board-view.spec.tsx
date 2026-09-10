@@ -116,6 +116,48 @@ function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
 }
 
+describe("1280×720の補助UI", () => {
+  it("左右のパネルを独立して開閉し、同じ付箋とカメラを保つ", () => {
+    const privateNotes = [
+      buildNote({ visibility: "private", content: "書きかけの案" }),
+    ];
+    const { props } = setup({
+      phase: buildPhaseStep(1, 3),
+      interactions: buildInteractions([], privateNotes),
+    });
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "false",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "考えるヒントを閉じる" }),
+    );
+    expect(screen.getByText("書きかけの案")).toBeInTheDocument();
+    expect(screen.queryByTestId("idea-guide-panel")).not.toBeInTheDocument();
+    expect(props.interactions.camera).toEqual({ x: 0, y: 0, zoom: 1 });
+    expect(props.interactions.onResetZoom).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "考えるヒントを開く" }));
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+  });
+
+  it("投票へ進むと執筆用の補助UIを隠し、投票パレットを表示する", () => {
+    const { props, rerender } = setup({ phase: buildPhaseStep(1, 3) });
+    expect(screen.getByTestId("board-help-panel")).toBeInTheDocument();
+    rerender(<RoomBoardView {...props} phase={buildPhaseStep(4, 3)} />);
+    expect(screen.queryByTestId("board-help-panel")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("private-notes-toolbar"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "投票パレット" }),
+    ).toBeInTheDocument();
+  });
+});
+
 function openMembers() {
   fireEvent.click(screen.getByRole("button", { name: /参加者 \d+人/ }));
 }
@@ -296,11 +338,12 @@ describe("RoomBoardView", () => {
     expect(screen.getByTestId("private-notes-dock")).toHaveClass(
       "absolute",
       "bottom-3",
-      "justify-end",
+      "items-end",
+      "right-3",
     );
     expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
       "data-expanded",
-      "true",
+      "false",
     );
   });
 
@@ -565,11 +608,13 @@ describe("RoomBoardView", () => {
   it("現在地と操作HUDをキャンバス上に重ねる", () => {
     setup({ isHost: true });
 
-    expect(screen.getByTestId("board-context-hud")).toHaveClass("absolute");
-    expect(screen.getByTestId("board-progress-rail")).toBeInTheDocument();
-    expect(screen.getByTestId("board-control-hud")).toHaveClass(
+    expect(screen.getByTestId("board-header-row")).toHaveClass(
       "absolute",
-      "top-0",
+      "grid",
+    );
+    expect(screen.getByTestId("board-progress-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("board-header-row")).toContainElement(
+      screen.getByTestId("board-control-hud"),
     );
     expect(screen.getByTestId("room-board-view-root")).toHaveClass("relative");
   });

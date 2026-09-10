@@ -91,8 +91,6 @@ const meta = {
     onResetZoom: fn(),
     onFitToNotes: fn(),
     onSelect: fn(),
-    onHmwTemplateSelect: fn(),
-    onIdeaHintSelect: fn(),
     onNoteDragStart: fn(),
     onNoteContentChange: fn(),
     onNoteDelete: fn(),

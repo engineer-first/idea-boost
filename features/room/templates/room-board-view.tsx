@@ -8,6 +8,7 @@
 // 描画の実体はヘッダー（room-board-header）とボード面（room-board-canvas）が
 // 持ち、この view は UI 状態と表示用 props・コールバックの配線に徹する。
 import {
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -33,9 +34,11 @@ import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
+import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
+import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
 
@@ -172,6 +175,7 @@ export function RoomBoardView({
   onTimerExtend,
   onTimerStop,
 }: RoomBoardViewProps) {
+  const help = useBoardHelp(phase);
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -214,6 +218,15 @@ export function RoomBoardView({
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
   const permissions = getBoardPermissions(phase);
+  const carryoverCount =
+    Number(hmwDecidedIssue !== null) + Number(decidedHmw !== null);
+  const carryTopRem = connectionStatus === "open" ? 4.5 : 6.75;
+  const boardLayoutStyle: CSSProperties & Record<`--${string}`, string> = {
+    "--board-carry-top": `calc(${carryTopRem}rem + var(--board-header-extra))`,
+    "--board-panel-top": `calc(${carryTopRem + carryoverCount * 2.5 + (carryoverCount > 0 ? 0.75 : 0)}rem + var(--board-header-extra))`,
+    "--board-guide-space":
+      isGuideExpanded && phase.kind === "step" ? "12.75rem" : "0rem",
+  };
 
   const voteRemaining = {
     subjective: Math.max(
@@ -492,7 +505,8 @@ export function RoomBoardView({
       ref={boardRootRef}
       data-testid="room-board-view-root"
       data-guide-expanded={String(isGuideExpanded)}
-      className={`group/board relative flex h-full flex-col ${
+      style={boardLayoutStyle}
+      className={`group/board [--board-header-extra:0rem] max-lg:[--board-header-extra:3.5rem] relative flex h-full min-h-0 flex-col overflow-hidden ${
         isNoteDragging
           ? "cursor-grabbing"
           : selectedVoteKind !== null
@@ -570,8 +584,6 @@ export function RoomBoardView({
         onResetZoom={resetZoom}
         onFitToNotes={fitToNotes}
         onSelect={setSelectedNoteId}
-        onHmwTemplateSelect={onHmwTemplateSelect}
-        onIdeaHintSelect={onIdeaHintSelect}
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}
@@ -590,6 +602,13 @@ export function RoomBoardView({
         remoteNoteDrags={remoteNoteDrags}
         areCursorsVisible={areCursorsVisible}
         onToggleCursors={onToggleCursors}
+      />
+
+      <BoardHelpPanel
+        {...help}
+        disabled={isDisconnected}
+        onHmwTemplateSelect={onHmwTemplateSelect}
+        onIdeaHintSelect={onIdeaHintSelect}
       />
 
       {isVotingStep(phase) ? (
