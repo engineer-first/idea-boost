@@ -158,6 +158,16 @@ describe("RoomBoardCanvas", () => {
     });
   });
 
+  it("付箋操作マトリクスを表示する", () => {
+    const phase = buildPhaseStep(1);
+
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+    });
+
+    expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
+  });
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
 
