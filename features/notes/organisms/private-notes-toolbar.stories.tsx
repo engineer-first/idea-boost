@@ -37,6 +37,10 @@ type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {};
 
+export const Collapsed: Story = {
+  args: { defaultExpanded: false },
+};
+
 export const Empty: Story = {
   args: { notes: [] },
 };

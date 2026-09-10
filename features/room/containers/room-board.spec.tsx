@@ -200,6 +200,15 @@ function connectWithSnapshot(
   return { view, socket };
 }
 
+function openPrivateNotesToolbar() {
+  const toolbar = screen.getByTestId("private-notes-toolbar");
+  const openButton = within(toolbar).queryByRole("button", {
+    name: "マイ付箋を開く",
+  });
+  if (openButton) fireEvent.click(openButton);
+  return toolbar;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   navigationMocks.replace.mockReset();
@@ -485,7 +494,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       value: () => ({ left: 0, top: 0, right: 500, bottom: 400 }),
     });
 
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600, clientY: 20 });
     fireEvent.pointerMove(handle, { pointerId: 1, clientX: 605, clientY: 25 });
@@ -517,7 +526,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       value: () => ({ left: 0, top: 0, right: 500, bottom: 400 }),
     });
 
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600, clientY: 20 });
     fireEvent.pointerMove(handle, { pointerId: 1, clientX: 605, clientY: 25 });
@@ -553,7 +562,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     Object.defineProperty(scroller, "getBoundingClientRect", {
       value: () => ({ left: 0, top: 0, right: 500, bottom: 400 }),
     });
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     Object.defineProperty(toolbar, "getBoundingClientRect", {
       value: () => ({ left: 600, top: 0, right: 900, bottom: 600 }),
     });
@@ -596,7 +605,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     Object.defineProperty(scroller, "getBoundingClientRect", {
       value: () => ({ left: 0, top: 0, right: 500, bottom: 400 }),
     });
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     Object.defineProperty(toolbar, "getBoundingClientRect", {
       value: () => ({ left: 600, top: 0, right: 900, bottom: 600 }),
     });
@@ -666,7 +675,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       value: () => ({ left: 0, top: 0, right: 500, bottom: 400 }),
     });
 
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600, clientY: 20 });
@@ -683,7 +692,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(2, 1),
     });
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     Object.defineProperty(toolbar, "getBoundingClientRect", {
       value: () => ({ left: 600, top: 0, right: 900, bottom: 600 }),
     });
@@ -723,7 +732,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(2, 1),
     });
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     Object.defineProperty(toolbar, "getBoundingClientRect", {
       value: () => ({ left: 600, top: 0, right: 900, bottom: 600 }),
     });
@@ -755,7 +764,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(2, 1),
     });
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     Object.defineProperty(toolbar, "getBoundingClientRect", {
       value: () => ({ left: 600, top: 0, right: 900, bottom: 600 }),
     });
@@ -835,7 +844,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     const { socket } = connectWithSnapshot([
       protocolNote({ authorId: OTHER_USER_ID }),
     ]);
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     Object.defineProperty(toolbar, "getBoundingClientRect", {
       value: () => ({ left: 600, top: 0, right: 900, bottom: 600 }),
     });
@@ -1365,7 +1374,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       }),
     });
 
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     Object.defineProperty(handle, "getBoundingClientRect", {
       value: () => ({

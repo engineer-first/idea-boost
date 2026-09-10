@@ -285,6 +285,11 @@ describe("RoomBoardView", () => {
     expect(screen.getByTestId("private-notes-dock")).toHaveClass(
       "absolute",
       "bottom-3",
+      "justify-end",
+    );
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
     );
   });
 
