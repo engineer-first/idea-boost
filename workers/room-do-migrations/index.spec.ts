@@ -14,6 +14,7 @@ import { appliedMigrationIds, dropAllTables, tableNames } from "./test-helpers";
 const USER_A = "11111111-1111-4111-8111-111111111111";
 
 const NORMALIZE_PHASE_MIGRATION_ID = "20260715042808";
+const VOTE_STICKERS_MIGRATION_ID = "20260909044703";
 
 const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 
@@ -22,6 +23,7 @@ const ALL_TABLES = [
   "groups",
   "member_color_assignments",
   "members",
+  "note_vote_stickers",
   "note_votes",
   "notes",
   "room_owner",
@@ -93,6 +95,46 @@ describe("ROOM_DO_MIGRATIONS", () => {
         LEGACY_ROOM_DO_MIGRATION_IDS,
       );
       expect(appliedMigrationIds(state.storage)).toEqual(ALL_MIGRATION_IDS);
+    });
+  });
+
+  it("集約済みの旧票を個別シールへ展開し、二重集計を残さない", async () => {
+    await runInRoomDO("mig-vote-stickers", (_instance, state) => {
+      dropAllTables(state.storage);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.filter(({ id }) => id < VOTE_STICKERS_MIGRATION_ID),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO note_votes (note_id, user_id, kind, created_at, vote_count)
+         VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ?1, 'objective', ?2, 3)`,
+        USER_A,
+        "2026-09-09T00:00:00.000Z",
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      const stickers = state.storage.sql
+        .exec(
+          "SELECT kind, x, y FROM note_vote_stickers WHERE note_id = ?1 ORDER BY x",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        )
+        .toArray();
+      expect(stickers).toHaveLength(3);
+      expect(stickers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: "objective", y: 0.16 }),
+        ]),
+      );
+      expect(
+        state.storage.sql.exec("SELECT COUNT(*) AS count FROM note_votes").one()
+          .count,
+      ).toBe(0);
     });
   });
 
