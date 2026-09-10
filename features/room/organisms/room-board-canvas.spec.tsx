@@ -36,6 +36,8 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onCanvasPointerDown: vi.fn(),
     onCanvasPointerMove: vi.fn(),
     onCanvasPointerEnd: vi.fn(),
+    onPresencePointerMove: vi.fn(),
+    onPresencePointerLeave: vi.fn(),
     onZoomIn: vi.fn(),
     onZoomOut: vi.fn(),
     onResetZoom: vi.fn(),
@@ -55,10 +57,14 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onPrivateNoteContentChange: vi.fn(),
     onPrivateNoteDelete: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
+    remoteCursors: [],
+    remoteNoteDrags: [],
+    areCursorsVisible: true,
+    onToggleCursors: vi.fn(),
     ...overrides,
   };
-  render(<RoomBoardCanvas {...props} />);
-  return props;
+  const { rerender } = render(<RoomBoardCanvas {...props} />);
+  return { props, rerender };
 }
 
 function openPrivateNotesToolbar() {
@@ -71,10 +77,134 @@ function openPrivateNotesToolbar() {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("他ユーザーの名前付きカーソルを表示し、表示を切り替えられる", () => {
+    const onToggleCursors = vi.fn();
+    setup({
+      remoteCursors: [
+        {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 120,
+          y: 240,
+          draggingNoteId: null,
+          lastSeenAt: Date.now(),
+          isIdle: false,
+        },
+      ],
+      onToggleCursors,
+    });
+
+    expect(screen.getByText("Taro")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "参加者のカーソルを非表示にする" }),
+    );
+    expect(onToggleCursors).toHaveBeenCalledOnce();
+  });
+
+  it("パン・ズーム後の camera で board 座標を画面座標へ変換する", () => {
+    setup({
+      camera: { x: 30, y: -20, zoom: 2 },
+      remoteCursors: [
+        {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 100,
+          y: 200,
+          draggingNoteId: null,
+          lastSeenAt: Date.now(),
+          isIdle: false,
+        },
+      ],
+    });
+
+    expect(
+      screen.getByTestId("remote-cursor-22222222-2222-4222-8222-222222222222"),
+    ).toHaveStyle({ transform: "translate3d(230px, 380px, 0)" });
+  });
+
+  it("参加者が離脱しても残ったカーソルの名前ラベル位置を維持する", () => {
+    const firstCursor = {
+      userId: "22222222-2222-4222-8222-222222222222",
+      name: "Taro",
+      color: "green" as const,
+      x: 100,
+      y: 200,
+      draggingNoteId: null,
+      lastSeenAt: Date.now(),
+      isIdle: false,
+    };
+    const remainingCursor = {
+      userId: "33333333-3333-4333-8333-333333333333",
+      name: "Hanako",
+      color: "blue" as const,
+      x: 100,
+      y: 200,
+      draggingNoteId: null,
+      lastSeenAt: Date.now(),
+      isIdle: false,
+    };
+    const { props, rerender } = setup({
+      remoteCursors: [firstCursor, remainingCursor],
+    });
+    const labelTransform =
+      screen.getByText("Hanako").parentElement?.style.transform;
+
+    rerender(<RoomBoardCanvas {...props} remoteCursors={[remainingCursor]} />);
+
+    expect(screen.getByText("Hanako").parentElement).toHaveStyle({
+      transform: labelTransform,
+    });
+  });
+
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
 
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
+  });
+
+  it("noteIdに対応する移動者を付箋本体へ表示する", () => {
+    const note = buildNote({ id: "note-1", color: "yellow" });
+    setup({
+      notes: [note],
+      remoteNoteDrags: [
+        {
+          noteId: note.id,
+          draggedBy: {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "Taro",
+            color: "green",
+          },
+          lastSeenAt: Date.now(),
+        },
+      ],
+    });
+
+    expect(screen.getByRole("status", { name: "Taro が移動中" })).toBeVisible();
+  });
+
+  it("切断中は古い移動者表示を付箋へ出さない", () => {
+    const note = buildNote({ id: "note-1" });
+    setup({
+      notes: [note],
+      isDisconnected: true,
+      remoteNoteDrags: [
+        {
+          noteId: note.id,
+          draggedBy: {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "Taro",
+            color: "green",
+          },
+          lastSeenAt: Date.now(),
+        },
+      ],
+    });
+
+    expect(
+      screen.queryByRole("status", { name: "Taro が移動中" }),
+    ).not.toBeInTheDocument();
   });
 
   it("付箋が 0 件でも共有付箋の空状態メッセージを表示しない", () => {

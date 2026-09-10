@@ -88,6 +88,27 @@ describe("NoteCard", () => {
     expect(textarea.className).not.toContain("dark:text-");
   });
 
+  it("付箋の作者色を保ったまま、移動者色の枠と名前付き表示を重ねる", () => {
+    setup({
+      note: buildNote({ color: "yellow" }),
+      activeDragMember: {
+        userId: "22222222-2222-4222-8222-222222222222",
+        name: "Taro",
+        color: "green",
+      },
+    });
+
+    expect(getCard()).toHaveStyle({
+      backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
+    });
+    expect(screen.getByRole("status", { name: "Taro が移動中" })).toHaveStyle({
+      backgroundColor: NOTE_COLOR_STYLES.green.backgroundColor,
+    });
+    expect(screen.getByTestId("active-note-drag-outline")).toHaveStyle({
+      borderColor: NOTE_COLOR_STYLES.green.backgroundColor,
+    });
+  });
+
   it("本文の入力はコントラクトの上限文字数で制限される", () => {
     // サーバー（RoomDO）は上限超過を invalid-message で黙って拒否するため、
     // UI 側で制限しないと「本人にだけ保存されて見える」分岐が起きる。

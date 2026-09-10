@@ -4,6 +4,7 @@
 // などは feature 内に閉じる。
 
 export type { Note } from "./logic/notes-reducer";
+export type { RemoteNoteDrag } from "./logic/remote-note-drag";
 export { useNoteGroups } from "./logic/use-note-groups";
 export { useRoomNotes } from "./logic/use-room-notes";
 export { NoteCard } from "./molecules/note-card";

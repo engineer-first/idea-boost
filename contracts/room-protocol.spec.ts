@@ -392,6 +392,70 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("note:drag は移動者情報をクライアントから受け取らない", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:drag",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        x: 100,
+        y: 200,
+        draggedBy: {
+          userId: USER_B,
+          name: "spoofed",
+          color: "red",
+        },
+      }),
+    ).toEqual({
+      type: "note:drag",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      x: 100,
+      y: 200,
+    });
+  });
+
+  it("cursor:update はボード座標と共有付箋の操作対象だけを受け入れる", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "cursor:update",
+        x: -400,
+        y: 300,
+        draggingNoteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        userId: USER_B,
+        name: "spoofed",
+      }),
+    ).toEqual({
+      type: "cursor:update",
+      x: -400,
+      y: 300,
+      draggingNoteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+  });
+
+  it("cursor:update は範囲外座標と不正な操作対象を拒否する", () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "cursor:update",
+        x: 1_000_001,
+        y: 0,
+        draggingNoteId: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "cursor:update",
+        x: 0,
+        y: 0,
+        draggingNoteId: "private-note",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("cursor:leave はペイロードなしで受け入れる", () => {
+    expect(ClientMessageSchema.parse({ type: "cursor:leave" })).toEqual({
+      type: "cursor:leave",
+    });
+  });
+
   it("timer:start は 1ms〜99分59秒だけを受け入れる", () => {
     expect(
       ClientMessageSchema.parse({ type: "timer:start", durationMs: 1 }),
@@ -545,6 +609,76 @@ describe("ClientMessageSchema", () => {
 });
 
 describe("parseServerMessage", () => {
+  it("note:drag はサーバーが付与した移動者の名前と色を受け入れる", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({
+          type: "note:drag",
+          noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          x: 100,
+          y: 200,
+          draggedBy: {
+            userId: USER_B,
+            name: "Taro",
+            color: "green",
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "note:drag",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      x: 100,
+      y: 200,
+      draggedBy: {
+        userId: USER_B,
+        name: "Taro",
+        color: "green",
+      },
+    });
+  });
+
+  it("名前と色をサーバーが付与した cursor:updated を受け入れる", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({
+          type: "cursor:updated",
+          cursor: {
+            userId: USER_B,
+            name: "Taro",
+            color: "green",
+            x: 120,
+            y: 240,
+            draggingNoteId: null,
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "cursor:updated",
+      cursor: {
+        userId: USER_B,
+        name: "Taro",
+        color: "green",
+        x: 120,
+        y: 240,
+        draggingNoteId: null,
+      },
+    });
+  });
+
+  it("cursor:left は UUID の userId だけを受け入れる", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({ type: "cursor:left", userId: USER_B }),
+      ),
+    ).toEqual({ type: "cursor:left", userId: USER_B });
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "cursor:left",
+        userId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
   it("正常な JSON 文字列をパースしてオブジェクトを返す", () => {
     expect(
       parseServerMessage(

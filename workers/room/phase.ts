@@ -119,6 +119,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "group:create":
     case "group:update-name":
       return true;
+    case "cursor:update":
+    case "cursor:leave":
     case "start_phase":
     case "phase:next":
     case "timer:start":

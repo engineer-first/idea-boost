@@ -13,6 +13,12 @@ import { buildNote } from "@/contracts/room-protocol.fixture";
 import { useRoomNotes } from "./use-room-notes";
 
 const NOTE_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
+const DRAGGED_BY = {
+  userId: MEMBER_ID,
+  name: "Taro",
+  color: "green" as const,
+};
 
 function snapshotMessage(
   notes: ProtocolNote[] = [buildNote({ id: NOTE_ID })],
@@ -51,6 +57,92 @@ describe("useRoomNotes", () => {
     act(() => result.current.applyMessage(snapshotMessage()));
     expect(result.current.notes).toHaveLength(1);
     expect(result.current.notes[0]?.id).toBe(NOTE_ID);
+  });
+
+  it("note:drag から付箋ごとの移動者を保持する", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag",
+        noteId: NOTE_ID,
+        x: 200,
+        y: 300,
+        draggedBy: DRAGGED_BY,
+      }),
+    );
+
+    expect(result.current.remoteNoteDrags).toEqual([
+      {
+        noteId: NOTE_ID,
+        draggedBy: DRAGGED_BY,
+        lastSeenAt: expect.any(Number),
+      },
+    ]);
+  });
+
+  it.each([
+    {
+      name: "ドロップ確定",
+      message: {
+        type: "note:updated",
+        note: buildNote({ id: NOTE_ID, x: 210, y: 310 }),
+      } as ServerMessage,
+    },
+    {
+      name: "カーソル退出",
+      message: { type: "cursor:left", userId: MEMBER_ID } as ServerMessage,
+    },
+    {
+      name: "メンバー退出",
+      message: { type: "member_left", userId: MEMBER_ID } as ServerMessage,
+    },
+    {
+      name: "フェーズ遷移",
+      message: {
+        type: "phase:updated",
+        phase: buildPhaseStep(3),
+      } as ServerMessage,
+    },
+    {
+      name: "snapshot再同期",
+      message: snapshotMessage(),
+    },
+  ])("$name で移動者表示を解除する", ({ message }) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag",
+        noteId: NOTE_ID,
+        x: 200,
+        y: 300,
+        draggedBy: DRAGGED_BY,
+      }),
+    );
+
+    act(() => result.current.applyMessage(message));
+
+    expect(result.current.remoteNoteDrags).toEqual([]);
+  });
+
+  it("後続イベントが途切れた移動者表示を短いタイムアウトで解除する", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag",
+        noteId: NOTE_ID,
+        x: 200,
+        y: 300,
+        draggedBy: DRAGGED_BY,
+      }),
+    );
+
+    act(() => vi.advanceTimersByTime(4_000));
+
+    expect(result.current.remoteNoteDrags).toEqual([]);
   });
 
   it("moveNote は楽観反映し、note:drag をスロットル送信する", () => {
@@ -104,6 +196,7 @@ describe("useRoomNotes", () => {
         noteId: NOTE_ID,
         x: 10,
         y: 20,
+        draggedBy: DRAGGED_BY,
       }),
     );
 

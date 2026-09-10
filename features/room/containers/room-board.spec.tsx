@@ -261,6 +261,42 @@ describe("メンバー参加・退出の通知", () => {
 });
 
 describe("サーバーメッセージ → 画面反映", () => {
+  it("共有作業中だけ他者のカーソルを表示し、切断時に消す", () => {
+    const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(2) });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "cursor:updated",
+        cursor: {
+          userId: OTHER_USER_ID,
+          name: "Taro",
+          color: "green",
+          x: 30,
+          y: 40,
+          draggingNoteId: null,
+        },
+      }),
+    );
+    expect(screen.getByText("Taro")).toBeInTheDocument();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "cursor:updated",
+        cursor: {
+          userId: USER_ID,
+          name: "Self",
+          color: "yellow",
+          x: 50,
+          y: 60,
+          draggingNoteId: null,
+        },
+      }),
+    );
+    expect(screen.queryByText("Self")).not.toBeInTheDocument();
+
+    act(() => socket.simulateUnexpectedClose());
+    expect(screen.queryByText("Taro")).not.toBeInTheDocument();
+  });
+
   it("snapshot のタイマーを表示し、ホスト操作を timer:* として送る", () => {
     const { socket } = connectWithSnapshot([]);
 
@@ -502,9 +538,11 @@ describe("サーバーメッセージ → 画面反映", () => {
       within(toolbar).queryByRole("button", { name: "付箋" }),
     ).toBeInTheDocument();
     const root = screen.getByTestId("room-board-view-root");
+    expect(root).toHaveClass("cursor-grabbing");
     fireEvent.pointerMove(root, { pointerId: 1, clientX: 120, clientY: 140 });
     expect(within(toolbar).queryByRole("button", { name: "付箋" })).toBeNull();
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
+    expect(root).not.toHaveClass("cursor-grabbing");
 
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:publish", noteId: NOTE_ID, x: 120, y: 140 }),
@@ -1441,6 +1479,11 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 210,
     });
 
-    expect(socket.sent).toHaveLength(0);
+    expect(
+      socket.sent.map((payload) => JSON.parse(payload).type),
+    ).not.toContain("note:drag");
+    expect(
+      socket.sent.map((payload) => JSON.parse(payload).type),
+    ).not.toContain("note:move");
   });
 });

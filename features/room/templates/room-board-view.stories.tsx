@@ -48,6 +48,7 @@ const INTERACTIONS: RoomBoardInteractions = {
   privateNotes: [],
   dragGhost: null,
   isReturnDropTarget: false,
+  isNoteDragging: false,
   camera: { x: 0, y: 0, zoom: 1 },
   gridStyle: {
     backgroundImage:
@@ -59,6 +60,8 @@ const INTERACTIONS: RoomBoardInteractions = {
   onCanvasPointerDown: fn(),
   onCanvasPointerMove: fn(),
   onCanvasPointerEnd: fn(),
+  onPresencePointerMove: fn(),
+  onPresencePointerLeave: fn(),
   onZoomIn: fn(),
   onZoomOut: fn(),
   onResetZoom: fn(),
@@ -121,6 +124,10 @@ const meta = {
     onTimerResume: fn(),
     onTimerExtend: fn(),
     onTimerStop: fn(),
+    remoteCursors: [],
+    remoteNoteDrags: [],
+    areCursorsVisible: true,
+    onToggleCursors: fn(),
   },
   decorators: [
     (Story) => (
@@ -148,6 +155,10 @@ export const Empty: Story = {
 export const Dragging: Story = {
   args: {
     draggingNoteId: "note-1",
+    interactions: {
+      ...INTERACTIONS,
+      isNoteDragging: true,
+    },
   },
 };
 

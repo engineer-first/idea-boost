@@ -70,6 +70,18 @@ export const Dragging: Story = {
   },
 };
 
+// 共有付箋の作者色（黄色）は維持し、現在の移動者色（緑）を枠と名前に使う。
+export const DraggedByAnotherMember: Story = {
+  args: {
+    note: buildNote({ color: "yellow" }),
+    activeDragMember: {
+      userId: "22222222-2222-4222-8222-222222222222",
+      name: "Taro Yamada",
+      color: "green",
+    },
+  },
+};
+
 export const Voted: Story = {
   args: {
     note: buildNote({

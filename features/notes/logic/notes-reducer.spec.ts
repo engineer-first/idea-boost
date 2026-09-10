@@ -9,6 +9,11 @@ import {
 } from "./notes-reducer";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
+const DRAGGED_BY = {
+  userId: "22222222-2222-4222-8222-222222222222",
+  name: "Taro",
+  color: "green" as const,
+};
 
 const note: Note = {
   id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
@@ -185,6 +190,7 @@ describe("applyServerMessage", () => {
       noteId: existing.id,
       x: 42,
       y: 84,
+      draggedBy: DRAGGED_BY,
     };
 
     const result = applyServerMessage([existing], message, {
@@ -201,6 +207,7 @@ describe("applyServerMessage", () => {
       noteId: existing.id,
       x: 42,
       y: 84,
+      draggedBy: DRAGGED_BY,
     };
 
     const result = applyServerMessage([existing], message, {
@@ -215,7 +222,13 @@ describe("applyServerMessage", () => {
 
     const dragResult = applyServerMessage(
       [existing],
-      { type: "note:drag", noteId: "unknown", x: 1, y: 1 },
+      {
+        type: "note:drag",
+        noteId: "unknown",
+        x: 1,
+        y: 1,
+        draggedBy: DRAGGED_BY,
+      },
       { draggingNoteId: null },
     );
     expect(dragResult).toEqual([existing]);

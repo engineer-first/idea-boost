@@ -92,6 +92,12 @@ export function isVotingStep(phase: RoomPhase): boolean {
   );
 }
 
+// リアルタイムカーソルは共有作業中だけ扱う。各フェーズの Step 1 は個人執筆、
+// 投票 Step は他者の動きによる同調を避けるステルス投票なので共有しない。
+export function isCursorSharingAllowed(phase: RoomPhase): boolean {
+  return phase.kind === "step" && phase.step !== 1 && !isVotingStep(phase);
+}
+
 export function isAtOrAfterGroupingStep(phase: RoomPhase): boolean {
   return phase.kind === "step" && phase.phase === 1 && phase.step >= 3;
 }

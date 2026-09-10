@@ -118,6 +118,18 @@ export const MemberSchema = z.object({
 });
 export type ProtocolMember = z.infer<typeof MemberSchema>;
 
+// カーソルは RoomDO が永続化しない presence。クライアント入力には userId / name /
+// color を持たせず、認証済みソケットと members からサーバーが付与する。
+export const CursorPresenceSchema = z.object({
+  userId: z.string().uuid(),
+  name: z.string(),
+  color: NoteColorSchema,
+  x: CanvasCoordinateSchema,
+  y: CanvasCoordinateSchema,
+  draggingNoteId: z.string().uuid().nullable(),
+});
+export type CursorPresence = z.infer<typeof CursorPresenceSchema>;
+
 export const DecisionSchema = z.object({
   phase: z.number().int().min(1).max(3),
   noteId: z.string().uuid(),
@@ -148,6 +160,13 @@ const NotePositionSchema = {
 // ---------------------------------------------------------------
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("cursor:update"),
+    ...NotePositionSchema,
+    // null はドラッグ終了後もカーソル自体は表示し続けることを明示する。
+    draggingNoteId: z.string().uuid().nullable().optional(),
+  }),
+  z.object({ type: z.literal("cursor:leave") }),
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
   // プロトコルに作成応答の相関 ID がないため、「作成してから内容を送る」
   // 2 段階ではなく作成時に内容を渡せる形にしている。
@@ -264,6 +283,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     noteId: z.string().uuid(),
     x: CanvasCoordinateSchema,
     y: CanvasCoordinateSchema,
+    // クライアント入力には含めず、RoomDO が認証済みソケットから付与する。
+    // 付箋の author と現在の移動者は一致するとは限らない。
+    draggedBy: MemberSchema,
   }),
   z.object({
     type: z.literal("group:updated"),
@@ -281,6 +303,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("member_left"),
     userId: z.string().uuid(),
   }),
+  z.object({ type: z.literal("cursor:updated"), cursor: CursorPresenceSchema }),
+  z.object({ type: z.literal("cursor:left"), userId: z.string().uuid() }),
   // start_phase 成功時（ロビー離脱）にも phase:next 成功時にも使う。
   z.object({
     type: z.literal("phase:updated"),

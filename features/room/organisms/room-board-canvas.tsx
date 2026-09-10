@@ -1,5 +1,6 @@
 "use client";
 
+import { MousePointer2, MousePointer2Off } from "lucide-react";
 // ボード面。カメラで移動・拡大縮小する世界レイヤーに共有付箋・グループ枠・
 // ドラッグ中のゴーストを描き、下端にマイ付箋ドックを重ねる。
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
@@ -8,6 +9,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
+import { Button } from "@/components/ui/button";
 import { NOTE_WIDTH } from "@/contracts/board";
 import {
   calculateRenderGroups,
@@ -32,11 +34,16 @@ import {
   NoteCard,
   NoteGroupCard,
   PrivateNotesToolbar,
+  type RemoteNoteDrag,
   StickyNote,
 } from "@/features/notes";
 import { cn } from "@/lib/utils";
 import type { BoardPermissions } from "../logic/board-permissions";
-import type { CanvasCamera } from "../logic/canvas-camera";
+import { type CanvasCamera, worldToScreen } from "../logic/canvas-camera";
+import {
+  getCursorLabelOffset,
+  type RenderedRemoteCursorPresence,
+} from "../logic/cursor-presence";
 import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -46,6 +53,7 @@ import {
   DecideNoteAction,
 } from "../molecules/decide-note-action";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
+import { RemoteCursor } from "../molecules/remote-cursor";
 
 export type RoomBoardCanvasProps = {
   notes: Note[];
@@ -75,6 +83,8 @@ export type RoomBoardCanvasProps = {
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPresencePointerLeave: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -100,6 +110,10 @@ export type RoomBoardCanvasProps = {
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
+  remoteCursors: RenderedRemoteCursorPresence[];
+  remoteNoteDrags: RemoteNoteDrag[];
+  areCursorsVisible: boolean;
+  onToggleCursors: () => void;
 };
 
 export function RoomBoardCanvas({
@@ -127,6 +141,8 @@ export function RoomBoardCanvas({
   onCanvasPointerDown,
   onCanvasPointerMove,
   onCanvasPointerEnd,
+  onPresencePointerMove,
+  onPresencePointerLeave,
   onZoomIn,
   onZoomOut,
   onResetZoom,
@@ -146,6 +162,10 @@ export function RoomBoardCanvas({
   onPrivateNoteContentChange,
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
+  remoteCursors,
+  remoteNoteDrags,
+  areCursorsVisible,
+  onToggleCursors,
 }: RoomBoardCanvasProps) {
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? calculateRenderGroups(notes, groups)
@@ -185,6 +205,11 @@ export function RoomBoardCanvas({
     onCanvasPointerDown(event);
   }
 
+  function handleViewportPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    onCanvasPointerMove(event);
+    onPresencePointerMove(event);
+  }
+
   function handleNoteDelete(noteId: string) {
     if (selectedNoteId === noteId) {
       onSelect(null);
@@ -193,11 +218,15 @@ export function RoomBoardCanvas({
   }
 
   function renderNoteCard(note: Note, isOnIdeaMap = false) {
+    const activeDragMember = isDisconnected
+      ? undefined
+      : remoteNoteDrags.find((drag) => drag.noteId === note.id)?.draggedBy;
     return (
       <NoteCard
         key={note.id}
         note={note}
         isOwnDrag={draggingNoteId === note.id}
+        activeDragMember={activeDragMember}
         isSelected={selectedNoteId === note.id}
         editingDisabled={isResultStep(phase)}
         canDeleteNote={permissions.canDeleteNote}
@@ -279,9 +308,10 @@ export function RoomBoardCanvas({
           data-testid="board-scroller"
           style={gridStyle}
           onPointerDownCapture={handleViewportPointerDown}
-          onPointerMove={onCanvasPointerMove}
+          onPointerMove={handleViewportPointerMove}
           onPointerUp={onCanvasPointerEnd}
           onPointerCancel={onCanvasPointerEnd}
+          onPointerLeave={onPresencePointerLeave}
         >
           <div
             data-testid="board-canvas"
@@ -301,6 +331,21 @@ export function RoomBoardCanvas({
               <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
                 {notes.map(renderIdeaMapNote)}
                 {renderIdeaMapDragGhost()}
+                {areCursorsVisible
+                  ? remoteCursors.map((cursor) => (
+                      <RemoteCursor
+                        key={cursor.userId}
+                        cursor={cursor}
+                        isIdle={cursor.isIdle}
+                        labelOffset={getCursorLabelOffset(cursor.userId)}
+                        style={{
+                          left: `${cursor.x}%`,
+                          bottom: `${cursor.y}%`,
+                          transform: "none",
+                        }}
+                      />
+                    ))
+                  : null}
               </IdeaValueFeasibilityMap>
             ) : null}
             {renderGroups.map((rg) => {
@@ -353,6 +398,16 @@ export function RoomBoardCanvas({
               </StickyNote>
             ) : null}
           </div>
+          {areCursorsVisible && !isIdeaValueFeasibilityMapVisible
+            ? remoteCursors.map((cursor) => (
+                <RemoteCursor
+                  key={cursor.userId}
+                  cursor={{ ...cursor, ...worldToScreen(cursor, camera) }}
+                  isIdle={cursor.isIdle}
+                  labelOffset={getCursorLabelOffset(cursor.userId)}
+                />
+              ))
+            : null}
         </div>
         <div
           className="pointer-events-none absolute bottom-3 left-3 z-40"
@@ -365,6 +420,26 @@ export function RoomBoardCanvas({
             onZoomIn={onZoomIn}
             onFitToNotes={onFitToNotes}
           />
+        </div>
+        <div
+          className="absolute right-3 bottom-3 z-40"
+          data-cursor-private="true"
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-pressed={areCursorsVisible}
+            aria-label={
+              areCursorsVisible
+                ? "参加者のカーソルを非表示にする"
+                : "参加者のカーソルを表示する"
+            }
+            onClick={onToggleCursors}
+          >
+            {areCursorsVisible ? <MousePointer2 /> : <MousePointer2Off />}
+            カーソル
+          </Button>
         </div>
         {/* バナー（top）とパネル（left）は別条件で出す: Step 2-2 以降は
             テンプレートを出さないが、決定課題の掲示は続ける（#165 で再利用）。 */}

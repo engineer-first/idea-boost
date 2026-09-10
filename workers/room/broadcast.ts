@@ -14,6 +14,9 @@ import { visibleTo } from "../visibility";
 // ハイバネーション復帰後も deserializeAttachment で取り出せる。
 export type SocketAttachment = {
   userId: string;
+  hasCursor?: boolean;
+  // note:drag は永続化しないため、切断時の解除通知にだけ使う一時状態。
+  activeDragNoteId?: string;
 };
 
 export class RoomBroadcaster {
@@ -92,6 +95,21 @@ export class RoomBroadcaster {
       if (!attachment || attachment.userId === exceptUserId) continue;
       this.trySend(socket, payload);
     }
+  }
+
+  hasOtherPresenceForUser(userId: string, except: WebSocket): boolean {
+    for (const socket of this.connections.getWebSockets()) {
+      if (socket === except) continue;
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (
+        attachment?.userId === userId &&
+        (attachment.hasCursor || attachment.activeDragNoteId)
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // 閉じかけのソケットで send が throw しても、他接続への配信を止めない。

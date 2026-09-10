@@ -28,6 +28,7 @@ function buildInteractions(
     privateNotes,
     dragGhost: null,
     isReturnDropTarget: false,
+    isNoteDragging: false,
     camera: { x: 0, y: 0, zoom: 1 },
     gridStyle: {
       backgroundImage:
@@ -39,6 +40,8 @@ function buildInteractions(
     onCanvasPointerDown: vi.fn(),
     onCanvasPointerMove: vi.fn(),
     onCanvasPointerEnd: vi.fn(),
+    onPresencePointerMove: vi.fn(),
+    onPresencePointerLeave: vi.fn(),
     onZoomIn: vi.fn(),
     onZoomOut: vi.fn(),
     onResetZoom: vi.fn(),
@@ -89,6 +92,10 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     onNoteDecide: vi.fn(),
     connectionStatus: "open" as const,
     groups: [],
+    remoteCursors: [],
+    remoteNoteDrags: [],
+    areCursorsVisible: true,
+    onToggleCursors: vi.fn(),
     ...overrides,
   } as RoomBoardViewProps;
   const resolvedProps: RoomBoardViewProps = {

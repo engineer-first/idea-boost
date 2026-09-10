@@ -18,6 +18,7 @@ import {
 import { buildLobbyPhase, buildPhaseStep } from "../contracts/phase.fixture";
 import {
   NOTE_COLOR_PALETTE,
+  parseServerMessage,
   type ServerMessage,
 } from "../contracts/room-protocol";
 import {
@@ -1326,18 +1327,46 @@ describe("note:delete（pgTAP: DELETE は author のみ）", () => {
 });
 
 describe("note:drag（エフェメラル同期）", () => {
-  it("他メンバーには届き、送信者自身にはエコーされず、永続化もされない", async () => {
+  it("認証済みの移動者情報付きで他メンバーに届き、送信者自身にはエコーされず、永続化もされない", async () => {
     const { roomId, owner, member } = await setupStartedRoom();
     const noteId = await createNote({ owner, member });
 
-    send(owner, { type: "note:drag", noteId, x: 300, y: 300 });
-    const toMember = await expectType(member, "note:drag");
-    expect(toMember).toMatchObject({ noteId, x: 300, y: 300 });
+    // Owner が書いた付箋を Member が動かす。付箋作者ではなく、認証済みの
+    // 送信ソケットに対応する Member の情報が付くことを確認する。
+    send(member, {
+      type: "note:drag",
+      noteId,
+      x: 300,
+      y: 300,
+      draggedBy: { userId: OWNER.sub, name: "spoofed", color: "red" },
+    });
+    const toOwner = await expectType(owner, "note:drag");
+    const assignedColors = await runInRoomDO(roomId, (_instance, state) => {
+      const movingMember = state.storage.sql
+        .exec("SELECT color FROM members WHERE user_id = ?1", MEMBER.sub)
+        .toArray()[0] as { color: string } | undefined;
+      const note = state.storage.sql
+        .exec("SELECT color FROM notes WHERE id = ?1", noteId)
+        .toArray()[0] as { color: string } | undefined;
+      return { movingMember: movingMember?.color, note: note?.color };
+    });
+    expect(toOwner).toMatchObject({
+      noteId,
+      x: 300,
+      y: 300,
+      draggedBy: {
+        userId: MEMBER.sub,
+        name: MEMBER.name,
+        color: expect.stringMatching(NOTE_COLOR_PATTERN),
+      },
+    });
+    expect(toOwner.draggedBy.color).toBe(assignedColors.movingMember);
+    expect(assignedColors.note).not.toBe(assignedColors.movingMember);
 
     // 送信者へのエコーが無いことを、後続メッセージの順序で確認する:
-    // drag の後に move を送り、owner が次に受け取るのが note:updated であること。
-    send(owner, { type: "note:move", noteId, x: 111, y: 222 });
-    const next = await owner.next();
+    // drag の後に move を送り、member が次に受け取るのが note:updated であること。
+    send(member, { type: "note:move", noteId, x: 111, y: 222 });
+    const next = await member.next();
     expect(next.type).toBe("note:updated");
 
     // drag は永続化されない（確定は move だけ）: snapshot は move の値になる。
@@ -1347,6 +1376,221 @@ describe("note:drag（エフェメラル同期）", () => {
     const snapshot = await expectType(reconnected, "snapshot");
     expect(snapshot.notes[0]).toMatchObject({ x: 111, y: 222 });
     reconnected.close();
+  });
+
+  it("カーソルを共有していない移動者が切断しても解除通知を配信する", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+
+    send(room.member, { type: "note:drag", noteId, x: 300, y: 300 });
+    await expectType(room.owner, "note:drag");
+    room.member.close();
+
+    expect(await expectType(room.owner, "cursor:left")).toEqual({
+      type: "cursor:left",
+      userId: MEMBER.sub,
+    });
+    room.owner.close();
+  });
+
+  it("カーソルを共有していない移動者が cursor:leave しても解除通知を配信する", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+
+    send(room.member, { type: "note:drag", noteId, x: 300, y: 300 });
+    await expectType(room.owner, "note:drag");
+    send(room.member, { type: "cursor:leave" });
+
+    expect(await expectType(room.owner, "cursor:left")).toEqual({
+      type: "cursor:left",
+      userId: MEMBER.sub,
+    });
+    room.owner.close();
+    room.member.close();
+  });
+});
+
+describe("cursor presence（名前付きの一時同期）", () => {
+  it("共有作業中はメンバー・付箋と同じサーバー由来の色を付けて他メンバーだけへ中継する", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+    await arrangeStep(room.owner, 2);
+
+    send(room.owner, {
+      type: "cursor:update",
+      x: 320,
+      y: 240,
+      draggingNoteId: noteId,
+      userId: MEMBER.sub,
+      name: "spoofed",
+      color: "red",
+    });
+
+    const received = await expectType(room.member, "cursor:updated");
+    const assignedColors = await runInRoomDO(
+      room.roomId,
+      (_instance, state) => {
+        const member = state.storage.sql
+          .exec("SELECT color FROM members WHERE user_id = ?1", OWNER.sub)
+          .toArray()[0] as { color: string } | undefined;
+        const note = state.storage.sql
+          .exec("SELECT color FROM notes WHERE id = ?1", noteId)
+          .toArray()[0] as { color: string } | undefined;
+        return { member: member?.color, note: note?.color };
+      },
+    );
+    expect(received.cursor).toEqual({
+      userId: OWNER.sub,
+      name: OWNER.name,
+      color: expect.stringMatching(NOTE_COLOR_PATTERN),
+      x: 320,
+      y: 240,
+      draggingNoteId: noteId,
+    });
+    expect(received.cursor.color).toBe(assignedColors.member);
+    expect(assignedColors.note).toBe(assignedColors.member);
+
+    // 送信者にはエコーされない。後続の確定操作が次の受信になる。
+    send(room.owner, { type: "note:move", noteId, x: 321, y: 241 });
+    expect((await room.owner.next()).type).toBe("note:updated");
+
+    room.owner.close();
+    room.member.close();
+  });
+
+  it("個人執筆・ステルス投票ではカーソルを配信しない", async () => {
+    const room = await setupStartedRoom();
+
+    send(room.owner, {
+      type: "cursor:update",
+      x: 10,
+      y: 20,
+      draggingNoteId: null,
+    });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+
+    await arrangeStep(room.owner, 4);
+    send(room.owner, {
+      type: "cursor:update",
+      x: 30,
+      y: 40,
+      draggingNoteId: null,
+    });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+
+    room.owner.close();
+    room.member.close();
+  });
+
+  it("private・存在しない付箋を操作対象として漏らさない", async () => {
+    const room = await setupStartedRoom();
+    send(room.owner, { type: "note:create" });
+    const drafted = await expectType(room.owner, "note:inserted");
+    await arrangeStep(room.owner, 2);
+
+    send(room.owner, {
+      type: "cursor:update",
+      x: 10,
+      y: 20,
+      draggingNoteId: drafted.note.id,
+    });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+
+    room.owner.close();
+    room.member.close();
+  });
+
+  it("cursor:leave と WebSocket 切断を他メンバーへ通知する", async () => {
+    const room = await setupStartedRoom();
+    await arrangeStep(room.owner, 2);
+
+    send(room.owner, { type: "cursor:update", x: 10, y: 20 });
+    await expectType(room.member, "cursor:updated");
+    send(room.owner, { type: "cursor:leave" });
+    expect(await expectType(room.member, "cursor:left")).toEqual({
+      type: "cursor:left",
+      userId: OWNER.sub,
+    });
+
+    send(room.owner, { type: "cursor:update", x: 30, y: 40 });
+    await expectType(room.member, "cursor:updated");
+    room.owner.close();
+    expect(await expectType(room.member, "cursor:left")).toEqual({
+      type: "cursor:left",
+      userId: OWNER.sub,
+    });
+
+    room.member.close();
+  });
+
+  it("同じユーザーの別接続にカーソルが残る間は切断を通知しない", async () => {
+    const room = await setupStartedRoom();
+    await arrangeStep(room.owner, 2);
+    const anotherOwner = await connectRoomAs(OWNER, room.roomId);
+    await expectType(anotherOwner, "snapshot");
+
+    send(room.owner, { type: "cursor:update", x: 10, y: 20 });
+    await expectType(room.member, "cursor:updated");
+    send(anotherOwner, { type: "cursor:update", x: 30, y: 40 });
+    await expectType(room.member, "cursor:updated");
+    const leaves: ServerMessage[] = [];
+    room.member.ws.addEventListener("message", (event) => {
+      const message = parseServerMessage(event.data);
+      if (message?.type === "cursor:left") leaves.push(message);
+    });
+
+    room.owner.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(leaves).toEqual([]);
+
+    anotherOwner.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(leaves).toEqual([{ type: "cursor:left", userId: OWNER.sub }]);
+    room.member.close();
+  });
+
+  it("同じユーザーの別接続にカーソルが残る間は cursor:leave を通知しない", async () => {
+    const room = await setupStartedRoom();
+    await arrangeStep(room.owner, 2);
+    const anotherOwner = await connectRoomAs(OWNER, room.roomId);
+    await expectType(anotherOwner, "snapshot");
+
+    send(room.owner, { type: "cursor:update", x: 10, y: 20 });
+    await expectType(room.member, "cursor:updated");
+    send(anotherOwner, { type: "cursor:update", x: 30, y: 40 });
+    await expectType(room.member, "cursor:updated");
+    const leaves: ServerMessage[] = [];
+    room.member.ws.addEventListener("message", (event) => {
+      const message = parseServerMessage(event.data);
+      if (message?.type === "cursor:left") leaves.push(message);
+    });
+
+    send(room.owner, { type: "cursor:leave" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(leaves).toEqual([]);
+
+    send(anotherOwner, { type: "cursor:leave" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(leaves).toEqual([{ type: "cursor:left", userId: OWNER.sub }]);
+
+    room.owner.close();
+    anotherOwner.close();
+    room.member.close();
   });
 });
 

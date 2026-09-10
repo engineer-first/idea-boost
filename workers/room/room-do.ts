@@ -55,6 +55,7 @@ import {
   phaseHandlers,
   savePhase,
 } from "./phase";
+import { presenceHandlers } from "./presence";
 import { getTimerState, timerHandlers } from "./timer";
 
 // api-worker がセッション検証済みのユーザーIDを DO へ引き継ぐヘッダー。
@@ -77,6 +78,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...groupHandlers,
   ...phaseHandlers,
   ...timerHandlers,
+  ...presenceHandlers,
 };
 
 export class RoomDO extends DurableObject {
@@ -246,12 +248,28 @@ export class RoomDO extends DurableObject {
   }
 
   override async webSocketClose(
-    _ws: WebSocket,
+    ws: WebSocket,
     _code: number,
     _reason: string,
     _wasClean: boolean,
   ): Promise<void> {
-    // 退室の正式経路は leave RPC。切断時の自動 member_left はプレゼンス導入時に検討。
+    // メンバーシップ自体は REST leave まで維持するが、一時カーソルと
+    // 付箋の移動者表示は切断時に消す。
+    const attachment = ws.deserializeAttachment() as SocketAttachment | null;
+    if (attachment?.hasCursor || attachment?.activeDragNoteId) {
+      ws.serializeAttachment({
+        ...attachment,
+        hasCursor: false,
+        activeDragNoteId: undefined,
+      } satisfies SocketAttachment);
+      if (this.broadcaster.hasOtherPresenceForUser(attachment.userId, ws)) {
+        return;
+      }
+      this.broadcaster.broadcastToAllExcept(
+        { type: "cursor:left", userId: attachment.userId },
+        attachment.userId,
+      );
+    }
   }
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
