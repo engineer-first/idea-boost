@@ -97,6 +97,21 @@ export class RoomBroadcaster {
     }
   }
 
+  hasOtherPresenceForUser(userId: string, except: WebSocket): boolean {
+    for (const socket of this.connections.getWebSockets()) {
+      if (socket === except) continue;
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (
+        attachment?.userId === userId &&
+        (attachment.hasCursor || attachment.activeDragNoteId)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // 閉じかけのソケットで send が throw しても、他接続への配信を止めない。
   private trySend(ws: WebSocket, payload: string): void {
     try {

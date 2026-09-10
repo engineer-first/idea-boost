@@ -33,6 +33,31 @@ describe("RemoteCursor", () => {
     expect(screen.getByText("付箋を移動中")).toBeInTheDocument();
   });
 
+  it("ドラッグしていない間は操作対象を表示せず、通常の濃さで表示する", () => {
+    render(
+      <RemoteCursor
+        cursor={{
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Hanako",
+          color: "green",
+          x: 10,
+          y: 20,
+          draggingNoteId: null,
+          lastSeenAt: 1_000,
+        }}
+        isIdle={false}
+        labelOffset={1}
+      />,
+    );
+
+    const cursor = screen.getByTestId(
+      "remote-cursor-22222222-2222-4222-8222-222222222222",
+    );
+    expect(cursor).not.toHaveClass("opacity-40");
+    expect(cursor).not.toHaveAttribute("data-dragging-note-id");
+    expect(screen.queryByText("付箋を移動中")).not.toBeInTheDocument();
+  });
+
   it("カーソルと名前ラベルにメンバーの付箋色を適用する", () => {
     render(
       <RemoteCursor

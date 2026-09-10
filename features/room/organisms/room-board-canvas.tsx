@@ -40,7 +40,10 @@ import {
 import { cn } from "@/lib/utils";
 import type { BoardPermissions } from "../logic/board-permissions";
 import { type CanvasCamera, worldToScreen } from "../logic/canvas-camera";
-import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
+import {
+  getCursorLabelOffset,
+  type RenderedRemoteCursorPresence,
+} from "../logic/cursor-presence";
 import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -329,12 +332,12 @@ export function RoomBoardCanvas({
                 {notes.map(renderIdeaMapNote)}
                 {renderIdeaMapDragGhost()}
                 {areCursorsVisible
-                  ? remoteCursors.map((cursor, index) => (
+                  ? remoteCursors.map((cursor) => (
                       <RemoteCursor
                         key={cursor.userId}
                         cursor={cursor}
                         isIdle={cursor.isIdle}
-                        labelOffset={index % 3}
+                        labelOffset={getCursorLabelOffset(cursor.userId)}
                         style={{
                           left: `${cursor.x}%`,
                           bottom: `${cursor.y}%`,
@@ -396,12 +399,12 @@ export function RoomBoardCanvas({
             ) : null}
           </div>
           {areCursorsVisible && !isIdeaValueFeasibilityMapVisible
-            ? remoteCursors.map((cursor, index) => (
+            ? remoteCursors.map((cursor) => (
                 <RemoteCursor
                   key={cursor.userId}
                   cursor={{ ...cursor, ...worldToScreen(cursor, camera) }}
                   isIdle={cursor.isIdle}
-                  labelOffset={index % 3}
+                  labelOffset={getCursorLabelOffset(cursor.userId)}
                 />
               ))
             : null}

@@ -18,6 +18,7 @@ import {
 import { buildLobbyPhase, buildPhaseStep } from "../contracts/phase.fixture";
 import {
   NOTE_COLOR_PALETTE,
+  parseServerMessage,
   type ServerMessage,
 } from "../contracts/room-protocol";
 import {
@@ -1391,6 +1392,22 @@ describe("note:drag（エフェメラル同期）", () => {
     });
     room.owner.close();
   });
+
+  it("カーソルを共有していない移動者が cursor:leave しても解除通知を配信する", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+
+    send(room.member, { type: "note:drag", noteId, x: 300, y: 300 });
+    await expectType(room.owner, "note:drag");
+    send(room.member, { type: "cursor:leave" });
+
+    expect(await expectType(room.owner, "cursor:left")).toEqual({
+      type: "cursor:left",
+      userId: MEMBER.sub,
+    });
+    room.owner.close();
+    room.member.close();
+  });
 });
 
 describe("cursor presence（名前付きの一時同期）", () => {
@@ -1518,6 +1535,61 @@ describe("cursor presence（名前付きの一時同期）", () => {
       userId: OWNER.sub,
     });
 
+    room.member.close();
+  });
+
+  it("同じユーザーの別接続にカーソルが残る間は切断を通知しない", async () => {
+    const room = await setupStartedRoom();
+    await arrangeStep(room.owner, 2);
+    const anotherOwner = await connectRoomAs(OWNER, room.roomId);
+    await expectType(anotherOwner, "snapshot");
+
+    send(room.owner, { type: "cursor:update", x: 10, y: 20 });
+    await expectType(room.member, "cursor:updated");
+    send(anotherOwner, { type: "cursor:update", x: 30, y: 40 });
+    await expectType(room.member, "cursor:updated");
+    const leaves: ServerMessage[] = [];
+    room.member.ws.addEventListener("message", (event) => {
+      const message = parseServerMessage(event.data);
+      if (message?.type === "cursor:left") leaves.push(message);
+    });
+
+    room.owner.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(leaves).toEqual([]);
+
+    anotherOwner.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(leaves).toEqual([{ type: "cursor:left", userId: OWNER.sub }]);
+    room.member.close();
+  });
+
+  it("同じユーザーの別接続にカーソルが残る間は cursor:leave を通知しない", async () => {
+    const room = await setupStartedRoom();
+    await arrangeStep(room.owner, 2);
+    const anotherOwner = await connectRoomAs(OWNER, room.roomId);
+    await expectType(anotherOwner, "snapshot");
+
+    send(room.owner, { type: "cursor:update", x: 10, y: 20 });
+    await expectType(room.member, "cursor:updated");
+    send(anotherOwner, { type: "cursor:update", x: 30, y: 40 });
+    await expectType(room.member, "cursor:updated");
+    const leaves: ServerMessage[] = [];
+    room.member.ws.addEventListener("message", (event) => {
+      const message = parseServerMessage(event.data);
+      if (message?.type === "cursor:left") leaves.push(message);
+    });
+
+    send(room.owner, { type: "cursor:leave" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(leaves).toEqual([]);
+
+    send(anotherOwner, { type: "cursor:leave" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(leaves).toEqual([{ type: "cursor:left", userId: OWNER.sub }]);
+
+    room.owner.close();
+    anotherOwner.close();
     room.member.close();
   });
 });

@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { RoomPhase } from "@/contracts/phase";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import { createThrottled, type Throttled } from "@/lib/throttle";
@@ -45,7 +51,10 @@ export function useCursorPresence({
   const throttledRef = useRef<Throttled<[ClientMessage]> | null>(null);
   sendRef.current = send;
   phaseRef.current = phase;
-  connectionStatusRef.current = connectionStatus;
+
+  useLayoutEffect(() => {
+    connectionStatusRef.current = connectionStatus;
+  }, [connectionStatus]);
 
   if (throttledRef.current === null) {
     throttledRef.current = createThrottled(
@@ -118,10 +127,17 @@ export function useCursorPresence({
     }
   }, [connectionStatus, leaveCanvas, phase]);
 
+  const isIdleTrackingActive =
+    cursors.length > 0 &&
+    areCursorsVisible &&
+    connectionStatus === "open" &&
+    isCursorPresenceAllowed(phase);
+
   useEffect(() => {
+    if (!isIdleTrackingActive) return;
     const timer = globalThis.setInterval(() => setNow(Date.now()), 1_000);
     return () => globalThis.clearInterval(timer);
-  }, []);
+  }, [isIdleTrackingActive]);
 
   useEffect(
     () => () => {

@@ -70,12 +70,18 @@ export const presenceHandlers: MessageHandlers<
   "cursor:leave": (ctx) => {
     const attachment =
       ctx.ws.deserializeAttachment() as SocketAttachment | null;
-    if (!attachment?.hasCursor) return;
+    if (
+      !attachment ||
+      (!attachment.hasCursor && !attachment.activeDragNoteId)
+    ) {
+      return;
+    }
     ctx.ws.serializeAttachment({
       ...attachment,
       hasCursor: false,
       activeDragNoteId: undefined,
     } satisfies SocketAttachment);
+    if (ctx.broadcaster.hasOtherPresenceForUser(ctx.userId, ctx.ws)) return;
     ctx.broadcaster.broadcastToAllExcept(
       { type: "cursor:left", userId: ctx.userId },
       ctx.userId,

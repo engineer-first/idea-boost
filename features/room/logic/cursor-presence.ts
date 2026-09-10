@@ -24,6 +24,14 @@ export function isRemoteCursorIdle(
   return now - cursor.lastSeenAt >= CURSOR_IDLE_AFTER_MS;
 }
 
+export function getCursorLabelOffset(userId: string): number {
+  let hash = 0;
+  for (const character of userId) {
+    hash = (hash * 31 + character.charCodeAt(0)) % 3;
+  }
+  return hash;
+}
+
 export function applyCursorPresenceMessage(
   cursors: RemoteCursorPresence[],
   message: ServerMessage,

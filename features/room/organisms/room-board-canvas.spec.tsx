@@ -63,8 +63,8 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onToggleCursors: vi.fn(),
     ...overrides,
   };
-  render(<RoomBoardCanvas {...props} />);
-  return props;
+  const { rerender } = render(<RoomBoardCanvas {...props} />);
+  return { props, rerender };
 }
 
 describe("RoomBoardCanvas", () => {
@@ -113,6 +113,40 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.getByTestId("remote-cursor-22222222-2222-4222-8222-222222222222"),
     ).toHaveStyle({ transform: "translate3d(230px, 380px, 0)" });
+  });
+
+  it("参加者が離脱しても残ったカーソルの名前ラベル位置を維持する", () => {
+    const firstCursor = {
+      userId: "22222222-2222-4222-8222-222222222222",
+      name: "Taro",
+      color: "green" as const,
+      x: 100,
+      y: 200,
+      draggingNoteId: null,
+      lastSeenAt: Date.now(),
+      isIdle: false,
+    };
+    const remainingCursor = {
+      userId: "33333333-3333-4333-8333-333333333333",
+      name: "Hanako",
+      color: "blue" as const,
+      x: 100,
+      y: 200,
+      draggingNoteId: null,
+      lastSeenAt: Date.now(),
+      isIdle: false,
+    };
+    const { props, rerender } = setup({
+      remoteCursors: [firstCursor, remainingCursor],
+    });
+    const labelTransform =
+      screen.getByText("Hanako").parentElement?.style.transform;
+
+    rerender(<RoomBoardCanvas {...props} remoteCursors={[remainingCursor]} />);
+
+    expect(screen.getByText("Hanako").parentElement).toHaveStyle({
+      transform: labelTransform,
+    });
   });
 
   it("付箋を配置する（success）", () => {

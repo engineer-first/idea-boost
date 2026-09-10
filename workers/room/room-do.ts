@@ -257,6 +257,14 @@ export class RoomDO extends DurableObject {
     // 付箋の移動者表示は切断時に消す。
     const attachment = ws.deserializeAttachment() as SocketAttachment | null;
     if (attachment?.hasCursor || attachment?.activeDragNoteId) {
+      ws.serializeAttachment({
+        ...attachment,
+        hasCursor: false,
+        activeDragNoteId: undefined,
+      } satisfies SocketAttachment);
+      if (this.broadcaster.hasOtherPresenceForUser(attachment.userId, ws)) {
+        return;
+      }
       this.broadcaster.broadcastToAllExcept(
         { type: "cursor:left", userId: attachment.userId },
         attachment.userId,
