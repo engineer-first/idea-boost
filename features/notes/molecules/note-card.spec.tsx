@@ -14,15 +14,19 @@ function setup(overrides: Partial<Parameters<typeof NoteCard>[0]> = {}) {
     canEditNote: true,
     canDeleteNote: true,
     canMoveNote: true,
-    canShowVote: true,
-    canVote: true,
     onSelect: vi.fn(),
     onDragStart: vi.fn(),
     onContentChange: vi.fn(),
     onDelete: vi.fn(),
-    voteRemaining: { subjective: 1, objective: 3 },
-    onVote: vi.fn(),
-    onVoteReset: vi.fn(),
+    vote: {
+      displayMode: "hidden" as const,
+      selectedKind: null,
+      voteRemaining: { subjective: 1, objective: 3 },
+      canVote: true,
+      pendingOperations: [],
+      onVote: vi.fn(),
+      onVoteRemove: vi.fn(),
+    },
     ...overrides,
   };
 
@@ -37,7 +41,7 @@ function getCard() {
 
 // 選択・ドラッグ・キー操作を受けるサーフェス（カードに重ねた透明なbutton）。
 function getNoteSurface() {
-  return screen.getByRole("button", { name: "付箋" });
+  return screen.getByRole("button", { name: /付箋/ });
 }
 
 // pointerdown → pointerup を同じ座標で行う「移動なしのクリック」。
@@ -121,88 +125,174 @@ describe("NoteCard", () => {
   });
 
   describe("ドット投票", () => {
-    it("主観・客観ドットの集計を表示する", () => {
+    it("投票中は自分が貼ったシールだけを表示し、他者の集計を見せない", () => {
       setup({
         note: buildNote({
           dotVotes: {
-            subjective: { count: 1, votedByMe: false, ownCount: 0 },
-            objective: { count: 2, votedByMe: true, ownCount: 2 },
+            subjective: { count: 3, votedByMe: false, ownCount: 0 },
+            objective: { count: 5, votedByMe: true, ownCount: 2 },
           },
         }),
+        vote: {
+          displayMode: "voting",
+          selectedKind: null,
+          voteRemaining: { subjective: 1, objective: 1 },
+          canVote: true,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove: vi.fn(),
+        },
       });
 
       expect(
-        screen.getByRole("button", { name: "主観ドットを投票" }),
-      ).toHaveTextContent("主観1");
-      expect(
-        screen.getByRole("button", { name: "客観ドットを追加" }),
-      ).toHaveTextContent("客観2");
-      expect(
-        screen.getByRole("button", { name: "客観ドットを0に戻す" }),
+        screen.getByRole("button", { name: "客観シール 2票を1票取り消す" }),
       ).toBeInTheDocument();
+      expect(screen.queryByLabelText("主観シール 3票")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("客観シール 5票")).not.toBeInTheDocument();
     });
 
-    it("投票中に集計が非公開でも本人の投票数を表示する", () => {
-      setup({
-        note: buildNote({
-          dotVotes: {
-            subjective: { votedByMe: true, ownCount: 1 },
-            objective: { votedByMe: true, ownCount: 2 },
-          },
-        }),
-      });
-
-      expect(
-        screen.getByRole("button", { name: "主観ドット投票を取り消す" }),
-      ).toHaveTextContent("主観1");
-      expect(
-        screen.getByRole("button", { name: "客観ドットを追加" }),
-      ).toHaveTextContent("客観2");
-    });
-
-    it("ドット投票ボタンでonVoteを呼ぶ", () => {
-      const onVote = vi.fn();
-      setup({ onVote });
-
-      fireEvent.click(screen.getByRole("button", { name: "主観ドットを投票" }));
-
-      expect(onVote).toHaveBeenCalledWith("note-1", "subjective");
-    });
-
-    it("残数が0の未投票ドットは投票できない", () => {
-      const onVote = vi.fn();
-      setup({
-        voteRemaining: { subjective: 0, objective: 3 },
-        onVote,
-      });
-
-      const button = screen.getByRole("button", { name: "主観ドットを投票" });
-      expect(button).toBeDisabled();
-
-      fireEvent.click(button);
-      expect(onVote).not.toHaveBeenCalled();
-    });
-
-    it("客観ドットは投票済みでも残数があれば同じ付箋に加算できる", () => {
-      const onVote = vi.fn();
+    it("投票中の自分のシールを、付箋上の保存済み相対座標へ重ねて表示する", () => {
       setup({
         note: buildNote({
           dotVotes: {
             subjective: { count: 0, votedByMe: false, ownCount: 0 },
             objective: { count: 1, votedByMe: true, ownCount: 1 },
           },
+          dotVoteStickers: [
+            {
+              id: "33333333-3333-4333-8333-333333333333",
+              kind: "objective",
+              x: 0.25,
+              y: 0.75,
+            },
+          ],
         }),
-        voteRemaining: { subjective: 1, objective: 2 },
-        onVote,
+        vote: {
+          displayMode: "voting",
+          selectedKind: null,
+          voteRemaining: { subjective: 1, objective: 2 },
+          canVote: true,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove: vi.fn(),
+        },
       });
 
-      fireEvent.click(screen.getByRole("button", { name: "客観ドットを追加" }));
-
-      expect(onVote).toHaveBeenCalledWith("note-1", "objective");
+      const sticker = screen.getByRole("button", {
+        name: "客観シール 1票を1票取り消す",
+      });
+      expect(sticker.parentElement).toHaveStyle({ left: "25%", top: "75%" });
     });
 
-    it("客観ドットのリセットボタンでonVoteResetを呼ぶ", () => {
-      const onVoteReset = vi.fn();
+    it("付箋のクリックやEnterでは投票せず、パレットからのドロップだけを受け付ける", () => {
+      const onVote = vi.fn();
+      setup({
+        isSelected: true,
+        canEditNote: false,
+        vote: {
+          displayMode: "voting",
+          selectedKind: "subjective",
+          voteRemaining: { subjective: 1, objective: 3 },
+          canVote: true,
+          pendingOperations: [],
+          onVote,
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      clickNote();
+      fireEvent.keyDown(getNoteSurface(), { key: "Enter" });
+
+      expect(onVote).not.toHaveBeenCalled();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    });
+
+    it("付箋のホバーでは投票用プレビューを出さない", () => {
+      setup({
+        vote: {
+          displayMode: "voting",
+          selectedKind: "subjective",
+          voteRemaining: { subjective: 1, objective: 3 },
+          canVote: true,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      fireEvent.pointerEnter(getNoteSurface());
+
+      expect(
+        screen.queryByRole("img", { name: "主観シールを貼る位置" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("シール選択中にドラッグしようとしても投票しない", () => {
+      const onVote = vi.fn();
+      setup({
+        vote: {
+          displayMode: "voting",
+          selectedKind: "objective",
+          voteRemaining: { subjective: 1, objective: 3 },
+          canVote: true,
+          pendingOperations: [],
+          onVote,
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      const surface = getNoteSurface();
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        clientX: 10,
+        clientY: 10,
+      });
+      fireEvent.pointerMove(surface, {
+        pointerId: 1,
+        clientX: 50,
+        clientY: 10,
+      });
+      fireEvent.pointerUp(surface, {
+        pointerId: 1,
+        clientX: 50,
+        clientY: 10,
+      });
+      fireEvent.click(surface);
+
+      expect(onVote).not.toHaveBeenCalled();
+    });
+
+    it("結果では両方の合計票を表示する", () => {
+      setup({
+        note: buildNote({
+          dotVotes: {
+            subjective: { count: 3, votedByMe: false, ownCount: 0 },
+            objective: { count: 5, votedByMe: true, ownCount: 2 },
+          },
+        }),
+        vote: {
+          displayMode: "result",
+          selectedKind: null,
+          voteRemaining: { subjective: 0, objective: 0 },
+          canVote: false,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      expect(
+        screen.getByRole("img", { name: "主観シール 3票" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("img", { name: "客観シール 5票" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("×3")).toBeVisible();
+      expect(screen.getByText("×5")).toBeVisible();
+    });
+
+    it("自分のシールだけを1票ずつ取り消せる", () => {
+      const onVoteRemove = vi.fn();
       setup({
         note: buildNote({
           dotVotes: {
@@ -210,14 +300,56 @@ describe("NoteCard", () => {
             objective: { count: 2, votedByMe: true, ownCount: 2 },
           },
         }),
-        onVoteReset,
+        vote: {
+          displayMode: "voting",
+          selectedKind: null,
+          voteRemaining: { subjective: 1, objective: 1 },
+          canVote: true,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove,
+        },
       });
 
       fireEvent.click(
-        screen.getByRole("button", { name: "客観ドットを0に戻す" }),
+        screen.getByRole("button", { name: "客観シール 2票を1票取り消す" }),
       );
 
-      expect(onVoteReset).toHaveBeenCalledWith("note-1", "objective");
+      expect(onVoteRemove).toHaveBeenCalledWith("note-1", "objective");
+    });
+
+    it("個別シールのクリックはシールIDだけを削除コールバックへ渡す", () => {
+      const onStickerRemove = vi.fn();
+      const onVoteRemove = vi.fn();
+      const stickerId = "33333333-3333-4333-8333-333333333333";
+      setup({
+        note: buildNote({
+          dotVotes: {
+            subjective: { count: 0, votedByMe: false, ownCount: 0 },
+            objective: { count: 1, votedByMe: true, ownCount: 1 },
+          },
+          dotVoteStickers: [
+            { id: stickerId, kind: "objective", x: 0.25, y: 0.75 },
+          ],
+        }),
+        vote: {
+          displayMode: "voting",
+          selectedKind: null,
+          voteRemaining: { subjective: 1, objective: 2 },
+          canVote: true,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove,
+          onStickerRemove,
+        },
+      });
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+      );
+
+      expect(onStickerRemove).toHaveBeenCalledWith(stickerId);
+      expect(onVoteRemove).not.toHaveBeenCalled();
     });
   });
 

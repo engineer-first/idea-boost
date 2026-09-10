@@ -13,13 +13,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   isPhaseStep,
   isResultStep,
-  isVotingStep,
   PHASE_STEP_COUNTS,
   type RoomPhase,
 } from "@/contracts/phase";
 import type { TimerState } from "@/contracts/room-protocol";
-import type { DotVoteRemaining } from "@/features/dot-vote";
-import { DotVoteSummary } from "@/features/dot-vote";
 import { CopyInviteButton } from "@/features/invite";
 import { MemberAvatar } from "@/features/room-members";
 import {
@@ -60,7 +57,6 @@ export type RoomBoardHeaderProps = {
   isNextPhaseBlocked: boolean;
   isGuideExpanded: boolean;
   isSprintComplete: boolean;
-  voteRemaining: DotVoteRemaining;
   isLeaving: boolean;
   signOutAction?: () => Promise<void>;
   onShowVoteResult: () => void;
@@ -116,7 +112,6 @@ export function RoomBoardHeader({
   isNextPhaseBlocked,
   isGuideExpanded,
   isSprintComplete,
-  voteRemaining,
   isLeaving,
   signOutAction,
   onShowVoteResult,
@@ -244,10 +239,6 @@ export function RoomBoardHeader({
           />
         </div>
         <div className="pointer-events-auto flex h-12 max-w-[calc(100%-7rem)] items-center gap-1 rounded-xl border border-border bg-background/85 p-1 shadow-lg shadow-black/5 backdrop-blur-xl">
-          {isVotingStep(phase) ? (
-            <DotVoteSummary voteRemaining={voteRemaining} />
-          ) : null}
-
           <Popover>
             <PopoverTrigger asChild>
               <Button

@@ -16,15 +16,19 @@ const meta = {
     canEditNote: true,
     canDeleteNote: true,
     canMoveNote: true,
-    canShowVote: true,
-    canVote: true,
     onSelect: fn(),
     onDragStart: fn(),
     onContentChange: fn(),
     onDelete: fn(),
-    voteRemaining: { subjective: 1, objective: 3 },
-    onVote: fn(),
-    onVoteReset: fn(),
+    vote: {
+      displayMode: "hidden",
+      selectedKind: null,
+      voteRemaining: { subjective: 1, objective: 3 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
   },
   decorators: [
     (Story) => (
@@ -90,7 +94,29 @@ export const Voted: Story = {
         objective: { count: 3, votedByMe: false, ownCount: 0 },
       },
     }),
-    voteRemaining: { subjective: 0, objective: 1 },
+    vote: {
+      displayMode: "voting",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 1 },
+      canVote: true,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const VotePreview: Story = {
+  args: {
+    vote: {
+      displayMode: "voting",
+      selectedKind: "subjective",
+      voteRemaining: { subjective: 1, objective: 3 },
+      canVote: true,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
   },
 };
 
@@ -104,5 +130,14 @@ export const ResultStep: Story = {
   args: {
     isSelected: true,
     editingDisabled: true,
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
   },
 };

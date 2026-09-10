@@ -61,6 +61,9 @@ const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const OTHER_USER_ID = "22222222-2222-4222-8222-222222222222";
 const NOTE_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const nativeElementFromPoint = document.elementFromPoint;
 
 type Listener = (event: {
   data?: unknown;
@@ -143,6 +146,7 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    dotVoteStickers: overrides?.dotVoteStickers ?? [],
   };
 }
 
@@ -209,8 +213,42 @@ function openPrivateNotesToolbar() {
   return toolbar;
 }
 
+function dropPaletteSticker(kind: "subjective" | "objective"): void {
+  const note = screen.getByTestId("note-card");
+  vi.spyOn(note, "getBoundingClientRect").mockReturnValue({
+    x: 100,
+    y: 100,
+    top: 100,
+    right: 300,
+    bottom: 250,
+    left: 100,
+    width: 200,
+    height: 150,
+    toJSON: () => ({}),
+  });
+  Object.defineProperty(document, "elementFromPoint", {
+    configurable: true,
+    value: () => note,
+  });
+  const label = kind === "subjective" ? /主観シール 残り/ : /客観シール 残り/;
+  fireEvent.pointerDown(screen.getByRole("button", { name: label }), {
+    pointerId: 8,
+    clientX: 320,
+    clientY: 24,
+  });
+  fireEvent.pointerUp(screen.getByTestId("room-board-view-root"), {
+    pointerId: 8,
+    clientX: 150,
+    clientY: 175,
+  });
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
+  Object.defineProperty(document, "elementFromPoint", {
+    configurable: true,
+    value: nativeElementFromPoint,
+  });
   navigationMocks.replace.mockReset();
   notifyMocks.memberJoined.mockReset();
   notifyMocks.memberLeft.mockReset();
@@ -994,36 +1032,42 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     expect(screen.queryAllByTestId("note-card")).toHaveLength(0);
   });
 
-  it("付箋の主観ドットボタンで note:vote が送信される", () => {
+  it("主観シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
 
-    screen.debug();
+    dropPaletteSticker("subjective");
 
-    fireEvent.click(screen.getByRole("button", { name: "主観ドットを投票" }));
-
-    expect(socket.sent).toContain(
-      JSON.stringify({
-        type: "note:vote",
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual(
+      expect.objectContaining({
+        type: "note:vote-sticker:add",
         noteId: NOTE_ID,
         kind: "subjective",
+        stickerId: expect.any(String),
+        x: 0.25,
+        y: 0.5,
+        operationId: expect.any(String),
       }),
     );
   });
 
-  it("付箋の客観ドットボタンで note:vote が送信される", () => {
+  it("客観シールを付箋へドロップすると、操作IDつき座標投票が送信される", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "客観ドットを追加" }));
+    dropPaletteSticker("objective");
 
-    expect(socket.sent).toContain(
-      JSON.stringify({
-        type: "note:vote",
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual(
+      expect.objectContaining({
+        type: "note:vote-sticker:add",
         noteId: NOTE_ID,
         kind: "objective",
+        stickerId: expect.any(String),
+        x: 0.25,
+        y: 0.5,
+        operationId: expect.any(String),
       }),
     );
   });
@@ -1032,35 +1076,28 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
-    const button = screen.getByRole("button", { name: "客観ドットを追加" });
-
-    fireEvent.click(button);
-    fireEvent.click(button);
-    fireEvent.click(button);
-    fireEvent.click(button);
+    dropPaletteSticker("objective");
+    dropPaletteSticker("objective");
+    dropPaletteSticker("objective");
+    dropPaletteSticker("objective");
 
     expect(
       socket.sent.filter(
-        (message) =>
-          message ===
-          JSON.stringify({
-            type: "note:vote",
-            noteId: NOTE_ID,
-            kind: "objective",
-          }),
+        (message) => JSON.parse(message).type === "note:vote-sticker:add",
       ),
     ).toHaveLength(3);
-    expect(screen.getByText("客観 残り0")).toBeInTheDocument();
-    expect(button).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り0票" }),
+    ).toBeDisabled();
   });
 
-  it("客観ドット更新のサーバー反映でローカル選択済みの主観ドットを外さない", () => {
+  it("客観シール更新のサーバー反映で、保留中の自分の主観シールを外さない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(4),
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "主観ドットを投票" }));
-    fireEvent.click(screen.getByRole("button", { name: "客観ドットを追加" }));
+    dropPaletteSticker("subjective");
+    dropPaletteSticker("objective");
 
     act(() =>
       socket.simulateServerMessage({
@@ -1074,12 +1111,13 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       }),
     );
 
-    expect(
-      screen.getByRole("button", { name: "主観ドット投票を取り消す" }),
-    ).toHaveTextContent("主観1");
+    expect(screen.getByRole("img", { name: "主観シール 1票" })).toHaveAttribute(
+      "data-state",
+      "pending",
+    );
   });
 
-  it("付箋の客観ドットリセットボタンで note:vote-reset が送信される", () => {
+  it("自分の客観シールを1票取り消すと note:vote-remove が送信される", () => {
     const { socket } = connectWithSnapshot(
       [
         protocolNote({
@@ -1095,16 +1133,147 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "客観ドットを0に戻す" }),
+      screen.getByRole("button", { name: "客観シール 2票を1票取り消す" }),
     );
 
-    expect(socket.sent).toContain(
-      JSON.stringify({
-        type: "note:vote-reset",
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual(
+      expect.objectContaining({
+        type: "note:vote-remove",
         noteId: NOTE_ID,
         kind: "objective",
+        operationId: expect.any(String),
       }),
     );
+  });
+
+  it("付箋上の個別シールをクリックすると stickerId 指定の削除が送信される", () => {
+    const { socket } = connectWithSnapshot(
+      [
+        protocolNote({
+          dotVotes: {
+            subjective: { count: 0, votedByMe: false, ownCount: 0 },
+            objective: { count: 1, votedByMe: true, ownCount: 1 },
+          },
+          dotVoteStickers: [
+            { id: STICKER_ID, kind: "objective", x: 0.25, y: 0.5 },
+          ],
+        }),
+      ],
+      { phase: buildPhaseStep(4) },
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+    );
+
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual(
+      expect.objectContaining({
+        type: "note:vote-sticker:remove",
+        stickerId: STICKER_ID,
+        operationId: expect.any(String),
+      }),
+    );
+  });
+
+  it("投票中は付箋上のシールを別の付箋へドラッグすると移動が送信される", () => {
+    const { socket } = connectWithSnapshot(
+      [
+        protocolNote({
+          dotVotes: {
+            subjective: { count: 0, votedByMe: false, ownCount: 0 },
+            objective: { count: 1, votedByMe: true, ownCount: 1 },
+          },
+          dotVoteStickers: [
+            { id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 },
+          ],
+        }),
+        protocolNote({
+          id: TARGET_NOTE_ID,
+          content: "移動先の付箋",
+          x: 400,
+        }),
+      ],
+      { phase: buildPhaseStep(4) },
+    );
+    const [, target] = screen.getAllByTestId("note-card");
+    if (!target) throw new Error("移動先の付箋が見つかりません");
+    vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+      x: 400,
+      y: 100,
+      top: 100,
+      right: 600,
+      bottom: 250,
+      left: 400,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    });
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => target,
+    });
+
+    const root = screen.getByTestId("room-board-view-root");
+    fireEvent.pointerDown(
+      screen.getByRole("button", {
+        name: "客観シール 1票を1票取り消す",
+      }),
+      { pointerId: 12, clientX: 140, clientY: 145 },
+    );
+    fireEvent.pointerMove(root, {
+      pointerId: 12,
+      clientX: 450,
+      clientY: 175,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 12,
+      clientX: 450,
+      clientY: 175,
+    });
+
+    expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual(
+      expect.objectContaining({
+        type: "note:vote-sticker:move",
+        stickerId: STICKER_ID,
+        noteId: TARGET_NOTE_ID,
+        x: 0.25,
+        y: 0.5,
+        operationId: expect.any(String),
+      }),
+    );
+  });
+
+  it("操作IDつきエラーを受けると楽観的なシールを戻し、失敗理由を表示する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(4),
+    });
+
+    dropPaletteSticker("subjective");
+    const operationId = JSON.parse(socket.sent.at(-1) ?? "{}").operationId;
+
+    expect(
+      screen.getByRole("img", { name: "主観シール 1票" }),
+    ).toBeInTheDocument();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "error",
+        code: "forbidden",
+        message: "この投票は受け付けられません。",
+        operationId,
+      }),
+    );
+
+    expect(
+      screen.queryByRole("img", { name: "主観シール 1票" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "主観シール 残り1票" }),
+    ).toBeEnabled();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "この投票は受け付けられません。",
+    );
+    expect(notifyMocks.error).not.toHaveBeenCalled();
   });
 
   it("アンマウントで WebSocket を閉じる", () => {

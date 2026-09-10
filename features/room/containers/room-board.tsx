@@ -82,6 +82,10 @@ export function RoomBoard({
   function handleServerMessage(message: ServerMessage) {
     const receivedAt = Date.now();
     if (message.type === "error") {
+      notes.applyMessage(message);
+      if (message.operationId !== undefined) {
+        return;
+      }
       // 投票未完了によるゲート拒否はホストの phase:next 起点なので、toast
       // ではなく「強制的に進むか」の確認ダイアログで案内する。サーバーの
       // 評価順が変わって非ホストに届いた場合は通常のエラー表示へ落とす。
@@ -238,6 +242,8 @@ export function RoomBoard({
         remoteNoteDrags={notes.remoteNoteDrags}
         areCursorsVisible={cursorPresence.areCursorsVisible}
         onToggleCursors={cursorPresence.toggleCursors}
+        pendingVoteOperations={notes.pendingVoteOperations}
+        voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
         onHmwTemplateSelect={handleHmwTemplateSelect}
         onIdeaHintSelect={handleIdeaHintSelect}
@@ -254,7 +260,9 @@ export function RoomBoard({
         onGroupCreate={noteGroups.createGroup}
         onGroupUpdateName={noteGroups.renameGroup}
         onNoteVote={notes.voteNote}
-        onNoteVoteReset={notes.resetNoteVote}
+        onNoteVoteRemove={notes.removeNoteVote}
+        onNoteVoteStickerRemove={notes.removeVoteSticker}
+        onNoteVoteStickerMove={notes.moveVoteSticker}
         onNoteDecide={handleNoteDecide}
         onLeave={leave}
         isLeaving={isLeaving}

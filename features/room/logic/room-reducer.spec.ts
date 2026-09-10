@@ -83,6 +83,7 @@ describe("applyMemberServerMessage", () => {
           subjective: { count: 0, votedByMe: false, ownCount: 0 },
           objective: { count: 0, votedByMe: false, ownCount: 0 },
         },
+        dotVoteStickers: [],
       },
     };
     expect(applyMemberServerMessage([A], message)).toEqual([A]);
@@ -166,6 +167,7 @@ describe("applyPhaseServerMessage", () => {
           subjective: { count: 0, votedByMe: false, ownCount: 0 },
           objective: { count: 0, votedByMe: false, ownCount: 0 },
         },
+        dotVoteStickers: [],
       },
     };
     expect(applyPhaseServerMessage(LOBBY, message)).toEqual(LOBBY);

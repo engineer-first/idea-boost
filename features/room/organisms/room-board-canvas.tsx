@@ -19,6 +19,7 @@ import {
   isAtOrAfterGroupingStep,
   isPhaseStep,
   isResultStep,
+  isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
 import type { DotVoteKind } from "@/contracts/room-protocol";
@@ -67,6 +68,12 @@ export type RoomBoardCanvasProps = {
   draggingNoteId: string | null;
   isDisconnected: boolean;
   voteRemaining: DotVoteRemaining;
+  selectedVoteKind: DotVoteKind | null;
+  pendingVoteOperations: ReadonlyArray<{
+    noteId: string;
+    kind: DotVoteKind;
+    stickerId?: string;
+  }>;
   // ツールバー発ドラッグ中に、まだ notes に現れていない付箋を描くゴースト。
   dragGhost: { note: Note; x: number; y: number } | null;
   isReturnDropTarget: boolean;
@@ -99,8 +106,14 @@ export type RoomBoardCanvasProps = {
   ) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
-  onNoteVote: (noteId: string, kind: DotVoteKind) => void;
-  onNoteVoteReset: (noteId: string, kind: DotVoteKind) => void;
+  onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
+  onNoteVoteRemove: (noteId: string, kind: DotVoteKind) => void;
+  onNoteVoteStickerRemove: (stickerId: string) => void;
+  onNoteVoteStickerDragStart: (
+    stickerId: string,
+    kind: DotVoteKind,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => void;
   onNoteDecide: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
@@ -128,6 +141,8 @@ export function RoomBoardCanvas({
   draggingNoteId,
   isDisconnected,
   voteRemaining,
+  selectedVoteKind,
+  pendingVoteOperations,
   dragGhost,
   isReturnDropTarget,
   hmwDecidedIssue,
@@ -155,7 +170,9 @@ export function RoomBoardCanvas({
   onNoteContentChange,
   onNoteDelete,
   onNoteVote,
-  onNoteVoteReset,
+  onNoteVoteRemove,
+  onNoteVoteStickerRemove,
+  onNoteVoteStickerDragStart,
   onNoteDecide,
   onGroupCreate,
   onGroupUpdateName,
@@ -171,6 +188,11 @@ export function RoomBoardCanvas({
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? calculateRenderGroups(notes, groups)
     : [];
+  const voteDisplayMode = isVotingStep(phase)
+    ? "voting"
+    : isResultStep(phase)
+      ? "result"
+      : "hidden";
   const selectedNote = notes.find((note) => note.id === selectedNoteId);
   const canDecide = Boolean(
     selectedNote &&
@@ -233,17 +255,25 @@ export function RoomBoardCanvas({
         canDeleteNote={permissions.canDeleteNote}
         canEditNote={permissions.canEditNote}
         canMoveNote={permissions.canMoveNote}
-        canShowVote={permissions.canShowVote}
-        canVote={permissions.canVote}
         isDecided={decision?.noteId === note.id}
         disabled={isDisconnected}
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
         onDelete={handleNoteDelete}
-        voteRemaining={voteRemaining}
-        onVote={onNoteVote}
-        onVoteReset={onNoteVoteReset}
+        vote={{
+          displayMode: voteDisplayMode,
+          selectedKind: selectedVoteKind,
+          voteRemaining,
+          canVote: permissions.canVote,
+          pendingOperations: pendingVoteOperations,
+          // 通常のポインター投票は RoomBoardView がパレットからのドロップ座標を
+          // 受けて送る。ここはキーボード互換の既存コールバックだけを残す。
+          onVote: (noteId, kind) => onNoteVote(noteId, kind, 0.5, 0.5),
+          onVoteRemove: onNoteVoteRemove,
+          onStickerRemove: onNoteVoteStickerRemove,
+          onStickerDragStart: onNoteVoteStickerDragStart,
+        }}
         className={isOnIdeaMap ? "relative pointer-events-auto" : undefined}
         style={isOnIdeaMap ? {} : undefined}
       />

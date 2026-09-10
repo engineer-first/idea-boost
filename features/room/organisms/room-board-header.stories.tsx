@@ -34,7 +34,6 @@ const meta = {
     isGuideExpanded: true,
     isSprintComplete: false,
     signOutAction: fn(),
-    voteRemaining: { subjective: 5, objective: 10 },
     isLeaving: false,
     onShowVoteResult: fn(),
     onGuideExpandedChange: fn(),
