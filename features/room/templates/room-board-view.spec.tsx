@@ -92,6 +92,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     connectionStatus: "open" as const,
     groups: [],
     remoteCursors: [],
+    remoteNoteDrags: [],
     areCursorsVisible: true,
     onToggleCursors: vi.fn(),
     ...overrides,

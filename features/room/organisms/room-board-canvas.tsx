@@ -34,6 +34,7 @@ import {
   NoteCard,
   NoteGroupCard,
   PrivateNotesToolbar,
+  type RemoteNoteDrag,
   StickyNote,
 } from "@/features/notes";
 import { cn } from "@/lib/utils";
@@ -107,6 +108,7 @@ export type RoomBoardCanvasProps = {
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   remoteCursors: RenderedRemoteCursorPresence[];
+  remoteNoteDrags: RemoteNoteDrag[];
   areCursorsVisible: boolean;
   onToggleCursors: () => void;
 };
@@ -158,6 +160,7 @@ export function RoomBoardCanvas({
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
   remoteCursors,
+  remoteNoteDrags,
   areCursorsVisible,
   onToggleCursors,
 }: RoomBoardCanvasProps) {
@@ -212,11 +215,15 @@ export function RoomBoardCanvas({
   }
 
   function renderNoteCard(note: Note, isOnIdeaMap = false) {
+    const activeDragMember = isDisconnected
+      ? undefined
+      : remoteNoteDrags.find((drag) => drag.noteId === note.id)?.draggedBy;
     return (
       <NoteCard
         key={note.id}
         note={note}
         isOwnDrag={draggingNoteId === note.id}
+        activeDragMember={activeDragMember}
         isSelected={selectedNoteId === note.id}
         editingDisabled={isResultStep(phase)}
         canDeleteNote={permissions.canDeleteNote}

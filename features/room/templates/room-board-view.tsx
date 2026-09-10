@@ -15,7 +15,7 @@ import {
   type DotVoteKind,
   type TimerState,
 } from "@/contracts/room-protocol";
-import type { Note } from "@/features/notes";
+import type { Note, RemoteNoteDrag } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
@@ -47,6 +47,7 @@ export type RoomBoardViewProps = {
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
   remoteCursors: RenderedRemoteCursorPresence[];
+  remoteNoteDrags: RemoteNoteDrag[];
   areCursorsVisible: boolean;
   onToggleCursors: () => void;
   signOutAction?: () => Promise<void>;
@@ -98,6 +99,7 @@ export function RoomBoardView({
   isNextPhasePending,
   interactions,
   remoteCursors,
+  remoteNoteDrags,
   areCursorsVisible,
   onToggleCursors,
   signOutAction,
@@ -291,6 +293,7 @@ export function RoomBoardView({
         onPrivateNoteDelete={onPrivateNoteDelete}
         onPrivateNoteDragStart={handlePrivateDragStart}
         remoteCursors={remoteCursors}
+        remoteNoteDrags={remoteNoteDrags}
         areCursorsVisible={areCursorsVisible}
         onToggleCursors={onToggleCursors}
       />

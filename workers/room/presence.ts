@@ -46,8 +46,12 @@ export const presenceHandlers: MessageHandlers<
 
     const member = findMember(ctx.sql, ctx.userId);
     if (!member) return;
+    const attachment =
+      (ctx.ws.deserializeAttachment() as SocketAttachment | null) ?? {
+        userId: ctx.userId,
+      };
     ctx.ws.serializeAttachment({
-      userId: ctx.userId,
+      ...attachment,
       hasCursor: true,
     } satisfies SocketAttachment);
     ctx.broadcaster.broadcastToAllExcept(
@@ -68,8 +72,9 @@ export const presenceHandlers: MessageHandlers<
       ctx.ws.deserializeAttachment() as SocketAttachment | null;
     if (!attachment?.hasCursor) return;
     ctx.ws.serializeAttachment({
-      userId: ctx.userId,
+      ...attachment,
       hasCursor: false,
+      activeDragNoteId: undefined,
     } satisfies SocketAttachment);
     ctx.broadcaster.broadcastToAllExcept(
       { type: "cursor:left", userId: ctx.userId },

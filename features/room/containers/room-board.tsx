@@ -235,6 +235,7 @@ export function RoomBoard({
         signOutAction={signOutAction}
         interactions={boardInteractions}
         remoteCursors={cursorPresence.remoteCursors}
+        remoteNoteDrags={notes.remoteNoteDrags}
         areCursorsVisible={cursorPresence.areCursorsVisible}
         onToggleCursors={cursorPresence.toggleCursors}
         onAddPrivateNote={handleAddPrivateNote}

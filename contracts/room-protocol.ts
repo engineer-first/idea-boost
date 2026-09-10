@@ -283,6 +283,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     noteId: z.string().uuid(),
     x: CanvasCoordinateSchema,
     y: CanvasCoordinateSchema,
+    // クライアント入力には含めず、RoomDO が認証済みソケットから付与する。
+    // 付箋の author と現在の移動者は一致するとは限らない。
+    draggedBy: MemberSchema,
   }),
   z.object({
     type: z.literal("group:updated"),

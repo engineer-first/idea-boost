@@ -58,6 +58,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onPrivateNoteDelete: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
     remoteCursors: [],
+    remoteNoteDrags: [],
     areCursorsVisible: true,
     onToggleCursors: vi.fn(),
     ...overrides,
@@ -118,6 +119,49 @@ describe("RoomBoardCanvas", () => {
     setup({ notes: buildNotes(3) });
 
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
+  });
+
+  it("noteIdに対応する移動者を付箋本体へ表示する", () => {
+    const note = buildNote({ id: "note-1", color: "yellow" });
+    setup({
+      notes: [note],
+      remoteNoteDrags: [
+        {
+          noteId: note.id,
+          draggedBy: {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "Taro",
+            color: "green",
+          },
+          lastSeenAt: Date.now(),
+        },
+      ],
+    });
+
+    expect(screen.getByRole("status", { name: "Taro が移動中" })).toBeVisible();
+  });
+
+  it("切断中は古い移動者表示を付箋へ出さない", () => {
+    const note = buildNote({ id: "note-1" });
+    setup({
+      notes: [note],
+      isDisconnected: true,
+      remoteNoteDrags: [
+        {
+          noteId: note.id,
+          draggedBy: {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "Taro",
+            color: "green",
+          },
+          lastSeenAt: Date.now(),
+        },
+      ],
+    });
+
+    expect(
+      screen.queryByRole("status", { name: "Taro が移動中" }),
+    ).not.toBeInTheDocument();
   });
 
   it("付箋が 0 件でも共有付箋の空状態メッセージを表示しない", () => {

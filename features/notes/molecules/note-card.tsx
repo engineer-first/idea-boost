@@ -13,9 +13,10 @@ import { Check } from "lucide-react";
 // 編集状態(isEditing)はこの付箋に閉じた関心事なのでローカルに持つ。
 import { useEffect, useRef, useState } from "react";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
-import type { DotVoteKind } from "@/contracts/room-protocol";
+import type { DotVoteKind, ProtocolMember } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import { DotVoteControls, type DotVoteRemaining } from "@/features/dot-vote";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { Note } from "../logic/notes-reducer";
 import { StickyNote } from "./sticky-note";
 
@@ -23,6 +24,8 @@ export type NoteCardProps = {
   note: Note;
   // 自分自身が現在ドラッグ中かどうか。trueの間は影を深くして「持ち上げた」見た目にする。
   isOwnDrag: boolean;
+  // 他メンバーが現在この共有付箋を動かしている場合の、サーバー認証済み情報。
+  activeDragMember?: ProtocolMember;
   isSelected: boolean;
   editingDisabled?: boolean;
   isDecided?: boolean;
@@ -64,6 +67,7 @@ type PointerOrigin = {
 export function NoteCard({
   note,
   isOwnDrag,
+  activeDragMember,
   isSelected,
   editingDisabled = false,
   isDecided = false,
@@ -238,6 +242,30 @@ export function NoteCard({
         }
       }
     >
+      {activeDragMember ? (
+        <>
+          <div
+            aria-hidden="true"
+            data-testid="active-note-drag-outline"
+            className="pointer-events-none absolute inset-0 z-30 rounded-[2px] border-[3px] border-solid"
+            style={{
+              borderColor:
+                NOTE_COLOR_STYLES[activeDragMember.color].backgroundColor,
+            }}
+          />
+          <span
+            role="status"
+            aria-label={`${activeDragMember.name || "名前未設定"} が移動中`}
+            className="pointer-events-none absolute top-1 left-1 z-30 max-w-[calc(100%-0.5rem)] truncate rounded-md border border-slate-950/15 px-2 py-1 text-xs font-semibold text-slate-950 shadow-sm"
+            style={{
+              backgroundColor:
+                NOTE_COLOR_STYLES[activeDragMember.color].backgroundColor,
+            }}
+          >
+            {activeDragMember.name || "名前未設定"} が移動中
+          </span>
+        </>
+      ) : null}
       {isDecided ? (
         <span
           role="status"

@@ -15,6 +15,8 @@ import { visibleTo } from "../visibility";
 export type SocketAttachment = {
   userId: string;
   hasCursor?: boolean;
+  // note:drag は永続化しないため、切断時の解除通知にだけ使う一時状態。
+  activeDragNoteId?: string;
 };
 
 export class RoomBroadcaster {

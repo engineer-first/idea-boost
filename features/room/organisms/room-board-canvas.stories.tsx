@@ -104,6 +104,7 @@ const meta = {
     onPrivateNoteDelete: fn(),
     onPrivateNoteDragStart: fn(),
     remoteCursors: [],
+    remoteNoteDrags: [],
     areCursorsVisible: true,
     onToggleCursors: fn(),
   },
@@ -180,6 +181,7 @@ export const Disconnected: Story = {
   args: {
     isDisconnected: true,
     remoteCursors: [],
+    remoteNoteDrags: [],
   },
 };
 
@@ -189,6 +191,26 @@ export const ManyRemoteCursors: Story = {
     phase: STEP_1_2,
     permissions: getBoardPermissions(STEP_1_2),
     remoteCursors: REMOTE_CURSORS,
+  },
+};
+
+// 付箋は作者色（黄色）のまま、移動者（緑）の枠と名前を固定表示する。
+export const NoteDraggedByAnotherMember: Story = {
+  args: {
+    phase: STEP_1_2,
+    permissions: getBoardPermissions(STEP_1_2),
+    notes: [buildNote({ id: "note-1", color: "yellow" })],
+    remoteNoteDrags: [
+      {
+        noteId: "note-1",
+        draggedBy: {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro Yamada",
+          color: "green",
+        },
+        lastSeenAt: Date.now(),
+      },
+    ],
   },
 };
 

@@ -6,13 +6,14 @@ import {
   NOTE_SPAWN_Y_MIN,
 } from "../../contracts/board";
 import { isPhaseStep } from "../../contracts/phase";
+import type { SocketAttachment } from "./broadcast";
 import { autoReorganize } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
-import { getMemberColor } from "./members";
+import { findMember, getMemberColor } from "./members";
 import {
   broadcastNoteInserted,
   broadcastNoteUpdated,
@@ -170,6 +171,14 @@ export const noteHandlers: MessageHandlers<
       y: message.y,
       updated_at: updatedAt,
     });
+    const attachment =
+      ctx.ws.deserializeAttachment() as SocketAttachment | null;
+    if (attachment?.activeDragNoteId === message.noteId) {
+      ctx.ws.serializeAttachment({
+        ...attachment,
+        activeDragNoteId: undefined,
+      } satisfies SocketAttachment);
+    }
 
     // 位置が変わったので自動再編成を実行
     autoReorganizeAtGroupingStep(ctx);
@@ -193,12 +202,23 @@ export const noteHandlers: MessageHandlers<
     if (row.visibility === "private") {
       return;
     }
+    const draggedBy = findMember(ctx.sql, ctx.userId);
+    if (!draggedBy) return;
+    const attachment =
+      (ctx.ws.deserializeAttachment() as SocketAttachment | null) ?? {
+        userId: ctx.userId,
+      };
+    ctx.ws.serializeAttachment({
+      ...attachment,
+      activeDragNoteId: message.noteId,
+    } satisfies SocketAttachment);
     ctx.broadcaster.broadcast(
       {
         type: "note:drag",
         noteId: message.noteId,
         x: message.x,
         y: message.y,
+        draggedBy,
       },
       toProtocolNote(ctx.sql, row, ctx.userId),
       ctx.ws,

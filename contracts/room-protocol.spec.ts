@@ -392,6 +392,27 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("note:drag は移動者情報をクライアントから受け取らない", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:drag",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        x: 100,
+        y: 200,
+        draggedBy: {
+          userId: USER_B,
+          name: "spoofed",
+          color: "red",
+        },
+      }),
+    ).toEqual({
+      type: "note:drag",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      x: 100,
+      y: 200,
+    });
+  });
+
   it("cursor:update はボード座標と共有付箋の操作対象だけを受け入れる", () => {
     expect(
       ClientMessageSchema.parse({
@@ -588,6 +609,34 @@ describe("ClientMessageSchema", () => {
 });
 
 describe("parseServerMessage", () => {
+  it("note:drag はサーバーが付与した移動者の名前と色を受け入れる", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({
+          type: "note:drag",
+          noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          x: 100,
+          y: 200,
+          draggedBy: {
+            userId: USER_B,
+            name: "Taro",
+            color: "green",
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "note:drag",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      x: 100,
+      y: 200,
+      draggedBy: {
+        userId: USER_B,
+        name: "Taro",
+        color: "green",
+      },
+    });
+  });
+
   it("名前と色をサーバーが付与した cursor:updated を受け入れる", () => {
     expect(
       parseServerMessage(

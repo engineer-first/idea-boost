@@ -25,12 +25,18 @@ import {
   resetNoteVoteLocally,
   voteNoteLocally,
 } from "./notes-reducer";
+import {
+  applyRemoteNoteDragMessage,
+  type RemoteNoteDrag,
+  removeExpiredRemoteNoteDrags,
+} from "./remote-note-drag";
 
 type NoteDragPayload = { id: string; x: number; y: number };
 
 export type UseRoomNotesResult = {
   notes: Note[];
   draggingNoteId: string | null;
+  remoteNoteDrags: RemoteNoteDrag[];
   // サーバーメッセージを notes state に畳み込む。ドラッグ中の付箋への
   // エコーはローカル優先で無視される。
   applyMessage: (message: ServerMessage) => void;
@@ -60,6 +66,7 @@ export function useRoomNotes({
   // 接続直後に送られてくる snapshot で復元される。
   const [notes, setNotes] = useState<Note[]>([]);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+  const [remoteNoteDrags, setRemoteNoteDrags] = useState<RemoteNoteDrag[]>([]);
   const notesRef = useRef<Note[]>(notes);
   const draggingNoteIdRef = useRef<string | null>(null);
   const sendDragRef = useRef<ReturnType<
@@ -101,14 +108,28 @@ export function useRoomNotes({
 
   const applyMessage = useCallback(
     (message: ServerMessage) => {
+      const receivedAt = Date.now();
       updateNotes((current) =>
         applyServerMessage(current, message, {
           draggingNoteId: draggingNoteIdRef.current,
         }),
       );
+      setRemoteNoteDrags((current) =>
+        applyRemoteNoteDragMessage(current, message, receivedAt),
+      );
     },
     [updateNotes],
   );
+
+  useEffect(() => {
+    const timer = globalThis.setInterval(() => {
+      setRemoteNoteDrags((current) => {
+        const next = removeExpiredRemoteNoteDrags(current);
+        return next.length === current.length ? current : next;
+      });
+    }, 500);
+    return () => globalThis.clearInterval(timer);
+  }, []);
 
   const addNote = useCallback(
     (content?: string) => {
@@ -205,6 +226,7 @@ export function useRoomNotes({
   return {
     notes,
     draggingNoteId,
+    remoteNoteDrags,
     applyMessage,
     addNote,
     publishNote,

@@ -1326,18 +1326,46 @@ describe("note:delete（pgTAP: DELETE は author のみ）", () => {
 });
 
 describe("note:drag（エフェメラル同期）", () => {
-  it("他メンバーには届き、送信者自身にはエコーされず、永続化もされない", async () => {
+  it("認証済みの移動者情報付きで他メンバーに届き、送信者自身にはエコーされず、永続化もされない", async () => {
     const { roomId, owner, member } = await setupStartedRoom();
     const noteId = await createNote({ owner, member });
 
-    send(owner, { type: "note:drag", noteId, x: 300, y: 300 });
-    const toMember = await expectType(member, "note:drag");
-    expect(toMember).toMatchObject({ noteId, x: 300, y: 300 });
+    // Owner が書いた付箋を Member が動かす。付箋作者ではなく、認証済みの
+    // 送信ソケットに対応する Member の情報が付くことを確認する。
+    send(member, {
+      type: "note:drag",
+      noteId,
+      x: 300,
+      y: 300,
+      draggedBy: { userId: OWNER.sub, name: "spoofed", color: "red" },
+    });
+    const toOwner = await expectType(owner, "note:drag");
+    const assignedColors = await runInRoomDO(roomId, (_instance, state) => {
+      const movingMember = state.storage.sql
+        .exec("SELECT color FROM members WHERE user_id = ?1", MEMBER.sub)
+        .toArray()[0] as { color: string } | undefined;
+      const note = state.storage.sql
+        .exec("SELECT color FROM notes WHERE id = ?1", noteId)
+        .toArray()[0] as { color: string } | undefined;
+      return { movingMember: movingMember?.color, note: note?.color };
+    });
+    expect(toOwner).toMatchObject({
+      noteId,
+      x: 300,
+      y: 300,
+      draggedBy: {
+        userId: MEMBER.sub,
+        name: MEMBER.name,
+        color: expect.stringMatching(NOTE_COLOR_PATTERN),
+      },
+    });
+    expect(toOwner.draggedBy.color).toBe(assignedColors.movingMember);
+    expect(assignedColors.note).not.toBe(assignedColors.movingMember);
 
     // 送信者へのエコーが無いことを、後続メッセージの順序で確認する:
-    // drag の後に move を送り、owner が次に受け取るのが note:updated であること。
-    send(owner, { type: "note:move", noteId, x: 111, y: 222 });
-    const next = await owner.next();
+    // drag の後に move を送り、member が次に受け取るのが note:updated であること。
+    send(member, { type: "note:move", noteId, x: 111, y: 222 });
+    const next = await member.next();
     expect(next.type).toBe("note:updated");
 
     // drag は永続化されない（確定は move だけ）: snapshot は move の値になる。
@@ -1347,6 +1375,21 @@ describe("note:drag（エフェメラル同期）", () => {
     const snapshot = await expectType(reconnected, "snapshot");
     expect(snapshot.notes[0]).toMatchObject({ x: 111, y: 222 });
     reconnected.close();
+  });
+
+  it("カーソルを共有していない移動者が切断しても解除通知を配信する", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+
+    send(room.member, { type: "note:drag", noteId, x: 300, y: 300 });
+    await expectType(room.owner, "note:drag");
+    room.member.close();
+
+    expect(await expectType(room.owner, "cursor:left")).toEqual({
+      type: "cursor:left",
+      userId: MEMBER.sub,
+    });
+    room.owner.close();
   });
 });
 

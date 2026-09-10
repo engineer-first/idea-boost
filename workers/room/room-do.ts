@@ -253,9 +253,10 @@ export class RoomDO extends DurableObject {
     _reason: string,
     _wasClean: boolean,
   ): Promise<void> {
-    // メンバーシップ自体は REST leave まで維持するが、一時カーソルは切断時に消す。
+    // メンバーシップ自体は REST leave まで維持するが、一時カーソルと
+    // 付箋の移動者表示は切断時に消す。
     const attachment = ws.deserializeAttachment() as SocketAttachment | null;
-    if (attachment?.hasCursor) {
+    if (attachment?.hasCursor || attachment?.activeDragNoteId) {
       this.broadcaster.broadcastToAllExcept(
         { type: "cursor:left", userId: attachment.userId },
         attachment.userId,
