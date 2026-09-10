@@ -13,6 +13,11 @@ type DotVotePaletteViewProps = {
   pendingOperationCount: number;
   feedback: DotVoteFeedback | null;
   disabled: boolean;
+  selectedKind: DotVoteKind | null;
+  onStickerSelect: (
+    kind: DotVoteKind,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => void;
   onStickerDragStart: (
     kind: DotVoteKind,
     event: React.PointerEvent<HTMLButtonElement>,
@@ -38,6 +43,8 @@ export function DotVotePaletteView({
   pendingOperationCount,
   feedback,
   disabled,
+  selectedKind,
+  onStickerSelect,
   onStickerDragStart,
 }: DotVotePaletteViewProps) {
   const status =
@@ -47,26 +54,39 @@ export function DotVotePaletteView({
         ? feedback.message
         : feedback?.state === "failed"
           ? feedback.message
-          : "シールを付箋へドラッグして貼ってください。";
+          : selectedKind === null
+            ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
+            : `${DOT_VOTE_LABELS[selectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
 
   return (
     <section
       aria-label="投票パレット"
       className="pointer-events-auto flex h-12 items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] dark:bg-slate-950"
     >
-      <p className="sr-only">シールを付箋へドラッグ</p>
+      <p className="sr-only">
+        シールを付箋へドラッグ、または選択して連続で貼り付け
+      </p>
       <fieldset className="flex gap-1">
-        <legend className="sr-only">ドラッグするシールの種類</legend>
+        <legend className="sr-only">使用するシールの種類</legend>
         {DOT_VOTE_KINDS.map((kind) => {
           return (
             <Button
               key={kind}
               type="button"
               aria-label={dotVoteRemainingLabel(kind, voteRemaining[kind])}
+              aria-pressed={selectedKind === kind}
               disabled={disabled || voteRemaining[kind] <= 0}
               size="sm"
               variant="outline"
-              className={`h-10 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]}`}
+              className={`h-10 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]} ${
+                selectedKind === kind
+                  ? "ring-2 ring-foreground/45 ring-offset-2"
+                  : ""
+              }`}
+              onClick={(event) => {
+                if (disabled || voteRemaining[kind] <= 0) return;
+                onStickerSelect(kind, event);
+              }}
               onPointerDown={(event) => {
                 if (disabled || voteRemaining[kind] <= 0) return;
                 onStickerDragStart?.(kind, event);

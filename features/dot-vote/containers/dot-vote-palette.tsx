@@ -7,19 +7,26 @@ export type DotVotePaletteProps = {
   pendingOperationCount: number;
   feedback: DotVoteFeedback | null;
   disabled: boolean;
+  selectedKind: DotVoteKind | null;
+  onStickerSelect: (
+    kind: DotVoteKind,
+    event: React.MouseEvent<HTMLButtonElement>,
+  ) => void;
   onStickerDragStart: (
     kind: DotVoteKind,
     event: React.PointerEvent<HTMLButtonElement>,
   ) => void;
 };
 
-// 表示専用 view へ値を渡すだけの container。クリック選択状態を持たず、
-// シールは常にここから付箋へドラッグして投票する。
+// 表示専用 view へ値を渡すだけの container。選択状態はボード側で持ち、
+// クリックによる連続スタンプとドラッグ＆ドロップの両方を通知する。
 export function DotVotePalette({
   voteRemaining,
   pendingOperationCount,
   feedback,
   disabled,
+  selectedKind,
+  onStickerSelect,
   onStickerDragStart,
 }: DotVotePaletteProps) {
   return (
@@ -28,6 +35,8 @@ export function DotVotePalette({
       pendingOperationCount={pendingOperationCount}
       feedback={feedback}
       disabled={disabled}
+      selectedKind={selectedKind}
+      onStickerSelect={onStickerSelect}
       onStickerDragStart={onStickerDragStart}
     />
   );

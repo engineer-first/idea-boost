@@ -182,6 +182,13 @@ export function NoteCard({
       ({ noteId, stickerId }) => noteId === note.id && stickerId === undefined,
     )
     .map(({ kind }) => kind);
+  const selectedStampKind =
+    vote.displayMode === "voting" &&
+    vote.canVote &&
+    vote.selectedKind !== null &&
+    vote.voteRemaining[vote.selectedKind] > 0
+      ? vote.selectedKind
+      : null;
 
   // 状態に応じてフォーカスを移す。サーフェスにフォーカスがないと
   // Backspace削除などのキー操作を受け取れない。
@@ -200,6 +207,11 @@ export function NoteCard({
 
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     if (disabled) {
+      return;
+    }
+    if (selectedStampKind !== null) {
+      event.preventDefault();
+      pointerOriginRef.current = null;
       return;
     }
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -450,7 +462,11 @@ export function NoteCard({
         <button
           ref={surfaceRef}
           type="button"
-          aria-label="付箋"
+          aria-label={
+            selectedStampKind === null
+              ? "付箋"
+              : `付箋（${selectedStampKind === "subjective" ? "主観" : "客観"}シールを貼る）`
+          }
           aria-disabled={disabled || undefined}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -459,9 +475,11 @@ export function NoteCard({
           className={`absolute inset-0 z-10 touch-none select-none outline-none ${
             disabled
               ? "cursor-not-allowed"
-              : isOwnDrag
-                ? "cursor-grabbing"
-                : "cursor-grab"
+              : selectedStampKind !== null
+                ? "cursor-none"
+                : isOwnDrag
+                  ? "cursor-grabbing"
+                  : "cursor-grab"
           }`}
         />
       )}

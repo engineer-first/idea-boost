@@ -236,6 +236,11 @@ function dropPaletteSticker(kind: "subjective" | "objective"): void {
     clientX: 320,
     clientY: 24,
   });
+  fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+    pointerId: 8,
+    clientX: 280,
+    clientY: 80,
+  });
   fireEvent.pointerUp(screen.getByTestId("room-board-view-root"), {
     pointerId: 8,
     clientX: 150,

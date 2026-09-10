@@ -10,6 +10,8 @@ const meta = {
     pendingOperationCount: 0,
     feedback: null,
     disabled: false,
+    selectedKind: null,
+    onStickerSelect: fn(),
     onStickerDragStart: fn(),
   },
 } satisfies Meta<typeof DotVotePaletteView>;
@@ -17,7 +19,11 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Selected: Story = {};
+export const Selected: Story = {
+  args: {
+    selectedKind: "subjective",
+  },
+};
 
 export const Exhausted: Story = {
   args: {

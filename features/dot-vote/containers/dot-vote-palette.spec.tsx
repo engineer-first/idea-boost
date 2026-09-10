@@ -10,6 +10,8 @@ describe("DotVotePalette", () => {
         pendingOperationCount={0}
         feedback={null}
         disabled={false}
+        selectedKind={null}
+        onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
       />,
     );
@@ -22,9 +24,11 @@ describe("DotVotePalette", () => {
       name: "客観シール 残り2票",
     });
 
-    expect(within(palette).getByText("シールを付箋へドラッグ")).toHaveClass(
-      "sr-only",
-    );
+    expect(
+      within(palette).getByText(
+        "シールを付箋へドラッグ、または選択して連続で貼り付け",
+      ),
+    ).toHaveClass("sr-only");
     expect(within(subjective).getByText("主観")).toBeVisible();
     expect(within(subjective).getByText("直感・共感")).toBeVisible();
     expect(within(subjective).getByText("残り1票")).toBeVisible();
@@ -55,6 +59,8 @@ describe("DotVotePalette", () => {
         pendingOperationCount={0}
         feedback={null}
         disabled={false}
+        selectedKind={null}
+        onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
       />,
     );
@@ -71,6 +77,8 @@ describe("DotVotePalette", () => {
         pendingOperationCount={0}
         feedback={{ state: "failed", message: "投票上限を超えています。" }}
         disabled={false}
+        selectedKind={null}
+        onStickerSelect={vi.fn()}
         onStickerDragStart={vi.fn()}
       />,
     );
@@ -80,8 +88,9 @@ describe("DotVotePalette", () => {
     );
   });
 
-  it("主観・客観シールはクリック選択ではなく、ポインターでドラッグ開始する", () => {
+  it("主観・客観シールはクリック選択とドラッグ開始の両方を通知する", () => {
     const onStickerDragStart = vi.fn();
+    const onStickerSelect = vi.fn();
 
     render(
       <DotVotePalette
@@ -89,6 +98,8 @@ describe("DotVotePalette", () => {
         pendingOperationCount={0}
         feedback={null}
         disabled={false}
+        selectedKind={null}
+        onStickerSelect={onStickerSelect}
         onStickerDragStart={onStickerDragStart}
       />,
     );
@@ -105,6 +116,34 @@ describe("DotVotePalette", () => {
     expect(onStickerDragStart).toHaveBeenCalledWith(
       "objective",
       expect.objectContaining({ pointerId: 1 }),
+    );
+
+    fireEvent.click(sticker, { clientX: 300, clientY: 24 });
+
+    expect(onStickerSelect).toHaveBeenCalledWith(
+      "objective",
+      expect.objectContaining({ clientX: 300, clientY: 24 }),
+    );
+  });
+
+  it("選択中のシールを押下状態と案内文で示す", () => {
+    render(
+      <DotVotePalette
+        voteRemaining={{ subjective: 1, objective: 2 }}
+        pendingOperationCount={0}
+        feedback={null}
+        disabled={false}
+        selectedKind="subjective"
+        onStickerSelect={vi.fn()}
+        onStickerDragStart={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "主観シール 残り1票" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "主観シールを選択中です。付箋をクリックして連続で貼れます。",
     );
   });
 });

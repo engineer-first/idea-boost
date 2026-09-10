@@ -334,7 +334,11 @@ export function RoomBoardCanvas({
         <div
           ref={boardScrollerRef}
           className={`relative h-full overflow-hidden bg-muted/20 [container-type:size] ${
-            isPanning ? "cursor-grabbing" : "cursor-grab"
+            selectedVoteKind !== null
+              ? "cursor-none"
+              : isPanning
+                ? "cursor-grabbing"
+                : "cursor-grab"
           }`}
           data-testid="board-scroller"
           style={gridStyle}
