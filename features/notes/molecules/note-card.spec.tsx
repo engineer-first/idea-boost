@@ -54,6 +54,17 @@ describe("NoteCard", () => {
     expect(screen.getByDisplayValue("こんにちは")).toBeInTheDocument();
   });
 
+  it("追加直後の付箋は本文を入力できる状態でフォーカスする", () => {
+    setup({
+      note: buildNote({ content: "" }),
+      isSelected: true,
+      autoFocusEditor: true,
+    });
+
+    expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
+    expect(screen.getByRole("textbox")).toHaveFocus();
+  });
+
   it.each<NoteColor>([
     "yellow",
     "green",

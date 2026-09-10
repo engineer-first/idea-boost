@@ -61,6 +61,15 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
   return props;
 }
 
+function openPrivateNotesToolbar() {
+  const toolbar = screen.getByTestId("private-notes-toolbar");
+  const openButton = within(toolbar).queryByRole("button", {
+    name: "マイ付箋を開く",
+  });
+  if (openButton) fireEvent.click(openButton);
+  return toolbar;
+}
+
 describe("RoomBoardCanvas", () => {
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
@@ -397,7 +406,7 @@ describe("RoomBoardCanvas", () => {
       onPrivateNoteDelete,
     });
 
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     const surface = within(toolbar).getByRole("button", { name: "付箋" });
 
     fireEvent.keyDown(surface, { key: "Backspace" });
@@ -415,7 +424,7 @@ describe("RoomBoardCanvas", () => {
       onPrivateNoteDelete,
     });
 
-    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const toolbar = openPrivateNotesToolbar();
     const surface = within(toolbar).getByRole("button", { name: "付箋" });
 
     fireEvent.keyDown(surface, { key: "Backspace" });

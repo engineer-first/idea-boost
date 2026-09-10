@@ -397,7 +397,7 @@ export function RoomBoardCanvas({
           </div>
         ) : null}
         {isHmwWritingStep(phase) ? (
-          // 下端はマイ付箋ドック（h-48 + 余白）を避ける。ボードが縦に狭い
+          // 下端はマイ付箋ドック（h-36 + 余白）を避ける。ボードが縦に狭い
           // 画面ではパネル内スクロールに逃がす（#198 の全画面化で緩和される）。
           <div className="pointer-events-none absolute top-16 bottom-56 left-3 z-30 flex items-start transition-[top] duration-200 ease-out motion-reduce:duration-100 group-data-[guide-expanded=true]/board:top-56">
             <HmwTemplatePanel
@@ -418,7 +418,7 @@ export function RoomBoardCanvas({
         ) : null}
         {permissions.showPrivateToolbar ? (
           <div
-            className="pointer-events-none absolute inset-x-3 bottom-3 z-30 flex justify-center"
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-30 flex justify-end"
             data-testid="private-notes-dock"
           >
             <PrivateNotesToolbar
@@ -429,7 +429,7 @@ export function RoomBoardCanvas({
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               editingDisabled={isResultStep(phase)}
-              className="pointer-events-auto max-w-5xl"
+              className="pointer-events-auto"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}
               selectedNoteId={selectedNoteId}
