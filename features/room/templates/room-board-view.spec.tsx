@@ -473,6 +473,11 @@ describe("RoomBoardView", () => {
       screen.getByRole("button", { name: "客観シール 残り3票" }),
       { pointerId: 9, clientX: 320, clientY: 24 },
     );
+    fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+      pointerId: 9,
+      clientX: 150,
+      clientY: 175,
+    });
     fireEvent.pointerCancel(screen.getByTestId("room-board-view-root"), {
       pointerId: 9,
       clientX: 150,

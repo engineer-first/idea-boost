@@ -184,7 +184,7 @@ describe("NoteCard", () => {
       expect(sticker.parentElement).toHaveStyle({ left: "25%", top: "75%" });
     });
 
-    it("付箋のクリックやEnterでは投票せず、パレットからのドロップだけを受け付ける", () => {
+    it("シール選択中でもNoteCard自身のクリックでは投票せず、ボードの配置操作へ委ねる", () => {
       const onVote = vi.fn();
       setup({
         isSelected: true,
@@ -201,9 +201,33 @@ describe("NoteCard", () => {
       });
 
       clickNote();
-      fireEvent.keyDown(getNoteSurface(), { key: "Enter" });
 
       expect(onVote).not.toHaveBeenCalled();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    });
+
+    it.each([
+      "Enter",
+      " ",
+    ])("シール選択中に%sを押すと付箋の中央へ投票する", (key) => {
+      const onVote = vi.fn();
+      const { props } = setup({
+        isSelected: true,
+        canEditNote: false,
+        vote: {
+          displayMode: "voting",
+          selectedKind: "subjective",
+          voteRemaining: { subjective: 1, objective: 3 },
+          canVote: true,
+          pendingOperations: [],
+          onVote,
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      fireEvent.keyDown(getNoteSurface(), { key });
+
+      expect(onVote).toHaveBeenCalledWith(props.note.id, "subjective");
       expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
     });
 
@@ -392,7 +416,7 @@ describe("NoteCard", () => {
       expect(getCard()).toHaveClass("ring-2");
       expect(
         screen.getByRole("status", { name: "取り組む課題に決定済み" }),
-      ).toBeInTheDocument();
+      ).toHaveClass("bottom-1", "right-1");
     });
   });
 

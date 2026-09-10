@@ -761,14 +761,17 @@ describe("RoomBoardCanvas", () => {
     setup({
       phase: buildPhaseStep(4),
       permissions: getBoardPermissions(buildPhaseStep(4)),
+      selectedVoteKind: "subjective",
     });
 
     for (const note of screen.getAllByTestId("note-card")) {
       expect(note).toHaveAttribute("data-vote-drop-target", "true");
+      expect(
+        within(note).getByRole("button", {
+          name: "付箋（主観シールを貼る）",
+        }),
+      ).toBeInTheDocument();
     }
-    expect(
-      screen.queryByRole("button", { name: /シールを付箋に貼る/ }),
-    ).not.toBeInTheDocument();
   });
 
   it("Step2-3では各付箋をシールのドロップ先として表示する", () => {

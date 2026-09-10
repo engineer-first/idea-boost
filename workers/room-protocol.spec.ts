@@ -1368,6 +1368,152 @@ describe("note:vote（課題ドット投票）", () => {
     owner.close();
   });
 
+  it("投票上限後も同じシールIDの再送は既存状態を返す", async () => {
+    const { owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+    const stickers = [
+      {
+        stickerId: "a1111111-1111-4111-8111-111111111111",
+        operationId: "a2222222-2222-4222-8222-222222222222",
+        x: 0.2,
+      },
+      {
+        stickerId: "b1111111-1111-4111-8111-111111111111",
+        operationId: "b2222222-2222-4222-8222-222222222222",
+        x: 0.5,
+      },
+      {
+        stickerId: "c1111111-1111-4111-8111-111111111111",
+        operationId: "c2222222-2222-4222-8222-222222222222",
+        x: 0.8,
+      },
+    ];
+
+    await arrangeStep(owner, 4);
+    for (const sticker of stickers) {
+      send(member, {
+        type: "note:vote-sticker:add",
+        noteId,
+        stickerId: sticker.stickerId,
+        kind: "objective",
+        x: sticker.x,
+        y: 0.5,
+        operationId: sticker.operationId,
+      });
+      await expectType(member, "note:updated");
+    }
+
+    const retried = stickers[2];
+    if (!retried) throw new Error("再送対象のシールがありません。");
+    const retryOperationId = "d2222222-2222-4222-8222-222222222222";
+    send(member, {
+      type: "note:vote-sticker:add",
+      noteId,
+      stickerId: retried.stickerId,
+      kind: "objective",
+      x: retried.x,
+      y: 0.5,
+      operationId: retryOperationId,
+    });
+    const response = await expectType(member, "note:updated");
+
+    expect(response.operationId).toBe(retryOperationId);
+    expect(response.note.dotVotes.objective).toEqual({
+      votedByMe: true,
+      ownCount: 3,
+    });
+    expect(response.note.dotVoteStickers).toHaveLength(3);
+
+    owner.close();
+    member.close();
+  });
+
+  it("投票中のシールは投票者本人のスナップショットだけに含める", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+    const stickerId = "d1111111-1111-4111-8111-111111111111";
+
+    await arrangeStep(owner, 4);
+    send(owner, {
+      type: "note:vote-sticker:add",
+      noteId,
+      stickerId,
+      kind: "subjective",
+      x: 0.25,
+      y: 0.75,
+    });
+    await expectType(owner, "note:updated");
+
+    owner.close();
+    member.close();
+    const ownerReconnected = await connectRoomAs(OWNER, roomId);
+    const memberReconnected = await connectRoomAs(MEMBER, roomId);
+    const ownerSnapshot = await expectType(ownerReconnected, "snapshot");
+    const memberSnapshot = await expectType(memberReconnected, "snapshot");
+
+    expect(
+      ownerSnapshot.notes.find((note) => note.id === noteId)?.dotVoteStickers,
+    ).toEqual([{ id: stickerId, kind: "subjective", x: 0.25, y: 0.75 }]);
+    expect(
+      memberSnapshot.notes.find((note) => note.id === noteId)?.dotVoteStickers,
+    ).toEqual([]);
+
+    ownerReconnected.close();
+    memberReconnected.close();
+  });
+
+  it("他メンバーのシールは移動も削除もできず、保存状態は変わらない", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const sourceNoteId = await createNote({ owner, member });
+    const targetNoteId = await createNote({ owner, member });
+    const stickerId = "e1111111-1111-4111-8111-111111111111";
+
+    await arrangeStep(owner, 4);
+    send(owner, {
+      type: "note:vote-sticker:add",
+      noteId: sourceNoteId,
+      stickerId,
+      kind: "objective",
+      x: 0.2,
+      y: 0.3,
+    });
+    await expectType(owner, "note:updated");
+
+    send(member, {
+      type: "note:vote-sticker:move",
+      stickerId,
+      noteId: targetNoteId,
+      x: 0.8,
+      y: 0.9,
+    });
+    expect((await expectType(member, "error")).code).toBe("forbidden");
+
+    send(member, { type: "note:vote-sticker:remove", stickerId });
+    expect((await expectType(member, "error")).code).toBe("forbidden");
+
+    const rows = await runInRoomDO(roomId, (_instance, state) =>
+      state.storage.sql
+        .exec(
+          `SELECT note_id, user_id, kind, x, y
+           FROM note_vote_stickers WHERE id = ?1`,
+          stickerId,
+        )
+        .toArray(),
+    );
+    expect(rows).toEqual([
+      {
+        note_id: sourceNoteId,
+        user_id: OWNER.sub,
+        kind: "objective",
+        x: 0.2,
+        y: 0.3,
+      },
+    ]);
+
+    owner.close();
+    member.close();
+  });
+
   it("投票中は自分のシールを別の付箋へ移動し、個別に削除できる", async () => {
     const { owner, member } = await setupStartedRoom();
     const sourceNoteId = await createNote({ owner, member });

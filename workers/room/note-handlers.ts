@@ -363,6 +363,31 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    const existing = findVoteSticker(ctx.sql, message.stickerId);
+    if (existing) {
+      const isSameSticker =
+        existing.note_id === message.noteId &&
+        existing.user_id === ctx.userId &&
+        existing.kind === message.kind &&
+        existing.x === message.x &&
+        existing.y === message.y;
+      if (isSameSticker) {
+        broadcastVoteUpdated(
+          ctx.sql,
+          ctx.broadcaster,
+          row,
+          ctx.userId,
+          message.operationId,
+        );
+        return;
+      }
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "同じシールは重ねて貼れません。",
+      });
+      return;
+    }
     if (hasReachedVoteLimit(ctx.sql, ctx.userId, message.kind, phase.phase)) {
       ctx.reply({
         type: "error",

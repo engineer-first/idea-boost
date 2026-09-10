@@ -268,6 +268,16 @@ export function NoteCard({
       return;
     }
 
+    if (
+      selectedStampKind !== null &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      vote.onVote(note.id, selectedStampKind);
+      return;
+    }
+
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
       event.stopPropagation();
@@ -363,7 +373,7 @@ export function NoteCard({
         <span
           role="status"
           aria-label="取り組む課題に決定済み"
-          className="pointer-events-none absolute left-1 top-1 z-30 flex size-9 items-center justify-center rounded-full bg-emerald-700 text-white"
+          className="pointer-events-none absolute bottom-1 right-1 z-30 flex size-9 items-center justify-center rounded-full bg-emerald-700 text-white"
         >
           <Check aria-hidden="true" className="size-5" />
         </span>

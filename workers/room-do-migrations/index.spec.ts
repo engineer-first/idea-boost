@@ -14,7 +14,7 @@ import { appliedMigrationIds, dropAllTables, tableNames } from "./test-helpers";
 const USER_A = "11111111-1111-4111-8111-111111111111";
 
 const NORMALIZE_PHASE_MIGRATION_ID = "20260715042808";
-const VOTE_STICKERS_MIGRATION_ID = "20260909044703";
+const VOTE_STICKERS_MIGRATION_ID = "20260909044704";
 
 const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 
@@ -112,6 +112,12 @@ describe("ROOM_DO_MIGRATIONS", () => {
         USER_A,
         "2026-09-09T00:00:00.000Z",
       );
+      state.storage.sql.exec(
+        `INSERT INTO note_votes (note_id, user_id, kind, created_at, vote_count)
+         VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', ?1, 'subjective', ?2, 0)`,
+        USER_A,
+        "2026-09-09T00:00:00.000Z",
+      );
 
       migrateRoomStorage(
         state.storage,
@@ -131,6 +137,14 @@ describe("ROOM_DO_MIGRATIONS", () => {
           expect.objectContaining({ kind: "objective", y: 0.16 }),
         ]),
       );
+      expect(
+        state.storage.sql
+          .exec(
+            "SELECT id FROM note_vote_stickers WHERE note_id = ?1",
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          )
+          .toArray(),
+      ).toEqual([]);
       expect(
         state.storage.sql.exec("SELECT COUNT(*) AS count FROM note_votes").one()
           .count,

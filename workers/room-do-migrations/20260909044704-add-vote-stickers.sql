@@ -19,6 +19,7 @@ CREATE INDEX IF NOT EXISTS idx_note_vote_stickers_user_kind
 WITH RECURSIVE expanded_votes AS (
   SELECT note_id, user_id, kind, created_at, vote_count, 1 AS ordinal
   FROM note_votes
+  WHERE vote_count > 0
   UNION ALL
   SELECT note_id, user_id, kind, created_at, vote_count, ordinal + 1
   FROM expanded_votes
