@@ -16,6 +16,7 @@ export type StickyNoteProps = {
   style?: React.CSSProperties;
   testId?: string;
   "data-editing"?: boolean;
+  "data-vote-drop-target"?: boolean;
 };
 
 // RoomBoard の molecule。共有ボードとマイ付箋で共通利用する付箋の見た目だけを担う。
@@ -30,6 +31,7 @@ export function StickyNote({
   style,
   testId,
   "data-editing": dataEditing,
+  "data-vote-drop-target": dataVoteDropTarget,
 }: StickyNoteProps) {
   return (
     <div
@@ -39,6 +41,7 @@ export function StickyNote({
       data-selected={isSelected || undefined}
       data-decided={isDecided || undefined}
       data-editing={dataEditing || undefined}
+      data-vote-drop-target={dataVoteDropTarget || undefined}
       className={cn(
         "relative isolate flex flex-col overflow-hidden rounded-[2px]",
         isSelected

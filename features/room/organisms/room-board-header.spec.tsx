@@ -25,7 +25,6 @@ function setupProps(
     isNextPhaseBlocked: false,
     isGuideExpanded: true,
     isSprintComplete: false,
-    voteRemaining: { subjective: 5, objective: 10 },
     isLeaving: false,
     onShowVoteResult: vi.fn(),
     onGuideExpandedChange: vi.fn(),
@@ -184,16 +183,12 @@ describe("RoomBoardHeader", () => {
     expect(membersButton.parentElement).toHaveClass("backdrop-blur-xl");
   });
 
-  it("投票残数は投票ステップだけ表示する", () => {
-    const { rerender } = render(
-      <RoomBoardHeader {...setupProps({ phase: buildPhaseStep(1) })} />,
-    );
+  it("投票ステップでも投票パレットを上部HUDには表示しない", () => {
+    setup({ phase: buildPhaseStep(4) });
 
-    expect(screen.queryByText("主観 残り5")).not.toBeInTheDocument();
-
-    rerender(<RoomBoardHeader {...setupProps({ phase: buildPhaseStep(4) })} />);
-
-    expect(screen.getByText("主観 残り5")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "投票パレット" }),
+    ).not.toBeInTheDocument();
   });
 
   describe("ステップ移行", () => {

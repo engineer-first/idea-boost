@@ -456,6 +456,32 @@ describe("ClientMessageSchema", () => {
     });
   });
 
+  it("投票シールの追加は操作IDと付箋内の相対座標を伴って受け入れる", () => {
+    const operationId = "33333333-3333-4333-8333-333333333333";
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const stickerId = "44444444-4444-4444-8444-444444444444";
+
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:vote-sticker:add",
+        noteId,
+        stickerId,
+        kind: "objective",
+        x: 0.25,
+        y: 0.75,
+        operationId,
+      }),
+    ).toEqual({
+      type: "note:vote-sticker:add",
+      noteId,
+      stickerId,
+      kind: "objective",
+      x: 0.25,
+      y: 0.75,
+      operationId,
+    });
+  });
+
   it("timer:start は 1ms〜99分59秒だけを受け入れる", () => {
     expect(
       ClientMessageSchema.parse({ type: "timer:start", durationMs: 1 }),

@@ -35,10 +35,15 @@ import {
 import { getPhase, isPersonalWritingStep } from "./phase";
 import {
   addUserNoteVote,
+  addVoteSticker,
   countUserNoteVotes,
   deleteNoteVotes,
+  findVoteSticker,
   hasReachedVoteLimit,
+  moveVoteSticker,
+  removeOneUserNoteVote,
   removeUserNoteVotes,
+  removeVoteSticker,
 } from "./votes";
 
 function autoReorganizeAtGroupingStep(ctx: HandlerCtx): void {
@@ -69,6 +74,10 @@ export const noteHandlers: MessageHandlers<
   | "note:delete"
   | "note:vote"
   | "note:vote-reset"
+  | "note:vote-remove"
+  | "note:vote-sticker:add"
+  | "note:vote-sticker:move"
+  | "note:vote-sticker:remove"
 > = {
   "note:create": (ctx, message) => {
     const phase = getPhase(ctx.sql);
@@ -287,6 +296,7 @@ export const noteHandlers: MessageHandlers<
       ctx.broadcaster,
       { ...row, updated_at: updatedAt },
       ctx.userId,
+      message.operationId,
     );
   },
 
@@ -307,6 +317,182 @@ export const noteHandlers: MessageHandlers<
       ctx.broadcaster,
       { ...row, updated_at: updatedAt },
       ctx.userId,
+      message.operationId,
+    );
+  },
+
+  "note:vote-remove": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (!isVisibleTo(row, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+
+    if (
+      !removeOneUserNoteVote(ctx.sql, message.noteId, ctx.userId, message.kind)
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "取り消せる投票がありません。",
+      });
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    touchNote(ctx.sql, message.noteId, updatedAt);
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...row, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
+  },
+
+  "note:vote-sticker:add": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (!isVisibleTo(row, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+    const phase = getPhase(ctx.sql);
+    if (phase.kind !== "step") {
+      replyForbidden(ctx);
+      return;
+    }
+    const existing = findVoteSticker(ctx.sql, message.stickerId);
+    if (existing) {
+      const isSameSticker =
+        existing.note_id === message.noteId &&
+        existing.user_id === ctx.userId &&
+        existing.kind === message.kind &&
+        existing.x === message.x &&
+        existing.y === message.y;
+      if (isSameSticker) {
+        broadcastVoteUpdated(
+          ctx.sql,
+          ctx.broadcaster,
+          row,
+          ctx.userId,
+          message.operationId,
+        );
+        return;
+      }
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "同じシールは重ねて貼れません。",
+      });
+      return;
+    }
+    if (hasReachedVoteLimit(ctx.sql, ctx.userId, message.kind, phase.phase)) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "投票上限を超えています。",
+      });
+      return;
+    }
+    if (
+      !addVoteSticker(
+        ctx.sql,
+        {
+          id: message.stickerId,
+          kind: message.kind,
+          x: message.x,
+          y: message.y,
+        },
+        message.noteId,
+        ctx.userId,
+      )
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "同じシールは重ねて貼れません。",
+      });
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    touchNote(ctx.sql, message.noteId, updatedAt);
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...row, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
+  },
+
+  "note:vote-sticker:move": (ctx, message) => {
+    const sticker = findVoteSticker(ctx.sql, message.stickerId);
+    if (!sticker || sticker.user_id !== ctx.userId) {
+      replyForbidden(ctx);
+      return;
+    }
+    const source = requireNoteInCurrentPhase(ctx, sticker.note_id);
+    if (!source) return;
+    const target = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!target) return;
+    if (!isVisibleTo(target, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    ctx.storage.transactionSync(() => {
+      moveVoteSticker(
+        ctx.sql,
+        message.stickerId,
+        message.noteId,
+        message.x,
+        message.y,
+      );
+      touchNote(ctx.sql, source.id, updatedAt);
+      if (target.id !== source.id) touchNote(ctx.sql, target.id, updatedAt);
+    });
+    if (source.id !== target.id) {
+      broadcastVoteUpdated(
+        ctx.sql,
+        ctx.broadcaster,
+        { ...source, updated_at: updatedAt },
+        ctx.userId,
+      );
+    }
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...target, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
+  },
+
+  "note:vote-sticker:remove": (ctx, message) => {
+    const sticker = findVoteSticker(ctx.sql, message.stickerId);
+    if (!sticker || sticker.user_id !== ctx.userId) {
+      replyForbidden(ctx);
+      return;
+    }
+    const row = requireNoteInCurrentPhase(ctx, sticker.note_id);
+    if (!row || !isVisibleTo(row, ctx.userId)) {
+      if (row) replyForbidden(ctx);
+      return;
+    }
+
+    removeVoteSticker(ctx.sql, message.stickerId);
+    const updatedAt = new Date().toISOString();
+    touchNote(ctx.sql, row.id, updatedAt);
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...row, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
     );
   },
 };

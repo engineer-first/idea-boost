@@ -25,6 +25,7 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    dotVoteStickers: overrides?.dotVoteStickers ?? [],
   };
 }
 

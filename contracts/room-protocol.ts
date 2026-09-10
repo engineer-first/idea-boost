@@ -24,6 +24,22 @@ export const DOT_VOTE_LIMITS = {
 export const DotVoteKindSchema = z.enum(["subjective", "objective"]);
 export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 
+// 楽観表示した投票操作と、RoomDO から返る確定・拒否応答を対応付けるID。
+// 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
+export const VoteOperationIdSchema = z.string().uuid();
+
+// シールは付箋内の相対座標で保存する。画面のズームや付箋サイズが変わっても
+// 同じ位置に復元でき、クライアントがボード座標を推測する必要もない。
+export const VoteStickerCoordinateSchema = z.number().finite().min(0).max(1);
+
+export const DotVoteStickerSchema = z.object({
+  id: z.string().uuid(),
+  kind: DotVoteKindSchema,
+  x: VoteStickerCoordinateSchema,
+  y: VoteStickerCoordinateSchema,
+});
+export type DotVoteSticker = z.infer<typeof DotVoteStickerSchema>;
+
 const DotVoteSummarySchema = z.object({
   // 投票中は受信者向け射影で総数自体を除外する。
   count: z.number().int().min(0).optional(),
@@ -77,6 +93,9 @@ export const NoteSchema = z.object({
     subjective: DotVoteSummarySchema,
     objective: DotVoteSummarySchema,
   }),
+  // 投票中は受信者本人のシールだけ、結果ステップでは全シールを返す。
+  // 票数を使う従来の結果UIは dotVotes を引き続き読む。
+  dotVoteStickers: z.array(DotVoteStickerSchema).default([]),
 });
 
 export type ProtocolNote = z.infer<typeof NoteSchema>;
@@ -220,11 +239,47 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:vote"),
     noteId: z.string().uuid(),
     kind: DotVoteKindSchema,
+    operationId: VoteOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:vote-reset"),
     noteId: z.string().uuid(),
     kind: DotVoteKindSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
+  // 付箋に積んだ自分の票を1票だけ取り消す。客観票の一部を別の付箋へ
+  // 付け替えられるよう、従来の全消去（note:vote-reset）とは分ける。
+  z.object({
+    type: z.literal("note:vote-remove"),
+    noteId: z.string().uuid(),
+    kind: DotVoteKindSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
+  // パレットから付箋へシールをドロップして投票する。stickerId はクライアントが
+  // UUID で生成する表示用IDであり、authorId / roomId は含めない。
+  z.object({
+    type: z.literal("note:vote-sticker:add"),
+    noteId: z.string().uuid(),
+    stickerId: z.string().uuid(),
+    kind: DotVoteKindSchema,
+    x: VoteStickerCoordinateSchema,
+    y: VoteStickerCoordinateSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
+  // 自分のシールだけを別の付箋・付箋内の位置へ移せる。付け替え中も票数は
+  // 変えないため、上限の再消費や他者の票への干渉を構造的に避けられる。
+  z.object({
+    type: z.literal("note:vote-sticker:move"),
+    noteId: z.string().uuid(),
+    stickerId: z.string().uuid(),
+    x: VoteStickerCoordinateSchema,
+    y: VoteStickerCoordinateSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
+  z.object({
+    type: z.literal("note:vote-sticker:remove"),
+    stickerId: z.string().uuid(),
+    operationId: VoteOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:decide"),
@@ -276,7 +331,11 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     serverNow: TimerMillisecondsSchema,
   }),
   z.object({ type: z.literal("note:inserted"), note: NoteSchema }),
-  z.object({ type: z.literal("note:updated"), note: NoteSchema }),
+  z.object({
+    type: z.literal("note:updated"),
+    note: NoteSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
   z.object({ type: z.literal("note:deleted"), noteId: z.string().uuid() }),
   z.object({
     type: z.literal("note:drag"),
@@ -327,6 +386,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       "voting-incomplete",
     ]),
     message: z.string(),
+    // 投票操作に起因する拒否だけが持つ。汎用エラーは省略する。
+    operationId: VoteOperationIdSchema.optional(),
   }),
 ]);
 

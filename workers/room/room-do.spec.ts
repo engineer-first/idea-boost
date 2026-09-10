@@ -68,6 +68,30 @@ function nextJsonWithin(
   ]);
 }
 
+function insertVoteStickers(
+  sql: SqlStorage,
+  noteId: string,
+  userId: string,
+  kind: "subjective" | "objective",
+  count: number,
+  now: string,
+): void {
+  for (let ordinal = 0; ordinal < count; ordinal++) {
+    sql.exec(
+      `INSERT INTO note_vote_stickers
+         (id, note_id, user_id, kind, x, y, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+      crypto.randomUUID(),
+      noteId,
+      userId,
+      kind,
+      0.2 + ordinal * 0.1,
+      0.5,
+      now,
+    );
+  }
+}
+
 describe("RoomDO メンバーシップ", () => {
   it("upsertMember は冪等（複数回呼んでもメンバーは1件のまま）", async () => {
     const stub = roomStub("room-idempotent");
@@ -870,11 +894,20 @@ describe("RoomDO phase:next", () => {
         now,
       );
       for (const userId of [USER_A, USER_B]) {
-        state.storage.sql.exec(
-          `INSERT INTO note_votes (note_id, user_id, kind, created_at, vote_count)
-           VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ?1, 'subjective', ?2, 1),
-                  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ?1, 'objective', ?2, 3)`,
+        insertVoteStickers(
+          state.storage.sql,
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           userId,
+          "subjective",
+          1,
+          now,
+        );
+        insertVoteStickers(
+          state.storage.sql,
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          userId,
+          "objective",
+          3,
           now,
         );
       }
@@ -913,12 +946,20 @@ describe("RoomDO phase:next", () => {
         now,
         phase2NoteId,
       );
-      state.storage.sql.exec(
-        `INSERT INTO note_votes (note_id, user_id, kind, created_at, vote_count)
-         VALUES (?1, ?2, 'subjective', ?3, 1),
-                (?1, ?2, 'objective', ?3, 3)`,
+      insertVoteStickers(
+        state.storage.sql,
         phase1NoteId,
         USER_A,
+        "subjective",
+        1,
+        now,
+      );
+      insertVoteStickers(
+        state.storage.sql,
+        phase1NoteId,
+        USER_A,
+        "objective",
+        3,
         now,
       );
     });
@@ -1037,12 +1078,20 @@ describe("RoomDO phase:next", () => {
 
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
-      state.storage.sql.exec(
-        `INSERT INTO note_votes (note_id, user_id, kind, created_at, vote_count)
-         VALUES (?1, ?2, 'subjective', ?3, 1),
-                (?1, ?2, 'objective', ?3, 3)`,
+      insertVoteStickers(
+        state.storage.sql,
         noteId,
         USER_A,
+        "subjective",
+        1,
+        now,
+      );
+      insertVoteStickers(
+        state.storage.sql,
+        noteId,
+        USER_A,
+        "objective",
+        3,
         now,
       );
     });
@@ -1239,7 +1288,7 @@ describe("RoomDO phase:next", () => {
         (_instance, state) =>
           state.storage.sql
             .exec(
-              "SELECT COUNT(*) AS count FROM note_votes WHERE note_id = ?1",
+              "SELECT COUNT(*) AS count FROM note_vote_stickers WHERE note_id = ?1",
               authorNote.note.id,
             )
             .one().count as number,
@@ -2183,6 +2232,30 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
       kind: "subjective",
     },
     {
+      type: "note:vote-remove",
+      noteId: "99999999-9999-4999-8999-999999999999",
+      kind: "subjective",
+    },
+    {
+      type: "note:vote-sticker:add",
+      noteId: "99999999-9999-4999-8999-999999999999",
+      stickerId: "88888888-8888-4888-8888-888888888888",
+      kind: "subjective",
+      x: 0.5,
+      y: 0.5,
+    },
+    {
+      type: "note:vote-sticker:move",
+      noteId: "99999999-9999-4999-8999-999999999999",
+      stickerId: "88888888-8888-4888-8888-888888888888",
+      x: 0.5,
+      y: 0.5,
+    },
+    {
+      type: "note:vote-sticker:remove",
+      stickerId: "88888888-8888-4888-8888-888888888888",
+    },
+    {
       type: "group:create",
       group: {
         id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -2819,11 +2892,12 @@ describe("RoomDO 共有ステップ終了時のマイ付箋の破棄", () => {
   async function insertVote(roomName: string, noteId: string): Promise<void> {
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
-      state.storage.sql.exec(
-        `INSERT INTO note_votes (note_id, user_id, kind, created_at, vote_count)
-         VALUES (?1, ?2, 'subjective', ?3, 1)`,
+      insertVoteStickers(
+        state.storage.sql,
         noteId,
         USER_A,
+        "subjective",
+        1,
         now,
       );
     });
@@ -2843,7 +2917,7 @@ describe("RoomDO 共有ステップ終了時のマイ付箋の破棄", () => {
     return await runInRoomDO(roomName, (_instance, state) => {
       return state.storage.sql
         .exec(
-          "SELECT COUNT(*) AS count FROM note_votes WHERE note_id = ?1",
+          "SELECT COUNT(*) AS count FROM note_vote_stickers WHERE note_id = ?1",
           noteId,
         )
         .one().count as number;

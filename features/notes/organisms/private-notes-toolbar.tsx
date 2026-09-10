@@ -147,16 +147,19 @@ export function PrivateNotesToolbar({
                   canDeleteNote={canDeleteNote}
                   canEditNote={canEditNote}
                   canMoveNote={canMoveNote}
-                  canShowVote={false}
-                  canVote={false}
                   onSelect={onSelect}
                   onDragStart={onDragStart}
                   onContentChange={onContentChange}
                   onDelete={onDelete}
-                  voteRemaining={{ subjective: 0, objective: 0 }}
-                  onVote={() => {}}
-                  onVoteReset={() => {}}
-                  hideVoteControls={true}
+                  vote={{
+                    displayMode: "hidden",
+                    selectedKind: null,
+                    voteRemaining: { subjective: 0, objective: 0 },
+                    canVote: false,
+                    pendingOperations: [],
+                    onVote: () => {},
+                    onVoteRemove: () => {},
+                  }}
                   autoFocusEditor={autoFocusNoteId === note.id}
                   onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
                   className={cn(

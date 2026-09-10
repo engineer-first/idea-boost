@@ -23,6 +23,8 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     draggingNoteId: null,
     isDisconnected: false,
     voteRemaining: { subjective: 5, objective: 10 },
+    selectedVoteKind: null,
+    pendingVoteOperations: [],
     dragGhost: null,
     isReturnDropTarget: false,
     hmwDecidedIssue: null,
@@ -49,7 +51,9 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onNoteContentChange: vi.fn(),
     onNoteDelete: vi.fn(),
     onNoteVote: vi.fn(),
-    onNoteVoteReset: vi.fn(),
+    onNoteVoteRemove: vi.fn(),
+    onNoteVoteStickerRemove: vi.fn(),
+    onNoteVoteStickerDragStart: vi.fn(),
     onNoteDecide: vi.fn(),
     onGroupCreate: vi.fn(),
     onGroupUpdateName: vi.fn(),
@@ -753,24 +757,33 @@ describe("RoomBoardCanvas", () => {
 
     expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
   });
-  it("Step1-4では投票可能状態になる", () => {
+  it("Step1-4では各付箋をシールのドロップ先として表示する", () => {
     setup({
       phase: buildPhaseStep(4),
       permissions: getBoardPermissions(buildPhaseStep(4)),
+      selectedVoteKind: "subjective",
     });
 
-    expect(
-      screen.getAllByRole("button", { name: /投票/ }).length,
-    ).toBeGreaterThan(0);
+    for (const note of screen.getAllByTestId("note-card")) {
+      expect(note).toHaveAttribute("data-vote-drop-target", "true");
+      expect(
+        within(note).getByRole("button", {
+          name: "付箋（主観シールを貼る）",
+        }),
+      ).toBeInTheDocument();
+    }
   });
 
-  it("Step2-3では投票可能状態になる", () => {
+  it("Step2-3では各付箋をシールのドロップ先として表示する", () => {
     const phase = buildPhaseStep(3, 2);
 
-    setup({ phase, permissions: getBoardPermissions(phase) });
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+    });
 
-    expect(
-      screen.getAllByRole("button", { name: /投票/ }).length,
-    ).toBeGreaterThan(0);
+    for (const note of screen.getAllByTestId("note-card")) {
+      expect(note).toHaveAttribute("data-vote-drop-target", "true");
+    }
   });
 });

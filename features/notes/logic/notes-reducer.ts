@@ -11,6 +11,7 @@
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
+  type DotVoteSticker,
   type ProtocolNote,
   type ServerMessage,
 } from "@/contracts/room-protocol";
@@ -149,6 +150,198 @@ export type LocalVoteResult = {
   accepted: boolean;
 };
 
+// パレットからドロップしたシールを、サーバー応答前にも付箋上の指定座標へ出す。
+// 集計値は従来どおり dotVotes に維持し、結果UIがそのまま読めるようにする。
+export function addVoteStickerLocally(
+  notes: Note[],
+  noteId: string,
+  sticker: DotVoteSticker,
+): LocalVoteResult {
+  const target = notes.find((note) => note.id === noteId);
+  if (
+    !target ||
+    countOwnVotes(notes, sticker.kind) >= DOT_VOTE_LIMITS[sticker.kind]
+  ) {
+    return { notes, accepted: false };
+  }
+  const summary = target.dotVotes[sticker.kind];
+  return {
+    accepted: true,
+    notes: notes.map((note) =>
+      note.id === noteId
+        ? {
+            ...note,
+            dotVotes: {
+              ...note.dotVotes,
+              [sticker.kind]: {
+                ...withUpdatedCount(summary, (summary.count ?? 0) + 1),
+                votedByMe: true,
+                ownCount: summary.ownCount + 1,
+              },
+            },
+            dotVoteStickers: [...note.dotVoteStickers, sticker],
+          }
+        : note,
+    ),
+  };
+}
+
+export function removeVoteStickerLocally(
+  notes: Note[],
+  stickerId: string,
+): LocalVoteResult {
+  const target = notes.find((note) =>
+    note.dotVoteStickers.some((sticker) => sticker.id === stickerId),
+  );
+  if (!target) return { notes, accepted: false };
+  const sticker = target.dotVoteStickers.find(({ id }) => id === stickerId);
+  if (!sticker) return { notes, accepted: false };
+  const summary = target.dotVotes[sticker.kind];
+  const ownCount = Math.max(0, summary.ownCount - 1);
+  return {
+    accepted: true,
+    notes: notes.map((note) =>
+      note.id === target.id
+        ? {
+            ...note,
+            dotVotes: {
+              ...note.dotVotes,
+              [sticker.kind]: {
+                ...withUpdatedCount(
+                  summary,
+                  Math.max(0, (summary.count ?? 0) - 1),
+                ),
+                votedByMe: ownCount > 0,
+                ownCount,
+              },
+            },
+            dotVoteStickers: note.dotVoteStickers.filter(
+              ({ id }) => id !== stickerId,
+            ),
+          }
+        : note,
+    ),
+  };
+}
+
+// 投票上限は「シールの総枚数」なので、付箋をまたぐ移動では総数を増減させない。
+// ただし、付箋ごとの集計は移動元から1票減らし、移動先へ1票増やす。
+// 対象シールが見つからない場合は、古い画面や重複イベントを受けても状態を変えない。
+export function moveVoteStickerLocally(
+  notes: Note[],
+  stickerId: string,
+  noteId: string,
+  x: number,
+  y: number,
+): LocalVoteResult {
+  const source = notes.find((note) =>
+    note.dotVoteStickers.some((sticker) => sticker.id === stickerId),
+  );
+  const target = notes.find((note) => note.id === noteId);
+  const sticker = source?.dotVoteStickers.find(({ id }) => id === stickerId);
+  if (!source || !target || !sticker) {
+    return { notes, accepted: false };
+  }
+
+  const movedSticker = { ...sticker, x, y };
+  if (source.id === target.id) {
+    return {
+      accepted: true,
+      notes: notes.map((note) =>
+        note.id !== source.id
+          ? note
+          : {
+              ...note,
+              dotVoteStickers: note.dotVoteStickers.map((candidate) =>
+                candidate.id === stickerId ? movedSticker : candidate,
+              ),
+            },
+      ),
+    };
+  }
+
+  const sourceSummary = source.dotVotes[sticker.kind];
+  const targetSummary = target.dotVotes[sticker.kind];
+  const sourceOwnCount = Math.max(0, sourceSummary.ownCount - 1);
+
+  const sourceVoteSummary = {
+    ...withUpdatedCount(
+      sourceSummary,
+      Math.max(0, (sourceSummary.count ?? 0) - 1),
+    ),
+    votedByMe: sourceOwnCount > 0,
+    ownCount: sourceOwnCount,
+  };
+  const targetVoteSummary = {
+    ...withUpdatedCount(targetSummary, (targetSummary.count ?? 0) + 1),
+    votedByMe: true,
+    ownCount: targetSummary.ownCount + 1,
+  };
+
+  return {
+    accepted: true,
+    notes: notes.map((note) => {
+      if (note.id === source.id) {
+        return {
+          ...note,
+          dotVotes: {
+            ...note.dotVotes,
+            [sticker.kind]: sourceVoteSummary,
+          },
+          dotVoteStickers: note.dotVoteStickers.filter(
+            ({ id }) => id !== stickerId,
+          ),
+        };
+      }
+      if (note.id === target.id) {
+        return {
+          ...note,
+          dotVotes: {
+            ...note.dotVotes,
+            [sticker.kind]: targetVoteSummary,
+          },
+          dotVoteStickers: [...note.dotVoteStickers, movedSticker],
+        };
+      }
+      return note;
+    }),
+  };
+}
+
+// 取り消し操作がサーバーで拒否されたときに、削除前の個別シールを戻す。
+// 上限チェックは再適用しない（もともと存在していた1票の復元であるため）。
+export function restoreVoteStickerLocally(
+  notes: Note[],
+  noteId: string,
+  sticker: DotVoteSticker,
+): LocalVoteResult {
+  const target = notes.find((note) => note.id === noteId);
+  if (!target || target.dotVoteStickers.some(({ id }) => id === sticker.id)) {
+    return { notes, accepted: false };
+  }
+
+  const summary = target.dotVotes[sticker.kind];
+  return {
+    accepted: true,
+    notes: notes.map((note) =>
+      note.id !== noteId
+        ? note
+        : {
+            ...note,
+            dotVotes: {
+              ...note.dotVotes,
+              [sticker.kind]: {
+                ...withUpdatedCount(summary, (summary.count ?? 0) + 1),
+                votedByMe: true,
+                ownCount: summary.ownCount + 1,
+              },
+            },
+            dotVoteStickers: [...note.dotVoteStickers, sticker],
+          },
+    ),
+  };
+}
+
 function countOwnVotes(notes: Note[], kind: DotVoteKind): number {
   return notes.reduce((count, note) => count + note.dotVotes[kind].ownCount, 0);
 }
@@ -222,6 +415,43 @@ export function resetNoteVoteLocally(
                 ),
                 votedByMe: false,
                 ownCount: 0,
+              },
+            },
+          }
+        : note,
+    ),
+  };
+}
+
+// シールを1枚だけ外すためのローカル反映。note:vote-reset の全消去とは用途を
+// 分け、客観票の一部を別の付箋へ付け替えられるようにする。
+export function removeOneNoteVoteLocally(
+  notes: Note[],
+  noteId: string,
+  kind: DotVoteKind,
+): LocalVoteResult {
+  const target = notes.find((note) => note.id === noteId);
+  if (!target) return { notes, accepted: false };
+
+  const summary = target.dotVotes[kind];
+  if (summary.ownCount <= 0) return { notes, accepted: false };
+
+  const ownCount = summary.ownCount - 1;
+  return {
+    accepted: true,
+    notes: notes.map((note) =>
+      note.id === noteId
+        ? {
+            ...note,
+            dotVotes: {
+              ...note.dotVotes,
+              [kind]: {
+                ...withUpdatedCount(
+                  summary,
+                  Math.max(0, (summary.count ?? 0) - 1),
+                ),
+                votedByMe: ownCount > 0,
+                ownCount,
               },
             },
           }

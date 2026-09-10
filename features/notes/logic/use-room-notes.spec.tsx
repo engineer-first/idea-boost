@@ -19,6 +19,8 @@ const DRAGGED_BY = {
   name: "Taro",
   color: "green" as const,
 };
+const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 
 function snapshotMessage(
   notes: ProtocolNote[] = [buildNote({ id: NOTE_ID })],
@@ -49,7 +51,13 @@ describe("useRoomNotes", () => {
   });
 
   function setup() {
-    return renderHook(() => useRoomNotes({ send }));
+    return renderHook(() =>
+      useRoomNotes({
+        send,
+        createVoteOperationId: () => "33333333-3333-4333-8333-333333333333",
+        createVoteStickerId: () => "44444444-4444-4444-8444-444444444444",
+      }),
+    );
   }
 
   it("snapshot で notes を全置換する", () => {
@@ -256,11 +264,11 @@ describe("useRoomNotes", () => {
     expect(result.current.notes).toHaveLength(0);
   });
 
-  it("voteNote は上限内なら楽観反映して note:vote を送る", () => {
+  it("voteNote は上限内ならドロップ座標へシールを楽観表示して送る", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));
 
-    act(() => result.current.voteNote(NOTE_ID, "subjective"));
+    act(() => result.current.voteNote(NOTE_ID, "subjective", 0.25, 0.75));
 
     expect(result.current.notes[0]?.dotVotes.subjective).toMatchObject({
       count: 1,
@@ -268,9 +276,56 @@ describe("useRoomNotes", () => {
       ownCount: 1,
     });
     expect(send).toHaveBeenCalledWith({
-      type: "note:vote",
+      type: "note:vote-sticker:add",
       noteId: NOTE_ID,
+      stickerId: "44444444-4444-4444-8444-444444444444",
       kind: "subjective",
+      x: 0.25,
+      y: 0.75,
+      operationId: "33333333-3333-4333-8333-333333333333",
+    });
+    expect(result.current.notes[0]?.dotVoteStickers).toEqual([
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        kind: "subjective",
+        x: 0.25,
+        y: 0.75,
+      },
+    ]);
+  });
+
+  it("投票は確定応答までpendingとして表示し、拒否時には楽観表示を戻す", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => result.current.voteNote(NOTE_ID, "objective"));
+
+    expect(result.current.pendingVoteOperations).toEqual([
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        noteId: NOTE_ID,
+        stickerId: "44444444-4444-4444-8444-444444444444",
+        kind: "objective",
+        action: "add",
+      },
+    ]);
+    expect(result.current.notes[0]?.dotVotes.objective.ownCount).toBe(1);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "投票上限を超えています。",
+        operationId: "33333333-3333-4333-8333-333333333333",
+      }),
+    );
+
+    expect(result.current.pendingVoteOperations).toEqual([]);
+    expect(result.current.notes[0]?.dotVotes.objective.ownCount).toBe(0);
+    expect(result.current.notes[0]?.dotVoteStickers).toEqual([]);
+    expect(result.current.voteFeedback).toEqual({
+      state: "failed",
+      message: "投票上限を超えています。",
     });
   });
 
@@ -290,6 +345,54 @@ describe("useRoomNotes", () => {
 
     expect(result.current.notes[0]?.dotVotes.objective.count).toBe(3);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("自分のシールを別の付箋へ移し、投票総数を保ったまま送信する", () => {
+    const { result } = setup();
+    const source = buildNote({
+      id: NOTE_ID,
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 1, votedByMe: true, ownCount: 1 },
+      },
+      dotVoteStickers: [{ id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 }],
+    });
+    const target = buildNote({ id: TARGET_NOTE_ID });
+    act(() => result.current.applyMessage(snapshotMessage([source, target])));
+
+    act(() =>
+      result.current.moveVoteSticker(STICKER_ID, TARGET_NOTE_ID, 0.8, 0.9),
+    );
+
+    expect(send).toHaveBeenCalledWith({
+      type: "note:vote-sticker:move",
+      stickerId: STICKER_ID,
+      noteId: TARGET_NOTE_ID,
+      x: 0.8,
+      y: 0.9,
+      operationId: "33333333-3333-4333-8333-333333333333",
+    });
+    expect(result.current.notes[0]?.dotVoteStickers).toEqual([]);
+    expect(result.current.notes[1]?.dotVoteStickers).toEqual([
+      { id: STICKER_ID, kind: "objective", x: 0.8, y: 0.9 },
+    ]);
+    expect(result.current.notes[0]?.dotVotes.objective).toEqual({
+      count: 0,
+      votedByMe: false,
+      ownCount: 0,
+    });
+    expect(result.current.notes[1]?.dotVotes.objective).toEqual({
+      count: 1,
+      votedByMe: true,
+      ownCount: 1,
+    });
+    expect(result.current.pendingVoteOperations).toEqual([
+      expect.objectContaining({
+        stickerId: STICKER_ID,
+        action: "move",
+        previous: { noteId: NOTE_ID, x: 0.2, y: 0.3 },
+      }),
+    ]);
   });
 
   it("resetNoteVote は自分の票があるときだけ反映・送信する", () => {

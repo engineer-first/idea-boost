@@ -114,7 +114,11 @@ const meta = {
     onGroupUpdateName: fn(),
     groups: [],
     onNoteVote: fn(),
-    onNoteVoteReset: fn(),
+    onNoteVoteRemove: fn(),
+    onNoteVoteStickerRemove: fn(),
+    onNoteVoteStickerMove: fn(),
+    pendingVoteOperations: [],
+    voteFeedback: null,
     onNoteDecide: fn(),
     onLeave: fn(),
     isLeaving: false,
@@ -241,6 +245,30 @@ export const StealthVoting: Story = {
   },
 };
 
+export const VotingPending: Story = {
+  args: {
+    phase: STEP_1_4,
+    notes: buildNotes(1).map((note) => ({
+      ...note,
+      dotVotes: {
+        subjective: { votedByMe: true, ownCount: 1 },
+        objective: { votedByMe: false, ownCount: 0 },
+      },
+    })),
+    pendingVoteOperations: [{ noteId: "note-1", kind: "subjective" }],
+  },
+};
+
+export const VotingFailure: Story = {
+  args: {
+    phase: STEP_1_4,
+    voteFeedback: {
+      state: "failed",
+      message: "投票上限を超えています。",
+    },
+  },
+};
+
 export const VoteTotaled: Story = {
   args: {
     phase: STEP_1_5,
@@ -261,6 +289,54 @@ export const VoteTotaled: Story = {
       },
     })),
   },
+};
+
+export const VoteTotaledWithoutVotes: Story = {
+  args: {
+    phase: STEP_1_5,
+    notes: buildNotes(3),
+  },
+};
+
+export const VoteTotaledTie: Story = {
+  args: {
+    phase: STEP_1_5,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: { count: index < 2 ? 2 : 0, votedByMe: false, ownCount: 0 },
+        objective: { count: index < 2 ? 3 : 1, votedByMe: false, ownCount: 0 },
+      },
+    })),
+  },
+};
+
+export const VoteTotaledMany: Story = {
+  args: {
+    phase: STEP_1_5,
+    notes: buildNotes(12).map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: { count: index % 3, votedByMe: false, ownCount: 0 },
+        objective: { count: index + 1, votedByMe: false, ownCount: 0 },
+      },
+    })),
+  },
+};
+
+export const VotingAt1280x720: Story = {
+  args: {
+    phase: STEP_1_4,
+    members: buildMembers(10, ME),
+    notes: CANVAS_HUD_NOTES,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 1280, height: 720, overflow: "hidden" }}>
+        <Story />
+      </div>
+    ),
+  ],
 };
 
 export const ReadyToDecide: Story = {

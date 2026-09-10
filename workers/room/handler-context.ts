@@ -16,6 +16,9 @@ export type HandlerCtx = {
   ws: WebSocket;
   // 送信元ソケットへの返信。
   reply: (message: ServerMessage) => void;
+  // note:vote 系が持つ操作ID。RoomDO の reply が error に自動付与するため、
+  // 深いハンドラでも失敗応答と楽観操作を確実に対応付けられる。
+  voteOperationId?: string;
   broadcaster: RoomBroadcaster;
   // 結果ステップ遷移時に、接続を維持した各参加者へ受信者別の完全な状態を
   // 再送する。RoomDO が snapshot 構築を一元管理するためのコールバック。

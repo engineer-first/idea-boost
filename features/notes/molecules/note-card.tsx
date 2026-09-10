@@ -15,7 +15,11 @@ import { useEffect, useRef, useState } from "react";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { DotVoteKind, ProtocolMember } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
-import { DotVoteControls, type DotVoteRemaining } from "@/features/dot-vote";
+import {
+  type DotVoteRemaining,
+  DotVoteSticker,
+  type VoteDisplayMode,
+} from "@/features/dot-vote";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { Note } from "../logic/notes-reducer";
 import { StickyNote } from "./sticky-note";
@@ -37,8 +41,6 @@ export type NoteCardProps = {
   canEditNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
-  canShowVote: boolean;
-  canVote: boolean;
   onSelect: (noteId: string) => void;
   onDragStart: (
     noteId: string,
@@ -46,12 +48,27 @@ export type NoteCardProps = {
   ) => void;
   onContentChange: (noteId: string, content: string) => void;
   onDelete: (noteId: string) => void;
-  voteRemaining: DotVoteRemaining;
-  onVote: (noteId: string, kind: DotVoteKind) => void;
-  onVoteReset: (noteId: string, kind: DotVoteKind) => void;
+  vote: {
+    displayMode: VoteDisplayMode;
+    selectedKind: DotVoteKind | null;
+    voteRemaining: DotVoteRemaining;
+    canVote: boolean;
+    pendingOperations: ReadonlyArray<{
+      noteId: string;
+      kind: DotVoteKind;
+      stickerId?: string;
+    }>;
+    onVote: (noteId: string, kind: DotVoteKind) => void;
+    onVoteRemove: (noteId: string, kind: DotVoteKind) => void;
+    onStickerRemove?: (stickerId: string) => void;
+    onStickerDragStart?: (
+      stickerId: string,
+      kind: DotVoteKind,
+      event: React.PointerEvent<HTMLButtonElement>,
+    ) => void;
+  };
   className?: string;
   style?: React.CSSProperties;
-  hideVoteControls?: boolean;
   autoFocusEditor?: boolean;
   onAutoFocusEditorComplete?: () => void;
 };
@@ -77,18 +94,13 @@ export function NoteCard({
   canEditNote,
   canDeleteNote,
   canMoveNote,
-  canShowVote,
-  canVote,
   onSelect,
   onDragStart,
   onContentChange,
   onDelete,
-  voteRemaining,
-  onVote,
-  onVoteReset,
+  vote,
   className,
   style,
-  hideVoteControls = false,
   autoFocusEditor = false,
   onAutoFocusEditorComplete,
 }: NoteCardProps) {
@@ -159,6 +171,25 @@ export function NoteCard({
     onAutoFocusEditorComplete,
   ]);
 
+  const pendingVoteStickerIds = new Set(
+    vote.pendingOperations
+      .filter(({ stickerId }) => stickerId !== undefined)
+      .map(({ stickerId }) => stickerId)
+      .filter((stickerId): stickerId is string => stickerId !== undefined),
+  );
+  const pendingVoteKinds = vote.pendingOperations
+    .filter(
+      ({ noteId, stickerId }) => noteId === note.id && stickerId === undefined,
+    )
+    .map(({ kind }) => kind);
+  const selectedStampKind =
+    vote.displayMode === "voting" &&
+    vote.canVote &&
+    vote.selectedKind !== null &&
+    vote.voteRemaining[vote.selectedKind] > 0
+      ? vote.selectedKind
+      : null;
+
   // 状態に応じてフォーカスを移す。サーフェスにフォーカスがないと
   // Backspace削除などのキー操作を受け取れない。
   useEffect(() => {
@@ -176,6 +207,11 @@ export function NoteCard({
 
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     if (disabled) {
+      return;
+    }
+    if (selectedStampKind !== null) {
+      event.preventDefault();
+      pointerOriginRef.current = null;
       return;
     }
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -232,6 +268,16 @@ export function NoteCard({
       return;
     }
 
+    if (
+      selectedStampKind !== null &&
+      (event.key === "Enter" || event.key === " ")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      vote.onVote(note.id, selectedStampKind);
+      return;
+    }
+
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
       event.stopPropagation();
@@ -258,6 +304,9 @@ export function NoteCard({
       color={note.color}
       testId="note-card"
       data-editing={isEditing || undefined}
+      data-vote-drop-target={
+        vote.displayMode === "voting" && vote.canVote ? true : undefined
+      }
       className={className ?? "absolute"}
       style={
         style ?? {
@@ -290,15 +339,6 @@ export function NoteCard({
           </span>
         </>
       ) : null}
-      {isDecided ? (
-        <span
-          role="status"
-          aria-label="取り組む課題に決定済み"
-          className="pointer-events-none absolute right-1 top-1 z-30 flex size-9 items-center justify-center rounded-full bg-emerald-700 text-white"
-        >
-          <Check aria-hidden="true" className="size-5" />
-        </span>
-      ) : null}
       <textarea
         ref={textareaRef}
         value={localContent}
@@ -324,23 +364,105 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none bg-transparent p-2 text-sm text-slate-900 outline-none ${
+        className={`min-h-0 flex-1 resize-none bg-transparent p-2 pr-10 text-sm text-slate-900 outline-none ${
           isEditing ? "" : "pointer-events-none select-none"
         }`}
         placeholder="メモを入力..."
       />
-      {!hideVoteControls && canShowVote && (
-        <div className="relative z-20">
-          <DotVoteControls
-            noteId={note.id}
-            dotVotes={note.dotVotes}
-            voteRemaining={voteRemaining}
-            disabled={disabled || !canVote}
-            onVote={onVote}
-            onVoteReset={onVoteReset}
-          />
+      {isDecided ? (
+        <span
+          role="status"
+          aria-label="取り組む課題に決定済み"
+          className="pointer-events-none absolute bottom-1 right-1 z-30 flex size-9 items-center justify-center rounded-full bg-emerald-700 text-white"
+        >
+          <Check aria-hidden="true" className="size-5" />
+        </span>
+      ) : null}
+      {vote.displayMode !== "hidden" ? (
+        <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
+          {vote.displayMode === "result" ? (
+            <>
+              <DotVoteSticker
+                kind="subjective"
+                count={note.dotVotes.subjective.count ?? 0}
+                state="result"
+              />
+              <DotVoteSticker
+                kind="objective"
+                count={note.dotVotes.objective.count ?? 0}
+                state="result"
+              />
+            </>
+          ) : null}
         </div>
-      )}
+      ) : null}
+      {vote.displayMode === "voting" ? (
+        <div className="pointer-events-none absolute inset-0 z-20">
+          {(note.dotVoteStickers.length > 0
+            ? note.dotVoteStickers.map((sticker) => ({
+                ...sticker,
+                count: 1,
+              }))
+            : (["subjective", "objective"] as const)
+                .filter((kind) => note.dotVotes[kind].ownCount > 0)
+                .map((kind) => ({
+                  id: `legacy-${kind}`,
+                  kind,
+                  x: kind === "subjective" ? 0.82 : 0.72,
+                  y: 0.16,
+                  count: note.dotVotes[kind].ownCount,
+                }))
+          ).map((sticker) => (
+            <div
+              key={sticker.id}
+              data-vote-sticker-id={sticker.id}
+              className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+              style={{
+                left: `${sticker.x * 100}%`,
+                top: `${sticker.y * 100}%`,
+              }}
+            >
+              <DotVoteSticker
+                kind={sticker.kind}
+                count={sticker.count}
+                state={
+                  pendingVoteStickerIds.has(sticker.id) ||
+                  pendingVoteKinds.includes(sticker.kind)
+                    ? "pending"
+                    : "confirmed"
+                }
+                onRemove={
+                  disabled ||
+                  !vote.canVote ||
+                  pendingVoteStickerIds.has(sticker.id) ||
+                  pendingVoteKinds.includes(sticker.kind)
+                    ? undefined
+                    : sticker.id.startsWith("legacy-") ||
+                        vote.onStickerRemove === undefined
+                      ? () => vote.onVoteRemove(note.id, sticker.kind)
+                      : () => vote.onStickerRemove?.(sticker.id)
+                }
+                onDragStart={
+                  disabled ||
+                  !vote.canVote ||
+                  pendingVoteStickerIds.has(sticker.id) ||
+                  pendingVoteKinds.includes(sticker.kind) ||
+                  sticker.id.startsWith("legacy-")
+                    ? undefined
+                    : vote.onStickerDragStart === undefined
+                      ? undefined
+                      : (event) =>
+                          vote.onStickerDragStart?.(
+                            sticker.id,
+                            sticker.kind,
+                            event,
+                          )
+                }
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
       {!isEditing && (
         // 選択・ドラッグ・キー操作を受ける透明なサーフェス。
         // button要素は対話的な子要素(textarea)を持てないため、カード全体を
@@ -350,7 +472,11 @@ export function NoteCard({
         <button
           ref={surfaceRef}
           type="button"
-          aria-label="付箋"
+          aria-label={
+            selectedStampKind === null
+              ? "付箋"
+              : `付箋（${selectedStampKind === "subjective" ? "主観" : "客観"}シールを貼る）`
+          }
           aria-disabled={disabled || undefined}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -359,9 +485,11 @@ export function NoteCard({
           className={`absolute inset-0 z-10 touch-none select-none outline-none ${
             disabled
               ? "cursor-not-allowed"
-              : isOwnDrag
-                ? "cursor-grabbing"
-                : "cursor-grab"
+              : selectedStampKind !== null
+                ? "cursor-none"
+                : isOwnDrag
+                  ? "cursor-grabbing"
+                  : "cursor-grab"
           }`}
         />
       )}

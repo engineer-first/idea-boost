@@ -7,14 +7,27 @@
 // 純粋にUIの関心事なので、ここでローカルに持つ。
 // 描画の実体はヘッダー（room-board-header）とボード面（room-board-canvas）が
 // 持ち、この view は UI 状態と表示用 props・コールバックの配線に徹する。
-import { useEffect, useState } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
-import { isPhaseStep, isResultStep, type RoomPhase } from "@/contracts/phase";
+import {
+  isPhaseStep,
+  isResultStep,
+  isVotingStep,
+  type RoomPhase,
+} from "@/contracts/phase";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
   type TimerState,
 } from "@/contracts/room-protocol";
+import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
 import type { Note, RemoteNoteDrag } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
@@ -65,8 +78,21 @@ export type RoomBoardViewProps = {
   onNoteDelete: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
-  onNoteVote: (noteId: string, kind: DotVoteKind) => void;
-  onNoteVoteReset: (noteId: string, kind: DotVoteKind) => void;
+  onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
+  onNoteVoteRemove: (noteId: string, kind: DotVoteKind) => void;
+  onNoteVoteStickerRemove: (stickerId: string) => void;
+  onNoteVoteStickerMove: (
+    stickerId: string,
+    noteId: string,
+    x: number,
+    y: number,
+  ) => void;
+  pendingVoteOperations: ReadonlyArray<{
+    noteId: string;
+    kind: DotVoteKind;
+    stickerId?: string;
+  }>;
+  voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
   // 退出。
   onLeave: () => void;
@@ -79,6 +105,22 @@ export type RoomBoardViewProps = {
   onTimerResume: () => void;
   onTimerExtend: () => void;
   onTimerStop: () => void;
+};
+
+type VoteStickerDrag = {
+  stickerId: string | null;
+  kind: DotVoteKind;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  clientX: number;
+  clientY: number;
+  didDrag: boolean;
+};
+
+type VoteStampPointer = {
+  clientX: number;
+  clientY: number;
 };
 
 export function RoomBoardView({
@@ -115,7 +157,11 @@ export function RoomBoardView({
   onGroupCreate,
   onGroupUpdateName,
   onNoteVote,
-  onNoteVoteReset,
+  onNoteVoteRemove,
+  onNoteVoteStickerRemove,
+  onNoteVoteStickerMove,
+  pendingVoteOperations,
+  voteFeedback,
   onNoteDecide,
   onLeave,
   isLeaving,
@@ -131,6 +177,15 @@ export function RoomBoardView({
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
+  const [voteStickerDrag, setVoteStickerDrag] =
+    useState<VoteStickerDrag | null>(null);
+  const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
+  const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
+    null,
+  );
+  const [voteStampPointer, setVoteStampPointer] =
+    useState<VoteStampPointer | null>(null);
+  const suppressPaletteSelectRef = useRef(false);
   const [guideDisplay, setGuideDisplay] = useState({
     phaseKey,
     isExpanded: true,
@@ -146,6 +201,14 @@ export function RoomBoardView({
 
   useEffect(() => {
     setVoteTotalingDialogOpen(isResultStep(phase));
+  }, [phase]);
+
+  useEffect(() => {
+    if (isVotingStep(phase)) return;
+    voteStickerDragRef.current = null;
+    setVoteStickerDrag(null);
+    setSelectedVoteKind(null);
+    setVoteStampPointer(null);
   }, [phase]);
 
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
@@ -170,12 +233,231 @@ export function RoomBoardView({
         ),
     ),
   };
+  const selectedVoteRemaining =
+    selectedVoteKind === null ? null : voteRemaining[selectedVoteKind];
+
+  useEffect(() => {
+    if (
+      selectedVoteRemaining === null ||
+      (!isDisconnected && selectedVoteRemaining > 0)
+    ) {
+      return;
+    }
+    setSelectedVoteKind(null);
+    setVoteStampPointer(null);
+  }, [isDisconnected, selectedVoteRemaining]);
 
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
   const isNextPhaseBlocked = isResultStep(phase) && decision === null;
   const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
+
+  function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
+    const target = document.elementFromPoint(clientX, clientY);
+    const note = target?.closest<HTMLElement>("[data-note-id]") ?? null;
+    if (!note || !renderedNotes.some(({ id }) => id === note.dataset.noteId)) {
+      return null;
+    }
+    return note;
+  }
+
+  function handlePaletteStickerDragStart(
+    kind: DotVoteKind,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    if (isDisconnected || !isVotingStep(phase) || voteRemaining[kind] <= 0) {
+      return;
+    }
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const next: VoteStickerDrag = {
+      stickerId: null,
+      kind,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      didDrag: false,
+    };
+    voteStickerDragRef.current = next;
+    setVoteStickerDrag(next);
+  }
+
+  function handleVoteStickerDragStart(
+    stickerId: string,
+    kind: DotVoteKind,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    if (isDisconnected || !isVotingStep(phase)) {
+      return;
+    }
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const next: VoteStickerDrag = {
+      stickerId,
+      kind,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      didDrag: false,
+    };
+    voteStickerDragRef.current = next;
+    setVoteStickerDrag(next);
+  }
+
+  function handleRootPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (selectedVoteKind !== null && event.pointerType !== "touch") {
+      setVoteStampPointer({
+        clientX: event.clientX,
+        clientY: event.clientY,
+      });
+    }
+    const current = voteStickerDragRef.current;
+    if (current?.pointerId === event.pointerId) {
+      const didDrag =
+        current.didDrag ||
+        Math.hypot(
+          event.clientX - current.startClientX,
+          event.clientY - current.startClientY,
+        ) >= DRAG_THRESHOLD_PX;
+      const next = {
+        ...current,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        didDrag,
+      };
+      if (!current.didDrag && didDrag && current.stickerId === null) {
+        setSelectedVoteKind(null);
+        setVoteStampPointer(null);
+      }
+      voteStickerDragRef.current = next;
+      setVoteStickerDrag(next);
+      return;
+    }
+    handlePointerMove(event);
+  }
+
+  function handleRootPointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
+    const current = voteStickerDragRef.current;
+    if (current?.pointerId === event.pointerId) {
+      if (current.didDrag && !isDisconnected && isVotingStep(phase)) {
+        event.preventDefault();
+        const note = noteElementAt(event.clientX, event.clientY);
+        if (note) {
+          const rect = note.getBoundingClientRect();
+          const noteId = note.dataset.noteId;
+          if (noteId && rect.width > 0 && rect.height > 0) {
+            const x = Math.min(
+              1,
+              Math.max(0, (event.clientX - rect.left) / rect.width),
+            );
+            const y = Math.min(
+              1,
+              Math.max(0, (event.clientY - rect.top) / rect.height),
+            );
+            if (current.stickerId === null) {
+              onNoteVote(noteId, current.kind, x, y);
+            } else {
+              onNoteVoteStickerMove(current.stickerId, noteId, x, y);
+            }
+          }
+        }
+      }
+      if (current.didDrag && current.stickerId === null) {
+        suppressPaletteSelectRef.current = true;
+        globalThis.setTimeout(() => {
+          suppressPaletteSelectRef.current = false;
+        }, 0);
+      }
+      voteStickerDragRef.current = null;
+      setVoteStickerDrag(null);
+      return;
+    }
+    handlePointerEnd(event);
+  }
+
+  function handlePaletteStickerSelect(
+    kind: DotVoteKind,
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) {
+    if (suppressPaletteSelectRef.current) {
+      suppressPaletteSelectRef.current = false;
+      return;
+    }
+    if (isDisconnected || !isVotingStep(phase) || voteRemaining[kind] <= 0) {
+      return;
+    }
+    const nextKind = selectedVoteKind === kind ? null : kind;
+    setSelectedVoteKind(nextKind);
+    setVoteStampPointer(
+      nextKind === null
+        ? null
+        : { clientX: event.clientX, clientY: event.clientY },
+    );
+  }
+
+  function handleRootClickCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    if (
+      selectedVoteKind === null ||
+      isDisconnected ||
+      !isVotingStep(phase) ||
+      voteRemaining[selectedVoteKind] <= 0
+    ) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest("[data-vote-sticker-id]")) return;
+
+    const note = target.closest<HTMLElement>("[data-note-id]");
+    const noteId = note?.dataset.noteId;
+    if (!note || !noteId || !renderedNotes.some(({ id }) => id === noteId)) {
+      return;
+    }
+    const rect = note.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const x = Math.min(
+      1,
+      Math.max(0, (event.clientX - rect.left) / rect.width),
+    );
+    const y = Math.min(
+      1,
+      Math.max(0, (event.clientY - rect.top) / rect.height),
+    );
+    onNoteVote(noteId, selectedVoteKind, x, y);
+    setVoteStampPointer({ clientX: event.clientX, clientY: event.clientY });
+    if (voteRemaining[selectedVoteKind] === 1) {
+      setSelectedVoteKind(null);
+      setVoteStampPointer(null);
+    }
+  }
+
+  function handleRootPointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
+    if (voteStickerDragRef.current?.pointerId === event.pointerId) {
+      voteStickerDragRef.current = null;
+      setVoteStickerDrag(null);
+      return;
+    }
+    handlePointerEnd(event);
+  }
+
+  useEffect(() => {
+    if (selectedVoteKind === null) return;
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setSelectedVoteKind(null);
+      setVoteStampPointer(null);
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedVoteKind]);
 
   const {
     boardRootRef,
@@ -211,11 +493,17 @@ export function RoomBoardView({
       data-testid="room-board-view-root"
       data-guide-expanded={String(isGuideExpanded)}
       className={`group/board relative flex h-full flex-col ${
-        isNoteDragging ? "cursor-grabbing" : ""
+        isNoteDragging
+          ? "cursor-grabbing"
+          : selectedVoteKind !== null
+            ? "cursor-crosshair"
+            : ""
       }`}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
-      onPointerCancel={handlePointerEnd}
+      onClickCapture={handleRootClickCapture}
+      onPointerMove={handleRootPointerMove}
+      onPointerUp={handleRootPointerEnd}
+      onPointerCancel={handleRootPointerCancel}
+      onPointerLeave={() => setVoteStampPointer(null)}
     >
       <RoomBoardHeader
         inviteCode={inviteCode}
@@ -234,7 +522,6 @@ export function RoomBoardView({
         isGuideExpanded={isGuideExpanded}
         isSprintComplete={isSprintComplete}
         signOutAction={signOutAction}
-        voteRemaining={voteRemaining}
         isLeaving={isLeaving}
         onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
         onGuideExpandedChange={(isExpanded) =>
@@ -261,6 +548,8 @@ export function RoomBoardView({
         draggingNoteId={draggingNoteId}
         isDisconnected={isDisconnected}
         voteRemaining={voteRemaining}
+        selectedVoteKind={selectedVoteKind}
+        pendingVoteOperations={pendingVoteOperations}
         dragGhost={dragGhost}
         isReturnDropTarget={isReturnDropTarget}
         hmwDecidedIssue={hmwDecidedIssue}
@@ -287,7 +576,9 @@ export function RoomBoardView({
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}
         onNoteVote={onNoteVote}
-        onNoteVoteReset={onNoteVoteReset}
+        onNoteVoteRemove={onNoteVoteRemove}
+        onNoteVoteStickerRemove={onNoteVoteStickerRemove}
+        onNoteVoteStickerDragStart={handleVoteStickerDragStart}
         onNoteDecide={onNoteDecide}
         onGroupCreate={onGroupCreate}
         onGroupUpdateName={onGroupUpdateName}
@@ -300,6 +591,56 @@ export function RoomBoardView({
         areCursorsVisible={areCursorsVisible}
         onToggleCursors={onToggleCursors}
       />
+
+      {isVotingStep(phase) ? (
+        <div
+          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
+          data-testid="vote-palette-hud"
+        >
+          <DotVotePalette
+            voteRemaining={voteRemaining}
+            pendingOperationCount={pendingVoteOperations.length}
+            feedback={voteFeedback}
+            disabled={isDisconnected}
+            selectedKind={selectedVoteKind}
+            onStickerSelect={handlePaletteStickerSelect}
+            onStickerDragStart={handlePaletteStickerDragStart}
+          />
+        </div>
+      ) : null}
+
+      {voteStickerDrag !== null ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2"
+          style={{
+            left: voteStickerDrag.clientX,
+            top: voteStickerDrag.clientY,
+          }}
+        >
+          <DotVoteSticker
+            kind={voteStickerDrag.kind}
+            count={1}
+            state="preview"
+          />
+        </div>
+      ) : null}
+
+      {selectedVoteKind !== null &&
+      voteStampPointer !== null &&
+      voteStickerDrag === null ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2"
+          data-testid="vote-stamp-cursor"
+          style={{
+            left: voteStampPointer.clientX,
+            top: voteStampPointer.clientY,
+          }}
+        >
+          <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
+        </div>
+      ) : null}
 
       <VoteTotalingDialog
         open={voteTotalingDialogOpen}
