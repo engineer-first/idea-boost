@@ -46,6 +46,7 @@ import {
 } from "../logic/cursor-presence";
 import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
+import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import {
   DECIDE_NOTE_ACTION_INSET,
@@ -440,6 +441,15 @@ export function RoomBoardCanvas({
             {areCursorsVisible ? <MousePointer2 /> : <MousePointer2Off />}
             カーソル
           </Button>
+        </div>
+
+        <div
+          className="pointer-events-none absolute bottom-16 left-3 z-40"
+          data-testid="board-operation-matrix"
+        >
+          <div className="pointer-events-auto">
+            <BoardOperationMatrix permissions={permissions} />
+          </div>
         </div>
         {/* バナー（top）とパネル（left）は別条件で出す: Step 2-2 以降は
             テンプレートを出さないが、決定課題の掲示は続ける（#165 で再利用）。 */}
