@@ -4,6 +4,7 @@ import type { ServerMessage } from "@/contracts/room-protocol";
 import {
   applyServerMessage,
   moveNoteLocally,
+  moveVoteStickerLocally,
   type Note,
   voteNoteLocally,
 } from "./notes-reducer";
@@ -29,6 +30,7 @@ const note: Note = {
     subjective: { count: 0, votedByMe: false, ownCount: 0 },
     objective: { count: 0, votedByMe: false, ownCount: 0 },
   },
+  dotVoteStickers: [],
 };
 
 function makeNote(overrides: Partial<Note> = {}): Note {
@@ -317,5 +319,50 @@ describe("moveNoteLocally", () => {
     const result = moveNoteLocally([existing], "unknown", 1, 1);
 
     expect(result).toEqual([existing]);
+  });
+});
+
+describe("moveVoteStickerLocally", () => {
+  it("同じシールを別の付箋へ移し、付箋ごとの投票集計も移す", () => {
+    const sticker = {
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      kind: "objective" as const,
+      x: 0.2,
+      y: 0.3,
+    };
+    const source = makeNote({
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 1, votedByMe: true, ownCount: 1 },
+      },
+      dotVoteStickers: [sticker],
+    });
+    const target = makeNote({
+      id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    });
+    const result = moveVoteStickerLocally(
+      [source, target],
+      sticker.id,
+      target.id,
+      0.8,
+      0.9,
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(result.notes[0]?.dotVoteStickers).toEqual([]);
+    expect(result.notes[1]?.dotVoteStickers).toEqual([
+      { ...sticker, x: 0.8, y: 0.9 },
+    ]);
+    expect(result.notes[0]?.dotVotes.objective).toEqual({
+      count: 0,
+      votedByMe: false,
+      ownCount: 0,
+    });
+    expect(result.notes[1]?.dotVotes.objective).toEqual({
+      count: 1,
+      votedByMe: true,
+      ownCount: 1,
+    });
   });
 });
