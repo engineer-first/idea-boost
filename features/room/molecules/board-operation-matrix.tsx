@@ -38,9 +38,11 @@ export function BoardOperationMatrix({
             return (
               <Tooltip key={operation.key}>
                 <TooltipTrigger asChild>
-                  <div
-                  aria-label={`付箋の${operation.label}`}
-                  className="flex items-center gap-1.5 text-sm font-medium">
+                  <button
+                    type="button"
+                    aria-label={`付箋の${operation.label}`}
+                    className="flex items-center gap-1.5 text-sm font-medium"
+                  >
                     <Icon aria-hidden="true" className="size-4" />
                     <span
                       aria-hidden="true"
@@ -48,9 +50,8 @@ export function BoardOperationMatrix({
                         enabled ? "bg-green-500" : "bg-red-500"
                       }`}
                     />
-                  </div>
+                  </button>
                 </TooltipTrigger>
-
                 <TooltipContent>
                   付箋の{operation.label}：{enabled ? "可能" : "不可"}
                 </TooltipContent>

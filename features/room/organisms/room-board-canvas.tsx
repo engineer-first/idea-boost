@@ -46,6 +46,7 @@ import {
 } from "../logic/cursor-presence";
 import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
+import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import {
   DECIDE_NOTE_ACTION_INSET,
@@ -54,7 +55,6 @@ import {
 } from "../molecules/decide-note-action";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import { RemoteCursor } from "../molecules/remote-cursor";
-import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 
 export type RoomBoardCanvasProps = {
   notes: Note[];
@@ -441,18 +441,6 @@ export function RoomBoardCanvas({
             {areCursorsVisible ? <MousePointer2 /> : <MousePointer2Off />}
             カーソル
           </Button>
-        </div>
-        <div
-          className="pointer-events-none absolute bottom-3 left-3 z-40"
-          data-testid="canvas-zoom-hud"
-        >
-          <CanvasZoomControls
-            zoom={camera.zoom}
-            onZoomOut={onZoomOut}
-            onResetZoom={onResetZoom}
-            onZoomIn={onZoomIn}
-            onFitToNotes={onFitToNotes}
-          />
         </div>
 
         <div
