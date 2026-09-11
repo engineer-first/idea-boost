@@ -139,10 +139,10 @@ export function RoomTimer({
   if (!isHost && timer.status === "idle") return null;
 
   const chipClassName = cn(
-    "board-hud h-10 w-28 shrink-0 justify-center rounded-full bg-background px-3 shadow-sm hover:bg-background dark:bg-background dark:hover:bg-background disabled:opacity-100",
+    "board-hud h-10 w-28 shrink-0 justify-center rounded-lg border-transparent bg-muted px-3 shadow-none hover:bg-muted dark:bg-muted dark:hover:bg-muted disabled:opacity-100",
     "font-mono font-bold tabular-nums",
-    timer.status === "paused" && "border-amber-500 text-amber-700",
-    isEnded && "border-destructive text-destructive",
+    timer.status === "paused" && "text-amber-800",
+    isEnded && "text-red-700",
   );
   const chipLabel =
     timer.status === "idle"
@@ -201,6 +201,7 @@ export function RoomTimer({
     <PopoverContent
       data-testid="room-timer-panel"
       aria-label="タイマー設定"
+      align="end"
       className="board-hud w-72 bg-background"
     >
       {timer.status === "idle" ? (

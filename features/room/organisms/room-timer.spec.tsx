@@ -34,7 +34,7 @@ describe("RoomTimer", () => {
       />,
     );
     const chip = screen.getByTestId("room-timer");
-    expect(chip).toHaveClass("bg-background", "disabled:opacity-100");
+    expect(chip).toHaveClass("bg-muted", "disabled:opacity-100");
     expect(chip).not.toHaveClass("animate-pulse");
     expect(screen.getByTestId("room-timer-panel")).toHaveClass("bg-background");
   });

@@ -276,7 +276,7 @@ describe("RoomBoardView", () => {
     expect(onTimerStart).toHaveBeenCalledWith(90_000);
   });
 
-  it("host の招待URLと招待コードはルームメニューから表示する", () => {
+  it("host の招待URLと招待コードは招待ボタンから表示する", () => {
     setup({
       isHost: true,
       inviteCode: "ZZ99XX",
@@ -284,7 +284,7 @@ describe("RoomBoardView", () => {
     });
 
     expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
-    openRoomMenu();
+    fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
     expect(screen.getByText("招待URL")).toBeInTheDocument();
     expect(screen.getByText("招待コード")).toBeInTheDocument();

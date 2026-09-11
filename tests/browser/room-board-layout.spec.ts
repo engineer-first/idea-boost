@@ -48,7 +48,7 @@ async function expectLayout(): Promise<void> {
       [
         '[data-testid="board-context-hud"]',
         '[data-testid="board-control-hud"]',
-        '[data-testid="board-control-hud"] > [role="status"]',
+        '[data-testid="board-connection-status"]',
         '[data-testid="board-help-panel"] > div',
         '[data-testid="private-notes-toolbar"]',
         '[data-testid="board-tools-hud"]',
@@ -564,5 +564,80 @@ test.each([
 test("参加者1人でも現在地の詳細がマイ付箋に重ならない", async () => {
   await openStory("room-roomboardlayout--single-participant");
   await page.getByRole("tab", { name: "決定事項 2" }).click();
+  await expectLayout();
+});
+
+test.each([
+  1280, 1024, 768,
+])("幅 %i の操作バーで招待とタイマーを開閉でき、寸法と主要操作を保つ", async (width) => {
+  await page.setViewportSize({ width, height: 720 });
+  await openStory("room-roomboardlayout--phase-3-step-1");
+  const controls = page.getByRole("group", { name: "ルームの操作" });
+  await controls.waitFor();
+  const initialBox = await controls.boundingBox();
+  const timer = controls.getByTestId("room-timer");
+  expect(
+    await timer.evaluate((e) =>
+      e.parentElement?.closest(".board-hud")?.getAttribute("data-testid"),
+    ),
+  ).toBe("board-control-hud");
+  const timerBox = await timer.boundingBox();
+  expect({ width: timerBox?.width, height: timerBox?.height }).toEqual({
+    width: 112,
+    height: 40,
+  });
+  const contextBox = await page.getByTestId("board-context-hud").boundingBox();
+  expect(contextBox?.width).toBeLessThanOrEqual(360);
+  const invite = controls.getByRole("button", { name: "招待", exact: true });
+  await invite.click();
+  const panel = page.getByRole("dialog", { name: "ルームに招待" });
+  await panel.waitFor();
+  expect(
+    await panel.getByRole("button", { name: "招待URLをコピー" }).isVisible(),
+  ).toBe(true);
+  const bounds = await panel.boundingBox();
+  expect(bounds?.x).toBeGreaterThanOrEqual(0);
+  expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(width);
+  await page.keyboard.press("Escape");
+  await panel.waitFor({ state: "hidden" });
+  await expect
+    .poll(() => invite.evaluate((e) => document.activeElement === e))
+    .toBe(true);
+  await timer.click();
+  await page.getByTestId("room-timer-panel").waitFor();
+  expect(
+    await page.getByRole("button", { name: "再開", exact: true }).isVisible(),
+  ).toBe(true);
+  await page.keyboard.press("Escape");
+  expect(await controls.boundingBox()).toEqual(initialBox);
+  await page.getByRole("button", { name: "ルームメニューを開く" }).click();
+  const menu = page.getByRole("dialog", {
+    name: "ルームメニュー",
+    exact: true,
+  });
+  expect(
+    await menu
+      .getByRole("button", { name: "ルームを解散", exact: true })
+      .isVisible(),
+  ).toBe(true);
+  expect(await menu.getByText("招待URL", { exact: true }).count()).toBe(0);
+  await page.keyboard.press("Escape");
+  await expectLayout();
+});
+
+test.each([
+  "reconnecting",
+  "connecting",
+])("%s の表示と開いたマイ付箋を重ねない", async (state) => {
+  await page.setViewportSize({ width: 768, height: 720 });
+  await openStory(
+    state === "reconnecting"
+      ? "room-roomboardlayout--reconnecting"
+      : "room-roomboardlayout--connecting",
+  );
+  await page.getByTestId("board-connection-status").waitFor();
+  await page
+    .getByRole("button", { name: "マイ付箋を開く", exact: true })
+    .click();
   await expectLayout();
 });

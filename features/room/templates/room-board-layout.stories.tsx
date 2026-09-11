@@ -165,3 +165,26 @@ export const SingleParticipant: Story = {
     members: buildMembers(1, boardMeta.args.currentUserId),
   },
 };
+
+export const InviteOpen: Story = {
+  ...step(3, 1),
+  name: "操作バーから招待",
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "招待" }),
+    );
+  },
+};
+export const TimerOpen: Story = {
+  ...step(3, 1),
+  name: "操作バーからタイマー設定",
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByTestId("room-timer"));
+  },
+};
+
+export const Connecting: Story = {
+  ...step(3, 1),
+  name: "接続確立中",
+  args: { ...step(3, 1).args, connectionStatus: "connecting" },
+};

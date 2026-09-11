@@ -53,12 +53,12 @@ function openRoomMenu() {
 
 describe("RoomBoardHeader", () => {
   describe("招待情報（host 限定）", () => {
-    it("host の招待情報は常設せずルームメニュー内に表示する", () => {
+    it("host は独立した招待ボタンからURLとコードを開く", () => {
       setup({ isHost: true });
 
       expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
 
-      openRoomMenu();
+      fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
       expect(screen.getByText("招待URL")).toBeInTheDocument();
       expect(
@@ -68,7 +68,7 @@ describe("RoomBoardHeader", () => {
 
     it("招待ラベルの下に値を配置する", () => {
       setup({ isHost: true });
-      openRoomMenu();
+      fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
       const invite = screen.getByTestId("board-view-invite");
       expect(within(invite).getByText("招待URL")).toHaveClass("block");
@@ -85,7 +85,21 @@ describe("RoomBoardHeader", () => {
       setup({ isHost: false });
 
       expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "招待" }),
+      ).not.toBeInTheDocument();
+      openRoomMenu();
+      expect(screen.queryByText("招待コード")).not.toBeInTheDocument();
     });
+  });
+
+  it("ルームメニューは退出操作を残し、招待情報は独立させる", () => {
+    setup({ isHost: true });
+    openRoomMenu();
+    expect(
+      screen.getByRole("button", { name: "ルームを解散" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
   });
 
   it("現在地をキャンバス左上のフローティングHUDに表示する", () => {
@@ -99,9 +113,7 @@ describe("RoomBoardHeader", () => {
     );
     expect(screen.getByTestId("board-context-hud")).not.toHaveClass("absolute");
     expect(screen.getByText("課題整理")).toBeInTheDocument();
-    expect(screen.getByText(/Step 2\/5/).parentElement).toHaveClass(
-      "whitespace-nowrap",
-    );
+    expect(screen.getByText("2/5")).toBeInTheDocument();
     expect(
       screen.getByRole("progressbar", { name: "課題整理の進行状況" }),
     ).toHaveAttribute("aria-valuenow", "2");
@@ -154,33 +166,40 @@ describe("RoomBoardHeader", () => {
     });
   });
 
-  it("フェーズ番号を表示して、フェーズ1とフェーズ2を識別できる", () => {
+  it("折り畳んでもフェーズ名・正式なステップ名・進捗が読め、重複する見出しを省く", () => {
     const { rerender } = render(
-      <RoomBoardHeader {...setupProps({ phase: buildPhaseStep(1) })} />,
+      <RoomBoardHeader
+        {...setupProps({ phase: buildPhaseStep(1), isGuideExpanded: false })}
+      />,
     );
-
-    expect(screen.getByText("フェーズ1")).toBeInTheDocument();
-
+    const context = screen.getByTestId("board-context-hud");
+    expect(within(context).getByText("課題整理")).toBeVisible();
+    expect(within(context).getByText("自分の課題（個人）")).toBeVisible();
+    expect(within(context).getByText("1/5")).toBeVisible();
+    expect(within(context).queryByText("Idea Boost")).not.toBeInTheDocument();
+    expect(within(context).queryByText("フェーズ1")).not.toBeInTheDocument();
     rerender(
-      <RoomBoardHeader {...setupProps({ phase: buildPhaseStep(1, 2) })} />,
+      <RoomBoardHeader
+        {...setupProps({ phase: buildPhaseStep(1, 2), isGuideExpanded: false })}
+      />,
     );
-
-    expect(screen.getByText("フェーズ2")).toBeInTheDocument();
-    expect(screen.queryByText("フェーズ1")).not.toBeInTheDocument();
+    expect(within(context).getByText("問いの作成")).toBeVisible();
+    expect(within(context).queryByText("課題整理")).not.toBeInTheDocument();
   });
 
-  it("タイマーを右上のセッション操作群にまとめる", () => {
+  it("参加者・タイマー・招待・次への操作を同じ操作グループにまとめる", () => {
     setup({ isHost: true });
-
-    const sessionControls = screen.getByTestId("board-control-hud");
-    expect(sessionControls).toHaveClass("justify-end", "gap-2");
+    const controls = screen.getByRole("group", { name: "ルームの操作" });
     expect(
-      within(sessionControls).getByTestId("room-timer"),
-    ).toBeInTheDocument();
-    const membersButton = within(sessionControls).getByRole("button", {
-      name: "参加者 2人",
-    });
-    expect(membersButton.parentElement).toHaveClass("bg-background");
+      within(controls).getByRole("button", { name: "参加者 2人" }),
+    ).toBeVisible();
+    expect(within(controls).getByTestId("room-timer")).toBeVisible();
+    expect(
+      within(controls).getByRole("button", { name: "招待" }),
+    ).toBeVisible();
+    expect(
+      within(controls).getByRole("button", { name: "次のステップへ" }),
+    ).toBeVisible();
   });
 
   it("投票ステップでも投票パレットを上部HUDには表示しない", () => {

@@ -462,7 +462,7 @@ export function RoomBoardCanvas({
         </div>
         {permissions.showPrivateToolbar ? (
           <div
-            className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[6.75rem] group-data-[connection-status=connecting]/board:top-[6.75rem] z-30 flex w-60 items-end"
+            className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-60 items-end"
             data-testid="private-notes-dock"
           >
             <PrivateNotesToolbar

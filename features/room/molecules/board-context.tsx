@@ -16,7 +16,6 @@ const PHASE_TITLES = {
 const PROGRESS_STEPS = [1, 2, 3, 4, 5] as const;
 
 function getPhaseContext(phase: RoomPhase): {
-  phaseLabel: string | null;
   title: string;
   step: number;
   stepCount: number;
@@ -24,7 +23,6 @@ function getPhaseContext(phase: RoomPhase): {
 } {
   if (phase.kind === "lobby") {
     return {
-      phaseLabel: null,
       title: "開始待ち",
       step: 0,
       stepCount: 1,
@@ -33,7 +31,6 @@ function getPhaseContext(phase: RoomPhase): {
   }
 
   return {
-    phaseLabel: `フェーズ${phase.phase}`,
     title: PHASE_TITLES[phase.phase],
     step: phase.step,
     stepCount: PHASE_STEP_COUNTS[phase.phase],
@@ -68,59 +65,24 @@ export function BoardContext({
   return (
     <header
       data-testid="board-context-hud"
-      className="board-hud facilitation-guide-material pointer-events-auto min-w-0 shrink-0 overflow-hidden rounded-xl border border-border bg-background shadow-lg shadow-black/5"
+      className="board-hud facilitation-guide-material pointer-events-auto min-w-0 shrink-0 overflow-hidden rounded-2xl border border-border bg-background shadow-lg shadow-black/5"
     >
       <button
         type="button"
         disabled={guide === null}
-        className="block w-full px-3 py-2.5 text-left outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="block w-full px-4 py-3 text-left outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         aria-label={`ステップの詳細を${isExpanded ? "閉じる" : "開く"}`}
         aria-describedby="board-current-phase board-current-step"
         aria-expanded={isExpanded}
         aria-controls="board-step-details"
         onClick={() => onExpandedChange(!isExpanded)}
       >
-        <span
-          id="board-current-phase"
-          className="flex flex-wrap items-center gap-x-3 gap-y-1 max-xl:gap-x-2"
-        >
-          <span className="hidden shrink-0 text-sm font-semibold tracking-tight xl:block">
-            Idea Boost
-          </span>
-          <span
-            aria-hidden="true"
-            className="hidden h-4 w-px bg-border xl:block"
-          />
-          {context.phaseLabel !== null ? (
-            <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-              {context.phaseLabel}
-            </span>
-          ) : null}
-          <span className="shrink-0 text-xs font-semibold">
+        <span id="board-current-phase" className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 text-sm font-semibold">
             {context.title}
           </span>
-          <span className="flex min-w-max flex-1 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
-            <span className="shrink-0 font-medium text-foreground">
-              Step {context.step}/{context.stepCount}
-            </span>
-          </span>
-          <span
-            role="progressbar"
-            aria-label={`${context.title}の進行状況`}
-            aria-valuemin={0}
-            aria-valuemax={context.stepCount}
-            aria-valuenow={context.step}
-            className="ml-auto flex h-1 w-16 shrink-0 gap-1 xl:w-32"
-            data-testid="board-progress-rail"
-          >
-            {PROGRESS_STEPS.slice(0, context.stepCount).map((stepNumber) => (
-              <span
-                key={stepNumber}
-                className={`h-full flex-1 rounded-full ${
-                  stepNumber <= context.step ? "bg-foreground" : "bg-muted"
-                }`}
-              />
-            ))}
+          <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+            {context.step}/{context.stepCount}
           </span>
           {guide !== null ? (
             <ChevronUp
@@ -134,6 +96,24 @@ export function BoardContext({
           className="mt-1 block text-xs leading-4 text-muted-foreground"
         >
           {context.stepLabel}
+        </span>
+        <span
+          role="progressbar"
+          aria-label={`${context.title}の進行状況`}
+          aria-valuemin={0}
+          aria-valuemax={context.stepCount}
+          aria-valuenow={context.step}
+          className="mt-2.5 flex h-0.5 w-full gap-1"
+          data-testid="board-progress-rail"
+        >
+          {PROGRESS_STEPS.slice(0, context.stepCount).map((stepNumber) => (
+            <span
+              key={stepNumber}
+              className={`h-full flex-1 rounded-full ${
+                stepNumber <= context.step ? "bg-foreground" : "bg-muted"
+              }`}
+            />
+          ))}
         </span>
       </button>
 

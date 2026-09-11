@@ -13,7 +13,7 @@ const meta = {
   render: function Render(args) {
     const [isExpanded, setExpanded] = useState(args.isExpanded);
     return (
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-[360px]">
         <BoardContext
           {...args}
           isExpanded={isExpanded}
