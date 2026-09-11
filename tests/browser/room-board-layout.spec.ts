@@ -178,8 +178,8 @@ test.each([
 ])("%s でも配置を保ち長い決定文の全文を読める", async (variant) => {
   await openStory(`room-roomboardlayout--${variant}`);
   await expectLayout();
-  await page.getByRole("tab", { name: "決定事項 2" }).click();
-  const content = page.getByTestId("board-context-content");
+  await page.getByText("決定した課題", { exact: true }).click();
+  const content = page.getByTestId("board-context-hud");
   expect(await content.innerText()).toContain("全員が自分の考えを伝え");
   expect(await content.innerText()).toContain("決定したHMW");
   await expectLayout();
@@ -270,8 +270,12 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-test("HMW例はスクロールせず全文を読め、閉じるとボードを操作できる", async () => {
+test("進め方を閉じると採用課題を残したままHMW例を広く読める", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
+  await page.getByRole("button", { name: "進め方を閉じる" }).click();
+  expect(
+    await page.getByTestId("board-reference-issue-content").isVisible(),
+  ).toBe(true);
   const content = page.locator("#board-help-content");
   const contentBox = await content.boundingBox();
   const lastExample = await content.locator("li").last().boundingBox();
@@ -481,8 +485,12 @@ test.each([
   expect(await dialog.locator("li").count()).toBe(12);
 });
 
-test("発想支援は切替より本文を優先し、スクロール前に3項目以上読める", async () => {
+test("進め方を閉じるとHMWを残したまま発想支援を3項目以上読める", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
+  await page.getByRole("button", { name: "進め方を閉じる" }).click();
+  expect(
+    await page.getByTestId("board-reference-hmw-content").isVisible(),
+  ).toBe(true);
   await page.getByRole("tab", { name: "発想を広げる", exact: true }).click();
   const panel = await page.getByTestId("board-help-panel").boundingBox();
   const content = await page.locator("#board-help-content").boundingBox();
@@ -517,7 +525,7 @@ test.each([
 ])("%dpxで決定事項が現在地に収まり、閉じた分だけヒント領域が広がる", async (width) => {
   await page.setViewportSize({ width, height: 720 });
   await openStory("room-roomboardlayout--reference-and-notes");
-  await page.getByRole("tab", { name: "決定事項 2" }).click();
+  await page.getByText("決定した課題", { exact: true }).click();
   expect(await page.getByTestId("board-carryovers").count()).toBe(0);
   const context = page.getByTestId("board-context-hud");
   expect(await context.innerText()).toContain("決定した課題");
@@ -526,20 +534,20 @@ test.each([
   const timer = await page.getByTestId("room-timer").boundingBox();
   const notes = await page.getByTestId("private-notes-toolbar").boundingBox();
   await expectLayout();
-  await page.getByTestId("board-context-content").evaluate((e) => {
+  await page.getByTestId("board-reference-hmw-content").evaluate((e) => {
     e.scrollTop = e.scrollHeight;
   });
-  const lastText = context.locator("dd").last();
+  const lastText = page.getByTestId("board-reference-hmw-content").locator("p");
   const textBox = await lastText.boundingBox();
   const scrollBox = await page
-    .getByTestId("board-context-content")
+    .getByTestId("board-reference-hmw-content")
     .boundingBox();
   if (!textBox || !scrollBox)
     throw new Error("決定文の表示領域が見つかりません");
   expect(textBox.y + textBox.height).toBeLessThanOrEqual(
     scrollBox.y + scrollBox.height,
   );
-  await page.getByRole("button", { name: "ステップの詳細を閉じる" }).click();
+  await page.getByRole("button", { name: "進め方を閉じる" }).click();
   const after = await page.getByTestId("board-help-panel").boundingBox();
   if (!before || !after) throw new Error("ヒントの表示領域が見つかりません");
   expect(after.y).toBeLessThan(before.y);
@@ -548,22 +556,28 @@ test.each([
   expect(await page.getByTestId("private-notes-toolbar").boundingBox()).toEqual(
     notes,
   );
-  expect((await context.boundingBox())?.height).toBeLessThan(80);
+  expect(
+    await page.getByTestId("board-reference-hmw").getAttribute("open"),
+  ).not.toBeNull();
+  expect(
+    await page.getByTestId("board-reference-issue").getAttribute("open"),
+  ).not.toBeNull();
   await expectLayout();
   await page.screenshot({ path: `${output}/context-collapsed-${width}.png` });
-  await page.getByRole("button", { name: "ステップの詳細を開く" }).click();
+  await page.getByRole("button", { name: "進め方を開く" }).click();
   expect(
-    await page
-      .getByRole("tab", { name: "決定事項 2" })
-      .getAttribute("aria-selected"),
-  ).toBe("true");
+    await page.getByTestId("board-reference-hmw").getAttribute("open"),
+  ).not.toBeNull();
+  expect(
+    await page.getByTestId("board-reference-issue").getAttribute("open"),
+  ).not.toBeNull();
   await expectLayout();
   await page.screenshot({ path: `${output}/context-decisions-${width}.png` });
 });
 
 test("参加者1人でも現在地の詳細がマイ付箋に重ならない", async () => {
   await openStory("room-roomboardlayout--single-participant");
-  await page.getByRole("tab", { name: "決定事項 2" }).click();
+  await page.getByText("決定した課題", { exact: true }).click();
   await expectLayout();
 });
 
@@ -640,4 +654,52 @@ test.each([
     .getByRole("button", { name: "マイ付箋を開く", exact: true })
     .click();
   await expectLayout();
+});
+
+test.each([
+  1280, 1024, 768,
+])("%ipxで進め方と執筆の材料を同時に読み、独立して開閉できる", async (width) => {
+  await page.setViewportSize({ width, height: 720 });
+  for (const [phase, reference] of [
+    [2, "issue"],
+    [3, "hmw"],
+  ] as const) {
+    await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
+    const guide = page.getByTestId("board-guide-region");
+    const decision = page.getByTestId(`board-reference-${reference}`);
+    const content = page.getByTestId(`board-reference-${reference}-content`);
+    await decision.waitFor();
+    expect(await guide.isVisible()).toBe(true);
+    expect(await content.isVisible()).toBe(true);
+    expect(await decision.getAttribute("open")).not.toBeNull();
+    const scrollBox = await content.boundingBox();
+    if (!scrollBox) throw new Error("参照欄が見つかりません");
+    const fullText = await content.locator("p").boundingBox();
+    if (!fullText) throw new Error("参照文が見つかりません");
+    expect(scrollBox.height).toBeGreaterThanOrEqual(
+      Math.min(fullText.height, 80),
+    );
+    await expectLayout();
+    await page.getByRole("button", { name: "進め方を閉じる" }).click();
+    expect(await content.isVisible()).toBe(true);
+    await content.evaluate((e) => {
+      e.scrollTop = e.scrollHeight;
+    });
+    const paragraph = await content.locator("p").boundingBox();
+    const after = await content.boundingBox();
+    if (!paragraph || !after) throw new Error("参照欄の全文が見つかりません");
+    expect(paragraph.y + paragraph.height).toBeLessThanOrEqual(
+      after.y + after.height,
+    );
+    await page.getByRole("button", { name: "進め方を開く" }).click();
+    await decision.locator("summary").click();
+    expect(await guide.isVisible()).toBe(true);
+    expect(await content.isVisible()).toBe(false);
+    await decision.locator("summary").press("Enter");
+    expect(await content.isVisible()).toBe(true);
+    await expectLayout();
+    await page.screenshot({
+      path: `${output}/reference-${phase}-${width}.png`,
+    });
+  }
 });

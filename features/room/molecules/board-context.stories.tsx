@@ -40,9 +40,7 @@ type Story = StoryObj<typeof meta>;
 export const Guide: Story = {};
 export const Decisions: Story = {
   play: async ({ canvasElement }) => {
-    await userEvent.click(
-      within(canvasElement).getByRole("tab", { name: "決定事項 2" }),
-    );
+    await userEvent.click(within(canvasElement).getByText("決定した課題"));
   },
 };
 export const Collapsed: Story = { args: { isExpanded: false } };
@@ -50,3 +48,17 @@ export const NoDecisions: Story = {
   args: { hmwDecidedIssue: null, decidedHmw: null },
 };
 export const Participant: Story = { args: { isHost: false } };
+
+export const HmwWriting: Story = {
+  args: {
+    phase: buildPhaseStep(1, 2),
+    guide: getFacilitationGuide(buildPhaseStep(1, 2)),
+    decidedHmw: null,
+  },
+};
+export const AfterWriting: Story = {
+  args: {
+    phase: buildPhaseStep(2, 3),
+    guide: getFacilitationGuide(buildPhaseStep(2, 3)),
+  },
+};

@@ -194,7 +194,7 @@ describe("RoomBoardView", () => {
 
       fireEvent.click(
         screen.getByRole("button", {
-          name: "ステップの詳細を閉じる",
+          name: "進め方を閉じる",
         }),
       );
 
@@ -209,7 +209,7 @@ describe("RoomBoardView", () => {
       const { props, rerender } = setup();
       fireEvent.click(
         screen.getByRole("button", {
-          name: "ステップの詳細を閉じる",
+          name: "進め方を閉じる",
         }),
       );
 
@@ -1310,60 +1310,81 @@ describe("参加者 HUD", () => {
 });
 
 describe("ステップに結び付いた決定事項", () => {
-  it("決定課題とHMWを現在地の詳細から全文参照できる", () => {
-    setup({
-      phase: buildPhaseStep(1, 3),
-      hmwDecidedIssue: "全員が安心して意見を出せない",
-      decidedHmw: "どうすれば全員が安心して話せるだろうか？",
-    });
-    expect(screen.queryByTestId("board-carryovers")).not.toBeInTheDocument();
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "決定事項 2" }), {
-      button: 0,
-      ctrlKey: false,
-    });
-    expect(screen.getByTestId("board-context-column")).toContainElement(
-      screen.getByTestId("board-help-panel"),
-    );
-    const context = screen.getByTestId("board-context-hud");
-    expect(within(context).getByText("決定した課題")).toBeVisible();
-    expect(
-      within(context).getByText("全員が安心して意見を出せない"),
-    ).toBeVisible();
-    expect(
-      within(context).getByText("どうすれば全員が安心して話せるだろうか？"),
-    ).toBeVisible();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("決定事項の表示中も詳細を閉じられ、再度開くと同じ内容に戻る", () => {
+  it("HMW作成では進め方と採用した課題を同時に読める", () => {
     setup({
       phase: buildPhaseStep(1, 2),
       hmwDecidedIssue: "忘れ物を減らしたい",
       decidedHmw: null,
     });
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "決定事項 1" }), {
-      button: 0,
-      ctrlKey: false,
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "ステップの詳細を閉じる" }),
-    );
-    expect(screen.getByText("忘れ物を減らしたい")).not.toBeVisible();
-    fireEvent.click(
-      screen.getByRole("button", { name: "ステップの詳細を開く" }),
-    );
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toBeVisible();
     expect(screen.getByText("忘れ物を減らしたい")).toBeVisible();
+    expect(
+      screen.queryByRole("tab", { name: /決定事項/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "進め方を閉じる" }));
+    expect(screen.getByText("忘れ物を減らしたい")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toBeVisible();
   });
-
-  it("持ち越しのないフェーズでは空の決定事項タブを表示しない", () => {
+  it("アイデア作成ではHMWを開いて始め、元の課題も独立して開閉できる", () => {
+    setup({
+      phase: buildPhaseStep(1, 3),
+      hmwDecidedIssue: "全員が安心して意見を出せない",
+      decidedHmw: "どうすれば全員が安心して話せるだろうか？",
+    });
+    expect(
+      screen.getByText("どうすれば全員が安心して話せるだろうか？"),
+    ).toBeVisible();
+    expect(screen.getByText("全員が安心して意見を出せない")).not.toBeVisible();
+    fireEvent.click(screen.getByText("決定した課題"));
+    expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
+    fireEvent.click(screen.getByText("決定したHMW"));
+    expect(
+      screen.getByText("どうすれば全員が安心して話せるだろうか？"),
+    ).not.toBeVisible();
+    expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "進め方を閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+    expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
+    expect(
+      screen.getByText("どうすれば全員が安心して話せるだろうか？"),
+    ).not.toBeVisible();
+  });
+  it("ステップ移行後は参照欄を初期状態に戻し、次フェーズの執筆ではHMWを開く", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(1, 2),
+      hmwDecidedIssue: "採用した課題",
+      decidedHmw: null,
+    });
+    fireEvent.click(screen.getByText("決定した課題"));
+    expect(screen.getByText("採用した課題")).not.toBeVisible();
+    rerender(<RoomBoardView {...props} phase={buildPhaseStep(2, 2)} />);
+    expect(screen.getByText("採用した課題")).not.toBeVisible();
+    rerender(
+      <RoomBoardView
+        {...props}
+        phase={buildPhaseStep(1, 3)}
+        decidedHmw="採用したHMW"
+      />,
+    );
+    expect(screen.getByText("採用したHMW")).toBeVisible();
+    expect(screen.getByText("採用した課題")).not.toBeVisible();
+  });
+  it("持ち越しのないフェーズでは空の決定事項を表示しない", () => {
     setup({
       phase: buildPhaseStep(1),
       hmwDecidedIssue: null,
       decidedHmw: null,
     });
-    expect(
-      screen.queryByRole("tab", { name: /決定事項/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("決定した課題")).not.toBeInTheDocument();
+    expect(screen.queryByText("決定したHMW")).not.toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
     ).toBeVisible();

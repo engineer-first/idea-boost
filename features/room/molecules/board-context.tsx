@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, ChevronUp } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PHASE_STEP_COUNTS, type RoomPhase } from "@/contracts/phase";
 import type { FacilitationGuideContent } from "../logic/facilitation-guide";
 import { getPhaseLabel } from "../logic/phase-labels";
@@ -58,25 +57,18 @@ export function BoardContext({
   decidedHmw,
 }: BoardContextProps) {
   const context = getPhaseContext(phase);
+  const phaseKey =
+    phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const decisions = [
-    { label: "決定した課題", content: hmwDecidedIssue },
-    { label: "決定したHMW", content: decidedHmw },
+    { id: "hmw", label: "決定したHMW", content: decidedHmw },
+    { id: "issue", label: "決定した課題", content: hmwDecidedIssue },
   ].filter((item) => item.content !== null);
   return (
     <header
       data-testid="board-context-hud"
       className="board-hud facilitation-guide-material pointer-events-auto min-w-0 shrink-0 overflow-hidden rounded-2xl border border-border bg-background shadow-lg shadow-black/5"
     >
-      <button
-        type="button"
-        disabled={guide === null}
-        className="block w-full px-4 py-3 text-left outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        aria-label={`ステップの詳細を${isExpanded ? "閉じる" : "開く"}`}
-        aria-describedby="board-current-phase board-current-step"
-        aria-expanded={isExpanded}
-        aria-controls="board-step-details"
-        onClick={() => onExpandedChange(!isExpanded)}
-      >
+      <div className="px-4 py-3">
         <span id="board-current-phase" className="flex items-center gap-2">
           <span className="min-w-0 flex-1 text-sm font-semibold">
             {context.title}
@@ -84,12 +76,6 @@ export function BoardContext({
           <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
             {context.step}/{context.stepCount}
           </span>
-          {guide !== null ? (
-            <ChevronUp
-              aria-hidden="true"
-              className={`size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${isExpanded ? "" : "rotate-180"}`}
-            />
-          ) : null}
         </span>
         <span
           id="board-current-step"
@@ -115,75 +101,67 @@ export function BoardContext({
             />
           ))}
         </span>
-      </button>
+      </div>
 
       {guide !== null ? (
-        <div
-          id="board-step-details"
-          hidden={!isExpanded}
-          data-testid="board-guide-region"
-        >
-          <Tabs
-            key={
-              phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
-            }
-            defaultValue="guide"
-            className="gap-0 border-t border-border"
+        <section className="border-t border-border" aria-label="進め方">
+          <button
+            type="button"
+            className="flex h-8 w-full items-center justify-between px-4 text-xs font-medium text-muted-foreground outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            aria-label={`進め方を${isExpanded ? "閉じる" : "開く"}`}
+            aria-expanded={isExpanded}
+            aria-controls="board-step-details"
+            onClick={() => onExpandedChange(!isExpanded)}
           >
-            {decisions.length > 0 ? (
-              <TabsList
-                variant="line"
-                aria-label="ステップの詳細"
-                className="mx-4 w-auto justify-start border-b border-border p-0 group-data-horizontal/tabs:h-9"
-              >
-                <TabsTrigger
-                  value="guide"
-                  className="h-9 flex-none rounded-none px-3 text-xs group-data-horizontal/tabs:after:bottom-0"
-                >
-                  進め方
-                </TabsTrigger>
-                <TabsTrigger
-                  value="decisions"
-                  className="h-9 flex-none rounded-none px-3 text-xs group-data-horizontal/tabs:after:bottom-0"
-                >
-                  決定事項{" "}
-                  <span className="text-[11px] tabular-nums text-muted-foreground">
-                    {decisions.length}
-                  </span>
-                </TabsTrigger>
-              </TabsList>
-            ) : null}
-            <div
-              className="max-h-56 overflow-y-auto overscroll-contain"
-              data-testid="board-context-content"
-            >
-              <TabsContent value="guide">
-                <FacilitationGuide
-                  id="facilitation-guide-content"
-                  guide={guide}
-                  isHost={isHost}
-                  isExpanded={isExpanded}
-                />
-              </TabsContent>
-              <TabsContent value="decisions" className="px-4 py-3">
-                <dl className="space-y-4">
-                  {decisions.map(({ label, content }) => (
-                    <div key={label}>
-                      <dt className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                        <Check aria-hidden="true" className="size-3.5" />
-                        {label}
-                      </dt>
-                      <dd className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
-                        {content}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
+            進め方
+            <ChevronUp
+              aria-hidden="true"
+              className={`size-3.5 transition-transform motion-reduce:transition-none ${isExpanded ? "" : "rotate-180"}`}
+            />
+          </button>
+          <div
+            id="board-step-details"
+            hidden={!isExpanded}
+            data-testid="board-guide-region"
+            className="max-h-28 overflow-y-auto overscroll-contain"
+          >
+            <FacilitationGuide
+              id="facilitation-guide-content"
+              guide={guide}
+              isHost={isHost}
+              isExpanded={isExpanded}
+            />
+          </div>
+        </section>
       ) : null}
+      {decisions.map(({ id, label, content }, index) => (
+        <details
+          key={`${phaseKey}-${id}`}
+          open={phase.kind === "step" && phase.step === 1 && index === 0}
+          className="group/reference border-t border-border"
+          data-testid={`board-reference-${id}`}
+        >
+          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-xs font-medium outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <Check
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-muted-foreground"
+            />
+            <span className="flex-1">{label}</span>
+            <ChevronUp
+              aria-hidden="true"
+              className="size-3.5 shrink-0 rotate-180 text-muted-foreground transition-transform group-open/reference:rotate-0 motion-reduce:transition-none"
+            />
+          </summary>
+          <div
+            data-testid={`board-reference-${id}-content`}
+            className="max-h-24 overflow-y-auto overscroll-contain px-4 pb-3"
+          >
+            <p className="whitespace-pre-wrap break-words text-sm leading-5">
+              {content}
+            </p>
+          </div>
+        </details>
+      ))}
     </header>
   );
 }

@@ -95,7 +95,7 @@ export const Focused: Story = {
     );
     await userEvent.click(
       canvas.getByRole("button", {
-        name: "ステップの詳細を閉じる",
+        name: "進め方を閉じる",
       }),
     );
   },
@@ -135,22 +135,22 @@ export const NarrowWidth: Story = {
 
 export const DecisionsAndNotes: Story = {
   ...ReferenceAndNotes,
-  name: "現在地の決定事項とマイ付箋",
+  name: "進め方と課題・HMWを同時に参照",
   play: async (context) => {
     await ReferenceAndNotes.play?.(context);
     await userEvent.click(
-      within(context.canvasElement).getByRole("tab", { name: "決定事項 2" }),
+      within(context.canvasElement).getByText("決定した課題"),
     );
   },
 };
 export const ContextCollapsed: Story = {
   ...ReferenceAndNotes,
-  name: "現在地の詳細を閉じてヒントを広く表示",
+  name: "進め方を閉じてHMWを参照しながら作業",
   play: async (context) => {
     await ReferenceAndNotes.play?.(context);
     await userEvent.click(
       within(context.canvasElement).getByRole("button", {
-        name: "ステップの詳細を閉じる",
+        name: "進め方を閉じる",
       }),
     );
   },

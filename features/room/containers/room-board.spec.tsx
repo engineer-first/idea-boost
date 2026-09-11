@@ -1344,10 +1344,6 @@ describe("Step 2-1（HMW 個人執筆）", () => {
   it("持ち越された決定課題と HMW 見出しが表示される", () => {
     connectAtHmwStep();
 
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "決定事項 1" }), {
-      button: 0,
-      ctrlKey: false,
-    });
     expect(screen.getByText(DECIDED_ISSUE_LABEL)).toBeInTheDocument();
     expect(screen.getByText("宿題を後回しにしてしまう")).toBeInTheDocument();
     expect(screen.getByText(HMW_HEADING)).toBeInTheDocument();
@@ -1406,9 +1402,7 @@ describe("Step 2-1（HMW 個人執筆）", () => {
       carryovers: [buildCarryover()],
     });
 
-    expect(
-      screen.queryByRole("tab", { name: /決定事項/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("決定した課題")).not.toBeInTheDocument();
   });
 });
 
@@ -1422,10 +1416,7 @@ describe("Step 3-1（アイデア個人執筆）", () => {
       ],
     });
 
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "決定事項 2" }), {
-      button: 0,
-      ctrlKey: false,
-    });
+    fireEvent.click(screen.getByText("決定した課題"));
     expect(screen.getByText("優先順位を決められない")).toBeInTheDocument();
     expect(
       screen.getByText("どうすれば着手しやすくできるか"),

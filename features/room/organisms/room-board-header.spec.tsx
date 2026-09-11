@@ -125,7 +125,7 @@ describe("RoomBoardHeader", () => {
       setup({ isHost: true, onGuideExpandedChange });
 
       const toggle = screen.getByRole("button", {
-        name: "ステップの詳細を閉じる",
+        name: "進め方を閉じる",
       });
       expect(toggle).toHaveAttribute("aria-expanded", "true");
       expect(toggle).toHaveAttribute("aria-controls", "board-step-details");
