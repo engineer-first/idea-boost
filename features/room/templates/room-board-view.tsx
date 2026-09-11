@@ -33,7 +33,7 @@ import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
-import { useBoardHelp } from "../logic/use-board-help";
+import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
@@ -61,6 +61,7 @@ export type RoomBoardViewProps = {
   hostUserId: string;
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
+  help: BoardHelpControls;
   remoteCursors: RenderedRemoteCursorPresence[];
   remoteNoteDrags: RemoteNoteDrag[];
   areCursorsVisible: boolean;
@@ -142,6 +143,7 @@ export function RoomBoardView({
   hostUserId,
   isNextPhasePending,
   interactions,
+  help,
   remoteCursors,
   remoteNoteDrags,
   areCursorsVisible,
@@ -174,7 +176,6 @@ export function RoomBoardView({
   onTimerExtend,
   onTimerStop,
 }: RoomBoardViewProps) {
-  const help = useBoardHelp(phase);
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);

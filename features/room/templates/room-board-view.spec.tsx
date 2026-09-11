@@ -10,6 +10,7 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { HMW_TEMPLATES } from "@/features/hmw";
 import type { Note } from "@/features/notes";
+import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
 
@@ -51,6 +52,13 @@ function buildInteractions(
     onNoteDragStart: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
   };
+}
+
+// 既存の画面操作シナリオではコンテナ相当の状態を注入する。
+// 外部制御のテストでは明示的な help を優先する。
+function TestBoardView(props: RoomBoardViewProps) {
+  const help = useBoardHelp(props.phase);
+  return <RoomBoardView {...props} help={props.help ?? help} />;
 }
 
 function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
@@ -107,7 +115,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     interactions: props.interactions ?? buildInteractions(props.notes, []),
   };
 
-  const renderResult = render(<RoomBoardView {...resolvedProps} />);
+  const renderResult = render(<TestBoardView {...resolvedProps} />);
 
   return { ...renderResult, props: resolvedProps };
 }
@@ -115,6 +123,35 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
 function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
 }
+
+describe("考えるヒントの外部制御", () => {
+  it("渡された開閉状態を表示し、操作をコールバックで返す", async () => {
+    const help = {
+      kind: "idea" as const,
+      isOpen: false,
+      tab: "expand" as const,
+      onOpenChange: vi.fn(),
+      onTabChange: vi.fn(),
+    };
+    const { props, rerender } = setup({ phase: buildPhaseStep(1, 3), help });
+    fireEvent.click(screen.getByRole("button", { name: "考えるヒントを開く" }));
+    expect(help.onOpenChange).toHaveBeenCalledWith(true);
+    expect(
+      screen.getByRole("button", { name: "考えるヒントを開く" }),
+    ).toBeInTheDocument();
+    rerender(<TestBoardView {...props} help={{ ...help, isOpen: true }} />);
+    expect(screen.getByRole("tab", { name: "発想を広げる" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await userEvent.click(screen.getByRole("tab", { name: "書き出し" }));
+    expect(help.onTabChange).toHaveBeenCalledWith("write");
+    fireEvent.click(
+      screen.getByRole("button", { name: "考えるヒントを閉じる" }),
+    );
+    expect(help.onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
 
 describe("1280×720の補助UI", () => {
   it("左右のパネルを独立して開閉し、同じ付箋とカメラを保つ", () => {
@@ -147,7 +184,7 @@ describe("1280×720の補助UI", () => {
   it("投票へ進むと執筆用の補助UIを隠し、投票パレットを表示する", () => {
     const { props, rerender } = setup({ phase: buildPhaseStep(1, 3) });
     expect(screen.getByTestId("board-help-panel")).toBeInTheDocument();
-    rerender(<RoomBoardView {...props} phase={buildPhaseStep(4, 3)} />);
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(4, 3)} />);
     expect(screen.queryByTestId("board-help-panel")).not.toBeInTheDocument();
     expect(
       screen.queryByTestId("private-notes-toolbar"),
@@ -213,7 +250,7 @@ describe("RoomBoardView", () => {
         }),
       );
 
-      rerender(<RoomBoardView {...props} phase={buildPhaseStep(2)} />);
+      rerender(<TestBoardView {...props} phase={buildPhaseStep(2)} />);
 
       expect(screen.getByTestId("room-board-view-root")).toHaveAttribute(
         "data-guide-expanded",
@@ -235,7 +272,7 @@ describe("RoomBoardView", () => {
     expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
 
     rerender(
-      <RoomBoardView
+      <TestBoardView
         {...props}
         phase={buildPhaseStep(5, 3)}
         decision={buildDecision({ phase: 3, noteId: "note-1" })}
@@ -1365,10 +1402,10 @@ describe("ステップに結び付いた決定事項", () => {
     });
     fireEvent.click(screen.getByText("決定した課題"));
     expect(screen.getByText("採用した課題")).not.toBeVisible();
-    rerender(<RoomBoardView {...props} phase={buildPhaseStep(2, 2)} />);
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 2)} />);
     expect(screen.getByText("採用した課題")).not.toBeVisible();
     rerender(
-      <RoomBoardView
+      <TestBoardView
         {...props}
         phase={buildPhaseStep(1, 3)}
         decidedHmw="採用したHMW"

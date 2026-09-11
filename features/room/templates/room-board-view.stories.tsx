@@ -7,6 +7,7 @@ import {
   buildMembers,
   buildNotes,
 } from "@/contracts/room-protocol.fixture";
+import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView } from "./room-board-view";
 
@@ -75,12 +76,17 @@ const INTERACTIONS: RoomBoardInteractions = {
 const meta = {
   title: "Room/RoomBoardView",
   component: RoomBoardView,
-  render: (args) => (
-    <RoomBoardView
-      {...args}
-      interactions={{ ...args.interactions, notes: args.notes }}
-    />
-  ),
+  render: function Render(args) {
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        help={help}
+        interactions={{ ...args.interactions, notes: args.notes }}
+      />
+    );
+  },
+  argTypes: { help: { control: false } },
   parameters: {
     layout: "fullscreen",
   },
@@ -101,6 +107,13 @@ const meta = {
     isNextPhasePending: false,
     signOutAction: fn(),
     interactions: INTERACTIONS,
+    help: {
+      kind: null,
+      isOpen: false,
+      tab: "write",
+      onOpenChange: fn(),
+      onTabChange: fn(),
+    },
     hmwDecidedIssue: null,
     decidedHmw: null,
     onAddPrivateNote: fn(),
