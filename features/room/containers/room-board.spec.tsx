@@ -1402,9 +1402,7 @@ describe("Step 2-1（HMW 個人執筆）", () => {
       carryovers: [buildCarryover()],
     });
 
-    expect(
-      screen.queryByTestId("hmw-decided-issue-banner"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("決定した課題")).not.toBeInTheDocument();
   });
 });
 
@@ -1418,6 +1416,7 @@ describe("Step 3-1（アイデア個人執筆）", () => {
       ],
     });
 
+    fireEvent.click(screen.getByText("決定した課題"));
     expect(screen.getByText("優先順位を決められない")).toBeInTheDocument();
     expect(
       screen.getByText("どうすれば着手しやすくできるか"),

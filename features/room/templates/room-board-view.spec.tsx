@@ -10,6 +10,7 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { HMW_TEMPLATES } from "@/features/hmw";
 import type { Note } from "@/features/notes";
+import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
 
@@ -51,6 +52,13 @@ function buildInteractions(
     onNoteDragStart: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
   };
+}
+
+// 既存の画面操作シナリオではコンテナ相当の状態を注入する。
+// 外部制御のテストでは明示的な help を優先する。
+function TestBoardView(props: RoomBoardViewProps) {
+  const help = useBoardHelp(props.phase);
+  return <RoomBoardView {...props} help={props.help ?? help} />;
 }
 
 function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
@@ -107,7 +115,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     interactions: props.interactions ?? buildInteractions(props.notes, []),
   };
 
-  const renderResult = render(<RoomBoardView {...resolvedProps} />);
+  const renderResult = render(<TestBoardView {...resolvedProps} />);
 
   return { ...renderResult, props: resolvedProps };
 }
@@ -115,6 +123,77 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
 function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
 }
+
+describe("考えるヒントの外部制御", () => {
+  it("渡された開閉状態を表示し、操作をコールバックで返す", async () => {
+    const help = {
+      kind: "idea" as const,
+      isOpen: false,
+      tab: "expand" as const,
+      onOpenChange: vi.fn(),
+      onTabChange: vi.fn(),
+    };
+    const { props, rerender } = setup({ phase: buildPhaseStep(1, 3), help });
+    fireEvent.click(screen.getByRole("button", { name: "考えるヒントを開く" }));
+    expect(help.onOpenChange).toHaveBeenCalledWith(true);
+    expect(
+      screen.getByRole("button", { name: "考えるヒントを開く" }),
+    ).toBeInTheDocument();
+    rerender(<TestBoardView {...props} help={{ ...help, isOpen: true }} />);
+    expect(screen.getByRole("tab", { name: "発想を広げる" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await userEvent.click(screen.getByRole("tab", { name: "書き出し" }));
+    expect(help.onTabChange).toHaveBeenCalledWith("write");
+    fireEvent.click(
+      screen.getByRole("button", { name: "考えるヒントを閉じる" }),
+    );
+    expect(help.onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("1280×720の補助UI", () => {
+  it("左右のパネルを独立して開閉し、同じ付箋とカメラを保つ", () => {
+    const privateNotes = [
+      buildNote({ visibility: "private", content: "書きかけの案" }),
+    ];
+    const { props } = setup({
+      phase: buildPhaseStep(1, 3),
+      interactions: buildInteractions([], privateNotes),
+    });
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "false",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "考えるヒントを閉じる" }),
+    );
+    expect(screen.getByText("書きかけの案")).toBeInTheDocument();
+    expect(screen.queryByTestId("idea-guide-panel")).not.toBeInTheDocument();
+    expect(props.interactions.camera).toEqual({ x: 0, y: 0, zoom: 1 });
+    expect(props.interactions.onResetZoom).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "考えるヒントを開く" }));
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+  });
+
+  it("投票へ進むと執筆用の補助UIを隠し、投票パレットを表示する", () => {
+    const { props, rerender } = setup({ phase: buildPhaseStep(1, 3) });
+    expect(screen.getByTestId("board-help-panel")).toBeInTheDocument();
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(4, 3)} />);
+    expect(screen.queryByTestId("board-help-panel")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("private-notes-toolbar"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "投票パレット" }),
+    ).toBeInTheDocument();
+  });
+});
 
 function openMembers() {
   fireEvent.click(screen.getByRole("button", { name: /参加者 \d+人/ }));
@@ -152,7 +231,7 @@ describe("RoomBoardView", () => {
 
       fireEvent.click(
         screen.getByRole("button", {
-          name: "ファシリテーションガイドを折り畳む",
+          name: "進め方を閉じる",
         }),
       );
 
@@ -167,11 +246,11 @@ describe("RoomBoardView", () => {
       const { props, rerender } = setup();
       fireEvent.click(
         screen.getByRole("button", {
-          name: "ファシリテーションガイドを折り畳む",
+          name: "進め方を閉じる",
         }),
       );
 
-      rerender(<RoomBoardView {...props} phase={buildPhaseStep(2)} />);
+      rerender(<TestBoardView {...props} phase={buildPhaseStep(2)} />);
 
       expect(screen.getByTestId("room-board-view-root")).toHaveAttribute(
         "data-guide-expanded",
@@ -193,7 +272,7 @@ describe("RoomBoardView", () => {
     expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
 
     rerender(
-      <RoomBoardView
+      <TestBoardView
         {...props}
         phase={buildPhaseStep(5, 3)}
         decision={buildDecision({ phase: 3, noteId: "note-1" })}
@@ -234,7 +313,7 @@ describe("RoomBoardView", () => {
     expect(onTimerStart).toHaveBeenCalledWith(90_000);
   });
 
-  it("host の招待URLと招待コードはルームメニューから表示する", () => {
+  it("host の招待URLと招待コードは招待ボタンから表示する", () => {
     setup({
       isHost: true,
       inviteCode: "ZZ99XX",
@@ -242,7 +321,7 @@ describe("RoomBoardView", () => {
     });
 
     expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
-    openRoomMenu();
+    fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
     expect(screen.getByText("招待URL")).toBeInTheDocument();
     expect(screen.getByText("招待コード")).toBeInTheDocument();
@@ -296,11 +375,12 @@ describe("RoomBoardView", () => {
     expect(screen.getByTestId("private-notes-dock")).toHaveClass(
       "absolute",
       "bottom-3",
-      "justify-end",
+      "items-end",
+      "right-3",
     );
     expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
       "data-expanded",
-      "true",
+      "false",
     );
   });
 
@@ -565,11 +645,13 @@ describe("RoomBoardView", () => {
   it("現在地と操作HUDをキャンバス上に重ねる", () => {
     setup({ isHost: true });
 
-    expect(screen.getByTestId("board-context-hud")).toHaveClass("absolute");
-    expect(screen.getByTestId("board-progress-rail")).toBeInTheDocument();
-    expect(screen.getByTestId("board-control-hud")).toHaveClass(
+    expect(screen.getByTestId("board-header-row")).toHaveClass(
       "absolute",
-      "top-0",
+      "grid",
+    );
+    expect(screen.getByTestId("board-progress-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("board-header-row")).toContainElement(
+      screen.getByTestId("board-control-hud"),
     );
     expect(screen.getByTestId("room-board-view-root")).toHaveClass("relative");
   });
@@ -1261,5 +1343,87 @@ describe("参加者 HUD", () => {
 
     expect(seventhAvatarWrapper).toHaveClass("hidden", "xl:inline-flex");
     expect(seventhAvatarWrapper?.classList.contains("inline-flex")).toBe(false);
+  });
+});
+
+describe("ステップに結び付いた決定事項", () => {
+  it("HMW作成では進め方と採用した課題を同時に読める", () => {
+    setup({
+      phase: buildPhaseStep(1, 2),
+      hmwDecidedIssue: "忘れ物を減らしたい",
+      decidedHmw: null,
+    });
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toBeVisible();
+    expect(screen.getByText("忘れ物を減らしたい")).toBeVisible();
+    expect(
+      screen.queryByRole("tab", { name: /決定事項/ }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "進め方を閉じる" }));
+    expect(screen.getByText("忘れ物を減らしたい")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toBeVisible();
+  });
+  it("アイデア作成ではHMWを開いて始め、元の課題も独立して開閉できる", () => {
+    setup({
+      phase: buildPhaseStep(1, 3),
+      hmwDecidedIssue: "全員が安心して意見を出せない",
+      decidedHmw: "どうすれば全員が安心して話せるだろうか？",
+    });
+    expect(
+      screen.getByText("どうすれば全員が安心して話せるだろうか？"),
+    ).toBeVisible();
+    expect(screen.getByText("全員が安心して意見を出せない")).not.toBeVisible();
+    fireEvent.click(screen.getByText("決定した課題"));
+    expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
+    fireEvent.click(screen.getByText("決定したHMW"));
+    expect(
+      screen.getByText("どうすれば全員が安心して話せるだろうか？"),
+    ).not.toBeVisible();
+    expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "進め方を閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+    expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
+    expect(
+      screen.getByText("どうすれば全員が安心して話せるだろうか？"),
+    ).not.toBeVisible();
+  });
+  it("ステップ移行後は参照欄を初期状態に戻し、次フェーズの執筆ではHMWを開く", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(1, 2),
+      hmwDecidedIssue: "採用した課題",
+      decidedHmw: null,
+    });
+    fireEvent.click(screen.getByText("決定した課題"));
+    expect(screen.getByText("採用した課題")).not.toBeVisible();
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 2)} />);
+    expect(screen.getByText("採用した課題")).not.toBeVisible();
+    rerender(
+      <TestBoardView
+        {...props}
+        phase={buildPhaseStep(1, 3)}
+        decidedHmw="採用したHMW"
+      />,
+    );
+    expect(screen.getByText("採用したHMW")).toBeVisible();
+    expect(screen.getByText("採用した課題")).not.toBeVisible();
+  });
+  it("持ち越しのないフェーズでは空の決定事項を表示しない", () => {
+    setup({
+      phase: buildPhaseStep(1),
+      hmwDecidedIssue: null,
+      decidedHmw: null,
+    });
+    expect(screen.queryByText("決定した課題")).not.toBeInTheDocument();
+    expect(screen.queryByText("決定したHMW")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toBeVisible();
   });
 });

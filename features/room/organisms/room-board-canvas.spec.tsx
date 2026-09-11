@@ -27,8 +27,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     pendingVoteOperations: [],
     dragGhost: null,
     isReturnDropTarget: false,
-    hmwDecidedIssue: null,
-    decidedHmw: null,
     boardScrollerRef: createRef<HTMLDivElement>(),
     ideaMapPlaneRef: createRef<HTMLDivElement>(),
     privateToolbarRef: createRef<HTMLDivElement>(),
@@ -45,8 +43,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onResetZoom: vi.fn(),
     onFitToNotes: vi.fn(),
     onSelect: vi.fn(),
-    onHmwTemplateSelect: vi.fn(),
-    onIdeaHintSelect: vi.fn(),
     onNoteDragStart: vi.fn(),
     onNoteContentChange: vi.fn(),
     onNoteDelete: vi.fn(),
@@ -332,52 +328,8 @@ describe("RoomBoardCanvas", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("Step3-1では右側の発想支援サイドバーを必須表示する", () => {
-    const phase = buildPhaseStep(1, 3);
-
-    setup({ phase, permissions: getBoardPermissions(phase) });
-
-    expect(screen.getByTestId("idea-support-sidebar-container")).toHaveClass(
-      "right-3",
-      "top-20",
-    );
-    expect(screen.getByText("オズボーンのチェックリスト")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "発想支援を閉じる" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("Step3-2では右側の発想支援サイドバーを参加者が開閉できる", () => {
-    const phase = buildPhaseStep(2, 3);
-
-    setup({ phase, permissions: getBoardPermissions(phase) });
-
-    expect(screen.getByTestId("idea-support-sidebar-container")).toHaveClass(
-      "right-3",
-      "top-20",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "発想支援を開く" }));
-    expect(screen.getByText("オズボーンのチェックリスト")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "発想支援を閉じる" }));
-    expect(
-      screen.queryByText("オズボーンのチェックリスト"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "発想支援を開く" }),
-    ).toBeInTheDocument();
-  });
-
-  it.each([3, 4, 5])("Step3-%iでは発想支援サイドバーを表示しない", (step) => {
-    const phase = buildPhaseStep(step, 3);
-
-    setup({ phase, permissions: getBoardPermissions(phase) });
-
-    expect(
-      screen.queryByTestId("idea-support-sidebar-container"),
-    ).not.toBeInTheDocument();
-  });
-
+  // 補助パネルの表示・開閉は use-board-help / board-help-panel と
+  // RoomBoardView の統合テストで検証する。Canvas はボード描画に専念する。
   it("Step3-1では価値×実現可能性の2軸マップを表示しない", () => {
     const phase = buildPhaseStep(1, 3);
 
@@ -583,67 +535,6 @@ describe("RoomBoardCanvas", () => {
     setup({ phase, permissions: getBoardPermissions(phase) });
 
     expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
-  });
-
-  describe("HMW オーバーレイ", () => {
-    it("hmwDecidedIssue があるとボード上に決定課題バナーを表示する", () => {
-      setup({ hmwDecidedIssue: "宿題を後回しにしてしまう" });
-
-      expect(
-        screen.getByTestId("hmw-decided-issue-banner"),
-      ).toBeInTheDocument();
-    });
-
-    it("決定課題・HMWバナーの位置はガイドの開閉状態に連動させない", () => {
-      setup({
-        phase: buildPhaseStep(5, 3),
-        hmwDecidedIssue: "宿題を後回しにしてしまう",
-        decidedHmw: "もっと安心して取り組める？",
-      });
-
-      const positioner = screen.getAllByTestId("hmw-decided-issue-banner")[0]
-        ?.parentElement;
-      expect(positioner).toHaveClass("top-3");
-      expect(positioner?.className).not.toContain("guide-expanded");
-    });
-
-    it("hmwDecidedIssue が null のときは決定課題バナーを表示しない", () => {
-      setup({ hmwDecidedIssue: null });
-
-      expect(
-        screen.queryByTestId("hmw-decided-issue-banner"),
-      ).not.toBeInTheDocument();
-    });
-
-    it("Step 2-1 では HMW テンプレートパネルを表示する", () => {
-      setup({ phase: buildPhaseStep(1, 2), notes: [] });
-
-      expect(
-        screen.getByTestId("hmw-template-panel").parentElement,
-      ).toHaveClass("top-16");
-    });
-
-    it("フェーズ1のステップでは HMW テンプレートパネルを表示しない", () => {
-      setup({ phase: buildPhaseStep(1) });
-
-      expect(
-        screen.queryByTestId("hmw-template-panel"),
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  describe("アイデアガイド", () => {
-    it("Step 3-1 ではアイデアガイドを表示する", () => {
-      setup({ phase: buildPhaseStep(1, 3) });
-
-      expect(screen.getByTestId("idea-guide-panel")).toBeInTheDocument();
-    });
-
-    it("Step 3-2 ではアイデアガイドを表示しない", () => {
-      setup({ phase: buildPhaseStep(2, 3) });
-
-      expect(screen.queryByTestId("idea-guide-panel")).not.toBeInTheDocument();
-    });
   });
 
   describe("決定操作", () => {

@@ -18,6 +18,7 @@ import { useNoteGroups, useRoomNotes } from "@/features/notes";
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import type { Member } from "../logic/room-reducer";
+import { useBoardHelp } from "../logic/use-board-help";
 import { useCursorPresence } from "../logic/use-cursor-presence";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
@@ -72,6 +73,7 @@ export function RoomBoard({
   const notes = useRoomNotes({ send });
   const noteGroups = useNoteGroups({ send });
   const roomState = useRoomState({ initialMembers, initialPhase });
+  const help = useBoardHelp(roomState.phase);
   const cursorPresence = useCursorPresence({
     currentUserId,
     phase: roomState.phase,
@@ -238,6 +240,7 @@ export function RoomBoard({
         isNextPhasePending={isNextPhasePending}
         signOutAction={signOutAction}
         interactions={boardInteractions}
+        help={help}
         remoteCursors={cursorPresence.remoteCursors}
         remoteNoteDrags={notes.remoteNoteDrags}
         areCursorsVisible={cursorPresence.areCursorsVisible}

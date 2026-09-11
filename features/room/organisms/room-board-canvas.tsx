@@ -17,19 +17,12 @@ import {
 } from "@/contracts/grouping";
 import {
   isAtOrAfterGroupingStep,
-  isPhaseStep,
   isResultStep,
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import type { DotVoteRemaining } from "@/features/dot-vote";
-import {
-  HmwDecidedIssueBanner,
-  HmwTemplatePanel,
-  isHmwWritingStep,
-} from "@/features/hmw";
-import { IdeaGuidePanel, IdeaSupportSidebar } from "@/features/idea-support";
 import {
   type Note,
   NoteCard,
@@ -38,7 +31,6 @@ import {
   type RemoteNoteDrag,
   StickyNote,
 } from "@/features/notes";
-import { cn } from "@/lib/utils";
 import type { BoardPermissions } from "../logic/board-permissions";
 import { type CanvasCamera, worldToScreen } from "../logic/canvas-camera";
 import {
@@ -77,10 +69,6 @@ export type RoomBoardCanvasProps = {
   // ツールバー発ドラッグ中に、まだ notes に現れていない付箋を描くゴースト。
   dragGhost: { note: Note; x: number; y: number } | null;
   isReturnDropTarget: boolean;
-  // 前フェーズから持ち越した決定課題。null なら非表示。
-  hmwDecidedIssue: string | null;
-  // フェーズ2から持ち越した決定HMW。null なら非表示。
-  decidedHmw: string | null;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   ideaMapPlaneRef: RefObject<HTMLDivElement | null>;
   privateToolbarRef: RefObject<HTMLDivElement | null>;
@@ -98,8 +86,6 @@ export type RoomBoardCanvasProps = {
   onResetZoom: () => void;
   onFitToNotes: () => void;
   onSelect: (noteId: string | null) => void;
-  onHmwTemplateSelect: (content: string) => void;
-  onIdeaHintSelect: (content: string) => void;
   onNoteDragStart: (
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
@@ -145,8 +131,6 @@ export function RoomBoardCanvas({
   pendingVoteOperations,
   dragGhost,
   isReturnDropTarget,
-  hmwDecidedIssue,
-  decidedHmw,
   boardScrollerRef,
   ideaMapPlaneRef,
   privateToolbarRef,
@@ -164,8 +148,6 @@ export function RoomBoardCanvas({
   onResetZoom,
   onFitToNotes,
   onSelect,
-  onHmwTemplateSelect,
-  onIdeaHintSelect,
   onNoteDragStart,
   onNoteContentChange,
   onNoteDelete,
@@ -205,11 +187,6 @@ export function RoomBoardCanvas({
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
-  const ideaSupportMode = isPhaseStep(phase, 3, 1)
-    ? "required"
-    : isPhaseStep(phase, 3, 2)
-      ? "optional"
-      : null;
 
   function handleBoardPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     // 付箋の上のpointerdownはバブリングしてくるので、ボード背景を
@@ -445,99 +422,47 @@ export function RoomBoardCanvas({
             : null}
         </div>
         <div
-          className="pointer-events-none absolute bottom-3 left-3 z-40"
-          data-testid="canvas-zoom-hud"
+          className="pointer-events-none absolute bottom-3 left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          data-testid="board-tools-hud"
         >
-          <CanvasZoomControls
-            zoom={camera.zoom}
-            onZoomOut={onZoomOut}
-            onResetZoom={onResetZoom}
-            onZoomIn={onZoomIn}
-            onFitToNotes={onFitToNotes}
-          />
-        </div>
-        <div
-          className="absolute right-3 bottom-3 z-40"
-          data-cursor-private="true"
-        >
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            aria-pressed={areCursorsVisible}
-            aria-label={
-              areCursorsVisible
-                ? "参加者のカーソルを非表示にする"
-                : "参加者のカーソルを表示する"
-            }
-            onClick={onToggleCursors}
-          >
-            {areCursorsVisible ? <MousePointer2 /> : <MousePointer2Off />}
-            カーソル
-          </Button>
-        </div>
-
-        <div
-          className="pointer-events-none absolute bottom-16 left-3 z-40"
-          data-testid="board-operation-matrix"
-        >
-          <div className="pointer-events-auto">
-            <BoardOperationMatrix permissions={permissions} />
+          <div className="flex items-center gap-2">
+            <div
+              data-testid="board-operation-matrix"
+              className="pointer-events-auto"
+            >
+              <BoardOperationMatrix permissions={permissions} />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="board-hud pointer-events-auto bg-background"
+              data-cursor-private="true"
+              aria-pressed={areCursorsVisible}
+              aria-label={
+                areCursorsVisible
+                  ? "参加者のカーソルを非表示にする"
+                  : "参加者のカーソルを表示する"
+              }
+              onClick={onToggleCursors}
+            >
+              {areCursorsVisible ? <MousePointer2 /> : <MousePointer2Off />}{" "}
+              カーソル
+            </Button>
           </div>
-        </div>
-        {/* バナー（top）とパネル（left）は別条件で出す: Step 2-2 以降は
-            テンプレートを出さないが、決定課題の掲示は続ける（#165 で再利用）。 */}
-        {hmwDecidedIssue !== null || decidedHmw !== null ? (
-          <div
-            className={cn(
-              // 決定済みの内容は参照点として固定し、ガイド開閉では動かさない。
-              "pointer-events-none absolute inset-x-3 top-3 z-30 flex flex-col items-center gap-2",
-              // テンプレートパネル（left-3 + w-64）と重なる帯を、
-              // パネル表示中はバナー側の左余白として予約する。
-              (isHmwWritingStep(phase) || isPhaseStep(phase, 3, 1)) &&
-                "left-72",
-            )}
-          >
-            {/* 長文でも左端のテンプレートパネルと同じ帯を侵食しないよう
-                幅を抑える（本文は省略せず折り返して全文表示する）。 */}
-            {hmwDecidedIssue !== null ? (
-              <HmwDecidedIssueBanner
-                content={hmwDecidedIssue}
-                className="pointer-events-auto max-w-xl"
-              />
-            ) : null}
-            {decidedHmw !== null ? (
-              <HmwDecidedIssueBanner
-                content={decidedHmw}
-                label="決定したHMW"
-                className="pointer-events-auto max-w-xl"
-              />
-            ) : null}
-          </div>
-        ) : null}
-        {isHmwWritingStep(phase) ? (
-          // 下端はマイ付箋ドック（h-36 + 余白）を避ける。ボードが縦に狭い
-          // 画面ではパネル内スクロールに逃がす（#198 の全画面化で緩和される）。
-          <div className="pointer-events-none absolute top-16 bottom-56 left-3 z-30 flex items-start transition-[top] duration-200 ease-out motion-reduce:duration-100 group-data-[guide-expanded=true]/board:top-56">
-            <HmwTemplatePanel
-              className="pointer-events-auto max-h-full overflow-y-auto"
-              onTemplateSelect={onHmwTemplateSelect}
-              disabled={isDisconnected}
+          <div data-testid="canvas-zoom-hud">
+            <CanvasZoomControls
+              zoom={camera.zoom}
+              onZoomOut={onZoomOut}
+              onResetZoom={onResetZoom}
+              onZoomIn={onZoomIn}
+              onFitToNotes={onFitToNotes}
             />
           </div>
-        ) : null}
-        {isPhaseStep(phase, 3, 1) ? (
-          <div className="pointer-events-none absolute top-16 bottom-56 left-3 z-30 flex items-start transition-[top] duration-200 ease-out motion-reduce:duration-100 group-data-[guide-expanded=true]/board:top-56">
-            <IdeaGuidePanel
-              className="pointer-events-auto max-h-full overflow-y-auto"
-              onHintSelect={onIdeaHintSelect}
-              disabled={isDisconnected}
-            />
-          </div>
-        ) : null}
+        </div>
         {permissions.showPrivateToolbar ? (
           <div
-            className="pointer-events-none absolute inset-x-3 bottom-3 z-30 flex justify-end"
+            className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-60 items-end"
             data-testid="private-notes-dock"
           >
             <PrivateNotesToolbar
@@ -548,7 +473,8 @@ export function RoomBoardCanvas({
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               editingDisabled={isResultStep(phase)}
-              className="pointer-events-auto"
+              defaultExpanded={false}
+              className="pointer-events-auto max-h-full w-60"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}
               selectedNoteId={selectedNoteId}
@@ -558,14 +484,6 @@ export function RoomBoardCanvas({
               onDelete={onPrivateNoteDelete}
               onDragStart={onPrivateNoteDragStart}
             />
-          </div>
-        ) : null}
-        {ideaSupportMode !== null ? (
-          <div
-            className="pointer-events-none absolute top-20 right-3 bottom-56 z-30 flex items-start"
-            data-testid="idea-support-sidebar-container"
-          >
-            <IdeaSupportSidebar mode={ideaSupportMode} />
           </div>
         ) : null}
       </div>

@@ -33,9 +33,11 @@ import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
+import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
+import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
 
@@ -59,6 +61,7 @@ export type RoomBoardViewProps = {
   hostUserId: string;
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
+  help: BoardHelpControls;
   remoteCursors: RenderedRemoteCursorPresence[];
   remoteNoteDrags: RemoteNoteDrag[];
   areCursorsVisible: boolean;
@@ -140,6 +143,7 @@ export function RoomBoardView({
   hostUserId,
   isNextPhasePending,
   interactions,
+  help,
   remoteCursors,
   remoteNoteDrags,
   areCursorsVisible,
@@ -214,7 +218,6 @@ export function RoomBoardView({
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
   const permissions = getBoardPermissions(phase);
-
   const voteRemaining = {
     subjective: Math.max(
       0,
@@ -492,7 +495,8 @@ export function RoomBoardView({
       ref={boardRootRef}
       data-testid="room-board-view-root"
       data-guide-expanded={String(isGuideExpanded)}
-      className={`group/board relative flex h-full flex-col ${
+      data-connection-status={connectionStatus}
+      className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
         isNoteDragging
           ? "cursor-grabbing"
           : selectedVoteKind !== null
@@ -506,6 +510,8 @@ export function RoomBoardView({
       onPointerLeave={() => setVoteStampPointer(null)}
     >
       <RoomBoardHeader
+        hmwDecidedIssue={hmwDecidedIssue}
+        decidedHmw={decidedHmw}
         inviteCode={inviteCode}
         inviteUrl={inviteUrl}
         phase={phase}
@@ -534,7 +540,14 @@ export function RoomBoardView({
         onTimerResume={onTimerResume}
         onTimerExtend={onTimerExtend}
         onTimerStop={onTimerStop}
-      />
+      >
+        <BoardHelpPanel
+          {...help}
+          disabled={isDisconnected}
+          onHmwTemplateSelect={onHmwTemplateSelect}
+          onIdeaHintSelect={onIdeaHintSelect}
+        />
+      </RoomBoardHeader>
 
       <RoomBoardCanvas
         notes={renderedNotes}
@@ -552,8 +565,6 @@ export function RoomBoardView({
         pendingVoteOperations={pendingVoteOperations}
         dragGhost={dragGhost}
         isReturnDropTarget={isReturnDropTarget}
-        hmwDecidedIssue={hmwDecidedIssue}
-        decidedHmw={decidedHmw}
         boardScrollerRef={boardScrollerRef}
         ideaMapPlaneRef={ideaMapPlaneRef}
         privateToolbarRef={privateToolbarRef}
@@ -570,8 +581,6 @@ export function RoomBoardView({
         onResetZoom={resetZoom}
         onFitToNotes={fitToNotes}
         onSelect={setSelectedNoteId}
-        onHmwTemplateSelect={onHmwTemplateSelect}
-        onIdeaHintSelect={onIdeaHintSelect}
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}

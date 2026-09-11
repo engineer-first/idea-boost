@@ -111,10 +111,10 @@ export function PrivateNotesToolbar({
       data-return-drop-target={isReturnDropTarget || undefined}
     >
       {isExpanded ? (
-        <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
+        <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
           <section
             ref={scrollContainerRef}
-            className="max-h-[min(44rem,calc(100vh-10rem))] overflow-y-auto p-3"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"
             aria-label="マイ付箋一覧"
             data-testid="private-notes-scroll"
             onClick={(e) => {

@@ -3,7 +3,6 @@ import { createRef } from "react";
 import { fn } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
-  buildCarryover,
   buildDecision,
   buildNote,
   buildNotes,
@@ -73,8 +72,6 @@ const meta = {
     pendingVoteOperations: [],
     dragGhost: null,
     isReturnDropTarget: false,
-    hmwDecidedIssue: null,
-    decidedHmw: null,
     boardScrollerRef: createRef<HTMLDivElement>(),
     ideaMapPlaneRef: createRef<HTMLDivElement>(),
     privateToolbarRef: createRef<HTMLDivElement>(),
@@ -91,8 +88,6 @@ const meta = {
     onResetZoom: fn(),
     onFitToNotes: fn(),
     onSelect: fn(),
-    onHmwTemplateSelect: fn(),
-    onIdeaHintSelect: fn(),
     onNoteDragStart: fn(),
     onNoteContentChange: fn(),
     onNoteDelete: fn(),
@@ -234,56 +229,6 @@ export const Decided: Story = {
       noteId: "note-1",
       decidedBy: "11111111-1111-4111-8111-111111111111",
     }),
-  },
-};
-
-// Step 2-1: 決定課題バナー（上端中央）と HMW テンプレートパネル（左端）が
-// ボード上に浮かぶ。オーバーレイの位置決めはこのコンポーネントの責務。
-export const HmwWritingStep: Story = {
-  args: {
-    phase: buildPhaseStep(2, 1),
-    permissions: getBoardPermissions(buildPhaseStep(2, 1)),
-    notes: [],
-    hmwDecidedIssue: buildCarryover().content,
-  },
-};
-
-// 長文の決定課題は max-w-xl 内で折り返して全文表示し、左端パネルの帯を侵食しない。
-export const HmwWritingStepLongIssue: Story = {
-  args: {
-    phase: buildPhaseStep(2, 1),
-    permissions: getBoardPermissions(buildPhaseStep(2, 1)),
-    notes: [],
-    hmwDecidedIssue: buildCarryover({
-      content:
-        "宿題や家事や仕事のタスクが積み重なって優先順位を決められない。".repeat(
-          3,
-        ),
-    }).content,
-  },
-};
-
-// Step 2-2 以降相当: テンプレートパネルは消えても決定課題の掲示だけは残る。
-export const HmwCarryoverOnly: Story = {
-  args: {
-    phase: buildPhaseStep(2, 2),
-    permissions: getBoardPermissions(buildPhaseStep(2, 2)),
-    hmwDecidedIssue: buildCarryover().content,
-  },
-};
-
-export const IdeaWritingCarryovers: Story = {
-  args: {
-    phase: buildPhaseStep(1, 3),
-    permissions: getBoardPermissions(buildPhaseStep(1, 3)),
-    hmwDecidedIssue: buildCarryover({
-      phase: 1,
-      content: "ユーザーが作業を後回しにしてしまう",
-    }).content,
-    decidedHmw: buildCarryover({
-      phase: 2,
-      content: "どうすれば、楽しく最初の一歩を踏み出せるだろうか？",
-    }).content,
   },
 };
 

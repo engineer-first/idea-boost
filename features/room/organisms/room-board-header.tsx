@@ -1,8 +1,8 @@
 "use client";
 
 // ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
-import { Check, ChevronUp, LogOut, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { Check, LogOut, MoreHorizontal } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -10,12 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  isPhaseStep,
-  isResultStep,
-  PHASE_STEP_COUNTS,
-  type RoomPhase,
-} from "@/contracts/phase";
+import { isPhaseStep, isResultStep, type RoomPhase } from "@/contracts/phase";
 import type { TimerState } from "@/contracts/room-protocol";
 import { CopyInviteButton } from "@/features/invite";
 import { MemberAvatar } from "@/features/room-members";
@@ -24,21 +19,15 @@ import {
   type RoomScreenConnectionStatus,
 } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
-import { getPhaseLabel } from "../logic/phase-labels";
 import type { Member } from "../logic/room-reducer";
-import { FacilitationGuide } from "../molecules/facilitation-guide";
+import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { RoomTimer } from "./room-timer";
 
-const PHASE_TITLES = {
-  1: "課題整理",
-  2: "問いの作成",
-  3: "アイデア",
-} as const;
-
-const PROGRESS_STEPS = [1, 2, 3, 4, 5] as const;
-
 export type RoomBoardHeaderProps = {
+  children?: ReactNode;
+  hmwDecidedIssue: string | null;
+  decidedHmw: string | null;
   inviteCode: string;
   inviteUrl: string;
   phase: RoomPhase;
@@ -70,33 +59,10 @@ export type RoomBoardHeaderProps = {
   onTimerStop: () => void;
 };
 
-function getPhaseContext(phase: RoomPhase): {
-  phaseLabel: string | null;
-  title: string;
-  step: number;
-  stepCount: number;
-  stepLabel: string;
-} {
-  if (phase.kind === "lobby") {
-    return {
-      phaseLabel: null,
-      title: "開始待ち",
-      step: 0,
-      stepCount: 1,
-      stepLabel: "準備中",
-    };
-  }
-
-  return {
-    phaseLabel: `フェーズ${phase.phase}`,
-    title: PHASE_TITLES[phase.phase],
-    step: phase.step,
-    stepCount: PHASE_STEP_COUNTS[phase.phase],
-    stepLabel: getPhaseLabel(phase).replace(/^\d+-\d+\s*/, ""),
-  };
-}
-
 export function RoomBoardHeader({
+  children,
+  hmwDecidedIssue,
+  decidedHmw,
   inviteCode,
   inviteUrl,
   phase,
@@ -125,7 +91,6 @@ export function RoomBoardHeader({
   onTimerStop,
 }: RoomBoardHeaderProps) {
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
-  const context = getPhaseContext(phase);
   const guide = getFacilitationGuide(phase);
   const isFinalStep = isPhaseStep(phase, 3, 5);
   const currentMember = members.find(
@@ -142,103 +107,33 @@ export function RoomBoardHeader({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <header
-        className={`facilitation-guide-material pointer-events-auto absolute top-3 left-3 z-40 overflow-hidden rounded-xl border border-border bg-background/85 shadow-lg shadow-black/5 backdrop-blur-xl ${
-          guide === null
-            ? "max-w-[calc(100%-34rem)]"
-            : "w-[min(40rem,calc(100%-34rem))]"
-        }`}
-        data-testid="board-context-hud"
-      >
-        <div className="flex h-12 items-center gap-3 px-3">
-          <p className="shrink-0 text-sm font-semibold tracking-tight">
-            Idea Boost
-          </p>
-          <span aria-hidden="true" className="h-4 w-px bg-border" />
-          {context.phaseLabel !== null ? (
-            <p className="shrink-0 text-xs font-semibold text-muted-foreground">
-              {context.phaseLabel}
-            </p>
-          ) : null}
-          <p className="shrink-0 text-xs font-semibold">{context.title}</p>
-          <p className="flex min-w-0 flex-1 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
-            <span className="shrink-0 font-medium text-foreground">
-              Step {context.step}/{context.stepCount}
-            </span>
-            <span className="min-w-0 truncate">{context.stepLabel}</span>
-          </p>
-          <div
-            role="progressbar"
-            aria-label={`${context.title}の進行状況`}
-            aria-valuemin={0}
-            aria-valuemax={context.stepCount}
-            aria-valuenow={context.step}
-            className="flex h-1 w-24 min-w-16 shrink gap-1 sm:w-32"
-            data-testid="board-progress-rail"
-          >
-            {PROGRESS_STEPS.slice(0, context.stepCount).map((stepNumber) => (
-              <span
-                key={stepNumber}
-                className={`h-full flex-1 rounded-full ${
-                  stepNumber <= context.step ? "bg-foreground" : "bg-muted"
-                }`}
-              />
-            ))}
-          </div>
-          {guide !== null ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="shrink-0 rounded-full"
-              aria-label={`ファシリテーションガイドを${
-                isGuideExpanded ? "折り畳む" : "展開する"
-              }`}
-              aria-expanded={isGuideExpanded}
-              aria-controls="facilitation-guide-content"
-              onClick={() => onGuideExpandedChange(!isGuideExpanded)}
-            >
-              <ChevronUp
-                aria-hidden="true"
-                className={`transition-transform duration-200 ease-out motion-reduce:duration-100 ${
-                  isGuideExpanded ? "rotate-0" : "rotate-180"
-                }`}
-              />
-            </Button>
-          ) : null}
-        </div>
-        {guide !== null ? (
-          <FacilitationGuide
-            id="facilitation-guide-content"
-            guide={guide}
-            isHost={isHost}
-            isExpanded={isGuideExpanded}
-          />
-        ) : null}
-      </header>
-
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-end gap-2 p-3"
-        data-testid="board-control-hud"
+        data-testid="board-header-row"
+        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.25rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
       >
-        <div className="pointer-events-auto shrink-0">
-          <RoomTimer
-            key={
-              phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
-            }
-            timer={timer}
-            serverOffsetMs={timerServerOffsetMs}
-            isHost={isHost}
-            disabled={isDisconnected}
-            initialDurationMs={(guide?.durationMinutes ?? 3) * 60_000}
-            onStart={onTimerStart}
-            onPause={onTimerPause}
-            onResume={onTimerResume}
-            onExtend={onTimerExtend}
-            onStop={onTimerStop}
-          />
+        <div
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col items-start gap-3"
+          data-testid="board-context-column"
+        >
+          <div className="w-full min-w-0 shrink-0">
+            <BoardContext
+              phase={phase}
+              guide={guide}
+              isHost={isHost}
+              isExpanded={isGuideExpanded}
+              onExpandedChange={onGuideExpandedChange}
+              hmwDecidedIssue={hmwDecidedIssue}
+              decidedHmw={decidedHmw}
+            />
+          </div>
+          {children}
         </div>
-        <div className="pointer-events-auto flex h-12 max-w-[calc(100%-7rem)] items-center gap-1 rounded-xl border border-border bg-background/85 p-1 shadow-lg shadow-black/5 backdrop-blur-xl">
+
+        <fieldset
+          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5"
+          aria-label="ルームの操作"
+          data-testid="board-control-hud"
+        >
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -246,13 +141,18 @@ export function RoomBoardHeader({
                 variant="ghost"
                 className="h-10 gap-2 px-2"
                 aria-label={`参加者 ${members.length}人`}
+                title="参加者一覧を開く"
               >
                 <span className="flex items-center pl-2" aria-hidden="true">
                   {members.slice(0, 10).map((member, index) => (
                     <span
                       key={member.userId}
                       className={`relative ${
-                        index >= 6 ? "hidden xl:inline-flex" : "inline-flex"
+                        index >= 3
+                          ? "hidden xl:inline-flex"
+                          : index >= 1
+                            ? "hidden lg:inline-flex"
+                            : "inline-flex"
                       } ${index > 0 ? "-ml-2" : ""}`}
                       style={{ zIndex: 10 - index }}
                     >
@@ -264,8 +164,29 @@ export function RoomBoardHeader({
                       />
                     </span>
                   ))}
+                  <span
+                    data-testid="member-overflow-indicator"
+                    className={`relative z-20 -ml-1 size-7 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold tabular-nums text-foreground ${
+                      members.length > 10
+                        ? "inline-flex"
+                        : members.length > 3
+                          ? "inline-flex xl:hidden"
+                          : members.length > 1
+                            ? "inline-flex lg:hidden"
+                            : "hidden"
+                    }`}
+                  >
+                    <span className="hidden xl:inline">
+                      +{Math.max(0, members.length - 10)}
+                    </span>
+                    <span className="hidden lg:inline xl:hidden">
+                      +{Math.max(0, members.length - 3)}
+                    </span>
+                    <span className="lg:hidden">
+                      +{Math.max(0, members.length - 1)}
+                    </span>
+                  </span>
                 </span>
-                <span className="text-xs tabular-nums">{members.length}</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-72" aria-label="参加者一覧">
@@ -310,11 +231,85 @@ export function RoomBoardHeader({
             </PopoverContent>
           </Popover>
 
+          {isHost || timer.status !== "idle" ? (
+            <span
+              aria-hidden="true"
+              className="mx-1 h-6 w-px shrink-0 bg-border"
+            />
+          ) : null}
+          <div className="pointer-events-auto shrink-0">
+            <RoomTimer
+              key={
+                phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
+              }
+              timer={timer}
+              serverOffsetMs={timerServerOffsetMs}
+              isHost={isHost}
+              disabled={isDisconnected}
+              initialDurationMs={(guide?.durationMinutes ?? 3) * 60_000}
+              onStart={onTimerStart}
+              onPause={onTimerPause}
+              onResume={onTimerResume}
+              onExtend={onTimerExtend}
+              onStop={onTimerStop}
+            />
+          </div>
+          {isHost ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 shrink-0 px-3 shadow-none"
+                >
+                  招待
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="w-80"
+                aria-label="ルームに招待"
+              >
+                <p className="mb-1 text-sm font-semibold">ルームに招待</p>
+                <p className="mb-4 text-xs leading-5 text-muted-foreground">
+                  リンクまたはコードを送って、参加してもらいましょう。
+                </p>
+
+                <div
+                  className="flex flex-col gap-4"
+                  data-testid="board-view-invite"
+                >
+                  <div className="min-w-0">
+                    <span className="block text-xs text-muted-foreground">
+                      招待URL
+                    </span>
+                    <CopyInviteButton
+                      value={inviteUrl}
+                      itemLabel="招待URL"
+                      className="mt-1 block max-w-full text-left"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs text-muted-foreground">
+                      招待コード
+                    </span>
+                    <CopyInviteButton
+                      value={inviteCode}
+                      itemLabel="招待コード"
+                      className="mt-1 block max-w-full text-left"
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : null}
+
           {isResultStep(phase) ? (
             <>
               <Button
                 type="button"
-                className="h-10 px-4"
+                variant="outline"
+                className="h-10 shrink-0 px-3 shadow-none"
                 onClick={onShowVoteResult}
               >
                 投票結果を表示
@@ -352,7 +347,7 @@ export function RoomBoardHeader({
               <Button
                 type="button"
                 variant="ghost"
-                className="size-10 p-0"
+                className="h-10 w-8 shrink-0 p-0"
                 aria-label="ルームメニューを開く"
               >
                 <MoreHorizontal aria-hidden="true" />
@@ -375,34 +370,6 @@ export function RoomBoardHeader({
                       ホスト
                     </span>
                   ) : null}
-                </div>
-              ) : null}
-
-              {isHost ? (
-                <div
-                  className="mb-3 flex flex-col gap-3 border-b border-border pb-3"
-                  data-testid="board-view-invite"
-                >
-                  <div className="min-w-0">
-                    <span className="block text-xs text-muted-foreground">
-                      招待URL
-                    </span>
-                    <CopyInviteButton
-                      value={inviteUrl}
-                      itemLabel="招待URL"
-                      className="mt-1 block max-w-full text-left"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="block text-xs text-muted-foreground">
-                      招待コード
-                    </span>
-                    <CopyInviteButton
-                      value={inviteCode}
-                      itemLabel="招待コード"
-                      className="mt-1 block max-w-full text-left"
-                    />
-                  </div>
                 </div>
               ) : null}
 
@@ -435,20 +402,21 @@ export function RoomBoardHeader({
               </div>
             </PopoverContent>
           </Popover>
-        </div>
 
-        {connectionLabel !== null ? (
-          <span
-            role="status"
-            className={`pointer-events-auto absolute top-16 right-16 rounded-full border border-border bg-background/85 px-3 py-2 text-xs font-medium tracking-wide shadow-lg shadow-black/5 backdrop-blur-xl ${
-              connectionStatus === "closed"
-                ? "text-destructive"
-                : "text-muted-foreground"
-            }`}
-          >
-            {connectionLabel}
-          </span>
-        ) : null}
+          {connectionLabel !== null ? (
+            <span
+              data-testid="board-connection-status"
+              role="status"
+              className={`board-hud pointer-events-auto absolute top-16 right-0 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium tracking-wide shadow-lg shadow-black/5 ${
+                connectionStatus === "closed"
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {connectionLabel}
+            </span>
+          ) : null}
+        </fieldset>
       </div>
     </TooltipProvider>
   );
