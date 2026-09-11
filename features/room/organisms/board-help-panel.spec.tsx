@@ -21,7 +21,7 @@ function setup(overrides: Partial<BoardHelpPanelProps> = {}) {
 describe("BoardHelpPanel", () => {
   it("書き出しと発想支援を同じ左パネルのタブへまとめる", () => {
     const { props, rerender } = setup();
-    expect(screen.getByTestId("board-help-panel")).toHaveClass("left-3");
+
     expect(screen.getByTestId("idea-guide-panel")).toBeVisible();
     const tab = screen.getByRole("tab", { name: "発想を広げる" });
     fireEvent.mouseDown(tab, { button: 0 });

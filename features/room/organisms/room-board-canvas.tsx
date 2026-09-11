@@ -23,7 +23,6 @@ import {
 } from "@/contracts/phase";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import type { DotVoteRemaining } from "@/features/dot-vote";
-import { HmwDecidedIssueBanner } from "@/features/hmw";
 import {
   type Note,
   NoteCard,
@@ -70,10 +69,6 @@ export type RoomBoardCanvasProps = {
   // ツールバー発ドラッグ中に、まだ notes に現れていない付箋を描くゴースト。
   dragGhost: { note: Note; x: number; y: number } | null;
   isReturnDropTarget: boolean;
-  // 前フェーズから持ち越した決定課題。null なら非表示。
-  hmwDecidedIssue: string | null;
-  // フェーズ2から持ち越した決定HMW。null なら非表示。
-  decidedHmw: string | null;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   ideaMapPlaneRef: RefObject<HTMLDivElement | null>;
   privateToolbarRef: RefObject<HTMLDivElement | null>;
@@ -136,8 +131,6 @@ export function RoomBoardCanvas({
   pendingVoteOperations,
   dragGhost,
   isReturnDropTarget,
-  hmwDecidedIssue,
-  decidedHmw,
   boardScrollerRef,
   ideaMapPlaneRef,
   privateToolbarRef,
@@ -467,31 +460,9 @@ export function RoomBoardCanvas({
             />
           </div>
         </div>
-        {hmwDecidedIssue !== null || decidedHmw !== null ? (
-          <div
-            data-testid="board-carryovers"
-            className="pointer-events-none absolute inset-x-3 top-[var(--board-carry-top,4.5rem)] z-30 flex flex-col"
-          >
-            {hmwDecidedIssue !== null ? (
-              <HmwDecidedIssueBanner
-                content={hmwDecidedIssue}
-                compact
-                className="pointer-events-auto"
-              />
-            ) : null}
-            {decidedHmw !== null ? (
-              <HmwDecidedIssueBanner
-                content={decidedHmw}
-                label="決定したHMW"
-                compact
-                className="pointer-events-auto"
-              />
-            ) : null}
-          </div>
-        ) : null}
         {permissions.showPrivateToolbar ? (
           <div
-            className="pointer-events-none absolute right-3 bottom-3 top-[var(--board-panel-top,4.5rem)] z-30 flex w-60 items-end"
+            className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[6.75rem] group-data-[connection-status=connecting]/board:top-[6.75rem] z-30 flex w-60 items-end"
             data-testid="private-notes-dock"
           >
             <PrivateNotesToolbar

@@ -11,7 +11,7 @@ const meta = {
     const [isOpen, setIsOpen] = useState(args.isOpen);
     const [tab, setTab] = useState<BoardHelpTab>(args.tab);
     return (
-      <div style={{ height: 600, position: "relative" }}>
+      <div style={{ height: 600, display: "flex", flexDirection: "column" }}>
         <BoardHelpPanel
           {...args}
           isOpen={isOpen}

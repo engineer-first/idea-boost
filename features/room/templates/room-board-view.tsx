@@ -8,7 +8,6 @@
 // 描画の実体はヘッダー（room-board-header）とボード面（room-board-canvas）が
 // 持ち、この view は UI 状態と表示用 props・コールバックの配線に徹する。
 import {
-  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -218,16 +217,6 @@ export function RoomBoardView({
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
   const permissions = getBoardPermissions(phase);
-  const carryoverCount =
-    Number(hmwDecidedIssue !== null) + Number(decidedHmw !== null);
-  const carryTopRem = connectionStatus === "open" ? 4.5 : 6.75;
-  const boardLayoutStyle: CSSProperties & Record<`--${string}`, string> = {
-    "--board-carry-top": `calc(${carryTopRem}rem + var(--board-header-extra))`,
-    "--board-panel-top": `calc(${carryTopRem + carryoverCount * 2.5 + (carryoverCount > 0 ? 0.75 : 0)}rem + var(--board-header-extra))`,
-    "--board-guide-space":
-      isGuideExpanded && phase.kind === "step" ? "12.75rem" : "0rem",
-  };
-
   const voteRemaining = {
     subjective: Math.max(
       0,
@@ -505,8 +494,8 @@ export function RoomBoardView({
       ref={boardRootRef}
       data-testid="room-board-view-root"
       data-guide-expanded={String(isGuideExpanded)}
-      style={boardLayoutStyle}
-      className={`group/board [--board-header-extra:0rem] max-lg:[--board-header-extra:3.5rem] relative flex h-full min-h-0 flex-col overflow-hidden ${
+      data-connection-status={connectionStatus}
+      className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
         isNoteDragging
           ? "cursor-grabbing"
           : selectedVoteKind !== null
@@ -520,6 +509,8 @@ export function RoomBoardView({
       onPointerLeave={() => setVoteStampPointer(null)}
     >
       <RoomBoardHeader
+        hmwDecidedIssue={hmwDecidedIssue}
+        decidedHmw={decidedHmw}
         inviteCode={inviteCode}
         inviteUrl={inviteUrl}
         phase={phase}
@@ -548,7 +539,14 @@ export function RoomBoardView({
         onTimerResume={onTimerResume}
         onTimerExtend={onTimerExtend}
         onTimerStop={onTimerStop}
-      />
+      >
+        <BoardHelpPanel
+          {...help}
+          disabled={isDisconnected}
+          onHmwTemplateSelect={onHmwTemplateSelect}
+          onIdeaHintSelect={onIdeaHintSelect}
+        />
+      </RoomBoardHeader>
 
       <RoomBoardCanvas
         notes={renderedNotes}
@@ -566,8 +564,6 @@ export function RoomBoardView({
         pendingVoteOperations={pendingVoteOperations}
         dragGhost={dragGhost}
         isReturnDropTarget={isReturnDropTarget}
-        hmwDecidedIssue={hmwDecidedIssue}
-        decidedHmw={decidedHmw}
         boardScrollerRef={boardScrollerRef}
         ideaMapPlaneRef={ideaMapPlaneRef}
         privateToolbarRef={privateToolbarRef}
@@ -602,13 +598,6 @@ export function RoomBoardView({
         remoteNoteDrags={remoteNoteDrags}
         areCursorsVisible={areCursorsVisible}
         onToggleCursors={onToggleCursors}
-      />
-
-      <BoardHelpPanel
-        {...help}
-        disabled={isDisconnected}
-        onHmwTemplateSelect={onHmwTemplateSelect}
-        onIdeaHintSelect={onIdeaHintSelect}
       />
 
       {isVotingStep(phase) ? (

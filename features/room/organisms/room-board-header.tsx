@@ -1,8 +1,8 @@
 "use client";
 
 // ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
-import { Check, ChevronUp, LogOut, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { Check, LogOut, MoreHorizontal } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -10,12 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  isPhaseStep,
-  isResultStep,
-  PHASE_STEP_COUNTS,
-  type RoomPhase,
-} from "@/contracts/phase";
+import { isPhaseStep, isResultStep, type RoomPhase } from "@/contracts/phase";
 import type { TimerState } from "@/contracts/room-protocol";
 import { CopyInviteButton } from "@/features/invite";
 import { MemberAvatar } from "@/features/room-members";
@@ -24,21 +19,15 @@ import {
   type RoomScreenConnectionStatus,
 } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
-import { getPhaseLabel } from "../logic/phase-labels";
 import type { Member } from "../logic/room-reducer";
-import { FacilitationGuide } from "../molecules/facilitation-guide";
+import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { RoomTimer } from "./room-timer";
 
-const PHASE_TITLES = {
-  1: "課題整理",
-  2: "問いの作成",
-  3: "アイデア",
-} as const;
-
-const PROGRESS_STEPS = [1, 2, 3, 4, 5] as const;
-
 export type RoomBoardHeaderProps = {
+  children?: ReactNode;
+  hmwDecidedIssue: string | null;
+  decidedHmw: string | null;
   inviteCode: string;
   inviteUrl: string;
   phase: RoomPhase;
@@ -70,33 +59,10 @@ export type RoomBoardHeaderProps = {
   onTimerStop: () => void;
 };
 
-function getPhaseContext(phase: RoomPhase): {
-  phaseLabel: string | null;
-  title: string;
-  step: number;
-  stepCount: number;
-  stepLabel: string;
-} {
-  if (phase.kind === "lobby") {
-    return {
-      phaseLabel: null,
-      title: "開始待ち",
-      step: 0,
-      stepCount: 1,
-      stepLabel: "準備中",
-    };
-  }
-
-  return {
-    phaseLabel: `フェーズ${phase.phase}`,
-    title: PHASE_TITLES[phase.phase],
-    step: phase.step,
-    stepCount: PHASE_STEP_COUNTS[phase.phase],
-    stepLabel: getPhaseLabel(phase).replace(/^\d+-\d+\s*/, ""),
-  };
-}
-
 export function RoomBoardHeader({
+  children,
+  hmwDecidedIssue,
+  decidedHmw,
   inviteCode,
   inviteUrl,
   phase,
@@ -125,7 +91,6 @@ export function RoomBoardHeader({
   onTimerStop,
 }: RoomBoardHeaderProps) {
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
-  const context = getPhaseContext(phase);
   const guide = getFacilitationGuide(phase);
   const isFinalStep = isPhaseStep(phase, 3, 5);
   const currentMember = members.find(
@@ -144,73 +109,25 @@ export function RoomBoardHeader({
     <TooltipProvider delayDuration={300}>
       <div
         data-testid="board-header-row"
-        className="pointer-events-none absolute inset-x-3 top-3 z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-lg:grid-cols-1 max-lg:gap-2"
+        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.25rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
       >
-        <header
-          className="board-hud facilitation-guide-material pointer-events-auto min-w-0 overflow-hidden rounded-xl border border-border bg-background shadow-lg shadow-black/5"
-          data-testid="board-context-hud"
+        <div
+          className="pointer-events-none flex h-full min-h-0 min-w-0 flex-col items-start gap-3"
+          data-testid="board-context-column"
         >
-          <div className="flex h-12 items-center gap-3 px-3 max-xl:gap-2">
-            <p className="hidden shrink-0 text-sm font-semibold tracking-tight xl:block">
-              Idea Boost
-            </p>
-            <span
-              aria-hidden="true"
-              className="hidden h-4 w-px bg-border xl:block"
+          <div className="w-full min-w-0 shrink-0">
+            <BoardContext
+              phase={phase}
+              guide={guide}
+              isHost={isHost}
+              isExpanded={isGuideExpanded}
+              onExpandedChange={onGuideExpandedChange}
+              hmwDecidedIssue={hmwDecidedIssue}
+              decidedHmw={decidedHmw}
             />
-            {context.phaseLabel !== null ? (
-              <p className="shrink-0 text-xs font-semibold text-muted-foreground">
-                {context.phaseLabel}
-              </p>
-            ) : null}
-            <p className="shrink-0 text-xs font-semibold">{context.title}</p>
-            <p className="flex min-w-0 flex-1 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
-              <span className="shrink-0 font-medium text-foreground">
-                Step {context.step}/{context.stepCount}
-              </span>
-              <span className="min-w-0 truncate">{context.stepLabel}</span>
-            </p>
-            <div
-              role="progressbar"
-              aria-label={`${context.title}の進行状況`}
-              aria-valuemin={0}
-              aria-valuemax={context.stepCount}
-              aria-valuenow={context.step}
-              className="flex h-1 w-16 shrink-0 gap-1 xl:w-32"
-              data-testid="board-progress-rail"
-            >
-              {PROGRESS_STEPS.slice(0, context.stepCount).map((stepNumber) => (
-                <span
-                  key={stepNumber}
-                  className={`h-full flex-1 rounded-full ${
-                    stepNumber <= context.step ? "bg-foreground" : "bg-muted"
-                  }`}
-                />
-              ))}
-            </div>
-            {guide !== null ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="shrink-0 rounded-full"
-                aria-label={`ファシリテーションガイドを${
-                  isGuideExpanded ? "折り畳む" : "展開する"
-                }`}
-                aria-expanded={isGuideExpanded}
-                aria-controls="facilitation-guide-content"
-                onClick={() => onGuideExpandedChange(!isGuideExpanded)}
-              >
-                <ChevronUp
-                  aria-hidden="true"
-                  className={`transition-transform duration-200 ease-out motion-reduce:duration-100 ${
-                    isGuideExpanded ? "rotate-0" : "rotate-180"
-                  }`}
-                />
-              </Button>
-            ) : null}
           </div>
-        </header>
+          {children}
+        </div>
 
         <div
           className="pointer-events-none relative flex items-center justify-end gap-2"
@@ -471,20 +388,6 @@ export function RoomBoardHeader({
             </span>
           ) : null}
         </div>
-      </div>
-      <div
-        hidden={!isGuideExpanded || guide === null}
-        data-testid="board-guide-region"
-        className="board-hud pointer-events-auto absolute left-3 top-[var(--board-panel-top,4.5rem)] max-lg:top-[var(--board-panel-top,8rem)] z-30 h-48 w-80 max-w-[calc(100%-1.5rem)] overflow-y-auto overscroll-contain rounded-xl border border-border bg-background shadow-sm"
-      >
-        {guide !== null ? (
-          <FacilitationGuide
-            id="facilitation-guide-content"
-            guide={guide}
-            isHost={isHost}
-            isExpanded={isGuideExpanded}
-          />
-        ) : null}
       </div>
     </TooltipProvider>
   );

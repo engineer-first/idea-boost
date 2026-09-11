@@ -10,6 +10,8 @@ function setupProps(
   overrides: Partial<Parameters<typeof RoomBoardHeader>[0]> = {},
 ) {
   return {
+    hmwDecidedIssue: null,
+    decidedHmw: null,
     inviteCode: "AB12CD",
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: buildPhaseStep(1),
@@ -111,13 +113,10 @@ describe("RoomBoardHeader", () => {
       setup({ isHost: true, onGuideExpandedChange });
 
       const toggle = screen.getByRole("button", {
-        name: "ファシリテーションガイドを折り畳む",
+        name: "ステップの詳細を閉じる",
       });
       expect(toggle).toHaveAttribute("aria-expanded", "true");
-      expect(toggle).toHaveAttribute(
-        "aria-controls",
-        "facilitation-guide-content",
-      );
+      expect(toggle).toHaveAttribute("aria-controls", "board-step-details");
       expect(screen.getByText("3分")).toBeInTheDocument();
       expect(screen.getByText("進行役へ")).toBeInTheDocument();
 

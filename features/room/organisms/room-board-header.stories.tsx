@@ -18,6 +18,8 @@ const meta = {
     layout: "fullscreen",
   },
   args: {
+    hmwDecidedIssue: null,
+    decidedHmw: null,
     inviteCode: "AB12CD",
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: STEP_1_1,

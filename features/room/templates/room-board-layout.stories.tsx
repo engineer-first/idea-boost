@@ -95,7 +95,7 @@ export const Focused: Story = {
     );
     await userEvent.click(
       canvas.getByRole("button", {
-        name: "ファシリテーションガイドを折り畳む",
+        name: "ステップの詳細を閉じる",
       }),
     );
   },
@@ -129,6 +129,39 @@ export const LaptopWidth: Story = {
 };
 export const NarrowWidth: Story = {
   ...ReferenceAndNotes,
-  name: "768pxの上部2段表示",
+  name: "768pxの現在地と主要操作",
   parameters: { chromatic: { viewports: [768] } },
+};
+
+export const DecisionsAndNotes: Story = {
+  ...ReferenceAndNotes,
+  name: "現在地の決定事項とマイ付箋",
+  play: async (context) => {
+    await ReferenceAndNotes.play?.(context);
+    await userEvent.click(
+      within(context.canvasElement).getByRole("tab", { name: "決定事項 2" }),
+    );
+  },
+};
+export const ContextCollapsed: Story = {
+  ...ReferenceAndNotes,
+  name: "現在地の詳細を閉じてヒントを広く表示",
+  play: async (context) => {
+    await ReferenceAndNotes.play?.(context);
+    await userEvent.click(
+      within(context.canvasElement).getByRole("button", {
+        name: "ステップの詳細を閉じる",
+      }),
+    );
+  },
+};
+
+export const SingleParticipant: Story = {
+  ...ReferenceAndNotes,
+  name: "参加者が1人のときの左右パネル",
+  args: {
+    ...step(3, 1).args,
+    isHost: false,
+    members: buildMembers(1, boardMeta.args.currentUserId),
+  },
 };

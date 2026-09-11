@@ -27,8 +27,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     pendingVoteOperations: [],
     dragGhost: null,
     isReturnDropTarget: false,
-    hmwDecidedIssue: null,
-    decidedHmw: null,
     boardScrollerRef: createRef<HTMLDivElement>(),
     ideaMapPlaneRef: createRef<HTMLDivElement>(),
     privateToolbarRef: createRef<HTMLDivElement>(),
@@ -537,37 +535,6 @@ describe("RoomBoardCanvas", () => {
     setup({ phase, permissions: getBoardPermissions(phase) });
 
     expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
-  });
-
-  describe("HMW オーバーレイ", () => {
-    it("hmwDecidedIssue があるとボード上に決定課題バナーを表示する", () => {
-      setup({ hmwDecidedIssue: "宿題を後回しにしてしまう" });
-
-      expect(
-        screen.getByTestId("hmw-decided-issue-banner"),
-      ).toBeInTheDocument();
-    });
-
-    it("決定課題・HMWバナーの位置はガイドの開閉状態に連動させない", () => {
-      setup({
-        phase: buildPhaseStep(5, 3),
-        hmwDecidedIssue: "宿題を後回しにしてしまう",
-        decidedHmw: "もっと安心して取り組める？",
-      });
-
-      const positioner = screen.getAllByTestId("hmw-decided-issue-banner")[0]
-        ?.parentElement;
-      expect(positioner).toHaveClass("top-[var(--board-carry-top,4.5rem)]");
-      expect(positioner?.className).not.toContain("guide-expanded");
-    });
-
-    it("hmwDecidedIssue が null のときは決定課題バナーを表示しない", () => {
-      setup({ hmwDecidedIssue: null });
-
-      expect(
-        screen.queryByTestId("hmw-decided-issue-banner"),
-      ).not.toBeInTheDocument();
-    });
   });
 
   describe("決定操作", () => {

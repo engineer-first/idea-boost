@@ -30,7 +30,7 @@ export function BoardHelpPanel({
       aria-label="考えるヒント"
       data-testid="board-help-panel"
       data-open={isOpen}
-      className="pointer-events-none absolute bottom-[7.25rem] left-3 top-[calc(var(--board-panel-top,4.5rem)+var(--board-guide-space,0rem))] z-30 flex w-80 max-w-[calc(100%-1.5rem)] items-start"
+      className="pointer-events-none flex min-h-0 w-80 max-w-full flex-1 items-start"
       onKeyDown={(event) => {
         if (event.key !== "Escape" || !isOpen) return;
         event.stopPropagation();

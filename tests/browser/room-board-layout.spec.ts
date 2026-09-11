@@ -49,8 +49,6 @@ async function expectLayout(): Promise<void> {
         '[data-testid="board-context-hud"]',
         '[data-testid="board-control-hud"]',
         '[data-testid="board-control-hud"] > [role="status"]',
-        '[data-testid="board-carryovers"]',
-        '[data-testid="board-guide-region"]:visible',
         '[data-testid="board-help-panel"] > div',
         '[data-testid="private-notes-toolbar"]',
         '[data-testid="board-tools-hud"]',
@@ -125,7 +123,8 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
     scroll: e.scrollHeight,
   }));
   expect(size.height).toBeLessThan(size.scroll);
-  expect(size.height).toBeLessThan(544);
+  const toolbar = await page.getByTestId("private-notes-toolbar").boundingBox();
+  expect(size.height).toBeLessThan(toolbar?.height ?? 0);
   await scroll.evaluate((e) => {
     e.scrollTop = e.scrollHeight;
   });
@@ -178,14 +177,12 @@ test.each([
   "participant",
 ])("%s でも配置を保ち長い決定文の全文を読める", async (variant) => {
   await openStory(`room-roomboardlayout--${variant}`);
-  await page.getByTestId("board-carryovers").waitFor();
   await expectLayout();
-  await page.getByRole("button", { name: "決定した課題の全文を表示" }).click();
-  const dialog = page.getByRole("dialog");
-  await dialog.waitFor();
-  expect(await dialog.innerText()).toContain("全員が自分の考えを伝え");
-  const bounds = await dialog.boundingBox();
-  expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(720);
+  await page.getByRole("tab", { name: "決定事項 2" }).click();
+  const content = page.getByTestId("board-context-content");
+  expect(await content.innerText()).toContain("全員が自分の考えを伝え");
+  expect(await content.innerText()).toContain("決定したHMW");
+  await expectLayout();
 });
 
 async function expectOpaqueAndReadable(locator: Locator): Promise<void> {
@@ -273,16 +270,14 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-test("HMW例は内部スクロールで読め、閉じるとボードを操作できる", async () => {
+test("HMW例はスクロールせず全文を読め、閉じるとボードを操作できる", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
   const content = page.locator("#board-help-content");
-  expect(await content.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(
-    true,
-  );
-  await content.evaluate((e) => {
-    e.scrollTop = e.scrollHeight;
-  });
-  expect(await content.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
+  const contentBox = await content.boundingBox();
+  const lastExample = await content.locator("li").last().boundingBox();
+  expect(
+    lastExample ? lastExample.y + lastExample.height : Infinity,
+  ).toBeLessThanOrEqual((contentBox?.y ?? 0) + (contentBox?.height ?? 0));
   await page.getByRole("button", { name: "考えるヒントを閉じる" }).focus();
   await page.keyboard.press("Escape");
   expect(
@@ -424,7 +419,7 @@ test.each([
     await page.keyboard.press("Escape");
     expect(
       await hud
-        .locator(".truncate")
+        .locator("#board-current-step")
         .evaluate((e) => e.scrollWidth <= e.clientWidth),
       step,
     ).toBe(true);
@@ -515,4 +510,59 @@ test("参加者が全員表示される幅では省略マークを出さない",
   expect(
     await members.getByTestId("member-overflow-indicator").isVisible(),
   ).toBe(true);
+});
+
+test.each([
+  1280, 1024, 768,
+])("%dpxで決定事項が現在地に収まり、閉じた分だけヒント領域が広がる", async (width) => {
+  await page.setViewportSize({ width, height: 720 });
+  await openStory("room-roomboardlayout--reference-and-notes");
+  await page.getByRole("tab", { name: "決定事項 2" }).click();
+  expect(await page.getByTestId("board-carryovers").count()).toBe(0);
+  const context = page.getByTestId("board-context-hud");
+  expect(await context.innerText()).toContain("決定した課題");
+  expect(await context.innerText()).toContain("決定したHMW");
+  const before = await page.getByTestId("board-help-panel").boundingBox();
+  const timer = await page.getByTestId("room-timer").boundingBox();
+  const notes = await page.getByTestId("private-notes-toolbar").boundingBox();
+  await expectLayout();
+  await page.getByTestId("board-context-content").evaluate((e) => {
+    e.scrollTop = e.scrollHeight;
+  });
+  const lastText = context.locator("dd").last();
+  const textBox = await lastText.boundingBox();
+  const scrollBox = await page
+    .getByTestId("board-context-content")
+    .boundingBox();
+  if (!textBox || !scrollBox)
+    throw new Error("決定文の表示領域が見つかりません");
+  expect(textBox.y + textBox.height).toBeLessThanOrEqual(
+    scrollBox.y + scrollBox.height,
+  );
+  await page.getByRole("button", { name: "ステップの詳細を閉じる" }).click();
+  const after = await page.getByTestId("board-help-panel").boundingBox();
+  if (!before || !after) throw new Error("ヒントの表示領域が見つかりません");
+  expect(after.y).toBeLessThan(before.y);
+  expect(after.height).toBeGreaterThan(before.height);
+  expect(await page.getByTestId("room-timer").boundingBox()).toEqual(timer);
+  expect(await page.getByTestId("private-notes-toolbar").boundingBox()).toEqual(
+    notes,
+  );
+  expect((await context.boundingBox())?.height).toBeLessThan(80);
+  await expectLayout();
+  await page.screenshot({ path: `${output}/context-collapsed-${width}.png` });
+  await page.getByRole("button", { name: "ステップの詳細を開く" }).click();
+  expect(
+    await page
+      .getByRole("tab", { name: "決定事項 2" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  await expectLayout();
+  await page.screenshot({ path: `${output}/context-decisions-${width}.png` });
+});
+
+test("参加者1人でも現在地の詳細がマイ付箋に重ならない", async () => {
+  await openStory("room-roomboardlayout--single-participant");
+  await page.getByRole("tab", { name: "決定事項 2" }).click();
+  await expectLayout();
 });
