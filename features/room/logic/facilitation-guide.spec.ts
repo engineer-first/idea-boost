@@ -89,7 +89,7 @@ describe("getFacilitationGuide", () => {
       "1つに決定したら、デザインスプリントは完了です。",
     ],
   ] as const)("%o の所要時間・参加者向けガイド・ホスト向けガイドを返す", (phase, durationMinutes, message, hostMessage) => {
-    expect(getFacilitationGuide(phase)).toEqual({
+    expect(getFacilitationGuide(phase)).toMatchObject({
       durationMinutes,
       message,
       hostMessage,

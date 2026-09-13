@@ -114,6 +114,7 @@ const meta = {
       onOpenChange: fn(),
       onTabChange: fn(),
     },
+    initialGuideExpanded: false,
     hmwDecidedIssue: null,
     decidedHmw: null,
     onAddPrivateNote: fn(),
@@ -165,6 +166,16 @@ export const WithNotes: Story = {};
 export const Empty: Story = {
   args: {
     notes: [],
+  },
+};
+
+export const StepExplanationModal: Story = {
+  name: "ステップ説明モーダル",
+  args: {
+    phase: buildPhaseStep(1, 2),
+    notes: [],
+    initialGuideExpanded: true,
+    hmwDecidedIssue: "会議で発言する人が偏ってしまう",
   },
 };
 

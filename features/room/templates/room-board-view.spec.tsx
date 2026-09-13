@@ -58,7 +58,14 @@ function buildInteractions(
 // 外部制御のテストでは明示的な help を優先する。
 function TestBoardView(props: RoomBoardViewProps) {
   const help = useBoardHelp(props.phase);
-  return <RoomBoardView {...props} help={props.help ?? help} />;
+  return (
+    <RoomBoardView
+      {...props}
+      help={props.help ?? help}
+      initialGuideExpanded={props.help?.isOpen ?? true}
+      enableGuideModal={props.help !== undefined}
+    />
+  );
 }
 
 function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
@@ -150,6 +157,57 @@ describe("考えるヒントの外部制御", () => {
       screen.getByRole("button", { name: "考えるヒントを閉じる" }),
     );
     expect(help.onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("ステップ説明モーダル", () => {
+  it("問いの作成Step 1では説明と最初の問いを書くCTAを表示する", () => {
+    const onAddPrivateNote = vi.fn();
+    setup({
+      phase: buildPhaseStep(1, 2),
+      notes: [],
+      onAddPrivateNote,
+      interactions: buildInteractions([], []),
+      help: {
+        kind: "hmw",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).getByText("問いをつくる"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "最初の問いを書く" }),
+    ).toBeInTheDocument();
+  });
+
+  it("最初の問いを書くを押すとモーダルを閉じて付箋作成を開始する", () => {
+    const onAddPrivateNote = vi.fn();
+    setup({
+      phase: buildPhaseStep(1, 2),
+      notes: [],
+      onAddPrivateNote,
+      interactions: buildInteractions([], []),
+      help: {
+        kind: "hmw",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "最初の問いを書く" }));
+
+    expect(onAddPrivateNote).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 

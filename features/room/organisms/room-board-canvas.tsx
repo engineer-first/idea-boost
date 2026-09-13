@@ -114,6 +114,7 @@ export type RoomBoardCanvasProps = {
   remoteNoteDrags: RemoteNoteDrag[];
   areCursorsVisible: boolean;
   onToggleCursors: () => void;
+  expandPrivateNotesRequest?: number;
 };
 
 export function RoomBoardCanvas({
@@ -166,6 +167,7 @@ export function RoomBoardCanvas({
   remoteNoteDrags,
   areCursorsVisible,
   onToggleCursors,
+  expandPrivateNotesRequest = 0,
 }: RoomBoardCanvasProps) {
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? calculateRenderGroups(notes, groups)
@@ -474,6 +476,7 @@ export function RoomBoardCanvas({
               canMoveNote={permissions.canMoveNote}
               editingDisabled={isResultStep(phase)}
               defaultExpanded={false}
+              expandRequest={expandPrivateNotesRequest}
               className="pointer-events-auto max-h-full w-60"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}

@@ -21,6 +21,7 @@ export type PrivateNotesToolbarProps = {
   canDeleteNote: boolean;
   canMoveNote: boolean;
   defaultExpanded?: boolean;
+  expandRequest?: number;
   onSelect: (noteId: string | null) => void;
   onAdd: () => void;
   onContentChange: (noteId: string, content: string) => void;
@@ -44,6 +45,7 @@ export function PrivateNotesToolbar({
   canMoveNote,
   canEditNote,
   defaultExpanded = true,
+  expandRequest = 0,
   onSelect,
   onAdd,
   onContentChange,
@@ -89,6 +91,10 @@ export function PrivateNotesToolbar({
     }, 200);
     return () => window.clearTimeout(animationTimer);
   }, [newlyAddedNoteId]);
+
+  useEffect(() => {
+    if (expandRequest > 0) setIsExpanded(true);
+  }, [expandRequest]);
 
   function handleAdd() {
     noteIdsBeforeAddRef.current = new Set(notes.map((note) => note.id));
