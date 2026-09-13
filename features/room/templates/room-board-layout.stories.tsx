@@ -57,6 +57,7 @@ function step(phase: 1 | 2 | 3, value: number): Story {
         privateNotes: PRIVATE_NOTES,
       },
       timer: { status: "paused", remainingMs: 138_000, durationMs: 180_000 },
+      initialGuideExpanded: false,
     },
   };
 }
@@ -66,6 +67,11 @@ export const Phase1Step3: Story = step(1, 3);
 export const Phase1Step4: Story = step(1, 4);
 export const Phase1Step5: Story = step(1, 5);
 export const Phase2Step1: Story = step(2, 1);
+export const Phase2Step1WithGuide: Story = {
+  ...Phase2Step1,
+  name: "問い作成の説明モーダル",
+  args: { ...Phase2Step1.args, initialGuideExpanded: true },
+};
 export const Phase2Step2: Story = step(2, 2);
 export const Phase2Step3: Story = step(2, 3);
 export const Phase2Step4: Story = step(2, 4);
