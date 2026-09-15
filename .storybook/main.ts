@@ -6,6 +6,7 @@ const config: StorybookConfig = {
     "../app/**/*.stories.@(ts|tsx)",
     "../features/**/*.stories.@(ts|tsx)",
     "../components/**/*.stories.@(ts|tsx)",
+    "../remotion/**/*.stories.@(ts|tsx)",
   ],
   addons: ["@storybook/addon-themes", "@storybook/addon-docs"],
   staticDirs: [

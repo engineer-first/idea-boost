@@ -1,0 +1,22 @@
+.remotion-product-root {
+  --font-geist-sans: "Geist", "Helvetica Neue", Arial, sans-serif;
+  --font-geist-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-geist-sans);
+}
+
+.remotion-product-root *,
+.remotion-product-root *::before,
+.remotion-product-root *::after {
+  animation: none;
+  caret-color: transparent;
+  transition: none;
+}
+
+/* RadixのPortalはbody直下へ描画されるため、上のスコープ外でも
+   ブラウザ時間のアニメーションを発生させない。 */
+body:has([data-remotion-operation-demo="true"]) *,
+body:has([data-remotion-operation-demo="true"]) *::before,
+body:has([data-remotion-operation-demo="true"]) *::after {
+  animation: none;
+  transition: none;
+}

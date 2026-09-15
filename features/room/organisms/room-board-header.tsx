@@ -33,6 +33,7 @@ export type RoomBoardHeaderProps = {
   phase: RoomPhase;
   timer: TimerState;
   timerServerOffsetMs: number;
+  renderTimeMs?: number;
   isHost: boolean;
   // ハイドレーション対策込みの「操作を止めるべきか」。判定は view の責務。
   isDisconnected: boolean;
@@ -68,6 +69,7 @@ export function RoomBoardHeader({
   phase,
   timer,
   timerServerOffsetMs,
+  renderTimeMs,
   isHost,
   isDisconnected,
   connectionStatus,
@@ -239,6 +241,7 @@ export function RoomBoardHeader({
           ) : null}
           <div className="pointer-events-auto shrink-0">
             <RoomTimer
+              renderTimeMs={renderTimeMs}
               key={
                 phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
               }

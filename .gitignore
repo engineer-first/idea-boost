@@ -21,6 +21,7 @@ build-storybook.log
 # next.js
 /.next/
 /out/
+/remotion/out/
 
 # production
 /build

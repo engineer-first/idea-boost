@@ -27,6 +27,7 @@ export type RoomTimerProps = {
   onExtend: () => void;
   onStop: () => void;
   now?: () => number;
+  renderTimeMs?: number;
   initialDurationMs?: number;
   defaultPanelOpen?: boolean;
 };
@@ -85,6 +86,7 @@ export function RoomTimer({
   onExtend,
   onStop,
   now: getNow = systemNow,
+  renderTimeMs,
   initialDurationMs = TIMER_DEFAULT_DURATION_MS,
   defaultPanelOpen = false,
 }: RoomTimerProps) {
@@ -95,7 +97,7 @@ export function RoomTimer({
   const [panelOpen, setPanelOpen] = useState(defaultPanelOpen);
 
   useEffect(() => {
-    if (timer.status !== "running") return;
+    if (timer.status !== "running" || renderTimeMs !== undefined) return;
     const tick = () => {
       const clientNow = getNow();
       setNow(clientNow);
@@ -106,11 +108,11 @@ export function RoomTimer({
     const intervalId = window.setInterval(tick, 250);
     tick();
     return () => window.clearInterval(intervalId);
-  }, [getNow, serverOffsetMs, timer]);
+  }, [getNow, serverOffsetMs, timer, renderTimeMs]);
 
   const remainingMs =
     timer.status === "running"
-      ? Math.max(0, timer.endsAt - (now + serverOffsetMs))
+      ? Math.max(0, timer.endsAt - ((renderTimeMs ?? now) + serverOffsetMs))
       : timer.status === "paused"
         ? timer.remainingMs
         : null;

@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="description" content="はじめてでも、チームで一案を。エンジニアファーストが作るIdea Boostを、学生チームの想定ストーリーと操作デモで紹介する約9分のプレゼンテーション。">
+<title>Idea Boost — アイデアは、もっと自然に。</title>
+<style>
+:root {
+  color-scheme:light;
+  --bg:#fff; --paper:#f7f9f6; --ink:#20312b; --muted:#68756e; --line:#e1e8df;
+  --soft:#f1f5ed; --accent:#d5eeb0; --accent-ink:#416b2c; --blue:#426a97;
+  --blue-soft:#e6effa; --red:#b44c72; --red-soft:#f9e5ed;
+  --shadow:0 18px 55px #223a2610,0 3px 12px #223a2608;
+}
+* { box-sizing:border-box; }
+[hidden] { display:none!important; }
+html { scroll-behavior:auto; background:var(--bg); }
+body { margin:0; color:var(--ink); background:var(--bg); font-family:"Hiragino Sans","Yu Gothic",Meiryo,sans-serif; -webkit-font-smoothing:antialiased; }
+button { font:inherit; cursor:pointer; }
+button,a,summary { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+button:disabled { opacity:.25; cursor:default; }
+a { color:var(--blue); text-underline-offset:4px; }
+button:focus-visible,a:focus-visible,summary:focus-visible,video:focus-visible { outline:3px solid var(--blue); outline-offset:4px; }
+h1,h2,h3,p,figure,blockquote { margin:0; }
+h1,h2,h3 { font-feature-settings:"palt"; font-weight:800; }
+h2 { font-size:clamp(2.5rem,4.5vw,4.8rem); line-height:1.34; letter-spacing:-.055em; }
+h3 { font-size:clamp(1.3rem,2.1vw,2rem); line-height:1.6; letter-spacing:-.035em; }
+p { line-height:1.8; }
+.accent { color:var(--accent-ink); }
+.mono { font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace; }
+.app { min-height:100svh; display:grid; grid-template-rows:auto 1fr auto; }
+.topbar { height:56px; margin:0 4vw; display:flex; justify-content:space-between; align-items:center; }
+.brand { display:flex; align-items:center; gap:9px; color:var(--ink); font:700 18px Arial,sans-serif; letter-spacing:-.5px; text-decoration:none; }
+.brand-mark { width:26px; height:26px; display:grid; place-items:center; border-radius:7px; background:var(--accent); color:var(--accent-ink); font-size:21px; }
+.icon-button { width:36px; height:36px; display:inline-grid; place-items:center; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:50%; font-size:19px; }
+.icon-button:hover { background:var(--soft); }
+main { display:grid; align-items:center; min-width:0; }
+.slide { width:100%; max-width:1760px; margin:auto; padding:28px 6vw; }
+.slide:not([hidden]) { animation:appear .28s ease-out both; }
+@keyframes appear { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
+.section-head { margin-bottom:42px; }
+.overline { color:var(--muted); font-size:14px; letter-spacing:.04em; margin-bottom:19px; }
+.caption { font-size:13px; line-height:1.8; color:var(--muted); }
+figcaption { color:var(--muted); font-size:12px; line-height:1.8; margin-top:12px; }
+.hero-layout { display:grid; grid-template-columns:minmax(265px,.76fr) minmax(0,1.8fr); gap:3vw; align-items:center; }
+.hero-wordmark { font:800 clamp(5rem,8.1vw,8.8rem)/.91 Arial,sans-serif; letter-spacing:-.065em; }
+.hero-wordmark span { display:block; }
+.hero-tagline { font-size:clamp(1.3rem,2.15vw,2.2rem); font-weight:700; line-height:1.7; letter-spacing:-.045em; margin-top:29px; }
+.team-credit { color:var(--muted); font-size:13px; margin-top:26px; }
+.product-shot { width:min(100%,calc((100svh - 220px)*1.77778)); margin-inline:auto; }
+.product-shot img { display:block; width:100%; height:auto; border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); }
+.product-shot figcaption { text-align:right; }
+.personas { display:grid; grid-template-columns:1fr 1fr; gap:5vw; margin-top:42px; }
+.persona { padding:28px 0; border-top:1px solid var(--line); }
+.persona-label { display:flex; align-items:center; gap:12px; margin-bottom:22px; color:var(--muted); font-size:15px; }
+.persona-token { display:grid; place-items:center; width:35px; height:35px; border-radius:50%; background:var(--soft); color:var(--accent-ink); font:14px Arial,sans-serif; }
+.persona blockquote { font-size:clamp(1.5rem,2.6vw,2.7rem); font-weight:700; line-height:1.6; letter-spacing:-.04em; }
+.promise-route { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); list-style:none; margin:60px 0 0; padding:0; gap:40px; }
+.promise-route li { position:relative; padding-top:25px; border-top:2px solid var(--line); }
+.promise-route li:last-child { border-color:var(--accent-ink); }
+.promise-route li:not(:last-child)::after { content:"→"; position:absolute; right:-29px; top:58px; color:#97a592; font-size:24px; }
+.promise-route small { display:block; color:var(--muted); font-size:20px; margin-bottom:12px; }
+.promise-route strong { font-size:clamp(2.8rem,5vw,5.4rem); font-weight:800; line-height:1.35; letter-spacing:-.06em; }
+.promise-route li:last-child strong { color:var(--accent-ink); }
+.journey { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
+.phase { padding:26px 24px; background:var(--paper); border-radius:16px; }
+.phase:nth-child(2) { background:#f0f5fb; }
+.phase:last-child { background:#eef6e5; }
+.phase-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.phase-heading h3 { font-size:18px; color:var(--muted); font-weight:500; }
+.phase-no { font:14px Arial,sans-serif; color:var(--muted); }
+.phase-example { margin-top:30px; font-size:clamp(1.2rem,2vw,2rem); line-height:1.7; letter-spacing:-.04em; font-weight:700; }
+.journey-caption { margin-top:20px; }
+.slide.demo { padding-top:14px; padding-bottom:14px; }
+.demo-heading { display:flex; justify-content:space-between; gap:24px; align-items:center; margin-bottom:22px; }
+.demo-heading h2 { font-size:clamp(1.9rem,3.3vw,3.5rem); }
+.demo-duration { font-size:13px; color:var(--muted); white-space:nowrap; }
+.demo-player { width:min(100%,calc((100svh - 300px)*1.77778)); margin:auto; }
+.video-frame { border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#fff; box-shadow:var(--shadow); }
+video { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; background:#fff; }
+.primary { display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--ink); background:var(--ink); color:#fff; border-radius:30px; min-height:40px; padding:8px 22px; font-size:14px; font-weight:700; }
+.primary:hover { opacity:.85; }
+.video-caption { display:flex; justify-content:space-between; gap:18px; align-items:center; margin-top:16px; }
+.demo-tools { position:relative; color:var(--muted); font-size:13px; }
+.demo-tools summary { cursor:pointer; padding:8px 0 8px 12px; }
+.chapters { position:absolute; bottom:45px; right:0; z-index:2; width:310px; display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#fff; box-shadow:var(--shadow); }
+.chapter { text-align:left; border:1px solid transparent; border-radius:8px; background:#fff; color:var(--muted); padding:10px; line-height:1.6; font-size:13px; }
+.chapter .mono { display:block; font-size:11px; margin-bottom:3px; }
+.chapter:hover,.chapter[aria-current="true"] { color:var(--accent-ink); border-color:var(--line); background:var(--soft); }
+#video-error { margin-top:12px; background:var(--blue-soft); padding:12px; font-size:14px; border-left:3px solid var(--blue); }
+.individual-layout { max-width:1000px; margin:auto; }
+.individual-labels { display:flex; justify-content:space-between; gap:20px; align-items:center; font-size:17px; margin-bottom:26px; }
+.individual-labels span { color:var(--muted); font-size:14px; }
+.personal-notes { display:grid; grid-template-columns:repeat(4,1fr); gap:26px; }
+.personal-note { display:flex; align-items:center; justify-content:center; min-height:132px; border:1px dashed #cfd8c9; border-radius:14px; }
+.thought { display:grid; place-items:center; width:74px; height:74px; border-radius:5px; font:700 24px Arial,sans-serif; box-shadow:0 5px 9px #20312b0b; }
+.note-a { background:#ffedb0; color:#705e25; }
+.note-b { background:#f4d5e6; color:#88516b; }
+.note-c { background:#cdebce; color:#446b48; }
+.note-d { background:#d5e7f8; color:#46657f; }
+.share-arrow { padding:17px 0; color:var(--muted); font-size:14px; text-align:center; }
+.share-arrow span { color:var(--accent-ink); font-size:25px; margin-right:12px; }
+.shared-space { display:flex; align-items:center; justify-content:center; gap:40px; border-radius:13px; background:var(--soft); padding:22px; }
+.shared-space strong { font-size:21px; }
+.shared-notes { display:flex; gap:8px; }
+.shared-notes span { width:27px; height:27px; border-radius:3px; }
+.guide-layout { display:grid; grid-template-columns:1.7fr .7fr; gap:6vw; align-items:center; }
+.guide-figure img { display:block; width:100%; height:auto; border-radius:12px; border:1px solid var(--line); box-shadow:var(--shadow); }
+.guide-roles { margin:0; padding:0; list-style:none; }
+.guide-roles li { padding:19px 0; border-bottom:1px solid var(--line); font-size:clamp(1.25rem,2vw,2rem); font-weight:700; }
+.guide-roles span { display:inline-block; color:var(--muted); font:13px Arial,sans-serif; width:35px; vertical-align:middle; }
+.decision-layout { display:grid; grid-template-columns:.95fr 1fr; gap:7vw; align-items:center; }
+.matrix { position:relative; height:230px; margin:15px 25px 25px 35px; border-left:2px solid #93a48c; border-bottom:2px solid #93a48c; background:linear-gradient(var(--line) 1px,transparent 1px) 0 0/50% 50%,linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/50% 50%; }
+.matrix::before { content:"↑"; position:absolute; left:-9px; top:-21px; color:var(--muted); }
+.matrix::after { content:"→"; position:absolute; bottom:-16px; right:-15px; color:var(--muted); }
+.y-axis { position:absolute; left:-34px; top:4px; color:var(--muted); font-size:14px; writing-mode:vertical-rl; }
+.x-axis { position:absolute; right:0; bottom:-33px; color:var(--muted); font-size:14px; }
+.matrix-point { position:absolute; width:43px; height:43px; border-radius:6px; display:grid; place-items:center; font:14px Arial,sans-serif; }
+.matrix-point.a { left:17%; top:63%; }
+.matrix-point.b { left:36%; top:28%; }
+.matrix-point.c { left:71%; top:11%; }
+.matrix-point.d { left:73%; top:65%; }
+.ballots { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.ballot { padding:25px 0; border-top:1px solid var(--line); }
+.ballot strong { display:block; font-size:clamp(1.2rem,1.9vw,1.9rem); letter-spacing:-.04em; }
+.vote-dots { display:flex; gap:9px; height:34px; align-items:center; margin-bottom:21px; }
+.vote-dots span { display:block; width:27px; height:27px; border-radius:50%; background:var(--red); }
+.ballot.objective .vote-dots span { background:var(--blue); }
+.stealth-note { font-size:14px; color:var(--muted); margin-top:13px; }
+.decision-takeaway { font-size:clamp(1.2rem,2.1vw,2rem); font-weight:700; color:var(--accent-ink); margin-top:32px; text-align:right; }
+.hints-layout { display:grid; grid-template-columns:1.5fr .65fr; gap:7vw; align-items:center; }
+.hint-example { margin-top:40px; padding-top:27px; border-top:1px solid var(--line); }
+.method { font-size:14px; color:var(--muted); margin-bottom:20px; }
+.reframe { display:flex; align-items:center; gap:18px; flex-wrap:wrap; font-size:clamp(1.3rem,2.4vw,2.5rem); font-weight:700; line-height:1.6; letter-spacing:-.04em; }
+.reframe span { color:var(--muted); font-weight:400; }
+.reframe strong { color:var(--accent-ink); }
+.hints-figure { width:min(100%,265px); margin:auto; }
+.hints-figure img { display:block; width:100%; height:auto; max-height:calc(100svh - 270px); object-fit:contain; }
+.positioning { display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:24px; margin-top:60px; }
+.tool-role { padding:26px 22px; border-top:1px solid var(--line); }
+.tool-name { font-size:16px; color:var(--muted); }
+.tool-role h3 { margin-top:32px; font-size:clamp(1.35rem,2.3vw,2.35rem); line-height:1.5; }
+.our-role { background:var(--soft); border-top:2px solid var(--accent-ink); border-radius:0 0 14px 14px; }
+.outcomes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:32px; margin-top:60px; }
+.outcome { padding-top:25px; border-top:1px solid var(--line); }
+.outcome-number { font:14px Arial,sans-serif; color:var(--muted); margin-bottom:22px; }
+.outcome h3 { font-size:clamp(1.5rem,2.7vw,2.8rem); }
+.goal-caption { margin-top:38px; }
+.closing { padding:15px 0; }
+.closing h2 { font-size:clamp(2.6rem,4.6vw,5.3rem); line-height:1.5; }
+.closing-product { display:flex; justify-content:space-between; align-items:flex-end; border-top:1px solid var(--line); margin-top:65px; padding-top:28px; gap:24px; }
+.closing-product .wordmark { font:800 clamp(2rem,3vw,3rem) Arial,sans-serif; letter-spacing:-.06em; }
+.closing-product .tagline { color:var(--accent-ink); font-size:18px; font-weight:700; margin-top:12px; }
+.closing-product .context { font-size:13px; color:var(--muted); }
+.footer { margin:0 4vw; min-height:58px; display:flex; align-items:center; justify-content:space-between; gap:22px; padding:10px 0; }
+.page-number { font:12px Consolas,monospace; white-space:nowrap; color:var(--muted); min-width:65px; }
+.page-number strong { color:var(--ink); }
+.progress-nav { display:flex; gap:7px; flex:1; max-width:270px; }
+.progress-nav a { display:flex; align-items:center; height:30px; flex:1; text-decoration:none; }
+.progress-nav a::after { content:""; height:3px; background:var(--line); width:100%; border-radius:2px; }
+.progress-nav a[aria-current="step"]::after { background:var(--accent-ink); height:4px; }
+.footer-actions { display:flex; align-items:center; gap:9px; }
+#next { background:var(--ink); color:#fff; border-color:var(--ink); }
+.speaker-notes { margin:0 4vw; font-size:13px; color:var(--muted); }
+.speaker-notes summary { width:fit-content; cursor:pointer; padding:3px 0 10px; }
+#speaker-copy { max-width:1050px; padding:8px 0 16px; line-height:1.9; white-space:pre-line; color:var(--ink); }
+.speaker-source { font-size:12px; padding-bottom:20px; }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0; }
+@media(max-height:790px) and (min-width:861px) {
+  .slide { padding-top:20px; padding-bottom:20px; }
+  h2 { font-size:clamp(2.2rem,3.55vw,3.5rem); }
+  .section-head { margin-bottom:30px; }
+  .hero-wordmark { font-size:clamp(4.5rem,7vw,7rem); }
+  .hero-tagline { font-size:clamp(1.3rem,1.9vw,1.9rem); margin-top:24px; }
+  .promise-route,.positioning,.outcomes { margin-top:38px; }
+  .matrix { height:190px; }
+  .personal-note { min-height:106px; }
+  .thought { width:64px; height:64px; }
+  .share-arrow { padding:12px 0; }
+  .shared-space { padding:18px; }
+  .decision-takeaway { margin-top:24px; }
+  .closing h2 { font-size:clamp(2.5rem,4.1vw,4.4rem); }
+  .closing-product { margin-top:45px; }
+}
+@media(max-width:1050px) and (min-width:861px) {
+  .hero-layout { grid-template-columns:240px minmax(0,1fr); }
+  .hero-wordmark { font-size:80px; }
+  .hero-tagline { font-size:23px; }
+  .guide-layout { gap:35px; }
+  .ballots { gap:12px; }
+  .ballot strong { font-size:19px; }
+}
+@media(max-width:860px) {
+  .topbar { margin:0 24px; height:56px; }
+  .slide { padding:30px 24px 38px; }
+  h2 { font-size:clamp(2rem,6vw,3rem); }
+  .section-head { margin-bottom:30px; }
+  .hero-layout,.guide-layout,.decision-layout,.hints-layout { grid-template-columns:1fr; gap:34px; }
+  .hero-wordmark { font-size:clamp(3.6rem,10vw,5.8rem); }
+  .hero-wordmark span { display:inline; }
+  .hero-tagline { font-size:26px; margin-top:24px; }
+  .team-credit { margin-top:18px; }
+  .product-shot { width:100%; }
+  .product-shot img { border-radius:12px; }
+  .personas { gap:28px; margin-top:28px; }
+  .persona { padding-top:22px; }
+  .persona blockquote { font-size:24px; }
+  .promise-route { gap:28px; margin-top:38px; }
+  .promise-route li:not(:last-child)::after { right:-23px; top:48px; font-size:20px; }
+  .promise-route small { font-size:16px; }
+  .promise-route strong { font-size:clamp(1.65rem,5.8vw,3rem); }
+  .journey { gap:12px; }
+  .phase { padding:20px 16px; }
+  .phase-example { font-size:18px; }
+  .demo-heading { display:block; }
+  .demo-heading h2 { font-size:28px; }
+  .demo-duration { margin-top:10px; }
+  .demo-player { width:100%; }
+  .personal-notes { gap:12px; }
+  .personal-note { min-height:100px; }
+  .thought { width:55px; height:55px; }
+  .guide-roles { display:flex; justify-content:space-between; gap:20px; }
+  .guide-roles li { font-size:20px; }
+  .guide-roles span { display:block; margin-bottom:9px; }
+  .matrix { height:240px; }
+  .decision-takeaway { text-align:left; margin-top:28px; }
+  .hint-example { margin-top:30px; }
+  .hints-figure { max-width:230px; }
+  .hints-figure img { max-height:none; }
+  .positioning { gap:14px; margin-top:36px; }
+  .tool-role { padding:22px 10px; }
+  .tool-name { font-size:13px; }
+  .tool-role h3 { font-size:20px; margin-top:24px; }
+  .outcomes { gap:18px; margin-top:38px; }
+  .outcome h3 { font-size:24px; }
+  .closing h2 { font-size:clamp(2rem,6vw,3rem); }
+  .closing-product { margin-top:42px; }
+  .closing-product .tagline { font-size:16px; }
+  .footer { margin:0 24px; gap:16px; }
+  .speaker-notes { margin:0 24px; }
+}
+@media(max-width:540px) {
+  .personas,.journey,.positioning,.outcomes { grid-template-columns:1fr; gap:20px; }
+  .persona { padding-bottom:6px; }
+  .persona-label { margin-bottom:14px; }
+  .phase-example { margin-top:20px; }
+  .personal-notes { gap:8px; }
+  .personal-note { min-height:83px; }
+  .thought { width:45px; height:45px; font-size:19px; }
+  .shared-space { gap:20px; padding:18px 12px; }
+  .shared-space strong { font-size:17px; }
+  .shared-notes { gap:5px; }
+  .shared-notes span { width:20px; height:20px; }
+  .guide-roles { gap:12px; }
+  .guide-roles li { font-size:17px; }
+  .reframe { font-size:23px; gap:13px; }
+  .tool-role { padding:20px; }
+  .tool-role h3 { margin-top:12px; font-size:25px; }
+  .outcome-number { margin-bottom:12px; }
+  .closing-product { display:block; }
+  .closing-product .context { margin-top:24px; }
+  .progress-nav { gap:5px; }
+  .chapters { width:min(310px,calc(100vw - 58px)); }
+}
+@media(prefers-reduced-motion:reduce) { .slide:not([hidden]) { animation:none; } }
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <a class="brand" href="#slide-1" aria-label="Idea Boost、最初のスライドへ"><span class="brand-mark" aria-hidden="true">↗</span>Idea Boost</a>
+  <button class="icon-button" id="fullscreen" aria-label="全画面表示" title="全画面表示（F）">⛶</button>
+</header>
+<main id="deck" aria-label="Idea Boost プレゼンテーション">
+<section class="slide hero" id="slide-1" data-slide data-title="Idea Boost — はじめてでも、チームで一案を。" data-chapter="なぜ、つくるのか" data-time="0:00–0:25" data-start="0" data-end="25" data-source="PRD §1 プロダクトコンセプト・§3 想定ユーザー・§9 メッセージ。制作チーム名は発表者より。" aria-labelledby="title-1">
+<div class="hero-layout">
+  <div class="hero-copy"><p class="overline">チームで考え、決めるWebアプリ</p><h1 class="hero-wordmark" id="title-1" tabindex="-1"><span>Idea</span> <span>Boost</span></h1><p class="hero-tagline">はじめてでも、<br>チームで<span class="accent">一案を。</span></p><p class="team-credit">エンジニアファースト</p></div>
+  <figure class="product-shot"><img src="./demo-poster.jpg" alt="Idea Boostのメイン画面。4色の付箋を価値と実現可能性の二軸で比較し、進行ガイドと投票結果を見ながら一案を選ぶボード。" width="1920" height="1080" fetchpriority="high"><figcaption>メイン画面 · 操作デモより</figcaption></figure>
+</div>
+<template class="speaker-note">こちらが、私たちエンジニアファーストが作るIdea Boostのメイン画面です。付箋に考えを書き、みんなで比べて一案を選びます。
+はじめてでも、チームで一案を。全員で考え、納得して決めるための道すじを届けるWebアプリです。
+仲間も技術も、やる気もある。でも「何を作ろう？」で止まる。その最初の壁に向き合っています。</template>
+</section>
+<section class="slide " id="slide-2" data-slide data-title="「何を作ろう？」で、止まってしまう。" data-chapter="なぜ、つくるのか" data-time="0:25–1:05" data-start="25" data-end="65" data-source="PRD §2 解決したいこと・§3 メイン／サブペルソナ。4人のチームと発言は説明用の想定。" aria-labelledby="title-2">
+<div class="section-head"><p class="overline">初めてのハッカソン。4人の想定ストーリー。</p><h2 id="title-2" tabindex="-1">「何を作ろう？」で、<br><span class="accent">止まってしまう。</span></h2></div>
+<div class="personas"><article class="persona"><p class="persona-label"><span class="persona-token" aria-hidden="true">A</span>考える人</p><blockquote>「何を考えればいい？」</blockquote></article><article class="persona"><p class="persona-label"><span class="persona-token" aria-hidden="true">B</span>進める人</p><blockquote>「どうまとめればいい？」</blockquote></article></div>
+<template class="speaker-note">ここからは、初めてハッカソンに参加する4人の学生を想像してください。プロダクトが想定する、架空のチームです。
+プログラミングは少し学んでいても、アイデア出しは初めて。白いキャンバスを開いても、何を書けばいいか迷います。誰かが案を出すと、ほかの考えが出る前に話が進んでしまう。
+進行役を引き受けた一人も、「みんなの意見をどうまとめよう」と困っています。意見を引き出し、脱線を戻し、最後に絞る。初めての人に、その全部を任せるのは難しい。
+このチームには、考える人と進める人、両方を支える手順が必要です。</template>
+</section>
+<section class="slide " id="slide-3" data-slide data-title="決めるまでの、道すじ。" data-chapter="どんな体験を届けるか" data-time="1:05–1:40" data-start="65" data-end="100" data-source="PRD §1 コンセプト・§4 Goal・§8.4 チームの場／型／残ること" aria-labelledby="title-3">
+<div class="section-head"><h2 id="title-3" tabindex="-1">決めるまでの、<span class="accent">道すじ。</span></h2></div>
+<ol class="promise-route"><li><small>全員で</small><strong>考える</strong></li><li><small>順番に</small><strong>進める</strong></li><li><small>納得して</small><strong>決める</strong></li></ol>
+<template class="speaker-note">この4人に届けたいのが、課題から決定までの道すじです。
+まず全員で考える。声に出す前に、一人ひとりが自分の考えを残せるようにします。
+次に順番に進める。画面のガイドが、今の目的と次にすることを示します。
+そして納得して決める。案を比べて、投票し、その理由を話し合って一案を選びます。
+この三つを別々に準備する負担を減らし、同じルームでつながる体験にする。それがIdea Boostの中心です。</template>
+</section>
+<section class="slide " id="slide-4" data-slide data-title="「困りごと」が、「つくるもの」に。" data-chapter="どんな体験を届けるか" data-time="1:40–2:25" data-start="100" data-end="145" data-source="PRD §6 全体フロー・各フェーズの目的・成果物の引き継ぎ。課題・問い・採用案は添付デモの例。" aria-labelledby="title-4">
+<div class="section-head"><h2 id="title-4" tabindex="-1">「困りごと」が、<br><span class="accent">「つくるもの」に。</span></h2></div>
+<div class="journey"><article class="phase"><div class="phase-heading"><h3>課題</h3><span class="phase-no">01</span></div><p class="phase-example">小さなタスクを<br>忘れてしまう</p></article><article class="phase"><div class="phase-heading"><h3>問い</h3><span class="phase-no">02</span></div><p class="phase-example">もっと簡単に<br>見える化できる？</p></article><article class="phase"><div class="phase-heading"><h3>アイデア</h3><span class="phase-no">03</span></div><p class="phase-example">今日のタスクだけ<br>表示する</p></article></div><p class="caption journey-caption">デモの例</p>
+<template class="speaker-note">例えば、このチームから「小さいタスクを忘れてしまう」という困りごとが出たとします。
+最初にするのは、いきなりアプリを考えることではなく、どの困りごとに取り組むかを決めることです。
+次に、選んだ課題を「どうしたら、もっと簡単にタスクを見える化できる？」という問いに変えます。すると、4人が考える方向がそろいます。
+最後に、その問いへのアイデアを比べ、「今日やる小さなタスクだけを表示する」のような一案を選びます。
+この三段階を、デザインスプリント形式で進めます。実際のワークは推奨時間の合計で約78分。次の動画では、その操作の流れを2分にまとめています。</template>
+</section>
+<section class="slide demo" id="slide-5" data-slide data-title="一案が、決まるまで。" data-chapter="プロダクトデモ" data-time="2:25–4:35" data-start="145" data-end="275" data-source="添付のdemo2.mp4（2分の再現デモ）・PRD §6〜§7。実際の利用実績を示す動画ではありません。" aria-labelledby="title-5">
+<div class="demo-heading"><h2 id="title-5" tabindex="-1">一案が、<span class="accent">決まるまで。</span></h2><p class="demo-duration">操作の再現デモ · 2分</p></div>
+<div class="demo-player"><div class="video-frame"><video id="demo-video" src="./demo2.mp4" poster="./demo-poster.jpg" controls playsinline preload="metadata" aria-label="Idea Boost操作デモ。無音・2分。" aria-describedby="demo-description"><p>動画を再生できるブラウザで開いてください。</p></video></div>
+<div class="video-caption"><button class="primary" id="video-toggle">デモを再生</button><details class="demo-tools"><summary>再生位置を選ぶ</summary><nav class="chapters" aria-label="デモの再生位置"><button class="chapter" data-seek="0" aria-current="true"><span class="mono">00:00</span>ルームに集まる</button><button class="chapter" data-seek="13"><span class="mono">00:13</span>ひとりで考える</button><button class="chapter" data-seek="21"><span class="mono">00:21</span>共有・整理・投票</button><button class="chapter" data-seek="48"><span class="mono">00:48</span>課題を問いに</button><button class="chapter" data-seek="88"><span class="mono">01:28</span>価値と実現可能性</button><button class="chapter" data-seek="102"><span class="mono">01:42</span>一案に決める</button></nav></details></div>
+<p class="sr-only" id="demo-description">ルーム準備から、個人ワーク、共有、投票、問いの作成、アイデア決定までの操作を再現した動画です。</p><p id="video-error" role="status" hidden>動画を読み込めませんでした。HTMLと同じフォルダにdemo2.mp4があるか確認してください。<a href="./demo2.mp4">動画ファイルを開く</a></p></div>
+<template class="speaker-note">［導入・約10秒］
+同じ困りごとを題材に、操作の流れを再現したデモです。全員で考え、進め、決めるところを、2分でご覧ください。
+
+［以下は動画内の時刻。説明後は画面を見てもらう間を取る］
+00:00　まずルームを作り、招待コードでメンバーが参加します。同じ場所に集まったら、ホストの操作で始めます。
+00:13　最初は個人ワークです。自分にだけ見える付箋に、最近の困りごとを書き出します。ここでは「小さいタスクを忘れてしまう」という課題が出ました。
+00:21　自分で付箋を共有スペースへ移します。全員の課題が並び、似たものを整理していきます。
+00:35　取り組みたい課題に投票します。他の人の票は、投票中には見えません。結果を参考に、チームで課題を決めます。
+00:48　次は、その課題を問いに変えます。問いもそれぞれが考え、共有し、投票して一つにします。
+01:13　決まった問いに対して、アイデアを出します。前の段階で選んだ問いを見ながら考えられます。
+01:28　アイデアを価値と実現可能性の二軸に置いて比べます。
+01:36　アイデアにも投票し、結果を見て話し合います。
+01:42　「今日やる小さなタスクだけを表示する」に決定。このように、何を作るかを決めるところまで案内します。
+01:49〜02:00　［完了画面を見てもらう］</template>
+</section>
+<section class="slide " id="slide-6" data-slide data-title="まず、自分の考えを。" data-chapter="設計に込めた理由" data-time="4:35–5:20" data-start="275" data-end="320" data-source="PRD §2 意見が出る人に偏る・§6.2 個人専用付箋と手動共有・§4 Goal 2/3" aria-labelledby="title-6">
+<div class="section-head"><h2 id="title-6" tabindex="-1">まず、<span class="accent">自分の考えを。</span></h2></div>
+<div class="individual-layout"><p class="individual-labels"><strong>書いている間は、本人だけ。</strong><span>4人の例</span></p><div class="personal-notes" aria-label="4人が、それぞれ自分だけに見える付箋に考えを書く"><div class="personal-note"><span class="thought note-a">A</span></div><div class="personal-note"><span class="thought note-b">B</span></div><div class="personal-note"><span class="thought note-c">C</span></div><div class="personal-note"><span class="thought note-d">D</span></div></div><p class="share-arrow"><span aria-hidden="true">↓</span>自分で共有</p><div class="shared-space"><div class="shared-notes" aria-hidden="true"><span class="note-a"></span><span class="note-b"></span><span class="note-c"></span><span class="note-d"></span></div><strong>みんなのボードへ</strong></div></div>
+<template class="speaker-note">ここからは、さきほどのチームの困りごとと、仕組みをつなげて見ていきます。
+4人の中に、考えはあるけれど、話し始めるのに少し時間が欲しい人がいたらどうでしょう。最初の発言に話が集まると、その人の考えは出ないままかもしれません。
+だから各段階の最初に、個人ワークを置きます。付箋は本人にしか見えません。時間が終わっても勝手に公開せず、本人が共有スペースへ動かして初めて、みんなに見えるようにします。
+先に自分の考えを持ってから、共有する。話す速さにかかわらず、一人ひとりの意見が出る場を目指す設計です。</template>
+</section>
+<section class="slide " id="slide-7" data-slide data-title="進行役も、一緒に考えられるように。" data-chapter="設計に込めた理由" data-time="5:20–6:00" data-start="320" data-end="360" data-source="PRD §3.2 進行役の困りごと・§6.2 ガイド／タイマー／ホスト進行／成果物の参照" aria-labelledby="title-7">
+<div class="section-head"><h2 id="title-7" tabindex="-1">進行役も、<br><span class="accent">一緒に考えられるように。</span></h2></div>
+<div class="guide-layout"><figure class="guide-figure"><img src="./guide-detail.jpg" alt="3分で困りごとを書き出す参加者向けガイドと、次に進むホスト向けガイドが表示された画面。" width="660" height="210"><figcaption>ステップごとのガイド · 操作デモより</figcaption></figure><ol class="guide-roles"><li><span>01</span>今やること</li><li><span>02</span>使う時間</li><li><span>03</span>次の一歩</li></ol></div>
+<template class="speaker-note">もう一人、進行役を引き受けたメンバーも、アイデアを考える仲間です。ずっと「次は何をしよう」と悩んでいたら、議論に向き合う余裕がなくなってしまいます。
+そこで、目的と指示をステップごとのガイドに用意します。参加者への案内に加え、ホストには進行の指示も出します。タイマーには推奨時間が入り、手動で始められます。
+次へ進める判断はホストが行い、全員の画面が同じステップにそろいます。前に決めた課題や問いも、見ながら進められます。
+進め方を一から組み立てる負担を減らして、進行役もチームと一緒に考えられるようにしたいのです。</template>
+</section>
+<section class="slide " id="slide-8" data-slide data-title="比べて、話して、決める。" data-chapter="設計に込めた理由" data-time="6:00–6:50" data-start="360" data-end="410" data-source="PRD §2 選定の課題と投票配点・§6.6 価値×実現可能性・§7 ステルス投票" aria-labelledby="title-8">
+<div class="section-head"><h2 id="title-8" tabindex="-1">比べて、話して、<span class="accent">決める。</span></h2></div>
+<div class="decision-layout"><figure aria-label="比較のイメージ。アイデアAからDを、縦軸の価値と横軸の実現可能性で比較する。"><div class="matrix"><span class="y-axis">価値</span><span class="x-axis">実現可能性</span><span class="matrix-point a note-a">A</span><span class="matrix-point b note-b">B</span><span class="matrix-point c note-c">C</span><span class="matrix-point d note-d">D</span></div></figure><div><div class="ballots"><article class="ballot" aria-label="主観の1票"><div class="vote-dots" aria-hidden="true"><span></span></div><strong>やってみたい</strong></article><article class="ballot objective" aria-label="客観の3票"><div class="vote-dots" aria-hidden="true"><span></span><span></span><span></span></div><strong>比べて、よい</strong></article></div><p class="stealth-note">投票中は、自分の票だけ。</p></div></div><p class="decision-takeaway">最後は、チームで決める。</p>
+<template class="speaker-note">4人から案が出たら、今度は「どれにする？」で迷います。「楽しそう」だけで選んでも、作れないかもしれません。作りやすさだけで選んでも、やりたい気持ちが残らないかもしれません。
+そこで、価値と実現可能性の二軸に案を置き、同じ視点で比べます。そのうえで、好き、やってみたいという気持ちで選ぶ一票と、比較してよいと思う三票を使います。
+投票中は、他の人の票を見せません。先に集まった票に流されず、自分で選ぶためです。
+結果を見ながら「私はここに価値を感じた」「この範囲なら作れそう」と話し合う。票が多い案を自動的に答えにせず、チームで一案を決めます。選んだ理由も、一緒に持てるようにしたいのです。</template>
+</section>
+<section class="slide " id="slide-9" data-slide data-title="行き詰まったら、見方を変える。" data-chapter="設計に込めた理由" data-time="6:50–7:20" data-start="410" data-end="440" data-source="PRD §2 アイデアが広がらない・§6.6／§7 発想支援ツール。切り口の具体例は説明用に作成。" aria-labelledby="title-9">
+<div class="hints-layout"><div><div class="section-head"><h2 id="title-9" tabindex="-1">行き詰まったら、<br><span class="accent">見方を変える。</span></h2></div><div class="hint-example"><p class="method">「減らす」というヒント</p><p class="reframe"><span>全部を管理</span><span aria-hidden="true">→</span><strong>今日だけにする</strong></p></div></div><figure class="hints-figure"><img src="./hints-detail.jpg" alt="オズボーン、SCAMPER、逆転発想、他業界事例から発想の切り口を選べるパネル。" width="365" height="540"><figcaption>発想のヒント · 操作デモより</figcaption></figure></div>
+<template class="speaker-note">同じタスクの案でも、そこから広がらないことはあります。そんなときは、考える切り口を変えるヒントを使えます。
+例えば「全部を管理する」から、一部をなくして「今日の分だけにする」。あるいは「忘れない工夫」から「忘れても困らない仕組み」へ考え直す。
+これは切り口の説明用の例です。画面にも、こうした発想のヒントを用意しています。最初の案から、もう一歩、自分たちで広げるきっかけになります。</template>
+</section>
+<section class="slide " id="slide-10" data-slide data-title="決め方ごと、支える。" data-chapter="何を、大切にするか" data-time="7:20–8:00" data-start="440" data-end="480" data-source="PRD §5 Non-Goal・§8 差別化／ポジショニング／AI壁打ちへの回答" aria-labelledby="title-10">
+<div class="section-head"><h2 id="title-10" tabindex="-1"><span class="accent">決め方ごと、</span>支える。</h2></div><div class="positioning"><article class="tool-role"><p class="tool-name">Miro・FigJam</p><h3>作業の場</h3></article><article class="tool-role"><p class="tool-name">ChatGPT</p><h3>対話の相手</h3></article><article class="tool-role our-role"><p class="tool-name">Idea Boost</p><h3 class="accent">決定までの<br>道案内</h3></article></div>
+<template class="speaker-note">ここまで見て、「普段使っている道具と、何が違うの？」と思うかもしれません。
+考えを自由に並べて共同作業したいときにはMiroやFigJam。対話で発想を広げたいときにはChatGPT。道具を、そうした役割で考えてみます。
+Idea Boostが向き合うのは、その手前の「どう考え始めて、どう決めたらいいか分からない」という迷いです。
+だから最初の版では、課題から一案に至る、一つの手順に集中します。同じ場で全員の考えを残しながら進める。自分たちで考え、自分たちで決める過程を支えたいのです。
+［補足：PRDで想定する使い方の役割です。各サービスの機能を網羅的に比較したものではありません。］</template>
+</section>
+<section class="slide " id="slide-11" data-slide data-title="「私たちの案」に、なる。" data-chapter="何を、大切にするか" data-time="8:00–8:35" data-start="480" data-end="515" data-source="PRD §4 Goal・§2 意見の偏りと納得感のある選定。利用前であることは発表者より。3つの言葉は目指す体験で、利用者の感想ではありません。" aria-labelledby="title-11">
+<div class="section-head"><p class="overline">私たちが目指す体験</p><h2 id="title-11" tabindex="-1"><span class="accent">「私たちの案」</span>に、なる。</h2></div><div class="outcomes"><article class="outcome"><p class="outcome-number">01</p><h3>意見を出せた。</h3></article><article class="outcome"><p class="outcome-number">02</p><h3>理由を話せる。</h3></article><article class="outcome"><p class="outcome-number">03</p><h3 class="accent">作ってみたい。</h3></article></div><p class="caption goal-caption">実際の利用・効果の検証はこれから。</p>
+<template class="speaker-note">最初の4人のチームに戻ります。何を作るか分からなかった人たちが、最後に「意見を出せた」「理由を話せる」「作ってみたい」と思える。
+誰かが出した案も、一緒に考え、比べ、選ぶ時間を通して、「私たちの案」になっていく。私たちが届けたいのは、そんな体験です。
+Idea Boostは、まだ実際には使われていません。この変化が起きるかは、これから確かめていきます。
+初めてのチームでも、納得して一案を選ぶところまで進める。それを目指して作っています。</template>
+</section>
+<section class="slide " id="slide-12" data-slide data-title="次のチームでは、どんな一案が生まれるだろう。" data-chapter="次のチーム制作へ" data-time="8:35–9:00" data-start="515" data-end="540" data-source="PRD §1 プロダクトコンセプト・§9 プロダクトメッセージ" aria-labelledby="title-12">
+<div class="closing"><h2 id="title-12" tabindex="-1">次のチームでは、<br>どんな<span class="accent">一案</span>が生まれるだろう。</h2><div class="closing-product"><div><p class="wordmark">Idea Boost ↗</p><p class="tagline">アイデアは、もっと自然に。</p></div><p class="context">エンジニアファースト</p></div></div>
+<template class="speaker-note">次にみなさんがチームを組んだとき、全員の考えを持ち寄れたら、どんな一案が生まれるでしょうか。
+「何を作ろう？」で止まる時間が、みんなで考え始める時間になるように。
+はじめてでも、全員で考え、納得して決める。
+エンジニアファーストのIdea Boost。アイデアは、もっと自然に。
+ありがとうございました。</template>
+</section>
+</main>
+<div>
+<footer class="footer">
+  <span class="page-number"><strong id="current-number">01</strong> / 12</span>
+  <nav class="progress-nav" aria-label="スライド目次"></nav>
+  <div class="footer-actions"><button class="icon-button" id="previous" aria-label="前のスライド" disabled>←</button><button class="icon-button" id="next" aria-label="次のスライド">→</button></div>
+</footer>
+<details class="speaker-notes" id="speaker-notes"><summary>発表原稿 <span class="mono" id="time-slot">0:00–0:25</span></summary><p id="speaker-copy"></p><p class="speaker-source" id="speaker-source"></p></details>
+</div>
+</div>
+<p id="announcement" class="sr-only" aria-live="polite"></p>
+<script data-presentation>
+(() => {
+  const slides = [...document.querySelectorAll('[data-slide]')];
+  const previous = document.getElementById('previous');
+  const next = document.getElementById('next');
+  const video = document.getElementById('demo-video');
+  const videoButton = document.getElementById('video-toggle');
+  const chapters = [...document.querySelectorAll('[data-seek]')];
+  const progress = document.querySelector('.progress-nav');
+  let active = -1;
+  function showSlide(index, focus = false) {
+    const target = Math.max(0, Math.min(slides.length - 1, index));
+    if (target === active) return;
+    if (active >= 0 && slides[active].contains(video)) video.pause();
+    active = target;
+    slides.forEach((slide, i) => { slide.hidden = i !== active; });
+    const slide = slides[active];
+    document.getElementById('current-number').textContent = String(active + 1).padStart(2, '0');
+    document.getElementById('time-slot').textContent = slide.dataset.time;
+    document.getElementById('speaker-copy').textContent = slide.querySelector('.speaker-note').content.textContent;
+    document.getElementById('speaker-source').textContent = slide.dataset.source;
+    document.getElementById('announcement').textContent = `${active + 1} / ${slides.length}、${slide.dataset.title}`;
+    previous.disabled = active === 0; next.disabled = active === slides.length - 1;
+    [...progress.children].forEach((link, i) => {
+      if (i === active) link.setAttribute('aria-current', 'step');
+      else link.removeAttribute('aria-current');
+    });
+    try { history.replaceState(null, '', `#${slide.id}`); } catch { /* file://でも操作を継続する。 */ }
+    if (focus) {
+      slide.querySelector('h1, h2').focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }
+  slides.forEach((slide, index) => {
+    const link = document.createElement('a');
+    link.href = `#${slide.id}`;
+    link.title = `${index + 1}. ${slide.dataset.title}`;
+    link.setAttribute('aria-label', link.title);
+    link.addEventListener('click', event => { event.preventDefault(); showSlide(index, true); });
+    progress.append(link);
+  });
+  function fromHash() {
+    const index = slides.findIndex(slide => `#${slide.id}` === window.location.hash);
+    showSlide(index < 0 ? 0 : index);
+  }
+  previous.addEventListener('click', () => showSlide(active - 1, true));
+  next.addEventListener('click', () => showSlide(active + 1, true));
+  window.addEventListener('hashchange', fromHash);
+  document.querySelector('.brand').addEventListener('click', event => { event.preventDefault(); showSlide(0, true); });
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+      else document.getElementById('announcement').textContent = 'ブラウザの表示メニューから全画面表示を選んでください。';
+    } catch { document.getElementById('announcement').textContent = '全画面表示にできませんでした。ブラウザの表示メニューをご利用ください。'; }
+  }
+  document.getElementById('fullscreen').addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', () => {
+    const label = document.fullscreenElement ? '全画面表示を終了' : '全画面表示';
+    document.getElementById('fullscreen').setAttribute('aria-label', label);
+    document.getElementById('fullscreen').title = `${label}（F）`;
+  });
+  async function playVideo() {
+    try { await video.play(); document.getElementById('video-error').hidden = true; }
+    catch { document.getElementById('video-error').hidden = false; }
+  }
+  videoButton.addEventListener('click', () => { if (video.paused) playVideo(); else video.pause(); });
+  video.addEventListener('play', () => { videoButton.textContent = 'デモを一時停止'; });
+  video.addEventListener('pause', () => { videoButton.textContent = video.ended ? 'もう一度再生' : 'デモを再生'; });
+  video.addEventListener('ended', () => { videoButton.textContent = 'もう一度再生'; });
+  video.addEventListener('error', () => { document.getElementById('video-error').hidden = false; });
+  function highlightChapter() {
+    let selected = 0;
+    chapters.forEach((chapter, index) => { if (video.currentTime >= Number(chapter.dataset.seek)) selected = index; });
+    chapters.forEach((chapter, index) => chapter.setAttribute('aria-current', String(index === selected)));
+  }
+  let pendingSeek = null;
+  chapters.forEach(chapter => chapter.addEventListener('click', () => {
+    const seconds = Number(chapter.dataset.seek);
+    if (video.readyState === 0) { pendingSeek = seconds; video.load(); }
+    else { video.currentTime = seconds; highlightChapter(); }
+  }));
+  video.addEventListener('loadedmetadata', () => {
+    if (pendingSeek !== null) { video.currentTime = pendingSeek; pendingSeek = null; highlightChapter(); }
+  });
+  video.addEventListener('timeupdate', highlightChapter);
+  document.addEventListener('keydown', event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.target.closest?.('button, a, input, textarea, select, video, summary, [contenteditable]')) return;
+    if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') { event.preventDefault(); showSlide(active + 1, true); }
+    else if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); showSlide(active - 1, true); }
+    else if (event.key === 'Home') { event.preventDefault(); showSlide(0, true); }
+    else if (event.key === 'End') { event.preventDefault(); showSlide(slides.length - 1, true); }
+    else if (event.key.toLowerCase() === 'f') { event.preventDefault(); toggleFullscreen(); }
+  });
+  fromHash();
+})();
+</script>
+</body>
+</html>

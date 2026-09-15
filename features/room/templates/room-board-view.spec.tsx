@@ -12,7 +12,12 @@ import { HMW_TEMPLATES } from "@/features/hmw";
 import type { Note } from "@/features/notes";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
-import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
+import {
+  getInitialRoomBoardMounted,
+  RoomBoardView,
+  type RoomBoardViewProps,
+  resolveRoomBoardVoteDialogOpen,
+} from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 
@@ -222,6 +227,24 @@ function clickNote(card: HTMLElement) {
 }
 
 describe("RoomBoardView", () => {
+  describe("決定的描画モード", () => {
+    it("動画モードでは初回描画からマウント済みとして扱う", () => {
+      expect(getInitialRoomBoardMounted("deterministic")).toBe(true);
+      expect(getInitialRoomBoardMounted("interactive")).toBe(false);
+    });
+
+    it("動画モードでは結果ステップのダイアログを初回描画から開く", () => {
+      const resultPhase = buildPhaseStep(5);
+
+      expect(
+        resolveRoomBoardVoteDialogOpen("deterministic", resultPhase, false),
+      ).toBe(true);
+      expect(
+        resolveRoomBoardVoteDialogOpen("interactive", resultPhase, false),
+      ).toBe(false);
+    });
+  });
+
   describe("ファシリテーションガイド", () => {
     it("既定で展開し、同じステップ中は利用者が折り畳める", () => {
       setup();

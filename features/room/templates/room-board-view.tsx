@@ -49,11 +49,15 @@ export type RoomBoardViewProps = {
   phase: RoomPhase;
   timer: TimerState;
   timerServerOffsetMs: number;
+  renderTimeMs?: number;
   isHost: boolean;
   decision: Decision | null;
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
   connectionStatus: RoomScreenConnectionStatus;
+  // Remotionなどの決定的なフレーム描画では、ブラウザのマウント後に
+  // 接続状態を切り替えるハイドレーション待ちを行わない。
+  renderMode?: RoomBoardRenderMode;
   draggingNoteId: string | null;
   members: Member[];
   currentUserId: string;
@@ -110,6 +114,22 @@ export type RoomBoardViewProps = {
   onTimerStop: () => void;
 };
 
+export type RoomBoardRenderMode = "interactive" | "deterministic";
+
+export function getInitialRoomBoardMounted(
+  renderMode: RoomBoardRenderMode,
+): boolean {
+  return renderMode === "deterministic";
+}
+
+export function resolveRoomBoardVoteDialogOpen(
+  renderMode: RoomBoardRenderMode,
+  phase: RoomPhase,
+  state: boolean,
+): boolean {
+  return renderMode === "deterministic" ? isResultStep(phase) : state;
+}
+
 type VoteStickerDrag = {
   stickerId: string | null;
   kind: DotVoteKind;
@@ -134,9 +154,11 @@ export function RoomBoardView({
   phase,
   timer,
   timerServerOffsetMs,
+  renderTimeMs,
   isHost,
   decision,
   connectionStatus,
+  renderMode = "interactive",
   draggingNoteId,
   members,
   currentUserId,
@@ -194,29 +216,42 @@ export function RoomBoardView({
     phaseKey,
     isExpanded: true,
   });
+  const isResult = isResultStep(phase);
+  const isVoting = isVotingStep(phase);
 
-  const [isMounted, setIsMounted] = useState(false);
+  const [isMounted, setIsMounted] = useState(() =>
+    getInitialRoomBoardMounted(renderMode),
+  );
   const isGuideExpanded =
     guideDisplay.phaseKey === phaseKey ? guideDisplay.isExpanded : true;
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
+    if (renderMode === "interactive") {
+      setIsMounted(true);
+    }
+  }, [renderMode]);
 
   useEffect(() => {
-    setVoteTotalingDialogOpen(isResultStep(phase));
-  }, [phase]);
+    if (renderMode === "interactive") {
+      setVoteTotalingDialogOpen(isResult);
+    }
+  }, [isResult, renderMode]);
 
   useEffect(() => {
-    if (isVotingStep(phase)) return;
+    if (isVoting) return;
     voteStickerDragRef.current = null;
     setVoteStickerDrag(null);
     setSelectedVoteKind(null);
     setVoteStampPointer(null);
-  }, [phase]);
+  }, [isVoting]);
 
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
-  const isDisconnected = isMounted ? connectionStatus !== "open" : true;
+  const isDisconnected =
+    renderMode === "deterministic"
+      ? connectionStatus !== "open"
+      : isMounted
+        ? connectionStatus !== "open"
+        : true;
   const permissions = getBoardPermissions(phase);
   const voteRemaining = {
     subjective: Math.max(
@@ -510,6 +545,7 @@ export function RoomBoardView({
       onPointerLeave={() => setVoteStampPointer(null)}
     >
       <RoomBoardHeader
+        renderTimeMs={renderTimeMs}
         hmwDecidedIssue={hmwDecidedIssue}
         decidedHmw={decidedHmw}
         inviteCode={inviteCode}
@@ -652,7 +688,11 @@ export function RoomBoardView({
       ) : null}
 
       <VoteTotalingDialog
-        open={voteTotalingDialogOpen}
+        open={resolveRoomBoardVoteDialogOpen(
+          renderMode,
+          phase,
+          voteTotalingDialogOpen,
+        )}
         onOpenChange={setVoteTotalingDialogOpen}
         isVotingComplete={isResultStep(phase)}
         members={members}

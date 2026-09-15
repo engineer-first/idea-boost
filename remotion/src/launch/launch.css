@@ -1,0 +1,122 @@
+.launch-root {
+  --font-geist-sans: "Launch Geist", "Launch Noto", sans-serif;
+  --font-geist-mono: "Launch Geist", monospace;
+  --background: #151519;
+  --foreground: #f4f3f8;
+  --card: #1c1c23;
+  --card-foreground: #f4f3f8;
+  --popover: #22222a;
+  --popover-foreground: #f4f3f8;
+  --primary: #e6e1fa;
+  --primary-foreground: #18151f;
+  --secondary: #292931;
+  --secondary-foreground: #eae9f0;
+  --muted: #28282f;
+  --muted-foreground: #a5a3b2;
+  --accent: #33333d;
+  --accent-foreground: #f8f6ff;
+  --border: #ffffff24;
+  --input: #ffffff24;
+  --ring: #b5a5f8;
+  --sidebar: #1b1b21;
+  --sidebar-foreground: #f5f4fb;
+  --sidebar-border: #ffffff24;
+  font-family: var(--font-geist-sans);
+  color: #f5f4f9;
+  background: #0e0e12;
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+  width: 1920px;
+  height: 1080px;
+}
+
+.launch-root *,
+.launch-root *::before,
+.launch-root *::after {
+  animation: none;
+  transition: none;
+  caret-color: transparent;
+}
+
+/* 映像では結果パネルをフォーカスカットとして別途描画する。 */
+body:has(.launch-root) > [data-slot="dialog-overlay"],
+body:has(.launch-root) > [data-slot="dialog-content"] {
+  display: none;
+}
+
+.launch-root [data-slot="sticky-note"] {
+  color: #202027;
+}
+
+.launch-root [data-slot="sticky-note"] p,
+.launch-root [data-slot="sticky-note"] textarea {
+  color: #202027;
+}
+
+.launch-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(#c0b7e31c 0.8px, transparent 0.8px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(150deg, transparent 8%, black 70%);
+}
+
+.launch-wordmark {
+  font-family: "Launch Geist", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.launch-eyebrow {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.19em;
+  color: #a9a2bd;
+}
+
+.launch-heading {
+  font-weight: 600;
+  font-size: 76px;
+  letter-spacing: -0.055em;
+  line-height: 1.28;
+  white-space: pre-line;
+  margin: 0;
+}
+
+.launch-glass {
+  border: 1px solid #ffffff26;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #ffffff0b, #ffffff02);
+  box-shadow:
+    0 40px 100px #0008,
+    0 12px 32px #0006,
+    inset 0 1px 0 #ffffff15;
+  backdrop-filter: blur(16px);
+}
+
+.launch-live-board {
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--background);
+  border: 1px solid #ffffff30;
+  box-shadow:
+    0 40px 100px #0009,
+    0 8px 20px #0008;
+}
+
+.launch-hint-panel [role="tabpanel"] ul li:nth-child(5) {
+  background: #b7a0ff1a;
+  border-radius: 4px;
+}
+
+.launch-root [data-testid="idea-value-feasibility-map-plane"] {
+  background: #1a1a22;
+}
+
+.launch-root [data-testid="idea-value-feasibility-map-x-axis-label"],
+.launch-root [data-testid="idea-value-feasibility-map-y-axis-label"] {
+  font-size: 22px;
+  font-weight: 600;
+}
