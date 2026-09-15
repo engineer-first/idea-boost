@@ -7,6 +7,7 @@
 - 公開境界では明示的な型を優先する。
 - コンパイラ、lint、テスト設定を緩めて通そうとしない。
 - コードレビューのコメント、説明、提案、要約は日本語で書く。
+- PR の作成・本文更新では [`write-pr`](.claude/skills/write-pr/SKILL.md) を読む。
 - 振る舞いを変更するときは TDD に従う。
 - テストは Vitest を使う。Worker / Durable Object のテストは
   `@cloudflare/vitest-pool-workers`（`npm run test:workers`）で行う。
