@@ -188,7 +188,7 @@ describe("ステップ説明モーダル", () => {
       within(dialog).getByText("例・やることの優先順位を決められない"),
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByRole("button", { name: "＋ 最初の付箋を書く" }),
+      within(dialog).getByRole("button", { name: "付箋に課題を書く" }),
     ).toBeInTheDocument();
   });
 

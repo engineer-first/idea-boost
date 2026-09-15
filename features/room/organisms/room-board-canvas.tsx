@@ -115,6 +115,7 @@ export type RoomBoardCanvasProps = {
   areCursorsVisible: boolean;
   onToggleCursors: () => void;
   expandPrivateNotesRequest?: number;
+  addPrivateNoteRequest?: number;
 };
 
 export function RoomBoardCanvas({
@@ -168,6 +169,7 @@ export function RoomBoardCanvas({
   areCursorsVisible,
   onToggleCursors,
   expandPrivateNotesRequest = 0,
+  addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? calculateRenderGroups(notes, groups)
@@ -477,6 +479,7 @@ export function RoomBoardCanvas({
               editingDisabled={isResultStep(phase)}
               defaultExpanded={false}
               expandRequest={expandPrivateNotesRequest}
+              addRequest={addPrivateNoteRequest}
               className="pointer-events-auto max-h-full w-60"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}

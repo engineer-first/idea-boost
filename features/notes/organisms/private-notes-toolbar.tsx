@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,7 @@ export type PrivateNotesToolbarProps = {
   canMoveNote: boolean;
   defaultExpanded?: boolean;
   expandRequest?: number;
+  addRequest?: number;
   onSelect: (noteId: string | null) => void;
   onAdd: () => void;
   onContentChange: (noteId: string, content: string) => void;
@@ -46,6 +47,7 @@ export function PrivateNotesToolbar({
   canEditNote,
   defaultExpanded = true,
   expandRequest = 0,
+  addRequest = 0,
   onSelect,
   onAdd,
   onContentChange,
@@ -56,10 +58,16 @@ export function PrivateNotesToolbar({
   const [autoFocusNoteId, setAutoFocusNoteId] = useState<string | null>(null);
   const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
   const noteIdsBeforeAddRef = useRef<Set<string> | null>(null);
+  const lastAddRequestRef = useRef(0);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const orderedNotes = [...notes].sort((a, b) =>
     a.createdAt.localeCompare(b.createdAt),
   );
+  const handleAdd = useCallback(() => {
+    noteIdsBeforeAddRef.current = new Set(notes.map((note) => note.id));
+    setIsExpanded(true);
+    onAdd();
+  }, [notes, onAdd]);
 
   useEffect(() => {
     const noteIdsBeforeAdd = noteIdsBeforeAddRef.current;
@@ -96,11 +104,11 @@ export function PrivateNotesToolbar({
     if (expandRequest > 0) setIsExpanded(true);
   }, [expandRequest]);
 
-  function handleAdd() {
-    noteIdsBeforeAddRef.current = new Set(notes.map((note) => note.id));
-    setIsExpanded(true);
-    onAdd();
-  }
+  useEffect(() => {
+    if (addRequest <= 0 || addRequest === lastAddRequestRef.current) return;
+    lastAddRequestRef.current = addRequest;
+    handleAdd();
+  }, [addRequest, handleAdd]);
 
   return (
     <Card

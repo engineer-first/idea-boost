@@ -224,6 +224,43 @@ describe("PrivateNotesToolbar", () => {
     );
   });
 
+  it("外部からの追加リクエストでも入力欄へフォーカスする", () => {
+    const oldNote = buildNote({ id: "old-note", content: "前の付箋" });
+    const newNote = buildNote({
+      id: "new-note",
+      visibility: "private",
+      content: "",
+      createdAt: "2026-07-03T00:01:00.000Z",
+    });
+    const props = {
+      notes: [oldNote],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+      addRequest: 1,
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={[oldNote, newNote]}
+        selectedNoteId="new-note"
+      />,
+    );
+
+    expect(props.onAdd).toHaveBeenCalledOnce();
+    expect(screen.getAllByRole("textbox")[1]).toHaveFocus();
+  });
+
   it("本文はフォーカスを外した時に保存する", () => {
     const props = {
       notes: [buildNote({ visibility: "private", content: "非公開の考え" })],

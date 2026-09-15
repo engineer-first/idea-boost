@@ -212,7 +212,6 @@ export function RoomBoardView({
       permissions.canCreateNote
     ) {
       setPrivateNotesOpenRequest((request) => request + 1);
-      onAddPrivateNote();
       setGuideDisplay({ phaseKey, isExpanded: false });
       return;
     }
@@ -622,6 +621,7 @@ export function RoomBoardView({
         areCursorsVisible={areCursorsVisible}
         onToggleCursors={onToggleCursors}
         expandPrivateNotesRequest={privateNotesOpenRequest}
+        addPrivateNoteRequest={privateNotesOpenRequest}
       />
 
       {isVotingStep(phase) ? (

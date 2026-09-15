@@ -266,11 +266,16 @@ export function BoardContext({
             <DialogFooter>
               <Button
                 type="button"
+                className={
+                  guide.modalTitle
+                    ? "mx-auto bg-blue-600 text-white hover:bg-blue-700"
+                    : undefined
+                }
                 onClick={onPrimaryAction ?? (() => onExpandedChange(false))}
               >
                 {phase.kind === "step" && phase.step === 1
                   ? phase.phase === 1
-                    ? "＋ 最初の付箋を書く"
+                    ? "付箋に課題を書く"
                     : phase.phase === 2
                       ? "最初の問いを書く"
                       : "最初のアイデアを書く"
