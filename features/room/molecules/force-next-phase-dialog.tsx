@@ -1,6 +1,6 @@
 "use client";
 
-// phase3 の全員投票ゲートで phase:next が拒否された（voting-incomplete）
+// フェーズ1・2の投票ステップの全員投票ゲートで phase:next が拒否された（voting-incomplete）
 // とき、ホストへ「未投票メンバーを待たずに強制的に進むか」を確認する Dialog。
 // 離脱したまま戻らないメンバーが居ても進行を止めないための脱出ハッチ。
 import {
@@ -23,8 +23,8 @@ export type ForceNextPhaseDialogProps = {
 export const FORCE_NEXT_PHASE_COPY = {
   title: "全員の投票が完了していません",
   description:
-    "まだ投票を終えていないメンバーがいます。退出したまま戻らないメンバーがいる場合は、強制的に次のフェーズへ進めます。",
-  confirm: "強制的に進む",
+    "まだ投票を終えていないメンバーがいます。退出したまま戻らないメンバーがいる場合は、強制的に次のステップへ進めます。",
+  confirm: "強制的に次へ進む",
   cancel: "キャンセル",
 } as const;
 

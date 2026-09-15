@@ -7,6 +7,7 @@ import { sessionSecretIssue } from "@/lib/session/secret";
 
 const VALID = "a-sufficiently-long-random-secret-value";
 const KNOWN_LEAKED = "dev-session-secret-change-in-production!!";
+const EXAMPLE_PLACEHOLDER = "local-dev-secret-please-change-me-1234";
 
 describe("sessionSecretIssue", () => {
   it("未設定は missing-or-short", () => {
@@ -33,6 +34,10 @@ describe("sessionSecretIssue", () => {
 
   it("git 履歴に漏れた既知の値は known-insecure", () => {
     expect(sessionSecretIssue(KNOWN_LEAKED)).toBe("known-insecure");
+  });
+
+  it("example の placeholder 値は known-insecure（本番コピー事故防止）", () => {
+    expect(sessionSecretIssue(EXAMPLE_PLACEHOLDER)).toBe("known-insecure");
   });
 
   it("十分な長さで既知漏洩値でなければ null（問題なし）", () => {

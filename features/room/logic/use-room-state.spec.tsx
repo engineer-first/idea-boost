@@ -18,7 +18,12 @@ vi.mock("./room-notify", () => ({
   },
 }));
 
-import { buildMembers } from "@/contracts/room-protocol.fixture";
+import { buildLobbyPhase, buildPhaseStep } from "@/contracts/phase.fixture";
+import {
+  buildCarryover,
+  buildDecision,
+  buildMembers,
+} from "@/contracts/room-protocol.fixture";
 import { useRoomState } from "./use-room-state";
 
 describe("useRoomState", () => {
@@ -29,27 +34,77 @@ describe("useRoomState", () => {
 
   function setup() {
     return renderHook(() =>
-      useRoomState({ initialMembers: [], initialPhase: "lobby" }),
+      useRoomState({ initialMembers: [], initialPhase: buildLobbyPhase() }),
     );
   }
 
   it("snapshot で members / phase / timer を復元する", () => {
     const { result } = setup();
+    const decision = buildDecision();
     act(() =>
       result.current.applyMessage({
         type: "snapshot",
         notes: [],
         members: buildMembers(2),
-        phase: "phase2",
+        phase: buildPhaseStep(2),
         isHost: true,
+        decision,
+        carryovers: [],
         timer: { status: "running", endsAt: 1_000, durationMs: 60_000 },
         serverNow: 500,
       }),
     );
 
     expect(result.current.members).toHaveLength(2);
-    expect(result.current.phase).toBe("phase2");
+    expect(result.current.phase).toEqual(buildPhaseStep(2));
     expect(result.current.timer.status).toBe("running");
+    expect(result.current.decision).toEqual(decision);
+  });
+
+  it("snapshot で carryovers を復元し、phase:updated では維持する", () => {
+    const { result } = setup();
+    const carryover = buildCarryover();
+
+    act(() =>
+      result.current.applyMessage({
+        type: "snapshot",
+        notes: [],
+        members: buildMembers(1),
+        phase: buildPhaseStep(1, 2),
+        isHost: true,
+        decision: null,
+        carryovers: [carryover],
+        timer: { status: "idle" },
+        serverNow: 500,
+      }),
+    );
+    expect(result.current.carryovers).toEqual([carryover]);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(1, 2),
+      }),
+    );
+    expect(result.current.carryovers).toEqual([carryover]);
+  });
+
+  it("decision:updated を反映し、phase:updated で決定をクリアする", () => {
+    const { result } = setup();
+    const decision = buildDecision();
+
+    act(() =>
+      result.current.applyMessage({ type: "decision:updated", ...decision }),
+    );
+    expect(result.current.decision).toEqual(decision);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+      }),
+    );
+    expect(result.current.decision).toBeNull();
   });
 
   it("member_joined で追加し、memberJoined を toast する", () => {

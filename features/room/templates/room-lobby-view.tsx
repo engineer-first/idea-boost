@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Phase } from "@/contracts/room-protocol";
+import { isLobby, type RoomPhase } from "@/contracts/phase";
 // スタート画面（メンバー一覧 + 開始ボタン）のプレゼンテーション層。
 // ホーム画面と同じ shadcn ベースのレイアウト言語（背景・ヘッダー・Card 分割）。
 // WebSocket 接続やプロトコル送信は room-lobby.tsx（コンテナ）の責務。
@@ -30,7 +30,7 @@ export type RoomLobbyViewProps = {
   isHost: boolean;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
-  phase: Phase;
+  phase: RoomPhase;
   inviteCode: string;
   inviteUrl: string;
   // 接続状態は Container 側で生成し、ここでは表示するだけ。
@@ -66,7 +66,9 @@ export function RoomLobbyView({
     <div
       className="relative flex h-full flex-1 items-center justify-center overflow-hidden p-4 sm:p-6"
       data-testid="room-lobby-view"
-      data-phase={phase}
+      data-phase={
+        isLobby(phase) ? "lobby" : `phase${phase.phase}-step${phase.step}`
+      }
       data-host={isHost ? "true" : undefined}
     >
       {/* ホームと同じ背景言語 */}

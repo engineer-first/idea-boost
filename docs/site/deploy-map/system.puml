@@ -1,0 +1,36 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName sans-serif
+
+title Idea Boost 全体構成図
+
+actor "ブラウザ" as users
+
+cloud "インターネット" as internet
+
+rectangle "Cloudflare" as cf #FFF3E0 {
+  component "idea-flow-app\nOpenNext + Assets\nideaboost.dev" as app
+  component "idea-flow-api\nREST + WS 入口\nセッション / 認可" as api
+  database "D1 idea-flow-lobby\nusers / rooms" as d1
+  component "RoomDO x N\n1 room = 1 DO\nmembers / notes / WS" as roomdo
+}
+
+rectangle "外部" as ext #FCE4EC {
+  component "Google OAuth" as oauth
+}
+
+users -down-> app : HTTPS :443\n画面 / REST
+users -down-> app : WSS :443\n/api/rooms/:id/ws
+app -down-> api : service binding\nAPI_WORKER\n(公衆ネット外)
+api -down-> d1 : binding DB
+api -down-> roomdo : binding ROOM_DO\ncreate/join で 1 本起動
+oauth -right-> app : HTTPS :443\n/auth/callback
+
+note right of roomdo
+  ルーム作成・参加時に
+  idFromName(roomId) で
+  Durable Object が 1 本起動。
+  1 ルーム = 1 権威サーバー。
+end note
+
+@enduml

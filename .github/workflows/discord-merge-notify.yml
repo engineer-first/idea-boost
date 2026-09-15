@@ -1,0 +1,60 @@
+name: Discord Merge Notify
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: discord-merge-notify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Notify Discord
+        uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        with:
+          script: |
+            const { buildDiscordPayload } = require("./.github/scripts/discord-merge-notify.js");
+
+            const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+            if (!webhookUrl) {
+              core.warning("DISCORD_WEBHOOK_URL が未設定のため通知をスキップしました");
+              return;
+            }
+
+            const pr = context.payload.pull_request;
+            const payload = buildDiscordPayload({
+              number: pr.number,
+              title: pr.title,
+              url: pr.html_url,
+              author: pr.user.login,
+              baseRef: pr.base.ref,
+              headRef: pr.head.ref,
+              changedFilesCount: pr.changed_files,
+            });
+
+            const response = await fetch(webhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+              core.setFailed(
+                `Discord通知に失敗しました: ${response.status} ${await response.text()}`,
+              );
+            }

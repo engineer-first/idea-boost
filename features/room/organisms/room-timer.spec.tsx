@@ -17,6 +17,27 @@ const handlers = {
 };
 
 describe("RoomTimer", () => {
+  it.each([
+    { status: "idle" } as const,
+    buildRunningTimer(),
+    buildPausedTimer(),
+    buildEndedTimer(),
+  ])("$status の背景は不透明で、文字や面を点滅させない", (timer) => {
+    render(
+      <RoomTimer
+        timer={timer}
+        serverOffsetMs={0}
+        isHost
+        disabled
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+    const chip = screen.getByTestId("room-timer");
+    expect(chip).toHaveClass("bg-muted", "disabled:opacity-100");
+    expect(chip).not.toHaveClass("animate-pulse");
+    expect(screen.getByTestId("room-timer-panel")).toHaveClass("bg-background");
+  });
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(ROOM_TIMER_FIXTURE_NOW);

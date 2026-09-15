@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -91,6 +92,16 @@ describe("scripts/format-changed-files.sh", () => {
 
     expect(result.status).toBe(0);
     expect(readFileSync(file, "utf8")).toBe(original);
+  });
+
+  it("exits 0 when a detected file disappears before formatting", () => {
+    const dir = createScratchDir();
+    const file = join(dir, "disappeared.md");
+    symlinkSync(join(dir, "missing.md"), file);
+
+    const result = runScript();
+
+    expect(result.status).toBe(0);
   });
 
   it("formats a tracked file that was modified after staging", () => {

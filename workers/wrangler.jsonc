@@ -17,7 +17,7 @@
       "database_name": "idea-flow-lobby",
       // ローカル開発・テストでは placeholder のままでよい。
       // デプロイ時は `wrangler d1 create idea-flow-lobby` の ID に置き換える。
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "8e57430c-fd84-4b6d-b9b3-62b4c74ee6dd",
       "migrations_dir": "migrations"
     }
   ]

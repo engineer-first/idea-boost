@@ -30,11 +30,11 @@ PBI、デモゴール、スプリントタスク、バグを作るときは、Gi
 
 ## よく使うリンク
 
-| 用途                                    | URL                                                                                                                                                     |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GitHub Project                          | [idea-flow-app Project](https://github.com/orgs/engineer-first/projects/3)                                                                              |
-| openの実装タスクだけを見る              | [open task issues](https://github.com/engineer-first/idea-flow-app/issues?q=is%3Aissue%20state%3Aopen%20type%3ATask)                                    |
-| PBIとデモゴールを除いたopen Issueを見る | [open issues without PBI/DemoGoal](https://github.com/engineer-first/idea-flow-app/issues?q=is%3Aissue%20state%3Aopen%20-type%3APBI%20-type%3ADemoGoal) |
+| 用途                                    | URL                                                                                                                                                  |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub Project                          | [idea-boost Project](https://github.com/orgs/engineer-first/projects/3)                                                                              |
+| openの実装タスクだけを見る              | [open task issues](https://github.com/engineer-first/idea-boost/issues?q=is%3Aissue%20state%3Aopen%20type%3ATask)                                    |
+| PBIとデモゴールを除いたopen Issueを見る | [open issues without PBI/DemoGoal](https://github.com/engineer-first/idea-boost/issues?q=is%3Aissue%20state%3Aopen%20-type%3APBI%20-type%3ADemoGoal) |
 
 標準のIssues一覧にはPBIやデモゴールも表示されます。実装中の作業を見るときは、上の`openの実装タスクだけを見る`リンクを使います。
 

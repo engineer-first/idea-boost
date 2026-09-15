@@ -16,9 +16,9 @@
 // ハイバネーションでインメモリ状態は消える（次のイベントで constructor が再実行
 // される）ため、状態は毎回 SQL から導出し、各モジュールにキャッシュを持たせない。
 import { DurableObject } from "cloudflare:workers";
+import type { RoomPhase } from "../../contracts/phase";
 import {
   type ClientMessage,
-  type Phase,
   type ProtocolMember,
   parseClientMessage,
   type TimerState,
@@ -32,8 +32,10 @@ import {
   migrateRoomStorage,
   ROOM_DO_MIGRATIONS,
 } from "../room-do-migrations";
-import { filterVisible } from "../visibility";
+import { filterVisible, projectNoteForViewer } from "../visibility";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
+import { decisionHandlers } from "./decision-handlers";
+import { getCarryovers, getDecision } from "./decisions";
 import { groupHandlers, listVisibleGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import {
@@ -47,12 +49,18 @@ import {
 } from "./members";
 import { noteHandlers } from "./note-handlers";
 import { listNotes } from "./notes";
-import { getPhase, isBoardMutation, phaseHandlers, savePhase } from "./phase";
+import {
+  getBoardMutationForbiddenMessage,
+  getPhase,
+  phaseHandlers,
+  savePhase,
+} from "./phase";
+import { presenceHandlers } from "./presence";
 import { getTimerState, timerHandlers } from "./timer";
 
 // api-worker がセッション検証済みのユーザーIDを DO へ引き継ぐヘッダー。
 // DO は外部から直接到達できないため、これは常に api-worker が設定する。
-export const USER_ID_HEADER = "X-Idea-Flow-User-Id";
+export const USER_ID_HEADER = "X-Idea-Boost-User-Id";
 
 // ルーム作成者のユーザーID。api-worker が D1 rooms.host_id を解決してセットする。
 // 認可判定（isHostUser）はこのヘッダーを参照せず、常に room_owner だけを見る。
@@ -60,16 +68,32 @@ export const USER_ID_HEADER = "X-Idea-Flow-User-Id";
 // 追加した DO migration は D1 に到達できないため host_id を埋められず、
 // それ以前に作られた旧ルームは WS 接続時にこの値でバックフィルしないと
 // ホスト不在（誰もフェーズを進められない）のまま固定される。
-export const HOST_ID_HEADER = "X-Idea-Flow-Host-Id";
+export const HOST_ID_HEADER = "X-Idea-Boost-Host-Id";
 
 // 全 ClientMessage を網羅するハンドラ表。メッセージ型を追加すると、
 // ここでキー漏れがコンパイルエラーになる（旧 switch の never 網羅性チェック相当）。
 const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...noteHandlers,
+  ...decisionHandlers,
   ...groupHandlers,
   ...phaseHandlers,
   ...timerHandlers,
+  ...presenceHandlers,
 };
+
+function voteOperationIdOf(message: ClientMessage): string | undefined {
+  switch (message.type) {
+    case "note:vote":
+    case "note:vote-reset":
+    case "note:vote-remove":
+    case "note:vote-sticker:add":
+    case "note:vote-sticker:move":
+    case "note:vote-sticker:remove":
+      return message.operationId;
+    default:
+      return undefined;
+  }
+}
 
 export class RoomDO extends DurableObject {
   private readonly broadcaster: RoomBroadcaster;
@@ -113,7 +137,7 @@ export class RoomDO extends DurableObject {
     // room_owner は api-worker が D1 rooms.host_id から渡した値だけで初期化する。
     // 以後も WS 接続時の ensureHost 以外に独立して書き換える経路を持たない。
     ensureHost(this.sql, hostId);
-    savePhase(this.sql, "lobby");
+    savePhase(this.sql, { kind: "lobby" });
   }
 
   isMember(userId: string): boolean {
@@ -162,7 +186,7 @@ export class RoomDO extends DurableObject {
     return listMembers(this.sql);
   }
 
-  getPhase(): Phase {
+  getPhase(): RoomPhase {
     return getPhase(this.sql);
   }
 
@@ -170,10 +194,10 @@ export class RoomDO extends DurableObject {
     return getTimerState(this.sql);
   }
 
-  // テスト用途限定の RPC。phase 順序や phase3 の投票ゲートを通らず任意の
+  // テスト用途限定の RPC。phase 順序や Step 1-4 の投票ゲートを通らず任意の
   // フェーズへ移動できるため、api-worker のエンドポイントなどクライアント
   // 到達経路には載せない（載せるとゲートが無言で無効化される）。
-  async setPhase(phase: Phase, byUserId: string): Promise<void> {
+  async setPhase(phase: RoomPhase, byUserId: string): Promise<void> {
     if (!isHostUser(this.sql, byUserId)) {
       throw new Error("進行状態を変更する権限がありません。");
     }
@@ -238,12 +262,28 @@ export class RoomDO extends DurableObject {
   }
 
   override async webSocketClose(
-    _ws: WebSocket,
+    ws: WebSocket,
     _code: number,
     _reason: string,
     _wasClean: boolean,
   ): Promise<void> {
-    // 退室の正式経路は leave RPC。切断時の自動 member_left はプレゼンス導入時に検討。
+    // メンバーシップ自体は REST leave まで維持するが、一時カーソルと
+    // 付箋の移動者表示は切断時に消す。
+    const attachment = ws.deserializeAttachment() as SocketAttachment | null;
+    if (attachment?.hasCursor || attachment?.activeDragNoteId) {
+      ws.serializeAttachment({
+        ...attachment,
+        hasCursor: false,
+        activeDragNoteId: undefined,
+      } satisfies SocketAttachment);
+      if (this.broadcaster.hasOtherPresenceForUser(attachment.userId, ws)) {
+        return;
+      }
+      this.broadcaster.broadcastToAllExcept(
+        { type: "cursor:left", userId: attachment.userId },
+        attachment.userId,
+      );
+    }
   }
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
@@ -259,19 +299,18 @@ export class RoomDO extends DurableObject {
     attachment: SocketAttachment,
     message: ClientMessage,
   ): Promise<void> {
-    const ctx = this.createHandlerCtx(ws, attachment.userId);
-    // lobby はボード開始前、phase4 は投票結果を確認しながら話し合う工程。
-    // どちらも「ボードを変更してよい工程」ではないため、WebSocket を直接
-    // 送られても状態が変わらないよう、変更系メッセージを境界で一元的に拒否する。
+    const ctx = this.createHandlerCtx(
+      ws,
+      attachment.userId,
+      voteOperationIdOf(message),
+    );
     const phase = getPhase(this.sql);
-    if ((phase === "lobby" || phase === "phase4") && isBoardMutation(message)) {
+    const forbiddenMessage = getBoardMutationForbiddenMessage(phase, message);
+    if (forbiddenMessage) {
       ctx.reply({
         type: "error",
         code: "forbidden",
-        message:
-          phase === "lobby"
-            ? "ボード開始前はボードを変更できません。"
-            : "投票結果の確認中はボードを変更できません。",
+        message: forbiddenMessage,
       });
       return;
     }
@@ -285,26 +324,68 @@ export class RoomDO extends DurableObject {
     await handler(ctx, message);
   }
 
-  private createHandlerCtx(ws: WebSocket, userId: string): HandlerCtx {
+  private createHandlerCtx(
+    ws: WebSocket,
+    userId: string,
+    voteOperationId?: string,
+  ): HandlerCtx {
     return {
       sql: this.sql,
       storage: this.ctx.storage,
       userId,
       ws,
-      reply: (message) => this.broadcaster.sendTo(ws, message),
+      reply: (message) =>
+        this.broadcaster.sendTo(
+          ws,
+          message.type === "error" && voteOperationId !== undefined
+            ? { ...message, operationId: voteOperationId }
+            : message,
+        ),
+      voteOperationId,
       broadcaster: this.broadcaster,
+      refreshSnapshots: () => this.refreshSnapshots(),
     };
+  }
+
+  // 結果ステップへ進んだ既存接続も、再接続時と同じ受信者別 snapshot で
+  // ノートの射影を更新する。添付情報がないソケットは有効な Room 接続ではない
+  // ためスキップする。
+  private refreshSnapshots(): void {
+    for (const socket of this.ctx.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (!attachment) continue;
+      this.sendSnapshot(socket, attachment.userId);
+    }
   }
 
   // 接続直後に現在状態を丸ごと届ける（再接続の復帰パスも兼ねる）。
   private sendSnapshot(ws: WebSocket, userId: string): void {
+    const phase = getPhase(this.sql);
+    const notes = filterVisible(
+      { viewerId: userId },
+      listNotes(
+        this.sql,
+        userId,
+        phase.kind === "step" ? phase.phase : undefined,
+      ),
+    ).map((note) => projectNoteForViewer({ viewerId: userId, phase }, note));
+
     this.broadcaster.sendTo(ws, {
       type: "snapshot",
-      notes: filterVisible({ viewerId: userId }, listNotes(this.sql, userId)),
-      groups: listVisibleGroups(this.sql, userId),
+      notes,
+      // フェーズ2では既存のフェーズ1グループも表示しない。
+      groups:
+        phase.kind === "step" && phase.phase === 2
+          ? []
+          : listVisibleGroups(this.sql, userId),
       members: listMembers(this.sql),
-      phase: getPhase(this.sql),
+      phase,
       isHost: isHostUser(this.sql, userId),
+      decision:
+        phase.kind === "step" ? getDecision(this.sql, phase.phase) : null,
+      carryovers:
+        phase.kind === "step" ? getCarryovers(this.sql, phase.phase) : [],
       timer: getTimerState(this.sql),
       serverNow: Date.now(),
     });

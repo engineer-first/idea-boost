@@ -154,6 +154,39 @@ describe("createRoomClient", () => {
     client.close();
   });
 
+  it("名前付きカーソルを受信し、再接続時に古い位置を再送しない", () => {
+    const received: unknown[] = [];
+    const client = createRoomClient({
+      url: "ws://test",
+      onMessage: (message) => received.push(message),
+      webSocketFactory: factory,
+    });
+    latestSocket().simulateOpen();
+    client.send({ type: "cursor:update", x: 10, y: 20 });
+    latestSocket().simulateMessage(
+      JSON.stringify({
+        type: "cursor:updated",
+        cursor: {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 30,
+          y: 40,
+          draggingNoteId: null,
+        },
+      }),
+    );
+    expect(received).toEqual([
+      expect.objectContaining({ type: "cursor:updated" }),
+    ]);
+
+    latestSocket().simulateUnexpectedClose();
+    vi.advanceTimersByTime(1_000);
+    latestSocket().simulateOpen();
+    expect(latestSocket().sent).toEqual([]);
+    client.close();
+  });
+
   it("スキーマに合わない受信データはコールバックに渡さない", () => {
     const received: unknown[] = [];
     const client = createRoomClient({

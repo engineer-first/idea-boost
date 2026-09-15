@@ -25,6 +25,7 @@ vi.mock("./room-notify", () => ({
   },
 }));
 
+import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { ServerMessage } from "@/contracts/room-protocol";
 import { useRoomConnection } from "./use-room-connection";
 
@@ -142,13 +143,13 @@ describe("useRoomConnection", () => {
     act(() =>
       lastSocket().simulateServerMessage({
         type: "phase:updated",
-        phase: "phase2",
+        phase: buildPhaseStep(2),
       }),
     );
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledWith({
       type: "phase:updated",
-      phase: "phase2",
+      phase: buildPhaseStep(2),
     });
   });
 

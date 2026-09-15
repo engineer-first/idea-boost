@@ -16,4 +16,18 @@ describe("StickyNote", () => {
       backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
     });
   });
+
+  it("isDecided の付箋を強調する", () => {
+    render(
+      <StickyNote noteId="note-1" isDecided testId="sticky-note">
+        本文
+      </StickyNote>,
+    );
+
+    expect(screen.getByTestId("sticky-note")).toHaveAttribute(
+      "data-decided",
+      "true",
+    );
+    expect(screen.getByTestId("sticky-note")).toHaveClass("ring-2");
+  });
 });

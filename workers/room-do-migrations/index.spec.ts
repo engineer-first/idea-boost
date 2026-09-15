@@ -13,12 +13,17 @@ import { appliedMigrationIds, dropAllTables, tableNames } from "./test-helpers";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 
+const NORMALIZE_PHASE_MIGRATION_ID = "20260715042808";
+const VOTE_STICKERS_MIGRATION_ID = "20260909044704";
+
 const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 
 const ALL_TABLES = [
+  "decisions",
   "groups",
   "member_color_assignments",
   "members",
+  "note_vote_stickers",
   "note_votes",
   "notes",
   "room_owner",
@@ -90,6 +95,60 @@ describe("ROOM_DO_MIGRATIONS", () => {
         LEGACY_ROOM_DO_MIGRATION_IDS,
       );
       expect(appliedMigrationIds(state.storage)).toEqual(ALL_MIGRATION_IDS);
+    });
+  });
+
+  it("集約済みの旧票を個別シールへ展開し、二重集計を残さない", async () => {
+    await runInRoomDO("mig-vote-stickers", (_instance, state) => {
+      dropAllTables(state.storage);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.filter(({ id }) => id < VOTE_STICKERS_MIGRATION_ID),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO note_votes (note_id, user_id, kind, created_at, vote_count)
+         VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ?1, 'objective', ?2, 3)`,
+        USER_A,
+        "2026-09-09T00:00:00.000Z",
+      );
+      state.storage.sql.exec(
+        `INSERT INTO note_votes (note_id, user_id, kind, created_at, vote_count)
+         VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', ?1, 'subjective', ?2, 0)`,
+        USER_A,
+        "2026-09-09T00:00:00.000Z",
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      const stickers = state.storage.sql
+        .exec(
+          "SELECT kind, x, y FROM note_vote_stickers WHERE note_id = ?1 ORDER BY x",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        )
+        .toArray();
+      expect(stickers).toHaveLength(3);
+      expect(stickers).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: "objective", y: 0.16 }),
+        ]),
+      );
+      expect(
+        state.storage.sql
+          .exec(
+            "SELECT id FROM note_vote_stickers WHERE note_id = ?1",
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          )
+          .toArray(),
+      ).toEqual([]);
+      expect(
+        state.storage.sql.exec("SELECT COUNT(*) AS count FROM note_votes").one()
+          .count,
+      ).toBe(0);
     });
   });
 
@@ -171,14 +230,55 @@ describe("ROOM_DO_MIGRATIONS", () => {
           .toArray(),
       ).toEqual([{ user_id: USER_A, color: "yellow" }]);
 
-      // room_state 既定は phase1（新規ルームは initializeNewRoom で lobby へ）
+      // room_state の旧既定 phase1 は正規化 migration で phase1-step1 になる
+      // （新規ルームは initializeNewRoom で lobby へ）
       const stateRows = state.storage.sql
         .exec("SELECT phase FROM room_state")
         .toArray();
-      expect(stateRows).toEqual([{ phase: "phase1" }]);
+      expect(stateRows).toEqual([{ phase: "phase1-step1" }]);
 
       expect(tableNames(state.storage)).toContain("room_owner");
       expect(tableNames(state.storage)).toContain("note_votes");
+    });
+  });
+
+  // 旧4フェーズ制（書く/共有/投票/集計）は現在のフェーズ1の5ステップ制へ
+  // 再編された（グループ化 = step 3 が新設）。旧値を decode 時に読み替える
+  // のではなく、保存形式そのものをここで一度に正規化する。
+  it.each([
+    ["writing", "phase1-step1"],
+    ["phase1", "phase1-step1"],
+    ["phase2", "phase1-step2"],
+    ["phase3", "phase1-step4"],
+    ["phase4", "phase1-step5"],
+    ["lobby", "lobby"],
+    ["phase2-step3", "phase2-step3"],
+  ])("旧フラット形式の phase=%s を %s へ正規化する", async (raw, expected) => {
+    await runInRoomDO(`mig-phase-normalize-${raw}`, (_instance, state) => {
+      dropAllTables(state.storage);
+      const normalizeIndex = ROOM_DO_MIGRATIONS.findIndex(
+        (m) => m.id === NORMALIZE_PHASE_MIGRATION_ID,
+      );
+      expect(normalizeIndex).toBeGreaterThanOrEqual(0);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.slice(0, normalizeIndex),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        "UPDATE room_state SET phase = ?1 WHERE id = 1",
+        raw,
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      expect(
+        state.storage.sql.exec("SELECT phase FROM room_state").toArray(),
+      ).toEqual([{ phase: expected }]);
     });
   });
 

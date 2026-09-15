@@ -28,7 +28,8 @@
   Storybook 専用ドキュメント部品。
 - `contracts/` — 境界スキーマ（zod）。WS プロトコル・REST・セッション・ボード定数。
   クライアントとサーバーの両方がここを import する。実装より先にここを変える。
-  `*.fixture.ts` はスキーマ準拠のテストデータビルダー（テスト専用）。
+  `*.fixture.ts` はスキーマ準拠のテストデータビルダー
+  （テスト・stories 専用。本番コードからは import しない）。
 - `workers/` — Cloudflare Workers 側。`api-worker.ts`（D1 + RoomDO への唯一の入口）、
   `room/`（1ルーム = 1 Durable Object の権威サーバー。`room-do.ts` が
   エントリポイントの façade で、ドメインロジックは同ディレクトリの

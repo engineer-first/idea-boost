@@ -1,15 +1,17 @@
 # 境界ルール: feature 間の依存は一方向のみ。循環を作らない。
 #
 # 許可されている feature 間エッジ（これが全て）:
-#   room → notes / dot-vote / vote-totaling / room-members / invite
+#   room → notes / dot-vote / vote-totaling / room-members / invite / hmw
+#          / idea-support
 #   notes → dot-vote / room-members
 #
 # それ以外の feature（dot-vote / vote-totaling / room-members / invite /
-# room-lifecycle / auth）は他の feature を import しない「葉」。
+# room-lifecycle / auth / hmw / idea-support）は他の feature を import
+# しない「葉」。
 # 新しいエッジが必要になったら、循環にならないことを確認した上で
 # このルールを更新する（= 依存の追加をレビュー可能な明示的変更にする）。
 #
-# 登録済み 8 feature は下記の per-feature / leaf 規則で守られる。未登録の
+# 登録済み 10 feature は下記の per-feature / leaf 規則で守られる。未登録の
 # 新 feature を fail-closed にするため、末尾に既定拒否ルール
 # （unregistered-feature-must-not-import-features）を置く: 未登録 feature が
 # feature import（裸の自 feature alias @/features/<self> を含む）を行うと
@@ -26,6 +28,8 @@ files:
   - features/invite/**
   - features/room-lifecycle/**
   - features/auth/**
+  - features/hmw/**
+  - features/idea-support/**
 message: この feature は他の feature に依存しない設計（葉 feature）
 note: |
   共有したい部品・型は contracts / lib / 依存されている側の feature の
@@ -49,6 +53,8 @@ files:
   - features/invite/**
   - features/room-lifecycle/**
   - features/auth/**
+  - features/hmw/**
+  - features/idea-support/**
 message: この feature は他の feature に依存しない設計（葉 feature）
 note: |
   共有したい部品・型は contracts / lib / 依存されている側の feature の
@@ -62,43 +68,54 @@ rule:
     field: source
     regex: "[.@]/features/"
 ---
-# room が依存してよいのは notes / dot-vote / vote-totaling / room-members / invite のみ。
+# room が依存してよいのは notes / dot-vote / vote-totaling / room-members /
+# invite / hmw / idea-support のみ。
 # room-lifecycle・auth への依存（および自 feature への alias import）は禁止。
 id: room-feature-allowed-edges
 language: typescript
 severity: error
 files:
   - features/room/**
-message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite のみ
+message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support のみ
 note: |
   room → room-lifecycle を許すと、room-lifecycle が room の状態（reducer 等）を
   使った時点で循環する。ルーム内で必要なロジックは features/room に置く。
   自 feature 内は相対 import（"./xxx"）を使う。
+  denylist（room・room-lifecycle・auth のみ拒否）だと将来の未登録 feature
+  への依存が素通りするため、許可済み 7 feature 以外を拒否する allowlist で書く。
 rule:
   any:
     - kind: import_statement
     - kind: export_statement
   has:
     field: source
-    regex: "[.@]/features/(room|room-lifecycle|auth)[\"'/]"
+    all:
+      - regex: "[.@]/features/"
+      - not:
+          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support)[\"'/]"
 ---
 id: room-feature-allowed-edges-tsx
 language: tsx
 severity: error
 files:
   - features/room/**
-message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite のみ
+message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support のみ
 note: |
   room → room-lifecycle を許すと、room-lifecycle が room の状態（reducer 等）を
   使った時点で循環する。ルーム内で必要なロジックは features/room に置く。
   自 feature 内は相対 import（"./xxx"）を使う。
+  denylist（room・room-lifecycle・auth のみ拒否）だと将来の未登録 feature
+  への依存が素通りするため、許可済み 7 feature 以外を拒否する allowlist で書く。
 rule:
   any:
     - kind: import_statement
     - kind: export_statement
   has:
     field: source
-    regex: "[.@]/features/(room|room-lifecycle|auth)[\"'/]"
+    all:
+      - regex: "[.@]/features/"
+      - not:
+          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support)[\"'/]"
 ---
 # notes が依存してよいのは dot-vote / room-members のみ。
 # room への依存は禁止（room → notes のエッジと循環する）。
@@ -112,13 +129,18 @@ note: |
   notes → room を許すと room → notes と循環する。接続・フェーズ進行・
   ボード画面の配線はオーケストレーターである room 側に置き、notes は
   「付箋そのもの」に閉じる。自 feature 内は相対 import（"./xxx"）を使う。
+  denylist（列挙した他 feature のみ拒否）だと将来の未登録 feature への依存が
+  素通りするため、許可済み 2 feature 以外を拒否する allowlist で書く。
 rule:
   any:
     - kind: import_statement
     - kind: export_statement
   has:
     field: source
-    regex: "[.@]/features/(notes|room|vote-totaling|invite|room-lifecycle|auth)[\"'/]"
+    all:
+      - regex: "[.@]/features/"
+      - not:
+          regex: "[.@]/features/(dot-vote|room-members)[\"'/]"
 ---
 id: notes-feature-allowed-edges-tsx
 language: tsx
@@ -130,13 +152,18 @@ note: |
   notes → room を許すと room → notes と循環する。接続・フェーズ進行・
   ボード画面の配線はオーケストレーターである room 側に置き、notes は
   「付箋そのもの」に閉じる。自 feature 内は相対 import（"./xxx"）を使う。
+  denylist（列挙した他 feature のみ拒否）だと将来の未登録 feature への依存が
+  素通りするため、許可済み 2 feature 以外を拒否する allowlist で書く。
 rule:
   any:
     - kind: import_statement
     - kind: export_statement
   has:
     field: source
-    regex: "[.@]/features/(notes|room|vote-totaling|invite|room-lifecycle|auth)[\"'/]"
+    all:
+      - regex: "[.@]/features/"
+      - not:
+          regex: "[.@]/features/(dot-vote|room-members)[\"'/]"
 ---
 # feature 内の構成は「ルート（index.ts）+ 5 箱（containers/ templates/
 # organisms/ molecules/ logic/）の 1 段」まで。
@@ -272,6 +299,8 @@ ignores:
   - "features/invite/**"
   - "features/room-lifecycle/**"
   - "features/auth/**"
+  - "features/hmw/**"
+  - "features/idea-support/**"
 message: 未登録の feature は feature を import できない。先に feature-dependencies-one-way.yml に登録する
 note: |
   新 feature の依存はまずこのファイルに明示する（葉なら leaf 規則の files に
@@ -298,6 +327,8 @@ ignores:
   - "features/invite/**"
   - "features/room-lifecycle/**"
   - "features/auth/**"
+  - "features/hmw/**"
+  - "features/idea-support/**"
 message: 未登録の feature は feature を import できない。先に feature-dependencies-one-way.yml に登録する
 note: |
   新 feature の依存はまずこのファイルに明示する（葉なら leaf 規則の files に

@@ -1,6 +1,12 @@
 // 共通ヘッダーのプレゼンテーション層テスト。
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const navigationMocks = vi.hoisted(() => ({ pathname: "/home" }));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigationMocks.pathname,
+}));
 
 vi.mock("@/features/auth", () => ({
   signOut: vi.fn(),
@@ -9,15 +15,19 @@ vi.mock("@/features/auth", () => ({
 import { AppHeader } from "@/app/app-header";
 
 describe("AppHeader", () => {
+  beforeEach(() => {
+    navigationMocks.pathname = "/home";
+  });
+
   it("data-testid=app-header で描画される", () => {
     render(<AppHeader userName="田中太郎" />);
     expect(screen.getByTestId("app-header")).toBeInTheDocument();
   });
 
-  it("左に IdeaFlow を表示する", () => {
+  it("左に Idea Boost を表示する", () => {
     render(<AppHeader userName="田中太郎" />);
     expect(screen.getByTestId("app-header-brand")).toHaveTextContent(
-      "IdeaFlow",
+      "Idea Boost",
     );
   });
 
@@ -41,5 +51,22 @@ describe("AppHeader", () => {
     expect(
       screen.queryByTestId("app-header-user-name"),
     ).not.toBeInTheDocument();
+  });
+
+  it("進行中のルームボードでは共通ヘッダーを表示しない", () => {
+    navigationMocks.pathname = "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+    render(<AppHeader userName="田中太郎" />);
+
+    expect(screen.queryByTestId("app-header")).not.toBeInTheDocument();
+  });
+
+  it("スプリント開始前のロビーでは共通ヘッダーを表示する", () => {
+    navigationMocks.pathname =
+      "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/start";
+
+    render(<AppHeader userName="田中太郎" />);
+
+    expect(screen.getByTestId("app-header")).toBeInTheDocument();
   });
 });

@@ -4,7 +4,9 @@ import {
   RoomMembersResponseSchema,
 } from "@/contracts/api";
 import { isUuid } from "@/contracts/ids";
+import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
+import { signOut } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomBoard } from "@/features/room";
 import { apiFetch } from "@/lib/api-client";
@@ -42,8 +44,8 @@ export default async function RoomPage({ params }: RoomPageProps) {
   }
 
   // lobby 状態なら付箋画面に直行させず、スタート画面へ誘導する。
-  // phase1-3 のボード工程と phase4 の投票結果は直接開く。
-  if (parsed.data.phase === "lobby") {
+  // 課題整理の全ステップはボードを直接開く。
+  if (isLobby(parsed.data.phase)) {
     redirect(`/rooms/${parsed.data.roomId}/start`);
   }
 
@@ -71,7 +73,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
   // 強制的に再マウントする。これがないと notes state（や draggingNoteId）が
   // 旧ルームの値を保持し、新ルームの snapshot が届くまで旧データが表示される。
   return (
-    <main className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4">
+    <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-hidden">
         <RoomBoard
           key={parsed.data.roomId}
@@ -83,6 +85,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
           hostUserId={parsed.data.hostUserId}
           initialMembers={initialMembers}
           initialPhase={parsed.data.phase}
+          signOutAction={signOut}
         />
       </div>
     </main>

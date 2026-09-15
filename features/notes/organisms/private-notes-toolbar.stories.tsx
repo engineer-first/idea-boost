@@ -20,6 +20,10 @@ const meta = {
     ],
     disabled: false,
     selectedNoteId: null,
+    canDeleteNote: true,
+    canCreateNote: true,
+    canMoveNote: true,
+    canEditNote: true,
     onSelect: fn(),
     onAdd: fn(),
     onContentChange: fn(),
@@ -33,10 +37,18 @@ type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {};
 
+export const Collapsed: Story = {
+  args: { defaultExpanded: false },
+};
+
 export const Empty: Story = {
   args: { notes: [] },
 };
 
 export const Disconnected: Story = {
   args: { disabled: true },
+};
+
+export const ResultStep: Story = {
+  args: { editingDisabled: true },
 };

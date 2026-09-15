@@ -4,11 +4,31 @@
 // （かつて contracts/grouping.spec.ts が components の fixture に依存していた）を防ぐ。
 // 本番コードからは import しない（テスト・カタログ専用）。
 import type {
+  Carryover,
+  Decision,
   NoteColor,
   ProtocolGroup,
   ProtocolMember,
   ProtocolNote,
 } from "./room-protocol";
+
+export function buildDecision(overrides: Partial<Decision> = {}): Decision {
+  return {
+    phase: 1,
+    noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    decidedBy: "11111111-1111-4111-8111-111111111111",
+    ...overrides,
+  };
+}
+
+export function buildCarryover(overrides: Partial<Carryover> = {}): Carryover {
+  return {
+    phase: 1,
+    noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    content: "宿題を後回しにしてしまう",
+    ...overrides,
+  };
+}
 
 export function buildNote(overrides: Partial<ProtocolNote> = {}): ProtocolNote {
   return {
@@ -25,6 +45,7 @@ export function buildNote(overrides: Partial<ProtocolNote> = {}): ProtocolNote {
       subjective: { count: 0, votedByMe: false, ownCount: 0 },
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
+    dotVoteStickers: [],
     ...overrides,
   };
 }

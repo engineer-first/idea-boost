@@ -16,8 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "IdeaFlow",
-  description: "IdeaFlow authentication",
+  applicationName: "Idea Boost",
+  title: "Idea Boost",
+  description: "Idea Boost authentication",
 };
 
 export default async function RootLayout({

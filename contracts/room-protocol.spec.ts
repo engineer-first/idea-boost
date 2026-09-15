@@ -4,21 +4,27 @@
 // - parseClientMessage / parseServerMessage のラッパが「不正入力で null」
 //   を返すことを保証する（接続維持の挙動は workers/room-protocol.spec.ts）
 import { describe, expect, it } from "vitest";
+import { buildLobbyPhase, buildPhaseStep } from "./phase.fixture";
 import {
   ClientMessageSchema,
+  DecisionSchema,
   MemberSchema,
   NOTE_COLOR_PALETTE,
   NoteColorSchema,
   NoteSchema,
-  PhaseSchema,
   parseClientMessage,
   parseServerMessage,
   ServerMessageSchema,
   TimerStateSchema,
 } from "./room-protocol";
+import { buildDecision } from "./room-protocol.fixture";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
+const LOBBY = buildLobbyPhase();
+const STEP_1_1 = buildPhaseStep(1);
+const STEP_1_2 = buildPhaseStep(2);
+const STEP_1_5 = buildPhaseStep(5);
 
 describe("NoteColorSchema", () => {
   it("固定20色のパレットを受け入れ、重複を持たない", () => {
@@ -31,25 +37,6 @@ describe("NoteColorSchema", () => {
 
   it("パレット外の色は拒否する", () => {
     expect(NoteColorSchema.safeParse("black").success).toBe(false);
-  });
-});
-
-describe("PhaseSchema", () => {
-  it("lobby と phase1-4 を受け入れる", () => {
-    expect(PhaseSchema.parse("lobby")).toBe("lobby");
-    expect(PhaseSchema.parse("phase1")).toBe("phase1");
-    expect(PhaseSchema.parse("phase2")).toBe("phase2");
-    expect(PhaseSchema.parse("phase3")).toBe("phase3");
-    expect(PhaseSchema.parse("phase4")).toBe("phase4");
-  });
-
-  it("旧 writing は拒否する（互換は RoomDO getPhase 側）", () => {
-    expect(PhaseSchema.safeParse("writing").success).toBe(false);
-  });
-
-  it("未知のフェーズは拒否する", () => {
-    expect(PhaseSchema.safeParse("review").success).toBe(false);
-    expect(PhaseSchema.safeParse("").success).toBe(false);
   });
 });
 
@@ -133,6 +120,23 @@ describe("MemberSchema", () => {
   });
 });
 
+describe("DecisionSchema", () => {
+  it("Decision fixtureを受け入れ、上書きした値を反映する", () => {
+    const decision = buildDecision({ phase: 2, decidedBy: USER_B });
+
+    expect(DecisionSchema.parse(decision)).toEqual(decision);
+  });
+
+  it("範囲外のフェーズを拒否する", () => {
+    expect(
+      DecisionSchema.safeParse({
+        ...buildDecision(),
+        phase: 4,
+      }).success,
+    ).toBe(false);
+  });
+});
+
 describe("NoteSchema", () => {
   const note = {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -158,16 +162,31 @@ describe("NoteSchema", () => {
   it("visibility が無い付箋は拒否する", () => {
     expect(NoteSchema.safeParse(note).success).toBe(false);
   });
+
+  it("投票集計が未公開の付箋は count なしでも受け入れる", () => {
+    const result = NoteSchema.safeParse({
+      ...note,
+      visibility: "shared",
+      dotVotes: {
+        subjective: { votedByMe: true, ownCount: 1 },
+        objective: { votedByMe: false, ownCount: 0 },
+      },
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("ServerMessageSchema", () => {
-  it("snapshot は notes / members / phase / isHost を必須にする", () => {
+  it("snapshot は notes / members / phase / isHost / decision / carryovers を必須にする", () => {
     const parsed = ServerMessageSchema.parse({
       type: "snapshot",
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
-      phase: "lobby",
+      phase: LOBBY,
       isHost: true,
+      decision: null,
+      carryovers: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -175,8 +194,10 @@ describe("ServerMessageSchema", () => {
       type: "snapshot",
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
-      phase: "lobby",
+      phase: LOBBY,
       isHost: true,
+      decision: null,
+      carryovers: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -186,7 +207,21 @@ describe("ServerMessageSchema", () => {
     const result = ServerMessageSchema.safeParse({
       type: "snapshot",
       notes: [],
-      phase: "lobby",
+      phase: LOBBY,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("snapshot に carryovers フィールドが無いと拒否する", () => {
+    const result = ServerMessageSchema.safeParse({
+      type: "snapshot",
+      notes: [],
+      members: [],
+      phase: LOBBY,
+      isHost: false,
+      decision: null,
+      timer: { status: "idle" },
+      serverNow: 1_700_000_000_000,
     });
     expect(result.success).toBe(false);
   });
@@ -206,9 +241,38 @@ describe("ServerMessageSchema", () => {
       type: "snapshot",
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
-      phase: "lobby",
+      phase: LOBBY,
     });
     expect(result.success).toBe(false);
+  });
+
+  it("snapshot に decision フィールドが無いと拒否する", () => {
+    const result = ServerMessageSchema.safeParse({
+      type: "snapshot",
+      notes: [],
+      members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
+      phase: LOBBY,
+      isHost: true,
+      timer: { status: "idle" },
+      serverNow: 1_700_000_000_000,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("decision:updated はフェーズ・付箋・決定者を受け入れる", () => {
+    expect(
+      ServerMessageSchema.parse({
+        type: "decision:updated",
+        phase: 1,
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        decidedBy: USER_A,
+      }),
+    ).toEqual({
+      type: "decision:updated",
+      phase: 1,
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      decidedBy: USER_A,
+    });
   });
 
   it("member_joined を受け入れる", () => {
@@ -222,19 +286,19 @@ describe("ServerMessageSchema", () => {
     });
   });
 
-  it("phase:updated は lobby / phase1-4 を受け入れる", () => {
+  it("phase:updated は lobby と課題整理ステップを受け入れる", () => {
     expect(
-      ServerMessageSchema.parse({ type: "phase:updated", phase: "lobby" }),
-    ).toEqual({ type: "phase:updated", phase: "lobby" });
+      ServerMessageSchema.parse({ type: "phase:updated", phase: LOBBY }),
+    ).toEqual({ type: "phase:updated", phase: LOBBY });
     expect(
-      ServerMessageSchema.parse({ type: "phase:updated", phase: "phase1" }),
-    ).toEqual({ type: "phase:updated", phase: "phase1" });
+      ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_1 }),
+    ).toEqual({ type: "phase:updated", phase: STEP_1_1 });
     expect(
-      ServerMessageSchema.parse({ type: "phase:updated", phase: "phase2" }),
-    ).toEqual({ type: "phase:updated", phase: "phase2" });
+      ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_2 }),
+    ).toEqual({ type: "phase:updated", phase: STEP_1_2 });
     expect(
-      ServerMessageSchema.parse({ type: "phase:updated", phase: "phase4" }),
-    ).toEqual({ type: "phase:updated", phase: "phase4" });
+      ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_5 }),
+    ).toEqual({ type: "phase:updated", phase: STEP_1_5 });
   });
 
   it("phase:next クライアントメッセージを受け入れる", () => {
@@ -291,7 +355,7 @@ describe("ServerMessageSchema", () => {
     expect(
       ServerMessageSchema.safeParse({
         type: "phase_changed",
-        phase: "phase1",
+        phase: STEP_1_1,
       }).success,
     ).toBe(false);
   });
@@ -328,6 +392,96 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("note:drag は移動者情報をクライアントから受け取らない", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:drag",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        x: 100,
+        y: 200,
+        draggedBy: {
+          userId: USER_B,
+          name: "spoofed",
+          color: "red",
+        },
+      }),
+    ).toEqual({
+      type: "note:drag",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      x: 100,
+      y: 200,
+    });
+  });
+
+  it("cursor:update はボード座標と共有付箋の操作対象だけを受け入れる", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "cursor:update",
+        x: -400,
+        y: 300,
+        draggingNoteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        userId: USER_B,
+        name: "spoofed",
+      }),
+    ).toEqual({
+      type: "cursor:update",
+      x: -400,
+      y: 300,
+      draggingNoteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+  });
+
+  it("cursor:update は範囲外座標と不正な操作対象を拒否する", () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "cursor:update",
+        x: 1_000_001,
+        y: 0,
+        draggingNoteId: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "cursor:update",
+        x: 0,
+        y: 0,
+        draggingNoteId: "private-note",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("cursor:leave はペイロードなしで受け入れる", () => {
+    expect(ClientMessageSchema.parse({ type: "cursor:leave" })).toEqual({
+      type: "cursor:leave",
+    });
+  });
+
+  it("投票シールの追加は操作IDと付箋内の相対座標を伴って受け入れる", () => {
+    const operationId = "33333333-3333-4333-8333-333333333333";
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const stickerId = "44444444-4444-4444-8444-444444444444";
+
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:vote-sticker:add",
+        noteId,
+        stickerId,
+        kind: "objective",
+        x: 0.25,
+        y: 0.75,
+        operationId,
+      }),
+    ).toEqual({
+      type: "note:vote-sticker:add",
+      noteId,
+      stickerId,
+      kind: "objective",
+      x: 0.25,
+      y: 0.75,
+      operationId,
+    });
+  });
+
   it("timer:start は 1ms〜99分59秒だけを受け入れる", () => {
     expect(
       ClientMessageSchema.parse({ type: "timer:start", durationMs: 1 }),
@@ -366,15 +520,33 @@ describe("ClientMessageSchema", () => {
     ).toMatchObject({ type: "note:publish", x: 400, y: 300 });
   });
 
-  it("note:publish はボード外の座標を拒否する", () => {
+  it("note:publish は旧ボード範囲外を含む負の座標を受け入れる", () => {
     expect(
-      ClientMessageSchema.safeParse({
+      ClientMessageSchema.parse({
         type: "note:publish",
         noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        x: -1,
-        y: 0,
-      }).success,
-    ).toBe(false);
+        x: -4_000,
+        y: 3_000,
+      }),
+    ).toMatchObject({ type: "note:publish", x: -4_000, y: 3_000 });
+  });
+
+  it("note:publish は安全上限を超える座標と有限でない座標を拒否する", () => {
+    for (const [x, y] of [
+      [-1_000_001, 0],
+      [0, 1_000_001],
+      [Number.POSITIVE_INFINITY, 0],
+      [0, Number.NaN],
+    ]) {
+      expect(
+        ClientMessageSchema.safeParse({
+          type: "note:publish",
+          noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          x,
+          y,
+        }).success,
+      ).toBe(false);
+    }
   });
 
   it("note:unpublish は付箋IDを受け入れる", () => {
@@ -396,6 +568,41 @@ describe("ClientMessageSchema", () => {
         noteId: "not-a-uuid",
       }).success,
     ).toBe(false);
+  });
+
+  it("note:decide は付箋IDだけを受け入れる", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:decide",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      }),
+    ).toEqual({
+      type: "note:decide",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+  });
+
+  it("note:decide はUUIDでない付箋IDを拒否する", () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:decide",
+        noteId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("note:decide の余剰な認可フィールドを破棄する", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:decide",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        decidedBy: "attacker-id",
+        phase: 99,
+      }),
+    ).toEqual({
+      type: "note:decide",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
   });
 
   it("start_phase を受け入れる", () => {
@@ -428,6 +635,76 @@ describe("ClientMessageSchema", () => {
 });
 
 describe("parseServerMessage", () => {
+  it("note:drag はサーバーが付与した移動者の名前と色を受け入れる", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({
+          type: "note:drag",
+          noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          x: 100,
+          y: 200,
+          draggedBy: {
+            userId: USER_B,
+            name: "Taro",
+            color: "green",
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "note:drag",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      x: 100,
+      y: 200,
+      draggedBy: {
+        userId: USER_B,
+        name: "Taro",
+        color: "green",
+      },
+    });
+  });
+
+  it("名前と色をサーバーが付与した cursor:updated を受け入れる", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({
+          type: "cursor:updated",
+          cursor: {
+            userId: USER_B,
+            name: "Taro",
+            color: "green",
+            x: 120,
+            y: 240,
+            draggingNoteId: null,
+          },
+        }),
+      ),
+    ).toEqual({
+      type: "cursor:updated",
+      cursor: {
+        userId: USER_B,
+        name: "Taro",
+        color: "green",
+        x: 120,
+        y: 240,
+        draggingNoteId: null,
+      },
+    });
+  });
+
+  it("cursor:left は UUID の userId だけを受け入れる", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({ type: "cursor:left", userId: USER_B }),
+      ),
+    ).toEqual({ type: "cursor:left", userId: USER_B });
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "cursor:left",
+        userId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
   it("正常な JSON 文字列をパースしてオブジェクトを返す", () => {
     expect(
       parseServerMessage(
@@ -435,8 +712,10 @@ describe("parseServerMessage", () => {
           type: "snapshot",
           notes: [],
           members: [],
-          phase: "lobby",
+          phase: LOBBY,
           isHost: false,
+          decision: null,
+          carryovers: [],
           timer: { status: "idle" },
           serverNow: 1_700_000_000_000,
         }),
@@ -445,8 +724,10 @@ describe("parseServerMessage", () => {
       type: "snapshot",
       notes: [],
       members: [],
-      phase: "lobby",
+      phase: LOBBY,
       isHost: false,
+      decision: null,
+      carryovers: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });

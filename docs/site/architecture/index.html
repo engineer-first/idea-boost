@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="IdeaFlow の全体構成とデプロイの概観。2つの Cloudflare Worker（app / api）、RoomDO と D1 の責務分担、境界ルール、リアルタイム設計、CI/CD、よく使うコマンドを1ページで俯瞰する。">
-<title>IdeaFlow — 構成 & デプロイ概観</title>
+<title>Idea Boost — 構成 & デプロイ概観</title>
 <style>
   :root {
     --paper: #f6f3ec;
@@ -636,7 +636,11 @@
 
     <section id="deploy">
       <h2><span class="num">§</span>デプロイ構成</h2>
-      <p class="lede">2 つの wrangler 設定が別々の Worker としてデプロイされ、サービスバインディングで結合される。</p>
+      <p class="lede">
+        2 つの wrangler 設定が別々の Worker としてデプロイされ、サービスバインディングで結合される。
+        図・秘密一覧・デプロイ順の詳細は
+        <a href="../deploy-map/">デプロイ構成図</a>を参照。
+      </p>
 
       <div class="table-wrap">
         <table>
@@ -647,15 +651,16 @@
             <tr><td>役割</td><td>Next.js（OpenNext）配信 + 静的アセット + <code>/api/*</code> 転送</td><td>D1 + Durable Object（RoomDO）への唯一の入口</td></tr>
             <tr><td>バインディング</td><td class="mono">ASSETS, API_WORKER</td><td class="mono">DB (D1), ROOM_DO (DO)</td></tr>
             <tr><td>ビルド</td><td><code>npm run build:cf</code>（opennextjs-cloudflare）</td><td>ビルド不要（TS のまま wrangler が bundle）</td></tr>
+            <tr><td>デプロイ</td><td class="mono">npm run deploy:app</td><td class="mono">npm run deploy:api</td></tr>
           </tbody>
         </table>
       </div>
 
       <ol class="steps">
         <li><code>wrangler d1 create idea-flow-lobby</code> で D1 を作成し、<code>workers/wrangler.jsonc</code> の <code>database_id</code> を置き換える</li>
-        <li><code>wrangler secret put SESSION_SECRET --config workers/wrangler.jsonc</code> で本番秘密鍵を設定する</li>
-        <li><code>wrangler deploy --config workers/wrangler.jsonc</code> で api-worker をデプロイする</li>
-        <li><code>npm run build:cf && wrangler deploy</code> で Next.js Worker をデプロイする</li>
+        <li><code>wrangler d1 migrations apply DB --remote --config workers/wrangler.jsonc</code></li>
+        <li>両 Worker に同一の <code>SESSION_SECRET</code>（app 側は root の wrangler、api 側は <code>--config workers/wrangler.jsonc</code>）</li>
+        <li><code>npm run deploy:api</code> → <code>NEXT_PUBLIC_SITE_URL=… npm run deploy:app</code>（順は api → app）</li>
       </ol>
 
       <div class="callout">
@@ -664,17 +669,11 @@
         ローカルは <code>workers/.dev.vars</code>（gitignore 済み）、テストは miniflare bindings、本番は
         <code>wrangler secret put</code> の3経路で注入を分けている。
       </div>
-
-      <div class="callout" style="border-left-color: var(--edge); background: var(--edge-soft);">
-        <b>現状、この2つの Worker への Cloudflare デプロイを自動化する GitHub Actions は無い。</b>
-        README の手順は手動 <code>wrangler deploy</code> 前提。自動化されているのは CI（lint/test/build 検証）と
-        <code>docs/site/</code> 配下の GitHub Pages 公開だけ。
-      </div>
     </section>
 
     <section id="cicd">
       <h2><span class="num">§</span>CI/CD</h2>
-      <p class="lede">2本の GitHub Actions ワークフローが動いている。対象も引き金も別。</p>
+      <p class="lede">PR 検証と本番デプロイ、ドキュメント公開は別ワークフロー。</p>
 
       <div class="table-wrap">
         <table>
@@ -684,15 +683,20 @@
               <td class="mono">ci.yml</td>
               <td>pull_request</td>
               <td>
-                <b>lint</b>: Biome + 型検査 &nbsp;/&nbsp;
-                <b>test</b>: <code>vitest run</code> + <code>test:workers</code>（vitest-pool-workers）&nbsp;/&nbsp;
-                <b>build</b>: <code>build:cf</code>（OpenNext）でビルドが通ることだけ検証（デプロイはしない）
+                <b>lint</b> / <b>test</b>（unit + workers）/ <b>build:cf</b> / <b>smoke</b>。デプロイはしない
+              </td>
+            </tr>
+            <tr>
+              <td class="mono">deploy.yml</td>
+              <td>push to <code>release</code></td>
+              <td>
+                品質ゲート → D1 remote migrate → <code>deploy:api</code> → <code>deploy:app</code> → health チェック
               </td>
             </tr>
             <tr>
               <td class="mono">deploy-pages.yml</td>
               <td>develop への push（<code>docs/site/**</code> 変更時）</td>
-              <td>ドキュメントサイト（静的 HTML）だけを GitHub Pages に公開。アプリ本体とは無関係</td>
+              <td>ドキュメントサイト（静的 HTML）を GitHub Pages に公開。アプリ本体とは無関係</td>
             </tr>
           </tbody>
         </table>
@@ -710,6 +714,9 @@
             <tr><td class="mono">npm run db:migrate</td><td>ローカル D1 に migration を適用</td></tr>
             <tr><td class="mono">npm run build:cf</td><td>Cloudflare Workers 向けビルド（OpenNext）</td></tr>
             <tr><td class="mono">npm run preview:cf</td><td>2 Worker 構成を workerd 上でローカル同時実行</td></tr>
+            <tr><td class="mono">npm run deploy:api</td><td>api-worker を本番デプロイ</td></tr>
+            <tr><td class="mono">npm run deploy:app</td><td>app-worker をビルド + 本番デプロイ</td></tr>
+            <tr><td class="mono">npm run deploy</td><td>api → app の順で両方デプロイ</td></tr>
             <tr><td class="mono">npm run test</td><td>アプリ側ユニットテスト（Vitest）</td></tr>
             <tr><td class="mono">npm run test:workers</td><td>Worker / DO テスト（vitest-pool-workers）</td></tr>
             <tr><td class="mono">npm run typecheck</td><td>Worker 型生成込みの型検査</td></tr>

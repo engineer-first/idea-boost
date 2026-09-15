@@ -25,7 +25,7 @@ export function LoginCard({
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4 text-slate-900">
       <div className="w-full max-w-md space-y-6 bg-white p-8 shadow-sm rounded-2xl border border-slate-200">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-black text-indigo-600">IdeaFlow</h1>
+          <h1 className="text-3xl font-black text-indigo-600">Idea Boost</h1>
           <p className="text-sm text-slate-500">
             アイデア出しをスマートに、スムーズに。
           </p>

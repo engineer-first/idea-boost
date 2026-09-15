@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
+import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { ServerMessage } from "@/contracts/room-protocol";
 import {
   applyServerMessage,
   moveNoteLocally,
+  moveVoteStickerLocally,
   type Note,
+  voteNoteLocally,
 } from "./notes-reducer";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
+const DRAGGED_BY = {
+  userId: "22222222-2222-4222-8222-222222222222",
+  name: "Taro",
+  color: "green" as const,
+};
 
 const note: Note = {
   id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
@@ -22,6 +30,7 @@ const note: Note = {
     subjective: { count: 0, votedByMe: false, ownCount: 0 },
     objective: { count: 0, votedByMe: false, ownCount: 0 },
   },
+  dotVoteStickers: [],
 };
 
 function makeNote(overrides: Partial<Note> = {}): Note {
@@ -48,8 +57,10 @@ describe("applyServerMessage", () => {
       type: "snapshot",
       notes: [note],
       members: [],
-      phase: "phase1",
+      phase: buildPhaseStep(1),
       isHost: false,
+      decision: null,
+      carryovers: [],
       timer: { status: "idle" },
       serverNow: 1_000,
     };
@@ -66,8 +77,10 @@ describe("applyServerMessage", () => {
       type: "snapshot",
       notes: [snapshotNote],
       members: [],
-      phase: "phase1",
+      phase: buildPhaseStep(1),
       isHost: false,
+      decision: null,
+      carryovers: [],
       timer: { status: "idle" },
       serverNow: 1_000,
     };
@@ -179,6 +192,7 @@ describe("applyServerMessage", () => {
       noteId: existing.id,
       x: 42,
       y: 84,
+      draggedBy: DRAGGED_BY,
     };
 
     const result = applyServerMessage([existing], message, {
@@ -195,6 +209,7 @@ describe("applyServerMessage", () => {
       noteId: existing.id,
       x: 42,
       y: 84,
+      draggedBy: DRAGGED_BY,
     };
 
     const result = applyServerMessage([existing], message, {
@@ -209,7 +224,13 @@ describe("applyServerMessage", () => {
 
     const dragResult = applyServerMessage(
       [existing],
-      { type: "note:drag", noteId: "unknown", x: 1, y: 1 },
+      {
+        type: "note:drag",
+        noteId: "unknown",
+        x: 1,
+        y: 1,
+        draggedBy: DRAGGED_BY,
+      },
       { draggingNoteId: null },
     );
     expect(dragResult).toEqual([existing]);
@@ -243,6 +264,44 @@ describe("applyServerMessage", () => {
 
     expect(result).toEqual([existing]);
   });
+
+  it("decision:updated は決定UIが未実装の間も付箋配列を変更しない", () => {
+    const existing = makeNote();
+    const notes = [existing];
+    const result = applyServerMessage(
+      notes,
+      {
+        type: "decision:updated",
+        phase: 1,
+        noteId: existing.id,
+        decidedBy: USER_ID,
+      },
+      { draggingNoteId: null },
+    );
+
+    expect(result).toBe(notes);
+    expect(result).toEqual([existing]);
+  });
+});
+
+describe("voteNoteLocally", () => {
+  it("集計が未公開の付箋へ楽観投票しても count を復元しない", () => {
+    const hidden = makeNote({
+      dotVotes: {
+        subjective: { votedByMe: false, ownCount: 0 },
+        objective: { votedByMe: false, ownCount: 0 },
+      },
+    });
+
+    const result = voteNoteLocally([hidden], hidden.id, "subjective");
+
+    expect(result.accepted).toBe(true);
+    expect(result.notes[0]?.dotVotes.subjective).toEqual({
+      votedByMe: true,
+      ownCount: 1,
+    });
+    expect(result.notes[0]?.dotVotes.subjective).not.toHaveProperty("count");
+  });
 });
 
 describe("moveNoteLocally", () => {
@@ -260,5 +319,50 @@ describe("moveNoteLocally", () => {
     const result = moveNoteLocally([existing], "unknown", 1, 1);
 
     expect(result).toEqual([existing]);
+  });
+});
+
+describe("moveVoteStickerLocally", () => {
+  it("同じシールを別の付箋へ移し、付箋ごとの投票集計も移す", () => {
+    const sticker = {
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      kind: "objective" as const,
+      x: 0.2,
+      y: 0.3,
+    };
+    const source = makeNote({
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 1, votedByMe: true, ownCount: 1 },
+      },
+      dotVoteStickers: [sticker],
+    });
+    const target = makeNote({
+      id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    });
+    const result = moveVoteStickerLocally(
+      [source, target],
+      sticker.id,
+      target.id,
+      0.8,
+      0.9,
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(result.notes[0]?.dotVoteStickers).toEqual([]);
+    expect(result.notes[1]?.dotVoteStickers).toEqual([
+      { ...sticker, x: 0.8, y: 0.9 },
+    ]);
+    expect(result.notes[0]?.dotVotes.objective).toEqual({
+      count: 0,
+      votedByMe: false,
+      ownCount: 0,
+    });
+    expect(result.notes[1]?.dotVotes.objective).toEqual({
+      count: 1,
+      votedByMe: true,
+      ownCount: 1,
+    });
   });
 });

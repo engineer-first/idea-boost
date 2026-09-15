@@ -18,6 +18,7 @@ const meta = {
       height: 298,
     },
     name: "課題グループ",
+    canGroupNote: true,
     onUpdateName: fn(),
   },
   decorators: [

@@ -1,12 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NextPhaseConfirmDialog } from "./next-phase-confirm-dialog";
 
 function setup(
   overrides: Partial<Parameters<typeof NextPhaseConfirmDialog>[0]> = {},
 ) {
   const props = {
-    phase: "phase1" as const,
+    phase: buildPhaseStep(1),
     disabled: false,
     onConfirm: vi.fn(),
     ...overrides,
@@ -20,7 +21,7 @@ describe("NextPhaseConfirmDialog", () => {
     setup();
 
     expect(
-      screen.getByRole("button", { name: "次のフェーズへ" }),
+      screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeInTheDocument();
   });
 
@@ -28,25 +29,23 @@ describe("NextPhaseConfirmDialog", () => {
     setup({ disabled: true });
 
     expect(
-      screen.getByRole("button", { name: "次のフェーズへ" }),
+      screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeDisabled();
   });
 
-  it("押下で確認ダイアログを開き、現在フェーズのラベルを含む説明を出す", () => {
-    setup({ phase: "phase2" });
+  it("押下で確認ダイアログを開き、現在ステップのラベルを含む説明を出す", () => {
+    setup({ phase: buildPhaseStep(2) });
 
-    fireEvent.click(screen.getByRole("button", { name: "次のフェーズへ" }));
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
-    expect(
-      screen.getByText("次のフェーズへ移行しますか？"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("フェーズ2");
+    expect(screen.getByText("次のステップへ進みますか？")).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("1-2 課題共有");
   });
 
   it("「移行する」で onConfirm を呼ぶ（確認前には呼ばない）", () => {
     const { onConfirm } = setup();
 
-    fireEvent.click(screen.getByRole("button", { name: "次のフェーズへ" }));
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
     expect(onConfirm).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "移行する" }));
@@ -56,7 +55,7 @@ describe("NextPhaseConfirmDialog", () => {
   it("「キャンセル」では onConfirm を呼ばない", () => {
     const { onConfirm } = setup();
 
-    fireEvent.click(screen.getByRole("button", { name: "次のフェーズへ" }));
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
     fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
 
     expect(onConfirm).not.toHaveBeenCalled();

@@ -5,23 +5,26 @@
 // 共通のまま害がない）。畳み込みの実体は room-reducer.ts の純関数群。
 // 入退出 toast（memberJoined / memberLeft）もここで出す — 両画面で同一の方針。
 import { useCallback, useRef, useState } from "react";
-import type {
-  Phase,
-  ServerMessage,
-  TimerState,
-} from "@/contracts/room-protocol";
+import type { RoomPhase } from "@/contracts/phase";
+import type { ServerMessage, TimerState } from "@/contracts/room-protocol";
 import { roomNotify } from "./room-notify";
 import {
+  applyCarryoverServerMessage,
+  applyDecisionServerMessage,
   applyMemberServerMessage,
   applyPhaseServerMessage,
   applyTimerServerMessage,
+  type Carryover,
+  type Decision,
   type Member,
   type TimerClientState,
 } from "./room-reducer";
 
 export type UseRoomStateResult = {
   members: Member[];
-  phase: Phase;
+  phase: RoomPhase;
+  decision: Decision | null;
+  carryovers: Carryover[];
   timer: TimerState;
   timerServerOffsetMs: number;
   applyMessage: (message: ServerMessage, receivedAt?: number) => void;
@@ -30,10 +33,12 @@ export type UseRoomStateResult = {
 export function useRoomState(options: {
   // SSR 時にサーバーから取得した初期状態。再接続時の flicker を抑える。
   initialMembers: Member[];
-  initialPhase: Phase;
+  initialPhase: RoomPhase;
 }): UseRoomStateResult {
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
-  const [phase, setPhase] = useState<Phase>(options.initialPhase);
+  const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
+  const [decision, setDecision] = useState<Decision | null>(null);
+  const [carryovers, setCarryovers] = useState<Carryover[]>([]);
   const [timerState, setTimerState] = useState<TimerClientState>({
     timer: { status: "idle" },
     serverOffsetMs: 0,
@@ -62,6 +67,8 @@ export function useRoomState(options: {
       membersRef.current = nextMembers;
       setMembers(nextMembers);
       setPhase((current) => applyPhaseServerMessage(current, message));
+      setDecision((current) => applyDecisionServerMessage(current, message));
+      setCarryovers((current) => applyCarryoverServerMessage(current, message));
       setTimerState((current) =>
         applyTimerServerMessage(current, message, receivedAt),
       );
@@ -72,6 +79,8 @@ export function useRoomState(options: {
   return {
     members,
     phase,
+    decision,
+    carryovers,
     timer: timerState.timer,
     timerServerOffsetMs: timerState.serverOffsetMs,
     applyMessage,

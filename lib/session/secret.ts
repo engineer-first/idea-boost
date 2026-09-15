@@ -9,6 +9,9 @@
 // git 履歴に永久に残った値。本番で誤って再利用されないよう拒否する。
 export const KNOWN_INSECURE_SECRETS: readonly string[] = [
   "dev-session-secret-change-in-production!!",
+  // .env.example / workers/.dev.vars.example の例示値。
+  // 本番へコピーされた場合に予測可能鍵になるのを防ぐため拒否する。
+  "local-dev-secret-please-change-me-1234",
 ];
 
 // HS256 の鍵はハッシュ出力と同じ 256bit（32バイト）以上が RFC 7518 §3.2 の MUST。

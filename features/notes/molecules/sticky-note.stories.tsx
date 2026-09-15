@@ -21,3 +21,7 @@ export const Default: Story = {};
 export const Lifted: Story = {
   args: { isLifted: true },
 };
+
+export const Decided: Story = {
+  args: { isDecided: true },
+};

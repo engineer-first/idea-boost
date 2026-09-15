@@ -7,11 +7,20 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DRAG_BROADCAST_THROTTLE_MS } from "@/contracts/board";
+import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { ProtocolNote, ServerMessage } from "@/contracts/room-protocol";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { useRoomNotes } from "./use-room-notes";
 
 const NOTE_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
+const DRAGGED_BY = {
+  userId: MEMBER_ID,
+  name: "Taro",
+  color: "green" as const,
+};
+const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 
 function snapshotMessage(
   notes: ProtocolNote[] = [buildNote({ id: NOTE_ID })],
@@ -20,8 +29,10 @@ function snapshotMessage(
     type: "snapshot",
     notes,
     members: [],
-    phase: "phase1",
+    phase: buildPhaseStep(1),
     isHost: true,
+    decision: null,
+    carryovers: [],
     timer: { status: "idle" },
     serverNow: Date.now(),
   };
@@ -40,7 +51,13 @@ describe("useRoomNotes", () => {
   });
 
   function setup() {
-    return renderHook(() => useRoomNotes({ send }));
+    return renderHook(() =>
+      useRoomNotes({
+        send,
+        createVoteOperationId: () => "33333333-3333-4333-8333-333333333333",
+        createVoteStickerId: () => "44444444-4444-4444-8444-444444444444",
+      }),
+    );
   }
 
   it("snapshot で notes を全置換する", () => {
@@ -48,6 +65,92 @@ describe("useRoomNotes", () => {
     act(() => result.current.applyMessage(snapshotMessage()));
     expect(result.current.notes).toHaveLength(1);
     expect(result.current.notes[0]?.id).toBe(NOTE_ID);
+  });
+
+  it("note:drag から付箋ごとの移動者を保持する", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag",
+        noteId: NOTE_ID,
+        x: 200,
+        y: 300,
+        draggedBy: DRAGGED_BY,
+      }),
+    );
+
+    expect(result.current.remoteNoteDrags).toEqual([
+      {
+        noteId: NOTE_ID,
+        draggedBy: DRAGGED_BY,
+        lastSeenAt: expect.any(Number),
+      },
+    ]);
+  });
+
+  it.each([
+    {
+      name: "ドロップ確定",
+      message: {
+        type: "note:updated",
+        note: buildNote({ id: NOTE_ID, x: 210, y: 310 }),
+      } as ServerMessage,
+    },
+    {
+      name: "カーソル退出",
+      message: { type: "cursor:left", userId: MEMBER_ID } as ServerMessage,
+    },
+    {
+      name: "メンバー退出",
+      message: { type: "member_left", userId: MEMBER_ID } as ServerMessage,
+    },
+    {
+      name: "フェーズ遷移",
+      message: {
+        type: "phase:updated",
+        phase: buildPhaseStep(3),
+      } as ServerMessage,
+    },
+    {
+      name: "snapshot再同期",
+      message: snapshotMessage(),
+    },
+  ])("$name で移動者表示を解除する", ({ message }) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag",
+        noteId: NOTE_ID,
+        x: 200,
+        y: 300,
+        draggedBy: DRAGGED_BY,
+      }),
+    );
+
+    act(() => result.current.applyMessage(message));
+
+    expect(result.current.remoteNoteDrags).toEqual([]);
+  });
+
+  it("後続イベントが途切れた移動者表示を短いタイムアウトで解除する", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag",
+        noteId: NOTE_ID,
+        x: 200,
+        y: 300,
+        draggedBy: DRAGGED_BY,
+      }),
+    );
+
+    act(() => vi.advanceTimersByTime(4_000));
+
+    expect(result.current.remoteNoteDrags).toEqual([]);
   });
 
   it("moveNote は楽観反映し、note:drag をスロットル送信する", () => {
@@ -101,6 +204,7 @@ describe("useRoomNotes", () => {
         noteId: NOTE_ID,
         x: 10,
         y: 20,
+        draggedBy: DRAGGED_BY,
       }),
     );
 
@@ -160,11 +264,11 @@ describe("useRoomNotes", () => {
     expect(result.current.notes).toHaveLength(0);
   });
 
-  it("voteNote は上限内なら楽観反映して note:vote を送る", () => {
+  it("voteNote は上限内ならドロップ座標へシールを楽観表示して送る", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));
 
-    act(() => result.current.voteNote(NOTE_ID, "subjective"));
+    act(() => result.current.voteNote(NOTE_ID, "subjective", 0.25, 0.75));
 
     expect(result.current.notes[0]?.dotVotes.subjective).toMatchObject({
       count: 1,
@@ -172,9 +276,56 @@ describe("useRoomNotes", () => {
       ownCount: 1,
     });
     expect(send).toHaveBeenCalledWith({
-      type: "note:vote",
+      type: "note:vote-sticker:add",
       noteId: NOTE_ID,
+      stickerId: "44444444-4444-4444-8444-444444444444",
       kind: "subjective",
+      x: 0.25,
+      y: 0.75,
+      operationId: "33333333-3333-4333-8333-333333333333",
+    });
+    expect(result.current.notes[0]?.dotVoteStickers).toEqual([
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        kind: "subjective",
+        x: 0.25,
+        y: 0.75,
+      },
+    ]);
+  });
+
+  it("投票は確定応答までpendingとして表示し、拒否時には楽観表示を戻す", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => result.current.voteNote(NOTE_ID, "objective"));
+
+    expect(result.current.pendingVoteOperations).toEqual([
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        noteId: NOTE_ID,
+        stickerId: "44444444-4444-4444-8444-444444444444",
+        kind: "objective",
+        action: "add",
+      },
+    ]);
+    expect(result.current.notes[0]?.dotVotes.objective.ownCount).toBe(1);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "投票上限を超えています。",
+        operationId: "33333333-3333-4333-8333-333333333333",
+      }),
+    );
+
+    expect(result.current.pendingVoteOperations).toEqual([]);
+    expect(result.current.notes[0]?.dotVotes.objective.ownCount).toBe(0);
+    expect(result.current.notes[0]?.dotVoteStickers).toEqual([]);
+    expect(result.current.voteFeedback).toEqual({
+      state: "failed",
+      message: "投票上限を超えています。",
     });
   });
 
@@ -194,6 +345,54 @@ describe("useRoomNotes", () => {
 
     expect(result.current.notes[0]?.dotVotes.objective.count).toBe(3);
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("自分のシールを別の付箋へ移し、投票総数を保ったまま送信する", () => {
+    const { result } = setup();
+    const source = buildNote({
+      id: NOTE_ID,
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 1, votedByMe: true, ownCount: 1 },
+      },
+      dotVoteStickers: [{ id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 }],
+    });
+    const target = buildNote({ id: TARGET_NOTE_ID });
+    act(() => result.current.applyMessage(snapshotMessage([source, target])));
+
+    act(() =>
+      result.current.moveVoteSticker(STICKER_ID, TARGET_NOTE_ID, 0.8, 0.9),
+    );
+
+    expect(send).toHaveBeenCalledWith({
+      type: "note:vote-sticker:move",
+      stickerId: STICKER_ID,
+      noteId: TARGET_NOTE_ID,
+      x: 0.8,
+      y: 0.9,
+      operationId: "33333333-3333-4333-8333-333333333333",
+    });
+    expect(result.current.notes[0]?.dotVoteStickers).toEqual([]);
+    expect(result.current.notes[1]?.dotVoteStickers).toEqual([
+      { id: STICKER_ID, kind: "objective", x: 0.8, y: 0.9 },
+    ]);
+    expect(result.current.notes[0]?.dotVotes.objective).toEqual({
+      count: 0,
+      votedByMe: false,
+      ownCount: 0,
+    });
+    expect(result.current.notes[1]?.dotVotes.objective).toEqual({
+      count: 1,
+      votedByMe: true,
+      ownCount: 1,
+    });
+    expect(result.current.pendingVoteOperations).toEqual([
+      expect.objectContaining({
+        stickerId: STICKER_ID,
+        action: "move",
+        previous: { noteId: NOTE_ID, x: 0.2, y: 0.3 },
+      }),
+    ]);
   });
 
   it("resetNoteVote は自分の票があるときだけ反映・送信する", () => {
@@ -231,6 +430,13 @@ describe("useRoomNotes", () => {
 
     act(() => result.current.addNote());
     expect(send).toHaveBeenCalledWith({ type: "note:create" });
+
+    // テンプレート・具体例を起点にしたプリフィル付き作成。
+    act(() => result.current.addNote("もっと簡単に"));
+    expect(send).toHaveBeenCalledWith({
+      type: "note:create",
+      content: "もっと簡単に",
+    });
 
     act(() => result.current.publishNote(NOTE_ID, 50, 60));
     expect(send).toHaveBeenCalledWith({

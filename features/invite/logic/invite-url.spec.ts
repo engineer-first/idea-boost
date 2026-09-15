@@ -13,14 +13,14 @@ describe("buildInvitePath", () => {
 
 describe("buildInviteUrl", () => {
   it("origin と結合して絶対 URL を作る", () => {
-    expect(buildInviteUrl("https://idea-flow.example", "ABC234")).toBe(
-      "https://idea-flow.example/invite/ABC234",
+    expect(buildInviteUrl("https://idea-boost.example", "ABC234")).toBe(
+      "https://idea-boost.example/invite/ABC234",
     );
   });
 
   it("origin 末尾のスラッシュは重複しない", () => {
-    expect(buildInviteUrl("https://idea-flow.example/", "ABC234")).toBe(
-      "https://idea-flow.example/invite/ABC234",
+    expect(buildInviteUrl("https://idea-boost.example/", "ABC234")).toBe(
+      "https://idea-boost.example/invite/ABC234",
     );
   });
 });

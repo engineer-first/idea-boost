@@ -1,13 +1,92 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn, userEvent, within } from "storybook/test";
-import { buildMembers, buildNotes } from "@/contracts/room-protocol.fixture";
+import { buildPhaseStep } from "@/contracts/phase.fixture";
+import {
+  buildCarryover,
+  buildDecision,
+  buildMembers,
+  buildNotes,
+} from "@/contracts/room-protocol.fixture";
+import { useBoardHelp } from "../logic/use-board-help";
+import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView } from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
+const STEP_1_1 = buildPhaseStep(1);
+const STEP_1_2 = buildPhaseStep(2);
+const STEP_1_3 = buildPhaseStep(3);
+const STEP_1_4 = buildPhaseStep(4);
+const STEP_1_5 = buildPhaseStep(5);
+const STEP_2_1 = buildPhaseStep(1, 2);
+const CANVAS_HUD_POSITIONS = [
+  [180, 120],
+  [380, 220],
+  [630, 280],
+  [180, 380],
+  [470, 520],
+  [850, 410],
+] as const;
+const CANVAS_HUD_CONTENTS = [
+  "ユーザーが最初に何を迷うか？",
+  "オンボーディングの離脱ポイントはどこか？",
+  "どの機能が最も使われていないか？",
+  "価値を感じるまでの時間が長い？",
+  "サポートへの問い合わせが多い内容は？",
+  "チームで共有しづらい理由は？",
+] as const;
+const CANVAS_HUD_NOTES = buildNotes(6).map((note, index) => ({
+  ...note,
+  content: CANVAS_HUD_CONTENTS[index] ?? note.content,
+  x: CANVAS_HUD_POSITIONS[index]?.[0] ?? note.x,
+  y: CANVAS_HUD_POSITIONS[index]?.[1] ?? note.y,
+}));
+const INTERACTIONS: RoomBoardInteractions = {
+  boardRootRef: { current: null },
+  boardScrollerRef: { current: null },
+  ideaMapPlaneRef: { current: null },
+  privateToolbarRef: { current: null },
+  notes: buildNotes(3),
+  privateNotes: [],
+  dragGhost: null,
+  isReturnDropTarget: false,
+  isNoteDragging: false,
+  camera: { x: 0, y: 0, zoom: 1 },
+  gridStyle: {
+    backgroundImage:
+      "radial-gradient(circle at 1px 1px, var(--foreground) 1px, transparent 1.5px)",
+    backgroundPosition: "0 0",
+    backgroundSize: "20px 20px",
+  },
+  isPanning: false,
+  onCanvasPointerDown: fn(),
+  onCanvasPointerMove: fn(),
+  onCanvasPointerEnd: fn(),
+  onPresencePointerMove: fn(),
+  onPresencePointerLeave: fn(),
+  onZoomIn: fn(),
+  onZoomOut: fn(),
+  onResetZoom: fn(),
+  onFitToNotes: fn(),
+  onPointerMove: fn(),
+  onPointerEnd: fn(),
+  onNoteDragStart: fn(),
+  onPrivateNoteDragStart: fn(),
+};
 
 const meta = {
   title: "Room/RoomBoardView",
   component: RoomBoardView,
+  render: function Render(args) {
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        help={help}
+        interactions={{ ...args.interactions, notes: args.notes }}
+      />
+    );
+  },
+  argTypes: { help: { control: false } },
   parameters: {
     layout: "fullscreen",
   },
@@ -15,32 +94,45 @@ const meta = {
     notes: buildNotes(3),
     inviteCode: "AB12CD",
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
-    phase: "phase1",
+    phase: STEP_1_1,
     timer: { status: "idle" },
     timerServerOffsetMs: 0,
     isHost: true,
+    decision: null,
     connectionStatus: "open",
     draggingNoteId: null,
     members: buildMembers(3, ME),
     currentUserId: ME,
     hostUserId: ME,
     isNextPhasePending: false,
-    privateNotes: [],
+    signOutAction: fn(),
+    interactions: INTERACTIONS,
+    help: {
+      kind: null,
+      isOpen: false,
+      tab: "write",
+      onOpenChange: fn(),
+      onTabChange: fn(),
+    },
+    hmwDecidedIssue: null,
+    decidedHmw: null,
     onAddPrivateNote: fn(),
+    onHmwTemplateSelect: fn(),
+    onIdeaHintSelect: fn(),
     onPrivateNoteContentChange: fn(),
     onPrivateNoteDelete: fn(),
-    onPrivateNotePublish: fn(),
-    onPrivateNoteUnpublish: fn(),
-    onNoteDragStart: fn(),
-    onNoteDragMove: fn(),
-    onNoteDragEnd: fn(),
     onNoteContentChange: fn(),
     onNoteDelete: fn(),
     onGroupCreate: fn(),
     onGroupUpdateName: fn(),
     groups: [],
     onNoteVote: fn(),
-    onNoteVoteReset: fn(),
+    onNoteVoteRemove: fn(),
+    onNoteVoteStickerRemove: fn(),
+    onNoteVoteStickerMove: fn(),
+    pendingVoteOperations: [],
+    voteFeedback: null,
+    onNoteDecide: fn(),
     onLeave: fn(),
     isLeaving: false,
     onNextPhase: fn(),
@@ -49,10 +141,14 @@ const meta = {
     onTimerResume: fn(),
     onTimerExtend: fn(),
     onTimerStop: fn(),
+    remoteCursors: [],
+    remoteNoteDrags: [],
+    areCursorsVisible: true,
+    onToggleCursors: fn(),
   },
   decorators: [
     (Story) => (
-      <div style={{ height: "80vh", padding: 16 }}>
+      <div style={{ height: "100vh" }}>
         <Story />
       </div>
     ),
@@ -76,6 +172,10 @@ export const Empty: Story = {
 export const Dragging: Story = {
   args: {
     draggingNoteId: "note-1",
+    interactions: {
+      ...INTERACTIONS,
+      isNoteDragging: true,
+    },
   },
 };
 
@@ -93,6 +193,21 @@ export const ManyMembers: Story = {
   },
 };
 
+// 選定した Canvas HUD 案の基準状態。
+// 10人・課題整理 Step 1・タイマー稼働中を同時に表示して幅と視線集中を確認する。
+export const CanvasHud: Story = {
+  args: {
+    members: buildMembers(10, ME),
+    notes: CANVAS_HUD_NOTES,
+    phase: STEP_1_1,
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 138_000,
+      durationMs: 180_000,
+    },
+  },
+};
+
 // 非ホストの状態（自分は ring のみ。ホストラベルは hostUserId のメンバーに付く）。
 export const NonHost: Story = {
   args: {
@@ -104,6 +219,7 @@ export const NonHost: Story = {
 
 export const DotVoting: Story = {
   args: {
+    phase: buildPhaseStep(4),
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       dotVotes: {
@@ -122,9 +238,53 @@ export const DotVoting: Story = {
   },
 };
 
+// 投票中は受信者向け射影で count を持たず、本人の投票状態だけを表示する。
+export const StealthVoting: Story = {
+  args: {
+    phase: STEP_1_4,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: {
+          votedByMe: index === 0,
+          ownCount: index === 0 ? 1 : 0,
+        },
+        objective: {
+          votedByMe: index < 2,
+          ownCount: index < 2 ? 1 : 0,
+        },
+      },
+    })),
+  },
+};
+
+export const VotingPending: Story = {
+  args: {
+    phase: STEP_1_4,
+    notes: buildNotes(1).map((note) => ({
+      ...note,
+      dotVotes: {
+        subjective: { votedByMe: true, ownCount: 1 },
+        objective: { votedByMe: false, ownCount: 0 },
+      },
+    })),
+    pendingVoteOperations: [{ noteId: "note-1", kind: "subjective" }],
+  },
+};
+
+export const VotingFailure: Story = {
+  args: {
+    phase: STEP_1_4,
+    voteFeedback: {
+      state: "failed",
+      message: "投票上限を超えています。",
+    },
+  },
+};
+
 export const VoteTotaled: Story = {
   args: {
-    phase: "phase4",
+    phase: STEP_1_5,
     members: buildMembers(2, ME),
     notes: buildNotes(3).map((note, index) => ({
       ...note,
@@ -144,6 +304,71 @@ export const VoteTotaled: Story = {
   },
 };
 
+export const VoteTotaledWithoutVotes: Story = {
+  args: {
+    phase: STEP_1_5,
+    notes: buildNotes(3),
+  },
+};
+
+export const VoteTotaledTie: Story = {
+  args: {
+    phase: STEP_1_5,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: { count: index < 2 ? 2 : 0, votedByMe: false, ownCount: 0 },
+        objective: { count: index < 2 ? 3 : 1, votedByMe: false, ownCount: 0 },
+      },
+    })),
+  },
+};
+
+export const VoteTotaledMany: Story = {
+  args: {
+    phase: STEP_1_5,
+    notes: buildNotes(12).map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: { count: index % 3, votedByMe: false, ownCount: 0 },
+        objective: { count: index + 1, votedByMe: false, ownCount: 0 },
+      },
+    })),
+  },
+};
+
+export const VotingAt1280x720: Story = {
+  args: {
+    phase: STEP_1_4,
+    members: buildMembers(10, ME),
+    notes: CANVAS_HUD_NOTES,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 1280, height: 720, overflow: "hidden" }}>
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+export const ReadyToDecide: Story = {
+  args: {
+    phase: STEP_1_5,
+    isHost: true,
+  },
+};
+
+export const Decided: Story = {
+  args: {
+    phase: STEP_1_5,
+    decision: buildDecision({
+      noteId: "note-1",
+      decidedBy: ME,
+    }),
+  },
+};
+
 // loading相当: WebSocket 接続の確立中（初回接続時。snapshot 未着なので付箋も空）。
 export const Connecting: Story = {
   args: {
@@ -159,27 +384,121 @@ export const Reconnecting: Story = {
   },
 };
 
-// ホストがフェーズ移行操作を行える状態。
+// ホストがステップ移行操作を行える状態。
 export const HostCanMovePhase: Story = {
   args: {
     isHost: true,
-    phase: "phase1",
+    phase: STEP_1_1,
   },
 };
 
-// 「次のフェーズへ」押下後、確認ダイアログが表示されている状態。
+export const Step1_1_PersonalWriting: Story = {
+  args: {
+    phase: STEP_1_1,
+    notes: [],
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(2).map((note) => ({
+        ...note,
+        visibility: "private" as const,
+      })),
+    },
+  },
+};
+
+export const Step1_2_Sharing: Story = {
+  args: {
+    phase: STEP_1_2,
+    notes: buildNotes(3),
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(2).map((note) => ({
+        ...note,
+        visibility: "private" as const,
+      })),
+    },
+  },
+};
+
+export const Step1_3_Grouping: Story = {
+  args: {
+    phase: STEP_1_3,
+    notes: buildNotes(5),
+    groups: [],
+  },
+};
+
+export const Step1_4_Voting: Story = {
+  args: {
+    phase: STEP_1_4,
+    notes: buildNotes(5),
+  },
+};
+
+export const Step1_5_Result: Story = {
+  args: {
+    phase: STEP_1_5,
+    decision: null,
+  },
+};
+
+// 「次のステップへ」押下後、確認ダイアログが表示されている状態。
 export const NextPhaseConfirmDialog: Story = {
   args: {
     isHost: true,
-    phase: "phase1",
+    phase: STEP_1_1,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
     await userEvent.click(
       await canvas.findByRole("button", {
-        name: "次のフェーズへ",
+        name: "次のステップへ",
       }),
     );
+  },
+};
+
+// Step 2-1（HMW 個人執筆）: 持ち越された決定課題バナー（上端）と HMW
+// テンプレートパネル（左端）がボード上に浮かび、ボード面は自分の付箋だけ
+// （共有付箋・グループは出さない）。
+export const HmwWritingStep: Story = {
+  args: {
+    phase: STEP_2_1,
+    notes: [],
+    hmwDecidedIssue: buildCarryover().content,
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(2).map((note) => ({
+        ...note,
+        visibility: "private" as const,
+      })),
+    },
+  },
+};
+
+export const IdeaWritingWithCarryovers: Story = {
+  args: {
+    phase: buildPhaseStep(1, 3),
+    hmwDecidedIssue: buildCarryover({
+      phase: 1,
+      content: "ユーザーが作業を後回しにしてしまう",
+    }).content,
+    decidedHmw: buildCarryover({
+      phase: 2,
+      content: "どうすれば、楽しく最初の一歩を踏み出せるだろうか？",
+    }).content,
+  },
+};
+
+// 背景パン・付箋移動・ズームを同じカメラ上で確認する。
+export const IdeaMapInteraction: Story = {
+  args: {
+    phase: buildPhaseStep(3, 3),
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: [1, 50, 99][index],
+      y: [99, 50, 1][index],
+    })),
   },
 };

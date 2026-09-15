@@ -39,8 +39,8 @@ describe("getSessionSecret", () => {
 // リクエストヘッダー（x-forwarded-host 等）は client が偽装できるため使わない。
 describe("getBaseUrl", () => {
   it("NEXT_PUBLIC_SITE_URL が設定されていればそれを返す", () => {
-    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://ideaflow.example.com");
-    expect(getBaseUrl()).toBe("https://ideaflow.example.com");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://ideaboost.example.com");
+    expect(getBaseUrl()).toBe("https://ideaboost.example.com");
   });
 
   it("本番で未設定なら例外（fail-closed）", () => {

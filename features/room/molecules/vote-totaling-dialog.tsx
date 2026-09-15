@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Note } from "@/features/notes";
 import { VoteTotalingPanel } from "@/features/vote-totaling";
-import type { Member } from "../logic/room-reducer";
+import type { Decision, Member } from "../logic/room-reducer";
 
 export type VoteTotalingDialogProps = {
   open: boolean;
@@ -19,6 +19,10 @@ export type VoteTotalingDialogProps = {
   isVotingComplete: boolean;
   members: Member[];
   notes: Note[];
+  decision: Decision | null;
+  isHost: boolean;
+  isDisconnected: boolean;
+  onNoteDecide: (noteId: string) => void;
 };
 
 export function VoteTotalingDialog({
@@ -27,6 +31,10 @@ export function VoteTotalingDialog({
   isVotingComplete,
   members,
   notes,
+  decision,
+  isHost,
+  isDisconnected,
+  onNoteDecide,
 }: VoteTotalingDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -41,6 +49,10 @@ export function VoteTotalingDialog({
           isVotingComplete={isVotingComplete}
           members={members}
           notes={notes}
+          decision={decision}
+          isHost={isHost}
+          isDisconnected={isDisconnected}
+          onNoteDecide={onNoteDecide}
         />
       </DialogContent>
     </Dialog>

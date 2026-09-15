@@ -16,5 +16,7 @@ cd "$PROJECT_DIR" || exit 0
   # バッチ全体を失敗させない。pipefail 下では while ループ内の最後のコマンドの
   # 終了コードがそのままこのスクリプト全体の終了コードになるため、個々の失敗を
   # 握りつぶして残りのファイルの整形を継続する。
-  [[ -f "$file" ]] && { bash "$PROJECT_DIR/scripts/format-file.sh" "$file" || true; }
+  if [[ -f "$file" ]]; then
+    bash "$PROJECT_DIR/scripts/format-file.sh" "$file" || true
+  fi
 done

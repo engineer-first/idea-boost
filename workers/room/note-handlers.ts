@@ -5,12 +5,19 @@ import {
   NOTE_SPAWN_X_MIN,
   NOTE_SPAWN_Y_MIN,
 } from "../../contracts/board";
+import { isPhaseStep } from "../../contracts/phase";
+import type { SocketAttachment } from "./broadcast";
 import { autoReorganize } from "./groups";
-import { type MessageHandlers, replyForbidden } from "./handler-context";
-import { getMemberColor } from "./members";
+import {
+  type HandlerCtx,
+  type MessageHandlers,
+  replyForbidden,
+} from "./handler-context";
+import { findMember, getMemberColor } from "./members";
 import {
   broadcastNoteInserted,
   broadcastNoteUpdated,
+  broadcastVoteUpdated,
   canEdit,
   deleteNote,
   findNote,
@@ -19,19 +26,43 @@ import {
   moveNote,
   type NoteRow,
   publishNote,
-  requireNote,
+  requireNoteInCurrentPhase,
   toProtocolNote,
   touchNote,
   unpublishNote,
   updateNoteContent,
 } from "./notes";
+import { getPhase, isPersonalWritingStep } from "./phase";
 import {
   addUserNoteVote,
+  addVoteSticker,
   countUserNoteVotes,
   deleteNoteVotes,
+  findVoteSticker,
   hasReachedVoteLimit,
+  moveVoteSticker,
+  removeOneUserNoteVote,
   removeUserNoteVotes,
+  removeVoteSticker,
 } from "./votes";
+
+function autoReorganizeAtGroupingStep(ctx: HandlerCtx): void {
+  if (isPhaseStep(getPhase(ctx.sql), 1, 3)) {
+    autoReorganize(ctx.storage, ctx.broadcaster);
+  }
+}
+
+// 個人執筆ステップでは自分の private 付箋だけが変更対象。前フェーズから
+// 残っている共有付箋は記録として凍結する（canEdit の「shared は全員編集可」
+// が個人執筆ステップへ漏れ込むのを塞ぐ）。
+function isFrozenSharedNoteAtPersonalStep(
+  ctx: HandlerCtx,
+  row: NoteRow,
+): boolean {
+  return (
+    row.visibility !== "private" && isPersonalWritingStep(getPhase(ctx.sql))
+  );
+}
 
 export const noteHandlers: MessageHandlers<
   | "note:create"
@@ -43,28 +74,38 @@ export const noteHandlers: MessageHandlers<
   | "note:delete"
   | "note:vote"
   | "note:vote-reset"
+  | "note:vote-remove"
+  | "note:vote-sticker:add"
+  | "note:vote-sticker:move"
+  | "note:vote-sticker:remove"
 > = {
-  "note:create": (ctx) => {
+  "note:create": (ctx, message) => {
+    const phase = getPhase(ctx.sql);
+    if (phase.kind !== "step") {
+      replyForbidden(ctx);
+      return;
+    }
     const now = new Date().toISOString();
     const color = getMemberColor(ctx.sql, ctx.userId) ?? "yellow";
 
     const note: NoteRow = {
       id: crypto.randomUUID(),
       author_id: ctx.userId,
-      content: "",
+      content: message.content ?? "",
       visibility: "private",
       color: color,
       x: NOTE_SPAWN_X_MIN + Math.random() * NOTE_SPAWN_JITTER,
       y: NOTE_SPAWN_Y_MIN + Math.random() * NOTE_SPAWN_JITTER,
       created_at: now,
       updated_at: now,
+      phase: phase.phase,
     };
     insertNote(ctx.sql, note);
     broadcastNoteInserted(ctx.sql, ctx.broadcaster, note);
   },
 
   "note:publish": (ctx, message) => {
-    const row = requireNote(ctx, message.noteId);
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (row.author_id !== ctx.userId || row.visibility !== "private") {
       replyForbidden(ctx);
@@ -79,11 +120,11 @@ export const noteHandlers: MessageHandlers<
       y: message.y,
       updated_at: updatedAt,
     });
-    autoReorganize(ctx.storage, ctx.broadcaster);
+    autoReorganizeAtGroupingStep(ctx);
   },
 
   "note:unpublish": (ctx, message) => {
-    const row = requireNote(ctx, message.noteId);
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (row.author_id !== ctx.userId || row.visibility !== "shared") {
       replyForbidden(ctx);
@@ -102,13 +143,16 @@ export const noteHandlers: MessageHandlers<
       visibility: "private",
       updated_at: updatedAt,
     });
-    autoReorganize(ctx.storage, ctx.broadcaster);
+    autoReorganizeAtGroupingStep(ctx);
   },
 
   "note:update-content": (ctx, message) => {
-    const row = requireNote(ctx, message.noteId);
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!canEdit(row, ctx.userId)) {
+    if (
+      !canEdit(row, ctx.userId) ||
+      isFrozenSharedNoteAtPersonalStep(ctx, row)
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -122,7 +166,7 @@ export const noteHandlers: MessageHandlers<
   },
 
   "note:move": (ctx, message) => {
-    const row = requireNote(ctx, message.noteId);
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (!canEdit(row, ctx.userId)) {
       replyForbidden(ctx);
@@ -136,15 +180,28 @@ export const noteHandlers: MessageHandlers<
       y: message.y,
       updated_at: updatedAt,
     });
+    const attachment =
+      ctx.ws.deserializeAttachment() as SocketAttachment | null;
+    if (attachment?.activeDragNoteId === message.noteId) {
+      ctx.ws.serializeAttachment({
+        ...attachment,
+        activeDragNoteId: undefined,
+      } satisfies SocketAttachment);
+    }
 
     // 位置が変わったので自動再編成を実行
-    autoReorganize(ctx.storage, ctx.broadcaster);
+    autoReorganizeAtGroupingStep(ctx);
   },
 
   // ドラッグ中の座標は永続化せず、送信者以外の可視な相手へ中継するだけ。
   "note:drag": (ctx, message) => {
     const row = findNote(ctx.sql, message.noteId);
     if (!row) {
+      return;
+    }
+    const phase = getPhase(ctx.sql);
+    if (phase.kind !== "step" || row.phase !== phase.phase) {
+      replyForbidden(ctx);
       return;
     }
     if (!canEdit(row, ctx.userId)) {
@@ -154,12 +211,23 @@ export const noteHandlers: MessageHandlers<
     if (row.visibility === "private") {
       return;
     }
+    const draggedBy = findMember(ctx.sql, ctx.userId);
+    if (!draggedBy) return;
+    const attachment =
+      (ctx.ws.deserializeAttachment() as SocketAttachment | null) ?? {
+        userId: ctx.userId,
+      };
+    ctx.ws.serializeAttachment({
+      ...attachment,
+      activeDragNoteId: message.noteId,
+    } satisfies SocketAttachment);
     ctx.broadcaster.broadcast(
       {
         type: "note:drag",
         noteId: message.noteId,
         x: message.x,
         y: message.y,
+        draggedBy,
       },
       toProtocolNote(ctx.sql, row, ctx.userId),
       ctx.ws,
@@ -167,9 +235,12 @@ export const noteHandlers: MessageHandlers<
   },
 
   "note:delete": (ctx, message) => {
-    const row = requireNote(ctx, message.noteId);
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (row.author_id !== ctx.userId) {
+    if (
+      row.author_id !== ctx.userId ||
+      isFrozenSharedNoteAtPersonalStep(ctx, row)
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -181,13 +252,18 @@ export const noteHandlers: MessageHandlers<
     );
 
     // 付箋が削除されたので自動再編成を実行
-    autoReorganize(ctx.storage, ctx.broadcaster);
+    autoReorganizeAtGroupingStep(ctx);
   },
 
   "note:vote": (ctx, message) => {
-    const row = requireNote(ctx, message.noteId);
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (!isVisibleTo(row, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+    const phase = getPhase(ctx.sql);
+    if (phase.kind !== "step") {
       replyForbidden(ctx);
       return;
     }
@@ -202,7 +278,7 @@ export const noteHandlers: MessageHandlers<
     if (message.kind === "subjective" && ownCount > 0) {
       removeUserNoteVotes(ctx.sql, message.noteId, ctx.userId, message.kind);
     } else {
-      if (hasReachedVoteLimit(ctx.sql, ctx.userId, message.kind)) {
+      if (hasReachedVoteLimit(ctx.sql, ctx.userId, message.kind, phase.phase)) {
         ctx.reply({
           type: "error",
           code: "forbidden",
@@ -215,14 +291,17 @@ export const noteHandlers: MessageHandlers<
 
     const updatedAt = new Date().toISOString();
     touchNote(ctx.sql, message.noteId, updatedAt);
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      updated_at: updatedAt,
-    });
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...row, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
   },
 
   "note:vote-reset": (ctx, message) => {
-    const row = requireNote(ctx, message.noteId);
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (!isVisibleTo(row, ctx.userId)) {
       replyForbidden(ctx);
@@ -233,9 +312,187 @@ export const noteHandlers: MessageHandlers<
 
     const updatedAt = new Date().toISOString();
     touchNote(ctx.sql, message.noteId, updatedAt);
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      updated_at: updatedAt,
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...row, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
+  },
+
+  "note:vote-remove": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (!isVisibleTo(row, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+
+    if (
+      !removeOneUserNoteVote(ctx.sql, message.noteId, ctx.userId, message.kind)
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "取り消せる投票がありません。",
+      });
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    touchNote(ctx.sql, message.noteId, updatedAt);
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...row, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
+  },
+
+  "note:vote-sticker:add": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (!isVisibleTo(row, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+    const phase = getPhase(ctx.sql);
+    if (phase.kind !== "step") {
+      replyForbidden(ctx);
+      return;
+    }
+    const existing = findVoteSticker(ctx.sql, message.stickerId);
+    if (existing) {
+      const isSameSticker =
+        existing.note_id === message.noteId &&
+        existing.user_id === ctx.userId &&
+        existing.kind === message.kind &&
+        existing.x === message.x &&
+        existing.y === message.y;
+      if (isSameSticker) {
+        broadcastVoteUpdated(
+          ctx.sql,
+          ctx.broadcaster,
+          row,
+          ctx.userId,
+          message.operationId,
+        );
+        return;
+      }
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "同じシールは重ねて貼れません。",
+      });
+      return;
+    }
+    if (hasReachedVoteLimit(ctx.sql, ctx.userId, message.kind, phase.phase)) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "投票上限を超えています。",
+      });
+      return;
+    }
+    if (
+      !addVoteSticker(
+        ctx.sql,
+        {
+          id: message.stickerId,
+          kind: message.kind,
+          x: message.x,
+          y: message.y,
+        },
+        message.noteId,
+        ctx.userId,
+      )
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "同じシールは重ねて貼れません。",
+      });
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    touchNote(ctx.sql, message.noteId, updatedAt);
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...row, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
+  },
+
+  "note:vote-sticker:move": (ctx, message) => {
+    const sticker = findVoteSticker(ctx.sql, message.stickerId);
+    if (!sticker || sticker.user_id !== ctx.userId) {
+      replyForbidden(ctx);
+      return;
+    }
+    const source = requireNoteInCurrentPhase(ctx, sticker.note_id);
+    if (!source) return;
+    const target = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!target) return;
+    if (!isVisibleTo(target, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    ctx.storage.transactionSync(() => {
+      moveVoteSticker(
+        ctx.sql,
+        message.stickerId,
+        message.noteId,
+        message.x,
+        message.y,
+      );
+      touchNote(ctx.sql, source.id, updatedAt);
+      if (target.id !== source.id) touchNote(ctx.sql, target.id, updatedAt);
     });
+    if (source.id !== target.id) {
+      broadcastVoteUpdated(
+        ctx.sql,
+        ctx.broadcaster,
+        { ...source, updated_at: updatedAt },
+        ctx.userId,
+      );
+    }
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...target, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
+  },
+
+  "note:vote-sticker:remove": (ctx, message) => {
+    const sticker = findVoteSticker(ctx.sql, message.stickerId);
+    if (!sticker || sticker.user_id !== ctx.userId) {
+      replyForbidden(ctx);
+      return;
+    }
+    const row = requireNoteInCurrentPhase(ctx, sticker.note_id);
+    if (!row || !isVisibleTo(row, ctx.userId)) {
+      if (row) replyForbidden(ctx);
+      return;
+    }
+
+    removeVoteSticker(ctx.sql, message.stickerId);
+    const updatedAt = new Date().toISOString();
+    touchNote(ctx.sql, row.id, updatedAt);
+    broadcastVoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      { ...row, updated_at: updatedAt },
+      ctx.userId,
+      message.operationId,
+    );
   },
 };

@@ -23,9 +23,9 @@ describe("HomeView", () => {
     expect(screen.getByTestId("home-view")).toBeInTheDocument();
   });
 
-  it("IdeaFlow タイトルは出さない（ヘッダー専用）", () => {
+  it("Idea Boost タイトルは出さない（ヘッダー専用）", () => {
     renderView();
-    expect(screen.queryByText("IdeaFlow")).not.toBeInTheDocument();
+    expect(screen.queryByText("Idea Boost")).not.toBeInTheDocument();
   });
 
   it("案内で作成と参加の両方に触れる", () => {

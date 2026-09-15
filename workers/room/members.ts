@@ -13,6 +13,16 @@ type MemberRow = {
   color: NoteColor;
 };
 
+export function findMember(
+  sql: SqlStorage,
+  userId: string,
+): ProtocolMember | null {
+  const row = sql
+    .exec("SELECT user_id, name, color FROM members WHERE user_id = ?1", userId)
+    .toArray()[0] as unknown as MemberRow | undefined;
+  return row ? { userId: row.user_id, name: row.name, color: row.color } : null;
+}
+
 export type UpsertMemberResult =
   | { ok: true }
   | { ok: false; reason: "room-full" };

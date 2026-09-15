@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type {
-  Phase,
-  ProtocolMember,
-  ServerMessage,
-} from "@/contracts/room-protocol";
+import type { RoomPhase } from "@/contracts/phase";
+import { buildLobbyPhase, buildPhaseStep } from "@/contracts/phase.fixture";
+import type { ProtocolMember, ServerMessage } from "@/contracts/room-protocol";
 import {
+  buildCarryover,
+  buildDecision,
+} from "@/contracts/room-protocol.fixture";
+import {
+  applyCarryoverServerMessage,
+  applyDecisionServerMessage,
   applyMemberServerMessage,
   applyPhaseServerMessage,
   applyTimerServerMessage,
@@ -20,6 +24,7 @@ const B: ProtocolMember = {
   name: "Taro Yamada",
   color: "green",
 };
+const LOBBY = buildLobbyPhase();
 
 describe("applyMemberServerMessage", () => {
   it("snapshot.members で members state を丸ごと置き換える", () => {
@@ -27,8 +32,10 @@ describe("applyMemberServerMessage", () => {
       type: "snapshot",
       notes: [],
       members: [A, B],
-      phase: "lobby",
+      phase: LOBBY,
       isHost: true,
+      decision: null,
+      carryovers: [],
       timer: { status: "idle" },
       serverNow: 1_000,
     };
@@ -76,13 +83,27 @@ describe("applyMemberServerMessage", () => {
           subjective: { count: 0, votedByMe: false, ownCount: 0 },
           objective: { count: 0, votedByMe: false, ownCount: 0 },
         },
+        dotVoteStickers: [],
       },
     };
     expect(applyMemberServerMessage([A], message)).toEqual([A]);
   });
 
   it("phase:updated は members を変えない", () => {
-    const message: ServerMessage = { type: "phase:updated", phase: "phase1" };
+    const message: ServerMessage = {
+      type: "phase:updated",
+      phase: buildPhaseStep(1),
+    };
+    expect(applyMemberServerMessage([A], message)).toEqual([A]);
+  });
+
+  it("decision:updated は members を変えない", () => {
+    const message: ServerMessage = {
+      type: "decision:updated",
+      phase: 1,
+      noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      decidedBy: A.userId,
+    };
     expect(applyMemberServerMessage([A], message)).toEqual([A]);
   });
 
@@ -106,27 +127,27 @@ describe("applyMemberServerMessage", () => {
 describe("applyPhaseServerMessage", () => {
   it("初期値は lobby", () => {
     expect(
-      applyPhaseServerMessage("lobby", {
+      applyPhaseServerMessage(LOBBY, {
         type: "error",
         code: "forbidden",
         message: "x",
       }),
-    ).toBe("lobby");
+    ).toEqual(LOBBY);
   });
 
   it("phase:updated で phase が進む", () => {
     expect(
-      applyPhaseServerMessage("lobby", {
+      applyPhaseServerMessage(LOBBY, {
         type: "phase:updated",
-        phase: "phase1",
+        phase: buildPhaseStep(1),
       }),
-    ).toBe("phase1");
+    ).toEqual(buildPhaseStep(1));
     expect(
-      applyPhaseServerMessage("phase1", {
+      applyPhaseServerMessage(buildPhaseStep(1), {
         type: "phase:updated",
-        phase: "phase2",
+        phase: buildPhaseStep(2),
       }),
-    ).toBe("phase2");
+    ).toEqual(buildPhaseStep(2));
   });
 
   it("ノート系メッセージは phase を変えない", () => {
@@ -146,14 +167,29 @@ describe("applyPhaseServerMessage", () => {
           subjective: { count: 0, votedByMe: false, ownCount: 0 },
           objective: { count: 0, votedByMe: false, ownCount: 0 },
         },
+        dotVoteStickers: [],
       },
     };
-    expect(applyPhaseServerMessage("lobby", message)).toBe("lobby");
+    expect(applyPhaseServerMessage(LOBBY, message)).toEqual(LOBBY);
   });
 
   it("member_joined は phase を変えない", () => {
     const message: ServerMessage = { type: "member_joined", member: B };
-    expect(applyPhaseServerMessage("phase1", message)).toBe("phase1");
+    expect(applyPhaseServerMessage(buildPhaseStep(1), message)).toEqual(
+      buildPhaseStep(1),
+    );
+  });
+
+  it("decision:updated は phase を変えない", () => {
+    const message: ServerMessage = {
+      type: "decision:updated",
+      phase: 1,
+      noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      decidedBy: A.userId,
+    };
+    expect(applyPhaseServerMessage(buildPhaseStep(5), message)).toEqual(
+      buildPhaseStep(5),
+    );
   });
 
   it("snapshot.phase で再接続後の進行状態を復元する", () => {
@@ -161,12 +197,16 @@ describe("applyPhaseServerMessage", () => {
       type: "snapshot",
       notes: [],
       members: [A],
-      phase: "phase1",
+      phase: buildPhaseStep(1),
       isHost: true,
+      decision: null,
+      carryovers: [],
       timer: { status: "running", endsAt: 10_000, durationMs: 10_000 },
       serverNow: 1_000,
     };
-    expect(applyPhaseServerMessage("lobby" as Phase, message)).toBe("phase1");
+    expect(applyPhaseServerMessage(LOBBY as RoomPhase, message)).toEqual(
+      buildPhaseStep(1),
+    );
   });
 });
 
@@ -176,7 +216,7 @@ describe("applyTimerServerMessage", () => {
     expect(
       applyTimerServerMessage(
         current,
-        { type: "phase:updated", phase: "phase2" },
+        { type: "phase:updated", phase: buildPhaseStep(2) },
         1_000,
       ),
     ).toBe(current);
@@ -187,8 +227,10 @@ describe("applyTimerServerMessage", () => {
       type: "snapshot",
       notes: [],
       members: [A],
-      phase: "phase1",
+      phase: buildPhaseStep(1),
       isHost: true,
+      decision: null,
+      carryovers: [],
       timer: { status: "running", endsAt: 10_000, durationMs: 10_000 },
       serverNow: 1_000,
     };
@@ -215,5 +257,90 @@ describe("applyTimerServerMessage", () => {
         1_850,
       ),
     ).toEqual({ timer: updated.timer, serverOffsetMs: 150 });
+  });
+});
+
+describe("applyDecisionServerMessage", () => {
+  const decision = buildDecision({ decidedBy: A.userId });
+
+  it("decision:updated で最新の決定を反映する", () => {
+    expect(
+      applyDecisionServerMessage(null, {
+        type: "decision:updated",
+        ...decision,
+      }),
+    ).toEqual(decision);
+  });
+
+  it("snapshot の決定状態で再接続後の表示を復元する", () => {
+    expect(
+      applyDecisionServerMessage(null, {
+        type: "snapshot",
+        notes: [],
+        members: [A],
+        phase: buildPhaseStep(5),
+        isHost: true,
+        decision,
+        carryovers: [],
+        timer: { status: "idle" },
+        serverNow: 1_000,
+      }),
+    ).toEqual(decision);
+  });
+
+  it("phase:updated で前フェーズの決定をクリアする", () => {
+    expect(
+      applyDecisionServerMessage(decision, {
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+      }),
+    ).toBeNull();
+  });
+
+  it("決定に関係しないメッセージでは現在の決定を維持する", () => {
+    expect(
+      applyDecisionServerMessage(decision, {
+        type: "member_joined",
+        member: B,
+      }),
+    ).toEqual(decision);
+  });
+});
+
+describe("applyCarryoverServerMessage", () => {
+  const carryover = buildCarryover();
+
+  it("snapshot の carryovers で持ち越しを復元する", () => {
+    expect(
+      applyCarryoverServerMessage([], {
+        type: "snapshot",
+        notes: [],
+        members: [A],
+        phase: buildPhaseStep(1, 2),
+        isHost: true,
+        decision: null,
+        carryovers: [carryover],
+        timer: { status: "idle" },
+        serverNow: 1_000,
+      }),
+    ).toEqual([carryover]);
+  });
+
+  it("phase:updated では持ち越しを維持する（フェーズ境界の真実は snapshot 再送が運ぶ）", () => {
+    expect(
+      applyCarryoverServerMessage([carryover], {
+        type: "phase:updated",
+        phase: buildPhaseStep(1, 2),
+      }),
+    ).toEqual([carryover]);
+  });
+
+  it("持ち越しに関係しないメッセージでは現在の持ち越しを維持する", () => {
+    expect(
+      applyCarryoverServerMessage([carryover], {
+        type: "member_joined",
+        member: B,
+      }),
+    ).toEqual([carryover]);
   });
 });

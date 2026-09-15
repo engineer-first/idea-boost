@@ -2,6 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { buildLobbyPhase } from "@/contracts/phase.fixture";
 import { buildMembers } from "@/contracts/room-protocol.fixture";
 import { RoomLobbyView } from "./room-lobby-view";
 
@@ -16,7 +17,7 @@ function renderView(
       currentUserId={ME}
       isHost
       hostUserId={ME}
-      phase="lobby"
+      phase={buildLobbyPhase()}
       inviteCode="AB12CD"
       inviteUrl="https://idea-flow.example/invite/AB12CD"
       connectionStatus="open"
@@ -76,7 +77,7 @@ describe("RoomLobbyView", () => {
   });
 
   it("data-phase と data-host を container がテストから参照できる形で持つ", () => {
-    renderView({ phase: "lobby", isHost: true });
+    renderView({ phase: buildLobbyPhase(), isHost: true });
     const view = screen.getByTestId("room-lobby-view");
     expect(view).toHaveAttribute("data-phase", "lobby");
     expect(view).toHaveAttribute("data-host", "true");

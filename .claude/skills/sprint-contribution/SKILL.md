@@ -15,7 +15,7 @@ GitHub Discussion への投稿は外部から見える公開アクションな�
 
 ## 全体の流れ
 
-対象リポジトリは `engineer-first/idea-flow-app` 固定（`OWNER=engineer-first REPO=idea-flow-app`）。
+対象リポジトリは `engineer-first/idea-boost` 固定（`OWNER=engineer-first REPO=idea-boost`）。
 
 ### 1. スプリント期間を特定する
 

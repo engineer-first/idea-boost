@@ -26,8 +26,8 @@ describe("roomWebSocketUrl", () => {
     expect(
       roomWebSocketUrl(ROOM_ID, {
         base: "",
-        origin: "https://idea-flow.example",
+        origin: "https://idea-boost.example",
       }),
-    ).toBe(`wss://idea-flow.example/api/rooms/${ROOM_ID}/ws`);
+    ).toBe(`wss://idea-boost.example/api/rooms/${ROOM_ID}/ws`);
   });
 });

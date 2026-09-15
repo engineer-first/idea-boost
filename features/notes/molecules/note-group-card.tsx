@@ -6,6 +6,7 @@ import type { RenderGroup } from "@/contracts/grouping";
 export type NoteGroupCardProps = {
   group: RenderGroup;
   name: string;
+  canGroupNote: boolean;
   onUpdateName: (name: string) => void;
 };
 
@@ -20,6 +21,7 @@ function getHashCode(str: string): number {
 export function NoteGroupCard({
   group,
   name,
+  canGroupNote,
   onUpdateName,
 }: NoteGroupCardProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -33,14 +35,20 @@ export function NoteGroupCard({
   }, [name, isEditing]);
 
   useEffect(() => {
-    if (isEditing) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
+    if (!canGroupNote && isEditing) {
+      setIsEditing(false);
+      setLocalName(name);
     }
-  }, [isEditing]);
+  }, [canGroupNote, isEditing, name]);
 
   const handleSubmit = () => {
     setIsEditing(false);
+
+    if (!canGroupNote) {
+      setLocalName(name);
+      return;
+    }
+
     const trimmed = localName.trim();
     if (trimmed && trimmed !== name) {
       onUpdateName(trimmed);
@@ -75,10 +83,16 @@ export function NoteGroupCard({
           tabIndex={isEditing ? -1 : 0}
           className="pointer-events-auto absolute -top-4 left-3 cursor-pointer rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-sm font-bold text-[hsl(var(--group-hue),75%,35%)] shadow-sm select-none dark:border-[hsl(var(--group-hue),55%,30%)] dark:text-[hsl(var(--group-hue),55%,70%)]"
           onClick={() => {
-            if (!isEditing) setIsEditing(true);
+            if (canGroupNote && !isEditing) {
+              setIsEditing(true);
+            }
           }}
           onKeyDown={(e) => {
-            if (!isEditing && (e.key === "Enter" || e.key === " ")) {
+            if (
+              canGroupNote &&
+              !isEditing &&
+              (e.key === "Enter" || e.key === " ")
+            ) {
               e.preventDefault();
               setIsEditing(true);
             }

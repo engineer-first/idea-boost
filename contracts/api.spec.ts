@@ -8,8 +8,10 @@ import {
   RoomMembersResponseSchema,
   SyncUserResponseSchema,
 } from "./api";
+import { buildLobbyPhase } from "./phase.fixture";
 
 const UUID = "11111111-1111-4111-8111-111111111111";
+const LOBBY = buildLobbyPhase();
 
 describe("SyncUserResponseSchema", () => {
   it("userId を受け入れる", () => {
@@ -48,14 +50,14 @@ describe("RoomInfoResponseSchema", () => {
       inviteCode: "ABC234",
       isHost: true,
       hostUserId: UUID,
-      phase: "lobby",
+      phase: LOBBY,
     });
     expect(parsed).toEqual({
       roomId: UUID,
       inviteCode: "ABC234",
       isHost: true,
       hostUserId: UUID,
-      phase: "lobby",
+      phase: LOBBY,
     });
   });
 
@@ -65,7 +67,7 @@ describe("RoomInfoResponseSchema", () => {
         roomId: UUID,
         inviteCode: "ABC234",
         hostUserId: UUID,
-        phase: "lobby",
+        phase: LOBBY,
       }).success,
     ).toBe(false);
   });
@@ -76,7 +78,7 @@ describe("RoomInfoResponseSchema", () => {
         roomId: UUID,
         inviteCode: "ABC234",
         isHost: true,
-        phase: "lobby",
+        phase: LOBBY,
       }).success,
     ).toBe(false);
   });
@@ -88,7 +90,7 @@ describe("RoomInfoResponseSchema", () => {
         inviteCode: "ABC234",
         isHost: true,
         hostUserId: "not-a-uuid",
-        phase: "lobby",
+        phase: LOBBY,
       }).success,
     ).toBe(false);
   });
@@ -112,7 +114,7 @@ describe("RoomInfoResponseSchema", () => {
         inviteCode: "ABC234",
         isHost: "true",
         hostUserId: UUID,
-        phase: "lobby",
+        phase: LOBBY,
       }).success,
     ).toBe(false);
   });

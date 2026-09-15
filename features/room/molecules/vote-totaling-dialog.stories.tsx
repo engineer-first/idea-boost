@@ -1,6 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { buildMembers, buildNotes } from "@/contracts/room-protocol.fixture";
+import {
+  buildDecision,
+  buildMembers,
+  buildNotes,
+} from "@/contracts/room-protocol.fixture";
 import { VoteTotalingDialog } from "./vote-totaling-dialog";
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -13,6 +17,10 @@ const meta = {
     onOpenChange: fn(),
     isVotingComplete: true,
     members: buildMembers(2, ME),
+    decision: null,
+    isHost: true,
+    isDisconnected: false,
+    onNoteDecide: fn(),
     notes: buildNotes(3).map((note, index) => ({
       ...note,
       dotVotes: {
@@ -41,5 +49,11 @@ export const Open: Story = {};
 export const VotingIncomplete: Story = {
   args: {
     isVotingComplete: false,
+  },
+};
+
+export const Decided: Story = {
+  args: {
+    decision: buildDecision({ noteId: "note-1", decidedBy: ME }),
   },
 };

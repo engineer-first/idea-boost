@@ -349,6 +349,8 @@ const DOUBLE_SLASH_RULE = /^no-double-slash/;
 const JS_ZONE_RULE = /^no-js-family/;
 const UNREGISTERED_RULE = /^unregistered-feature/;
 const ESCAPE_RULE = /^no-escape-in-import-specifier/;
+const ROOM_EDGE_RULE = /^room-feature-allowed-edges/;
+const NOTES_EDGE_RULE = /^notes-feature-allowed-edges/;
 
 describe("攻撃的検証で実証された死角の封鎖", () => {
   it("CommonJS require() は帯規則の死角なので features / app で禁止する", () => {
@@ -493,5 +495,41 @@ describe("攻撃的検証で実証された死角の封鎖", () => {
       findings.find((f) => COMMONJS_RULE.test(f.ruleId)),
       "require の裸参照が検知されていない",
     ).toBeDefined();
+  });
+
+  it("room は許可リスト外の未登録 feature も import できない（denylistではなくallowlistで判定する）", () => {
+    // room-feature-allowed-edges が room・room-lifecycle・auth だけを拒否する
+    // denylist だと、将来追加される未登録 feature（zz-poc で模擬）への依存が
+    // 素通りしてしまう。許可済み 7 feature 以外を拒否する allowlist であること
+    // を固定する。
+    const dir = createProject({
+      "features/room/molecules/unlisted-edge-evil.ts": [
+        `import { x } from "@/features/zz-poc";`,
+        `export const leaked = x;`,
+      ].join("\n"),
+    });
+
+    expectEachDetected(
+      scan(dir),
+      "features/room/molecules/unlisted-edge-evil.ts",
+      [`@/features/zz-poc`],
+      ROOM_EDGE_RULE,
+    );
+  });
+
+  it("notes は許可リスト外の未登録 feature も import できない（denylistではなくallowlistで判定する）", () => {
+    const dir = createProject({
+      "features/notes/molecules/unlisted-edge-evil.ts": [
+        `import { x } from "@/features/zz-poc";`,
+        `export const leaked = x;`,
+      ].join("\n"),
+    });
+
+    expectEachDetected(
+      scan(dir),
+      "features/notes/molecules/unlisted-edge-evil.ts",
+      [`@/features/zz-poc`],
+      NOTES_EDGE_RULE,
+    );
   });
 });

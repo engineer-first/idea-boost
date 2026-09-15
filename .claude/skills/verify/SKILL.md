@@ -29,7 +29,7 @@ description: このリポジトリの変更をローカルで起動して実際�
 - 付箋の状態は data 属性で観測できる: `[data-testid="note-card"]` の `data-selected` / `data-editing`。
 - 選択・ドラッグ・キー操作のサーフェスはカード内の `button[aria-label="付箋"]`（編集中はアンマウントされる）。
 - 認可の否定系（非メンバー 404 等）は curl で直接確認できる:
-  `curl -H "Cookie: idea_flow_session=<token>" http://localhost:8787/api/rooms/<id>`。
+  `curl -H "Cookie: idea_boost_session=<token>" http://localhost:8787/api/rooms/<id>`。
 
 ## 落とし穴
 

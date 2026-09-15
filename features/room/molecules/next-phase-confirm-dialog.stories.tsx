@@ -1,12 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn, userEvent, within } from "storybook/test";
+import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NextPhaseConfirmDialog } from "./next-phase-confirm-dialog";
+
+const STEP_1_1 = buildPhaseStep(1);
+const STEP_1_3 = buildPhaseStep(3);
 
 const meta = {
   title: "Room/NextPhaseConfirmDialog",
   component: NextPhaseConfirmDialog,
   args: {
-    phase: "phase1",
+    phase: STEP_1_1,
     disabled: false,
     onConfirm: fn(),
   },
@@ -28,12 +32,12 @@ export const Disabled: Story = {
 // 押下後、確認ダイアログが開いた状態（現在フェーズのラベルが説明に入る）。
 export const Opened: Story = {
   args: {
-    phase: "phase3",
+    phase: STEP_1_3,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      await canvas.findByRole("button", { name: "次のフェーズへ" }),
+      await canvas.findByRole("button", { name: "次のステップへ" }),
     );
   },
 };

@@ -1,0 +1,57 @@
+name: Discord Issue Assign Notify
+
+on:
+  issues:
+    types: [assigned]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: discord-issue-assign-notify-${{ github.event.issue.number }}-${{ github.event.assignee.login }}
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Notify Discord
+        uses: actions/github-script@v7
+        env:
+          # マージ通知（discord-merge-notify.yml）とはあえて別チャンネル・別secretにしている。
+          # 同じチャンネルだと、着手通知に付いた質問スレッドがマージ通知に埋もれてしまうため。
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_ISSUE_ASSIGN }}
+        with:
+          script: |
+            const { buildDiscordAssignPayload } = require("./.github/scripts/discord-issue-assign-notify.js");
+
+            const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+            if (!webhookUrl) {
+              core.warning("DISCORD_WEBHOOK_URL_ISSUE_ASSIGN が未設定のため通知をスキップしました");
+              return;
+            }
+
+            const issue = context.payload.issue;
+            const assignee = context.payload.assignee;
+            const payload = buildDiscordAssignPayload({
+              number: issue.number,
+              title: issue.title,
+              url: issue.html_url,
+              assignee: assignee.login,
+            });
+
+            const response = await fetch(webhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+              core.setFailed(
+                `Discord通知に失敗しました: ${response.status} ${await response.text()}`,
+              );
+            }

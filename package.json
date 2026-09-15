@@ -1,5 +1,5 @@
 {
-  "name": "idea-flow-app",
+  "name": "idea-boost",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -34,12 +34,16 @@
     "predeploy:api": "npm run gen:room-do-migrations",
     "deploy:api": "wrangler deploy --config workers/wrangler.jsonc",
     "build:cf": "opennextjs-cloudflare build",
+    "deploy:app": "npm run build:cf && wrangler deploy -c wrangler.jsonc",
+    "deploy:migrate": "wrangler d1 migrations apply DB --remote --config workers/wrangler.jsonc",
+    "deploy": "npm run deploy:migrate && npm run deploy:api && npm run deploy:app",
     "prepreview:cf": "npm run gen:room-do-migrations",
     "preview:cf": "opennextjs-cloudflare build && wrangler dev -c wrangler.jsonc -c workers/wrangler.jsonc",
     "presmoke": "npm run gen:room-do-migrations",
     "smoke": "bash scripts/smoke-test.sh",
     "storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook dev -p 6006",
-    "build-storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook build"
+    "build-storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook build",
+    "test:browser": "vitest run --config vitest.browser.config.mts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -77,6 +81,7 @@
     "jsdom": "^29.1.1",
     "mermaid": "^11.16.0",
     "msw": "^2.14.6",
+    "playwright": "^1.63.0",
     "remark-cjk-friendly": "^2.3.1",
     "remark-cli": "^12.0.1",
     "remark-frontmatter": "^5.0.0",

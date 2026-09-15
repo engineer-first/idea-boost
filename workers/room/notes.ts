@@ -1,10 +1,18 @@
 // 付箋（notes）の真実。ストレージアクセス・可視性判定・プロトコル射影と、
 // 受信者ごとの可視性を踏まえたノート配信ヘルパをここに集約する。
+
+import { isVotingStep } from "../../contracts/phase";
 import type { NoteColor, ProtocolNote } from "../../contracts/room-protocol";
-import { visibleTo } from "../visibility";
+import { projectNoteForViewer, visibleTo } from "../visibility";
 import type { RoomBroadcaster } from "./broadcast";
 import { type HandlerCtx, replyNotFound } from "./handler-context";
-import { countNoteVotes, countUserNoteVotes, hasVote } from "./votes";
+import { getPhase } from "./phase";
+import {
+  countNoteVotes,
+  countUserNoteVotes,
+  hasVote,
+  listVoteStickers,
+} from "./votes";
 
 export type NoteRow = {
   id: string;
@@ -16,6 +24,7 @@ export type NoteRow = {
   y: number;
   created_at: string;
   updated_at: string;
+  phase: number;
 };
 
 // 「誰の視点でもない」射影に使う viewerId。listSharedNotes や自動再編成の
@@ -32,6 +41,24 @@ export function requireNote(ctx: HandlerCtx, noteId: string): NoteRow | null {
   const row = findNote(ctx.sql, noteId);
   if (!row) {
     replyNotFound(ctx);
+    return null;
+  }
+  return row;
+}
+
+export function requireNoteInCurrentPhase(
+  ctx: HandlerCtx,
+  noteId: string,
+): NoteRow | null {
+  const row = requireNote(ctx, noteId);
+  if (!row) return null;
+  const phase = getPhase(ctx.sql);
+  if (phase.kind !== "step" || row.phase !== phase.phase) {
+    ctx.reply({
+      type: "error",
+      code: "forbidden",
+      message: "別のフェーズの付箋は操作できません。",
+    });
     return null;
   }
   return row;
@@ -58,15 +85,27 @@ function canAccessNote(
   );
 }
 
-export function listNotes(sql: SqlStorage, viewerId: string): ProtocolNote[] {
-  return sql
-    .exec("SELECT * FROM notes ORDER BY created_at")
-    .toArray()
-    .map((row) => toProtocolNote(sql, row as unknown as NoteRow, viewerId));
+export function listNotes(
+  sql: SqlStorage,
+  viewerId: string,
+  phase?: number,
+): ProtocolNote[] {
+  const rows =
+    phase === undefined
+      ? sql.exec("SELECT * FROM notes ORDER BY created_at").toArray()
+      : sql
+          .exec(
+            "SELECT * FROM notes WHERE phase = ?1 ORDER BY created_at",
+            phase,
+          )
+          .toArray();
+  return rows.map((row) =>
+    toProtocolNote(sql, row as unknown as NoteRow, viewerId),
+  );
 }
 
-export function listSharedNotes(sql: SqlStorage): ProtocolNote[] {
-  return listNotes(sql, NULL_VIEWER_ID).filter(
+export function listSharedNotes(sql: SqlStorage, phase = 1): ProtocolNote[] {
+  return listNotes(sql, NULL_VIEWER_ID, phase).filter(
     (note) => note.visibility === "shared",
   );
 }
@@ -82,8 +121,9 @@ export function hasOnlySharedNotes(
 
 export function insertNote(sql: SqlStorage, note: NoteRow): void {
   sql.exec(
-    `INSERT INTO notes (id, author_id, content, visibility, color, x, y, created_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+    `INSERT INTO notes
+       (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
     note.id,
     note.author_id,
     note.content,
@@ -93,6 +133,7 @@ export function insertNote(sql: SqlStorage, note: NoteRow): void {
     note.y,
     note.created_at,
     note.updated_at,
+    note.phase,
   );
 }
 
@@ -176,6 +217,7 @@ export function toProtocolNote(
   row: NoteRow,
   viewerId: string,
 ): ProtocolNote {
+  const phase = getPhase(sql);
   return {
     id: row.id,
     authorId: row.author_id,
@@ -198,6 +240,9 @@ export function toProtocolNote(
         ownCount: countUserNoteVotes(sql, row.id, viewerId, "objective"),
       },
     },
+    dotVoteStickers: isVotingStep(phase)
+      ? listVoteStickers(sql, row.id, viewerId)
+      : listVoteStickers(sql, row.id),
   };
 }
 
@@ -206,9 +251,13 @@ export function broadcastNoteInserted(
   broadcaster: RoomBroadcaster,
   row: NoteRow,
 ): void {
+  const phase = getPhase(sql);
   broadcaster.broadcastNote((viewerId) => ({
     type: "note:inserted",
-    note: toProtocolNote(sql, row, viewerId),
+    note: projectNoteForViewer(
+      { viewerId, phase },
+      toProtocolNote(sql, row, viewerId),
+    ),
   }));
 }
 
@@ -217,8 +266,38 @@ export function broadcastNoteUpdated(
   broadcaster: RoomBroadcaster,
   row: NoteRow,
 ): void {
+  const phase = getPhase(sql);
   broadcaster.broadcastNote((viewerId) => ({
     type: "note:updated",
-    note: toProtocolNote(sql, row, viewerId),
+    note: projectNoteForViewer(
+      { viewerId, phase },
+      toProtocolNote(sql, row, viewerId),
+    ),
+  }));
+}
+
+// 投票ステップでは、投票者本人（同一アカウントの全接続）に限定する。
+// 他メンバーへイベント自体を配信しないことで、票数だけでなく投票タイミングも
+// WebSocket から推測できないようにする。投票工程外は既存どおり全員へ同期する。
+export function broadcastVoteUpdated(
+  sql: SqlStorage,
+  broadcaster: RoomBroadcaster,
+  row: NoteRow,
+  userId: string,
+  operationId?: string,
+): void {
+  const phase = getPhase(sql);
+  if (!isVotingStep(phase)) {
+    broadcastNoteUpdated(sql, broadcaster, row);
+    return;
+  }
+
+  broadcaster.broadcastNoteToUser(userId, (viewerId) => ({
+    type: "note:updated",
+    note: projectNoteForViewer(
+      { viewerId, phase },
+      toProtocolNote(sql, row, viewerId),
+    ),
+    ...(operationId === undefined ? {} : { operationId }),
   }));
 }

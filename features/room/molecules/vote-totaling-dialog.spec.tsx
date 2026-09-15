@@ -13,7 +13,21 @@ function setup(
     onOpenChange: vi.fn(),
     isVotingComplete: true,
     members: buildMembers(2, ME),
-    notes: buildNotes(3),
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: {
+          count: index === 0 ? 1 : 0,
+          votedByMe: false,
+          ownCount: 0,
+        },
+        objective: { count: 0, votedByMe: false, ownCount: 0 },
+      },
+    })),
+    decision: null,
+    isHost: true,
+    isDisconnected: false,
+    onNoteDecide: vi.fn(),
     ...overrides,
   };
   render(<VoteTotalingDialog {...props} />);
@@ -40,5 +54,21 @@ describe("VoteTotalingDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("ランキング行から決定してもダイアログを閉じない", () => {
+    const onOpenChange = vi.fn();
+    const onNoteDecide = vi.fn();
+    setup({ onOpenChange, onNoteDecide });
+
+    fireEvent.click(
+      screen.getAllByRole("button", {
+        name: "付箋 1を取り組む課題に決定",
+      })[0],
+    );
+
+    expect(onNoteDecide).toHaveBeenCalledWith("note-1");
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });

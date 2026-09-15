@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="IdeaFlow の Cloudflare 本番デプロイ構成図。HTTPS/WSS・2 Worker・D1・RoomDO（1ルーム=1DO）の全体図、秘密の置き場所、release CI を1ページで俯瞰する。">
+<title>IdeaFlow — デプロイ構成図</title>
+<style>
+  :root {
+    --paper: #f6f3ec;
+    --paper-raised: #ffffff;
+    --ink: #1e2420;
+    --muted: #6e6a5c;
+    --line: #dbd4c4;
+    --accent: #0b6e5c;
+    --accent-soft: #dceee8;
+    --edge: #35507a;
+    --edge-soft: #e1e8f0;
+    --data: #a8681f;
+    --data-soft: #f3e4cc;
+    --core: #7a2f6b;
+    --core-soft: #f0e0ec;
+    --danger: #a33a2f;
+    --danger-soft: #f5e0dc;
+    --shadow: 0 1px 2px rgba(30, 36, 32, 0.06), 0 8px 24px -12px rgba(30, 36, 32, 0.14);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #12181a;
+      --paper-raised: #1a2224;
+      --ink: #e7e3d8;
+      --muted: #9b9686;
+      --line: rgba(255, 255, 255, 0.14);
+      --accent: #4fd9bb;
+      --accent-soft: rgba(79, 217, 187, 0.14);
+      --edge: #86abdd;
+      --edge-soft: rgba(134, 171, 221, 0.14);
+      --data: #d9a15c;
+      --data-soft: rgba(217, 161, 92, 0.14);
+      --core: #e0a0d0;
+      --core-soft: rgba(224, 160, 208, 0.14);
+      --danger: #f0a090;
+      --danger-soft: rgba(240, 160, 144, 0.14);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic Medium", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  a { color: var(--accent); }
+  .masthead {
+    border-bottom: 1px solid var(--line);
+    padding: 2.75rem 2rem 2rem;
+    background: linear-gradient(180deg, var(--accent-soft) 0%, transparent 65%);
+  }
+  .masthead-inner { max-width: 1100px; margin: 0 auto; }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin: 0 0 0.6rem;
+  }
+  h1.wordmark {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.55rem;
+  }
+  .wordmark .flow { color: var(--accent); }
+  .tagline {
+    max-width: 68ch;
+    color: var(--muted);
+    margin: 0 0 1.35rem;
+    font-size: 1.02rem;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 5px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+  }
+  .chip.meta { color: var(--muted); border-style: dashed; }
+  .layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 6rem;
+  }
+  section { margin-bottom: 3.5rem; scroll-margin-top: 1.5rem; }
+  section h2 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+  }
+  section h2 .num {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--accent);
+  }
+  section > p.lede {
+    color: var(--muted);
+    max-width: 72ch;
+    margin: 0 0 1.5rem;
+  }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.05em 0.4em;
+  }
+
+  /* ---------- system map (voicebooklm-style) ---------- */
+  .sys-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem 1.1rem;
+    margin: 0 0 1rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .sys-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .edge-dot {
+    width: 1.6rem;
+    height: 0.22rem;
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .edge-dot.https { background: var(--edge); }
+  .edge-dot.wss { background: var(--core); }
+  .edge-dot.bind { background: var(--muted); border: 1px dashed var(--line); background: transparent; }
+
+  .sys-map {
+    overflow-x: auto;
+    margin: 0 0 1.5rem;
+    padding-bottom: 0.25rem;
+  }
+  .sys-cluster {
+    min-width: 52rem;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    background: var(--paper-raised);
+    box-shadow: var(--shadow);
+    padding: 1rem 1.1rem 1.15rem;
+  }
+  .sys-cluster-title {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--edge);
+    margin: 0 0 0.85rem;
+  }
+  .sys-row {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  .sys-col-user {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.55rem;
+  }
+  .sys-node {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+  }
+  .sys-node .tag {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+  .sys-node .name {
+    font-weight: 700;
+    font-size: 0.88rem;
+    line-height: 1.35;
+  }
+  .sys-node .sub {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+    line-height: 1.45;
+  }
+  .sys-node.browser { border-top: 3px solid var(--muted); }
+  .sys-node.oauth { border-top: 3px solid var(--data); font-size: 0.85rem; }
+  .sys-node.app { border-top: 3px solid var(--edge); background: var(--edge-soft); }
+  .sys-node.api { border-top: 3px solid var(--accent); background: var(--accent-soft); }
+  .sys-node.d1 { border-top: 3px solid var(--data); background: var(--data-soft); }
+  .sys-node.do { border-top: 3px solid var(--core); background: var(--core-soft); }
+
+  .sys-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+  .sys-path-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.45rem;
+    align-items: center;
+  }
+  .sys-path-row.stores {
+    grid-template-columns: 1fr auto 1fr;
+    margin-top: 0.15rem;
+  }
+  .sys-edge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    min-width: 5.5rem;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-align: center;
+  }
+  .sys-edge .proto {
+    font-weight: 700;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    white-space: nowrap;
+  }
+  .sys-edge .proto.https { color: var(--edge); border-color: var(--edge); }
+  .sys-edge .proto.wss { color: var(--core); border-color: var(--core); }
+  .sys-edge .proto.bind { color: var(--muted); border-style: dashed; }
+  .sys-edge .arr {
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--line);
+  }
+  .sys-edge .detail {
+    font-size: 0.62rem;
+    max-width: 7.5rem;
+    line-height: 1.35;
+  }
+  .sys-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .sys-stack.dual {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+  .sys-callout {
+    margin-top: 0.75rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 8px;
+    border-left: 3px solid var(--core);
+    background: var(--core-soft);
+    font-size: 0.84rem;
+    line-height: 1.55;
+  }
+  .sys-callout b { display: block; margin-bottom: 0.15rem; }
+  .sys-footnote {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin: 0.35rem 0 0;
+    line-height: 1.55;
+  }
+
+  /* DO spawn mini diagram */
+  .do-spawn {
+    margin: 1.25rem 0 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--paper-raised);
+    padding: 0.9rem 1rem;
+  }
+  .do-spawn h3 {
+    margin: 0 0 0.65rem;
+    font-size: 0.95rem;
+  }
+  .do-flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.35rem;
+    font-size: 0.8rem;
+  }
+  .do-step {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.45rem 0.6rem;
+    max-width: 11rem;
+  }
+  .do-step .n {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .do-step .t { font-weight: 600; display: block; margin-top: 0.1rem; }
+  .do-step .d { font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem; line-height: 1.4; }
+  .do-step.highlight {
+    border-color: var(--core);
+    background: var(--core-soft);
+  }
+  .do-arrow {
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+  }
+  @media (max-width: 800px) {
+    .sys-row { grid-template-columns: 1fr; }
+    .sys-cluster { min-width: 0; }
+    .sys-path-row, .sys-path-row.stores { grid-template-columns: 1fr; }
+    .sys-edge { flex-direction: row; min-width: 0; justify-content: center; gap: 0.4rem; }
+    .sys-edge .arr { transform: rotate(90deg); }
+    .sys-stack.dual { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- pipeline ---------- */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin: 1.5rem 0 1rem;
+    align-items: stretch;
+  }
+  .step {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.85rem 0.75rem;
+    position: relative;
+    box-shadow: var(--shadow);
+  }
+  .step .n {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .step .title {
+    font-weight: 700;
+    font-size: 0.88rem;
+    margin: 0.25rem 0 0.35rem;
+  }
+  .step .cmd {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    line-height: 1.45;
+    word-break: break-word;
+  }
+  .step.api { border-top: 3px solid var(--accent); }
+  .step.app { border-top: 3px solid var(--edge); }
+  .step.gate { border-top: 3px solid var(--data); }
+  .step-arrow {
+    display: none;
+  }
+  @media (min-width: 900px) {
+    .pipeline { gap: 0.35rem; }
+  }
+
+  /* ---------- env matrix ---------- */
+  .table-wrap { overflow-x: auto; margin: 1.25rem 0 1.5rem; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.85rem;
+    min-width: 36rem;
+  }
+  th {
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1.5px solid var(--line);
+    padding: 0.5rem 0.75rem 0.5rem 0;
+  }
+  td {
+    border-bottom: 1px solid var(--line);
+    padding: 0.65rem 0.75rem 0.65rem 0;
+    vertical-align: top;
+  }
+  td.mono, th.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.8rem; }
+  .badge {
+    display: inline-block;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.68rem;
+    padding: 0.12rem 0.4rem;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .badge.yes { background: var(--accent-soft); color: var(--accent); }
+  .badge.no { background: var(--danger-soft); color: var(--danger); }
+  .badge.opt { background: var(--data-soft); color: var(--data); }
+
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 0.85rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1.25rem 0;
+    font-size: 0.9rem;
+  }
+  .callout.warn {
+    border-left-color: var(--danger);
+    background: var(--danger-soft);
+  }
+  .callout b { display: block; margin-bottom: 0.2rem; }
+
+  /* ---------- CI flow ---------- */
+  .ci-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin: 1.25rem 0;
+  }
+  .ci-row {
+    display: grid;
+    grid-template-columns: 8.5rem 1fr;
+    gap: 0.75rem;
+    align-items: stretch;
+  }
+  .ci-label {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.75rem 0.85rem;
+    border-radius: 8px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+  }
+  .ci-body {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.86rem;
+    color: var(--muted);
+  }
+  .ci-body strong { color: var(--ink); }
+  .ci-body .mono { font-size: 0.8rem; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+    margin: 0 0 1.25rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+  footer.doc-footer {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem 3rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+  }
+
+  @media (max-width: 800px) {
+    .children { grid-template-columns: 1fr; }
+    .pipeline { grid-template-columns: 1fr; }
+    .ci-row { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="masthead-inner">
+    <p class="eyebrow">deploy architecture</p>
+    <h1 class="wordmark">Idea<span class="flow">Flow</span> — デプロイ構成図</h1>
+    <p class="tagline">
+      本番は 2 Worker + D1 + RoomDO（1 ルーム = 1 DO）。
+      公開は <code>ideaboost.dev</code> の HTTPS/WSS :443 のみ。app が <code>/api/*</code> を service binding で api へ転送する。
+    </p>
+    <div class="chips">
+      <span class="chip">idea-flow-app</span>
+      <span class="chip">idea-flow-api</span>
+      <span class="chip">D1 lobby</span>
+      <span class="chip">RoomDO</span>
+      <span class="chip">OpenNext</span>
+      <span class="chip meta">ideaboost.dev</span>
+      <span class="chip meta">2026-07-16</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <section id="runtime">
+    <h2><span class="num">§1</span>全体構成図（本番）</h2>
+    <p class="lede">
+      公開面は <code>https://ideaboost.dev</code> の <strong>443 のみ</strong>（HTTPS / WSS 同一オリジン）。
+      ブラウザは app だけを見、api / D1 / RoomDO は Cloudflare 内の binding でつながる。
+    </p>
+
+    <div class="sys-legend">
+      <span><span class="edge-dot https"></span>HTTP（画面・REST）</span>
+      <span><span class="edge-dot wss"></span>WSS（ルーム同期）</span>
+      <span><span class="edge-dot bind"></span>内部（binding）</span>
+    </div>
+
+    <svg viewBox="0 0 780 540" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:780px;height:auto;margin:0 0 1.5rem;" font-family="sans-serif">
+      <defs>
+        <marker id="arrHttp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10Z" fill="#35507a"/></marker>
+        <marker id="arrWss" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10Z" fill="#7a2f6b"/></marker>
+        <marker id="arrCb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10Z" fill="#a8681f"/></marker>
+        <marker id="arrBind" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10Z" fill="#9b9686"/></marker>
+      </defs>
+
+      <text x="390" y="22" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e2420">IdeaFlow 全体構成図</text>
+
+      <!-- Cloudflare cluster -->
+      <rect x="10" y="40" width="760" height="470" rx="8" fill="#fff3e0" stroke="#e0a800" stroke-width="1.5"/>
+      <text x="24" y="62" font-family="monospace" font-size="11" font-weight="bold" fill="#35507a">CLOUDFLARE · 本番 ideaboost.dev</text>
+
+      <!-- ブラウザ -->
+      <ellipse cx="130" cy="105" rx="8" ry="8" fill="#f1f1f1" stroke="#181818" stroke-width="0.5"/>
+      <path d="M130,113L130,140 M116,121L144,121 M130,140L116,155 M130,140L144,155" fill="none" stroke="#181818" stroke-width="0.5"/>
+      <text x="130" y="173" text-anchor="middle" font-size="14" fill="#1e2420">ブラウザ</text>
+
+      <!-- Google OAuth -->
+      <rect x="590" y="130" width="110" height="46" rx="5" fill="#fce4ec" stroke="#c07080" stroke-width="1"/>
+      <text x="645" y="146" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#9b9686">EXTERNAL</text>
+      <text x="645" y="166" text-anchor="middle" font-size="12" fill="#1e2420">Google</text>
+
+      <!-- App -->
+      <rect x="280" y="200" width="220" height="60" rx="5" fill="#e1e8f0" stroke="#35507a" stroke-width="1.5"/>
+      <text x="390" y="222" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#35507a">WORKER ①</text>
+      <text x="390" y="240" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e2420">App</text>
+      <text x="390" y="254" text-anchor="middle" font-size="10" fill="#9b9686">OpenNext + Assets</text>
+
+      <!-- API -->
+      <rect x="280" y="305" width="220" height="60" rx="5" fill="#dceee8" stroke="#0b6e5c" stroke-width="1.5"/>
+      <text x="390" y="327" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#0b6e5c">WORKER ②</text>
+      <text x="390" y="345" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e2420">API</text>
+      <text x="390" y="359" text-anchor="middle" font-size="10" fill="#9b9686">REST + WS · セッション / 認可</text>
+
+      <!-- DB -->
+      <path d="M335,420C335,410 390,410 390,410C390,410 445,410 445,420L445,470C445,480 390,480 390,480C390,480 335,480 335,470Z" fill="#f3e4cc" stroke="#a8681f" stroke-width="1"/>
+      <path d="M335,420C335,430 390,430 390,430C390,430 445,430 445,420" fill="none" stroke="#a8681f" stroke-width="1"/>
+      <text x="390" y="442" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#a8681f">D1</text>
+      <text x="390" y="460" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e2420">DB</text>
+      <text x="390" y="476" text-anchor="middle" font-size="9" fill="#9b9686">users / rooms</text>
+
+      <!-- Room -->
+      <rect x="500" y="420" width="220" height="60" rx="5" fill="#f0e0ec" stroke="#7a2f6b" stroke-width="1.5"/>
+      <text x="610" y="442" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#7a2f6b">DURABLE OBJECT</text>
+      <text x="610" y="460" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e2420">Room</text>
+      <text x="610" y="476" text-anchor="middle" font-size="9" fill="#9b9686">★ 1 room = 1 DO</text>
+
+      <!-- DO note -->
+      <rect x="500" y="484" width="220" height="26" rx="4" fill="#f0e0ec" stroke-dasharray="3,3" stroke="#7a2f6b" stroke-width="0.5"/>
+      <text x="610" y="501" text-anchor="middle" font-size="9" fill="#7a2f6b">ルーム作成時に idFromName(roomId) で起動</text>
+
+      <!-- ブラウザ → App: HTTP -->
+      <line x1="130" y1="178" x2="264" y2="210" stroke="#35507a" stroke-width="1.5" marker-end="url(#arrHttp)"/>
+      <text x="175" y="196" text-anchor="middle" font-family="monospace" font-size="10" fill="#35507a" font-weight="bold">HTTP</text>
+
+      <!-- ブラウザ → App: WSS -->
+      <line x1="140" y1="178" x2="264" y2="240" stroke="#7a2f6b" stroke-width="1.5" marker-end="url(#arrWss)"/>
+      <text x="185" y="216" text-anchor="middle" font-family="monospace" font-size="10" fill="#7a2f6b" font-weight="bold">WSS</text>
+
+      <!-- Google → App: callback -->
+      <line x1="592" y1="155" x2="504" y2="215" stroke="#a8681f" stroke-width="1.5" marker-end="url(#arrCb)"/>
+      <text x="535" y="182" text-anchor="middle" font-family="monospace" font-size="9" fill="#a8681f">callback</text>
+
+      <!-- App → API -->
+      <line x1="390" y1="260" x2="390" y2="300" stroke="#9b9686" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrBind)"/>
+      <text x="395" y="284" font-family="monospace" font-size="9" fill="#9b9686">内部転送</text>
+
+      <!-- API → DB -->
+      <line x1="340" y1="365" x2="340" y2="410" stroke="#9b9686" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrBind)"/>
+      <text x="345" y="392" font-family="monospace" font-size="9" fill="#9b9686">DB</text>
+
+      <!-- API → Room -->
+      <line x1="430" y1="365" x2="570" y2="415" stroke="#9b9686" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrBind)"/>
+      <text x="465" y="385" font-family="monospace" font-size="9" fill="#9b9686">Room</text>
+    </svg>
+
+    <div class="sys-callout">
+      <b>★ このサービスの核: ルーム作成で RoomDO が 1 本立つ</b>
+      招待コード解決は D1、ルームに入ってからの状態（メンバー・付箋・投票・WS）は
+      そのルーム専用の Durable Object だけが権威として持つ。
+    </div>
+
+    <div class="do-spawn">
+      <h3>図 B · ルーム作成で DO が立つ流れ</h3>
+      <div class="do-flow">
+        <div class="do-step">
+          <span class="n">1</span>
+          <span class="t">ブラウザ</span>
+          <div class="d">POST /api/rooms<br>HTTPS :443</div>
+        </div>
+        <span class="do-arrow">→</span>
+        <div class="do-step">
+          <span class="n">2</span>
+          <span class="t">idea-flow-app</span>
+          <div class="d">/api/* を binding 転送</div>
+        </div>
+        <span class="do-arrow">→</span>
+        <div class="do-step">
+          <span class="n">3</span>
+          <span class="t">idea-flow-api</span>
+          <div class="d">セッション検証 → D1 に rooms 行</div>
+        </div>
+        <span class="do-arrow">→</span>
+        <div class="do-step highlight">
+          <span class="n">★4</span>
+          <span class="t">RoomDO 起動</span>
+          <div class="d">idFromName(roomId)<br><b>1 ルーム = 1 DO</b></div>
+        </div>
+        <span class="do-arrow">→</span>
+        <div class="do-step">
+          <span class="n">5</span>
+          <span class="t">以降の同期</span>
+          <div class="d">WSS :443<br>/api/rooms/:id/ws</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="sys-footnote">
+      <b>ローカル開発（参考）:</b> Next <code>:3000</code> + api-worker <code>:8787</code>。
+      ブラウザ WS は <code>NEXT_PUBLIC_API_WORKER_URL</code>、Server は <code>API_WORKER_URL</code>。
+      本番ではどちらも<strong>設定しない</strong>（同一オリジン + service binding）。
+    </p>
+  </section>
+
+  <section id="paths">
+    <h2><span class="num">§2</span>通信経路の対応表</h2>
+    <p class="lede">誰が誰をどう呼ぶか。ローカルと本番で経路が分岐する箇所だけ意識する。</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>経路</th>
+            <th>本番</th>
+            <th>ローカル</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ブラウザ → UI</td>
+            <td>HTTPS（OpenNext / Assets）</td>
+            <td><code>next dev :3000</code></td>
+          </tr>
+          <tr>
+            <td>ブラウザ → REST/WS</td>
+            <td>同一オリジン <code>/api/*</code> → service binding</td>
+            <td><code>NEXT_PUBLIC_API_WORKER_URL=http://localhost:8787</code></td>
+          </tr>
+          <tr>
+            <td>Next Server → API</td>
+            <td><code>getCloudflareContext().env.API_WORKER</code></td>
+            <td><code>API_WORKER_URL=http://localhost:8787</code></td>
+          </tr>
+          <tr>
+            <td>ヘルスチェック</td>
+            <td><code>GET /api/health</code>（app 経由 = proxy → api）</td>
+            <td><code>npm run smoke</code>（preview 相当）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="secrets">
+    <h2><span class="num">§3</span>秘密・環境変数の置き場所</h2>
+    <p class="lede">
+      vars に秘密を載せない。<code>SESSION_SECRET</code> は両 Worker で同一値（32 バイト以上）。
+      <code>NEXT_PUBLIC_*</code> はビルド時に埋め込まれるため、ドメイン変更時は再ビルド必須。
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>名前</th>
+            <th>app</th>
+            <th>api</th>
+            <th>設定方法</th>
+            <th>備考</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">SESSION_SECRET</td>
+            <td><span class="badge yes">secret</span></td>
+            <td><span class="badge yes">secret</span></td>
+            <td class="mono">wrangler secret put</td>
+            <td>両側同一。既知漏洩値はコードで拒否</td>
+          </tr>
+          <tr>
+            <td class="mono">GOOGLE_CLIENT_ID</td>
+            <td><span class="badge yes">secret</span></td>
+            <td><span class="badge no">—</span></td>
+            <td class="mono">wrangler secret put</td>
+            <td>本番ログイン用（未設定でも UI は起動可）</td>
+          </tr>
+          <tr>
+            <td class="mono">GOOGLE_CLIENT_SECRET</td>
+            <td><span class="badge yes">secret</span></td>
+            <td><span class="badge no">—</span></td>
+            <td class="mono">wrangler secret put</td>
+            <td>同上</td>
+          </tr>
+          <tr>
+            <td class="mono">NEXT_PUBLIC_SITE_URL</td>
+            <td><span class="badge yes">build env</span></td>
+            <td><span class="badge no">—</span></td>
+            <td>build 前の env / GH vars</td>
+            <td>OAuth redirect・招待 URL のベース。production で必須</td>
+          </tr>
+          <tr>
+            <td class="mono">API_WORKER_URL</td>
+            <td><span class="badge no">禁止</span></td>
+            <td><span class="badge no">—</span></td>
+            <td>—</td>
+            <td>本番は binding。設定すると HTTP 優先で事故</td>
+          </tr>
+          <tr>
+            <td class="mono">NEXT_PUBLIC_API_WORKER_URL</td>
+            <td><span class="badge no">禁止</span></td>
+            <td><span class="badge no">—</span></td>
+            <td>—</td>
+            <td>本番は同一オリジン WS</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="order">
+    <h2><span class="num">§4</span>初回・手動デプロイ順</h2>
+    <p class="lede">
+      順は固定: <strong>api → app</strong>（service binding 先が先に存在する）。
+      スクリプトは <code>npm run deploy</code>（api → app）/ <code>deploy:api</code> / <code>deploy:app</code>。
+    </p>
+
+    <div class="pipeline">
+      <div class="step gate">
+        <div class="n">STEP 1</div>
+        <div class="title">D1 作成</div>
+        <div class="cmd">wrangler d1 create idea-flow-lobby<br>→ database_id を wrangler に反映</div>
+      </div>
+      <div class="step gate">
+        <div class="n">STEP 2</div>
+        <div class="title">Remote migrate</div>
+        <div class="cmd">wrangler d1 migrations apply DB --remote --config workers/wrangler.jsonc</div>
+      </div>
+      <div class="step api">
+        <div class="n">STEP 3</div>
+        <div class="title">api secret + deploy</div>
+        <div class="cmd">secret put SESSION_SECRET<br>npm run deploy:api</div>
+      </div>
+      <div class="step app">
+        <div class="n">STEP 4</div>
+        <div class="title">app secret + build</div>
+        <div class="cmd">secret put（SESSION / Google）<br>NEXT_PUBLIC_SITE_URL=…</div>
+      </div>
+      <div class="step app">
+        <div class="n">STEP 5</div>
+        <div class="title">app deploy</div>
+        <div class="cmd">npm run deploy:app<br>= build:cf && wrangler deploy</div>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <b>Durable Objects は Workers Paid が実質前提</b>
+      Free プランでは RoomDO を本番運用できない。ハッカソン規模でも課金確認が必要。
+    </div>
+  </section>
+
+  <section id="cicd">
+    <h2><span class="num">§5</span>継続デプロイ（release）</h2>
+    <p class="lede">
+      <code>feature/* → develop</code>（開発）/ <code>develop → release</code>（本番トリガ）。
+      <code>release</code> への push または merge で <code>deploy.yml</code> が自動実行される。
+      PR は <code>ci.yml</code> のみ。Worker 本番デプロイは <code>deploy.yml</code>（push to <code>release</code>）。
+      手動デプロイは <code>npm run deploy</code> = D1 remote migrate → api → app（CI と同じ順）。
+    </p>
+
+    <div class="ci-flow">
+      <div class="ci-row">
+        <div class="ci-label">gate</div>
+        <div class="ci-body">
+          <strong>品質ゲート</strong> — lint / boundaries / typecheck / migrations 不変 / unit + workers テスト / <code>build:cf</code> / <code>smoke</code>
+        </div>
+      </div>
+      <div class="ci-row">
+        <div class="ci-label" style="border-left: 3px solid var(--accent);">deploy-api</div>
+        <div class="ci-body">
+          <strong>D1 remote migrate（冪等）→ <span class="mono">npm run deploy:api</span></strong>
+        </div>
+      </div>
+      <div class="ci-row">
+        <div class="ci-label" style="border-left: 3px solid var(--edge);">deploy-app</div>
+        <div class="ci-body">
+          <strong><span class="mono">npm run deploy:app</span></strong>（env: <span class="mono">NEXT_PUBLIC_SITE_URL</span>）
+        </div>
+      </div>
+      <div class="ci-row">
+        <div class="ci-label">health</div>
+        <div class="ci-body">
+          <strong><span class="mono">GET $SITE_URL/api/health</span></strong> — proxy 経路の疎通（Server Action 経路はブラウザ E2E で確認）
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>GitHub 設定</th><th>用途</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">secrets.CLOUDFLARE_API_TOKEN</td>
+            <td>Workers / D1 編集権限</td>
+          </tr>
+          <tr>
+            <td class="mono">secrets.CLOUDFLARE_ACCOUNT_ID</td>
+            <td>アカウント ID</td>
+          </tr>
+          <tr>
+            <td class="mono">vars.NEXT_PUBLIC_SITE_URL</td>
+            <td>公開 URL（ビルド焼き込み + health チェック）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <b>Worker の SESSION_SECRET / Google は Actions から毎回 put しない</b>
+      初回手動（または Dashboard）で維持。ローテ時だけ人手で両 Worker を同時更新。
+    </div>
+  </section>
+
+  <section id="domain">
+    <h2><span class="num">§6</span>カスタムドメイン（本番必須）</h2>
+    <p class="lede">
+      同一オリジンのため <strong>app にだけ</strong> ドメインを付ける。api は service binding で閉じるので公開 URL 不要。
+      本番リリースには必須の設定。
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>作業</th><th>内容</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>DNS</td>
+            <td>ドメインを Cloudflare に接続（NS 切替 or Registrar）</td>
+          </tr>
+          <tr>
+            <td>Worker ルート</td>
+            <td class="mono">wrangler deploy -c wrangler.jsonc --domains ideaboost.dev</td>
+          </tr>
+          <tr>
+            <td>OAuth</td>
+            <td class="mono">https://ideaboost.dev/auth/callback を Google Console に追加</td>
+          </tr>
+          <tr>
+            <td>SITE_URL</td>
+            <td><code>NEXT_PUBLIC_SITE_URL</code> を新 URL にして再ビルド + 再デプロイ</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="checklist">
+    <h2><span class="num">§7</span>動作確認チェックリスト</h2>
+    <p class="lede">health は proxy 経路のみ。ログイン〜WS は Server Action / binding / RoomDO まで含む。</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>確認</th><th>期待</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td class="mono">GET /api/health</td><td><code>{"ok":true}</code></td></tr>
+          <tr><td>2</td><td>トップ → ログイン画面</td><td>307 → /login、Google ボタン表示</td></tr>
+          <tr><td>3</td><td>Google ログイン（secret 設定後）</td><td>セッション Cookie 発行・/home</td></tr>
+          <tr><td>4</td><td>ルーム作成</td><td>招待コード表示</td></tr>
+          <tr><td>5</td><td>別ブラウザで参加</td><td>メンバー一覧に反映</td></tr>
+          <tr><td>6</td><td>付箋追加</td><td>双方にリアルタイム反映（WS）</td></tr>
+          <tr><td>7</td><td>退出・ホスト解散</td><td>状態が権威どおり更新</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<footer class="doc-footer">
+  実デプロイ（idea-flow-app · ideaboost.dev）と
+  wrangler.jsonc / app-worker.ts / api-client.ts / deploy.yml / README に基づく。
+  関連: <a href="../architecture/">構成 &amp; デプロイ概観</a> ·
+  <a href="../cloudflare-map/">Cloudflare の地図</a>
+</footer>
+</body>
+</html>

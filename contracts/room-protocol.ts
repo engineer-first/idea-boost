@@ -8,10 +8,11 @@
 // - note:drag は永続化されない一時データ。確定は note:move だけが行う。
 //
 // フェーズモデル:
-// - lobby: 開始前ロビー（メンバー確認・招待）。start_phase で phase1 へ。
-// - phase1-3: 課題の記入・整理・投票工程。phase4 は投票結果の確認画面。
+// - lobby: 開始前ロビー（メンバー確認・招待）。
+// - step: phase × step の進行状態。現在は課題整理の phase1 step1-5 のみ。
 import { z } from "zod";
-import { BOARD_HEIGHT, BOARD_WIDTH } from "./board";
+import { CANVAS_COORDINATE_LIMIT } from "./board";
+import { RoomPhaseSchema } from "./phase";
 
 export const NOTE_CONTENT_MAX_LENGTH = 2000;
 
@@ -23,8 +24,25 @@ export const DOT_VOTE_LIMITS = {
 export const DotVoteKindSchema = z.enum(["subjective", "objective"]);
 export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 
+// 楽観表示した投票操作と、RoomDO から返る確定・拒否応答を対応付けるID。
+// 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
+export const VoteOperationIdSchema = z.string().uuid();
+
+// シールは付箋内の相対座標で保存する。画面のズームや付箋サイズが変わっても
+// 同じ位置に復元でき、クライアントがボード座標を推測する必要もない。
+export const VoteStickerCoordinateSchema = z.number().finite().min(0).max(1);
+
+export const DotVoteStickerSchema = z.object({
+  id: z.string().uuid(),
+  kind: DotVoteKindSchema,
+  x: VoteStickerCoordinateSchema,
+  y: VoteStickerCoordinateSchema,
+});
+export type DotVoteSticker = z.infer<typeof DotVoteStickerSchema>;
+
 const DotVoteSummarySchema = z.object({
-  count: z.number().int().min(0),
+  // 投票中は受信者向け射影で総数自体を除外する。
+  count: z.number().int().min(0).optional(),
   votedByMe: z.boolean(),
   ownCount: z.number().int().min(0),
 });
@@ -55,20 +73,29 @@ export const NOTE_COLOR_PALETTE = [
 export const NoteColorSchema = z.enum(NOTE_COLOR_PALETTE);
 export type NoteColor = z.infer<typeof NoteColorSchema>;
 
+export const CanvasCoordinateSchema = z
+  .number()
+  .finite()
+  .min(-CANVAS_COORDINATE_LIMIT)
+  .max(CANVAS_COORDINATE_LIMIT);
+
 export const NoteSchema = z.object({
   id: z.string().uuid(),
   authorId: z.string().uuid(),
   content: z.string(),
   visibility: z.enum(["private", "shared"]),
   color: NoteColorSchema,
-  x: z.number(),
-  y: z.number(),
+  x: CanvasCoordinateSchema,
+  y: CanvasCoordinateSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
   dotVotes: z.object({
     subjective: DotVoteSummarySchema,
     objective: DotVoteSummarySchema,
   }),
+  // 投票中は受信者本人のシールだけ、結果ステップでは全シールを返す。
+  // 票数を使う従来の結果UIは dotVotes を引き続き読む。
+  dotVoteStickers: z.array(DotVoteStickerSchema).default([]),
 });
 
 export type ProtocolNote = z.infer<typeof NoteSchema>;
@@ -82,16 +109,6 @@ export const GroupSchema = z.object({
 });
 
 export type ProtocolGroup = z.infer<typeof GroupSchema>;
-
-// lobby = 開始前 / phase1-3 = ボード上の工程 / phase4 = 投票結果
-export const PhaseSchema = z.enum([
-  "lobby",
-  "phase1",
-  "phase2",
-  "phase3",
-  "phase4",
-]);
-export type Phase = z.infer<typeof PhaseSchema>;
 
 export const TIMER_MAX_DURATION_MS = 5_999_000;
 const TimerMillisecondsSchema = z.number().int().finite().min(0);
@@ -120,9 +137,41 @@ export const MemberSchema = z.object({
 });
 export type ProtocolMember = z.infer<typeof MemberSchema>;
 
+// カーソルは RoomDO が永続化しない presence。クライアント入力には userId / name /
+// color を持たせず、認証済みソケットと members からサーバーが付与する。
+export const CursorPresenceSchema = z.object({
+  userId: z.string().uuid(),
+  name: z.string(),
+  color: NoteColorSchema,
+  x: CanvasCoordinateSchema,
+  y: CanvasCoordinateSchema,
+  draggingNoteId: z.string().uuid().nullable(),
+});
+export type CursorPresence = z.infer<typeof CursorPresenceSchema>;
+
+export const DecisionSchema = z.object({
+  phase: z.number().int().min(1).max(3),
+  noteId: z.string().uuid(),
+  decidedBy: z.string().uuid(),
+});
+export type Decision = z.infer<typeof DecisionSchema>;
+
+// フェーズをまたいで引き継ぐ確定情報（前フェーズで決定された付箋）。
+// content は決定時点のコピーで、元付箋の後からの編集・削除に影響されない。
+// フェーズ2の「決定した課題」表示が最初の利用者で、フェーズ3の決定 HMW
+// 表示でも同じ形を再利用する。
+export const CarryoverSchema = z.object({
+  phase: z.number().int().min(1).max(3),
+  noteId: z.string().uuid(),
+  // サーバーが note.content（入力時に上限検証済み）をコピーする値だが、
+  // コントラクト単体でも他スキーマと同じ上限で有界にしておく。
+  content: z.string().max(NOTE_CONTENT_MAX_LENGTH),
+});
+export type Carryover = z.infer<typeof CarryoverSchema>;
+
 const NotePositionSchema = {
-  x: z.number().finite().min(0).max(BOARD_WIDTH),
-  y: z.number().finite().min(0).max(BOARD_HEIGHT),
+  x: CanvasCoordinateSchema,
+  y: CanvasCoordinateSchema,
 };
 
 // ---------------------------------------------------------------
@@ -130,7 +179,23 @@ const NotePositionSchema = {
 // ---------------------------------------------------------------
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("note:create") }),
+  z.object({
+    type: z.literal("cursor:update"),
+    ...NotePositionSchema,
+    // null はドラッグ終了後もカーソル自体は表示し続けることを明示する。
+    draggingNoteId: z.string().uuid().nullable().optional(),
+  }),
+  z.object({ type: z.literal("cursor:leave") }),
+  // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
+  // プロトコルに作成応答の相関 ID がないため、「作成してから内容を送る」
+  // 2 段階ではなく作成時に内容を渡せる形にしている。
+  z.object({
+    type: z.literal("note:create"),
+    content: z
+      .string()
+      .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。")
+      .optional(),
+  }),
   z.object({
     type: z.literal("note:publish"),
     noteId: z.string().uuid(),
@@ -174,16 +239,56 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:vote"),
     noteId: z.string().uuid(),
     kind: DotVoteKindSchema,
+    operationId: VoteOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:vote-reset"),
     noteId: z.string().uuid(),
     kind: DotVoteKindSchema,
+    operationId: VoteOperationIdSchema.optional(),
   }),
-  // ロビーからボードへ（lobby → phase1）。ホストのみ。
+  // 付箋に積んだ自分の票を1票だけ取り消す。客観票の一部を別の付箋へ
+  // 付け替えられるよう、従来の全消去（note:vote-reset）とは分ける。
+  z.object({
+    type: z.literal("note:vote-remove"),
+    noteId: z.string().uuid(),
+    kind: DotVoteKindSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
+  // パレットから付箋へシールをドロップして投票する。stickerId はクライアントが
+  // UUID で生成する表示用IDであり、authorId / roomId は含めない。
+  z.object({
+    type: z.literal("note:vote-sticker:add"),
+    noteId: z.string().uuid(),
+    stickerId: z.string().uuid(),
+    kind: DotVoteKindSchema,
+    x: VoteStickerCoordinateSchema,
+    y: VoteStickerCoordinateSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
+  // 自分のシールだけを別の付箋・付箋内の位置へ移せる。付け替え中も票数は
+  // 変えないため、上限の再消費や他者の票への干渉を構造的に避けられる。
+  z.object({
+    type: z.literal("note:vote-sticker:move"),
+    noteId: z.string().uuid(),
+    stickerId: z.string().uuid(),
+    x: VoteStickerCoordinateSchema,
+    y: VoteStickerCoordinateSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
+  z.object({
+    type: z.literal("note:vote-sticker:remove"),
+    stickerId: z.string().uuid(),
+    operationId: VoteOperationIdSchema.optional(),
+  }),
+  z.object({
+    type: z.literal("note:decide"),
+    noteId: z.string().uuid(),
+  }),
+  // ロビーから課題整理 Step 1-1 へ。ホストのみ。
   z.object({ type: z.literal("start_phase") }),
-  // ボード内の次工程（phase1 → phase2 → phase3 → phase4）。ホストのみ。
-  // force は phase3 の全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
+  // 課題整理の次ステップへ。ホストのみ。
+  // force はフェーズ1・2の投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
   // ホストが進行できる）。ホスト判定が先に評価されるため、非ホストが
   // force を送っても効果はない。
   z.object({
@@ -217,19 +322,29 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     notes: z.array(NoteSchema),
     groups: z.array(GroupSchema).optional(),
     members: z.array(MemberSchema),
-    phase: PhaseSchema,
+    phase: RoomPhaseSchema,
     isHost: z.boolean(),
+    decision: DecisionSchema.nullable(),
+    // 現在フェーズより前のフェーズで確定した決定の一覧（フェーズ昇順）。
+    carryovers: z.array(CarryoverSchema),
     timer: TimerStateSchema,
     serverNow: TimerMillisecondsSchema,
   }),
   z.object({ type: z.literal("note:inserted"), note: NoteSchema }),
-  z.object({ type: z.literal("note:updated"), note: NoteSchema }),
+  z.object({
+    type: z.literal("note:updated"),
+    note: NoteSchema,
+    operationId: VoteOperationIdSchema.optional(),
+  }),
   z.object({ type: z.literal("note:deleted"), noteId: z.string().uuid() }),
   z.object({
     type: z.literal("note:drag"),
     noteId: z.string().uuid(),
-    x: z.number(),
-    y: z.number(),
+    x: CanvasCoordinateSchema,
+    y: CanvasCoordinateSchema,
+    // クライアント入力には含めず、RoomDO が認証済みソケットから付与する。
+    // 付箋の author と現在の移動者は一致するとは限らない。
+    draggedBy: MemberSchema,
   }),
   z.object({
     type: z.literal("group:updated"),
@@ -247,11 +362,14 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("member_left"),
     userId: z.string().uuid(),
   }),
+  z.object({ type: z.literal("cursor:updated"), cursor: CursorPresenceSchema }),
+  z.object({ type: z.literal("cursor:left"), userId: z.string().uuid() }),
   // start_phase 成功時（ロビー離脱）にも phase:next 成功時にも使う。
   z.object({
     type: z.literal("phase:updated"),
-    phase: PhaseSchema,
+    phase: RoomPhaseSchema,
   }),
+  z.object({ type: z.literal("decision:updated"), ...DecisionSchema.shape }),
   z.object({
     type: z.literal("timer:updated"),
     timer: TimerStateSchema,
@@ -259,7 +377,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("error"),
-    // voting-incomplete: phase3 の全員投票ゲートによる phase:next 拒否。
+    // voting-incomplete: Step 1-4 の全員投票ゲートによる phase:next 拒否。
     // クライアントがホストへ「強制的に進むか」の確認を出す判別に使う。
     code: z.enum([
       "invalid-message",
@@ -268,6 +386,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       "voting-incomplete",
     ]),
     message: z.string(),
+    // 投票操作に起因する拒否だけが持つ。汎用エラーは省略する。
+    operationId: VoteOperationIdSchema.optional(),
   }),
 ]);
 

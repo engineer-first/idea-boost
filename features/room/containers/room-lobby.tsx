@@ -9,7 +9,8 @@
 // ノートは扱わない。
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Phase, ServerMessage } from "@/contracts/room-protocol";
+import { isLobby, type RoomPhase } from "@/contracts/phase";
+import type { ServerMessage } from "@/contracts/room-protocol";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import type { Member } from "../logic/room-reducer";
 import { useLeaveRoom } from "../logic/use-leave-room";
@@ -25,7 +26,7 @@ export type RoomLobbyProps = {
   isHost: boolean;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
-  initialPhase: Phase;
+  initialPhase: RoomPhase;
   initialMembers: Member[];
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
@@ -72,7 +73,7 @@ export function RoomLobby({
   // 既にボード工程ならボードへ直行（SSR でも redirect しているが、state 初期値が
   // 古い場合のリカバリとしても機能する）。
   useEffect(() => {
-    if (roomState.phase !== "lobby") {
+    if (!isLobby(roomState.phase)) {
       router.replace(`/rooms/${roomId}`);
     }
   }, [roomState.phase, roomId, router]);

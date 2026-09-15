@@ -370,7 +370,7 @@
 <body>
 
 <header class="hero">
-  <p class="eyebrow">IdeaFlow / Architecture Note</p>
+  <p class="eyebrow">Idea Boost / Architecture Note</p>
   <h1>データはどこに住むのか — D1・RoomDO・contracts の責務マップ</h1>
   <p class="lede">「なぜストレージが2つあるのか」「contracts/ はどこまで面倒を見るのか」「PRD の残り機能でデータはどう増えるのか」。現行コードの実装コメントと PRD を根拠に、3つの問いに答える。</p>
   <div class="legend">
@@ -504,9 +504,9 @@
       <div class="b-title">contracts/ が負う（値だけで判定できる）</div>
       <ul>
         <li><strong>構造の検証</strong> — メッセージ型の discriminated union、UUID 形式、必須フィールド</li>
-        <li><strong>値域の検証</strong> — 本文 2000 文字以内、座標が <code>BOARD_WIDTH/HEIGHT</code> の範囲内・有限数</li>
+        <li><strong>値域の検証</strong> — 本文 2000 文字以内、座標が <code>CANVAS_COORDINATE_LIMIT</code> 内の有限数</li>
         <li><strong>正規化</strong> — 招待コードの大文字化・空白除去（<code>normalizeInviteCode</code>）と形式チェック</li>
-        <li><strong>共有定数</strong> — ボード寸法、付箋の初期配置範囲、Cookie 名、トークン audience</li>
+        <li><strong>共有定数</strong> — キャンバス座標の安全上限、付箋の初期配置範囲、Cookie 名、トークン audience</li>
         <li><strong>形による封じ込め</strong> — 危険なフィールドをそもそもプロトコルに存在させない（後述）</li>
       </ul>
     </div>
@@ -524,7 +524,7 @@
   </div>
 
   <h3>なぜ「両方が import する」ことに意味があるのか</h3>
-  <p>クライアント（<code>lib/room-client</code>）とサーバー（RoomDO）が<strong>同一のスキーマオブジェクト</strong>を import しているため、「クライアントは送れると思っているがサーバーは受け取れない」というズレが構造的に起きません。<code>contracts/board.ts</code> のコメントが好例です — ボード寸法を共有しないと「サーバーでは弾かれるのに UI 上はドラッグできてしまう」不整合が生まれる、と明記されています。</p>
+  <p>クライアント（<code>lib/room-client</code>）とサーバー（RoomDO）が<strong>同一のスキーマオブジェクト</strong>を import しているため、「クライアントは送れると思っているがサーバーは受け取れない」というズレが構造的に起きません。<code>contracts/board.ts</code> の座標安全上限もこの共有境界の一例です。</p>
   <p>CLAUDE.md の「コントラクト層を厳密に定義し、実装層は再生成可能に保つ」はこのことで、<strong>形さえ合意されていれば、実装はどちら側も安全に書き直せる</strong>という設計です。</p>
 
   <h3>バリデーションを超えた責任 — 「形で塞ぐ」セキュリティ</h3>

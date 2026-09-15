@@ -1,6 +1,6 @@
 // ホーム画面の template（アトミックデザイン: pages 層は使わない）。
 // Server Action や認証は app/home/page.tsx の責務。
-// アプリ名 IdeaFlow は root layout の AppHeader のみが担う。
+// アプリ名 Idea Boost は root layout の AppHeader のみが担う。
 //
 // UX: 2 つの明確な入口（作成 / 参加）を並列に置き、視線誘導と行動の選択を最短にする。
 
