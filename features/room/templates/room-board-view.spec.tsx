@@ -184,6 +184,9 @@ describe("ステップ説明モーダル", () => {
       within(dialog).getByText("デザインスプリントを始めよう！"),
     ).toBeInTheDocument();
     expect(
+      within(dialog).queryByText("このステップで考えることを整理します。"),
+    ).not.toBeInTheDocument();
+    expect(
       within(dialog).getByText("最近あった困ったことを付箋に書き出そう。"),
     ).toBeInTheDocument();
     expect(
@@ -380,11 +383,20 @@ describe("ステップ説明モーダル", () => {
     });
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    const howTo = within(dialog).getByText("やること");
+    const examples = within(dialog).getByText("例");
     expect(
-      within(screen.getByRole("dialog")).getByText(
+      howTo.compareDocumentPosition(examples) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
         "決めた課題を、アイデアが生まれる問いに変えよう！",
       ),
     ).toBeInTheDocument();
+    expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
+    expect(within(dialog).queryByText("具体例")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "付箋に問いを書く" }),
     ).toBeInTheDocument();
@@ -1608,6 +1620,27 @@ describe("参加者 HUD", () => {
 });
 
 describe("ステップに結び付いた決定事項", () => {
+  it("決定した課題をやり方の下ではなく上に表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 2),
+      hmwDecidedIssue: "忘れ物を減らしたい",
+      decidedHmw: null,
+    });
+
+    const hud = screen.getByTestId("board-context-hud");
+    const reference = screen.getByTestId("board-reference-issue");
+    const guide = screen.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+
+    expect(
+      reference.compareDocumentPosition(guide) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(hud).toContainElement(reference);
+    expect(hud).toContainElement(guide);
+  });
+
   it("HMW作成では進め方と採用した課題を同時に読める", () => {
     setup({
       phase: buildPhaseStep(1, 2),

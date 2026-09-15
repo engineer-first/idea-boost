@@ -131,6 +131,34 @@ export function BoardContext({
         </span>
       </div>
 
+      {decisions.map(({ id, label, content }, index) => (
+        <details
+          key={`${phaseKey}-${id}`}
+          open={phase.kind === "step" && phase.step === 1 && index === 0}
+          className="group/reference border-t border-border"
+          data-testid={`board-reference-${id}`}
+        >
+          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-xs font-medium outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <Check
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-muted-foreground"
+            />
+            <span className="flex-1">{label}</span>
+            <ChevronUp
+              aria-hidden="true"
+              className="size-3.5 shrink-0 rotate-180 text-muted-foreground transition-transform group-open/reference:rotate-0 motion-reduce:transition-none"
+            />
+          </summary>
+          <div
+            data-testid={`board-reference-${id}-content`}
+            className="max-h-24 overflow-y-auto overscroll-contain px-4 pb-3"
+          >
+            <p className="whitespace-pre-wrap break-words text-sm leading-5">
+              {content}
+            </p>
+          </div>
+        </details>
+      ))}
       {guide !== null ? (
         <section className="border-t border-border" aria-label="進め方">
           <button
@@ -172,34 +200,6 @@ export function BoardContext({
           ) : null}
         </section>
       ) : null}
-      {decisions.map(({ id, label, content }, index) => (
-        <details
-          key={`${phaseKey}-${id}`}
-          open={phase.kind === "step" && phase.step === 1 && index === 0}
-          className="group/reference border-t border-border"
-          data-testid={`board-reference-${id}`}
-        >
-          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-xs font-medium outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-            <Check
-              aria-hidden="true"
-              className="size-3.5 shrink-0 text-muted-foreground"
-            />
-            <span className="flex-1">{label}</span>
-            <ChevronUp
-              aria-hidden="true"
-              className="size-3.5 shrink-0 rotate-180 text-muted-foreground transition-transform group-open/reference:rotate-0 motion-reduce:transition-none"
-            />
-          </summary>
-          <div
-            data-testid={`board-reference-${id}-content`}
-            className="max-h-24 overflow-y-auto overscroll-contain px-4 pb-3"
-          >
-            <p className="whitespace-pre-wrap break-words text-sm leading-5">
-              {content}
-            </p>
-          </div>
-        </details>
-      ))}
       {guide !== null && onPrimaryAction !== undefined && isInitialModal ? (
         <Dialog open={isExpanded} onOpenChange={onExpandedChange} modal={false}>
           <DialogContent
@@ -226,15 +226,27 @@ export function BoardContext({
                 {guide.modalTitle ??
                   getStepDisplayTitle(phase, context.stepLabel)}
               </DialogTitle>
-              {guide.modalPurpose === null ? null : (
-                <DialogDescription>
-                  {guide.modalPurpose ?? guide.purpose ?? guide.message}
-                </DialogDescription>
-              )}
+              {guide.modalPurpose ? (
+                <DialogDescription>{guide.modalPurpose}</DialogDescription>
+              ) : null}
             </DialogHeader>
             <div
               className={`space-y-5 text-sm ${guide.modalIntro ? "text-center" : guide.modalTitle ? "text-left" : ""}`}
             >
+              {!isPhaseOneFirstStep ? (
+                <section>
+                  <h3
+                    className={`mb-2 font-semibold ${isPhaseOneSharingStep ? "text-center" : ""}`}
+                  >
+                    やること
+                  </h3>
+                  <ol className="list-decimal space-y-1.5 pl-5 text-left">
+                    {(guide.steps ?? [guide.message]).map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </section>
+              ) : null}
               {guide.modalExamples ? (
                 <section className="mx-auto w-fit text-left">
                   <h3 className="mb-2 text-center text-sm font-semibold text-muted-foreground">
@@ -250,23 +262,9 @@ export function BoardContext({
                   </ul>
                 </section>
               ) : null}
-              {!isPhaseOneFirstStep ? (
-                <section>
-                  <h3
-                    className={`mb-2 font-semibold ${isPhaseOneSharingStep ? "text-center" : ""}`}
-                  >
-                    やること
-                  </h3>
-                  <ol className="list-decimal space-y-1.5 pl-5 text-left">
-                    {(guide.steps ?? [guide.message]).map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
-                </section>
-              ) : null}
               {guide.example ? (
                 <section>
-                  <h3 className="mb-2 font-semibold">具体例</h3>
+                  <h3 className="mb-2 font-semibold">進行役へ</h3>
                   <p className="whitespace-pre-wrap rounded-lg bg-muted p-3 leading-6">
                     {guide.example}
                   </p>

@@ -49,11 +49,7 @@ import type { RoomPhase } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { Carryover, ProtocolNote } from "@/contracts/room-protocol";
 import { buildCarryover, buildGroup } from "@/contracts/room-protocol.fixture";
-import {
-  DECIDED_ISSUE_LABEL,
-  HMW_HEADING,
-  HMW_TEMPLATES,
-} from "@/features/hmw";
+import { DECIDED_ISSUE_LABEL, HMW_TEMPLATES } from "@/features/hmw";
 import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
 import { RoomBoard } from "./room-board";
 
@@ -1341,12 +1337,11 @@ describe("Step 2-1（HMW 個人執筆）", () => {
     });
   }
 
-  it("持ち越された決定課題と HMW 見出しが表示される", () => {
+  it("持ち越された決定課題を表示する", () => {
     connectAtHmwStep();
 
     expect(screen.getByText(DECIDED_ISSUE_LABEL)).toBeInTheDocument();
     expect(screen.getByText("宿題を後回しにしてしまう")).toBeInTheDocument();
-    expect(screen.getByText(HMW_HEADING)).toBeInTheDocument();
   });
 
   it("テンプレートを選ぶと content 付き note:create を送る", () => {

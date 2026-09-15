@@ -2,7 +2,6 @@
 export {
   DECIDED_ISSUE_LABEL,
   HMW_EXAMPLES,
-  HMW_HEADING,
   HMW_TEMPLATES,
 } from "./logic/hmw-content";
 export { isHmwWritingStep } from "./logic/hmw-step";
