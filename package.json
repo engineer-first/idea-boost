@@ -18,7 +18,7 @@
     "typecheck": "npm run cf-typegen && tsc --noEmit && tsc -p workers/tsconfig.json --noEmit && tsc -p scripts/tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "pretest:workers": "npm run gen:room-do-migrations",
-    "test:workers": "vitest run --config vitest.workers.config.mts",
+    "test:workers": "vitest run --config vitest.workers.config.mts && npm run test:demo",
     "test:coverage": "vitest run --passWithNoTests --coverage",
     "predev:api": "npm run gen:room-do-migrations",
     "dev:api": "wrangler dev --config workers/wrangler.jsonc --port 8787",
@@ -43,7 +43,9 @@
     "smoke": "bash scripts/smoke-test.sh",
     "storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook dev -p 6006",
     "build-storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook build",
-    "test:browser": "vitest run --config vitest.browser.config.mts"
+    "test:browser": "vitest run --config vitest.browser.config.mts",
+    "demo": "node --no-warnings scripts/demo.mts",
+    "test:demo": "npm run gen:room-do-migrations && vitest run --config vitest.demo.config.mts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

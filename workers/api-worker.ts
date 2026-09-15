@@ -30,7 +30,7 @@ export { RoomDO };
 
 // wrangler types の生成物は api-worker.ts を root 型検査から参照する一方、
 // secret binding は生成されないため、公開境界で SESSION_SECRET を明示する。
-type ApiWorkerEnv = Env & {
+export type ApiWorkerEnv = Env & {
   SESSION_SECRET: string;
 };
 
@@ -279,87 +279,108 @@ async function handleRoomWebSocket(
   return stub.fetch(request.url, { headers });
 }
 
-export default {
-  async fetch(request: Request, env: ApiWorkerEnv): Promise<Response> {
-    const url = new URL(request.url);
-    const { pathname } = url;
-    const method = request.method;
+export type AuthenticatedRoute = (
+  request: Request,
+  env: ApiWorkerEnv,
+  session: SessionPayload,
+) => Promise<Response | null>;
 
-    // 疎通確認専用。認可・SESSION_SECRET の設定状態に関わらず、
-    // この Worker が起動してリクエストを処理できているかだけを見る
-    // （スモークテストが Next.js -> サービスバインディング -> ここまでの
-    // 経路が繋がっているかを確認するために叩く）。
-    if (method === "GET" && pathname === "/api/health") {
-      return json({ ok: true });
-    }
+export type ApiWorkerHandler = {
+  fetch(request: Request, env: ApiWorkerEnv): Promise<Response>;
+};
 
-    // 設定漏れ（本番で secret 未設定）を既知鍵での fail-open にせず、
-    // 明示的に落とす。認証を扱う前に必ず検証する。
-    try {
-      requireSessionSecret(env.SESSION_SECRET);
-    } catch {
-      return error(503, "サーバーの認証設定が未完了です。");
-    }
+export function createApiWorker(
+  extension?: AuthenticatedRoute,
+): ApiWorkerHandler {
+  return {
+    async fetch(request: Request, env: ApiWorkerEnv): Promise<Response> {
+      const url = new URL(request.url);
+      const { pathname } = url;
+      const method = request.method;
 
-    if (method === "POST" && pathname === "/api/auth/sync") {
-      return handleAuthSync(request, env);
-    }
-
-    // 以降はすべてセッション必須。
-    const session = await getSessionFromRequest(request, env.SESSION_SECRET);
-    if (!session) {
-      return error(401, "ログインが必要です。");
-    }
-
-    if (method === "POST" && pathname === "/api/rooms") {
-      return handleCreateRoom(env, session);
-    }
-
-    // /api/rooms/lookup — 招待コードからルーム解決（hostname を返す）
-    const lookupMatch = pathname.match(/^\/api\/rooms\/lookup$/);
-    if (method === "GET" && lookupMatch) {
-      return handleLookupRoom(request, env, session);
-    }
-
-    if (method === "POST" && pathname === "/api/rooms/join") {
-      return handleJoinRoom(request, env, session);
-    }
-
-    const wsMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/ws$/);
-    if (method === "GET" && wsMatch?.[1]) {
-      if (!isUuid(wsMatch[1])) {
-        return error(404, "ルームが見つかりませんでした。");
+      // 疎通確認専用。認可・SESSION_SECRET の設定状態に関わらず、
+      // この Worker が起動してリクエストを処理できているかだけを見る
+      // （スモークテストが Next.js -> サービスバインディング -> ここまでの
+      // 経路が繋がっているかを確認するために叩く）。
+      if (method === "GET" && pathname === "/api/health") {
+        return json({ ok: true });
       }
-      return handleRoomWebSocket(request, env, session, wsMatch[1]);
-    }
 
-    // /members は /ws より先に評価する必要はない（path が違う）が、
-    // /rooms/:id 直下の GET と区別するためパスを明示する。
-    const membersMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/members$/);
-    if (method === "GET" && membersMatch?.[1]) {
-      if (!isUuid(membersMatch[1])) {
-        return error(404, "ルームが見つかりませんでした。");
+      // 設定漏れ（本番で secret 未設定）を既知鍵での fail-open にせず、
+      // 明示的に落とす。認証を扱う前に必ず検証する。
+      try {
+        requireSessionSecret(env.SESSION_SECRET);
+      } catch {
+        return error(503, "サーバーの認証設定が未完了です。");
       }
-      return handleListMembers(env, session, membersMatch[1]);
-    }
 
-    // /leave は /ws /members と同じく「/rooms/:id/...」のサフィックス。
-    const leaveMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/leave$/);
-    if (method === "POST" && leaveMatch?.[1]) {
-      if (!isUuid(leaveMatch[1])) {
-        return error(404, "ルームが見つかりませんでした。");
+      if (method === "POST" && pathname === "/api/auth/sync") {
+        return handleAuthSync(request, env);
       }
-      return handleLeaveRoom(env, session, leaveMatch[1]);
-    }
 
-    const roomMatch = pathname.match(/^\/api\/rooms\/([^/]+)$/);
-    if (method === "GET" && roomMatch?.[1]) {
-      if (!isUuid(roomMatch[1])) {
-        return error(404, "ルームが見つかりませんでした。");
+      // 以降はすべてセッション必須。
+      const session = await getSessionFromRequest(request, env.SESSION_SECRET);
+      if (!session) {
+        return error(401, "ログインが必要です。");
       }
-      return handleGetRoom(env, session, roomMatch[1]);
-    }
 
-    return error(404, "not found");
-  },
-} satisfies ExportedHandler<ApiWorkerEnv>;
+      if (extension) {
+        const response = await extension(request, env, session);
+        if (response) return response;
+      }
+
+      if (method === "POST" && pathname === "/api/rooms") {
+        return handleCreateRoom(env, session);
+      }
+
+      // /api/rooms/lookup — 招待コードからルーム解決（hostname を返す）
+      const lookupMatch = pathname.match(/^\/api\/rooms\/lookup$/);
+      if (method === "GET" && lookupMatch) {
+        return handleLookupRoom(request, env, session);
+      }
+
+      if (method === "POST" && pathname === "/api/rooms/join") {
+        return handleJoinRoom(request, env, session);
+      }
+
+      const wsMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/ws$/);
+      if (method === "GET" && wsMatch?.[1]) {
+        if (!isUuid(wsMatch[1])) {
+          return error(404, "ルームが見つかりませんでした。");
+        }
+        return handleRoomWebSocket(request, env, session, wsMatch[1]);
+      }
+
+      // /members は /ws より先に評価する必要はない（path が違う）が、
+      // /rooms/:id 直下の GET と区別するためパスを明示する。
+      const membersMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/members$/);
+      if (method === "GET" && membersMatch?.[1]) {
+        if (!isUuid(membersMatch[1])) {
+          return error(404, "ルームが見つかりませんでした。");
+        }
+        return handleListMembers(env, session, membersMatch[1]);
+      }
+
+      // /leave は /ws /members と同じく「/rooms/:id/...」のサフィックス。
+      const leaveMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/leave$/);
+      if (method === "POST" && leaveMatch?.[1]) {
+        if (!isUuid(leaveMatch[1])) {
+          return error(404, "ルームが見つかりませんでした。");
+        }
+        return handleLeaveRoom(env, session, leaveMatch[1]);
+      }
+
+      const roomMatch = pathname.match(/^\/api\/rooms\/([^/]+)$/);
+      if (method === "GET" && roomMatch?.[1]) {
+        if (!isUuid(roomMatch[1])) {
+          return error(404, "ルームが見つかりませんでした。");
+        }
+        return handleGetRoom(env, session, roomMatch[1]);
+      }
+
+      return error(404, "not found");
+    },
+  } satisfies ExportedHandler<ApiWorkerEnv>;
+}
+
+export default createApiWorker();

@@ -7,6 +7,7 @@ import { isUuid } from "@/contracts/ids";
 import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { signOut } from "@/features/auth";
+import { DemoPanel, getInitialDemoStatus } from "@/features/demo";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomBoard } from "@/features/room";
 import { apiFetch } from "@/lib/api-client";
@@ -68,6 +69,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
 
   // 招待URL の origin は設定値（NEXT_PUBLIC_SITE_URL、本番では必須）から作る。
   const inviteUrl = buildInviteUrl(getBaseUrl(), parsed.data.inviteCode);
+  const demoStatus = await getInitialDemoStatus(id);
 
   // key={roomId} で、クライアント遷移（/rooms/A → /rooms/B）時に RoomBoard を
   // 強制的に再マウントする。これがないと notes state（や draggingNoteId）が
@@ -88,6 +90,9 @@ export default async function RoomPage({ params }: RoomPageProps) {
           signOutAction={signOut}
         />
       </div>
+      {demoStatus && (
+        <DemoPanel key={id} roomId={id} initialStatus={demoStatus} />
+      )}
     </main>
   );
 }
