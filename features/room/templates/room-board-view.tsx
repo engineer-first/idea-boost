@@ -205,12 +205,12 @@ export function RoomBoardView({
   const isGuideExpanded =
     guideDisplay.phaseKey === phaseKey ? guideDisplay.isExpanded : true;
   const permissions = getBoardPermissions(phase);
-  const isPhaseOneFirstStep =
-    phase.kind === "step" && phase.phase === 1 && phase.step === 1;
+  const isPhaseOneGuideStep =
+    phase.kind === "step" &&
+    phase.phase === 1 &&
+    (phase.step === 1 || phase.step === 2);
   const isInitialGuideModal =
-    !isPhaseOneFirstStep ||
-    guideDisplay.phaseKey !== phaseKey ||
-    guideDisplay.isInitialModal;
+    guideDisplay.phaseKey !== phaseKey || guideDisplay.isInitialModal;
 
   function handleGuidePrimaryAction() {
     if (
@@ -228,6 +228,14 @@ export function RoomBoardView({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    setGuideDisplay({
+      phaseKey,
+      isExpanded: true,
+      isInitialModal: true,
+    });
+  }, [phaseKey]);
 
   useEffect(() => {
     setVoteTotalingDialogOpen(isResultStep(phase));
@@ -560,10 +568,7 @@ export function RoomBoardView({
             ...guideDisplay,
             phaseKey,
             isExpanded,
-            isInitialModal:
-              isExpanded || !isPhaseOneFirstStep
-                ? guideDisplay.isInitialModal
-                : false,
+            isInitialModal: isExpanded ? guideDisplay.isInitialModal : false,
           })
         }
         onPrimaryAction={
@@ -571,7 +576,7 @@ export function RoomBoardView({
         }
         isInitialModal={isInitialGuideModal}
         onOpenPanel={
-          enableGuideModal && isPhaseOneFirstStep
+          enableGuideModal && isPhaseOneGuideStep
             ? () =>
                 setGuideDisplay({
                   phaseKey,

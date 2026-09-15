@@ -177,6 +177,9 @@ describe("ステップ説明モーダル", () => {
     });
 
     const dialog = screen.getByRole("dialog");
+    dialog.focus();
+    fireEvent.focusIn(screen.getByTestId("room-board-view-root"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(
       within(dialog).getByText("デザインスプリントを始めよう！"),
     ).toBeInTheDocument();
@@ -193,6 +196,130 @@ describe("ステップ説明モーダル", () => {
     expect(within(dialog).getByText("例")).toHaveClass("text-center");
     expect(
       within(dialog).getByRole("button", { name: "付箋に課題を書く" }),
+    ).toBeInTheDocument();
+  });
+
+  it("フェーズ1 Step 2は付箋共有の手順と進行役案内を表示する", () => {
+    setup({
+      phase: buildPhaseStep(2, 1),
+      isHost: true,
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("作成した付箋をメンバーに共有しよう！"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("共有する順番を話し合って決める"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "最初の順番の人がすべての付箋を一つずつ説明しながら共有する。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("決めた順番通り次の人が発表する"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("list")).toHaveClass("text-left");
+    expect(within(dialog).getByText("やること")).toHaveClass("text-center");
+    expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
+    expect(within(dialog).queryByText("完了の目安")).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "このステップを始める" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("フェーズ1 Step 2も閉じた後のやり方を左上パネルで表示する", () => {
+    setup({
+      phase: buildPhaseStep(2, 1),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "閉じる",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "作成した付箋をメンバーに共有しよう！",
+    );
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "共有する順番を話し合って決める",
+    );
+  });
+
+  it("フェーズ1 Step 3も閉じた後のやり方を左上パネルで表示する", () => {
+    setup({
+      phase: buildPhaseStep(3, 1),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "閉じる",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "似ている課題を集めて整理しよう！",
+    );
+    expect(
+      screen.getByTestId("board-guide-panel").querySelector("button"),
+    ).toBeNull();
+  });
+
+  it("Step 1を閉じた状態からStep 2へ進むと中央モーダルを表示する", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(1, 1),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "閉じる",
+      }),
+    );
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 1)} />);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        "作成した付箋をメンバーに共有しよう！",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -235,7 +362,7 @@ describe("ステップ説明モーダル", () => {
     ).toBeNull();
   });
 
-  it("問いの作成Step 1では説明と最初の問いを書くCTAを表示する", () => {
+  it("問いの作成Step 1では説明と付箋に問いを書くCTAを表示する", () => {
     const onAddPrivateNote = vi.fn();
     setup({
       phase: buildPhaseStep(1, 2),
@@ -254,14 +381,16 @@ describe("ステップ説明モーダル", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(
-      within(screen.getByRole("dialog")).getByText("問いをつくる"),
+      within(screen.getByRole("dialog")).getByText(
+        "決めた課題を、アイデアが生まれる問いに変えよう！",
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "最初の問いを書く" }),
+      screen.getByRole("button", { name: "付箋に問いを書く" }),
     ).toBeInTheDocument();
   });
 
-  it("最初の問いを書くを押すとモーダルを閉じて付箋作成を開始する", () => {
+  it("付箋に問いを書くを押すとモーダルを閉じて付箋作成を開始する", () => {
     const onAddPrivateNote = vi.fn();
     setup({
       phase: buildPhaseStep(1, 2),
@@ -278,7 +407,7 @@ describe("ステップ説明モーダル", () => {
       enableGuideModal: true,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "最初の問いを書く" }));
+    fireEvent.click(screen.getByRole("button", { name: "付箋に問いを書く" }));
 
     expect(onAddPrivateNote).toHaveBeenCalledOnce();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

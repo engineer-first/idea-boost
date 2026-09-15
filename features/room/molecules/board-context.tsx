@@ -81,6 +81,10 @@ export function BoardContext({
   onOpenPanel,
 }: BoardContextProps) {
   const context = getPhaseContext(phase);
+  const isPhaseOneFirstStep =
+    phase.kind === "step" && phase.phase === 1 && phase.step === 1;
+  const isPhaseOneSharingStep =
+    phase.kind === "step" && phase.phase === 1 && phase.step === 2;
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const decisions = [
@@ -200,6 +204,8 @@ export function BoardContext({
         <Dialog open={isExpanded} onOpenChange={onExpandedChange} modal={false}>
           <DialogContent
             id="board-step-dialog"
+            // AlertDialog の終了時にトリガーへ戻るフォーカスで案内を閉じない。
+            onFocusOutside={(event) => event.preventDefault()}
             className="max-h-[min(42rem,calc(100vh-2rem))] max-w-xl overflow-y-auto"
           >
             <DialogHeader
@@ -220,14 +226,14 @@ export function BoardContext({
                 {guide.modalTitle ??
                   getStepDisplayTitle(phase, context.stepLabel)}
               </DialogTitle>
-              {guide.modalTitle ? null : (
+              {guide.modalPurpose === null ? null : (
                 <DialogDescription>
-                  {guide.purpose ?? guide.message}
+                  {guide.modalPurpose ?? guide.purpose ?? guide.message}
                 </DialogDescription>
               )}
             </DialogHeader>
             <div
-              className={`space-y-5 text-sm ${guide.modalTitle ? "text-center" : ""}`}
+              className={`space-y-5 text-sm ${guide.modalIntro ? "text-center" : guide.modalTitle ? "text-left" : ""}`}
             >
               {guide.modalExamples ? (
                 <section className="mx-auto w-fit text-left">
@@ -244,10 +250,14 @@ export function BoardContext({
                   </ul>
                 </section>
               ) : null}
-              {!guide.modalTitle ? (
+              {!isPhaseOneFirstStep ? (
                 <section>
-                  <h3 className="mb-2 font-semibold">やること</h3>
-                  <ol className="list-decimal space-y-1.5 pl-5">
+                  <h3
+                    className={`mb-2 font-semibold ${isPhaseOneSharingStep ? "text-center" : ""}`}
+                  >
+                    やること
+                  </h3>
+                  <ol className="list-decimal space-y-1.5 pl-5 text-left">
                     {(guide.steps ?? [guide.message]).map((step) => (
                       <li key={step}>{step}</li>
                     ))}
@@ -262,15 +272,6 @@ export function BoardContext({
                   </p>
                 </section>
               ) : null}
-              {!guide.modalTitle ? (
-                <section>
-                  <h3 className="mb-1 font-semibold">完了の目安</h3>
-                  <p className="text-muted-foreground">
-                    {guide.completion ??
-                      "このステップの作業が終わったら完了です。"}
-                  </p>
-                </section>
-              ) : null}
               {isHost && guide.hostMessage !== null ? (
                 <section className="rounded-lg border border-border bg-muted/60 p-3">
                   <h3 className="text-xs font-semibold">進行役へ</h3>
@@ -278,25 +279,27 @@ export function BoardContext({
                 </section>
               ) : null}
             </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                className={
-                  guide.modalTitle
-                    ? "mx-auto bg-blue-600 text-white hover:bg-blue-700"
-                    : undefined
-                }
-                onClick={onPrimaryAction ?? (() => onExpandedChange(false))}
-              >
-                {phase.kind === "step" && phase.step === 1
-                  ? phase.phase === 1
+            {phase.kind === "step" &&
+            phase.step === 1 &&
+            !isPhaseOneSharingStep ? (
+              <DialogFooter>
+                <Button
+                  type="button"
+                  className={
+                    guide.modalTitle
+                      ? "mx-auto bg-blue-600 text-white hover:bg-blue-700"
+                      : undefined
+                  }
+                  onClick={onPrimaryAction ?? (() => onExpandedChange(false))}
+                >
+                  {phase.phase === 1
                     ? "付箋に課題を書く"
                     : phase.phase === 2
-                      ? "最初の問いを書く"
-                      : "最初のアイデアを書く"
-                  : "このステップを始める"}
-              </Button>
-            </DialogFooter>
+                      ? "付箋に問いを書く"
+                      : "付箋にアイデアを書く"}
+                </Button>
+              </DialogFooter>
+            ) : null}
           </DialogContent>
         </Dialog>
       ) : null}
@@ -325,25 +328,22 @@ export function BoardContext({
               ))}
             </div>
           ) : null}
+          {!guide.modalIntro ? (
+            <section className="mt-4">
+              <h3 className="mb-2 font-semibold">やること</h3>
+              <ol className="list-decimal space-y-1.5 pl-5 text-left">
+                {(guide.steps ?? [guide.message]).map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
           {isHost && guide.hostMessage !== null ? (
             <div className="mt-4 border-t border-border pt-3">
               <p className="text-xs font-semibold">進行役へ</p>
               <p className="mt-1 text-sm leading-5">{guide.hostMessage}</p>
             </div>
           ) : null}
-          {phase.kind === "step" &&
-          phase.phase === 1 &&
-          phase.step === 1 ? null : (
-            <div className="mt-5">
-              <Button
-                type="button"
-                className="bg-blue-600 text-white hover:bg-blue-700"
-                onClick={onPrimaryAction}
-              >
-                このステップを始める
-              </Button>
-            </div>
-          )}
         </section>
       ) : null}
     </header>

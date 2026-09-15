@@ -188,6 +188,14 @@ export const Phase1FirstStepModal: Story = {
   },
 };
 
+export const Phase1SecondStepModal: Story = {
+  name: "フェーズ1 Step 2の付箋共有",
+  args: {
+    phase: buildPhaseStep(2, 1),
+    initialGuideExpanded: true,
+  },
+};
+
 // 自分がドラッグ中の付箋がある状態（影が深くなり「持ち上げた」見た目になる）。
 export const Dragging: Story = {
   args: {
