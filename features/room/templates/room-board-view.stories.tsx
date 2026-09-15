@@ -179,6 +179,15 @@ export const StepExplanationModal: Story = {
   },
 };
 
+export const Phase1FirstStepModal: Story = {
+  name: "フェーズ1 Step 1の最初の一歩",
+  args: {
+    phase: buildPhaseStep(1, 1),
+    notes: [],
+    initialGuideExpanded: true,
+  },
+};
+
 // 自分がドラッグ中の付箋がある状態（影が深くなり「持ち上げた」見た目になる）。
 export const Dragging: Story = {
   args: {

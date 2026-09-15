@@ -8,6 +8,9 @@ export type FacilitationGuideContent = {
   steps?: readonly string[];
   example?: string | null;
   completion?: string;
+  modalIntro?: string;
+  modalTitle?: string;
+  modalExamples?: readonly string[];
 };
 
 const DEFAULT_DETAILS = {
@@ -32,6 +35,12 @@ const FACILITATION_GUIDES: Record<
         "デザインスプリントを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
       hostMessage: "タイマーが終了したら、次のステップへ進んでください。",
       ...DEFAULT_DETAILS,
+      modalIntro: "最初の一歩",
+      modalTitle: "課題を1つの問いに言い換えてみよう",
+      modalExamples: [
+        "例・会議で発言する人が偏る",
+        "例・やることの優先順位を決められない",
+      ],
     },
     2: {
       durationMinutes: 6,

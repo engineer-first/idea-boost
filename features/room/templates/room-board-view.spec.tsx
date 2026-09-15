@@ -161,6 +161,37 @@ describe("考えるヒントの外部制御", () => {
 });
 
 describe("ステップ説明モーダル", () => {
+  it("フェーズ1 Step 1は最初の一歩と課題の例を中央揃えで表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 1),
+      notes: [],
+      interactions: buildInteractions([], []),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("最初の一歩")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("課題を1つの問いに言い換えてみよう"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("例・会議で発言する人が偏る"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("例・やることの優先順位を決められない"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "＋ 最初の付箋を書く" }),
+    ).toBeInTheDocument();
+  });
+
   it("問いの作成Step 1では説明と最初の問いを書くCTAを表示する", () => {
     const onAddPrivateNote = vi.fn();
     setup({

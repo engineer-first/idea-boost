@@ -192,23 +192,53 @@ export function BoardContext({
             id="board-step-dialog"
             className="max-h-[min(42rem,calc(100vh-2rem))] max-w-xl overflow-y-auto"
           >
-            <DialogHeader>
-              <DialogTitle>
-                {getStepDisplayTitle(phase, context.stepLabel)}
+            <DialogHeader
+              className={
+                guide.modalTitle ? "items-center text-center" : undefined
+              }
+            >
+              {guide.modalIntro ? (
+                <p className="text-sm font-semibold text-blue-600">
+                  {guide.modalIntro}
+                </p>
+              ) : null}
+              <DialogTitle
+                className={
+                  guide.modalTitle ? "text-2xl text-foreground" : undefined
+                }
+              >
+                {guide.modalTitle ??
+                  getStepDisplayTitle(phase, context.stepLabel)}
               </DialogTitle>
-              <DialogDescription>
-                {guide.purpose ?? guide.message}
-              </DialogDescription>
+              {guide.modalTitle ? null : (
+                <DialogDescription>
+                  {guide.purpose ?? guide.message}
+                </DialogDescription>
+              )}
             </DialogHeader>
-            <div className="space-y-5 text-sm">
-              <section>
-                <h3 className="mb-2 font-semibold">やること</h3>
-                <ol className="list-decimal space-y-1.5 pl-5">
-                  {(guide.steps ?? [guide.message]).map((step) => (
-                    <li key={step}>{step}</li>
-                  ))}
-                </ol>
-              </section>
+            <div
+              className={`space-y-5 text-sm ${guide.modalTitle ? "text-center" : ""}`}
+            >
+              {guide.modalExamples ? (
+                <section>
+                  <h3 className="sr-only">例</h3>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    {guide.modalExamples.map((example) => (
+                      <p key={example}>{example}</p>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+              {!guide.modalTitle ? (
+                <section>
+                  <h3 className="mb-2 font-semibold">やること</h3>
+                  <ol className="list-decimal space-y-1.5 pl-5">
+                    {(guide.steps ?? [guide.message]).map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </section>
+              ) : null}
               {guide.example ? (
                 <section>
                   <h3 className="mb-2 font-semibold">具体例</h3>
@@ -217,13 +247,15 @@ export function BoardContext({
                   </p>
                 </section>
               ) : null}
-              <section>
-                <h3 className="mb-1 font-semibold">完了の目安</h3>
-                <p className="text-muted-foreground">
-                  {guide.completion ??
-                    "このステップの作業が終わったら完了です。"}
-                </p>
-              </section>
+              {!guide.modalTitle ? (
+                <section>
+                  <h3 className="mb-1 font-semibold">完了の目安</h3>
+                  <p className="text-muted-foreground">
+                    {guide.completion ??
+                      "このステップの作業が終わったら完了です。"}
+                  </p>
+                </section>
+              ) : null}
               {isHost && guide.hostMessage !== null ? (
                 <section className="rounded-lg border border-border bg-muted/60 p-3">
                   <h3 className="text-xs font-semibold">進行役へ</h3>
@@ -238,7 +270,7 @@ export function BoardContext({
               >
                 {phase.kind === "step" && phase.step === 1
                   ? phase.phase === 1
-                    ? "最初の課題を書く"
+                    ? "＋ 最初の付箋を書く"
                     : phase.phase === 2
                       ? "最初の問いを書く"
                       : "最初のアイデアを書く"
