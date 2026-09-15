@@ -1,64 +1,341 @@
-import type { DemoCheckpoint } from "@/contracts/demo";
-import { isResultStep, isVotingStep, type RoomPhase } from "@/contracts/phase";
+import {
+  DEMO_CHECKPOINT_PHASES,
+  type DemoAction,
+  type DemoCheckpoint,
+} from "@/contracts/demo";
+import { getRoomPhaseLabel, type RoomPhase } from "@/contracts/phase";
 
-export const DEMO_CHECKPOINTS: readonly {
-  value: DemoCheckpoint;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: "start",
-    label: "最初から",
-    description: "5人のチームで、まずは一人ずつ困りごとを書き出します。",
-  },
-  {
-    value: "share",
-    label: "共有直前",
-    description: "自分の付箋を共有し、他4人の意見が集まる瞬間を見せます。",
-  },
-  {
-    value: "vote",
-    label: "投票直前",
-    description: "他の人の票を見ずに選び、結果を公開して課題を決めます。",
-  },
-  {
-    value: "ideas",
-    label: "アイデア比較",
-    description:
-      "決めた課題と問いをもとに、価値と実現のしやすさで案を比べます。",
-  },
-  {
-    value: "complete",
-    label: "完了",
-    description: "課題から問い、採用アイデアまでのつながりを振り返ります。",
-  },
-];
+export type DemoGuide = {
+  purpose: string;
+  prepared: string;
+  manual: readonly string[];
+  examples: readonly { label: string; text: string }[];
+  narration: string;
+};
 
 export const DEMO_INTRO =
-  "学生生活の困りごとを解決するアプリを、5人のチームで考えます。あなたがホストとして操作し、他4人は合図に合わせて共有・投票します。";
+  "5人の学生チームで、課題整理・HMW・アイデア決定までを体験します。各フェーズに8枚、全員が1〜2枚の下書きを持っています。自分で操作しながら、他4人の共有・投票を合図で進めます。";
 export const DEMO_FREEDOM =
-  "付箋の追加や投票先は自由です。用意した課題と別の課題を選ぶと、その先の問い・アイデアとつながらない場合があります。";
-
-const RECOMMENDATIONS = {
-  1: "空きコマに一緒に勉強する仲間が見つからない",
-  2: "どうすれば、空きコマに気軽に学び合う仲間と出会えるだろう？",
-  3: "空きコマ勉強マッチ：今いる場所と学びたい科目で仲間を探す",
-} as const;
-
-export function getDemoScript(phase: RoomPhase): string {
-  if (phase.kind === "lobby")
-    return "5人のチームで、課題からアイデア決定まで進めます。";
-  if (isVotingStep(phase))
-    return "自分の赤1票・青3票を使い、他4人の投票を合図します。次のステップで初めて全員の結果を公開します。";
-  if (isResultStep(phase))
-    return phase.phase === 3
-      ? `おすすめは「${RECOMMENDATIONS[3]}」。採用案を決め、課題から問い、アイデアまでのつながりを振り返ります。`
-      : `おすすめは「${RECOMMENDATIONS[phase.phase]}」。票を参考に1つ選んで決定すると、次のフェーズへ引き継がれます。`;
-  if (phase.step === 1)
-    return `個人の付箋は本人だけに見えます。自分の付箋に「${RECOMMENDATIONS[phase.phase]}」と書き、画面上の進行ボタンで共有へ進みます。`;
-  if (phase.phase === 1 && phase.step === 3)
-    return "似た課題を近くに動かしてグループにまとめます。整理できたら、画面上の進行ボタンで投票へ進みます。";
-  if (phase.phase === 3 && phase.step === 3)
-    return "付箋を動かして、価値と実現のしやすさを比べます。おすすめは、小さく試せる案です。";
-  return "自分の付箋を共有スペースへドラッグし、他4人の共有を合図します。全員の意見を並べて、似た内容を整理します。";
+  "サンプルは自由に編集できます。他4人の内容は固定のため、別の課題を採用すると後続の例とはつながらない場合があります。見せ場への移動・やり直しは新しいルームを作ります。";
+export const DEMO_ACTION_LABELS: Record<DemoAction, string> = {
+  share: "他4人が共有する",
+  vote: "他4人が投票する",
+  group: "グループ例を配置する",
+};
+export const DEMO_PHASE_SECTIONS = [
+  { phase: 1, label: "1. 課題整理" },
+  { phase: 2, label: "2. 問いの作成（HMW）" },
+  { phase: 3, label: "3. アイデア" },
+] as const;
+const ISSUE = "空きコマに一緒に勉強する仲間が見つからない";
+const HMW = "どうすれば、空きコマに気軽に学び合う仲間と出会えるだろう？";
+const IDEA = "空きコマ勉強マッチ：科目・空き時間の募集にワンタップで参加";
+const DRAFTS =
+  "各フェーズに8枚（ホスト・あおい・けんたが2枚ずつ、みさき・りくが1枚ずつ）。個人ワークでは自分の2枚だけが見えます。";
+const SHARE_STEPS = [
+  "自分の2枚を共有スペースへドラッグする。",
+  "「他4人が共有する」を押し、共有4/4人を確認する。",
+  "内容を紹介したら通常の進行ボタンで次へ進む。",
+];
+const VOTE_STEPS = [
+  "自分の赤1票・青3票を、取り組みたい候補や判断基準に合う候補へ投じる。",
+  "「他4人が投票する」を押し、投票4/4人を確認する。",
+  "通常の進行ボタンで結果の場面へ進む。",
+];
+const GUIDES: Record<1 | 2 | 3, Record<number, DemoGuide>> = {
+  1: {
+    1: {
+      purpose:
+        "全員が自分の困りごとを出し、話す人だけに意見が偏らないようにする。",
+      prepared: DRAFTS,
+      manual: [
+        "進め方と5人のメンバーを紹介し、「マイ付箋」を開く。",
+        "自分のサンプルを選んで編集する。入力は必須ではなく、用意されたままでも進められる。",
+        "自分の2枚を確認して共有へ進む。",
+      ],
+      examples: [
+        { label: "取り組む課題の例", text: ISSUE },
+        {
+          label: "編集するなら",
+          text: "空きコマに、同じ授業の友達と一緒に課題を進めたい",
+        },
+      ],
+      narration:
+        "まず一人ずつ困りごとを書きます。ここでは自分の付箋だけが見え、共有してから他の人にも見えるようになります。",
+    },
+    2: {
+      purpose: "5人それぞれの困りごとを見せ、共通点と違いを見つける。",
+      prepared:
+        "全員の下書き8枚。共有は自動で進まず、自分の2枚は手動、他4人の6枚は合図で公開します。",
+      manual: SHARE_STEPS,
+      examples: [
+        {
+          label: "共通する困りごと",
+          text: "勉強仲間が見つからない／友達の空き時間がわからない／質問相手がほしい",
+        },
+        {
+          label: "別のテーマ",
+          text: "学食が混む／空いている場所がわからない／席を探して昼休みが終わる",
+        },
+      ],
+      narration:
+        "全員の8枚が出ると、学び合う相手探しと、昼休みの混雑という二つの話題が見えてきます。",
+    },
+    3: {
+      purpose: "似た課題をまとめ、共通する意味をグループ名として言葉にする。",
+      prepared:
+        "この見せ場から開始すると8枚を2つの名前付きグループに配置済みです。1-2から順に進めた場合は、自分の2枚と他4人の6枚を共有してから例を配置できます。",
+      manual: [
+        "必要なら「グループ例を配置する」を押す。デモ用付箋の位置とグループ名が例の状態に戻る。",
+        "グループ名をクリックして、下の変更例を入力する。付箋を動かし、まとまり方も変えてみる。",
+        "投票はグループ名ではなく個々の付箋に行うと伝え、次へ進む。",
+      ],
+      examples: [
+        { label: "学習の4枚をまとめる名前", text: "学び合う相手探し" },
+        { label: "昼休みの4枚をまとめる名前", text: "昼休みの混雑" },
+        {
+          label: "手動で変更するグループ名",
+          text: "空きコマに学び合える仲間がほしい",
+        },
+      ],
+      narration:
+        "同じ内容を消して一枚にするのではなく、一人ひとりの課題を残したまままとめます。名前を付けることで、このチームが何に困っているかを説明できます。",
+    },
+    4: {
+      purpose: "他人の票に引っ張られず、取り組む課題への支持を集める。",
+      prepared:
+        "この見せ場から開始すると、8枚を2グループに整理済みで、投票は全員未実施です。",
+      manual: VOTE_STEPS,
+      examples: [
+        {
+          label: "赤票の判断例",
+          text: "自分が取り組みたい、解決してみたい課題",
+        },
+        {
+          label: "青票の判断例",
+          text: "困っている人が身近にいて、解決すると助かる課題",
+        },
+        { label: "採用候補", text: ISSUE },
+      ],
+      narration:
+        "赤は自分の思い、青は話し合った基準をもとに投じます。投票中は他の人の票が見えず、結果の場面で全員分を確認します。",
+    },
+    5: {
+      purpose: "票を参考に、次に考える課題を一つ決める。",
+      prepared:
+        "この見せ場から開始すると全員の投票を用意し、採用はまだ行っていません。",
+      manual: [
+        "投票結果を示し、課題を選ぶ理由を話す。",
+        "下の採用候補を選んで決定する。自由に別の付箋を採用することもできる。",
+        "次へ進み、HMW画面に課題が引き継がれたことを確認する。",
+      ],
+      examples: [
+        { label: "採用する課題", text: ISSUE },
+        {
+          label: "選ぶ理由",
+          text: "学習に関する複数の困りごとの中心にあり、自分たちの学生生活で確かめられる",
+        },
+      ],
+      narration:
+        "票だけで自動決定するのではなく、理由を話して課題を選びます。今回は勉強仲間が見つからない課題を、次の問いへつなげます。",
+    },
+  },
+  2: {
+    1: {
+      purpose:
+        "決めた課題を、解決策を広げられる「どうすれば？」という問いに変える。",
+      prepared: `決定した課題と、HMWの下書き8枚。${DRAFTS}`,
+      manual: [
+        "「マイ付箋」を開き、引き継がれた課題と自分の2枚のHMWを紹介する。",
+        "サンプルを編集するか、「考えるヒント」のテンプレートから追加の1枚を作る。",
+        "手入力しなくても、用意された2枚を使って共有へ進める。",
+      ],
+      examples: [
+        { label: "採用候補のHMW", text: HMW },
+        {
+          label: "テンプレートから書く例",
+          text: "どうすれば、もっと安心して初対面の勉強仲間に声をかけられるだろう？",
+        },
+      ],
+      narration:
+        "いきなり機能名を考える前に、何を実現したいかを問いにします。「気軽に出会えるには？」と置くと、声かけや仲間探しなど複数の解決策を考えられます。",
+    },
+    2: {
+      purpose:
+        "同じ課題にも、出会い・安心感・短い空き時間など異なる切り口があると示す。",
+      prepared:
+        "5人のHMW下書き8枚。ホストを含む全員が、同じ決定課題をもとにした例を持っています。",
+      manual: SHARE_STEPS,
+      examples: [
+        {
+          label: "切り口の比較",
+          text: "今いっしょに勉強できる人を知る／初対面でも質問しやすくする／誘う負担を減らす",
+        },
+      ],
+      narration:
+        "共有操作は先ほどと同じです。ここでは同じ困りごとに対して、どんな問いを立てるかの違いを見てください。",
+    },
+    3: {
+      purpose: "課題に合い、いろいろな解決策を考えられる問いを選ぶ。",
+      prepared: "この見せ場から開始するとHMW8枚を共有済みで、全員未投票です。",
+      manual: VOTE_STEPS,
+      examples: [
+        {
+          label: "比較する基準",
+          text: "選んだ課題に答えているか／特定の機能に決めつけず発想を広げられるか",
+        },
+        { label: "採用候補", text: HMW },
+      ],
+      narration:
+        "投票方法は同じです。今回は、何を作るかを先に決めすぎず、解決策を広げられる問いに注目します。",
+    },
+    4: {
+      purpose: "チームがこれから答えを考える問いを、一つに揃える。",
+      prepared:
+        "この見せ場から開始するとHMW8枚と全員の票を用意済みです。課題は引き継ぎ、HMWの採用は手動で行います。",
+      manual: [
+        "下のHMWを選び、採用を決定する。",
+        "課題とのつながりを話し、次へ進む。",
+        "アイデア画面に課題とHMWの両方が残ることを示す。",
+      ],
+      examples: [
+        { label: "採用するHMW", text: HMW },
+        {
+          label: "選ぶ理由",
+          text: "仲間との出会いを中心にしながら、募集・声かけ・短い交流など複数の方法を考えられる",
+        },
+      ],
+      narration:
+        "何に困っているかに加えて、何を考えるかが決まりました。この問いに答える具体的な方法が、次のアイデアです。",
+    },
+  },
+  3: {
+    1: {
+      purpose:
+        "HMWに答える具体的な方法を出す。手が止まったときの発想支援も示す。",
+      prepared: `課題・HMWの引継ぎとアイデア下書き8枚。${DRAFTS}`,
+      manual: [
+        "「マイ付箋」を開いて自分の2枚を紹介し、必要なら編集する。",
+        "「考えるヒント」→「発想を広げる」でSCAMPERの「組み合わせる」を示す。",
+        "追加する場合は「書き出し」のヒントから1枚作り、具体的なアイデアに編集する。入力は必須ではない。",
+      ],
+      examples: [
+        { label: "用意した採用候補", text: IDEA },
+        {
+          label: "発想法から説明する例",
+          text: "「空き時間」と「学びたい科目」を組み合わせ、今参加できる勉強の募集を探す",
+        },
+        {
+          label: "追加で手入力する例",
+          text: "今日の一問募集：いま聞きたい質問を一つ書いて、同じ授業の人を募る",
+        },
+      ],
+      narration:
+        "HMWに対して、募集ボード、マップ、質問の場など違う解決策を出します。ヒントは答えを自動生成する機能ではなく、自分たちの発想を広げる切り口です。",
+    },
+    2: {
+      purpose:
+        "各案を紹介し、同じ課題に対する方法の違いをマップ上で比べ始める。",
+      prepared:
+        "5人のアイデア下書き8枚。共有すると価値と実現のしやすさの2軸マップに並びます。",
+      manual: SHARE_STEPS,
+      examples: [
+        {
+          label: "比べる方法",
+          text: "科目・空き時間で募集に参加／キャンパスマップで探す／匿名で質問する",
+        },
+      ],
+      narration:
+        "共有は同じ操作です。課題整理の名前付きグループとは違い、ここでは案を2軸マップに置いて比較していきます。",
+    },
+    3: {
+      purpose: "今回の課題に対する価値と実現のしやすさを、別々の軸で話し合う。",
+      prepared:
+        "この見せ場から開始するとアイデア8枚を比較用の位置に配置済みです。位置はデモの仮説で、評価や開発見積もりの事実ではありません。",
+      manual: [
+        "縦軸が課題への価値、横軸が実現のしやすさだと示す。",
+        "募集に参加する案とマップで探す案を比べ、理由を話しながら2枚を動かす。",
+        "匿名質問箱など、別の強みを持つ案も一つ紹介する。",
+      ],
+      examples: [
+        {
+          label: "募集に参加する案",
+          text: "募集と参加から試せる。位置情報の自動追跡は入れず、科目と空き時間でつながる",
+        },
+        {
+          label: "マップで探す案",
+          text: "近くの相手が見つかる一方、位置情報や更新の扱いを考える必要がある",
+        },
+        {
+          label: "匿名質問箱",
+          text: "質問には役立つが、空きコマに勉強仲間と出会う価値は相対的に低い",
+        },
+      ],
+      narration:
+        "便利そうかと、実現しやすいかは別の話です。例えばマップは場所がわかる強みがあり、募集への参加なら小さな範囲から試せます。理由を共有して、位置を変えていきます。",
+    },
+    4: {
+      purpose: "比較した理由を踏まえ、作って試したいアイデアへの支持を集める。",
+      prepared:
+        "この見せ場から開始すると、比較用に配置した8枚があり、投票は全員未実施です。",
+      manual: VOTE_STEPS,
+      examples: [
+        {
+          label: "判断すること",
+          text: "決めた課題・HMWに答えているか／価値を確かめる小さな形で試せるか",
+        },
+        { label: "採用候補", text: IDEA },
+      ],
+      narration:
+        "投票の方法は同じです。今度はマップ上で話した理由を思い出して、試したい案を選びます。",
+    },
+    5: {
+      purpose: "アイデアを採用し、課題から決定までのつながりを振り返る。",
+      prepared:
+        "この見せ場から開始すると投票と採用まで完了した例を表示します。3-4から順に進めた場合は、結果を見て自分で採用します。",
+      manual: [
+        "通しで進めた場合は、結果を参考に下のアイデアを採用する。",
+        "課題、HMW、採用アイデアを順番に示し、なぜ選んだかを話す。",
+        "別の付箋を採用することもできる。用意した筋書きから外れる場合は、その理由も説明する。",
+      ],
+      examples: [
+        { label: "課題", text: ISSUE },
+        { label: "HMW", text: HMW },
+        { label: "採用アイデア", text: IDEA },
+      ],
+      narration:
+        "何に困っているかを集め、問いに変え、答えとなるアイデアを選びました。進め方と考える材料があることで、チーム全員の意見を使って決定まで進められます。",
+    },
+  },
+};
+const LOBBY_GUIDE: DemoGuide = {
+  purpose: "課題整理からアイデア決定までの進め方を知る。",
+  prepared: "5人のデモ参加者と、各フェーズのサンプルを用意します。",
+  manual: ["開始するステップを選ぶ。"],
+  examples: [{ label: "題材", text: "学生生活の困りごとを解決するアプリ" }],
+  narration: "私がホストを操作し、他4人はデモ用の参加者として合図で動きます。",
+};
+export function getDemoGuide(phase: RoomPhase): DemoGuide {
+  return phase.kind === "lobby"
+    ? LOBBY_GUIDE
+    : (GUIDES[phase.phase][phase.step] ?? LOBBY_GUIDE);
 }
+export function getDemoScript(phase: RoomPhase): string {
+  return getDemoGuide(phase).narration;
+}
+export type DemoCheckpointOption = {
+  value: DemoCheckpoint;
+  phase: 1 | 2 | 3;
+  step: number;
+  label: string;
+  description: string;
+};
+export const DEMO_CHECKPOINTS: readonly DemoCheckpointOption[] = Object.entries(
+  DEMO_CHECKPOINT_PHASES,
+).map(([value, phase]) => ({
+  value: value as DemoCheckpoint,
+  phase: phase.phase,
+  step: phase.step,
+  label: getRoomPhaseLabel(phase),
+  description: getDemoGuide(phase).purpose,
+}));

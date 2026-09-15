@@ -76,3 +76,33 @@ describe("DemoPanelView", () => {
     expect(screen.getByRole("button", { name: "状況を再取得" })).toBeDisabled();
   });
 });
+
+it("グループの合図と自動・手動・入力例を区別して表示する", () => {
+  const p = props({
+    status: {
+      checkpoint: "grouping",
+      phase: { kind: "step", phase: 1, step: 3 },
+      availableActions: ["group"],
+      sharedCount: 4,
+      votedCount: 0,
+    },
+  });
+  render(<DemoPanelView {...p} />);
+  expect(
+    screen.getByRole("heading", { name: "このステップで伝えること" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "自動で用意するもの" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "あなたが操作すること" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "入力・説明に使う具体例" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("空きコマに学び合える仲間がほしい"),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "グループ例を配置する" }));
+  expect(p.onAction).toHaveBeenCalledWith("group");
+});

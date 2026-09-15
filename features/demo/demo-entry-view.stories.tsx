@@ -21,3 +21,6 @@ export const Failure: Story = {
   args: { error: "デモの通信に失敗しました。もう一度お試しください。" },
 };
 export const Vote: Story = { args: { checkpoint: "vote" } };
+export const Grouping: Story = { args: { checkpoint: "grouping" } };
+export const Hmw: Story = { args: { checkpoint: "hmw" } };
+export const Ideation: Story = { args: { checkpoint: "ideation" } };

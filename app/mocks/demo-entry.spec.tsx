@@ -9,12 +9,16 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: navigate, refresh: vi.fn() }),
 }));
 describe("DemoEntry", () => {
-  it("5つの見せ場から選んでホストとして開始する", async () => {
+  it("14ステップの見せ場から選んでホストとして開始する", async () => {
     const onCreate = vi.fn();
     server.use(...demoHandlers({ onCreate }));
     render(<DemoEntry />);
-    expect(screen.getAllByRole("radio")).toHaveLength(5);
-    fireEvent.click(screen.getByRole("radio", { name: /投票直前/ }));
+    expect(screen.getAllByRole("radio")).toHaveLength(14);
+    expect(screen.getByRole("radio", { name: /1-3/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).not.toHaveTextContent(
+      /分|秒/,
+    );
+    fireEvent.click(screen.getByRole("radio", { name: /1-4/ }));
     fireEvent.click(screen.getByRole("button", { name: "デモを開始" }));
     await waitFor(() =>
       expect(onCreate).toHaveBeenCalledWith({ checkpoint: "vote" }),

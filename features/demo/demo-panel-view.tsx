@@ -1,7 +1,12 @@
 import { Button } from "@/components/ui/button";
 import type { DemoAction, DemoCheckpoint, DemoStatus } from "@/contracts/demo";
 import { getRoomPhaseLabel } from "@/contracts/phase";
-import { DEMO_CHECKPOINTS, DEMO_FREEDOM, getDemoScript } from "./demo-copy";
+import {
+  DEMO_ACTION_LABELS,
+  DEMO_CHECKPOINTS,
+  DEMO_FREEDOM,
+  getDemoGuide,
+} from "./demo-copy";
 
 export type DemoPanelViewProps = {
   expanded: boolean;
@@ -28,6 +33,7 @@ export function DemoPanelView({
   onCreate,
   onRetry,
 }: DemoPanelViewProps) {
+  const guide = status ? getDemoGuide(status.phase) : null;
   return (
     <aside
       className="fixed bottom-28 left-4 z-40 max-w-[calc(100vw-2rem)] rounded-xl border bg-background shadow-lg"
@@ -52,9 +58,12 @@ export function DemoPanelView({
               <p className="text-xs font-medium text-muted-foreground">
                 {getRoomPhaseLabel(status.phase)}
               </p>
-              <p className="text-sm leading-relaxed">
-                {getDemoScript(status.phase)}
-              </p>
+              {guide && (
+                <section className="space-y-1 text-sm">
+                  <h2 className="font-semibold">このステップで伝えること</h2>
+                  <p className="leading-relaxed">{guide.purpose}</p>
+                </section>
+              )}
               <p role="status" className="text-sm">
                 共有 {status.sharedCount}/4人・投票 {status.votedCount}/4人
               </p>
@@ -65,10 +74,47 @@ export function DemoPanelView({
                     disabled={pending || Boolean(error)}
                     onClick={() => onAction(action)}
                   >
-                    {action === "share" ? "他4人が共有する" : "他4人が投票する"}
+                    {DEMO_ACTION_LABELS[action]}
                   </Button>
                 ))}
               </div>
+              {guide && (
+                <div className="space-y-4 text-sm">
+                  <section className="space-y-1">
+                    <h2 className="font-semibold">自動で用意するもの</h2>
+                    <p className="leading-relaxed text-muted-foreground">
+                      {guide.prepared}
+                    </p>
+                  </section>
+                  <section className="space-y-1">
+                    <h2 className="font-semibold">あなたが操作すること</h2>
+                    <ol className="list-decimal space-y-2 pl-5">
+                      {guide.manual.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  </section>
+                  <section className="space-y-2">
+                    <h2 className="font-semibold">入力・説明に使う具体例</h2>
+                    <dl className="space-y-2">
+                      {guide.examples.map((example) => (
+                        <div key={example.label}>
+                          <dt className="text-xs text-muted-foreground">
+                            {example.label}
+                          </dt>
+                          <dd className="mt-1 select-text rounded-md bg-muted p-2 leading-relaxed">
+                            {example.text}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                  <section className="space-y-1">
+                    <h2 className="font-semibold">話す内容の例</h2>
+                    <p className="leading-relaxed">{guide.narration}</p>
+                  </section>
+                </div>
+              )}
               {status.availableActions.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   この場面では通常のボード操作で進めてください。

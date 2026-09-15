@@ -48,3 +48,34 @@ export const Complete: Story = {
     }),
   },
 };
+export const Grouping: Story = {
+  args: {
+    checkpoint: "grouping",
+    status: buildDemoStatus({
+      checkpoint: "grouping",
+      phase: { kind: "step", phase: 1, step: 3 },
+      availableActions: ["group"],
+      sharedCount: 4,
+    }),
+  },
+};
+export const HmwWriting: Story = {
+  args: {
+    checkpoint: "hmw",
+    status: buildDemoStatus({
+      checkpoint: "hmw",
+      phase: { kind: "step", phase: 2, step: 1 },
+      availableActions: [],
+    }),
+  },
+};
+export const IdeaWriting: Story = {
+  args: {
+    checkpoint: "ideation",
+    status: buildDemoStatus({
+      checkpoint: "ideation",
+      phase: { kind: "step", phase: 3, step: 1 },
+      availableActions: [],
+    }),
+  },
+};

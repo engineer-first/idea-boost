@@ -1,15 +1,40 @@
 import { z } from "zod";
-import { RoomPhaseSchema } from "./phase";
+import { RoomPhaseSchema, type RoomStepPhase } from "./phase";
 
 export const DemoCheckpointSchema = z.enum([
   "start",
   "share",
+  "grouping",
   "vote",
+  "problem-decision",
+  "hmw",
+  "hmw-share",
+  "hmw-vote",
+  "hmw-decision",
+  "ideation",
+  "idea-share",
   "ideas",
+  "idea-vote",
   "complete",
 ]);
 export type DemoCheckpoint = z.infer<typeof DemoCheckpointSchema>;
-export const DemoActionSchema = z.enum(["share", "vote"]);
+export const DEMO_CHECKPOINT_PHASES: Record<DemoCheckpoint, RoomStepPhase> = {
+  start: { kind: "step", phase: 1, step: 1 },
+  share: { kind: "step", phase: 1, step: 2 },
+  grouping: { kind: "step", phase: 1, step: 3 },
+  vote: { kind: "step", phase: 1, step: 4 },
+  "problem-decision": { kind: "step", phase: 1, step: 5 },
+  hmw: { kind: "step", phase: 2, step: 1 },
+  "hmw-share": { kind: "step", phase: 2, step: 2 },
+  "hmw-vote": { kind: "step", phase: 2, step: 3 },
+  "hmw-decision": { kind: "step", phase: 2, step: 4 },
+  ideation: { kind: "step", phase: 3, step: 1 },
+  "idea-share": { kind: "step", phase: 3, step: 2 },
+  ideas: { kind: "step", phase: 3, step: 3 },
+  "idea-vote": { kind: "step", phase: 3, step: 4 },
+  complete: { kind: "step", phase: 3, step: 5 },
+};
+export const DemoActionSchema = z.enum(["share", "group", "vote"]);
 export type DemoAction = z.infer<typeof DemoActionSchema>;
 export const DemoCreateRequestSchema = z
   .object({ checkpoint: DemoCheckpointSchema })
