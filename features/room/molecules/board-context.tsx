@@ -64,6 +64,8 @@ export type BoardContextProps = {
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
   onPrimaryAction?: () => void;
+  isInitialModal?: boolean;
+  onOpenPanel?: () => void;
 };
 
 export function BoardContext({
@@ -75,6 +77,8 @@ export function BoardContext({
   hmwDecidedIssue,
   decidedHmw,
   onPrimaryAction,
+  isInitialModal = false,
+  onOpenPanel,
 }: BoardContextProps) {
   const context = getPhaseContext(phase);
   const phaseKey =
@@ -133,7 +137,13 @@ export function BoardContext({
             aria-controls={
               onPrimaryAction ? "board-step-dialog" : "board-step-details"
             }
-            onClick={() => onExpandedChange(!isExpanded)}
+            onClick={() => {
+              if (!isExpanded && onOpenPanel) {
+                onOpenPanel();
+                return;
+              }
+              onExpandedChange(!isExpanded);
+            }}
           >
             やり方
             <ChevronUp
@@ -186,7 +196,7 @@ export function BoardContext({
           </div>
         </details>
       ))}
-      {guide !== null && onPrimaryAction !== undefined ? (
+      {guide !== null && onPrimaryAction !== undefined && isInitialModal ? (
         <Dialog open={isExpanded} onOpenChange={onExpandedChange} modal={false}>
           <DialogContent
             id="board-step-dialog"
@@ -220,13 +230,18 @@ export function BoardContext({
               className={`space-y-5 text-sm ${guide.modalTitle ? "text-center" : ""}`}
             >
               {guide.modalExamples ? (
-                <section>
-                  <h3 className="sr-only">例</h3>
-                  <div className="space-y-1 text-sm text-muted-foreground">
+                <section className="mx-auto w-fit text-left">
+                  <h3 className="mb-2 text-center text-sm font-semibold text-muted-foreground">
+                    例
+                  </h3>
+                  <ul className="space-y-1 text-left text-sm text-muted-foreground">
                     {guide.modalExamples.map((example) => (
-                      <p key={example}>{example}</p>
+                      <li key={example} className="flex gap-1">
+                        <span aria-hidden="true">・</span>
+                        <span>{example}</span>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </section>
               ) : null}
               {!guide.modalTitle ? (
@@ -284,6 +299,52 @@ export function BoardContext({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      ) : null}
+      {guide !== null &&
+      onPrimaryAction !== undefined &&
+      !isInitialModal &&
+      isExpanded ? (
+        <section
+          aria-label="ファシリテーションガイド"
+          data-testid="board-guide-panel"
+          className="pointer-events-auto max-h-[calc(100vh-8rem)] w-full overflow-y-auto border-t border-border bg-card p-5 text-left shadow-lg"
+        >
+          <h2 className="mt-1 text-xl font-bold text-foreground">
+            {guide.modalTitle ?? getStepDisplayTitle(phase, context.stepLabel)}
+          </h2>
+          {guide.modalExamples ? (
+            <div className="mt-4 space-y-1 text-sm text-muted-foreground">
+              <p
+                data-testid="guide-examples-label"
+                className="mb-2 font-semibold"
+              >
+                例
+              </p>
+              {guide.modalExamples.map((example) => (
+                <p key={example}>{example}</p>
+              ))}
+            </div>
+          ) : null}
+          {isHost && guide.hostMessage !== null ? (
+            <div className="mt-4 border-t border-border pt-3">
+              <p className="text-xs font-semibold">進行役へ</p>
+              <p className="mt-1 text-sm leading-5">{guide.hostMessage}</p>
+            </div>
+          ) : null}
+          {phase.kind === "step" &&
+          phase.phase === 1 &&
+          phase.step === 1 ? null : (
+            <div className="mt-5">
+              <Button
+                type="button"
+                className="bg-blue-600 text-white hover:bg-blue-700"
+                onClick={onPrimaryAction}
+              >
+                このステップを始める
+              </Button>
+            </div>
+          )}
+        </section>
       ) : null}
     </header>
   );

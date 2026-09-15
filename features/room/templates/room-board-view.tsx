@@ -197,6 +197,7 @@ export function RoomBoardView({
   const [guideDisplay, setGuideDisplay] = useState({
     phaseKey,
     isExpanded: initialGuideExpanded,
+    isInitialModal: true,
   });
   const [privateNotesOpenRequest, setPrivateNotesOpenRequest] = useState(0);
 
@@ -204,6 +205,12 @@ export function RoomBoardView({
   const isGuideExpanded =
     guideDisplay.phaseKey === phaseKey ? guideDisplay.isExpanded : true;
   const permissions = getBoardPermissions(phase);
+  const isPhaseOneFirstStep =
+    phase.kind === "step" && phase.phase === 1 && phase.step === 1;
+  const isInitialGuideModal =
+    !isPhaseOneFirstStep ||
+    guideDisplay.phaseKey !== phaseKey ||
+    guideDisplay.isInitialModal;
 
   function handleGuidePrimaryAction() {
     if (
@@ -212,10 +219,10 @@ export function RoomBoardView({
       permissions.canCreateNote
     ) {
       setPrivateNotesOpenRequest((request) => request + 1);
-      setGuideDisplay({ phaseKey, isExpanded: false });
+      setGuideDisplay({ phaseKey, isExpanded: false, isInitialModal: false });
       return;
     }
-    setGuideDisplay({ phaseKey, isExpanded: false });
+    setGuideDisplay({ phaseKey, isExpanded: false, isInitialModal: false });
   }
 
   useEffect(() => {
@@ -549,10 +556,29 @@ export function RoomBoardView({
         isLeaving={isLeaving}
         onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
         onGuideExpandedChange={(isExpanded) =>
-          setGuideDisplay({ phaseKey, isExpanded })
+          setGuideDisplay({
+            ...guideDisplay,
+            phaseKey,
+            isExpanded,
+            isInitialModal:
+              isExpanded || !isPhaseOneFirstStep
+                ? guideDisplay.isInitialModal
+                : false,
+          })
         }
         onPrimaryAction={
           enableGuideModal ? handleGuidePrimaryAction : undefined
+        }
+        isInitialModal={isInitialGuideModal}
+        onOpenPanel={
+          enableGuideModal && isPhaseOneFirstStep
+            ? () =>
+                setGuideDisplay({
+                  phaseKey,
+                  isExpanded: true,
+                  isInitialModal: false,
+                })
+            : undefined
         }
         onLeaveClick={() => setLeaveDialogOpen(true)}
         onNextPhase={onNextPhase}

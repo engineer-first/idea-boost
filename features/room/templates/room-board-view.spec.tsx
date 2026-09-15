@@ -177,19 +177,62 @@ describe("ステップ説明モーダル", () => {
     });
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("最初の一歩")).toBeInTheDocument();
     expect(
-      within(dialog).getByText("課題を1つの問いに言い換えてみよう"),
+      within(dialog).getByText("デザインスプリントを始めよう！"),
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByText("例・会議で発言する人が偏る"),
+      within(dialog).getByText("最近あった困ったことを付箋に書き出そう。"),
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByText("例・やることの優先順位を決められない"),
+      within(dialog).getByText("会議で発言する人が偏る"),
     ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("やることの優先順位を決められない"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("list")).toHaveClass("text-left");
+    expect(within(dialog).getByText("例")).toHaveClass("text-center");
     expect(
       within(dialog).getByRole("button", { name: "付箋に課題を書く" }),
     ).toBeInTheDocument();
+  });
+
+  it("中央モーダルを閉じてからやり方を押すと左上パネルで同じ内容を表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 1),
+      notes: [],
+      interactions: buildInteractions([], []),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "閉じる" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "会議で発言する人が偏る",
+    );
+    expect(
+      screen
+        .getByTestId("board-guide-panel")
+        .querySelector("[data-testid='guide-examples-label']"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("board-guide-panel")).not.toHaveTextContent(
+      "デザインスプリントを始めよう！",
+    );
+    expect(screen.getByTestId("board-guide-panel")).toHaveClass("text-left");
+    expect(
+      screen.getByTestId("board-guide-panel").querySelector("button"),
+    ).toBeNull();
   });
 
   it("問いの作成Step 1では説明と最初の問いを書くCTAを表示する", () => {
