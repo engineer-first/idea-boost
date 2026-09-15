@@ -82,7 +82,9 @@ npm run demo
 3000 / 8787 番ポートを使うため、通常開発との同時起動は行いません。
 通常の起動・本番環境ではデモ機能を利用できません。
 
-5分の説明構成と設計の合意は [`docs/local-demo-design.md`](docs/local-demo-design.md) を参照してください。
+全14ステップを順番に見せる約8分の台本と、現行データの注意点は
+[`docs/local-demo-runbook.md`](docs/local-demo-runbook.md) を参照してください。
+設計・保存先・本番との分離は [`docs/local-demo-design.md`](docs/local-demo-design.md) にまとめています。
 
 ### 認証のローカル開発
 
