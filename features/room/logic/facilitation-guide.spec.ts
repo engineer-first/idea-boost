@@ -3,12 +3,39 @@ import { buildLobbyPhase, buildPhaseStep } from "@/contracts/phase.fixture";
 import { getFacilitationGuide } from "./facilitation-guide";
 
 describe("getFacilitationGuide", () => {
+  it("フェーズ1 Step 3のやることをグループ名付けの流れで返す", () => {
+    expect(getFacilitationGuide(buildPhaseStep(3, 1))?.steps).toEqual([
+      "内容が似ている付箋を近くに移動する",
+      "付箋のグループに名前をつける",
+    ]);
+  });
+
+  it("フェーズ2 Step 1のやることを1項目だけ返す", () => {
+    expect(getFacilitationGuide(buildPhaseStep(1, 2))?.steps).toEqual([
+      "決定した課題に対して\n「どうすれば私たちは〇〇できるだろう？」の形に言い換える",
+    ]);
+  });
+
+  it("フェーズ2 Step 2のやることから順番決めを除く", () => {
+    expect(getFacilitationGuide(buildPhaseStep(2, 2))?.steps).toEqual([
+      "最初の順番の人が、問いを1つずつ説明しながら共有する",
+      "決めた順番に沿って、次の人が発表する",
+    ]);
+  });
+
+  it("フェーズ3 Step 2のやることから順番決めを除く", () => {
+    expect(getFacilitationGuide(buildPhaseStep(2, 3))?.steps).toEqual([
+      "解決策を1つずつ説明しながら共有する",
+      "価値と実現のしやすさを考えて、マップへ仮置きする",
+    ]);
+  });
+
   it.each([
     [
       buildPhaseStep(1),
       3,
       "デザインスプリントを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
-      "タイマーが終了したら、次のステップへ進んでください。",
+      "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
     ],
     [
       buildPhaseStep(2),
@@ -61,13 +88,13 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(1, 3),
       3,
-      "決定したHMWをもとに、アイデアを付箋に書き出そう。書き終えたら手を止めて待とう。",
-      "個人ワークの時間を守って進行してください。",
+      "決定したHMWをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",
+      "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
     ],
     [
       buildPhaseStep(2, 3),
       6,
-      "アイデアをみんなに共有し、発表しながら2軸マップに置こう。ほかの人が発表している間は手を止めて聞こう。",
+      "解決策をみんなに共有し、発表しながら2軸マップに置こう。ほかの人が発表している間は手を止めて聞こう。",
       "全員の共有が終わったら、次のステップへ進んでください。",
     ],
     [
@@ -85,7 +112,7 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(5, 3),
       10,
-      "投票結果を参考に、採用するアイデアをみんなで1つ決めよう。",
+      "投票結果を参考に、採用する解決策をみんなで1つ決めよう。",
       "1つに決定したら、デザインスプリントは完了です。",
     ],
   ] as const)("%o の所要時間・参加者向けガイド・ホスト向けガイドを返す", (phase, durationMinutes, message, hostMessage) => {

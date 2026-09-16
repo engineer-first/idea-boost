@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ChevronUp } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +19,7 @@ import { FacilitationGuide } from "./facilitation-guide";
 const PHASE_TITLES = {
   1: "課題整理",
   2: "問いの作成",
-  3: "アイデア",
+  3: "解決策",
 } as const;
 
 const PROGRESS_STEPS = [1, 2, 3, 4, 5] as const;
@@ -55,6 +56,17 @@ function getStepDisplayTitle(phase: RoomPhase, fallback: string): string {
     : fallback;
 }
 
+function GuideCallout({ children }: { children: ReactNode }) {
+  return (
+    <section className="rounded-lg border border-border bg-muted/60 p-3">
+      <h3 className="text-center text-xs font-semibold">進行役へ</h3>
+      <p className="mt-1 whitespace-pre-line text-center text-sm leading-5">
+        {children}
+      </p>
+    </section>
+  );
+}
+
 export type BoardContextProps = {
   phase: RoomPhase;
   guide: FacilitationGuideContent | null;
@@ -85,6 +97,8 @@ export function BoardContext({
     phase.kind === "step" && phase.phase === 1 && phase.step === 1;
   const isPhaseOneSharingStep =
     phase.kind === "step" && phase.phase === 1 && phase.step === 2;
+  const isIdeaWritingStep =
+    phase.kind === "step" && phase.phase === 3 && phase.step === 1;
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const decisions = [
@@ -233,18 +247,20 @@ export function BoardContext({
             <div
               className={`space-y-5 text-sm ${guide.modalIntro ? "text-center" : guide.modalTitle ? "text-left" : ""}`}
             >
-              {!isPhaseOneFirstStep ? (
-                <section>
-                  <h3
-                    className={`mb-2 font-semibold ${isPhaseOneSharingStep ? "text-center" : ""}`}
-                  >
-                    やること
-                  </h3>
-                  <ol className="list-decimal space-y-1.5 pl-5 text-left">
-                    {(guide.steps ?? [guide.message]).map((step) => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
+              {!isPhaseOneFirstStep && !isIdeaWritingStep ? (
+                <section className="mx-auto w-fit text-left">
+                  <h3 className="mb-2 text-center font-semibold">やること</h3>
+                  {(guide.steps ?? [guide.message]).length === 1 ? (
+                    <p className="whitespace-pre-line text-center">
+                      {(guide.steps ?? [guide.message])[0]}
+                    </p>
+                  ) : (
+                    <ol className="list-decimal space-y-1.5 pl-5 text-left">
+                      {(guide.steps ?? [guide.message]).map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  )}
                 </section>
               ) : null}
               {guide.modalExamples ? (
@@ -263,18 +279,10 @@ export function BoardContext({
                 </section>
               ) : null}
               {guide.example ? (
-                <section>
-                  <h3 className="mb-2 font-semibold">進行役へ</h3>
-                  <p className="whitespace-pre-wrap rounded-lg bg-muted p-3 leading-6">
-                    {guide.example}
-                  </p>
-                </section>
+                <GuideCallout>{guide.example}</GuideCallout>
               ) : null}
               {isHost && guide.hostMessage !== null ? (
-                <section className="rounded-lg border border-border bg-muted/60 p-3">
-                  <h3 className="text-xs font-semibold">進行役へ</h3>
-                  <p className="mt-1 text-sm leading-5">{guide.hostMessage}</p>
-                </section>
+                <GuideCallout>{guide.hostMessage}</GuideCallout>
               ) : null}
             </div>
             {phase.kind === "step" &&
@@ -294,7 +302,7 @@ export function BoardContext({
                     ? "付箋に課題を書く"
                     : phase.phase === 2
                       ? "付箋に問いを書く"
-                      : "付箋にアイデアを書く"}
+                      : "付箋に解決策を書く"}
                 </Button>
               </DialogFooter>
             ) : null}

@@ -190,7 +190,7 @@ describe("ステップ説明モーダル", () => {
       within(dialog).getByText("最近あった困ったことを付箋に書き出そう。"),
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByText("会議で発言する人が偏る"),
+      within(dialog).getByText("学校の出席率がまずい"),
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText("やることの優先順位を決められない"),
@@ -349,7 +349,7 @@ describe("ステップ説明モーダル", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
-      "会議で発言する人が偏る",
+      "学校の出席率がまずい",
     );
     expect(
       screen
@@ -390,12 +390,40 @@ describe("ステップ説明モーダル", () => {
       howTo.compareDocumentPosition(examples) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(howTo.parentElement).toHaveClass("mx-auto", "w-fit", "text-left");
+    expect(howTo).toHaveClass("text-center");
+    expect(dialog.querySelector("ol")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /決定した課題に対して[\s\S]*「どうすれば私たちは〇〇できるだろう？」の形に言い換える/,
+      ),
+    ).toHaveClass("text-center");
     expect(
       within(dialog).getByText(
         "決めた課題を、アイデアが生まれる問いに変えよう！",
       ),
     ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /決定した課題に対して[\s\S]*「どうすれば私たちは〇〇できるだろう？」の形に言い換える/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("課題: 学校の出席率がまずい"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("問い: あと何日休めるか？"),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
+    expect(within(dialog).getByText("進行役へ")).toHaveClass("text-center");
+    expect(within(dialog).getByText("進行役へ").parentElement).toHaveClass(
+      "rounded-lg",
+      "border",
+      "bg-muted/60",
+    );
+    expect(
+      within(dialog).getByText(/タイマーが終了したら次のステップへ進もう。/),
+    ).toHaveClass("text-center");
     expect(within(dialog).queryByText("具体例")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "付箋に問いを書く" }),
@@ -423,6 +451,41 @@ describe("ステップ説明モーダル", () => {
 
     expect(onAddPrivateNote).toHaveBeenCalledOnce();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("3-1はやることを表示せず、1-1と同じ進行役案内を表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 3),
+      isHost: true,
+      help: {
+        kind: "idea",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    const dialog = screen.getByRole("dialog");
+    const title = within(dialog).getByText(
+      "決めた問いに対する解決策を書き出そう",
+    );
+    expect(title).toHaveClass("text-2xl", "text-foreground");
+    expect(within(dialog).queryByText("やること")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "スマホアプリで残りの休める日数が簡単にわかる。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("pcのgoogle拡張機能でwebから簡単に確認できる。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /右上からタイマーを設定しよう！[\s\S]*タイマーが終了したら次のステップへ進もう。/,
+      ),
+    ).toBeInTheDocument();
   });
 });
 
