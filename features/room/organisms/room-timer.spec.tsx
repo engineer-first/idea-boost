@@ -324,7 +324,7 @@ describe("RoomTimer", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("非ホストの未設定状態はタイマーカード自体を表示しない", () => {
+  it("非ホストの未設定状態もタイマー枠を表示し、操作UIを出さない", () => {
     render(
       <RoomTimer
         timer={{ status: "idle" }}
@@ -334,7 +334,12 @@ describe("RoomTimer", () => {
         {...handlers}
       />,
     );
-    expect(screen.queryByTestId("room-timer")).not.toBeInTheDocument();
+    const chip = screen.getByTestId("room-timer");
+    expect(chip).toHaveTextContent("タイマー");
+    expect(chip).toHaveClass("h-10", "w-28");
+    expect(chip.tagName).toBe("SPAN");
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("実行中は補正済みサーバー時刻を基準に減り、ホスト操作を送る", () => {

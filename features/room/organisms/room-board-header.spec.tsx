@@ -202,6 +202,19 @@ describe("RoomBoardHeader", () => {
     ).toBeVisible();
   });
 
+  it("非 host の idle タイマー枠を操作UIなしで操作グループ内に表示する", () => {
+    setup({ isHost: false, timer: { status: "idle" } });
+
+    const controls = screen.getByRole("group", { name: "ルームの操作" });
+    const timer = within(controls).getByTestId("room-timer");
+    expect(timer).toBeVisible();
+    expect(timer.tagName).toBe("SPAN");
+    expect(timer).toHaveClass("h-10", "w-28");
+    expect(
+      within(controls).queryByRole("button", { name: "開始" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("投票ステップでも投票パレットを上部HUDには表示しない", () => {
     setup({ phase: buildPhaseStep(4) });
 

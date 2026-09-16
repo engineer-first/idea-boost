@@ -136,8 +136,6 @@ export function RoomTimer({
     );
   };
 
-  if (!isHost && timer.status === "idle") return null;
-
   const chipClassName = cn(
     "board-hud h-10 w-28 shrink-0 justify-center rounded-lg border-transparent bg-muted px-3 shadow-none hover:bg-muted dark:bg-muted dark:hover:bg-muted disabled:opacity-100",
     "font-mono font-bold tabular-nums",
