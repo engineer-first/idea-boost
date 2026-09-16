@@ -58,6 +58,7 @@ function step(phase: 1 | 2 | 3, value: number): Story {
       },
       timer: { status: "paused", remainingMs: 138_000, durationMs: 180_000 },
       initialGuideExpanded: false,
+      enableGuideModal: false,
     },
   };
 }
