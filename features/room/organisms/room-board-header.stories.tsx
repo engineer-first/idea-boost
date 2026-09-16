@@ -9,6 +9,8 @@ const ME = "11111111-1111-4111-8111-111111111111";
 const STEP_1_1 = buildPhaseStep(1);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
+const STEP_2_2 = buildPhaseStep(2, 2);
+const STEP_3_4 = buildPhaseStep(4, 3);
 const STEP_3_5 = buildPhaseStep(5, 3);
 
 const meta = {
@@ -74,6 +76,33 @@ export const CollapsedGuide: Story = {
   args: {
     isGuideExpanded: false,
   },
+};
+
+// 3フェーズの現在地と、フェーズ別の5/4/5ステップ進捗を確認する。
+export const PhaseTwoProgress: Story = {
+  args: {
+    phase: STEP_2_2,
+  },
+};
+
+export const PhaseThreeProgress: Story = {
+  args: {
+    phase: STEP_3_4,
+  },
+};
+
+// 狭いカード幅でも上段のフェーズ名が省略されず、下段と分離して読める。
+export const NarrowPhaseProgress: Story = {
+  args: {
+    phase: STEP_2_2,
+  },
+  decorators: [
+    (Story) => (
+      <div className="relative h-96 w-[280px] overflow-hidden bg-muted/20">
+        <Story />
+      </div>
+    ),
+  ],
 };
 
 // loading相当: WebSocket 接続の確立中（操作が無効化される）。

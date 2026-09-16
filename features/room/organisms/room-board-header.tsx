@@ -115,10 +115,10 @@ export function RoomBoardHeader({
     <TooltipProvider delayDuration={300}>
       <div
         data-testid="board-header-row"
-        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.25rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
+        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.25rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)]"
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col items-start gap-3"
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col items-start gap-3 max-[900px]:min-w-[306px]"
           data-testid="board-context-column"
         >
           <div className="w-full min-w-0 shrink-0">
@@ -139,7 +139,7 @@ export function RoomBoardHeader({
         </div>
 
         <fieldset
-          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5"
+          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap"
           aria-label="ルームの操作"
           data-testid="board-control-hud"
         >
@@ -148,11 +148,14 @@ export function RoomBoardHeader({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-10 gap-2 px-2"
+                className="h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
                 aria-label={`参加者 ${members.length}人`}
                 title="参加者一覧を開く"
               >
-                <span className="flex items-center pl-2" aria-hidden="true">
+                <span
+                  className="flex items-center pl-2 max-[900px]:pl-0"
+                  aria-hidden="true"
+                >
                   {members.slice(0, 10).map((member, index) => (
                     <span
                       key={member.userId}
