@@ -397,6 +397,7 @@ describe("ステップ説明モーダル", () => {
     const onAddPrivateNote = vi.fn();
     setup({
       phase: buildPhaseStep(1, 2),
+      isHost: true,
       notes: [],
       onAddPrivateNote,
       interactions: buildInteractions([], []),

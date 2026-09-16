@@ -65,7 +65,7 @@ describe("getFacilitationGuide", () => {
       buildPhaseStep(1, 2),
       3,
       "決定した課題に対するHMWを、付箋に書き出そう。",
-      null,
+      "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
     ],
     [
       buildPhaseStep(2, 2),

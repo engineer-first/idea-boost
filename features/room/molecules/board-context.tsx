@@ -191,7 +191,7 @@ export function BoardContext({
               onExpandedChange(!isExpanded);
             }}
           >
-            やり方
+            進め方
             <ChevronUp
               aria-hidden="true"
               className={`size-3.5 transition-transform motion-reduce:transition-none ${isExpanded ? "" : "rotate-180"}`}
@@ -215,7 +215,7 @@ export function BoardContext({
         </section>
       ) : null}
       {guide !== null && onPrimaryAction !== undefined && isInitialModal ? (
-        <Dialog open={isExpanded} onOpenChange={onExpandedChange} modal={false}>
+        <Dialog open={isExpanded} onOpenChange={onExpandedChange}>
           <DialogContent
             id="board-step-dialog"
             // AlertDialog の終了時にトリガーへ戻るフォーカスで案内を閉じない。

@@ -199,6 +199,7 @@ export function RoomBoardView({
     isExpanded: initialGuideExpanded,
     isInitialModal: true,
   });
+  const previousGuidePhaseKeyRef = useRef(phaseKey);
   const [privateNotesOpenRequest, setPrivateNotesOpenRequest] = useState(0);
 
   const [isMounted, setIsMounted] = useState(false);
@@ -230,6 +231,8 @@ export function RoomBoardView({
   }, []);
 
   useEffect(() => {
+    if (previousGuidePhaseKeyRef.current === phaseKey) return;
+    previousGuidePhaseKeyRef.current = phaseKey;
     setGuideDisplay({
       phaseKey,
       isExpanded: true,

@@ -103,10 +103,10 @@ const FACILITATION_GUIDES: Record<
     1: {
       durationMinutes: 3,
       message: "決定した課題に対するHMWを、付箋に書き出そう。",
-      hostMessage: null,
-      purpose: "決定した課題を、アイデアが生まれる問いに変換します。",
-      example:
+      hostMessage:
         "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
+      purpose: "決定した課題を、アイデアが生まれる問いに変換します。",
+      example: null,
       completion: "アイデアにつながる問いを複数書き出せたら完了です。",
       modalIntro: "次は、問いをつくろう！",
       modalTitle: "決めた課題を、アイデアが生まれる問いに変えよう！",
