@@ -441,7 +441,7 @@ export function RoomBoardCanvas({
         </div>
         {permissions.showPrivateToolbar ? (
           <div
-            className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-60 items-end"
+            className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end"
             data-testid="private-notes-dock"
           >
             <PrivateNotesToolbar
@@ -455,7 +455,7 @@ export function RoomBoardCanvas({
               defaultExpanded={false}
               expandRequest={expandPrivateNotesRequest}
               addRequest={addPrivateNoteRequest}
-              className="pointer-events-auto max-h-full w-60"
+              className="pointer-events-auto max-h-full"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}
               selectedNoteId={selectedNoteId}
