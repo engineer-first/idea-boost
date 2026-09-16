@@ -104,8 +104,6 @@ const meta = {
     onPrivateNoteDragStart: fn(),
     remoteCursors: [],
     remoteNoteDrags: [],
-    areCursorsVisible: true,
-    onToggleCursors: fn(),
   },
   decorators: [
     (Story) => (

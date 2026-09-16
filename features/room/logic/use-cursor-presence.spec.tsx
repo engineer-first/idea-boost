@@ -81,7 +81,8 @@ describe("useCursorPresence", () => {
     });
   });
 
-  it("非表示にすると leave を送り、その後の位置を送らない", () => {
+  it("個人向け表示切り替え API を持たず、旧ローカル設定があっても受信表示する", () => {
+    localStorage.setItem("idea-boost:cursor-visibility", "hidden");
     const send = vi.fn();
     const { result } = renderHook(() =>
       useCursorPresence({
@@ -91,13 +92,41 @@ describe("useCursorPresence", () => {
         send,
       }),
     );
-    act(() => result.current.updateCursor({ x: 10, y: 20 }, null));
-    act(() => result.current.toggleCursors());
-    act(() => result.current.updateCursor({ x: 30, y: 40 }, null));
 
-    expect(send).toHaveBeenLastCalledWith({ type: "cursor:leave" });
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(result.current.areCursorsVisible).toBe(false);
+    act(() =>
+      result.current.applyMessage({
+        type: "cursor:updated",
+        cursor: {
+          userId: OTHER,
+          name: "Taro",
+          color: "green",
+          x: 10,
+          y: 20,
+          draggingNoteId: null,
+        },
+      }),
+    );
+
+    expect(result.current).not.toHaveProperty("areCursorsVisible");
+    expect(result.current).not.toHaveProperty("toggleCursors");
+    expect(result.current.remoteCursors).toHaveLength(1);
+    localStorage.removeItem("idea-boost:cursor-visibility");
+  });
+
+  it("ステルス投票中はカーソルを送信しない", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useCursorPresence({
+        currentUserId: ME,
+        phase: buildPhaseStep(4),
+        connectionStatus: "open",
+        send,
+      }),
+    );
+
+    act(() => result.current.updateCursor({ x: 10, y: 20 }, null));
+
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("切断時は受信済みカーソルを消す", () => {

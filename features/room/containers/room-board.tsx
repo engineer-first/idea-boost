@@ -247,8 +247,6 @@ export function RoomBoard({
         enableGuideModal={enableGuideModal}
         remoteCursors={cursorPresence.remoteCursors}
         remoteNoteDrags={notes.remoteNoteDrags}
-        areCursorsVisible={cursorPresence.areCursorsVisible}
-        onToggleCursors={cursorPresence.toggleCursors}
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}

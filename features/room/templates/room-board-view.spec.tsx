@@ -113,8 +113,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     groups: [],
     remoteCursors: [],
     remoteNoteDrags: [],
-    areCursorsVisible: true,
-    onToggleCursors: vi.fn(),
     ...overrides,
   } as RoomBoardViewProps;
   const resolvedProps: RoomBoardViewProps = {

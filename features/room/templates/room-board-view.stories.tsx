@@ -146,8 +146,6 @@ const meta = {
     onTimerStop: fn(),
     remoteCursors: [],
     remoteNoteDrags: [],
-    areCursorsVisible: true,
-    onToggleCursors: fn(),
   },
   decorators: [
     (Story) => (
