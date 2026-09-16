@@ -292,17 +292,33 @@ test("進め方を閉じると採用課題を残したままHMW例を広く読�
   await expectLayout();
 });
 
-test("接続中断時と参加者表示でもタイマーを薄くしない", async () => {
+test("接続中断時と参加者表示でもタイマー枠を薄くせず、全状態で寸法を保つ", async () => {
+  let participantPosition: { x: number; y: number } | undefined;
+
   for (const state of ["idle", "running", "paused", "ended"]) {
     await openStory(`room-roomtimer--${state}-host&args=disabled:true`);
     const timer = page.getByTestId("room-timer");
     await timer.waitFor();
     expect(await timer.isDisabled()).toBe(true);
     await expectOpaqueAndReadable(timer);
-    if (state !== "idle") {
-      await openStory(`room-roomtimer--${state}-member`);
-      await page.getByTestId("room-timer").waitFor();
-      await expectOpaqueAndReadable(page.getByTestId("room-timer"));
+    await openStory(`room-roomtimer--${state}-member`);
+    const memberTimer = page.getByTestId("room-timer");
+    await memberTimer.waitFor();
+    await expectOpaqueAndReadable(memberTimer);
+    const bounds = await memberTimer.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect({ width: bounds?.width, height: bounds?.height }).toEqual({
+      width: 112,
+      height: 40,
+    });
+    if (state === "idle") {
+      participantPosition = { x: bounds?.x ?? NaN, y: bounds?.y ?? NaN };
+    } else {
+      expect({ x: bounds?.x, y: bounds?.y }).toEqual(participantPosition);
+    }
+    if (state === "idle") {
+      expect(await memberTimer.textContent()).toBe("タイマー");
+      expect(await page.getByRole("button").count()).toBe(0);
     }
   }
 });

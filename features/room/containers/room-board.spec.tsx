@@ -361,6 +361,33 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(socket.sent).toContain(JSON.stringify({ type: "timer:resume" }));
   });
 
+  it("非 host の snapshot idle 枠を表示し、phase:updated 後も表示を維持する", () => {
+    const { socket } = connectWithSnapshot([], {
+      isHost: false,
+      phase: buildPhaseStep(1),
+    });
+
+    const controls = screen.getByRole("group", { name: "ルームの操作" });
+    const timer = within(controls).getByTestId("room-timer");
+    expect(timer).toBeVisible();
+    expect(timer.tagName).toBe("SPAN");
+    expect(timer).toHaveTextContent("タイマー");
+    expect(within(timer).queryByRole("button")).not.toBeInTheDocument();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+      }),
+    );
+
+    expect(screen.getByText("課題整理")).toBeInTheDocument();
+    expect(within(controls).getByTestId("room-timer")).toBeVisible();
+    expect(within(controls).getByTestId("room-timer")).toHaveTextContent(
+      "タイマー",
+    );
+  });
+
   it("forbidden エラーを受信するとポップアップ通知を表示する", () => {
     const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(4) });
 
