@@ -77,6 +77,8 @@ export type UseRoomNotesResult = {
   moveNote: (noteId: string, x: number, y: number) => void;
   // ドロップ確定: note:move を送信（ドラッグ中の座標はサーバーに残らない）。
   endNoteDrag: (noteId: string, x: number, y: number) => void;
+  excludeNote: (noteId: string) => void;
+  restoreNote: (noteId: string) => void;
   // 入力中の見た目を止めないため本文だけは楽観更新する。
   changeNoteContent: (noteId: string, content: string) => void;
   deleteNote: (noteId: string) => void;
@@ -351,6 +353,16 @@ export function useRoomNotes({
     [updateNotes, send],
   );
 
+  const excludeNote = useCallback(
+    (noteId: string) => send({ type: "note:exclude", noteId }),
+    [send],
+  );
+
+  const restoreNote = useCallback(
+    (noteId: string) => send({ type: "note:restore", noteId }),
+    [send],
+  );
+
   const changeNoteContent = useCallback(
     (noteId: string, content: string) => {
       updateNotes((current) =>
@@ -540,6 +552,8 @@ export function useRoomNotes({
     startNoteDrag,
     moveNote,
     endNoteDrag,
+    excludeNote,
+    restoreNote,
     changeNoteContent,
     deleteNote,
     voteNote,

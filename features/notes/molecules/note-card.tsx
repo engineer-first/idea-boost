@@ -41,6 +41,7 @@ export type NoteCardProps = {
   canEditNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
+  canExcludeNote?: boolean;
   onSelect: (noteId: string) => void;
   onDragStart: (
     noteId: string,
@@ -48,6 +49,7 @@ export type NoteCardProps = {
   ) => void;
   onContentChange: (noteId: string, content: string) => void;
   onDelete: (noteId: string) => void;
+  onExclude?: (noteId: string) => void;
   vote: {
     displayMode: VoteDisplayMode;
     selectedKind: DotVoteKind | null;
@@ -94,10 +96,12 @@ export function NoteCard({
   canEditNote,
   canDeleteNote,
   canMoveNote,
+  canExcludeNote = false,
   onSelect,
   onDragStart,
   onContentChange,
   onDelete,
+  onExclude,
   vote,
   className,
   style,
@@ -338,6 +342,24 @@ export function NoteCard({
             {activeDragMember.name || "名前未設定"} が移動中
           </span>
         </>
+      ) : null}
+      {canExcludeNote && onExclude && !isDecided ? (
+        <button
+          type="button"
+          aria-label={`${note.content || "無題"}を候補から除外`}
+          title="候補から除外"
+          disabled={disabled}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (!disabled) onExclude(note.id);
+          }}
+          className="absolute top-1 left-1 z-30 flex size-8 items-center justify-center rounded-full bg-slate-950/10 text-slate-900 transition hover:bg-slate-950/20 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <span aria-hidden="true" className="text-lg leading-none">
+            ×
+          </span>
+        </button>
       ) : null}
       <textarea
         ref={textareaRef}

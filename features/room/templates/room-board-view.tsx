@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Button } from "@/components/ui/button";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
@@ -28,7 +29,11 @@ import {
   type TimerState,
 } from "@/contracts/room-protocol";
 import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
-import type { Note, RemoteNoteDrag } from "@/features/notes";
+import {
+  ExcludedNotesDialog,
+  type Note,
+  type RemoteNoteDrag,
+} from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
@@ -43,6 +48,7 @@ import { RoomBoardHeader } from "../organisms/room-board-header";
 
 export type RoomBoardViewProps = {
   notes: Note[];
+  excludedNotes?: Note[];
   groups: PersistentGroup[];
   inviteCode: string;
   inviteUrl: string;
@@ -79,6 +85,8 @@ export type RoomBoardViewProps = {
   onPrivateNoteDelete: (noteId: string) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteExclude?: (noteId: string) => void;
+  onNoteRestore?: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
@@ -128,6 +136,7 @@ type VoteStampPointer = {
 
 export function RoomBoardView({
   notes,
+  excludedNotes = [],
   groups,
   inviteCode,
   inviteUrl,
@@ -156,6 +165,8 @@ export function RoomBoardView({
   onPrivateNoteDelete,
   onNoteContentChange,
   onNoteDelete,
+  onNoteExclude,
+  onNoteRestore,
   onGroupCreate,
   onGroupUpdateName,
   onNoteVote,
@@ -181,6 +192,7 @@ export function RoomBoardView({
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
+  const [excludedNotesDialogOpen, setExcludedNotesDialogOpen] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
   const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
@@ -607,6 +619,7 @@ export function RoomBoardView({
         permissions={permissions}
         decision={decision}
         isHost={isHost}
+        currentUserId={currentUserId}
         privateNotes={toolbarNotes}
         selectedNoteId={selectedNoteId}
         draggingNoteId={draggingNoteId}
@@ -635,6 +648,7 @@ export function RoomBoardView({
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}
+        onNoteExclude={onNoteExclude}
         onNoteVote={onNoteVote}
         onNoteVoteRemove={onNoteVoteRemove}
         onNoteVoteStickerRemove={onNoteVoteStickerRemove}
@@ -651,6 +665,20 @@ export function RoomBoardView({
         expandPrivateNotesRequest={privateNotesOpenRequest}
         addPrivateNoteRequest={privateNotesOpenRequest}
       />
+
+      {permissions.canShowExcludedNotes ? (
+        <div className="pointer-events-none absolute top-16 left-3 z-40">
+          <Button
+            type="button"
+            variant="secondary"
+            className="pointer-events-auto min-h-10 rounded-xl border border-border bg-background/95 px-3 shadow-md"
+            aria-label={`除外した候補を開く（${excludedNotes.length}件）`}
+            onClick={() => setExcludedNotesDialogOpen(true)}
+          >
+            除外した候補（{excludedNotes.length}）
+          </Button>
+        </div>
+      ) : null}
 
       {isVotingStep(phase) ? (
         <div
@@ -712,6 +740,17 @@ export function RoomBoardView({
         isHost={isHost}
         isDisconnected={isDisconnected}
         onNoteDecide={onNoteDecide}
+      />
+
+      <ExcludedNotesDialog
+        open={excludedNotesDialogOpen}
+        onOpenChange={setExcludedNotesDialogOpen}
+        notes={excludedNotes}
+        groups={groups}
+        currentUserId={currentUserId}
+        isHost={isHost}
+        isDisconnected={isDisconnected}
+        onRestore={onNoteRestore ?? (() => undefined)}
       />
 
       <LeaveConfirmDialog

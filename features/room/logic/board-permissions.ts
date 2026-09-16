@@ -9,6 +9,8 @@ export type BoardPermissions = {
   canEditNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
+  canExcludeNote: boolean;
+  canShowExcludedNotes: boolean;
 
   // グループ
   canGroupNote: boolean;
@@ -28,6 +30,8 @@ const ALL_DISABLED: BoardPermissions = {
   canEditNote: false,
   canDeleteNote: false,
   canMoveNote: false,
+  canExcludeNote: false,
+  canShowExcludedNotes: false,
 
   canGroupNote: false,
 
@@ -53,6 +57,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
           canEditNote: true,
           canDeleteNote: true,
           canMoveNote: false,
+          canExcludeNote: false,
+          canShowExcludedNotes: false,
 
           canGroupNote: false,
 
@@ -70,6 +76,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
           canEditNote: true,
           canDeleteNote: false,
           canMoveNote: true,
+          canExcludeNote: false,
+          canShowExcludedNotes: false,
 
           canGroupNote: false,
 
@@ -87,6 +95,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
           canEditNote: false,
           canDeleteNote: false,
           canMoveNote: true,
+          canExcludeNote: false,
+          canShowExcludedNotes: false,
 
           canGroupNote: true,
 
@@ -104,6 +114,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
           canEditNote: false,
           canDeleteNote: false,
           canMoveNote: false,
+          canExcludeNote: false,
+          canShowExcludedNotes: false,
 
           canGroupNote: false,
 
@@ -120,7 +132,9 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
           canCreateNote: false,
           canEditNote: false,
           canDeleteNote: false,
-          canMoveNote: false,
+          canMoveNote: true,
+          canExcludeNote: true,
+          canShowExcludedNotes: true,
 
           canGroupNote: false,
 
@@ -141,6 +155,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
       canEditNote: true,
       canDeleteNote: true,
       canMoveNote: false,
+      canExcludeNote: false,
+      canShowExcludedNotes: false,
 
       canGroupNote: false,
 
@@ -160,6 +176,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
       canEditNote: true,
       canDeleteNote: false,
       canMoveNote: true,
+      canExcludeNote: false,
+      canShowExcludedNotes: false,
 
       canGroupNote: false,
 
@@ -179,6 +197,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
       canEditNote: false,
       canDeleteNote: false,
       canMoveNote: false,
+      canExcludeNote: false,
+      canShowExcludedNotes: false,
 
       canGroupNote: false,
 
@@ -198,6 +218,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
       canEditNote: true,
       canDeleteNote: true,
       canMoveNote: false,
+      canExcludeNote: false,
+      canShowExcludedNotes: false,
 
       canGroupNote: false,
 
@@ -218,6 +240,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
       canEditNote: true,
       canDeleteNote: false,
       canMoveNote: true,
+      canExcludeNote: false,
+      canShowExcludedNotes: false,
 
       canGroupNote: false,
 
@@ -236,6 +260,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
       canEditNote: false,
       canDeleteNote: false,
       canMoveNote: true,
+      canExcludeNote: false,
+      canShowExcludedNotes: false,
 
       canGroupNote: false,
 
@@ -254,6 +280,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
       canEditNote: false,
       canDeleteNote: false,
       canMoveNote: false,
+      canExcludeNote: false,
+      canShowExcludedNotes: false,
 
       canGroupNote: false,
 
@@ -272,6 +300,8 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
       canEditNote: false,
       canDeleteNote: false,
       canMoveNote: false,
+      canExcludeNote: false,
+      canShowExcludedNotes: false,
 
       canGroupNote: false,
 

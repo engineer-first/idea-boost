@@ -7,13 +7,14 @@ import {
 } from "../../contracts/board";
 import { isPhaseStep } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
+import { getDecision } from "./decisions";
 import { autoReorganize } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
-import { findMember, getMemberColor } from "./members";
+import { findMember, getMemberColor, isHostUser } from "./members";
 import {
   broadcastNoteInserted,
   broadcastNoteUpdated,
@@ -21,12 +22,14 @@ import {
   canEdit,
   deleteNote,
   findNote,
+  findRestorePosition,
   insertNote,
   isVisibleTo,
   moveNote,
   type NoteRow,
   publishNote,
   requireNoteInCurrentPhase,
+  setNoteExcluded,
   toProtocolNote,
   touchNote,
   unpublishNote,
@@ -64,6 +67,21 @@ function isFrozenSharedNoteAtPersonalStep(
   );
 }
 
+function canManageExclusion(ctx: HandlerCtx, row: NoteRow): boolean {
+  return (
+    row.visibility === "shared" &&
+    (row.author_id === ctx.userId || isHostUser(ctx.sql, ctx.userId))
+  );
+}
+
+function isDecidedInCurrentPhase(ctx: HandlerCtx, row: NoteRow): boolean {
+  const phase = getPhase(ctx.sql);
+  return (
+    phase.kind === "step" &&
+    getDecision(ctx.sql, phase.phase)?.noteId === row.id
+  );
+}
+
 export const noteHandlers: MessageHandlers<
   | "note:create"
   | "note:publish"
@@ -71,6 +89,8 @@ export const noteHandlers: MessageHandlers<
   | "note:update-content"
   | "note:move"
   | "note:drag"
+  | "note:exclude"
+  | "note:restore"
   | "note:delete"
   | "note:vote"
   | "note:vote-reset"
@@ -99,6 +119,7 @@ export const noteHandlers: MessageHandlers<
       created_at: now,
       updated_at: now,
       phase: phase.phase,
+      excluded: false,
     };
     insertNote(ctx.sql, note);
     broadcastNoteInserted(ctx.sql, ctx.broadcaster, note);
@@ -168,7 +189,7 @@ export const noteHandlers: MessageHandlers<
   "note:move": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!canEdit(row, ctx.userId)) {
+    if (!canEdit(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -204,7 +225,7 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
-    if (!canEdit(row, ctx.userId)) {
+    if (!canEdit(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -234,6 +255,49 @@ export const noteHandlers: MessageHandlers<
     );
   },
 
+  "note:exclude": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      !canManageExclusion(ctx, row) ||
+      row.excluded ||
+      isDecidedInCurrentPhase(ctx, row)
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    setNoteExcluded(ctx.sql, row.id, true, row.x, row.y, updatedAt);
+    // グループは削除せず、active notes からだけ外す。復元時に同じグループと
+    // 内容・票を再利用できるよう、autoReorganize は呼ばない。
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      excluded: true,
+      updated_at: updatedAt,
+    });
+  },
+
+  "note:restore": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (!canManageExclusion(ctx, row) || !row.excluded) {
+      replyForbidden(ctx);
+      return;
+    }
+
+    const position = findRestorePosition(ctx.sql, row);
+    const updatedAt = new Date().toISOString();
+    setNoteExcluded(ctx.sql, row.id, false, position.x, position.y, updatedAt);
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      excluded: false,
+      x: position.x,
+      y: position.y,
+      updated_at: updatedAt,
+    });
+  },
+
   "note:delete": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
@@ -258,7 +322,7 @@ export const noteHandlers: MessageHandlers<
   "note:vote": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId)) {
+    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -303,7 +367,7 @@ export const noteHandlers: MessageHandlers<
   "note:vote-reset": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId)) {
+    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -324,7 +388,7 @@ export const noteHandlers: MessageHandlers<
   "note:vote-remove": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId)) {
+    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -354,7 +418,7 @@ export const noteHandlers: MessageHandlers<
   "note:vote-sticker:add": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId)) {
+    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -438,7 +502,11 @@ export const noteHandlers: MessageHandlers<
     if (!source) return;
     const target = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!target) return;
-    if (!isVisibleTo(target, ctx.userId)) {
+    if (
+      !isVisibleTo(target, ctx.userId) ||
+      target.excluded ||
+      source.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -479,7 +547,7 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = requireNoteInCurrentPhase(ctx, sticker.note_id);
-    if (!row || !isVisibleTo(row, ctx.userId)) {
+    if (!row || !isVisibleTo(row, ctx.userId) || row.excluded) {
       if (row) replyForbidden(ctx);
       return;
     }

@@ -58,6 +58,21 @@ describe("NoteCard", () => {
     expect(screen.getByDisplayValue("こんにちは")).toBeInTheDocument();
   });
 
+  it("結果ステップでは候補から除外する操作をコールバックへ返す", () => {
+    const onExclude = vi.fn();
+    setup({
+      note: buildNote({ content: "除外する候補" }),
+      canExcludeNote: true,
+      onExclude,
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "除外する候補を候補から除外" }),
+    );
+
+    expect(onExclude).toHaveBeenCalledWith("note-1");
+  });
+
   it("追加直後の付箋は本文を入力できる状態でフォーカスする", () => {
     setup({
       note: buildNote({ content: "" }),

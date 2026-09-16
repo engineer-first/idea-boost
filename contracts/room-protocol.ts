@@ -87,6 +87,9 @@ export const NoteSchema = z.object({
   color: NoteColorSchema,
   x: CanvasCoordinateSchema,
   y: CanvasCoordinateSchema,
+  // 結果ステップで候補から一時的に外す状態。削除とは異なり、本文・票・
+  // グループ帰属・座標を保持したまま RoomDO が全クライアントへ同期する。
+  excluded: z.boolean().default(false),
   createdAt: z.string(),
   updatedAt: z.string(),
   dotVotes: z.object({
@@ -221,6 +224,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:drag"),
     noteId: z.string().uuid(),
     ...NotePositionSchema,
+  }),
+  z.object({
+    type: z.literal("note:exclude"),
+    noteId: z.string().uuid(),
+  }),
+  z.object({
+    type: z.literal("note:restore"),
+    noteId: z.string().uuid(),
   }),
   z.object({
     type: z.literal("note:delete"),

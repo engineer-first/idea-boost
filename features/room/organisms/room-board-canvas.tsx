@@ -53,6 +53,7 @@ export type RoomBoardCanvasProps = {
   phase: RoomPhase;
   decision: Decision | null;
   isHost: boolean;
+  currentUserId?: string;
   privateNotes: Note[];
   selectedNoteId: string | null;
   draggingNoteId: string | null;
@@ -90,6 +91,7 @@ export type RoomBoardCanvasProps = {
   ) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteExclude?: (noteId: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
   onNoteVoteRemove: (noteId: string, kind: DotVoteKind) => void;
   onNoteVoteStickerRemove: (stickerId: string) => void;
@@ -120,6 +122,7 @@ export function RoomBoardCanvas({
   phase,
   decision,
   isHost,
+  currentUserId = "",
   privateNotes,
   selectedNoteId,
   draggingNoteId,
@@ -149,6 +152,7 @@ export function RoomBoardCanvas({
   onNoteDragStart,
   onNoteContentChange,
   onNoteDelete,
+  onNoteExclude,
   onNoteVote,
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
@@ -230,12 +234,17 @@ export function RoomBoardCanvas({
         canDeleteNote={permissions.canDeleteNote}
         canEditNote={permissions.canEditNote}
         canMoveNote={permissions.canMoveNote}
+        canExcludeNote={
+          permissions.canExcludeNote &&
+          (isHost || note.authorId === currentUserId)
+        }
         isDecided={decision?.noteId === note.id}
         disabled={isDisconnected}
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
         onDelete={handleNoteDelete}
+        onExclude={onNoteExclude}
         vote={{
           displayMode: voteDisplayMode,
           selectedKind: selectedVoteKind,

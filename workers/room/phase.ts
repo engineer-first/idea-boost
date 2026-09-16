@@ -116,6 +116,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:update-content":
     case "note:move":
     case "note:drag":
+    case "note:exclude":
+    case "note:restore":
     case "note:delete":
     case "note:vote":
     case "note:vote-reset":
@@ -164,7 +166,13 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    5: ["note:decide"],
+    5: [
+      "note:move",
+      "note:drag",
+      "note:exclude",
+      "note:restore",
+      "note:decide",
+    ],
   },
   2: {
     // Step 2-1（HMW 個人執筆）は自分専用付箋の作成・編集・削除だけ。

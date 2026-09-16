@@ -14,4 +14,5 @@ export {
 export { NoteCard } from "./molecules/note-card";
 export { NoteGroupCard } from "./molecules/note-group-card";
 export { StickyNote } from "./molecules/sticky-note";
+export { ExcludedNotesDialog } from "./organisms/excluded-notes-dialog";
 export { PrivateNotesToolbar } from "./organisms/private-notes-toolbar";

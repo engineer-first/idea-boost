@@ -197,7 +197,14 @@ export function RoomBoard({
 
   const boardNotes = atHmwWritingStep
     ? []
-    : notes.notes.filter((note) => note.visibility === "shared");
+    : notes.notes.filter(
+        (note) => note.visibility === "shared" && !note.excluded,
+      );
+  const excludedNotes = atHmwWritingStep
+    ? []
+    : notes.notes.filter(
+        (note) => note.visibility === "shared" && note.excluded,
+      );
   const boardPrivateNotes = notes.notes.filter(
     (note) => note.visibility === "private",
   );
@@ -225,6 +232,7 @@ export function RoomBoard({
       />
       <RoomBoardView
         notes={boardNotes}
+        excludedNotes={excludedNotes}
         groups={atHmwWritingStep ? [] : noteGroups.groups}
         hmwDecidedIssue={hmwDecidedIssue}
         decidedHmw={decidedHmw}
@@ -262,6 +270,8 @@ export function RoomBoard({
         onTimerStop={handleTimerStop}
         onNoteContentChange={notes.changeNoteContent}
         onNoteDelete={notes.deleteNote}
+        onNoteExclude={notes.excludeNote}
+        onNoteRestore={notes.restoreNote}
         onGroupCreate={noteGroups.createGroup}
         onGroupUpdateName={noteGroups.renameGroup}
         onNoteVote={notes.voteNote}

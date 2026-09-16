@@ -142,6 +142,7 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    excluded: overrides?.excluded ?? false,
     dotVoteStickers: overrides?.dotVoteStickers ?? [],
   };
 }

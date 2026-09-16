@@ -175,6 +175,16 @@ describe("NoteSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("除外状態を受け入れ、旧形式の付箋は未除外として補完する", () => {
+    expect(
+      NoteSchema.parse({ ...note, visibility: "shared", excluded: true })
+        .excluded,
+    ).toBe(true);
+    expect(NoteSchema.parse({ ...note, visibility: "shared" }).excluded).toBe(
+      false,
+    );
+  });
 });
 
 describe("ServerMessageSchema", () => {
@@ -603,6 +613,32 @@ describe("ClientMessageSchema", () => {
       type: "note:decide",
       noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     });
+  });
+
+  it.each([
+    "note:exclude",
+    "note:restore",
+  ])("%s は付箋IDだけを受け入れ、認可情報を受け取らない", (type) => {
+    expect(
+      ClientMessageSchema.parse({
+        type,
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        authorId: USER_B,
+        isHost: true,
+      }),
+    ).toEqual({
+      type,
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+  });
+
+  it.each([
+    "note:exclude",
+    "note:restore",
+  ])("%s はUUIDでない付箋IDを拒否する", (type) => {
+    expect(
+      ClientMessageSchema.safeParse({ type, noteId: "not-a-uuid" }).success,
+    ).toBe(false);
   });
 
   it("start_phase を受け入れる", () => {

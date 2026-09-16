@@ -15,6 +15,7 @@ import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
+const USER_C = "33333333-3333-4333-8333-333333333333";
 const NOTE_COLOR_PATTERN = new RegExp(`^(${NOTE_COLOR_PALETTE.join("|")})$`);
 const LOBBY = buildLobbyPhase();
 
@@ -688,6 +689,283 @@ describe("RoomDO note:decide", () => {
       code: "forbidden",
       message: expect.stringContaining("1-4 投票"),
     });
+    ws.close();
+  });
+});
+
+describe("RoomDO 候補付箋の除外・復元", () => {
+  const NOTE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const SECOND_NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const GROUP_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+  async function insertSharedNote(
+    roomName: string,
+    noteId: string,
+    options: {
+      authorId?: string;
+      content?: string;
+      x?: number;
+      y?: number;
+      excluded?: boolean;
+    } = {},
+  ): Promise<void> {
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
+         VALUES (?1, ?2, ?3, 'shared', 'yellow', ?4, ?5, ?6, ?6, 1)`,
+        noteId,
+        options.authorId ?? USER_A,
+        options.content ?? "候補の本文",
+        options.x ?? 100,
+        options.y ?? 100,
+        now,
+      );
+      if (options.excluded) {
+        state.storage.sql.exec(
+          "UPDATE notes SET excluded = 1 WHERE id = ?1",
+          noteId,
+        );
+      }
+    });
+  }
+
+  it("1-5では共有付箋を移動できる", async () => {
+    const roomName = "room-candidate-move-at-result";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, NOTE_ID);
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(
+      JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 400, y: 300 }),
+    );
+
+    expect(await nextJson(ws)).toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, x: 400, y: 300, excluded: false },
+    });
+    ws.close();
+  });
+
+  it("除外は内容・票・グループ帰属を保持して全接続と再接続へ同期する", async () => {
+    const roomName = "room-candidate-exclusion-sync";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, NOTE_ID, {
+      content: "保持する本文",
+      x: 120,
+      y: 140,
+    });
+    await insertSharedNote(roomName, SECOND_NOTE_ID, { x: 400, y: 140 });
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      insertVoteStickers(
+        state.storage.sql,
+        NOTE_ID,
+        USER_B,
+        "subjective",
+        1,
+        now,
+      );
+      insertVoteStickers(
+        state.storage.sql,
+        NOTE_ID,
+        USER_B,
+        "objective",
+        2,
+        now,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO groups (id, name, note_ids, created_at, updated_at)
+         VALUES (?1, '保持するグループ', ?2, ?3, ?3)`,
+        GROUP_ID,
+        JSON.stringify([NOTE_ID, SECOND_NOTE_ID]),
+        now,
+      );
+    });
+
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const hostMessage = nextJson(host);
+    const memberMessage = nextJson(member);
+    host.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+
+    const expected = {
+      type: "note:updated",
+      note: {
+        id: NOTE_ID,
+        content: "保持する本文",
+        x: 120,
+        y: 140,
+        excluded: true,
+        dotVotes: {
+          subjective: { count: 1 },
+          objective: { count: 2 },
+        },
+      },
+    };
+    await expect(hostMessage).resolves.toMatchObject(expected);
+    await expect(memberMessage).resolves.toMatchObject(expected);
+    host.close();
+    member.close();
+
+    const reconnectResponse = await stub.fetch("https://do/ws", {
+      headers: {
+        Upgrade: "websocket",
+        [USER_ID_HEADER]: USER_B,
+        [HOST_ID_HEADER]: USER_A,
+      },
+    });
+    expect(reconnectResponse.status).toBe(101);
+    const reconnect = reconnectResponse.webSocket;
+    if (!reconnect) throw new Error("再接続できませんでした。");
+    reconnect.accept();
+    await expect(nextJson(reconnect)).resolves.toMatchObject({
+      type: "snapshot",
+      notes: [
+        expect.objectContaining({ id: NOTE_ID, excluded: true }),
+        expect.objectContaining({ id: SECOND_NOTE_ID, excluded: false }),
+      ],
+      groups: [
+        expect.objectContaining({
+          id: GROUP_ID,
+          noteIds: [NOTE_ID, SECOND_NOTE_ID],
+        }),
+      ],
+    });
+    reconnect.close();
+  });
+
+  it("非作者の非ホストは除外・復元できず、ホストは両方できる", async () => {
+    const roomName = "room-candidate-exclusion-auth";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Author");
+    await stub.upsertMember(USER_C, "Member");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, NOTE_ID, { authorId: USER_B });
+
+    const member = await connectDirectly(roomName, USER_C, USER_A);
+    member.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+    expect(await nextJson(member)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const hostExcluded = nextJson(host);
+    host.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+    await expect(hostExcluded).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: true },
+    });
+    await expect(nextJson(member)).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: true },
+    });
+
+    member.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+    expect(await nextJson(member)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+
+    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: false, x: 100, y: 100 },
+    });
+    await expect(nextJson(member)).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: false, x: 100, y: 100 },
+    });
+    host.close();
+    member.close();
+  });
+
+  it("決定済み付箋は除外できない", async () => {
+    const roomName = "room-candidate-exclusion-decided";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, NOTE_ID);
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: NOTE_ID }));
+    await expect(nextJson(ws)).resolves.toMatchObject({
+      type: "decision:updated",
+      noteId: NOTE_ID,
+    });
+    ws.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+
+    expect(await nextJson(ws)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    ws.close();
+  });
+
+  it("復元先が衝突すると元位置の近傍へ移動する", async () => {
+    const roomName = "room-candidate-exclusion-collision";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, NOTE_ID, { excluded: true });
+    await insertSharedNote(roomName, SECOND_NOTE_ID);
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+
+    expect(await nextJson(ws)).toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: false, x: 316, y: 100 },
+    });
+    ws.close();
+  });
+
+  it("近傍候補が密集していても衝突しない位置へ復元する", async () => {
+    const roomName = "room-candidate-exclusion-dense-collision";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, NOTE_ID, { excluded: true });
+
+    const occupiedPositions = [
+      [100, 100],
+      [316, 100],
+      [-116, 100],
+      [100, 266],
+      [100, -66],
+      [316, 266],
+      [-116, 266],
+      [316, -66],
+      [-116, -66],
+    ] as const;
+    for (const [index, [x, y]] of occupiedPositions.entries()) {
+      await insertSharedNote(roomName, crypto.randomUUID(), {
+        content: `密集候補 ${index}`,
+        x,
+        y,
+      });
+    }
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+
+    const response = await nextJson(ws);
+    expect(response).toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: false },
+    });
+    const restored = response.note as { x: number; y: number };
+    expect(
+      occupiedPositions.some(([x, y]) => x === restored.x && y === restored.y),
+    ).toBe(false);
     ws.close();
   });
 });
@@ -2204,18 +2482,6 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
       type: "note:update-content",
       noteId: "99999999-9999-4999-8999-999999999999",
       content: "拒否される更新",
-    },
-    {
-      type: "note:move",
-      noteId: "99999999-9999-4999-8999-999999999999",
-      x: 100,
-      y: 100,
-    },
-    {
-      type: "note:drag",
-      noteId: "99999999-9999-4999-8999-999999999999",
-      x: 100,
-      y: 100,
     },
     {
       type: "note:delete",

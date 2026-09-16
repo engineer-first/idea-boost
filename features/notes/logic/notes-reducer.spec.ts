@@ -21,6 +21,7 @@ const note: Note = {
   authorId: USER_ID,
   content: "hello",
   visibility: "shared",
+  excluded: false,
   color: "yellow",
   x: 10,
   y: 20,
