@@ -1064,6 +1064,213 @@ describe("note:vote（課題ドット投票）", () => {
     owner.close();
   });
 
+  it("全票使用時だけ完了状態を全員へ配信し、取り消しで未完了へ戻す", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+
+    await arrangeStep(owner, 4);
+    send(member, { type: "note:vote", noteId, kind: "subjective" });
+    await expectType(member, "note:updated");
+    for (let count = 0; count < 3; count++) {
+      send(member, { type: "note:vote", noteId, kind: "objective" });
+      await expectType(member, "note:updated");
+    }
+
+    const toMember = await expectType(member, "member_vote_status");
+    const toOwner = await expectType(owner, "member_vote_status");
+    expect(toMember).toEqual({
+      type: "member_vote_status",
+      userId: MEMBER.sub,
+      isComplete: true,
+    });
+    expect(toOwner).toEqual(toMember);
+
+    send(member, { type: "note:vote-remove", noteId, kind: "objective" });
+    await expectType(member, "note:updated");
+    expect(await expectType(member, "member_vote_status")).toEqual({
+      type: "member_vote_status",
+      userId: MEMBER.sub,
+      isComplete: false,
+    });
+    expect(await expectType(owner, "member_vote_status")).toEqual({
+      type: "member_vote_status",
+      userId: MEMBER.sub,
+      isComplete: false,
+    });
+
+    for (const kind of ["objective"] as const) {
+      send(member, { type: "note:vote", noteId, kind });
+      await expectType(member, "note:updated");
+    }
+    expect(await expectType(member, "member_vote_status")).toMatchObject({
+      userId: MEMBER.sub,
+      isComplete: true,
+    });
+    await expectType(owner, "member_vote_status");
+
+    member.close();
+    const reconnected = await connectRoomAs(MEMBER, roomId);
+    const snapshot = await expectType(reconnected, "snapshot");
+    expect(snapshot.completedVoterIds).toEqual([MEMBER.sub]);
+
+    send(owner, { type: "phase:next", force: true });
+    const resultSnapshot = await expectType(owner, "snapshot");
+    expect(resultSnapshot.completedVoterIds).toEqual([]);
+    expect((await expectType(owner, "phase:updated")).phase).toEqual(
+      buildPhaseStep(5),
+    );
+
+    reconnected.close();
+    owner.close();
+  });
+
+  it("同じメンバーの複数接続にも完了状態を同期し、再接続 snapshot で復元する", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+    const secondTab = await connectRoomAs(MEMBER, roomId);
+    const secondTabSnapshot = await expectType(secondTab, "snapshot");
+    expect(secondTabSnapshot.completedVoterIds).toEqual([]);
+
+    await arrangeStep(owner, 4);
+    const vote = async (kind: "subjective" | "objective") => {
+      send(member, { type: "note:vote", noteId, kind });
+      await expectType(member, "note:updated");
+      await expectType(secondTab, "note:updated");
+    };
+
+    await vote("subjective");
+    await vote("objective");
+    await vote("objective");
+    await vote("objective");
+
+    const completion = await Promise.all([
+      expectType(member, "member_vote_status"),
+      expectType(secondTab, "member_vote_status"),
+      expectType(owner, "member_vote_status"),
+    ]);
+    expect(completion).toEqual([
+      { type: "member_vote_status", userId: MEMBER.sub, isComplete: true },
+      { type: "member_vote_status", userId: MEMBER.sub, isComplete: true },
+      { type: "member_vote_status", userId: MEMBER.sub, isComplete: true },
+    ]);
+
+    send(member, { type: "note:vote-remove", noteId, kind: "objective" });
+    await expectType(member, "note:updated");
+    await expectType(secondTab, "note:updated");
+    const incomplete = await Promise.all([
+      expectType(member, "member_vote_status"),
+      expectType(secondTab, "member_vote_status"),
+      expectType(owner, "member_vote_status"),
+    ]);
+    expect(incomplete.every((message) => message.isComplete === false)).toBe(
+      true,
+    );
+
+    secondTab.close();
+    const reconnected = await connectRoomAs(MEMBER, roomId);
+    const snapshot = await expectType(reconnected, "snapshot");
+    expect(snapshot.completedVoterIds).toEqual([]);
+
+    reconnected.close();
+    member.close();
+    owner.close();
+  });
+
+  it("未認証・非メンバーは投票完了状態の配信経路へ接続できない", async () => {
+    const { roomId } = await createRoomAs(OWNER);
+    const unauthenticated = await SELF.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      { headers: { Upgrade: "websocket" } },
+    );
+    expect(unauthenticated.status).toBe(401);
+
+    const outsider: TestUser = {
+      sub: "77777777-7777-4777-8777-777777777777",
+      email: "outsider@example.test",
+      name: "Outsider",
+    };
+    const nonMember = await SELF.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Cookie: await sessionCookieFor(outsider),
+        },
+      },
+    );
+    expect(nonMember.status).toBe(404);
+  });
+
+  it("vote-reset と投票シール削除でも完了状態を未完了へ戻す", async () => {
+    const { owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+    await arrangeStep(owner, 4);
+
+    const vote = async (kind: "subjective" | "objective") => {
+      send(member, { type: "note:vote", noteId, kind });
+      await expectType(member, "note:updated");
+    };
+    await vote("subjective");
+    await vote("objective");
+    await vote("objective");
+    await vote("objective");
+    expect((await expectType(member, "member_vote_status")).isComplete).toBe(
+      true,
+    );
+    await expectType(owner, "member_vote_status");
+
+    send(member, { type: "note:vote-reset", noteId, kind: "objective" });
+    await expectType(member, "note:updated");
+    expect((await expectType(member, "member_vote_status")).isComplete).toBe(
+      false,
+    );
+    expect((await expectType(owner, "member_vote_status")).isComplete).toBe(
+      false,
+    );
+
+    send(member, { type: "note:vote-reset", noteId, kind: "subjective" });
+    await expectType(member, "note:updated");
+
+    const addSticker = async (kind: "subjective" | "objective") => {
+      const stickerId = crypto.randomUUID();
+      send(member, {
+        type: "note:vote-sticker:add",
+        noteId,
+        stickerId,
+        kind,
+        x: 0.5,
+        y: 0.5,
+      });
+      await expectType(member, "note:updated");
+      return stickerId;
+    };
+    await addSticker("subjective");
+    const objectiveStickerIds = await Promise.all([
+      addSticker("objective"),
+      addSticker("objective"),
+      addSticker("objective"),
+    ]);
+    expect((await expectType(member, "member_vote_status")).isComplete).toBe(
+      true,
+    );
+    await expectType(owner, "member_vote_status");
+
+    send(member, {
+      type: "note:vote-sticker:remove",
+      stickerId: objectiveStickerIds[0],
+    });
+    await expectType(member, "note:updated");
+    expect((await expectType(member, "member_vote_status")).isComplete).toBe(
+      false,
+    );
+    expect((await expectType(owner, "member_vote_status")).isComplete).toBe(
+      false,
+    );
+
+    member.close();
+    owner.close();
+  });
+
   it("Step 2-3 の note:updated と再接続 snapshot では他人の票を送らない", async () => {
     const { roomId, owner, member } = await setupStartedRoom();
     const noteId = "33333333-3333-4333-8333-333333333333";

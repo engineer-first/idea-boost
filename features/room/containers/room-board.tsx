@@ -240,6 +240,7 @@ export function RoomBoard({
         members={roomState.members}
         currentUserId={currentUserId}
         hostUserId={hostUserId}
+        completedVoterIds={roomState.completedVoterIds}
         isNextPhasePending={isNextPhasePending}
         signOutAction={signOutAction}
         interactions={boardInteractions}

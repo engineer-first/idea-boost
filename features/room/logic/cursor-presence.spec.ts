@@ -97,6 +97,7 @@ describe("cursor presence reducer", () => {
       isHost: false,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 2_000,
     } satisfies ServerMessage;

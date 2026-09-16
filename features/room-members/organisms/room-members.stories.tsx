@@ -27,6 +27,13 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+export const VotingComplete: Story = {
+  args: {
+    members: buildMembers(3, ME),
+    completedVoterIds: [buildMembers(3, ME)[0]?.userId ?? ""],
+  },
+};
+
 /** ホスト以外視点（王冠が自分に付かない） */
 export const NonHostView: Story = {
   args: {

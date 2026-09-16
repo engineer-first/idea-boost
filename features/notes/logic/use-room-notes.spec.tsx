@@ -33,6 +33,7 @@ function snapshotMessage(
     isHost: true,
     decision: null,
     carryovers: [],
+    completedVoterIds: [],
     timer: { status: "idle" },
     serverNow: Date.now(),
   };

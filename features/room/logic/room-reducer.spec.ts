@@ -12,6 +12,7 @@ import {
   applyMemberServerMessage,
   applyPhaseServerMessage,
   applyTimerServerMessage,
+  applyVotingCompletionServerMessage,
 } from "./room-reducer";
 
 const A: ProtocolMember = {
@@ -36,6 +37,7 @@ describe("applyMemberServerMessage", () => {
       isHost: true,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_000,
     };
@@ -124,6 +126,51 @@ describe("applyMemberServerMessage", () => {
   });
 });
 
+describe("applyVotingCompletionServerMessage", () => {
+  it("投票完了イベントで完了者を追加・取り消しできる", () => {
+    const completed = applyVotingCompletionServerMessage([], {
+      type: "member_vote_status",
+      userId: A.userId,
+      isComplete: true,
+    });
+
+    expect(completed).toEqual([A.userId]);
+    expect(
+      applyVotingCompletionServerMessage(completed, {
+        type: "member_vote_status",
+        userId: A.userId,
+        isComplete: false,
+      }),
+    ).toEqual([]);
+  });
+
+  it("フェーズ変更では前フェーズの完了状態を持ち越さない", () => {
+    expect(
+      applyVotingCompletionServerMessage([A.userId], {
+        type: "phase:updated",
+        phase: buildPhaseStep(5),
+      }),
+    ).toEqual([]);
+  });
+
+  it("snapshot はサーバーから受け取った完了者一覧へ置き換える", () => {
+    expect(
+      applyVotingCompletionServerMessage([A.userId], {
+        type: "snapshot",
+        notes: [],
+        members: [A, B],
+        completedVoterIds: [B.userId],
+        phase: buildPhaseStep(4),
+        isHost: true,
+        decision: null,
+        carryovers: [],
+        timer: { status: "idle" },
+        serverNow: 1_000,
+      }),
+    ).toEqual([B.userId]);
+  });
+});
+
 describe("applyPhaseServerMessage", () => {
   it("初期値は lobby", () => {
     expect(
@@ -201,6 +248,7 @@ describe("applyPhaseServerMessage", () => {
       isHost: true,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "running", endsAt: 10_000, durationMs: 10_000 },
       serverNow: 1_000,
     };
@@ -223,7 +271,7 @@ describe("applyTimerServerMessage", () => {
   });
 
   it("snapshot と timer:updated からタイマーとサーバー時計補正を復元する", () => {
-    const snapshot: ServerMessage = {
+    const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
       type: "snapshot",
       notes: [],
       members: [A],
@@ -231,6 +279,7 @@ describe("applyTimerServerMessage", () => {
       isHost: true,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "running", endsAt: 10_000, durationMs: 10_000 },
       serverNow: 1_000,
     };
@@ -282,6 +331,7 @@ describe("applyDecisionServerMessage", () => {
         isHost: true,
         decision,
         carryovers: [],
+        completedVoterIds: [],
         timer: { status: "idle" },
         serverNow: 1_000,
       }),
@@ -320,6 +370,7 @@ describe("applyCarryoverServerMessage", () => {
         isHost: true,
         decision: null,
         carryovers: [carryover],
+        completedVoterIds: [],
         timer: { status: "idle" },
         serverNow: 1_000,
       }),

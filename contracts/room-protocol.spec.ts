@@ -178,7 +178,33 @@ describe("NoteSchema", () => {
 });
 
 describe("ServerMessageSchema", () => {
-  it("snapshot は notes / members / phase / isHost / decision / carryovers を必須にする", () => {
+  it("member_vote_status は完了状態だけを受け入れる", () => {
+    const parsed = ServerMessageSchema.parse({
+      type: "member_vote_status",
+      userId: USER_A,
+      isComplete: true,
+    });
+
+    expect(parsed).toEqual({
+      type: "member_vote_status",
+      userId: USER_A,
+      isComplete: true,
+    });
+  });
+
+  it("member_vote_status に投票先や票種を含めた入力は拒否する", () => {
+    const result = ServerMessageSchema.safeParse({
+      type: "member_vote_status",
+      userId: USER_A,
+      isComplete: true,
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      kind: "subjective",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("snapshot は notes / members / phase / isHost / decision / carryovers / completedVoterIds を必須にする", () => {
     const parsed = ServerMessageSchema.parse({
       type: "snapshot",
       notes: [],
@@ -187,6 +213,7 @@ describe("ServerMessageSchema", () => {
       isHost: true,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -198,6 +225,7 @@ describe("ServerMessageSchema", () => {
       isHost: true,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -716,6 +744,7 @@ describe("parseServerMessage", () => {
           isHost: false,
           decision: null,
           carryovers: [],
+          completedVoterIds: [],
           timer: { status: "idle" },
           serverNow: 1_700_000_000_000,
         }),
@@ -728,6 +757,7 @@ describe("parseServerMessage", () => {
       isHost: false,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -763,6 +793,18 @@ describe("parseClientMessage", () => {
         JSON.stringify({
           type: "member_joined",
           member: { userId: USER_A, name: "X" },
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("member_vote_status はクライアント送信メッセージに存在しないので拒否する", () => {
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "member_vote_status",
+          userId: USER_A,
+          isComplete: true,
         }),
       ),
     ).toBeNull();

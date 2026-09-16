@@ -344,10 +344,12 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     // 破棄する。掃除のタイミングはこの1箇所に一本化し、フェーズ境界では
     // 掃除しない（同じ判断が2箇所にあると、どちらが真実か分からなくなる）。
     const leavesSharingStep = isSharingStep(current) && !isSharingStep(next);
+    const entersVotingStep = !isVotingStep(current) && isVotingStep(next);
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
       crossesPhaseBoundary ||
-      leavesSharingStep;
+      leavesSharingStep ||
+      entersVotingStep;
     let timerWasReset = false;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。

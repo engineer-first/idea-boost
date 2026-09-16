@@ -265,3 +265,31 @@ export function haveAllMembersCompletedVoting(
     .toArray();
   return rows.length === 0;
 }
+
+// 1人分の完了状態。票数が上限を超えている壊れた状態は完了扱いにしない。
+export function hasCompletedVoting(
+  sql: SqlStorage,
+  userId: string,
+  phase: number,
+): boolean {
+  return (
+    countUserVotes(sql, userId, "subjective", phase) ===
+      DOT_VOTE_LIMITS.subjective &&
+    countUserVotes(sql, userId, "objective", phase) ===
+      DOT_VOTE_LIMITS.objective
+  );
+}
+
+// 投票中の snapshot に載せるのは、完了したメンバーの userId だけ。
+// members を基準にすることで、票だけ残った離脱者を公開しない。
+export function listCompletedVoterIds(
+  sql: SqlStorage,
+  phase: number,
+): string[] {
+  const members = sql
+    .exec("SELECT user_id FROM members ORDER BY joined_at, user_id")
+    .toArray();
+  return members
+    .map((row) => String(row.user_id))
+    .filter((userId) => hasCompletedVoting(sql, userId, phase));
+}

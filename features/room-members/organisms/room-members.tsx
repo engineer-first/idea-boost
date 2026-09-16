@@ -30,6 +30,8 @@ export type RoomMembersProps = {
   // 先頭から何個まで Avatar + 名前で描画するか。超過分は +N バッジ。
   // 既定は ROOM_MEMBERS_MAX_VISIBLE（12 = 4×3）。
   maxVisible?: number;
+  // 全票を使い切ったメンバーの userId。投票先は含まない。
+  completedVoterIds?: ReadonlyArray<string>;
 };
 
 export function RoomMembers({
@@ -37,6 +39,7 @@ export function RoomMembers({
   currentUserId,
   hostUserId,
   maxVisible = ROOM_MEMBERS_MAX_VISIBLE,
+  completedVoterIds = [],
 }: RoomMembersProps) {
   const [overflowOpen, setOverflowOpen] = useState(false);
   // 超過があるときは最終マスを +N に使う（4×3 の枠を崩さない）。
@@ -69,6 +72,7 @@ export function RoomMembers({
                 name={member.name}
                 color={member.color}
                 isMe={isMe}
+                isVotingComplete={completedVoterIds.includes(member.userId)}
               />
               <span className="flex min-w-0 flex-col items-center">
                 <span
@@ -128,6 +132,7 @@ export function RoomMembers({
                   name={member.name}
                   color={member.color}
                   isMe={member.userId === currentUserId}
+                  isVotingComplete={completedVoterIds.includes(member.userId)}
                 />
                 <span className="truncate text-sm text-foreground">
                   {member.name}

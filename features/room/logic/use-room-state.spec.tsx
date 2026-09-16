@@ -46,6 +46,7 @@ describe("useRoomState", () => {
         type: "snapshot",
         notes: [],
         members: buildMembers(2),
+        completedVoterIds: [buildMembers(2)[1]?.userId ?? ""],
         phase: buildPhaseStep(2),
         isHost: true,
         decision,
@@ -59,6 +60,31 @@ describe("useRoomState", () => {
     expect(result.current.phase).toEqual(buildPhaseStep(2));
     expect(result.current.timer.status).toBe("running");
     expect(result.current.decision).toEqual(decision);
+    expect(result.current.completedVoterIds).toEqual([
+      buildMembers(2)[1]?.userId,
+    ]);
+  });
+
+  it("member_vote_status を反映し、フェーズ変更でクリアする", () => {
+    const { result } = setup();
+    const memberId = buildMembers(1)[0]?.userId ?? "";
+
+    act(() =>
+      result.current.applyMessage({
+        type: "member_vote_status",
+        userId: memberId,
+        isComplete: true,
+      }),
+    );
+    expect(result.current.completedVoterIds).toEqual([memberId]);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(5),
+      }),
+    );
+    expect(result.current.completedVoterIds).toEqual([]);
   });
 
   it("snapshot で carryovers を復元し、phase:updated では維持する", () => {
@@ -74,6 +100,7 @@ describe("useRoomState", () => {
         isHost: true,
         decision: null,
         carryovers: [carryover],
+        completedVoterIds: [],
         timer: { status: "idle" },
         serverNow: 500,
       }),

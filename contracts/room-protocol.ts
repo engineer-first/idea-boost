@@ -327,6 +327,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     decision: DecisionSchema.nullable(),
     // 現在フェーズより前のフェーズで確定した決定の一覧（フェーズ昇順）。
     carryovers: z.array(CarryoverSchema),
+    // 投票中に全票を使い切ったメンバーの userId だけを共有する。
+    // 投票先・票種別ごとの残数・カーソル位置は含めない。
+    completedVoterIds: z.array(z.string().uuid()),
     timer: TimerStateSchema,
     serverNow: TimerMillisecondsSchema,
   }),
@@ -362,6 +365,13 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("member_left"),
     userId: z.string().uuid(),
   }),
+  z
+    .object({
+      type: z.literal("member_vote_status"),
+      userId: z.string().uuid(),
+      isComplete: z.boolean(),
+    })
+    .strict(),
   z.object({ type: z.literal("cursor:updated"), cursor: CursorPresenceSchema }),
   z.object({ type: z.literal("cursor:left"), userId: z.string().uuid() }),
   // start_phase 成功時（ロビー離脱）にも phase:next 成功時にも使う。

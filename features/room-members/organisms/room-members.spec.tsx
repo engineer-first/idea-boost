@@ -22,6 +22,24 @@ describe("RoomMembers", () => {
     expect(screen.getAllByTestId("avatar")).toHaveLength(3);
   });
 
+  it("完了者だけに投票完了チェックを表示する", () => {
+    const members = buildMembers(2, ME);
+    render(
+      <RoomMembers
+        members={members}
+        currentUserId={ME}
+        completedVoterIds={[members[0]?.userId ?? ""]}
+      />,
+    );
+
+    expect(
+      screen.getByTestId(`member-row-${members[0]?.userId}`),
+    ).toContainElement(screen.getByTestId("member-voting-complete"));
+    expect(
+      screen.getByTestId(`member-row-${members[1]?.userId}`),
+    ).not.toContainElement(screen.getByTestId("member-voting-complete"));
+  });
+
   it("メンバーの color と同じ背景色でアバターを描画する", () => {
     render(<RoomMembers members={buildMembers(2)} currentUserId={ME} />);
     expect(screen.getByLabelText("Yuki Tanaka")).toHaveStyle({

@@ -59,6 +59,8 @@ export type RoomBoardViewProps = {
   currentUserId: string;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
+  // 全票を使い切ったメンバーの userId。投票先は含まない。
+  completedVoterIds?: ReadonlyArray<string>;
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
@@ -141,6 +143,7 @@ export function RoomBoardView({
   members,
   currentUserId,
   hostUserId,
+  completedVoterIds = [],
   isNextPhasePending,
   interactions,
   help,
@@ -555,6 +558,7 @@ export function RoomBoardView({
         members={members}
         currentUserId={currentUserId}
         hostUserId={hostUserId}
+        completedVoterIds={completedVoterIds}
         isNextPhasePending={isNextPhasePending}
         isNextPhaseBlocked={isNextPhaseBlocked}
         isGuideExpanded={isGuideExpanded}
