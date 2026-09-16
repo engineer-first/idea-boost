@@ -249,7 +249,7 @@ export function BoardContext({
             >
               {!isPhaseOneFirstStep && !isIdeaWritingStep ? (
                 <section className="mx-auto w-fit text-left">
-                  <h3 className="mb-2 text-center font-semibold">やること</h3>
+                  <h3 className="mb-2 text-center font-semibold">進め方</h3>
                   {(guide.steps ?? [guide.message]).length === 1 ? (
                     <p className="whitespace-pre-line text-center">
                       {(guide.steps ?? [guide.message])[0]}
@@ -336,7 +336,7 @@ export function BoardContext({
           ) : null}
           {!isPhaseOneFirstStep && !isIdeaWritingStep ? (
             <section className="mt-4">
-              <h3 className="mb-2 font-semibold">やること</h3>
+              <h3 className="mb-2 font-semibold">進め方</h3>
               {(guide.steps ?? [guide.message]).length === 1 ? (
                 <p className="whitespace-pre-line text-center">
                   {(guide.steps ?? [guide.message])[0]}

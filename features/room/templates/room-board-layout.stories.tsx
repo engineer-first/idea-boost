@@ -57,7 +57,7 @@ function step(phase: 1 | 2 | 3, value: number): Story {
         privateNotes: PRIVATE_NOTES,
       },
       timer: { status: "paused", remainingMs: 138_000, durationMs: 180_000 },
-      initialGuideExpanded: false,
+      initialGuideExpanded: true,
       enableGuideModal: false,
     },
   };

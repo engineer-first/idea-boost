@@ -114,7 +114,10 @@ const FACILITATION_GUIDES: Record<
       steps: [
         "決定した課題に対して\n「どうすれば私たちは〇〇できるだろう？」の形に言い換える",
       ],
-      modalExamples: ["課題: 学校の出席率がまずい", "問い: あと何日休めるか？"],
+      modalExamples: [
+        "課題: 学校の出席率がまずい",
+        "問い: あと何日休めるだろう？",
+      ],
     },
     2: {
       durationMinutes: 6,

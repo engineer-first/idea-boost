@@ -232,7 +232,7 @@ describe("ステップ説明モーダル", () => {
       within(dialog).getByText("決めた順番通り次の人が発表する"),
     ).toBeInTheDocument();
     expect(within(dialog).getByRole("list")).toHaveClass("text-left");
-    expect(within(dialog).getByText("やること")).toHaveClass("text-center");
+    expect(within(dialog).getByText("進め方")).toHaveClass("text-center");
     expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
     expect(within(dialog).queryByText("完了の目安")).not.toBeInTheDocument();
     expect(
@@ -413,7 +413,7 @@ describe("ステップ説明モーダル", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     const dialog = screen.getByRole("dialog");
-    const howTo = within(dialog).getByText("やること");
+    const howTo = within(dialog).getByText("進め方");
     const examples = within(dialog).getByText("例");
     expect(
       howTo.compareDocumentPosition(examples) &
@@ -441,7 +441,7 @@ describe("ステップ説明モーダル", () => {
       within(dialog).getByText("課題: 学校の出席率がまずい"),
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByText("問い: あと何日休めるか？"),
+      within(dialog).getByText("問い: あと何日休めるだろう？"),
     ).toBeInTheDocument();
     expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
     expect(within(dialog).getByText("進行役へ")).toHaveClass("text-center");
@@ -501,7 +501,7 @@ describe("ステップ説明モーダル", () => {
       "決めた問いに対する解決策を書き出そう",
     );
     expect(title).toHaveClass("text-2xl", "text-foreground");
-    expect(within(dialog).queryByText("やること")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("進め方")).not.toBeInTheDocument();
     expect(
       within(dialog).getByText(
         "スマホアプリで残りの休める日数が簡単にわかる。",
