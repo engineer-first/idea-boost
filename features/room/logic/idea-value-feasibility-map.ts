@@ -13,7 +13,7 @@ export const IDEA_VALUE_FEASIBILITY_MAP_HEIGHT = 900;
 // 文言をコンポーネントから分離し、ガイドやラベルの変更箇所を一つに保つ。
 export const IDEA_VALUE_FEASIBILITY_MAP_LABELS = {
   ariaLabel: "価値と実現可能性の2軸マップ",
-  title: "アイデアの位置付け",
+  title: "解決策の位置付け",
   value: "価値",
   feasibility: "実現可能性",
   low: "低",

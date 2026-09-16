@@ -50,6 +50,9 @@ export type RoomBoardHeaderProps = {
   signOutAction?: () => Promise<void>;
   onShowVoteResult: () => void;
   onGuideExpandedChange: (isExpanded: boolean) => void;
+  onPrimaryAction?: () => void;
+  isInitialModal?: boolean;
+  onOpenPanel?: () => void;
   onLeaveClick: () => void;
   onNextPhase: () => void;
   onTimerStart: (durationMs: number) => void;
@@ -82,6 +85,9 @@ export function RoomBoardHeader({
   signOutAction,
   onShowVoteResult,
   onGuideExpandedChange,
+  onPrimaryAction,
+  isInitialModal,
+  onOpenPanel,
   onLeaveClick,
   onNextPhase,
   onTimerStart,
@@ -122,6 +128,9 @@ export function RoomBoardHeader({
               isHost={isHost}
               isExpanded={isGuideExpanded}
               onExpandedChange={onGuideExpandedChange}
+              onPrimaryAction={onPrimaryAction}
+              isInitialModal={isInitialModal}
+              onOpenPanel={onOpenPanel}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
             />

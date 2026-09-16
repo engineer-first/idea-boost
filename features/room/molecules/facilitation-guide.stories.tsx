@@ -10,7 +10,8 @@ const meta = {
       durationMinutes: 3,
       message:
         "デザインスプリントを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
-      hostMessage: "タイマーが終了したら、次のステップへ進んでください。",
+      hostMessage:
+        "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
     },
     isHost: true,
     isExpanded: true,

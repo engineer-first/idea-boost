@@ -42,6 +42,8 @@ export type RoomBoardProps = {
   signOutAction?: () => Promise<void>;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
+  // テストでボード操作を単体検証するときは案内モーダルを無効化する。
+  enableGuideModal?: boolean;
 };
 
 export function RoomBoard({
@@ -55,6 +57,7 @@ export function RoomBoard({
   initialPhase,
   signOutAction,
   webSocketFactory,
+  enableGuideModal = true,
 }: RoomBoardProps) {
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
@@ -241,6 +244,7 @@ export function RoomBoard({
         signOutAction={signOutAction}
         interactions={boardInteractions}
         help={help}
+        enableGuideModal={enableGuideModal}
         remoteCursors={cursorPresence.remoteCursors}
         remoteNoteDrags={notes.remoteNoteDrags}
         areCursorsVisible={cursorPresence.areCursorsVisible}

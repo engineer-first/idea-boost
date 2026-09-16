@@ -5,7 +5,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { HMW_EXAMPLES, HMW_HEADING, HMW_TEMPLATES } from "../logic/hmw-content";
+import { HMW_EXAMPLES, HMW_TEMPLATES } from "../logic/hmw-content";
 
 export type HmwTemplatePanelProps = {
   // テンプレートを選んだとき、その文言を起点に付箋を作る
@@ -25,8 +25,6 @@ export function HmwTemplatePanel({
       className={cn("w-64 shadow-md", className)}
     >
       <CardContent className="flex flex-col gap-3 p-4">
-        <p className="font-semibold text-sm">{HMW_HEADING}</p>
-
         <div className="flex flex-col gap-1.5">
           <span className="text-muted-foreground text-xs">テンプレート</span>
           <div className="flex flex-wrap gap-1.5">
