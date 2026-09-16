@@ -1,6 +1,6 @@
 "use client";
 
-import { Move, Pencil, Trash2 } from "lucide-react";
+import { Circle, Move, Pencil, Trash2, X } from "lucide-react";
 
 import {
   Tooltip,
@@ -34,26 +34,33 @@ export function BoardOperationMatrix({
           {OPERATIONS.map((operation) => {
             const enabled = permissions[operation.key];
             const Icon = operation.icon;
+            const StatusIcon = enabled ? Circle : X;
+            const statusLabel = enabled ? "可能" : "不可";
 
             return (
               <Tooltip key={operation.key}>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={`付箋の${operation.label}`}
-                    className="flex items-center gap-1.5 text-sm font-medium"
+                  <span
+                    role="img"
+                    aria-label={`付箋の${operation.label}：${statusLabel}`}
+                    className="flex flex-col items-center gap-1 text-sm font-medium"
                   >
-                    <Icon aria-hidden="true" className="size-4" />
-                    <span
-                      aria-hidden="true"
-                      className={`size-2 rounded-full ${
-                        enabled ? "bg-green-500" : "bg-red-500"
-                      }`}
-                    />
-                  </button>
+                    <span className="relative flex size-6 items-center justify-center">
+                      <Icon aria-hidden="true" className="size-4" />
+                      <StatusIcon
+                        aria-hidden="true"
+                        data-testid={`board-operation-status-${operation.key}`}
+                        data-status={enabled ? "allowed" : "blocked"}
+                        className={`absolute -right-1 -bottom-1 size-3.5 stroke-[3] ${
+                          enabled ? "text-green-600" : "text-red-600"
+                        }`}
+                      />
+                    </span>
+                    <span>{operation.label}</span>
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  付箋の{operation.label}：{enabled ? "可能" : "不可"}
+                  付箋の{operation.label}：{statusLabel}
                 </TooltipContent>
               </Tooltip>
             );

@@ -168,6 +168,43 @@ describe("RoomBoardCanvas", () => {
 
     expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
   });
+
+  it("ステップ変更後も操作可否表示が最新の権限に追従する", () => {
+    const firstStep = buildPhaseStep(1);
+    const secondStep = buildPhaseStep(2);
+    const { props, rerender } = setup({
+      phase: firstStep,
+      permissions: getBoardPermissions(firstStep),
+    });
+
+    expect(
+      screen.getByRole("img", { name: "付箋の編集：可能" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の移動：不可" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の削除：可能" }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        phase={secondStep}
+        permissions={getBoardPermissions(secondStep)}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", { name: "付箋の編集：可能" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の移動：可能" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の削除：不可" }),
+    ).toBeInTheDocument();
+  });
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
 
