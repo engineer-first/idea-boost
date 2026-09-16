@@ -43,10 +43,7 @@ function getPhaseContext(phase: RoomPhase): {
     title: getPhaseTitle(phase),
     step: phase.step,
     stepCount: PHASE_STEP_COUNTS[phase.phase],
-    stepLabel:
-      phase.phase === 2 && phase.step === 1
-        ? "問いをつくる"
-        : getPhaseLabel(phase).replace(/^\d+-\d+\s*/, ""),
+    stepLabel: getPhaseLabel(phase).replace(/^\d+-\d+\s*/, ""),
   };
 }
 

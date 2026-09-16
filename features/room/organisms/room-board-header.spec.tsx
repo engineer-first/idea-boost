@@ -180,6 +180,14 @@ describe("RoomBoardHeader", () => {
     );
   });
 
+  it("Phase 2 Step 1の現在ステップ名は契約の正式名称を表示する", () => {
+    setup({ phase: buildPhaseStep(1, 2) });
+
+    expect(screen.getByTestId("board-current-step")).toHaveTextContent(
+      "課題に対するHMW（個人）",
+    );
+  });
+
   describe("ファシリテーションガイド", () => {
     it("現在地HUDと一体で表示し、開閉操作を通知する", () => {
       const onGuideExpandedChange = vi.fn();
