@@ -33,9 +33,16 @@ const DOT_VOTE_HINTS = {
 
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
-    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 focus-visible:ring-rose-600/30 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-100",
+    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 hover:text-rose-950 focus-visible:border-rose-600 focus-visible:ring-rose-600/50 active:bg-rose-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-100 dark:hover:bg-rose-900/80 dark:hover:text-rose-50 dark:focus-visible:border-rose-300 dark:focus-visible:ring-rose-300/70 dark:active:bg-rose-800/80 dark:disabled:border-slate-700 dark:disabled:bg-slate-900 dark:disabled:text-slate-400 dark:disabled:opacity-100",
   objective:
-    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 focus-visible:ring-blue-600/30 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-100",
+    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 hover:text-blue-950 focus-visible:border-blue-600 focus-visible:ring-blue-600/50 active:bg-blue-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100 dark:border-blue-700 dark:bg-blue-950/60 dark:text-blue-100 dark:hover:bg-blue-900/80 dark:hover:text-blue-50 dark:focus-visible:border-blue-300 dark:focus-visible:ring-blue-300/70 dark:active:bg-blue-800/80 dark:disabled:border-slate-700 dark:disabled:bg-slate-900 dark:disabled:text-slate-400 dark:disabled:opacity-100",
+} satisfies Record<DotVoteKind, string>;
+
+const DOT_VOTE_SELECTED_TONE = {
+  subjective:
+    "ring-2 ring-rose-700/75 ring-offset-2 ring-offset-white dark:ring-rose-300 dark:ring-offset-slate-950",
+  objective:
+    "ring-2 ring-blue-700/75 ring-offset-2 ring-offset-white dark:ring-blue-300 dark:ring-offset-slate-950",
 } satisfies Record<DotVoteKind, string>;
 
 export function DotVotePaletteView({
@@ -79,9 +86,7 @@ export function DotVotePaletteView({
               size="sm"
               variant="outline"
               className={`h-10 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]} ${
-                selectedKind === kind
-                  ? "ring-2 ring-foreground/45 ring-offset-2"
-                  : ""
+                selectedKind === kind ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
                 if (disabled || voteRemaining[kind] <= 0) return;

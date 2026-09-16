@@ -21,6 +21,21 @@ type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {};
 
+export const DarkModeReady: Story = {
+  globals: {
+    theme: "dark",
+  },
+};
+
+export const DarkModeSelected: Story = {
+  globals: {
+    theme: "dark",
+  },
+  args: {
+    selectedKind: "subjective",
+  },
+};
+
 export const Selected: Story = {
   args: {
     selectedKind: "subjective",
@@ -39,5 +54,14 @@ export const Failed: Story = {
       state: "failed",
       message: "投票上限を超えています。",
     },
+  },
+};
+
+export const DarkModeExhausted: Story = {
+  globals: {
+    theme: "dark",
+  },
+  args: {
+    voteRemaining: { subjective: 0, objective: 0 },
   },
 };
