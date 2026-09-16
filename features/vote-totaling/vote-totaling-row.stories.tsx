@@ -60,3 +60,21 @@ export const Untitled: Story = {
     },
   },
 };
+
+export const LongContent: Story = {
+  args: {
+    row: {
+      noteId: "note-long",
+      content:
+        "会議の前に論点を整理し、関係者がそれぞれの背景を理解したうえで、次の一歩を具体的に決められるようにする",
+      subjectiveCount: 1,
+      objectiveCount: 1,
+      score: 6,
+    },
+  },
+  parameters: { viewport: { defaultViewport: "mobile1" } },
+};
+
+export const DarkMode: Story = {
+  globals: { theme: "dark" },
+};
