@@ -334,14 +334,20 @@ export function BoardContext({
               ))}
             </div>
           ) : null}
-          {!guide.modalIntro ? (
+          {!isPhaseOneFirstStep && !isIdeaWritingStep ? (
             <section className="mt-4">
               <h3 className="mb-2 font-semibold">やること</h3>
-              <ol className="list-decimal space-y-1.5 pl-5 text-left">
-                {(guide.steps ?? [guide.message]).map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ol>
+              {(guide.steps ?? [guide.message]).length === 1 ? (
+                <p className="whitespace-pre-line text-center">
+                  {(guide.steps ?? [guide.message])[0]}
+                </p>
+              ) : (
+                <ol className="list-decimal space-y-1.5 pl-5 text-left">
+                  {(guide.steps ?? [guide.message]).map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              )}
             </section>
           ) : null}
           {isHost && guide.hostMessage !== null ? (

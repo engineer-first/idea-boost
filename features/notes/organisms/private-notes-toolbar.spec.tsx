@@ -245,19 +245,22 @@ describe("PrivateNotesToolbar", () => {
       onContentChange: vi.fn(),
       onDelete: vi.fn(),
       onDragStart: vi.fn(),
-      addRequest: 1,
+      addRequest: 0,
     };
     const view = render(<PrivateNotesToolbar {...props} />);
+
+    view.rerender(<PrivateNotesToolbar {...props} addRequest={1} />);
+    expect(props.onAdd).toHaveBeenCalledOnce();
 
     view.rerender(
       <PrivateNotesToolbar
         {...props}
+        addRequest={1}
         notes={[oldNote, newNote]}
         selectedNoteId="new-note"
       />,
     );
 
-    expect(props.onAdd).toHaveBeenCalledOnce();
     expect(screen.getAllByRole("textbox")[1]).toHaveFocus();
   });
 

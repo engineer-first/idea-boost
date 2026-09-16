@@ -326,6 +326,34 @@ describe("ステップ説明モーダル", () => {
     ).toBeInTheDocument();
   });
 
+  it("2-1の案内を閉じてから開くと左上パネルにやることを表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 2),
+      help: {
+        kind: "hmw",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "閉じる",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "決定した課題に対して",
+    );
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "「どうすれば私たちは〇〇できるだろう？」の形に言い換える",
+    );
+  });
+
   it("中央モーダルを閉じてからやり方を押すと左上パネルで同じ内容を表示する", () => {
     setup({
       phase: buildPhaseStep(1, 1),
