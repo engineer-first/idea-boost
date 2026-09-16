@@ -23,11 +23,9 @@ import {
 
 export type UseCursorPresenceResult = {
   remoteCursors: RenderedRemoteCursorPresence[];
-  areCursorsVisible: boolean;
   applyMessage: (message: ServerMessage, receivedAt?: number) => void;
   updateCursor: (point: CanvasPoint, draggingNoteId: string | null) => void;
   leaveCanvas: () => void;
-  toggleCursors: () => void;
 };
 
 export function useCursorPresence({
@@ -42,7 +40,6 @@ export function useCursorPresence({
   send: (message: ClientMessage) => void;
 }): UseCursorPresenceResult {
   const [cursors, setCursors] = useState<RemoteCursorPresence[]>([]);
-  const [areCursorsVisible, setAreCursorsVisible] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const sendRef = useRef(send);
   const phaseRef = useRef(phase);
@@ -74,7 +71,6 @@ export function useCursorPresence({
   const updateCursor = useCallback(
     (point: CanvasPoint, draggingNoteId: string | null) => {
       if (
-        !areCursorsVisible ||
         connectionStatusRef.current !== "open" ||
         !isCursorPresenceAllowed(phaseRef.current)
       ) {
@@ -88,7 +84,7 @@ export function useCursorPresence({
         draggingNoteId,
       });
     },
-    [areCursorsVisible],
+    [],
   );
 
   const applyMessage = useCallback(
@@ -110,16 +106,6 @@ export function useCursorPresence({
     [currentUserId],
   );
 
-  const toggleCursors = useCallback(() => {
-    setAreCursorsVisible((current) => {
-      if (current) {
-        leaveCanvas();
-        setCursors([]);
-      }
-      return !current;
-    });
-  }, [leaveCanvas]);
-
   useEffect(() => {
     if (connectionStatus !== "open" || !isCursorPresenceAllowed(phase)) {
       leaveCanvas();
@@ -129,7 +115,6 @@ export function useCursorPresence({
 
   const isIdleTrackingActive =
     cursors.length > 0 &&
-    areCursorsVisible &&
     connectionStatus === "open" &&
     isCursorPresenceAllowed(phase);
 
@@ -147,16 +132,12 @@ export function useCursorPresence({
   );
 
   return {
-    remoteCursors: areCursorsVisible
-      ? cursors.map((cursor) => ({
-          ...cursor,
-          isIdle: isRemoteCursorIdle(cursor, now),
-        }))
-      : [],
-    areCursorsVisible,
+    remoteCursors: cursors.map((cursor) => ({
+      ...cursor,
+      isIdle: isRemoteCursorIdle(cursor, now),
+    })),
     applyMessage,
     updateCursor,
     leaveCanvas,
-    toggleCursors,
   };
 }

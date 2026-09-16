@@ -66,8 +66,6 @@ export type RoomBoardViewProps = {
   enableGuideModal?: boolean;
   remoteCursors: RenderedRemoteCursorPresence[];
   remoteNoteDrags: RemoteNoteDrag[];
-  areCursorsVisible: boolean;
-  onToggleCursors: () => void;
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
@@ -148,8 +146,6 @@ export function RoomBoardView({
   help,
   remoteCursors,
   remoteNoteDrags,
-  areCursorsVisible,
-  onToggleCursors,
   signOutAction,
   hmwDecidedIssue,
   decidedHmw,
@@ -652,8 +648,6 @@ export function RoomBoardView({
         onPrivateNoteDragStart={handlePrivateDragStart}
         remoteCursors={remoteCursors}
         remoteNoteDrags={remoteNoteDrags}
-        areCursorsVisible={areCursorsVisible}
-        onToggleCursors={onToggleCursors}
         expandPrivateNotesRequest={privateNotesOpenRequest}
         addPrivateNoteRequest={privateNotesOpenRequest}
       />

@@ -59,8 +59,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onPrivateNoteDragStart: vi.fn(),
     remoteCursors: [],
     remoteNoteDrags: [],
-    areCursorsVisible: true,
-    onToggleCursors: vi.fn(),
     ...overrides,
   };
   const { rerender } = render(<RoomBoardCanvas {...props} />);
@@ -77,8 +75,7 @@ function openPrivateNotesToolbar() {
 }
 
 describe("RoomBoardCanvas", () => {
-  it("他ユーザーの名前付きカーソルを表示し、表示を切り替えられる", () => {
-    const onToggleCursors = vi.fn();
+  it("他ユーザーの名前付きカーソルを表示し、個人向け切り替え操作を表示しない", () => {
     setup({
       remoteCursors: [
         {
@@ -92,14 +89,12 @@ describe("RoomBoardCanvas", () => {
           isIdle: false,
         },
       ],
-      onToggleCursors,
     });
 
     expect(screen.getByText("Taro")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "参加者のカーソルを非表示にする" }),
-    );
-    expect(onToggleCursors).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("button", { name: /参加者のカーソル/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("パン・ズーム後の camera で board 座標を画面座標へ変換する", () => {

@@ -1,6 +1,5 @@
 "use client";
 
-import { MousePointer2, MousePointer2Off } from "lucide-react";
 // ボード面。カメラで移動・拡大縮小する世界レイヤーに共有付箋・グループ枠・
 // ドラッグ中のゴーストを描き、下端にマイ付箋ドックを重ねる。
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
@@ -9,7 +8,6 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { Button } from "@/components/ui/button";
 import { NOTE_WIDTH } from "@/contracts/board";
 import {
   calculateRenderGroups,
@@ -112,8 +110,6 @@ export type RoomBoardCanvasProps = {
   ) => void;
   remoteCursors: RenderedRemoteCursorPresence[];
   remoteNoteDrags: RemoteNoteDrag[];
-  areCursorsVisible: boolean;
-  onToggleCursors: () => void;
   expandPrivateNotesRequest?: number;
   addPrivateNoteRequest?: number;
 };
@@ -166,8 +162,6 @@ export function RoomBoardCanvas({
   onPrivateNoteDragStart,
   remoteCursors,
   remoteNoteDrags,
-  areCursorsVisible,
-  onToggleCursors,
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
@@ -347,21 +341,19 @@ export function RoomBoardCanvas({
               <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
                 {notes.map(renderIdeaMapNote)}
                 {renderIdeaMapDragGhost()}
-                {areCursorsVisible
-                  ? remoteCursors.map((cursor) => (
-                      <RemoteCursor
-                        key={cursor.userId}
-                        cursor={cursor}
-                        isIdle={cursor.isIdle}
-                        labelOffset={getCursorLabelOffset(cursor.userId)}
-                        style={{
-                          left: `${cursor.x}%`,
-                          bottom: `${cursor.y}%`,
-                          transform: "none",
-                        }}
-                      />
-                    ))
-                  : null}
+                {remoteCursors.map((cursor) => (
+                  <RemoteCursor
+                    key={cursor.userId}
+                    cursor={cursor}
+                    isIdle={cursor.isIdle}
+                    labelOffset={getCursorLabelOffset(cursor.userId)}
+                    style={{
+                      left: `${cursor.x}%`,
+                      bottom: `${cursor.y}%`,
+                      transform: "none",
+                    }}
+                  />
+                ))}
               </IdeaValueFeasibilityMap>
             ) : null}
             {renderGroups.map((rg) => {
@@ -414,7 +406,7 @@ export function RoomBoardCanvas({
               </StickyNote>
             ) : null}
           </div>
-          {areCursorsVisible && !isIdeaValueFeasibilityMapVisible
+          {!isIdeaValueFeasibilityMapVisible
             ? remoteCursors.map((cursor) => (
                 <RemoteCursor
                   key={cursor.userId}
@@ -436,23 +428,6 @@ export function RoomBoardCanvas({
             >
               <BoardOperationMatrix permissions={permissions} />
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="board-hud pointer-events-auto bg-background"
-              data-cursor-private="true"
-              aria-pressed={areCursorsVisible}
-              aria-label={
-                areCursorsVisible
-                  ? "参加者のカーソルを非表示にする"
-                  : "参加者のカーソルを表示する"
-              }
-              onClick={onToggleCursors}
-            >
-              {areCursorsVisible ? <MousePointer2 /> : <MousePointer2Off />}{" "}
-              カーソル
-            </Button>
           </div>
           <div data-testid="canvas-zoom-hud">
             <CanvasZoomControls
