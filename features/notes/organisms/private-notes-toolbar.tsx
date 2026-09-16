@@ -116,78 +116,79 @@ export function PrivateNotesToolbar({
       className={cn(
         "flex overflow-hidden",
         isExpanded
-          ? "h-fit max-h-[min(48rem,calc(100vh-6rem))] w-60 flex-col"
-          : "h-14 w-auto flex-col",
+          ? "h-[min(48rem,calc(100vh-6rem))] w-[min(15rem,calc(100vw-1.5rem))] flex-col"
+          : "h-14 w-fit max-w-full flex-col",
         className,
       )}
       data-testid="private-notes-toolbar"
       data-expanded={String(isExpanded)}
       data-return-drop-target={isReturnDropTarget || undefined}
     >
-      {isExpanded ? (
-        <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
-          <section
-            ref={scrollContainerRef}
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"
-            aria-label="マイ付箋一覧"
-            data-testid="private-notes-scroll"
-            onClick={(e) => {
-              const target = e.target as HTMLElement;
-              if (!target.closest("[data-testid='note-card']")) {
-                onSelect(null);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") onSelect(null);
-            }}
+      <CardContent
+        hidden={!isExpanded}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
+      >
+        <section
+          ref={scrollContainerRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"
+          aria-label="マイ付箋一覧"
+          data-testid="private-notes-scroll"
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest("[data-testid='note-card']")) {
+              onSelect(null);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onSelect(null);
+          }}
+        >
+          <div
+            className="grid grid-cols-1 justify-items-center gap-3"
+            data-testid="private-notes-list"
           >
-            <div
-              className="grid grid-cols-1 justify-items-center gap-3"
-              data-testid="private-notes-list"
-            >
-              {notes.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  個人付箋はまだありません
-                </p>
-              ) : null}
-              {orderedNotes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  isOwnDrag={false}
-                  isSelected={selectedNoteId === note.id}
-                  disabled={disabled}
-                  editingDisabled={editingDisabled}
-                  canDeleteNote={canDeleteNote}
-                  canEditNote={canEditNote}
-                  canMoveNote={canMoveNote}
-                  onSelect={onSelect}
-                  onDragStart={onDragStart}
-                  onContentChange={onContentChange}
-                  onDelete={onDelete}
-                  vote={{
-                    displayMode: "hidden",
-                    selectedKind: null,
-                    voteRemaining: { subjective: 0, objective: 0 },
-                    canVote: false,
-                    pendingOperations: [],
-                    onVote: () => {},
-                    onVoteRemove: () => {},
-                  }}
-                  autoFocusEditor={autoFocusNoteId === note.id}
-                  onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
-                  className={cn(
-                    "relative",
-                    newlyAddedNoteId === note.id &&
-                      "animate-in fade-in slide-in-from-bottom-2 duration-200",
-                  )}
-                  style={{ width: "192px", height: "144px" }}
-                />
-              ))}
-            </div>
-          </section>
-        </CardContent>
-      ) : null}
+            {notes.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                個人付箋はまだありません
+              </p>
+            ) : null}
+            {orderedNotes.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                isOwnDrag={false}
+                isSelected={selectedNoteId === note.id}
+                disabled={disabled}
+                editingDisabled={editingDisabled}
+                canDeleteNote={canDeleteNote}
+                canEditNote={canEditNote}
+                canMoveNote={canMoveNote}
+                onSelect={onSelect}
+                onDragStart={onDragStart}
+                onContentChange={onContentChange}
+                onDelete={onDelete}
+                vote={{
+                  displayMode: "hidden",
+                  selectedKind: null,
+                  voteRemaining: { subjective: 0, objective: 0 },
+                  canVote: false,
+                  pendingOperations: [],
+                  onVote: () => {},
+                  onVoteRemove: () => {},
+                }}
+                autoFocusEditor={autoFocusNoteId === note.id}
+                onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
+                className={cn(
+                  "relative",
+                  newlyAddedNoteId === note.id &&
+                    "animate-in fade-in slide-in-from-bottom-2 duration-200",
+                )}
+                style={{ width: "192px", height: "144px" }}
+              />
+            ))}
+          </div>
+        </section>
+      </CardContent>
       <CardFooter
         className={cn(
           "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
@@ -195,33 +196,38 @@ export function PrivateNotesToolbar({
         )}
       >
         <div
-          className="ml-auto flex w-fit items-center gap-2"
+          className={cn(
+            "flex items-center gap-2",
+            isExpanded ? "w-full justify-between" : "w-fit justify-start",
+          )}
           data-testid="private-notes-controls"
         >
           <CardTitle className="whitespace-nowrap text-sm">マイ付箋</CardTitle>
-          <Button
-            type="button"
-            size="icon-sm"
-            disabled={disabled || !canCreateNote}
-            aria-label="付箋を追加"
-            onClick={handleAdd}
-          >
-            <Plus aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-expanded={isExpanded}
-            aria-label={`マイ付箋を${isExpanded ? "閉じる" : "開く"}`}
-            onClick={() => setIsExpanded((expanded) => !expanded)}
-          >
-            {isExpanded ? (
-              <ChevronDown aria-hidden="true" />
-            ) : (
-              <ChevronUp aria-hidden="true" />
-            )}
-          </Button>
+          <div className="flex w-fit shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              size="icon-sm"
+              disabled={disabled || !canCreateNote}
+              aria-label="付箋を追加"
+              onClick={handleAdd}
+            >
+              <Plus aria-hidden="true" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-expanded={isExpanded}
+              aria-label={`マイ付箋を${isExpanded ? "閉じる" : "開く"}`}
+              onClick={() => setIsExpanded((expanded) => !expanded)}
+            >
+              {isExpanded ? (
+                <ChevronDown aria-hidden="true" />
+              ) : (
+                <ChevronUp aria-hidden="true" />
+              )}
+            </Button>
+          </div>
         </div>
       </CardFooter>
     </Card>

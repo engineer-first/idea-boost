@@ -3,6 +3,20 @@ import { fn } from "storybook/test";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { PrivateNotesToolbar } from "./private-notes-toolbar";
 
+const singleNote = buildNote({
+  id: "single-note",
+  visibility: "private",
+  content: "追加した付箋の下書き",
+});
+
+const manyNotes = Array.from({ length: 8 }, (_, index) =>
+  buildNote({
+    id: `many-note-${index + 1}`,
+    visibility: "private",
+    content: `付箋 ${index + 1}`,
+  }),
+);
+
 const meta = {
   title: "Notes/PrivateNotesToolbar",
   component: PrivateNotesToolbar,
@@ -43,6 +57,14 @@ export const Collapsed: Story = {
 
 export const Empty: Story = {
   args: { notes: [] },
+};
+
+export const Single: Story = {
+  args: { notes: [singleNote] },
+};
+
+export const Many: Story = {
+  args: { notes: manyNotes },
 };
 
 export const Disconnected: Story = {
