@@ -1,4 +1,5 @@
 import type { RoomPhase } from "@/contracts/phase";
+import { DOT_VOTE_CRITERIA, DOT_VOTE_GUIDANCE } from "@/features/dot-vote";
 
 export type FacilitationGuideContent = {
   durationMinutes: number;
@@ -24,6 +25,14 @@ const DEFAULT_DETAILS = {
   example: null,
   completion: "このステップの作業が終わったら完了です。",
 } as const;
+
+const DOT_VOTE_GUIDE_STEPS = [
+  DOT_VOTE_GUIDANCE.target,
+  DOT_VOTE_CRITERIA.subjective,
+  DOT_VOTE_CRITERIA.objective,
+  DOT_VOTE_GUIDANCE.operation,
+  DOT_VOTE_GUIDANCE.withdrawal,
+] as const;
 
 const FACILITATION_GUIDES: Record<
   1 | 2 | 3,
@@ -72,17 +81,12 @@ const FACILITATION_GUIDES: Record<
     },
     4: {
       durationMinutes: 3,
-      message:
-        "1人あたり、主観1票・客観3票まで投票できるよ。進行役の指示を待とう！",
+      message: DOT_VOTE_GUIDANCE.summary,
       hostMessage: "全員の投票が終わったら、次のステップへ進んでください。",
       ...DEFAULT_DETAILS,
       modalTitle: "解決したい課題に投票しよう！",
       modalPurpose: null,
-      steps: [
-        "赤い主観シールを、直感で最も気になる課題に1票貼る",
-        "青い客観シールを、重要だと思う課題に3票貼る",
-        "4票すべて貼ったら、ほかのメンバーを待つ",
-      ],
+      steps: DOT_VOTE_GUIDE_STEPS,
     },
     5: {
       durationMinutes: 10,
@@ -134,17 +138,12 @@ const FACILITATION_GUIDES: Record<
     },
     3: {
       durationMinutes: 4,
-      message:
-        "1人あたり、主観1票・客観3票まで投票できるよ。進行役の指示を待とう！",
+      message: DOT_VOTE_GUIDANCE.summary,
       hostMessage: "全員の投票が終わったら、次のステップへ進んでください。",
       ...DEFAULT_DETAILS,
       modalTitle: "アイデアが広がりそうな問いに投票しよう！",
       modalPurpose: null,
-      steps: [
-        "赤い主観シールを、考えてみたい問いに1票貼る",
-        "青い客観シールを、多くのアイデアにつながりそうな問いに3票貼る",
-        "4票すべて貼ったら、ほかのメンバーを待つ",
-      ],
+      steps: DOT_VOTE_GUIDE_STEPS,
     },
     4: {
       durationMinutes: 10,
@@ -211,17 +210,12 @@ const FACILITATION_GUIDES: Record<
     },
     4: {
       durationMinutes: 3,
-      message:
-        "1人あたり、主観1票・客観3票まで投票できるよ。進行役の指示を待とう！",
+      message: DOT_VOTE_GUIDANCE.summary,
       hostMessage: "全員の投票が終わったら、次のステップへ進んでください。",
       ...DEFAULT_DETAILS,
       modalTitle: "採用したい解決策に投票しよう！",
       modalPurpose: null,
-      steps: [
-        "赤い主観シールを、最も試してみたい解決策に1票貼る",
-        "青い客観シールを、価値と実現のしやすさを考えて3票貼る",
-        "4票すべて貼ったら、ほかのメンバーを待つ",
-      ],
+      steps: DOT_VOTE_GUIDE_STEPS,
     },
     5: {
       durationMinutes: 10,

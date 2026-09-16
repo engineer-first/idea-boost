@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DotVotePalette } from "./dot-vote-palette";
 
 describe("DotVotePalette", () => {
-  it("票種と残数を、付箋へドラッグするシールとして表示する", () => {
+  it("票種と残数を、指定された投票基準とともに表示する", () => {
     render(
       <DotVotePalette
         voteRemaining={{ subjective: 1, objective: 2 }}
@@ -30,11 +30,18 @@ describe("DotVotePalette", () => {
       ),
     ).toHaveClass("sr-only");
     expect(within(subjective).getByText("主観")).toBeVisible();
-    expect(within(subjective).getByText("直感・共感")).toBeVisible();
+    expect(
+      within(subjective).getByText("主観は「激しく共感する、取り組みたい」。"),
+    ).toBeVisible();
     expect(within(subjective).getByText("残り1票")).toBeVisible();
     expect(within(objective).getByText("客観")).toBeVisible();
-    expect(within(objective).getByText("根拠・比較")).toBeVisible();
+    expect(
+      within(objective).getByText("客観は「自分以外の人にも価値がありそう」。"),
+    ).toBeVisible();
     expect(within(objective).getByText("残り2票")).toBeVisible();
+    expect(
+      within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
+    ).toHaveClass("sr-only");
     expect(palette).toHaveClass("h-12", "rounded-xl", "bg-white");
     const subjectiveImage = within(subjective).getByTestId(
       "dot-vote-sticker-image-subjective",
