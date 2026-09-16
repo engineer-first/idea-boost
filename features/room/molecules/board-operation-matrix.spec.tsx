@@ -15,9 +15,39 @@ describe("BoardOperationMatrix", () => {
       />,
     );
 
-    expect(screen.getByLabelText("付箋の編集")).toBeInTheDocument();
-    expect(screen.getByLabelText("付箋の移動")).toBeInTheDocument();
-    expect(screen.getByLabelText("付箋の削除")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の編集：可能" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の移動：不可" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の削除：可能" }),
+    ).toBeInTheDocument();
+
+    expect(screen.getByText("編集")).toBeInTheDocument();
+    expect(screen.getByText("移動")).toBeInTheDocument();
+    expect(screen.getByText("削除")).toBeInTheDocument();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("可能な操作には丸、不可能な操作にはバツを重ねる", () => {
+    render(
+      <BoardOperationMatrix
+        permissions={{
+          canEditNote: true,
+          canMoveNote: false,
+          canDeleteNote: true,
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByTestId("board-operation-status-canEditNote"),
+    ).toHaveAttribute("data-status", "allowed");
+    expect(
+      screen.getByTestId("board-operation-status-canMoveNote"),
+    ).toHaveAttribute("data-status", "blocked");
   });
 
   it("編集のTooltipに可能を表示する", async () => {
@@ -33,7 +63,7 @@ describe("BoardOperationMatrix", () => {
       />,
     );
 
-    await user.hover(screen.getByLabelText("付箋の編集"));
+    await user.hover(screen.getByRole("img", { name: "付箋の編集：可能" }));
 
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "付箋の編集：可能",
@@ -53,7 +83,7 @@ describe("BoardOperationMatrix", () => {
       />,
     );
 
-    await user.hover(screen.getByLabelText("付箋の移動"));
+    await user.hover(screen.getByRole("img", { name: "付箋の移動：不可" }));
 
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "付箋の移動：不可",
@@ -73,7 +103,7 @@ describe("BoardOperationMatrix", () => {
       />,
     );
 
-    await user.hover(screen.getByLabelText("付箋の削除"));
+    await user.hover(screen.getByRole("img", { name: "付箋の削除：可能" }));
 
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "付箋の削除：可能",
