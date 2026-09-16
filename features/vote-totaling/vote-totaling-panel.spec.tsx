@@ -134,6 +134,97 @@ describe("calculateVoteTotaling", () => {
 });
 
 describe("VoteTotalingPanel", () => {
+  it("配点の根拠と合計式を結果画面に表示する", () => {
+    const [note] = buildNotes(1);
+
+    render(
+      <VoteTotalingPanel
+        isVotingComplete
+        members={buildMembers(1, ME)}
+        notes={[withVotes(note, 2, 3)]}
+        decision={null}
+        isHost={false}
+        isDisconnected={false}
+        onNoteDecide={vi.fn()}
+      />,
+    );
+
+    const scoringGuide = screen.getByTestId("vote-totaling-scoring-guide");
+    expect(scoringGuide).toHaveAccessibleName("配点の説明");
+    expect(within(scoringGuide).getByText("主観1票 = 5点")).toBeInTheDocument();
+    expect(within(scoringGuide).getByText("客観1票 = 1点")).toBeInTheDocument();
+    expect(
+      within(scoringGuide).queryByText("合計点 = 主観票数 × 5 + 客観票数 × 1"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("投票された付箋がない結果画面でも空状態を説明する", () => {
+    render(
+      <VoteTotalingPanel
+        isVotingComplete
+        members={buildMembers(1, ME)}
+        notes={buildNotes(2)}
+        decision={null}
+        isHost={false}
+        isDisconnected={false}
+        onNoteDecide={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("vote-result-ranking")).toBeInTheDocument();
+    expect(screen.getByText("投票された付箋はありません")).toBeInTheDocument();
+  });
+
+  it("結果パネルの外枠ではなくランキング行で境界を示す", () => {
+    const [note] = buildNotes(1);
+
+    render(
+      <VoteTotalingPanel
+        isVotingComplete
+        members={buildMembers(1, ME)}
+        notes={[withVotes(note, 1, 2)]}
+        decision={null}
+        isHost={false}
+        isDisconnected={false}
+        onNoteDecide={vi.fn()}
+      />,
+    );
+
+    const ranking = screen.getByTestId("vote-result-ranking");
+    expect(ranking).not.toHaveClass("border");
+    expect(ranking).not.toHaveClass("shadow-sm");
+    expect(screen.getByTestId("vote-totaling-row-note-1")).toHaveClass(
+      "border",
+    );
+  });
+
+  it("ダークテーマでも結果面とランキング行の文字を読みやすくする", () => {
+    const [note] = buildNotes(1);
+
+    render(
+      <div className="dark">
+        <VoteTotalingPanel
+          isVotingComplete
+          members={buildMembers(1, ME)}
+          notes={[withVotes(note, 1, 2)]}
+          decision={null}
+          isHost={false}
+          isDisconnected={false}
+          onNoteDecide={vi.fn()}
+        />
+      </div>,
+    );
+
+    expect(screen.getByTestId("vote-result-ranking")).toHaveClass(
+      "dark:bg-slate-950",
+      "dark:text-slate-50",
+    );
+    expect(screen.getByTestId("vote-totaling-row-note-1")).toHaveClass(
+      "dark:bg-slate-900",
+      "dark:text-slate-50",
+    );
+  });
+
   it("phase4 で確定済みなら、参加者が離脱しても結果を表示し続ける", () => {
     const [note] = buildNotes(1);
 
@@ -186,6 +277,11 @@ describe("VoteTotalingPanel", () => {
     expect(
       within(screen.getByTestId("vote-totaling-row-note-1")).getByText("10点"),
     ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("vote-totaling-row-note-1")).getByText(
+        "主観 2",
+      ),
+    ).not.toHaveClass("border");
   });
 
   it("ホストが接続中なら未決定のランキング行から決定を通知する", () => {
