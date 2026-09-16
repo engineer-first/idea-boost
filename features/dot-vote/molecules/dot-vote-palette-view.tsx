@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import {
+  DOT_VOTE_CRITERIA,
+  DOT_VOTE_GUIDANCE,
   DOT_VOTE_LABELS,
   type DotVoteFeedback,
   type DotVoteRemaining,
@@ -25,11 +27,6 @@ type DotVotePaletteViewProps = {
 };
 
 const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
-
-const DOT_VOTE_HINTS = {
-  subjective: "直感・共感",
-  objective: "根拠・比較",
-} satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
@@ -68,12 +65,17 @@ export function DotVotePaletteView({
   return (
     <section
       aria-label="投票パレット"
-      className="pointer-events-auto flex h-12 items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] dark:bg-slate-950"
+      aria-describedby="dot-vote-palette-help"
+      className="pointer-events-auto flex h-12 max-w-[calc(100vw-1.5rem)] items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] dark:bg-slate-950"
     >
-      <p className="sr-only">
-        シールを付箋へドラッグ、または選択して連続で貼り付け
-      </p>
-      <fieldset className="flex gap-1">
+      <div id="dot-vote-palette-help" className="sr-only">
+        <p className="sr-only">投票対象は現在のフェーズの個々の付箋です。</p>
+        <p className="sr-only">
+          シールを付箋へドラッグ、または選択して連続で貼り付け
+        </p>
+        <p className="sr-only">{DOT_VOTE_GUIDANCE.withdrawal}</p>
+      </div>
+      <fieldset className="flex min-w-0 flex-1 gap-1">
         <legend className="sr-only">使用するシールの種類</legend>
         {DOT_VOTE_KINDS.map((kind) => {
           return (
@@ -85,7 +87,7 @@ export function DotVotePaletteView({
               disabled={disabled || voteRemaining[kind] <= 0}
               size="sm"
               variant="outline"
-              className={`h-10 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]} ${
+              className={`h-10 min-w-0 flex-1 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]} ${
                 selectedKind === kind ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
@@ -107,8 +109,8 @@ export function DotVotePaletteView({
                     残り{voteRemaining[kind]}票
                   </span>
                 </span>
-                <span className="mt-0.5 text-[0.55rem] font-medium opacity-70">
-                  {DOT_VOTE_HINTS[kind]}
+                <span className="mt-0.5 whitespace-normal text-left text-[0.55rem] leading-tight font-medium opacity-70">
+                  {DOT_VOTE_CRITERIA[kind]}
                 </span>
               </span>
             </Button>

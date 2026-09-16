@@ -31,6 +31,35 @@ describe("getFacilitationGuide", () => {
   });
 
   it.each([
+    buildPhaseStep(4),
+    buildPhaseStep(3, 2),
+    buildPhaseStep(4, 3),
+  ])("%o は個々の付箋と共通の投票基準を案内する", (phase) => {
+    expect(getFacilitationGuide(phase)).toMatchObject({
+      message:
+        "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
+      steps: [
+        "投票対象は現在のフェーズの個々の付箋です。",
+        "主観は「激しく共感する、取り組みたい」。",
+        "客観は「自分以外の人にも価値がありそう」。",
+        "主観1票・客観3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。",
+        "貼ったシールを押すと、投票を1票取り消せます。",
+      ],
+    });
+  });
+
+  it("問いの決定ステップには投票基準を表示しない", () => {
+    const guide = getFacilitationGuide(buildPhaseStep(4, 2));
+
+    expect(guide?.steps).not.toContain(
+      "主観は「激しく共感する、取り組みたい」。",
+    );
+    expect(guide?.steps).not.toContain(
+      "客観は「自分以外の人にも価値がありそう」。",
+    );
+  });
+
+  it.each([
     [
       buildPhaseStep(1),
       3,
@@ -52,7 +81,7 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(4),
       3,
-      "1人あたり、主観1票・客観3票まで投票できるよ。進行役の指示を待とう！",
+      "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
       "全員の投票が終わったら、次のステップへ進んでください。",
     ],
     [
@@ -76,7 +105,7 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(3, 2),
       4,
-      "1人あたり、主観1票・客観3票まで投票できるよ。進行役の指示を待とう！",
+      "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
       "全員の投票が終わったら、次のステップへ進んでください。",
     ],
     [
@@ -106,7 +135,7 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(4, 3),
       3,
-      "1人あたり、主観1票・客観3票まで投票できるよ。進行役の指示を待とう！",
+      "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
       "全員の投票が終わったら、次のステップへ進んでください。",
     ],
     [

@@ -780,6 +780,54 @@ describe("RoomBoardView", () => {
     );
   });
 
+  it("投票ステップの案内とパレットで対象・基準・操作を揃えて表示する", () => {
+    setup({
+      phase: buildPhaseStep(4),
+      isHost: true,
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+    });
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("投票対象は現在のフェーズの個々の付箋です。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("主観は「激しく共感する、取り組みたい」。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("客観は「自分以外の人にも価値がありそう」。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "主観1票・客観3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("貼ったシールを押すと、投票を1票取り消せます。"),
+    ).toBeInTheDocument();
+
+    const palette = screen.getByRole("region", { name: "投票パレット" });
+    expect(palette).toHaveAttribute(
+      "aria-describedby",
+      "dot-vote-palette-help",
+    );
+    expect(
+      within(palette).getByText("主観は「激しく共感する、取り組みたい」。"),
+    ).toBeVisible();
+    expect(
+      within(palette).getByText("客観は「自分以外の人にも価値がありそう」。"),
+    ).toBeVisible();
+    expect(
+      within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
+    ).toHaveClass("sr-only");
+  });
+
   it("パレットのシールを付箋へドロップすると、付箋内の相対座標で投票を送る", () => {
     const onNoteVote = vi.fn();
     setup({

@@ -654,7 +654,7 @@ export function RoomBoardView({
 
       {isVotingStep(phase) ? (
         <div
-          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
+          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center"
           data-testid="vote-palette-hud"
         >
           <DotVotePalette
