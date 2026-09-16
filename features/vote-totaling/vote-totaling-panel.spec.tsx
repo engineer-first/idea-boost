@@ -154,8 +154,8 @@ describe("VoteTotalingPanel", () => {
     expect(within(scoringGuide).getByText("主観1票 = 5点")).toBeInTheDocument();
     expect(within(scoringGuide).getByText("客観1票 = 1点")).toBeInTheDocument();
     expect(
-      within(scoringGuide).getByText("合計点 = 主観票数 × 5 + 客観票数 × 1"),
-    ).toBeInTheDocument();
+      within(scoringGuide).queryByText("合計点 = 主観票数 × 5 + 客観票数 × 1"),
+    ).not.toBeInTheDocument();
   });
 
   it("投票された付箋がない結果画面でも空状態を説明する", () => {

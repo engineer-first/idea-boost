@@ -123,7 +123,6 @@ export function VoteTotalingPanel({
           <span>主観1票 = 5点</span>
           <span>客観1票 = 1点</span>
         </div>
-        <p className="mt-2 text-xs">合計点 = 主観票数 × 5 + 客観票数 × 1</p>
       </aside>
       <ol className="mt-6 grid gap-3">
         {result.rows.map((row, _index, ranking) => {
