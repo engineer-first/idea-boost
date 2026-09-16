@@ -17,6 +17,29 @@ const handlers = {
 };
 
 describe("RoomTimer", () => {
+  it("動画時刻を直接描画し、逆方向にシークしても実時間に依存しない", () => {
+    const props = {
+      timer: buildRunningTimer({ remainingMs: 180_000 }),
+      serverOffsetMs: 0,
+      isHost: true,
+      disabled: false,
+      ...handlers,
+    };
+    const { rerender } = render(
+      <RoomTimer {...props} renderTimeMs={ROOM_TIMER_FIXTURE_NOW + 1000} />,
+    );
+    expect(screen.getByRole("timer")).toHaveTextContent("02:59");
+    rerender(
+      <RoomTimer {...props} renderTimeMs={ROOM_TIMER_FIXTURE_NOW + 5000} />,
+    );
+    expect(screen.getByRole("timer")).toHaveTextContent("02:55");
+    rerender(
+      <RoomTimer {...props} renderTimeMs={ROOM_TIMER_FIXTURE_NOW + 2000} />,
+    );
+    expect(screen.getByRole("timer")).toHaveTextContent("02:58");
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(screen.getByRole("timer")).toHaveTextContent("02:58");
+  });
   it.each([
     { status: "idle" } as const,
     buildRunningTimer(),
