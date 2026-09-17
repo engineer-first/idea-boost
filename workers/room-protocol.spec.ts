@@ -1669,6 +1669,59 @@ describe("note:vote（課題ドット投票）", () => {
     memberReconnected.close();
   });
 
+  it("投票終了後のシール削除は forbidden で拒否され、保存状態を変えない", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+    const stickerId = "f1111111-1111-4111-8111-111111111111";
+    const addOperationId = "f2222222-2222-4222-8222-222222222222";
+    const removeOperationId = "f3333333-3333-4333-8333-333333333333";
+
+    await arrangeStep(owner, 4);
+    send(owner, {
+      type: "note:vote-sticker:add",
+      noteId,
+      stickerId,
+      kind: "objective",
+      x: 0.25,
+      y: 0.75,
+      operationId: addOperationId,
+    });
+    await expectType(owner, "note:updated");
+
+    await arrangeStep(owner, 5);
+    send(owner, {
+      type: "note:vote-sticker:remove",
+      stickerId,
+      operationId: removeOperationId,
+    });
+    const error = await expectType(owner, "error");
+    expect(error).toMatchObject({
+      code: "forbidden",
+      operationId: removeOperationId,
+    });
+
+    const rows = await runInRoomDO(roomId, (_instance, state) =>
+      state.storage.sql
+        .exec(
+          "SELECT note_id, user_id, kind, x, y FROM note_vote_stickers WHERE id = ?1",
+          stickerId,
+        )
+        .toArray(),
+    );
+    expect(rows).toEqual([
+      {
+        note_id: noteId,
+        user_id: OWNER.sub,
+        kind: "objective",
+        x: 0.25,
+        y: 0.75,
+      },
+    ]);
+
+    owner.close();
+    member.close();
+  });
+
   it("他メンバーのシールは移動も削除もできず、保存状態は変わらない", async () => {
     const { roomId, owner, member } = await setupStartedRoom();
     const sourceNoteId = await createNote({ owner, member });

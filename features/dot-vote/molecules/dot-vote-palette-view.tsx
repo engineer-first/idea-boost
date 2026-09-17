@@ -16,6 +16,7 @@ type DotVotePaletteViewProps = {
   feedback: DotVoteFeedback | null;
   disabled: boolean;
   selectedKind: DotVoteKind | null;
+  isReturnDropTarget: boolean;
   onStickerSelect: (
     kind: DotVoteKind,
     event: React.MouseEvent<HTMLButtonElement>,
@@ -48,6 +49,7 @@ export function DotVotePaletteView({
   feedback,
   disabled,
   selectedKind,
+  isReturnDropTarget,
   onStickerSelect,
   onStickerDragStart,
 }: DotVotePaletteViewProps) {
@@ -58,22 +60,38 @@ export function DotVotePaletteView({
         ? feedback.message
         : feedback?.state === "failed"
           ? feedback.message
-          : selectedKind === null
-            ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
-            : `${DOT_VOTE_LABELS[selectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
+          : isReturnDropTarget
+            ? "ここへ戻すと1票取り消しになります。"
+            : selectedKind === null
+              ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
+              : `${DOT_VOTE_LABELS[selectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
 
   return (
     <section
       aria-label="投票パレット"
       aria-describedby="dot-vote-palette-help"
-      className="pointer-events-auto flex h-12 max-w-[calc(100vw-1.5rem)] items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] dark:bg-slate-950"
+      data-vote-palette="true"
+      data-return-drop-target={isReturnDropTarget ? "true" : undefined}
+      className={`pointer-events-auto relative flex h-12 max-w-[calc(100vw-1.5rem)] items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] dark:bg-slate-950 ${
+        isReturnDropTarget
+          ? "border-amber-500 bg-amber-50/95 ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white dark:border-amber-300 dark:bg-amber-950/95 dark:ring-amber-200/80 dark:ring-offset-slate-950"
+          : ""
+      }`}
     >
+      {isReturnDropTarget ? (
+        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 shadow-sm dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+          ここへ戻すと1票取り消しになります。
+        </p>
+      ) : null}
       <div id="dot-vote-palette-help" className="sr-only">
         <p className="sr-only">投票対象は現在のフェーズの個々の付箋です。</p>
         <p className="sr-only">
           シールを付箋へドラッグ、または選択して連続で貼り付け
         </p>
         <p className="sr-only">{DOT_VOTE_GUIDANCE.withdrawal}</p>
+        <p className="sr-only">
+          付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
+        </p>
       </div>
       <fieldset className="flex min-w-0 flex-1 gap-1">
         <legend className="sr-only">使用するシールの種類</legend>

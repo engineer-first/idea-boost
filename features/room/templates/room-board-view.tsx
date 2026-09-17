@@ -186,6 +186,8 @@ export function RoomBoardView({
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
+  const [isVoteStickerReturnDropTarget, setIsVoteStickerReturnDropTarget] =
+    useState(false);
   const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
   const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
     null,
@@ -247,6 +249,7 @@ export function RoomBoardView({
     if (isVotingStep(phase)) return;
     voteStickerDragRef.current = null;
     setVoteStickerDrag(null);
+    setIsVoteStickerReturnDropTarget(false);
     setSelectedVoteKind(null);
     setVoteStampPointer(null);
   }, [phase]);
@@ -298,6 +301,17 @@ export function RoomBoardView({
       return null;
     }
     return note;
+  }
+
+  function votePaletteElementAt(
+    clientX: number,
+    clientY: number,
+  ): HTMLElement | null {
+    return (
+      document
+        .elementFromPoint(clientX, clientY)
+        ?.closest<HTMLElement>("[data-vote-palette]") ?? null
+    );
   }
 
   function handlePaletteStickerDragStart(
@@ -368,6 +382,13 @@ export function RoomBoardView({
         clientY: event.clientY,
         didDrag,
       };
+      setIsVoteStickerReturnDropTarget(
+        current.stickerId !== null &&
+          didDrag &&
+          !isDisconnected &&
+          isVotingStep(phase) &&
+          votePaletteElementAt(event.clientX, event.clientY) !== null,
+      );
       if (!current.didDrag && didDrag && current.stickerId === null) {
         setSelectedVoteKind(null);
         setVoteStampPointer(null);
@@ -384,23 +405,31 @@ export function RoomBoardView({
     if (current?.pointerId === event.pointerId) {
       if (current.didDrag && !isDisconnected && isVotingStep(phase)) {
         event.preventDefault();
-        const note = noteElementAt(event.clientX, event.clientY);
-        if (note) {
-          const rect = note.getBoundingClientRect();
-          const noteId = note.dataset.noteId;
-          if (noteId && rect.width > 0 && rect.height > 0) {
-            const x = Math.min(
-              1,
-              Math.max(0, (event.clientX - rect.left) / rect.width),
-            );
-            const y = Math.min(
-              1,
-              Math.max(0, (event.clientY - rect.top) / rect.height),
-            );
-            if (current.stickerId === null) {
-              onNoteVote(noteId, current.kind, x, y);
-            } else {
-              onNoteVoteStickerMove(current.stickerId, noteId, x, y);
+        const stickerId = current.stickerId;
+        const isReturnDrop =
+          stickerId !== null &&
+          votePaletteElementAt(event.clientX, event.clientY) !== null;
+        if (isReturnDrop) {
+          onNoteVoteStickerRemove(stickerId);
+        } else {
+          const note = noteElementAt(event.clientX, event.clientY);
+          if (note) {
+            const rect = note.getBoundingClientRect();
+            const noteId = note.dataset.noteId;
+            if (noteId && rect.width > 0 && rect.height > 0) {
+              const x = Math.min(
+                1,
+                Math.max(0, (event.clientX - rect.left) / rect.width),
+              );
+              const y = Math.min(
+                1,
+                Math.max(0, (event.clientY - rect.top) / rect.height),
+              );
+              if (current.stickerId === null) {
+                onNoteVote(noteId, current.kind, x, y);
+              } else {
+                onNoteVoteStickerMove(current.stickerId, noteId, x, y);
+              }
             }
           }
         }
@@ -413,6 +442,7 @@ export function RoomBoardView({
       }
       voteStickerDragRef.current = null;
       setVoteStickerDrag(null);
+      setIsVoteStickerReturnDropTarget(false);
       return;
     }
     handlePointerEnd(event);
@@ -481,6 +511,7 @@ export function RoomBoardView({
     if (voteStickerDragRef.current?.pointerId === event.pointerId) {
       voteStickerDragRef.current = null;
       setVoteStickerDrag(null);
+      setIsVoteStickerReturnDropTarget(false);
       return;
     }
     handlePointerEnd(event);
@@ -667,6 +698,7 @@ export function RoomBoardView({
             feedback={voteFeedback}
             disabled={isDisconnected}
             selectedKind={selectedVoteKind}
+            isReturnDropTarget={isVoteStickerReturnDropTarget}
             onStickerSelect={handlePaletteStickerSelect}
             onStickerDragStart={handlePaletteStickerDragStart}
           />

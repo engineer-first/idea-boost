@@ -77,6 +77,28 @@ describe("DotVotePalette", () => {
     ).toBeDisabled();
   });
 
+  it("シールを戻す操作中は取り消しの意味を常時見えるヒントで示す", () => {
+    render(
+      <DotVotePalette
+        voteRemaining={{ subjective: 1, objective: 2 }}
+        pendingOperationCount={0}
+        feedback={null}
+        disabled={false}
+        selectedKind={null}
+        isReturnDropTarget
+        onStickerSelect={vi.fn()}
+        onStickerDragStart={vi.fn()}
+      />,
+    );
+
+    const hint = screen
+      .getByRole("region", { name: "投票パレット" })
+      .querySelector("p:not(.sr-only)");
+    expect(hint).not.toBeNull();
+    expect(hint).toBeVisible();
+    expect(hint).not.toHaveClass("sr-only");
+  });
+
   it("送信中と失敗時の状態を読み上げる", () => {
     render(
       <DotVotePalette
