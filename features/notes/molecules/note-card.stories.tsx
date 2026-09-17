@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { NoteCard } from "./note-card";
 
@@ -59,10 +59,24 @@ export const LongContent: Story = {
   },
 };
 
-// 選択状態: 青い枠が付き、Backspace/Deleteで削除・もう一度クリックで編集に入れる。
+// 選択状態: 青い枠が付き、Backspace/Deleteで削除・再クリックまたは文字入力で編集に入る。
 export const Selected: Story = {
   args: {
     isSelected: true,
+  },
+};
+
+export const DirectInput: Story = {
+  args: {
+    isSelected: true,
+    note: buildNote({ content: "" }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const surface = canvas.getByRole("button", { name: "付箋" });
+    surface.focus();
+    await userEvent.keyboard("a");
+    await expect(canvas.getByRole("textbox")).toHaveValue("a");
   },
 };
 

@@ -1309,6 +1309,19 @@ describe("RoomBoardView", () => {
       expect(within(first).getByRole("textbox")).toHaveFocus();
     });
 
+    it("付箋を1回クリックして選択後に文字を打つと、その文字から編集を開始する", () => {
+      setup({ notes: [buildNote({ content: "既存の本文" })] });
+
+      const [first] = screen.getAllByTestId("note-card");
+      clickNote(first);
+      fireEvent.keyDown(getNoteSurface(first), { key: "a" });
+
+      const textarea = within(first).getByRole("textbox");
+      expect(textarea).toHaveFocus();
+      expect(textarea).not.toHaveAttribute("readonly");
+      expect(textarea).toHaveValue("既存の本文a");
+    });
+
     it("選択中の付箋でBackspaceを押すとonNoteDeleteを呼ぶ", () => {
       const onNoteDelete = vi.fn();
       setup({ onNoteDelete });

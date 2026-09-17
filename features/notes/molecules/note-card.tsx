@@ -7,7 +7,8 @@ import { Check } from "lucide-react";
 //
 // インタラクションは tldraw の Note shape（SelectTool/PointingShape）を踏襲:
 //   - pointerdown で選択し、閾値(DRAG_THRESHOLD_PX)を超えて動かすとドラッグ
-//   - 「pointerdown 時点で選択済みだった」付箋への移動なしクリックで編集開始
+//   - 「pointerdown 時点で選択済みだった」付箋への移動なしクリック、または
+//     選択中の印字可能キーで編集開始
 //   - 選択中（非編集）は Backspace / Delete で削除、Enter でも編集開始
 // 選択状態(isSelected)は「同時に1枚だけ」という付箋間の関心事なので親が持ち、
 // 編集状態(isEditing)はこの付箋に閉じた関心事なのでローカルに持つ。
@@ -78,10 +79,18 @@ type PointerOrigin = {
   startClientX: number;
   startClientY: number;
   // pointerdown 時点で選択済みだったか。これが true の「移動なしクリック」を
-  // 編集開始の合図にする（tldraw と同じ2段階クリック）。
+  // 編集開始の合図にする。
   wasSelected: boolean;
   didDrag: boolean;
 };
+
+function isPrintableCharacterKey(
+  event: React.KeyboardEvent<HTMLButtonElement>,
+): boolean {
+  return (
+    event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
+  );
+}
 
 export function NoteCard({
   note,
@@ -291,6 +300,24 @@ export function NoteCard({
 
     if (event.key === "Enter" && canEditNote && !editingDisabled) {
       event.preventDefault();
+      setIsEditing(true);
+      return;
+    }
+
+    if (
+      isSelected &&
+      canEditNote &&
+      !editingDisabled &&
+      isPrintableCharacterKey(event)
+    ) {
+      const character = event.key;
+      event.preventDefault();
+      event.stopPropagation();
+      setLocalContent((content) =>
+        content.length < NOTE_CONTENT_MAX_LENGTH
+          ? `${content}${character}`
+          : content,
+      );
       setIsEditing(true);
     }
   }
