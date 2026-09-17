@@ -119,6 +119,75 @@ describe("RoomBoardHeader", () => {
     ).toHaveAttribute("aria-valuenow", "2");
   });
 
+  it("狭い画面では進行HUDの幅を守り、操作HUDを折り返せる", () => {
+    setup({ phase: buildPhaseStep(5) });
+
+    expect(screen.getByTestId("board-header-row")).toHaveClass(
+      "max-[900px]:grid-cols-[306px_minmax(0,1fr)]",
+    );
+    expect(screen.getByTestId("board-context-column")).toHaveClass(
+      "max-[900px]:min-w-[306px]",
+    );
+    expect(screen.getByTestId("board-control-hud")).toHaveClass(
+      "max-[900px]:max-w-[426px]",
+      "max-[900px]:flex-wrap",
+    );
+    expect(screen.getByRole("button", { name: "参加者 2人" })).toHaveClass(
+      "max-[900px]:w-[52px]",
+    );
+  });
+
+  it.each([
+    [buildPhaseStep(3, 1), 1, "課題整理", 5],
+    [buildPhaseStep(2, 2), 2, "問いの整理", 4],
+    [buildPhaseStep(4, 3), 3, "アイデア決定", 5],
+  ] as const)("フェーズ別に3フェーズの現在地とステップ進捗を同時に表示する", (phase, currentPhaseNumber, currentPhaseLabel, stepCount) => {
+    setup({ phase });
+
+    const phaseProgress = screen.getByTestId("board-phase-progress");
+    expect(phaseProgress).toHaveAttribute(
+      "aria-label",
+      "デザインスプリントのフェーズ進行",
+    );
+    expect(within(phaseProgress).getByText("課題整理")).toBeVisible();
+    expect(within(phaseProgress).getByText("問いの整理")).toBeVisible();
+    expect(within(phaseProgress).getByText("アイデア決定")).toBeVisible();
+    const currentPhase = within(phaseProgress).getByTestId(
+      `board-phase-${currentPhaseNumber}`,
+    );
+    expect(currentPhase).toHaveAttribute("aria-current", "step");
+    expect(currentPhase).toHaveTextContent(currentPhaseLabel);
+
+    const progressRail = screen.getByTestId("board-progress-rail");
+    expect(progressRail).toHaveAttribute("aria-valuemax", `${stepCount}`);
+    expect(screen.getByTestId("board-current-step")).toBeVisible();
+  });
+
+  it("現在フェーズ以外も完了・未着手の状態を形と色で区別する", () => {
+    setup({ phase: buildPhaseStep(1, 2) });
+
+    expect(screen.getByTestId("board-phase-1")).toHaveAttribute(
+      "data-phase-state",
+      "completed",
+    );
+    expect(screen.getByTestId("board-phase-2")).toHaveAttribute(
+      "data-phase-state",
+      "current",
+    );
+    expect(screen.getByTestId("board-phase-3")).toHaveAttribute(
+      "data-phase-state",
+      "upcoming",
+    );
+  });
+
+  it("Phase 2 Step 1の現在ステップ名は契約の正式名称を表示する", () => {
+    setup({ phase: buildPhaseStep(1, 2) });
+
+    expect(screen.getByTestId("board-current-step")).toHaveTextContent(
+      "課題に対するHMW（個人）",
+    );
+  });
+
   describe("ファシリテーションガイド", () => {
     it("現在地HUDと一体で表示し、開閉操作を通知する", () => {
       const onGuideExpandedChange = vi.fn();
@@ -183,8 +252,11 @@ describe("RoomBoardHeader", () => {
         {...setupProps({ phase: buildPhaseStep(1, 2), isGuideExpanded: false })}
       />,
     );
-    expect(within(context).getByText("問いの作成")).toBeVisible();
-    expect(within(context).queryByText("課題整理")).not.toBeInTheDocument();
+    expect(within(context).getByText("問いの整理")).toBeVisible();
+    expect(within(context).getByTestId("board-phase-1")).toHaveAttribute(
+      "data-phase-state",
+      "completed",
+    );
   });
 
   it("参加者・タイマー・招待・次への操作を同じ操作グループにまとめる", () => {
@@ -381,6 +453,10 @@ describe("RoomBoardHeader", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
 
-    expect(screen.getByRole("list")).toHaveClass("p-1");
+    expect(
+      screen
+        .getAllByRole("list")
+        .find((list) => list.classList.contains("p-1")),
+    ).toHaveClass("p-1");
   });
 });

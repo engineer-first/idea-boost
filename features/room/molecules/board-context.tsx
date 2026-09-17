@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronUp } from "lucide-react";
+import { Check, ChevronRight, ChevronUp } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,14 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { PHASE_STEP_COUNTS, type RoomPhase } from "@/contracts/phase";
 import type { FacilitationGuideContent } from "../logic/facilitation-guide";
-import { getPhaseLabel } from "../logic/phase-labels";
+import {
+  getPhaseLabel,
+  getPhaseProgressState,
+  getPhaseTitle,
+  PHASE_LABELS,
+  PHASE_NUMBERS,
+} from "../logic/phase-labels";
 import { FacilitationGuide } from "./facilitation-guide";
-
-const PHASE_TITLES = {
-  1: "課題整理",
-  2: "問いの作成",
-  3: "解決策",
-} as const;
 
 const PROGRESS_STEPS = [1, 2, 3, 4, 5] as const;
 
@@ -40,13 +40,10 @@ function getPhaseContext(phase: RoomPhase): {
   }
 
   return {
-    title: PHASE_TITLES[phase.phase],
+    title: getPhaseTitle(phase),
     step: phase.step,
     stepCount: PHASE_STEP_COUNTS[phase.phase],
-    stepLabel:
-      phase.phase === 2 && phase.step === 1
-        ? "問いをつくる"
-        : getPhaseLabel(phase).replace(/^\d+-\d+\s*/, ""),
+    stepLabel: getPhaseLabel(phase).replace(/^\d+-\d+\s*/, ""),
   };
 }
 
@@ -110,20 +107,75 @@ export function BoardContext({
       data-testid="board-context-hud"
       className="board-hud facilitation-guide-material pointer-events-auto min-w-0 shrink-0 overflow-hidden rounded-2xl border border-border bg-background shadow-lg shadow-black/5"
     >
-      <div className="px-4 py-3">
-        <span id="board-current-phase" className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 text-sm font-semibold">
-            {context.title}
+      <nav
+        aria-label="デザインスプリントのフェーズ進行"
+        data-testid="board-phase-progress"
+        className="border-b border-border px-3 py-2.5 sm:px-4"
+      >
+        <ol className="grid grid-cols-3 items-center gap-1">
+          {PHASE_NUMBERS.map((phaseNumber, index) => {
+            const state = getPhaseProgressState(phase, phaseNumber);
+            const markerClassName =
+              state === "current"
+                ? "rounded-full bg-primary text-primary-foreground"
+                : state === "completed"
+                  ? "rounded-md bg-muted-foreground/15 text-foreground"
+                  : "rounded-sm border border-dashed border-border text-muted-foreground";
+            const labelClassName =
+              state === "current"
+                ? "font-semibold text-primary"
+                : state === "completed"
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground";
+
+            return (
+              <li
+                key={`phase-${phaseNumber}`}
+                aria-current={state === "current" ? "step" : undefined}
+                data-phase-state={state}
+                data-testid={`board-phase-${phaseNumber}`}
+                className="flex min-w-0 items-center"
+              >
+                <span
+                  className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[10px] leading-4 sm:gap-1.5 sm:px-1.5 sm:text-xs ${labelClassName}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`flex size-5 shrink-0 items-center justify-center text-[10px] font-semibold leading-none ${markerClassName}`}
+                  >
+                    {state === "completed" ? (
+                      <Check className="size-3" />
+                    ) : (
+                      phaseNumber
+                    )}
+                  </span>
+                  <span className="min-w-0 whitespace-nowrap">
+                    {PHASE_LABELS[phaseNumber]}
+                  </span>
+                </span>
+                {index < PHASE_NUMBERS.length - 1 ? (
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-muted-foreground/70"
+                  />
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+      <div className="px-3 py-3 sm:px-4">
+        <span className="flex items-center gap-2">
+          <span
+            id="board-current-step"
+            data-testid="board-current-step"
+            className="min-w-0 flex-1 text-sm font-semibold"
+          >
+            {context.stepLabel}
           </span>
           <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
             {context.step}/{context.stepCount}
           </span>
-        </span>
-        <span
-          id="board-current-step"
-          className="mt-1 block text-xs leading-4 text-muted-foreground"
-        >
-          {context.stepLabel}
         </span>
         <span
           role="progressbar"
