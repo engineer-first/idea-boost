@@ -26,7 +26,6 @@ import {
   NoteCard,
   NoteGroupCard,
   PrivateNotesToolbar,
-  type RemoteNoteDrag,
   StickyNote,
 } from "@/features/notes";
 import type { BoardPermissions } from "../logic/board-permissions";
@@ -80,7 +79,7 @@ export type RoomBoardCanvasProps = {
   onCanvasPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onPresencePointerLeave: () => void;
+  onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -113,7 +112,6 @@ export type RoomBoardCanvasProps = {
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   remoteCursors: RenderedRemoteCursorPresence[];
-  remoteNoteDrags: RemoteNoteDrag[];
   expandPrivateNotesRequest?: number;
   addPrivateNoteRequest?: number;
 };
@@ -167,7 +165,6 @@ export function RoomBoardCanvas({
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
   remoteCursors,
-  remoteNoteDrags,
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
@@ -228,17 +225,15 @@ export function RoomBoardCanvas({
   }
 
   function renderNoteCard(note: Note, isOnIdeaMap = false) {
-    const activeDragMember = isDisconnected
-      ? undefined
-      : remoteNoteDrags.find((drag) => drag.noteId === note.id)?.draggedBy;
-    const isTemporarilyFront =
-      draggingNoteId === note.id || activeDragMember !== undefined;
+    const isRemoteDrag =
+      !isDisconnected &&
+      remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
+    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
     return (
       <NoteCard
         key={note.id}
         note={note}
         isOwnDrag={draggingNoteId === note.id}
-        activeDragMember={activeDragMember}
         isSelected={selectedNoteId === note.id}
         editingDisabled={isResultStep(phase)}
         canDeleteNote={permissions.canDeleteNote && !note.excluded}
@@ -293,7 +288,7 @@ export function RoomBoardCanvas({
     const isSelectedDecidableNote = canDecide && selectedNote?.id === note.id;
     const isRemoteDrag =
       !isDisconnected &&
-      remoteNoteDrags.some((drag) => drag.noteId === note.id);
+      remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
     const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
 
     return (

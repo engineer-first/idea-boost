@@ -60,6 +60,7 @@ export type UseBoardDragArgs = {
   onNoteDragStart: (noteId: string) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
+  onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
   onPrivateNoteUnpublish: (noteId: string) => void;
 };
@@ -130,6 +131,7 @@ export function useBoardDrag({
   onNoteDragStart,
   onNoteDragMove,
   onNoteDragEnd,
+  onNoteDragCancel,
   onPrivateNotePublish,
   onPrivateNoteUnpublish,
 }: UseBoardDragArgs) {
@@ -472,6 +474,29 @@ export function useBoardDrag({
     ],
   );
 
+  const handlePointerCancel = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const current = dragRef.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      hasNotifiedBlockedRef.current = false;
+      if (current.status === "shared") {
+        onNoteDragCancel(current.note.id);
+      }
+      boardRootRef.current?.releasePointerCapture?.(event.pointerId);
+      updateDrag(null);
+    },
+    [boardRootRef, onNoteDragCancel, updateDrag],
+  );
+
+  const cancelCurrentNoteDrag = useCallback(() => {
+    const current = dragRef.current;
+    if (current?.status !== "shared") return;
+    hasNotifiedBlockedRef.current = false;
+    onNoteDragCancel(current.note.id);
+    boardRootRef.current?.releasePointerCapture?.(current.pointerId);
+    updateDrag(null);
+  }, [boardRootRef, onNoteDragCancel, updateDrag]);
+
   return {
     drag,
     renderedNotes,
@@ -480,5 +505,7 @@ export function useBoardDrag({
     handlePrivateDragStart,
     handlePointerMove,
     handlePointerEnd,
+    handlePointerCancel,
+    cancelCurrentNoteDrag,
   };
 }

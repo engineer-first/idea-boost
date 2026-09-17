@@ -116,7 +116,9 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:unpublish":
     case "note:update-content":
     case "note:move":
-    case "note:drag":
+    case "note:drag:start":
+    case "note:drag:move":
+    case "note:drag:end":
     case "note:exclude":
     case "note:restore":
     case "note:delete":
@@ -156,9 +158,18 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
-      "note:drag",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
-    3: ["note:move", "note:drag", "group:create", "group:update-name"],
+    3: [
+      "note:move",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
+      "group:create",
+      "group:update-name",
+    ],
     4: [
       "note:vote",
       "note:vote-reset",
@@ -179,7 +190,9 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
-      "note:drag",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
     3: [
       "note:vote",
@@ -198,9 +211,11 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
-      "note:drag",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
-    3: ["note:move", "note:drag"],
+    3: ["note:move", "note:drag:start", "note:drag:move", "note:drag:end"],
     4: [
       "note:vote",
       "note:vote-reset",
@@ -217,12 +232,14 @@ function isIdeaValueFeasibilityMapPositionMessage(
   message: ClientMessage,
 ): message is Extract<
   ClientMessage,
-  { type: "note:publish" | "note:move" | "note:drag" }
+  {
+    type: "note:publish" | "note:move" | "note:drag:move";
+  }
 > {
   return (
     message.type === "note:publish" ||
     message.type === "note:move" ||
-    message.type === "note:drag"
+    message.type === "note:drag:move"
   );
 }
 
@@ -371,6 +388,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       savePhase(ctx.sql, next);
       timerWasReset = resetTimerState(ctx.sql);
     });
+    ctx.broadcaster.retireAllActiveDrags();
     if (timerWasReset) {
       await ctx.storage.deleteAlarm();
     }

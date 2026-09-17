@@ -27,7 +27,7 @@ export function RemoteCursor({
       data-dragging-note-id={cursor.draggingNoteId ?? undefined}
       className={cn(
         "pointer-events-none absolute z-50 size-0 transition-[transform,left,bottom,opacity] duration-100 ease-out motion-reduce:transition-none",
-        isIdle && "opacity-40",
+        isIdle && !cursor.draggingNoteId && "opacity-40",
         className,
       )}
       style={{
@@ -47,11 +47,6 @@ export function RemoteCursor({
         }}
       >
         <span className="truncate">{cursor.name || "名前未設定"}</span>
-        {cursor.draggingNoteId ? (
-          <span className="shrink-0 text-[10px] text-slate-700">
-            付箋を移動中
-          </span>
-        ) : null}
       </div>
     </div>
   );

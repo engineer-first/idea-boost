@@ -71,6 +71,7 @@ const INTERACTIONS: RoomBoardInteractions = {
   onFitToNotes: fn(),
   onPointerMove: fn(),
   onPointerEnd: fn(),
+  onPointerCancel: fn(),
   onNoteDragStart: fn(),
   onPrivateNoteDragStart: fn(),
 };
@@ -145,7 +146,6 @@ const meta = {
     onTimerExtend: fn(),
     onTimerStop: fn(),
     remoteCursors: [],
-    remoteNoteDrags: [],
   },
   decorators: [
     (Story) => (

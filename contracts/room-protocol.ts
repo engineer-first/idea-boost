@@ -5,7 +5,7 @@
 // 設計上の不変条件:
 // - authorId を書き換えるメッセージは存在しない（構造的に不可能にする）。
 // - roomId はプロトコルに現れない（1 RoomDO = 1 ルーム）。
-// - note:drag は永続化されない一時データ。確定は note:move だけが行う。
+// - 共有付箋のドラッグは UUID の dragId で相関し、RoomDO が排他所有する。
 //
 // フェーズモデル:
 // - lobby: 開始前ロビー（メンバー確認・招待）。
@@ -185,6 +185,8 @@ const NotePositionSchema = {
   y: CanvasCoordinateSchema,
 };
 
+export const NoteDragIdSchema = z.string().uuid();
+
 // ---------------------------------------------------------------
 // クライアント → サーバー
 // ---------------------------------------------------------------
@@ -228,10 +230,25 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     noteId: z.string().uuid(),
     ...NotePositionSchema,
   }),
+  z
+    .object({
+      type: z.literal("note:drag:start"),
+      noteId: z.string().uuid(),
+      dragId: NoteDragIdSchema,
+    })
+    .strict(),
   z.object({
-    type: z.literal("note:drag"),
+    type: z.literal("note:drag:move"),
     noteId: z.string().uuid(),
+    dragId: NoteDragIdSchema,
     ...NotePositionSchema,
+  }),
+  z.object({
+    type: z.literal("note:drag:end"),
+    noteId: z.string().uuid(),
+    dragId: NoteDragIdSchema,
+    // null は pointer cancel。最後にサーバーが受理した座標を維持する。
+    position: z.object(NotePositionSchema).nullable(),
   }),
   z.object({
     type: z.literal("note:exclude"),
@@ -360,13 +377,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("note:deleted"), noteId: z.string().uuid() }),
   z.object({
-    type: z.literal("note:drag"),
-    noteId: z.string().uuid(),
-    x: CanvasCoordinateSchema,
-    y: CanvasCoordinateSchema,
-    // クライアント入力には含めず、RoomDO が認証済みソケットから付与する。
-    // 付箋の author と現在の移動者は一致するとは限らない。
-    draggedBy: MemberSchema,
+    type: z.literal("note:drag:result"),
+    dragId: NoteDragIdSchema,
+    accepted: z.boolean(),
   }),
   z.object({
     type: z.literal("group:updated"),
@@ -392,6 +405,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     })
     .strict(),
   z.object({ type: z.literal("cursor:updated"), cursor: CursorPresenceSchema }),
+  z.object({
+    type: z.literal("cursor:drag-ended"),
+    userId: z.string().uuid(),
+  }),
   z.object({ type: z.literal("cursor:left"), userId: z.string().uuid() }),
   // start_phase 成功時（ロビー離脱）にも phase:next 成功時にも使う。
   z.object({

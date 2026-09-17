@@ -10,7 +10,7 @@
 // 画面反応（強制進行ダイアログ）」というボード画面固有の配線だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
 import { isHmwWritingStep } from "@/features/hmw";
@@ -240,11 +240,22 @@ export function RoomBoard({
     onNoteDragStart: notes.startNoteDrag,
     onNoteDragMove: notes.moveNote,
     onNoteDragEnd: notes.endNoteDrag,
+    onNoteDragCancel: notes.cancelNoteDrag,
     onPrivateNotePublish: notes.publishNote,
     onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
   });
+
+  useEffect(() => {
+    if (connectionStatus === "open") return;
+    notes.cancelNoteDrag();
+    boardInteractions.cancelCurrentNoteDrag();
+  }, [
+    boardInteractions.cancelCurrentNoteDrag,
+    connectionStatus,
+    notes.cancelNoteDrag,
+  ]);
 
   return (
     <>
@@ -277,7 +288,6 @@ export function RoomBoard({
         help={help}
         enableGuideModal={enableGuideModal}
         remoteCursors={cursorPresence.remoteCursors}
-        remoteNoteDrags={notes.remoteNoteDrags}
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}

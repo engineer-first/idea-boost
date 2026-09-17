@@ -4,6 +4,25 @@ import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { RemoteCursor } from "./remote-cursor";
 
 describe("RemoteCursor", () => {
+  it("ドラッグ中は通常の名前だけを表示し、idle でも薄くしない", () => {
+    const cursor = {
+      userId: "22222222-2222-4222-8222-222222222222",
+      name: "Taro",
+      color: "green" as const,
+      x: 100,
+      y: 200,
+      draggingNoteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      lastSeenAt: 1_000,
+    };
+    render(<RemoteCursor cursor={cursor} isIdle />);
+
+    expect(screen.getByText(cursor.name)).toBeVisible();
+    expect(screen.queryByText("付箋を移動中")).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId(`remote-cursor-${cursor.userId}`),
+    ).not.toHaveClass("opacity-40");
+  });
+
   it("名前・色・操作対象を色だけに依存せず表示し、操作を妨げない", () => {
     render(
       <RemoteCursor
@@ -24,13 +43,14 @@ describe("RemoteCursor", () => {
     const cursor = screen.getByTestId(
       "remote-cursor-22222222-2222-4222-8222-222222222222",
     );
-    expect(cursor).toHaveClass("pointer-events-none", "size-0", "opacity-40");
+    expect(cursor).toHaveClass("pointer-events-none", "size-0");
+    expect(cursor).not.toHaveClass("opacity-40");
     expect(cursor).toHaveAttribute(
       "data-dragging-note-id",
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
     expect(screen.getByText(/Very Long Participant Name/)).toBeInTheDocument();
-    expect(screen.getByText("付箋を移動中")).toBeInTheDocument();
+    expect(screen.queryByText("付箋を移動中")).not.toBeInTheDocument();
   });
 
   it("ドラッグしていない間は操作対象を表示せず、通常の濃さで表示する", () => {

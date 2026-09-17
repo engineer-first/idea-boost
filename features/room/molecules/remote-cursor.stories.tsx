@@ -37,6 +37,7 @@ export const DraggingSharedNote: Story = {
       ...meta.args.cursor,
       draggingNoteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     },
+    isIdle: true,
   },
 };
 

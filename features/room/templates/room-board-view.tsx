@@ -28,7 +28,7 @@ import {
   type TimerState,
 } from "@/contracts/room-protocol";
 import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
-import type { Note, RemoteNoteDrag } from "@/features/notes";
+import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
@@ -67,7 +67,6 @@ export type RoomBoardViewProps = {
   initialGuideExpanded?: boolean;
   enableGuideModal?: boolean;
   remoteCursors: RenderedRemoteCursorPresence[];
-  remoteNoteDrags: RemoteNoteDrag[];
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
@@ -150,7 +149,6 @@ export function RoomBoardView({
   interactions,
   help,
   remoteCursors,
-  remoteNoteDrags,
   signOutAction,
   hmwDecidedIssue,
   decidedHmw,
@@ -409,6 +407,9 @@ export function RoomBoardView({
       return;
     }
     handlePointerMove(event);
+    if (isNoteDragging) {
+      handlePresencePointerMove(event);
+    }
   }
 
   function handleRootPointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
@@ -529,7 +530,10 @@ export function RoomBoardView({
       setIsVoteStickerReturnDropTarget(false);
       return;
     }
-    handlePointerEnd(event);
+    if (isNoteDragging) {
+      handlePresencePointerLeave(event);
+    }
+    handlePointerCancel(event);
   }
 
   useEffect(() => {
@@ -565,6 +569,7 @@ export function RoomBoardView({
     onFitToNotes: fitToNotes,
     onPointerMove: handlePointerMove,
     onPointerEnd: handlePointerEnd,
+    onPointerCancel: handlePointerCancel,
     onPresencePointerMove: handlePresencePointerMove,
     onPresencePointerLeave: handlePresencePointerLeave,
     onNoteDragStart: handleSharedNoteDragStart,
@@ -699,7 +704,6 @@ export function RoomBoardView({
         onPrivateNoteDelete={onPrivateNoteDelete}
         onPrivateNoteDragStart={handlePrivateDragStart}
         remoteCursors={remoteCursors}
-        remoteNoteDrags={remoteNoteDrags}
         expandPrivateNotesRequest={privateNotesOpenRequest}
         addPrivateNoteRequest={privateNotesOpenRequest}
       />

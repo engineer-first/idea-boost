@@ -32,6 +32,7 @@ export type UseRoomBoardInteractionsArgs = {
   onNoteDragStart: (noteId: string) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
+  onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
   onPrivateNoteUnpublish: (noteId: string) => void;
   onCursorMove: (
@@ -63,8 +64,9 @@ export type RoomBoardInteractions = {
   onFitToNotes: () => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onPresencePointerLeave: () => void;
+  onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onNoteDragStart: (
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
@@ -84,6 +86,7 @@ export function useRoomBoardInteractions({
   onNoteDragStart,
   onNoteDragMove,
   onNoteDragEnd,
+  onNoteDragCancel,
   onPrivateNotePublish,
   onPrivateNoteUnpublish,
   onCursorMove,
@@ -136,6 +139,8 @@ export function useRoomBoardInteractions({
     handlePrivateDragStart,
     handlePointerMove,
     handlePointerEnd,
+    handlePointerCancel,
+    cancelCurrentNoteDrag,
   } = useBoardDrag({
     notes,
     privateNotes,
@@ -154,6 +159,7 @@ export function useRoomBoardInteractions({
     onNoteDragStart,
     onNoteDragMove,
     onNoteDragEnd,
+    onNoteDragCancel,
     onPrivateNotePublish,
     onPrivateNoteUnpublish,
   });
@@ -221,7 +227,12 @@ export function useRoomBoardInteractions({
       onCursorLeave();
       return;
     }
-    onCursorMove(point, drag?.status === "shared" ? drag.note.id : null);
+    onCursorMove(
+      point,
+      drag?.status === "shared" && draggingNoteId === drag.note.id
+        ? drag.note.id
+        : null,
+    );
   };
 
   const handleBoardPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -234,6 +245,23 @@ export function useRoomBoardInteractions({
       onCursorLeave();
     }
   };
+
+  function handlePresencePointerLeave(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    const toolbarBounds = privateToolbarRef.current?.getBoundingClientRect();
+    if (
+      toolbarBounds &&
+      event.clientX >= toolbarBounds.left &&
+      event.clientX <= toolbarBounds.right &&
+      event.clientY >= toolbarBounds.top &&
+      event.clientY <= toolbarBounds.bottom
+    ) {
+      return;
+    }
+    onCursorLeave();
+    cancelCurrentNoteDrag();
+  }
 
   return {
     boardRootRef,
@@ -258,8 +286,9 @@ export function useRoomBoardInteractions({
     onFitToNotes: fitToNotes,
     onPointerMove: handlePointerMove,
     onPointerEnd: handleBoardPointerEnd,
+    onPointerCancel: handlePointerCancel,
     onPresencePointerMove: handlePresencePointerMove,
-    onPresencePointerLeave: onCursorLeave,
+    onPresencePointerLeave: handlePresencePointerLeave,
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: handlePrivateDragStart,
   };
