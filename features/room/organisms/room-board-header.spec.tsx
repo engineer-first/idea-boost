@@ -202,6 +202,27 @@ describe("RoomBoardHeader", () => {
     ).toBeVisible();
   });
 
+  it("投票完了者のアバターにチェックを表示する", () => {
+    const members = buildMembers(2, ME);
+    setup({
+      members,
+      completedVoterIds: [members[0]?.userId ?? ""],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+
+    expect(
+      within(
+        screen.getByTestId(`member-row-${members[0]?.userId}`),
+      ).getByTestId("member-voting-complete"),
+    ).toBeVisible();
+    expect(
+      within(
+        screen.getByTestId(`member-row-${members[1]?.userId}`),
+      ).queryByTestId("member-voting-complete"),
+    ).not.toBeInTheDocument();
+  });
+
   it("非 host の idle タイマー枠を操作UIなしで操作グループ内に表示する", () => {
     setup({ isHost: false, timer: { status: "idle" } });
 

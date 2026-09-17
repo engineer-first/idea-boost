@@ -5,7 +5,7 @@ import {
   NOTE_SPAWN_X_MIN,
   NOTE_SPAWN_Y_MIN,
 } from "../../contracts/board";
-import { isPhaseStep } from "../../contracts/phase";
+import { isPhaseStep, isVotingStep } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
 import { autoReorganize } from "./groups";
 import {
@@ -39,12 +39,28 @@ import {
   countUserNoteVotes,
   deleteNoteVotes,
   findVoteSticker,
+  hasCompletedVoting,
   hasReachedVoteLimit,
   moveVoteSticker,
   removeOneUserNoteVote,
   removeUserNoteVotes,
   removeVoteSticker,
 } from "./votes";
+
+function broadcastVotingStatusIfChanged(
+  ctx: HandlerCtx,
+  wasComplete: boolean,
+): void {
+  const phase = getPhase(ctx.sql);
+  if (phase.kind !== "step" || !isVotingStep(phase)) return;
+  const isComplete = hasCompletedVoting(ctx.sql, ctx.userId, phase.phase);
+  if (isComplete === wasComplete) return;
+  ctx.broadcaster.broadcastToAll({
+    type: "member_vote_status",
+    userId: ctx.userId,
+    isComplete,
+  });
+}
 
 function autoReorganizeAtGroupingStep(ctx: HandlerCtx): void {
   if (isPhaseStep(getPhase(ctx.sql), 1, 3)) {
@@ -267,6 +283,7 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    const wasComplete = hasCompletedVoting(ctx.sql, ctx.userId, phase.phase);
 
     const ownCount = countUserNoteVotes(
       ctx.sql,
@@ -298,6 +315,7 @@ export const noteHandlers: MessageHandlers<
       ctx.userId,
       message.operationId,
     );
+    broadcastVotingStatusIfChanged(ctx, wasComplete);
   },
 
   "note:vote-reset": (ctx, message) => {
@@ -307,6 +325,11 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+
+    const phase = getPhase(ctx.sql);
+    const wasComplete =
+      phase.kind === "step" &&
+      hasCompletedVoting(ctx.sql, ctx.userId, phase.phase);
 
     removeUserNoteVotes(ctx.sql, message.noteId, ctx.userId, message.kind);
 
@@ -319,6 +342,7 @@ export const noteHandlers: MessageHandlers<
       ctx.userId,
       message.operationId,
     );
+    broadcastVotingStatusIfChanged(ctx, wasComplete);
   },
 
   "note:vote-remove": (ctx, message) => {
@@ -328,6 +352,11 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+
+    const phase = getPhase(ctx.sql);
+    const wasComplete =
+      phase.kind === "step" &&
+      hasCompletedVoting(ctx.sql, ctx.userId, phase.phase);
 
     if (
       !removeOneUserNoteVote(ctx.sql, message.noteId, ctx.userId, message.kind)
@@ -349,6 +378,7 @@ export const noteHandlers: MessageHandlers<
       ctx.userId,
       message.operationId,
     );
+    broadcastVotingStatusIfChanged(ctx, wasComplete);
   },
 
   "note:vote-sticker:add": (ctx, message) => {
@@ -363,6 +393,7 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    const wasComplete = hasCompletedVoting(ctx.sql, ctx.userId, phase.phase);
     const existing = findVoteSticker(ctx.sql, message.stickerId);
     if (existing) {
       const isSameSticker =
@@ -426,6 +457,7 @@ export const noteHandlers: MessageHandlers<
       ctx.userId,
       message.operationId,
     );
+    broadcastVotingStatusIfChanged(ctx, wasComplete);
   },
 
   "note:vote-sticker:move": (ctx, message) => {
@@ -484,6 +516,11 @@ export const noteHandlers: MessageHandlers<
       return;
     }
 
+    const phase = getPhase(ctx.sql);
+    const wasComplete =
+      phase.kind === "step" &&
+      hasCompletedVoting(ctx.sql, ctx.userId, phase.phase);
+
     removeVoteSticker(ctx.sql, message.stickerId);
     const updatedAt = new Date().toISOString();
     touchNote(ctx.sql, row.id, updatedAt);
@@ -494,5 +531,6 @@ export const noteHandlers: MessageHandlers<
       ctx.userId,
       message.operationId,
     );
+    broadcastVotingStatusIfChanged(ctx, wasComplete);
   },
 };

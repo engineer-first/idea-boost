@@ -14,6 +14,7 @@ import {
   applyMemberServerMessage,
   applyPhaseServerMessage,
   applyTimerServerMessage,
+  applyVotingCompletionServerMessage,
   type Carryover,
   type Decision,
   type Member,
@@ -27,6 +28,7 @@ export type UseRoomStateResult = {
   carryovers: Carryover[];
   timer: TimerState;
   timerServerOffsetMs: number;
+  completedVoterIds: string[];
   applyMessage: (message: ServerMessage, receivedAt?: number) => void;
 };
 
@@ -39,6 +41,7 @@ export function useRoomState(options: {
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
   const [decision, setDecision] = useState<Decision | null>(null);
   const [carryovers, setCarryovers] = useState<Carryover[]>([]);
+  const [completedVoterIds, setCompletedVoterIds] = useState<string[]>([]);
   const [timerState, setTimerState] = useState<TimerClientState>({
     timer: { status: "idle" },
     serverOffsetMs: 0,
@@ -69,6 +72,9 @@ export function useRoomState(options: {
       setPhase((current) => applyPhaseServerMessage(current, message));
       setDecision((current) => applyDecisionServerMessage(current, message));
       setCarryovers((current) => applyCarryoverServerMessage(current, message));
+      setCompletedVoterIds((current) =>
+        applyVotingCompletionServerMessage(current, message),
+      );
       setTimerState((current) =>
         applyTimerServerMessage(current, message, receivedAt),
       );
@@ -83,6 +89,7 @@ export function useRoomState(options: {
     carryovers,
     timer: timerState.timer,
     timerServerOffsetMs: timerState.serverOffsetMs,
+    completedVoterIds,
     applyMessage,
   };
 }

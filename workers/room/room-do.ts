@@ -16,7 +16,7 @@
 // ハイバネーションでインメモリ状態は消える（次のイベントで constructor が再実行
 // される）ため、状態は毎回 SQL から導出し、各モジュールにキャッシュを持たせない。
 import { DurableObject } from "cloudflare:workers";
-import type { RoomPhase } from "../../contracts/phase";
+import { isVotingStep, type RoomPhase } from "../../contracts/phase";
 import {
   type ClientMessage,
   type ProtocolMember,
@@ -57,6 +57,7 @@ import {
 } from "./phase";
 import { presenceHandlers } from "./presence";
 import { getTimerState, timerHandlers } from "./timer";
+import { listCompletedVoterIds } from "./votes";
 
 // api-worker がセッション検証済みのユーザーIDを DO へ引き継ぐヘッダー。
 // DO は外部から直接到達できないため、これは常に api-worker が設定する。
@@ -386,6 +387,10 @@ export class RoomDO extends DurableObject {
         phase.kind === "step" ? getDecision(this.sql, phase.phase) : null,
       carryovers:
         phase.kind === "step" ? getCarryovers(this.sql, phase.phase) : [],
+      completedVoterIds:
+        phase.kind === "step" && isVotingStep(phase)
+          ? listCompletedVoterIds(this.sql, phase.phase)
+          : [],
       timer: getTimerState(this.sql),
       serverNow: Date.now(),
     });

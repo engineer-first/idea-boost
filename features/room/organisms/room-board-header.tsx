@@ -40,6 +40,7 @@ export type RoomBoardHeaderProps = {
   members: Member[];
   currentUserId: string;
   hostUserId: string;
+  completedVoterIds?: ReadonlyArray<string>;
   isNextPhasePending: boolean;
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
@@ -77,6 +78,7 @@ export function RoomBoardHeader({
   members,
   currentUserId,
   hostUserId,
+  completedVoterIds = [],
   isNextPhasePending,
   isNextPhaseBlocked,
   isGuideExpanded,
@@ -170,6 +172,9 @@ export function RoomBoardHeader({
                         color={member.color}
                         size={28}
                         isMe={member.userId === currentUserId}
+                        isVotingComplete={completedVoterIds.includes(
+                          member.userId,
+                        )}
                       />
                     </span>
                   ))}
@@ -217,6 +222,9 @@ export function RoomBoardHeader({
                       color={member.color}
                       size={32}
                       isMe={member.userId === currentUserId}
+                      isVotingComplete={completedVoterIds.includes(
+                        member.userId,
+                      )}
                     />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {member.name}

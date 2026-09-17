@@ -15,6 +15,9 @@ export type NoteProjectionContext = VisibilityContext & {
   phase: RoomPhase;
 };
 
+// 投票中に全員へ共有できるのは完了状態だけ。投票先・票種別ごとの残数・
+// カーソル位置は note の射影や presence の配信経路から引き続き除外する。
+
 // note は判定が実際に依存するフィールドだけを要求する。
 // これにより DB の行形式（NoteRow）からも dotVotes 等の射影を
 // 経由せずに呼べ、操作認可の述語（workers/room/notes.ts）も

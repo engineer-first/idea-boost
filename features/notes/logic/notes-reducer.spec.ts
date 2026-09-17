@@ -61,6 +61,7 @@ describe("applyServerMessage", () => {
       isHost: false,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_000,
     };
@@ -81,6 +82,7 @@ describe("applyServerMessage", () => {
       isHost: false,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_000,
     };

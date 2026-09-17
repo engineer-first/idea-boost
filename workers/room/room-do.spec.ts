@@ -1027,6 +1027,11 @@ describe("RoomDO phase:next", () => {
       );
       expect(await nextJson(ws)).toMatchObject({ type: "note:updated" });
     }
+    expect(await nextJson(ws)).toMatchObject({
+      type: "member_vote_status",
+      userId: USER_A,
+      isComplete: true,
+    });
 
     ws.send(JSON.stringify({ type: "phase:next" }));
     expect(await nextJson(ws)).toMatchObject({
@@ -1174,6 +1179,10 @@ describe("RoomDO phase:next", () => {
 
     ws.send(JSON.stringify({ type: "phase:next" }));
     expect(await nextJson(ws)).toMatchObject({
+      type: "snapshot",
+      phase: buildPhaseStep(4, 3),
+    });
+    expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
       phase: buildPhaseStep(4, 3),
     });
@@ -1196,6 +1205,11 @@ describe("RoomDO phase:next", () => {
       );
       expect(await nextJson(ws)).toMatchObject({ type: "note:updated" });
     }
+    expect(await nextJson(ws)).toMatchObject({
+      type: "member_vote_status",
+      userId: USER_A,
+      isComplete: true,
+    });
 
     ws.send(JSON.stringify({ type: "phase:next" }));
     expect(await nextJson(ws)).toMatchObject({
