@@ -89,6 +89,33 @@ export const ZeroVotes: Story = {
   },
 };
 
+export const ExcludedCandidate: Story = {
+  args: {
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      excluded: index === 0,
+      dotVotes: {
+        subjective: {
+          count: index === 0 ? 3 : 1,
+          votedByMe: false,
+          ownCount: 0,
+        },
+        objective: {
+          count: index === 0 ? 3 : 0,
+          votedByMe: false,
+          ownCount: 0,
+        },
+      },
+    })),
+  },
+};
+
+export const NoCandidates: Story = {
+  args: {
+    notes: buildNotes(2).map((note) => ({ ...note, excluded: true })),
+  },
+};
+
 export const DarkMode: Story = {
   globals: { theme: "dark" },
 };

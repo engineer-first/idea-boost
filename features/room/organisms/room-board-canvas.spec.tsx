@@ -257,6 +257,44 @@ describe("RoomBoardCanvas", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("決定ステップで候補が0件なら空状態を示し、ゴーストは同じ場所に残す", () => {
+    const phase = buildPhaseStep(5);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      notes: [buildNote({ id: "note-1", excluded: true, x: 120, y: 240 })],
+    });
+
+    expect(
+      screen.getByText("候補がありません。候補外の付箋を戻してください。"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("note-card")).toHaveStyle({
+      left: "120px",
+      top: "240px",
+    });
+  });
+
+  it("通常候補を候補外より後に描画し、明示したz-indexで前面に保つ", () => {
+    const phase = buildPhaseStep(5);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      notes: [
+        buildNote({ id: "active", excluded: false }),
+        buildNote({ id: "excluded", excluded: true }),
+      ],
+    });
+
+    const cards = screen.getAllByTestId("note-card");
+    expect(cards.map((card) => card.dataset.noteId)).toEqual([
+      "excluded",
+      "active",
+    ]);
+    expect(cards[0]).toHaveClass("z-0");
+    expect(cards[1]).toHaveClass("z-10");
+  });
+
   it("ボード背景を直接押すと onSelect(null) で選択を解除する", () => {
     const onSelect = vi.fn();
     setup({ onSelect });

@@ -26,6 +26,7 @@ const notifyMocks = vi.hoisted(() => ({
   memberLeft: vi.fn(),
   roomDisbanded: vi.fn(),
   error: vi.fn(),
+  noteExcluded: vi.fn(),
 }));
 
 vi.mock("@/lib/notify", () => ({
@@ -41,6 +42,7 @@ vi.mock("../logic/room-notify", () => ({
     roomDisbanded: notifyMocks.roomDisbanded,
     roomLeft: vi.fn(),
     roomDisbandedBySelf: vi.fn(),
+    noteExcluded: notifyMocks.noteExcluded,
   },
 }));
 
@@ -134,6 +136,7 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
     authorId: USER_ID,
     content: "最初の付箋",
     visibility: "shared",
+    excluded: false,
     color: "yellow",
     x: 100,
     y: 100,
@@ -300,6 +303,7 @@ afterEach(() => {
   notifyMocks.memberLeft.mockReset();
   notifyMocks.roomDisbanded.mockReset();
   notifyMocks.error.mockReset();
+  notifyMocks.noteExcluded.mockReset();
 });
 
 describe("メンバー参加・退出の通知", () => {
@@ -615,6 +619,96 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
     );
+  });
+
+  it("結果ステップのホストが右クリックメニューから候補外にし、通知のUndoで復帰する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+
+    fireEvent.contextMenu(
+      within(screen.getByTestId("note-card")).getByRole("button", {
+        name: "付箋",
+      }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "候補から外す" }));
+
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }),
+    );
+    expect(notifyMocks.noteExcluded).toHaveBeenCalledTimes(1);
+    const undo = notifyMocks.noteExcluded.mock.calls[0]?.[0];
+    if (typeof undo !== "function") throw new Error("Undo がありません");
+    undo();
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "note:restore", noteId: NOTE_ID }),
+    );
+  });
+
+  it("復帰後の古いUndoと再除外後の一代前のUndoは別操作を巻き戻さない", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
+    const firstUndo = notifyMocks.noteExcluded.mock.calls[0]?.[0];
+    if (typeof firstUndo !== "function") throw new Error("Undo がありません");
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: protocolNote({ excluded: true }),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "候補に戻す" }));
+    const restoreCountAfterExplicitRestore = socket.sent.filter(
+      (message) => JSON.parse(message).type === "note:restore",
+    ).length;
+    firstUndo();
+    expect(
+      socket.sent.filter(
+        (message) => JSON.parse(message).type === "note:restore",
+      ),
+    ).toHaveLength(restoreCountAfterExplicitRestore);
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: protocolNote({ excluded: false }),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
+    const secondUndo = notifyMocks.noteExcluded.mock.calls[1]?.[0];
+    if (typeof secondUndo !== "function")
+      throw new Error("2回目のUndoがありません");
+
+    firstUndo();
+    expect(
+      socket.sent.filter(
+        (message) => JSON.parse(message).type === "note:restore",
+      ),
+    ).toHaveLength(restoreCountAfterExplicitRestore);
+    secondUndo();
+    expect(
+      socket.sent.filter(
+        (message) => JSON.parse(message).type === "note:restore",
+      ),
+    ).toHaveLength(restoreCountAfterExplicitRestore + 1);
+  });
+
+  it("結果ステップの非ホストは候補外付箋の復帰操作を見られない", () => {
+    connectWithSnapshot([protocolNote({ excluded: true })], {
+      phase: buildPhaseStep(5),
+      isHost: false,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+
+    expect(screen.getByText("候補外")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
   });
 
   it("note:inserted で付箋が追加される", () => {

@@ -90,6 +90,8 @@ export type RoomBoardCanvasProps = {
   ) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteExclude?: (noteId: string) => void;
+  onNoteRestore?: (noteId: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
   onNoteVoteRemove: (noteId: string, kind: DotVoteKind) => void;
   onNoteVoteStickerRemove: (stickerId: string) => void;
@@ -149,6 +151,8 @@ export function RoomBoardCanvas({
   onNoteDragStart,
   onNoteContentChange,
   onNoteDelete,
+  onNoteExclude = () => undefined,
+  onNoteRestore = () => undefined,
   onNoteVote,
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
@@ -168,6 +172,11 @@ export function RoomBoardCanvas({
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? calculateRenderGroups(notes, groups)
     : [];
+  // 候補外を先に描き、通常候補を後から重ねる。z-index も NoteCard / map wrapper
+  // で明示し、入力順が変わっても候補外が前面へ戻らないようにする。
+  const orderedNotes = [...notes].sort(
+    (left, right) => Number(right.excluded) - Number(left.excluded),
+  );
   const voteDisplayMode = isVotingStep(phase)
     ? "voting"
     : isResultStep(phase)
@@ -179,7 +188,8 @@ export function RoomBoardCanvas({
       isHost &&
       !isDisconnected &&
       isResultStep(phase) &&
-      decision?.noteId !== selectedNote.id,
+      decision?.noteId !== selectedNote.id &&
+      !selectedNote.excluded,
   );
   // アイデア個人執筆中は2軸マップを表示せず、共有する Step3-2 から表示する。
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
@@ -227,15 +237,19 @@ export function RoomBoardCanvas({
         activeDragMember={activeDragMember}
         isSelected={selectedNoteId === note.id}
         editingDisabled={isResultStep(phase)}
-        canDeleteNote={permissions.canDeleteNote}
-        canEditNote={permissions.canEditNote}
-        canMoveNote={permissions.canMoveNote}
+        canDeleteNote={permissions.canDeleteNote && !note.excluded}
+        canEditNote={permissions.canEditNote && !note.excluded}
+        canMoveNote={permissions.canMoveNote && !note.excluded}
+        canExcludeNote={isHost && permissions.canExcludeNote && !note.excluded}
+        canRestoreNote={isHost && permissions.canRestoreNote && note.excluded}
         isDecided={decision?.noteId === note.id}
         disabled={isDisconnected}
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
         onDelete={handleNoteDelete}
+        onExclude={onNoteExclude}
+        onRestore={onNoteRestore}
         vote={{
           displayMode: voteDisplayMode,
           selectedKind: selectedVoteKind,
@@ -265,7 +279,7 @@ export function RoomBoardCanvas({
     return (
       <div
         key={note.id}
-        className="pointer-events-auto absolute z-10"
+        className={`pointer-events-auto absolute ${note.excluded ? "z-0" : "z-10"}`}
         data-testid={`idea-value-feasibility-map-note-${note.id}`}
         style={position}
       >
@@ -339,7 +353,7 @@ export function RoomBoardCanvas({
           >
             {isIdeaValueFeasibilityMapVisible ? (
               <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
-                {notes.map(renderIdeaMapNote)}
+                {orderedNotes.map(renderIdeaMapNote)}
                 {renderIdeaMapDragGhost()}
                 {remoteCursors.map((cursor) => (
                   <RemoteCursor
@@ -378,8 +392,17 @@ export function RoomBoardCanvas({
             })}
 
             {!isIdeaValueFeasibilityMapVisible
-              ? notes.map((note) => renderNoteCard(note))
+              ? orderedNotes.map((note) => renderNoteCard(note))
               : null}
+            {isResultStep(phase) &&
+            notes.filter((note) => !note.excluded).length === 0 ? (
+              <div
+                role="status"
+                className="absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-lg border bg-background/95 px-5 py-3 text-sm font-semibold shadow-md"
+              >
+                候補がありません。候補外の付箋を戻してください。
+              </div>
+            ) : null}
             {!isIdeaValueFeasibilityMapVisible && canDecide && selectedNote ? (
               <DecideNoteAction
                 x={

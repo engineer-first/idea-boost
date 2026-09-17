@@ -134,6 +134,40 @@ describe("calculateVoteTotaling", () => {
 });
 
 describe("VoteTotalingPanel", () => {
+  it("候補外付箋を集計・件数・決定対象から除外する", () => {
+    const included = withVotes(buildNote({ id: "note-1" }), 1, 0);
+    const excluded = withVotes(
+      buildNote({ id: "note-2", excluded: true } as never),
+      3,
+      3,
+    );
+
+    const result = calculateVoteTotaling({
+      notes: [included, excluded],
+      memberCount: 1,
+      isVotingComplete: true,
+    });
+
+    expect(result.rows.map((row) => row.noteId)).toEqual(["note-1"]);
+    expect(result.candidateCount).toBe(1);
+  });
+
+  it("候補が0件なら空状態を示し、ホストにも決定操作を出さない", () => {
+    render(
+      <VoteTotalingPanel
+        isVotingComplete
+        members={buildMembers(1, ME)}
+        notes={[buildNote({ id: "note-1", excluded: true } as never)]}
+        decision={null}
+        isHost
+        isDisconnected={false}
+        onNoteDecide={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("候補がありません")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /決定/ })).toBeNull();
+  });
   it("配点の根拠と合計式を結果画面に表示する", () => {
     const [note] = buildNotes(1);
 

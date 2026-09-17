@@ -191,6 +191,16 @@ describe("NoteSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("候補外状態を受け入れ、旧形式の付箋は候補として補完する", () => {
+    expect(
+      NoteSchema.parse({ ...note, visibility: "shared", excluded: true })
+        .excluded,
+    ).toBe(true);
+    expect(NoteSchema.parse({ ...note, visibility: "shared" }).excluded).toBe(
+      false,
+    );
+  });
 });
 
 describe("ServerMessageSchema", () => {
@@ -436,6 +446,33 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it.each([
+    "note:exclude",
+    "note:restore",
+  ])("%s は付箋IDだけを受け入れ、認可情報を受け取らない", (type) => {
+    expect(
+      ClientMessageSchema.parse({
+        type,
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        authorId: USER_B,
+        isHost: true,
+        x: 999,
+        y: 999,
+      }),
+    ).toEqual({
+      type,
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+  });
+
+  it.each([
+    "note:exclude",
+    "note:restore",
+  ])("%s はUUIDでない付箋IDを拒否する", (type) => {
+    expect(
+      ClientMessageSchema.safeParse({ type, noteId: "not-a-uuid" }).success,
+    ).toBe(false);
+  });
   it("note:drag は移動者情報をクライアントから受け取らない", () => {
     expect(
       ClientMessageSchema.parse({

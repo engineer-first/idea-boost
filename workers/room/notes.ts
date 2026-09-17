@@ -25,6 +25,7 @@ export type NoteRow = {
   created_at: string;
   updated_at: string;
   phase: number;
+  excluded: boolean;
 };
 
 // 「誰の視点でもない」射影に使う viewerId。listSharedNotes や自動再編成の
@@ -32,9 +33,18 @@ export type NoteRow = {
 // 文脈でだけ使う。
 export const NULL_VIEWER_ID = "00000000-0000-0000-0000-000000000000";
 
+function normalizeNoteRow(row: Record<string, unknown>): NoteRow {
+  return {
+    ...(row as Omit<NoteRow, "excluded">),
+    excluded: row.excluded === true || row.excluded === 1,
+  };
+}
+
 export function findNote(sql: SqlStorage, noteId: string): NoteRow | null {
   const rows = sql.exec("SELECT * FROM notes WHERE id = ?1", noteId).toArray();
-  return rows.length > 0 ? (rows[0] as unknown as NoteRow) : null;
+  return rows.length > 0
+    ? normalizeNoteRow(rows[0] as Record<string, unknown>)
+    : null;
 }
 
 export function requireNote(ctx: HandlerCtx, noteId: string): NoteRow | null {
@@ -100,7 +110,11 @@ export function listNotes(
           )
           .toArray();
   return rows.map((row) =>
-    toProtocolNote(sql, row as unknown as NoteRow, viewerId),
+    toProtocolNote(
+      sql,
+      normalizeNoteRow(row as Record<string, unknown>),
+      viewerId,
+    ),
   );
 }
 
@@ -110,20 +124,33 @@ export function listSharedNotes(sql: SqlStorage, phase = 1): ProtocolNote[] {
   );
 }
 
+export function hasCandidateNotes(sql: SqlStorage, phase: number): boolean {
+  const rows = sql
+    .exec(
+      `SELECT 1 AS found FROM notes
+       WHERE phase = ?1 AND visibility = 'shared' AND excluded = 0
+       LIMIT 1`,
+      phase,
+    )
+    .toArray();
+  return rows.length > 0;
+}
+
 export function hasOnlySharedNotes(
   sql: SqlStorage,
   noteIds: readonly string[],
 ): boolean {
-  return noteIds.every(
-    (noteId) => findNote(sql, noteId)?.visibility === "shared",
-  );
+  return noteIds.every((noteId) => {
+    const note = findNote(sql, noteId);
+    return note?.visibility === "shared" && !note.excluded;
+  });
 }
 
 export function insertNote(sql: SqlStorage, note: NoteRow): void {
   sql.exec(
     `INSERT INTO notes
-       (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+       (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase, excluded)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
     note.id,
     note.author_id,
     note.content,
@@ -134,6 +161,7 @@ export function insertNote(sql: SqlStorage, note: NoteRow): void {
     note.created_at,
     note.updated_at,
     note.phase,
+    note.excluded ? 1 : 0,
   );
 }
 
@@ -199,6 +227,20 @@ export function moveNote(
   );
 }
 
+export function setNoteExcluded(
+  sql: SqlStorage,
+  noteId: string,
+  excluded: boolean,
+  updatedAt: string,
+): void {
+  sql.exec(
+    "UPDATE notes SET excluded = ?2, updated_at = ?3 WHERE id = ?1",
+    noteId,
+    excluded ? 1 : 0,
+    updatedAt,
+  );
+}
+
 export function deleteNote(sql: SqlStorage, noteId: string): void {
   sql.exec("DELETE FROM notes WHERE id = ?1", noteId);
 }
@@ -226,6 +268,7 @@ export function toProtocolNote(
     color: row.color,
     x: row.x,
     y: row.y,
+    excluded: row.excluded,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     dotVotes: {

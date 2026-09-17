@@ -15,6 +15,7 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
     authorId: AUTHOR,
     content: "メモ",
     visibility: "shared",
+    excluded: false,
     color: "yellow",
     x: 100,
     y: 100,

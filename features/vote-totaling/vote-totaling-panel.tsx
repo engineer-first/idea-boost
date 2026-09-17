@@ -12,6 +12,7 @@ const OBJECTIVE_POINT = 1;
 
 export type VoteTotalingResult = {
   isComplete: boolean;
+  candidateCount: number;
   rows: VoteTotalingRowViewModel[];
 };
 
@@ -28,11 +29,12 @@ export function calculateVoteTotaling({
   memberCount: number;
   isVotingComplete?: boolean;
 }): VoteTotalingResult {
-  const subjective = notes.reduce(
+  const candidates = notes.filter((note) => !note.excluded);
+  const subjective = candidates.reduce(
     (total, note) => total + publicVoteCount(note.dotVotes.subjective.count),
     0,
   );
-  const objective = notes.reduce(
+  const objective = candidates.reduce(
     (total, note) => total + publicVoteCount(note.dotVotes.objective.count),
     0,
   );
@@ -41,7 +43,7 @@ export function calculateVoteTotaling({
     subjective === memberCount * DOT_VOTE_LIMITS.subjective &&
     objective === memberCount * DOT_VOTE_LIMITS.objective;
   const isComplete = isVotingComplete ?? allMembersCompletedVoting;
-  const rows = notes
+  const rows = candidates
     .map((note) => ({
       noteId: note.id,
       content: note.content,
@@ -60,6 +62,7 @@ export function calculateVoteTotaling({
     );
   return {
     isComplete,
+    candidateCount: candidates.length,
     rows,
   };
 }
@@ -112,6 +115,9 @@ export function VoteTotalingPanel({
         <p className="mt-1 text-sm text-muted-foreground">
           総合ポイントが高い順
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          候補 {result.candidateCount}件
+        </p>
       </div>
       <aside
         aria-label="配点の説明"
@@ -150,7 +156,9 @@ export function VoteTotalingPanel({
           data-testid="vote-totaling-empty"
           role="status"
         >
-          投票された付箋はありません
+          {result.candidateCount === 0
+            ? "候補がありません"
+            : "投票された付箋はありません"}
         </p>
       ) : null}
     </section>

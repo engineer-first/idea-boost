@@ -13,6 +13,7 @@ import type { ClientMessage } from "../../contracts/room-protocol";
 import { getDecision } from "./decisions";
 import type { MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
+import { hasCandidateNotes } from "./notes";
 import { resetTimerState } from "./timer";
 import { haveAllMembersCompletedVoting } from "./votes";
 
@@ -116,6 +117,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:update-content":
     case "note:move":
     case "note:drag":
+    case "note:exclude":
+    case "note:restore":
     case "note:delete":
     case "note:vote":
     case "note:vote-reset":
@@ -164,7 +167,7 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    5: ["note:decide"],
+    5: ["note:exclude", "note:restore", "note:decide"],
   },
   2: {
     // Step 2-1（HMW 個人執筆）は自分専用付箋の作成・編集・削除だけ。
@@ -186,7 +189,7 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    4: ["note:decide"],
+    4: ["note:exclude", "note:restore", "note:decide"],
   },
   3: {
     1: ["note:create", "note:update-content", "note:delete"],
@@ -206,7 +209,7 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    5: ["note:decide"],
+    5: ["note:exclude", "note:restore", "note:decide"],
   },
 };
 
@@ -298,6 +301,14 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         type: "error",
         code: "forbidden",
         message: "ロビー中は次フェーズに進めません。",
+      });
+      return;
+    }
+    if (isResultStep(current) && !hasCandidateNotes(ctx.sql, current.phase)) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "候補がないため次のフェーズへ進めません。",
       });
       return;
     }

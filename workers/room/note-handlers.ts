@@ -7,13 +7,14 @@ import {
 } from "../../contracts/board";
 import { isPhaseStep, isVotingStep } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
+import { getDecision } from "./decisions";
 import { autoReorganize } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
-import { findMember, getMemberColor } from "./members";
+import { findMember, getMemberColor, isHostUser } from "./members";
 import {
   broadcastNoteInserted,
   broadcastNoteUpdated,
@@ -27,6 +28,7 @@ import {
   type NoteRow,
   publishNote,
   requireNoteInCurrentPhase,
+  setNoteExcluded,
   toProtocolNote,
   touchNote,
   unpublishNote,
@@ -87,6 +89,8 @@ export const noteHandlers: MessageHandlers<
   | "note:update-content"
   | "note:move"
   | "note:drag"
+  | "note:exclude"
+  | "note:restore"
   | "note:delete"
   | "note:vote"
   | "note:vote-reset"
@@ -115,6 +119,7 @@ export const noteHandlers: MessageHandlers<
       created_at: now,
       updated_at: now,
       phase: phase.phase,
+      excluded: false,
     };
     insertNote(ctx.sql, note);
     broadcastNoteInserted(ctx.sql, ctx.broadcaster, note);
@@ -167,6 +172,7 @@ export const noteHandlers: MessageHandlers<
     if (!row) return;
     if (
       !canEdit(row, ctx.userId) ||
+      row.excluded ||
       isFrozenSharedNoteAtPersonalStep(ctx, row)
     ) {
       replyForbidden(ctx);
@@ -184,7 +190,7 @@ export const noteHandlers: MessageHandlers<
   "note:move": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!canEdit(row, ctx.userId)) {
+    if (!canEdit(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -220,7 +226,7 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
-    if (!canEdit(row, ctx.userId)) {
+    if (!canEdit(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -250,11 +256,53 @@ export const noteHandlers: MessageHandlers<
     );
   },
 
+  "note:exclude": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      !isHostUser(ctx.sql, ctx.userId) ||
+      row.visibility !== "shared" ||
+      row.excluded ||
+      getDecision(ctx.sql, row.phase)?.noteId === row.id
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    setNoteExcluded(ctx.sql, row.id, true, updatedAt);
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      excluded: true,
+      updated_at: updatedAt,
+    });
+  },
+
+  "note:restore": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      !isHostUser(ctx.sql, ctx.userId) ||
+      row.visibility !== "shared" ||
+      !row.excluded
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    setNoteExcluded(ctx.sql, row.id, false, updatedAt);
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      excluded: false,
+      updated_at: updatedAt,
+    });
+  },
+
   "note:delete": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (
       row.author_id !== ctx.userId ||
+      row.excluded ||
       isFrozenSharedNoteAtPersonalStep(ctx, row)
     ) {
       replyForbidden(ctx);
@@ -274,7 +322,7 @@ export const noteHandlers: MessageHandlers<
   "note:vote": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId)) {
+    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -321,7 +369,7 @@ export const noteHandlers: MessageHandlers<
   "note:vote-reset": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId)) {
+    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -348,7 +396,7 @@ export const noteHandlers: MessageHandlers<
   "note:vote-remove": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId)) {
+    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -384,7 +432,7 @@ export const noteHandlers: MessageHandlers<
   "note:vote-sticker:add": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId)) {
+    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
       replyForbidden(ctx);
       return;
     }
@@ -470,7 +518,11 @@ export const noteHandlers: MessageHandlers<
     if (!source) return;
     const target = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!target) return;
-    if (!isVisibleTo(target, ctx.userId)) {
+    if (
+      !isVisibleTo(target, ctx.userId) ||
+      target.excluded ||
+      source.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -511,7 +563,7 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = requireNoteInCurrentPhase(ctx, sticker.note_id);
-    if (!row || !isVisibleTo(row, ctx.userId)) {
+    if (!row || !isVisibleTo(row, ctx.userId) || row.excluded) {
       if (row) replyForbidden(ctx);
       return;
     }

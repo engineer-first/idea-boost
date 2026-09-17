@@ -81,6 +81,8 @@ export type RoomBoardViewProps = {
   onPrivateNoteDelete: (noteId: string) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteExclude?: (noteId: string) => void;
+  onNoteRestore?: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
@@ -159,6 +161,8 @@ export function RoomBoardView({
   onPrivateNoteDelete,
   onNoteContentChange,
   onNoteDelete,
+  onNoteExclude = () => undefined,
+  onNoteRestore = () => undefined,
   onGroupCreate,
   onGroupUpdateName,
   onNoteVote,
@@ -291,7 +295,9 @@ export function RoomBoardView({
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
-  const isNextPhaseBlocked = isResultStep(phase) && decision === null;
+  const candidateNotes = notes.filter((note) => !note.excluded);
+  const isNextPhaseBlocked =
+    isResultStep(phase) && (decision === null || candidateNotes.length === 0);
   const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
 
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
@@ -670,6 +676,8 @@ export function RoomBoardView({
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}
+        onNoteExclude={onNoteExclude}
+        onNoteRestore={onNoteRestore}
         onNoteVote={onNoteVote}
         onNoteVoteRemove={onNoteVoteRemove}
         onNoteVoteStickerRemove={onNoteVoteStickerRemove}

@@ -21,6 +21,7 @@ const note: Note = {
   authorId: USER_ID,
   content: "hello",
   visibility: "shared",
+  excluded: false,
   color: "yellow",
   x: 10,
   y: 20,
@@ -124,6 +125,19 @@ describe("applyServerMessage", () => {
     });
 
     expect(result).toEqual([updated]);
+  });
+
+  it("note:updatedで候補外状態を座標を変えずに同期する", () => {
+    const existing = makeNote({ excluded: false, x: 10, y: 20 });
+    const excluded = makeNote({ excluded: true, x: 10, y: 20 });
+
+    const result = applyServerMessage(
+      [existing],
+      { type: "note:updated", note: excluded },
+      { draggingNoteId: null },
+    );
+
+    expect(result).toEqual([excluded]);
   });
 
   it("note:updatedが古い自分の投票状態を持つ場合はローカルの選択状態を保持する", () => {

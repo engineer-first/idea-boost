@@ -692,6 +692,346 @@ describe("RoomDO note:decide", () => {
   });
 });
 
+describe("RoomDO 候補外付箋", () => {
+  const NOTE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const VOTE_STICKER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  async function prepare(
+    roomName: string,
+    phase = buildPhaseStep(5),
+    excluded = false,
+  ): Promise<void> {
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(phase, USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase, excluded)
+         VALUES (?1, ?2, '保持する本文', 'shared', 'yellow', 123, 456, ?4, ?4, ?3, ?5)`,
+        NOTE_ID,
+        USER_B,
+        phase.kind === "step" ? phase.phase : 1,
+        now,
+        excluded ? 1 : 0,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO note_vote_stickers
+           (id, note_id, user_id, kind, x, y, created_at)
+         VALUES (?1, ?2, ?3, 'objective', 0.2, 0.5, ?4)`,
+        VOTE_STICKER_ID,
+        NOTE_ID,
+        USER_B,
+        now,
+      );
+    });
+  }
+
+  it("非ホストは自分の付箋でも候補外にできない", async () => {
+    const roomName = "room-exclude-non-host";
+    await prepare(roomName);
+    const ws = await connectDirectly(roomName, USER_B, USER_A);
+
+    ws.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+
+    expect(await nextJson(ws)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    ws.close();
+  });
+
+  it("非ホストは自分の候補外付箋でも復帰できない", async () => {
+    const roomName = "room-restore-non-host";
+    await prepare(roomName, buildPhaseStep(5), true);
+    const ws = await connectDirectly(roomName, USER_B, USER_A);
+
+    ws.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+
+    expect(await nextJson(ws)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT excluded FROM notes WHERE id = ?1", NOTE_ID)
+            .one().excluded as number,
+      ),
+    ).toBe(1);
+    ws.close();
+  });
+
+  it.each([
+    [1, 5],
+    [2, 4],
+    [3, 5],
+  ] as const)("ホストは Phase %i Step %i で候補外と復帰を全員へ同期し、座標・本文・票を保持する", async (phase, step) => {
+    const roomName = `room-exclude-${phase}-${step}`;
+    await prepare(roomName, buildPhaseStep(step, phase));
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+
+    const memberUpdate = nextJson(member);
+    host.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:updated",
+      note: {
+        id: NOTE_ID,
+        content: "保持する本文",
+        x: 123,
+        y: 456,
+        excluded: true,
+        dotVotes: { objective: { count: 1 } },
+      },
+    });
+    await expect(memberUpdate).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: true, x: 123, y: 456 },
+    });
+
+    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: false, x: 123, y: 456 },
+    });
+    host.close();
+    member.close();
+  });
+
+  it("候補外状態は再接続 snapshot に残り、全員が本文を読める", async () => {
+    const roomName = "room-exclude-reconnect";
+    await prepare(roomName, buildPhaseStep(5), true);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    member.close();
+
+    const reconnect = await roomStub(roomName).fetch("https://do/ws", {
+      headers: {
+        Upgrade: "websocket",
+        [USER_ID_HEADER]: USER_B,
+        [HOST_ID_HEADER]: USER_A,
+      },
+    });
+    const ws = reconnect.webSocket;
+    if (!ws) throw new Error("WebSocket 接続を確立できませんでした。");
+    ws.accept();
+    expect(await nextJson(ws)).toMatchObject({
+      type: "snapshot",
+      notes: [
+        expect.objectContaining({
+          id: NOTE_ID,
+          content: "保持する本文",
+          excluded: true,
+          x: 123,
+          y: 456,
+        }),
+      ],
+    });
+    ws.close();
+  });
+
+  it("候補外付箋は削除・ドラッグ・投票シール・グループを含むすべての変更対象にできない", async () => {
+    const groupId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const createdAt = "2026-09-17T00:00:00.000Z";
+    const cases = [
+      {
+        name: "update-content",
+        phase: buildPhaseStep(2),
+        userId: USER_A,
+        message: {
+          type: "note:update-content",
+          noteId: NOTE_ID,
+          content: "変更",
+        },
+      },
+      {
+        name: "move",
+        phase: buildPhaseStep(2),
+        userId: USER_A,
+        message: { type: "note:move", noteId: NOTE_ID, x: 999, y: 999 },
+      },
+      {
+        name: "drag",
+        phase: buildPhaseStep(2),
+        userId: USER_A,
+        message: { type: "note:drag", noteId: NOTE_ID, x: 999, y: 999 },
+      },
+      {
+        name: "delete",
+        phase: buildPhaseStep(1),
+        userId: USER_B,
+        message: { type: "note:delete", noteId: NOTE_ID },
+      },
+      {
+        name: "vote",
+        phase: buildPhaseStep(4),
+        userId: USER_B,
+        message: { type: "note:vote", noteId: NOTE_ID, kind: "subjective" },
+      },
+      {
+        name: "vote-reset",
+        phase: buildPhaseStep(4),
+        userId: USER_B,
+        message: {
+          type: "note:vote-reset",
+          noteId: NOTE_ID,
+          kind: "objective",
+        },
+      },
+      {
+        name: "vote-remove",
+        phase: buildPhaseStep(4),
+        userId: USER_B,
+        message: {
+          type: "note:vote-remove",
+          noteId: NOTE_ID,
+          kind: "objective",
+        },
+      },
+      {
+        name: "vote-sticker-add",
+        phase: buildPhaseStep(4),
+        userId: USER_B,
+        message: {
+          type: "note:vote-sticker:add",
+          noteId: NOTE_ID,
+          stickerId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+          kind: "subjective",
+          x: 0.5,
+          y: 0.5,
+        },
+      },
+      {
+        name: "vote-sticker-move",
+        phase: buildPhaseStep(4),
+        userId: USER_B,
+        message: {
+          type: "note:vote-sticker:move",
+          noteId: NOTE_ID,
+          stickerId: VOTE_STICKER_ID,
+          x: 0.8,
+          y: 0.8,
+        },
+      },
+      {
+        name: "vote-sticker-remove",
+        phase: buildPhaseStep(4),
+        userId: USER_B,
+        message: {
+          type: "note:vote-sticker:remove",
+          stickerId: VOTE_STICKER_ID,
+        },
+      },
+      {
+        name: "decide",
+        phase: buildPhaseStep(5),
+        userId: USER_A,
+        message: { type: "note:decide", noteId: NOTE_ID },
+      },
+      {
+        name: "group-create",
+        phase: buildPhaseStep(5),
+        userId: USER_A,
+        message: {
+          type: "group:create",
+          group: {
+            id: groupId,
+            name: "候補外を含むグループ",
+            noteIds: [NOTE_ID, NOTE_ID],
+            createdAt,
+            updatedAt: createdAt,
+          },
+        },
+      },
+      {
+        name: "group-update-name",
+        phase: buildPhaseStep(5),
+        userId: USER_A,
+        message: {
+          type: "group:update-name",
+          groupId,
+          name: "更新しない",
+        },
+      },
+    ] as const;
+    for (const testCase of cases) {
+      const roomName = `room-excluded-mutation-${testCase.name}`;
+      await prepare(roomName, testCase.phase, true);
+      const ws = await connectDirectly(roomName, testCase.userId, USER_A);
+      ws.send(JSON.stringify(testCase.message));
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      const persisted = await runInRoomDO(roomName, (_instance, state) => ({
+        note: state.storage.sql
+          .exec(
+            "SELECT content, x, y, excluded FROM notes WHERE id = ?1",
+            NOTE_ID,
+          )
+          .one(),
+        stickerCount: state.storage.sql
+          .exec(
+            "SELECT COUNT(*) AS count FROM note_vote_stickers WHERE note_id = ?1",
+            NOTE_ID,
+          )
+          .one().count as number,
+        groupCount: state.storage.sql
+          .exec("SELECT COUNT(*) AS count FROM groups")
+          .one().count as number,
+      }));
+      expect(persisted.note).toMatchObject({
+        content: "保持する本文",
+        x: 123,
+        y: 456,
+        excluded: 1,
+      });
+      expect(persisted.stickerCount).toBe(1);
+      expect(persisted.groupCount).toBe(0);
+      ws.close();
+    }
+  });
+
+  it("決定済み付箋は候補外にできず、決定と候補の整合性を保つ", async () => {
+    const roomName = "room-exclude-decided";
+    await prepare(roomName);
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: NOTE_ID }));
+    await nextJson(ws);
+
+    ws.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+
+    expect(await nextJson(ws)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    ws.close();
+  });
+
+  it("候補が0件なら最終決定と次フェーズ進行を拒否する", async () => {
+    const roomName = "room-excluded-empty-candidates";
+    await prepare(roomName, buildPhaseStep(5), true);
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+
+    ws.send(JSON.stringify({ type: "note:decide", noteId: NOTE_ID }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    ws.send(JSON.stringify({ type: "phase:next" }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+      message: expect.stringContaining("候補がない"),
+    });
+    ws.close();
+  });
+});
+
 describe("RoomDO phase:next", () => {
   it("成功した通常のステップ移行で実行中タイマーを idle に戻して配信する", async () => {
     const roomName = "room-phase-next-resets-running-timer";

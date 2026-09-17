@@ -27,4 +27,9 @@ export const roomNotify = {
   cannotPublishNote() {
     toast.error("まだ共有できません");
   },
+  noteExcluded(onUndo: () => void): void {
+    toast("付箋を候補から外しました", {
+      action: { label: "元に戻す", onClick: onUndo },
+    });
+  },
 };
