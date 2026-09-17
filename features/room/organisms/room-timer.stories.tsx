@@ -73,7 +73,7 @@ export const EndedHostPanelOpen: Story = {
 };
 export const ExpiredHostPanelOpen: Story = {
   args: {
-    timer: buildRunningTimer({ remainingMs: 0 }),
+    timer: buildRunningTimer({ remainingMs: 0, durationMs: 5 * 60_000 }),
     defaultPanelOpen: true,
   },
 };
@@ -81,7 +81,7 @@ export const EndedHostReconfigure: Story = {
   args: { ...EndedHost.args, defaultPanelOpen: true },
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "もう一度設定" }),
+      within(canvasElement).getByRole("button", { name: "設定し直す" }),
     );
   },
 };

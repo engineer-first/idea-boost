@@ -1,6 +1,6 @@
 "use client";
 
-import { Pause, Play, RotateCcw, Square } from "lucide-react";
+import { Pause, Play, RotateCcw, Settings2, Square } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -151,34 +151,21 @@ export function RoomTimer({
     timer.status === "paused" && "text-amber-800",
     isEnded && "text-red-700",
   );
+  const chipDurationMs =
+    timer.status === "idle" ? initialDurationMs : (remainingMs ?? 0);
+  const chipDuration = formatDuration(chipDurationMs);
   const chipLabel =
     timer.status === "idle"
-      ? "タイマー設定を開く"
-      : `タイマー${timer.status === "paused" ? " 一時停止中" : isEnded ? " 終了" : ""} ${formatDuration(remainingMs ?? 0)}${isHost ? "。設定を開く" : ""}`;
+      ? `タイマー 未開始 ${chipDuration}${isHost ? "。設定を開く" : ""}`
+      : `タイマー${timer.status === "paused" ? " 一時停止中" : isEnded ? " 終了" : ""} ${chipDuration}${isHost ? "。設定を開く" : ""}`;
   const chipContent = (
-    <>
-      {timer.status === "idle" ? (
-        <span className="font-sans text-sm">タイマー</span>
-      ) : (
-        <span
-          role="timer"
-          aria-label={isHost ? undefined : chipLabel}
-          className="text-base"
-        >
-          {formatDuration(remainingMs ?? 0)}
-        </span>
-      )}
-      {timer.status === "paused" ? (
-        <span aria-hidden="true" className="ml-1 font-sans text-xs">
-          Ⅱ
-        </span>
-      ) : null}
-      {isEnded ? (
-        <span aria-hidden="true" className="ml-1 font-sans text-xs">
-          終了
-        </span>
-      ) : null}
-    </>
+    <span
+      role="timer"
+      aria-label={isHost ? undefined : chipLabel}
+      className="text-base"
+    >
+      {chipDuration}
+    </span>
   );
   const hostChip = (
     <Button
@@ -212,13 +199,12 @@ export function RoomTimer({
   const panel = (
     <PopoverContent
       data-testid="room-timer-panel"
-      aria-label="タイマー設定"
+      aria-label="タイマー操作"
       align="end"
       className="board-hud w-72 bg-background"
     >
       {timer.status === "idle" || (isEnded && isReconfiguring) ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium">タイマー設定</p>
           <div className="flex items-center justify-between gap-1">
             <Button
               type="button"
@@ -289,91 +275,81 @@ export function RoomTimer({
           </Button>
         </div>
       ) : isEnded ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">終了</p>
-            <span className="font-mono text-lg font-bold tabular-nums">
-              00:00
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">時間になりました。</p>
+        <div className="flex gap-2">
           <Button
             type="button"
             size="sm"
-            className="h-8 w-full"
+            className="h-8 flex-1"
+            disabled={disabled}
+            onClick={() => onStart(timer.durationMs)}
+          >
+            <RotateCcw aria-hidden="true" />
+            もう一度
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 flex-1"
             disabled={disabled}
             onClick={() => {
               setDuration(initialDurationMs);
               setIsReconfiguring(true);
             }}
           >
-            <RotateCcw aria-hidden="true" />
-            もう一度設定
+            <Settings2 aria-hidden="true" />
+            設定し直す
           </Button>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
-              {timer.status === "paused"
-                ? "一時停止中"
-                : isEnded
-                  ? "終了"
-                  : "実行中"}
-            </p>
-            <span className="font-mono text-lg font-bold tabular-nums">
-              {formatDuration(remainingMs ?? 0)}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            {timer.status === "paused" ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 flex-1"
-                disabled={disabled}
-                onClick={onResume}
-              >
-                <Play data-testid="timer-resume-icon" aria-hidden="true" />
-                再開
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 flex-1"
-                disabled={disabled}
-                onClick={onExtend}
-              >
-                +1分
-              </Button>
-            )}
-            {timer.status === "paused" ? (
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="h-8 flex-1"
-                disabled={disabled}
-                onClick={onStop}
-              >
-                <Square data-testid="timer-end-icon" aria-hidden="true" />
-                終了
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 flex-1"
-                disabled={disabled}
-                onClick={onPause}
-              >
-                <Pause aria-hidden="true" />
-                一時停止
-              </Button>
-            )}
-          </div>
+        <div className="flex gap-2">
+          {timer.status === "paused" ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 flex-1"
+              disabled={disabled}
+              onClick={onResume}
+            >
+              <Play data-testid="timer-resume-icon" aria-hidden="true" />
+              再開
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 flex-1"
+              disabled={disabled}
+              onClick={onExtend}
+            >
+              +1分
+            </Button>
+          )}
+          {timer.status === "paused" ? (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="h-8 flex-1"
+              disabled={disabled}
+              onClick={onStop}
+            >
+              <Square data-testid="timer-end-icon" aria-hidden="true" />
+              終了
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 flex-1"
+              disabled={disabled}
+              onClick={onPause}
+            >
+              <Pause aria-hidden="true" />
+              一時停止
+            </Button>
+          )}
         </div>
       )}
     </PopoverContent>

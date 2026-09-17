@@ -370,7 +370,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     const timer = within(controls).getByTestId("room-timer");
     expect(timer).toBeVisible();
     expect(timer.tagName).toBe("SPAN");
-    expect(timer).toHaveTextContent("タイマー");
+    expect(timer).toHaveTextContent("03:00");
     expect(within(timer).queryByRole("button")).not.toBeInTheDocument();
 
     act(() =>
@@ -383,7 +383,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByText("課題整理")).toBeInTheDocument();
     expect(within(controls).getByTestId("room-timer")).toBeVisible();
     expect(within(controls).getByTestId("room-timer")).toHaveTextContent(
-      "タイマー",
+      "06:00",
     );
   });
 
