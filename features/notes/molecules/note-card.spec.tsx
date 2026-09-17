@@ -494,6 +494,30 @@ describe("NoteCard", () => {
       expect(screen.getByRole("textbox")).toHaveFocus();
     });
 
+    it("選択中に文字キーを押すと編集を開始し、その文字を本文へ追加する", () => {
+      setup({ isSelected: true, note: buildNote({ content: "既存の本文" }) });
+
+      fireEvent.keyDown(getNoteSurface(), { key: "a" });
+
+      const textarea = screen.getByRole("textbox");
+      expect(textarea).toHaveFocus();
+      expect(textarea).not.toHaveAttribute("readonly");
+      expect(textarea).toHaveValue("既存の本文a");
+    });
+
+    it.each([
+      { key: "a", ctrlKey: true },
+      { key: "a", metaKey: true },
+      { key: "a", altKey: true },
+    ])("修飾キー付きの文字入力はショートカットとして保持する", (keyEvent) => {
+      setup({ isSelected: true });
+
+      fireEvent.keyDown(getNoteSurface(), keyEvent);
+
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+      expect(screen.getByDisplayValue("付箋の本文")).toBeInTheDocument();
+    });
+
     it("編集してフォーカスが外れるとonContentChangeを呼び編集モードを終了する", () => {
       const onContentChange = vi.fn();
       setup({ isSelected: true, onContentChange });
