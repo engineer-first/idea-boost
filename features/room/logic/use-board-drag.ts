@@ -228,7 +228,7 @@ export function useBoardDrag({
   );
 
   const privateDropIndexFromPointer = useCallback(
-    (clientX: number, draggingNoteId: string) => {
+    (clientY: number, draggingNoteId: string) => {
       const toolbar = privateToolbarRef.current;
       const noteElements = toolbar?.querySelectorAll
         ? Array.from(
@@ -240,19 +240,19 @@ export function useBoardDrag({
       if (noteElements.length > 0) {
         const index = noteElements.findIndex((element) => {
           const rect = element.getBoundingClientRect();
-          return clientX < rect.left + rect.width / 2;
+          return clientY < rect.top + rect.height / 2;
         });
         return index === -1 ? noteElements.length : index;
       }
 
       const rect = toolbar?.getBoundingClientRect();
       if (!rect) return 0;
-      const width = Math.max(rect.right - rect.left, 1);
+      const height = Math.max(rect.bottom - rect.top, 1);
       return Math.min(
         privateNotes.length,
         Math.max(
           0,
-          Math.round(((clientX - rect.left) / width) * privateNotes.length),
+          Math.round(((clientY - rect.top) / height) * privateNotes.length),
         ),
       );
     },
@@ -337,7 +337,7 @@ export function useBoardDrag({
             ...current,
             status: "returning",
             privateDropIndex: privateDropIndexFromPointer(
-              event.clientX,
+              event.clientY,
               current.note.id,
             ),
           });
@@ -345,7 +345,7 @@ export function useBoardDrag({
           updateDrag({
             ...current,
             privateDropIndex: privateDropIndexFromPointer(
-              event.clientX,
+              event.clientY,
               current.note.id,
             ),
           });
