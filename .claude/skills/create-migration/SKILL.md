@@ -13,9 +13,15 @@ disable-model-invocation: true
 
 - この変更は本当に D1 に属するか。ルームの中の真実（メンバー・付箋）は RoomDO が
   持つ。D1 の rooms 行は「招待コード -> ルーム解決」のディレクトリにすぎない。
-  RoomDO 側に属するデータなら migration ではなく RoomDO のストレージを変更する。
-- スキーマ変更が API 境界に現れるなら、先に `contracts/` を変更する
-  （`/contract-change` の手順に従う）。
+  RoomDO 側に属するデータなら `workers/room-do-migrations/` の SQL migration を使う。
+  この D1 用手順の採番・適用は使わず、ルート `AGENTS.md` が案内する RoomDO migration 手順に従う。
+- スキーマ変更が API 境界に現れるなら、`/contract-change` の手順に従う。
+  失敗するテストを確認してから、実装層より先に `contracts/` を変更する。
+
+## 変更前のテスト
+
+新しい SQL を書く前に、D1 に触れる Vitest spec に期待する振る舞いのテストを追加し、
+`npm run test:workers -- <spec のパス>` で失敗を確認する。
 
 ## ファイル作成
 
@@ -38,8 +44,7 @@ disable-model-invocation: true
    （同じ番号のファイルが存在すると exit 1 になる。CI の lint job でも実行される）
 2. `npm run db:migrate` でローカルに適用する
 3. `npx wrangler d1 execute DB --local --config workers/wrangler.jsonc --command "SELECT sql FROM sqlite_master WHERE type='table'"` でスキーマを確認する
-4. D1 に触れる spec（`workers/api-worker.spec.ts` など）に新スキーマの
-   振る舞いテストを追加し、`npm run test:workers` が green になることを確認する
+4. 変更前に失敗した同じ spec が green になることを確認し、`npm run test:workers` で関連する回帰を検証する
 
 ## チェックリスト
 

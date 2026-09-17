@@ -11,9 +11,9 @@ disable-model-invocation: true
 
 ## 配置先の決定
 
-- 特定の画面・機能に紐づくもの → `app/<feature>/` 配下（例: `app/whiteboard/whiteboard-canvas.tsx`）
-- 画面をまたいで再利用するもの → `components/` 配下
-- 引数から判断できない場合は作業前にユーザーへ確認する
+- ドメイン UI は `features/<feature>/` に置く。既存 feature のフラット / 5 箱構成に合わせ、5 箱の新規部品は `molecules/` を起点に、必要な依存に応じて上の帯へ置く。
+- `app/` は予約ファイルとそのルート専用の組み立て view、`components/ui/` はドメインを知らない shadcn 汎用部品に限る。
+- 配置・責務はルートの `AGENTS.md` と、そこから案内される UI 規約に従う。既存実装から判断できる配置はそのまま進める。
 
 ## 作成するファイル一式
 
@@ -28,7 +28,7 @@ disable-model-invocation: true
 
 ## 手順（TDD）
 
-1. fixture を作成する
+1. fixture を作成する。contracts 型の builder は `contracts/*.fixture.ts`、feature 固有の fixture は実装と同居させる
 2. spec を書き、`npx vitest run <spec のパス>` で **失敗を確認** する
 3. 実装して同じテストが green になることを確認する
 4. stories を作成する。データに依存するコンポーネントは loading / empty / success / error の各状態を story とテストの両方でカバーする
