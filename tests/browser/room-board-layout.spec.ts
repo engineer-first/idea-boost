@@ -373,7 +373,7 @@ test("接続中断時と参加者表示でもタイマー枠を薄くせず、�
       expect({ x: bounds?.x, y: bounds?.y }).toEqual(participantPosition);
     }
     if (state === "idle") {
-      expect(await memberTimer.textContent()).toBe("タイマー");
+      expect(await memberTimer.textContent()).toBe("03:00");
       expect(await page.getByRole("button").count()).toBe(0);
     }
   }

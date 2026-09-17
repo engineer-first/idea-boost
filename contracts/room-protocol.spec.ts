@@ -92,6 +92,22 @@ describe("TimerStateSchema", () => {
       durationMs: 60_000,
     });
   });
+
+  it("ended は 00:00 の共有終了状態として受け入れる", () => {
+    expect(
+      TimerStateSchema.parse({ status: "ended", durationMs: 60_000 }),
+    ).toEqual({ status: "ended", durationMs: 60_000 });
+  });
+
+  it("ended に remainingMs や endsAt を持たせない", () => {
+    expect(
+      TimerStateSchema.safeParse({
+        status: "ended",
+        durationMs: 60_000,
+        remainingMs: 0,
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("MemberSchema", () => {

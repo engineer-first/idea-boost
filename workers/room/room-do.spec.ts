@@ -3,7 +3,7 @@
 // api-worker を経由しない到達への深層防御を検証する。
 // Realtime 配信（新規メンバーの member_joined broadcast）は
 // room-protocol.spec.ts の E2E テスト（実 WS 接続）で検証する。
-import { env } from "cloudflare:workers";
+import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { buildLobbyPhase, buildPhaseStep } from "../../contracts/phase.fixture";
 import {
@@ -1789,7 +1789,7 @@ describe("RoomDO timer:* の認可", () => {
     ws.close();
   });
 
-  it("実行中・一時停止中の延長を 99:59 にクランプする", async () => {
+  it("実行中の延長を 99:59 にクランプし、一時停止中は延長できない", async () => {
     const stub = roomStub("room-timer-extend-limit");
     await stub.initializeNewRoom(USER_A, "Host");
     const res = await stub.fetch("https://do/ws", {
@@ -1828,8 +1828,22 @@ describe("RoomDO timer:* の認可", () => {
       (started.timer as { endsAt: number }).endsAt + 30_000,
     );
 
+    ws.send(JSON.stringify({ type: "timer:pause" }));
+    const pausedAtLimit = await receive();
+    expect(pausedAtLimit).toMatchObject({
+      type: "timer:updated",
+      timer: { status: "paused", durationMs: TIMER_MAX_DURATION_MS },
+    });
+    ws.send(JSON.stringify({ type: "timer:extend" }));
+    expect(await receive()).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
     ws.send(JSON.stringify({ type: "timer:stop" }));
-    await receive();
+    expect(await receive()).toMatchObject({
+      type: "timer:updated",
+      timer: { status: "ended", durationMs: TIMER_MAX_DURATION_MS },
+    });
     ws.send(
       JSON.stringify({
         type: "timer:start",
@@ -1838,16 +1852,12 @@ describe("RoomDO timer:* の認可", () => {
     );
     await receive();
     ws.send(JSON.stringify({ type: "timer:pause" }));
-    const paused = await receive();
-    ws.send(JSON.stringify({ type: "timer:extend" }));
-    const extendedPaused = await receive();
-    expect(extendedPaused).toMatchObject({
+    expect(await receive()).toMatchObject({
       type: "timer:updated",
-      timer: { status: "paused", durationMs: TIMER_MAX_DURATION_MS },
+      timer: { status: "paused" },
     });
-    expect((extendedPaused.timer as { remainingMs: number }).remainingMs).toBe(
-      (paused.timer as { remainingMs: number }).remainingMs + 30_000,
-    );
+    ws.send(JSON.stringify({ type: "timer:extend" }));
+    expect(await receive()).toMatchObject({ type: "error", code: "forbidden" });
     ws.close();
   });
 
@@ -1877,7 +1887,7 @@ describe("RoomDO timer:* の認可", () => {
     ws.close();
   });
 
-  it("ホスト操作を状態変化時だけ配信し、停止後は idle を snapshot で復元する", async () => {
+  it("ホスト操作を状態変化時だけ配信し、終了後は ended を snapshot で復元する", async () => {
     const roomId = "room-timer-host-lifecycle";
     const stub = roomStub(roomId);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -1920,24 +1930,26 @@ describe("RoomDO timer:* の認可", () => {
       timer: { status: "paused", durationMs: 60_000 },
     });
 
-    ws.send(JSON.stringify({ type: "timer:extend" }));
-    expect(await receive()).toMatchObject({
-      type: "timer:updated",
-      timer: { status: "paused", durationMs: 120_000 },
-    });
-
     ws.send(JSON.stringify({ type: "timer:resume" }));
     expect(await receive()).toMatchObject({
       type: "timer:updated",
-      timer: { status: "running", durationMs: 120_000 },
+      timer: { status: "running", durationMs: 60_000 },
     });
 
+    ws.send(JSON.stringify({ type: "timer:pause" }));
+    expect(await receive()).toMatchObject({
+      type: "timer:updated",
+      timer: { status: "paused", durationMs: 60_000 },
+    });
     ws.send(JSON.stringify({ type: "timer:stop" }));
     expect(await receive()).toMatchObject({
       type: "timer:updated",
-      timer: { status: "idle" },
+      timer: { status: "ended", durationMs: 60_000 },
     });
-    expect(await stub.getTimerState()).toEqual({ status: "idle" });
+    expect(await stub.getTimerState()).toEqual({
+      status: "ended",
+      durationMs: 60_000,
+    });
     ws.close();
 
     const reconnect = await stub.fetch("https://do/ws", {
@@ -1959,7 +1971,7 @@ describe("RoomDO timer:* の認可", () => {
     });
     expect(snapshot).toMatchObject({
       type: "snapshot",
-      timer: { status: "idle" },
+      timer: { status: "ended", durationMs: 60_000 },
     });
     expect(snapshot.serverNow).toEqual(expect.any(Number));
     reconnectWs.close();
@@ -3450,6 +3462,101 @@ describe("RoomDO Step 3-1 の境界ゲート", () => {
       type: "error",
       code: "forbidden",
       message: expect.stringContaining("3-1 アイデアを書き出す（個人）"),
+    });
+    ws.close();
+  });
+});
+
+describe("RoomDO タイマー終了", () => {
+  it("ホストの一時停止中の終了は ended を全員へ配信し、非ホストは操作できない", async () => {
+    const roomName = "room-timer-ended-and-host-only";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(1), USER_A);
+
+    const hostWs = await connectDirectly(roomName, USER_A, USER_A);
+    const memberWs = await connectDirectly(roomName, USER_B, USER_A);
+
+    const startedHost = nextJson(hostWs);
+    const startedMember = nextJson(memberWs);
+    hostWs.send(JSON.stringify({ type: "timer:start", durationMs: 60_000 }));
+    await expect(startedHost).resolves.toMatchObject({
+      type: "timer:updated",
+      timer: { status: "running" },
+    });
+    await expect(startedMember).resolves.toMatchObject({
+      type: "timer:updated",
+      timer: { status: "running" },
+    });
+
+    const pausedHost = nextJson(hostWs);
+    const pausedMember = nextJson(memberWs);
+    hostWs.send(JSON.stringify({ type: "timer:pause" }));
+    await expect(pausedHost).resolves.toMatchObject({
+      type: "timer:updated",
+      timer: { status: "paused" },
+    });
+    await expect(pausedMember).resolves.toMatchObject({
+      type: "timer:updated",
+      timer: { status: "paused" },
+    });
+
+    const memberStopResponse = nextJson(memberWs);
+    memberWs.send(JSON.stringify({ type: "timer:stop" }));
+    await expect(memberStopResponse).resolves.toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(await stub.getTimerState()).toMatchObject({ status: "paused" });
+
+    const endedHost = nextJson(hostWs);
+    const endedMember = nextJson(memberWs);
+    hostWs.send(JSON.stringify({ type: "timer:stop" }));
+    await expect(endedHost).resolves.toMatchObject({
+      type: "timer:updated",
+      timer: { status: "ended", durationMs: 60_000 },
+    });
+    await expect(endedMember).resolves.toMatchObject({
+      type: "timer:updated",
+      timer: { status: "ended", durationMs: 60_000 },
+    });
+    expect(await stub.getTimerState()).toEqual({
+      status: "ended",
+      durationMs: 60_000,
+    });
+
+    hostWs.close();
+    memberWs.close();
+  });
+
+  it("時間切れの alarm はタイマーだけを ended にして全員へ配信する", async () => {
+    const roomName = "room-timer-alarm-expiration";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(1), USER_A);
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE timer_state SET status = 'running', ends_at = ?1, remaining_ms = NULL, duration_ms = 60000 WHERE id = 1",
+        Date.now() - 1,
+      );
+      return state.storage.setAlarm(Date.now() + 100);
+    });
+
+    const alarmBroadcast = nextJson(ws);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    // 実ランタイムが自動発火していないテスト環境では、期限到来後に
+    // ヘルパーで同じ alarm() を実行する。どちらの場合も配信結果を検証する。
+    await runDurableObjectAlarm(stub);
+    await expect(alarmBroadcast).resolves.toMatchObject({
+      type: "timer:updated",
+      timer: { status: "ended", durationMs: 60_000 },
+    });
+    expect(await stub.getTimerState()).toEqual({
+      status: "ended",
+      durationMs: 60_000,
     });
     ws.close();
   });

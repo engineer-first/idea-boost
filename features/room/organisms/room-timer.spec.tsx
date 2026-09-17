@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomTimer, TIMER_DEFAULT_DURATION_MS } from "./room-timer";
 import {
@@ -67,10 +67,10 @@ describe("RoomTimer", () => {
     );
     expect(TIMER_DEFAULT_DURATION_MS).toBe(180_000);
     const chip = screen.getByTestId("room-timer");
-    expect(chip).toHaveTextContent("タイマー");
+    expect(chip).toHaveTextContent("03:00");
     expect(chip).toHaveAttribute("aria-expanded", "false");
     expect(chip).toHaveClass("h-10", "w-28");
-    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    expect(screen.getByRole("timer")).toHaveTextContent("03:00");
     expect(screen.queryByRole("button", { name: "1分" })).toBeNull();
     expect(screen.queryByRole("button", { name: "3分" })).toBeNull();
     expect(screen.queryByRole("button", { name: "5分" })).toBeNull();
@@ -311,6 +311,8 @@ describe("RoomTimer", () => {
 
     const chip = screen.getByTestId("room-timer");
     expect(screen.getByRole("timer")).toHaveTextContent("00:30");
+    expect(chip).toHaveTextContent("00:30");
+    expect(chip).not.toHaveTextContent("Ⅱ");
     expect(chip.tagName).toBe("SPAN");
     expect(chip).not.toHaveClass("disabled:opacity-50");
     expect(screen.getByRole("timer")).toHaveAttribute(
@@ -335,7 +337,11 @@ describe("RoomTimer", () => {
       />,
     );
     const chip = screen.getByTestId("room-timer");
-    expect(chip).toHaveTextContent("タイマー");
+    expect(chip).toHaveTextContent("03:00");
+    expect(screen.getByRole("timer")).toHaveAttribute(
+      "aria-label",
+      "タイマー 未開始 03:00",
+    );
     expect(chip).toHaveClass("h-10", "w-28");
     expect(chip.tagName).toBe("SPAN");
     expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
@@ -357,12 +363,10 @@ describe("RoomTimer", () => {
     expect(screen.getByRole("timer")).toHaveTextContent("01:00");
     expect(screen.getByTestId("room-timer")).toHaveClass("h-10", "w-28");
     openPanel();
-    fireEvent.click(screen.getByRole("button", { name: "一時停止" }));
     fireEvent.click(screen.getByRole("button", { name: "+1分" }));
-    fireEvent.click(screen.getByRole("button", { name: "停止" }));
-    expect(handlers.onPause).toHaveBeenCalledOnce();
     expect(handlers.onExtend).toHaveBeenCalledOnce();
-    expect(handlers.onStop).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "一時停止" }));
+    expect(handlers.onPause).toHaveBeenCalledOnce();
   });
 
   it("一時停止中は再開できる", () => {
@@ -384,10 +388,148 @@ describe("RoomTimer", () => {
     expect(handlers.onResume).toHaveBeenCalledOnce();
   });
 
+  it("実行中は +1分 と一時停止の2操作だけを表示する", () => {
+    render(
+      <RoomTimer
+        timer={buildRunningTimer()}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "+1分" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "一時停止" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "停止" }),
+    ).not.toBeInTheDocument();
+    const panel = within(screen.getByTestId("room-timer-panel"));
+    expect(panel.queryByText("実行中")).not.toBeInTheDocument();
+    expect(panel.queryByText("05:00")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(3);
+  });
+
+  it("一時停止中は再開と終了の2操作だけを表示し、終了で onStop を呼ぶ", () => {
+    render(
+      <RoomTimer
+        timer={buildPausedTimer()}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "再開" })).toBeInTheDocument();
+    const endButton = screen.getByRole("button", { name: "終了" });
+    expect(endButton).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "+1分" }),
+    ).not.toBeInTheDocument();
+    const panel = within(screen.getByTestId("room-timer-panel"));
+    expect(panel.queryByText("一時停止中")).not.toBeInTheDocument();
+    expect(panel.queryByText("05:00")).not.toBeInTheDocument();
+    fireEvent.click(endButton);
+    expect(handlers.onStop).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("timer-resume-icon")).toBeInTheDocument();
+    expect(screen.getByTestId("timer-end-icon")).toBeInTheDocument();
+  });
+
+  it("終了後は直前と同じ時間でもう一度開始する操作と設定し直す操作だけを示す", () => {
+    render(
+      <RoomTimer
+        timer={{ status: "ended", durationMs: 60_000 }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+
+    const panel = within(screen.getByTestId("room-timer-panel"));
+    expect(screen.getByTestId("room-timer")).toHaveTextContent("00:00");
+    expect(screen.getByTestId("room-timer")).not.toHaveTextContent("終了");
+    expect(panel.queryByText("終了")).not.toBeInTheDocument();
+    expect(panel.queryByText("00:00")).not.toBeInTheDocument();
+    expect(panel.queryByText("時間になりました。")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "もう一度" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "設定し直す" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "開始" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "もう一度" }));
+    expect(handlers.onStart).toHaveBeenCalledWith(60_000);
+  });
+
+  it("終了後に設定し直すと推奨時間の見出しなし設定UIへ戻り、自動開始しない", () => {
+    render(
+      <RoomTimer
+        timer={{ status: "ended", durationMs: 10 * 60_000 }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        initialDurationMs={3 * 60_000}
+        {...handlers}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "設定し直す" }));
+    expect(screen.getByRole("button", { name: "開始" })).toBeInTheDocument();
+    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("03");
+    expect(screen.queryByText("タイマー設定")).not.toBeInTheDocument();
+    expect(handlers.onStart).not.toHaveBeenCalled();
+  });
+
+  it("ローカルで 00:00 になった実行中タイマーも終了パネルになり、自動開始しない", () => {
+    render(
+      <RoomTimer
+        timer={buildRunningTimer({
+          now: Date.now(),
+          remainingMs: 1,
+          durationMs: 60_000,
+        })}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        initialDurationMs={60_000}
+        {...handlers}
+      />,
+    );
+
+    act(() => vi.advanceTimersByTime(250));
+
+    expect(screen.getByRole("timer")).toHaveTextContent("00:00");
+    expect(
+      screen.getByRole("button", { name: "もう一度" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "+1分" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "一時停止" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "もう一度" }));
+    expect(handlers.onStart).toHaveBeenCalledWith(60_000);
+  });
+
   it("00:00 到達時は音を出さず視覚通知する", () => {
     render(
       <RoomTimer
-        timer={buildEndedTimer({ now: Date.now() })}
+        timer={buildEndedTimer()}
         serverOffsetMs={0}
         isHost={false}
         disabled={false}
@@ -396,7 +538,7 @@ describe("RoomTimer", () => {
     );
     expect(screen.getByRole("timer")).toHaveTextContent("00:00");
     expect(screen.getByRole("timer")).not.toHaveAttribute("aria-live");
-    expect(screen.getByText("タイマーが終了しました。")).toHaveAttribute(
+    expect(screen.getByText(/タイマーが終了しました。/)).toHaveAttribute(
       "aria-live",
       "polite",
     );

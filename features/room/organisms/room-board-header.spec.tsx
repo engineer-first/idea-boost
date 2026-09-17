@@ -227,6 +227,9 @@ describe("RoomBoardHeader", () => {
         onTimerStart,
       });
 
+      expect(screen.getByTestId("room-timer")).toHaveTextContent(
+        `${minutes}:00`,
+      );
       fireEvent.click(screen.getByTestId("room-timer"));
 
       expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue(minutes);
