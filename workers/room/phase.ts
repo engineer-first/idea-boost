@@ -283,7 +283,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
   },
 
   // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
-  "phase:next": (ctx, message) => {
+  "phase:next": async (ctx, message) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
       ctx.reply({
         type: "error",
@@ -360,6 +360,9 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       savePhase(ctx.sql, next);
       timerWasReset = resetTimerState(ctx.sql);
     });
+    if (timerWasReset) {
+      await ctx.storage.deleteAlarm();
+    }
     // 投票ステップでは note:updated の count を秘匿しているため、結果ステップ
     // へ遷移した接続中の参加者にも完全な投票集計を届け直す。フェーズ境界を
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから

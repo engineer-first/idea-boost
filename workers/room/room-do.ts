@@ -56,7 +56,7 @@ import {
   savePhase,
 } from "./phase";
 import { presenceHandlers } from "./presence";
-import { getTimerState, timerHandlers } from "./timer";
+import { getTimerState, handleTimerAlarm, timerHandlers } from "./timer";
 import { listCompletedVoterIds } from "./votes";
 
 // api-worker がセッション検証済みのユーザーIDを DO へ引き継ぐヘッダー。
@@ -289,6 +289,10 @@ export class RoomDO extends DurableObject {
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
     ws.close(1011, "websocket error");
+  }
+
+  override async alarm(): Promise<void> {
+    await handleTimerAlarm(this.sql, this.broadcaster);
   }
 
   // ------------------------------------------------------------

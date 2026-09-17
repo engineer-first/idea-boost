@@ -1,5 +1,6 @@
 "use client";
 
+import { Pause, Play, RotateCcw, Square } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +94,7 @@ export function RoomTimer({
   const [minutesInput, setMinutesInput] = useState(initialFields.minutes);
   const [secondsInput, setSecondsInput] = useState(initialFields.seconds);
   const [panelOpen, setPanelOpen] = useState(defaultPanelOpen);
+  const [isReconfiguring, setIsReconfiguring] = useState(false);
 
   useEffect(() => {
     if (timer.status !== "running") return;
@@ -114,7 +116,14 @@ export function RoomTimer({
       : timer.status === "paused"
         ? timer.remainingMs
         : null;
-  const isEnded = timer.status === "running" && remainingMs === 0;
+  const isEnded =
+    timer.status === "ended" ||
+    (timer.status === "running" && remainingMs === 0);
+
+  useEffect(() => {
+    if (!isEnded) setIsReconfiguring(false);
+  }, [isEnded]);
+
   const parsedDuration = useMemo(
     () => parseDuration(minutesInput, secondsInput),
     [minutesInput, secondsInput],
@@ -164,6 +173,11 @@ export function RoomTimer({
           Ⅱ
         </span>
       ) : null}
+      {isEnded ? (
+        <span aria-hidden="true" className="ml-1 font-sans text-xs">
+          終了
+        </span>
+      ) : null}
     </>
   );
   const hostChip = (
@@ -202,7 +216,7 @@ export function RoomTimer({
       align="end"
       className="board-hud w-72 bg-background"
     >
-      {timer.status === "idle" ? (
+      {timer.status === "idle" || (isEnded && isReconfiguring) ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm font-medium">タイマー設定</p>
           <div className="flex items-center justify-between gap-1">
@@ -274,6 +288,29 @@ export function RoomTimer({
             開始
           </Button>
         </div>
+      ) : isEnded ? (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">終了</p>
+            <span className="font-mono text-lg font-bold tabular-nums">
+              00:00
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">時間になりました。</p>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 w-full"
+            disabled={disabled}
+            onClick={() => {
+              setDuration(initialDurationMs);
+              setIsReconfiguring(true);
+            }}
+          >
+            <RotateCcw aria-hidden="true" />
+            もう一度設定
+          </Button>
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
@@ -297,9 +334,34 @@ export function RoomTimer({
                 disabled={disabled}
                 onClick={onResume}
               >
+                <Play data-testid="timer-resume-icon" aria-hidden="true" />
                 再開
               </Button>
-            ) : !isEnded ? (
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 flex-1"
+                disabled={disabled}
+                onClick={onExtend}
+              >
+                +1分
+              </Button>
+            )}
+            {timer.status === "paused" ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="h-8 flex-1"
+                disabled={disabled}
+                onClick={onStop}
+              >
+                <Square data-testid="timer-end-icon" aria-hidden="true" />
+                終了
+              </Button>
+            ) : (
               <Button
                 type="button"
                 size="sm"
@@ -307,29 +369,10 @@ export function RoomTimer({
                 disabled={disabled}
                 onClick={onPause}
               >
+                <Pause aria-hidden="true" />
                 一時停止
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 flex-1"
-              disabled={disabled}
-              onClick={onExtend}
-            >
-              +1分
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 flex-1"
-              disabled={disabled}
-              onClick={onStop}
-            >
-              停止
-            </Button>
+            )}
           </div>
         </div>
       )}
@@ -347,7 +390,7 @@ export function RoomTimer({
         memberChip
       )}
       <span aria-live="polite" className="sr-only">
-        {isEnded ? "タイマーが終了しました。" : null}
+        {isEnded ? "タイマーが終了しました。時間になりました。" : null}
       </span>
     </div>
   );

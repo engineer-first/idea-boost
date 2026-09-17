@@ -126,6 +126,13 @@ export const TimerStateSchema = z.discriminatedUnion("status", [
     remainingMs: TimerDurationSchema,
     durationMs: TimerDurationSchema,
   }),
+  z
+    .object({
+      // 手動終了・時間切れ後も参加者全員が同じ 00:00 と再設定導線を見る。
+      status: z.literal("ended"),
+      durationMs: TimerDurationSchema,
+    })
+    .strict(),
 ]);
 export type TimerState = z.infer<typeof TimerStateSchema>;
 

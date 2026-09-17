@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import { RoomTimer } from "./room-timer";
 import {
   buildEndedTimer,
@@ -70,6 +70,20 @@ export const EndedHost: Story = {
 };
 export const EndedHostPanelOpen: Story = {
   args: { ...EndedHost.args, defaultPanelOpen: true },
+};
+export const ExpiredHostPanelOpen: Story = {
+  args: {
+    timer: buildRunningTimer({ remainingMs: 0 }),
+    defaultPanelOpen: true,
+  },
+};
+export const EndedHostReconfigure: Story = {
+  args: { ...EndedHost.args, defaultPanelOpen: true },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "もう一度設定" }),
+    );
+  },
 };
 export const EndedMember: Story = {
   args: { ...EndedHost.args, isHost: false },
