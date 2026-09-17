@@ -60,9 +60,6 @@ export function PrivateNotesToolbar({
   const noteIdsBeforeAddRef = useRef<Set<string> | null>(null);
   const lastAddRequestRef = useRef(0);
   const scrollContainerRef = useRef<HTMLElement>(null);
-  const orderedNotes = [...notes].sort((a, b) =>
-    a.createdAt.localeCompare(b.createdAt),
-  );
   const handleAdd = useCallback(() => {
     noteIdsBeforeAddRef.current = new Set(notes.map((note) => note.id));
     setIsExpanded(true);
@@ -152,7 +149,7 @@ export function PrivateNotesToolbar({
                 個人付箋はまだありません
               </p>
             ) : null}
-            {orderedNotes.map((note) => (
+            {notes.map((note) => (
               <NoteCard
                 key={note.id}
                 note={note}

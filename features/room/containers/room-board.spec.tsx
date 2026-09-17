@@ -59,6 +59,8 @@ const OTHER_USER_ID = "22222222-2222-4222-8222-222222222222";
 const NOTE_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const THIRD_PRIVATE_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+const NEW_PRIVATE_NOTE_ID = "11111111-2222-4222-8222-111111111111";
 const nativeElementFromPoint = document.elementFromPoint;
 
 type Listener = (event: {
@@ -209,6 +211,47 @@ function openPrivateNotesToolbar() {
   });
   if (openButton) fireEvent.click(openButton);
   return toolbar;
+}
+
+function mockPrivateToolbarLayout(toolbar: HTMLElement): void {
+  Object.defineProperty(toolbar, "getBoundingClientRect", {
+    configurable: true,
+    value: () => ({
+      left: 600,
+      top: 0,
+      right: 900,
+      bottom: 600,
+      width: 300,
+      height: 600,
+    }),
+  });
+  const noteTops = [100, 256, 412];
+  within(toolbar)
+    .getAllByTestId("note-card")
+    .forEach((card, index) => {
+      const top = noteTops[index];
+      vi.spyOn(card, "getBoundingClientRect").mockReturnValue({
+        x: 600,
+        y: top,
+        top,
+        right: 800,
+        bottom: top + 144,
+        left: 600,
+        width: 200,
+        height: 144,
+        toJSON: () => ({}),
+      });
+    });
+}
+
+function privateNoteIds(toolbar: HTMLElement): string[] {
+  return within(toolbar)
+    .getAllByTestId("note-card")
+    .map((card) => {
+      const noteId = card.getAttribute("data-note-id");
+      if (!noteId) throw new Error("付箋IDがありません");
+      return noteId;
+    });
 }
 
 function dropPaletteSticker(kind: "subjective" | "objective"): void {
@@ -866,6 +909,168 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(within(toolbar).getByTestId("note-card")).toBeInTheDocument();
     expect(within(canvas).queryByTestId("note-card")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      position: "先頭",
+      clientY: 100,
+      expected: [NOTE_ID, TARGET_NOTE_ID, STICKER_ID, THIRD_PRIVATE_NOTE_ID],
+    },
+    {
+      position: "付箋間",
+      clientY: 250,
+      expected: [TARGET_NOTE_ID, NOTE_ID, STICKER_ID, THIRD_PRIVATE_NOTE_ID],
+    },
+    {
+      position: "末尾",
+      clientY: 570,
+      expected: [TARGET_NOTE_ID, STICKER_ID, THIRD_PRIVATE_NOTE_ID, NOTE_ID],
+    },
+  ])("実際のマイ付箋UIで共有付箋を縦方向の$positionへ戻すと表示順を維持する", ({
+    clientY,
+    expected,
+  }) => {
+    const { socket } = connectWithSnapshot(
+      [
+        protocolNote({
+          id: NOTE_ID,
+          content: "戻す付箋",
+          visibility: "shared",
+          createdAt: "2026-01-04T00:00:00.000Z",
+        }),
+        protocolNote({
+          id: TARGET_NOTE_ID,
+          content: "マイ付箋1",
+          visibility: "private",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        }),
+        protocolNote({
+          id: STICKER_ID,
+          content: "マイ付箋2",
+          visibility: "private",
+          createdAt: "2026-01-02T00:00:00.000Z",
+        }),
+        protocolNote({
+          id: THIRD_PRIVATE_NOTE_ID,
+          content: "マイ付箋3",
+          visibility: "private",
+          createdAt: "2026-01-03T00:00:00.000Z",
+        }),
+      ],
+      { phase: buildPhaseStep(2, 1) },
+    );
+    const toolbar = openPrivateNotesToolbar();
+    mockPrivateToolbarLayout(toolbar);
+
+    const canvas = screen.getByTestId("board-canvas");
+    const note = within(canvas).getByTestId("note-card");
+    const surface = within(note).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(surface, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 1,
+      clientX: 110,
+      clientY: 110,
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    fireEvent.pointerMove(root, {
+      pointerId: 1,
+      clientX: 750,
+      clientY,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 1,
+      clientX: 750,
+      clientY,
+    });
+
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "note:unpublish", noteId: NOTE_ID }),
+    );
+    expect(privateNoteIds(toolbar)).toEqual(expected);
+  });
+
+  it("ドロップ後に新しいマイ付箋が追加されても、既存の表示順と末尾追加を維持する", () => {
+    connectWithSnapshot(
+      [
+        protocolNote({
+          id: NOTE_ID,
+          content: "戻す付箋",
+          visibility: "shared",
+          createdAt: "2026-01-04T00:00:00.000Z",
+        }),
+        protocolNote({
+          id: TARGET_NOTE_ID,
+          content: "マイ付箋1",
+          visibility: "private",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        }),
+        protocolNote({
+          id: STICKER_ID,
+          content: "マイ付箋2",
+          visibility: "private",
+          createdAt: "2026-01-02T00:00:00.000Z",
+        }),
+        protocolNote({
+          id: THIRD_PRIVATE_NOTE_ID,
+          content: "マイ付箋3",
+          visibility: "private",
+          createdAt: "2026-01-03T00:00:00.000Z",
+        }),
+      ],
+      { phase: buildPhaseStep(2, 1) },
+    );
+    const toolbar = openPrivateNotesToolbar();
+    mockPrivateToolbarLayout(toolbar);
+
+    const canvas = screen.getByTestId("board-canvas");
+    const note = within(canvas).getByTestId("note-card");
+    const surface = within(note).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(surface, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 1,
+      clientX: 110,
+      clientY: 110,
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    fireEvent.pointerMove(root, {
+      pointerId: 1,
+      clientX: 750,
+      clientY: 250,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 1,
+      clientX: 750,
+      clientY: 250,
+    });
+
+    act(() =>
+      FakeWebSocket.instances.at(-1)?.simulateServerMessage({
+        type: "note:inserted",
+        note: protocolNote({
+          id: NEW_PRIVATE_NOTE_ID,
+          content: "新しいマイ付箋",
+          visibility: "private",
+          createdAt: "2026-01-05T00:00:00.000Z",
+        }),
+      }),
+    );
+
+    expect(privateNoteIds(toolbar)).toEqual([
+      TARGET_NOTE_ID,
+      NOTE_ID,
+      STICKER_ID,
+      THIRD_PRIVATE_NOTE_ID,
+      NEW_PRIVATE_NOTE_ID,
+    ]);
   });
 
   it("自分の共有付箋をマイ付箋領域へドラッグして非公開に戻し、さらに再びボードへドラッグして公開しドロップ位置を確定できる", () => {
