@@ -700,6 +700,176 @@ describe("note:create", () => {
 });
 
 describe("note:publish", () => {
+  it("publish・実移動・再publishだけが単調増加順になり全員と再接続後に一致する", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const firstNoteId = await createNote({ owner, member });
+    const secondNoteId = await createNote({ owner, member });
+
+    member.close();
+    const observer = await connectRoomAs(MEMBER, roomId);
+    const initialSnapshot = await expectType(observer, "snapshot");
+    const initialFirst = initialSnapshot.notes.find(
+      (note) => note.id === firstNoteId,
+    );
+    const initialSecond = initialSnapshot.notes.find(
+      (note) => note.id === secondNoteId,
+    );
+    expect(initialFirst?.stackOrder).toBeTypeOf("number");
+    expect(initialSecond?.stackOrder).toBeGreaterThan(
+      initialFirst?.stackOrder ?? -1,
+    );
+
+    send(owner, {
+      type: "note:move",
+      noteId: firstNoteId,
+      x: 240,
+      y: 260,
+    });
+    const movedToOwner = await expectType(owner, "note:updated");
+    const movedToObserver = await expectType(observer, "note:updated");
+    expect(movedToOwner.note.stackOrder).toBeGreaterThan(
+      initialSecond?.stackOrder ?? -1,
+    );
+    expect(movedToObserver.note.stackOrder).toBe(movedToOwner.note.stackOrder);
+
+    send(owner, {
+      type: "note:move",
+      noteId: firstNoteId,
+      x: 240,
+      y: 260,
+    });
+    const unchangedMove = await expectType(owner, "note:updated");
+    await expectType(observer, "note:updated");
+    expect(unchangedMove.note.stackOrder).toBe(movedToOwner.note.stackOrder);
+
+    send(owner, {
+      type: "note:update-content",
+      noteId: firstNoteId,
+      content: "順序を変えない編集",
+    });
+    const edited = await expectType(owner, "note:updated");
+    await expectType(observer, "note:updated");
+    expect(edited.note.stackOrder).toBe(movedToOwner.note.stackOrder);
+
+    send(owner, { type: "note:unpublish", noteId: firstNoteId });
+    await expectType(owner, "note:deleted");
+    await expectType(owner, "note:inserted");
+    await expectType(observer, "note:deleted");
+    send(owner, {
+      type: "note:publish",
+      noteId: firstNoteId,
+      x: 240,
+      y: 260,
+    });
+    const republishedToOwner = await expectType(owner, "note:inserted");
+    const republishedToObserver = await expectType(observer, "note:inserted");
+    expect(republishedToOwner.note.stackOrder).toBeGreaterThan(
+      movedToOwner.note.stackOrder,
+    );
+    expect(republishedToObserver.note.stackOrder).toBe(
+      republishedToOwner.note.stackOrder,
+    );
+
+    observer.close();
+    const reconnected = await connectRoomAs(MEMBER, roomId);
+    const snapshot = await expectType(reconnected, "snapshot");
+    expect(
+      snapshot.notes.find((note) => note.id === firstNoteId)?.stackOrder,
+    ).toBe(republishedToOwner.note.stackOrder);
+
+    owner.close();
+    reconnected.close();
+  });
+
+  it("最大順の付箋を削除しても publish と実移動の割当値を再利用しない", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const firstNoteId = await createNote({ owner, member });
+    const deletedNoteId = await createNote({ owner, member });
+
+    member.close();
+    const observer = await connectRoomAs(MEMBER, roomId);
+    const beforeDelete = await expectType(observer, "snapshot");
+    const deletedStackOrder = beforeDelete.notes.find(
+      ({ id }) => id === deletedNoteId,
+    )?.stackOrder;
+    expect(deletedStackOrder).toBeTypeOf("number");
+
+    await arrangeStep(owner, 2);
+    send(owner, { type: "note:unpublish", noteId: deletedNoteId });
+    await expectType(owner, "note:deleted");
+    await expectType(owner, "note:inserted");
+    await expectType(observer, "note:deleted");
+    await arrangeStep(owner, 1);
+    send(owner, { type: "note:delete", noteId: deletedNoteId });
+    await expectType(owner, "note:deleted");
+
+    send(owner, { type: "note:create" });
+    const drafted = await expectType(owner, "note:inserted");
+    await arrangeStep(owner, 2);
+    send(owner, {
+      type: "note:publish",
+      noteId: drafted.note.id,
+      x: 300,
+      y: 300,
+    });
+    const published = await expectType(owner, "note:inserted");
+    await expectType(observer, "note:inserted");
+    expect(published.note.stackOrder).toBeGreaterThan(deletedStackOrder ?? -1);
+
+    send(owner, {
+      type: "note:move",
+      noteId: firstNoteId,
+      x: 400,
+      y: 400,
+    });
+    const moved = await expectType(owner, "note:updated");
+    await expectType(observer, "note:updated");
+    expect(moved.note.stackOrder).toBeGreaterThan(published.note.stackOrder);
+
+    owner.close();
+    observer.close();
+  });
+
+  it("投票と投票シール操作では stackOrder を維持する", async () => {
+    const { owner, member } = await setupStartedRoom();
+    const noteId = await createNote({ owner, member });
+    await arrangeStep(owner, 4);
+
+    send(member, { type: "note:vote", noteId, kind: "objective" });
+    const voted = await expectType(member, "note:updated");
+    const stackOrder = voted.note.stackOrder;
+    send(member, {
+      type: "note:vote-sticker:add",
+      noteId,
+      stickerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      kind: "objective",
+      x: 0.25,
+      y: 0.75,
+    });
+    const stickerAdded = await expectType(member, "note:updated");
+    expect(stickerAdded.note.stackOrder).toBe(stackOrder);
+
+    send(member, {
+      type: "note:vote-sticker:move",
+      stickerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      noteId,
+      x: 0.75,
+      y: 0.25,
+    });
+    const stickerMoved = await expectType(member, "note:updated");
+    expect(stickerMoved.note.stackOrder).toBe(stackOrder);
+
+    send(member, {
+      type: "note:vote-sticker:remove",
+      stickerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+    const stickerRemoved = await expectType(member, "note:updated");
+    expect(stickerRemoved.note.stackOrder).toBe(stackOrder);
+
+    owner.close();
+    member.close();
+  });
+
   it("Step 1-3 では公開済み付箋からグループを作成できる", async () => {
     const { owner, member } = await setupStartedRoom();
     const firstNoteId = await createNote({ owner, member });

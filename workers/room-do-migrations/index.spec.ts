@@ -307,6 +307,50 @@ describe("ROOM_DO_MIGRATIONS", () => {
       ).toEqual([{ visibility: "shared" }]);
     });
   });
+
+  it("既存付箋へ作成日時とID順の決定的で一意な stack_order を付ける", async () => {
+    await runInRoomDO("mig-note-stack-order", (_instance, state) => {
+      dropAllTables(state.storage);
+      const stackOrderMigrationIndex = ROOM_DO_MIGRATIONS.findIndex(
+        (migration) => migration.sql.includes("stack_order"),
+      );
+      expect(stackOrderMigrationIndex).toBeGreaterThanOrEqual(0);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.slice(0, stackOrderMigrationIndex),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO notes (id, author_id, content, x, y, created_at, updated_at)
+         VALUES
+           ('note-c', ?1, '3番目', 0, 0, '2026-07-10T00:00:01.000Z', '2026-07-10T00:00:01.000Z'),
+           ('note-b', ?1, '2番目', 0, 0, '2026-07-10T00:00:00.000Z', '2026-07-10T00:00:00.000Z'),
+           ('note-a', ?1, '1番目', 0, 0, '2026-07-10T00:00:00.000Z', '2026-07-10T00:00:00.000Z')`,
+        USER_A,
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      expect(
+        state.storage.sql
+          .exec("SELECT id, stack_order FROM notes ORDER BY stack_order")
+          .toArray(),
+      ).toEqual([
+        { id: "note-a", stack_order: 0 },
+        { id: "note-b", stack_order: 1 },
+        { id: "note-c", stack_order: 2 },
+      ]);
+      expect(
+        state.storage.sql
+          .exec("SELECT next_note_stack_order FROM room_state WHERE id = 1")
+          .one(),
+      ).toEqual({ next_note_stack_order: 3 });
+    });
+  });
 });
 
 describe("RoomDO constructor の配線", () => {

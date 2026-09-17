@@ -24,6 +24,7 @@ const note: Note = {
   color: "yellow",
   x: 10,
   y: 20,
+  stackOrder: 0,
   createdAt: "2026-07-03T00:00:00.000Z",
   updatedAt: "2026-07-03T00:00:00.000Z",
   dotVotes: {

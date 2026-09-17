@@ -39,6 +39,7 @@ export function buildNote(overrides: Partial<ProtocolNote> = {}): ProtocolNote {
     color: "yellow",
     x: 100,
     y: 120,
+    stackOrder: 0,
     createdAt: "2026-07-03T00:00:00.000Z",
     updatedAt: "2026-07-03T00:00:00.000Z",
     dotVotes: {
@@ -58,6 +59,7 @@ export function buildNotes(count = 3): ProtocolNote[] {
       content: `付箋 ${index + 1}`,
       x: 80 + index * 40,
       y: 60 + index * 40,
+      stackOrder: index,
     }),
   );
 }

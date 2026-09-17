@@ -87,6 +87,7 @@ export const NoteSchema = z.object({
   color: NoteColorSchema,
   x: CanvasCoordinateSchema,
   y: CanvasCoordinateSchema,
+  stackOrder: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string(),
   dotVotes: z.object({
