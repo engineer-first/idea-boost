@@ -1207,6 +1207,81 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     );
   });
 
+  it("自分のシールをパレットへ戻すと削除を送り、確定後に残票が戻る", () => {
+    const { socket } = connectWithSnapshot(
+      [
+        protocolNote({
+          dotVotes: {
+            subjective: { count: 0, votedByMe: false, ownCount: 0 },
+            objective: { count: 1, votedByMe: true, ownCount: 1 },
+          },
+          dotVoteStickers: [
+            { id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 },
+          ],
+        }),
+      ],
+      { phase: buildPhaseStep(4) },
+    );
+    const sticker = screen.getByRole("button", {
+      name: "客観シール 1票を1票取り消す",
+    });
+    const palette = screen.getByRole("region", { name: "投票パレット" });
+    const root = screen.getByTestId("room-board-view-root");
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => palette,
+    });
+
+    fireEvent.pointerDown(sticker, {
+      pointerId: 21,
+      clientX: 140,
+      clientY: 145,
+    });
+    fireEvent.pointerMove(root, {
+      pointerId: 21,
+      clientX: 320,
+      clientY: 700,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 21,
+      clientX: 320,
+      clientY: 700,
+    });
+
+    const removeMessage = JSON.parse(socket.sent.at(-1) ?? "{}");
+    expect(removeMessage).toEqual(
+      expect.objectContaining({
+        type: "note:vote-sticker:remove",
+        stickerId: STICKER_ID,
+        operationId: expect.any(String),
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+    ).toBeEnabled();
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: removeMessage.operationId,
+        note: protocolNote({
+          dotVotes: {
+            subjective: { count: 0, votedByMe: false, ownCount: 0 },
+            objective: { count: 0, votedByMe: false, ownCount: 0 },
+          },
+          dotVoteStickers: [],
+        }),
+      }),
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "客観シール 1票を1票取り消す" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+    ).toBeEnabled();
+  });
+
   it("投票中は付箋上のシールを別の付箋へドラッグすると移動が送信される", () => {
     const { socket } = connectWithSnapshot(
       [

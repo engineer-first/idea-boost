@@ -34,3 +34,9 @@ export const Result: Story = {
     onRemove: undefined,
   },
 };
+
+export const Draggable: Story = {
+  args: {
+    onDragStart: fn(),
+  },
+};

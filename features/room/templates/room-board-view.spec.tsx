@@ -1053,6 +1053,113 @@ describe("RoomBoardView", () => {
     );
   });
 
+  it("自分のシールを投票パレットへ戻すと、既存のシール削除経路を呼ぶ", () => {
+    const onNoteVoteStickerRemove = vi.fn();
+    const stickerId = "33333333-3333-4333-8333-333333333333";
+    const notes = [
+      {
+        ...buildNotes(1)[0],
+        dotVotes: {
+          subjective: { count: 0, votedByMe: false, ownCount: 0 },
+          objective: { count: 1, votedByMe: true, ownCount: 1 },
+        },
+        dotVoteStickers: [
+          { id: stickerId, kind: "objective" as const, x: 0.2, y: 0.3 },
+        ],
+      },
+    ];
+    setup({
+      phase: buildPhaseStep(4),
+      notes,
+      onNoteVoteStickerRemove,
+    });
+
+    const sticker = screen.getByRole("button", {
+      name: "客観シール 1票を1票取り消す",
+    });
+    const palette = screen.getByRole("region", { name: "投票パレット" });
+    const root = screen.getByTestId("room-board-view-root");
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => palette,
+    });
+
+    fireEvent.pointerDown(sticker, {
+      pointerId: 13,
+      clientX: 140,
+      clientY: 145,
+    });
+    fireEvent.pointerMove(root, {
+      pointerId: 13,
+      clientX: 320,
+      clientY: 700,
+    });
+
+    expect(palette).toHaveAttribute("data-return-drop-target", "true");
+    expect(palette).toHaveTextContent("戻すと1票取り消し");
+
+    fireEvent.pointerUp(root, {
+      pointerId: 13,
+      clientX: 320,
+      clientY: 700,
+    });
+
+    expect(onNoteVoteStickerRemove).toHaveBeenCalledTimes(1);
+    expect(onNoteVoteStickerRemove).toHaveBeenCalledWith(stickerId);
+  });
+
+  it("投票シールをパレット以外の無効位置へドロップしても何もしない", () => {
+    const onNoteVoteStickerRemove = vi.fn();
+    const onNoteVoteStickerMove = vi.fn();
+    const stickerId = "33333333-3333-4333-8333-333333333333";
+    const notes = [
+      {
+        ...buildNotes(1)[0],
+        dotVotes: {
+          subjective: { count: 0, votedByMe: false, ownCount: 0 },
+          objective: { count: 1, votedByMe: true, ownCount: 1 },
+        },
+        dotVoteStickers: [
+          { id: stickerId, kind: "objective" as const, x: 0.2, y: 0.3 },
+        ],
+      },
+    ];
+    setup({
+      phase: buildPhaseStep(4),
+      notes,
+      onNoteVoteStickerRemove,
+      onNoteVoteStickerMove,
+    });
+
+    const sticker = screen.getByRole("button", {
+      name: "客観シール 1票を1票取り消す",
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => root,
+    });
+
+    fireEvent.pointerDown(sticker, {
+      pointerId: 14,
+      clientX: 140,
+      clientY: 145,
+    });
+    fireEvent.pointerMove(root, {
+      pointerId: 14,
+      clientX: 320,
+      clientY: 700,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 14,
+      clientX: 320,
+      clientY: 700,
+    });
+
+    expect(onNoteVoteStickerRemove).not.toHaveBeenCalled();
+    expect(onNoteVoteStickerMove).not.toHaveBeenCalled();
+  });
+
   it("現在地と操作HUDをキャンバス上に重ねる", () => {
     setup({ isHost: true });
 

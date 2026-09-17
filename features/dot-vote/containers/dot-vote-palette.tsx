@@ -8,6 +8,7 @@ export type DotVotePaletteProps = {
   feedback: DotVoteFeedback | null;
   disabled: boolean;
   selectedKind: DotVoteKind | null;
+  isReturnDropTarget?: boolean;
   onStickerSelect: (
     kind: DotVoteKind,
     event: React.MouseEvent<HTMLButtonElement>,
@@ -26,6 +27,7 @@ export function DotVotePalette({
   feedback,
   disabled,
   selectedKind,
+  isReturnDropTarget = false,
   onStickerSelect,
   onStickerDragStart,
 }: DotVotePaletteProps) {
@@ -36,6 +38,7 @@ export function DotVotePalette({
       feedback={feedback}
       disabled={disabled}
       selectedKind={selectedKind}
+      isReturnDropTarget={isReturnDropTarget}
       onStickerSelect={onStickerSelect}
       onStickerDragStart={onStickerDragStart}
     />

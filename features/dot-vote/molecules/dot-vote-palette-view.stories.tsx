@@ -11,6 +11,7 @@ const meta = {
     feedback: null,
     disabled: false,
     selectedKind: null,
+    isReturnDropTarget: false,
     onStickerSelect: fn(),
     onStickerDragStart: fn(),
   },
@@ -28,5 +29,11 @@ export const Selected: Story = {
 export const Exhausted: Story = {
   args: {
     voteRemaining: { subjective: 0, objective: 0 },
+  },
+};
+
+export const ReturningSticker: Story = {
+  args: {
+    isReturnDropTarget: true,
   },
 };

@@ -330,6 +330,56 @@ describe("useRoomNotes", () => {
     });
   });
 
+  it("自分のシール削除は残票を楽観的に戻し、操作ID付き拒否でシールと票数を復元する", () => {
+    const { result } = setup();
+    const voted = buildNote({
+      id: NOTE_ID,
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 2, votedByMe: true, ownCount: 1 },
+      },
+      dotVoteStickers: [{ id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 }],
+    });
+    act(() => result.current.applyMessage(snapshotMessage([voted])));
+
+    act(() => result.current.removeVoteSticker(STICKER_ID));
+
+    expect(result.current.notes[0]?.dotVotes.objective).toEqual({
+      count: 1,
+      votedByMe: false,
+      ownCount: 0,
+    });
+    expect(result.current.notes[0]?.dotVoteStickers).toEqual([]);
+    expect(send).toHaveBeenCalledWith({
+      type: "note:vote-sticker:remove",
+      stickerId: STICKER_ID,
+      operationId: "33333333-3333-4333-8333-333333333333",
+    });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "このシールは取り消せません。",
+        operationId: "33333333-3333-4333-8333-333333333333",
+      }),
+    );
+
+    expect(result.current.pendingVoteOperations).toEqual([]);
+    expect(result.current.notes[0]?.dotVotes.objective).toEqual({
+      count: 2,
+      votedByMe: true,
+      ownCount: 1,
+    });
+    expect(result.current.notes[0]?.dotVoteStickers).toEqual([
+      { id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 },
+    ]);
+    expect(result.current.voteFeedback).toEqual({
+      state: "failed",
+      message: "このシールは取り消せません。",
+    });
+  });
+
   it("投票の上限に達していたら反映も送信もしない", () => {
     const { result } = setup();
     // objective の上限は DOT_VOTE_LIMITS.objective（3）。上限まで消費済みの状態を作る。
