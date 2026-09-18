@@ -58,7 +58,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onPrivateNoteDelete: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
     remoteCursors: [],
-    remoteNoteDrags: [],
     ...overrides,
   };
   const { rerender } = render(<RoomBoardCanvas {...props} />);
@@ -75,6 +74,21 @@ function openPrivateNotesToolbar() {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("scroller の pointer leave 座標を presence handler へ渡す", () => {
+    const onPresencePointerLeave = vi.fn();
+    setup({ onPresencePointerLeave });
+
+    fireEvent.pointerLeave(screen.getByTestId("board-scroller"), {
+      pointerId: 4,
+      clientX: 650,
+      clientY: 120,
+    });
+
+    expect(onPresencePointerLeave).toHaveBeenCalledWith(
+      expect.objectContaining({ clientX: 650, clientY: 120 }),
+    );
+  });
+
   it("他ユーザーの名前付きカーソルを表示し、個人向け切り替え操作を表示しない", () => {
     setup({
       remoteCursors: [
@@ -204,49 +218,6 @@ describe("RoomBoardCanvas", () => {
     setup({ notes: buildNotes(3) });
 
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
-  });
-
-  it("noteIdに対応する移動者を付箋本体へ表示する", () => {
-    const note = buildNote({ id: "note-1", color: "yellow" });
-    setup({
-      notes: [note],
-      remoteNoteDrags: [
-        {
-          noteId: note.id,
-          draggedBy: {
-            userId: "22222222-2222-4222-8222-222222222222",
-            name: "Taro",
-            color: "green",
-          },
-          lastSeenAt: Date.now(),
-        },
-      ],
-    });
-
-    expect(screen.getByRole("status", { name: "Taro が移動中" })).toBeVisible();
-  });
-
-  it("切断中は古い移動者表示を付箋へ出さない", () => {
-    const note = buildNote({ id: "note-1" });
-    setup({
-      notes: [note],
-      isDisconnected: true,
-      remoteNoteDrags: [
-        {
-          noteId: note.id,
-          draggedBy: {
-            userId: "22222222-2222-4222-8222-222222222222",
-            name: "Taro",
-            color: "green",
-          },
-          lastSeenAt: Date.now(),
-        },
-      ],
-    });
-
-    expect(
-      screen.queryByRole("status", { name: "Taro が移動中" }),
-    ).not.toBeInTheDocument();
   });
 
   it("付箋が 0 件でも共有付箋の空状態メッセージを表示しない", () => {
@@ -396,7 +367,7 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByText("運んでいる付箋")).toBeInTheDocument();
   });
 
-  it("通常ボードでは永続順序を描画し own・remote drag と ghost だけを一時最前面にする", () => {
+  it("通常ボードでは永続順序を描画し own・名前付きカーソルの drag と ghost だけを一時最前面にする", () => {
     const notes = [
       { ...buildNote({ id: "back" }), stackOrder: 4 },
       { ...buildNote({ id: "own" }), stackOrder: 8 },
@@ -405,15 +376,16 @@ describe("RoomBoardCanvas", () => {
     setup({
       notes,
       draggingNoteId: "own",
-      remoteNoteDrags: [
+      remoteCursors: [
         {
-          noteId: "remote",
-          draggedBy: {
-            userId: "22222222-2222-4222-8222-222222222222",
-            name: "Taro",
-            color: "green",
-          },
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 120,
+          y: 120,
+          draggingNoteId: "remote",
           lastSeenAt: Date.now(),
+          isIdle: false,
         },
       ],
       dragGhost: {
@@ -443,7 +415,7 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("note-card")).toHaveStyle({ zIndex: "7" });
   });
 
-  it("2軸マップでも永続順序を使い remote drag と ghost を一時最前面にする", () => {
+  it("2軸マップでも永続順序を使い名前付きカーソルの drag と ghost を一時最前面にする", () => {
     const phase = buildPhaseStep(3, 3);
     setup({
       phase,
@@ -452,15 +424,16 @@ describe("RoomBoardCanvas", () => {
         { ...buildNote({ id: "map-back" }), stackOrder: 3 },
         { ...buildNote({ id: "map-remote" }), stackOrder: 9 },
       ],
-      remoteNoteDrags: [
+      remoteCursors: [
         {
-          noteId: "map-remote",
-          draggedBy: {
-            userId: "22222222-2222-4222-8222-222222222222",
-            name: "Taro",
-            color: "green",
-          },
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 50,
+          y: 50,
+          draggingNoteId: "map-remote",
           lastSeenAt: Date.now(),
+          isIdle: false,
         },
       ],
       dragGhost: {

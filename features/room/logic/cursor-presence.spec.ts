@@ -111,6 +111,24 @@ describe("cursor presence reducer", () => {
       ),
     ).toEqual([]);
   });
+
+  it("同じユーザーの別接続でドラッグが終わってもカーソルを残して操作対象だけ解除する", () => {
+    const cursor: RemoteCursorPresence = {
+      ...update().cursor,
+      draggingNoteId: "33333333-3333-4333-8333-333333333333",
+      lastSeenAt: 1_000,
+    };
+
+    expect(
+      applyCursorPresenceMessage(
+        [cursor],
+        { type: "cursor:drag-ended", userId: OTHER },
+        ME,
+        buildPhaseStep(2),
+        2_000,
+      ),
+    ).toEqual([{ ...cursor, draggingNoteId: null }]);
+  });
 });
 
 describe("cursor presence policy", () => {

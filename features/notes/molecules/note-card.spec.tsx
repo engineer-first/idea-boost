@@ -267,25 +267,13 @@ describe("NoteCard", () => {
     expect(textarea.className).not.toContain("dark:text-");
   });
 
-  it("付箋の作者色を保ったまま、移動者色の枠と名前付き表示を重ねる", () => {
-    setup({
-      note: buildNote({ color: "yellow" }),
-      activeDragMember: {
-        userId: "22222222-2222-4222-8222-222222222222",
-        name: "Taro",
-        color: "green",
-      },
-    });
-
-    expect(getCard()).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
-    });
-    expect(screen.getByRole("status", { name: "Taro が移動中" })).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES.green.backgroundColor,
-    });
-    expect(screen.getByTestId("active-note-drag-outline")).toHaveStyle({
-      borderColor: NOTE_COLOR_STYLES.green.backgroundColor,
-    });
+  it("ドラッグ専用の操作者名や色枠を付箋へ重ねない", () => {
+    setup({ note: buildNote({ color: "yellow", content: "本文" }) });
+    expect(screen.getByRole("textbox")).toHaveValue("本文");
+    expect(screen.queryByText(/移動中/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("active-note-drag-outline"),
+    ).not.toBeInTheDocument();
   });
 
   it("本文の入力はコントラクトの上限文字数で制限される", () => {

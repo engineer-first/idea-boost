@@ -6,7 +6,7 @@ import { isCursorSharingAllowed } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
 import type { MessageHandlers } from "./handler-context";
 import { findMember } from "./members";
-import { canEdit, findNote } from "./notes";
+import { broadcastNoteUpdated, canEdit, findNote } from "./notes";
 import { getBoardMutationForbiddenMessage, getPhase } from "./phase";
 
 export const presenceHandlers: MessageHandlers<
@@ -25,6 +25,7 @@ export const presenceHandlers: MessageHandlers<
     }
 
     if (message.draggingNoteId) {
+      const active = ctx.broadcaster.activeDragFor(ctx.ws);
       const row = findNote(ctx.sql, message.draggingNoteId);
       if (!row) return;
       if (
@@ -32,9 +33,11 @@ export const presenceHandlers: MessageHandlers<
         phase.kind !== "step" ||
         row.phase !== phase.phase ||
         !canEdit(row, ctx.userId) ||
+        active?.noteId !== message.draggingNoteId ||
         getBoardMutationForbiddenMessage(phase, {
-          type: "note:drag",
+          type: "note:drag:move",
           noteId: message.draggingNoteId,
+          dragId: active.dragId,
           x: message.x,
           y: message.y,
         }) !== null
@@ -68,20 +71,37 @@ export const presenceHandlers: MessageHandlers<
     );
   },
   "cursor:leave": (ctx) => {
-    const attachment =
+    const previousAttachment =
       ctx.ws.deserializeAttachment() as SocketAttachment | null;
     if (
-      !attachment ||
-      (!attachment.hasCursor && !attachment.activeDragNoteId)
+      !previousAttachment ||
+      (!previousAttachment.hasCursor && !previousAttachment.activeDrag)
     ) {
       return;
     }
+    const active = ctx.broadcaster.retireActiveDrag(ctx.ws);
+    const attachment =
+      (ctx.ws.deserializeAttachment() as SocketAttachment | null) ??
+      previousAttachment;
     ctx.ws.serializeAttachment({
       ...attachment,
       hasCursor: false,
-      activeDragNoteId: undefined,
     } satisfies SocketAttachment);
-    if (ctx.broadcaster.hasOtherPresenceForUser(ctx.userId, ctx.ws)) return;
+    if (active) {
+      const row = findNote(ctx.sql, active.noteId);
+      if (row?.visibility === "shared") {
+        broadcastNoteUpdated(ctx.sql, ctx.broadcaster, row);
+      }
+    }
+    if (ctx.broadcaster.hasOtherPresenceForUser(ctx.userId, ctx.ws)) {
+      if (active) {
+        ctx.broadcaster.broadcastToAllExcept(
+          { type: "cursor:drag-ended", userId: ctx.userId },
+          ctx.userId,
+        );
+      }
+      return;
+    }
     ctx.broadcaster.broadcastToAllExcept(
       { type: "cursor:left", userId: ctx.userId },
       ctx.userId,

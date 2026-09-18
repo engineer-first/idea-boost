@@ -91,6 +91,7 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
     onNoteDragStart: vi.fn(),
     onNoteDragMove: vi.fn(),
     onNoteDragEnd: vi.fn(),
+    onNoteDragCancel: vi.fn(),
     onPrivateNotePublish: vi.fn(),
     onPrivateNoteUnpublish: vi.fn(),
     ...overrides,
@@ -100,6 +101,35 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
 }
 
 describe("useBoardDrag", () => {
+  it("pointer cancel は確定位置を送らず操作権を即時解除する", () => {
+    const { args, result } = setup();
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(7, 120, 130),
+      );
+      result.current.handlePointerCancel(pointerEvent(7, 300, 400));
+    });
+
+    expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+    expect(result.current.drag).toBeNull();
+  });
+
+  it("presence leave 用の解除は private drag を中断しない", () => {
+    const { args, result } = setup();
+    act(() => {
+      result.current.handlePrivateDragStart(
+        "private-1",
+        pointerEvent(8, 400, 560),
+      );
+      result.current.cancelCurrentNoteDrag();
+    });
+
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
+    expect(result.current.drag?.status).toBe("private");
+  });
+
   it("共有付箋のドラッグ開始で shared 状態になり onNoteDragStart を呼ぶ", () => {
     const { args, result } = setup();
 
@@ -112,6 +142,22 @@ describe("useBoardDrag", () => {
 
     expect(result.current.drag?.status).toBe("shared");
     expect(args.onNoteDragStart).toHaveBeenCalledWith("shared-1");
+  });
+
+  it("共有付箋のドラッグはボード内でポインターを捕捉し、境界離脱による即時キャンセルを防ぐ", () => {
+    const { args, result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(9, 120, 130),
+      );
+    });
+
+    expect(
+      args.boardScrollerRef.current?.setPointerCapture,
+    ).toHaveBeenCalledWith(9);
+    expect(args.boardRootRef.current?.setPointerCapture).not.toHaveBeenCalled();
   });
 
   it("マイ付箋をボードへ運ぶと publish → drag 配信の順で共有化する", () => {

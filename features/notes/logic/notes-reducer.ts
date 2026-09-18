@@ -66,15 +66,7 @@ export function applyServerMessage(
       return notes.filter((n) => n.id !== message.noteId);
     }
 
-    case "note:drag": {
-      if (options.draggingNoteId === message.noteId) {
-        // 自分自身のドラッグ操作を優先し、エコーを無視する。
-        return notes;
-      }
-      return notes.map((n) =>
-        n.id === message.noteId ? { ...n, x: message.x, y: message.y } : n,
-      );
-    }
+    case "note:drag:result":
 
     case "member_joined":
     case "member_left":
@@ -84,6 +76,7 @@ export function applyServerMessage(
     case "group:deleted":
     case "decision:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
     case "member_vote_status":
     case "error": {

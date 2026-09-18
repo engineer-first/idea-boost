@@ -858,7 +858,11 @@ describe("RoomDO 候補外付箋", () => {
         name: "drag",
         phase: buildPhaseStep(2),
         userId: USER_A,
-        message: { type: "note:drag", noteId: NOTE_ID, x: 999, y: 999 },
+        message: {
+          type: "note:drag:start",
+          noteId: NOTE_ID,
+          dragId: "99999999-9999-4999-8999-999999999999",
+        },
       },
       {
         name: "delete",
@@ -974,10 +978,11 @@ describe("RoomDO 候補外付箋", () => {
       }
       const ws = await connectDirectly(roomName, testCase.userId, USER_A);
       ws.send(JSON.stringify(testCase.message));
-      expect(await nextJson(ws)).toMatchObject({
-        type: "error",
-        code: "forbidden",
-      });
+      expect(await nextJson(ws)).toMatchObject(
+        testCase.name === "drag"
+          ? { type: "note:drag:result", accepted: false }
+          : { type: "error", code: "forbidden" },
+      );
       const persisted = await runInRoomDO(roomName, (_instance, state) => ({
         note: state.storage.sql
           .exec(
@@ -1427,6 +1432,11 @@ describe("RoomDO phase:next", () => {
         USER_A,
         now,
       );
+      state.storage.sql.exec(
+        `INSERT INTO used_note_drag_ids (user_id, drag_id)
+         VALUES (?1, 'phase-2-drag')`,
+        USER_A,
+      );
     });
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -1440,6 +1450,11 @@ describe("RoomDO phase:next", () => {
       type: "phase:updated",
       phase: buildPhaseStep(3, 2),
     });
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql.exec("SELECT 1 FROM used_note_drag_ids").toArray(),
+      ),
+    ).toHaveLength(1);
 
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -1488,6 +1503,11 @@ describe("RoomDO phase:next", () => {
       phase: buildPhaseStep(1, 3),
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(1, 3));
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql.exec("SELECT 1 FROM used_note_drag_ids").toArray(),
+      ),
+    ).toEqual([]);
     ws.close();
   });
 
@@ -1797,10 +1817,20 @@ describe("RoomDO phase:next", () => {
     {
       step: 3,
       message: {
-        type: "note:drag" as const,
+        type: "note:drag:move" as const,
         noteId: "99999999-9999-4999-8999-999999999999",
+        dragId: "88888888-8888-4888-8888-888888888888",
         x: 100.1,
         y: 50,
+      },
+    },
+    {
+      step: 3,
+      message: {
+        type: "note:drag:end" as const,
+        noteId: "99999999-9999-4999-8999-999999999999",
+        dragId: "88888888-8888-4888-8888-888888888888",
+        position: { x: 101, y: 50 },
       },
     },
   ])("フェーズ3 Step3-$stepでは2軸マップ外の配置を拒否する", async ({
@@ -1831,11 +1861,12 @@ describe("RoomDO phase:next", () => {
     await stub.setPhase(buildPhaseStep(step, 3), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
-    for (const type of ["note:move", "note:drag"] as const) {
+    for (const type of ["note:move", "note:drag:move"] as const) {
       ws.send(
         JSON.stringify({
           type,
           noteId: "99999999-9999-4999-8999-999999999999",
+          dragId: "88888888-8888-4888-8888-888888888888",
           x: 50,
           y: 50,
         }),
@@ -1869,21 +1900,220 @@ describe("RoomDO phase:next", () => {
 
     const authorWs = await connectDirectly(roomName, USER_A, USER_A);
     const memberWs = await connectDirectly(roomName, USER_B, USER_A);
-    authorWs.send(JSON.stringify({ type: "note:drag", noteId, x: 40, y: 60 }));
-    expect(await nextJson(memberWs)).toMatchObject({
-      type: "note:drag",
-      noteId,
-      x: 40,
-      y: 60,
+    const dragId = "88888888-8888-4888-8888-888888888888";
+    authorWs.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
+    expect(await nextJson(authorWs)).toMatchObject({
+      type: "note:drag:result",
+      accepted: true,
     });
+    authorWs.send(
+      JSON.stringify({
+        type: "note:drag:move",
+        noteId,
+        dragId,
+        x: 40,
+        y: 60,
+      }),
+    );
+    expect(await nextJson(memberWs)).toMatchObject({
+      type: "note:updated",
+      note: { id: noteId, x: 40, y: 60 },
+    });
+    await nextJson(authorWs);
 
-    authorWs.send(JSON.stringify({ type: "note:move", noteId, x: 50, y: 50 }));
+    authorWs.send(
+      JSON.stringify({
+        type: "note:drag:end",
+        noteId,
+        dragId,
+        position: { x: 50, y: 50 },
+      }),
+    );
     expect(await nextJson(memberWs)).toMatchObject({
       type: "note:updated",
       note: { id: noteId, x: 50, y: 50 },
     });
+    await nextJson(authorWs);
+    authorWs.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
+    expect(await nextJson(authorWs)).toMatchObject({
+      type: "note:drag:result",
+      dragId,
+      accepted: false,
+    });
     authorWs.close();
     memberWs.close();
+  });
+
+  it("再接続後は終了済み dragId を再受理せず、新しい dragId を受理する", async () => {
+    const roomName = "room-drag-reconnect-replay";
+    const noteId = "cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd";
+    const retiredDragId = "48484848-4848-4484-8484-484848484848";
+    const freshDragId = "49494949-4949-4494-8494-494949494949";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(2), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
+         VALUES (?1, ?2, '共有付箋', 'shared', 'yellow', 100, 100, ?3, ?3, 1)`,
+        noteId,
+        USER_A,
+        now,
+      );
+    });
+
+    const first = await connectDirectly(roomName, USER_A, USER_A);
+    first.send(
+      JSON.stringify({
+        type: "note:drag:start",
+        noteId,
+        dragId: retiredDragId,
+      }),
+    );
+    expect(await nextJson(first)).toMatchObject({
+      type: "note:drag:result",
+      dragId: retiredDragId,
+      accepted: true,
+    });
+    first.send(
+      JSON.stringify({
+        type: "note:drag:end",
+        noteId,
+        dragId: retiredDragId,
+        position: null,
+      }),
+    );
+    await nextJson(first);
+    first.close();
+
+    const reconnected = await connectDirectly(roomName, USER_A, USER_A);
+    reconnected.send(
+      JSON.stringify({
+        type: "note:drag:start",
+        noteId,
+        dragId: retiredDragId,
+      }),
+    );
+    expect(await nextJson(reconnected)).toMatchObject({
+      type: "note:drag:result",
+      dragId: retiredDragId,
+      accepted: false,
+    });
+    reconnected.send(
+      JSON.stringify({
+        type: "note:drag:start",
+        noteId,
+        dragId: freshDragId,
+      }),
+    );
+    expect(await nextJson(reconnected)).toMatchObject({
+      type: "note:drag:result",
+      dragId: freshDragId,
+      accepted: true,
+    });
+    reconnected.close();
+  });
+
+  it("同一ユーザーの別接続が残る切断では remote cursor の drag だけ解除する", async () => {
+    const roomName = "room-multi-tab-drag-close";
+    const noteId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const dragId = "77777777-7777-4777-8777-777777777777";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(2), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
+         VALUES (?1, ?2, '共有付箋', 'shared', 'yellow', 100, 100, ?3, ?3, 1)`,
+        noteId,
+        USER_A,
+        now,
+      );
+    });
+
+    const activeTab = await connectDirectly(roomName, USER_A, USER_A);
+    const remainingTab = await connectDirectly(roomName, USER_A, USER_A);
+    const observer = await connectDirectly(roomName, USER_B, USER_A);
+    const initialCursor = nextJson(observer);
+    remainingTab.send(JSON.stringify({ type: "cursor:update", x: 30, y: 40 }));
+    expect(await initialCursor).toMatchObject({
+      type: "cursor:updated",
+      cursor: { userId: USER_A, draggingNoteId: null },
+    });
+    const dragResult = nextJson(activeTab);
+    activeTab.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
+    expect(await dragResult).toMatchObject({
+      type: "note:drag:result",
+      accepted: true,
+    });
+    const activeMove = nextJson(activeTab);
+    const remainingMove = nextJson(remainingTab);
+    const observerMove = nextJson(observer);
+    activeTab.send(
+      JSON.stringify({
+        type: "note:drag:move",
+        noteId,
+        dragId,
+        x: 250,
+        y: 350,
+      }),
+    );
+    expect(await activeMove).toMatchObject({
+      type: "note:updated",
+    });
+    expect(await remainingMove).toMatchObject({
+      type: "note:updated",
+    });
+    expect(await observerMove).toMatchObject({
+      type: "note:updated",
+    });
+    const draggingCursor = nextJson(observer);
+    activeTab.send(
+      JSON.stringify({
+        type: "cursor:update",
+        x: 260,
+        y: 360,
+        draggingNoteId: noteId,
+      }),
+    );
+    expect(await draggingCursor).toMatchObject({
+      type: "cursor:updated",
+      cursor: { userId: USER_A, draggingNoteId: noteId },
+    });
+
+    const remainingAfterClose = nextJson(remainingTab);
+    const observerAfterClose = new Promise<Record<string, unknown>[]>(
+      (resolve) => {
+        const messages: Record<string, unknown>[] = [];
+        const onMessage = (event: MessageEvent) => {
+          messages.push(JSON.parse(String(event.data)));
+          if (messages.length !== 2) return;
+          observer.removeEventListener("message", onMessage);
+          resolve(messages);
+        };
+        observer.addEventListener("message", onMessage);
+      },
+    );
+    activeTab.close();
+    expect(await remainingAfterClose).toMatchObject({
+      type: "note:updated",
+      note: { id: noteId, x: 250, y: 350 },
+    });
+    expect(await observerAfterClose).toEqual([
+      expect.objectContaining({
+        type: "note:updated",
+        note: expect.objectContaining({ id: noteId, x: 250, y: 350 }),
+      }),
+      { type: "cursor:drag-ended", userId: USER_A },
+    ]);
+
+    remainingTab.close();
+    observer.close();
   });
 
   it("host は phase を進められる", async () => {
@@ -2516,10 +2746,11 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     {
       step: 4,
       label: "1-4 投票",
-      operation: "note:drag",
+      operation: "note:drag:move",
       message: {
-        type: "note:drag",
+        type: "note:drag:move",
         noteId: "99999999-9999-4999-8999-999999999999",
+        dragId: "88888888-8888-4888-8888-888888888888",
         x: 100,
         y: 100,
       },
@@ -2598,8 +2829,9 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
       y: 100,
     },
     {
-      type: "note:drag",
+      type: "note:drag:move",
       noteId: "99999999-9999-4999-8999-999999999999",
+      dragId: "88888888-8888-4888-8888-888888888888",
       x: 100,
       y: 100,
     },

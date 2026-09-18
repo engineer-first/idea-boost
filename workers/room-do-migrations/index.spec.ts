@@ -30,6 +30,7 @@ const ALL_TABLES = [
   "room_state",
   "schema_migrations",
   "timer_state",
+  "used_note_drag_ids",
 ];
 
 describe("ROOM_DO_MIGRATIONS", () => {
@@ -78,6 +79,36 @@ describe("ROOM_DO_MIGRATIONS", () => {
       );
       expect(tableNames(state.storage)).toEqual(ALL_TABLES);
       expect(appliedMigrationIds(state.storage)).toEqual(ALL_MIGRATION_IDS);
+    });
+  });
+
+  it("used_note_drag_ids は user_id + drag_id をルーム内で一意に記録する", async () => {
+    await runInRoomDO("mig-used-note-drag-ids", (_instance, state) => {
+      state.storage.sql.exec(
+        "INSERT INTO used_note_drag_ids (user_id, drag_id) VALUES (?1, ?2)",
+        USER_A,
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      );
+      expect(() =>
+        state.storage.sql.exec(
+          "INSERT INTO used_note_drag_ids (user_id, drag_id) VALUES (?1, ?2)",
+          USER_A,
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ),
+      ).toThrow();
+      expect(
+        state.storage.sql
+          .exec(
+            "SELECT user_id, drag_id FROM used_note_drag_ids WHERE user_id = ?1",
+            USER_A,
+          )
+          .toArray(),
+      ).toEqual([
+        {
+          user_id: USER_A,
+          drag_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        },
+      ]);
     });
   });
 

@@ -13,12 +13,7 @@ import { buildNote } from "@/contracts/room-protocol.fixture";
 import { useRoomNotes } from "./use-room-notes";
 
 const NOTE_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
-const DRAGGED_BY = {
-  userId: MEMBER_ID,
-  name: "Taro",
-  color: "green" as const,
-};
+const DRAG_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 
@@ -57,6 +52,7 @@ describe("useRoomNotes", () => {
         send,
         createVoteOperationId: () => "33333333-3333-4333-8333-333333333333",
         createVoteStickerId: () => "44444444-4444-4444-8444-444444444444",
+        createNoteDragId: () => DRAG_ID,
       }),
     );
   }
@@ -68,93 +64,7 @@ describe("useRoomNotes", () => {
     expect(result.current.notes[0]?.id).toBe(NOTE_ID);
   });
 
-  it("note:drag から付箋ごとの移動者を保持する", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-
-    act(() =>
-      result.current.applyMessage({
-        type: "note:drag",
-        noteId: NOTE_ID,
-        x: 200,
-        y: 300,
-        draggedBy: DRAGGED_BY,
-      }),
-    );
-
-    expect(result.current.remoteNoteDrags).toEqual([
-      {
-        noteId: NOTE_ID,
-        draggedBy: DRAGGED_BY,
-        lastSeenAt: expect.any(Number),
-      },
-    ]);
-  });
-
-  it.each([
-    {
-      name: "ドロップ確定",
-      message: {
-        type: "note:updated",
-        note: buildNote({ id: NOTE_ID, x: 210, y: 310 }),
-      } as ServerMessage,
-    },
-    {
-      name: "カーソル退出",
-      message: { type: "cursor:left", userId: MEMBER_ID } as ServerMessage,
-    },
-    {
-      name: "メンバー退出",
-      message: { type: "member_left", userId: MEMBER_ID } as ServerMessage,
-    },
-    {
-      name: "フェーズ遷移",
-      message: {
-        type: "phase:updated",
-        phase: buildPhaseStep(3),
-      } as ServerMessage,
-    },
-    {
-      name: "snapshot再同期",
-      message: snapshotMessage(),
-    },
-  ])("$name で移動者表示を解除する", ({ message }) => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-    act(() =>
-      result.current.applyMessage({
-        type: "note:drag",
-        noteId: NOTE_ID,
-        x: 200,
-        y: 300,
-        draggedBy: DRAGGED_BY,
-      }),
-    );
-
-    act(() => result.current.applyMessage(message));
-
-    expect(result.current.remoteNoteDrags).toEqual([]);
-  });
-
-  it("後続イベントが途切れた移動者表示を短いタイムアウトで解除する", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-    act(() =>
-      result.current.applyMessage({
-        type: "note:drag",
-        noteId: NOTE_ID,
-        x: 200,
-        y: 300,
-        draggedBy: DRAGGED_BY,
-      }),
-    );
-
-    act(() => vi.advanceTimersByTime(4_000));
-
-    expect(result.current.remoteNoteDrags).toEqual([]);
-  });
-
-  it("moveNote は楽観反映し、note:drag をスロットル送信する", () => {
+  it("開始受理までは動かさず、受理後に最新位置だけを楽観反映して送る", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));
 
@@ -163,12 +73,24 @@ describe("useRoomNotes", () => {
       result.current.moveNote(NOTE_ID, 200, 300);
     });
 
-    // 楽観反映（サーバー確定を待たない）。
-    expect(result.current.notes[0]).toMatchObject({ x: 200, y: 300 });
-    // リーディングエッジで 1 回目は即送信。
+    expect(result.current.notes[0]).not.toMatchObject({ x: 200, y: 300 });
     expect(send).toHaveBeenCalledWith({
-      type: "note:drag",
+      type: "note:drag:start",
       noteId: NOTE_ID,
+      dragId: DRAG_ID,
+    });
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      }),
+    );
+    expect(result.current.notes[0]).toMatchObject({ x: 200, y: 300 });
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:drag:move",
+      noteId: NOTE_ID,
+      dragId: DRAG_ID,
       x: 200,
       y: 300,
     });
@@ -178,61 +100,43 @@ describe("useRoomNotes", () => {
       result.current.moveNote(NOTE_ID, 210, 310);
       result.current.moveNote(NOTE_ID, 220, 320);
     });
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(2);
     act(() => {
       vi.advanceTimersByTime(DRAG_BROADCAST_THROTTLE_MS);
     });
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledTimes(3);
     expect(send).toHaveBeenLastCalledWith({
-      type: "note:drag",
+      type: "note:drag:move",
       noteId: NOTE_ID,
+      dragId: DRAG_ID,
       x: 220,
       y: 320,
     });
   });
 
-  it("自分がドラッグ中の付箋への note:drag エコーは無視する", () => {
+  it("pointer cancel は座標なしの終了を送り、ローカル操作権を解除する", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));
 
     act(() => {
       result.current.startNoteDrag(NOTE_ID);
-      result.current.moveNote(NOTE_ID, 200, 300);
-    });
-    act(() =>
       result.current.applyMessage({
-        type: "note:drag",
-        noteId: NOTE_ID,
-        x: 10,
-        y: 20,
-        draggedBy: DRAGGED_BY,
-      }),
-    );
-
-    // ローカル操作を優先し、巻き戻らない。
-    expect(result.current.notes[0]).toMatchObject({ x: 200, y: 300 });
-  });
-
-  it("endNoteDrag はドラッグを解除し、確定の note:move を送る", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-
-    act(() => {
-      result.current.startNoteDrag(NOTE_ID);
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
       result.current.moveNote(NOTE_ID, 200, 300);
     });
     act(() => {
-      result.current.endNoteDrag(NOTE_ID, 240, 340);
+      result.current.cancelNoteDrag(NOTE_ID);
     });
 
     expect(result.current.draggingNoteId).toBeNull();
-    expect(result.current.frontNoteId).toBe(NOTE_ID);
-    expect(result.current.notes[0]).toMatchObject({ x: 240, y: 340 });
     expect(send).toHaveBeenLastCalledWith({
-      type: "note:move",
+      type: "note:drag:end",
       noteId: NOTE_ID,
-      x: 240,
-      y: 340,
+      dragId: DRAG_ID,
+      position: null,
     });
   });
 
@@ -244,6 +148,11 @@ describe("useRoomNotes", () => {
 
     act(() => {
       result.current.startNoteDrag(NOTE_ID);
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
       result.current.moveNote(NOTE_ID, 240, 340);
       result.current.endNoteDrag(NOTE_ID, 240, 340);
     });
@@ -295,6 +204,11 @@ describe("useRoomNotes", () => {
     );
     act(() => {
       result.current.startNoteDrag(NOTE_ID);
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
       result.current.endNoteDrag(NOTE_ID, 240, 340);
     });
     expect(result.current.frontNoteId).toBe(NOTE_ID);
@@ -302,6 +216,116 @@ describe("useRoomNotes", () => {
     act(() => result.current.applyMessage(message));
 
     expect(result.current.frontNoteId).toBeNull();
+  });
+
+  it("pending 中の cancel は即座に終了を送り、後着の開始受理と旧 dragId を無視する", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => {
+      result.current.startNoteDrag(NOTE_ID);
+      result.current.moveNote(NOTE_ID, 200, 300);
+      result.current.cancelNoteDrag(NOTE_ID);
+    });
+
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      dragId: DRAG_ID,
+      position: null,
+    });
+    act(() => {
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
+      result.current.moveNote(NOTE_ID, 400, 500);
+    });
+
+    expect(result.current.draggingNoteId).toBeNull();
+    expect(result.current.notes[0]).not.toMatchObject({ x: 200, y: 300 });
+    expect(send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "note:drag:move", dragId: DRAG_ID }),
+    );
+  });
+
+  it("active drag の cancel 後はサーバー確定位置の note:updated へ戻る", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+    act(() => {
+      result.current.startNoteDrag(NOTE_ID);
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
+      result.current.moveNote(NOTE_ID, 200, 300);
+      result.current.cancelNoteDrag(NOTE_ID);
+    });
+    expect(result.current.notes[0]).toMatchObject({ x: 200, y: 300 });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: buildNote({ id: NOTE_ID, x: 150, y: 160 }),
+      }),
+    );
+
+    expect(result.current.notes[0]).toMatchObject({ x: 150, y: 160 });
+  });
+
+  it("受理済みの共有付箋を非公開に戻すと旧操作を局所終了し、後着応答を無視して次の付箋を開始できる", () => {
+    const nextDragId = vi
+      .fn<() => string>()
+      .mockReturnValueOnce(DRAG_ID)
+      .mockReturnValueOnce("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: nextDragId }),
+    );
+    act(() =>
+      result.current.applyMessage(
+        snapshotMessage([
+          buildNote({ id: NOTE_ID }),
+          buildNote({ id: TARGET_NOTE_ID }),
+        ]),
+      ),
+    );
+
+    act(() => {
+      result.current.startNoteDrag(NOTE_ID);
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
+      result.current.moveNote(NOTE_ID, 200, 300);
+      result.current.unpublishNote(NOTE_ID);
+    });
+
+    expect(result.current.draggingNoteId).toBeNull();
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:unpublish",
+      noteId: NOTE_ID,
+    });
+    expect(send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "note:drag:end", dragId: DRAG_ID }),
+    );
+
+    act(() => {
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
+      result.current.startNoteDrag(TARGET_NOTE_ID);
+    });
+
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:drag:start",
+      noteId: TARGET_NOTE_ID,
+      dragId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    });
   });
 
   it("changeNoteContent は本文だけ楽観更新し、note:update-content を送る", () => {

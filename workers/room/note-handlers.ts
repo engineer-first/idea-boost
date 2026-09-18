@@ -8,13 +8,18 @@ import {
 import { isPhaseStep, isVotingStep } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
 import { getDecision } from "./decisions";
+import {
+  hasReachedNoteDragStartRateLimit,
+  hasUsedNoteDragId,
+  recordUsedNoteDragId,
+} from "./drag-operations";
 import { autoReorganize } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
-import { findMember, getMemberColor, isHostUser } from "./members";
+import { getMemberColor, isHostUser } from "./members";
 import {
   broadcastNoteInserted,
   broadcastNoteUpdated,
@@ -88,7 +93,9 @@ export const noteHandlers: MessageHandlers<
   | "note:unpublish"
   | "note:update-content"
   | "note:move"
-  | "note:drag"
+  | "note:drag:start"
+  | "note:drag:move"
+  | "note:drag:end"
   | "note:exclude"
   | "note:restore"
   | "note:delete"
@@ -159,6 +166,12 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    const owner = ctx.broadcaster.findActiveDrag(message.noteId);
+    if (owner && owner.socket !== ctx.ws) {
+      replyForbidden(ctx);
+      return;
+    }
+    if (owner?.socket === ctx.ws) ctx.broadcaster.retireActiveDrag(ctx.ws);
     // shared の行を消す通知は、可視性を変える前に全メンバーへ送る。
     ctx.broadcaster.broadcast(
       { type: "note:deleted", noteId: message.noteId },
@@ -202,6 +215,11 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    const owner = ctx.broadcaster.findActiveDrag(message.noteId);
+    if (owner) {
+      replyForbidden(ctx);
+      return;
+    }
     const updatedAt = new Date().toISOString();
     const positionChanged = row.x !== message.x || row.y !== message.y;
     const stackOrder = moveNote(
@@ -218,59 +236,126 @@ export const noteHandlers: MessageHandlers<
       stack_order: stackOrder,
       updated_at: updatedAt,
     });
-    const attachment =
-      ctx.ws.deserializeAttachment() as SocketAttachment | null;
-    if (attachment?.activeDragNoteId === message.noteId) {
-      ctx.ws.serializeAttachment({
-        ...attachment,
-        activeDragNoteId: undefined,
-      } satisfies SocketAttachment);
-    }
-
     if (positionChanged) {
       autoReorganizeAtGroupingStep(ctx);
     }
   },
 
-  // ドラッグ中の座標は永続化せず、送信者以外の可視な相手へ中継するだけ。
-  "note:drag": (ctx, message) => {
+  "note:drag:start": (ctx, message) => {
     const row = findNote(ctx.sql, message.noteId);
-    if (!row) {
-      return;
-    }
     const phase = getPhase(ctx.sql);
-    if (phase.kind !== "step" || row.phase !== phase.phase) {
-      replyForbidden(ctx);
-      return;
-    }
-    if (!canEdit(row, ctx.userId) || row.excluded) {
-      replyForbidden(ctx);
-      return;
-    }
-    if (row.visibility === "private") {
-      return;
-    }
-    const draggedBy = findMember(ctx.sql, ctx.userId);
-    if (!draggedBy) return;
-    const attachment =
-      (ctx.ws.deserializeAttachment() as SocketAttachment | null) ?? {
-        userId: ctx.userId,
-      };
-    ctx.ws.serializeAttachment({
-      ...attachment,
-      activeDragNoteId: message.noteId,
-    } satisfies SocketAttachment);
-    ctx.broadcaster.broadcast(
-      {
-        type: "note:drag",
-        noteId: message.noteId,
-        x: message.x,
-        y: message.y,
-        draggedBy,
-      },
-      toProtocolNote(ctx.sql, row, ctx.userId),
-      ctx.ws,
+    const current = ctx.broadcaster.activeDragFor(ctx.ws);
+    const competing = ctx.broadcaster.findActiveDrag(message.noteId);
+    const isActiveRetry = Boolean(
+      current?.noteId === message.noteId && current.dragId === message.dragId,
     );
+    const accepted = Boolean(
+      row &&
+        row.visibility === "shared" &&
+        phase.kind === "step" &&
+        row.phase === phase.phase &&
+        canEdit(row, ctx.userId) &&
+        !row.excluded &&
+        (isActiveRetry ||
+          (!current &&
+            !hasUsedNoteDragId(ctx.sql, ctx.userId, message.dragId) &&
+            !hasReachedNoteDragStartRateLimit(ctx.sql, ctx.userId))) &&
+        (!competing ||
+          (competing.socket === ctx.ws && competing.dragId === message.dragId)),
+    );
+    if (accepted) {
+      recordUsedNoteDragId(ctx.sql, ctx.userId, message.dragId);
+      const attachment =
+        (ctx.ws.deserializeAttachment() as SocketAttachment | null) ?? {
+          userId: ctx.userId,
+        };
+      ctx.ws.serializeAttachment({
+        ...attachment,
+        activeDrag: { noteId: message.noteId, dragId: message.dragId },
+      } satisfies SocketAttachment);
+    }
+    ctx.reply({
+      type: "note:drag:result",
+      dragId: message.dragId,
+      accepted,
+    });
+  },
+
+  "note:drag:move": (ctx, message) => {
+    const active = ctx.broadcaster.activeDragFor(ctx.ws);
+    if (
+      !active ||
+      active.noteId !== message.noteId ||
+      active.dragId !== message.dragId
+    ) {
+      return;
+    }
+    const row = findNote(ctx.sql, message.noteId);
+    if (
+      row?.visibility !== "shared" ||
+      row.excluded ||
+      !canEdit(row, ctx.userId)
+    ) {
+      ctx.broadcaster.retireActiveDrag(ctx.ws);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    const stackOrder = moveNote(
+      ctx.sql,
+      message.noteId,
+      message.x,
+      message.y,
+      updatedAt,
+    );
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      x: message.x,
+      y: message.y,
+      stack_order: stackOrder,
+      updated_at: updatedAt,
+    });
+  },
+
+  "note:drag:end": (ctx, message) => {
+    const active = ctx.broadcaster.activeDragFor(ctx.ws);
+    if (
+      !active ||
+      active.noteId !== message.noteId ||
+      active.dragId !== message.dragId
+    ) {
+      return;
+    }
+    const row = findNote(ctx.sql, message.noteId);
+    ctx.broadcaster.retireActiveDrag(ctx.ws);
+    if (
+      row?.visibility !== "shared" ||
+      row.excluded ||
+      !canEdit(row, ctx.userId)
+    ) {
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    let stackOrder = row.stack_order;
+    if (message.position) {
+      stackOrder = moveNote(
+        ctx.sql,
+        message.noteId,
+        message.position.x,
+        message.position.y,
+        updatedAt,
+      );
+    }
+    const current = message.position
+      ? {
+          ...row,
+          x: message.position.x,
+          y: message.position.y,
+          stack_order: stackOrder,
+          updated_at: updatedAt,
+        }
+      : (findNote(ctx.sql, message.noteId) ?? row);
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, current);
+    autoReorganizeAtGroupingStep(ctx);
   },
 
   "note:exclude": (ctx, message) => {
@@ -322,6 +407,10 @@ export const noteHandlers: MessageHandlers<
       row.excluded ||
       isFrozenSharedNoteAtPersonalStep(ctx, row)
     ) {
+      replyForbidden(ctx);
+      return;
+    }
+    if (ctx.broadcaster.findActiveDrag(message.noteId)) {
       replyForbidden(ctx);
       return;
     }

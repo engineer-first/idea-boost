@@ -49,6 +49,8 @@ function buildInteractions(
     onFitToNotes: vi.fn(),
     onPointerMove: vi.fn(),
     onPointerEnd: vi.fn(),
+    onPointerCancel: vi.fn(),
+    cancelCurrentNoteDrag: vi.fn(),
     onNoteDragStart: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
   };
@@ -112,7 +114,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     connectionStatus: "open" as const,
     groups: [],
     remoteCursors: [],
-    remoteNoteDrags: [],
     ...overrides,
   } as RoomBoardViewProps;
   const resolvedProps: RoomBoardViewProps = {
@@ -585,6 +586,36 @@ function clickNote(card: HTMLElement) {
 }
 
 describe("RoomBoardView", () => {
+  it("外側が pointer capture 中でもドラッグと通常 presence を同じ座標で更新し、cancel を分離する", () => {
+    const interactions = buildInteractions(buildNotes(1), []);
+    interactions.isNoteDragging = true;
+    setup({ interactions });
+    const root = screen.getByTestId("room-board-view-root");
+
+    fireEvent.pointerMove(root, {
+      pointerId: 3,
+      pointerType: "mouse",
+      clientX: 240,
+      clientY: 180,
+    });
+    expect(interactions.onPointerMove).toHaveBeenCalled();
+    expect(interactions.onPresencePointerMove).toHaveBeenCalled();
+
+    fireEvent.pointerCancel(root, { pointerId: 3, clientX: 240, clientY: 180 });
+    expect(interactions.onPointerCancel).toHaveBeenCalled();
+    expect(interactions.onPresencePointerLeave).toHaveBeenCalledWith(
+      expect.objectContaining({ clientX: 240, clientY: 180 }),
+    );
+    expect(
+      vi.mocked(interactions.onPresencePointerLeave).mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(interactions.onPointerCancel).mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY,
+    );
+    expect(interactions.onPointerEnd).not.toHaveBeenCalled();
+  });
+
   describe("ファシリテーションガイド", () => {
     it("既定で展開し、同じステップ中は利用者が折り畳める", () => {
       setup();

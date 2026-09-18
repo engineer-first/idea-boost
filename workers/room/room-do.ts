@@ -48,7 +48,7 @@ import {
   upsertMember,
 } from "./members";
 import { noteHandlers } from "./note-handlers";
-import { listNotes } from "./notes";
+import { broadcastNoteUpdated, findNote, listNotes } from "./notes";
 import {
   getBoardMutationForbiddenMessage,
   getPhase,
@@ -270,14 +270,30 @@ export class RoomDO extends DurableObject {
   ): Promise<void> {
     // メンバーシップ自体は REST leave まで維持するが、一時カーソルと
     // 付箋の移動者表示は切断時に消す。
-    const attachment = ws.deserializeAttachment() as SocketAttachment | null;
-    if (attachment?.hasCursor || attachment?.activeDragNoteId) {
+    const previousAttachment =
+      ws.deserializeAttachment() as SocketAttachment | null;
+    if (previousAttachment?.hasCursor || previousAttachment?.activeDrag) {
+      const active = this.broadcaster.retireActiveDrag(ws);
+      const attachment =
+        (ws.deserializeAttachment() as SocketAttachment | null) ??
+        previousAttachment;
       ws.serializeAttachment({
         ...attachment,
         hasCursor: false,
-        activeDragNoteId: undefined,
       } satisfies SocketAttachment);
+      if (active) {
+        const row = findNote(this.sql, active.noteId);
+        if (row?.visibility === "shared") {
+          broadcastNoteUpdated(this.sql, this.broadcaster, row);
+        }
+      }
       if (this.broadcaster.hasOtherPresenceForUser(attachment.userId, ws)) {
+        if (active) {
+          this.broadcaster.broadcastToAllExcept(
+            { type: "cursor:drag-ended", userId: attachment.userId },
+            attachment.userId,
+          );
+        }
         return;
       }
       this.broadcaster.broadcastToAllExcept(

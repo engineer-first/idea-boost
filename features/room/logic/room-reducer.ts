@@ -54,13 +54,14 @@ export function applyMemberServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
-    case "note:drag":
+    case "note:drag:result":
     case "phase:updated":
     case "timer:updated":
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
     case "error":
       return members;
@@ -93,13 +94,14 @@ export function applyVotingCompletionServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
-    case "note:drag":
+    case "note:drag:result":
     case "member_joined":
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
     case "timer:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
     case "error":
       return completedVoterIds;
@@ -149,7 +151,7 @@ export function applyDecisionServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
-    case "note:drag":
+    case "note:drag:result":
     case "member_joined":
     case "member_left":
     case "member_vote_status":
@@ -157,6 +159,7 @@ export function applyDecisionServerMessage(
     case "group:deleted":
     case "timer:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
     case "error":
       return decision;
@@ -195,7 +198,7 @@ export function applyPhaseServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
-    case "note:drag":
+    case "note:drag:result":
     case "member_joined":
     case "member_left":
     case "member_vote_status":
@@ -204,6 +207,7 @@ export function applyPhaseServerMessage(
     case "timer:updated":
     case "decision:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
     case "error":
       return phase;

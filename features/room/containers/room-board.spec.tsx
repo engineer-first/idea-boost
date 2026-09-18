@@ -90,6 +90,17 @@ class FakeWebSocket {
 
   send(data: string): void {
     this.sent.push(data);
+    const message = JSON.parse(data) as {
+      type?: string;
+      dragId?: string;
+    };
+    if (message.type === "note:drag:start" && message.dragId) {
+      this.simulateServerMessage({
+        type: "note:drag:result",
+        dragId: message.dragId,
+        accepted: true,
+      });
+    }
   }
 
   close(): void {
@@ -128,6 +139,12 @@ class FakeWebSocket {
       listener(event);
     }
   }
+}
+
+function expectSent(socket: FakeWebSocket, expected: object): void {
+  expect(socket.sent.map((payload) => JSON.parse(payload))).toContainEqual(
+    expect.objectContaining(expected),
+  );
 }
 
 function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
@@ -784,9 +801,12 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     const move = socket.sent
       .map((payload) => JSON.parse(payload) as Record<string, unknown>)
-      .find((message) => message.type === "note:move");
-    expect(move).toMatchObject({ type: "note:move", noteId: NOTE_ID });
-    expect(move).not.toMatchObject({ x: dragged.x, y: dragged.y });
+      .find((message) => message.type === "note:drag:end");
+    expect(move).toMatchObject({
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      position: expect.not.objectContaining({ x: dragged.x, y: dragged.y }),
+    });
     expect(
       screen
         .getByDisplayValue("移動する付箋")
@@ -810,8 +830,7 @@ describe("サーバーメッセージ → 画面反映", () => {
         type: "note:updated",
         note: {
           ...dragged,
-          x: move?.x as number,
-          y: move?.y as number,
+          ...(move?.position as { x: number; y: number }),
           stackOrder: 10,
         },
       }),
@@ -855,9 +874,11 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:publish", noteId: NOTE_ID, x: 120, y: 140 }),
     );
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 140, y: 160 }),
-    );
+    expectSent(socket, {
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      position: { x: 140, y: 160 },
+    });
   });
 
   it("共有応答でマイ付箋が消えても、同じポインター操作で移動・ドロップできる", () => {
@@ -889,12 +910,17 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.pointerMove(root, { pointerId: 1, clientX: 180, clientY: 200 });
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 200, clientY: 220 });
 
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:drag", noteId: NOTE_ID, x: 100, y: 120 }),
-    );
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 200, y: 220 }),
-    );
+    expectSent(socket, {
+      type: "note:drag:move",
+      noteId: NOTE_ID,
+      x: 100,
+      y: 120,
+    });
+    expectSent(socket, {
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      position: { x: 200, y: 220 },
+    });
   });
 
   it("マイ付箋からボードへ公開した同じポインター操作で、マイ付箋へ戻せる", () => {
@@ -936,7 +962,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       JSON.stringify({ type: "note:unpublish", noteId: NOTE_ID }),
     );
     expect(socket.sent).not.toContainEqual(
-      expect.stringContaining('"type":"note:move"'),
+      expect.stringContaining('"type":"note:drag:end"'),
     );
   });
 
@@ -1005,10 +1031,11 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
     expect(unpublishMessages).toHaveLength(1);
 
-    // 最終的に note:move でドロップ位置を確定していること
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 200, y: 200 }),
-    );
+    expectSent(socket, {
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      position: { x: 200, y: 200 },
+    });
   });
 
   it("ボード外でpointercancelされたマイ付箋は公開せず、後続イベントも無視する", () => {
@@ -1070,7 +1097,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       JSON.stringify({ type: "note:unpublish", noteId: NOTE_ID }),
     );
     expect(socket.sent).not.toContainEqual(
-      expect.stringContaining('"type":"note:move"'),
+      expect.stringContaining('"type":"note:drag:end"'),
     );
   });
 
@@ -1187,6 +1214,121 @@ describe("サーバーメッセージ → 画面反映", () => {
       JSON.stringify({ type: "note:unpublish", noteId: NOTE_ID }),
     );
     expect(privateNoteIds(toolbar)).toEqual(expected);
+  });
+
+  it("受理済みの共有 drag を toolbar へ戻すと unpublish 後にカーソルを解除し、別付箋の drag を開始できる", () => {
+    const { socket } = connectWithSnapshot(
+      [
+        protocolNote({ id: NOTE_ID, content: "戻す付箋" }),
+        protocolNote({
+          id: TARGET_NOTE_ID,
+          content: "次に動かす付箋",
+          x: 340,
+        }),
+      ],
+      { phase: buildPhaseStep(2, 1) },
+    );
+    const toolbar = openPrivateNotesToolbar();
+    Object.defineProperty(toolbar, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        left: 600,
+        top: 0,
+        right: 900,
+        bottom: 600,
+        width: 300,
+        height: 600,
+      }),
+    });
+    const scroller = screen.getByTestId("board-scroller");
+    Object.defineProperty(scroller, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({
+        left: 0,
+        top: 0,
+        right: 500,
+        bottom: 400,
+        width: 500,
+        height: 400,
+      }),
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    const firstCard = within(screen.getByTestId("board-canvas"))
+      .getAllByTestId("note-card")
+      .find((card) => card.dataset.noteId === NOTE_ID);
+    if (!firstCard) throw new Error("最初の付箋がありません");
+
+    const firstSurface = within(firstCard).getByRole("button", {
+      name: "付箋",
+    });
+    fireEvent.pointerDown(firstSurface, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(firstSurface, {
+      pointerId: 1,
+      clientX: 110,
+      clientY: 110,
+    });
+    fireEvent.pointerLeave(scroller, {
+      pointerId: 1,
+      clientX: 650,
+      clientY: 120,
+    });
+    fireEvent.pointerMove(root, {
+      pointerId: 1,
+      clientX: 650,
+      clientY: 120,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 1,
+      clientX: 650,
+      clientY: 120,
+    });
+
+    const sent = socket.sent.map((payload) => JSON.parse(payload)) as Array<{
+      type?: string;
+      noteId?: string;
+      dragId?: string;
+    }>;
+    const unpublishIndex = sent.findIndex(
+      (message) =>
+        message.type === "note:unpublish" && message.noteId === NOTE_ID,
+    );
+    const cursorLeaveIndex = sent.findIndex(
+      (message, index) => index > 0 && message.type === "cursor:leave",
+    );
+    expect(unpublishIndex).toBeGreaterThanOrEqual(0);
+    expect(cursorLeaveIndex).toBeGreaterThan(unpublishIndex);
+
+    const secondCard = within(screen.getByTestId("board-canvas"))
+      .getAllByTestId("note-card")
+      .find((card) => card.dataset.noteId === TARGET_NOTE_ID);
+    if (!secondCard) throw new Error("次の付箋がありません");
+    const secondSurface = within(secondCard).getByRole("button", {
+      name: "付箋",
+    });
+    fireEvent.pointerDown(secondSurface, {
+      pointerId: 2,
+      clientX: 350,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(secondSurface, {
+      pointerId: 2,
+      clientX: 360,
+      clientY: 110,
+    });
+
+    const dragStarts = socket.sent
+      .map(
+        (payload) => JSON.parse(payload) as { type?: string; noteId?: string },
+      )
+      .filter((message) => message.type === "note:drag:start");
+    expect(dragStarts.map(({ noteId }) => noteId)).toEqual([
+      NOTE_ID,
+      TARGET_NOTE_ID,
+    ]);
   });
 
   it("ドロップ後に新しいマイ付箋が追加されても、既存の表示順と末尾追加を維持する", () => {
@@ -1342,10 +1484,11 @@ describe("サーバーメッセージ → 画面反映", () => {
       JSON.stringify({ type: "note:publish", noteId: NOTE_ID, x: 140, y: 140 }),
     );
 
-    // 最終的に note:move で確定すること
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 150, y: 150 }),
-    );
+    expectSent(socket, {
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      position: { x: 150, y: 150 },
+    });
   });
 
   it("他メンバーの付箋をマイ付箋領域へドラッグしても非公開に戻せない", () => {
@@ -1808,6 +1951,38 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     expect(socket.sent).toHaveLength(0);
   });
 
+  it("共有付箋のドラッグ中に切断したらローカルの pointer capture も解除する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2, 1),
+    });
+    const scroller = screen.getByTestId("board-scroller");
+    const releasePointerCapture = vi.fn();
+    Object.defineProperty(scroller, "releasePointerCapture", {
+      configurable: true,
+      value: releasePointerCapture,
+    });
+    const surface = within(screen.getByTestId("board-canvas")).getByRole(
+      "button",
+      { name: "付箋" },
+    );
+
+    fireEvent.pointerDown(surface, {
+      pointerId: 7,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 7,
+      clientX: 110,
+      clientY: 110,
+    });
+    expectSent(socket, { type: "note:drag:start", noteId: NOTE_ID });
+
+    act(() => socket.simulateUnexpectedClose());
+
+    expect(releasePointerCapture).toHaveBeenCalledWith(7);
+  });
+
   it("ホストが確認後に「次のステップへ」を実行すると phase:next が送信される", () => {
     const { socket } = connectWithSnapshot([], {
       isHost: true,
@@ -1981,7 +2156,9 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     expect(
       socket.sent
         .map((raw) => JSON.parse(raw))
-        .filter((m) => m.type === "note:move" || m.type === "note:drag"),
+        .filter(
+          (m) => m.type === "note:drag:move" || m.type === "note:drag:end",
+        ),
     ).toEqual([]);
   });
   it.each([
@@ -2047,11 +2224,10 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 310,
     });
 
-    expect(socket.sent.map((message) => JSON.parse(message))).toContainEqual({
-      type: "note:move",
+    expectSent(socket, {
+      type: "note:drag:end",
       noteId: NOTE_ID,
-      x: 50,
-      y: 50,
+      position: { x: 50, y: 50 },
     });
     expect(canvas.style.transform).toBe(cameraBefore);
   });
@@ -2155,9 +2331,9 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
 
     expect(
       socket.sent.map((payload) => JSON.parse(payload).type),
-    ).not.toContain("note:drag");
+    ).not.toContain("note:drag:move");
     expect(
       socket.sent.map((payload) => JSON.parse(payload).type),
-    ).not.toContain("note:move");
+    ).not.toContain("note:drag:end");
   });
 });
