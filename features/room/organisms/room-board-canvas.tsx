@@ -258,7 +258,7 @@ export function RoomBoardCanvas({
           displayMode: voteDisplayMode,
           selectedKind: selectedVoteKind,
           voteRemaining,
-          canVote: permissions.canVote,
+          canVote: permissions.canVote && !note.excluded,
           pendingOperations: pendingVoteOperations,
           // 通常のポインター投票は RoomBoardView がパレットからのドロップ座標を
           // 受けて送る。ここはキーボード互換の既存コールバックだけを残す。
@@ -276,7 +276,9 @@ export function RoomBoardCanvas({
                 top: note.y,
                 zIndex: isTemporarilyFront
                   ? TEMPORARY_DRAG_Z_INDEX
-                  : note.stackOrder,
+                  : note.excluded
+                    ? 0
+                    : note.stackOrder,
               }
         }
       />

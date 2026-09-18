@@ -934,7 +934,7 @@ describe("RoomDO 候補外付箋", () => {
       },
       {
         name: "group-create",
-        phase: buildPhaseStep(5),
+        phase: buildPhaseStep(3),
         userId: USER_A,
         message: {
           type: "group:create",
@@ -949,7 +949,7 @@ describe("RoomDO 候補外付箋", () => {
       },
       {
         name: "group-update-name",
-        phase: buildPhaseStep(5),
+        phase: buildPhaseStep(3),
         userId: USER_A,
         message: {
           type: "group:update-name",
@@ -961,6 +961,17 @@ describe("RoomDO 候補外付箋", () => {
     for (const testCase of cases) {
       const roomName = `room-excluded-mutation-${testCase.name}`;
       await prepare(roomName, testCase.phase, true);
+      if (testCase.name === "group-update-name") {
+        await runInRoomDO(roomName, (_instance, state) => {
+          state.storage.sql.exec(
+            `INSERT INTO groups (id, name, note_ids, created_at, updated_at)
+             VALUES (?1, '変更前', ?2, ?3, ?3)`,
+            groupId,
+            JSON.stringify([NOTE_ID, NOTE_ID]),
+            createdAt,
+          );
+        });
+      }
       const ws = await connectDirectly(roomName, testCase.userId, USER_A);
       ws.send(JSON.stringify(testCase.message));
       expect(await nextJson(ws)).toMatchObject({
@@ -983,6 +994,10 @@ describe("RoomDO 候補外付箋", () => {
         groupCount: state.storage.sql
           .exec("SELECT COUNT(*) AS count FROM groups")
           .one().count as number,
+        groupName:
+          (state.storage.sql
+            .exec("SELECT name FROM groups WHERE id = ?1", groupId)
+            .toArray()[0]?.name as string | undefined) ?? null,
       }));
       expect(persisted.note).toMatchObject({
         content: "保持する本文",
@@ -991,7 +1006,12 @@ describe("RoomDO 候補外付箋", () => {
         excluded: 1,
       });
       expect(persisted.stickerCount).toBe(1);
-      expect(persisted.groupCount).toBe(0);
+      expect(persisted.groupCount).toBe(
+        testCase.name === "group-update-name" ? 1 : 0,
+      );
+      expect(persisted.groupName).toBe(
+        testCase.name === "group-update-name" ? "変更前" : null,
+      );
       ws.close();
     }
   });

@@ -106,6 +106,21 @@ describe("NoteCard", () => {
     expect(onRestore).toHaveBeenCalledWith("note-1");
   });
 
+  it("候補操作メニューを開いた後に切断されたら操作を送らない", () => {
+    const onExclude = vi.fn();
+    const { props, view } = setup({ canExcludeNote: true, onExclude } as never);
+
+    fireEvent.contextMenu(getNoteSurface());
+    const menuItem = screen.getByRole("menuitem", { name: "候補から外す" });
+    view.rerender(<NoteCard {...props} disabled />);
+    fireEvent.click(menuItem);
+
+    expect(onExclude).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("menuitem", { name: "候補から外す" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("Shift+F10 は復帰を即実行せず、メニュー項目へフォーカスする", () => {
     const onRestore = vi.fn();
     setup({

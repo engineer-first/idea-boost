@@ -303,7 +303,12 @@ export function RoomBoardView({
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
     const target = document.elementFromPoint(clientX, clientY);
     const note = target?.closest<HTMLElement>("[data-note-id]") ?? null;
-    if (!note || !renderedNotes.some(({ id }) => id === note.dataset.noteId)) {
+    if (
+      !note ||
+      !renderedNotes.some(
+        ({ id, excluded }) => id === note.dataset.noteId && !excluded,
+      )
+    ) {
       return null;
     }
     return note;
@@ -489,7 +494,11 @@ export function RoomBoardView({
 
     const note = target.closest<HTMLElement>("[data-note-id]");
     const noteId = note?.dataset.noteId;
-    if (!note || !noteId || !renderedNotes.some(({ id }) => id === noteId)) {
+    if (
+      !note ||
+      !noteId ||
+      !renderedNotes.some(({ id, excluded }) => id === noteId && !excluded)
+    ) {
       return;
     }
     const rect = note.getBoundingClientRect();

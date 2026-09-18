@@ -303,6 +303,7 @@ export function NoteCard({
   function performCandidateAction() {
     setIsActionMenuOpen(false);
     setIsTouchActionVisible(false);
+    if (disabled) return;
     if (note.excluded) {
       if (canRestoreNote) onRestore?.(note.id);
       return;
