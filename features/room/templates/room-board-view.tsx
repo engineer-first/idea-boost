@@ -81,6 +81,8 @@ export type RoomBoardViewProps = {
   onPrivateNoteDelete: (noteId: string) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteExclude?: (noteId: string) => void;
+  onNoteRestore?: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
@@ -159,6 +161,8 @@ export function RoomBoardView({
   onPrivateNoteDelete,
   onNoteContentChange,
   onNoteDelete,
+  onNoteExclude = () => undefined,
+  onNoteRestore = () => undefined,
   onGroupCreate,
   onGroupUpdateName,
   onNoteVote,
@@ -291,13 +295,20 @@ export function RoomBoardView({
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
-  const isNextPhaseBlocked = isResultStep(phase) && decision === null;
+  const candidateNotes = notes.filter((note) => !note.excluded);
+  const isNextPhaseBlocked =
+    isResultStep(phase) && (decision === null || candidateNotes.length === 0);
   const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
 
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
     const target = document.elementFromPoint(clientX, clientY);
     const note = target?.closest<HTMLElement>("[data-note-id]") ?? null;
-    if (!note || !renderedNotes.some(({ id }) => id === note.dataset.noteId)) {
+    if (
+      !note ||
+      !renderedNotes.some(
+        ({ id, excluded }) => id === note.dataset.noteId && !excluded,
+      )
+    ) {
       return null;
     }
     return note;
@@ -483,7 +494,11 @@ export function RoomBoardView({
 
     const note = target.closest<HTMLElement>("[data-note-id]");
     const noteId = note?.dataset.noteId;
-    if (!note || !noteId || !renderedNotes.some(({ id }) => id === noteId)) {
+    if (
+      !note ||
+      !noteId ||
+      !renderedNotes.some(({ id, excluded }) => id === noteId && !excluded)
+    ) {
       return;
     }
     const rect = note.getBoundingClientRect();
@@ -670,6 +685,8 @@ export function RoomBoardView({
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}
+        onNoteExclude={onNoteExclude}
+        onNoteRestore={onNoteRestore}
         onNoteVote={onNoteVote}
         onNoteVoteRemove={onNoteVoteRemove}
         onNoteVoteStickerRemove={onNoteVoteStickerRemove}

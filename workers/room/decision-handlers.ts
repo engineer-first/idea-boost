@@ -14,7 +14,7 @@ export const decisionHandlers: MessageHandlers<"note:decide"> = {
 
     const note = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!note) return;
-    if (note.visibility !== "shared") {
+    if (note.visibility !== "shared" || note.excluded) {
       replyForbidden(ctx);
       return;
     }

@@ -923,6 +923,48 @@ describe("RoomBoardView", () => {
     expect(onNoteVote).toHaveBeenCalledWith("note-1", "objective", 0.25, 0.5);
   });
 
+  it("パレットのシールを候補外付箋へドロップしても投票しない", () => {
+    const onNoteVote = vi.fn();
+    setup({
+      phase: buildPhaseStep(4),
+      notes: [buildNote({ id: "note-1", excluded: true })],
+      onNoteVote,
+    });
+    const note = screen.getByTestId("note-card");
+    vi.spyOn(note, "getBoundingClientRect").mockReturnValue({
+      x: 100,
+      y: 100,
+      top: 100,
+      right: 300,
+      bottom: 250,
+      left: 100,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    });
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => note),
+    });
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      { pointerId: 9, clientX: 320, clientY: 24 },
+    );
+    fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+      pointerId: 9,
+      clientX: 280,
+      clientY: 80,
+    });
+    fireEvent.pointerUp(screen.getByTestId("room-board-view-root"), {
+      pointerId: 9,
+      clientX: 150,
+      clientY: 175,
+    });
+
+    expect(onNoteVote).not.toHaveBeenCalled();
+  });
+
   it("パレットで選択したシールをマウスへ追従させ、付箋へ連続で貼る", () => {
     const onNoteVote = vi.fn();
     setup({
@@ -985,6 +1027,40 @@ describe("RoomBoardView", () => {
       0.2,
     );
     expect(paletteSticker).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("選択中のシールで候補外付箋をクリックしても投票しない", () => {
+    const onNoteVote = vi.fn();
+    setup({
+      phase: buildPhaseStep(4),
+      notes: [buildNote({ id: "note-1", excluded: true })],
+      onNoteVote,
+    });
+    vi.spyOn(
+      screen.getByTestId("note-card"),
+      "getBoundingClientRect",
+    ).mockReturnValue({
+      x: 100,
+      y: 100,
+      top: 100,
+      right: 300,
+      bottom: 250,
+      left: 100,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      { clientX: 320, clientY: 24 },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "候補外の付箋" }), {
+      clientX: 150,
+      clientY: 175,
+    });
+
+    expect(onNoteVote).not.toHaveBeenCalled();
   });
 
   it("選択中のシールは同じボタンの再クリックまたはEscapeで解除する", () => {

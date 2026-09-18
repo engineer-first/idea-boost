@@ -36,6 +36,7 @@ export function buildNote(overrides: Partial<ProtocolNote> = {}): ProtocolNote {
     authorId: "user-1",
     content: "付箋の本文",
     visibility: "shared",
+    excluded: false,
     color: "yellow",
     x: 100,
     y: 120,
