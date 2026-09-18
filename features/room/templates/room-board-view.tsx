@@ -28,13 +28,14 @@ import {
   type TimerState,
 } from "@/contracts/room-protocol";
 import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
-import type { Note, RemoteNoteDrag } from "@/features/notes";
+import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
+import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
@@ -59,13 +60,14 @@ export type RoomBoardViewProps = {
   currentUserId: string;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
+  // 全票を使い切ったメンバーの userId。投票先は含まない。
+  completedVoterIds?: ReadonlyArray<string>;
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
+  initialGuideExpanded?: boolean;
+  enableGuideModal?: boolean;
   remoteCursors: RenderedRemoteCursorPresence[];
-  remoteNoteDrags: RemoteNoteDrag[];
-  areCursorsVisible: boolean;
-  onToggleCursors: () => void;
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
@@ -79,6 +81,9 @@ export type RoomBoardViewProps = {
   onPrivateNoteDelete: (noteId: string) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteExclude?: (noteId: string) => void;
+  onNoteRestore?: (noteId: string) => void;
+  onBulkCandidateExclude?: () => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
@@ -141,13 +146,11 @@ export function RoomBoardView({
   members,
   currentUserId,
   hostUserId,
+  completedVoterIds = [],
   isNextPhasePending,
   interactions,
   help,
   remoteCursors,
-  remoteNoteDrags,
-  areCursorsVisible,
-  onToggleCursors,
   signOutAction,
   hmwDecidedIssue,
   decidedHmw,
@@ -158,6 +161,9 @@ export function RoomBoardView({
   onPrivateNoteDelete,
   onNoteContentChange,
   onNoteDelete,
+  onNoteExclude = () => undefined,
+  onNoteRestore = () => undefined,
+  onBulkCandidateExclude = () => undefined,
   onGroupCreate,
   onGroupUpdateName,
   onNoteVote,
@@ -175,6 +181,8 @@ export function RoomBoardView({
   onTimerResume,
   onTimerExtend,
   onTimerStop,
+  initialGuideExpanded = true,
+  enableGuideModal = true,
 }: RoomBoardViewProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
@@ -183,6 +191,8 @@ export function RoomBoardView({
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
+  const [isVoteStickerReturnDropTarget, setIsVoteStickerReturnDropTarget] =
+    useState(false);
   const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
   const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
     null,
@@ -192,16 +202,49 @@ export function RoomBoardView({
   const suppressPaletteSelectRef = useRef(false);
   const [guideDisplay, setGuideDisplay] = useState({
     phaseKey,
-    isExpanded: true,
+    isExpanded: initialGuideExpanded,
+    isInitialModal: true,
   });
+  const previousGuidePhaseKeyRef = useRef(phaseKey);
+  const [privateNotesOpenRequest, setPrivateNotesOpenRequest] = useState(0);
 
   const [isMounted, setIsMounted] = useState(false);
   const isGuideExpanded =
     guideDisplay.phaseKey === phaseKey ? guideDisplay.isExpanded : true;
+  const permissions = getBoardPermissions(phase);
+  const isPhaseOneGuideStep =
+    phase.kind === "step" &&
+    phase.phase === 1 &&
+    (phase.step === 1 || phase.step === 2);
+  const isInitialGuideModal =
+    guideDisplay.phaseKey !== phaseKey || guideDisplay.isInitialModal;
+
+  function handleGuidePrimaryAction() {
+    if (
+      phase.kind === "step" &&
+      phase.step === 1 &&
+      permissions.canCreateNote
+    ) {
+      setPrivateNotesOpenRequest((request) => request + 1);
+      setGuideDisplay({ phaseKey, isExpanded: false, isInitialModal: false });
+      return;
+    }
+    setGuideDisplay({ phaseKey, isExpanded: false, isInitialModal: false });
+  }
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (previousGuidePhaseKeyRef.current === phaseKey) return;
+    previousGuidePhaseKeyRef.current = phaseKey;
+    setGuideDisplay({
+      phaseKey,
+      isExpanded: true,
+      isInitialModal: true,
+    });
+  }, [phaseKey]);
 
   useEffect(() => {
     setVoteTotalingDialogOpen(isResultStep(phase));
@@ -211,13 +254,13 @@ export function RoomBoardView({
     if (isVotingStep(phase)) return;
     voteStickerDragRef.current = null;
     setVoteStickerDrag(null);
+    setIsVoteStickerReturnDropTarget(false);
     setSelectedVoteKind(null);
     setVoteStampPointer(null);
   }, [phase]);
 
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
-  const permissions = getBoardPermissions(phase);
   const voteRemaining = {
     subjective: Math.max(
       0,
@@ -253,16 +296,42 @@ export function RoomBoardView({
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
-  const isNextPhaseBlocked = isResultStep(phase) && decision === null;
+  const candidateNotes = notes.filter((note) => !note.excluded);
+  const bulkExclusionTargetCount = notes.filter(
+    (note) =>
+      note.visibility === "shared" &&
+      !note.excluded &&
+      note.id !== decision?.noteId &&
+      note.dotVotes.subjective.count === 0 &&
+      note.dotVotes.objective.count === 0,
+  ).length;
+  const isNextPhaseBlocked =
+    isResultStep(phase) && (decision === null || candidateNotes.length === 0);
   const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
 
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
     const target = document.elementFromPoint(clientX, clientY);
     const note = target?.closest<HTMLElement>("[data-note-id]") ?? null;
-    if (!note || !renderedNotes.some(({ id }) => id === note.dataset.noteId)) {
+    if (
+      !note ||
+      !renderedNotes.some(
+        ({ id, excluded }) => id === note.dataset.noteId && !excluded,
+      )
+    ) {
       return null;
     }
     return note;
+  }
+
+  function votePaletteElementAt(
+    clientX: number,
+    clientY: number,
+  ): HTMLElement | null {
+    return (
+      document
+        .elementFromPoint(clientX, clientY)
+        ?.closest<HTMLElement>("[data-vote-palette]") ?? null
+    );
   }
 
   function handlePaletteStickerDragStart(
@@ -333,6 +402,13 @@ export function RoomBoardView({
         clientY: event.clientY,
         didDrag,
       };
+      setIsVoteStickerReturnDropTarget(
+        current.stickerId !== null &&
+          didDrag &&
+          !isDisconnected &&
+          isVotingStep(phase) &&
+          votePaletteElementAt(event.clientX, event.clientY) !== null,
+      );
       if (!current.didDrag && didDrag && current.stickerId === null) {
         setSelectedVoteKind(null);
         setVoteStampPointer(null);
@@ -342,6 +418,9 @@ export function RoomBoardView({
       return;
     }
     handlePointerMove(event);
+    if (isNoteDragging) {
+      handlePresencePointerMove(event);
+    }
   }
 
   function handleRootPointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
@@ -349,23 +428,31 @@ export function RoomBoardView({
     if (current?.pointerId === event.pointerId) {
       if (current.didDrag && !isDisconnected && isVotingStep(phase)) {
         event.preventDefault();
-        const note = noteElementAt(event.clientX, event.clientY);
-        if (note) {
-          const rect = note.getBoundingClientRect();
-          const noteId = note.dataset.noteId;
-          if (noteId && rect.width > 0 && rect.height > 0) {
-            const x = Math.min(
-              1,
-              Math.max(0, (event.clientX - rect.left) / rect.width),
-            );
-            const y = Math.min(
-              1,
-              Math.max(0, (event.clientY - rect.top) / rect.height),
-            );
-            if (current.stickerId === null) {
-              onNoteVote(noteId, current.kind, x, y);
-            } else {
-              onNoteVoteStickerMove(current.stickerId, noteId, x, y);
+        const stickerId = current.stickerId;
+        const isReturnDrop =
+          stickerId !== null &&
+          votePaletteElementAt(event.clientX, event.clientY) !== null;
+        if (isReturnDrop) {
+          onNoteVoteStickerRemove(stickerId);
+        } else {
+          const note = noteElementAt(event.clientX, event.clientY);
+          if (note) {
+            const rect = note.getBoundingClientRect();
+            const noteId = note.dataset.noteId;
+            if (noteId && rect.width > 0 && rect.height > 0) {
+              const x = Math.min(
+                1,
+                Math.max(0, (event.clientX - rect.left) / rect.width),
+              );
+              const y = Math.min(
+                1,
+                Math.max(0, (event.clientY - rect.top) / rect.height),
+              );
+              if (current.stickerId === null) {
+                onNoteVote(noteId, current.kind, x, y);
+              } else {
+                onNoteVoteStickerMove(current.stickerId, noteId, x, y);
+              }
             }
           }
         }
@@ -378,6 +465,7 @@ export function RoomBoardView({
       }
       voteStickerDragRef.current = null;
       setVoteStickerDrag(null);
+      setIsVoteStickerReturnDropTarget(false);
       return;
     }
     handlePointerEnd(event);
@@ -418,7 +506,11 @@ export function RoomBoardView({
 
     const note = target.closest<HTMLElement>("[data-note-id]");
     const noteId = note?.dataset.noteId;
-    if (!note || !noteId || !renderedNotes.some(({ id }) => id === noteId)) {
+    if (
+      !note ||
+      !noteId ||
+      !renderedNotes.some(({ id, excluded }) => id === noteId && !excluded)
+    ) {
       return;
     }
     const rect = note.getBoundingClientRect();
@@ -446,9 +538,13 @@ export function RoomBoardView({
     if (voteStickerDragRef.current?.pointerId === event.pointerId) {
       voteStickerDragRef.current = null;
       setVoteStickerDrag(null);
+      setIsVoteStickerReturnDropTarget(false);
       return;
     }
-    handlePointerEnd(event);
+    if (isNoteDragging) {
+      handlePresencePointerLeave(event);
+    }
+    handlePointerCancel(event);
   }
 
   useEffect(() => {
@@ -484,6 +580,7 @@ export function RoomBoardView({
     onFitToNotes: fitToNotes,
     onPointerMove: handlePointerMove,
     onPointerEnd: handlePointerEnd,
+    onPointerCancel: handlePointerCancel,
     onPresencePointerMove: handlePresencePointerMove,
     onPresencePointerLeave: handlePresencePointerLeave,
     onNoteDragStart: handleSharedNoteDragStart,
@@ -523,6 +620,7 @@ export function RoomBoardView({
         members={members}
         currentUserId={currentUserId}
         hostUserId={hostUserId}
+        completedVoterIds={completedVoterIds}
         isNextPhasePending={isNextPhasePending}
         isNextPhaseBlocked={isNextPhaseBlocked}
         isGuideExpanded={isGuideExpanded}
@@ -531,7 +629,26 @@ export function RoomBoardView({
         isLeaving={isLeaving}
         onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
         onGuideExpandedChange={(isExpanded) =>
-          setGuideDisplay({ phaseKey, isExpanded })
+          setGuideDisplay({
+            ...guideDisplay,
+            phaseKey,
+            isExpanded,
+            isInitialModal: isExpanded ? guideDisplay.isInitialModal : false,
+          })
+        }
+        onPrimaryAction={
+          enableGuideModal ? handleGuidePrimaryAction : undefined
+        }
+        isInitialModal={isInitialGuideModal}
+        onOpenPanel={
+          enableGuideModal && isPhaseOneGuideStep
+            ? () =>
+                setGuideDisplay({
+                  phaseKey,
+                  isExpanded: true,
+                  isInitialModal: false,
+                })
+            : undefined
         }
         onLeaveClick={() => setLeaveDialogOpen(true)}
         onNextPhase={onNextPhase}
@@ -584,6 +701,8 @@ export function RoomBoardView({
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}
+        onNoteExclude={onNoteExclude}
+        onNoteRestore={onNoteRestore}
         onNoteVote={onNoteVote}
         onNoteVoteRemove={onNoteVoteRemove}
         onNoteVoteStickerRemove={onNoteVoteStickerRemove}
@@ -596,14 +715,13 @@ export function RoomBoardView({
         onPrivateNoteDelete={onPrivateNoteDelete}
         onPrivateNoteDragStart={handlePrivateDragStart}
         remoteCursors={remoteCursors}
-        remoteNoteDrags={remoteNoteDrags}
-        areCursorsVisible={areCursorsVisible}
-        onToggleCursors={onToggleCursors}
+        expandPrivateNotesRequest={privateNotesOpenRequest}
+        addPrivateNoteRequest={privateNotesOpenRequest}
       />
 
       {isVotingStep(phase) ? (
         <div
-          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
+          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center"
           data-testid="vote-palette-hud"
         >
           <DotVotePalette
@@ -612,8 +730,19 @@ export function RoomBoardView({
             feedback={voteFeedback}
             disabled={isDisconnected}
             selectedKind={selectedVoteKind}
+            isReturnDropTarget={isVoteStickerReturnDropTarget}
             onStickerSelect={handlePaletteStickerSelect}
             onStickerDragStart={handlePaletteStickerDragStart}
+          />
+        </div>
+      ) : null}
+
+      {isHost && isResultStep(phase) ? (
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center">
+          <BulkCandidateExclusion
+            targetCount={bulkExclusionTargetCount}
+            disabled={isDisconnected}
+            onConfirm={onBulkCandidateExclude}
           />
         </div>
       ) : null}

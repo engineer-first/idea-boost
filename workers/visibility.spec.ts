@@ -15,6 +15,7 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
     authorId: AUTHOR,
     content: "メモ",
     visibility: "shared",
+    excluded: false,
     color: "yellow",
     x: 100,
     y: 100,
@@ -25,6 +26,7 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    stackOrder: overrides?.stackOrder ?? 0,
     dotVoteStickers: overrides?.dotVoteStickers ?? [],
   };
 }

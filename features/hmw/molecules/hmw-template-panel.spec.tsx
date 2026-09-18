@@ -1,14 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { HMW_EXAMPLES, HMW_HEADING, HMW_TEMPLATES } from "../logic/hmw-content";
+import { HMW_EXAMPLES, HMW_TEMPLATES } from "../logic/hmw-content";
 import { HmwTemplatePanel } from "./hmw-template-panel";
 
 describe("HmwTemplatePanel", () => {
-  it("見出し・テンプレート5種・具体例3種を表示する", () => {
+  it("テンプレート5種・具体例3種を表示する", () => {
     render(<HmwTemplatePanel onTemplateSelect={vi.fn()} />);
 
-    expect(screen.getByText(HMW_HEADING)).toBeInTheDocument();
     for (const template of HMW_TEMPLATES) {
       expect(screen.getByText(template)).toBeInTheDocument();
     }

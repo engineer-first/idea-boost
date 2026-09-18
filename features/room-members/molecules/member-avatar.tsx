@@ -7,6 +7,7 @@
 // ホバー時の名前表示は Radix Tooltip で行う。
 // TooltipProvider は一覧側（RoomMembers）に 1 つ置き、ここでは Tooltip のみ。
 
+import { Check } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -38,6 +39,8 @@ export type MemberAvatarProps = {
   size?: number;
   // 自分自身かどうか。true で青いリング（"あなた" マーカー）。
   isMe?: boolean;
+  // 全票を使い切ったメンバーかどうか。投票先は表示しない。
+  isVotingComplete?: boolean;
 };
 
 export function MemberAvatar({
@@ -45,6 +48,7 @@ export function MemberAvatar({
   color,
   size = 36,
   isMe = false,
+  isVotingComplete = false,
 }: MemberAvatarProps) {
   const initials = initialsOf(name);
   // 自分は ring（枠）で識別する。文言の「（あなた）」は付けない。
@@ -55,10 +59,10 @@ export function MemberAvatar({
       <TooltipTrigger asChild>
         <div
           role="img"
-          aria-label={tooltipText}
+          aria-label={`${tooltipText}${isVotingComplete ? "（投票完了）" : ""}`}
           data-testid="avatar"
           data-self={isMe ? "true" : undefined}
-          className={`inline-flex shrink-0 items-center justify-center rounded-full border border-transparent font-semibold text-slate-900 ${NOTE_COLOR_STYLES[color].avatarClassName} ${
+          className={`relative inline-flex shrink-0 items-center justify-center rounded-full border border-transparent font-semibold text-slate-900 ${NOTE_COLOR_STYLES[color].avatarClassName} ${
             isMe
               ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-background"
               : ""
@@ -71,6 +75,15 @@ export function MemberAvatar({
           }}
         >
           {initials}
+          {isVotingComplete ? (
+            <span
+              data-testid="member-voting-complete"
+              aria-hidden="true"
+              className="absolute -bottom-1 -right-1 inline-flex size-4 items-center justify-center rounded-full border-2 border-background bg-emerald-600 text-white shadow-sm"
+            >
+              <Check className="size-2.5" strokeWidth={3} />
+            </span>
+          ) : null}
         </div>
       </TooltipTrigger>
       <TooltipContent>{tooltipText}</TooltipContent>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Pause, Play, RotateCcw, Settings2, Square } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -93,6 +94,125 @@ export function RoomTimer({
   const [minutesInput, setMinutesInput] = useState(initialFields.minutes);
   const [secondsInput, setSecondsInput] = useState(initialFields.seconds);
   const [panelOpen, setPanelOpen] = useState(defaultPanelOpen);
+  const [isReconfiguring, setIsReconfiguring] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const wasPanelOpenRef = useRef(panelOpen);
+  const panelOpenRef = useRef(panelOpen);
+
+  const handlePanelOpenChange = (open: boolean) => {
+    panelOpenRef.current = open;
+    setPanelOpen(open);
+  };
+
+  useEffect(() => {
+    if (wasPanelOpenRef.current && !panelOpen) {
+      triggerRef.current?.focus();
+    }
+    wasPanelOpenRef.current = panelOpen;
+  }, [panelOpen]);
+
+  useEffect(() => {
+    let suppressedPointer:
+      | { pointerId: number; pointerDownTarget: Node }
+      | undefined;
+    let releaseTimer: number | undefined;
+
+    const clearSuppressedPointer = () => {
+      if (releaseTimer !== undefined) {
+        window.clearTimeout(releaseTimer);
+        releaseTimer = undefined;
+      }
+      suppressedPointer = undefined;
+    };
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      // 前回のジェスチャーが click を生成しなかった場合でも、新しい
+      // pointerdown は独立した操作なので抑止対象にしない。
+      clearSuppressedPointer();
+      const target = event.target;
+      if (
+        !panelOpenRef.current ||
+        event.button !== 0 ||
+        !(target instanceof Node) ||
+        triggerRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      // ボード面はパン開始のため pointerdown を capture して止める。
+      // パネルが閉じた後も同じジェスチャーの pointerup/click を識別できるよう、
+      // pointerId と開始対象を保持してジェスチャー全体を消費する。
+      suppressedPointer = {
+        pointerId: event.pointerId,
+        pointerDownTarget: target,
+      };
+      event.preventDefault();
+      event.stopPropagation();
+      panelOpenRef.current = false;
+      setPanelOpen(false);
+    };
+    const handleOutsidePointerUp = (event: PointerEvent) => {
+      if (suppressedPointer?.pointerId !== event.pointerId) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      // click は pointerup の直後に同じタスクで発火する。ドラッグなどで
+      // click が生成されない場合は次のタスクまでに抑止状態を解放する。
+      releaseTimer = window.setTimeout(clearSuppressedPointer, 0);
+    };
+    const handleOutsidePointerCancel = (event: PointerEvent) => {
+      if (suppressedPointer?.pointerId !== event.pointerId) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      clearSuppressedPointer();
+    };
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!suppressedPointer) return;
+
+      const clickTarget = event.target;
+      const { pointerDownTarget } = suppressedPointer;
+      const isSameGestureTarget =
+        clickTarget instanceof Node &&
+        (clickTarget === pointerDownTarget ||
+          clickTarget.contains(pointerDownTarget) ||
+          pointerDownTarget.contains(clickTarget));
+      clearSuppressedPointer();
+      if (!isSameGestureTarget) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown, {
+      capture: true,
+    });
+    document.addEventListener("pointerup", handleOutsidePointerUp, {
+      capture: true,
+    });
+    document.addEventListener("pointercancel", handleOutsidePointerCancel, {
+      capture: true,
+    });
+    document.addEventListener("click", handleOutsideClick, { capture: true });
+    return () => {
+      clearSuppressedPointer();
+      document.removeEventListener("pointerdown", handleOutsidePointerDown, {
+        capture: true,
+      });
+      document.removeEventListener("pointerup", handleOutsidePointerUp, {
+        capture: true,
+      });
+      document.removeEventListener(
+        "pointercancel",
+        handleOutsidePointerCancel,
+        { capture: true },
+      );
+      document.removeEventListener("click", handleOutsideClick, {
+        capture: true,
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (timer.status !== "running") return;
@@ -114,7 +234,14 @@ export function RoomTimer({
       : timer.status === "paused"
         ? timer.remainingMs
         : null;
-  const isEnded = timer.status === "running" && remainingMs === 0;
+  const isEnded =
+    timer.status === "ended" ||
+    (timer.status === "running" && remainingMs === 0);
+
+  useEffect(() => {
+    if (!isEnded) setIsReconfiguring(false);
+  }, [isEnded]);
+
   const parsedDuration = useMemo(
     () => parseDuration(minutesInput, secondsInput),
     [minutesInput, secondsInput],
@@ -136,40 +263,31 @@ export function RoomTimer({
     );
   };
 
-  if (!isHost && timer.status === "idle") return null;
-
   const chipClassName = cn(
     "board-hud h-10 w-28 shrink-0 justify-center rounded-lg border-transparent bg-muted px-3 shadow-none hover:bg-muted dark:bg-muted dark:hover:bg-muted disabled:opacity-100",
     "font-mono font-bold tabular-nums",
     timer.status === "paused" && "text-amber-800",
     isEnded && "text-red-700",
   );
+  const chipDurationMs =
+    timer.status === "idle" ? initialDurationMs : (remainingMs ?? 0);
+  const chipDuration = formatDuration(chipDurationMs);
   const chipLabel =
     timer.status === "idle"
-      ? "タイマー設定を開く"
-      : `タイマー${timer.status === "paused" ? " 一時停止中" : isEnded ? " 終了" : ""} ${formatDuration(remainingMs ?? 0)}${isHost ? "。設定を開く" : ""}`;
+      ? `タイマー 未開始 ${chipDuration}${isHost ? "。設定を開く" : ""}`
+      : `タイマー${timer.status === "paused" ? " 一時停止中" : isEnded ? " 終了" : ""} ${chipDuration}${isHost ? "。設定を開く" : ""}`;
   const chipContent = (
-    <>
-      {timer.status === "idle" ? (
-        <span className="font-sans text-sm">タイマー</span>
-      ) : (
-        <span
-          role="timer"
-          aria-label={isHost ? undefined : chipLabel}
-          className="text-base"
-        >
-          {formatDuration(remainingMs ?? 0)}
-        </span>
-      )}
-      {timer.status === "paused" ? (
-        <span aria-hidden="true" className="ml-1 font-sans text-xs">
-          Ⅱ
-        </span>
-      ) : null}
-    </>
+    <span
+      role="timer"
+      aria-label={isHost ? undefined : chipLabel}
+      className="text-base"
+    >
+      {chipDuration}
+    </span>
   );
   const hostChip = (
     <Button
+      ref={triggerRef}
       type="button"
       data-testid="room-timer"
       data-ended={String(isEnded)}
@@ -199,14 +317,14 @@ export function RoomTimer({
 
   const panel = (
     <PopoverContent
+      ref={panelRef}
       data-testid="room-timer-panel"
-      aria-label="タイマー設定"
+      aria-label="タイマー操作"
       align="end"
       className="board-hud w-72 bg-background"
     >
-      {timer.status === "idle" ? (
+      {timer.status === "idle" || (isEnded && isReconfiguring) ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-medium">タイマー設定</p>
           <div className="flex items-center justify-between gap-1">
             <Button
               type="button"
@@ -276,42 +394,47 @@ export function RoomTimer({
             開始
           </Button>
         </div>
+      ) : isEnded ? (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 flex-1"
+            disabled={disabled}
+            onClick={() => onStart(timer.durationMs)}
+          >
+            <RotateCcw aria-hidden="true" />
+            もう一度
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 flex-1"
+            disabled={disabled}
+            onClick={() => {
+              setDuration(initialDurationMs);
+              setIsReconfiguring(true);
+            }}
+          >
+            <Settings2 aria-hidden="true" />
+            設定し直す
+          </Button>
+        </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">
-              {timer.status === "paused"
-                ? "一時停止中"
-                : isEnded
-                  ? "終了"
-                  : "実行中"}
-            </p>
-            <span className="font-mono text-lg font-bold tabular-nums">
-              {formatDuration(remainingMs ?? 0)}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            {timer.status === "paused" ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 flex-1"
-                disabled={disabled}
-                onClick={onResume}
-              >
-                再開
-              </Button>
-            ) : !isEnded ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 flex-1"
-                disabled={disabled}
-                onClick={onPause}
-              >
-                一時停止
-              </Button>
-            ) : null}
+        <div className="flex gap-2">
+          {timer.status === "paused" ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 flex-1"
+              disabled={disabled}
+              onClick={onResume}
+            >
+              <Play data-testid="timer-resume-icon" aria-hidden="true" />
+              再開
+            </Button>
+          ) : (
             <Button
               type="button"
               variant="outline"
@@ -322,17 +445,31 @@ export function RoomTimer({
             >
               +1分
             </Button>
+          )}
+          {timer.status === "paused" ? (
             <Button
               type="button"
-              variant="outline"
+              variant="destructive"
               size="sm"
               className="h-8 flex-1"
               disabled={disabled}
               onClick={onStop}
             >
-              停止
+              <Square data-testid="timer-end-icon" aria-hidden="true" />
+              終了
             </Button>
-          </div>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 flex-1"
+              disabled={disabled}
+              onClick={onPause}
+            >
+              <Pause aria-hidden="true" />
+              一時停止
+            </Button>
+          )}
         </div>
       )}
     </PopoverContent>
@@ -341,7 +478,7 @@ export function RoomTimer({
   return (
     <div className="shrink-0">
       {isHost ? (
-        <Popover open={panelOpen} onOpenChange={setPanelOpen}>
+        <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
           <PopoverTrigger asChild>{hostChip}</PopoverTrigger>
           {panel}
         </Popover>
@@ -349,7 +486,7 @@ export function RoomTimer({
         memberChip
       )}
       <span aria-live="polite" className="sr-only">
-        {isEnded ? "タイマーが終了しました。" : null}
+        {isEnded ? "タイマーが終了しました。時間になりました。" : null}
       </span>
     </div>
   );

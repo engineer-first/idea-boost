@@ -50,19 +50,65 @@ export function applyMemberServerMessage(
       // ここで受け取る userId は常に「他人の退出」を意味する。
       return members.filter((m) => m.userId !== message.userId);
     }
+    case "member_vote_status":
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
-    case "note:drag":
+    case "note:bulk-excluded":
+    case "note:bulk-restored":
+    case "note:drag:result":
     case "phase:updated":
     case "timer:updated":
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
     case "error":
       return members;
+    default: {
+      const _exhaustive: never = message;
+      return _exhaustive;
+    }
+  }
+}
+
+// 投票完了状態は userId の集合だけをサーバーから畳み込む。投票先や票種別の
+// 残数はこの state に存在しないため、投票中の秘匿境界を越えない。
+export function applyVotingCompletionServerMessage(
+  completedVoterIds: string[],
+  message: ServerMessage,
+): string[] {
+  switch (message.type) {
+    case "snapshot":
+      return message.completedVoterIds;
+    case "member_vote_status":
+      return message.isComplete
+        ? completedVoterIds.includes(message.userId)
+          ? completedVoterIds
+          : [...completedVoterIds, message.userId]
+        : completedVoterIds.filter((userId) => userId !== message.userId);
+    case "phase:updated":
+      return [];
+    case "member_left":
+      return completedVoterIds.filter((userId) => userId !== message.userId);
+    case "note:inserted":
+    case "note:updated":
+    case "note:deleted":
+    case "note:bulk-excluded":
+    case "note:bulk-restored":
+    case "note:drag:result":
+    case "member_joined":
+    case "group:updated":
+    case "group:deleted":
+    case "decision:updated":
+    case "timer:updated":
+    case "cursor:updated":
+    case "cursor:drag-ended":
+    case "cursor:left":
+    case "error":
+      return completedVoterIds;
     default: {
       const _exhaustive: never = message;
       return _exhaustive;
@@ -109,13 +155,17 @@ export function applyDecisionServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
-    case "note:drag":
+    case "note:bulk-excluded":
+    case "note:bulk-restored":
+    case "note:drag:result":
     case "member_joined":
     case "member_left":
+    case "member_vote_status":
     case "group:updated":
     case "group:deleted":
     case "timer:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
     case "error":
       return decision;
@@ -154,14 +204,18 @@ export function applyPhaseServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
-    case "note:drag":
+    case "note:bulk-excluded":
+    case "note:bulk-restored":
+    case "note:drag:result":
     case "member_joined":
     case "member_left":
+    case "member_vote_status":
     case "group:updated":
     case "group:deleted":
     case "timer:updated":
     case "decision:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
     case "error":
       return phase;

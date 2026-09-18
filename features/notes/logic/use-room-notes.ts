@@ -31,13 +31,31 @@ import {
   restoreVoteStickerLocally,
   voteNoteLocally,
 } from "./notes-reducer";
-import {
-  applyRemoteNoteDragMessage,
-  type RemoteNoteDrag,
-  removeExpiredRemoteNoteDrags,
-} from "./remote-note-drag";
 
-type NoteDragPayload = { id: string; x: number; y: number };
+type NoteDragPayload = {
+  noteId: string;
+  dragId: string;
+  x: number;
+  y: number;
+};
+
+type NoteDragOperation = {
+  noteId: string;
+  dragId: string;
+  status: "pending" | "active";
+  initialX: number;
+  initialY: number;
+  initialStackOrder: number;
+  latestPosition?: { x: number; y: number };
+  ending?: { position: { x: number; y: number } | null };
+};
+
+type PendingNoteDrop = {
+  noteId: string;
+  x: number;
+  y: number;
+  previousStackOrder: number;
+};
 
 export type PendingVoteOperation = {
   id: string;
@@ -63,7 +81,8 @@ export type VoteFeedback = {
 export type UseRoomNotesResult = {
   notes: Note[];
   draggingNoteId: string | null;
-  remoteNoteDrags: RemoteNoteDrag[];
+  // pointer-up 後も RoomDO の確定応答までは対象付箋を一時最前面に保つ。
+  frontNoteId: string | null;
   // サーバーメッセージを notes state に畳み込む。ドラッグ中の付箋への
   // エコーはローカル優先で無視される。
   applyMessage: (message: ServerMessage) => void;
@@ -77,6 +96,11 @@ export type UseRoomNotesResult = {
   moveNote: (noteId: string, x: number, y: number) => void;
   // ドロップ確定: note:move を送信（ドラッグ中の座標はサーバーに残らない）。
   endNoteDrag: (noteId: string, x: number, y: number) => void;
+  cancelNoteDrag: (noteId?: string) => void;
+  excludeNote: (noteId: string) => void;
+  restoreNote: (noteId: string) => void;
+  bulkExcludeZeroVoteCandidates: () => void;
+  bulkRestoreCandidates: (operationId: string) => void;
   // 入力中の見た目を止めないため本文だけは楽観更新する。
   changeNoteContent: (noteId: string, content: string) => void;
   deleteNote: (noteId: string) => void;
@@ -98,22 +122,27 @@ export function useRoomNotes({
   send,
   createVoteOperationId = () => crypto.randomUUID(),
   createVoteStickerId = () => crypto.randomUUID(),
+  createNoteDragId = () => crypto.randomUUID(),
 }: {
   send: (message: ClientMessage) => void;
   createVoteOperationId?: () => string;
   createVoteStickerId?: () => string;
+  createNoteDragId?: () => string;
 }): UseRoomNotesResult {
   // 付箋の初期状態は空。確定状態の真実はサーバー（RoomDO）側にあり、
   // 接続直後に送られてくる snapshot で復元される。
   const [notes, setNotes] = useState<Note[]>([]);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
-  const [remoteNoteDrags, setRemoteNoteDrags] = useState<RemoteNoteDrag[]>([]);
+  const [pendingNoteDrop, setPendingNoteDrop] =
+    useState<PendingNoteDrop | null>(null);
   const [pendingVoteOperations, setPendingVoteOperations] = useState<
     PendingVoteOperation[]
   >([]);
   const [voteFeedback, setVoteFeedback] = useState<VoteFeedback | null>(null);
   const notesRef = useRef<Note[]>(notes);
   const draggingNoteIdRef = useRef<string | null>(null);
+  const noteDragOperationRef = useRef<NoteDragOperation | null>(null);
+  const pendingNoteDropRef = useRef<PendingNoteDrop | null>(null);
   const pendingVoteOperationsRef = useRef<PendingVoteOperation[]>([]);
   const sendDragRef = useRef<ReturnType<
     typeof createThrottled<[NoteDragPayload]>
@@ -130,8 +159,9 @@ export function useRoomNotes({
   useEffect(() => {
     sendDragRef.current = createThrottled((payload: NoteDragPayload) => {
       send({
-        type: "note:drag",
-        noteId: payload.id,
+        type: "note:drag:move",
+        noteId: payload.noteId,
+        dragId: payload.dragId,
         x: payload.x,
         y: payload.y,
       });
@@ -139,7 +169,10 @@ export function useRoomNotes({
     return () => {
       sendDragRef.current?.cancel();
       sendDragRef.current = null;
+      noteDragOperationRef.current = null;
+      draggingNoteIdRef.current = null;
       notesRef.current = [];
+      pendingNoteDropRef.current = null;
     };
   }, [send]);
 
@@ -162,9 +195,105 @@ export function useRoomNotes({
     [],
   );
 
+  const updatePendingNoteDrop = useCallback((next: PendingNoteDrop | null) => {
+    pendingNoteDropRef.current = next;
+    setPendingNoteDrop(next);
+  }, []);
+
+  const recordPendingNoteDrop = useCallback(
+    (
+      operation: NoteDragOperation,
+      position: { x: number; y: number } | null,
+    ) => {
+      updatePendingNoteDrop(
+        position &&
+          (operation.initialX !== position.x ||
+            operation.initialY !== position.y)
+          ? {
+              noteId: operation.noteId,
+              x: position.x,
+              y: position.y,
+              previousStackOrder: operation.initialStackOrder,
+            }
+          : null,
+      );
+    },
+    [updatePendingNoteDrop],
+  );
+
   const applyMessage = useCallback(
     (message: ServerMessage) => {
-      const receivedAt = Date.now();
+      const pendingDrop = pendingNoteDropRef.current;
+      if (
+        message.type === "snapshot" ||
+        (message.type === "note:deleted" &&
+          message.noteId === pendingDrop?.noteId) ||
+        (message.type === "error" &&
+          message.operationId === undefined &&
+          pendingDrop !== null) ||
+        (message.type === "note:updated" &&
+          message.note.id === pendingDrop?.noteId &&
+          message.note.x === pendingDrop.x &&
+          message.note.y === pendingDrop.y &&
+          message.note.stackOrder > pendingDrop.previousStackOrder)
+      ) {
+        updatePendingNoteDrop(null);
+      }
+      if (message.type === "note:drag:result") {
+        const operation = noteDragOperationRef.current;
+        if (!operation || operation.dragId !== message.dragId) return;
+        if (!message.accepted) {
+          sendDragRef.current?.cancel();
+          noteDragOperationRef.current = null;
+          draggingNoteIdRef.current = null;
+          setDraggingNoteId(null);
+          updatePendingNoteDrop(null);
+          return;
+        }
+        const active = { ...operation, status: "active" as const };
+        noteDragOperationRef.current = active;
+        draggingNoteIdRef.current = active.noteId;
+        setDraggingNoteId(active.noteId);
+        if (active.ending) {
+          recordPendingNoteDrop(active, active.ending.position);
+          if (active.ending.position) {
+            updateNotes((current) =>
+              moveNoteLocally(
+                current,
+                active.noteId,
+                active.ending?.position?.x ?? active.initialX,
+                active.ending?.position?.y ?? active.initialY,
+              ),
+            );
+          }
+          send({
+            type: "note:drag:end",
+            noteId: active.noteId,
+            dragId: active.dragId,
+            position: active.ending.position,
+          });
+          noteDragOperationRef.current = null;
+          draggingNoteIdRef.current = null;
+          setDraggingNoteId(null);
+          return;
+        }
+        if (active.latestPosition) {
+          updateNotes((current) =>
+            moveNoteLocally(
+              current,
+              active.noteId,
+              active.latestPosition?.x ?? 0,
+              active.latestPosition?.y ?? 0,
+            ),
+          );
+          sendDragRef.current?.({
+            noteId: active.noteId,
+            dragId: active.dragId,
+            ...active.latestPosition,
+          });
+        }
+        return;
+      }
       if (message.type === "error" && message.operationId !== undefined) {
         const operation = pendingVoteOperationsRef.current.find(
           ({ id }) => id === message.operationId,
@@ -228,6 +357,13 @@ export function useRoomNotes({
         });
       }
 
+      if (message.type === "snapshot" || message.type === "phase:updated") {
+        sendDragRef.current?.cancel();
+        noteDragOperationRef.current = null;
+        draggingNoteIdRef.current = null;
+        setDraggingNoteId(null);
+      }
+
       updateNotes((current) => {
         const next = applyServerMessage(current, message, {
           draggingNoteId: draggingNoteIdRef.current,
@@ -283,22 +419,15 @@ export function useRoomNotes({
           });
         }
       }
-      setRemoteNoteDrags((current) =>
-        applyRemoteNoteDragMessage(current, message, receivedAt),
-      );
     },
-    [updateNotes, updatePendingVoteOperations],
+    [
+      recordPendingNoteDrop,
+      send,
+      updateNotes,
+      updatePendingNoteDrop,
+      updatePendingVoteOperations,
+    ],
   );
-
-  useEffect(() => {
-    const timer = globalThis.setInterval(() => {
-      setRemoteNoteDrags((current) => {
-        const next = removeExpiredRemoteNoteDrags(current);
-        return next.length === current.length ? current : next;
-      });
-    }, 500);
-    return () => globalThis.clearInterval(timer);
-  }, []);
 
   const addNote = useCallback(
     (content?: string) => {
@@ -320,35 +449,103 @@ export function useRoomNotes({
 
   const unpublishNote = useCallback(
     (noteId: string) => {
+      sendDragRef.current?.cancel();
+      noteDragOperationRef.current = null;
+      draggingNoteIdRef.current = null;
       setDraggingNoteId(null);
+      if (pendingNoteDropRef.current?.noteId === noteId) {
+        updatePendingNoteDrop(null);
+      }
       send({ type: "note:unpublish", noteId });
     },
-    [send],
+    [send, updatePendingNoteDrop],
   );
 
-  const startNoteDrag = useCallback((noteId: string) => {
-    draggingNoteIdRef.current = noteId;
-    setDraggingNoteId(noteId);
-  }, []);
+  const startNoteDrag = useCallback(
+    (noteId: string) => {
+      if (noteDragOperationRef.current) return;
+      const note = notesRef.current.find(({ id }) => id === noteId);
+      if (!note) return;
+      updatePendingNoteDrop(null);
+      const dragId = createNoteDragId();
+      noteDragOperationRef.current = {
+        noteId,
+        dragId,
+        status: "pending",
+        initialX: note.x,
+        initialY: note.y,
+        initialStackOrder: note.stackOrder,
+      };
+      send({ type: "note:drag:start", noteId, dragId });
+    },
+    [createNoteDragId, send, updatePendingNoteDrop],
+  );
 
   const moveNote = useCallback(
     (noteId: string, x: number, y: number) => {
-      // 自分自身の操作なので即座にローカル反映する。
+      const operation = noteDragOperationRef.current;
+      if (!operation || operation.noteId !== noteId) return;
+      operation.latestPosition = { x, y };
+      if (operation.status !== "active") return;
       updateNotes((current) => moveNoteLocally(current, noteId, x, y));
-      sendDragRef.current?.({ id: noteId, x, y });
+      sendDragRef.current?.({ noteId, dragId: operation.dragId, x, y });
     },
     [updateNotes],
   );
 
   const endNoteDrag = useCallback(
     (noteId: string, x: number, y: number) => {
+      const operation = noteDragOperationRef.current;
+      if (!operation || operation.noteId !== noteId) return;
+      if (operation.status === "pending") {
+        operation.latestPosition = { x, y };
+        operation.ending = { position: { x, y } };
+        return;
+      }
       sendDragRef.current?.cancel();
       draggingNoteIdRef.current = null;
       setDraggingNoteId(null);
+      recordPendingNoteDrop(operation, { x, y });
       updateNotes((current) => moveNoteLocally(current, noteId, x, y));
-      send({ type: "note:move", noteId, x, y });
+      send({
+        type: "note:drag:end",
+        noteId,
+        dragId: operation.dragId,
+        position: { x, y },
+      });
+      noteDragOperationRef.current = null;
     },
-    [updateNotes, send],
+    [recordPendingNoteDrop, updateNotes, send],
+  );
+
+  const cancelNoteDrag = useCallback(
+    (noteId?: string) => {
+      const operation = noteDragOperationRef.current;
+      if (!operation || (noteId !== undefined && operation.noteId !== noteId)) {
+        return;
+      }
+      sendDragRef.current?.cancel();
+      send({
+        type: "note:drag:end",
+        noteId: operation.noteId,
+        dragId: operation.dragId,
+        position: null,
+      });
+      noteDragOperationRef.current = null;
+      draggingNoteIdRef.current = null;
+      setDraggingNoteId(null);
+    },
+    [send],
+  );
+
+  const excludeNote = useCallback(
+    (noteId: string) => send({ type: "note:exclude", noteId }),
+    [send],
+  );
+
+  const restoreNote = useCallback(
+    (noteId: string) => send({ type: "note:restore", noteId }),
+    [send],
   );
 
   const changeNoteContent = useCallback(
@@ -361,6 +558,16 @@ export function useRoomNotes({
       send({ type: "note:update-content", noteId, content });
     },
     [updateNotes, send],
+  );
+
+  const bulkExcludeZeroVoteCandidates = useCallback(
+    () => send({ type: "note:bulk-exclude" }),
+    [send],
+  );
+
+  const bulkRestoreCandidates = useCallback(
+    (operationId: string) => send({ type: "note:bulk-restore", operationId }),
+    [send],
   );
 
   const deleteNote = useCallback(
@@ -532,7 +739,7 @@ export function useRoomNotes({
   return {
     notes,
     draggingNoteId,
-    remoteNoteDrags,
+    frontNoteId: draggingNoteId ?? pendingNoteDrop?.noteId ?? null,
     applyMessage,
     addNote,
     publishNote,
@@ -540,6 +747,11 @@ export function useRoomNotes({
     startNoteDrag,
     moveNote,
     endNoteDrag,
+    cancelNoteDrag,
+    excludeNote,
+    restoreNote,
+    bulkExcludeZeroVoteCandidates,
+    bulkRestoreCandidates,
     changeNoteContent,
     deleteNote,
     voteNote,

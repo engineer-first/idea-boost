@@ -52,6 +52,181 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("候補外付箋を同じ座標のゴーストとして表示し、本文を読める", () => {
+    setup({
+      note: buildNote({
+        content: "残して読む本文",
+        excluded: true,
+        x: 320,
+        y: 180,
+      } as never),
+      canEditNote: false,
+      canDeleteNote: false,
+      canMoveNote: false,
+      canExcludeNote: false,
+      canRestoreNote: false,
+    } as never);
+
+    expect(getCard()).toHaveAttribute("data-excluded", "true");
+    expect(getCard()).toHaveStyle({ left: "320px", top: "180px" });
+    expect(screen.getByDisplayValue("残して読む本文")).toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeInTheDocument();
+    expect(getCard()).toHaveStyle({ boxShadow: "none" });
+    expect(getCard()).toHaveStyle({ borderWidth: "1px" });
+    expect(screen.getByRole("textbox")).toHaveClass("pt-12");
+  });
+
+  it("右クリックは即実行せず、操作名付きメニューから候補外と復帰を実行できる", () => {
+    const onExclude = vi.fn();
+    const onRestore = vi.fn();
+    const { view } = setup({
+      canExcludeNote: true,
+      canRestoreNote: true,
+      onExclude,
+      onRestore,
+    } as never);
+
+    fireEvent.contextMenu(getNoteSurface());
+    expect(onExclude).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "候補から外す" }));
+    expect(onExclude).toHaveBeenCalledWith("note-1");
+
+    view.unmount();
+
+    setup({
+      note: buildNote({ excluded: true } as never),
+      canExcludeNote: true,
+      canRestoreNote: true,
+      onExclude,
+      onRestore,
+    } as never);
+    fireEvent.contextMenu(getNoteSurface());
+    expect(onRestore).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "候補に戻す" }));
+    expect(onRestore).toHaveBeenCalledWith("note-1");
+  });
+
+  it("候補操作メニューを開いた後に切断されたら操作を送らない", () => {
+    const onExclude = vi.fn();
+    const { props, view } = setup({ canExcludeNote: true, onExclude } as never);
+
+    fireEvent.contextMenu(getNoteSurface());
+    const menuItem = screen.getByRole("menuitem", { name: "候補から外す" });
+    view.rerender(<NoteCard {...props} disabled />);
+    fireEvent.click(menuItem);
+
+    expect(onExclude).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("menuitem", { name: "候補から外す" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("Shift+F10 は復帰を即実行せず、メニュー項目へフォーカスする", () => {
+    const onRestore = vi.fn();
+    setup({
+      note: buildNote({ excluded: true } as never),
+      canEditNote: false,
+      canDeleteNote: false,
+      canMoveNote: false,
+      canRestoreNote: true,
+      onRestore,
+    } as never);
+
+    fireEvent.keyDown(getNoteSurface(), { key: "F10", shiftKey: true });
+
+    const item = screen.getByRole("menuitem", { name: "候補に戻す" });
+    expect(item).toHaveFocus();
+    expect(onRestore).not.toHaveBeenCalled();
+    fireEvent.click(item);
+    expect(onRestore).toHaveBeenCalledWith("note-1");
+  });
+
+  it("通常候補は付箋近傍の明示操作から候補外にできる", () => {
+    const onExclude = vi.fn();
+    setup({ canExcludeNote: true, onExclude } as never);
+
+    fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
+
+    expect(onExclude).toHaveBeenCalledWith("note-1");
+  });
+
+  it("タップすると候補外付箋の復帰操作を表示する", () => {
+    setup({
+      note: buildNote({ excluded: true } as never),
+      canEditNote: false,
+      canDeleteNote: false,
+      canMoveNote: false,
+      canRestoreNote: true,
+    } as never);
+    const restore = screen.getByRole("button", { name: "候補に戻す" });
+
+    fireEvent.pointerDown(getNoteSurface(), {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerUp(getNoteSurface(), {
+      pointerId: 7,
+      pointerType: "touch",
+      clientX: 10,
+      clientY: 10,
+    });
+
+    expect(restore).toHaveClass("opacity-100");
+    expect(getCard()).toHaveClass("opacity-90");
+    expect(screen.getByText("候補外")).toBeInTheDocument();
+  });
+
+  it("非ホストもタップすると候補外付箋の本文を読める濃さに戻せる", () => {
+    setup({
+      note: buildNote({ excluded: true } as never),
+      canEditNote: false,
+      canDeleteNote: false,
+      canMoveNote: false,
+      canExcludeNote: false,
+      canRestoreNote: false,
+    } as never);
+
+    fireEvent.pointerUp(getNoteSurface(), {
+      pointerId: 8,
+      pointerType: "touch",
+    });
+
+    expect(getCard()).toHaveClass("opacity-90");
+    expect(screen.getByText("候補外")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
+  });
+
+  it("ホバーとフォーカスで候補外付箋の復帰操作を表示する", () => {
+    setup({
+      note: buildNote({ excluded: true } as never),
+      canEditNote: false,
+      canDeleteNote: false,
+      canMoveNote: false,
+      canRestoreNote: true,
+    } as never);
+    const surface = getNoteSurface();
+    const restore = screen.getByRole("button", { name: "候補に戻す" });
+
+    fireEvent.pointerEnter(surface);
+    expect(restore).toHaveClass("opacity-100");
+    fireEvent.pointerLeave(surface);
+    expect(restore).toHaveClass("opacity-0");
+    fireEvent.focus(surface);
+    expect(restore).toHaveClass("opacity-100");
+  });
+
+  it("非ホストには候補外・復帰操作を表示しない", () => {
+    setup({
+      note: buildNote({ excluded: true } as never),
+      canExcludeNote: false,
+      canRestoreNote: false,
+    } as never);
+
+    expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "候補に戻す" })).toBeNull();
+  });
   it("付箋の本文を表示する", () => {
     setup({ note: buildNote({ content: "こんにちは" }) });
 
@@ -92,25 +267,13 @@ describe("NoteCard", () => {
     expect(textarea.className).not.toContain("dark:text-");
   });
 
-  it("付箋の作者色を保ったまま、移動者色の枠と名前付き表示を重ねる", () => {
-    setup({
-      note: buildNote({ color: "yellow" }),
-      activeDragMember: {
-        userId: "22222222-2222-4222-8222-222222222222",
-        name: "Taro",
-        color: "green",
-      },
-    });
-
-    expect(getCard()).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
-    });
-    expect(screen.getByRole("status", { name: "Taro が移動中" })).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES.green.backgroundColor,
-    });
-    expect(screen.getByTestId("active-note-drag-outline")).toHaveStyle({
-      borderColor: NOTE_COLOR_STYLES.green.backgroundColor,
-    });
+  it("ドラッグ専用の操作者名や色枠を付箋へ重ねない", () => {
+    setup({ note: buildNote({ color: "yellow", content: "本文" }) });
+    expect(screen.getByRole("textbox")).toHaveValue("本文");
+    expect(screen.queryByText(/移動中/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("active-note-drag-outline"),
+    ).not.toBeInTheDocument();
   });
 
   it("本文の入力はコントラクトの上限文字数で制限される", () => {
@@ -492,6 +655,30 @@ describe("NoteCard", () => {
       fireEvent.keyDown(getNoteSurface(), { key: "Enter" });
 
       expect(screen.getByRole("textbox")).toHaveFocus();
+    });
+
+    it("選択中に文字キーを押すと編集を開始し、その文字を本文へ追加する", () => {
+      setup({ isSelected: true, note: buildNote({ content: "既存の本文" }) });
+
+      fireEvent.keyDown(getNoteSurface(), { key: "a" });
+
+      const textarea = screen.getByRole("textbox");
+      expect(textarea).toHaveFocus();
+      expect(textarea).not.toHaveAttribute("readonly");
+      expect(textarea).toHaveValue("既存の本文a");
+    });
+
+    it.each([
+      { key: "a", ctrlKey: true },
+      { key: "a", metaKey: true },
+      { key: "a", altKey: true },
+    ])("修飾キー付きの文字入力はショートカットとして保持する", (keyEvent) => {
+      setup({ isSelected: true });
+
+      fireEvent.keyDown(getNoteSurface(), keyEvent);
+
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+      expect(screen.getByDisplayValue("付箋の本文")).toBeInTheDocument();
     });
 
     it("編集してフォーカスが外れるとonContentChangeを呼び編集モードを終了する", () => {

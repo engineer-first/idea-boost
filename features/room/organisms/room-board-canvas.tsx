@@ -1,6 +1,5 @@
 "use client";
 
-import { MousePointer2, MousePointer2Off } from "lucide-react";
 // ボード面。カメラで移動・拡大縮小する世界レイヤーに共有付箋・グループ枠・
 // ドラッグ中のゴーストを描き、下端にマイ付箋ドックを重ねる。
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
@@ -9,7 +8,6 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { Button } from "@/components/ui/button";
 import { NOTE_WIDTH } from "@/contracts/board";
 import {
   calculateRenderGroups,
@@ -28,7 +26,6 @@ import {
   NoteCard,
   NoteGroupCard,
   PrivateNotesToolbar,
-  type RemoteNoteDrag,
   StickyNote,
 } from "@/features/notes";
 import type { BoardPermissions } from "../logic/board-permissions";
@@ -48,6 +45,8 @@ import {
 } from "../molecules/decide-note-action";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import { RemoteCursor } from "../molecules/remote-cursor";
+
+const TEMPORARY_DRAG_Z_INDEX = 2_147_483_647;
 
 export type RoomBoardCanvasProps = {
   notes: Note[];
@@ -80,7 +79,7 @@ export type RoomBoardCanvasProps = {
   onCanvasPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onPresencePointerLeave: () => void;
+  onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -92,6 +91,8 @@ export type RoomBoardCanvasProps = {
   ) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteExclude?: (noteId: string) => void;
+  onNoteRestore?: (noteId: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
   onNoteVoteRemove: (noteId: string, kind: DotVoteKind) => void;
   onNoteVoteStickerRemove: (stickerId: string) => void;
@@ -111,9 +112,8 @@ export type RoomBoardCanvasProps = {
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   remoteCursors: RenderedRemoteCursorPresence[];
-  remoteNoteDrags: RemoteNoteDrag[];
-  areCursorsVisible: boolean;
-  onToggleCursors: () => void;
+  expandPrivateNotesRequest?: number;
+  addPrivateNoteRequest?: number;
 };
 
 export function RoomBoardCanvas({
@@ -151,6 +151,8 @@ export function RoomBoardCanvas({
   onNoteDragStart,
   onNoteContentChange,
   onNoteDelete,
+  onNoteExclude = () => undefined,
+  onNoteRestore = () => undefined,
   onNoteVote,
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
@@ -163,13 +165,17 @@ export function RoomBoardCanvas({
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
   remoteCursors,
-  remoteNoteDrags,
-  areCursorsVisible,
-  onToggleCursors,
+  expandPrivateNotesRequest = 0,
+  addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? calculateRenderGroups(notes, groups)
     : [];
+  // 候補外を先に描き、通常候補を後から重ねる。z-index も NoteCard / map wrapper
+  // で明示し、入力順が変わっても候補外が前面へ戻らないようにする。
+  const orderedNotes = [...notes].sort(
+    (left, right) => Number(right.excluded) - Number(left.excluded),
+  );
   const voteDisplayMode = isVotingStep(phase)
     ? "voting"
     : isResultStep(phase)
@@ -181,7 +187,8 @@ export function RoomBoardCanvas({
       isHost &&
       !isDisconnected &&
       isResultStep(phase) &&
-      decision?.noteId !== selectedNote.id,
+      decision?.noteId !== selectedNote.id &&
+      !selectedNote.excluded,
   );
   // アイデア個人執筆中は2軸マップを表示せず、共有する Step3-2 から表示する。
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
@@ -218,31 +225,35 @@ export function RoomBoardCanvas({
   }
 
   function renderNoteCard(note: Note, isOnIdeaMap = false) {
-    const activeDragMember = isDisconnected
-      ? undefined
-      : remoteNoteDrags.find((drag) => drag.noteId === note.id)?.draggedBy;
+    const isRemoteDrag =
+      !isDisconnected &&
+      remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
+    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
     return (
       <NoteCard
         key={note.id}
         note={note}
         isOwnDrag={draggingNoteId === note.id}
-        activeDragMember={activeDragMember}
         isSelected={selectedNoteId === note.id}
         editingDisabled={isResultStep(phase)}
-        canDeleteNote={permissions.canDeleteNote}
-        canEditNote={permissions.canEditNote}
-        canMoveNote={permissions.canMoveNote}
+        canDeleteNote={permissions.canDeleteNote && !note.excluded}
+        canEditNote={permissions.canEditNote && !note.excluded}
+        canMoveNote={permissions.canMoveNote && !note.excluded}
+        canExcludeNote={isHost && permissions.canExcludeNote && !note.excluded}
+        canRestoreNote={isHost && permissions.canRestoreNote && note.excluded}
         isDecided={decision?.noteId === note.id}
         disabled={isDisconnected}
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
         onDelete={handleNoteDelete}
+        onExclude={onNoteExclude}
+        onRestore={onNoteRestore}
         vote={{
           displayMode: voteDisplayMode,
           selectedKind: selectedVoteKind,
           voteRemaining,
-          canVote: permissions.canVote,
+          canVote: permissions.canVote && !note.excluded,
           pendingOperations: pendingVoteOperations,
           // 通常のポインター投票は RoomBoardView がパレットからのドロップ座標を
           // 受けて送る。ここはキーボード互換の既存コールバックだけを残す。
@@ -252,7 +263,19 @@ export function RoomBoardCanvas({
           onStickerDragStart: onNoteVoteStickerDragStart,
         }}
         className={isOnIdeaMap ? "relative pointer-events-auto" : undefined}
-        style={isOnIdeaMap ? {} : undefined}
+        style={
+          isOnIdeaMap
+            ? {}
+            : {
+                left: note.x,
+                top: note.y,
+                zIndex: isTemporarilyFront
+                  ? TEMPORARY_DRAG_Z_INDEX
+                  : note.excluded
+                    ? 0
+                    : note.stackOrder,
+              }
+        }
       />
     );
   }
@@ -263,13 +286,24 @@ export function RoomBoardCanvas({
       feasibility: note.x,
     });
     const isSelectedDecidableNote = canDecide && selectedNote?.id === note.id;
+    const isRemoteDrag =
+      !isDisconnected &&
+      remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
+    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
 
     return (
       <div
         key={note.id}
-        className="pointer-events-auto absolute z-10"
+        className="pointer-events-auto absolute"
         data-testid={`idea-value-feasibility-map-note-${note.id}`}
-        style={position}
+        style={{
+          ...position,
+          zIndex: isTemporarilyFront
+            ? TEMPORARY_DRAG_Z_INDEX
+            : note.excluded
+              ? 0
+              : note.stackOrder,
+        }}
       >
         {renderNoteCard(note, true)}
         {isSelectedDecidableNote ? (
@@ -295,8 +329,8 @@ export function RoomBoardCanvas({
         noteId={dragGhost.note.id}
         isLifted
         color={dragGhost.note.color}
-        className="pointer-events-none absolute z-20"
-        style={position}
+        className="pointer-events-none absolute"
+        style={{ ...position, zIndex: TEMPORARY_DRAG_Z_INDEX }}
       >
         <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
           {dragGhost.note.content || "メモを入力..."}
@@ -341,23 +375,21 @@ export function RoomBoardCanvas({
           >
             {isIdeaValueFeasibilityMapVisible ? (
               <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
-                {notes.map(renderIdeaMapNote)}
+                {orderedNotes.map(renderIdeaMapNote)}
                 {renderIdeaMapDragGhost()}
-                {areCursorsVisible
-                  ? remoteCursors.map((cursor) => (
-                      <RemoteCursor
-                        key={cursor.userId}
-                        cursor={cursor}
-                        isIdle={cursor.isIdle}
-                        labelOffset={getCursorLabelOffset(cursor.userId)}
-                        style={{
-                          left: `${cursor.x}%`,
-                          bottom: `${cursor.y}%`,
-                          transform: "none",
-                        }}
-                      />
-                    ))
-                  : null}
+                {remoteCursors.map((cursor) => (
+                  <RemoteCursor
+                    key={cursor.userId}
+                    cursor={cursor}
+                    isIdle={cursor.isIdle}
+                    labelOffset={getCursorLabelOffset(cursor.userId)}
+                    style={{
+                      left: `${cursor.x}%`,
+                      bottom: `${cursor.y}%`,
+                      transform: "none",
+                    }}
+                  />
+                ))}
               </IdeaValueFeasibilityMap>
             ) : null}
             {renderGroups.map((rg) => {
@@ -382,8 +414,17 @@ export function RoomBoardCanvas({
             })}
 
             {!isIdeaValueFeasibilityMapVisible
-              ? notes.map((note) => renderNoteCard(note))
+              ? orderedNotes.map((note) => renderNoteCard(note))
               : null}
+            {isResultStep(phase) &&
+            notes.filter((note) => !note.excluded).length === 0 ? (
+              <div
+                role="status"
+                className="absolute top-6 left-1/2 z-30 -translate-x-1/2 rounded-lg border bg-background/95 px-5 py-3 text-sm font-semibold shadow-md"
+              >
+                候補がありません。候補外の付箋を戻してください。
+              </div>
+            ) : null}
             {!isIdeaValueFeasibilityMapVisible && canDecide && selectedNote ? (
               <DecideNoteAction
                 x={
@@ -402,7 +443,11 @@ export function RoomBoardCanvas({
                 isLifted
                 color={dragGhost.note.color}
                 className="pointer-events-none absolute"
-                style={{ left: dragGhost.x, top: dragGhost.y }}
+                style={{
+                  left: dragGhost.x,
+                  top: dragGhost.y,
+                  zIndex: TEMPORARY_DRAG_Z_INDEX,
+                }}
               >
                 <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
                   {dragGhost.note.content || "メモを入力..."}
@@ -410,7 +455,7 @@ export function RoomBoardCanvas({
               </StickyNote>
             ) : null}
           </div>
-          {areCursorsVisible && !isIdeaValueFeasibilityMapVisible
+          {!isIdeaValueFeasibilityMapVisible
             ? remoteCursors.map((cursor) => (
                 <RemoteCursor
                   key={cursor.userId}
@@ -432,23 +477,6 @@ export function RoomBoardCanvas({
             >
               <BoardOperationMatrix permissions={permissions} />
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="board-hud pointer-events-auto bg-background"
-              data-cursor-private="true"
-              aria-pressed={areCursorsVisible}
-              aria-label={
-                areCursorsVisible
-                  ? "参加者のカーソルを非表示にする"
-                  : "参加者のカーソルを表示する"
-              }
-              onClick={onToggleCursors}
-            >
-              {areCursorsVisible ? <MousePointer2 /> : <MousePointer2Off />}{" "}
-              カーソル
-            </Button>
           </div>
           <div data-testid="canvas-zoom-hud">
             <CanvasZoomControls
@@ -462,7 +490,7 @@ export function RoomBoardCanvas({
         </div>
         {permissions.showPrivateToolbar ? (
           <div
-            className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-60 items-end"
+            className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end"
             data-testid="private-notes-dock"
           >
             <PrivateNotesToolbar
@@ -474,7 +502,9 @@ export function RoomBoardCanvas({
               canMoveNote={permissions.canMoveNote}
               editingDisabled={isResultStep(phase)}
               defaultExpanded={false}
-              className="pointer-events-auto max-h-full w-60"
+              expandRequest={expandPrivateNotesRequest}
+              addRequest={addPrivateNoteRequest}
+              className="pointer-events-auto max-h-full"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}
               selectedNoteId={selectedNoteId}

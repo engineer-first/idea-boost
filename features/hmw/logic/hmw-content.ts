@@ -2,9 +2,6 @@
 // 文言の真実は docs/dezain-supurinto.md「③ 問いの作成（HMW）> Step1」で、
 // ここではそれをそのまま定数化する（新規の文言作成はしない）。
 
-// 画面に1回だけ固定表示する見出し。付箋には繰り返さない。
-export const HMW_HEADING = "HMW = どうしたら私たちは、もっと〇〇できるだろう？";
-
 // 持ち越された決定課題の固定表示に付けるラベル。
 export const DECIDED_ISSUE_LABEL = "決定した課題";
 

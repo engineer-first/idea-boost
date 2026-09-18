@@ -13,7 +13,7 @@ argument-hint: <変更内容>
 
 ## 手順
 
-1. **contracts/ を先に変更する**
+1. **変更する境界と期待する振る舞いを決める**
    - 対象: `contracts/room-protocol.ts` / `contracts/api.ts` /
      `contracts/session.ts` / `contracts/board.ts`
    - 上限（文字数・座標範囲・要素数）は contracts の定数として定義する
@@ -23,11 +23,12 @@ argument-hint: <変更内容>
    - 非メンバー・非 author・未認証が「できない」ことを `workers/*.spec.ts` に
      先に書き、red を確認する
    - 可視性に関わる変更なら `workers/visibility.spec.ts` のテーブルに行を追加する
-3. **サーバー実装を追従させる**
+3. **contracts/ を変更してからサーバー実装を追従させる**
+   - 失敗するテストを確認した後、境界スキーマを実装層より先に変更する
    - `workers/room/`（WS プロトコル）/ `workers/api-worker.ts`（REST）。
      可視性の判定は `visibleTo()` に一点集約し、迂回する送信経路を作らない
 4. **クライアント実装を追従させる**
-   - `lib/room-client/` と `app/`。UI の状態遷移が変わるなら spec と stories も更新する
+   - `lib/room-client/` と `features/`、必要に応じて `app/` の配線。UI の状態遷移が変わるなら spec と stories も更新する
 5. **green を確認する**
    - `npm run test` と `npm run test:workers` の両方
 6. **PR 前に認可レビューを通す**

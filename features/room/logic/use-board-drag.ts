@@ -39,7 +39,6 @@ export type UseBoardDragArgs = {
   notes: Note[];
   privateNotes: Note[];
   currentUserId: string;
-  boardRootRef: RefObject<HTMLDivElement | null>;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   worldPointFromClient: (
     clientX: number,
@@ -60,6 +59,7 @@ export type UseBoardDragArgs = {
   onNoteDragStart: (noteId: string) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
+  onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
   onPrivateNoteUnpublish: (noteId: string) => void;
 };
@@ -118,7 +118,6 @@ export function useBoardDrag({
   notes,
   privateNotes,
   currentUserId,
-  boardRootRef,
   boardScrollerRef,
   worldPointFromClient,
   privateToolbarRef,
@@ -130,6 +129,7 @@ export function useBoardDrag({
   onNoteDragStart,
   onNoteDragMove,
   onNoteDragEnd,
+  onNoteDragCancel,
   onPrivateNotePublish,
   onPrivateNoteUnpublish,
 }: UseBoardDragArgs) {
@@ -228,7 +228,7 @@ export function useBoardDrag({
   );
 
   const privateDropIndexFromPointer = useCallback(
-    (clientX: number, draggingNoteId: string) => {
+    (clientY: number, draggingNoteId: string) => {
       const toolbar = privateToolbarRef.current;
       const noteElements = toolbar?.querySelectorAll
         ? Array.from(
@@ -240,19 +240,19 @@ export function useBoardDrag({
       if (noteElements.length > 0) {
         const index = noteElements.findIndex((element) => {
           const rect = element.getBoundingClientRect();
-          return clientX < rect.left + rect.width / 2;
+          return clientY < rect.top + rect.height / 2;
         });
         return index === -1 ? noteElements.length : index;
       }
 
       const rect = toolbar?.getBoundingClientRect();
       if (!rect) return 0;
-      const width = Math.max(rect.right - rect.left, 1);
+      const height = Math.max(rect.bottom - rect.top, 1);
       return Math.min(
         privateNotes.length,
         Math.max(
           0,
-          Math.round(((clientX - rect.left) / width) * privateNotes.length),
+          Math.round(((clientY - rect.top) / height) * privateNotes.length),
         ),
       );
     },
@@ -265,7 +265,7 @@ export function useBoardDrag({
       const note = notes.find((n) => n.id === noteId);
       if (!note) return;
       hasNotifiedBlockedRef.current = false;
-      boardRootRef.current?.setPointerCapture?.(event.pointerId);
+      boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const pointerPosition = boardPositionFromPointer(
         event.clientX,
         event.clientY,
@@ -285,7 +285,7 @@ export function useBoardDrag({
     [
       boardPositionFromPointer,
       notes,
-      boardRootRef,
+      boardScrollerRef,
       canMoveSharedNotes,
       onNoteDragStart,
       updateDrag,
@@ -297,7 +297,7 @@ export function useBoardDrag({
       const note = privateNotes.find((n) => n.id === noteId);
       if (!note) return;
       hasNotifiedBlockedRef.current = false;
-      boardRootRef.current?.setPointerCapture?.(event.pointerId);
+      boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const rect = event.currentTarget?.getBoundingClientRect?.();
       const grabOffsetX = rect?.width
         ? ((event.clientX - rect.left) / rect.width) * NOTE_WIDTH
@@ -318,7 +318,7 @@ export function useBoardDrag({
         grabOffsetY,
       });
     },
-    [privateNotes, boardRootRef, updateDrag],
+    [privateNotes, boardScrollerRef, updateDrag],
   );
 
   const handlePointerMove = useCallback(
@@ -337,7 +337,7 @@ export function useBoardDrag({
             ...current,
             status: "returning",
             privateDropIndex: privateDropIndexFromPointer(
-              event.clientX,
+              event.clientY,
               current.note.id,
             ),
           });
@@ -345,7 +345,7 @@ export function useBoardDrag({
           updateDrag({
             ...current,
             privateDropIndex: privateDropIndexFromPointer(
-              event.clientX,
+              event.clientY,
               current.note.id,
             ),
           });
@@ -457,12 +457,12 @@ export function useBoardDrag({
           }));
         }
       }
-      boardRootRef.current?.releasePointerCapture?.(event.pointerId);
+      boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
       updateDrag(null);
     },
     [
       boardPositionFromPointer,
-      boardRootRef,
+      boardScrollerRef,
       canMoveSharedNotes,
       clampCoordinate,
       onNoteDragEnd,
@@ -472,6 +472,34 @@ export function useBoardDrag({
     ],
   );
 
+  const handlePointerCancel = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const current = dragRef.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      hasNotifiedBlockedRef.current = false;
+      if (current.status === "shared") {
+        onNoteDragCancel(current.note.id);
+      }
+      boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
+      updateDrag(null);
+    },
+    [boardScrollerRef, onNoteDragCancel, updateDrag],
+  );
+
+  const cancelCurrentNoteDrag = useCallback(() => {
+    const current = dragRef.current;
+    if (current?.status !== "shared") return;
+    hasNotifiedBlockedRef.current = false;
+    onNoteDragCancel(current.note.id);
+    boardScrollerRef.current?.releasePointerCapture?.(current.pointerId);
+    updateDrag(null);
+  }, [boardScrollerRef, onNoteDragCancel, updateDrag]);
+
+  const isCurrentDragPointer = useCallback((pointerId: number) => {
+    const current = dragRef.current;
+    return current === null || current.pointerId === pointerId;
+  }, []);
+
   return {
     drag,
     renderedNotes,
@@ -480,5 +508,8 @@ export function useBoardDrag({
     handlePrivateDragStart,
     handlePointerMove,
     handlePointerEnd,
+    handlePointerCancel,
+    cancelCurrentNoteDrag,
+    isCurrentDragPointer,
   };
 }

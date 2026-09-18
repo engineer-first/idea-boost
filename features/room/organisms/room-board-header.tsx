@@ -40,6 +40,7 @@ export type RoomBoardHeaderProps = {
   members: Member[];
   currentUserId: string;
   hostUserId: string;
+  completedVoterIds?: ReadonlyArray<string>;
   isNextPhasePending: boolean;
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
@@ -50,6 +51,9 @@ export type RoomBoardHeaderProps = {
   signOutAction?: () => Promise<void>;
   onShowVoteResult: () => void;
   onGuideExpandedChange: (isExpanded: boolean) => void;
+  onPrimaryAction?: () => void;
+  isInitialModal?: boolean;
+  onOpenPanel?: () => void;
   onLeaveClick: () => void;
   onNextPhase: () => void;
   onTimerStart: (durationMs: number) => void;
@@ -74,6 +78,7 @@ export function RoomBoardHeader({
   members,
   currentUserId,
   hostUserId,
+  completedVoterIds = [],
   isNextPhasePending,
   isNextPhaseBlocked,
   isGuideExpanded,
@@ -82,6 +87,9 @@ export function RoomBoardHeader({
   signOutAction,
   onShowVoteResult,
   onGuideExpandedChange,
+  onPrimaryAction,
+  isInitialModal,
+  onOpenPanel,
   onLeaveClick,
   onNextPhase,
   onTimerStart,
@@ -109,10 +117,10 @@ export function RoomBoardHeader({
     <TooltipProvider delayDuration={300}>
       <div
         data-testid="board-header-row"
-        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.25rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"
+        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.25rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)]"
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col items-start gap-3"
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col items-start gap-3 max-[900px]:min-w-[306px]"
           data-testid="board-context-column"
         >
           <div className="w-full min-w-0 shrink-0">
@@ -122,6 +130,9 @@ export function RoomBoardHeader({
               isHost={isHost}
               isExpanded={isGuideExpanded}
               onExpandedChange={onGuideExpandedChange}
+              onPrimaryAction={onPrimaryAction}
+              isInitialModal={isInitialModal}
+              onOpenPanel={onOpenPanel}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
             />
@@ -130,7 +141,7 @@ export function RoomBoardHeader({
         </div>
 
         <fieldset
-          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5"
+          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap"
           aria-label="ルームの操作"
           data-testid="board-control-hud"
         >
@@ -139,11 +150,14 @@ export function RoomBoardHeader({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-10 gap-2 px-2"
+                className="h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
                 aria-label={`参加者 ${members.length}人`}
                 title="参加者一覧を開く"
               >
-                <span className="flex items-center pl-2" aria-hidden="true">
+                <span
+                  className="flex items-center pl-2 max-[900px]:pl-0"
+                  aria-hidden="true"
+                >
                   {members.slice(0, 10).map((member, index) => (
                     <span
                       key={member.userId}
@@ -161,6 +175,9 @@ export function RoomBoardHeader({
                         color={member.color}
                         size={28}
                         isMe={member.userId === currentUserId}
+                        isVotingComplete={completedVoterIds.includes(
+                          member.userId,
+                        )}
                       />
                     </span>
                   ))}
@@ -208,6 +225,9 @@ export function RoomBoardHeader({
                       color={member.color}
                       size={32}
                       isMe={member.userId === currentUserId}
+                      isVotingComplete={completedVoterIds.includes(
+                        member.userId,
+                      )}
                     />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {member.name}

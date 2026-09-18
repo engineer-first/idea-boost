@@ -27,19 +27,19 @@ export function VoteTotalingRow({
 }: VoteTotalingRowProps) {
   return (
     <li
-      className="grid gap-2 rounded-lg border border-border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+      className="grid gap-3 rounded-lg border border-border/80 bg-card p-3 text-card-foreground dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
       data-testid={`vote-totaling-row-${row.noteId}`}
     >
       <div className="flex min-w-0 items-center gap-3">
-        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold">
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground dark:bg-slate-800 dark:text-slate-50">
           {rank}位
         </span>
-        <p className="break-words text-sm font-medium text-foreground">
+        <p className="break-words text-sm font-medium text-foreground dark:text-slate-50">
           {row.content || "無題の付箋"}
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="inline-flex h-7 items-center rounded-md border border-zinc-300 bg-zinc-50 px-2 text-xs font-medium tabular-nums text-zinc-900">
+      <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+        <span className="inline-flex h-7 items-center rounded-md bg-muted px-2 text-xs font-medium tabular-nums text-foreground dark:bg-slate-800 dark:text-slate-50">
           {row.score}点
         </span>
         <VoteCountBadge
@@ -56,7 +56,7 @@ export function VoteTotalingRow({
           <span
             role="status"
             aria-label="取り組む課題に決定済み"
-            className="inline-flex h-7 items-center gap-1 rounded-md bg-emerald-700 px-2 text-xs font-medium text-white"
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-emerald-700 px-2 text-xs font-medium text-white dark:bg-emerald-600"
           >
             <Check aria-hidden="true" className="size-3.5" />
             決定済み

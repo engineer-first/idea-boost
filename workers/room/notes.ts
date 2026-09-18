@@ -22,9 +22,11 @@ export type NoteRow = {
   color: NoteColor;
   x: number;
   y: number;
+  stack_order: number;
   created_at: string;
   updated_at: string;
   phase: number;
+  excluded: boolean;
 };
 
 // 「誰の視点でもない」射影に使う viewerId。listSharedNotes や自動再編成の
@@ -32,9 +34,18 @@ export type NoteRow = {
 // 文脈でだけ使う。
 export const NULL_VIEWER_ID = "00000000-0000-0000-0000-000000000000";
 
+function normalizeNoteRow(row: Record<string, unknown>): NoteRow {
+  return {
+    ...(row as Omit<NoteRow, "excluded">),
+    excluded: row.excluded === true || row.excluded === 1,
+  };
+}
+
 export function findNote(sql: SqlStorage, noteId: string): NoteRow | null {
   const rows = sql.exec("SELECT * FROM notes WHERE id = ?1", noteId).toArray();
-  return rows.length > 0 ? (rows[0] as unknown as NoteRow) : null;
+  return rows.length > 0
+    ? normalizeNoteRow(rows[0] as Record<string, unknown>)
+    : null;
 }
 
 export function requireNote(ctx: HandlerCtx, noteId: string): NoteRow | null {
@@ -100,7 +111,11 @@ export function listNotes(
           )
           .toArray();
   return rows.map((row) =>
-    toProtocolNote(sql, row as unknown as NoteRow, viewerId),
+    toProtocolNote(
+      sql,
+      normalizeNoteRow(row as Record<string, unknown>),
+      viewerId,
+    ),
   );
 }
 
@@ -110,20 +125,33 @@ export function listSharedNotes(sql: SqlStorage, phase = 1): ProtocolNote[] {
   );
 }
 
+export function hasCandidateNotes(sql: SqlStorage, phase: number): boolean {
+  const rows = sql
+    .exec(
+      `SELECT 1 AS found FROM notes
+       WHERE phase = ?1 AND visibility = 'shared' AND excluded = 0
+       LIMIT 1`,
+      phase,
+    )
+    .toArray();
+  return rows.length > 0;
+}
+
 export function hasOnlySharedNotes(
   sql: SqlStorage,
   noteIds: readonly string[],
 ): boolean {
-  return noteIds.every(
-    (noteId) => findNote(sql, noteId)?.visibility === "shared",
-  );
+  return noteIds.every((noteId) => {
+    const note = findNote(sql, noteId);
+    return note?.visibility === "shared" && !note.excluded;
+  });
 }
 
 export function insertNote(sql: SqlStorage, note: NoteRow): void {
   sql.exec(
     `INSERT INTO notes
-       (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+       (id, author_id, content, visibility, color, x, y, stack_order, created_at, updated_at, phase, excluded)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
     note.id,
     note.author_id,
     note.content,
@@ -131,10 +159,24 @@ export function insertNote(sql: SqlStorage, note: NoteRow): void {
     note.color,
     note.x,
     note.y,
+    note.stack_order,
     note.created_at,
     note.updated_at,
     note.phase,
+    note.excluded ? 1 : 0,
   );
+}
+
+function nextStackOrder(sql: SqlStorage): number {
+  const row = sql
+    .exec(
+      `UPDATE room_state
+       SET next_note_stack_order = next_note_stack_order + 1
+       WHERE id = 1
+       RETURNING next_note_stack_order - 1 AS value`,
+    )
+    .one() as { value: number };
+  return row.value;
 }
 
 export function publishNote(
@@ -143,16 +185,19 @@ export function publishNote(
   x: number,
   y: number,
   updatedAt: string,
-): void {
+): number {
+  const stackOrder = nextStackOrder(sql);
   sql.exec(
     `UPDATE notes
-     SET visibility = 'shared', x = ?2, y = ?3, updated_at = ?4
+     SET visibility = 'shared', x = ?2, y = ?3, updated_at = ?4, stack_order = ?5
      WHERE id = ?1`,
     noteId,
     x,
     y,
     updatedAt,
+    stackOrder,
   );
+  return stackOrder;
 }
 
 export function unpublishNote(
@@ -189,17 +234,129 @@ export function moveNote(
   x: number,
   y: number,
   updatedAt: string,
-): void {
+): number {
+  const row = findNote(sql, noteId);
+  if (!row) return 0;
+  if (row.x === x && row.y === y) {
+    sql.exec(
+      "UPDATE notes SET updated_at = ?2 WHERE id = ?1",
+      noteId,
+      updatedAt,
+    );
+    return row.stack_order;
+  }
+  const stackOrder = nextStackOrder(sql);
   sql.exec(
-    "UPDATE notes SET x = ?2, y = ?3, updated_at = ?4 WHERE id = ?1",
+    `UPDATE notes
+     SET x = ?2, y = ?3, updated_at = ?4, stack_order = ?5
+     WHERE id = ?1`,
     noteId,
     x,
     y,
     updatedAt,
+    stackOrder,
   );
+  return stackOrder;
+}
+
+export function setNoteExcluded(
+  sql: SqlStorage,
+  noteId: string,
+  excluded: boolean,
+  updatedAt: string,
+): void {
+  sql.exec(
+    "UPDATE notes SET excluded = ?2, updated_at = ?3 WHERE id = ?1",
+    noteId,
+    excluded ? 1 : 0,
+    updatedAt,
+  );
+  sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
+}
+
+export function listBulkExclusionCandidates(
+  sql: SqlStorage,
+  phase: number,
+): NoteRow[] {
+  return sql
+    .exec(
+      `SELECT n.*
+       FROM notes n
+       WHERE n.phase = ?1
+         AND n.visibility = 'shared'
+         AND n.excluded = 0
+         AND NOT EXISTS (
+           SELECT 1 FROM decisions d
+           WHERE d.phase = n.phase AND d.note_id = n.id
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM note_vote_stickers v WHERE v.note_id = n.id
+         )
+       ORDER BY n.created_at, n.id`,
+      phase,
+    )
+    .toArray()
+    .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+}
+
+export function excludeNotesForBulkOperation(
+  sql: SqlStorage,
+  noteIds: readonly string[],
+  operationId: string,
+  updatedAt: string,
+): void {
+  for (const noteId of noteIds) {
+    sql.exec(
+      "UPDATE notes SET excluded = 1, updated_at = ?2 WHERE id = ?1",
+      noteId,
+      updatedAt,
+    );
+    sql.exec(
+      `INSERT INTO note_bulk_exclusions (note_id, operation_id)
+       VALUES (?1, ?2)
+       ON CONFLICT(note_id) DO UPDATE SET operation_id = excluded.operation_id`,
+      noteId,
+      operationId,
+    );
+  }
+}
+
+export function listBulkRestoreTargets(
+  sql: SqlStorage,
+  phase: number,
+  operationId: string,
+): NoteRow[] {
+  return sql
+    .exec(
+      `SELECT n.* FROM notes n
+       INNER JOIN note_bulk_exclusions b ON b.note_id = n.id
+       WHERE n.phase = ?1 AND n.visibility = 'shared' AND n.excluded = 1
+         AND b.operation_id = ?2
+       ORDER BY n.created_at, n.id`,
+      phase,
+      operationId,
+    )
+    .toArray()
+    .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+}
+
+export function restoreNotesForBulkOperation(
+  sql: SqlStorage,
+  noteIds: readonly string[],
+  updatedAt: string,
+): void {
+  for (const noteId of noteIds) {
+    sql.exec(
+      "UPDATE notes SET excluded = 0, updated_at = ?2 WHERE id = ?1",
+      noteId,
+      updatedAt,
+    );
+    sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
+  }
 }
 
 export function deleteNote(sql: SqlStorage, noteId: string): void {
+  sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
   sql.exec("DELETE FROM notes WHERE id = ?1", noteId);
 }
 
@@ -226,6 +383,8 @@ export function toProtocolNote(
     color: row.color,
     x: row.x,
     y: row.y,
+    excluded: row.excluded,
+    stackOrder: row.stack_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     dotVotes: {

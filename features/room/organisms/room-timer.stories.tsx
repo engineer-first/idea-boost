@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import { RoomTimer } from "./room-timer";
 import {
   buildEndedTimer,
@@ -40,7 +40,7 @@ export const IdleHostMinimum: Story = {
 export const IdleHostMaximum: Story = {
   args: { initialDurationMs: ROOM_TIMER_IDLE_MAX_ADJUST_DURATION_MS },
 };
-export const IdleMemberHidden: Story = { args: { isHost: false } };
+export const IdleMember: Story = { args: { isHost: false } };
 export const RunningHost: Story = {
   args: {
     timer: buildRunningTimer(),
@@ -70,6 +70,20 @@ export const EndedHost: Story = {
 };
 export const EndedHostPanelOpen: Story = {
   args: { ...EndedHost.args, defaultPanelOpen: true },
+};
+export const ExpiredHostPanelOpen: Story = {
+  args: {
+    timer: buildRunningTimer({ remainingMs: 0, durationMs: 5 * 60_000 }),
+    defaultPanelOpen: true,
+  },
+};
+export const EndedHostReconfigure: Story = {
+  args: { ...EndedHost.args, defaultPanelOpen: true },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "設定し直す" }),
+    );
+  },
 };
 export const EndedMember: Story = {
   args: { ...EndedHost.args, isHost: false },

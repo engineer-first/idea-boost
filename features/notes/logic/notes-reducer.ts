@@ -66,16 +66,14 @@ export function applyServerMessage(
       return notes.filter((n) => n.id !== message.noteId);
     }
 
-    case "note:drag": {
-      if (options.draggingNoteId === message.noteId) {
-        // 自分自身のドラッグ操作を優先し、エコーを無視する。
-        return notes;
-      }
-      return notes.map((n) =>
-        n.id === message.noteId ? { ...n, x: message.x, y: message.y } : n,
-      );
+    case "note:bulk-excluded":
+    case "note:bulk-restored": {
+      // 各付箋の状態は先行する note:updated で反映済み。これは送信元へ
+      // 実件数と Undo 用 ID を知らせる確定通知なので配列自体は変えない。
+      return notes;
     }
 
+    case "note:drag:result":
     case "member_joined":
     case "member_left":
     case "phase:updated":
@@ -84,7 +82,9 @@ export function applyServerMessage(
     case "group:deleted":
     case "decision:updated":
     case "cursor:updated":
+    case "cursor:drag-ended":
     case "cursor:left":
+    case "member_vote_status":
     case "error": {
       // ノート以外の状態は別リデューサが担当する（room-reducer.ts）。
       // グループ・フェーズの同期は RoomBoard 側で管理するため、ここでは付箋状態を変えない。

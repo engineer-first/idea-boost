@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { createRef } from "react";
-import { fn } from "storybook/test";
+import { expect, fireEvent, fn, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildDecision,
@@ -91,6 +91,8 @@ const meta = {
     onNoteDragStart: fn(),
     onNoteContentChange: fn(),
     onNoteDelete: fn(),
+    onNoteExclude: fn(),
+    onNoteRestore: fn(),
     onNoteVote: fn(),
     onNoteVoteRemove: fn(),
     onNoteVoteStickerRemove: fn(),
@@ -103,13 +105,10 @@ const meta = {
     onPrivateNoteDelete: fn(),
     onPrivateNoteDragStart: fn(),
     remoteCursors: [],
-    remoteNoteDrags: [],
-    areCursorsVisible: true,
-    onToggleCursors: fn(),
   },
   decorators: [
     (Story) => (
-      <div style={{ height: "80vh", padding: 16 }}>
+      <div style={{ display: "flex", height: "80vh", padding: 16 }}>
         <Story />
       </div>
     ),
@@ -180,7 +179,6 @@ export const Disconnected: Story = {
   args: {
     isDisconnected: true,
     remoteCursors: [],
-    remoteNoteDrags: [],
   },
 };
 
@@ -193,31 +191,58 @@ export const ManyRemoteCursors: Story = {
   },
 };
 
-// 付箋は作者色（黄色）のまま、移動者（緑）の枠と名前を固定表示する。
-export const NoteDraggedByAnotherMember: Story = {
-  args: {
-    phase: STEP_1_2,
-    permissions: getBoardPermissions(STEP_1_2),
-    notes: [buildNote({ id: "note-1", color: "yellow" })],
-    remoteNoteDrags: [
-      {
-        noteId: "note-1",
-        draggedBy: {
-          userId: "22222222-2222-4222-8222-222222222222",
-          name: "Taro Yamada",
-          color: "green",
-        },
-        lastSeenAt: Date.now(),
-      },
-    ],
-  },
-};
-
 export const ReadyToDecide: Story = {
   args: {
     phase: STEP_1_5,
     permissions: getBoardPermissions(STEP_1_5),
     selectedNoteId: "note-1",
+  },
+};
+
+export const ExcludedCandidate: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: [
+      buildNote({
+        id: "note-1",
+        content: "候補外でも同じ場所に残る",
+        excluded: true,
+      }),
+      buildNote({ id: "note-2", content: "残っている候補", x: 360 }),
+    ],
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const cards = canvas.getAllByTestId("note-card");
+    const excluded = cards.find((card) => card.dataset.noteId === "note-1");
+    const active = cards.find((card) => card.dataset.noteId === "note-2");
+    if (!excluded || !active) throw new Error("候補付箋が描画されていません");
+
+    const excludedStyle = getComputedStyle(excluded);
+    await expect(excludedStyle.boxShadow).toBe("none");
+    await expect(excludedStyle.borderTopWidth).toBe("1px");
+    await expect(excludedStyle.zIndex).toBe("0");
+    await expect(getComputedStyle(active).zIndex).toBe("10");
+    const excludedText = within(excluded).getByRole("textbox");
+    await expect(
+      Number.parseFloat(getComputedStyle(excludedText).paddingTop),
+    ).toBeGreaterThanOrEqual(40);
+
+    const activeSurface = within(active).getByRole("button", { name: "付箋" });
+    fireEvent.contextMenu(activeSurface);
+    await expect(args.onNoteExclude).not.toHaveBeenCalled();
+    await expect(
+      within(active).getByRole("menuitem", { name: "候補から外す" }),
+    ).toBeVisible();
+  },
+};
+
+export const NoCandidates: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: buildNotes(2).map((note) => ({ ...note, excluded: true })),
   },
 };
 

@@ -5,4 +5,8 @@ export type {
   DotVoteRemaining,
   VoteDisplayMode,
 } from "./logic/dot-vote";
+export {
+  DOT_VOTE_CRITERIA,
+  DOT_VOTE_GUIDANCE,
+} from "./logic/dot-vote";
 export { DotVoteSticker } from "./molecules/dot-vote-sticker";

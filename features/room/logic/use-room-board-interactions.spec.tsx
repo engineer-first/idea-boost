@@ -3,14 +3,33 @@ import type { PointerEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { RoomPhase } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import { buildNote } from "@/contracts/room-protocol.fixture";
 import { useRoomBoardInteractions } from "./use-room-board-interactions";
 
-function setup({ phase = buildPhaseStep(2) }: { phase?: RoomPhase } = {}) {
+function setup({
+  phase = buildPhaseStep(2),
+  withSharedDrag = false,
+}: {
+  phase?: RoomPhase;
+  withSharedDrag?: boolean;
+} = {}) {
   const onCursorMove = vi.fn();
   const onCursorLeave = vi.fn();
+  const onNoteDragCancel = vi.fn();
+  const onPrivateNoteUnpublish = vi.fn();
+  const notes = withSharedDrag
+    ? [
+        buildNote({
+          id: "shared-1",
+          authorId: "11111111-1111-4111-8111-111111111111",
+          x: 100,
+          y: 100,
+        }),
+      ]
+    : [];
   const { result } = renderHook(() =>
     useRoomBoardInteractions({
-      notes: [],
+      notes,
       privateNotes: [],
       currentUserId: "11111111-1111-4111-8111-111111111111",
       draggingNoteId: null,
@@ -18,8 +37,9 @@ function setup({ phase = buildPhaseStep(2) }: { phase?: RoomPhase } = {}) {
       onNoteDragStart: vi.fn(),
       onNoteDragMove: vi.fn(),
       onNoteDragEnd: vi.fn(),
+      onNoteDragCancel,
       onPrivateNotePublish: vi.fn(),
-      onPrivateNoteUnpublish: vi.fn(),
+      onPrivateNoteUnpublish,
       onCursorMove,
       onCursorLeave,
     }),
@@ -27,7 +47,14 @@ function setup({ phase = buildPhaseStep(2) }: { phase?: RoomPhase } = {}) {
   const viewport = document.createElement("div");
   viewport.getBoundingClientRect = () => new DOMRect(10, 20, 800, 600);
   result.current.boardScrollerRef.current = viewport;
-  return { result, onCursorMove, onCursorLeave, viewport };
+  return {
+    result,
+    onCursorMove,
+    onCursorLeave,
+    onNoteDragCancel,
+    onPrivateNoteUnpublish,
+    viewport,
+  };
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
@@ -148,5 +175,158 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLDivElement>),
     );
     expect(onCursorMove).toHaveBeenLastCalledWith({ x: 40, y: 40 }, null);
+  });
+
+  it("shared drag 中に private toolbar へ入る presence leave は unpublish より先に操作権もカーソルも解除しない", () => {
+    const { result, onCursorLeave, onNoteDragCancel, onPrivateNoteUnpublish } =
+      setup({
+        withSharedDrag: true,
+      });
+    const toolbar = document.createElement("div");
+    toolbar.getBoundingClientRect = () => new DOMRect(600, 0, 300, 600);
+    result.current.privateToolbarRef.current = toolbar;
+    act(() => {
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 7,
+        clientX: 120,
+        clientY: 130,
+      } as unknown as PointerEvent<HTMLButtonElement>);
+      result.current.onPresencePointerLeave({
+        pointerId: 7,
+        clientX: 650,
+        clientY: 120,
+      } as unknown as PointerEvent<HTMLDivElement>);
+    });
+
+    expect(onNoteDragCancel).not.toHaveBeenCalled();
+    expect(onCursorLeave).not.toHaveBeenCalled();
+    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(result.current.isNoteDragging).toBe(true);
+
+    act(() => {
+      result.current.onPointerMove({
+        pointerId: 7,
+        clientX: 650,
+        clientY: 120,
+      } as unknown as PointerEvent<HTMLDivElement>);
+      result.current.onPresencePointerMove({
+        pointerId: 7,
+        clientX: 650,
+        clientY: 120,
+        pointerType: "mouse",
+        target: toolbar,
+      } as unknown as PointerEvent<HTMLDivElement>);
+    });
+
+    expect(onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1");
+    expect(onPrivateNoteUnpublish.mock.invocationCallOrder[0]).toBeLessThan(
+      onCursorLeave.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("shared drag 中に toolbar 以外へ出る presence leave は付箋操作とカーソルを同時に解除する", () => {
+    const { result, onCursorLeave, onNoteDragCancel } = setup({
+      withSharedDrag: true,
+    });
+    act(() => {
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 7,
+        clientX: 120,
+        clientY: 130,
+      } as unknown as PointerEvent<HTMLButtonElement>);
+      result.current.onPresencePointerLeave({
+        pointerId: 7,
+        clientX: 950,
+        clientY: 700,
+      } as unknown as PointerEvent<HTMLDivElement>);
+    });
+
+    expect(onCursorLeave).toHaveBeenCalledOnce();
+    expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    expect(result.current.isNoteDragging).toBe(false);
+  });
+
+  it("shared drag 中は別 pointer の presence move と leave を無視する", () => {
+    const { result, onCursorMove, onCursorLeave, onNoteDragCancel, viewport } =
+      setup({ withSharedDrag: true });
+    act(() => {
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 7,
+        clientX: 120,
+        clientY: 130,
+      } as unknown as PointerEvent<HTMLButtonElement>);
+      result.current.onPresencePointerMove({
+        pointerId: 8,
+        pointerType: "mouse",
+        clientX: 50,
+        clientY: 60,
+        target: viewport,
+      } as unknown as PointerEvent<HTMLDivElement>);
+      result.current.onPresencePointerLeave({
+        pointerId: 8,
+        clientX: 950,
+        clientY: 700,
+      } as unknown as PointerEvent<HTMLDivElement>);
+    });
+
+    expect(onCursorMove).not.toHaveBeenCalled();
+    expect(onCursorLeave).not.toHaveBeenCalled();
+    expect(onNoteDragCancel).not.toHaveBeenCalled();
+    expect(result.current.isNoteDragging).toBe(true);
+  });
+
+  it("pointercancel は private toolbar 上でも shared drag を解除する", () => {
+    const { result, onCursorLeave, onNoteDragCancel } = setup({
+      withSharedDrag: true,
+    });
+    const toolbar = document.createElement("div");
+    toolbar.getBoundingClientRect = () => new DOMRect(600, 0, 300, 600);
+    result.current.privateToolbarRef.current = toolbar;
+    act(() => {
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 7,
+        clientX: 120,
+        clientY: 130,
+      } as unknown as PointerEvent<HTMLButtonElement>);
+      result.current.onPresencePointerLeave({
+        type: "pointercancel",
+        pointerId: 7,
+        clientX: 650,
+        clientY: 120,
+      } as unknown as PointerEvent<HTMLDivElement>);
+      result.current.onPointerCancel({
+        pointerId: 7,
+        clientX: 650,
+        clientY: 120,
+      } as unknown as PointerEvent<HTMLDivElement>);
+    });
+
+    expect(onCursorLeave).toHaveBeenCalledOnce();
+    expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    expect(result.current.isNoteDragging).toBe(false);
+  });
+
+  it("shared drag 中の境界外 pointermove はカーソルだけ解除し、真の leave までドラッグを維持する", () => {
+    const { result, onCursorLeave, onNoteDragCancel, viewport } = setup({
+      withSharedDrag: true,
+    });
+    act(() => {
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 9,
+        clientX: 120,
+        clientY: 130,
+      } as unknown as PointerEvent<HTMLButtonElement>);
+      result.current.onPresencePointerMove({
+        pointerId: 9,
+        pointerType: "mouse",
+        clientX: 900,
+        clientY: 700,
+        target: viewport,
+      } as unknown as PointerEvent<HTMLDivElement>);
+    });
+
+    expect(onNoteDragCancel).not.toHaveBeenCalled();
+    expect(onCursorLeave).toHaveBeenCalledOnce();
+    expect(result.current.isNoteDragging).toBe(true);
   });
 });

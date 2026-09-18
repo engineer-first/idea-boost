@@ -32,8 +32,11 @@ export function transitionTimer(
 ): TimerTransition {
   switch (action.kind) {
     case "start": {
-      // start は初回開始専用。実行中・一時停止中のリセットは stop を経由する。
-      if (current.status !== "idle") return { type: "invalid" };
+      // start は未設定または終了後の再設定専用。実行中・一時停止中の
+      // リセットは許可せず、既存の共有状態を壊さない。
+      if (current.status !== "idle" && current.status !== "ended") {
+        return { type: "invalid" };
+      }
       return {
         type: "updated",
         timer: {
@@ -45,6 +48,12 @@ export function transitionTimer(
     }
     case "pause": {
       if (current.status !== "running") return { type: "invalid" };
+      if (current.endsAt <= now) {
+        return {
+          type: "updated",
+          timer: { status: "ended", durationMs: current.durationMs },
+        };
+      }
       return {
         type: "updated",
         timer: {
@@ -56,6 +65,12 @@ export function transitionTimer(
     }
     case "resume": {
       if (current.status !== "paused") return { type: "invalid" };
+      if (current.remainingMs <= 0) {
+        return {
+          type: "updated",
+          timer: { status: "ended", durationMs: current.durationMs },
+        };
+      }
       return {
         type: "updated",
         timer: {
@@ -66,7 +81,9 @@ export function transitionTimer(
       };
     }
     case "extend": {
-      if (current.status === "idle") return { type: "invalid" };
+      if (current.status !== "running" || current.endsAt <= now) {
+        return { type: "invalid" };
+      }
       const extensionMs = Math.min(
         EXTENSION_UNIT_MS,
         TIMER_MAX_DURATION_MS - current.durationMs,
@@ -77,37 +94,34 @@ export function transitionTimer(
           type: "updated",
           timer: {
             status: "running",
-            // 期限切れ後に延長された場合は「今」を起点に延長する。
-            endsAt: Math.max(current.endsAt, now) + extensionMs,
+            endsAt: current.endsAt + extensionMs,
             durationMs: current.durationMs + extensionMs,
           },
         };
       }
-      return {
-        type: "updated",
-        timer: {
-          status: "paused",
-          remainingMs: current.remainingMs + extensionMs,
-          durationMs: current.durationMs + extensionMs,
-        },
-      };
+      return { type: "invalid" };
     }
     case "stop": {
-      // 停止済みへの stop は正常系の no-op（エラーにしない）。
-      if (current.status === "idle") return { type: "noop" };
-      return { type: "updated", timer: { status: "idle" } };
+      if (current.status === "idle" || current.status === "ended") {
+        return { type: "noop" };
+      }
+      if (current.status !== "paused") return { type: "invalid" };
+      return {
+        type: "updated",
+        timer: { status: "ended", durationMs: current.durationMs },
+      };
     }
   }
 }
 
-export function getTimerState(sql: SqlStorage): TimerState {
+function readTimerState(sql: SqlStorage): TimerState {
   const row = sql
     .exec(
       "SELECT status, ends_at, remaining_ms, duration_ms FROM timer_state WHERE id = 1",
     )
     .toArray()[0] as
     | {
-        status: "idle" | "running" | "paused";
+        status: "idle" | "running" | "paused" | "ended";
         ends_at: number | null;
         remaining_ms: number | null;
         duration_ms: number | null;
@@ -136,7 +150,18 @@ export function getTimerState(sql: SqlStorage): TimerState {
       durationMs: row.duration_ms,
     };
   }
+  if (row.status === "ended" && row.duration_ms !== null) {
+    return { status: "ended", durationMs: row.duration_ms };
+  }
   return { status: "idle" };
+}
+
+export function getTimerState(sql: SqlStorage, now = Date.now()): TimerState {
+  const timer = readTimerState(sql);
+  if (timer.status === "running" && timer.endsAt <= now) {
+    return { status: "ended", durationMs: timer.durationMs };
+  }
+  return timer;
 }
 
 function saveTimerState(sql: SqlStorage, timer: TimerState): void {
@@ -154,6 +179,13 @@ function saveTimerState(sql: SqlStorage, timer: TimerState): void {
     );
     return;
   }
+  if (timer.status === "ended") {
+    sql.exec(
+      "UPDATE timer_state SET status = 'ended', ends_at = NULL, remaining_ms = NULL, duration_ms = ?1 WHERE id = 1",
+      timer.durationMs,
+    );
+    return;
+  }
   sql.exec(
     "UPDATE timer_state SET status = 'paused', ends_at = NULL, remaining_ms = ?1, duration_ms = ?2 WHERE id = 1",
     timer.remainingMs,
@@ -167,6 +199,27 @@ export function resetTimerState(sql: SqlStorage): boolean {
   if (getTimerState(sql).status === "idle") return false;
   saveTimerState(sql, { status: "idle" });
   return true;
+}
+
+export function expireTimer(current: TimerState, now: number): TimerTransition {
+  if (current.status !== "running" || current.endsAt > now) {
+    return { type: "noop" };
+  }
+  return {
+    type: "updated",
+    timer: { status: "ended", durationMs: current.durationMs },
+  };
+}
+
+async function syncTimerAlarm(
+  storage: DurableObjectStorage,
+  timer: TimerState,
+): Promise<void> {
+  if (timer.status === "running") {
+    await storage.setAlarm(timer.endsAt);
+    return;
+  }
+  await storage.deleteAlarm();
 }
 
 function canControlTimer(sql: SqlStorage, userId: string): boolean {
@@ -189,7 +242,10 @@ function replyTimerInvalidState(ctx: HandlerCtx): void {
   });
 }
 
-function applyTimerAction(ctx: HandlerCtx, action: TimerAction): void {
+async function applyTimerAction(
+  ctx: HandlerCtx,
+  action: TimerAction,
+): Promise<void> {
   if (!canControlTimer(ctx.sql, ctx.userId)) {
     replyTimerForbidden(ctx);
     return;
@@ -202,6 +258,7 @@ function applyTimerAction(ctx: HandlerCtx, action: TimerAction): void {
   }
   if (result.type === "noop") return;
   saveTimerState(ctx.sql, result.timer);
+  await syncTimerAlarm(ctx.storage, result.timer);
   ctx.broadcaster.broadcastToAll({
     type: "timer:updated",
     timer: result.timer,
@@ -219,3 +276,17 @@ export const timerHandlers: MessageHandlers<
   "timer:extend": (ctx) => applyTimerAction(ctx, { kind: "extend" }),
   "timer:stop": (ctx) => applyTimerAction(ctx, { kind: "stop" }),
 };
+
+export async function handleTimerAlarm(
+  sql: SqlStorage,
+  broadcaster: HandlerCtx["broadcaster"],
+): Promise<void> {
+  const result = expireTimer(readTimerState(sql), Date.now());
+  if (result.type !== "updated") return;
+  saveTimerState(sql, result.timer);
+  broadcaster.broadcastToAll({
+    type: "timer:updated",
+    timer: result.timer,
+    serverNow: Date.now(),
+  });
+}

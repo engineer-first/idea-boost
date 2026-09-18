@@ -84,6 +84,62 @@ async function expectLayout(): Promise<void> {
   ).toEqual(viewport);
 }
 
+test("マイ付箋は0枚・1枚・多数件で展開寸法を固定し、一覧だけをスクロールする", async () => {
+  const states = ["empty", "single", "many"] as const;
+  const measurements = [];
+
+  for (const state of states) {
+    await openStory(`notes-privatenotestoolbar--${state}`);
+    const toolbar = page.getByTestId("private-notes-toolbar");
+    const scroll = page.getByTestId("private-notes-scroll");
+    const box = await toolbar.boundingBox();
+    const measurement = await toolbar.evaluate((element) => {
+      const title = element.querySelector('[data-slot="card-title"]');
+      const css = title ? getComputedStyle(title) : null;
+      return {
+        height: element.getBoundingClientRect().height,
+        width: element.getBoundingClientRect().width,
+        titleTextAlign: css?.textAlign,
+      };
+    });
+    measurements.push({
+      state,
+      ...measurement,
+      left: box?.x ?? null,
+      top: box?.y ?? null,
+      right: box ? box.x + box.width : null,
+      bottom: box ? box.y + box.height : null,
+      scrollHeight: await scroll.evaluate((element) => element.scrollHeight),
+      clientHeight: await scroll.evaluate((element) => element.clientHeight),
+      overflowY: await scroll.evaluate(
+        (element) => getComputedStyle(element).overflowY,
+      ),
+    });
+    await page.screenshot({ path: `${output}/private-notes-${state}.png` });
+  }
+
+  expect(new Set(measurements.map(({ height }) => height)).size).toBe(1);
+  expect(new Set(measurements.map(({ width }) => width)).size).toBe(1);
+  expect(measurements.every(({ width }) => width <= 240)).toBe(true);
+  expect(measurements.every(({ left }) => (left ?? -Infinity) >= 0)).toBe(true);
+  expect(measurements.every(({ top }) => (top ?? -Infinity) >= 0)).toBe(true);
+  expect(measurements.every(({ right }) => (right ?? Infinity) <= 1280)).toBe(
+    true,
+  );
+  expect(measurements.every(({ bottom }) => (bottom ?? Infinity) <= 720)).toBe(
+    true,
+  );
+  expect(
+    measurements.every(({ titleTextAlign }) => titleTextAlign === "start"),
+  ).toBe(true);
+  expect(measurements.every(({ overflowY }) => overflowY === "auto")).toBe(
+    true,
+  );
+
+  const many = measurements.find(({ state }) => state === "many");
+  expect(many?.scrollHeight).toBeGreaterThan(many?.clientHeight ?? Infinity);
+});
+
 const steps = [
   "1-1",
   "1-2",
@@ -292,17 +348,33 @@ test("進め方を閉じると採用課題を残したままHMW例を広く読�
   await expectLayout();
 });
 
-test("接続中断時と参加者表示でもタイマーを薄くしない", async () => {
+test("接続中断時と参加者表示でもタイマー枠を薄くせず、全状態で寸法を保つ", async () => {
+  let participantPosition: { x: number; y: number } | undefined;
+
   for (const state of ["idle", "running", "paused", "ended"]) {
     await openStory(`room-roomtimer--${state}-host&args=disabled:true`);
     const timer = page.getByTestId("room-timer");
     await timer.waitFor();
     expect(await timer.isDisabled()).toBe(true);
     await expectOpaqueAndReadable(timer);
-    if (state !== "idle") {
-      await openStory(`room-roomtimer--${state}-member`);
-      await page.getByTestId("room-timer").waitFor();
-      await expectOpaqueAndReadable(page.getByTestId("room-timer"));
+    await openStory(`room-roomtimer--${state}-member`);
+    const memberTimer = page.getByTestId("room-timer");
+    await memberTimer.waitFor();
+    await expectOpaqueAndReadable(memberTimer);
+    const bounds = await memberTimer.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect({ width: bounds?.width, height: bounds?.height }).toEqual({
+      width: 112,
+      height: 40,
+    });
+    if (state === "idle") {
+      participantPosition = { x: bounds?.x ?? NaN, y: bounds?.y ?? NaN };
+    } else {
+      expect({ x: bounds?.x, y: bounds?.y }).toEqual(participantPosition);
+    }
+    if (state === "idle") {
+      expect(await memberTimer.textContent()).toBe("03:00");
+      expect(await page.getByRole("button").count()).toBe(0);
     }
   }
 });

@@ -73,4 +73,34 @@ describe("DotVoteSticker", () => {
       expect.objectContaining({ pointerId: 7 }),
     );
   });
+
+  it("シールをドラッグした後のクリックでは既存の取り消しを二重発火しない", () => {
+    const onRemove = vi.fn();
+    render(
+      <DotVoteSticker
+        kind="objective"
+        count={1}
+        state="confirmed"
+        onRemove={onRemove}
+        onDragStart={vi.fn()}
+      />,
+    );
+
+    const sticker = screen.getByRole("button", {
+      name: "客観シール 1票を1票取り消す",
+    });
+    fireEvent.pointerDown(sticker, {
+      pointerId: 8,
+      clientX: 20,
+      clientY: 30,
+    });
+    fireEvent.pointerMove(sticker, {
+      pointerId: 8,
+      clientX: 60,
+      clientY: 70,
+    });
+    fireEvent.click(sticker);
+
+    expect(onRemove).not.toHaveBeenCalled();
+  });
 });

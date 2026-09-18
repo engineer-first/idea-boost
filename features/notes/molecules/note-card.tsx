@@ -1,26 +1,26 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, CircleMinus, RotateCcw } from "lucide-react";
 // 付箋1枚の表示用コンポーネント。データ層には一切依存せず、位置(x, y)や
 // 本文はすべてpropsで受け取り、変化はコールバックpropsで親へ通知するだけの
 // コンポーネントにする。状態の保持・永続化・リアルタイム配信は呼び出し側の責務。
 //
 // インタラクションは tldraw の Note shape（SelectTool/PointingShape）を踏襲:
 //   - pointerdown で選択し、閾値(DRAG_THRESHOLD_PX)を超えて動かすとドラッグ
-//   - 「pointerdown 時点で選択済みだった」付箋への移動なしクリックで編集開始
+//   - 「pointerdown 時点で選択済みだった」付箋への移動なしクリック、または
+//     選択中の印字可能キーで編集開始
 //   - 選択中（非編集）は Backspace / Delete で削除、Enter でも編集開始
 // 選択状態(isSelected)は「同時に1枚だけ」という付箋間の関心事なので親が持ち、
 // 編集状態(isEditing)はこの付箋に閉じた関心事なのでローカルに持つ。
 import { useEffect, useRef, useState } from "react";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
-import type { DotVoteKind, ProtocolMember } from "@/contracts/room-protocol";
+import type { DotVoteKind } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import {
   type DotVoteRemaining,
   DotVoteSticker,
   type VoteDisplayMode,
 } from "@/features/dot-vote";
-import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { Note } from "../logic/notes-reducer";
 import { StickyNote } from "./sticky-note";
 
@@ -28,8 +28,6 @@ export type NoteCardProps = {
   note: Note;
   // 自分自身が現在ドラッグ中かどうか。trueの間は影を深くして「持ち上げた」見た目にする。
   isOwnDrag: boolean;
-  // 他メンバーが現在この共有付箋を動かしている場合の、サーバー認証済み情報。
-  activeDragMember?: ProtocolMember;
   isSelected: boolean;
   editingDisabled?: boolean;
   isDecided?: boolean;
@@ -41,6 +39,8 @@ export type NoteCardProps = {
   canEditNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
+  canExcludeNote?: boolean;
+  canRestoreNote?: boolean;
   onSelect: (noteId: string) => void;
   onDragStart: (
     noteId: string,
@@ -48,6 +48,8 @@ export type NoteCardProps = {
   ) => void;
   onContentChange: (noteId: string, content: string) => void;
   onDelete: (noteId: string) => void;
+  onExclude?: (noteId: string) => void;
+  onRestore?: (noteId: string) => void;
   vote: {
     displayMode: VoteDisplayMode;
     selectedKind: DotVoteKind | null;
@@ -78,15 +80,22 @@ type PointerOrigin = {
   startClientX: number;
   startClientY: number;
   // pointerdown 時点で選択済みだったか。これが true の「移動なしクリック」を
-  // 編集開始の合図にする（tldraw と同じ2段階クリック）。
+  // 編集開始の合図にする。
   wasSelected: boolean;
   didDrag: boolean;
 };
 
+function isPrintableCharacterKey(
+  event: React.KeyboardEvent<HTMLButtonElement>,
+): boolean {
+  return (
+    event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
+  );
+}
+
 export function NoteCard({
   note,
   isOwnDrag,
-  activeDragMember,
   isSelected,
   editingDisabled = false,
   isDecided = false,
@@ -94,10 +103,14 @@ export function NoteCard({
   canEditNote,
   canDeleteNote,
   canMoveNote,
+  canExcludeNote = false,
+  canRestoreNote = false,
   onSelect,
   onDragStart,
   onContentChange,
   onDelete,
+  onExclude,
+  onRestore,
   vote,
   className,
   style,
@@ -106,9 +119,18 @@ export function NoteCard({
 }: NoteCardProps) {
   const [localContent, setLocalContent] = useState(note.content);
   const [isEditing, setIsEditing] = useState(false);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isTouchActionVisible, setIsTouchActionVisible] = useState(false);
+  const [isPointerActionVisible, setIsPointerActionVisible] = useState(false);
+  const [isFocusActionVisible, setIsFocusActionVisible] = useState(false);
   const pointerOriginRef = useRef<PointerOrigin | null>(null);
   const surfaceRef = useRef<HTMLButtonElement>(null);
+  const menuItemRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const canCandidateAction = note.excluded ? canRestoreNote : canExcludeNote;
+  const candidateActionLabel = note.excluded ? "候補に戻す" : "候補から外す";
+  const isCandidateActionVisible =
+    isTouchActionVisible || isPointerActionVisible || isFocusActionVisible;
 
   // 他ユーザーの編集がWebSocket（RoomDO）経由で届いたら反映する。
   // ただし自分が編集モードの間は上書きしない
@@ -150,6 +172,10 @@ export function NoteCard({
       setLocalContent(note.content);
     }
   }, [canEditNote, isEditing, note.content]);
+
+  useEffect(() => {
+    if (isActionMenuOpen) menuItemRef.current?.focus();
+  }, [isActionMenuOpen]);
 
   useEffect(() => {
     if (
@@ -254,7 +280,14 @@ export function NoteCard({
   function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
     const origin = pointerOriginRef.current;
     pointerOriginRef.current = null;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    // 内容を読みやすくするタップ状態は権限と分離する。復帰操作を使えない
+    // 参加者にも、候補外付箋の本文を確認する権利がある。
+    if (event.pointerType === "touch" && note.excluded) {
+      setIsTouchActionVisible(true);
+    }
     if (!origin) {
       return;
     }
@@ -263,8 +296,25 @@ export function NoteCard({
     }
   }
 
+  function performCandidateAction() {
+    setIsActionMenuOpen(false);
+    setIsTouchActionVisible(false);
+    if (disabled) return;
+    if (note.excluded) {
+      if (canRestoreNote) onRestore?.(note.id);
+      return;
+    }
+    if (canExcludeNote) onExclude?.(note.id);
+  }
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     if (disabled) {
+      return;
+    }
+
+    if (event.shiftKey && event.key === "F10") {
+      event.preventDefault();
+      if (canCandidateAction) setIsActionMenuOpen(true);
       return;
     }
 
@@ -292,7 +342,31 @@ export function NoteCard({
     if (event.key === "Enter" && canEditNote && !editingDisabled) {
       event.preventDefault();
       setIsEditing(true);
+      return;
     }
+
+    if (
+      isSelected &&
+      canEditNote &&
+      !editingDisabled &&
+      isPrintableCharacterKey(event)
+    ) {
+      const character = event.key;
+      event.preventDefault();
+      event.stopPropagation();
+      setLocalContent((content) =>
+        content.length < NOTE_CONTENT_MAX_LENGTH
+          ? `${content}${character}`
+          : content,
+      );
+      setIsEditing(true);
+    }
+  }
+
+  function handleContextMenu(event: React.MouseEvent<HTMLButtonElement>) {
+    if (disabled || !canCandidateAction) return;
+    event.preventDefault();
+    setIsActionMenuOpen(true);
   }
 
   return (
@@ -307,7 +381,12 @@ export function NoteCard({
       data-vote-drop-target={
         vote.displayMode === "voting" && vote.canVote ? true : undefined
       }
-      className={className ?? "absolute"}
+      data-excluded={note.excluded || undefined}
+      className={`${className ?? "absolute"} group ${note.excluded ? "z-0" : "z-10"} ${
+        note.excluded
+          ? `${isTouchActionVisible ? "opacity-90" : "opacity-45"} grayscale transition-opacity hover:opacity-90 focus-within:opacity-90`
+          : ""
+      }`}
       style={
         style ?? {
           left: note.x,
@@ -315,34 +394,51 @@ export function NoteCard({
         }
       }
     >
-      {activeDragMember ? (
+      {note.excluded ? (
         <>
-          <div
-            aria-hidden="true"
-            data-testid="active-note-drag-outline"
-            className="pointer-events-none absolute inset-0 z-30 rounded-[2px] border-[3px] border-solid"
-            style={{
-              borderColor:
-                NOTE_COLOR_STYLES[activeDragMember.color].backgroundColor,
-            }}
-          />
-          <span
-            role="status"
-            aria-label={`${activeDragMember.name || "名前未設定"} が移動中`}
-            className="pointer-events-none absolute top-1 left-1 z-30 max-w-[calc(100%-0.5rem)] truncate rounded-md border border-slate-950/15 px-2 py-1 text-xs font-semibold text-slate-950 shadow-sm"
-            style={{
-              backgroundColor:
-                NOTE_COLOR_STYLES[activeDragMember.color].backgroundColor,
-            }}
-          >
-            {activeDragMember.name || "名前未設定"} が移動中
+          <span className="pointer-events-none absolute top-2 left-2 z-30 rounded-full bg-slate-950/80 px-2 py-1 text-xs font-bold text-white">
+            候補外
           </span>
+          {canRestoreNote ? (
+            <button
+              type="button"
+              aria-label="候補に戻す"
+              disabled={disabled}
+              onClick={(event) => {
+                event.stopPropagation();
+                performCandidateAction();
+              }}
+              className={`absolute right-2 bottom-2 z-40 flex min-h-11 items-center gap-1 rounded-md bg-slate-950 px-3 py-2 text-xs font-semibold text-white shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 ${
+                isCandidateActionVisible ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <RotateCcw aria-hidden="true" className="size-4" />
+              候補に戻す
+            </button>
+          ) : null}
         </>
+      ) : null}
+      {!note.excluded && canExcludeNote ? (
+        <button
+          type="button"
+          aria-label="候補から外す"
+          disabled={disabled}
+          onClick={(event) => {
+            event.stopPropagation();
+            performCandidateAction();
+          }}
+          className={`absolute right-2 bottom-2 z-40 flex min-h-11 items-center gap-1 rounded-md border border-slate-950/15 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-950 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 ${
+            isCandidateActionVisible ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <CircleMinus aria-hidden="true" className="size-4" />
+          候補から外す
+        </button>
       ) : null}
       <textarea
         ref={textareaRef}
         value={localContent}
-        readOnly={!isEditing}
+        readOnly={!isEditing || note.excluded}
         // サーバー（RoomDO）は上限超過を invalid-message で拒否するため、
         // UI 側でも同じコントラクト定数で「そもそも入力できない」形に塞ぐ。
         maxLength={NOTE_CONTENT_MAX_LENGTH}
@@ -350,7 +446,7 @@ export function NoteCard({
         onChange={(event) => setLocalContent(event.target.value)}
         onBlur={(event) => {
           setIsEditing(false);
-          if (disabled || editingDisabled || !canEditNote) {
+          if (disabled || editingDisabled || !canEditNote || note.excluded) {
             return;
           }
           onContentChange(note.id, event.target.value);
@@ -365,8 +461,8 @@ export function NoteCard({
           }
         }}
         className={`min-h-0 flex-1 resize-none bg-transparent p-2 pr-10 text-sm text-slate-900 outline-none ${
-          isEditing ? "" : "pointer-events-none select-none"
-        }`}
+          note.excluded ? "pt-12" : ""
+        } ${isEditing ? "" : "pointer-events-none select-none"}`}
         placeholder="メモを入力..."
       />
       {isDecided ? (
@@ -474,14 +570,23 @@ export function NoteCard({
           type="button"
           aria-label={
             selectedStampKind === null
-              ? "付箋"
+              ? note.excluded
+                ? "候補外の付箋"
+                : "付箋"
               : `付箋（${selectedStampKind === "subjective" ? "主観" : "客観"}シールを貼る）`
           }
           aria-disabled={disabled || undefined}
+          aria-haspopup={canCandidateAction ? "menu" : undefined}
+          aria-expanded={canCandidateAction ? isActionMenuOpen : undefined}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerEnter={() => setIsPointerActionVisible(true)}
+          onPointerLeave={() => setIsPointerActionVisible(false)}
+          onFocus={() => setIsFocusActionVisible(true)}
+          onBlur={() => setIsFocusActionVisible(false)}
           onKeyDown={handleKeyDown}
+          onContextMenu={handleContextMenu}
           className={`absolute inset-0 z-10 touch-none select-none outline-none ${
             disabled
               ? "cursor-not-allowed"
@@ -493,6 +598,37 @@ export function NoteCard({
           }`}
         />
       )}
+      {isActionMenuOpen && canCandidateAction ? (
+        <div
+          role="menu"
+          aria-label="付箋の候補操作"
+          className="absolute right-2 bottom-2 z-50 min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+          onKeyDown={(event) => {
+            if (event.key !== "Escape") return;
+            event.preventDefault();
+            setIsActionMenuOpen(false);
+            surfaceRef.current?.focus();
+          }}
+        >
+          <button
+            ref={menuItemRef}
+            type="button"
+            role="menuitem"
+            onClick={(event) => {
+              event.stopPropagation();
+              performCandidateAction();
+            }}
+            className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
+          >
+            {note.excluded ? (
+              <RotateCcw aria-hidden="true" className="size-4" />
+            ) : (
+              <CircleMinus aria-hidden="true" className="size-4" />
+            )}
+            {candidateActionLabel}
+          </button>
+        </div>
+      ) : null}
     </StickyNote>
   );
 }

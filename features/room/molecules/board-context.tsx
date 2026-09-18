@@ -1,16 +1,26 @@
 "use client";
 
-import { Check, ChevronUp } from "lucide-react";
+import { Check, ChevronRight, ChevronUp } from "lucide-react";
+import type { ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PHASE_STEP_COUNTS, type RoomPhase } from "@/contracts/phase";
 import type { FacilitationGuideContent } from "../logic/facilitation-guide";
-import { getPhaseLabel } from "../logic/phase-labels";
+import {
+  getPhaseLabel,
+  getPhaseProgressState,
+  getPhaseTitle,
+  PHASE_LABELS,
+  PHASE_NUMBERS,
+} from "../logic/phase-labels";
 import { FacilitationGuide } from "./facilitation-guide";
-
-const PHASE_TITLES = {
-  1: "課題整理",
-  2: "問いの作成",
-  3: "アイデア",
-} as const;
 
 const PROGRESS_STEPS = [1, 2, 3, 4, 5] as const;
 
@@ -30,11 +40,28 @@ function getPhaseContext(phase: RoomPhase): {
   }
 
   return {
-    title: PHASE_TITLES[phase.phase],
+    title: getPhaseTitle(phase),
     step: phase.step,
     stepCount: PHASE_STEP_COUNTS[phase.phase],
     stepLabel: getPhaseLabel(phase).replace(/^\d+-\d+\s*/, ""),
   };
+}
+
+function getStepDisplayTitle(phase: RoomPhase, fallback: string): string {
+  return phase.kind === "step" && phase.phase === 2 && phase.step === 1
+    ? "問いをつくる"
+    : fallback;
+}
+
+function GuideCallout({ children }: { children: ReactNode }) {
+  return (
+    <section className="rounded-lg border border-border bg-muted/60 p-3">
+      <h3 className="text-center text-xs font-semibold">進行役へ</h3>
+      <p className="mt-1 whitespace-pre-line text-center text-sm leading-5">
+        {children}
+      </p>
+    </section>
+  );
 }
 
 export type BoardContextProps = {
@@ -45,6 +72,9 @@ export type BoardContextProps = {
   onExpandedChange: (expanded: boolean) => void;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
+  onPrimaryAction?: () => void;
+  isInitialModal?: boolean;
+  onOpenPanel?: () => void;
 };
 
 export function BoardContext({
@@ -55,8 +85,17 @@ export function BoardContext({
   onExpandedChange,
   hmwDecidedIssue,
   decidedHmw,
+  onPrimaryAction,
+  isInitialModal = false,
+  onOpenPanel,
 }: BoardContextProps) {
   const context = getPhaseContext(phase);
+  const isPhaseOneFirstStep =
+    phase.kind === "step" && phase.phase === 1 && phase.step === 1;
+  const isPhaseOneSharingStep =
+    phase.kind === "step" && phase.phase === 1 && phase.step === 2;
+  const isIdeaWritingStep =
+    phase.kind === "step" && phase.phase === 3 && phase.step === 1;
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const decisions = [
@@ -68,20 +107,75 @@ export function BoardContext({
       data-testid="board-context-hud"
       className="board-hud facilitation-guide-material pointer-events-auto min-w-0 shrink-0 overflow-hidden rounded-2xl border border-border bg-background shadow-lg shadow-black/5"
     >
-      <div className="px-4 py-3">
-        <span id="board-current-phase" className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 text-sm font-semibold">
-            {context.title}
+      <nav
+        aria-label="デザインスプリントのフェーズ進行"
+        data-testid="board-phase-progress"
+        className="border-b border-border px-3 py-2.5 sm:px-4"
+      >
+        <ol className="grid grid-cols-3 items-center gap-1">
+          {PHASE_NUMBERS.map((phaseNumber, index) => {
+            const state = getPhaseProgressState(phase, phaseNumber);
+            const markerClassName =
+              state === "current"
+                ? "rounded-full bg-primary text-primary-foreground"
+                : state === "completed"
+                  ? "rounded-md bg-muted-foreground/15 text-foreground"
+                  : "rounded-sm border border-dashed border-border text-muted-foreground";
+            const labelClassName =
+              state === "current"
+                ? "font-semibold text-primary"
+                : state === "completed"
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground";
+
+            return (
+              <li
+                key={`phase-${phaseNumber}`}
+                aria-current={state === "current" ? "step" : undefined}
+                data-phase-state={state}
+                data-testid={`board-phase-${phaseNumber}`}
+                className="flex min-w-0 items-center"
+              >
+                <span
+                  className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[10px] leading-4 sm:gap-1.5 sm:px-1.5 sm:text-xs ${labelClassName}`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`flex size-5 shrink-0 items-center justify-center text-[10px] font-semibold leading-none ${markerClassName}`}
+                  >
+                    {state === "completed" ? (
+                      <Check className="size-3" />
+                    ) : (
+                      phaseNumber
+                    )}
+                  </span>
+                  <span className="min-w-0 whitespace-nowrap">
+                    {PHASE_LABELS[phaseNumber]}
+                  </span>
+                </span>
+                {index < PHASE_NUMBERS.length - 1 ? (
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-muted-foreground/70"
+                  />
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+      <div className="px-3 py-3 sm:px-4">
+        <span className="flex items-center gap-2">
+          <span
+            id="board-current-step"
+            data-testid="board-current-step"
+            className="min-w-0 flex-1 text-sm font-semibold"
+          >
+            {context.stepLabel}
           </span>
           <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
             {context.step}/{context.stepCount}
           </span>
-        </span>
-        <span
-          id="board-current-step"
-          className="mt-1 block text-xs leading-4 text-muted-foreground"
-        >
-          {context.stepLabel}
         </span>
         <span
           role="progressbar"
@@ -103,37 +197,6 @@ export function BoardContext({
         </span>
       </div>
 
-      {guide !== null ? (
-        <section className="border-t border-border" aria-label="進め方">
-          <button
-            type="button"
-            className="flex h-8 w-full items-center justify-between px-4 text-xs font-medium text-muted-foreground outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-            aria-label={`進め方を${isExpanded ? "閉じる" : "開く"}`}
-            aria-expanded={isExpanded}
-            aria-controls="board-step-details"
-            onClick={() => onExpandedChange(!isExpanded)}
-          >
-            進め方
-            <ChevronUp
-              aria-hidden="true"
-              className={`size-3.5 transition-transform motion-reduce:transition-none ${isExpanded ? "" : "rotate-180"}`}
-            />
-          </button>
-          <div
-            id="board-step-details"
-            hidden={!isExpanded}
-            data-testid="board-guide-region"
-            className="max-h-28 overflow-y-auto overscroll-contain"
-          >
-            <FacilitationGuide
-              id="facilitation-guide-content"
-              guide={guide}
-              isHost={isHost}
-              isExpanded={isExpanded}
-            />
-          </div>
-        </section>
-      ) : null}
       {decisions.map(({ id, label, content }, index) => (
         <details
           key={`${phaseKey}-${id}`}
@@ -162,6 +225,191 @@ export function BoardContext({
           </div>
         </details>
       ))}
+      {guide !== null ? (
+        <section className="border-t border-border" aria-label="進め方">
+          <button
+            type="button"
+            className="flex h-8 w-full items-center justify-between px-4 text-xs font-medium text-muted-foreground outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            aria-label={`進め方を${isExpanded ? "閉じる" : "開く"}`}
+            aria-expanded={isExpanded}
+            aria-controls={
+              onPrimaryAction ? "board-step-dialog" : "board-step-details"
+            }
+            onClick={() => {
+              if (!isExpanded && onOpenPanel) {
+                onOpenPanel();
+                return;
+              }
+              onExpandedChange(!isExpanded);
+            }}
+          >
+            進め方
+            <ChevronUp
+              aria-hidden="true"
+              className={`size-3.5 transition-transform motion-reduce:transition-none ${isExpanded ? "" : "rotate-180"}`}
+            />
+          </button>
+          {onPrimaryAction === undefined ? (
+            <div
+              id="board-step-details"
+              hidden={!isExpanded}
+              data-testid="board-guide-region"
+              className="max-h-28 overflow-y-auto overscroll-contain"
+            >
+              <FacilitationGuide
+                id="facilitation-guide-content"
+                guide={guide}
+                isHost={isHost}
+                isExpanded={isExpanded}
+              />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+      {guide !== null && onPrimaryAction !== undefined && isInitialModal ? (
+        <Dialog open={isExpanded} onOpenChange={onExpandedChange}>
+          <DialogContent
+            id="board-step-dialog"
+            // AlertDialog の終了時にトリガーへ戻るフォーカスで案内を閉じない。
+            onFocusOutside={(event) => event.preventDefault()}
+            className="max-h-[min(42rem,calc(100vh-2rem))] max-w-xl overflow-y-auto"
+          >
+            <DialogHeader
+              className={
+                guide.modalTitle ? "items-center text-center" : undefined
+              }
+            >
+              {guide.modalIntro ? (
+                <p className="text-sm font-semibold text-blue-600">
+                  {guide.modalIntro}
+                </p>
+              ) : null}
+              <DialogTitle
+                className={
+                  guide.modalTitle ? "text-2xl text-foreground" : undefined
+                }
+              >
+                {guide.modalTitle ??
+                  getStepDisplayTitle(phase, context.stepLabel)}
+              </DialogTitle>
+              {guide.modalPurpose ? (
+                <DialogDescription>{guide.modalPurpose}</DialogDescription>
+              ) : null}
+            </DialogHeader>
+            <div
+              className={`space-y-5 text-sm ${guide.modalIntro ? "text-center" : guide.modalTitle ? "text-left" : ""}`}
+            >
+              {!isPhaseOneFirstStep && !isIdeaWritingStep ? (
+                <section className="mx-auto w-fit text-left">
+                  <h3 className="mb-2 text-center font-semibold">進め方</h3>
+                  {(guide.steps ?? [guide.message]).length === 1 ? (
+                    <p className="whitespace-pre-line text-center">
+                      {(guide.steps ?? [guide.message])[0]}
+                    </p>
+                  ) : (
+                    <ol className="list-decimal space-y-1.5 pl-5 text-left">
+                      {(guide.steps ?? [guide.message]).map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
+              ) : null}
+              {guide.modalExamples ? (
+                <section className="mx-auto w-fit text-left">
+                  <h3 className="mb-2 text-center text-sm font-semibold text-muted-foreground">
+                    例
+                  </h3>
+                  <ul className="space-y-1 text-left text-sm text-muted-foreground">
+                    {guide.modalExamples.map((example) => (
+                      <li key={example} className="flex gap-1">
+                        <span aria-hidden="true">・</span>
+                        <span>{example}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {guide.example ? (
+                <GuideCallout>{guide.example}</GuideCallout>
+              ) : null}
+              {isHost && guide.hostMessage !== null ? (
+                <GuideCallout>{guide.hostMessage}</GuideCallout>
+              ) : null}
+            </div>
+            {phase.kind === "step" &&
+            phase.step === 1 &&
+            !isPhaseOneSharingStep ? (
+              <DialogFooter>
+                <Button
+                  type="button"
+                  className={
+                    guide.modalTitle
+                      ? "mx-auto bg-blue-600 text-white hover:bg-blue-700"
+                      : undefined
+                  }
+                  onClick={onPrimaryAction ?? (() => onExpandedChange(false))}
+                >
+                  {phase.phase === 1
+                    ? "付箋に課題を書く"
+                    : phase.phase === 2
+                      ? "付箋に問いを書く"
+                      : "付箋に解決策を書く"}
+                </Button>
+              </DialogFooter>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      ) : null}
+      {guide !== null &&
+      onPrimaryAction !== undefined &&
+      !isInitialModal &&
+      isExpanded ? (
+        <section
+          aria-label="ファシリテーションガイド"
+          data-testid="board-guide-panel"
+          className="pointer-events-auto max-h-[calc(100vh-8rem)] w-full overflow-y-auto border-t border-border bg-card p-5 text-left shadow-lg"
+        >
+          <h2 className="mt-1 text-xl font-bold text-foreground">
+            {guide.modalTitle ?? getStepDisplayTitle(phase, context.stepLabel)}
+          </h2>
+          {guide.modalExamples ? (
+            <div className="mt-4 space-y-1 text-sm text-muted-foreground">
+              <p
+                data-testid="guide-examples-label"
+                className="mb-2 font-semibold"
+              >
+                例
+              </p>
+              {guide.modalExamples.map((example) => (
+                <p key={example}>{example}</p>
+              ))}
+            </div>
+          ) : null}
+          {!isPhaseOneFirstStep && !isIdeaWritingStep ? (
+            <section className="mt-4">
+              <h3 className="mb-2 font-semibold">進め方</h3>
+              {(guide.steps ?? [guide.message]).length === 1 ? (
+                <p className="whitespace-pre-line text-center">
+                  {(guide.steps ?? [guide.message])[0]}
+                </p>
+              ) : (
+                <ol className="list-decimal space-y-1.5 pl-5 text-left">
+                  {(guide.steps ?? [guide.message]).map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          ) : null}
+          {isHost && guide.hostMessage !== null ? (
+            <div className="mt-4 border-t border-border pt-3">
+              <p className="text-xs font-semibold">進行役へ</p>
+              <p className="mt-1 text-sm leading-5">{guide.hostMessage}</p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
     </header>
   );
 }

@@ -10,13 +10,14 @@
 // 画面反応（強制進行ダイアログ）」というボード画面固有の配線だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
 import { isHmwWritingStep } from "@/features/hmw";
 import { useNoteGroups, useRoomNotes } from "@/features/notes";
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
+import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
 import { useCursorPresence } from "../logic/use-cursor-presence";
@@ -42,6 +43,8 @@ export type RoomBoardProps = {
   signOutAction?: () => Promise<void>;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
+  // テストでボード操作を単体検証するときは案内モーダルを無効化する。
+  enableGuideModal?: boolean;
 };
 
 export function RoomBoard({
@@ -55,10 +58,13 @@ export function RoomBoard({
   initialPhase,
   signOutAction,
   webSocketFactory,
+  enableGuideModal = true,
 }: RoomBoardProps) {
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
+  const latestExcludeOperationRef = useRef(0);
+  const latestBulkExclusionOperationRef = useRef<string | null>(null);
 
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({ roomId, isHost });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
@@ -83,6 +89,33 @@ export function RoomBoard({
 
   function handleServerMessage(message: ServerMessage) {
     const receivedAt = Date.now();
+    if (
+      message.type === "snapshot" ||
+      (message.type === "note:updated" && !message.note.excluded)
+    ) {
+      latestExcludeOperationRef.current += 1;
+    }
+    if (message.type === "snapshot") {
+      latestBulkExclusionOperationRef.current = null;
+    }
+    if (message.type === "note:bulk-excluded") {
+      if (message.count > 0) {
+        latestBulkExclusionOperationRef.current = message.operationId;
+        roomNotify.bulkCandidatesExcluded(message.count, () => {
+          if (latestBulkExclusionOperationRef.current !== message.operationId) {
+            return;
+          }
+          latestBulkExclusionOperationRef.current = null;
+          notes.bulkRestoreCandidates(message.operationId);
+        });
+      }
+    }
+    if (
+      message.type === "note:bulk-restored" &&
+      latestBulkExclusionOperationRef.current === message.operationId
+    ) {
+      latestBulkExclusionOperationRef.current = null;
+    }
     if (message.type === "error") {
       notes.applyMessage(message);
       if (message.operationId !== undefined) {
@@ -135,6 +168,28 @@ export function RoomBoard({
   const handleNoteDecide = useCallback(
     (noteId: string) => send({ type: "note:decide", noteId }),
     [send],
+  );
+
+  const handleNoteExclude = useCallback(
+    (noteId: string) => {
+      const operation = latestExcludeOperationRef.current + 1;
+      latestExcludeOperationRef.current = operation;
+      notes.excludeNote(noteId);
+      roomNotify.noteExcluded(() => {
+        if (latestExcludeOperationRef.current !== operation) return;
+        latestExcludeOperationRef.current += 1;
+        notes.restoreNote(noteId);
+      });
+    },
+    [notes],
+  );
+
+  const handleNoteRestore = useCallback(
+    (noteId: string) => {
+      latestExcludeOperationRef.current += 1;
+      notes.restoreNote(noteId);
+    },
+    [notes],
   );
 
   const handleTimerStart = useCallback(
@@ -207,11 +262,22 @@ export function RoomBoard({
     onNoteDragStart: notes.startNoteDrag,
     onNoteDragMove: notes.moveNote,
     onNoteDragEnd: notes.endNoteDrag,
+    onNoteDragCancel: notes.cancelNoteDrag,
     onPrivateNotePublish: notes.publishNote,
     onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
   });
+
+  useEffect(() => {
+    if (connectionStatus === "open") return;
+    notes.cancelNoteDrag();
+    boardInteractions.cancelCurrentNoteDrag();
+  }, [
+    boardInteractions.cancelCurrentNoteDrag,
+    connectionStatus,
+    notes.cancelNoteDrag,
+  ]);
 
   return (
     <>
@@ -233,18 +299,17 @@ export function RoomBoard({
         isHost={isHost}
         decision={roomState.decision}
         connectionStatus={connectionStatus}
-        draggingNoteId={notes.draggingNoteId}
+        draggingNoteId={notes.frontNoteId}
         members={roomState.members}
         currentUserId={currentUserId}
         hostUserId={hostUserId}
+        completedVoterIds={roomState.completedVoterIds}
         isNextPhasePending={isNextPhasePending}
         signOutAction={signOutAction}
         interactions={boardInteractions}
         help={help}
+        enableGuideModal={enableGuideModal}
         remoteCursors={cursorPresence.remoteCursors}
-        remoteNoteDrags={notes.remoteNoteDrags}
-        areCursorsVisible={cursorPresence.areCursorsVisible}
-        onToggleCursors={cursorPresence.toggleCursors}
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
@@ -260,6 +325,9 @@ export function RoomBoard({
         onTimerStop={handleTimerStop}
         onNoteContentChange={notes.changeNoteContent}
         onNoteDelete={notes.deleteNote}
+        onNoteExclude={handleNoteExclude}
+        onNoteRestore={handleNoteRestore}
+        onBulkCandidateExclude={notes.bulkExcludeZeroVoteCandidates}
         onGroupCreate={noteGroups.createGroup}
         onGroupUpdateName={noteGroups.renameGroup}
         onNoteVote={notes.voteNote}

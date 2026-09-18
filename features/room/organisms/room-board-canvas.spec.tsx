@@ -58,9 +58,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onPrivateNoteDelete: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
     remoteCursors: [],
-    remoteNoteDrags: [],
-    areCursorsVisible: true,
-    onToggleCursors: vi.fn(),
     ...overrides,
   };
   const { rerender } = render(<RoomBoardCanvas {...props} />);
@@ -77,8 +74,22 @@ function openPrivateNotesToolbar() {
 }
 
 describe("RoomBoardCanvas", () => {
-  it("他ユーザーの名前付きカーソルを表示し、表示を切り替えられる", () => {
-    const onToggleCursors = vi.fn();
+  it("scroller の pointer leave 座標を presence handler へ渡す", () => {
+    const onPresencePointerLeave = vi.fn();
+    setup({ onPresencePointerLeave });
+
+    fireEvent.pointerLeave(screen.getByTestId("board-scroller"), {
+      pointerId: 4,
+      clientX: 650,
+      clientY: 120,
+    });
+
+    expect(onPresencePointerLeave).toHaveBeenCalledWith(
+      expect.objectContaining({ clientX: 650, clientY: 120 }),
+    );
+  });
+
+  it("他ユーザーの名前付きカーソルを表示し、個人向け切り替え操作を表示しない", () => {
     setup({
       remoteCursors: [
         {
@@ -92,14 +103,12 @@ describe("RoomBoardCanvas", () => {
           isIdle: false,
         },
       ],
-      onToggleCursors,
     });
 
     expect(screen.getByText("Taro")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "参加者のカーソルを非表示にする" }),
-    );
-    expect(onToggleCursors).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("button", { name: /参加者のカーソル/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("パン・ズーム後の camera で board 座標を画面座標へ変換する", () => {
@@ -168,53 +177,47 @@ describe("RoomBoardCanvas", () => {
 
     expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
   });
+
+  it("ステップ変更後も操作可否表示が最新の権限に追従する", () => {
+    const firstStep = buildPhaseStep(1);
+    const secondStep = buildPhaseStep(2);
+    const { props, rerender } = setup({
+      phase: firstStep,
+      permissions: getBoardPermissions(firstStep),
+    });
+
+    expect(
+      screen.getByRole("img", { name: "付箋の編集：可能" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の移動：不可" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の削除：可能" }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        phase={secondStep}
+        permissions={getBoardPermissions(secondStep)}
+      />,
+    );
+
+    expect(
+      screen.getByRole("img", { name: "付箋の編集：可能" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の移動：可能" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "付箋の削除：不可" }),
+    ).toBeInTheDocument();
+  });
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
 
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
-  });
-
-  it("noteIdに対応する移動者を付箋本体へ表示する", () => {
-    const note = buildNote({ id: "note-1", color: "yellow" });
-    setup({
-      notes: [note],
-      remoteNoteDrags: [
-        {
-          noteId: note.id,
-          draggedBy: {
-            userId: "22222222-2222-4222-8222-222222222222",
-            name: "Taro",
-            color: "green",
-          },
-          lastSeenAt: Date.now(),
-        },
-      ],
-    });
-
-    expect(screen.getByRole("status", { name: "Taro が移動中" })).toBeVisible();
-  });
-
-  it("切断中は古い移動者表示を付箋へ出さない", () => {
-    const note = buildNote({ id: "note-1" });
-    setup({
-      notes: [note],
-      isDisconnected: true,
-      remoteNoteDrags: [
-        {
-          noteId: note.id,
-          draggedBy: {
-            userId: "22222222-2222-4222-8222-222222222222",
-            name: "Taro",
-            color: "green",
-          },
-          lastSeenAt: Date.now(),
-        },
-      ],
-    });
-
-    expect(
-      screen.queryByRole("status", { name: "Taro が移動中" }),
-    ).not.toBeInTheDocument();
   });
 
   it("付箋が 0 件でも共有付箋の空状態メッセージを表示しない", () => {
@@ -223,6 +226,67 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.queryByText("共有付箋はまだありません"),
     ).not.toBeInTheDocument();
+  });
+
+  it("決定ステップで候補が0件なら空状態を示し、ゴーストは同じ場所に残す", () => {
+    const phase = buildPhaseStep(5);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      notes: [buildNote({ id: "note-1", excluded: true, x: 120, y: 240 })],
+    });
+
+    expect(
+      screen.getByText("候補がありません。候補外の付箋を戻してください。"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("note-card")).toHaveStyle({
+      left: "120px",
+      top: "240px",
+    });
+  });
+
+  it("通常候補を候補外より後に描画し、明示したz-indexで前面に保つ", () => {
+    const phase = buildPhaseStep(5);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      notes: [
+        buildNote({ id: "active", excluded: false, stackOrder: 1 }),
+        buildNote({ id: "excluded", excluded: true, stackOrder: 9 }),
+      ],
+    });
+
+    const cards = screen.getAllByTestId("note-card");
+    expect(cards.map((card) => card.dataset.noteId)).toEqual([
+      "excluded",
+      "active",
+    ]);
+    expect(cards[0]).toHaveClass("z-0");
+    expect(cards[1]).toHaveClass("z-10");
+    expect(cards[0]).toHaveStyle({ zIndex: "0" });
+    expect(cards[1]).toHaveStyle({ zIndex: "1" });
+  });
+
+  it("候補外付箋にはキーボードで投票できない", () => {
+    const phase = buildPhaseStep(4);
+    const onNoteVote = vi.fn();
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      selectedVoteKind: "subjective",
+      notes: [buildNote({ id: "excluded", excluded: true })],
+      onNoteVote,
+    });
+
+    fireEvent.keyDown(
+      screen.getByRole("button", {
+        name: "候補外の付箋",
+      }),
+      { key: "Enter" },
+    );
+
+    expect(onNoteVote).not.toHaveBeenCalled();
   });
 
   it("ボード背景を直接押すと onSelect(null) で選択を解除する", () => {
@@ -301,6 +365,96 @@ describe("RoomBoardCanvas", () => {
     setup({ dragGhost: { note: ghost, x: 120, y: 80 } });
 
     expect(screen.getByText("運んでいる付箋")).toBeInTheDocument();
+  });
+
+  it("通常ボードでは永続順序を描画し own・名前付きカーソルの drag と ghost だけを一時最前面にする", () => {
+    const notes = [
+      { ...buildNote({ id: "back" }), stackOrder: 4 },
+      { ...buildNote({ id: "own" }), stackOrder: 8 },
+      { ...buildNote({ id: "remote" }), stackOrder: 12 },
+    ];
+    setup({
+      notes,
+      draggingNoteId: "own",
+      remoteCursors: [
+        {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 120,
+          y: 120,
+          draggingNoteId: "remote",
+          lastSeenAt: Date.now(),
+          isIdle: false,
+        },
+      ],
+      dragGhost: {
+        note: { ...notes[0], content: "通常ボードのゴースト" },
+        x: 200,
+        y: 220,
+      },
+    });
+
+    const [back, own, remote] = screen.getAllByTestId("note-card");
+    expect(back).toHaveStyle({ zIndex: "4" });
+    expect(own).toHaveStyle({ zIndex: "2147483647" });
+    expect(remote).toHaveStyle({ zIndex: "2147483647" });
+    expect(
+      screen
+        .getByText("通常ボードのゴースト")
+        .closest("[data-slot='sticky-note']"),
+    ).toHaveStyle({ zIndex: "2147483647" });
+  });
+
+  it("選択状態だけでは永続 z-index を変えない", () => {
+    setup({
+      notes: [{ ...buildNote({ id: "selected" }), stackOrder: 7 }],
+      selectedNoteId: "selected",
+    });
+
+    expect(screen.getByTestId("note-card")).toHaveStyle({ zIndex: "7" });
+  });
+
+  it("2軸マップでも永続順序を使い名前付きカーソルの drag と ghost を一時最前面にする", () => {
+    const phase = buildPhaseStep(3, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      notes: [
+        { ...buildNote({ id: "map-back" }), stackOrder: 3 },
+        { ...buildNote({ id: "map-remote" }), stackOrder: 9 },
+      ],
+      remoteCursors: [
+        {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Taro",
+          color: "green",
+          x: 50,
+          y: 50,
+          draggingNoteId: "map-remote",
+          lastSeenAt: Date.now(),
+          isIdle: false,
+        },
+      ],
+      dragGhost: {
+        note: {
+          ...buildNote({ id: "map-ghost", content: "マップのゴースト" }),
+          stackOrder: 1,
+        },
+        x: 50,
+        y: 50,
+      },
+    });
+
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-note-map-back"),
+    ).toHaveStyle({ zIndex: "3" });
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-note-map-remote"),
+    ).toHaveStyle({ zIndex: "2147483647" });
+    expect(
+      screen.getByText("マップのゴースト").closest("[data-slot='sticky-note']"),
+    ).toHaveStyle({ zIndex: "2147483647" });
   });
 
   it("マイ付箋ツールバーの「付箋を追加」で onAddPrivateNote を呼ぶ", () => {

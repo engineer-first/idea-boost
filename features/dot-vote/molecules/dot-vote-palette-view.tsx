@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import {
+  DOT_VOTE_CRITERIA,
+  DOT_VOTE_GUIDANCE,
   DOT_VOTE_LABELS,
   type DotVoteFeedback,
   type DotVoteRemaining,
@@ -14,6 +16,7 @@ type DotVotePaletteViewProps = {
   feedback: DotVoteFeedback | null;
   disabled: boolean;
   selectedKind: DotVoteKind | null;
+  isReturnDropTarget: boolean;
   onStickerSelect: (
     kind: DotVoteKind,
     event: React.MouseEvent<HTMLButtonElement>,
@@ -26,16 +29,18 @@ type DotVotePaletteViewProps = {
 
 const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
 
-const DOT_VOTE_HINTS = {
-  subjective: "直感・共感",
-  objective: "根拠・比較",
-} satisfies Record<DotVoteKind, string>;
-
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
-    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 focus-visible:ring-rose-600/30 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-100",
+    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 hover:text-rose-950 focus-visible:border-rose-600 focus-visible:ring-rose-600/50 active:bg-rose-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-100 dark:hover:bg-rose-900/80 dark:hover:text-rose-50 dark:focus-visible:border-rose-300 dark:focus-visible:ring-rose-300/70 dark:active:bg-rose-800/80 dark:disabled:border-slate-700 dark:disabled:bg-slate-900 dark:disabled:text-slate-400 dark:disabled:opacity-100",
   objective:
-    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 focus-visible:ring-blue-600/30 dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-100",
+    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 hover:text-blue-950 focus-visible:border-blue-600 focus-visible:ring-blue-600/50 active:bg-blue-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100 dark:border-blue-700 dark:bg-blue-950/60 dark:text-blue-100 dark:hover:bg-blue-900/80 dark:hover:text-blue-50 dark:focus-visible:border-blue-300 dark:focus-visible:ring-blue-300/70 dark:active:bg-blue-800/80 dark:disabled:border-slate-700 dark:disabled:bg-slate-900 dark:disabled:text-slate-400 dark:disabled:opacity-100",
+} satisfies Record<DotVoteKind, string>;
+
+const DOT_VOTE_SELECTED_TONE = {
+  subjective:
+    "ring-2 ring-rose-700/75 ring-offset-2 ring-offset-white dark:ring-rose-300 dark:ring-offset-slate-950",
+  objective:
+    "ring-2 ring-blue-700/75 ring-offset-2 ring-offset-white dark:ring-blue-300 dark:ring-offset-slate-950",
 } satisfies Record<DotVoteKind, string>;
 
 export function DotVotePaletteView({
@@ -44,6 +49,7 @@ export function DotVotePaletteView({
   feedback,
   disabled,
   selectedKind,
+  isReturnDropTarget,
   onStickerSelect,
   onStickerDragStart,
 }: DotVotePaletteViewProps) {
@@ -54,19 +60,40 @@ export function DotVotePaletteView({
         ? feedback.message
         : feedback?.state === "failed"
           ? feedback.message
-          : selectedKind === null
-            ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
-            : `${DOT_VOTE_LABELS[selectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
+          : isReturnDropTarget
+            ? "ここへ戻すと1票取り消しになります。"
+            : selectedKind === null
+              ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
+              : `${DOT_VOTE_LABELS[selectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
 
   return (
     <section
       aria-label="投票パレット"
-      className="pointer-events-auto flex h-12 items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] dark:bg-slate-950"
+      aria-describedby="dot-vote-palette-help"
+      data-vote-palette="true"
+      data-return-drop-target={isReturnDropTarget ? "true" : undefined}
+      className={`pointer-events-auto relative flex h-12 max-w-[calc(100vw-1.5rem)] items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] dark:bg-slate-950 ${
+        isReturnDropTarget
+          ? "border-amber-500 bg-amber-50/95 ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white dark:border-amber-300 dark:bg-amber-950/95 dark:ring-amber-200/80 dark:ring-offset-slate-950"
+          : ""
+      }`}
     >
-      <p className="sr-only">
-        シールを付箋へドラッグ、または選択して連続で貼り付け
-      </p>
-      <fieldset className="flex gap-1">
+      {isReturnDropTarget ? (
+        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 shadow-sm dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+          ここへ戻すと1票取り消しになります。
+        </p>
+      ) : null}
+      <div id="dot-vote-palette-help" className="sr-only">
+        <p className="sr-only">投票対象は現在のフェーズの個々の付箋です。</p>
+        <p className="sr-only">
+          シールを付箋へドラッグ、または選択して連続で貼り付け
+        </p>
+        <p className="sr-only">{DOT_VOTE_GUIDANCE.withdrawal}</p>
+        <p className="sr-only">
+          付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
+        </p>
+      </div>
+      <fieldset className="flex min-w-0 flex-1 gap-1">
         <legend className="sr-only">使用するシールの種類</legend>
         {DOT_VOTE_KINDS.map((kind) => {
           return (
@@ -78,10 +105,8 @@ export function DotVotePaletteView({
               disabled={disabled || voteRemaining[kind] <= 0}
               size="sm"
               variant="outline"
-              className={`h-10 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]} ${
-                selectedKind === kind
-                  ? "ring-2 ring-foreground/45 ring-offset-2"
-                  : ""
+              className={`h-10 min-w-0 flex-1 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]} ${
+                selectedKind === kind ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
                 if (disabled || voteRemaining[kind] <= 0) return;
@@ -102,8 +127,8 @@ export function DotVotePaletteView({
                     残り{voteRemaining[kind]}票
                   </span>
                 </span>
-                <span className="mt-0.5 text-[0.55rem] font-medium opacity-70">
-                  {DOT_VOTE_HINTS[kind]}
+                <span className="mt-0.5 whitespace-normal text-left text-[0.55rem] leading-tight font-medium opacity-70">
+                  {DOT_VOTE_CRITERIA[kind]}
                 </span>
               </span>
             </Button>

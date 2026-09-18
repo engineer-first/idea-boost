@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DotVotePalette } from "./dot-vote-palette";
 
 describe("DotVotePalette", () => {
-  it("票種と残数を、付箋へドラッグするシールとして表示する", () => {
+  it("票種と残数を、指定された投票基準とともに表示する", () => {
     render(
       <DotVotePalette
         voteRemaining={{ subjective: 1, objective: 2 }}
@@ -30,11 +30,18 @@ describe("DotVotePalette", () => {
       ),
     ).toHaveClass("sr-only");
     expect(within(subjective).getByText("主観")).toBeVisible();
-    expect(within(subjective).getByText("直感・共感")).toBeVisible();
+    expect(
+      within(subjective).getByText("主観は「激しく共感する、取り組みたい」。"),
+    ).toBeVisible();
     expect(within(subjective).getByText("残り1票")).toBeVisible();
     expect(within(objective).getByText("客観")).toBeVisible();
-    expect(within(objective).getByText("根拠・比較")).toBeVisible();
+    expect(
+      within(objective).getByText("客観は「自分以外の人にも価値がありそう」。"),
+    ).toBeVisible();
     expect(within(objective).getByText("残り2票")).toBeVisible();
+    expect(
+      within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
+    ).toHaveClass("sr-only");
     expect(palette).toHaveClass("h-12", "rounded-xl", "bg-white");
     const subjectiveImage = within(subjective).getByTestId(
       "dot-vote-sticker-image-subjective",
@@ -68,6 +75,28 @@ describe("DotVotePalette", () => {
     expect(
       screen.getByRole("button", { name: "主観シール 残り0票" }),
     ).toBeDisabled();
+  });
+
+  it("シールを戻す操作中は取り消しの意味を常時見えるヒントで示す", () => {
+    render(
+      <DotVotePalette
+        voteRemaining={{ subjective: 1, objective: 2 }}
+        pendingOperationCount={0}
+        feedback={null}
+        disabled={false}
+        selectedKind={null}
+        isReturnDropTarget
+        onStickerSelect={vi.fn()}
+        onStickerDragStart={vi.fn()}
+      />,
+    );
+
+    const hint = screen
+      .getByRole("region", { name: "投票パレット" })
+      .querySelector("p:not(.sr-only)");
+    expect(hint).not.toBeNull();
+    expect(hint).toBeVisible();
+    expect(hint).not.toHaveClass("sr-only");
   });
 
   it("送信中と失敗時の状態を読み上げる", () => {
@@ -144,6 +173,80 @@ describe("DotVotePalette", () => {
     ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("status")).toHaveTextContent(
       "主観シールを選択中です。付箋をクリックして連続で貼れます。",
+    );
+  });
+
+  it("ダークモードの通常・hover・focus・ドラッグ中・残票ゼロを読みやすく示す", () => {
+    const { rerender } = render(
+      <DotVotePalette
+        voteRemaining={{ subjective: 0, objective: 2 }}
+        pendingOperationCount={0}
+        feedback={null}
+        disabled={false}
+        selectedKind="subjective"
+        onStickerSelect={vi.fn()}
+        onStickerDragStart={vi.fn()}
+      />,
+    );
+
+    const subjective = screen.getByRole("button", {
+      name: "主観シール 残り0票",
+    });
+    const objective = screen.getByRole("button", {
+      name: "客観シール 残り2票",
+    });
+
+    expect(subjective).toHaveClass(
+      "dark:border-rose-700",
+      "dark:bg-rose-950/60",
+      "dark:text-rose-100",
+      "dark:hover:bg-rose-900/80",
+      "dark:hover:text-rose-50",
+      "dark:focus-visible:border-rose-300",
+      "dark:focus-visible:ring-rose-300/70",
+      "dark:active:bg-rose-800/80",
+      "dark:disabled:border-slate-700",
+      "dark:disabled:bg-slate-900",
+      "dark:disabled:text-slate-400",
+      "disabled:opacity-100",
+      "dark:disabled:opacity-100",
+      "active:cursor-grabbing",
+      "ring-rose-700/75",
+      "ring-offset-white",
+      "dark:ring-rose-300",
+      "dark:ring-offset-slate-950",
+    );
+    expect(objective).toHaveClass(
+      "dark:border-blue-700",
+      "dark:bg-blue-950/60",
+      "dark:text-blue-100",
+      "dark:hover:bg-blue-900/80",
+      "dark:hover:text-blue-50",
+      "dark:focus-visible:border-blue-300",
+      "dark:focus-visible:ring-blue-300/70",
+      "dark:active:bg-blue-800/80",
+      "active:cursor-grabbing",
+    );
+
+    rerender(
+      <DotVotePalette
+        voteRemaining={{ subjective: 1, objective: 2 }}
+        pendingOperationCount={0}
+        feedback={null}
+        disabled={false}
+        selectedKind="objective"
+        onStickerSelect={vi.fn()}
+        onStickerDragStart={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り2票" }),
+    ).toHaveClass(
+      "ring-blue-700/75",
+      "ring-offset-white",
+      "dark:ring-blue-300",
+      "dark:ring-offset-slate-950",
     );
   });
 });

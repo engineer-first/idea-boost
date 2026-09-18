@@ -49,6 +49,8 @@ function buildInteractions(
     onFitToNotes: vi.fn(),
     onPointerMove: vi.fn(),
     onPointerEnd: vi.fn(),
+    onPointerCancel: vi.fn(),
+    cancelCurrentNoteDrag: vi.fn(),
     onNoteDragStart: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
   };
@@ -58,7 +60,14 @@ function buildInteractions(
 // 外部制御のテストでは明示的な help を優先する。
 function TestBoardView(props: RoomBoardViewProps) {
   const help = useBoardHelp(props.phase);
-  return <RoomBoardView {...props} help={props.help ?? help} />;
+  return (
+    <RoomBoardView
+      {...props}
+      help={props.help ?? help}
+      initialGuideExpanded={props.help?.isOpen ?? true}
+      enableGuideModal={props.help !== undefined}
+    />
+  );
 }
 
 function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
@@ -105,9 +114,6 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     connectionStatus: "open" as const,
     groups: [],
     remoteCursors: [],
-    remoteNoteDrags: [],
-    areCursorsVisible: true,
-    onToggleCursors: vi.fn(),
     ...overrides,
   } as RoomBoardViewProps;
   const resolvedProps: RoomBoardViewProps = {
@@ -150,6 +156,402 @@ describe("考えるヒントの外部制御", () => {
       screen.getByRole("button", { name: "考えるヒントを閉じる" }),
     );
     expect(help.onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("0票候補の一括整理", () => {
+  it("結果ステップのホストだけに、未決定かつ主観・客観とも0票の件数を表示する", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: [
+        buildNote({ id: "note-1" }),
+        buildNote({
+          id: "note-2",
+          dotVotes: {
+            subjective: { count: 1, votedByMe: false, ownCount: 0 },
+            objective: { count: 0, votedByMe: false, ownCount: 0 },
+          },
+        }),
+        buildNote({ id: "note-3", excluded: true }),
+        buildNote({ id: "note-4" }),
+      ],
+      decision: { phase: 1, noteId: "note-4", decidedBy: ME },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(
+      screen.getByRole("button", {
+        name: "投票なしをまとめて候補から外す（1件）",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("非ホストと結果ステップ以外には一括整理を表示しない", () => {
+    const { rerender, props } = setup({
+      phase: buildPhaseStep(5),
+      isHost: false,
+    });
+    expect(screen.queryByText("候補を整理")).toBeNull();
+    rerender(<TestBoardView {...props} isHost phase={buildPhaseStep(4)} />);
+    expect(screen.queryByText("候補を整理")).toBeNull();
+  });
+});
+
+describe("ステップ説明モーダル", () => {
+  it("フェーズ1 Step 1は最初の一歩と課題の例を中央揃えで表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 1),
+      notes: [],
+      interactions: buildInteractions([], []),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    const dialog = screen.getByRole("dialog");
+    dialog.focus();
+    fireEvent.focusIn(screen.getByTestId("room-board-view-root"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("デザインスプリントを始めよう！"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByText("このステップで考えることを整理します。"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText("最近あった困ったことを付箋に書き出そう。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("学校の出席率がまずい"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("やることの優先順位を決められない"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("list")).toHaveClass("text-left");
+    expect(within(dialog).getByText("例")).toHaveClass("text-center");
+    expect(
+      within(dialog).getByRole("button", { name: "付箋に課題を書く" }),
+    ).toBeInTheDocument();
+  });
+
+  it("フェーズ1 Step 2は付箋共有の手順と進行役案内を表示する", () => {
+    setup({
+      phase: buildPhaseStep(2, 1),
+      isHost: true,
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("作成した付箋をメンバーに共有しよう！"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("共有する順番を話し合って決める"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "最初の順番の人がすべての付箋を一つずつ説明しながら共有する。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("決めた順番通り次の人が発表する"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("list")).toHaveClass("text-left");
+    expect(within(dialog).getByText("進め方")).toHaveClass("text-center");
+    expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
+    expect(within(dialog).queryByText("完了の目安")).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("button", { name: "このステップを始める" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("フェーズ1 Step 2も閉じた後のやり方を左上パネルで表示する", () => {
+    setup({
+      phase: buildPhaseStep(2, 1),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "閉じる",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "作成した付箋をメンバーに共有しよう！",
+    );
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "共有する順番を話し合って決める",
+    );
+  });
+
+  it("フェーズ1 Step 3も閉じた後のやり方を左上パネルで表示する", () => {
+    setup({
+      phase: buildPhaseStep(3, 1),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "閉じる",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "似ている課題を集めて整理しよう！",
+    );
+    expect(
+      screen.getByTestId("board-guide-panel").querySelector("button"),
+    ).toBeNull();
+  });
+
+  it("Step 1を閉じた状態からStep 2へ進むと中央モーダルを表示する", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(1, 1),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "閉じる",
+      }),
+    );
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 1)} />);
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        "作成した付箋をメンバーに共有しよう！",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("2-1の案内を閉じてから開くと左上パネルにやることを表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 2),
+      help: {
+        kind: "hmw",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "閉じる",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "決定した課題に対して",
+    );
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "「どうすれば私たちは〇〇できるだろう？」の形に言い換える",
+    );
+  });
+
+  it("中央モーダルを閉じてからやり方を押すと左上パネルで同じ内容を表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 1),
+      notes: [],
+      interactions: buildInteractions([], []),
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "閉じる" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
+      "学校の出席率がまずい",
+    );
+    expect(
+      screen
+        .getByTestId("board-guide-panel")
+        .querySelector("[data-testid='guide-examples-label']"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("board-guide-panel")).not.toHaveTextContent(
+      "デザインスプリントを始めよう！",
+    );
+    expect(screen.getByTestId("board-guide-panel")).toHaveClass("text-left");
+    expect(
+      screen.getByTestId("board-guide-panel").querySelector("button"),
+    ).toBeNull();
+  });
+
+  it("問いの作成Step 1では説明と付箋に問いを書くCTAを表示する", () => {
+    const onAddPrivateNote = vi.fn();
+    setup({
+      phase: buildPhaseStep(1, 2),
+      isHost: true,
+      notes: [],
+      onAddPrivateNote,
+      interactions: buildInteractions([], []),
+      help: {
+        kind: "hmw",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    const howTo = within(dialog).getByText("進め方");
+    const examples = within(dialog).getByText("例");
+    expect(
+      howTo.compareDocumentPosition(examples) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(howTo.parentElement).toHaveClass("mx-auto", "w-fit", "text-left");
+    expect(howTo).toHaveClass("text-center");
+    expect(dialog.querySelector("ol")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /決定した課題に対して[\s\S]*「どうすれば私たちは〇〇できるだろう？」の形に言い換える/,
+      ),
+    ).toHaveClass("text-center");
+    expect(
+      within(dialog).getByText(
+        "決めた課題を、アイデアが生まれる問いに変えよう！",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /決定した課題に対して[\s\S]*「どうすれば私たちは〇〇できるだろう？」の形に言い換える/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("課題: 学校の出席率がまずい"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("問い: あと何日休めるだろう？"),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
+    expect(within(dialog).getByText("進行役へ")).toHaveClass("text-center");
+    expect(within(dialog).getByText("進行役へ").parentElement).toHaveClass(
+      "rounded-lg",
+      "border",
+      "bg-muted/60",
+    );
+    expect(
+      within(dialog).getByText(/タイマーが終了したら次のステップへ進もう。/),
+    ).toHaveClass("text-center");
+    expect(within(dialog).queryByText("具体例")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "付箋に問いを書く" }),
+    ).toBeInTheDocument();
+  });
+
+  it("付箋に問いを書くを押すとモーダルを閉じて付箋作成を開始する", () => {
+    const onAddPrivateNote = vi.fn();
+    setup({
+      phase: buildPhaseStep(1, 2),
+      notes: [],
+      onAddPrivateNote,
+      interactions: buildInteractions([], []),
+      help: {
+        kind: "hmw",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "付箋に問いを書く" }));
+
+    expect(onAddPrivateNote).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("3-1はやることを表示せず、1-1と同じ進行役案内を表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 3),
+      isHost: true,
+      help: {
+        kind: "idea",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+      enableGuideModal: true,
+    });
+
+    const dialog = screen.getByRole("dialog");
+    const title = within(dialog).getByText(
+      "決めた問いに対する解決策を書き出そう",
+    );
+    expect(title).toHaveClass("text-2xl", "text-foreground");
+    expect(within(dialog).queryByText("進め方")).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "スマホアプリで残りの休める日数が簡単にわかる。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("pcのgoogle拡張機能でwebから簡単に確認できる。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /右上からタイマーを設定しよう！[\s\S]*タイマーが終了したら次のステップへ進もう。/,
+      ),
+    ).toBeInTheDocument();
   });
 });
 
@@ -222,6 +624,36 @@ function clickNote(card: HTMLElement) {
 }
 
 describe("RoomBoardView", () => {
+  it("外側が pointer capture 中でもドラッグと通常 presence を同じ座標で更新し、cancel を分離する", () => {
+    const interactions = buildInteractions(buildNotes(1), []);
+    interactions.isNoteDragging = true;
+    setup({ interactions });
+    const root = screen.getByTestId("room-board-view-root");
+
+    fireEvent.pointerMove(root, {
+      pointerId: 3,
+      pointerType: "mouse",
+      clientX: 240,
+      clientY: 180,
+    });
+    expect(interactions.onPointerMove).toHaveBeenCalled();
+    expect(interactions.onPresencePointerMove).toHaveBeenCalled();
+
+    fireEvent.pointerCancel(root, { pointerId: 3, clientX: 240, clientY: 180 });
+    expect(interactions.onPointerCancel).toHaveBeenCalled();
+    expect(interactions.onPresencePointerLeave).toHaveBeenCalledWith(
+      expect.objectContaining({ clientX: 240, clientY: 180 }),
+    );
+    expect(
+      vi.mocked(interactions.onPresencePointerLeave).mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(interactions.onPointerCancel).mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY,
+    );
+    expect(interactions.onPointerEnd).not.toHaveBeenCalled();
+  });
+
   describe("ファシリテーションガイド", () => {
     it("既定で展開し、同じステップ中は利用者が折り畳める", () => {
       setup();
@@ -311,6 +743,58 @@ describe("RoomBoardView", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
     expect(onTimerStart).toHaveBeenCalledWith(90_000);
+  });
+
+  it("タイマー設定中に空白ボードをクリックすると閉じ、ボード操作を開始しない", () => {
+    const notes = buildNotes(2);
+    const interactions = buildInteractions(notes, []);
+    const onNoteDecide = vi.fn();
+    setup({ isHost: true, notes, interactions, onNoteDecide });
+    fireEvent.click(screen.getByTestId("room-timer"));
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+
+    const canvas = screen.getByTestId("board-canvas");
+    fireEvent.pointerDown(canvas, {
+      button: 0,
+      pointerId: 1,
+      clientX: 320,
+      clientY: 240,
+    });
+    fireEvent.pointerUp(canvas, {
+      button: 0,
+      pointerId: 1,
+      clientX: 320,
+      clientY: 240,
+    });
+    fireEvent.click(canvas);
+
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(interactions.onCanvasPointerDown).not.toHaveBeenCalled();
+    expect(interactions.onCanvasPointerEnd).not.toHaveBeenCalled();
+    expect(interactions.onNoteDragStart).not.toHaveBeenCalled();
+    expect(interactions.onPrivateNoteDragStart).not.toHaveBeenCalled();
+    expect(onNoteDecide).not.toHaveBeenCalled();
+  });
+
+  it("タイマー設定中の最初の採用クリックはパネルを閉じるだけにする", async () => {
+    const onNoteDecide = vi.fn();
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      onNoteDecide,
+    });
+    await userEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    clickNote(screen.getAllByTestId("note-card")[0]);
+    const decide = screen.getByRole("button", {
+      name: "この付箋を取り組む課題に決定",
+    });
+    await userEvent.click(screen.getByTestId("room-timer"));
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+
+    await userEvent.click(decide);
+
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(onNoteDecide).not.toHaveBeenCalled();
   });
 
   it("host の招待URLと招待コードは招待ボタンから表示する", () => {
@@ -417,6 +901,54 @@ describe("RoomBoardView", () => {
     );
   });
 
+  it("投票ステップの案内とパレットで対象・基準・操作を揃えて表示する", () => {
+    setup({
+      phase: buildPhaseStep(4),
+      isHost: true,
+      help: {
+        kind: null,
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+    });
+
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("投票対象は現在のフェーズの個々の付箋です。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("主観は「激しく共感する、取り組みたい」。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("客観は「自分以外の人にも価値がありそう」。"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "主観1票・客観3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("貼ったシールを押すと、投票を1票取り消せます。"),
+    ).toBeInTheDocument();
+
+    const palette = screen.getByRole("region", { name: "投票パレット" });
+    expect(palette).toHaveAttribute(
+      "aria-describedby",
+      "dot-vote-palette-help",
+    );
+    expect(
+      within(palette).getByText("主観は「激しく共感する、取り組みたい」。"),
+    ).toBeVisible();
+    expect(
+      within(palette).getByText("客観は「自分以外の人にも価値がありそう」。"),
+    ).toBeVisible();
+    expect(
+      within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
+    ).toHaveClass("sr-only");
+  });
+
   it("パレットのシールを付箋へドロップすると、付箋内の相対座標で投票を送る", () => {
     const onNoteVote = vi.fn();
     setup({
@@ -458,6 +990,48 @@ describe("RoomBoardView", () => {
     });
 
     expect(onNoteVote).toHaveBeenCalledWith("note-1", "objective", 0.25, 0.5);
+  });
+
+  it("パレットのシールを候補外付箋へドロップしても投票しない", () => {
+    const onNoteVote = vi.fn();
+    setup({
+      phase: buildPhaseStep(4),
+      notes: [buildNote({ id: "note-1", excluded: true })],
+      onNoteVote,
+    });
+    const note = screen.getByTestId("note-card");
+    vi.spyOn(note, "getBoundingClientRect").mockReturnValue({
+      x: 100,
+      y: 100,
+      top: 100,
+      right: 300,
+      bottom: 250,
+      left: 100,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    });
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => note),
+    });
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      { pointerId: 9, clientX: 320, clientY: 24 },
+    );
+    fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+      pointerId: 9,
+      clientX: 280,
+      clientY: 80,
+    });
+    fireEvent.pointerUp(screen.getByTestId("room-board-view-root"), {
+      pointerId: 9,
+      clientX: 150,
+      clientY: 175,
+    });
+
+    expect(onNoteVote).not.toHaveBeenCalled();
   });
 
   it("パレットで選択したシールをマウスへ追従させ、付箋へ連続で貼る", () => {
@@ -522,6 +1096,40 @@ describe("RoomBoardView", () => {
       0.2,
     );
     expect(paletteSticker).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("選択中のシールで候補外付箋をクリックしても投票しない", () => {
+    const onNoteVote = vi.fn();
+    setup({
+      phase: buildPhaseStep(4),
+      notes: [buildNote({ id: "note-1", excluded: true })],
+      onNoteVote,
+    });
+    vi.spyOn(
+      screen.getByTestId("note-card"),
+      "getBoundingClientRect",
+    ).mockReturnValue({
+      x: 100,
+      y: 100,
+      top: 100,
+      right: 300,
+      bottom: 250,
+      left: 100,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+      { clientX: 320, clientY: 24 },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "候補外の付箋" }), {
+      clientX: 150,
+      clientY: 175,
+    });
+
+    expect(onNoteVote).not.toHaveBeenCalled();
   });
 
   it("選択中のシールは同じボタンの再クリックまたはEscapeで解除する", () => {
@@ -640,6 +1248,113 @@ describe("RoomBoardView", () => {
       0.25,
       0.5,
     );
+  });
+
+  it("自分のシールを投票パレットへ戻すと、既存のシール削除経路を呼ぶ", () => {
+    const onNoteVoteStickerRemove = vi.fn();
+    const stickerId = "33333333-3333-4333-8333-333333333333";
+    const notes = [
+      {
+        ...buildNotes(1)[0],
+        dotVotes: {
+          subjective: { count: 0, votedByMe: false, ownCount: 0 },
+          objective: { count: 1, votedByMe: true, ownCount: 1 },
+        },
+        dotVoteStickers: [
+          { id: stickerId, kind: "objective" as const, x: 0.2, y: 0.3 },
+        ],
+      },
+    ];
+    setup({
+      phase: buildPhaseStep(4),
+      notes,
+      onNoteVoteStickerRemove,
+    });
+
+    const sticker = screen.getByRole("button", {
+      name: "客観シール 1票を1票取り消す",
+    });
+    const palette = screen.getByRole("region", { name: "投票パレット" });
+    const root = screen.getByTestId("room-board-view-root");
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => palette,
+    });
+
+    fireEvent.pointerDown(sticker, {
+      pointerId: 13,
+      clientX: 140,
+      clientY: 145,
+    });
+    fireEvent.pointerMove(root, {
+      pointerId: 13,
+      clientX: 320,
+      clientY: 700,
+    });
+
+    expect(palette).toHaveAttribute("data-return-drop-target", "true");
+    expect(palette).toHaveTextContent("戻すと1票取り消し");
+
+    fireEvent.pointerUp(root, {
+      pointerId: 13,
+      clientX: 320,
+      clientY: 700,
+    });
+
+    expect(onNoteVoteStickerRemove).toHaveBeenCalledTimes(1);
+    expect(onNoteVoteStickerRemove).toHaveBeenCalledWith(stickerId);
+  });
+
+  it("投票シールをパレット以外の無効位置へドロップしても何もしない", () => {
+    const onNoteVoteStickerRemove = vi.fn();
+    const onNoteVoteStickerMove = vi.fn();
+    const stickerId = "33333333-3333-4333-8333-333333333333";
+    const notes = [
+      {
+        ...buildNotes(1)[0],
+        dotVotes: {
+          subjective: { count: 0, votedByMe: false, ownCount: 0 },
+          objective: { count: 1, votedByMe: true, ownCount: 1 },
+        },
+        dotVoteStickers: [
+          { id: stickerId, kind: "objective" as const, x: 0.2, y: 0.3 },
+        ],
+      },
+    ];
+    setup({
+      phase: buildPhaseStep(4),
+      notes,
+      onNoteVoteStickerRemove,
+      onNoteVoteStickerMove,
+    });
+
+    const sticker = screen.getByRole("button", {
+      name: "客観シール 1票を1票取り消す",
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => root,
+    });
+
+    fireEvent.pointerDown(sticker, {
+      pointerId: 14,
+      clientX: 140,
+      clientY: 145,
+    });
+    fireEvent.pointerMove(root, {
+      pointerId: 14,
+      clientX: 320,
+      clientY: 700,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 14,
+      clientX: 320,
+      clientY: 700,
+    });
+
+    expect(onNoteVoteStickerRemove).not.toHaveBeenCalled();
+    expect(onNoteVoteStickerMove).not.toHaveBeenCalled();
   });
 
   it("現在地と操作HUDをキャンバス上に重ねる", () => {
@@ -896,6 +1611,19 @@ describe("RoomBoardView", () => {
       clickNote(first);
 
       expect(within(first).getByRole("textbox")).toHaveFocus();
+    });
+
+    it("付箋を1回クリックして選択後に文字を打つと、その文字から編集を開始する", () => {
+      setup({ notes: [buildNote({ content: "既存の本文" })] });
+
+      const [first] = screen.getAllByTestId("note-card");
+      clickNote(first);
+      fireEvent.keyDown(getNoteSurface(first), { key: "a" });
+
+      const textarea = within(first).getByRole("textbox");
+      expect(textarea).toHaveFocus();
+      expect(textarea).not.toHaveAttribute("readonly");
+      expect(textarea).toHaveValue("既存の本文a");
     });
 
     it("選択中の付箋でBackspaceを押すとonNoteDeleteを呼ぶ", () => {
@@ -1347,6 +2075,27 @@ describe("参加者 HUD", () => {
 });
 
 describe("ステップに結び付いた決定事項", () => {
+  it("決定した課題をやり方の下ではなく上に表示する", () => {
+    setup({
+      phase: buildPhaseStep(1, 2),
+      hmwDecidedIssue: "忘れ物を減らしたい",
+      decidedHmw: null,
+    });
+
+    const hud = screen.getByTestId("board-context-hud");
+    const reference = screen.getByTestId("board-reference-issue");
+    const guide = screen.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+
+    expect(
+      reference.compareDocumentPosition(guide) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(hud).toContainElement(reference);
+    expect(hud).toContainElement(guide);
+  });
+
   it("HMW作成では進め方と採用した課題を同時に読める", () => {
     setup({
       phase: buildPhaseStep(1, 2),

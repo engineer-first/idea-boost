@@ -29,25 +29,27 @@ function fakeElementRef(rect: {
 function fakeToolbarWithNotes(
   noteRects: Array<{
     noteId: string;
-    left: number;
-    right: number;
+    top: number;
+    bottom: number;
   }>,
 ): RefObject<HTMLDivElement | null> {
   return {
     current: {
       getBoundingClientRect: () => ({
-        left: 0,
-        top: 540,
-        right: 1000,
-        bottom: 590,
+        left: 600,
+        top: 80,
+        right: 800,
+        bottom: 620,
       }),
       querySelectorAll: () =>
-        noteRects.map(({ noteId, left, right }) => ({
+        noteRects.map(({ noteId, top, bottom }) => ({
           dataset: { noteId },
           getBoundingClientRect: () => ({
-            left,
-            right,
-            width: right - left,
+            left: 600,
+            right: 800,
+            top,
+            bottom,
+            height: bottom - top,
           }),
         })),
     } as unknown as HTMLDivElement,
@@ -89,6 +91,7 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
     onNoteDragStart: vi.fn(),
     onNoteDragMove: vi.fn(),
     onNoteDragEnd: vi.fn(),
+    onNoteDragCancel: vi.fn(),
     onPrivateNotePublish: vi.fn(),
     onPrivateNoteUnpublish: vi.fn(),
     ...overrides,
@@ -98,6 +101,35 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
 }
 
 describe("useBoardDrag", () => {
+  it("pointer cancel は確定位置を送らず操作権を即時解除する", () => {
+    const { args, result } = setup();
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(7, 120, 130),
+      );
+      result.current.handlePointerCancel(pointerEvent(7, 300, 400));
+    });
+
+    expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+    expect(result.current.drag).toBeNull();
+  });
+
+  it("presence leave 用の解除は private drag を中断しない", () => {
+    const { args, result } = setup();
+    act(() => {
+      result.current.handlePrivateDragStart(
+        "private-1",
+        pointerEvent(8, 400, 560),
+      );
+      result.current.cancelCurrentNoteDrag();
+    });
+
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
+    expect(result.current.drag?.status).toBe("private");
+  });
+
   it("共有付箋のドラッグ開始で shared 状態になり onNoteDragStart を呼ぶ", () => {
     const { args, result } = setup();
 
@@ -110,6 +142,22 @@ describe("useBoardDrag", () => {
 
     expect(result.current.drag?.status).toBe("shared");
     expect(args.onNoteDragStart).toHaveBeenCalledWith("shared-1");
+  });
+
+  it("共有付箋のドラッグはボード内でポインターを捕捉し、境界離脱による即時キャンセルを防ぐ", () => {
+    const { args, result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(9, 120, 130),
+      );
+    });
+
+    expect(
+      args.boardScrollerRef.current?.setPointerCapture,
+    ).toHaveBeenCalledWith(9);
+    expect(args.boardRootRef.current?.setPointerCapture).not.toHaveBeenCalled();
   });
 
   it("マイ付箋をボードへ運ぶと publish → drag 配信の順で共有化する", () => {
@@ -183,10 +231,10 @@ describe("useBoardDrag", () => {
     act(() => {
       result.current.handlePrivateDragStart(
         "private-1",
-        pointerEvent(1, 250, 560),
+        pointerEvent(1, 250, 589),
       );
-      result.current.handlePointerMove(pointerEvent(1, 580, 560));
-      result.current.handlePointerEnd(pointerEvent(1, 580, 560));
+      result.current.handlePointerMove(pointerEvent(1, 580, 589));
+      result.current.handlePointerEnd(pointerEvent(1, 580, 589));
     });
 
     expect(result.current.renderedPrivateNotes.map((note) => note.id)).toEqual([
@@ -267,8 +315,8 @@ describe("useBoardDrag", () => {
         "shared-1",
         pointerEvent(1, 100, 100),
       );
-      result.current.handlePointerMove(pointerEvent(1, 580, 560));
-      result.current.handlePointerEnd(pointerEvent(1, 580, 560));
+      result.current.handlePointerMove(pointerEvent(1, 580, 589));
+      result.current.handlePointerEnd(pointerEvent(1, 580, 589));
     });
 
     expect(result.current.renderedPrivateNotes.map((note) => note.id)).toEqual([
@@ -289,39 +337,59 @@ describe("useBoardDrag", () => {
     ]);
   });
 
-  it("付箋の中央より左なら手前、右なら直後を挿入位置にする", () => {
+  it.each([
+    {
+      position: "先頭",
+      clientY: 100,
+      dropIndex: 0,
+      expected: ["shared-1", "private-1", "private-2", "private-3"],
+    },
+    {
+      position: "付箋間",
+      clientY: 250,
+      dropIndex: 1,
+      expected: ["private-1", "shared-1", "private-2", "private-3"],
+    },
+    {
+      position: "末尾",
+      clientY: 570,
+      dropIndex: 3,
+      expected: ["private-1", "private-2", "private-3", "shared-1"],
+    },
+  ])("縦方向の$positionへドロップすると付箋の上下中央で挿入する", ({
+    clientY,
+    dropIndex,
+    expected,
+  }) => {
     const privateNotes = [
       buildNote({ id: "private-1", authorId: ME, visibility: "private" }),
       buildNote({ id: "private-2", authorId: ME, visibility: "private" }),
+      buildNote({ id: "private-3", authorId: ME, visibility: "private" }),
     ];
     const toolbarRef = fakeToolbarWithNotes([
-      { noteId: "private-1", left: 600, right: 800 },
-      { noteId: "private-2", left: 812, right: 1012 },
+      { noteId: "private-1", top: 100, bottom: 244 },
+      { noteId: "private-2", top: 256, bottom: 400 },
+      { noteId: "private-3", top: 412, bottom: 556 },
     ]);
-    const before = setup({ privateNotes, privateToolbarRef: toolbarRef });
+    const { result } = setup({
+      privateNotes,
+      privateToolbarRef: toolbarRef,
+    });
 
     act(() => {
-      before.result.current.handleSharedNoteDragStart(
+      result.current.handleSharedNoteDragStart(
         "shared-1",
         pointerEvent(1, 100, 100),
       );
-      before.result.current.handlePointerMove(pointerEvent(1, 650, 560));
+      // clientX は常に同じ値にし、横方向の矩形判定に依存しないことも検証する。
+      result.current.handlePointerMove(pointerEvent(1, 750, clientY));
     });
-    expect(
-      before.result.current.renderedPrivateNotes.map((note) => note.id),
-    ).toEqual(["shared-1", "private-1", "private-2"]);
 
-    const after = setup({ privateNotes, privateToolbarRef: toolbarRef });
-    act(() => {
-      after.result.current.handleSharedNoteDragStart(
-        "shared-1",
-        pointerEvent(1, 100, 100),
-      );
-      after.result.current.handlePointerMove(pointerEvent(1, 750, 560));
-    });
-    expect(
-      after.result.current.renderedPrivateNotes.map((note) => note.id),
-    ).toEqual(["private-1", "shared-1", "private-2"]);
+    expect(result.current.drag?.status).toBe("returning");
+    expect(result.current.drag?.privateDropIndex).toBe(dropIndex);
+    expect(result.current.renderedPrivateNotes.map((note) => note.id)).toEqual(
+      expected,
+    );
   });
 
   it("他人の共有付箋はツールバーに重ねても unpublish しない", () => {

@@ -23,6 +23,7 @@ const ALL_TABLES = [
   "groups",
   "member_color_assignments",
   "members",
+  "note_bulk_exclusions",
   "note_vote_stickers",
   "note_votes",
   "notes",
@@ -30,9 +31,32 @@ const ALL_TABLES = [
   "room_state",
   "schema_migrations",
   "timer_state",
+  "used_note_drag_ids",
 ];
 
 describe("ROOM_DO_MIGRATIONS", () => {
+  it("notes に一括候補外の由来 operation ID を永続化できる", async () => {
+    await runInRoomDO("mig-bulk-exclusion-operation", (_instance, state) => {
+      const columns = state.storage.sql
+        .exec("PRAGMA table_info(note_bulk_exclusions)")
+        .toArray();
+      expect(columns).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "note_id",
+            type: "TEXT",
+            pk: 1,
+          }),
+          expect.objectContaining({
+            name: "operation_id",
+            type: "TEXT",
+            notnull: 1,
+          }),
+        ]),
+      );
+    });
+  });
+
   it("timer_state は id=1 以外と状態に不整合な列を拒否する", async () => {
     await runInRoomDO("mig-timer-constraints", (_instance, state) => {
       expect(() =>
@@ -78,6 +102,36 @@ describe("ROOM_DO_MIGRATIONS", () => {
       );
       expect(tableNames(state.storage)).toEqual(ALL_TABLES);
       expect(appliedMigrationIds(state.storage)).toEqual(ALL_MIGRATION_IDS);
+    });
+  });
+
+  it("used_note_drag_ids は user_id + drag_id をルーム内で一意に記録する", async () => {
+    await runInRoomDO("mig-used-note-drag-ids", (_instance, state) => {
+      state.storage.sql.exec(
+        "INSERT INTO used_note_drag_ids (user_id, drag_id) VALUES (?1, ?2)",
+        USER_A,
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      );
+      expect(() =>
+        state.storage.sql.exec(
+          "INSERT INTO used_note_drag_ids (user_id, drag_id) VALUES (?1, ?2)",
+          USER_A,
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ),
+      ).toThrow();
+      expect(
+        state.storage.sql
+          .exec(
+            "SELECT user_id, drag_id FROM used_note_drag_ids WHERE user_id = ?1",
+            USER_A,
+          )
+          .toArray(),
+      ).toEqual([
+        {
+          user_id: USER_A,
+          drag_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        },
+      ]);
     });
   });
 
@@ -305,6 +359,50 @@ describe("ROOM_DO_MIGRATIONS", () => {
       expect(
         state.storage.sql.exec("SELECT visibility FROM notes").toArray(),
       ).toEqual([{ visibility: "shared" }]);
+    });
+  });
+
+  it("既存付箋へ作成日時とID順の決定的で一意な stack_order を付ける", async () => {
+    await runInRoomDO("mig-note-stack-order", (_instance, state) => {
+      dropAllTables(state.storage);
+      const stackOrderMigrationIndex = ROOM_DO_MIGRATIONS.findIndex(
+        (migration) => migration.sql.includes("stack_order"),
+      );
+      expect(stackOrderMigrationIndex).toBeGreaterThanOrEqual(0);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.slice(0, stackOrderMigrationIndex),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO notes (id, author_id, content, x, y, created_at, updated_at)
+         VALUES
+           ('note-c', ?1, '3番目', 0, 0, '2026-07-10T00:00:01.000Z', '2026-07-10T00:00:01.000Z'),
+           ('note-b', ?1, '2番目', 0, 0, '2026-07-10T00:00:00.000Z', '2026-07-10T00:00:00.000Z'),
+           ('note-a', ?1, '1番目', 0, 0, '2026-07-10T00:00:00.000Z', '2026-07-10T00:00:00.000Z')`,
+        USER_A,
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      expect(
+        state.storage.sql
+          .exec("SELECT id, stack_order FROM notes ORDER BY stack_order")
+          .toArray(),
+      ).toEqual([
+        { id: "note-a", stack_order: 0 },
+        { id: "note-b", stack_order: 1 },
+        { id: "note-c", stack_order: 2 },
+      ]);
+      expect(
+        state.storage.sql
+          .exec("SELECT next_note_stack_order FROM room_state WHERE id = 1")
+          .one(),
+      ).toEqual({ next_note_stack_order: 3 });
     });
   });
 });

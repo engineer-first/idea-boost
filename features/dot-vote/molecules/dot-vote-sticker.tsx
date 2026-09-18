@@ -105,7 +105,7 @@ export function DotVoteSticker({
         data-state={state}
         aria-label={`${label}を1票取り消す`}
         className={`inline-flex transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${DOT_VOTE_SHAPE[kind]} ${
-          onDragStart ? "touch-none cursor-grab" : ""
+          onDragStart ? "touch-none cursor-grab active:cursor-grabbing" : ""
         } ${state === "pending" ? "animate-pulse" : ""}`}
         onPointerDown={(event) => {
           pointerOriginRef.current = {
@@ -128,6 +128,10 @@ export function DotVoteSticker({
           ) {
             didDragRef.current = true;
           }
+        }}
+        onPointerCancel={() => {
+          pointerOriginRef.current = null;
+          didDragRef.current = false;
         }}
         onClick={(event) => {
           if (didDragRef.current) {

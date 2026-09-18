@@ -11,8 +11,10 @@ import {
 } from "../../contracts/phase";
 import type { ClientMessage } from "../../contracts/room-protocol";
 import { getDecision } from "./decisions";
+import { clearUsedNoteDragIds } from "./drag-operations";
 import type { MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
+import { hasCandidateNotes } from "./notes";
 import { resetTimerState } from "./timer";
 import { haveAllMembersCompletedVoting } from "./votes";
 
@@ -115,7 +117,13 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:unpublish":
     case "note:update-content":
     case "note:move":
-    case "note:drag":
+    case "note:drag:start":
+    case "note:drag:move":
+    case "note:drag:end":
+    case "note:exclude":
+    case "note:restore":
+    case "note:bulk-exclude":
+    case "note:bulk-restore":
     case "note:delete":
     case "note:vote":
     case "note:vote-reset":
@@ -153,9 +161,18 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
-      "note:drag",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
-    3: ["note:move", "note:drag", "group:create", "group:update-name"],
+    3: [
+      "note:move",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
+      "group:create",
+      "group:update-name",
+    ],
     4: [
       "note:vote",
       "note:vote-reset",
@@ -164,7 +181,13 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    5: ["note:decide"],
+    5: [
+      "note:exclude",
+      "note:restore",
+      "note:bulk-exclude",
+      "note:bulk-restore",
+      "note:decide",
+    ],
   },
   2: {
     // Step 2-1（HMW 個人執筆）は自分専用付箋の作成・編集・削除だけ。
@@ -176,7 +199,9 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
-      "note:drag",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
     3: [
       "note:vote",
@@ -186,7 +211,13 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    4: ["note:decide"],
+    4: [
+      "note:exclude",
+      "note:restore",
+      "note:bulk-exclude",
+      "note:bulk-restore",
+      "note:decide",
+    ],
   },
   3: {
     1: ["note:create", "note:update-content", "note:delete"],
@@ -195,9 +226,11 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
-      "note:drag",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
-    3: ["note:move", "note:drag"],
+    3: ["note:move", "note:drag:start", "note:drag:move", "note:drag:end"],
     4: [
       "note:vote",
       "note:vote-reset",
@@ -206,7 +239,13 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    5: ["note:decide"],
+    5: [
+      "note:exclude",
+      "note:restore",
+      "note:bulk-exclude",
+      "note:bulk-restore",
+      "note:decide",
+    ],
   },
 };
 
@@ -214,12 +253,15 @@ function isIdeaValueFeasibilityMapPositionMessage(
   message: ClientMessage,
 ): message is Extract<
   ClientMessage,
-  { type: "note:publish" | "note:move" | "note:drag" }
+  {
+    type: "note:publish" | "note:move" | "note:drag:move" | "note:drag:end";
+  }
 > {
   return (
     message.type === "note:publish" ||
     message.type === "note:move" ||
-    message.type === "note:drag"
+    message.type === "note:drag:move" ||
+    message.type === "note:drag:end"
   );
 }
 
@@ -241,11 +283,17 @@ export function getBoardMutationForbiddenMessage(
   if (isLobby(phase)) return "ボード開始前はボードを変更できません。";
   if (
     isIdeaValueFeasibilityMappingStep(phase) &&
-    isIdeaValueFeasibilityMapPositionMessage(message) &&
-    (!isIdeaValueFeasibilityMapCoordinate(message.x) ||
-      !isIdeaValueFeasibilityMapCoordinate(message.y))
+    isIdeaValueFeasibilityMapPositionMessage(message)
   ) {
-    return `${getRoomPhaseLabel(phase)}では2軸マップ内（0〜100）の位置を指定してください。`;
+    const position =
+      message.type === "note:drag:end" ? message.position : message;
+    if (
+      position &&
+      (!isIdeaValueFeasibilityMapCoordinate(position.x) ||
+        !isIdeaValueFeasibilityMapCoordinate(position.y))
+    ) {
+      return `${getRoomPhaseLabel(phase)}では2軸マップ内（0〜100）の位置を指定してください。`;
+    }
   }
   const allowed = allowedBoardMutationsByPhase[phase.phase]?.[phase.step] ?? [];
   if (allowed.includes(message.type)) return null;
@@ -283,7 +331,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
   },
 
   // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
-  "phase:next": (ctx, message) => {
+  "phase:next": async (ctx, message) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
       ctx.reply({
         type: "error",
@@ -298,6 +346,14 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         type: "error",
         code: "forbidden",
         message: "ロビー中は次フェーズに進めません。",
+      });
+      return;
+    }
+    if (isResultStep(current) && !hasCandidateNotes(ctx.sql, current.phase)) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "候補がないため次のフェーズへ進めません。",
       });
       return;
     }
@@ -344,10 +400,12 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     // 破棄する。掃除のタイミングはこの1箇所に一本化し、フェーズ境界では
     // 掃除しない（同じ判断が2箇所にあると、どちらが真実か分からなくなる）。
     const leavesSharingStep = isSharingStep(current) && !isSharingStep(next);
+    const entersVotingStep = !isVotingStep(current) && isVotingStep(next);
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
       crossesPhaseBoundary ||
-      leavesSharingStep;
+      leavesSharingStep ||
+      entersVotingStep;
     let timerWasReset = false;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
@@ -356,8 +414,15 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         discardPrivateNotes(ctx.sql);
       }
       savePhase(ctx.sql, next);
+      if (crossesPhaseBoundary) {
+        clearUsedNoteDragIds(ctx.sql);
+      }
       timerWasReset = resetTimerState(ctx.sql);
     });
+    ctx.broadcaster.retireAllActiveDrags();
+    if (timerWasReset) {
+      await ctx.storage.deleteAlarm();
+    }
     // 投票ステップでは note:updated の count を秘匿しているため、結果ステップ
     // へ遷移した接続中の参加者にも完全な投票集計を届け直す。フェーズ境界を
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから

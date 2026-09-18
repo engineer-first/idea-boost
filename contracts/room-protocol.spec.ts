@@ -92,6 +92,22 @@ describe("TimerStateSchema", () => {
       durationMs: 60_000,
     });
   });
+
+  it("ended は 00:00 の共有終了状態として受け入れる", () => {
+    expect(
+      TimerStateSchema.parse({ status: "ended", durationMs: 60_000 }),
+    ).toEqual({ status: "ended", durationMs: 60_000 });
+  });
+
+  it("ended に remainingMs や endsAt を持たせない", () => {
+    expect(
+      TimerStateSchema.safeParse({
+        status: "ended",
+        durationMs: 60_000,
+        remainingMs: 0,
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("MemberSchema", () => {
@@ -145,6 +161,7 @@ describe("NoteSchema", () => {
     color: "yellow",
     x: 100,
     y: 200,
+    stackOrder: 0,
     createdAt: "2026-07-10T00:00:00.000Z",
     updatedAt: "2026-07-10T00:00:00.000Z",
     dotVotes: {
@@ -163,6 +180,26 @@ describe("NoteSchema", () => {
     expect(NoteSchema.safeParse(note).success).toBe(false);
   });
 
+  it("stackOrder は非負整数だけを受け入れる", () => {
+    expect(NoteSchema.parse({ ...note, visibility: "shared" }).stackOrder).toBe(
+      0,
+    );
+    for (const stackOrder of [-1, 0.5, Number.POSITIVE_INFINITY]) {
+      expect(
+        NoteSchema.safeParse({ ...note, visibility: "shared", stackOrder })
+          .success,
+      ).toBe(false);
+    }
+  });
+
+  it("stackOrder が無い付箋は拒否する", () => {
+    const { stackOrder: _, ...withoutStackOrder } = note;
+    expect(
+      NoteSchema.safeParse({ ...withoutStackOrder, visibility: "shared" })
+        .success,
+    ).toBe(false);
+  });
+
   it("投票集計が未公開の付箋は count なしでも受け入れる", () => {
     const result = NoteSchema.safeParse({
       ...note,
@@ -175,10 +212,102 @@ describe("NoteSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("候補外状態を受け入れ、旧形式の付箋は候補として補完する", () => {
+    expect(
+      NoteSchema.parse({ ...note, visibility: "shared", excluded: true })
+        .excluded,
+    ).toBe(true);
+    expect(NoteSchema.parse({ ...note, visibility: "shared" }).excluded).toBe(
+      false,
+    );
+  });
 });
 
 describe("ServerMessageSchema", () => {
-  it("snapshot は notes / members / phase / isHost / decision / carryovers を必須にする", () => {
+  it("ドラッグ開始・移動・終了を UUID の dragId で相関し、開始結果を受け入れる", () => {
+    const dragId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:drag:start",
+        noteId,
+        dragId,
+      }),
+    ).toMatchObject({ type: "note:drag:start", noteId, dragId });
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:drag:move",
+        noteId,
+        dragId,
+        x: 10,
+        y: 20,
+      }),
+    ).toMatchObject({ type: "note:drag:move", dragId, x: 10, y: 20 });
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:drag:end",
+        noteId,
+        dragId,
+        position: null,
+      }),
+    ).toMatchObject({ type: "note:drag:end", dragId, position: null });
+    expect(
+      ServerMessageSchema.parse({
+        type: "note:drag:result",
+        dragId,
+        accepted: true,
+      }),
+    ).toEqual({ type: "note:drag:result", dragId, accepted: true });
+  });
+
+  it("ドラッグ操作に userId / authorId を含めず、不正な dragId を拒否する", () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:drag:start",
+        noteId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        dragId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:drag:start",
+        noteId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        dragId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        userId: USER_A,
+        authorId: USER_B,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("member_vote_status は完了状態だけを受け入れる", () => {
+    const parsed = ServerMessageSchema.parse({
+      type: "member_vote_status",
+      userId: USER_A,
+      isComplete: true,
+    });
+
+    expect(parsed).toEqual({
+      type: "member_vote_status",
+      userId: USER_A,
+      isComplete: true,
+    });
+  });
+
+  it("member_vote_status に投票先や票種を含めた入力は拒否する", () => {
+    const result = ServerMessageSchema.safeParse({
+      type: "member_vote_status",
+      userId: USER_A,
+      isComplete: true,
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      kind: "subjective",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("snapshot は notes / members / phase / isHost / decision / carryovers / completedVoterIds を必須にする", () => {
     const parsed = ServerMessageSchema.parse({
       type: "snapshot",
       notes: [],
@@ -187,6 +316,7 @@ describe("ServerMessageSchema", () => {
       isHost: true,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -198,6 +328,7 @@ describe("ServerMessageSchema", () => {
       isHost: true,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -392,25 +523,72 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
-  it("note:drag は移動者情報をクライアントから受け取らない", () => {
+  it("一括候補外は対象IDや認可情報を受け取らず、Undoはoperation IDだけを受け入れる", () => {
+    const operationId = "33333333-3333-4333-8333-333333333333";
     expect(
       ClientMessageSchema.parse({
-        type: "note:drag",
+        type: "note:bulk-exclude",
+        noteIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+        isHost: true,
+      }),
+    ).toEqual({ type: "note:bulk-exclude" });
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:bulk-restore",
+        operationId,
+        noteIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+        isHost: true,
+      }),
+    ).toEqual({ type: "note:bulk-restore", operationId });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:bulk-restore",
+        operationId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    "note:exclude",
+    "note:restore",
+  ])("%s は付箋IDだけを受け入れ、認可情報を受け取らない", (type) => {
+    expect(
+      ClientMessageSchema.parse({
+        type,
         noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        x: 100,
-        y: 200,
+        authorId: USER_B,
+        isHost: true,
+        x: 999,
+        y: 999,
+      }),
+    ).toEqual({
+      type,
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+  });
+
+  it.each([
+    "note:exclude",
+    "note:restore",
+  ])("%s はUUIDでない付箋IDを拒否する", (type) => {
+    expect(
+      ClientMessageSchema.safeParse({ type, noteId: "not-a-uuid" }).success,
+    ).toBe(false);
+  });
+
+  it("note:drag:start は移動者情報をクライアントから受け取らない", () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:drag:start",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        dragId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         draggedBy: {
           userId: USER_B,
           name: "spoofed",
           color: "red",
         },
-      }),
-    ).toEqual({
-      type: "note:drag",
-      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      x: 100,
-      y: 200,
-    });
+      }).success,
+    ).toBe(false);
   });
 
   it("cursor:update はボード座標と共有付箋の操作対象だけを受け入れる", () => {
@@ -634,35 +812,24 @@ describe("ClientMessageSchema", () => {
   });
 });
 
-describe("parseServerMessage", () => {
-  it("note:drag はサーバーが付与した移動者の名前と色を受け入れる", () => {
+describe("一括候補外のサーバー確定通知", () => {
+  it.each([
+    "note:bulk-excluded",
+    "note:bulk-restored",
+  ] as const)("%s はサーバー採番の operation ID と実件数を運ぶ", (type) => {
+    const message = {
+      type,
+      operationId: "33333333-3333-4333-8333-333333333333",
+      count: 2,
+    };
+    expect(ServerMessageSchema.parse(message)).toEqual(message);
     expect(
-      parseServerMessage(
-        JSON.stringify({
-          type: "note:drag",
-          noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          x: 100,
-          y: 200,
-          draggedBy: {
-            userId: USER_B,
-            name: "Taro",
-            color: "green",
-          },
-        }),
-      ),
-    ).toEqual({
-      type: "note:drag",
-      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      x: 100,
-      y: 200,
-      draggedBy: {
-        userId: USER_B,
-        name: "Taro",
-        color: "green",
-      },
-    });
+      ServerMessageSchema.safeParse({ ...message, count: -1 }).success,
+    ).toBe(false);
   });
+});
 
+describe("parseServerMessage", () => {
   it("名前と色をサーバーが付与した cursor:updated を受け入れる", () => {
     expect(
       parseServerMessage(
@@ -705,6 +872,20 @@ describe("parseServerMessage", () => {
     ).toBe(false);
   });
 
+  it("cursor:drag-ended は UUID の userId だけを受け入れる", () => {
+    expect(
+      parseServerMessage(
+        JSON.stringify({ type: "cursor:drag-ended", userId: USER_B }),
+      ),
+    ).toEqual({ type: "cursor:drag-ended", userId: USER_B });
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "cursor:drag-ended",
+        userId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
   it("正常な JSON 文字列をパースしてオブジェクトを返す", () => {
     expect(
       parseServerMessage(
@@ -716,6 +897,7 @@ describe("parseServerMessage", () => {
           isHost: false,
           decision: null,
           carryovers: [],
+          completedVoterIds: [],
           timer: { status: "idle" },
           serverNow: 1_700_000_000_000,
         }),
@@ -728,6 +910,7 @@ describe("parseServerMessage", () => {
       isHost: false,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
     });
@@ -763,6 +946,18 @@ describe("parseClientMessage", () => {
         JSON.stringify({
           type: "member_joined",
           member: { userId: USER_A, name: "X" },
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("member_vote_status はクライアント送信メッセージに存在しないので拒否する", () => {
+    expect(
+      parseClientMessage(
+        JSON.stringify({
+          type: "member_vote_status",
+          userId: USER_A,
+          isComplete: true,
         }),
       ),
     ).toBeNull();

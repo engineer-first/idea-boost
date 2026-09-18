@@ -1,5 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import {
+  expect,
+  fireEvent,
+  fn,
+  userEvent,
+  waitFor,
+  within,
+} from "storybook/test";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { NoteCard } from "./note-card";
 
@@ -59,10 +66,24 @@ export const LongContent: Story = {
   },
 };
 
-// 選択状態: 青い枠が付き、Backspace/Deleteで削除・もう一度クリックで編集に入れる。
+// 選択状態: 青い枠が付き、Backspace/Deleteで削除・再クリックまたは文字入力で編集に入る。
 export const Selected: Story = {
   args: {
     isSelected: true,
+  },
+};
+
+export const DirectInput: Story = {
+  args: {
+    isSelected: true,
+    note: buildNote({ content: "" }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const surface = canvas.getByRole("button", { name: "付箋" });
+    surface.focus();
+    await userEvent.keyboard("a");
+    await expect(canvas.getByRole("textbox")).toHaveValue("a");
   },
 };
 
@@ -71,18 +92,6 @@ export const Dragging: Story = {
   args: {
     isSelected: true,
     isOwnDrag: true,
-  },
-};
-
-// 共有付箋の作者色（黄色）は維持し、現在の移動者色（緑）を枠と名前に使う。
-export const DraggedByAnotherMember: Story = {
-  args: {
-    note: buildNote({ color: "yellow" }),
-    activeDragMember: {
-      userId: "22222222-2222-4222-8222-222222222222",
-      name: "Taro Yamada",
-      color: "green",
-    },
   },
 };
 
@@ -123,6 +132,100 @@ export const VotePreview: Story = {
 export const Decided: Story = {
   args: {
     isDecided: true,
+  },
+};
+
+export const ExcludedForHost: Story = {
+  args: {
+    note: buildNote({ excluded: true }),
+    canEditNote: false,
+    canDeleteNote: false,
+    canMoveNote: false,
+    canExcludeNote: true,
+    canRestoreNote: true,
+    onExclude: fn(),
+    onRestore: fn(),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const card = canvas.getByTestId("note-card");
+    const surface = canvas.getByRole("button", { name: "候補外の付箋" });
+    const restore = canvas.getByRole("button", { name: "候補に戻す" });
+
+    await userEvent.hover(surface);
+    await waitFor(() => expect(restore).toBeVisible());
+    await userEvent.unhover(surface);
+    surface.focus();
+    await waitFor(() => expect(restore).toBeVisible());
+    surface.blur();
+    fireEvent.pointerUp(surface, { pointerId: 7, pointerType: "touch" });
+    await waitFor(() => expect(restore).toBeVisible());
+    await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
+    await expect(canvas.getByText("候補外")).toBeVisible();
+  },
+};
+
+export const CandidateContextMenu: Story = {
+  args: {
+    canExcludeNote: true,
+    onExclude: fn(),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const surface = canvas.getByRole("button", { name: "付箋" });
+
+    fireEvent.contextMenu(surface);
+    await expect(args.onExclude).not.toHaveBeenCalled();
+    await userEvent.click(
+      canvas.getByRole("menuitem", { name: "候補から外す" }),
+    );
+    await expect(args.onExclude).toHaveBeenCalledWith("note-1");
+  },
+};
+
+export const ExcludedKeyboardMenu: Story = {
+  args: {
+    note: buildNote({ excluded: true }),
+    canEditNote: false,
+    canDeleteNote: false,
+    canMoveNote: false,
+    canRestoreNote: true,
+    onRestore: fn(),
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const surface = canvas.getByRole("button", { name: "候補外の付箋" });
+    surface.focus();
+    await userEvent.keyboard("{Shift>}{F10}{/Shift}");
+    const menuItem = canvas.getByRole("menuitem", { name: "候補に戻す" });
+    await expect(menuItem).toHaveFocus();
+    await expect(args.onRestore).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onRestore).toHaveBeenCalledWith("note-1");
+  },
+};
+
+export const ExcludedForParticipant: Story = {
+  args: {
+    note: buildNote({ excluded: true }),
+    canEditNote: false,
+    canDeleteNote: false,
+    canMoveNote: false,
+    canExcludeNote: false,
+    canRestoreNote: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const card = canvas.getByTestId("note-card");
+    const surface = canvas.getByRole("button", { name: "候補外の付箋" });
+
+    fireEvent.pointerUp(surface, { pointerId: 8, pointerType: "touch" });
+
+    await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
+    await expect(canvas.getByText("候補外")).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "候補に戻す" }),
+    ).not.toBeInTheDocument();
   },
 };
 

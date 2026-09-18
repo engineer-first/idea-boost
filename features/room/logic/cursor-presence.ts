@@ -44,7 +44,16 @@ export function applyCursorPresenceMessage(
     return [];
   }
   if (message.type === "phase:updated") {
-    return isCursorSharingAllowed(message.phase) ? cursors : [];
+    return isCursorSharingAllowed(message.phase)
+      ? cursors.map((cursor) => ({ ...cursor, draggingNoteId: null }))
+      : [];
+  }
+  if (message.type === "cursor:drag-ended") {
+    return cursors.map((cursor) =>
+      cursor.userId === message.userId
+        ? { ...cursor, draggingNoteId: null }
+        : cursor,
+    );
   }
   if (message.type === "cursor:left" || message.type === "member_left") {
     return cursors.filter((cursor) => cursor.userId !== message.userId);

@@ -15,8 +15,15 @@ import { visibleTo } from "../visibility";
 export type SocketAttachment = {
   userId: string;
   hasCursor?: boolean;
-  // note:drag は永続化しないため、切断時の解除通知にだけ使う一時状態。
-  activeDragNoteId?: string;
+  // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
+  activeDrag?: { noteId: string; dragId: string };
+};
+
+export type ActiveDragOwner = {
+  socket: WebSocket;
+  attachment: SocketAttachment;
+  noteId: string;
+  dragId: string;
 };
 
 export class RoomBroadcaster {
@@ -104,12 +111,57 @@ export class RoomBroadcaster {
         socket.deserializeAttachment() as SocketAttachment | null;
       if (
         attachment?.userId === userId &&
-        (attachment.hasCursor || attachment.activeDragNoteId)
+        (attachment.hasCursor || attachment.activeDrag)
       ) {
         return true;
       }
     }
     return false;
+  }
+
+  findActiveDrag(noteId: string): ActiveDragOwner | null {
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.activeDrag?.noteId !== noteId) continue;
+      return {
+        socket,
+        attachment,
+        noteId,
+        dragId: attachment.activeDrag.dragId,
+      };
+    }
+    return null;
+  }
+
+  activeDragFor(socket: WebSocket): ActiveDragOwner | null {
+    const attachment =
+      socket.deserializeAttachment() as SocketAttachment | null;
+    if (!attachment?.activeDrag) return null;
+    return {
+      socket,
+      attachment,
+      ...attachment.activeDrag,
+    };
+  }
+
+  retireActiveDrag(socket: WebSocket): ActiveDragOwner | null {
+    const active = this.activeDragFor(socket);
+    if (!active) return null;
+    socket.serializeAttachment({
+      ...active.attachment,
+      activeDrag: undefined,
+    } satisfies SocketAttachment);
+    return active;
+  }
+
+  retireAllActiveDrags(): ActiveDragOwner[] {
+    const retired: ActiveDragOwner[] = [];
+    for (const socket of this.connections.getWebSockets()) {
+      const active = this.retireActiveDrag(socket);
+      if (active) retired.push(active);
+    }
+    return retired;
   }
 
   // 閉じかけのソケットで send が throw しても、他接続への配信を止めない。

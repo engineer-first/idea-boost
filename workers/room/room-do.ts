@@ -16,7 +16,7 @@
 // ハイバネーションでインメモリ状態は消える（次のイベントで constructor が再実行
 // される）ため、状態は毎回 SQL から導出し、各モジュールにキャッシュを持たせない。
 import { DurableObject } from "cloudflare:workers";
-import type { RoomPhase } from "../../contracts/phase";
+import { isVotingStep, type RoomPhase } from "../../contracts/phase";
 import {
   type ClientMessage,
   type ProtocolMember,
@@ -48,7 +48,7 @@ import {
   upsertMember,
 } from "./members";
 import { noteHandlers } from "./note-handlers";
-import { listNotes } from "./notes";
+import { broadcastNoteUpdated, findNote, listNotes } from "./notes";
 import {
   getBoardMutationForbiddenMessage,
   getPhase,
@@ -56,7 +56,8 @@ import {
   savePhase,
 } from "./phase";
 import { presenceHandlers } from "./presence";
-import { getTimerState, timerHandlers } from "./timer";
+import { getTimerState, handleTimerAlarm, timerHandlers } from "./timer";
+import { listCompletedVoterIds } from "./votes";
 
 // api-worker がセッション検証済みのユーザーIDを DO へ引き継ぐヘッダー。
 // DO は外部から直接到達できないため、これは常に api-worker が設定する。
@@ -269,14 +270,30 @@ export class RoomDO extends DurableObject {
   ): Promise<void> {
     // メンバーシップ自体は REST leave まで維持するが、一時カーソルと
     // 付箋の移動者表示は切断時に消す。
-    const attachment = ws.deserializeAttachment() as SocketAttachment | null;
-    if (attachment?.hasCursor || attachment?.activeDragNoteId) {
+    const previousAttachment =
+      ws.deserializeAttachment() as SocketAttachment | null;
+    if (previousAttachment?.hasCursor || previousAttachment?.activeDrag) {
+      const active = this.broadcaster.retireActiveDrag(ws);
+      const attachment =
+        (ws.deserializeAttachment() as SocketAttachment | null) ??
+        previousAttachment;
       ws.serializeAttachment({
         ...attachment,
         hasCursor: false,
-        activeDragNoteId: undefined,
       } satisfies SocketAttachment);
+      if (active) {
+        const row = findNote(this.sql, active.noteId);
+        if (row?.visibility === "shared") {
+          broadcastNoteUpdated(this.sql, this.broadcaster, row);
+        }
+      }
       if (this.broadcaster.hasOtherPresenceForUser(attachment.userId, ws)) {
+        if (active) {
+          this.broadcaster.broadcastToAllExcept(
+            { type: "cursor:drag-ended", userId: attachment.userId },
+            attachment.userId,
+          );
+        }
         return;
       }
       this.broadcaster.broadcastToAllExcept(
@@ -288,6 +305,10 @@ export class RoomDO extends DurableObject {
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
     ws.close(1011, "websocket error");
+  }
+
+  override async alarm(): Promise<void> {
+    await handleTimerAlarm(this.sql, this.broadcaster);
   }
 
   // ------------------------------------------------------------
@@ -386,6 +407,10 @@ export class RoomDO extends DurableObject {
         phase.kind === "step" ? getDecision(this.sql, phase.phase) : null,
       carryovers:
         phase.kind === "step" ? getCarryovers(this.sql, phase.phase) : [],
+      completedVoterIds:
+        phase.kind === "step" && isVotingStep(phase)
+          ? listCompletedVoterIds(this.sql, phase.phase)
+          : [],
       timer: getTimerState(this.sql),
       serverNow: Date.now(),
     });

@@ -12,6 +12,7 @@ const OBJECTIVE_POINT = 1;
 
 export type VoteTotalingResult = {
   isComplete: boolean;
+  candidateCount: number;
   rows: VoteTotalingRowViewModel[];
 };
 
@@ -28,11 +29,12 @@ export function calculateVoteTotaling({
   memberCount: number;
   isVotingComplete?: boolean;
 }): VoteTotalingResult {
-  const subjective = notes.reduce(
+  const candidates = notes.filter((note) => !note.excluded);
+  const subjective = candidates.reduce(
     (total, note) => total + publicVoteCount(note.dotVotes.subjective.count),
     0,
   );
-  const objective = notes.reduce(
+  const objective = candidates.reduce(
     (total, note) => total + publicVoteCount(note.dotVotes.objective.count),
     0,
   );
@@ -41,7 +43,7 @@ export function calculateVoteTotaling({
     subjective === memberCount * DOT_VOTE_LIMITS.subjective &&
     objective === memberCount * DOT_VOTE_LIMITS.objective;
   const isComplete = isVotingComplete ?? allMembersCompletedVoting;
-  const rows = notes
+  const rows = candidates
     .map((note) => ({
       noteId: note.id,
       content: note.content,
@@ -60,6 +62,7 @@ export function calculateVoteTotaling({
     );
   return {
     isComplete,
+    candidateCount: candidates.length,
     rows,
   };
 }
@@ -103,7 +106,7 @@ export function VoteTotalingPanel({
   }
   return (
     <section
-      className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-background p-5 shadow-sm sm:p-8"
+      className="mx-auto w-full max-w-3xl bg-transparent p-5 text-foreground dark:bg-slate-950 dark:text-slate-50 sm:p-8"
       aria-label="投票結果"
       data-testid="vote-result-ranking"
     >
@@ -112,7 +115,21 @@ export function VoteTotalingPanel({
         <p className="mt-1 text-sm text-muted-foreground">
           総合ポイントが高い順
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          候補 {result.candidateCount}件
+        </p>
       </div>
+      <aside
+        aria-label="配点の説明"
+        className="mt-5 rounded-lg bg-muted/60 p-3 text-left text-sm text-muted-foreground dark:bg-slate-900 dark:text-slate-300"
+        data-testid="vote-totaling-scoring-guide"
+      >
+        <p className="font-semibold text-foreground dark:text-slate-50">配点</p>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          <span>主観1票 = 5点</span>
+          <span>客観1票 = 1点</span>
+        </div>
+      </aside>
       <ol className="mt-6 grid gap-3">
         {result.rows.map((row, _index, ranking) => {
           const rank =
@@ -133,6 +150,17 @@ export function VoteTotalingPanel({
           );
         })}
       </ol>
+      {result.rows.length === 0 ? (
+        <p
+          className="mt-6 rounded-lg bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground dark:bg-slate-900 dark:text-slate-300"
+          data-testid="vote-totaling-empty"
+          role="status"
+        >
+          {result.candidateCount === 0
+            ? "候補がありません"
+            : "投票された付箋はありません"}
+        </p>
+      ) : null}
     </section>
   );
 }

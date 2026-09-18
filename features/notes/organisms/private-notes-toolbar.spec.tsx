@@ -46,10 +46,15 @@ describe("PrivateNotesToolbar", () => {
 
     const toolbar = screen.getByTestId("private-notes-toolbar");
     expect(toolbar).toHaveAttribute("data-expanded", "true");
-    expect(toolbar).toHaveClass("w-60", "flex-col");
-    expect(toolbar).toHaveClass("h-fit", "max-h-[min(48rem,calc(100vh-6rem))]");
+    expect(toolbar).toHaveClass(
+      "w-[min(15rem,calc(100vw-1.5rem))]",
+      "flex-col",
+    );
+    expect(toolbar).toHaveClass("h-[min(48rem,calc(100vh-6rem))]");
+    expect(toolbar).not.toHaveClass("h-fit");
+    expect(toolbar).not.toHaveClass("max-h-[min(48rem,calc(100vh-6rem))]");
     const controls = screen.getByTestId("private-notes-controls");
-    expect(controls).toHaveClass("ml-auto", "w-fit");
+    expect(controls).toHaveClass("w-full", "justify-between");
     expect(
       screen.getByRole("heading", { name: "マイ付箋" }),
     ).toBeInTheDocument();
@@ -73,6 +78,7 @@ describe("PrivateNotesToolbar", () => {
     fireEvent.click(closeButton);
 
     expect(toolbar).toHaveAttribute("data-expanded", "false");
+    expect(toolbar).toHaveClass("h-14", "w-fit");
     expect(
       screen.queryByRole("button", { name: "付箋" }),
     ).not.toBeInTheDocument();
@@ -160,6 +166,54 @@ describe("PrivateNotesToolbar", () => {
     ).toBeInTheDocument();
   });
 
+  it("0枚・1枚・多数でも同じ画面サイズの展開寸法を保つ", () => {
+    const props = {
+      notes: [],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+      defaultExpanded: true,
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+    const toolbar = screen.getByTestId("private-notes-toolbar");
+    const expandedHeight = "h-[min(48rem,calc(100vh-6rem))]";
+
+    expect(toolbar).toHaveClass(expandedHeight);
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={[buildNote({ id: "one-note", visibility: "private" })]}
+      />,
+    );
+    expect(toolbar).toHaveClass(expandedHeight);
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={Array.from({ length: 8 }, (_, index) =>
+          buildNote({
+            id: `note-${index + 1}`,
+            visibility: "private",
+            content: `付箋 ${index + 1}`,
+          }),
+        )}
+      />,
+    );
+    expect(toolbar).toHaveClass(expandedHeight);
+    expect(screen.getByTestId("private-notes-scroll")).toHaveClass(
+      "overflow-y-auto",
+    );
+  });
+
   it("新しい付箋を末尾へ表示して滑らかにスクロールし、追加直後から本文を入力できる", () => {
     const oldNote = buildNote({
       id: "old-note",
@@ -224,6 +278,46 @@ describe("PrivateNotesToolbar", () => {
     );
   });
 
+  it("外部からの追加リクエストでも入力欄へフォーカスする", () => {
+    const oldNote = buildNote({ id: "old-note", content: "前の付箋" });
+    const newNote = buildNote({
+      id: "new-note",
+      visibility: "private",
+      content: "",
+      createdAt: "2026-07-03T00:01:00.000Z",
+    });
+    const props = {
+      notes: [oldNote],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+      addRequest: 0,
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+
+    view.rerender(<PrivateNotesToolbar {...props} addRequest={1} />);
+    expect(props.onAdd).toHaveBeenCalledOnce();
+
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        addRequest={1}
+        notes={[oldNote, newNote]}
+        selectedNoteId="new-note"
+      />,
+    );
+
+    expect(screen.getAllByRole("textbox")[1]).toHaveFocus();
+  });
+
   it("本文はフォーカスを外した時に保存する", () => {
     const props = {
       notes: [buildNote({ visibility: "private", content: "非公開の考え" })],
@@ -253,6 +347,40 @@ describe("PrivateNotesToolbar", () => {
       "note-1",
       "書き換えた内容",
     );
+  });
+
+  it("編集途中で折り畳んでも下書きを保ち、再展開後に続きから編集できる", () => {
+    const props = {
+      notes: [
+        buildNote({
+          id: "note-1",
+          visibility: "private",
+          content: "保存前の本文",
+        }),
+      ],
+      disabled: false,
+      selectedNoteId: "note-1",
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+      defaultExpanded: true,
+    };
+    render(<PrivateNotesToolbar {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "付箋" }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "折り畳み前の下書き" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+
+    expect(screen.getByRole("textbox")).toHaveValue("折り畳み前の下書き");
   });
 
   it("切断中は追加・編集・削除を無効化する", () => {

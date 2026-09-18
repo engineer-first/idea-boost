@@ -5,7 +5,7 @@
 // 設計上の不変条件:
 // - authorId を書き換えるメッセージは存在しない（構造的に不可能にする）。
 // - roomId はプロトコルに現れない（1 RoomDO = 1 ルーム）。
-// - note:drag は永続化されない一時データ。確定は note:move だけが行う。
+// - 共有付箋のドラッグは UUID の dragId で相関し、RoomDO が排他所有する。
 //
 // フェーズモデル:
 // - lobby: 開始前ロビー（メンバー確認・招待）。
@@ -27,6 +27,10 @@ export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 // 楽観表示した投票操作と、RoomDO から返る確定・拒否応答を対応付けるID。
 // 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
 export const VoteOperationIdSchema = z.string().uuid();
+export const BulkExclusionOperationIdSchema = z.string().uuid();
+export type BulkExclusionOperationId = z.infer<
+  typeof BulkExclusionOperationIdSchema
+>;
 
 // シールは付箋内の相対座標で保存する。画面のズームや付箋サイズが変わっても
 // 同じ位置に復元でき、クライアントがボード座標を推測する必要もない。
@@ -87,6 +91,10 @@ export const NoteSchema = z.object({
   color: NoteColorSchema,
   x: CanvasCoordinateSchema,
   y: CanvasCoordinateSchema,
+  // 決定ステップで一時的に候補から外す状態。削除とは異なり、付箋の内容・
+  // 票・グループ・座標はそのまま保持する。
+  excluded: z.boolean().default(false),
+  stackOrder: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string(),
   dotVotes: z.object({
@@ -126,6 +134,13 @@ export const TimerStateSchema = z.discriminatedUnion("status", [
     remainingMs: TimerDurationSchema,
     durationMs: TimerDurationSchema,
   }),
+  z
+    .object({
+      // 手動終了・時間切れ後も参加者全員が同じ 00:00 と再設定導線を見る。
+      status: z.literal("ended"),
+      durationMs: TimerDurationSchema,
+    })
+    .strict(),
 ]);
 export type TimerState = z.infer<typeof TimerStateSchema>;
 
@@ -174,6 +189,8 @@ const NotePositionSchema = {
   y: CanvasCoordinateSchema,
 };
 
+export const NoteDragIdSchema = z.string().uuid();
+
 // ---------------------------------------------------------------
 // クライアント → サーバー
 // ---------------------------------------------------------------
@@ -217,10 +234,40 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     noteId: z.string().uuid(),
     ...NotePositionSchema,
   }),
+  z
+    .object({
+      type: z.literal("note:drag:start"),
+      noteId: z.string().uuid(),
+      dragId: NoteDragIdSchema,
+    })
+    .strict(),
   z.object({
-    type: z.literal("note:drag"),
+    type: z.literal("note:drag:move"),
     noteId: z.string().uuid(),
+    dragId: NoteDragIdSchema,
     ...NotePositionSchema,
+  }),
+  z.object({
+    type: z.literal("note:drag:end"),
+    noteId: z.string().uuid(),
+    dragId: NoteDragIdSchema,
+    // null は pointer cancel。最後にサーバーが受理した座標を維持する。
+    position: z.object(NotePositionSchema).nullable(),
+  }),
+  z.object({
+    type: z.literal("note:exclude"),
+    noteId: z.string().uuid(),
+  }),
+  z.object({
+    type: z.literal("note:restore"),
+    noteId: z.string().uuid(),
+  }),
+  // 対象は実行時のサーバー状態から再判定するため、クライアントは件数や
+  // note ID 群を送らない。
+  z.object({ type: z.literal("note:bulk-exclude") }),
+  z.object({
+    type: z.literal("note:bulk-restore"),
+    operationId: BulkExclusionOperationIdSchema,
   }),
   z.object({
     type: z.literal("note:delete"),
@@ -327,6 +374,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     decision: DecisionSchema.nullable(),
     // 現在フェーズより前のフェーズで確定した決定の一覧（フェーズ昇順）。
     carryovers: z.array(CarryoverSchema),
+    // 投票中に全票を使い切ったメンバーの userId だけを共有する。
+    // 投票先・票種別ごとの残数・カーソル位置は含めない。
+    completedVoterIds: z.array(z.string().uuid()),
     timer: TimerStateSchema,
     serverNow: TimerMillisecondsSchema,
   }),
@@ -338,13 +388,19 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("note:deleted"), noteId: z.string().uuid() }),
   z.object({
-    type: z.literal("note:drag"),
-    noteId: z.string().uuid(),
-    x: CanvasCoordinateSchema,
-    y: CanvasCoordinateSchema,
-    // クライアント入力には含めず、RoomDO が認証済みソケットから付与する。
-    // 付箋の author と現在の移動者は一致するとは限らない。
-    draggedBy: MemberSchema,
+    type: z.literal("note:bulk-excluded"),
+    operationId: BulkExclusionOperationIdSchema,
+    count: z.number().int().nonnegative(),
+  }),
+  z.object({
+    type: z.literal("note:bulk-restored"),
+    operationId: BulkExclusionOperationIdSchema,
+    count: z.number().int().nonnegative(),
+  }),
+  z.object({
+    type: z.literal("note:drag:result"),
+    dragId: NoteDragIdSchema,
+    accepted: z.boolean(),
   }),
   z.object({
     type: z.literal("group:updated"),
@@ -362,7 +418,18 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("member_left"),
     userId: z.string().uuid(),
   }),
+  z
+    .object({
+      type: z.literal("member_vote_status"),
+      userId: z.string().uuid(),
+      isComplete: z.boolean(),
+    })
+    .strict(),
   z.object({ type: z.literal("cursor:updated"), cursor: CursorPresenceSchema }),
+  z.object({
+    type: z.literal("cursor:drag-ended"),
+    userId: z.string().uuid(),
+  }),
   z.object({ type: z.literal("cursor:left"), userId: z.string().uuid() }),
   // start_phase 成功時（ロビー離脱）にも phase:next 成功時にも使う。
   z.object({

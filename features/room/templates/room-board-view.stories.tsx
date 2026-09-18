@@ -18,6 +18,8 @@ const STEP_1_3 = buildPhaseStep(3);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_1 = buildPhaseStep(1, 2);
+const GUIDE_ISSUE = "会議で発言する人が偏ってしまう";
+const GUIDE_HMW = "どうすれば全員が安心してアイデアを共有できるだろうか？";
 const CANVAS_HUD_POSITIONS = [
   [180, 120],
   [380, 220],
@@ -69,6 +71,8 @@ const INTERACTIONS: RoomBoardInteractions = {
   onFitToNotes: fn(),
   onPointerMove: fn(),
   onPointerEnd: fn(),
+  onPointerCancel: fn(),
+  cancelCurrentNoteDrag: fn(),
   onNoteDragStart: fn(),
   onPrivateNoteDragStart: fn(),
 };
@@ -114,6 +118,7 @@ const meta = {
       onOpenChange: fn(),
       onTabChange: fn(),
     },
+    initialGuideExpanded: false,
     hmwDecidedIssue: null,
     decidedHmw: null,
     onAddPrivateNote: fn(),
@@ -142,9 +147,6 @@ const meta = {
     onTimerExtend: fn(),
     onTimerStop: fn(),
     remoteCursors: [],
-    remoteNoteDrags: [],
-    areCursorsVisible: true,
-    onToggleCursors: fn(),
   },
   decorators: [
     (Story) => (
@@ -158,6 +160,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+function guideModalStory(phase: 1 | 2 | 3, step: number): Story {
+  return {
+    name: `フェーズ${phase} Step ${step}`,
+    args: {
+      phase: buildPhaseStep(step, phase),
+      notes: step === 1 ? [] : buildNotes(3),
+      initialGuideExpanded: true,
+      enableGuideModal: true,
+      hmwDecidedIssue: phase >= 2 ? GUIDE_ISSUE : null,
+      decidedHmw: phase === 3 ? GUIDE_HMW : null,
+    },
+  };
+}
+
 // success相当: 付箋が配置されている状態。
 export const WithNotes: Story = {};
 
@@ -167,6 +183,48 @@ export const Empty: Story = {
     notes: [],
   },
 };
+
+export const StepExplanationModal: Story = {
+  name: "ステップ説明モーダル",
+  args: {
+    phase: buildPhaseStep(1, 2),
+    notes: [],
+    initialGuideExpanded: true,
+    hmwDecidedIssue: "会議で発言する人が偏ってしまう",
+  },
+};
+
+export const Phase1FirstStepModal: Story = {
+  name: "フェーズ1 Step 1の最初の一歩",
+  args: {
+    phase: buildPhaseStep(1, 1),
+    notes: [],
+    initialGuideExpanded: true,
+  },
+};
+
+export const Phase1SecondStepModal: Story = {
+  name: "フェーズ1 Step 2の付箋共有",
+  args: {
+    phase: buildPhaseStep(2, 1),
+    initialGuideExpanded: true,
+  },
+};
+
+export const GuideModalPhase1Step1: Story = guideModalStory(1, 1);
+export const GuideModalPhase1Step2: Story = guideModalStory(1, 2);
+export const GuideModalPhase1Step3: Story = guideModalStory(1, 3);
+export const GuideModalPhase1Step4: Story = guideModalStory(1, 4);
+export const GuideModalPhase1Step5: Story = guideModalStory(1, 5);
+export const GuideModalPhase2Step1: Story = guideModalStory(2, 1);
+export const GuideModalPhase2Step2: Story = guideModalStory(2, 2);
+export const GuideModalPhase2Step3: Story = guideModalStory(2, 3);
+export const GuideModalPhase2Step4: Story = guideModalStory(2, 4);
+export const GuideModalPhase3Step1: Story = guideModalStory(3, 1);
+export const GuideModalPhase3Step2: Story = guideModalStory(3, 2);
+export const GuideModalPhase3Step3: Story = guideModalStory(3, 3);
+export const GuideModalPhase3Step4: Story = guideModalStory(3, 4);
+export const GuideModalPhase3Step5: Story = guideModalStory(3, 5);
 
 // 自分がドラッグ中の付箋がある状態（影が深くなり「持ち上げた」見た目になる）。
 export const Dragging: Story = {

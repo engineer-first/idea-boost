@@ -32,6 +32,10 @@ export const You: Story = {
   args: { isMe: true },
 };
 
+export const VotingComplete: Story = {
+  args: { isVotingComplete: true },
+};
+
 export const Empty: Story = {
   args: { name: "" },
 };

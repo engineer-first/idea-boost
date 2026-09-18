@@ -27,12 +27,10 @@ export function buildPausedTimer(
 }
 
 export function buildEndedTimer(
-  options: { now?: number; durationMs?: number } = {},
+  options: { durationMs?: number } = {},
 ): TimerState {
-  const now = options.now ?? ROOM_TIMER_FIXTURE_NOW;
   return {
-    status: "running",
-    endsAt: now,
+    status: "ended",
     durationMs: options.durationMs ?? 60_000,
   };
 }

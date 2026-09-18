@@ -10,20 +10,17 @@ import {
 } from "./notes-reducer";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
-const DRAGGED_BY = {
-  userId: "22222222-2222-4222-8222-222222222222",
-  name: "Taro",
-  color: "green" as const,
-};
 
 const note: Note = {
   id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
   authorId: USER_ID,
   content: "hello",
   visibility: "shared",
+  excluded: false,
   color: "yellow",
   x: 10,
   y: 20,
+  stackOrder: 0,
   createdAt: "2026-07-03T00:00:00.000Z",
   updatedAt: "2026-07-03T00:00:00.000Z",
   dotVotes: {
@@ -61,6 +58,7 @@ describe("applyServerMessage", () => {
       isHost: false,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_000,
     };
@@ -81,6 +79,7 @@ describe("applyServerMessage", () => {
       isHost: false,
       decision: null,
       carryovers: [],
+      completedVoterIds: [],
       timer: { status: "idle" },
       serverNow: 1_000,
     };
@@ -122,6 +121,19 @@ describe("applyServerMessage", () => {
     });
 
     expect(result).toEqual([updated]);
+  });
+
+  it("note:updatedで候補外状態を座標を変えずに同期する", () => {
+    const existing = makeNote({ excluded: false, x: 10, y: 20 });
+    const excluded = makeNote({ excluded: true, x: 10, y: 20 });
+
+    const result = applyServerMessage(
+      [existing],
+      { type: "note:updated", note: excluded },
+      { draggingNoteId: null },
+    );
+
+    expect(result).toEqual([excluded]);
   });
 
   it("note:updatedが古い自分の投票状態を持つ場合はローカルの選択状態を保持する", () => {
@@ -185,55 +197,8 @@ describe("applyServerMessage", () => {
     expect(result).toEqual([]);
   });
 
-  it("note:dragで対象付箋の位置のみ更新する", () => {
-    const existing = makeNote({ x: 0, y: 0 });
-    const message: ServerMessage = {
-      type: "note:drag",
-      noteId: existing.id,
-      x: 42,
-      y: 84,
-      draggedBy: DRAGGED_BY,
-    };
-
-    const result = applyServerMessage([existing], message, {
-      draggingNoteId: null,
-    });
-
-    expect(result).toEqual([makeNote({ x: 42, y: 84 })]);
-  });
-
-  it("自分がドラッグ中の付箋に対するnote:dragイベントは無視する（自分の操作を優先）", () => {
-    const existing = makeNote({ x: 100, y: 100 });
-    const message: ServerMessage = {
-      type: "note:drag",
-      noteId: existing.id,
-      x: 42,
-      y: 84,
-      draggedBy: DRAGGED_BY,
-    };
-
-    const result = applyServerMessage([existing], message, {
-      draggingNoteId: existing.id,
-    });
-
-    expect(result).toEqual([existing]);
-  });
-
-  it("存在しない付箋IDへのnote:drag/note:updated/note:deletedは何もしない", () => {
+  it("存在しない付箋IDへのnote:updated/note:deletedは何もしない", () => {
     const existing = makeNote();
-
-    const dragResult = applyServerMessage(
-      [existing],
-      {
-        type: "note:drag",
-        noteId: "unknown",
-        x: 1,
-        y: 1,
-        draggedBy: DRAGGED_BY,
-      },
-      { draggingNoteId: null },
-    );
-    expect(dragResult).toEqual([existing]);
 
     const updateResult = applyServerMessage(
       [existing],

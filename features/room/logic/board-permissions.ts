@@ -1,4 +1,4 @@
-import type { RoomPhase } from "@/contracts/phase";
+import { isResultStep, type RoomPhase } from "@/contracts/phase";
 
 export type BoardPermissions = {
   // 付箋作成入口
@@ -9,6 +9,8 @@ export type BoardPermissions = {
   canEditNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
+  canExcludeNote: boolean;
+  canRestoreNote: boolean;
 
   // グループ
   canGroupNote: boolean;
@@ -21,7 +23,12 @@ export type BoardPermissions = {
   canDecide: boolean;
 };
 
-const ALL_DISABLED: BoardPermissions = {
+type BaseBoardPermissions = Omit<
+  BoardPermissions,
+  "canExcludeNote" | "canRestoreNote"
+>;
+
+const ALL_DISABLED: BaseBoardPermissions = {
   showPrivateToolbar: false,
 
   canCreateNote: false,
@@ -37,7 +44,7 @@ const ALL_DISABLED: BoardPermissions = {
   canDecide: false,
 };
 
-export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
+function getBaseBoardPermissions(phase: RoomPhase): BaseBoardPermissions {
   if (phase.kind === "lobby") {
     return ALL_DISABLED;
   }
@@ -189,6 +196,20 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
     };
   }
 
+  if (phase.phase === 2 && phase.step === 4) {
+    return {
+      showPrivateToolbar: false,
+      canCreateNote: false,
+      canEditNote: false,
+      canDeleteNote: false,
+      canMoveNote: false,
+      canGroupNote: false,
+      canShowVote: true,
+      canVote: false,
+      canDecide: true,
+    };
+  }
+
   // フェーズ3 Step3-1 アイデア個人執筆
   if (phase.phase === 3 && phase.step === 1) {
     return {
@@ -283,4 +304,13 @@ export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
   }
 
   return ALL_DISABLED;
+}
+
+export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
+  const canManageExclusion = isResultStep(phase);
+  return {
+    ...getBaseBoardPermissions(phase),
+    canExcludeNote: canManageExclusion,
+    canRestoreNote: canManageExclusion,
+  };
 }

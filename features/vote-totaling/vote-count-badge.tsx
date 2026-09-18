@@ -6,15 +6,16 @@ type VoteCountBadgeProps = {
 };
 
 const TONE_CLASSES: Record<VoteCountBadgeProps["tone"], string> = {
-  subjective: "border-rose-200 bg-rose-50 text-rose-800",
-  objective: "border-sky-200 bg-sky-50 text-sky-800",
-  score: "border-zinc-300 bg-zinc-50 text-zinc-900",
+  subjective:
+    "bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-100",
+  objective: "bg-sky-100 text-sky-900 dark:bg-sky-950/60 dark:text-sky-100",
+  score: "bg-muted text-foreground",
 };
 
 export function VoteCountBadge({ label, value, tone }: VoteCountBadgeProps) {
   return (
     <span
-      className={`inline-flex h-7 items-center rounded-md border px-2 text-xs font-medium tabular-nums ${TONE_CLASSES[tone]}`}
+      className={`inline-flex h-7 items-center rounded-md px-2 text-xs font-medium tabular-nums ${TONE_CLASSES[tone]}`}
     >
       {label ? `${label} ${value}` : value}
     </span>
