@@ -159,6 +159,44 @@ describe("考えるヒントの外部制御", () => {
   });
 });
 
+describe("0票候補の一括整理", () => {
+  it("結果ステップのホストだけに、未決定かつ主観・客観とも0票の件数を表示する", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: [
+        buildNote({ id: "note-1" }),
+        buildNote({
+          id: "note-2",
+          dotVotes: {
+            subjective: { count: 1, votedByMe: false, ownCount: 0 },
+            objective: { count: 0, votedByMe: false, ownCount: 0 },
+          },
+        }),
+        buildNote({ id: "note-3", excluded: true }),
+        buildNote({ id: "note-4" }),
+      ],
+      decision: { phase: 1, noteId: "note-4", decidedBy: ME },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(
+      screen.getByRole("button", {
+        name: "投票なしをまとめて候補から外す（1件）",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("非ホストと結果ステップ以外には一括整理を表示しない", () => {
+    const { rerender, props } = setup({
+      phase: buildPhaseStep(5),
+      isHost: false,
+    });
+    expect(screen.queryByText("候補を整理")).toBeNull();
+    rerender(<TestBoardView {...props} isHost phase={buildPhaseStep(4)} />);
+    expect(screen.queryByText("候補を整理")).toBeNull();
+  });
+});
+
 describe("ステップ説明モーダル", () => {
   it("フェーズ1 Step 1は最初の一歩と課題の例を中央揃えで表示する", () => {
     setup({

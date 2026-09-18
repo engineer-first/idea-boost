@@ -271,9 +271,92 @@ export function setNoteExcluded(
     excluded ? 1 : 0,
     updatedAt,
   );
+  sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
+}
+
+export function listBulkExclusionCandidates(
+  sql: SqlStorage,
+  phase: number,
+): NoteRow[] {
+  return sql
+    .exec(
+      `SELECT n.*
+       FROM notes n
+       WHERE n.phase = ?1
+         AND n.visibility = 'shared'
+         AND n.excluded = 0
+         AND NOT EXISTS (
+           SELECT 1 FROM decisions d
+           WHERE d.phase = n.phase AND d.note_id = n.id
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM note_vote_stickers v WHERE v.note_id = n.id
+         )
+       ORDER BY n.created_at, n.id`,
+      phase,
+    )
+    .toArray()
+    .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+}
+
+export function excludeNotesForBulkOperation(
+  sql: SqlStorage,
+  noteIds: readonly string[],
+  operationId: string,
+  updatedAt: string,
+): void {
+  for (const noteId of noteIds) {
+    sql.exec(
+      "UPDATE notes SET excluded = 1, updated_at = ?2 WHERE id = ?1",
+      noteId,
+      updatedAt,
+    );
+    sql.exec(
+      `INSERT INTO note_bulk_exclusions (note_id, operation_id)
+       VALUES (?1, ?2)
+       ON CONFLICT(note_id) DO UPDATE SET operation_id = excluded.operation_id`,
+      noteId,
+      operationId,
+    );
+  }
+}
+
+export function listBulkRestoreTargets(
+  sql: SqlStorage,
+  phase: number,
+  operationId: string,
+): NoteRow[] {
+  return sql
+    .exec(
+      `SELECT n.* FROM notes n
+       INNER JOIN note_bulk_exclusions b ON b.note_id = n.id
+       WHERE n.phase = ?1 AND n.visibility = 'shared' AND n.excluded = 1
+         AND b.operation_id = ?2
+       ORDER BY n.created_at, n.id`,
+      phase,
+      operationId,
+    )
+    .toArray()
+    .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+}
+
+export function restoreNotesForBulkOperation(
+  sql: SqlStorage,
+  noteIds: readonly string[],
+  updatedAt: string,
+): void {
+  for (const noteId of noteIds) {
+    sql.exec(
+      "UPDATE notes SET excluded = 0, updated_at = ?2 WHERE id = ?1",
+      noteId,
+      updatedAt,
+    );
+    sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
+  }
 }
 
 export function deleteNote(sql: SqlStorage, noteId: string): void {
+  sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
   sql.exec("DELETE FROM notes WHERE id = ?1", noteId);
 }
 

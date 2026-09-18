@@ -26,13 +26,17 @@ import {
   broadcastVoteUpdated,
   canEdit,
   deleteNote,
+  excludeNotesForBulkOperation,
   findNote,
   insertNote,
   isVisibleTo,
+  listBulkExclusionCandidates,
+  listBulkRestoreTargets,
   moveNote,
   type NoteRow,
   publishNote,
   requireNoteInCurrentPhase,
+  restoreNotesForBulkOperation,
   setNoteExcluded,
   toProtocolNote,
   touchNote,
@@ -98,6 +102,8 @@ export const noteHandlers: MessageHandlers<
   | "note:drag:end"
   | "note:exclude"
   | "note:restore"
+  | "note:bulk-exclude"
+  | "note:bulk-restore"
   | "note:delete"
   | "note:vote"
   | "note:vote-reset"
@@ -396,6 +402,80 @@ export const noteHandlers: MessageHandlers<
       ...row,
       excluded: false,
       updated_at: updatedAt,
+    });
+  },
+
+  "note:bulk-exclude": (ctx) => {
+    if (!isHostUser(ctx.sql, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+    const phase = getPhase(ctx.sql);
+    if (phase.kind !== "step") {
+      replyForbidden(ctx);
+      return;
+    }
+    const operationId = crypto.randomUUID();
+    const updatedAt = new Date().toISOString();
+    let targets: NoteRow[] = [];
+    ctx.storage.transactionSync(() => {
+      targets = listBulkExclusionCandidates(ctx.sql, phase.phase);
+      excludeNotesForBulkOperation(
+        ctx.sql,
+        targets.map(({ id }) => id),
+        operationId,
+        updatedAt,
+      );
+    });
+    for (const row of targets) {
+      broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+        ...row,
+        excluded: true,
+        updated_at: updatedAt,
+      });
+    }
+    ctx.reply({
+      type: "note:bulk-excluded",
+      operationId,
+      count: targets.length,
+    });
+  },
+
+  "note:bulk-restore": (ctx, message) => {
+    if (!isHostUser(ctx.sql, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+    const phase = getPhase(ctx.sql);
+    if (phase.kind !== "step") {
+      replyForbidden(ctx);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    let targets: NoteRow[] = [];
+    ctx.storage.transactionSync(() => {
+      targets = listBulkRestoreTargets(
+        ctx.sql,
+        phase.phase,
+        message.operationId,
+      );
+      restoreNotesForBulkOperation(
+        ctx.sql,
+        targets.map(({ id }) => id),
+        updatedAt,
+      );
+    });
+    for (const row of targets) {
+      broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+        ...row,
+        excluded: false,
+        updated_at: updatedAt,
+      });
+    }
+    ctx.reply({
+      type: "note:bulk-restored",
+      operationId: message.operationId,
+      count: targets.length,
     });
   },
 

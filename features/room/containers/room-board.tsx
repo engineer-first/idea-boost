@@ -64,6 +64,7 @@ export function RoomBoard({
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
   const latestExcludeOperationRef = useRef(0);
+  const latestBulkExclusionOperationRef = useRef<string | null>(null);
 
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({ roomId, isHost });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
@@ -93,6 +94,27 @@ export function RoomBoard({
       (message.type === "note:updated" && !message.note.excluded)
     ) {
       latestExcludeOperationRef.current += 1;
+    }
+    if (message.type === "snapshot") {
+      latestBulkExclusionOperationRef.current = null;
+    }
+    if (message.type === "note:bulk-excluded") {
+      if (message.count > 0) {
+        latestBulkExclusionOperationRef.current = message.operationId;
+        roomNotify.bulkCandidatesExcluded(message.count, () => {
+          if (latestBulkExclusionOperationRef.current !== message.operationId) {
+            return;
+          }
+          latestBulkExclusionOperationRef.current = null;
+          notes.bulkRestoreCandidates(message.operationId);
+        });
+      }
+    }
+    if (
+      message.type === "note:bulk-restored" &&
+      latestBulkExclusionOperationRef.current === message.operationId
+    ) {
+      latestBulkExclusionOperationRef.current = null;
     }
     if (message.type === "error") {
       notes.applyMessage(message);
@@ -305,6 +327,7 @@ export function RoomBoard({
         onNoteDelete={notes.deleteNote}
         onNoteExclude={handleNoteExclude}
         onNoteRestore={handleNoteRestore}
+        onBulkCandidateExclude={notes.bulkExcludeZeroVoteCandidates}
         onGroupCreate={noteGroups.createGroup}
         onGroupUpdateName={noteGroups.renameGroup}
         onNoteVote={notes.voteNote}

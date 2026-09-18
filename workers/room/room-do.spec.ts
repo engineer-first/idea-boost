@@ -1055,6 +1055,352 @@ describe("RoomDO 候補外付箋", () => {
     });
     ws.close();
   });
+
+  it("ホストの一括候補外は実行時点で共有済み・現在フェーズ・未除外・未決定・0票だけを原子的に更新する", async () => {
+    const roomName = "room-bulk-exclude-targets";
+    await prepare(roomName);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "DELETE FROM note_vote_stickers WHERE note_id = ?1",
+        NOTE_ID,
+      );
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase, excluded)
+         VALUES
+           ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', ?1, '得票あり', 'shared', 'green', 1, 2, ?2, ?2, 1, 0),
+           ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', ?1, '個人', 'private', 'blue', 3, 4, ?2, ?2, 1, 0),
+           ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', ?1, '別フェーズ', 'shared', 'pink', 5, 6, ?2, ?2, 2, 0),
+           ('ffffffff-ffff-4fff-8fff-ffffffffffff', ?1, '除外済み', 'shared', 'orange', 7, 8, ?2, ?2, 1, 1),
+           ('77777777-7777-4777-8777-777777777777', ?1, '決定済み', 'shared', 'teal', 9, 10, ?2, ?2, 1, 0)`,
+        USER_B,
+        now,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO note_vote_stickers
+           (id, note_id, user_id, kind, x, y, created_at)
+         VALUES ('99999999-9999-4999-8999-999999999999', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', ?1, 'subjective', 0.5, 0.5, ?2)`,
+        USER_B,
+        now,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO decisions (phase, note_id, note_content, decided_by, decided_at)
+         VALUES (1, '77777777-7777-4777-8777-777777777777', '決定済み', ?1, ?2)`,
+        USER_A,
+        now,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO groups (id, name, note_ids, created_at, updated_at)
+         VALUES ('66666666-6666-4666-8666-666666666666', '保持するグループ', ?1, ?2, ?2)`,
+        JSON.stringify([NOTE_ID, "cccccccc-cccc-4ccc-8ccc-cccccccccccc"]),
+        now,
+      );
+    });
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const hostUpdated = nextJson(host);
+    const memberUpdated = nextJson(member);
+
+    host.send(JSON.stringify({ type: "note:bulk-exclude" }));
+
+    await expect(hostUpdated).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: true, content: "保持する本文" },
+    });
+    await expect(memberUpdated).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: true, content: "保持する本文" },
+    });
+    const confirmed = await nextJson(host);
+    expect(confirmed).toMatchObject({
+      type: "note:bulk-excluded",
+      operationId: expect.any(String),
+      count: 1,
+    });
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql
+          .exec(
+            `SELECT n.id, n.excluded, b.operation_id
+             FROM notes n
+             LEFT JOIN note_bulk_exclusions b ON b.note_id = n.id
+             ORDER BY n.id`,
+          )
+          .toArray(),
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: NOTE_ID,
+          excluded: 1,
+          operation_id: confirmed.operationId,
+        }),
+        expect.objectContaining({
+          id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          excluded: 0,
+        }),
+        expect.objectContaining({
+          id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+          excluded: 0,
+        }),
+        expect.objectContaining({
+          id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+          excluded: 0,
+        }),
+        expect.objectContaining({
+          id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+          excluded: 1,
+          operation_id: null,
+        }),
+        expect.objectContaining({
+          id: "77777777-7777-4777-8777-777777777777",
+          excluded: 0,
+        }),
+      ]),
+    );
+    expect(
+      await runInRoomDO(roomName, (_instance, state) => ({
+        note: state.storage.sql
+          .exec(
+            `SELECT author_id, content, color, x, y, stack_order
+             FROM notes WHERE id = ?1`,
+            NOTE_ID,
+          )
+          .one(),
+        group: state.storage.sql
+          .exec(
+            `SELECT name, note_ids FROM groups
+             WHERE id = '66666666-6666-4666-8666-666666666666'`,
+          )
+          .one(),
+      })),
+    ).toEqual({
+      note: {
+        author_id: USER_B,
+        content: "保持する本文",
+        color: "yellow",
+        x: 123,
+        y: 456,
+        stack_order: 0,
+      },
+      group: {
+        name: "保持するグループ",
+        note_ids: JSON.stringify([
+          NOTE_ID,
+          "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        ]),
+      },
+    });
+    host.close();
+    member.close();
+  });
+
+  it("一括Undoは同じoperation由来で現在も候補外の付箋だけを復帰し、再接続後も使える", async () => {
+    const roomName = "room-bulk-exclude-undo-reconnect";
+    await prepare(roomName);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "DELETE FROM note_vote_stickers WHERE note_id = ?1",
+        NOTE_ID,
+      );
+    });
+    const first = await connectDirectly(roomName, USER_A, USER_A);
+    first.send(JSON.stringify({ type: "note:bulk-exclude" }));
+    await nextJson(first);
+    const excluded = await nextJson(first);
+    first.close();
+
+    const reconnect = await connectDirectly(roomName, USER_A, USER_A);
+    reconnect.send(
+      JSON.stringify({
+        type: "note:bulk-restore",
+        operationId: excluded.operationId,
+      }),
+    );
+
+    expect(await nextJson(reconnect)).toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: false },
+    });
+    expect(await nextJson(reconnect)).toEqual({
+      type: "note:bulk-restored",
+      operationId: excluded.operationId,
+      count: 1,
+    });
+    reconnect.close();
+  });
+
+  it.each([
+    [2, 4],
+    [3, 5],
+  ] as const)("Phase %i Step %i でも一括候補外を実行できる", async (phase, step) => {
+    const roomName = `room-bulk-exclude-${phase}-${step}`;
+    await prepare(roomName, buildPhaseStep(step, phase));
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "DELETE FROM note_vote_stickers WHERE note_id = ?1",
+        NOTE_ID,
+      );
+    });
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    host.send(JSON.stringify({ type: "note:bulk-exclude" }));
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: true },
+    });
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:bulk-excluded",
+      count: 1,
+    });
+    host.close();
+  });
+
+  it("結果ステップ以外では一括候補外と一括Undoを拒否する", async () => {
+    const roomName = "room-bulk-exclude-wrong-step";
+    await prepare(roomName, buildPhaseStep(4));
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+
+    host.send(JSON.stringify({ type: "note:bulk-exclude" }));
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+      message: expect.stringContaining("1-4 投票"),
+    });
+    host.send(
+      JSON.stringify({
+        type: "note:bulk-restore",
+        operationId: "33333333-3333-4333-8333-333333333333",
+      }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+      message: expect.stringContaining("1-4 投票"),
+    });
+    host.close();
+  });
+
+  it("個別復帰後に再除外した付箋を古い一括Undoで戻さず、別操作由来を分離する", async () => {
+    const roomName = "room-bulk-exclude-operation-isolation";
+    await prepare(roomName);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "DELETE FROM note_vote_stickers WHERE note_id = ?1",
+        NOTE_ID,
+      );
+    });
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    host.send(JSON.stringify({ type: "note:bulk-exclude" }));
+    await nextJson(host);
+    const first = await nextJson(host);
+
+    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+    await nextJson(host);
+    host.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+    await nextJson(host);
+    host.send(
+      JSON.stringify({
+        type: "note:bulk-restore",
+        operationId: first.operationId,
+      }),
+    );
+
+    expect(await nextJson(host)).toEqual({
+      type: "note:bulk-restored",
+      operationId: first.operationId,
+      count: 0,
+    });
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql
+          .exec(
+            `SELECT n.excluded, b.operation_id
+               FROM notes n
+               LEFT JOIN note_bulk_exclusions b ON b.note_id = n.id
+               WHERE n.id = ?1`,
+            NOTE_ID,
+          )
+          .one(),
+      ),
+    ).toEqual({ excluded: 1, operation_id: null });
+
+    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+    await nextJson(host);
+    host.send(JSON.stringify({ type: "note:bulk-exclude" }));
+    await nextJson(host);
+    const second = await nextJson(host);
+    host.send(
+      JSON.stringify({
+        type: "note:bulk-restore",
+        operationId: first.operationId,
+      }),
+    );
+    expect(await nextJson(host)).toEqual({
+      type: "note:bulk-restored",
+      operationId: first.operationId,
+      count: 0,
+    });
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql
+          .exec(
+            `SELECT n.excluded, b.operation_id
+               FROM notes n
+               LEFT JOIN note_bulk_exclusions b ON b.note_id = n.id
+               WHERE n.id = ?1`,
+            NOTE_ID,
+          )
+          .one(),
+      ),
+    ).toEqual({ excluded: 1, operation_id: second.operationId });
+    host.send(
+      JSON.stringify({
+        type: "note:bulk-restore",
+        operationId: second.operationId,
+      }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: false },
+    });
+    expect(await nextJson(host)).toEqual({
+      type: "note:bulk-restored",
+      operationId: second.operationId,
+      count: 1,
+    });
+    host.close();
+  });
+
+  it("非ホストの一括候補外・Undoを拒否し、対象0件はcount 0で確定する", async () => {
+    const roomName = "room-bulk-exclude-auth-empty";
+    await prepare(roomName);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    member.send(JSON.stringify({ type: "note:bulk-exclude" }));
+    expect(await nextJson(member)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    member.send(
+      JSON.stringify({
+        type: "note:bulk-restore",
+        operationId: "33333333-3333-4333-8333-333333333333",
+      }),
+    );
+    expect(await nextJson(member)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    member.close();
+
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    host.send(JSON.stringify({ type: "note:bulk-exclude" }));
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:bulk-excluded",
+      count: 0,
+    });
+    host.close();
+  });
 });
 
 describe("RoomDO phase:next", () => {

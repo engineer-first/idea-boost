@@ -99,6 +99,8 @@ export type UseRoomNotesResult = {
   cancelNoteDrag: (noteId?: string) => void;
   excludeNote: (noteId: string) => void;
   restoreNote: (noteId: string) => void;
+  bulkExcludeZeroVoteCandidates: () => void;
+  bulkRestoreCandidates: (operationId: string) => void;
   // 入力中の見た目を止めないため本文だけは楽観更新する。
   changeNoteContent: (noteId: string, content: string) => void;
   deleteNote: (noteId: string) => void;
@@ -558,6 +560,16 @@ export function useRoomNotes({
     [updateNotes, send],
   );
 
+  const bulkExcludeZeroVoteCandidates = useCallback(
+    () => send({ type: "note:bulk-exclude" }),
+    [send],
+  );
+
+  const bulkRestoreCandidates = useCallback(
+    (operationId: string) => send({ type: "note:bulk-restore", operationId }),
+    [send],
+  );
+
   const deleteNote = useCallback(
     (noteId: string) => {
       send({ type: "note:delete", noteId });
@@ -738,6 +750,8 @@ export function useRoomNotes({
     cancelNoteDrag,
     excludeNote,
     restoreNote,
+    bulkExcludeZeroVoteCandidates,
+    bulkRestoreCandidates,
     changeNoteContent,
     deleteNote,
     voteNote,

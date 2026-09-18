@@ -122,6 +122,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:drag:end":
     case "note:exclude":
     case "note:restore":
+    case "note:bulk-exclude":
+    case "note:bulk-restore":
     case "note:delete":
     case "note:vote":
     case "note:vote-reset":
@@ -179,7 +181,13 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    5: ["note:exclude", "note:restore", "note:decide"],
+    5: [
+      "note:exclude",
+      "note:restore",
+      "note:bulk-exclude",
+      "note:bulk-restore",
+      "note:decide",
+    ],
   },
   2: {
     // Step 2-1（HMW 個人執筆）は自分専用付箋の作成・編集・削除だけ。
@@ -203,7 +211,13 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    4: ["note:exclude", "note:restore", "note:decide"],
+    4: [
+      "note:exclude",
+      "note:restore",
+      "note:bulk-exclude",
+      "note:bulk-restore",
+      "note:decide",
+    ],
   },
   3: {
     1: ["note:create", "note:update-content", "note:delete"],
@@ -225,7 +239,13 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
     ],
-    5: ["note:exclude", "note:restore", "note:decide"],
+    5: [
+      "note:exclude",
+      "note:restore",
+      "note:bulk-exclude",
+      "note:bulk-restore",
+      "note:decide",
+    ],
   },
 };
 

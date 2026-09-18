@@ -66,8 +66,14 @@ export function applyServerMessage(
       return notes.filter((n) => n.id !== message.noteId);
     }
 
-    case "note:drag:result":
+    case "note:bulk-excluded":
+    case "note:bulk-restored": {
+      // 各付箋の状態は先行する note:updated で反映済み。これは送信元へ
+      // 実件数と Undo 用 ID を知らせる確定通知なので配列自体は変えない。
+      return notes;
+    }
 
+    case "note:drag:result":
     case "member_joined":
     case "member_left":
     case "phase:updated":

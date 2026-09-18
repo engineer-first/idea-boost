@@ -27,6 +27,7 @@ const notifyMocks = vi.hoisted(() => ({
   roomDisbanded: vi.fn(),
   error: vi.fn(),
   noteExcluded: vi.fn(),
+  bulkCandidatesExcluded: vi.fn(),
 }));
 
 vi.mock("@/lib/notify", () => ({
@@ -43,6 +44,7 @@ vi.mock("../logic/room-notify", () => ({
     roomLeft: vi.fn(),
     roomDisbandedBySelf: vi.fn(),
     noteExcluded: notifyMocks.noteExcluded,
+    bulkCandidatesExcluded: notifyMocks.bulkCandidatesExcluded,
   },
 }));
 
@@ -322,6 +324,7 @@ afterEach(() => {
   notifyMocks.roomDisbanded.mockReset();
   notifyMocks.error.mockReset();
   notifyMocks.noteExcluded.mockReset();
+  notifyMocks.bulkCandidatesExcluded.mockReset();
 });
 
 describe("メンバー参加・退出の通知", () => {
@@ -727,6 +730,87 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(screen.getByText("候補外")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
+  });
+
+  it("確認後に一括候補外を送り、サーバー確定の実件数とoperation IDでUndoする", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "投票なしをまとめて候補から外す（1件）",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "1件を候補から外す" }));
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "note:bulk-exclude" }),
+    );
+    const operationId = "33333333-3333-4333-8333-333333333333";
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId,
+        count: 1,
+      }),
+    );
+    expect(notifyMocks.bulkCandidatesExcluded).toHaveBeenCalledWith(
+      1,
+      expect.any(Function),
+    );
+    const undo = notifyMocks.bulkCandidatesExcluded.mock.calls[0]?.[1];
+    if (typeof undo !== "function") throw new Error("Undo がありません");
+    undo();
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "note:bulk-restore", operationId }),
+    );
+  });
+
+  it("新しい一括操作の確定後は古いUndoを無視し、0件では通知しない", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+    const firstOperationId = "33333333-3333-4333-8333-333333333333";
+    const secondOperationId = "44444444-4444-4444-8444-444444444444";
+    act(() => {
+      socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId: firstOperationId,
+        count: 1,
+      });
+      socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId: secondOperationId,
+        count: 2,
+      });
+      socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId: "55555555-5555-4555-8555-555555555555",
+        count: 0,
+      });
+    });
+    expect(notifyMocks.bulkCandidatesExcluded).toHaveBeenCalledTimes(2);
+    const firstUndo = notifyMocks.bulkCandidatesExcluded.mock.calls[0]?.[1];
+    const secondUndo = notifyMocks.bulkCandidatesExcluded.mock.calls[1]?.[1];
+    if (typeof firstUndo !== "function" || typeof secondUndo !== "function") {
+      throw new Error("Undo がありません");
+    }
+    firstUndo();
+    expect(socket.sent).not.toContain(
+      JSON.stringify({
+        type: "note:bulk-restore",
+        operationId: firstOperationId,
+      }),
+    );
+    secondUndo();
+    expect(socket.sent).toContain(
+      JSON.stringify({
+        type: "note:bulk-restore",
+        operationId: secondOperationId,
+      }),
+    );
   });
 
   it("note:inserted で付箋が追加される", () => {

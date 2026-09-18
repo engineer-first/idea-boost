@@ -23,6 +23,7 @@ const ALL_TABLES = [
   "groups",
   "member_color_assignments",
   "members",
+  "note_bulk_exclusions",
   "note_vote_stickers",
   "note_votes",
   "notes",
@@ -34,6 +35,28 @@ const ALL_TABLES = [
 ];
 
 describe("ROOM_DO_MIGRATIONS", () => {
+  it("notes に一括候補外の由来 operation ID を永続化できる", async () => {
+    await runInRoomDO("mig-bulk-exclusion-operation", (_instance, state) => {
+      const columns = state.storage.sql
+        .exec("PRAGMA table_info(note_bulk_exclusions)")
+        .toArray();
+      expect(columns).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "note_id",
+            type: "TEXT",
+            pk: 1,
+          }),
+          expect.objectContaining({
+            name: "operation_id",
+            type: "TEXT",
+            notnull: 1,
+          }),
+        ]),
+      );
+    });
+  });
+
   it("timer_state は id=1 以外と状態に不整合な列を拒否する", async () => {
     await runInRoomDO("mig-timer-constraints", (_instance, state) => {
       expect(() =>

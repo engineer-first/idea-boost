@@ -4,6 +4,7 @@
 // （かつて contracts/grouping.spec.ts が components の fixture に依存していた）を防ぐ。
 // 本番コードからは import しない（テスト・カタログ専用）。
 import type {
+  BulkExclusionOperationId,
   Carryover,
   Decision,
   NoteColor,
@@ -11,6 +12,20 @@ import type {
   ProtocolMember,
   ProtocolNote,
 } from "./room-protocol";
+
+export function buildBulkExclusionConfirmation(
+  overrides: Partial<{
+    operationId: BulkExclusionOperationId;
+    count: number;
+  }> = {},
+) {
+  return {
+    operationId:
+      "33333333-3333-4333-8333-333333333333" as BulkExclusionOperationId,
+    count: 1,
+    ...overrides,
+  };
+}
 
 export function buildDecision(overrides: Partial<Decision> = {}): Decision {
   return {

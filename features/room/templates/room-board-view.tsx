@@ -35,6 +35,7 @@ import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
+import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
@@ -82,6 +83,7 @@ export type RoomBoardViewProps = {
   onNoteDelete: (noteId: string) => void;
   onNoteExclude?: (noteId: string) => void;
   onNoteRestore?: (noteId: string) => void;
+  onBulkCandidateExclude?: () => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
@@ -161,6 +163,7 @@ export function RoomBoardView({
   onNoteDelete,
   onNoteExclude = () => undefined,
   onNoteRestore = () => undefined,
+  onBulkCandidateExclude = () => undefined,
   onGroupCreate,
   onGroupUpdateName,
   onNoteVote,
@@ -294,6 +297,14 @@ export function RoomBoardView({
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
   const candidateNotes = notes.filter((note) => !note.excluded);
+  const bulkExclusionTargetCount = notes.filter(
+    (note) =>
+      note.visibility === "shared" &&
+      !note.excluded &&
+      note.id !== decision?.noteId &&
+      note.dotVotes.subjective.count === 0 &&
+      note.dotVotes.objective.count === 0,
+  ).length;
   const isNextPhaseBlocked =
     isResultStep(phase) && (decision === null || candidateNotes.length === 0);
   const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
@@ -722,6 +733,16 @@ export function RoomBoardView({
             isReturnDropTarget={isVoteStickerReturnDropTarget}
             onStickerSelect={handlePaletteStickerSelect}
             onStickerDragStart={handlePaletteStickerDragStart}
+          />
+        </div>
+      ) : null}
+
+      {isHost && isResultStep(phase) ? (
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center">
+          <BulkCandidateExclusion
+            targetCount={bulkExclusionTargetCount}
+            disabled={isDisconnected}
+            onConfirm={onBulkCandidateExclude}
           />
         </div>
       ) : null}
