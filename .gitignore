@@ -76,3 +76,10 @@ workers/.wrangler/
 # postinstall / pretest:workers / predev:api などで自動再生成されるため
 # コミットしない（レビュー対象は *.sql のみ）。
 workers/room-do-migrations/index.ts
+
+# ローカル品質ループの状態・評価結果
+/.eval-loop/
+
+# Python のローカルバイトコード
+__pycache__/
+*.py[cod]
