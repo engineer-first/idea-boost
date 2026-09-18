@@ -2,10 +2,7 @@ import type { CSSProperties } from "react";
 import { useRef } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import type { ProtocolMember } from "@/contracts/room-protocol";
-import { IdeaSupportSidebarContent } from "@/features/idea-support/molecules/idea-support-sidebar-content";
-import { IdeaSupportSidebarHeader } from "@/features/idea-support/molecules/idea-support-sidebar-header";
 import { StickyNote } from "@/features/notes";
 import type { RoomBoardInteractions } from "@/features/room/logic/use-room-board-interactions";
 import { RoomBoardView } from "@/features/room/templates/room-board-view";
@@ -18,6 +15,7 @@ import { InteractionOverlay } from "./components/interaction-overlay";
 import { ProductStage } from "./components/product-stage";
 import {
   getOperationBoardData,
+  getOperationHelp,
   getOperationMoment,
   type OperationMoment,
 } from "./data/operation-demo-state";
@@ -227,11 +225,6 @@ function DemoBoard({ moment }: { moment: OperationMoment }) {
     onPrivateNoteDragStart: noop,
   };
 
-  const showOpenIdeaSupport =
-    moment.segmentId === "phase-3-step-1" &&
-    moment.progress >= 0.24 &&
-    moment.progress <= 0.86;
-
   return (
     <div className="relative h-full">
       {moment.segmentId === "complete" ? (
@@ -256,9 +249,7 @@ function DemoBoard({ moment }: { moment: OperationMoment }) {
         isNextPhasePending={false}
         interactions={interactions}
         help={{
-          kind: null,
-          isOpen: false,
-          tab: "write",
+          ...getOperationHelp(moment),
           onOpenChange: noop,
           onTabChange: noop,
         }}
@@ -309,18 +300,6 @@ function DemoBoard({ moment }: { moment: OperationMoment }) {
           </p>
         </StickyNote>
       ) : null}
-      {showOpenIdeaSupport ? <OpenIdeaSupportSidebar /> : null}
-    </div>
-  );
-}
-
-function OpenIdeaSupportSidebar() {
-  return (
-    <div className="pointer-events-none absolute inset-y-3 right-3 z-40">
-      <Card className="flex h-full w-80 flex-col overflow-hidden">
-        <IdeaSupportSidebarHeader isOpen onToggle={noop} />
-        <IdeaSupportSidebarContent />
-      </Card>
     </div>
   );
 }

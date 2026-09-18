@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<meta name="description" content="はじめてでも、チームで一案を。エンジニアファーストが作るIdea Boostを、導入演出、ローンチ動画、学生チームの想定ストーリー、操作デモで紹介する約10分29秒のプレゼンテーション。">
+<meta name="description" content="はじめてでも、チームで一案を。エンジニアファーストが作るIdea Boostを、導入演出、ローンチ動画、学生チームの想定ストーリー、操作デモ、IdeaBoost.×AIの未来構想で紹介する約11分33秒のプレゼンテーション。">
 <title>Idea Boost — アイデアは、もっと自然に。</title>
 <style>
 :root {
@@ -50,6 +50,13 @@ main { display:grid; align-items:center; min-width:0; }
 .slide:not([hidden]) { animation:appear .28s ease-out both; }
 @keyframes appear { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:translateY(0)} }
 .section-head { margin-bottom:42px; }
+.thanks-slide { position:relative; isolation:isolate; overflow:hidden; text-align:center; padding-block:clamp(40px,8vh,100px); }
+.thanks-slide::before { content:""; position:absolute; z-index:-1; width: min(70vw,760px); aspect-ratio:1; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; background:radial-gradient(circle,#b8a7ff30, #d5eeb018 48%,transparent 70%); }
+.thanks-slide .thanks-eyebrow { color:var(--accent-ink); font:700 13px/1.5 Arial,sans-serif; letter-spacing:.32em; margin-bottom:30px; }
+.thanks-slide h2 { font-size:clamp(1.8rem,4vw,4rem); line-height:1.5; }
+.thanks-wordmark { color:var(--brand-purple); font:800 clamp(4rem,12vw,11rem)/1.1 Arial,sans-serif; letter-spacing:-.065em; margin:20px 0 32px; }
+.thanks-team { font-size:clamp(14px,1.5vw,20px); font-weight:700; letter-spacing:.12em; }
+.thanks-signoff { display:inline-block; margin-top:38px; padding-top:22px; border-top:1px solid var(--brand-lavender); color:var(--muted); font:700 clamp(18px,2vw,26px)/1.4 Arial,sans-serif; letter-spacing:.38em; }
 .overline { color:var(--muted); font-size:14px; letter-spacing:.04em; margin-bottom:19px; }
 .caption { font-size:13px; line-height:1.8; color:var(--muted); }
 figcaption { color:var(--muted); font-size:12px; line-height:1.8; margin-top:12px; }
@@ -116,7 +123,7 @@ figcaption { color:var(--muted); font-size:12px; line-height:1.8; margin-top:12p
 .sprint-proof a { color:#ddd8ea; }
 .sprint-layout { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr); gap:5vw; align-items:start; }
 .sprint-lead { max-width:760px; font-size:clamp(1.2rem,2vw,2rem); line-height:1.75; letter-spacing:-.04em; font-weight:700; }
-.sprint-lead-follow { display:block; margin-top:18px; color:var(--accent-ink); font-size:.72em; line-height:1.5; }
+.sprint-lead-follow { display:block; margin-top:18px; color:var(--accent-ink); font-size:.72em; line-height:1.5; white-space:nowrap; }
 .sprint-phases { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; list-style:none; margin:34px 0 0; padding:0; }
 .sprint-phases li { min-height:105px; padding:15px 12px; border-top:2px solid var(--line); background:var(--paper); }
 .sprint-phases li:nth-child(2) { background:#f0f5fb; }
@@ -298,6 +305,27 @@ video { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; backgr
 #slide-11 h2 { max-width:1200px; font-size:clamp(2.8rem,6vw,6.2rem); line-height:1.2; }
 #slide-2 .section-head .overline { color:var(--ink); font-size:clamp(1.15rem,2vw,1.8rem); font-weight:700; letter-spacing:-.03em; }
 #slide-11 .section-head .overline { color:var(--ink); font-size:clamp(1.15rem,2vw,1.8rem); font-weight:700; letter-spacing:-.03em; }
+#slide-ai { position:relative; overflow:hidden; padding-top:24px; padding-bottom:24px; }
+#slide-ai::before { content:""; position:absolute; z-index:-1; width:min(58vw,760px); aspect-ratio:1; right:-14%; top:-35%; border-radius:50%; background:radial-gradient(circle,#b8a7ff35,transparent 68%); }
+#slide-ai .section-head { margin-bottom:0; }
+#slide-ai .section-head .overline { color:var(--brand-purple); font-size:clamp(1rem,1.6vw,1.35rem); font-weight:700; letter-spacing:.03em; }
+#slide-ai h2 { max-width:980px; font-size:clamp(2.8rem,5.6vw,5.8rem); line-height:1.17; }
+.ai-future-lead { max-width:780px; margin-top:18px; color:var(--muted); font-size:clamp(1.05rem,1.65vw,1.55rem); line-height:1.65; letter-spacing:-.035em; }
+.ai-future-lead strong { color:var(--ink); }
+.ai-future-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; margin-top:34px; }
+.ai-future-card { position:relative; min-height:220px; padding:24px 26px 22px; border:1px solid #d9d4f2; border-radius:18px; background:#f4f1ff; box-shadow:0 12px 35px #342f4210; }
+.ai-future-card:last-child { border-color:#c9dcbf; background:#eef6e5; }
+.ai-future-card::after { content:""; position:absolute; right:24px; bottom:20px; width:42px; height:42px; border:1px solid currentColor; border-radius:50%; opacity:.25; }
+.ai-future-card:first-child::after { border-radius:50% 50% 50% 9px; color:var(--brand-purple); transform:rotate(-28deg); }
+.ai-future-card:last-child::after { color:var(--accent-ink); transform:rotate(45deg); }
+.ai-future-kicker { color:var(--brand-purple); font:700 12px/1.4 Arial,sans-serif; letter-spacing:.16em; }
+.ai-future-card:last-child .ai-future-kicker { color:var(--accent-ink); }
+.ai-future-card h3 { max-width:none; margin-top:20px; font-size:clamp(1.05rem,1.8vw,1.5rem); line-height:1.35; letter-spacing:-.07em; white-space:nowrap; }
+.ai-future-card p { max-width:520px; margin-top:12px; color:var(--muted); font-size:clamp(.9rem,1.25vw,1.12rem); line-height:1.7; }
+.ai-future-card .ai-future-kicker { margin-top:0; color:var(--brand-purple); font:700 12px/1.4 Arial,sans-serif; letter-spacing:.16em; }
+.ai-future-card:last-child .ai-future-kicker { color:var(--accent-ink); }
+.ai-future-footer { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-top:24px; }
+.ai-future-footer strong { color:var(--accent-ink); font-size:clamp(1.1rem,1.7vw,1.5rem); letter-spacing:-.035em; }
 #slide-12 { padding-top:20px; padding-bottom:20px; }
 #slide-12 h2 { font-size:clamp(3rem,5vw,5.4rem); }
 #slide-12 .outcomes { gap:20px; margin-top:42px; }
@@ -306,11 +334,22 @@ video { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; backgr
 #slide-12 .outcome h3 { font-size:clamp(1.8rem,3vw,3.2rem); }
 #slide-12 .outcome-detail { font-size:14px; }
 #slide-12 .sprint-takeaway { font-size:clamp(1.4rem,2.2vw,2rem); }
+#slide-3 { padding-top:20px; padding-bottom:20px; }
+#slide-3 .section-head { margin-bottom:20px; }
+#slide-3 .section-head .overline { font-size:clamp(1.1rem,1.8vw,1.5rem); }
+#slide-3 h2 { font-size:clamp(3rem,5.2vw,5.6rem); line-height:1.18; }
+#slide-3 .promise-route { gap:22px; margin-top:42px; }
+#slide-3 .promise-route li { min-height:310px; padding:28px 28px 24px; }
+#slide-3 .promise-route small { font-size:14px; }
+#slide-3 .promise-route strong { margin-top:20px; font-size:clamp(1.9rem,3vw,3.2rem); }
+#slide-3 .route-copy { margin-top:16px; font-size:15px; line-height:1.7; }
+#slide-3 .route-output { margin-top:20px; padding-top:13px; font-size:14px; }
+#slide-3 .journey-caption { margin-top:24px; font-size:15px; }
 #slide-4 { padding-top:20px; padding-bottom:12px; overflow:hidden; }
 #slide-4 .section-head { margin-bottom:14px; }
-#slide-4 .section-head .overline { color:var(--ink); font-size:clamp(1.1rem,1.8vw,1.5rem); font-weight:700; letter-spacing:-.02em; }
-#slide-4 h2 { font-size:clamp(2.8rem,4.5vw,4.8rem); line-height:1.15; }
-#slide-4 .sprint-lead { font-size:clamp(1.2rem,1.7vw,1.7rem); line-height:1.35; }
+#slide-4 .section-head .overline { color:var(--ink); font-size:clamp(1.2rem,2vw,1.65rem); font-weight:700; letter-spacing:-.02em; }
+#slide-4 h2 { font-size:clamp(3rem,4.9vw,5.2rem); line-height:1.15; }
+#slide-4 .sprint-lead { font-size:clamp(1.3rem,1.9vw,1.95rem); line-height:1.4; }
 #slide-4 .sprint-reference { margin-top:12px; }
 #slide-4 .sprint-reference img { max-height:180px; }
 #slide-4 .sprint-proof { margin-top:-50px; }
@@ -323,13 +362,20 @@ video { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; backgr
 #slide-workflow .workflow-phase h3 { margin-top:10px; font-size:clamp(1.6rem,2.5vw,2.4rem); line-height:1.25; letter-spacing:-.06em; }
 #slide-workflow .workflow-phase-idea h3 { color:var(--accent-ink); }
 #slide-workflow .workflow-phase-purpose { margin-top:4px; color:var(--muted); font-size:13px; line-height:1.4; }
-#slide-workflow .workflow-step-list { display:grid; gap:4px; list-style:none; margin:10px 0 0; padding:0; }
-#slide-workflow .workflow-step { position:relative; display:grid; grid-template-columns:23px minmax(0,1fr); gap:7px; align-items:center; min-height:29px; padding:5px 8px; border-radius:8px; background:#fff; }
-#slide-workflow .workflow-step + .workflow-step::before { content:"↓"; position:absolute; top:-11px; left:7px; color:#a9b9a1; font-size:11px; }
-#slide-workflow .workflow-step-number { display:grid; place-items:center; width:22px; height:22px; border-radius:50%; background:var(--soft); color:var(--muted); font:700 10px Arial,sans-serif; }
+#slide-workflow .workflow-step-list { display:grid; gap:6px; list-style:none; margin:14px 0 0; padding:0; }
+#slide-workflow .workflow-step { position:relative; display:grid; grid-template-columns:30px minmax(0,1fr); gap:10px; align-items:center; min-height:38px; padding:7px 10px; border-radius:8px; background:#fff; }
+#slide-workflow .workflow-step + .workflow-step::before { content:"↓"; position:absolute; top:-12px; left:9px; color:#a9b9a1; font-size:12px; }
+#slide-workflow .workflow-step-number { display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--soft); color:var(--muted); font:700 11px Arial,sans-serif; }
 #slide-workflow .workflow-step-copy { min-width:0; }
-#slide-workflow .workflow-step strong { display:inline; color:var(--ink); font-size:13px; line-height:1.35; }
-#slide-workflow .workflow-step small { display:inline; margin-left:6px; color:var(--muted); font-size:10px; line-height:1.3; }
+#slide-workflow .workflow-step strong { display:inline; color:var(--ink); font-size:15px; line-height:1.35; }
+#slide-workflow .workflow-step small { display:inline; margin-left:8px; color:var(--muted); font-size:11px; line-height:1.3; }
+#slide-workflow .workflow-phase-example { position:relative; display:flex; align-items:center; min-height:70px; margin-top:12px; margin-bottom:10px; padding:11px 14px 12px; border:1px solid #cad8c2; border-radius:18px; background:#fff; color:var(--ink); box-shadow:0 8px 20px #20312b0b; font-size:clamp(1rem,1.05vw,1.1rem); line-height:1.5; letter-spacing:-.035em; font-weight:700; }
+#slide-workflow .workflow-example-label { flex:none; margin-right:6px; color:var(--accent-ink); font-size:.78em; letter-spacing:.04em; }
+#slide-workflow .workflow-example-bubble::after { content:""; position:absolute; left:26px; bottom:-8px; width:15px; height:15px; border-right:1px solid #cad8c2; border-bottom:1px solid #cad8c2; background:#fff; transform:rotate(45deg); }
+#slide-workflow .workflow-phase-hmw .workflow-example-bubble { border-color:#c6d5e6; }
+#slide-workflow .workflow-phase-hmw .workflow-example-bubble::after { border-color:#c6d5e6; }
+#slide-workflow .workflow-phase-idea .workflow-example-bubble { border-color:#bcd2ae; }
+#slide-workflow .workflow-phase-idea .workflow-example-bubble::after { border-color:#bcd2ae; }
 #slide-workflow .workflow-phase-output { margin-top:auto; padding-top:10px; border-top:1px solid #20312b1f; }
 #slide-workflow .workflow-phase-output-label { display:block; margin-bottom:4px; color:var(--muted); font:700 11px Arial,sans-serif; letter-spacing:.06em; }
 #slide-workflow .workflow-phase-output-value { display:block; color:var(--accent-ink); font-size:16px; line-height:1.35; font-weight:800; }
@@ -337,6 +383,30 @@ video { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; backgr
 #slide-workflow .workflow-arrow::before { content:""; position:absolute; left:0; right:0; top:50%; border-top:2px solid #b8c9ae; }
 #slide-workflow .workflow-arrow span { position:relative; display:grid; place-items:center; width:42px; height:42px; border-radius:50%; background:var(--bg); }
 #slide-workflow .workflow-bridge { margin-top:15px; font-size:13px; }
+#slide-10 { padding-top:20px; padding-bottom:20px; }
+#slide-10 .section-head { margin-bottom:22px; }
+#slide-10 .section-head .overline { font-size:clamp(1.1rem,1.8vw,1.5rem); }
+#slide-10 h2 { font-size:clamp(3rem,5.2vw,5.6rem); line-height:1.18; white-space:nowrap; }
+#slide-10 .positioning-diagram { gap:22px; margin-top:42px; }
+#slide-10 .positioning-tool { grid-template-columns:36px 1fr; gap:15px; padding:22px 22px; }
+#slide-10 .tool-index { width:31px; height:31px; font-size:12px; }
+#slide-10 .tool-name { font-size:16px; }
+#slide-10 .positioning-tool h3 { margin-top:10px; font-size:clamp(1.4rem,2.2vw,2rem); }
+#slide-10 .tool-detail { margin-top:6px; font-size:14px; }
+#slide-10 .positioning-arrow { font-size:36px; }
+#slide-10 .positioning-arrow span { width:46px; height:46px; }
+#slide-10 .positioning-route { padding:26px 26px 23px; }
+#slide-10 .route-heading .tool-name { font-size:17px; }
+#slide-10 .route-badge { padding:6px 10px; font-size:12px; }
+#slide-10 .positioning-route > .route-copy { margin-top:9px; font-size:15px; }
+#slide-10 .decision-path { gap:12px; margin-top:24px; }
+#slide-10 .decision-path li { min-height:90px; padding:12px 12px 11px; }
+#slide-10 .decision-path strong { margin-top:9px; font-size:19px; }
+#slide-10 .decision-path small { margin-top:3px; font-size:12px; }
+#slide-10 .route-result { gap:12px; margin-top:16px; padding-top:14px; }
+#slide-10 .route-result > span { width:32px; height:32px; font-size:18px; }
+#slide-10 .route-result strong { font-size:18px; }
+#slide-10 .route-result small { margin-top:3px; font-size:12px; }
 @media(max-height:790px) and (min-width:861px) {
   #slide-4 h2 { font-size:clamp(2rem,3.2vw,3.2rem); line-height:1.18; }
   #slide-4 .sprint-lead { font-size:clamp(1.05rem,1.55vw,1.6rem); line-height:1.45; }
@@ -398,6 +468,14 @@ video { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; backgr
   .positioning-sources { grid-template-columns:1fr 1fr; gap:10px; }
   .positioning-arrow { height:32px; transform:rotate(90deg); }
   .positioning-route { padding:19px 20px 17px; }
+  #slide-ai { padding-top:20px; padding-bottom:30px; }
+  #slide-ai h2 { font-size:clamp(2.5rem,8vw,4.2rem); }
+  .ai-future-lead { margin-top:14px; font-size:18px; }
+  .ai-future-grid { gap:14px; margin-top:26px; }
+  .ai-future-card { min-height:190px; padding:20px 20px 18px; }
+  .ai-future-card h3 { margin-top:16px; font-size:clamp(1.2rem,4.8vw,1.6rem); white-space:normal; text-wrap:balance; }
+  .ai-future-card p { font-size:13px; }
+  .ai-future-footer { margin-top:18px; }
   .tool-role { padding:22px 10px; }
   .tool-name { font-size:13px; }
   .tool-role h3 { font-size:20px; margin-top:24px; }
@@ -412,6 +490,11 @@ video { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; backgr
 @media(max-width:540px) {
   .personas,.journey,.outcomes { grid-template-columns:1fr; gap:20px; }
   .positioning-sources { grid-template-columns:1fr; }
+  #slide-ai h2 { font-size:clamp(2.25rem,10vw,3.5rem); }
+  .ai-future-lead { font-size:16px; }
+  .ai-future-grid { grid-template-columns:1fr; }
+  .ai-future-card { min-height:0; }
+  .ai-future-footer { display:block; }
   .persona { padding-bottom:6px; }
   .persona-label { margin-bottom:14px; }
   .promise-route { grid-template-columns:1fr; gap:28px; }
@@ -496,8 +579,8 @@ PDFの23ページは、個人で考える時間とチームで相談する時間
 <template class="speaker-note">ここで、皆さんが知っているNetflixの画面をご覧ください。画面いっぱいに表示したTOP10の体験を思い出してみてください。次のページで、このような身近なサービスとデザインスプリントの関係を紹介します。
 画像：ユーザー提供。</template>
 </section>
-<section class="slide" id="slide-netflix" data-slide data-title="あのNetflixも、活用事例に。" data-chapter="どんな体験を届けるか" data-time="3:39–4:09" data-start="219" data-end="249" data-source="提供されたMedium記事・Netflix公式TOP10発表。デザインスプリントとの関係は二次資料の記述であり、Netflix公式では未確認。" aria-labelledby="title-netflix">
-<div class="section-head"><p class="overline">身近なサービスで考える</p><h2 id="title-netflix" tabindex="-1">あの<span style="color:#e50914">Netflix</span>も、活用事例に。</h2></div>
+<section class="slide" id="slide-netflix" data-slide data-title="あのNetflixも、デザインスプリントを活用！？" data-chapter="どんな体験を届けるか" data-time="3:39–4:09" data-start="219" data-end="249" data-source="提供されたMedium記事・Netflix公式TOP10発表。デザインスプリントとの関係は二次資料の記述であり、Netflix公式では未確認。" aria-labelledby="title-netflix">
+<div class="section-head"><p class="overline">身近なサービスで考える</p><h2 id="title-netflix" tabindex="-1">あの<span style="color:#e50914">Netflix</span>も、デザインスプリントを活用！？</h2></div>
 <div class="netflix-layout"><div class="netflix-copy"><img class="netflix-brand" src="./netflix-design-sprint.webp" alt="Design Sprint Netflixと書かれた提供記事の画像"><h3>ユーザーが<br>「何を観よう？」と迷わず選べる。</h3><p>紹介記事では、コンテンツを見つける体験の改善に<br>デザインスプリントを活用したと説明されています。</p></div><figure class="netflix-screen"><img src="./netflix-top10.jpg" alt="Netflixのホーム画面。「今日のシリーズTOP10（日本）」に順位付きで作品が並んでいる。"><figcaption>提供された実画面：人気の作品を見つける「TOP10」</figcaption></figure></div>
 <p class="netflix-source">出典：<a href="https://medium.com/design-bootcamp/design-sprint-success-stories-how-top-companies-are-using-sprints-to-innovate-d23ae63b782a" target="_blank" rel="noopener">Mediumの活用事例記事</a> ／ <a href="https://about.netflix.com/en/news/see-whats-popular-on-netflix" target="_blank" rel="noopener">Netflix公式のTOP10紹介</a><br>※ デザインスプリントとの関係は紹介記事の記述。Netflix公式による確認は取れていません。</p>
 <template class="speaker-note">実は、皆さんが知っているNetflixも、デザインスプリントの活用事例として記事で紹介されています。この「TOP10」の画面、見覚えはありませんか。ユーザーが「何を観よう？」と迷わず選べるよう、人気の作品を見つける手がかりを届けています。記事では、コンテンツを見つける体験の改善に、試作とユーザーテストを活用したと説明されています。身近な困りごとを見つけ、チームで案を考える。その考え方を、私たちのアイデア出しにも取り入れるのがIdea Boostです。
@@ -514,47 +597,76 @@ TOP10の誕生がデザインスプリントの成果であるとは断定しま
 最後はアイデアの決定です。問いに対する案を出し、価値と実現可能性で比べ、投票と対話で採用する一案を決めます。
 Idea Boostは、画面のガイドに沿ってこの順番を進め、各ステップの成果物を次へ引き継ぎます。</template>
 </section>
-<section class="slide" id="slide-workflow" data-slide data-title="課題探しから始まって、アイデアが出るまで" data-chapter="Idea Boostの物語" data-time="4:54–5:59" data-start="294" data-end="359" data-source="PRD §6〜§7・Google Design Sprint Kitの考え方。" aria-labelledby="slide-workflow-title"><div class="section-head"><h2 id="slide-workflow-title" tabindex="-1">課題探しから始まって、<span class="accent">アイデアが出るまで</span></h2></div><div class="workflow-map" aria-label="課題からアイデア決定までのフェーズとステップ"><article class="workflow-phase workflow-phase-map"><p class="workflow-phase-meta">01 · 課題整理 / MAP</p><h3>課題を出す</h3><p class="workflow-phase-purpose">解くべき課題を決める</p><ol class="workflow-step-list"><li class="workflow-step"><span class="workflow-step-number">01</span><span class="workflow-step-copy"><strong>困りごとを書く</strong><small>個人</small></span></li><li class="workflow-step"><span class="workflow-step-number">02</span><span class="workflow-step-copy"><strong>共有する</strong><small>チーム</small></span></li><li class="workflow-step"><span class="workflow-step-number">03</span><span class="workflow-step-copy"><strong>グループ化する</strong><small>整理</small></span></li><li class="workflow-step"><span class="workflow-step-number">04</span><span class="workflow-step-copy"><strong>投票する</strong><small>絞る</small></span></li><li class="workflow-step"><span class="workflow-step-number">05</span><span class="workflow-step-copy"><strong>課題を決める</strong><small>決定</small></span></li></ol><div class="workflow-phase-output"><span class="workflow-phase-output-label">このフェーズで残るもの</span><span class="workflow-phase-output-value">このチームで出た課題</span></div></article><div class="workflow-arrow" aria-hidden="true"><span>→</span></div><article class="workflow-phase workflow-phase-hmw"><p class="workflow-phase-meta">02 · 問いの作成</p><h3>問いをつくる</h3><p class="workflow-phase-purpose">課題をアイデアが生まれる問いに変える</p><ol class="workflow-step-list"><li class="workflow-step"><span class="workflow-step-number">01</span><span class="workflow-step-copy"><strong>問いを書く</strong><small>個人</small></span></li><li class="workflow-step"><span class="workflow-step-number">02</span><span class="workflow-step-copy"><strong>共有する</strong><small>チーム</small></span></li><li class="workflow-step"><span class="workflow-step-number">03</span><span class="workflow-step-copy"><strong>投票する</strong><small>絞る</small></span></li><li class="workflow-step"><span class="workflow-step-number">04</span><span class="workflow-step-copy"><strong>問いを決める</strong><small>決定</small></span></li></ol><div class="workflow-phase-output"><span class="workflow-phase-output-label">このフェーズで残るもの</span><span class="workflow-phase-output-value">このチームで決めた問い</span></div></article><div class="workflow-arrow" aria-hidden="true"><span>→</span></div><article class="workflow-phase workflow-phase-idea"><p class="workflow-phase-meta">03 · アイデア / SKETCH → DECIDE</p><h3>アイデアを<br>決める</h3><p class="workflow-phase-purpose">問いへの解決策を比べて決める</p><ol class="workflow-step-list"><li class="workflow-step"><span class="workflow-step-number">01</span><span class="workflow-step-copy"><strong>アイデアを書く</strong><small>個人</small></span></li><li class="workflow-step"><span class="workflow-step-number">02</span><span class="workflow-step-copy"><strong>共有・分類する</strong><small>整理</small></span></li><li class="workflow-step"><span class="workflow-step-number">03</span><span class="workflow-step-copy"><strong>価値×実現可能性で評価</strong><small>比較</small></span></li><li class="workflow-step"><span class="workflow-step-number">04</span><span class="workflow-step-copy"><strong>投票する</strong><small>絞る</small></span></li><li class="workflow-step"><span class="workflow-step-number">05</span><span class="workflow-step-copy"><strong>アイデアを決める</strong><small>決定</small></span></li></ol><div class="workflow-phase-output"><span class="workflow-phase-output-label">このフェーズで残るもの</span><span class="workflow-phase-output-value">このチームで選んだアイデア</span></div></article></div><p class="caption workflow-bridge">このチームで出た課題 → このチームで決めた問い → このチームで選んだアイデア。</p><template class="speaker-note">デモでは、矢印に沿って、課題探しからアイデアが出るまでの進み方をご覧ください。課題整理は、困りごとを書く、共有する、グループ化する、投票する、課題を決める、の5ステップです。ここで残るのは「このチームで出た課題」です。問いの作成は、問いを書く、共有する、投票する、問いを決める、の4ステップです。ここで「このチームで決めた問い」を残します。アイデアは、アイデアを書く、共有・分類する、価値と実現可能性で評価する、投票する、アイデアを決める、の5ステップです。ここで残るのは「このチームで選んだアイデア」です。個人で考え、チームで共有し、比べて決める。この流れを、このあと実際の操作でご覧ください。</template></section>
-<section class="slide demo" id="slide-5" data-slide data-title="一案が、決まるまで。" data-chapter="プロダクトデモ" data-time="5:59–8:09" data-start="359" data-end="489" data-source="添付のdemo2.mp4（2分の再現デモ）・PRD §6〜§7。実際の利用実績を示す動画ではありません。" aria-labelledby="title-5">
-<div class="demo-heading"><h2 id="title-5" tabindex="-1">一案が、<span class="accent">決まるまで。</span></h2><p class="demo-duration">操作の再現デモ · 2分</p></div>
-<div class="demo-player"><div class="video-frame"><video id="demo-video" src="./demo2.mp4" poster="./demo-poster.jpg" controls playsinline preload="metadata" aria-label="Idea Boost操作デモ。無音・2分。" aria-describedby="demo-description"><p>動画を再生できるブラウザで開いてください。</p></video></div>
-<div class="video-caption"><button class="primary" id="video-toggle">デモを再生</button><details class="demo-tools"><summary>再生位置を選ぶ</summary><nav class="chapters" aria-label="デモの再生位置"><button class="chapter" data-seek="0" aria-current="true"><span class="mono">00:00</span>ルームに集まる</button><button class="chapter" data-seek="13"><span class="mono">00:13</span>ひとりで考える</button><button class="chapter" data-seek="21"><span class="mono">00:21</span>共有・整理・投票</button><button class="chapter" data-seek="48"><span class="mono">00:48</span>課題を問いに</button><button class="chapter" data-seek="88"><span class="mono">01:28</span>価値と実現可能性</button><button class="chapter" data-seek="102"><span class="mono">01:42</span>一案に決める</button></nav></details></div>
+<section class="slide" id="slide-workflow" data-slide data-title="課題探しから始まって、アイデアが出るまで" data-chapter="Idea Boostの物語" data-time="4:54–5:59" data-start="294" data-end="359" data-source="PRD §6〜§7・Google Design Sprint Kitの考え方。" aria-labelledby="slide-workflow-title"><div class="section-head"><h2 id="slide-workflow-title" tabindex="-1">課題探しから始まって、<span class="accent">アイデアが出るまで</span></h2></div><div class="workflow-map" aria-label="課題からアイデア決定までのフェーズとステップ"><article class="workflow-phase workflow-phase-map"><p class="workflow-phase-meta">01 · 課題整理 / MAP</p><h3>課題を出す</h3><ol class="workflow-step-list"><li class="workflow-step"><span class="workflow-step-number">01</span><span class="workflow-step-copy"><strong>困りごとを書く</strong><small>個人</small></span></li><li class="workflow-step"><span class="workflow-step-number">02</span><span class="workflow-step-copy"><strong>共有する</strong><small>チーム</small></span></li><li class="workflow-step"><span class="workflow-step-number">03</span><span class="workflow-step-copy"><strong>グループ化する</strong><small>整理</small></span></li><li class="workflow-step"><span class="workflow-step-number">04</span><span class="workflow-step-copy"><strong>投票する</strong><small>絞る</small></span></li><li class="workflow-step"><span class="workflow-step-number">05</span><span class="workflow-step-copy"><strong>課題を決める</strong><small>決定</small></span></li></ol><p class="workflow-phase-example workflow-example-bubble"><span class="workflow-example-label">例：</span>1人は寂しい</p><div class="workflow-phase-output"><span class="workflow-phase-output-label">このフェーズで残るもの</span><span class="workflow-phase-output-value">このチームで出た課題</span></div></article><div class="workflow-arrow" aria-hidden="true"><span>→</span></div><article class="workflow-phase workflow-phase-hmw"><p class="workflow-phase-meta">02 · 問いの作成</p><h3>問いをつくる</h3><ol class="workflow-step-list"><li class="workflow-step"><span class="workflow-step-number">01</span><span class="workflow-step-copy"><strong>問いを書く</strong><small>個人</small></span></li><li class="workflow-step"><span class="workflow-step-number">02</span><span class="workflow-step-copy"><strong>共有する</strong><small>チーム</small></span></li><li class="workflow-step"><span class="workflow-step-number">03</span><span class="workflow-step-copy"><strong>投票する</strong><small>絞る</small></span></li><li class="workflow-step"><span class="workflow-step-number">04</span><span class="workflow-step-copy"><strong>問いを決める</strong><small>決定</small></span></li></ol><p class="workflow-phase-example workflow-example-bubble"><span class="workflow-example-label">例：</span>どのように私たちは友人と時間を共有していると思えるか</p><div class="workflow-phase-output"><span class="workflow-phase-output-label">このフェーズで残るもの</span><span class="workflow-phase-output-value">このチームで決めた問い</span></div></article><div class="workflow-arrow" aria-hidden="true"><span>→</span></div><article class="workflow-phase workflow-phase-idea"><p class="workflow-phase-meta">03 · アイデア / SKETCH → DECIDE</p><h3>アイデアを<br>決める</h3><ol class="workflow-step-list"><li class="workflow-step"><span class="workflow-step-number">01</span><span class="workflow-step-copy"><strong>アイデアを書く</strong><small>個人</small></span></li><li class="workflow-step"><span class="workflow-step-number">02</span><span class="workflow-step-copy"><strong>共有・分類する</strong><small>整理</small></span></li><li class="workflow-step"><span class="workflow-step-number">03</span><span class="workflow-step-copy"><strong>価値×実現可能性で評価</strong><small>比較</small></span></li><li class="workflow-step"><span class="workflow-step-number">04</span><span class="workflow-step-copy"><strong>投票する</strong><small>絞る</small></span></li><li class="workflow-step"><span class="workflow-step-number">05</span><span class="workflow-step-copy"><strong>アイデアを決める</strong><small>決定</small></span></li></ol><p class="workflow-phase-example workflow-example-bubble"><span class="workflow-example-label">例：</span>みんなで共通のデジタルペット（たまごっちなど）をお世話する</p><div class="workflow-phase-output"><span class="workflow-phase-output-label">このフェーズで残るもの</span><span class="workflow-phase-output-value">このチームで選んだアイデア</span></div></article></div><p class="caption workflow-bridge">このチームで出た課題 → このチームで決めた問い → このチームで選んだアイデア。</p><template class="speaker-note">デモでは、矢印に沿って、課題探しからアイデアが出るまでの進み方をご覧ください。課題整理は、困りごとを書く、共有する、グループ化する、投票する、課題を決める、の5ステップです。ここで残るのは「このチームで出た課題」です。例として「1人は寂しい」という困りごとから始めます。問いの作成は、問いを書く、共有する、投票する、問いを決める、の4ステップです。ここで「このチームで決めた問い」を残します。例として「どのように私たちは友人と時間を共有していると思えるか」という問いに変えます。アイデアは、アイデアを書く、共有・分類する、価値と実現可能性で評価する、投票する、アイデアを決める、の5ステップです。例として「みんなで共通のデジタルペット（たまごっちなど）をお世話する」という案まで進めます。ここで残るのは「このチームで選んだアイデア」です。個人で考え、チームで共有し、比べて決める。この流れを、このあと実際の操作でご覧ください。</template></section>
+<section class="slide demo" id="slide-5" data-slide data-title="一案が、決まるまで。" data-chapter="プロダクトデモ" data-time="5:59–8:23" data-start="359" data-end="503" data-source="developのUIを使ったdemo2.mp4（2分14秒の再現デモ）・PRD §6〜§7。実際の利用実績を示す動画ではありません。" aria-labelledby="title-5">
+<div class="demo-heading"><h2 id="title-5" tabindex="-1">一案が、<span class="accent">決まるまで。</span></h2><p class="demo-duration">操作の再現デモ · 2分14秒</p></div>
+<div class="demo-player"><div class="video-frame"><video id="demo-video" src="./demo2.mp4" poster="./demo-poster.jpg" controls playsinline preload="metadata" aria-label="Idea Boost操作デモ。無音・2分14秒。" aria-describedby="demo-description"><p>動画を再生できるブラウザで開いてください。</p></video></div>
+<div class="video-caption"><button class="primary" id="video-toggle">デモを再生</button><details class="demo-tools"><summary>再生位置を選ぶ</summary><nav class="chapters" aria-label="デモの再生位置"><button class="chapter" data-seek="0" aria-current="true"><span class="mono">00:00</span>ルームに集まる</button><button class="chapter" data-seek="13"><span class="mono">00:13</span>ひとりで考える</button><button class="chapter" data-seek="22"><span class="mono">00:22</span>共有・整理・投票</button><button class="chapter" data-seek="53"><span class="mono">00:53</span>課題を問いに</button><button class="chapter" data-seek="99"><span class="mono">01:39</span>価値と実現可能性</button><button class="chapter" data-seek="115"><span class="mono">01:55</span>一案に決める</button></nav></details></div>
 <p class="sr-only" id="demo-description">ルーム準備から、個人ワーク、共有、投票、問いの作成、アイデア決定までの操作を再現した動画です。</p><p id="video-error" role="status" hidden>動画を読み込めませんでした。HTMLと同じフォルダにdemo2.mp4があるか確認してください。<a href="./demo2.mp4">動画ファイルを開く</a></p></div>
 <template class="speaker-note">［導入・約10秒］
-同じ困りごとを題材に、操作の流れを再現したデモです。全員で考え、進め、決めるところを、2分でご覧ください。
+同じ困りごとを題材に、操作の流れを再現したデモです。全員で考え、進め、決めるところを、2分14秒でご覧ください。
 
 ［以下は動画内の時刻。説明後は画面を見てもらう間を取る］
 00:00　まずルームを作り、招待コードでメンバーが参加します。同じ場所に集まったら、ホストの操作で始めます。
 00:13　最初は個人ワークです。自分にだけ見える付箋に、最近の困りごとを書き出します。ここでは「小さいタスクを忘れてしまう」という課題が出ました。
-00:21　自分で付箋を共有スペースへ移します。全員の課題が並び、似たものを整理していきます。
-00:35　取り組みたい課題に投票します。他の人の票は、投票中には見えません。結果を参考に、チームで課題を決めます。
-00:48　次は、その課題を問いに変えます。問いもそれぞれが考え、共有し、投票して一つにします。
-01:13　決まった問いに対して、アイデアを出します。前の段階で選んだ問いを見ながら考えられます。
-01:28　アイデアを価値と実現可能性の二軸に置いて比べます。
-01:36　アイデアにも投票し、結果を見て話し合います。
-01:42　「今日やる小さなタスクだけを表示する」に決定。このように、何を作るかを決めるところまで案内します。
-01:49〜02:00　［完了画面を見てもらう］</template>
+00:22　自分で付箋を共有スペースへ移します。全員の課題が並び、似たものを整理していきます。
+00:38　取り組みたい課題に投票します。他の人の票は、投票中には見えません。結果を参考に、チームで課題を決めます。
+00:53　次は、その課題を問いに変えます。問いもそれぞれが考え、共有し、投票して一つにします。
+01:22　決まった問いに対して、アイデアを出します。前の段階で選んだ問いを見ながら考えられます。
+01:39　アイデアを価値と実現可能性の二軸に置いて比べます。
+01:48　アイデアにも投票し、結果を見て話し合います。
+01:55　「今日やる小さなタスクだけを表示する」に決定。このように、何を作るかを決めるところまで案内します。
+02:03〜02:14　［完了画面を見てもらう］</template>
 </section>
-<section class="slide " id="slide-10" data-slide data-title="必要とされるアイデアへ、迷わず。" data-chapter="何を、大切にするか" data-time="8:09–8:59" data-start="489" data-end="539" data-source="PRD §5 Non-Goal・§8 差別化／ポジショニング／AI壁打ちへの回答" aria-labelledby="title-10">
-<div class="section-head"><p class="overline">私たちの強み · 迷わず進めるワークフロー</p><h2 id="title-10" tabindex="-1">必要とされるアイデアへ、<br><span class="accent">迷わず。</span></h2></div><div class="positioning-diagram" aria-label="各道具の役割とIdea Boostの支援範囲"><div class="positioning-sources"><article class="positioning-tool"><span class="tool-index">01</span><div><p class="tool-name">Miro・FigJam</p><h3>作業の場</h3><p class="tool-detail">自由に並べ、共有する</p></div></article><article class="positioning-tool"><span class="tool-index">02</span><div><p class="tool-name">ChatGPT</p><h3>対話の相手</h3><p class="tool-detail">問いを広げ、深める</p></div></article></div><div class="positioning-arrow" aria-hidden="true"><span>→</span></div><div class="positioning-route"><div class="route-heading"><p class="tool-name"><span class="product-name">Idea Boost<span class="product-dot" aria-hidden="true">.</span></span></p><span class="route-badge">進め方を組み込み済み</span></div><p class="route-copy">ガイドに沿って、誰かの困りごとからアイデアへ</p><ol class="decision-path" aria-label="Idea Boostがつなぐ3つの段階"><li><span class="path-step">01</span><strong>誰の課題？</strong><small>困りごとを捉える</small></li><li><span class="path-step">02</span><strong>どうしたら？</strong><small>解決の問いをつくる</small></li><li><span class="path-step">03</span><strong>どんな案？</strong><small>価値と実現性で考える</small></li></ol><div class="route-result"><span aria-hidden="true">✓</span><div><strong>誰かに役立つ理由のあるアイデア</strong><small>今やることがわかる。次のステップへ進める。</small></div></div></div></div>
+<section class="slide " id="slide-10" data-slide data-title="必要とされるアイデアへ、迷わず。" data-chapter="何を、大切にするか" data-time="8:23–9:13" data-start="503" data-end="553" data-source="PRD §5 Non-Goal・§8 差別化／ポジショニング／AI壁打ちへの回答" aria-labelledby="title-10">
+<div class="section-head"><p class="overline">私たちの強み · 迷わず進めるワークフロー</p><h2 id="title-10" tabindex="-1">必要とされるアイデアへ、<span class="accent">迷わず。</span></h2></div><div class="positioning-diagram" aria-label="各道具の役割とIdea Boostの支援範囲"><div class="positioning-sources"><article class="positioning-tool"><span class="tool-index">01</span><div><p class="tool-name">Miro・FigJam</p><h3>作業の場</h3><p class="tool-detail">自由に並べ、共有する</p></div></article><article class="positioning-tool"><span class="tool-index">02</span><div><p class="tool-name">ChatGPTなどの生成AI</p><h3>対話の相手</h3><p class="tool-detail">問いを深掘りする</p></div></article></div><div class="positioning-arrow" aria-hidden="true"><span>→</span></div><div class="positioning-route"><div class="route-heading"><p class="tool-name"><span class="product-name">Idea Boost<span class="product-dot" aria-hidden="true">.</span></span></p><span class="route-badge">進め方を組み込み済み</span></div><p class="route-copy">ガイドに沿って、誰かの困りごとからアイデアへ</p><ol class="decision-path" aria-label="Idea Boostがつなぐ3つの段階"><li><span class="path-step">01</span><strong>誰の課題？</strong><small>困りごとを捉える</small></li><li><span class="path-step">02</span><strong>どうしたら？</strong><small>解決の問いをつくる</small></li><li><span class="path-step">03</span><strong>どんな案？</strong><small>価値と実現性で考える</small></li></ol><div class="route-result"><span aria-hidden="true">✓</span><div><strong>誰かに役立つ理由のあるアイデア</strong><small>今やることがわかる。次のステップへ進める。</small></div></div></div></div>
 <template class="speaker-note">Idea Boostの強みは、誰かに必要とされるアイデアを、迷わず進めるワークフローで形にしていくことです。
 誰が何に困っているのかを捉え、「どうしたら解決できるか」という問いをつくり、価値と実現可能性をもとに案を考えます。
 各ステップのガイドが今やることを示すので、初めてのチームも、この流れに沿って取り組めます。
 共有や対話のための道具に加えて、課題からアイデアまでの進め方そのものを用意する。それが私たちの提供する価値です。
 こうして考えた案が実際に必要とされるかは、その先のユーザー検証で確かめていきます。</template>
 </section>
-<section class="slide " id="slide-11" data-slide data-title="誰もが、必要とされるアイデアをここから生み出せる。" data-chapter="何を、大切にするか" data-time="8:59–9:39" data-start="539" data-end="579" data-source="PRD §4 Goal・§2 意見の偏りと納得感のある選定。利用前であることは発表者より。目指す状態であり、利用者の感想ではありません。" aria-labelledby="title-11">
+<section class="slide " id="slide-11" data-slide data-title="誰もが、必要とされるアイデアをここから生み出せる。" data-chapter="何を、大切にするか" data-time="9:13–9:53" data-start="553" data-end="593" data-source="PRD §4 Goal・§2 意見の偏りと納得感のある選定。利用前であることは発表者より。目指す状態であり、利用者の感想ではありません。" aria-labelledby="title-11">
 <div class="section-head"><p class="overline">私たちが目指すもの</p><h2 id="title-11" tabindex="-1">誰もが、<span class="accent">必要とされるアイデア</span>を<br>ここから生み出せる。</h2></div>
 <template class="speaker-note">私たちが目指すのは、誰もが世の中に必要とされるアイデアを、ここから生み出せる状態です。
 素晴らしいアイデアは、特別な誰かだけが生み出すものではありません。まず一人で考え、自分の言葉にする。次に、その考えを共有する。最後に、価値や実現可能性をもとに、なぜその案なのかを話せる。
 Idea Boostは、一人ひとりの考えをチームのアイデアへ育てる手順を用意します。
 まだ実際の利用前なので、この状態が生まれるかはこれから確かめていきます。</template>
 </section>
-<section class="slide" id="slide-12" data-slide data-title="次は、実際のチームへ。" data-chapter="Idea Boostの物語" data-time="9:39–10:29" data-start="579" data-end="629" data-source="目指す状態を検証するための今後の方針案。実施済みの実績ではありません。" aria-labelledby="slide-12-title"><div class="section-head"><h2 id="slide-12-title" tabindex="-1">次は、実際のチームへ。</h2></div><div class="outcomes"><article class="outcome"><p class="outcome-number">01 · 利用</p><h3>使ってもらう。</h3><p class="outcome-detail">アイデア出しに慣れていない学生チームへ。</p></article><article class="outcome"><p class="outcome-number">02 · 検証</p><h3>確かめる。</h3><p class="outcome-detail">全員がアイデアと理由を話せたか。</p></article><article class="outcome"><p class="outcome-number">03 · 改善</p><h3>進め方を磨く。</h3><p class="outcome-detail">迷った場面をもとに、ガイドを見直す。</p></article></div><p class="sprint-takeaway">Idea Boost. アイデアは、もっと自然に。</p><template class="speaker-note">次の展望は、実際の学生チームで使ってもらい、目指す状態が生まれるかを確かめることです。全員がアイデアを出せたか、その理由を説明できたか、どこで迷ったかを見て、ガイドや進め方を改善していきたいと考えています。誰もが、理由を持ってアイデアを出せるように。エンジニアファーストのIdea Boostです。ありがとうございました。</template></section>
+<section class="slide ai-future" id="slide-ai" data-slide data-title="IdeaBoost.×AI" data-chapter="これからの構想" data-time="9:53–10:33" data-start="593" data-end="633" data-source="将来構想。現行MVPの対象外で、チームが決める体験をAIが支える案です。" aria-labelledby="slide-ai-title">
+  <div class="section-head">
+    <p class="overline">これからの構想 · AIとの付き合い方</p>
+    <h2 id="slide-ai-title" tabindex="-1">IdeaBoost.<span class="accent">×AI</span></h2>
+    <p class="ai-future-lead"><strong>答えを決めるのは、チーム。</strong> 迷ったときの問いかけと、決めた理由をAIがそっと支えます。</p>
+  </div>
+  <div class="ai-future-grid">
+    <article class="ai-future-card">
+      <p class="ai-future-kicker">GUIDE · 次の一歩</p>
+      <h3>迷いのないアイデア出しにアップデートをAIで</h3>
+    </article>
+    <article class="ai-future-card">
+      <p class="ai-future-kicker">TRACE · 思考の軌跡</p>
+      <h3>アイデアが生まれた軌跡はAIで</h3>
+    </article>
+  </div>
+  <div class="ai-future-footer"><strong>チームが決める。AIは、思考を前へ。</strong></div>
+  <template class="speaker-note">ここからは、これからの構想です。現在のMVPは固定フローとガイドで進めますが、その先ではIdeaBoost.×AIの組み合わせを検討しています。
+  アイデアが止まったときには、いまの課題や問いに合わせて、次の問いや別の視点を提案する。考えるきっかけを増やし、チームの発想を前へ進めます。
+  そして、課題、問い、アイデア、なぜその案に決めたのかという理由をAIが要約し、ひと続きの記録として残す。AIが答えを決めるのではなく、チームが決めた過程をあとから振り返れるようにする構想です。</template>
+</section>
+<section class="slide" id="slide-12" data-slide data-title="次は、実際のチームへ。" data-chapter="Idea Boostの物語" data-time="10:33–11:23" data-start="633" data-end="683" data-source="目指す状態を検証するための今後の方針案。実施済みの実績ではありません。" aria-labelledby="slide-12-title"><div class="section-head"><h2 id="slide-12-title" tabindex="-1">次は、実際のチームへ。</h2></div><div class="outcomes"><article class="outcome"><p class="outcome-number">01 · 利用</p><h3>使ってもらう。</h3><p class="outcome-detail">アイデア出しに慣れていない学生チームへ。</p></article><article class="outcome"><p class="outcome-number">02 · 検証</p><h3>確かめる。</h3><p class="outcome-detail">全員がアイデアと理由を話せたか。</p></article><article class="outcome"><p class="outcome-number">03 · 改善</p><h3>進め方を磨く。</h3><p class="outcome-detail">迷った場面をもとに、ガイドを見直す。</p></article></div><p class="sprint-takeaway">Idea Boost. アイデアは、もっと自然に。</p><template class="speaker-note">次の展望は、実際の学生チームで使ってもらい、目指す状態が生まれるかを確かめることです。全員がアイデアを出せたか、その理由を説明できたか、どこで迷ったかを見て、ガイドや進め方を改善していきたいと考えています。誰もが、理由を持ってアイデアを出せるように。エンジニアファーストのIdea Boostです。ありがとうございました。</template></section>
+<section class="slide thanks-slide" id="slide-thanks" data-slide data-title="アイデア出しには — THANKS" data-chapter="クロージング" data-time="11:23–11:33" data-start="683" data-end="693" data-source="Idea Boostの呼称・制作チーム名。" aria-labelledby="thanks-title">
+  <p class="thanks-eyebrow">THINK. SHARE. DECIDE.</p>
+  <h2 id="thanks-title" tabindex="-1">アイデア出しには</h2>
+  <p class="thanks-wordmark">Idea Boost<span class="product-dot">.</span></p>
+  <p class="thanks-team">エンジニアファースト</p>
+  <p class="thanks-signoff">THANKS</p>
+  <template class="speaker-note">アイデア出しには、Idea Boost。エンジニアファーストのIdea Boostです。ご清聴ありがとうございました。［画面を残して、一礼］</template>
+</section>
 </main>
 <div>
 <footer class="footer">
-  <span class="page-number"><strong id="current-number">01</strong> / 14</span>
+  <span class="page-number"><strong id="current-number">01</strong> / 16</span>
   <nav class="progress-nav" aria-label="スライド目次"></nav>
   <div class="footer-actions"><button class="icon-button" id="previous" aria-label="前のスライド" disabled>←</button><button class="icon-button" id="next" aria-label="次のスライド">→</button></div>
 </footer>

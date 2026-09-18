@@ -56,6 +56,7 @@ export type RoomBoardCanvasProps = {
   decision: Decision | null;
   isHost: boolean;
   privateNotes: Note[];
+  privateNotesDefaultExpanded?: boolean;
   selectedNoteId: string | null;
   draggingNoteId: string | null;
   isDisconnected: boolean;
@@ -123,6 +124,7 @@ export function RoomBoardCanvas({
   decision,
   isHost,
   privateNotes,
+  privateNotesDefaultExpanded = false,
   selectedNoteId,
   draggingNoteId,
   isDisconnected,
@@ -473,7 +475,7 @@ export function RoomBoardCanvas({
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               editingDisabled={isResultStep(phase)}
-              defaultExpanded={false}
+              defaultExpanded={privateNotesDefaultExpanded}
               className="pointer-events-auto max-h-full w-60"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}

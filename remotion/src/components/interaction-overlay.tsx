@@ -1,9 +1,12 @@
 import { MousePointer2 } from "lucide-react";
 import { Easing, interpolate } from "remotion";
+import { DotVoteSticker } from "@/features/dot-vote";
 import {
   getPrimaryDragPointer,
+  getVoteDrag,
   type OperationMoment,
 } from "../data/operation-demo-state";
+import { PRODUCT_STAGE } from "../stage-geometry";
 import type { OperationSegmentId } from "../timeline";
 
 type Point = { x: number; y: number };
@@ -40,10 +43,10 @@ const SEGMENT_MOTIONS: Partial<Record<OperationSegmentId, SegmentMotion>> = {
     zoom: 1.035,
   },
   "phase-1-step-1": {
-    from: { x: 590, y: 910 },
-    to: { x: 780, y: 855 },
+    from: { x: 1710, y: 982 },
+    to: { x: 1635, y: 835 },
     clickAt: 0.2,
-    focus: { x: 780, y: 780 },
+    focus: { x: 1570, y: 780 },
     zoom: 1.055,
   },
   "phase-1-step-2": {
@@ -75,10 +78,10 @@ const SEGMENT_MOTIONS: Partial<Record<OperationSegmentId, SegmentMotion>> = {
     zoom: 1.045,
   },
   "phase-2-step-1": {
-    from: { x: 440, y: 520 },
-    to: { x: 725, y: 865 },
+    from: { x: 250, y: 460 },
+    to: { x: 1635, y: 835 },
     clickAt: 0.22,
-    focus: { x: 600, y: 620 },
+    focus: { x: 960, y: 620 },
     zoom: 1.055,
   },
   "phase-2-step-2": {
@@ -103,10 +106,10 @@ const SEGMENT_MOTIONS: Partial<Record<OperationSegmentId, SegmentMotion>> = {
     zoom: 1.045,
   },
   "phase-3-step-1": {
-    from: { x: 1420, y: 420 },
-    to: { x: 1510, y: 555 },
-    clickAt: 0.28,
-    focus: { x: 1390, y: 535 },
+    from: { x: 200, y: 450 },
+    to: { x: 340, y: 424 },
+    clickAt: 0.24,
+    focus: { x: 300, y: 535 },
     zoom: 1.055,
   },
   "phase-3-step-2": {
@@ -173,11 +176,14 @@ export function InteractionOverlay({
 }) {
   const motion = getSegmentMotion(moment.segmentId);
   const scriptedDragPointer = getPrimaryDragPointer(moment);
+  const voteDrag = getVoteDrag(moment);
   const travel = easedProgress(moment.progress);
   const x =
+    (voteDrag ? voteDrag.x + PRODUCT_STAGE.left : undefined) ??
     scriptedDragPointer?.x ??
     motion.from.x + (motion.to.x - motion.from.x) * travel;
   const y =
+    (voteDrag ? voteDrag.y + PRODUCT_STAGE.top : undefined) ??
     scriptedDragPointer?.y ??
     motion.from.y + (motion.to.y - motion.from.y) * travel;
   const cursorOpacity = interpolate(
@@ -192,7 +198,19 @@ export function InteractionOverlay({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[100]">
-      {motion.clickAt === null ? null : (
+      {voteDrag?.isDragging ? (
+        <div
+          style={{
+            position: "absolute",
+            left: x,
+            top: y,
+            transform: "translate(-50%, -50%)",
+          }}
+        >
+          <DotVoteSticker kind={voteDrag.kind} count={1} state="preview" />
+        </div>
+      ) : null}
+      {motion.clickAt === null || voteDrag !== null ? null : (
         <ClickRipples
           x={motion.to.x}
           y={motion.to.y}

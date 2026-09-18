@@ -1,6 +1,6 @@
 # Idea Boost Remotion operation demo
 
-口頭説明と同時に流す、2分間・60fpsの操作確認動画です。ホームとロビーは本体のView部品、
+口頭説明と同時に流す、2分14秒・60fpsの操作確認動画です。ホームとロビーは本体のView部品、
 ボードは`RoomBoardView`を直接利用し、実際のデザインと文言を共有します。
 
 ## Preview
@@ -16,6 +16,26 @@ npm run render:idea-flow
 ```
 
 出力先は`remotion/out/idea-flow-operation-demo.mp4`です。
+プレゼン用には同じ動画を `docs/site/presentation/demo2.mp4` に配置します。
+
+UIは `origin/develop`（`6bbe03e`）と照合した本体Viewを利用します。
+動画用の決定的描画ではマイ付箋を開き、現行の「考えるヒント」を表示します。
+ホーム6秒・ロビー7秒・完了11秒は維持し、全14ステップを旧動画より各1秒延長しています。
+
+| フェーズ                | 開始  | 尺   |
+| ----------------------- | ----- | ---- |
+| ルーム準備              | 00:00 | 13秒 |
+| 課題整理（5ステップ）   | 00:13 | 40秒 |
+| 問いの作成（4ステップ） | 00:53 | 29秒 |
+| アイデア（5ステップ）   | 01:22 | 41秒 |
+| 完了                    | 02:03 | 11秒 |
+
+全17場面のレビュー静止画は次のコマンドで生成できます。
+
+```bash
+REMOTION_BROWSER_EXECUTABLE="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+node remotion/scripts/render-operation-review.mjs
+```
 
 ## Idea Boost Launch Video
 
@@ -44,7 +64,7 @@ node remotion/scripts/render-launch-review.mjs` で再生成できます。
 ## Structure
 
 - `src/idea-flow-operation-demo.tsx` — 本体UIを使った画面構成
-- `src/timeline.ts` — 120秒・60fps・全14 Stepのタイムライン
+- `src/timeline.ts` — 134秒・60fps・全14 Stepのタイムライン
 - `src/components/` — カーソル、波紋、カメラワーク
 - `src/data/operation-demo-state.ts` — フレームから本体UI propsへの変換
 

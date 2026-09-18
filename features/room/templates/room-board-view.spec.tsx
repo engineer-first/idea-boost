@@ -228,6 +228,21 @@ function clickNote(card: HTMLElement) {
 
 describe("RoomBoardView", () => {
   describe("決定的描画モード", () => {
+    it("動画モードではマイ付箋を開いて入力内容を描画する", () => {
+      const privateNotes = [
+        buildNote({ visibility: "private", content: "動画で見せる入力内容" }),
+      ];
+      setup({
+        phase: buildPhaseStep(1),
+        renderMode: "deterministic",
+        interactions: buildInteractions([], privateNotes),
+      });
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        "true",
+      );
+      expect(screen.getByText("動画で見せる入力内容")).toBeInTheDocument();
+    });
     it("動画モードでは初回描画からマウント済みとして扱う", () => {
       expect(getInitialRoomBoardMounted("deterministic")).toBe(true);
       expect(getInitialRoomBoardMounted("interactive")).toBe(false);

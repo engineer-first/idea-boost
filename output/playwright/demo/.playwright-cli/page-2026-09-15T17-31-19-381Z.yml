@@ -1,0 +1,13 @@
+- generic [active] [ref=e1]:
+  - main "Idea Boost プレゼンテーション" [ref=e3]:
+    - region [ref=e4]:
+      - generic [ref=e5]:
+        - paragraph [ref=e7]:
+          - generic [ref=e8]: Idea Boost.
+          - text: · opening
+        - heading "まもなく、はじまります。" [level=1] [ref=e9]
+        - button "プロモーションを再生" [ref=e10] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e11]: ▶
+          - text: プロモーションを再生
+    - text: → → ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓
+  - paragraph [ref=e12]: 1 / 14、まもなく、Idea Boostのプロモーション。

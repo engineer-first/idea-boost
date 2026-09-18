@@ -1,0 +1,58 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "Idea Boost、最初のスライドへ" [ref=e4] [cursor=pointer]:
+        - /url: "#slide-launch-intro"
+        - generic [aria-hidden] [ref=e5]: ↗
+        - generic [ref=e6]: Idea Boost.
+      - button "全画面表示" [ref=e46] [cursor=pointer]: ⛶
+    - main "Idea Boost プレゼンテーション" [ref=e8]:
+      - text: → → ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓
+      - region [ref=e9]:
+        - generic [ref=e10]:
+          - heading "一案が、決まるまで。" [level=2] [ref=e11]
+          - paragraph [ref=e12]: 操作の再現デモ · 2分14秒
+        - generic [ref=e13]:
+          - generic "Idea Boost操作デモ。無音・2分14秒。" [ref=e15]
+          - generic [ref=e16]:
+            - button "デモを一時停止" [active] [ref=e45] [cursor=pointer]
+            - group [ref=e18]:
+              - generic "再生位置を選ぶ" [ref=e19] [cursor=pointer]
+          - paragraph [ref=e20]: ルーム準備から、個人ワーク、共有、投票、問いの作成、アイデア決定までの操作を再現した動画です。
+    - contentinfo [ref=e22]:
+      - generic [ref=e23]:
+        - strong [ref=e24]: "11"
+        - text: / 14
+      - navigation "スライド目次" [ref=e25]:
+        - link "1. まもなく、Idea Boostのプロモーション。" [ref=e26] [cursor=pointer]:
+          - /url: "#slide-launch-intro"
+        - link "2. Idea Boost Launch — アイデア出しに困ったときは、これ。" [ref=e27] [cursor=pointer]:
+          - /url: "#slide-launch"
+        - link "3. Idea Boost — アイデア出しに困ったときに。" [ref=e28] [cursor=pointer]:
+          - /url: "#slide-1"
+        - link "4. 必要とされるアイデアとは？" [ref=e29] [cursor=pointer]:
+          - /url: "#slide-2"
+        - link "5. 私たちも、アイデアに困っていた。" [ref=e30] [cursor=pointer]:
+          - /url: "#slide-experience"
+        - link "6. デザインスプリントとは？" [ref=e31] [cursor=pointer]:
+          - /url: "#slide-4"
+        - link "7. Netflixのホーム画面" [ref=e32] [cursor=pointer]:
+          - /url: "#slide-netflix-image"
+        - link "8. あのNetflixも、活用事例に。" [ref=e33] [cursor=pointer]:
+          - /url: "#slide-netflix"
+        - link "9. 課題から、一案まで。3つのステップ。" [ref=e34] [cursor=pointer]:
+          - /url: "#slide-3"
+        - link "10. 課題探しから始まって、アイデアが出るまで" [ref=e35] [cursor=pointer]:
+          - /url: "#slide-workflow"
+        - link "11. 一案が、決まるまで。" [ref=e36] [cursor=pointer]:
+          - /url: "#slide-5"
+        - link "12. 必要とされるアイデアへ、迷わず。" [ref=e37] [cursor=pointer]:
+          - /url: "#slide-10"
+        - link "13. 誰もが、必要とされるアイデアをここから生み出せる。" [ref=e38] [cursor=pointer]:
+          - /url: "#slide-11"
+        - link "14. 次は、実際のチームへ。" [ref=e39] [cursor=pointer]:
+          - /url: "#slide-12"
+      - generic [ref=e40]:
+        - button "前のスライド" [ref=e41] [cursor=pointer]: ←
+        - button "次のスライド" [ref=e42] [cursor=pointer]: →
+  - paragraph [ref=e43]: 11 / 14、一案が、決まるまで。

@@ -593,6 +593,7 @@ export function RoomBoardView({
         decision={decision}
         isHost={isHost}
         privateNotes={toolbarNotes}
+        privateNotesDefaultExpanded={renderMode === "deterministic"}
         selectedNoteId={selectedNoteId}
         draggingNoteId={draggingNoteId}
         isDisconnected={isDisconnected}

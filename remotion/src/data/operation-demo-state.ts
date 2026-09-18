@@ -7,6 +7,7 @@ import {
 } from "../../../contracts/phase";
 import type {
   Decision,
+  DotVoteKind,
   NoteColor,
   ProtocolMember,
   ProtocolNote,
@@ -68,17 +69,23 @@ export const PRIMARY_DRAG_TARGET = { x: 250, y: 220 } as const;
 const POINTER_GRAB_OFFSET = 20;
 const DRAG_START = 0.08;
 const DRAG_END = 0.58;
-const ISSUE_GROUP_TARGETS = [
-  [360, 280],
-  [580, 300],
-  [385, 455],
-  [1030, 300],
-] as const;
 const IDEA_EVALUATION_TARGETS = [
   [78, 86],
   [58, 72],
   [70, 52],
   [42, 64],
+  [24, 82],
+  [42, 76],
+  [60, 68],
+  [80, 58],
+  [18, 58],
+  [36, 50],
+  [54, 42],
+  [72, 34],
+  [26, 32],
+  [44, 26],
+  [62, 20],
+  [80, 14],
 ] as const;
 
 type NoteSeed = {
@@ -88,6 +95,26 @@ type NoteSeed = {
   x: number;
   y: number;
 };
+
+const DEMO_AUTHOR_COLORS = ["yellow", "green", "blue", "pink"] as const;
+
+function buildAdditionalSeeds(
+  prefix: "a" | "b" | "c",
+  contents: readonly string[],
+  positions: readonly (readonly [number, number])[],
+): NoteSeed[] {
+  return contents.map((content, index) => {
+    const position = positions[index] ?? [0, 0];
+    const suffix = (index + 5).toString(16).padStart(2, "0");
+    return {
+      id: `${prefix.repeat(8)}-${prefix.repeat(4)}-4${prefix.repeat(3)}-8${prefix.repeat(3)}-${prefix.repeat(10)}${suffix}`,
+      content,
+      color: DEMO_AUTHOR_COLORS[index % DEMO_AUTHOR_COLORS.length],
+      x: position[0],
+      y: position[1],
+    };
+  });
+}
 
 const COLLABORATORS: readonly ProtocolMember[] = [
   { userId: TARO_USER_ID, name: "Taro Yamada", color: "green" },
@@ -131,6 +158,37 @@ const ISSUE_NOTE_SEEDS: readonly NoteSeed[] = [
     x: 1090,
     y: 390,
   },
+  ...buildAdditionalSeeds(
+    "a",
+    [
+      "通知が多くて重要なものを見逃す",
+      "誰が担当かすぐに分からない",
+      "作業の途中で別のことを始めてしまう",
+      "予定を立てても崩れてしまう",
+      "今日やることを毎回探している",
+      "タスクの粒度がそろわない",
+      "完了したか確認しづらい",
+      "相談するタイミングが難しい",
+      "締切までの残り日数を忘れる",
+      "先延ばしにしてしまう",
+      "メモがいろいろな場所に散らばる",
+      "チームの変更に気づけない",
+    ],
+    [
+      [1400, 180],
+      [1400, 380],
+      [1400, 580],
+      [1400, 780],
+      [180, 580],
+      [400, 580],
+      [620, 580],
+      [840, 580],
+      [1060, 580],
+      [1280, 580],
+      [180, 780],
+      [400, 780],
+    ],
+  ),
 ];
 
 const HMW_NOTE_SEEDS: readonly NoteSeed[] = [
@@ -155,6 +213,45 @@ const HMW_NOTE_SEEDS: readonly NoteSeed[] = [
     x: 1050,
     y: 240,
   },
+  {
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb4",
+    content: "もっとチームで気軽に相談できる？",
+    color: "pink",
+    x: 1290,
+    y: 330,
+  },
+  ...buildAdditionalSeeds(
+    "b",
+    [
+      "もっと迷わず今日のタスクを選べる？",
+      "もっと自然に優先順位を相談できる？",
+      "もっと進捗を一目で共有できる？",
+      "もっと締切を思い出せる仕組みを作れる？",
+      "もっと集中を続けやすくできる？",
+      "もっと分担を公平に決められる？",
+      "もっと完了をチームで喜べる？",
+      "もっと困ったときに助けを求められる？",
+      "もっと予定変更に柔軟に対応できる？",
+      "もっと情報を一か所に集められる？",
+      "もっと次の一歩を小さく始められる？",
+      "もっとチームの変化を見逃さずに済む？",
+    ],
+    [
+      [140, 160],
+      [380, 160],
+      [620, 160],
+      [860, 160],
+      [1100, 160],
+      [1340, 160],
+      [140, 390],
+      [380, 390],
+      [620, 390],
+      [860, 390],
+      [1100, 390],
+      [1340, 390],
+      [140, 620],
+    ],
+  ),
 ];
 
 const IDEA_NOTE_SEEDS: readonly NoteSeed[] = [
@@ -186,13 +283,69 @@ const IDEA_NOTE_SEEDS: readonly NoteSeed[] = [
     x: 35,
     y: 54,
   },
+  ...buildAdditionalSeeds(
+    "c",
+    [
+      "今日の集中時間をチームに共有する",
+      "締切から逆算して順番を提案する",
+      "終わったことを毎晩ふりかえる",
+      "困りごとを匿名で相談できるようにする",
+      "次にやる一件だけを大きく表示する",
+      "チームの予定をカレンダーで重ねる",
+      "作業中は通知をまとめて届ける",
+      "タスクを小さなカードに分けて並べる",
+      "助けが必要なタスクを色で知らせる",
+      "メンバーの得意分野から担当を提案する",
+      "週の終わりに進捗を自動でまとめる",
+      "変更されたタスクだけを知らせる",
+    ],
+    [
+      [20, 18],
+      [38, 18],
+      [56, 18],
+      [74, 18],
+      [20, 36],
+      [38, 36],
+      [56, 36],
+      [74, 36],
+      [20, 54],
+      [38, 54],
+      [56, 54],
+      [74, 54],
+    ],
+  ),
 ];
 
-const ISSUE_GROUP_NOTE_IDS = [
-  ISSUE_NOTE_SEEDS[0].id,
-  ISSUE_NOTE_SEEDS[1].id,
-  ISSUE_NOTE_SEEDS[2].id,
+const ISSUE_GROUPS: PersistentGroup[] = [
+  {
+    id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1",
+    name: "忘れ・見落とし",
+    noteIds: [0, 2, 4, 8, 12, 14].map((index) => ISSUE_NOTE_SEEDS[index].id),
+  },
+  {
+    id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+    name: "優先順位・集中",
+    noteIds: [1, 6, 7, 9, 13].map((index) => ISSUE_NOTE_SEEDS[index].id),
+  },
+  {
+    id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd3",
+    name: "チームの連携",
+    noteIds: [3, 5, 10, 11, 15].map((index) => ISSUE_NOTE_SEEDS[index].id),
+  },
 ];
+
+const ISSUE_GROUP_TARGETS = ISSUE_NOTE_SEEDS.map(
+  (seed): readonly [number, number] => {
+    const groupIndex = ISSUE_GROUPS.findIndex((group) =>
+      group.noteIds.includes(seed.id),
+    );
+    const slot = ISSUE_GROUPS[groupIndex].noteIds.indexOf(seed.id);
+    return [
+      90 + groupIndex * 550 + (slot % 2) * 215,
+      200 + Math.floor(slot / 2) * 175,
+    ];
+  },
+);
 
 function createNote(
   seed: NoteSeed,
@@ -217,53 +370,133 @@ function createNote(
   };
 }
 
-function privateNotesFrom(seeds: readonly NoteSeed[]): ProtocolNote[] {
-  return seeds.map((seed) =>
-    createNote(seed, { visibility: "private", x: 0, y: 0 }),
-  );
+const TYPING_NOTE_INTERVAL = 0.2;
+const TYPING_NOTE_DURATION = 0.18;
+function draftPrivateNotes(
+  seeds: readonly NoteSeed[],
+  progress: number,
+): ProtocolNote[] {
+  return seeds
+    .filter((seed) => seed.color === "yellow")
+    .map((seed, index) => {
+      const noteProgress = clampProgress(
+        (progress - index * TYPING_NOTE_INTERVAL) / TYPING_NOTE_DURATION,
+      );
+      const typedLength = Math.max(
+        1,
+        Math.ceil(seed.content.length * noteProgress),
+      );
+      const isTyping = noteProgress < 1;
+      return createNote(seed, {
+        visibility: "private",
+        x: 0,
+        y: 0,
+        content: `${seed.content.slice(0, typedLength)}${isTyping ? "▌" : ""}`,
+      });
+    })
+    .filter((_note, index) => {
+      const noteProgress = clampProgress(
+        (progress - index * TYPING_NOTE_INTERVAL) / TYPING_NOTE_DURATION,
+      );
+      return progress >= index * TYPING_NOTE_INTERVAL && noteProgress > 0;
+    });
+}
+
+function privateNotesDuringSharing(
+  seeds: readonly NoteSeed[],
+  moment: OperationMoment,
+): ProtocolNote[] {
+  const motions = getNoteMotions(moment);
+  return seeds
+    .filter((seed) => seed.color === "yellow")
+    .filter(
+      (seed) =>
+        moment.progress <
+        (motions.find((motion) => motion.noteId === seed.id)?.start ?? 1),
+    )
+    .map((seed) => createNote(seed, { visibility: "private", x: 0, y: 0 }));
 }
 
 // 投票中は受信者向け射影と同じく総票数を持たず、本人の投票状態だけを表示する。
-function applyStealthVotes(notes: ProtocolNote[]): ProtocolNote[] {
-  return notes.map((note, index) => ({
-    ...note,
-    dotVotes: {
-      subjective: {
-        votedByMe: index === 0,
-        ownCount: index === 0 ? 1 : 0,
-      },
-      objective: {
-        votedByMe: index < 3,
-        ownCount: index < 3 ? 1 : 0,
-      },
-    },
-    dotVoteStickers: [
-      ...(index === 0
-        ? [
-            {
-              id: `eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee${index}`,
-              kind: "subjective" as const,
-              x: 0.78,
-              y: 0.2,
-            },
-          ]
-        : []),
-      ...(index < 3
-        ? [
-            {
-              id: `ffffffff-ffff-4fff-8fff-fffffffffff${index}`,
-              kind: "objective" as const,
-              x: 0.62 + index * 0.08,
-              y: 0.34 + index * 0.12,
-            },
-          ]
-        : []),
-    ],
-  }));
+const VOTE_ACTIONS = [
+  { noteIndex: 0, kind: "subjective", x: 0.78, y: 0.2 },
+  { noteIndex: 0, kind: "objective", x: 0.62, y: 0.34 },
+  { noteIndex: 1, kind: "objective", x: 0.7, y: 0.46 },
+  { noteIndex: 2, kind: "objective", x: 0.78, y: 0.58 },
+] as const;
+
+function actionWindow(index: number): { start: number; end: number } {
+  return { start: 0.08 + index * 0.21, end: 0.23 + index * 0.21 };
 }
 
-function stealthVotes(seeds: readonly NoteSeed[]): ProtocolNote[] {
-  return applyStealthVotes(seeds.map((seed) => createNote(seed)));
+function applyStealthVotes(
+  notes: ProtocolNote[],
+  moment: OperationMoment,
+): ProtocolNote[] {
+  return notes.map((note, index) => {
+    const stickers = VOTE_ACTIONS.flatMap((action, actionIndex) =>
+      action.noteIndex === index &&
+      moment.progress >= actionWindow(actionIndex).end
+        ? [
+            {
+              id: `eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee${actionIndex}`,
+              kind: action.kind,
+              x: action.x,
+              y: action.y,
+            },
+          ]
+        : [],
+    );
+    const subjective = stickers.filter(
+      (sticker) => sticker.kind === "subjective",
+    ).length;
+    const objective = stickers.filter(
+      (sticker) => sticker.kind === "objective",
+    ).length;
+    return {
+      ...note,
+      dotVotes: {
+        subjective: { ownCount: subjective, votedByMe: subjective > 0 },
+        objective: { ownCount: objective, votedByMe: objective > 0 },
+      },
+      dotVoteStickers: stickers,
+    };
+  });
+}
+
+export function getVoteDrag(
+  moment: OperationMoment,
+): { kind: DotVoteKind; x: number; y: number; isDragging: boolean } | null {
+  const seeds =
+    moment.segmentId === "phase-1-step-4"
+      ? groupedIssueNotesAtTargets()
+      : moment.segmentId === "phase-2-step-3"
+        ? HMW_NOTE_SEEDS
+        : moment.segmentId === "phase-3-step-4"
+          ? evaluatedIdeaNotes()
+          : null;
+  if (!seeds) return null;
+  const actionIndex = VOTE_ACTIONS.findIndex(
+    (_action, index) => moment.progress < actionWindow(index).end,
+  );
+  const index = actionIndex < 0 ? VOTE_ACTIONS.length - 1 : actionIndex;
+  const action = VOTE_ACTIONS[index];
+  const window = actionWindow(index);
+  const note = seeds[action.noteIndex];
+  const origin =
+    moment.segmentId === "phase-3-step-4" ? mapNoteTopLeft(note) : note;
+  const point = movingPoint(
+    moment.progress,
+    [action.kind === "subjective" ? 770 : 880, PRODUCT_STAGE.height - 36],
+    [origin.x + NOTE_WIDTH * action.x, origin.y + NOTE_HEIGHT * action.y],
+    window.start,
+    window.end,
+  );
+  return {
+    ...point,
+    kind: action.kind,
+    isDragging: moment.progress >= window.start && moment.progress < window.end,
+  };
 }
 
 function applyTotaledVotes(notes: ProtocolNote[]): ProtocolNote[] {
@@ -458,61 +691,66 @@ function mapNoteTopLeft(point: Point): Point {
   };
 }
 
+function getNoteMotions(moment: OperationMoment): DragMotion[] {
+  const seeds =
+    moment.segmentId === "phase-1-step-2" ||
+    moment.segmentId === "phase-1-step-3"
+      ? ISSUE_NOTE_SEEDS
+      : moment.segmentId === "phase-2-step-2"
+        ? HMW_NOTE_SEEDS
+        : moment.segmentId === "phase-3-step-2" ||
+            moment.segmentId === "phase-3-step-3"
+          ? IDEA_NOTE_SEEDS
+          : null;
+  if (!seeds) return [];
+  const isSharing = moment.segmentId.endsWith("step-2");
+  const isIdea = moment.segmentId.startsWith("phase-3");
+  return seeds.map((seed, index) => {
+    const authorIndex = DEMO_AUTHOR_COLORS.indexOf(
+      seed.color as (typeof DEMO_AUTHOR_COLORS)[number],
+    );
+    const round = seeds
+      .slice(0, index)
+      .filter((candidate) => candidate.color === seed.color).length;
+    const window = actionWindow(round);
+    const offset = authorIndex * 0.012;
+    const target = isSharing
+      ? ([seed.x, seed.y] as const)
+      : isIdea
+        ? IDEA_EVALUATION_TARGETS[index]
+        : ISSUE_GROUP_TARGETS[index];
+    const viewportTarget =
+      isIdea && isSharing && authorIndex === 0 ? mapNoteTopLeft(seed) : null;
+    return {
+      noteId: seed.id,
+      surface: viewportTarget ? "viewport" : isIdea ? "map" : "board",
+      from: isSharing
+        ? isIdea && authorIndex !== 0
+          ? [94, 10 + authorIndex * 8]
+          : [PRIMARY_DRAG_SOURCE.x, PRIMARY_DRAG_SOURCE.y]
+        : [seed.x, seed.y],
+      to: viewportTarget ? [viewportTarget.x, viewportTarget.y] : target,
+      start: window.start + offset,
+      end: window.end + offset,
+    };
+  });
+}
+
+function getPrimaryDragMotions(moment: OperationMoment): DragMotion[] {
+  return getNoteMotions(moment).filter((motion) =>
+    [...ISSUE_NOTE_SEEDS, ...HMW_NOTE_SEEDS, ...IDEA_NOTE_SEEDS].some(
+      (seed) => seed.id === motion.noteId && seed.color === "yellow",
+    ),
+  );
+}
+
 function getPrimaryDragMotion(moment: OperationMoment): DragMotion | null {
-  switch (moment.segmentId) {
-    case "phase-1-step-2":
-      return {
-        noteId: ISSUE_NOTE_SEEDS[0].id,
-        surface: "board",
-        from: [PRIMARY_DRAG_SOURCE.x, PRIMARY_DRAG_SOURCE.y],
-        to: [PRIMARY_DRAG_TARGET.x, PRIMARY_DRAG_TARGET.y],
-        start: DRAG_START,
-        end: DRAG_END,
-      };
-    case "phase-1-step-3":
-      return {
-        noteId: ISSUE_NOTE_SEEDS[0].id,
-        surface: "board",
-        from: [ISSUE_NOTE_SEEDS[0].x, ISSUE_NOTE_SEEDS[0].y],
-        to: ISSUE_GROUP_TARGETS[0],
-        start: DRAG_START,
-        end: 0.5,
-      };
-    case "phase-2-step-2":
-      return {
-        noteId: HMW_NOTE_SEEDS[0].id,
-        surface: "board",
-        from: [PRIMARY_DRAG_SOURCE.x, PRIMARY_DRAG_SOURCE.y],
-        to: [HMW_NOTE_SEEDS[0].x, HMW_NOTE_SEEDS[0].y],
-        start: DRAG_START,
-        end: DRAG_END,
-      };
-    case "phase-3-step-2": {
-      const target = mapNoteTopLeft({
-        x: IDEA_NOTE_SEEDS[0].x,
-        y: IDEA_NOTE_SEEDS[0].y,
-      });
-      return {
-        noteId: IDEA_NOTE_SEEDS[0].id,
-        surface: "viewport",
-        from: [PRIMARY_DRAG_SOURCE.x, PRIMARY_DRAG_SOURCE.y],
-        to: [target.x, target.y],
-        start: DRAG_START,
-        end: DRAG_END,
-      };
-    }
-    case "phase-3-step-3":
-      return {
-        noteId: IDEA_NOTE_SEEDS[0].id,
-        surface: "map",
-        from: [IDEA_NOTE_SEEDS[0].x, IDEA_NOTE_SEEDS[0].y],
-        to: IDEA_EVALUATION_TARGETS[0],
-        start: DRAG_START,
-        end: DRAG_END,
-      };
-    default:
-      return null;
-  }
+  const motions = getPrimaryDragMotions(moment);
+  return (
+    motions.find((motion) => moment.progress < motion.end) ??
+    motions.at(-1) ??
+    null
+  );
 }
 
 function pointForMotion(moment: OperationMoment, motion: DragMotion): Point {
@@ -545,142 +783,21 @@ export function getPrimaryDragPointer(moment: OperationMoment): Point | null {
 function getCollaboratorMotions(
   moment: OperationMoment,
 ): CollaboratorDragMotion[] {
-  if (moment.phase?.kind !== "step" || !isCursorSharingAllowed(moment.phase)) {
+  if (moment.phase?.kind !== "step" || !isCursorSharingAllowed(moment.phase))
     return [];
-  }
-
-  if (moment.segmentId === "phase-1-step-2") {
-    return [
-      {
-        member: COLLABORATORS[0],
-        noteId: ISSUE_NOTE_SEEDS[1].id,
-        surface: "board",
-        from: [1440, 620],
-        to: [ISSUE_NOTE_SEEDS[1].x, ISSUE_NOTE_SEEDS[1].y],
-        start: 0.1,
-        end: 0.5,
-      },
-      {
-        member: COLLABORATORS[1],
-        noteId: ISSUE_NOTE_SEEDS[2].id,
-        surface: "board",
-        from: [1480, 660],
-        to: [ISSUE_NOTE_SEEDS[2].x, ISSUE_NOTE_SEEDS[2].y],
-        start: 0.14,
-        end: 0.52,
-      },
-      {
-        member: COLLABORATORS[2],
-        noteId: ISSUE_NOTE_SEEDS[3].id,
-        surface: "board",
-        from: [1520, 540],
-        to: [ISSUE_NOTE_SEEDS[3].x, ISSUE_NOTE_SEEDS[3].y],
-        start: 0.18,
-        end: 0.54,
-      },
-    ];
-  }
-
-  if (moment.segmentId === "phase-1-step-3") {
-    return [
-      {
-        member: COLLABORATORS[0],
-        noteId: ISSUE_NOTE_SEEDS[1].id,
-        surface: "board",
-        from: [ISSUE_NOTE_SEEDS[1].x, ISSUE_NOTE_SEEDS[1].y],
-        to: ISSUE_GROUP_TARGETS[1],
-        start: 0.1,
-        end: 0.5,
-      },
-      {
-        member: COLLABORATORS[1],
-        noteId: ISSUE_NOTE_SEEDS[2].id,
-        surface: "board",
-        from: [ISSUE_NOTE_SEEDS[2].x, ISSUE_NOTE_SEEDS[2].y],
-        to: ISSUE_GROUP_TARGETS[2],
-        start: 0.14,
-        end: 0.52,
-      },
-      {
-        member: COLLABORATORS[2],
-        noteId: ISSUE_NOTE_SEEDS[3].id,
-        surface: "board",
-        from: [ISSUE_NOTE_SEEDS[3].x, ISSUE_NOTE_SEEDS[3].y],
-        to: ISSUE_GROUP_TARGETS[3],
-        start: 0.18,
-        end: 0.54,
-      },
-    ];
-  }
-
-  if (moment.segmentId === "phase-2-step-2") {
-    return [
-      {
-        member: COLLABORATORS[0],
-        noteId: HMW_NOTE_SEEDS[1].id,
-        surface: "board",
-        from: [1440, 620],
-        to: [HMW_NOTE_SEEDS[1].x, HMW_NOTE_SEEDS[1].y],
-        start: 0.12,
-        end: 0.62,
-      },
-      {
-        member: COLLABORATORS[1],
-        noteId: HMW_NOTE_SEEDS[2].id,
-        surface: "board",
-        from: [1480, 660],
-        to: [HMW_NOTE_SEEDS[2].x, HMW_NOTE_SEEDS[2].y],
-        start: 0.17,
-        end: 0.67,
-      },
-    ];
-  }
-
-  if (moment.segmentId === "phase-3-step-2") {
-    return [
-      {
-        member: COLLABORATORS[0],
-        noteId: IDEA_NOTE_SEEDS[1].id,
-        surface: "map",
-        from: [92, 15],
-        to: [IDEA_NOTE_SEEDS[1].x, IDEA_NOTE_SEEDS[1].y],
-        start: 0.1,
-        end: 0.6,
-      },
-      {
-        member: COLLABORATORS[1],
-        noteId: IDEA_NOTE_SEEDS[2].id,
-        surface: "map",
-        from: [88, 25],
-        to: [IDEA_NOTE_SEEDS[2].x, IDEA_NOTE_SEEDS[2].y],
-        start: 0.14,
-        end: 0.64,
-      },
-      {
-        member: COLLABORATORS[2],
-        noteId: IDEA_NOTE_SEEDS[3].id,
-        surface: "map",
-        from: [94, 35],
-        to: [IDEA_NOTE_SEEDS[3].x, IDEA_NOTE_SEEDS[3].y],
-        start: 0.18,
-        end: 0.68,
-      },
-    ];
-  }
-
-  if (moment.segmentId === "phase-3-step-3") {
-    return COLLABORATORS.map((member, index) => ({
-      member,
-      noteId: IDEA_NOTE_SEEDS[index + 1].id,
-      surface: "map" as const,
-      from: [IDEA_NOTE_SEEDS[index + 1].x, IDEA_NOTE_SEEDS[index + 1].y],
-      to: IDEA_EVALUATION_TARGETS[index + 1],
-      start: 0.1 + index * 0.04,
-      end: 0.6 + index * 0.04,
-    }));
-  }
-
-  return [];
+  const motions = getNoteMotions(moment);
+  const seeds = [...ISSUE_NOTE_SEEDS, ...HMW_NOTE_SEEDS, ...IDEA_NOTE_SEEDS];
+  return COLLABORATORS.flatMap((member) => {
+    const ownMotions = motions.filter((motion) =>
+      seeds.some(
+        (seed) => seed.id === motion.noteId && seed.color === member.color,
+      ),
+    );
+    const motion =
+      ownMotions.find((candidate) => moment.progress < candidate.end) ??
+      ownMotions.at(-1);
+    return motion ? [{ ...motion, member }] : [];
+  });
 }
 
 function getCollaborationState(
@@ -704,29 +821,42 @@ function getCollaborationState(
   return { remoteCursors, remoteNoteDrags: [] };
 }
 
-function notesFollowingCollaborators(
+function notesForSharing(
   seeds: readonly NoteSeed[],
   moment: OperationMoment,
-  hideBeforeDrag: boolean,
 ): ProtocolNote[] {
-  const motions = getCollaboratorMotions(moment);
+  const motions = getNoteMotions(moment);
   return seeds.flatMap((seed) => {
-    const motion = motions.find(({ noteId }) => noteId === seed.id);
-    if (!motion) return [createNote(seed)];
-    if (hideBeforeDrag && moment.progress < motion.start) return [];
+    const motion = motions.find((candidate) => candidate.noteId === seed.id);
+    if (!motion || moment.progress < motion.start) return [];
+    if (seed.color === "yellow" && moment.progress < motion.end) return [];
+    if (moment.progress >= motion.end) return [createNote(seed)];
     const point = pointForMotion(moment, motion);
-    return [createNote({ ...seed, x: point.x, y: point.y })];
+    return [createNote({ ...seed, ...point })];
   });
 }
 
-function noteFollowingPrimaryDrag(
-  seed: NoteSeed,
+function positionedNotes(
+  seeds: readonly NoteSeed[],
   moment: OperationMoment,
-): ProtocolNote {
-  const motion = getPrimaryDragMotion(moment);
-  if (!motion || motion.noteId !== seed.id) return createNote(seed);
-  const point = pointForMotion(moment, motion);
-  return createNote({ ...seed, x: point.x, y: point.y });
+): ProtocolNote[] {
+  const motions = getNoteMotions(moment);
+  return seeds.flatMap((seed) => {
+    const motion = motions.find((candidate) => candidate.noteId === seed.id);
+    if (!motion) return [createNote(seed)];
+    if (seed.color === "yellow" && isMotionActive(moment, motion)) return [];
+    return [createNote({ ...seed, ...pointForMotion(moment, motion) })];
+  });
+}
+
+function activePrimarySeed(
+  seeds: readonly NoteSeed[],
+  moment: OperationMoment,
+): NoteSeed {
+  return (
+    seeds.find((seed) => seed.id === getPrimaryDragMotion(moment)?.noteId) ??
+    seeds[0]
+  );
 }
 
 function primaryBoardDragGhost(
@@ -774,45 +904,24 @@ export function getOperationBoardData(
     case "home":
     case "lobby":
       return base;
-    case "phase-1-step-1": {
-      const privateNotes = privateNotesFrom(ISSUE_NOTE_SEEDS.slice(0, 1));
-      const typedLength = Math.max(
-        1,
-        Math.round(
-          privateNotes[0].content.length * Math.min(1, moment.progress * 1.7),
-        ),
-      );
-      privateNotes[0] = {
-        ...privateNotes[0],
-        content: privateNotes[0].content.slice(0, typedLength),
+    case "phase-1-step-1":
+      return {
+        ...base,
+        privateNotes: draftPrivateNotes(ISSUE_NOTE_SEEDS, moment.progress),
       };
-      return { ...base, privateNotes };
-    }
     case "phase-1-step-2": {
       const primaryMotion = getPrimaryDragMotion(moment);
       const isDragging =
         primaryMotion !== null && isMotionActive(moment, primaryMotion);
-      const isPublished =
-        primaryMotion !== null && moment.progress >= primaryMotion.end;
-      const localNote = createNote(ISSUE_NOTE_SEEDS[0], {
-        visibility: "private",
-      });
       return {
         ...base,
-        notes: [
-          ...(isPublished ? [createNote(ISSUE_NOTE_SEEDS[0])] : []),
-          ...notesFollowingCollaborators(
-            ISSUE_NOTE_SEEDS.slice(1),
-            moment,
-            true,
-          ),
-        ],
-        privateNotes:
-          primaryMotion !== null && moment.progress < primaryMotion.start
-            ? [localNote]
-            : [],
-        draggingNoteId: isDragging ? ISSUE_NOTE_SEEDS[0].id : null,
-        dragGhost: primaryBoardDragGhost(ISSUE_NOTE_SEEDS[0], moment),
+        notes: notesForSharing(ISSUE_NOTE_SEEDS, moment),
+        privateNotes: privateNotesDuringSharing(ISSUE_NOTE_SEEDS, moment),
+        draggingNoteId: isDragging ? primaryMotion.noteId : null,
+        dragGhost: primaryBoardDragGhost(
+          activePrimarySeed(ISSUE_NOTE_SEEDS, moment),
+          moment,
+        ),
       };
     }
     case "phase-1-step-3": {
@@ -821,53 +930,34 @@ export function getOperationBoardData(
         primaryMotion !== null && isMotionActive(moment, primaryMotion);
       return {
         ...base,
-        notes: [
-          ...(isDragging
-            ? []
-            : [noteFollowingPrimaryDrag(ISSUE_NOTE_SEEDS[0], moment)]),
-          ...notesFollowingCollaborators(
-            ISSUE_NOTE_SEEDS.slice(1),
-            moment,
-            false,
-          ),
-        ],
-        draggingNoteId: isDragging ? ISSUE_NOTE_SEEDS[0].id : null,
-        dragGhost: primaryBoardDragGhost(ISSUE_NOTE_SEEDS[0], moment),
-        groups:
-          moment.progress >= 0.56
-            ? [
-                {
-                  id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-                  name: "タスクを忘れる",
-                  noteIds: ISSUE_GROUP_NOTE_IDS,
-                },
-              ]
-            : [],
+        notes: positionedNotes(ISSUE_NOTE_SEEDS, moment),
+        draggingNoteId: isDragging ? primaryMotion.noteId : null,
+        dragGhost: primaryBoardDragGhost(
+          activePrimarySeed(ISSUE_NOTE_SEEDS, moment),
+          moment,
+        ),
+        groups: ISSUE_GROUPS.flatMap((group) => {
+          const noteIds = group.noteIds.filter((id) => {
+            const motion = getNoteMotions(moment).find(
+              (candidate) => candidate.noteId === id,
+            );
+            return motion && moment.progress >= motion.end;
+          });
+          return noteIds.length >= 2 ? [{ ...group, noteIds }] : [];
+        }),
       };
     }
     case "phase-1-step-4":
       return {
         ...base,
-        notes: applyStealthVotes(groupedIssueNotesAtTargets()),
-        groups: [
-          {
-            id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-            name: "タスクを忘れる",
-            noteIds: ISSUE_GROUP_NOTE_IDS,
-          },
-        ],
+        notes: applyStealthVotes(groupedIssueNotesAtTargets(), moment),
+        groups: ISSUE_GROUPS,
       };
     case "phase-1-step-5":
       return {
         ...base,
         notes: applyTotaledVotes(groupedIssueNotesAtTargets()),
-        groups: [
-          {
-            id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-            name: "タスクを忘れる",
-            noteIds: ISSUE_GROUP_NOTE_IDS,
-          },
-        ],
+        groups: ISSUE_GROUPS,
         decision:
           moment.progress >= 0.72
             ? decisionFor(1, ISSUE_NOTE_SEEDS[0].id)
@@ -876,34 +966,32 @@ export function getOperationBoardData(
     case "phase-2-step-1":
       return {
         ...base,
-        privateNotes: privateNotesFrom(HMW_NOTE_SEEDS.slice(0, 1)),
+        privateNotes: draftPrivateNotes(HMW_NOTE_SEEDS, moment.progress),
         hmwDecidedIssue: DECIDED_ISSUE,
       };
     case "phase-2-step-2": {
       const primaryMotion = getPrimaryDragMotion(moment);
       const isDragging =
         primaryMotion !== null && isMotionActive(moment, primaryMotion);
-      const isPublished =
-        primaryMotion !== null && moment.progress >= primaryMotion.end;
       return {
         ...base,
-        notes: [
-          ...(isPublished ? [createNote(HMW_NOTE_SEEDS[0])] : []),
-          ...notesFollowingCollaborators(HMW_NOTE_SEEDS.slice(1), moment, true),
-        ],
-        privateNotes:
-          primaryMotion !== null && moment.progress < primaryMotion.start
-            ? privateNotesFrom(HMW_NOTE_SEEDS.slice(0, 1))
-            : [],
-        draggingNoteId: isDragging ? HMW_NOTE_SEEDS[0].id : null,
-        dragGhost: primaryBoardDragGhost(HMW_NOTE_SEEDS[0], moment),
+        notes: notesForSharing(HMW_NOTE_SEEDS, moment),
+        privateNotes: privateNotesDuringSharing(HMW_NOTE_SEEDS, moment),
+        draggingNoteId: isDragging ? primaryMotion.noteId : null,
+        dragGhost: primaryBoardDragGhost(
+          activePrimarySeed(HMW_NOTE_SEEDS, moment),
+          moment,
+        ),
         hmwDecidedIssue: DECIDED_ISSUE,
       };
     }
     case "phase-2-step-3":
       return {
         ...base,
-        notes: stealthVotes(HMW_NOTE_SEEDS),
+        notes: applyStealthVotes(
+          HMW_NOTE_SEEDS.map((seed) => createNote(seed)),
+          moment,
+        ),
         hmwDecidedIssue: DECIDED_ISSUE,
       };
     case "phase-2-step-4":
@@ -917,31 +1005,22 @@ export function getOperationBoardData(
     case "phase-3-step-1":
       return {
         ...base,
-        privateNotes: privateNotesFrom(IDEA_NOTE_SEEDS.slice(0, 1)),
+        privateNotes: draftPrivateNotes(IDEA_NOTE_SEEDS, moment.progress),
         decidedHmw: DECIDED_HMW,
       };
     case "phase-3-step-2": {
       const primaryMotion = getPrimaryDragMotion(moment);
       const isDragging =
         primaryMotion !== null && isMotionActive(moment, primaryMotion);
-      const isPublished =
-        primaryMotion !== null && moment.progress >= primaryMotion.end;
       return {
         ...base,
-        notes: [
-          ...(isPublished ? [createNote(IDEA_NOTE_SEEDS[0])] : []),
-          ...notesFollowingCollaborators(
-            IDEA_NOTE_SEEDS.slice(1),
-            moment,
-            true,
-          ),
-        ],
-        privateNotes:
-          primaryMotion !== null && moment.progress < primaryMotion.start
-            ? privateNotesFrom(IDEA_NOTE_SEEDS.slice(0, 1))
-            : [],
-        draggingNoteId: isDragging ? IDEA_NOTE_SEEDS[0].id : null,
-        viewportDragGhost: primaryViewportDragGhost(IDEA_NOTE_SEEDS[0], moment),
+        notes: notesForSharing(IDEA_NOTE_SEEDS, moment),
+        privateNotes: privateNotesDuringSharing(IDEA_NOTE_SEEDS, moment),
+        draggingNoteId: isDragging ? primaryMotion.noteId : null,
+        viewportDragGhost: primaryViewportDragGhost(
+          activePrimarySeed(IDEA_NOTE_SEEDS, moment),
+          moment,
+        ),
         decidedHmw: DECIDED_HMW,
       };
     }
@@ -951,25 +1030,19 @@ export function getOperationBoardData(
         primaryMotion !== null && isMotionActive(moment, primaryMotion);
       return {
         ...base,
-        notes: [
-          ...(isDragging
-            ? []
-            : [noteFollowingPrimaryDrag(IDEA_NOTE_SEEDS[0], moment)]),
-          ...notesFollowingCollaborators(
-            IDEA_NOTE_SEEDS.slice(1),
-            moment,
-            false,
-          ),
-        ],
-        draggingNoteId: isDragging ? IDEA_NOTE_SEEDS[0].id : null,
-        dragGhost: primaryBoardDragGhost(IDEA_NOTE_SEEDS[0], moment),
+        notes: positionedNotes(IDEA_NOTE_SEEDS, moment),
+        draggingNoteId: isDragging ? primaryMotion.noteId : null,
+        dragGhost: primaryBoardDragGhost(
+          activePrimarySeed(IDEA_NOTE_SEEDS, moment),
+          moment,
+        ),
         decidedHmw: DECIDED_HMW,
       };
     }
     case "phase-3-step-4":
       return {
         ...base,
-        notes: applyStealthVotes(evaluatedIdeaNotes()),
+        notes: applyStealthVotes(evaluatedIdeaNotes(), moment),
         decidedHmw: DECIDED_HMW,
       };
     case "phase-3-step-5":
@@ -994,4 +1067,27 @@ export function getOperationBoardData(
       return exhaustive;
     }
   }
+}
+
+export function getOperationHelp(moment: OperationMoment): {
+  kind: "hmw" | "idea" | "reference" | null;
+  isOpen: boolean;
+  tab: "write" | "expand";
+} {
+  const kind =
+    moment.segmentId === "phase-2-step-1"
+      ? "hmw"
+      : moment.segmentId === "phase-3-step-1"
+        ? "idea"
+        : moment.segmentId === "phase-3-step-2"
+          ? "reference"
+          : null;
+  return {
+    kind,
+    isOpen: kind === "hmw" || kind === "idea",
+    tab:
+      kind === "idea" && moment.progress >= 0.24 && moment.progress <= 0.86
+        ? "expand"
+        : "write",
+  };
 }

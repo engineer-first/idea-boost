@@ -1,0 +1,160 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "Idea Boost、最初のスライドへ" [ref=e4] [cursor=pointer]:
+        - /url: "#slide-launch-intro"
+        - generic [aria-hidden] [ref=e5]: ↗
+        - generic [ref=e6]: Idea Boost.
+      - button "全画面表示" [ref=e7] [cursor=pointer]: ⛶
+    - main "Idea Boost プレゼンテーション" [ref=e8]:
+      - text: → →
+      - region [ref=e9]:
+        - heading "課題探しから始まって、アイデアが出るまで" [level=2] [ref=e11]
+        - generic "課題からアイデア決定までのフェーズとステップ" [ref=e12]:
+          - article [ref=e13]:
+            - paragraph [ref=e14]: 01 · 課題整理 / MAP
+            - heading "課題を出す" [level=3] [ref=e15]
+            - paragraph [ref=e16]: 解くべき課題を決める
+            - list [ref=e17]:
+              - listitem [ref=e18]:
+                - generic [ref=e19]: "01"
+                - generic [ref=e20]:
+                  - strong [ref=e21]: 困りごとを書く
+                  - text: 個人
+              - listitem [ref=e22]:
+                - text: ↓
+                - generic [ref=e23]: "02"
+                - generic [ref=e24]:
+                  - strong [ref=e25]: 共有する
+                  - text: チーム
+              - listitem [ref=e26]:
+                - text: ↓
+                - generic [ref=e27]: "03"
+                - generic [ref=e28]:
+                  - strong [ref=e29]: グループ化する
+                  - text: 整理
+              - listitem [ref=e30]:
+                - text: ↓
+                - generic [ref=e31]: "04"
+                - generic [ref=e32]:
+                  - strong [ref=e33]: 投票する
+                  - text: 絞る
+              - listitem [ref=e34]:
+                - text: ↓
+                - generic [ref=e35]: "05"
+                - generic [ref=e36]:
+                  - strong [ref=e37]: 課題を決める
+                  - text: 決定
+            - generic [ref=e38]:
+              - generic [ref=e39]: このフェーズで残るもの
+              - generic [ref=e40]: このチームで出た課題
+          - generic [ref=e42]: →
+          - article [ref=e43]:
+            - paragraph [ref=e44]: 02 · 問いの作成
+            - heading "問いをつくる" [level=3] [ref=e45]
+            - paragraph [ref=e46]: 課題をアイデアが生まれる問いに変える
+            - list [ref=e47]:
+              - listitem [ref=e48]:
+                - generic [ref=e49]: "01"
+                - generic [ref=e50]:
+                  - strong [ref=e51]: 問いを書く
+                  - text: 個人
+              - listitem [ref=e52]:
+                - text: ↓
+                - generic [ref=e53]: "02"
+                - generic [ref=e54]:
+                  - strong [ref=e55]: 共有する
+                  - text: チーム
+              - listitem [ref=e56]:
+                - text: ↓
+                - generic [ref=e57]: "03"
+                - generic [ref=e58]:
+                  - strong [ref=e59]: 投票する
+                  - text: 絞る
+              - listitem [ref=e60]:
+                - text: ↓
+                - generic [ref=e61]: "04"
+                - generic [ref=e62]:
+                  - strong [ref=e63]: 問いを決める
+                  - text: 決定
+            - generic [ref=e64]:
+              - generic [ref=e65]: このフェーズで残るもの
+              - generic [ref=e66]: このチームで決めた問い
+          - generic [ref=e68]: →
+          - article [ref=e69]:
+            - paragraph [ref=e70]: 03 · アイデア / SKETCH → DECIDE
+            - heading "アイデアを 決める" [level=3] [ref=e71]: アイデアを決める
+            - paragraph [ref=e72]: 問いへの解決策を比べて決める
+            - list [ref=e73]:
+              - listitem [ref=e74]:
+                - generic [ref=e75]: "01"
+                - generic [ref=e76]:
+                  - strong [ref=e77]: アイデアを書く
+                  - text: 個人
+              - listitem [ref=e78]:
+                - text: ↓
+                - generic [ref=e79]: "02"
+                - generic [ref=e80]:
+                  - strong [ref=e81]: 共有・分類する
+                  - text: 整理
+              - listitem [ref=e82]:
+                - text: ↓
+                - generic [ref=e83]: "03"
+                - generic [ref=e84]:
+                  - strong [ref=e85]: 価値×実現可能性で評価
+                  - text: 比較
+              - listitem [ref=e86]:
+                - text: ↓
+                - generic [ref=e87]: "04"
+                - generic [ref=e88]:
+                  - strong [ref=e89]: 投票する
+                  - text: 絞る
+              - listitem [ref=e90]:
+                - text: ↓
+                - generic [ref=e91]: "05"
+                - generic [ref=e92]:
+                  - strong [ref=e93]: アイデアを決める
+                  - text: 決定
+            - generic [ref=e94]:
+              - generic [ref=e95]: このフェーズで残るもの
+              - generic [ref=e96]: このチームで選んだアイデア
+        - paragraph [ref=e97]: このチームで出た課題 → このチームで決めた問い → このチームで選んだアイデア。
+    - contentinfo [ref=e99]:
+      - generic [ref=e100]:
+        - strong [ref=e101]: "10"
+        - text: / 15
+      - navigation "スライド目次" [ref=e102]:
+        - link "1. まもなく、Idea Boostのプロモーション。" [ref=e103] [cursor=pointer]:
+          - /url: "#slide-launch-intro"
+        - link "2. Idea Boost Launch — アイデア出しに困ったときは、これ。" [ref=e104] [cursor=pointer]:
+          - /url: "#slide-launch"
+        - link "3. Idea Boost — アイデア出しに困ったときに。" [ref=e105] [cursor=pointer]:
+          - /url: "#slide-1"
+        - link "4. 必要とされるアイデアとは？" [ref=e106] [cursor=pointer]:
+          - /url: "#slide-2"
+        - link "5. 私たちも、アイデアに困っていた。" [ref=e107] [cursor=pointer]:
+          - /url: "#slide-experience"
+        - link "6. デザインスプリントとは？" [ref=e108] [cursor=pointer]:
+          - /url: "#slide-4"
+        - link "7. Netflixのホーム画面" [ref=e109] [cursor=pointer]:
+          - /url: "#slide-netflix-image"
+        - link "8. あのNetflixも、活用事例に。" [ref=e110] [cursor=pointer]:
+          - /url: "#slide-netflix"
+        - link "9. 課題から、一案まで。3つのステップ。" [ref=e111] [cursor=pointer]:
+          - /url: "#slide-3"
+        - link "10. 課題探しから始まって、アイデアが出るまで" [ref=e112] [cursor=pointer]:
+          - /url: "#slide-workflow"
+        - link "11. 一案が、決まるまで。" [ref=e113] [cursor=pointer]:
+          - /url: "#slide-5"
+        - link "12. 必要とされるアイデアへ、迷わず。" [ref=e114] [cursor=pointer]:
+          - /url: "#slide-10"
+        - link "13. 誰もが、必要とされるアイデアをここから生み出せる。" [ref=e115] [cursor=pointer]:
+          - /url: "#slide-11"
+        - link "14. 次は、実際のチームへ。" [ref=e116] [cursor=pointer]:
+          - /url: "#slide-12"
+        - link "15. アイデアは、もっと自然に。 — THANKS" [ref=e117] [cursor=pointer]:
+          - /url: "#slide-thanks"
+      - generic [ref=e118]:
+        - button "前のスライド" [ref=e119] [cursor=pointer]: ←
+        - button "次のスライド" [ref=e120] [cursor=pointer]: →
+  - paragraph [ref=e121]: 10 / 15、課題探しから始まって、アイデアが出るまで

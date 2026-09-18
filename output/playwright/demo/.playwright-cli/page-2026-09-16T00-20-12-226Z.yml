@@ -1,0 +1,55 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "Idea Boost、最初のスライドへ" [ref=e4] [cursor=pointer]:
+        - /url: "#slide-launch-intro"
+        - generic [aria-hidden] [ref=e5]: ↗
+        - generic [ref=e6]: Idea Boost.
+      - button "全画面表示" [ref=e7] [cursor=pointer]: ⛶
+    - main "Idea Boost プレゼンテーション" [ref=e8]:
+      - text: → → ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓ ↓
+      - region [ref=e9]:
+        - paragraph [ref=e10]: THINK. SHARE. DECIDE.
+        - heading "アイデアは、もっと自然に。" [level=2] [ref=e11]
+        - paragraph [ref=e12]: Idea Boost.
+        - paragraph [ref=e13]: エンジニアファースト
+        - paragraph [ref=e14]: THANKS
+    - contentinfo [ref=e16]:
+      - generic [ref=e17]:
+        - strong [ref=e18]: "15"
+        - text: / 15
+      - navigation "スライド目次" [ref=e19]:
+        - link "1. まもなく、Idea Boostのプロモーション。" [ref=e20] [cursor=pointer]:
+          - /url: "#slide-launch-intro"
+        - link "2. Idea Boost Launch — アイデア出しに困ったときは、これ。" [ref=e21] [cursor=pointer]:
+          - /url: "#slide-launch"
+        - link "3. Idea Boost — アイデア出しに困ったときに。" [ref=e22] [cursor=pointer]:
+          - /url: "#slide-1"
+        - link "4. 必要とされるアイデアとは？" [ref=e23] [cursor=pointer]:
+          - /url: "#slide-2"
+        - link "5. 私たちも、アイデアに困っていた。" [ref=e24] [cursor=pointer]:
+          - /url: "#slide-experience"
+        - link "6. デザインスプリントとは？" [ref=e25] [cursor=pointer]:
+          - /url: "#slide-4"
+        - link "7. Netflixのホーム画面" [ref=e26] [cursor=pointer]:
+          - /url: "#slide-netflix-image"
+        - link "8. あのNetflixも、活用事例に。" [ref=e27] [cursor=pointer]:
+          - /url: "#slide-netflix"
+        - link "9. 課題から、一案まで。3つのステップ。" [ref=e28] [cursor=pointer]:
+          - /url: "#slide-3"
+        - link "10. 課題探しから始まって、アイデアが出るまで" [ref=e29] [cursor=pointer]:
+          - /url: "#slide-workflow"
+        - link "11. 一案が、決まるまで。" [ref=e30] [cursor=pointer]:
+          - /url: "#slide-5"
+        - link "12. 必要とされるアイデアへ、迷わず。" [ref=e31] [cursor=pointer]:
+          - /url: "#slide-10"
+        - link "13. 誰もが、必要とされるアイデアをここから生み出せる。" [ref=e32] [cursor=pointer]:
+          - /url: "#slide-11"
+        - link "14. 次は、実際のチームへ。" [ref=e33] [cursor=pointer]:
+          - /url: "#slide-12"
+        - link "15. アイデアは、もっと自然に。 — THANKS" [ref=e34] [cursor=pointer]:
+          - /url: "#slide-thanks"
+      - generic [ref=e35]:
+        - button "前のスライド" [ref=e36] [cursor=pointer]: ←
+        - button "次のスライド" [disabled] [ref=e37]: →
+  - paragraph [ref=e38]: 15 / 15、アイデアは、もっと自然に。 — THANKS

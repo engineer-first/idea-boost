@@ -218,7 +218,7 @@ export function getLaunchState(inputFrame: number): LaunchState {
   if (scene.id === "share") {
     const allNotes = getOperationBoardData(
       momentFor("phase-1-step-2", 1),
-    ).notes;
+    ).notes.slice(0, 4);
     const own = { ...allNotes[0], visibility: "private" as const };
     const moving = localFrame >= 12 && localFrame < 104;
     const move = localFrame >= 104 ? 1 : snap(localFrame, 12, 1.0);
