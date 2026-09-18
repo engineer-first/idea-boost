@@ -39,7 +39,6 @@ export type UseBoardDragArgs = {
   notes: Note[];
   privateNotes: Note[];
   currentUserId: string;
-  boardRootRef: RefObject<HTMLDivElement | null>;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   worldPointFromClient: (
     clientX: number,
@@ -119,7 +118,6 @@ export function useBoardDrag({
   notes,
   privateNotes,
   currentUserId,
-  boardRootRef,
   boardScrollerRef,
   worldPointFromClient,
   privateToolbarRef,
@@ -267,7 +265,7 @@ export function useBoardDrag({
       const note = notes.find((n) => n.id === noteId);
       if (!note) return;
       hasNotifiedBlockedRef.current = false;
-      boardRootRef.current?.setPointerCapture?.(event.pointerId);
+      boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const pointerPosition = boardPositionFromPointer(
         event.clientX,
         event.clientY,
@@ -287,7 +285,7 @@ export function useBoardDrag({
     [
       boardPositionFromPointer,
       notes,
-      boardRootRef,
+      boardScrollerRef,
       canMoveSharedNotes,
       onNoteDragStart,
       updateDrag,
@@ -299,7 +297,7 @@ export function useBoardDrag({
       const note = privateNotes.find((n) => n.id === noteId);
       if (!note) return;
       hasNotifiedBlockedRef.current = false;
-      boardRootRef.current?.setPointerCapture?.(event.pointerId);
+      boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const rect = event.currentTarget?.getBoundingClientRect?.();
       const grabOffsetX = rect?.width
         ? ((event.clientX - rect.left) / rect.width) * NOTE_WIDTH
@@ -320,7 +318,7 @@ export function useBoardDrag({
         grabOffsetY,
       });
     },
-    [privateNotes, boardRootRef, updateDrag],
+    [privateNotes, boardScrollerRef, updateDrag],
   );
 
   const handlePointerMove = useCallback(
@@ -459,12 +457,12 @@ export function useBoardDrag({
           }));
         }
       }
-      boardRootRef.current?.releasePointerCapture?.(event.pointerId);
+      boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
       updateDrag(null);
     },
     [
       boardPositionFromPointer,
-      boardRootRef,
+      boardScrollerRef,
       canMoveSharedNotes,
       clampCoordinate,
       onNoteDragEnd,
@@ -482,10 +480,10 @@ export function useBoardDrag({
       if (current.status === "shared") {
         onNoteDragCancel(current.note.id);
       }
-      boardRootRef.current?.releasePointerCapture?.(event.pointerId);
+      boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
       updateDrag(null);
     },
-    [boardRootRef, onNoteDragCancel, updateDrag],
+    [boardScrollerRef, onNoteDragCancel, updateDrag],
   );
 
   const cancelCurrentNoteDrag = useCallback(() => {
@@ -493,9 +491,9 @@ export function useBoardDrag({
     if (current?.status !== "shared") return;
     hasNotifiedBlockedRef.current = false;
     onNoteDragCancel(current.note.id);
-    boardRootRef.current?.releasePointerCapture?.(current.pointerId);
+    boardScrollerRef.current?.releasePointerCapture?.(current.pointerId);
     updateDrag(null);
-  }, [boardRootRef, onNoteDragCancel, updateDrag]);
+  }, [boardScrollerRef, onNoteDragCancel, updateDrag]);
 
   const isCurrentDragPointer = useCallback((pointerId: number) => {
     const current = dragRef.current;

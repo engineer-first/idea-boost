@@ -147,7 +147,6 @@ export function useRoomBoardInteractions({
     notes,
     privateNotes,
     currentUserId,
-    boardRootRef,
     boardScrollerRef,
     worldPointFromClient: pointFromClient,
     privateToolbarRef,

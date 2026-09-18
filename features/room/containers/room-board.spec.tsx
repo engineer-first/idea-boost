@@ -1955,9 +1955,9 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(2, 1),
     });
-    const root = screen.getByTestId("room-board-view-root");
+    const scroller = screen.getByTestId("board-scroller");
     const releasePointerCapture = vi.fn();
-    Object.defineProperty(root, "releasePointerCapture", {
+    Object.defineProperty(scroller, "releasePointerCapture", {
       configurable: true,
       value: releasePointerCapture,
     });

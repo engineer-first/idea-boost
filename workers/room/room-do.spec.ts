@@ -858,7 +858,11 @@ describe("RoomDO 候補外付箋", () => {
         name: "drag",
         phase: buildPhaseStep(2),
         userId: USER_A,
-        message: { type: "note:drag", noteId: NOTE_ID, x: 999, y: 999 },
+        message: {
+          type: "note:drag:start",
+          noteId: NOTE_ID,
+          dragId: "99999999-9999-4999-8999-999999999999",
+        },
       },
       {
         name: "delete",
@@ -974,10 +978,11 @@ describe("RoomDO 候補外付箋", () => {
       }
       const ws = await connectDirectly(roomName, testCase.userId, USER_A);
       ws.send(JSON.stringify(testCase.message));
-      expect(await nextJson(ws)).toMatchObject({
-        type: "error",
-        code: "forbidden",
-      });
+      expect(await nextJson(ws)).toMatchObject(
+        testCase.name === "drag"
+          ? { type: "note:drag:result", accepted: false }
+          : { type: "error", code: "forbidden" },
+      );
       const persisted = await runInRoomDO(roomName, (_instance, state) => ({
         note: state.storage.sql
           .exec(

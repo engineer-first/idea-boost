@@ -144,6 +144,22 @@ describe("useBoardDrag", () => {
     expect(args.onNoteDragStart).toHaveBeenCalledWith("shared-1");
   });
 
+  it("共有付箋のドラッグはボード内でポインターを捕捉し、境界離脱による即時キャンセルを防ぐ", () => {
+    const { args, result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(9, 120, 130),
+      );
+    });
+
+    expect(
+      args.boardScrollerRef.current?.setPointerCapture,
+    ).toHaveBeenCalledWith(9);
+    expect(args.boardRootRef.current?.setPointerCapture).not.toHaveBeenCalled();
+  });
+
   it("マイ付箋をボードへ運ぶと publish → drag 配信の順で共有化する", () => {
     const { args, result } = setup();
 
