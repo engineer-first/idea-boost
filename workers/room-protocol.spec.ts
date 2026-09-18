@@ -21,6 +21,7 @@ import {
   parseServerMessage,
   type ServerMessage,
 } from "../contracts/room-protocol";
+import { NOTE_DRAG_START_RATE_LIMIT_PER_MINUTE } from "./room/drag-operations";
 import {
   connectRoomAs,
   createRoomAs,
@@ -2056,6 +2057,35 @@ describe("note:delete（pgTAP: DELETE は author のみ）", () => {
 });
 
 describe("note:drag（エフェメラル同期）", () => {
+  it("同一ユーザーの短時間の開始回数が上限に達すると fresh な dragId でも拒否する", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+    await runInRoomDO(room.roomId, (_instance, state) => {
+      for (
+        let index = 0;
+        index < NOTE_DRAG_START_RATE_LIMIT_PER_MINUTE;
+        index++
+      ) {
+        state.storage.sql.exec(
+          `INSERT INTO used_note_drag_ids (user_id, drag_id)
+           VALUES (?1, ?2)`,
+          MEMBER.sub,
+          `rate-limit-${index}`,
+        );
+      }
+    });
+    const dragId = "30303030-3030-4030-8030-303030303030";
+
+    send(room.member, { type: "note:drag:start", noteId, dragId });
+
+    expect(await expectType(room.member, "note:drag:result")).toMatchObject({
+      dragId,
+      accepted: false,
+    });
+    room.owner.close();
+    room.member.close();
+  });
+
   it("private 付箋の author でも fresh な dragId では操作権を取得できない", async () => {
     const room = await setupStartedRoom();
     send(room.owner, { type: "note:create" });

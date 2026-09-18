@@ -1427,6 +1427,11 @@ describe("RoomDO phase:next", () => {
         USER_A,
         now,
       );
+      state.storage.sql.exec(
+        `INSERT INTO used_note_drag_ids (user_id, drag_id)
+         VALUES (?1, 'phase-2-drag')`,
+        USER_A,
+      );
     });
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -1440,6 +1445,11 @@ describe("RoomDO phase:next", () => {
       type: "phase:updated",
       phase: buildPhaseStep(3, 2),
     });
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql.exec("SELECT 1 FROM used_note_drag_ids").toArray(),
+      ),
+    ).toHaveLength(1);
 
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -1488,6 +1498,11 @@ describe("RoomDO phase:next", () => {
       phase: buildPhaseStep(1, 3),
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(1, 3));
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql.exec("SELECT 1 FROM used_note_drag_ids").toArray(),
+      ),
+    ).toEqual([]);
     ws.close();
   });
 

@@ -11,6 +11,7 @@ import {
 } from "../../contracts/phase";
 import type { ClientMessage } from "../../contracts/room-protocol";
 import { getDecision } from "./decisions";
+import { clearUsedNoteDragIds } from "./drag-operations";
 import type { MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
 import { hasCandidateNotes } from "./notes";
@@ -393,6 +394,9 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         discardPrivateNotes(ctx.sql);
       }
       savePhase(ctx.sql, next);
+      if (crossesPhaseBoundary) {
+        clearUsedNoteDragIds(ctx.sql);
+      }
       timerWasReset = resetTimerState(ctx.sql);
     });
     ctx.broadcaster.retireAllActiveDrags();

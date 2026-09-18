@@ -8,7 +8,11 @@ import {
 import { isPhaseStep, isVotingStep } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
 import { getDecision } from "./decisions";
-import { hasUsedNoteDragId, recordUsedNoteDragId } from "./drag-operations";
+import {
+  hasReachedNoteDragStartRateLimit,
+  hasUsedNoteDragId,
+  recordUsedNoteDragId,
+} from "./drag-operations";
 import { autoReorganize } from "./groups";
 import {
   type HandlerCtx,
@@ -254,7 +258,8 @@ export const noteHandlers: MessageHandlers<
         !row.excluded &&
         (isActiveRetry ||
           (!current &&
-            !hasUsedNoteDragId(ctx.sql, ctx.userId, message.dragId))) &&
+            !hasUsedNoteDragId(ctx.sql, ctx.userId, message.dragId) &&
+            !hasReachedNoteDragStartRateLimit(ctx.sql, ctx.userId))) &&
         (!competing ||
           (competing.socket === ctx.ws && competing.dragId === message.dragId)),
     );
