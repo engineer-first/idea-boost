@@ -335,6 +335,94 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByText("運んでいる付箋")).toBeInTheDocument();
   });
 
+  it("通常ボードでは永続順序を描画し own・remote drag と ghost だけを一時最前面にする", () => {
+    const notes = [
+      { ...buildNote({ id: "back" }), stackOrder: 4 },
+      { ...buildNote({ id: "own" }), stackOrder: 8 },
+      { ...buildNote({ id: "remote" }), stackOrder: 12 },
+    ];
+    setup({
+      notes,
+      draggingNoteId: "own",
+      remoteNoteDrags: [
+        {
+          noteId: "remote",
+          draggedBy: {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "Taro",
+            color: "green",
+          },
+          lastSeenAt: Date.now(),
+        },
+      ],
+      dragGhost: {
+        note: { ...notes[0], content: "通常ボードのゴースト" },
+        x: 200,
+        y: 220,
+      },
+    });
+
+    const [back, own, remote] = screen.getAllByTestId("note-card");
+    expect(back).toHaveStyle({ zIndex: "4" });
+    expect(own).toHaveStyle({ zIndex: "2147483647" });
+    expect(remote).toHaveStyle({ zIndex: "2147483647" });
+    expect(
+      screen
+        .getByText("通常ボードのゴースト")
+        .closest("[data-slot='sticky-note']"),
+    ).toHaveStyle({ zIndex: "2147483647" });
+  });
+
+  it("選択状態だけでは永続 z-index を変えない", () => {
+    setup({
+      notes: [{ ...buildNote({ id: "selected" }), stackOrder: 7 }],
+      selectedNoteId: "selected",
+    });
+
+    expect(screen.getByTestId("note-card")).toHaveStyle({ zIndex: "7" });
+  });
+
+  it("2軸マップでも永続順序を使い remote drag と ghost を一時最前面にする", () => {
+    const phase = buildPhaseStep(3, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      notes: [
+        { ...buildNote({ id: "map-back" }), stackOrder: 3 },
+        { ...buildNote({ id: "map-remote" }), stackOrder: 9 },
+      ],
+      remoteNoteDrags: [
+        {
+          noteId: "map-remote",
+          draggedBy: {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "Taro",
+            color: "green",
+          },
+          lastSeenAt: Date.now(),
+        },
+      ],
+      dragGhost: {
+        note: {
+          ...buildNote({ id: "map-ghost", content: "マップのゴースト" }),
+          stackOrder: 1,
+        },
+        x: 50,
+        y: 50,
+      },
+    });
+
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-note-map-back"),
+    ).toHaveStyle({ zIndex: "3" });
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-note-map-remote"),
+    ).toHaveStyle({ zIndex: "2147483647" });
+    expect(
+      screen.getByText("マップのゴースト").closest("[data-slot='sticky-note']"),
+    ).toHaveStyle({ zIndex: "2147483647" });
+  });
+
   it("マイ付箋ツールバーの「付箋を追加」で onAddPrivateNote を呼ぶ", () => {
     const onAddPrivateNote = vi.fn();
     setup({ onAddPrivateNote });

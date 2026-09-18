@@ -226,6 +226,7 @@ describe("useRoomNotes", () => {
     });
 
     expect(result.current.draggingNoteId).toBeNull();
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
     expect(result.current.notes[0]).toMatchObject({ x: 240, y: 340 });
     expect(send).toHaveBeenLastCalledWith({
       type: "note:move",
@@ -233,6 +234,74 @@ describe("useRoomNotes", () => {
       x: 240,
       y: 340,
     });
+  });
+
+  it("ドロップ確定までは最前面を維持し、無関係な更新では解除しない", () => {
+    const { result } = setup();
+    const initial = buildNote({ id: NOTE_ID, x: 100, y: 100, stackOrder: 4 });
+    const other = buildNote({ id: TARGET_NOTE_ID, stackOrder: 5 });
+    act(() => result.current.applyMessage(snapshotMessage([initial, other])));
+
+    act(() => {
+      result.current.startNoteDrag(NOTE_ID);
+      result.current.moveNote(NOTE_ID, 240, 340);
+      result.current.endNoteDrag(NOTE_ID, 240, 340);
+    });
+    expect(result.current.draggingNoteId).toBeNull();
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...other, content: "無関係な更新" },
+      }),
+    );
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...initial, x: 240, y: 340, stackOrder: 4 },
+      }),
+    );
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...initial, x: 240, y: 340, stackOrder: 6 },
+      }),
+    );
+    expect(result.current.frontNoteId).toBeNull();
+  });
+
+  it.each([
+    {
+      name: "snapshot",
+      message: snapshotMessage(),
+    },
+    {
+      name: "note:deleted",
+      message: { type: "note:deleted", noteId: NOTE_ID } as ServerMessage,
+    },
+  ])("$name による再同期・削除で確定待ち最前面を解除する", ({ message }) => {
+    const { result } = setup();
+    act(() =>
+      result.current.applyMessage(
+        snapshotMessage([
+          buildNote({ id: NOTE_ID, x: 100, y: 100, stackOrder: 4 }),
+        ]),
+      ),
+    );
+    act(() => {
+      result.current.startNoteDrag(NOTE_ID);
+      result.current.endNoteDrag(NOTE_ID, 240, 340);
+    });
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
+
+    act(() => result.current.applyMessage(message));
+
+    expect(result.current.frontNoteId).toBeNull();
   });
 
   it("changeNoteContent は本文だけ楽観更新し、note:update-content を送る", () => {

@@ -22,6 +22,7 @@ export type NoteRow = {
   color: NoteColor;
   x: number;
   y: number;
+  stack_order: number;
   created_at: string;
   updated_at: string;
   phase: number;
@@ -122,8 +123,8 @@ export function hasOnlySharedNotes(
 export function insertNote(sql: SqlStorage, note: NoteRow): void {
   sql.exec(
     `INSERT INTO notes
-       (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)`,
+       (id, author_id, content, visibility, color, x, y, stack_order, created_at, updated_at, phase)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
     note.id,
     note.author_id,
     note.content,
@@ -131,10 +132,23 @@ export function insertNote(sql: SqlStorage, note: NoteRow): void {
     note.color,
     note.x,
     note.y,
+    note.stack_order,
     note.created_at,
     note.updated_at,
     note.phase,
   );
+}
+
+function nextStackOrder(sql: SqlStorage): number {
+  const row = sql
+    .exec(
+      `UPDATE room_state
+       SET next_note_stack_order = next_note_stack_order + 1
+       WHERE id = 1
+       RETURNING next_note_stack_order - 1 AS value`,
+    )
+    .one() as { value: number };
+  return row.value;
 }
 
 export function publishNote(
@@ -143,16 +157,19 @@ export function publishNote(
   x: number,
   y: number,
   updatedAt: string,
-): void {
+): number {
+  const stackOrder = nextStackOrder(sql);
   sql.exec(
     `UPDATE notes
-     SET visibility = 'shared', x = ?2, y = ?3, updated_at = ?4
+     SET visibility = 'shared', x = ?2, y = ?3, updated_at = ?4, stack_order = ?5
      WHERE id = ?1`,
     noteId,
     x,
     y,
     updatedAt,
+    stackOrder,
   );
+  return stackOrder;
 }
 
 export function unpublishNote(
@@ -189,14 +206,29 @@ export function moveNote(
   x: number,
   y: number,
   updatedAt: string,
-): void {
+): number {
+  const row = findNote(sql, noteId);
+  if (!row) return 0;
+  if (row.x === x && row.y === y) {
+    sql.exec(
+      "UPDATE notes SET updated_at = ?2 WHERE id = ?1",
+      noteId,
+      updatedAt,
+    );
+    return row.stack_order;
+  }
+  const stackOrder = nextStackOrder(sql);
   sql.exec(
-    "UPDATE notes SET x = ?2, y = ?3, updated_at = ?4 WHERE id = ?1",
+    `UPDATE notes
+     SET x = ?2, y = ?3, updated_at = ?4, stack_order = ?5
+     WHERE id = ?1`,
     noteId,
     x,
     y,
     updatedAt,
+    stackOrder,
   );
+  return stackOrder;
 }
 
 export function deleteNote(sql: SqlStorage, noteId: string): void {
@@ -226,6 +258,7 @@ export function toProtocolNote(
     color: row.color,
     x: row.x,
     y: row.y,
+    stackOrder: row.stack_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     dotVotes: {

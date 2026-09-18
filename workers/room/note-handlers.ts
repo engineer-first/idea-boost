@@ -112,6 +112,7 @@ export const noteHandlers: MessageHandlers<
       color: color,
       x: NOTE_SPAWN_X_MIN + Math.random() * NOTE_SPAWN_JITTER,
       y: NOTE_SPAWN_Y_MIN + Math.random() * NOTE_SPAWN_JITTER,
+      stack_order: 0,
       created_at: now,
       updated_at: now,
       phase: phase.phase,
@@ -128,12 +129,19 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
-    publishNote(ctx.sql, message.noteId, message.x, message.y, updatedAt);
+    const stackOrder = publishNote(
+      ctx.sql,
+      message.noteId,
+      message.x,
+      message.y,
+      updatedAt,
+    );
     broadcastNoteInserted(ctx.sql, ctx.broadcaster, {
       ...row,
       visibility: "shared",
       x: message.x,
       y: message.y,
+      stack_order: stackOrder,
       updated_at: updatedAt,
     });
     autoReorganizeAtGroupingStep(ctx);
@@ -189,11 +197,19 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
-    moveNote(ctx.sql, message.noteId, message.x, message.y, updatedAt);
+    const positionChanged = row.x !== message.x || row.y !== message.y;
+    const stackOrder = moveNote(
+      ctx.sql,
+      message.noteId,
+      message.x,
+      message.y,
+      updatedAt,
+    );
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
       ...row,
       x: message.x,
       y: message.y,
+      stack_order: stackOrder,
       updated_at: updatedAt,
     });
     const attachment =
@@ -205,8 +221,9 @@ export const noteHandlers: MessageHandlers<
       } satisfies SocketAttachment);
     }
 
-    // 位置が変わったので自動再編成を実行
-    autoReorganizeAtGroupingStep(ctx);
+    if (positionChanged) {
+      autoReorganizeAtGroupingStep(ctx);
+    }
   },
 
   // ドラッグ中の座標は永続化せず、送信者以外の可視な相手へ中継するだけ。

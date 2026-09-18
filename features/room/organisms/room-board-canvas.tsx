@@ -47,6 +47,8 @@ import {
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
+const TEMPORARY_DRAG_Z_INDEX = 2_147_483_647;
+
 export type RoomBoardCanvasProps = {
   notes: Note[];
   groups: PersistentGroup[];
@@ -219,6 +221,8 @@ export function RoomBoardCanvas({
     const activeDragMember = isDisconnected
       ? undefined
       : remoteNoteDrags.find((drag) => drag.noteId === note.id)?.draggedBy;
+    const isTemporarilyFront =
+      draggingNoteId === note.id || activeDragMember !== undefined;
     return (
       <NoteCard
         key={note.id}
@@ -250,7 +254,17 @@ export function RoomBoardCanvas({
           onStickerDragStart: onNoteVoteStickerDragStart,
         }}
         className={isOnIdeaMap ? "relative pointer-events-auto" : undefined}
-        style={isOnIdeaMap ? {} : undefined}
+        style={
+          isOnIdeaMap
+            ? {}
+            : {
+                left: note.x,
+                top: note.y,
+                zIndex: isTemporarilyFront
+                  ? TEMPORARY_DRAG_Z_INDEX
+                  : note.stackOrder,
+              }
+        }
       />
     );
   }
@@ -261,13 +275,20 @@ export function RoomBoardCanvas({
       feasibility: note.x,
     });
     const isSelectedDecidableNote = canDecide && selectedNote?.id === note.id;
+    const isRemoteDrag =
+      !isDisconnected &&
+      remoteNoteDrags.some((drag) => drag.noteId === note.id);
+    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
 
     return (
       <div
         key={note.id}
-        className="pointer-events-auto absolute z-10"
+        className="pointer-events-auto absolute"
         data-testid={`idea-value-feasibility-map-note-${note.id}`}
-        style={position}
+        style={{
+          ...position,
+          zIndex: isTemporarilyFront ? TEMPORARY_DRAG_Z_INDEX : note.stackOrder,
+        }}
       >
         {renderNoteCard(note, true)}
         {isSelectedDecidableNote ? (
@@ -293,8 +314,8 @@ export function RoomBoardCanvas({
         noteId={dragGhost.note.id}
         isLifted
         color={dragGhost.note.color}
-        className="pointer-events-none absolute z-20"
-        style={position}
+        className="pointer-events-none absolute"
+        style={{ ...position, zIndex: TEMPORARY_DRAG_Z_INDEX }}
       >
         <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
           {dragGhost.note.content || "メモを入力..."}
@@ -398,7 +419,11 @@ export function RoomBoardCanvas({
                 isLifted
                 color={dragGhost.note.color}
                 className="pointer-events-none absolute"
-                style={{ left: dragGhost.x, top: dragGhost.y }}
+                style={{
+                  left: dragGhost.x,
+                  top: dragGhost.y,
+                  zIndex: TEMPORARY_DRAG_Z_INDEX,
+                }}
               >
                 <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
                   {dragGhost.note.content || "メモを入力..."}
