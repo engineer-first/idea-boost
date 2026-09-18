@@ -138,6 +138,7 @@ const meta = {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: fn(),
+    onDecisionClear: fn(),
     onLeave: fn(),
     isLeaving: false,
     onNextPhase: fn(),
@@ -414,6 +415,27 @@ export const ReadyToDecide: Story = {
   args: {
     phase: STEP_1_5,
     isHost: true,
+  },
+};
+
+export const SelectingAt768px: Story = {
+  args: {
+    phase: STEP_1_5,
+    isHost: true,
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 768, height: 720, overflow: "hidden" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "閉じる" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "採用する付箋を選ぶ" }),
+    );
   },
 };
 

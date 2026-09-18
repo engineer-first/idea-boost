@@ -79,3 +79,7 @@ export function setDecision(
     noteContent,
   );
 }
+
+export function clearDecision(sql: SqlStorage, phase: number): void {
+  sql.exec("DELETE FROM decisions WHERE phase = ?1", phase);
+}

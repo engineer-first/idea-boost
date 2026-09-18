@@ -35,6 +35,7 @@ import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
+import { AdoptNoteControl } from "../molecules/adopt-note-control";
 import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
@@ -102,6 +103,7 @@ export type RoomBoardViewProps = {
   }>;
   voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
+  onDecisionClear: () => void;
   // 退出。
   onLeave: () => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
@@ -173,6 +175,7 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onDecisionClear,
   onLeave,
   isLeaving,
   onNextPhase,
@@ -187,6 +190,7 @@ export function RoomBoardView({
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
@@ -239,12 +243,29 @@ export function RoomBoardView({
   useEffect(() => {
     if (previousGuidePhaseKeyRef.current === phaseKey) return;
     previousGuidePhaseKeyRef.current = phaseKey;
+    setIsAdoptMode(false);
     setGuideDisplay({
       phaseKey,
       isExpanded: true,
       isInitialModal: true,
     });
   }, [phaseKey]);
+
+  useEffect(() => {
+    if (connectionStatus === "open" && isHost && decision === null) return;
+    setIsAdoptMode(false);
+  }, [connectionStatus, decision, isHost]);
+
+  useEffect(() => {
+    if (!isAdoptMode) return;
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsAdoptMode(false);
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isAdoptMode]);
 
   useEffect(() => {
     setVoteTotalingDialogOpen(isResultStep(phase));
@@ -296,7 +317,9 @@ export function RoomBoardView({
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
-  const candidateNotes = notes.filter((note) => !note.excluded);
+  const candidateNotes = notes.filter(
+    (note) => note.visibility === "shared" && !note.excluded,
+  );
   const bulkExclusionTargetCount = notes.filter(
     (note) =>
       note.visibility === "shared" &&
@@ -308,6 +331,17 @@ export function RoomBoardView({
   const isNextPhaseBlocked =
     isResultStep(phase) && (decision === null || candidateNotes.length === 0);
   const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
+  const decisionContent =
+    decision === null
+      ? null
+      : (notes.find((note) => note.id === decision.noteId)?.content ??
+        "確定した内容");
+
+  function handleAdoptNote(noteId: string) {
+    if (!isAdoptMode) return;
+    setIsAdoptMode(false);
+    onNoteDecide(noteId);
+  }
 
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
     const target = document.elementFromPoint(clientX, clientY);
@@ -596,9 +630,11 @@ export function RoomBoardView({
       className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
         isNoteDragging
           ? "cursor-grabbing"
-          : selectedVoteKind !== null
+          : isAdoptMode
             ? "cursor-crosshair"
-            : ""
+            : selectedVoteKind !== null
+              ? "cursor-crosshair"
+              : ""
       }`}
       onClickCapture={handleRootClickCapture}
       onPointerMove={handleRootPointerMove}
@@ -707,7 +743,8 @@ export function RoomBoardView({
         onNoteVoteRemove={onNoteVoteRemove}
         onNoteVoteStickerRemove={onNoteVoteStickerRemove}
         onNoteVoteStickerDragStart={handleVoteStickerDragStart}
-        onNoteDecide={onNoteDecide}
+        isAdoptMode={isAdoptMode}
+        onAdoptNote={handleAdoptNote}
         onGroupCreate={onGroupCreate}
         onGroupUpdateName={onGroupUpdateName}
         onAddPrivateNote={onAddPrivateNote}
@@ -737,13 +774,28 @@ export function RoomBoardView({
         </div>
       ) : null}
 
-      {isHost && isResultStep(phase) ? (
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center">
-          <BulkCandidateExclusion
-            targetCount={bulkExclusionTargetCount}
-            disabled={isDisconnected}
-            onConfirm={onBulkCandidateExclude}
+      {isResultStep(phase) && phase.kind === "step" ? (
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex flex-col items-center gap-2">
+          <AdoptNoteControl
+            phaseNumber={phase.phase}
+            isHost={isHost}
+            isSelecting={isAdoptMode}
+            decisionContent={decisionContent}
+            disabled={isDisconnected || candidateNotes.length === 0}
+            onStartSelection={() => {
+              setSelectedNoteId(null);
+              setIsAdoptMode(true);
+            }}
+            onCancelSelection={() => setIsAdoptMode(false)}
+            onClearDecision={onDecisionClear}
           />
+          {isHost && !isAdoptMode ? (
+            <BulkCandidateExclusion
+              targetCount={bulkExclusionTargetCount}
+              disabled={isDisconnected}
+              onConfirm={onBulkCandidateExclude}
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -780,6 +832,7 @@ export function RoomBoardView({
         </div>
       ) : null}
 
+      {/* 採用操作の入口は画面下に一本化し、集計ダイアログでは結果の確認だけを行う。 */}
       <VoteTotalingDialog
         open={voteTotalingDialogOpen}
         onOpenChange={setVoteTotalingDialogOpen}
@@ -787,7 +840,7 @@ export function RoomBoardView({
         members={members}
         notes={notes}
         decision={decision}
-        isHost={isHost}
+        isHost={false}
         isDisconnected={isDisconnected}
         onNoteDecide={onNoteDecide}
       />

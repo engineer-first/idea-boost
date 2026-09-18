@@ -1,11 +1,13 @@
-// note:decide の認可・永続化・全員配信。決定はフェーズ番号をキーにした共有情報。
-import { setDecision } from "./decisions";
+// 決定と解除の認可・永続化・全員配信。決定はフェーズ番号をキーにした共有情報。
+import { clearDecision, setDecision } from "./decisions";
 import { type MessageHandlers, replyForbidden } from "./handler-context";
 import { isHostUser } from "./members";
 import { requireNoteInCurrentPhase } from "./notes";
 import { getPhase } from "./phase";
 
-export const decisionHandlers: MessageHandlers<"note:decide"> = {
+export const decisionHandlers: MessageHandlers<
+  "note:decide" | "decision:clear"
+> = {
   "note:decide": (ctx, message) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
       replyForbidden(ctx);
@@ -29,9 +31,31 @@ export const decisionHandlers: MessageHandlers<"note:decide"> = {
     setDecision(ctx.sql, phase.phase, message.noteId, ctx.userId, note.content);
     ctx.broadcaster.broadcastToAll({
       type: "decision:updated",
-      phase: phase.phase,
-      noteId: message.noteId,
-      decidedBy: ctx.userId,
+      decision: {
+        phase: phase.phase,
+        noteId: message.noteId,
+        decidedBy: ctx.userId,
+      },
+    });
+  },
+  "decision:clear": (ctx) => {
+    if (!isHostUser(ctx.sql, ctx.userId)) {
+      replyForbidden(ctx);
+      return;
+    }
+
+    // phase はクライアントに指定させず、RoomDO の現在状態だけから
+    // 求める。操作可能なステップは phase の共通ゲートが制限する。
+    const phase = getPhase(ctx.sql);
+    if (phase.kind !== "step") {
+      replyForbidden(ctx);
+      return;
+    }
+
+    clearDecision(ctx.sql, phase.phase);
+    ctx.broadcaster.broadcastToAll({
+      type: "decision:updated",
+      decision: null,
     });
   },
 };

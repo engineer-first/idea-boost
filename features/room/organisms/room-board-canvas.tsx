@@ -8,7 +8,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { NOTE_WIDTH } from "@/contracts/board";
+import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
@@ -36,13 +36,9 @@ import {
 } from "../logic/cursor-presence";
 import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
+import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
-import {
-  DECIDE_NOTE_ACTION_INSET,
-  DECIDE_NOTE_ACTION_SIZE,
-  DecideNoteAction,
-} from "../molecules/decide-note-action";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
@@ -101,7 +97,8 @@ export type RoomBoardCanvasProps = {
     kind: DotVoteKind,
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
-  onNoteDecide: (noteId: string) => void;
+  isAdoptMode: boolean;
+  onAdoptNote: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
   onAddPrivateNote: () => void;
@@ -157,7 +154,8 @@ export function RoomBoardCanvas({
   onNoteVoteRemove,
   onNoteVoteStickerRemove,
   onNoteVoteStickerDragStart,
-  onNoteDecide,
+  isAdoptMode,
+  onAdoptNote,
   onGroupCreate,
   onGroupUpdateName,
   onAddPrivateNote,
@@ -181,14 +179,8 @@ export function RoomBoardCanvas({
     : isResultStep(phase)
       ? "result"
       : "hidden";
-  const selectedNote = notes.find((note) => note.id === selectedNoteId);
-  const canDecide = Boolean(
-    selectedNote &&
-      isHost &&
-      !isDisconnected &&
-      isResultStep(phase) &&
-      decision?.noteId !== selectedNote.id &&
-      !selectedNote.excluded,
+  const adoptionTargetLabel = getAdoptionTargetLabel(
+    phase.kind === "step" ? phase.phase : 1,
   );
   // アイデア個人執筆中は2軸マップを表示せず、共有する Step3-2 から表示する。
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
@@ -208,6 +200,13 @@ export function RoomBoardCanvas({
   }
 
   function handleViewportPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (
+      isAdoptMode &&
+      event.target instanceof Element &&
+      event.target.closest("[data-adopt-target]")
+    ) {
+      return;
+    }
     handleBoardPointerDown(event);
     onCanvasPointerDown(event);
   }
@@ -242,7 +241,7 @@ export function RoomBoardCanvas({
         canExcludeNote={isHost && permissions.canExcludeNote && !note.excluded}
         canRestoreNote={isHost && permissions.canRestoreNote && note.excluded}
         isDecided={decision?.noteId === note.id}
-        disabled={isDisconnected}
+        disabled={isDisconnected || isAdoptMode}
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
@@ -285,7 +284,14 @@ export function RoomBoardCanvas({
       value: note.y,
       feasibility: note.x,
     });
-    const isSelectedDecidableNote = canDecide && selectedNote?.id === note.id;
+    const isAdoptTarget =
+      isAdoptMode &&
+      isHost &&
+      !isDisconnected &&
+      isResultStep(phase) &&
+      note.visibility === "shared" &&
+      !note.excluded &&
+      decision?.noteId !== note.id;
     const isRemoteDrag =
       !isDisconnected &&
       remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
@@ -306,11 +312,13 @@ export function RoomBoardCanvas({
         }}
       >
         {renderNoteCard(note, true)}
-        {isSelectedDecidableNote ? (
-          <DecideNoteAction
-            x={NOTE_WIDTH - DECIDE_NOTE_ACTION_SIZE - DECIDE_NOTE_ACTION_INSET}
-            y={DECIDE_NOTE_ACTION_INSET}
-            onDecide={() => onNoteDecide(note.id)}
+        {isAdoptTarget ? (
+          <button
+            type="button"
+            data-adopt-target="true"
+            aria-label={`採用する${adoptionTargetLabel}: ${note.content || "内容なし"}`}
+            className="absolute inset-0 z-50 cursor-pointer rounded-sm border-4 border-primary/80 bg-primary/5 outline-none hover:bg-primary/10 focus-visible:ring-4 focus-visible:ring-ring"
+            onClick={() => onAdoptNote(note.id)}
           />
         ) : null}
       </div>
@@ -345,13 +353,16 @@ export function RoomBoardCanvas({
         <div
           ref={boardScrollerRef}
           className={`relative h-full overflow-hidden bg-muted/20 [container-type:size] ${
-            selectedVoteKind !== null
-              ? "cursor-none"
-              : isPanning
-                ? "cursor-grabbing"
-                : "cursor-grab"
+            isAdoptMode
+              ? "cursor-crosshair"
+              : selectedVoteKind !== null
+                ? "cursor-none"
+                : isPanning
+                  ? "cursor-grabbing"
+                  : "cursor-grab"
           }`}
           data-testid="board-scroller"
+          data-adopt-mode={isAdoptMode || undefined}
           style={gridStyle}
           onPointerDownCapture={handleViewportPointerDown}
           onPointerMove={handleViewportPointerMove}
@@ -416,6 +427,33 @@ export function RoomBoardCanvas({
             {!isIdeaValueFeasibilityMapVisible
               ? orderedNotes.map((note) => renderNoteCard(note))
               : null}
+            {!isIdeaValueFeasibilityMapVisible && isAdoptMode
+              ? orderedNotes.map((note) => {
+                  const isTarget =
+                    isHost &&
+                    !isDisconnected &&
+                    isResultStep(phase) &&
+                    note.visibility === "shared" &&
+                    !note.excluded &&
+                    decision?.noteId !== note.id;
+                  return isTarget ? (
+                    <button
+                      key={`adopt-${note.id}`}
+                      type="button"
+                      data-adopt-target="true"
+                      aria-label={`採用する${adoptionTargetLabel}: ${note.content || "内容なし"}`}
+                      className="absolute z-50 cursor-pointer rounded-sm border-4 border-primary/80 bg-primary/5 outline-none hover:bg-primary/10 focus-visible:ring-4 focus-visible:ring-ring"
+                      style={{
+                        left: note.x,
+                        top: note.y,
+                        width: NOTE_WIDTH,
+                        height: NOTE_HEIGHT,
+                      }}
+                      onClick={() => onAdoptNote(note.id)}
+                    />
+                  ) : null;
+                })
+              : null}
             {isResultStep(phase) &&
             notes.filter((note) => !note.excluded).length === 0 ? (
               <div
@@ -424,18 +462,6 @@ export function RoomBoardCanvas({
               >
                 候補がありません。候補外の付箋を戻してください。
               </div>
-            ) : null}
-            {!isIdeaValueFeasibilityMapVisible && canDecide && selectedNote ? (
-              <DecideNoteAction
-                x={
-                  selectedNote.x +
-                  NOTE_WIDTH -
-                  DECIDE_NOTE_ACTION_SIZE -
-                  DECIDE_NOTE_ACTION_INSET
-                }
-                y={selectedNote.y + DECIDE_NOTE_ACTION_INSET}
-                onDecide={() => onNoteDecide(selectedNote.id)}
-              />
             ) : null}
             {!isIdeaValueFeasibilityMapVisible && dragGhost ? (
               <StickyNote

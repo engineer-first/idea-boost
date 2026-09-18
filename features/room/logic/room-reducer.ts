@@ -143,11 +143,7 @@ export function applyDecisionServerMessage(
 ): Decision | null {
   switch (message.type) {
     case "decision:updated":
-      return {
-        phase: message.phase,
-        noteId: message.noteId,
-        decidedBy: message.decidedBy,
-      };
+      return message.decision;
     case "snapshot":
       return message.decision;
     case "phase:updated":

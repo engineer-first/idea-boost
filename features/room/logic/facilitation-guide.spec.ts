@@ -155,4 +155,15 @@ describe("getFacilitationGuide", () => {
   it("ロビーではガイドを返さない", () => {
     expect(getFacilitationGuide(buildLobbyPhase())).toBeNull();
   });
+
+  it.each([
+    [buildPhaseStep(5, 1), "付箋"],
+    [buildPhaseStep(4, 2), "問い"],
+    [buildPhaseStep(5, 3), "解決策"],
+  ] as const)("%o はホストが画面下から1件を確定する手順を案内する", (phase, target) => {
+    const guide = getFacilitationGuide(phase);
+    expect(guide?.steps?.join(" ")).toContain("画面下");
+    expect(guide?.steps?.join(" ")).toContain(target);
+    expect(guide?.steps?.join(" ")).toContain("1件");
+  });
 });

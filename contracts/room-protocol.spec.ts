@@ -391,19 +391,22 @@ describe("ServerMessageSchema", () => {
   });
 
   it("decision:updated はフェーズ・付箋・決定者を受け入れる", () => {
+    const decision = buildDecision({ phase: 1, decidedBy: USER_A });
     expect(
       ServerMessageSchema.parse({
         type: "decision:updated",
-        phase: 1,
-        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        decidedBy: USER_A,
+        decision,
       }),
     ).toEqual({
       type: "decision:updated",
-      phase: 1,
-      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      decidedBy: USER_A,
+      decision,
     });
+  });
+
+  it("decision:updated は決定解除を null で受け入れる", () => {
+    expect(
+      ServerMessageSchema.parse({ type: "decision:updated", decision: null }),
+    ).toEqual({ type: "decision:updated", decision: null });
   });
 
   it("member_joined を受け入れる", () => {
@@ -781,6 +784,16 @@ describe("ClientMessageSchema", () => {
       type: "note:decide",
       noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     });
+  });
+
+  it("decision:clear は認可情報を持たないメッセージとして受け入れる", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "decision:clear",
+        phase: 99,
+        decidedBy: "attacker-id",
+      }),
+    ).toEqual({ type: "decision:clear" });
   });
 
   it("start_phase を受け入れる", () => {
