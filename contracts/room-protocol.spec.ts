@@ -523,6 +523,31 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("一括候補外は対象IDや認可情報を受け取らず、Undoはoperation IDだけを受け入れる", () => {
+    const operationId = "33333333-3333-4333-8333-333333333333";
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:bulk-exclude",
+        noteIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+        isHost: true,
+      }),
+    ).toEqual({ type: "note:bulk-exclude" });
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:bulk-restore",
+        operationId,
+        noteIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
+        isHost: true,
+      }),
+    ).toEqual({ type: "note:bulk-restore", operationId });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:bulk-restore",
+        operationId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
   it.each([
     "note:exclude",
     "note:restore",
@@ -783,6 +808,23 @@ describe("ClientMessageSchema", () => {
     expect(
       ClientMessageSchema.safeParse({ type: "phase:force", phase: "phase1" })
         .success,
+    ).toBe(false);
+  });
+});
+
+describe("一括候補外のサーバー確定通知", () => {
+  it.each([
+    "note:bulk-excluded",
+    "note:bulk-restored",
+  ] as const)("%s はサーバー採番の operation ID と実件数を運ぶ", (type) => {
+    const message = {
+      type,
+      operationId: "33333333-3333-4333-8333-333333333333",
+      count: 2,
+    };
+    expect(ServerMessageSchema.parse(message)).toEqual(message);
+    expect(
+      ServerMessageSchema.safeParse({ ...message, count: -1 }).success,
     ).toBe(false);
   });
 });

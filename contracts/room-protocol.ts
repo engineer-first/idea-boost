@@ -27,6 +27,10 @@ export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 // 楽観表示した投票操作と、RoomDO から返る確定・拒否応答を対応付けるID。
 // 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
 export const VoteOperationIdSchema = z.string().uuid();
+export const BulkExclusionOperationIdSchema = z.string().uuid();
+export type BulkExclusionOperationId = z.infer<
+  typeof BulkExclusionOperationIdSchema
+>;
 
 // シールは付箋内の相対座標で保存する。画面のズームや付箋サイズが変わっても
 // 同じ位置に復元でき、クライアントがボード座標を推測する必要もない。
@@ -258,6 +262,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:restore"),
     noteId: z.string().uuid(),
   }),
+  // 対象は実行時のサーバー状態から再判定するため、クライアントは件数や
+  // note ID 群を送らない。
+  z.object({ type: z.literal("note:bulk-exclude") }),
+  z.object({
+    type: z.literal("note:bulk-restore"),
+    operationId: BulkExclusionOperationIdSchema,
+  }),
   z.object({
     type: z.literal("note:delete"),
     noteId: z.string().uuid(),
@@ -376,6 +387,16 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     operationId: VoteOperationIdSchema.optional(),
   }),
   z.object({ type: z.literal("note:deleted"), noteId: z.string().uuid() }),
+  z.object({
+    type: z.literal("note:bulk-excluded"),
+    operationId: BulkExclusionOperationIdSchema,
+    count: z.number().int().nonnegative(),
+  }),
+  z.object({
+    type: z.literal("note:bulk-restored"),
+    operationId: BulkExclusionOperationIdSchema,
+    count: z.number().int().nonnegative(),
+  }),
   z.object({
     type: z.literal("note:drag:result"),
     dragId: NoteDragIdSchema,

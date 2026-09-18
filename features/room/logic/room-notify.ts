@@ -32,4 +32,9 @@ export const roomNotify = {
       action: { label: "元に戻す", onClick: onUndo },
     });
   },
+  bulkCandidatesExcluded(count: number, onUndo: () => void): void {
+    toast(`${count}件の付箋を候補から外しました`, {
+      action: { label: "まとめて元に戻す", onClick: onUndo },
+    });
+  },
 };

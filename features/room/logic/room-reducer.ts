@@ -54,6 +54,8 @@ export function applyMemberServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
+    case "note:bulk-excluded":
+    case "note:bulk-restored":
     case "note:drag:result":
     case "phase:updated":
     case "timer:updated":
@@ -94,6 +96,8 @@ export function applyVotingCompletionServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
+    case "note:bulk-excluded":
+    case "note:bulk-restored":
     case "note:drag:result":
     case "member_joined":
     case "group:updated":
@@ -151,6 +155,8 @@ export function applyDecisionServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
+    case "note:bulk-excluded":
+    case "note:bulk-restored":
     case "note:drag:result":
     case "member_joined":
     case "member_left":
@@ -198,6 +204,8 @@ export function applyPhaseServerMessage(
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
+    case "note:bulk-excluded":
+    case "note:bulk-restored":
     case "note:drag:result":
     case "member_joined":
     case "member_left":
