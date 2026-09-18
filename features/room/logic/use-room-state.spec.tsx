@@ -121,7 +121,7 @@ describe("useRoomState", () => {
     const decision = buildDecision();
 
     act(() =>
-      result.current.applyMessage({ type: "decision:updated", ...decision }),
+      result.current.applyMessage({ type: "decision:updated", decision }),
     );
     expect(result.current.decision).toEqual(decision);
 

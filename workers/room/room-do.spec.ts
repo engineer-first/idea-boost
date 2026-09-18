@@ -593,9 +593,11 @@ describe("RoomDO note:decide", () => {
 
     expect(await nextJson(ws)).toEqual({
       type: "decision:updated",
-      phase: 1,
-      noteId: FIRST_NOTE_ID,
-      decidedBy: USER_A,
+      decision: {
+        phase: 1,
+        noteId: FIRST_NOTE_ID,
+        decidedBy: USER_A,
+      },
     });
     ws.close();
 
@@ -637,9 +639,11 @@ describe("RoomDO note:decide", () => {
 
     const expected = {
       type: "decision:updated",
-      phase: 1,
-      noteId: FIRST_NOTE_ID,
-      decidedBy: USER_A,
+      decision: {
+        phase: 1,
+        noteId: FIRST_NOTE_ID,
+        decidedBy: USER_A,
+      },
     };
     await expect(hostMessage).resolves.toEqual(expected);
     await expect(memberMessage).resolves.toEqual(expected);
@@ -662,7 +666,7 @@ describe("RoomDO note:decide", () => {
 
     expect(await nextJson(ws)).toMatchObject({
       type: "decision:updated",
-      noteId: SECOND_NOTE_ID,
+      decision: { noteId: SECOND_NOTE_ID },
     });
     const decision = await runInRoomDO(roomName, (_instance, state) => {
       return state.storage.sql
@@ -689,6 +693,99 @@ describe("RoomDO note:decide", () => {
       message: expect.stringContaining("1-4 投票"),
     });
     ws.close();
+  });
+
+  it("ホストは現在フェーズの決定を解除し、全員へ null を配信する", async () => {
+    const roomName = "room-decision-clear-host";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, FIRST_NOTE_ID);
+
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const memberDecision = nextJson(member);
+    host.send(JSON.stringify({ type: "note:decide", noteId: FIRST_NOTE_ID }));
+    await nextJson(host);
+    await memberDecision;
+
+    const hostCleared = nextJson(host);
+    const memberCleared = nextJson(member);
+    host.send(JSON.stringify({ type: "decision:clear" }));
+
+    await expect(hostCleared).resolves.toEqual({
+      type: "decision:updated",
+      decision: null,
+    });
+    await expect(memberCleared).resolves.toEqual({
+      type: "decision:updated",
+      decision: null,
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT COUNT(*) AS count FROM decisions WHERE phase = 1")
+            .one().count as number,
+      ),
+    ).toBe(0);
+    host.close();
+    member.close();
+  });
+
+  it("非ホストは決定を解除できない", async () => {
+    const roomName = "room-decision-clear-non-host";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, FIRST_NOTE_ID);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        `INSERT INTO decisions
+           (phase, note_id, decided_by, decided_at, note_content)
+         VALUES (1, ?1, ?2, ?3, 'decision')`,
+        FIRST_NOTE_ID,
+        USER_A,
+        new Date().toISOString(),
+      );
+    });
+
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    member.send(JSON.stringify({ type: "decision:clear" }));
+
+    expect(await nextJson(member)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT COUNT(*) AS count FROM decisions WHERE phase = 1")
+            .one().count as number,
+      ),
+    ).toBe(1);
+    member.close();
+  });
+
+  it("結果ステップ以外では決定を解除できない", async () => {
+    const roomName = "room-decision-clear-wrong-step";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(4), USER_A);
+
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    host.send(JSON.stringify({ type: "decision:clear" }));
+
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    host.close();
   });
 });
 
@@ -1686,8 +1783,7 @@ describe("RoomDO phase:next", () => {
     ws.send(JSON.stringify({ type: "note:decide", noteId: phase1NoteId }));
     expect(await nextJson(ws)).toMatchObject({
       type: "decision:updated",
-      phase: 1,
-      noteId: phase1NoteId,
+      decision: { phase: 1, noteId: phase1NoteId },
     });
 
     ws.send(JSON.stringify({ type: "phase:next" }));
@@ -1835,8 +1931,7 @@ describe("RoomDO phase:next", () => {
     ws.send(JSON.stringify({ type: "note:decide", noteId }));
     expect(await nextJson(ws)).toMatchObject({
       type: "decision:updated",
-      phase: 2,
-      noteId,
+      decision: { phase: 2, noteId },
     });
 
     ws.send(JSON.stringify({ type: "phase:next" }));
@@ -1950,8 +2045,7 @@ describe("RoomDO phase:next", () => {
     ws.send(JSON.stringify({ type: "note:decide", noteId: created.note.id }));
     expect(await nextJson(ws)).toMatchObject({
       type: "decision:updated",
-      phase: 3,
-      noteId: created.note.id,
+      decision: { phase: 3, noteId: created.note.id },
     });
     ws.close();
   });
@@ -3612,8 +3706,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
     ws.send(JSON.stringify({ type: "note:decide", noteId: HMW_NOTE_ID }));
     expect(await nextJson(ws)).toMatchObject({
       type: "decision:updated",
-      phase: 2,
-      noteId: HMW_NOTE_ID,
+      decision: { phase: 2, noteId: HMW_NOTE_ID },
     });
     ws.close();
   });

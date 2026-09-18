@@ -104,9 +104,11 @@ describe("applyMemberServerMessage", () => {
   it("decision:updated は members を変えない", () => {
     const message: ServerMessage = {
       type: "decision:updated",
-      phase: 1,
-      noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      decidedBy: A.userId,
+      decision: {
+        phase: 1,
+        noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        decidedBy: A.userId,
+      },
     };
     expect(applyMemberServerMessage([A], message)).toEqual([A]);
   });
@@ -234,9 +236,11 @@ describe("applyPhaseServerMessage", () => {
   it("decision:updated は phase を変えない", () => {
     const message: ServerMessage = {
       type: "decision:updated",
-      phase: 1,
-      noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      decidedBy: A.userId,
+      decision: {
+        phase: 1,
+        noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        decidedBy: A.userId,
+      },
     };
     expect(applyPhaseServerMessage(buildPhaseStep(5), message)).toEqual(
       buildPhaseStep(5),
@@ -320,9 +324,18 @@ describe("applyDecisionServerMessage", () => {
     expect(
       applyDecisionServerMessage(null, {
         type: "decision:updated",
-        ...decision,
+        decision,
       }),
     ).toEqual(decision);
+  });
+
+  it("decision:updated の null でサーバー権威の決定解除を反映する", () => {
+    expect(
+      applyDecisionServerMessage(decision, {
+        type: "decision:updated",
+        decision: null,
+      }),
+    ).toBeNull();
   });
 
   it("snapshot の決定状態で再接続後の表示を復元する", () => {

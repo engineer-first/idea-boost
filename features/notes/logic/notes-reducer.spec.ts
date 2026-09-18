@@ -237,9 +237,11 @@ describe("applyServerMessage", () => {
       notes,
       {
         type: "decision:updated",
-        phase: 1,
-        noteId: existing.id,
-        decidedBy: USER_ID,
+        decision: {
+          phase: 1,
+          noteId: existing.id,
+          decidedBy: USER_ID,
+        },
       },
       { draggingNoteId: null },
     );

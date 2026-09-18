@@ -132,6 +132,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:vote-sticker:move":
     case "note:vote-sticker:remove":
     case "note:decide":
+    case "decision:clear":
     case "group:create":
     case "group:update-name":
       return true;
@@ -187,6 +188,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
     ],
   },
   2: {
@@ -217,6 +219,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
     ],
   },
   3: {
@@ -245,6 +248,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
     ],
   },
 };

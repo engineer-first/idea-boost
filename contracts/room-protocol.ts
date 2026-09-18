@@ -332,6 +332,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:decide"),
     noteId: z.string().uuid(),
   }),
+  // 現在フェーズの決定解除。phase / userId は RoomDO が
+  // 認証済みソケットと権威状態から導出する。
+  z.object({ type: z.literal("decision:clear") }),
   // ロビーから課題整理 Step 1-1 へ。ホストのみ。
   z.object({ type: z.literal("start_phase") }),
   // 課題整理の次ステップへ。ホストのみ。
@@ -436,7 +439,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("phase:updated"),
     phase: RoomPhaseSchema,
   }),
-  z.object({ type: z.literal("decision:updated"), ...DecisionSchema.shape }),
+  z.object({
+    type: z.literal("decision:updated"),
+    decision: DecisionSchema.nullable(),
+  }),
   z.object({
     type: z.literal("timer:updated"),
     timer: TimerStateSchema,

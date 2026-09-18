@@ -97,7 +97,8 @@ const meta = {
     onNoteVoteRemove: fn(),
     onNoteVoteStickerRemove: fn(),
     onNoteVoteStickerDragStart: fn(),
-    onNoteDecide: fn(),
+    isAdoptMode: false,
+    onAdoptNote: fn(),
     onGroupCreate: fn(),
     onGroupUpdateName: fn(),
     onAddPrivateNote: fn(),
@@ -195,7 +196,7 @@ export const ReadyToDecide: Story = {
   args: {
     phase: STEP_1_5,
     permissions: getBoardPermissions(STEP_1_5),
-    selectedNoteId: "note-1",
+    isAdoptMode: true,
   },
 };
 
@@ -301,7 +302,7 @@ export const Step1Result: Story = {
   args: {
     phase: STEP_1_5,
     permissions: getBoardPermissions(STEP_1_5),
-    selectedNoteId: "note-1",
+    isAdoptMode: true,
   },
 };
 

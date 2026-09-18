@@ -170,6 +170,11 @@ export function RoomBoard({
     [send],
   );
 
+  const handleDecisionClear = useCallback(
+    () => send({ type: "decision:clear" }),
+    [send],
+  );
+
   const handleNoteExclude = useCallback(
     (noteId: string) => {
       const operation = latestExcludeOperationRef.current + 1;
@@ -335,6 +340,7 @@ export function RoomBoard({
         onNoteVoteStickerRemove={notes.removeVoteSticker}
         onNoteVoteStickerMove={notes.moveVoteSticker}
         onNoteDecide={handleNoteDecide}
+        onDecisionClear={handleDecisionClear}
         onLeave={leave}
         isLeaving={isLeaving}
       />
