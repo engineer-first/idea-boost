@@ -676,6 +676,58 @@ describe("RoomBoardView", () => {
     expect(onTimerStart).toHaveBeenCalledWith(90_000);
   });
 
+  it("タイマー設定中に空白ボードをクリックすると閉じ、ボード操作を開始しない", () => {
+    const notes = buildNotes(2);
+    const interactions = buildInteractions(notes, []);
+    const onNoteDecide = vi.fn();
+    setup({ isHost: true, notes, interactions, onNoteDecide });
+    fireEvent.click(screen.getByTestId("room-timer"));
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+
+    const canvas = screen.getByTestId("board-canvas");
+    fireEvent.pointerDown(canvas, {
+      button: 0,
+      pointerId: 1,
+      clientX: 320,
+      clientY: 240,
+    });
+    fireEvent.pointerUp(canvas, {
+      button: 0,
+      pointerId: 1,
+      clientX: 320,
+      clientY: 240,
+    });
+    fireEvent.click(canvas);
+
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(interactions.onCanvasPointerDown).not.toHaveBeenCalled();
+    expect(interactions.onCanvasPointerEnd).not.toHaveBeenCalled();
+    expect(interactions.onNoteDragStart).not.toHaveBeenCalled();
+    expect(interactions.onPrivateNoteDragStart).not.toHaveBeenCalled();
+    expect(onNoteDecide).not.toHaveBeenCalled();
+  });
+
+  it("タイマー設定中の最初の採用クリックはパネルを閉じるだけにする", async () => {
+    const onNoteDecide = vi.fn();
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      onNoteDecide,
+    });
+    await userEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    clickNote(screen.getAllByTestId("note-card")[0]);
+    const decide = screen.getByRole("button", {
+      name: "この付箋を取り組む課題に決定",
+    });
+    await userEvent.click(screen.getByTestId("room-timer"));
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+
+    await userEvent.click(decide);
+
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(onNoteDecide).not.toHaveBeenCalled();
+  });
+
   it("host の招待URLと招待コードは招待ボタンから表示する", () => {
     setup({
       isHost: true,

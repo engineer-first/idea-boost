@@ -55,6 +55,126 @@ describe("RoomTimer", () => {
     expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
   };
 
+  it("最初の外側クリック全体を消費し、次の独立クリックは通す", () => {
+    const onOutsidePointerDown = vi.fn();
+    const onOutsidePointerUp = vi.fn();
+    const onOutsideClick = vi.fn();
+    render(
+      <>
+        <RoomTimer
+          timer={{ status: "idle" }}
+          serverOffsetMs={0}
+          isHost
+          disabled={false}
+          defaultPanelOpen
+          {...handlers}
+        />
+        <button
+          type="button"
+          data-testid="outside"
+          onPointerDown={onOutsidePointerDown}
+          onPointerUp={onOutsidePointerUp}
+          onClick={onOutsideClick}
+        >
+          外側操作
+        </button>
+      </>,
+    );
+
+    const outside = screen.getByTestId("outside");
+    fireEvent.pointerDown(outside, {
+      button: 0,
+      pointerId: 1,
+    });
+    fireEvent.pointerUp(outside, { button: 0, pointerId: 1 });
+    fireEvent.click(outside);
+
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(onOutsidePointerDown).not.toHaveBeenCalled();
+    expect(onOutsidePointerUp).not.toHaveBeenCalled();
+    expect(onOutsideClick).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(outside, { button: 0, pointerId: 2 });
+    fireEvent.pointerUp(outside, { button: 0, pointerId: 2 });
+    fireEvent.click(outside);
+
+    expect(onOutsidePointerDown).toHaveBeenCalledOnce();
+    expect(onOutsidePointerUp).toHaveBeenCalledOnce();
+    expect(onOutsideClick).toHaveBeenCalledOnce();
+  });
+
+  it("外側操作がclickを生成しない場合はpointerup後に抑止を解除する", () => {
+    const onOutsideClick = vi.fn();
+    render(
+      <>
+        <RoomTimer
+          timer={{ status: "idle" }}
+          serverOffsetMs={0}
+          isHost
+          disabled={false}
+          defaultPanelOpen
+          {...handlers}
+        />
+        <button type="button" data-testid="outside" onClick={onOutsideClick}>
+          外側操作
+        </button>
+      </>,
+    );
+
+    const outside = screen.getByTestId("outside");
+    fireEvent.pointerDown(outside, { button: 0, pointerId: 1 });
+    fireEvent.pointerUp(outside, { button: 0, pointerId: 1 });
+    vi.runOnlyPendingTimers();
+    fireEvent.click(outside);
+
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(onOutsideClick).toHaveBeenCalledOnce();
+  });
+
+  it("時間入力とパネル内ボタンの pointer 操作では閉じない", () => {
+    render(
+      <RoomTimer
+        timer={{ status: "idle" }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+
+    const minutes = screen.getByLabelText("タイマー時間（分）");
+    fireEvent.pointerDown(minutes, { button: 0, pointerId: 1 });
+    fireEvent.change(minutes, { target: { value: "4" } });
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+
+    const increase = screen.getByRole("button", { name: "+1分" });
+    fireEvent.pointerDown(increase, { button: 0, pointerId: 2 });
+    fireEvent.click(increase);
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+    expect(minutes).toHaveValue("05");
+  });
+
+  it("Escape で閉じ、タイマーのトリガーボタンへフォーカスを戻す", () => {
+    render(
+      <RoomTimer
+        timer={{ status: "idle" }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        {...handlers}
+      />,
+    );
+    const trigger = screen.getByTestId("room-timer");
+    openPanel();
+    screen.getByLabelText("タイマー時間（分）").focus();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it("デフォルトのセット時間は定数化された 03:00", () => {
     render(
       <RoomTimer

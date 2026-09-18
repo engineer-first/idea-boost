@@ -1,7 +1,7 @@
 "use client";
 
 import { Pause, Play, RotateCcw, Settings2, Square } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -95,6 +95,124 @@ export function RoomTimer({
   const [secondsInput, setSecondsInput] = useState(initialFields.seconds);
   const [panelOpen, setPanelOpen] = useState(defaultPanelOpen);
   const [isReconfiguring, setIsReconfiguring] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const wasPanelOpenRef = useRef(panelOpen);
+  const panelOpenRef = useRef(panelOpen);
+
+  const handlePanelOpenChange = (open: boolean) => {
+    panelOpenRef.current = open;
+    setPanelOpen(open);
+  };
+
+  useEffect(() => {
+    if (wasPanelOpenRef.current && !panelOpen) {
+      triggerRef.current?.focus();
+    }
+    wasPanelOpenRef.current = panelOpen;
+  }, [panelOpen]);
+
+  useEffect(() => {
+    let suppressedPointer:
+      | { pointerId: number; pointerDownTarget: Node }
+      | undefined;
+    let releaseTimer: number | undefined;
+
+    const clearSuppressedPointer = () => {
+      if (releaseTimer !== undefined) {
+        window.clearTimeout(releaseTimer);
+        releaseTimer = undefined;
+      }
+      suppressedPointer = undefined;
+    };
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      // 前回のジェスチャーが click を生成しなかった場合でも、新しい
+      // pointerdown は独立した操作なので抑止対象にしない。
+      clearSuppressedPointer();
+      const target = event.target;
+      if (
+        !panelOpenRef.current ||
+        event.button !== 0 ||
+        !(target instanceof Node) ||
+        triggerRef.current?.contains(target) ||
+        panelRef.current?.contains(target)
+      ) {
+        return;
+      }
+
+      // ボード面はパン開始のため pointerdown を capture して止める。
+      // パネルが閉じた後も同じジェスチャーの pointerup/click を識別できるよう、
+      // pointerId と開始対象を保持してジェスチャー全体を消費する。
+      suppressedPointer = {
+        pointerId: event.pointerId,
+        pointerDownTarget: target,
+      };
+      event.preventDefault();
+      event.stopPropagation();
+      panelOpenRef.current = false;
+      setPanelOpen(false);
+    };
+    const handleOutsidePointerUp = (event: PointerEvent) => {
+      if (suppressedPointer?.pointerId !== event.pointerId) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      // click は pointerup の直後に同じタスクで発火する。ドラッグなどで
+      // click が生成されない場合は次のタスクまでに抑止状態を解放する。
+      releaseTimer = window.setTimeout(clearSuppressedPointer, 0);
+    };
+    const handleOutsidePointerCancel = (event: PointerEvent) => {
+      if (suppressedPointer?.pointerId !== event.pointerId) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      clearSuppressedPointer();
+    };
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!suppressedPointer) return;
+
+      const clickTarget = event.target;
+      const { pointerDownTarget } = suppressedPointer;
+      const isSameGestureTarget =
+        clickTarget instanceof Node &&
+        (clickTarget === pointerDownTarget ||
+          clickTarget.contains(pointerDownTarget) ||
+          pointerDownTarget.contains(clickTarget));
+      clearSuppressedPointer();
+      if (!isSameGestureTarget) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    document.addEventListener("pointerdown", handleOutsidePointerDown, {
+      capture: true,
+    });
+    document.addEventListener("pointerup", handleOutsidePointerUp, {
+      capture: true,
+    });
+    document.addEventListener("pointercancel", handleOutsidePointerCancel, {
+      capture: true,
+    });
+    document.addEventListener("click", handleOutsideClick, { capture: true });
+    return () => {
+      clearSuppressedPointer();
+      document.removeEventListener("pointerdown", handleOutsidePointerDown, {
+        capture: true,
+      });
+      document.removeEventListener("pointerup", handleOutsidePointerUp, {
+        capture: true,
+      });
+      document.removeEventListener(
+        "pointercancel",
+        handleOutsidePointerCancel,
+        { capture: true },
+      );
+      document.removeEventListener("click", handleOutsideClick, {
+        capture: true,
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (timer.status !== "running") return;
@@ -169,6 +287,7 @@ export function RoomTimer({
   );
   const hostChip = (
     <Button
+      ref={triggerRef}
       type="button"
       data-testid="room-timer"
       data-ended={String(isEnded)}
@@ -198,6 +317,7 @@ export function RoomTimer({
 
   const panel = (
     <PopoverContent
+      ref={panelRef}
       data-testid="room-timer-panel"
       aria-label="タイマー操作"
       align="end"
@@ -358,7 +478,7 @@ export function RoomTimer({
   return (
     <div className="shrink-0">
       {isHost ? (
-        <Popover open={panelOpen} onOpenChange={setPanelOpen}>
+        <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
           <PopoverTrigger asChild>{hostChip}</PopoverTrigger>
           {panel}
         </Popover>

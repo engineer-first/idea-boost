@@ -90,6 +90,7 @@ export const NoteSchema = z.object({
   // 決定ステップで一時的に候補から外す状態。削除とは異なり、付箋の内容・
   // 票・グループ・座標はそのまま保持する。
   excluded: z.boolean().default(false),
+  stackOrder: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string(),
   dotVotes: z.object({

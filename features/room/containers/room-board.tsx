@@ -266,7 +266,7 @@ export function RoomBoard({
         isHost={isHost}
         decision={roomState.decision}
         connectionStatus={connectionStatus}
-        draggingNoteId={notes.draggingNoteId}
+        draggingNoteId={notes.frontNoteId}
         members={roomState.members}
         currentUserId={currentUserId}
         hostUserId={hostUserId}

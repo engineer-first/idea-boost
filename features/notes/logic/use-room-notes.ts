@@ -39,6 +39,20 @@ import {
 
 type NoteDragPayload = { id: string; x: number; y: number };
 
+type ActiveNoteDrag = {
+  noteId: string;
+  initialX: number;
+  initialY: number;
+  initialStackOrder: number;
+};
+
+type PendingNoteDrop = {
+  noteId: string;
+  x: number;
+  y: number;
+  previousStackOrder: number;
+};
+
 export type PendingVoteOperation = {
   id: string;
   noteId: string;
@@ -63,6 +77,8 @@ export type VoteFeedback = {
 export type UseRoomNotesResult = {
   notes: Note[];
   draggingNoteId: string | null;
+  // pointer-up 後も RoomDO の確定応答までは対象付箋を一時最前面に保つ。
+  frontNoteId: string | null;
   remoteNoteDrags: RemoteNoteDrag[];
   // サーバーメッセージを notes state に畳み込む。ドラッグ中の付箋への
   // エコーはローカル優先で無視される。
@@ -109,6 +125,8 @@ export function useRoomNotes({
   // 接続直後に送られてくる snapshot で復元される。
   const [notes, setNotes] = useState<Note[]>([]);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+  const [pendingNoteDrop, setPendingNoteDrop] =
+    useState<PendingNoteDrop | null>(null);
   const [remoteNoteDrags, setRemoteNoteDrags] = useState<RemoteNoteDrag[]>([]);
   const [pendingVoteOperations, setPendingVoteOperations] = useState<
     PendingVoteOperation[]
@@ -116,6 +134,8 @@ export function useRoomNotes({
   const [voteFeedback, setVoteFeedback] = useState<VoteFeedback | null>(null);
   const notesRef = useRef<Note[]>(notes);
   const draggingNoteIdRef = useRef<string | null>(null);
+  const activeNoteDragRef = useRef<ActiveNoteDrag | null>(null);
+  const pendingNoteDropRef = useRef<PendingNoteDrop | null>(null);
   const pendingVoteOperationsRef = useRef<PendingVoteOperation[]>([]);
   const sendDragRef = useRef<ReturnType<
     typeof createThrottled<[NoteDragPayload]>
@@ -142,6 +162,8 @@ export function useRoomNotes({
       sendDragRef.current?.cancel();
       sendDragRef.current = null;
       notesRef.current = [];
+      activeNoteDragRef.current = null;
+      pendingNoteDropRef.current = null;
     };
   }, [send]);
 
@@ -164,9 +186,30 @@ export function useRoomNotes({
     [],
   );
 
+  const updatePendingNoteDrop = useCallback((next: PendingNoteDrop | null) => {
+    pendingNoteDropRef.current = next;
+    setPendingNoteDrop(next);
+  }, []);
+
   const applyMessage = useCallback(
     (message: ServerMessage) => {
       const receivedAt = Date.now();
+      const pendingDrop = pendingNoteDropRef.current;
+      if (
+        message.type === "snapshot" ||
+        (message.type === "note:deleted" &&
+          message.noteId === pendingDrop?.noteId) ||
+        (message.type === "error" &&
+          message.operationId === undefined &&
+          pendingDrop !== null) ||
+        (message.type === "note:updated" &&
+          message.note.id === pendingDrop?.noteId &&
+          message.note.x === pendingDrop.x &&
+          message.note.y === pendingDrop.y &&
+          message.note.stackOrder > pendingDrop.previousStackOrder)
+      ) {
+        updatePendingNoteDrop(null);
+      }
       if (message.type === "error" && message.operationId !== undefined) {
         const operation = pendingVoteOperationsRef.current.find(
           ({ id }) => id === message.operationId,
@@ -289,7 +332,7 @@ export function useRoomNotes({
         applyRemoteNoteDragMessage(current, message, receivedAt),
       );
     },
-    [updateNotes, updatePendingVoteOperations],
+    [updateNotes, updatePendingNoteDrop, updatePendingVoteOperations],
   );
 
   useEffect(() => {
@@ -323,15 +366,31 @@ export function useRoomNotes({
   const unpublishNote = useCallback(
     (noteId: string) => {
       setDraggingNoteId(null);
+      activeNoteDragRef.current = null;
+      if (pendingNoteDropRef.current?.noteId === noteId) {
+        updatePendingNoteDrop(null);
+      }
       send({ type: "note:unpublish", noteId });
     },
-    [send],
+    [send, updatePendingNoteDrop],
   );
 
-  const startNoteDrag = useCallback((noteId: string) => {
-    draggingNoteIdRef.current = noteId;
-    setDraggingNoteId(noteId);
-  }, []);
+  const startNoteDrag = useCallback(
+    (noteId: string) => {
+      const note = notesRef.current.find(({ id }) => id === noteId);
+      if (!note) return;
+      updatePendingNoteDrop(null);
+      activeNoteDragRef.current = {
+        noteId,
+        initialX: note.x,
+        initialY: note.y,
+        initialStackOrder: note.stackOrder,
+      };
+      draggingNoteIdRef.current = noteId;
+      setDraggingNoteId(noteId);
+    },
+    [updatePendingNoteDrop],
+  );
 
   const moveNote = useCallback(
     (noteId: string, x: number, y: number) => {
@@ -347,10 +406,23 @@ export function useRoomNotes({
       sendDragRef.current?.cancel();
       draggingNoteIdRef.current = null;
       setDraggingNoteId(null);
+      const activeDrag = activeNoteDragRef.current;
+      activeNoteDragRef.current = null;
+      updatePendingNoteDrop(
+        activeDrag?.noteId === noteId &&
+          (activeDrag.initialX !== x || activeDrag.initialY !== y)
+          ? {
+              noteId,
+              x,
+              y,
+              previousStackOrder: activeDrag.initialStackOrder,
+            }
+          : null,
+      );
       updateNotes((current) => moveNoteLocally(current, noteId, x, y));
       send({ type: "note:move", noteId, x, y });
     },
-    [updateNotes, send],
+    [updateNotes, send, updatePendingNoteDrop],
   );
 
   const changeNoteContent = useCallback(
@@ -544,6 +616,7 @@ export function useRoomNotes({
   return {
     notes,
     draggingNoteId,
+    frontNoteId: draggingNoteId ?? pendingNoteDrop?.noteId ?? null,
     remoteNoteDrags,
     applyMessage,
     addNote,

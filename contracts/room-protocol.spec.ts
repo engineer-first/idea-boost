@@ -161,6 +161,7 @@ describe("NoteSchema", () => {
     color: "yellow",
     x: 100,
     y: 200,
+    stackOrder: 0,
     createdAt: "2026-07-10T00:00:00.000Z",
     updatedAt: "2026-07-10T00:00:00.000Z",
     dotVotes: {
@@ -177,6 +178,26 @@ describe("NoteSchema", () => {
 
   it("visibility が無い付箋は拒否する", () => {
     expect(NoteSchema.safeParse(note).success).toBe(false);
+  });
+
+  it("stackOrder は非負整数だけを受け入れる", () => {
+    expect(NoteSchema.parse({ ...note, visibility: "shared" }).stackOrder).toBe(
+      0,
+    );
+    for (const stackOrder of [-1, 0.5, Number.POSITIVE_INFINITY]) {
+      expect(
+        NoteSchema.safeParse({ ...note, visibility: "shared", stackOrder })
+          .success,
+      ).toBe(false);
+    }
+  });
+
+  it("stackOrder が無い付箋は拒否する", () => {
+    const { stackOrder: _, ...withoutStackOrder } = note;
+    expect(
+      NoteSchema.safeParse({ ...withoutStackOrder, visibility: "shared" })
+        .success,
+    ).toBe(false);
   });
 
   it("投票集計が未公開の付箋は count なしでも受け入れる", () => {

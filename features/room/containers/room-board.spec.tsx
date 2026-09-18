@@ -147,6 +147,7 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    stackOrder: overrides?.stackOrder ?? 0,
     dotVoteStickers: overrides?.dotVoteStickers ?? [],
   };
 }
@@ -720,6 +721,106 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     expect(screen.getByDisplayValue("あとから届いた付箋")).toBeInTheDocument();
+  });
+
+  it("ドロップ直後から確定応答までは最前面を維持し、応答後は永続順へ戻る", () => {
+    const dragged = protocolNote({
+      content: "移動する付箋",
+      stackOrder: 1,
+      x: 100,
+      y: 100,
+    });
+    const other = protocolNote({
+      id: TARGET_NOTE_ID,
+      content: "手前の付箋",
+      stackOrder: 9,
+      x: 120,
+      y: 120,
+    });
+    const { socket } = connectWithSnapshot([dragged, other], {
+      phase: buildPhaseStep(2),
+    });
+    const scroller = screen.getByTestId("board-canvas").parentElement;
+    if (!scroller) throw new Error("ボードスクローラーがありません");
+    Object.defineProperty(scroller, "getBoundingClientRect", {
+      value: () => ({
+        left: 0,
+        top: 0,
+        right: 600,
+        bottom: 600,
+        width: 600,
+        height: 600,
+      }),
+    });
+    const draggedCard = screen
+      .getByDisplayValue("移動する付箋")
+      .closest("[data-testid='note-card']");
+    if (!(draggedCard instanceof HTMLElement)) {
+      throw new Error("移動対象の付箋がありません");
+    }
+    const surface = within(draggedCard).getByRole("button", { name: "付箋" });
+    const root = screen.getByTestId("room-board-view-root");
+
+    fireEvent.pointerDown(surface, {
+      pointerId: 1,
+      clientX: 110,
+      clientY: 110,
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 1,
+      clientX: 120,
+      clientY: 120,
+    });
+    fireEvent.pointerMove(root, {
+      pointerId: 1,
+      clientX: 220,
+      clientY: 240,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 1,
+      clientX: 220,
+      clientY: 240,
+    });
+
+    const move = socket.sent
+      .map((payload) => JSON.parse(payload) as Record<string, unknown>)
+      .find((message) => message.type === "note:move");
+    expect(move).toMatchObject({ type: "note:move", noteId: NOTE_ID });
+    expect(move).not.toMatchObject({ x: dragged.x, y: dragged.y });
+    expect(
+      screen
+        .getByDisplayValue("移動する付箋")
+        .closest("[data-testid='note-card']"),
+    ).toHaveStyle({ zIndex: "2147483647" });
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: { ...other, content: "無関係な更新" },
+      }),
+    );
+    expect(
+      screen
+        .getByDisplayValue("移動する付箋")
+        .closest("[data-testid='note-card']"),
+    ).toHaveStyle({ zIndex: "2147483647" });
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: {
+          ...dragged,
+          x: move?.x as number,
+          y: move?.y as number,
+          stackOrder: 10,
+        },
+      }),
+    );
+    expect(
+      screen
+        .getByDisplayValue("移動する付箋")
+        .closest("[data-testid='note-card']"),
+    ).toHaveStyle({ zIndex: "10" });
   });
 
   it("個人付箋をボードへドラッグすると侵入時に公開し、ドロップで位置を確定する", () => {
