@@ -72,6 +72,7 @@ const INTERACTIONS: RoomBoardInteractions = {
   onPointerMove: fn(),
   onPointerEnd: fn(),
   onPointerCancel: fn(),
+  cancelCurrentNoteDrag: fn(),
   onNoteDragStart: fn(),
   onPrivateNoteDragStart: fn(),
 };

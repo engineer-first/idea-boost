@@ -497,6 +497,11 @@ export function useBoardDrag({
     updateDrag(null);
   }, [boardRootRef, onNoteDragCancel, updateDrag]);
 
+  const isCurrentDragPointer = useCallback((pointerId: number) => {
+    const current = dragRef.current;
+    return current === null || current.pointerId === pointerId;
+  }, []);
+
   return {
     drag,
     renderedNotes,
@@ -507,5 +512,6 @@ export function useBoardDrag({
     handlePointerEnd,
     handlePointerCancel,
     cancelCurrentNoteDrag,
+    isCurrentDragPointer,
   };
 }

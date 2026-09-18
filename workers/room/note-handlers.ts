@@ -252,7 +252,6 @@ export const noteHandlers: MessageHandlers<
         row.phase === phase.phase &&
         canEdit(row, ctx.userId) &&
         !row.excluded &&
-        !ctx.broadcaster.isDragRetired(ctx.ws, message.dragId) &&
         (isActiveRetry ||
           (!current &&
             !hasUsedNoteDragId(ctx.sql, ctx.userId, message.dragId))) &&

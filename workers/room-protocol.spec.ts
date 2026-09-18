@@ -2056,6 +2056,45 @@ describe("note:delete（pgTAP: DELETE は author のみ）", () => {
 });
 
 describe("note:drag（エフェメラル同期）", () => {
+  it("private 付箋の author でも fresh な dragId では操作権を取得できない", async () => {
+    const room = await setupStartedRoom();
+    send(room.owner, { type: "note:create" });
+    const inserted = await expectType(room.owner, "note:inserted");
+    await arrangeStep(room.owner, 2);
+    const dragId = "10101010-1010-4010-8010-101010101010";
+
+    send(room.owner, {
+      type: "note:drag:start",
+      noteId: inserted.note.id,
+      dragId,
+    });
+
+    expect(await expectType(room.owner, "note:drag:result")).toMatchObject({
+      dragId,
+      accepted: false,
+    });
+    room.owner.close();
+    room.member.close();
+  });
+
+  it("現在と異なる phase の共有付箋は fresh な dragId でも操作権を取得できない", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+    await runInRoomDO(room.roomId, (instance) =>
+      instance.setPhase(buildPhaseStep(2, 2), OWNER.sub),
+    );
+    const dragId = "20202020-2020-4020-8020-202020202020";
+
+    send(room.member, { type: "note:drag:start", noteId, dragId });
+
+    expect(await expectType(room.member, "note:drag:result")).toMatchObject({
+      dragId,
+      accepted: false,
+    });
+    room.owner.close();
+    room.member.close();
+  });
+
   it("先に開始を受理した接続だけが移動でき、解放後は別メンバーが取得できる", async () => {
     const room = await setupStartedRoom();
     const noteId = await createNote(room);
@@ -2295,6 +2334,19 @@ describe("note:drag（エフェメラル同期）", () => {
       dragId: dragIds[0],
       accepted: false,
     });
+    const ownerAttachment = await runInRoomDO(room.roomId, (_instance, state) =>
+      state
+        .getWebSockets()
+        .map((socket) => socket.deserializeAttachment())
+        .find(
+          (attachment) =>
+            typeof attachment === "object" &&
+            attachment !== null &&
+            "userId" in attachment &&
+            attachment.userId === OWNER.sub,
+        ),
+    );
+    expect(ownerAttachment).not.toHaveProperty("retiredDragIds");
 
     room.owner.close();
     room.member.close();

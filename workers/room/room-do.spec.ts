@@ -1804,6 +1804,15 @@ describe("RoomDO phase:next", () => {
         y: 50,
       },
     },
+    {
+      step: 3,
+      message: {
+        type: "note:drag:end" as const,
+        noteId: "99999999-9999-4999-8999-999999999999",
+        dragId: "88888888-8888-4888-8888-888888888888",
+        position: { x: 101, y: 50 },
+      },
+    },
   ])("フェーズ3 Step3-$stepでは2軸マップ外の配置を拒否する", async ({
     step,
     message,

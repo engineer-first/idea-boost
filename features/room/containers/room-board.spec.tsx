@@ -1951,6 +1951,38 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     expect(socket.sent).toHaveLength(0);
   });
 
+  it("共有付箋のドラッグ中に切断したらローカルの pointer capture も解除する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2, 1),
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    const releasePointerCapture = vi.fn();
+    Object.defineProperty(root, "releasePointerCapture", {
+      configurable: true,
+      value: releasePointerCapture,
+    });
+    const surface = within(screen.getByTestId("board-canvas")).getByRole(
+      "button",
+      { name: "付箋" },
+    );
+
+    fireEvent.pointerDown(surface, {
+      pointerId: 7,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 7,
+      clientX: 110,
+      clientY: 110,
+    });
+    expectSent(socket, { type: "note:drag:start", noteId: NOTE_ID });
+
+    act(() => socket.simulateUnexpectedClose());
+
+    expect(releasePointerCapture).toHaveBeenCalledWith(7);
+  });
+
   it("ホストが確認後に「次のステップへ」を実行すると phase:next が送信される", () => {
     const { socket } = connectWithSnapshot([], {
       isHost: true,

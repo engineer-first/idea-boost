@@ -17,9 +17,6 @@ export type SocketAttachment = {
   hasCursor?: boolean;
   // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
   activeDrag?: { noteId: string; dragId: string };
-  // 終了済み操作の遅延 start を同じ接続で再受理しない。接続寿命中は一度使った
-  // dragId を全件保持し、古い ID の replay でも操作権を復活させない。
-  retiredDragIds?: string[];
 };
 
 export type ActiveDragOwner = {
@@ -148,25 +145,12 @@ export class RoomBroadcaster {
     };
   }
 
-  isDragRetired(socket: WebSocket, dragId: string): boolean {
-    const attachment =
-      socket.deserializeAttachment() as SocketAttachment | null;
-    return attachment?.retiredDragIds?.includes(dragId) ?? false;
-  }
-
   retireActiveDrag(socket: WebSocket): ActiveDragOwner | null {
     const active = this.activeDragFor(socket);
     if (!active) return null;
-    const retiredDragIds = [
-      ...(active.attachment.retiredDragIds ?? []).filter(
-        (dragId) => dragId !== active.dragId,
-      ),
-      active.dragId,
-    ];
     socket.serializeAttachment({
       ...active.attachment,
       activeDrag: undefined,
-      retiredDragIds,
     } satisfies SocketAttachment);
     return active;
   }

@@ -233,13 +233,14 @@ function isIdeaValueFeasibilityMapPositionMessage(
 ): message is Extract<
   ClientMessage,
   {
-    type: "note:publish" | "note:move" | "note:drag:move";
+    type: "note:publish" | "note:move" | "note:drag:move" | "note:drag:end";
   }
 > {
   return (
     message.type === "note:publish" ||
     message.type === "note:move" ||
-    message.type === "note:drag:move"
+    message.type === "note:drag:move" ||
+    message.type === "note:drag:end"
   );
 }
 
@@ -261,11 +262,17 @@ export function getBoardMutationForbiddenMessage(
   if (isLobby(phase)) return "ボード開始前はボードを変更できません。";
   if (
     isIdeaValueFeasibilityMappingStep(phase) &&
-    isIdeaValueFeasibilityMapPositionMessage(message) &&
-    (!isIdeaValueFeasibilityMapCoordinate(message.x) ||
-      !isIdeaValueFeasibilityMapCoordinate(message.y))
+    isIdeaValueFeasibilityMapPositionMessage(message)
   ) {
-    return `${getRoomPhaseLabel(phase)}では2軸マップ内（0〜100）の位置を指定してください。`;
+    const position =
+      message.type === "note:drag:end" ? message.position : message;
+    if (
+      position &&
+      (!isIdeaValueFeasibilityMapCoordinate(position.x) ||
+        !isIdeaValueFeasibilityMapCoordinate(position.y))
+    ) {
+      return `${getRoomPhaseLabel(phase)}では2軸マップ内（0〜100）の位置を指定してください。`;
+    }
   }
   const allowed = allowedBoardMutationsByPhase[phase.phase]?.[phase.step] ?? [];
   if (allowed.includes(message.type)) return null;

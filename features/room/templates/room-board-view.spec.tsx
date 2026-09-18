@@ -50,6 +50,7 @@ function buildInteractions(
     onPointerMove: vi.fn(),
     onPointerEnd: vi.fn(),
     onPointerCancel: vi.fn(),
+    cancelCurrentNoteDrag: vi.fn(),
     onNoteDragStart: vi.fn(),
     onPrivateNoteDragStart: vi.fn(),
   };

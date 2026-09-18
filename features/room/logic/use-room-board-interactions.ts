@@ -65,6 +65,7 @@ export type RoomBoardInteractions = {
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  cancelCurrentNoteDrag: () => void;
   onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onNoteDragStart: (
@@ -141,6 +142,7 @@ export function useRoomBoardInteractions({
     handlePointerEnd,
     handlePointerCancel,
     cancelCurrentNoteDrag,
+    isCurrentDragPointer,
   } = useBoardDrag({
     notes,
     privateNotes,
@@ -222,6 +224,7 @@ export function useRoomBoardInteractions({
   const handlePresencePointerMove = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
+    if (!isCurrentDragPointer(event.pointerId)) return;
     const point = presencePointFromPointer(event);
     if (!point) {
       onCursorLeave();
@@ -249,6 +252,12 @@ export function useRoomBoardInteractions({
   function handlePresencePointerLeave(
     event: ReactPointerEvent<HTMLDivElement>,
   ) {
+    if (!isCurrentDragPointer(event.pointerId)) return;
+    if (event.type === "pointercancel") {
+      onCursorLeave();
+      cancelCurrentNoteDrag();
+      return;
+    }
     const toolbarBounds = privateToolbarRef.current?.getBoundingClientRect();
     if (
       toolbarBounds &&
@@ -287,6 +296,7 @@ export function useRoomBoardInteractions({
     onPointerMove: handlePointerMove,
     onPointerEnd: handleBoardPointerEnd,
     onPointerCancel: handlePointerCancel,
+    cancelCurrentNoteDrag,
     onPresencePointerMove: handlePresencePointerMove,
     onPresencePointerLeave: handlePresencePointerLeave,
     onNoteDragStart: handleSharedNoteDragStart,

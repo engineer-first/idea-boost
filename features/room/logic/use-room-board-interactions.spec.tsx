@@ -246,14 +246,54 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(result.current.isNoteDragging).toBe(false);
   });
 
-  it("pointercancel は private toolbar 上でも shared drag を解除する", () => {
-    const { result, onNoteDragCancel } = setup({ withSharedDrag: true });
+  it("shared drag 中は別 pointer の presence move と leave を無視する", () => {
+    const { result, onCursorMove, onCursorLeave, onNoteDragCancel, viewport } =
+      setup({ withSharedDrag: true });
     act(() => {
       result.current.onNoteDragStart("shared-1", {
         pointerId: 7,
         clientX: 120,
         clientY: 130,
       } as unknown as PointerEvent<HTMLButtonElement>);
+      result.current.onPresencePointerMove({
+        pointerId: 8,
+        pointerType: "mouse",
+        clientX: 50,
+        clientY: 60,
+        target: viewport,
+      } as unknown as PointerEvent<HTMLDivElement>);
+      result.current.onPresencePointerLeave({
+        pointerId: 8,
+        clientX: 950,
+        clientY: 700,
+      } as unknown as PointerEvent<HTMLDivElement>);
+    });
+
+    expect(onCursorMove).not.toHaveBeenCalled();
+    expect(onCursorLeave).not.toHaveBeenCalled();
+    expect(onNoteDragCancel).not.toHaveBeenCalled();
+    expect(result.current.isNoteDragging).toBe(true);
+  });
+
+  it("pointercancel は private toolbar 上でも shared drag を解除する", () => {
+    const { result, onCursorLeave, onNoteDragCancel } = setup({
+      withSharedDrag: true,
+    });
+    const toolbar = document.createElement("div");
+    toolbar.getBoundingClientRect = () => new DOMRect(600, 0, 300, 600);
+    result.current.privateToolbarRef.current = toolbar;
+    act(() => {
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 7,
+        clientX: 120,
+        clientY: 130,
+      } as unknown as PointerEvent<HTMLButtonElement>);
+      result.current.onPresencePointerLeave({
+        type: "pointercancel",
+        pointerId: 7,
+        clientX: 650,
+        clientY: 120,
+      } as unknown as PointerEvent<HTMLDivElement>);
       result.current.onPointerCancel({
         pointerId: 7,
         clientX: 650,
@@ -261,6 +301,7 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLDivElement>);
     });
 
+    expect(onCursorLeave).toHaveBeenCalledOnce();
     expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
     expect(result.current.isNoteDragging).toBe(false);
   });
