@@ -108,6 +108,7 @@ function renderStart(
     currentUserId?: string;
     initialMembers?: ProtocolMember[];
     initialPhase?: RoomPhase;
+    boardHref?: string;
   } = {},
 ) {
   FakeWebSocket.instances = [];
@@ -124,6 +125,7 @@ function renderStart(
       initialPhase={options.initialPhase ?? buildLobbyPhase()}
       initialMembers={options.initialMembers ?? []}
       webSocketFactory={factory}
+      boardHref={options.boardHref}
     />,
   );
   const socket = FakeWebSocket.instances.at(-1);
@@ -307,4 +309,14 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const { socket } = renderStart({ isHost: false });
     expect(socket.sent).toHaveLength(0);
   });
+});
+
+it("開始後のボードURLを指定した場合は追従先を保持する", () => {
+  renderStart({
+    initialPhase: buildPhaseStep(1),
+    boardHref: `/rooms/${ROOM_ID}?verify=follow`,
+  });
+  expect(navigationMocks.replace).toHaveBeenCalledWith(
+    `/rooms/${ROOM_ID}?verify=follow`,
+  );
 });
