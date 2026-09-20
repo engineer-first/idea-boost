@@ -275,10 +275,7 @@ export function RoomBoardCanvas({
     const isRemoteDrag =
       !isDisconnected &&
       remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
-    const isTemporarilyFront =
-      (selectedNoteId === note.id && permissions.canMoveNote) ||
-      draggingNoteId === note.id ||
-      isRemoteDrag;
+    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
     return (
       <NoteCard
         key={note.id}
@@ -351,10 +348,7 @@ export function RoomBoardCanvas({
     const isRemoteDrag =
       !isDisconnected &&
       remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
-    const isTemporarilyFront =
-      (selectedNoteId === note.id && permissions.canMoveNote) ||
-      draggingNoteId === note.id ||
-      isRemoteDrag;
+    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
 
     return (
       <div

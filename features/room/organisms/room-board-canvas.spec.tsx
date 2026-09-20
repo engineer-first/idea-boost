@@ -577,30 +577,32 @@ describe("RoomBoardCanvas", () => {
     ).toHaveStyle({ zIndex: "2147483647" });
   });
 
-  it("通常ボードではクリックで選択した付箋を一時最前面にする", () => {
+  it("通常ボードでは選択状態ではなく確定待ちの付箋だけを一時最前面にする", () => {
     const phase = buildPhaseStep(2);
     const notes = [
       { ...buildNote({ id: "selected", content: "奥の付箋" }), stackOrder: 7 },
       { ...buildNote({ id: "front", content: "手前の付箋" }), stackOrder: 12 },
     ];
-    const onSelect = vi.fn();
     const { props, rerender } = setup({
       phase,
       permissions: getBoardPermissions(phase),
       notes,
-      onSelect,
+      selectedNoteId: "selected",
     });
-
-    fireEvent.pointerDown(screen.getAllByRole("button", { name: "付箋" })[0], {
-      button: 0,
-      pointerId: 1,
-    });
-    expect(onSelect).toHaveBeenCalledWith("selected");
-    rerender(
-      <RoomBoardCanvas {...props} notes={notes} selectedNoteId="selected" />,
-    );
 
     const [selected, front] = screen.getAllByTestId("note-card");
+    expect(selected).toHaveStyle({ zIndex: "7" });
+    expect(front).toHaveStyle({ zIndex: "12" });
+
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        notes={notes}
+        selectedNoteId="selected"
+        draggingNoteId="selected"
+      />,
+    );
+
     expect(selected).toHaveStyle({ zIndex: "2147483647" });
     expect(front).toHaveStyle({ zIndex: "12" });
   });
@@ -615,6 +617,7 @@ describe("RoomBoardCanvas", () => {
         { ...buildNote({ id: "map-remote" }), stackOrder: 9 },
       ],
       selectedNoteId: "map-selected",
+      draggingNoteId: "map-selected",
       remoteCursors: [
         {
           userId: "22222222-2222-4222-8222-222222222222",
