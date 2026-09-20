@@ -304,12 +304,6 @@ export function RoomBoardView({
 
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
-  const handleNoteSelect = (noteId: string | null) => {
-    setSelectedNoteId(noteId);
-    if (noteId !== null && permissions.canMoveNote && !isDisconnected) {
-      onNoteBringToFront(noteId);
-    }
-  };
   const voteRemaining = {
     subjective: Math.max(
       0,
@@ -655,6 +649,19 @@ export function RoomBoardView({
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
+  const handleNoteSelect = (noteId: string | null) => {
+    setSelectedNoteId(noteId);
+    const isSharedNote =
+      noteId !== null && renderedNotes.some(({ id }) => id === noteId);
+    if (
+      noteId !== null &&
+      isSharedNote &&
+      permissions.canMoveNote &&
+      !isDisconnected
+    ) {
+      onNoteBringToFront(noteId);
+    }
+  };
 
   return (
     <div

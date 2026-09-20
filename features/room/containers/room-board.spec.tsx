@@ -652,6 +652,26 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
+  it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
+    const { socket } = connectWithSnapshot(
+      [protocolNote({ visibility: "private", content: "個人付箋" })],
+      { phase: buildPhaseStep(2) },
+    );
+    const toolbar = openPrivateNotesToolbar();
+    const card = within(toolbar).getByTestId("note-card");
+    const surface = within(card).getByRole("button", { name: "付箋" });
+
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+
+    expect(card).toHaveAttribute("data-selected", "true");
+    expect(
+      socket.sent.map((payload) => JSON.parse(payload)),
+    ).not.toContainEqual(
+      expect.objectContaining({ type: "note:bring-to-front" }),
+    );
+  });
+
   it("結果ステップのホストが付箋を決定すると note:decide を送信する", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),

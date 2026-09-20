@@ -1725,6 +1725,30 @@ describe("RoomBoardView", () => {
       expect(onNoteBringToFront).not.toHaveBeenCalled();
     });
 
+    it("移動可能フェーズでも個人付箋の選択では最前面への移動を通知しない", () => {
+      const onNoteBringToFront = vi.fn();
+      const privateNote = buildNote({
+        id: "private-note",
+        visibility: "private",
+        content: "個人付箋",
+      });
+      setup({
+        phase: buildPhaseStep(2),
+        notes: [],
+        interactions: buildInteractions([], [privateNote]),
+        onNoteBringToFront,
+      });
+      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+
+      const card = within(
+        screen.getByTestId("private-notes-toolbar"),
+      ).getByTestId("note-card");
+      clickNote(card);
+
+      expect(card).toHaveAttribute("data-selected", "true");
+      expect(onNoteBringToFront).not.toHaveBeenCalled();
+    });
+
     it("付箋をクリックすると選択され、ボード背景のクリックで解除される", () => {
       setup();
 
