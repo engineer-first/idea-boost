@@ -124,6 +124,44 @@ type Story = StoryObj<typeof meta>;
 // success相当: 付箋が配置されている状態。
 export const WithNotes: Story = {};
 
+function ClickToFrontPreview({
+  args,
+}: {
+  args: ComponentProps<typeof RoomBoardCanvas>;
+}) {
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  return (
+    <RoomBoardCanvas
+      {...args}
+      selectedNoteId={selectedNoteId}
+      onSelect={setSelectedNoteId}
+    />
+  );
+}
+
+// 重なった付箋をクリックすると、選択した付箋が最前面へ切り替わる状態。
+export const ClickToFront: Story = {
+  args: {
+    notes: [
+      buildNote({
+        id: "note-back",
+        content: "クリックすると手前に来る付箋",
+        x: 120,
+        y: 90,
+        stackOrder: 1,
+      }),
+      buildNote({
+        id: "note-front",
+        content: "最初は手前にある付箋",
+        x: 240,
+        y: 170,
+        stackOrder: 2,
+      }),
+    ],
+  },
+  render: (args) => <ClickToFrontPreview args={args} />,
+};
+
 // empty相当: まだ誰も付箋を置いていない状態。
 export const Empty: Story = {
   args: {

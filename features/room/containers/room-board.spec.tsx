@@ -874,7 +874,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByDisplayValue("あとから届いた付箋")).toBeInTheDocument();
   });
 
-  it("ドロップ直後から確定応答までは最前面を維持し、応答後は永続順へ戻る", () => {
+  it("移動後も選択中は最前面を維持し、選択解除後は永続順へ戻る", () => {
     const dragged = protocolNote({
       content: "移動する付箋",
       stackOrder: 1,
@@ -969,6 +969,13 @@ describe("サーバーメッセージ → 画面反映", () => {
         },
       }),
     );
+    expect(
+      screen
+        .getByDisplayValue("移動する付箋")
+        .closest("[data-testid='note-card']"),
+    ).toHaveStyle({ zIndex: "2147483647" });
+
+    fireEvent.pointerDown(screen.getByTestId("board-canvas"), { button: 0 });
     expect(
       screen
         .getByDisplayValue("移動する付箋")

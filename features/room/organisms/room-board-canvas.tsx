@@ -43,7 +43,7 @@ import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
-const TEMPORARY_DRAG_Z_INDEX = 2_147_483_647;
+const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
 const ADOPTION_TARGET_CLASS_NAME =
   "absolute z-50 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
@@ -275,7 +275,8 @@ export function RoomBoardCanvas({
     const isRemoteDrag =
       !isDisconnected &&
       remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
-    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
+    const isTemporarilyFront =
+      selectedNoteId === note.id || draggingNoteId === note.id || isRemoteDrag;
     return (
       <NoteCard
         key={note.id}
@@ -322,7 +323,7 @@ export function RoomBoardCanvas({
                 left: note.x,
                 top: note.y,
                 zIndex: isTemporarilyFront
-                  ? TEMPORARY_DRAG_Z_INDEX
+                  ? TEMPORARY_FRONT_Z_INDEX
                   : note.excluded
                     ? 0
                     : note.stackOrder,
@@ -348,7 +349,8 @@ export function RoomBoardCanvas({
     const isRemoteDrag =
       !isDisconnected &&
       remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
-    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
+    const isTemporarilyFront =
+      selectedNoteId === note.id || draggingNoteId === note.id || isRemoteDrag;
 
     return (
       <div
@@ -358,7 +360,7 @@ export function RoomBoardCanvas({
         style={{
           ...position,
           zIndex: isTemporarilyFront
-            ? TEMPORARY_DRAG_Z_INDEX
+            ? TEMPORARY_FRONT_Z_INDEX
             : note.excluded
               ? 0
               : note.stackOrder,
@@ -395,7 +397,7 @@ export function RoomBoardCanvas({
         isLifted
         color={dragGhost.note.color}
         className="pointer-events-none absolute"
-        style={{ ...position, zIndex: TEMPORARY_DRAG_Z_INDEX }}
+        style={{ ...position, zIndex: TEMPORARY_FRONT_Z_INDEX }}
       >
         <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
           {dragGhost.note.content || "メモを入力..."}
@@ -533,7 +535,7 @@ export function RoomBoardCanvas({
                 style={{
                   left: dragGhost.x,
                   top: dragGhost.y,
-                  zIndex: TEMPORARY_DRAG_Z_INDEX,
+                  zIndex: TEMPORARY_FRONT_Z_INDEX,
                 }}
               >
                 <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">

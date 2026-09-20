@@ -577,24 +577,41 @@ describe("RoomBoardCanvas", () => {
     ).toHaveStyle({ zIndex: "2147483647" });
   });
 
-  it("選択状態だけでは永続 z-index を変えない", () => {
-    setup({
-      notes: [{ ...buildNote({ id: "selected" }), stackOrder: 7 }],
-      selectedNoteId: "selected",
+  it("通常ボードではクリックで選択した付箋を一時最前面にする", () => {
+    const notes = [
+      { ...buildNote({ id: "selected", content: "奥の付箋" }), stackOrder: 7 },
+      { ...buildNote({ id: "front", content: "手前の付箋" }), stackOrder: 12 },
+    ];
+    const onSelect = vi.fn();
+    const { props, rerender } = setup({
+      notes,
+      onSelect,
     });
 
-    expect(screen.getByTestId("note-card")).toHaveStyle({ zIndex: "7" });
+    fireEvent.pointerDown(screen.getAllByRole("button", { name: "付箋" })[0], {
+      button: 0,
+      pointerId: 1,
+    });
+    expect(onSelect).toHaveBeenCalledWith("selected");
+    rerender(
+      <RoomBoardCanvas {...props} notes={notes} selectedNoteId="selected" />,
+    );
+
+    const [selected, front] = screen.getAllByTestId("note-card");
+    expect(selected).toHaveStyle({ zIndex: "2147483647" });
+    expect(front).toHaveStyle({ zIndex: "12" });
   });
 
-  it("2軸マップでも永続順序を使い名前付きカーソルの drag と ghost を一時最前面にする", () => {
+  it("2軸マップでも選択・名前付きカーソルの drag・ghost を一時最前面にする", () => {
     const phase = buildPhaseStep(3, 3);
     setup({
       phase,
       permissions: getBoardPermissions(phase),
       notes: [
-        { ...buildNote({ id: "map-back" }), stackOrder: 3 },
+        { ...buildNote({ id: "map-selected" }), stackOrder: 3 },
         { ...buildNote({ id: "map-remote" }), stackOrder: 9 },
       ],
+      selectedNoteId: "map-selected",
       remoteCursors: [
         {
           userId: "22222222-2222-4222-8222-222222222222",
@@ -618,8 +635,8 @@ describe("RoomBoardCanvas", () => {
     });
 
     expect(
-      screen.getByTestId("idea-value-feasibility-map-note-map-back"),
-    ).toHaveStyle({ zIndex: "3" });
+      screen.getByTestId("idea-value-feasibility-map-note-map-selected"),
+    ).toHaveStyle({ zIndex: "2147483647" });
     expect(
       screen.getByTestId("idea-value-feasibility-map-note-map-remote"),
     ).toHaveStyle({ zIndex: "2147483647" });
