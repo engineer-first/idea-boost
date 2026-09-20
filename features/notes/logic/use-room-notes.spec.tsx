@@ -64,6 +64,45 @@ describe("useRoomNotes", () => {
     expect(result.current.notes[0]?.id).toBe(NOTE_ID);
   });
 
+  it("最前面への要求を送り、確定応答までだけ一時最前面を維持する", () => {
+    const { result } = setup();
+    const selected = buildNote({ id: NOTE_ID, stackOrder: 4 });
+    const other = buildNote({ id: TARGET_NOTE_ID, stackOrder: 5 });
+    act(() => result.current.applyMessage(snapshotMessage([selected, other])));
+
+    act(() => result.current.bringNoteToFront(NOTE_ID));
+
+    expect(send).toHaveBeenCalledWith({
+      type: "note:bring-to-front",
+      noteId: NOTE_ID,
+    });
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...other, stackOrder: 6 },
+      }),
+    );
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...selected, stackOrder: 7 },
+      }),
+    );
+    expect(result.current.frontNoteId).toBeNull();
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...other, stackOrder: 8 },
+      }),
+    );
+    expect(result.current.frontNoteId).toBeNull();
+  });
+
   it("開始受理までは動かさず、受理後に最新位置だけを楽観反映して送る", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));

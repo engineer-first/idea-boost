@@ -339,6 +339,7 @@ export function RoomBoard({
         onTimerStop={handleTimerStop}
         onNoteContentChange={notes.changeNoteContent}
         onNoteDelete={notes.deleteNote}
+        onNoteBringToFront={notes.bringNoteToFront}
         onNoteExclude={handleNoteExclude}
         onNoteRestore={handleNoteRestore}
         onBulkCandidateExclude={notes.bulkExcludeZeroVoteCandidates}

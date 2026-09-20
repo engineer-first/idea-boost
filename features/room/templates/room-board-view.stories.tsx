@@ -128,6 +128,7 @@ const meta = {
     onPrivateNoteDelete: fn(),
     onNoteContentChange: fn(),
     onNoteDelete: fn(),
+    onNoteBringToFront: fn(),
     onGroupCreate: fn(),
     onGroupUpdateName: fn(),
     groups: [],

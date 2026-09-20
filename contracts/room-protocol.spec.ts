@@ -561,6 +561,27 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("note:bring-to-front は noteId だけを受け入れる", () => {
+    const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+    expect(
+      ClientMessageSchema.parse({ type: "note:bring-to-front", noteId }),
+    ).toEqual({ type: "note:bring-to-front", noteId });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:bring-to-front",
+        noteId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:bring-to-front",
+        noteId,
+        authorId: USER_A,
+      }).success,
+    ).toBe(false);
+  });
+
   it("一括候補外は対象IDや認可情報を受け取らず、Undoはoperation IDだけを受け入れる", () => {
     const operationId = "33333333-3333-4333-8333-333333333333";
     expect(

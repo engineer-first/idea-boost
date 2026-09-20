@@ -83,6 +83,7 @@ export type RoomBoardViewProps = {
   onPrivateNoteDelete: (noteId: string) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteBringToFront: (noteId: string) => void;
   onNoteExclude?: (noteId: string) => void;
   onNoteRestore?: (noteId: string) => void;
   onBulkCandidateExclude?: () => void;
@@ -178,6 +179,7 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onNoteBringToFront,
   onAdoptionFocusChange: notifyAdoptionFocusChange,
   onDecisionClear,
   onLeave,
@@ -647,6 +649,19 @@ export function RoomBoardView({
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
+  const handleNoteSelect = (noteId: string | null) => {
+    setSelectedNoteId(noteId);
+    const isSharedNote =
+      noteId !== null && renderedNotes.some(({ id }) => id === noteId);
+    if (
+      noteId !== null &&
+      isSharedNote &&
+      permissions.canMoveNote &&
+      !isDisconnected
+    ) {
+      onNoteBringToFront(noteId);
+    }
+  };
 
   return (
     <div
@@ -761,7 +776,7 @@ export function RoomBoardView({
         onZoomOut={zoomOut}
         onResetZoom={resetZoom}
         onFitToNotes={fitToNotes}
-        onSelect={setSelectedNoteId}
+        onSelect={handleNoteSelect}
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}

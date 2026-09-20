@@ -117,6 +117,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:unpublish":
     case "note:update-content":
     case "note:move":
+    case "note:bring-to-front":
     case "note:drag:start":
     case "note:drag:move":
     case "note:drag:end":
@@ -163,12 +164,14 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
+      "note:bring-to-front",
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
     ],
     3: [
       "note:move",
+      "note:bring-to-front",
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
@@ -202,6 +205,7 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
+      "note:bring-to-front",
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
@@ -230,11 +234,18 @@ const allowedBoardMutationsByPhase: {
       "note:unpublish",
       "note:update-content",
       "note:move",
+      "note:bring-to-front",
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
     ],
-    3: ["note:move", "note:drag:start", "note:drag:move", "note:drag:end"],
+    3: [
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
+    ],
     4: [
       "note:vote",
       "note:vote-reset",

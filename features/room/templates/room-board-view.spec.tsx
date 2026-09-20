@@ -101,6 +101,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     onPrivateNoteDelete: vi.fn(),
     onNoteContentChange: vi.fn(),
     onNoteDelete: vi.fn(),
+    onNoteBringToFront: vi.fn(),
     onGroupCreate: vi.fn(),
     onGroupUpdateName: vi.fn(),
     onLeave: vi.fn(),
@@ -1694,6 +1695,60 @@ describe("RoomBoardView", () => {
   });
 
   describe("付箋の選択", () => {
+    it("移動可能フェーズでは選択した付箋を永続的に最前面へ移すよう通知する", () => {
+      const onNoteBringToFront = vi.fn();
+      setup({
+        phase: buildPhaseStep(2),
+        onNoteBringToFront,
+      });
+
+      const [first] = screen.getAllByTestId("note-card");
+      clickNote(first);
+
+      expect(first).toHaveAttribute("data-selected", "true");
+      expect(onNoteBringToFront).toHaveBeenCalledWith("note-1");
+    });
+
+    it("移動不可フェーズでも選択できるが、最前面への移動は通知しない", () => {
+      const onNoteBringToFront = vi.fn();
+      setup({
+        phase: buildPhaseStep(4),
+        notes: [buildNote({ id: "note-1", stackOrder: 1 })],
+        onNoteBringToFront,
+      });
+
+      const [first] = screen.getAllByTestId("note-card");
+      clickNote(first);
+
+      expect(first).toHaveAttribute("data-selected", "true");
+      expect(first).toHaveStyle({ zIndex: "1" });
+      expect(onNoteBringToFront).not.toHaveBeenCalled();
+    });
+
+    it("移動可能フェーズでも個人付箋の選択では最前面への移動を通知しない", () => {
+      const onNoteBringToFront = vi.fn();
+      const privateNote = buildNote({
+        id: "private-note",
+        visibility: "private",
+        content: "個人付箋",
+      });
+      setup({
+        phase: buildPhaseStep(2),
+        notes: [],
+        interactions: buildInteractions([], [privateNote]),
+        onNoteBringToFront,
+      });
+      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+
+      const card = within(
+        screen.getByTestId("private-notes-toolbar"),
+      ).getByTestId("note-card");
+      clickNote(card);
+
+      expect(card).toHaveAttribute("data-selected", "true");
+      expect(onNoteBringToFront).not.toHaveBeenCalled();
+    });
+
     it("付箋をクリックすると選択され、ボード背景のクリックで解除される", () => {
       setup();
 

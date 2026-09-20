@@ -619,6 +619,106 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByDisplayValue("最初の付箋")).toBeInTheDocument();
   });
 
+  it("移動可能ステップで付箋を選択すると最前面への永続移動を送信する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2),
+    });
+    const surface = within(screen.getByTestId("note-card")).getByRole(
+      "button",
+      { name: "付箋" },
+    );
+
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+
+    expectSent(socket, { type: "note:bring-to-front", noteId: NOTE_ID });
+  });
+
+  it("選択中でも確定後は共有された重なり順を優先する", () => {
+    const selected = protocolNote({
+      id: NOTE_ID,
+      content: "選択中の付箋",
+      stackOrder: 1,
+    });
+    const other = protocolNote({
+      id: TARGET_NOTE_ID,
+      content: "別の参加者が選ぶ付箋",
+      stackOrder: 2,
+    });
+    const { socket } = connectWithSnapshot([selected, other], {
+      phase: buildPhaseStep(2),
+    });
+    const selectedCard = screen
+      .getByDisplayValue("選択中の付箋")
+      .closest<HTMLElement>("[data-testid='note-card']");
+    const otherCard = screen
+      .getByDisplayValue("別の参加者が選ぶ付箋")
+      .closest<HTMLElement>("[data-testid='note-card']");
+    if (!selectedCard || !otherCard) throw new Error("付箋が見つかりません");
+
+    const surface = within(selectedCard).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+
+    expect(selectedCard).toHaveStyle({ zIndex: "2147483647" });
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: { ...selected, stackOrder: 3 },
+      }),
+    );
+    expect(selectedCard).toHaveAttribute("data-selected", "true");
+    expect(selectedCard).toHaveStyle({ zIndex: "3" });
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: { ...other, stackOrder: 4 },
+      }),
+    );
+    expect(selectedCard).toHaveStyle({ zIndex: "3" });
+    expect(otherCard).toHaveStyle({ zIndex: "4" });
+  });
+
+  it("移動不可ステップでは付箋を選択しても最前面への永続移動を送信しない", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(4),
+    });
+    const card = screen.getByTestId("note-card");
+    const surface = within(card).getByRole("button", { name: "付箋" });
+
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+
+    expect(card).toHaveAttribute("data-selected", "true");
+    expect(
+      socket.sent.map((payload) => JSON.parse(payload)),
+    ).not.toContainEqual(
+      expect.objectContaining({ type: "note:bring-to-front" }),
+    );
+  });
+
+  it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
+    const { socket } = connectWithSnapshot(
+      [protocolNote({ visibility: "private", content: "個人付箋" })],
+      { phase: buildPhaseStep(2) },
+    );
+    const toolbar = openPrivateNotesToolbar();
+    const card = within(toolbar).getByTestId("note-card");
+    const surface = within(card).getByRole("button", { name: "付箋" });
+
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+
+    expect(card).toHaveAttribute("data-selected", "true");
+    expect(
+      socket.sent.map((payload) => JSON.parse(payload)),
+    ).not.toContainEqual(
+      expect.objectContaining({ type: "note:bring-to-front" }),
+    );
+  });
+
   it("結果ステップのホストが付箋を決定すると note:decide を送信する", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
@@ -874,7 +974,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByDisplayValue("あとから届いた付箋")).toBeInTheDocument();
   });
 
-  it("ドロップ直後から確定応答までは最前面を維持し、応答後は永続順へ戻る", () => {
+  it("移動の確定応答後は選択中でも永続順へ戻る", () => {
     const dragged = protocolNote({
       content: "移動する付箋",
       stackOrder: 1,
@@ -969,6 +1069,13 @@ describe("サーバーメッセージ → 画面反映", () => {
         },
       }),
     );
+    expect(
+      screen
+        .getByDisplayValue("移動する付箋")
+        .closest("[data-testid='note-card']"),
+    ).toHaveStyle({ zIndex: "10" });
+
+    fireEvent.pointerDown(screen.getByTestId("board-canvas"), { button: 0 });
     expect(
       screen
         .getByDisplayValue("移動する付箋")

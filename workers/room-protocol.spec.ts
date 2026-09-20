@@ -939,6 +939,92 @@ describe("note:publish", () => {
   });
 });
 
+describe("note:bring-to-front", () => {
+  it("移動可能ステップでは共有付箋の順序を永続化し、全員へ配信する", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const firstNoteId = await createNote({ owner, member });
+    const secondNoteId = await createNote({ owner, member });
+
+    member.close();
+    const observer = await connectRoomAs(MEMBER, roomId);
+    const before = await expectType(observer, "snapshot");
+    const secondStackOrder = before.notes.find(
+      ({ id }) => id === secondNoteId,
+    )?.stackOrder;
+
+    send(owner, { type: "note:bring-to-front", noteId: firstNoteId });
+    const toOwner = await expectType(owner, "note:updated");
+    const toObserver = await expectType(observer, "note:updated");
+
+    expect(toOwner.note).toMatchObject({
+      id: firstNoteId,
+      x: 100,
+      y: 100,
+    });
+    expect(toOwner.note.stackOrder).toBeGreaterThan(secondStackOrder ?? -1);
+    expect(toObserver.note.stackOrder).toBe(toOwner.note.stackOrder);
+
+    observer.close();
+    const reconnected = await connectRoomAs(MEMBER, roomId);
+    const after = await expectType(reconnected, "snapshot");
+    expect(after.notes.find(({ id }) => id === firstNoteId)?.stackOrder).toBe(
+      toOwner.note.stackOrder,
+    );
+
+    owner.close();
+    reconnected.close();
+  });
+
+  it("移動不可ステップでは付箋の順序を変更しない", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const firstNoteId = await createNote({ owner, member });
+    await createNote({ owner, member });
+
+    member.close();
+    const observer = await connectRoomAs(MEMBER, roomId);
+    const before = await expectType(observer, "snapshot");
+    const initialStackOrder = before.notes.find(
+      ({ id }) => id === firstNoteId,
+    )?.stackOrder;
+
+    await arrangeStep(owner, 4);
+    send(owner, { type: "note:bring-to-front", noteId: firstNoteId });
+    expect(await expectType(owner, "error")).toMatchObject({
+      code: "forbidden",
+      message: expect.stringContaining("1-4 投票"),
+    });
+
+    observer.close();
+    const reconnected = await connectRoomAs(MEMBER, roomId);
+    const after = await expectType(reconnected, "snapshot");
+    expect(after.notes.find(({ id }) => id === firstNoteId)?.stackOrder).toBe(
+      initialStackOrder,
+    );
+
+    owner.close();
+    reconnected.close();
+  });
+
+  it("private 付箋は作者からの操作でも拒否する", async () => {
+    const { owner, member } = await setupStartedRoom();
+    send(owner, { type: "note:create" });
+    const drafted = await expectType(owner, "note:inserted");
+
+    await arrangeStep(owner, 2);
+    send(owner, {
+      type: "note:bring-to-front",
+      noteId: drafted.note.id,
+    });
+
+    expect(await expectType(owner, "error")).toMatchObject({
+      code: "forbidden",
+    });
+
+    owner.close();
+    member.close();
+  });
+});
+
 describe("note:unpublish", () => {
   it("作者がshared付箋をprivateへ戻すと、他メンバーには削除だけが届く", async () => {
     const { owner, member } = await setupStartedRoom();

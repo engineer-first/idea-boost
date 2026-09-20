@@ -259,6 +259,23 @@ export function moveNote(
   return stackOrder;
 }
 
+export function bringNoteToFront(
+  sql: SqlStorage,
+  noteId: string,
+  updatedAt: string,
+): number {
+  const stackOrder = nextStackOrder(sql);
+  sql.exec(
+    `UPDATE notes
+     SET stack_order = ?2, updated_at = ?3
+     WHERE id = ?1`,
+    noteId,
+    stackOrder,
+    updatedAt,
+  );
+  return stackOrder;
+}
+
 export function setNoteExcluded(
   sql: SqlStorage,
   noteId: string,

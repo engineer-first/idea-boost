@@ -1,4 +1,4 @@
-import { HttpResponse, http } from "msw";
+import { http } from "msw/core/http";
 import { isResultStep, isVotingStep } from "@/contracts/phase";
 import {
   VERIFICATION_CHECKPOINTS,
@@ -34,15 +34,15 @@ export function verificationHandlers({
     });
   }
   return [
-    http.get("*/api/verification/active", () => HttpResponse.json({ active })),
-    http.get("*/api/verification/rooms/:id", () => HttpResponse.json(status())),
+    http.get("*/api/verification/active", () => Response.json({ active })),
+    http.get("*/api/verification/rooms/:id", () => Response.json(status())),
     http.post("*/api/verification/rooms/:id/vote", () => {
       completedOthers = true;
-      return HttpResponse.json(status());
+      return Response.json(status());
     }),
     http.post("*/api/verification/rooms", async ({ request }) => {
       if (failCreate)
-        return HttpResponse.json({ error: "failed" }, { status: 503 });
+        return Response.json({ error: "failed" }, { status: 503 });
       const { checkpoint } = VerificationCreateRequestSchema.parse(
         await request.json(),
       );
@@ -52,7 +52,7 @@ export function verificationHandlers({
         checkpoint,
       });
       completedOthers = false;
-      return HttpResponse.json(active);
+      return Response.json(active);
     }),
   ];
 }
