@@ -448,18 +448,21 @@ test("採用候補は通常時に黒枠を出さずhover時だけ緑枠を示す
   await candidate.waitFor();
   await candidate.hover();
 
-  const colors = await candidate.evaluate((element) => {
-    const probe = document.createElement("div");
-    probe.style.borderColor = "var(--color-emerald-600)";
-    document.body.append(probe);
-    const emerald = getComputedStyle(probe).borderColor;
-    probe.remove();
-    return {
-      actual: getComputedStyle(element).borderColor,
-      emerald,
-    };
+  // hover直後はCSSの色遷移中なので、最終色になるまで同じ条件で検査する。
+  await vi.waitFor(async () => {
+    const colors = await candidate.evaluate((element) => {
+      const probe = document.createElement("div");
+      probe.style.borderColor = "var(--color-emerald-600)";
+      document.body.append(probe);
+      const emerald = getComputedStyle(probe).borderColor;
+      probe.remove();
+      return {
+        actual: getComputedStyle(element).borderColor,
+        emerald,
+      };
+    });
+    expect(colors.actual).toBe(colors.emerald);
   });
-  expect(colors.actual).toBe(colors.emerald);
 
   await page.screenshot({ path: `${output}/adopt-candidate-hover.png` });
 });

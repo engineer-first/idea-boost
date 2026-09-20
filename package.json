@@ -43,7 +43,9 @@
     "smoke": "bash scripts/smoke-test.sh",
     "storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook dev -p 6006",
     "build-storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook build",
-    "test:browser": "vitest run --config vitest.browser.config.mts"
+    "test:browser": "vitest run --config vitest.browser.config.mts",
+    "dev:verify": "node --no-warnings scripts/verification.mts",
+    "test:verification": "npm run gen:room-do-migrations && vitest run --config vitest.verification.config.mts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

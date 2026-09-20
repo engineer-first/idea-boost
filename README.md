@@ -138,3 +138,10 @@ Markdown の整形には [remark](https://github.com/remarkjs/remark) を使用�
 | ファイル名           | `kebab-case` | `idea-card.tsx`, `use-idea-list.ts`, `format-date.ts` |
 | 関数名               | `camelCase`  | `getUserName`                                         |
 | スキーマ名 (型・zod) | `PascalCase` | `User`, `Idea`, `IdeaStatus`                          |
+
+## 開発用の状態再現
+
+`npm run dev:verify` で付箋付きの検証ルームを作れます。環境ファイルの編集は不要です。
+`http://localhost:3000/dev/verify` をOwnerで開き、開始待ち／全14ステップから選びます。
+Owner・Member・Viewerは既存の開発ログインを使い、別ブラウザの検証ボードも次の状態へ追従します。
+操作UIは別ページに置き、通常ボードに重ねません。詳しくは[ローカル検証環境](docs/local-verification.md)を参照してください。

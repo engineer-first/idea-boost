@@ -89,6 +89,9 @@ jobs:
       - name: Run worker tests (Durable Objects / D1)
         run: npm run test:workers
 
+      - name: Run local verification worker tests
+        run: npm run test:verification
+
   browser:
     runs-on: ubuntu-latest
     steps:
