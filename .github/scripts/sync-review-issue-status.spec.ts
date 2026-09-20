@@ -300,7 +300,8 @@ describe("syncReviewIssueStatus", () => {
       action: "review_requested",
       requested_reviewer: { login: "reviewer-a" },
       requested_team: null,
-      pull_request: { number: 50 },
+      sender: { login: "maintainer" },
+      pull_request: { number: 50, body: "<!-- issue-ref:42 -->\nRefs #42" },
     },
   };
 
@@ -362,6 +363,11 @@ describe("syncReviewIssueStatus", () => {
     return {
       graphql,
       rest: {
+        repos: {
+          getCollaboratorPermissionLevel: vi.fn().mockResolvedValue({
+            data: { permission: "write" },
+          }),
+        },
         pulls: {
           get: vi.fn().mockResolvedValue({
             data: {
@@ -378,13 +384,27 @@ describe("syncReviewIssueStatus", () => {
     };
   }
 
-  it("Projectの直接リンクIssueだけをレビュー中へ更新する", async () => {
+  it.each([
+    "write",
+    "maintain",
+    "admin",
+  ])("権限 %s で直接リンクIssueだけをレビュー中へ更新する", async (permission) => {
     const github = makeGithub();
+    github.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+      data: { permission },
+    });
     const core = { info: vi.fn() };
 
     const result = await syncReviewIssueStatus({ github, context, core });
 
     expect(result).toEqual({ updated: true, issueNumber: 42 });
+    expect(
+      github.rest.repos.getCollaboratorPermissionLevel,
+    ).toHaveBeenCalledWith({
+      owner: "engineer-first",
+      repo: "idea-boost",
+      username: "maintainer",
+    });
     expect(github.graphql).toHaveBeenCalledTimes(3);
     expect(github.graphql.mock.calls[2]?.[1]).toEqual({
       projectId: "project-3",
@@ -392,6 +412,76 @@ describe("syncReviewIssueStatus", () => {
       fieldId: "status-field",
       optionId: "review-option",
     });
+  });
+
+  it.each([
+    "read",
+    "none",
+    "triage",
+    undefined,
+  ])("権限 %s の実行者による Draft 解除では Project を更新しない", async (permission) => {
+    const github = makeGithub();
+    github.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+      data: { permission },
+    });
+    const result = await syncReviewIssueStatus({
+      github,
+      context: {
+        ...context,
+        payload: { ...context.payload, action: "ready_for_review" },
+      },
+      core: { info: vi.fn() },
+    });
+    expect(result).toEqual({ updated: false, reason: "actor-not-authorized" });
+    expect(github.graphql).not.toHaveBeenCalled();
+  });
+
+  it("sender 不明時は権限を推測しない", async () => {
+    const github = makeGithub();
+    const result = await syncReviewIssueStatus({
+      github,
+      context: {
+        ...context,
+        payload: { ...context.payload, sender: undefined },
+      },
+      core: { info: vi.fn() },
+    });
+    expect(result.updated).toBe(false);
+    expect(github.graphql).not.toHaveBeenCalled();
+    expect(
+      github.rest.repos.getCollaboratorPermissionLevel,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("権限照会に失敗したら更新せずエラーにする", async () => {
+    const github = makeGithub();
+    github.rest.repos.getCollaboratorPermissionLevel.mockRejectedValue(
+      new Error("permission lookup failed"),
+    );
+    await expect(
+      syncReviewIssueStatus({ github, context, core: { info: vi.fn() } }),
+    ).rejects.toThrow("permission lookup failed");
+    expect(github.graphql).not.toHaveBeenCalled();
+  });
+
+  it("レビュー依頼後の本文編集で更新先をすり替えられない", async () => {
+    const github = makeGithub();
+    const result = await syncReviewIssueStatus({
+      github,
+      context: {
+        ...context,
+        payload: {
+          ...context.payload,
+          pull_request: { number: 50, body: "<!-- issue-ref:99 -->" },
+        },
+      },
+      core: { info: vi.fn() },
+    });
+    expect(result).toEqual({
+      updated: false,
+      reason: "issue-reference-changed-since-event",
+    });
+    expect(github.graphql).not.toHaveBeenCalled();
   });
 
   it("Project権限エラーは成功扱いせず呼び出し元へ返す", async () => {

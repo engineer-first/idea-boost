@@ -250,36 +250,29 @@ def status_field(fields):
     return field["name"], field["id"]
 
 
-def next_pbi_id(titles):
-    identifiers = []
-    for title in titles:
-        match = re.match(r"^PBI-(\d{2,})(?:\s|$)", title)
-        if match:
-            identifiers.append(int(match.group(1)))
-    return f"PBI-{max(identifiers, default=0) + 1:02d}"
-
-
-def assign_pbi_id(spec):
+def assign_pbi_id(spec, issue_number):
+    """GitHub が採番した Issue 番号を使い、自動採番同士の競合をなくす。"""
     pbi = spec["pbi"]
-    if pbi.get("id"):
-        return pbi["id"]
-    output = run(
-        [
-            "gh",
-            "issue",
-            "list",
-            "--repo",
-            spec["repo"],
-            "--state",
-            "all",
-            "--limit",
-            "1000",
-            "--json",
-            "title",
-        ]
-    )
-    pbi["id"] = next_pbi_id(item["title"] for item in json.loads(output))
+    if not pbi.get("id"):
+        pbi["id"] = f"PBI-{issue_number:02d}"
     return pbi["id"]
+
+
+def create_pbi_issue(spec):
+    """Issue 作成後に ID を確定し、改題の失敗時は復旧先を知らせる。"""
+    pbi = spec["pbi"]
+    initial_title = issue_title(pbi) if pbi.get("id") else pbi["title"]
+    created = create_issue(spec["repo"], initial_title, pbi_body(pbi), "PBI", spec.get("milestone"))
+    assign_pbi_id(spec, created["number"])
+    if initial_title != issue_title(pbi):
+        try:
+            run(["gh", "issue", "edit", created["url"], "--title", issue_title(pbi)])
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"PBI was created: {created['url']}; title update failed. "
+                f"Rename it to {issue_title(pbi)!r}; do not rerun creation. {exc}"
+            ) from exc
+    return created
 
 
 def set_project_option(item_id, project_id_value, field_id, option_id):
@@ -305,6 +298,10 @@ def set_project_status(item_id, project_id_value, status_field_id, status_option
 
 
 def render_dry_run(spec):
+    """未採番なら仮 ID で表示し、元の spec と GitHub を変更しない。"""
+    if not spec["pbi"].get("id"):
+        print("PBI-00 / DEMO-00 は仮表示です。ID は作成された Issue 番号で確定します。")
+        spec = {**spec, "pbi": {**spec["pbi"], "id": "PBI-00"}}
     pbi = spec["pbi"]
     demo_title = demo_issue_title(pbi)
     print(f"# {issue_title(pbi)}")
@@ -322,7 +319,6 @@ def main():
 
     spec = json.loads(args.spec.read_text(encoding="utf-8"))
     validate_spec(spec)
-    assign_pbi_id(spec)
 
     if args.dry_run:
         render_dry_run(spec)
@@ -333,20 +329,18 @@ def main():
     project_number = spec["project_number"]
     milestone = spec.get("milestone")
     pbi = spec["pbi"]
-    demo_title = demo_issue_title(pbi)
-
     pid = project_id(project_number, owner)
     fields = project_fields(project_number, owner)
     status_field_name, status_field_id = status_field(fields)
     _, initial_status = field_option(fields, status_field_name, "未整理")
 
-    pbi_created = create_issue(repo, issue_title(pbi), pbi_body(pbi), "PBI", milestone)
+    pbi_created = create_pbi_issue(spec)
     pbi_item_id = add_to_project(project_number, owner, pbi_created["url"], pbi_created["number"])
     set_project_status(pbi_item_id, pid, status_field_id, initial_status)
 
     demo_created = create_issue(
         repo,
-        demo_title,
+        demo_issue_title(pbi),
         demo_body(spec, pbi_created["number"], issue_title(pbi)),
         "DemoGoal",
         milestone,

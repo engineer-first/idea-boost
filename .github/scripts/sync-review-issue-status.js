@@ -259,6 +259,21 @@ async function syncReviewIssueStatus({
     return { updated: false, reason: "pull-request-payload-missing" };
   }
 
+  // PR 本文は外部の作成者も編集できるため、マーカー自体を認可に使わない。
+  const actor = event.sender?.login;
+  if (!actor) {
+    return { updated: false, reason: "actor-not-authorized" };
+  }
+  const { data: actorPermission } =
+    await github.rest.repos.getCollaboratorPermissionLevel({
+      owner,
+      repo,
+      username: actor,
+    });
+  if (!["write", "maintain", "admin"].includes(actorPermission.permission)) {
+    return { updated: false, reason: "actor-not-authorized" };
+  }
+
   const { data: pullRequest } = await github.rest.pulls.get({
     owner,
     repo,
@@ -270,6 +285,10 @@ async function syncReviewIssueStatus({
       updated: false,
       reason: "explicit-issue-reference-missing-or-ambiguous",
     };
+  }
+
+  if (parseIssueReference(event.pull_request.body) !== referencedIssueNumber) {
+    return { updated: false, reason: "issue-reference-changed-since-event" };
   }
 
   const projectResponse = await github.graphql(PROJECT_CONTEXT_QUERY, {

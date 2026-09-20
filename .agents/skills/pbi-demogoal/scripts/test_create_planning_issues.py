@@ -1,4 +1,6 @@
 import json
+import tempfile
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -18,46 +20,64 @@ class PlanningIssueSpecTests(unittest.TestCase):
     def test_pbi_id_is_optional_for_the_existing_auto_numbering_route(self):
         planning.validate_spec(self.spec())
 
-    def test_assigns_the_next_available_pbi_number_without_manual_input(self):
-        spec = self.spec()
-        with patch.object(
-            planning,
-            "run",
-            return_value=json.dumps(
-                [
-                    {"title": "PBI-08 古い項目"},
-                    {"title": "PBI-99 直近の項目"},
-                    {"title": "PBI-1000は本文中の参照"},
-                    {"title": "PBI-100 別の項目"},
-                ]
-            ),
-        ) as run:
-            planning.assign_pbi_id(spec)
+    def test_concurrent_creations_derive_distinct_ids_from_created_issue_numbers(self):
+        specs = [self.spec(), self.spec()]
+        with patch.object(planning, "create_issue", side_effect=[
+            {"number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340"},
+            {"number": 341, "url": "https://github.com/engineer-first/idea-boost/issues/341"},
+        ]) as create, patch.object(planning, "run") as run:
+            for spec in specs:
+                planning.create_pbi_issue(spec)
+        self.assertEqual([spec["pbi"]["id"] for spec in specs], ["PBI-340", "PBI-341"])
+        self.assertEqual([call.args[1] for call in create.call_args_list], ["タイトル", "タイトル"])
+        self.assertEqual([call.args[0][-1] for call in run.call_args_list], ["PBI-340 タイトル", "PBI-341 タイトル"])
 
-        self.assertEqual(spec["pbi"]["id"], "PBI-101")
-        run.assert_called_once_with(
-            [
-                "gh",
-                "issue",
-                "list",
-                "--repo",
-                "engineer-first/idea-boost",
-                "--state",
-                "all",
-                "--limit",
-                "1000",
-                "--json",
-                "title",
-            ]
-        )
+    def test_title_update_failure_reports_the_created_issue_for_recovery(self):
+        with patch.object(planning, "create_issue", return_value={
+            "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",
+        }), patch.object(planning, "run", side_effect=RuntimeError("network failure")):
+            with self.assertRaisesRegex(RuntimeError, "issues/340"):
+                planning.create_pbi_issue(self.spec())
+
+    def test_dry_run_needs_no_github_access_and_does_not_assign_a_real_id(self):
+        spec = self.spec()
+        with patch.object(planning, "run") as run, patch("builtins.print"):
+            planning.render_dry_run(spec)
+        run.assert_not_called()
+        self.assertNotIn("id", spec["pbi"])
 
     def test_preserves_an_explicit_legacy_pbi_id(self):
         spec = self.spec()
         spec["pbi"]["id"] = "PBI-12"
         with patch.object(planning, "run") as run:
-            planning.assign_pbi_id(spec)
+            planning.assign_pbi_id(spec, 340)
         self.assertEqual(spec["pbi"]["id"], "PBI-12")
         run.assert_not_called()
+
+    def test_main_uses_the_assigned_id_for_the_demo_and_initializes_both_items(self):
+        fields = [{"id": "status-id", "name": "Status", "options": [{"id": "untriaged-id", "name": "未整理"}]}]
+        with tempfile.TemporaryDirectory() as directory:
+            spec_path = Path(directory) / "spec.json"
+            spec_path.write_text(json.dumps(self.spec()), encoding="utf-8")
+            with patch("sys.argv", ["create_planning_issues.py", str(spec_path)]), \
+                 patch.object(planning, "project_id", return_value="project-id"), \
+                 patch.object(planning, "project_fields", return_value=fields), \
+                 patch.object(planning, "create_issue", side_effect=[
+                     {"number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340"},
+                     {"number": 341, "url": "https://github.com/engineer-first/idea-boost/issues/341"},
+                 ]) as create, \
+                 patch.object(planning, "add_to_project", side_effect=["pbi-item", "demo-item"]), \
+                 patch.object(planning, "set_project_status") as set_status, \
+                 patch.object(planning, "run"), patch("builtins.print"):
+                planning.main()
+        demo = create.call_args_list[1].args
+        self.assertEqual(demo[1], "DEMO-340 タイトル")
+        self.assertIn("#340 PBI-340 タイトル", demo[2])
+        self.assertEqual(demo[3], "DemoGoal")
+        self.assertEqual([call.args for call in set_status.call_args_list], [
+            ("pbi-item", "project-id", "status-id", "untriaged-id"),
+            ("demo-item", "project-id", "status-id", "untriaged-id"),
+        ])
 
 
 class ProjectStatusTests(unittest.TestCase):

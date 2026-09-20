@@ -19,7 +19,7 @@ Issue 作成時は `.github/ISSUE_TEMPLATE/` の Issue Forms を使う。必須�
 
 組織には既存の `Feature` Type もあるが、idea-boost の標準運用では上表の6 Typeを使う。既存 Type は他リポジトリへの影響を避けるため変更・削除しない。Type の追加は組織全体で有効になるため、今後も他リポジトリへの影響を確認してから行う。
 
-PBI と DemoGoal をまとめて作る場合は [PBI DemoGoal スキル](../.agents/skills/pbi-demogoal/SKILL.md)を使う。スクリプトが PBI ID を既存 Issue から自動採番し、両 Issue を作成して Project に追加する。スプリントの割当ては作成後に GitHub Milestone で行う。
+PBI と DemoGoal をまとめて作る場合は [PBI DemoGoal スキル](../.agents/skills/pbi-demogoal/SKILL.md)を使う。スクリプトが PBI ID を作成された Issue 番号から確定し（例: Issue #340 → `PBI-340`）、両 Issue を作成して Project に追加する。スプリントの割当ては作成後に GitHub Milestone で行う。
 
 ## Project 状態
 
@@ -45,8 +45,9 @@ PR 本文の `<!-- issue-ref:番号 -->` が、その PR が直接対応する I
 
 次の条件をすべて満たすときだけ、レビュー依頼または Draft 解除時に直接紐づく Issue を `レビュー中` にする。
 
+- イベント実行者に対象リポジトリの write / maintain / admin 権限がある。権限照会に失敗したら更新しない。
 - PR が open かつ Draft ではなく、レビュー依頼が現在も残っている。
-- PR 本文の有効な `issue-ref` マーカーが1つで、Issue 番号と一致する。
+- PR 本文の有効な `issue-ref` マーカーが1つで、Issue 番号と一致する。イベント発生時の参照と最新の参照が異なる場合は更新しない。
 - Issue が open で子 Issue を持たず、Type が `Task` / `Bug` / `PBI`。
 - Issue が Project #3 に未アーカイブ状態で登録され、現在の状態が `作業中`。
 - 同じ Issue に直接対応する PR がこの1件だけである。
@@ -58,11 +59,11 @@ PR 本文の `<!-- issue-ref:番号 -->` が、その PR が直接対応する I
 GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため、次の権限に絞った GitHub App が必要。App は `idea-boost` リポジトリにのみインストールする。
 
 - 組織権限: Projects read/write
-- リポジトリ権限: Issues read、Pull requests read
+- リポジトリ権限: Issues read、Pull requests read、Metadata read（実行者の権限照会）
 - Repository variable: `ISSUE_PROJECT_APP_CLIENT_ID`
 - Repository secret: `ISSUE_PROJECT_APP_PRIVATE_KEY`
 
-ワークフローは実行時に `actions/create-github-app-token` で `idea-boost` に限定した短命 token を発行する。個人 PAT は使わない。App の作成・インストール・権限付与と秘密鍵の登録は組織管理者が明示的に承認した後に行う。未設定の間は警告を出してレビュー状態同期をスキップする。
+ワークフローは実行時に `actions/create-github-app-token` で `idea-boost` に限定した短命 token を発行する。個人 PAT は使わない。実行コードは対象 PR の base SHA から取得し、PR 側の変更コードを実行しない。`client-id` は [v3 の公式入力定義](https://github.com/actions/create-github-app-token/blob/v3/action.yml)に準拠する（`app-id` は非推奨）。App の作成・インストール・権限付与と秘密鍵の登録は組織管理者が明示的に承認した後に行う。未設定の間は警告を出してレビュー状態同期をスキップする。
 
 ## Project automation と既存項目
 
@@ -73,3 +74,7 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 - 現在の状態値を持つ既存 Issue は一括変更しない。`Doing` は `作業中`、`Done` は `完了` に選択値を保ったまま名称変更し、`PBI` / `Demo Goal` / `Todo` はそれぞれ `旧・PBI分類` / `旧・DemoGoal分類` / `旧・Todo` と明示して残す。
 
 Project の作業・状態を変えるときは、Issue本文と Milestone は保ち、対象の状態フィールドのみを必要に応じて更新する。
+
+## 今後の改善案
+
+未実装の候補と導入順は [Issue 操作と自動化の改善案](issue-automation-proposals.md)にまとめる。現行の状態遷移ルールはこの文書を正本とする。

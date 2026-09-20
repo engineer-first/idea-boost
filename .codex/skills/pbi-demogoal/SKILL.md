@@ -13,13 +13,13 @@ Do not use this skill for Task, Bug, or Spike issues. Create those through GitHu
 
 ## Workflow
 
-1. Inspect existing issues and PBI context. Do not choose an ID manually; the script assigns the next PBI ID from all existing issues.
+1. Inspect existing issues and PBI context. Do not choose an ID manually; the script derives the PBI ID from the newly created PBI issue number.
 2. Turn the user's request into one JSON spec.
 3. Run `create_planning_issues.py --dry-run <spec.json>` and review the rendered issue titles and bodies.
 4. Run `create_planning_issues.py <spec.json>` to create the issues.
 5. Verify both created issues have:
    - Issue Type: `PBI` or `DemoGoal`
-   - Project: `idea-boost`
+   - Project: `idea-flow-app` (#3)
    - Status: `未整理` for both
 6. Report the created issue URLs and the Project field verification.
 
@@ -101,7 +101,7 @@ Create a temporary JSON file outside the skill folder, for example under `/tmp`.
 Notes:
 
 - Omit `milestone` only when the user explicitly wants no sprint milestone.
-- Put only the human-readable title in `pbi.title`; the script assigns `PBI-XX` from existing issue titles. Add `pbi.id` only to preserve an explicitly requested existing number.
+- Put only the human-readable title in `pbi.title`; the script derives `PBI-XX` from the created PBI issue number (issue #340 becomes `PBI-340`). Add `pbi.id` only to preserve an explicitly requested existing number.
 - The demo issue title is derived from the PBI: `DEMO-<PBI番号> <PBIタイトル>`.
 - Put each reviewable outcome inside `demo_goals`; the script renders all of them into one DemoGoal issue.
 - Use `memo` for implementation-task candidates, unresolved notes, or whiteboard context.
@@ -111,7 +111,7 @@ Notes:
 
 ## Script
 
-The script lives outside this skill folder because the Claude Code equivalent (`.claude/skills/pbi-demogoal/`) shares the same implementation. Dry run reads existing issue titles through `gh` to allocate the next ID but does not create issues. Run from the repository root:
+The script lives outside this skill folder because the Claude Code equivalent (`.claude/skills/pbi-demogoal/`) shares the same implementation. Dry run makes no network requests and shows `PBI-00` / `DEMO-00` as placeholders until creation. If renaming fails after creation, use the issue URL in the error to recover; do not rerun the entire script and create duplicates. Run from the repository root:
 
 ```bash
 python3 .agents/skills/pbi-demogoal/scripts/create_planning_issues.py --dry-run /tmp/idea-flow-spec.json

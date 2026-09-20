@@ -11,13 +11,13 @@ Task・Bug・Spike issue の作成にはこのスキルを使わない。それ�
 
 ## 手順
 
-1. 既存 Issue と PBI の文脈を確認する。ID は手で決めず、作成スクリプトに全 Issue から自動採番させる。
+1. 既存 Issue と PBI の文脈を確認する。ID は手で決めず、作成スクリプトに、作成された PBI の Issue 番号から ID を確定させる。
 2. ユーザーの依頼を1つの JSON spec に変換する。
 3. `create_planning_issues.py --dry-run <spec.json>` を実行し、生成される issue タイトル・本文を確認する。
 4. `create_planning_issues.py <spec.json>` を実行して issue を作成する。
 5. 作成した2件の Issue が以下を満たすことを確認する:
    - Issue Type: `PBI` または `DemoGoal`
-   - Project: `idea-boost`
+   - Project: `idea-flow-app` (#3)
    - Status: 両方 `未整理`
 6. 作成した issue の URL と、Project フィールドの確認結果を報告する。
 
@@ -87,7 +87,7 @@ Task・Bug・Spike issue の作成にはこのスキルを使わない。それ�
 補足:
 
 - `milestone` を省略するのは、ユーザーが明示的にスプリント milestone なしを望む場合のみ。
-- `pbi.title` には ID を含まない人間可読なタイトルだけを入れる。ID（`PBI-XX`）はスクリプトが既存 Issue から自動採番する。手動の `pbi.id` は既存の採番を維持する明示的理由がある場合だけ使う。
+- `pbi.title` には ID を含まない人間可読なタイトルだけを入れる。ID（`PBI-XX`）はスクリプトが作成された PBI の Issue 番号から決める（例: Issue #340 → `PBI-340`）。手動の `pbi.id` は既存の採番を維持する明示的理由がある場合だけ使う。
 - デモ issue のタイトルは PBI から導出される: `DEMO-<PBI番号> <PBIタイトル>`。
 - レビュー可能な成果はそれぞれ `demo_goals` に入れる。スクリプトがそれらをすべて1つの DemoGoal issue にまとめてレンダリングする。
 - `memo` は実装タスク候補・未解決事項・ホワイトボード上のメモなどに使う。
@@ -97,7 +97,7 @@ Task・Bug・Spike issue の作成にはこのスキルを使わない。それ�
 
 ## スクリプト
 
-このスキルと Codex スキル（`.codex/skills/pbi-demogoal/`）は同じスクリプトを共有する。`--dry-run` は次の PBI ID を読み取るため `gh` 認証を使うが、Issue は作成しない。リポジトリのルートから実行する:
+このスキルと Codex スキル（`.codex/skills/pbi-demogoal/`）は同じスクリプトを共有する。`--dry-run` は外部通信せず、未採番の ID は `PBI-00` / `DEMO-00` と仮表示する。実行時の採番後にタイトルを更新できなかった場合は、エラー内の作成済み Issue URL から改題する。スクリプト全体を再実行すると Issue が重複するため再実行しない。リポジトリのルートから実行する:
 
 ```bash
 python3 .agents/skills/pbi-demogoal/scripts/create_planning_issues.py --dry-run /tmp/idea-flow-spec.json
