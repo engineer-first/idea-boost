@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   parseIssueReference,
   shouldMoveIssueToReview,
-  syncReviewIssueStatus,
-} from "./sync-review-issue-status.js";
+} from "./issue-status-policy.js";
+import { syncIssueProjectStatus } from "./sync-issue-project-status.js";
 
 const baseInput = {
   action: "review_requested",
@@ -293,7 +293,7 @@ describe("shouldMoveIssueToReview", () => {
   });
 });
 
-describe("syncReviewIssueStatus", () => {
+describe("syncIssueProjectStatus", () => {
   const context = {
     repo: { owner: "engineer-first", repo: "idea-boost" },
     payload: {
@@ -316,6 +316,11 @@ describe("syncReviewIssueStatus", () => {
               id: "project-3",
               fields: {
                 nodes: [
+                  {
+                    id: "record-field",
+                    name: "自動レビュー元",
+                    dataType: "TEXT",
+                  },
                   {
                     id: "status-field",
                     name: "Status",
@@ -356,7 +361,13 @@ describe("syncReviewIssueStatus", () => {
       }
       return {
         updateProjectV2ItemFieldValue: {
-          projectV2Item: { id: "project-item-42" },
+          projectV2Item: {
+            id: "project-item-42",
+            fieldValueByName: {
+              name: "レビュー中",
+              updatedAt: "2026-09-20T00:00:01Z",
+            },
+          },
         },
       };
     });
@@ -395,9 +406,14 @@ describe("syncReviewIssueStatus", () => {
     });
     const core = { info: vi.fn() };
 
-    const result = await syncReviewIssueStatus({ github, context, core });
+    const result = await syncIssueProjectStatus({ github, context, core });
 
-    expect(result).toEqual({ updated: true, issueNumber: 42 });
+    expect(result).toEqual({
+      updated: true,
+      issueNumber: 42,
+      from: "作業中",
+      to: "レビュー中",
+    });
     expect(
       github.rest.repos.getCollaboratorPermissionLevel,
     ).toHaveBeenCalledWith({
@@ -405,12 +421,13 @@ describe("syncReviewIssueStatus", () => {
       repo: "idea-boost",
       username: "maintainer",
     });
-    expect(github.graphql).toHaveBeenCalledTimes(3);
-    expect(github.graphql.mock.calls[2]?.[1]).toEqual({
+    expect(github.graphql).toHaveBeenCalledTimes(5);
+    expect(github.graphql.mock.calls[3]?.[1]).toEqual({
       projectId: "project-3",
       itemId: "project-item-42",
       fieldId: "status-field",
       optionId: "review-option",
+      statusFieldName: "Status",
     });
   });
 
@@ -424,7 +441,7 @@ describe("syncReviewIssueStatus", () => {
     github.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
       data: { permission },
     });
-    const result = await syncReviewIssueStatus({
+    const result = await syncIssueProjectStatus({
       github,
       context: {
         ...context,
@@ -438,7 +455,7 @@ describe("syncReviewIssueStatus", () => {
 
   it("sender 不明時は権限を推測しない", async () => {
     const github = makeGithub();
-    const result = await syncReviewIssueStatus({
+    const result = await syncIssueProjectStatus({
       github,
       context: {
         ...context,
@@ -459,14 +476,14 @@ describe("syncReviewIssueStatus", () => {
       new Error("permission lookup failed"),
     );
     await expect(
-      syncReviewIssueStatus({ github, context, core: { info: vi.fn() } }),
+      syncIssueProjectStatus({ github, context, core: { info: vi.fn() } }),
     ).rejects.toThrow("permission lookup failed");
     expect(github.graphql).not.toHaveBeenCalled();
   });
 
   it("レビュー依頼後の本文編集で更新先をすり替えられない", async () => {
     const github = makeGithub();
-    const result = await syncReviewIssueStatus({
+    const result = await syncIssueProjectStatus({
       github,
       context: {
         ...context,
@@ -488,7 +505,7 @@ describe("syncReviewIssueStatus", () => {
     const github = makeGithub({ projectError: true });
 
     await expect(
-      syncReviewIssueStatus({ github, context, core: { info: vi.fn() } }),
+      syncIssueProjectStatus({ github, context, core: { info: vi.fn() } }),
     ).rejects.toThrow("Resource not accessible by integration");
     expect(github.graphql).toHaveBeenCalledTimes(1);
   });
