@@ -527,6 +527,34 @@ test.each([
   ).resolves.toBeNull();
 });
 
+test("確定を取り消して選び直した時は、現在hover中の候補だけを参加者へ共有する", async () => {
+  await openStory("room-roomboardcanvas--two-client-adoption-reselection");
+  const host = page.getByRole("region", { name: "ホストクライアント" });
+  const participant = page.getByRole("region", {
+    name: "参加者クライアント",
+  });
+
+  await host
+    .getByRole("button", { name: "採用する付箋: 前回選んだ候補" })
+    .click();
+  await page.getByRole("button", { name: "確定を取り消して選び直す" }).click();
+  await host
+    .getByRole("button", { name: "採用する付箋: 今回選ぶ候補" })
+    .hover();
+
+  const previous = participant.locator('[data-note-id="note-1"]');
+  const current = participant.locator('[data-note-id="note-2"]');
+  await expect(
+    previous.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+  await expect(current.getAttribute("data-adoption-focused")).resolves.toBe(
+    "true",
+  );
+  await page.screenshot({
+    path: `${output}/shared-adoption-focus-after-reselection.png`,
+  });
+});
+
 test.each([
   1280, 1024, 768,
 ])("幅 %i でも現在地を省略せず、タイマーと次への操作を保つ", async (width) => {

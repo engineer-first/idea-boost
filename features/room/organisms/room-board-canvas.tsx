@@ -8,7 +8,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import {
   calculateRenderGroups,
@@ -195,6 +195,15 @@ export function RoomBoardCanvas({
     phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isAdoptMode) return;
+    // 候補ボタンは確定・キャンセル時にアンマウントされるため、pointerleave / blur
+    // が発火するとは限らない。次に選び直した候補へ前回の focus が勝たないよう、
+    // 選択モードを抜けた時点で両モダリティの一時状態を破棄する。
+    adoptionPointerNoteIdRef.current = null;
+    adoptionKeyboardNoteIdRef.current = null;
+  }, [isAdoptMode]);
 
   function publishAdoptionFocus(): void {
     onAdoptionFocusChange(

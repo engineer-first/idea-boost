@@ -175,6 +175,34 @@ describe("RoomBoardCanvas", () => {
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
   });
 
+  it("確定を取り消して選び直すと、前回のfocusではなく現在hover中の候補を通知する", () => {
+    const onAdoptionFocusChange = vi.fn();
+    const notes = [
+      buildNote({ id: "note-1", content: "前回の候補", visibility: "shared" }),
+      buildNote({ id: "note-2", content: "今回の候補", visibility: "shared" }),
+    ];
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      isAdoptMode: true,
+      notes,
+      onAdoptionFocusChange,
+    });
+
+    fireEvent.focus(
+      screen.getByRole("button", { name: "採用する付箋: 前回の候補" }),
+    );
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+
+    rerender(<RoomBoardCanvas {...props} isAdoptMode={false} />);
+    rerender(<RoomBoardCanvas {...props} isAdoptMode />);
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "採用する付箋: 今回の候補" }),
+    );
+
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-2");
+  });
+
   it("参加者だけに共有採用フォーカスを描画し、ホスト自身には重ねない", () => {
     const note = buildNote({ id: "note-1", visibility: "shared" });
     const { props, rerender } = setup({
