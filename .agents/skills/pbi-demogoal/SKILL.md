@@ -1,26 +1,24 @@
 ---
 name: pbi-demogoal
-description: idea-flow-app の PBI issue と、それに紐づく DemoGoal issue のみを作成する。プロダクトバックログアイテム（PBI）と、それに対応するデモゴール issue を engineer-first/idea-flow-app に追加し、正しい Issue Type・milestone・Status で GitHub Project に配置したいときに使う。スプリントタスクやバグ issue の作成には使わない。
+description: idea-boost の PBI issue と、それに紐づく DemoGoal issue のみを作成する。PBI と統合 DemoGoal を engineer-first/idea-boost と組織 Project #3 に正しい Issue Type・milestone・初期状態で追加したいときに使う。Task・Bug・Spike issue の作成には使わない。
 ---
 
 # PBI DemoGoal
 
-`engineer-first/idea-boost` に PBI issue 1件と、それに紐づく DemoGoal issue 1件を作成するスキル。
+`engineer-first/idea-boost` に PBI issue 1件と、それに紐づく DemoGoal issue 1件を作成するスキル。Issue Type・状態・PR の扱いは [Issue 運用](../../../docs/issue-management.md)を正本とする。
 
-スプリントタスクやバグ issue にはこのスキルを使わない。スプリントタスク・バグは通常 GitHub の GUI から issue テンプレートで作成され、Project の自動追加ワークフローが `Task` / `Bug` の Issue Type を取り込み、デフォルトのワークフローで `Todo` に配置する。
+Task・Bug・Spike issue の作成にはこのスキルを使わない。それらは GitHub Issue Forms から作成し、Project の auto-add が取り込む。すべての新規 Issue の初期状態は `未整理`。
 
 ## 手順
 
-1. ID を決める前に、リポジトリの現状と既存 issue を確認する。
-   - `gh issue list --state all --json number,title,issueType,projectItems` を使う。
-   - 既存の命名パターン（`PBI-XX` / `DEMO-XX`）を踏襲する。
+1. 既存 Issue と PBI の文脈を確認する。ID は手で決めず、作成スクリプトに全 Issue から自動採番させる。
 2. ユーザーの依頼を1つの JSON spec に変換する。
 3. `create_planning_issues.py --dry-run <spec.json>` を実行し、生成される issue タイトル・本文を確認する。
 4. `create_planning_issues.py <spec.json>` を実行して issue を作成する。
-5. 作成した2件の issue が以下を満たすことを確認する:
+5. 作成した2件の Issue が以下を満たすことを確認する:
    - Issue Type: `PBI` または `DemoGoal`
    - Project: `idea-boost`
-   - Status: PBI は `PBI`、デモゴールは `Demo Goal`
+   - Status: 両方 `未整理`
 6. 作成した issue の URL と、Project フィールドの確認結果を報告する。
 
 ## ユーザーストーリー（`pbi.story`）の書き方
@@ -43,56 +41,17 @@ description: idea-flow-app の PBI issue と、それに紐づく DemoGoal issue
 - 主語は画面・操作などユーザーが実際に触れるもの。API・状態・DB・WebSocket・reducer のような実装用語を書かない。書いたあとに読み返し、開発文脈が混じっていないか確認する。
 - 1エントリ = 1つの独立して検証できる事実にする。複数の確認をまとめて書かない（まとめたくなったら `demo_goals` を分割するか、追加の観点は `checks` に逃がす）。
 - UI 操作だけで再現・確認できることを条件にする。裏側の実装が正しいことではなく、ユーザーが画面上で見て分かる結果を書く。
-- 実例（`engineer-first/idea-flow-app` 自身のドメインから。ストーリーポイントは書かない）:
+- 例（Idea Boost のユーザー価値に沿う。具体的な操作・結果は PRD / Wiki の現行仕様を確認してから書く）:
 
-  > ホストとしてブレスト用のルームを作成し、招待URL・招待コードを発行したい。
-  > なぜなら、参加者を招待して議論を始めたいからだ。
+  > 利用者として、チームで出したアイデアを整理して比較したい。
+  > なぜなら、次に進める案をチームで選びたいからだ。
 
-  デモゴール:
+  デモゴール例:
 
-  - ホーム画面でルーム作成ボタンをクリックすると、参加待機画面に遷移する。
-  - 参加待機画面に遷移すると、招待URLが表示される。
-  - 参加待機画面に遷移すると、招待コードが表示される。
-  - 参加待機画面で招待URLをクリックすると、招待URLがコピーされる。
-  - 参加待機画面で招待コードをクリックすると、招待コードがコピーされる。
+  - アイデア出し画面でアイデアを追加すると、そのアイデアがカードとして一覧に表示される。
+  - アイデアをグループに移動すると、そのグループ内にカードが表示される。
 
-  spec 上では `demo_goals` の各エントリに対応させる:
-
-  ```json
-  "demo_goals": [
-    {
-      "title": "ルーム作成ボタンで待機画面へ遷移",
-      "goal": "ホーム画面でルーム作成ボタンをクリックすると、参加待機画面に遷移する。"
-    },
-    {
-      "title": "招待URLの表示",
-      "goal": "参加待機画面に遷移すると、招待URLが表示される。"
-    },
-    {
-      "title": "招待コードの表示",
-      "goal": "参加待機画面に遷移すると、招待コードが表示される。"
-    },
-    {
-      "title": "招待URLのコピー",
-      "goal": "参加待機画面で招待URLをクリックすると、招待URLがコピーされる。"
-    },
-    {
-      "title": "招待コードのコピー",
-      "goal": "参加待機画面で招待コードをクリックすると、招待コードがコピーされる。"
-    }
-  ]
-  ```
-
-  もう1例:
-
-  > 参加者として招待URL・招待コードからルームに参加し、参加メンバーを確認したい。
-  > なぜなら、自分がルームに正しく参加できていることを確かめたいからだ。
-
-  デモゴール:
-
-  - ホーム画面で招待コードを入力して参加を押すと、対応した待機画面に参加する。
-  - 待機画面を見ると、現在参加しているメンバーをリアルタイムで閲覧できる。
-  - 待機画面でホストが開始ボタンをクリックすると、全員がルーム画面に遷移する。
+  これらの確認可能な結果を `demo_goals` の各エントリに対応させる。機能の存在や正確な画面名は、必ず現行の PRD / Wiki で確かめる。
 
 ## Spec のフォーマット
 
@@ -104,23 +63,21 @@ description: idea-flow-app の PBI issue と、それに紐づく DemoGoal issue
   "project_owner": "engineer-first",
   "project_number": 3,
   "milestone": "Sprint 2",
-  "demo_overview": "開発環境が統一され、誰でも同じ手順でアプリを起動できる状態をデモする。",
+  "demo_overview": "チームで出したアイデアを整理して、次に進める案を選べる状態をデモする。",
   "pbi": {
-    "id": "PBI-01",
-    "title": "開発環境を統一する",
-    "story": "開発者としてチーム全員が同じ環境で開発できるようにしたい。開発環境の違いによる問題を減らしたいからだ。",
+    "title": "チームのアイデアを整理する",
+    "story": "利用者として、チームで出したアイデアを整理して比較したい。次に進める案を選びたいからだ。",
     "acceptance": [
-      "GitHubリポジトリでソースコードが管理されている",
-      "READMEで環境構築手順と起動方法を確認できる"
+      "アイデアを整理して比較できる",
+      "チームで次に進める案を選べる"
     ],
-    "memo": ["既存の実装タスク候補: #7 [Task] 環境構築"]
+    "memo": []
   },
   "demo_goals": [
     {
-      "title": "GitHubリポジトリでソースコードが管理されている",
-      "goal": "GitHubリポジトリを開くと、アプリケーションのソースコードが管理されていることを確認できる。",
-      "checks": ["GitHubリポジトリにアプリケーションのソースコードが存在する"],
-      "risks": ["READMEの手順が古いと再現できない"]
+      "title": "追加したアイデアがカードで表示される",
+      "goal": "アイデア出し画面でアイデアを追加すると、そのアイデアがカードとして一覧に表示される。",
+      "checks": ["追加したアイデアの内容がカードに表示される"]
     }
   ],
   "not_doing": ["CI環境の統一はスコープ外"]
@@ -130,7 +87,7 @@ description: idea-flow-app の PBI issue と、それに紐づく DemoGoal issue
 補足:
 
 - `milestone` を省略するのは、ユーザーが明示的にスプリント milestone なしを望む場合のみ。
-- `pbi.title` には ID を含まない人間可読なタイトルだけを入れる。ID（`PBI-XX`）はスクリプト側が接頭辞として付与する。
+- `pbi.title` には ID を含まない人間可読なタイトルだけを入れる。ID（`PBI-XX`）はスクリプトが既存 Issue から自動採番する。手動の `pbi.id` は既存の採番を維持する明示的理由がある場合だけ使う。
 - デモ issue のタイトルは PBI から導出される: `DEMO-<PBI番号> <PBIタイトル>`。
 - レビュー可能な成果はそれぞれ `demo_goals` に入れる。スクリプトがそれらをすべて1つの DemoGoal issue にまとめてレンダリングする。
 - `memo` は実装タスク候補・未解決事項・ホワイトボード上のメモなどに使う。
@@ -140,7 +97,7 @@ description: idea-flow-app の PBI issue と、それに紐づく DemoGoal issue
 
 ## スクリプト
 
-このスキルと Codex スキル（`.codex/skills/pbi-demogoal/`）は同じスクリプトを共有しているため、修正は1箇所で済む。リポジトリのルートから実行する:
+このスキルと Codex スキル（`.codex/skills/pbi-demogoal/`）は同じスクリプトを共有する。`--dry-run` は次の PBI ID を読み取るため `gh` 認証を使うが、Issue は作成しない。リポジトリのルートから実行する:
 
 ```bash
 python3 .agents/skills/pbi-demogoal/scripts/create_planning_issues.py --dry-run /tmp/idea-flow-spec.json

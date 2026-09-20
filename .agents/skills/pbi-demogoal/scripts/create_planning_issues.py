@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 
@@ -58,7 +58,7 @@ def issue_title(item):
 
 
 def demo_issue_id(pbi):
-    if not pbi["id"].startswith("PBI-"):
+    if not re.fullmatch(r"PBI-\d{2,}", pbi["id"]):
         raise ValueError("pbi.id must use PBI-XX format")
     return f"DEMO-{pbi['id'].removeprefix('PBI-')}"
 
@@ -117,10 +117,14 @@ def validate_spec(spec):
     require_optional_string(spec.get("milestone"), "milestone")
 
     pbi = require_object(spec["pbi"], "pbi")
-    for key in ["id", "title", "story"]:
+    for key in ["title", "story"]:
         if key not in pbi:
             raise ValueError(f"pbi.{key} is required")
         require_string(pbi[key], f"pbi.{key}")
+    if pbi.get("id") is not None:
+        pbi_id = require_string(pbi["id"], "pbi.id")
+        if not re.fullmatch(r"PBI-\d{2,}", pbi_id):
+            raise ValueError("pbi.id must use PBI-XX format")
     require_list(pbi.get("acceptance"), "pbi.acceptance")
     require_list(pbi.get("memo"), "pbi.memo")
 
@@ -237,6 +241,47 @@ def field_option(fields, field_name, option_name):
     raise ValueError(f"Project field option not found: {field_name}={option_name}")
 
 
+def status_field(fields):
+    field = next((item for item in fields if item.get("name") == "状態"), None)
+    if field is None:
+        field = next((item for item in fields if item.get("name") == "Status"), None)
+    if field is None:
+        raise ValueError("Project status field not found: 状態 / Status")
+    return field["name"], field["id"]
+
+
+def next_pbi_id(titles):
+    identifiers = []
+    for title in titles:
+        match = re.match(r"^PBI-(\d{2,})(?:\s|$)", title)
+        if match:
+            identifiers.append(int(match.group(1)))
+    return f"PBI-{max(identifiers, default=0) + 1:02d}"
+
+
+def assign_pbi_id(spec):
+    pbi = spec["pbi"]
+    if pbi.get("id"):
+        return pbi["id"]
+    output = run(
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            spec["repo"],
+            "--state",
+            "all",
+            "--limit",
+            "1000",
+            "--json",
+            "title",
+        ]
+    )
+    pbi["id"] = next_pbi_id(item["title"] for item in json.loads(output))
+    return pbi["id"]
+
+
 def set_project_option(item_id, project_id_value, field_id, option_id):
     run(
         [
@@ -256,11 +301,7 @@ def set_project_option(item_id, project_id_value, field_id, option_id):
 
 
 def set_project_status(item_id, project_id_value, status_field_id, status_option_id):
-    # The built-in "Item added to project" workflow may briefly reset new items to Todo.
-    for delay in [0, 2, 5, 10]:
-        if delay:
-            time.sleep(delay)
-        set_project_option(item_id, project_id_value, status_field_id, status_option_id)
+    set_project_option(item_id, project_id_value, status_field_id, status_option_id)
 
 
 def render_dry_run(spec):
@@ -281,6 +322,7 @@ def main():
 
     spec = json.loads(args.spec.read_text(encoding="utf-8"))
     validate_spec(spec)
+    assign_pbi_id(spec)
 
     if args.dry_run:
         render_dry_run(spec)
@@ -295,12 +337,12 @@ def main():
 
     pid = project_id(project_number, owner)
     fields = project_fields(project_number, owner)
-    status_field, pbi_status = field_option(fields, "Status", "PBI")
-    _, demo_status = field_option(fields, "Status", "Demo Goal")
+    status_field_name, status_field_id = status_field(fields)
+    _, initial_status = field_option(fields, status_field_name, "未整理")
 
     pbi_created = create_issue(repo, issue_title(pbi), pbi_body(pbi), "PBI", milestone)
     pbi_item_id = add_to_project(project_number, owner, pbi_created["url"], pbi_created["number"])
-    set_project_status(pbi_item_id, pid, status_field, pbi_status)
+    set_project_status(pbi_item_id, pid, status_field_id, initial_status)
 
     demo_created = create_issue(
         repo,
@@ -310,7 +352,7 @@ def main():
         milestone,
     )
     demo_item_id = add_to_project(project_number, owner, demo_created["url"], demo_created["number"])
-    set_project_status(demo_item_id, pid, status_field, demo_status)
+    set_project_status(demo_item_id, pid, status_field_id, initial_status)
 
     for item in [{"kind": "PBI", **pbi_created}, {"kind": "DemoGoal", **demo_created}]:
         print(f"{item['kind']} #{item['number']}: {item['url']}")

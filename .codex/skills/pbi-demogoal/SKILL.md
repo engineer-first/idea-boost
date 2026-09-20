@@ -1,26 +1,26 @@
 ---
 name: pbi-demogoal
-description: Create idea-flow-app PBI and consolidated DemoGoal GitHub Issues only. Use when Codex needs to add one product backlog item and one PBI-linked demo goal issue to engineer-first/idea-flow-app and place them in the GitHub Project with the correct Issue Type, milestone, and Status board column. Do not use for sprint task or bug issue creation.
+description: Create one PBI and its consolidated DemoGoal issue for engineer-first/idea-boost, with automatic PBI numbering and initial Project status. Do not use for Task, Bug, or Spike issue creation.
 ---
 
 # PBI DemoGoal
 
 Use this skill to create one PBI issue and one consolidated DemoGoal issue for `engineer-first/idea-boost`.
 
-Do not use this skill for sprint task or bug issues. Sprint tasks and bugs are usually created through the GitHub GUI from their issue templates; the Project auto-add workflow imports `Task` and `Bug` issue types and the default workflow places them in `Todo`.
+Use [Issue management](../../../docs/issue-management.md) as the source of truth for Issue Types, Project status, and PR links.
+
+Do not use this skill for Task, Bug, or Spike issues. Create those through GitHub Issue Forms; Project auto-add places new open issues in `未整理`.
 
 ## Workflow
 
-1. Inspect the current repository and existing issues before choosing IDs.
-   - Use `gh issue list --state all --json number,title,issueType,projectItems`.
-   - Keep the existing naming pattern: `PBI-XX` and `DEMO-XX`.
+1. Inspect existing issues and PBI context. Do not choose an ID manually; the script assigns the next PBI ID from all existing issues.
 2. Turn the user's request into one JSON spec.
 3. Run `create_planning_issues.py --dry-run <spec.json>` and review the rendered issue titles and bodies.
 4. Run `create_planning_issues.py <spec.json>` to create the issues.
 5. Verify both created issues have:
    - Issue Type: `PBI` or `DemoGoal`
    - Project: `idea-boost`
-   - Status: `PBI` for PBI, `Demo Goal` for demo goals
+   - Status: `未整理` for both
 6. Report the created issue URLs and the Project field verification.
 
 ## Writing the user story (`pbi.story`)
@@ -43,54 +43,29 @@ Template: `When {screen or action}, {user-observable result}.`
 - The subject must be something the user actually touches on screen. Never write implementation terms (API, state, DB, WebSocket, reducer). Re-read what you wrote and check that no dev context leaked in.
 - One entry = one independently verifiable fact. Don't bundle multiple checks into one goal (split into another `demo_goals` entry, or move extra angles into `checks`).
 - The result must be provable purely through UI operation — write what the user can see on screen, not that the backend behaved correctly internally.
-- Worked example (from idea-flow-app's own domain; no story points):
+- Worked example (grounded in Idea Boost's user value; verify exact behavior and screen names against the current PRD/Wiki before use):
 
-  > As a host, I want to create a brainstorming room and issue an invite URL/code, because I want to invite participants and start the discussion.
+  > As a participant, I want to organize and compare ideas from my team, because I want us to choose what to develop next.
 
   Demo goals:
 
-  - Clicking the "create room" button on the home screen navigates to the waiting screen.
-  - Arriving at the waiting screen shows the invite URL.
-  - Arriving at the waiting screen shows the invite code.
-  - Clicking the invite URL on the waiting screen copies it.
-  - Clicking the invite code on the waiting screen copies it.
+  - Adding an idea on the brainstorming screen displays it as a card in the list.
+  - Moving an idea into a group displays the card in that group.
 
   Maps onto the spec as one `demo_goals` entry per bullet:
 
   ```json
   "demo_goals": [
     {
-      "title": "Create-room button navigates to the waiting screen",
-      "goal": "Clicking the \"create room\" button on the home screen navigates to the waiting screen."
+      "title": "Added idea appears as a card",
+      "goal": "Adding an idea on the brainstorming screen displays it as a card in the list."
     },
     {
-      "title": "Invite URL is shown",
-      "goal": "Arriving at the waiting screen shows the invite URL."
-    },
-    {
-      "title": "Invite code is shown",
-      "goal": "Arriving at the waiting screen shows the invite code."
-    },
-    {
-      "title": "Invite URL copies on click",
-      "goal": "Clicking the invite URL on the waiting screen copies it."
-    },
-    {
-      "title": "Invite code copies on click",
-      "goal": "Clicking the invite code on the waiting screen copies it."
+      "title": "Grouped idea appears in its group",
+      "goal": "Moving an idea into a group displays the card in that group."
     }
   ]
   ```
-
-  Another example:
-
-  > As a participant, I want to join a room from the invite URL/code and see who else has joined, because I want to confirm I joined the right room.
-
-  Demo goals:
-
-  - Entering the invite code on the home screen and pressing join navigates to the matching waiting screen.
-  - The waiting screen shows currently joined members in real time.
-  - When the host clicks start on the waiting screen, everyone is navigated to the room screen.
 
 ## Spec Format
 
@@ -102,23 +77,21 @@ Create a temporary JSON file outside the skill folder, for example under `/tmp`.
   "project_owner": "engineer-first",
   "project_number": 3,
   "milestone": "Sprint 2",
-  "demo_overview": "開発環境が統一され、誰でも同じ手順でアプリを起動できる状態をデモする。",
+  "demo_overview": "チームで出したアイデアを整理して、次に進める案を選べる状態をデモする。",
   "pbi": {
-    "id": "PBI-01",
-    "title": "開発環境を統一する",
-    "story": "開発者としてチーム全員が同じ環境で開発できるようにしたい。開発環境の違いによる問題を減らしたいからだ。",
+    "title": "チームのアイデアを整理する",
+    "story": "利用者として、チームで出したアイデアを整理して比較したい。次に進める案を選びたいからだ。",
     "acceptance": [
-      "GitHubリポジトリでソースコードが管理されている",
-      "READMEで環境構築手順と起動方法を確認できる"
+      "アイデアを整理して比較できる",
+      "チームで次に進める案を選べる"
     ],
-    "memo": ["既存の実装タスク候補: #7 [Task] 環境構築"]
+    "memo": []
   },
   "demo_goals": [
     {
-      "title": "GitHubリポジトリでソースコードが管理されている",
-      "goal": "GitHubリポジトリを開くと、アプリケーションのソースコードが管理されていることを確認できる。",
-      "checks": ["GitHubリポジトリにアプリケーションのソースコードが存在する"],
-      "risks": ["READMEの手順が古いと再現できない"]
+      "title": "追加したアイデアがカードで表示される",
+      "goal": "アイデア出し画面でアイデアを追加すると、そのアイデアがカードとして一覧に表示される。",
+      "checks": ["追加したアイデアの内容がカードに表示される"]
     }
   ],
   "not_doing": ["CI環境の統一はスコープ外"]
@@ -128,7 +101,7 @@ Create a temporary JSON file outside the skill folder, for example under `/tmp`.
 Notes:
 
 - Omit `milestone` only when the user explicitly wants no sprint milestone.
-- Put the human-readable title without the ID in `pbi.title`; the script prefixes `PBI-XX`.
+- Put only the human-readable title in `pbi.title`; the script assigns `PBI-XX` from existing issue titles. Add `pbi.id` only to preserve an explicitly requested existing number.
 - The demo issue title is derived from the PBI: `DEMO-<PBI番号> <PBIタイトル>`.
 - Put each reviewable outcome inside `demo_goals`; the script renders all of them into one DemoGoal issue.
 - Use `memo` for implementation-task candidates, unresolved notes, or whiteboard context.
@@ -138,7 +111,7 @@ Notes:
 
 ## Script
 
-The script lives outside this skill folder because the Claude Code equivalent (`.claude/skills/pbi-demogoal/`) shares the same implementation. Run from the repository root:
+The script lives outside this skill folder because the Claude Code equivalent (`.claude/skills/pbi-demogoal/`) shares the same implementation. Dry run reads existing issue titles through `gh` to allocate the next ID but does not create issues. Run from the repository root:
 
 ```bash
 python3 .agents/skills/pbi-demogoal/scripts/create_planning_issues.py --dry-run /tmp/idea-flow-spec.json

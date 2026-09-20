@@ -1,0 +1,18 @@
+name: 相談
+description: 方針や要件を一緒に整理したい
+type: 相談
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 相談したいこと
+      description: 決めたいことや困っていることを短く書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 背景・補足
+      description: 分かっている範囲で背景や参考情報を書いてください。
+    validations:
+      required: false
