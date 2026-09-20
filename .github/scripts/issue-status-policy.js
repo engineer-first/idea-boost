@@ -153,6 +153,31 @@ function decideStatusTransition(input) {
       : decision;
   }
   const { issue, projectItem, event, pullRequest, action } = input;
+  if (action === "closed") {
+    if (!pullRequest?.merged) {
+      return { allowed: false, reason: "pull-request-not-merged" };
+    }
+    if (!input.mergedIntoDefaultBranch) {
+      return { allowed: false, reason: "pull-request-not-merged-to-default" };
+    }
+    if (!input.closesReferencedIssue) {
+      return { allowed: false, reason: "pull-request-does-not-close-issue" };
+    }
+    if (
+      !projectItem.exists ||
+      projectItem.archived ||
+      !projectItem.status ||
+      ["完了", "見送り"].includes(projectItem.status)
+    ) {
+      return { allowed: false, reason: "project-item-not-completable" };
+    }
+    return {
+      allowed: true,
+      issueNumber: issue.number,
+      from: projectItem.status,
+      to: "完了",
+    };
+  }
   if (
     issue.state !== "OPEN" ||
     issue.subIssueCount !== 0 ||

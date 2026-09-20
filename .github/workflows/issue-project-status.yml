@@ -4,7 +4,7 @@ on:
   issues:
     types: [assigned]
   pull_request_target:
-    types: [opened, review_requested, ready_for_review, converted_to_draft]
+    types: [opened, review_requested, ready_for_review, converted_to_draft, closed]
 
 permissions:
   contents: read

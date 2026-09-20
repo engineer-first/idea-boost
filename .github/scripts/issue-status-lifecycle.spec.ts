@@ -18,6 +18,7 @@ function fixture({
     issueState: "OPEN",
     assignees: ["alice"],
     competitors: [] as object[],
+    closingIssueNumbers: [42],
   };
   const pr = {
     number: 50,
@@ -28,8 +29,10 @@ function fixture({
       ref: "feature/42-work",
       repo: { full_name: "engineer-first/idea-boost" },
     },
+    base: { ref: "develop" },
     requested_reviewers: [{ login: "bob" }],
     requested_teams: [],
+    merged: false,
   };
   const item = () => ({
     id: "item",
@@ -48,6 +51,19 @@ function fixture({
       pulls: { get: vi.fn(async () => ({ data: structuredClone(pr) })) },
     },
     graphql: vi.fn(async (query: string, vars: Record<string, unknown>) => {
+      if (query.includes("PullRequestClosingIssues"))
+        return {
+          repository: {
+            pullRequest: {
+              closingIssuesReferences: {
+                nodes: state.closingIssueNumbers.map((number) => ({
+                  number,
+                  repository: { nameWithOwner: "engineer-first/idea-boost" },
+                })),
+              },
+            },
+          },
+        };
       if (query.includes("ReviewProjectContext"))
         return {
           organization: {
@@ -58,7 +74,7 @@ function fixture({
                   {
                     id: "status",
                     name: "Status",
-                    options: ["着手可能", "作業中", "レビュー中"].map(
+                    options: ["着手可能", "作業中", "レビュー中", "完了"].map(
                       (name) => ({ id: name, name }),
                     ),
                   },
@@ -110,6 +126,7 @@ function fixture({
         payload: {
           action,
           sender: { login: "alice" },
+          repository: { default_branch: "develop" },
           ...(action === "assigned"
             ? { issue: { number: 42 }, assignee: { login: "alice" } }
             : {
@@ -184,6 +201,41 @@ describe("Issue 状態の操作連携", () => {
     f.pr.body = "説明のみ";
     await f.fire("opened");
     expect(f.state.changes).toEqual(["作業中"]);
+  });
+  it("Closesで対応Issueを閉じるPRのマージで完了にする", async () => {
+    const f = fixture({ status: "レビュー中", permission: "read" });
+    f.pr.state = "closed";
+    f.pr.merged = true;
+    await f.fire("closed");
+    expect(f.state.changes).toEqual(["完了"]);
+    expect(
+      f.github.rest.repos.getCollaboratorPermissionLevel,
+    ).not.toHaveBeenCalled();
+  });
+  it("未マージ、default branch以外、closing referenceなしでは完了にしない", async () => {
+    const unmerged = fixture({ status: "レビュー中" });
+    unmerged.pr.state = "closed";
+    await unmerged.fire("closed");
+    const otherBase = fixture({ status: "レビュー中" });
+    otherBase.pr.state = "closed";
+    otherBase.pr.merged = true;
+    otherBase.pr.base.ref = "release";
+    await otherBase.fire("closed");
+    const unrelated = fixture({ status: "レビュー中" });
+    unrelated.pr.state = "closed";
+    unrelated.pr.merged = true;
+    unrelated.state.closingIssueNumbers = [43];
+    await unrelated.fire("closed");
+    expect(unmerged.state.changes).toEqual([]);
+    expect(otherBase.state.changes).toEqual([]);
+    expect(unrelated.state.changes).toEqual([]);
+  });
+  it("見送りをPRマージで完了へ上書きしない", async () => {
+    const f = fixture({ status: "見送り" });
+    f.pr.state = "closed";
+    f.pr.merged = true;
+    await f.fire("closed");
+    expect(f.state.changes).toEqual([]);
   });
   it("fork のブランチ名や壊れたマーカーから対象を推測しない", async () => {
     const f = fixture();

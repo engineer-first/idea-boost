@@ -70,6 +70,18 @@ const PROJECT_CONTEXT_QUERY = `
   }
 `;
 
+const PULL_REQUEST_CLOSING_ISSUES_QUERY = `
+  query PullRequestClosingIssues($owner: String!, $name: String!, $pullNumber: Int!) {
+    repository(owner: $owner, name: $name) {
+      pullRequest(number: $pullNumber) {
+        closingIssuesReferences(first: 100) {
+          nodes { number repository { nameWithOwner } }
+        }
+      }
+    }
+  }
+`;
+
 const UPDATE_PROJECT_STATUS_MUTATION = `
   mutation UpdateIssueStatus($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!, $statusFieldName: String!) {
     updateProjectV2ItemFieldValue(input: {
@@ -177,17 +189,25 @@ async function syncIssueProjectStatus({
         "review_requested",
         "ready_for_review",
         "converted_to_draft",
+        "closed",
       ].includes(event.action));
   if (!supported) return { updated: false, reason: "unsupported-event" };
   const actor = event.sender?.login;
   if (!actor) return { updated: false, reason: "actor-not-authorized" };
 
-  const { data: permission } =
-    await github.rest.repos.getCollaboratorPermissionLevel({
-      owner,
-      repo,
-      username: actor,
-    });
+  const trustedMergedClose =
+    event.action === "closed" &&
+    event.pull_request?.merged === true &&
+    event.pull_request.base?.ref === event.repository?.default_branch;
+  let permission = { permission: "none" };
+  if (!trustedMergedClose) {
+    ({ data: permission } =
+      await github.rest.repos.getCollaboratorPermissionLevel({
+        owner,
+        repo,
+        username: actor,
+      }));
+  }
   let pullRequest = null;
   if (!isAssignment) {
     ({ data: pullRequest } = await github.rest.pulls.get({
@@ -207,7 +227,8 @@ async function syncIssueProjectStatus({
     Number(extractIssueNumber(pullRequest.head?.ref)) === issueNumber;
   if (
     !["write", "maintain", "admin"].includes(permission.permission) &&
-    !trustedDraftBranch
+    !trustedDraftBranch &&
+    !trustedMergedClose
   ) {
     return { updated: false, reason: "actor-not-authorized" };
   }
@@ -237,6 +258,21 @@ async function syncIssueProjectStatus({
   );
 
   async function loadInput(currentPullRequest) {
+    let closesReferencedIssue = false;
+    if (event.action === "closed" && currentPullRequest?.merged) {
+      const closingResponse = await github.graphql(
+        PULL_REQUEST_CLOSING_ISSUES_QUERY,
+        { owner, name: repo, pullNumber: currentPullRequest.number },
+      );
+      closesReferencedIssue = (
+        closingResponse.repository?.pullRequest?.closingIssuesReferences
+          ?.nodes ?? []
+      ).some(
+        (closingIssue) =>
+          closingIssue.number === issueNumber &&
+          closingIssue.repository?.nameWithOwner === repository,
+      );
+    }
     const data = await readIssueContext(
       github.graphql,
       owner,
@@ -262,6 +298,9 @@ async function syncIssueProjectStatus({
       input: {
         action: event.action,
         event,
+        closesReferencedIssue,
+        mergedIntoDefaultBranch:
+          currentPullRequest?.base?.ref === event.repository?.default_branch,
         repository,
         pullRequest: effectivePr,
         issue: {

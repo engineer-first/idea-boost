@@ -43,9 +43,10 @@ Project の組み込み単一選択フィールド名は GitHub の仕様上 `St
 | 対応する Draft PR を作成                                | `着手可能` → `作業中`   | 同じ3 Type、直接対応する PR が1件、現在も open / Draft                                          |
 | PR の Reviewers から依頼、または依頼が残る Draft の解除 | `作業中` → `レビュー中` | 下記のレビュー条件を満たす                                                                      |
 | PR を Convert to draft                                  | `レビュー中` → `作業中` | 同じ単一 PR による自動更新の記録と、現在の状態更新時刻が一致する                                |
+| `Closes #番号` のある PR を `develop` へマージ          | 現在の状態 → `完了`     | GitHub の closing reference が対象 Issue と一致する。Issue は GitHub 標準機能で閉じる           |
 | Issue の Status → 完了                                  | Issue をクローズ        | 人が成果を確認した後に操作。Project の標準 automation を使う                                    |
 
-他人への担当者割当て、割当て解除、Assign to Agent、Milestone・Priority・Type・Relationships の変更、ブランチ作成、通常 PR 作成・マージ、承認・変更要求だけでは状態を動かさない。
+他人への担当者割当て、割当て解除、Assign to Agent、Milestone・Priority・Type・Relationships の変更、ブランチ作成、通常 PR 作成、closing reference のないマージ、承認・変更要求だけでは状態を動かさない。
 PBI / DemoGoal の担当者は成果全体の責任者を表すため、アサインから開始とみなさない。Issue の close / reopen から状態を推測しない。
 
 ## Project の刷新
@@ -97,7 +98,7 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 - Project の auto-add は `idea-boost` の open Issue 全種を対象とする。GitHub の自動追加は新規作成・更新時に適用され、既存 Issue の一括追加には使わない。
 - `Item added to project` の既定状態を `未整理` にする。CLI 作成スクリプトも同じ初期値を1回だけ設定する。
-- `完了` を明示的に選んだ場合に Issue を閉じる自動化は維持する。
+- `完了` を明示的に選んだ場合に Issue を閉じる自動化は維持する。逆方向は一般の close イベントではなく、`Closes` を含む PR の `develop` へのマージだけを Actions で `完了` にする。
 - Issue の close/reopen、PR のリンク/merge、レビュー承認/変更要求から状態を推測する既定 automation は無効にする。
 - 状態は7種類だけを使う。分類は Issue Type、進捗は Status に統一する。
 
