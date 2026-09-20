@@ -173,7 +173,7 @@ describe("Issue 状態の操作連携", () => {
   it.each([
     "PBI",
     "DemoGoal",
-    "相談",
+    "相談・要望",
   ])("%s の担当者を開始とみなさない", async (type) => {
     const f = fixture({ type });
     await f.fire("assigned");

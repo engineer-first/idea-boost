@@ -1,12 +1,12 @@
-name: 相談
-description: 方針や要件を一緒に整理したい
-type: 相談
+name: 相談・要望
+description: 方針や要件を相談したい、改善や機能を要望したい
+type: 相談・要望
 body:
   - type: textarea
     id: question
     attributes:
-      label: 相談したいこと
-      description: 決めたいことや困っていることを短く書いてください。
+      label: 相談・要望の内容
+      description: 決めたいこと、困っていること、実現したいことを短く書いてください。
     validations:
       required: true
   - type: textarea

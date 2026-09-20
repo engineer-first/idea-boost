@@ -11,7 +11,7 @@ Issue Type・作成フォーム・Project 状態・自動化の正本は[Issue �
 
 ## 正本
 
-- PBI、DemoGoal、Task、Bug、Spike、相談の内容: GitHub Issue
+- PBI、DemoGoal、Task、Bug、Spike、相談・要望の内容: GitHub Issue
 - 進捗状態: [GitHub Project #3](https://github.com/orgs/engineer-first/projects/3)
 - スプリント対象: GitHub Milestone
 - ホワイトボード: チームで話すための短い見出しと会話中の並び替え
