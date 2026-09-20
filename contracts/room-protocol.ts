@@ -236,6 +236,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z
     .object({
+      type: z.literal("note:bring-to-front"),
+      noteId: z.string().uuid(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("note:drag:start"),
       noteId: z.string().uuid(),
       dragId: NoteDragIdSchema,

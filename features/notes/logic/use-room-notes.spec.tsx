@@ -64,6 +64,17 @@ describe("useRoomNotes", () => {
     expect(result.current.notes[0]?.id).toBe(NOTE_ID);
   });
 
+  it("付箋を最前面へ移す要求は noteId だけを送る", () => {
+    const { result } = setup();
+
+    act(() => result.current.bringNoteToFront(NOTE_ID));
+
+    expect(send).toHaveBeenCalledWith({
+      type: "note:bring-to-front",
+      noteId: NOTE_ID,
+    });
+  });
+
   it("開始受理までは動かさず、受理後に最新位置だけを楽観反映して送る", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));

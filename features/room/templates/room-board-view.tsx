@@ -83,6 +83,7 @@ export type RoomBoardViewProps = {
   onPrivateNoteDelete: (noteId: string) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteBringToFront: (noteId: string) => void;
   onNoteExclude?: (noteId: string) => void;
   onNoteRestore?: (noteId: string) => void;
   onBulkCandidateExclude?: () => void;
@@ -178,6 +179,7 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onNoteBringToFront,
   onAdoptionFocusChange: notifyAdoptionFocusChange,
   onDecisionClear,
   onLeave,
@@ -302,6 +304,12 @@ export function RoomBoardView({
 
   // ハイドレーション直後の高速接続確立によるMismatchedを防ぐため、マウント完了までは接続中（非活性）扱いにする
   const isDisconnected = isMounted ? connectionStatus !== "open" : true;
+  const handleNoteSelect = (noteId: string | null) => {
+    setSelectedNoteId(noteId);
+    if (noteId !== null && permissions.canMoveNote && !isDisconnected) {
+      onNoteBringToFront(noteId);
+    }
+  };
   const voteRemaining = {
     subjective: Math.max(
       0,
@@ -761,7 +769,7 @@ export function RoomBoardView({
         onZoomOut={zoomOut}
         onResetZoom={resetZoom}
         onFitToNotes={fitToNotes}
-        onSelect={setSelectedNoteId}
+        onSelect={handleNoteSelect}
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
         onNoteDelete={onNoteDelete}

@@ -21,6 +21,7 @@ import {
 } from "./handler-context";
 import { getMemberColor, isHostUser } from "./members";
 import {
+  bringNoteToFront,
   broadcastNoteInserted,
   broadcastNoteUpdated,
   broadcastVoteUpdated,
@@ -97,6 +98,7 @@ export const noteHandlers: MessageHandlers<
   | "note:unpublish"
   | "note:update-content"
   | "note:move"
+  | "note:bring-to-front"
   | "note:drag:start"
   | "note:drag:move"
   | "note:drag:end"
@@ -245,6 +247,27 @@ export const noteHandlers: MessageHandlers<
     if (positionChanged) {
       autoReorganizeAtGroupingStep(ctx);
     }
+  },
+
+  "note:bring-to-front": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      row.visibility !== "shared" ||
+      row.excluded ||
+      !canEdit(row, ctx.userId) ||
+      ctx.broadcaster.findActiveDrag(message.noteId)
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    const stackOrder = bringNoteToFront(ctx.sql, message.noteId, updatedAt);
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      stack_order: stackOrder,
+      updated_at: updatedAt,
+    });
   },
 
   "note:drag:start": (ctx, message) => {

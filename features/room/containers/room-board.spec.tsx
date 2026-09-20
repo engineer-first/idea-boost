@@ -619,6 +619,39 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByDisplayValue("最初の付箋")).toBeInTheDocument();
   });
 
+  it("移動可能ステップで付箋を選択すると最前面への永続移動を送信する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2),
+    });
+    const surface = within(screen.getByTestId("note-card")).getByRole(
+      "button",
+      { name: "付箋" },
+    );
+
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+
+    expectSent(socket, { type: "note:bring-to-front", noteId: NOTE_ID });
+  });
+
+  it("移動不可ステップでは付箋を選択しても最前面への永続移動を送信しない", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(4),
+    });
+    const card = screen.getByTestId("note-card");
+    const surface = within(card).getByRole("button", { name: "付箋" });
+
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+
+    expect(card).toHaveAttribute("data-selected", "true");
+    expect(
+      socket.sent.map((payload) => JSON.parse(payload)),
+    ).not.toContainEqual(
+      expect.objectContaining({ type: "note:bring-to-front" }),
+    );
+  });
+
   it("結果ステップのホストが付箋を決定すると note:decide を送信する", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),

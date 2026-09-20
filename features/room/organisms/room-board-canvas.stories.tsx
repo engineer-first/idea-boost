@@ -129,19 +129,33 @@ function ClickToFrontPreview({
 }: {
   args: ComponentProps<typeof RoomBoardCanvas>;
 }) {
+  const [notes, setNotes] = useState(args.notes);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   return (
     <RoomBoardCanvas
       {...args}
+      notes={notes}
       selectedNoteId={selectedNoteId}
-      onSelect={setSelectedNoteId}
+      onSelect={(noteId) => {
+        setSelectedNoteId(noteId);
+        if (noteId === null) return;
+        const nextStackOrder =
+          Math.max(...notes.map(({ stackOrder }) => stackOrder)) + 1;
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === noteId ? { ...note, stackOrder: nextStackOrder } : note,
+          ),
+        );
+      }}
     />
   );
 }
 
-// 重なった付箋をクリックすると、選択した付箋が最前面へ切り替わる状態。
+// 重なった付箋をクリックすると、選択解除後も最前面の順序が維持される状態。
 export const ClickToFront: Story = {
   args: {
+    phase: STEP_1_2,
+    permissions: getBoardPermissions(STEP_1_2),
     notes: [
       buildNote({
         id: "note-back",

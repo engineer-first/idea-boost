@@ -92,6 +92,7 @@ export type UseRoomNotesResult = {
   publishNote: (noteId: string, x: number, y: number) => void;
   unpublishNote: (noteId: string) => void;
   startNoteDrag: (noteId: string) => void;
+  bringNoteToFront: (noteId: string) => void;
   // ドラッグ中: 即時ローカル反映 + note:drag をスロットル送信。
   moveNote: (noteId: string, x: number, y: number) => void;
   // ドロップ確定: note:move を送信（ドラッグ中の座標はサーバーに残らない）。
@@ -481,6 +482,13 @@ export function useRoomNotes({
     [createNoteDragId, send, updatePendingNoteDrop],
   );
 
+  const bringNoteToFront = useCallback(
+    (noteId: string) => {
+      send({ type: "note:bring-to-front", noteId });
+    },
+    [send],
+  );
+
   const moveNote = useCallback(
     (noteId: string, x: number, y: number) => {
       const operation = noteDragOperationRef.current;
@@ -745,6 +753,7 @@ export function useRoomNotes({
     publishNote,
     unpublishNote,
     startNoteDrag,
+    bringNoteToFront,
     moveNote,
     endNoteDrag,
     cancelNoteDrag,

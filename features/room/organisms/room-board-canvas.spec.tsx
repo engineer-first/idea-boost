@@ -578,12 +578,15 @@ describe("RoomBoardCanvas", () => {
   });
 
   it("通常ボードではクリックで選択した付箋を一時最前面にする", () => {
+    const phase = buildPhaseStep(2);
     const notes = [
       { ...buildNote({ id: "selected", content: "奥の付箋" }), stackOrder: 7 },
       { ...buildNote({ id: "front", content: "手前の付箋" }), stackOrder: 12 },
     ];
     const onSelect = vi.fn();
     const { props, rerender } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
       notes,
       onSelect,
     });
