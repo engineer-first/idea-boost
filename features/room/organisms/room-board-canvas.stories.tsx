@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { createRef } from "react";
+import { type ComponentProps, createRef, useState } from "react";
 import { expect, fireEvent, fn, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
@@ -97,7 +97,10 @@ const meta = {
     onNoteVoteRemove: fn(),
     onNoteVoteStickerRemove: fn(),
     onNoteVoteStickerDragStart: fn(),
-    onNoteDecide: fn(),
+    isAdoptMode: false,
+    adoptionFocusNoteId: null,
+    onAdoptionFocusChange: fn(),
+    onAdoptNote: fn(),
     onGroupCreate: fn(),
     onGroupUpdateName: fn(),
     onAddPrivateNote: fn(),
@@ -195,7 +198,7 @@ export const ReadyToDecide: Story = {
   args: {
     phase: STEP_1_5,
     permissions: getBoardPermissions(STEP_1_5),
-    selectedNoteId: "note-1",
+    isAdoptMode: true,
   },
 };
 
@@ -257,6 +260,138 @@ export const Decided: Story = {
   },
 };
 
+function TwoClientAdoptionFocusPreview({
+  args,
+}: {
+  args: ComponentProps<typeof RoomBoardCanvas>;
+}) {
+  const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
+    null,
+  );
+  const client = (isHost: boolean) => (
+    <RoomBoardCanvas
+      {...args}
+      isHost={isHost}
+      isAdoptMode={isHost}
+      adoptionFocusNoteId={adoptionFocusNoteId}
+      onAdoptionFocusChange={setAdoptionFocusNoteId}
+      boardScrollerRef={createRef<HTMLDivElement>()}
+      ideaMapPlaneRef={createRef<HTMLDivElement>()}
+      privateToolbarRef={createRef<HTMLDivElement>()}
+    />
+  );
+
+  return (
+    <div className="grid h-[70vh] w-full grid-cols-2 gap-4">
+      <section
+        aria-label="ホストクライアント"
+        className="flex min-h-0 flex-col"
+      >
+        <h2 className="mb-2 text-sm font-bold">ホスト</h2>
+        {client(true)}
+      </section>
+      <section
+        aria-label="参加者クライアント"
+        className="flex min-h-0 flex-col"
+      >
+        <h2 className="mb-2 text-sm font-bold">参加者</h2>
+        {client(false)}
+      </section>
+    </div>
+  );
+}
+
+export const TwoClientSharedAdoptionFocus: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: [buildNote({ id: "note-1", content: "共有中の候補", x: 40, y: 80 })],
+  },
+  render: (args) => <TwoClientAdoptionFocusPreview args={args} />,
+};
+
+function TwoClientAdoptionReselectionPreview({
+  args,
+}: {
+  args: ComponentProps<typeof RoomBoardCanvas>;
+}) {
+  const [isAdoptMode, setIsAdoptMode] = useState(true);
+  const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
+    null,
+  );
+  const client = (isHost: boolean) => (
+    <RoomBoardCanvas
+      {...args}
+      isHost={isHost}
+      isAdoptMode={isHost && isAdoptMode}
+      adoptionFocusNoteId={adoptionFocusNoteId}
+      onAdoptionFocusChange={setAdoptionFocusNoteId}
+      onAdoptNote={() => {
+        setAdoptionFocusNoteId(null);
+        setIsAdoptMode(false);
+      }}
+      boardScrollerRef={createRef<HTMLDivElement>()}
+      ideaMapPlaneRef={createRef<HTMLDivElement>()}
+      privateToolbarRef={createRef<HTMLDivElement>()}
+    />
+  );
+
+  return (
+    <div className="flex h-[70vh] w-full flex-col gap-3">
+      {!isAdoptMode ? (
+        <button
+          type="button"
+          className="self-start rounded border px-3 py-2 text-sm"
+          onClick={() => setIsAdoptMode(true)}
+        >
+          確定を取り消して選び直す
+        </button>
+      ) : null}
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
+        <section
+          aria-label="ホストクライアント"
+          className="flex min-h-0 flex-col"
+        >
+          <h2 className="mb-2 text-sm font-bold">ホスト</h2>
+          {client(true)}
+        </section>
+        <section
+          aria-label="参加者クライアント"
+          className="flex min-h-0 flex-col"
+        >
+          <h2 className="mb-2 text-sm font-bold">参加者</h2>
+          {client(false)}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+export const TwoClientAdoptionReselection: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: [
+      buildNote({ id: "note-1", content: "前回選んだ候補", x: 40, y: 80 }),
+      buildNote({ id: "note-2", content: "今回選ぶ候補", x: 300, y: 80 }),
+    ],
+  },
+  render: (args) => <TwoClientAdoptionReselectionPreview args={args} />,
+};
+
+const STEP_3_5 = buildPhaseStep(5, 3);
+
+export const TwoClientSharedIdeaAdoptionFocus: Story = {
+  args: {
+    phase: STEP_3_5,
+    permissions: getBoardPermissions(STEP_3_5),
+    notes: [
+      buildNote({ id: "note-1", content: "共有中のアイデア", x: 50, y: 50 }),
+    ],
+  },
+  render: (args) => <TwoClientAdoptionFocusPreview args={args} />,
+};
+
 // Step1-1: 個人で付箋を書く
 export const Step1Writing: Story = {
   args: {
@@ -301,7 +436,7 @@ export const Step1Result: Story = {
   args: {
     phase: STEP_1_5,
     permissions: getBoardPermissions(STEP_1_5),
-    selectedNoteId: "note-1",
+    isAdoptMode: true,
   },
 };
 

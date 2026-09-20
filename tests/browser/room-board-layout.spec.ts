@@ -412,6 +412,149 @@ test("アイデア決定後も完了操作と決定結果が画面内で読め�
   await expectLayout();
 });
 
+test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示す", async () => {
+  await openStory("room-roomboardview--decided");
+  await page.getByRole("dialog").waitFor();
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  const decidedNote = page.locator('[data-note-id="note-1"]');
+  await decidedNote.waitFor();
+
+  const outline = await decidedNote.evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.outlineColor = "var(--color-emerald-600)";
+    document.body.append(probe);
+    const emerald = getComputedStyle(probe).outlineColor;
+    probe.remove();
+
+    const css = getComputedStyle(element);
+    return {
+      color: css.outlineColor,
+      emerald,
+      style: css.outlineStyle,
+      width: Number.parseFloat(css.outlineWidth),
+    };
+  });
+
+  expect(outline.style).toBe("solid");
+  expect(outline.width).toBeGreaterThanOrEqual(4);
+  expect(outline.color).toBe(outline.emerald);
+  await page.screenshot({ path: `${output}/decided-note.png` });
+});
+
+test("採用候補は通常時に黒枠を出さずhover時だけ緑枠を示す", async () => {
+  await openStory("room-roomboardview--selecting-candidate");
+  const candidate = page.getByRole("button", { name: /採用する付箋:/ }).first();
+  await candidate.waitFor();
+  await candidate.hover();
+
+  const colors = await candidate.evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.borderColor = "var(--color-emerald-600)";
+    document.body.append(probe);
+    const emerald = getComputedStyle(probe).borderColor;
+    probe.remove();
+    return {
+      actual: getComputedStyle(element).borderColor,
+      emerald,
+    };
+  });
+  expect(colors.actual).toBe(colors.emerald);
+
+  await page.screenshot({ path: `${output}/adopt-candidate-hover.png` });
+});
+
+test.each([
+  [
+    "通常キャンバス",
+    "room-roomboardcanvas--two-client-shared-adoption-focus",
+    /採用する付箋:/,
+  ],
+  [
+    "アイデアマップ",
+    "room-roomboardcanvas--two-client-shared-idea-adoption-focus",
+    /採用するアイデア:/,
+  ],
+] as const)("%s の2クライアントでホスト hover・focus を参加者の点線表示へ即時反映する", async (label, storyId, targetName) => {
+  await openStory(storyId);
+  const host = page.getByRole("region", { name: "ホストクライアント" });
+  const participant = page.getByRole("region", {
+    name: "参加者クライアント",
+  });
+  const target = host.getByRole("button", { name: targetName });
+  const participantNote = participant.getByTestId("note-card");
+
+  await target.hover();
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBe("true");
+  const focusStyle = await participantNote.evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.outlineColor = "var(--color-emerald-500)";
+    document.body.append(probe);
+    const emerald = getComputedStyle(probe).outlineColor;
+    probe.remove();
+    const style = getComputedStyle(element);
+    return {
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+      outlineColor: style.outlineColor,
+      emerald,
+      backgroundImage: style.backgroundImage,
+    };
+  });
+  expect(focusStyle.outlineStyle).toBe("dashed");
+  expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(2);
+  expect(focusStyle.outlineColor).toBe(focusStyle.emerald);
+  expect(focusStyle.backgroundImage).toContain("rgba(16, 185, 129");
+  expect(await participant.getByText(/検討中|フォーカス中/).count()).toBe(0);
+  await page.screenshot({
+    path: `${output}/shared-adoption-focus-${label}.png`,
+  });
+
+  await page.mouse.move(0, 0);
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+
+  await target.focus();
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBe("true");
+  await target.evaluate((element) => (element as HTMLElement).blur());
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+});
+
+test("確定を取り消して選び直した時は、現在hover中の候補だけを参加者へ共有する", async () => {
+  await openStory("room-roomboardcanvas--two-client-adoption-reselection");
+  const host = page.getByRole("region", { name: "ホストクライアント" });
+  const participant = page.getByRole("region", {
+    name: "参加者クライアント",
+  });
+
+  await host
+    .getByRole("button", { name: "採用する付箋: 前回選んだ候補" })
+    .click();
+  await page.getByRole("button", { name: "確定を取り消して選び直す" }).click();
+  await host
+    .getByRole("button", { name: "採用する付箋: 今回選ぶ候補" })
+    .hover();
+
+  const previous = participant.locator('[data-note-id="note-1"]');
+  const current = participant.locator('[data-note-id="note-2"]');
+  await expect(
+    previous.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+  await expect(current.getAttribute("data-adoption-focused")).resolves.toBe(
+    "true",
+  );
+  await page.screenshot({
+    path: `${output}/shared-adoption-focus-after-reselection.png`,
+  });
+});
+
 test.each([
   1280, 1024, 768,
 ])("幅 %i でも現在地を省略せず、タイマーと次への操作を保つ", async (width) => {

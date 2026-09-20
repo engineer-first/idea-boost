@@ -52,6 +52,13 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("共有採用フォーカスを StickyNote の視覚状態へ渡す", () => {
+    setup({ isAdoptionFocused: true });
+
+    expect(getCard()).toHaveAttribute("data-adoption-focused", "true");
+    expect(getCard()).toHaveClass("outline-dashed", "outline-emerald-500");
+  });
+
   it("候補外付箋を同じ座標のゴーストとして表示し、本文を読める", () => {
     setup({
       note: buildNote({
@@ -576,10 +583,16 @@ describe("NoteCard", () => {
       setup({ isDecided: true });
 
       expect(getCard()).toHaveAttribute("data-decided", "true");
-      expect(getCard()).toHaveClass("ring-2");
+      expect(getCard()).toHaveClass("outline-4", "outline-emerald-600");
       expect(
         screen.getByRole("status", { name: "取り組む課題に決定済み" }),
-      ).toHaveClass("bottom-1", "right-1");
+      ).toHaveClass(
+        "bottom-1",
+        "right-1",
+        "border-2",
+        "border-white",
+        "shadow-lg",
+      );
     });
   });
 

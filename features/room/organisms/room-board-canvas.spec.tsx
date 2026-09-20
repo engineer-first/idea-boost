@@ -2,11 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import {
-  buildDecision,
-  buildNote,
-  buildNotes,
-} from "@/contracts/room-protocol.fixture";
+import { buildNote, buildNotes } from "@/contracts/room-protocol.fixture";
 import { getBoardPermissions } from "../logic/board-permissions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
@@ -50,7 +46,10 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onNoteVoteRemove: vi.fn(),
     onNoteVoteStickerRemove: vi.fn(),
     onNoteVoteStickerDragStart: vi.fn(),
-    onNoteDecide: vi.fn(),
+    isAdoptMode: false,
+    adoptionFocusNoteId: null,
+    onAdoptionFocusChange: vi.fn(),
+    onAdoptNote: vi.fn(),
     onGroupCreate: vi.fn(),
     onGroupUpdateName: vi.fn(),
     onAddPrivateNote: vi.fn(),
@@ -74,6 +73,178 @@ function openPrivateNotesToolbar() {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("採用選択モードは候補だけを明示し、対象ボタンの操作を通知する", () => {
+    const onAdoptNote = vi.fn();
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      isAdoptMode: true,
+      onAdoptNote,
+      notes: [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+        buildNote({
+          id: "note-2",
+          content: "候補外B",
+          visibility: "shared",
+          excluded: true,
+        }),
+      ],
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+    );
+    expect(onAdoptNote).toHaveBeenCalledWith("note-1");
+    expect(
+      screen.queryByRole("button", { name: "採用する付箋: 候補外B" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-scroller")).toHaveAttribute(
+      "data-adopt-mode",
+      "true",
+    );
+  });
+
+  it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ content: "通常キャンバス候補", visibility: "shared" }),
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "採用する付箋: 通常キャンバス候補",
+      }),
+    ).toHaveClass(
+      "border-transparent",
+      "hover:border-emerald-600",
+      "focus-visible:border-emerald-600",
+    );
+  });
+
+  it("アイデアマップの採用候補も通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+    const phase = buildPhaseStep(5, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ content: "アイデアマップ候補", visibility: "shared" }),
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "採用するアイデア: アイデアマップ候補",
+      }),
+    ).toHaveClass(
+      "border-transparent",
+      "hover:border-emerald-600",
+      "focus-visible:border-emerald-600",
+    );
+  });
+
+  it.each([
+    ["通常キャンバス", buildPhaseStep(5)],
+    ["アイデアマップ", buildPhaseStep(5, 3)],
+  ] as const)("%s の候補 hover・focus・離脱を即時通知する", (_label, phase) => {
+    const onAdoptionFocusChange = vi.fn();
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ id: "note-1", content: "候補", visibility: "shared" }),
+      ],
+      onAdoptionFocusChange,
+    });
+    const target = screen.getByRole("button", { name: /採用する.+: 候補/ });
+
+    fireEvent.pointerEnter(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+    fireEvent.pointerLeave(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+    fireEvent.focus(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+    fireEvent.blur(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("確定を取り消して選び直すと、前回のfocusではなく現在hover中の候補を通知する", () => {
+    const onAdoptionFocusChange = vi.fn();
+    const notes = [
+      buildNote({ id: "note-1", content: "前回の候補", visibility: "shared" }),
+      buildNote({ id: "note-2", content: "今回の候補", visibility: "shared" }),
+    ];
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      isAdoptMode: true,
+      notes,
+      onAdoptionFocusChange,
+    });
+
+    fireEvent.focus(
+      screen.getByRole("button", { name: "採用する付箋: 前回の候補" }),
+    );
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+
+    rerender(<RoomBoardCanvas {...props} isAdoptMode={false} />);
+    rerender(<RoomBoardCanvas {...props} isAdoptMode />);
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "採用する付箋: 今回の候補" }),
+    );
+
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-2");
+  });
+
+  it("参加者だけに共有採用フォーカスを描画し、ホスト自身には重ねない", () => {
+    const note = buildNote({ id: "note-1", visibility: "shared" });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: false,
+      notes: [note],
+      adoptionFocusNoteId: "note-1",
+    });
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-adoption-focused",
+      "true",
+    );
+
+    rerender(
+      <RoomBoardCanvas {...props} isHost adoptionFocusNoteId="note-1" />,
+    );
+    expect(screen.getByTestId("note-card")).not.toHaveAttribute(
+      "data-adoption-focused",
+    );
+  });
+
+  it("非ホストにも確定済み付箋の緑枠とチェックを示す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: false,
+      decision: {
+        phase: 1,
+        noteId: "note-1",
+        decidedBy: "11111111-1111-4111-8111-111111111111",
+      },
+      notes: [buildNote({ id: "note-1", visibility: "shared" })],
+    });
+
+    expect(screen.getByTestId("note-card")).toHaveClass(
+      "outline-4",
+      "outline-emerald-600",
+    );
+    expect(
+      screen.getByRole("status", { name: "取り組む課題に決定済み" }),
+    ).toBeInTheDocument();
+  });
+
   it("scroller の pointer leave 座標を presence handler へ渡す", () => {
     const onPresencePointerLeave = vi.fn();
     setup({ onPresencePointerLeave });
@@ -691,91 +862,6 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
   });
 
-  describe("決定操作", () => {
-    it("ホストが結果ステップで選択した未決定の付箋右上に決定操作を表示し、押下を通知する", () => {
-      const onNoteDecide = vi.fn();
-      setup({
-        notes: [buildNote({ id: "note-1", x: 100, y: 80 })],
-        phase: buildPhaseStep(5),
-        isHost: true,
-        selectedNoteId: "note-1",
-        onNoteDecide,
-      });
-
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: "この付箋を取り組む課題に決定",
-        }),
-      );
-      expect(onNoteDecide).toHaveBeenCalledWith("note-1");
-      expect(
-        screen.getByRole("button", {
-          name: "この付箋を取り組む課題に決定",
-        }),
-      ).toHaveStyle({ left: "260px", top: "84px" });
-    });
-
-    it.each([
-      {
-        phase: buildPhaseStep(5),
-        isHost: false,
-        isDisconnected: false,
-        selectedNoteId: "note-1",
-      },
-      {
-        phase: buildPhaseStep(4),
-        isHost: true,
-        isDisconnected: false,
-        selectedNoteId: "note-1",
-      },
-      {
-        phase: buildPhaseStep(5),
-        isHost: true,
-        isDisconnected: true,
-        selectedNoteId: "note-1",
-      },
-      {
-        phase: buildPhaseStep(5),
-        isHost: true,
-        isDisconnected: false,
-        selectedNoteId: null,
-      },
-    ])("非ホスト・結果ステップ以外・切断中・未選択では決定操作を表示しない", ({
-      phase,
-      isHost,
-      isDisconnected,
-      selectedNoteId,
-    }) => {
-      setup({ phase, isHost, isDisconnected, selectedNoteId });
-
-      expect(
-        screen.queryByRole("button", {
-          name: "この付箋を取り組む課題に決定",
-        }),
-      ).not.toBeInTheDocument();
-    });
-
-    it("現在の決定と一致する付箋はstatus表示だけにし、決定操作を重ねない", () => {
-      setup({
-        phase: buildPhaseStep(5),
-        isHost: true,
-        selectedNoteId: "note-1",
-        decision: buildDecision({
-          noteId: "note-1",
-          decidedBy: "11111111-1111-4111-8111-111111111111",
-        }),
-      });
-
-      expect(
-        screen.getByRole("status", { name: "取り組む課題に決定済み" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", {
-          name: "この付箋を取り組む課題に決定",
-        }),
-      ).not.toBeInTheDocument();
-    });
-  });
   it("Step1-1ではマイ付箋ツールバーを表示する", () => {
     setup({
       phase: buildPhaseStep(1),

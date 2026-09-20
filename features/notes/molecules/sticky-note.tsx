@@ -10,6 +10,7 @@ export type StickyNoteProps = {
   isLifted?: boolean;
   isSelected?: boolean;
   isDecided?: boolean;
+  isAdoptionFocused?: boolean;
   color?: NoteColor;
   children: React.ReactNode;
   className?: string;
@@ -26,6 +27,7 @@ export function StickyNote({
   isLifted = false,
   isSelected = false,
   isDecided = false,
+  isAdoptionFocused = false,
   color = "yellow",
   children,
   className,
@@ -42,15 +44,19 @@ export function StickyNote({
       data-note-id={noteId}
       data-selected={isSelected || undefined}
       data-decided={isDecided || undefined}
+      data-adoption-focused={isAdoptionFocused || undefined}
       data-editing={dataEditing || undefined}
       data-vote-drop-target={dataVoteDropTarget || undefined}
       data-excluded={dataExcluded || undefined}
       className={cn(
         "relative isolate flex flex-col overflow-hidden rounded-[2px]",
-        isSelected
-          ? "outline-2 outline-blue-500 dark:outline-blue-400"
-          : "outline-none",
-        isDecided ? "ring-2 ring-emerald-500 ring-offset-2" : "",
+        isDecided
+          ? "outline-4 outline-solid outline-emerald-600 outline-offset-2"
+          : isAdoptionFocused
+            ? "outline-2 outline-dashed outline-emerald-500 outline-offset-2"
+            : isSelected
+              ? "outline-2 outline-blue-500 dark:outline-blue-400"
+              : "outline-none",
         className,
       )}
       style={{
@@ -58,6 +64,10 @@ export function StickyNote({
         height: NOTE_HEIGHT,
         boxShadow: dataExcluded ? "none" : getNoteShadow(noteId, { isLifted }),
         border: dataExcluded ? "1px dashed rgb(100 116 139 / 0.55)" : undefined,
+        backgroundImage:
+          isAdoptionFocused && !isDecided
+            ? "linear-gradient(rgb(16 185 129 / 0.12), rgb(16 185 129 / 0.12))"
+            : undefined,
         ...style,
         backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
       }}

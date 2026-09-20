@@ -7,6 +7,7 @@ import {
   buildDecision,
 } from "@/contracts/room-protocol.fixture";
 import {
+  applyAdoptionFocusServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
   applyMemberServerMessage,
@@ -104,9 +105,11 @@ describe("applyMemberServerMessage", () => {
   it("decision:updated は members を変えない", () => {
     const message: ServerMessage = {
       type: "decision:updated",
-      phase: 1,
-      noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      decidedBy: A.userId,
+      decision: {
+        phase: 1,
+        noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        decidedBy: A.userId,
+      },
     };
     expect(applyMemberServerMessage([A], message)).toEqual([A]);
   });
@@ -234,9 +237,11 @@ describe("applyPhaseServerMessage", () => {
   it("decision:updated は phase を変えない", () => {
     const message: ServerMessage = {
       type: "decision:updated",
-      phase: 1,
-      noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      decidedBy: A.userId,
+      decision: {
+        phase: 1,
+        noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        decidedBy: A.userId,
+      },
     };
     expect(applyPhaseServerMessage(buildPhaseStep(5), message)).toEqual(
       buildPhaseStep(5),
@@ -320,9 +325,18 @@ describe("applyDecisionServerMessage", () => {
     expect(
       applyDecisionServerMessage(null, {
         type: "decision:updated",
-        ...decision,
+        decision,
       }),
     ).toEqual(decision);
+  });
+
+  it("decision:updated の null でサーバー権威の決定解除を反映する", () => {
+    expect(
+      applyDecisionServerMessage(decision, {
+        type: "decision:updated",
+        decision: null,
+      }),
+    ).toBeNull();
   });
 
   it("snapshot の決定状態で再接続後の表示を復元する", () => {
@@ -358,6 +372,54 @@ describe("applyDecisionServerMessage", () => {
         member: B,
       }),
     ).toEqual(decision);
+  });
+});
+
+describe("applyAdoptionFocusServerMessage", () => {
+  const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+  it("更新と明示解除を畳み込む", () => {
+    expect(
+      applyAdoptionFocusServerMessage(null, {
+        type: "adoption-focus:updated",
+        noteId,
+      }),
+    ).toBe(noteId);
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "adoption-focus:updated",
+        noteId: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("snapshot で復元し、確定とフェーズ遷移で解除する", () => {
+    const snapshot: ServerMessage = {
+      type: "snapshot",
+      notes: [],
+      members: [A],
+      phase: buildPhaseStep(5),
+      isHost: false,
+      decision: null,
+      adoptionFocusNoteId: noteId,
+      carryovers: [],
+      completedVoterIds: [],
+      timer: { status: "idle" },
+      serverNow: 1_000,
+    };
+    expect(applyAdoptionFocusServerMessage(null, snapshot)).toBe(noteId);
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "decision:updated",
+        decision: buildDecision({ noteId }),
+      }),
+    ).toBeNull();
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "phase:updated",
+        phase: buildPhaseStep(1, 2),
+      }),
+    ).toBeNull();
   });
 });
 

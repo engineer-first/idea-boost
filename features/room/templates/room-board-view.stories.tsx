@@ -138,6 +138,7 @@ const meta = {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: fn(),
+    onDecisionClear: fn(),
     onLeave: fn(),
     isLeaving: false,
     onNextPhase: fn(),
@@ -414,12 +415,100 @@ export const ReadyToDecide: Story = {
   args: {
     phase: STEP_1_5,
     isHost: true,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 120 + index * 280,
+      y: 180,
+    })),
+  },
+};
+
+export const SelectingCandidate: Story = {
+  args: {
+    phase: STEP_1_5,
+    isHost: true,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 120 + index * 280,
+      y: 180,
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await within(document.body).findByRole("dialog");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "採用する付箋を選ぶ" }),
+    );
+    await userEvent.hover(
+      canvas.getAllByRole("button", { name: /採用する付箋:/ })[0],
+    );
+  },
+};
+
+export const SelectingAt768px: Story = {
+  args: {
+    phase: STEP_1_5,
+    isHost: true,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 80 + index * 210,
+      y: 220,
+    })),
+  },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 768, height: 720, overflow: "hidden" }}>
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await within(document.body).findByRole("dialog");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "採用する付箋を選ぶ" }),
+    );
+    await userEvent.hover(
+      canvas.getAllByRole("button", { name: /採用する付箋:/ })[0],
+    );
+  },
+};
+
+export const SelectingIdeaMapCandidate: Story = {
+  args: {
+    phase: buildPhaseStep(5, 3),
+    isHost: true,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 20 + index * 30,
+      y: 25 + index * 20,
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await within(document.body).findByRole("dialog");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(
+      await canvas.findByRole("button", {
+        name: "採用するアイデアを選ぶ",
+      }),
+    );
+    await userEvent.hover(
+      canvas.getAllByRole("button", { name: /採用するアイデア:/ })[0],
+    );
   },
 };
 
 export const Decided: Story = {
   args: {
     phase: STEP_1_5,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 120 + index * 280,
+      y: 180,
+    })),
     decision: buildDecision({
       noteId: "note-1",
       decidedBy: ME,

@@ -391,19 +391,57 @@ describe("ServerMessageSchema", () => {
   });
 
   it("decision:updated はフェーズ・付箋・決定者を受け入れる", () => {
+    const decision = buildDecision({ phase: 1, decidedBy: USER_A });
     expect(
       ServerMessageSchema.parse({
         type: "decision:updated",
-        phase: 1,
-        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        decidedBy: USER_A,
+        decision,
       }),
     ).toEqual({
       type: "decision:updated",
-      phase: 1,
-      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      decidedBy: USER_A,
+      decision,
     });
+  });
+
+  it("decision:updated は決定解除を null で受け入れる", () => {
+    expect(
+      ServerMessageSchema.parse({ type: "decision:updated", decision: null }),
+    ).toEqual({ type: "decision:updated", decision: null });
+  });
+
+  it("adoption-focus:updated は共有中の候補IDと解除の null を受け入れる", () => {
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    expect(
+      ServerMessageSchema.parse({
+        type: "adoption-focus:updated",
+        noteId,
+      }),
+    ).toEqual({ type: "adoption-focus:updated", noteId });
+    expect(
+      ServerMessageSchema.parse({
+        type: "adoption-focus:updated",
+        noteId: null,
+      }),
+    ).toEqual({ type: "adoption-focus:updated", noteId: null });
+  });
+
+  it("snapshot は再接続用の一時的な採用フォーカスを受け入れる", () => {
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    expect(
+      ServerMessageSchema.parse({
+        type: "snapshot",
+        notes: [],
+        members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
+        phase: STEP_1_5,
+        isHost: false,
+        decision: null,
+        adoptionFocusNoteId: noteId,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: 1_700_000_000_000,
+      }),
+    ).toMatchObject({ adoptionFocusNoteId: noteId });
   });
 
   it("member_joined を受け入れる", () => {
@@ -781,6 +819,40 @@ describe("ClientMessageSchema", () => {
       type: "note:decide",
       noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     });
+  });
+
+  it("decision:clear は認可情報を持たないメッセージとして受け入れる", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "decision:clear",
+        phase: 99,
+        decidedBy: "attacker-id",
+      }),
+    ).toEqual({ type: "decision:clear" });
+  });
+
+  it("adoption-focus:update は UUID または null だけを受け入れ、認可情報を除去する", () => {
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    expect(
+      ClientMessageSchema.parse({
+        type: "adoption-focus:update",
+        noteId,
+        userId: USER_B,
+        isHost: true,
+      }),
+    ).toEqual({ type: "adoption-focus:update", noteId });
+    expect(
+      ClientMessageSchema.parse({
+        type: "adoption-focus:update",
+        noteId: null,
+      }),
+    ).toEqual({ type: "adoption-focus:update", noteId: null });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "adoption-focus:update",
+        noteId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
   });
 
   it("start_phase を受け入れる", () => {

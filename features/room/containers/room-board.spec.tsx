@@ -51,7 +51,11 @@ vi.mock("../logic/room-notify", () => ({
 import type { PersistentGroup } from "@/contracts/grouping";
 import type { RoomPhase } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type { Carryover, ProtocolNote } from "@/contracts/room-protocol";
+import type {
+  Carryover,
+  Decision,
+  ProtocolNote,
+} from "@/contracts/room-protocol";
 import { buildCarryover, buildGroup } from "@/contracts/room-protocol.fixture";
 import { DECIDED_ISSUE_LABEL, HMW_TEMPLATES } from "@/features/hmw";
 import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
@@ -204,6 +208,8 @@ function connectWithSnapshot(
     isHost?: boolean;
     carryovers?: Carryover[];
     groups?: PersistentGroup[];
+    decision?: Decision | null;
+    adoptionFocusNoteId?: string | null;
   },
 ) {
   const { view, socket } = renderBoard({ isHost: options?.isHost ?? true });
@@ -215,7 +221,8 @@ function connectWithSnapshot(
       members: [],
       phase: options?.phase ?? buildPhaseStep(1),
       isHost: options?.isHost ?? true,
-      decision: null,
+      decision: options?.decision ?? null,
+      adoptionFocusNoteId: options?.adoptionFocusNoteId ?? null,
       carryovers: options?.carryovers ?? [],
       completedVoterIds: [],
       groups: options?.groups,
@@ -619,27 +626,70 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-    const card = screen.getByTestId("note-card");
-    const surface = within(card).getByRole("button", { name: "付箋" });
-    fireEvent.pointerDown(surface, {
-      pointerId: 1,
-      clientX: 100,
-      clientY: 100,
-    });
-    fireEvent.pointerUp(surface, {
-      pointerId: 1,
-      clientX: 100,
-      clientY: 100,
-    });
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     fireEvent.click(
-      screen.getByRole("button", {
-        name: "この付箋を取り組む課題に決定",
-      }),
+      screen.getByRole("button", { name: "採用する付箋: 最初の付箋" }),
     );
 
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
     );
+  });
+
+  it("結果ステップの候補 hover・leave を adoption-focus:update として即時送信する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    const target = screen.getByRole("button", {
+      name: "採用する付箋: 最初の付箋",
+    });
+
+    fireEvent.pointerEnter(target);
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "adoption-focus:update", noteId: NOTE_ID }),
+    );
+    fireEvent.pointerLeave(target);
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "adoption-focus:update", noteId: null }),
+    );
+  });
+
+  it("参加者はサーバーから受けた採用フォーカスだけを点線表示する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: false,
+    });
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "adoption-focus:updated",
+        noteId: NOTE_ID,
+      }),
+    );
+    expect(screen.getByTestId("note-card")).toHaveClass("outline-dashed");
+    expect(socket.sent).not.toContain(
+      JSON.stringify({ type: "adoption-focus:update", noteId: NOTE_ID }),
+    );
+  });
+
+  it("結果ステップのホストが確定を解除すると decision:clear を送信する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+      decision: {
+        phase: 1,
+        noteId: NOTE_ID,
+        decidedBy: USER_ID,
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "確定を解除" }));
+
+    expect(socket.sent).toContain(JSON.stringify({ type: "decision:clear" }));
   });
 
   it("結果ステップのホストが右クリックメニューから候補外にし、通知のUndoで復帰する", () => {

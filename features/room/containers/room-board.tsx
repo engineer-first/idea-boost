@@ -170,6 +170,19 @@ export function RoomBoard({
     [send],
   );
 
+  const handleAdoptionFocusChange = useCallback(
+    (noteId: string | null) => {
+      if (!isHost) return;
+      send({ type: "adoption-focus:update", noteId });
+    },
+    [isHost, send],
+  );
+
+  const handleDecisionClear = useCallback(
+    () => send({ type: "decision:clear" }),
+    [send],
+  );
+
   const handleNoteExclude = useCallback(
     (noteId: string) => {
       const operation = latestExcludeOperationRef.current + 1;
@@ -298,6 +311,7 @@ export function RoomBoard({
         timerServerOffsetMs={roomState.timerServerOffsetMs}
         isHost={isHost}
         decision={roomState.decision}
+        adoptionFocusNoteId={roomState.adoptionFocusNoteId}
         connectionStatus={connectionStatus}
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
@@ -335,6 +349,8 @@ export function RoomBoard({
         onNoteVoteStickerRemove={notes.removeVoteSticker}
         onNoteVoteStickerMove={notes.moveVoteSticker}
         onNoteDecide={handleNoteDecide}
+        onAdoptionFocusChange={handleAdoptionFocusChange}
+        onDecisionClear={handleDecisionClear}
         onLeave={leave}
         isLeaving={isLeaving}
       />

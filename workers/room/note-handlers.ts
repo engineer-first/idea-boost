@@ -378,6 +378,12 @@ export const noteHandlers: MessageHandlers<
     }
     const updatedAt = new Date().toISOString();
     setNoteExcluded(ctx.sql, row.id, true, updatedAt);
+    if (ctx.broadcaster.retireAdoptionFocusForNote(row.id)) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
       ...row,
       excluded: true,
@@ -427,6 +433,14 @@ export const noteHandlers: MessageHandlers<
         updatedAt,
       );
     });
+    if (
+      targets.some(({ id }) => ctx.broadcaster.retireAdoptionFocusForNote(id))
+    ) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     for (const row of targets) {
       broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
         ...row,

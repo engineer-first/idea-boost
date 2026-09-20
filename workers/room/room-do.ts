@@ -33,6 +33,7 @@ import {
   ROOM_DO_MIGRATIONS,
 } from "../room-do-migrations";
 import { filterVisible, projectNoteForViewer } from "../visibility";
+import { adoptionFocusHandlers } from "./adoption-focus-handlers";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
 import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
@@ -74,6 +75,7 @@ export const HOST_ID_HEADER = "X-Idea-Boost-Host-Id";
 // 全 ClientMessage を網羅するハンドラ表。メッセージ型を追加すると、
 // ここでキー漏れがコンパイルエラーになる（旧 switch の never 網羅性チェック相当）。
 const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
+  ...adoptionFocusHandlers,
   ...noteHandlers,
   ...decisionHandlers,
   ...groupHandlers,
@@ -272,6 +274,12 @@ export class RoomDO extends DurableObject {
     // 付箋の移動者表示は切断時に消す。
     const previousAttachment =
       ws.deserializeAttachment() as SocketAttachment | null;
+    if (this.broadcaster.retireAdoptionFocus(ws)) {
+      this.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     if (previousAttachment?.hasCursor || previousAttachment?.activeDrag) {
       const active = this.broadcaster.retireActiveDrag(ws);
       const attachment =
@@ -405,6 +413,7 @@ export class RoomDO extends DurableObject {
       isHost: isHostUser(this.sql, userId),
       decision:
         phase.kind === "step" ? getDecision(this.sql, phase.phase) : null,
+      adoptionFocusNoteId: this.broadcaster.currentAdoptionFocusNoteId(),
       carryovers:
         phase.kind === "step" ? getCarryovers(this.sql, phase.phase) : [],
       completedVoterIds:

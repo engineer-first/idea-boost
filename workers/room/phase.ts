@@ -132,11 +132,13 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:vote-sticker:move":
     case "note:vote-sticker:remove":
     case "note:decide":
+    case "decision:clear":
     case "group:create":
     case "group:update-name":
       return true;
     case "cursor:update":
     case "cursor:leave":
+    case "adoption-focus:update":
     case "start_phase":
     case "phase:next":
     case "timer:start":
@@ -187,6 +189,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
     ],
   },
   2: {
@@ -217,6 +220,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
     ],
   },
   3: {
@@ -245,6 +249,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
     ],
   },
 };
@@ -420,6 +425,12 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       timerWasReset = resetTimerState(ctx.sql);
     });
     ctx.broadcaster.retireAllActiveDrags();
+    if (ctx.broadcaster.retireAllAdoptionFocus()) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     if (timerWasReset) {
       await ctx.storage.deleteAlarm();
     }

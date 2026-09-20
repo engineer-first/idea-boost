@@ -9,6 +9,7 @@ import type { RoomPhase } from "@/contracts/phase";
 import type { ServerMessage, TimerState } from "@/contracts/room-protocol";
 import { roomNotify } from "./room-notify";
 import {
+  applyAdoptionFocusServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
   applyMemberServerMessage,
@@ -25,6 +26,7 @@ export type UseRoomStateResult = {
   members: Member[];
   phase: RoomPhase;
   decision: Decision | null;
+  adoptionFocusNoteId: string | null;
   carryovers: Carryover[];
   timer: TimerState;
   timerServerOffsetMs: number;
@@ -40,6 +42,9 @@ export function useRoomState(options: {
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
+    null,
+  );
   const [carryovers, setCarryovers] = useState<Carryover[]>([]);
   const [completedVoterIds, setCompletedVoterIds] = useState<string[]>([]);
   const [timerState, setTimerState] = useState<TimerClientState>({
@@ -71,6 +76,9 @@ export function useRoomState(options: {
       setMembers(nextMembers);
       setPhase((current) => applyPhaseServerMessage(current, message));
       setDecision((current) => applyDecisionServerMessage(current, message));
+      setAdoptionFocusNoteId((current) =>
+        applyAdoptionFocusServerMessage(current, message),
+      );
       setCarryovers((current) => applyCarryoverServerMessage(current, message));
       setCompletedVoterIds((current) =>
         applyVotingCompletionServerMessage(current, message),
@@ -86,6 +94,7 @@ export function useRoomState(options: {
     members,
     phase,
     decision,
+    adoptionFocusNoteId,
     carryovers,
     timer: timerState.timer,
     timerServerOffsetMs: timerState.serverOffsetMs,

@@ -332,6 +332,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:decide"),
     noteId: z.string().uuid(),
   }),
+  // 現在フェーズの決定解除。phase / userId は RoomDO が
+  // 認証済みソケットと権威状態から導出する。
+  z.object({ type: z.literal("decision:clear") }),
+  // 採用選択モード中にホストが現在検討している候補。userId / phase は
+  // 認証済みソケットと RoomDO の権威状態から導出する。
+  z.object({
+    type: z.literal("adoption-focus:update"),
+    noteId: z.string().uuid().nullable(),
+  }),
   // ロビーから課題整理 Step 1-1 へ。ホストのみ。
   z.object({ type: z.literal("start_phase") }),
   // 課題整理の次ステップへ。ホストのみ。
@@ -372,6 +381,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     phase: RoomPhaseSchema,
     isHost: z.boolean(),
     decision: DecisionSchema.nullable(),
+    // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。
+    adoptionFocusNoteId: z.string().uuid().nullable().optional(),
     // 現在フェーズより前のフェーズで確定した決定の一覧（フェーズ昇順）。
     carryovers: z.array(CarryoverSchema),
     // 投票中に全票を使い切ったメンバーの userId だけを共有する。
@@ -436,7 +447,14 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("phase:updated"),
     phase: RoomPhaseSchema,
   }),
-  z.object({ type: z.literal("decision:updated"), ...DecisionSchema.shape }),
+  z.object({
+    type: z.literal("decision:updated"),
+    decision: DecisionSchema.nullable(),
+  }),
+  z.object({
+    type: z.literal("adoption-focus:updated"),
+    noteId: z.string().uuid().nullable(),
+  }),
   z.object({
     type: z.literal("timer:updated"),
     timer: TimerStateSchema,
