@@ -18,7 +18,10 @@ let page: Page;
 beforeAll(async () => {
   await vi.waitFor(
     async () => {
-      expect((await fetch(`${origin}/index.json`)).ok).toBe(true);
+      const response = await fetch(`${origin}/index.json`);
+      expect(response.ok).toBe(true);
+      // 静的サーバーが接続を閉じる前に応答本文を最後まで消費する。
+      await response.arrayBuffer();
     },
     { timeout: 90_000, interval: 1000 },
   );
