@@ -1,0 +1,23 @@
+name: Spike
+description: 不確実な点を調査し、判断材料を得る
+type: Spike
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 調査したい問い
+      description: この調査で明らかにしたいことを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 欲しい判断材料・調査結果
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: 関連Issue・補足
+    validations:
+      required: false

@@ -1,0 +1,23 @@
+name: DemoGoal
+description: スプリントレビューで確認する成果を記録する
+type: DemoGoal
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: デモゴール
+      description: 画面や操作で確認できる結果を書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: 確認観点
+    validations:
+      required: false
+  - type: textarea
+    id: related
+    attributes:
+      label: 関連PBI・補足
+    validations:
+      required: false

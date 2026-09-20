@@ -123,7 +123,8 @@ Node.js のバージョンは `mise.toml` で LTS に固定しています。CI 
 
 ## スクラム運用
 
-- [学校スクラム開発のホワイトボードと GitHub Projects 連携](docs/scrum/whiteboard-github-projects.md)
+- [Issue と GitHub Project の運用ルール](docs/issue-management.md)
+- [物理ホワイトボードとの連携](docs/scrum/whiteboard-github-projects.md)
 
 ## ドキュメントのフォーマット
 

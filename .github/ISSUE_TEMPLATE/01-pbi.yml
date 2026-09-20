@@ -1,0 +1,25 @@
+name: PBI
+description: ユーザー価値と受け入れ条件を記録する
+type: PBI
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: ユーザーストーリー
+      description: 誰が、何をしたいか、なぜ必要かを書いてください。
+      placeholder: "利用者として、…したい。なぜなら、…だからだ。"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 受け入れ条件
+      description: ユーザーが確認できる条件を書いてください。
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: 補足
+    validations:
+      required: false

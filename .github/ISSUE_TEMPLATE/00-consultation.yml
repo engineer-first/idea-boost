@@ -1,0 +1,18 @@
+name: 相談・要望
+description: 方針や要件を相談したい、改善や機能を要望したい
+type: 相談・要望
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 相談・要望の内容
+      description: 決めたいこと、困っていること、実現したいことを短く書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 背景・補足
+      description: 分かっている範囲で背景や参考情報を書いてください。
+    validations:
+      required: false
