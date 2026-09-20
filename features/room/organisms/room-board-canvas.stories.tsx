@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { createRef } from "react";
+import { type ComponentProps, createRef, useState } from "react";
 import { expect, fireEvent, fn, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
@@ -98,6 +98,8 @@ const meta = {
     onNoteVoteStickerRemove: fn(),
     onNoteVoteStickerDragStart: fn(),
     isAdoptMode: false,
+    adoptionFocusNoteId: null,
+    onAdoptionFocusChange: fn(),
     onAdoptNote: fn(),
     onGroupCreate: fn(),
     onGroupUpdateName: fn(),
@@ -256,6 +258,69 @@ export const Decided: Story = {
       decidedBy: "11111111-1111-4111-8111-111111111111",
     }),
   },
+};
+
+function TwoClientAdoptionFocusPreview({
+  args,
+}: {
+  args: ComponentProps<typeof RoomBoardCanvas>;
+}) {
+  const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
+    null,
+  );
+  const client = (isHost: boolean) => (
+    <RoomBoardCanvas
+      {...args}
+      isHost={isHost}
+      isAdoptMode={isHost}
+      adoptionFocusNoteId={adoptionFocusNoteId}
+      onAdoptionFocusChange={setAdoptionFocusNoteId}
+      boardScrollerRef={createRef<HTMLDivElement>()}
+      ideaMapPlaneRef={createRef<HTMLDivElement>()}
+      privateToolbarRef={createRef<HTMLDivElement>()}
+    />
+  );
+
+  return (
+    <div className="grid h-[70vh] w-full grid-cols-2 gap-4">
+      <section
+        aria-label="ホストクライアント"
+        className="flex min-h-0 flex-col"
+      >
+        <h2 className="mb-2 text-sm font-bold">ホスト</h2>
+        {client(true)}
+      </section>
+      <section
+        aria-label="参加者クライアント"
+        className="flex min-h-0 flex-col"
+      >
+        <h2 className="mb-2 text-sm font-bold">参加者</h2>
+        {client(false)}
+      </section>
+    </div>
+  );
+}
+
+export const TwoClientSharedAdoptionFocus: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: [buildNote({ id: "note-1", content: "共有中の候補", x: 40, y: 80 })],
+  },
+  render: (args) => <TwoClientAdoptionFocusPreview args={args} />,
+};
+
+const STEP_3_5 = buildPhaseStep(5, 3);
+
+export const TwoClientSharedIdeaAdoptionFocus: Story = {
+  args: {
+    phase: STEP_3_5,
+    permissions: getBoardPermissions(STEP_3_5),
+    notes: [
+      buildNote({ id: "note-1", content: "共有中のアイデア", x: 50, y: 50 }),
+    ],
+  },
+  render: (args) => <TwoClientAdoptionFocusPreview args={args} />,
 };
 
 // Step1-1: 個人で付箋を書く

@@ -134,6 +134,27 @@ describe("useRoomState", () => {
     expect(result.current.decision).toBeNull();
   });
 
+  it("共有中の採用フォーカスを反映し、確定で解除する", () => {
+    const { result } = setup();
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+    act(() =>
+      result.current.applyMessage({
+        type: "adoption-focus:updated",
+        noteId,
+      }),
+    );
+    expect(result.current.adoptionFocusNoteId).toBe(noteId);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "decision:updated",
+        decision: buildDecision({ noteId }),
+      }),
+    );
+    expect(result.current.adoptionFocusNoteId).toBeNull();
+  });
+
   it("member_joined で追加し、memberJoined を toast する", () => {
     const { result } = setup();
     act(() =>

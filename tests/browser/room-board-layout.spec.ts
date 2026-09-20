@@ -465,6 +465,69 @@ test("採用候補は通常時に黒枠を出さずhover時だけ緑枠を示す
 });
 
 test.each([
+  [
+    "通常キャンバス",
+    "room-roomboardcanvas--two-client-shared-adoption-focus",
+    /採用する付箋:/,
+  ],
+  [
+    "アイデアマップ",
+    "room-roomboardcanvas--two-client-shared-idea-adoption-focus",
+    /採用するアイデア:/,
+  ],
+] as const)("%s の2クライアントでホスト hover・focus を参加者の点線表示へ即時反映する", async (label, storyId, targetName) => {
+  await openStory(storyId);
+  const host = page.getByRole("region", { name: "ホストクライアント" });
+  const participant = page.getByRole("region", {
+    name: "参加者クライアント",
+  });
+  const target = host.getByRole("button", { name: targetName });
+  const participantNote = participant.getByTestId("note-card");
+
+  await target.hover();
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBe("true");
+  const focusStyle = await participantNote.evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.outlineColor = "var(--color-emerald-500)";
+    document.body.append(probe);
+    const emerald = getComputedStyle(probe).outlineColor;
+    probe.remove();
+    const style = getComputedStyle(element);
+    return {
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+      outlineColor: style.outlineColor,
+      emerald,
+      backgroundImage: style.backgroundImage,
+    };
+  });
+  expect(focusStyle.outlineStyle).toBe("dashed");
+  expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(2);
+  expect(focusStyle.outlineColor).toBe(focusStyle.emerald);
+  expect(focusStyle.backgroundImage).toContain("rgba(16, 185, 129");
+  expect(await participant.getByText(/検討中|フォーカス中/).count()).toBe(0);
+  await page.screenshot({
+    path: `${output}/shared-adoption-focus-${label}.png`,
+  });
+
+  await page.mouse.move(0, 0);
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+
+  await target.focus();
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBe("true");
+  await target.evaluate((element) => (element as HTMLElement).blur());
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+});
+
+test.each([
   1280, 1024, 768,
 ])("幅 %i でも現在地を省略せず、タイマーと次への操作を保つ", async (width) => {
   await page.setViewportSize({ width, height: 720 });

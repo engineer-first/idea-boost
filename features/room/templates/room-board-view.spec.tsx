@@ -77,6 +77,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: buildPhaseStep(1),
     decision: null,
+    adoptionFocusNoteId: null,
     timer: { status: "idle" } as const,
     timerServerOffsetMs: 0,
     isHost: false,
@@ -111,6 +112,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: vi.fn(),
+    onAdoptionFocusChange: vi.fn(),
     onDecisionClear: vi.fn(),
     connectionStatus: "open" as const,
     groups: [],
@@ -132,6 +134,39 @@ function openRoomMenu() {
 }
 
 describe("採用する付箋の選択モード", () => {
+  it("hover・focus を共有し、Escape・キャンセル・確定・切断で解除を通知する", () => {
+    const onAdoptionFocusChange = vi.fn();
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: [buildNote({ id: "note-1", content: "候補A" })],
+      onAdoptionFocusChange,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    const start = () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+      );
+      return screen.getByRole("button", { name: "採用する付箋: 候補A" });
+    };
+
+    fireEvent.pointerEnter(start());
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+
+    fireEvent.focus(start());
+    fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+
+    fireEvent.click(start());
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+
+    const target = start();
+    fireEvent.pointerEnter(target);
+    rerender(<TestBoardView {...props} connectionStatus="closed" />);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+  });
   it("画面下の入口から開始し、対象を1件クリックすると確定して終了する", () => {
     const onNoteDecide = vi.fn();
     setup({

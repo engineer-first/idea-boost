@@ -35,4 +35,33 @@ describe("StickyNote", () => {
       "outline-offset-2",
     );
   });
+
+  it("共有採用フォーカスは文言なしの緑点線枠と薄緑で示し、確定表示を優先する", () => {
+    const { rerender } = render(
+      <StickyNote noteId="note-1" isAdoptionFocused testId="sticky-note">
+        本文
+      </StickyNote>,
+    );
+
+    const note = screen.getByTestId("sticky-note");
+    expect(note).toHaveAttribute("data-adoption-focused", "true");
+    expect(note).toHaveClass("outline-dashed", "outline-emerald-500");
+    expect(note).toHaveStyle({
+      backgroundImage: expect.stringContaining("16 185 129"),
+    });
+    expect(screen.queryByText(/検討|フォーカス/)).not.toBeInTheDocument();
+
+    rerender(
+      <StickyNote
+        noteId="note-1"
+        isAdoptionFocused
+        isDecided
+        testId="sticky-note"
+      >
+        本文
+      </StickyNote>,
+    );
+    expect(note).toHaveClass("outline-solid", "outline-4");
+    expect(note).not.toHaveClass("outline-dashed");
+  });
 });

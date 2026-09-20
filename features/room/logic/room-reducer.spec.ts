@@ -7,6 +7,7 @@ import {
   buildDecision,
 } from "@/contracts/room-protocol.fixture";
 import {
+  applyAdoptionFocusServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
   applyMemberServerMessage,
@@ -371,6 +372,54 @@ describe("applyDecisionServerMessage", () => {
         member: B,
       }),
     ).toEqual(decision);
+  });
+});
+
+describe("applyAdoptionFocusServerMessage", () => {
+  const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+  it("更新と明示解除を畳み込む", () => {
+    expect(
+      applyAdoptionFocusServerMessage(null, {
+        type: "adoption-focus:updated",
+        noteId,
+      }),
+    ).toBe(noteId);
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "adoption-focus:updated",
+        noteId: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("snapshot で復元し、確定とフェーズ遷移で解除する", () => {
+    const snapshot: ServerMessage = {
+      type: "snapshot",
+      notes: [],
+      members: [A],
+      phase: buildPhaseStep(5),
+      isHost: false,
+      decision: null,
+      adoptionFocusNoteId: noteId,
+      carryovers: [],
+      completedVoterIds: [],
+      timer: { status: "idle" },
+      serverNow: 1_000,
+    };
+    expect(applyAdoptionFocusServerMessage(null, snapshot)).toBe(noteId);
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "decision:updated",
+        decision: buildDecision({ noteId }),
+      }),
+    ).toBeNull();
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "phase:updated",
+        phase: buildPhaseStep(1, 2),
+      }),
+    ).toBeNull();
   });
 });
 

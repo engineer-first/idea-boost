@@ -62,6 +62,7 @@ export function applyMemberServerMessage(
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
@@ -103,6 +104,7 @@ export function applyVotingCompletionServerMessage(
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "adoption-focus:updated":
     case "timer:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
@@ -160,6 +162,7 @@ export function applyDecisionServerMessage(
     case "group:updated":
     case "group:deleted":
     case "timer:updated":
+    case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
@@ -170,6 +173,24 @@ export function applyDecisionServerMessage(
       return _exhaustive;
     }
   }
+}
+
+// 採用フォーカスは RoomDO のソケット添付が真実。確定・フェーズ遷移は
+// 明示解除との到着順にかかわらず表示を残さない。
+export function applyAdoptionFocusServerMessage(
+  noteId: string | null,
+  message: ServerMessage,
+): string | null {
+  if (message.type === "snapshot") {
+    return message.adoptionFocusNoteId ?? null;
+  }
+  if (message.type === "adoption-focus:updated") {
+    return message.noteId;
+  }
+  if (message.type === "decision:updated" || message.type === "phase:updated") {
+    return null;
+  }
+  return noteId;
 }
 
 // 持ち越し（前フェーズで確定した決定）はサーバー権威で、snapshot だけが
@@ -210,6 +231,7 @@ export function applyPhaseServerMessage(
     case "group:deleted":
     case "timer:updated":
     case "decision:updated":
+    case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":

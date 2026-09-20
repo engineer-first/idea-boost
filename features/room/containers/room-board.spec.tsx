@@ -209,6 +209,7 @@ function connectWithSnapshot(
     carryovers?: Carryover[];
     groups?: PersistentGroup[];
     decision?: Decision | null;
+    adoptionFocusNoteId?: string | null;
   },
 ) {
   const { view, socket } = renderBoard({ isHost: options?.isHost ?? true });
@@ -221,6 +222,7 @@ function connectWithSnapshot(
       phase: options?.phase ?? buildPhaseStep(1),
       isHost: options?.isHost ?? true,
       decision: options?.decision ?? null,
+      adoptionFocusNoteId: options?.adoptionFocusNoteId ?? null,
       carryovers: options?.carryovers ?? [],
       completedVoterIds: [],
       groups: options?.groups,
@@ -631,6 +633,45 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
+    );
+  });
+
+  it("結果ステップの候補 hover・leave を adoption-focus:update として即時送信する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    const target = screen.getByRole("button", {
+      name: "採用する付箋: 最初の付箋",
+    });
+
+    fireEvent.pointerEnter(target);
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "adoption-focus:update", noteId: NOTE_ID }),
+    );
+    fireEvent.pointerLeave(target);
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "adoption-focus:update", noteId: null }),
+    );
+  });
+
+  it("参加者はサーバーから受けた採用フォーカスだけを点線表示する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: false,
+    });
+
+    act(() =>
+      socket.simulateServerMessage({
+        type: "adoption-focus:updated",
+        noteId: NOTE_ID,
+      }),
+    );
+    expect(screen.getByTestId("note-card")).toHaveClass("outline-dashed");
+    expect(socket.sent).not.toContain(
+      JSON.stringify({ type: "adoption-focus:update", noteId: NOTE_ID }),
     );
   });
 

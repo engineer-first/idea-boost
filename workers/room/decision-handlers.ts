@@ -28,6 +28,13 @@ export const decisionHandlers: MessageHandlers<
       return;
     }
 
+    if (ctx.broadcaster.retireAllAdoptionFocus()) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
+
     setDecision(ctx.sql, phase.phase, message.noteId, ctx.userId, note.content);
     ctx.broadcaster.broadcastToAll({
       type: "decision:updated",

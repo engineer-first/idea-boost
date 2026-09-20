@@ -53,6 +53,7 @@ export type RoomBoardViewProps = {
   timerServerOffsetMs: number;
   isHost: boolean;
   decision: Decision | null;
+  adoptionFocusNoteId?: string | null;
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
   connectionStatus: RoomScreenConnectionStatus;
@@ -103,6 +104,7 @@ export type RoomBoardViewProps = {
   }>;
   voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
+  onAdoptionFocusChange?: (noteId: string | null) => void;
   onDecisionClear: () => void;
   // 退出。
   onLeave: () => void;
@@ -143,6 +145,7 @@ export function RoomBoardView({
   timerServerOffsetMs,
   isHost,
   decision,
+  adoptionFocusNoteId = null,
   connectionStatus,
   draggingNoteId,
   members,
@@ -175,6 +178,7 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onAdoptionFocusChange: notifyAdoptionFocusChange,
   onDecisionClear,
   onLeave,
   isLeaving,
@@ -198,6 +202,7 @@ export function RoomBoardView({
   const [isVoteStickerReturnDropTarget, setIsVoteStickerReturnDropTarget] =
     useState(false);
   const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
+  const sharedAdoptionFocusRef = useRef<string | null>(null);
   const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
     null,
   );
@@ -255,6 +260,21 @@ export function RoomBoardView({
     if (connectionStatus === "open" && isHost && decision === null) return;
     setIsAdoptMode(false);
   }, [connectionStatus, decision, isHost]);
+
+  useEffect(() => {
+    if (isAdoptMode || sharedAdoptionFocusRef.current === null) return;
+    sharedAdoptionFocusRef.current = null;
+    notifyAdoptionFocusChange?.(null);
+  }, [isAdoptMode, notifyAdoptionFocusChange]);
+
+  useEffect(
+    () => () => {
+      if (sharedAdoptionFocusRef.current !== null) {
+        notifyAdoptionFocusChange?.(null);
+      }
+    },
+    [notifyAdoptionFocusChange],
+  );
 
   useEffect(() => {
     if (!isAdoptMode) return;
@@ -339,8 +359,15 @@ export function RoomBoardView({
 
   function handleAdoptNote(noteId: string) {
     if (!isAdoptMode) return;
+    handleAdoptionFocusChange(null);
     setIsAdoptMode(false);
     onNoteDecide(noteId);
+  }
+
+  function handleAdoptionFocusChange(noteId: string | null): void {
+    if (sharedAdoptionFocusRef.current === noteId) return;
+    sharedAdoptionFocusRef.current = noteId;
+    notifyAdoptionFocusChange?.(noteId);
   }
 
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
@@ -708,6 +735,7 @@ export function RoomBoardView({
         phase={phase}
         permissions={permissions}
         decision={decision}
+        adoptionFocusNoteId={adoptionFocusNoteId}
         isHost={isHost}
         privateNotes={toolbarNotes}
         selectedNoteId={selectedNoteId}
@@ -744,6 +772,7 @@ export function RoomBoardView({
         onNoteVoteStickerRemove={onNoteVoteStickerRemove}
         onNoteVoteStickerDragStart={handleVoteStickerDragStart}
         isAdoptMode={isAdoptMode}
+        onAdoptionFocusChange={handleAdoptionFocusChange}
         onAdoptNote={handleAdoptNote}
         onGroupCreate={onGroupCreate}
         onGroupUpdateName={onGroupUpdateName}

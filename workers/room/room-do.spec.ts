@@ -68,6 +68,22 @@ function nextJsonWithin(
   ]);
 }
 
+function nextJsonMessages(
+  ws: WebSocket,
+  count: number,
+): Promise<Record<string, unknown>[]> {
+  return new Promise((resolve) => {
+    const messages: Record<string, unknown>[] = [];
+    const onMessage = (event: MessageEvent) => {
+      messages.push(JSON.parse(String(event.data)));
+      if (messages.length !== count) return;
+      ws.removeEventListener("message", onMessage);
+      resolve(messages);
+    };
+    ws.addEventListener("message", onMessage);
+  });
+}
+
 function insertVoteStickers(
   sql: SqlStorage,
   noteId: string,
@@ -481,6 +497,240 @@ describe("RoomDO snapshot", () => {
     expect(snapshot.isHost).toBe(false);
 
     ws.close();
+  });
+});
+
+describe("RoomDO adoption-focus:update", () => {
+  const SHARED_NOTE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const PRIVATE_NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  async function prepare(
+    roomName: string,
+    options: {
+      excluded?: boolean;
+      phase?: ReturnType<typeof buildPhaseStep>;
+    } = {},
+  ) {
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(options.phase ?? buildPhaseStep(5), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, excluded, created_at, updated_at)
+         VALUES (?1, ?2, 'shared', 'shared', 'yellow', 0, 0, ?3, ?4, ?4),
+                (?5, ?2, 'private', 'private', 'yellow', 0, 0, 0, ?4, ?4)`,
+        SHARED_NOTE_ID,
+        USER_A,
+        options.excluded ? 1 : 0,
+        now,
+        PRIVATE_NOTE_ID,
+      );
+    });
+    return stub;
+  }
+
+  it("ホストの候補フォーカスを全接続へ即時配信し、再接続 snapshot に含める", async () => {
+    const roomName = "room-adoption-focus-broadcast";
+    const stub = await prepare(roomName);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const hostUpdated = nextJson(host);
+    const memberUpdated = nextJson(member);
+
+    host.send(
+      JSON.stringify({
+        type: "adoption-focus:update",
+        noteId: SHARED_NOTE_ID,
+      }),
+    );
+
+    const expected = {
+      type: "adoption-focus:updated",
+      noteId: SHARED_NOTE_ID,
+    };
+    await expect(hostUpdated).resolves.toEqual(expected);
+    await expect(memberUpdated).resolves.toEqual(expected);
+
+    const reconnect = await stub.fetch("https://do/ws", {
+      headers: {
+        Upgrade: "websocket",
+        [USER_ID_HEADER]: USER_B,
+        [HOST_ID_HEADER]: USER_A,
+      },
+    });
+    const reconnectWs = reconnect.webSocket;
+    if (!reconnectWs) throw new Error("WebSocket 接続を確立できませんでした。");
+    reconnectWs.accept();
+    await expect(nextJson(reconnectWs)).resolves.toMatchObject({
+      type: "snapshot",
+      adoptionFocusNoteId: SHARED_NOTE_ID,
+    });
+
+    host.close();
+    member.close();
+    reconnectWs.close();
+  });
+
+  it("非ホストからの更新を拒否し、他の接続へは配信しない", async () => {
+    const roomName = "room-adoption-focus-non-host";
+    await prepare(roomName);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+
+    member.send(
+      JSON.stringify({
+        type: "adoption-focus:update",
+        noteId: SHARED_NOTE_ID,
+      }),
+    );
+
+    await expect(nextJson(member)).resolves.toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    await expect(nextJsonWithin(host, 100)).resolves.toBeUndefined();
+    host.close();
+    member.close();
+  });
+
+  it.each([
+    ["非公開付箋", PRIVATE_NOTE_ID, buildPhaseStep(5), false],
+    ["候補外付箋", SHARED_NOTE_ID, buildPhaseStep(5), true],
+    ["結果ステップ外", SHARED_NOTE_ID, buildPhaseStep(4), false],
+  ] as const)("%s へのフォーカスを拒否する", async (_label, noteId, phase, excluded) => {
+    const roomName = `room-adoption-focus-invalid-${phase.step}-${Number(excluded)}-${noteId[0]}`;
+    await prepare(roomName, { phase, excluded });
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+
+    host.send(JSON.stringify({ type: "adoption-focus:update", noteId }));
+
+    await expect(nextJson(host)).resolves.toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    host.close();
+  });
+
+  it("null の明示更新で全参加者の共有フォーカスを解除する", async () => {
+    const roomName = "room-adoption-focus-explicit-clear";
+    await prepare(roomName);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const hostFocused = nextJson(host);
+    const memberFocused = nextJson(member);
+    host.send(
+      JSON.stringify({
+        type: "adoption-focus:update",
+        noteId: SHARED_NOTE_ID,
+      }),
+    );
+    await hostFocused;
+    await memberFocused;
+    const explicitHostClear = nextJson(host);
+    const explicitMemberClear = nextJson(member);
+    host.send(JSON.stringify({ type: "adoption-focus:update", noteId: null }));
+    await expect(explicitHostClear).resolves.toEqual({
+      type: "adoption-focus:updated",
+      noteId: null,
+    });
+    await expect(explicitMemberClear).resolves.toEqual({
+      type: "adoption-focus:updated",
+      noteId: null,
+    });
+    host.close();
+    member.close();
+  });
+
+  it("確定時に共有フォーカスを先に解除する", async () => {
+    const roomName = "room-adoption-focus-decision-clear";
+    await prepare(roomName);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const hostFocused = nextJson(host);
+    const memberFocused = nextJson(member);
+    host.send(
+      JSON.stringify({
+        type: "adoption-focus:update",
+        noteId: SHARED_NOTE_ID,
+      }),
+    );
+    await hostFocused;
+    await memberFocused;
+    const hostMessages = nextJsonMessages(host, 2);
+    const memberMessages = nextJsonMessages(member, 2);
+    host.send(JSON.stringify({ type: "note:decide", noteId: SHARED_NOTE_ID }));
+    const expected = [
+      { type: "adoption-focus:updated", noteId: null },
+      {
+        type: "decision:updated",
+        decision: {
+          phase: 1,
+          noteId: SHARED_NOTE_ID,
+          decidedBy: USER_A,
+        },
+      },
+    ];
+    await expect(hostMessages).resolves.toEqual(expected);
+    await expect(memberMessages).resolves.toEqual(expected);
+    host.close();
+    member.close();
+  });
+
+  it("フォーカス元ソケットの切断時に共有フォーカスを解除する", async () => {
+    const roomName = "room-adoption-focus-disconnect-clear";
+    await prepare(roomName);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const hostFocused = nextJson(host);
+    const memberFocused = nextJson(member);
+    host.send(
+      JSON.stringify({
+        type: "adoption-focus:update",
+        noteId: SHARED_NOTE_ID,
+      }),
+    );
+    await hostFocused;
+    await memberFocused;
+    const disconnectedClear = nextJson(member);
+    host.close();
+    await expect(disconnectedClear).resolves.toEqual({
+      type: "adoption-focus:updated",
+      noteId: null,
+    });
+    member.close();
+  });
+
+  it("フォーカス中の付箋が候補外になると共有フォーカスを解除する", async () => {
+    const roomName = "room-adoption-focus-excluded-clear";
+    await prepare(roomName);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const hostFocused = nextJson(host);
+    const memberFocused = nextJson(member);
+    host.send(
+      JSON.stringify({
+        type: "adoption-focus:update",
+        noteId: SHARED_NOTE_ID,
+      }),
+    );
+    await hostFocused;
+    await memberFocused;
+
+    const memberMessages = nextJsonMessages(member, 2);
+    host.send(JSON.stringify({ type: "note:exclude", noteId: SHARED_NOTE_ID }));
+
+    await expect(memberMessages).resolves.toEqual([
+      { type: "adoption-focus:updated", noteId: null },
+      expect.objectContaining({
+        type: "note:updated",
+        note: expect.objectContaining({ id: SHARED_NOTE_ID, excluded: true }),
+      }),
+    ]);
+    host.close();
+    member.close();
   });
 });
 

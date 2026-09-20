@@ -8,6 +8,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
+import { useRef } from "react";
 import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import {
   calculateRenderGroups,
@@ -100,6 +101,8 @@ export type RoomBoardCanvasProps = {
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   isAdoptMode: boolean;
+  adoptionFocusNoteId?: string | null;
+  onAdoptionFocusChange?: (noteId: string | null) => void;
   onAdoptNote: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
@@ -157,6 +160,8 @@ export function RoomBoardCanvas({
   onNoteVoteStickerRemove,
   onNoteVoteStickerDragStart,
   isAdoptMode,
+  adoptionFocusNoteId = null,
+  onAdoptionFocusChange = () => undefined,
   onAdoptNote,
   onGroupCreate,
   onGroupUpdateName,
@@ -188,6 +193,38 @@ export function RoomBoardCanvas({
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+  const adoptionPointerNoteIdRef = useRef<string | null>(null);
+  const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
+
+  function publishAdoptionFocus(): void {
+    onAdoptionFocusChange(
+      adoptionKeyboardNoteIdRef.current ?? adoptionPointerNoteIdRef.current,
+    );
+  }
+
+  function handleAdoptionPointerEnter(noteId: string): void {
+    adoptionPointerNoteIdRef.current = noteId;
+    publishAdoptionFocus();
+  }
+
+  function handleAdoptionPointerLeave(noteId: string): void {
+    if (adoptionPointerNoteIdRef.current === noteId) {
+      adoptionPointerNoteIdRef.current = null;
+    }
+    publishAdoptionFocus();
+  }
+
+  function handleAdoptionFocus(noteId: string): void {
+    adoptionKeyboardNoteIdRef.current = noteId;
+    publishAdoptionFocus();
+  }
+
+  function handleAdoptionBlur(noteId: string): void {
+    if (adoptionKeyboardNoteIdRef.current === noteId) {
+      adoptionKeyboardNoteIdRef.current = null;
+    }
+    publishAdoptionFocus();
+  }
 
   function handleBoardPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     // 付箋の上のpointerdownはバブリングしてくるので、ボード背景を
@@ -243,6 +280,11 @@ export function RoomBoardCanvas({
         canExcludeNote={isHost && permissions.canExcludeNote && !note.excluded}
         canRestoreNote={isHost && permissions.canRestoreNote && note.excluded}
         isDecided={decision?.noteId === note.id}
+        isAdoptionFocused={
+          !isHost &&
+          adoptionFocusNoteId === note.id &&
+          decision?.noteId !== note.id
+        }
         disabled={isDisconnected || isAdoptMode}
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
@@ -320,6 +362,10 @@ export function RoomBoardCanvas({
             data-adopt-target="true"
             aria-label={`採用する${adoptionTargetLabel}: ${note.content || "内容なし"}`}
             className={`${ADOPTION_TARGET_CLASS_NAME} inset-0`}
+            onPointerEnter={() => handleAdoptionPointerEnter(note.id)}
+            onPointerLeave={() => handleAdoptionPointerLeave(note.id)}
+            onFocus={() => handleAdoptionFocus(note.id)}
+            onBlur={() => handleAdoptionBlur(note.id)}
             onClick={() => onAdoptNote(note.id)}
           />
         ) : null}
@@ -451,6 +497,10 @@ export function RoomBoardCanvas({
                         width: NOTE_WIDTH,
                         height: NOTE_HEIGHT,
                       }}
+                      onPointerEnter={() => handleAdoptionPointerEnter(note.id)}
+                      onPointerLeave={() => handleAdoptionPointerLeave(note.id)}
+                      onFocus={() => handleAdoptionFocus(note.id)}
+                      onBlur={() => handleAdoptionBlur(note.id)}
                       onClick={() => onAdoptNote(note.id)}
                     />
                   ) : null;

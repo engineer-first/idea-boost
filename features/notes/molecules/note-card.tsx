@@ -31,6 +31,7 @@ export type NoteCardProps = {
   isSelected: boolean;
   editingDisabled?: boolean;
   isDecided?: boolean;
+  isAdoptionFocused?: boolean;
   // WebSocket未接続時（connecting/closed）に親から渡す。true の間は選択・
   // ドラッグ・編集開始・削除を無効化する。room-client.send() は未openだと
   // メッセージを黙って破棄するため、UI操作自体を止めないと「入力したのに
@@ -99,6 +100,7 @@ export function NoteCard({
   isSelected,
   editingDisabled = false,
   isDecided = false,
+  isAdoptionFocused = false,
   disabled = false,
   canEditNote,
   canDeleteNote,
@@ -375,6 +377,7 @@ export function NoteCard({
       isLifted={isOwnDrag}
       isSelected={isSelected}
       isDecided={isDecided}
+      isAdoptionFocused={isAdoptionFocused}
       color={note.color}
       testId="note-card"
       data-editing={isEditing || undefined}

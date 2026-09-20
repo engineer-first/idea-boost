@@ -47,6 +47,8 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onNoteVoteStickerRemove: vi.fn(),
     onNoteVoteStickerDragStart: vi.fn(),
     isAdoptMode: false,
+    adoptionFocusNoteId: null,
+    onAdoptionFocusChange: vi.fn(),
     onAdoptNote: vi.fn(),
     onGroupCreate: vi.fn(),
     onGroupUpdateName: vi.fn(),
@@ -143,6 +145,54 @@ describe("RoomBoardCanvas", () => {
       "border-transparent",
       "hover:border-emerald-600",
       "focus-visible:border-emerald-600",
+    );
+  });
+
+  it.each([
+    ["通常キャンバス", buildPhaseStep(5)],
+    ["アイデアマップ", buildPhaseStep(5, 3)],
+  ] as const)("%s の候補 hover・focus・離脱を即時通知する", (_label, phase) => {
+    const onAdoptionFocusChange = vi.fn();
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ id: "note-1", content: "候補", visibility: "shared" }),
+      ],
+      onAdoptionFocusChange,
+    });
+    const target = screen.getByRole("button", { name: /採用する.+: 候補/ });
+
+    fireEvent.pointerEnter(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+    fireEvent.pointerLeave(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+    fireEvent.focus(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+    fireEvent.blur(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("参加者だけに共有採用フォーカスを描画し、ホスト自身には重ねない", () => {
+    const note = buildNote({ id: "note-1", visibility: "shared" });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: false,
+      notes: [note],
+      adoptionFocusNoteId: "note-1",
+    });
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-adoption-focused",
+      "true",
+    );
+
+    rerender(
+      <RoomBoardCanvas {...props} isHost adoptionFocusNoteId="note-1" />,
+    );
+    expect(screen.getByTestId("note-card")).not.toHaveAttribute(
+      "data-adoption-focused",
     );
   });
 
