@@ -102,6 +102,71 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
+  it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ content: "通常キャンバス候補", visibility: "shared" }),
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "採用する付箋: 通常キャンバス候補",
+      }),
+    ).toHaveClass(
+      "border-transparent",
+      "hover:border-emerald-600",
+      "focus-visible:border-emerald-600",
+    );
+  });
+
+  it("アイデアマップの採用候補も通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+    const phase = buildPhaseStep(5, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ content: "アイデアマップ候補", visibility: "shared" }),
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "採用するアイデア: アイデアマップ候補",
+      }),
+    ).toHaveClass(
+      "border-transparent",
+      "hover:border-emerald-600",
+      "focus-visible:border-emerald-600",
+    );
+  });
+
+  it("非ホストにも確定済み付箋の緑枠とチェックを示す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: false,
+      decision: {
+        phase: 1,
+        noteId: "note-1",
+        decidedBy: "11111111-1111-4111-8111-111111111111",
+      },
+      notes: [buildNote({ id: "note-1", visibility: "shared" })],
+    });
+
+    expect(screen.getByTestId("note-card")).toHaveClass(
+      "outline-4",
+      "outline-emerald-600",
+    );
+    expect(
+      screen.getByRole("status", { name: "取り組む課題に決定済み" }),
+    ).toBeInTheDocument();
+  });
+
   it("scroller の pointer leave 座標を presence handler へ渡す", () => {
     const onPresencePointerLeave = vi.fn();
     setup({ onPresencePointerLeave });

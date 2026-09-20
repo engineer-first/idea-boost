@@ -50,7 +50,9 @@ export function StickyNote({
         isSelected
           ? "outline-2 outline-blue-500 dark:outline-blue-400"
           : "outline-none",
-        isDecided ? "ring-2 ring-emerald-500 ring-offset-2" : "",
+        isDecided
+          ? "outline-4 outline-solid outline-emerald-600 outline-offset-2"
+          : "",
         className,
       )}
       style={{

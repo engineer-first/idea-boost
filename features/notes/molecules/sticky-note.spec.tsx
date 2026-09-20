@@ -28,6 +28,11 @@ describe("StickyNote", () => {
       "data-decided",
       "true",
     );
-    expect(screen.getByTestId("sticky-note")).toHaveClass("ring-2");
+    expect(screen.getByTestId("sticky-note")).toHaveClass(
+      "outline-4",
+      "outline-solid",
+      "outline-emerald-600",
+      "outline-offset-2",
+    );
   });
 });

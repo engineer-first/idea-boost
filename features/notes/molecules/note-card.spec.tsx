@@ -576,10 +576,16 @@ describe("NoteCard", () => {
       setup({ isDecided: true });
 
       expect(getCard()).toHaveAttribute("data-decided", "true");
-      expect(getCard()).toHaveClass("ring-2");
+      expect(getCard()).toHaveClass("outline-4", "outline-emerald-600");
       expect(
         screen.getByRole("status", { name: "取り組む課題に決定済み" }),
-      ).toHaveClass("bottom-1", "right-1");
+      ).toHaveClass(
+        "bottom-1",
+        "right-1",
+        "border-2",
+        "border-white",
+        "shadow-lg",
+      );
     });
   });
 

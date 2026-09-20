@@ -412,6 +412,58 @@ test("アイデア決定後も完了操作と決定結果が画面内で読め�
   await expectLayout();
 });
 
+test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示す", async () => {
+  await openStory("room-roomboardview--decided");
+  await page.getByRole("dialog").waitFor();
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  const decidedNote = page.locator('[data-note-id="note-1"]');
+  await decidedNote.waitFor();
+
+  const outline = await decidedNote.evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.outlineColor = "var(--color-emerald-600)";
+    document.body.append(probe);
+    const emerald = getComputedStyle(probe).outlineColor;
+    probe.remove();
+
+    const css = getComputedStyle(element);
+    return {
+      color: css.outlineColor,
+      emerald,
+      style: css.outlineStyle,
+      width: Number.parseFloat(css.outlineWidth),
+    };
+  });
+
+  expect(outline.style).toBe("solid");
+  expect(outline.width).toBeGreaterThanOrEqual(4);
+  expect(outline.color).toBe(outline.emerald);
+  await page.screenshot({ path: `${output}/decided-note.png` });
+});
+
+test("採用候補は通常時に黒枠を出さずhover時だけ緑枠を示す", async () => {
+  await openStory("room-roomboardview--selecting-candidate");
+  const candidate = page.getByRole("button", { name: /採用する付箋:/ }).first();
+  await candidate.waitFor();
+  await candidate.hover();
+
+  const colors = await candidate.evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.borderColor = "var(--color-emerald-600)";
+    document.body.append(probe);
+    const emerald = getComputedStyle(probe).borderColor;
+    probe.remove();
+    return {
+      actual: getComputedStyle(element).borderColor,
+      emerald,
+    };
+  });
+  expect(colors.actual).toBe(colors.emerald);
+
+  await page.screenshot({ path: `${output}/adopt-candidate-hover.png` });
+});
+
 test.each([
   1280, 1024, 768,
 ])("幅 %i でも現在地を省略せず、タイマーと次への操作を保つ", async (width) => {
