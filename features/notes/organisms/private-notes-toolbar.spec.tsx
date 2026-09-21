@@ -156,8 +156,8 @@ describe("PrivateNotesToolbar", () => {
       "grid-cols-1",
     );
     expect(within(toolbar).getAllByTestId("note-card")[0]).toHaveStyle({
-      width: "192px",
-      height: "144px",
+      width: "200px",
+      height: "150px",
     });
     expect(
       screen

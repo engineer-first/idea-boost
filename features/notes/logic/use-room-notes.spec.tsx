@@ -437,6 +437,20 @@ describe("useRoomNotes", () => {
     });
   });
 
+  it("changeNoteFontSize は対象付箋だけ楽観更新し、RoomDOへ送る", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => result.current.changeNoteFontSize(NOTE_ID, 24));
+
+    expect(result.current.notes[0]?.fontSize).toBe(24);
+    expect(send).toHaveBeenCalledWith({
+      type: "note:update-font-size",
+      noteId: NOTE_ID,
+      fontSize: 24,
+    });
+  });
+
   it("deleteNote は楽観更新せず、note:deleted の確定で消える", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));

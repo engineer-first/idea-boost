@@ -4237,6 +4237,11 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
       content: "拒否される更新",
     },
     {
+      type: "note:update-font-size",
+      noteId: "99999999-9999-4999-8999-999999999999",
+      fontSize: 24,
+    },
+    {
       type: "note:move",
       noteId: "99999999-9999-4999-8999-999999999999",
       x: 100,
@@ -4350,6 +4355,108 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     });
 
     ws.close();
+  });
+
+  it("非公開の文字サイズを保護し、公開後も保持して共同編集を同期する", async () => {
+    const roomName = "room-note-font-size-authorized";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(1), USER_A);
+
+    const author = await connectDirectly(roomName, USER_A, USER_A);
+    const other = await connectDirectly(roomName, USER_B, USER_A);
+    author.send(JSON.stringify({ type: "note:create", content: "長文" }));
+    const inserted = (await nextJson(author)) as { note: { id: string } };
+
+    other.send(
+      JSON.stringify({
+        type: "note:update-font-size",
+        noteId: inserted.note.id,
+        fontSize: 24,
+      }),
+    );
+    expect(await nextJson(other)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+
+    author.send(
+      JSON.stringify({
+        type: "note:update-font-size",
+        noteId: inserted.note.id,
+        fontSize: 24,
+      }),
+    );
+    expect(await nextJson(author)).toMatchObject({
+      type: "note:updated",
+      note: { id: inserted.note.id, fontSize: 24 },
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec(
+              "SELECT font_size FROM note_appearances WHERE note_id = ?1",
+              inserted.note.id,
+            )
+            .one().font_size as number,
+      ),
+    ).toBe(24);
+
+    await stub.setPhase(buildPhaseStep(2), USER_A);
+    const publishedForAuthor = nextJson(author);
+    const publishedForOther = nextJson(other);
+    author.send(
+      JSON.stringify({
+        type: "note:publish",
+        noteId: inserted.note.id,
+        x: 100,
+        y: 100,
+      }),
+    );
+    await expect(publishedForAuthor).resolves.toMatchObject({
+      type: "note:inserted",
+      note: { id: inserted.note.id, fontSize: 24, visibility: "shared" },
+    });
+    await expect(publishedForOther).resolves.toMatchObject({
+      type: "note:inserted",
+      note: { id: inserted.note.id, fontSize: 24, visibility: "shared" },
+    });
+
+    const updatedForAuthor = nextJson(author);
+    const updatedForOther = nextJson(other);
+    other.send(
+      JSON.stringify({
+        type: "note:update-font-size",
+        noteId: inserted.note.id,
+        fontSize: 18,
+      }),
+    );
+    await expect(updatedForAuthor).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: inserted.note.id, fontSize: 18 },
+    });
+    await expect(updatedForOther).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: inserted.note.id, fontSize: 18 },
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec(
+              "SELECT font_size FROM note_appearances WHERE note_id = ?1",
+              inserted.note.id,
+            )
+            .one().font_size as number,
+      ),
+    ).toBe(18);
+
+    author.close();
+    other.close();
   });
 });
 

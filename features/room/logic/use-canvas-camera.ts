@@ -10,8 +10,8 @@ import {
   useState,
 } from "react";
 import {
+  getNoteHeight,
   IDEA_MAP_BASE_DIMENSIONS,
-  NOTE_HEIGHT,
   NOTE_WIDTH,
 } from "@/contracts/board";
 import type { Note } from "@/features/notes";
@@ -73,7 +73,9 @@ function notesBounds(notes: Note[]) {
   const minX = Math.min(...notes.map((note) => note.x));
   const minY = Math.min(...notes.map((note) => note.y));
   const maxX = Math.max(...notes.map((note) => note.x + NOTE_WIDTH));
-  const maxY = Math.max(...notes.map((note) => note.y + NOTE_HEIGHT));
+  const maxY = Math.max(
+    ...notes.map((note) => note.y + getNoteHeight(note.content, note.fontSize)),
+  );
   return {
     x: minX - CANVAS_FIT_PADDING,
     y: minY - CANVAS_FIT_PADDING,

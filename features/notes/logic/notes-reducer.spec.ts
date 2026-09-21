@@ -18,6 +18,7 @@ const note: Note = {
   visibility: "shared",
   excluded: false,
   color: "yellow",
+  fontSize: 14,
   x: 10,
   y: 20,
   stackOrder: 0,

@@ -114,6 +114,8 @@ export type UseRoomNotesResult = {
   bulkRestoreCandidates: (operationId: string) => void;
   // 入力中の見た目を止めないため本文だけは楽観更新する。
   changeNoteContent: (noteId: string, content: string) => void;
+  // 選択中の付箋だけを即時に再描画し、RoomDO の確定値へ収束させる。
+  changeNoteFontSize: (noteId: string, fontSize: number) => void;
   deleteNote: (noteId: string) => void;
   voteNote: (noteId: string, kind: DotVoteKind, x?: number, y?: number) => void;
   removeNoteVote: (noteId: string, kind: DotVoteKind) => void;
@@ -641,6 +643,18 @@ export function useRoomNotes({
     [updateNotes, send],
   );
 
+  const changeNoteFontSize = useCallback(
+    (noteId: string, fontSize: number) => {
+      updateNotes((current) =>
+        current.map((note) =>
+          note.id === noteId ? { ...note, fontSize } : note,
+        ),
+      );
+      send({ type: "note:update-font-size", noteId, fontSize });
+    },
+    [updateNotes, send],
+  );
+
   const bulkExcludeZeroVoteCandidates = useCallback(
     () => send({ type: "note:bulk-exclude" }),
     [send],
@@ -839,6 +853,7 @@ export function useRoomNotes({
     bulkExcludeZeroVoteCandidates,
     bulkRestoreCandidates,
     changeNoteContent,
+    changeNoteFontSize,
     deleteNote,
     voteNote,
     removeNoteVote,

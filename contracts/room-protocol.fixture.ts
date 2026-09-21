@@ -53,6 +53,7 @@ export function buildNote(overrides: Partial<ProtocolNote> = {}): ProtocolNote {
     visibility: "shared",
     excluded: false,
     color: "yellow",
+    fontSize: 14,
     x: 100,
     y: 120,
     stackOrder: 0,

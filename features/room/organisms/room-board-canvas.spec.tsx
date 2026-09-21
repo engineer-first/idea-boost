@@ -43,6 +43,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onSelect: vi.fn(),
     onNoteDragStart: vi.fn(),
     onNoteContentChange: vi.fn(),
+    onNoteFontSizeChange: vi.fn(),
     onNoteDelete: vi.fn(),
     onNoteVote: vi.fn(),
     onNoteVoteRemove: vi.fn(),
@@ -89,6 +90,42 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("文字サイズ操作をズーム操作とは別に左下へ置き、選択付箋だけを1px刻みで変更する", () => {
+    const onNoteFontSizeChange = vi.fn();
+    setup({
+      notes: [buildNote({ id: "note-1", fontSize: 14 })],
+      selectedNoteId: "note-1",
+      onNoteFontSizeChange,
+    });
+
+    const tools = screen.getByTestId("board-tools-hud");
+    const fontControls = screen.getByTestId("note-font-size-controls");
+    const zoomControls = screen.getByTestId("canvas-zoom-controls");
+    expect(tools).toContainElement(fontControls);
+    expect(fontControls).not.toContainElement(zoomControls);
+    expect(
+      screen.getByRole("group", { name: "選択した付箋の文字サイズ" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("14px")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "付箋の文字を大きく" }));
+    expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-1", 15);
+  });
+
+  it("未選択・切断中・編集不可・候補外では文字サイズ操作を無効にする", () => {
+    const { props, rerender } = setup();
+    expect(
+      screen.getByRole("button", { name: "付箋の文字を大きく" }),
+    ).toBeDisabled();
+
+    rerender(
+      <RoomBoardCanvas {...props} selectedNoteId="note-1" isDisconnected />,
+    );
+    expect(
+      screen.getByRole("button", { name: "付箋の文字を大きく" }),
+    ).toBeDisabled();
+  });
+
   it.each([
     [2, true],
     [3, true],

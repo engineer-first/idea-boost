@@ -4,7 +4,11 @@
 // - parseClientMessage / parseServerMessage のラッパが「不正入力で null」
 //   を返すことを保証する（接続維持の挙動は workers/room-protocol.spec.ts）
 import { describe, expect, it } from "vitest";
-import { IDEA_MAP_SIZE_LEVEL_RANGE } from "./board";
+import {
+  IDEA_MAP_SIZE_LEVEL_RANGE,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_FONT_SIZE_RANGE,
+} from "./board";
 import { buildLobbyPhase, buildPhaseStep } from "./phase.fixture";
 import {
   ClientMessageSchema,
@@ -239,6 +243,34 @@ describe("NoteSchema", () => {
     expect(NoteSchema.parse({ ...note, visibility: "shared" }).excluded).toBe(
       false,
     );
+  });
+
+  it("文字サイズを付箋ごとに受け入れ、旧形式は14pxとして補完する", () => {
+    expect(
+      NoteSchema.parse({
+        ...note,
+        visibility: "shared",
+        fontSize: NOTE_FONT_SIZE_RANGE.max,
+      }).fontSize,
+    ).toBe(24);
+    expect(NoteSchema.parse({ ...note, visibility: "shared" }).fontSize).toBe(
+      NOTE_DEFAULT_FONT_SIZE,
+    );
+  });
+
+  it.each([
+    11,
+    12.5,
+    25,
+    Number.POSITIVE_INFINITY,
+  ])("文字サイズ %s は拒否する", (fontSize) => {
+    expect(
+      NoteSchema.safeParse({
+        ...note,
+        visibility: "shared",
+        fontSize,
+      }).success,
+    ).toBe(false);
   });
 });
 
@@ -631,6 +663,26 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("note:update-font-size は付箋IDと12〜24pxの整数だけを受け入れる", () => {
+    const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:update-font-size",
+        noteId,
+        fontSize: 18,
+      }),
+    ).toEqual({ type: "note:update-font-size", noteId, fontSize: 18 });
+    for (const fontSize of [11, 12.5, 25, Number.POSITIVE_INFINITY]) {
+      expect(
+        ClientMessageSchema.safeParse({
+          type: "note:update-font-size",
+          noteId,
+          fontSize,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
   it("ホスト要求はサイズ段階だけを送り、範囲外や個人情報を拒否する", () => {
     expect(
       ClientMessageSchema.parse({ type: "idea-map:resize", sizeLevel: 2 }),

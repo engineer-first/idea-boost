@@ -57,6 +57,39 @@ export function isIdeaValueFeasibilityMapCoordinate(
 
 export const NOTE_WIDTH = 200;
 export const NOTE_HEIGHT = 150;
+export const NOTE_DEFAULT_FONT_SIZE = 14;
+export const NOTE_FONT_SIZE_RANGE = { min: 12, max: 24, step: 1 } as const;
+
+// 本文は左右 8px を基準にしつつ、右側の付箋操作へ 40px を予約する。
+// 基本高を超えたときは、下側の票・決定表示や除外表示の余白も追加する。
+// ブラウザのフォント計測値を共有状態へ混ぜず、
+// 全クライアント・グループ判定・カメラが同じ高さを再現できるよう、1文字を
+// fontSize px とみなす保守的な折り返しで必要高を決める。
+const NOTE_TEXT_HORIZONTAL_SPACE = 48;
+const NOTE_TEXT_VERTICAL_SPACE = 56;
+const NOTE_OVERFLOW_CHROME_SPACE = 80;
+const NOTE_TEXT_LINE_HEIGHT_RATIO = 1.5;
+
+export function getNoteHeight(content: string, fontSize: number): number {
+  const safeFontSize = Number.isFinite(fontSize)
+    ? Math.min(
+        NOTE_FONT_SIZE_RANGE.max,
+        Math.max(NOTE_FONT_SIZE_RANGE.min, Math.trunc(fontSize)),
+      )
+    : NOTE_DEFAULT_FONT_SIZE;
+  const charactersPerLine = Math.max(
+    1,
+    Math.floor((NOTE_WIDTH - NOTE_TEXT_HORIZONTAL_SPACE) / safeFontSize),
+  );
+  const visualLineCount = content.split("\n").reduce((count, line) => {
+    return count + Math.max(1, Math.ceil(line.length / charactersPerLine));
+  }, 0);
+  const lineHeight = Math.ceil(safeFontSize * NOTE_TEXT_LINE_HEIGHT_RATIO);
+  const contentHeight = visualLineCount * lineHeight + NOTE_TEXT_VERTICAL_SPACE;
+  return contentHeight <= NOTE_HEIGHT
+    ? NOTE_HEIGHT
+    : contentHeight + NOTE_OVERFLOW_CHROME_SPACE;
+}
 
 // 新規付箋の初期配置範囲。ボード中央付近に JITTER 分だけずらして重なりを避ける。
 // 配置はサーバー（RoomDO）が決めるため、その検証テストともここで値を共有する。

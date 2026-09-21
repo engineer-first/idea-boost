@@ -1,6 +1,7 @@
 // note:* メッセージのハンドラ。各ハンドラは
 // 「認可（author / 可視性）→ 保存 → 配信 → 必要なら自動再編成」の順で閉じる。
 import {
+  NOTE_DEFAULT_FONT_SIZE,
   NOTE_SPAWN_JITTER,
   NOTE_SPAWN_X_MIN,
   NOTE_SPAWN_Y_MIN,
@@ -44,6 +45,7 @@ import {
   touchNote,
   unpublishNote,
   updateNoteContent,
+  updateNoteFontSize,
 } from "./notes";
 import { getPhase, isPersonalWritingStep } from "./phase";
 import {
@@ -98,6 +100,7 @@ export const noteHandlers: MessageHandlers<
   | "note:publish"
   | "note:unpublish"
   | "note:update-content"
+  | "note:update-font-size"
   | "note:move"
   | "note:bring-to-front"
   | "note:drag:start"
@@ -130,6 +133,7 @@ export const noteHandlers: MessageHandlers<
       content: message.content ?? "",
       visibility: "private",
       color: color,
+      font_size: NOTE_DEFAULT_FONT_SIZE,
       x: NOTE_SPAWN_X_MIN + Math.random() * NOTE_SPAWN_JITTER,
       y: NOTE_SPAWN_Y_MIN + Math.random() * NOTE_SPAWN_JITTER,
       stack_order: 0,
@@ -218,6 +222,26 @@ export const noteHandlers: MessageHandlers<
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
       ...row,
       content: message.content,
+      updated_at: updatedAt,
+    });
+  },
+
+  "note:update-font-size": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      !canEdit(row, ctx.userId) ||
+      row.excluded ||
+      isFrozenSharedNoteAtPersonalStep(ctx, row)
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    updateNoteFontSize(ctx.sql, message.noteId, message.fontSize, updatedAt);
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      font_size: message.fontSize,
       updated_at: updatedAt,
     });
   },

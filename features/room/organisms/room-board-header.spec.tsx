@@ -123,6 +123,7 @@ describe("RoomBoardHeader", () => {
     setup({ phase: buildPhaseStep(5) });
 
     expect(screen.getByTestId("board-header-row")).toHaveClass(
+      "bottom-[7.5rem]",
       "max-[900px]:grid-cols-[306px_minmax(0,1fr)]",
     );
     expect(screen.getByTestId("board-context-column")).toHaveClass(

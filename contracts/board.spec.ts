@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   getIdeaMapDimensions,
   getInitialIdeaMapSizeLevel,
+  getNoteHeight,
   IDEA_MAP_SIZE_LEVEL_RANGE,
   IDEA_VALUE_FEASIBILITY_MAP_RANGE,
   isIdeaValueFeasibilityMapCoordinate,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_FONT_SIZE_RANGE,
+  NOTE_HEIGHT,
 } from "./board";
 
 describe("IDEA_VALUE_FEASIBILITY_MAP_RANGE", () => {
@@ -38,5 +42,31 @@ describe("idea map size", () => {
       width: 6684,
       height: 3760,
     });
+  });
+});
+
+describe("note typography", () => {
+  it("文字サイズを12〜24pxの1px刻み、既定14pxとして共有する", () => {
+    expect(NOTE_FONT_SIZE_RANGE).toEqual({ min: 12, max: 24, step: 1 });
+    expect(NOTE_DEFAULT_FONT_SIZE).toBe(14);
+  });
+
+  it("短文は従来高を維持し、長文は文字サイズを保ったまま全文ぶん縦へ伸ばす", () => {
+    expect(getNoteHeight("短文", 24)).toBe(NOTE_HEIGHT);
+
+    const mediumAt14 = getNoteHeight("あ".repeat(240), 14);
+    const mediumAt24 = getNoteHeight("あ".repeat(240), 24);
+    const maximumAt24 = getNoteHeight("あ".repeat(2_000), 24);
+
+    expect(mediumAt14).toBeGreaterThan(NOTE_HEIGHT);
+    expect(mediumAt24).toBeGreaterThan(mediumAt14);
+    expect(maximumAt24).toBeGreaterThan(mediumAt24);
+  });
+
+  it("改行と長い英数字列も内部スクロールへ切り替えず必要高へ反映する", () => {
+    expect(
+      getNoteHeight(Array.from({ length: 40 }, () => "行").join("\n"), 14),
+    ).toBeGreaterThan(NOTE_HEIGHT);
+    expect(getNoteHeight("W".repeat(500), 24)).toBeGreaterThan(NOTE_HEIGHT);
   });
 });

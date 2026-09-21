@@ -11,7 +11,12 @@
 // - lobby: 開始前ロビー（メンバー確認・招待）。
 // - step: phase × step の進行状態。現在は課題整理の phase1 step1-5 のみ。
 import { z } from "zod";
-import { CANVAS_COORDINATE_LIMIT, IDEA_MAP_SIZE_LEVEL_RANGE } from "./board";
+import {
+  CANVAS_COORDINATE_LIMIT,
+  IDEA_MAP_SIZE_LEVEL_RANGE,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_FONT_SIZE_RANGE,
+} from "./board";
 import { RoomPhaseSchema } from "./phase";
 
 export const NOTE_CONTENT_MAX_LENGTH = 2000;
@@ -115,12 +120,20 @@ export const CanvasCoordinateSchema = z
   .min(-CANVAS_COORDINATE_LIMIT)
   .max(CANVAS_COORDINATE_LIMIT);
 
+export const NoteFontSizeSchema = z
+  .number()
+  .int()
+  .min(NOTE_FONT_SIZE_RANGE.min)
+  .max(NOTE_FONT_SIZE_RANGE.max);
+
 export const NoteSchema = z.object({
   id: z.string().uuid(),
   authorId: z.string().uuid(),
   content: z.string(),
   visibility: z.enum(["private", "shared"]),
   color: NoteColorSchema,
+  // 旧 Worker / 保存データにフィールドがなくても従来相当の14pxで復元する。
+  fontSize: NoteFontSizeSchema.default(NOTE_DEFAULT_FONT_SIZE),
   x: CanvasCoordinateSchema,
   y: CanvasCoordinateSchema,
   // 決定ステップで一時的に候補から外す状態。削除とは異なり、付箋の内容・
@@ -261,6 +274,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       .string()
       .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。"),
   }),
+  z
+    .object({
+      type: z.literal("note:update-font-size"),
+      noteId: z.string().uuid(),
+      fontSize: NoteFontSizeSchema,
+    })
+    .strict(),
   z.object({
     type: z.literal("note:move"),
     noteId: z.string().uuid(),
