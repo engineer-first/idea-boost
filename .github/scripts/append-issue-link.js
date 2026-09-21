@@ -25,7 +25,7 @@ function buildBodyWithIssueLink(currentBody, issueNumber) {
   if (/<!--\s*issue-ref\s*:/i.test(body)) {
     return null;
   }
-  return `${body}\n\n${issueLinkMarker(issueNumber)}\nRefs #${issueNumber}`;
+  return `${body}\n\n${issueLinkMarker(issueNumber)}\nCloses #${issueNumber}`;
 }
 
 module.exports = {
