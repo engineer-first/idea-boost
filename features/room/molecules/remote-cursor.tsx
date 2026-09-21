@@ -25,9 +25,9 @@ export function RemoteCursor({
       aria-hidden="true"
       data-testid={`remote-cursor-${cursor.userId}`}
       data-dragging-note-id={cursor.draggingNoteId ?? undefined}
+      data-idle={isIdle || undefined}
       className={cn(
         "pointer-events-none absolute z-50 size-0 transition-[transform,left,bottom,opacity] duration-100 ease-out motion-reduce:transition-none",
-        isIdle && !cursor.draggingNoteId && "opacity-40",
         className,
       )}
       style={{
@@ -36,13 +36,17 @@ export function RemoteCursor({
       }}
     >
       <MousePointer2
-        className="absolute top-0 left-0 size-5 -translate-x-0.5 -translate-y-0.5 drop-shadow-sm"
-        style={{ color, fill: color }}
+        className={cn(
+          "absolute top-0 left-0 size-5 -translate-x-0.5 -translate-y-0.5 drop-shadow-sm text-slate-900 dark:text-white",
+          isIdle && !cursor.draggingNoteId && "opacity-40",
+        )}
+        style={{ fill: color }}
       />
       <div
-        className="absolute top-5 left-3 flex w-max max-w-44 items-center gap-1 rounded-md border border-slate-950/15 px-2 py-1 text-xs font-medium text-slate-950 shadow-md"
+        className="absolute top-5 left-3 flex w-max max-w-44 items-center gap-1 rounded-md border border-slate-700/70 px-2 py-1 text-xs font-medium shadow-md dark:border-slate-300/70"
         style={{
           backgroundColor: color,
+          color: NOTE_COLOR_STYLES[cursor.color].foregroundColor,
           transform: `translateY(${labelOffset * 20}px)`,
         }}
       >

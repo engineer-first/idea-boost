@@ -212,9 +212,30 @@ export const GroupsHiddenBeforeGrouping: Story = {
 export const DraggingGhost: Story = {
   args: {
     dragGhost: {
-      note: buildNote({ id: "ghost", content: "運んでいる付箋" }),
+      note: buildNote({
+        id: "ghost",
+        color: "yellow",
+        content: "運んでいる付箋",
+      }),
       x: 240,
       y: 160,
+    },
+  },
+};
+
+// 2軸マップ上でも色に合う前景色を使い、明暗テーマで読めるゴースト。
+export const IdeaMapDraggingGhost: Story = {
+  args: {
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+    dragGhost: {
+      note: buildNote({
+        id: "idea-map-ghost",
+        color: "blue",
+        content: "2軸マップを移動中",
+      }),
+      x: 64,
+      y: 72,
     },
   },
 };

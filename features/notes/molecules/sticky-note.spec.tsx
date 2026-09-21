@@ -14,6 +14,28 @@ describe("StickyNote", () => {
 
     expect(screen.getByTestId("sticky-note")).toHaveStyle({
       backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+      color: NOTE_COLOR_STYLES[color].foregroundColor,
+    });
+  });
+
+  it.each(
+    NOTE_COLOR_PALETTE,
+  )("%s の採用フォーカス表示でも作者色の前景を保つ", (color) => {
+    render(
+      <StickyNote
+        noteId={`note-${color}`}
+        color={color}
+        isAdoptionFocused
+        testId="sticky-note"
+      >
+        本文
+      </StickyNote>,
+    );
+
+    expect(screen.getByTestId("sticky-note")).toHaveStyle({
+      backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+      color: NOTE_COLOR_STYLES[color].foregroundColor,
+      backgroundImage: expect.stringContaining("16 185 129"),
     });
   });
 
@@ -33,6 +55,10 @@ describe("StickyNote", () => {
       "outline-solid",
       "outline-emerald-600",
       "outline-offset-2",
+    );
+    expect(screen.getByTestId("sticky-note")).toHaveClass(
+      "border-slate-700",
+      "dark:border-slate-300",
     );
   });
 

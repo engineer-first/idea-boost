@@ -49,7 +49,7 @@ export function StickyNote({
       data-vote-drop-target={dataVoteDropTarget || undefined}
       data-excluded={dataExcluded || undefined}
       className={cn(
-        "relative isolate flex flex-col overflow-hidden rounded-[2px]",
+        "relative isolate flex flex-col overflow-hidden rounded-[2px] border border-slate-700 dark:border-slate-300",
         isDecided
           ? "outline-4 outline-solid outline-emerald-600 outline-offset-2"
           : isAdoptionFocused
@@ -63,13 +63,14 @@ export function StickyNote({
         width: NOTE_WIDTH,
         height: NOTE_HEIGHT,
         boxShadow: dataExcluded ? "none" : getNoteShadow(noteId, { isLifted }),
-        border: dataExcluded ? "1px dashed rgb(100 116 139 / 0.55)" : undefined,
+        border: dataExcluded ? "1px dashed rgb(71 85 105 / 0.75)" : undefined,
         backgroundImage:
           isAdoptionFocused && !isDecided
             ? "linear-gradient(rgb(16 185 129 / 0.12), rgb(16 185 129 / 0.12))"
             : undefined,
         ...style,
         backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+        color: NOTE_COLOR_STYLES[color].foregroundColor,
       }}
     >
       {children}
