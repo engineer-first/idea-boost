@@ -425,6 +425,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:bulk-excluded"),
     operationId: BulkExclusionOperationIdSchema,
     count: z.number().int().nonnegative(),
+    // 段階デプロイ中に旧 Worker の手動確定通知も受け取れるよう、
+    // source がない既存形式は manual として補完する。
+    source: z.enum(["manual", "phase-transition"]).default("manual"),
   }),
   z.object({
     type: z.literal("note:bulk-restored"),

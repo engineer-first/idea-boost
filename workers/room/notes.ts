@@ -316,6 +316,34 @@ export function listBulkExclusionCandidates(
     .map((row) => normalizeNoteRow(row as Record<string, unknown>));
 }
 
+// 投票完了時の自動整理では、少なくとも1件に票がある場合だけ0票候補を返す。
+// 全候補が0票なら未評価の可能性を優先し、既存の手動整理へ委ねる。
+export function listAutomaticExclusionCandidates(
+  sql: SqlStorage,
+  phase: number,
+): NoteRow[] {
+  const hasVotedCandidate =
+    sql
+      .exec(
+        `SELECT 1 AS found
+         FROM notes n
+         WHERE n.phase = ?1
+           AND n.visibility = 'shared'
+           AND n.excluded = 0
+           AND NOT EXISTS (
+             SELECT 1 FROM decisions d
+             WHERE d.phase = n.phase AND d.note_id = n.id
+           )
+           AND EXISTS (
+             SELECT 1 FROM note_vote_stickers v WHERE v.note_id = n.id
+           )
+         LIMIT 1`,
+        phase,
+      )
+      .toArray().length > 0;
+  return hasVotedCandidate ? listBulkExclusionCandidates(sql, phase) : [];
+}
+
 export function excludeNotesForBulkOperation(
   sql: SqlStorage,
   noteIds: readonly string[],

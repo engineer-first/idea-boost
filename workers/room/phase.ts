@@ -17,7 +17,12 @@ import { getDecision } from "./decisions";
 import { clearUsedNoteDragIds } from "./drag-operations";
 import type { MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
-import { hasCandidateNotes } from "./notes";
+import {
+  excludeNotesForBulkOperation,
+  hasCandidateNotes,
+  listAutomaticExclusionCandidates,
+  type NoteRow,
+} from "./notes";
 import { resetTimerState } from "./timer";
 import { haveAllMembersCompletedVoting } from "./votes";
 
@@ -381,11 +386,14 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     }
     // force はフェーズ1・2の投票ステップで使える脱出ハッチ。離脱者などが
     // 投票を完了できなくても、ホストは結果ステップへ進められる。
+    const completedVoting =
+      !isVotingStep(current) ||
+      haveAllMembersCompletedVoting(ctx.sql, current.phase);
     const canForceIncompleteVoting =
       (current.phase === 1 || current.phase === 2) && message.force === true;
     if (
       isVotingStep(current) &&
-      !haveAllMembersCompletedVoting(ctx.sql, current.phase) &&
+      !completedVoting &&
       !canForceIncompleteVoting
     ) {
       ctx.reply({
@@ -435,6 +443,8 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       next.phase === 3 &&
       next.step === 2 &&
       !(current.kind === "step" && current.phase === 3 && current.step === 2);
+    const completesVoting =
+      isVotingStep(current) && isResultStep(next) && completedVoting;
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
       crossesPhaseBoundary ||
@@ -442,6 +452,9 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       entersVotingStep ||
       entersIdeaMapStep;
     let timerWasReset = false;
+    let automaticExclusion:
+      | { operationId: string; targets: NoteRow[] }
+      | undefined;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
     ctx.storage.transactionSync(() => {
@@ -463,6 +476,22 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
             "UPDATE room_state SET idea_map_size_level = ?1, idea_map_size_initialized = 1 WHERE id = 1",
             sizeLevel,
           );
+        }
+      }
+      if (completesVoting) {
+        const targets = listAutomaticExclusionCandidates(
+          ctx.sql,
+          current.phase,
+        );
+        if (targets.length > 0) {
+          const operationId = crypto.randomUUID();
+          excludeNotesForBulkOperation(
+            ctx.sql,
+            targets.map(({ id }) => id),
+            operationId,
+            new Date().toISOString(),
+          );
+          automaticExclusion = { operationId, targets };
         }
       }
       savePhase(ctx.sql, next);
@@ -493,6 +522,14 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         type: "timer:updated",
         timer: { status: "idle" },
         serverNow: Date.now(),
+      });
+    }
+    if (automaticExclusion) {
+      ctx.broadcaster.broadcastToAll({
+        type: "note:bulk-excluded",
+        operationId: automaticExclusion.operationId,
+        count: automaticExclusion.targets.length,
+        source: "phase-transition",
       });
     }
     ctx.broadcaster.broadcastToAll({ type: "phase:updated", phase: next });

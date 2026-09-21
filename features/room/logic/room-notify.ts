@@ -37,4 +37,17 @@ export const roomNotify = {
       action: { label: "まとめて元に戻す", onClick: onUndo },
     });
   },
+  automaticallyExcludedCandidates(count: number, onUndo?: () => void): void {
+    toast(
+      onUndo
+        ? `投票完了により0票の付箋${count}件を候補から外しました。必要なら戻せます`
+        : `投票完了により0票の付箋${count}件を候補から外しました。ホストが戻せます`,
+      onUndo
+        ? {
+            action: { label: "まとめて元に戻す", onClick: onUndo },
+            duration: Number.POSITIVE_INFINITY,
+          }
+        : { duration: Number.POSITIVE_INFINITY },
+    );
+  },
 };

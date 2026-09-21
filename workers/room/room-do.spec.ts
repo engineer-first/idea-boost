@@ -2212,6 +2212,172 @@ describe("RoomDO phase:next", () => {
     member.close();
   });
 
+  const AUTO_ZERO_NOTE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const AUTO_VOTED_NOTE_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  async function prepareCompletedVotingTransition(
+    roomName: string,
+    phase: 1 | 2 | 3,
+    step: 3 | 4,
+  ): Promise<void> {
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(step, phase), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase, excluded)
+         VALUES
+           (?1, ?3, '0票候補', 'shared', 'yellow', 123, 456, ?4, ?4, ?5, 0),
+           (?2, ?3, '得票候補', 'shared', 'green', 234, 567, ?4, ?4, ?5, 0)`,
+        AUTO_ZERO_NOTE_ID,
+        AUTO_VOTED_NOTE_ID,
+        USER_A,
+        now,
+        phase,
+      );
+      for (const userId of [USER_A, USER_B]) {
+        insertVoteStickers(
+          state.storage.sql,
+          AUTO_VOTED_NOTE_ID,
+          userId,
+          "subjective",
+          1,
+          now,
+        );
+        insertVoteStickers(
+          state.storage.sql,
+          AUTO_VOTED_NOTE_ID,
+          userId,
+          "objective",
+          3,
+          now,
+        );
+      }
+    });
+  }
+
+  it.each([
+    [1, 4, 5],
+    [2, 3, 4],
+    [3, 4, 5],
+  ] as const)("投票完了後の %i-%i → %i で0票候補だけを自動で候補外にし、全員へUndo対象を通知する", async (phase, votingStep, resultStep) => {
+    const roomName = `room-auto-exclude-${phase}`;
+    await prepareCompletedVotingTransition(roomName, phase, votingStep);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const hostMessages = nextJsonMessages(host, 3);
+    const memberMessages = nextJsonMessages(member, 3);
+
+    host.send(JSON.stringify({ type: "phase:next" }));
+
+    for (const messages of [await hostMessages, await memberMessages]) {
+      expect(messages[0]).toMatchObject({
+        type: "snapshot",
+        phase: buildPhaseStep(resultStep, phase),
+        notes: expect.arrayContaining([
+          expect.objectContaining({ id: AUTO_ZERO_NOTE_ID, excluded: true }),
+          expect.objectContaining({ id: AUTO_VOTED_NOTE_ID, excluded: false }),
+        ]),
+      });
+      expect(messages[1]).toMatchObject({
+        type: "note:bulk-excluded",
+        operationId: expect.any(String),
+        count: 1,
+        source: "phase-transition",
+      });
+      expect(messages[2]).toEqual({
+        type: "phase:updated",
+        phase: buildPhaseStep(resultStep, phase),
+      });
+    }
+
+    const persisted = await runInRoomDO(roomName, (_instance, state) =>
+      state.storage.sql
+        .exec(
+          `SELECT n.id, n.excluded, b.operation_id
+             FROM notes n
+             LEFT JOIN note_bulk_exclusions b ON b.note_id = n.id
+             ORDER BY n.id`,
+        )
+        .toArray(),
+    );
+    expect(persisted).toEqual([
+      {
+        id: AUTO_ZERO_NOTE_ID,
+        excluded: 1,
+        operation_id: expect.any(String),
+      },
+      { id: AUTO_VOTED_NOTE_ID, excluded: 0, operation_id: null },
+    ]);
+    host.close();
+    member.close();
+  });
+
+  it("投票未完了の強制進行では0票候補を自動で候補外にしない", async () => {
+    const roomName = "room-auto-exclude-force-skip";
+    await prepareCompletedVotingTransition(roomName, 1, 4);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        `DELETE FROM note_vote_stickers
+         WHERE user_id = ?1 AND kind = 'objective'
+           AND id = (SELECT id FROM note_vote_stickers WHERE user_id = ?1 AND kind = 'objective' LIMIT 1)`,
+        USER_B,
+      );
+    });
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const messages = nextJsonMessages(host, 2);
+
+    host.send(JSON.stringify({ type: "phase:next", force: true }));
+
+    expect(await messages).toEqual([
+      expect.objectContaining({ type: "snapshot", phase: buildPhaseStep(5) }),
+      { type: "phase:updated", phase: buildPhaseStep(5) },
+    ]);
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT excluded FROM notes WHERE id = ?1", AUTO_ZERO_NOTE_ID)
+            .one().excluded,
+      ),
+    ).toBe(0);
+    host.close();
+  });
+
+  it("現在の候補がすべて0票なら投票完了後も自動で候補外にしない", async () => {
+    const roomName = "room-auto-exclude-all-zero-skip";
+    await prepareCompletedVotingTransition(roomName, 1, 4);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE notes SET excluded = 1 WHERE id = ?1",
+        AUTO_VOTED_NOTE_ID,
+      );
+    });
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const messages = nextJsonMessages(host, 2);
+
+    host.send(JSON.stringify({ type: "phase:next" }));
+
+    expect(await messages).toEqual([
+      expect.objectContaining({ type: "snapshot", phase: buildPhaseStep(5) }),
+      { type: "phase:updated", phase: buildPhaseStep(5) },
+    ]);
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT excluded FROM notes WHERE id = ?1", AUTO_ZERO_NOTE_ID)
+            .one().excluded,
+      ),
+    ).toBe(0);
+    host.close();
+  });
+
   it("成功した通常のステップ移行で実行中タイマーを idle に戻して配信する", async () => {
     const roomName = "room-phase-next-resets-running-timer";
     const stub = roomStub(roomName);
