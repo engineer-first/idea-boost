@@ -100,14 +100,25 @@ export function RoomBoard({
     }
     if (message.type === "note:bulk-excluded") {
       if (message.count > 0) {
-        latestBulkExclusionOperationRef.current = message.operationId;
-        roomNotify.bulkCandidatesExcluded(message.count, () => {
+        const undo = () => {
           if (latestBulkExclusionOperationRef.current !== message.operationId) {
             return;
           }
           latestBulkExclusionOperationRef.current = null;
           notes.bulkRestoreCandidates(message.operationId);
-        });
+        };
+        if (message.source === "phase-transition") {
+          latestBulkExclusionOperationRef.current = isHost
+            ? message.operationId
+            : null;
+          roomNotify.automaticallyExcludedCandidates(
+            message.count,
+            isHost ? undo : undefined,
+          );
+        } else {
+          latestBulkExclusionOperationRef.current = message.operationId;
+          roomNotify.bulkCandidatesExcluded(message.count, undo);
+        }
       }
     }
     if (

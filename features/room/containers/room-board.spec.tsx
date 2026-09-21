@@ -28,6 +28,7 @@ const notifyMocks = vi.hoisted(() => ({
   error: vi.fn(),
   noteExcluded: vi.fn(),
   bulkCandidatesExcluded: vi.fn(),
+  automaticallyExcludedCandidates: vi.fn(),
 }));
 
 vi.mock("@/lib/notify", () => ({
@@ -45,6 +46,8 @@ vi.mock("../logic/room-notify", () => ({
     roomDisbandedBySelf: vi.fn(),
     noteExcluded: notifyMocks.noteExcluded,
     bulkCandidatesExcluded: notifyMocks.bulkCandidatesExcluded,
+    automaticallyExcludedCandidates:
+      notifyMocks.automaticallyExcludedCandidates,
   },
 }));
 
@@ -332,6 +335,7 @@ afterEach(() => {
   notifyMocks.error.mockReset();
   notifyMocks.noteExcluded.mockReset();
   notifyMocks.bulkCandidatesExcluded.mockReset();
+  notifyMocks.automaticallyExcludedCandidates.mockReset();
 });
 
 describe("メンバー参加・退出の通知", () => {
@@ -903,6 +907,7 @@ describe("サーバーメッセージ → 画面反映", () => {
         type: "note:bulk-excluded",
         operationId,
         count: 1,
+        source: "manual",
       }),
     );
     expect(notifyMocks.bulkCandidatesExcluded).toHaveBeenCalledWith(
@@ -929,16 +934,19 @@ describe("サーバーメッセージ → 画面反映", () => {
         type: "note:bulk-excluded",
         operationId: firstOperationId,
         count: 1,
+        source: "manual",
       });
       socket.simulateServerMessage({
         type: "note:bulk-excluded",
         operationId: secondOperationId,
         count: 2,
+        source: "manual",
       });
       socket.simulateServerMessage({
         type: "note:bulk-excluded",
         operationId: "55555555-5555-4555-8555-555555555555",
         count: 0,
+        source: "manual",
       });
     });
     expect(notifyMocks.bulkCandidatesExcluded).toHaveBeenCalledTimes(2);
@@ -960,6 +968,53 @@ describe("サーバーメッセージ → 画面反映", () => {
         type: "note:bulk-restore",
         operationId: secondOperationId,
       }),
+    );
+  });
+
+  it("自動整理を全参加者へ案内し、まとめて戻す操作はホストだけに渡す", () => {
+    const operationId = "33333333-3333-4333-8333-333333333333";
+    const host = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+
+    act(() =>
+      host.socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId,
+        count: 1,
+        source: "phase-transition",
+      }),
+    );
+
+    expect(notifyMocks.automaticallyExcludedCandidates).toHaveBeenCalledWith(
+      1,
+      expect.any(Function),
+    );
+    const undo = notifyMocks.automaticallyExcludedCandidates.mock.calls[0]?.[1];
+    if (typeof undo !== "function") throw new Error("Undo がありません");
+    undo();
+    expect(host.socket.sent).toContain(
+      JSON.stringify({ type: "note:bulk-restore", operationId }),
+    );
+
+    notifyMocks.automaticallyExcludedCandidates.mockReset();
+    const member = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: false,
+    });
+    act(() =>
+      member.socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId,
+        count: 1,
+        source: "phase-transition",
+      }),
+    );
+
+    expect(notifyMocks.automaticallyExcludedCandidates).toHaveBeenCalledWith(
+      1,
+      undefined,
     );
   });
 

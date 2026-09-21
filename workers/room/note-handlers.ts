@@ -475,6 +475,7 @@ export const noteHandlers: MessageHandlers<
       type: "note:bulk-excluded",
       operationId,
       count: targets.length,
+      source: "manual",
     });
   },
 
