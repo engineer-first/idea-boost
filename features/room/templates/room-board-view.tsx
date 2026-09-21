@@ -51,6 +51,7 @@ export type RoomBoardViewProps = {
   phase: RoomPhase;
   timer: TimerState;
   timerServerOffsetMs: number;
+  timerUpdateVersion?: number;
   isHost: boolean;
   decision: Decision | null;
   adoptionFocusNoteId?: string | null;
@@ -144,6 +145,7 @@ export function RoomBoardView({
   phase,
   timer,
   timerServerOffsetMs,
+  timerUpdateVersion = 0,
   isHost,
   decision,
   adoptionFocusNoteId = null,
@@ -692,6 +694,7 @@ export function RoomBoardView({
         phase={phase}
         timer={timer}
         timerServerOffsetMs={timerServerOffsetMs}
+        timerUpdateVersion={timerUpdateVersion}
         isHost={isHost}
         isDisconnected={isDisconnected}
         connectionStatus={connectionStatus}

@@ -4,6 +4,8 @@ import { createServer } from "node:net";
 import { join } from "node:path";
 
 export type VerificationRuntime = {
+  appPort: number;
+  apiPort: number;
   directory: string;
   readyUrl: string;
   configPath: string;
@@ -13,6 +15,19 @@ export type VerificationRuntime = {
   workerArgs: string[];
   nextArgs: string[];
 };
+
+function configuredPort(
+  value: string | undefined,
+  fallback: number,
+  variableName: string,
+): number {
+  if (value === undefined || value === "") return fallback;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`${variableName} は 1〜65535 の整数にしてください。`);
+  }
+  return port;
+}
 
 export async function assertPortAvailable(port: number): Promise<void> {
   const server = createServer();
@@ -34,6 +49,19 @@ export async function prepareVerificationRuntime(
   projectDir: string,
   inheritedEnv: NodeJS.ProcessEnv,
 ): Promise<VerificationRuntime> {
+  const appPort = configuredPort(
+    inheritedEnv.IDEA_BOOST_VERIFY_APP_PORT,
+    3000,
+    "IDEA_BOOST_VERIFY_APP_PORT",
+  );
+  const apiPort = configuredPort(
+    inheritedEnv.IDEA_BOOST_VERIFY_API_PORT,
+    8787,
+    "IDEA_BOOST_VERIFY_API_PORT",
+  );
+  if (appPort === apiPort) {
+    throw new Error("検証用アプリと Worker には別のポートを指定してください。");
+  }
   const verificationDir = join(projectDir, ".wrangler/verification");
   await mkdir(verificationDir, { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(join(verificationDir, "runtime-"));
@@ -46,7 +74,7 @@ export async function prepareVerificationRuntime(
     main: join(projectDir, "workers/verification-worker.ts"),
     compatibility_date: "2026-06-01",
     compatibility_flags: ["nodejs_compat"],
-    dev: { ip: "127.0.0.1", port: 8787 },
+    dev: { ip: "127.0.0.1", port: apiPort },
     durable_objects: {
       bindings: [
         { name: "ROOM_DO", class_name: "VerificationRoomDO" },
@@ -80,9 +108,9 @@ export async function prepareVerificationRuntime(
     IDEA_BOOST_VERIFY: "true",
     VERIFICATION_CONTROL_TOKEN: token,
     SESSION_SECRET: secret,
-    API_WORKER_URL: "http://localhost:8787",
-    NEXT_PUBLIC_API_WORKER_URL: "http://localhost:8787",
-    NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
+    API_WORKER_URL: `http://localhost:${apiPort}`,
+    NEXT_PUBLIC_API_WORKER_URL: `http://localhost:${apiPort}`,
+    NEXT_PUBLIC_SITE_URL: `http://localhost:${appPort}`,
     NEXT_PUBLIC_ENABLE_DEV_AUTH: "true",
     NEXT_PUBLIC_USE_MSW: "false",
     NEXT_TELEMETRY_DISABLED: "1",
@@ -92,8 +120,10 @@ export async function prepareVerificationRuntime(
   };
   const wrangler = join(projectDir, "node_modules/wrangler/bin/wrangler.js");
   return {
+    appPort,
+    apiPort,
     directory,
-    readyUrl: "http://127.0.0.1:3000/login",
+    readyUrl: `http://127.0.0.1:${appPort}/login`,
     configPath,
     persistPath,
     env,
@@ -120,7 +150,7 @@ export async function prepareVerificationRuntime(
       "--ip",
       "127.0.0.1",
       "--port",
-      "8787",
+      String(apiPort),
       "--inspector-port",
       "0",
       "--show-interactive-dev-session=false",
@@ -131,7 +161,7 @@ export async function prepareVerificationRuntime(
       "--hostname",
       "127.0.0.1",
       "--port",
-      "3000",
+      String(appPort),
     ],
   };
 }

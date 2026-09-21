@@ -121,6 +121,8 @@ export function applyVotingCompletionServerMessage(
 export type TimerClientState = {
   timer: TimerState;
   serverOffsetMs: number;
+  // snapshot は現在状態の復元だけに使い、timer:updated だけをイベントとして数える。
+  timerUpdateVersion: number;
 };
 
 export function applyTimerServerMessage(
@@ -134,6 +136,8 @@ export function applyTimerServerMessage(
   return {
     timer: message.timer,
     serverOffsetMs: message.serverNow - clientNow,
+    timerUpdateVersion:
+      state.timerUpdateVersion + (message.type === "timer:updated" ? 1 : 0),
   };
 }
 
