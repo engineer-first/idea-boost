@@ -210,6 +210,9 @@ function connectWithSnapshot(
     groups?: PersistentGroup[];
     decision?: Decision | null;
     adoptionFocusNoteId?: string | null;
+    ideaMapSizeLevel?: number;
+    ideaMapSizeInitialized?: boolean;
+    ideaMapDragging?: boolean;
   },
 ) {
   const { view, socket } = renderBoard({ isHost: options?.isHost ?? true });
@@ -228,6 +231,9 @@ function connectWithSnapshot(
       groups: options?.groups,
       timer: { status: "idle" },
       serverNow: Date.now(),
+      ideaMapSizeLevel: options?.ideaMapSizeLevel,
+      ideaMapSizeInitialized: options?.ideaMapSizeInitialized,
+      ideaMapDragging: options?.ideaMapDragging,
     }),
   );
 
@@ -617,6 +623,21 @@ describe("サーバーメッセージ → 画面反映", () => {
   it("snapshot の付箋がボードに描画される", () => {
     connectWithSnapshot([protocolNote()]);
     expect(screen.getByDisplayValue("最初の付箋")).toBeInTheDocument();
+  });
+
+  it("snapshotのマップ寸法を描画し、広さ変更をRoomDOへ送る", () => {
+    const { socket } = connectWithSnapshot([], {
+      phase: buildPhaseStep(2, 3),
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+    });
+
+    expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
+      width: "2304px",
+      height: "1296px",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
+    expectSent(socket, { type: "idea-map:resize", sizeLevel: 3 });
   });
 
   it("移動可能ステップで付箋を選択すると最前面への永続移動を送信する", () => {

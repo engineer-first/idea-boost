@@ -391,6 +391,24 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
   });
 
+  it("保存済みサイズで2軸マップを描き、広さ変更を伝える", () => {
+    const onIdeaMapResize = vi.fn();
+    setup({
+      phase: buildPhaseStep(2, 3),
+      isHost: true,
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      onIdeaMapResize,
+    });
+
+    expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
+      width: "2304px",
+      height: "1296px",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
+    expect(onIdeaMapResize).toHaveBeenCalledWith(3);
+  });
+
   it("付箋が 0 件でも共有付箋の空状態メッセージを表示しない", () => {
     setup({ notes: [] });
 

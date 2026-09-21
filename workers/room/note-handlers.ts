@@ -19,6 +19,7 @@ import {
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
+import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { getMemberColor, isHostUser } from "./members";
 import {
   bringNoteToFront,
@@ -179,7 +180,12 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
-    if (owner?.socket === ctx.ws) ctx.broadcaster.retireActiveDrag(ctx.ws);
+    const phase = getPhase(ctx.sql);
+    // 3-2 ではドックへ戻す pointerup/cancel まで匿名 map lock を維持する。
+    // 他フェーズでは従来どおり unpublish と同時にドラッグを終了する。
+    if (owner?.socket === ctx.ws && !isIdeaMapVisiblePhase(phase)) {
+      ctx.broadcaster.retireActiveDrag(ctx.ws);
+    }
     // shared の行を消す通知は、可視性を変える前に全メンバーへ送る。
     ctx.broadcaster.broadcast(
       { type: "note:deleted", noteId: message.noteId },
@@ -278,9 +284,17 @@ export const noteHandlers: MessageHandlers<
     const isActiveRetry = Boolean(
       current?.noteId === message.noteId && current.dragId === message.dragId,
     );
+    const isPrivateIdeaMapDrag = Boolean(
+      row?.visibility === "private" &&
+        phase.kind === "step" &&
+        phase.phase === 3 &&
+        phase.step === 2 &&
+        row.phase === 3 &&
+        row.author_id === ctx.userId,
+    );
     const accepted = Boolean(
       row &&
-        row.visibility === "shared" &&
+        (row.visibility === "shared" || isPrivateIdeaMapDrag) &&
         phase.kind === "step" &&
         row.phase === phase.phase &&
         canEdit(row, ctx.userId) &&
@@ -308,6 +322,9 @@ export const noteHandlers: MessageHandlers<
       dragId: message.dragId,
       accepted,
     });
+    if (accepted && isIdeaMapVisiblePhase(phase)) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+    }
   },
 
   "note:drag:move": (ctx, message) => {
@@ -320,12 +337,25 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = findNote(ctx.sql, message.noteId);
+    const phase = getPhase(ctx.sql);
+    if (
+      row?.visibility === "private" &&
+      isPhaseStep(phase, 3, 2) &&
+      row.phase === 3 &&
+      row.author_id === ctx.userId
+    ) {
+      // private drag start は内容を共有せず lock だけを保持する。
+      return;
+    }
     if (
       row?.visibility !== "shared" ||
       row.excluded ||
       !canEdit(row, ctx.userId)
     ) {
       ctx.broadcaster.retireActiveDrag(ctx.ws);
+      if (isIdeaMapVisiblePhase(phase)) {
+        broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      }
       return;
     }
     const updatedAt = new Date().toISOString();
@@ -355,12 +385,25 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = findNote(ctx.sql, message.noteId);
+    const phase = getPhase(ctx.sql);
     ctx.broadcaster.retireActiveDrag(ctx.ws);
+    if (
+      row?.visibility === "private" &&
+      isPhaseStep(phase, 3, 2) &&
+      row.phase === 3 &&
+      row.author_id === ctx.userId
+    ) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      return;
+    }
     if (
       row?.visibility !== "shared" ||
       row.excluded ||
       !canEdit(row, ctx.userId)
     ) {
+      if (isIdeaMapVisiblePhase(phase)) {
+        broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      }
       return;
     }
     const updatedAt = new Date().toISOString();
@@ -384,6 +427,9 @@ export const noteHandlers: MessageHandlers<
         }
       : (findNote(ctx.sql, message.noteId) ?? row);
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, current);
+    if (isIdeaMapVisiblePhase(phase)) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+    }
     autoReorganizeAtGroupingStep(ctx);
   },
 

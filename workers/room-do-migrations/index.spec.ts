@@ -92,6 +92,37 @@ describe("ROOM_DO_MIGRATIONS", () => {
     });
   });
 
+  it("room_state は2軸マップのサイズ段階と初回設定状態を保存する", async () => {
+    await runInRoomDO("mig-idea-map-size", (_instance, state) => {
+      const columns = state.storage.sql
+        .exec("PRAGMA table_info(room_state)")
+        .toArray();
+      expect(columns).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "idea_map_size_level",
+            type: "INTEGER",
+            notnull: 1,
+            dflt_value: "0",
+          }),
+          expect.objectContaining({
+            name: "idea_map_size_initialized",
+            type: "INTEGER",
+            notnull: 1,
+            dflt_value: "0",
+          }),
+        ]),
+      );
+      expect(
+        state.storage.sql
+          .exec(
+            "SELECT idea_map_size_level, idea_map_size_initialized FROM room_state WHERE id = 1",
+          )
+          .toArray(),
+      ).toEqual([{ idea_map_size_level: 0, idea_map_size_initialized: 0 }]);
+    });
+  });
+
   it("空のストレージに全マイグレーションを適用し、適用済みIDを記録する", async () => {
     await runInRoomDO("mig-fresh", (_instance, state) => {
       dropAllTables(state.storage);

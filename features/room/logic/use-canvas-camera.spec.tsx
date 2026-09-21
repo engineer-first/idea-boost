@@ -21,6 +21,47 @@ describe("useCanvasCamera", () => {
     expect(result.current.camera.y).toBeCloseTo(182);
   });
 
+  it("初期化されたサイズ段階の実寸で2軸マップを全体表示する", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+    const viewportRef = { current: viewport };
+    const { result } = renderHook(() =>
+      useCanvasCamera({
+        viewportRef,
+        notes: [],
+        fitViewport: true,
+        ideaMapSizeLevel: 2,
+        ideaMapSizeInitialized: true,
+      }),
+    );
+
+    expect(result.current.camera.zoom).toBeCloseTo(372 / 2304);
+  });
+
+  it("リモートのサイズ変更で個人カメラを保ち、手動fitは最新サイズを使う", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+    const viewportRef = { current: viewport };
+    const { result, rerender } = renderHook(
+      ({ ideaMapSizeLevel }) =>
+        useCanvasCamera({
+          viewportRef,
+          notes: [],
+          fitViewport: true,
+          ideaMapSizeLevel,
+          ideaMapSizeInitialized: true,
+        }),
+      { initialProps: { ideaMapSizeLevel: 0 } },
+    );
+    const personalCamera = result.current.camera;
+
+    rerender({ ideaMapSizeLevel: 3 });
+    expect(result.current.camera).toEqual(personalCamera);
+
+    act(() => result.current.fitToNotes());
+    expect(result.current.camera.zoom).toBeCloseTo(372 / 2765);
+  });
+
   it("中ボタンのパンは付箋に伝播せず、通常の付箋ドラッグはパンしない", () => {
     const viewport = document.createElement("div");
     const { result } = renderHook(() =>

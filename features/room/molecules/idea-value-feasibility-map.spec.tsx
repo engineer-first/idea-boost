@@ -71,4 +71,12 @@ describe("IdeaValueFeasibilityMap", () => {
     expect(map).not.toHaveClass("h-[680px]");
     expect(map).not.toHaveClass("w-[1120px]");
   });
+
+  it("共有されたサイズ段階を平面寸法へ反映する", () => {
+    render(<IdeaValueFeasibilityMap sizeLevel={2} />);
+    expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
+      width: "2304px",
+      height: "1296px",
+    });
+  });
 });

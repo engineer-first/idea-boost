@@ -40,6 +40,11 @@ import { getCarryovers, getDecision } from "./decisions";
 import { groupHandlers, listVisibleGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import {
+  buildIdeaMapServerState,
+  ideaMapHandlers,
+  isIdeaMapVisiblePhase,
+} from "./idea-map";
+import {
   ensureHost,
   isHostUser,
   isMember,
@@ -79,6 +84,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...noteHandlers,
   ...decisionHandlers,
   ...groupHandlers,
+  ...ideaMapHandlers,
   ...phaseHandlers,
   ...timerHandlers,
   ...presenceHandlers,
@@ -294,6 +300,11 @@ export class RoomDO extends DurableObject {
         if (row?.visibility === "shared") {
           broadcastNoteUpdated(this.sql, this.broadcaster, row);
         }
+        if (isIdeaMapVisiblePhase(getPhase(this.sql))) {
+          this.broadcaster.broadcastToAll(
+            buildIdeaMapServerState(this.sql, this.broadcaster),
+          );
+        }
       }
       if (this.broadcaster.hasOtherPresenceForUser(attachment.userId, ws)) {
         if (active) {
@@ -391,6 +402,11 @@ export class RoomDO extends DurableObject {
   // 接続直後に現在状態を丸ごと届ける（再接続の復帰パスも兼ねる）。
   private sendSnapshot(ws: WebSocket, userId: string): void {
     const phase = getPhase(this.sql);
+    const ideaMapState = buildIdeaMapServerState(
+      this.sql,
+      this.broadcaster,
+      phase,
+    );
     const notes = filterVisible(
       { viewerId: userId },
       listNotes(
@@ -411,6 +427,9 @@ export class RoomDO extends DurableObject {
       members: listMembers(this.sql),
       phase,
       isHost: isHostUser(this.sql, userId),
+      ideaMapSizeLevel: ideaMapState.sizeLevel,
+      ideaMapSizeInitialized: ideaMapState.initialized,
+      ideaMapDragging: ideaMapState.isDragging,
       decision:
         phase.kind === "step" ? getDecision(this.sql, phase.phase) : null,
       adoptionFocusNoteId: this.broadcaster.currentAdoptionFocusNoteId(),

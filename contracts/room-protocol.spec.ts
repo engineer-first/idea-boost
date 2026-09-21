@@ -4,6 +4,7 @@
 // - parseClientMessage / parseServerMessage のラッパが「不正入力で null」
 //   を返すことを保証する（接続維持の挙動は workers/room-protocol.spec.ts）
 import { describe, expect, it } from "vitest";
+import { IDEA_MAP_SIZE_LEVEL_RANGE } from "./board";
 import { buildLobbyPhase, buildPhaseStep } from "./phase.fixture";
 import {
   ClientMessageSchema,
@@ -225,6 +226,58 @@ describe("NoteSchema", () => {
 });
 
 describe("ServerMessageSchema", () => {
+  it("2軸マップの段階と匿名のドラッグ状態だけを受け入れる", () => {
+    const snapshot = ServerMessageSchema.parse({
+      type: "snapshot",
+      notes: [],
+      members: [],
+      phase: buildPhaseStep(2, 3),
+      isHost: false,
+      decision: null,
+      carryovers: [],
+      completedVoterIds: [],
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      ideaMapDragging: true,
+      timer: { status: "idle" },
+      serverNow: 1_700_000_000_000,
+    });
+    expect(snapshot).toMatchObject({
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      ideaMapDragging: true,
+    });
+
+    expect(
+      ServerMessageSchema.parse({
+        type: "idea-map:state",
+        sizeLevel: 2,
+        initialized: true,
+        isDragging: true,
+      }),
+    ).toEqual({
+      type: "idea-map:state",
+      sizeLevel: 2,
+      initialized: true,
+      isDragging: true,
+    });
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "idea-map:state",
+        sizeLevel: 2,
+        initialized: true,
+        isDragging: true,
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      }).success,
+    ).toBe(false);
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "idea-map:resized",
+        sizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max + 1,
+      }).success,
+    ).toBe(false);
+  });
+
   it("ドラッグ開始・移動・終了を UUID の dragId で相関し、開始結果を受け入れる", () => {
     const dragId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -561,6 +614,26 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("ホスト要求はサイズ段階だけを送り、範囲外や個人情報を拒否する", () => {
+    expect(
+      ClientMessageSchema.parse({ type: "idea-map:resize", sizeLevel: 2 }),
+    ).toEqual({ type: "idea-map:resize", sizeLevel: 2 });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "idea-map:resize",
+        sizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max + 1,
+      }).success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "idea-map:resize",
+        sizeLevel: 1,
+        noteCount: 12,
+        userId: USER_A,
+      }).success,
+    ).toBe(false);
+  });
+
   it("note:bring-to-front は noteId だけを受け入れる", () => {
     const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 

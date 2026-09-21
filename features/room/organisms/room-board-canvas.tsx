@@ -40,6 +40,7 @@ import type { Decision } from "../logic/room-reducer";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
+import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
@@ -57,6 +58,10 @@ export type RoomBoardCanvasProps = {
   selectedNoteId: string | null;
   draggingNoteId: string | null;
   isDisconnected: boolean;
+  ideaMapSizeLevel?: number;
+  ideaMapSizeInitialized?: boolean;
+  ideaMapIsDragging?: boolean;
+  onIdeaMapResize?: (sizeLevel: number) => void;
   voteRemaining: DotVoteRemaining;
   selectedVoteKind: DotVoteKind | null;
   pendingVoteOperations: ReadonlyArray<{
@@ -128,6 +133,10 @@ export function RoomBoardCanvas({
   selectedNoteId,
   draggingNoteId,
   isDisconnected,
+  ideaMapSizeLevel = 0,
+  ideaMapSizeInitialized = false,
+  ideaMapIsDragging = false,
+  onIdeaMapResize = () => undefined,
   voteRemaining,
   selectedVoteKind,
   pendingVoteOperations,
@@ -442,7 +451,10 @@ export function RoomBoardCanvas({
             }}
           >
             {isIdeaValueFeasibilityMapVisible ? (
-              <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
+              <IdeaValueFeasibilityMap
+                planeRef={ideaMapPlaneRef}
+                sizeLevel={ideaMapSizeLevel}
+              >
                 {orderedNotes.map(renderIdeaMapNote)}
                 {renderIdeaMapDragGhost()}
                 {remoteCursors.map((cursor) => (
@@ -574,6 +586,18 @@ export function RoomBoardCanvas({
               onFitToNotes={onFitToNotes}
             />
           </div>
+          {isIdeaValueFeasibilityMapVisible ? (
+            <div data-testid="idea-map-size-controls-hud">
+              <IdeaMapSizeControls
+                sizeLevel={ideaMapSizeLevel}
+                initialized={ideaMapSizeInitialized}
+                isHost={isHost}
+                isDisconnected={isDisconnected}
+                isDragging={ideaMapIsDragging}
+                onResize={onIdeaMapResize}
+              />
+            </div>
+          ) : null}
         </div>
         {permissions.showPrivateToolbar ? (
           <div
