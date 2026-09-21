@@ -35,7 +35,14 @@ describe("useCanvasCamera", () => {
       }),
     );
 
-    expect(result.current.camera.zoom).toBeCloseTo(372 / 2304);
+    const expectedZoom = 372 / 1936;
+    expect(result.current.camera.zoom).toBeCloseTo(expectedZoom);
+    expect(result.current.camera.x).toBeCloseTo(
+      (500 - 1936 * expectedZoom) / 2 + 550 * expectedZoom,
+    );
+    expect(result.current.camera.y).toBeCloseTo(
+      (400 - 1089 * expectedZoom) / 2 + 439 * expectedZoom,
+    );
   });
 
   it("リモートのサイズ変更で個人カメラを保ち、手動fitは最新サイズを使う", () => {
@@ -59,7 +66,7 @@ describe("useCanvasCamera", () => {
     expect(result.current.camera).toEqual(personalCamera);
 
     act(() => result.current.fitToNotes());
-    expect(result.current.camera.zoom).toBeCloseTo(372 / 2765);
+    expect(result.current.camera.zoom).toBeCloseTo(372 / 2130);
   });
 
   it("中ボタンのパンは付箋に伝播せず、通常の付箋ドラッグはパンしない", () => {

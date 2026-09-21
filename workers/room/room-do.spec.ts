@@ -5,6 +5,7 @@
 // room-protocol.spec.ts の E2E テスト（実 WS 接続）で検証する。
 import { env, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { IDEA_MAP_SIZE_LEVEL_RANGE } from "../../contracts/board";
 import { buildLobbyPhase, buildPhaseStep } from "../../contracts/phase.fixture";
 import {
   NOTE_COLOR_PALETTE,
@@ -1770,7 +1771,7 @@ describe("RoomDO phase:next", () => {
 
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
-      for (let index = 0; index < 13; index++) {
+      for (let index = 0; index < 56; index++) {
         state.storage.sql.exec(
           `INSERT INTO notes
              (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at)
@@ -1807,13 +1808,13 @@ describe("RoomDO phase:next", () => {
     expect(hostSnapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(2, 3),
-      ideaMapSizeLevel: 1,
+      ideaMapSizeLevel: 9,
       ideaMapSizeInitialized: true,
     });
     expect(memberSnapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(2, 3),
-      ideaMapSizeLevel: 1,
+      ideaMapSizeLevel: 9,
       ideaMapSizeInitialized: true,
     });
     expect(JSON.stringify(memberSnapshot)).not.toContain("PRIVATE_NOTE_BODY");
@@ -1877,16 +1878,21 @@ describe("RoomDO phase:next", () => {
 
     const hostResized = nextJson(host);
     const memberResized = nextJson(member);
-    host.send(JSON.stringify({ type: "idea-map:resize", sizeLevel: 4 }));
+    host.send(
+      JSON.stringify({
+        type: "idea-map:resize",
+        sizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max,
+      }),
+    );
     await Promise.all([
       expect(hostResized).resolves.toMatchObject({
         type: "idea-map:state",
-        sizeLevel: 4,
+        sizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max,
         initialized: true,
       }),
       expect(memberResized).resolves.toMatchObject({
         type: "idea-map:state",
-        sizeLevel: 4,
+        sizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max,
         initialized: true,
       }),
     ]);
@@ -1895,7 +1901,7 @@ describe("RoomDO phase:next", () => {
       await connectDirectlyWithFirstMessage(roomName, USER_B, USER_A);
     expect(lateJoinSnapshot).toMatchObject({
       type: "snapshot",
-      ideaMapSizeLevel: 4,
+      ideaMapSizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max,
       ideaMapSizeInitialized: true,
       ideaMapDragging: false,
     });
@@ -1908,7 +1914,7 @@ describe("RoomDO phase:next", () => {
       await connectDirectlyWithFirstMessage(roomName, USER_B, USER_A);
     expect(reconnectSnapshot).toMatchObject({
       type: "snapshot",
-      ideaMapSizeLevel: 4,
+      ideaMapSizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max,
       ideaMapSizeInitialized: true,
     });
     expect(JSON.stringify(reconnectSnapshot)).not.toContain(

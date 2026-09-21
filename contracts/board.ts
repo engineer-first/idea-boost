@@ -6,11 +6,11 @@ export const CANVAS_COORDINATE_LIMIT = 1_000_000;
 // 表し、どちらも低=0・高=100 として保存・同期する。
 export const IDEA_VALUE_FEASIBILITY_MAP_RANGE = { min: 0, max: 100 } as const;
 
-// 2軸マップは付箋サイズを変えず、段階ごとに縦横を20%ずつ広げる。
+// 2軸マップは付箋サイズを変えず、段階ごとに縦横を10%ずつ広げる。
 // 初期段階はフェーズ3の個人付箋総数から選び、個別の内容や作者別の枚数は使わない。
 export const IDEA_MAP_BASE_DIMENSIONS = { width: 1600, height: 900 } as const;
-export const IDEA_MAP_SIZE_LEVEL_RANGE = { min: 0, max: 8 } as const;
-export const IDEA_MAP_SIZE_GROWTH = 1.2;
+export const IDEA_MAP_SIZE_LEVEL_RANGE = { min: 0, max: 15 } as const;
+export const IDEA_MAP_SIZE_GROWTH = 1.1;
 export const IDEA_MAP_BASE_NOTE_CAPACITY = 12;
 
 export function getIdeaMapDimensions(level: number): {

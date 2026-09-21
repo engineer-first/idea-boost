@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
+import { IDEA_MAP_SIZE_LEVEL_RANGE } from "@/contracts/board";
 import { IdeaMapSizeControls } from "./idea-map-size-controls";
 
 const meta = {
@@ -36,7 +37,7 @@ export const DraggingBlocked: Story = {
 };
 
 export const AtMaximum: Story = {
-  args: { sizeLevel: 8 },
+  args: { sizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max },
 };
 
 export const AtMinimum: Story = {

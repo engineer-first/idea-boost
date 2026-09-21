@@ -142,7 +142,7 @@ describe("useRoomBoardInteractions cursor input", () => {
 
     act(() => result.current.onFitToNotes());
 
-    expect(result.current.camera.zoom).toBeCloseTo(672 / 1920);
+    expect(result.current.camera.zoom).toBeCloseTo(672 / 1760);
   });
 
   it("3-2では公開可能なprivate付箋のpointerdownから先にdrag lockを要求する", () => {

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { IDEA_MAP_SIZE_LEVEL_RANGE } from "@/contracts/board";
 import { IdeaMapSizeControls } from "./idea-map-size-controls";
 
 describe("IdeaMapSizeControls", () => {
@@ -73,7 +74,7 @@ describe("IdeaMapSizeControls", () => {
 
     rerender(
       <IdeaMapSizeControls
-        sizeLevel={8}
+        sizeLevel={IDEA_MAP_SIZE_LEVEL_RANGE.max}
         initialized
         isHost
         isDisconnected={false}

@@ -23,18 +23,20 @@ describe("idea map size", () => {
     expect(getInitialIdeaMapSizeLevel(0)).toBe(0);
     expect(getInitialIdeaMapSizeLevel(12)).toBe(0);
     expect(getInitialIdeaMapSizeLevel(13)).toBe(1);
-    expect(getInitialIdeaMapSizeLevel(18)).toBe(2);
+    expect(getInitialIdeaMapSizeLevel(18)).toBe(3);
+    expect(getInitialIdeaMapSizeLevel(56)).toBe(9);
     expect(getInitialIdeaMapSizeLevel(Number.NaN)).toBe(0);
     expect(getInitialIdeaMapSizeLevel(1_000_000)).toBe(
       IDEA_MAP_SIZE_LEVEL_RANGE.max,
     );
   });
 
-  it("サイズ段階でマップだけを拡張し、基準寸法を維持する", () => {
+  it("サイズ段階ごとに縦横を10%ずつ拡張し、基準寸法を維持する", () => {
     expect(getIdeaMapDimensions(0)).toEqual({ width: 1600, height: 900 });
-    expect(getIdeaMapDimensions(1)).toEqual({ width: 1920, height: 1080 });
-    expect(
-      getIdeaMapDimensions(IDEA_MAP_SIZE_LEVEL_RANGE.max).width,
-    ).toBeGreaterThan(getIdeaMapDimensions(0).width);
+    expect(getIdeaMapDimensions(1)).toEqual({ width: 1760, height: 990 });
+    expect(getIdeaMapDimensions(IDEA_MAP_SIZE_LEVEL_RANGE.max)).toEqual({
+      width: 6684,
+      height: 3760,
+    });
   });
 });

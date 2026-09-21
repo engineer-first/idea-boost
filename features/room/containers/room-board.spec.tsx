@@ -637,8 +637,8 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
 
     expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
-      width: "2304px",
-      height: "1296px",
+      width: "1936px",
+      height: "1089px",
     });
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expectSent(socket, { type: "idea-map:resize", sizeLevel: 3 });

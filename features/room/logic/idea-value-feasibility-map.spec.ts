@@ -7,18 +7,18 @@ import {
 } from "./idea-value-feasibility-map";
 
 describe("getIdeaValueFeasibilityMapPosition", () => {
-  it("サイズ段階でマップだけを20%ずつ拡張し、付箋寸法と座標範囲を保つ", () => {
+  it("サイズ段階でマップだけを10%ずつ拡張し、付箋寸法と座標範囲を保つ", () => {
     expect(getIdeaValueFeasibilityMapDimensions(0)).toEqual({
       width: 1600,
       height: 900,
     });
     expect(getIdeaValueFeasibilityMapDimensions(1)).toEqual({
-      width: 1920,
-      height: 1080,
+      width: 1760,
+      height: 990,
     });
     expect(getIdeaValueFeasibilityMapDimensions(99)).toEqual({
-      width: 6880,
-      height: 3870,
+      width: 6684,
+      height: 3760,
     });
     expect(
       getIdeaValueFeasibilityMapNotePosition({ feasibility: 100, value: 0 }),

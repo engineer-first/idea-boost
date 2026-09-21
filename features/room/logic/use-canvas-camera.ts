@@ -9,7 +9,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
+import {
+  IDEA_MAP_BASE_DIMENSIONS,
+  NOTE_HEIGHT,
+  NOTE_WIDTH,
+} from "@/contracts/board";
 import type { Note } from "@/features/notes";
 import {
   CANVAS_FIT_PADDING,
@@ -88,8 +92,11 @@ function fitIdeaMapCamera(
   const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
   return fitCanvasCamera(
     {
-      x: (viewport.width - dimensions.width) / 2,
-      y: (viewport.height - dimensions.height) / 2,
+      x: (viewport.width - IDEA_MAP_BASE_DIMENSIONS.width) / 2,
+      y:
+        viewport.height / 2 +
+        IDEA_MAP_BASE_DIMENSIONS.height / 2 -
+        dimensions.height,
       width: dimensions.width,
       height: dimensions.height,
     },
