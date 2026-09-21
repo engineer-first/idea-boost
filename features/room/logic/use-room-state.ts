@@ -12,12 +12,15 @@ import {
   applyAdoptionFocusServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
+  applyIdeaMapServerMessage,
   applyMemberServerMessage,
   applyPhaseServerMessage,
   applyTimerServerMessage,
   applyVotingCompletionServerMessage,
   type Carryover,
   type Decision,
+  type IdeaMapClientState,
+  INITIAL_IDEA_MAP_STATE,
   type Member,
   type TimerClientState,
 } from "./room-reducer";
@@ -26,6 +29,7 @@ export type UseRoomStateResult = {
   members: Member[];
   phase: RoomPhase;
   decision: Decision | null;
+  ideaMap: IdeaMapClientState;
   adoptionFocusNoteId: string | null;
   carryovers: Carryover[];
   timer: TimerState;
@@ -43,6 +47,9 @@ export function useRoomState(options: {
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [ideaMap, setIdeaMap] = useState<IdeaMapClientState>(
+    INITIAL_IDEA_MAP_STATE,
+  );
   const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
     null,
   );
@@ -78,6 +85,7 @@ export function useRoomState(options: {
       setMembers(nextMembers);
       setPhase((current) => applyPhaseServerMessage(current, message));
       setDecision((current) => applyDecisionServerMessage(current, message));
+      setIdeaMap((current) => applyIdeaMapServerMessage(current, message));
       setAdoptionFocusNoteId((current) =>
         applyAdoptionFocusServerMessage(current, message),
       );
@@ -96,6 +104,7 @@ export function useRoomState(options: {
     members,
     phase,
     decision,
+    ideaMap,
     adoptionFocusNoteId,
     carryovers,
     timer: timerState.timer,

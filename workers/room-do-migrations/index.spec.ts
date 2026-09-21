@@ -15,6 +15,7 @@ const USER_A = "11111111-1111-4111-8111-111111111111";
 
 const NORMALIZE_PHASE_MIGRATION_ID = "20260715042808";
 const VOTE_STICKERS_MIGRATION_ID = "20260909044704";
+const EXPAND_IDEA_MAP_SIZE_LEVEL_MIGRATION_ID = "20260921140000";
 
 const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 
@@ -89,6 +90,89 @@ describe("ROOM_DO_MIGRATIONS", () => {
           duration_ms: null,
         },
       ]);
+    });
+  });
+
+  it("room_state は2軸マップのサイズ段階と初回設定状態を保存する", async () => {
+    await runInRoomDO("mig-idea-map-size", (_instance, state) => {
+      const columns = state.storage.sql
+        .exec("PRAGMA table_info(room_state)")
+        .toArray();
+      expect(columns).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "idea_map_size_level",
+            type: "INTEGER",
+            notnull: 1,
+            dflt_value: "0",
+          }),
+          expect.objectContaining({
+            name: "idea_map_size_initialized",
+            type: "INTEGER",
+            notnull: 1,
+            dflt_value: "0",
+          }),
+        ]),
+      );
+      expect(
+        state.storage.sql
+          .exec(
+            "SELECT idea_map_size_level, idea_map_size_initialized FROM room_state WHERE id = 1",
+          )
+          .toArray(),
+      ).toEqual([{ idea_map_size_level: 0, idea_map_size_initialized: 0 }]);
+      expect(() =>
+        state.storage.sql.exec(
+          "UPDATE room_state SET idea_map_size_level = 15 WHERE id = 1",
+        ),
+      ).not.toThrow();
+      expect(() =>
+        state.storage.sql.exec(
+          "UPDATE room_state SET idea_map_size_level = 16 WHERE id = 1",
+        ),
+      ).toThrow();
+    });
+  });
+
+  it("2軸マップのサイズ上限を広げても既存ルームの状態を保持する", async () => {
+    await runInRoomDO("mig-expand-idea-map-size-level", (_instance, state) => {
+      dropAllTables(state.storage);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.filter(
+          ({ id }) => id < EXPAND_IDEA_MAP_SIZE_LEVEL_MIGRATION_ID,
+        ),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        `UPDATE room_state
+         SET phase = 'phase3-step2',
+             next_note_stack_order = 42,
+             idea_map_size_level = 8,
+             idea_map_size_initialized = 1
+         WHERE id = 1`,
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      expect(
+        state.storage.sql
+          .exec(
+            `SELECT phase, next_note_stack_order, idea_map_size_level,
+                    idea_map_size_initialized
+             FROM room_state WHERE id = 1`,
+          )
+          .one(),
+      ).toEqual({
+        phase: "phase3-step2",
+        next_note_stack_order: 42,
+        idea_map_size_level: 8,
+        idea_map_size_initialized: 1,
+      });
     });
   });
 

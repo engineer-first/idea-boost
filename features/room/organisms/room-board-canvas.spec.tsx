@@ -89,6 +89,46 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it.each([
+    [2, true],
+    [3, true],
+    [4, false],
+    [5, false],
+  ] as const)("3-%iでは調整可能なステップだけマップサイズ操作を表示する", (step, canResize) => {
+    const phase = buildPhaseStep(step, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+    });
+
+    const controls = screen.queryByTestId("idea-map-size-controls-hud");
+    if (canResize) {
+      expect(controls).toBeInTheDocument();
+    } else {
+      expect(controls).not.toBeInTheDocument();
+    }
+  });
+
+  it("マップの広さ操作を既存の左下操作群から分離して画面下中央に置く", () => {
+    const phase = buildPhaseStep(3, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+    });
+
+    const existingTools = screen.getByTestId("board-tools-hud");
+    const sizeControls = screen.getByTestId("idea-map-size-controls-hud");
+    expect(existingTools).not.toContainElement(sizeControls);
+    expect(sizeControls).toHaveClass(
+      "absolute",
+      "bottom-3",
+      "left-1/2",
+      "-translate-x-1/2",
+    );
+  });
+
   it("採用選択モードは候補だけを明示し、対象ボタンの操作を通知する", () => {
     const onAdoptNote = vi.fn();
     setup({
@@ -405,6 +445,24 @@ describe("RoomBoardCanvas", () => {
     setup({ notes: buildNotes(3) });
 
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
+  });
+
+  it("保存済みサイズで2軸マップを描き、広さ変更を伝える", () => {
+    const onIdeaMapResize = vi.fn();
+    setup({
+      phase: buildPhaseStep(2, 3),
+      isHost: true,
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      onIdeaMapResize,
+    });
+
+    expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
+      width: "1936px",
+      height: "1089px",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
+    expect(onIdeaMapResize).toHaveBeenCalledWith(3);
   });
 
   it("付箋が 0 件でも共有付箋の空状態メッセージを表示しない", () => {

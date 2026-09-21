@@ -209,6 +209,14 @@ export class RoomBroadcaster {
     };
   }
 
+  hasActiveDrag(): boolean {
+    return this.connections.getWebSockets().some((socket) => {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      return Boolean(attachment?.activeDrag);
+    });
+  }
+
   retireActiveDrag(socket: WebSocket): ActiveDragOwner | null {
     const active = this.activeDragFor(socket);
     if (!active) return null;

@@ -1,3 +1,4 @@
+import { getInitialIdeaMapSizeLevel } from "../../contracts/board";
 import { isResultStep, isVotingStep } from "../../contracts/phase";
 import { DOT_VOTE_LIMITS } from "../../contracts/room-protocol";
 import {
@@ -70,6 +71,12 @@ export class VerificationRoomDO extends RoomDO {
               );
           }
           if (target.phase === 1 && target.step >= 3) this.seedGroups();
+          if (target.phase === 3 && target.step >= 2) {
+            this.ctx.storage.sql.exec(
+              "UPDATE room_state SET idea_map_size_level = ?1, idea_map_size_initialized = 1 WHERE id = 1",
+              getInitialIdeaMapSizeLevel(VERIFICATION_NOTES[3].length),
+            );
+          }
         }
         savePhase(this.ctx.storage.sql, target);
       });

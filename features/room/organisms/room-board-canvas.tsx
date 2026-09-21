@@ -41,6 +41,7 @@ import type { Decision } from "../logic/room-reducer";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
+import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
@@ -58,6 +59,10 @@ export type RoomBoardCanvasProps = {
   selectedNoteId: string | null;
   draggingNoteId: string | null;
   isDisconnected: boolean;
+  ideaMapSizeLevel?: number;
+  ideaMapSizeInitialized?: boolean;
+  ideaMapIsDragging?: boolean;
+  onIdeaMapResize?: (sizeLevel: number) => void;
   voteRemaining: DotVoteRemaining;
   selectedVoteKind: DotVoteKind | null;
   pendingVoteOperations: ReadonlyArray<{
@@ -129,6 +134,10 @@ export function RoomBoardCanvas({
   selectedNoteId,
   draggingNoteId,
   isDisconnected,
+  ideaMapSizeLevel = 0,
+  ideaMapSizeInitialized = false,
+  ideaMapIsDragging = false,
+  onIdeaMapResize = () => undefined,
   voteRemaining,
   selectedVoteKind,
   pendingVoteOperations,
@@ -194,6 +203,10 @@ export function RoomBoardCanvas({
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+  const isIdeaMapSizeControlsVisible =
+    phase.kind === "step" &&
+    phase.phase === 3 &&
+    (phase.step === 2 || phase.step === 3);
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
 
@@ -448,7 +461,10 @@ export function RoomBoardCanvas({
             }}
           >
             {isIdeaValueFeasibilityMapVisible ? (
-              <IdeaValueFeasibilityMap planeRef={ideaMapPlaneRef}>
+              <IdeaValueFeasibilityMap
+                planeRef={ideaMapPlaneRef}
+                sizeLevel={ideaMapSizeLevel}
+              >
                 {orderedNotes.map(renderIdeaMapNote)}
                 {renderIdeaMapDragGhost()}
                 {remoteCursors.map((cursor) => (
@@ -587,6 +603,21 @@ export function RoomBoardCanvas({
             />
           </div>
         </div>
+        {isIdeaMapSizeControlsVisible ? (
+          <div
+            className="pointer-events-auto absolute bottom-3 left-1/2 z-40 -translate-x-1/2"
+            data-testid="idea-map-size-controls-hud"
+          >
+            <IdeaMapSizeControls
+              sizeLevel={ideaMapSizeLevel}
+              initialized={ideaMapSizeInitialized}
+              isHost={isHost}
+              isDisconnected={isDisconnected}
+              isDragging={ideaMapIsDragging}
+              onResize={onIdeaMapResize}
+            />
+          </div>
+        ) : null}
         {permissions.showPrivateToolbar ? (
           <div
             className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end"

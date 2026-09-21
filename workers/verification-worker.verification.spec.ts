@@ -8,6 +8,7 @@ import {
 import { DEV_USERS } from "../lib/session/dev-users";
 import productionWorker from "./api-worker";
 import { getCarryovers, getDecision } from "./room/decisions";
+import { getIdeaMapSizeState } from "./room/idea-map";
 import { listNotes, moveNote } from "./room/notes";
 import { countUserVotes } from "./room/votes";
 import { connectRoomAs, sessionCookieFor } from "./test-helpers";
@@ -218,6 +219,20 @@ describe("検証用の初期状態", () => {
           new Date().toISOString(),
         ),
       ).toBeGreaterThan(top);
+    });
+  });
+  it.each([
+    "3-2",
+    "3-3",
+  ])("%sの検証ルームはOwnerがマップの広さを変更できる状態で始まる", async (checkpoint) => {
+    const active = await create(checkpoint);
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
+
+    await runInDurableObject(stub, (_instance, state) => {
+      expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
+        sizeLevel: 0,
+        initialized: true,
+      });
     });
   });
   it.each([

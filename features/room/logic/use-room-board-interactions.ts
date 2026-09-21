@@ -29,12 +29,17 @@ export type UseRoomBoardInteractionsArgs = {
   currentUserId: string;
   draggingNoteId: string | null;
   phase: RoomPhase;
-  onNoteDragStart: (noteId: string) => void;
+  ideaMapSizeLevel?: number;
+  ideaMapSizeInitialized?: boolean;
+  onNoteDragStart: (noteId: string, privateMapLock?: boolean) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
-  onPrivateNoteUnpublish: (noteId: string) => void;
+  onPrivateNoteUnpublish: (
+    noteId: string,
+    preserveDragUntilPointerEnd?: boolean,
+  ) => void;
   onCursorMove: (
     point: { x: number; y: number },
     draggingNoteId: string | null,
@@ -84,6 +89,8 @@ export function useRoomBoardInteractions({
   currentUserId,
   draggingNoteId,
   phase,
+  ideaMapSizeLevel = 0,
+  ideaMapSizeInitialized = true,
   onNoteDragStart,
   onNoteDragMove,
   onNoteDragEnd,
@@ -113,6 +120,8 @@ export function useRoomBoardInteractions({
     viewportRef: boardScrollerRef,
     notes,
     fitViewport: phase.kind === "step" && phase.phase === 3 && phase.step >= 2,
+    ideaMapSizeLevel,
+    ideaMapSizeInitialized,
   });
 
   const {
@@ -156,6 +165,7 @@ export function useRoomBoardInteractions({
       : undefined,
     canMoveSharedNotes,
     canPublish: isPublishAllowedStep(phase),
+    lockPrivateMapDrag: isPhaseStep(phase, 3, 2) && isPublishAllowedStep(phase),
     onPublishBlocked: roomNotify.cannotPublishNote,
     onNoteDragStart,
     onNoteDragMove,

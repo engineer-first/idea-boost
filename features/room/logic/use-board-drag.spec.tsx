@@ -185,6 +185,56 @@ describe("useBoardDrag", () => {
     expect(result.current.drag?.status).toBe("shared");
   });
 
+  it("canPublish private drag はpointerdown時にlockを取りdock内pointerupで解除する", () => {
+    const { args, result } = setup({ lockPrivateMapDrag: true });
+
+    act(() => {
+      result.current.handlePrivateDragStart(
+        "private-1",
+        pointerEvent(12, 400, 560),
+      );
+    });
+    expect(args.onNoteDragStart).toHaveBeenCalledWith("private-1", true);
+
+    act(() => {
+      result.current.handlePointerEnd(pointerEvent(12, 400, 560));
+    });
+    expect(args.onNoteDragCancel).toHaveBeenCalledWith("private-1");
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+  });
+
+  it("private map drag のpointercancelでRoomDO lockを解除する", () => {
+    const { args, result } = setup({ lockPrivateMapDrag: true });
+
+    act(() => {
+      result.current.handlePrivateDragStart(
+        "private-1",
+        pointerEvent(13, 400, 560),
+      );
+      result.current.handlePointerCancel(pointerEvent(13, 700, 200));
+    });
+
+    expect(args.onNoteDragStart).toHaveBeenCalledWith("private-1", true);
+    expect(args.onNoteDragCancel).toHaveBeenCalledWith("private-1");
+    expect(result.current.drag).toBeNull();
+  });
+
+  it("mapで共有付箋をprivate dockへ戻した後もpointerupまでlockを維持する", () => {
+    const { args, result } = setup({ lockPrivateMapDrag: true });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(14, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(14, 400, 560));
+      result.current.handlePointerEnd(pointerEvent(14, 400, 560));
+    });
+
+    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1", true);
+    expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+  });
+
   it("2軸マップへ共有するとマイ付箋をポインター位置の連続座標で配置する", () => {
     const mapCoordinateOptions = {
       preservePrivateGrabOffset: false,

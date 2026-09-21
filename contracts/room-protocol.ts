@@ -11,10 +11,17 @@
 // - lobby: 開始前ロビー（メンバー確認・招待）。
 // - step: phase × step の進行状態。現在は課題整理の phase1 step1-5 のみ。
 import { z } from "zod";
-import { CANVAS_COORDINATE_LIMIT } from "./board";
+import { CANVAS_COORDINATE_LIMIT, IDEA_MAP_SIZE_LEVEL_RANGE } from "./board";
 import { RoomPhaseSchema } from "./phase";
 
 export const NOTE_CONTENT_MAX_LENGTH = 2000;
+
+export const IdeaMapSizeLevelSchema = z
+  .number()
+  .int()
+  .min(IDEA_MAP_SIZE_LEVEL_RANGE.min)
+  .max(IDEA_MAP_SIZE_LEVEL_RANGE.max);
+export type IdeaMapSizeLevel = z.infer<typeof IdeaMapSizeLevelSchema>;
 
 export const DOT_VOTE_LIMITS = {
   subjective: 1,
@@ -382,6 +389,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("phase:next"),
     force: z.boolean().optional(),
   }),
+  z
+    .object({
+      type: z.literal("idea-map:resize"),
+      sizeLevel: IdeaMapSizeLevelSchema,
+    })
+    .strict(),
   z.object({
     type: z.literal("timer:start"),
     durationMs: z.number().int().min(1).max(TIMER_MAX_DURATION_MS),
@@ -414,6 +427,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     decision: DecisionSchema.nullable(),
     // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。
     adoptionFocusNoteId: z.string().uuid().nullable().optional(),
+    // 個人付箋の本文・作者別枚数は含めず、マップの共有状態だけを復元する。
+    ideaMapSizeLevel: IdeaMapSizeLevelSchema.optional(),
+    ideaMapSizeInitialized: z.boolean().optional(),
+    ideaMapDragging: z.boolean().optional(),
     // 現在フェーズより前のフェーズで確定した決定の一覧（フェーズ昇順）。
     carryovers: z.array(CarryoverSchema),
     // 投票中に全票を使い切ったメンバーの userId だけを共有する。
@@ -489,6 +506,14 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("adoption-focus:updated"),
     noteId: z.string().uuid().nullable(),
   }),
+  z
+    .object({
+      type: z.literal("idea-map:state"),
+      sizeLevel: IdeaMapSizeLevelSchema,
+      initialized: z.boolean(),
+      isDragging: z.boolean(),
+    })
+    .strict(),
   z.object({
     type: z.literal("timer:updated"),
     timer: TimerStateSchema,

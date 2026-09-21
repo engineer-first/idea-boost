@@ -1,4 +1,5 @@
 import {
+  getIdeaMapDimensions,
   IDEA_VALUE_FEASIBILITY_MAP_RANGE,
   NOTE_HEIGHT,
   NOTE_WIDTH,
@@ -8,6 +9,13 @@ export { IDEA_VALUE_FEASIBILITY_MAP_RANGE } from "@/contracts/board";
 
 export const IDEA_VALUE_FEASIBILITY_MAP_WIDTH = 1600;
 export const IDEA_VALUE_FEASIBILITY_MAP_HEIGHT = 900;
+
+export function getIdeaValueFeasibilityMapDimensions(level: number): {
+  width: number;
+  height: number;
+} {
+  return getIdeaMapDimensions(level);
+}
 
 // アイデアを価値と実現可能性で位置付ける2軸マップの固定表示内容。
 // 文言をコンポーネントから分離し、ガイドやラベルの変更箇所を一つに保つ。

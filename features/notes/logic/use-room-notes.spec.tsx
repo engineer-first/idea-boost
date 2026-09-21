@@ -179,6 +179,62 @@ describe("useRoomNotes", () => {
     });
   });
 
+  it("private map lockは共有前に本文付箋を隠さず、公開時に通常ドラッグへ昇格する", () => {
+    const { result } = setup();
+    act(() =>
+      result.current.applyMessage(
+        snapshotMessage([buildNote({ id: NOTE_ID, visibility: "private" })]),
+      ),
+    );
+
+    act(() => result.current.startNoteDrag(NOTE_ID, true));
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:drag:start",
+      noteId: NOTE_ID,
+      dragId: DRAG_ID,
+    });
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      }),
+    );
+    expect(result.current.draggingNoteId).toBeNull();
+
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    expect(result.current.draggingNoteId).toBe(NOTE_ID);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("returning dragをunpublishしてもpointerup用の操作を保持する", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => {
+      result.current.startNoteDrag(NOTE_ID);
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
+      result.current.unpublishNote(NOTE_ID, true);
+    });
+    expect(result.current.draggingNoteId).toBeNull();
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:unpublish",
+      noteId: NOTE_ID,
+    });
+
+    act(() => result.current.cancelNoteDrag(NOTE_ID));
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      dragId: DRAG_ID,
+      position: null,
+    });
+  });
+
   it("ドロップ確定までは最前面を維持し、無関係な更新では解除しない", () => {
     const { result } = setup();
     const initial = buildNote({ id: NOTE_ID, x: 100, y: 100, stackOrder: 4 });

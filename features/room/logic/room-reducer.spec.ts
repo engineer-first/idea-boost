@@ -10,6 +10,7 @@ import {
   applyAdoptionFocusServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
+  applyIdeaMapServerMessage,
   applyMemberServerMessage,
   applyPhaseServerMessage,
   applyTimerServerMessage,
@@ -27,6 +28,45 @@ const B: ProtocolMember = {
   color: "green",
 };
 const LOBBY = buildLobbyPhase();
+
+describe("applyIdeaMapServerMessage", () => {
+  it("snapshotでサイズと初期化状態を復元する", () => {
+    expect(
+      applyIdeaMapServerMessage(
+        { sizeLevel: 0, initialized: false, isDragging: false },
+        {
+          type: "snapshot",
+          notes: [],
+          members: [A],
+          phase: buildPhaseStep(3, 2),
+          isHost: true,
+          decision: null,
+          carryovers: [],
+          completedVoterIds: [],
+          timer: { status: "idle" },
+          serverNow: 1_000,
+          ideaMapSizeLevel: 3,
+          ideaMapSizeInitialized: true,
+          ideaMapDragging: true,
+        },
+      ),
+    ).toEqual({ sizeLevel: 3, initialized: true, isDragging: true });
+  });
+
+  it("匿名のidea-map stateを反映する", () => {
+    expect(
+      applyIdeaMapServerMessage(
+        { sizeLevel: 0, initialized: false, isDragging: false },
+        {
+          type: "idea-map:state",
+          sizeLevel: 2,
+          initialized: true,
+          isDragging: false,
+        },
+      ),
+    ).toEqual({ sizeLevel: 2, initialized: true, isDragging: false });
+  });
+});
 
 describe("applyMemberServerMessage", () => {
   it("snapshot.members で members state を丸ごと置き換える", () => {
