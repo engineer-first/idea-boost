@@ -2099,7 +2099,7 @@ describe("RoomBoardView", () => {
       ).toBeInTheDocument();
     });
 
-    it("Step1-5ではパレットを閉じ、集計済みシールを表示する", () => {
+    it("Step1-5ではパレットを閉じ、0票の結果表示を省略する", () => {
       setup({
         phase: buildPhaseStep(5),
       });
@@ -2110,8 +2110,8 @@ describe("RoomBoardView", () => {
         screen.queryByRole("region", { name: "投票パレット" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.getAllByRole("img", { name: "主観シール 0票" }),
-      ).toHaveLength(2);
+        screen.queryByRole("img", { name: "主観シール 0票" }),
+      ).not.toBeInTheDocument();
     });
   });
 

@@ -417,6 +417,61 @@ test("アイデア決定後も完了操作と決定結果が画面内で読め�
   await expectLayout();
 });
 
+test("決定ステップは高得票でも全シールを22pxのまま付箋内に表示する", async () => {
+  await openStory("notes-notecard--result-with-many-votes");
+  const card = page.getByTestId("note-card");
+  const subjective = page.getByTestId("dot-vote-sticker-image-subjective");
+  const objective = page.getByTestId("dot-vote-sticker-image-objective");
+
+  expect(await subjective.count()).toBe(12);
+  expect(await objective.count()).toBe(27);
+  for (const sticker of await subjective.or(objective).all()) {
+    const box = await sticker.boundingBox();
+    expect({ width: box?.width, height: box?.height }).toEqual({
+      width: 22,
+      height: 22,
+    });
+  }
+
+  const cardBox = await card.boundingBox();
+  const resultsBox = await page.getByTestId("note-vote-results").boundingBox();
+  expect(resultsBox?.x).toBeGreaterThanOrEqual(cardBox?.x ?? Number.NaN);
+  expect((resultsBox?.x ?? 0) + (resultsBox?.width ?? 0)).toBeLessThanOrEqual(
+    (cardBox?.x ?? Number.NaN) + (cardBox?.width ?? 0),
+  );
+  expect((resultsBox?.y ?? 0) + (resultsBox?.height ?? 0)).toBeLessThanOrEqual(
+    (cardBox?.y ?? Number.NaN) + (cardBox?.height ?? 0),
+  );
+  await page.screenshot({ path: `${output}/vote-results-many.png` });
+});
+
+test("長文と結果行を分け、候補操作と決定済み印にも重ねない", async () => {
+  await openStory("notes-notecard--result-with-long-content");
+  const textBox = await page.getByRole("textbox").boundingBox();
+  const resultsBox = await page.getByTestId("note-vote-results").boundingBox();
+  expect((textBox?.y ?? 0) + (textBox?.height ?? 0)).toBeLessThanOrEqual(
+    resultsBox?.y ?? Number.NaN,
+  );
+
+  for (const [storyId, controlName, objectiveCount] of [
+    ["notes-notecard--result-with-candidate-action", "候補から外す", 8],
+    ["notes-notecard--result-with-decision", "取り組む課題に決定済み", 10],
+  ] as const) {
+    await openStory(storyId);
+    const votes = await page
+      .getByRole("img", { name: `客観シール ${objectiveCount}票` })
+      .boundingBox();
+    const control = await page
+      .getByRole(controlName === "候補から外す" ? "button" : "status", {
+        name: controlName,
+      })
+      .boundingBox();
+    expect((votes?.x ?? 0) + (votes?.width ?? 0)).toBeLessThanOrEqual(
+      control?.x ?? Number.NaN,
+    );
+  }
+});
+
 test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示す", async () => {
   await openStory("room-roomboardview--decided");
   await page.getByRole("dialog").waitFor();
