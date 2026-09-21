@@ -18,7 +18,6 @@ const meta = {
     playbackBlocked: false,
     onEnable: fn(async () => undefined),
     onMute: fn(),
-    onPreview: fn(async () => undefined),
   },
 } satisfies Meta<typeof TimerSoundControl>;
 

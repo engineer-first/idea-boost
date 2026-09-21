@@ -31,7 +31,6 @@ const meta = {
       playbackBlocked: false,
       onEnable: fn(async () => undefined),
       onMute: fn(),
-      onPreview: fn(async () => undefined),
     },
     now: () => ROOM_TIMER_FIXTURE_NOW,
   },
