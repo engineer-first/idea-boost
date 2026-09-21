@@ -102,7 +102,7 @@ function installAudioProbe(rejectPlayback: boolean): void {
 async function openStory(page: Page): Promise<void> {
   await page.goto(storyUrl);
   await page.getByTestId("room-timer").waitFor();
-  await page.getByTestId("timer-sound-settings").waitFor();
+  await page.getByTestId("timer-sound-toggle").waitFor();
 }
 
 async function readAudioProbe(page: Page): Promise<AudioProbe> {
@@ -132,7 +132,7 @@ afterAll(async () => {
 });
 
 describe("RoomTimer の実ブラウザ音声経路", () => {
-  it("有効化後に閉じた操作パネルでも開始・5秒予告・時間切れを再生する", async () => {
+  it("アイコンで有効化すると確認音を鳴らし、開始・5秒予告・時間切れを再生する", async () => {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
     });
@@ -140,9 +140,11 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
     await page.addInitScript(installAudioProbe, false);
     try {
       await openStory(page);
-      await page.getByTestId("timer-sound-settings").click();
-      await page.getByRole("button", { name: "通知音を有効にする" }).click();
-      await page.getByRole("button", { name: "通知音を消音" }).waitFor();
+      const soundToggle = page.getByTestId("timer-sound-toggle");
+      await soundToggle.click();
+      await vi.waitFor(async () => {
+        expect(await soundToggle.getAttribute("aria-pressed")).toBe("true");
+      });
       await page.screenshot({ path: join(output, "enabled.png") });
 
       const enabledProbe = await readAudioProbe(page);
@@ -151,10 +153,6 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
         [523.25, 659.25],
       );
 
-      await page.getByRole("button", { name: "試聴" }).click();
-      await page.waitForFunction(
-        () => window.__timerAudioProbe?.starts.length === 4,
-      );
       await page.evaluate(() => {
         if (window.__timerAudioProbe)
           window.__timerAudioProbe.starts.length = 0;
@@ -234,17 +232,13 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
     await page.addInitScript(installAudioProbe, true);
     try {
       await openStory(page);
-      await page.getByTestId("timer-sound-settings").click();
-      await page.getByRole("button", { name: "通知音を有効にする" }).click();
-      await page.getByRole("alert").waitFor();
-      expect(
-        await page.getByRole("button", { name: "通知音を消音" }).count(),
-      ).toBe(0);
-      expect(
-        await page
-          .getByRole("button", { name: "再試行して有効にする" })
-          .count(),
-      ).toBe(1);
+      const soundToggle = page.getByTestId("timer-sound-toggle");
+      await soundToggle.click();
+      expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
+      expect(await soundToggle.getAttribute("title")).toContain(
+        "ブラウザが音声の再生を拒否しました",
+      );
+      expect(await page.getByRole("dialog").count()).toBe(0);
       expect((await readAudioProbe(page)).resumeAttempts).toBe(1);
       expect(
         await page.evaluate(() =>
