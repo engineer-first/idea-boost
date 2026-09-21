@@ -914,11 +914,38 @@ describe("一括候補外のサーバー確定通知", () => {
       type,
       operationId: "33333333-3333-4333-8333-333333333333",
       count: 2,
+      ...(type === "note:bulk-excluded" ? { source: "manual" as const } : {}),
     };
     expect(ServerMessageSchema.parse(message)).toEqual(message);
     expect(
       ServerMessageSchema.safeParse({ ...message, count: -1 }).success,
     ).toBe(false);
+  });
+
+  it("自動整理の通知は投票完了後のステップ移行が起点だと識別できる", () => {
+    const message = {
+      type: "note:bulk-excluded" as const,
+      operationId: "33333333-3333-4333-8333-333333333333",
+      count: 2,
+      source: "phase-transition",
+    };
+
+    expect(ServerMessageSchema.parse(message)).toEqual(message);
+  });
+
+  it("旧Workerの一括候補外通知は手動操作として補完する", () => {
+    expect(
+      ServerMessageSchema.parse({
+        type: "note:bulk-excluded",
+        operationId: "33333333-3333-4333-8333-333333333333",
+        count: 2,
+      }),
+    ).toEqual({
+      type: "note:bulk-excluded",
+      operationId: "33333333-3333-4333-8333-333333333333",
+      count: 2,
+      source: "manual",
+    });
   });
 });
 
