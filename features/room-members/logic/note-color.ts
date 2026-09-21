@@ -3,7 +3,7 @@ import type { NoteColor } from "@/contracts/room-protocol";
 // 保存・通信上の色IDは保ち、通常表示の付箋が白背景に埋もれない色へ置き換える。
 // 複数色の本文は共通の暗色にして、付箋・アバター・カーソル名のコントラストを保つ。
 const FOREGROUND_COLOR = "#0F172A";
-const AVATAR_BORDER_CLASS_NAME = "border-slate-700 dark:border-slate-300";
+const AVATAR_BORDER_CLASS_NAME = "border-transparent";
 
 export const NOTE_COLOR_STYLES: Record<
   NoteColor,

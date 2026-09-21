@@ -18,7 +18,7 @@ function MemberColorPalette({ count, scale }: MemberColorPaletteProps) {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <main className="min-h-screen overflow-auto bg-background p-6 text-foreground dark:bg-slate-950 dark:text-slate-100">
+      <main className="min-h-screen overflow-auto bg-background p-6 text-foreground">
         <header className="mb-5">
           <h1 className="text-lg font-semibold">
             メンバー色 · {count} 人 · 表示倍率 {Math.round(scale * 100)}%

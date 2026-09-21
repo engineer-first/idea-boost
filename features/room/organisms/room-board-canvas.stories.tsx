@@ -223,7 +223,7 @@ export const DraggingGhost: Story = {
   },
 };
 
-// 2軸マップ上でも色に合う前景色を使い、明暗テーマで読めるゴースト。
+// 2軸マップ上でも色に合う前景色を使い、白背景で読めるゴースト。
 export const IdeaMapDraggingGhost: Story = {
   args: {
     phase: STEP_3_2,

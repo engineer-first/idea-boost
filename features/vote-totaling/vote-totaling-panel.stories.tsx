@@ -115,7 +115,3 @@ export const NoCandidates: Story = {
     notes: buildNotes(2).map((note) => ({ ...note, excluded: true })),
   },
 };
-
-export const DarkMode: Story = {
-  globals: { theme: "dark" },
-};

@@ -9,7 +9,7 @@ type DependencyDiagramViewProps = {
   state: DependencyDiagramState;
 };
 
-// mermaid が生成する SVG は黒文字前提のため、ダークテーマでも読めるよう
+// mermaid が生成する SVG の黒い文字を読みやすくするため、
 // 背景を白に固定する（Schema/SchemaDiagram と同じ扱い）。
 export function DependencyDiagramView({
   title,

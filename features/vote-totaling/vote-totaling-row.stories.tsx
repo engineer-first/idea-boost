@@ -74,7 +74,3 @@ export const LongContent: Story = {
   },
   parameters: { viewport: { defaultViewport: "mobile1" } },
 };
-
-export const DarkMode: Story = {
-  globals: { theme: "dark" },
-};

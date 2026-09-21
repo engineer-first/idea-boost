@@ -100,13 +100,14 @@ describe("RemoteCursor", () => {
     const cursor = screen.getByTestId(
       "remote-cursor-22222222-2222-4222-8222-222222222222",
     );
-    expect(cursor.querySelector("svg")).toHaveClass(
-      "text-slate-900",
-      "dark:text-white",
-    );
+
+    expect(cursor.querySelector("svg")).toHaveClass("text-slate-900");
     expect(cursor.querySelector("svg")).toHaveStyle({
       fill: expectedColor,
     });
+    expect(screen.getByText("Taro").parentElement).toHaveClass(
+      "border-slate-950/15",
+    );
     expect(screen.getByText("Taro").parentElement).toHaveStyle({
       backgroundColor: expectedColor,
       color: NOTE_COLOR_STYLES.green.foregroundColor,

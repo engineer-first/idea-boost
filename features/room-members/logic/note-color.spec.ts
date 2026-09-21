@@ -68,14 +68,7 @@ describe("NOTE_COLOR_STYLES", () => {
     }
   });
 
-  it.each(
-    NOTE_COLOR_PALETTE,
-  )("%s は明暗テーマ用のアバター境界を持つ", (color) => {
-    expect(NOTE_COLOR_STYLES[color].avatarClassName).toContain(
-      "border-slate-700",
-    );
-    expect(NOTE_COLOR_STYLES[color].avatarClassName).toContain(
-      "dark:border-slate-300",
-    );
+  it.each(NOTE_COLOR_PALETTE)("%s のアバターに常時枠線を付けない", (color) => {
+    expect(NOTE_COLOR_STYLES[color].avatarClassName).toBe("border-transparent");
   });
 });

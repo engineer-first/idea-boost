@@ -25,10 +25,8 @@ const DOT_VOTE_ICON = {
 } satisfies Record<DotVoteKind, typeof Heart>;
 
 const DOT_VOTE_TONE = {
-  subjective:
-    "rounded-full border-rose-700 bg-rose-100 text-rose-700 dark:border-rose-400 dark:bg-rose-950 dark:text-rose-300",
-  objective:
-    "rounded-lg border-blue-700 bg-blue-100 text-blue-700 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-300",
+  subjective: "rounded-full border-rose-700 bg-rose-100 text-rose-700",
+  objective: "rounded-lg border-blue-700 bg-blue-100 text-blue-700",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_COUNT_TONE = {

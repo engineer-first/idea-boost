@@ -49,13 +49,13 @@ export function StickyNote({
       data-vote-drop-target={dataVoteDropTarget || undefined}
       data-excluded={dataExcluded || undefined}
       className={cn(
-        "relative isolate flex flex-col overflow-hidden rounded-[2px] border border-slate-700 dark:border-slate-300",
+        "relative isolate flex flex-col overflow-hidden rounded-[2px]",
         isDecided
           ? "outline-4 outline-solid outline-emerald-600 outline-offset-2"
           : isAdoptionFocused
             ? "outline-2 outline-dashed outline-emerald-500 outline-offset-2"
             : isSelected
-              ? "outline-2 outline-blue-500 dark:outline-blue-400"
+              ? "outline-2 outline-blue-500"
               : "outline-none",
         className,
       )}

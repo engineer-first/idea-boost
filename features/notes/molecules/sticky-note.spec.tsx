@@ -5,6 +5,35 @@ import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { StickyNote } from "./sticky-note";
 
 describe("StickyNote", () => {
+  it("通常付箋は枠線を付けず色と影で示す", () => {
+    render(
+      <StickyNote noteId="normal" testId="sticky-note">
+        本文
+      </StickyNote>,
+    );
+    const note = screen.getByTestId("sticky-note");
+    expect(note).not.toHaveClass("border");
+    expect(note.style.border).toBe("");
+    expect(note.style.boxShadow).not.toBe("");
+    expect(note).toHaveClass("outline-none");
+  });
+
+  it("選択中の青枠と候補外の破線は通常の枠線と独立して表示する", () => {
+    const { rerender } = render(
+      <StickyNote noteId="state" isSelected testId="sticky-note">
+        本文
+      </StickyNote>,
+    );
+    const note = screen.getByTestId("sticky-note");
+    expect(note).toHaveClass("outline-2", "outline-blue-500");
+    rerender(
+      <StickyNote noteId="state" data-excluded testId="sticky-note">
+        本文
+      </StickyNote>,
+    );
+    expect(note.style.borderStyle).toBe("dashed");
+    expect(note.style.boxShadow).toBe("none");
+  });
   it.each(NOTE_COLOR_PALETTE)("%s の背景色を直接適用する", (color) => {
     render(
       <StickyNote noteId={`note-${color}`} color={color} testId="sticky-note">
@@ -56,10 +85,7 @@ describe("StickyNote", () => {
       "outline-emerald-600",
       "outline-offset-2",
     );
-    expect(screen.getByTestId("sticky-note")).toHaveClass(
-      "border-slate-700",
-      "dark:border-slate-300",
-    );
+    expect(screen.getByTestId("sticky-note")).not.toHaveClass("border");
   });
 
   it("共有採用フォーカスは文言なしの緑点線枠と薄緑で示し、確定表示を優先する", () => {

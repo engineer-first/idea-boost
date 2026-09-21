@@ -7,7 +7,7 @@ const config: StorybookConfig = {
     "../features/**/*.stories.@(ts|tsx)",
     "../components/**/*.stories.@(ts|tsx)",
   ],
-  addons: ["@storybook/addon-themes", "@storybook/addon-docs"],
+  addons: ["@storybook/addon-docs"],
   staticDirs: [
     "../public",
     { from: "../schema-diagrams", to: "/schema-diagrams" },

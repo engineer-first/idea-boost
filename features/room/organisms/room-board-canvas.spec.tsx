@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { createRef, type ReactElement } from "react";
+import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NOTE_COLOR_PALETTE } from "@/contracts/room-protocol";
@@ -8,10 +8,7 @@ import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
-function setup(
-  overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {},
-  theme: "light" | "dark" = "light",
-) {
+function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
   const props = {
     notes: buildNotes(2),
     groups: [],
@@ -64,15 +61,13 @@ function setup(
     remoteCursors: [],
     ...overrides,
   };
-  const wrapWithTheme = (element: ReactElement) =>
-    theme === "dark" ? <div className="dark">{element}</div> : element;
   const { rerender: rerenderView, unmount } = render(
-    wrapWithTheme(<RoomBoardCanvas {...props} />),
+    <RoomBoardCanvas {...props} />,
   );
   return {
     props,
     rerender: (element = <RoomBoardCanvas {...props} />) =>
-      rerenderView(wrapWithTheme(element)),
+      rerenderView(element),
     unmount,
   };
 }
@@ -561,7 +556,7 @@ describe("RoomBoardCanvas", () => {
 
   it.each(
     NOTE_COLOR_PALETTE,
-  )("%s のドラッグゴースト本文は通常・暗色テーマと両キャンバスで対応色の前景を使う", (color) => {
+  )("%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う", (color) => {
     const normalPhase = buildPhaseStep(1);
     const mapPhase = buildPhaseStep(2, 3);
     const ghost = buildNote({
@@ -570,20 +565,12 @@ describe("RoomBoardCanvas", () => {
       content: `運んでいる付箋 ${color}`,
     });
 
-    for (const [phase, theme] of [
-      [normalPhase, "light"],
-      [normalPhase, "dark"],
-      [mapPhase, "light"],
-      [mapPhase, "dark"],
-    ] as const) {
-      const { unmount } = setup(
-        {
-          phase,
-          permissions: getBoardPermissions(phase),
-          dragGhost: { note: ghost, x: 120, y: 80 },
-        },
-        theme,
-      );
+    for (const phase of [normalPhase, mapPhase]) {
+      const { unmount } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        dragGhost: { note: ghost, x: 120, y: 80 },
+      });
 
       const ghostText = screen.getByText(`運んでいる付箋 ${color}`);
       expect(ghostText.style.color).toBe(
