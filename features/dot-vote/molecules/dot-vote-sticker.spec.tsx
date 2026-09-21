@@ -41,7 +41,7 @@ describe("DotVoteSticker", () => {
   });
 
   it.each([
-    0, 1, 12,
+    1, 12,
   ])("投票結果では集計した%d票を同数のシールと独立した票数で表示する", (count) => {
     render(<DotVoteSticker kind="subjective" count={count} state="result" />);
 
@@ -55,6 +55,17 @@ describe("DotVoteSticker", () => {
       within(result).getByTestId("dot-vote-result-count-subjective"),
     ).toHaveTextContent(String(count));
     expect(screen.queryByText(`×${count}`)).not.toBeInTheDocument();
+  });
+
+  it("投票結果が0票ならシールも票数も表示しない", () => {
+    render(<DotVoteSticker kind="subjective" count={0} state="result" />);
+
+    expect(
+      screen.queryByRole("img", { name: "主観シール 0票" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("dot-vote-result-count-subjective"),
+    ).not.toBeInTheDocument();
   });
 
   it("結果シールは22pxを維持し、票数との間を15px空ける", () => {

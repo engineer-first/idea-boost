@@ -234,7 +234,7 @@ export const ResultStep: Story = {
     isSelected: true,
     editingDisabled: true,
     note: buildNote({
-      content: "0票でも主観・客観の正確な票数を確認できます。",
+      content: "0票のときは結果シールも票数も表示しません。",
       dotVotes: {
         subjective: { count: 0, votedByMe: false, ownCount: 0 },
         objective: { count: 0, votedByMe: false, ownCount: 0 },

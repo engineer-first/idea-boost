@@ -93,6 +93,10 @@ export function DotVoteSticker({
   const shouldShowCount = count > 1;
   const displayedCount = displayCount(count);
 
+  if (state === "result" && count === 0) {
+    return null;
+  }
+
   if (state === "result") {
     return (
       <span
