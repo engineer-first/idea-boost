@@ -613,19 +613,20 @@ export function RoomBoardCanvas({
             >
               <BoardOperationMatrix permissions={permissions} />
             </div>
-            <NoteFontSizeControls
-              fontSize={selectedNote?.fontSize ?? null}
-              disabled={
-                isDisconnected ||
-                !permissions.canEditNote ||
-                selectedNote === undefined ||
-                selectedNote.excluded
-              }
-              onChange={(fontSize) => {
-                if (selectedNote)
-                  onNoteFontSizeChange(selectedNote.id, fontSize);
-              }}
-            />
+            {permissions.canEditNote ? (
+              <NoteFontSizeControls
+                fontSize={selectedNote?.fontSize ?? null}
+                disabled={
+                  isDisconnected ||
+                  selectedNote === undefined ||
+                  selectedNote.excluded
+                }
+                onChange={(fontSize) => {
+                  if (selectedNote)
+                    onNoteFontSizeChange(selectedNote.id, fontSize);
+                }}
+              />
+            ) : null}
           </div>
           <div data-testid="canvas-zoom-hud">
             <CanvasZoomControls

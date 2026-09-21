@@ -112,7 +112,7 @@ describe("RoomBoardCanvas", () => {
     expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-1", 15);
   });
 
-  it("未選択・切断中・編集不可・候補外では文字サイズ操作を無効にする", () => {
+  it("未選択・切断中・候補外では文字サイズ操作を無効にする", () => {
     const { props, rerender } = setup();
     expect(
       screen.getByRole("button", { name: "付箋の文字を大きく" }),
@@ -124,6 +124,15 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.getByRole("button", { name: "付箋の文字を大きく" }),
     ).toBeDisabled();
+  });
+
+  it("編集不可のステップでは文字サイズ操作を表示しない", () => {
+    const phase = buildPhaseStep(3);
+    setup({ phase, permissions: getBoardPermissions(phase) });
+
+    expect(
+      screen.queryByTestId("note-font-size-controls"),
+    ).not.toBeInTheDocument();
   });
 
   it.each([
