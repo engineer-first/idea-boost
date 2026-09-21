@@ -73,6 +73,27 @@ function openPrivateNotesToolbar() {
 }
 
 describe("RoomBoardCanvas", () => {
+  it.each([
+    [2, true],
+    [3, true],
+    [4, false],
+    [5, false],
+  ] as const)("3-%iでは調整可能なステップだけマップサイズ操作を表示する", (step, canResize) => {
+    const phase = buildPhaseStep(step, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+    });
+
+    const controls = screen.queryByTestId("idea-map-size-controls-hud");
+    if (canResize) {
+      expect(controls).toBeInTheDocument();
+    } else {
+      expect(controls).not.toBeInTheDocument();
+    }
+  });
+
   it("採用選択モードは候補だけを明示し、対象ボタンの操作を通知する", () => {
     const onAdoptNote = vi.fn();
     setup({

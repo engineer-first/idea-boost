@@ -202,6 +202,10 @@ export function RoomBoardCanvas({
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+  const isIdeaMapSizeControlsVisible =
+    phase.kind === "step" &&
+    phase.phase === 3 &&
+    (phase.step === 2 || phase.step === 3);
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
 
@@ -586,7 +590,7 @@ export function RoomBoardCanvas({
               onFitToNotes={onFitToNotes}
             />
           </div>
-          {isIdeaValueFeasibilityMapVisible ? (
+          {isIdeaMapSizeControlsVisible ? (
             <div data-testid="idea-map-size-controls-hud">
               <IdeaMapSizeControls
                 sizeLevel={ideaMapSizeLevel}
