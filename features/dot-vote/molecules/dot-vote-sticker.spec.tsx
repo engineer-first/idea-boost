@@ -40,10 +40,35 @@ describe("DotVoteSticker", () => {
     );
   });
 
-  it.each([0, 1, 12])("投票結果では集計した%d票を×票数で表示する", (count) => {
+  it.each([
+    0, 1, 12,
+  ])("投票結果では集計した%d票を同数のシールと独立した票数で表示する", (count) => {
     render(<DotVoteSticker kind="subjective" count={count} state="result" />);
 
-    expect(screen.getByText(`×${count}`)).toBeVisible();
+    const result = screen.getByRole("img", {
+      name: `主観シール ${count}票`,
+    });
+    expect(
+      within(result).queryAllByTestId("dot-vote-sticker-image-subjective"),
+    ).toHaveLength(count);
+    expect(
+      within(result).getByTestId("dot-vote-result-count-subjective"),
+    ).toHaveTextContent(String(count));
+    expect(screen.queryByText(`×${count}`)).not.toBeInTheDocument();
+  });
+
+  it("結果シールは22pxを維持し、票数との間を15px空ける", () => {
+    render(<DotVoteSticker kind="objective" count={2} state="result" />);
+
+    const result = screen.getByRole("img", { name: "客観シール 2票" });
+    for (const sticker of within(result).getAllByTestId(
+      "dot-vote-sticker-image-objective",
+    )) {
+      expect(sticker).toHaveClass("size-[22px]");
+    }
+    expect(
+      within(result).getByTestId("dot-vote-result-count-objective"),
+    ).toHaveClass("ml-[15px]");
   });
 
   it("投票中の個別シールには×1を表示しない", () => {

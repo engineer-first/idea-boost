@@ -39,6 +39,8 @@ const DOT_VOTE_SHAPE = {
   objective: "rounded-lg",
 } satisfies Record<DotVoteKind, string>;
 
+type DotVoteStickerImageSize = "default" | "result";
+
 function stickerLabel(kind: DotVoteKind, count: number): string {
   return `${DOT_VOTE_LABELS[kind]}シール ${count}票`;
 }
@@ -47,17 +49,25 @@ function displayCount(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
 
-export function DotVoteStickerImage({ kind }: { kind: DotVoteKind }) {
+export function DotVoteStickerImage({
+  kind,
+  size = "default",
+}: {
+  kind: DotVoteKind;
+  size?: DotVoteStickerImageSize;
+}) {
   const Icon = DOT_VOTE_ICON[kind];
   return (
     <span
       aria-hidden="true"
       data-testid={`dot-vote-sticker-image-${kind}`}
-      className={`flex size-7 shrink-0 items-center justify-center border-2 shadow-[0_2px_5px_rgba(0,0,0,0.14)] ${DOT_VOTE_TONE[kind]}`}
+      className={`flex shrink-0 items-center justify-center border-2 shadow-[0_2px_5px_rgba(0,0,0,0.14)] ${
+        size === "result" ? "size-[22px]" : "size-7"
+      } ${DOT_VOTE_TONE[kind]}`}
     >
       <Icon
         data-testid={`dot-vote-sticker-icon-${kind}`}
-        className="size-4"
+        className={size === "result" ? "size-3.5" : "size-4"}
         fill={kind === "subjective" ? "currentColor" : "none"}
         strokeWidth={2.5}
       />
@@ -80,9 +90,55 @@ export function DotVoteSticker({
     clientY: number;
   } | null>(null);
   const didDragRef = useRef(false);
-  const shouldShowCount = state === "result" || count > 1;
-  const displayedCount =
-    state === "result" ? `×${displayCount(count)}` : displayCount(count);
+  const shouldShowCount = count > 1;
+  const displayedCount = displayCount(count);
+
+  if (state === "result") {
+    return (
+      <span
+        role="img"
+        data-state={state}
+        aria-label={label}
+        className="inline-flex min-w-[55px] items-center"
+        style={{ flexBasis: 55, flexGrow: Math.max(count, 1) }}
+      >
+        <span
+          aria-hidden="true"
+          data-testid={`dot-vote-result-stack-${kind}`}
+          className="relative h-[22px] min-w-[22px] flex-1"
+          style={{ maxWidth: 22 + Math.max(count - 1, 0) * 12 }}
+        >
+          {Array.from({ length: count }, (_, voteIndex) => voteIndex + 1).map(
+            (voteNumber) => (
+              <span
+                // 同じ集計から常に同じ並びになる。票が増えると、
+                // 22px の大きさは保ったまま左端間隔だけを狭める。
+                key={`${kind}-vote-${voteNumber}`}
+                className="absolute top-0"
+                style={{
+                  left:
+                    count <= 1
+                      ? 0
+                      : `calc((100% - 22px) * ${voteNumber - 1} / ${count - 1})`,
+                  zIndex: voteNumber,
+                }}
+              >
+                <DotVoteStickerImage kind={kind} size="result" />
+              </span>
+            ),
+          )}
+        </span>
+        <span
+          aria-hidden="true"
+          data-testid={`dot-vote-result-count-${kind}`}
+          className="ml-[15px] min-w-[2ch] shrink-0 text-left text-sm leading-[22px] font-bold text-slate-900 tabular-nums"
+        >
+          {count}
+        </span>
+      </span>
+    );
+  }
+
   const content = (
     <span aria-hidden="true" className="relative inline-flex">
       <DotVoteStickerImage kind={kind} />

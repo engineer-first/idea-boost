@@ -233,6 +233,13 @@ export const ResultStep: Story = {
   args: {
     isSelected: true,
     editingDisabled: true,
+    note: buildNote({
+      content: "0票でも主観・客観の正確な票数を確認できます。",
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 0, votedByMe: false, ownCount: 0 },
+      },
+    }),
     vote: {
       displayMode: "result",
       selectedKind: null,
@@ -243,4 +250,180 @@ export const ResultStep: Story = {
       onVoteRemove: fn(),
     },
   },
+};
+
+export const ResultWithFewVotes: Story = {
+  args: {
+    editingDisabled: true,
+    note: buildNote({
+      content: "少数票は1票1枚のシールで比較できます。",
+      dotVotes: {
+        subjective: { count: 1, votedByMe: false, ownCount: 0 },
+        objective: { count: 3, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const ResultWithLongContent: Story = {
+  args: {
+    editingDisabled: true,
+    note: buildNote({
+      content:
+        "長文のアイデアでも、本文が結果シールの下へ潜り込まないように付箋の内側に専用の結果余白を確保します。本文はスクロールして全文を読めます。",
+      dotVotes: {
+        subjective: { count: 2, votedByMe: false, ownCount: 0 },
+        objective: { count: 7, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const ResultWithManyVotes: Story = {
+  args: {
+    editingDisabled: true,
+    note: buildNote({
+      content: "10票を超えても、間隔だけを狭めて全票分を表示します。",
+      dotVotes: {
+        subjective: { count: 12, votedByMe: false, ownCount: 0 },
+        objective: { count: 27, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const ResultWithCandidateAction: Story = {
+  args: {
+    editingDisabled: true,
+    canEditNote: false,
+    canDeleteNote: false,
+    canMoveNote: false,
+    canExcludeNote: true,
+    onExclude: fn(),
+    note: buildNote({
+      content: "右下の候補操作と結果表示の間に余白を保ちます。",
+      dotVotes: {
+        subjective: { count: 3, votedByMe: false, ownCount: 0 },
+        objective: { count: 8, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.hover(canvas.getByRole("button", { name: "付箋" }));
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("button", { name: "候補から外す" }),
+      ).toBeVisible(),
+    );
+  },
+};
+
+export const ResultExcludedForHost: Story = {
+  args: {
+    editingDisabled: true,
+    canEditNote: false,
+    canDeleteNote: false,
+    canMoveNote: false,
+    canRestoreNote: true,
+    onRestore: fn(),
+    note: buildNote({
+      content: "候補外の本文・票・配置は保ったまま戻せます。",
+      excluded: true,
+      dotVotes: {
+        subjective: { count: 2, votedByMe: false, ownCount: 0 },
+        objective: { count: 5, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.hover(canvas.getByRole("button", { name: "候補外の付箋" }));
+    await waitFor(() =>
+      expect(canvas.getByRole("button", { name: "候補に戻す" })).toBeVisible(),
+    );
+  },
+};
+
+export const ResultWithDecision: Story = {
+  args: {
+    isDecided: true,
+    editingDisabled: true,
+    note: buildNote({
+      content: "決定済みの印と結果表示を同時に確認できます。",
+      dotVotes: {
+        subjective: { count: 4, votedByMe: false, ownCount: 0 },
+        objective: { count: 10, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const ResultOnDarkCanvas: Story = {
+  args: {
+    ...ResultWithManyVotes.args,
+    className: "relative",
+    style: {},
+  },
+  decorators: [
+    (Story) => (
+      <div className="rounded-lg bg-slate-950 p-12">
+        <Story />
+      </div>
+    ),
+  ],
 };
