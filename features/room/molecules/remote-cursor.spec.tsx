@@ -53,7 +53,7 @@ describe("RemoteCursor", () => {
     expect(screen.queryByText("付箋を移動中")).not.toBeInTheDocument();
   });
 
-  it("ドラッグしていない間は操作対象を表示せず、通常の濃さで表示する", () => {
+  it("停止中も名前ラベルのコントラストを保ち、操作対象を表示しない", () => {
     render(
       <RemoteCursor
         cursor={{
@@ -65,7 +65,7 @@ describe("RemoteCursor", () => {
           draggingNoteId: null,
           lastSeenAt: 1_000,
         }}
-        isIdle={false}
+        isIdle
         labelOffset={1}
       />,
     );
@@ -73,7 +73,9 @@ describe("RemoteCursor", () => {
     const cursor = screen.getByTestId(
       "remote-cursor-22222222-2222-4222-8222-222222222222",
     );
+    expect(cursor).toHaveAttribute("data-idle", "true");
     expect(cursor).not.toHaveClass("opacity-40");
+    expect(cursor.querySelector("svg")).toHaveClass("opacity-40");
     expect(cursor).not.toHaveAttribute("data-dragging-note-id");
     expect(screen.queryByText("付箋を移動中")).not.toBeInTheDocument();
   });
@@ -98,12 +100,17 @@ describe("RemoteCursor", () => {
     const cursor = screen.getByTestId(
       "remote-cursor-22222222-2222-4222-8222-222222222222",
     );
+
+    expect(cursor.querySelector("svg")).toHaveClass("text-slate-900");
     expect(cursor.querySelector("svg")).toHaveStyle({
-      color: expectedColor,
       fill: expectedColor,
     });
+    expect(screen.getByText("Taro").parentElement).toHaveClass(
+      "border-slate-950/15",
+    );
     expect(screen.getByText("Taro").parentElement).toHaveStyle({
       backgroundColor: expectedColor,
+      color: NOTE_COLOR_STYLES.green.foregroundColor,
     });
   });
 });

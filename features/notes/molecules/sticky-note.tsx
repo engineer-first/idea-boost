@@ -55,7 +55,7 @@ export function StickyNote({
           : isAdoptionFocused
             ? "outline-2 outline-dashed outline-emerald-500 outline-offset-2"
             : isSelected
-              ? "outline-2 outline-blue-500 dark:outline-blue-400"
+              ? "outline-2 outline-blue-500"
               : "outline-none",
         className,
       )}
@@ -63,13 +63,14 @@ export function StickyNote({
         width: NOTE_WIDTH,
         height: NOTE_HEIGHT,
         boxShadow: dataExcluded ? "none" : getNoteShadow(noteId, { isLifted }),
-        border: dataExcluded ? "1px dashed rgb(100 116 139 / 0.55)" : undefined,
+        border: dataExcluded ? "1px dashed rgb(71 85 105 / 0.75)" : undefined,
         backgroundImage:
           isAdoptionFocused && !isDecided
             ? "linear-gradient(rgb(16 185 129 / 0.12), rgb(16 185 129 / 0.12))"
             : undefined,
         ...style,
         backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+        color: NOTE_COLOR_STYLES[color].foregroundColor,
       }}
     >
       {children}

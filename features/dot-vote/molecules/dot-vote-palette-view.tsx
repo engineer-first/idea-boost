@@ -31,16 +31,14 @@ const DOT_VOTE_KINDS: readonly DotVoteKind[] = ["subjective", "objective"];
 
 const DOT_VOTE_BUTTON_TONE = {
   subjective:
-    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 hover:text-rose-950 focus-visible:border-rose-600 focus-visible:ring-rose-600/50 active:bg-rose-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-100 dark:hover:bg-rose-900/80 dark:hover:text-rose-50 dark:focus-visible:border-rose-300 dark:focus-visible:ring-rose-300/70 dark:active:bg-rose-800/80 dark:disabled:border-slate-700 dark:disabled:bg-slate-900 dark:disabled:text-slate-400 dark:disabled:opacity-100",
+    "border-rose-200 bg-rose-50/80 text-rose-950 hover:bg-rose-100 hover:text-rose-950 focus-visible:border-rose-600 focus-visible:ring-rose-600/50 active:bg-rose-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100",
   objective:
-    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 hover:text-blue-950 focus-visible:border-blue-600 focus-visible:ring-blue-600/50 active:bg-blue-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100 dark:border-blue-700 dark:bg-blue-950/60 dark:text-blue-100 dark:hover:bg-blue-900/80 dark:hover:text-blue-50 dark:focus-visible:border-blue-300 dark:focus-visible:ring-blue-300/70 dark:active:bg-blue-800/80 dark:disabled:border-slate-700 dark:disabled:bg-slate-900 dark:disabled:text-slate-400 dark:disabled:opacity-100",
+    "border-blue-200 bg-blue-50/80 text-blue-950 hover:bg-blue-100 hover:text-blue-950 focus-visible:border-blue-600 focus-visible:ring-blue-600/50 active:bg-blue-200 disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-500 disabled:opacity-100",
 } satisfies Record<DotVoteKind, string>;
 
 const DOT_VOTE_SELECTED_TONE = {
-  subjective:
-    "ring-2 ring-rose-700/75 ring-offset-2 ring-offset-white dark:ring-rose-300 dark:ring-offset-slate-950",
-  objective:
-    "ring-2 ring-blue-700/75 ring-offset-2 ring-offset-white dark:ring-blue-300 dark:ring-offset-slate-950",
+  subjective: "ring-2 ring-rose-700/75 ring-offset-2 ring-offset-white",
+  objective: "ring-2 ring-blue-700/75 ring-offset-2 ring-offset-white",
 } satisfies Record<DotVoteKind, string>;
 
 export function DotVotePaletteView({
@@ -72,14 +70,14 @@ export function DotVotePaletteView({
       aria-describedby="dot-vote-palette-help"
       data-vote-palette="true"
       data-return-drop-target={isReturnDropTarget ? "true" : undefined}
-      className={`pointer-events-auto relative flex h-12 max-w-[calc(100vw-1.5rem)] items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] dark:bg-slate-950 ${
+      className={`pointer-events-auto relative flex h-12 max-w-[calc(100vw-1.5rem)] items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] ${
         isReturnDropTarget
-          ? "border-amber-500 bg-amber-50/95 ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white dark:border-amber-300 dark:bg-amber-950/95 dark:ring-amber-200/80 dark:ring-offset-slate-950"
+          ? "border-amber-500 bg-amber-50/95 ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white"
           : ""
       }`}
     >
       {isReturnDropTarget ? (
-        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 shadow-sm dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+        <p className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950 shadow-sm">
           ここへ戻すと1票取り消しになります。
         </p>
       ) : null}

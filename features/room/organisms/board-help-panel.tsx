@@ -46,7 +46,7 @@ export function BoardHelpPanel({
         <Button
           type="button"
           variant="ghost"
-          className="h-9 w-full shrink-0 justify-between rounded-none bg-background px-4 hover:bg-background aria-expanded:bg-background dark:hover:bg-background"
+          className="h-9 w-full shrink-0 justify-between rounded-none bg-background px-4 hover:bg-background aria-expanded:bg-background"
           data-help-toggle
           aria-label={`考えるヒントを${isOpen ? "閉じる" : "開く"}`}
           aria-expanded={isOpen}

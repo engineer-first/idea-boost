@@ -268,7 +268,7 @@ export function RoomTimer({
   };
 
   const chipClassName = cn(
-    "board-hud h-10 w-28 shrink-0 justify-start rounded-lg border-transparent bg-muted py-2 pr-10 pl-3 shadow-none hover:bg-muted dark:bg-muted dark:hover:bg-muted disabled:opacity-100",
+    "board-hud h-10 w-28 shrink-0 justify-start rounded-lg border-transparent bg-muted py-2 pr-10 pl-3 shadow-none hover:bg-muted disabled:opacity-100",
     "font-mono font-bold tabular-nums",
     timer.status === "paused" && "text-amber-800",
     isEnded && "text-red-700",

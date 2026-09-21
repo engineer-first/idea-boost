@@ -29,6 +29,7 @@ import {
   PrivateNotesToolbar,
   StickyNote,
 } from "@/features/notes";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { BoardPermissions } from "../logic/board-permissions";
 import { type CanvasCamera, worldToScreen } from "../logic/canvas-camera";
 import {
@@ -397,7 +398,12 @@ export function RoomBoardCanvas({
         className="pointer-events-none absolute"
         style={{ ...position, zIndex: TEMPORARY_FRONT_Z_INDEX }}
       >
-        <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
+        <p
+          className="min-h-0 flex-1 overflow-hidden p-2 text-sm"
+          style={{
+            color: NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
+          }}
+        >
           {dragGhost.note.content || "メモを入力..."}
         </p>
       </StickyNote>
@@ -536,7 +542,13 @@ export function RoomBoardCanvas({
                   zIndex: TEMPORARY_FRONT_Z_INDEX,
                 }}
               >
-                <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
+                <p
+                  className="min-h-0 flex-1 overflow-hidden p-2 text-sm"
+                  style={{
+                    color:
+                      NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
+                  }}
+                >
                   {dragGhost.note.content || "メモを入力..."}
                 </p>
               </StickyNote>

@@ -12,7 +12,3 @@ export const Subjective: Story = {};
 export const Objective: Story = {
   args: { label: "客観", value: 5, tone: "objective" },
 };
-
-export const DarkMode: Story = {
-  globals: { theme: "dark" },
-};

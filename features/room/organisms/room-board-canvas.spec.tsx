@@ -2,7 +2,9 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import { NOTE_COLOR_PALETTE } from "@/contracts/room-protocol";
 import { buildNote, buildNotes } from "@/contracts/room-protocol.fixture";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
@@ -59,8 +61,15 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     remoteCursors: [],
     ...overrides,
   };
-  const { rerender } = render(<RoomBoardCanvas {...props} />);
-  return { props, rerender };
+  const { rerender: rerenderView, unmount } = render(
+    <RoomBoardCanvas {...props} />,
+  );
+  return {
+    props,
+    rerender: (element = <RoomBoardCanvas {...props} />) =>
+      rerenderView(element),
+    unmount,
+  };
 }
 
 function openPrivateNotesToolbar() {
@@ -70,6 +79,13 @@ function openPrivateNotesToolbar() {
   });
   if (openButton) fireEvent.click(openButton);
   return toolbar;
+}
+
+function hexColorToRgb(hexColor: string): string {
+  const channels = [1, 3, 5].map((offset) =>
+    Number.parseInt(hexColor.slice(offset, offset + 2), 16),
+  );
+  return `rgb(${channels.join(", ")})`;
 }
 
 describe("RoomBoardCanvas", () => {
@@ -536,6 +552,33 @@ describe("RoomBoardCanvas", () => {
     setup({ dragGhost: { note: ghost, x: 120, y: 80 } });
 
     expect(screen.getByText("運んでいる付箋")).toBeInTheDocument();
+  });
+
+  it.each(
+    NOTE_COLOR_PALETTE,
+  )("%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う", (color) => {
+    const normalPhase = buildPhaseStep(1);
+    const mapPhase = buildPhaseStep(2, 3);
+    const ghost = buildNote({
+      id: `ghost-${color}`,
+      color,
+      content: `運んでいる付箋 ${color}`,
+    });
+
+    for (const phase of [normalPhase, mapPhase]) {
+      const { unmount } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        dragGhost: { note: ghost, x: 120, y: 80 },
+      });
+
+      const ghostText = screen.getByText(`運んでいる付箋 ${color}`);
+      expect(ghostText.style.color).toBe(
+        hexColorToRgb(NOTE_COLOR_STYLES[color].foregroundColor),
+      );
+      expect(ghostText).not.toHaveClass("dark:text-slate-50");
+      unmount();
+    }
   });
 
   it("通常ボードでは永続順序を描画し own・名前付きカーソルの drag と ghost だけを一時最前面にする", () => {

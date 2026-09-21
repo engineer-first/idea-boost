@@ -22,21 +22,6 @@ type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {};
 
-export const DarkModeReady: Story = {
-  globals: {
-    theme: "dark",
-  },
-};
-
-export const DarkModeSelected: Story = {
-  globals: {
-    theme: "dark",
-  },
-  args: {
-    selectedKind: "subjective",
-  },
-};
-
 export const Selected: Story = {
   args: {
     selectedKind: "subjective",
@@ -58,17 +43,12 @@ export const Failed: Story = {
   },
 };
 
-export const DarkModeExhausted: Story = {
-  globals: {
-    theme: "dark",
-  },
-  args: {
-    voteRemaining: { subjective: 0, objective: 0 },
-  },
-};
-
 export const ReturningSticker: Story = {
   args: {
     isReturnDropTarget: true,
   },
+};
+
+export const Exhausted: Story = {
+  args: { voteRemaining: { subjective: 0, objective: 0 } },
 };

@@ -77,6 +77,31 @@ export const NOTE_COLOR_PALETTE = [
 export const NoteColorSchema = z.enum(NOTE_COLOR_PALETTE);
 export type NoteColor = z.infer<typeof NoteColorSchema>;
 
+// 新規メンバーへ割り当てる色の優先順。色IDの保存・通信上の集合とは分けて管理し、
+// 既存の割り当て履歴を変えずに、少人数で異なる色系統を先に使う。
+export const MEMBER_COLOR_ASSIGNMENT_ORDER = [
+  "yellow",
+  "blue",
+  "pink",
+  "green",
+  "purple",
+  "orange",
+  "teal",
+  "red",
+  "indigo",
+  "lime",
+  "fuchsia",
+  "cyan",
+  "amber",
+  "emerald",
+  "violet",
+  "rose",
+  "sky",
+  "stone",
+  "slate",
+  "zinc",
+] as const satisfies readonly NoteColor[];
+
 export const CanvasCoordinateSchema = z
   .number()
   .finite()

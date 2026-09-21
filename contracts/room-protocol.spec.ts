@@ -8,6 +8,7 @@ import { buildLobbyPhase, buildPhaseStep } from "./phase.fixture";
 import {
   ClientMessageSchema,
   DecisionSchema,
+  MEMBER_COLOR_ASSIGNMENT_ORDER,
   MemberSchema,
   NOTE_COLOR_PALETTE,
   NoteColorSchema,
@@ -37,6 +38,22 @@ describe("NoteColorSchema", () => {
 
   it("パレット外の色は拒否する", () => {
     expect(NoteColorSchema.safeParse("black").success).toBe(false);
+  });
+
+  it("割り当て優先順は20色すべてを一度ずつ含み、最初の6色を固定する", () => {
+    expect(MEMBER_COLOR_ASSIGNMENT_ORDER).toHaveLength(20);
+    expect(new Set(MEMBER_COLOR_ASSIGNMENT_ORDER).size).toBe(20);
+    expect([...MEMBER_COLOR_ASSIGNMENT_ORDER].sort()).toEqual(
+      [...NOTE_COLOR_PALETTE].sort(),
+    );
+    expect(MEMBER_COLOR_ASSIGNMENT_ORDER.slice(0, 6)).toEqual([
+      "yellow",
+      "blue",
+      "pink",
+      "green",
+      "purple",
+      "orange",
+    ]);
   });
 });
 

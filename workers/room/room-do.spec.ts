@@ -16,6 +16,28 @@ import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
 const NOTE_COLOR_PATTERN = new RegExp(`^(${NOTE_COLOR_PALETTE.join("|")})$`);
+const EXPECTED_MEMBER_COLOR_ASSIGNMENT_ORDER = [
+  "yellow",
+  "blue",
+  "pink",
+  "green",
+  "purple",
+  "orange",
+  "teal",
+  "red",
+  "indigo",
+  "lime",
+  "fuchsia",
+  "cyan",
+  "amber",
+  "emerald",
+  "violet",
+  "rose",
+  "sky",
+  "stone",
+  "slate",
+  "zinc",
+] as const;
 const LOBBY = buildLobbyPhase();
 
 function userIdAt(index: number): string {
@@ -109,6 +131,21 @@ function insertVoteStickers(
 }
 
 describe("RoomDO メンバーシップ", () => {
+  it("新規メンバーへ固定優先順で色を割り当てる", async () => {
+    const roomId = "room-member-color-priority";
+    const stub = roomStub(roomId);
+
+    for (let index = 1; index <= NOTE_COLOR_PALETTE.length; index++) {
+      await expect(
+        stub.upsertMember(userIdAt(index), `Member ${index}`),
+      ).resolves.toEqual({ ok: true });
+    }
+
+    expect((await stub.listMembers()).map((member) => member.color)).toEqual(
+      EXPECTED_MEMBER_COLOR_ASSIGNMENT_ORDER,
+    );
+  });
+
   it("upsertMember は冪等（複数回呼んでもメンバーは1件のまま）", async () => {
     const stub = roomStub("room-idempotent");
     await stub.upsertMember(USER_A, "Alpha");
@@ -228,11 +265,29 @@ describe("RoomDO メンバーシップ", () => {
       ok: true,
     });
     const firstColor = (await stub.listMembers())[0]?.color;
+    const secondUserId = userIdAt(2);
+    await expect(stub.upsertMember(secondUserId, "Member 2")).resolves.toEqual({
+      ok: true,
+    });
+    const secondColor = (await stub.listMembers())[1]?.color;
     await stub.leave(firstUserId);
+    await expect(stub.upsertMember(userIdAt(3), "Member 3")).resolves.toEqual({
+      ok: true,
+    });
+    expect(
+      (await stub.listMembers()).find((member) => member.userId === userIdAt(3))
+        ?.color,
+    ).toBe(EXPECTED_MEMBER_COLOR_ASSIGNMENT_ORDER[2]);
     await expect(stub.upsertMember(firstUserId, "Member 1")).resolves.toEqual({
       ok: true,
     });
-    expect((await stub.listMembers())[0]?.color).toBe(firstColor);
+    const members = await stub.listMembers();
+    expect(members.find((member) => member.userId === firstUserId)?.color).toBe(
+      firstColor,
+    );
+    expect(
+      members.find((member) => member.userId === secondUserId)?.color,
+    ).toBe(secondColor);
   });
 });
 

@@ -47,10 +47,10 @@ export function AdoptNoteControl({
       >
         <CheckCircle2
           aria-hidden="true"
-          className="size-5 shrink-0 text-emerald-700 dark:text-emerald-400"
+          className="size-5 shrink-0 text-emerald-700"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+          <p className="text-xs font-semibold text-emerald-700">
             {targetLabel}を1件確定済み
           </p>
           <p className="truncate text-sm font-medium" title={decisionContent}>

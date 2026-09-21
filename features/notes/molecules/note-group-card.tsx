@@ -66,7 +66,7 @@ export function NoteGroupCard({
   return (
     <div
       data-testid="note-group-card"
-      className="pointer-events-none absolute rounded-lg border-2 border-dashed border-[hsl(var(--group-hue),65%,55%)] bg-[hsla(var(--group-hue),65%,55%,0.03)] transition-all duration-200 ease-out dark:border-[hsl(var(--group-hue),55%,45%)] dark:bg-[hsla(var(--group-hue),55%,45%,0.03)]"
+      className="pointer-events-none absolute rounded-lg border-2 border-dashed border-[hsl(var(--group-hue),65%,55%)] bg-[hsla(var(--group-hue),65%,55%,0.03)] transition-all duration-200 ease-out"
       style={{
         left: group.x,
         top: group.y,
@@ -81,7 +81,7 @@ export function NoteGroupCard({
         <div
           role="button"
           tabIndex={isEditing ? -1 : 0}
-          className="pointer-events-auto absolute -top-4 left-3 cursor-pointer rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-sm font-bold text-[hsl(var(--group-hue),75%,35%)] shadow-sm select-none dark:border-[hsl(var(--group-hue),55%,30%)] dark:text-[hsl(var(--group-hue),55%,70%)]"
+          className="pointer-events-auto absolute -top-4 left-3 cursor-pointer rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-sm font-bold text-[hsl(var(--group-hue),75%,35%)] shadow-sm select-none"
           onClick={() => {
             if (canGroupNote && !isEditing) {
               setIsEditing(true);
@@ -115,7 +115,7 @@ export function NoteGroupCard({
                   setLocalName(name);
                 }
               }}
-              className="w-32 bg-transparent text-sm font-bold outline-none text-[hsl(var(--group-hue),75%,35%)] dark:text-[hsl(var(--group-hue),55%,70%)]"
+              className="w-32 bg-transparent text-sm font-bold outline-none text-[hsl(var(--group-hue),75%,35%)]"
             />
           ) : (
             name

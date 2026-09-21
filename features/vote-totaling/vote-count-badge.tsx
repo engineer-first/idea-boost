@@ -6,9 +6,8 @@ type VoteCountBadgeProps = {
 };
 
 const TONE_CLASSES: Record<VoteCountBadgeProps["tone"], string> = {
-  subjective:
-    "bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-100",
-  objective: "bg-sky-100 text-sky-900 dark:bg-sky-950/60 dark:text-sky-100",
+  subjective: "bg-rose-100 text-rose-900",
+  objective: "bg-sky-100 text-sky-900",
   score: "bg-muted text-foreground",
 };
 
