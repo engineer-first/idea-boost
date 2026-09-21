@@ -20,6 +20,7 @@ import {
 } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
 import type { Member } from "../logic/room-reducer";
+import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { RoomTimer } from "./room-timer";
@@ -33,6 +34,7 @@ export type RoomBoardHeaderProps = {
   phase: RoomPhase;
   timer: TimerState;
   timerServerOffsetMs: number;
+  timerUpdateVersion?: number;
   isHost: boolean;
   // ハイドレーション対策込みの「操作を止めるべきか」。判定は view の責務。
   isDisconnected: boolean;
@@ -72,6 +74,7 @@ export function RoomBoardHeader({
   phase,
   timer,
   timerServerOffsetMs,
+  timerUpdateVersion = 0,
   isHost,
   isDisconnected,
   connectionStatus,
@@ -99,6 +102,11 @@ export function RoomBoardHeader({
   onTimerStop,
 }: RoomBoardHeaderProps) {
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  const timerSoundControls = useRoomTimerSounds({
+    timer,
+    serverOffsetMs: timerServerOffsetMs,
+    timerUpdateVersion,
+  });
   const guide = getFacilitationGuide(phase);
   const isFinalStep = isPhaseStep(phase, 3, 5);
   const currentMember = members.find(
@@ -264,6 +272,7 @@ export function RoomBoardHeader({
               }
               timer={timer}
               serverOffsetMs={timerServerOffsetMs}
+              soundControls={timerSoundControls}
               isHost={isHost}
               disabled={isDisconnected}
               initialDurationMs={(guide?.durationMinutes ?? 3) * 60_000}

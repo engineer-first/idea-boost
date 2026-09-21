@@ -30,6 +30,7 @@ export type UseRoomStateResult = {
   carryovers: Carryover[];
   timer: TimerState;
   timerServerOffsetMs: number;
+  timerUpdateVersion: number;
   completedVoterIds: string[];
   applyMessage: (message: ServerMessage, receivedAt?: number) => void;
 };
@@ -50,6 +51,7 @@ export function useRoomState(options: {
   const [timerState, setTimerState] = useState<TimerClientState>({
     timer: { status: "idle" },
     serverOffsetMs: 0,
+    timerUpdateVersion: 0,
   });
   // ref を同期更新して、連続メッセージ（再レンダー前）でも最新 members を
   // 引けるようにする（member_left の名前解決に必要）。
@@ -98,6 +100,7 @@ export function useRoomState(options: {
     carryovers,
     timer: timerState.timer,
     timerServerOffsetMs: timerState.serverOffsetMs,
+    timerUpdateVersion: timerState.timerUpdateVersion,
     completedVoterIds,
     applyMessage,
   };

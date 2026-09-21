@@ -320,6 +320,7 @@ export function RoomBoard({
         phase={roomState.phase}
         timer={roomState.timer}
         timerServerOffsetMs={roomState.timerServerOffsetMs}
+        timerUpdateVersion={roomState.timerUpdateVersion}
         isHost={isHost}
         decision={roomState.decision}
         adoptionFocusNoteId={roomState.adoptionFocusNoteId}

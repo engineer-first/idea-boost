@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useEffect, useRef, useState } from "react";
 import { fn, userEvent, within } from "storybook/test";
-import { RoomTimer } from "./room-timer";
+import type { TimerState } from "@/contracts/room-protocol";
+import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
+import { RoomTimer, TIMER_DEFAULT_DURATION_MS } from "./room-timer";
 import {
   buildEndedTimer,
   buildPausedTimer,
@@ -23,6 +26,13 @@ const meta = {
     onResume: fn(),
     onExtend: fn(),
     onStop: fn(),
+    soundControls: {
+      enabled: false,
+      playbackBlocked: false,
+      onEnable: fn(async () => undefined),
+      onMute: fn(),
+      onPreview: fn(async () => undefined),
+    },
     now: () => ROOM_TIMER_FIXTURE_NOW,
   },
 } satisfies Meta<typeof RoomTimer>;
@@ -87,4 +97,107 @@ export const EndedHostReconfigure: Story = {
 };
 export const EndedMember: Story = {
   args: { ...EndedHost.args, isHost: false },
+};
+
+function TimerSoundPlayground() {
+  const [timer, setTimer] = useState<TimerState>({ status: "idle" });
+  const [timerUpdateVersion, setTimerUpdateVersion] = useState(0);
+  const expiryRef = useRef<number | null>(null);
+  const runTokenRef = useRef(0);
+  const soundControls = useRoomTimerSounds({
+    timer,
+    serverOffsetMs: 0,
+    timerUpdateVersion,
+  });
+
+  useEffect(
+    () => () => {
+      if (expiryRef.current !== null) window.clearTimeout(expiryRef.current);
+    },
+    [],
+  );
+
+  const publish = (nextTimer: TimerState) => {
+    setTimer(nextTimer);
+    setTimerUpdateVersion((version) => version + 1);
+  };
+  const clearExpiry = () => {
+    runTokenRef.current += 1;
+    if (expiryRef.current !== null) window.clearTimeout(expiryRef.current);
+    expiryRef.current = null;
+  };
+  const scheduleExpiry = (
+    nextTimer: Extract<TimerState, { status: "running" }>,
+  ) => {
+    clearExpiry();
+    const token = runTokenRef.current;
+    expiryRef.current = window.setTimeout(
+      () => {
+        if (runTokenRef.current !== token) return;
+        publish({ status: "ended", durationMs: nextTimer.durationMs });
+        expiryRef.current = null;
+      },
+      Math.max(0, nextTimer.endsAt - Date.now()),
+    );
+  };
+  const start = (durationMs: number) => {
+    const nextTimer: Extract<TimerState, { status: "running" }> = {
+      status: "running",
+      endsAt: Date.now() + durationMs,
+      durationMs,
+    };
+    publish(nextTimer);
+    scheduleExpiry(nextTimer);
+  };
+
+  return (
+    <RoomTimer
+      timer={timer}
+      serverOffsetMs={0}
+      soundControls={soundControls}
+      isHost
+      disabled={false}
+      onStart={start}
+      onPause={() => {
+        if (timer.status !== "running") return;
+        const remainingMs = Math.max(0, timer.endsAt - Date.now());
+        clearExpiry();
+        publish({
+          status: "paused",
+          remainingMs,
+          durationMs: timer.durationMs,
+        });
+      }}
+      onResume={() => {
+        if (timer.status !== "paused") return;
+        const nextTimer: Extract<TimerState, { status: "running" }> = {
+          status: "running",
+          endsAt: Date.now() + timer.remainingMs,
+          durationMs: timer.durationMs,
+        };
+        publish(nextTimer);
+        scheduleExpiry(nextTimer);
+      }}
+      onExtend={() => {
+        if (timer.status !== "running") return;
+        const nextTimer = {
+          ...timer,
+          endsAt: timer.endsAt + 60_000,
+          durationMs: timer.durationMs + 60_000,
+        };
+        publish(nextTimer);
+        scheduleExpiry(nextTimer);
+      }}
+      onStop={() => {
+        if (timer.status !== "paused") return;
+        clearExpiry();
+        publish({ status: "ended", durationMs: timer.durationMs });
+      }}
+      initialDurationMs={TIMER_DEFAULT_DURATION_MS}
+    />
+  );
+}
+
+export const SoundPlayground: Story = {
+  render: () => <TimerSoundPlayground />,
 };

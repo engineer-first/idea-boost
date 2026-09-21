@@ -14,12 +14,15 @@ import {
   type TimerState,
 } from "@/contracts/room-protocol";
 import { cn } from "@/lib/utils";
+import type { TimerSoundControls } from "../logic/use-room-timer-sounds";
+import { TimerSoundControl } from "../molecules/timer-sound-control";
 
 export const TIMER_DEFAULT_DURATION_MS = 3 * 60_000;
 
 export type RoomTimerProps = {
   timer: TimerState;
   serverOffsetMs: number;
+  soundControls: TimerSoundControls;
   isHost: boolean;
   disabled: boolean;
   onStart: (durationMs: number) => void;
@@ -78,6 +81,7 @@ function formatDuration(durationMs: number): string {
 export function RoomTimer({
   timer,
   serverOffsetMs,
+  soundControls,
   isHost,
   disabled,
   onStart,
@@ -264,7 +268,7 @@ export function RoomTimer({
   };
 
   const chipClassName = cn(
-    "board-hud h-10 w-28 shrink-0 justify-center rounded-lg border-transparent bg-muted px-3 shadow-none hover:bg-muted dark:bg-muted dark:hover:bg-muted disabled:opacity-100",
+    "board-hud h-10 w-28 shrink-0 justify-start rounded-lg border-transparent bg-muted py-2 pr-10 pl-3 shadow-none hover:bg-muted dark:bg-muted dark:hover:bg-muted disabled:opacity-100",
     "font-mono font-bold tabular-nums",
     timer.status === "paused" && "text-amber-800",
     isEnded && "text-red-700",
@@ -476,7 +480,7 @@ export function RoomTimer({
   );
 
   return (
-    <div className="shrink-0">
+    <div className="relative h-10 w-28 shrink-0">
       {isHost ? (
         <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
           <PopoverTrigger asChild>{hostChip}</PopoverTrigger>
@@ -485,6 +489,7 @@ export function RoomTimer({
       ) : (
         memberChip
       )}
+      <TimerSoundControl {...soundControls} />
       <span aria-live="polite" className="sr-only">
         {isEnded ? "タイマーが終了しました。時間になりました。" : null}
       </span>

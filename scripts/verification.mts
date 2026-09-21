@@ -25,7 +25,6 @@ async function main(): Promise<void> {
       "依存パッケージがありません。先に npm ci を実行してください。",
     );
   }
-  await Promise.all([assertPortAvailable(3000), assertPortAvailable(8787)]);
   const children: ChildProcess[] = [];
   const abort = new AbortController();
   const unregisterSignals = registerShutdownSignals(abort);
@@ -65,6 +64,10 @@ async function main(): Promise<void> {
   }
   try {
     runtime = await prepareVerificationRuntime(projectDir, process.env);
+    await Promise.all([
+      assertPortAvailable(runtime.appPort),
+      assertPortAvailable(runtime.apiPort),
+    ]);
     console.log(
       "検証専用データを準備しています（通常の開発データには影響しません）。",
     );
@@ -72,7 +75,7 @@ async function main(): Promise<void> {
     await run(runtime.migrateArgs);
     const worker = start(runtime.workerArgs);
     await waitForReady(
-      "http://127.0.0.1:8787/api/health",
+      `http://127.0.0.1:${runtime.apiPort}/api/health`,
       [worker],
       120_000,
       abort.signal,
@@ -80,7 +83,7 @@ async function main(): Promise<void> {
     const next = start(runtime.nextArgs);
     await waitForReady(runtime.readyUrl, [worker, next], 120_000, abort.signal);
     console.log(
-      "\n検証を開始: http://localhost:3000/dev/verify\n終了するには Ctrl+C を押してください。\n",
+      `\n検証を開始: http://localhost:${runtime.appPort}/dev/verify\n終了するには Ctrl+C を押してください。\n`,
     );
     await new Promise<void>((resolve, reject) => {
       abort.signal.addEventListener("abort", () => resolve(), { once: true });

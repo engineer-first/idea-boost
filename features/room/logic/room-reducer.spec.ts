@@ -269,7 +269,11 @@ describe("applyPhaseServerMessage", () => {
 
 describe("applyTimerServerMessage", () => {
   it("タイマー以外のメッセージでは状態を変えない", () => {
-    const current = { timer: { status: "idle" } as const, serverOffsetMs: 0 };
+    const current = {
+      timer: { status: "idle" } as const,
+      serverOffsetMs: 0,
+      timerUpdateVersion: 0,
+    };
     expect(
       applyTimerServerMessage(
         current,
@@ -294,13 +298,18 @@ describe("applyTimerServerMessage", () => {
     };
     expect(
       applyTimerServerMessage(
-        { timer: { status: "idle" }, serverOffsetMs: 0 },
+        {
+          timer: { status: "idle" },
+          serverOffsetMs: 0,
+          timerUpdateVersion: 0,
+        },
         snapshot,
         900,
       ),
     ).toEqual({
       timer: snapshot.timer,
       serverOffsetMs: 100,
+      timerUpdateVersion: 0,
     });
 
     const updated: ServerMessage = {
@@ -310,11 +319,19 @@ describe("applyTimerServerMessage", () => {
     };
     expect(
       applyTimerServerMessage(
-        { timer: snapshot.timer, serverOffsetMs: 100 },
+        {
+          timer: snapshot.timer,
+          serverOffsetMs: 100,
+          timerUpdateVersion: 0,
+        },
         updated,
         1_850,
       ),
-    ).toEqual({ timer: updated.timer, serverOffsetMs: 150 });
+    ).toEqual({
+      timer: updated.timer,
+      serverOffsetMs: 150,
+      timerUpdateVersion: 1,
+    });
   });
 });
 
