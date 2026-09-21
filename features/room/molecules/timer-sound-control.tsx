@@ -44,7 +44,7 @@ export function TimerSoundControl({
       >
         <div className="flex flex-col gap-3 text-sm">
           <p>
-            通知音を使うと、タイマーの開始・残り5〜1秒・時間切れを知らせます。
+            通知音を使うと、タイマーの開始・残り5〜1秒・時間切れと、全員の投票完了を知らせます。
           </p>
           <p className="text-xs text-muted-foreground">この端末のみ</p>
           {playbackBlocked ? (

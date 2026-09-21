@@ -24,6 +24,7 @@ describe("TimerSoundControl", () => {
       onPreview: vi.fn(async () => undefined),
     });
 
+    expect(screen.getByText(/全員の投票完了/)).toBeInTheDocument();
     expect(screen.getByText("この端末のみ")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "通知音を有効にする" }));
     expect(onEnable).toHaveBeenCalledOnce();

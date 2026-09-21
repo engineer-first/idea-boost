@@ -12,11 +12,12 @@ const END_LATE_TOLERANCE_MS = 2_000;
 const TIMER_SOUND_PEAK_GAIN = 0.04;
 const TIMER_SOUND_GAP_SECONDS = 0.05;
 
-type TimerSoundKind = "start" | "warning" | "end";
+type TimerSoundKind = "start" | "warning" | "end" | "votingComplete";
 
 type TimerSoundTone = {
   frequencyHz: number;
   durationMs: number;
+  oscillatorType?: OscillatorType;
 };
 
 const TIMER_SOUND_PATTERNS: Record<TimerSoundKind, readonly TimerSoundTone[]> =
@@ -29,6 +30,18 @@ const TIMER_SOUND_PATTERNS: Record<TimerSoundKind, readonly TimerSoundTone[]> =
     end: [
       { frequencyHz: 392, durationMs: 170 },
       { frequencyHz: 329.63, durationMs: 230 },
+    ],
+    votingComplete: [
+      {
+        frequencyHz: 783.99,
+        durationMs: 90,
+        oscillatorType: "triangle",
+      },
+      {
+        frequencyHz: 1174.66,
+        durationMs: 180,
+        oscillatorType: "triangle",
+      },
     ],
   };
 
@@ -44,6 +57,11 @@ type UseRoomTimerSoundsOptions = {
   timer: TimerState;
   serverOffsetMs: number;
   timerUpdateVersion: number;
+  votingCompletion?: {
+    roundKey: string | null;
+    isComplete: boolean;
+    isDisconnected: boolean;
+  };
   now?: () => number;
 };
 
@@ -88,7 +106,7 @@ function createTimerSound(
     const oscillator = context.createOscillator();
     const envelope = context.createGain();
 
-    oscillator.type = "sine";
+    oscillator.type = tone.oscillatorType ?? "sine";
     oscillator.frequency.setValueAtTime(tone.frequencyHz, startsAt);
     envelope.gain.setValueAtTime(0, startsAt);
     envelope.gain.linearRampToValueAtTime(
@@ -116,6 +134,11 @@ export function useRoomTimerSounds({
   timer,
   serverOffsetMs,
   timerUpdateVersion,
+  votingCompletion = {
+    roundKey: null,
+    isComplete: false,
+    isDisconnected: false,
+  },
   now = systemNow,
 }: UseRoomTimerSoundsOptions): TimerSoundControls {
   const [enabled, setEnabled] = useState(false);
@@ -125,11 +148,19 @@ export function useRoomTimerSounds({
   const audioContextRef = useRef<AudioContext | null>(null);
   const activeOscillatorsRef = useRef(new Set<OscillatorNode>());
   const firedCueKeysRef = useRef(new Set<string>());
+  const notifiedVotingRoundsRef = useRef(
+    new Set(
+      votingCompletion.roundKey !== null && votingCompletion.isComplete
+        ? [votingCompletion.roundKey]
+        : [],
+    ),
+  );
   const armedEndRunKeyRef = useRef<string | null>(null);
   const previousTimerEventRef = useRef<PreviousTimerEvent>({
     timer,
     timerUpdateVersion,
   });
+  const previousVotingCompletionRef = useRef(votingCompletion);
 
   const setEnabledState = useCallback((nextEnabled: boolean) => {
     enabledRef.current = nextEnabled;
@@ -235,6 +266,42 @@ export function useRoomTimerSounds({
     previousTimerEventRef.current = { timer, timerUpdateVersion };
     if (timer.status !== "running") armedEndRunKeyRef.current = null;
   }, [playCueOnce, now, serverOffsetMs, timer, timerUpdateVersion]);
+
+  useEffect(() => {
+    const previous = previousVotingCompletionRef.current;
+    const { roundKey, isComplete, isDisconnected } = votingCompletion;
+
+    if (roundKey === null) {
+      previousVotingCompletionRef.current = votingCompletion;
+      return;
+    }
+
+    if (isDisconnected) {
+      if (isComplete) notifiedVotingRoundsRef.current.add(roundKey);
+      previousVotingCompletionRef.current = votingCompletion;
+      return;
+    }
+
+    const enteredRound = previous.roundKey !== roundKey;
+    const reconnected = previous.isDisconnected;
+    if (enteredRound || reconnected) {
+      if (isComplete) notifiedVotingRoundsRef.current.add(roundKey);
+      previousVotingCompletionRef.current = votingCompletion;
+      return;
+    }
+
+    if (
+      !previous.isComplete &&
+      isComplete &&
+      !notifiedVotingRoundsRef.current.has(roundKey)
+    ) {
+      // 消音中でも通知済みにし、後から有効化されたときに過去音を鳴らさない。
+      notifiedVotingRoundsRef.current.add(roundKey);
+      playSound("votingComplete");
+    }
+
+    previousVotingCompletionRef.current = votingCompletion;
+  }, [playSound, votingCompletion]);
 
   useEffect(() => {
     if (!enabled || timer.status !== "running") {

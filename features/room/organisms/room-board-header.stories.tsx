@@ -12,6 +12,7 @@ const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_2 = buildPhaseStep(2, 2);
 const STEP_3_4 = buildPhaseStep(4, 3);
 const STEP_3_5 = buildPhaseStep(5, 3);
+const VOTING_MEMBERS = buildMembers(3, ME);
 
 const meta = {
   title: "Room/RoomBoardHeader",
@@ -139,6 +140,15 @@ export const SprintComplete: Story = {
 export const StealthVoting: Story = {
   args: {
     phase: STEP_1_4,
+  },
+};
+
+// 投票ステップで全員が完了した状態。
+export const VotingComplete: Story = {
+  args: {
+    phase: STEP_1_4,
+    members: VOTING_MEMBERS,
+    completedVoterIds: VOTING_MEMBERS.map(({ userId }) => userId),
   },
 };
 

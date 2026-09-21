@@ -10,7 +10,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { isPhaseStep, isResultStep, type RoomPhase } from "@/contracts/phase";
+import {
+  isPhaseStep,
+  isResultStep,
+  isVotingStep,
+  type RoomPhase,
+} from "@/contracts/phase";
 import type { TimerState } from "@/contracts/room-protocol";
 import { CopyInviteButton } from "@/features/invite";
 import { MemberAvatar } from "@/features/room-members";
@@ -102,10 +107,25 @@ export function RoomBoardHeader({
   onTimerStop,
 }: RoomBoardHeaderProps) {
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  const isCurrentVotingStep = isVotingStep(phase);
+  const completedVoterIdSet = new Set(completedVoterIds);
+  const haveAllMembersCompletedVoting =
+    isCurrentVotingStep &&
+    members.length > 0 &&
+    members.every(({ userId }) => completedVoterIdSet.has(userId));
+  const showVotingCompletion = haveAllMembersCompletedVoting && !isDisconnected;
   const timerSoundControls = useRoomTimerSounds({
     timer,
     serverOffsetMs: timerServerOffsetMs,
     timerUpdateVersion,
+    votingCompletion: {
+      roundKey:
+        isCurrentVotingStep && phase.kind === "step"
+          ? `phase-${phase.phase}`
+          : null,
+      isComplete: haveAllMembersCompletedVoting,
+      isDisconnected,
+    },
   });
   const guide = getFacilitationGuide(phase);
   const isFinalStep = isPhaseStep(phase, 3, 5);
@@ -153,6 +173,24 @@ export function RoomBoardHeader({
           aria-label="ルームの操作"
           data-testid="board-control-hud"
         >
+          {showVotingCompletion ? (
+            <span
+              className="shrink-0 max-[900px]:order-last max-[900px]:basis-full max-[900px]:pl-2"
+              data-testid="vote-completion-indicator"
+            >
+              <span
+                aria-hidden="true"
+                className="inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none dark:text-emerald-400"
+                data-testid="vote-completion-label"
+              >
+                <Check className="size-3.5 shrink-0" />
+                全員OK
+              </span>
+              <span className="sr-only" role="status" aria-live="polite">
+                全員の投票が完了しました
+              </span>
+            </span>
+          ) : null}
           <Popover>
             <PopoverTrigger asChild>
               <Button
