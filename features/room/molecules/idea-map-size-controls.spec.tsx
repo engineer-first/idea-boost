@@ -16,7 +16,11 @@ describe("IdeaMapSizeControls", () => {
       />,
     );
 
-    expect(screen.getByText("広さ 3 / 9")).toBeInTheDocument();
+    expect(screen.getByText("マップの広さ")).toBeInTheDocument();
+    expect(screen.queryByText("広さ 3 / 9")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("付箋数に合わせて調整できます。"),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "マップを狭くする" }));
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expect(onResize.mock.calls).toEqual([[1], [3]]);
@@ -27,7 +31,7 @@ describe("IdeaMapSizeControls", () => {
     ["ドラッグ中", { isDragging: true }, "付箋のドラッグ中は変更できません。"],
     ["切断中", { isDisconnected: true }, "接続が回復すると変更できます。"],
     ["未初期化", { initialized: false }, "初期サイズを準備しています。"],
-  ])("%sは理由を示して変更を無効化する", (_label, overrides, reason) => {
+  ])("%sは理由を読み上げて変更を無効化する", (_label, overrides, reason) => {
     render(
       <IdeaMapSizeControls
         sizeLevel={1}
@@ -40,7 +44,7 @@ describe("IdeaMapSizeControls", () => {
       />,
     );
 
-    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(screen.getByText(reason)).toHaveClass("sr-only");
     expect(
       screen.getByRole("button", { name: "マップを狭くする" }),
     ).toBeDisabled();

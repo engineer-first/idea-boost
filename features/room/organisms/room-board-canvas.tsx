@@ -590,19 +590,22 @@ export function RoomBoardCanvas({
               onFitToNotes={onFitToNotes}
             />
           </div>
-          {isIdeaMapSizeControlsVisible ? (
-            <div data-testid="idea-map-size-controls-hud">
-              <IdeaMapSizeControls
-                sizeLevel={ideaMapSizeLevel}
-                initialized={ideaMapSizeInitialized}
-                isHost={isHost}
-                isDisconnected={isDisconnected}
-                isDragging={ideaMapIsDragging}
-                onResize={onIdeaMapResize}
-              />
-            </div>
-          ) : null}
         </div>
+        {isIdeaMapSizeControlsVisible ? (
+          <div
+            className="pointer-events-auto absolute bottom-3 left-1/2 z-40 -translate-x-1/2"
+            data-testid="idea-map-size-controls-hud"
+          >
+            <IdeaMapSizeControls
+              sizeLevel={ideaMapSizeLevel}
+              initialized={ideaMapSizeInitialized}
+              isHost={isHost}
+              isDisconnected={isDisconnected}
+              isDragging={ideaMapIsDragging}
+              onResize={onIdeaMapResize}
+            />
+          </div>
+        ) : null}
         {permissions.showPrivateToolbar ? (
           <div
             className="pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end"

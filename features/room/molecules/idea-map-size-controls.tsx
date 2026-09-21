@@ -52,13 +52,6 @@ export function IdeaMapSizeControls({
       >
         <Minus aria-hidden="true" />
       </Button>
-      <span
-        aria-live="polite"
-        className="min-w-16 text-center text-xs font-medium tabular-nums"
-        data-testid="idea-map-size-level"
-      >
-        広さ {boundedLevel - min + 1} / {max - min + 1}
-      </span>
       <Button
         type="button"
         variant="ghost"
@@ -69,17 +62,8 @@ export function IdeaMapSizeControls({
       >
         <Plus aria-hidden="true" />
       </Button>
-      <span
-        className="ml-1 max-w-52 px-1 text-[11px] text-muted-foreground"
-        data-testid="idea-map-size-status"
-        role="status"
-      >
-        {disabledReason ??
-          (boundedLevel <= min
-            ? "最小の広さです。"
-            : boundedLevel >= max
-              ? "最大の広さです。"
-              : "付箋数に合わせて調整できます。")}
+      <span className="sr-only" role="status">
+        {disabledReason ?? `現在の広さは${boundedLevel - min + 1}段階目です。`}
       </span>
     </fieldset>
   );
