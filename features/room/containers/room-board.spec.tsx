@@ -904,7 +904,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
-    expect(screen.getByText("候補外")).toBeInTheDocument();
+    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
   });
 

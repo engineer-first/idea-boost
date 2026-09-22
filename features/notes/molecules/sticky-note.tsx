@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { getNoteShadow } from "../logic/note-shadow";
 
 export type StickyNoteProps = {
+  ref?: React.Ref<HTMLDivElement>;
   noteId: string;
   isLifted?: boolean;
   isSelected?: boolean;
@@ -24,6 +25,7 @@ export type StickyNoteProps = {
 
 // RoomBoard の molecule。共有ボードとマイ付箋で共通利用する付箋の見た目だけを担う。
 export function StickyNote({
+  ref,
   noteId,
   isLifted = false,
   isSelected = false,
@@ -41,6 +43,7 @@ export function StickyNote({
 }: StickyNoteProps) {
   return (
     <div
+      ref={ref}
       data-slot="sticky-note"
       data-testid={testId}
       data-note-id={noteId}
