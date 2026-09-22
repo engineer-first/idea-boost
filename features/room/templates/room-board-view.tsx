@@ -36,9 +36,9 @@ import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { StepGuideState } from "../logic/use-step-guide";
-import { AdoptNoteControl } from "../molecules/adopt-note-control";
-import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
+import { AdoptionConfirmDialog } from "../molecules/adoption-confirm-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
+import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
@@ -50,6 +50,7 @@ export type RoomBoardViewProps = {
   inviteCode: string;
   inviteUrl: string;
   phase: RoomPhase;
+  phaseRevision?: number;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
   ideaMapIsDragging?: boolean;
@@ -112,7 +113,8 @@ export type RoomBoardViewProps = {
   voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
   onAdoptionFocusChange?: (noteId: string | null) => void;
-  onDecisionClear: () => void;
+  onRestartWriting?: () => void;
+  onRevote?: () => void;
   // 退出。
   onLeave: () => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
@@ -148,6 +150,7 @@ export function RoomBoardView({
   inviteCode,
   inviteUrl,
   phase,
+  phaseRevision = 0,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = false,
   ideaMapIsDragging = false,
@@ -193,7 +196,8 @@ export function RoomBoardView({
   onNoteDecide,
   onNoteBringToFront,
   onAdoptionFocusChange: notifyAdoptionFocusChange,
-  onDecisionClear,
+  onRestartWriting = () => undefined,
+  onRevote = () => undefined,
   onLeave,
   isLeaving,
   onNextPhase,
@@ -207,6 +211,7 @@ export function RoomBoardView({
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [adoptionTargetId, setAdoptionTargetId] = useState<string | null>(null);
   const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
@@ -223,8 +228,10 @@ export function RoomBoardView({
     useState<VoteStampPointer | null>(null);
   const suppressPaletteSelectRef = useRef(false);
   const previousPhaseKey = useRef(phaseKey);
+  const previousRevision = useRef(phaseRevision);
+  const resultShownFor = useRef<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-  const permissions = getBoardPermissions(phase);
+  const permissions = getBoardPermissions(phase, decision !== null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -234,11 +241,20 @@ export function RoomBoardView({
     if (previousPhaseKey.current === phaseKey) return;
     previousPhaseKey.current = phaseKey;
     setIsAdoptMode(false);
+    setAdoptionTargetId(null);
   }, [phaseKey]);
+
+  useEffect(() => {
+    if (previousRevision.current === phaseRevision) return;
+    previousRevision.current = phaseRevision;
+    setAdoptionTargetId(null);
+    setIsAdoptMode(false);
+  }, [phaseRevision]);
 
   useEffect(() => {
     if (connectionStatus === "open" && isHost && decision === null) return;
     setIsAdoptMode(false);
+    setAdoptionTargetId(null);
   }, [connectionStatus, decision, isHost]);
 
   useEffect(() => {
@@ -268,8 +284,11 @@ export function RoomBoardView({
   }, [isAdoptMode]);
 
   useEffect(() => {
+    const resultKey = `${phaseKey}:${phaseRevision}`;
+    if (resultShownFor.current === resultKey) return;
+    resultShownFor.current = resultKey;
     setVoteTotalingDialogOpen(isResultStep(phase));
-  }, [phase]);
+  }, [phase, phaseKey, phaseRevision]);
 
   useEffect(() => {
     if (isVotingStep(phase)) return;
@@ -329,7 +348,12 @@ export function RoomBoardView({
       note.dotVotes.objective.count === 0,
   ).length;
   const isNextPhaseBlocked =
-    isResultStep(phase) && (decision === null || candidateNotes.length === 0);
+    (isResultStep(phase) &&
+      (decision === null || candidateNotes.length === 0)) ||
+    (phase.kind === "step" &&
+      phase.step > 1 &&
+      !isResultStep(phase) &&
+      candidateNotes.length === 0);
   const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
   const decisionContent =
     decision === null
@@ -341,7 +365,7 @@ export function RoomBoardView({
     if (!isAdoptMode) return;
     handleAdoptionFocusChange(null);
     setIsAdoptMode(false);
-    onNoteDecide(noteId);
+    setAdoptionTargetId(noteId);
   }
 
   function handleAdoptionFocusChange(noteId: string | null): void {
@@ -667,6 +691,10 @@ export function RoomBoardView({
         inviteCode={inviteCode}
         inviteUrl={inviteUrl}
         phase={phase}
+        phaseRevision={phaseRevision}
+        bulkExclusionTargetCount={bulkExclusionTargetCount}
+        canManageCandidates={isResultStep(phase) && decision === null}
+        onBulkCandidateExclude={onBulkCandidateExclude}
         timer={timer}
         timerServerOffsetMs={timerServerOffsetMs}
         timerUpdateVersion={timerUpdateVersion}
@@ -777,30 +805,57 @@ export function RoomBoardView({
         </div>
       ) : null}
 
-      {isResultStep(phase) && phase.kind === "step" ? (
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex flex-col items-center gap-2">
-          <AdoptNoteControl
-            phaseNumber={phase.phase}
-            isHost={isHost}
-            isSelecting={isAdoptMode}
-            decisionContent={decisionContent}
-            disabled={isDisconnected || candidateNotes.length === 0}
-            onStartSelection={() => {
-              setSelectedNoteId(null);
-              setIsAdoptMode(true);
-            }}
-            onCancelSelection={() => setIsAdoptMode(false)}
-            onClearDecision={onDecisionClear}
-          />
-          {isHost && !isAdoptMode ? (
-            <BulkCandidateExclusion
-              targetCount={bulkExclusionTargetCount}
-              disabled={isDisconnected}
-              onConfirm={onBulkCandidateExclude}
-            />
-          ) : null}
-        </div>
-      ) : null}
+      <div
+        className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
+        data-testid="phase-loop-hud"
+      >
+        <PhaseLoopControls
+          key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
+          phase={phase}
+          isHost={isHost}
+          isSelecting={isAdoptMode}
+          decisionContent={decisionContent}
+          candidateCount={candidateNotes.length}
+          disabled={isDisconnected || isNextPhasePending}
+          onRestartWriting={onRestartWriting}
+          onRevote={onRevote}
+          onStartSelection={() => {
+            setSelectedNoteId(null);
+            setIsAdoptMode(true);
+          }}
+          onCancelSelection={() => setIsAdoptMode(false)}
+        />
+      </div>
+      <AdoptionConfirmDialog
+        key={`${phaseKey}:${phaseRevision}`}
+        phaseNumber={phase.kind === "step" ? phase.phase : 1}
+        target={
+          adoptionTargetId === null
+            ? null
+            : (() => {
+                const note = candidateNotes.find(
+                  (note) => note.id === adoptionTargetId,
+                );
+                return note
+                  ? {
+                      content: note.content,
+                      authorName:
+                        members.find(
+                          (member) => member.userId === note.authorId,
+                        )?.name ?? "退出した参加者",
+                    }
+                  : null;
+              })()
+        }
+        disabled={isDisconnected || decision !== null || !isHost}
+        onCancel={() => setAdoptionTargetId(null)}
+        onConfirm={() => {
+          if (adoptionTargetId !== null) {
+            onNoteDecide(adoptionTargetId);
+            setAdoptionTargetId(null);
+          }
+        }}
+      />
 
       {voteStickerDrag !== null ? (
         <div

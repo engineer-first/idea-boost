@@ -67,6 +67,7 @@ describe("applyServerMessage", () => {
   it("snapshotで付箋を丸ごと置き換える", () => {
     const message: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [note],
       members: [],
       phase: buildPhaseStep(1),
@@ -88,6 +89,7 @@ describe("applyServerMessage", () => {
     const snapshotNote = makeNote({ x: 0, y: 0 });
     const message: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [snapshotNote],
       members: [],
       phase: buildPhaseStep(1),

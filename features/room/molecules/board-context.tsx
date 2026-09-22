@@ -1,7 +1,12 @@
 "use client";
 
 import { Check, ChevronRight, ChevronUp } from "lucide-react";
-import { PHASE_STEP_COUNTS, type RoomPhase } from "@/contracts/phase";
+import { useId, useState } from "react";
+import {
+  PHASE_STEP_COUNTS,
+  ROOM_PHASE_STEP_LABELS,
+  type RoomPhase,
+} from "@/contracts/phase";
 import {
   getPhaseLabel,
   getPhaseProgressState,
@@ -47,6 +52,8 @@ export function BoardContext({
   decidedHmw,
 }: BoardContextProps) {
   const context = getPhaseContext(phase);
+  const [isRouteOpen, setRouteOpen] = useState(false);
+  const routeId = useId();
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const decisions = [
@@ -146,6 +153,53 @@ export function BoardContext({
             />
           ))}
         </span>
+        {phase.kind === "step" ? (
+          <>
+            <button
+              type="button"
+              aria-expanded={isRouteOpen}
+              aria-controls={routeId}
+              className="mt-3 min-h-8 text-xs text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+              onClick={() => setRouteOpen(!isRouteOpen)}
+            >
+              {isRouteOpen ? "全手順を閉じる" : "全手順を見る"}
+            </button>
+            {isRouteOpen ? (
+              <ol
+                id={routeId}
+                aria-label="このフェーズの全手順"
+                className="mt-2 space-y-1 text-xs leading-5"
+              >
+                {Object.entries(ROOM_PHASE_STEP_LABELS[phase.phase]).map(
+                  ([step, label]) => (
+                    <li
+                      key={step}
+                      aria-current={
+                        Number(step) === phase.step ? "step" : undefined
+                      }
+                      className={
+                        Number(step) === phase.step
+                          ? "font-semibold text-primary"
+                          : "text-muted-foreground"
+                      }
+                    >
+                      {label}
+                    </li>
+                  ),
+                )}
+              </ol>
+            ) : null}
+            <p className="mt-2 border-t border-border pt-2 text-xs">
+              ゴール：
+              {phase.phase === 1
+                ? "課題"
+                : phase.phase === 2
+                  ? "HMW"
+                  : "アイデア"}
+              を1つ決める
+            </p>
+          </>
+        ) : null}
       </div>
 
       {decisions.map(({ id, label, content }, index) => (

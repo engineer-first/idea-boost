@@ -28,6 +28,7 @@ import type { Member } from "../logic/room-reducer";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
+import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { StepGuide } from "../molecules/step-guide";
 import { RoomTimer } from "./room-timer";
@@ -39,6 +40,10 @@ export type RoomBoardHeaderProps = {
   inviteCode: string;
   inviteUrl: string;
   phase: RoomPhase;
+  phaseRevision?: number;
+  bulkExclusionTargetCount?: number;
+  canManageCandidates?: boolean;
+  onBulkCandidateExclude?: () => void;
   timer: TimerState;
   timerServerOffsetMs: number;
   timerUpdateVersion?: number;
@@ -75,6 +80,10 @@ export function RoomBoardHeader({
   inviteCode,
   inviteUrl,
   phase,
+  phaseRevision = 0,
+  bulkExclusionTargetCount = 0,
+  canManageCandidates = false,
+  onBulkCandidateExclude = () => undefined,
   timer,
   timerServerOffsetMs,
   timerUpdateVersion = 0,
@@ -389,8 +398,9 @@ export function RoomBoardHeader({
                   <Check aria-hidden="true" className="size-4" />
                   スプリント完了
                 </span>
-              ) : !isFinalStep && isHost ? (
+              ) : !isFinalStep && isHost && !isNextPhaseBlocked ? (
                 <NextPhaseConfirmDialog
+                  key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
                   phase={phase}
                   disabled={
                     isDisconnected || isNextPhasePending || isNextPhaseBlocked
@@ -401,6 +411,7 @@ export function RoomBoardHeader({
             </>
           ) : isHost ? (
             <NextPhaseConfirmDialog
+              key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
               phase={phase}
               disabled={
                 isDisconnected || isNextPhasePending || isNextPhaseBlocked
@@ -441,6 +452,13 @@ export function RoomBoardHeader({
               ) : null}
 
               <div className="flex flex-col gap-1">
+                {isHost && canManageCandidates ? (
+                  <BulkCandidateExclusion
+                    targetCount={bulkExclusionTargetCount}
+                    disabled={isDisconnected}
+                    onConfirm={onBulkCandidateExclude}
+                  />
+                ) : null}
                 <Button
                   type="button"
                   variant="destructive"

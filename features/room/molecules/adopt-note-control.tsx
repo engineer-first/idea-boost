@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, MousePointerClick, RotateCcw, X } from "lucide-react";
+import { CheckCircle2, MousePointerClick, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export type AdoptionPhaseNumber = 1 | 2 | 3;
@@ -24,7 +24,6 @@ export type AdoptNoteControlProps = {
   disabled: boolean;
   onStartSelection: () => void;
   onCancelSelection: () => void;
-  onClearDecision: () => void;
 };
 
 export function AdoptNoteControl({
@@ -35,7 +34,6 @@ export function AdoptNoteControl({
   disabled,
   onStartSelection,
   onCancelSelection,
-  onClearDecision,
 }: AdoptNoteControlProps) {
   const targetLabel = getAdoptionTargetLabel(phaseNumber);
 
@@ -57,18 +55,6 @@ export function AdoptNoteControl({
             {decisionContent}
           </p>
         </div>
-        {isHost ? (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled}
-            aria-label="確定を解除"
-            onClick={onClearDecision}
-          >
-            <RotateCcw aria-hidden="true" />
-            解除
-          </Button>
-        ) : null}
       </section>
     );
   }
@@ -105,11 +91,14 @@ export function AdoptNoteControl({
   }
 
   return (
-    <div className="pointer-events-auto rounded-2xl border border-border bg-background p-2 shadow-lg shadow-black/5">
-      <Button type="button" disabled={disabled} onClick={onStartSelection}>
-        <MousePointerClick aria-hidden="true" />
-        採用する{targetLabel}を選ぶ
-      </Button>
-    </div>
+    <Button
+      className="pointer-events-auto"
+      type="button"
+      disabled={disabled}
+      onClick={onStartSelection}
+    >
+      <MousePointerClick aria-hidden="true" />
+      採用する付箋を選ぶ
+    </Button>
   );
 }

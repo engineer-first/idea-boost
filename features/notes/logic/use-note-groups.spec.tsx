@@ -21,6 +21,7 @@ describe("useNoteGroups", () => {
     act(() =>
       result.current.applyMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [],
         phase: buildPhaseStep(1),
@@ -38,6 +39,7 @@ describe("useNoteGroups", () => {
     act(() =>
       result.current.applyMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [],
         phase: buildPhaseStep(1),

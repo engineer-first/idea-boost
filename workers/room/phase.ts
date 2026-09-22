@@ -6,16 +6,22 @@ import {
 import {
   getRoomPhaseLabel,
   isLobby,
+  isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
   type PHASE_STEP_COUNTS,
   type RoomPhase,
   RoomPhaseSchema,
+  VOTING_STEP_BY_PHASE,
 } from "../../contracts/phase";
 import type { ClientMessage } from "../../contracts/room-protocol";
 import { getDecision } from "./decisions";
 import { clearUsedNoteDragIds } from "./drag-operations";
-import type { MessageHandlers } from "./handler-context";
+import {
+  type HandlerCtx,
+  type MessageHandlers,
+  replyForbidden,
+} from "./handler-context";
 import { isHostUser } from "./members";
 import {
   excludeNotesForBulkOperation,
@@ -33,7 +39,27 @@ export function getPhase(sql: SqlStorage): RoomPhase {
 }
 
 export function savePhase(sql: SqlStorage, phase: RoomPhase): void {
-  sql.exec("UPDATE room_state SET phase = ?1 WHERE id = 1", encodePhase(phase));
+  sql.exec(
+    "UPDATE room_state SET phase = ?1, phase_revision = phase_revision + 1 WHERE id = 1",
+    encodePhase(phase),
+  );
+}
+
+export function getPhaseRevision(sql: SqlStorage): number {
+  return Number(
+    sql.exec("SELECT phase_revision FROM room_state WHERE id = 1").one()
+      .phase_revision,
+  );
+}
+
+function matchesExpectedPhase(
+  ctx: HandlerCtx,
+  message: { expectedPhase: RoomPhase; expectedRevision: number },
+): boolean {
+  return (
+    encodePhase(getPhase(ctx.sql)) === encodePhase(message.expectedPhase) &&
+    getPhaseRevision(ctx.sql) === message.expectedRevision
+  );
 }
 
 function encodePhase(phase: RoomPhase): string {
@@ -79,10 +105,8 @@ function nextRoomPhase(current: RoomPhase): RoomPhase {
   return current;
 }
 
-// 共有されなかったマイ付箋は発散途中の下書きにすぎない。以降のステップへ
-// 持ち越さず破棄する。削除済み付箋の票を残さないよう、先に note_votes も
-// 掃除する。
-function discardPrivateNotes(sql: SqlStorage): void {
+// 同フェーズの下書きは保持し、次フェーズまたは最終完了時に破棄する。
+export function discardPrivateNotes(sql: SqlStorage): void {
   sql.exec(
     `DELETE FROM note_vote_stickers
      WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
@@ -96,18 +120,6 @@ function discardPrivateNotes(sql: SqlStorage): void {
      WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
   );
   sql.exec("DELETE FROM notes WHERE visibility = 'private'");
-}
-
-// 「共有する」はどのフェーズでも Step 2（contracts/phase.ts の
-// ROOM_PHASE_STEP_LABELS が真実）。投票・結果ステップと違いフェーズごとに
-// ずれないため、フェーズ別の対応表は持たない。
-const SHARING_STEP = 2;
-
-// 共有ステップ（各フェーズの Step 2: 共有する）かどうか。マイ付箋を共有
-// ボードへ上げられる（note:publish が許可される）最後のステップであり、
-// ここを抜けると未共有の付箋は誰の目にも触れられなくなる。
-function isSharingStep(phase: RoomPhase): boolean {
-  return !isLobby(phase) && phase.step === SHARING_STEP;
 }
 
 // 個人執筆ステップ（各フェーズの Step 1: 課題 / HMW / アイデアを個人で書く）
@@ -156,6 +168,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "adoption-focus:update":
     case "start_phase":
     case "phase:next":
+    case "phase:restart-writing":
+    case "phase:revote":
     case "timer:start":
     case "timer:pause":
     case "timer:resume":
@@ -212,7 +226,11 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
-      "decision:clear",
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
   },
   2: {
@@ -250,7 +268,11 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
-      "decision:clear",
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
   },
   3: {
@@ -294,7 +316,11 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
-      "decision:clear",
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
   },
 };
@@ -319,7 +345,7 @@ function isIdeaValueFeasibilityMappingStep(phase: RoomPhase): boolean {
   return (
     !isLobby(phase) &&
     phase.phase === 3 &&
-    (phase.step === 2 || phase.step === 3)
+    (phase.step === 2 || phase.step === 3 || phase.step === 5)
   );
 }
 
@@ -353,7 +379,9 @@ export function getBoardMutationForbiddenMessage(
 // フェーズ進行の認可は room_owner（isHostUser）に一本化している。
 // D1 由来の hostId ヘッダーを認可ソースに加えない（旧ルームのバックフィル
 // シードにすぎない。room-do.ts の HOST_ID_HEADER 参照）。
-export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
+export const phaseHandlers: MessageHandlers<
+  "start_phase" | "phase:next" | "phase:restart-writing" | "phase:revote"
+> = {
   // ロビー → Step 1-1（ボード開始）。ホストのみ。
   start_phase: (ctx) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
@@ -377,6 +405,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     ctx.broadcaster.broadcastToAll({
       type: "phase:updated",
       phase: firstStep,
+      phaseRevision: getPhaseRevision(ctx.sql),
     });
   },
 
@@ -391,6 +420,10 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       return;
     }
     const current = getPhase(ctx.sql);
+    if (!matchesExpectedPhase(ctx, message)) {
+      replyForbidden(ctx);
+      return;
+    }
     if (isLobby(current)) {
       ctx.reply({
         type: "error",
@@ -427,6 +460,10 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       return;
     }
     const next = nextRoomPhase(current);
+    if (isVotingStep(next) && !hasCandidateNotes(ctx.sql, current.phase)) {
+      replyForbidden(ctx);
+      return;
+    }
     // 次のステップがまだ実装されていない状態では nextRoomPhase が current を
     // そのまま返す。ここで no-op を配信すると
     // クライアントの decision 表示がフェーズ単位で無条件クリアされてしまう
@@ -447,12 +484,6 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       });
       return;
     }
-    // 共有ステップを抜けた時点で、共有されなかったマイ付箋はもう共有ボードへ
-    // 上げる経路がない（Step 3 以降は note:publish が許可されない）。残すと
-    // 誰の目にも触れないまま次のステップ・フェーズへ溜まり続けるため、ここで
-    // 破棄する。掃除のタイミングはこの1箇所に一本化し、フェーズ境界では
-    // 掃除しない（同じ判断が2箇所にあると、どちらが真実か分からなくなる）。
-    const leavesSharingStep = isSharingStep(current) && !isSharingStep(next);
     const entersVotingStep = !isVotingStep(current) && isVotingStep(next);
     const initializesIdeaMapSize =
       current.kind === "step" &&
@@ -471,7 +502,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
       crossesPhaseBoundary ||
-      leavesSharingStep ||
+      current.step === 2 ||
       entersVotingStep ||
       entersIdeaMapStep;
     let timerWasReset = false;
@@ -481,7 +512,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
     ctx.storage.transactionSync(() => {
-      if (leavesSharingStep) {
+      if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);
       }
       if (initializesIdeaMapSize) {
@@ -555,6 +586,64 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         source: "phase-transition",
       });
     }
-    ctx.broadcaster.broadcastToAll({ type: "phase:updated", phase: next });
+    ctx.broadcaster.broadcastToAll({
+      type: "phase:updated",
+      phase: next,
+      phaseRevision: getPhaseRevision(ctx.sql),
+    });
   },
+  "phase:restart-writing": (ctx, message) => restartPhase(ctx, message, false),
+  "phase:revote": (ctx, message) => restartPhase(ctx, message, true),
 };
+
+// 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
+async function restartPhase(
+  ctx: HandlerCtx,
+  message: Extract<
+    ClientMessage,
+    { type: "phase:restart-writing" | "phase:revote" }
+  >,
+  revote: boolean,
+): Promise<void> {
+  const current = getPhase(ctx.sql);
+  if (
+    !isHostUser(ctx.sql, ctx.userId) ||
+    !matchesExpectedPhase(ctx, message) ||
+    current.kind !== "step" ||
+    getDecision(ctx.sql, current.phase) ||
+    (revote
+      ? !isResultStep(current) || !hasCandidateNotes(ctx.sql, current.phase)
+      : !isRestartWritingAllowedStep(current))
+  ) {
+    replyForbidden(ctx);
+    return;
+  }
+  const next: RoomPhase = {
+    ...current,
+    step: revote ? VOTING_STEP_BY_PHASE[current.phase] : 1,
+  };
+  let timerWasReset = false;
+  ctx.storage.transactionSync(() => {
+    if (revote) {
+      ctx.sql.exec(
+        "DELETE FROM note_vote_stickers WHERE note_id IN (SELECT id FROM notes WHERE phase = ?1)",
+        current.phase,
+      );
+      ctx.sql.exec(
+        "DELETE FROM note_votes WHERE note_id IN (SELECT id FROM notes WHERE phase = ?1)",
+        current.phase,
+      );
+    }
+    savePhase(ctx.sql, next);
+    timerWasReset = resetTimerState(ctx.sql);
+  });
+  ctx.broadcaster.retireAllActiveDrags();
+  ctx.broadcaster.retireAllAdoptionFocus();
+  if (timerWasReset) await ctx.storage.deleteAlarm();
+  ctx.refreshSnapshots();
+  ctx.broadcaster.broadcastToAll({
+    type: "phase:updated",
+    phase: next,
+    phaseRevision: getPhaseRevision(ctx.sql),
+  });
+}

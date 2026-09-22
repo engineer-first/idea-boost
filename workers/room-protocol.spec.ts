@@ -25,6 +25,7 @@ import { NOTE_DRAG_START_RATE_LIMIT_PER_MINUTE } from "./room/drag-operations";
 import {
   connectRoomAs,
   createRoomAs,
+  currentPhaseExpectation,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
@@ -573,7 +574,10 @@ describe("start_phase / phase:updated（ホストだけ進行状態を進めら�
     const member = await connectRoomAs(MEMBER, roomId);
     await expectType(member, "snapshot");
 
-    send(member, { type: "phase:next" });
+    send(member, {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomId)),
+    });
     const error = await expectType(member, "error");
     expect(error.code).toBe("forbidden");
 
@@ -1229,14 +1233,18 @@ describe("note:update-content / note:move（pgTAP: メンバーの共同編集�
 
 describe("note:vote（課題ドット投票）", () => {
   it("Step 1-5 へ接続を維持したまま進むと、全参加者の集計を復元する", async () => {
-    const { owner, member } = await setupStartedRoom();
+    const { owner, member, roomId } = await setupStartedRoom();
     const noteId = await createNote({ owner, member });
 
     await arrangeStep(owner, 4);
     send(member, { type: "note:vote", noteId, kind: "subjective" });
     await expectType(member, "note:updated");
 
-    send(owner, { type: "phase:next", force: true });
+    send(owner, {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomId)),
+      force: true,
+    });
 
     const ownerSnapshot = await expectType(owner, "snapshot");
     const memberSnapshot = await expectType(member, "snapshot");
@@ -1296,7 +1304,11 @@ describe("note:vote（課題ドット投票）", () => {
 
     // 投票イベントが owner に届いていれば、ここで snapshot ではなく
     // note:updated を受け取るため失敗する。
-    send(owner, { type: "phase:next", force: true });
+    send(owner, {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomId)),
+      force: true,
+    });
     const ownerResult = await expectType(owner, "snapshot");
     const memberResult = await expectType(reconnected, "snapshot");
     expect(
@@ -1370,7 +1382,11 @@ describe("note:vote（課題ドット投票）", () => {
     const snapshot = await expectType(reconnected, "snapshot");
     expect(snapshot.completedVoterIds).toEqual([MEMBER.sub]);
 
-    send(owner, { type: "phase:next", force: true });
+    send(owner, {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomId)),
+      force: true,
+    });
     const resultSnapshot = await expectType(owner, "snapshot");
     expect(resultSnapshot.completedVoterIds).toEqual([]);
     expect((await expectType(owner, "phase:updated")).phase).toEqual(
@@ -2501,7 +2517,10 @@ describe("note:drag（エフェメラル同期）", () => {
       dragId: "12121212-1212-4121-8121-121212121212",
     });
     await expectType(room.member, "note:drag:result");
-    send(room.owner, { type: "phase:next" });
+    send(room.owner, {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(room.roomId)),
+    });
     await expectType(room.owner, "snapshot");
     await expectType(room.member, "snapshot");
     await expectType(room.owner, "phase:updated");
@@ -2938,8 +2957,11 @@ describe("グループ指向のグループ同期", () => {
     await expectType(owner, "note:updated");
     await expectType(member, "note:updated");
 
-    send(owner, { type: "phase:next" });
-    // 共有ステップ（Step 1-2）を抜けるときは未共有のマイ付箋を破棄するため、
+    send(owner, {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomId)),
+    });
+    // 共有ステップ（Step 1-2）を抜けるときは配置と下書きを同期するため、
     // phase:updated の前に snapshot が再送される。
     await expectType(owner, "snapshot");
     await expectType(member, "snapshot");

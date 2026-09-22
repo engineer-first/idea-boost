@@ -118,7 +118,12 @@ test("付箋への最初のクリックでガイドを閉じてその付箋を�
     await open(page, "room-roomboardview--guide-phase-1-step-3");
     await settled(page, "detail");
     const note = page.getByTestId("note-card").last();
-    await note.click();
+    // 左上の現在地に重ならない、付箋下部の露出した部分を最初にクリックする。
+    const bounds = await note.boundingBox();
+    if (!bounds) throw new Error("付箋が見つかりません");
+    await note.click({
+      position: { x: bounds.width / 2, y: bounds.height - 12 },
+    });
     await settled(page, "compact");
     expect(await note.getAttribute("data-selected")).toBe("true");
   } finally {
@@ -128,7 +133,7 @@ test("付箋への最初のクリックでガイドを閉じてその付箋を�
 
 test.each([
   1280, 1024, 768,
-])("%ipxでも上端と中心を保ち、縮小モーション設定では動かない", async (width) => {
+])("%ipxでも現在地を覆わず上端を保ち、縮小モーション設定では動かない", async (width) => {
   const page = await browser.newPage({
     viewport: { width, height: 720 },
     reducedMotion: "reduce",
@@ -151,17 +156,21 @@ test.each([
     const material = await page
       .getByTestId("board-reference-issue")
       .boundingBox();
-    if (width >= 1024)
-      expect(detail?.x).toBeGreaterThan(
-        (material?.x ?? 0) + (material?.width ?? 0),
-      );
+    expect(detail?.x).toBeGreaterThan(
+      (material?.x ?? 0) + (material?.width ?? 0),
+    );
     await page
       .getByRole("region", { name: "ファシリテーションガイド" })
       .press("Escape");
     await settled(page, "compact");
     const compact = await shell.boundingBox();
     expect(compact?.y).toBe(detail?.y);
-    expect((compact?.x ?? 0) + (compact?.width ?? 0) / 2).toBe(width / 2);
+    if (width >= 1024) {
+      expect((compact?.x ?? 0) + (compact?.width ?? 0) / 2).toBe(width / 2);
+    } else {
+      // 狭い幅では左の現在地の右へ配置し、展開しても左端を動かさない。
+      expect(compact?.x).toBe(detail?.x);
+    }
     expect(
       await page.getByTestId("board-reference-issue").boundingBox(),
     ).toEqual(material);

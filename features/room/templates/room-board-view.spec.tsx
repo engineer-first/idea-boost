@@ -115,7 +115,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     voteFeedback: null,
     onNoteDecide: vi.fn(),
     onAdoptionFocusChange: vi.fn(),
-    onDecisionClear: vi.fn(),
+
     connectionStatus: "open" as const,
     groups: [],
     remoteCursors: [],
@@ -162,6 +162,7 @@ describe("採用する付箋の選択モード", () => {
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
     fireEvent.click(start());
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
     const target = start();
@@ -187,6 +188,7 @@ describe("採用する付箋の選択モード", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "採用する付箋: 候補A" }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "この課題に決定" }));
     expect(onNoteDecide).toHaveBeenCalledWith("note-1");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
@@ -247,8 +249,7 @@ describe("採用する付箋の選択モード", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("決定済みの内容を全員に示し、ホストは確定を解除できる", () => {
-    const onDecisionClear = vi.fn();
+  it("決定済みの内容を全員に示し、取消は出さない", () => {
     const notes = [buildNote({ id: "note-1", content: "決定した課題" })];
     const decision = buildDecision({ noteId: "note-1" });
     const { rerender, props } = setup({
@@ -256,12 +257,12 @@ describe("採用する付箋の選択モード", () => {
       isHost: true,
       notes,
       decision,
-      onDecisionClear,
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     expect(screen.getAllByText("決定した課題")).toHaveLength(2);
-    fireEvent.click(screen.getByRole("button", { name: "確定を解除" }));
-    expect(onDecisionClear).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("button", { name: "確定を解除" }),
+    ).not.toBeInTheDocument();
 
     rerender(<TestBoardView {...props} isHost={false} />);
     expect(screen.getAllByText("決定した課題")).toHaveLength(2);
@@ -317,12 +318,13 @@ describe("0票候補の一括整理", () => {
         buildNote({ id: "note-3", excluded: true }),
         buildNote({ id: "note-4" }),
       ],
-      decision: { phase: 1, noteId: "note-4", decidedBy: ME },
+      decision: null,
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    openRoomMenu();
     expect(
       screen.getByRole("button", {
-        name: "投票なしをまとめて候補から外す（1件）",
+        name: "投票なしをまとめて候補から外す（2件）",
       }),
     ).toBeInTheDocument();
   });
@@ -1433,7 +1435,7 @@ describe("RoomBoardView", () => {
     });
 
     it("選択済みの付箋をもう一度クリックすると編集モードに入る", () => {
-      setup();
+      setup({ phase: buildPhaseStep(2) });
 
       const [first] = screen.getAllByTestId("note-card");
       clickNote(first);
@@ -1443,7 +1445,10 @@ describe("RoomBoardView", () => {
     });
 
     it("付箋を1回クリックして選択後に文字を打つと、その文字から編集を開始する", () => {
-      setup({ notes: [buildNote({ content: "既存の本文" })] });
+      setup({
+        phase: buildPhaseStep(2),
+        notes: [buildNote({ content: "既存の本文" })],
+      });
 
       const [first] = screen.getAllByTestId("note-card");
       clickNote(first);
@@ -1455,7 +1460,7 @@ describe("RoomBoardView", () => {
       expect(textarea).toHaveValue("既存の本文a");
     });
 
-    it("選択中の付箋でBackspaceを押すとonNoteDeleteを呼ぶ", () => {
+    it("選択中の付箋でBackspaceを押すと個人中の共有済み付箋は削除しない", () => {
       const onNoteDelete = vi.fn();
       setup({ onNoteDelete });
 
@@ -1463,7 +1468,7 @@ describe("RoomBoardView", () => {
       clickNote(first);
       fireEvent.keyDown(getNoteSurface(first), { key: "Backspace" });
 
-      expect(onNoteDelete).toHaveBeenCalledWith("note-1");
+      expect(onNoteDelete).not.toHaveBeenCalledWith("note-1");
     });
   });
 
@@ -1588,15 +1593,15 @@ describe("RoomBoardView", () => {
       expect(onNextPhase).toHaveBeenCalledTimes(1);
     });
 
-    it("Step 1-5 は投票結果の確認後も、未決定なら「次のステップへ」を無効にする", () => {
+    it("Step 1-5 は未決定なら次への操作を出さない", () => {
       setup({ isHost: true, phase: buildPhaseStep(5), decision: null });
 
       // 結果ステップで自動表示される投票結果ダイアログを閉じてから検証する。
       fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
       expect(
-        screen.getByRole("button", { name: "次のステップへ" }),
-      ).toBeDisabled();
+        screen.queryByRole("button", { name: "次のステップへ" }),
+      ).not.toBeInTheDocument();
     });
 
     it("Step 1-5 で課題が決定されると2-1への「次のステップへ」を表示する", () => {
@@ -1623,7 +1628,7 @@ describe("RoomBoardView", () => {
   });
 
   describe("ステップごとの付箋編集制御", () => {
-    it("Step1では付箋編集できる", () => {
+    it("個人中の共有済み付箋は閲覧のみ", () => {
       setup({
         phase: buildPhaseStep(1),
       });
@@ -1633,9 +1638,7 @@ describe("RoomBoardView", () => {
       clickNote(first);
       clickNote(first);
 
-      expect(within(first).getByRole("textbox")).not.toHaveAttribute(
-        "readonly",
-      );
+      expect(within(first).getByRole("textbox")).toHaveAttribute("readonly");
     });
 
     it("Step2では付箋編集できる", () => {
@@ -2001,4 +2004,66 @@ describe("ステップに結び付いた決定事項", () => {
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
     ).toBeVisible();
   });
+});
+
+describe("反復ワークフロー", () => {
+  it.each([
+    [1, 2],
+    [1, 3],
+    [2, 2],
+    [3, 2],
+    [3, 3],
+  ] as const)("%i-%iで追加作業を下中央から確認する", (phase, step) => {
+    setup({ phase: buildPhaseStep(step, phase), isHost: true });
+    fireEvent.click(screen.getByRole("button", { name: "もう一度付箋を書く" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "共有済み付箋と下書きは残ります",
+    );
+    expect(
+      screen.getByRole("button", { name: "個人作業へ戻る" }),
+    ).toBeEnabled();
+  });
+  it("採用前は次への操作を出さず再投票を確認できる", () => {
+    setup({ phase: buildPhaseStep(5), isHost: true });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(
+      screen.queryByRole("button", { name: "次のステップへ" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "もう一度投票する" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "付箋は消えません",
+    );
+  });
+  it("採用クリックは本文と作者の確認を挟む", () => {
+    const { props } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: [buildNote({ id: "candidate", content: "選んだ課題" })],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "採用する付箋: 選んだ課題" }),
+    );
+    expect(props.onNoteDecide).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("選んだ課題");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "決定は取り消せません",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "この課題に決定" }));
+    expect(props.onNoteDecide).toHaveBeenCalledWith("candidate");
+  });
+});
+
+it("同じ決定ステップのsnapshot更新では結果一覧を再表示しない", () => {
+  const { props, rerender } = setup({ phase: buildPhaseStep(5), isHost: true });
+  fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+  rerender(
+    <TestBoardView
+      {...props}
+      phase={{ ...props.phase }}
+      decision={buildDecision()}
+    />,
+  );
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

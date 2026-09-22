@@ -178,6 +178,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() =>
       socket.simulateServerMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [
           { userId: HOST_ID, name: "Host", color: "yellow" },
@@ -253,6 +254,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() =>
       socket.simulateServerMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [{ userId: HOST_ID, name: "Host", color: "yellow" }],
         phase: buildLobbyPhase(),
@@ -267,6 +269,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() =>
       socket.simulateServerMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(1),
       }),
     );

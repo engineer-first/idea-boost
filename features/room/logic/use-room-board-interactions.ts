@@ -29,6 +29,7 @@ export type UseRoomBoardInteractionsArgs = {
   currentUserId: string;
   draggingNoteId: string | null;
   phase: RoomPhase;
+  isDecided?: boolean;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
   onNoteDragStart: (noteId: string, privateMapLock?: boolean) => void;
@@ -89,6 +90,7 @@ export function useRoomBoardInteractions({
   currentUserId,
   draggingNoteId,
   phase,
+  isDecided = false,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = true,
   onNoteDragStart,
@@ -119,7 +121,10 @@ export function useRoomBoardInteractions({
   } = useCanvasCamera({
     viewportRef: boardScrollerRef,
     notes,
-    fitViewport: phase.kind === "step" && phase.phase === 3 && phase.step >= 2,
+    fitViewport:
+      phase.kind === "step" &&
+      phase.phase === 3 &&
+      (phase.step >= 2 || notes.length > 0),
     ideaMapSizeLevel,
     ideaMapSizeInitialized,
   });
@@ -134,12 +139,11 @@ export function useRoomBoardInteractions({
   });
   // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
   // 既存のボード権限に従い、投票・結果ステップでは共有付箋を操作させない。
-  const canMoveSharedNotes =
-    isPhaseStep(phase, 3, 2) ||
-    isPhaseStep(phase, 3, 3) ||
-    getBoardPermissions(phase).canMoveNote;
+  const canMoveSharedNotes = getBoardPermissions(phase, isDecided).canMoveNote;
   const isIdeaMapCursorSurface =
-    phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+    phase.kind === "step" &&
+    phase.phase === 3 &&
+    (phase.step >= 2 || notes.length > 0);
 
   const {
     drag,

@@ -44,6 +44,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: buildMembers(2),
         completedVoterIds: [buildMembers(2)[1]?.userId ?? ""],
@@ -70,6 +71,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [],
         phase: buildPhaseStep(3, 2),
@@ -121,6 +123,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(5),
       }),
     );
@@ -134,6 +137,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: buildMembers(1),
         phase: buildPhaseStep(1, 2),
@@ -150,6 +154,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(1, 2),
       }),
     );
@@ -168,6 +173,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(2),
       }),
     );
@@ -238,4 +244,18 @@ describe("useRoomState", () => {
     expect(notifyMocks.memberLeft).toHaveBeenCalledWith("Taro");
     expect(result.current.members).toHaveLength(0);
   });
+});
+
+it("サーバーの進行revisionを保持してループの競合判定に使う", () => {
+  const { result } = renderHook(() =>
+    useRoomState({ initialMembers: [], initialPhase: buildPhaseStep(2) }),
+  );
+  act(() =>
+    result.current.applyMessage({
+      type: "phase:updated",
+      phase: buildPhaseStep(1),
+      phaseRevision: 9,
+    }),
+  );
+  expect(result.current.phaseRevision).toBe(9);
 });

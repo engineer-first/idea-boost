@@ -329,13 +329,17 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-test("進め方を閉じると採用課題を残したままHMW例を広く読める", async () => {
+test("進め方を閉じると採用課題を残したままHMW例を末尾まで読める", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
   await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-issue-content").isVisible(),
   ).toBe(true);
   const content = page.locator("#board-help-content");
+  // 現在地のゴール・全手順入口を残し、例文一覧は内部スクロールで読む。
+  await content.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
   const contentBox = await content.boundingBox();
   const lastExample = await content.locator("li").last().boundingBox();
   expect(

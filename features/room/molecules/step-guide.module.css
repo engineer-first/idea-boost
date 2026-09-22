@@ -81,7 +81,10 @@
 }
 @media (max-width: 900px) {
   .guide {
+    --guide-width: min(426px, calc(100vw - 342px));
     top: 156px;
+    left: 330px;
+    transform: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

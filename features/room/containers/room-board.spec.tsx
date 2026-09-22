@@ -223,6 +223,7 @@ function connectWithSnapshot(
   act(() =>
     socket.simulateServerMessage({
       type: "snapshot",
+      phaseRevision: 0,
       notes,
       members: [],
       phase: options?.phase ?? buildPhaseStep(1),
@@ -362,6 +363,7 @@ describe("メンバー参加・退出の通知", () => {
     act(() =>
       socket.simulateServerMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [
           { userId: USER_ID, name: "Host", color: "yellow" },
@@ -461,6 +463,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() =>
       socket.simulateServerMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(2),
       }),
     );
@@ -508,7 +511,12 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
 
     expect(socket.sent).toContain(
-      JSON.stringify({ type: "phase:next", force: true }),
+      JSON.stringify({
+        type: "phase:next",
+        force: true,
+        expectedPhase: buildPhaseStep(4),
+        expectedRevision: 0,
+      }),
     );
   });
 
@@ -555,6 +563,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() =>
       socket.simulateServerMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(5),
       }),
     );
@@ -582,6 +591,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() =>
       socket.simulateServerMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [],
         phase: buildPhaseStep(5),
@@ -617,7 +627,12 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
 
     expect(socket.sent).not.toContain(
-      JSON.stringify({ type: "phase:next", force: true }),
+      JSON.stringify({
+        type: "phase:next",
+        force: true,
+        expectedPhase: buildPhaseStep(4),
+        expectedRevision: 0,
+      }),
     );
     expect(
       screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
@@ -756,6 +771,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       screen.getByRole("button", { name: "採用する付箋: 最初の付箋" }),
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "この課題に決定" }));
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
     );
@@ -800,7 +816,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("結果ステップのホストが確定を解除すると decision:clear を送信する", () => {
+  it("採用後はホストも確定を解除できない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
@@ -812,9 +828,12 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-    fireEvent.click(screen.getByRole("button", { name: "確定を解除" }));
-
-    expect(socket.sent).toContain(JSON.stringify({ type: "decision:clear" }));
+    expect(
+      screen.queryByRole("button", { name: "確定を解除" }),
+    ).not.toBeInTheDocument();
+    expect(socket.sent).not.toContain(
+      JSON.stringify({ type: "decision:clear" }),
+    );
   });
 
   it("結果ステップのホストが右クリックメニューから候補外にし、通知のUndoで復帰する", () => {
@@ -913,6 +932,9 @@ describe("サーバーメッセージ → 画面反映", () => {
       isHost: true,
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
     fireEvent.click(
       screen.getByRole("button", {
         name: "投票なしをまとめて候補から外す（1件）",
@@ -2310,11 +2332,23 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
 
     expect(screen.getByText("次のステップへ進みますか？")).toBeInTheDocument();
 
-    expect(socket.sent).not.toContain(JSON.stringify({ type: "phase:next" }));
+    expect(socket.sent).not.toContain(
+      JSON.stringify({
+        type: "phase:next",
+        expectedPhase: buildPhaseStep(1),
+        expectedRevision: 0,
+      }),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "移行する" }));
 
-    expect(socket.sent).toContain(JSON.stringify({ type: "phase:next" }));
+    expect(socket.sent).toContain(
+      JSON.stringify({
+        type: "phase:next",
+        expectedPhase: buildPhaseStep(1),
+        expectedRevision: 0,
+      }),
+    );
   });
 });
 
@@ -2617,7 +2651,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
   });
 
   it.each([
-    4, 5,
+    4,
   ])("Step 3-%iではマップ上の付箋をドラッグしても移動メッセージを送らない", (step) => {
     const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
       phase: buildPhaseStep(step, 3),

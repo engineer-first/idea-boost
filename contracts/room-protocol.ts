@@ -392,8 +392,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:decide"),
     noteId: z.string().uuid(),
   }),
-  // 現在フェーズの決定解除。phase / userId は RoomDO が
-  // 認証済みソケットと権威状態から導出する。
+  // 旧クライアントの決定解除要求。採用は不可逆のためサーバーで常に拒否する。
   z.object({ type: z.literal("decision:clear") }),
   // 採用選択モード中にホストが現在検討している候補。userId / phase は
   // 認証済みソケットと RoomDO の権威状態から導出する。
@@ -409,7 +408,19 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // force を送っても効果はない。
   z.object({
     type: z.literal("phase:next"),
+    expectedPhase: RoomPhaseSchema,
+    expectedRevision: z.number().int().nonnegative(),
     force: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal("phase:restart-writing"),
+    expectedPhase: RoomPhaseSchema,
+    expectedRevision: z.number().int().nonnegative(),
+  }),
+  z.object({
+    type: z.literal("phase:revote"),
+    expectedPhase: RoomPhaseSchema,
+    expectedRevision: z.number().int().nonnegative(),
   }),
   z
     .object({
@@ -445,6 +456,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     groups: z.array(GroupSchema).optional(),
     members: z.array(MemberSchema),
     phase: RoomPhaseSchema,
+    phaseRevision: z.number().int().nonnegative().default(0),
     isHost: z.boolean(),
     decision: DecisionSchema.nullable(),
     // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。
@@ -519,6 +531,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("phase:updated"),
     phase: RoomPhaseSchema,
+    phaseRevision: z.number().int().nonnegative().default(0),
   }),
   z.object({
     type: z.literal("decision:updated"),

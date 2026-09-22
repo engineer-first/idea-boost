@@ -202,10 +202,12 @@ export function RoomBoardCanvas({
   const adoptionTargetLabel = getAdoptionTargetLabel(
     phase.kind === "step" ? phase.phase : 1,
   );
-  // アイデア個人執筆中は2軸マップを表示せず、共有する Step3-2 から表示する。
+  // 初回は共有から2軸マップを表示し、個人作業へ再訪しても共有済みの配置を閲覧できる。
   // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
   const isIdeaValueFeasibilityMapVisible =
-    phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+    phase.kind === "step" &&
+    phase.phase === 3 &&
+    (phase.step >= 2 || notes.length > 0);
   const isIdeaMapSizeControlsVisible =
     phase.kind === "step" &&
     phase.phase === 3 &&
@@ -303,8 +305,18 @@ export function RoomBoardCanvas({
         isOwnDrag={draggingNoteId === note.id}
         isSelected={selectedNoteId === note.id}
         editingDisabled={isResultStep(phase)}
-        canDeleteNote={permissions.canDeleteNote && !note.excluded}
-        canEditNote={permissions.canEditNote && !note.excluded}
+        canDeleteNote={
+          permissions.canDeleteNote &&
+          phase.kind === "step" &&
+          phase.step !== 1 &&
+          !note.excluded
+        }
+        canEditNote={
+          permissions.canEditNote &&
+          phase.kind === "step" &&
+          phase.step !== 1 &&
+          !note.excluded
+        }
         canMoveNote={permissions.canMoveNote && !note.excluded}
         canExcludeNote={isHost && permissions.canExcludeNote && !note.excluded}
         canRestoreNote={isHost && permissions.canRestoreNote && note.excluded}
@@ -619,7 +631,10 @@ export function RoomBoardCanvas({
                 disabled={
                   isDisconnected ||
                   selectedNote === undefined ||
-                  selectedNote.excluded
+                  selectedNote.excluded ||
+                  (phase.kind === "step" &&
+                    phase.step === 1 &&
+                    selectedNote.visibility === "shared")
                 }
                 onChange={(fontSize) => {
                   if (selectedNote)

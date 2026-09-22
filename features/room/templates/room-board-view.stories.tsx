@@ -139,7 +139,7 @@ const meta = {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: fn(),
-    onDecisionClear: fn(),
+
     onLeave: fn(),
     isLeaving: false,
     onNextPhase: fn(),
@@ -492,7 +492,7 @@ export const SelectingIdeaMapCandidate: Story = {
     await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", {
-        name: "採用するアイデアを選ぶ",
+        name: "採用する付箋を選ぶ",
       }),
     );
     await userEvent.hover(
