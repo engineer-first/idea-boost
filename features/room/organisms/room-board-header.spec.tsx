@@ -25,11 +25,10 @@ function setupProps(
     hostUserId: ME,
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
-    isGuideExpanded: true,
+    initialGuideState: "detail" as const,
     isSprintComplete: false,
     isLeaving: false,
     onShowVoteResult: vi.fn(),
-    onGuideExpandedChange: vi.fn(),
     onLeaveClick: vi.fn(),
     onNextPhase: vi.fn(),
     onTimerStart: vi.fn(),
@@ -189,27 +188,25 @@ describe("RoomBoardHeader", () => {
   });
 
   describe("ファシリテーションガイド", () => {
-    it("現在地HUDと一体で表示し、開閉操作を通知する", () => {
-      const onGuideExpandedChange = vi.fn();
-      setup({ isHost: true, onGuideExpandedChange });
-
-      const toggle = screen.getByRole("button", {
-        name: "進め方を閉じる",
-      });
-      expect(toggle).toHaveAttribute("aria-expanded", "true");
-      expect(toggle).toHaveAttribute("aria-controls", "board-step-details");
-      expect(screen.getByText("3分")).toBeInTheDocument();
-      expect(screen.getByText("進行役へ")).toBeInTheDocument();
-
-      fireEvent.click(toggle);
-
-      expect(onGuideExpandedChange).toHaveBeenCalledWith(false);
+    it("現在地HUDと独立したひとつの枠で案内を開閉する", () => {
+      setup({ isHost: true });
+      const shell = screen.getByTestId("step-guide");
+      expect(screen.getByTestId("board-context-hud")).not.toContainElement(
+        shell,
+      );
+      expect(screen.getByText("進行役へ")).toBeVisible();
+      fireEvent.click(document.body);
+      expect(shell).toHaveAttribute("data-state", "compact");
+      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      expect(shell).toHaveAttribute("data-state", "detail");
     });
 
     it("参加者にはホスト限定の進行指示を表示しない", () => {
       setup({ isHost: false });
 
-      expect(screen.getByText(/最近あった困ったこと/)).toBeInTheDocument();
+      expect(
+        screen.getByRole("region", { name: "ファシリテーションガイド" }),
+      ).toHaveTextContent("最近あった困ったこと");
       expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
     });
 
@@ -241,7 +238,10 @@ describe("RoomBoardHeader", () => {
   it("折り畳んでもフェーズ名・正式なステップ名・進捗が読め、重複する見出しを省く", () => {
     const { rerender } = render(
       <RoomBoardHeader
-        {...setupProps({ phase: buildPhaseStep(1), isGuideExpanded: false })}
+        {...setupProps({
+          phase: buildPhaseStep(1),
+          initialGuideState: "compact",
+        })}
       />,
     );
     const context = screen.getByTestId("board-context-hud");
@@ -252,7 +252,10 @@ describe("RoomBoardHeader", () => {
     expect(within(context).queryByText("フェーズ1")).not.toBeInTheDocument();
     rerender(
       <RoomBoardHeader
-        {...setupProps({ phase: buildPhaseStep(1, 2), isGuideExpanded: false })}
+        {...setupProps({
+          phase: buildPhaseStep(1, 2),
+          initialGuideState: "compact",
+        })}
       />,
     );
     expect(within(context).getByText("問いの整理")).toBeVisible();

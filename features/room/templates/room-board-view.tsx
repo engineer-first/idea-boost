@@ -35,6 +35,7 @@ import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
+import type { StepGuideState } from "../logic/use-step-guide";
 import { AdoptNoteControl } from "../molecules/adopt-note-control";
 import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -72,8 +73,7 @@ export type RoomBoardViewProps = {
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
-  initialGuideExpanded?: boolean;
-  enableGuideModal?: boolean;
+  initialGuideState?: StepGuideState;
   remoteCursors: RenderedRemoteCursorPresence[];
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
@@ -200,8 +200,7 @@ export function RoomBoardView({
   onTimerResume,
   onTimerExtend,
   onTimerStop,
-  initialGuideExpanded = true,
-  enableGuideModal = true,
+  initialGuideState,
 }: RoomBoardViewProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
@@ -221,51 +220,18 @@ export function RoomBoardView({
   const [voteStampPointer, setVoteStampPointer] =
     useState<VoteStampPointer | null>(null);
   const suppressPaletteSelectRef = useRef(false);
-  const [guideDisplay, setGuideDisplay] = useState({
-    phaseKey,
-    isExpanded: initialGuideExpanded,
-    isInitialModal: true,
-  });
-  const previousGuidePhaseKeyRef = useRef(phaseKey);
-  const [privateNotesOpenRequest, setPrivateNotesOpenRequest] = useState(0);
-
+  const previousPhaseKey = useRef(phaseKey);
   const [isMounted, setIsMounted] = useState(false);
-  const isGuideExpanded =
-    guideDisplay.phaseKey === phaseKey ? guideDisplay.isExpanded : true;
   const permissions = getBoardPermissions(phase);
-  const isPhaseOneGuideStep =
-    phase.kind === "step" &&
-    phase.phase === 1 &&
-    (phase.step === 1 || phase.step === 2);
-  const isInitialGuideModal =
-    guideDisplay.phaseKey !== phaseKey || guideDisplay.isInitialModal;
-
-  function handleGuidePrimaryAction() {
-    if (
-      phase.kind === "step" &&
-      phase.step === 1 &&
-      permissions.canCreateNote
-    ) {
-      setPrivateNotesOpenRequest((request) => request + 1);
-      setGuideDisplay({ phaseKey, isExpanded: false, isInitialModal: false });
-      return;
-    }
-    setGuideDisplay({ phaseKey, isExpanded: false, isInitialModal: false });
-  }
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    if (previousGuidePhaseKeyRef.current === phaseKey) return;
-    previousGuidePhaseKeyRef.current = phaseKey;
+    if (previousPhaseKey.current === phaseKey) return;
+    previousPhaseKey.current = phaseKey;
     setIsAdoptMode(false);
-    setGuideDisplay({
-      phaseKey,
-      isExpanded: true,
-      isInitialModal: true,
-    });
   }, [phaseKey]);
 
   useEffect(() => {
@@ -677,7 +643,6 @@ export function RoomBoardView({
     <div
       ref={boardRootRef}
       data-testid="room-board-view-root"
-      data-guide-expanded={String(isGuideExpanded)}
       data-connection-status={connectionStatus}
       className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
         isNoteDragging
@@ -712,33 +677,11 @@ export function RoomBoardView({
         completedVoterIds={completedVoterIds}
         isNextPhasePending={isNextPhasePending}
         isNextPhaseBlocked={isNextPhaseBlocked}
-        isGuideExpanded={isGuideExpanded}
+        initialGuideState={initialGuideState}
         isSprintComplete={isSprintComplete}
         signOutAction={signOutAction}
         isLeaving={isLeaving}
         onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
-        onGuideExpandedChange={(isExpanded) =>
-          setGuideDisplay({
-            ...guideDisplay,
-            phaseKey,
-            isExpanded,
-            isInitialModal: isExpanded ? guideDisplay.isInitialModal : false,
-          })
-        }
-        onPrimaryAction={
-          enableGuideModal ? handleGuidePrimaryAction : undefined
-        }
-        isInitialModal={isInitialGuideModal}
-        onOpenPanel={
-          enableGuideModal && isPhaseOneGuideStep
-            ? () =>
-                setGuideDisplay({
-                  phaseKey,
-                  isExpanded: true,
-                  isInitialModal: false,
-                })
-            : undefined
-        }
         onLeaveClick={() => setLeaveDialogOpen(true)}
         onNextPhase={onNextPhase}
         onTimerStart={onTimerStart}
@@ -811,8 +754,6 @@ export function RoomBoardView({
         onPrivateNoteDelete={onPrivateNoteDelete}
         onPrivateNoteDragStart={handlePrivateDragStart}
         remoteCursors={remoteCursors}
-        expandPrivateNotesRequest={privateNotesOpenRequest}
-        addPrivateNoteRequest={privateNotesOpenRequest}
       />
 
       {isVotingStep(phase) ? (

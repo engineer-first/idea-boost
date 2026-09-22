@@ -331,7 +331,7 @@ for (const theme of ["light", "dark"]) {
 
 test("進め方を閉じると採用課題を残したままHMW例を広く読める", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
-  await page.getByRole("button", { name: "進め方を閉じる" }).click();
+  await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-issue-content").isVisible(),
   ).toBe(true);
@@ -763,7 +763,7 @@ test.each([
 
 test("進め方を閉じるとHMWを残したまま発想支援を3項目以上読める", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
-  await page.getByRole("button", { name: "進め方を閉じる" }).click();
+  await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-hmw-content").isVisible(),
   ).toBe(true);
@@ -823,11 +823,10 @@ test.each([
   expect(textBox.y + textBox.height).toBeLessThanOrEqual(
     scrollBox.y + scrollBox.height,
   );
-  await page.getByRole("button", { name: "進め方を閉じる" }).click();
+  await page.keyboard.press("Escape");
   const after = await page.getByTestId("board-help-panel").boundingBox();
   if (!before || !after) throw new Error("ヒントの表示領域が見つかりません");
-  expect(after.y).toBeLessThan(before.y);
-  expect(after.height).toBeGreaterThan(before.height);
+  expect(after).toEqual(before);
   expect(await page.getByTestId("room-timer").boundingBox()).toEqual(timer);
   expect(await page.getByTestId("private-notes-toolbar").boundingBox()).toEqual(
     notes,
@@ -840,7 +839,7 @@ test.each([
   ).not.toBeNull();
   await expectLayout();
   await page.screenshot({ path: `${output}/context-collapsed-${width}.png` });
-  await page.getByRole("button", { name: "進め方を開く" }).click();
+  await page.getByRole("button", { name: "進め方", exact: true }).click();
   expect(
     await page.getByTestId("board-reference-hmw").getAttribute("open"),
   ).not.toBeNull();
@@ -941,7 +940,9 @@ test.each([
     [3, "hmw"],
   ] as const) {
     await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
-    const guide = page.getByTestId("board-guide-region");
+    const guide = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
     const decision = page.getByTestId(`board-reference-${reference}`);
     const content = page.getByTestId(`board-reference-${reference}-content`);
     await decision.waitFor();
@@ -956,7 +957,7 @@ test.each([
       Math.min(fullText.height, 80),
     );
     await expectLayout();
-    await page.getByRole("button", { name: "進め方を閉じる" }).click();
+    await page.keyboard.press("Escape");
     expect(await content.isVisible()).toBe(true);
     await content.evaluate((e) => {
       e.scrollTop = e.scrollHeight;
@@ -967,9 +968,9 @@ test.each([
     expect(paragraph.y + paragraph.height).toBeLessThanOrEqual(
       after.y + after.height,
     );
-    await page.getByRole("button", { name: "進め方を開く" }).click();
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
     await decision.locator("summary").click();
-    expect(await guide.isVisible()).toBe(true);
+    expect(await guide.isVisible()).toBe(false);
     expect(await content.isVisible()).toBe(false);
     await decision.locator("summary").press("Enter");
     expect(await content.isVisible()).toBe(true);

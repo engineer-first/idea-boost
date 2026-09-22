@@ -35,12 +35,11 @@ const meta = {
     hostUserId: ME,
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
-    isGuideExpanded: true,
+    initialGuideState: "detail",
     isSprintComplete: false,
     signOutAction: fn(),
     isLeaving: false,
     onShowVoteResult: fn(),
-    onGuideExpandedChange: fn(),
     onLeaveClick: fn(),
     onNextPhase: fn(),
     onTimerStart: fn(),
@@ -74,7 +73,7 @@ export const NonHost: Story = {
 
 export const CollapsedGuide: Story = {
   args: {
-    isGuideExpanded: false,
+    initialGuideState: "compact",
   },
 };
 

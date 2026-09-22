@@ -193,7 +193,6 @@ function renderBoard(options: { open?: boolean; isHost?: boolean } = {}) {
       initialMembers={[]}
       initialPhase={buildPhaseStep(1)}
       webSocketFactory={factory}
-      enableGuideModal={false}
     />,
   );
   const socket = FakeWebSocket.instances.at(-1);

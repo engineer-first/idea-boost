@@ -21,8 +21,10 @@ import {
 import { getFacilitationGuide } from "../logic/facilitation-guide";
 import type { Member } from "../logic/room-reducer";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
+import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
+import { StepGuide } from "../molecules/step-guide";
 import { RoomTimer } from "./room-timer";
 
 export type RoomBoardHeaderProps = {
@@ -47,15 +49,11 @@ export type RoomBoardHeaderProps = {
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
-  isGuideExpanded: boolean;
+  initialGuideState?: StepGuideState;
   isSprintComplete: boolean;
   isLeaving: boolean;
   signOutAction?: () => Promise<void>;
   onShowVoteResult: () => void;
-  onGuideExpandedChange: (isExpanded: boolean) => void;
-  onPrimaryAction?: () => void;
-  isInitialModal?: boolean;
-  onOpenPanel?: () => void;
   onLeaveClick: () => void;
   onNextPhase: () => void;
   onTimerStart: (durationMs: number) => void;
@@ -84,15 +82,11 @@ export function RoomBoardHeader({
   completedVoterIds = [],
   isNextPhasePending,
   isNextPhaseBlocked,
-  isGuideExpanded,
+  initialGuideState,
   isSprintComplete,
   isLeaving,
   signOutAction,
   onShowVoteResult,
-  onGuideExpandedChange,
-  onPrimaryAction,
-  isInitialModal,
-  onOpenPanel,
   onLeaveClick,
   onNextPhase,
   onTimerStart,
@@ -123,24 +117,30 @@ export function RoomBoardHeader({
 
   return (
     <TooltipProvider delayDuration={300}>
+      {guide && (
+        <StepGuide
+          key={`${inviteCode}:${currentUserId}`}
+          sessionKey={`${inviteCode}:${currentUserId}`}
+          phaseKey={
+            phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
+          }
+          guide={guide}
+          isHost={isHost}
+          isReady={!isDisconnected}
+          initialState={initialGuideState}
+        />
+      )}
       <div
         data-testid="board-header-row"
         className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.25rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)]"
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col items-start gap-3 max-[900px]:min-w-[306px]"
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[901px]:max-[1199px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px]"
           data-testid="board-context-column"
         >
           <div className="w-full min-w-0 shrink-0">
             <BoardContext
               phase={phase}
-              guide={guide}
-              isHost={isHost}
-              isExpanded={isGuideExpanded}
-              onExpandedChange={onGuideExpandedChange}
-              onPrimaryAction={onPrimaryAction}
-              isInitialModal={isInitialModal}
-              onOpenPanel={onOpenPanel}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
             />
