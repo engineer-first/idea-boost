@@ -19,12 +19,11 @@ const handlers = {
     playbackBlocked: false,
     onEnable: vi.fn(async () => undefined),
     onMute: vi.fn(),
-    onPreview: vi.fn(async () => undefined),
   },
 };
 
 describe("RoomTimer", () => {
-  it("ホストと参加者の両方に端末ごとの通知音設定を表示する", () => {
+  it("ホストと参加者の両方に端末ごとの通知音トグルを表示する", () => {
     for (const isHost of [true, false]) {
       const { unmount } = render(
         <RoomTimer
@@ -36,8 +35,10 @@ describe("RoomTimer", () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole("button", { name: "通知音の設定" }));
-      expect(screen.getByText("この端末のみ")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "タイマー通知音" }),
+      ).toHaveAttribute("aria-pressed", "false");
+      expect(screen.queryByTestId("timer-sound-panel")).not.toBeInTheDocument();
       unmount();
     }
   });
@@ -491,7 +492,7 @@ describe("RoomTimer", () => {
     expect(chip.tagName).toBe("SPAN");
     expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "通知音の設定" }),
+      screen.getByRole("button", { name: "タイマー通知音" }),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
