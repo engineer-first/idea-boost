@@ -957,7 +957,7 @@ export function NoteCard({
         <div
           data-testid="note-vote-results"
           className={`pointer-events-none relative z-20 flex h-10 shrink-0 items-end gap-2 pb-2 pl-2 ${
-            isDecided || canCandidateAction ? "pr-12" : "pr-2"
+            isDecided ? "pr-12" : "pr-2"
           }`}
         >
           <DotVoteSticker

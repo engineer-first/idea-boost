@@ -778,7 +778,7 @@ describe("NoteCard", () => {
       expect(screen.getByRole("textbox")).toHaveClass("pb-2");
     });
 
-    it("高得票でも打ち切らず、決定済みと候補操作用の右下余白を維持する", () => {
+    it("高得票でも打ち切らず、付箋外の候補操作用には右下余白を広げない", () => {
       setup({
         note: buildNote({
           dotVotes: {
@@ -786,7 +786,6 @@ describe("NoteCard", () => {
             objective: { count: 24, votedByMe: false, ownCount: 0 },
           },
         }),
-        isDecided: true,
         canExcludeNote: true,
         vote: {
           displayMode: "result",
@@ -805,14 +804,28 @@ describe("NoteCard", () => {
       expect(
         screen.getAllByTestId("dot-vote-sticker-image-objective"),
       ).toHaveLength(24);
-      expect(screen.getByTestId("note-vote-results")).toHaveClass("pr-12");
+      expect(screen.getByTestId("note-vote-results")).toHaveClass("pr-2");
       expect(screen.getByRole("button", { name: "候補から外す" })).toHaveStyle({
         width: "80px",
         height: "44px",
       });
-      expect(
-        screen.getByRole("status", { name: "取り組む課題に決定済み" }),
-      ).toBeInTheDocument();
+    });
+
+    it("決定済み表示と重ならないよう投票結果の右下余白を維持する", () => {
+      setup({
+        isDecided: true,
+        vote: {
+          displayMode: "result",
+          selectedKind: null,
+          voteRemaining: { subjective: 0, objective: 0 },
+          canVote: false,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      expect(screen.getByTestId("note-vote-results")).toHaveClass("pr-12");
     });
 
     it("自分のシールだけを1票ずつ取り消せる", () => {
