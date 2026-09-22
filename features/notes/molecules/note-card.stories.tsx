@@ -402,7 +402,7 @@ export const ResultWithCandidateAction: Story = {
     canExcludeNote: true,
     onExclude: fn(),
     note: buildNote({
-      content: "右下の候補操作と結果表示の間に余白を保ちます。",
+      content: "付箋外の候補操作と結果表示を重ねずに表示します。",
       dotVotes: {
         subjective: { count: 3, votedByMe: false, ownCount: 0 },
         objective: { count: 8, votedByMe: false, ownCount: 0 },

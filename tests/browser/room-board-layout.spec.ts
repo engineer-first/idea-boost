@@ -464,9 +464,19 @@ test("長文と結果行を分け、候補操作と決定済み印にも重ね�
         name: controlName,
       })
       .boundingBox();
-    expect((votes?.x ?? 0) + (votes?.width ?? 0)).toBeLessThanOrEqual(
-      control?.x ?? Number.NaN,
-    );
+    expect(votes).not.toBeNull();
+    expect(control).not.toBeNull();
+    if (!votes || !control) {
+      throw new Error(`${storyId} の配置を取得できません`);
+    }
+    const overlaps =
+      Math.min(votes.x + votes.width, control.x + control.width) -
+        Math.max(votes.x, control.x) >
+        1 &&
+      Math.min(votes.y + votes.height, control.y + control.height) -
+        Math.max(votes.y, control.y) >
+        1;
+    expect(overlaps, storyId).toBe(false);
   }
 });
 
