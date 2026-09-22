@@ -90,8 +90,9 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...presenceHandlers,
 };
 
-function voteOperationIdOf(message: ClientMessage): string | undefined {
+function optimisticOperationIdOf(message: ClientMessage): string | undefined {
   switch (message.type) {
+    case "note:update-font-size":
     case "note:vote":
     case "note:vote-reset":
     case "note:vote-remove":
@@ -342,7 +343,7 @@ export class RoomDO extends DurableObject {
     const ctx = this.createHandlerCtx(
       ws,
       attachment.userId,
-      voteOperationIdOf(message),
+      optimisticOperationIdOf(message),
     );
     const phase = getPhase(this.sql);
     const forbiddenMessage = getBoardMutationForbiddenMessage(phase, message);
@@ -367,7 +368,7 @@ export class RoomDO extends DurableObject {
   private createHandlerCtx(
     ws: WebSocket,
     userId: string,
-    voteOperationId?: string,
+    operationId?: string,
   ): HandlerCtx {
     return {
       sql: this.sql,
@@ -377,11 +378,11 @@ export class RoomDO extends DurableObject {
       reply: (message) =>
         this.broadcaster.sendTo(
           ws,
-          message.type === "error" && voteOperationId !== undefined
-            ? { ...message, operationId: voteOperationId }
+          message.type === "error" && operationId !== undefined
+            ? { ...message, operationId }
             : message,
         ),
-      voteOperationId,
+      operationId,
       broadcaster: this.broadcaster,
       refreshSnapshots: () => this.refreshSnapshots(),
     };

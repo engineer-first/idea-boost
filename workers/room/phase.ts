@@ -91,6 +91,10 @@ function discardPrivateNotes(sql: SqlStorage): void {
     `DELETE FROM note_votes
      WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
   );
+  sql.exec(
+    `DELETE FROM note_appearances
+     WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
+  );
   sql.exec("DELETE FROM notes WHERE visibility = 'private'");
 }
 
@@ -124,6 +128,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:publish":
     case "note:unpublish":
     case "note:update-content":
+    case "note:update-font-size":
     case "note:move":
     case "note:bring-to-front":
     case "note:drag:start":
@@ -167,11 +172,17 @@ const allowedBoardMutationsByPhase: {
   >;
 } = {
   1: {
-    1: ["note:create", "note:update-content", "note:delete"],
+    1: [
+      "note:create",
+      "note:update-content",
+      "note:update-font-size",
+      "note:delete",
+    ],
     2: [
       "note:publish",
       "note:unpublish",
       "note:update-content",
+      "note:update-font-size",
       "note:move",
       "note:bring-to-front",
       "note:drag:start",
@@ -206,13 +217,19 @@ const allowedBoardMutationsByPhase: {
   },
   2: {
     // Step 2-1（HMW 個人執筆）は自分専用付箋の作成・編集・削除だけ。
-    1: ["note:create", "note:update-content", "note:delete"],
+    1: [
+      "note:create",
+      "note:update-content",
+      "note:update-font-size",
+      "note:delete",
+    ],
     // Step 2-2（共有）は個人執筆済み付箋の publish と、共有後の共同編集。
     // 作成・削除・グループ操作は、フェーズ2の以降のステップでも許可しない。
     2: [
       "note:publish",
       "note:unpublish",
       "note:update-content",
+      "note:update-font-size",
       "note:move",
       "note:bring-to-front",
       "note:drag:start",
@@ -237,11 +254,17 @@ const allowedBoardMutationsByPhase: {
     ],
   },
   3: {
-    1: ["note:create", "note:update-content", "note:delete"],
+    1: [
+      "note:create",
+      "note:update-content",
+      "note:update-font-size",
+      "note:delete",
+    ],
     2: [
       "note:publish",
       "note:unpublish",
       "note:update-content",
+      "note:update-font-size",
       "note:move",
       "note:bring-to-front",
       "note:drag:start",

@@ -13,11 +13,12 @@
 // からの位置更新を無視し、ローカルの操作を優先する（notes-reducer.ts）。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DRAG_BROADCAST_THROTTLE_MS } from "@/contracts/board";
-import type {
-  ClientMessage,
-  DotVoteKind,
-  DotVoteSticker,
-  ServerMessage,
+import {
+  type ClientMessage,
+  type DotVoteKind,
+  type DotVoteSticker,
+  NoteFontSizeSchema,
+  type ServerMessage,
 } from "@/contracts/room-protocol";
 import { createThrottled } from "@/lib/throttle";
 import {
@@ -62,6 +63,12 @@ type PendingNoteDrop = {
 type PendingNoteFront = {
   noteId: string;
   previousStackOrder: number;
+};
+
+type PendingFontSizeOperation = {
+  id: string;
+  noteId: string;
+  fontSize: number;
 };
 
 export type PendingVoteOperation = {
@@ -114,6 +121,8 @@ export type UseRoomNotesResult = {
   bulkRestoreCandidates: (operationId: string) => void;
   // 入力中の見た目を止めないため本文だけは楽観更新する。
   changeNoteContent: (noteId: string, content: string) => void;
+  // 選択中の付箋だけを即時に再描画し、RoomDO の確定値へ収束させる。
+  changeNoteFontSize: (noteId: string, fontSize: number) => void;
   deleteNote: (noteId: string) => void;
   voteNote: (noteId: string, kind: DotVoteKind, x?: number, y?: number) => void;
   removeNoteVote: (noteId: string, kind: DotVoteKind) => void;
@@ -132,11 +141,13 @@ export type UseRoomNotesResult = {
 export function useRoomNotes({
   send,
   createVoteOperationId = () => crypto.randomUUID(),
+  createFontSizeOperationId = () => crypto.randomUUID(),
   createVoteStickerId = () => crypto.randomUUID(),
   createNoteDragId = () => crypto.randomUUID(),
 }: {
   send: (message: ClientMessage) => void;
   createVoteOperationId?: () => string;
+  createFontSizeOperationId?: () => string;
   createVoteStickerId?: () => string;
   createNoteDragId?: () => string;
 }): UseRoomNotesResult {
@@ -158,6 +169,8 @@ export function useRoomNotes({
   const pendingNoteDropRef = useRef<PendingNoteDrop | null>(null);
   const pendingNoteFrontRef = useRef<PendingNoteFront | null>(null);
   const pendingVoteOperationsRef = useRef<PendingVoteOperation[]>([]);
+  const pendingFontSizeOperationsRef = useRef<PendingFontSizeOperation[]>([]);
+  const confirmedFontSizesRef = useRef<Map<string, number>>(new Map());
   const sendDragRef = useRef<ReturnType<
     typeof createThrottled<[NoteDragPayload]>
   > | null>(null);
@@ -188,6 +201,8 @@ export function useRoomNotes({
       notesRef.current = [];
       pendingNoteDropRef.current = null;
       pendingNoteFrontRef.current = null;
+      pendingFontSizeOperationsRef.current = [];
+      confirmedFontSizesRef.current.clear();
     };
   }, [send]);
 
@@ -248,6 +263,63 @@ export function useRoomNotes({
     (message: ServerMessage) => {
       const pendingDrop = pendingNoteDropRef.current;
       const pendingFront = pendingNoteFrontRef.current;
+      if (message.type === "snapshot") {
+        confirmedFontSizesRef.current = new Map(
+          message.notes.map((note) => [note.id, note.fontSize]),
+        );
+        pendingFontSizeOperationsRef.current = [];
+      } else if (
+        message.type === "note:inserted" ||
+        message.type === "note:updated"
+      ) {
+        confirmedFontSizesRef.current.set(
+          message.note.id,
+          message.note.fontSize,
+        );
+      } else if (message.type === "note:deleted") {
+        confirmedFontSizesRef.current.delete(message.noteId);
+        pendingFontSizeOperationsRef.current =
+          pendingFontSizeOperationsRef.current.filter(
+            ({ noteId }) => noteId !== message.noteId,
+          );
+      }
+
+      if (message.type === "error" && message.operationId !== undefined) {
+        const operation = pendingFontSizeOperationsRef.current.find(
+          ({ id }) => id === message.operationId,
+        );
+        if (operation) {
+          pendingFontSizeOperationsRef.current =
+            pendingFontSizeOperationsRef.current.filter(
+              ({ id }) => id !== operation.id,
+            );
+          const remainingForNote = pendingFontSizeOperationsRef.current.filter(
+            ({ noteId }) => noteId === operation.noteId,
+          );
+          const latest = remainingForNote[remainingForNote.length - 1];
+          const fontSize =
+            latest?.fontSize ??
+            confirmedFontSizesRef.current.get(operation.noteId);
+          if (fontSize !== undefined) {
+            updateNotes((current) =>
+              current.map((note) =>
+                note.id === operation.noteId ? { ...note, fontSize } : note,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (
+        message.type === "note:updated" &&
+        message.operationId !== undefined
+      ) {
+        pendingFontSizeOperationsRef.current =
+          pendingFontSizeOperationsRef.current.filter(
+            ({ id }) => id !== message.operationId,
+          );
+      }
       if (
         message.type === "snapshot" ||
         (message.type === "note:deleted" &&
@@ -414,11 +486,24 @@ export function useRoomNotes({
         });
         if (message.type !== "note:updated") return next;
 
+        const pendingFontSize = pendingFontSizeOperationsRef.current.filter(
+          ({ noteId }) => noteId === message.note.id,
+        );
+        const latestPendingFontSize =
+          pendingFontSize[pendingFontSize.length - 1];
+        const nextWithPendingFontSize = latestPendingFontSize
+          ? next.map((note) =>
+              note.id === message.note.id
+                ? { ...note, fontSize: latestPendingFontSize.fontSize }
+                : note,
+            )
+          : next;
+
         // 操作IDなしの途中応答（別のシール追加など）が先に届いても、まだ
         // 確定していない自分のシールを消さない。確定応答には同じ stickerId が
         // 含まれるので重複させず、拒否応答は上の分岐で即座に取り除く。
         const previous = current.find(({ id }) => id === message.note.id);
-        if (!previous) return next;
+        if (!previous) return nextWithPendingFontSize;
         const pendingStickers = pendingVoteOperationsRef.current
           .filter(
             ({ action, noteId, stickerId }) =>
@@ -429,8 +514,8 @@ export function useRoomNotes({
           .flatMap(({ stickerId }) =>
             previous.dotVoteStickers.filter(({ id }) => id === stickerId),
           );
-        if (pendingStickers.length === 0) return next;
-        return next.map((note) =>
+        if (pendingStickers.length === 0) return nextWithPendingFontSize;
+        return nextWithPendingFontSize.map((note) =>
           note.id !== message.note.id
             ? note
             : {
@@ -641,6 +726,30 @@ export function useRoomNotes({
     [updateNotes, send],
   );
 
+  const changeNoteFontSize = useCallback(
+    (noteId: string, fontSize: number) => {
+      if (!NoteFontSizeSchema.safeParse(fontSize).success) return;
+      if (!notesRef.current.some((note) => note.id === noteId)) return;
+      const operationId = createFontSizeOperationId();
+      pendingFontSizeOperationsRef.current = [
+        ...pendingFontSizeOperationsRef.current,
+        { id: operationId, noteId, fontSize },
+      ];
+      updateNotes((current) =>
+        current.map((note) =>
+          note.id === noteId ? { ...note, fontSize } : note,
+        ),
+      );
+      send({
+        type: "note:update-font-size",
+        noteId,
+        fontSize,
+        operationId,
+      });
+    },
+    [createFontSizeOperationId, updateNotes, send],
+  );
+
   const bulkExcludeZeroVoteCandidates = useCallback(
     () => send({ type: "note:bulk-exclude" }),
     [send],
@@ -839,6 +948,7 @@ export function useRoomNotes({
     bulkExcludeZeroVoteCandidates,
     bulkRestoreCandidates,
     changeNoteContent,
+    changeNoteFontSize,
     deleteNote,
     voteNote,
     removeNoteVote,

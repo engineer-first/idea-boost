@@ -87,6 +87,7 @@ export type RoomBoardViewProps = {
   onPrivateNoteContentChange: (noteId: string, content: string) => void;
   onPrivateNoteDelete: (noteId: string) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
+  onNoteFontSizeChange?: (noteId: string, fontSize: number) => void;
   onNoteDelete: (noteId: string) => void;
   onNoteBringToFront: (noteId: string) => void;
   onNoteExclude?: (noteId: string) => void;
@@ -176,6 +177,7 @@ export function RoomBoardView({
   onPrivateNoteContentChange,
   onPrivateNoteDelete,
   onNoteContentChange,
+  onNoteFontSizeChange = () => undefined,
   onNoteDelete,
   onNoteExclude = () => undefined,
   onNoteRestore = () => undefined,
@@ -794,6 +796,7 @@ export function RoomBoardView({
         onSelect={handleNoteSelect}
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
+        onNoteFontSizeChange={onNoteFontSizeChange}
         onNoteDelete={onNoteDelete}
         onNoteExclude={onNoteExclude}
         onNoteRestore={onNoteRestore}

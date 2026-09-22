@@ -52,6 +52,17 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       bottom: "clamp(0px, calc(99% - 75px), max(0px, calc(100% - 150px)))",
     });
   });
+  it("長文付箋は実高を使って上下端からはみ出さない", () => {
+    expect(
+      getIdeaValueFeasibilityMapNotePosition(
+        { feasibility: 50, value: 100 },
+        600,
+      ),
+    ).toEqual({
+      left: "clamp(0px, calc(50% - 100px), max(0px, calc(100% - 200px)))",
+      bottom: "clamp(0px, calc(100% - 300px), max(0px, calc(100% - 600px)))",
+    });
+  });
   it("価値と実現可能性の0〜100を連続座標へ変換する", () => {
     expect(
       getIdeaValueFeasibilityMapPosition({ value: 0, feasibility: 0 }),

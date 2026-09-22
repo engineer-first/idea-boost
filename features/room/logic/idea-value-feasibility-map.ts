@@ -74,12 +74,13 @@ export function getIdeaValueFeasibilityMapPosition({
  */
 export function getIdeaValueFeasibilityMapNotePosition(
   point: IdeaValueFeasibilityPoint,
+  noteHeight = NOTE_HEIGHT,
 ): IdeaValueFeasibilityMapPosition {
   const feasibility = clampIdeaValueFeasibilityMapCoordinate(point.feasibility);
   const value = clampIdeaValueFeasibilityMapCoordinate(point.value);
   return {
     left: `clamp(0px, calc(${feasibility}% - ${NOTE_WIDTH / 2}px), max(0px, calc(100% - ${NOTE_WIDTH}px)))`,
-    bottom: `clamp(0px, calc(${value}% - ${NOTE_HEIGHT / 2}px), max(0px, calc(100% - ${NOTE_HEIGHT}px)))`,
+    bottom: `clamp(0px, calc(${value}% - ${noteHeight / 2}px), max(0px, calc(100% - ${noteHeight}px)))`,
   };
 }
 

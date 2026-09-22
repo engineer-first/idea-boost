@@ -14,7 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
+import { getNoteHeight, NOTE_WIDTH } from "@/contracts/board";
 import type { Note } from "@/features/notes";
 import { type CanvasPoint, clampCanvasCoordinate } from "./canvas-camera";
 
@@ -309,7 +309,8 @@ export function useBoardDrag({
         ? ((event.clientX - rect.left) / rect.width) * NOTE_WIDTH
         : 0;
       const grabOffsetY = rect?.height
-        ? ((event.clientY - rect.top) / rect.height) * NOTE_HEIGHT
+        ? ((event.clientY - rect.top) / rect.height) *
+          getNoteHeight(note.content, note.fontSize)
         : 0;
       updateDrag({
         note,

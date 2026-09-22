@@ -69,6 +69,37 @@ describe("useCanvasCamera", () => {
     expect(result.current.camera.zoom).toBeCloseTo(372 / 2130);
   });
 
+  it("付箋全体表示は長文で伸びた実高まで画面内へ収める", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
+    const viewportRef = { current: viewport };
+    const short = renderHook(() =>
+      useCanvasCamera({
+        viewportRef,
+        notes: buildNotes(1),
+      }),
+    );
+    const long = renderHook(() =>
+      useCanvasCamera({
+        viewportRef,
+        notes: [
+          {
+            ...buildNotes(1)[0],
+            content: "あ".repeat(2_000),
+            fontSize: 24,
+          },
+        ],
+      }),
+    );
+
+    act(() => short.result.current.fitToNotes());
+    act(() => long.result.current.fitToNotes());
+
+    expect(long.result.current.camera.zoom).toBeLessThan(
+      short.result.current.camera.zoom,
+    );
+  });
+
   it("中ボタンのパンは付箋に伝播せず、通常の付箋ドラッグはパンしない", () => {
     const viewport = document.createElement("div");
     const { result } = renderHook(() =>

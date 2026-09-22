@@ -145,7 +145,7 @@ export function RoomBoardHeader({
     <TooltipProvider delayDuration={300}>
       <div
         data-testid="board-header-row"
-        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.25rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)]"
+        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.5rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)]"
       >
         <div
           className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col items-start gap-3 max-[900px]:min-w-[306px]"

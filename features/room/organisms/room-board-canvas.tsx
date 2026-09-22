@@ -9,7 +9,7 @@ import type {
   RefObject,
 } from "react";
 import { useEffect, useRef } from "react";
-import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
+import { getNoteHeight, NOTE_WIDTH } from "@/contracts/board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
@@ -43,6 +43,7 @@ import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
+import { NoteFontSizeControls } from "../molecules/note-font-size-controls";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
@@ -95,6 +96,7 @@ export type RoomBoardCanvasProps = {
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
+  onNoteFontSizeChange?: (noteId: string, fontSize: number) => void;
   onNoteDelete: (noteId: string) => void;
   onNoteExclude?: (noteId: string) => void;
   onNoteRestore?: (noteId: string) => void;
@@ -162,6 +164,7 @@ export function RoomBoardCanvas({
   onSelect,
   onNoteDragStart,
   onNoteContentChange,
+  onNoteFontSizeChange = () => undefined,
   onNoteDelete,
   onNoteExclude = () => undefined,
   onNoteRestore = () => undefined,
@@ -209,6 +212,9 @@ export function RoomBoardCanvas({
     (phase.step === 2 || phase.step === 3);
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
+  const selectedNote = [...notes, ...privateNotes].find(
+    (note) => note.id === selectedNoteId,
+  );
 
   useEffect(() => {
     if (isAdoptMode) return;
@@ -347,10 +353,13 @@ export function RoomBoardCanvas({
   }
 
   function renderIdeaMapNote(note: Note) {
-    const position = getIdeaValueFeasibilityMapNotePosition({
-      value: note.y,
-      feasibility: note.x,
-    });
+    const position = getIdeaValueFeasibilityMapNotePosition(
+      {
+        value: note.y,
+        feasibility: note.x,
+      },
+      getNoteHeight(note.content, note.fontSize),
+    );
     const isAdoptTarget =
       isAdoptMode &&
       isHost &&
@@ -398,23 +407,29 @@ export function RoomBoardCanvas({
 
   function renderIdeaMapDragGhost() {
     if (!dragGhost) return null;
-    const position = getIdeaValueFeasibilityMapNotePosition({
-      value: dragGhost.y,
-      feasibility: dragGhost.x,
-    });
+    const position = getIdeaValueFeasibilityMapNotePosition(
+      {
+        value: dragGhost.y,
+        feasibility: dragGhost.x,
+      },
+      getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
+    );
 
     return (
       <StickyNote
         noteId={dragGhost.note.id}
         isLifted
         color={dragGhost.note.color}
+        height={getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize)}
         className="pointer-events-none absolute"
         style={{ ...position, zIndex: TEMPORARY_FRONT_Z_INDEX }}
       >
         <p
-          className="min-h-0 flex-1 overflow-hidden p-2 text-sm"
+          className="min-h-0 flex-1 overflow-hidden p-2"
           style={{
             color: NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
+            fontSize: `${dragGhost.note.fontSize}px`,
+            lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
           }}
         >
           {dragGhost.note.content || "メモを入力..."}
@@ -526,7 +541,7 @@ export function RoomBoardCanvas({
                         left: note.x,
                         top: note.y,
                         width: NOTE_WIDTH,
-                        height: NOTE_HEIGHT,
+                        height: getNoteHeight(note.content, note.fontSize),
                       }}
                       onPointerEnter={() => handleAdoptionPointerEnter(note.id)}
                       onPointerLeave={() => handleAdoptionPointerLeave(note.id)}
@@ -551,6 +566,10 @@ export function RoomBoardCanvas({
                 noteId={dragGhost.note.id}
                 isLifted
                 color={dragGhost.note.color}
+                height={getNoteHeight(
+                  dragGhost.note.content,
+                  dragGhost.note.fontSize,
+                )}
                 className="pointer-events-none absolute"
                 style={{
                   left: dragGhost.x,
@@ -559,10 +578,12 @@ export function RoomBoardCanvas({
                 }}
               >
                 <p
-                  className="min-h-0 flex-1 overflow-hidden p-2 text-sm"
+                  className="min-h-0 flex-1 overflow-hidden p-2"
                   style={{
                     color:
                       NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
+                    fontSize: `${dragGhost.note.fontSize}px`,
+                    lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
                   }}
                 >
                   {dragGhost.note.content || "メモを入力..."}
@@ -592,6 +613,20 @@ export function RoomBoardCanvas({
             >
               <BoardOperationMatrix permissions={permissions} />
             </div>
+            {permissions.canEditNote ? (
+              <NoteFontSizeControls
+                fontSize={selectedNote?.fontSize ?? null}
+                disabled={
+                  isDisconnected ||
+                  selectedNote === undefined ||
+                  selectedNote.excluded
+                }
+                onChange={(fontSize) => {
+                  if (selectedNote)
+                    onNoteFontSizeChange(selectedNote.id, fontSize);
+                }}
+              />
+            ) : null}
           </div>
           <div data-testid="canvas-zoom-hud">
             <CanvasZoomControls

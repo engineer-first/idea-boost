@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { CANVAS_COORDINATE_LIMIT } from "@/contracts/board";
+import { CANVAS_COORDINATE_LIMIT, getNoteHeight } from "@/contracts/board";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { useBoardDrag } from "./use-board-drag";
 
@@ -628,6 +628,45 @@ describe("useBoardDrag", () => {
     });
 
     expect(args.onNoteDragMove).toHaveBeenCalledWith("shared-1", 200, 200);
+  });
+
+  it("長文のマイ付箋は伸びた実高に対する掴み位置を共有後も保つ", () => {
+    const content = "あ".repeat(500);
+    const fontSize = 24;
+    const height = getNoteHeight(content, fontSize);
+    const { args, result } = setup({
+      privateNotes: [
+        buildNote({
+          id: "private-1",
+          authorId: ME,
+          visibility: "private",
+          content,
+          fontSize,
+        }),
+      ],
+    });
+    const event = pointerEvent(1, 150, 100 + height / 2);
+    Object.defineProperty(event, "currentTarget", {
+      value: {
+        getBoundingClientRect: () => ({
+          left: 100,
+          top: 100,
+          right: 300,
+          bottom: 100 + height,
+          width: 200,
+          height,
+        }),
+      },
+    });
+
+    act(() => result.current.handlePrivateDragStart("private-1", event));
+    act(() => result.current.handlePointerMove(pointerEvent(1, 400, 300)));
+
+    expect(args.onPrivateNotePublish).toHaveBeenCalledWith(
+      "private-1",
+      350,
+      300 - height / 2,
+    );
   });
 
   it("異なる pointerId のイベントは無視する（マルチタッチの混線防止）", () => {

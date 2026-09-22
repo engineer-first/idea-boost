@@ -180,7 +180,6 @@ export function PrivateNotesToolbar({
                   newlyAddedNoteId === note.id &&
                     "animate-in fade-in slide-in-from-bottom-2 duration-200",
                 )}
-                style={{ width: "192px", height: "144px" }}
               />
             ))}
           </div>

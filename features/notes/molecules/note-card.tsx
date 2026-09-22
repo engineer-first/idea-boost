@@ -13,7 +13,7 @@ import { Check, CircleMinus, RotateCcw } from "lucide-react";
 // 選択状態(isSelected)は「同時に1枚だけ」という付箋間の関心事なので親が持ち、
 // 編集状態(isEditing)はこの付箋に閉じた関心事なのでローカルに持つ。
 import { useEffect, useRef, useState } from "react";
-import { DRAG_THRESHOLD_PX } from "@/contracts/board";
+import { DRAG_THRESHOLD_PX, getNoteHeight } from "@/contracts/board";
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import {
@@ -379,6 +379,7 @@ export function NoteCard({
       isDecided={isDecided}
       isAdoptionFocused={isAdoptionFocused}
       color={note.color}
+      height={getNoteHeight(localContent, note.fontSize)}
       testId="note-card"
       data-editing={isEditing || undefined}
       data-vote-drop-target={
@@ -465,9 +466,13 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none bg-transparent px-2 pt-2 pr-10 pb-2 text-sm text-slate-900 outline-none ${
+        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 pr-10 pb-12 text-slate-900 outline-none ${
           note.excluded ? "pt-12" : ""
         } ${isEditing ? "" : "pointer-events-none select-none"}`}
+        style={{
+          fontSize: `${note.fontSize}px`,
+          lineHeight: `${Math.ceil(note.fontSize * 1.5)}px`,
+        }}
         placeholder="メモを入力..."
       />
       {isDecided ? (

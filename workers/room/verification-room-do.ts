@@ -1,4 +1,7 @@
-import { getInitialIdeaMapSizeLevel } from "../../contracts/board";
+import {
+  getInitialIdeaMapSizeLevel,
+  NOTE_DEFAULT_FONT_SIZE,
+} from "../../contracts/board";
 import { isResultStep, isVotingStep } from "../../contracts/phase";
 import { DOT_VOTE_LIMITS } from "../../contracts/room-protocol";
 import {
@@ -217,6 +220,7 @@ export class VerificationRoomDO extends RoomDO {
       content: VERIFICATION_NOTES[phase][index],
       visibility: shared ? "shared" : "private",
       color: getMemberColor(this.ctx.storage.sql, user.id) ?? "yellow",
+      font_size: NOTE_DEFAULT_FONT_SIZE,
       x: phase === 3 ? 15 + (index % 4) * 23 : 380 + (index % 4) * 280,
       y:
         phase === 3

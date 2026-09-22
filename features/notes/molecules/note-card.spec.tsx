@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { getNoteHeight } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import { buildNote } from "@/contracts/room-protocol.fixture";
@@ -52,6 +53,34 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("付箋ごとの文字サイズを本文だけに適用し、長文は全文ぶん縦へ伸ばす", () => {
+    const content = "長い本文".repeat(120);
+    const fontSize = 24;
+    setup({ note: buildNote({ content, fontSize }) });
+
+    const textbox = screen.getByRole("textbox");
+    expect(textbox.style.fontSize).toBe("24px");
+    expect(textbox.style.lineHeight).toBe("36px");
+    expect(textbox).toHaveClass("overflow-y-hidden");
+    expect(getCard()).toHaveStyle({
+      width: "200px",
+      height: `${getNoteHeight(content, fontSize)}px`,
+    });
+  });
+
+  it("編集中の本文でもサーバー確定前に付箋を必要高まで伸ばす", () => {
+    setup({ isSelected: true, note: buildNote({ content: "短文" }) });
+    clickNote();
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "あ".repeat(500) },
+    });
+
+    expect(getCard()).toHaveStyle({
+      height: `${getNoteHeight("あ".repeat(500), 14)}px`,
+    });
+  });
+
   it("共有採用フォーカスを StickyNote の視覚状態へ渡す", () => {
     setup({ isAdoptionFocused: true });
 
@@ -492,7 +521,7 @@ describe("NoteCard", () => {
       expect(
         screen.getAllByTestId("dot-vote-sticker-image-objective"),
       ).toHaveLength(5);
-      expect(screen.getByRole("textbox")).toHaveClass("pb-2");
+      expect(screen.getByRole("textbox")).toHaveClass("pb-12");
     });
 
     it("高得票でも打ち切らず、決定済みと候補操作用の右下余白を維持する", () => {
