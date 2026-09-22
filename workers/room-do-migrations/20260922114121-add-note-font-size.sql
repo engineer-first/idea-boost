@@ -4,5 +4,8 @@
 CREATE TABLE note_appearances (
   note_id TEXT PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE,
   font_size INTEGER NOT NULL DEFAULT 14
-    CHECK (font_size BETWEEN 12 AND 24)
+    CHECK (
+      typeof(font_size) = 'integer'
+      AND font_size BETWEEN 12 AND 24
+    )
 );

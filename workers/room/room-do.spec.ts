@@ -4374,11 +4374,13 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
         type: "note:update-font-size",
         noteId: inserted.note.id,
         fontSize: 24,
+        operationId: "55555555-5555-4555-8555-555555555555",
       }),
     );
     expect(await nextJson(other)).toMatchObject({
       type: "error",
       code: "forbidden",
+      operationId: "55555555-5555-4555-8555-555555555555",
     });
 
     author.send(
@@ -4386,11 +4388,13 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
         type: "note:update-font-size",
         noteId: inserted.note.id,
         fontSize: 24,
+        operationId: "66666666-6666-4666-8666-666666666666",
       }),
     );
     expect(await nextJson(author)).toMatchObject({
       type: "note:updated",
       note: { id: inserted.note.id, fontSize: 24 },
+      operationId: "66666666-6666-4666-8666-666666666666",
     });
     expect(
       await runInRoomDO(
@@ -4432,15 +4436,18 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
         type: "note:update-font-size",
         noteId: inserted.note.id,
         fontSize: 18,
+        operationId: "77777777-7777-4777-8777-777777777777",
       }),
     );
     await expect(updatedForAuthor).resolves.toMatchObject({
       type: "note:updated",
       note: { id: inserted.note.id, fontSize: 18 },
+      operationId: "77777777-7777-4777-8777-777777777777",
     });
     await expect(updatedForOther).resolves.toMatchObject({
       type: "note:updated",
       note: { id: inserted.note.id, fontSize: 18 },
+      operationId: "77777777-7777-4777-8777-777777777777",
     });
     expect(
       await runInRoomDO(

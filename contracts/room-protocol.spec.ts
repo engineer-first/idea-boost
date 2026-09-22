@@ -663,15 +663,22 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
-  it("note:update-font-size は付箋IDと12〜24pxの整数だけを受け入れる", () => {
+  it("note:update-font-size は付箋ID・12〜24pxの整数・操作IDだけを受け入れる", () => {
     const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const operationId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     expect(
       ClientMessageSchema.parse({
         type: "note:update-font-size",
         noteId,
         fontSize: 18,
+        operationId,
       }),
-    ).toEqual({ type: "note:update-font-size", noteId, fontSize: 18 });
+    ).toEqual({
+      type: "note:update-font-size",
+      noteId,
+      fontSize: 18,
+      operationId,
+    });
     for (const fontSize of [11, 12.5, 25, Number.POSITIVE_INFINITY]) {
       expect(
         ClientMessageSchema.safeParse({

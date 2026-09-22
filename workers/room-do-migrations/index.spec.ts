@@ -71,6 +71,11 @@ describe("ROOM_DO_MIGRATIONS", () => {
           "INSERT INTO note_appearances (note_id, font_size) VALUES ('note-old', 25)",
         ),
       ).toThrow();
+      expect(() =>
+        state.storage.sql.exec(
+          "INSERT INTO note_appearances (note_id, font_size) VALUES ('note-old', 12.5)",
+        ),
+      ).toThrow();
     });
   });
 

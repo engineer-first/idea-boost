@@ -36,9 +36,10 @@ export const DOT_VOTE_LIMITS = {
 export const DotVoteKindSchema = z.enum(["subjective", "objective"]);
 export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 
-// 楽観表示した投票操作と、RoomDO から返る確定・拒否応答を対応付けるID。
+// 楽観表示した操作と、RoomDO から返る確定・拒否応答を対応付けるID。
 // 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
-export const VoteOperationIdSchema = z.string().uuid();
+export const OptimisticOperationIdSchema = z.string().uuid();
+export const VoteOperationIdSchema = OptimisticOperationIdSchema;
 export const BulkExclusionOperationIdSchema = z.string().uuid();
 export type BulkExclusionOperationId = z.infer<
   typeof BulkExclusionOperationIdSchema
@@ -279,6 +280,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       type: z.literal("note:update-font-size"),
       noteId: z.string().uuid(),
       fontSize: NoteFontSizeSchema,
+      operationId: OptimisticOperationIdSchema.optional(),
     })
     .strict(),
   z.object({
@@ -463,7 +465,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("note:updated"),
     note: NoteSchema,
-    operationId: VoteOperationIdSchema.optional(),
+    operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({ type: z.literal("note:deleted"), noteId: z.string().uuid() }),
   z.object({
@@ -550,8 +552,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       "voting-incomplete",
     ]),
     message: z.string(),
-    // 投票操作に起因する拒否だけが持つ。汎用エラーは省略する。
-    operationId: VoteOperationIdSchema.optional(),
+    // 楽観操作に起因する拒否だけが持つ。汎用エラーは省略する。
+    operationId: OptimisticOperationIdSchema.optional(),
   }),
 ]);
 

@@ -526,6 +526,7 @@ export function broadcastNoteUpdated(
   sql: SqlStorage,
   broadcaster: RoomBroadcaster,
   row: NoteRow,
+  operationId?: string,
 ): void {
   const phase = getPhase(sql);
   broadcaster.broadcastNote((viewerId) => ({
@@ -534,6 +535,7 @@ export function broadcastNoteUpdated(
       { viewerId, phase },
       toProtocolNote(sql, row, viewerId),
     ),
+    ...(operationId === undefined ? {} : { operationId }),
   }));
 }
 
@@ -549,7 +551,7 @@ export function broadcastVoteUpdated(
 ): void {
   const phase = getPhase(sql);
   if (!isVotingStep(phase)) {
-    broadcastNoteUpdated(sql, broadcaster, row);
+    broadcastNoteUpdated(sql, broadcaster, row, operationId);
     return;
   }
 

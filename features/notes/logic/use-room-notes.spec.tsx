@@ -16,6 +16,7 @@ const NOTE_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const DRAG_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const FONT_SIZE_OPERATION_ID = "55555555-5555-4555-8555-555555555555";
 
 function snapshotMessage(
   notes: ProtocolNote[] = [buildNote({ id: NOTE_ID })],
@@ -46,11 +47,12 @@ describe("useRoomNotes", () => {
     vi.useRealTimers();
   });
 
-  function setup() {
+  function setup(createFontSizeOperationId = () => FONT_SIZE_OPERATION_ID) {
     return renderHook(() =>
       useRoomNotes({
         send,
         createVoteOperationId: () => "33333333-3333-4333-8333-333333333333",
+        createFontSizeOperationId,
         createVoteStickerId: () => "44444444-4444-4444-8444-444444444444",
         createNoteDragId: () => DRAG_ID,
       }),
@@ -437,7 +439,7 @@ describe("useRoomNotes", () => {
     });
   });
 
-  it("changeNoteFontSize は対象付箋だけ楽観更新し、RoomDOへ送る", () => {
+  it("changeNoteFontSize は操作ID付きで楽観更新し、拒否時は確定値へ戻す", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));
 
@@ -448,7 +450,85 @@ describe("useRoomNotes", () => {
       type: "note:update-font-size",
       noteId: NOTE_ID,
       fontSize: 24,
+      operationId: FONT_SIZE_OPERATION_ID,
     });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "この操作を行う権限がありません。",
+        operationId: FONT_SIZE_OPERATION_ID,
+      }),
+    );
+
+    expect(result.current.notes[0]?.fontSize).toBe(14);
+  });
+
+  it("連続した文字サイズ変更は途中応答で巻き戻さず、最後の拒否で確定値へ戻す", () => {
+    const operationIds = [
+      "55555555-5555-4555-8555-555555555555",
+      "66666666-6666-4666-8666-666666666666",
+    ];
+    const { result } = setup(() => operationIds.shift() ?? "");
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => {
+      result.current.changeNoteFontSize(NOTE_ID, 15);
+      result.current.changeNoteFontSize(NOTE_ID, 16);
+    });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "この操作を行う権限がありません。",
+        operationId: "55555555-5555-4555-8555-555555555555",
+      }),
+    );
+    expect(result.current.notes[0]?.fontSize).toBe(16);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "この操作を行う権限がありません。",
+        operationId: "66666666-6666-4666-8666-666666666666",
+      }),
+    );
+    expect(result.current.notes[0]?.fontSize).toBe(14);
+  });
+
+  it("連続した文字サイズ変更は先の確定応答より最新の楽観値を優先する", () => {
+    const operationIds = [
+      "55555555-5555-4555-8555-555555555555",
+      "66666666-6666-4666-8666-666666666666",
+    ];
+    const { result } = setup(() => operationIds.shift() ?? "");
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => {
+      result.current.changeNoteFontSize(NOTE_ID, 15);
+      result.current.changeNoteFontSize(NOTE_ID, 16);
+    });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: buildNote({ id: NOTE_ID, fontSize: 15 }),
+        operationId: "55555555-5555-4555-8555-555555555555",
+      }),
+    );
+    expect(result.current.notes[0]?.fontSize).toBe(16);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: buildNote({ id: NOTE_ID, fontSize: 16 }),
+        operationId: "66666666-6666-4666-8666-666666666666",
+      }),
+    );
+    expect(result.current.notes[0]?.fontSize).toBe(16);
   });
 
   it("deleteNote は楽観更新せず、note:deleted の確定で消える", () => {

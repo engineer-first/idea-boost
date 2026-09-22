@@ -239,11 +239,16 @@ export const noteHandlers: MessageHandlers<
     }
     const updatedAt = new Date().toISOString();
     updateNoteFontSize(ctx.sql, message.noteId, message.fontSize, updatedAt);
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      font_size: message.fontSize,
-      updated_at: updatedAt,
-    });
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      {
+        ...row,
+        font_size: message.fontSize,
+        updated_at: updatedAt,
+      },
+      message.operationId,
+    );
   },
 
   "note:move": (ctx, message) => {
