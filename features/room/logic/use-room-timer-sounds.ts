@@ -50,7 +50,6 @@ export type TimerSoundControls = {
   playbackBlocked: boolean;
   onEnable: () => Promise<void>;
   onMute: () => void;
-  onPreview: () => Promise<void>;
 };
 
 type UseRoomTimerSoundsOptions = {
@@ -395,21 +394,5 @@ export function useRoomTimerSounds({
     stopActiveSounds();
   }, [setEnabledState, stopActiveSounds]);
 
-  const onPreview = useCallback(async () => {
-    if (!enabledRef.current) return;
-    try {
-      const context = await getReadyAudioContext();
-      if (!enabledRef.current) return;
-      createTimerSound(
-        context,
-        "start",
-        (oscillator) => activeOscillatorsRef.current.add(oscillator),
-        (oscillator) => activeOscillatorsRef.current.delete(oscillator),
-      );
-    } catch {
-      blockPlayback();
-    }
-  }, [blockPlayback, getReadyAudioContext]);
-
-  return { enabled, playbackBlocked, onEnable, onMute, onPreview };
+  return { enabled, playbackBlocked, onEnable, onMute };
 }

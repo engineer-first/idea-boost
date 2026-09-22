@@ -136,7 +136,7 @@ async function rerenderVotingCompletion(
   });
 }
 
-async function enableAndClearPreview(result: {
+async function enableSounds(result: {
   current: ReturnType<typeof useRoomTimerSounds>;
 }): Promise<void> {
   await act(async () => {
@@ -194,14 +194,14 @@ describe("useRoomTimerSounds", () => {
   it("snapshot の開始音は再生せず、timer:updated の新規開始だけ開始音を鳴らす", async () => {
     const initialTimer = activeSound(nowMs + 10_000);
     const snapshot = setup(initialTimer);
-    await enableAndClearPreview(snapshot.result);
+    await enableSounds(snapshot.result);
 
     await rerenderTimer(snapshot.rerender, initialTimer, 0, 120);
     expect(startedTones).toHaveLength(0);
     snapshot.unmount();
 
     const freshRoom = setup({ status: "idle" });
-    await enableAndClearPreview(freshRoom.result);
+    await enableSounds(freshRoom.result);
     await rerenderTimer(freshRoom.rerender, initialTimer, 1, 120);
     expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
       523.25, 659.25,
@@ -211,7 +211,7 @@ describe("useRoomTimerSounds", () => {
   it("終了後に timer:updated で再スタートしたときも開始音を鳴らす", async () => {
     const ended: TimerState = { status: "ended", durationMs: 10_000 };
     const { result, rerender } = setup(ended);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
 
     await rerenderTimer(rerender, activeSound(nowMs + 10_000), 1);
 
@@ -224,7 +224,7 @@ describe("useRoomTimerSounds", () => {
     const durationMs = 6_000;
     const initialTimer = activeSound(nowMs + durationMs, durationMs);
     const { result, rerender } = setup(initialTimer);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
 
     for (const warningSeconds of [5, 4, 3, 2, 1]) {
       await advance(1_000);
@@ -247,7 +247,7 @@ describe("useRoomTimerSounds", () => {
   it("途中参加と再接続では過去音を鳴らさず、参加後の予告だけを予約する", async () => {
     const initialTimer = activeSound(nowMs + 6_000, 6_000);
     const { result, rerender } = setup(initialTimer);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
 
     await rerenderTimer(rerender, initialTimer, 0, 80);
     expect(startedTones).toHaveLength(0);
@@ -255,7 +255,7 @@ describe("useRoomTimerSounds", () => {
     expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([880]);
 
     const endedSnapshot = setup({ status: "ended", durationMs: 6_000 });
-    await enableAndClearPreview(endedSnapshot.result);
+    await enableSounds(endedSnapshot.result);
     expect(startedTones).toHaveLength(0);
     endedSnapshot.unmount();
   });
@@ -263,7 +263,7 @@ describe("useRoomTimerSounds", () => {
   it("期限を過ぎたスナップショットでは終了音を後追い再生しない", async () => {
     const expiredSnapshot = activeSound(nowMs - 500, 6_000);
     const { result, rerender } = setup(expiredSnapshot);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
 
     await rerenderTimer(rerender, { status: "ended", durationMs: 6_000 }, 1);
     expect(startedTones).toHaveLength(0);
@@ -273,7 +273,7 @@ describe("useRoomTimerSounds", () => {
     const durationMs = 8_000;
     const initialTimer = activeSound(nowMs + durationMs, durationMs);
     const { result, rerender } = setup(initialTimer);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
 
     await advance(1_000);
     const paused: TimerState = {
@@ -296,7 +296,7 @@ describe("useRoomTimerSounds", () => {
   it("延長は元の予告を止め、新しい終了時刻に沿って再予約する", async () => {
     const initialTimer = activeSound(nowMs + 6_000, 6_000);
     const { result, rerender } = setup(initialTimer);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
 
     const extended = activeSound(nowMs + 66_000, 66_000);
     await rerenderTimer(rerender, extended, 1);
@@ -310,7 +310,7 @@ describe("useRoomTimerSounds", () => {
   it("手動ステップ移行の idle 更新で時間切れ音を鳴らさない", async () => {
     const initialTimer = activeSound(nowMs + 8_000, 8_000);
     const { result, rerender } = setup(initialTimer);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
 
     await rerenderTimer(rerender, { status: "idle" }, 1);
     await advance(10_000);
@@ -321,7 +321,7 @@ describe("useRoomTimerSounds", () => {
     const durationMs = 1_000;
     const initialTimer = activeSound(nowMs + durationMs, durationMs);
     const { result, rerender } = setup(initialTimer);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
     await advance(durationMs);
 
     const ended: TimerState = { status: "ended", durationMs };
@@ -345,7 +345,7 @@ describe("useRoomTimerSounds", () => {
 
     it("未完了から初めて全員完了になったとき、タイマーと異なる短い音を1回鳴らす", async () => {
       const { result, rerender } = setupVotingCompletion(incomplete);
-      await enableAndClearPreview(result);
+      await enableSounds(result);
 
       await rerenderVotingCompletion(rerender, complete);
 
@@ -356,7 +356,7 @@ describe("useRoomTimerSounds", () => {
 
     it("同じ投票の再描画・取り消し後の再完了では繰り返し鳴らさない", async () => {
       const { result, rerender } = setupVotingCompletion(incomplete);
-      await enableAndClearPreview(result);
+      await enableSounds(result);
       await rerenderVotingCompletion(rerender, complete);
       const firstCompletionToneCount = startedTones.length;
 
@@ -370,7 +370,7 @@ describe("useRoomTimerSounds", () => {
 
     it("次の投票ステップでは新しい完了として1回鳴らす", async () => {
       const { result, rerender } = setupVotingCompletion(incomplete);
-      await enableAndClearPreview(result);
+      await enableSounds(result);
       await rerenderVotingCompletion(rerender, complete);
 
       await rerenderVotingCompletion(rerender, {
@@ -396,7 +396,7 @@ describe("useRoomTimerSounds", () => {
 
     it("全員完了済みの初期表示と、切断中に完了した状態の再同期では鳴らさない", async () => {
       const initialSnapshot = setupVotingCompletion(complete);
-      await enableAndClearPreview(initialSnapshot.result);
+      await enableSounds(initialSnapshot.result);
       expect(startedTones).toHaveLength(0);
       initialSnapshot.unmount();
 
@@ -404,7 +404,7 @@ describe("useRoomTimerSounds", () => {
         ...incomplete,
         isDisconnected: true,
       });
-      await enableAndClearPreview(reconnected.result);
+      await enableSounds(reconnected.result);
       await rerenderVotingCompletion(reconnected.rerender, {
         ...complete,
         isDisconnected: true,
@@ -420,7 +420,7 @@ describe("useRoomTimerSounds", () => {
       const { result, rerender } = setupVotingCompletion(incomplete);
       await rerenderVotingCompletion(rerender, complete);
 
-      await enableAndClearPreview(result);
+      await enableSounds(result);
       await rerenderVotingCompletion(rerender, incomplete);
       await rerenderVotingCompletion(rerender, complete);
 
@@ -431,7 +431,7 @@ describe("useRoomTimerSounds", () => {
   it("遅れた予告をまとめて鳴らさず、遅延幅内の直近の予告だけを鳴らす", async () => {
     const initialTimer = activeSound(nowMs + 7_000, 7_000);
     const { result } = setup(initialTimer);
-    await enableAndClearPreview(result);
+    await enableSounds(result);
 
     await advance(5_000);
     expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([880]);
@@ -450,16 +450,21 @@ describe("useRoomTimerSounds", () => {
     expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
   });
 
-  it("端末設定の有効化・消音はローカル保存だけで切り替わる", async () => {
+  it("有効化時だけ確認音を鳴らし、消音では音を鳴らさない", async () => {
     const { result } = setup({ status: "idle" });
     await act(async () => {
       await result.current.onEnable();
     });
     expect(result.current.enabled).toBe(true);
     expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBe("true");
+    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+      523.25, 659.25,
+    ]);
 
+    const toneCount = startedTones.length;
     act(() => result.current.onMute());
     expect(result.current.enabled).toBe(false);
     expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
+    expect(startedTones).toHaveLength(toneCount);
   });
 });

@@ -456,7 +456,7 @@ describe("NoteCard", () => {
       expect(onVote).not.toHaveBeenCalled();
     });
 
-    it("結果では両方の合計票を表示する", () => {
+    it("結果では左下の専用余白に主観→客観の順で全票を表示する", () => {
       setup({
         note: buildNote({
           dotVotes: {
@@ -481,8 +481,54 @@ describe("NoteCard", () => {
       expect(
         screen.getByRole("img", { name: "客観シール 5票" }),
       ).toBeInTheDocument();
-      expect(screen.getByText("×3")).toBeVisible();
-      expect(screen.getByText("×5")).toBeVisible();
+      const results = screen.getByTestId("note-vote-results");
+      const groups = screen.getAllByRole("img", { name: /シール \d+票/ });
+      expect(results).toHaveClass("h-10", "shrink-0", "pl-2");
+      expect(groups[0]).toHaveAccessibleName("主観シール 3票");
+      expect(groups[1]).toHaveAccessibleName("客観シール 5票");
+      expect(
+        screen.getAllByTestId("dot-vote-sticker-image-subjective"),
+      ).toHaveLength(3);
+      expect(
+        screen.getAllByTestId("dot-vote-sticker-image-objective"),
+      ).toHaveLength(5);
+      expect(screen.getByRole("textbox")).toHaveClass("pb-2");
+    });
+
+    it("高得票でも打ち切らず、決定済みと候補操作用の右下余白を維持する", () => {
+      setup({
+        note: buildNote({
+          dotVotes: {
+            subjective: { count: 11, votedByMe: false, ownCount: 0 },
+            objective: { count: 24, votedByMe: false, ownCount: 0 },
+          },
+        }),
+        isDecided: true,
+        canExcludeNote: true,
+        vote: {
+          displayMode: "result",
+          selectedKind: null,
+          voteRemaining: { subjective: 0, objective: 0 },
+          canVote: false,
+          pendingOperations: [],
+          onVote: vi.fn(),
+          onVoteRemove: vi.fn(),
+        },
+      });
+
+      expect(
+        screen.getAllByTestId("dot-vote-sticker-image-subjective"),
+      ).toHaveLength(11);
+      expect(
+        screen.getAllByTestId("dot-vote-sticker-image-objective"),
+      ).toHaveLength(24);
+      expect(screen.getByTestId("note-vote-results")).toHaveClass("pr-12");
+      expect(screen.getByRole("button", { name: "候補から外す" })).toHaveClass(
+        "size-11",
+      );
+      expect(
+        screen.getByRole("status", { name: "取り組む課題に決定済み" }),
+      ).toBeInTheDocument();
     });
 
     it("自分のシールだけを1票ずつ取り消せる", () => {

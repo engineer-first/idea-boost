@@ -406,17 +406,18 @@ export function NoteCard({
             <button
               type="button"
               aria-label="候補に戻す"
+              title="候補に戻す"
               disabled={disabled}
               onClick={(event) => {
                 event.stopPropagation();
                 performCandidateAction();
               }}
-              className={`absolute right-2 bottom-2 z-40 flex min-h-11 items-center gap-1 rounded-md bg-slate-950 px-3 py-2 text-xs font-semibold text-white shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 ${
+              className={`absolute right-1 bottom-1 z-40 flex size-11 items-center justify-center rounded-full bg-slate-950 text-white shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 ${
                 isCandidateActionVisible ? "opacity-100" : "opacity-0"
               }`}
             >
               <RotateCcw aria-hidden="true" className="size-4" />
-              候補に戻す
+              <span className="sr-only">候補に戻す</span>
             </button>
           ) : null}
         </>
@@ -425,17 +426,18 @@ export function NoteCard({
         <button
           type="button"
           aria-label="候補から外す"
+          title="候補から外す"
           disabled={disabled}
           onClick={(event) => {
             event.stopPropagation();
             performCandidateAction();
           }}
-          className={`absolute right-2 bottom-2 z-40 flex min-h-11 items-center gap-1 rounded-md border border-slate-950/15 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-950 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 ${
+          className={`absolute right-1 bottom-1 z-40 flex size-11 items-center justify-center rounded-full border border-slate-950/15 bg-white/90 text-slate-950 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 ${
             isCandidateActionVisible ? "opacity-100" : "opacity-0"
           }`}
         >
           <CircleMinus aria-hidden="true" className="size-4" />
-          候補から外す
+          <span className="sr-only">候補から外す</span>
         </button>
       ) : null}
       <textarea
@@ -463,7 +465,7 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none bg-transparent p-2 pr-10 text-sm text-slate-900 outline-none ${
+        className={`min-h-0 flex-1 resize-none bg-transparent px-2 pt-2 pr-10 pb-2 text-sm text-slate-900 outline-none ${
           note.excluded ? "pt-12" : ""
         } ${isEditing ? "" : "pointer-events-none select-none"}`}
         placeholder="メモを入力..."
@@ -477,22 +479,23 @@ export function NoteCard({
           <Check aria-hidden="true" className="size-5" strokeWidth={3} />
         </span>
       ) : null}
-      {vote.displayMode !== "hidden" ? (
-        <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
-          {vote.displayMode === "result" ? (
-            <>
-              <DotVoteSticker
-                kind="subjective"
-                count={note.dotVotes.subjective.count ?? 0}
-                state="result"
-              />
-              <DotVoteSticker
-                kind="objective"
-                count={note.dotVotes.objective.count ?? 0}
-                state="result"
-              />
-            </>
-          ) : null}
+      {vote.displayMode === "result" ? (
+        <div
+          data-testid="note-vote-results"
+          className={`pointer-events-none relative z-20 flex h-10 shrink-0 items-end gap-2 pb-2 pl-2 ${
+            isDecided || canCandidateAction ? "pr-12" : "pr-2"
+          }`}
+        >
+          <DotVoteSticker
+            kind="subjective"
+            count={note.dotVotes.subjective.count ?? 0}
+            state="result"
+          />
+          <DotVoteSticker
+            kind="objective"
+            count={note.dotVotes.objective.count ?? 0}
+            state="result"
+          />
         </div>
       ) : null}
       {vote.displayMode === "voting" ? (
