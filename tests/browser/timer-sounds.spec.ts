@@ -234,10 +234,12 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       await openStory(page);
       const soundToggle = page.getByTestId("timer-sound-toggle");
       await soundToggle.click();
-      expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
-      expect(await soundToggle.getAttribute("title")).toContain(
-        "ブラウザが音声の再生を拒否しました",
-      );
+      await vi.waitFor(async () => {
+        expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
+        expect(await soundToggle.getAttribute("title")).toContain(
+          "ブラウザが音声の再生を拒否しました",
+        );
+      });
       expect(await page.getByRole("dialog").count()).toBe(0);
       expect((await readAudioProbe(page)).resumeAttempts).toBe(1);
       expect(
