@@ -13,11 +13,12 @@
 // からの位置更新を無視し、ローカルの操作を優先する（notes-reducer.ts）。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DRAG_BROADCAST_THROTTLE_MS } from "@/contracts/board";
-import type {
-  ClientMessage,
-  DotVoteKind,
-  DotVoteSticker,
-  ServerMessage,
+import {
+  type ClientMessage,
+  type DotVoteKind,
+  type DotVoteSticker,
+  NoteFontSizeSchema,
+  type ServerMessage,
 } from "@/contracts/room-protocol";
 import { createThrottled } from "@/lib/throttle";
 import {
@@ -727,6 +728,7 @@ export function useRoomNotes({
 
   const changeNoteFontSize = useCallback(
     (noteId: string, fontSize: number) => {
+      if (!NoteFontSizeSchema.safeParse(fontSize).success) return;
       if (!notesRef.current.some((note) => note.id === noteId)) return;
       const operationId = createFontSizeOperationId();
       pendingFontSizeOperationsRef.current = [
