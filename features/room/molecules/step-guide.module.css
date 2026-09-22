@@ -1,0 +1,92 @@
+.guide {
+  --guide-width: min(470px, calc(100vw - 40px));
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  z-index: 41;
+  transform: translateX(-50%);
+  width: 126px;
+  height: 42px;
+  overflow: hidden;
+  border-radius: 23px;
+  transition:
+    width 260ms cubic-bezier(0.22, 0.8, 0.3, 1),
+    height 260ms cubic-bezier(0.22, 0.8, 0.3, 1),
+    border-radius 260ms ease;
+}
+.guide[data-state="intro"] {
+  width: var(--guide-width);
+  height: 100px;
+  border-radius: 20px;
+}
+.guide[data-state="detail"] {
+  width: var(--guide-width);
+  height: min(440px, calc(100dvh - 200px));
+  border-radius: 20px;
+}
+.layer {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 100ms ease,
+    visibility 0s 100ms;
+}
+.compact {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.intro {
+  padding: 18px 20px;
+  overflow: auto;
+}
+.detail {
+  padding: 20px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.intro > * {
+  width: calc(var(--guide-width) - 42px);
+}
+.detail > * {
+  width: calc(var(--guide-width) - 50px);
+}
+.guide[data-state="compact"] .compact,
+.guide[data-state="intro"] .intro,
+.guide[data-state="detail"] .detail {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    opacity 130ms 100ms ease,
+    visibility 0s;
+}
+@media (max-width: 1439px) {
+  .guide {
+    top: 84px;
+  }
+}
+@media (min-width: 901px) and (max-width: 1199px) {
+  .guide {
+    --guide-width: min(470px, calc(100vw - 660px));
+  }
+}
+@media (max-width: 900px) {
+  .guide {
+    top: 156px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide,
+  .guide[data-state] .layer {
+    transition: none;
+  }
+}

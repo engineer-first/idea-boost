@@ -118,7 +118,7 @@ const meta = {
       onOpenChange: fn(),
       onTabChange: fn(),
     },
-    initialGuideExpanded: false,
+    initialGuideState: "compact",
     hmwDecidedIssue: null,
     decidedHmw: null,
     onAddPrivateNote: fn(),
@@ -162,14 +162,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function guideModalStory(phase: 1 | 2 | 3, step: number): Story {
+function guideStory(phase: 1 | 2 | 3, step: number): Story {
   return {
     name: `フェーズ${phase} Step ${step}`,
     args: {
       phase: buildPhaseStep(step, phase),
       notes: step === 1 ? [] : buildNotes(3),
-      initialGuideExpanded: true,
-      enableGuideModal: true,
+      initialGuideState: "detail",
       hmwDecidedIssue: phase >= 2 ? GUIDE_ISSUE : null,
       decidedHmw: phase === 3 ? GUIDE_HMW : null,
     },
@@ -186,47 +185,47 @@ export const Empty: Story = {
   },
 };
 
-export const StepExplanationModal: Story = {
-  name: "ステップ説明モーダル",
+export const StepIntro: Story = {
+  name: "ステップ開始の短い案内",
   args: {
     phase: buildPhaseStep(1, 2),
     notes: [],
-    initialGuideExpanded: true,
+    initialGuideState: "intro",
     hmwDecidedIssue: "会議で発言する人が偏ってしまう",
   },
 };
 
-export const Phase1FirstStepModal: Story = {
+export const Phase1FirstStepIntro: Story = {
   name: "フェーズ1 Step 1の最初の一歩",
   args: {
     phase: buildPhaseStep(1, 1),
     notes: [],
-    initialGuideExpanded: true,
+    initialGuideState: "intro",
   },
 };
 
-export const Phase1SecondStepModal: Story = {
+export const Phase1SecondStepIntro: Story = {
   name: "フェーズ1 Step 2の付箋共有",
   args: {
     phase: buildPhaseStep(2, 1),
-    initialGuideExpanded: true,
+    initialGuideState: "intro",
   },
 };
 
-export const GuideModalPhase1Step1: Story = guideModalStory(1, 1);
-export const GuideModalPhase1Step2: Story = guideModalStory(1, 2);
-export const GuideModalPhase1Step3: Story = guideModalStory(1, 3);
-export const GuideModalPhase1Step4: Story = guideModalStory(1, 4);
-export const GuideModalPhase1Step5: Story = guideModalStory(1, 5);
-export const GuideModalPhase2Step1: Story = guideModalStory(2, 1);
-export const GuideModalPhase2Step2: Story = guideModalStory(2, 2);
-export const GuideModalPhase2Step3: Story = guideModalStory(2, 3);
-export const GuideModalPhase2Step4: Story = guideModalStory(2, 4);
-export const GuideModalPhase3Step1: Story = guideModalStory(3, 1);
-export const GuideModalPhase3Step2: Story = guideModalStory(3, 2);
-export const GuideModalPhase3Step3: Story = guideModalStory(3, 3);
-export const GuideModalPhase3Step4: Story = guideModalStory(3, 4);
-export const GuideModalPhase3Step5: Story = guideModalStory(3, 5);
+export const GuidePhase1Step1: Story = guideStory(1, 1);
+export const GuidePhase1Step2: Story = guideStory(1, 2);
+export const GuidePhase1Step3: Story = guideStory(1, 3);
+export const GuidePhase1Step4: Story = guideStory(1, 4);
+export const GuidePhase1Step5: Story = guideStory(1, 5);
+export const GuidePhase2Step1: Story = guideStory(2, 1);
+export const GuidePhase2Step2: Story = guideStory(2, 2);
+export const GuidePhase2Step3: Story = guideStory(2, 3);
+export const GuidePhase2Step4: Story = guideStory(2, 4);
+export const GuidePhase3Step1: Story = guideStory(3, 1);
+export const GuidePhase3Step2: Story = guideStory(3, 2);
+export const GuidePhase3Step3: Story = guideStory(3, 3);
+export const GuidePhase3Step4: Story = guideStory(3, 4);
+export const GuidePhase3Step5: Story = guideStory(3, 5);
 
 // 自分がドラッグ中の付箋がある状態（影が深くなり「持ち上げた」見た目になる）。
 export const Dragging: Story = {
