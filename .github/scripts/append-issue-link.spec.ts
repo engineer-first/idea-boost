@@ -25,10 +25,11 @@ describe("extractIssueNumber", () => {
 });
 
 describe("buildBodyWithIssueLink", () => {
-  it("現在の body に明示マーカーと非クローズ参照を追記する", () => {
+  it("番号付き実装ブランチのPRに明示マーカーとclosing referenceを追記する", () => {
     const result = buildBodyWithIssueLink("元のdescription", "104");
-    expect(result).toBe("元のdescription\n\n<!-- issue-ref:104 -->\nRefs #104");
-    expect(result).not.toContain("Closes #104");
+    expect(result).toBe(
+      "元のdescription\n\n<!-- issue-ref:104 -->\nCloses #104",
+    );
   });
 
   it("PATCH直前に取得した最新の body を基準に追記する（stale な body には追記しない）", () => {
@@ -49,15 +50,15 @@ describe("buildBodyWithIssueLink", () => {
 
   it("空文字の body は空文字として扱う", () => {
     const result = buildBodyWithIssueLink("", "104");
-    expect(result).toBe("\n\n<!-- issue-ref:104 -->\nRefs #104");
+    expect(result).toBe("\n\n<!-- issue-ref:104 -->\nCloses #104");
   });
 
   it("null/undefined の body は空文字として扱う", () => {
     expect(buildBodyWithIssueLink(null, "104")).toBe(
-      "\n\n<!-- issue-ref:104 -->\nRefs #104",
+      "\n\n<!-- issue-ref:104 -->\nCloses #104",
     );
     expect(buildBodyWithIssueLink(undefined, "104")).toBe(
-      "\n\n<!-- issue-ref:104 -->\nRefs #104",
+      "\n\n<!-- issue-ref:104 -->\nCloses #104",
     );
   });
 

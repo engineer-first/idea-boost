@@ -44,6 +44,7 @@ type NoteDragOperation = {
   noteId: string;
   dragId: string;
   status: "pending" | "active";
+  privateMapLock: boolean;
   initialX: number;
   initialY: number;
   initialStackOrder: number;
@@ -96,8 +97,11 @@ export type UseRoomNotesResult = {
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
   addNote: (content?: string) => void;
   publishNote: (noteId: string, x: number, y: number) => void;
-  unpublishNote: (noteId: string) => void;
-  startNoteDrag: (noteId: string) => void;
+  unpublishNote: (
+    noteId: string,
+    preserveDragUntilPointerEnd?: boolean,
+  ) => void;
+  startNoteDrag: (noteId: string, privateMapLock?: boolean) => void;
   bringNoteToFront: (noteId: string) => void;
   // ドラッグ中: 即時ローカル反映 + note:drag をスロットル送信。
   moveNote: (noteId: string, x: number, y: number) => void;
@@ -286,6 +290,12 @@ export function useRoomNotes({
         }
         const active = { ...operation, status: "active" as const };
         noteDragOperationRef.current = active;
+        if (active.privateMapLock) {
+          // private tray 内では内容を共有せず、ドラッグ lock だけを保持する。
+          draggingNoteIdRef.current = null;
+          setDraggingNoteId(null);
+          return;
+        }
         draggingNoteIdRef.current = active.noteId;
         setDraggingNoteId(active.noteId);
         if (active.ending) {
@@ -483,9 +493,14 @@ export function useRoomNotes({
   );
 
   const unpublishNote = useCallback(
-    (noteId: string) => {
+    (noteId: string, preserveDragUntilPointerEnd = false) => {
       sendDragRef.current?.cancel();
-      noteDragOperationRef.current = null;
+      if (
+        !preserveDragUntilPointerEnd ||
+        noteDragOperationRef.current?.noteId !== noteId
+      ) {
+        noteDragOperationRef.current = null;
+      }
       draggingNoteIdRef.current = null;
       setDraggingNoteId(null);
       if (pendingNoteDropRef.current?.noteId === noteId) {
@@ -500,8 +515,22 @@ export function useRoomNotes({
   );
 
   const startNoteDrag = useCallback(
-    (noteId: string) => {
-      if (noteDragOperationRef.current) return;
+    (noteId: string, privateMapLock = false) => {
+      const current = noteDragOperationRef.current;
+      if (current) {
+        if (
+          current.noteId === noteId &&
+          current.privateMapLock &&
+          !privateMapLock
+        ) {
+          current.privateMapLock = false;
+          if (current.status === "active") {
+            draggingNoteIdRef.current = current.noteId;
+            setDraggingNoteId(current.noteId);
+          }
+        }
+        return;
+      }
       const note = notesRef.current.find(({ id }) => id === noteId);
       if (!note) return;
       updatePendingNoteDrop(null);
@@ -510,6 +539,7 @@ export function useRoomNotes({
         noteId,
         dragId,
         status: "pending",
+        privateMapLock,
         initialX: note.x,
         initialY: note.y,
         initialStackOrder: note.stackOrder,

@@ -939,7 +939,7 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none bg-transparent p-2 pr-10 text-sm text-slate-900 outline-none ${
+        className={`min-h-0 flex-1 resize-none bg-transparent px-2 pt-2 pr-10 pb-2 text-sm text-slate-900 outline-none ${
           isEditing ? "" : "pointer-events-none select-none"
         }`}
         placeholder="メモを入力..."
@@ -953,22 +953,23 @@ export function NoteCard({
           <Check aria-hidden="true" className="size-5" strokeWidth={3} />
         </span>
       ) : null}
-      {vote.displayMode !== "hidden" ? (
-        <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
-          {vote.displayMode === "result" ? (
-            <>
-              <DotVoteSticker
-                kind="subjective"
-                count={note.dotVotes.subjective.count ?? 0}
-                state="result"
-              />
-              <DotVoteSticker
-                kind="objective"
-                count={note.dotVotes.objective.count ?? 0}
-                state="result"
-              />
-            </>
-          ) : null}
+      {vote.displayMode === "result" ? (
+        <div
+          data-testid="note-vote-results"
+          className={`pointer-events-none relative z-20 flex h-10 shrink-0 items-end gap-2 pb-2 pl-2 ${
+            isDecided || canCandidateAction ? "pr-12" : "pr-2"
+          }`}
+        >
+          <DotVoteSticker
+            kind="subjective"
+            count={note.dotVotes.subjective.count ?? 0}
+            state="result"
+          />
+          <DotVoteSticker
+            kind="objective"
+            count={note.dotVotes.objective.count ?? 0}
+            state="result"
+          />
         </div>
       ) : null}
       {vote.displayMode === "voting" ? (

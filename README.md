@@ -57,6 +57,19 @@ npm run dev
 まま誤って利用されることを防ぐため、意図的に認証処理で拒否されます。生成した
 値は Git にコミットせず、必ず両方のファイルで同じ値を使用してください。
 
+### Orca の worktree
+
+Orca で新しい worktree を作る場合は、Settings → Repository → Hooks の
+Setup Script に次を設定します。
+
+```bash
+bash scripts/setup-worktree.sh
+```
+
+このスクリプトは mise のツールと npm パッケージをインストールし、worktree
+専用の `SESSION_SECRET` を設定した環境ファイルを作成して、ローカル D1 migration
+を適用します。再実行時は既存の環境ファイルを保持します。
+
 ### 認証のローカル開発
 
 本番のログインは Google 認証（OIDC）のみを想定しています。ローカル開発では、固定のメール/パスワードユーザーでログインできます（`NEXT_PUBLIC_ENABLE_DEV_AUTH=true` かつ production 以外の環境でだけ表示されます）。

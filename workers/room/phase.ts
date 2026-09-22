@@ -1,5 +1,8 @@
 // 進行状態（lobby / 課題整理のステップ）の真実と、進行操作・境界ゲート。
-import { isIdeaValueFeasibilityMapCoordinate } from "../../contracts/board";
+import {
+  getInitialIdeaMapSizeLevel,
+  isIdeaValueFeasibilityMapCoordinate,
+} from "../../contracts/board";
 import {
   getRoomPhaseLabel,
   isLobby,
@@ -141,6 +144,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "decision:clear":
     case "group:create":
     case "group:update-name":
+    case "idea-map:resize":
       return true;
     case "cursor:update":
     case "cursor:leave":
@@ -243,6 +247,7 @@ const allowedBoardMutationsByPhase: {
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
+      "idea-map:resize",
     ],
     3: [
       "note:move",
@@ -250,6 +255,7 @@ const allowedBoardMutationsByPhase: {
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
+      "idea-map:resize",
     ],
     4: [
       "note:vote",
@@ -425,13 +431,26 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     // 掃除しない（同じ判断が2箇所にあると、どちらが真実か分からなくなる）。
     const leavesSharingStep = isSharingStep(current) && !isSharingStep(next);
     const entersVotingStep = !isVotingStep(current) && isVotingStep(next);
+    const initializesIdeaMapSize =
+      current.kind === "step" &&
+      current.phase === 3 &&
+      current.step === 1 &&
+      next.kind === "step" &&
+      next.phase === 3 &&
+      next.step === 2;
+    const entersIdeaMapStep =
+      next.kind === "step" &&
+      next.phase === 3 &&
+      next.step === 2 &&
+      !(current.kind === "step" && current.phase === 3 && current.step === 2);
     const completesVoting =
       isVotingStep(current) && isResultStep(next) && completedVoting;
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
       crossesPhaseBoundary ||
       leavesSharingStep ||
-      entersVotingStep;
+      entersVotingStep ||
+      entersIdeaMapStep;
     let timerWasReset = false;
     let automaticExclusion:
       | { operationId: string; targets: NoteRow[] }
@@ -441,6 +460,23 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     ctx.storage.transactionSync(() => {
       if (leavesSharingStep) {
         discardPrivateNotes(ctx.sql);
+      }
+      if (initializesIdeaMapSize) {
+        const initializedRow = ctx.sql
+          .exec("SELECT idea_map_size_initialized FROM room_state WHERE id = 1")
+          .toArray()[0] as { idea_map_size_initialized: number } | undefined;
+        if (initializedRow?.idea_map_size_initialized !== 1) {
+          const countRow = ctx.sql
+            .exec(
+              "SELECT COUNT(*) AS count FROM notes WHERE phase = 3 AND visibility = 'private'",
+            )
+            .toArray()[0] as { count: number } | undefined;
+          const sizeLevel = getInitialIdeaMapSizeLevel(countRow?.count ?? 0);
+          ctx.sql.exec(
+            "UPDATE room_state SET idea_map_size_level = ?1, idea_map_size_initialized = 1 WHERE id = 1",
+            sizeLevel,
+          );
+        }
       }
       if (completesVoting) {
         const targets = listAutomaticExclusionCandidates(

@@ -236,6 +236,10 @@ export function RoomBoard({
     () => send({ type: "timer:stop" }),
     [send],
   );
+  const handleIdeaMapResize = useCallback(
+    (sizeLevel: number) => send({ type: "idea-map:resize", sizeLevel }),
+    [send],
+  );
 
   // PrivateNotesToolbar は onClick={onAdd} でイベントをそのまま渡すため、
   // addNote(content?) を直接配線するとイベントオブジェクトが content に
@@ -283,6 +287,8 @@ export function RoomBoard({
     currentUserId,
     draggingNoteId: notes.draggingNoteId,
     phase: roomState.phase,
+    ideaMapSizeLevel: roomState.ideaMap.sizeLevel,
+    ideaMapSizeInitialized: roomState.ideaMap.initialized,
     onNoteDragStart: notes.startNoteDrag,
     onNoteDragMove: notes.moveNote,
     onNoteDragEnd: notes.endNoteDrag,
@@ -318,6 +324,10 @@ export function RoomBoard({
         inviteCode={inviteCode}
         inviteUrl={inviteUrl}
         phase={roomState.phase}
+        ideaMapSizeLevel={roomState.ideaMap.sizeLevel}
+        ideaMapSizeInitialized={roomState.ideaMap.initialized}
+        ideaMapIsDragging={roomState.ideaMap.isDragging}
+        onIdeaMapResize={handleIdeaMapResize}
         timer={roomState.timer}
         timerServerOffsetMs={roomState.timerServerOffsetMs}
         timerUpdateVersion={roomState.timerUpdateVersion}

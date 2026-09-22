@@ -65,6 +65,46 @@ describe("useRoomState", () => {
     ]);
   });
 
+  it("snapshotと匿名stateから2軸マップのサイズとドラッグ状態を復元する", () => {
+    const { result } = setup();
+    act(() =>
+      result.current.applyMessage({
+        type: "snapshot",
+        notes: [],
+        members: [],
+        phase: buildPhaseStep(3, 2),
+        isHost: true,
+        decision: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: 500,
+        ideaMapSizeLevel: 4,
+        ideaMapSizeInitialized: true,
+        ideaMapDragging: true,
+      }),
+    );
+    expect(result.current.ideaMap).toEqual({
+      sizeLevel: 4,
+      initialized: true,
+      isDragging: true,
+    });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "idea-map:state",
+        sizeLevel: 5,
+        initialized: true,
+        isDragging: false,
+      }),
+    );
+    expect(result.current.ideaMap).toEqual({
+      sizeLevel: 5,
+      initialized: true,
+      isDragging: false,
+    });
+  });
+
   it("member_vote_status を反映し、フェーズ変更でクリアする", () => {
     const { result } = setup();
     const memberId = buildMembers(1)[0]?.userId ?? "";

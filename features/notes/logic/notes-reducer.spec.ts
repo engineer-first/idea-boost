@@ -49,6 +49,20 @@ describe("applyServerMessage", () => {
     expect(result).toBe(notes);
   });
 
+  it("idea-map:state は付箋配列を同じ参照のまま変更しない", () => {
+    const notes = [note];
+    const message: ServerMessage = {
+      type: "idea-map:state",
+      sizeLevel: 2,
+      initialized: true,
+      isDragging: true,
+    };
+
+    const result = applyServerMessage(notes, message, { draggingNoteId: null });
+
+    expect(result).toBe(notes);
+  });
+
   it("snapshotで付箋を丸ごと置き換える", () => {
     const message: ServerMessage = {
       type: "snapshot",

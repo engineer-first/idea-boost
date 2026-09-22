@@ -49,6 +49,10 @@ export type RoomBoardViewProps = {
   inviteCode: string;
   inviteUrl: string;
   phase: RoomPhase;
+  ideaMapSizeLevel?: number;
+  ideaMapSizeInitialized?: boolean;
+  ideaMapIsDragging?: boolean;
+  onIdeaMapResize?: (sizeLevel: number) => void;
   timer: TimerState;
   timerServerOffsetMs: number;
   timerUpdateVersion?: number;
@@ -143,6 +147,10 @@ export function RoomBoardView({
   inviteCode,
   inviteUrl,
   phase,
+  ideaMapSizeLevel = 0,
+  ideaMapSizeInitialized = false,
+  ideaMapIsDragging = false,
+  onIdeaMapResize = () => undefined,
   timer,
   timerServerOffsetMs,
   timerUpdateVersion = 0,
@@ -759,6 +767,10 @@ export function RoomBoardView({
         selectedNoteId={selectedNoteId}
         draggingNoteId={draggingNoteId}
         isDisconnected={isDisconnected}
+        ideaMapSizeLevel={ideaMapSizeLevel}
+        ideaMapSizeInitialized={ideaMapSizeInitialized}
+        ideaMapIsDragging={ideaMapIsDragging || isNoteDragging}
+        onIdeaMapResize={onIdeaMapResize}
         voteRemaining={voteRemaining}
         selectedVoteKind={selectedVoteKind}
         pendingVoteOperations={pendingVoteOperations}

@@ -20,6 +20,39 @@ export type Member = ProtocolMember;
 export type Decision = ProtocolDecision;
 export type Carryover = ProtocolCarryover;
 
+export type IdeaMapClientState = {
+  sizeLevel: number;
+  initialized: boolean;
+  isDragging: boolean;
+};
+
+export const INITIAL_IDEA_MAP_STATE: IdeaMapClientState = {
+  sizeLevel: 0,
+  initialized: false,
+  isDragging: false,
+};
+
+export function applyIdeaMapServerMessage(
+  state: IdeaMapClientState,
+  message: ServerMessage,
+): IdeaMapClientState {
+  if (message.type === "snapshot") {
+    return {
+      sizeLevel: message.ideaMapSizeLevel ?? 0,
+      initialized: message.ideaMapSizeInitialized ?? false,
+      isDragging: message.ideaMapDragging ?? false,
+    };
+  }
+  if (message.type === "idea-map:state") {
+    return {
+      sizeLevel: message.sizeLevel,
+      initialized: message.initialized,
+      isDragging: message.isDragging,
+    };
+  }
+  return state;
+}
+
 // snapshot / member_joined / member_left を受けて members state を更新する純粋関数。
 // 進行状態メッセージは早期 return。
 export function applyMemberServerMessage(
@@ -57,6 +90,7 @@ export function applyMemberServerMessage(
     case "note:bulk-excluded":
     case "note:bulk-restored":
     case "note:drag:result":
+    case "idea-map:state":
     case "phase:updated":
     case "timer:updated":
     case "group:updated":
@@ -100,6 +134,7 @@ export function applyVotingCompletionServerMessage(
     case "note:bulk-excluded":
     case "note:bulk-restored":
     case "note:drag:result":
+    case "idea-map:state":
     case "member_joined":
     case "group:updated":
     case "group:deleted":
@@ -160,6 +195,7 @@ export function applyDecisionServerMessage(
     case "note:bulk-excluded":
     case "note:bulk-restored":
     case "note:drag:result":
+    case "idea-map:state":
     case "member_joined":
     case "member_left":
     case "member_vote_status":
@@ -228,6 +264,7 @@ export function applyPhaseServerMessage(
     case "note:bulk-excluded":
     case "note:bulk-restored":
     case "note:drag:result":
+    case "idea-map:state":
     case "member_joined":
     case "member_left":
     case "member_vote_status":

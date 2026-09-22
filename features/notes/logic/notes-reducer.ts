@@ -74,6 +74,7 @@ export function applyServerMessage(
     }
 
     case "note:drag:result":
+    case "idea-map:state":
     case "member_joined":
     case "member_left":
     case "phase:updated":
