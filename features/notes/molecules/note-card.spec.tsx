@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { NoteColor } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
@@ -77,10 +77,283 @@ describe("NoteCard", () => {
     expect(getCard()).toHaveAttribute("data-excluded", "true");
     expect(getCard()).toHaveStyle({ left: "320px", top: "180px" });
     expect(screen.getByDisplayValue("残して読む本文")).toBeInTheDocument();
-    expect(screen.getByText("候補外")).toBeInTheDocument();
+    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
     expect(getCard()).toHaveStyle({ boxShadow: "none" });
     expect(getCard()).toHaveStyle({ borderWidth: "1px" });
-    expect(screen.getByRole("textbox")).toHaveClass("pt-12");
+    expect(screen.getByRole("textbox")).not.toHaveClass("pt-12");
+  });
+
+  it("候補操作を付箋外の最前面レイヤーへ短い表示で出し、付箋色の継ぎ目で対象を示す", () => {
+    setup({
+      note: buildNote({ color: "blue" }),
+      canExcludeNote: true,
+    } as never);
+
+    const action = screen.getByRole("button", { name: "候補から外す" });
+
+    expect(getCard()).not.toContainElement(action);
+    expect(action).toHaveTextContent("除外");
+    expect(action).not.toHaveTextContent("候補から外す");
+    expect(action.querySelector(".lucide-list-minus")).toBeInTheDocument();
+    expect(action).toHaveClass("fixed", "z-40");
+    expect(action).toHaveStyle({ width: "80px", height: "44px" });
+    expect(action.querySelector("[data-candidate-action-seam]")).toHaveStyle({
+      backgroundColor: NOTE_COLOR_STYLES.blue.backgroundColor,
+    });
+    expect(screen.getAllByTestId("candidate-target-corner")).toHaveLength(4);
+  });
+
+  it("候補操作を付箋の左下へ隙間なく置き、画面下端では左上へ逃がす", () => {
+    setup({ canExcludeNote: true } as never);
+    const card = getCard();
+    const surface = getNoteSurface();
+    const action = screen.getByRole("button", { name: "候補から外す" });
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 1024,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 800,
+    });
+    const rect = vi.spyOn(card, "getBoundingClientRect");
+    rect.mockReturnValue({
+      bottom: 250,
+      height: 150,
+      left: 100,
+      right: 300,
+      top: 100,
+      width: 200,
+      x: 100,
+      y: 100,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.focus(surface);
+
+    expect(action).toHaveAttribute("data-placement", "bottom");
+    expect(action).toHaveClass("rounded-l-md");
+    expect(action.style.webkitMaskImage).toContain("right center");
+    expect(action.querySelector("[data-candidate-action-seam]")).toHaveClass(
+      "left-0",
+    );
+    expect(action).toHaveStyle({ left: "100px", top: "250px" });
+
+    rect.mockReturnValue({
+      bottom: 790,
+      height: 150,
+      left: 100,
+      right: 300,
+      top: 640,
+      width: 200,
+      x: 100,
+      y: 640,
+      toJSON: () => ({}),
+    });
+    fireEvent(window, new Event("resize"));
+
+    expect(action).toHaveAttribute("data-placement", "top");
+    expect(action).toHaveStyle({ left: "100px", top: "596px" });
+  });
+
+  it("付箋から候補操作へポインターを移しても表示を保つ", () => {
+    vi.useFakeTimers();
+    try {
+      setup({ canExcludeNote: true } as never);
+      const surface = getNoteSurface();
+      const action = screen.getByRole("button", { name: "候補から外す" });
+
+      fireEvent.pointerEnter(surface);
+      act(() => vi.advanceTimersByTime(150));
+      expect(action).toHaveClass("opacity-100");
+      fireEvent.pointerLeave(surface);
+      fireEvent.pointerEnter(action);
+      act(() => vi.advanceTimersByTime(700));
+
+      expect(action).toHaveClass("opacity-100");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("候補操作へ向かう途中で横切った付箋へ操作対象を切り替えない", () => {
+    vi.useFakeTimers();
+    try {
+      setup({
+        note: buildNote({ id: "target-note" }),
+        canExcludeNote: true,
+      } as never);
+      setup({
+        note: buildNote({ id: "front-note" }),
+        canExcludeNote: true,
+      } as never);
+      const [targetSurface, frontSurface] = screen.getAllByRole("button", {
+        name: "付箋",
+      });
+      const targetAction = document.querySelector<HTMLElement>(
+        '[data-candidate-action-note-id="target-note"]',
+      );
+      const frontAction = document.querySelector<HTMLElement>(
+        '[data-candidate-action-note-id="front-note"]',
+      );
+      if (!targetAction || !frontAction) {
+        throw new Error("候補操作がありません");
+      }
+
+      fireEvent.pointerEnter(targetSurface);
+      act(() => vi.advanceTimersByTime(150));
+      fireEvent.pointerLeave(targetSurface);
+      fireEvent.pointerEnter(frontSurface);
+      act(() => vi.advanceTimersByTime(800));
+
+      expect(targetAction).toHaveClass("opacity-100");
+      expect(frontAction).toHaveClass("opacity-0");
+
+      fireEvent.pointerLeave(frontSurface);
+      fireEvent.pointerEnter(targetAction);
+      act(() => vi.advanceTimersByTime(700));
+
+      expect(targetAction).toHaveClass("opacity-100");
+      expect(frontAction).toHaveClass("opacity-0");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("タッチ端末では付箋をタップした後だけ候補操作と対象表示を出す", () => {
+    setup({ canExcludeNote: true } as never);
+    const surface = getNoteSurface();
+    const action = screen.getByRole("button", { name: "候補から外す" });
+    const targetCorners = screen.getAllByTestId("candidate-target-corner");
+
+    expect(action).toHaveClass("opacity-0");
+    expect(action.className).not.toContain("[@media(hover:none)]");
+    expect(targetCorners[0]?.parentElement).toHaveClass("opacity-0");
+
+    fireEvent.pointerDown(surface, {
+      pointerId: 11,
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(surface, {
+      pointerId: 11,
+      pointerType: "touch",
+    });
+
+    expect(action).toHaveClass("opacity-100");
+    expect(targetCorners[0]?.parentElement).toHaveClass("opacity-100");
+  });
+
+  it("別の付箋をタップしたら前の候補操作を閉じる", () => {
+    setup({
+      note: buildNote({ id: "first-note" }),
+      canExcludeNote: true,
+    } as never);
+    setup({
+      note: buildNote({ id: "second-note" }),
+      canExcludeNote: true,
+    } as never);
+    const [firstSurface, secondSurface] = screen.getAllByRole("button", {
+      name: "付箋",
+    });
+    const firstAction = document.querySelector<HTMLElement>(
+      '[data-candidate-action-note-id="first-note"]',
+    );
+    const secondAction = document.querySelector<HTMLElement>(
+      '[data-candidate-action-note-id="second-note"]',
+    );
+    if (!firstSurface || !secondSurface || !firstAction || !secondAction) {
+      throw new Error("候補操作がありません");
+    }
+
+    fireEvent.pointerDown(firstSurface, {
+      pointerId: 11,
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(firstSurface, {
+      pointerId: 11,
+      pointerType: "touch",
+    });
+    expect(firstAction).toHaveClass("opacity-100");
+
+    fireEvent.pointerDown(secondSurface, {
+      pointerId: 12,
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(secondSurface, {
+      pointerId: 12,
+      pointerType: "touch",
+    });
+
+    expect(firstAction).toHaveClass("opacity-0");
+    expect(secondAction).toHaveClass("opacity-100");
+  });
+
+  it("タッチドラッグの完了後には候補操作を表示しない", () => {
+    setup({ canExcludeNote: true, canMoveNote: true } as never);
+    const surface = getNoteSurface();
+    const action = screen.getByRole("button", { name: "候補から外す" });
+
+    fireEvent.pointerDown(surface, {
+      clientX: 10,
+      clientY: 10,
+      pointerId: 11,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(surface, {
+      clientX: 30,
+      clientY: 30,
+      pointerId: 11,
+      pointerType: "touch",
+    });
+    fireEvent.pointerUp(surface, {
+      clientX: 30,
+      clientY: 30,
+      pointerId: 11,
+      pointerType: "touch",
+    });
+
+    expect(action).toHaveClass("opacity-0");
+  });
+
+  it("Tabで付箋から候補操作へ移り、その次は本来の次要素へ進む", () => {
+    setup({
+      note: buildNote({ id: "target-note" }),
+      canExcludeNote: true,
+    } as never);
+    setup({
+      note: buildNote({ id: "next-note" }),
+      canExcludeNote: true,
+    } as never);
+    const [targetSurface, nextSurface] = screen.getAllByRole("button", {
+      name: "付箋",
+    });
+    const targetAction = document.querySelector<HTMLButtonElement>(
+      '[data-candidate-action-note-id="target-note"]',
+    );
+    if (!targetAction) throw new Error("候補操作がありません");
+
+    targetSurface?.focus();
+    fireEvent.keyDown(targetSurface, { key: "Tab" });
+    expect(targetAction).toHaveFocus();
+
+    fireEvent.keyDown(targetAction, { key: "Tab" });
+    expect(nextSurface).toHaveFocus();
+
+    targetAction.focus();
+    fireEvent.keyDown(targetAction, { key: "Tab", shiftKey: true });
+    expect(targetSurface).toHaveFocus();
+  });
+
+  it("候補操作の先に要素がない場合はTabの既定動作を妨げない", () => {
+    setup({ canExcludeNote: true } as never);
+    const surface = getNoteSurface();
+    const action = screen.getByRole("button", { name: "候補から外す" });
+
+    surface.focus();
+    fireEvent.keyDown(surface, { key: "Tab" });
+
+    expect(action).toHaveFocus();
+    expect(fireEvent.keyDown(action, { key: "Tab" })).toBe(true);
   });
 
   it("右クリックは即実行せず、操作名付きメニューから候補外と復帰を実行できる", () => {
@@ -182,7 +455,7 @@ describe("NoteCard", () => {
 
     expect(restore).toHaveClass("opacity-100");
     expect(getCard()).toHaveClass("opacity-90");
-    expect(screen.getByText("候補外")).toBeInTheDocument();
+    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
   });
 
   it("非ホストもタップすると候補外付箋の本文を読める濃さに戻せる", () => {
@@ -195,33 +468,43 @@ describe("NoteCard", () => {
       canRestoreNote: false,
     } as never);
 
-    fireEvent.pointerUp(getNoteSurface(), {
+    const surface = getNoteSurface();
+    fireEvent.pointerDown(surface, {
       pointerId: 8,
       pointerType: "touch",
     });
+    fireEvent.pointerUp(surface, { pointerId: 8, pointerType: "touch" });
 
     expect(getCard()).toHaveClass("opacity-90");
-    expect(screen.getByText("候補外")).toBeInTheDocument();
+    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
   });
 
   it("ホバーとフォーカスで候補外付箋の復帰操作を表示する", () => {
-    setup({
-      note: buildNote({ excluded: true } as never),
-      canEditNote: false,
-      canDeleteNote: false,
-      canMoveNote: false,
-      canRestoreNote: true,
-    } as never);
-    const surface = getNoteSurface();
-    const restore = screen.getByRole("button", { name: "候補に戻す" });
+    vi.useFakeTimers();
+    try {
+      setup({
+        note: buildNote({ excluded: true } as never),
+        canEditNote: false,
+        canDeleteNote: false,
+        canMoveNote: false,
+        canRestoreNote: true,
+      } as never);
+      const surface = getNoteSurface();
+      const restore = screen.getByRole("button", { name: "候補に戻す" });
 
-    fireEvent.pointerEnter(surface);
-    expect(restore).toHaveClass("opacity-100");
-    fireEvent.pointerLeave(surface);
-    expect(restore).toHaveClass("opacity-0");
-    fireEvent.focus(surface);
-    expect(restore).toHaveClass("opacity-100");
+      fireEvent.pointerEnter(surface);
+      act(() => vi.advanceTimersByTime(150));
+      expect(restore).toHaveClass("opacity-100");
+      fireEvent.pointerLeave(surface);
+      expect(restore).toHaveClass("opacity-100");
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(restore).toHaveClass("opacity-0");
+      fireEvent.focus(surface);
+      expect(restore).toHaveClass("opacity-100");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("非ホストには候補外・復帰操作を表示しない", () => {

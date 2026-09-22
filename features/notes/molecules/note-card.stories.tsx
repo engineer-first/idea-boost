@@ -148,9 +148,10 @@ export const ExcludedForHost: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     const card = canvas.getByTestId("note-card");
     const surface = canvas.getByRole("button", { name: "候補外の付箋" });
-    const restore = canvas.getByRole("button", { name: "候補に戻す" });
+    const restore = page.getByRole("button", { name: "候補に戻す" });
 
     await userEvent.hover(surface);
     await waitFor(() => expect(restore).toBeVisible());
@@ -158,10 +159,11 @@ export const ExcludedForHost: Story = {
     surface.focus();
     await waitFor(() => expect(restore).toBeVisible());
     surface.blur();
+    fireEvent.pointerDown(surface, { pointerId: 7, pointerType: "touch" });
     fireEvent.pointerUp(surface, { pointerId: 7, pointerType: "touch" });
     await waitFor(() => expect(restore).toBeVisible());
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
-    await expect(canvas.getByText("候補外")).toBeVisible();
+    await expect(canvas.queryByText("候補外")).not.toBeInTheDocument();
   },
 };
 
@@ -172,14 +174,83 @@ export const CandidateContextMenu: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     const surface = canvas.getByRole("button", { name: "付箋" });
 
     fireEvent.contextMenu(surface);
     await expect(args.onExclude).not.toHaveBeenCalled();
-    await userEvent.click(
-      canvas.getByRole("menuitem", { name: "候補から外す" }),
-    );
+    await userEvent.click(page.getByRole("menuitem", { name: "候補から外す" }));
     await expect(args.onExclude).toHaveBeenCalledWith("note-1");
+  },
+};
+
+export const CandidateActionForTouch: Story = {
+  args: {
+    canExcludeNote: true,
+    onExclude: fn(),
+  },
+};
+
+export const MultipleCandidateActionsForTouch: Story = {
+  args: {
+    canExcludeNote: true,
+    onExclude: fn(),
+  },
+  render: (args) => (
+    <>
+      <NoteCard
+        {...args}
+        note={buildNote({ id: "first-note", content: "最初の付箋" })}
+        style={{ left: 20, top: 20 }}
+      />
+      <NoteCard
+        {...args}
+        note={buildNote({ id: "second-note", content: "次の付箋" })}
+        style={{ left: 220, top: 20 }}
+      />
+    </>
+  ),
+};
+
+export const OverlappedCandidateAction: Story = {
+  args: {
+    canExcludeNote: true,
+    onExclude: fn(),
+  },
+  render: (args) => (
+    <>
+      <NoteCard
+        {...args}
+        note={buildNote({
+          id: "target-note",
+          content: "奥にある候補",
+        })}
+        style={{ left: 30, top: 30, zIndex: 1 }}
+      />
+      <NoteCard
+        {...args}
+        note={buildNote({
+          id: "front-note",
+          content: "手前の付箋",
+        })}
+        style={{ left: 54, top: 80, zIndex: 2 }}
+      />
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const target = canvasElement.querySelector<HTMLElement>(
+      '[data-note-id="target-note"]',
+    );
+    if (!target) throw new Error("対象の付箋がありません");
+    const surface = within(target).getByRole("button", { name: "付箋" });
+    const action = canvasElement.ownerDocument.querySelector<HTMLButtonElement>(
+      '[data-candidate-action-note-id="target-note"]',
+    );
+    if (!action) throw new Error("対象の候補操作がありません");
+
+    await userEvent.hover(surface);
+    await waitFor(() => expect(action).toBeVisible());
+    await expect(target).not.toContainElement(action);
   },
 };
 
@@ -194,10 +265,11 @@ export const ExcludedKeyboardMenu: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     const surface = canvas.getByRole("button", { name: "候補外の付箋" });
     surface.focus();
     await userEvent.keyboard("{Shift>}{F10}{/Shift}");
-    const menuItem = canvas.getByRole("menuitem", { name: "候補に戻す" });
+    const menuItem = page.getByRole("menuitem", { name: "候補に戻す" });
     await expect(menuItem).toHaveFocus();
     await expect(args.onRestore).not.toHaveBeenCalled();
     await userEvent.keyboard("{Enter}");
@@ -216,15 +288,17 @@ export const ExcludedForParticipant: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     const card = canvas.getByTestId("note-card");
     const surface = canvas.getByRole("button", { name: "候補外の付箋" });
 
+    fireEvent.pointerDown(surface, { pointerId: 8, pointerType: "touch" });
     fireEvent.pointerUp(surface, { pointerId: 8, pointerType: "touch" });
 
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
-    await expect(canvas.getByText("候補外")).toBeVisible();
+    await expect(canvas.queryByText("候補外")).not.toBeInTheDocument();
     await expect(
-      canvas.queryByRole("button", { name: "候補に戻す" }),
+      page.queryByRole("button", { name: "候補に戻す" }),
     ).not.toBeInTheDocument();
   },
 };
