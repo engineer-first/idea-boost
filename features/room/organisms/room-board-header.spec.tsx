@@ -123,6 +123,7 @@ describe("RoomBoardHeader", () => {
     setup({ phase: buildPhaseStep(5) });
 
     expect(screen.getByTestId("board-header-row")).toHaveClass(
+      "bottom-[7.5rem]",
       "max-[900px]:grid-cols-[306px_minmax(0,1fr)]",
     );
     expect(screen.getByTestId("board-context-column")).toHaveClass(
@@ -296,6 +297,88 @@ describe("RoomBoardHeader", () => {
         screen.getByTestId(`member-row-${members[1]?.userId}`),
       ).queryByTestId("member-voting-complete"),
     ).not.toBeInTheDocument();
+  });
+
+  describe("全員の投票完了表示", () => {
+    it.each([
+      buildPhaseStep(4, 1),
+      buildPhaseStep(3, 2),
+      buildPhaseStep(4, 3),
+    ])("投票ステップ $phase-$step で全員完了を表示する", (phase) => {
+      const members = buildMembers(4, ME);
+      setup({
+        phase,
+        members,
+        completedVoterIds: members.map(({ userId }) => userId),
+      });
+
+      const indicator = screen.getByTestId("vote-completion-indicator");
+      expect(indicator).toHaveTextContent("全員OK");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "全員の投票が完了しました",
+      );
+      expect(indicator.nextElementSibling).toBe(
+        screen.getByRole("button", { name: "参加者 4人" }),
+      );
+    });
+
+    it("省略表示される参加者が未完了なら表示しない", () => {
+      const members = buildMembers(5, ME);
+      setup({
+        phase: buildPhaseStep(4),
+        members,
+        completedVoterIds: members.slice(0, -1).map(({ userId }) => userId),
+      });
+
+      expect(
+        screen.queryByTestId("vote-completion-indicator"),
+      ).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["投票以外", { phase: buildPhaseStep(3) }],
+      ["参加者なし", { members: [], completedVoterIds: [] }],
+      ["切断中", { isDisconnected: true }],
+    ])("%sでは全員完了と表示しない", (_label, overrides) => {
+      const members = buildMembers(2, ME);
+      setup({
+        phase: buildPhaseStep(4),
+        members,
+        completedVoterIds: members.map(({ userId }) => userId),
+        ...overrides,
+      });
+
+      expect(
+        screen.queryByTestId("vote-completion-indicator"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("狭い幅では操作類の後の二行目に送り、120msの幅・透明度変化を抑制できる", () => {
+      const members = buildMembers(2, ME);
+      setup({
+        phase: buildPhaseStep(4),
+        isHost: true,
+        members,
+        completedVoterIds: members.map(({ userId }) => userId),
+      });
+
+      expect(screen.getByTestId("vote-completion-indicator")).toHaveClass(
+        "max-[900px]:order-last",
+        "max-[900px]:basis-full",
+      );
+      expect(screen.getByTestId("vote-completion-label")).toHaveClass(
+        "transition-[max-width,opacity]",
+        "duration-[120ms]",
+        "starting:max-w-0",
+        "starting:opacity-0",
+        "motion-reduce:transition-none",
+        "text-emerald-700",
+        "dark:text-emerald-400",
+      );
+      expect(
+        screen.getByRole("button", { name: "次のステップへ" }),
+      ).toHaveClass("max-[900px]:px-2", "max-[900px]:text-xs");
+    });
   });
 
   it("非 host の idle タイマー枠を操作UIなしで操作グループ内に表示する", () => {

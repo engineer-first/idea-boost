@@ -360,6 +360,7 @@ export function RoomBoard({
         onTimerExtend={handleTimerExtend}
         onTimerStop={handleTimerStop}
         onNoteContentChange={notes.changeNoteContent}
+        onNoteFontSizeChange={notes.changeNoteFontSize}
         onNoteDelete={notes.deleteNote}
         onNoteBringToFront={notes.bringNoteToFront}
         onNoteExclude={handleNoteExclude}

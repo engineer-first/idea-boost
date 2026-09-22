@@ -11,7 +11,12 @@
 // - lobby: 開始前ロビー（メンバー確認・招待）。
 // - step: phase × step の進行状態。現在は課題整理の phase1 step1-5 のみ。
 import { z } from "zod";
-import { CANVAS_COORDINATE_LIMIT, IDEA_MAP_SIZE_LEVEL_RANGE } from "./board";
+import {
+  CANVAS_COORDINATE_LIMIT,
+  IDEA_MAP_SIZE_LEVEL_RANGE,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_FONT_SIZE_RANGE,
+} from "./board";
 import { RoomPhaseSchema } from "./phase";
 
 export const NOTE_CONTENT_MAX_LENGTH = 2000;
@@ -31,9 +36,10 @@ export const DOT_VOTE_LIMITS = {
 export const DotVoteKindSchema = z.enum(["subjective", "objective"]);
 export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 
-// 楽観表示した投票操作と、RoomDO から返る確定・拒否応答を対応付けるID。
+// 楽観表示した操作と、RoomDO から返る確定・拒否応答を対応付けるID。
 // 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
-export const VoteOperationIdSchema = z.string().uuid();
+export const OptimisticOperationIdSchema = z.string().uuid();
+export const VoteOperationIdSchema = OptimisticOperationIdSchema;
 export const BulkExclusionOperationIdSchema = z.string().uuid();
 export type BulkExclusionOperationId = z.infer<
   typeof BulkExclusionOperationIdSchema
@@ -115,12 +121,20 @@ export const CanvasCoordinateSchema = z
   .min(-CANVAS_COORDINATE_LIMIT)
   .max(CANVAS_COORDINATE_LIMIT);
 
+export const NoteFontSizeSchema = z
+  .number()
+  .int()
+  .min(NOTE_FONT_SIZE_RANGE.min)
+  .max(NOTE_FONT_SIZE_RANGE.max);
+
 export const NoteSchema = z.object({
   id: z.string().uuid(),
   authorId: z.string().uuid(),
   content: z.string(),
   visibility: z.enum(["private", "shared"]),
   color: NoteColorSchema,
+  // 旧 Worker / 保存データにフィールドがなくても従来相当の14pxで復元する。
+  fontSize: NoteFontSizeSchema.default(NOTE_DEFAULT_FONT_SIZE),
   x: CanvasCoordinateSchema,
   y: CanvasCoordinateSchema,
   // 決定ステップで一時的に候補から外す状態。削除とは異なり、付箋の内容・
@@ -261,6 +275,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       .string()
       .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。"),
   }),
+  z
+    .object({
+      type: z.literal("note:update-font-size"),
+      noteId: z.string().uuid(),
+      fontSize: NoteFontSizeSchema,
+      operationId: OptimisticOperationIdSchema.optional(),
+    })
+    .strict(),
   z.object({
     type: z.literal("note:move"),
     noteId: z.string().uuid(),
@@ -443,7 +465,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("note:updated"),
     note: NoteSchema,
-    operationId: VoteOperationIdSchema.optional(),
+    operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({ type: z.literal("note:deleted"), noteId: z.string().uuid() }),
   z.object({
@@ -530,8 +552,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       "voting-incomplete",
     ]),
     message: z.string(),
-    // 投票操作に起因する拒否だけが持つ。汎用エラーは省略する。
-    operationId: VoteOperationIdSchema.optional(),
+    // 楽観操作に起因する拒否だけが持つ。汎用エラーは省略する。
+    operationId: OptimisticOperationIdSchema.optional(),
   }),
 ]);
 

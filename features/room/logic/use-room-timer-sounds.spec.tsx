@@ -107,6 +107,35 @@ function setup(timer: TimerState, timerUpdateVersion = 0, serverOffsetMs = 0) {
   );
 }
 
+type VotingCompletionState = {
+  roundKey: string | null;
+  isComplete: boolean;
+  isDisconnected: boolean;
+};
+
+function setupVotingCompletion(initialVotingCompletion: VotingCompletionState) {
+  return renderHook(
+    (votingCompletion: VotingCompletionState) =>
+      useRoomTimerSounds({
+        timer: { status: "idle" },
+        serverOffsetMs: 0,
+        timerUpdateVersion: 0,
+        votingCompletion,
+      }),
+    { initialProps: initialVotingCompletion },
+  );
+}
+
+async function rerenderVotingCompletion(
+  rerender: (props: VotingCompletionState) => void,
+  votingCompletion: VotingCompletionState,
+): Promise<void> {
+  await act(async () => {
+    rerender(votingCompletion);
+    await Promise.resolve();
+  });
+}
+
 async function enableSounds(result: {
   current: ReturnType<typeof useRoomTimerSounds>;
 }): Promise<void> {
@@ -301,6 +330,102 @@ describe("useRoomTimerSounds", () => {
     await rerenderTimer(rerender, ended, 2);
     expect(countAfterEnd).toBe(2);
     expect(startedTones).toHaveLength(countAfterEnd);
+  });
+
+  describe("全員の投票完了音", () => {
+    const incomplete: VotingCompletionState = {
+      roundKey: "phase-1",
+      isComplete: false,
+      isDisconnected: false,
+    };
+    const complete: VotingCompletionState = {
+      ...incomplete,
+      isComplete: true,
+    };
+
+    it("未完了から初めて全員完了になったとき、タイマーと異なる短い音を1回鳴らす", async () => {
+      const { result, rerender } = setupVotingCompletion(incomplete);
+      await enableSounds(result);
+
+      await rerenderVotingCompletion(rerender, complete);
+
+      expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+        783.99, 1174.66,
+      ]);
+    });
+
+    it("同じ投票の再描画・取り消し後の再完了では繰り返し鳴らさない", async () => {
+      const { result, rerender } = setupVotingCompletion(incomplete);
+      await enableSounds(result);
+      await rerenderVotingCompletion(rerender, complete);
+      const firstCompletionToneCount = startedTones.length;
+
+      await rerenderVotingCompletion(rerender, complete);
+      await rerenderVotingCompletion(rerender, incomplete);
+      await rerenderVotingCompletion(rerender, complete);
+
+      expect(firstCompletionToneCount).toBe(2);
+      expect(startedTones).toHaveLength(firstCompletionToneCount);
+    });
+
+    it("次の投票ステップでは新しい完了として1回鳴らす", async () => {
+      const { result, rerender } = setupVotingCompletion(incomplete);
+      await enableSounds(result);
+      await rerenderVotingCompletion(rerender, complete);
+
+      await rerenderVotingCompletion(rerender, {
+        roundKey: null,
+        isComplete: false,
+        isDisconnected: false,
+      });
+      await rerenderVotingCompletion(rerender, {
+        roundKey: "phase-2",
+        isComplete: false,
+        isDisconnected: false,
+      });
+      await rerenderVotingCompletion(rerender, {
+        roundKey: "phase-2",
+        isComplete: true,
+        isDisconnected: false,
+      });
+
+      expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+        783.99, 1174.66, 783.99, 1174.66,
+      ]);
+    });
+
+    it("全員完了済みの初期表示と、切断中に完了した状態の再同期では鳴らさない", async () => {
+      const initialSnapshot = setupVotingCompletion(complete);
+      await enableSounds(initialSnapshot.result);
+      expect(startedTones).toHaveLength(0);
+      initialSnapshot.unmount();
+
+      const reconnected = setupVotingCompletion({
+        ...incomplete,
+        isDisconnected: true,
+      });
+      await enableSounds(reconnected.result);
+      await rerenderVotingCompletion(reconnected.rerender, {
+        ...complete,
+        isDisconnected: true,
+      });
+      await rerenderVotingCompletion(reconnected.rerender, complete);
+      await rerenderVotingCompletion(reconnected.rerender, incomplete);
+      await rerenderVotingCompletion(reconnected.rerender, complete);
+
+      expect(startedTones).toHaveLength(0);
+    });
+
+    it("消音中の完了を、後から有効化しても再生しない", async () => {
+      const { result, rerender } = setupVotingCompletion(incomplete);
+      await rerenderVotingCompletion(rerender, complete);
+
+      await enableSounds(result);
+      await rerenderVotingCompletion(rerender, incomplete);
+      await rerenderVotingCompletion(rerender, complete);
+
+      expect(startedTones).toHaveLength(0);
+    });
   });
 
   it("遅れた予告をまとめて鳴らさず、遅延幅内の直近の予告だけを鳴らす", async () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ListMinus, ListPlus } from "lucide-react";
+
 // 付箋1枚の表示用コンポーネント。データ層には一切依存せず、位置(x, y)や
 // 本文はすべてpropsで受け取り、変化はコールバックpropsで親へ通知するだけの
 // コンポーネントにする。状態の保持・永続化・リアルタイム配信は呼び出し側の責務。
@@ -20,7 +21,8 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { DRAG_THRESHOLD_PX } from "@/contracts/board";
+import { DRAG_THRESHOLD_PX, getNoteHeight } from "@/contracts/board";
+
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import {
@@ -895,6 +897,7 @@ export function NoteCard({
       isDecided={isDecided}
       isAdoptionFocused={isAdoptionFocused}
       color={note.color}
+      height={getNoteHeight(localContent, note.fontSize)}
       testId="note-card"
       data-editing={isEditing || undefined}
       data-vote-drop-target={
@@ -939,9 +942,13 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none bg-transparent px-2 pt-2 pr-10 pb-2 text-sm text-slate-900 outline-none ${
+        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 pr-10 pb-12 text-slate-900 outline-none ${
           isEditing ? "" : "pointer-events-none select-none"
         }`}
+        style={{
+          fontSize: `${note.fontSize}px`,
+          lineHeight: `${Math.ceil(note.fontSize * 1.5)}px`,
+        }}
         placeholder="メモを入力..."
       />
       {isDecided ? (

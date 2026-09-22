@@ -39,7 +39,7 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div style={{ position: "relative", width: 400, height: 300 }}>
+      <div style={{ position: "relative", width: 400, minHeight: 300 }}>
         <Story />
       </div>
     ),
@@ -61,8 +61,51 @@ export const LongContent: Story = {
   args: {
     note: buildNote({
       content:
-        "長めのメモの例です。付箋の高さに収まらない場合はスクロールして読めるようにしています。",
+        "長めのメモの例です。本文が基準高に収まらない場合は、文字サイズを保ったまま全文が見える高さまで付箋が伸びます。".repeat(
+          2,
+        ),
     }),
+  },
+};
+
+export const ShortAt12px: Story = {
+  args: {
+    note: buildNote({ content: "短い本文", fontSize: 12 }),
+  },
+};
+
+export const MediumAt14px: Story = {
+  args: {
+    note: buildNote({
+      content:
+        "中程度の本文です。改行や折り返しを含んでも、付箋の中で全文を続けて読めます。\n操作のための余白も保ちます。",
+      fontSize: 14,
+    }),
+  },
+};
+
+export const LongAt24px: Story = {
+  args: {
+    note: buildNote({
+      content:
+        "24pxの長文です。文字を自動で縮小せず、本文の終わりまで表示できるように付箋そのものが縦へ伸びます。".repeat(
+          6,
+        ),
+      fontSize: 24,
+    }),
+    className: "relative",
+    style: {},
+  },
+};
+
+export const MaximumLengthAt24px: Story = {
+  args: {
+    note: buildNote({
+      content: "最大長の確認用本文。".repeat(200).slice(0, 2_000),
+      fontSize: 24,
+    }),
+    className: "relative",
+    style: {},
   },
 };
 

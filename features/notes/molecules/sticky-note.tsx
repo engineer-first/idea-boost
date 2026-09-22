@@ -14,6 +14,7 @@ export type StickyNoteProps = {
   isAdoptionFocused?: boolean;
   color?: NoteColor;
   children: React.ReactNode;
+  height?: number;
   className?: string;
   style?: React.CSSProperties;
   testId?: string;
@@ -32,6 +33,7 @@ export function StickyNote({
   isAdoptionFocused = false,
   color = "yellow",
   children,
+  height = NOTE_HEIGHT,
   className,
   style,
   testId,
@@ -64,7 +66,7 @@ export function StickyNote({
       )}
       style={{
         width: NOTE_WIDTH,
-        height: NOTE_HEIGHT,
+        height,
         boxShadow: dataExcluded ? "none" : getNoteShadow(noteId, { isLifted }),
         border: dataExcluded ? "1px dashed rgb(71 85 105 / 0.75)" : undefined,
         backgroundImage:

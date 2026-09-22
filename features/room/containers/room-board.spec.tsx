@@ -173,6 +173,7 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    fontSize: overrides?.fontSize ?? 14,
     stackOrder: overrides?.stackOrder ?? 0,
     dotVoteStickers: overrides?.dotVoteStickers ?? [],
   };
