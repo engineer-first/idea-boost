@@ -326,6 +326,23 @@ export function RoomBoard({
         ideaMapSizeInitialized={roomState.ideaMap.initialized}
         ideaMapIsDragging={roomState.ideaMap.isDragging}
         onIdeaMapResize={handleIdeaMapResize}
+        sharing={roomState.sharing}
+        onSharingStart={(durationMs) => {
+          if (roomState.sharing)
+            send({
+              type: "sharing:start",
+              revision: roomState.sharing.revision,
+              durationMs,
+            });
+        }}
+        onSharingAdvance={(outcome) => {
+          if (roomState.sharing)
+            send({
+              type: "sharing:advance",
+              revision: roomState.sharing.revision,
+              outcome,
+            });
+        }}
         timer={roomState.timer}
         timerServerOffsetMs={roomState.timerServerOffsetMs}
         timerUpdateVersion={roomState.timerUpdateVersion}

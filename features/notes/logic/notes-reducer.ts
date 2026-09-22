@@ -78,6 +78,7 @@ export function applyServerMessage(
     case "member_joined":
     case "member_left":
     case "phase:updated":
+    case "sharing:updated":
     case "timer:updated":
     case "group:updated":
     case "group:deleted":

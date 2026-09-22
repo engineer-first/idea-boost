@@ -52,6 +52,12 @@ const TABLE: Array<{
     expected: false,
   },
   {
+    name: "共有の進行役でも他者のprivate付箋は見られない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "shared: 他のメンバーも付箋を見られる",
     viewerId: VIEWER,
     note: note({ visibility: "shared" }),

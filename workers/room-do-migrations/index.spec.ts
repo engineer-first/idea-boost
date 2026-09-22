@@ -34,6 +34,7 @@ const ALL_TABLES = [
   "room_owner",
   "room_state",
   "schema_migrations",
+  "sharing_state",
   "timer_state",
   "used_note_drag_ids",
 ];
