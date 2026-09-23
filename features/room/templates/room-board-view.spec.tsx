@@ -622,22 +622,31 @@ describe("RoomBoardView", () => {
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
   });
 
-  it("無限キャンバスのドット・世界レイヤー・ズームHUDを描画する", () => {
-    setup({ notes: buildNotes(3) });
+  it("現在のズーム倍率を表示し、表示操作をそれぞれの処理へ渡す", () => {
+    const interactions = buildInteractions(buildNotes(3), []);
+    interactions.camera = { x: 40, y: -20, zoom: 1.25 };
+    setup({ interactions });
 
-    const canvas = screen.getByTestId("board-canvas");
-    const viewport = canvas.parentElement;
-    expect(viewport).toHaveClass("overflow-hidden");
-    expect(viewport?.style.backgroundSize).toBeTruthy();
-    expect(viewport?.style.backgroundImage).toContain("radial-gradient");
-    expect(viewport?.style.backgroundImage).toContain("var(--foreground) 30%");
-    expect(viewport?.style.backgroundImage).not.toContain("linear-gradient");
-    expect(canvas).toHaveStyle({ transformOrigin: "0 0" });
-    expect(canvas.getAttribute("style")).toContain("scale(");
-    expect(screen.getByTestId("canvas-zoom-hud")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "付箋全体を表示" }),
-    ).toBeInTheDocument();
+    const reset = screen.getByRole("button", { name: "ズームを100%に戻す" });
+    expect(reset).toHaveTextContent("125%");
+    fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
+    expect(interactions.onZoomIn).toHaveBeenCalledOnce();
+    expect(interactions.onZoomOut).not.toHaveBeenCalled();
+    expect(interactions.onResetZoom).not.toHaveBeenCalled();
+    expect(interactions.onFitToNotes).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "キャンバスを縮小" }));
+    expect(interactions.onZoomOut).toHaveBeenCalledOnce();
+    expect(interactions.onResetZoom).not.toHaveBeenCalled();
+    expect(interactions.onFitToNotes).not.toHaveBeenCalled();
+    fireEvent.click(reset);
+    expect(interactions.onResetZoom).toHaveBeenCalledOnce();
+    expect(interactions.onFitToNotes).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "付箋全体を表示" }));
+    expect(interactions.onZoomIn).toHaveBeenCalledOnce();
+    expect(interactions.onZoomOut).toHaveBeenCalledOnce();
+    expect(interactions.onResetZoom).toHaveBeenCalledOnce();
+    expect(interactions.onFitToNotes).toHaveBeenCalledOnce();
   });
 
   it("ツールバーの付箋追加ボタンでonAddPrivateNoteを呼ぶ", () => {
@@ -647,24 +656,6 @@ describe("RoomBoardView", () => {
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
 
     expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
-  });
-
-  it("マイ付箋ドックをボード下端のオーバーレイとして配置する", () => {
-    setup();
-
-    expect(screen.getByTestId("board-frame")).toContainElement(
-      screen.getByTestId("private-notes-dock"),
-    );
-    expect(screen.getByTestId("private-notes-dock")).toHaveClass(
-      "absolute",
-      "bottom-3",
-      "items-end",
-      "right-3",
-    );
-    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
-      "data-expanded",
-      "false",
-    );
   });
 
   it("投票パレットに残り投票可能数を表示する", () => {
@@ -689,18 +680,10 @@ describe("RoomBoardView", () => {
     expect(
       screen.getByRole("button", { name: "客観シール 残り1票" }),
     ).toBeInTheDocument();
-    const palette = screen.getByRole("region", { name: "投票パレット" });
-    expect(screen.getByTestId("vote-palette-hud")).toHaveClass(
-      "absolute",
-      "bottom-3",
-    );
-    expect(screen.getByTestId("vote-palette-hud")).toContainElement(palette);
-    expect(screen.getByTestId("board-control-hud")).not.toContainElement(
-      palette,
-    );
   });
 
   it("投票ステップの案内とパレットで対象・基準・操作を揃えて表示する", () => {
+    // PRD 6.2 の投票対象・判断基準・操作説明は、誤投票を防ぐ要件として残す。
     setup({
       phase: buildPhaseStep(4),
       isHost: true,
@@ -735,9 +718,8 @@ describe("RoomBoardView", () => {
     ).toBeInTheDocument();
 
     const palette = screen.getByRole("region", { name: "投票パレット" });
-    expect(palette).toHaveAttribute(
-      "aria-describedby",
-      "dot-vote-palette-help",
+    expect(palette).toHaveAccessibleDescription(
+      /投票対象は現在のフェーズの個々の付箋です。/,
     );
     expect(
       within(palette).getByText("主観は「激しく共感する、取り組みたい」。"),
@@ -745,9 +727,6 @@ describe("RoomBoardView", () => {
     expect(
       within(palette).getByText("客観は「自分以外の人にも価値がありそう」。"),
     ).toBeVisible();
-    expect(
-      within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
-    ).toHaveClass("sr-only");
   });
 
   it("パレットのシールを付箋へドロップすると、付箋内の相対座標で投票を送る", () => {
@@ -1156,20 +1135,6 @@ describe("RoomBoardView", () => {
 
     expect(onNoteVoteStickerRemove).not.toHaveBeenCalled();
     expect(onNoteVoteStickerMove).not.toHaveBeenCalled();
-  });
-
-  it("現在地と操作HUDをキャンバス上に重ねる", () => {
-    setup({ isHost: true });
-
-    expect(screen.getByTestId("board-header-row")).toHaveClass(
-      "absolute",
-      "grid",
-    );
-    expect(screen.getByTestId("board-progress-rail")).toBeInTheDocument();
-    expect(screen.getByTestId("board-header-row")).toContainElement(
-      screen.getByTestId("board-control-hud"),
-    );
-    expect(screen.getByTestId("room-board-view-root")).toHaveClass("relative");
   });
 
   it("Step 1-4 のホストは Step 1-5 へ進める", () => {
@@ -1892,15 +1857,6 @@ describe("参加者 HUD", () => {
       screen.getByRole("button", { name: "参加者 13人" }),
     ).toBeInTheDocument();
     expect(screen.getAllByTestId("avatar")).toHaveLength(10);
-  });
-
-  it("1024px向けに7人目以降のアバターを縮約表示する", () => {
-    setup({ members: buildMembers(10) });
-    const seventhAvatarWrapper =
-      screen.getAllByTestId("avatar")[6]?.parentElement;
-
-    expect(seventhAvatarWrapper).toHaveClass("hidden", "xl:inline-flex");
-    expect(seventhAvatarWrapper?.classList.contains("inline-flex")).toBe(false);
   });
 });
 

@@ -45,12 +45,14 @@
   クライアント状態はサーバー真実の畳み込み・URL・コンポーネントローカル UI 状態の 3 種。
   第二の真実を作るグローバルストア（Zustand / Redux 等）は導入しない。
 - すべての UI コンポーネントに stories を作り、Storybook を通じて構築する。
-  タイトル階層は features をミラーする（`Notes/NoteCard` 等）。
+  feature のタイトルは「機能名/部品名」（`Notes/NoteCard` 等）とし、
+  `features/` や `molecules/` 等の配置ディレクトリを表示階層に含めない。
 - 外部 API は MSW（`app/mocks/`）、WS は `webSocketFactory` へのフェイク注入でモックする。
 - 生のテストデータをコンポーネント内にハードコードしない。fixture・handler・builder・
   ガイド文言等の固定コンテンツはファイルの外へ置く。
   contracts 型のビルダーは `contracts/*.fixture.ts`、feature 固有の fixture は実装と同居。
-- データに依存する UI は loading / empty / success / error をテストする。
+- データに依存する UI の loading / empty / success / error と、DOM・browser・stories の
+  検証責務は [テスト方針](testing-policy.md) に従う。
 
 ## API
 

@@ -21,6 +21,7 @@
 | 作業                                               | 読む資料                                                     |
 | -------------------------------------------------- | ------------------------------------------------------------ |
 | コードの追加・変更・移動                           | [コード配置と命名](docs/agent-workflows.md#コード配置と命名) |
+| 振る舞い・UI 表現・テストの変更                    | [テスト方針](docs/testing-policy.md)                         |
 | Next.js の実装                                     | `node_modules/next/dist/docs/` の関連ガイド                  |
 | UI・クライアント状態・stories・モック              | [UI](docs/agent-workflows.md#ui)                             |
 | API・Server Action・Route Handler・データアクセス  | [API](docs/agent-workflows.md#api)                           |

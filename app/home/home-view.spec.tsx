@@ -18,43 +18,13 @@ function renderView(
 }
 
 describe("HomeView", () => {
-  it("data-testid=home-view で描画される", () => {
+  // 作成・参加処理の成功/失敗は room-lifecycle の container spec で検証する。
+  // ここではホームから両方の操作を始められることを守る。
+  it("ルーム作成と招待コードによる参加の入口を同時に提供する", () => {
     renderView();
-    expect(screen.getByTestId("home-view")).toBeInTheDocument();
-  });
-
-  it("Idea Boost タイトルは出さない（ヘッダー専用）", () => {
-    renderView();
-    expect(screen.queryByText("Idea Boost")).not.toBeInTheDocument();
-  });
-
-  it("案内で作成と参加の両方に触れる", () => {
-    renderView();
-    expect(
-      screen.getByText(
-        "新しいルームを作成するか、招待コードを入力して参加できます。",
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("Design Sprint 開始の見出しがある", () => {
-    renderView();
-    expect(
-      screen.getByRole("heading", { name: "Design Sprintを始めましょう" }),
-    ).toBeInTheDocument();
-  });
-
-  it("「ルームを作成」ボタンがある", () => {
-    renderView();
-    expect(
-      screen.getByRole("button", { name: "ルームを作成" }),
-    ).toBeInTheDocument();
-  });
-
-  it("招待コード入力フォームがある", () => {
-    renderView();
-    expect(screen.getByLabelText("招待コード")).toBeInTheDocument();
-    expect(screen.getByTestId("join-room-form")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ルームを作成" })).toBeEnabled();
+    expect(screen.getByRole("textbox", { name: "招待コード" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "参加する" })).toBeDisabled();
   });
 
   it("error があるとき role=alert で表示する", () => {
@@ -67,11 +37,5 @@ describe("HomeView", () => {
   it("error が無いとき alert は出ない", () => {
     renderView();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("「ルームに参加」セクションがある", () => {
-    renderView();
-    const section = screen.getByTestId("home-join-room");
-    expect(section).toHaveTextContent("ルームに参加");
   });
 });
