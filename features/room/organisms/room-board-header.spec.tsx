@@ -682,3 +682,22 @@ it("参加者は発表者を確認できるが進行操作を持たない", () =
     screen.queryByRole("button", { name: "今回はパス" }),
   ).not.toBeInTheDocument();
 });
+
+it.each([
+  { phaseRevision: 2 },
+  { isDisconnected: true },
+])("共有中のメニューで開いた確認も状態変更 %j で破棄する", (changed) => {
+  const props = setupProps({
+    isHost: true,
+    phase: buildPhaseStep(2),
+    phaseRevision: 1,
+    sharing: buildSharingState(),
+  });
+  const { rerender } = render(<RoomBoardHeader {...props} />);
+  openRoomMenu();
+  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  rerender(<RoomBoardHeader {...props} {...changed} />);
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  expect(props.onNextPhase).not.toHaveBeenCalled();
+});

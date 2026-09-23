@@ -59,6 +59,8 @@ import { broadcastNoteUpdated, findNote, listNotes } from "./notes";
 import {
   getBoardMutationForbiddenMessage,
   getPhase,
+  getPhaseRevision,
+  isBoardMutation,
   phaseHandlers,
   savePhase,
 } from "./phase";
@@ -370,7 +372,12 @@ export class RoomDO extends DurableObject {
       optimisticOperationIdOf(message),
     );
     const phase = getPhase(this.sql);
-    const forbiddenMessage = getBoardMutationForbiddenMessage(phase, message);
+    const forbiddenMessage =
+      phase.kind === "step" &&
+      getDecision(this.sql, phase.phase) &&
+      isBoardMutation(message)
+        ? "採用確定後はボードを変更できません。"
+        : getBoardMutationForbiddenMessage(phase, message);
     if (forbiddenMessage) {
       ctx.reply({
         type: "error",
@@ -460,6 +467,7 @@ export class RoomDO extends DurableObject {
           : listVisibleGroups(this.sql, userId),
       members: listMembers(this.sql),
       phase,
+      phaseRevision: getPhaseRevision(this.sql),
       isHost: isHostUser(this.sql, userId),
       ideaMapSizeLevel: ideaMapState.sizeLevel,
       ideaMapSizeInitialized: ideaMapState.initialized,

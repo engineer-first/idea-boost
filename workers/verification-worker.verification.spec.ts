@@ -105,7 +105,8 @@ describe("検証用の初期状態", () => {
   it("古い代理操作を拒否しても、開いているボードの接続は維持する", async () => {
     const active = await create("2-3");
     const owner = await connectRoomAs(users[0], active.roomId);
-    await owner.next();
+    const snapshot = await owner.next();
+    if (snapshot.type !== "snapshot") throw new Error("snapshot が必要です");
     const closed = new Promise<{ type: "closed" }>((resolve) => {
       owner.ws.addEventListener("close", () => resolve({ type: "closed" }));
     });
@@ -118,7 +119,14 @@ describe("検証用の初期状態", () => {
       },
     );
     expect(response.status).toBe(409);
-    owner.ws.send(JSON.stringify({ type: "phase:next", force: true }));
+    owner.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        force: true,
+        expectedPhase: snapshot.phase,
+        expectedRevision: snapshot.phaseRevision,
+      }),
+    );
     const next = await Promise.race([closed, owner.next()]);
     expect(next).toMatchObject({
       type: "snapshot",

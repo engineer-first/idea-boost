@@ -36,6 +36,7 @@ describe("applyIdeaMapServerMessage", () => {
         { sizeLevel: 0, initialized: false, isDragging: false },
         {
           type: "snapshot",
+          phaseRevision: 0,
           notes: [],
           members: [A],
           phase: buildPhaseStep(3, 2),
@@ -72,6 +73,7 @@ describe("applyMemberServerMessage", () => {
   it("snapshot.members で members state を丸ごと置き換える", () => {
     const message: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [],
       members: [A, B],
       phase: LOBBY,
@@ -138,6 +140,7 @@ describe("applyMemberServerMessage", () => {
   it("phase:updated は members を変えない", () => {
     const message: ServerMessage = {
       type: "phase:updated",
+      phaseRevision: 0,
       phase: buildPhaseStep(1),
     };
     expect(applyMemberServerMessage([A], message)).toEqual([A]);
@@ -194,6 +197,7 @@ describe("applyVotingCompletionServerMessage", () => {
     expect(
       applyVotingCompletionServerMessage([A.userId], {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(5),
       }),
     ).toEqual([]);
@@ -203,6 +207,7 @@ describe("applyVotingCompletionServerMessage", () => {
     expect(
       applyVotingCompletionServerMessage([A.userId], {
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [A, B],
         completedVoterIds: [B.userId],
@@ -232,12 +237,14 @@ describe("applyPhaseServerMessage", () => {
     expect(
       applyPhaseServerMessage(LOBBY, {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(1),
       }),
     ).toEqual(buildPhaseStep(1));
     expect(
       applyPhaseServerMessage(buildPhaseStep(1), {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(2),
       }),
     ).toEqual(buildPhaseStep(2));
@@ -293,6 +300,7 @@ describe("applyPhaseServerMessage", () => {
   it("snapshot.phase で再接続後の進行状態を復元する", () => {
     const message: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [],
       members: [A],
       phase: buildPhaseStep(1),
@@ -319,7 +327,7 @@ describe("applyTimerServerMessage", () => {
     expect(
       applyTimerServerMessage(
         current,
-        { type: "phase:updated", phase: buildPhaseStep(2) },
+        { type: "phase:updated", phaseRevision: 0, phase: buildPhaseStep(2) },
         1_000,
       ),
     ).toBe(current);
@@ -328,6 +336,7 @@ describe("applyTimerServerMessage", () => {
   it("snapshot と timer:updated からタイマーとサーバー時計補正を復元する", () => {
     const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [],
       members: [A],
       phase: buildPhaseStep(1),
@@ -402,6 +411,7 @@ describe("applyDecisionServerMessage", () => {
     expect(
       applyDecisionServerMessage(null, {
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [A],
         phase: buildPhaseStep(5),
@@ -419,6 +429,7 @@ describe("applyDecisionServerMessage", () => {
     expect(
       applyDecisionServerMessage(decision, {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(2),
       }),
     ).toBeNull();
@@ -455,6 +466,7 @@ describe("applyAdoptionFocusServerMessage", () => {
   it("snapshot で復元し、確定とフェーズ遷移で解除する", () => {
     const snapshot: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [],
       members: [A],
       phase: buildPhaseStep(5),
@@ -476,6 +488,7 @@ describe("applyAdoptionFocusServerMessage", () => {
     expect(
       applyAdoptionFocusServerMessage(noteId, {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(1, 2),
       }),
     ).toBeNull();
@@ -489,6 +502,7 @@ describe("applyCarryoverServerMessage", () => {
     expect(
       applyCarryoverServerMessage([], {
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [A],
         phase: buildPhaseStep(1, 2),
@@ -506,6 +520,7 @@ describe("applyCarryoverServerMessage", () => {
     expect(
       applyCarryoverServerMessage([carryover], {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(1, 2),
       }),
     ).toEqual([carryover]);

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   connectRoomAs,
   createRoomAs,
+  currentPhaseExpectation,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
@@ -60,7 +61,12 @@ describe("一人ずつの共有", () => {
   });
   it("共有へ入ると進行役を先頭に順番を共有し、まだ計時しない", async () => {
     const { owner, member, roomId } = await setup();
-    owner.ws.send(JSON.stringify({ type: "phase:next" }));
+    owner.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomId)),
+      }),
+    );
     await until(owner, "phase:updated");
     const reconnect = await connectRoomAs(host, roomId);
     expect(await reconnect.next()).toMatchObject({
@@ -88,7 +94,12 @@ async function sharingMessage(socket: RoomSocket) {
   }
 }
 async function enterSharing(owner: RoomSocket, roomId: string) {
-  owner.ws.send(JSON.stringify({ type: "phase:next" }));
+  owner.ws.send(
+    JSON.stringify({
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomId)),
+    }),
+  );
   await until(owner, "phase:updated");
   const connection = await connectRoomAs(host, roomId);
   const snapshot = await connection.next();
@@ -419,6 +430,69 @@ it("発表者以外も自分の付箋を共有でき、交代では他者の下�
     ]),
   );
   reconnect.close();
+  owner.close();
+  member.close();
+});
+
+// 共有の2秒待機と反復操作を組み合わせても、前の周回を再開しない。
+it.each([
+  1, 2, 3,
+] as const)("フェーズ%iで追加執筆へ戻ると計時予約を解除し同じ順番で共有をやり直せる", async (phase) => {
+  const { owner, member, roomId, stub } = await setup();
+  await stub.setPhase({ kind: "step", phase, step: 1 }, host.sub);
+  const ready = await enterSharing(owner, roomId);
+  owner.ws.send(
+    JSON.stringify({
+      type: "sharing:start",
+      revision: ready.revision,
+      durationMs: 30000,
+    }),
+  );
+  const pending = await sharingMessage(owner);
+  expect(pending.sharing.startsAt).not.toBeNull();
+  expect(pending.timer).toEqual({ status: "idle" });
+  owner.ws.send(
+    JSON.stringify({
+      type: "phase:restart-writing",
+      ...(await currentPhaseExpectation(roomId)),
+    }),
+  );
+  await until(owner, "phase:updated");
+  expect(
+    await runInRoomDO(roomId, (_, state) => state.storage.getAlarm()),
+  ).toBeNull();
+  const writing = await currentSnapshot(roomId);
+  expect(writing).toMatchObject({
+    phase: { kind: "step", phase, step: 1 },
+    timer: { status: "idle" },
+    sharing: {
+      status: "inactive",
+      currentIndex: null,
+      results: [],
+      startsAt: null,
+    },
+  });
+  // 既にキューに載った古いアラームも個人作業の計時を始めない。
+  await runInRoomDO(roomId, (instance) => instance.alarm());
+  expect(await stub.getTimerState()).toEqual({ status: "idle" });
+  const again = await enterSharing(owner, roomId);
+  expect(again).toMatchObject({
+    status: "ready",
+    currentIndex: null,
+    results: [],
+    startsAt: null,
+    order: ready.order,
+    durationMs: 30000,
+  });
+  expect(again.revision).not.toBe(ready.revision);
+  owner.ws.send(
+    JSON.stringify({
+      type: "sharing:start",
+      revision: ready.revision,
+      durationMs: 30000,
+    }),
+  );
+  expect((await sharingMessage(owner)).sharing).toEqual(again);
   owner.close();
   member.close();
 });

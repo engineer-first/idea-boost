@@ -93,6 +93,8 @@ describe("RoomBoardCanvas", () => {
   it("文字サイズ操作をズーム操作とは別に左下へ置き、選択付箋だけを1px刻みで変更する", () => {
     const onNoteFontSizeChange = vi.fn();
     setup({
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
       notes: [buildNote({ id: "note-1", fontSize: 14 })],
       selectedNoteId: "note-1",
       onNoteFontSizeChange,

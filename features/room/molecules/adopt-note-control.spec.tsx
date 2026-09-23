@@ -14,7 +14,6 @@ describe("AdoptNoteControl", () => {
         disabled={false}
         onStartSelection={onStartSelection}
         onCancelSelection={vi.fn()}
-        onClearDecision={vi.fn()}
       />,
     );
 
@@ -33,7 +32,6 @@ describe("AdoptNoteControl", () => {
         disabled={false}
         onStartSelection={vi.fn()}
         onCancelSelection={onCancelSelection}
-        onClearDecision={vi.fn()}
       />,
     );
 
@@ -45,8 +43,7 @@ describe("AdoptNoteControl", () => {
     expect(onCancelSelection).toHaveBeenCalledTimes(1);
   });
 
-  it("決定内容は全員に示し、解除操作はホストだけに示す", () => {
-    const onClearDecision = vi.fn();
+  it("決定内容は全員に示し、解除操作は誰にも出さない", () => {
     const { rerender } = render(
       <AdoptNoteControl
         phaseNumber={3}
@@ -56,13 +53,13 @@ describe("AdoptNoteControl", () => {
         disabled={false}
         onStartSelection={vi.fn()}
         onCancelSelection={vi.fn()}
-        onClearDecision={onClearDecision}
       />,
     );
 
     expect(screen.getByText("採用するアイデア")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "確定を解除" }));
-    expect(onClearDecision).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("button", { name: "確定を解除" }),
+    ).not.toBeInTheDocument();
 
     rerender(
       <AdoptNoteControl
@@ -73,7 +70,6 @@ describe("AdoptNoteControl", () => {
         disabled={false}
         onStartSelection={vi.fn()}
         onCancelSelection={vi.fn()}
-        onClearDecision={onClearDecision}
       />,
     );
     expect(screen.getByText("採用するアイデア")).toBeVisible();

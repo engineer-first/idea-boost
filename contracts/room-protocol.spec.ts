@@ -415,6 +415,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: true,
       decision: null,
       carryovers: [],
@@ -427,6 +428,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: true,
       decision: null,
       carryovers: [],
@@ -441,6 +443,7 @@ describe("ServerMessageSchema", () => {
       type: "snapshot",
       notes: [],
       phase: LOBBY,
+      phaseRevision: 0,
     });
     expect(result.success).toBe(false);
   });
@@ -451,6 +454,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: false,
       decision: null,
       timer: { status: "idle" },
@@ -475,6 +479,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
+      phaseRevision: 0,
     });
     expect(result.success).toBe(false);
   });
@@ -485,6 +490,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: true,
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
@@ -560,34 +566,56 @@ describe("ServerMessageSchema", () => {
   it("phase:updated は lobby と課題整理ステップを受け入れる", () => {
     expect(
       ServerMessageSchema.parse({ type: "phase:updated", phase: LOBBY }),
-    ).toEqual({ type: "phase:updated", phase: LOBBY });
+    ).toEqual({ type: "phase:updated", phase: LOBBY, phaseRevision: 0 });
     expect(
       ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_1 }),
-    ).toEqual({ type: "phase:updated", phase: STEP_1_1 });
+    ).toEqual({ type: "phase:updated", phase: STEP_1_1, phaseRevision: 0 });
     expect(
       ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_2 }),
-    ).toEqual({ type: "phase:updated", phase: STEP_1_2 });
+    ).toEqual({ type: "phase:updated", phase: STEP_1_2, phaseRevision: 0 });
     expect(
       ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_5 }),
-    ).toEqual({ type: "phase:updated", phase: STEP_1_5 });
+    ).toEqual({ type: "phase:updated", phase: STEP_1_5, phaseRevision: 0 });
   });
 
   it("phase:next クライアントメッセージを受け入れる", () => {
-    expect(ClientMessageSchema.parse({ type: "phase:next" })).toEqual({
+    expect(
+      ClientMessageSchema.parse({
+        type: "phase:next",
+        expectedPhase: STEP_1_2,
+        expectedRevision: 3,
+      }),
+    ).toEqual({
       type: "phase:next",
+      expectedPhase: STEP_1_2,
+      expectedRevision: 3,
     });
   });
 
   it("phase:next は force フラグを受け入れ、パース結果に保持する", () => {
     expect(
-      ClientMessageSchema.parse({ type: "phase:next", force: true }),
-    ).toEqual({ type: "phase:next", force: true });
+      ClientMessageSchema.parse({
+        type: "phase:next",
+        expectedPhase: STEP_1_2,
+        expectedRevision: 3,
+        force: true,
+      }),
+    ).toEqual({
+      type: "phase:next",
+      expectedPhase: STEP_1_2,
+      expectedRevision: 3,
+      force: true,
+    });
   });
 
   it("phase:next の force に boolean 以外は拒否する", () => {
     expect(
-      ClientMessageSchema.safeParse({ type: "phase:next", force: "yes" })
-        .success,
+      ClientMessageSchema.safeParse({
+        type: "phase:next",
+        expectedPhase: STEP_1_2,
+        expectedRevision: 3,
+        force: "yes",
+      }).success,
     ).toBe(false);
   });
 
@@ -1163,6 +1191,7 @@ describe("parseServerMessage", () => {
           notes: [],
           members: [],
           phase: LOBBY,
+          phaseRevision: 0,
           isHost: false,
           decision: null,
           carryovers: [],
@@ -1176,6 +1205,7 @@ describe("parseServerMessage", () => {
       notes: [],
       members: [],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: false,
       decision: null,
       carryovers: [],
@@ -1260,6 +1290,31 @@ describe("プロトコル整合性", () => {
 });
 
 void USER_B;
+
+describe("反復の進行要求", () => {
+  it.each([
+    "phase:next",
+    "phase:restart-writing",
+    "phase:revote",
+  ])("%s は期待ステップとrevisionを必須にする", (type) => {
+    const valid = { type, expectedPhase: STEP_1_2, expectedRevision: 7 };
+    expect(ClientMessageSchema.parse(valid)).toEqual(valid);
+    expect(ClientMessageSchema.safeParse({ type }).success).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({ ...valid, expectedPhase: undefined })
+        .success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({ ...valid, expectedRevision: undefined })
+        .success,
+    ).toBe(false);
+    for (const expectedRevision of [-1, 0.5, "7"]) {
+      expect(
+        ClientMessageSchema.safeParse({ ...valid, expectedRevision }).success,
+      ).toBe(false);
+    }
+  });
+});
 
 describe("共有進行の境界", () => {
   const start = { type: "sharing:start", revision: USER_A, durationMs: 180000 };

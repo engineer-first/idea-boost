@@ -269,7 +269,7 @@ export function useBoardDrag({
     (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
       if (!canMoveSharedNotes) return;
       const note = notes.find((n) => n.id === noteId);
-      if (!note) return;
+      if (!note || note.excluded) return;
       hasNotifiedBlockedRef.current = false;
       boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const pointerPosition = boardPositionFromPointer(
@@ -301,7 +301,7 @@ export function useBoardDrag({
   const handlePrivateDragStart = useCallback(
     (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
       const note = privateNotes.find((n) => n.id === noteId);
-      if (!note) return;
+      if (!note || note.excluded) return;
       hasNotifiedBlockedRef.current = false;
       boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const rect = event.currentTarget?.getBoundingClientRect?.();

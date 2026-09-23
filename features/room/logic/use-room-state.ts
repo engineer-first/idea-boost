@@ -34,6 +34,7 @@ export type UseRoomStateResult = {
   sharing: SharingState | null;
   members: Member[];
   phase: RoomPhase;
+  phaseRevision: number;
   decision: Decision | null;
   ideaMap: IdeaMapClientState;
   adoptionFocusNoteId: string | null;
@@ -53,6 +54,7 @@ export function useRoomState(options: {
   const [sharing, setSharing] = useState<SharingState | null>(null);
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
+  const [phaseRevision, setPhaseRevision] = useState(0);
   const [decision, setDecision] = useState<Decision | null>(null);
   const [ideaMap, setIdeaMap] = useState<IdeaMapClientState>(
     INITIAL_IDEA_MAP_STATE,
@@ -92,6 +94,8 @@ export function useRoomState(options: {
       setMembers(nextMembers);
       setSharing((current) => applySharingServerMessage(current, message));
       setPhase((current) => applyPhaseServerMessage(current, message));
+      if (message.type === "snapshot" || message.type === "phase:updated")
+        setPhaseRevision(message.phaseRevision ?? 0);
       setDecision((current) => applyDecisionServerMessage(current, message));
       setIdeaMap((current) => applyIdeaMapServerMessage(current, message));
       setAdoptionFocusNoteId((current) =>
@@ -112,6 +116,7 @@ export function useRoomState(options: {
     sharing,
     members,
     phase,
+    phaseRevision,
     decision,
     ideaMap,
     adoptionFocusNoteId,

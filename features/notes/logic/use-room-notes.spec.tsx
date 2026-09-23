@@ -23,6 +23,7 @@ function snapshotMessage(
 ): ServerMessage {
   return {
     type: "snapshot",
+    phaseRevision: 0,
     notes,
     members: [],
     phase: buildPhaseStep(1),

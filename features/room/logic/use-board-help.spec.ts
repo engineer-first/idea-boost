@@ -53,3 +53,12 @@ describe("useBoardHelp", () => {
     expect(result.current).toMatchObject({ kind: null, isOpen: false });
   });
 });
+
+it("再訪の個人作業で導入説明を強制しない", () => {
+  const { result, rerender } = renderHook(({ phase }) => useBoardHelp(phase), {
+    initialProps: { phase: buildPhaseStep(1, 3) },
+  });
+  rerender({ phase: buildPhaseStep(2, 3) });
+  rerender({ phase: buildPhaseStep(1, 3) });
+  expect(result.current.isOpen).toBe(false);
+});

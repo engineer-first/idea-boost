@@ -621,7 +621,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -668,7 +672,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-reset": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -695,7 +703,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-remove": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -731,7 +743,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-sticker:add": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -818,6 +834,8 @@ export const noteHandlers: MessageHandlers<
     const target = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!target) return;
     if (
+      target.visibility !== "shared" ||
+      source.visibility !== "shared" ||
       !isVisibleTo(target, ctx.userId) ||
       target.excluded ||
       source.excluded
@@ -862,7 +880,11 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = requireNoteInCurrentPhase(ctx, sticker.note_id);
-    if (!row || !isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row?.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       if (row) replyForbidden(ctx);
       return;
     }
