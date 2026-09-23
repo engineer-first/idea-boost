@@ -771,7 +771,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       screen.getByRole("button", { name: "採用する付箋: 最初の付箋" }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "この課題に決定" }));
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
     );

@@ -273,7 +273,7 @@ test.each(
   expect(await page.getByRole("button", { name: progression }).count()).toBe(2);
 });
 
-test("採用はキーボードで候補を選んでから本文・作者・取消不可を確認する", async () => {
+test("採用はキーボードで候補を選ぶと確認ダイアログなしで選択を終える", async () => {
   await openStory("room-roomboardview--ready-to-decide");
   await closeResults();
   await page
@@ -293,24 +293,10 @@ test("採用はキーボードで候補を選んでから本文・作者・取�
   ).toBe(0);
   const candidate = page.getByRole("button", { name: /採用する付箋:/ }).first();
   await candidate.press("Enter");
-  const dialog = page.getByRole("alertdialog", {
-    name: "この課題に決定しますか？",
-  });
-  await dialog.waitFor();
-  expect(await dialog.innerText()).toContain("決定は取り消せません");
-  const target = dialog.locator("blockquote p");
-  expect(await target.count()).toBe(2);
-  for (const paragraph of await target.all())
-    expect((await paragraph.innerText()).length).toBeGreaterThan(0);
-  await expectReachable(
-    dialog.getByRole("button", { name: "この課題に決定", exact: true }),
-  );
-  await page.screenshot({ path: `${output}/adoption-confirm.png` });
-  await dialog
-    .getByRole("button", { name: "キャンセル", exact: true })
-    .press("Enter");
-  await dialog.waitFor({ state: "hidden" });
+  expect(await page.getByRole("alertdialog").count()).toBe(0);
+  expect(await cancel.count()).toBe(0);
   expect(await page.getByRole("button", { name: progression }).count()).toBe(2);
+  await page.screenshot({ path: `${output}/adoption-without-confirm.png` });
 });
 
 test.each([

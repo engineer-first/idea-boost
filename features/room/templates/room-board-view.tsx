@@ -36,7 +36,6 @@ import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { StepGuideState } from "../logic/use-step-guide";
-import { AdoptionConfirmDialog } from "../molecules/adoption-confirm-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
@@ -211,7 +210,6 @@ export function RoomBoardView({
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [adoptionTargetId, setAdoptionTargetId] = useState<string | null>(null);
   const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
@@ -241,20 +239,17 @@ export function RoomBoardView({
     if (previousPhaseKey.current === phaseKey) return;
     previousPhaseKey.current = phaseKey;
     setIsAdoptMode(false);
-    setAdoptionTargetId(null);
   }, [phaseKey]);
 
   useEffect(() => {
     if (previousRevision.current === phaseRevision) return;
     previousRevision.current = phaseRevision;
-    setAdoptionTargetId(null);
     setIsAdoptMode(false);
   }, [phaseRevision]);
 
   useEffect(() => {
     if (connectionStatus === "open" && isHost && decision === null) return;
     setIsAdoptMode(false);
-    setAdoptionTargetId(null);
   }, [connectionStatus, decision, isHost]);
 
   useEffect(() => {
@@ -365,7 +360,7 @@ export function RoomBoardView({
     if (!isAdoptMode) return;
     handleAdoptionFocusChange(null);
     setIsAdoptMode(false);
-    setAdoptionTargetId(noteId);
+    onNoteDecide(noteId);
   }
 
   function handleAdoptionFocusChange(noteId: string | null): void {
@@ -826,36 +821,6 @@ export function RoomBoardView({
           onCancelSelection={() => setIsAdoptMode(false)}
         />
       </div>
-      <AdoptionConfirmDialog
-        key={`${phaseKey}:${phaseRevision}`}
-        phaseNumber={phase.kind === "step" ? phase.phase : 1}
-        target={
-          adoptionTargetId === null
-            ? null
-            : (() => {
-                const note = candidateNotes.find(
-                  (note) => note.id === adoptionTargetId,
-                );
-                return note
-                  ? {
-                      content: note.content,
-                      authorName:
-                        members.find(
-                          (member) => member.userId === note.authorId,
-                        )?.name ?? "退出した参加者",
-                    }
-                  : null;
-              })()
-        }
-        disabled={isDisconnected || decision !== null || !isHost}
-        onCancel={() => setAdoptionTargetId(null)}
-        onConfirm={() => {
-          if (adoptionTargetId !== null) {
-            onNoteDecide(adoptionTargetId);
-            setAdoptionTargetId(null);
-          }
-        }}
-      />
 
       {voteStickerDrag !== null ? (
         <div

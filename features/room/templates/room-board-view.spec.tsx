@@ -162,7 +162,6 @@ describe("採用する付箋の選択モード", () => {
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
     fireEvent.click(start());
-    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
     const target = start();
@@ -188,7 +187,6 @@ describe("採用する付箋の選択モード", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "採用する付箋: 候補A" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "この課題に決定" }));
     expect(onNoteDecide).toHaveBeenCalledWith("note-1");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
@@ -2034,24 +2032,27 @@ describe("反復ワークフロー", () => {
       "付箋は消えません",
     );
   });
-  it("採用クリックは本文と作者の確認を挟む", () => {
+  it.each([
+    [1, 5, "付箋"],
+    [2, 4, "問い"],
+    [3, 5, "アイデア"],
+  ] as const)("%i-%iでは候補を選ぶと確認ダイアログなしで採用する", (phase, step, label) => {
     const { props } = setup({
-      phase: buildPhaseStep(5),
+      phase: buildPhaseStep(step, phase),
       isHost: true,
-      notes: [buildNote({ id: "candidate", content: "選んだ課題" })],
+      notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "採用する付箋: 選んだ課題" }),
-    );
     expect(props.onNoteDecide).not.toHaveBeenCalled();
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("選んだ課題");
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "決定は取り消せません",
+    fireEvent.click(
+      screen.getByRole("button", { name: `採用する${label}: 選んだ候補` }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "この課題に決定" }));
-    expect(props.onNoteDecide).toHaveBeenCalledWith("candidate");
+    expect(props.onNoteDecide).toHaveBeenCalledExactlyOnceWith("candidate");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "選択をキャンセル" }),
+    ).not.toBeInTheDocument();
   });
 });
 
