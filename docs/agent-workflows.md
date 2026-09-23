@@ -45,7 +45,8 @@
   クライアント状態はサーバー真実の畳み込み・URL・コンポーネントローカル UI 状態の 3 種。
   第二の真実を作るグローバルストア（Zustand / Redux 等）は導入しない。
 - すべての UI コンポーネントに stories を作り、Storybook を通じて構築する。
-  タイトル階層は features をミラーする（`Notes/NoteCard` 等）。
+  feature のタイトルは「機能名/部品名」（`Notes/NoteCard` 等）とし、
+  `features/` や `molecules/` 等の配置ディレクトリを表示階層に含めない。
 - 外部 API は MSW（`app/mocks/`）、WS は `webSocketFactory` へのフェイク注入でモックする。
 - 生のテストデータをコンポーネント内にハードコードしない。fixture・handler・builder・
   ガイド文言等の固定コンテンツはファイルの外へ置く。
