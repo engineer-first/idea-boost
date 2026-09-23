@@ -2759,7 +2759,7 @@ describe("cursor presence（名前付きの一時同期）", () => {
     expect(leaves).toEqual([]);
 
     anotherOwner.close();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await expectType(room.member, "cursor:left");
     expect(leaves).toEqual([{ type: "cursor:left", userId: OWNER.sub }]);
     room.member.close();
   });
@@ -2785,7 +2785,7 @@ describe("cursor presence（名前付きの一時同期）", () => {
     expect(leaves).toEqual([]);
 
     send(anotherOwner, { type: "cursor:leave" });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await expectType(room.member, "cursor:left");
     expect(leaves).toEqual([{ type: "cursor:left", userId: OWNER.sub }]);
 
     room.owner.close();
