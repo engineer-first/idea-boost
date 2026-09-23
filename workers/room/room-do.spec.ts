@@ -2454,7 +2454,8 @@ describe("RoomDO phase:next", () => {
 
     ws.send(JSON.stringify({ type: "phase:next" }));
     expect(await nextJson(ws)).toMatchObject({
-      type: "timer:updated",
+      type: "snapshot",
+      sharing: { status: "ready" },
       timer: { status: "idle" },
     });
     expect(await nextJson(ws)).toMatchObject({
@@ -2732,6 +2733,10 @@ describe("RoomDO phase:next", () => {
     await nextJson(ws);
 
     ws.send(JSON.stringify({ type: "phase:next" }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "snapshot",
+      sharing: { status: "ready" },
+    });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
       phase: buildPhaseStep(2, 2),
@@ -3563,7 +3568,8 @@ describe("RoomDO phase:next", () => {
     });
     const body = JSON.parse(String(message.data));
 
-    expect(body.type).toBe("phase:updated");
+    expect(body.type).toBe("snapshot");
+    expect(body.sharing.status).toBe("ready");
     expect(body.phase).toEqual(buildPhaseStep(2));
 
     ws.close();
@@ -3654,7 +3660,7 @@ describe("RoomDO phase:next", () => {
       }),
     ]);
 
-    // 各クライアントは phase:updated の1通を受ける
+    // 共有へ入ると順番を含む snapshot を全員へ届ける
     const collectOne = (ws: WebSocket) =>
       new Promise<unknown>((resolve) => {
         const onMessage = (event: MessageEvent) => {
@@ -3675,7 +3681,7 @@ describe("RoomDO phase:next", () => {
     ]);
 
     for (const msg of [hostMessage, memberMessage]) {
-      expect((msg as { type: string }).type).toBe("phase:updated");
+      expect((msg as { type: string }).type).toBe("snapshot");
       expect((msg as { phase: unknown }).phase).toEqual(buildPhaseStep(2));
     }
 
@@ -5123,11 +5129,17 @@ describe("RoomDO 共有ステップ終了時のマイ付箋の破棄", () => {
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "phase:next" }));
 
-    // 共有ステップに入る側では掃除も snapshot 再送も起こさない。ここで
-    // 消すと、共有する前に下書きを失う。
+    // 順番を含む snapshot を再送しても、本人の下書きを維持する。
     expect(await nextJson(ws)).toMatchObject({
-      type: "phase:updated",
+      type: "snapshot",
+      sharing: { status: "ready" },
       phase: buildPhaseStep(2),
+      notes: [
+        expect.objectContaining({
+          content: "これから共有する下書き",
+          visibility: "private",
+        }),
+      ],
     });
     expect(await countPrivateNotes(roomName)).toBe(1);
     ws.close();

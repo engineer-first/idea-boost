@@ -5,6 +5,7 @@ import {
   buildDecision,
   buildMembers,
   buildNotes,
+  buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { RoomBoardView } from "./room-board-view";
 import boardMeta from "./room-board-view.stories";
@@ -184,4 +185,52 @@ export const Connecting: Story = {
   ...step(3, 1),
   name: "接続確立中",
   args: { ...step(3, 1).args, connectionStatus: "connecting" },
+};
+
+export const SharingReady: Story = {
+  ...step(1, 2),
+  args: {
+    ...step(1, 2).args,
+    timer: { status: "idle" },
+    sharing: buildSharingState(),
+    initialGuideState: "compact",
+  },
+};
+export const SharingActive: Story = {
+  ...SharingReady,
+  args: {
+    ...SharingReady.args,
+    timer: { status: "paused", remainingMs: 138000, durationMs: 180000 },
+    sharing: buildSharingState({
+      status: "active",
+      currentIndex: 1,
+      results: ["done"],
+    }),
+  },
+};
+export const SharingTransition: Story = {
+  ...SharingReady,
+  args: {
+    ...SharingReady.args,
+    sharing: buildSharingState({
+      status: "active",
+      currentIndex: 1,
+      results: ["done"],
+      startsAt: Date.now() + 2000,
+    }),
+  },
+};
+export const SharingComplete: Story = {
+  ...SharingReady,
+  args: {
+    ...SharingReady.args,
+    sharing: buildSharingState({
+      status: "complete",
+      results: ["done", "passed", "done"],
+    }),
+  },
+};
+export const SharingMember: Story = {
+  ...SharingActive,
+  args: { ...SharingActive.args, isHost: false },
 };

@@ -6,7 +6,11 @@
 // 入退出 toast（memberJoined / memberLeft）もここで出す — 両画面で同一の方針。
 import { useCallback, useRef, useState } from "react";
 import type { RoomPhase } from "@/contracts/phase";
-import type { ServerMessage, TimerState } from "@/contracts/room-protocol";
+import type {
+  ServerMessage,
+  SharingState,
+  TimerState,
+} from "@/contracts/room-protocol";
 import { roomNotify } from "./room-notify";
 import {
   applyAdoptionFocusServerMessage,
@@ -15,6 +19,7 @@ import {
   applyIdeaMapServerMessage,
   applyMemberServerMessage,
   applyPhaseServerMessage,
+  applySharingServerMessage,
   applyTimerServerMessage,
   applyVotingCompletionServerMessage,
   type Carryover,
@@ -26,6 +31,7 @@ import {
 } from "./room-reducer";
 
 export type UseRoomStateResult = {
+  sharing: SharingState | null;
   members: Member[];
   phase: RoomPhase;
   decision: Decision | null;
@@ -44,6 +50,7 @@ export function useRoomState(options: {
   initialMembers: Member[];
   initialPhase: RoomPhase;
 }): UseRoomStateResult {
+  const [sharing, setSharing] = useState<SharingState | null>(null);
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -83,6 +90,7 @@ export function useRoomState(options: {
       const nextMembers = applyMemberServerMessage(membersRef.current, message);
       membersRef.current = nextMembers;
       setMembers(nextMembers);
+      setSharing((current) => applySharingServerMessage(current, message));
       setPhase((current) => applyPhaseServerMessage(current, message));
       setDecision((current) => applyDecisionServerMessage(current, message));
       setIdeaMap((current) => applyIdeaMapServerMessage(current, message));
@@ -101,6 +109,7 @@ export function useRoomState(options: {
   );
 
   return {
+    sharing,
     members,
     phase,
     decision,

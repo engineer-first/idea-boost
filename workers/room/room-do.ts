@@ -46,6 +46,7 @@ import {
 } from "./idea-map";
 import {
   ensureHost,
+  findMember,
   isHostUser,
   isMember,
   listMembers,
@@ -62,6 +63,16 @@ import {
   savePhase,
 } from "./phase";
 import { presenceHandlers } from "./presence";
+import {
+  broadcastSharing,
+  sharingHandlers,
+  startPendingSharingTurn,
+} from "./sharing";
+import {
+  appendSharingMember,
+  getSharingState,
+  resetSharingForPhase,
+} from "./sharing-state";
 import { getTimerState, handleTimerAlarm, timerHandlers } from "./timer";
 import { listCompletedVoterIds } from "./votes";
 
@@ -87,6 +98,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...ideaMapHandlers,
   ...phaseHandlers,
   ...timerHandlers,
+  ...sharingHandlers,
   ...presenceHandlers,
 };
 
@@ -135,7 +147,11 @@ export class RoomDO extends DurableObject {
     userId: string,
     name: string | undefined,
   ): Promise<UpsertMemberResult> {
-    return upsertMember(this.sql, this.broadcaster, userId, name);
+    const result = upsertMember(this.sql, this.broadcaster, userId, name);
+    const member = result.ok ? findMember(this.sql, userId) : null;
+    if (member && appendSharingMember(this.sql, member))
+      broadcastSharing({ sql: this.sql, broadcaster: this.broadcaster });
+    return result;
   }
 
   // 新規ルーム作成直後にロビー状態へ。
@@ -328,6 +344,14 @@ export class RoomDO extends DurableObject {
   }
 
   override async alarm(): Promise<void> {
+    if (
+      await startPendingSharingTurn({
+        sql: this.sql,
+        storage: this.ctx.storage,
+        broadcaster: this.broadcaster,
+      })
+    )
+      return;
     await handleTimerAlarm(this.sql, this.broadcaster);
   }
 
@@ -403,6 +427,14 @@ export class RoomDO extends DurableObject {
   // 接続直後に現在状態を丸ごと届ける（再接続の復帰パスも兼ねる）。
   private sendSnapshot(ws: WebSocket, userId: string): void {
     const phase = getPhase(this.sql);
+    // 更新前から共有中のルームも、最初の接続で一度だけ順番を作る。
+    if (
+      phase.kind === "step" &&
+      phase.step === 2 &&
+      !getSharingState(this.sql)
+    ) {
+      resetSharingForPhase(this.sql, phase);
+    }
     const ideaMapState = buildIdeaMapServerState(
       this.sql,
       this.broadcaster,
@@ -419,6 +451,7 @@ export class RoomDO extends DurableObject {
 
     this.broadcaster.sendTo(ws, {
       type: "snapshot",
+      sharing: getSharingState(this.sql),
       notes,
       // フェーズ2では既存のフェーズ1グループも表示しない。
       groups:

@@ -1260,3 +1260,41 @@ describe("プロトコル整合性", () => {
 });
 
 void USER_B;
+
+describe("共有進行の境界", () => {
+  const start = { type: "sharing:start", revision: USER_A, durationMs: 180000 };
+  it.each([
+    { userId: USER_B },
+    { authorId: USER_B },
+    { currentIndex: 2 },
+    { order: [USER_B] },
+    { roomId: USER_B },
+  ])("発表者や認証主体はクライアントから指定できない: %j", (extra) => {
+    expect(ClientMessageSchema.safeParse({ ...start, ...extra }).success).toBe(
+      false,
+    );
+  });
+  it.each([
+    0, -1, 6000000, 0.5,
+  ])("不正な持ち時間 %i を拒否する", (durationMs) => {
+    expect(
+      ClientMessageSchema.safeParse({ ...start, durationMs }).success,
+    ).toBe(false);
+  });
+  it("共有の開始と交代には現在の版を必須にする", () => {
+    expect(ClientMessageSchema.safeParse(start).success).toBe(true);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "sharing:advance",
+        revision: USER_A,
+        outcome: "passed",
+      }).success,
+    ).toBe(true);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "sharing:advance",
+        outcome: "done",
+      }).success,
+    ).toBe(false);
+  });
+});

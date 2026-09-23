@@ -20,6 +20,8 @@ import { TimerSoundControl } from "../molecules/timer-sound-control";
 export const TIMER_DEFAULT_DURATION_MS = 3 * 60_000;
 
 export type RoomTimerProps = {
+  configureOnly?: boolean;
+  onConfigureDuration?: (durationMs: number) => void;
   timer: TimerState;
   serverOffsetMs: number;
   soundControls: TimerSoundControls;
@@ -79,6 +81,8 @@ function formatDuration(durationMs: number): string {
 }
 
 export function RoomTimer({
+  configureOnly = false,
+  onConfigureDuration,
   timer,
   serverOffsetMs,
   soundControls,
@@ -392,10 +396,14 @@ export function RoomTimer({
             className="h-8 w-full"
             disabled={disabled || parsedDuration === null}
             onClick={() => {
-              if (parsedDuration !== null) onStart(parsedDuration);
+              if (parsedDuration === null) return;
+              if (configureOnly) {
+                onConfigureDuration?.(parsedDuration);
+                handlePanelOpenChange(false);
+              } else onStart(parsedDuration);
             }}
           >
-            開始
+            {configureOnly ? "持ち時間を設定" : "開始"}
           </Button>
         </div>
       ) : isEnded ? (

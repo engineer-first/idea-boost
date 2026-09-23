@@ -23,6 +23,7 @@ import {
   listAutomaticExclusionCandidates,
   type NoteRow,
 } from "./notes";
+import { resetSharingForPhase } from "./sharing-state";
 import { resetTimerState } from "./timer";
 import { haveAllMembersCompletedVoting } from "./votes";
 
@@ -156,6 +157,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "adoption-focus:update":
     case "start_phase":
     case "phase:next":
+    case "sharing:start":
+    case "sharing:advance":
     case "timer:start":
     case "timer:pause":
     case "timer:resume":
@@ -473,7 +476,8 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       crossesPhaseBoundary ||
       leavesSharingStep ||
       entersVotingStep ||
-      entersIdeaMapStep;
+      entersIdeaMapStep ||
+      isSharingStep(next);
     let timerWasReset = false;
     let automaticExclusion:
       | { operationId: string; targets: NoteRow[] }
@@ -518,6 +522,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         }
       }
       savePhase(ctx.sql, next);
+      resetSharingForPhase(ctx.sql, next);
       if (crossesPhaseBoundary) {
         clearUsedNoteDragIds(ctx.sql);
       }
@@ -530,9 +535,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         noteId: null,
       });
     }
-    if (timerWasReset) {
-      await ctx.storage.deleteAlarm();
-    }
+    await ctx.storage.deleteAlarm();
     // 投票ステップでは note:updated の count を秘匿しているため、結果ステップ
     // へ遷移した接続中の参加者にも完全な投票集計を届け直す。フェーズ境界を
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから
