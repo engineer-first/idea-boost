@@ -50,7 +50,8 @@
 - 生のテストデータをコンポーネント内にハードコードしない。fixture・handler・builder・
   ガイド文言等の固定コンテンツはファイルの外へ置く。
   contracts 型のビルダーは `contracts/*.fixture.ts`、feature 固有の fixture は実装と同居。
-- データに依存する UI は loading / empty / success / error をテストする。
+- データに依存する UI の loading / empty / success / error と、DOM・browser・stories の
+  検証責務は [テスト方針](testing-policy.md) に従う。
 
 ## API
 

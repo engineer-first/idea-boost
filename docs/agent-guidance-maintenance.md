@@ -20,21 +20,32 @@
 
 ## 旧規範の対応表
 
-| 旧 AGENTS の内容                                                    | 維持先・整理内容                                                                                                               |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 正本・symlink・日本語・公開型・検査を緩めない・PR / Next / PRD 参照 | AGENTS の常設判断と作業別参照表。                                                                                              |
-| TDD の繰り返し・Vitest・Worker pool                                 | AGENTS の開発と検証へ一本化。小さな振る舞い変更も red を確認し、contracts → 実装 → green → リファクタの順を保持。              |
-| 構成・依存・命名・5 箱・同居・ステム                                | workflows のコード配置と命名。許可エッジ・帯・配置の詳細は既存 ast-grep と配置チェッカーへ参照。変動する feature 一覧は削除。  |
-| container / view・hook・状態・stories・モック・固定データ・4 状態   | workflows の UI に集約。グローバルストア禁止を含め維持。                                                                       |
-| API 入力検証・毎回の認証認可・最小レスポンス・唯一のデータ入口      | workflows の API とコード配置へ集約。                                                                                          |
-| RoomDO 権威・visibleTo・全員配信の限定・否定系・書換不可フィールド  | workflows の共有状態と認可。サーバーから返すデータまで禁止と読めないよう、クライアント送信メッセージの規範であることを明確化。 |
-| D1 可逆性・RoomDO 不変性 / 未マージ編集・生成物・ER 図・構造 lint   | workflows の Migration。具体コマンドと既存検査への参照を保持。                                                                 |
-| 秘密情報・境界・contracts 正本                                      | AGENTS の常設判断と開発順序へ統合。                                                                                            |
+| 旧 AGENTS の内容                                                    | 維持先・整理内容                                                                                                                              |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 正本・symlink・日本語・公開型・検査を緩めない・PR / Next / PRD 参照 | AGENTS の常設判断と作業別参照表。                                                                                                             |
+| TDD の繰り返し・Vitest・Worker pool                                 | AGENTS の開発と検証へ一本化。小さな振る舞い変更も red を確認し、contracts → 実装 → green → リファクタの順を保持。検証先の選択はテスト方針へ。 |
+| 構成・依存・命名・5 箱・同居・ステム                                | workflows のコード配置と命名。許可エッジ・帯・配置の詳細は既存 ast-grep と配置チェッカーへ参照。変動する feature 一覧は削除。                 |
+| container / view・hook・状態・stories・モック・固定データ・4 状態   | workflows の UI に集約。グローバルストア禁止を含め維持。4 状態の適用と検証責務はテスト方針へ。                                                |
+| API 入力検証・毎回の認証認可・最小レスポンス・唯一のデータ入口      | workflows の API とコード配置へ集約。                                                                                                         |
+| RoomDO 権威・visibleTo・全員配信の限定・否定系・書換不可フィールド  | workflows の共有状態と認可。サーバーから返すデータまで禁止と読めないよう、クライアント送信メッセージの規範であることを明確化。                |
+| D1 可逆性・RoomDO 不変性 / 未マージ編集・生成物・ER 図・構造 lint   | workflows の Migration。具体コマンドと既存検査への参照を保持。                                                                                |
+| 秘密情報・境界・contracts 正本                                      | AGENTS の常設判断と開発順序へ統合。                                                                                                           |
 
 機械検査への委譲は意図の削除を意味しない。現状を確認する正本は
 [package.json](../package.json)、[CI](../.github/workflows/ci.yml)、
 [ast-grep](../rules/ast-grep/)、[feature 配置検査](../scripts/check-feature-layout.mts)、
 [DB lint](../.tbls/) とする。機械化されていない判断規範は workflows に残す。
+
+## テスト方針の整理（2026-09-23、Issue #338）
+
+- [テスト方針](testing-policy.md) を判断の正本として追加し、AGENTS・UI 規約・
+  `new-component` から案内する。テスト件数や query API ではなく、検知する不具合で検証先を選ぶ。
+- 振る舞いの red 先行、全 UI の stories、データに依存する UI の適用される 4 状態の検証を維持する。
+  固定文言・装飾だけの専用 DOM spec と、すべての部品への 4 状態の強制を避ける。
+  `new-component` の専用 spec 必須という案内を、この判断に揃える。
+- DOM の接続・表示データ・表示条件、Worker の認可、browser の寸法・操作、
+  Chromatic の表示差分、人による文章レビューの責務を区別する。
+  Vitest 設定・CI・Chromatic workflow を照合し、テスト設定は変更しない。
 
 ## ハーネス監査
 
@@ -52,7 +63,7 @@
 - ローカル品質ループ状態は [.gitignore](../.gitignore) の `/.eval-loop/` でコミット対象から除外する。
   既存状態は削除しない。これは formatter の除外設定を兼ねない。
 - 既存の別作業を保つため、文書整形は対象ファイルを列挙して
-  `npx remark AGENTS.md docs/agent-workflows.md docs/agent-guidance-maintenance.md --quiet --frail --output`
+  `npx remark AGENTS.md docs/agent-workflows.md docs/agent-guidance-maintenance.md docs/testing-policy.md .claude/skills/new-component/SKILL.md --quiet --frail --output`
   とする。全体の `format:md` は実行しない。
 
 ## 参照ルーティングの回帰確認
@@ -60,13 +71,16 @@
 指示を変更したら次のシナリオをルートから辿り、必要な制約へ到達できることを確認する。
 これは文書の読み合わせであり、アプリの実行テストや agent の実走評価を代替しない。
 
-| 作業例                       | 読込経路と期待する制約                                                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| README の文言だけ修正        | 常設判断 → 文書のリンク・記載内容・整形検証。UI や Worker の資料・アプリ全テストは要求しない。                                             |
-| Issue を作成・編集・振り分け | 常設判断 → [Issue 運用](issue-management.md)。種類・Project 状態・PR 参照・自動化・App 権限を確認し、Issue を推測で更新しない。            |
-| Next の付箋 UI を変更        | 配置 + Next 同梱ガイド + UI。red 先行、container / view 分離、stories・fixture・4 状態へ到達。共有状態も変更するなら共有状態と認可を併読。 |
-| API でノート閲覧権限を変更   | 配置 + API + 共有状態と認可。否定系を先に書き、認証認可・visibleTo テーブル・Worker テストを更新する。                                     |
-| RoomDO のカラムを変更        | 配置 + Migration。振る舞いの red を確認し、マージ済み SQL の不変性、新規 SQL、生成物非コミット、DB lint / Worker テストに到達。            |
+| 作業例                       | 読込経路と期待する制約                                                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| README の文言だけ修正        | 常設判断 → 文書のリンク・記載内容・整形検証。UI や Worker の資料・アプリ全テストは要求しない。                                                                     |
+| Issue を作成・編集・振り分け | 常設判断 → [Issue 運用](issue-management.md)。種類・Project 状態・PR 参照・自動化・App 権限を確認し、Issue を推測で更新しない。                                    |
+| Next の付箋 UI を変更        | 配置 + Next 同梱ガイド + UI + テスト方針。red 先行、container / view 分離、stories・fixture・適用される 4 状態へ到達。共有状態も変更するなら共有状態と認可を併読。 |
+| ガイドの固定文言を修正       | テスト方針 → story と文章・表示レビュー。専用 DOM spec の追加を必須にしない。説明の表示条件を変えるなら red 先行へ戻る。                                           |
+| ボタンを hook へ接続する     | UI + テスト方針 → DOM 操作と callback・状態変化の接続を検証。hook 単体の成功だけで保証したとしない。                                                               |
+| 新しい UI 部品を作る         | new-component → UI + テスト方針。stories は必須。親で検知できる振る舞いを子の専用 spec に重複させず、適用される状態を検証する。                                    |
+| API でノート閲覧権限を変更   | 配置 + API + 共有状態と認可。否定系を先に書き、認証認可・visibleTo テーブル・Worker テストを更新する。                                                             |
+| RoomDO のカラムを変更        | 配置 + Migration。振る舞いの red を確認し、マージ済み SQL の不変性、新規 SQL、生成物非コミット、DB lint / Worker テストに到達。                                    |
 
 合わせてリンク先・npm script の存在、`CLAUDE.md` symlink、Markdown 再整形の差分ゼロ、
 `git diff --check`、`git check-ignore .eval-loop/` を確認する。
