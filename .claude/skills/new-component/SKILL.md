@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # 新規 UI コンポーネント作成
 
-`$ARGUMENTS` で指定された名前の UI コンポーネントを、リポジトリ規約（AGENTS.md）に準拠した一式で作成する。
+`$ARGUMENTS` で指定された名前の UI コンポーネントを、リポジトリ規約（AGENTS.md）に従って作成する。
 
 ## 配置先の決定
 
@@ -15,7 +15,7 @@ disable-model-invocation: true
 - `app/` は予約ファイルとそのルート専用の組み立て view、`components/ui/` はドメインを知らない shadcn 汎用部品に限る。
 - 配置・責務はルートの `AGENTS.md` と、そこから案内される UI 規約に従う。検証は [テスト方針](../../../docs/testing-policy.md) を読む。既存実装から判断できる配置はそのまま進める。
 
-## 作成するファイル一式
+## 作成するファイルと条件
 
 ファイル名は kebab-case で統一する（例: `idea-card`）。
 
