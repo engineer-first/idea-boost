@@ -22,6 +22,7 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
+import type { SharingState } from "@/contracts/room-protocol";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
@@ -54,6 +55,9 @@ export type RoomBoardViewProps = {
   ideaMapSizeInitialized?: boolean;
   ideaMapIsDragging?: boolean;
   onIdeaMapResize?: (sizeLevel: number) => void;
+  sharing?: SharingState | null;
+  onSharingStart?: (durationMs: number) => void;
+  onSharingAdvance?: (outcome: "done" | "passed") => void;
   timer: TimerState;
   timerServerOffsetMs: number;
   timerUpdateVersion?: number;
@@ -154,6 +158,9 @@ export function RoomBoardView({
   ideaMapSizeInitialized = false,
   ideaMapIsDragging = false,
   onIdeaMapResize = () => undefined,
+  sharing = null,
+  onSharingStart,
+  onSharingAdvance,
   timer,
   timerServerOffsetMs,
   timerUpdateVersion = 0,
@@ -690,6 +697,9 @@ export function RoomBoardView({
         bulkExclusionTargetCount={bulkExclusionTargetCount}
         canManageCandidates={isResultStep(phase) && decision === null}
         onBulkCandidateExclude={onBulkCandidateExclude}
+        sharing={sharing}
+        onSharingStart={onSharingStart}
+        onSharingAdvance={onSharingAdvance}
         timer={timer}
         timerServerOffsetMs={timerServerOffsetMs}
         timerUpdateVersion={timerUpdateVersion}

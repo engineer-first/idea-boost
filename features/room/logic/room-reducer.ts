@@ -13,6 +13,7 @@ import type {
   Decision as ProtocolDecision,
   ProtocolMember,
   ServerMessage,
+  SharingState,
   TimerState,
 } from "@/contracts/room-protocol";
 
@@ -92,6 +93,7 @@ export function applyMemberServerMessage(
     case "note:drag:result":
     case "idea-map:state":
     case "phase:updated":
+    case "sharing:updated":
     case "timer:updated":
     case "group:updated":
     case "group:deleted":
@@ -140,6 +142,7 @@ export function applyVotingCompletionServerMessage(
     case "group:deleted":
     case "decision:updated":
     case "adoption-focus:updated":
+    case "sharing:updated":
     case "timer:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
@@ -165,14 +168,18 @@ export function applyTimerServerMessage(
   message: ServerMessage,
   clientNow = Date.now(),
 ): TimerClientState {
-  if (message.type !== "snapshot" && message.type !== "timer:updated") {
+  if (
+    message.type !== "snapshot" &&
+    message.type !== "timer:updated" &&
+    message.type !== "sharing:updated"
+  ) {
     return state;
   }
   return {
     timer: message.timer,
     serverOffsetMs: message.serverNow - clientNow,
     timerUpdateVersion:
-      state.timerUpdateVersion + (message.type === "timer:updated" ? 1 : 0),
+      state.timerUpdateVersion + (message.type !== "snapshot" ? 1 : 0),
   };
 }
 
@@ -201,6 +208,7 @@ export function applyDecisionServerMessage(
     case "member_vote_status":
     case "group:updated":
     case "group:deleted":
+    case "sharing:updated":
     case "timer:updated":
     case "adoption-focus:updated":
     case "cursor:updated":
@@ -270,6 +278,7 @@ export function applyPhaseServerMessage(
     case "member_vote_status":
     case "group:updated":
     case "group:deleted":
+    case "sharing:updated":
     case "timer:updated":
     case "decision:updated":
     case "adoption-focus:updated":
@@ -283,4 +292,13 @@ export function applyPhaseServerMessage(
       return _exhaustive;
     }
   }
+}
+
+export function applySharingServerMessage(
+  state: SharingState | null,
+  message: ServerMessage,
+): SharingState | null {
+  if (message.type === "snapshot") return message.sharing ?? null;
+  if (message.type === "sharing:updated") return message.sharing;
+  return state;
 }

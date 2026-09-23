@@ -19,13 +19,13 @@ describe("getFacilitationGuide", () => {
   it("フェーズ2 Step 2のやることから順番決めを除く", () => {
     expect(getFacilitationGuide(buildPhaseStep(2, 2))?.steps).toEqual([
       "最初の順番の人が、問いを1つずつ説明しながら共有する",
-      "決めた順番に沿って、次の人が発表する",
+      "右上の順番に沿って、次の人が発表する",
     ]);
   });
 
   it("フェーズ3 Step 2のやることから順番決めを除く", () => {
     expect(getFacilitationGuide(buildPhaseStep(2, 3))?.steps).toEqual([
-      "解決策を1つずつ説明しながら共有する",
+      "右上の順番に沿って、解決策を1つずつ説明しながら共有する",
       "価値と実現のしやすさを考えて、マップへ仮置きする",
     ]);
   });
@@ -69,8 +69,8 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(2),
       6,
-      "自分の付箋をドラッグしてみんなに共有しよう。順番を決めて発表しよう。",
-      "全員の共有が終わったら、次のステップへ進んでください。",
+      "右上の順番に沿って、自分の付箋を説明しながらドラッグして共有しよう。",
+      "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
     ],
     [
       buildPhaseStep(3),
@@ -99,8 +99,8 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(2, 2),
       6,
-      "自分の付箋をドラッグしてみんなに共有しよう。順番を決めて発表しよう。",
-      "全員の共有が終わったら、次のステップへ進んでください。",
+      "右上の順番に沿って、自分の付箋を説明しながらドラッグして共有しよう。",
+      "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
     ],
     [
       buildPhaseStep(3, 2),
@@ -124,7 +124,7 @@ describe("getFacilitationGuide", () => {
       buildPhaseStep(2, 3),
       6,
       "解決策をみんなに共有し、発表しながら2軸マップに置こう。ほかの人が発表している間は手を止めて聞こう。",
-      "全員の共有が終わったら、次のステップへ進んでください。",
+      "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
     ],
     [
       buildPhaseStep(3, 3),
@@ -175,4 +175,13 @@ describe("getFacilitationGuide", () => {
     expect(guide?.steps?.join(" ")).toContain(target);
     expect(guide?.steps?.join(" ")).toContain("1件");
   });
+});
+
+it.each([
+  1, 2, 3,
+] as const)("フェーズ%iの共有は右上の固定順と進行操作を案内する", (phase) => {
+  const guide = getFacilitationGuide(buildPhaseStep(2, phase));
+  expect(guide?.steps?.join(" ")).toContain("右上");
+  expect(guide?.hostMessage).toContain("次の人へ");
+  expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
 });

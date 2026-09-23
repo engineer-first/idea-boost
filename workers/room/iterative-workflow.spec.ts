@@ -64,6 +64,46 @@ async function setup(phase: RoomPhase) {
   };
 }
 
+async function startTimer(
+  room: Awaited<ReturnType<typeof setup>>,
+): Promise<void> {
+  const { initial } = room;
+  if (initial.type === "snapshot" && initial.sharing?.status === "ready") {
+    send(room.a, {
+      type: "sharing:start",
+      revision: initial.sharing.revision,
+      durationMs: 60000,
+    });
+    for (const socket of [room.a, room.b]) {
+      expect(await until(socket, "sharing:updated")).toMatchObject({
+        type: "sharing:updated",
+        timer: { status: "idle" },
+      });
+    }
+    await runInRoomDO(room.roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE sharing_state SET state_json = json_set(state_json, '$.startsAt', ?1) WHERE id = 1",
+        Date.now() - 1,
+      );
+      await instance.alarm();
+    });
+    for (const socket of [room.a, room.b]) {
+      expect(await until(socket, "sharing:updated")).toMatchObject({
+        type: "sharing:updated",
+        timer: { status: "running" },
+      });
+    }
+  } else {
+    send(room.a, { type: "timer:start", durationMs: 60000 });
+    for (const socket of [room.a, room.b]) {
+      expect(await until(socket, "timer:updated")).toMatchObject({
+        type: "timer:updated",
+        timer: { status: "running" },
+      });
+    }
+  }
+}
+
 async function until(
   socket: RoomSocket,
   type: ServerMessage["type"],
@@ -93,8 +133,7 @@ for (const phase of [1, 2, 3] as const) {
           type: "error",
           code: "forbidden",
         });
-        send(room.a, { type: "timer:start", durationMs: 60000 });
-        await until(room.a, "timer:updated");
+        await startTimer(room);
         send(room.a, transition("phase:restart-writing", current));
         expect(await until(room.a, "phase:updated")).toMatchObject({
           type: "phase:updated",
@@ -501,13 +540,7 @@ it.each([
   const middle: RoomPhase = { kind: "step", phase: 1, step: intermediate };
   const final: RoomPhase = { kind: "step", phase: 1, step: to };
   const room = await setup(current);
-  send(room.a, { type: "timer:start", durationMs: 60000 });
-  expect(await until(room.a, "timer:updated")).toMatchObject({
-    type: "timer:updated",
-  });
-  expect(await until(room.b, "timer:updated")).toMatchObject({
-    type: "timer:updated",
-  });
+  await startTimer(room);
   // 最初の応答を待たず、ストレージI/Oでyieldする遷移に続けて送る。
   send(room.a, transition(type, current));
   send(room.a, { ...transition("phase:next", middle, 3), force: true });

@@ -29,6 +29,7 @@ import {
   listAutomaticExclusionCandidates,
   type NoteRow,
 } from "./notes";
+import { resetSharingForPhase } from "./sharing-state";
 import { resetTimerState } from "./timer";
 import { haveAllMembersCompletedVoting } from "./votes";
 
@@ -170,6 +171,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "phase:next":
     case "phase:restart-writing":
     case "phase:revote":
+    case "sharing:start":
+    case "sharing:advance":
     case "timer:start":
     case "timer:pause":
     case "timer:resume":
@@ -504,7 +507,8 @@ export const phaseHandlers: MessageHandlers<
       crossesPhaseBoundary ||
       current.step === 2 ||
       entersVotingStep ||
-      entersIdeaMapStep;
+      entersIdeaMapStep ||
+      (next.kind === "step" && next.step === 2);
     let timerWasReset = false;
     let automaticExclusion:
       | { operationId: string; targets: NoteRow[] }
@@ -549,6 +553,7 @@ export const phaseHandlers: MessageHandlers<
         }
       }
       savePhase(ctx.sql, next);
+      resetSharingForPhase(ctx.sql, next);
       if (crossesPhaseBoundary) {
         clearUsedNoteDragIds(ctx.sql);
       }
@@ -561,9 +566,7 @@ export const phaseHandlers: MessageHandlers<
         noteId: null,
       });
     }
-    if (timerWasReset) {
-      await ctx.storage.deleteAlarm();
-    }
+    await ctx.storage.deleteAlarm();
     // 投票ステップでは note:updated の count を秘匿しているため、結果ステップ
     // へ遷移した接続中の参加者にも完全な投票集計を届け直す。フェーズ境界を
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから
@@ -622,7 +625,6 @@ async function restartPhase(
     ...current,
     step: revote ? VOTING_STEP_BY_PHASE[current.phase] : 1,
   };
-  let timerWasReset = false;
   ctx.storage.transactionSync(() => {
     if (revote) {
       ctx.sql.exec(
@@ -635,11 +637,13 @@ async function restartPhase(
       );
     }
     savePhase(ctx.sql, next);
-    timerWasReset = resetTimerState(ctx.sql);
+    resetSharingForPhase(ctx.sql, next);
+    resetTimerState(ctx.sql);
   });
   ctx.broadcaster.retireAllActiveDrags();
   ctx.broadcaster.retireAllAdoptionFocus();
-  if (timerWasReset) await ctx.storage.deleteAlarm();
+  // 共有の交代待機中はtimerがidleでも開始予約がある。
+  await ctx.storage.deleteAlarm();
   ctx.refreshSnapshots();
   ctx.broadcaster.broadcastToAll({
     type: "phase:updated",

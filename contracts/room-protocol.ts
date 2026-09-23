@@ -198,6 +198,18 @@ export const MemberSchema = z.object({
 });
 export type ProtocolMember = z.infer<typeof MemberSchema>;
 
+// 共有順・発表進捗は全員共有。付箋や非公開の作業情報は含めない。
+export const SharingStateSchema = z.object({
+  revision: z.string().uuid(),
+  order: z.array(MemberSchema),
+  status: z.enum(["inactive", "ready", "active", "complete"]),
+  currentIndex: z.number().int().nonnegative().nullable(),
+  results: z.array(z.enum(["done", "passed"])),
+  durationMs: z.number().int().min(1).max(TIMER_MAX_DURATION_MS),
+  startsAt: TimerMillisecondsSchema.nullable(),
+});
+export type SharingState = z.infer<typeof SharingStateSchema>;
+
 // カーソルは RoomDO が永続化しない presence。クライアント入力には userId / name /
 // color を持たせず、認証済みソケットと members からサーバーが付与する。
 export const CursorPresenceSchema = z.object({
@@ -242,6 +254,20 @@ export const NoteDragIdSchema = z.string().uuid();
 // ---------------------------------------------------------------
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("sharing:start"),
+      revision: z.string().uuid(),
+      durationMs: z.number().int().min(1).max(TIMER_MAX_DURATION_MS),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("sharing:advance"),
+      revision: z.string().uuid(),
+      outcome: z.enum(["done", "passed"]),
+    })
+    .strict(),
   z.object({
     type: z.literal("cursor:update"),
     ...NotePositionSchema,
@@ -451,7 +477,14 @@ export const WS_CLOSE_ROOM_DISBANDED_REASON = "room disbanded";
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("sharing:updated"),
+    sharing: SharingStateSchema,
+    timer: TimerStateSchema,
+    serverNow: TimerMillisecondsSchema,
+  }),
+  z.object({
     type: z.literal("snapshot"),
+    sharing: SharingStateSchema.nullable().optional(),
     notes: z.array(NoteSchema),
     groups: z.array(GroupSchema).optional(),
     members: z.array(MemberSchema),

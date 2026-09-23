@@ -16,7 +16,7 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { TimerState } from "@/contracts/room-protocol";
+import type { SharingState, TimerState } from "@/contracts/room-protocol";
 import { CopyInviteButton } from "@/features/invite";
 import { MemberAvatar } from "@/features/room-members";
 import {
@@ -30,6 +30,8 @@ import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
 import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
+import { SharingAnnouncement } from "../molecules/sharing-announcement";
+import { SharingPresenter } from "../molecules/sharing-presenter";
 import { StepGuide } from "../molecules/step-guide";
 import { RoomTimer } from "./room-timer";
 
@@ -44,6 +46,9 @@ export type RoomBoardHeaderProps = {
   bulkExclusionTargetCount?: number;
   canManageCandidates?: boolean;
   onBulkCandidateExclude?: () => void;
+  sharing?: SharingState | null;
+  onSharingStart?: (durationMs: number) => void;
+  onSharingAdvance?: (outcome: "done" | "passed") => void;
   timer: TimerState;
   timerServerOffsetMs: number;
   timerUpdateVersion?: number;
@@ -84,6 +89,9 @@ export function RoomBoardHeader({
   bulkExclusionTargetCount = 0,
   canManageCandidates = false,
   onBulkCandidateExclude = () => undefined,
+  sharing = null,
+  onSharingStart,
+  onSharingAdvance,
   timer,
   timerServerOffsetMs,
   timerUpdateVersion = 0,
@@ -109,6 +117,22 @@ export function RoomBoardHeader({
   onTimerExtend,
   onTimerStop,
 }: RoomBoardHeaderProps) {
+  const activeSharing =
+    phase.kind === "step" && phase.step === 2 ? sharing : null;
+  const transitioning = activeSharing?.startsAt != null;
+  const presenter =
+    activeSharing?.currentIndex != null
+      ? activeSharing.order[activeSharing.currentIndex]
+      : null;
+  const [configuredDuration, setConfiguredDuration] = useState<{
+    revision: string;
+    durationMs: number;
+  } | null>(null);
+  const sharingDuration =
+    activeSharing?.status === "ready" &&
+    configuredDuration?.revision === activeSharing.revision
+      ? configuredDuration.durationMs
+      : (activeSharing?.durationMs ?? 180000);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
   const isCurrentVotingStep = isVotingStep(phase);
   const completedVoterIdSet = new Set(completedVoterIds);
@@ -146,18 +170,22 @@ export function RoomBoardHeader({
 
   return (
     <TooltipProvider delayDuration={300}>
-      {guide && (
-        <StepGuide
-          key={`${inviteCode}:${currentUserId}`}
-          sessionKey={`${inviteCode}:${currentUserId}`}
-          phaseKey={
-            phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
-          }
-          guide={guide}
-          isHost={isHost}
-          isReady={!isDisconnected}
-          initialState={initialGuideState}
-        />
+      {transitioning && presenter ? (
+        <SharingAnnouncement member={presenter} />
+      ) : (
+        guide && (
+          <StepGuide
+            key={`${inviteCode}:${currentUserId}`}
+            sessionKey={`${inviteCode}:${currentUserId}`}
+            phaseKey={
+              phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
+            }
+            guide={guide}
+            isHost={isHost}
+            isReady={!isDisconnected}
+            initialState={initialGuideState}
+          />
+        )
       )}
       <div
         data-testid="board-header-row"
@@ -200,137 +228,187 @@ export function RoomBoardHeader({
               </span>
             </span>
           ) : null}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
-                aria-label={`参加者 ${members.length}人`}
-                title="参加者一覧を開く"
-              >
-                <span
-                  className="flex items-center pl-2 max-[900px]:pl-0"
-                  aria-hidden="true"
+          {activeSharing ? (
+            <SharingPresenter sharing={activeSharing} hostUserId={hostUserId} />
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
+                  aria-label={`参加者 ${members.length}人`}
+                  title="参加者一覧を開く"
                 >
-                  {members.slice(0, 10).map((member, index) => (
+                  <span
+                    className="flex items-center pl-2 max-[900px]:pl-0"
+                    aria-hidden="true"
+                  >
+                    {members.slice(0, 10).map((member, index) => (
+                      <span
+                        key={member.userId}
+                        className={`relative ${
+                          index >= 3
+                            ? "hidden xl:inline-flex"
+                            : index >= 1
+                              ? "hidden lg:inline-flex"
+                              : "inline-flex"
+                        } ${index > 0 ? "-ml-2" : ""}`}
+                        style={{ zIndex: 10 - index }}
+                      >
+                        <MemberAvatar
+                          name={member.name}
+                          color={member.color}
+                          size={28}
+                          isMe={member.userId === currentUserId}
+                          isVotingComplete={completedVoterIds.includes(
+                            member.userId,
+                          )}
+                        />
+                      </span>
+                    ))}
                     <span
+                      data-testid="member-overflow-indicator"
+                      className={`relative z-20 -ml-1 size-7 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold tabular-nums text-foreground ${
+                        members.length > 10
+                          ? "inline-flex"
+                          : members.length > 3
+                            ? "inline-flex xl:hidden"
+                            : members.length > 1
+                              ? "inline-flex lg:hidden"
+                              : "hidden"
+                      }`}
+                    >
+                      <span className="hidden xl:inline">
+                        +{Math.max(0, members.length - 10)}
+                      </span>
+                      <span className="hidden lg:inline xl:hidden">
+                        +{Math.max(0, members.length - 3)}
+                      </span>
+                      <span className="lg:hidden">
+                        +{Math.max(0, members.length - 1)}
+                      </span>
+                    </span>
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" aria-label="参加者一覧">
+                <p className="mb-3 text-sm font-semibold">
+                  参加者 {members.length}人
+                </p>
+                <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto p-1">
+                  {members.map((member) => (
+                    <li
                       key={member.userId}
-                      className={`relative ${
-                        index >= 3
-                          ? "hidden xl:inline-flex"
-                          : index >= 1
-                            ? "hidden lg:inline-flex"
-                            : "inline-flex"
-                      } ${index > 0 ? "-ml-2" : ""}`}
-                      style={{ zIndex: 10 - index }}
+                      data-testid={`member-row-${member.userId}`}
+                      data-self={
+                        member.userId === currentUserId ? "true" : undefined
+                      }
+                      className="flex min-w-0 items-center gap-2"
                     >
                       <MemberAvatar
                         name={member.name}
                         color={member.color}
-                        size={28}
+                        size={32}
                         isMe={member.userId === currentUserId}
                         isVotingComplete={completedVoterIds.includes(
                           member.userId,
                         )}
                       />
-                    </span>
+                      <span className="min-w-0 flex-1 truncate text-sm">
+                        {member.name}
+                      </span>
+                      {member.userId === hostUserId ? (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          data-testid={`member-host-label-${member.userId}`}
+                        >
+                          ホスト
+                        </span>
+                      ) : null}
+                      {member.userId === currentUserId ? (
+                        <span className="text-xs text-muted-foreground">
+                          あなた
+                        </span>
+                      ) : null}
+                    </li>
                   ))}
-                  <span
-                    data-testid="member-overflow-indicator"
-                    className={`relative z-20 -ml-1 size-7 shrink-0 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold tabular-nums text-foreground ${
-                      members.length > 10
-                        ? "inline-flex"
-                        : members.length > 3
-                          ? "inline-flex xl:hidden"
-                          : members.length > 1
-                            ? "inline-flex lg:hidden"
-                            : "hidden"
-                    }`}
-                  >
-                    <span className="hidden xl:inline">
-                      +{Math.max(0, members.length - 10)}
-                    </span>
-                    <span className="hidden lg:inline xl:hidden">
-                      +{Math.max(0, members.length - 3)}
-                    </span>
-                    <span className="lg:hidden">
-                      +{Math.max(0, members.length - 1)}
-                    </span>
-                  </span>
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72" aria-label="参加者一覧">
-              <p className="mb-3 text-sm font-semibold">
-                参加者 {members.length}人
-              </p>
-              <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto p-1">
-                {members.map((member) => (
-                  <li
-                    key={member.userId}
-                    data-testid={`member-row-${member.userId}`}
-                    data-self={
-                      member.userId === currentUserId ? "true" : undefined
-                    }
-                    className="flex min-w-0 items-center gap-2"
-                  >
-                    <MemberAvatar
-                      name={member.name}
-                      color={member.color}
-                      size={32}
-                      isMe={member.userId === currentUserId}
-                      isVotingComplete={completedVoterIds.includes(
-                        member.userId,
-                      )}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm">
-                      {member.name}
-                    </span>
-                    {member.userId === hostUserId ? (
-                      <span
-                        className="text-xs text-muted-foreground"
-                        data-testid={`member-host-label-${member.userId}`}
-                      >
-                        ホスト
-                      </span>
-                    ) : null}
-                    {member.userId === currentUserId ? (
-                      <span className="text-xs text-muted-foreground">
-                        あなた
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </PopoverContent>
-          </Popover>
+                </ul>
+              </PopoverContent>
+            </Popover>
+          )}
 
-          {isHost || timer.status !== "idle" ? (
+          {activeSharing?.status !== "complete" &&
+          (isHost || timer.status !== "idle") ? (
             <span
               aria-hidden="true"
               className="mx-1 h-6 w-px shrink-0 bg-border"
             />
           ) : null}
-          <div className="pointer-events-auto shrink-0">
-            <RoomTimer
-              key={
-                phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
-              }
-              timer={timer}
-              serverOffsetMs={timerServerOffsetMs}
-              soundControls={timerSoundControls}
-              isHost={isHost}
-              disabled={isDisconnected}
-              initialDurationMs={(guide?.durationMinutes ?? 3) * 60_000}
-              onStart={onTimerStart}
-              onPause={onTimerPause}
-              onResume={onTimerResume}
-              onExtend={onTimerExtend}
-              onStop={onTimerStop}
-            />
-          </div>
-          {isHost ? (
+          {activeSharing?.status !== "complete" && (
+            <div className="pointer-events-auto shrink-0">
+              <RoomTimer
+                key={
+                  phase.kind === "step"
+                    ? `${phase.phase}-${phase.step}`
+                    : "lobby"
+                }
+                timer={timer}
+                serverOffsetMs={timerServerOffsetMs}
+                soundControls={timerSoundControls}
+                isHost={isHost}
+                disabled={isDisconnected || transitioning}
+                configureOnly={activeSharing?.status === "ready"}
+                onConfigureDuration={(durationMs) => {
+                  if (activeSharing)
+                    setConfiguredDuration({
+                      revision: activeSharing.revision,
+                      durationMs,
+                    });
+                }}
+                initialDurationMs={
+                  activeSharing
+                    ? sharingDuration
+                    : (guide?.durationMinutes ?? 3) * 60_000
+                }
+                onStart={onTimerStart}
+                onPause={onTimerPause}
+                onResume={onTimerResume}
+                onExtend={onTimerExtend}
+                onStop={onTimerStop}
+              />
+            </div>
+          )}
+          {activeSharing && isHost && activeSharing.status !== "complete" ? (
+            activeSharing.status === "ready" ? (
+              <Button
+                className="h-10 shrink-0"
+                disabled={isDisconnected}
+                onClick={() => onSharingStart?.(sharingDuration)}
+              >
+                最初の人を開始
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-10 shrink-0 px-3"
+                  disabled={isDisconnected || transitioning}
+                  onClick={() => onSharingAdvance?.("passed")}
+                >
+                  今回はパス
+                </Button>
+                <Button
+                  className="h-10 shrink-0 px-3"
+                  disabled={isDisconnected || transitioning}
+                  onClick={() => onSharingAdvance?.("done")}
+                >
+                  次の人へ
+                </Button>
+              </>
+            )
+          ) : null}
+          {isHost && !activeSharing ? (
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -409,7 +487,8 @@ export function RoomBoardHeader({
                 />
               ) : null}
             </>
-          ) : isHost ? (
+          ) : isHost &&
+            (!activeSharing || activeSharing.status === "complete") ? (
             <NextPhaseConfirmDialog
               key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
               phase={phase}
@@ -457,6 +536,18 @@ export function RoomBoardHeader({
                     targetCount={bulkExclusionTargetCount}
                     disabled={isDisconnected}
                     onConfirm={onBulkCandidateExclude}
+                  />
+                ) : null}
+                {isHost &&
+                activeSharing &&
+                activeSharing.status !== "complete" ? (
+                  <NextPhaseConfirmDialog
+                    key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
+                    phase={phase}
+                    disabled={
+                      isDisconnected || isNextPhasePending || isNextPhaseBlocked
+                    }
+                    onConfirm={onNextPhase}
                   />
                 ) : null}
                 <Button
