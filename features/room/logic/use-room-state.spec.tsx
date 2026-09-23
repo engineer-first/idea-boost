@@ -44,6 +44,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: buildMembers(2),
         completedVoterIds: [buildMembers(2)[1]?.userId ?? ""],
@@ -65,6 +66,47 @@ describe("useRoomState", () => {
     ]);
   });
 
+  it("snapshotと匿名stateから2軸マップのサイズとドラッグ状態を復元する", () => {
+    const { result } = setup();
+    act(() =>
+      result.current.applyMessage({
+        type: "snapshot",
+        phaseRevision: 0,
+        notes: [],
+        members: [],
+        phase: buildPhaseStep(3, 2),
+        isHost: true,
+        decision: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: 500,
+        ideaMapSizeLevel: 4,
+        ideaMapSizeInitialized: true,
+        ideaMapDragging: true,
+      }),
+    );
+    expect(result.current.ideaMap).toEqual({
+      sizeLevel: 4,
+      initialized: true,
+      isDragging: true,
+    });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "idea-map:state",
+        sizeLevel: 5,
+        initialized: true,
+        isDragging: false,
+      }),
+    );
+    expect(result.current.ideaMap).toEqual({
+      sizeLevel: 5,
+      initialized: true,
+      isDragging: false,
+    });
+  });
+
   it("member_vote_status を反映し、フェーズ変更でクリアする", () => {
     const { result } = setup();
     const memberId = buildMembers(1)[0]?.userId ?? "";
@@ -81,6 +123,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(5),
       }),
     );
@@ -94,6 +137,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: buildMembers(1),
         phase: buildPhaseStep(1, 2),
@@ -110,6 +154,7 @@ describe("useRoomState", () => {
     act(() =>
       result.current.applyMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(1, 2),
       }),
     );
@@ -121,17 +166,39 @@ describe("useRoomState", () => {
     const decision = buildDecision();
 
     act(() =>
-      result.current.applyMessage({ type: "decision:updated", ...decision }),
+      result.current.applyMessage({ type: "decision:updated", decision }),
     );
     expect(result.current.decision).toEqual(decision);
 
     act(() =>
       result.current.applyMessage({
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(2),
       }),
     );
     expect(result.current.decision).toBeNull();
+  });
+
+  it("共有中の採用フォーカスを反映し、確定で解除する", () => {
+    const { result } = setup();
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+    act(() =>
+      result.current.applyMessage({
+        type: "adoption-focus:updated",
+        noteId,
+      }),
+    );
+    expect(result.current.adoptionFocusNoteId).toBe(noteId);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "decision:updated",
+        decision: buildDecision({ noteId }),
+      }),
+    );
+    expect(result.current.adoptionFocusNoteId).toBeNull();
   });
 
   it("member_joined で追加し、memberJoined を toast する", () => {
@@ -177,4 +244,18 @@ describe("useRoomState", () => {
     expect(notifyMocks.memberLeft).toHaveBeenCalledWith("Taro");
     expect(result.current.members).toHaveLength(0);
   });
+});
+
+it("サーバーの進行revisionを保持してループの競合判定に使う", () => {
+  const { result } = renderHook(() =>
+    useRoomState({ initialMembers: [], initialPhase: buildPhaseStep(2) }),
+  );
+  act(() =>
+    result.current.applyMessage({
+      type: "phase:updated",
+      phase: buildPhaseStep(1),
+      phaseRevision: 9,
+    }),
+  );
+  expect(result.current.phaseRevision).toBe(9);
 });

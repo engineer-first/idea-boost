@@ -11,6 +11,7 @@ import type {
   ProtocolGroup,
   ProtocolMember,
   ProtocolNote,
+  SharingState,
 } from "./room-protocol";
 
 export function buildBulkExclusionConfirmation(
@@ -53,6 +54,7 @@ export function buildNote(overrides: Partial<ProtocolNote> = {}): ProtocolNote {
     visibility: "shared",
     excluded: false,
     color: "yellow",
+    fontSize: 14,
     x: 100,
     y: 120,
     stackOrder: 0,
@@ -142,4 +144,19 @@ function makeUuid(index: number, currentUserId?: string): string {
   if (index === 0 && currentUserId) return currentUserId;
   // 固定の UUID っぽい文字列を返す（テスト間の安定性のため）。
   return `${index.toString().padStart(8, "0")}0000-4000-8000-0000-000000000000`;
+}
+
+export function buildSharingState(
+  overrides: Partial<SharingState> = {},
+): SharingState {
+  return {
+    revision: "33333333-3333-4333-8333-333333333333",
+    order: buildMembers(3, "11111111-1111-4111-8111-111111111111"),
+    status: "ready",
+    currentIndex: null,
+    results: [],
+    durationMs: 180000,
+    startsAt: null,
+    ...overrides,
+  };
 }

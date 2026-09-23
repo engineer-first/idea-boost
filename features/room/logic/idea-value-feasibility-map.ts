@@ -1,4 +1,5 @@
 import {
+  getIdeaMapDimensions,
   IDEA_VALUE_FEASIBILITY_MAP_RANGE,
   NOTE_HEIGHT,
   NOTE_WIDTH,
@@ -8,6 +9,13 @@ export { IDEA_VALUE_FEASIBILITY_MAP_RANGE } from "@/contracts/board";
 
 export const IDEA_VALUE_FEASIBILITY_MAP_WIDTH = 1600;
 export const IDEA_VALUE_FEASIBILITY_MAP_HEIGHT = 900;
+
+export function getIdeaValueFeasibilityMapDimensions(level: number): {
+  width: number;
+  height: number;
+} {
+  return getIdeaMapDimensions(level);
+}
 
 // アイデアを価値と実現可能性で位置付ける2軸マップの固定表示内容。
 // 文言をコンポーネントから分離し、ガイドやラベルの変更箇所を一つに保つ。
@@ -66,12 +74,13 @@ export function getIdeaValueFeasibilityMapPosition({
  */
 export function getIdeaValueFeasibilityMapNotePosition(
   point: IdeaValueFeasibilityPoint,
+  noteHeight = NOTE_HEIGHT,
 ): IdeaValueFeasibilityMapPosition {
   const feasibility = clampIdeaValueFeasibilityMapCoordinate(point.feasibility);
   const value = clampIdeaValueFeasibilityMapCoordinate(point.value);
   return {
     left: `clamp(0px, calc(${feasibility}% - ${NOTE_WIDTH / 2}px), max(0px, calc(100% - ${NOTE_WIDTH}px)))`,
-    bottom: `clamp(0px, calc(${value}% - ${NOTE_HEIGHT / 2}px), max(0px, calc(100% - ${NOTE_HEIGHT}px)))`,
+    bottom: `clamp(0px, calc(${value}% - ${noteHeight / 2}px), max(0px, calc(100% - ${noteHeight}px)))`,
   };
 }
 

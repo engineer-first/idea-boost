@@ -115,3 +115,12 @@ export function isResultStep(phase: RoomPhase): boolean {
 export function isIdeaSupportAvailableStep(phase: RoomPhase): boolean {
   return isPhaseStep(phase, 3, 1) || isPhaseStep(phase, 3, 2);
 }
+
+// 初回投票前の共有・整理評価からだけ、同じフェーズの個人作業へ戻れる。
+export function isRestartWritingAllowedStep(phase: RoomPhase): boolean {
+  return (
+    phase.kind === "step" &&
+    phase.step >= 2 &&
+    phase.step < VOTING_STEP_BY_PHASE[phase.phase]
+  );
+}

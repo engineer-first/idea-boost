@@ -74,13 +74,16 @@ export function applyServerMessage(
     }
 
     case "note:drag:result":
+    case "idea-map:state":
     case "member_joined":
     case "member_left":
     case "phase:updated":
+    case "sharing:updated":
     case "timer:updated":
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":

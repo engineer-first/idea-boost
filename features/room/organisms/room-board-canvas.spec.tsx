@@ -2,11 +2,9 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import {
-  buildDecision,
-  buildNote,
-  buildNotes,
-} from "@/contracts/room-protocol.fixture";
+import { NOTE_COLOR_PALETTE } from "@/contracts/room-protocol";
+import { buildNote, buildNotes } from "@/contracts/room-protocol.fixture";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
@@ -45,12 +43,16 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     onSelect: vi.fn(),
     onNoteDragStart: vi.fn(),
     onNoteContentChange: vi.fn(),
+    onNoteFontSizeChange: vi.fn(),
     onNoteDelete: vi.fn(),
     onNoteVote: vi.fn(),
     onNoteVoteRemove: vi.fn(),
     onNoteVoteStickerRemove: vi.fn(),
     onNoteVoteStickerDragStart: vi.fn(),
-    onNoteDecide: vi.fn(),
+    isAdoptMode: false,
+    adoptionFocusNoteId: null,
+    onAdoptionFocusChange: vi.fn(),
+    onAdoptNote: vi.fn(),
     onGroupCreate: vi.fn(),
     onGroupUpdateName: vi.fn(),
     onAddPrivateNote: vi.fn(),
@@ -60,8 +62,15 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     remoteCursors: [],
     ...overrides,
   };
-  const { rerender } = render(<RoomBoardCanvas {...props} />);
-  return { props, rerender };
+  const { rerender: rerenderView, unmount } = render(
+    <RoomBoardCanvas {...props} />,
+  );
+  return {
+    props,
+    rerender: (element = <RoomBoardCanvas {...props} />) =>
+      rerenderView(element),
+    unmount,
+  };
 }
 
 function openPrivateNotesToolbar() {
@@ -73,7 +82,273 @@ function openPrivateNotesToolbar() {
   return toolbar;
 }
 
+function hexColorToRgb(hexColor: string): string {
+  const channels = [1, 3, 5].map((offset) =>
+    Number.parseInt(hexColor.slice(offset, offset + 2), 16),
+  );
+  return `rgb(${channels.join(", ")})`;
+}
+
 describe("RoomBoardCanvas", () => {
+  it("文字サイズ操作をズーム操作とは別に左下へ置き、選択付箋だけを1px刻みで変更する", () => {
+    const onNoteFontSizeChange = vi.fn();
+    setup({
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
+      notes: [buildNote({ id: "note-1", fontSize: 14 })],
+      selectedNoteId: "note-1",
+      onNoteFontSizeChange,
+    });
+
+    const tools = screen.getByTestId("board-tools-hud");
+    const fontControls = screen.getByTestId("note-font-size-controls");
+    const zoomControls = screen.getByTestId("canvas-zoom-controls");
+    expect(tools).toContainElement(fontControls);
+    expect(fontControls).not.toContainElement(zoomControls);
+    expect(
+      screen.getByRole("group", { name: "選択した付箋の文字サイズ" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("14px")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "付箋の文字を大きく" }));
+    expect(onNoteFontSizeChange).toHaveBeenCalledWith("note-1", 15);
+  });
+
+  it("未選択・切断中・候補外では文字サイズ操作を無効にする", () => {
+    const { props, rerender } = setup();
+    expect(
+      screen.getByRole("button", { name: "付箋の文字を大きく" }),
+    ).toBeDisabled();
+
+    rerender(
+      <RoomBoardCanvas {...props} selectedNoteId="note-1" isDisconnected />,
+    );
+    expect(
+      screen.getByRole("button", { name: "付箋の文字を大きく" }),
+    ).toBeDisabled();
+  });
+
+  it("編集不可のステップでは文字サイズ操作を表示しない", () => {
+    const phase = buildPhaseStep(3);
+    setup({ phase, permissions: getBoardPermissions(phase) });
+
+    expect(
+      screen.queryByTestId("note-font-size-controls"),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [2, true],
+    [3, true],
+    [4, false],
+    [5, false],
+  ] as const)("3-%iでは調整可能なステップだけマップサイズ操作を表示する", (step, canResize) => {
+    const phase = buildPhaseStep(step, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+    });
+
+    const controls = screen.queryByTestId("idea-map-size-controls-hud");
+    if (canResize) {
+      expect(controls).toBeInTheDocument();
+    } else {
+      expect(controls).not.toBeInTheDocument();
+    }
+  });
+
+  it("マップの広さ操作を既存の左下操作群から分離して画面下中央に置く", () => {
+    const phase = buildPhaseStep(3, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+    });
+
+    const existingTools = screen.getByTestId("board-tools-hud");
+    const sizeControls = screen.getByTestId("idea-map-size-controls-hud");
+    expect(existingTools).not.toContainElement(sizeControls);
+    expect(sizeControls).toHaveClass(
+      "absolute",
+      "bottom-3",
+      "left-1/2",
+      "-translate-x-1/2",
+    );
+  });
+
+  it("採用選択モードは候補だけを明示し、対象ボタンの操作を通知する", () => {
+    const onAdoptNote = vi.fn();
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      isAdoptMode: true,
+      onAdoptNote,
+      notes: [
+        buildNote({ id: "note-1", content: "候補A", visibility: "shared" }),
+        buildNote({
+          id: "note-2",
+          content: "候補外B",
+          visibility: "shared",
+          excluded: true,
+        }),
+      ],
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+    );
+    expect(onAdoptNote).toHaveBeenCalledWith("note-1");
+    expect(
+      screen.queryByRole("button", { name: "採用する付箋: 候補外B" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-scroller")).toHaveAttribute(
+      "data-adopt-mode",
+      "true",
+    );
+  });
+
+  it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ content: "通常キャンバス候補", visibility: "shared" }),
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "採用する付箋: 通常キャンバス候補",
+      }),
+    ).toHaveClass(
+      "border-transparent",
+      "hover:border-emerald-600",
+      "focus-visible:border-emerald-600",
+    );
+  });
+
+  it("アイデアマップの採用候補も通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
+    const phase = buildPhaseStep(5, 3);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ content: "アイデアマップ候補", visibility: "shared" }),
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "採用するアイデア: アイデアマップ候補",
+      }),
+    ).toHaveClass(
+      "border-transparent",
+      "hover:border-emerald-600",
+      "focus-visible:border-emerald-600",
+    );
+  });
+
+  it.each([
+    ["通常キャンバス", buildPhaseStep(5)],
+    ["アイデアマップ", buildPhaseStep(5, 3)],
+  ] as const)("%s の候補 hover・focus・離脱を即時通知する", (_label, phase) => {
+    const onAdoptionFocusChange = vi.fn();
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({ id: "note-1", content: "候補", visibility: "shared" }),
+      ],
+      onAdoptionFocusChange,
+    });
+    const target = screen.getByRole("button", { name: /採用する.+: 候補/ });
+
+    fireEvent.pointerEnter(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+    fireEvent.pointerLeave(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+    fireEvent.focus(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+    fireEvent.blur(target);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("確定を取り消して選び直すと、前回のfocusではなく現在hover中の候補を通知する", () => {
+    const onAdoptionFocusChange = vi.fn();
+    const notes = [
+      buildNote({ id: "note-1", content: "前回の候補", visibility: "shared" }),
+      buildNote({ id: "note-2", content: "今回の候補", visibility: "shared" }),
+    ];
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      isAdoptMode: true,
+      notes,
+      onAdoptionFocusChange,
+    });
+
+    fireEvent.focus(
+      screen.getByRole("button", { name: "採用する付箋: 前回の候補" }),
+    );
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+
+    rerender(<RoomBoardCanvas {...props} isAdoptMode={false} />);
+    rerender(<RoomBoardCanvas {...props} isAdoptMode />);
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "採用する付箋: 今回の候補" }),
+    );
+
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-2");
+  });
+
+  it("参加者だけに共有採用フォーカスを描画し、ホスト自身には重ねない", () => {
+    const note = buildNote({ id: "note-1", visibility: "shared" });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: false,
+      notes: [note],
+      adoptionFocusNoteId: "note-1",
+    });
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-adoption-focused",
+      "true",
+    );
+
+    rerender(
+      <RoomBoardCanvas {...props} isHost adoptionFocusNoteId="note-1" />,
+    );
+    expect(screen.getByTestId("note-card")).not.toHaveAttribute(
+      "data-adoption-focused",
+    );
+  });
+
+  it("非ホストにも確定済み付箋の緑枠とチェックを示す", () => {
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: false,
+      decision: {
+        phase: 1,
+        noteId: "note-1",
+        decidedBy: "11111111-1111-4111-8111-111111111111",
+      },
+      notes: [buildNote({ id: "note-1", visibility: "shared" })],
+    });
+
+    expect(screen.getByTestId("note-card")).toHaveClass(
+      "outline-4",
+      "outline-emerald-600",
+    );
+    expect(
+      screen.getByRole("status", { name: "取り組む課題に決定済み" }),
+    ).toBeInTheDocument();
+  });
+
   it("scroller の pointer leave 座標を presence handler へ渡す", () => {
     const onPresencePointerLeave = vi.fn();
     setup({ onPresencePointerLeave });
@@ -218,6 +493,24 @@ describe("RoomBoardCanvas", () => {
     setup({ notes: buildNotes(3) });
 
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
+  });
+
+  it("保存済みサイズで2軸マップを描き、広さ変更を伝える", () => {
+    const onIdeaMapResize = vi.fn();
+    setup({
+      phase: buildPhaseStep(2, 3),
+      isHost: true,
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      onIdeaMapResize,
+    });
+
+    expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
+      width: "1936px",
+      height: "1089px",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
+    expect(onIdeaMapResize).toHaveBeenCalledWith(3);
   });
 
   it("付箋が 0 件でも共有付箋の空状態メッセージを表示しない", () => {
@@ -367,6 +660,33 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByText("運んでいる付箋")).toBeInTheDocument();
   });
 
+  it.each(
+    NOTE_COLOR_PALETTE,
+  )("%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う", (color) => {
+    const normalPhase = buildPhaseStep(1);
+    const mapPhase = buildPhaseStep(2, 3);
+    const ghost = buildNote({
+      id: `ghost-${color}`,
+      color,
+      content: `運んでいる付箋 ${color}`,
+    });
+
+    for (const phase of [normalPhase, mapPhase]) {
+      const { unmount } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        dragGhost: { note: ghost, x: 120, y: 80 },
+      });
+
+      const ghostText = screen.getByText(`運んでいる付箋 ${color}`);
+      expect(ghostText.style.color).toBe(
+        hexColorToRgb(NOTE_COLOR_STYLES[color].foregroundColor),
+      );
+      expect(ghostText).not.toHaveClass("dark:text-slate-50");
+      unmount();
+    }
+  });
+
   it("通常ボードでは永続順序を描画し own・名前付きカーソルの drag と ghost だけを一時最前面にする", () => {
     const notes = [
       { ...buildNote({ id: "back" }), stackOrder: 4 },
@@ -406,24 +726,47 @@ describe("RoomBoardCanvas", () => {
     ).toHaveStyle({ zIndex: "2147483647" });
   });
 
-  it("選択状態だけでは永続 z-index を変えない", () => {
-    setup({
-      notes: [{ ...buildNote({ id: "selected" }), stackOrder: 7 }],
+  it("通常ボードでは選択状態ではなく確定待ちの付箋だけを一時最前面にする", () => {
+    const phase = buildPhaseStep(2);
+    const notes = [
+      { ...buildNote({ id: "selected", content: "奥の付箋" }), stackOrder: 7 },
+      { ...buildNote({ id: "front", content: "手前の付箋" }), stackOrder: 12 },
+    ];
+    const { props, rerender } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      notes,
       selectedNoteId: "selected",
     });
 
-    expect(screen.getByTestId("note-card")).toHaveStyle({ zIndex: "7" });
+    const [selected, front] = screen.getAllByTestId("note-card");
+    expect(selected).toHaveStyle({ zIndex: "7" });
+    expect(front).toHaveStyle({ zIndex: "12" });
+
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        notes={notes}
+        selectedNoteId="selected"
+        draggingNoteId="selected"
+      />,
+    );
+
+    expect(selected).toHaveStyle({ zIndex: "2147483647" });
+    expect(front).toHaveStyle({ zIndex: "12" });
   });
 
-  it("2軸マップでも永続順序を使い名前付きカーソルの drag と ghost を一時最前面にする", () => {
+  it("2軸マップでも選択・名前付きカーソルの drag・ghost を一時最前面にする", () => {
     const phase = buildPhaseStep(3, 3);
     setup({
       phase,
       permissions: getBoardPermissions(phase),
       notes: [
-        { ...buildNote({ id: "map-back" }), stackOrder: 3 },
+        { ...buildNote({ id: "map-selected" }), stackOrder: 3 },
         { ...buildNote({ id: "map-remote" }), stackOrder: 9 },
       ],
+      selectedNoteId: "map-selected",
+      draggingNoteId: "map-selected",
       remoteCursors: [
         {
           userId: "22222222-2222-4222-8222-222222222222",
@@ -447,8 +790,8 @@ describe("RoomBoardCanvas", () => {
     });
 
     expect(
-      screen.getByTestId("idea-value-feasibility-map-note-map-back"),
-    ).toHaveStyle({ zIndex: "3" });
+      screen.getByTestId("idea-value-feasibility-map-note-map-selected"),
+    ).toHaveStyle({ zIndex: "2147483647" });
     expect(
       screen.getByTestId("idea-value-feasibility-map-note-map-remote"),
     ).toHaveStyle({ zIndex: "2147483647" });
@@ -691,91 +1034,6 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
   });
 
-  describe("決定操作", () => {
-    it("ホストが結果ステップで選択した未決定の付箋右上に決定操作を表示し、押下を通知する", () => {
-      const onNoteDecide = vi.fn();
-      setup({
-        notes: [buildNote({ id: "note-1", x: 100, y: 80 })],
-        phase: buildPhaseStep(5),
-        isHost: true,
-        selectedNoteId: "note-1",
-        onNoteDecide,
-      });
-
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: "この付箋を取り組む課題に決定",
-        }),
-      );
-      expect(onNoteDecide).toHaveBeenCalledWith("note-1");
-      expect(
-        screen.getByRole("button", {
-          name: "この付箋を取り組む課題に決定",
-        }),
-      ).toHaveStyle({ left: "260px", top: "84px" });
-    });
-
-    it.each([
-      {
-        phase: buildPhaseStep(5),
-        isHost: false,
-        isDisconnected: false,
-        selectedNoteId: "note-1",
-      },
-      {
-        phase: buildPhaseStep(4),
-        isHost: true,
-        isDisconnected: false,
-        selectedNoteId: "note-1",
-      },
-      {
-        phase: buildPhaseStep(5),
-        isHost: true,
-        isDisconnected: true,
-        selectedNoteId: "note-1",
-      },
-      {
-        phase: buildPhaseStep(5),
-        isHost: true,
-        isDisconnected: false,
-        selectedNoteId: null,
-      },
-    ])("非ホスト・結果ステップ以外・切断中・未選択では決定操作を表示しない", ({
-      phase,
-      isHost,
-      isDisconnected,
-      selectedNoteId,
-    }) => {
-      setup({ phase, isHost, isDisconnected, selectedNoteId });
-
-      expect(
-        screen.queryByRole("button", {
-          name: "この付箋を取り組む課題に決定",
-        }),
-      ).not.toBeInTheDocument();
-    });
-
-    it("現在の決定と一致する付箋はstatus表示だけにし、決定操作を重ねない", () => {
-      setup({
-        phase: buildPhaseStep(5),
-        isHost: true,
-        selectedNoteId: "note-1",
-        decision: buildDecision({
-          noteId: "note-1",
-          decidedBy: "11111111-1111-4111-8111-111111111111",
-        }),
-      });
-
-      expect(
-        screen.getByRole("status", { name: "取り組む課題に決定済み" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", {
-          name: "この付箋を取り組む課題に決定",
-        }),
-      ).not.toBeInTheDocument();
-    });
-  });
   it("Step1-1ではマイ付箋ツールバーを表示する", () => {
     setup({
       phase: buildPhaseStep(1),

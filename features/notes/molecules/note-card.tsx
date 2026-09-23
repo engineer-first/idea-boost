@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, CircleMinus, RotateCcw } from "lucide-react";
+import { Check, ListMinus, ListPlus } from "lucide-react";
+
 // 付箋1枚の表示用コンポーネント。データ層には一切依存せず、位置(x, y)や
 // 本文はすべてpropsで受け取り、変化はコールバックpropsで親へ通知するだけの
 // コンポーネントにする。状態の保持・永続化・リアルタイム配信は呼び出し側の責務。
@@ -12,8 +13,16 @@ import { Check, CircleMinus, RotateCcw } from "lucide-react";
 //   - 選択中（非編集）は Backspace / Delete で削除、Enter でも編集開始
 // 選択状態(isSelected)は「同時に1枚だけ」という付箋間の関心事なので親が持ち、
 // 編集状態(isEditing)はこの付箋に閉じた関心事なのでローカルに持つ。
-import { useEffect, useRef, useState } from "react";
-import { DRAG_THRESHOLD_PX } from "@/contracts/board";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { DRAG_THRESHOLD_PX, getNoteHeight } from "@/contracts/board";
+
 import type { DotVoteKind } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import {
@@ -21,6 +30,7 @@ import {
   DotVoteSticker,
   type VoteDisplayMode,
 } from "@/features/dot-vote";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { Note } from "../logic/notes-reducer";
 import { StickyNote } from "./sticky-note";
 
@@ -31,6 +41,7 @@ export type NoteCardProps = {
   isSelected: boolean;
   editingDisabled?: boolean;
   isDecided?: boolean;
+  isAdoptionFocused?: boolean;
   // WebSocket未接続時（connecting/closed）に親から渡す。true の間は選択・
   // ドラッグ・編集開始・削除を無効化する。room-client.send() は未openだと
   // メッセージを黙って破棄するため、UI操作自体を止めないと「入力したのに
@@ -85,6 +96,100 @@ type PointerOrigin = {
   didDrag: boolean;
 };
 
+type CandidateActionPlacement = "top" | "bottom";
+
+type FloatingPosition = {
+  left: number;
+  top: number;
+  placement: CandidateActionPlacement;
+};
+
+type CandidateOverlayLayout = {
+  action: FloatingPosition;
+  anchor: {
+    height: number;
+    left: number;
+    top: number;
+    width: number;
+  };
+  menu: FloatingPosition;
+};
+
+type CandidateTouchActionOwner = {
+  hide: () => void;
+  noteId: string;
+};
+
+const CANDIDATE_ACTION_WIDTH_PX = 80;
+const CANDIDATE_ACTION_HEIGHT_PX = 44;
+const CANDIDATE_MENU_WIDTH_PX = 144;
+const CANDIDATE_MENU_HEIGHT_PX = 48;
+const VIEWPORT_EDGE_MARGIN_PX = 8;
+const ACTION_SHOW_DELAY_MS = 150;
+const ACTION_HIDE_DELAY_MS = 1_000;
+const candidatePointerActionOwners = new WeakMap<Document, string>();
+const candidateTouchActionOwners = new WeakMap<
+  Document,
+  CandidateTouchActionOwner
+>();
+const TABBABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function getFloatingPosition(
+  anchor: DOMRect,
+  viewport: { height: number; width: number },
+  floating: { height: number; width: number },
+): FloatingPosition {
+  const canFitBelow =
+    anchor.bottom + floating.height <=
+    viewport.height - VIEWPORT_EDGE_MARGIN_PX;
+  const placement: CandidateActionPlacement = canFitBelow ? "bottom" : "top";
+  const preferredTop =
+    placement === "bottom" ? anchor.bottom : anchor.top - floating.height;
+
+  return {
+    left: clamp(
+      anchor.left,
+      VIEWPORT_EDGE_MARGIN_PX,
+      viewport.width - floating.width - VIEWPORT_EDGE_MARGIN_PX,
+    ),
+    top: clamp(
+      preferredTop,
+      VIEWPORT_EDGE_MARGIN_PX,
+      viewport.height - floating.height - VIEWPORT_EDGE_MARGIN_PX,
+    ),
+    placement,
+  };
+}
+
+function isSameCandidateOverlayLayout(
+  left: CandidateOverlayLayout | null,
+  right: CandidateOverlayLayout,
+): boolean {
+  return (
+    left?.action.left === right.action.left &&
+    left.action.top === right.action.top &&
+    left.action.placement === right.action.placement &&
+    left.menu.left === right.menu.left &&
+    left.menu.top === right.menu.top &&
+    left.menu.placement === right.menu.placement &&
+    left.anchor.left === right.anchor.left &&
+    left.anchor.top === right.anchor.top &&
+    left.anchor.width === right.anchor.width &&
+    left.anchor.height === right.anchor.height
+  );
+}
+
 function isPrintableCharacterKey(
   event: React.KeyboardEvent<HTMLButtonElement>,
 ): boolean {
@@ -93,12 +198,27 @@ function isPrintableCharacterKey(
   );
 }
 
+function getNextTabbableElement(current: HTMLElement): HTMLElement | null {
+  const candidates = Array.from(
+    current.ownerDocument.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR),
+  ).filter(
+    (candidate) =>
+      !candidate.hasAttribute("data-candidate-action") &&
+      candidate.getAttribute("tabindex") !== "-1" &&
+      candidate.getAttribute("aria-hidden") !== "true" &&
+      candidate.closest("[hidden], [inert]") === null,
+  );
+  const currentIndex = candidates.indexOf(current);
+  return currentIndex < 0 ? null : (candidates[currentIndex + 1] ?? null);
+}
+
 export function NoteCard({
   note,
   isOwnDrag,
   isSelected,
   editingDisabled = false,
   isDecided = false,
+  isAdoptionFocused = false,
   disabled = false,
   canEditNote,
   canDeleteNote,
@@ -123,14 +243,176 @@ export function NoteCard({
   const [isTouchActionVisible, setIsTouchActionVisible] = useState(false);
   const [isPointerActionVisible, setIsPointerActionVisible] = useState(false);
   const [isFocusActionVisible, setIsFocusActionVisible] = useState(false);
+  const [candidateOverlayLayout, setCandidateOverlayLayout] =
+    useState<CandidateOverlayLayout | null>(null);
   const pointerOriginRef = useRef<PointerOrigin | null>(null);
+  const noteRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLButtonElement>(null);
+  const candidateActionRef = useRef<HTMLButtonElement>(null);
   const menuItemRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pointerOwnerDocumentRef = useRef<Document | null>(null);
+  const touchOwnerDocumentRef = useRef<Document | null>(null);
+  const pointerShowTimeoutRef = useRef<number | null>(null);
+  const pointerHideTimeoutRef = useRef<number | null>(null);
+  const focusHideTimeoutRef = useRef<number | null>(null);
   const canCandidateAction = note.excluded ? canRestoreNote : canExcludeNote;
   const candidateActionLabel = note.excluded ? "候補に戻す" : "候補から外す";
+  const candidateActionText = note.excluded ? "戻す" : "除外";
   const isCandidateActionVisible =
     isTouchActionVisible || isPointerActionVisible || isFocusActionVisible;
+
+  const updateCandidateOverlayLayout = useCallback(() => {
+    const anchor = noteRef.current?.getBoundingClientRect();
+    if (!anchor) return;
+    const viewport = {
+      height: window.innerHeight,
+      width: window.innerWidth,
+    };
+    const nextLayout: CandidateOverlayLayout = {
+      action: getFloatingPosition(anchor, viewport, {
+        height: CANDIDATE_ACTION_HEIGHT_PX,
+        width: CANDIDATE_ACTION_WIDTH_PX,
+      }),
+      anchor: {
+        height: anchor.height,
+        left: anchor.left,
+        top: anchor.top,
+        width: anchor.width,
+      },
+      menu: getFloatingPosition(anchor, viewport, {
+        height: CANDIDATE_MENU_HEIGHT_PX,
+        width: CANDIDATE_MENU_WIDTH_PX,
+      }),
+    };
+    setCandidateOverlayLayout((current) =>
+      isSameCandidateOverlayLayout(current, nextLayout) ? current : nextLayout,
+    );
+  }, []);
+
+  const cancelPointerActionHide = useCallback(() => {
+    if (pointerHideTimeoutRef.current === null) return;
+    window.clearTimeout(pointerHideTimeoutRef.current);
+    pointerHideTimeoutRef.current = null;
+  }, []);
+
+  const cancelPointerActionShow = useCallback(() => {
+    if (pointerShowTimeoutRef.current === null) return;
+    window.clearTimeout(pointerShowTimeoutRef.current);
+    pointerShowTimeoutRef.current = null;
+  }, []);
+
+  const claimPointerAction = useCallback(
+    (force = false): boolean => {
+      const ownerDocument = noteRef.current?.ownerDocument;
+      if (!ownerDocument) return false;
+      const currentOwner = candidatePointerActionOwners.get(ownerDocument);
+      if (!force && currentOwner !== undefined && currentOwner !== note.id) {
+        return false;
+      }
+      candidatePointerActionOwners.set(ownerDocument, note.id);
+      pointerOwnerDocumentRef.current = ownerDocument;
+      return true;
+    },
+    [note.id],
+  );
+
+  const releasePointerAction = useCallback(() => {
+    const ownerDocument =
+      pointerOwnerDocumentRef.current ?? noteRef.current?.ownerDocument;
+    if (
+      ownerDocument &&
+      candidatePointerActionOwners.get(ownerDocument) === note.id
+    ) {
+      candidatePointerActionOwners.delete(ownerDocument);
+    }
+    pointerOwnerDocumentRef.current = null;
+  }, [note.id]);
+
+  const hideTouchAction = useCallback(() => {
+    setIsTouchActionVisible(false);
+  }, []);
+
+  const releaseTouchAction = useCallback(() => {
+    const ownerDocument =
+      touchOwnerDocumentRef.current ?? noteRef.current?.ownerDocument;
+    if (
+      ownerDocument &&
+      candidateTouchActionOwners.get(ownerDocument)?.noteId === note.id
+    ) {
+      candidateTouchActionOwners.delete(ownerDocument);
+    }
+    touchOwnerDocumentRef.current = null;
+  }, [note.id]);
+
+  const showTouchAction = useCallback(() => {
+    const ownerDocument = noteRef.current?.ownerDocument;
+    if (!ownerDocument) return;
+    const currentOwner = candidateTouchActionOwners.get(ownerDocument);
+    if (currentOwner?.noteId !== note.id) currentOwner?.hide();
+    candidateTouchActionOwners.set(ownerDocument, {
+      hide: hideTouchAction,
+      noteId: note.id,
+    });
+    touchOwnerDocumentRef.current = ownerDocument;
+    setIsTouchActionVisible(true);
+  }, [hideTouchAction, note.id]);
+
+  const schedulePointerActionShow = useCallback(() => {
+    cancelPointerActionShow();
+    cancelPointerActionHide();
+    updateCandidateOverlayLayout();
+    const tryShow = () => {
+      if (claimPointerAction()) {
+        setIsPointerActionVisible(true);
+        pointerShowTimeoutRef.current = null;
+        return;
+      }
+      pointerShowTimeoutRef.current = window.setTimeout(
+        tryShow,
+        ACTION_SHOW_DELAY_MS,
+      );
+    };
+    pointerShowTimeoutRef.current = window.setTimeout(
+      tryShow,
+      ACTION_SHOW_DELAY_MS,
+    );
+  }, [
+    cancelPointerActionHide,
+    cancelPointerActionShow,
+    claimPointerAction,
+    updateCandidateOverlayLayout,
+  ]);
+
+  const schedulePointerActionHide = useCallback(() => {
+    cancelPointerActionShow();
+    cancelPointerActionHide();
+    pointerHideTimeoutRef.current = window.setTimeout(() => {
+      setIsPointerActionVisible(false);
+      releasePointerAction();
+      pointerHideTimeoutRef.current = null;
+    }, ACTION_HIDE_DELAY_MS);
+  }, [cancelPointerActionHide, cancelPointerActionShow, releasePointerAction]);
+
+  const cancelFocusActionHide = useCallback(() => {
+    if (focusHideTimeoutRef.current === null) return;
+    window.clearTimeout(focusHideTimeoutRef.current);
+    focusHideTimeoutRef.current = null;
+  }, []);
+
+  const scheduleFocusActionHide = useCallback(() => {
+    cancelFocusActionHide();
+    focusHideTimeoutRef.current = window.setTimeout(() => {
+      const activeElement = document.activeElement;
+      if (
+        activeElement !== surfaceRef.current &&
+        activeElement !== candidateActionRef.current
+      ) {
+        setIsFocusActionVisible(false);
+      }
+      focusHideTimeoutRef.current = null;
+    }, 0);
+  }, [cancelFocusActionHide]);
 
   // 他ユーザーの編集がWebSocket（RoomDO）経由で届いたら反映する。
   // ただし自分が編集モードの間は上書きしない
@@ -176,6 +458,80 @@ export function NoteCard({
   useEffect(() => {
     if (isActionMenuOpen) menuItemRef.current?.focus();
   }, [isActionMenuOpen]);
+
+  useEffect(() => {
+    if (canCandidateAction) return;
+    cancelPointerActionHide();
+    cancelPointerActionShow();
+    setIsPointerActionVisible(false);
+    releasePointerAction();
+  }, [
+    canCandidateAction,
+    cancelPointerActionHide,
+    cancelPointerActionShow,
+    releasePointerAction,
+  ]);
+
+  useEffect(() => {
+    if (note.excluded || canCandidateAction) return;
+    hideTouchAction();
+    releaseTouchAction();
+  }, [canCandidateAction, hideTouchAction, note.excluded, releaseTouchAction]);
+
+  useLayoutEffect(() => {
+    if (canCandidateAction) updateCandidateOverlayLayout();
+  }, [canCandidateAction, updateCandidateOverlayLayout]);
+
+  useLayoutEffect(() => {
+    if (
+      !canCandidateAction ||
+      (!isCandidateActionVisible && !isActionMenuOpen)
+    ) {
+      return;
+    }
+    updateCandidateOverlayLayout();
+
+    const update = () => updateCandidateOverlayLayout();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    if (noteRef.current) observer?.observe(noteRef.current);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+      observer?.disconnect();
+    };
+  }, [
+    canCandidateAction,
+    isActionMenuOpen,
+    isCandidateActionVisible,
+    updateCandidateOverlayLayout,
+  ]);
+
+  useLayoutEffect(() => {
+    if (canCandidateAction && (isCandidateActionVisible || isActionMenuOpen)) {
+      updateCandidateOverlayLayout();
+    }
+  });
+
+  useEffect(
+    () => () => {
+      cancelPointerActionHide();
+      cancelPointerActionShow();
+      cancelFocusActionHide();
+      releasePointerAction();
+      releaseTouchAction();
+    },
+    [
+      cancelFocusActionHide,
+      cancelPointerActionHide,
+      cancelPointerActionShow,
+      releasePointerAction,
+      releaseTouchAction,
+    ],
+  );
 
   useEffect(() => {
     if (
@@ -285,8 +641,12 @@ export function NoteCard({
     }
     // 内容を読みやすくするタップ状態は権限と分離する。復帰操作を使えない
     // 参加者にも、候補外付箋の本文を確認する権利がある。
-    if (event.pointerType === "touch" && note.excluded) {
-      setIsTouchActionVisible(true);
+    if (
+      origin &&
+      event.pointerType === "touch" &&
+      (note.excluded || canCandidateAction)
+    ) {
+      showTouchAction();
     }
     if (!origin) {
       return;
@@ -299,6 +659,9 @@ export function NoteCard({
   function performCandidateAction() {
     setIsActionMenuOpen(false);
     setIsTouchActionVisible(false);
+    releaseTouchAction();
+    setIsPointerActionVisible(false);
+    releasePointerAction();
     if (disabled) return;
     if (note.excluded) {
       if (canRestoreNote) onRestore?.(note.id);
@@ -309,6 +672,12 @@ export function NoteCard({
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     if (disabled) {
+      return;
+    }
+
+    if (event.key === "Tab" && !event.shiftKey && canCandidateAction) {
+      event.preventDefault();
+      candidateActionRef.current?.focus();
       return;
     }
 
@@ -369,13 +738,166 @@ export function NoteCard({
     setIsActionMenuOpen(true);
   }
 
+  const candidateOverlay =
+    canCandidateAction &&
+    candidateOverlayLayout &&
+    typeof document !== "undefined"
+      ? createPortal(
+          <>
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none fixed z-[39] transition-opacity ${
+                isCandidateActionVisible ? "opacity-100" : "opacity-0"
+              }`}
+              style={{
+                height: candidateOverlayLayout.anchor.height,
+                left: candidateOverlayLayout.anchor.left,
+                top: candidateOverlayLayout.anchor.top,
+                width: candidateOverlayLayout.anchor.width,
+              }}
+            >
+              <span
+                data-testid="candidate-target-corner"
+                className="absolute left-0 top-0 size-3 border-blue-600 border-l-2 border-t-2"
+              />
+              <span
+                data-testid="candidate-target-corner"
+                className="absolute right-0 top-0 size-3 border-blue-600 border-r-2 border-t-2"
+              />
+              <span
+                data-testid="candidate-target-corner"
+                className="absolute bottom-0 left-0 size-3 border-blue-600 border-b-2 border-l-2"
+              />
+              <span
+                data-testid="candidate-target-corner"
+                className="absolute bottom-0 right-0 size-3 border-blue-600 border-b-2 border-r-2"
+              />
+            </div>
+            <button
+              ref={candidateActionRef}
+              type="button"
+              aria-label={candidateActionLabel}
+              data-candidate-action="true"
+              data-candidate-action-note-id={note.id}
+              data-placement={candidateOverlayLayout.action.placement}
+              disabled={disabled}
+              tabIndex={isCandidateActionVisible ? 0 : -1}
+              onPointerEnter={() => {
+                cancelPointerActionShow();
+                cancelPointerActionHide();
+                claimPointerAction(true);
+                setIsPointerActionVisible(true);
+              }}
+              onPointerLeave={schedulePointerActionHide}
+              onFocus={() => {
+                cancelFocusActionHide();
+                setIsFocusActionVisible(true);
+              }}
+              onBlur={scheduleFocusActionHide}
+              onKeyDown={(event) => {
+                if (event.key !== "Tab") return;
+                if (event.shiftKey) {
+                  event.preventDefault();
+                  surfaceRef.current?.focus();
+                  return;
+                }
+                const surface = surfaceRef.current;
+                if (!surface) return;
+                const nextFocus = getNextTabbableElement(surface);
+                if (!nextFocus) return;
+                event.preventDefault();
+                nextFocus.focus();
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                performCandidateAction();
+              }}
+              className={`fixed z-40 flex items-center justify-center gap-1 rounded-l-md border border-red-200 bg-red-50 text-xs font-bold text-red-800 shadow-md transition-opacity [mask-image:radial-gradient(circle_at_right_center,transparent_0_6px,#000_7px)] ${
+                isCandidateActionVisible
+                  ? "pointer-events-auto opacity-100"
+                  : "pointer-events-none opacity-0"
+              }`}
+              style={{
+                height: CANDIDATE_ACTION_HEIGHT_PX,
+                left: candidateOverlayLayout.action.left,
+                top: candidateOverlayLayout.action.top,
+                WebkitMaskImage:
+                  "radial-gradient(circle at right center, transparent 0 6px, black 7px)",
+                width: CANDIDATE_ACTION_WIDTH_PX,
+              }}
+            >
+              <span
+                aria-hidden="true"
+                data-candidate-action-seam="true"
+                className={`pointer-events-none absolute left-0 h-[3px] w-7 ${
+                  candidateOverlayLayout.action.placement === "bottom"
+                    ? "-top-px"
+                    : "-bottom-px"
+                }`}
+                style={{
+                  backgroundColor:
+                    NOTE_COLOR_STYLES[note.color].backgroundColor,
+                  filter: note.excluded ? "grayscale(1)" : undefined,
+                }}
+              />
+              {note.excluded ? (
+                <ListPlus aria-hidden="true" className="size-4" />
+              ) : (
+                <ListMinus aria-hidden="true" className="size-4" />
+              )}
+              {candidateActionText}
+            </button>
+            {isActionMenuOpen ? (
+              <div
+                role="menu"
+                aria-label="付箋の候補操作"
+                className="fixed z-[41] min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+                style={{
+                  left: candidateOverlayLayout.menu.left,
+                  top: candidateOverlayLayout.menu.top,
+                  width: CANDIDATE_MENU_WIDTH_PX,
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Escape") return;
+                  event.preventDefault();
+                  setIsActionMenuOpen(false);
+                  surfaceRef.current?.focus();
+                }}
+              >
+                <button
+                  ref={menuItemRef}
+                  type="button"
+                  role="menuitem"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    performCandidateAction();
+                  }}
+                  className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
+                >
+                  {note.excluded ? (
+                    <ListPlus aria-hidden="true" className="size-4" />
+                  ) : (
+                    <ListMinus aria-hidden="true" className="size-4" />
+                  )}
+                  {candidateActionLabel}
+                </button>
+              </div>
+            ) : null}
+          </>,
+          document.body,
+        )
+      : null;
+
   return (
     <StickyNote
+      ref={noteRef}
       noteId={note.id}
       isLifted={isOwnDrag}
       isSelected={isSelected}
       isDecided={isDecided}
+      isAdoptionFocused={isAdoptionFocused}
       color={note.color}
+      height={getNoteHeight(localContent, note.fontSize)}
       testId="note-card"
       data-editing={isEditing || undefined}
       data-vote-drop-target={
@@ -394,47 +916,7 @@ export function NoteCard({
         }
       }
     >
-      {note.excluded ? (
-        <>
-          <span className="pointer-events-none absolute top-2 left-2 z-30 rounded-full bg-slate-950/80 px-2 py-1 text-xs font-bold text-white">
-            候補外
-          </span>
-          {canRestoreNote ? (
-            <button
-              type="button"
-              aria-label="候補に戻す"
-              disabled={disabled}
-              onClick={(event) => {
-                event.stopPropagation();
-                performCandidateAction();
-              }}
-              className={`absolute right-2 bottom-2 z-40 flex min-h-11 items-center gap-1 rounded-md bg-slate-950 px-3 py-2 text-xs font-semibold text-white shadow-md transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 ${
-                isCandidateActionVisible ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              <RotateCcw aria-hidden="true" className="size-4" />
-              候補に戻す
-            </button>
-          ) : null}
-        </>
-      ) : null}
-      {!note.excluded && canExcludeNote ? (
-        <button
-          type="button"
-          aria-label="候補から外す"
-          disabled={disabled}
-          onClick={(event) => {
-            event.stopPropagation();
-            performCandidateAction();
-          }}
-          className={`absolute right-2 bottom-2 z-40 flex min-h-11 items-center gap-1 rounded-md border border-slate-950/15 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-950 shadow-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 ${
-            isCandidateActionVisible ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <CircleMinus aria-hidden="true" className="size-4" />
-          候補から外す
-        </button>
-      ) : null}
+      {candidateOverlay}
       <textarea
         ref={textareaRef}
         value={localContent}
@@ -460,36 +942,41 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none bg-transparent p-2 pr-10 text-sm text-slate-900 outline-none ${
-          note.excluded ? "pt-12" : ""
-        } ${isEditing ? "" : "pointer-events-none select-none"}`}
+        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 pr-10 pb-12 text-slate-900 outline-none ${
+          isEditing ? "" : "pointer-events-none select-none"
+        }`}
+        style={{
+          fontSize: `${note.fontSize}px`,
+          lineHeight: `${Math.ceil(note.fontSize * 1.5)}px`,
+        }}
         placeholder="メモを入力..."
       />
       {isDecided ? (
         <span
           role="status"
           aria-label="取り組む課題に決定済み"
-          className="pointer-events-none absolute bottom-1 right-1 z-30 flex size-9 items-center justify-center rounded-full bg-emerald-700 text-white"
+          className="pointer-events-none absolute bottom-1 right-1 z-30 flex size-9 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
         >
-          <Check aria-hidden="true" className="size-5" />
+          <Check aria-hidden="true" className="size-5" strokeWidth={3} />
         </span>
       ) : null}
-      {vote.displayMode !== "hidden" ? (
-        <div className="absolute right-2 top-2 z-20 flex items-center gap-1">
-          {vote.displayMode === "result" ? (
-            <>
-              <DotVoteSticker
-                kind="subjective"
-                count={note.dotVotes.subjective.count ?? 0}
-                state="result"
-              />
-              <DotVoteSticker
-                kind="objective"
-                count={note.dotVotes.objective.count ?? 0}
-                state="result"
-              />
-            </>
-          ) : null}
+      {vote.displayMode === "result" ? (
+        <div
+          data-testid="note-vote-results"
+          className={`pointer-events-none relative z-20 flex h-10 shrink-0 items-end gap-2 pb-2 pl-2 ${
+            isDecided ? "pr-12" : "pr-2"
+          }`}
+        >
+          <DotVoteSticker
+            kind="subjective"
+            count={note.dotVotes.subjective.count ?? 0}
+            state="result"
+          />
+          <DotVoteSticker
+            kind="objective"
+            count={note.dotVotes.objective.count ?? 0}
+            state="result"
+          />
         </div>
       ) : null}
       {vote.displayMode === "voting" ? (
@@ -581,10 +1068,13 @@ export function NoteCard({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerEnter={() => setIsPointerActionVisible(true)}
-          onPointerLeave={() => setIsPointerActionVisible(false)}
-          onFocus={() => setIsFocusActionVisible(true)}
-          onBlur={() => setIsFocusActionVisible(false)}
+          onPointerEnter={schedulePointerActionShow}
+          onPointerLeave={schedulePointerActionHide}
+          onFocus={() => {
+            cancelFocusActionHide();
+            setIsFocusActionVisible(true);
+          }}
+          onBlur={scheduleFocusActionHide}
           onKeyDown={handleKeyDown}
           onContextMenu={handleContextMenu}
           className={`absolute inset-0 z-10 touch-none select-none outline-none ${
@@ -598,37 +1088,6 @@ export function NoteCard({
           }`}
         />
       )}
-      {isActionMenuOpen && canCandidateAction ? (
-        <div
-          role="menu"
-          aria-label="付箋の候補操作"
-          className="absolute right-2 bottom-2 z-50 min-w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
-          onKeyDown={(event) => {
-            if (event.key !== "Escape") return;
-            event.preventDefault();
-            setIsActionMenuOpen(false);
-            surfaceRef.current?.focus();
-          }}
-        >
-          <button
-            ref={menuItemRef}
-            type="button"
-            role="menuitem"
-            onClick={(event) => {
-              event.stopPropagation();
-              performCandidateAction();
-            }}
-            className="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold text-slate-950 outline-none hover:bg-slate-100 focus:bg-slate-100"
-          >
-            {note.excluded ? (
-              <RotateCcw aria-hidden="true" className="size-4" />
-            ) : (
-              <CircleMinus aria-hidden="true" className="size-4" />
-            )}
-            {candidateActionLabel}
-          </button>
-        </div>
-      ) : null}
     </StickyNote>
   );
 }

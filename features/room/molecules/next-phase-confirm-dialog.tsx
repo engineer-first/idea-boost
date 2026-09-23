@@ -14,7 +14,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import type { RoomPhase } from "@/contracts/phase";
+import {
+  isResultStep,
+  isVotingStep,
+  type RoomPhase,
+  VOTING_STEP_BY_PHASE,
+} from "@/contracts/phase";
 import { getPhaseLabel } from "../logic/phase-labels";
 
 export type NextPhaseConfirmDialogProps = {
@@ -28,10 +33,17 @@ export function NextPhaseConfirmDialog({
   disabled,
   onConfirm,
 }: NextPhaseConfirmDialogProps) {
+  const beginsVoting =
+    phase.kind === "step" &&
+    phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1;
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button type="button" className="h-10 px-4" disabled={disabled}>
+        <Button
+          type="button"
+          className="h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs"
+          disabled={disabled}
+        >
           次のステップへ
         </Button>
       </AlertDialogTrigger>
@@ -43,7 +55,14 @@ export function NextPhaseConfirmDialog({
           <AlertDialogDescription>
             {getPhaseLabel(phase)}
             から次のステップへ進みます。
-            移行すると現在の付箋が整理され、一部の内容が引き継がれない場合があります。
+            {beginsVoting
+              ? "投票へ進むと、このフェーズの個人作業・共有には戻れません。未共有の下書きは残りますが、次フェーズへ進むとき（最終フェーズは採用時）に破棄されます。共有し忘れた付箋があれば、キャンセルして個人作業・共有へ戻ってください。"
+              : isResultStep(phase)
+                ? "決定内容を引き継ぎ、このフェーズの未共有の下書きを破棄します。前のフェーズへは戻れません。"
+                : isVotingStep(phase)
+                  ? "投票を終了し、今回の結果を全員に表示します。"
+                  : "共有済み付箋と下書きは残ります。"}
+            タイマーは停止します。
           </AlertDialogDescription>
         </AlertDialogHeader>
 

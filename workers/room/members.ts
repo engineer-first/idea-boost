@@ -1,7 +1,7 @@
 // メンバーシップ（誰がこのルームに入れるか）と表示色の割当、
 // ルームオーナー（room_owner = ホスト）の真実。
 import {
-  NOTE_COLOR_PALETTE,
+  MEMBER_COLOR_ASSIGNMENT_ORDER,
   type NoteColor,
   type ProtocolMember,
 } from "../../contracts/room-protocol";
@@ -57,16 +57,17 @@ export function upsertMember(
       .exec("SELECT color FROM member_color_assignments")
       .toArray()
       .map((row) => String(row.color));
-    if (assignments.length >= NOTE_COLOR_PALETTE.length) {
+    if (assignments.length >= MEMBER_COLOR_ASSIGNMENT_ORDER.length) {
       return { ok: false, reason: "room-full" };
     }
 
-    const availableColors = NOTE_COLOR_PALETTE.filter(
+    const availableColor = MEMBER_COLOR_ASSIGNMENT_ORDER.find(
       (candidate) => !assignments.includes(candidate),
     );
-    color =
-      availableColors[Math.floor(Math.random() * availableColors.length)] ??
-      "yellow";
+    if (!availableColor) {
+      return { ok: false, reason: "room-full" };
+    }
+    color = availableColor;
     sql.exec(
       `INSERT INTO member_color_assignments (user_id, color)
        VALUES (?1, ?2)`,

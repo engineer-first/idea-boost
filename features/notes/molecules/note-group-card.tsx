@@ -1,6 +1,13 @@
 "use client";
 
+import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { RenderGroup } from "@/contracts/grouping";
 
 export type NoteGroupCardProps = {
@@ -41,6 +48,12 @@ export function NoteGroupCard({
     }
   }, [canGroupNote, isEditing, name]);
 
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+    }
+  }, [isEditing]);
+
   const handleSubmit = () => {
     setIsEditing(false);
 
@@ -66,7 +79,7 @@ export function NoteGroupCard({
   return (
     <div
       data-testid="note-group-card"
-      className="pointer-events-none absolute rounded-lg border-2 border-dashed border-[hsl(var(--group-hue),65%,55%)] bg-[hsla(var(--group-hue),65%,55%,0.03)] transition-all duration-200 ease-out dark:border-[hsl(var(--group-hue),55%,45%)] dark:bg-[hsla(var(--group-hue),55%,45%,0.03)]"
+      className="pointer-events-none absolute rounded-lg border-2 border-dashed border-[hsl(var(--group-hue),65%,42%)] bg-[hsla(var(--group-hue),65%,55%,0.07)] transition-all duration-200 ease-out"
       style={{
         left: group.x,
         top: group.y,
@@ -77,26 +90,9 @@ export function NoteGroupCard({
       }}
     >
       {name !== "" && (
-        // biome-ignore lint/a11y/useSemanticElements: input element is nested during editing, so we use a div with role="button" instead of button
         <div
-          role="button"
-          tabIndex={isEditing ? -1 : 0}
-          className="pointer-events-auto absolute -top-4 left-3 cursor-pointer rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-sm font-bold text-[hsl(var(--group-hue),75%,35%)] shadow-sm select-none dark:border-[hsl(var(--group-hue),55%,30%)] dark:text-[hsl(var(--group-hue),55%,70%)]"
-          onClick={() => {
-            if (canGroupNote && !isEditing) {
-              setIsEditing(true);
-            }
-          }}
-          onKeyDown={(e) => {
-            if (
-              canGroupNote &&
-              !isEditing &&
-              (e.key === "Enter" || e.key === " ")
-            ) {
-              e.preventDefault();
-              setIsEditing(true);
-            }
-          }}
+          data-testid="group-name-container"
+          className="pointer-events-auto absolute bottom-full left-3 w-48 max-w-[calc(100%-1.5rem)]"
         >
           {isEditing ? (
             <input
@@ -115,10 +111,50 @@ export function NoteGroupCard({
                   setLocalName(name);
                 }
               }}
-              className="w-32 bg-transparent text-sm font-bold outline-none text-[hsl(var(--group-hue),75%,35%)] dark:text-[hsl(var(--group-hue),55%,70%)]"
+              className="w-48 max-w-full rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] shadow-sm outline-none"
             />
           ) : (
-            name
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {canGroupNote ? (
+                    <button
+                      type="button"
+                      className="group flex w-full cursor-pointer items-start gap-1 rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-left text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] shadow-sm select-none"
+                      onClick={() => setIsEditing(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setIsEditing(true);
+                        }
+                      }}
+                    >
+                      <span
+                        data-testid="group-name-display"
+                        className="line-clamp-2 min-w-0 flex-1 break-words text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)]"
+                      >
+                        {name}
+                      </span>
+                      <Pencil
+                        aria-hidden="true"
+                        data-testid="group-name-pencil"
+                        className="mt-1 size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                      />
+                    </button>
+                  ) : (
+                    <div className="flex w-full items-start rounded border border-[hsl(var(--group-hue),65%,85%)] bg-background px-2 py-0.5 text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)] shadow-sm select-none">
+                      <span
+                        data-testid="group-name-display"
+                        className="line-clamp-2 min-w-0 flex-1 break-words text-lg font-extrabold text-[hsl(var(--group-hue),75%,25%)]"
+                      >
+                        {name}
+                      </span>
+                    </div>
+                  )}
+                </TooltipTrigger>
+                <TooltipContent>{name}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       )}

@@ -5,6 +5,7 @@ import { isIdeaValueFeasibilityMapCoordinate } from "../../contracts/board";
 import { isCursorSharingAllowed } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
 import type { MessageHandlers } from "./handler-context";
+import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { findMember } from "./members";
 import { broadcastNoteUpdated, canEdit, findNote } from "./notes";
 import { getBoardMutationForbiddenMessage, getPhase } from "./phase";
@@ -91,6 +92,10 @@ export const presenceHandlers: MessageHandlers<
       const row = findNote(ctx.sql, active.noteId);
       if (row?.visibility === "shared") {
         broadcastNoteUpdated(ctx.sql, ctx.broadcaster, row);
+      }
+      const phase = getPhase(ctx.sql);
+      if (isIdeaMapVisiblePhase(phase)) {
+        broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
       }
     }
     if (ctx.broadcaster.hasOtherPresenceForUser(ctx.userId, ctx.ws)) {

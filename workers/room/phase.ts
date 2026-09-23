@@ -1,20 +1,35 @@
 // 進行状態（lobby / 課題整理のステップ）の真実と、進行操作・境界ゲート。
-import { isIdeaValueFeasibilityMapCoordinate } from "../../contracts/board";
+import {
+  getInitialIdeaMapSizeLevel,
+  isIdeaValueFeasibilityMapCoordinate,
+} from "../../contracts/board";
 import {
   getRoomPhaseLabel,
   isLobby,
+  isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
   type PHASE_STEP_COUNTS,
   type RoomPhase,
   RoomPhaseSchema,
+  VOTING_STEP_BY_PHASE,
 } from "../../contracts/phase";
 import type { ClientMessage } from "../../contracts/room-protocol";
 import { getDecision } from "./decisions";
 import { clearUsedNoteDragIds } from "./drag-operations";
-import type { MessageHandlers } from "./handler-context";
+import {
+  type HandlerCtx,
+  type MessageHandlers,
+  replyForbidden,
+} from "./handler-context";
 import { isHostUser } from "./members";
-import { hasCandidateNotes } from "./notes";
+import {
+  excludeNotesForBulkOperation,
+  hasCandidateNotes,
+  listAutomaticExclusionCandidates,
+  type NoteRow,
+} from "./notes";
+import { resetSharingForPhase } from "./sharing-state";
 import { resetTimerState } from "./timer";
 import { haveAllMembersCompletedVoting } from "./votes";
 
@@ -25,7 +40,27 @@ export function getPhase(sql: SqlStorage): RoomPhase {
 }
 
 export function savePhase(sql: SqlStorage, phase: RoomPhase): void {
-  sql.exec("UPDATE room_state SET phase = ?1 WHERE id = 1", encodePhase(phase));
+  sql.exec(
+    "UPDATE room_state SET phase = ?1, phase_revision = phase_revision + 1 WHERE id = 1",
+    encodePhase(phase),
+  );
+}
+
+export function getPhaseRevision(sql: SqlStorage): number {
+  return Number(
+    sql.exec("SELECT phase_revision FROM room_state WHERE id = 1").one()
+      .phase_revision,
+  );
+}
+
+function matchesExpectedPhase(
+  ctx: HandlerCtx,
+  message: { expectedPhase: RoomPhase; expectedRevision: number },
+): boolean {
+  return (
+    encodePhase(getPhase(ctx.sql)) === encodePhase(message.expectedPhase) &&
+    getPhaseRevision(ctx.sql) === message.expectedRevision
+  );
 }
 
 function encodePhase(phase: RoomPhase): string {
@@ -71,10 +106,8 @@ function nextRoomPhase(current: RoomPhase): RoomPhase {
   return current;
 }
 
-// 共有されなかったマイ付箋は発散途中の下書きにすぎない。以降のステップへ
-// 持ち越さず破棄する。削除済み付箋の票を残さないよう、先に note_votes も
-// 掃除する。
-function discardPrivateNotes(sql: SqlStorage): void {
+// 同フェーズの下書きは保持し、次フェーズまたは最終完了時に破棄する。
+export function discardPrivateNotes(sql: SqlStorage): void {
   sql.exec(
     `DELETE FROM note_vote_stickers
      WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
@@ -83,19 +116,11 @@ function discardPrivateNotes(sql: SqlStorage): void {
     `DELETE FROM note_votes
      WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
   );
+  sql.exec(
+    `DELETE FROM note_appearances
+     WHERE note_id IN (SELECT id FROM notes WHERE visibility = 'private')`,
+  );
   sql.exec("DELETE FROM notes WHERE visibility = 'private'");
-}
-
-// 「共有する」はどのフェーズでも Step 2（contracts/phase.ts の
-// ROOM_PHASE_STEP_LABELS が真実）。投票・結果ステップと違いフェーズごとに
-// ずれないため、フェーズ別の対応表は持たない。
-const SHARING_STEP = 2;
-
-// 共有ステップ（各フェーズの Step 2: 共有する）かどうか。マイ付箋を共有
-// ボードへ上げられる（note:publish が許可される）最後のステップであり、
-// ここを抜けると未共有の付箋は誰の目にも触れられなくなる。
-function isSharingStep(phase: RoomPhase): boolean {
-  return !isLobby(phase) && phase.step === SHARING_STEP;
 }
 
 // 個人執筆ステップ（各フェーズの Step 1: 課題 / HMW / アイデアを個人で書く）
@@ -116,7 +141,9 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:publish":
     case "note:unpublish":
     case "note:update-content":
+    case "note:update-font-size":
     case "note:move":
+    case "note:bring-to-front":
     case "note:drag:start":
     case "note:drag:move":
     case "note:drag:end":
@@ -132,13 +159,20 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:vote-sticker:move":
     case "note:vote-sticker:remove":
     case "note:decide":
+    case "decision:clear":
     case "group:create":
     case "group:update-name":
+    case "idea-map:resize":
       return true;
     case "cursor:update":
     case "cursor:leave":
+    case "adoption-focus:update":
     case "start_phase":
     case "phase:next":
+    case "phase:restart-writing":
+    case "phase:revote":
+    case "sharing:start":
+    case "sharing:advance":
     case "timer:start":
     case "timer:pause":
     case "timer:resume":
@@ -155,18 +189,26 @@ const allowedBoardMutationsByPhase: {
   >;
 } = {
   1: {
-    1: ["note:create", "note:update-content", "note:delete"],
+    1: [
+      "note:create",
+      "note:update-content",
+      "note:update-font-size",
+      "note:delete",
+    ],
     2: [
       "note:publish",
       "note:unpublish",
       "note:update-content",
+      "note:update-font-size",
       "note:move",
+      "note:bring-to-front",
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
     ],
     3: [
       "note:move",
+      "note:bring-to-front",
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
@@ -187,18 +229,30 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
   },
   2: {
     // Step 2-1（HMW 個人執筆）は自分専用付箋の作成・編集・削除だけ。
-    1: ["note:create", "note:update-content", "note:delete"],
+    1: [
+      "note:create",
+      "note:update-content",
+      "note:update-font-size",
+      "note:delete",
+    ],
     // Step 2-2（共有）は個人執筆済み付箋の publish と、共有後の共同編集。
     // 作成・削除・グループ操作は、フェーズ2の以降のステップでも許可しない。
     2: [
       "note:publish",
       "note:unpublish",
       "note:update-content",
+      "note:update-font-size",
       "note:move",
+      "note:bring-to-front",
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
@@ -217,20 +271,40 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
-    ],
-  },
-  3: {
-    1: ["note:create", "note:update-content", "note:delete"],
-    2: [
-      "note:publish",
-      "note:unpublish",
-      "note:update-content",
       "note:move",
+      "note:bring-to-front",
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
     ],
-    3: ["note:move", "note:drag:start", "note:drag:move", "note:drag:end"],
+  },
+  3: {
+    1: [
+      "note:create",
+      "note:update-content",
+      "note:update-font-size",
+      "note:delete",
+    ],
+    2: [
+      "note:publish",
+      "note:unpublish",
+      "note:update-content",
+      "note:update-font-size",
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
+      "idea-map:resize",
+    ],
+    3: [
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
+      "idea-map:resize",
+    ],
     4: [
       "note:vote",
       "note:vote-reset",
@@ -245,6 +319,11 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
   },
 };
@@ -269,7 +348,7 @@ function isIdeaValueFeasibilityMappingStep(phase: RoomPhase): boolean {
   return (
     !isLobby(phase) &&
     phase.phase === 3 &&
-    (phase.step === 2 || phase.step === 3)
+    (phase.step === 2 || phase.step === 3 || phase.step === 5)
   );
 }
 
@@ -303,7 +382,9 @@ export function getBoardMutationForbiddenMessage(
 // フェーズ進行の認可は room_owner（isHostUser）に一本化している。
 // D1 由来の hostId ヘッダーを認可ソースに加えない（旧ルームのバックフィル
 // シードにすぎない。room-do.ts の HOST_ID_HEADER 参照）。
-export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
+export const phaseHandlers: MessageHandlers<
+  "start_phase" | "phase:next" | "phase:restart-writing" | "phase:revote"
+> = {
   // ロビー → Step 1-1（ボード開始）。ホストのみ。
   start_phase: (ctx) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
@@ -327,6 +408,7 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     ctx.broadcaster.broadcastToAll({
       type: "phase:updated",
       phase: firstStep,
+      phaseRevision: getPhaseRevision(ctx.sql),
     });
   },
 
@@ -341,6 +423,10 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       return;
     }
     const current = getPhase(ctx.sql);
+    if (!matchesExpectedPhase(ctx, message)) {
+      replyForbidden(ctx);
+      return;
+    }
     if (isLobby(current)) {
       ctx.reply({
         type: "error",
@@ -359,11 +445,14 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
     }
     // force はフェーズ1・2の投票ステップで使える脱出ハッチ。離脱者などが
     // 投票を完了できなくても、ホストは結果ステップへ進められる。
+    const completedVoting =
+      !isVotingStep(current) ||
+      haveAllMembersCompletedVoting(ctx.sql, current.phase);
     const canForceIncompleteVoting =
       (current.phase === 1 || current.phase === 2) && message.force === true;
     if (
       isVotingStep(current) &&
-      !haveAllMembersCompletedVoting(ctx.sql, current.phase) &&
+      !completedVoting &&
       !canForceIncompleteVoting
     ) {
       ctx.reply({
@@ -374,6 +463,10 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       return;
     }
     const next = nextRoomPhase(current);
+    if (isVotingStep(next) && !hasCandidateNotes(ctx.sql, current.phase)) {
+      replyForbidden(ctx);
+      return;
+    }
     // 次のステップがまだ実装されていない状態では nextRoomPhase が current を
     // そのまま返す。ここで no-op を配信すると
     // クライアントの decision 表示がフェーズ単位で無条件クリアされてしまう
@@ -394,35 +487,86 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
       });
       return;
     }
-    // 共有ステップを抜けた時点で、共有されなかったマイ付箋はもう共有ボードへ
-    // 上げる経路がない（Step 3 以降は note:publish が許可されない）。残すと
-    // 誰の目にも触れないまま次のステップ・フェーズへ溜まり続けるため、ここで
-    // 破棄する。掃除のタイミングはこの1箇所に一本化し、フェーズ境界では
-    // 掃除しない（同じ判断が2箇所にあると、どちらが真実か分からなくなる）。
-    const leavesSharingStep = isSharingStep(current) && !isSharingStep(next);
     const entersVotingStep = !isVotingStep(current) && isVotingStep(next);
+    const initializesIdeaMapSize =
+      current.kind === "step" &&
+      current.phase === 3 &&
+      current.step === 1 &&
+      next.kind === "step" &&
+      next.phase === 3 &&
+      next.step === 2;
+    const entersIdeaMapStep =
+      next.kind === "step" &&
+      next.phase === 3 &&
+      next.step === 2 &&
+      !(current.kind === "step" && current.phase === 3 && current.step === 2);
+    const completesVoting =
+      isVotingStep(current) && isResultStep(next) && completedVoting;
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
       crossesPhaseBoundary ||
-      leavesSharingStep ||
-      entersVotingStep;
+      current.step === 2 ||
+      entersVotingStep ||
+      entersIdeaMapStep ||
+      (next.kind === "step" && next.step === 2);
     let timerWasReset = false;
+    let automaticExclusion:
+      | { operationId: string; targets: NoteRow[] }
+      | undefined;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
     ctx.storage.transactionSync(() => {
-      if (leavesSharingStep) {
+      if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);
       }
+      if (initializesIdeaMapSize) {
+        const initializedRow = ctx.sql
+          .exec("SELECT idea_map_size_initialized FROM room_state WHERE id = 1")
+          .toArray()[0] as { idea_map_size_initialized: number } | undefined;
+        if (initializedRow?.idea_map_size_initialized !== 1) {
+          const countRow = ctx.sql
+            .exec(
+              "SELECT COUNT(*) AS count FROM notes WHERE phase = 3 AND visibility = 'private'",
+            )
+            .toArray()[0] as { count: number } | undefined;
+          const sizeLevel = getInitialIdeaMapSizeLevel(countRow?.count ?? 0);
+          ctx.sql.exec(
+            "UPDATE room_state SET idea_map_size_level = ?1, idea_map_size_initialized = 1 WHERE id = 1",
+            sizeLevel,
+          );
+        }
+      }
+      if (completesVoting) {
+        const targets = listAutomaticExclusionCandidates(
+          ctx.sql,
+          current.phase,
+        );
+        if (targets.length > 0) {
+          const operationId = crypto.randomUUID();
+          excludeNotesForBulkOperation(
+            ctx.sql,
+            targets.map(({ id }) => id),
+            operationId,
+            new Date().toISOString(),
+          );
+          automaticExclusion = { operationId, targets };
+        }
+      }
       savePhase(ctx.sql, next);
+      resetSharingForPhase(ctx.sql, next);
       if (crossesPhaseBoundary) {
         clearUsedNoteDragIds(ctx.sql);
       }
       timerWasReset = resetTimerState(ctx.sql);
     });
     ctx.broadcaster.retireAllActiveDrags();
-    if (timerWasReset) {
-      await ctx.storage.deleteAlarm();
+    if (ctx.broadcaster.retireAllAdoptionFocus()) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
     }
+    await ctx.storage.deleteAlarm();
     // 投票ステップでは note:updated の count を秘匿しているため、結果ステップ
     // へ遷移した接続中の参加者にも完全な投票集計を届け直す。フェーズ境界を
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから
@@ -437,6 +581,73 @@ export const phaseHandlers: MessageHandlers<"start_phase" | "phase:next"> = {
         serverNow: Date.now(),
       });
     }
-    ctx.broadcaster.broadcastToAll({ type: "phase:updated", phase: next });
+    if (automaticExclusion) {
+      ctx.broadcaster.broadcastToAll({
+        type: "note:bulk-excluded",
+        operationId: automaticExclusion.operationId,
+        count: automaticExclusion.targets.length,
+        source: "phase-transition",
+      });
+    }
+    ctx.broadcaster.broadcastToAll({
+      type: "phase:updated",
+      phase: next,
+      phaseRevision: getPhaseRevision(ctx.sql),
+    });
   },
+  "phase:restart-writing": (ctx, message) => restartPhase(ctx, message, false),
+  "phase:revote": (ctx, message) => restartPhase(ctx, message, true),
 };
+
+// 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
+async function restartPhase(
+  ctx: HandlerCtx,
+  message: Extract<
+    ClientMessage,
+    { type: "phase:restart-writing" | "phase:revote" }
+  >,
+  revote: boolean,
+): Promise<void> {
+  const current = getPhase(ctx.sql);
+  if (
+    !isHostUser(ctx.sql, ctx.userId) ||
+    !matchesExpectedPhase(ctx, message) ||
+    current.kind !== "step" ||
+    getDecision(ctx.sql, current.phase) ||
+    (revote
+      ? !isResultStep(current) || !hasCandidateNotes(ctx.sql, current.phase)
+      : !isRestartWritingAllowedStep(current))
+  ) {
+    replyForbidden(ctx);
+    return;
+  }
+  const next: RoomPhase = {
+    ...current,
+    step: revote ? VOTING_STEP_BY_PHASE[current.phase] : 1,
+  };
+  ctx.storage.transactionSync(() => {
+    if (revote) {
+      ctx.sql.exec(
+        "DELETE FROM note_vote_stickers WHERE note_id IN (SELECT id FROM notes WHERE phase = ?1)",
+        current.phase,
+      );
+      ctx.sql.exec(
+        "DELETE FROM note_votes WHERE note_id IN (SELECT id FROM notes WHERE phase = ?1)",
+        current.phase,
+      );
+    }
+    savePhase(ctx.sql, next);
+    resetSharingForPhase(ctx.sql, next);
+    resetTimerState(ctx.sql);
+  });
+  ctx.broadcaster.retireAllActiveDrags();
+  ctx.broadcaster.retireAllAdoptionFocus();
+  // 共有の交代待機中はtimerがidleでも開始予約がある。
+  await ctx.storage.deleteAlarm();
+  ctx.refreshSnapshots();
+  ctx.broadcaster.broadcastToAll({
+    type: "phase:updated",
+    phase: next,
+    phaseRevision: getPhaseRevision(ctx.sql),
+  });
+}

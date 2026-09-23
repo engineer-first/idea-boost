@@ -1,0 +1,24 @@
+name: Task
+description: 実装・調査以外の具体的な作業を記録する
+type: Task
+body:
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 目的・作業内容
+      description: この作業で何を実現するかを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      description: 作業が完了したと判断できる条件を書いてください。
+    validations:
+      required: false
+  - type: textarea
+    id: related
+    attributes:
+      label: 関連Issue・補足
+    validations:
+      required: false

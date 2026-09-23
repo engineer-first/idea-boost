@@ -15,6 +15,7 @@ import { visibleTo } from "../visibility";
 export type SocketAttachment = {
   userId: string;
   hasCursor?: boolean;
+  adoptionFocusNoteId?: string;
   // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
   activeDrag?: { noteId: string; dragId: string };
 };
@@ -104,6 +105,69 @@ export class RoomBroadcaster {
     }
   }
 
+  currentAdoptionFocusNoteId(): string | null {
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.adoptionFocusNoteId) {
+        return attachment.adoptionFocusNoteId;
+      }
+    }
+    return null;
+  }
+
+  setAdoptionFocus(socket: WebSocket, noteId: string | null): boolean {
+    let changed = false;
+    for (const candidate of this.connections.getWebSockets()) {
+      const attachment =
+        candidate.deserializeAttachment() as SocketAttachment | null;
+      if (!attachment) continue;
+      const nextNoteId =
+        candidate === socket ? (noteId ?? undefined) : undefined;
+      if (attachment.adoptionFocusNoteId === nextNoteId) continue;
+      candidate.serializeAttachment({
+        ...attachment,
+        adoptionFocusNoteId: nextNoteId,
+      } satisfies SocketAttachment);
+      changed = true;
+    }
+    return changed;
+  }
+
+  retireAdoptionFocus(socket: WebSocket): boolean {
+    const attachment =
+      socket.deserializeAttachment() as SocketAttachment | null;
+    if (!attachment?.adoptionFocusNoteId) return false;
+    socket.serializeAttachment({
+      ...attachment,
+      adoptionFocusNoteId: undefined,
+    } satisfies SocketAttachment);
+    return true;
+  }
+
+  retireAllAdoptionFocus(): boolean {
+    let changed = false;
+    for (const socket of this.connections.getWebSockets()) {
+      changed = this.retireAdoptionFocus(socket) || changed;
+    }
+    return changed;
+  }
+
+  retireAdoptionFocusForNote(noteId: string): boolean {
+    let changed = false;
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.adoptionFocusNoteId !== noteId) continue;
+      socket.serializeAttachment({
+        ...attachment,
+        adoptionFocusNoteId: undefined,
+      } satisfies SocketAttachment);
+      changed = true;
+    }
+    return changed;
+  }
+
   hasOtherPresenceForUser(userId: string, except: WebSocket): boolean {
     for (const socket of this.connections.getWebSockets()) {
       if (socket === except) continue;
@@ -143,6 +207,14 @@ export class RoomBroadcaster {
       attachment,
       ...attachment.activeDrag,
     };
+  }
+
+  hasActiveDrag(): boolean {
+    return this.connections.getWebSockets().some((socket) => {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      return Boolean(attachment?.activeDrag);
+    });
   }
 
   retireActiveDrag(socket: WebSocket): ActiveDragOwner | null {

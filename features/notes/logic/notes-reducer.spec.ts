@@ -18,6 +18,7 @@ const note: Note = {
   visibility: "shared",
   excluded: false,
   color: "yellow",
+  fontSize: 14,
   x: 10,
   y: 20,
   stackOrder: 0,
@@ -49,9 +50,24 @@ describe("applyServerMessage", () => {
     expect(result).toBe(notes);
   });
 
+  it("idea-map:state は付箋配列を同じ参照のまま変更しない", () => {
+    const notes = [note];
+    const message: ServerMessage = {
+      type: "idea-map:state",
+      sizeLevel: 2,
+      initialized: true,
+      isDragging: true,
+    };
+
+    const result = applyServerMessage(notes, message, { draggingNoteId: null });
+
+    expect(result).toBe(notes);
+  });
+
   it("snapshotで付箋を丸ごと置き換える", () => {
     const message: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [note],
       members: [],
       phase: buildPhaseStep(1),
@@ -73,6 +89,7 @@ describe("applyServerMessage", () => {
     const snapshotNote = makeNote({ x: 0, y: 0 });
     const message: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [snapshotNote],
       members: [],
       phase: buildPhaseStep(1),
@@ -237,9 +254,11 @@ describe("applyServerMessage", () => {
       notes,
       {
         type: "decision:updated",
-        phase: 1,
-        noteId: existing.id,
-        decidedBy: USER_ID,
+        decision: {
+          phase: 1,
+          noteId: existing.id,
+          decidedBy: USER_ID,
+        },
       },
       { draggingNoteId: null },
     );

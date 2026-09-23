@@ -25,3 +25,15 @@ export const Lifted: Story = {
 export const Decided: Story = {
   args: { isDecided: true },
 };
+
+export const Selected: Story = {
+  args: { isSelected: true },
+};
+
+export const AdoptionFocused: Story = {
+  args: { isAdoptionFocused: true },
+};
+
+export const Excluded: Story = {
+  args: { "data-excluded": true },
+};

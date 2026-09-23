@@ -1,5 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { createRef } from "react";
+import {
+  type ComponentProps,
+  type ComponentType,
+  createRef,
+  useRef,
+  useState,
+} from "react";
 import { expect, fireEvent, fn, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
@@ -10,6 +16,11 @@ import {
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import { RoomBoardCanvas } from "./room-board-canvas";
+
+type RoomBoardCanvasStoryProps = Omit<
+  ComponentProps<typeof RoomBoardCanvas>,
+  "boardScrollerRef" | "ideaMapPlaneRef" | "privateToolbarRef"
+>;
 
 const STEP_1_1 = buildPhaseStep(1);
 const STEP_1_2 = buildPhaseStep(2);
@@ -50,9 +61,24 @@ const REMOTE_CURSORS: RenderedRemoteCursorPresence[] = [
   })),
 ];
 
+function RoomBoardCanvasWithLocalRefs(props: RoomBoardCanvasStoryProps) {
+  const boardScrollerRef = useRef<HTMLDivElement>(null);
+  const ideaMapPlaneRef = useRef<HTMLDivElement>(null);
+  const privateToolbarRef = useRef<HTMLDivElement>(null);
+  return (
+    <RoomBoardCanvas
+      {...props}
+      boardScrollerRef={boardScrollerRef}
+      ideaMapPlaneRef={ideaMapPlaneRef}
+      privateToolbarRef={privateToolbarRef}
+    />
+  );
+}
+
 const meta = {
   title: "Room/RoomBoardCanvas",
-  component: RoomBoardCanvas,
+  component: RoomBoardCanvasWithLocalRefs,
+  render: (args) => <RoomBoardCanvasWithLocalRefs {...args} />,
   parameters: {
     layout: "fullscreen",
   },
@@ -67,14 +93,15 @@ const meta = {
     selectedNoteId: null,
     draggingNoteId: null,
     isDisconnected: false,
+    ideaMapSizeLevel: 0,
+    ideaMapSizeInitialized: true,
+    ideaMapIsDragging: false,
+    onIdeaMapResize: fn(),
     voteRemaining: { subjective: 5, objective: 10 },
     selectedVoteKind: null,
     pendingVoteOperations: [],
     dragGhost: null,
     isReturnDropTarget: false,
-    boardScrollerRef: createRef<HTMLDivElement>(),
-    ideaMapPlaneRef: createRef<HTMLDivElement>(),
-    privateToolbarRef: createRef<HTMLDivElement>(),
     camera: { x: 0, y: 0, zoom: 1 },
     gridStyle: {},
     isPanning: false,
@@ -97,7 +124,10 @@ const meta = {
     onNoteVoteRemove: fn(),
     onNoteVoteStickerRemove: fn(),
     onNoteVoteStickerDragStart: fn(),
-    onNoteDecide: fn(),
+    isAdoptMode: false,
+    adoptionFocusNoteId: null,
+    onAdoptionFocusChange: fn(),
+    onAdoptNote: fn(),
     onGroupCreate: fn(),
     onGroupUpdateName: fn(),
     onAddPrivateNote: fn(),
@@ -113,13 +143,61 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof RoomBoardCanvas>;
+} satisfies Meta<typeof RoomBoardCanvasWithLocalRefs>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 // success相当: 付箋が配置されている状態。
 export const WithNotes: Story = {};
+
+function ClickToFrontPreview({ args }: { args: RoomBoardCanvasStoryProps }) {
+  const [notes, setNotes] = useState(args.notes);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  return (
+    <RoomBoardCanvasWithLocalRefs
+      {...args}
+      notes={notes}
+      selectedNoteId={selectedNoteId}
+      onSelect={(noteId) => {
+        setSelectedNoteId(noteId);
+        if (noteId === null) return;
+        const nextStackOrder =
+          Math.max(...notes.map(({ stackOrder }) => stackOrder)) + 1;
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === noteId ? { ...note, stackOrder: nextStackOrder } : note,
+          ),
+        );
+      }}
+    />
+  );
+}
+
+// 重なった付箋をクリックすると、選択解除後も最前面の順序が維持される状態。
+export const ClickToFront: Story = {
+  args: {
+    phase: STEP_1_2,
+    permissions: getBoardPermissions(STEP_1_2),
+    notes: [
+      buildNote({
+        id: "note-back",
+        content: "クリックすると手前に来る付箋",
+        x: 120,
+        y: 90,
+        stackOrder: 1,
+      }),
+      buildNote({
+        id: "note-front",
+        content: "最初は手前にある付箋",
+        x: 240,
+        y: 170,
+        stackOrder: 2,
+      }),
+    ],
+  },
+  render: (args) => <ClickToFrontPreview args={args} />,
+};
 
 // empty相当: まだ誰も付箋を置いていない状態。
 export const Empty: Story = {
@@ -157,9 +235,30 @@ export const GroupsHiddenBeforeGrouping: Story = {
 export const DraggingGhost: Story = {
   args: {
     dragGhost: {
-      note: buildNote({ id: "ghost", content: "運んでいる付箋" }),
+      note: buildNote({
+        id: "ghost",
+        color: "yellow",
+        content: "運んでいる付箋",
+      }),
       x: 240,
       y: 160,
+    },
+  },
+};
+
+// 2軸マップ上でも色に合う前景色を使い、白背景で読めるゴースト。
+export const IdeaMapDraggingGhost: Story = {
+  args: {
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+    dragGhost: {
+      note: buildNote({
+        id: "idea-map-ghost",
+        color: "blue",
+        content: "2軸マップを移動中",
+      }),
+      x: 64,
+      y: 72,
     },
   },
 };
@@ -195,7 +294,7 @@ export const ReadyToDecide: Story = {
   args: {
     phase: STEP_1_5,
     permissions: getBoardPermissions(STEP_1_5),
-    selectedNoteId: "note-1",
+    isAdoptMode: true,
   },
 };
 
@@ -257,6 +356,138 @@ export const Decided: Story = {
   },
 };
 
+function TwoClientAdoptionFocusPreview({
+  args,
+}: {
+  args: RoomBoardCanvasStoryProps;
+}) {
+  const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
+    null,
+  );
+  const client = (isHost: boolean) => (
+    <RoomBoardCanvas
+      {...args}
+      isHost={isHost}
+      isAdoptMode={isHost}
+      adoptionFocusNoteId={adoptionFocusNoteId}
+      onAdoptionFocusChange={setAdoptionFocusNoteId}
+      boardScrollerRef={createRef<HTMLDivElement>()}
+      ideaMapPlaneRef={createRef<HTMLDivElement>()}
+      privateToolbarRef={createRef<HTMLDivElement>()}
+    />
+  );
+
+  return (
+    <div className="grid h-[70vh] w-full grid-cols-2 gap-4">
+      <section
+        aria-label="ホストクライアント"
+        className="flex min-h-0 flex-col"
+      >
+        <h2 className="mb-2 text-sm font-bold">ホスト</h2>
+        {client(true)}
+      </section>
+      <section
+        aria-label="参加者クライアント"
+        className="flex min-h-0 flex-col"
+      >
+        <h2 className="mb-2 text-sm font-bold">参加者</h2>
+        {client(false)}
+      </section>
+    </div>
+  );
+}
+
+export const TwoClientSharedAdoptionFocus: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: [buildNote({ id: "note-1", content: "共有中の候補", x: 40, y: 80 })],
+  },
+  render: (args) => <TwoClientAdoptionFocusPreview args={args} />,
+};
+
+function TwoClientAdoptionReselectionPreview({
+  args,
+}: {
+  args: RoomBoardCanvasStoryProps;
+}) {
+  const [isAdoptMode, setIsAdoptMode] = useState(true);
+  const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
+    null,
+  );
+  const client = (isHost: boolean) => (
+    <RoomBoardCanvas
+      {...args}
+      isHost={isHost}
+      isAdoptMode={isHost && isAdoptMode}
+      adoptionFocusNoteId={adoptionFocusNoteId}
+      onAdoptionFocusChange={setAdoptionFocusNoteId}
+      onAdoptNote={() => {
+        setAdoptionFocusNoteId(null);
+        setIsAdoptMode(false);
+      }}
+      boardScrollerRef={createRef<HTMLDivElement>()}
+      ideaMapPlaneRef={createRef<HTMLDivElement>()}
+      privateToolbarRef={createRef<HTMLDivElement>()}
+    />
+  );
+
+  return (
+    <div className="flex h-[70vh] w-full flex-col gap-3">
+      {!isAdoptMode ? (
+        <button
+          type="button"
+          className="self-start rounded border px-3 py-2 text-sm"
+          onClick={() => setIsAdoptMode(true)}
+        >
+          確定を取り消して選び直す
+        </button>
+      ) : null}
+      <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
+        <section
+          aria-label="ホストクライアント"
+          className="flex min-h-0 flex-col"
+        >
+          <h2 className="mb-2 text-sm font-bold">ホスト</h2>
+          {client(true)}
+        </section>
+        <section
+          aria-label="参加者クライアント"
+          className="flex min-h-0 flex-col"
+        >
+          <h2 className="mb-2 text-sm font-bold">参加者</h2>
+          {client(false)}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+export const TwoClientAdoptionReselection: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: [
+      buildNote({ id: "note-1", content: "前回選んだ候補", x: 40, y: 80 }),
+      buildNote({ id: "note-2", content: "今回選ぶ候補", x: 300, y: 80 }),
+    ],
+  },
+  render: (args) => <TwoClientAdoptionReselectionPreview args={args} />,
+};
+
+const STEP_3_5 = buildPhaseStep(5, 3);
+
+export const TwoClientSharedIdeaAdoptionFocus: Story = {
+  args: {
+    phase: STEP_3_5,
+    permissions: getBoardPermissions(STEP_3_5),
+    notes: [
+      buildNote({ id: "note-1", content: "共有中のアイデア", x: 50, y: 50 }),
+    ],
+  },
+  render: (args) => <TwoClientAdoptionFocusPreview args={args} />,
+};
+
 // Step1-1: 個人で付箋を書く
 export const Step1Writing: Story = {
   args: {
@@ -301,7 +532,7 @@ export const Step1Result: Story = {
   args: {
     phase: STEP_1_5,
     permissions: getBoardPermissions(STEP_1_5),
-    selectedNoteId: "note-1",
+    isAdoptMode: true,
   },
 };
 
@@ -321,6 +552,111 @@ const fixedSizeMapArgs = {
     buildNote({ id: "map-left", content: "アイデア A", x: 25, y: 25 }),
     buildNote({ id: "map-right", content: "アイデア B", x: 75, y: 75 }),
   ],
+};
+
+const IDEA_MAP_CAMERA = { x: 312, y: 172, zoom: 0.5 };
+const IDEA_MAP_VIEWPORT = [
+  (Story: ComponentType) => (
+    <div className="flex h-[720px] w-[1280px] p-4">
+      <Story />
+    </div>
+  ),
+];
+
+function buildIdeaMapPreviewNotes(
+  count: number,
+  layout: "spread" | "concentrated",
+) {
+  return buildNotes(count).map((note, index) => {
+    if (layout === "spread") {
+      const columns = 8;
+      return {
+        ...note,
+        content: `アイデア ${index + 1}`,
+        x: 25 + (index % columns) * (50 / (columns - 1)),
+        y: 25 + Math.floor(index / columns) * 12.5,
+      };
+    }
+    return {
+      ...note,
+      content: `集中した案 ${index + 1}`,
+      x: 40 + (index % 8) * 2.8,
+      y: 40 + Math.floor(index / 8) * 3.5,
+    };
+  });
+}
+
+function HostIdeaMapResizePreview({
+  args,
+}: {
+  args: RoomBoardCanvasStoryProps;
+}) {
+  const [sizeLevel, setSizeLevel] = useState(args.ideaMapSizeLevel ?? 0);
+  return (
+    <RoomBoardCanvasWithLocalRefs
+      {...args}
+      ideaMapSizeLevel={sizeLevel}
+      ideaMapSizeInitialized
+      onIdeaMapResize={setSizeLevel}
+    />
+  );
+}
+
+// 少数・多数・集中配置は同じ viewport と zoom で初期サイズを比較する。
+export const IdeaMapFewNotes: Story = {
+  name: "2軸マップ / 少数の付箋",
+  args: {
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+    notes: [
+      buildNote({ id: "idea-left", content: "小さく試す", x: 8, y: 12 }),
+      buildNote({ id: "idea-center", content: "使い方を教える", x: 50, y: 52 }),
+      buildNote({ id: "idea-right", content: "自動化する", x: 92, y: 88 }),
+    ],
+    ideaMapSizeLevel: 0,
+    camera: IDEA_MAP_CAMERA,
+  },
+  decorators: IDEA_MAP_VIEWPORT,
+};
+
+export const IdeaMapManyNotes: Story = {
+  name: "2軸マップ / 多数の分散付箋",
+  args: {
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+    notes: buildIdeaMapPreviewNotes(40, "spread"),
+    ideaMapSizeLevel: 4,
+    camera: IDEA_MAP_CAMERA,
+  },
+  decorators: IDEA_MAP_VIEWPORT,
+};
+
+export const IdeaMapConcentratedNotes: Story = {
+  name: "2軸マップ / 多数の集中付箋",
+  args: {
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+    notes: buildIdeaMapPreviewNotes(40, "concentrated"),
+    ideaMapSizeLevel: 4,
+    camera: IDEA_MAP_CAMERA,
+  },
+  decorators: IDEA_MAP_VIEWPORT,
+};
+
+export const HostCanResizeIdeaMap: Story = {
+  name: "2軸マップ / ホストが広さを調整",
+  args: {
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+    notes: [
+      buildNote({ id: "resize-a", content: "価値を広げる", x: 20, y: 30 }),
+      buildNote({ id: "resize-b", content: "早く試す", x: 76, y: 72 }),
+    ],
+    ideaMapSizeLevel: 2,
+    camera: IDEA_MAP_CAMERA,
+  },
+  decorators: IDEA_MAP_VIEWPORT,
+  render: (args) => <HostIdeaMapResizePreview args={args} />,
 };
 
 export const IdeaMapZoom50: Story = {

@@ -22,6 +22,7 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
+import type { SharingState } from "@/contracts/room-protocol";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
@@ -35,8 +36,9 @@ import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
-import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
+import type { StepGuideState } from "../logic/use-step-guide";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
+import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
@@ -48,10 +50,20 @@ export type RoomBoardViewProps = {
   inviteCode: string;
   inviteUrl: string;
   phase: RoomPhase;
+  phaseRevision?: number;
+  ideaMapSizeLevel?: number;
+  ideaMapSizeInitialized?: boolean;
+  ideaMapIsDragging?: boolean;
+  onIdeaMapResize?: (sizeLevel: number) => void;
+  sharing?: SharingState | null;
+  onSharingStart?: (durationMs: number) => void;
+  onSharingAdvance?: (outcome: "done" | "passed") => void;
   timer: TimerState;
   timerServerOffsetMs: number;
+  timerUpdateVersion?: number;
   isHost: boolean;
   decision: Decision | null;
+  adoptionFocusNoteId?: string | null;
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
   connectionStatus: RoomScreenConnectionStatus;
@@ -65,8 +77,7 @@ export type RoomBoardViewProps = {
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
-  initialGuideExpanded?: boolean;
-  enableGuideModal?: boolean;
+  initialGuideState?: StepGuideState;
   remoteCursors: RenderedRemoteCursorPresence[];
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
@@ -80,7 +91,9 @@ export type RoomBoardViewProps = {
   onPrivateNoteContentChange: (noteId: string, content: string) => void;
   onPrivateNoteDelete: (noteId: string) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
+  onNoteFontSizeChange?: (noteId: string, fontSize: number) => void;
   onNoteDelete: (noteId: string) => void;
+  onNoteBringToFront: (noteId: string) => void;
   onNoteExclude?: (noteId: string) => void;
   onNoteRestore?: (noteId: string) => void;
   onBulkCandidateExclude?: () => void;
@@ -102,6 +115,9 @@ export type RoomBoardViewProps = {
   }>;
   voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
+  onAdoptionFocusChange?: (noteId: string | null) => void;
+  onRestartWriting?: () => void;
+  onRevote?: () => void;
   // 退出。
   onLeave: () => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
@@ -137,10 +153,20 @@ export function RoomBoardView({
   inviteCode,
   inviteUrl,
   phase,
+  phaseRevision = 0,
+  ideaMapSizeLevel = 0,
+  ideaMapSizeInitialized = false,
+  ideaMapIsDragging = false,
+  onIdeaMapResize = () => undefined,
+  sharing = null,
+  onSharingStart,
+  onSharingAdvance,
   timer,
   timerServerOffsetMs,
+  timerUpdateVersion = 0,
   isHost,
   decision,
+  adoptionFocusNoteId = null,
   connectionStatus,
   draggingNoteId,
   members,
@@ -160,6 +186,7 @@ export function RoomBoardView({
   onPrivateNoteContentChange,
   onPrivateNoteDelete,
   onNoteContentChange,
+  onNoteFontSizeChange = () => undefined,
   onNoteDelete,
   onNoteExclude = () => undefined,
   onNoteRestore = () => undefined,
@@ -173,6 +200,10 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onNoteBringToFront,
+  onAdoptionFocusChange: notifyAdoptionFocusChange,
+  onRestartWriting = () => undefined,
+  onRevote = () => undefined,
   onLeave,
   isLeaving,
   onNextPhase,
@@ -181,12 +212,12 @@ export function RoomBoardView({
   onTimerResume,
   onTimerExtend,
   onTimerStop,
-  initialGuideExpanded = true,
-  enableGuideModal = true,
+  initialGuideState,
 }: RoomBoardViewProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
@@ -194,61 +225,72 @@ export function RoomBoardView({
   const [isVoteStickerReturnDropTarget, setIsVoteStickerReturnDropTarget] =
     useState(false);
   const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
+  const sharedAdoptionFocusRef = useRef<string | null>(null);
   const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
     null,
   );
   const [voteStampPointer, setVoteStampPointer] =
     useState<VoteStampPointer | null>(null);
   const suppressPaletteSelectRef = useRef(false);
-  const [guideDisplay, setGuideDisplay] = useState({
-    phaseKey,
-    isExpanded: initialGuideExpanded,
-    isInitialModal: true,
-  });
-  const previousGuidePhaseKeyRef = useRef(phaseKey);
-  const [privateNotesOpenRequest, setPrivateNotesOpenRequest] = useState(0);
-
+  const previousPhaseKey = useRef(phaseKey);
+  const previousRevision = useRef(phaseRevision);
+  const resultShownFor = useRef<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-  const isGuideExpanded =
-    guideDisplay.phaseKey === phaseKey ? guideDisplay.isExpanded : true;
-  const permissions = getBoardPermissions(phase);
-  const isPhaseOneGuideStep =
-    phase.kind === "step" &&
-    phase.phase === 1 &&
-    (phase.step === 1 || phase.step === 2);
-  const isInitialGuideModal =
-    guideDisplay.phaseKey !== phaseKey || guideDisplay.isInitialModal;
-
-  function handleGuidePrimaryAction() {
-    if (
-      phase.kind === "step" &&
-      phase.step === 1 &&
-      permissions.canCreateNote
-    ) {
-      setPrivateNotesOpenRequest((request) => request + 1);
-      setGuideDisplay({ phaseKey, isExpanded: false, isInitialModal: false });
-      return;
-    }
-    setGuideDisplay({ phaseKey, isExpanded: false, isInitialModal: false });
-  }
+  const permissions = getBoardPermissions(phase, decision !== null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    if (previousGuidePhaseKeyRef.current === phaseKey) return;
-    previousGuidePhaseKeyRef.current = phaseKey;
-    setGuideDisplay({
-      phaseKey,
-      isExpanded: true,
-      isInitialModal: true,
-    });
+    if (previousPhaseKey.current === phaseKey) return;
+    previousPhaseKey.current = phaseKey;
+    setIsAdoptMode(false);
   }, [phaseKey]);
 
   useEffect(() => {
+    if (previousRevision.current === phaseRevision) return;
+    previousRevision.current = phaseRevision;
+    setIsAdoptMode(false);
+  }, [phaseRevision]);
+
+  useEffect(() => {
+    if (connectionStatus === "open" && isHost && decision === null) return;
+    setIsAdoptMode(false);
+  }, [connectionStatus, decision, isHost]);
+
+  useEffect(() => {
+    if (isAdoptMode || sharedAdoptionFocusRef.current === null) return;
+    sharedAdoptionFocusRef.current = null;
+    notifyAdoptionFocusChange?.(null);
+  }, [isAdoptMode, notifyAdoptionFocusChange]);
+
+  useEffect(
+    () => () => {
+      if (sharedAdoptionFocusRef.current !== null) {
+        notifyAdoptionFocusChange?.(null);
+      }
+    },
+    [notifyAdoptionFocusChange],
+  );
+
+  useEffect(() => {
+    if (!isAdoptMode) return;
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsAdoptMode(false);
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [isAdoptMode]);
+
+  useEffect(() => {
+    const resultKey = `${phaseKey}:${phaseRevision}`;
+    if (resultShownFor.current === resultKey) return;
+    resultShownFor.current = resultKey;
     setVoteTotalingDialogOpen(isResultStep(phase));
-  }, [phase]);
+  }, [phase, phaseKey, phaseRevision]);
 
   useEffect(() => {
     if (isVotingStep(phase)) return;
@@ -296,7 +338,9 @@ export function RoomBoardView({
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
-  const candidateNotes = notes.filter((note) => !note.excluded);
+  const candidateNotes = notes.filter(
+    (note) => note.visibility === "shared" && !note.excluded,
+  );
   const bulkExclusionTargetCount = notes.filter(
     (note) =>
       note.visibility === "shared" &&
@@ -306,8 +350,31 @@ export function RoomBoardView({
       note.dotVotes.objective.count === 0,
   ).length;
   const isNextPhaseBlocked =
-    isResultStep(phase) && (decision === null || candidateNotes.length === 0);
+    (isResultStep(phase) &&
+      (decision === null || candidateNotes.length === 0)) ||
+    (phase.kind === "step" &&
+      phase.step > 1 &&
+      !isResultStep(phase) &&
+      candidateNotes.length === 0);
   const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
+  const decisionContent =
+    decision === null
+      ? null
+      : (notes.find((note) => note.id === decision.noteId)?.content ??
+        "確定した内容");
+
+  function handleAdoptNote(noteId: string) {
+    if (!isAdoptMode) return;
+    handleAdoptionFocusChange(null);
+    setIsAdoptMode(false);
+    onNoteDecide(noteId);
+  }
+
+  function handleAdoptionFocusChange(noteId: string | null): void {
+    if (sharedAdoptionFocusRef.current === noteId) return;
+    sharedAdoptionFocusRef.current = noteId;
+    notifyAdoptionFocusChange?.(noteId);
+  }
 
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
     const target = document.elementFromPoint(clientX, clientY);
@@ -586,19 +653,33 @@ export function RoomBoardView({
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
+  const handleNoteSelect = (noteId: string | null) => {
+    setSelectedNoteId(noteId);
+    const isSharedNote =
+      noteId !== null && renderedNotes.some(({ id }) => id === noteId);
+    if (
+      noteId !== null &&
+      isSharedNote &&
+      permissions.canMoveNote &&
+      !isDisconnected
+    ) {
+      onNoteBringToFront(noteId);
+    }
+  };
 
   return (
     <div
       ref={boardRootRef}
       data-testid="room-board-view-root"
-      data-guide-expanded={String(isGuideExpanded)}
       data-connection-status={connectionStatus}
       className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
         isNoteDragging
           ? "cursor-grabbing"
-          : selectedVoteKind !== null
+          : isAdoptMode
             ? "cursor-crosshair"
-            : ""
+            : selectedVoteKind !== null
+              ? "cursor-crosshair"
+              : ""
       }`}
       onClickCapture={handleRootClickCapture}
       onPointerMove={handleRootPointerMove}
@@ -612,8 +693,16 @@ export function RoomBoardView({
         inviteCode={inviteCode}
         inviteUrl={inviteUrl}
         phase={phase}
+        phaseRevision={phaseRevision}
+        bulkExclusionTargetCount={bulkExclusionTargetCount}
+        canManageCandidates={isResultStep(phase) && decision === null}
+        onBulkCandidateExclude={onBulkCandidateExclude}
+        sharing={sharing}
+        onSharingStart={onSharingStart}
+        onSharingAdvance={onSharingAdvance}
         timer={timer}
         timerServerOffsetMs={timerServerOffsetMs}
+        timerUpdateVersion={timerUpdateVersion}
         isHost={isHost}
         isDisconnected={isDisconnected}
         connectionStatus={connectionStatus}
@@ -623,33 +712,11 @@ export function RoomBoardView({
         completedVoterIds={completedVoterIds}
         isNextPhasePending={isNextPhasePending}
         isNextPhaseBlocked={isNextPhaseBlocked}
-        isGuideExpanded={isGuideExpanded}
+        initialGuideState={initialGuideState}
         isSprintComplete={isSprintComplete}
         signOutAction={signOutAction}
         isLeaving={isLeaving}
         onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
-        onGuideExpandedChange={(isExpanded) =>
-          setGuideDisplay({
-            ...guideDisplay,
-            phaseKey,
-            isExpanded,
-            isInitialModal: isExpanded ? guideDisplay.isInitialModal : false,
-          })
-        }
-        onPrimaryAction={
-          enableGuideModal ? handleGuidePrimaryAction : undefined
-        }
-        isInitialModal={isInitialGuideModal}
-        onOpenPanel={
-          enableGuideModal && isPhaseOneGuideStep
-            ? () =>
-                setGuideDisplay({
-                  phaseKey,
-                  isExpanded: true,
-                  isInitialModal: false,
-                })
-            : undefined
-        }
         onLeaveClick={() => setLeaveDialogOpen(true)}
         onNextPhase={onNextPhase}
         onTimerStart={onTimerStart}
@@ -672,11 +739,16 @@ export function RoomBoardView({
         phase={phase}
         permissions={permissions}
         decision={decision}
+        adoptionFocusNoteId={adoptionFocusNoteId}
         isHost={isHost}
         privateNotes={toolbarNotes}
         selectedNoteId={selectedNoteId}
         draggingNoteId={draggingNoteId}
         isDisconnected={isDisconnected}
+        ideaMapSizeLevel={ideaMapSizeLevel}
+        ideaMapSizeInitialized={ideaMapSizeInitialized}
+        ideaMapIsDragging={ideaMapIsDragging || isNoteDragging}
+        onIdeaMapResize={onIdeaMapResize}
         voteRemaining={voteRemaining}
         selectedVoteKind={selectedVoteKind}
         pendingVoteOperations={pendingVoteOperations}
@@ -697,9 +769,10 @@ export function RoomBoardView({
         onZoomOut={zoomOut}
         onResetZoom={resetZoom}
         onFitToNotes={fitToNotes}
-        onSelect={setSelectedNoteId}
+        onSelect={handleNoteSelect}
         onNoteDragStart={handleSharedNoteDragStart}
         onNoteContentChange={onNoteContentChange}
+        onNoteFontSizeChange={onNoteFontSizeChange}
         onNoteDelete={onNoteDelete}
         onNoteExclude={onNoteExclude}
         onNoteRestore={onNoteRestore}
@@ -707,7 +780,9 @@ export function RoomBoardView({
         onNoteVoteRemove={onNoteVoteRemove}
         onNoteVoteStickerRemove={onNoteVoteStickerRemove}
         onNoteVoteStickerDragStart={handleVoteStickerDragStart}
-        onNoteDecide={onNoteDecide}
+        isAdoptMode={isAdoptMode}
+        onAdoptionFocusChange={handleAdoptionFocusChange}
+        onAdoptNote={handleAdoptNote}
         onGroupCreate={onGroupCreate}
         onGroupUpdateName={onGroupUpdateName}
         onAddPrivateNote={onAddPrivateNote}
@@ -715,8 +790,6 @@ export function RoomBoardView({
         onPrivateNoteDelete={onPrivateNoteDelete}
         onPrivateNoteDragStart={handlePrivateDragStart}
         remoteCursors={remoteCursors}
-        expandPrivateNotesRequest={privateNotesOpenRequest}
-        addPrivateNoteRequest={privateNotesOpenRequest}
       />
 
       {isVotingStep(phase) ? (
@@ -737,15 +810,27 @@ export function RoomBoardView({
         </div>
       ) : null}
 
-      {isHost && isResultStep(phase) ? (
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center">
-          <BulkCandidateExclusion
-            targetCount={bulkExclusionTargetCount}
-            disabled={isDisconnected}
-            onConfirm={onBulkCandidateExclude}
-          />
-        </div>
-      ) : null}
+      <div
+        className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
+        data-testid="phase-loop-hud"
+      >
+        <PhaseLoopControls
+          key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
+          phase={phase}
+          isHost={isHost}
+          isSelecting={isAdoptMode}
+          decisionContent={decisionContent}
+          candidateCount={candidateNotes.length}
+          disabled={isDisconnected || isNextPhasePending}
+          onRestartWriting={onRestartWriting}
+          onRevote={onRevote}
+          onStartSelection={() => {
+            setSelectedNoteId(null);
+            setIsAdoptMode(true);
+          }}
+          onCancelSelection={() => setIsAdoptMode(false)}
+        />
+      </div>
 
       {voteStickerDrag !== null ? (
         <div
@@ -780,6 +865,7 @@ export function RoomBoardView({
         </div>
       ) : null}
 
+      {/* 採用操作の入口は画面下に一本化し、集計ダイアログでは結果の確認だけを行う。 */}
       <VoteTotalingDialog
         open={voteTotalingDialogOpen}
         onOpenChange={setVoteTotalingDialogOpen}
@@ -787,7 +873,7 @@ export function RoomBoardView({
         members={members}
         notes={notes}
         decision={decision}
-        isHost={isHost}
+        isHost={false}
         isDisconnected={isDisconnected}
         onNoteDecide={onNoteDecide}
       />

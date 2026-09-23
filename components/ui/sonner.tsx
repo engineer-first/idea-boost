@@ -1,5 +1,4 @@
-// sonner の Toaster。shadcn 流のラッパーで、テーマ（dark / light / system）と
-// 位置を上書きするためのオプションを expose する。
+// ライト表示の通知。表示位置だけを呼び出し側で変更できる。
 "use client";
 
 import { Toaster as SonnerToaster } from "sonner";
@@ -18,6 +17,7 @@ export type ToasterProps = {
 export function Toaster({ position = "bottom-right" }: ToasterProps = {}) {
   return (
     <SonnerToaster
+      theme="light"
       position={position}
       // sonner の既定スタイルは shadcn 風に調整
       toastOptions={{

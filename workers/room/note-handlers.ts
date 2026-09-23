@@ -1,6 +1,7 @@
 // note:* メッセージのハンドラ。各ハンドラは
 // 「認可（author / 可視性）→ 保存 → 配信 → 必要なら自動再編成」の順で閉じる。
 import {
+  NOTE_DEFAULT_FONT_SIZE,
   NOTE_SPAWN_JITTER,
   NOTE_SPAWN_X_MIN,
   NOTE_SPAWN_Y_MIN,
@@ -19,8 +20,10 @@ import {
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
+import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { getMemberColor, isHostUser } from "./members";
 import {
+  bringNoteToFront,
   broadcastNoteInserted,
   broadcastNoteUpdated,
   broadcastVoteUpdated,
@@ -42,6 +45,7 @@ import {
   touchNote,
   unpublishNote,
   updateNoteContent,
+  updateNoteFontSize,
 } from "./notes";
 import { getPhase, isPersonalWritingStep } from "./phase";
 import {
@@ -96,7 +100,9 @@ export const noteHandlers: MessageHandlers<
   | "note:publish"
   | "note:unpublish"
   | "note:update-content"
+  | "note:update-font-size"
   | "note:move"
+  | "note:bring-to-front"
   | "note:drag:start"
   | "note:drag:move"
   | "note:drag:end"
@@ -127,6 +133,7 @@ export const noteHandlers: MessageHandlers<
       content: message.content ?? "",
       visibility: "private",
       color: color,
+      font_size: NOTE_DEFAULT_FONT_SIZE,
       x: NOTE_SPAWN_X_MIN + Math.random() * NOTE_SPAWN_JITTER,
       y: NOTE_SPAWN_Y_MIN + Math.random() * NOTE_SPAWN_JITTER,
       stack_order: 0,
@@ -177,7 +184,12 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
-    if (owner?.socket === ctx.ws) ctx.broadcaster.retireActiveDrag(ctx.ws);
+    const phase = getPhase(ctx.sql);
+    // 3-2 ではドックへ戻す pointerup/cancel まで匿名 map lock を維持する。
+    // 他フェーズでは従来どおり unpublish と同時にドラッグを終了する。
+    if (owner?.socket === ctx.ws && !isIdeaMapVisiblePhase(phase)) {
+      ctx.broadcaster.retireActiveDrag(ctx.ws);
+    }
     // shared の行を消す通知は、可視性を変える前に全メンバーへ送る。
     ctx.broadcaster.broadcast(
       { type: "note:deleted", noteId: message.noteId },
@@ -214,6 +226,31 @@ export const noteHandlers: MessageHandlers<
     });
   },
 
+  "note:update-font-size": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      !canEdit(row, ctx.userId) ||
+      row.excluded ||
+      isFrozenSharedNoteAtPersonalStep(ctx, row)
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    updateNoteFontSize(ctx.sql, message.noteId, message.fontSize, updatedAt);
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      {
+        ...row,
+        font_size: message.fontSize,
+        updated_at: updatedAt,
+      },
+      message.operationId,
+    );
+  },
+
   "note:move": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
@@ -247,6 +284,27 @@ export const noteHandlers: MessageHandlers<
     }
   },
 
+  "note:bring-to-front": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      row.visibility !== "shared" ||
+      row.excluded ||
+      !canEdit(row, ctx.userId) ||
+      ctx.broadcaster.findActiveDrag(message.noteId)
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    const stackOrder = bringNoteToFront(ctx.sql, message.noteId, updatedAt);
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      stack_order: stackOrder,
+      updated_at: updatedAt,
+    });
+  },
+
   "note:drag:start": (ctx, message) => {
     const row = findNote(ctx.sql, message.noteId);
     const phase = getPhase(ctx.sql);
@@ -255,9 +313,17 @@ export const noteHandlers: MessageHandlers<
     const isActiveRetry = Boolean(
       current?.noteId === message.noteId && current.dragId === message.dragId,
     );
+    const isPrivateIdeaMapDrag = Boolean(
+      row?.visibility === "private" &&
+        phase.kind === "step" &&
+        phase.phase === 3 &&
+        phase.step === 2 &&
+        row.phase === 3 &&
+        row.author_id === ctx.userId,
+    );
     const accepted = Boolean(
       row &&
-        row.visibility === "shared" &&
+        (row.visibility === "shared" || isPrivateIdeaMapDrag) &&
         phase.kind === "step" &&
         row.phase === phase.phase &&
         canEdit(row, ctx.userId) &&
@@ -285,6 +351,9 @@ export const noteHandlers: MessageHandlers<
       dragId: message.dragId,
       accepted,
     });
+    if (accepted && isIdeaMapVisiblePhase(phase)) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+    }
   },
 
   "note:drag:move": (ctx, message) => {
@@ -297,12 +366,25 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = findNote(ctx.sql, message.noteId);
+    const phase = getPhase(ctx.sql);
+    if (
+      row?.visibility === "private" &&
+      isPhaseStep(phase, 3, 2) &&
+      row.phase === 3 &&
+      row.author_id === ctx.userId
+    ) {
+      // private drag start は内容を共有せず lock だけを保持する。
+      return;
+    }
     if (
       row?.visibility !== "shared" ||
       row.excluded ||
       !canEdit(row, ctx.userId)
     ) {
       ctx.broadcaster.retireActiveDrag(ctx.ws);
+      if (isIdeaMapVisiblePhase(phase)) {
+        broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      }
       return;
     }
     const updatedAt = new Date().toISOString();
@@ -332,12 +414,25 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = findNote(ctx.sql, message.noteId);
+    const phase = getPhase(ctx.sql);
     ctx.broadcaster.retireActiveDrag(ctx.ws);
+    if (
+      row?.visibility === "private" &&
+      isPhaseStep(phase, 3, 2) &&
+      row.phase === 3 &&
+      row.author_id === ctx.userId
+    ) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      return;
+    }
     if (
       row?.visibility !== "shared" ||
       row.excluded ||
       !canEdit(row, ctx.userId)
     ) {
+      if (isIdeaMapVisiblePhase(phase)) {
+        broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      }
       return;
     }
     const updatedAt = new Date().toISOString();
@@ -361,6 +456,9 @@ export const noteHandlers: MessageHandlers<
         }
       : (findNote(ctx.sql, message.noteId) ?? row);
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, current);
+    if (isIdeaMapVisiblePhase(phase)) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+    }
     autoReorganizeAtGroupingStep(ctx);
   },
 
@@ -378,6 +476,12 @@ export const noteHandlers: MessageHandlers<
     }
     const updatedAt = new Date().toISOString();
     setNoteExcluded(ctx.sql, row.id, true, updatedAt);
+    if (ctx.broadcaster.retireAdoptionFocusForNote(row.id)) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
       ...row,
       excluded: true,
@@ -427,6 +531,14 @@ export const noteHandlers: MessageHandlers<
         updatedAt,
       );
     });
+    if (
+      targets.some(({ id }) => ctx.broadcaster.retireAdoptionFocusForNote(id))
+    ) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     for (const row of targets) {
       broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
         ...row,
@@ -438,6 +550,7 @@ export const noteHandlers: MessageHandlers<
       type: "note:bulk-excluded",
       operationId,
       count: targets.length,
+      source: "manual",
     });
   },
 
@@ -508,7 +621,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -555,7 +672,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-reset": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -582,7 +703,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-remove": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -618,7 +743,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-sticker:add": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -705,6 +834,8 @@ export const noteHandlers: MessageHandlers<
     const target = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!target) return;
     if (
+      target.visibility !== "shared" ||
+      source.visibility !== "shared" ||
       !isVisibleTo(target, ctx.userId) ||
       target.excluded ||
       source.excluded
@@ -749,7 +880,11 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = requireNoteInCurrentPhase(ctx, sticker.note_id);
-    if (!row || !isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row?.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       if (row) replyForbidden(ctx);
       return;
     }

@@ -4,10 +4,16 @@
 // - parseClientMessage / parseServerMessage のラッパが「不正入力で null」
 //   を返すことを保証する（接続維持の挙動は workers/room-protocol.spec.ts）
 import { describe, expect, it } from "vitest";
+import {
+  IDEA_MAP_SIZE_LEVEL_RANGE,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_FONT_SIZE_RANGE,
+} from "./board";
 import { buildLobbyPhase, buildPhaseStep } from "./phase.fixture";
 import {
   ClientMessageSchema,
   DecisionSchema,
+  MEMBER_COLOR_ASSIGNMENT_ORDER,
   MemberSchema,
   NOTE_COLOR_PALETTE,
   NoteColorSchema,
@@ -37,6 +43,22 @@ describe("NoteColorSchema", () => {
 
   it("パレット外の色は拒否する", () => {
     expect(NoteColorSchema.safeParse("black").success).toBe(false);
+  });
+
+  it("割り当て優先順は20色すべてを一度ずつ含み、最初の6色を固定する", () => {
+    expect(MEMBER_COLOR_ASSIGNMENT_ORDER).toHaveLength(20);
+    expect(new Set(MEMBER_COLOR_ASSIGNMENT_ORDER).size).toBe(20);
+    expect([...MEMBER_COLOR_ASSIGNMENT_ORDER].sort()).toEqual(
+      [...NOTE_COLOR_PALETTE].sort(),
+    );
+    expect(MEMBER_COLOR_ASSIGNMENT_ORDER.slice(0, 6)).toEqual([
+      "yellow",
+      "blue",
+      "pink",
+      "green",
+      "purple",
+      "orange",
+    ]);
   });
 });
 
@@ -222,9 +244,89 @@ describe("NoteSchema", () => {
       false,
     );
   });
+
+  it("文字サイズを付箋ごとに受け入れ、旧形式は14pxとして補完する", () => {
+    expect(
+      NoteSchema.parse({
+        ...note,
+        visibility: "shared",
+        fontSize: NOTE_FONT_SIZE_RANGE.max,
+      }).fontSize,
+    ).toBe(24);
+    expect(NoteSchema.parse({ ...note, visibility: "shared" }).fontSize).toBe(
+      NOTE_DEFAULT_FONT_SIZE,
+    );
+  });
+
+  it.each([
+    11,
+    12.5,
+    25,
+    Number.POSITIVE_INFINITY,
+  ])("文字サイズ %s は拒否する", (fontSize) => {
+    expect(
+      NoteSchema.safeParse({
+        ...note,
+        visibility: "shared",
+        fontSize,
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("ServerMessageSchema", () => {
+  it("2軸マップの段階と匿名のドラッグ状態だけを受け入れる", () => {
+    const snapshot = ServerMessageSchema.parse({
+      type: "snapshot",
+      notes: [],
+      members: [],
+      phase: buildPhaseStep(2, 3),
+      isHost: false,
+      decision: null,
+      carryovers: [],
+      completedVoterIds: [],
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      ideaMapDragging: true,
+      timer: { status: "idle" },
+      serverNow: 1_700_000_000_000,
+    });
+    expect(snapshot).toMatchObject({
+      ideaMapSizeLevel: 2,
+      ideaMapSizeInitialized: true,
+      ideaMapDragging: true,
+    });
+
+    expect(
+      ServerMessageSchema.parse({
+        type: "idea-map:state",
+        sizeLevel: 2,
+        initialized: true,
+        isDragging: true,
+      }),
+    ).toEqual({
+      type: "idea-map:state",
+      sizeLevel: 2,
+      initialized: true,
+      isDragging: true,
+    });
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "idea-map:state",
+        sizeLevel: 2,
+        initialized: true,
+        isDragging: true,
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      }).success,
+    ).toBe(false);
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "idea-map:resized",
+        sizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max + 1,
+      }).success,
+    ).toBe(false);
+  });
+
   it("ドラッグ開始・移動・終了を UUID の dragId で相関し、開始結果を受け入れる", () => {
     const dragId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -313,6 +415,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: true,
       decision: null,
       carryovers: [],
@@ -325,6 +428,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: true,
       decision: null,
       carryovers: [],
@@ -339,6 +443,7 @@ describe("ServerMessageSchema", () => {
       type: "snapshot",
       notes: [],
       phase: LOBBY,
+      phaseRevision: 0,
     });
     expect(result.success).toBe(false);
   });
@@ -349,6 +454,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: false,
       decision: null,
       timer: { status: "idle" },
@@ -373,6 +479,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
+      phaseRevision: 0,
     });
     expect(result.success).toBe(false);
   });
@@ -383,6 +490,7 @@ describe("ServerMessageSchema", () => {
       notes: [],
       members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: true,
       timer: { status: "idle" },
       serverNow: 1_700_000_000_000,
@@ -391,19 +499,57 @@ describe("ServerMessageSchema", () => {
   });
 
   it("decision:updated はフェーズ・付箋・決定者を受け入れる", () => {
+    const decision = buildDecision({ phase: 1, decidedBy: USER_A });
     expect(
       ServerMessageSchema.parse({
         type: "decision:updated",
-        phase: 1,
-        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        decidedBy: USER_A,
+        decision,
       }),
     ).toEqual({
       type: "decision:updated",
-      phase: 1,
-      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-      decidedBy: USER_A,
+      decision,
     });
+  });
+
+  it("decision:updated は決定解除を null で受け入れる", () => {
+    expect(
+      ServerMessageSchema.parse({ type: "decision:updated", decision: null }),
+    ).toEqual({ type: "decision:updated", decision: null });
+  });
+
+  it("adoption-focus:updated は共有中の候補IDと解除の null を受け入れる", () => {
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    expect(
+      ServerMessageSchema.parse({
+        type: "adoption-focus:updated",
+        noteId,
+      }),
+    ).toEqual({ type: "adoption-focus:updated", noteId });
+    expect(
+      ServerMessageSchema.parse({
+        type: "adoption-focus:updated",
+        noteId: null,
+      }),
+    ).toEqual({ type: "adoption-focus:updated", noteId: null });
+  });
+
+  it("snapshot は再接続用の一時的な採用フォーカスを受け入れる", () => {
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    expect(
+      ServerMessageSchema.parse({
+        type: "snapshot",
+        notes: [],
+        members: [{ userId: USER_A, name: "Owner", color: "yellow" }],
+        phase: STEP_1_5,
+        isHost: false,
+        decision: null,
+        adoptionFocusNoteId: noteId,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: 1_700_000_000_000,
+      }),
+    ).toMatchObject({ adoptionFocusNoteId: noteId });
   });
 
   it("member_joined を受け入れる", () => {
@@ -420,34 +566,56 @@ describe("ServerMessageSchema", () => {
   it("phase:updated は lobby と課題整理ステップを受け入れる", () => {
     expect(
       ServerMessageSchema.parse({ type: "phase:updated", phase: LOBBY }),
-    ).toEqual({ type: "phase:updated", phase: LOBBY });
+    ).toEqual({ type: "phase:updated", phase: LOBBY, phaseRevision: 0 });
     expect(
       ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_1 }),
-    ).toEqual({ type: "phase:updated", phase: STEP_1_1 });
+    ).toEqual({ type: "phase:updated", phase: STEP_1_1, phaseRevision: 0 });
     expect(
       ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_2 }),
-    ).toEqual({ type: "phase:updated", phase: STEP_1_2 });
+    ).toEqual({ type: "phase:updated", phase: STEP_1_2, phaseRevision: 0 });
     expect(
       ServerMessageSchema.parse({ type: "phase:updated", phase: STEP_1_5 }),
-    ).toEqual({ type: "phase:updated", phase: STEP_1_5 });
+    ).toEqual({ type: "phase:updated", phase: STEP_1_5, phaseRevision: 0 });
   });
 
   it("phase:next クライアントメッセージを受け入れる", () => {
-    expect(ClientMessageSchema.parse({ type: "phase:next" })).toEqual({
+    expect(
+      ClientMessageSchema.parse({
+        type: "phase:next",
+        expectedPhase: STEP_1_2,
+        expectedRevision: 3,
+      }),
+    ).toEqual({
       type: "phase:next",
+      expectedPhase: STEP_1_2,
+      expectedRevision: 3,
     });
   });
 
   it("phase:next は force フラグを受け入れ、パース結果に保持する", () => {
     expect(
-      ClientMessageSchema.parse({ type: "phase:next", force: true }),
-    ).toEqual({ type: "phase:next", force: true });
+      ClientMessageSchema.parse({
+        type: "phase:next",
+        expectedPhase: STEP_1_2,
+        expectedRevision: 3,
+        force: true,
+      }),
+    ).toEqual({
+      type: "phase:next",
+      expectedPhase: STEP_1_2,
+      expectedRevision: 3,
+      force: true,
+    });
   });
 
   it("phase:next の force に boolean 以外は拒否する", () => {
     expect(
-      ClientMessageSchema.safeParse({ type: "phase:next", force: "yes" })
-        .success,
+      ClientMessageSchema.safeParse({
+        type: "phase:next",
+        expectedPhase: STEP_1_2,
+        expectedRevision: 3,
+        force: "yes",
+      }).success,
     ).toBe(false);
   });
 
@@ -523,6 +691,74 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("note:update-font-size は付箋ID・12〜24pxの整数・操作IDだけを受け入れる", () => {
+    const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const operationId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:update-font-size",
+        noteId,
+        fontSize: 18,
+        operationId,
+      }),
+    ).toEqual({
+      type: "note:update-font-size",
+      noteId,
+      fontSize: 18,
+      operationId,
+    });
+    for (const fontSize of [11, 12.5, 25, Number.POSITIVE_INFINITY]) {
+      expect(
+        ClientMessageSchema.safeParse({
+          type: "note:update-font-size",
+          noteId,
+          fontSize,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("ホスト要求はサイズ段階だけを送り、範囲外や個人情報を拒否する", () => {
+    expect(
+      ClientMessageSchema.parse({ type: "idea-map:resize", sizeLevel: 2 }),
+    ).toEqual({ type: "idea-map:resize", sizeLevel: 2 });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "idea-map:resize",
+        sizeLevel: IDEA_MAP_SIZE_LEVEL_RANGE.max + 1,
+      }).success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "idea-map:resize",
+        sizeLevel: 1,
+        noteCount: 12,
+        userId: USER_A,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("note:bring-to-front は noteId だけを受け入れる", () => {
+    const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+    expect(
+      ClientMessageSchema.parse({ type: "note:bring-to-front", noteId }),
+    ).toEqual({ type: "note:bring-to-front", noteId });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:bring-to-front",
+        noteId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:bring-to-front",
+        noteId,
+        authorId: USER_A,
+      }).success,
+    ).toBe(false);
+  });
+
   it("一括候補外は対象IDや認可情報を受け取らず、Undoはoperation IDだけを受け入れる", () => {
     const operationId = "33333333-3333-4333-8333-333333333333";
     expect(
@@ -783,6 +1019,40 @@ describe("ClientMessageSchema", () => {
     });
   });
 
+  it("decision:clear は認可情報を持たないメッセージとして受け入れる", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "decision:clear",
+        phase: 99,
+        decidedBy: "attacker-id",
+      }),
+    ).toEqual({ type: "decision:clear" });
+  });
+
+  it("adoption-focus:update は UUID または null だけを受け入れ、認可情報を除去する", () => {
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    expect(
+      ClientMessageSchema.parse({
+        type: "adoption-focus:update",
+        noteId,
+        userId: USER_B,
+        isHost: true,
+      }),
+    ).toEqual({ type: "adoption-focus:update", noteId });
+    expect(
+      ClientMessageSchema.parse({
+        type: "adoption-focus:update",
+        noteId: null,
+      }),
+    ).toEqual({ type: "adoption-focus:update", noteId: null });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "adoption-focus:update",
+        noteId: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
   it("start_phase を受け入れる", () => {
     expect(ClientMessageSchema.parse({ type: "start_phase" })).toEqual({
       type: "start_phase",
@@ -821,11 +1091,38 @@ describe("一括候補外のサーバー確定通知", () => {
       type,
       operationId: "33333333-3333-4333-8333-333333333333",
       count: 2,
+      ...(type === "note:bulk-excluded" ? { source: "manual" as const } : {}),
     };
     expect(ServerMessageSchema.parse(message)).toEqual(message);
     expect(
       ServerMessageSchema.safeParse({ ...message, count: -1 }).success,
     ).toBe(false);
+  });
+
+  it("自動整理の通知は投票完了後のステップ移行が起点だと識別できる", () => {
+    const message = {
+      type: "note:bulk-excluded" as const,
+      operationId: "33333333-3333-4333-8333-333333333333",
+      count: 2,
+      source: "phase-transition",
+    };
+
+    expect(ServerMessageSchema.parse(message)).toEqual(message);
+  });
+
+  it("旧Workerの一括候補外通知は手動操作として補完する", () => {
+    expect(
+      ServerMessageSchema.parse({
+        type: "note:bulk-excluded",
+        operationId: "33333333-3333-4333-8333-333333333333",
+        count: 2,
+      }),
+    ).toEqual({
+      type: "note:bulk-excluded",
+      operationId: "33333333-3333-4333-8333-333333333333",
+      count: 2,
+      source: "manual",
+    });
   });
 });
 
@@ -894,6 +1191,7 @@ describe("parseServerMessage", () => {
           notes: [],
           members: [],
           phase: LOBBY,
+          phaseRevision: 0,
           isHost: false,
           decision: null,
           carryovers: [],
@@ -907,6 +1205,7 @@ describe("parseServerMessage", () => {
       notes: [],
       members: [],
       phase: LOBBY,
+      phaseRevision: 0,
       isHost: false,
       decision: null,
       carryovers: [],
@@ -991,3 +1290,66 @@ describe("プロトコル整合性", () => {
 });
 
 void USER_B;
+
+describe("反復の進行要求", () => {
+  it.each([
+    "phase:next",
+    "phase:restart-writing",
+    "phase:revote",
+  ])("%s は期待ステップとrevisionを必須にする", (type) => {
+    const valid = { type, expectedPhase: STEP_1_2, expectedRevision: 7 };
+    expect(ClientMessageSchema.parse(valid)).toEqual(valid);
+    expect(ClientMessageSchema.safeParse({ type }).success).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({ ...valid, expectedPhase: undefined })
+        .success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({ ...valid, expectedRevision: undefined })
+        .success,
+    ).toBe(false);
+    for (const expectedRevision of [-1, 0.5, "7"]) {
+      expect(
+        ClientMessageSchema.safeParse({ ...valid, expectedRevision }).success,
+      ).toBe(false);
+    }
+  });
+});
+
+describe("共有進行の境界", () => {
+  const start = { type: "sharing:start", revision: USER_A, durationMs: 180000 };
+  it.each([
+    { userId: USER_B },
+    { authorId: USER_B },
+    { currentIndex: 2 },
+    { order: [USER_B] },
+    { roomId: USER_B },
+  ])("発表者や認証主体はクライアントから指定できない: %j", (extra) => {
+    expect(ClientMessageSchema.safeParse({ ...start, ...extra }).success).toBe(
+      false,
+    );
+  });
+  it.each([
+    0, -1, 6000000, 0.5,
+  ])("不正な持ち時間 %i を拒否する", (durationMs) => {
+    expect(
+      ClientMessageSchema.safeParse({ ...start, durationMs }).success,
+    ).toBe(false);
+  });
+  it("共有の開始と交代には現在の版を必須にする", () => {
+    expect(ClientMessageSchema.safeParse(start).success).toBe(true);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "sharing:advance",
+        revision: USER_A,
+        outcome: "passed",
+      }).success,
+    ).toBe(true);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "sharing:advance",
+        outcome: "done",
+      }).success,
+    ).toBe(false);
+  });
+});

@@ -18,7 +18,10 @@ let page: Page;
 beforeAll(async () => {
   await vi.waitFor(
     async () => {
-      expect((await fetch(`${origin}/index.json`)).ok).toBe(true);
+      const response = await fetch(`${origin}/index.json`);
+      expect(response.ok).toBe(true);
+      // 静的サーバーが接続を閉じる前に応答本文を最後まで消費する。
+      await response.arrayBuffer();
     },
     { timeout: 90_000, interval: 1000 },
   );
@@ -326,13 +329,17 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-test("進め方を閉じると採用課題を残したままHMW例を広く読める", async () => {
+test("進め方を閉じると採用課題を残したままHMW例を末尾まで読める", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
-  await page.getByRole("button", { name: "進め方を閉じる" }).click();
+  await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-issue-content").isVisible(),
   ).toBe(true);
   const content = page.locator("#board-help-content");
+  // 現在地のゴール・全手順入口を残し、例文一覧は内部スクロールで読む。
+  await content.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
   const contentBox = await content.boundingBox();
   const lastExample = await content.locator("li").last().boundingBox();
   expect(
@@ -374,7 +381,7 @@ test("接続中断時と参加者表示でもタイマー枠を薄くせず、�
     }
     if (state === "idle") {
       expect(await memberTimer.textContent()).toBe("03:00");
-      expect(await page.getByRole("button").count()).toBe(0);
+      expect(await page.getByTestId("timer-sound-toggle").count()).toBe(1);
     }
   }
 });
@@ -410,6 +417,217 @@ test("アイデア決定後も完了操作と決定結果が画面内で読め�
   await page.keyboard.press("Escape");
   await page.getByText("スプリント完了", { exact: true }).waitFor();
   await expectLayout();
+});
+
+test("決定ステップは高得票でも全シールを22pxのまま付箋内に表示する", async () => {
+  await openStory("notes-notecard--result-with-many-votes");
+  const card = page.getByTestId("note-card");
+  const subjective = page.getByTestId("dot-vote-sticker-image-subjective");
+  const objective = page.getByTestId("dot-vote-sticker-image-objective");
+
+  expect(await subjective.count()).toBe(12);
+  expect(await objective.count()).toBe(27);
+  for (const sticker of await subjective.or(objective).all()) {
+    const box = await sticker.boundingBox();
+    expect({ width: box?.width, height: box?.height }).toEqual({
+      width: 22,
+      height: 22,
+    });
+  }
+
+  const cardBox = await card.boundingBox();
+  const resultsBox = await page.getByTestId("note-vote-results").boundingBox();
+  expect(resultsBox?.x).toBeGreaterThanOrEqual(cardBox?.x ?? Number.NaN);
+  expect((resultsBox?.x ?? 0) + (resultsBox?.width ?? 0)).toBeLessThanOrEqual(
+    (cardBox?.x ?? Number.NaN) + (cardBox?.width ?? 0),
+  );
+  expect((resultsBox?.y ?? 0) + (resultsBox?.height ?? 0)).toBeLessThanOrEqual(
+    (cardBox?.y ?? Number.NaN) + (cardBox?.height ?? 0),
+  );
+  await page.screenshot({ path: `${output}/vote-results-many.png` });
+});
+
+test("長文と結果行を分け、候補操作と決定済み印にも重ねない", async () => {
+  await openStory("notes-notecard--result-with-long-content");
+  const textBox = await page.getByRole("textbox").boundingBox();
+  const resultsBox = await page.getByTestId("note-vote-results").boundingBox();
+  expect((textBox?.y ?? 0) + (textBox?.height ?? 0)).toBeLessThanOrEqual(
+    resultsBox?.y ?? Number.NaN,
+  );
+
+  for (const [storyId, controlName, objectiveCount] of [
+    ["notes-notecard--result-with-candidate-action", "候補から外す", 8],
+    ["notes-notecard--result-with-decision", "取り組む課題に決定済み", 10],
+  ] as const) {
+    await openStory(storyId);
+    const votes = await page
+      .getByRole("img", { name: `客観シール ${objectiveCount}票` })
+      .boundingBox();
+    const control = await page
+      .getByRole(controlName === "候補から外す" ? "button" : "status", {
+        name: controlName,
+      })
+      .boundingBox();
+    expect(votes).not.toBeNull();
+    expect(control).not.toBeNull();
+    if (!votes || !control) {
+      throw new Error(`${storyId} の配置を取得できません`);
+    }
+    const overlaps =
+      Math.min(votes.x + votes.width, control.x + control.width) -
+        Math.max(votes.x, control.x) >
+        1 &&
+      Math.min(votes.y + votes.height, control.y + control.height) -
+        Math.max(votes.y, control.y) >
+        1;
+    expect(overlaps, storyId).toBe(false);
+  }
+});
+
+test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示す", async () => {
+  await openStory("room-roomboardview--decided");
+  await page.getByRole("dialog").waitFor();
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  const decidedNote = page.locator('[data-note-id="note-1"]');
+  await decidedNote.waitFor();
+
+  const outline = await decidedNote.evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.outlineColor = "var(--color-emerald-600)";
+    document.body.append(probe);
+    const emerald = getComputedStyle(probe).outlineColor;
+    probe.remove();
+
+    const css = getComputedStyle(element);
+    return {
+      color: css.outlineColor,
+      emerald,
+      style: css.outlineStyle,
+      width: Number.parseFloat(css.outlineWidth),
+    };
+  });
+
+  expect(outline.style).toBe("solid");
+  expect(outline.width).toBeGreaterThanOrEqual(4);
+  expect(outline.color).toBe(outline.emerald);
+  await page.screenshot({ path: `${output}/decided-note.png` });
+});
+
+test("採用候補は通常時に黒枠を出さずhover時だけ緑枠を示す", async () => {
+  await openStory("room-roomboardview--selecting-candidate");
+  const candidate = page.getByRole("button", { name: /採用する付箋:/ }).first();
+  await candidate.waitFor();
+  await candidate.hover();
+
+  // hover直後はCSSの色遷移中なので、最終色になるまで同じ条件で検査する。
+  await vi.waitFor(async () => {
+    const colors = await candidate.evaluate((element) => {
+      const probe = document.createElement("div");
+      probe.style.borderColor = "var(--color-emerald-600)";
+      document.body.append(probe);
+      const emerald = getComputedStyle(probe).borderColor;
+      probe.remove();
+      return {
+        actual: getComputedStyle(element).borderColor,
+        emerald,
+      };
+    });
+    expect(colors.actual).toBe(colors.emerald);
+  });
+
+  await page.screenshot({ path: `${output}/adopt-candidate-hover.png` });
+});
+
+test.each([
+  [
+    "通常キャンバス",
+    "room-roomboardcanvas--two-client-shared-adoption-focus",
+    /採用する付箋:/,
+  ],
+  [
+    "アイデアマップ",
+    "room-roomboardcanvas--two-client-shared-idea-adoption-focus",
+    /採用するアイデア:/,
+  ],
+] as const)("%s の2クライアントでホスト hover・focus を参加者の点線表示へ即時反映する", async (label, storyId, targetName) => {
+  await openStory(storyId);
+  const host = page.getByRole("region", { name: "ホストクライアント" });
+  const participant = page.getByRole("region", {
+    name: "参加者クライアント",
+  });
+  const target = host.getByRole("button", { name: targetName });
+  const participantNote = participant.getByTestId("note-card");
+
+  await target.hover();
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBe("true");
+  const focusStyle = await participantNote.evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.outlineColor = "var(--color-emerald-500)";
+    document.body.append(probe);
+    const emerald = getComputedStyle(probe).outlineColor;
+    probe.remove();
+    const style = getComputedStyle(element);
+    return {
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+      outlineColor: style.outlineColor,
+      emerald,
+      backgroundImage: style.backgroundImage,
+    };
+  });
+  expect(focusStyle.outlineStyle).toBe("dashed");
+  expect(focusStyle.outlineWidth).toBeGreaterThanOrEqual(2);
+  expect(focusStyle.outlineColor).toBe(focusStyle.emerald);
+  expect(focusStyle.backgroundImage).toContain("rgba(16, 185, 129");
+  expect(await participant.getByText(/検討中|フォーカス中/).count()).toBe(0);
+  await page.screenshot({
+    path: `${output}/shared-adoption-focus-${label}.png`,
+  });
+
+  await page.mouse.move(0, 0);
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+
+  await target.focus();
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBe("true");
+  await target.evaluate((element) => (element as HTMLElement).blur());
+  await expect(
+    participantNote.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+});
+
+test("確定を取り消して選び直した時は、現在hover中の候補だけを参加者へ共有する", async () => {
+  await openStory("room-roomboardcanvas--two-client-adoption-reselection");
+  const host = page.getByRole("region", { name: "ホストクライアント" });
+  const participant = page.getByRole("region", {
+    name: "参加者クライアント",
+  });
+
+  await host
+    .getByRole("button", { name: "採用する付箋: 前回選んだ候補" })
+    .click();
+  await page.getByRole("button", { name: "確定を取り消して選び直す" }).click();
+  await host
+    .getByRole("button", { name: "採用する付箋: 今回選ぶ候補" })
+    .hover();
+
+  const previous = participant.locator('[data-note-id="note-1"]');
+  const current = participant.locator('[data-note-id="note-2"]');
+  await expect(
+    previous.getAttribute("data-adoption-focused"),
+  ).resolves.toBeNull();
+  await expect(current.getAttribute("data-adoption-focused")).resolves.toBe(
+    "true",
+  );
+  await page.screenshot({
+    path: `${output}/shared-adoption-focus-after-reselection.png`,
+  });
 });
 
 test.each([
@@ -559,7 +777,7 @@ test.each([
 
 test("進め方を閉じるとHMWを残したまま発想支援を3項目以上読める", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
-  await page.getByRole("button", { name: "進め方を閉じる" }).click();
+  await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-hmw-content").isVisible(),
   ).toBe(true);
@@ -619,11 +837,10 @@ test.each([
   expect(textBox.y + textBox.height).toBeLessThanOrEqual(
     scrollBox.y + scrollBox.height,
   );
-  await page.getByRole("button", { name: "進め方を閉じる" }).click();
+  await page.keyboard.press("Escape");
   const after = await page.getByTestId("board-help-panel").boundingBox();
   if (!before || !after) throw new Error("ヒントの表示領域が見つかりません");
-  expect(after.y).toBeLessThan(before.y);
-  expect(after.height).toBeGreaterThan(before.height);
+  expect(after).toEqual(before);
   expect(await page.getByTestId("room-timer").boundingBox()).toEqual(timer);
   expect(await page.getByTestId("private-notes-toolbar").boundingBox()).toEqual(
     notes,
@@ -636,7 +853,7 @@ test.each([
   ).not.toBeNull();
   await expectLayout();
   await page.screenshot({ path: `${output}/context-collapsed-${width}.png` });
-  await page.getByRole("button", { name: "進め方を開く" }).click();
+  await page.getByRole("button", { name: "進め方", exact: true }).click();
   expect(
     await page.getByTestId("board-reference-hmw").getAttribute("open"),
   ).not.toBeNull();
@@ -737,7 +954,9 @@ test.each([
     [3, "hmw"],
   ] as const) {
     await openStory(`room-roomboardlayout--phase-${phase}-step-1`);
-    const guide = page.getByTestId("board-guide-region");
+    const guide = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
     const decision = page.getByTestId(`board-reference-${reference}`);
     const content = page.getByTestId(`board-reference-${reference}-content`);
     await decision.waitFor();
@@ -752,7 +971,7 @@ test.each([
       Math.min(fullText.height, 80),
     );
     await expectLayout();
-    await page.getByRole("button", { name: "進め方を閉じる" }).click();
+    await page.keyboard.press("Escape");
     expect(await content.isVisible()).toBe(true);
     await content.evaluate((e) => {
       e.scrollTop = e.scrollHeight;
@@ -763,9 +982,9 @@ test.each([
     expect(paragraph.y + paragraph.height).toBeLessThanOrEqual(
       after.y + after.height,
     );
-    await page.getByRole("button", { name: "進め方を開く" }).click();
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
     await decision.locator("summary").click();
-    expect(await guide.isVisible()).toBe(true);
+    expect(await guide.isVisible()).toBe(false);
     expect(await content.isVisible()).toBe(false);
     await decision.locator("summary").press("Enter");
     expect(await content.isVisible()).toBe(true);

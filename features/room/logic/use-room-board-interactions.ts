@@ -29,12 +29,18 @@ export type UseRoomBoardInteractionsArgs = {
   currentUserId: string;
   draggingNoteId: string | null;
   phase: RoomPhase;
-  onNoteDragStart: (noteId: string) => void;
+  isDecided?: boolean;
+  ideaMapSizeLevel?: number;
+  ideaMapSizeInitialized?: boolean;
+  onNoteDragStart: (noteId: string, privateMapLock?: boolean) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
-  onPrivateNoteUnpublish: (noteId: string) => void;
+  onPrivateNoteUnpublish: (
+    noteId: string,
+    preserveDragUntilPointerEnd?: boolean,
+  ) => void;
   onCursorMove: (
     point: { x: number; y: number },
     draggingNoteId: string | null,
@@ -84,6 +90,9 @@ export function useRoomBoardInteractions({
   currentUserId,
   draggingNoteId,
   phase,
+  isDecided = false,
+  ideaMapSizeLevel = 0,
+  ideaMapSizeInitialized = true,
   onNoteDragStart,
   onNoteDragMove,
   onNoteDragEnd,
@@ -112,7 +121,12 @@ export function useRoomBoardInteractions({
   } = useCanvasCamera({
     viewportRef: boardScrollerRef,
     notes,
-    fitViewport: phase.kind === "step" && phase.phase === 3 && phase.step >= 2,
+    fitViewport:
+      phase.kind === "step" &&
+      phase.phase === 3 &&
+      (phase.step >= 2 || notes.length > 0),
+    ideaMapSizeLevel,
+    ideaMapSizeInitialized,
   });
 
   const {
@@ -125,12 +139,11 @@ export function useRoomBoardInteractions({
   });
   // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
   // 既存のボード権限に従い、投票・結果ステップでは共有付箋を操作させない。
-  const canMoveSharedNotes =
-    isPhaseStep(phase, 3, 2) ||
-    isPhaseStep(phase, 3, 3) ||
-    getBoardPermissions(phase).canMoveNote;
+  const canMoveSharedNotes = getBoardPermissions(phase, isDecided).canMoveNote;
   const isIdeaMapCursorSurface =
-    phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+    phase.kind === "step" &&
+    phase.phase === 3 &&
+    (phase.step >= 2 || notes.length > 0);
 
   const {
     drag,
@@ -156,6 +169,7 @@ export function useRoomBoardInteractions({
       : undefined,
     canMoveSharedNotes,
     canPublish: isPublishAllowedStep(phase),
+    lockPrivateMapDrag: isPhaseStep(phase, 3, 2) && isPublishAllowedStep(phase),
     onPublishBlocked: roomNotify.cannotPublishNote,
     onNoteDragStart,
     onNoteDragMove,

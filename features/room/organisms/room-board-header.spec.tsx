@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import { buildMembers } from "@/contracts/room-protocol.fixture";
+import {
+  buildMembers,
+  buildSharingState,
+} from "@/contracts/room-protocol.fixture";
 import { RoomBoardHeader } from "./room-board-header";
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -25,11 +28,10 @@ function setupProps(
     hostUserId: ME,
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
-    isGuideExpanded: true,
+    initialGuideState: "detail" as const,
     isSprintComplete: false,
     isLeaving: false,
     onShowVoteResult: vi.fn(),
-    onGuideExpandedChange: vi.fn(),
     onLeaveClick: vi.fn(),
     onNextPhase: vi.fn(),
     onTimerStart: vi.fn(),
@@ -123,6 +125,7 @@ describe("RoomBoardHeader", () => {
     setup({ phase: buildPhaseStep(5) });
 
     expect(screen.getByTestId("board-header-row")).toHaveClass(
+      "bottom-[7.5rem]",
       "max-[900px]:grid-cols-[306px_minmax(0,1fr)]",
     );
     expect(screen.getByTestId("board-context-column")).toHaveClass(
@@ -189,27 +192,25 @@ describe("RoomBoardHeader", () => {
   });
 
   describe("ファシリテーションガイド", () => {
-    it("現在地HUDと一体で表示し、開閉操作を通知する", () => {
-      const onGuideExpandedChange = vi.fn();
-      setup({ isHost: true, onGuideExpandedChange });
-
-      const toggle = screen.getByRole("button", {
-        name: "進め方を閉じる",
-      });
-      expect(toggle).toHaveAttribute("aria-expanded", "true");
-      expect(toggle).toHaveAttribute("aria-controls", "board-step-details");
-      expect(screen.getByText("3分")).toBeInTheDocument();
-      expect(screen.getByText("進行役へ")).toBeInTheDocument();
-
-      fireEvent.click(toggle);
-
-      expect(onGuideExpandedChange).toHaveBeenCalledWith(false);
+    it("現在地HUDと独立したひとつの枠で案内を開閉する", () => {
+      setup({ isHost: true });
+      const shell = screen.getByTestId("step-guide");
+      expect(screen.getByTestId("board-context-hud")).not.toContainElement(
+        shell,
+      );
+      expect(screen.getByText("進行役へ")).toBeVisible();
+      fireEvent.click(document.body);
+      expect(shell).toHaveAttribute("data-state", "compact");
+      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      expect(shell).toHaveAttribute("data-state", "detail");
     });
 
     it("参加者にはホスト限定の進行指示を表示しない", () => {
       setup({ isHost: false });
 
-      expect(screen.getByText(/最近あった困ったこと/)).toBeInTheDocument();
+      expect(
+        screen.getByRole("region", { name: "ファシリテーションガイド" }),
+      ).toHaveTextContent("最近あった困ったこと");
       expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
     });
 
@@ -241,7 +242,10 @@ describe("RoomBoardHeader", () => {
   it("折り畳んでもフェーズ名・正式なステップ名・進捗が読め、重複する見出しを省く", () => {
     const { rerender } = render(
       <RoomBoardHeader
-        {...setupProps({ phase: buildPhaseStep(1), isGuideExpanded: false })}
+        {...setupProps({
+          phase: buildPhaseStep(1),
+          initialGuideState: "compact",
+        })}
       />,
     );
     const context = screen.getByTestId("board-context-hud");
@@ -252,7 +256,10 @@ describe("RoomBoardHeader", () => {
     expect(within(context).queryByText("フェーズ1")).not.toBeInTheDocument();
     rerender(
       <RoomBoardHeader
-        {...setupProps({ phase: buildPhaseStep(1, 2), isGuideExpanded: false })}
+        {...setupProps({
+          phase: buildPhaseStep(1, 2),
+          initialGuideState: "compact",
+        })}
       />,
     );
     expect(within(context).getByText("問いの整理")).toBeVisible();
@@ -296,6 +303,88 @@ describe("RoomBoardHeader", () => {
         screen.getByTestId(`member-row-${members[1]?.userId}`),
       ).queryByTestId("member-voting-complete"),
     ).not.toBeInTheDocument();
+  });
+
+  describe("全員の投票完了表示", () => {
+    it.each([
+      buildPhaseStep(4, 1),
+      buildPhaseStep(3, 2),
+      buildPhaseStep(4, 3),
+    ])("投票ステップ $phase-$step で全員完了を表示する", (phase) => {
+      const members = buildMembers(4, ME);
+      setup({
+        phase,
+        members,
+        completedVoterIds: members.map(({ userId }) => userId),
+      });
+
+      const indicator = screen.getByTestId("vote-completion-indicator");
+      expect(indicator).toHaveTextContent("全員OK");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "全員の投票が完了しました",
+      );
+      expect(indicator.nextElementSibling).toBe(
+        screen.getByRole("button", { name: "参加者 4人" }),
+      );
+    });
+
+    it("省略表示される参加者が未完了なら表示しない", () => {
+      const members = buildMembers(5, ME);
+      setup({
+        phase: buildPhaseStep(4),
+        members,
+        completedVoterIds: members.slice(0, -1).map(({ userId }) => userId),
+      });
+
+      expect(
+        screen.queryByTestId("vote-completion-indicator"),
+      ).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["投票以外", { phase: buildPhaseStep(3) }],
+      ["参加者なし", { members: [], completedVoterIds: [] }],
+      ["切断中", { isDisconnected: true }],
+    ])("%sでは全員完了と表示しない", (_label, overrides) => {
+      const members = buildMembers(2, ME);
+      setup({
+        phase: buildPhaseStep(4),
+        members,
+        completedVoterIds: members.map(({ userId }) => userId),
+        ...overrides,
+      });
+
+      expect(
+        screen.queryByTestId("vote-completion-indicator"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("狭い幅では操作類の後の二行目に送り、120msの幅・透明度変化を抑制できる", () => {
+      const members = buildMembers(2, ME);
+      setup({
+        phase: buildPhaseStep(4),
+        isHost: true,
+        members,
+        completedVoterIds: members.map(({ userId }) => userId),
+      });
+
+      expect(screen.getByTestId("vote-completion-indicator")).toHaveClass(
+        "max-[900px]:order-last",
+        "max-[900px]:basis-full",
+      );
+      expect(screen.getByTestId("vote-completion-label")).toHaveClass(
+        "transition-[max-width,opacity]",
+        "duration-[120ms]",
+        "starting:max-w-0",
+        "starting:opacity-0",
+        "motion-reduce:transition-none",
+        "text-emerald-700",
+        "dark:text-emerald-400",
+      );
+      expect(
+        screen.getByRole("button", { name: "次のステップへ" }),
+      ).toHaveClass("max-[900px]:px-2", "max-[900px]:text-xs");
+    });
   });
 
   it("非 host の idle タイマー枠を操作UIなしで操作グループ内に表示する", () => {
@@ -462,4 +551,153 @@ describe("RoomBoardHeader", () => {
         .find((list) => list.classList.contains("p-1")),
     ).toHaveClass("p-1");
   });
+});
+
+describe("共有の進行欄", () => {
+  const sharing = {
+    revision: "33333333-3333-4333-8333-333333333333",
+    order: buildMembers(3, ME),
+    status: "active" as const,
+    currentIndex: 0,
+    results: [],
+    durationMs: 180000,
+    startsAt: null,
+  };
+  it("現在・次・3回共通と全体の順番を表示する", () => {
+    render(
+      <RoomBoardHeader
+        {...setupProps({
+          isHost: true,
+          phase: buildPhaseStep(2),
+          initialGuideState: "compact",
+        })}
+        {...{ sharing, onSharingStart: vi.fn(), onSharingAdvance: vi.fn() }}
+      />,
+    );
+    expect(screen.getByText("3回共通")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "次の人へ" })).toBeEnabled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
+    );
+    expect(screen.getAllByText("これから")).toHaveLength(2);
+  });
+  it("交代中は顔と名前を案内し、計時と進行操作を待つ", () => {
+    render(
+      <RoomBoardHeader
+        {...setupProps({
+          isHost: true,
+          phase: buildPhaseStep(2),
+          initialGuideState: "compact",
+        })}
+        {...{
+          sharing: { ...sharing, startsAt: Date.now() + 2000 },
+          onSharingStart: vi.fn(),
+          onSharingAdvance: vi.fn(),
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(`${sharing.order[0].name}さんのターンです`),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("timer")).toHaveTextContent("03:00");
+    expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "今回はパス" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "進め方" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+it("別画面で共有が開始されたらその持ち時間で交代を表示する", () => {
+  const ready = buildSharingState();
+  const props = {
+    ...setupProps({
+      isHost: true,
+      phase: buildPhaseStep(2),
+      initialGuideState: "compact",
+    }),
+    sharing: ready,
+    onSharingStart: vi.fn(),
+  };
+  const { rerender } = render(<RoomBoardHeader {...props} />);
+  fireEvent.click(screen.getByTestId("room-timer"));
+  fireEvent.change(screen.getByLabelText("タイマー時間（分）"), {
+    target: { value: "1" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "持ち時間を設定" }));
+  expect(screen.getByRole("timer")).toHaveTextContent("01:00");
+  rerender(
+    <RoomBoardHeader
+      {...props}
+      sharing={{
+        ...ready,
+        status: "active",
+        currentIndex: 0,
+        durationMs: 30000,
+        startsAt: Date.now() + 2000,
+      }}
+    />,
+  );
+  expect(screen.getByRole("timer")).toHaveTextContent("00:30");
+});
+
+it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示しない", () => {
+  render(
+    <RoomBoardHeader
+      {...setupProps({
+        isHost: true,
+        phase: buildPhaseStep(2),
+        initialGuideState: "compact",
+      })}
+      sharing={buildSharingState({
+        status: "complete",
+        results: ["done", "passed", "done"],
+      })}
+    />,
+  );
+  expect(screen.getByText("一巡しました")).toBeVisible();
+  expect(screen.getByRole("button", { name: "次のステップへ" })).toBeEnabled();
+  expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "次の人へ" }),
+  ).not.toBeInTheDocument();
+});
+it("参加者は発表者を確認できるが進行操作を持たない", () => {
+  render(
+    <RoomBoardHeader
+      {...setupProps({
+        phase: buildPhaseStep(2),
+        initialGuideState: "compact",
+      })}
+      sharing={buildSharingState({ status: "active", currentIndex: 0 })}
+    />,
+  );
+  expect(
+    screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
+  ).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "次の人へ" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "今回はパス" }),
+  ).not.toBeInTheDocument();
+});
+
+it.each([
+  { phaseRevision: 2 },
+  { isDisconnected: true },
+])("共有中のメニューで開いた確認も状態変更 %j で破棄する", (changed) => {
+  const props = setupProps({
+    isHost: true,
+    phase: buildPhaseStep(2),
+    phaseRevision: 1,
+    sharing: buildSharingState(),
+  });
+  const { rerender } = render(<RoomBoardHeader {...props} />);
+  openRoomMenu();
+  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  rerender(<RoomBoardHeader {...props} {...changed} />);
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  expect(props.onNextPhase).not.toHaveBeenCalled();
 });

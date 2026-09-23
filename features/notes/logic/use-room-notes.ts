@@ -4,6 +4,7 @@
 //
 // 楽観更新のポリシー:
 // - 移動・本文: 楽観更新する（自分の操作の追従性を優先）
+// - 最前面: RoomDO の確定応答までは対象付箋だけを一時的に前面表示する
 // - 削除: 楽観更新しない。author 以外の削除はサーバーが forbidden で拒否するため、
 //   確定（note:deleted）を待ってから消すことで「消えたのに戻る」揺れを避ける
 // - 投票: 上限判定つきでローカル反映し、受理された操作だけ送信する
@@ -12,11 +13,12 @@
 // からの位置更新を無視し、ローカルの操作を優先する（notes-reducer.ts）。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DRAG_BROADCAST_THROTTLE_MS } from "@/contracts/board";
-import type {
-  ClientMessage,
-  DotVoteKind,
-  DotVoteSticker,
-  ServerMessage,
+import {
+  type ClientMessage,
+  type DotVoteKind,
+  type DotVoteSticker,
+  NoteFontSizeSchema,
+  type ServerMessage,
 } from "@/contracts/room-protocol";
 import { createThrottled } from "@/lib/throttle";
 import {
@@ -43,6 +45,7 @@ type NoteDragOperation = {
   noteId: string;
   dragId: string;
   status: "pending" | "active";
+  privateMapLock: boolean;
   initialX: number;
   initialY: number;
   initialStackOrder: number;
@@ -55,6 +58,17 @@ type PendingNoteDrop = {
   x: number;
   y: number;
   previousStackOrder: number;
+};
+
+type PendingNoteFront = {
+  noteId: string;
+  previousStackOrder: number;
+};
+
+type PendingFontSizeOperation = {
+  id: string;
+  noteId: string;
+  fontSize: number;
 };
 
 export type PendingVoteOperation = {
@@ -81,7 +95,7 @@ export type VoteFeedback = {
 export type UseRoomNotesResult = {
   notes: Note[];
   draggingNoteId: string | null;
-  // pointer-up 後も RoomDO の確定応答までは対象付箋を一時最前面に保つ。
+  // クリック・pointer-up 後も RoomDO の確定応答までは対象付箋を一時最前面に保つ。
   frontNoteId: string | null;
   // サーバーメッセージを notes state に畳み込む。ドラッグ中の付箋への
   // エコーはローカル優先で無視される。
@@ -90,8 +104,12 @@ export type UseRoomNotesResult = {
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
   addNote: (content?: string) => void;
   publishNote: (noteId: string, x: number, y: number) => void;
-  unpublishNote: (noteId: string) => void;
-  startNoteDrag: (noteId: string) => void;
+  unpublishNote: (
+    noteId: string,
+    preserveDragUntilPointerEnd?: boolean,
+  ) => void;
+  startNoteDrag: (noteId: string, privateMapLock?: boolean) => void;
+  bringNoteToFront: (noteId: string) => void;
   // ドラッグ中: 即時ローカル反映 + note:drag をスロットル送信。
   moveNote: (noteId: string, x: number, y: number) => void;
   // ドロップ確定: note:move を送信（ドラッグ中の座標はサーバーに残らない）。
@@ -103,6 +121,8 @@ export type UseRoomNotesResult = {
   bulkRestoreCandidates: (operationId: string) => void;
   // 入力中の見た目を止めないため本文だけは楽観更新する。
   changeNoteContent: (noteId: string, content: string) => void;
+  // 選択中の付箋だけを即時に再描画し、RoomDO の確定値へ収束させる。
+  changeNoteFontSize: (noteId: string, fontSize: number) => void;
   deleteNote: (noteId: string) => void;
   voteNote: (noteId: string, kind: DotVoteKind, x?: number, y?: number) => void;
   removeNoteVote: (noteId: string, kind: DotVoteKind) => void;
@@ -121,11 +141,13 @@ export type UseRoomNotesResult = {
 export function useRoomNotes({
   send,
   createVoteOperationId = () => crypto.randomUUID(),
+  createFontSizeOperationId = () => crypto.randomUUID(),
   createVoteStickerId = () => crypto.randomUUID(),
   createNoteDragId = () => crypto.randomUUID(),
 }: {
   send: (message: ClientMessage) => void;
   createVoteOperationId?: () => string;
+  createFontSizeOperationId?: () => string;
   createVoteStickerId?: () => string;
   createNoteDragId?: () => string;
 }): UseRoomNotesResult {
@@ -135,6 +157,8 @@ export function useRoomNotes({
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const [pendingNoteDrop, setPendingNoteDrop] =
     useState<PendingNoteDrop | null>(null);
+  const [pendingNoteFront, setPendingNoteFront] =
+    useState<PendingNoteFront | null>(null);
   const [pendingVoteOperations, setPendingVoteOperations] = useState<
     PendingVoteOperation[]
   >([]);
@@ -143,7 +167,10 @@ export function useRoomNotes({
   const draggingNoteIdRef = useRef<string | null>(null);
   const noteDragOperationRef = useRef<NoteDragOperation | null>(null);
   const pendingNoteDropRef = useRef<PendingNoteDrop | null>(null);
+  const pendingNoteFrontRef = useRef<PendingNoteFront | null>(null);
   const pendingVoteOperationsRef = useRef<PendingVoteOperation[]>([]);
+  const pendingFontSizeOperationsRef = useRef<PendingFontSizeOperation[]>([]);
+  const confirmedFontSizesRef = useRef<Map<string, number>>(new Map());
   const sendDragRef = useRef<ReturnType<
     typeof createThrottled<[NoteDragPayload]>
   > | null>(null);
@@ -173,6 +200,9 @@ export function useRoomNotes({
       draggingNoteIdRef.current = null;
       notesRef.current = [];
       pendingNoteDropRef.current = null;
+      pendingNoteFrontRef.current = null;
+      pendingFontSizeOperationsRef.current = [];
+      confirmedFontSizesRef.current.clear();
     };
   }, [send]);
 
@@ -200,6 +230,14 @@ export function useRoomNotes({
     setPendingNoteDrop(next);
   }, []);
 
+  const updatePendingNoteFront = useCallback(
+    (next: PendingNoteFront | null) => {
+      pendingNoteFrontRef.current = next;
+      setPendingNoteFront(next);
+    },
+    [],
+  );
+
   const recordPendingNoteDrop = useCallback(
     (
       operation: NoteDragOperation,
@@ -224,6 +262,64 @@ export function useRoomNotes({
   const applyMessage = useCallback(
     (message: ServerMessage) => {
       const pendingDrop = pendingNoteDropRef.current;
+      const pendingFront = pendingNoteFrontRef.current;
+      if (message.type === "snapshot") {
+        confirmedFontSizesRef.current = new Map(
+          message.notes.map((note) => [note.id, note.fontSize]),
+        );
+        pendingFontSizeOperationsRef.current = [];
+      } else if (
+        message.type === "note:inserted" ||
+        message.type === "note:updated"
+      ) {
+        confirmedFontSizesRef.current.set(
+          message.note.id,
+          message.note.fontSize,
+        );
+      } else if (message.type === "note:deleted") {
+        confirmedFontSizesRef.current.delete(message.noteId);
+        pendingFontSizeOperationsRef.current =
+          pendingFontSizeOperationsRef.current.filter(
+            ({ noteId }) => noteId !== message.noteId,
+          );
+      }
+
+      if (message.type === "error" && message.operationId !== undefined) {
+        const operation = pendingFontSizeOperationsRef.current.find(
+          ({ id }) => id === message.operationId,
+        );
+        if (operation) {
+          pendingFontSizeOperationsRef.current =
+            pendingFontSizeOperationsRef.current.filter(
+              ({ id }) => id !== operation.id,
+            );
+          const remainingForNote = pendingFontSizeOperationsRef.current.filter(
+            ({ noteId }) => noteId === operation.noteId,
+          );
+          const latest = remainingForNote[remainingForNote.length - 1];
+          const fontSize =
+            latest?.fontSize ??
+            confirmedFontSizesRef.current.get(operation.noteId);
+          if (fontSize !== undefined) {
+            updateNotes((current) =>
+              current.map((note) =>
+                note.id === operation.noteId ? { ...note, fontSize } : note,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (
+        message.type === "note:updated" &&
+        message.operationId !== undefined
+      ) {
+        pendingFontSizeOperationsRef.current =
+          pendingFontSizeOperationsRef.current.filter(
+            ({ id }) => id !== message.operationId,
+          );
+      }
       if (
         message.type === "snapshot" ||
         (message.type === "note:deleted" &&
@@ -239,6 +335,20 @@ export function useRoomNotes({
       ) {
         updatePendingNoteDrop(null);
       }
+      if (
+        message.type === "snapshot" ||
+        message.type === "phase:updated" ||
+        (message.type === "note:deleted" &&
+          message.noteId === pendingFront?.noteId) ||
+        (message.type === "error" &&
+          message.operationId === undefined &&
+          pendingFront !== null) ||
+        (message.type === "note:updated" &&
+          message.note.id === pendingFront?.noteId &&
+          message.note.stackOrder > pendingFront.previousStackOrder)
+      ) {
+        updatePendingNoteFront(null);
+      }
       if (message.type === "note:drag:result") {
         const operation = noteDragOperationRef.current;
         if (!operation || operation.dragId !== message.dragId) return;
@@ -252,6 +362,12 @@ export function useRoomNotes({
         }
         const active = { ...operation, status: "active" as const };
         noteDragOperationRef.current = active;
+        if (active.privateMapLock) {
+          // private tray 内では内容を共有せず、ドラッグ lock だけを保持する。
+          draggingNoteIdRef.current = null;
+          setDraggingNoteId(null);
+          return;
+        }
         draggingNoteIdRef.current = active.noteId;
         setDraggingNoteId(active.noteId);
         if (active.ending) {
@@ -370,11 +486,24 @@ export function useRoomNotes({
         });
         if (message.type !== "note:updated") return next;
 
+        const pendingFontSize = pendingFontSizeOperationsRef.current.filter(
+          ({ noteId }) => noteId === message.note.id,
+        );
+        const latestPendingFontSize =
+          pendingFontSize[pendingFontSize.length - 1];
+        const nextWithPendingFontSize = latestPendingFontSize
+          ? next.map((note) =>
+              note.id === message.note.id
+                ? { ...note, fontSize: latestPendingFontSize.fontSize }
+                : note,
+            )
+          : next;
+
         // 操作IDなしの途中応答（別のシール追加など）が先に届いても、まだ
         // 確定していない自分のシールを消さない。確定応答には同じ stickerId が
         // 含まれるので重複させず、拒否応答は上の分岐で即座に取り除く。
         const previous = current.find(({ id }) => id === message.note.id);
-        if (!previous) return next;
+        if (!previous) return nextWithPendingFontSize;
         const pendingStickers = pendingVoteOperationsRef.current
           .filter(
             ({ action, noteId, stickerId }) =>
@@ -385,8 +514,8 @@ export function useRoomNotes({
           .flatMap(({ stickerId }) =>
             previous.dotVoteStickers.filter(({ id }) => id === stickerId),
           );
-        if (pendingStickers.length === 0) return next;
-        return next.map((note) =>
+        if (pendingStickers.length === 0) return nextWithPendingFontSize;
+        return nextWithPendingFontSize.map((note) =>
           note.id !== message.note.id
             ? note
             : {
@@ -425,6 +554,7 @@ export function useRoomNotes({
       send,
       updateNotes,
       updatePendingNoteDrop,
+      updatePendingNoteFront,
       updatePendingVoteOperations,
     ],
   );
@@ -448,22 +578,44 @@ export function useRoomNotes({
   );
 
   const unpublishNote = useCallback(
-    (noteId: string) => {
+    (noteId: string, preserveDragUntilPointerEnd = false) => {
       sendDragRef.current?.cancel();
-      noteDragOperationRef.current = null;
+      if (
+        !preserveDragUntilPointerEnd ||
+        noteDragOperationRef.current?.noteId !== noteId
+      ) {
+        noteDragOperationRef.current = null;
+      }
       draggingNoteIdRef.current = null;
       setDraggingNoteId(null);
       if (pendingNoteDropRef.current?.noteId === noteId) {
         updatePendingNoteDrop(null);
       }
+      if (pendingNoteFrontRef.current?.noteId === noteId) {
+        updatePendingNoteFront(null);
+      }
       send({ type: "note:unpublish", noteId });
     },
-    [send, updatePendingNoteDrop],
+    [send, updatePendingNoteDrop, updatePendingNoteFront],
   );
 
   const startNoteDrag = useCallback(
-    (noteId: string) => {
-      if (noteDragOperationRef.current) return;
+    (noteId: string, privateMapLock = false) => {
+      const current = noteDragOperationRef.current;
+      if (current) {
+        if (
+          current.noteId === noteId &&
+          current.privateMapLock &&
+          !privateMapLock
+        ) {
+          current.privateMapLock = false;
+          if (current.status === "active") {
+            draggingNoteIdRef.current = current.noteId;
+            setDraggingNoteId(current.noteId);
+          }
+        }
+        return;
+      }
       const note = notesRef.current.find(({ id }) => id === noteId);
       if (!note) return;
       updatePendingNoteDrop(null);
@@ -472,6 +624,7 @@ export function useRoomNotes({
         noteId,
         dragId,
         status: "pending",
+        privateMapLock,
         initialX: note.x,
         initialY: note.y,
         initialStackOrder: note.stackOrder,
@@ -479,6 +632,19 @@ export function useRoomNotes({
       send({ type: "note:drag:start", noteId, dragId });
     },
     [createNoteDragId, send, updatePendingNoteDrop],
+  );
+
+  const bringNoteToFront = useCallback(
+    (noteId: string) => {
+      const note = notesRef.current.find(({ id }) => id === noteId);
+      if (!note) return;
+      updatePendingNoteFront({
+        noteId,
+        previousStackOrder: note.stackOrder,
+      });
+      send({ type: "note:bring-to-front", noteId });
+    },
+    [send, updatePendingNoteFront],
   );
 
   const moveNote = useCallback(
@@ -558,6 +724,30 @@ export function useRoomNotes({
       send({ type: "note:update-content", noteId, content });
     },
     [updateNotes, send],
+  );
+
+  const changeNoteFontSize = useCallback(
+    (noteId: string, fontSize: number) => {
+      if (!NoteFontSizeSchema.safeParse(fontSize).success) return;
+      if (!notesRef.current.some((note) => note.id === noteId)) return;
+      const operationId = createFontSizeOperationId();
+      pendingFontSizeOperationsRef.current = [
+        ...pendingFontSizeOperationsRef.current,
+        { id: operationId, noteId, fontSize },
+      ];
+      updateNotes((current) =>
+        current.map((note) =>
+          note.id === noteId ? { ...note, fontSize } : note,
+        ),
+      );
+      send({
+        type: "note:update-font-size",
+        noteId,
+        fontSize,
+        operationId,
+      });
+    },
+    [createFontSizeOperationId, updateNotes, send],
   );
 
   const bulkExcludeZeroVoteCandidates = useCallback(
@@ -739,12 +929,17 @@ export function useRoomNotes({
   return {
     notes,
     draggingNoteId,
-    frontNoteId: draggingNoteId ?? pendingNoteDrop?.noteId ?? null,
+    frontNoteId:
+      draggingNoteId ??
+      pendingNoteDrop?.noteId ??
+      pendingNoteFront?.noteId ??
+      null,
     applyMessage,
     addNote,
     publishNote,
     unpublishNote,
     startNoteDrag,
+    bringNoteToFront,
     moveNote,
     endNoteDrag,
     cancelNoteDrag,
@@ -753,6 +948,7 @@ export function useRoomNotes({
     bulkExcludeZeroVoteCandidates,
     bulkRestoreCandidates,
     changeNoteContent,
+    changeNoteFontSize,
     deleteNote,
     voteNote,
     removeNoteVote,

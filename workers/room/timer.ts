@@ -7,6 +7,7 @@ import {
 } from "../../contracts/room-protocol";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
+import { getSharingState } from "./sharing-state";
 
 export type TimerAction =
   | { kind: "start"; durationMs: number }
@@ -164,7 +165,7 @@ export function getTimerState(sql: SqlStorage, now = Date.now()): TimerState {
   return timer;
 }
 
-function saveTimerState(sql: SqlStorage, timer: TimerState): void {
+export function saveTimerState(sql: SqlStorage, timer: TimerState): void {
   if (timer.status === "idle") {
     sql.exec(
       "UPDATE timer_state SET status = 'idle', ends_at = NULL, remaining_ms = NULL, duration_ms = NULL WHERE id = 1",
@@ -248,6 +249,16 @@ async function applyTimerAction(
 ): Promise<void> {
   if (!canControlTimer(ctx.sql, ctx.userId)) {
     replyTimerForbidden(ctx);
+    return;
+  }
+  const sharing = getSharingState(ctx.sql);
+  if (
+    sharing &&
+    sharing.status !== "inactive" &&
+    (sharing.startsAt !== null ||
+      (sharing.status === "ready" && action.kind === "start"))
+  ) {
+    replyTimerInvalidState(ctx);
     return;
   }
   const serverNow = Date.now();

@@ -3,6 +3,8 @@
 // まで収束できることを検証する。個々の migrateRoomStorage の振る舞い
 // （未適用IDのみ適用・原子性・fail-closed）は ./apply.spec.ts を参照。
 import { describe, expect, it } from "vitest";
+import { NOTE_DEFAULT_FONT_SIZE } from "../../contracts/board";
+import { findNote } from "../room/notes";
 import { runInRoomDO } from "../test-helpers";
 import {
   LEGACY_ROOM_DO_MIGRATION_IDS,
@@ -15,6 +17,7 @@ const USER_A = "11111111-1111-4111-8111-111111111111";
 
 const NORMALIZE_PHASE_MIGRATION_ID = "20260715042808";
 const VOTE_STICKERS_MIGRATION_ID = "20260909044704";
+const EXPAND_IDEA_MAP_SIZE_LEVEL_MIGRATION_ID = "20260921140000";
 
 const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 
@@ -23,6 +26,7 @@ const ALL_TABLES = [
   "groups",
   "member_color_assignments",
   "members",
+  "note_appearances",
   "note_bulk_exclusions",
   "note_vote_stickers",
   "note_votes",
@@ -30,11 +34,52 @@ const ALL_TABLES = [
   "room_owner",
   "room_state",
   "schema_migrations",
+  "sharing_state",
   "timer_state",
   "used_note_drag_ids",
 ];
 
 describe("ROOM_DO_MIGRATIONS", () => {
+  it("既存付箋の文字サイズを14pxで補完し、範囲外の保存を拒否する", async () => {
+    await runInRoomDO("mig-note-appearance", (_instance, state) => {
+      dropAllTables(state.storage);
+      const appearanceMigrationIndex = ROOM_DO_MIGRATIONS.findIndex(
+        (migration) => migration.sql.includes("CREATE TABLE note_appearances"),
+      );
+      expect(appearanceMigrationIndex).toBeGreaterThanOrEqual(0);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.slice(0, appearanceMigrationIndex),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        `INSERT INTO notes (id, author_id, content, x, y, created_at, updated_at)
+         VALUES ('note-old', ?1, '既存付箋', 0, 0, '2026-09-21T00:00:00.000Z', '2026-09-21T00:00:00.000Z')`,
+        USER_A,
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      expect(findNote(state.storage.sql, "note-old")?.font_size).toBe(
+        NOTE_DEFAULT_FONT_SIZE,
+      );
+      expect(() =>
+        state.storage.sql.exec(
+          "INSERT INTO note_appearances (note_id, font_size) VALUES ('note-old', 25)",
+        ),
+      ).toThrow();
+      expect(() =>
+        state.storage.sql.exec(
+          "INSERT INTO note_appearances (note_id, font_size) VALUES ('note-old', 12.5)",
+        ),
+      ).toThrow();
+    });
+  });
+
   it("notes に一括候補外の由来 operation ID を永続化できる", async () => {
     await runInRoomDO("mig-bulk-exclusion-operation", (_instance, state) => {
       const columns = state.storage.sql
@@ -89,6 +134,89 @@ describe("ROOM_DO_MIGRATIONS", () => {
           duration_ms: null,
         },
       ]);
+    });
+  });
+
+  it("room_state は2軸マップのサイズ段階と初回設定状態を保存する", async () => {
+    await runInRoomDO("mig-idea-map-size", (_instance, state) => {
+      const columns = state.storage.sql
+        .exec("PRAGMA table_info(room_state)")
+        .toArray();
+      expect(columns).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "idea_map_size_level",
+            type: "INTEGER",
+            notnull: 1,
+            dflt_value: "0",
+          }),
+          expect.objectContaining({
+            name: "idea_map_size_initialized",
+            type: "INTEGER",
+            notnull: 1,
+            dflt_value: "0",
+          }),
+        ]),
+      );
+      expect(
+        state.storage.sql
+          .exec(
+            "SELECT idea_map_size_level, idea_map_size_initialized FROM room_state WHERE id = 1",
+          )
+          .toArray(),
+      ).toEqual([{ idea_map_size_level: 0, idea_map_size_initialized: 0 }]);
+      expect(() =>
+        state.storage.sql.exec(
+          "UPDATE room_state SET idea_map_size_level = 15 WHERE id = 1",
+        ),
+      ).not.toThrow();
+      expect(() =>
+        state.storage.sql.exec(
+          "UPDATE room_state SET idea_map_size_level = 16 WHERE id = 1",
+        ),
+      ).toThrow();
+    });
+  });
+
+  it("2軸マップのサイズ上限を広げても既存ルームの状態を保持する", async () => {
+    await runInRoomDO("mig-expand-idea-map-size-level", (_instance, state) => {
+      dropAllTables(state.storage);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.filter(
+          ({ id }) => id < EXPAND_IDEA_MAP_SIZE_LEVEL_MIGRATION_ID,
+        ),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        `UPDATE room_state
+         SET phase = 'phase3-step2',
+             next_note_stack_order = 42,
+             idea_map_size_level = 8,
+             idea_map_size_initialized = 1
+         WHERE id = 1`,
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      expect(
+        state.storage.sql
+          .exec(
+            `SELECT phase, next_note_stack_order, idea_map_size_level,
+                    idea_map_size_initialized
+             FROM room_state WHERE id = 1`,
+          )
+          .one(),
+      ).toEqual({
+        phase: "phase3-step2",
+        next_note_stack_order: 42,
+        idea_map_size_level: 8,
+        idea_map_size_initialized: 1,
+      });
     });
   });
 

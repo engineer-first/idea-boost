@@ -6,28 +6,42 @@
 // 入退出 toast（memberJoined / memberLeft）もここで出す — 両画面で同一の方針。
 import { useCallback, useRef, useState } from "react";
 import type { RoomPhase } from "@/contracts/phase";
-import type { ServerMessage, TimerState } from "@/contracts/room-protocol";
+import type {
+  ServerMessage,
+  SharingState,
+  TimerState,
+} from "@/contracts/room-protocol";
 import { roomNotify } from "./room-notify";
 import {
+  applyAdoptionFocusServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
+  applyIdeaMapServerMessage,
   applyMemberServerMessage,
   applyPhaseServerMessage,
+  applySharingServerMessage,
   applyTimerServerMessage,
   applyVotingCompletionServerMessage,
   type Carryover,
   type Decision,
+  type IdeaMapClientState,
+  INITIAL_IDEA_MAP_STATE,
   type Member,
   type TimerClientState,
 } from "./room-reducer";
 
 export type UseRoomStateResult = {
+  sharing: SharingState | null;
   members: Member[];
   phase: RoomPhase;
+  phaseRevision: number;
   decision: Decision | null;
+  ideaMap: IdeaMapClientState;
+  adoptionFocusNoteId: string | null;
   carryovers: Carryover[];
   timer: TimerState;
   timerServerOffsetMs: number;
+  timerUpdateVersion: number;
   completedVoterIds: string[];
   applyMessage: (message: ServerMessage, receivedAt?: number) => void;
 };
@@ -37,14 +51,23 @@ export function useRoomState(options: {
   initialMembers: Member[];
   initialPhase: RoomPhase;
 }): UseRoomStateResult {
+  const [sharing, setSharing] = useState<SharingState | null>(null);
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
+  const [phaseRevision, setPhaseRevision] = useState(0);
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [ideaMap, setIdeaMap] = useState<IdeaMapClientState>(
+    INITIAL_IDEA_MAP_STATE,
+  );
+  const [adoptionFocusNoteId, setAdoptionFocusNoteId] = useState<string | null>(
+    null,
+  );
   const [carryovers, setCarryovers] = useState<Carryover[]>([]);
   const [completedVoterIds, setCompletedVoterIds] = useState<string[]>([]);
   const [timerState, setTimerState] = useState<TimerClientState>({
     timer: { status: "idle" },
     serverOffsetMs: 0,
+    timerUpdateVersion: 0,
   });
   // ref を同期更新して、連続メッセージ（再レンダー前）でも最新 members を
   // 引けるようにする（member_left の名前解決に必要）。
@@ -69,8 +92,15 @@ export function useRoomState(options: {
       const nextMembers = applyMemberServerMessage(membersRef.current, message);
       membersRef.current = nextMembers;
       setMembers(nextMembers);
+      setSharing((current) => applySharingServerMessage(current, message));
       setPhase((current) => applyPhaseServerMessage(current, message));
+      if (message.type === "snapshot" || message.type === "phase:updated")
+        setPhaseRevision(message.phaseRevision ?? 0);
       setDecision((current) => applyDecisionServerMessage(current, message));
+      setIdeaMap((current) => applyIdeaMapServerMessage(current, message));
+      setAdoptionFocusNoteId((current) =>
+        applyAdoptionFocusServerMessage(current, message),
+      );
       setCarryovers((current) => applyCarryoverServerMessage(current, message));
       setCompletedVoterIds((current) =>
         applyVotingCompletionServerMessage(current, message),
@@ -83,12 +113,17 @@ export function useRoomState(options: {
   );
 
   return {
+    sharing,
     members,
     phase,
+    phaseRevision,
     decision,
+    ideaMap,
+    adoptionFocusNoteId,
     carryovers,
     timer: timerState.timer,
     timerServerOffsetMs: timerState.serverOffsetMs,
+    timerUpdateVersion: timerState.timerUpdateVersion,
     completedVoterIds,
     applyMessage,
   };

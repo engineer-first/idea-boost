@@ -20,6 +20,8 @@ import { RoomLobbyView } from "../templates/room-lobby-view";
 
 export type RoomLobbyProps = {
   roomId: string;
+  // 呼び出し元が指定したボードへの遷移先。未指定なら通常のルームURL。
+  boardHref?: string;
   inviteCode: string;
   inviteUrl: string;
   currentUserId: string;
@@ -34,6 +36,7 @@ export type RoomLobbyProps = {
 
 export function RoomLobby({
   roomId,
+  boardHref,
   inviteCode,
   inviteUrl,
   currentUserId,
@@ -74,9 +77,9 @@ export function RoomLobby({
   // 古い場合のリカバリとしても機能する）。
   useEffect(() => {
     if (!isLobby(roomState.phase)) {
-      router.replace(`/rooms/${roomId}`);
+      router.replace(boardHref ?? `/rooms/${roomId}`);
     }
-  }, [roomState.phase, roomId, router]);
+  }, [roomState.phase, roomId, boardHref, router]);
 
   function handleServerMessage(message: ServerMessage) {
     if (message.type === "error") {

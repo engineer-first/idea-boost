@@ -1,4 +1,4 @@
-import { NOTE_HEIGHT, NOTE_WIDTH } from "./board";
+import { getNoteHeight, NOTE_WIDTH } from "./board";
 import type { ProtocolNote } from "./room-protocol";
 
 type Note = ProtocolNote;
@@ -26,13 +26,15 @@ const DISTANCE_THRESHOLD = 60;
 const GROUP_PADDING = 16;
 
 function isClose(a: Note, b: Note): boolean {
+  const aHeight = getNoteHeight(a.content, a.fontSize);
+  const bHeight = getNoteHeight(b.content, b.fontSize);
   const dx = Math.max(
     0,
     Math.max(a.x, b.x) - Math.min(a.x + NOTE_WIDTH, b.x + NOTE_WIDTH),
   );
   const dy = Math.max(
     0,
-    Math.max(a.y, b.y) - Math.min(a.y + NOTE_HEIGHT, b.y + NOTE_HEIGHT),
+    Math.max(a.y, b.y) - Math.min(a.y + aHeight, b.y + bHeight),
   );
   return dx <= DISTANCE_THRESHOLD && dy <= DISTANCE_THRESHOLD;
 }
@@ -195,7 +197,7 @@ function calculateBoundingBox(notes: Note[]): {
     minX = Math.min(minX, n.x);
     minY = Math.min(minY, n.y);
     maxX = Math.max(maxX, n.x + NOTE_WIDTH);
-    maxY = Math.max(maxY, n.y + NOTE_HEIGHT);
+    maxY = Math.max(maxY, n.y + getNoteHeight(n.content, n.fontSize));
   }
 
   return {

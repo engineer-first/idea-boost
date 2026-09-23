@@ -58,7 +58,7 @@ describe("cursor presence reducer", () => {
     expect(
       applyCursorPresenceMessage(
         [cursor],
-        { type: "phase:updated", phase: buildPhaseStep(4) },
+        { type: "phase:updated", phaseRevision: 0, phase: buildPhaseStep(4) },
         ME,
         buildPhaseStep(2),
         2_000,
@@ -91,6 +91,7 @@ describe("cursor presence reducer", () => {
     };
     const snapshot = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [],
       members: [],
       phase: buildPhaseStep(2),

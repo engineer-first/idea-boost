@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildDecision,
@@ -13,6 +13,8 @@ import type { Note } from "@/features/notes";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
+
+beforeEach(() => sessionStorage.clear());
 
 const ME = "11111111-1111-4111-8111-111111111111";
 
@@ -64,8 +66,7 @@ function TestBoardView(props: RoomBoardViewProps) {
     <RoomBoardView
       {...props}
       help={props.help ?? help}
-      initialGuideExpanded={props.help?.isOpen ?? true}
-      enableGuideModal={props.help !== undefined}
+      initialGuideState={props.initialGuideState ?? "detail"}
     />
   );
 }
@@ -77,6 +78,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: buildPhaseStep(1),
     decision: null,
+    adoptionFocusNoteId: null,
     timer: { status: "idle" } as const,
     timerServerOffsetMs: 0,
     isHost: false,
@@ -100,6 +102,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     onPrivateNoteDelete: vi.fn(),
     onNoteContentChange: vi.fn(),
     onNoteDelete: vi.fn(),
+    onNoteBringToFront: vi.fn(),
     onGroupCreate: vi.fn(),
     onGroupUpdateName: vi.fn(),
     onLeave: vi.fn(),
@@ -111,6 +114,8 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: vi.fn(),
+    onAdoptionFocusChange: vi.fn(),
+
     connectionStatus: "open" as const,
     groups: [],
     remoteCursors: [],
@@ -129,6 +134,141 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
 function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
 }
+
+describe("採用する付箋の選択モード", () => {
+  it("hover・focus を共有し、Escape・キャンセル・確定・切断で解除を通知する", () => {
+    const onAdoptionFocusChange = vi.fn();
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: [buildNote({ id: "note-1", content: "候補A" })],
+      onAdoptionFocusChange,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    const start = () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+      );
+      return screen.getByRole("button", { name: "採用する付箋: 候補A" });
+    };
+
+    fireEvent.pointerEnter(start());
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+
+    fireEvent.focus(start());
+    fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+
+    fireEvent.click(start());
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+
+    const target = start();
+    fireEvent.pointerEnter(target);
+    rerender(<TestBoardView {...props} connectionStatus="closed" />);
+    expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
+  });
+  it("画面下の入口から開始し、対象を1件クリックすると確定して終了する", () => {
+    const onNoteDecide = vi.fn();
+    setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: [buildNote({ id: "note-1", content: "候補A" })],
+      onNoteDecide,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "採用する付箋をクリックしてください",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+    );
+    expect(onNoteDecide).toHaveBeenCalledWith("note-1");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("Escape・キャンセル・ステップ変更・切断で選択モードを解除する", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    const start = () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+      );
+    const expectSelectionModeClosed = () =>
+      expect(
+        screen.queryByText("採用する付箋をクリックしてください"),
+      ).not.toBeInTheDocument();
+
+    start();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expectSelectionModeClosed();
+
+    start();
+    fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
+    expectSelectionModeClosed();
+
+    start();
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(1, 2)} />);
+    expectSelectionModeClosed();
+
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(5)} />);
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    start();
+    rerender(<TestBoardView {...props} connectionStatus="closed" />);
+    expectSelectionModeClosed();
+  });
+
+  it("空白クリックでは確定せず、候補外と非ホストを対象にしない", () => {
+    const onNoteDecide = vi.fn();
+    const { rerender, props } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: [buildNote({ id: "note-1", content: "候補外", excluded: true })],
+      onNoteDecide,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    fireEvent.click(screen.getByTestId("board-canvas"));
+    expect(onNoteDecide).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: /採用する付箋:/ }),
+    ).not.toBeInTheDocument();
+
+    rerender(<TestBoardView {...props} isHost={false} />);
+    expect(
+      screen.queryByRole("button", { name: "採用する付箋を選ぶ" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("決定済みの内容を全員に示し、取消は出さない", () => {
+    const notes = [buildNote({ id: "note-1", content: "決定した課題" })];
+    const decision = buildDecision({ noteId: "note-1" });
+    const { rerender, props } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes,
+      decision,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.getAllByText("決定した課題")).toHaveLength(2);
+    expect(
+      screen.queryByRole("button", { name: "確定を解除" }),
+    ).not.toBeInTheDocument();
+
+    rerender(<TestBoardView {...props} isHost={false} />);
+    expect(screen.getAllByText("決定した課題")).toHaveLength(2);
+    expect(
+      screen.queryByRole("button", { name: "確定を解除" }),
+    ).not.toBeInTheDocument();
+  });
+});
 
 describe("考えるヒントの外部制御", () => {
   it("渡された開閉状態を表示し、操作をコールバックで返す", async () => {
@@ -176,12 +316,13 @@ describe("0票候補の一括整理", () => {
         buildNote({ id: "note-3", excluded: true }),
         buildNote({ id: "note-4" }),
       ],
-      decision: { phase: 1, noteId: "note-4", decidedBy: ME },
+      decision: null,
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    openRoomMenu();
     expect(
       screen.getByRole("button", {
-        name: "投票なしをまとめて候補から外す（1件）",
+        name: "投票なしをまとめて候補から外す（2件）",
       }),
     ).toBeInTheDocument();
   });
@@ -197,12 +338,11 @@ describe("0票候補の一括整理", () => {
   });
 });
 
-describe("ステップ説明モーダル", () => {
-  it("フェーズ1 Step 1は最初の一歩と課題の例を中央揃えで表示する", () => {
-    setup({
-      phase: buildPhaseStep(1, 1),
+describe("上中央の統合ガイド", () => {
+  it("初回の案内はモーダルにせず、作業をそのまま始められる", () => {
+    const { props } = setup({
+      initialGuideState: "intro",
       notes: [],
-      interactions: buildInteractions([], []),
       help: {
         kind: null,
         isOpen: true,
@@ -210,348 +350,11 @@ describe("ステップ説明モーダル", () => {
         onOpenChange: vi.fn(),
         onTabChange: vi.fn(),
       },
-      enableGuideModal: true,
     });
-
-    const dialog = screen.getByRole("dialog");
-    dialog.focus();
-    fireEvent.focusIn(screen.getByTestId("room-board-view-root"));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("デザインスプリントを始めよう！"),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).queryByText("このステップで考えることを整理します。"),
-    ).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByText("最近あった困ったことを付箋に書き出そう。"),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("学校の出席率がまずい"),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("やることの優先順位を決められない"),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByRole("list")).toHaveClass("text-left");
-    expect(within(dialog).getByText("例")).toHaveClass("text-center");
-    expect(
-      within(dialog).getByRole("button", { name: "付箋に課題を書く" }),
-    ).toBeInTheDocument();
-  });
-
-  it("フェーズ1 Step 2は付箋共有の手順と進行役案内を表示する", () => {
-    setup({
-      phase: buildPhaseStep(2, 1),
-      isHost: true,
-      help: {
-        kind: null,
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    const dialog = screen.getByRole("dialog");
-    expect(
-      within(dialog).getByText("作成した付箋をメンバーに共有しよう！"),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("共有する順番を話し合って決める"),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        "最初の順番の人がすべての付箋を一つずつ説明しながら共有する。",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("決めた順番通り次の人が発表する"),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByRole("list")).toHaveClass("text-left");
-    expect(within(dialog).getByText("進め方")).toHaveClass("text-center");
-    expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
-    expect(within(dialog).queryByText("完了の目安")).not.toBeInTheDocument();
-    expect(
-      within(dialog).queryByRole("button", { name: "このステップを始める" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("フェーズ1 Step 2も閉じた後のやり方を左上パネルで表示する", () => {
-    setup({
-      phase: buildPhaseStep(2, 1),
-      help: {
-        kind: null,
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", {
-        name: "閉じる",
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
-
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
-      "作成した付箋をメンバーに共有しよう！",
-    );
-    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
-      "共有する順番を話し合って決める",
-    );
-  });
-
-  it("フェーズ1 Step 3も閉じた後のやり方を左上パネルで表示する", () => {
-    setup({
-      phase: buildPhaseStep(3, 1),
-      help: {
-        kind: null,
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", {
-        name: "閉じる",
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
-      "似ている課題を集めて整理しよう！",
-    );
-    expect(
-      screen.getByTestId("board-guide-panel").querySelector("button"),
-    ).toBeNull();
-  });
-
-  it("Step 1を閉じた状態からStep 2へ進むと中央モーダルを表示する", () => {
-    const { props, rerender } = setup({
-      phase: buildPhaseStep(1, 1),
-      help: {
-        kind: null,
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", {
-        name: "閉じる",
-      }),
-    );
-    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 1)} />);
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(
-      within(screen.getByRole("dialog")).getByText(
-        "作成した付箋をメンバーに共有しよう！",
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("2-1の案内を閉じてから開くと左上パネルにやることを表示する", () => {
-    setup({
-      phase: buildPhaseStep(1, 2),
-      help: {
-        kind: "hmw",
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getByRole("button", {
-        name: "閉じる",
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
-
-    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
-      "決定した課題に対して",
-    );
-    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
-      "「どうすれば私たちは〇〇できるだろう？」の形に言い換える",
-    );
-  });
-
-  it("中央モーダルを閉じてからやり方を押すと左上パネルで同じ内容を表示する", () => {
-    setup({
-      phase: buildPhaseStep(1, 1),
-      notes: [],
-      interactions: buildInteractions([], []),
-      help: {
-        kind: null,
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "閉じる" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByTestId("board-guide-panel")).toHaveTextContent(
-      "学校の出席率がまずい",
-    );
-    expect(
-      screen
-        .getByTestId("board-guide-panel")
-        .querySelector("[data-testid='guide-examples-label']"),
-    ).toBeInTheDocument();
-    expect(screen.getByTestId("board-guide-panel")).not.toHaveTextContent(
-      "デザインスプリントを始めよう！",
-    );
-    expect(screen.getByTestId("board-guide-panel")).toHaveClass("text-left");
-    expect(
-      screen.getByTestId("board-guide-panel").querySelector("button"),
-    ).toBeNull();
-  });
-
-  it("問いの作成Step 1では説明と付箋に問いを書くCTAを表示する", () => {
-    const onAddPrivateNote = vi.fn();
-    setup({
-      phase: buildPhaseStep(1, 2),
-      isHost: true,
-      notes: [],
-      onAddPrivateNote,
-      interactions: buildInteractions([], []),
-      help: {
-        kind: "hmw",
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    const dialog = screen.getByRole("dialog");
-    const howTo = within(dialog).getByText("進め方");
-    const examples = within(dialog).getByText("例");
-    expect(
-      howTo.compareDocumentPosition(examples) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(howTo.parentElement).toHaveClass("mx-auto", "w-fit", "text-left");
-    expect(howTo).toHaveClass("text-center");
-    expect(dialog.querySelector("ol")).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        /決定した課題に対して[\s\S]*「どうすれば私たちは〇〇できるだろう？」の形に言い換える/,
-      ),
-    ).toHaveClass("text-center");
-    expect(
-      within(dialog).getByText(
-        "決めた課題を、アイデアが生まれる問いに変えよう！",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        /決定した課題に対して[\s\S]*「どうすれば私たちは〇〇できるだろう？」の形に言い換える/,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("課題: 学校の出席率がまずい"),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("問い: あと何日休めるだろう？"),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByText("進行役へ")).toBeInTheDocument();
-    expect(within(dialog).getByText("進行役へ")).toHaveClass("text-center");
-    expect(within(dialog).getByText("進行役へ").parentElement).toHaveClass(
-      "rounded-lg",
-      "border",
-      "bg-muted/60",
-    );
-    expect(
-      within(dialog).getByText(/タイマーが終了したら次のステップへ進もう。/),
-    ).toHaveClass("text-center");
-    expect(within(dialog).queryByText("具体例")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "付箋に問いを書く" }),
-    ).toBeInTheDocument();
-  });
-
-  it("付箋に問いを書くを押すとモーダルを閉じて付箋作成を開始する", () => {
-    const onAddPrivateNote = vi.fn();
-    setup({
-      phase: buildPhaseStep(1, 2),
-      notes: [],
-      onAddPrivateNote,
-      interactions: buildInteractions([], []),
-      help: {
-        kind: "hmw",
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "付箋に問いを書く" }));
-
-    expect(onAddPrivateNote).toHaveBeenCalledOnce();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("3-1はやることを表示せず、1-1と同じ進行役案内を表示する", () => {
-    setup({
-      phase: buildPhaseStep(1, 3),
-      isHost: true,
-      help: {
-        kind: "idea",
-        isOpen: true,
-        tab: "write",
-        onOpenChange: vi.fn(),
-        onTabChange: vi.fn(),
-      },
-      enableGuideModal: true,
-    });
-
-    const dialog = screen.getByRole("dialog");
-    const title = within(dialog).getByText(
-      "決めた問いに対する解決策を書き出そう",
-    );
-    expect(title).toHaveClass("text-2xl", "text-foreground");
-    expect(within(dialog).queryByText("進め方")).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        "スマホアプリで残りの休める日数が簡単にわかる。",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("pcのgoogle拡張機能でwebから簡単に確認できる。"),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        /右上からタイマーを設定しよう！[\s\S]*タイマーが終了したら次のステップへ進もう。/,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "最初の一歩" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
   });
 });
 
@@ -655,40 +458,34 @@ describe("RoomBoardView", () => {
   });
 
   describe("ファシリテーションガイド", () => {
-    it("既定で展開し、同じステップ中は利用者が折り畳める", () => {
+    it("詳細を畳んでも現在の作業名を残し、再び同じ場所で開く", () => {
       setup();
-
-      const root = screen.getByTestId("room-board-view-root");
-      expect(root).toHaveAttribute("data-guide-expanded", "true");
-
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: "進め方を閉じる",
-        }),
+      expect(screen.getByTestId("step-guide")).toHaveAttribute(
+        "data-state",
+        "detail",
       );
-
-      expect(root).toHaveAttribute("data-guide-expanded", "false");
-      expect(screen.getByTestId("facilitation-guide-shell")).toHaveAttribute(
-        "aria-hidden",
-        "true",
+      fireEvent.click(document.body);
+      expect(screen.getByTestId("step-guide")).toHaveAttribute(
+        "data-state",
+        "compact",
       );
+      expect(screen.getByTestId("board-current-step")).toHaveTextContent(
+        "自分の課題（個人）",
+      );
+      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      expect(
+        screen.getByRole("region", { name: "ファシリテーションガイド" }),
+      ).toBeVisible();
     });
-
-    it("ステップが変わると再展開する", () => {
+    it("初めての工程では短い案内に切り替え、戻った工程は畳む", () => {
       const { props, rerender } = setup();
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: "進め方を閉じる",
-        }),
-      );
-
       rerender(<TestBoardView {...props} phase={buildPhaseStep(2)} />);
-
-      expect(screen.getByTestId("room-board-view-root")).toHaveAttribute(
-        "data-guide-expanded",
-        "true",
+      expect(screen.getByRole("status", { name: "最初の一歩" })).toBeVisible();
+      rerender(<TestBoardView {...props} />);
+      expect(screen.getByTestId("step-guide")).toHaveAttribute(
+        "data-state",
+        "compact",
       );
-      expect(screen.getByText("6分")).toBeInTheDocument();
     });
   });
 
@@ -784,10 +581,12 @@ describe("RoomBoardView", () => {
       onNoteDecide,
     });
     await userEvent.click(screen.getByRole("button", { name: "閉じる" }));
-    clickNote(screen.getAllByTestId("note-card")[0]);
-    const decide = screen.getByRole("button", {
-      name: "この付箋を取り組む課題に決定",
-    });
+    await userEvent.click(
+      screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+    );
+    const decide = screen.getAllByRole("button", {
+      name: /採用する付箋:/,
+    })[0];
     await userEvent.click(screen.getByTestId("room-timer"));
     expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
 
@@ -914,7 +713,9 @@ describe("RoomBoardView", () => {
       },
     });
 
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
     expect(
       within(dialog).getByText("投票対象は現在のフェーズの個々の付箋です。"),
     ).toBeInTheDocument();
@@ -1420,23 +1221,18 @@ describe("RoomBoardView", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("結果ダイアログのランキング行からホストの決定操作を通知する", () => {
-    const onNoteDecide = vi.fn();
+  it("結果ダイアログには決定操作を置かず、画面下の入口に一本化する", () => {
     setup({
       phase: buildPhaseStep(5),
       isHost: true,
-      onNoteDecide,
       notes: noteWithSingleVote(),
     });
 
-    fireEvent.click(
-      within(screen.getByRole("dialog")).getAllByRole("button", {
-        name: "付箋 1を取り組む課題に決定",
-      })[0],
-    );
-
-    expect(onNoteDecide).toHaveBeenCalledWith("note-1");
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).queryByRole("button", {
+        name: /取り組む課題に決定/,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("結果ダイアログは決定済み付箋をstatusとして表示する", () => {
@@ -1479,27 +1275,6 @@ describe("RoomBoardView", () => {
     fireEvent.click(screen.getByRole("button", { name: "主観シール 残り1票" }));
 
     expect(onNoteVote).not.toHaveBeenCalled();
-  });
-
-  it("結果ステップのホストが選択した付箋を決定するとonNoteDecideを呼ぶ", () => {
-    const onNoteDecide = vi.fn();
-    setup({
-      phase: buildPhaseStep(5),
-      isHost: true,
-      onNoteDecide,
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-
-    const [first] = screen.getAllByTestId("note-card");
-    clickNote(first);
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "この付箋を取り組む課題に決定",
-      }),
-    );
-
-    expect(onNoteDecide).toHaveBeenCalledWith("note-1");
   });
 
   describe("接続状態の表示", () => {
@@ -1579,6 +1354,60 @@ describe("RoomBoardView", () => {
   });
 
   describe("付箋の選択", () => {
+    it("移動可能フェーズでは選択した付箋を永続的に最前面へ移すよう通知する", () => {
+      const onNoteBringToFront = vi.fn();
+      setup({
+        phase: buildPhaseStep(2),
+        onNoteBringToFront,
+      });
+
+      const [first] = screen.getAllByTestId("note-card");
+      clickNote(first);
+
+      expect(first).toHaveAttribute("data-selected", "true");
+      expect(onNoteBringToFront).toHaveBeenCalledWith("note-1");
+    });
+
+    it("移動不可フェーズでも選択できるが、最前面への移動は通知しない", () => {
+      const onNoteBringToFront = vi.fn();
+      setup({
+        phase: buildPhaseStep(4),
+        notes: [buildNote({ id: "note-1", stackOrder: 1 })],
+        onNoteBringToFront,
+      });
+
+      const [first] = screen.getAllByTestId("note-card");
+      clickNote(first);
+
+      expect(first).toHaveAttribute("data-selected", "true");
+      expect(first).toHaveStyle({ zIndex: "1" });
+      expect(onNoteBringToFront).not.toHaveBeenCalled();
+    });
+
+    it("移動可能フェーズでも個人付箋の選択では最前面への移動を通知しない", () => {
+      const onNoteBringToFront = vi.fn();
+      const privateNote = buildNote({
+        id: "private-note",
+        visibility: "private",
+        content: "個人付箋",
+      });
+      setup({
+        phase: buildPhaseStep(2),
+        notes: [],
+        interactions: buildInteractions([], [privateNote]),
+        onNoteBringToFront,
+      });
+      fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+
+      const card = within(
+        screen.getByTestId("private-notes-toolbar"),
+      ).getByTestId("note-card");
+      clickNote(card);
+
+      expect(card).toHaveAttribute("data-selected", "true");
+      expect(onNoteBringToFront).not.toHaveBeenCalled();
+    });
+
     it("付箋をクリックすると選択され、ボード背景のクリックで解除される", () => {
       setup();
 
@@ -1604,7 +1433,7 @@ describe("RoomBoardView", () => {
     });
 
     it("選択済みの付箋をもう一度クリックすると編集モードに入る", () => {
-      setup();
+      setup({ phase: buildPhaseStep(2) });
 
       const [first] = screen.getAllByTestId("note-card");
       clickNote(first);
@@ -1614,7 +1443,10 @@ describe("RoomBoardView", () => {
     });
 
     it("付箋を1回クリックして選択後に文字を打つと、その文字から編集を開始する", () => {
-      setup({ notes: [buildNote({ content: "既存の本文" })] });
+      setup({
+        phase: buildPhaseStep(2),
+        notes: [buildNote({ content: "既存の本文" })],
+      });
 
       const [first] = screen.getAllByTestId("note-card");
       clickNote(first);
@@ -1626,7 +1458,7 @@ describe("RoomBoardView", () => {
       expect(textarea).toHaveValue("既存の本文a");
     });
 
-    it("選択中の付箋でBackspaceを押すとonNoteDeleteを呼ぶ", () => {
+    it("選択中の付箋でBackspaceを押すと個人中の共有済み付箋は削除しない", () => {
       const onNoteDelete = vi.fn();
       setup({ onNoteDelete });
 
@@ -1634,7 +1466,7 @@ describe("RoomBoardView", () => {
       clickNote(first);
       fireEvent.keyDown(getNoteSurface(first), { key: "Backspace" });
 
-      expect(onNoteDelete).toHaveBeenCalledWith("note-1");
+      expect(onNoteDelete).not.toHaveBeenCalledWith("note-1");
     });
   });
 
@@ -1759,15 +1591,15 @@ describe("RoomBoardView", () => {
       expect(onNextPhase).toHaveBeenCalledTimes(1);
     });
 
-    it("Step 1-5 は投票結果の確認後も、未決定なら「次のステップへ」を無効にする", () => {
+    it("Step 1-5 は未決定なら次への操作を出さない", () => {
       setup({ isHost: true, phase: buildPhaseStep(5), decision: null });
 
       // 結果ステップで自動表示される投票結果ダイアログを閉じてから検証する。
       fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
       expect(
-        screen.getByRole("button", { name: "次のステップへ" }),
-      ).toBeDisabled();
+        screen.queryByRole("button", { name: "次のステップへ" }),
+      ).not.toBeInTheDocument();
     });
 
     it("Step 1-5 で課題が決定されると2-1への「次のステップへ」を表示する", () => {
@@ -1794,7 +1626,7 @@ describe("RoomBoardView", () => {
   });
 
   describe("ステップごとの付箋編集制御", () => {
-    it("Step1では付箋編集できる", () => {
+    it("個人中の共有済み付箋は閲覧のみ", () => {
       setup({
         phase: buildPhaseStep(1),
       });
@@ -1804,9 +1636,7 @@ describe("RoomBoardView", () => {
       clickNote(first);
       clickNote(first);
 
-      expect(within(first).getByRole("textbox")).not.toHaveAttribute(
-        "readonly",
-      );
+      expect(within(first).getByRole("textbox")).toHaveAttribute("readonly");
     });
 
     it("Step2では付箋編集できる", () => {
@@ -1929,7 +1759,7 @@ describe("RoomBoardView", () => {
       ).toBeInTheDocument();
     });
 
-    it("Step1-5ではパレットを閉じ、集計済みシールを表示する", () => {
+    it("Step1-5ではパレットを閉じ、0票の結果表示を省略する", () => {
       setup({
         phase: buildPhaseStep(5),
       });
@@ -1940,8 +1770,8 @@ describe("RoomBoardView", () => {
         screen.queryByRole("region", { name: "投票パレット" }),
       ).not.toBeInTheDocument();
       expect(
-        screen.getAllByRole("img", { name: "主観シール 0票" }),
-      ).toHaveLength(2);
+        screen.queryByRole("img", { name: "主観シール 0票" }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -2075,7 +1905,7 @@ describe("参加者 HUD", () => {
 });
 
 describe("ステップに結び付いた決定事項", () => {
-  it("決定した課題をやり方の下ではなく上に表示する", () => {
+  it("決定した課題を左上に残し、ガイドは独立した枠に表示する", () => {
     setup({
       phase: buildPhaseStep(1, 2),
       hmwDecidedIssue: "忘れ物を減らしたい",
@@ -2088,12 +1918,8 @@ describe("ステップに結び付いた決定事項", () => {
       name: "ファシリテーションガイド",
     });
 
-    expect(
-      reference.compareDocumentPosition(guide) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
     expect(hud).toContainElement(reference);
-    expect(hud).toContainElement(guide);
+    expect(hud).not.toContainElement(guide);
   });
 
   it("HMW作成では進め方と採用した課題を同時に読める", () => {
@@ -2109,9 +1935,9 @@ describe("ステップに結び付いた決定事項", () => {
     expect(
       screen.queryByRole("tab", { name: /決定事項/ }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "進め方を閉じる" }));
+    fireEvent.click(document.body);
     expect(screen.getByText("忘れ物を減らしたい")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     expect(
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
     ).toBeVisible();
@@ -2133,11 +1959,12 @@ describe("ステップに結び付いた決定事項", () => {
       screen.getByText("どうすれば全員が安心して話せるだろうか？"),
     ).not.toBeVisible();
     expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
-    expect(
-      screen.getByRole("region", { name: "ファシリテーションガイド" }),
-    ).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "進め方を閉じる" }));
-    fireEvent.click(screen.getByRole("button", { name: "進め方を開く" }));
+    expect(screen.getByTestId("step-guide")).toHaveAttribute(
+      "data-state",
+      "compact",
+    );
+    fireEvent.click(document.body);
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
     expect(
       screen.getByText("どうすれば全員が安心して話せるだろうか？"),
@@ -2175,4 +2002,69 @@ describe("ステップに結び付いた決定事項", () => {
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
     ).toBeVisible();
   });
+});
+
+describe("反復ワークフロー", () => {
+  it.each([
+    [1, 2],
+    [1, 3],
+    [2, 2],
+    [3, 2],
+    [3, 3],
+  ] as const)("%i-%iで追加作業を下中央から確認する", (phase, step) => {
+    setup({ phase: buildPhaseStep(step, phase), isHost: true });
+    fireEvent.click(screen.getByRole("button", { name: "もう一度付箋を書く" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "共有済み付箋と下書きは残ります",
+    );
+    expect(
+      screen.getByRole("button", { name: "個人作業へ戻る" }),
+    ).toBeEnabled();
+  });
+  it("採用前は次への操作を出さず再投票を確認できる", () => {
+    setup({ phase: buildPhaseStep(5), isHost: true });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(
+      screen.queryByRole("button", { name: "次のステップへ" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "もう一度投票する" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "付箋は消えません",
+    );
+  });
+  it.each([
+    [1, 5, "付箋"],
+    [2, 4, "問い"],
+    [3, 5, "アイデア"],
+  ] as const)("%i-%iでは候補を選ぶと確認ダイアログなしで採用する", (phase, step, label) => {
+    const { props } = setup({
+      phase: buildPhaseStep(step, phase),
+      isHost: true,
+      notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    expect(props.onNoteDecide).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: `採用する${label}: 選んだ候補` }),
+    );
+    expect(props.onNoteDecide).toHaveBeenCalledExactlyOnceWith("candidate");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "選択をキャンセル" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+it("同じ決定ステップのsnapshot更新では結果一覧を再表示しない", () => {
+  const { props, rerender } = setup({ phase: buildPhaseStep(5), isHost: true });
+  fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+  rerender(
+    <TestBoardView
+      {...props}
+      phase={{ ...props.phase }}
+      decision={buildDecision()}
+    />,
+  );
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

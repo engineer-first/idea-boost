@@ -26,6 +26,7 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    fontSize: overrides?.fontSize ?? 14,
     stackOrder: overrides?.stackOrder ?? 0,
     dotVoteStickers: overrides?.dotVoteStickers ?? [],
   };
@@ -46,6 +47,12 @@ const TABLE: Array<{
   },
   {
     name: "private: 他のメンバーは付箋を見られない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "共有の進行役でも他者のprivate付箋は見られない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
     expected: false,
@@ -80,6 +87,10 @@ describe("projectNoteForViewer", () => {
     ["step 1-1", buildPhaseStep(1)],
     ["step 1-2", buildPhaseStep(2)],
     ["step 1-5", buildPhaseStep(5)],
+    ["step 2-1 再執筆", buildPhaseStep(1, 2)],
+    ["step 2-4 決定", buildPhaseStep(4, 2)],
+    ["step 3-1 再執筆", buildPhaseStep(1, 3)],
+    ["step 3-5 決定", buildPhaseStep(5, 3)],
   ])("%s では投票集計を保持する", (_name, phase) => {
     const source = note({
       dotVotes: {
@@ -93,7 +104,11 @@ describe("projectNoteForViewer", () => {
     );
   });
 
-  it("投票ステップでは両方の count を除去し、本人用の投票状態は保持する", () => {
+  it.each([
+    buildPhaseStep(4),
+    buildPhaseStep(3, 2),
+    buildPhaseStep(4, 3),
+  ])("初回・再投票ステップ %j では集計を除去し本人票だけを保持する", (phase) => {
     const source = note({
       dotVotes: {
         subjective: { count: 2, votedByMe: true, ownCount: 1 },
@@ -101,10 +116,7 @@ describe("projectNoteForViewer", () => {
       },
     });
 
-    const projected = projectNoteForViewer(
-      { viewerId: VIEWER, phase: buildPhaseStep(4) },
-      source,
-    );
+    const projected = projectNoteForViewer({ viewerId: VIEWER, phase }, source);
 
     expect(projected.dotVotes).toEqual({
       subjective: { votedByMe: true, ownCount: 1 },

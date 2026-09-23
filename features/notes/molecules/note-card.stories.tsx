@@ -39,7 +39,7 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div style={{ position: "relative", width: 400, height: 300 }}>
+      <div style={{ position: "relative", width: 400, minHeight: 300 }}>
         <Story />
       </div>
     ),
@@ -61,8 +61,51 @@ export const LongContent: Story = {
   args: {
     note: buildNote({
       content:
-        "長めのメモの例です。付箋の高さに収まらない場合はスクロールして読めるようにしています。",
+        "長めのメモの例です。本文が基準高に収まらない場合は、文字サイズを保ったまま全文が見える高さまで付箋が伸びます。".repeat(
+          2,
+        ),
     }),
+  },
+};
+
+export const ShortAt12px: Story = {
+  args: {
+    note: buildNote({ content: "短い本文", fontSize: 12 }),
+  },
+};
+
+export const MediumAt14px: Story = {
+  args: {
+    note: buildNote({
+      content:
+        "中程度の本文です。改行や折り返しを含んでも、付箋の中で全文を続けて読めます。\n操作のための余白も保ちます。",
+      fontSize: 14,
+    }),
+  },
+};
+
+export const LongAt24px: Story = {
+  args: {
+    note: buildNote({
+      content:
+        "24pxの長文です。文字を自動で縮小せず、本文の終わりまで表示できるように付箋そのものが縦へ伸びます。".repeat(
+          6,
+        ),
+      fontSize: 24,
+    }),
+    className: "relative",
+    style: {},
+  },
+};
+
+export const MaximumLengthAt24px: Story = {
+  args: {
+    note: buildNote({
+      content: "最大長の確認用本文。".repeat(200).slice(0, 2_000),
+      fontSize: 24,
+    }),
+    className: "relative",
+    style: {},
   },
 };
 
@@ -148,9 +191,10 @@ export const ExcludedForHost: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     const card = canvas.getByTestId("note-card");
     const surface = canvas.getByRole("button", { name: "候補外の付箋" });
-    const restore = canvas.getByRole("button", { name: "候補に戻す" });
+    const restore = page.getByRole("button", { name: "候補に戻す" });
 
     await userEvent.hover(surface);
     await waitFor(() => expect(restore).toBeVisible());
@@ -158,10 +202,11 @@ export const ExcludedForHost: Story = {
     surface.focus();
     await waitFor(() => expect(restore).toBeVisible());
     surface.blur();
+    fireEvent.pointerDown(surface, { pointerId: 7, pointerType: "touch" });
     fireEvent.pointerUp(surface, { pointerId: 7, pointerType: "touch" });
     await waitFor(() => expect(restore).toBeVisible());
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
-    await expect(canvas.getByText("候補外")).toBeVisible();
+    await expect(canvas.queryByText("候補外")).not.toBeInTheDocument();
   },
 };
 
@@ -172,14 +217,83 @@ export const CandidateContextMenu: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     const surface = canvas.getByRole("button", { name: "付箋" });
 
     fireEvent.contextMenu(surface);
     await expect(args.onExclude).not.toHaveBeenCalled();
-    await userEvent.click(
-      canvas.getByRole("menuitem", { name: "候補から外す" }),
-    );
+    await userEvent.click(page.getByRole("menuitem", { name: "候補から外す" }));
     await expect(args.onExclude).toHaveBeenCalledWith("note-1");
+  },
+};
+
+export const CandidateActionForTouch: Story = {
+  args: {
+    canExcludeNote: true,
+    onExclude: fn(),
+  },
+};
+
+export const MultipleCandidateActionsForTouch: Story = {
+  args: {
+    canExcludeNote: true,
+    onExclude: fn(),
+  },
+  render: (args) => (
+    <>
+      <NoteCard
+        {...args}
+        note={buildNote({ id: "first-note", content: "最初の付箋" })}
+        style={{ left: 20, top: 20 }}
+      />
+      <NoteCard
+        {...args}
+        note={buildNote({ id: "second-note", content: "次の付箋" })}
+        style={{ left: 220, top: 20 }}
+      />
+    </>
+  ),
+};
+
+export const OverlappedCandidateAction: Story = {
+  args: {
+    canExcludeNote: true,
+    onExclude: fn(),
+  },
+  render: (args) => (
+    <>
+      <NoteCard
+        {...args}
+        note={buildNote({
+          id: "target-note",
+          content: "奥にある候補",
+        })}
+        style={{ left: 30, top: 30, zIndex: 1 }}
+      />
+      <NoteCard
+        {...args}
+        note={buildNote({
+          id: "front-note",
+          content: "手前の付箋",
+        })}
+        style={{ left: 54, top: 80, zIndex: 2 }}
+      />
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const target = canvasElement.querySelector<HTMLElement>(
+      '[data-note-id="target-note"]',
+    );
+    if (!target) throw new Error("対象の付箋がありません");
+    const surface = within(target).getByRole("button", { name: "付箋" });
+    const action = canvasElement.ownerDocument.querySelector<HTMLButtonElement>(
+      '[data-candidate-action-note-id="target-note"]',
+    );
+    if (!action) throw new Error("対象の候補操作がありません");
+
+    await userEvent.hover(surface);
+    await waitFor(() => expect(action).toBeVisible());
+    await expect(target).not.toContainElement(action);
   },
 };
 
@@ -194,10 +308,11 @@ export const ExcludedKeyboardMenu: Story = {
   },
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     const surface = canvas.getByRole("button", { name: "候補外の付箋" });
     surface.focus();
     await userEvent.keyboard("{Shift>}{F10}{/Shift}");
-    const menuItem = canvas.getByRole("menuitem", { name: "候補に戻す" });
+    const menuItem = page.getByRole("menuitem", { name: "候補に戻す" });
     await expect(menuItem).toHaveFocus();
     await expect(args.onRestore).not.toHaveBeenCalled();
     await userEvent.keyboard("{Enter}");
@@ -216,15 +331,17 @@ export const ExcludedForParticipant: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
     const card = canvas.getByTestId("note-card");
     const surface = canvas.getByRole("button", { name: "候補外の付箋" });
 
+    fireEvent.pointerDown(surface, { pointerId: 8, pointerType: "touch" });
     fireEvent.pointerUp(surface, { pointerId: 8, pointerType: "touch" });
 
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
-    await expect(canvas.getByText("候補外")).toBeVisible();
+    await expect(canvas.queryByText("候補外")).not.toBeInTheDocument();
     await expect(
-      canvas.queryByRole("button", { name: "候補に戻す" }),
+      page.queryByRole("button", { name: "候補に戻す" }),
     ).not.toBeInTheDocument();
   },
 };
@@ -233,6 +350,13 @@ export const ResultStep: Story = {
   args: {
     isSelected: true,
     editingDisabled: true,
+    note: buildNote({
+      content: "0票のときは結果シールも票数も表示しません。",
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 0, votedByMe: false, ownCount: 0 },
+      },
+    }),
     vote: {
       displayMode: "result",
       selectedKind: null,
@@ -243,4 +367,180 @@ export const ResultStep: Story = {
       onVoteRemove: fn(),
     },
   },
+};
+
+export const ResultWithFewVotes: Story = {
+  args: {
+    editingDisabled: true,
+    note: buildNote({
+      content: "少数票は1票1枚のシールで比較できます。",
+      dotVotes: {
+        subjective: { count: 1, votedByMe: false, ownCount: 0 },
+        objective: { count: 3, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const ResultWithLongContent: Story = {
+  args: {
+    editingDisabled: true,
+    note: buildNote({
+      content:
+        "長文のアイデアでも、本文が結果シールの下へ潜り込まないように付箋の内側に専用の結果余白を確保します。本文はスクロールして全文を読めます。",
+      dotVotes: {
+        subjective: { count: 2, votedByMe: false, ownCount: 0 },
+        objective: { count: 7, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const ResultWithManyVotes: Story = {
+  args: {
+    editingDisabled: true,
+    note: buildNote({
+      content: "10票を超えても、間隔だけを狭めて全票分を表示します。",
+      dotVotes: {
+        subjective: { count: 12, votedByMe: false, ownCount: 0 },
+        objective: { count: 27, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const ResultWithCandidateAction: Story = {
+  args: {
+    editingDisabled: true,
+    canEditNote: false,
+    canDeleteNote: false,
+    canMoveNote: false,
+    canExcludeNote: true,
+    onExclude: fn(),
+    note: buildNote({
+      content: "付箋外の候補操作と結果表示を重ねずに表示します。",
+      dotVotes: {
+        subjective: { count: 3, votedByMe: false, ownCount: 0 },
+        objective: { count: 8, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.hover(canvas.getByRole("button", { name: "付箋" }));
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("button", { name: "候補から外す" }),
+      ).toBeVisible(),
+    );
+  },
+};
+
+export const ResultExcludedForHost: Story = {
+  args: {
+    editingDisabled: true,
+    canEditNote: false,
+    canDeleteNote: false,
+    canMoveNote: false,
+    canRestoreNote: true,
+    onRestore: fn(),
+    note: buildNote({
+      content: "候補外の本文・票・配置は保ったまま戻せます。",
+      excluded: true,
+      dotVotes: {
+        subjective: { count: 2, votedByMe: false, ownCount: 0 },
+        objective: { count: 5, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.hover(canvas.getByRole("button", { name: "候補外の付箋" }));
+    await waitFor(() =>
+      expect(canvas.getByRole("button", { name: "候補に戻す" })).toBeVisible(),
+    );
+  },
+};
+
+export const ResultWithDecision: Story = {
+  args: {
+    isDecided: true,
+    editingDisabled: true,
+    note: buildNote({
+      content: "決定済みの印と結果表示を同時に確認できます。",
+      dotVotes: {
+        subjective: { count: 4, votedByMe: false, ownCount: 0 },
+        objective: { count: 10, votedByMe: false, ownCount: 0 },
+      },
+    }),
+    vote: {
+      displayMode: "result",
+      selectedKind: null,
+      voteRemaining: { subjective: 0, objective: 0 },
+      canVote: false,
+      pendingOperations: [],
+      onVote: fn(),
+      onVoteRemove: fn(),
+    },
+  },
+};
+
+export const ResultOnDarkCanvas: Story = {
+  args: {
+    ...ResultWithManyVotes.args,
+    className: "relative",
+    style: {},
+  },
+  decorators: [
+    (Story) => (
+      <div className="rounded-lg bg-slate-950 p-12">
+        <Story />
+      </div>
+    ),
+  ],
 };

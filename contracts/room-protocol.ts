@@ -11,10 +11,22 @@
 // - lobby: 開始前ロビー（メンバー確認・招待）。
 // - step: phase × step の進行状態。現在は課題整理の phase1 step1-5 のみ。
 import { z } from "zod";
-import { CANVAS_COORDINATE_LIMIT } from "./board";
+import {
+  CANVAS_COORDINATE_LIMIT,
+  IDEA_MAP_SIZE_LEVEL_RANGE,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_FONT_SIZE_RANGE,
+} from "./board";
 import { RoomPhaseSchema } from "./phase";
 
 export const NOTE_CONTENT_MAX_LENGTH = 2000;
+
+export const IdeaMapSizeLevelSchema = z
+  .number()
+  .int()
+  .min(IDEA_MAP_SIZE_LEVEL_RANGE.min)
+  .max(IDEA_MAP_SIZE_LEVEL_RANGE.max);
+export type IdeaMapSizeLevel = z.infer<typeof IdeaMapSizeLevelSchema>;
 
 export const DOT_VOTE_LIMITS = {
   subjective: 1,
@@ -24,9 +36,10 @@ export const DOT_VOTE_LIMITS = {
 export const DotVoteKindSchema = z.enum(["subjective", "objective"]);
 export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 
-// 楽観表示した投票操作と、RoomDO から返る確定・拒否応答を対応付けるID。
+// 楽観表示した操作と、RoomDO から返る確定・拒否応答を対応付けるID。
 // 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
-export const VoteOperationIdSchema = z.string().uuid();
+export const OptimisticOperationIdSchema = z.string().uuid();
+export const VoteOperationIdSchema = OptimisticOperationIdSchema;
 export const BulkExclusionOperationIdSchema = z.string().uuid();
 export type BulkExclusionOperationId = z.infer<
   typeof BulkExclusionOperationIdSchema
@@ -77,11 +90,42 @@ export const NOTE_COLOR_PALETTE = [
 export const NoteColorSchema = z.enum(NOTE_COLOR_PALETTE);
 export type NoteColor = z.infer<typeof NoteColorSchema>;
 
+// 新規メンバーへ割り当てる色の優先順。色IDの保存・通信上の集合とは分けて管理し、
+// 既存の割り当て履歴を変えずに、少人数で異なる色系統を先に使う。
+export const MEMBER_COLOR_ASSIGNMENT_ORDER = [
+  "yellow",
+  "blue",
+  "pink",
+  "green",
+  "purple",
+  "orange",
+  "teal",
+  "red",
+  "indigo",
+  "lime",
+  "fuchsia",
+  "cyan",
+  "amber",
+  "emerald",
+  "violet",
+  "rose",
+  "sky",
+  "stone",
+  "slate",
+  "zinc",
+] as const satisfies readonly NoteColor[];
+
 export const CanvasCoordinateSchema = z
   .number()
   .finite()
   .min(-CANVAS_COORDINATE_LIMIT)
   .max(CANVAS_COORDINATE_LIMIT);
+
+export const NoteFontSizeSchema = z
+  .number()
+  .int()
+  .min(NOTE_FONT_SIZE_RANGE.min)
+  .max(NOTE_FONT_SIZE_RANGE.max);
 
 export const NoteSchema = z.object({
   id: z.string().uuid(),
@@ -89,6 +133,8 @@ export const NoteSchema = z.object({
   content: z.string(),
   visibility: z.enum(["private", "shared"]),
   color: NoteColorSchema,
+  // 旧 Worker / 保存データにフィールドがなくても従来相当の14pxで復元する。
+  fontSize: NoteFontSizeSchema.default(NOTE_DEFAULT_FONT_SIZE),
   x: CanvasCoordinateSchema,
   y: CanvasCoordinateSchema,
   // 決定ステップで一時的に候補から外す状態。削除とは異なり、付箋の内容・
@@ -152,6 +198,18 @@ export const MemberSchema = z.object({
 });
 export type ProtocolMember = z.infer<typeof MemberSchema>;
 
+// 共有順・発表進捗は全員共有。付箋や非公開の作業情報は含めない。
+export const SharingStateSchema = z.object({
+  revision: z.string().uuid(),
+  order: z.array(MemberSchema),
+  status: z.enum(["inactive", "ready", "active", "complete"]),
+  currentIndex: z.number().int().nonnegative().nullable(),
+  results: z.array(z.enum(["done", "passed"])),
+  durationMs: z.number().int().min(1).max(TIMER_MAX_DURATION_MS),
+  startsAt: TimerMillisecondsSchema.nullable(),
+});
+export type SharingState = z.infer<typeof SharingStateSchema>;
+
 // カーソルは RoomDO が永続化しない presence。クライアント入力には userId / name /
 // color を持たせず、認証済みソケットと members からサーバーが付与する。
 export const CursorPresenceSchema = z.object({
@@ -196,6 +254,20 @@ export const NoteDragIdSchema = z.string().uuid();
 // ---------------------------------------------------------------
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("sharing:start"),
+      revision: z.string().uuid(),
+      durationMs: z.number().int().min(1).max(TIMER_MAX_DURATION_MS),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("sharing:advance"),
+      revision: z.string().uuid(),
+      outcome: z.enum(["done", "passed"]),
+    })
+    .strict(),
   z.object({
     type: z.literal("cursor:update"),
     ...NotePositionSchema,
@@ -229,11 +301,25 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       .string()
       .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。"),
   }),
+  z
+    .object({
+      type: z.literal("note:update-font-size"),
+      noteId: z.string().uuid(),
+      fontSize: NoteFontSizeSchema,
+      operationId: OptimisticOperationIdSchema.optional(),
+    })
+    .strict(),
   z.object({
     type: z.literal("note:move"),
     noteId: z.string().uuid(),
     ...NotePositionSchema,
   }),
+  z
+    .object({
+      type: z.literal("note:bring-to-front"),
+      noteId: z.string().uuid(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("note:drag:start"),
@@ -332,6 +418,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:decide"),
     noteId: z.string().uuid(),
   }),
+  // 旧クライアントの決定解除要求。採用は不可逆のためサーバーで常に拒否する。
+  z.object({ type: z.literal("decision:clear") }),
+  // 採用選択モード中にホストが現在検討している候補。userId / phase は
+  // 認証済みソケットと RoomDO の権威状態から導出する。
+  z.object({
+    type: z.literal("adoption-focus:update"),
+    noteId: z.string().uuid().nullable(),
+  }),
   // ロビーから課題整理 Step 1-1 へ。ホストのみ。
   z.object({ type: z.literal("start_phase") }),
   // 課題整理の次ステップへ。ホストのみ。
@@ -340,8 +434,26 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // force を送っても効果はない。
   z.object({
     type: z.literal("phase:next"),
+    expectedPhase: RoomPhaseSchema,
+    expectedRevision: z.number().int().nonnegative(),
     force: z.boolean().optional(),
   }),
+  z.object({
+    type: z.literal("phase:restart-writing"),
+    expectedPhase: RoomPhaseSchema,
+    expectedRevision: z.number().int().nonnegative(),
+  }),
+  z.object({
+    type: z.literal("phase:revote"),
+    expectedPhase: RoomPhaseSchema,
+    expectedRevision: z.number().int().nonnegative(),
+  }),
+  z
+    .object({
+      type: z.literal("idea-map:resize"),
+      sizeLevel: IdeaMapSizeLevelSchema,
+    })
+    .strict(),
   z.object({
     type: z.literal("timer:start"),
     durationMs: z.number().int().min(1).max(TIMER_MAX_DURATION_MS),
@@ -365,13 +477,27 @@ export const WS_CLOSE_ROOM_DISBANDED_REASON = "room disbanded";
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("sharing:updated"),
+    sharing: SharingStateSchema,
+    timer: TimerStateSchema,
+    serverNow: TimerMillisecondsSchema,
+  }),
+  z.object({
     type: z.literal("snapshot"),
+    sharing: SharingStateSchema.nullable().optional(),
     notes: z.array(NoteSchema),
     groups: z.array(GroupSchema).optional(),
     members: z.array(MemberSchema),
     phase: RoomPhaseSchema,
+    phaseRevision: z.number().int().nonnegative().default(0),
     isHost: z.boolean(),
     decision: DecisionSchema.nullable(),
+    // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。
+    adoptionFocusNoteId: z.string().uuid().nullable().optional(),
+    // 個人付箋の本文・作者別枚数は含めず、マップの共有状態だけを復元する。
+    ideaMapSizeLevel: IdeaMapSizeLevelSchema.optional(),
+    ideaMapSizeInitialized: z.boolean().optional(),
+    ideaMapDragging: z.boolean().optional(),
     // 現在フェーズより前のフェーズで確定した決定の一覧（フェーズ昇順）。
     carryovers: z.array(CarryoverSchema),
     // 投票中に全票を使い切ったメンバーの userId だけを共有する。
@@ -384,13 +510,16 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("note:updated"),
     note: NoteSchema,
-    operationId: VoteOperationIdSchema.optional(),
+    operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({ type: z.literal("note:deleted"), noteId: z.string().uuid() }),
   z.object({
     type: z.literal("note:bulk-excluded"),
     operationId: BulkExclusionOperationIdSchema,
     count: z.number().int().nonnegative(),
+    // 段階デプロイ中に旧 Worker の手動確定通知も受け取れるよう、
+    // source がない既存形式は manual として補完する。
+    source: z.enum(["manual", "phase-transition"]).default("manual"),
   }),
   z.object({
     type: z.literal("note:bulk-restored"),
@@ -435,8 +564,24 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("phase:updated"),
     phase: RoomPhaseSchema,
+    phaseRevision: z.number().int().nonnegative().default(0),
   }),
-  z.object({ type: z.literal("decision:updated"), ...DecisionSchema.shape }),
+  z.object({
+    type: z.literal("decision:updated"),
+    decision: DecisionSchema.nullable(),
+  }),
+  z.object({
+    type: z.literal("adoption-focus:updated"),
+    noteId: z.string().uuid().nullable(),
+  }),
+  z
+    .object({
+      type: z.literal("idea-map:state"),
+      sizeLevel: IdeaMapSizeLevelSchema,
+      initialized: z.boolean(),
+      isDragging: z.boolean(),
+    })
+    .strict(),
   z.object({
     type: z.literal("timer:updated"),
     timer: TimerStateSchema,
@@ -453,8 +598,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       "voting-incomplete",
     ]),
     message: z.string(),
-    // 投票操作に起因する拒否だけが持つ。汎用エラーは省略する。
-    operationId: VoteOperationIdSchema.optional(),
+    // 楽観操作に起因する拒否だけが持つ。汎用エラーは省略する。
+    operationId: OptimisticOperationIdSchema.optional(),
   }),
 ]);
 

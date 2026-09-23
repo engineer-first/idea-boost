@@ -43,7 +43,9 @@
     "smoke": "bash scripts/smoke-test.sh",
     "storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook dev -p 6006",
     "build-storybook": "npm run db:schema:diagrams && npm run deps:diagrams && storybook build",
-    "test:browser": "vitest run --config vitest.browser.config.mts"
+    "test:browser": "vitest run --config vitest.browser.config.mts",
+    "dev:verify": "node --no-warnings scripts/verification.mts",
+    "test:verification": "npm run gen:room-do-migrations && vitest run --config vitest.verification.config.mts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -66,7 +68,6 @@
     "@cloudflare/vitest-pool-workers": "^0.18.0",
     "@opennextjs/cloudflare": "^1.20.1",
     "@storybook/addon-docs": "^10.4.6",
-    "@storybook/addon-themes": "^10.4.6",
     "@storybook/nextjs-vite": "^10.4.6",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",

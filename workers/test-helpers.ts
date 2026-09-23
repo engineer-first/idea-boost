@@ -1,6 +1,7 @@
 // workers テスト共通のヘルパー。
 import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { expect } from "vitest";
+import type { RoomPhase } from "../contracts/phase";
 import {
   parseServerMessage,
   type ServerMessage,
@@ -156,4 +157,19 @@ export function openCollectingWs(
       }
     },
   };
+}
+
+// 既存シナリオで、最新の共有状態を見て通常の前進を要求する。
+// 古い要求・競合のテストはこのヘルパーを使わず期待値を明示する。
+export function currentPhaseExpectation(
+  roomId: string,
+): Promise<{ expectedPhase: RoomPhase; expectedRevision: number }> {
+  return runInRoomDO(roomId, (room, state) => ({
+    expectedPhase: room.getPhase(),
+    expectedRevision: Number(
+      state.storage.sql
+        .exec("SELECT phase_revision FROM room_state WHERE id = 1")
+        .one().phase_revision,
+    ),
+  }));
 }

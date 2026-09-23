@@ -16,12 +16,14 @@ const NOTE_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const DRAG_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const FONT_SIZE_OPERATION_ID = "55555555-5555-4555-8555-555555555555";
 
 function snapshotMessage(
   notes: ProtocolNote[] = [buildNote({ id: NOTE_ID })],
 ): ServerMessage {
   return {
     type: "snapshot",
+    phaseRevision: 0,
     notes,
     members: [],
     phase: buildPhaseStep(1),
@@ -46,11 +48,12 @@ describe("useRoomNotes", () => {
     vi.useRealTimers();
   });
 
-  function setup() {
+  function setup(createFontSizeOperationId = () => FONT_SIZE_OPERATION_ID) {
     return renderHook(() =>
       useRoomNotes({
         send,
         createVoteOperationId: () => "33333333-3333-4333-8333-333333333333",
+        createFontSizeOperationId,
         createVoteStickerId: () => "44444444-4444-4444-8444-444444444444",
         createNoteDragId: () => DRAG_ID,
       }),
@@ -62,6 +65,45 @@ describe("useRoomNotes", () => {
     act(() => result.current.applyMessage(snapshotMessage()));
     expect(result.current.notes).toHaveLength(1);
     expect(result.current.notes[0]?.id).toBe(NOTE_ID);
+  });
+
+  it("最前面への要求を送り、確定応答までだけ一時最前面を維持する", () => {
+    const { result } = setup();
+    const selected = buildNote({ id: NOTE_ID, stackOrder: 4 });
+    const other = buildNote({ id: TARGET_NOTE_ID, stackOrder: 5 });
+    act(() => result.current.applyMessage(snapshotMessage([selected, other])));
+
+    act(() => result.current.bringNoteToFront(NOTE_ID));
+
+    expect(send).toHaveBeenCalledWith({
+      type: "note:bring-to-front",
+      noteId: NOTE_ID,
+    });
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...other, stackOrder: 6 },
+      }),
+    );
+    expect(result.current.frontNoteId).toBe(NOTE_ID);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...selected, stackOrder: 7 },
+      }),
+    );
+    expect(result.current.frontNoteId).toBeNull();
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...other, stackOrder: 8 },
+      }),
+    );
+    expect(result.current.frontNoteId).toBeNull();
   });
 
   it("開始受理までは動かさず、受理後に最新位置だけを楽観反映して送る", () => {
@@ -132,6 +174,62 @@ describe("useRoomNotes", () => {
     });
 
     expect(result.current.draggingNoteId).toBeNull();
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      dragId: DRAG_ID,
+      position: null,
+    });
+  });
+
+  it("private map lockは共有前に本文付箋を隠さず、公開時に通常ドラッグへ昇格する", () => {
+    const { result } = setup();
+    act(() =>
+      result.current.applyMessage(
+        snapshotMessage([buildNote({ id: NOTE_ID, visibility: "private" })]),
+      ),
+    );
+
+    act(() => result.current.startNoteDrag(NOTE_ID, true));
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:drag:start",
+      noteId: NOTE_ID,
+      dragId: DRAG_ID,
+    });
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      }),
+    );
+    expect(result.current.draggingNoteId).toBeNull();
+
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    expect(result.current.draggingNoteId).toBe(NOTE_ID);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("returning dragをunpublishしてもpointerup用の操作を保持する", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => {
+      result.current.startNoteDrag(NOTE_ID);
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
+      result.current.unpublishNote(NOTE_ID, true);
+    });
+    expect(result.current.draggingNoteId).toBeNull();
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:unpublish",
+      noteId: NOTE_ID,
+    });
+
+    act(() => result.current.cancelNoteDrag(NOTE_ID));
     expect(send).toHaveBeenLastCalledWith({
       type: "note:drag:end",
       noteId: NOTE_ID,
@@ -340,6 +438,113 @@ describe("useRoomNotes", () => {
       noteId: NOTE_ID,
       content: "新しい本文",
     });
+  });
+
+  it("changeNoteFontSize は操作ID付きで楽観更新し、拒否時は確定値へ戻す", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => result.current.changeNoteFontSize(NOTE_ID, 24));
+
+    expect(result.current.notes[0]?.fontSize).toBe(24);
+    expect(send).toHaveBeenCalledWith({
+      type: "note:update-font-size",
+      noteId: NOTE_ID,
+      fontSize: 24,
+      operationId: FONT_SIZE_OPERATION_ID,
+    });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "この操作を行う権限がありません。",
+        operationId: FONT_SIZE_OPERATION_ID,
+      }),
+    );
+
+    expect(result.current.notes[0]?.fontSize).toBe(14);
+  });
+
+  it.each([
+    11,
+    12.5,
+    25,
+    Number.POSITIVE_INFINITY,
+  ])("不正な文字サイズ %s は楽観表示もRoomDOへの送信もしない", (fontSize) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => result.current.changeNoteFontSize(NOTE_ID, fontSize));
+
+    expect(result.current.notes[0]?.fontSize).toBe(14);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("連続した文字サイズ変更は途中応答で巻き戻さず、最後の拒否で確定値へ戻す", () => {
+    const operationIds = [
+      "55555555-5555-4555-8555-555555555555",
+      "66666666-6666-4666-8666-666666666666",
+    ];
+    const { result } = setup(() => operationIds.shift() ?? "");
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => {
+      result.current.changeNoteFontSize(NOTE_ID, 15);
+      result.current.changeNoteFontSize(NOTE_ID, 16);
+    });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "この操作を行う権限がありません。",
+        operationId: "55555555-5555-4555-8555-555555555555",
+      }),
+    );
+    expect(result.current.notes[0]?.fontSize).toBe(16);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        message: "この操作を行う権限がありません。",
+        operationId: "66666666-6666-4666-8666-666666666666",
+      }),
+    );
+    expect(result.current.notes[0]?.fontSize).toBe(14);
+  });
+
+  it("連続した文字サイズ変更は先の確定応答より最新の楽観値を優先する", () => {
+    const operationIds = [
+      "55555555-5555-4555-8555-555555555555",
+      "66666666-6666-4666-8666-666666666666",
+    ];
+    const { result } = setup(() => operationIds.shift() ?? "");
+    act(() => result.current.applyMessage(snapshotMessage()));
+
+    act(() => {
+      result.current.changeNoteFontSize(NOTE_ID, 15);
+      result.current.changeNoteFontSize(NOTE_ID, 16);
+    });
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: buildNote({ id: NOTE_ID, fontSize: 15 }),
+        operationId: "55555555-5555-4555-8555-555555555555",
+      }),
+    );
+    expect(result.current.notes[0]?.fontSize).toBe(16);
+
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: buildNote({ id: NOTE_ID, fontSize: 16 }),
+        operationId: "66666666-6666-4666-8666-666666666666",
+      }),
+    );
+    expect(result.current.notes[0]?.fontSize).toBe(16);
   });
 
   it("deleteNote は楽観更新せず、note:deleted の確定で消える", () => {

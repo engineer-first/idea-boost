@@ -5,6 +5,7 @@ import {
   buildDecision,
   buildMembers,
   buildNotes,
+  buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { RoomBoardView } from "./room-board-view";
 import boardMeta from "./room-board-view.stories";
@@ -57,8 +58,7 @@ function step(phase: 1 | 2 | 3, value: number): Story {
         privateNotes: PRIVATE_NOTES,
       },
       timer: { status: "paused", remainingMs: 138_000, durationMs: 180_000 },
-      initialGuideExpanded: true,
-      enableGuideModal: false,
+      initialGuideState: "detail",
     },
   };
 }
@@ -70,8 +70,8 @@ export const Phase1Step5: Story = step(1, 5);
 export const Phase2Step1: Story = step(2, 1);
 export const Phase2Step1WithGuide: Story = {
   ...Phase2Step1,
-  name: "問い作成の説明モーダル",
-  args: { ...Phase2Step1.args, initialGuideExpanded: true },
+  name: "問い作成の詳細ガイド",
+  args: { ...Phase2Step1.args, initialGuideState: "detail" },
 };
 export const Phase2Step2: Story = step(2, 2);
 export const Phase2Step3: Story = step(2, 3);
@@ -99,11 +99,6 @@ export const Focused: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(
       canvas.getByRole("button", { name: "考えるヒントを閉じる" }),
-    );
-    await userEvent.click(
-      canvas.getByRole("button", {
-        name: "進め方を閉じる",
-      }),
     );
   },
 };
@@ -148,19 +143,15 @@ export const DecisionsAndNotes: Story = {
     await userEvent.click(
       within(context.canvasElement).getByText("決定した課題"),
     );
+    await userEvent.click(
+      within(context.canvasElement).getByRole("button", { name: "進め方" }),
+    );
   },
 };
 export const ContextCollapsed: Story = {
   ...ReferenceAndNotes,
   name: "進め方を閉じてHMWを参照しながら作業",
-  play: async (context) => {
-    await ReferenceAndNotes.play?.(context);
-    await userEvent.click(
-      within(context.canvasElement).getByRole("button", {
-        name: "進め方を閉じる",
-      }),
-    );
-  },
+  args: { ...ReferenceAndNotes.args, initialGuideState: "compact" },
 };
 
 export const SingleParticipant: Story = {
@@ -194,4 +185,52 @@ export const Connecting: Story = {
   ...step(3, 1),
   name: "接続確立中",
   args: { ...step(3, 1).args, connectionStatus: "connecting" },
+};
+
+export const SharingReady: Story = {
+  ...step(1, 2),
+  args: {
+    ...step(1, 2).args,
+    timer: { status: "idle" },
+    sharing: buildSharingState(),
+    initialGuideState: "compact",
+  },
+};
+export const SharingActive: Story = {
+  ...SharingReady,
+  args: {
+    ...SharingReady.args,
+    timer: { status: "paused", remainingMs: 138000, durationMs: 180000 },
+    sharing: buildSharingState({
+      status: "active",
+      currentIndex: 1,
+      results: ["done"],
+    }),
+  },
+};
+export const SharingTransition: Story = {
+  ...SharingReady,
+  args: {
+    ...SharingReady.args,
+    sharing: buildSharingState({
+      status: "active",
+      currentIndex: 1,
+      results: ["done"],
+      startsAt: Date.now() + 2000,
+    }),
+  },
+};
+export const SharingComplete: Story = {
+  ...SharingReady,
+  args: {
+    ...SharingReady.args,
+    sharing: buildSharingState({
+      status: "complete",
+      results: ["done", "passed", "done"],
+    }),
+  },
+};
+export const SharingMember: Story = {
+  ...SharingActive,
+  args: { ...SharingActive.args, isHost: false },
 };

@@ -7,8 +7,10 @@ import {
   buildDecision,
 } from "@/contracts/room-protocol.fixture";
 import {
+  applyAdoptionFocusServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
+  applyIdeaMapServerMessage,
   applyMemberServerMessage,
   applyPhaseServerMessage,
   applyTimerServerMessage,
@@ -27,10 +29,51 @@ const B: ProtocolMember = {
 };
 const LOBBY = buildLobbyPhase();
 
+describe("applyIdeaMapServerMessage", () => {
+  it("snapshotでサイズと初期化状態を復元する", () => {
+    expect(
+      applyIdeaMapServerMessage(
+        { sizeLevel: 0, initialized: false, isDragging: false },
+        {
+          type: "snapshot",
+          phaseRevision: 0,
+          notes: [],
+          members: [A],
+          phase: buildPhaseStep(3, 2),
+          isHost: true,
+          decision: null,
+          carryovers: [],
+          completedVoterIds: [],
+          timer: { status: "idle" },
+          serverNow: 1_000,
+          ideaMapSizeLevel: 3,
+          ideaMapSizeInitialized: true,
+          ideaMapDragging: true,
+        },
+      ),
+    ).toEqual({ sizeLevel: 3, initialized: true, isDragging: true });
+  });
+
+  it("匿名のidea-map stateを反映する", () => {
+    expect(
+      applyIdeaMapServerMessage(
+        { sizeLevel: 0, initialized: false, isDragging: false },
+        {
+          type: "idea-map:state",
+          sizeLevel: 2,
+          initialized: true,
+          isDragging: false,
+        },
+      ),
+    ).toEqual({ sizeLevel: 2, initialized: true, isDragging: false });
+  });
+});
+
 describe("applyMemberServerMessage", () => {
   it("snapshot.members で members state を丸ごと置き換える", () => {
     const message: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [],
       members: [A, B],
       phase: LOBBY,
@@ -78,6 +121,7 @@ describe("applyMemberServerMessage", () => {
         visibility: "shared",
         excluded: false,
         color: "yellow",
+        fontSize: 14,
         x: 0,
         y: 0,
         stackOrder: 0,
@@ -96,6 +140,7 @@ describe("applyMemberServerMessage", () => {
   it("phase:updated は members を変えない", () => {
     const message: ServerMessage = {
       type: "phase:updated",
+      phaseRevision: 0,
       phase: buildPhaseStep(1),
     };
     expect(applyMemberServerMessage([A], message)).toEqual([A]);
@@ -104,9 +149,11 @@ describe("applyMemberServerMessage", () => {
   it("decision:updated は members を変えない", () => {
     const message: ServerMessage = {
       type: "decision:updated",
-      phase: 1,
-      noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      decidedBy: A.userId,
+      decision: {
+        phase: 1,
+        noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        decidedBy: A.userId,
+      },
     };
     expect(applyMemberServerMessage([A], message)).toEqual([A]);
   });
@@ -150,6 +197,7 @@ describe("applyVotingCompletionServerMessage", () => {
     expect(
       applyVotingCompletionServerMessage([A.userId], {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(5),
       }),
     ).toEqual([]);
@@ -159,6 +207,7 @@ describe("applyVotingCompletionServerMessage", () => {
     expect(
       applyVotingCompletionServerMessage([A.userId], {
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [A, B],
         completedVoterIds: [B.userId],
@@ -188,12 +237,14 @@ describe("applyPhaseServerMessage", () => {
     expect(
       applyPhaseServerMessage(LOBBY, {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(1),
       }),
     ).toEqual(buildPhaseStep(1));
     expect(
       applyPhaseServerMessage(buildPhaseStep(1), {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(2),
       }),
     ).toEqual(buildPhaseStep(2));
@@ -209,6 +260,7 @@ describe("applyPhaseServerMessage", () => {
         visibility: "shared",
         excluded: false,
         color: "yellow",
+        fontSize: 14,
         x: 0,
         y: 0,
         stackOrder: 0,
@@ -234,9 +286,11 @@ describe("applyPhaseServerMessage", () => {
   it("decision:updated は phase を変えない", () => {
     const message: ServerMessage = {
       type: "decision:updated",
-      phase: 1,
-      noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-      decidedBy: A.userId,
+      decision: {
+        phase: 1,
+        noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        decidedBy: A.userId,
+      },
     };
     expect(applyPhaseServerMessage(buildPhaseStep(5), message)).toEqual(
       buildPhaseStep(5),
@@ -246,6 +300,7 @@ describe("applyPhaseServerMessage", () => {
   it("snapshot.phase で再接続後の進行状態を復元する", () => {
     const message: ServerMessage = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [],
       members: [A],
       phase: buildPhaseStep(1),
@@ -264,11 +319,15 @@ describe("applyPhaseServerMessage", () => {
 
 describe("applyTimerServerMessage", () => {
   it("タイマー以外のメッセージでは状態を変えない", () => {
-    const current = { timer: { status: "idle" } as const, serverOffsetMs: 0 };
+    const current = {
+      timer: { status: "idle" } as const,
+      serverOffsetMs: 0,
+      timerUpdateVersion: 0,
+    };
     expect(
       applyTimerServerMessage(
         current,
-        { type: "phase:updated", phase: buildPhaseStep(2) },
+        { type: "phase:updated", phaseRevision: 0, phase: buildPhaseStep(2) },
         1_000,
       ),
     ).toBe(current);
@@ -277,6 +336,7 @@ describe("applyTimerServerMessage", () => {
   it("snapshot と timer:updated からタイマーとサーバー時計補正を復元する", () => {
     const snapshot: Extract<ServerMessage, { type: "snapshot" }> = {
       type: "snapshot",
+      phaseRevision: 0,
       notes: [],
       members: [A],
       phase: buildPhaseStep(1),
@@ -289,13 +349,18 @@ describe("applyTimerServerMessage", () => {
     };
     expect(
       applyTimerServerMessage(
-        { timer: { status: "idle" }, serverOffsetMs: 0 },
+        {
+          timer: { status: "idle" },
+          serverOffsetMs: 0,
+          timerUpdateVersion: 0,
+        },
         snapshot,
         900,
       ),
     ).toEqual({
       timer: snapshot.timer,
       serverOffsetMs: 100,
+      timerUpdateVersion: 0,
     });
 
     const updated: ServerMessage = {
@@ -305,11 +370,19 @@ describe("applyTimerServerMessage", () => {
     };
     expect(
       applyTimerServerMessage(
-        { timer: snapshot.timer, serverOffsetMs: 100 },
+        {
+          timer: snapshot.timer,
+          serverOffsetMs: 100,
+          timerUpdateVersion: 0,
+        },
         updated,
         1_850,
       ),
-    ).toEqual({ timer: updated.timer, serverOffsetMs: 150 });
+    ).toEqual({
+      timer: updated.timer,
+      serverOffsetMs: 150,
+      timerUpdateVersion: 1,
+    });
   });
 });
 
@@ -320,15 +393,25 @@ describe("applyDecisionServerMessage", () => {
     expect(
       applyDecisionServerMessage(null, {
         type: "decision:updated",
-        ...decision,
+        decision,
       }),
     ).toEqual(decision);
+  });
+
+  it("decision:updated の null でサーバー権威の決定解除を反映する", () => {
+    expect(
+      applyDecisionServerMessage(decision, {
+        type: "decision:updated",
+        decision: null,
+      }),
+    ).toBeNull();
   });
 
   it("snapshot の決定状態で再接続後の表示を復元する", () => {
     expect(
       applyDecisionServerMessage(null, {
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [A],
         phase: buildPhaseStep(5),
@@ -346,6 +429,7 @@ describe("applyDecisionServerMessage", () => {
     expect(
       applyDecisionServerMessage(decision, {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(2),
       }),
     ).toBeNull();
@@ -361,6 +445,56 @@ describe("applyDecisionServerMessage", () => {
   });
 });
 
+describe("applyAdoptionFocusServerMessage", () => {
+  const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+  it("更新と明示解除を畳み込む", () => {
+    expect(
+      applyAdoptionFocusServerMessage(null, {
+        type: "adoption-focus:updated",
+        noteId,
+      }),
+    ).toBe(noteId);
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "adoption-focus:updated",
+        noteId: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("snapshot で復元し、確定とフェーズ遷移で解除する", () => {
+    const snapshot: ServerMessage = {
+      type: "snapshot",
+      phaseRevision: 0,
+      notes: [],
+      members: [A],
+      phase: buildPhaseStep(5),
+      isHost: false,
+      decision: null,
+      adoptionFocusNoteId: noteId,
+      carryovers: [],
+      completedVoterIds: [],
+      timer: { status: "idle" },
+      serverNow: 1_000,
+    };
+    expect(applyAdoptionFocusServerMessage(null, snapshot)).toBe(noteId);
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "decision:updated",
+        decision: buildDecision({ noteId }),
+      }),
+    ).toBeNull();
+    expect(
+      applyAdoptionFocusServerMessage(noteId, {
+        type: "phase:updated",
+        phaseRevision: 0,
+        phase: buildPhaseStep(1, 2),
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("applyCarryoverServerMessage", () => {
   const carryover = buildCarryover();
 
@@ -368,6 +502,7 @@ describe("applyCarryoverServerMessage", () => {
     expect(
       applyCarryoverServerMessage([], {
         type: "snapshot",
+        phaseRevision: 0,
         notes: [],
         members: [A],
         phase: buildPhaseStep(1, 2),
@@ -385,6 +520,7 @@ describe("applyCarryoverServerMessage", () => {
     expect(
       applyCarryoverServerMessage([carryover], {
         type: "phase:updated",
+        phaseRevision: 0,
         phase: buildPhaseStep(1, 2),
       }),
     ).toEqual([carryover]);

@@ -9,7 +9,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
+import {
+  getNoteHeight,
+  IDEA_MAP_BASE_DIMENSIONS,
+  NOTE_WIDTH,
+} from "@/contracts/board";
 import type { Note } from "@/features/notes";
 import {
   CANVAS_FIT_PADDING,
@@ -22,10 +26,7 @@ import {
   screenToWorld,
   zoomAtScreenPoint,
 } from "./canvas-camera";
-import {
-  IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
-  IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
-} from "./idea-value-feasibility-map";
+import { getIdeaValueFeasibilityMapDimensions } from "./idea-value-feasibility-map";
 
 type CanvasPan = {
   pointerId: number;
@@ -43,6 +44,8 @@ type UseCanvasCameraArgs = {
   notes: Note[];
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
   fitViewport?: boolean;
+  ideaMapSizeLevel?: number;
+  ideaMapSizeInitialized?: boolean;
 };
 
 function viewportSize(element: HTMLDivElement): {
@@ -70,7 +73,9 @@ function notesBounds(notes: Note[]) {
   const minX = Math.min(...notes.map((note) => note.x));
   const minY = Math.min(...notes.map((note) => note.y));
   const maxX = Math.max(...notes.map((note) => note.x + NOTE_WIDTH));
-  const maxY = Math.max(...notes.map((note) => note.y + NOTE_HEIGHT));
+  const maxY = Math.max(
+    ...notes.map((note) => note.y + getNoteHeight(note.content, note.fontSize)),
+  );
   return {
     x: minX - CANVAS_FIT_PADDING,
     y: minY - CANVAS_FIT_PADDING,
@@ -79,16 +84,23 @@ function notesBounds(notes: Note[]) {
   };
 }
 
-function fitIdeaMapCamera(viewport: {
-  width: number;
-  height: number;
-}): CanvasCamera {
+function fitIdeaMapCamera(
+  viewport: {
+    width: number;
+    height: number;
+  },
+  sizeLevel: number,
+): CanvasCamera {
+  const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
   return fitCanvasCamera(
     {
-      x: (viewport.width - IDEA_VALUE_FEASIBILITY_MAP_WIDTH) / 2,
-      y: (viewport.height - IDEA_VALUE_FEASIBILITY_MAP_HEIGHT) / 2,
-      width: IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
-      height: IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+      x: (viewport.width - IDEA_MAP_BASE_DIMENSIONS.width) / 2,
+      y:
+        viewport.height / 2 +
+        IDEA_MAP_BASE_DIMENSIONS.height / 2 -
+        dimensions.height,
+      width: dimensions.width,
+      height: dimensions.height,
     },
     viewport,
   );
@@ -98,6 +110,8 @@ export function useCanvasCamera({
   viewportRef,
   notes,
   fitViewport = false,
+  ideaMapSizeLevel = 0,
+  ideaMapSizeInitialized = true,
 }: UseCanvasCameraArgs) {
   const [camera, setCamera] = useState<CanvasCamera>({
     x: 0,
@@ -112,6 +126,9 @@ export function useCanvasCamera({
   const frameRef = useRef<ScheduledFrame | null>(null);
   const hasDefaultedRef = useRef(false);
   const hasFitRef = useRef(false);
+  const hasFitIdeaMapRef = useRef(false);
+  const ideaMapSizeLevelRef = useRef(ideaMapSizeLevel);
+  ideaMapSizeLevelRef.current = ideaMapSizeLevel;
   const spacePressedRef = useRef(false);
 
   useEffect(() => {
@@ -169,7 +186,11 @@ export function useCanvasCamera({
     if (fitViewport) {
       const element = viewportRef.current;
       const size = element ? viewportSize(element) : null;
-      if (size) setCameraImmediately(fitIdeaMapCamera(size));
+      if (size) {
+        setCameraImmediately(
+          fitIdeaMapCamera(size, ideaMapSizeLevelRef.current),
+        );
+      }
       return;
     }
     const element = viewportRef.current;
@@ -270,11 +291,16 @@ export function useCanvasCamera({
   );
 
   useEffect(() => {
-    if (!fitViewport) return;
+    if (!fitViewport || !ideaMapSizeInitialized || hasFitIdeaMapRef.current) {
+      return;
+    }
     const element = viewportRef.current;
     const size = element ? viewportSize(element) : null;
-    if (size) setCameraImmediately(fitIdeaMapCamera(size));
-  }, [fitViewport, setCameraImmediately, viewportRef]);
+    if (size) {
+      setCameraImmediately(fitIdeaMapCamera(size, ideaMapSizeLevelRef.current));
+      hasFitIdeaMapRef.current = true;
+    }
+  }, [fitViewport, ideaMapSizeInitialized, setCameraImmediately, viewportRef]);
 
   useEffect(() => {
     const element = viewportRef.current;

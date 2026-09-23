@@ -57,6 +57,19 @@ npm run dev
 まま誤って利用されることを防ぐため、意図的に認証処理で拒否されます。生成した
 値は Git にコミットせず、必ず両方のファイルで同じ値を使用してください。
 
+### Orca の worktree
+
+Orca で新しい worktree を作る場合は、Settings → Repository → Hooks の
+Setup Script に次を設定します。
+
+```bash
+bash scripts/setup-worktree.sh
+```
+
+このスクリプトは mise のツールと npm パッケージをインストールし、worktree
+専用の `SESSION_SECRET` を設定した環境ファイルを作成して、ローカル D1 migration
+を適用します。再実行時は既存の環境ファイルを保持します。
+
 ### 認証のローカル開発
 
 本番のログインは Google 認証（OIDC）のみを想定しています。ローカル開発では、固定のメール/パスワードユーザーでログインできます（`NEXT_PUBLIC_ENABLE_DEV_AUTH=true` かつ production 以外の環境でだけ表示されます）。
@@ -123,7 +136,8 @@ Node.js のバージョンは `mise.toml` で LTS に固定しています。CI 
 
 ## スクラム運用
 
-- [学校スクラム開発のホワイトボードと GitHub Projects 連携](docs/scrum/whiteboard-github-projects.md)
+- [Issue と GitHub Project の運用ルール](docs/issue-management.md)
+- [物理ホワイトボードとの連携](docs/scrum/whiteboard-github-projects.md)
 
 ## ドキュメントのフォーマット
 
@@ -138,3 +152,10 @@ Markdown の整形には [remark](https://github.com/remarkjs/remark) を使用�
 | ファイル名           | `kebab-case` | `idea-card.tsx`, `use-idea-list.ts`, `format-date.ts` |
 | 関数名               | `camelCase`  | `getUserName`                                         |
 | スキーマ名 (型・zod) | `PascalCase` | `User`, `Idea`, `IdeaStatus`                          |
+
+## 開発用の状態再現
+
+`npm run dev:verify` で付箋付きの検証ルームを作れます。環境ファイルの編集は不要です。
+`http://localhost:3000/dev/verify` をOwnerで開き、開始待ち／全14ステップから選びます。
+Owner・Member・Viewerは既存の開発ログインを使い、別ブラウザの検証ボードも次の状態へ追従します。
+操作UIは別ページに置き、通常ボードに重ねません。詳しくは[ローカル検証環境](docs/local-verification.md)を参照してください。
