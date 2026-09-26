@@ -346,6 +346,7 @@ describe("PrivateNotesToolbar", () => {
     expect(props.onContentChange).toHaveBeenCalledWith(
       "note-1",
       "書き換えた内容",
+      "非公開の考え",
     );
   });
 

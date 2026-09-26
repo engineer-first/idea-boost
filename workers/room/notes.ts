@@ -252,14 +252,17 @@ export function updateNoteContent(
   sql: SqlStorage,
   noteId: string,
   content: string,
+  baseContent: string,
   updatedAt: string,
-): void {
-  sql.exec(
-    "UPDATE notes SET content = ?2, updated_at = ?3 WHERE id = ?1",
+): boolean {
+  const cursor = sql.exec(
+    "UPDATE notes SET content = ?2, updated_at = ?3 WHERE id = ?1 AND content = ?4",
     noteId,
     content,
     updatedAt,
+    baseContent,
   );
+  return cursor.rowsWritten > 0;
 }
 
 export function updateNoteFontSize(

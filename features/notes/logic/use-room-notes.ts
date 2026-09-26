@@ -3,7 +3,7 @@
 // 付箋の状態とプロトコル化・楽観更新ポリシーの hook（ボード画面専用）。
 //
 // 楽観更新のポリシー:
-// - 移動・本文: 楽観更新する（自分の操作の追従性を優先）
+// - 移動: 楽観更新する。本文は RoomDO の確定応答まで保存済み値を保つ。
 // - 最前面: RoomDO の確定応答までは対象付箋だけを一時的に前面表示する
 // - 削除: 楽観更新しない。author 以外の削除はサーバーが forbidden で拒否するため、
 //   確定（note:deleted）を待ってから消すことで「消えたのに戻る」揺れを避ける
@@ -119,8 +119,12 @@ export type UseRoomNotesResult = {
   restoreNote: (noteId: string) => void;
   bulkExcludeZeroVoteCandidates: () => void;
   bulkRestoreCandidates: (operationId: string) => void;
-  // 入力中の見た目を止めないため本文だけは楽観更新する。
-  changeNoteContent: (noteId: string, content: string) => void;
+  // 本文の入力表示は NoteCard が保持し、保存済み値は確定応答まで変えない。
+  changeNoteContent: (
+    noteId: string,
+    content: string,
+    baseContent?: string,
+  ) => void;
   // 選択中の付箋だけを即時に再描画し、RoomDO の確定値へ収束させる。
   changeNoteFontSize: (noteId: string, fontSize: number) => void;
   deleteNote: (noteId: string) => void;
@@ -715,15 +719,17 @@ export function useRoomNotes({
   );
 
   const changeNoteContent = useCallback(
-    (noteId: string, content: string) => {
-      updateNotes((current) =>
-        current.map((note) =>
-          note.id === noteId ? { ...note, content } : note,
-        ),
-      );
-      send({ type: "note:update-content", noteId, content });
+    (noteId: string, content: string, baseContent?: string) => {
+      const note = notesRef.current.find((entry) => entry.id === noteId);
+      if (!note) return;
+      send({
+        type: "note:update-content",
+        noteId,
+        content,
+        baseContent: baseContent ?? note.content,
+      });
     },
-    [updateNotes, send],
+    [send],
   );
 
   const changeNoteFontSize = useCallback(

@@ -5,11 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { NoteDraftScope } from "../logic/note-draft";
 import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
 
 export type PrivateNotesToolbarProps = {
   notes: Note[];
+  draftScope?: NoteDraftScope;
   disabled: boolean;
   editingDisabled?: boolean;
   canEditNote: boolean;
@@ -35,6 +37,7 @@ export type PrivateNotesToolbarProps = {
 
 export function PrivateNotesToolbar({
   notes,
+  draftScope,
   disabled,
   editingDisabled = false,
   className,
@@ -153,6 +156,7 @@ export function PrivateNotesToolbar({
               <NoteCard
                 key={note.id}
                 note={note}
+                draftScope={draftScope}
                 isOwnDrag={false}
                 isSelected={selectedNoteId === note.id}
                 disabled={disabled}

@@ -16,6 +16,7 @@ import {
   MEMBER_COLOR_ASSIGNMENT_ORDER,
   MemberSchema,
   NOTE_COLOR_PALETTE,
+  NOTE_CONTENT_MAX_LENGTH,
   NoteColorSchema,
   NoteSchema,
   parseClientMessage,
@@ -691,6 +692,30 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("本文更新は基準本文を境界で検証する", () => {
+    const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:update-content",
+        noteId,
+        content: "次",
+        baseContent: "前",
+      }),
+    ).toEqual({
+      type: "note:update-content",
+      noteId,
+      content: "次",
+      baseContent: "前",
+    });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:update-content",
+        noteId,
+        content: "次",
+        baseContent: "長".repeat(NOTE_CONTENT_MAX_LENGTH + 1),
+      }).success,
+    ).toBe(false);
+  });
   it("note:update-font-size は付箋ID・12〜24pxの整数・操作IDだけを受け入れる", () => {
     const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
     const operationId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";

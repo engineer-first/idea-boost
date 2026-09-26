@@ -31,11 +31,19 @@ import {
   type VoteDisplayMode,
 } from "@/features/dot-vote";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
+import {
+  type NoteDraft,
+  type NoteDraftScope,
+  readNoteDraft,
+  removeNoteDraft,
+  writeNoteDraft,
+} from "../logic/note-draft";
 import type { Note } from "../logic/notes-reducer";
 import { StickyNote } from "./sticky-note";
 
 export type NoteCardProps = {
   note: Note;
+  draftScope?: NoteDraftScope;
   // 自分自身が現在ドラッグ中かどうか。trueの間は影を深くして「持ち上げた」見た目にする。
   isOwnDrag: boolean;
   isSelected: boolean;
@@ -57,7 +65,11 @@ export type NoteCardProps = {
     noteId: string,
     event: React.PointerEvent<HTMLButtonElement>,
   ) => void;
-  onContentChange: (noteId: string, content: string) => void;
+  onContentChange: (
+    noteId: string,
+    content: string,
+    baseContent?: string,
+  ) => void;
   onDelete: (noteId: string) => void;
   onExclude?: (noteId: string) => void;
   onRestore?: (noteId: string) => void;
@@ -214,6 +226,7 @@ function getNextTabbableElement(current: HTMLElement): HTMLElement | null {
 
 export function NoteCard({
   note,
+  draftScope,
   isOwnDrag,
   isSelected,
   editingDisabled = false,
@@ -239,6 +252,18 @@ export function NoteCard({
 }: NoteCardProps) {
   const [localContent, setLocalContent] = useState(note.content);
   const [isEditing, setIsEditing] = useState(false);
+  const draftIdentity = draftScope
+    ? JSON.stringify([draftScope.roomId, draftScope.userId, note.id])
+    : null;
+  const [draft, setDraft] = useState<NoteDraft | null>(() =>
+    draftScope ? readNoteDraft(draftScope, note.id) : null,
+  );
+  const [loadedDraftIdentity, setLoadedDraftIdentity] = useState(draftIdentity);
+  const previousDraftIdentityRef = useRef(draftIdentity);
+  const editBaseContentRef = useRef(note.content);
+  const wasEditingRef = useRef(false);
+  const isComposingRef = useRef(false);
+  const ignoreNextBlurRef = useRef(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isTouchActionVisible, setIsTouchActionVisible] = useState(false);
   const [isPointerActionVisible, setIsPointerActionVisible] = useState(false);
@@ -423,6 +448,48 @@ export function NoteCard({
     }
   }, [note.content, isEditing]);
 
+  useEffect(() => {
+    if (previousDraftIdentityRef.current !== draftIdentity) {
+      previousDraftIdentityRef.current = draftIdentity;
+      setIsEditing(false);
+      setLocalContent(note.content);
+    }
+    setDraft(
+      draftScope?.roomId && draftScope.userId
+        ? readNoteDraft(
+            { roomId: draftScope.roomId, userId: draftScope.userId },
+            note.id,
+          )
+        : null,
+    );
+    setLoadedDraftIdentity(draftIdentity);
+  }, [
+    draftScope?.roomId,
+    draftScope?.userId,
+    draftIdentity,
+    note.id,
+    note.content,
+  ]);
+
+  useEffect(() => {
+    if (
+      !draft ||
+      !draftScope ||
+      loadedDraftIdentity !== draftIdentity ||
+      draft.content !== note.content
+    )
+      return;
+    removeNoteDraft(draftScope, note.id);
+    setDraft(null);
+  }, [
+    draft,
+    draftScope,
+    loadedDraftIdentity,
+    draftIdentity,
+    note.content,
+    note.id,
+  ]);
+
   // 選択が外れたら編集モードも終了する（選択は編集の前提状態）。
   useEffect(() => {
     if (!isSelected) {
@@ -574,6 +641,12 @@ export function NoteCard({
 
   // 状態に応じてフォーカスを移す。サーフェスにフォーカスがないと
   // Backspace削除などのキー操作を受け取れない。
+  useEffect(() => {
+    if (isEditing && !wasEditingRef.current)
+      editBaseContentRef.current = note.content;
+    wasEditingRef.current = isEditing;
+  }, [isEditing, note.content]);
+
   useEffect(() => {
     if (isEditing) {
       const textarea = textareaRef.current;
@@ -888,6 +961,86 @@ export function NoteCard({
         )
       : null;
 
+  const recoveryPanel =
+    !isEditing && draft && loadedDraftIdentity === draftIdentity ? (
+      <section
+        className={
+          isSelected
+            ? "fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4 text-base text-slate-900"
+            : "absolute inset-0 z-30 overflow-auto bg-white/95 p-2 text-xs text-slate-900"
+        }
+        aria-label="付箋の下書き"
+      >
+        <div
+          className={
+            isSelected
+              ? "max-h-[85vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-5 shadow-2xl"
+              : undefined
+          }
+        >
+          <p className="font-bold">未保存の下書き</p>
+          <p className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border bg-amber-50 p-3">
+            {draft.content}
+          </p>
+          {draft.baseContent !== note.content ? (
+            <p role="status" className="mt-3 font-semibold text-red-700">
+              保存済み本文が変更されています。両方を確認し、必要な内容を下書きに統合してください。
+            </p>
+          ) : null}
+          <p className="mt-3 font-semibold">保存済み本文</p>
+          <p className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border bg-slate-50 p-3">
+            {note.content}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded bg-slate-900 px-3 py-2 text-white disabled:opacity-50"
+              disabled={
+                disabled || editingDisabled || !canEditNote || note.excluded
+              }
+              onClick={() => {
+                editBaseContentRef.current = draft.baseContent;
+                setLocalContent(draft.content);
+                setIsEditing(true);
+              }}
+            >
+              下書きを編集する
+            </button>
+            {draft.baseContent !== note.content ? (
+              <button
+                type="button"
+                className="rounded border border-red-700 px-3 py-2 text-red-800 disabled:opacity-50"
+                disabled={
+                  disabled || editingDisabled || !canEditNote || note.excluded
+                }
+                onClick={() => {
+                  if (!draftScope) return;
+                  const rebased = { ...draft, baseContent: note.content };
+                  writeNoteDraft(draftScope, note.id, rebased);
+                  setDraft(rebased);
+                  editBaseContentRef.current = note.content;
+                  setLocalContent(draft.content);
+                  setIsEditing(true);
+                }}
+              >
+                保存済み本文を確認し、この下書きで置き換える
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="rounded border px-3 py-2"
+              onClick={() => {
+                if (draftScope) removeNoteDraft(draftScope, note.id);
+                setDraft(null);
+              }}
+            >
+              下書きを破棄
+            </button>
+          </div>
+        </div>
+      </section>
+    ) : null;
+
   return (
     <StickyNote
       ref={noteRef}
@@ -925,16 +1078,60 @@ export function NoteCard({
         // UI 側でも同じコントラクト定数で「そもそも入力できない」形に塞ぐ。
         maxLength={NOTE_CONTENT_MAX_LENGTH}
         tabIndex={isEditing ? 0 : -1}
-        onChange={(event) => setLocalContent(event.target.value)}
+        onCompositionStart={() => {
+          isComposingRef.current = true;
+        }}
+        onCompositionEnd={() => {
+          isComposingRef.current = false;
+        }}
+        onChange={(event) => {
+          ignoreNextBlurRef.current = false;
+          const content = event.target.value;
+          setLocalContent(content);
+          if (draftScope) {
+            setLoadedDraftIdentity(draftIdentity);
+            if (content === note.content) {
+              removeNoteDraft(draftScope, note.id);
+              setDraft(null);
+            } else {
+              const nextDraft = {
+                baseContent: editBaseContentRef.current,
+                content,
+              };
+              writeNoteDraft(draftScope, note.id, nextDraft);
+              setDraft(nextDraft);
+            }
+          }
+        }}
         onBlur={(event) => {
+          const wasComposing =
+            isComposingRef.current || ignoreNextBlurRef.current;
+          isComposingRef.current = false;
+          if (wasComposing) ignoreNextBlurRef.current = true;
           setIsEditing(false);
+          if (loadedDraftIdentity !== draftIdentity) return;
           if (disabled || editingDisabled || !canEditNote || note.excluded) {
             return;
           }
-          onContentChange(note.id, event.target.value);
+          if (wasComposing) return;
+          if (
+            event.target.value !== note.content &&
+            editBaseContentRef.current === note.content &&
+            (!draft || draft.baseContent === note.content)
+          ) {
+            onContentChange(
+              note.id,
+              event.target.value,
+              editBaseContentRef.current,
+            );
+          }
         }}
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
+          if (event.nativeEvent.isComposing) {
+            if (event.key === "Escape") ignoreNextBlurRef.current = true;
+            return;
+          }
+          if (event.key === "Escape" && !isComposingRef.current) {
             event.stopPropagation();
             // Escape はキャンセルではなく「編集の完了」（tldraw 踏襲）。
             // 編集終了でフォーカスがサーフェスへ移り、上の onBlur が発火して
@@ -951,6 +1148,10 @@ export function NoteCard({
         }}
         placeholder="メモを入力..."
       />
+      {recoveryPanel && !isSelected ? recoveryPanel : null}
+      {recoveryPanel && isSelected
+        ? createPortal(recoveryPanel, document.body)
+        : null}
       {isDecided ? (
         <span
           role="status"

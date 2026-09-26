@@ -8,6 +8,7 @@ import {
   within,
 } from "storybook/test";
 import { buildNote } from "@/contracts/room-protocol.fixture";
+import { writeNoteDraft } from "../logic/note-draft";
 import { NoteCard } from "./note-card";
 
 const meta = {
@@ -50,6 +51,47 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+const DRAFT_STORY_NOTE = buildNote({ content: "サーバーに保存済みの本文" });
+const DRAFT_STORY_SCOPE = {
+  roomId: "storybook-draft-room",
+  userId: DRAFT_STORY_NOTE.authorId,
+};
+
+export const DraftAfterPhaseTransition: Story = {
+  args: {
+    note: DRAFT_STORY_NOTE,
+    draftScope: DRAFT_STORY_SCOPE,
+    editingDisabled: true,
+    isSelected: true,
+  },
+  loaders: [
+    async () => {
+      writeNoteDraft(DRAFT_STORY_SCOPE, DRAFT_STORY_NOTE.id, {
+        baseContent: DRAFT_STORY_NOTE.content,
+        content: "次のステップに進む前に書いていた下書き",
+      });
+      return {};
+    },
+  ],
+};
+
+export const DraftWithServerConflict: Story = {
+  args: {
+    note: DRAFT_STORY_NOTE,
+    draftScope: DRAFT_STORY_SCOPE,
+    isSelected: true,
+  },
+  loaders: [
+    async () => {
+      writeNoteDraft(DRAFT_STORY_SCOPE, DRAFT_STORY_NOTE.id, {
+        baseContent: "編集前の本文",
+        content: "競合した未送信の下書き",
+      });
+      return {};
+    },
+  ],
+};
 
 export const Empty: Story = {
   args: {

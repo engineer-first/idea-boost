@@ -297,6 +297,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("note:update-content"),
     noteId: z.string().uuid(),
+    // 旧クライアントの欠落値は RoomDO が拒否する。
+    baseContent: z.string().max(NOTE_CONTENT_MAX_LENGTH).optional(),
     content: z
       .string()
       .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。"),
@@ -596,6 +598,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       "forbidden",
       "not-found",
       "voting-incomplete",
+      "content-conflict",
     ]),
     message: z.string(),
     // 楽観操作に起因する拒否だけが持つ。汎用エラーは省略する。
