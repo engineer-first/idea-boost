@@ -161,6 +161,7 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
     id: NOTE_ID,
     authorId: USER_ID,
     content: "最初の付箋",
+    contentRevision: 0,
     visibility: "shared",
     excluded: false,
     color: "yellow",

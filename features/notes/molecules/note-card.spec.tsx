@@ -53,6 +53,21 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("編集中の確定入力をblur前に下書き保存層へ渡し、切断後も文章を保持する", () => {
+    const onDraftChange = vi.fn();
+    const { props, view } = setup({
+      isSelected: true,
+      note: buildNote({ content: "確定済み" }),
+      onDraftChange,
+    } as never);
+    clickNote();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "切断中も残す文" },
+    });
+    expect(onDraftChange).toHaveBeenCalledWith("note-1", "切断中も残す文");
+    view.rerender(<NoteCard {...props} disabled />);
+    expect(screen.getByDisplayValue("切断中も残す文")).toBeInTheDocument();
+  });
   it("付箋ごとの文字サイズを本文だけに適用し、長文は全文ぶん縦へ伸ばす", () => {
     const content = "長い本文".repeat(120);
     const fontSize = 24;
@@ -1288,7 +1303,7 @@ describe("NoteCard", () => {
       expect(onDelete).not.toHaveBeenCalled();
     });
 
-    it("編集中に切断されると編集を強制終了し、onContentChangeを呼ばずに本文を巻き戻す", () => {
+    it("編集中の切断では編集と未確定本文を保持し、送信しない", () => {
       const onContentChange = vi.fn();
       const { props, view } = setup({
         isSelected: true,
@@ -1304,8 +1319,8 @@ describe("NoteCard", () => {
       view.rerender(<NoteCard {...props} disabled />);
 
       expect(onContentChange).not.toHaveBeenCalled();
-      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
-      expect(screen.getByDisplayValue("サーバー上の本文")).toBeInTheDocument();
+      expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
+      expect(screen.getByDisplayValue("未送信の下書き")).toBeInTheDocument();
     });
 
     it("disabled中に手動でblurしてもonContentChangeを呼ばない", () => {

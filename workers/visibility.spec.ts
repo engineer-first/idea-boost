@@ -14,6 +14,7 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     authorId: AUTHOR,
     content: "メモ",
+    contentRevision: 0,
     visibility: "shared",
     excluded: false,
     color: "yellow",

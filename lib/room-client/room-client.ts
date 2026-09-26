@@ -44,7 +44,7 @@ export type RoomClientOptions = {
 };
 
 export type RoomClient = {
-  send(message: ClientMessage): void;
+  send(message: ClientMessage): boolean;
   close(): void;
 };
 
@@ -78,11 +78,13 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
     options.onStatusChange?.("connecting");
 
     ws.addEventListener("open", () => {
+      if (closedByUser || socket !== ws) return;
       reconnectAttempt = 0;
       options.onStatusChange?.("open");
     });
 
     ws.addEventListener("message", (event) => {
+      if (closedByUser || socket !== ws) return;
       const message = parseServerMessage(event.data);
       if (!message) {
         console.warn(
@@ -127,12 +129,17 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
   connect();
 
   return {
-    send(message: ClientMessage): void {
+    send(message: ClientMessage): boolean {
       if (!socket || socket.readyState !== WEBSOCKET_OPEN) {
         console.warn("接続確立前のメッセージ送信を破棄しました:", message.type);
-        return;
+        return false;
       }
-      socket.send(JSON.stringify(message));
+      try {
+        socket.send(JSON.stringify(message));
+        return true;
+      } catch {
+        return false;
+      }
     },
     close(): void {
       closedByUser = true;
