@@ -13,7 +13,8 @@ body:
     id: acceptance
     attributes:
       label: 完了条件
-      description: 作業が完了したと判断できる条件を書いてください。
+      description: 作業が完了したと判断できる条件を書いてください。ユーザー操作がある作業なら、どの画面で何をすると何が起きるかを1行で添えてください。名称が未確定なら仮と明記してください。
+      placeholder: "例: 参加者が個人ワークステップで自分の付箋を共有スペースへドラッグすると、ほかの参加者の画面にも表示される。"
     validations:
       required: false
   - type: textarea
