@@ -8,6 +8,8 @@
 
 ## ドキュメント
 
+本番で公開した追加・変更・修正は [リリース履歴](https://github.com/engineer-first/idea-boost/releases) で確認できます。記録の書式・公開・訂正は [本番リリース履歴の運用](docs/release-history.md) を参照してください。
+
 プロダクトの詳細（PRD、ペルソナ、競合分析、画面イメージなど）は [Idea Boost Wiki](https://github.com/engineer-first/idea-boost/wiki) にまとめています。仕様や設計の確認は Wiki を参照してください。
 
 技術構成は **Next.js（UI）+ Cloudflare Workers（api-worker）+ Durable Objects（1ルーム = 1 権威サーバー）+ D1（ロビー）** です。採用の経緯と移行の記録は [`docs/refactor-cloudflare-do.md`](docs/refactor-cloudflare-do.md) を参照してください。
@@ -117,6 +119,8 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 | `idea-flow-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
 
 **本番の更新方法:** `develop` の変更を `release` にマージ（または push）すると GitHub Actions（`deploy.yml`）が自動で D1 migrate → api → app → health を実行します。手動で出すときは `npm run deploy`（`wrangler login` 済みであること）。Actions には `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
+
+本番公開後は、リリース担当者が [履歴の記録手順](docs/release-history.md#通常のリリース手順) に従って `npm run release:record` を実行します。手動更新も記録対象です。記録の再試行には本番の再デプロイは不要です。
 
 秘密・初回手順・カスタムドメイン・CI・動作確認の詳細は **[デプロイ構成図](docs/site/deploy-map/index.html)**（公開後: [GitHub Pages](https://engineer-first.github.io/idea-boost/deploy-map/)）を参照してください。
 
