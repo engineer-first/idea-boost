@@ -14,7 +14,8 @@ body:
     id: acceptance
     attributes:
       label: 受け入れ条件
-      description: ユーザーが確認できる条件を書いてください。
+      description: ユーザーが確認できる条件を書いてください。操作がある場合は、誰が・どの画面で・何をすると・何が起きるかを1行で書くと、使い方が伝わります。名称が未確定なら仮と明記してください。
+      placeholder: "例: 参加者が個人ワークステップで自分の付箋を共有スペースへドラッグすると、ほかの参加者の画面にも表示される。"
     validations:
       required: false
   - type: textarea

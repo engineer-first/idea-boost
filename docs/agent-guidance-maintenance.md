@@ -47,6 +47,10 @@
   Chromatic の表示差分、人による文章レビューの責務を区別する。
   Vitest 設定・CI・Chromatic workflow を照合し、テスト設定は変更しない。
 
+## Issue の操作記述（2026-09-26）
+
+赤ペン回答に従い、PBI・DemoGoal とユーザー操作を伴う Task では、既存の条件欄に「誰が・どの画面で・何をすると・何が見えるか」を1行で書く方針にした。新しい必須欄は設けず、Issue Forms の説明と例文、PBI/DemoGoal 作成スキルの記述例、Issue 運用の正本を揃えた。フォームの構造と YAML 構文、文書の整形、差分を確認する。
+
 ## ハーネス監査
 
 - [.claude/settings.json](../.claude/settings.json) は保護・整形・境界・migration 同期・終了時検証、
