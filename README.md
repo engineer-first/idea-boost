@@ -97,8 +97,8 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 | `npm run build`                             | Next.js 本番ビルド                                                                                                                                                                                                             |
 | `npm run build:cf`                          | Cloudflare Workers 向けビルド（OpenNext）                                                                                                                                                                                      |
 | `npm run deploy:api`                        | api-worker をデプロイ                                                                                                                                                                                                          |
-| `npm run deploy:app`                        | app-worker をビルド + デプロイ（api → app の順が必要な場合は `npm run deploy`）                                                                                                                                                |
-| `npm run deploy`                            | api → app の順で両方デプロイ                                                                                                                                                                                                   |
+| `npm run deploy:app`                        | app-worker をビルド + デプロイ（全体の公開は確認用PR/Issue URLを付けた `npm run deploy -- URL`）                                                                                                                               |
+| `npm run deploy -- 確認用PR/IssueのURL`     | migration → api → app → health確認後、リリース履歴の記録を依頼                                                                                                                                                                 |
 | `npm run preview:cf`                        | Workers 向けビルドを workerd 上でローカル実行（2構成同時）                                                                                                                                                                     |
 | `npm run lint`                              | Biome による静的解析 (lint + format チェック)                                                                                                                                                                                  |
 | `npm run fix`                               | Biome の自動修正 (lint + format)                                                                                                                                                                                               |
@@ -111,16 +111,16 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 
 本番アプリは **<https://ideaboost.dev>** で利用できます。
 
-2 Worker + D1 + RoomDO 構成です。デプロイ順は **api → app**（`npm run deploy`）。CI と同じ D1 migration → api → app をこの 1 行で実行します。
+2 Worker + D1 + RoomDO 構成です。デプロイ順は **D1 migration → api → app → health確認** です。通常はActionsで実行し、成功後にリリースノートを自動公開します。
 
 | Worker          | 設定ファイル             | 役割                                                         |
 | --------------- | ------------------------ | ------------------------------------------------------------ |
 | `idea-flow-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
 | `idea-flow-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
 
-**本番の更新方法:** `develop` の変更を `release` にマージ（または push）すると GitHub Actions（`deploy.yml`）が自動で D1 migrate → api → app → health を実行します。手動で出すときは `npm run deploy`（`wrangler login` 済みであること）。Actions には `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
+**本番の更新方法:** `.github/release-note.json` にその版の変更説明を用意し、`release` 向けPRでレビューします。マージ（または直接push）後、GitHub Actions（`deploy.yml`）が説明を事前検査し、D1 migrate → api → app → health → リリースノート公開を実行します。ActionsからDeployを手動実行するときもbranchは `release` です。Actionsには `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
 
-本番公開後は、リリース担当者が [履歴の記録手順](docs/release-history.md#通常のリリース手順) に従って `npm run release:record` を実行します。手動更新も記録対象です。記録の再試行には本番の再デプロイは不要です。
+ローカルからの手動公開は `npm run deploy -- 確認用PR/IssueのURL`（GitHub・Cloudflareへの認証が必要）。成功後に履歴記録を自動依頼します。記録だけの失敗はActionsの **Record Release** から再試行でき、本番の再デプロイは不要です。各入口・部分再試行・ロールバックの扱いは [リリース履歴の運用](docs/release-history.md) を参照してください。
 
 秘密・初回手順・カスタムドメイン・CI・動作確認の詳細は **[デプロイ構成図](docs/site/deploy-map/index.html)**（公開後: [GitHub Pages](https://engineer-first.github.io/idea-boost/deploy-map/)）を参照してください。
 

@@ -42,6 +42,7 @@ const Note = z
   .object({
     commit: Commit,
     previousCommit: Commit,
+    mode: z.enum(["release", "redeploy", "rollback"]).default("release"),
     deployment: Deployment,
     changes: z
       .array(
@@ -57,6 +58,9 @@ const Note = z
     notices: z.array(Text),
   })
   .strict();
+export const ReleasePlan = Note.omit({ commit: true, deployment: true });
+export type PreparedRelease = z.infer<typeof ReleasePlan> & { commit: string };
+
 const Metadata = z
   .object({
     tag: z.string().startsWith("prod-"),
@@ -108,55 +112,101 @@ async function deploymentMetadata(
       evidenceUrl: deployment.evidenceUrl,
     };
   }
-  const path = `/actions/runs/${deployment.runId}/attempts/${deployment.attempt}`;
+  const evidence = await inspectDeployment(
+    deployment.runId,
+    deployment.attempt,
+    api,
+  );
+  requireCondition(
+    evidence.commit === note.commit,
+    "Deploy のcommitが下書きと一致しません。",
+  );
+  return { ...evidence, previousCommit: note.previousCommit };
+}
+
+class IncompleteDeploymentError extends Error {}
+
+/** 再試行されなかった成功ジョブを引き継ぎ、再試行されたジョブは新しい結果を使う。 */
+export async function inspectDeployment(
+  runId: number,
+  attempt: number,
+  api: GitHubApi,
+): Promise<Omit<Metadata, "previousCommit">> {
+  z.number().int().positive().parse(runId);
+  z.number().int().min(1).max(51).parse(attempt);
   const run = z
     .object({
       id: z.number(),
       run_attempt: z.number(),
       head_sha: Commit,
       path: z.literal(".github/workflows/deploy.yml"),
-      event: z.literal("push"),
+      event: z.enum(["push", "workflow_dispatch"]),
       head_branch: z.literal("release"),
-      status: z.literal("completed"),
-      conclusion: z.literal("success"),
+      status: z.enum(["completed", "in_progress"]),
     })
-    .parse(await api("GET", path));
+    .parse(await api("GET", `/actions/runs/${runId}/attempts/${attempt}`));
   requireCondition(
-    run.id === deployment.runId &&
-      run.run_attempt === deployment.attempt &&
-      run.head_sha === note.commit,
-    "Deploy の実行・試行・commit が下書きと一致しません。",
+    run.id === runId && run.run_attempt === attempt,
+    "Deploy の実行・試行が一致しません。",
   );
-  const jobs = z
-    .object({
-      total_count: z.number(),
-      jobs: z.array(
-        z.object({
-          name: z.string(),
-          conclusion: z.string().nullable(),
-          completed_at: z.string().nullable(),
-        }),
-      ),
-    })
-    .parse(await api("GET", `${path}/jobs?per_page=100&page=1`));
-  requireCondition(
-    jobs.total_count === jobs.jobs.length,
-    "Deploy のジョブをすべて取得できませんでした。",
-  );
-  for (const name of ["gate", "deploy-api", "deploy-app", "health-check"]) {
-    const matches = jobs.jobs.filter((job) => job.name === name);
+  const Job = z.object({
+    name: z.string(),
+    conclusion: z.string().nullable(),
+    completed_at: z.string().nullable(),
+  });
+  type Job = z.infer<typeof Job> & { attempt: number };
+  const latest = new Map<string, Job>();
+  const healthChecks: Job[] = [];
+  for (let current = 1; current <= attempt; current++) {
+    const jobs = z
+      .object({ total_count: z.number(), jobs: z.array(Job) })
+      .parse(
+        await api(
+          "GET",
+          `/actions/runs/${runId}/attempts/${current}/jobs?per_page=100&page=1`,
+        ),
+      );
     requireCondition(
-      matches.length === 1 && matches[0].conclusion === "success",
-      `${name} の成功を確認できません。`,
+      jobs.total_count === jobs.jobs.length,
+      "Deploy のジョブをすべて取得できませんでした。",
     );
+    for (const name of ["gate", "deploy-api", "deploy-app", "health-check"]) {
+      const matches = jobs.jobs.filter((job) => job.name === name);
+      requireCondition(matches.length <= 1, `${name} が複数あります。`);
+      if (matches[0]) {
+        const job = { ...matches[0], attempt: current };
+        latest.set(name, job);
+        if (name === "health-check") healthChecks.push(job);
+      }
+    }
   }
-  const health = jobs.jobs.find((job) => job.name === "health-check");
+  for (const name of ["gate", "deploy-api", "deploy-app", "health-check"]) {
+    if (latest.get(name)?.conclusion !== "success")
+      throw new IncompleteDeploymentError(`${name} の成功を確認できません。`);
+  }
+  const apiJob = latest.get("deploy-api");
+  const appJob = latest.get("deploy-app");
+  requireCondition(apiJob && appJob, "本番の公開ジョブがありません。");
+  const finishedAt = Math.max(
+    ...["gate", "deploy-api", "deploy-app"].map((name) =>
+      Date.parse(UtcTime.parse(latest.get(name)?.completed_at)),
+    ),
+  );
+  // healthだけ再確認しても、新たなデプロイがなければ版と元の公開日時を変えない。
+  const health = healthChecks.find(
+    (job) =>
+      job.conclusion === "success" &&
+      Date.parse(UtcTime.parse(job.completed_at)) >= finishedAt,
+  );
+  if (!health)
+    throw new IncompleteDeploymentError(
+      "最新のデプロイ後のhealth成功を確認できません。",
+    );
   return {
-    tag: `prod-actions-${deployment.runId}-${deployment.attempt}`,
-    commit: note.commit,
-    previousCommit: note.previousCommit,
-    deployedAt: UtcTime.parse(health?.completed_at),
-    evidenceUrl: `${REPOSITORY_URL}/actions/runs/${deployment.runId}/attempts/${deployment.attempt}`,
+    tag: `prod-actions-${runId}-${Math.max(apiJob.attempt, appJob.attempt)}`,
+    commit: run.head_sha,
+    deployedAt: UtcTime.parse(health.completed_at),
+    evidenceUrl: `${REPOSITORY_URL}/actions/runs/${runId}/attempts/${health.attempt}`,
   };
 }
 
@@ -189,6 +239,180 @@ async function releases(api: GitHubApi): Promise<Release[]> {
   }
 }
 
+/** 成功したのに未記録のDeployを残したまま、次の本番へ進まない。 */
+export async function assertRecordedDeployments(
+  api: GitHubApi,
+  currentRunId?: number,
+  currentAttempt = 1,
+): Promise<void> {
+  const recorded = (await releases(api))
+    .filter((release) => !release.draft && !release.prerelease)
+    .map(metadataOf);
+  for (let page = 1; ; page++) {
+    const result = z
+      .object({
+        workflow_runs: z.array(
+          z.object({
+            id: z.number(),
+            run_attempt: z.number(),
+            status: z.string(),
+            updated_at: UtcTime,
+          }),
+        ),
+      })
+      .parse(
+        await api(
+          "GET",
+          `/actions/workflows/deploy.yml/runs?branch=release&per_page=100&page=${page}`,
+        ),
+      );
+    for (const run of result.workflow_runs) {
+      if (run.updated_at <= BASELINE_TIME) continue;
+      if (run.id === currentRunId) {
+        if (currentAttempt <= 1) continue;
+        run.run_attempt = currentAttempt - 1;
+        run.status = "completed";
+      }
+      if (
+        currentRunId !== undefined &&
+        ["queued", "waiting", "requested", "pending"].includes(run.status)
+      )
+        continue;
+      requireCondition(
+        run.status === "completed",
+        "他のDeployが実行・待機中です。",
+      );
+      if (
+        recorded.some(
+          (item) => item.tag === `prod-actions-${run.id}-${run.run_attempt}`,
+        )
+      )
+        continue;
+      let evidence: Omit<Metadata, "previousCommit">;
+      try {
+        evidence = await inspectDeployment(run.id, run.run_attempt, api);
+      } catch (error) {
+        if (error instanceof IncompleteDeploymentError) continue;
+        throw error;
+      }
+      if (evidence.deployedAt <= BASELINE_TIME) continue;
+      requireCondition(
+        recorded.some(
+          (item) =>
+            item.tag === evidence.tag &&
+            item.commit === evidence.commit &&
+            item.deployedAt === evidence.deployedAt,
+        ),
+        `成功したDeploy ${run.id} / attempt ${run.run_attempt} が未記録です。Record Releaseで記録だけを先に回復してください。`,
+      );
+    }
+    if (result.workflow_runs.length < 100) return;
+  }
+}
+
+/** 計画は対象commitから読み、PRのマージ方式に依存せず実際の公開SHAと結び付ける。 */
+export async function prepareRelease(
+  commit: string,
+  api: GitHubApi,
+): Promise<PreparedRelease> {
+  Commit.parse(commit);
+  const file = z
+    .object({ encoding: z.literal("base64"), content: z.string() })
+    .parse(
+      await api("GET", `/contents/.github/release-note.json?ref=${commit}`),
+    );
+  const plan = ReleasePlan.parse(
+    JSON.parse(Buffer.from(file.content, "base64").toString("utf8")),
+  );
+  const history = await releases(api);
+  requireCondition(
+    history.every((release) => !release.draft && !release.prerelease),
+    "未公開の prod- 版があります。",
+  );
+  const previous = history
+    .map(metadataOf)
+    .sort((a, b) => b.deployedAt.localeCompare(a.deployedAt))[0];
+  const previousCommit = previous?.commit ?? BASELINE_COMMIT;
+  if (previousCommit === commit) {
+    return {
+      ...plan,
+      commit,
+      previousCommit,
+      mode: "redeploy",
+      changes: [
+        {
+          kind: "内部変更",
+          text: "同じcommitを再公開しました。利用者の機能・操作に変更はありません。",
+          prs: [...new Set(plan.changes.flatMap((change) => change.prs))],
+        },
+      ],
+    };
+  }
+  requireCondition(
+    plan.previousCommit === previousCommit,
+    "計画の比較元が直前の本番commitと一致しません。未記録の版または古い計画を確認してください。",
+  );
+  requireCondition(
+    plan.mode !== "redeploy",
+    "再公開には直前と同じcommitを指定してください。",
+  );
+  const comparison = z
+    .object({ status: z.string() })
+    .parse(await api("GET", `/compare/${previousCommit}...${commit}`));
+  requireCondition(
+    comparison.status === "ahead" || plan.mode === "rollback",
+    "巻き戻し・分岐は rollback を明示してください。",
+  );
+  requireCondition(
+    plan.mode !== "rollback" || plan.notices.length > 0,
+    "ロールバックには利用上の注意が必要です。",
+  );
+  return { ...plan, commit };
+}
+
+/** Deploy後または記録だけの再試行に使用。本番デプロイ自体は行わない。 */
+export async function recordActions(
+  runId: number,
+  attempt: number,
+  api: GitHubApi,
+  publish: boolean,
+): Promise<ReleaseResult> {
+  const evidence = await inspectDeployment(runId, attempt, api);
+  const history = await releases(api);
+  const existing = history.find((release) => release.tag_name === evidence.tag);
+  if (existing) {
+    const metadata = metadataOf(existing);
+    requireCondition(
+      !existing.draft &&
+        !existing.prerelease &&
+        Object.entries(evidence).every(
+          ([key, value]) => metadata[key as keyof Metadata] === value,
+        ),
+      "記録済みの公開情報と一致しません。",
+    );
+    const ref = await api("GET", `/git/ref/tags/${evidence.tag}`);
+    const tag = z
+      .object({ sha: Commit })
+      .parse(await api("GET", `/commits/${evidence.tag}`));
+    requireCondition(
+      ref && tag.sha === evidence.commit,
+      "記録済みのタグとcommitが一致しません。",
+    );
+    return {
+      tag: evidence.tag,
+      body: existing.body ?? "",
+      existing: true,
+      url: existing.html_url,
+    };
+  }
+  const plan = await prepareRelease(evidence.commit, api);
+  return recordRelease(
+    { ...plan, deployment: { kind: "actions", runId, attempt } },
+    api,
+    publish,
+  );
+}
+
 function render(
   note: z.infer<typeof Note>,
   metadata: Metadata,
@@ -202,6 +426,11 @@ function render(
     `# ${metadata.tag}`,
     "",
     `本番公開日時（UTC）：${metadata.deployedAt}`,
+    ...(note.mode === "rollback"
+      ? ["公開種別：ロールバック"]
+      : note.mode === "redeploy"
+        ? ["公開種別：同一commitの再公開"]
+        : []),
     "",
     ...changes,
     "",
@@ -213,7 +442,7 @@ function render(
           "",
         ]
       : []),
-    `[公開commit](${REPOSITORY_URL}/commit/${metadata.commit}) ／ [前回との差分](${REPOSITORY_URL}/compare/${metadata.previousCommit}...${metadata.commit})`,
+    `[公開commit](${REPOSITORY_URL}/commit/${metadata.commit}) ／ [前回との差分](${REPOSITORY_URL}/compare/${metadata.previousCommit}${note.mode === "rollback" ? ".." : "..."}${metadata.commit})`,
     "",
     `[${note.deployment.kind === "actions" ? "本番Deployの成功記録" : "手動デプロイの確認証跡"}](${metadata.evidenceUrl})`,
     ...(first
@@ -235,6 +464,10 @@ export async function recordRelease(
   publish: boolean,
 ): Promise<ReleaseResult> {
   const note = Note.parse(input);
+  requireCondition(
+    note.mode !== "rollback" || note.notices.length > 0,
+    "ロールバックには利用上の注意が必要です。",
+  );
   const metadata = await deploymentMetadata(note, api);
   requireCondition(
     Date.parse(metadata.deployedAt) > Date.parse(BASELINE_TIME) &&
@@ -259,7 +492,9 @@ export async function recordRelease(
       "同じ版が未公開またはタグ不整合です。手動で確認してください。",
     );
     requireCondition(
-      JSON.stringify(metadataOf(existing)) === JSON.stringify(metadata),
+      Object.entries(metadataOf(existing)).every(
+        ([key, value]) => metadata[key as keyof Metadata] === value,
+      ),
       "同じ版の公開情報が一致しません。",
     );
     return {
@@ -299,7 +534,8 @@ export async function recordRelease(
       await api("GET", `/compare/${note.previousCommit}...${note.commit}`),
     );
   requireCondition(
-    ["ahead", "identical"].includes(comparison.status),
+    ["ahead", "identical"].includes(comparison.status) ||
+      note.mode === "rollback",
     "巻き戻し・分岐したcommitです。通常リリースとして記録せず、運用手順を確認してください。",
   );
   const body = render(note, metadata, !previous);
@@ -318,7 +554,7 @@ export async function recordRelease(
   return { tag: metadata.tag, body, existing: false, url: created.html_url };
 }
 
-const githubApi: GitHubApi = async (method, path, data) => {
+export const githubApi: GitHubApi = async (method, path, data) => {
   try {
     const args = [
       "api",
@@ -332,6 +568,7 @@ const githubApi: GitHubApi = async (method, path, data) => {
     return JSON.parse(
       execFileSync("gh", args, {
         encoding: "utf8",
+        maxBuffer: 8 * 1024 * 1024,
         input: data ? JSON.stringify(data) : undefined,
         stdio: ["pipe", "pipe", "pipe"],
       }),

@@ -1,129 +1,68 @@
 # 本番リリースの履歴
 
 公開履歴の正本は [GitHub Releases](https://github.com/engineer-first/idea-boost/releases) です。
-本番リリースごとに、公開日時・版・対象commitと、その版で使えるようになった変化を残します。
-`develop` へのマージ、`release` へのpush、タグの存在だけでは公開済みと判断しません。
-全体の価値や操作の紹介は動画・プレゼン、実装の判断は関連Issue・PRを参照します。
+本番で公開した機能・変更・修正を、公開日時・版・対象commitと結び付けます。
+通常は **release向けPRで説明をレビュー → マージ → 本番health確認成功 → 自動記録** です。
+PR作成、developへのマージ、タグ作成だけでは公開済みと記録しません。
 
-## 採用した方式と理由
+## 対応するフロー
 
-- GitHub Releasesは版・commit・差分・PRへまとめて辿れます。本文を読者別に二重管理しません。
-- 要約は人が作成・レビューし、`npm run release:record` が成功の根拠と対象commitを照合します。
-  PRタイトルの自動列挙では、複数PRにまたがる機能や未公開機能を正しく説明できないためです。
-- 最初は**リリース担当者が毎回記録コマンドを実行する**運用です。Deployからの自動公開はしません。
-  記録を独立させることで、記録失敗時にmigrationやWorkerのデプロイを再実行する必要がありません。
-- 版は通常 `prod-actions-<run ID>-<attempt>`、手動は `prod-manual-<UTCのYYYYMMDDTHHmmssZ>`。
-  既存のタグ・Release運用がなかったため、SemVerの互換性判定を持ち込まず、公開事象を一意に識別します。
-  同じcommitをもう一度本番に出した場合も別の公開事象です。記録だけの再試行は同じ識別子を使います。
-- 日時は秒単位のUTC（`Z`、日本時間は+9時間）。通常はhealth確認ジョブの完了日時を
-  本番公開の確認時点として使います。GitHubのRelease作成日時とは異なります。
-  healthの成功は全機能の動作保証ではありません。
+| 入口・状況                                                         | 下書き・確認                                                                        | 履歴が出るタイミング                                                        |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| release向けPR（merge / squash / rebase）                           | `.github/release-note.json` をPRでレビュー。Release Note CheckのSummaryに下書き表示 | マージにより起動するDeployのhealth成功後、自動公開                          |
+| releaseへの直接push、hotfix、cherry-pick                           | pushするcommitに同じJSONを含める。PRを通さない場合も説明の確認が必要                | Deployのhealth成功後、自動公開                                              |
+| ActionsのRun workflow / gh workflow run                            | Deployでbranch `release` を選ぶ。対象commit内のJSONを検査                           | 同じDeploy経路で自動公開                                                    |
+| 同じcommitの再デプロイ、Re-run all jobs                            | 前回と同じcommitなら「機能・操作の変更なし」と説明を自動切替                        | 新たなAPI/App公開とhealth成功後、別の版として記録                           |
+| Re-run failed jobs / 特定ジョブの再実行                            | 再実行しない成功ジョブを引き継ぎ、再実行したジョブは最新結果で判定                  | 構成全体の成功を確認後、自動公開                                            |
+| 記録ジョブのみ失敗・通信断                                         | record-releaseだけ再実行、またはRecord Releaseで元のrun ID/attemptを指定            | 再デプロイせず記録。同じ公開事象は同じ版を再利用                            |
+| ローカルの `npm run deploy -- <確認用PR/Issue URL>`                | クリーンな公開commitとJSONを事前検査                                                | migration → API → App → health後にreceiptを保存し、Record Releaseを自動起動 |
+| Cloudflare画面・個別wranglerコマンド・導入前のスクリプトによる更新 | 対応PR/Issueで成功証跡を確認し、manual receiptを作成                                | Record Releaseへreceiptを渡して記録                                         |
+| 過去版へのロールバック・分岐したcommitへの復旧                     | `mode: "rollback"` と利用上の注意を必須にする                                       | 復旧後の全体の成功を確認し、同じ記録経路で公開                              |
+| タグ作成、GitHub Releaseの手動作成、developへのマージ              | 本番デプロイの成功証拠にはしない                                                    | それだけでは自動記録しない                                                  |
+| 途中失敗・取消し・API/App片方だけ成功                              | 公開履歴を作らず、作業記録に実状態を残す                                            | 構成全体を確認できるまで公開しない                                          |
 
-## 記載基準
+個別のCloudflare操作をGitHubから自動観測する仕組みはありません。通常の入口は自動化し、
+外部操作も成功証跡を渡して同じ履歴へ合流できるようにしています。
+アプリ内の通知、配信、過去履歴の全面復元、ロールバック・データ復旧そのものの実装は対象外です。
 
-「追加」「変更」「修正」を、利用者が認識できる機能・挙動ごとに1項目で書きます。
-同じ機能の複数PRは1項目にまとめ、`prs` に関連PR番号をすべて列挙します。
-要約からPR、PRからIssue・検証の詳細へ辿れます。
+## 各リリースの説明を準備する
 
-- よい例：「付箋を残したまま、そのフェーズの投票をやり直せるようになりました。」
-- 避ける例：「投票機能を改善」「クリック処理と状態管理を変更」。
-- 対象commitに含まれることに加え、本番設定や公開範囲でも利用可能か確認します。
-  未公開の実装・将来構想を「使える」と書かないでください。
-- 必要な制約・利用者の対応は `notices` に書きます。なければ空配列です。
-- 内部変更だけなら `kind: "内部変更"` とし、例えば「利用者の操作に変更はありません。
-  デプロイ時の検査を整理しました。」と関連PRを残します。機能追加を無理に作りません。
-- コマンドは文章の意味、PRが実際に含まれるか、機能フラグによる公開範囲を判定しません。
-  これらはレビュー担当の確認対象です。
+下書き担当は、その版で本番公開する機能・挙動ごとに1項目の説明を書き、確認担当がレビューします。
+同じ機能の複数PRはまとめてリンクします。PRタイトルの一覧を本文の代わりにはしません。
+本番設定や機能フラグも確認し、未公開の実装・将来構想を混ぜないでください。
+内部変更だけなら `kind: "内部変更"` とし、「利用者の操作に変更はありません」と理由・関連PRを残します。
+制約・利用者の対応は `notices` に入れ、不要なら空配列にします。
 
-## 担当する役割
-
-| 役割         | 行うこと                                                                                 |
-| ------------ | ---------------------------------------------------------------------------------------- |
-| 下書き担当   | 前回の本番から対象版までの差分・PRを集め、機能単位の要約と注意事項を書く                 |
-| 確認担当     | 対象commit、前回commit、実際の公開範囲、要約と注意事項を確認する                         |
-| リリース担当 | 本番の各段階の結果を確認し、レビュー済み下書きから履歴を公開する。失敗時は回復を管理する |
-
-個人は固定しません。小規模運用で兼任する場合も、確認した事実を対応PRに残します。
-本番更新と履歴記録は担当者間で直列に進め、未記録の版を解消してから次の版を出します。
-コマンドは分散ロックを持たず、複数担当者の同時公開・タグの外部変更までは原子的に防げません。
-
-## 初回の比較基準
-
-記録開始基準は、導入時に確認できた直近の成功した
-[Deploy #35807520854 / attempt 1](https://github.com/engineer-first/idea-boost/actions/runs/35807520854/attempts/1)、
-health確認完了 `2026-09-23T01:50:15Z` の
-[commit 24fc6570bcf80ad641e8160a15aa23d6e31e6439](https://github.com/engineer-first/idea-boost/commit/24fc6570bcf80ad641e8160a15aa23d6e31e6439) です。
-この基準自体のReleaseを後付けで作らず、初回の本文に「記録開始基準」として明示します。
-過去の全リリースや全機能は復元しません。
-
-導入までにこの基準より後の本番更新があれば、その公開から順に記録します。
-通常・手動を含め未記録の更新がないことを、担当者がActionsと作業記録で確認してください。
-2件目以降は前回Releaseのcommitと日時をコマンドが照合します。
-
-## 通常のリリース手順
-
-前提：miseのNode.js、`npm ci`、GitHub CLI (`gh`) と `gh auth login`。
-読取時はActions・contentsのread、公開時はcontentsのwrite権限が必要です。
-コマンドは常に `github.com/engineer-first/idea-boost` を対象にし、別リポジトリへは書きません。
-
-1. 下書き担当が対象差分から要約を作ります。初回の `previousCommit` は上の基準、
-   以後は直前のRelease本文にある公開commitの40桁SHAです。
-   下記のJSONをもとに、対応PRへ下書きを添付・記載してレビューします。
-   ファイルをGit管理するなら実装PRに含めず、SHA確定後の別の文書PRに置きます
-   （自分自身のcommit SHAをファイルに埋めることはできないため）。
-
-2. 通常の手順で本番更新を行い、Deployの `gate`、`deploy-api`（migrationを含む）、
-   `deploy-app`、`health-check` が**同じattempt内ですべて成功**したことを確認します。
-   JSONの `commit` にrunの `head_sha`、`runId` と `attempt` に実行番号を入れます。
-   下書き時点から対象が変わった場合は差分と要約を再確認します。
-
-3. レビュー済みJSONを例えば `/tmp/release-note.json` に保存し、プレビューします。
-
-   ```bash
-   npm run release:record -- /tmp/release-note.json
-   ```
-
-   GETのみを行い、本文を標準出力へ表示します。ローカルの `HEAD` やbranchは公開対象に使いません。
-   実行結果が失敗・進行中・別branch・別workflow・別commitなら停止します。
-
-4. 確認担当が、表示された日時・commit・差分・機能・注意事項を確認します。
-   リリース担当が公開します（**このコマンドは本物のReleaseとタグを作成します**）。
-
-   ```bash
-   npm run release:record -- /tmp/release-note.json --publish
-   ```
-
-5. 表示されたReleaseのURLを開き、本文とリンク、タグが対象commitを指すことを確認します。
-   対応PRにRelease URLを残し、この版の記録を完了します。Releasesは本番日時順に確認してください。
-   `Latest` は自動設定しません。
-
-### 下書きJSONの記載例
-
-**以下は架空の例です。公開実績ではなく、そのまま公開できる入力でもありません。**
-実際のcommit・run・PR番号と、その版の要約に置き換えます。
+次は**架空の記載例**です。各リリースで実際の内容に置き換え、
+`.github/release-note.json` として対象commitに含めます。
+このファイルには自分自身のcommit SHAや公開日時を埋めません。マージ方式に関係なく、
+Deployの実際のcommitとhealth完了日時を自動で付けます。
 
 ```json
 {
-  "commit": "対象の40桁commit SHA",
   "previousCommit": "24fc6570bcf80ad641e8160a15aa23d6e31e6439",
-  "deployment": { "kind": "actions", "runId": 123, "attempt": 1 },
+  "mode": "release",
   "changes": [
     {
       "kind": "追加",
       "text": "付箋を残したまま、そのフェーズの投票をやり直せるようになりました。",
       "prs": [370, 371]
-    },
-    {
-      "kind": "修正",
-      "text": "結果を表示した後に画面を開き直すと、投票数が欠ける問題を修正しました。",
-      "prs": [372]
     }
   ],
   "notices": ["投票をやり直すと、それまでの投票数はリセットされます。"]
 }
 ```
 
-生成される本文の概形（架空の例）：
+`previousCommit` は直前の本番Releaseの公開commit（40桁SHA）。初回だけ下記の記録開始基準です。
+`mode` は通常 `release`、復旧・巻き戻しは `rollback`。同じcommitを再公開する場合は `redeploy` に
+自動切替し、古い機能説明を「新規追加」として繰り返しません。
+JSONの欠落・不正、古い比較元、未記録の成功したDeployは **migrationより前** に拒否します。
+
+release向けPRのRelease Note Checkは読取権限だけで、既定ブランチのスクリプトから
+候補commitのJSONを読み、Summaryへ下書きを出します。対象commitに含まれる変更か、説明が平易か、
+実際に公開されるかという意味の確認は人が行います。公開後の要約入力は通常不要です。
+
+公開本文の概形（架空の例）：
 
 > **prod-actions-123-1**
 >
@@ -132,39 +71,92 @@ health確認完了 `2026-09-23T01:50:15Z` の
 > **追加**：付箋を残したまま、そのフェーズの投票をやり直せるようになりました。
 > 関連PR：#370、#371
 >
-> **修正**：結果を表示した後に画面を開き直すと、投票数が欠ける問題を修正しました。
-> 関連PR：#372
->
 > **利用上の注意**：投票をやり直すと、それまでの投票数はリセットされます。
 >
 > 公開commit ／ 前回との差分 ／ 本番Deployの成功記録
 
-実際の出力にはPR・commit・差分・実行のリンクと、再実行判定用のHTMLコメントが付きます。
+実際はPR・commit・差分・実行へのリンクと、重複判定用の `release-history` HTMLコメントが付きます。
+GitHubのRelease作成日時と本番公開日時は別です。healthの成功は全機能の動作保証ではありません。
+全体像・操作紹介は動画やプレゼン、実装の判断は関連PR・Issueを参照します。
 
-## 失敗と再実行
+## 成功判定・版・同時実行
 
-| 状況                                                                  | 扱い                                                                                                                                  |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 品質検査・migration・API・App・healthのいずれかが失敗、取消し、未完了 | 公開しない。一部だけ適用された可能性を作業記録に残し、担当者が対処する                                                                |
-| 失敗後、一部ジョブだけ再実行して復旧                                  | attempt内の4ジョブを確認できなければコマンドは拒否する。記録のためだけに再デプロイせず、下記の手動確認経路で各attemptの証跡をまとめる |
-| 本番成功、記録APIが失敗・タイムアウト                                 | 同じJSONで記録コマンドだけ再実行。Deployは再実行しない                                                                                |
-| Releaseの作成は成功したが応答を受け取れなかった                       | 同じ版・commit・日時・比較元・証跡なら既存URLを返す。訂正された本文を上書きしない                                                     |
-| タグだけ存在する                                                      | 同じcommitなら記録を再開できる。異なるcommitなら拒否。タグを移動して辻褄を合わせない                                                  |
-| 同じ版がDraft・prerelease、識別情報が欠落・不一致                     | 自動上書きしない。作成状況と対象を確認する                                                                                            |
-| 前回commitの不一致・古い日時・Gitの巻き戻しや分岐                     | 通常の公開を止め、未記録の更新や復旧操作を調査する                                                                                    |
+Deployの `gate`、`deploy-api`（migrationを含む）、`deploy-app`、`health-check` の最新結果を確認します。
+各attemptのジョブを取得し、再実行されなかった成功段階は引き継ぎます。
+一度成功していても、新しい試行で失敗・skip・進行中になった段階を成功扱いしません。
+最新のデプロイより前のhealth成功も使いません。
+品質ゲートを飛ばして古いAPI/Appジョブだけを再実行する場合も、各Workerの更新直前に計画を再検査します。
+その後に別の版が本番公開済みなら古い比較元を拒否し、意図しない巻き戻し・構成の混在を防ぎます。
 
-HTTPエラーや権限不足を「履歴なし」とみなして進めません。
-書き込みはRelease作成だけで、既存Releaseの編集・タグ移動・本番デプロイは行いません。
+`record-release` 自身の失敗でworkflow全体がfailureになっても、本番4段階の成功は独立して判定します。
+これにより記録だけを再試行できます。
 
-## 手動デプロイと復旧後の記録
+- 通常版：`prod-actions-<run ID>-<API/Appを最後にデプロイしたattempt>`。
+  同じrunで本当に再デプロイすれば別版、記録のみ・healthのみの再確認なら既存版を再利用します。
+- 手動版：`prod-manual-<成功確認時刻のUTC・YYYYMMDDTHHmmssZ>`。再送時もreceiptの時刻を変えません。
+- 時刻はUTC秒単位（日本時間は+9時間）。通常は最後のデプロイ後の最初の成功したhealth完了時刻です。
+- 通常DeployとRecord Releaseは同じ `production-release` concurrency groupで直列化し、
+  `queue: max` で最大100件まで待機します。上限超過の取消しはActionsで確認します。
+- 前回の本番成功が未記録なら次の事前検査を止めます。先に記録を回復してください。
+- ローカルやCloudflare画面での操作はActionsのロック外です。リリース担当が同時操作を避け、
+  手動操作開始後も新しいDeployを起動しないでください。ローカル入口でも実行・待機中のDeployを検査します。
 
-手動経路でも同じ書式・比較元・公開コマンドを使います。
-作業ツリーがクリーンで、GitHub上に存在する同一commitからmigration → API → Appを実施したこと、
-本番URLでhealthを確認したことを、対応PRまたはIssueに記録します。
-commit、実施時刻、各段階の成功ログ、API/AppのWorker version ID、確認者を残し、秘密は載せません。
-手動更新はActionsと同時に行わず、進行中のDeployがないことも確認します。
+タグが異なるcommitを指す、同じ版がDraft/prerelease、識別情報が欠落・不一致、日時が前後する場合は
+自動上書きしません。HTTP障害を「履歴なし」とみなさず停止します。記録済み本文の訂正も保持します。
 
-`deployment` だけを次に置き換えます（日時・URLは架空の例）。
+## 記録だけを再実行する
+
+Actions → **Record Release** → Run workflowで、branchは既定ブランチ（現在 `develop`）を選びます。
+`run_id` と `attempt` に記録対象のDeployを指定します。`note_json` は空にします。
+元の `record-release` ジョブだけをRe-runする方法も使えます。
+記録失敗後にRe-run all jobsを選んでも、前attemptが成功・未記録なら事前検査で止めます。
+
+```bash
+gh workflow run release-history.yml --repo engineer-first/idea-boost --ref develop \
+  -f run_id=対象のDeploy実行番号 -f attempt=確認する試行番号
+```
+
+このworkflowにはmigrationやWorkerデプロイの処理がありません。
+Re-run all jobsや `npm run deploy` を「記録の回復」のために使わないでください。
+成功済みの古い版を再試行しても、その版のURLを返し、本文や後続版を変えません。
+APIエラー・応答喪失の後も同じ入力で再試行します。
+
+## ローカル手動デプロイ
+
+通常はPRまたはActionsのDeployを使います。ローカルから行う場合は `gh auth login`、
+Cloudflareへの認証、クリーンな作業ツリー、GitHub上に存在する対象commitと説明JSONが必要です。
+確認用PR/Issueで下書きと作業を確認してから実行します。
+
+```bash
+npm run deploy -- https://github.com/engineer-first/idea-boost/pull/実際のPR番号
+```
+
+以前の `npm run deploy` に、事前検査・本番health確認・履歴依頼を追加しています。
+本番URLは `https://ideaboost.dev`。migration → API → App → healthの成功後、
+`.release-history/` に成功receiptを保存し、Record Releaseを自動起動します。
+**コマンドの終了は記録workflowの受付まで**です。Actionsの成功とRelease URLまで確認してください。
+Cloudflareアカウント・Worker設定が本番のものであること、環境設定による公開範囲は担当者が確認します。
+
+記録workflowの起動や記録処理だけが失敗した場合は、出力されたreceiptを再送します。
+ローカルの状態や時刻からreceiptを作り直しません。
+
+```bash
+npm run release:submit -- .release-history/出力されたファイル.json
+```
+
+receiptはGit管理しません。作業の証跡として保管し、ログやWorker version IDも確認用PR/Issueに残します。
+個別の `deploy:api` / `deploy:app` / `deploy:migrate` は低水準の操作で、全体成功の自動記録はしません。
+それらやCloudflare画面から更新した場合は、次の外部操作の記録手順を使います。
+
+## 外部操作・ロールバックを記録する
+
+migration・API・App・healthの結果、API/App共通のcommit、UTCの成功確認時刻、
+Worker version ID、確認者をPR/Issueに残します。秘密は載せません。
+異なるcommitのAPI/Appが混在している場合は単一版として記録せず、構成を揃えてから確認します。
+
+レビュー済み説明JSONに `commit` と次の `deployment` を加えてreceiptを作ります（以下は架空の例）。
+ロールバックでは `mode: "rollback"` と、失われる機能・必要な利用者対応を `notices` に必ず書きます。
+過去commitに新しい記録スクリプトがなくても、最新の作業環境からreceiptを送れます。
 
 ```json
 {
@@ -178,36 +170,54 @@ commit、実施時刻、各段階の成功ログ、API/AppのWorker version ID�
 }
 ```
 
-4項目の `true` は成功の自己申告です。コマンドはCloudflareの実環境や証跡の内容を検証しません。
-確認担当が証跡を読んでから公開します。途中失敗なら `true` にしません。
-日時は最後に構成全体の成功を確認した時刻で固定し、再試行時に現在時刻へ変えないでください。
-通常の成功runをこの経路で二重記録しません。一部ジョブの再実行から復旧した場合は、
-各attemptと最終的なAPI/App双方のcommitを証跡に示します。
+`true` は確認担当による成功の申告です。コードはCloudflare画面や証跡本文を検証しません。
+確認後に `npm run release:submit -- receipt.json`、またはRecord Releaseの `note_json` にJSON全文を渡します。
+後者では `run_id` / `attempt` を空にします。同じ操作を通常runとmanualの両方で記録しません。
+巻き戻しや分岐も記録でき、差分は前回commitから今回commitへの2点比較になります。
+これは復旧結果の履歴を残す仕組みであり、ロールバックやデータ復旧を実行・保証するものではありません。
 
-巻き戻し・分岐したcommitへの復旧は通常コマンドが拒否します。実際にその状態を公開した場合は、
-確認担当が差分方向・データ互換性・影響を確認した上で、GitHub Releasesで手動記録します。
-上記の `prod-manual-<UTC時刻>`、公開commit、比較元、証跡、利用上の注意と、
-通常出力と同形の `release-history` 識別情報を残します。
-次の通常リリースはその記録を前回として扱います。これは例外的な記録手順であり、
-ロールバックやデータ復旧を実装・保証するものではありません。
+ローカルで本文を確認するだけなら `npm run release:record -- receipt.json` を使えます。
+従来の `--publish` 直接記録も残していますが、Actionsのキュー外なので通常はRecord Releaseを使います。
 
-## 履歴の訂正
+## 初回導入・役割・訂正
 
-文面・リンクの誤りは、確認担当が訂正内容をレビューした後、同じReleaseの本文を編集します。
-末尾に「訂正：〈UTC日時〉／〈訂正箇所と理由〉」を追記して、履歴を残します。
-版・対象commit・元の本番公開日時・比較元・証跡・`release-history` コメントを変更しません。
-コマンドの再実行は訂正内容を保持します。
+この実装だけのための正式Releaseや実績を作りません。最初のrelease向けPRでは、
+**実際に公開する変更を整理した `.github/release-note.json` を追加してください**。
+サンプルを公開説明として自動採用しないため、このPRには実運用の説明JSONを入れていません。
+欠けたまま本番へ進む場合は事前検査で止まります。workflowの利用には先に既定ブランチへの導入が必要です。
 
-対象commitや成功判定自体が誤っていた場合は通常の文章訂正で隠さず、まず本文冒頭に誤記録を明示し、
-以後の記録を停止します。担当者がデプロイ証跡とタグを調査し、訂正方針・影響・経緯をPR/Issueに残してから
-履歴を修復します。タグの付け替えやRelease削除を通常手順にせず、過去の誤りを追える状態に保ちます。
+初回の比較基準は、導入時に確認できた直近の成功した
+[Deploy #35807520854 / attempt 1](https://github.com/engineer-first/idea-boost/actions/runs/35807520854/attempts/1)、
+health完了 `2026-09-23T01:50:15Z` の
+[commit 24fc6570bcf80ad641e8160a15aa23d6e31e6439](https://github.com/engineer-first/idea-boost/commit/24fc6570bcf80ad641e8160a15aa23d6e31e6439) です。
+初回の本文に記録開始基準を明記し、基準自体のReleaseや過去の全機能一覧は作りません。
+導入までにそれより後の本番更新があれば、先に順に記録して比較元を更新します。
+説明JSONがない旧Deployには、レビューした説明に `commit` と
+`deployment: { "kind": "actions", "runId": 実行番号, "attempt": 試行番号 }` を付けたreceiptを用意し、
+Record Releaseの `note_json` へ渡します。成功をActions APIで照合して通常と同じ版に記録するため、
+そのrunをmanualとして二重登録しません。外部操作のみmanual receiptを使います。
 
-## 検証範囲
+下書き担当は説明を作り、確認担当は差分・公開範囲・注意事項をレビューし、
+リリース担当は公開と履歴記録の完了・失敗の回復を確認します。個人は固定しません。
+小規模運用で兼任する場合も確認内容を対応PRに残します。
 
-`npm run test -- scripts/release-history.spec.ts` はGitHub API境界を模したテストです。
-公開成功・途中失敗・対象不一致・再実行・手動確認の扱いを確認します。
-実際の権限、Release/tagの作成、Cloudflareとの対応、担当者の文章レビューは初回運用で確認します。
-今回の導入検証だけを目的に、本番デプロイや架空の正式Releaseを作成しません。
+文面・リンクの訂正は同じReleaseを編集し、末尾に「訂正：〈UTC日時〉／〈内容と理由〉」を追記します。
+版・commit・元の本番日時・比較元・証跡・`release-history` コメントは変えません。
+対象commitや成功判定自体が誤っていた場合は冒頭に誤記録を明示し、次の記録を停止して調査します。
+タグの付け替え・Release削除で誤りを隠さず、修復の方針と経緯をPR/Issueに残してください。
 
-API仕様：[Releases](https://docs.github.com/en/rest/releases/releases)、
-[workflow jobs](https://docs.github.com/en/rest/actions/workflow-jobs)。
+## 検証範囲と採用理由
+
+GitHub Releasesは版・commit・差分・PRを一箇所にまとめられ、本文を読者別に二重管理しません。
+要約は対象commit内のJSONでレビューし、公開日時・成功判定・重複防止を自動化します。
+通常の入口を自動で処理しつつ、外部手動操作も同じ記録形式へ合流させる方式です。
+
+Vitestで成功・途中失敗・部分再試行・記録のみの再試行・再公開・ロールバック・未記録版の検出・
+ローカルの実行順と失敗時の停止を確認します。workflowの入口・権限・依存・共通キューも検査します。
+実際の本番デプロイ、GitHubのwrite権限、Release/tag作成、workflow間のキュー、Cloudflare実状態との対応は
+初回運用で確認します。導入検証だけのために本番更新や架空の正式Releaseを作成しません。
+
+公式仕様：[ジョブの再実行](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)、
+[concurrencyとqueue](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)、
+[Releases API](https://docs.github.com/en/rest/releases/releases)、
+[2点のcommit比較](https://docs.github.com/en/pull-requests/how-tos/commit-changes/comparing-commits)。

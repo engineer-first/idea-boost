@@ -36,7 +36,7 @@
     "build:cf": "opennextjs-cloudflare build",
     "deploy:app": "npm run build:cf && wrangler deploy -c wrangler.jsonc",
     "deploy:migrate": "wrangler d1 migrations apply DB --remote --config workers/wrangler.jsonc",
-    "deploy": "npm run deploy:migrate && npm run deploy:api && npm run deploy:app",
+    "deploy": "node scripts/deploy-production.mts deploy",
     "prepreview:cf": "npm run gen:room-do-migrations",
     "preview:cf": "opennextjs-cloudflare build && wrangler dev -c wrangler.jsonc -c workers/wrangler.jsonc",
     "presmoke": "npm run gen:room-do-migrations",
@@ -46,7 +46,8 @@
     "test:browser": "vitest run --config vitest.browser.config.mts",
     "dev:verify": "node --no-warnings scripts/verification.mts",
     "test:verification": "npm run gen:room-do-migrations && vitest run --config vitest.verification.config.mts",
-    "release:record": "node scripts/release-history.mts"
+    "release:record": "node scripts/release-history.mts",
+    "release:submit": "node scripts/deploy-production.mts submit"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -93,7 +94,8 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.9",
-    "wrangler": "^4.107.0"
+    "wrangler": "^4.107.0",
+    "yaml": "^2.9.1"
   },
   "msw": {
     "workerDirectory": [
