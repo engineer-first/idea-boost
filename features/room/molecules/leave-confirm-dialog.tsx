@@ -80,7 +80,11 @@ export function LeaveConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isLeaving} onClick={onReturnToOutcome}>
-            {completed ? "削除をやめて成果へ戻る" : "キャンセル"}
+            {completed
+              ? mode === "disband"
+                ? "削除をやめて成果へ戻る"
+                : "退出をやめて成果へ戻る"
+              : "キャンセル"}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={(event) => {

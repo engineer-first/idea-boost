@@ -31,13 +31,15 @@ export function RoomOutcomeView({
 
   function saveText() {
     if (!canExport) return;
-    const blob = new Blob([`\uFEFF${formatOutcomeText(outcome, new Date())}`], {
+    const now = new Date();
+    const blob = new Blob([`\uFEFF${formatOutcomeText(outcome, now)}`], {
       type: "text/plain;charset=utf-8",
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `idea-boost-outcome-${new Date().toISOString().slice(0, 10)}.txt`;
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    anchor.download = `idea-boost-outcome-${localDate}.txt`;
     document.body.append(anchor);
     anchor.click();
     anchor.remove();

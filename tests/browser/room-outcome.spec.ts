@@ -117,3 +117,30 @@ test("テキスト保存と全文コピーには同じ3項目が入り、操作�
     await page.getByRole("heading", { name: "チームで決めた成果" }).isVisible(),
   ).toBe(true);
 });
+
+test("日本時間の深夜でも保存ファイル名と本文の日付が一致する", async () => {
+  const context = await browser.newContext({ timezoneId: "Asia/Tokyo" });
+  const localPage = await context.newPage();
+  try {
+    await localPage.clock.install({
+      time: new Date("2026-09-25T15:30:00Z"),
+    });
+    await localPage.goto(
+      `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
+    );
+    await localPage.getByTestId("room-outcome-view").waitFor();
+    const downloadPromise = localPage.waitForEvent("download");
+    await localPage.getByRole("button", { name: "テキストを保存" }).click();
+    const download = await downloadPromise;
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    const saved = Buffer.concat(chunks).toString("utf8");
+    expect(download.suggestedFilename()).toBe(
+      "idea-boost-outcome-2026-09-26.txt",
+    );
+    expect(saved).toContain("出力日: 2026/09/26 00:30");
+  } finally {
+    await context.close();
+  }
+});
