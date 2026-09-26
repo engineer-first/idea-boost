@@ -23,6 +23,13 @@ export const Leave: Story = {
   },
 };
 
+export const CompletedLeave: Story = {
+  args: {
+    mode: "leave",
+    completed: true,
+  },
+};
+
 // ホストの解散確認（ルーム削除の警告文言になる）。
 export const Disband: Story = {
   args: {

@@ -78,6 +78,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: buildPhaseStep(1),
     decision: null,
+    outcomePublished: false,
     adoptionFocusNoteId: null,
     timer: { status: "idle" } as const,
     timerServerOffsetMs: 0,
@@ -114,6 +115,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: vi.fn(),
+    onPublishOutcome: vi.fn(),
     onAdoptionFocusChange: vi.fn(),
 
     connectionStatus: "open" as const,
@@ -489,16 +491,21 @@ describe("RoomBoardView", () => {
     });
   });
 
-  it("Step 3-5 は決定前後とも次へを表示せず、決定後だけ完了を表示する", () => {
+  it("Step 3-5 は採用案の選択後もボードに留まり、ホストの完了操作を待つ", async () => {
+    const onPublishOutcome = vi.fn();
     const { props, rerender } = setup({
       phase: buildPhaseStep(5, 3),
       decision: null,
+      isHost: true,
+      onPublishOutcome,
     });
 
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "完了して成果を表示" }),
+    ).not.toBeInTheDocument();
 
     rerender(
       <TestBoardView
@@ -508,14 +515,146 @@ describe("RoomBoardView", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-    expect(screen.getByText("スプリント完了")).toHaveAttribute(
-      "role",
-      "status",
+    expect(screen.getByTestId("room-board-view-root")).toBeVisible();
+    expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "完了して成果を表示" }),
     );
+    expect(onPublishOutcome).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("room-board-view-root")).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("成果公開後に全員へ成果を表示し、ボード往復でも再表示できる", async () => {
+    const idea = buildNote({
+      id: "99999999-9999-4999-8999-999999999999",
+      content: "採用する案\n次の行",
+    });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      hmwDecidedIssue: "決定課題",
+      decidedHmw: "決定した問い",
+      decision: null,
+    });
+    rerender(
+      <TestBoardView
+        {...props}
+        phase={buildPhaseStep(5, 3)}
+        notes={[idea]}
+        hmwDecidedIssue="決定課題"
+        decidedHmw="決定した問い"
+        decision={buildDecision({ phase: 3, noteId: idea.id })}
+        outcomePublished
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: "チームで決めた成果" }),
+    ).toBeVisible();
+    expect(screen.getByText("決定課題")).toBeVisible();
+    expect(screen.getByText("決定した問い")).toBeVisible();
+    expect(screen.getByText(/採用する案/)).toBeVisible();
+    expect(
+      screen.queryByRole("dialog", { name: /投票結果/ }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "ボードへ戻る" }));
+    expect(screen.getByRole("button", { name: "成果を見る" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "成果を見る" }));
+    expect(
+      screen.getByRole("heading", { name: "チームで決めた成果" }),
+    ).toBeVisible();
+  });
+
+  it("成果が欠けた状態や切断時は保存を許さず再接続を案内する", () => {
+    const idea = buildNote({
+      id: "99999999-9999-4999-8999-999999999999",
+      content: "案",
+    });
+    setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
+      hmwDecidedIssue: null,
+      decidedHmw: "問い",
+      connectionStatus: "closed",
+    });
+    expect(screen.getByText(/再接続/)).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "テキストを保存" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("コピー失敗後に切断したら手動コピー欄を隠し、表示中の内容を未確認と示す", async () => {
+    const idea = buildNote({
+      id: "99999999-9999-4999-8999-999999999999",
+      content: "案",
+    });
+    const props = {
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
+      hmwDecidedIssue: "課題",
+      decidedHmw: "問い",
+      connectionStatus: "open" as const,
+    };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+    });
+    const { props: initial, rerender } = setup(props);
+    await userEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    expect(
+      await screen.findByRole("textbox", { name: "手動でコピーする成果全文" }),
+    ).toBeVisible();
+    rerender(
+      <TestBoardView {...initial} {...props} connectionStatus="closed" />,
+    );
+    expect(
+      screen.queryByRole("textbox", { name: "手動でコピーする成果全文" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/前回受信した内容は最新か確認できません/),
+    ).toBeVisible();
+    expect(screen.getAllByText("未確認")).toHaveLength(3);
+  });
+
+  it("完了後のホスト削除確認から成果へ戻れる", async () => {
+    const idea = buildNote({
+      id: "99999999-9999-4999-8999-999999999999",
+      content: "案",
+    });
+    const onLeave = vi.fn();
+    setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
+      hmwDecidedIssue: "課題",
+      decidedHmw: "問い",
+      isHost: true,
+      onLeave,
+    });
+    await userEvent.click(screen.getByRole("button", { name: "ボードへ戻る" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "ルームを削除（全員のデータ）" }),
+    );
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "全員が各自の成果を持ち帰ったか",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "削除をやめて成果へ戻る" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "チームで決めた成果" }),
+    ).toBeVisible();
+    expect(onLeave).not.toHaveBeenCalled();
   });
 
   it("非ホストにはタイマー状態だけを表示し操作を出さない", () => {

@@ -418,6 +418,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:decide"),
     noteId: z.string().uuid(),
   }),
+  // 最終案の採用とは別に、ホストが成果画面を全員へ公開する。
+  z.object({ type: z.literal("outcome:publish") }),
   // 旧クライアントの決定解除要求。採用は不可逆のためサーバーで常に拒否する。
   z.object({ type: z.literal("decision:clear") }),
   // 採用選択モード中にホストが現在検討している候補。userId / phase は
@@ -492,6 +494,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     phaseRevision: z.number().int().nonnegative().default(0),
     isHost: z.boolean(),
     decision: DecisionSchema.nullable(),
+    outcomePublished: z.boolean().optional(),
     // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。
     adoptionFocusNoteId: z.string().uuid().nullable().optional(),
     // 個人付箋の本文・作者別枚数は含めず、マップの共有状態だけを復元する。
@@ -569,6 +572,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("decision:updated"),
     decision: DecisionSchema.nullable(),
+  }),
+  z.object({
+    type: z.literal("outcome:published"),
+    published: z.literal(true),
   }),
   z.object({
     type: z.literal("adoption-focus:updated"),

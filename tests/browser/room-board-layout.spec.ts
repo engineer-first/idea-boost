@@ -403,19 +403,36 @@ test("透明効果を減らす設定ではボード上のHUD全体が不透明",
   }
 });
 
-test("アイデア決定後も完了操作と決定結果が画面内で読める", async () => {
-  await openStory("room-roomboardlayout--completed");
-  const dialog = page.getByRole("dialog");
-  await dialog.waitFor();
-  expect(await dialog.getByText("決定済み", { exact: true }).isVisible()).toBe(
-    true,
+test("成果公開後は成果を表示し、ボードへ戻っても再表示できる", async () => {
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardlayout--completed&viewMode=story`,
   );
-  const box = await dialog.boundingBox();
-  expect(box?.y).toBeGreaterThanOrEqual(0);
-  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(720);
+  await page.getByRole("heading", { name: "チームで決めた成果" }).waitFor();
+  for (const label of [
+    "決定した課題",
+    "決定した問い（HMW）",
+    "採用したアイデア",
+  ]) {
+    expect(await page.getByRole("heading", { name: label }).isVisible()).toBe(
+      true,
+    );
+  }
+  expect(await page.getByRole("dialog").count()).toBe(0);
   await page.screenshot({ path: `${output}/completed-result.png` });
-  await page.keyboard.press("Escape");
-  await page.getByText("スプリント完了", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "ボードへ戻る" }).click();
+  await page.getByRole("button", { name: "成果を見る" }).waitFor();
+  await expectLayout();
+});
+
+test("採用案を選んだ後もボードに留まり、ホストにだけ完了チェックを示す", async () => {
+  await openStory("room-roomboardlayout--final-decision-pending");
+  expect(await page.getByTestId("room-board-view-root").isVisible()).toBe(true);
+  expect(
+    await page.getByRole("heading", { name: "チームで決めた成果" }).count(),
+  ).toBe(0);
+  const finish = page.getByRole("button", { name: "完了して成果を表示" });
+  expect(await finish.isVisible()).toBe(true);
+  expect(await finish.locator("svg").count()).toBe(1);
   await expectLayout();
 });
 

@@ -66,6 +66,41 @@ describe("useRoomState", () => {
     ]);
   });
 
+  it("採用案の決定だけでは成果を公開せず、公開通知と再接続 snapshot を反映する", () => {
+    const { result } = setup();
+    act(() =>
+      result.current.applyMessage({
+        type: "decision:updated",
+        decision: buildDecision({ phase: 3 }),
+      }),
+    );
+    expect(result.current.outcomePublished).toBe(false);
+    act(() =>
+      result.current.applyMessage({
+        type: "outcome:published",
+        published: true,
+      }),
+    );
+    expect(result.current.outcomePublished).toBe(true);
+    act(() =>
+      result.current.applyMessage({
+        type: "snapshot",
+        phaseRevision: 0,
+        notes: [],
+        members: [],
+        phase: buildPhaseStep(5, 3),
+        isHost: false,
+        decision: buildDecision({ phase: 3 }),
+        outcomePublished: true,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: 1_000,
+      }),
+    );
+    expect(result.current.outcomePublished).toBe(true);
+  });
+
   it("snapshotと匿名stateから2軸マップのサイズとドラッグ状態を復元する", () => {
     const { result } = setup();
     act(() =>

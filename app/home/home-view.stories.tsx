@@ -70,7 +70,7 @@ export const AllStates: Story = {
               <div className="relative z-10 flex w-full max-w-2xl flex-col gap-6">
                 <header className="space-y-2 text-center">
                   <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                    Design Sprintを始めましょう
+                    アイデア出しを始めましょう
                   </h1>
                   <p className="mx-auto max-w-md text-sm text-muted-foreground">
                     新しいルームを作成するか、招待コードを入力して参加できます。

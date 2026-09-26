@@ -212,6 +212,7 @@ function connectWithSnapshot(
     carryovers?: Carryover[];
     groups?: PersistentGroup[];
     decision?: Decision | null;
+    outcomePublished?: boolean;
     adoptionFocusNoteId?: string | null;
     ideaMapSizeLevel?: number;
     ideaMapSizeInitialized?: boolean;
@@ -229,6 +230,7 @@ function connectWithSnapshot(
       phase: options?.phase ?? buildPhaseStep(1),
       isHost: options?.isHost ?? true,
       decision: options?.decision ?? null,
+      outcomePublished: options?.outcomePublished ?? false,
       adoptionFocusNoteId: options?.adoptionFocusNoteId ?? null,
       carryovers: options?.carryovers ?? [],
       completedVoterIds: [],
@@ -774,6 +776,31 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(socket.sent).toContain(
       JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
     );
+  });
+
+  it("最終案の決定後もボードを保ち、ホストの完了操作と公開通知で成果を表示する", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5, 3),
+      isHost: true,
+      decision: { phase: 3, noteId: NOTE_ID, decidedBy: USER_ID },
+      carryovers: [
+        buildCarryover({ phase: 1, content: "課題" }),
+        buildCarryover({ phase: 2, content: "問い" }),
+      ],
+    });
+    expect(screen.getByTestId("room-board-view-root")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "完了して成果を表示" }));
+    expectSent(socket, { type: "outcome:publish" });
+    expect(screen.getByTestId("room-board-view-root")).toBeVisible();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "outcome:published",
+        published: true,
+      }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "チームで決めた成果" }),
+    ).toBeVisible();
   });
 
   it("結果ステップの候補 hover・leave を adoption-focus:update として即時送信する", () => {
