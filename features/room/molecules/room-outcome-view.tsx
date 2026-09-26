@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { RoomOutcome } from "../logic/outcome-text";
 import { formatOutcomeText } from "../logic/outcome-text";
 
@@ -59,11 +60,11 @@ export function RoomOutcomeView({
 
   return (
     <main
-      className="h-full min-h-0 overflow-y-auto bg-[#f8f5e9] px-4 py-8 text-foreground sm:px-8 sm:py-12"
+      className="h-full min-h-0 overflow-y-auto bg-background px-4 py-8 text-foreground sm:px-8 sm:py-12"
       data-testid="room-outcome-view"
     >
       <div className="mx-auto w-full max-w-3xl">
-        <p className="text-sm font-semibold tracking-wide text-amber-900">
+        <p className="text-sm font-semibold tracking-wide text-muted-foreground">
           SPRINT OUTCOME
         </p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
@@ -75,7 +76,7 @@ export function RoomOutcomeView({
         {!connected || !outcome ? (
           <p
             role="alert"
-            className="mt-6 rounded-lg border border-amber-700/30 bg-white px-4 py-3 text-sm leading-6"
+            className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-sm leading-6"
           >
             {!connected
               ? "接続が切れています。前回受信した内容は最新か確認できません。再接続してから成果を確認・保存してください。"
@@ -86,20 +87,22 @@ export function RoomOutcomeView({
           {CARDS.map(({ number, label, key }) => (
             <section
               key={key}
-              className="min-w-0 rounded-md border border-amber-300/80 bg-[#fff4b8] px-5 py-5 shadow-[2px_4px_12px_rgba(83,60,0,0.12)] sm:px-7"
+              className="min-w-0 rounded-[2px] px-5 py-5 shadow-md sm:px-7"
+              style={{
+                backgroundColor: NOTE_COLOR_STYLES.yellow.backgroundColor,
+                color: NOTE_COLOR_STYLES.yellow.foregroundColor,
+              }}
             >
-              <h2 className="flex items-center gap-3 text-base font-bold text-amber-950">
+              <h2 className="flex items-center gap-3 text-base font-bold">
                 <span
                   aria-hidden="true"
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-amber-900 text-sm text-white"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm text-primary-foreground"
                 >
                   {number}
                 </span>
                 {label}
                 {!connected ? (
-                  <span className="ml-auto text-xs font-medium text-amber-900">
-                    未確認
-                  </span>
+                  <span className="ml-auto text-xs font-medium">未確認</span>
                 ) : null}
               </h2>
               <p className="mt-4 min-w-0 whitespace-pre-wrap text-base leading-8 [overflow-wrap:anywhere] select-text">
@@ -146,7 +149,7 @@ export function RoomOutcomeView({
             />
           </div>
         ) : null}
-        <section className="mt-10 rounded-xl border border-amber-200 bg-white p-5 sm:p-6">
+        <section className="mt-10 rounded-xl border border-border bg-card p-5 sm:p-6">
           <h2 className="text-lg font-bold">次に試すこと</h2>
           <p className="mt-2 text-sm leading-7">
             誰の、どんな場面を確かめたい？

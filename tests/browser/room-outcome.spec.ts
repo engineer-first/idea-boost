@@ -1,5 +1,6 @@
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import { NOTE_COLOR_STYLES } from "../../features/room-members/logic/note-color";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
@@ -55,6 +56,33 @@ test("320px 幅で長文カードの末尾まで読め、横にはみ出さな�
   expect(tail).not.toBeNull();
   expect(tail?.top).toBeGreaterThanOrEqual(0);
   expect(tail?.bottom).toBeLessThanOrEqual(640);
+});
+
+test("成果画面の背景とカードはアプリと付箋の配色に揃う", async () => {
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
+  );
+  const colors = await page
+    .getByTestId("room-outcome-view")
+    .evaluate((main) => {
+      const card = main.querySelector("section");
+      if (!card) throw new Error("成果カードがありません");
+      return {
+        appBackground: getComputedStyle(document.body).backgroundColor,
+        background: getComputedStyle(main).backgroundColor,
+        cardBackground: getComputedStyle(card).backgroundColor,
+        cardForeground: getComputedStyle(card).color,
+      };
+    });
+  const rgb = (hex: string) =>
+    `rgb(${[1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16)).join(", ")})`;
+  expect(colors.background).toBe(colors.appBackground);
+  expect(colors.cardBackground).toBe(
+    rgb(NOTE_COLOR_STYLES.yellow.backgroundColor),
+  );
+  expect(colors.cardForeground).toBe(
+    rgb(NOTE_COLOR_STYLES.yellow.foregroundColor),
+  );
 });
 
 test("テキスト保存と全文コピーには同じ3項目が入り、操作後も成果画面に留まる", async () => {
