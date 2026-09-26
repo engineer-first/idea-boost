@@ -773,7 +773,7 @@
     <h2><span class="num">§4</span>初回・手動デプロイ順</h2>
     <p class="lede">
       順は固定: <strong>api → app</strong>（service binding 先が先に存在する）。
-      スクリプトは <code>npm run deploy</code>（api → app）/ <code>deploy:api</code> / <code>deploy:app</code>。
+      全体の公開は <code>npm run deploy -- 確認用PR/IssueのURL</code>（migration → api → app → health → 履歴依頼）。<code>deploy:api</code> / <code>deploy:app</code> は個別操作です。
     </p>
 
     <div class="pipeline">
@@ -815,15 +815,15 @@
     <p class="lede">
       <code>feature/* → develop</code>（開発）/ <code>develop → release</code>（本番トリガ）。
       <code>release</code> への push または merge で <code>deploy.yml</code> が自動実行される。
-      PR は <code>ci.yml</code> のみ。Worker 本番デプロイは <code>deploy.yml</code>（push to <code>release</code>）。
-      手動デプロイは <code>npm run deploy</code> = D1 remote migrate → api → app（CI と同じ順）。
+      release向けPRでは <code>release-note-check.yml</code> で変更説明の下書きを確認する。本番デプロイは <code>deploy.yml</code>（releaseへのpush、またはbranch releaseを選んだ手動実行）。
+      手動デプロイは <code>npm run deploy -- 確認用PR/IssueのURL</code>。各入口と記録の回復は <a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md">リリース履歴の運用</a> を参照。
     </p>
 
     <div class="ci-flow">
       <div class="ci-row">
         <div class="ci-label">gate</div>
         <div class="ci-body">
-          <strong>品質ゲート</strong> — lint / boundaries / typecheck / migrations 不変 / unit + workers テスト / <code>build:cf</code> / <code>smoke</code>
+          <strong>変更説明の事前検査・品質ゲート</strong> — lint / boundaries / typecheck / migrations 不変 / unit + workers テスト / <code>build:cf</code> / <code>smoke</code>
         </div>
       </div>
       <div class="ci-row">
@@ -841,7 +841,7 @@
       <div class="ci-row">
         <div class="ci-label">health</div>
         <div class="ci-body">
-          <strong><span class="mono">GET $SITE_URL/api/health</span></strong> — proxy 経路の疎通（Server Action 経路はブラウザ E2E で確認）
+          <strong><span class="mono">GET $SITE_URL/api/health</span></strong> — proxy 経路の疎通。成功後、<code>record-release</code> がGitHub Releasesへ履歴を公開する（Server Action 経路はブラウザ E2E で確認）
         </div>
       </div>
     </div>
