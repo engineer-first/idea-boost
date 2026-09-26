@@ -19,6 +19,7 @@ export type NoteRow = {
   id: string;
   author_id: string;
   content: string;
+  content_revision?: number;
   visibility: "private" | "shared";
   color: NoteColor;
   font_size: number;
@@ -50,9 +51,11 @@ function normalizeNoteRow(row: Record<string, unknown>): NoteRow {
 export function findNote(sql: SqlStorage, noteId: string): NoteRow | null {
   const rows = sql
     .exec(
-      `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size
+      `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size,
+              COALESCE(v.content_revision, 0) AS content_revision
        FROM notes n
        LEFT JOIN note_appearances a ON a.note_id = n.id
+       LEFT JOIN note_content_versions v ON v.note_id = n.id
        WHERE n.id = ?1`,
       noteId,
       NOTE_DEFAULT_FONT_SIZE,
@@ -120,18 +123,22 @@ export function listNotes(
     phase === undefined
       ? sql
           .exec(
-            `SELECT n.*, COALESCE(a.font_size, ?1) AS font_size
+            `SELECT n.*, COALESCE(a.font_size, ?1) AS font_size,
+                    COALESCE(v.content_revision, 0) AS content_revision
              FROM notes n
              LEFT JOIN note_appearances a ON a.note_id = n.id
+             LEFT JOIN note_content_versions v ON v.note_id = n.id
              ORDER BY n.created_at`,
             NOTE_DEFAULT_FONT_SIZE,
           )
           .toArray()
       : sql
           .exec(
-            `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size
+            `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size,
+                    COALESCE(v.content_revision, 0) AS content_revision
              FROM notes n
              LEFT JOIN note_appearances a ON a.note_id = n.id
+             LEFT JOIN note_content_versions v ON v.note_id = n.id
              WHERE n.phase = ?1
              ORDER BY n.created_at`,
             phase,
@@ -480,6 +487,7 @@ export function toProtocolNote(
     id: row.id,
     authorId: row.author_id,
     content: row.content,
+    contentRevision: row.content_revision ?? 0,
     visibility: row.visibility,
     color: row.color,
     fontSize: row.font_size,

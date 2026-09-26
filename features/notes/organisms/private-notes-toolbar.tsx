@@ -26,6 +26,10 @@ export type PrivateNotesToolbarProps = {
   onSelect: (noteId: string | null) => void;
   onAdd: () => void;
   onContentChange: (noteId: string, content: string) => void;
+  draftValue?: (noteId: string) => string | undefined;
+  onDraftChange?: (noteId: string, content: string) => void;
+  onDraftCompositionStart?: (noteId: string) => void;
+  onDraftCompositionEnd?: (noteId: string, content: string) => void;
   onDelete: (noteId: string) => void;
   onDragStart: (
     noteId: string,
@@ -51,6 +55,10 @@ export function PrivateNotesToolbar({
   onSelect,
   onAdd,
   onContentChange,
+  draftValue,
+  onDraftChange,
+  onDraftCompositionStart,
+  onDraftCompositionEnd,
   onDelete,
   onDragStart,
 }: PrivateNotesToolbarProps) {
@@ -163,6 +171,10 @@ export function PrivateNotesToolbar({
                 onSelect={onSelect}
                 onDragStart={onDragStart}
                 onContentChange={onContentChange}
+                draftValue={draftValue?.(note.id)}
+                onDraftChange={onDraftChange}
+                onDraftCompositionStart={onDraftCompositionStart}
+                onDraftCompositionEnd={onDraftCompositionEnd}
                 onDelete={onDelete}
                 vote={{
                   displayMode: "hidden",

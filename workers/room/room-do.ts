@@ -34,6 +34,7 @@ import {
 } from "../room-do-migrations";
 import { filterVisible, projectNoteForViewer } from "../visibility";
 import { adoptionFocusHandlers } from "./adoption-focus-handlers";
+import { syncRoomAlarm } from "./alarms";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
 import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
@@ -57,7 +58,9 @@ import {
 import { noteHandlers } from "./note-handlers";
 import { broadcastNoteUpdated, findNote, listNotes } from "./notes";
 import {
+  completeExpiredPhaseTransition,
   getBoardMutationForbiddenMessage,
+  getPendingPhaseTransition,
   getPhase,
   getPhaseRevision,
   isBoardMutation,
@@ -113,6 +116,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
     case "note:vote-sticker:add":
     case "note:vote-sticker:move":
     case "note:vote-sticker:remove":
+    case "note:update-content":
       return message.operationId;
     default:
       return undefined;
@@ -241,6 +245,7 @@ export class RoomDO extends DurableObject {
       return new Response("expected websocket", { status: 426 });
     }
 
+    await this.processExpiredTransition();
     const userId = request.headers.get(USER_ID_HEADER);
     if (!userId || !isMember(this.sql, userId)) {
       return new Response("forbidden", { status: 403 });
@@ -270,6 +275,7 @@ export class RoomDO extends DurableObject {
     ws: WebSocket,
     raw: ArrayBuffer | string,
   ): Promise<void> {
+    await this.processExpiredTransition();
     const attachment = ws.deserializeAttachment() as SocketAttachment | null;
     if (!attachment) {
       ws.close(1011, "missing attachment");
@@ -346,15 +352,19 @@ export class RoomDO extends DurableObject {
   }
 
   override async alarm(): Promise<void> {
-    if (
-      await startPendingSharingTurn({
-        sql: this.sql,
-        storage: this.ctx.storage,
-        broadcaster: this.broadcaster,
-      })
-    )
-      return;
+    await this.processExpiredTransition();
+    await startPendingSharingTurn({
+      sql: this.sql,
+      storage: this.ctx.storage,
+      broadcaster: this.broadcaster,
+    });
     await handleTimerAlarm(this.sql, this.broadcaster);
+    await syncRoomAlarm(this.ctx.storage, this.sql);
+  }
+
+  private async processExpiredTransition(): Promise<void> {
+    const ctx = this.createHandlerCtx({} as WebSocket, "");
+    await completeExpiredPhaseTransition({ ...ctx, reply: () => {} });
   }
 
   // ------------------------------------------------------------
@@ -366,6 +376,14 @@ export class RoomDO extends DurableObject {
     attachment: SocketAttachment,
     message: ClientMessage,
   ): Promise<void> {
+    if (!isMember(this.sql, attachment.userId)) {
+      this.broadcaster.sendTo(ws, {
+        type: "error",
+        code: "forbidden",
+        message: "ルームに参加していません。",
+      });
+      return;
+    }
     const ctx = this.createHandlerCtx(
       ws,
       attachment.userId,
@@ -468,6 +486,7 @@ export class RoomDO extends DurableObject {
       members: listMembers(this.sql),
       phase,
       phaseRevision: getPhaseRevision(this.sql),
+      pendingPhaseTransition: getPendingPhaseTransition(this.sql),
       isHost: isHostUser(this.sql, userId),
       ideaMapSizeLevel: ideaMapState.sizeLevel,
       ideaMapSizeInitialized: ideaMapState.initialized,

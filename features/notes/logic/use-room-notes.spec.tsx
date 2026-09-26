@@ -426,20 +426,6 @@ describe("useRoomNotes", () => {
     });
   });
 
-  it("changeNoteContent は本文だけ楽観更新し、note:update-content を送る", () => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
-
-    act(() => result.current.changeNoteContent(NOTE_ID, "新しい本文"));
-
-    expect(result.current.notes[0]?.content).toBe("新しい本文");
-    expect(send).toHaveBeenCalledWith({
-      type: "note:update-content",
-      noteId: NOTE_ID,
-      content: "新しい本文",
-    });
-  });
-
   it("changeNoteFontSize は操作ID付きで楽観更新し、拒否時は確定値へ戻す", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));

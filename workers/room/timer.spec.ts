@@ -30,13 +30,25 @@ function timerHandlerContext(
   ctx: HandlerCtx;
   broadcast: ReturnType<typeof vi.fn>;
 } {
+  let currentTimer = initialTimer;
   const sql = {
-    exec(query: string) {
+    exec(query: string, ...args: unknown[]) {
+      if (query.startsWith("UPDATE timer_state")) {
+        if (query.includes("status = 'running'"))
+          currentTimer = running(Number(args[0]), Number(args[1]));
+        else if (query.includes("status = 'paused'"))
+          currentTimer = paused(Number(args[0]), Number(args[1]));
+        else if (query.includes("status = 'ended'"))
+          currentTimer = { status: "ended", durationMs: Number(args[0]) };
+        else currentTimer = { status: "idle" };
+        return { toArray: () => [] };
+      }
       if (query.startsWith("SELECT host_id")) {
         return { toArray: () => [{ host_id: "host" }] };
       }
       if (query.startsWith("SELECT status")) {
-        if (initialTimer.status === "idle") {
+        const timer = currentTimer;
+        if (timer.status === "idle") {
           return {
             toArray: () => [
               {
@@ -48,26 +60,26 @@ function timerHandlerContext(
             ],
           };
         }
-        if (initialTimer.status === "running") {
+        if (timer.status === "running") {
           return {
             toArray: () => [
               {
                 status: "running",
-                ends_at: initialTimer.endsAt,
+                ends_at: timer.endsAt,
                 remaining_ms: null,
-                duration_ms: initialTimer.durationMs,
+                duration_ms: timer.durationMs,
               },
             ],
           };
         }
-        if (initialTimer.status === "paused") {
+        if (timer.status === "paused") {
           return {
             toArray: () => [
               {
                 status: "paused",
                 ends_at: null,
-                remaining_ms: initialTimer.remainingMs,
-                duration_ms: initialTimer.durationMs,
+                remaining_ms: timer.remainingMs,
+                duration_ms: timer.durationMs,
               },
             ],
           };
@@ -78,7 +90,7 @@ function timerHandlerContext(
               status: "ended",
               ends_at: null,
               remaining_ms: null,
-              duration_ms: initialTimer.durationMs,
+              duration_ms: timer.durationMs,
             },
           ],
         };

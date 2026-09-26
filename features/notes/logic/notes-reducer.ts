@@ -73,6 +73,9 @@ export function applyServerMessage(
       return notes;
     }
 
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":

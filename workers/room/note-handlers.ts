@@ -44,10 +44,9 @@ import {
   toProtocolNote,
   touchNote,
   unpublishNote,
-  updateNoteContent,
   updateNoteFontSize,
 } from "./notes";
-import { getPhase, isPersonalWritingStep } from "./phase";
+import { getPhase, getPhaseRevision, isPersonalWritingStep } from "./phase";
 import {
   addUserNoteVote,
   addVoteSticker,
@@ -100,6 +99,7 @@ export const noteHandlers: MessageHandlers<
   | "note:publish"
   | "note:unpublish"
   | "note:update-content"
+  | "note:content-status"
   | "note:update-font-size"
   | "note:move"
   | "note:bring-to-front"
@@ -217,13 +217,122 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    const prior = ctx.sql
+      .exec(
+        "SELECT user_id, note_id, content, expected_content_revision, expected_phase_revision, content_revision FROM note_content_receipts WHERE operation_id = ?1",
+        message.operationId,
+      )
+      .toArray()[0] as
+      | {
+          user_id: string;
+          note_id: string;
+          content: string;
+          expected_content_revision: number;
+          expected_phase_revision: number;
+          content_revision: number;
+        }
+      | undefined;
+    if (prior) {
+      if (
+        prior.user_id === ctx.userId &&
+        prior.note_id === message.noteId &&
+        prior.content === message.content &&
+        prior.expected_content_revision === message.expectedContentRevision &&
+        prior.expected_phase_revision === message.expectedPhaseRevision
+      ) {
+        ctx.reply({
+          type: "note:content-saved",
+          operationId: message.operationId,
+          noteId: message.noteId,
+          contentRevision: prior.content_revision,
+        });
+      } else {
+        ctx.reply({
+          type: "error",
+          code: "content-conflict",
+          message: "同じ保存IDで別の本文を保存できません。",
+        });
+      }
+      return;
+    }
+    if (
+      getPhaseRevision(ctx.sql) !== message.expectedPhaseRevision ||
+      (row.content_revision ?? 0) !== message.expectedContentRevision
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "content-conflict",
+        message: "付箋の本文が先に更新されました。",
+      });
+      return;
+    }
     const updatedAt = new Date().toISOString();
-    updateNoteContent(ctx.sql, message.noteId, message.content, updatedAt);
+    const contentRevision = message.expectedContentRevision + 1;
+    ctx.storage.transactionSync(() => {
+      ctx.sql.exec(
+        "UPDATE notes SET content = ?2, updated_at = ?3 WHERE id = ?1",
+        message.noteId,
+        message.content,
+        updatedAt,
+      );
+      ctx.sql.exec(
+        "INSERT INTO note_content_versions (note_id, content_revision) VALUES (?1, ?2) ON CONFLICT(note_id) DO UPDATE SET content_revision = excluded.content_revision WHERE note_content_versions.content_revision = ?3",
+        message.noteId,
+        contentRevision,
+        message.expectedContentRevision,
+      );
+      if (Number(ctx.sql.exec("SELECT changes() AS count").one().count) !== 1)
+        throw new Error("本文のrevisionが競合しました。");
+      ctx.sql.exec(
+        "INSERT INTO note_content_receipts (operation_id, user_id, note_id, content, expected_content_revision, expected_phase_revision, content_revision, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        message.operationId,
+        ctx.userId,
+        message.noteId,
+        message.content,
+        message.expectedContentRevision,
+        message.expectedPhaseRevision,
+        contentRevision,
+        updatedAt,
+      );
+    });
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
       ...row,
       content: message.content,
+      content_revision: contentRevision,
       updated_at: updatedAt,
     });
+    ctx.reply({
+      type: "note:content-saved",
+      operationId: message.operationId,
+      noteId: message.noteId,
+      contentRevision,
+    });
+  },
+  "note:content-status": (ctx, message) => {
+    const receipt = ctx.sql
+      .exec(
+        "SELECT note_id, content_revision FROM note_content_receipts WHERE operation_id = ?1 AND user_id = ?2",
+        message.operationId,
+        ctx.userId,
+      )
+      .toArray()[0] as
+      | { note_id: string; content_revision: number }
+      | undefined;
+    ctx.reply(
+      receipt
+        ? {
+            type: "note:content-status-result",
+            operationId: message.operationId,
+            status: "accepted",
+            noteId: receipt.note_id,
+            contentRevision: receipt.content_revision,
+          }
+        : {
+            type: "note:content-status-result",
+            operationId: message.operationId,
+            status: "unknown",
+          },
+    );
   },
 
   "note:update-font-size": (ctx, message) => {

@@ -5,6 +5,7 @@ import {
   TIMER_MAX_DURATION_MS,
   type TimerState,
 } from "../../contracts/room-protocol";
+import { syncRoomAlarm } from "./alarms";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
 import { getSharingState } from "./sharing-state";
@@ -212,17 +213,6 @@ export function expireTimer(current: TimerState, now: number): TimerTransition {
   };
 }
 
-async function syncTimerAlarm(
-  storage: DurableObjectStorage,
-  timer: TimerState,
-): Promise<void> {
-  if (timer.status === "running") {
-    await storage.setAlarm(timer.endsAt);
-    return;
-  }
-  await storage.deleteAlarm();
-}
-
 function canControlTimer(sql: SqlStorage, userId: string): boolean {
   return isHostUser(sql, userId);
 }
@@ -269,7 +259,7 @@ async function applyTimerAction(
   }
   if (result.type === "noop") return;
   saveTimerState(ctx.sql, result.timer);
-  await syncTimerAlarm(ctx.storage, result.timer);
+  await syncRoomAlarm(ctx.storage, ctx.sql);
   ctx.broadcaster.broadcastToAll({
     type: "timer:updated",
     timer: result.timer,
