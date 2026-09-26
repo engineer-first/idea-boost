@@ -5,6 +5,29 @@ import { describe, expect, it, vi } from "vitest";
 import { LeaveConfirmDialog } from "./leave-confirm-dialog";
 
 describe("LeaveConfirmDialog（leave）", () => {
+  it("完了後の参加者は退出をやめて成果へ戻れる", async () => {
+    const onReturnToOutcome = vi.fn();
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <LeaveConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        onConfirm={onConfirm}
+        isLeaving={false}
+        mode="leave"
+        completed
+        onReturnToOutcome={onReturnToOutcome}
+      />,
+    );
+    expect(screen.getByText("退出しますか？")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "退出をやめて成果へ戻る" }),
+    );
+    expect(onReturnToOutcome).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
   it("open=true のとき「退出しますか？」が表示される", () => {
     render(
       <LeaveConfirmDialog

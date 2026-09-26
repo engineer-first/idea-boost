@@ -169,6 +169,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "adoption-focus:update":
     case "start_phase":
     case "phase:next":
+    case "outcome:publish":
     case "phase:restart-writing":
     case "phase:revote":
     case "sharing:start":

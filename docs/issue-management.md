@@ -17,6 +17,8 @@ Issue は GitHub の Issue Type で分類する。タイトル接頭辞やラベ
 
 Issue 作成時は `.github/ISSUE_TEMPLATE/` の Issue Forms または空の Issue を使う。フォームの必須欄は分類に必要な最小限に留め、背景・受け入れ条件・関連 Issue などは分かる範囲の任意記入とする。Issue Type はフォームから設定される。空の Issue は自由に記述し、Type は作成時または後から設定する。フォームに Project を埋め込まず、Project の自動追加を使う。
 
+ユーザー操作を伴う PBI・DemoGoal・Task では、既存の受け入れ条件・デモゴール・完了条件に、分かる範囲で「誰が、どの画面で何をすると、画面で何が起きるか」を1行で書く。操作のない作業に手順を求めない。画面名やボタン名が未確定なら仮の表現と明記し、確定した仕様として扱わない。
+
 組織には既存の `Feature` Type もあるが、idea-boost の標準運用では上表の6 Typeを使う。既存 Type は他リポジトリへの影響を避けるため変更・削除しない。Type の追加は組織全体で有効になるため、今後も他リポジトリへの影響を確認してから行う。
 
 PBI と DemoGoal をまとめて作る場合は [PBI DemoGoal スキル](../.agents/skills/pbi-demogoal/SKILL.md)を使う。スクリプトが PBI ID を作成された Issue 番号から確定し（例: Issue #340 → `PBI-340`）、両 Issue を作成して Project に追加する。スプリントの割当ては作成後に GitHub Milestone で行う。

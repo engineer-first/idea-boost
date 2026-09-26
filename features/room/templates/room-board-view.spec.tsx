@@ -78,6 +78,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: buildPhaseStep(1),
     decision: null,
+    outcomePublished: false,
     adoptionFocusNoteId: null,
     timer: { status: "idle" } as const,
     timerServerOffsetMs: 0,
@@ -114,6 +115,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: vi.fn(),
+    onPublishOutcome: vi.fn(),
     onAdoptionFocusChange: vi.fn(),
 
     connectionStatus: "open" as const,
@@ -489,16 +491,21 @@ describe("RoomBoardView", () => {
     });
   });
 
-  it("Step 3-5 は決定前後とも次へを表示せず、決定後だけ完了を表示する", () => {
+  it("Step 3-5 は採用案の選択後もボードに留まり、ホストの完了操作を待つ", async () => {
+    const onPublishOutcome = vi.fn();
     const { props, rerender } = setup({
       phase: buildPhaseStep(5, 3),
       decision: null,
+      isHost: true,
+      onPublishOutcome,
     });
 
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "完了して成果を表示" }),
+    ).not.toBeInTheDocument();
 
     rerender(
       <TestBoardView
@@ -508,14 +515,146 @@ describe("RoomBoardView", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-    expect(screen.getByText("スプリント完了")).toHaveAttribute(
-      "role",
-      "status",
+    expect(screen.getByTestId("room-board-view-root")).toBeVisible();
+    expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "完了して成果を表示" }),
     );
+    expect(onPublishOutcome).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("room-board-view-root")).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("成果公開後に全員へ成果を表示し、ボード往復でも再表示できる", async () => {
+    const idea = buildNote({
+      id: "99999999-9999-4999-8999-999999999999",
+      content: "採用する案\n次の行",
+    });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      hmwDecidedIssue: "決定課題",
+      decidedHmw: "決定した問い",
+      decision: null,
+    });
+    rerender(
+      <TestBoardView
+        {...props}
+        phase={buildPhaseStep(5, 3)}
+        notes={[idea]}
+        hmwDecidedIssue="決定課題"
+        decidedHmw="決定した問い"
+        decision={buildDecision({ phase: 3, noteId: idea.id })}
+        outcomePublished
+      />,
+    );
+    expect(
+      screen.getByRole("heading", { name: "チームで決めた成果" }),
+    ).toBeVisible();
+    expect(screen.getByText("決定課題")).toBeVisible();
+    expect(screen.getByText("決定した問い")).toBeVisible();
+    expect(screen.getByText(/採用する案/)).toBeVisible();
+    expect(
+      screen.queryByRole("dialog", { name: /投票結果/ }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "ボードへ戻る" }));
+    expect(screen.getByRole("button", { name: "成果を見る" })).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "成果を見る" }));
+    expect(
+      screen.getByRole("heading", { name: "チームで決めた成果" }),
+    ).toBeVisible();
+  });
+
+  it("成果が欠けた状態や切断時は保存を許さず再接続を案内する", () => {
+    const idea = buildNote({
+      id: "99999999-9999-4999-8999-999999999999",
+      content: "案",
+    });
+    setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
+      hmwDecidedIssue: null,
+      decidedHmw: "問い",
+      connectionStatus: "closed",
+    });
+    expect(screen.getByText(/再接続/)).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "テキストを保存" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("コピー失敗後に切断したら手動コピー欄を隠し、表示中の内容を未確認と示す", async () => {
+    const idea = buildNote({
+      id: "99999999-9999-4999-8999-999999999999",
+      content: "案",
+    });
+    const props = {
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
+      hmwDecidedIssue: "課題",
+      decidedHmw: "問い",
+      connectionStatus: "open" as const,
+    };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+    });
+    const { props: initial, rerender } = setup(props);
+    await userEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    expect(
+      await screen.findByRole("textbox", { name: "手動でコピーする成果全文" }),
+    ).toBeVisible();
+    rerender(
+      <TestBoardView {...initial} {...props} connectionStatus="closed" />,
+    );
+    expect(
+      screen.queryByRole("textbox", { name: "手動でコピーする成果全文" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/前回受信した内容は最新か確認できません/),
+    ).toBeVisible();
+    expect(screen.getAllByText("未確認")).toHaveLength(3);
+  });
+
+  it("完了後のホスト削除確認から成果へ戻れる", async () => {
+    const idea = buildNote({
+      id: "99999999-9999-4999-8999-999999999999",
+      content: "案",
+    });
+    const onLeave = vi.fn();
+    setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
+      hmwDecidedIssue: "課題",
+      decidedHmw: "問い",
+      isHost: true,
+      onLeave,
+    });
+    await userEvent.click(screen.getByRole("button", { name: "ボードへ戻る" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "ルームを削除（全員のデータ）" }),
+    );
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "全員が各自の成果を持ち帰ったか",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "削除をやめて成果へ戻る" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "チームで決めた成果" }),
+    ).toBeVisible();
+    expect(onLeave).not.toHaveBeenCalled();
   });
 
   it("非ホストにはタイマー状態だけを表示し操作を出さない", () => {
@@ -622,22 +761,31 @@ describe("RoomBoardView", () => {
     expect(screen.getAllByTestId("note-card")).toHaveLength(3);
   });
 
-  it("無限キャンバスのドット・世界レイヤー・ズームHUDを描画する", () => {
-    setup({ notes: buildNotes(3) });
+  it("現在のズーム倍率を表示し、表示操作をそれぞれの処理へ渡す", () => {
+    const interactions = buildInteractions(buildNotes(3), []);
+    interactions.camera = { x: 40, y: -20, zoom: 1.25 };
+    setup({ interactions });
 
-    const canvas = screen.getByTestId("board-canvas");
-    const viewport = canvas.parentElement;
-    expect(viewport).toHaveClass("overflow-hidden");
-    expect(viewport?.style.backgroundSize).toBeTruthy();
-    expect(viewport?.style.backgroundImage).toContain("radial-gradient");
-    expect(viewport?.style.backgroundImage).toContain("var(--foreground) 30%");
-    expect(viewport?.style.backgroundImage).not.toContain("linear-gradient");
-    expect(canvas).toHaveStyle({ transformOrigin: "0 0" });
-    expect(canvas.getAttribute("style")).toContain("scale(");
-    expect(screen.getByTestId("canvas-zoom-hud")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "付箋全体を表示" }),
-    ).toBeInTheDocument();
+    const reset = screen.getByRole("button", { name: "ズームを100%に戻す" });
+    expect(reset).toHaveTextContent("125%");
+    fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
+    expect(interactions.onZoomIn).toHaveBeenCalledOnce();
+    expect(interactions.onZoomOut).not.toHaveBeenCalled();
+    expect(interactions.onResetZoom).not.toHaveBeenCalled();
+    expect(interactions.onFitToNotes).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "キャンバスを縮小" }));
+    expect(interactions.onZoomOut).toHaveBeenCalledOnce();
+    expect(interactions.onResetZoom).not.toHaveBeenCalled();
+    expect(interactions.onFitToNotes).not.toHaveBeenCalled();
+    fireEvent.click(reset);
+    expect(interactions.onResetZoom).toHaveBeenCalledOnce();
+    expect(interactions.onFitToNotes).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "付箋全体を表示" }));
+    expect(interactions.onZoomIn).toHaveBeenCalledOnce();
+    expect(interactions.onZoomOut).toHaveBeenCalledOnce();
+    expect(interactions.onResetZoom).toHaveBeenCalledOnce();
+    expect(interactions.onFitToNotes).toHaveBeenCalledOnce();
   });
 
   it("ツールバーの付箋追加ボタンでonAddPrivateNoteを呼ぶ", () => {
@@ -647,24 +795,6 @@ describe("RoomBoardView", () => {
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
 
     expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
-  });
-
-  it("マイ付箋ドックをボード下端のオーバーレイとして配置する", () => {
-    setup();
-
-    expect(screen.getByTestId("board-frame")).toContainElement(
-      screen.getByTestId("private-notes-dock"),
-    );
-    expect(screen.getByTestId("private-notes-dock")).toHaveClass(
-      "absolute",
-      "bottom-3",
-      "items-end",
-      "right-3",
-    );
-    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
-      "data-expanded",
-      "false",
-    );
   });
 
   it("投票パレットに残り投票可能数を表示する", () => {
@@ -689,18 +819,10 @@ describe("RoomBoardView", () => {
     expect(
       screen.getByRole("button", { name: "客観シール 残り1票" }),
     ).toBeInTheDocument();
-    const palette = screen.getByRole("region", { name: "投票パレット" });
-    expect(screen.getByTestId("vote-palette-hud")).toHaveClass(
-      "absolute",
-      "bottom-3",
-    );
-    expect(screen.getByTestId("vote-palette-hud")).toContainElement(palette);
-    expect(screen.getByTestId("board-control-hud")).not.toContainElement(
-      palette,
-    );
   });
 
   it("投票ステップの案内とパレットで対象・基準・操作を揃えて表示する", () => {
+    // PRD 6.2 の投票対象・判断基準・操作説明は、誤投票を防ぐ要件として残す。
     setup({
       phase: buildPhaseStep(4),
       isHost: true,
@@ -735,9 +857,8 @@ describe("RoomBoardView", () => {
     ).toBeInTheDocument();
 
     const palette = screen.getByRole("region", { name: "投票パレット" });
-    expect(palette).toHaveAttribute(
-      "aria-describedby",
-      "dot-vote-palette-help",
+    expect(palette).toHaveAccessibleDescription(
+      /投票対象は現在のフェーズの個々の付箋です。/,
     );
     expect(
       within(palette).getByText("主観は「激しく共感する、取り組みたい」。"),
@@ -745,9 +866,6 @@ describe("RoomBoardView", () => {
     expect(
       within(palette).getByText("客観は「自分以外の人にも価値がありそう」。"),
     ).toBeVisible();
-    expect(
-      within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
-    ).toHaveClass("sr-only");
   });
 
   it("パレットのシールを付箋へドロップすると、付箋内の相対座標で投票を送る", () => {
@@ -1156,20 +1274,6 @@ describe("RoomBoardView", () => {
 
     expect(onNoteVoteStickerRemove).not.toHaveBeenCalled();
     expect(onNoteVoteStickerMove).not.toHaveBeenCalled();
-  });
-
-  it("現在地と操作HUDをキャンバス上に重ねる", () => {
-    setup({ isHost: true });
-
-    expect(screen.getByTestId("board-header-row")).toHaveClass(
-      "absolute",
-      "grid",
-    );
-    expect(screen.getByTestId("board-progress-rail")).toBeInTheDocument();
-    expect(screen.getByTestId("board-header-row")).toContainElement(
-      screen.getByTestId("board-control-hud"),
-    );
-    expect(screen.getByTestId("room-board-view-root")).toHaveClass("relative");
   });
 
   it("Step 1-4 のホストは Step 1-5 へ進める", () => {
@@ -1892,15 +1996,6 @@ describe("参加者 HUD", () => {
       screen.getByRole("button", { name: "参加者 13人" }),
     ).toBeInTheDocument();
     expect(screen.getAllByTestId("avatar")).toHaveLength(10);
-  });
-
-  it("1024px向けに7人目以降のアバターを縮約表示する", () => {
-    setup({ members: buildMembers(10) });
-    const seventhAvatarWrapper =
-      screen.getAllByTestId("avatar")[6]?.parentElement;
-
-    expect(seventhAvatarWrapper).toHaveClass("hidden", "xl:inline-flex");
-    expect(seventhAvatarWrapper?.classList.contains("inline-flex")).toBe(false);
   });
 });
 

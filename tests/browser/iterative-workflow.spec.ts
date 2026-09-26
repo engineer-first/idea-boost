@@ -42,7 +42,11 @@ async function openStory(id: string, isHost = true): Promise<void> {
   url.searchParams.set("viewMode", "story");
   url.searchParams.set("args", `isHost:${isHost};initialGuideState:compact`);
   await page.goto(url.toString());
-  await page.getByTestId("board-context-hud").waitFor();
+  if (id === "room-roomboardlayout--completed") {
+    await page.getByRole("heading", { name: "チームで決めた成果" }).waitFor();
+  } else {
+    await page.getByTestId("board-context-hud").waitFor();
+  }
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -302,12 +306,13 @@ test("採用はキーボードで候補を選ぶと確認ダイアログなし�
 test.each([
   true,
   false,
-])("最終採用済み isHost=%s は全員へ完了を示しループ操作を消す", async (isHost) => {
+])("最終採用済み isHost=%s は全員へ成果を示しループ操作を消す", async (isHost) => {
   await openStory("room-roomboardlayout--completed", isHost);
-  await closeResults();
-  const complete = page
-    .getByRole("status")
-    .filter({ hasText: "スプリント完了" });
+  await page.getByRole("heading", { name: "採用したアイデア" }).waitFor();
+  expect(await page.getByRole("dialog").count()).toBe(0);
+  expect(await page.getByRole("button", { name: progression }).count()).toBe(0);
+  await page.getByRole("button", { name: "ボードへ戻る" }).click();
+  const complete = page.getByRole("button", { name: "成果を見る" });
   await expectReadable(complete);
   expect(await page.getByRole("button", { name: progression }).count()).toBe(0);
   await page.screenshot({

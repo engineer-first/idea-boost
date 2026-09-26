@@ -38,12 +38,12 @@ const FACILITATION_GUIDES: Record<
       durationMinutes: 3,
       intro: "まずは、最近あった困ったことを付箋に。1枚に1つずつ書こう。",
       message:
-        "デザインスプリントを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
+        "アイデア出しを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
       hostMessage:
         "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
       ...DEFAULT_DETAILS,
       completion: "書き終えたら、進行役の案内を待ちます。",
-      modalIntro: "デザインスプリントを始めよう！",
+      modalIntro: "アイデア出しを始めよう！",
       modalTitle: "最近あった困ったことを付箋に書き出そう。",
       modalExamples: [
         "学校の出席率がまずい",
@@ -248,10 +248,11 @@ const FACILITATION_GUIDES: Record<
       durationMinutes: 10,
       intro: "投票結果とマップを見て、取り組む解決策を1つ話し合おう。",
       message: "投票結果を参考に、採用する解決策をみんなで1つ決めよう。",
-      hostMessage: "1つに決定したら、デザインスプリントは完了です。",
+      hostMessage:
+        "1つに決定したら、完了チェックを押して成果を確認しましょう。",
       ...DEFAULT_DETAILS,
       completion:
-        "ホストが解決策を1つ確定したら、デザインスプリントは完了です。",
+        "ホストが解決策を1つ確定し、完了チェックを押すと全員が成果を確認できます。",
       modalTitle: "採用する解決策を1つに決めよう！",
       modalPurpose: null,
       steps: [
@@ -259,6 +260,7 @@ const FACILITATION_GUIDES: Record<
         "解決策の価値と実現のしやすさを話し合う",
         "実際に取り組む解決策を1つに決める",
         "ホストが画面下から採用する解決策を選び、1件を確定する",
+        "ホストが画面右上の完了チェックを押して成果を表示する",
       ],
     },
   },

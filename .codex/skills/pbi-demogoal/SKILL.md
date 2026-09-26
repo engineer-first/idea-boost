@@ -36,6 +36,11 @@ Template: `As a {role}, I want to {desire}. Because {reason}.` (the "Because" cl
   - As an admin, I want to force users (students, teachers) to change their password, because I want to raise security.
 - Story points are out of scope for this skill; do not add them to the `pbi` object.
 
+## Writing acceptance criteria (`pbi.acceptance`)
+
+- For a criterion involving user interaction, write one item in one line: who acts, on which screen, what they do, and what appears on screen. Keep the user value in the story and put the interaction flow in the acceptance criterion.
+- Mark unsettled screen or button names as provisional. For work without an interaction, describe the state the user can verify instead of inventing steps.
+
 ## Writing demo goals (`demo_goals[].goal`)
 
 Template: `When {screen or action}, {user-observable result}.`
@@ -43,14 +48,15 @@ Template: `When {screen or action}, {user-observable result}.`
 - The subject must be something the user actually touches on screen. Never write implementation terms (API, state, DB, WebSocket, reducer). Re-read what you wrote and check that no dev context leaked in.
 - One entry = one independently verifiable fact. Don't bundle multiple checks into one goal (split into another `demo_goals` entry, or move extra angles into `checks`).
 - The result must be provable purely through UI operation — write what the user can see on screen, not that the backend behaved correctly internally.
+- For an interactive goal, state in one line who acts, on which screen, what they do, and what becomes visible. For a goal without an interaction, state the visible result. Mark unsettled names as provisional.
 - Worked example (grounded in Idea Boost's user value; verify exact behavior and screen names against the current PRD/Wiki before use):
 
   > As a participant, I want to organize and compare ideas from my team, because I want us to choose what to develop next.
 
   Demo goals:
 
-  - Adding an idea on the brainstorming screen displays it as a card in the list.
-  - Moving an idea into a group displays the card in that group.
+  - A participant adding an idea on the brainstorming screen sees it as a card in the list.
+  - A participant moving a card into a group on the brainstorming screen sees it in that group.
 
   Maps onto the spec as one `demo_goals` entry per bullet:
 
@@ -58,11 +64,11 @@ Template: `When {screen or action}, {user-observable result}.`
   "demo_goals": [
     {
       "title": "Added idea appears as a card",
-      "goal": "Adding an idea on the brainstorming screen displays it as a card in the list."
+      "goal": "A participant adding an idea on the brainstorming screen sees it as a card in the list."
     },
     {
       "title": "Grouped idea appears in its group",
-      "goal": "Moving an idea into a group displays the card in that group."
+      "goal": "A participant moving a card into a group on the brainstorming screen sees it in that group."
     }
   ]
   ```
@@ -82,15 +88,15 @@ Create a temporary JSON file outside the skill folder, for example under `/tmp`.
     "title": "チームのアイデアを整理する",
     "story": "利用者として、チームで出したアイデアを整理して比較したい。次に進める案を選びたいからだ。",
     "acceptance": [
-      "アイデアを整理して比較できる",
-      "チームで次に進める案を選べる"
+      "参加者がアイデア出し画面でアイデアを追加すると、カードが一覧に表示される",
+      "参加者がアイデア出し画面でカードをグループへ移動すると、そのグループ内に表示される"
     ],
     "memo": []
   },
   "demo_goals": [
     {
       "title": "追加したアイデアがカードで表示される",
-      "goal": "アイデア出し画面でアイデアを追加すると、そのアイデアがカードとして一覧に表示される。",
+      "goal": "参加者がアイデア出し画面でアイデアを追加すると、そのアイデアがカードとして一覧に表示される。",
       "checks": ["追加したアイデアの内容がカードに表示される"]
     }
   ],

@@ -39,6 +39,7 @@ import type { RoomBoardInteractions } from "../logic/use-room-board-interactions
 import type { StepGuideState } from "../logic/use-step-guide";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
+import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
@@ -63,6 +64,7 @@ export type RoomBoardViewProps = {
   timerUpdateVersion?: number;
   isHost: boolean;
   decision: Decision | null;
+  outcomePublished: boolean;
   adoptionFocusNoteId?: string | null;
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
@@ -115,6 +117,7 @@ export type RoomBoardViewProps = {
   }>;
   voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
+  onPublishOutcome: () => void;
   onAdoptionFocusChange?: (noteId: string | null) => void;
   onRestartWriting?: () => void;
   onRevote?: () => void;
@@ -166,6 +169,7 @@ export function RoomBoardView({
   timerUpdateVersion = 0,
   isHost,
   decision,
+  outcomePublished,
   adoptionFocusNoteId = null,
   connectionStatus,
   draggingNoteId,
@@ -200,6 +204,7 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onPublishOutcome,
   onNoteBringToFront,
   onAdoptionFocusChange: notifyAdoptionFocusChange,
   onRestartWriting = () => undefined,
@@ -220,6 +225,7 @@ export function RoomBoardView({
   const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
+  const [outcomeDismissed, setOutcomeDismissed] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
   const [isVoteStickerReturnDropTarget, setIsVoteStickerReturnDropTarget] =
@@ -286,11 +292,18 @@ export function RoomBoardView({
   }, [isAdoptMode]);
 
   useEffect(() => {
+    if (isPhaseStep(phase, 3, 5) && decision?.phase === 3) {
+      setVoteTotalingDialogOpen(false);
+      return;
+    }
     const resultKey = `${phaseKey}:${phaseRevision}`;
     if (resultShownFor.current === resultKey) return;
     resultShownFor.current = resultKey;
-    setVoteTotalingDialogOpen(isResultStep(phase));
-  }, [phase, phaseKey, phaseRevision]);
+    setVoteTotalingDialogOpen(
+      isResultStep(phase) &&
+        !(isPhaseStep(phase, 3, 5) && decision?.phase === 3),
+    );
+  }, [phase, phaseKey, phaseRevision, decision]);
 
   useEffect(() => {
     if (isVotingStep(phase)) return;
@@ -356,7 +369,15 @@ export function RoomBoardView({
       phase.step > 1 &&
       !isResultStep(phase) &&
       candidateNotes.length === 0);
-  const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
+  const hasFinalDecision = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
+  const outcomeIdea =
+    decision?.phase === 3
+      ? (notes.find((note) => note.id === decision.noteId)?.content ?? null)
+      : null;
+  const outcome =
+    hmwDecidedIssue !== null && decidedHmw !== null && outcomeIdea !== null
+      ? { issue: hmwDecidedIssue, hmw: decidedHmw, idea: outcomeIdea }
+      : null;
   const decisionContent =
     decision === null
       ? null
@@ -667,6 +688,16 @@ export function RoomBoardView({
     }
   };
 
+  if (hasFinalDecision && outcomePublished && !outcomeDismissed) {
+    return (
+      <RoomOutcomeView
+        outcome={outcome}
+        connected={!isDisconnected}
+        onBackToBoard={() => setOutcomeDismissed(true)}
+      />
+    );
+  }
+
   return (
     <div
       ref={boardRootRef}
@@ -713,7 +744,10 @@ export function RoomBoardView({
         isNextPhasePending={isNextPhasePending}
         isNextPhaseBlocked={isNextPhaseBlocked}
         initialGuideState={initialGuideState}
-        isSprintComplete={isSprintComplete}
+        hasFinalDecision={hasFinalDecision}
+        outcomePublished={outcomePublished}
+        onPublishOutcome={onPublishOutcome}
+        onShowOutcome={() => setOutcomeDismissed(false)}
         signOutAction={signOutAction}
         isLeaving={isLeaving}
         onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
@@ -884,6 +918,8 @@ export function RoomBoardView({
         onConfirm={onLeave}
         isLeaving={isLeaving}
         mode={isHost ? "disband" : "leave"}
+        completed={outcomePublished}
+        onReturnToOutcome={() => setOutcomeDismissed(false)}
       />
     </div>
   );

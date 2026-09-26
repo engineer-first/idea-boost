@@ -6,7 +6,8 @@ body:
     id: goal
     attributes:
       label: デモゴール
-      description: 画面や操作で確認できる結果を書いてください。
+      description: 誰が・どの画面で・何をすると・何が見えるかを1行で書いてください。操作がない成果は、画面で確認できる状態を書いてください。名称が未確定なら仮と明記してください。
+      placeholder: "例: 参加者が個人ワークステップで自分の付箋を共有スペースへドラッグすると、ほかの参加者の画面にも表示される。"
     validations:
       required: true
   - type: textarea

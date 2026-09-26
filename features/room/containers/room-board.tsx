@@ -357,6 +357,7 @@ export function RoomBoard({
         timerUpdateVersion={roomState.timerUpdateVersion}
         isHost={isHost}
         decision={roomState.decision}
+        outcomePublished={roomState.outcomePublished}
         adoptionFocusNoteId={roomState.adoptionFocusNoteId}
         connectionStatus={connectionStatus}
         draggingNoteId={notes.frontNoteId}
@@ -396,6 +397,7 @@ export function RoomBoard({
         onNoteVoteStickerRemove={notes.removeVoteSticker}
         onNoteVoteStickerMove={notes.moveVoteSticker}
         onNoteDecide={handleNoteDecide}
+        onPublishOutcome={() => send({ type: "outcome:publish" })}
         onAdoptionFocusChange={handleAdoptionFocusChange}
         onRestartWriting={() => handleLoopPhase("phase:restart-writing")}
         onRevote={() => handleLoopPhase("phase:revote")}
