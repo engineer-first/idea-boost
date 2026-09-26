@@ -38,8 +38,8 @@ test("320px 幅で長文カードの末尾まで読め、横にはみ出さな�
   expect(
     await outcome.evaluate((element) => element.scrollWidth),
   ).toBeLessThanOrEqual(320);
-  await outcome.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
+  await idea.locator("p").evaluate((element) => {
+    element.scrollIntoView({ block: "end" });
   });
   const tail = await idea.locator("p").evaluate((element) => {
     const text = element.firstChild;
