@@ -30,7 +30,8 @@ const Deployment = z.discriminatedUnion("kind", [
         .string()
         .regex(
           /^https:\/\/github\.com\/engineer-first\/idea-boost\/(issues|pull)\/\d+(#[-\w]+)?$/,
-        ),
+        )
+        .optional(),
       migration: z.literal(true),
       api: z.literal(true),
       app: z.literal(true),
@@ -67,7 +68,7 @@ const Metadata = z
     commit: Commit,
     previousCommit: Commit,
     deployedAt: UtcTime,
-    evidenceUrl: z.string().url(),
+    evidenceUrl: z.string().url().optional(),
   })
   .strict();
 type Metadata = z.infer<typeof Metadata>;
@@ -109,7 +110,9 @@ async function deploymentMetadata(
       commit: note.commit,
       previousCommit: note.previousCommit,
       deployedAt: deployment.completedAt,
-      evidenceUrl: deployment.evidenceUrl,
+      ...(deployment.evidenceUrl
+        ? { evidenceUrl: deployment.evidenceUrl }
+        : {}),
     };
   }
   const evidence = await inspectDeployment(
@@ -444,7 +447,13 @@ function render(
       : []),
     `[公開commit](${REPOSITORY_URL}/commit/${metadata.commit}) ／ [前回との差分](${REPOSITORY_URL}/compare/${metadata.previousCommit}${note.mode === "rollback" ? ".." : "..."}${metadata.commit})`,
     "",
-    `[${note.deployment.kind === "actions" ? "本番Deployの成功記録" : "手動デプロイの確認証跡"}](${metadata.evidenceUrl})`,
+    ...(metadata.evidenceUrl
+      ? [
+          `[${note.deployment.kind === "actions" ? "本番Deployの成功記録" : "手動デプロイの確認証跡"}](${metadata.evidenceUrl})`,
+        ]
+      : [
+          "手動デプロイの成功確認：migration・API・App・health 完了後のreceiptに基づきます。",
+        ]),
     ...(first
       ? [
           "",

@@ -211,6 +211,29 @@ describe("本番リリース履歴", () => {
     expect(result.body).toContain("/issues/400");
     expect(state.releases).toHaveLength(1);
   });
+
+  it("ローカル公開のreceiptにPR/Issue URLがなくても、成功確認から履歴を作る", async () => {
+    const { state, api } = server();
+    const result = await recordRelease(
+      {
+        ...note(),
+        deployment: {
+          kind: "manual",
+          completedAt: deployedAt,
+          migration: true,
+          api: true,
+          app: true,
+          health: true,
+        },
+      },
+      api,
+      true,
+    );
+    expect(result.tag).toBe("prod-manual-20260926T030000Z");
+    expect(result.body).toContain("手動デプロイの成功確認");
+    expect(result.body).not.toContain("手動デプロイの確認証跡](undefined)");
+    expect(state.releases).toHaveLength(1);
+  });
 });
 
 function manualNote() {

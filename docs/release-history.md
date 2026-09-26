@@ -15,7 +15,7 @@ PR作成、developへのマージ、タグ作成だけでは公開済みと記�
 | 同じcommitの再デプロイ、Re-run all jobs                            | 前回と同じcommitなら「機能・操作の変更なし」と説明を自動切替                        | 新たなAPI/App公開とhealth成功後、別の版として記録                           |
 | Re-run failed jobs / 特定ジョブの再実行                            | 再実行しない成功ジョブを引き継ぎ、再実行したジョブは最新結果で判定                  | 構成全体の成功を確認後、自動公開                                            |
 | 記録ジョブのみ失敗・通信断                                         | record-releaseだけ再実行、またはRecord Releaseで元のrun ID/attemptを指定            | 再デプロイせず記録。同じ公開事象は同じ版を再利用                            |
-| ローカルの `npm run deploy -- <確認用PR/Issue URL>`                | クリーンな公開commitとJSONを事前検査                                                | migration → API → App → health後にreceiptを保存し、Record Releaseを自動起動 |
+| ローカルの `npm run deploy`                                        | クリーンな公開commitとJSONを事前検査                                                | migration → API → App → health後にreceiptを保存し、Record Releaseを自動起動 |
 | Cloudflare画面・個別wranglerコマンド・導入前のスクリプトによる更新 | 対応PR/Issueで成功証跡を確認し、manual receiptを作成                                | Record Releaseへreceiptを渡して記録                                         |
 | 過去版へのロールバック・分岐したcommitへの復旧                     | `mode: "rollback"` と利用上の注意を必須にする                                       | 復旧後の全体の成功を確認し、同じ記録経路で公開                              |
 | タグ作成、GitHub Releaseの手動作成、developへのマージ              | 本番デプロイの成功証拠にはしない                                                    | それだけでは自動記録しない                                                  |
@@ -125,13 +125,13 @@ APIエラー・応答喪失の後も同じ入力で再試行します。
 
 通常はPRまたはActionsのDeployを使います。ローカルから行う場合は `gh auth login`、
 Cloudflareへの認証、クリーンな作業ツリー、GitHub上に存在する対象commitと説明JSONが必要です。
-確認用PR/Issueで下書きと作業を確認してから実行します。
+公開内容は `.github/release-note.json` の関連PRと差分で確認してから実行します。
 
 ```bash
-npm run deploy -- https://github.com/engineer-first/idea-boost/pull/実際のPR番号
+npm run deploy
 ```
 
-以前の `npm run deploy` に、事前検査・本番health確認・履歴依頼を追加しています。
+PR/Issue URLの入力は不要です。事前検査・本番health確認・履歴依頼を自動で行います。
 本番URLは `https://ideaboost.dev`。migration → API → App → healthの成功後、
 `.release-history/` に成功receiptを保存し、Record Releaseを自動起動します。
 **コマンドの終了は記録workflowの受付まで**です。Actionsの成功とRelease URLまで確認してください。
@@ -144,7 +144,7 @@ Cloudflareアカウント・Worker設定が本番のものであること、環�
 npm run release:submit -- .release-history/出力されたファイル.json
 ```
 
-receiptはGit管理しません。作業の証跡として保管し、ログやWorker version IDも確認用PR/Issueに残します。
+receiptはGit管理しません。作業の証跡として保管します。必要に応じてログやWorker version IDを関連PR/Issueに残します。
 個別の `deploy:api` / `deploy:app` / `deploy:migrate` は低水準の操作で、全体成功の自動記録はしません。
 それらやCloudflare画面から更新した場合は、次の外部操作の記録手順を使います。
 
@@ -170,7 +170,8 @@ Worker version ID、確認者をPR/Issueに残します。秘密は載せませ�
 }
 ```
 
-`true` は確認担当による成功の申告です。コードはCloudflare画面や証跡本文を検証しません。
+外部操作の `true` は確認担当による成功の申告です。コードはCloudflare画面や証跡本文を検証しません。
+`evidenceUrl` は外部操作の確認先として付けられます。`npm run deploy` が生成するreceiptには不要です。
 確認後に `npm run release:submit -- receipt.json`、またはRecord Releaseの `note_json` にJSON全文を渡します。
 後者では `run_id` / `attempt` を空にします。同じ操作を通常runとmanualの両方で記録しません。
 巻き戻しや分岐も記録でき、差分は前回commitから今回commitへの2点比較になります。

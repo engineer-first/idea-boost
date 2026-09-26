@@ -17,19 +17,11 @@ export type DeployRuntime = {
   save: (note: unknown) => Promise<string>;
   submit: (file: string) => Promise<void>;
 };
-const EvidenceUrl = z
-  .string()
-  .regex(
-    /^https:\/\/github\.com\/engineer-first\/idea-boost\/(issues|pull)\/\d+(#[-\w]+)?$/,
-  );
-
 /** 本番操作は順序を固定し、成功のreceiptを残してから記録専用workflowへ渡す。 */
 export async function deployProduction(
   plan: PreparedRelease,
-  evidenceUrl: string,
   runtime: DeployRuntime,
 ): Promise<string> {
-  EvidenceUrl.parse(evidenceUrl);
   for (const command of ["deploy:migrate", "deploy:api", "deploy:app"])
     await runtime.run(command);
   await runtime.health();
@@ -38,7 +30,6 @@ export async function deployProduction(
     deployment: {
       kind: "manual",
       completedAt: runtime.now(),
-      evidenceUrl,
       migration: true,
       api: true,
       app: true,
@@ -96,13 +87,16 @@ if (
 ) {
   try {
     const [command, argument, ...extra] = process.argv.slice(2);
-    if (extra.length || !argument)
+    if (
+      extra.length ||
+      (command === "deploy" && argument) ||
+      (command === "submit" && !argument)
+    )
       throw new Error(
-        "Usage: deploy-production.mts deploy <確認用PR/Issue URL> | submit <receipt.json>",
+        "Usage: deploy-production.mts deploy | submit <receipt.json>",
       );
     if (command === "submit") await submit(argument);
     else if (command === "deploy") {
-      EvidenceUrl.parse(argument);
       const site = new URL(
         process.env.NEXT_PUBLIC_SITE_URL ?? "https://ideaboost.dev",
       );
@@ -136,7 +130,7 @@ if (
       const directory = resolve(".release-history");
       // デプロイ後に保存先を作れない事態を避けるため、先に作成する。
       mkdirSync(directory, { recursive: true });
-      const file = await deployProduction(plan, argument, {
+      const file = await deployProduction(plan, {
         run: async (script) => {
           execFileSync("npm", ["run", script], { stdio: "inherit" });
         },

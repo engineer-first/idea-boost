@@ -773,7 +773,7 @@
     <h2><span class="num">§4</span>初回・手動デプロイ順</h2>
     <p class="lede">
       順は固定: <strong>api → app</strong>（service binding 先が先に存在する）。
-      全体の公開は <code>npm run deploy -- 確認用PR/IssueのURL</code>（migration → api → app → health → 履歴依頼）。<code>deploy:api</code> / <code>deploy:app</code> は個別操作です。
+      全体の公開は <code>npm run deploy</code>（migration → api → app → health → 履歴依頼）。PR/Issue URLの入力は不要です。<code>deploy:api</code> / <code>deploy:app</code> は個別操作です。
     </p>
 
     <div class="pipeline">
@@ -816,7 +816,7 @@
       <code>feature/* → develop</code>（開発）/ <code>develop → release</code>（本番トリガ）。
       <code>release</code> への push または merge で <code>deploy.yml</code> が自動実行される。
       release向けPRでは <code>release-note-check.yml</code> で変更説明の下書きを確認する。本番デプロイは <code>deploy.yml</code>（releaseへのpush、またはbranch releaseを選んだ手動実行）。
-      手動デプロイは <code>npm run deploy -- 確認用PR/IssueのURL</code>。各入口と記録の回復は <a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md">リリース履歴の運用</a> を参照。
+      手動デプロイは <code>npm run deploy</code>。各入口と記録の回復は <a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md">リリース履歴の運用</a> を参照。
     </p>
 
     <div class="ci-flow">
