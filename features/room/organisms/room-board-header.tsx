@@ -69,6 +69,7 @@ export type RoomBoardHeaderProps = {
   isLeaving: boolean;
   signOutAction?: () => Promise<void>;
   onShowVoteResult: () => void;
+  onShowOutcome?: () => void;
   onLeaveClick: () => void;
   onNextPhase: () => void;
   onTimerStart: (durationMs: number) => void;
@@ -109,6 +110,7 @@ export function RoomBoardHeader({
   isLeaving,
   signOutAction,
   onShowVoteResult,
+  onShowOutcome,
   onLeaveClick,
   onNextPhase,
   onTimerStart,
@@ -162,8 +164,12 @@ export function RoomBoardHeader({
   const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
   const leaveLabel = isHost
     ? isLeaving
-      ? "解散中…"
-      : "ルームを解散"
+      ? isSprintComplete
+        ? "削除中…"
+        : "解散中…"
+      : isSprintComplete
+        ? "ルームを削除（全員のデータ）"
+        : "ルームを解散"
     : isLeaving
       ? "退出中…"
       : "退出する";
@@ -469,13 +475,22 @@ export function RoomBoardHeader({
                 投票結果を表示
               </Button>
               {isFinalStep && isSprintComplete ? (
-                <span
-                  role="status"
-                  className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-foreground px-3 text-xs font-semibold text-background"
-                >
-                  <Check aria-hidden="true" className="size-4" />
-                  スプリント完了
-                </span>
+                <>
+                  <Button
+                    type="button"
+                    className="h-10 shrink-0 px-3"
+                    onClick={onShowOutcome}
+                  >
+                    成果を見る
+                  </Button>
+                  <span
+                    role="status"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-foreground px-3 text-xs font-semibold text-background"
+                  >
+                    <Check aria-hidden="true" className="size-4" />
+                    スプリント完了
+                  </span>
+                </>
               ) : !isFinalStep && isHost && !isNextPhaseBlocked ? (
                 <NextPhaseConfirmDialog
                   key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
