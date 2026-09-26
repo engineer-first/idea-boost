@@ -52,6 +52,7 @@ const ADOPTION_TARGET_CLASS_NAME =
 
 export type RoomBoardCanvasProps = {
   notes: Note[];
+  draftScope?: { roomId: string; userId: string };
   groups: PersistentGroup[];
   phase: RoomPhase;
   decision: Decision | null;
@@ -128,6 +129,7 @@ export type RoomBoardCanvasProps = {
 
 export function RoomBoardCanvas({
   notes,
+  draftScope,
   groups,
   phase,
   decision,
@@ -302,6 +304,7 @@ export function RoomBoardCanvas({
       <NoteCard
         key={note.id}
         note={note}
+        draftScope={draftScope}
         isOwnDrag={draggingNoteId === note.id}
         isSelected={selectedNoteId === note.id}
         editingDisabled={isResultStep(phase)}
@@ -675,6 +678,7 @@ export function RoomBoardCanvas({
           >
             <PrivateNotesToolbar
               notes={privateNotes}
+              draftScope={draftScope}
               disabled={isDisconnected}
               canDeleteNote={permissions.canDeleteNote}
               canCreateNote={permissions.canCreateNote}

@@ -1,11 +1,16 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getNoteHeight } from "@/contracts/board";
 import type { NoteColor } from "@/contracts/room-protocol";
 import { NOTE_CONTENT_MAX_LENGTH } from "@/contracts/room-protocol";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { NoteCard } from "./note-card";
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
 
 function setup(overrides: Partial<Parameters<typeof NoteCard>[0]> = {}) {
   const props = {
@@ -969,6 +974,274 @@ describe("NoteCard", () => {
   });
 
   describe("編集モード", () => {
+    it("共有付箋の元author以外が編集した下書きも本人のスコープで回収できる", () => {
+      const note = buildNote({ content: "共有の保存済み本文" });
+      const draftScope = { roomId: "shared-room", userId: "other-editor" };
+      const { view } = setup({ note, draftScope, isSelected: true });
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "共同編集者の下書き" },
+      });
+      view.unmount();
+
+      const reloaded = setup({ note, draftScope });
+      expect(screen.getByText("共同編集者の下書き")).toBeInTheDocument();
+      reloaded.view.rerender(
+        <NoteCard
+          {...reloaded.props}
+          draftScope={{ roomId: "shared-room", userId: note.authorId }}
+        />,
+      );
+      expect(screen.queryByText("共同編集者の下書き")).not.toBeInTheDocument();
+      reloaded.view.unmount();
+      setup({
+        note,
+        draftScope: { roomId: "shared-room", userId: note.authorId },
+      });
+      expect(screen.queryByText("共同編集者の下書き")).not.toBeInTheDocument();
+    });
+
+    it("編集途中でログインユーザーが切り替わっても前のユーザーの本文を見せない", () => {
+      const note = buildNote({ content: "保存済み本文" });
+      const firstScope = { roomId: "shared-room", userId: "first-editor" };
+      const { props, view } = setup({
+        note,
+        draftScope: firstScope,
+        isSelected: true,
+      });
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "前の人の下書き" },
+      });
+
+      view.rerender(
+        <NoteCard
+          {...props}
+          draftScope={{ roomId: "shared-room", userId: "next-editor" }}
+        />,
+      );
+      expect(screen.queryByText("前の人の下書き")).not.toBeInTheDocument();
+      expect(screen.getByRole("textbox")).toHaveValue("保存済み本文");
+    });
+
+    it("切断後と再読込後も本人の下書きを保存済み本文と区別して回収できる", () => {
+      const onContentChange = vi.fn();
+      const note = buildNote({ content: "保存済み本文" });
+      const draftScope = { roomId: "room-a", userId: note.authorId };
+      const { props, view } = setup({
+        note,
+        draftScope,
+        isSelected: true,
+        onContentChange,
+      });
+
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "未送信の下書き" },
+      });
+      view.rerender(<NoteCard {...props} disabled />);
+
+      expect(onContentChange).not.toHaveBeenCalled();
+      expect(screen.getByDisplayValue("保存済み本文")).toBeInTheDocument();
+      expect(screen.getByText("未送信の下書き")).toBeInTheDocument();
+
+      view.unmount();
+      setup({ note, draftScope, isSelected: true, onContentChange });
+      expect(screen.getByText("未送信の下書き")).toBeInTheDocument();
+      expect(onContentChange).not.toHaveBeenCalled();
+    });
+
+    it("ステップ進行中は下書きを見せるが送信せず、編集可能になってから本人が復元する", () => {
+      const onContentChange = vi.fn();
+      const note = buildNote({ content: "保存済み本文" });
+      const draftScope = { roomId: "room-a", userId: note.authorId };
+      const { props, view } = setup({
+        note,
+        draftScope,
+        isSelected: true,
+        onContentChange,
+      });
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "回収する下書き" },
+      });
+      view.rerender(<NoteCard {...props} editingDisabled />);
+
+      expect(screen.getByText("回収する下書き")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "下書きを編集する" }),
+      ).toBeDisabled();
+      expect(onContentChange).not.toHaveBeenCalled();
+
+      view.rerender(<NoteCard {...props} />);
+      fireEvent.click(screen.getByRole("button", { name: "下書きを編集する" }));
+      expect(screen.getByRole("textbox")).toHaveValue("回収する下書き");
+      expect(onContentChange).not.toHaveBeenCalled();
+    });
+
+    it("競合下書きを開いて blur しても他者の保存済み本文を送らない", () => {
+      const onContentChange = vi.fn();
+      const note = buildNote({ content: "元の本文" });
+      const draftScope = { roomId: "room-a", userId: note.authorId };
+      const { props, view } = setup({
+        note,
+        draftScope,
+        isSelected: true,
+        onContentChange,
+      });
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "本人の下書き" },
+      });
+      view.rerender(
+        <NoteCard
+          {...props}
+          note={{ ...note, content: "他者の保存済み本文" }}
+        />,
+      );
+      fireEvent.blur(screen.getByRole("textbox"));
+      fireEvent.click(screen.getByRole("button", { name: "下書きを編集する" }));
+      fireEvent.blur(screen.getByRole("textbox"));
+      expect(onContentChange).not.toHaveBeenCalled();
+      view.unmount();
+      setup({ note: { ...note, content: "他者の保存済み本文" }, draftScope });
+      expect(screen.getByText("本人の下書き")).toBeInTheDocument();
+    });
+
+    it("競合時は明示的な置き換え操作だけが新しい本文を基準に送る", () => {
+      const onContentChange = vi.fn();
+      const note = buildNote({ content: "元の本文" });
+      const draftScope = { roomId: "room-a", userId: note.authorId };
+      const { props, view } = setup({
+        note,
+        draftScope,
+        isSelected: true,
+        onContentChange,
+      });
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "本人の下書き" },
+      });
+      view.rerender(
+        <NoteCard
+          {...props}
+          note={{ ...note, content: "他者の保存済み本文" }}
+        />,
+      );
+      fireEvent.blur(screen.getByRole("textbox"));
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "保存済み本文を確認し、この下書きで置き換える",
+        }),
+      );
+      fireEvent.blur(screen.getByRole("textbox"));
+      expect(onContentChange).toHaveBeenLastCalledWith(
+        note.id,
+        "本人の下書き",
+        "他者の保存済み本文",
+      );
+    });
+
+    it("別ユーザーと別ルームには下書きを表示せず、競合した本文を自動上書きしない", () => {
+      const onContentChange = vi.fn();
+      const note = buildNote({ content: "保存済み本文" });
+      const draftScope = { roomId: "room-a", userId: note.authorId };
+      const { props, view } = setup({
+        note,
+        draftScope,
+        isSelected: true,
+        onContentChange,
+      });
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "本人の下書き" },
+      });
+      view.rerender(
+        <NoteCard {...props} note={{ ...note, content: "サーバーの更新" }} />,
+      );
+      fireEvent.blur(screen.getByRole("textbox"));
+      expect(onContentChange).not.toHaveBeenCalled();
+      expect(screen.getByText("本人の下書き")).toBeInTheDocument();
+      expect(
+        screen.getByText(/保存済み本文が変更されています/),
+      ).toBeInTheDocument();
+
+      view.unmount();
+      const otherRoom = setup({
+        note,
+        draftScope: { roomId: "room-b", userId: note.authorId },
+      });
+      expect(screen.queryByText("本人の下書き")).not.toBeInTheDocument();
+      otherRoom.view.unmount();
+      setup({ note, draftScope: { roomId: "room-a", userId: "other-user" } });
+      expect(screen.queryByText("本人の下書き")).not.toBeInTheDocument();
+    });
+
+    it("通常のblurでは保存を送り、サーバー反映後に保管済み下書きを消す", () => {
+      const onContentChange = vi.fn();
+      const note = buildNote({ content: "保存済み本文" });
+      const draftScope = { roomId: "room-a", userId: note.authorId };
+      const { props, view } = setup({
+        note,
+        draftScope,
+        isSelected: true,
+        onContentChange,
+      });
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "送信する本文" },
+      });
+      fireEvent.blur(screen.getByRole("textbox"));
+      expect(onContentChange).toHaveBeenCalledWith(
+        note.id,
+        "送信する本文",
+        "保存済み本文",
+      );
+      expect(screen.getByText("送信する本文")).toBeInTheDocument();
+
+      view.rerender(
+        <NoteCard {...props} note={{ ...note, content: "送信する本文" }} />,
+      );
+      expect(
+        screen.queryByRole("region", { name: "付箋の下書き" }),
+      ).not.toBeInTheDocument();
+      view.unmount();
+      setup({ note: { ...note, content: "送信する本文" }, draftScope });
+      expect(
+        screen.queryByRole("region", { name: "付箋の下書き" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("送信後にサーバー反映がないまま再読込しても下書きを回収できる", () => {
+      const note = buildNote({ content: "保存済み本文" });
+      const draftScope = { roomId: "room-a", userId: note.authorId };
+      const { view } = setup({ note, draftScope, isSelected: true });
+      clickNote();
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "届かなかった本文" },
+      });
+      fireEvent.blur(screen.getByRole("textbox"));
+      view.unmount();
+
+      setup({ note, draftScope });
+      expect(screen.getByText("届かなかった本文")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("保存済み本文")).toBeInTheDocument();
+    });
+
+    it("日本語IMEの変換中にblurしても未確定文字を送らず、下書きを残す", () => {
+      const onContentChange = vi.fn();
+      const note = buildNote({ content: "保存済み本文" });
+      const draftScope = { roomId: "room-a", userId: note.authorId };
+      setup({ note, draftScope, isSelected: true, onContentChange });
+      clickNote();
+      const textarea = screen.getByRole("textbox");
+      fireEvent.compositionStart(textarea);
+      fireEvent.change(textarea, { target: { value: "変換中の文字" } });
+      fireEvent.blur(textarea);
+      expect(onContentChange).not.toHaveBeenCalled();
+      expect(screen.getByText("変換中の文字")).toBeInTheDocument();
+    });
+
     it("選択済みの付箋をクリックすると編集モードに入りtextareaへフォーカスが移る", () => {
       setup({ isSelected: true });
 
@@ -1075,7 +1348,11 @@ describe("NoteCard", () => {
       fireEvent.change(textarea, { target: { value: "更新後の本文" } });
       fireEvent.blur(textarea);
 
-      expect(onContentChange).toHaveBeenCalledWith("note-1", "更新後の本文");
+      expect(onContentChange).toHaveBeenCalledWith(
+        "note-1",
+        "更新後の本文",
+        expect.any(String),
+      );
       expect(textarea).toHaveAttribute("readonly");
     });
 
@@ -1101,7 +1378,11 @@ describe("NoteCard", () => {
       fireEvent.change(textarea, { target: { value: "編集した本文" } });
       fireEvent.keyDown(textarea, { key: "Escape" });
 
-      expect(onContentChange).toHaveBeenCalledWith("note-1", "編集した本文");
+      expect(onContentChange).toHaveBeenCalledWith(
+        "note-1",
+        "編集した本文",
+        expect.any(String),
+      );
     });
   });
 

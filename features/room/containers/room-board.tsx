@@ -323,6 +323,7 @@ export function RoomBoard({
         onConfirm={handleForceNextPhase}
       />
       <RoomBoardView
+        roomId={roomId}
         notes={boardNotes}
         groups={noteGroups.groups}
         hmwDecidedIssue={hmwDecidedIssue}

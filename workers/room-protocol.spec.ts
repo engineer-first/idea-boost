@@ -168,6 +168,7 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
       type: "note:update-content",
       noteId,
       content: "切断中の更新",
+      baseContent: "",
     });
     await expectType(member, "note:updated");
     send(member, { type: "note:move", noteId, x: 640, y: 480 });
@@ -751,6 +752,7 @@ describe("note:publish", () => {
       type: "note:update-content",
       noteId: firstNoteId,
       content: "順序を変えない編集",
+      baseContent: "",
     });
     const edited = await expectType(owner, "note:updated");
     await expectType(observer, "note:updated");
@@ -1115,6 +1117,7 @@ describe("private note の永続化", () => {
       type: "note:update-content",
       noteId: drafted.note.id,
       content: "再接続後も残る下書き",
+      baseContent: "",
     });
     const updated = await expectType(owner, "note:updated");
     expect(updated.note).toMatchObject({
@@ -1161,6 +1164,7 @@ describe("note:update-content / note:move（pgTAP: メンバーの共同編集�
       type: "note:update-content",
       noteId,
       content: "member が編集",
+      baseContent: "",
     });
     const toOwner = await expectType(owner, "note:updated");
 
@@ -2290,6 +2294,7 @@ describe("note:drag（エフェメラル同期）", () => {
       type: "note:update-content",
       noteId,
       content: "ロック中も本文は共同編集できる",
+      baseContent: "",
     });
     await expectType(room.owner, "note:updated");
     await expectType(room.member, "note:updated");

@@ -4515,6 +4515,42 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     ws.close();
   });
 
+  it("同じ保存済み本文からの二重更新は後着を競合として拒否する", async () => {
+    const roomName = "room-note-content-cas";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(1), USER_A);
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:create", content: "基準本文" }));
+    const inserted = (await nextJson(ws)) as { note: { id: string } };
+    const noteId = inserted.note.id;
+    ws.send(
+      JSON.stringify({
+        type: "note:update-content",
+        noteId,
+        content: "先行する変更",
+        baseContent: "基準本文",
+      }),
+    );
+    expect(await nextJson(ws)).toMatchObject({
+      type: "note:updated",
+      note: { id: noteId, content: "先行する変更" },
+    });
+    ws.send(
+      JSON.stringify({
+        type: "note:update-content",
+        noteId,
+        content: "後着の古い変更",
+        baseContent: "基準本文",
+      }),
+    );
+    expect(await nextJson(ws)).toMatchObject({
+      type: "error",
+      code: "content-conflict",
+    });
+    ws.close();
+  });
+
   it("Step 1-2 では note:update-content を許可し、共有中の誤字を修正できる", async () => {
     const roomName = "room-step-1-2-update-content-allowed";
     const stub = roomStub(roomName);
@@ -4535,6 +4571,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
         type: "note:update-content",
         noteId,
         content: "誤字を修正しました",
+        baseContent: "",
       }),
     );
     expect(await nextJson(ws)).toMatchObject({
@@ -5586,6 +5623,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
         type: "note:update-content",
         noteId: inserted.note.id,
         content: "もっと簡単に宿題を進められるだろう？",
+        baseContent: "下書き",
       }),
     );
     expect(await nextJson(ws)).toMatchObject({

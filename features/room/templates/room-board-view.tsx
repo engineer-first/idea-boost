@@ -46,6 +46,7 @@ import { RoomBoardHeader } from "../organisms/room-board-header";
 
 export type RoomBoardViewProps = {
   notes: Note[];
+  roomId?: string;
   groups: PersistentGroup[];
   inviteCode: string;
   inviteUrl: string;
@@ -149,6 +150,7 @@ type VoteStampPointer = {
 
 export function RoomBoardView({
   notes,
+  roomId,
   groups,
   inviteCode,
   inviteUrl,
@@ -735,6 +737,7 @@ export function RoomBoardView({
 
       <RoomBoardCanvas
         notes={renderedNotes}
+        draftScope={roomId ? { roomId, userId: currentUserId } : undefined}
         groups={groups}
         phase={phase}
         permissions={permissions}

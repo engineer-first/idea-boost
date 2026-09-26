@@ -90,6 +90,42 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("個人付箋の下書きを再読込後に本人だけが回収できる", () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    const note = buildNote({
+      id: "private-draft-note",
+      visibility: "private",
+      content: "保存済み本文",
+    });
+    const draftScope = { roomId: "draft-room", userId: note.authorId };
+    const phase = buildPhaseStep(1);
+    const { props, unmount } = setup({
+      draftScope,
+      phase,
+      permissions: getBoardPermissions(phase),
+      privateNotes: [note],
+      selectedNoteId: note.id,
+    });
+    const toolbar = openPrivateNotesToolbar();
+    const surface = within(toolbar).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.change(within(toolbar).getByRole("textbox"), {
+      target: { value: "個人付箋の下書き" },
+    });
+    unmount();
+
+    setup({ ...props, selectedNoteId: null });
+    const reloadedToolbar = openPrivateNotesToolbar();
+    expect(
+      within(reloadedToolbar).getByText("個人付箋の下書き"),
+    ).toBeInTheDocument();
+    expect(
+      within(reloadedToolbar).getByDisplayValue("保存済み本文"),
+    ).toBeInTheDocument();
+  });
+
   it("文字サイズ操作をズーム操作とは別に左下へ置き、選択付箋だけを1px刻みで変更する", () => {
     const onNoteFontSizeChange = vi.fn();
     setup({

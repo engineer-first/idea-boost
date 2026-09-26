@@ -217,8 +217,30 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    if (message.baseContent === undefined) {
+      ctx.reply({
+        type: "error",
+        code: "invalid-message",
+        message: "保存済み本文を再読込してください。",
+      });
+      return;
+    }
     const updatedAt = new Date().toISOString();
-    updateNoteContent(ctx.sql, message.noteId, message.content, updatedAt);
+    const updated = updateNoteContent(
+      ctx.sql,
+      message.noteId,
+      message.content,
+      message.baseContent,
+      updatedAt,
+    );
+    if (!updated) {
+      ctx.reply({
+        type: "error",
+        code: "content-conflict",
+        message: "保存済み本文が変更されました。下書きを確認してください。",
+      });
+      return;
+    }
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
       ...row,
       content: message.content,

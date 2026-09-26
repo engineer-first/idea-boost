@@ -426,17 +426,58 @@ describe("useRoomNotes", () => {
     });
   });
 
-  it("changeNoteContent は本文だけ楽観更新し、note:update-content を送る", () => {
+  it("編集中に新しい本文が届いても編集開始時の基準を送る", () => {
+    const { result } = setup();
+    const saved = buildNote({ id: NOTE_ID, content: "編集開始時" });
+    act(() => result.current.applyMessage(snapshotMessage([saved])));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...saved, content: "他者の変更" },
+      }),
+    );
+    act(() =>
+      result.current.changeNoteContent(NOTE_ID, "古い下書き", "編集開始時"),
+    );
+    expect(send).toHaveBeenCalledWith({
+      type: "note:update-content",
+      noteId: NOTE_ID,
+      content: "古い下書き",
+      baseContent: "編集開始時",
+    });
+    expect(result.current.notes[0]?.content).toBe("他者の変更");
+  });
+
+  it("本文送信後も RoomDO の確定応答までは保存済み本文を変えない", () => {
+    const { result } = setup();
+    const saved = buildNote({ id: NOTE_ID, content: "保存済み本文" });
+    act(() => result.current.applyMessage(snapshotMessage([saved])));
+    act(() => result.current.changeNoteContent(NOTE_ID, "届かない本文"));
+    expect(result.current.notes[0]?.content).toBe("保存済み本文");
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        noteId: NOTE_ID,
+        content: "届かない本文",
+        baseContent: "保存済み本文",
+      }),
+    );
+  });
+
+  it("changeNoteContent は確定を待ち、基準本文付きで送る", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));
 
     act(() => result.current.changeNoteContent(NOTE_ID, "新しい本文"));
 
-    expect(result.current.notes[0]?.content).toBe("新しい本文");
+    expect(result.current.notes[0]?.content).toBe(
+      buildNote({ id: NOTE_ID }).content,
+    );
     expect(send).toHaveBeenCalledWith({
       type: "note:update-content",
       noteId: NOTE_ID,
       content: "新しい本文",
+      baseContent: buildNote({ id: NOTE_ID }).content,
     });
   });
 
