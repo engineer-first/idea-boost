@@ -103,10 +103,14 @@ export function listNotes(
 ): ProtocolNote[] {
   const rows =
     phase === undefined
-      ? sql.exec("SELECT * FROM notes ORDER BY created_at").toArray()
+      ? sql
+          .exec("SELECT * FROM notes ORDER BY stack_order, created_at, id")
+          .toArray()
       : sql
           .exec(
-            "SELECT * FROM notes WHERE phase = ?1 ORDER BY created_at",
+            `SELECT * FROM notes
+             WHERE phase = ?1
+             ORDER BY stack_order, created_at, id`,
             phase,
           )
           .toArray();
@@ -167,7 +171,7 @@ export function insertNote(sql: SqlStorage, note: NoteRow): void {
   );
 }
 
-function nextStackOrder(sql: SqlStorage): number {
+export function nextStackOrder(sql: SqlStorage): number {
   const row = sql
     .exec(
       `UPDATE room_state
@@ -200,18 +204,49 @@ export function publishNote(
   return stackOrder;
 }
 
-export function unpublishNote(
+export function unpublishNoteAtIndex(
   sql: SqlStorage,
   noteId: string,
+  authorId: string,
+  phase: number,
+  requestedIndex: number,
   updatedAt: string,
-): void {
-  sql.exec(
-    `UPDATE notes
-     SET visibility = 'private', updated_at = ?2
-     WHERE id = ?1`,
-    noteId,
-    updatedAt,
-  );
+): NoteRow[] {
+  const returned = findNote(sql, noteId);
+  if (!returned) return [];
+  const privateNotes = sql
+    .exec(
+      `SELECT * FROM notes
+       WHERE author_id = ?1 AND phase = ?2 AND visibility = 'private'
+         AND id <> ?3
+       ORDER BY stack_order, created_at, id`,
+      authorId,
+      phase,
+      noteId,
+    )
+    .toArray()
+    .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+  const index = Math.min(Math.max(requestedIndex, 0), privateNotes.length);
+  const ordered = [...privateNotes];
+  ordered.splice(index, 0, { ...returned, visibility: "private" });
+
+  return ordered.map((note) => {
+    const stackOrder = nextStackOrder(sql);
+    sql.exec(
+      `UPDATE notes
+       SET visibility = 'private', updated_at = ?2, stack_order = ?3
+       WHERE id = ?1`,
+      note.id,
+      note.id === noteId ? updatedAt : note.updated_at,
+      stackOrder,
+    );
+    return {
+      ...note,
+      visibility: "private",
+      updated_at: note.id === noteId ? updatedAt : note.updated_at,
+      stack_order: stackOrder,
+    };
+  });
 }
 
 export function updateNoteContent(

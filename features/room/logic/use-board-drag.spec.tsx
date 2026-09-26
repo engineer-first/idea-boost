@@ -32,7 +32,9 @@ function fakeToolbarWithNotes(
     top: number;
     bottom: number;
   }>,
+  scrollContainer?: HTMLElement,
 ): RefObject<HTMLDivElement | null> {
+  const initialScrollTop = scrollContainer?.scrollTop ?? 0;
   return {
     current: {
       getBoundingClientRect: () => ({
@@ -44,14 +46,23 @@ function fakeToolbarWithNotes(
       querySelectorAll: () =>
         noteRects.map(({ noteId, top, bottom }) => ({
           dataset: { noteId },
-          getBoundingClientRect: () => ({
-            left: 600,
-            right: 800,
-            top,
-            bottom,
-            height: bottom - top,
-          }),
+          getBoundingClientRect: () => {
+            const scrollOffset =
+              initialScrollTop -
+              (scrollContainer?.scrollTop ?? initialScrollTop);
+            return {
+              left: 600,
+              right: 800,
+              top: top + scrollOffset,
+              bottom: bottom + scrollOffset,
+              height: bottom - top,
+            };
+          },
         })),
+      querySelector: (selector: string) =>
+        selector === "[data-testid='private-notes-scroll']"
+          ? (scrollContainer ?? null)
+          : null,
     } as unknown as HTMLDivElement,
   };
 }
@@ -277,7 +288,7 @@ describe("useBoardDrag", () => {
     ]);
   });
 
-  it("自分の共有付箋をツールバーへ戻すと unpublish して returning になる", () => {
+  it("自分の共有付箋をツールバーへ重ねると確定せず returning になる", () => {
     const { args, result } = setup();
 
     act(() => {
@@ -290,7 +301,7 @@ describe("useBoardDrag", () => {
       result.current.handlePointerMove(pointerEvent(1, 400, 560));
     });
 
-    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1");
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
     expect(result.current.drag?.status).toBe("returning");
     // RoomDO の応答を待たずに、カードを表示上ツールバー側へ移す。
     expect(
@@ -301,6 +312,199 @@ describe("useBoardDrag", () => {
         (note) => note.id === "shared-1" && note.visibility === "private",
       ),
     ).toBe(true);
+  });
+
+  it("マイ付箋エリアへ入った後も上下移動に合わせて挿入位置を更新する", () => {
+    const privateNotes = [
+      buildNote({ id: "private-1", authorId: ME, visibility: "private" }),
+      buildNote({ id: "private-2", authorId: ME, visibility: "private" }),
+      buildNote({ id: "private-3", authorId: ME, visibility: "private" }),
+    ];
+    const toolbarRef = fakeToolbarWithNotes([
+      { noteId: "private-1", top: 100, bottom: 244 },
+      { noteId: "private-2", top: 256, bottom: 400 },
+      { noteId: "private-3", top: 412, bottom: 556 },
+    ]);
+    const { args, result } = setup({
+      privateNotes,
+      privateToolbarRef: toolbarRef,
+    });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 750, 120));
+    });
+    expect(result.current.drag?.status).toBe("returning");
+    expect(result.current.drag?.privateDropIndex).toBe(0);
+
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(1, 760, 350));
+    });
+
+    expect(result.current.drag?.status).toBe("returning");
+    expect(result.current.drag?.clientX).toBe(760);
+    expect(result.current.drag?.clientY).toBe(350);
+    expect(result.current.drag?.privateDropIndex).toBe(2);
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+  });
+
+  it("戻すドラッグ中にリストの上下端へ近づくと自動スクロールする", () => {
+    const scrollContainer = {
+      getBoundingClientRect: () => ({
+        left: 600,
+        top: 100,
+        right: 800,
+        bottom: 500,
+        height: 400,
+        width: 200,
+      }),
+      scrollTop: 100,
+      scrollHeight: 1000,
+      clientHeight: 400,
+    } as HTMLElement;
+    const toolbarRef = fakeToolbarWithNotes(
+      [
+        { noteId: "private-1", top: 140, bottom: 220 },
+        { noteId: "private-2", top: 280, bottom: 360 },
+        { noteId: "private-3", top: 420, bottom: 564 },
+      ],
+      scrollContainer,
+    );
+    const pendingFrames = new Map<number, FrameRequestCallback>();
+    const cancelledFrames: number[] = [];
+    let nextFrameId = 1;
+    const originalRequestFrame = Object.getOwnPropertyDescriptor(
+      window,
+      "requestAnimationFrame",
+    );
+    const originalCancelFrame = Object.getOwnPropertyDescriptor(
+      window,
+      "cancelAnimationFrame",
+    );
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      value: (callback: FrameRequestCallback) => {
+        const frameId = nextFrameId++;
+        pendingFrames.set(frameId, callback);
+        return frameId;
+      },
+    });
+    Object.defineProperty(window, "cancelAnimationFrame", {
+      configurable: true,
+      value: (frameId: number) => {
+        cancelledFrames.push(frameId);
+        pendingFrames.delete(frameId);
+      },
+    });
+
+    try {
+      const { result } = setup({ privateToolbarRef: toolbarRef });
+      const runNextFrame = () => {
+        const next = pendingFrames.entries().next().value as
+          | [number, FrameRequestCallback]
+          | undefined;
+        if (!next) throw new Error("自動スクロールのフレームがありません");
+        const [frameId, callback] = next;
+        pendingFrames.delete(frameId);
+        act(() => callback(16));
+      };
+
+      act(() => {
+        result.current.handleSharedNoteDragStart(
+          "shared-1",
+          pointerEvent(1, 100, 100),
+        );
+        result.current.handlePointerMove(pointerEvent(1, 750, 490));
+      });
+      expect(result.current.drag?.status).toBe("returning");
+      expect(result.current.drag?.privateDropIndex).toBe(2);
+
+      runNextFrame();
+
+      expect(scrollContainer.scrollTop).toBeGreaterThan(100);
+      expect(result.current.drag?.privateDropIndex).toBe(3);
+
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 750, 110));
+      });
+      runNextFrame();
+      expect(scrollContainer.scrollTop).toBeLessThan(107);
+
+      const pendingFrameId = pendingFrames.keys().next().value as
+        | number
+        | undefined;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 500, 300));
+      });
+      if (pendingFrameId !== undefined) {
+        expect(cancelledFrames).toContain(pendingFrameId);
+      }
+    } finally {
+      if (originalRequestFrame) {
+        Object.defineProperty(
+          window,
+          "requestAnimationFrame",
+          originalRequestFrame,
+        );
+      } else {
+        Reflect.deleteProperty(window, "requestAnimationFrame");
+      }
+      if (originalCancelFrame) {
+        Object.defineProperty(
+          window,
+          "cancelAnimationFrame",
+          originalCancelFrame,
+        );
+      } else {
+        Reflect.deleteProperty(window, "cancelAnimationFrame");
+      }
+    }
+  });
+
+  it("returning をドロップした時だけ挿入位置付きで unpublish する", () => {
+    const toolbarRef = fakeToolbarWithNotes([
+      { noteId: "private-1", top: 100, bottom: 244 },
+    ]);
+    const { args, result } = setup({ privateToolbarRef: toolbarRef });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 750, 120));
+    });
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handlePointerEnd(pointerEvent(1, 750, 120));
+    });
+
+    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1", 0);
+  });
+
+  it("returning をキャンセルすると unpublish せず共有付箋を元の領域へ戻す", () => {
+    const { args, result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 400, 560));
+      result.current.handlePointerCancel(pointerEvent(1, 400, 560));
+    });
+
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(result.current.renderedNotes.map((note) => note.id)).toContain(
+      "shared-1",
+    );
+    expect(
+      result.current.renderedPrivateNotes.map((note) => note.id),
+    ).not.toContain("shared-1");
   });
 
   it("共有付箋をマイ付箋へ戻す位置に応じて末尾へ挿入する", () => {

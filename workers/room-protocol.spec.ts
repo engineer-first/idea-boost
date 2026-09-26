@@ -940,6 +940,54 @@ describe("note:publish", () => {
 });
 
 describe("note:unpublish", () => {
+  it("指定位置へ戻したマイ付箋の順序を再接続後も維持する", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const privateIds: string[] = [];
+    for (let index = 0; index < 3; index += 1) {
+      send(owner, { type: "note:create", content: `private-${index}` });
+      privateIds.push((await expectType(owner, "note:inserted")).note.id);
+    }
+    await arrangeStep(owner, 2);
+    send(owner, {
+      type: "note:publish",
+      noteId: privateIds[1],
+      x: 100,
+      y: 100,
+    });
+    await expectType(owner, "note:inserted");
+    await expectType(member, "note:inserted");
+
+    send(owner, {
+      type: "note:unpublish",
+      noteId: privateIds[1],
+      privateIndex: 0,
+    });
+    await expectType(owner, "note:deleted");
+    await expectType(member, "note:deleted");
+    const reorderMessages = [
+      await owner.next(),
+      await owner.next(),
+      await owner.next(),
+    ];
+    expect(reorderMessages.map((message) => message.type)).toEqual([
+      "note:updated",
+      "note:updated",
+      "note:inserted",
+    ]);
+
+    owner.close();
+    const reconnected = await connectRoomAs(OWNER, roomId);
+    const snapshot = await expectType(reconnected, "snapshot");
+    expect(
+      snapshot.notes
+        .filter((note) => note.visibility === "private")
+        .map((note) => note.id),
+    ).toEqual([privateIds[1], privateIds[0], privateIds[2]]);
+
+    member.close();
+    reconnected.close();
+  });
+
   it("作者がshared付箋をprivateへ戻すと、他メンバーには削除だけが届く", async () => {
     const { owner, member } = await setupStartedRoom();
     const noteId = await createNote({ owner, member });

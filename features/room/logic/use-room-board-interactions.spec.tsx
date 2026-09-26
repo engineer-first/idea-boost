@@ -177,7 +177,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onCursorMove).toHaveBeenLastCalledWith({ x: 40, y: 40 }, null);
   });
 
-  it("shared drag 中に private toolbar へ入る presence leave は unpublish より先に操作権もカーソルも解除しない", () => {
+  it("shared drag 中に private toolbar へ入ると操作権だけ解放し、unpublish はドロップまで遅延する", () => {
     const { result, onCursorLeave, onNoteDragCancel, onPrivateNoteUnpublish } =
       setup({
         withSharedDrag: true,
@@ -218,10 +218,9 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLDivElement>);
     });
 
-    expect(onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1");
-    expect(onPrivateNoteUnpublish.mock.invocationCallOrder[0]).toBeLessThan(
-      onCursorLeave.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
-    );
+    expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(onCursorLeave).not.toHaveBeenCalled();
   });
 
   it("shared drag 中に toolbar 以外へ出る presence leave は付箋操作とカーソルを同時に解除する", () => {

@@ -50,7 +50,15 @@ export type RoomBoardInteractions = {
   notes: Note[];
   privateNotes: Note[];
   dragGhost: { note: Note; x: number; y: number } | null;
+  dragPreview?: {
+    note: Note;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null;
   isReturnDropTarget: boolean;
+  privateDropPlaceholder?: { noteId: string };
   isNoteDragging: boolean;
   camera: CanvasCamera;
   gridStyle: CSSProperties;
@@ -169,6 +177,16 @@ export function useRoomBoardInteractions({
     drag?.status === "shared" && !notes.some((note) => note.id === drag.note.id)
       ? { note: drag.note, x: drag.x, y: drag.y }
       : null;
+  const dragPreview =
+    drag?.status === "private" || drag?.status === "returning"
+      ? {
+          note: drag.note,
+          left: drag.clientX - drag.previewOffsetX,
+          top: drag.clientY - drag.previewOffsetY,
+          width: drag.previewWidth,
+          height: drag.previewHeight,
+        }
+      : null;
 
   const toolbarNotes = renderedPrivateNotes.filter(
     (note) =>
@@ -279,8 +297,15 @@ export function useRoomBoardInteractions({
     notes: renderedNotes,
     privateNotes: toolbarNotes,
     dragGhost,
+    dragPreview,
     isReturnDropTarget:
-      drag?.status === "shared" && drag.note.authorId === currentUserId,
+      (drag?.status === "shared" || drag?.status === "returning") &&
+      drag.note.authorId === currentUserId,
+    privateDropPlaceholder:
+      (drag?.status === "private" || drag?.status === "returning") &&
+      drag.privateDropIndex !== null
+        ? { noteId: drag.note.id }
+        : undefined,
     isNoteDragging: drag !== null,
     camera,
     gridStyle,

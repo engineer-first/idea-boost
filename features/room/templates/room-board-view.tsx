@@ -566,7 +566,9 @@ export function RoomBoardView({
     notes: renderedNotes,
     privateNotes: toolbarNotes,
     dragGhost,
+    dragPreview,
     isReturnDropTarget,
+    privateDropPlaceholder,
     isNoteDragging,
     camera,
     gridStyle,
@@ -681,7 +683,9 @@ export function RoomBoardView({
         selectedVoteKind={selectedVoteKind}
         pendingVoteOperations={pendingVoteOperations}
         dragGhost={dragGhost}
+        dragPreview={dragPreview}
         isReturnDropTarget={isReturnDropTarget}
+        privateDropPlaceholder={privateDropPlaceholder}
         boardScrollerRef={boardScrollerRef}
         ideaMapPlaneRef={ideaMapPlaneRef}
         privateToolbarRef={privateToolbarRef}

@@ -25,6 +25,105 @@ function setup(disabled = false) {
 }
 
 describe("PrivateNotesToolbar", () => {
+  it("並べ替えが続いてもFLIPを重ねず、前の移動アニメーションを解除する", () => {
+    const first = buildNote({ id: "first", visibility: "private" });
+    const second = buildNote({ id: "second", visibility: "private" });
+    const props = {
+      notes: [first, second],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+      defaultExpanded: true,
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+    const [firstCard, secondCard] = screen.getAllByTestId("note-card");
+    if (!firstCard || !secondCard) throw new Error("付箋がありません");
+
+    const topById: Record<string, number> = { first: 0, second: 0 };
+    const rectAt = (top: number) => new DOMRect(0, top, 192, 144);
+    vi.spyOn(firstCard, "getBoundingClientRect").mockImplementation(() =>
+      rectAt(topById.first ?? 0),
+    );
+    vi.spyOn(secondCard, "getBoundingClientRect").mockImplementation(() =>
+      rectAt(topById.second ?? 0),
+    );
+    const firstAnimation = { cancel: vi.fn() } as unknown as Animation;
+    const firstAnimate = vi.fn(() => firstAnimation);
+    Object.defineProperty(firstCard, "animate", {
+      configurable: true,
+      value: firstAnimate,
+    });
+    Object.defineProperty(secondCard, "animate", {
+      configurable: true,
+      value: vi.fn(() => ({ cancel: vi.fn() }) as unknown as Animation),
+    });
+
+    topById.first = 144;
+    topById.second = 0;
+    view.rerender(<PrivateNotesToolbar {...props} notes={[second, first]} />);
+    expect(firstAnimate).toHaveBeenCalledOnce();
+
+    // ドラッグ中のポインター更新では、同じ順序の要素に再アニメーションしない。
+    topById.first = 300;
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={[second, first]}
+        selectedNoteId="first"
+      />,
+    );
+    expect(firstAnimate).toHaveBeenCalledOnce();
+
+    topById.first = 0;
+    topById.second = 144;
+    view.rerender(<PrivateNotesToolbar {...props} />);
+
+    expect(firstAnimation.cancel).toHaveBeenCalledOnce();
+  });
+
+  it("ドラッグ中の付箋を挿入位置のプレースホルダーへ置き換える", () => {
+    render(
+      <PrivateNotesToolbar
+        notes={[
+          buildNote({ id: "before", visibility: "private" }),
+          buildNote({ id: "returning", visibility: "private", color: "blue" }),
+          buildNote({ id: "after", visibility: "private" }),
+        ]}
+        dropPlaceholder={{ noteId: "returning" }}
+        disabled={false}
+        selectedNoteId={null}
+        canCreateNote
+        canDeleteNote
+        canMoveNote
+        canEditNote
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+        onContentChange={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+      />,
+    );
+
+    const list = screen.getByTestId("private-notes-list");
+    expect(within(list).getAllByTestId("note-card")).toHaveLength(2);
+    const placeholder = within(list).getByTestId("private-note-placeholder");
+    expect(placeholder).toHaveAttribute("data-note-id", "returning");
+    expect(placeholder).toHaveClass("animate-in", "fade-in", "duration-150");
+    expect(
+      Array.from(list.children).map((child) =>
+        child.getAttribute("data-note-id"),
+      ),
+    ).toEqual(["before", "returning", "after"]);
+  });
+
   it("初期状態は開いて表示し、必要なときに小さなドックへ閉じる", () => {
     const onAdd = vi.fn();
     render(

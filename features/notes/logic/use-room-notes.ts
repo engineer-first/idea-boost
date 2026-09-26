@@ -90,7 +90,7 @@ export type UseRoomNotesResult = {
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
   addNote: (content?: string) => void;
   publishNote: (noteId: string, x: number, y: number) => void;
-  unpublishNote: (noteId: string) => void;
+  unpublishNote: (noteId: string, privateIndex?: number) => void;
   startNoteDrag: (noteId: string) => void;
   // ドラッグ中: 即時ローカル反映 + note:drag をスロットル送信。
   moveNote: (noteId: string, x: number, y: number) => void;
@@ -448,7 +448,7 @@ export function useRoomNotes({
   );
 
   const unpublishNote = useCallback(
-    (noteId: string) => {
+    (noteId: string, privateIndex?: number) => {
       sendDragRef.current?.cancel();
       noteDragOperationRef.current = null;
       draggingNoteIdRef.current = null;
@@ -456,7 +456,11 @@ export function useRoomNotes({
       if (pendingNoteDropRef.current?.noteId === noteId) {
         updatePendingNoteDrop(null);
       }
-      send({ type: "note:unpublish", noteId });
+      send(
+        privateIndex === undefined
+          ? { type: "note:unpublish", noteId }
+          : { type: "note:unpublish", noteId, privateIndex },
+      );
     },
     [send, updatePendingNoteDrop],
   );
@@ -525,6 +529,14 @@ export function useRoomNotes({
         return;
       }
       sendDragRef.current?.cancel();
+      updateNotes((current) =>
+        moveNoteLocally(
+          current,
+          operation.noteId,
+          operation.initialX,
+          operation.initialY,
+        ),
+      );
       send({
         type: "note:drag:end",
         noteId: operation.noteId,
@@ -535,7 +547,7 @@ export function useRoomNotes({
       draggingNoteIdRef.current = null;
       setDraggingNoteId(null);
     },
-    [send],
+    [send, updateNotes],
   );
 
   const excludeNote = useCallback(

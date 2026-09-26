@@ -739,6 +739,23 @@ describe("ClientMessageSchema", () => {
     });
   });
 
+  it("note:unpublish はマイ付箋内の挿入indexを受け入れる", () => {
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:unpublish",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        privateIndex: 1,
+      }),
+    ).toMatchObject({ privateIndex: 1 });
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "note:unpublish",
+        noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        privateIndex: -1,
+      }).success,
+    ).toBe(false);
+  });
+
   it("note:unpublish はUUIDでない付箋IDを拒否する", () => {
     expect(
       ClientMessageSchema.safeParse({

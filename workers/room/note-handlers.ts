@@ -34,13 +34,14 @@ import {
   listBulkRestoreTargets,
   moveNote,
   type NoteRow,
+  nextStackOrder,
   publishNote,
   requireNoteInCurrentPhase,
   restoreNotesForBulkOperation,
   setNoteExcluded,
   toProtocolNote,
   touchNote,
-  unpublishNote,
+  unpublishNoteAtIndex,
   updateNoteContent,
 } from "./notes";
 import { getPhase, isPersonalWritingStep } from "./phase";
@@ -129,7 +130,7 @@ export const noteHandlers: MessageHandlers<
       color: color,
       x: NOTE_SPAWN_X_MIN + Math.random() * NOTE_SPAWN_JITTER,
       y: NOTE_SPAWN_Y_MIN + Math.random() * NOTE_SPAWN_JITTER,
-      stack_order: 0,
+      stack_order: nextStackOrder(ctx.sql),
       created_at: now,
       updated_at: now,
       phase: phase.phase,
@@ -184,13 +185,24 @@ export const noteHandlers: MessageHandlers<
       toProtocolNote(ctx.sql, row, ctx.userId),
     );
     const updatedAt = new Date().toISOString();
-    unpublishNote(ctx.sql, message.noteId, updatedAt);
+    const reorderedPrivateNotes = unpublishNoteAtIndex(
+      ctx.sql,
+      message.noteId,
+      ctx.userId,
+      row.phase,
+      message.privateIndex ?? Number.MAX_SAFE_INTEGER,
+      updatedAt,
+    );
+    for (const reordered of reorderedPrivateNotes) {
+      if (reordered.id === message.noteId) continue;
+      broadcastNoteUpdated(ctx.sql, ctx.broadcaster, reordered);
+    }
+    const returned = reorderedPrivateNotes.find(
+      (candidate) => candidate.id === message.noteId,
+    );
+    if (!returned) return;
     // private 化後は作者だけに同じIDの付箋を復帰させる。
-    broadcastNoteInserted(ctx.sql, ctx.broadcaster, {
-      ...row,
-      visibility: "private",
-      updated_at: updatedAt,
-    });
+    broadcastNoteInserted(ctx.sql, ctx.broadcaster, returned);
     autoReorganizeAtGroupingStep(ctx);
   },
 

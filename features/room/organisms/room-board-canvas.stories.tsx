@@ -174,6 +174,31 @@ export const WithPrivateNotes: Story = {
   },
 };
 
+// 共有付箋をマイ付箋へ戻す途中。挿入位置と掴んだ付箋を同時に確認する。
+export const ReturningToPrivateNotes: Story = {
+  args: {
+    privateNotes: buildNotes(3).map((note) => ({
+      ...note,
+      visibility: "private" as const,
+    })),
+    privateDropPlaceholder: {
+      noteId: "note-2",
+    },
+    dragPreview: {
+      note: buildNote({
+        id: "note-2",
+        visibility: "private",
+        content: "この位置へ戻す付箋",
+      }),
+      left: 920,
+      top: 280,
+      width: 192,
+      height: 144,
+    },
+    isReturnDropTarget: true,
+  },
+};
+
 // error相当: 未接続中は付箋の操作が無効化される。
 export const Disconnected: Story = {
   args: {

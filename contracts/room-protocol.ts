@@ -221,6 +221,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("note:unpublish"),
     noteId: z.string().uuid(),
+    privateIndex: z.number().int().nonnegative().optional(),
   }),
   z.object({
     type: z.literal("note:update-content"),
