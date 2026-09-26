@@ -78,6 +78,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: buildPhaseStep(1),
     decision: null,
+    outcomePublished: false,
     adoptionFocusNoteId: null,
     timer: { status: "idle" } as const,
     timerServerOffsetMs: 0,
@@ -114,6 +115,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: vi.fn(),
+    onPublishOutcome: vi.fn(),
     onAdoptionFocusChange: vi.fn(),
 
     connectionStatus: "open" as const,
@@ -489,16 +491,21 @@ describe("RoomBoardView", () => {
     });
   });
 
-  it("Step 3-5 は決定前後とも次へを表示せず、決定後に成果を表示する", async () => {
+  it("Step 3-5 は採用案の選択後もボードに留まり、ホストの完了操作を待つ", async () => {
+    const onPublishOutcome = vi.fn();
     const { props, rerender } = setup({
       phase: buildPhaseStep(5, 3),
       decision: null,
+      isHost: true,
+      onPublishOutcome,
     });
 
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "完了して成果を表示" }),
+    ).not.toBeInTheDocument();
 
     rerender(
       <TestBoardView
@@ -508,20 +515,19 @@ describe("RoomBoardView", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("heading", { name: "チームで決めた成果" }),
-    ).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "ボードへ戻る" }));
-    expect(screen.getByText("スプリント完了")).toHaveAttribute(
-      "role",
-      "status",
+    expect(screen.getByTestId("room-board-view-root")).toBeVisible();
+    expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "完了して成果を表示" }),
     );
+    expect(onPublishOutcome).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("room-board-view-root")).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
   });
 
-  it("最終決定後に全員へ成果を表示し、ボード往復でも再表示できる", async () => {
+  it("成果公開後に全員へ成果を表示し、ボード往復でも再表示できる", async () => {
     const idea = buildNote({
       id: "99999999-9999-4999-8999-999999999999",
       content: "採用する案\n次の行",
@@ -541,6 +547,7 @@ describe("RoomBoardView", () => {
         hmwDecidedIssue="決定課題"
         decidedHmw="決定した問い"
         decision={buildDecision({ phase: 3, noteId: idea.id })}
+        outcomePublished
       />,
     );
     expect(
@@ -569,6 +576,7 @@ describe("RoomBoardView", () => {
       phase: buildPhaseStep(5, 3),
       notes: [idea],
       decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
       hmwDecidedIssue: null,
       decidedHmw: "問い",
       connectionStatus: "closed",
@@ -588,6 +596,7 @@ describe("RoomBoardView", () => {
       phase: buildPhaseStep(5, 3),
       notes: [idea],
       decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
       hmwDecidedIssue: "課題",
       decidedHmw: "問い",
       connectionStatus: "open" as const,
@@ -623,6 +632,7 @@ describe("RoomBoardView", () => {
       phase: buildPhaseStep(5, 3),
       notes: [idea],
       decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
       hmwDecidedIssue: "課題",
       decidedHmw: "問い",
       isHost: true,

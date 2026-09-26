@@ -83,6 +83,7 @@ export function applyServerMessage(
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "outcome:published":
     case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":

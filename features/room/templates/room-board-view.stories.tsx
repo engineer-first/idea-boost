@@ -18,6 +18,7 @@ const STEP_1_3 = buildPhaseStep(3);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_1 = buildPhaseStep(1, 2);
+const STEP_3_5 = buildPhaseStep(5, 3);
 const GUIDE_ISSUE = "会議で発言する人が偏ってしまう";
 const GUIDE_HMW = "どうすれば全員が安心してアイデアを共有できるだろうか？";
 const CANVAS_HUD_POSITIONS = [
@@ -103,6 +104,7 @@ const meta = {
     timerServerOffsetMs: 0,
     isHost: true,
     decision: null,
+    outcomePublished: false,
     connectionStatus: "open",
     draggingNoteId: null,
     members: buildMembers(3, ME),
@@ -139,6 +141,7 @@ const meta = {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: fn(),
+    onPublishOutcome: fn(),
 
     onLeave: fn(),
     isLeaving: false,
@@ -513,6 +516,27 @@ export const Decided: Story = {
       noteId: "note-1",
       decidedBy: ME,
     }),
+  },
+};
+
+export const FinalDecisionPending: Story = {
+  args: {
+    phase: STEP_3_5,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 120 + index * 280,
+      y: 180,
+    })),
+    decision: buildDecision({ phase: 3, noteId: "note-1", decidedBy: ME }),
+    hmwDecidedIssue: "決定した課題",
+    decidedHmw: "決定した問い",
+  },
+};
+
+export const OutcomePublished: Story = {
+  args: {
+    ...FinalDecisionPending.args,
+    outcomePublished: true,
   },
 };
 

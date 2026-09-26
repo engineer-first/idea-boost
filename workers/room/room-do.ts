@@ -474,6 +474,10 @@ export class RoomDO extends DurableObject {
       ideaMapDragging: ideaMapState.isDragging,
       decision:
         phase.kind === "step" ? getDecision(this.sql, phase.phase) : null,
+      outcomePublished:
+        this.sql
+          .exec("SELECT outcome_published FROM room_state WHERE id = 1")
+          .one().outcome_published === 1,
       adoptionFocusNoteId: this.broadcaster.currentAdoptionFocusNoteId(),
       carryovers:
         phase.kind === "step" ? getCarryovers(this.sql, phase.phase) : [],

@@ -403,7 +403,7 @@ test("透明効果を減らす設定ではボード上のHUD全体が不透明",
   }
 });
 
-test("アイデア決定後は成果を表示し、ボードへ戻っても完了操作を読める", async () => {
+test("成果公開後は成果を表示し、ボードへ戻っても再表示できる", async () => {
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardlayout--completed&viewMode=story`,
   );
@@ -420,7 +420,19 @@ test("アイデア決定後は成果を表示し、ボードへ戻っても完�
   expect(await page.getByRole("dialog").count()).toBe(0);
   await page.screenshot({ path: `${output}/completed-result.png` });
   await page.getByRole("button", { name: "ボードへ戻る" }).click();
-  await page.getByText("スプリント完了", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "成果を見る" }).waitFor();
+  await expectLayout();
+});
+
+test("採用案を選んだ後もボードに留まり、ホストにだけ完了チェックを示す", async () => {
+  await openStory("room-roomboardlayout--final-decision-pending");
+  expect(await page.getByTestId("room-board-view-root").isVisible()).toBe(true);
+  expect(
+    await page.getByRole("heading", { name: "チームで決めた成果" }).count(),
+  ).toBe(0);
+  const finish = page.getByRole("button", { name: "完了して成果を表示" });
+  expect(await finish.isVisible()).toBe(true);
+  expect(await finish.locator("svg").count()).toBe(1);
   await expectLayout();
 });
 

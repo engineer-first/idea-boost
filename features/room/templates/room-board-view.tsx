@@ -64,6 +64,7 @@ export type RoomBoardViewProps = {
   timerUpdateVersion?: number;
   isHost: boolean;
   decision: Decision | null;
+  outcomePublished: boolean;
   adoptionFocusNoteId?: string | null;
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
@@ -116,6 +117,7 @@ export type RoomBoardViewProps = {
   }>;
   voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
+  onPublishOutcome: () => void;
   onAdoptionFocusChange?: (noteId: string | null) => void;
   onRestartWriting?: () => void;
   onRevote?: () => void;
@@ -167,6 +169,7 @@ export function RoomBoardView({
   timerUpdateVersion = 0,
   isHost,
   decision,
+  outcomePublished,
   adoptionFocusNoteId = null,
   connectionStatus,
   draggingNoteId,
@@ -201,6 +204,7 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onPublishOutcome,
   onNoteBringToFront,
   onAdoptionFocusChange: notifyAdoptionFocusChange,
   onRestartWriting = () => undefined,
@@ -365,7 +369,7 @@ export function RoomBoardView({
       phase.step > 1 &&
       !isResultStep(phase) &&
       candidateNotes.length === 0);
-  const isSprintComplete = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
+  const hasFinalDecision = isPhaseStep(phase, 3, 5) && decision?.phase === 3;
   const outcomeIdea =
     decision?.phase === 3
       ? (notes.find((note) => note.id === decision.noteId)?.content ?? null)
@@ -684,7 +688,7 @@ export function RoomBoardView({
     }
   };
 
-  if (isSprintComplete && !outcomeDismissed) {
+  if (hasFinalDecision && outcomePublished && !outcomeDismissed) {
     return (
       <RoomOutcomeView
         outcome={outcome}
@@ -740,7 +744,9 @@ export function RoomBoardView({
         isNextPhasePending={isNextPhasePending}
         isNextPhaseBlocked={isNextPhaseBlocked}
         initialGuideState={initialGuideState}
-        isSprintComplete={isSprintComplete}
+        hasFinalDecision={hasFinalDecision}
+        outcomePublished={outcomePublished}
+        onPublishOutcome={onPublishOutcome}
         onShowOutcome={() => setOutcomeDismissed(false)}
         signOutAction={signOutAction}
         isLeaving={isLeaving}
@@ -912,7 +918,7 @@ export function RoomBoardView({
         onConfirm={onLeave}
         isLeaving={isLeaving}
         mode={isHost ? "disband" : "leave"}
-        completed={isSprintComplete}
+        completed={outcomePublished}
         onReturnToOutcome={() => setOutcomeDismissed(false)}
       />
     </div>

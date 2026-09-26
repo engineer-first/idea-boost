@@ -65,11 +65,13 @@ export type RoomBoardHeaderProps = {
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
   initialGuideState?: StepGuideState;
-  isSprintComplete: boolean;
+  hasFinalDecision: boolean;
+  outcomePublished: boolean;
   isLeaving: boolean;
   signOutAction?: () => Promise<void>;
   onShowVoteResult: () => void;
   onShowOutcome?: () => void;
+  onPublishOutcome: () => void;
   onLeaveClick: () => void;
   onNextPhase: () => void;
   onTimerStart: (durationMs: number) => void;
@@ -106,11 +108,13 @@ export function RoomBoardHeader({
   isNextPhasePending,
   isNextPhaseBlocked,
   initialGuideState,
-  isSprintComplete,
+  hasFinalDecision,
+  outcomePublished,
   isLeaving,
   signOutAction,
   onShowVoteResult,
   onShowOutcome,
+  onPublishOutcome,
   onLeaveClick,
   onNextPhase,
   onTimerStart,
@@ -164,10 +168,10 @@ export function RoomBoardHeader({
   const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
   const leaveLabel = isHost
     ? isLeaving
-      ? isSprintComplete
+      ? outcomePublished
         ? "削除中…"
         : "解散中…"
-      : isSprintComplete
+      : outcomePublished
         ? "ルームを削除（全員のデータ）"
         : "ルームを解散"
     : isLeaving
@@ -474,8 +478,8 @@ export function RoomBoardHeader({
               >
                 投票結果を表示
               </Button>
-              {isFinalStep && isSprintComplete ? (
-                <>
+              {isFinalStep && hasFinalDecision ? (
+                outcomePublished ? (
                   <Button
                     type="button"
                     className="h-10 shrink-0 px-3"
@@ -483,14 +487,19 @@ export function RoomBoardHeader({
                   >
                     成果を見る
                   </Button>
-                  <span
-                    role="status"
-                    className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-foreground px-3 text-xs font-semibold text-background"
+                ) : isHost ? (
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="size-10 shrink-0"
+                    aria-label="完了して成果を表示"
+                    title="完了して成果を表示"
+                    disabled={isDisconnected}
+                    onClick={onPublishOutcome}
                   >
-                    <Check aria-hidden="true" className="size-4" />
-                    スプリント完了
-                  </span>
-                </>
+                    <Check aria-hidden="true" className="size-5" />
+                  </Button>
+                ) : null
               ) : !isFinalStep && isHost && !isNextPhaseBlocked ? (
                 <NextPhaseConfirmDialog
                   key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}

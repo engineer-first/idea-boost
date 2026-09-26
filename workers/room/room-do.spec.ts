@@ -3176,6 +3176,82 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
+  it("成果公開は採用決定後のホストだけが行い、全員と再接続へ反映する", async () => {
+    const roomName = "room-publish-outcome-after-decision";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(5, 3), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        `INSERT INTO decisions (phase, note_id, note_content, decided_by, decided_at)
+         VALUES (3, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '採用案', ?1, '2026-09-26T00:00:00Z')`,
+        USER_A,
+      );
+    });
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const forbidden = nextJson(member);
+    member.send(JSON.stringify({ type: "outcome:publish" }));
+    expect(await forbidden).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+
+    const hostPublished = nextJson(host);
+    const memberPublished = nextJson(member);
+    host.send(JSON.stringify({ type: "outcome:publish" }));
+    expect(await hostPublished).toEqual({
+      type: "outcome:published",
+      published: true,
+    });
+    expect(await memberPublished).toEqual({
+      type: "outcome:published",
+      published: true,
+    });
+    const reconnected = await connectDirectlyWithFirstMessage(
+      roomName,
+      USER_B,
+      USER_A,
+    );
+    expect(reconnected.firstMessage).toMatchObject({
+      type: "snapshot",
+      outcomePublished: true,
+    });
+    reconnected.ws.close();
+    host.close();
+    member.close();
+  });
+
+  it("採用案が未決定または最終ステップ外ならホストも成果を公開できない", async () => {
+    for (const [name, phase, hasDecision] of [
+      ["missing-decision", buildPhaseStep(5, 3), false],
+      ["wrong-step", buildPhaseStep(4, 3), true],
+    ] as const) {
+      const roomName = `room-publish-outcome-${name}`;
+      const stub = roomStub(roomName);
+      await stub.initializeNewRoom(USER_A, "Host");
+      await stub.setPhase(phase, USER_A);
+      if (hasDecision) {
+        await runInRoomDO(roomName, (_instance, state) => {
+          state.storage.sql.exec(
+            `INSERT INTO decisions (phase, note_id, note_content, decided_by, decided_at)
+             VALUES (3, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '採用案', ?1, '2026-09-26T00:00:00Z')`,
+            USER_A,
+          );
+        });
+      }
+      const host = await connectDirectly(roomName, USER_A, USER_A);
+      const forbidden = nextJson(host);
+      host.send(JSON.stringify({ type: "outcome:publish" }));
+      expect(await forbidden).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      host.close();
+    }
+  });
+
   it("Step 3-2 は複数参加者へ共有付箋を配信し、近接してもグループ化せず投票を拒否する", async () => {
     const roomName = "room-phase3-share-and-operation-gates";
     const stub = roomStub(roomName);

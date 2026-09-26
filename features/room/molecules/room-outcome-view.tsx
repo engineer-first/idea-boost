@@ -66,10 +66,7 @@ export function RoomOutcomeView({
       data-testid="room-outcome-view"
     >
       <div className="mx-auto w-full max-w-3xl">
-        <p className="text-sm font-semibold tracking-wide text-muted-foreground">
-          SPRINT OUTCOME
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           チームで決めた成果
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
