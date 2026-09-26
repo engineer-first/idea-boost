@@ -94,6 +94,16 @@ function isFrozenSharedNoteAtPersonalStep(
   );
 }
 
+async function contentDigest(content: string): Promise<string> {
+  const bytes = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(content),
+  );
+  return Array.from(new Uint8Array(bytes), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 export const noteHandlers: MessageHandlers<
   | "note:create"
   | "note:publish"
@@ -206,7 +216,9 @@ export const noteHandlers: MessageHandlers<
     autoReorganizeAtGroupingStep(ctx);
   },
 
-  "note:update-content": (ctx, message) => {
+  "note:update-content": async (ctx, message) => {
+    // WebCrypto は非同期なので、権限とフェーズの検査は計算が終わった後に行う。
+    const digest = await contentDigest(message.content);
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (
@@ -219,14 +231,14 @@ export const noteHandlers: MessageHandlers<
     }
     const prior = ctx.sql
       .exec(
-        "SELECT user_id, note_id, content, expected_content_revision, expected_phase_revision, content_revision FROM note_content_receipts WHERE operation_id = ?1",
+        "SELECT user_id, note_id, content_digest, expected_content_revision, expected_phase_revision, content_revision FROM note_content_receipts WHERE operation_id = ?1",
         message.operationId,
       )
       .toArray()[0] as
       | {
           user_id: string;
           note_id: string;
-          content: string;
+          content_digest: string;
           expected_content_revision: number;
           expected_phase_revision: number;
           content_revision: number;
@@ -236,7 +248,7 @@ export const noteHandlers: MessageHandlers<
       if (
         prior.user_id === ctx.userId &&
         prior.note_id === message.noteId &&
-        prior.content === message.content &&
+        prior.content_digest === digest &&
         prior.expected_content_revision === message.expectedContentRevision &&
         prior.expected_phase_revision === message.expectedPhaseRevision
       ) {
@@ -284,11 +296,11 @@ export const noteHandlers: MessageHandlers<
       if (Number(ctx.sql.exec("SELECT changes() AS count").one().count) !== 1)
         throw new Error("本文のrevisionが競合しました。");
       ctx.sql.exec(
-        "INSERT INTO note_content_receipts (operation_id, user_id, note_id, content, expected_content_revision, expected_phase_revision, content_revision, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO note_content_receipts (operation_id, user_id, note_id, content_digest, expected_content_revision, expected_phase_revision, content_revision, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         message.operationId,
         ctx.userId,
         message.noteId,
-        message.content,
+        digest,
         message.expectedContentRevision,
         message.expectedPhaseRevision,
         contentRevision,

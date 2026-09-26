@@ -6,7 +6,7 @@ CREATE TABLE note_content_receipts (
   operation_id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   note_id TEXT NOT NULL,
-  content TEXT NOT NULL,
+  content_digest TEXT NOT NULL,
   expected_content_revision INTEGER NOT NULL,
   expected_phase_revision INTEGER NOT NULL,
   content_revision INTEGER NOT NULL,
