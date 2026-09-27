@@ -23,6 +23,7 @@ import { noteHandlers } from "./note-handlers";
 import { findNote, insertNote, type NoteRow, toProtocolNote } from "./notes";
 import { getPhase, savePhase } from "./phase";
 import { RoomDO } from "./room-do";
+import { readOutcomeState } from "./shared-outcomes";
 import { VERIFICATION_NOTES } from "./verification-content";
 import { addVoteSticker, countUserVotes, hasCompletedVoting } from "./votes";
 
@@ -140,6 +141,19 @@ export class VerificationRoomDO extends RoomDO {
       );
       await this.flushSharedOutcome();
     }
+  }
+
+  // 準備に失敗した検証ルームだけを破棄する。本番の解散による成果保持とは分ける。
+  async discardVerificationRoom(): Promise<void> {
+    const hasOutcome = Boolean(readOutcomeState(this.ctx.storage.sql));
+    await this.disband();
+    if (!hasOutcome) return;
+    // 進行中の投影を待ち、期限切れ処理で本文・outbox・D1索引を消す。
+    await this.flushSharedOutcome();
+    this.ctx.storage.sql.exec(
+      "UPDATE shared_outcome_state SET expires_at = 0, retry_at = 0 WHERE id = 1",
+    );
+    await this.flushSharedOutcome();
   }
 
   protected override async writeSharedOutcomeProjection(

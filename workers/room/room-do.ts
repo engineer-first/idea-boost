@@ -410,6 +410,8 @@ export class RoomDO extends DurableObject {
       if (active) {
         const row = findNote(this.sql, active.noteId);
         if (row?.visibility === "shared") {
+          // 終了メッセージが届かない切断でも、最後に受理した座標を保全する。
+          await this.preserveSharedOutcome();
           broadcastNoteUpdated(this.sql, this.broadcaster, row);
         }
         if (isIdeaMapVisiblePhase(getPhase(this.sql))) {
@@ -522,7 +524,7 @@ export class RoomDO extends DurableObject {
       }
     }
     const affectsOutcome =
-      isBoardMutation(message) ||
+      (isBoardMutation(message) && !message.type.startsWith("note:drag:")) ||
       message.type === "start_phase" ||
       message.type.startsWith("phase:");
     const before = affectsOutcome
@@ -542,6 +544,10 @@ export class RoomDO extends DurableObject {
       if (response.type === "error") rejected = true;
       reply(response);
     };
+    let sharedDragEnded = false;
+    ctx.onSharedDragEnd = () => {
+      sharedDragEnded = true;
+    };
     await handler(ctx, message);
     const after = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
@@ -551,7 +557,7 @@ export class RoomDO extends DurableObject {
       "noteId" in message &&
       typeof message.noteId === "string" &&
       findNote(this.sql, message.noteId)?.visibility === "shared";
-    if (before !== after || (!rejected && sharedVote))
+    if (before !== after || (!rejected && (sharedVote || sharedDragEnded)))
       await this.preserveSharedOutcome();
     else if (!rejected && affectsSharedActivity) {
       const activityAfter = JSON.stringify({

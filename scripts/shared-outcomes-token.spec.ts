@@ -171,3 +171,37 @@ it("旧保存先引数や不正URLは設定変更前に拒否する", async () =
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it.each([
+  "issue",
+  "rotate",
+])("本番の%sはHTTPを登録前に拒否する", async (operation) => {
+  const directory = await mkdtemp(join(tmpdir(), "outcomes-cli-"));
+  try {
+    await prepareWrangler(directory);
+    await expect(
+      runCli(directory, operation, "production", "http://example.test"),
+    ).rejects.toMatchObject({ code: 1, stdout: "" });
+    expect(await readdir(directory)).toEqual(["node_modules"]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it.each([
+  "local",
+  "verification",
+])("%sではlocalhostのHTTPを利用できる", async (target) => {
+  const directory = await mkdtemp(join(tmpdir(), "outcomes-cli-"));
+  try {
+    const { stdout } = await runCli(
+      directory,
+      "issue",
+      target,
+      "http://localhost:3000",
+    );
+    expect(new URL(stdout.trim()).origin).toBe("http://localhost:3000");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

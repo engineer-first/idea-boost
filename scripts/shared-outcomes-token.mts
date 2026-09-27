@@ -83,6 +83,8 @@ async function main(): Promise<void> {
   const linkUrl = site ? new URL("/shared-outcomes", site) : null;
   if (linkUrl && !["http:", "https:"].includes(linkUrl.protocol))
     throw new Error("HTTP(S)のサイトURLを指定してください。");
+  if (target === "production" && linkUrl && linkUrl.protocol !== "https:")
+    throw new Error("本番のサイトURLにはHTTPSを指定してください。");
   let token: string | null;
   if (target === "production") {
     // issueも設定変更を伴う。既存設定を保持する場合は発行済みリンクを継続利用する。

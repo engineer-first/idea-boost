@@ -581,6 +581,7 @@ export const noteHandlers: MessageHandlers<
       broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
     }
     autoReorganizeAtGroupingStep(ctx);
+    ctx.onSharedDragEnd?.();
   },
 
   "note:exclude": (ctx, message) => {

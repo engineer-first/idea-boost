@@ -74,19 +74,32 @@ const api = createApiWorker(async (request, baseEnv, session) => {
     const stub = namespace.get(namespace.idFromName(room.roomId));
     const checkpoint: VerificationCheckpoint =
       parsed.data.scenario === "empty" ? "lobby" : "3-5";
-    await stub.initializeVerification(
-      checkpoint,
-      room.roomId,
-      parsed.data.roomName,
-    );
-    await stub.prepareVerificationOutcome(parsed.data.scenario);
-    const active = {
-      roomId: room.roomId,
-      inviteCode: room.inviteCode,
-      checkpoint,
-    };
-    await workspace.setActive(active);
-    return Response.json(active);
+    try {
+      await stub.initializeVerification(
+        checkpoint,
+        room.roomId,
+        parsed.data.roomName,
+      );
+      await stub.prepareVerificationOutcome(parsed.data.scenario);
+      const active = {
+        roomId: room.roomId,
+        inviteCode: room.inviteCode,
+        checkpoint,
+      };
+      await workspace.setActive(active);
+      return Response.json(active);
+    } catch {
+      await deleteRoom(env.DB, room.roomId);
+      await stub.discardVerificationRoom();
+      // 初期化前の失敗にはDO側の成果状態がないため、初期索引も明示削除する。
+      await env.DB.prepare("DELETE FROM shared_outcomes WHERE room_id = ?")
+        .bind(room.roomId)
+        .run();
+      return Response.json(
+        { error: "検証状態の準備に失敗しました。" },
+        { status: 503 },
+      );
+    }
   }
   const recovery = path.match(
     /^\/api\/verification\/outcomes\/([0-9a-f-]{36})\/recover$/,

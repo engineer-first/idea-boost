@@ -24,7 +24,7 @@
 
 ### エージェントが行う初回設定と保守
 
-次のコマンドだけで、暗号学的乱数から32バイトの秘密値を生成し、本番Workerの `SHARED_OUTCOMES_TOKEN` に登録する。登録に成功すると閲覧URLを標準出力へ返す。保存先引数やリンクファイルの作成は不要。
+次のコマンドだけで、暗号学的乱数から32バイトの秘密値を生成し、本番Workerの `SHARED_OUTCOMES_TOKEN` に登録する。本番のサイトURLはHTTPSのみ受け付ける。登録に成功すると閲覧URLを標準出力へ返す。保存先引数やリンクファイルの作成は不要。
 
 ```bash
 npm run outcomes:link -- issue production https://ideaboost.dev

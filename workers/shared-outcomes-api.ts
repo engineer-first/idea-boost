@@ -71,19 +71,22 @@ export async function handleSharedOutcomes(
         last_used_at: number;
         created_at: string | null;
       }>();
+  const records = await Promise.all(
+    candidates.results.slice(0, 50).map(async (row) => {
+      const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(row.room_id));
+      if (row.created_at)
+        await stub.ensureSharedOutcome(
+          row.room_id,
+          Date.parse(`${row.created_at.replace(" ", "T")}Z`),
+        );
+      return stub.getSharedOutcome();
+    }),
+  );
   const outcomes: SharedOutcomeSummary[] = [];
-  for (const row of candidates.results.slice(0, 50)) {
-    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(row.room_id));
-    if (row.created_at)
-      await stub.ensureSharedOutcome(
-        row.room_id,
-        Date.parse(`${row.created_at.replace(" ", "T")}Z`),
-      );
-    const record = await stub.getSharedOutcome();
-    if (record) {
-      const { snapshot: _, ...summary } = record;
-      outcomes.push(summary);
-    }
+  for (const record of records) {
+    if (!record) continue;
+    const { snapshot: _, ...summary } = record;
+    outcomes.push(summary);
   }
   outcomes.sort(
     (a, b) => b.lastUsedAt - a.lastUsedAt || a.roomId.localeCompare(b.roomId),
