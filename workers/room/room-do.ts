@@ -528,6 +528,14 @@ export class RoomDO extends DurableObject {
     const before = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
       : null;
+    const affectsSharedActivity =
+      message.type.startsWith("timer:") || message.type.startsWith("sharing:");
+    const activityBefore = affectsSharedActivity
+      ? JSON.stringify({
+          timer: getTimerState(this.sql),
+          sharing: getSharingState(this.sql),
+        })
+      : null;
     let rejected = false;
     const reply = ctx.reply;
     ctx.reply = (response) => {
@@ -545,6 +553,14 @@ export class RoomDO extends DurableObject {
       findNote(this.sql, message.noteId)?.visibility === "shared";
     if (before !== after || (!rejected && sharedVote))
       await this.preserveSharedOutcome();
+    else if (!rejected && affectsSharedActivity) {
+      const activityAfter = JSON.stringify({
+        timer: getTimerState(this.sql),
+        sharing: getSharingState(this.sql),
+      });
+      if (activityBefore !== activityAfter)
+        await this.outcomes.recordSharedActivity();
+    }
   }
 
   private createHandlerCtx(

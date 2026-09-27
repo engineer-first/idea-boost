@@ -329,3 +329,211 @@ it("共有操作のない個人入力や成果閲覧は保持期限を延ばさ�
   expect(after?.expiresAt).toBe(before?.expiresAt);
   socket.close();
 });
+
+it("投影中に期限を跨いでも本文を削除するアラームを残し、削除後は再予約しない", async () => {
+  const room = await createRoomAs(owner);
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    const subject = instance as unknown as {
+      preserveSharedOutcome(): Promise<void>;
+      writeSharedOutcomeProjection(snapshot: unknown): Promise<void>;
+    };
+    await subject.preserveSharedOutcome();
+    const original = subject.writeSharedOutcomeProjection.bind(subject);
+    subject.writeSharedOutcomeProjection = async (snapshot) => {
+      await original(snapshot);
+      state.storage.sql.exec(
+        "UPDATE shared_outcome_state SET expires_at = ? WHERE id = 1",
+        Date.now() - 1,
+      );
+    };
+    await instance.alarm();
+    expect(
+      state.storage.sql
+        .exec("SELECT saved_json FROM shared_outcome_state")
+        .one().saved_json,
+    ).not.toBeNull();
+    expect(await state.storage.getAlarm()).not.toBeNull();
+    await instance.alarm();
+    expect(
+      state.storage.sql
+        .exec("SELECT saved_json,pending_json FROM shared_outcome_state")
+        .one(),
+    ).toMatchObject({ saved_json: null, pending_json: null });
+    expect(await state.storage.getAlarm()).toBeNull();
+  });
+  expect(
+    await env.DB.prepare(
+      "SELECT room_id FROM shared_outcomes WHERE room_id = ?",
+    )
+      .bind(room.roomId)
+      .first(),
+  ).toBeNull();
+});
+
+it("期限後の削除失敗は閲覧停止を維持し、再試行間隔を守って削除を完了する", async () => {
+  const room = await createRoomAs(owner);
+  await env.DB.prepare("DROP TABLE shared_outcomes").run();
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    state.storage.sql.exec(
+      "UPDATE shared_outcome_state SET expires_at = ? WHERE id = 1",
+      Date.now() - 1,
+    );
+    await instance.alarm();
+    const row = state.storage.sql
+      .exec("SELECT saved_json,retry_at FROM shared_outcome_state")
+      .one();
+    expect(row.saved_json).not.toBeNull();
+    expect(row.retry_at).toBeGreaterThan(Date.now() + 50000);
+    expect(await state.storage.getAlarm()).toBe(row.retry_at);
+    expect(await instance.getSharedOutcome()).toBeNull();
+  });
+  await env.DB.prepare(
+    "CREATE TABLE shared_outcomes(room_id TEXT PRIMARY KEY,last_used_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,snapshot_json TEXT)",
+  ).run();
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    await instance.alarm();
+    expect(await instance.getSharedOutcome()).toBeNull();
+    expect(
+      state.storage.sql
+        .exec(
+          "SELECT saved_json,pending_json,retry_at FROM shared_outcome_state",
+        )
+        .one(),
+    ).toMatchObject({ saved_json: null, pending_json: null, retry_at: null });
+    expect(await state.storage.getAlarm()).toBeNull();
+  });
+});
+
+it("受理した共有タイマー操作だけ最終利用を更新し、保存盤面と保存時刻を変えない", async () => {
+  const { connectRoomAs, joinRoomAs } = await import("./test-helpers");
+  const room = await createRoomAs(owner);
+  const member = {
+    sub: "22222222-2222-4222-8222-222222222222",
+    name: "Member",
+    email: "member@test.invalid",
+  };
+  await joinRoomAs(member, room.inviteCode);
+  const old = Date.now() - 3600000;
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    await instance.setPhase({ kind: "step", phase: 1, step: 1 }, owner.sub);
+    state.storage.sql.exec(
+      "UPDATE shared_outcome_state SET last_used_at = ? WHERE id = 1",
+      old,
+    );
+  });
+  const host = await connectRoomAs(owner, room.roomId);
+  await host.next();
+  const guest = await connectRoomAs(member, room.roomId);
+  await guest.next();
+  const before = await runInRoomDO(room.roomId, (instance) =>
+    instance.getSharedOutcome(),
+  );
+  guest.ws.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
+  expect(await guest.next()).toMatchObject({ type: "error" });
+  expect(
+    (await runInRoomDO(room.roomId, (instance) => instance.getSharedOutcome()))
+      ?.lastUsedAt,
+  ).toBe(old);
+  host.ws.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
+  expect(await host.next()).toMatchObject({
+    type: "timer:updated",
+    timer: { status: "running" },
+  });
+  const after = await runInRoomDO(room.roomId, (instance) =>
+    instance.getSharedOutcome(),
+  );
+  expect(after?.lastUsedAt).toBeGreaterThan(old);
+  expect(after?.expiresAt).toBe((after?.lastUsedAt ?? 0) + 30 * 86400000);
+  expect(after?.snapshot).toEqual(before?.snapshot);
+  expect(after?.lastSavedAt).toBe(before?.lastSavedAt);
+  host.ws.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
+  expect(await host.next()).toMatchObject({ type: "error" });
+  expect(
+    (await runInRoomDO(room.roomId, (instance) => instance.getSharedOutcome()))
+      ?.lastUsedAt,
+  ).toBe(after?.lastUsedAt);
+  host.close();
+  guest.close();
+});
+
+it("共有開始と交代の受理で最終利用を更新し、古い版の再送では延長しない", async () => {
+  const { connectRoomAs } = await import("./test-helpers");
+  const room = await createRoomAs(owner);
+  await runInRoomDO(room.roomId, (instance) =>
+    instance.setPhase({ kind: "step", phase: 1, step: 2 }, owner.sub),
+  );
+  const socket = await connectRoomAs(owner, room.roomId);
+  const snapshot = await socket.next();
+  if (snapshot.type !== "snapshot" || !snapshot.sharing)
+    throw new Error("共有状態がありません");
+  const old = Date.now() - 3600000;
+  await runInRoomDO(room.roomId, (_instance, state) => {
+    state.storage.sql.exec(
+      "UPDATE shared_outcome_state SET last_used_at=?",
+      old,
+    );
+  });
+  socket.ws.send(
+    JSON.stringify({
+      type: "sharing:start",
+      revision: snapshot.sharing.revision,
+      durationMs: 60000,
+    }),
+  );
+  const started = await socket.next();
+  expect(started).toMatchObject({
+    type: "sharing:updated",
+    sharing: { status: "active" },
+  });
+  const first = await runInRoomDO(room.roomId, (instance) =>
+    instance.getSharedOutcome(),
+  );
+  expect(first?.lastUsedAt).toBeGreaterThan(old);
+  socket.ws.send(
+    JSON.stringify({
+      type: "sharing:start",
+      revision: snapshot.sharing.revision,
+      durationMs: 60000,
+    }),
+  );
+  expect(await socket.next()).toMatchObject({ type: "sharing:updated" });
+  expect(
+    (await runInRoomDO(room.roomId, (instance) => instance.getSharedOutcome()))
+      ?.lastUsedAt,
+  ).toBe(first?.lastUsedAt);
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    const row = state.storage.sql
+      .exec("SELECT state_json FROM sharing_state WHERE id=1")
+      .one();
+    const sharing = JSON.parse(row.state_json as string);
+    sharing.startsAt = Date.now() - 1;
+    state.storage.sql.exec(
+      "UPDATE sharing_state SET state_json=? WHERE id=1",
+      JSON.stringify(sharing),
+    );
+    await instance.alarm();
+    state.storage.sql.exec(
+      "UPDATE shared_outcome_state SET last_used_at=?",
+      old,
+    );
+  });
+  const active = await socket.next();
+  if (active.type !== "sharing:updated")
+    throw new Error("共有開始通知がありません");
+  socket.ws.send(
+    JSON.stringify({
+      type: "sharing:advance",
+      revision: active.sharing.revision,
+      outcome: "done",
+    }),
+  );
+  expect(await socket.next()).toMatchObject({
+    type: "sharing:updated",
+    sharing: { status: "complete" },
+  });
+  expect(
+    (await runInRoomDO(room.roomId, (instance) => instance.getSharedOutcome()))
+      ?.lastUsedAt,
+  ).toBeGreaterThan(old);
+  socket.close();
+});

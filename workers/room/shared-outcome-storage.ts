@@ -86,6 +86,26 @@ export class SharedOutcomeStorage {
           now + 1000,
         );
     });
+    await this.finishSharedActivity(row.room_id, now);
+  }
+
+  // タイマー・共有の進行は利用日時だけを進める。既存の保全盤面や成功時刻は変更しない。
+  async recordSharedActivity(now = Date.now()): Promise<void> {
+    const row = readOutcomeState(this.sql);
+    if (!row || row.disbanded) return;
+    this.sql.exec(
+      "UPDATE shared_outcome_state SET last_used_at = ?, expires_at = ?, retry_at = COALESCE(retry_at, ?) WHERE id = 1",
+      now,
+      now + SHARED_OUTCOME_RETENTION_MS,
+      now + 1000,
+    );
+    await this.finishSharedActivity(row.room_id, now);
+  }
+
+  private async finishSharedActivity(
+    roomId: string,
+    now: number,
+  ): Promise<void> {
     // sync() は DO のローカル永続化だけを待つ。外部保存の成功を完了条件にしない。
     await this.ctx.storage.sync();
     // 一覧の順序索引は本文投影とは分けて更新する。通常の完了はこの I/O を待たない。
@@ -94,11 +114,11 @@ export class SharedOutcomeStorage {
         .prepare(
           "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?) ON CONFLICT(room_id) DO UPDATE SET last_used_at = MAX(last_used_at,excluded.last_used_at), expires_at = MAX(expires_at,excluded.expires_at)",
         )
-        .bind(row.room_id, now, now + SHARED_OUTCOME_RETENTION_MS)
+        .bind(roomId, now, now + SHARED_OUTCOME_RETENTION_MS)
         .run()
         .catch(() => {
           console.error("shared-outcome-index-update-failed", {
-            roomId: row.room_id,
+            roomId: roomId,
           });
         }),
     );
