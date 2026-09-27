@@ -51,6 +51,10 @@ describe("本番公開と履歴の接続", () => {
     const check = workflow("release-note-check");
     expect(check.on.pull_request.branches).toEqual(["release"]);
     expect(check.permissions.contents).toBe("read");
+    const preview = check.jobs.preview.steps.find(
+      (step: { name?: string }) => step.name === "Preview release note",
+    );
+    expect(preview.env.TARGET_SHA).toBe(["$", "{{ github.sha }}"].join(""));
     expect(JSON.stringify(check)).not.toContain("--publish");
     expect(JSON.stringify(check)).not.toContain("CLOUDFLARE");
   });
