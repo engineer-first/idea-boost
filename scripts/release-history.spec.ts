@@ -206,7 +206,7 @@ describe("本番リリース履歴", () => {
       ),
     ).rejects.toThrow();
     const result = await recordRelease(manual, api, true);
-    expect(result.tag).toBe("prod-manual-20260926T030000Z");
+    expect(result.tag).toBe("prod-2026.09.26.1");
     expect(result.body).toContain("手動デプロイ");
     expect(result.body).toContain("/issues/400");
     expect(state.releases).toHaveLength(1);
@@ -229,7 +229,7 @@ describe("本番リリース履歴", () => {
       api,
       true,
     );
-    expect(result.tag).toBe("prod-manual-20260926T030000Z");
+    expect(result.tag).toBe("prod-2026.09.26.1");
     expect(result.body).toContain("手動デプロイの成功確認");
     expect(result.body).not.toContain("手動デプロイの確認証跡](undefined)");
     expect(state.releases).toHaveLength(1);
@@ -389,14 +389,14 @@ else process.exit(2);
       };
       const command = [resolve("scripts/release-history.mts"), file];
       const preview = execFileSync(process.execPath, command, options);
-      expect(preview).toContain("prod-manual-20260926T040000Z");
+      expect(preview).toContain("prod-2026.09.26.1");
       expect(readFileSync(log, "utf8")).not.toContain('"POST"');
       execFileSync(process.execPath, [...command, "--publish"], options);
       const created = JSON.parse(
         readFileSync(join(dir, "created.json"), "utf8"),
       );
       expect(created.target_commitish).toBe(commit);
-      expect(created.tag_name).toBe("prod-manual-20260926T040000Z");
+      expect(created.tag_name).toBe("prod-2026.09.26.1");
       expect(created.draft).toBe(false);
       expect(readFileSync(log, "utf8")).toContain('"--input","-"');
     } finally {
@@ -455,7 +455,7 @@ describe("複数のリリース経路", () => {
       retryApi,
       true,
     );
-    expect(result.tag).toBe("prod-actions-123-2");
+    expect(result.tag).toBe("prod-2026.09.26.1");
   });
 
   it("記録だけ再実行してもhealth再確認だけでも同じ公開を増やさない", async () => {
@@ -674,4 +674,78 @@ it("後続版の公開後は古い版のデプロイ計画を再利用できな�
   );
   await expect(prepareRelease(commit, api)).rejects.toThrow("比較元");
   expect((await recordActions(123, 1, api, true)).existing).toBe(true);
+});
+
+it("新しい版名はJST日付、タイトルは説明、内部識別子は証跡へ保持する", async () => {
+  const { state, api } = server();
+  const result = await recordRelease(
+    { ...note(), title: "投票のやり直し" },
+    api,
+    true,
+  );
+  expect(result.tag).toBe("prod-2026.09.26.1");
+  expect(state.releases[0].name).toBe("投票のやり直し");
+  expect(result.body).toContain('"deploymentId":"prod-actions-123-1"');
+});
+
+it("JSTの日付境界と同日連番を自動採番する", async () => {
+  const { nextReleaseTag } = await import("./release-history.mts");
+  expect(nextReleaseTag("2026-09-26T14:59:59Z", [])).toBe("prod-2026.09.26.1");
+  expect(
+    nextReleaseTag("2026-09-26T15:00:00Z", [
+      "prod-actions-123-1",
+      "prod-2026.09.26.9",
+      "prod-2026.09.27.2",
+    ]),
+  ).toBe("prod-2026.09.27.3");
+});
+it("旧タグの既存記録は改名せずに回復し、後続の事前検査でも記録済みとする", async () => {
+  const { api, state } = server();
+  const first = await recordActions(123, 1, api, true);
+  const release = state.releases[0];
+  release.tag_name = "prod-actions-123-1";
+  release.body = String(release.body).replace(
+    /<!-- release-history (.+) -->/,
+    (_whole, json: string) => {
+      const metadata = JSON.parse(json);
+      metadata.tag = "prod-actions-123-1";
+      delete metadata.deploymentId;
+      return `<!-- release-history ${JSON.stringify(metadata)} -->`;
+    },
+  );
+  state.tags["prod-actions-123-1"] = commit;
+  const recovered = await recordActions(123, 1, api, true);
+  expect(first.tag).not.toBe(recovered.tag);
+  expect(recovered.tag).toBe("prod-actions-123-1");
+  expect(recovered.existing).toBe(true);
+  expect(state.releases).toHaveLength(1);
+});
+it("旧commit内の説明へのfallbackは保存参照の404だけで行う", async () => {
+  const { api } = server();
+  const legacy: GitHubApi = async (method, path, data) =>
+    path.includes("ref=release-plan-") ? null : api(method, path, data);
+  expect((await prepareRelease(commit, legacy)).changes).toEqual(
+    note().changes,
+  );
+  const denied: GitHubApi = async (method, path, data) => {
+    if (path.includes("ref=release-plan-")) throw new Error("HTTP 403");
+    return api(method, path, data);
+  };
+  await expect(prepareRelease(commit, denied)).rejects.toThrow("403");
+});
+
+it("PRのない直接commitも空のPRリンクを表示せず説明する", async () => {
+  const { api } = server();
+  const result = await recordRelease(
+    {
+      ...note(),
+      changes: [
+        { kind: "内部変更", text: "公開設定を調整しました。", prs: [] },
+      ],
+    },
+    api,
+    false,
+  );
+  expect(result.body).toContain("公開設定を調整しました。");
+  expect(result.body).not.toContain("関連PR：");
 });

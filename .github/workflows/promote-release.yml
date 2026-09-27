@@ -1,12 +1,19 @@
 name: Promote Release
+run-name: 'Release candidate: ${{ inputs.expected_sha || github.sha }}'
 
 on:
   workflow_dispatch:
     inputs:
       pr_number:
         description: '確認済みのdevelop → release PR番号'
-        required: true
+        required: false
         type: number
+      expected_sha:
+        description: 'Skillが確認した公開候補（自動入力）'
+        type: string
+      note_json:
+        description: 'Skillで確認した説明（自動入力）'
+        type: string
 
 permissions:
   contents: write
@@ -32,7 +39,8 @@ jobs:
           install: true
           cache: true
       - run: npm ci
-      - name: Validate release note
+      - name: Validate legacy release note
+        if: inputs.note_json == ''
         run: node scripts/release-automation.mts prepare "$TARGET_SHA"
         env:
           GH_TOKEN: ${{ github.token }}
@@ -42,4 +50,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
-          TARGET_SHA: ${{ github.sha }}
+          TARGET_SHA: ${{ inputs.expected_sha || github.sha }}
+          RELEASE_NOTE_JSON: ${{ inputs.note_json }}

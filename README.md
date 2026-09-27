@@ -111,16 +111,16 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 
 本番アプリは **<https://ideaboost.dev>** で利用できます。
 
-2 Worker + D1 + RoomDO 構成です。デプロイ順は **D1 migration → api → app → health確認** です。通常はActionsで実行し、成功後にリリースノートを自動公開します。
+2 Worker + D1 + RoomDO 構成です。デプロイ順は **D1 migration → api → app → health確認** です。通常は `$release` から内容を確認し、Actionsで公開、成功後にリリースノートを自動記録します。
 
 | Worker          | 設定ファイル             | 役割                                                         |
 | --------------- | ------------------------ | ------------------------------------------------------------ |
 | `idea-flow-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
 | `idea-flow-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
 
-**本番の更新方法:** `.github/release-note.json` にその版の変更説明を用意し、`release` 向けPRでレビューします。マージ（または直接push）後、GitHub Actions（`deploy.yml`）が説明を事前検査し、D1 migrate → api → app → health → リリースノート公開を実行します。ActionsからDeployを手動実行するときもbranchは `release` です。Actionsには `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
+**本番の更新方法:** Codexで `$release` → 今回の変更を見る → 必要なら自然言語で `edit` → `release`。Skill起動だけでは本番は変わりません。branch・SHA・PR番号・タグの入力は不要です。既存の品質ゲートと D1 → API → App → health を通り、GitHub Releaseに記録します。[リリースの流れ（図解）](https://engineer-first.github.io/idea-boost/release-flow/) と [詳細運用](docs/release-history.md) を参照してください。Actionsには `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
 
-ローカルからの手動公開は `npm run deploy`（GitHub・Cloudflareへの認証が必要）。PR/Issue URLの入力は不要で、成功後にreceiptを作って履歴記録を自動依頼します。記録だけの失敗はActionsの **Record Release** から再試行でき、本番の再デプロイは不要です。各入口・部分再試行・ロールバックの扱いは [リリース履歴の運用](docs/release-history.md) を参照してください。
+ローカルからの手動公開は `npm run deploy`（GitHub・Cloudflareへの認証が必要）。PR/Issue URLの入力は不要で、成功後にreceiptを作って履歴記録を自動依頼します。記録だけの失敗は `$release` → `retry-record`（手動入口は **Record Release**）で再試行でき、本番の再デプロイは不要です。各入口・部分再試行・ロールバックの扱いは [リリース履歴の運用](docs/release-history.md) を参照してください。
 
 秘密・初回手順・カスタムドメイン・CI・動作確認の詳細は **[デプロイ構成図](docs/site/deploy-map/index.html)**（公開後: [GitHub Pages](https://engineer-first.github.io/idea-boost/deploy-map/)）を参照してください。
 

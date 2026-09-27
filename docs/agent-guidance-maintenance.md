@@ -88,3 +88,27 @@
 
 合わせてリンク先・npm script の存在、`CLAUDE.md` symlink、Markdown 再整形の差分ゼロ、
 `git diff --check`、`git check-ignore .eval-loop/` を確認する。
+
+## 明示的なrelease Skill（2026-09-27、Issue #383）
+
+[release](../.agents/skills/release/SKILL.md) は `$release` の明示呼び出し専用とし、
+`agents/openai.yaml` の `policy.allow_implicit_invocation: false` で暗黙の本文注入を無効化する。
+[公式Skills資料](https://developers.openai.com/plugins/build/skills) とローカルのskill metadata仕様を確認した。
+起動は読取と下書きのみ、提示後の公開意思で初めてscriptsからActionsを起動する。
+
+Codex CLI 0.157.0 のread-only実行で、`$release`、`$release 今回の変更を確認したい` の2件にだけ
+rolloutの `skills.selected_skill_instructions` として本文が注入されることを確認した。
+「リリースしたい機能を相談したい」「次のリリースに#123を入れたい」「リリースノートをレビューして」
+「本番デプロイの仕組みを説明して」の4件には注入されなかった。全6件で外部ツール呼び出しは0件。
+これは利用中のCodexでの呼び出し境界の確認であり、将来のruntimeまで保証するものではない。
+更新時は同じ6入力で本文注入の有無を確認し、公開の副作用はAPI差し替えテストで検証する。
+
+参考候補 `speee/dx-redx-ai-governance` の `release-tag` Skillはアクセスして構成を比較した。
+CalVerの自動提案・内容提示・承認後実行・監視は参考にしたが、暗黙起動を誘う説明、タグpush起点、
+追加のpreflightやSlack送信は採用しない。既存のDeploy品質ゲート・health・記録回復を利用する。
+
+自然言語の対話は、外部書込を拒否するローカルのfake operatorを置いた一時ディレクトリで
+Codex CLIの同じセッションを3ターン実行した。`$release` で下書き提示、
+`edit` でタイトルを「結果をテキストで保存」へ変更、`cancel` で終了できた。
+候補SHA・比較元・関連PRは維持され、operator呼び出しは読取statusの1回だけだった。
+この検証は自然言語編集とキャンセルの接続を対象とし、本番公開の成功を保証するものではない。
