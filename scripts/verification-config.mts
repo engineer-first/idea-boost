@@ -8,6 +8,7 @@ export type VerificationRuntime = {
   apiPort: number;
   directory: string;
   readyUrl: string;
+  outcomesUrl: string;
   configPath: string;
   persistPath: string;
   env: NodeJS.ProcessEnv;
@@ -139,6 +140,7 @@ export async function prepareVerificationRuntime(
     apiPort,
     directory,
     readyUrl: `http://127.0.0.1:${appPort}/login`,
+    outcomesUrl: `http://localhost:${appPort}/shared-outcomes#token=${outcomesToken}`,
     configPath,
     persistPath,
     env,

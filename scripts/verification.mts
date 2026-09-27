@@ -83,7 +83,7 @@ async function main(): Promise<void> {
     const next = start(runtime.nextArgs);
     await waitForReady(runtime.readyUrl, [worker, next], 120_000, abort.signal);
     console.log(
-      `\n検証を開始: http://localhost:${runtime.appPort}/dev/verify\n終了するには Ctrl+C を押してください。\n`,
+      `\n検証を開始: http://localhost:${runtime.appPort}/dev/verify\n共有成果を開く: ${runtime.outcomesUrl}\n終了するには Ctrl+C を押してください。\n`,
     );
     await new Promise<void>((resolve, reject) => {
       abort.signal.addEventListener("abort", () => resolve(), { once: true });

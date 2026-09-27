@@ -13,9 +13,47 @@ import {
 } from "@/contracts/verification";
 import { verificationRequest } from "./verification-client";
 
-export function useVerification(initialActive: VerificationActive | null) {
+export function useVerification(
+  initialActive: VerificationActive | null,
+  isOwner: boolean,
+) {
   const [roomName, setRoomName] = useState("");
   const [outcomesLink, setOutcomesLink] = useState<string | null>(null);
+  const [outcomesLinkPending, setOutcomesLinkPending] = useState(isOwner);
+  const [outcomesLinkError, setOutcomesLinkError] = useState(false);
+  const getOutcomesLink = useCallback(
+    async (signal?: AbortSignal): Promise<void> => {
+      if (!isOwner) return;
+      setOutcomesLinkPending(true);
+      setOutcomesLinkError(false);
+      try {
+        const result = await verificationRequest(
+          "/api/verification/outcomes-link",
+          VerificationOutcomesLinkSchema,
+          undefined,
+          signal,
+        );
+        if (!signal?.aborted)
+          setOutcomesLink(
+            `${window.location.origin}/shared-outcomes#token=${result.token}`,
+          );
+      } catch {
+        if (!signal?.aborted) {
+          setOutcomesLink(null);
+          setOutcomesLinkError(true);
+        }
+      } finally {
+        if (!signal?.aborted) setOutcomesLinkPending(false);
+      }
+    },
+    [isOwner],
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    if (isOwner) void getOutcomesLink(controller.signal);
+    else setOutcomesLink(null);
+    return () => controller.abort();
+  }, [getOutcomesLink, isOwner]);
   const [active, setActive] = useState(initialActive);
   const [status, setStatus] = useState<VerificationStatus | null>(null);
   const [pending, setPending] = useState(false);
@@ -118,17 +156,6 @@ export function useVerification(initialActive: VerificationActive | null) {
       setStatus(null);
     });
   }
-  async function getOutcomesLink(): Promise<void> {
-    await mutate(async () => {
-      const result = await verificationRequest(
-        "/api/verification/outcomes-link",
-        VerificationOutcomesLinkSchema,
-      );
-      setOutcomesLink(
-        `${window.location.origin}/shared-outcomes#token=${result.token}`,
-      );
-    });
-  }
   async function recoverOutcome(): Promise<void> {
     if (!active) return;
     await mutate(async () => {
@@ -143,6 +170,8 @@ export function useVerification(initialActive: VerificationActive | null) {
     roomName,
     setRoomName,
     outcomesLink,
+    outcomesLinkPending,
+    outcomesLinkError,
     createOutcome,
     getOutcomesLink,
     recoverOutcome,

@@ -20,6 +20,8 @@ export type VerificationViewProps = {
   onVote: () => void;
   onRetry: () => void;
   outcomesLink: string | null;
+  outcomesLinkPending: boolean;
+  outcomesLinkError: boolean;
   roomName: string;
   onRoomNameChange: (name: string) => void;
   onOutcome: (scenario: VerificationOutcomeScenario) => void;
@@ -36,6 +38,8 @@ export function VerificationView({
   onVote,
   onRetry,
   outcomesLink,
+  outcomesLinkPending,
+  outcomesLinkError,
   roomName,
   onRoomNameChange,
   onOutcome,
@@ -155,19 +159,33 @@ export function VerificationView({
             <p className="text-sm text-muted-foreground">
               障害を解除するとサーバーの再試行が再開します。期限切れは実際の30日判定を通り、一覧から消えます。
             </p>
-            <Button disabled={pending} onClick={onOutcomesLink}>
-              成果閲覧リンクを取得
-            </Button>
+            {outcomesLinkPending && (
+              <p role="status" className="text-sm text-muted-foreground">
+                閲覧リンクを準備しています…
+              </p>
+            )}
+            {outcomesLinkError && (
+              <div
+                role="alert"
+                className="flex flex-wrap items-center gap-3 text-sm"
+              >
+                閲覧リンクを取得できませんでした。
+                <Button
+                  variant="outline"
+                  disabled={outcomesLinkPending}
+                  onClick={onOutcomesLink}
+                >
+                  閲覧リンクを再取得
+                </Button>
+              </div>
+            )}
             {outcomesLink && (
               <div className="space-y-2">
-                <a
-                  href={outcomesLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-sm underline"
-                >
-                  成果一覧を開く
-                </a>
+                <Button asChild>
+                  <a href={outcomesLink} target="_blank" rel="noreferrer">
+                    成果一覧を開く
+                  </a>
+                </Button>
                 <label className="block space-y-1 text-sm">
                   <span>
                     未ログイン確認用リンク（コピーして別ブラウザで開く）

@@ -20,7 +20,7 @@
     "pretest:workers": "npm run gen:room-do-migrations",
     "test:workers": "vitest run --config vitest.workers.config.mts",
     "test:coverage": "vitest run --passWithNoTests --coverage",
-    "predev:api": "npm run gen:room-do-migrations",
+    "predev:api": "npm run gen:room-do-migrations && npm run outcomes:link -- issue local http://localhost:3000",
     "dev:api": "wrangler dev --config workers/wrangler.jsonc --port 8787",
     "db:migrate": "wrangler d1 migrations apply DB --local --config workers/wrangler.jsonc",
     "db:schema:d1": "node --no-warnings scripts/build-d1-schema.mts",

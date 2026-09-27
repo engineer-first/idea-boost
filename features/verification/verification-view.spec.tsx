@@ -13,6 +13,8 @@ describe("検証の操作ページ", () => {
     onVote: vi.fn(),
     onRetry: vi.fn(),
     outcomesLink: null,
+    outcomesLinkPending: false,
+    outcomesLinkError: false,
     roomName: "",
     onRoomNameChange: vi.fn(),
     onOutcome: vi.fn(),
@@ -29,20 +31,24 @@ describe("検証の操作ページ", () => {
     expect(screen.getByText(/まだ検証ルーム/)).toBeInTheDocument();
   });
   it("成果ケースと名前を準備操作に渡し、リンクはOwnerだけ取得できる", () => {
-    const { rerender } = render(<VerificationView {...props} />);
+    const { rerender } = render(
+      <VerificationView
+        {...props}
+        outcomesLink="http://localhost/shared-outcomes#token=test"
+      />,
+    );
     fireEvent.change(screen.getByLabelText("成果検証のルーム名（任意）"), {
       target: { value: "同名のテスト" },
     });
     expect(props.onRoomNameChange).toHaveBeenCalledWith("同名のテスト");
     fireEvent.click(screen.getByRole("button", { name: "保存失敗を準備" }));
     expect(props.onOutcome).toHaveBeenCalledWith("failure");
-    fireEvent.click(
-      screen.getByRole("button", { name: "成果閲覧リンクを取得" }),
-    );
-    expect(props.onOutcomesLink).toHaveBeenCalled();
+    expect(
+      screen.getByRole("link", { name: "成果一覧を開く" }),
+    ).toHaveAttribute("href", "http://localhost/shared-outcomes#token=test");
     rerender(<VerificationView {...props} isOwner={false} />);
     expect(
-      screen.queryByRole("button", { name: "成果閲覧リンクを取得" }),
+      screen.queryByRole("link", { name: "成果一覧を開く" }),
     ).not.toBeInTheDocument();
   });
   it("参加者は検証ルームを作り直せない", () => {

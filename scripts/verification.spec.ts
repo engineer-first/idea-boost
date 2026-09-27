@@ -97,6 +97,14 @@ describe("検証起動の隔離", () => {
     });
     const second = await prepareVerificationRuntime(path, {});
     expect(first.env.SHARED_OUTCOMES_TOKEN).toMatch(/^[a-f0-9]{64}$/);
+    expect(first).toHaveProperty(
+      "outcomesUrl",
+      `http://localhost:3000/shared-outcomes#token=${first.env.SHARED_OUTCOMES_TOKEN}`,
+    );
+    expect(second).toHaveProperty(
+      "outcomesUrl",
+      `http://localhost:3000/shared-outcomes#token=${first.env.SHARED_OUTCOMES_TOKEN}`,
+    );
     expect(first.env.SHARED_OUTCOMES_TOKEN).toBe(
       second.env.SHARED_OUTCOMES_TOKEN,
     );
@@ -124,6 +132,10 @@ describe("検証起動の隔離", () => {
     expect(runtime.appPort).toBe(3100);
     expect(runtime.apiPort).toBe(8788);
     expect(runtime.readyUrl).toBe("http://127.0.0.1:3100/login");
+    expect(runtime).toHaveProperty(
+      "outcomesUrl",
+      `http://localhost:3100/shared-outcomes#token=${runtime.env.SHARED_OUTCOMES_TOKEN}`,
+    );
     expect(runtime.env.API_WORKER_URL).toBe("http://localhost:8788");
     expect(runtime.env.NEXT_PUBLIC_API_WORKER_URL).toBe(
       "http://localhost:8788",
