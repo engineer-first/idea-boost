@@ -6,34 +6,50 @@
 | -------- | ---------------------------------------------------------------- | ------------------------------------------------------------- |
 | 通常開発 | `npm run dev` と `npm run dev:api`。通常のWranglerローカル保存先 | `workers/.dev.vars` の `SHARED_OUTCOMES_TOKEN`                |
 | 検証     | `npm run dev:verify`。`.wrangler/verification/state`             | `.wrangler/verification/outcomes-token`。初回に生成して再利用 |
-| 本番     | 本番Worker・D1・RoomDO                                           | 管理者がWorkerのsecretに登録                                  |
+| 本番     | 本番Worker・D1・RoomDO                                           | 依頼を受けたエージェントが1つ発行し、Workerのsecretに登録     |
 
 `npm run dev` だけではNext.jsのみ起動する。別の保存方式や本番へのフォールバックはない。通常開発にサンプルは自動投入せず、再起動でもデータを保持する。
 
-## 発行・置換・削除
+## 本番の閲覧リンクを使う
 
-通常開発用リンクを発行する。リンクは標準出力や起動ログに出さず、指定したファイルへ所有者のみ読み書きできる権限で保存する。保存先をGitや共有フォルダーに入れない。
+本番の閲覧リンクは全ルーム共通で1つだけ発行し、同じリンクを継続して使う。ルーム・閲覧者・デプロイごとの発行は不要。利用者はエージェントから受け取ったURLを開くだけでよく、コマンドの実行やリンクファイルの管理はエージェントが担当する。
+
+1. 本機能を含む版を [本番リリースの手順](release-history.md) で公開する。通常のDeployがD1 migration → API → Appの順に反映する。
+2. 依頼を受けたエージェントが、Cloudflareに認証できる環境で既存設定と保管済みリンクを確認する。発行済みならそのリンクを再利用し、未発行の場合だけ1つ発行する。
+3. エージェントが発行したURLを依頼者へ直接渡し、未ログインで一覧・詳細を閲覧できることを確認する。実際のURLや秘密値をリポジトリ・PR・公開ログには載せない。
+
+リンクは `/shared-outcomes#token=...` 形式。fragmentはHTTPのリクエストURLへ送られず、データ取得時にBearerヘッダーで照合する。リンクを転送された人も全ルームの保存期間内の成果を見られる。閲覧専用で、管理・状態準備の権限はない。有効な設定は同時に1件で、設定変更が反映された後の次のデータ取得から旧リンクを拒否する。
+
+本番公開やCloudflare認証が完了していない場合は、未発行であることと残る作業を依頼者へ伝える。閲覧設定がなくても成果の自動保存は動く。
+
+### エージェントが行う初回設定と保守
+
+CLIのファイル出力はエージェントがリンクを再利用するための保管用。継続利用する本番リンクは一時ディレクトリに置かず、リポジトリや共有フォルダーの外へ所有者だけが読める権限で保管する。次は初回発行時の例。
+
+```bash
+mkdir -p "$HOME/.config/idea-boost"
+chmod 700 "$HOME/.config/idea-boost"
+npm run outcomes:link -- issue production https://ideaboost.dev \
+  "$HOME/.config/idea-boost/production-shared-outcomes-link.txt"
+```
+
+コマンドは本番Workerの `SHARED_OUTCOMES_TOKEN` を登録し、URLを指定ファイルへ権限 `0600` で保存する。本番の `issue` は既存値を再利用せず置き換えるため、日常の閲覧や通常のデプロイで再実行しない。設定済みで保管したURLが見つからない場合も、勝手に再発行せず、旧リンクを無効にする必要があるか確認する。
+
+漏えい・紛失などで明示的に差し替える場合だけ `rotate production` を使い、新しいURLを渡す。閲覧を停止する場合は `revoke production` を使う。どちらも既存リンクが使えなくなるため、通常の発行・閲覧手順には含めない。
+
+### 将来の管理者ロールへの移行
+
+将来はログイン済みの管理者ユーザーだけが成果を閲覧できる方式へ変更する予定。現時点では管理者ロールによる制限は未実装で、秘密リンクを持つ人が閲覧できる。
+
+移行時は、一覧・詳細の取得ごとにサーバーで管理者ロールを確認する認可を実装し、秘密リンクによる認可を廃止する。同時に既存の秘密値を失効させ、管理者向けの閲覧導線と手順へ更新する。この移行は今回の実装範囲には含めない。
+
+## 通常開発・検証のリンク
+
+通常開発用リンクは次のコマンドで発行する。`issue local` は既存の有効な値を再利用する。置換には `rotate`、削除には `revoke` を使い、変更後に `dev:api` を再起動する。保存先をGitや共有フォルダーに入れない。
 
 ```bash
 npm run outcomes:link -- issue local http://localhost:3000 /tmp/idea-boost-local-link.txt
 ```
-
-`issue local` は既存の有効な値を再利用する。置換には `rotate`、削除には `revoke` を使う。変更後に `dev:api` を再起動する。
-
-```bash
-npm run outcomes:link -- rotate local http://localhost:3000 /tmp/idea-boost-local-link.txt
-npm run outcomes:link -- revoke local
-```
-
-本番はCloudflareへの管理者認証が必要。次のコマンドはWranglerのsecret操作を通じて設定を変更する。初回以降は同じ保存済みリンクを使い続ける。本番で `issue` を再実行すると新しい値で置き換わる。
-
-```bash
-npm run outcomes:link -- issue production https://ideaboost.dev /tmp/idea-boost-production-link.txt
-npm run outcomes:link -- rotate production https://ideaboost.dev /tmp/idea-boost-production-link.txt
-npm run outcomes:link -- revoke production
-```
-
-リンクは `/shared-outcomes#token=...` 形式。fragmentはHTTPのリクエストURLへ送られず、データ取得時にBearerヘッダーで照合する。リンクを転送された人も全ルームの保存期間内の成果を見られる。閲覧専用で、管理・状態準備の権限はない。有効な設定は同時に1件で、設定変更が反映された後の次のデータ取得から旧リンクを拒否する。
 
 検証用リンクの取得はOwnerで `/dev/verify` の「成果閲覧リンクを取得」を使う。差し替えはサーバー停止後に次を実行して再起動する。
 
