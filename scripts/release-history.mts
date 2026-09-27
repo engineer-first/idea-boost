@@ -313,7 +313,7 @@ export async function assertRecordedDeployments(
   }
 }
 
-/** 計画は対象commitから読み、PRのマージ方式に依存せず実際の公開SHAと結び付ける。 */
+/** 計画は対象commitから読み、実際の公開SHAと結び付ける。 */
 export async function prepareRelease(
   commit: string,
   api: GitHubApi,
