@@ -18,6 +18,10 @@ export const RoomSummarySchema = z.object({
 
 export const CreateRoomResponseSchema = RoomSummarySchema;
 
+export const CreateRoomInputSchema = z.object({
+  name: z.string().trim().max(80).optional(),
+});
+
 export const JoinRoomResponseSchema = z.object({
   roomId: z.string().uuid(),
 });
@@ -33,6 +37,8 @@ export const RoomInfoResponseSchema = RoomSummarySchema.extend({
   isHost: z.boolean(),
   hostUserId: z.string().uuid(),
   phase: RoomPhaseSchema,
+  name: z.string().nullable().optional(),
+  displayId: z.string().optional(),
 });
 
 // メンバー一覧のレスポンス。SSR で初期表示を組み立てるために使う。

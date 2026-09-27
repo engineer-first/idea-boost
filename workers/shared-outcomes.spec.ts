@@ -1,0 +1,331 @@
+import { env } from "cloudflare:test";
+import { describe, expect, it } from "vitest";
+import worker from "./api-worker";
+import { createRoomAs, runInRoomDO } from "./test-helpers";
+
+const TOKEN = "test-outcomes-token-with-32-bytes-entropy-equivalent";
+const owner = {
+  sub: "11111111-1111-4111-8111-111111111111",
+  name: "Owner",
+  email: "owner@test.invalid",
+};
+const configured = () => ({ ...env, SHARED_OUTCOMES_TOKEN: TOKEN });
+function request(path = "", token: string | null = TOKEN, method = "GET") {
+  return new Request(`https://api.test/api/shared-outcomes${path}`, {
+    method,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+}
+describe("共有成果の独立した秘密リンク認可", () => {
+  it("未設定・不一致・未認証と閲覧リンクでの更新を拒否する", async () => {
+    expect((await worker.fetch(request(), env)).status).toBe(403);
+    expect(
+      (await worker.fetch(request("", "wrong"), configured())).status,
+    ).toBe(403);
+    expect((await worker.fetch(request("", null), configured())).status).toBe(
+      403,
+    );
+    expect(
+      (await worker.fetch(request("", TOKEN, "POST"), configured())).status,
+    ).toBe(405);
+  });
+  it("有効なリンクはログインなしで使え、設定置換後は次の取得を拒否する", async () => {
+    const response = await worker.fetch(request(), configured());
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(await response.json()).toEqual({ outcomes: [], nextCursor: null });
+    expect(
+      (
+        await worker.fetch(request(), {
+          ...env,
+          SHARED_OUTCOMES_TOKEN: "new-secret-value",
+        })
+      ).status,
+    ).toBe(403);
+  });
+  it("名前のないルームも作成時から保存し、削除後も保持する", async () => {
+    const room = await createRoomAs(owner);
+    const response = await worker.fetch(
+      request(`/${room.roomId}`),
+      configured(),
+    );
+    expect(response.status).toBe(200);
+    const record = (await response.json()) as {
+      roomId: string;
+      displayId: string;
+      name: string | null;
+      snapshot: unknown;
+    };
+    expect(record.roomId).toBe(room.roomId);
+    expect(record.displayId).not.toBe(room.inviteCode);
+    expect(record.name).toBe(null);
+    await runInRoomDO(room.roomId, async (instance) => instance.disband());
+    expect(
+      (await worker.fetch(request(`/${room.roomId}`), configured())).status,
+    ).toBe(200);
+  });
+});
+
+describe("保全・再試行・期限", () => {
+  it("共有盤面は匿名化し、個人用へ戻した付箋を次の記録から除く", async () => {
+    const room = await createRoomAs(owner);
+    await runInRoomDO(room.roomId, async (instance, state) => {
+      const sql = state.storage.sql;
+      for (const [id, visibility, content] of [
+        ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "shared", "公開案"],
+        ["bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "private", "非公開メモ"],
+      ])
+        sql.exec(
+          "INSERT INTO notes(id,author_id,content,x,y,created_at,updated_at,visibility,phase) VALUES(?,?,?,10,20,'2026-09-27','2026-09-27',?,1)",
+          id,
+          owner.sub,
+          content,
+          visibility,
+        );
+      await (
+        instance as unknown as { preserveSharedOutcome(): Promise<void> }
+      ).preserveSharedOutcome();
+      await instance.alarm();
+      const record = await instance.getSharedOutcome();
+      expect(record?.snapshot?.notes.map((n) => n.content)).toEqual(["公開案"]);
+      expect(JSON.stringify(record)).not.toContain(owner.sub);
+      expect(JSON.stringify(record)).not.toContain("votedByMe");
+      sql.exec("UPDATE notes SET visibility='private'");
+      await (
+        instance as unknown as { preserveSharedOutcome(): Promise<void> }
+      ).preserveSharedOutcome();
+      await instance.alarm();
+      expect((await instance.getSharedOutcome())?.snapshot?.notes).toEqual([]);
+    });
+  });
+  it("外部保存が失敗しても完了内容を保持し、解散後の再試行で同じ記録を反映する", async () => {
+    const room = await createRoomAs(owner);
+    await runInRoomDO(room.roomId, async (instance, state) => {
+      const subject = instance as unknown as {
+        preserveSharedOutcome(confirmed?: boolean): Promise<void>;
+        writeSharedOutcomeProjection(snapshot: unknown): Promise<void>;
+      };
+      const original = subject.writeSharedOutcomeProjection.bind(subject);
+      state.storage.sql.exec(
+        "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(3,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','確定案',?,'2026-09-27')",
+        owner.sub,
+      );
+      await subject.preserveSharedOutcome(true);
+      subject.writeSharedOutcomeProjection = async () => {
+        throw new Error("storage unavailable");
+      };
+      await instance.alarm();
+      const failed = await instance.getSharedOutcome();
+      expect(failed?.saveStatus).toBe("failed");
+      expect(failed?.snapshot?.decisions).toEqual([]);
+      expect(failed?.lastSavedAt).not.toBe(null);
+      state.storage.sql.exec("UPDATE decisions SET note_content='後の編集'");
+      await subject.preserveSharedOutcome();
+      await instance.disband();
+      subject.writeSharedOutcomeProjection = original;
+      await instance.alarm();
+      const recovered = await instance.getSharedOutcome();
+      expect(recovered?.saveStatus).toBe("saved");
+      expect(recovered?.status).toBe("confirmed");
+      expect(recovered?.snapshot?.decisions[0].content).toBe("確定案");
+    });
+  });
+  it("保存処理中の新しい保全を消さず、送信した版だけを成功にする", async () => {
+    const room = await createRoomAs(owner);
+    await runInRoomDO(room.roomId, async (instance, state) => {
+      const subject = instance as unknown as {
+        preserveSharedOutcome(confirmed?: boolean): Promise<void>;
+        writeSharedOutcomeProjection(snapshot: unknown): Promise<void>;
+      };
+      const original = subject.writeSharedOutcomeProjection.bind(subject);
+      await subject.preserveSharedOutcome();
+      subject.writeSharedOutcomeProjection = async (snapshot) => {
+        await original(snapshot);
+        state.storage.sql.exec(
+          "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(3,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','次の確定案',?,'2026-09-27')",
+          owner.sub,
+        );
+        await subject.preserveSharedOutcome(true);
+      };
+      await instance.alarm();
+      const pending = await instance.getSharedOutcome();
+      expect(pending?.snapshot?.decisions).toEqual([]);
+      expect(pending?.saveStatus).toBe("pending");
+      subject.writeSharedOutcomeProjection = original;
+      await instance.alarm();
+      expect(
+        (await instance.getSharedOutcome())?.snapshot?.decisions[0].content,
+      ).toBe("次の確定案");
+    });
+  });
+  it("30日期限の閲覧停止と削除は再試行・一覧閲覧で延長されない", async () => {
+    const room = await createRoomAs(owner);
+    await runInRoomDO(room.roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE shared_outcome_state SET expires_at = ?, last_used_at = ?",
+        Date.now() - 1,
+        Date.now() - 31 * 86400000,
+      );
+      expect(await instance.getSharedOutcome()).toBe(null);
+      expect(
+        state.storage.sql
+          .exec("SELECT saved_json,pending_json FROM shared_outcome_state")
+          .one(),
+      ).toMatchObject({ saved_json: null, pending_json: null });
+      await instance.ensureSharedOutcome(room.roomId);
+      expect(await instance.getSharedOutcome()).toBe(null);
+    });
+    expect(
+      await env.DB.prepare(
+        "SELECT room_id FROM shared_outcomes WHERE room_id = ?",
+      )
+        .bind(room.roomId)
+        .first(),
+    ).toBe(null);
+    expect(
+      (await worker.fetch(request(`/${room.roomId}`), configured())).status,
+    ).toBe(404);
+  });
+});
+
+it("ルーム作成と同時に本文なしの索引を作り、初回保存失敗・解散でも一覧から失わない", async () => {
+  const { ensureUser, insertRoom, deleteRoom } = await import("./lib/db");
+  await ensureUser(env.DB, {
+    id: owner.sub,
+    email: owner.email,
+    name: owner.name,
+  });
+  const room = await insertRoom(env.DB, owner.sub);
+  expect(
+    await env.DB.prepare(
+      "SELECT snapshot_json FROM shared_outcomes WHERE room_id = ?",
+    )
+      .bind(room.roomId)
+      .first(),
+  ).toEqual({ snapshot_json: null });
+  await runInRoomDO(room.roomId, async (instance) => {
+    const subject = instance as unknown as {
+      writeSharedOutcomeProjection(snapshot: unknown): Promise<void>;
+    };
+    subject.writeSharedOutcomeProjection = async () => {
+      throw new Error("first projection failed");
+    };
+    await instance.initializeNewRoom(owner.sub, owner.name, {
+      roomId: room.roomId,
+    });
+    await instance.disband();
+  });
+  await deleteRoom(env.DB, room.roomId);
+  const result = (await (
+    await worker.fetch(request(), configured())
+  ).json()) as {
+    outcomes: Array<{
+      roomId: string;
+      lastSavedAt: number | null;
+      saveStatus: string;
+    }>;
+  };
+  expect(result.outcomes).toContainEqual(
+    expect.objectContaining({
+      roomId: room.roomId,
+      lastSavedAt: null,
+      saveStatus: "failed",
+    }),
+  );
+});
+
+it("完了保全の失敗は成功通知せず、投影だけの失敗では参加者も成果へ進める", async () => {
+  const { connectRoomAs, joinRoomAs } = await import("./test-helpers");
+  const room = await createRoomAs(owner);
+  const member = {
+    sub: "22222222-2222-4222-8222-222222222222",
+    name: "Member",
+    email: "member@test.invalid",
+  };
+  await joinRoomAs(member, room.inviteCode);
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    await instance.setPhase({ kind: "step", phase: 3, step: 5 }, owner.sub);
+    state.storage.sql.exec(
+      "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(3,'cccccccc-cccc-4ccc-8ccc-cccccccccccc','持ち帰る確定案',?,'2026-09-27')",
+      owner.sub,
+    );
+  });
+  const hostSocket = await connectRoomAs(owner, room.roomId);
+  const memberSocket = await connectRoomAs(member, room.roomId);
+  await hostSocket.next();
+  await memberSocket.next();
+  await runInRoomDO(room.roomId, (instance) => {
+    const subject = instance as unknown as {
+      preserveSharedOutcome(): Promise<void>;
+    };
+    subject.preserveSharedOutcome = async () => {
+      throw new Error("durability failed");
+    };
+  });
+  hostSocket.ws.send(JSON.stringify({ type: "outcome:publish" }));
+  expect(await hostSocket.next()).toMatchObject({ type: "error" });
+  await runInRoomDO(room.roomId, (instance, state) => {
+    expect(
+      state.storage.sql.exec("SELECT outcome_published FROM room_state").one()
+        .outcome_published,
+    ).toBe(0);
+    const subject = instance as unknown as {
+      preserveSharedOutcome?: () => Promise<void>;
+      writeSharedOutcomeProjection(snapshot: unknown): Promise<void>;
+    };
+    delete subject.preserveSharedOutcome;
+    subject.writeSharedOutcomeProjection = async () => {
+      throw new Error("projection unavailable");
+    };
+  });
+  hostSocket.ws.send(JSON.stringify({ type: "outcome:publish" }));
+  expect(await hostSocket.next()).toEqual({
+    type: "outcome:published",
+    published: true,
+  });
+  expect(await memberSocket.next()).toEqual({
+    type: "outcome:published",
+    published: true,
+  });
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    await instance.alarm();
+    expect((await instance.getSharedOutcome())?.saveStatus).toBe("failed");
+    const pending = state.storage.sql
+      .exec("SELECT pending_json FROM shared_outcome_state")
+      .one().pending_json as string;
+    expect(JSON.parse(pending).decisions[0].content).toBe("持ち帰る確定案");
+  });
+  hostSocket.close();
+  memberSocket.close();
+});
+
+it("共有操作のない個人入力や成果閲覧は保持期限を延ばさない", async () => {
+  const { connectRoomAs } = await import("./test-helpers");
+  const room = await createRoomAs(owner);
+  await runInRoomDO(room.roomId, (instance) =>
+    instance.setPhase({ kind: "step", phase: 1, step: 1 }, owner.sub),
+  );
+  const socket = await connectRoomAs(owner, room.roomId);
+  await socket.next();
+  const before = await runInRoomDO(room.roomId, (instance) =>
+    instance.getSharedOutcome(),
+  );
+  socket.ws.send(
+    JSON.stringify({
+      type: "note:create",
+      content: "個人用",
+      visibility: "private",
+      x: 10,
+      y: 10,
+    }),
+  );
+  const result = await socket.next();
+  expect(result.type).toBe("note:inserted");
+  await worker.fetch(request(), configured());
+  const after = await runInRoomDO(room.roomId, (instance) =>
+    instance.getSharedOutcome(),
+  );
+  expect(after?.lastUsedAt).toBe(before?.lastUsedAt);
+  expect(after?.expiresAt).toBe(before?.expiresAt);
+  socket.close();
+});

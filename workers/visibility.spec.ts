@@ -34,12 +34,26 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
 }
 
 // フェーズ概念の導入時に { phase, viewer, note作者, expected } の形へ拡張する。
+const OUTCOME_VIEWER = "00000000-0000-0000-0000-000000000000";
+
 const TABLE: Array<{
   name: string;
   viewerId: string;
   note: ProtocolNote;
   expected: boolean;
 }> = [
+  {
+    name: "成果閲覧者はprivate付箋を見られない",
+    viewerId: OUTCOME_VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "成果閲覧者はshared付箋だけを見られる",
+    viewerId: OUTCOME_VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
   {
     name: "private: 作者本人は自分の付箋を見られる",
     viewerId: AUTHOR,

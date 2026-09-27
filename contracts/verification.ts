@@ -61,3 +61,26 @@ export const VerificationStatusSchema = z.object({
   completedOtherVoters: z.number().int().min(0).max(2),
 });
 export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
+
+export const VerificationOutcomeScenarioSchema = z.enum([
+  "partial",
+  "completed",
+  "empty",
+  "failure",
+  "expired",
+]);
+export type VerificationOutcomeScenario = z.infer<
+  typeof VerificationOutcomeScenarioSchema
+>;
+export const VerificationOutcomeRequestSchema = z
+  .object({
+    scenario: VerificationOutcomeScenarioSchema,
+    roomName: z.string().trim().max(80).optional(),
+  })
+  .strict();
+export const VerificationOutcomesLinkSchema = z.object({
+  token: z.string().regex(/^[a-f0-9]{64}$/),
+});
+export const VerificationOutcomeRecoverySchema = z.object({
+  recovered: z.literal(true),
+});

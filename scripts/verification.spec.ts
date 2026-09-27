@@ -90,6 +90,31 @@ describe("検証起動の隔離", () => {
     expect(vars).toContain(`VERIFICATION_CONTROL_TOKEN=${token}`);
   });
 
+  it("成果閲覧の秘密は検証領域で保持し、操作鍵と通常環境から分離する", async () => {
+    const path = await project();
+    const first = await prepareVerificationRuntime(path, {
+      SHARED_OUTCOMES_TOKEN: "production-secret",
+    });
+    const second = await prepareVerificationRuntime(path, {});
+    expect(first.env.SHARED_OUTCOMES_TOKEN).toMatch(/^[a-f0-9]{64}$/);
+    expect(first.env.SHARED_OUTCOMES_TOKEN).toBe(
+      second.env.SHARED_OUTCOMES_TOKEN,
+    );
+    expect(first.env.SHARED_OUTCOMES_TOKEN).not.toBe(
+      first.env.VERIFICATION_CONTROL_TOKEN,
+    );
+    expect(first.env.VERIFICATION_CONTROL_TOKEN).not.toBe(
+      second.env.VERIFICATION_CONTROL_TOKEN,
+    );
+    const vars = await readFile(join(first.directory, ".dev.vars"), "utf8");
+    expect(vars).toContain(
+      `SHARED_OUTCOMES_TOKEN=${first.env.SHARED_OUTCOMES_TOKEN}`,
+    );
+    expect(JSON.stringify(first.workerArgs)).not.toContain(
+      first.env.SHARED_OUTCOMES_TOKEN,
+    );
+  });
+
   it("検証用ポートを環境変数で選び、URL・Worker・Next に一貫して渡す", async () => {
     const runtime = await prepareVerificationRuntime(await project(), {
       IDEA_BOOST_VERIFY_APP_PORT: "3100",

@@ -16,6 +16,10 @@ export function VerificationConsole({
       {...state}
       isOwner={isOwner}
       onCreate={state.create}
+      onRoomNameChange={state.setRoomName}
+      onOutcome={state.createOutcome}
+      onOutcomesLink={state.getOutcomesLink}
+      onRecover={state.recoverOutcome}
       onVote={state.vote}
       onRetry={() => void state.refresh()}
     />

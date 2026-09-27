@@ -59,6 +59,12 @@ npm run dev
 まま誤って利用されることを防ぐため、意図的に認証処理で拒否されます。生成した
 値は Git にコミットせず、必ず両方のファイルで同じ値を使用してください。
 
+### 共有成果のローカル検証
+
+通常操作の共有成果は `dev` と `dev:api` を併用するとローカルへ保存され、再起動しても残ります。閲覧設定がなくても保存は動きます。秘密リンクは `npm run outcomes:link -- issue local http://localhost:3000 /tmp/idea-boost-local-link.txt` で発行できます。
+
+`npm run dev:verify` は通常開発と分離した保存先・秘密設定で起動します。Ownerで `/dev/verify` を開くと成果閲覧リンクを取得し、途中・完了・空・保存失敗からの復旧・期限切れを準備できます。閲覧用の値は再起動しても同じです。詳しくは [ローカル検証](docs/local-verification.md) と [発行・置換・削除の手順](docs/shared-outcomes.md) を参照してください。
+
 ### Orca の worktree
 
 Orca で新しい worktree を作る場合は、Settings → Repository → Hooks の

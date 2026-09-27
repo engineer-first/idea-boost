@@ -37,6 +37,8 @@ const ALL_TABLES = [
   "room_owner",
   "room_state",
   "schema_migrations",
+  "shared_outcome_identity",
+  "shared_outcome_state",
   "sharing_state",
   "timer_state",
   "used_note_drag_ids",

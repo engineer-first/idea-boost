@@ -329,3 +329,88 @@ describe("検証用の初期状態", () => {
     ).toBe(200);
   });
 });
+
+describe("成果の検証入口", () => {
+  it("閲覧用の秘密だけでは状態準備できず、Memberはリンクも取得できない", async () => {
+    const member = await SELF.fetch(
+      "http://localhost/api/verification/outcomes-link",
+      { headers: await headers(1) },
+    );
+    expect(member.status).toBe(403);
+    const owner = await SELF.fetch(
+      "http://localhost/api/verification/outcomes-link",
+      { headers: await headers() },
+    );
+    expect(owner.status).toBe(200);
+    expect(await owner.json()).toEqual({ token: "a".repeat(64) });
+    const viewer = await SELF.fetch(
+      "http://localhost/api/verification/outcomes",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${"a".repeat(64)}` },
+        body: JSON.stringify({ scenario: "partial" }),
+      },
+    );
+    expect(viewer.status).toBe(404);
+  });
+});
+
+it("成果ケースは実保存を通り、失敗から同じ完了記録をアラームで復旧する", async () => {
+  async function outcome(scenario: string, roomName = "同名の検証") {
+    const response = await SELF.fetch(
+      "http://localhost/api/verification/outcomes",
+      {
+        method: "POST",
+        headers: await headers(),
+        body: JSON.stringify({ scenario, roomName }),
+      },
+    );
+    expect(response.status).toBe(200);
+    const active = VerificationActiveSchema.parse(await response.json());
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
+    return { active, stub };
+  }
+  const partial = await outcome("partial");
+  const partialRecord = await partial.stub.getSharedOutcome();
+  expect(partialRecord?.status).toBe("partial");
+  expect(partialRecord?.snapshot?.notes).toHaveLength(35);
+  expect(partialRecord?.snapshot?.groups).toHaveLength(2);
+  expect(partialRecord?.snapshot?.notes.some((note) => note.excluded)).toBe(
+    true,
+  );
+  const failed = await outcome("failure");
+  const failedRecord = await failed.stub.getSharedOutcome();
+  expect(failedRecord?.saveStatus).toBe("failed");
+  expect(failedRecord?.lastSavedAt).not.toBeNull();
+  expect(failedRecord?.snapshot?.decisions).toHaveLength(2);
+  const recovered = await SELF.fetch(
+    `http://localhost/api/verification/outcomes/${failed.active.roomId}/recover`,
+    { method: "POST", headers: await headers(), body: "{}" },
+  );
+  expect(recovered.status).toBe(200);
+  await runInDurableObject(failed.stub, async (instance, state) => {
+    state.storage.sql.exec(
+      "UPDATE shared_outcome_state SET retry_at = ? WHERE id = 1",
+      Date.now(),
+    );
+    await instance.alarm();
+  });
+  const confirmed = await failed.stub.getSharedOutcome();
+  expect(confirmed?.saveStatus).toBe("saved");
+  expect(confirmed?.status).toBe("confirmed");
+  expect(confirmed?.snapshot?.decisions).toHaveLength(3);
+  expect(confirmed?.displayId).not.toBe(partialRecord?.displayId);
+  const expired = await outcome("expired", "");
+  expect(await expired.stub.getSharedOutcome()).toBeNull();
+  expect(
+    await env.DB.prepare(
+      "SELECT room_id FROM shared_outcomes WHERE room_id = ?",
+    )
+      .bind(expired.active.roomId)
+      .first(),
+  ).toBeNull();
+  const empty = await outcome("empty");
+  expect((await empty.stub.getSharedOutcome())?.snapshot?.notes).toHaveLength(
+    0,
+  );
+});

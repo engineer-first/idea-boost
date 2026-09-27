@@ -2,6 +2,7 @@
 // すべてのエンドポイントはセッション（または署名済みログイン主張）を要求する。
 // Next 側は UI とセッション Cookie の発行だけを担い、データへは必ずここを通る。
 import { z } from "zod";
+import { CreateRoomInputSchema } from "../contracts/api";
 import { isUuid } from "../contracts/ids";
 import {
   isValidInviteCode,
@@ -25,6 +26,7 @@ import {
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
 import { HOST_ID_HEADER, RoomDO, USER_ID_HEADER } from "./room/room-do";
+import { handleSharedOutcomes } from "./shared-outcomes-api";
 
 export { RoomDO };
 
@@ -32,6 +34,7 @@ export { RoomDO };
 // secret binding は生成されないため、公開境界で SESSION_SECRET を明示する。
 export type ApiWorkerEnv = Env & {
   SESSION_SECRET: string;
+  SHARED_OUTCOMES_TOKEN?: string;
 };
 
 const SyncRequestSchema = z.object({ assertion: z.string().min(1) });
@@ -89,9 +92,15 @@ async function handleAuthSync(
 
 // POST /api/rooms — ルーム作成。D1 に行を作り、RoomDO に host を登録する。
 async function handleCreateRoom(
+  request: Request,
   env: ApiWorkerEnv,
   session: SessionPayload,
 ): Promise<Response> {
+  const body = CreateRoomInputSchema.safeParse(
+    (await readJsonBody(request)) ?? {},
+  );
+  if (!body.success)
+    return error(400, "ルーム名は80文字以内で入力してください。");
   await ensureUser(env.DB, {
     id: session.sub,
     email: session.email,
@@ -99,7 +108,11 @@ async function handleCreateRoom(
   });
   const room = await insertRoom(env.DB, session.sub);
   // 作成者をホスト登録し、フェーズを lobby（開始前）に初期化する。
-  await roomStub(env, room.roomId).initializeNewRoom(session.sub, session.name);
+  await roomStub(env, room.roomId).initializeNewRoom(
+    session.sub,
+    session.name,
+    { roomId: room.roomId, name: body.data.name },
+  );
   return json({ roomId: room.roomId, inviteCode: room.inviteCode });
 }
 
@@ -209,10 +222,11 @@ async function handleLeaveRoom(
   }
 
   // ホストの「退出」はルーム解散。残メンバーを開始不能にしない。
-  // D1 のディレクトリ抹消を先に行い fail-closed にする。
+  // 成果を先に保全し、その後は D1 ディレクトリ→作業領域の順に削除する。
   // disband 成功後に deleteRoom が失敗すると「招待コードで解決できるが
   // 中身は空」のゾンビルームが残り、ホストは既にメンバー外で再試行 404 になる。
   if (room.hostId === session.sub) {
+    await stub.ensureSharedOutcome(roomId, room.createdAt);
     await deleteRoom(env.DB, roomId);
     await stub.disband();
     return new Response(null, { status: 204 });
@@ -273,6 +287,7 @@ async function handleRoomWebSocket(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);
   headers.set(HOST_ID_HEADER, room.hostId);
@@ -306,6 +321,12 @@ export function createApiWorker(
         return json({ ok: true });
       }
 
+      if (
+        pathname === "/api/shared-outcomes" ||
+        pathname.startsWith("/api/shared-outcomes/")
+      )
+        return handleSharedOutcomes(request, env);
+
       // 設定漏れ（本番で secret 未設定）を既知鍵での fail-open にせず、
       // 明示的に落とす。認証を扱う前に必ず検証する。
       try {
@@ -330,7 +351,7 @@ export function createApiWorker(
       }
 
       if (method === "POST" && pathname === "/api/rooms") {
-        return handleCreateRoom(env, session);
+        return handleCreateRoom(request, env, session);
       }
 
       // /api/rooms/lookup — 招待コードからルーム解決（hostname を返す）

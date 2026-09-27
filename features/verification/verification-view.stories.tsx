@@ -19,6 +19,12 @@ const meta = {
     onCreate: fn(),
     onVote: fn(),
     onRetry: fn(),
+    outcomesLink: null,
+    roomName: "",
+    onRoomNameChange: fn(),
+    onOutcome: fn(),
+    onOutcomesLink: fn(),
+    onRecover: fn(),
   },
 } satisfies Meta<typeof VerificationView>;
 export default meta;
@@ -39,5 +45,12 @@ export const Member: Story = {
     active: buildVerificationActive(),
     status: buildVerificationStatus({ canCompleteVotes: false }),
     isOwner: false,
+  },
+};
+
+export const OutcomesLink: Story = {
+  args: {
+    outcomesLink: "http://localhost:3000/shared-outcomes#token=example-only",
+    roomName: "学習会の企画",
   },
 };

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
 
@@ -67,6 +67,20 @@ export async function prepareVerificationRuntime(
   const directory = await mkdtemp(join(verificationDir, "runtime-"));
   const configPath = join(directory, "wrangler.json");
   const persistPath = join(verificationDir, "state");
+  const outcomesTokenPath = join(verificationDir, "outcomes-token");
+  try {
+    await writeFile(outcomesTokenPath, randomBytes(32).toString("hex"), {
+      mode: 0o600,
+      flag: "wx",
+    });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  }
+  const outcomesToken = (await readFile(outcomesTokenPath, "utf8")).trim();
+  if (!/^[a-f0-9]{64}$/.test(outcomesToken))
+    throw new Error(
+      "検証成果の閲覧設定が不正です。検証領域の outcomes-token を差し替えてください。",
+    );
   const secret = randomBytes(32).toString("hex");
   const token = randomBytes(32).toString("hex");
   const config = {
@@ -99,7 +113,7 @@ export async function prepareVerificationRuntime(
   await writeFile(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
   await writeFile(
     join(directory, ".dev.vars"),
-    `SESSION_SECRET=${secret}\nVERIFICATION_CONTROL_TOKEN=${token}\nIDEA_BOOST_VERIFY=true\n`,
+    `SESSION_SECRET=${secret}\nVERIFICATION_CONTROL_TOKEN=${token}\nIDEA_BOOST_VERIFY=true\nSHARED_OUTCOMES_TOKEN=${outcomesToken}\n`,
     { mode: 0o600 },
   );
   const env: NodeJS.ProcessEnv = {
@@ -107,6 +121,7 @@ export async function prepareVerificationRuntime(
     NODE_ENV: "development",
     IDEA_BOOST_VERIFY: "true",
     VERIFICATION_CONTROL_TOKEN: token,
+    SHARED_OUTCOMES_TOKEN: outcomesToken,
     SESSION_SECRET: secret,
     API_WORKER_URL: `http://localhost:${apiPort}`,
     NEXT_PUBLIC_API_WORKER_URL: `http://localhost:${apiPort}`,

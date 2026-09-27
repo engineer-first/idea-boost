@@ -10,6 +10,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
+  CreateRoomInputSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
 } from "@/contracts/api";
@@ -80,14 +81,21 @@ export async function lookupInviteRoom(
   };
 }
 
-export async function createRoom(): Promise<CreateRoomResult> {
+export async function createRoom(name?: string): Promise<CreateRoomResult> {
   const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  const res = await apiFetch("/api/rooms", { method: "POST" });
+  const input = CreateRoomInputSchema.safeParse({ name });
+  if (!input.success)
+    return { ok: false, error: "ルーム名は80文字以内で入力してください。" };
+  const res = await apiFetch("/api/rooms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input.data),
+  });
   // 2xx でもボディが不正 JSON（プロキシの HTML エラーページ等）のことがある。
   const parsed = res.ok
     ? CreateRoomResponseSchema.safeParse(await res.json().catch(() => null))

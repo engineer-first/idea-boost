@@ -6,6 +6,16 @@ export async function syncRoomAlarm(
   sql: SqlStorage,
 ): Promise<void> {
   const deadlines: number[] = [];
+  const outcome = sql
+    .exec("SELECT expires_at, retry_at FROM shared_outcome_state WHERE id = 1")
+    .toArray()[0];
+  if (typeof outcome?.retry_at === "number") deadlines.push(outcome.retry_at);
+  if (
+    typeof outcome?.expires_at === "number" &&
+    outcome.expires_at > Date.now()
+  )
+    deadlines.push(outcome.expires_at);
+
   const pending = sql
     .exec("SELECT deadline_at FROM pending_phase_transition WHERE id = 1")
     .toArray()[0];

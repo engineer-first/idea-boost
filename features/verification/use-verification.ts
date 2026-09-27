@@ -4,6 +4,9 @@ import {
   type VerificationActive,
   VerificationActiveSchema,
   type VerificationCheckpoint,
+  VerificationOutcomeRecoverySchema,
+  type VerificationOutcomeScenario,
+  VerificationOutcomesLinkSchema,
   type VerificationStatus,
   VerificationStatusSchema,
   VerificationWorkspaceSchema,
@@ -11,6 +14,8 @@ import {
 import { verificationRequest } from "./verification-client";
 
 export function useVerification(initialActive: VerificationActive | null) {
+  const [roomName, setRoomName] = useState("");
+  const [outcomesLink, setOutcomesLink] = useState<string | null>(null);
   const [active, setActive] = useState(initialActive);
   const [status, setStatus] = useState<VerificationStatus | null>(null);
   const [pending, setPending] = useState(false);
@@ -100,5 +105,53 @@ export function useVerification(initialActive: VerificationActive | null) {
       );
     });
   }
-  return { active, status, pending, error, create, vote, refresh };
+  async function createOutcome(
+    scenario: VerificationOutcomeScenario,
+  ): Promise<void> {
+    await mutate(async () => {
+      const next = await verificationRequest(
+        "/api/verification/outcomes",
+        VerificationActiveSchema,
+        { scenario, roomName },
+      );
+      setActive(next);
+      setStatus(null);
+    });
+  }
+  async function getOutcomesLink(): Promise<void> {
+    await mutate(async () => {
+      const result = await verificationRequest(
+        "/api/verification/outcomes-link",
+        VerificationOutcomesLinkSchema,
+      );
+      setOutcomesLink(
+        `${window.location.origin}/shared-outcomes#token=${result.token}`,
+      );
+    });
+  }
+  async function recoverOutcome(): Promise<void> {
+    if (!active) return;
+    await mutate(async () => {
+      await verificationRequest(
+        `/api/verification/outcomes/${active.roomId}/recover`,
+        VerificationOutcomeRecoverySchema,
+        {},
+      );
+    });
+  }
+  return {
+    roomName,
+    setRoomName,
+    outcomesLink,
+    createOutcome,
+    getOutcomesLink,
+    recoverOutcome,
+    active,
+    status,
+    pending,
+    error,
+    create,
+    vote,
+    refresh,
+  };
 }
