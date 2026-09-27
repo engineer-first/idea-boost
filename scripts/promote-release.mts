@@ -93,6 +93,12 @@ export const promotionApi: PromotionApi = async (method, path, data) => {
       ...(data ? { body: JSON.stringify(data) } : {}),
     },
   );
+  if (
+    response.status === 404 &&
+    method === "GET" &&
+    path.startsWith("/contents/.github/release-note.json?ref=release-plan-")
+  )
+    return null;
   if (!response.ok) {
     throw new Error(
       `GitHub API ${method} ${path} に失敗しました（HTTP ${response.status}）。`,
@@ -112,10 +118,21 @@ if (
       "想定外のリポジトリです。",
     );
     const [prNumber, expectedSha] = process.argv.slice(2);
-    await promoteRelease(Number(prNumber), expectedSha, promotionApi);
+    if (process.env.RELEASE_NOTE_JSON) {
+      const { promoteApproved } = await import("./release-operator.mts");
+      await promoteApproved(
+        expectedSha,
+        JSON.parse(process.env.RELEASE_NOTE_JSON),
+        promotionApi,
+      );
+    } else {
+      await promoteRelease(Number(prNumber), expectedSha, promotionApi);
+    }
     const summary = [
       `releaseを ${expectedSha} へfast-forwardしました。`,
-      `PR: https://github.com/${repository}/pull/${prNumber}`,
+      ...(!process.env.RELEASE_NOTE_JSON && prNumber
+        ? [`PR: https://github.com/${repository}/pull/${prNumber}`]
+        : []),
       `Deploy: https://github.com/${repository}/actions/workflows/deploy.yml`,
     ].join("\n");
     console.log(summary);
