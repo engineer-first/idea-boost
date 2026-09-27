@@ -48,6 +48,7 @@
     "test:verification": "npm run gen:room-do-migrations && vitest run --config vitest.verification.config.mts",
     "release:record": "node scripts/release-history.mts",
     "release:submit": "node scripts/deploy-production.mts submit",
+    "release:operator": "node scripts/release-operator.mts",
     "outcomes:link": "node --no-warnings scripts/shared-outcomes-token.mts"
   },
   "dependencies": {

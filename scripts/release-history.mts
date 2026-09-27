@@ -7,7 +7,7 @@ const REPOSITORY = "engineer-first/idea-boost";
 const REPOSITORY_URL = `https://github.com/${REPOSITORY}`;
 // 記録導入前に確認できた直近の成功した Deploy。全過去版の復元はしない。
 export const BASELINE_COMMIT = "24fc6570bcf80ad641e8160a15aa23d6e31e6439";
-const BASELINE_TIME = "2026-09-23T01:50:15Z";
+export const BASELINE_TIME = "2026-09-23T01:50:15Z";
 const Commit = z.string().regex(/^[0-9a-f]{40}$/);
 const UtcTime = z
   .string()
@@ -43,6 +43,7 @@ const Note = z
   .object({
     commit: Commit,
     previousCommit: Commit,
+    title: Text.max(120).optional(),
     mode: z.enum(["release", "redeploy", "rollback"]).default("release"),
     deployment: Deployment,
     changes: z
@@ -51,7 +52,7 @@ const Note = z
           .object({
             kind: z.enum(["追加", "変更", "修正", "内部変更"]),
             text: Text,
-            prs: z.array(z.number().int().positive()).min(1),
+            prs: z.array(z.number().int().positive()),
           })
           .strict(),
       )
@@ -65,6 +66,7 @@ export type PreparedRelease = z.infer<typeof ReleasePlan> & { commit: string };
 const Metadata = z
   .object({
     tag: z.string().startsWith("prod-"),
+    deploymentId: z.string().startsWith("prod-").optional(),
     commit: Commit,
     previousCommit: Commit,
     deployedAt: UtcTime,
@@ -91,6 +93,20 @@ export type ReleaseResult = {
   existing: boolean;
   url?: string;
 };
+
+/** 日付は成功したhealthのJST。公開事象との対応はmetadataに保持する。 */
+export function nextReleaseTag(deployedAt: string, tags: string[]): string {
+  const date = new Date(Date.parse(deployedAt) + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
+    .replaceAll("-", ".");
+  const prefix = `prod-${date}.`;
+  const numbers = tags
+    .filter((tag) => tag.startsWith(prefix))
+    .map((tag) => Number(tag.slice(prefix.length)))
+    .filter((value) => Number.isSafeInteger(value) && value > 0);
+  return `${prefix}${Math.max(0, ...numbers) + 1}`;
+}
 
 function requireCondition(
   condition: unknown,
@@ -127,7 +143,7 @@ async function deploymentMetadata(
   return { ...evidence, previousCommit: note.previousCommit };
 }
 
-class IncompleteDeploymentError extends Error {}
+export class IncompleteDeploymentError extends Error {}
 
 /** 再試行されなかった成功ジョブを引き継ぎ、再試行されたジョブは新しい結果を使う。 */
 export async function inspectDeployment(
@@ -213,7 +229,7 @@ export async function inspectDeployment(
   };
 }
 
-function metadataOf(release: Release): Metadata {
+export function metadataOf(release: Release): Metadata {
   const matches = [
     ...(release.body ?? "").matchAll(/<!-- release-history (.+) -->/g),
   ];
@@ -229,7 +245,7 @@ function metadataOf(release: Release): Metadata {
   return metadata;
 }
 
-async function releases(api: GitHubApi): Promise<Release[]> {
+export async function releases(api: GitHubApi): Promise<Release[]> {
   const result: Release[] = [];
   for (let page = 1; ; page++) {
     const batch = z
@@ -287,7 +303,9 @@ export async function assertRecordedDeployments(
       );
       if (
         recorded.some(
-          (item) => item.tag === `prod-actions-${run.id}-${run.run_attempt}`,
+          (item) =>
+            (item.deploymentId ?? item.tag) ===
+            `prod-actions-${run.id}-${run.run_attempt}`,
         )
       )
         continue;
@@ -302,7 +320,7 @@ export async function assertRecordedDeployments(
       requireCondition(
         recorded.some(
           (item) =>
-            item.tag === evidence.tag &&
+            (item.deploymentId ?? item.tag) === evidence.tag &&
             item.commit === evidence.commit &&
             item.deployedAt === evidence.deployedAt,
         ),
@@ -319,10 +337,15 @@ export async function prepareRelease(
   api: GitHubApi,
 ): Promise<PreparedRelease> {
   Commit.parse(commit);
+  const saved = await api(
+    "GET",
+    `/contents/.github/release-note.json?ref=release-plan-${commit}`,
+  );
   const file = z
     .object({ encoding: z.literal("base64"), content: z.string() })
     .parse(
-      await api("GET", `/contents/.github/release-note.json?ref=${commit}`),
+      saved ??
+        (await api("GET", `/contents/.github/release-note.json?ref=${commit}`)),
     );
   const plan = ReleasePlan.parse(
     JSON.parse(Buffer.from(file.content, "base64").toString("utf8")),
@@ -341,6 +364,7 @@ export async function prepareRelease(
       ...plan,
       commit,
       previousCommit,
+      title: "同一commitの再公開",
       mode: "redeploy",
       changes: [
         {
@@ -382,27 +406,32 @@ export async function recordActions(
 ): Promise<ReleaseResult> {
   const evidence = await inspectDeployment(runId, attempt, api);
   const history = await releases(api);
-  const existing = history.find((release) => release.tag_name === evidence.tag);
+  const existing = history.find(
+    (release) =>
+      (metadataOf(release).deploymentId ?? release.tag_name) === evidence.tag,
+  );
   if (existing) {
     const metadata = metadataOf(existing);
     requireCondition(
       !existing.draft &&
         !existing.prerelease &&
-        Object.entries(evidence).every(
-          ([key, value]) => metadata[key as keyof Metadata] === value,
+        Object.entries(evidence).every(([key, value]) =>
+          key === "tag"
+            ? (metadata.deploymentId ?? metadata.tag) === value
+            : metadata[key as keyof Metadata] === value,
         ),
       "記録済みの公開情報と一致しません。",
     );
-    const ref = await api("GET", `/git/ref/tags/${evidence.tag}`);
+    const ref = await api("GET", `/git/ref/tags/${existing.tag_name}`);
     const tag = z
       .object({ sha: Commit })
-      .parse(await api("GET", `/commits/${evidence.tag}`));
+      .parse(await api("GET", `/commits/${existing.tag_name}`));
     requireCondition(
       ref && tag.sha === evidence.commit,
       "記録済みのタグとcommitが一致しません。",
     );
     return {
-      tag: evidence.tag,
+      tag: existing.tag_name,
       body: existing.body ?? "",
       existing: true,
       url: existing.html_url,
@@ -423,10 +452,10 @@ function render(
 ): string {
   const changes = note.changes.map(
     (change) =>
-      `- **${change.kind}**：${change.text}\n  関連PR：${change.prs.map((pr) => `[#${pr}](${REPOSITORY_URL}/pull/${pr})`).join("、")}`,
+      `- **${change.kind}**：${change.text}${change.prs.length ? `\n  関連PR：${change.prs.map((pr) => `[#${pr}](${REPOSITORY_URL}/pull/${pr})`).join("、")}` : ""}`,
   );
   return [
-    `# ${metadata.tag}`,
+    `# ${note.title ?? note.changes[0].text}`,
     "",
     `本番公開日時（UTC）：${metadata.deployedAt}`,
     ...(note.mode === "rollback"
@@ -477,13 +506,38 @@ export async function recordRelease(
     note.mode !== "rollback" || note.notices.length > 0,
     "ロールバックには利用上の注意が必要です。",
   );
-  const metadata = await deploymentMetadata(note, api);
+  const evidence = await deploymentMetadata(note, api);
+  const history = await releases(api);
+  const prior = history.find(
+    (release) =>
+      (metadataOf(release).deploymentId ?? release.tag_name) === evidence.tag,
+  );
+  const legacyRef = prior
+    ? null
+    : await api("GET", `/git/ref/tags/${evidence.tag}`);
+  const metadata: Metadata = prior
+    ? {
+        ...evidence,
+        tag: prior.tag_name,
+        ...(metadataOf(prior).deploymentId
+          ? { deploymentId: evidence.tag }
+          : {}),
+      }
+    : legacyRef
+      ? evidence
+      : {
+          ...evidence,
+          deploymentId: evidence.tag,
+          tag: nextReleaseTag(
+            evidence.deployedAt,
+            history.map((release) => release.tag_name),
+          ),
+        };
   requireCondition(
     Date.parse(metadata.deployedAt) > Date.parse(BASELINE_TIME) &&
       Date.parse(metadata.deployedAt) <= Date.now(),
     "本番公開日時は記録開始基準より後、現在以前である必要があります。",
   );
-  const history = await releases(api);
   const existing = history.find((release) => release.tag_name === metadata.tag);
   const reference = await api("GET", `/git/ref/tags/${metadata.tag}`);
   const tag = reference
@@ -553,7 +607,7 @@ export async function recordRelease(
     await api("POST", "/releases", {
       tag_name: metadata.tag,
       target_commitish: note.commit,
-      name: metadata.tag,
+      name: note.title ?? note.changes[0].text,
       body,
       draft: false,
       prerelease: false,
@@ -574,14 +628,13 @@ export const githubApi: GitHubApi = async (method, path, data) => {
       `repos/${REPOSITORY}${path}`,
     ];
     if (data) args.push("--input", "-");
-    return JSON.parse(
-      execFileSync("gh", args, {
-        encoding: "utf8",
-        maxBuffer: 8 * 1024 * 1024,
-        input: data ? JSON.stringify(data) : undefined,
-        stdio: ["pipe", "pipe", "pipe"],
-      }),
-    );
+    const output = execFileSync("gh", args, {
+      encoding: "utf8",
+      maxBuffer: 8 * 1024 * 1024,
+      input: data ? JSON.stringify(data) : undefined,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return output.trim() ? JSON.parse(output) : null;
   } catch (error) {
     const stderr =
       typeof error === "object" && error !== null && "stderr" in error
@@ -589,7 +642,10 @@ export const githubApi: GitHubApi = async (method, path, data) => {
         : "";
     if (
       method === "GET" &&
-      path.startsWith("/git/ref/tags/prod-") &&
+      (path.startsWith("/git/ref/tags/prod-") ||
+        path.startsWith(
+          "/contents/.github/release-note.json?ref=release-plan-",
+        )) &&
       stderr.includes("(HTTP 404)")
     )
       return null;
