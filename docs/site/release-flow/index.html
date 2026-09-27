@@ -3,141 +3,91 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>本番リリース手順書 | Idea Boost</title>
+<title>本番リリース | Idea Boost</title>
 <style>
-:root{color-scheme:light;--ink:#202b33;--muted:#52616b;--line:#ccd5dc;--link:#075d91;--soft:#f3f6f8;--warn:#fff6de}
-*{box-sizing:border-box}html{scroll-padding-top:20px}body{margin:0;color:var(--ink);background:#fff;font:16px/1.8 system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--link);text-underline-offset:3px;overflow-wrap:anywhere}a:hover{text-decoration-thickness:2px}a:focus-visible{outline:3px solid #1277b3;outline-offset:4px}header{border-bottom:1px solid var(--line);padding:12px 28px;font-size:14px}header nav{display:flex;gap:12px 24px;flex-wrap:wrap;max-width:1260px;margin:auto}.layout{display:grid;grid-template-columns:228px minmax(0,900px);gap:44px;max-width:1260px;margin:auto;padding:28px}aside{font-size:14px}aside nav{position:sticky;top:20px}aside strong{display:block;margin-bottom:8px}aside a{display:block;padding:7px 0;line-height:1.5}main{min-width:0}h1{font-size:30px;line-height:1.4;margin:0 0 12px}h2{font-size:23px;line-height:1.5;margin:44px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--line)}h3{font-size:18px;margin:26px 0 10px}p{margin:10px 0}li{margin:8px 0}ol,ul{padding-left:25px}.intro{color:var(--muted)}.note{border-left:4px solid #4d778f;background:var(--soft);padding:12px 18px;margin:18px 0}.warning{border-left-color:#98710e;background:var(--warn)}.check{font-weight:650}.table-wrap{max-width:100%;overflow:auto;margin:16px 0}table{border-collapse:collapse;width:100%;font-size:14px;text-align:left}th,td{border:1px solid var(--line);padding:10px 12px;vertical-align:top}th{background:var(--soft);font-weight:650}th:first-child,td:first-child{min-width:110px}td:first-child code{white-space:nowrap}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.9em;background:var(--soft);padding:2px 4px;overflow-wrap:anywhere}pre{background:var(--soft);border:1px solid var(--line);padding:16px;line-height:1.6;overflow:auto;font-size:14px}pre code{padding:0;overflow-wrap:normal}footer{font-size:13px;color:var(--muted);margin-top:40px;padding-top:16px;border-top:1px solid var(--line)}.skip{position:absolute;top:-80px;left:16px;background:white;padding:10px;z-index:2}.skip:focus{top:4px}section{scroll-margin-top:20px}@media(max-width:850px){.layout{grid-template-columns:1fr;gap:24px;padding:20px}aside nav{position:static;border-bottom:1px solid var(--line);padding-bottom:16px;columns:2}aside strong{column-span:all}aside a{break-inside:avoid}h1{font-size:26px}h2{font-size:21px}header{padding:10px 20px}th,td{padding:8px}pre{font-size:13px}}@media(max-width:420px){aside nav{columns:1}body{font-size:15px}.layout{padding:16px}header{padding-inline:16px}}
+:root{color-scheme:light;--ink:#20313d;--muted:#516571;--line:#d5dfe5;--link:#075d91;--soft:#f4f7f9;--blue:#edf5fb;--green:#edf6f2;--warn:#fff7e5}
+*{box-sizing:border-box}html{scroll-padding-top:24px}body{margin:0;background:#fff;color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--link);text-underline-offset:3px;overflow-wrap:anywhere}a:hover{text-decoration-thickness:2px}a:focus-visible{outline:3px solid #1277b3;outline-offset:4px}code{font:0.9em/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}p{margin:8px 0}h1{font-size:28px;line-height:1.4;margin:0 0 8px}h2{font-size:21px;line-height:1.5;margin:0 0 16px}h3{font-size:19px;margin:0 0 8px}header{border-bottom:1px solid var(--line)}header nav{display:flex;gap:8px 24px;flex-wrap:wrap;max-width:1240px;margin:auto;padding:8px 24px;font-size:14px}header a{display:inline-flex;align-items:center;min-height:44px}.layout{display:grid;grid-template-columns:160px minmax(0,980px);gap:36px;max-width:1240px;margin:auto;padding:28px 24px}aside nav{position:sticky;top:24px}aside strong{display:block;font-size:13px;color:var(--muted);margin-bottom:12px}aside a{display:flex;align-items:center;min-height:44px;font-size:14px;text-decoration:none}main{min-width:0}.intro,.muted{color:var(--muted)}section{margin-top:36px;scroll-margin-top:24px}.section-heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px 20px;flex-wrap:wrap}.section-heading a{font-size:14px}.eyebrow{font-size:13px;letter-spacing:.04em;color:var(--muted);margin:0 0 4px}.checks{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px}.checks li{position:relative;padding:12px 12px 12px 36px;background:var(--soft);border-radius:6px}.checks li::before{content:"□";position:absolute;left:13px;color:var(--muted)}.checks span{display:block;color:var(--muted);font-size:14px}.flow{display:grid;grid-template-columns:1fr 44px 1fr 44px 1fr;align-items:stretch}.node{padding:16px;border:1px solid var(--line);border-radius:6px;background:var(--soft)}.node strong{display:block;font-size:20px}.node p{font-size:14px;margin:6px 0 0}.node.candidate{background:var(--blue);border-color:#a9c9df}.node.production{background:var(--green);border-color:#b5d4c5}.arrow{display:grid;place-items:center;color:var(--muted);font-size:22px}.branch-note{margin:12px 0 0;padding:8px 12px;border-left:3px solid #a9c9df;font-size:14px}.warning{padding:10px 14px;background:var(--warn);border-left:3px solid #a77b22;font-size:14px}.routes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.route{border:1px solid var(--line);border-radius:8px;overflow:hidden}.route-head{padding:18px 20px;background:var(--soft);border-bottom:1px solid var(--line)}.route-head p{font-size:14px}.route-body{padding:20px}.steps{counter-reset:step;list-style:none;margin:0;padding:0}.steps>li{counter-increment:step;position:relative;padding:0 0 20px 34px}.steps>li:last-child{padding-bottom:0}.steps>li::before{content:counter(step);position:absolute;left:0;top:1px;width:24px;height:24px;display:grid;place-items:center;border:1px solid #9bafbc;border-radius:50%;font-size:13px;font-weight:650}.steps strong{display:block}.steps p{font-size:15px}.command{display:block;padding:10px 12px;background:var(--blue);border-radius:4px;margin:10px 0}.inputs{margin:10px 0 0;display:grid;grid-template-columns:auto 1fr;font-size:14px;border-top:1px solid var(--line)}.inputs dt,.inputs dd{margin:0;padding:7px 0;border-bottom:1px solid var(--line)}.inputs dd{padding-left:12px}.auto{margin:20px 0 0;padding:12px 16px;border:1px dashed #9bafbc;border-radius:6px;font-size:14px}.auto strong{margin-right:12px}.local-entry{display:flex;justify-content:space-between;align-items:center;gap:12px 24px;margin-top:14px;padding:14px 18px;background:var(--soft);border-radius:6px;font-size:14px}.local-entry p{margin:0}.local-entry a{flex-shrink:0;min-height:44px;display:flex;align-items:center}.done{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.done li{border-top:3px solid #8db8a3;padding-top:12px}.done strong{display:block;margin-bottom:4px}.done p{font-size:14px;color:var(--muted)}.caption{font-size:13px;color:var(--muted);margin-top:16px}.recovery{margin:0}.recovery>div{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px;padding:15px 0;border-top:1px solid var(--line)}.recovery dt{font-weight:650}.recovery dd{margin:0;font-size:15px}.recovery dd p:first-child{margin-top:0}.recovery dd p:last-child{margin-bottom:0}.pages{padding:22px;background:var(--soft);border:1px solid var(--line);border-radius:8px}.pages ol{padding-left:22px;margin-bottom:12px}.pages li{margin:8px 0}.pages p,.pages li{font-size:15px}.links{display:flex;gap:8px 24px;flex-wrap:wrap;font-size:14px}.links a{display:inline-flex;align-items:center;min-height:44px}footer{border-top:1px solid var(--line);margin-top:32px;padding-top:16px;font-size:14px}.skip{position:absolute;top:-80px;left:16px;background:white;padding:10px;z-index:2}.skip:focus{top:4px}@media(max-width:1050px){.layout{grid-template-columns:1fr;gap:16px}aside nav{position:static;display:flex;gap:8px 24px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:8px}aside strong{display:none}section{margin-top:30px}}@media(max-width:680px){.layout{padding:20px 16px}header nav{padding-inline:16px;gap:4px 18px}.checks,.routes,.done{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.arrow{height:28px;transform:rotate(90deg)}.node{padding:12px 16px}.node strong{font-size:18px}.node p{margin-top:2px}.recovery>div{grid-template-columns:1fr;gap:6px}.route-body,.route-head{padding:18px}.local-entry{display:block}.local-entry a{margin-top:4px}.done{gap:14px}.done p{margin:2px 0}.pages{padding:18px}.section-heading{margin-bottom:12px}.section-heading h2{margin-bottom:0}.inputs{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}h1{font-size:25px}aside nav{gap:0 20px}}
 </style>
 </head>
 <body>
 <a class="skip" href="#main">本文へ移動</a>
 <header><nav aria-label="関連ページ"><a href="../">ドキュメント一覧</a><a href="../deploy-map/">構成・初期設定</a><a href="https://github.com/engineer-first/idea-boost/actions">GitHub Actions</a><a href="https://github.com/engineer-first/idea-boost/releases">GitHub Releases</a></nav></header>
 <div class="layout">
-<aside><nav aria-label="このページの目次"><strong>本番リリース手順書</strong><a href="#branches">1. ブランチと公開先</a><a href="#prepare">2. 公開前の準備</a><a href="#skill">3. Codex Skill で公開</a><a href="#actions">4. Skill を使わず公開</a><a href="#verify">5. 公開完了を確認</a><a href="#recovery">6. 失敗・中断からの復旧</a><a href="#local">7. ローカルから手動公開</a><a href="#rollback">8. hotfix・ロールバック</a><a href="#pages">9. この手順書を Pages へ公開</a><a href="#reference">10. 仕様・検証・参照先</a></nav></aside>
+<aside><nav aria-label="このページの目次"><strong>本番リリース</strong><a href="#prepare">前提を確認</a><a href="#branches">ブランチの流れ</a><a href="#skill">Skill で公開</a><a href="#actions">Actions で公開</a><a href="#local">ローカル公開</a><a href="#verify">完了を確認</a><a href="#recovery">困ったとき</a><a href="#pages">手順書を公開</a></nav></aside>
 <main id="main">
-<h1>本番リリース手順書</h1>
-<p class="intro">開発した変更を <a href="https://ideaboost.dev">ideaboost.dev</a> に公開し、GitHub Releases に記録するまでの操作です。Codex Skill、GitHub Actions、ローカル手動操作の入口を記載しています。</p>
-<div class="note"><strong>通常の公開対象は GitHub 上の最新の <code>develop</code> 全体です。</strong>開発PRを <code>develop</code> にマージしてから公開します。ローカルで開いている feature ブランチや未コミットの変更は公開対象になりません。</div>
-<section id="branches"><h2>1. どのブランチで、何をするか</h2>
-<div class="table-wrap"><table><thead><tr><th scope="col">ブランチ</th><th scope="col">役割と操作</th><th scope="col">本番への影響</th></tr></thead><tbody>
-<tr><td><code>feature/*</code> 等</td><td>実装・テスト・レビュー。PR のマージ先は <code>develop</code>。</td><td>PR作成やpushだけでは本番は更新しない。</td></tr>
-<tr><td><code>develop</code></td><td>開発の統合先、通常公開の候補。最新を取得して <code>$release</code> を実行。Promote Release / Record Release の実行ブランチもここ。</td><td>マージだけでは本番アプリを更新しない。<code>docs/site/</code> の変更は Pages を更新する。</td></tr>
-<tr><td><code>release</code></td><td>本番デプロイ用。Promote Release が <code>develop</code> の確認済みcommitまで fast-forward。Deploy の手動実行ではこのブランチを選択。</td><td>pushまたはDeploy起動で、品質ゲートの後に本番を更新する。</td></tr>
-</tbody></table></div>
-<p><strong>順序：</strong>作業ブランチ → 開発PR → <code>develop</code> にマージ → 公開内容を確認 → Promote Release → <code>release</code> 更新 → Deploy → health → GitHub Release。</p>
-<p>Promote は履歴を揃えるために fast-forward します。<strong><code>develop → release</code> のPRをGitHubの Merge ボタンでマージしないでください。</strong>通常公開では release を直接更新する必要はありません。</p>
+<h1>本番リリース</h1>
+<p class="intro">GitHub の最新 <code>develop</code> 全体を <a href="https://ideaboost.dev">ideaboost.dev</a> に公開します。</p>
+<section id="prepare">
+<div class="section-heading"><h2>前提を確認</h2><a href="../deploy-map/">初回の設定はこちら →</a></div>
+<ul class="checks">
+<li><strong>公開する変更は develop にマージ済み</strong><span>対象のCIが成功。他の変更も含めて公開範囲を確認。</span></li>
+<li><strong>進行中の公開・未記録の本番がない</strong><span><a href="https://github.com/engineer-first/idea-boost/actions">Actions</a> を確認。未記録なら先に<a href="#recovery">回復</a>。</span></li>
+<li><strong>ローカルは最新の develop</strong><span>Skill・ローカル操作時。未コミットの変更がない。</span></li>
+<li><strong><code>gh auth status</code> が通る</strong><span>Skill・ローカル操作時。GitHubの公開・記録権限がある。</span></li>
+</ul>
 </section>
-<section id="prepare"><h2>2. 公開前の準備</h2>
-<ol><li>今回含める開発PRを <code>develop</code> にマージし、そのcommitの <a href="https://github.com/engineer-first/idea-boost/actions/workflows/ci.yml">CI</a> を確認します。develop に入っている他の変更も今回の対象です。除外する変更があれば、公開前に開発側で対象を整えます。</li>
-<li>ローカル操作をする場合、作業ツリーに未保存の変更がないことを確認して、リポジトリのルートで以下を実行します。develop が別worktreeで使用中ならそのworktreeで作業してください。</li></ol>
-<pre><code>git status --short
-git fetch origin
-git switch develop
-git pull --ff-only origin develop
-mise install
-npm ci
-gh auth status</code></pre>
-<p><code>git status --short</code> に変更が出たら、作業を保存してから切り替えます。<code>git pull --ff-only</code> が失敗したらローカル履歴を確認し、強制リセットで進めないでください。GitHub未認証の場合は <code>gh auth login</code> で認証します。Node等の開発ツールは <code>mise.toml</code> に従います。</p>
-<ol start="3"><li>初回は、Skillとworkflowが <code>develop</code> に導入済みであること、Actionsで公開・記録できる権限があることを確認します。Actionsには <code>CLOUDFLARE_API_TOKEN</code>、<code>CLOUDFLARE_ACCOUNT_ID</code>、<code>vars.NEXT_PUBLIC_SITE_URL</code>（本番は <code>https://ideaboost.dev</code>）が必要です。設定場所とWorker構成は<a href="../deploy-map/">構成・初期設定</a>を参照してください。</li>
-<li><a href="https://github.com/engineer-first/idea-boost/actions">Actions</a> で Promote Release / Deploy / Record Release の進行中・待機中の処理を確認します。進行中なら完了を待ちます。前回の本番公開が未記録なら、先に<a href="#recovery">記録を回復</a>します。</li></ol>
-<p>ここまでの準備・読み取りでは本番は変わりません。以下の3か4のどちらかで公開します。</p>
+<section id="branches">
+<h2>ブランチの流れ</h2>
+<div class="flow" aria-label="作業ブランチからdevelopへマージし、Promote Releaseでreleaseへ進める">
+<div class="node"><strong><code>feature/*</code></strong><p>実装・レビュー<br>開発PRを develop へマージ</p></div>
+<div class="arrow" aria-hidden="true">→</div>
+<div class="node candidate"><strong><code>develop</code></strong><p>公開候補を確認<br>Skill / Promote Release を実行</p></div>
+<div class="arrow" aria-hidden="true">→</div>
+<div class="node production"><strong><code>release</code></strong><p>Promote が自動更新<br>Deploy → health → Release記録</p></div>
+</div>
+<p class="branch-note">develop から別経路：<code>docs/site/</code> の変更 → <a href="#pages">GitHub Pages（手順書）</a></p>
+<p class="warning"><strong>developへのマージだけでは本番アプリは変わりません。</strong>develop → release のPRは Merge ボタンを使わず、Promote で進めます。</p>
 </section>
-<section id="skill"><h2>3. Codex Skill で公開する</h2>
-<p><strong>実行場所：</strong>最新の <code>develop</code> を取得したリポジトリをCodexで開きます。<code>$release</code> はシェルのコマンドではなく、Codexのチャットへの入力です。SkillはローカルのHEADに関係なくGitHubの <code>develop</code> を候補として取得します。</p>
-<ol><li><code>$release</code> と入力します。前回の本番、今回の差分・関連PR、説明、タグ候補、状態が表示されます。</li>
-<li>公開する機能、利用上の注意、タイトルを確認します。直す場合は <code>edit</code> と自然言語の指示を入力します。例：<code>edit タイトルを「結果をテキストで保存」にして</code>。説明の編集は公開するコードの範囲を変えません。</li>
-<li>表示内容で公開するなら <code>release</code> または「これで公開して」と入力します。ここからGitHubへ書き込み、Promote Releaseを起動します。公開しない場合は <code>cancel</code> で終了します。</li>
-<li>Skillが示すActionsのrunを確認し、<a href="#verify">公開完了の確認</a>まで進みます。受付メッセージだけで完了にしないでください。</li></ol>
-<p>SHA・PR番号・タグの転記は不要です。新しい会話でも <code>$release</code> で状態を再取得できます。説明を保存した後に中断した場合は同じ候補の保存内容を再提示します。保存済み説明は上書きできないため、内容を変える必要があれば中止して新しい候補を用意します。</p>
-<p class="note">公開せず試す場合：<code>$release 今回の変更を確認したい</code> → 説明を確認 → <code>edit</code> → <code>cancel</code>。一般のリリース相談だけではSkillは起動しません。</p>
+<section aria-labelledby="publish-heading">
+<h2 id="publish-heading">公開方法を選ぶ</h2>
+<div class="routes">
+<section class="route" id="skill" style="margin-top:0">
+<div class="route-head"><p class="eyebrow">CODEX のチャット</p><h3>Skill で公開</h3><p>最新の <code>develop</code> を開いて操作</p></div>
+<div class="route-body"><ol class="steps">
+<li><strong>候補を表示</strong><code class="command">$release</code><p>前回との差分・説明・タグ候補を確認。起動だけでは公開されません。</p></li>
+<li><strong>説明を整える</strong><p><code>edit タイトルを「結果をテキストで保存」にして</code></p><p>説明の編集では公開範囲は変わりません。</p></li>
+<li><strong>公開を指示</strong><code class="command">release</code><p>「これで公開して」でも実行。中止は <code>cancel</code>。</p></li>
+</ol><p class="caption">公開対象はGitHubのdevelop。ローカルの未コミット変更は含みません。SHA・PR番号の転記は不要。</p></div>
 </section>
-<section id="actions"><h2>4. Skill を使わず GitHub Actions で公開する</h2>
-<p>Codexを使わない場合は、説明JSONをコードと一緒にレビューしてから <strong>Promote Release</strong> を実行できます。この経路も既存のDeploy品質ゲートとhealthを通ります。</p>
-<h3>4-1. リリース説明を develop に用意する</h3>
-<ol><li><a href="https://github.com/engineer-first/idea-boost/releases">直前の本番Release</a> の本文から「公開commit」の40桁SHAを取得し、今回の差分と関連PRを確認します。ローカルで読み取りを補助する場合は以下を使えます。</li></ol>
-<pre><code>npm run release:operator -- status .release-history/snapshot.json</code></pre>
-<p><code>previousCommit</code> が直前の本番、<code>candidate</code> がGitHubのdevelopです。<code>ready</code> なら続行、<code>current</code> なら公開差分なし、その他は<a href="#recovery">復旧表</a>へ進みます。APIエラーを差分なしとして扱わないでください。</p>
-<ol start="2"><li>developから説明更新用の作業ブランチを作り、<code>.github/release-note.json</code> を更新します。下の例の比較元・説明・PR番号を実際の内容へ置き換え、開発PRでレビューして <code>develop</code> にマージします。JSONだけを未コミットのまま置いてもActionsは読みません。</li></ol>
-<pre><code>{
-  "title": "今回の主要な変更",
-  "previousCommit": "直前の本番Releaseの40桁commit SHAに置き換える",
-  "mode": "release",
-  "changes": [
-    { "kind": "修正", "text": "利用者に見える変更を書く", "prs": [123] }
-  ],
-  "notices": []
-}</code></pre>
-<p>これは書式例です。<code>kind</code> は「追加・変更・修正・内部変更」、関連PRがなければ <code>prs: []</code>。自分自身のcommitや公開日時は書きません。説明準備後にdevelopへ別の変更が入ったら、説明と公開範囲も再確認します。初回の比較元や保存済み説明との互換は<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#初回導入役割訂正">詳細運用</a>を参照してください。</p>
-<h3>4-2. develop → release のPRを確認して起動する</h3>
-<ol><li>GitHubの <strong>Pull requests → New pull request</strong> で <strong>base: release / compare: develop</strong> を選び、PRを作ります。方向を逆にしないでください。</li>
-<li>差分、説明JSON、CIと <strong>Release Note Check</strong> のSummaryを確認します。PRのheadが最新developと一致している必要があります。</li>
-<li><a href="https://github.com/engineer-first/idea-boost/actions/workflows/promote-release.yml">Actions → Promote Release</a> → <strong>Run workflow</strong> を開き、以下を入力します。</li></ol>
-<div class="table-wrap"><table><thead><tr><th scope="col">欄</th><th scope="col">値</th></tr></thead><tbody><tr><td>Use workflow from / Branch</td><td><code>develop</code></td></tr><tr><td><code>pr_number</code></td><td>今作った <code>develop → release</code> PRの番号</td></tr><tr><td><code>expected_sha</code> / <code>note_json</code></td><td>このPR経路では両方空欄</td></tr></tbody></table></div>
-<ol start="4"><li>公開内容を確認して <strong>Run workflow</strong> を押します。Promote がreleaseを進め、Deployを起動します。<strong>PRの Merge ボタンは押しません。</strong></li><li><a href="#verify">公開完了を確認</a>します。</li></ol>
-<p>CLIで同じ起動をする場合（<code>123</code> は実際のPR番号に置き換える）：</p>
-<pre><code>gh workflow run promote-release.yml \
-  --repo engineer-first/idea-boost --ref develop -f pr_number=123</code></pre>
-<p>releaseがdevelopの祖先でなければPromoteは停止します。強制pushで回避せず、hotfix等の履歴を開発側へ取り込んでからやり直します。</p>
+<section class="route" id="actions" style="margin-top:0">
+<div class="route-head"><p class="eyebrow">GITHUB の画面</p><h3>Actions で公開</h3><p>Codex Skill を使わない場合</p></div>
+<div class="route-body"><ol class="steps">
+<li><strong>説明を develop に用意</strong><p><code>.github/release-note.json</code> を作業ブランチで更新し、PRでdevelopへマージ。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#説明の形式と互換入口">JSONの書式 →</a></p></li>
+<li><strong>公開用PRを作成・確認</strong><p>New pull request：<br><code>base: release</code> ← <code>compare: develop</code><br>差分・CI・Release Note Checkを確認。</p></li>
+<li><strong>Promote を実行</strong><p><a href="https://github.com/engineer-first/idea-boost/actions/workflows/promote-release.yml">Promote Release</a> → Run workflow</p><dl class="inputs"><dt>Branch</dt><dd><code>develop</code></dd><dt><code>pr_number</code></dt><dd>上の公開用PR番号</dd><dt><code>expected_sha</code><br><code>note_json</code></dt><dd>両方空欄</dd></dl></li>
+</ol></div>
 </section>
-<section id="verify"><h2>5. 公開完了を確認する</h2>
-<ol><li><a href="https://github.com/engineer-first/idea-boost/actions/workflows/deploy.yml">Actions → Deploy</a> で今回の <code>release</code> のrunと対象commitを開きます。<code>gate → deploy-api → deploy-app → health-check → record-release</code> が成功していることを確認します。D1 migrationは <code>deploy-api</code> 内で行います。</li>
-<li><a href="https://github.com/engineer-first/idea-boost/releases">GitHub Releases</a> に今回の版があり、本文の公開commit・変更内容・本番Deployのリンクが対象と一致することを確認します。</li>
-<li><a href="https://ideaboost.dev">本番アプリ</a> で今回変更した主要操作を確認します。health成功は全機能の動作保証ではありません。</li></ol>
-<p class="check">完了条件：対象commitのデプロイとhealth成功、対応するGitHub Releaseの記録、今回の主要操作の確認。</p>
-<p>版は <code>prod-YYYY.MM.DD.N</code>（例：<code>prod-2026.09.27.1</code>）。公開成功日時のJST日付と同日の連番で確定します。候補提示から日をまたぐと日付が変わります。記録だけの再試行は同じ版を使い、実際に同じcommitを再デプロイした場合は別の版になります。過去のタグは改名しません。</p>
+</div>
+<p class="auto"><strong>ここから自動</strong>Promote → release更新 → Deploy（品質検査・本番更新）→ health → 記録<br>受付だけでは未完了。下の3点を確認します。</p>
+<div class="local-entry" id="local"><p><strong>ローカルから公開する場合</strong><br><code>npm run deploy</code> はローカルHEADを公開。認証・検証・同時操作の確認が必要です。</p><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#ローカル手動デプロイ">準備と実行手順 →</a></div>
 </section>
-<section id="recovery"><h2>6. 失敗・中断から復旧する</h2>
-<p>まずActionsのrunを開き、どのジョブまで成功したか確認します。Skillを使う場合は <code>$release</code>、CLIなら <code>npm run release:operator -- status</code> で状態を取り直せます。</p>
-<div class="table-wrap"><table><thead><tr><th scope="col">状態・失敗箇所</th><th scope="col">次の操作</th></tr></thead><tbody>
-<tr><td><code>current</code></td><td>developと記録済み本番は同じcommit。通常の新規公開は不要です。</td></tr>
-<tr><td><code>running</code> / Actions待機中</td><td>該当runを待つ。通信断でも先にActionsを確認し、二重起動しない。</td></tr>
-<tr><td>Promoteの検査失敗</td><td>ログから説明・ブランチ・比較元を修正し、候補を再確認。release更新前なら本番変更なし。</td></tr>
-<tr><td>説明保存後／release更新後、Deployの起動失敗</td><td>まずDeployが起動済みでないか確認。同じ候補ならSkillで保存済み説明から再開。releaseが対象commitまで更新済みなら下記「Deployを手動起動」も利用可能。</td></tr>
-<tr><td><code>deployment-failed</code></td><td>Deployの失敗ジョブを確認。gateだけの失敗なら原因を修正して再検査。migration / API / App / healthで失敗した場合は部分反映の可能性があるため、実際の構成とログを確認して担当者が復旧を判断。</td></tr>
-<tr><td><code>retry-record</code> / record-releaseのみ失敗</td><td>本番とhealthは成功済み。下記「記録だけ回復」へ。再デプロイは不要。</td></tr>
-</tbody></table></div>
-<h3>6-1. 記録だけ回復する</h3>
-<p>Skillなら <code>$release</code> → <code>retry-record</code>。Skillを使わず対象を自動取得する場合：</p>
-<pre><code>npm run release:operator -- status
-npm run release:operator -- retry-record --confirm</code></pre>
-<p>2行目は <code>retry-record</code> 状態を確認して実行します。GitHub画面だけで行う場合は：</p>
-<ol><li>対象DeployのURL <code>/actions/runs/実行番号</code> からrun IDを確認し、再実行履歴のattemptを確認します。</li><li><a href="https://github.com/engineer-first/idea-boost/actions/workflows/release-history.yml">Actions → Record Release → Run workflow</a> で <strong>branch: develop</strong>、<code>run_id</code> と <code>attempt</code> にそのDeployの値を入力。<code>note_json</code> は空欄で実行します。</li><li>Record Releaseの成功とGitHub ReleaseのURLを確認します。元のDeployの <code>record-release</code> ジョブだけを再実行する方法も使えます。</li></ol>
-<p class="warning note"><strong>記録の回復に Re-run all jobs や <code>npm run deploy</code> を使わないでください。</strong>未記録の本番があるまま次の公開へ進むと事前検査で停止します。</p>
-<h3>6-2. Deploy を手動起動する</h3>
-<p>Promoteによって <code>release</code> が確認済み対象まで更新され、Deployだけが起動されなかった場合、または同じcommitを意図して再公開する場合に使います。<strong>developの新しい変更を取り込む操作ではありません。</strong></p>
-<ol><li>releaseの先端commitと説明を確認し、同じDeployが実行・待機中でないことを確認します。</li><li><a href="https://github.com/engineer-first/idea-boost/actions/workflows/deploy.yml">Actions → Deploy → Run workflow</a> で <strong>branch: release</strong> を選び、実行します。</li><li>品質ゲートから記録までを確認します。releaseを選ばないとDeployのgateは実行されません。</li></ol>
-<pre><code>gh workflow run deploy.yml \
-  --repo engineer-first/idea-boost --ref release</code></pre>
-<h3>6-3. 本番が部分的に更新された場合</h3>
-<p>失敗した段階、D1 migrationの適用状況、API/AppのWorker versionとcommit、healthの結果を確認し、関連PR/Issueに実状態を残します。自動ロールバックはありません。Re-run failed jobsは以前の成功段階を引き継ぎますが、後続の公開が既にある場合は古いrunを再実行せず、現在の本番を基準に復旧を判断してください。全体の成功が確認できるまで正常なReleaseを作りません。</p>
+<section id="verify">
+<h2>完了を確認</h2>
+<ul class="done">
+<li><strong>1. Deploy が成功</strong><p><a href="https://github.com/engineer-first/idea-boost/actions/workflows/deploy.yml">対象commitのrun</a>で、gate → deploy-api → deploy-app → health-check → record-release を確認。</p></li>
+<li><strong>2. Release が記録済み</strong><p><a href="https://github.com/engineer-first/idea-boost/releases">GitHub Releases</a> の公開commit・説明・Deployリンクが今回の対象と一致。</p></li>
+<li><strong>3. 主要操作ができる</strong><p><a href="https://ideaboost.dev">本番アプリ</a> で今回の変更を確認。</p></li>
+</ul>
+<p class="caption">版は <code>prod-YYYY.MM.DD.N</code>。本番成功日時のJST日付＋連番。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#成功判定版同時実行">版・成功判定の仕様 →</a></p>
 </section>
-<section id="local"><h2>7. ローカルから手動で公開する</h2>
-<p>Actionsが利用できない等の理由でローカル公開を選ぶ場合の入口です。<strong>このコマンドはローカルHEADを公開します。</strong>Skillの公開対象（リモートdevelop）との違いに注意してください。</p>
-<ol><li>リリース担当者間で手動公開を共有し、ActionsのPromote / Deploy / Record Releaseが実行・待機中でないことを確認します。手動操作は共通Actionsキューのロック外です。作業中に別の公開を開始しないでください。</li><li>通常は確認済みの <code>origin/develop</code> を取得します。例外的な復旧commitは担当者が対象を指定します。<code>git status --short</code> が空、<code>git rev-parse HEAD</code> が公開予定commitで、同じcommitがGitHub上にあることを確認します。</li><li>対象の <code>.github/release-note.json</code>（または保存済み計画）、差分とCIを確認します。<code>gh auth status</code> とCloudflare認証、<code>wrangler.jsonc</code> / <code>workers/wrangler.jsonc</code> の本番アカウント・Worker・D1を確認します。設定は<a href="../deploy-map/">構成・初期設定</a>を参照します。</li><li>本番公開を実行します。</li></ol>
-<pre><code>npm run deploy</code></pre>
-<p>説明・未記録版・作業ツリー等の事前検査後、D1 → API → App → <code>https://ideaboost.dev/api/health</code> の順で処理します。<strong>ローカル入口はActionsの全品質ゲートを再実行しません。</strong>公開するcommitの必要な検証を先に完了させてください。</p>
-<ol start="5"><li>成功receiptが <code>.release-history/</code> に保存され、Record Releaseが起動されます。コマンドの終了は記録依頼の受付までです。ActionsのRecord Release成功とGitHub Releaseまで確認します。</li></ol>
-<p>記録の送信だけ失敗したら、出力された同じreceiptファイルを再送します（下のファイル名は実際の出力に置き換えます）。</p>
-<pre><code>npm run release:submit -- .release-history/出力されたファイル.json</code></pre>
-<p>receiptを作り直したり再デプロイしたりせず、元の成功証跡を使います。receipt保存自体が失敗した場合はエラーに出力された成功情報を保存します。個別の <code>deploy:api</code> / <code>deploy:app</code> / <code>deploy:migrate</code> は全体の成功を自動記録しません。</p>
+<section id="recovery">
+<div class="section-heading"><h2>困ったとき：状態 → 次の操作</h2><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#失敗時の判断">詳しい失敗判断 →</a></div>
+<dl class="recovery">
+<div><dt>中断・応答なし・待機中</dt><dd><code>$release</code> で状態を再取得。Actionsに実行・待機中のrunがあれば待つ。二重起動しない。</dd></div>
+<div><dt>release更新済み<br>Deployだけ未起動</dt><dd>対象commit・説明と、待機中のDeployがないことを確認。<a href="https://github.com/engineer-first/idea-boost/actions/workflows/deploy.yml">Deploy → Run workflow</a> で <strong>Branch: <code>release</code></strong> を実行。</dd></div>
+<div><dt>Deploy・health成功<br>記録だけ失敗</dt><dd><p><strong><code>$release</code> → <code>retry-record</code></strong></p><p>Skillなし：<a href="https://github.com/engineer-first/idea-boost/actions/workflows/release-history.yml">Record Release → Run workflow</a>。<strong>Branch: <code>develop</code></strong>、<code>run_id</code> / <code>attempt</code> は対象Deployの値、<code>note_json</code> は空欄。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#記録だけを再実行する">記録回復の詳細 →</a></p><p><strong>Re-run all jobs・再デプロイは使いません。</strong></p></dd></div>
+<div><dt>検査・本番更新で失敗</dt><dd>失敗ジョブを確認。検査のみなら原因を修正し候補を再取得。migration / API / App / healthは部分反映の可能性があるため、実状態を確認して復旧を判断。</dd></div>
+</dl>
+<div class="links" id="rollback"><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#外部操作ロールバックを記録する">外部操作・ロールバックの記録 →</a><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#ローカル手動デプロイ">ローカル公開後の記録回復 →</a></div>
 </section>
-<section id="rollback"><h2>8. hotfix・ロールバック・外部操作</h2>
-<ul><li><strong>hotfix：</strong>可能なら修正をdevelopへ取り込み通常の公開経路を使います。releaseへの直接pushはDeployを起動します。例外的に直接更新する場合も対象commitに説明を用意し、公開後は修正をdevelopへ取り込み、次回のfast-forwardを妨げないよう履歴を確認します。</li><li><strong>ロールバック：</strong><code>$release</code> は巻き戻しを実行しません。担当者が復旧commit、DBとの互換性、利用者への影響を判断して復旧します。過去のコードへ戻すだけではD1やRoomDOのデータは戻りません。</li><li><strong>Cloudflare画面・個別コマンドからの更新：</strong>GitHubは全体成功を自動観測できません。migration/API/App/health、共通commit、UTC完了時刻、Worker version、確認者をPR/Issueに残します。異なるcommitのAPI/App混在を1版として記録しません。</li></ul>
-<p>外部操作や復旧の記録は、説明JSONに <code>commit</code> と成功証跡 <code>deployment</code> を追加したreceiptを作り、<code>npm run release:submit -- receipt.json</code> で送ります。巻き戻しは <code>mode: "rollback"</code> と <code>notices</code> が必須です。Record Release画面ならbranchは <code>develop</code>、<code>note_json</code> にreceipt全文、<code>run_id</code> / <code>attempt</code> は空欄です。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md#外部操作ロールバックを記録する">receiptの形式と確認項目</a>を参照してください。</p>
+<section class="pages" id="pages">
+<p class="eyebrow">本番アプリとは別の公開経路</p>
+<h2>この手順書を GitHub Pages へ公開</h2>
+<ol><li><code>docs/site/release-flow/index.html</code> を編集し、develop向けPRを作る。</li><li>PRの「Docs サイトプレビュー」で表示を確認する。</li><li>developへマージ → <a href="https://github.com/engineer-first/idea-boost/actions/workflows/deploy-pages.yml">Deploy docs site to GitHub Pages</a> 成功 → <a href="https://engineer-first.github.io/idea-boost/release-flow/">公開ページ</a> を確認。</li></ol>
+<p>手動再公開：同workflowの <strong>Run workflow → Branch: <code>develop</code></strong>。本番アプリのリリース・prodタグは不要です。</p>
 </section>
-<section id="pages"><h2>9. この手順書を GitHub Pages へ公開する</h2>
-<p><strong>手順書の公開先は GitHub Pages、本番アプリの公開先はCloudflareです。</strong>手順書の更新に本番アプリのリリースやprodタグ作成は必要ありません。</p>
-<ol><li><code>docs/site/release-flow/index.html</code> を作業ブランチで編集し、<code>develop</code> 向けPRを作ります。</li><li>PRの <strong>Docs サイトプレビュー</strong> コメントで表示を確認します。リンクはcommit SHA固定のgithackプレビューです。これは本番Pagesへの公開ではありません。</li><li>PRを <code>develop</code> にマージします。<code>docs/site/**</code> の変更を検出すると <a href="https://github.com/engineer-first/idea-boost/actions/workflows/deploy-pages.yml">Deploy docs site to GitHub Pages</a> が自動実行されます。</li><li>workflowが成功したら <a href="https://engineer-first.github.io/idea-boost/release-flow/">公開された手順書</a> を開いて更新内容を確認します。PRのままではこの恒久URLは更新されません。</li></ol>
-<p>再公開が必要な場合は同workflowの <strong>Run workflow → branch: develop</strong> を選びます。<code>docs/site/</code> 全体がPagesへ公開されます。初期設定はRepositoryの <strong>Settings → Pages → Source: GitHub Actions</strong>。Pagesの環境設定・権限で停止していないかActionsのログで確認します。</p>
-</section>
-<section id="reference"><h2>10. 仕様・検証・参照先</h2>
-<div class="table-wrap"><table><thead><tr><th scope="col">実行するworkflow</th><th scope="col">選ぶブランチ</th><th scope="col">役割</th></tr></thead><tbody><tr><td>Promote Release</td><td><code>develop</code></td><td>候補の検査、release更新、Deploy起動</td></tr><tr><td>Deploy</td><td><code>release</code></td><td>品質ゲート、本番更新、health、履歴記録</td></tr><tr><td>Record Release</td><td><code>develop</code></td><td>成功済み公開の記録のみ。再デプロイしない</td></tr><tr><td>Deploy docs site to GitHub Pages</td><td><code>develop</code></td><td>手順書など静的HTMLの公開</td></tr></tbody></table></div>
-<p>Promote / Deploy / Record Releaseは共通キューで直列に処理します。タグやGitHub Releaseを手動作成するだけでは本番を公開したことにはなりません。記録の正本はGitHub Releases、手順・失敗判断はこのページ、スキーマや証跡の詳細は<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md">リリース履歴の運用仕様</a>にあります。</p>
-<p>開発者が本番へ書き込まず公開・回復・競合の振る舞いを検証するには：</p>
-<pre><code>npm run test -- scripts/release-operator.spec.ts scripts/release-history.spec.ts scripts/promote-release.spec.ts scripts/release-automation.spec.ts scripts/deploy-production.spec.ts</code></pre>
-<p>テストはGitHub API等を差し替えます。実際のCloudflare更新や本番のRelease作成を行うものではありません。履歴の文面訂正は同じReleaseを編集し、訂正日時と理由を追記します。タグ・公開commit・元の成功証跡は書き換えません。</p>
-</section>
-<footer>実装の参照先：<a href="https://github.com/engineer-first/idea-boost/tree/develop/.github/workflows">GitHub Actions workflows</a> / <a href="https://github.com/engineer-first/idea-boost/blob/develop/package.json">コマンド一覧</a> / <a href="https://github.com/engineer-first/idea-boost/blob/develop/.agents/skills/release/SKILL.md">Release Skill</a></footer>
-</main></div>
+<footer id="reference"><div class="links"><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/release-history.md">詳細な運用仕様（Markdown）</a><a href="https://github.com/engineer-first/idea-boost/blob/develop/.agents/skills/release/SKILL.md">Release Skill</a><a href="https://github.com/engineer-first/idea-boost/tree/develop/.github/workflows">実行workflow</a></div></footer>
+</main>
+</div>
 </body>
 </html>
