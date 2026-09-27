@@ -22,12 +22,25 @@ const guest = {
   name: "参加者",
   email: "guest@example.test",
 };
+const roomIdBySocket = new WeakMap<RoomSocket, string>();
 async function until(
   socket: RoomSocket,
   type: string,
 ): Promise<Record<string, unknown>> {
   for (;;) {
     const message = await socket.next();
+    if (message.type === "phase:save-requested") {
+      const roomId = roomIdBySocket.get(socket);
+      if (roomId)
+        await runInRoomDO(roomId, async (instance, state) => {
+          state.storage.sql.exec(
+            "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+            Date.now() - 1,
+          );
+          await instance.alarm();
+        });
+      continue;
+    }
     if (message.type === type) return message;
   }
 }
@@ -40,6 +53,8 @@ async function setup() {
   await owner.next();
   const member = await connectRoomAs(guest, roomId);
   await member.next();
+  roomIdBySocket.set(owner, roomId);
+  roomIdBySocket.set(member, roomId);
   return { roomId, inviteCode, owner, member, stub };
 }
 describe("一人ずつの共有", () => {

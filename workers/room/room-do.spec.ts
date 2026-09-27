@@ -44,6 +44,7 @@ const EXPECTED_MEMBER_COLOR_ASSIGNMENT_ORDER = [
   "zinc",
 ] as const;
 const LOBBY = buildLobbyPhase();
+const roomNameBySocket = new WeakMap<WebSocket, string>();
 
 function userIdAt(index: number): string {
   return `${index.toString().padStart(8, "0")}-0000-4000-8000-000000000000`;
@@ -82,17 +83,63 @@ async function connectDirectlyWithFirstMessage(
   const ws = res.webSocket;
   if (!ws) throw new Error("WebSocket 接続を確立できませんでした。");
   ws.accept();
+  roomNameBySocket.set(ws, roomName);
+  queueFor(ws);
   return { ws, firstMessage: await nextJson(ws) };
 }
 
-function nextJson(ws: WebSocket): Promise<Record<string, unknown>> {
-  return new Promise((resolve) => {
-    ws.addEventListener(
-      "message",
-      (event) => resolve(JSON.parse(String(event.data))),
-      { once: true },
-    );
+type MessageQueue = {
+  messages: Record<string, unknown>[];
+  waiters: Array<(message: Record<string, unknown>) => void>;
+};
+const messageQueues = new WeakMap<WebSocket, MessageQueue>();
+const advancedTransitions = new Set<string>();
+function queueFor(ws: WebSocket): MessageQueue {
+  const existing = messageQueues.get(ws);
+  if (existing) return existing;
+  const queue: MessageQueue = { messages: [], waiters: [] };
+  messageQueues.set(ws, queue);
+  ws.addEventListener("message", (event) => {
+    const message = JSON.parse(String(event.data)) as Record<string, unknown>;
+    const roomName = roomNameBySocket.get(ws);
+    if (message.type === "phase:save-requested" && roomName) {
+      const transitionId = String(message.transitionId);
+      if (!advancedTransitions.has(transitionId)) {
+        advancedTransitions.add(transitionId);
+        void runInRoomDO(roomName, async (instance, state) => {
+          state.storage.sql.exec(
+            "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+            Date.now() - 1,
+          );
+          await instance.alarm();
+        });
+      }
+      return;
+    }
+    if (message.type === "note:content-saved") return;
+    const waiter = queue.waiters.shift();
+    if (waiter) waiter(message);
+    else queue.messages.push(message);
   });
+  return queue;
+}
+function nextJson(ws: WebSocket): Promise<Record<string, unknown>> {
+  const queue = queueFor(ws);
+  const first = queue.messages.shift();
+  return first
+    ? Promise.resolve(first)
+    : new Promise((resolve) => queue.waiters.push(resolve));
+}
+
+async function nextJsonOfType(
+  ws: WebSocket,
+  type: string,
+): Promise<Record<string, unknown>> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const message = await nextJson(ws);
+    if (message.type === type) return message;
+  }
+  throw new Error(`${type} が届きませんでした。`);
 }
 
 function nextJsonWithin(
@@ -105,20 +152,13 @@ function nextJsonWithin(
   ]);
 }
 
-function nextJsonMessages(
+async function nextJsonMessages(
   ws: WebSocket,
   count: number,
 ): Promise<Record<string, unknown>[]> {
-  return new Promise((resolve) => {
-    const messages: Record<string, unknown>[] = [];
-    const onMessage = (event: MessageEvent) => {
-      messages.push(JSON.parse(String(event.data)));
-      if (messages.length !== count) return;
-      ws.removeEventListener("message", onMessage);
-      resolve(messages);
-    };
-    ws.addEventListener("message", onMessage);
-  });
+  const messages: Record<string, unknown>[] = [];
+  for (let index = 0; index < count; index++) messages.push(await nextJson(ws));
+  return messages;
 }
 
 function insertVoteStickers(
@@ -1262,6 +1302,9 @@ describe("RoomDO 候補外付箋", () => {
         userId: USER_A,
         message: {
           type: "note:update-content",
+          operationId: crypto.randomUUID(),
+          expectedContentRevision: 0,
+          expectedPhaseRevision: 0,
           noteId: NOTE_ID,
           content: "変更",
         },
@@ -2235,7 +2278,7 @@ describe("RoomDO phase:next", () => {
     });
 
     member.send(JSON.stringify({ type: "idea-map:resize", sizeLevel: 2 }));
-    expect(await nextJson(member)).toMatchObject({
+    expect(await nextJsonOfType(member, "error")).toMatchObject({
       type: "error",
       code: "forbidden",
     });
@@ -3810,11 +3853,11 @@ describe("RoomDO phase:next", () => {
     const ws = res.webSocket;
     if (!ws) throw new Error("WebSocket 接続を確立できませんでした。");
     ws.accept();
+    roomNameBySocket.set(ws, "room-phase-host");
+    queueFor(ws);
 
     // snapshot を捨てる
-    await new Promise<MessageEvent>((resolve) => {
-      ws.addEventListener("message", resolve, { once: true });
-    });
+    await nextJson(ws);
 
     ws.send(
       JSON.stringify({
@@ -3823,14 +3866,13 @@ describe("RoomDO phase:next", () => {
       }),
     );
 
-    const message = await new Promise<MessageEvent>((resolve) => {
-      ws.addEventListener("message", resolve, { once: true });
-    });
-    const body = JSON.parse(String(message.data));
+    const body = await nextJson(ws);
 
     expect(body.type).toBe("snapshot");
-    expect(body.sharing.status).toBe("ready");
-    expect(body.phase).toEqual(buildPhaseStep(2));
+    expect(body).toMatchObject({
+      sharing: { status: "ready" },
+      phase: buildPhaseStep(2),
+    });
 
     ws.close();
   });
@@ -3914,26 +3956,16 @@ describe("RoomDO phase:next", () => {
 
     host.accept();
     member.accept();
+    roomNameBySocket.set(host, "room-phase-broadcast");
+    roomNameBySocket.set(member, "room-phase-broadcast");
+    queueFor(host);
+    queueFor(member);
 
     // snapshot を受け取る
-    await Promise.all([
-      new Promise<MessageEvent>((resolve) => {
-        host.addEventListener("message", resolve, { once: true });
-      }),
-      new Promise<MessageEvent>((resolve) => {
-        member.addEventListener("message", resolve, { once: true });
-      }),
-    ]);
+    await Promise.all([nextJson(host), nextJson(member)]);
 
     // 共有へ入ると順番を含む snapshot を全員へ届ける
-    const collectOne = (ws: WebSocket) =>
-      new Promise<unknown>((resolve) => {
-        const onMessage = (event: MessageEvent) => {
-          ws.removeEventListener("message", onMessage);
-          resolve(JSON.parse(String(event.data)));
-        };
-        ws.addEventListener("message", onMessage);
-      });
+    const collectOne = (ws: WebSocket) => nextJson(ws);
 
     const hostPromise = collectOne(host);
     const memberPromise = collectOne(member);
@@ -4403,6 +4435,9 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
       operation: "note:update-content",
       message: {
         type: "note:update-content",
+        operationId: crypto.randomUUID(),
+        expectedContentRevision: 0,
+        expectedPhaseRevision: 0,
         noteId: "99999999-9999-4999-8999-999999999999",
         content: "未許可の更新",
       },
@@ -4419,6 +4454,9 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
       operation: "note:update-content",
       message: {
         type: "note:update-content",
+        operationId: crypto.randomUUID(),
+        expectedContentRevision: 0,
+        expectedPhaseRevision: 0,
         noteId: "99999999-9999-4999-8999-999999999999",
         content: "未許可の更新",
       },
@@ -4510,6 +4548,9 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     },
     {
       type: "note:update-content",
+      operationId: crypto.randomUUID(),
+      expectedContentRevision: 0,
+      expectedPhaseRevision: 0,
       noteId: "99999999-9999-4999-8999-999999999999",
       content: "拒否される更新",
     },
@@ -4609,6 +4650,10 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     ws.send(
       JSON.stringify({
         type: "note:update-content",
+        operationId: crypto.randomUUID(),
+        expectedContentRevision: 0,
+        expectedPhaseRevision: (await currentPhaseExpectation(roomName))
+          .expectedRevision,
         noteId,
         content: "誤字を修正しました",
       }),
@@ -4872,6 +4917,9 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
     ws.send(
       JSON.stringify({
         type: "note:update-content",
+        operationId: crypto.randomUUID(),
+        expectedContentRevision: 0,
+        expectedPhaseRevision: 0,
         noteId: inserted.note.id,
         content: "Step 1-5 中の書き換え",
       }),
@@ -5595,6 +5643,9 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.send(
       JSON.stringify({
         type: "note:update-content",
+        operationId: crypto.randomUUID(),
+        expectedContentRevision: 0,
+        expectedPhaseRevision: 0,
         noteId: SHARED_NOTE_ID,
         content: "改ざん",
       }),
@@ -5624,6 +5675,9 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.send(
       JSON.stringify({
         type: "note:update-content",
+        operationId: crypto.randomUUID(),
+        expectedContentRevision: 0,
+        expectedPhaseRevision: 0,
         noteId: SHARED_NOTE_ID,
         content: "書き換え",
       }),
@@ -5660,6 +5714,10 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.send(
       JSON.stringify({
         type: "note:update-content",
+        operationId: crypto.randomUUID(),
+        expectedContentRevision: 0,
+        expectedPhaseRevision: (await currentPhaseExpectation(roomName))
+          .expectedRevision,
         noteId: inserted.note.id,
         content: "もっと簡単に宿題を進められるだろう？",
       }),

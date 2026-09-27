@@ -27,7 +27,7 @@ export type UseRoomConnectionOptions = {
 
 export type UseRoomConnectionResult = {
   connectionStatus: RoomScreenConnectionStatus;
-  send: (message: ClientMessage) => void;
+  send: (message: ClientMessage) => boolean;
 };
 
 export function useRoomConnection({
@@ -74,7 +74,7 @@ export function useRoomConnection({
   }, [roomId, webSocketFactory, router, isLeavingRef]);
 
   const send = useCallback((message: ClientMessage) => {
-    clientRef.current?.send(message);
+    return clientRef.current?.send(message) ?? false;
   }, []);
 
   return { connectionStatus, send };

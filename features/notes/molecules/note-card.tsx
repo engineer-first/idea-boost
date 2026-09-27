@@ -58,6 +58,10 @@ export type NoteCardProps = {
     event: React.PointerEvent<HTMLButtonElement>,
   ) => void;
   onContentChange: (noteId: string, content: string) => void;
+  draftValue?: string;
+  onDraftChange?: (noteId: string, content: string) => void;
+  onDraftCompositionStart?: (noteId: string) => void;
+  onDraftCompositionEnd?: (noteId: string, content: string) => void;
   onDelete: (noteId: string) => void;
   onExclude?: (noteId: string) => void;
   onRestore?: (noteId: string) => void;
@@ -228,6 +232,10 @@ export function NoteCard({
   onSelect,
   onDragStart,
   onContentChange,
+  draftValue,
+  onDraftChange,
+  onDraftCompositionStart,
+  onDraftCompositionEnd,
   onDelete,
   onExclude,
   onRestore,
@@ -237,7 +245,7 @@ export function NoteCard({
   autoFocusEditor = false,
   onAutoFocusEditorComplete,
 }: NoteCardProps) {
-  const [localContent, setLocalContent] = useState(note.content);
+  const [localContent, setLocalContent] = useState(draftValue ?? note.content);
   const [isEditing, setIsEditing] = useState(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isTouchActionVisible, setIsTouchActionVisible] = useState(false);
@@ -251,6 +259,8 @@ export function NoteCard({
   const candidateActionRef = useRef<HTMLButtonElement>(null);
   const menuItemRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const compositionActiveRef = useRef(false);
+  const blurDuringCompositionRef = useRef(false);
   const pointerOwnerDocumentRef = useRef<Document | null>(null);
   const touchOwnerDocumentRef = useRef<Document | null>(null);
   const pointerShowTimeoutRef = useRef<number | null>(null);
@@ -419,9 +429,9 @@ export function NoteCard({
   // （タイピング中に他人の更新で巻き戻るのを防ぐ）。
   useEffect(() => {
     if (!isEditing) {
-      setLocalContent(note.content);
+      setLocalContent(draftValue ?? note.content);
     }
-  }, [note.content, isEditing]);
+  }, [note.content, draftValue, isEditing]);
 
   // 選択が外れたら編集モードも終了する（選択は編集の前提状態）。
   useEffect(() => {
@@ -429,15 +439,6 @@ export function NoteCard({
       setIsEditing(false);
     }
   }, [isSelected]);
-
-  // 編集中に切断されたら、未送信の下書きを送らずに編集を強制終了する。
-  // onContentChange は呼ばない（onBlur側のガードにも依存しない二重の安全策）。
-  useEffect(() => {
-    if (disabled && isEditing) {
-      setIsEditing(false);
-      setLocalContent(note.content);
-    }
-  }, [disabled, isEditing, note.content]);
 
   // 結果ステップへ切り替わりeditingDisabledになったら、編集中でも
   // 未送信の下書きを送らずに編集を強制終了する（disabledと同じ二重の安全策）。
@@ -925,15 +926,45 @@ export function NoteCard({
         // UI 側でも同じコントラクト定数で「そもそも入力できない」形に塞ぐ。
         maxLength={NOTE_CONTENT_MAX_LENGTH}
         tabIndex={isEditing ? 0 : -1}
-        onChange={(event) => setLocalContent(event.target.value)}
+        onChange={(event) => {
+          setLocalContent(event.target.value);
+          onDraftChange?.(note.id, event.target.value);
+        }}
+        onCompositionStart={() => {
+          compositionActiveRef.current = true;
+          onDraftCompositionStart?.(note.id);
+        }}
+        onCompositionEnd={(event) => {
+          compositionActiveRef.current = false;
+          const composedText = event.currentTarget.value;
+          onDraftCompositionEnd?.(note.id, composedText);
+          if (blurDuringCompositionRef.current) {
+            blurDuringCompositionRef.current = false;
+            setTimeout(() => {
+              const finalText = textareaRef.current?.value ?? composedText;
+              onDraftChange?.(note.id, finalText);
+              onContentChange(note.id, finalText);
+              setIsEditing(false);
+            }, 0);
+          }
+        }}
         onBlur={(event) => {
-          setIsEditing(false);
-          if (disabled || editingDisabled || !canEditNote || note.excluded) {
+          if (compositionActiveRef.current) {
+            blurDuringCompositionRef.current = true;
+            onDraftChange?.(note.id, event.target.value);
             return;
           }
-          onContentChange(note.id, event.target.value);
+          setIsEditing(false);
+          if (editingDisabled || !canEditNote || note.excluded) {
+            return;
+          }
+          // 下書き管理がある画面では切断時も最新入力を渡す。送信可否は上位が決める。
+          if (onDraftChange) onDraftChange(note.id, event.target.value);
+          if (!disabled || onDraftChange)
+            onContentChange(note.id, event.target.value);
         }}
         onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.key === "Escape") {
             event.stopPropagation();
             // Escape はキャンセルではなく「編集の完了」（tldraw 踏襲）。

@@ -96,6 +96,10 @@ export type RoomBoardCanvasProps = {
     event: ReactPointerEvent<HTMLButtonElement>,
   ) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
+  draftValue?: (noteId: string) => string | undefined;
+  onDraftChange?: (noteId: string, content: string) => void;
+  onDraftCompositionStart?: (noteId: string) => void;
+  onDraftCompositionEnd?: (noteId: string, content: string) => void;
   onNoteFontSizeChange?: (noteId: string, fontSize: number) => void;
   onNoteDelete: (noteId: string) => void;
   onNoteExclude?: (noteId: string) => void;
@@ -164,6 +168,10 @@ export function RoomBoardCanvas({
   onSelect,
   onNoteDragStart,
   onNoteContentChange,
+  draftValue,
+  onDraftChange,
+  onDraftCompositionStart,
+  onDraftCompositionEnd,
   onNoteFontSizeChange = () => undefined,
   onNoteDelete,
   onNoteExclude = () => undefined,
@@ -330,6 +338,10 @@ export function RoomBoardCanvas({
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
+        draftValue={draftValue?.(note.id)}
+        onDraftChange={onDraftChange}
+        onDraftCompositionStart={onDraftCompositionStart}
+        onDraftCompositionEnd={onDraftCompositionEnd}
         onDelete={handleNoteDelete}
         onExclude={onNoteExclude}
         onRestore={onNoteRestore}
@@ -691,6 +703,10 @@ export function RoomBoardCanvas({
               onSelect={onSelect}
               onAdd={onAddPrivateNote}
               onContentChange={onPrivateNoteContentChange}
+              draftValue={draftValue}
+              onDraftChange={onDraftChange}
+              onDraftCompositionStart={onDraftCompositionStart}
+              onDraftCompositionEnd={onDraftCompositionEnd}
               onDelete={onPrivateNoteDelete}
               onDragStart={onPrivateNoteDragStart}
             />

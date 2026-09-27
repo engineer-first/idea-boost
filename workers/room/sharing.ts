@@ -1,4 +1,5 @@
 import type { SharingState } from "../../contracts/room-protocol";
+import { syncRoomAlarm } from "./alarms";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { isHostUser, isMember } from "./members";
 import { getPhase } from "./phase";
@@ -62,8 +63,7 @@ async function commitTurn(ctx: HandlerCtx, state: SharingState): Promise<void> {
   await ctx.storage.transaction(async () => {
     saveSharingState(ctx.sql, state);
     saveTimerState(ctx.sql, { status: "idle" });
-    if (state.startsAt !== null) await ctx.storage.setAlarm(state.startsAt);
-    else await ctx.storage.deleteAlarm();
+    await syncRoomAlarm(ctx.storage, ctx.sql);
   });
   broadcastSharing(ctx);
 }
@@ -91,7 +91,7 @@ export async function startPendingSharingTurn(
   const sharing = getSharingState(ctx.sql);
   if (!sharing || sharing.startsAt === null) return false;
   if (sharing.startsAt > Date.now()) {
-    await ctx.storage.setAlarm(sharing.startsAt);
+    await syncRoomAlarm(ctx.storage, ctx.sql);
     return true;
   }
   const serverNow = Date.now();
@@ -104,7 +104,7 @@ export async function startPendingSharingTurn(
   await ctx.storage.transaction(async () => {
     saveSharingState(ctx.sql, sharing);
     saveTimerState(ctx.sql, timer);
-    await ctx.storage.setAlarm(timer.endsAt);
+    await syncRoomAlarm(ctx.storage, ctx.sql);
   });
   broadcastSharing(ctx);
   return true;

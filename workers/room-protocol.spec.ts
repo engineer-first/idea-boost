@@ -86,6 +86,26 @@ async function setupStartedRoom(): Promise<{
 }
 
 function send(socket: RoomSocket, message: unknown): void {
+  if (
+    typeof message === "object" &&
+    message !== null &&
+    "type" in message &&
+    message.type === "note:update-content"
+  ) {
+    const roomId = roomIdBySocket.get(socket);
+    if (!roomId) throw new Error("テスト用ルームIDが見つかりません。");
+    void currentPhaseExpectation(roomId).then(({ expectedRevision }) => {
+      socket.ws.send(
+        JSON.stringify({
+          ...message,
+          operationId: crypto.randomUUID(),
+          expectedContentRevision: 0,
+          expectedPhaseRevision: expectedRevision,
+        }),
+      );
+    });
+    return;
+  }
   socket.ws.send(JSON.stringify(message));
 }
 
@@ -110,7 +130,34 @@ async function expectType<T extends ServerMessage["type"]>(
   socket: RoomSocket,
   type: T,
 ): Promise<Extract<ServerMessage, { type: T }>> {
-  const message = await socket.next();
+  let message = await socket.next();
+  while (
+    message.type === "note:content-saved" &&
+    type !== "note:content-saved"
+  ) {
+    message = await socket.next();
+  }
+  if (
+    message.type === "phase:save-requested" &&
+    type !== "phase:save-requested"
+  ) {
+    const roomId = roomIdBySocket.get(socket);
+    if (!roomId) throw new Error("テスト用ルームIDが見つかりません。");
+    await runInRoomDO(roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+        Date.now() - 1,
+      );
+      await instance.alarm();
+    });
+    message = await socket.next();
+    while (
+      message.type === "note:content-saved" &&
+      type !== "note:content-saved"
+    ) {
+      message = await socket.next();
+    }
+  }
   expect(message.type).toBe(type);
   return message as Extract<ServerMessage, { type: T }>;
 }

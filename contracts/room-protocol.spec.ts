@@ -176,10 +176,22 @@ describe("DecisionSchema", () => {
 });
 
 describe("NoteSchema", () => {
+  it("本文専用revisionを必須にして欠落した保存機能非対応を検知する", () => {
+    const { contentRevision: _, ...withoutRevision } = {
+      ...note,
+      visibility: "shared",
+    };
+    expect(NoteSchema.safeParse(withoutRevision).success).toBe(false);
+    expect(
+      NoteSchema.parse({ ...withoutRevision, contentRevision: 0 })
+        .contentRevision,
+    ).toBe(0);
+  });
   const note = {
     id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     authorId: USER_A,
     content: "個人メモ",
+    contentRevision: 0,
     color: "yellow",
     x: 100,
     y: 200,

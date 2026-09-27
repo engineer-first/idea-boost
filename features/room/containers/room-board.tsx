@@ -13,7 +13,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
-import { useNoteGroups, useRoomNotes } from "@/features/notes";
+import {
+  NoteDraftRecovery,
+  useNoteAutosave,
+  useNoteGroups,
+  useRoomNotes,
+} from "@/features/notes";
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { roomNotify } from "../logic/room-notify";
@@ -73,6 +78,7 @@ export function RoomBoard({
     webSocketFactory,
     isLeavingRef,
   });
+  const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
   const noteGroups = useNoteGroups({ send });
   const roomState = useRoomState({ initialMembers, initialPhase });
@@ -86,6 +92,7 @@ export function RoomBoard({
 
   function handleServerMessage(message: ServerMessage) {
     const receivedAt = Date.now();
+    drafts.applyMessage(message);
     if (
       message.type === "snapshot" ||
       (message.type === "note:updated" && !message.note.excluded)
@@ -143,8 +150,11 @@ export function RoomBoard({
       return;
     }
 
+    if (message.type === "phase:save-requested") setIsNextPhasePending(true);
     if (message.type === "phase:updated" || message.type === "snapshot") {
-      setIsNextPhasePending(false);
+      setIsNextPhasePending(
+        message.type === "snapshot" && message.pendingPhaseTransition != null,
+      );
       // 進行が確定（別タブ等）・復元（再接続）されたら、開いていた
       // 強制進行の確認はフェーズ1・2の投票ステップのゲート前提が崩れているため閉じる。
       setIsForceNextPhaseDialogOpen(false);
@@ -307,12 +317,14 @@ export function RoomBoard({
 
   useEffect(() => {
     if (connectionStatus === "open") return;
+    drafts.setConnected(false);
     notes.cancelNoteDrag();
     boardInteractions.cancelCurrentNoteDrag();
   }, [
     boardInteractions.cancelCurrentNoteDrag,
     connectionStatus,
     notes.cancelNoteDrag,
+    drafts.setConnected,
   ]);
 
   return (
@@ -375,7 +387,7 @@ export function RoomBoard({
         onAddPrivateNote={handleAddPrivateNote}
         onHmwTemplateSelect={handleHmwTemplateSelect}
         onIdeaHintSelect={handleIdeaHintSelect}
-        onPrivateNoteContentChange={notes.changeNoteContent}
+        onPrivateNoteContentChange={drafts.blur}
         onPrivateNoteDelete={notes.deleteNote}
         onNextPhase={handleNextPhase}
         onTimerStart={handleTimerStart}
@@ -383,7 +395,11 @@ export function RoomBoard({
         onTimerResume={handleTimerResume}
         onTimerExtend={handleTimerExtend}
         onTimerStop={handleTimerStop}
-        onNoteContentChange={notes.changeNoteContent}
+        onNoteContentChange={drafts.blur}
+        draftValue={drafts.draftValue}
+        onDraftChange={drafts.change}
+        onDraftCompositionStart={drafts.compositionStart}
+        onDraftCompositionEnd={drafts.compositionEnd}
         onNoteFontSizeChange={notes.changeNoteFontSize}
         onNoteDelete={notes.deleteNote}
         onNoteBringToFront={notes.bringNoteToFront}
@@ -404,6 +420,7 @@ export function RoomBoard({
         onLeave={leave}
         isLeaving={isLeaving}
       />
+      <NoteDraftRecovery items={drafts.recoveries} />
     </>
   );
 }

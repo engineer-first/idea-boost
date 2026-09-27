@@ -28,9 +28,12 @@ const ALL_TABLES = [
   "members",
   "note_appearances",
   "note_bulk_exclusions",
+  "note_content_receipts",
+  "note_content_versions",
   "note_vote_stickers",
   "note_votes",
   "notes",
+  "pending_phase_transition",
   "room_owner",
   "room_state",
   "schema_migrations",
@@ -40,6 +43,49 @@ const ALL_TABLES = [
 ];
 
 describe("ROOM_DO_MIGRATIONS", () => {
+  it("既に自動保存を使ったルームも本文を保ったまま保存記録を更新する", async () => {
+    await runInRoomDO("mig-existing-note-receipts", (_instance, state) => {
+      dropAllTables(state.storage);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.filter(({ id }) => id <= "20260927000101"),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        "INSERT INTO notes (id, author_id, content, x, y, created_at, updated_at) VALUES ('old-note', ?1, '既存の本文', 0, 0, '2026-09-27', '2026-09-27')",
+        USER_A,
+      );
+      state.storage.sql.exec(
+        "INSERT INTO note_content_receipts (operation_id, user_id, note_id, content, expected_content_revision, expected_phase_revision, content_revision, created_at) VALUES ('old-operation', ?1, 'old-note', '過去の本文', 0, 1, 1, '2026-09-27')",
+        USER_A,
+      );
+
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+
+      expect(
+        state.storage.sql
+          .exec("SELECT content FROM notes WHERE id = 'old-note'")
+          .one().content,
+      ).toBe("既存の本文");
+      expect(
+        state.storage.sql
+          .exec("PRAGMA table_info(note_content_receipts)")
+          .toArray(),
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: "content_digest" }),
+        ]),
+      );
+      expect(
+        state.storage.sql.exec("SELECT * FROM note_content_receipts").toArray(),
+      ).toEqual([]);
+    });
+  });
+
   it("既存付箋の文字サイズを14pxで補完し、範囲外の保存を拒否する", async () => {
     await runInRoomDO("mig-note-appearance", (_instance, state) => {
       dropAllTables(state.storage);

@@ -90,6 +90,9 @@ export function applyMemberServerMessage(
     case "note:deleted":
     case "note:bulk-excluded":
     case "note:bulk-restored":
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "phase:updated":
@@ -136,6 +139,9 @@ export function applyVotingCompletionServerMessage(
     case "note:deleted":
     case "note:bulk-excluded":
     case "note:bulk-restored":
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":
@@ -203,6 +209,9 @@ export function applyDecisionServerMessage(
     case "note:deleted":
     case "note:bulk-excluded":
     case "note:bulk-restored":
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":
@@ -284,6 +293,9 @@ export function applyPhaseServerMessage(
     case "note:deleted":
     case "note:bulk-excluded":
     case "note:bulk-restored":
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":
