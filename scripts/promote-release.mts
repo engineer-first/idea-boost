@@ -60,13 +60,11 @@ export async function promoteRelease(
     .object({
       status: z.string(),
       base_commit: z.object({ sha: Commit }),
-      head_commit: z.object({ sha: Commit }),
     })
-    .parse(await api("GET", "/compare/release...develop"));
+    .parse(await api("GET", `/compare/release...${expectedSha}`));
   requireCondition(
     comparison.status === "ahead" &&
-      comparison.base_commit.sha === release.object.sha &&
-      comparison.head_commit.sha === expectedSha,
+      comparison.base_commit.sha === release.object.sha,
     "releaseからdevelopへfast-forwardできません。ブランチ履歴を確認してください。",
   );
   await api("PATCH", "/git/refs/heads/release", {

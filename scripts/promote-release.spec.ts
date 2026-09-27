@@ -25,7 +25,6 @@ function server() {
     comparison: {
       status: "ahead",
       base_commit: { sha: releaseSha },
-      head_commit: { sha: developSha },
     },
   };
   const api = vi.fn<PromotionApi>(async (method, path, data) => {
@@ -34,7 +33,7 @@ function server() {
       return state.develop;
     if (method === "GET" && path === "/git/ref/heads/release")
       return state.release;
-    if (method === "GET" && path === "/compare/release...develop")
+    if (method === "GET" && path === `/compare/release...${developSha}`)
       return state.comparison;
     if (method === "PATCH" && path === "/git/refs/heads/release") {
       if (data?.sha !== developSha || data.force !== false)
@@ -62,7 +61,7 @@ describe("GitHub画面からの本番公開", () => {
         "GET /pulls/123",
         "GET /git/ref/heads/develop",
         "GET /git/ref/heads/release",
-        "GET /compare/release...develop",
+        `GET /compare/release...${developSha}`,
         "PATCH /git/refs/heads/release",
         "POST /actions/workflows/deploy.yml/dispatches",
       ],
