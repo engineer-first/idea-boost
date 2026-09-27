@@ -12,10 +12,10 @@
 
 ## 本番の閲覧リンクを使う
 
-本番の閲覧リンクは全ルーム共通で1つだけ発行し、同じリンクを継続して使う。ルーム・閲覧者・デプロイごとの発行は不要。利用者はエージェントから受け取ったURLを開くだけでよく、コマンドの実行やリンクファイルの管理はエージェントが担当する。
+本番の閲覧リンクは全ルーム共通で1つだけ発行し、同じリンクを継続して使う。ルーム・閲覧者・デプロイごとの発行は不要。利用者はエージェントから受け取ったURLを開くだけでよく、発行コマンドの実行はエージェントが担当する。リンク保存用のファイルは不要。
 
 1. 本機能を含む版を [本番リリースの手順](release-history.md) で公開する。通常のDeployがD1 migration → API → Appの順に反映する。
-2. 依頼を受けたエージェントが、Cloudflareに認証できる環境で既存設定と保管済みリンクを確認する。発行済みならそのリンクを再利用し、未発行の場合だけ1つ発行する。
+2. 依頼を受けたエージェントが、Cloudflareに認証できる環境で既存設定と発行済みリンクを確認する。発行済みならそのリンクを再利用し、未発行の場合だけ1つ発行する。
 3. エージェントが発行したURLを依頼者へ直接渡し、未ログインで一覧・詳細を閲覧できることを確認する。実際のURLや秘密値をリポジトリ・PR・公開ログには載せない。
 
 リンクは `/shared-outcomes#token=...` 形式。fragmentはHTTPのリクエストURLへ送られず、データ取得時にBearerヘッダーで照合する。リンクを転送された人も全ルームの保存期間内の成果を見られる。閲覧専用で、管理・状態準備の権限はない。有効な設定は同時に1件で、設定変更が反映された後の次のデータ取得から旧リンクを拒否する。
@@ -24,16 +24,15 @@
 
 ### エージェントが行う初回設定と保守
 
-CLIのファイル出力はエージェントがリンクを再利用するための保管用。継続利用する本番リンクは一時ディレクトリに置かず、リポジトリや共有フォルダーの外へ所有者だけが読める権限で保管する。次は初回発行時の例。
+次のコマンドだけで、暗号学的乱数から32バイトの秘密値を生成し、本番Workerの `SHARED_OUTCOMES_TOKEN` に登録する。登録に成功すると閲覧URLを標準出力へ返す。保存先引数やリンクファイルの作成は不要。
 
 ```bash
-mkdir -p "$HOME/.config/idea-boost"
-chmod 700 "$HOME/.config/idea-boost"
-npm run outcomes:link -- issue production https://ideaboost.dev \
-  "$HOME/.config/idea-boost/production-shared-outcomes-link.txt"
+npm run outcomes:link -- issue production https://ideaboost.dev
 ```
 
-コマンドは本番Workerの `SHARED_OUTCOMES_TOKEN` を登録し、URLを指定ファイルへ権限 `0600` で保存する。本番の `issue` は既存値を再利用せず置き換えるため、日常の閲覧や通常のデプロイで再実行しない。設定済みで保管したURLが見つからない場合も、勝手に再発行せず、旧リンクを無効にする必要があるか確認する。
+エージェントは出力されたURLを依頼者へ直接渡す。URLを出力するのは明示的に実行した発行・置換コマンドだけで、サーバーの起動ログやアクセスログには出さない。登録に失敗した場合は使えないURLを出力せず、エラーで終了する。
+
+本番の `issue` は既存値を再利用せず置き換えるため、日常の閲覧や通常のデプロイで再実行しない。発行済みURLを使い続ける。URLを紛失した場合は、旧リンクを無効にして差し替えるか確認する。
 
 漏えい・紛失などで明示的に差し替える場合だけ `rotate production` を使い、新しいURLを渡す。閲覧を停止する場合は `revoke production` を使う。どちらも既存リンクが使えなくなるため、通常の発行・閲覧手順には含めない。
 
@@ -45,16 +44,16 @@ npm run outcomes:link -- issue production https://ideaboost.dev \
 
 ## 通常開発・検証のリンク
 
-通常開発用リンクは次のコマンドで発行する。`issue local` は既存の有効な値を再利用する。置換には `rotate`、削除には `revoke` を使い、変更後に `dev:api` を再起動する。保存先をGitや共有フォルダーに入れない。
+通常開発用リンクは次のコマンドで発行する。`issue local` は既存の有効な値を再利用する。置換には `rotate`、削除には `revoke` を使い、変更後に `dev:api` を再起動する。コマンドは設定に対応するURLを標準出力へ返す。
 
 ```bash
-npm run outcomes:link -- issue local http://localhost:3000 /tmp/idea-boost-local-link.txt
+npm run outcomes:link -- issue local http://localhost:3000
 ```
 
 検証用リンクの取得はOwnerで `/dev/verify` の「成果閲覧リンクを取得」を使う。差し替えはサーバー停止後に次を実行して再起動する。
 
 ```bash
-npm run outcomes:link -- rotate verification http://localhost:3000 /tmp/idea-boost-verification-link.txt
+npm run outcomes:link -- rotate verification http://localhost:3000
 ```
 
 検証の `revoke` は現在の保存値を削除する。再起動時には検証環境を利用可能にするため新規発行するので、旧リンクは無効になる。検証領域を初期化しても通常開発・本番の設定には影響しない。

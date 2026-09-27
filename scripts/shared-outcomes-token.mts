@@ -53,7 +53,7 @@ async function wranglerSecret(
         "workers/wrangler.jsonc",
       ],
       {
-        stdio: ["pipe", "inherit", "inherit"],
+        stdio: ["pipe", process.stderr, process.stderr],
         env: { ...process.env, CI: "true" },
       },
     );
@@ -67,18 +67,18 @@ async function wranglerSecret(
   });
 }
 async function main(): Promise<void> {
-  const [operation, target, site, output] = process.argv.slice(2);
+  const [operation, target, site, ...extra] = process.argv.slice(2);
   if (
     !["issue", "rotate", "revoke"].includes(operation) ||
-    !["local", "verification", "production"].includes(target)
+    !["local", "verification", "production"].includes(target) ||
+    extra.length > 0 ||
+    (operation === "revoke" && site !== undefined)
   )
     throw new Error(
-      "使い方: npm run outcomes:link -- issue|rotate|revoke local|verification|production [サイトURL] [リンク保存先]",
+      "使い方: npm run outcomes:link -- issue|rotate|revoke local|verification|production [サイトURL]",
     );
-  if (operation !== "revoke" && (!site || !output))
-    throw new Error(
-      "サイトURLとリンク保存先を指定してください。リンクは標準出力に表示しません。",
-    );
+  if (operation !== "revoke" && !site)
+    throw new Error("サイトURLを指定してください。");
   const op = operation as Operation;
   const linkUrl = site ? new URL("/shared-outcomes", site) : null;
   if (linkUrl && !["http:", "https:"].includes(linkUrl.protocol))
@@ -107,16 +107,13 @@ async function main(): Promise<void> {
       join(process.cwd(), "workers/.dev.vars"),
       op,
     );
-  if (token && linkUrl && output) {
+  if (token && linkUrl) {
     linkUrl.hash = `token=${token}`;
-    await writeFile(resolve(output), `${linkUrl.href}\n`, { mode: 0o600 });
-    await chmod(resolve(output), 0o600);
-    console.log(
-      "閲覧リンクを指定ファイルに保存しました。共有範囲に注意して保管してください。",
-    );
+    // 明示的な管理コマンドの実行時だけ、登録した秘密に対応するURLを返す。
+    console.log(linkUrl.href);
   } else console.log("閲覧設定を削除しました。");
   if (target !== "production")
-    console.log(
+    console.error(
       "起動中のサーバーを再起動すると変更が反映されます。検証環境は閲覧設定がなければ次回起動時に新規発行します。",
     );
 }
@@ -126,7 +123,7 @@ if (
 ) {
   main().catch(() => {
     console.error(
-      "閲覧設定の操作に失敗しました。引数・保存先・管理者の接続設定を確認してください。",
+      "閲覧設定の操作に失敗しました。引数・管理者の接続設定を確認してください。",
     );
     process.exitCode = 1;
   });
