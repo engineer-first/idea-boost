@@ -3,12 +3,30 @@
 公開履歴の正本は [GitHub Releases](https://github.com/engineer-first/idea-boost/releases) です。
 本番で公開した機能・変更・修正を、公開日時・版・対象commitと結び付けます。
 通常は **`$release` → 変更を見る → 必要なら `edit` → `release` → 本番health確認成功 → 自動記録** です。
-[リリースの流れ（図解）](https://engineer-first.github.io/idea-boost/release-flow/) から全体像を確認できます。
+[本番リリース手順書](https://engineer-first.github.io/idea-boost/release-flow/) でブランチ・事前準備・Skillなしの公開・復旧・Pages公開を確認できます。
 PR作成、developへのマージ、タグ作成だけでは公開済みと記録しません。
+
+## ブランチと実行場所
+
+開発PRは作業ブランチから `develop` へマージします。通常公開の対象はGitHub上の最新の
+`develop` 全体です。公開する変更のCIと範囲を確認し、ローカルで操作する場合は最新の
+`develop` を取得したリポジトリを使います。SkillはローカルHEADや未コミットの変更を公開しません。
+
+| 操作            | ブランチ                              | 結果                                              |
+| --------------- | ------------------------------------- | ------------------------------------------------- |
+| 開発PR          | base: develop / compare: 作業ブランチ | developへ取り込み。本番アプリはまだ変わらない     |
+| Promote Release | develop                               | 確認済み候補へreleaseをfast-forwardしDeployを起動 |
+| Deploy          | release                               | 品質ゲート → 本番更新 → health → 履歴記録         |
+| Record Release  | develop                               | 成功済み公開の記録だけを回復                      |
+| GitHub Pages    | develop                               | docs/siteの変更をマージすると手順書を公開         |
+
+手動の `develop → release` PRは、baseに `release`、compareに `develop` を選びます。
+PRのMergeボタンではなく、下記のPromote Releaseから進めます。
+`docs/site/` のPages公開は本番アプリと独立しており、prodタグや本番デプロイは不要です。
 
 ## 普段は `$release`
 
-Codexでこのリポジトリを開き、`$release` と入力します。GitHub CLIの認証が必要です。
+最新の `develop` を取得したリポジトリをCodexで開き、`$release` と入力します。GitHub CLIの認証が必要です。
 Skillは前回の本番、developの現在の候補、関連PRとcommitの差分、現在のActions状態を読み取り、
 主要変更のタイトル・利用者向け説明・注意事項・タグ候補を提示します。branch、SHA、PR番号、run ID、attempt、タグの入力は不要です。
 
@@ -201,7 +219,10 @@ APIエラー・応答喪失の後も同じ入力で再試行します。
 
 通常は `$release` を使います。ローカルから行う場合は `gh auth login`、
 Cloudflareへの認証、クリーンな作業ツリー、GitHub上に存在する対象commitと説明JSONが必要です。
-公開内容は `.github/release-note.json` の関連PRと差分で確認してから実行します。
+公開内容は `.github/release-note.json`（または保存済み計画）の関連PRと差分で確認してから実行します。
+この入口はローカルHEADを公開します。通常は確認済みの `origin/develop` を取得し、GitHubにある
+公開予定commitとHEADが一致することを確認してください。Actionsの全品質ゲートは再実行しないため、
+対象commitの必要な検証を先に完了させます。
 
 ```bash
 npm run deploy

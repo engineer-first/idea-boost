@@ -303,7 +303,9 @@ export async function assertRecordedDeployments(
       );
       if (
         recorded.some(
-          (item) => item.tag === `prod-actions-${run.id}-${run.run_attempt}`,
+          (item) =>
+            (item.deploymentId ?? item.tag) ===
+            `prod-actions-${run.id}-${run.run_attempt}`,
         )
       )
         continue;
@@ -362,6 +364,7 @@ export async function prepareRelease(
       ...plan,
       commit,
       previousCommit,
+      title: "同一commitの再公開",
       mode: "redeploy",
       changes: [
         {

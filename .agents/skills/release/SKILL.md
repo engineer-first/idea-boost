@@ -15,7 +15,7 @@ description: Idea Boost の本番リリースを、差分の確認・説明の�
 - `current`: develop は記録済み本番と同じ。新しい公開は不要と伝える。
 - `running`: 表示されたrunのURL（なければリポジトリの `/actions/runs/<id>`）を示し、待機する。再dispatchしない。
 - `retry-record`: 本番とhealthは成功、履歴だけ未記録。`retry-record / cancel` を提示する。選ばれたら `npm run release:operator -- retry-record --confirm`。run ID / attemptは再取得される。再デプロイしない。
-- `deployment-failed`: 正常Releaseは作らない。runを示して停止し、[詳細運用](../../../../docs/release-history.md#失敗時の判断)に従い失敗箇所を調べる。migration / API / Appの一部が反映済みの可能性があるため、自動で全再実行しない。
+- `deployment-failed`: 正常Releaseは作らない。runを示して停止し、[詳細運用](../../../docs/release-history.md#失敗時の判断)に従い失敗箇所を調べる。migration / API / Appの一部が反映済みの可能性があるため、自動で全再実行しない。
 
 ## 内容の確認と編集
 
@@ -35,6 +35,6 @@ CLI上で前回タグ、今回の変更、利用上の注意、提案タイト�
 
 dispatch応答は公開完了ではない。statusを再取得してrunと状態を確認し、実行中なら間隔を空けて監視する。成功は新しいGitHub Releaseの存在で確認する。新しいチャットでもstatusから再開する。応答喪失時も先にstatusを調べ、同じdispatchを即座に繰り返さない。
 
-通常の処理はscripts / 共通Actionsキューに任せる。タグやreleaseブランチの直接更新、品質ゲート・healthの省略、追加の承認・CIゲートは行わない。旧版で説明が保存されていない回復と緊急の手動操作だけは[詳細運用](../../../../docs/release-history.md)を参照する。
+通常の処理はscripts / 共通Actionsキューに任せる。タグやreleaseブランチの直接更新、品質ゲート・healthの省略、追加の承認・CIゲートは行わない。旧版で説明が保存されていない回復と緊急の手動操作だけは[詳細運用](../../../docs/release-history.md)を参照する。
 
 手順の説明には[恒久HTML](https://engineer-first.github.io/idea-boost/release-flow/)を案内する。起動ごとのHTML作成やブラウザでの承認待ちは行わない。

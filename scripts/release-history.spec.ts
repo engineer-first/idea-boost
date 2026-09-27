@@ -561,13 +561,23 @@ describe("レビューした説明からの自動記録", () => {
   });
 
   it("同じcommitの再公開では古い機能説明を新規追加として繰り返さない", async () => {
-    const { api } = server();
+    const { state, api } = server();
+    state.plan.title = "投票のやり直し";
     await recordActions(123, 1, api, true);
     const plan = await prepareRelease(commit, api);
     expect(plan.mode).toBe("redeploy");
     expect(plan.previousCommit).toBe(commit);
     expect(plan.changes[0].kind).toBe("内部変更");
     expect(plan.changes[0].text).not.toContain("投票をやり直せます");
+    const result = await recordRelease(
+      { ...plan, deployment: manualNote().deployment },
+      api,
+      true,
+    );
+    expect(result.body.split("\n")[0]).toContain("再公開");
+    expect(result.body.split("\n")[0]).not.toContain("投票のやり直し");
+    expect(state.releases[1].name).toContain("再公開");
+    expect(state.releases[1].name).not.toContain("投票のやり直し");
   });
 });
 
@@ -606,6 +616,21 @@ describe("記録漏れを次の本番更新へ持ち越さない", () => {
     await expect(
       assertRecordedDeployments(withRuns(api)),
     ).resolves.toBeUndefined();
+  });
+  it("日付タグで記録済みのDeployはjobs APIが利用できなくても次へ進める", async () => {
+    const { api } = server();
+    const result = await recordActions(123, 1, api, true);
+    expect(result.tag).toBe("prod-2026.09.26.1");
+    const unavailableJobs = vi.fn<GitHubApi>(async (method, path, data) => {
+      if (path.includes("/jobs?")) throw new Error("HTTP 404");
+      return api(method, path, data);
+    });
+    await expect(
+      assertRecordedDeployments(withRuns(unavailableJobs)),
+    ).resolves.toBeUndefined();
+    expect(
+      unavailableJobs.mock.calls.some(([, path]) => path.includes("/jobs?")),
+    ).toBe(false);
   });
   it("途中失敗のrunは正式公開扱いしないが、API障害を握りつぶさない", async () => {
     const { state, api } = server();

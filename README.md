@@ -118,9 +118,9 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 | `idea-flow-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
 | `idea-flow-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
 
-**本番の更新方法:** Codexで `$release` → 今回の変更を見る → 必要なら自然言語で `edit` → `release`。Skill起動だけでは本番は変わりません。branch・SHA・PR番号・タグの入力は不要です。既存の品質ゲートと D1 → API → App → health を通り、GitHub Releaseに記録します。[リリースの流れ（図解）](https://engineer-first.github.io/idea-boost/release-flow/) と [詳細運用](docs/release-history.md) を参照してください。Actionsには `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
+**本番の更新方法:** 開発PRを `develop` にマージし、CIと公開範囲を確認します。最新の `develop` を取得してCodexで `$release` → 内容確認・必要なら `edit` → `release`。GitHub上のdevelop全体が対象です。Promote Releaseが `release` を更新し、Deployの品質ゲート → D1 → API → App → health → GitHub Releaseへ進みます。SkillなしのActions操作、実行ブランチ、手動公開と復旧は [本番リリース手順書](https://engineer-first.github.io/idea-boost/release-flow/) に記載しています。Actionsには `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
 
-ローカルからの手動公開は `npm run deploy`（GitHub・Cloudflareへの認証が必要）。PR/Issue URLの入力は不要で、成功後にreceiptを作って履歴記録を自動依頼します。記録だけの失敗は `$release` → `retry-record`（手動入口は **Record Release**）で再試行でき、本番の再デプロイは不要です。各入口・部分再試行・ロールバックの扱いは [リリース履歴の運用](docs/release-history.md) を参照してください。
+ローカルからの手動公開は `npm run deploy`（GitHub・Cloudflareへの認証が必要）。PR/Issue URLの入力は不要で、成功後にreceiptを作って履歴記録を自動依頼します。Actions経路で記録だけ失敗した場合は `$release` → `retry-record`（手動入口は **Record Release**）、ローカル公開の記録だけ失敗した場合は出力済みのreceiptを `npm run release:submit -- .release-history/出力されたファイル.json` で再送します。どちらも本番の再デプロイは不要です。各入口・部分再試行・ロールバックの扱いは [リリース履歴の運用](docs/release-history.md) を参照してください。
 
 秘密・初回手順・カスタムドメイン・CI・動作確認の詳細は **[デプロイ構成図](docs/site/deploy-map/index.html)**（公開後: [GitHub Pages](https://engineer-first.github.io/idea-boost/deploy-map/)）を参照してください。
 
