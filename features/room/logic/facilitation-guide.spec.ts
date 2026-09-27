@@ -63,7 +63,7 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(1),
       3,
-      "デザインスプリントを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
+      "アイデア出しを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
       "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
     ],
     [
@@ -142,7 +142,7 @@ describe("getFacilitationGuide", () => {
       buildPhaseStep(5, 3),
       10,
       "投票結果を参考に、採用する解決策をみんなで1つ決めよう。",
-      "1つに決定したら、デザインスプリントは完了です。",
+      "1つに決定したら、完了チェックを押して成果を確認しましょう。",
     ],
   ] as const)("%o の所要時間・参加者向けガイド・ホスト向けガイドを返す", (phase, durationMinutes, message, hostMessage) => {
     expect(getFacilitationGuide(phase)).toMatchObject({
@@ -157,7 +157,7 @@ describe("getFacilitationGuide", () => {
     [buildPhaseStep(4), "全員の投票"],
     [buildPhaseStep(5), "ホストが採用する付箋を確定"],
     [buildPhaseStep(3, 3), "全員が納得できる位置"],
-    [buildPhaseStep(5, 3), "スプリントは完了"],
+    [buildPhaseStep(5, 3), "成果を確認"],
   ] as const)("%oの詳細には実際の次へ進む目安を含める", (phase, criterion) => {
     expect(getFacilitationGuide(phase)?.completion).toContain(criterion);
   });

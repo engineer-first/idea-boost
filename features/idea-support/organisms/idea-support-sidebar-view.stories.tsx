@@ -4,7 +4,7 @@ import { fn } from "storybook/test";
 import { IdeaSupportSidebarView } from "./idea-support-sidebar-view";
 
 const meta = {
-  title: "features/idea-support/organisms/IdeaSupportSidebarView",
+  title: "IdeaSupport/IdeaSupportSidebarView",
   component: IdeaSupportSidebarView,
   args: {
     contentState: "ready",

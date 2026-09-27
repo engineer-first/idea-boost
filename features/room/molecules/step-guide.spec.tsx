@@ -1,12 +1,21 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildPhaseStep } from "@/contracts/phase.fixture";
-import { getFacilitationGuide } from "../logic/facilitation-guide";
+import type { FacilitationGuideContent } from "../logic/facilitation-guide";
 import { StepGuide, type StepGuideProps } from "./step-guide";
 
-const guide = getFacilitationGuide(buildPhaseStep(1));
-if (!guide) throw new Error("工程ガイドが必要です");
+// 文言のカタログではなく、渡された内容と表示条件の接続を検証する。
+const guide = {
+  durationMinutes: 3,
+  intro: "この工程の最初の一歩",
+  modalTitle: "この工程の詳しい案内",
+  message: "参加者がいま取り組む作業",
+  steps: ["最初にすること", "続いてすること"],
+  modalExamples: ["一つ目の具体例", "二つ目の具体例"],
+  example: "作業を進めるコツ",
+  completion: "この工程を終える条件",
+  hostMessage: "進行役だけが確認する手順",
+} satisfies FacilitationGuideContent;
 const defaults: StepGuideProps = {
   guide,
   phaseKey: "1-1",
@@ -55,6 +64,10 @@ describe("工程ガイド", () => {
     expect(shell).toHaveAttribute("data-state", "compact");
     expect(frame()).toBe(shell);
     expect(screen.getByRole("button", { name: "進め方" })).toBeVisible();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "ファシリテーションガイド" }),
+    ).not.toBeInTheDocument();
   });
   it("hover中は残り時間を止め、外れた後は残りだけを数える", () => {
     vi.useFakeTimers();
@@ -171,21 +184,35 @@ describe("工程ガイド", () => {
     setup({ sessionKey: "other-room:me" });
     expect(frame()).toHaveAttribute("data-state", "intro");
   });
-  it.each([
-    [1, 1, "学校の出席率がまずい"],
-    [1, 2, "右上の順番に沿って、次の人が発表する"],
-    [1, 3, "付箋のグループに名前をつける"],
-    [2, 1, "問い: あと何日休めるだろう？"],
-    [3, 1, "1枚の付箋に1つの解決策を書く"],
-    [3, 3, "全員が納得できる位置を決める"],
-  ] as const)("%i-%iの既存の説明・例を詳細から読み直せる", (phase, step, text) => {
-    const content = getFacilitationGuide(buildPhaseStep(step, phase));
-    if (!content) throw new Error("工程ガイドが必要です");
-    setup({ guide: content, initialState: "detail" });
+  it("渡された導入を表示し、詳細から作業・手順・例・完了条件を読める", () => {
+    setup();
     expect(
+      screen.getByRole("status", { name: "最初の一歩" }),
+    ).toHaveTextContent(guide.intro);
+    outsideClick();
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    const detail = within(
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
-    ).toHaveTextContent(text);
-    expect(screen.getByText("次へ進む目安")).toBeVisible();
+    );
+    expect(
+      detail.getByRole("heading", { name: guide.modalTitle }),
+    ).toBeVisible();
+    expect(detail.getByText(guide.message)).toBeVisible();
+    for (const text of [
+      ...guide.steps,
+      ...guide.modalExamples,
+      guide.example,
+      guide.completion,
+    ]) {
+      expect(detail.getByText(text)).toBeVisible();
+    }
+  });
+  it("専用見出しがない場合は作業内容を詳細の見出しにする", () => {
+    setup({
+      guide: { ...guide, modalTitle: undefined },
+      initialState: "detail",
+    });
+    expect(screen.getByRole("heading", { name: guide.message })).toBeVisible();
   });
   it("案内の途中で次工程へ進んでも、次の案内は5秒表示する", () => {
     vi.useFakeTimers();
@@ -207,8 +234,21 @@ describe("工程ガイド", () => {
   });
   it("ホストの補足はホストだけに表示する", () => {
     const { rerender, props } = setup({ initialState: "detail" });
+    const hostMessage = guide.hostMessage;
     expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
+    expect(screen.queryByText(hostMessage)).not.toBeInTheDocument();
     rerender(<StepGuide {...props} isHost />);
     expect(screen.getByText("進行役へ")).toBeVisible();
+    expect(screen.getByText(hostMessage)).toBeVisible();
+    rerender(<StepGuide {...props} isHost={false} />);
+    expect(screen.queryByText(hostMessage)).not.toBeInTheDocument();
+  });
+  it("ホスト向けの補足がない工程では空の補足欄を出さない", () => {
+    setup({
+      guide: { ...guide, hostMessage: null },
+      isHost: true,
+      initialState: "detail",
+    });
+    expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
   });
 });

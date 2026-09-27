@@ -3,16 +3,20 @@ name: Deploy
 on:
   push:
     branches: [release]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: deploy-${{ github.workflow }}-${{ github.ref }}
+  group: production-release-${{ github.repository }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
   gate:
+    if: github.ref == 'refs/heads/release'
     # PR と同等の品質ゲート。全ジョブが通ったあと deploy へ進む。
     runs-on: ubuntu-latest
     steps:
@@ -28,6 +32,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate release note before deployment
+        run: node scripts/release-automation.mts prepare "$TARGET_SHA"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.sha }}
 
       - name: Create .dev.vars for type generation
         run: cp workers/.dev.vars.example workers/.dev.vars
@@ -83,6 +93,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate release note before deployment
+        run: node scripts/release-automation.mts prepare "$TARGET_SHA"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.sha }}
+
       - name: Apply D1 migrations (remote, idempotent)
         run: npx wrangler d1 migrations apply DB --remote --config workers/wrangler.jsonc
         env:
@@ -110,6 +126,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate release note before deployment
+        run: node scripts/release-automation.mts prepare "$TARGET_SHA"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.sha }}
 
       - name: Deploy app-worker
         run: npm run deploy:app
@@ -139,3 +161,25 @@ jobs:
           exit 1
         env:
           SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+
+  record-release:
+    needs: health-check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+      - run: npm ci
+      - name: Record successful production release
+        run: node scripts/release-automation.mts actions "$RUN_ID" "$RUN_ATTEMPT" --publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}

@@ -115,12 +115,19 @@ export const Participant: Story = {
 
 export const Completed: Story = {
   ...step(3, 5),
-  name: "アイデア決定後",
+  name: "成果公開後",
   args: {
     ...step(3, 5).args,
     notes: VOTED_NOTES,
     decision: buildDecision({ phase: 3, noteId: VOTED_NOTES[0].id }),
+    outcomePublished: true,
   },
+};
+
+export const FinalDecisionPending: Story = {
+  ...Completed,
+  name: "採用案決定後・公開前",
+  args: { ...Completed.args, outcomePublished: false },
 };
 
 // 各1幅だけを追加するため、全件撮影時の増分は2スナップショット。

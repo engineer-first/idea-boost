@@ -29,7 +29,9 @@ function setupProps(
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
     initialGuideState: "detail" as const,
-    isSprintComplete: false,
+    hasFinalDecision: false,
+    outcomePublished: false,
+    onPublishOutcome: vi.fn(),
     isLeaving: false,
     onShowVoteResult: vi.fn(),
     onLeaveClick: vi.fn(),
@@ -150,7 +152,7 @@ describe("RoomBoardHeader", () => {
     const phaseProgress = screen.getByTestId("board-phase-progress");
     expect(phaseProgress).toHaveAttribute(
       "aria-label",
-      "デザインスプリントのフェーズ進行",
+      "アイデア出しのフェーズ進行",
     );
     expect(within(phaseProgress).getByText("課題整理")).toBeVisible();
     expect(within(phaseProgress).getByText("問いの整理")).toBeVisible();
@@ -436,14 +438,30 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("最終アイデア決定後は全員に完了ステータスを表示する", () => {
+    it("最終案の決定後はホストだけに完了チェックを表示する", () => {
+      const onPublishOutcome = vi.fn();
+      setup({
+        isHost: true,
+        phase: buildPhaseStep(5, 3),
+        hasFinalDecision: true,
+        onPublishOutcome,
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "完了して成果を表示" }),
+      );
+      expect(onPublishOutcome).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
+    });
+
+    it("成果公開前の参加者には完了操作を表示しない", () => {
       setup({
         isHost: false,
         phase: buildPhaseStep(5, 3),
-        isSprintComplete: true,
+        hasFinalDecision: true,
       });
-
-      expect(screen.getByRole("status")).toHaveTextContent("スプリント完了");
+      expect(
+        screen.queryByRole("button", { name: "完了して成果を表示" }),
+      ).not.toBeInTheDocument();
     });
 
     it("途中の結果ステップではホストに「次のステップへ」を表示する", () => {

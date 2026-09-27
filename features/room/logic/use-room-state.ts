@@ -18,6 +18,7 @@ import {
   applyDecisionServerMessage,
   applyIdeaMapServerMessage,
   applyMemberServerMessage,
+  applyOutcomePublishedServerMessage,
   applyPhaseServerMessage,
   applySharingServerMessage,
   applyTimerServerMessage,
@@ -36,6 +37,7 @@ export type UseRoomStateResult = {
   phase: RoomPhase;
   phaseRevision: number;
   decision: Decision | null;
+  outcomePublished: boolean;
   ideaMap: IdeaMapClientState;
   adoptionFocusNoteId: string | null;
   carryovers: Carryover[];
@@ -56,6 +58,7 @@ export function useRoomState(options: {
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
   const [phaseRevision, setPhaseRevision] = useState(0);
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [outcomePublished, setOutcomePublished] = useState(false);
   const [ideaMap, setIdeaMap] = useState<IdeaMapClientState>(
     INITIAL_IDEA_MAP_STATE,
   );
@@ -97,6 +100,9 @@ export function useRoomState(options: {
       if (message.type === "snapshot" || message.type === "phase:updated")
         setPhaseRevision(message.phaseRevision ?? 0);
       setDecision((current) => applyDecisionServerMessage(current, message));
+      setOutcomePublished((current) =>
+        applyOutcomePublishedServerMessage(current, message),
+      );
       setIdeaMap((current) => applyIdeaMapServerMessage(current, message));
       setAdoptionFocusNoteId((current) =>
         applyAdoptionFocusServerMessage(current, message),
@@ -118,6 +124,7 @@ export function useRoomState(options: {
     phase,
     phaseRevision,
     decision,
+    outcomePublished,
     ideaMap,
     adoptionFocusNoteId,
     carryovers,

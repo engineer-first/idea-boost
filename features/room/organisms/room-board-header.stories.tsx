@@ -37,7 +37,9 @@ const meta = {
     isNextPhasePending: false,
     isNextPhaseBlocked: false,
     initialGuideState: "detail",
-    isSprintComplete: false,
+    hasFinalDecision: false,
+    outcomePublished: false,
+    onPublishOutcome: fn(),
     signOutAction: fn(),
     isLeaving: false,
     onShowVoteResult: fn(),
@@ -128,10 +130,18 @@ export const VoteTotaled: Story = {
   },
 };
 
-export const SprintComplete: Story = {
+export const OutcomePublished: Story = {
   args: {
     phase: STEP_3_5,
-    isSprintComplete: true,
+    hasFinalDecision: true,
+    outcomePublished: true,
+  },
+};
+
+export const FinalDecisionPending: Story = {
+  args: {
+    phase: STEP_3_5,
+    hasFinalDecision: true,
   },
 };
 

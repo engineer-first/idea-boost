@@ -26,6 +26,7 @@ const member = {
 const candidateId = "33333333-3333-4333-8333-333333333333";
 const excludedId = "44444444-4444-4444-8444-444444444444";
 const draftId = "55555555-5555-4555-8555-555555555555";
+const roomIdBySocket = new WeakMap<RoomSocket, string>();
 
 async function setup(phase: RoomPhase) {
   const { roomId, inviteCode } = await createRoomAs(host);
@@ -52,6 +53,8 @@ async function setup(phase: RoomPhase) {
   const b = await connectRoomAs(member, roomId);
   const initial = await a.next();
   await b.next();
+  roomIdBySocket.set(a, roomId);
+  roomIdBySocket.set(b, roomId);
   return {
     roomId,
     a,
@@ -110,6 +113,18 @@ async function until(
 ): Promise<ServerMessage> {
   for (let i = 0; i < 20; i++) {
     const message = await socket.next();
+    if (message.type === "phase:save-requested") {
+      const roomId = roomIdBySocket.get(socket);
+      if (roomId)
+        await runInRoomDO(roomId, async (instance, state) => {
+          state.storage.sql.exec(
+            "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+            Date.now() - 1,
+          );
+          await instance.alarm();
+        });
+      continue;
+    }
     if (message.type === "error" || message.type === type) return message;
   }
   throw new Error("応答が見つかりません");
@@ -159,6 +174,9 @@ for (const phase of [1, 2, 3] as const) {
         other.close();
         send(room.a, {
           type: "note:update-content",
+          operationId: crypto.randomUUID(),
+          expectedContentRevision: 0,
+          expectedPhaseRevision: 0,
           noteId: candidateId,
           content: "changed",
         });
@@ -541,31 +559,26 @@ it.each([
   const final: RoomPhase = { kind: "step", phase: 1, step: to };
   const room = await setup(current);
   await startTimer(room);
-  // 最初の応答を待たず、ストレージI/Oでyieldする遷移に続けて送る。
+  // revote は保存猶予なしなので旧来の連続送信順序も検証する。
+  // 編集可能ステップは猶予を確定後に次の操作を送る。
   send(room.a, transition(type, current));
-  send(room.a, { ...transition("phase:next", middle, 3), force: true });
+  if (type === "phase:revote")
+    send(room.a, { ...transition("phase:next", middle, 3), force: true });
   for (const socket of [room.a, room.b]) {
-    const received: ServerMessage[] = [];
-    while (
-      received.filter((message) => message.type === "phase:updated").length < 2
-    ) {
-      const message = await socket.next();
-      expect(message.type).not.toBe("error");
-      received.push(message);
-    }
-    expect(
-      received.filter((message) => message.type === "phase:updated"),
-    ).toEqual([
-      { type: "phase:updated", phase: middle, phaseRevision: 3 },
-      { type: "phase:updated", phase: final, phaseRevision: 4 },
-    ]);
-    for (const message of received) {
-      if (message.type !== "snapshot") continue;
-      expect(message.phase).toEqual(
-        message.phaseRevision === 3 ? middle : final,
-      );
-      expect(message.timer).toEqual({ status: "idle" });
-    }
+    expect(await until(socket, "phase:updated")).toEqual({
+      type: "phase:updated",
+      phase: middle,
+      phaseRevision: 3,
+    });
+  }
+  if (type !== "phase:revote")
+    send(room.a, { ...transition("phase:next", middle, 3), force: true });
+  for (const socket of [room.a, room.b]) {
+    expect(await until(socket, "phase:updated")).toEqual({
+      type: "phase:updated",
+      phase: final,
+      phaseRevision: 4,
+    });
   }
   const reconnect = await connectRoomAs(host, room.roomId);
   expect(await reconnect.next()).toMatchObject({

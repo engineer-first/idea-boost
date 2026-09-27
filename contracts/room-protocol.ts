@@ -131,6 +131,7 @@ export const NoteSchema = z.object({
   id: z.string().uuid(),
   authorId: z.string().uuid(),
   content: z.string(),
+  contentRevision: z.number().int().nonnegative(),
   visibility: z.enum(["private", "shared"]),
   color: NoteColorSchema,
   // 旧 Worker / 保存データにフィールドがなくても従来相当の14pxで復元する。
@@ -294,13 +295,24 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:unpublish"),
     noteId: z.string().uuid(),
   }),
-  z.object({
-    type: z.literal("note:update-content"),
-    noteId: z.string().uuid(),
-    content: z
-      .string()
-      .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。"),
-  }),
+  z
+    .object({
+      type: z.literal("note:update-content"),
+      noteId: z.string().uuid(),
+      content: z
+        .string()
+        .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。"),
+      operationId: OptimisticOperationIdSchema,
+      expectedContentRevision: z.number().int().nonnegative(),
+      expectedPhaseRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:content-status"),
+      operationId: OptimisticOperationIdSchema,
+    })
+    .strict(),
   z
     .object({
       type: z.literal("note:update-font-size"),
@@ -418,6 +430,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("note:decide"),
     noteId: z.string().uuid(),
   }),
+  // 最終案の採用とは別に、ホストが成果画面を全員へ公開する。
+  z.object({ type: z.literal("outcome:publish") }),
   // 旧クライアントの決定解除要求。採用は不可逆のためサーバーで常に拒否する。
   z.object({ type: z.literal("decision:clear") }),
   // 採用選択モード中にホストが現在検討している候補。userId / phase は
@@ -475,6 +489,17 @@ export const WS_CLOSE_LEFT_ROOM_REASON = "left the room";
 export const WS_CLOSE_ROOM_DISBANDED = 4001;
 export const WS_CLOSE_ROOM_DISBANDED_REASON = "room disbanded";
 
+export const PendingPhaseTransitionSchema = z.object({
+  transitionId: z.string().uuid(),
+  expectedPhase: RoomPhaseSchema,
+  expectedRevision: z.number().int().nonnegative(),
+  deadlineAt: TimerMillisecondsSchema,
+  serverNow: TimerMillisecondsSchema,
+});
+export type PendingPhaseTransition = z.infer<
+  typeof PendingPhaseTransitionSchema
+>;
+
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("sharing:updated"),
@@ -490,8 +515,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     members: z.array(MemberSchema),
     phase: RoomPhaseSchema,
     phaseRevision: z.number().int().nonnegative().default(0),
+    pendingPhaseTransition: PendingPhaseTransitionSchema.nullable().optional(),
     isHost: z.boolean(),
     decision: DecisionSchema.nullable(),
+    outcomePublished: z.boolean().optional(),
     // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。
     adoptionFocusNoteId: z.string().uuid().nullable().optional(),
     // 個人付箋の本文・作者別枚数は含めず、マップの共有状態だけを復元する。
@@ -507,6 +534,23 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     serverNow: TimerMillisecondsSchema,
   }),
   z.object({ type: z.literal("note:inserted"), note: NoteSchema }),
+  z
+    .object({
+      type: z.literal("note:content-saved"),
+      operationId: OptimisticOperationIdSchema,
+      noteId: z.string().uuid(),
+      contentRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:content-status-result"),
+      operationId: OptimisticOperationIdSchema,
+      status: z.enum(["accepted", "unknown"]),
+      noteId: z.string().uuid().optional(),
+      contentRevision: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
   z.object({
     type: z.literal("note:updated"),
     note: NoteSchema,
@@ -566,9 +610,19 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     phase: RoomPhaseSchema,
     phaseRevision: z.number().int().nonnegative().default(0),
   }),
+  z
+    .object({
+      type: z.literal("phase:save-requested"),
+      ...PendingPhaseTransitionSchema.shape,
+    })
+    .strict(),
   z.object({
     type: z.literal("decision:updated"),
     decision: DecisionSchema.nullable(),
+  }),
+  z.object({
+    type: z.literal("outcome:published"),
+    published: z.literal(true),
   }),
   z.object({
     type: z.literal("adoption-focus:updated"),
@@ -596,6 +650,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       "forbidden",
       "not-found",
       "voting-incomplete",
+      "content-conflict",
     ]),
     message: z.string(),
     // 楽観操作に起因する拒否だけが持つ。汎用エラーは省略する。

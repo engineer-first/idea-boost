@@ -73,6 +73,9 @@ export function applyServerMessage(
       return notes;
     }
 
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":
@@ -83,6 +86,7 @@ export function applyServerMessage(
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "outcome:published":
     case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":

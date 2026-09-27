@@ -90,6 +90,9 @@ export function applyMemberServerMessage(
     case "note:deleted":
     case "note:bulk-excluded":
     case "note:bulk-restored":
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "phase:updated":
@@ -98,6 +101,7 @@ export function applyMemberServerMessage(
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "outcome:published":
     case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
@@ -135,12 +139,16 @@ export function applyVotingCompletionServerMessage(
     case "note:deleted":
     case "note:bulk-excluded":
     case "note:bulk-restored":
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
+    case "outcome:published":
     case "adoption-focus:updated":
     case "sharing:updated":
     case "timer:updated":
@@ -201,6 +209,9 @@ export function applyDecisionServerMessage(
     case "note:deleted":
     case "note:bulk-excluded":
     case "note:bulk-restored":
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":
@@ -210,6 +221,7 @@ export function applyDecisionServerMessage(
     case "group:deleted":
     case "sharing:updated":
     case "timer:updated":
+    case "outcome:published":
     case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
@@ -221,6 +233,16 @@ export function applyDecisionServerMessage(
       return _exhaustive;
     }
   }
+}
+
+export function applyOutcomePublishedServerMessage(
+  published: boolean,
+  message: ServerMessage,
+): boolean {
+  if (message.type === "snapshot") return message.outcomePublished ?? false;
+  if (message.type === "outcome:published") return true;
+  if (message.type === "phase:updated") return false;
+  return published;
 }
 
 // 採用フォーカスは RoomDO のソケット添付が真実。確定・フェーズ遷移は
@@ -271,6 +293,9 @@ export function applyPhaseServerMessage(
     case "note:deleted":
     case "note:bulk-excluded":
     case "note:bulk-restored":
+    case "note:content-saved":
+    case "note:content-status-result":
+    case "phase:save-requested":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":
@@ -281,6 +306,7 @@ export function applyPhaseServerMessage(
     case "sharing:updated":
     case "timer:updated":
     case "decision:updated":
+    case "outcome:published":
     case "adoption-focus:updated":
     case "cursor:updated":
     case "cursor:drag-ended":
