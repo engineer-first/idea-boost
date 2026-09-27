@@ -19,6 +19,14 @@ body:
     validations:
       required: false
   - type: textarea
+    id: user-flow
+    attributes:
+      label: 利用の流れ・画面イメージ
+      description: 画面操作を伴う場合に、利用者がどこから入り、何を選び、どの画面で結果を見るかを順に書いてください。必要なら簡単な画面図や画像を添えてください。画面名が未確定なら仮と明記してください。
+      placeholder: "例: 利用者が共有リンクを開く → 一覧で対象を選ぶ → 詳細画面で結果を見る。"
+    validations:
+      required: false
+  - type: textarea
     id: notes
     attributes:
       label: 補足
