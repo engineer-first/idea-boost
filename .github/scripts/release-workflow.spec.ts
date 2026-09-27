@@ -10,7 +10,7 @@ function workflow(name: string) {
 }
 
 describe("本番公開と履歴の接続", () => {
-  it("PRマージ・直接push・Actions手動の入口を同じDeployへつなぐ", () => {
+  it("releaseへのpushとActions手動の入口を同じDeployへつなぐ", () => {
     const deploy = workflow("deploy");
     expect(deploy.on.push.branches).toEqual(["release"]);
     expect(deploy.on).toHaveProperty("workflow_dispatch");
@@ -47,16 +47,37 @@ describe("本番公開と履歴の接続", () => {
     expect(commands).toContain("release-automation.mts retry");
     expect(commands).not.toMatch(/npm run deploy|wrangler/);
   });
-  it("release向けPRでは読取権限だけで説明を事前検証する", () => {
+  it("release向けPRでは読取権限だけで公開対象commitの説明を事前検証する", () => {
     const check = workflow("release-note-check");
     expect(check.on.pull_request.branches).toEqual(["release"]);
     expect(check.permissions.contents).toBe("read");
     const preview = check.jobs.preview.steps.find(
       (step: { name?: string }) => step.name === "Preview release note",
     );
-    expect(preview.env.TARGET_SHA).toBe(["$", "{{ github.sha }}"].join(""));
+    expect(preview.env.TARGET_SHA).toBe(
+      ["$", "{{ github.event.pull_request.head.sha }}"].join(""),
+    );
     expect(JSON.stringify(check)).not.toContain("--publish");
     expect(JSON.stringify(check)).not.toContain("CLOUDFLARE");
+  });
+  it("公開操作はdevelopだけで実行し、説明確認後にreleaseを進める", () => {
+    const promote = workflow("promote-release");
+    expect(promote.on).toHaveProperty("workflow_dispatch");
+    expect(promote.permissions).toEqual({
+      contents: "write",
+      actions: "write",
+    });
+    expect(promote.concurrency).toEqual(workflow("deploy").concurrency);
+    expect(promote.jobs.promote.if).toContain("default_branch");
+    const commands = promote.jobs.promote.steps
+      .map((step: { run?: string }) => step.run ?? "")
+      .join("\n");
+    expect(
+      commands.indexOf("release-automation.mts prepare"),
+    ).toBeGreaterThanOrEqual(0);
+    expect(commands.indexOf("promote-release.mts")).toBeGreaterThan(
+      commands.indexOf("release-automation.mts prepare"),
+    );
   });
 });
 

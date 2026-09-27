@@ -12,7 +12,7 @@ jobs:
   preview:
     runs-on: ubuntu-latest
     steps:
-      # PRのコードを実行せず、既定ブランチのスクリプトでマージ候補のJSONだけ読む。
+      # PRのコードを実行せず、既定ブランチのスクリプトで公開対象のJSONだけ読む。
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.repository.default_branch }}
@@ -26,4 +26,4 @@ jobs:
         run: node scripts/release-automation.mts prepare "$TARGET_SHA"
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ github.sha }}
+          TARGET_SHA: ${{ github.event.pull_request.head.sha }}

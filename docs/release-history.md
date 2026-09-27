@@ -2,24 +2,24 @@
 
 公開履歴の正本は [GitHub Releases](https://github.com/engineer-first/idea-boost/releases) です。
 本番で公開した機能・変更・修正を、公開日時・版・対象commitと結び付けます。
-通常は **release向けPRで説明をレビュー → マージ → 本番health確認成功 → 自動記録** です。
+通常は **release向けPRで説明とCIをレビュー → ActionsのPromote Releaseでreleaseを進める → 本番health確認成功 → 自動記録** です。
 PR作成、developへのマージ、タグ作成だけでは公開済みと記録しません。
 
 ## 対応するフロー
 
-| 入口・状況                                                         | 下書き・確認                                                                        | 履歴が出るタイミング                                                        |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| release向けPR（merge / squash / rebase）                           | `.github/release-note.json` をPRでレビュー。Release Note CheckのSummaryに下書き表示 | マージにより起動するDeployのhealth成功後、自動公開                          |
-| releaseへの直接push、hotfix、cherry-pick                           | pushするcommitに同じJSONを含める。PRを通さない場合も説明の確認が必要                | Deployのhealth成功後、自動公開                                              |
-| ActionsのRun workflow / gh workflow run                            | Deployでbranch `release` を選ぶ。対象commit内のJSONを検査                           | 同じDeploy経路で自動公開                                                    |
-| 同じcommitの再デプロイ、Re-run all jobs                            | 前回と同じcommitなら「機能・操作の変更なし」と説明を自動切替                        | 新たなAPI/App公開とhealth成功後、別の版として記録                           |
-| Re-run failed jobs / 特定ジョブの再実行                            | 再実行しない成功ジョブを引き継ぎ、再実行したジョブは最新結果で判定                  | 構成全体の成功を確認後、自動公開                                            |
-| 記録ジョブのみ失敗・通信断                                         | record-releaseだけ再実行、またはRecord Releaseで元のrun ID/attemptを指定            | 再デプロイせず記録。同じ公開事象は同じ版を再利用                            |
-| ローカルの `npm run deploy`                                        | クリーンな公開commitとJSONを事前検査                                                | migration → API → App → health後にreceiptを保存し、Record Releaseを自動起動 |
-| Cloudflare画面・個別wranglerコマンド・導入前のスクリプトによる更新 | 対応PR/Issueで成功証跡を確認し、manual receiptを作成                                | Record Releaseへreceiptを渡して記録                                         |
-| 過去版へのロールバック・分岐したcommitへの復旧                     | `mode: "rollback"` と利用上の注意を必須にする                                       | 復旧後の全体の成功を確認し、同じ記録経路で公開                              |
-| タグ作成、GitHub Releaseの手動作成、developへのマージ              | 本番デプロイの成功証拠にはしない                                                    | それだけでは自動記録しない                                                  |
-| 途中失敗・取消し・API/App片方だけ成功                              | 公開履歴を作らず、作業記録に実状態を残す                                            | 構成全体を確認できるまで公開しない                                          |
+| 入口・状況                                                         | 下書き・確認                                                                            | 履歴が出るタイミング                                                        |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| release向けPRとPromote Release                                     | `.github/release-note.json` とCIをPRでレビュー。Release Note CheckのSummaryに下書き表示 | releaseのfast-forward後、Deployのhealth成功で自動公開                       |
+| releaseへの直接push、hotfix、cherry-pick                           | pushするcommitに同じJSONを含める。PRを通さない場合も説明の確認が必要                    | Deployのhealth成功後、自動公開                                              |
+| ActionsのRun workflow / gh workflow run                            | Deployでbranch `release` を選ぶ。対象commit内のJSONを検査                               | 同じDeploy経路で自動公開                                                    |
+| 同じcommitの再デプロイ、Re-run all jobs                            | 前回と同じcommitなら「機能・操作の変更なし」と説明を自動切替                            | 新たなAPI/App公開とhealth成功後、別の版として記録                           |
+| Re-run failed jobs / 特定ジョブの再実行                            | 再実行しない成功ジョブを引き継ぎ、再実行したジョブは最新結果で判定                      | 構成全体の成功を確認後、自動公開                                            |
+| 記録ジョブのみ失敗・通信断                                         | record-releaseだけ再実行、またはRecord Releaseで元のrun ID/attemptを指定                | 再デプロイせず記録。同じ公開事象は同じ版を再利用                            |
+| ローカルの `npm run deploy`                                        | クリーンな公開commitとJSONを事前検査                                                    | migration → API → App → health後にreceiptを保存し、Record Releaseを自動起動 |
+| Cloudflare画面・個別wranglerコマンド・導入前のスクリプトによる更新 | 対応PR/Issueで成功証跡を確認し、manual receiptを作成                                    | Record Releaseへreceiptを渡して記録                                         |
+| 過去版へのロールバック・分岐したcommitへの復旧                     | `mode: "rollback"` と利用上の注意を必須にする                                           | 復旧後の全体の成功を確認し、同じ記録経路で公開                              |
+| タグ作成、GitHub Releaseの手動作成、developへのマージ              | 本番デプロイの成功証拠にはしない                                                        | それだけでは自動記録しない                                                  |
+| 途中失敗・取消し・API/App片方だけ成功                              | 公開履歴を作らず、作業記録に実状態を残す                                                | 構成全体を確認できるまで公開しない                                          |
 
 個別のCloudflare操作をGitHubから自動観測する仕組みはありません。通常の入口は自動化し、
 外部操作も成功証跡を渡して同じ履歴へ合流できるようにしています。
@@ -35,7 +35,7 @@ PR作成、developへのマージ、タグ作成だけでは公開済みと記�
 
 次は**架空の記載例**です。各リリースで実際の内容に置き換え、
 `.github/release-note.json` として対象commitに含めます。
-このファイルには自分自身のcommit SHAや公開日時を埋めません。マージ方式に関係なく、
+このファイルには自分自身のcommit SHAや公開日時を埋めません。
 Deployの実際のcommitとhealth完了日時を自動で付けます。
 
 ```json
@@ -59,8 +59,24 @@ Deployの実際のcommitとhealth完了日時を自動で付けます。
 JSONの欠落・不正、古い比較元、未記録の成功したDeployは **migrationより前** に拒否します。
 
 release向けPRのRelease Note Checkは読取権限だけで、既定ブランチのスクリプトから
-候補commitのJSONを読み、Summaryへ下書きを出します。対象commitに含まれる変更か、説明が平易か、
+PRのhead commitのJSONを読み、Summaryへ下書きを出します。対象commitに含まれる変更か、説明が平易か、
 実際に公開されるかという意味の確認は人が行います。公開後の要約入力は通常不要です。
+
+## GitHub画面からreleaseを更新する
+
+1. `develop` から `release` へのPRを作成し、差分・`.github/release-note.json`・Release Note CheckとCIの結果を確認します。
+2. GitHubの **Actions → Promote Release → Run workflow** を開き、branchに `develop`、`pr_number` にそのPR番号を指定して実行します。PR画面の **Merge** ボタンは使用しません。
+3. Promote Releaseが成功したら、起動された **Deploy** の `gate` から `record-release` までを確認します。公開履歴はhealth成功後に記録されます。
+
+Promote Releaseは、PRがopenで同じリポジトリの `develop → release` を指し、PRのheadが実行時の最新の
+`develop` と一致し、`release` がその祖先であることを確認します。説明データの事前検査後、GitHub APIで
+`release` を非強制のfast-forwardで進め、Deployを明示的に起動します。これにより両ブランチの履歴が揃い、
+`release` 側だけのマージコミットを増やしません。GitHubの表示は更新直後しばらく残る場合があります。
+
+Promote Releaseが説明データやブランチの検査で失敗した場合、`release` は更新されません。
+`release` の更新後にDeploy起動だけが失敗した場合は、Actionsの **Deploy → Run workflow** でbranch
+`release` を選んで起動します。先に新しいリリースを進めず、Deployと公開履歴を確認してください。
+GitHub Actionsの権限設定で `GITHUB_TOKEN` の `contents: write` と `actions: write` が許可される必要があります。
 
 公開本文の概形（架空の例）：
 
