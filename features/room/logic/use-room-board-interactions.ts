@@ -39,6 +39,7 @@ export type UseRoomBoardInteractionsArgs = {
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
   onPrivateNoteUnpublish: (
     noteId: string,
+    privateIndex: number,
     preserveDragUntilPointerEnd?: boolean,
   ) => void;
   onCursorMove: (
@@ -56,7 +57,15 @@ export type RoomBoardInteractions = {
   notes: Note[];
   privateNotes: Note[];
   dragGhost: { note: Note; x: number; y: number } | null;
+  dragPreview?: {
+    note: Note;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null;
   isReturnDropTarget: boolean;
+  privateDropPlaceholder?: { noteId: string };
   isNoteDragging: boolean;
   camera: CanvasCamera;
   gridStyle: CSSProperties;
@@ -156,6 +165,7 @@ export function useRoomBoardInteractions({
     handlePointerCancel,
     cancelCurrentNoteDrag,
     isCurrentDragPointer,
+    isPointerInPrivateDropArea,
   } = useBoardDrag({
     notes,
     privateNotes,
@@ -182,6 +192,57 @@ export function useRoomBoardInteractions({
   const dragGhost =
     drag?.status === "shared" && !notes.some((note) => note.id === drag.note.id)
       ? { note: drag.note, x: drag.x, y: drag.y }
+      : null;
+  const dragPreview =
+    drag?.status === "private" || drag?.status === "returning"
+      ? (() => {
+          const preview = {
+            note: drag.note,
+            left: drag.clientX - drag.previewOffsetX,
+            top: drag.clientY - drag.previewOffsetY,
+            width: drag.previewWidth,
+            height: drag.previewHeight,
+          };
+          const toolbarBounds =
+            privateToolbarRef.current?.getBoundingClientRect();
+          const isPointerOverToolbar =
+            toolbarBounds !== undefined &&
+            drag.clientX >= toolbarBounds.left &&
+            drag.clientX <= toolbarBounds.right &&
+            drag.clientY >= toolbarBounds.top &&
+            drag.clientY <= toolbarBounds.bottom;
+          if (!toolbarBounds || !isPointerOverToolbar) return preview;
+
+          const listBounds = privateToolbarRef.current
+            ?.querySelector<HTMLElement>("[data-testid='private-notes-scroll']")
+            ?.getBoundingClientRect();
+          const bounds =
+            listBounds && listBounds.width > 0 && listBounds.height > 0
+              ? listBounds
+              : toolbarBounds;
+          const clampWithin = (
+            position: number,
+            start: number,
+            end: number,
+            size: number,
+          ) => Math.min(Math.max(position, start), Math.max(start, end - size));
+
+          return {
+            ...preview,
+            left: clampWithin(
+              preview.left,
+              bounds.left,
+              bounds.right,
+              preview.width,
+            ),
+            top: clampWithin(
+              preview.top,
+              bounds.top,
+              bounds.bottom,
+              preview.height,
+            ),
+          };
+        })()
       : null;
 
   const toolbarNotes = renderedPrivateNotes.filter(
@@ -271,14 +332,7 @@ export function useRoomBoardInteractions({
       cancelCurrentNoteDrag();
       return;
     }
-    const toolbarBounds = privateToolbarRef.current?.getBoundingClientRect();
-    if (
-      toolbarBounds &&
-      event.clientX >= toolbarBounds.left &&
-      event.clientX <= toolbarBounds.right &&
-      event.clientY >= toolbarBounds.top &&
-      event.clientY <= toolbarBounds.bottom
-    ) {
+    if (isPointerInPrivateDropArea(event.clientX, event.clientY)) {
       return;
     }
     onCursorLeave();
@@ -293,8 +347,15 @@ export function useRoomBoardInteractions({
     notes: renderedNotes,
     privateNotes: toolbarNotes,
     dragGhost,
+    dragPreview,
     isReturnDropTarget:
-      drag?.status === "shared" && drag.note.authorId === currentUserId,
+      (drag?.status === "shared" || drag?.status === "returning") &&
+      drag.note.authorId === currentUserId,
+    privateDropPlaceholder:
+      (drag?.status === "private" || drag?.status === "returning") &&
+      drag.privateDropIndex !== null
+        ? { noteId: drag.note.id }
+        : undefined,
     isNoteDragging: drag !== null,
     camera,
     gridStyle,

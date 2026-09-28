@@ -9,6 +9,7 @@ import type {
   RefObject,
 } from "react";
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { getNoteHeight, NOTE_WIDTH } from "@/contracts/board";
 import {
   calculateRenderGroups,
@@ -73,7 +74,15 @@ export type RoomBoardCanvasProps = {
   }>;
   // ツールバー発ドラッグ中に、まだ notes に現れていない付箋を描くゴースト。
   dragGhost: { note: Note; x: number; y: number } | null;
+  dragPreview?: {
+    note: Note;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null;
   isReturnDropTarget: boolean;
+  privateDropPlaceholder?: { noteId: string };
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   ideaMapPlaneRef: RefObject<HTMLDivElement | null>;
   privateToolbarRef: RefObject<HTMLDivElement | null>;
@@ -148,7 +157,9 @@ export function RoomBoardCanvas({
   selectedVoteKind,
   pendingVoteOperations,
   dragGhost,
+  dragPreview = null,
   isReturnDropTarget,
+  privateDropPlaceholder,
   boardScrollerRef,
   ideaMapPlaneRef,
   privateToolbarRef,
@@ -626,6 +637,28 @@ export function RoomBoardCanvas({
               ))
             : null}
         </div>
+        {dragPreview && typeof document !== "undefined"
+          ? createPortal(
+              <StickyNote
+                noteId={dragPreview.note.id}
+                testId="private-note-drag-preview"
+                isLifted
+                color={dragPreview.note.color}
+                className="pointer-events-none fixed z-[60] opacity-90"
+                style={{
+                  left: dragPreview.left,
+                  top: dragPreview.top,
+                  width: dragPreview.width,
+                  height: dragPreview.height,
+                }}
+              >
+                <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
+                  {dragPreview.note.content || "メモを入力..."}
+                </p>
+              </StickyNote>,
+              document.body,
+            )
+          : null}
         <div
           className="pointer-events-none absolute bottom-3 left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
@@ -699,6 +732,7 @@ export function RoomBoardCanvas({
               className="pointer-events-auto max-h-full"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}
+              dropPlaceholder={privateDropPlaceholder}
               selectedNoteId={selectedNoteId}
               onSelect={onSelect}
               onAdd={onAddPrivateNote}

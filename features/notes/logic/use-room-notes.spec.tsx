@@ -174,6 +174,7 @@ describe("useRoomNotes", () => {
     });
 
     expect(result.current.draggingNoteId).toBeNull();
+    expect(result.current.notes[0]).toMatchObject({ x: 100, y: 120 });
     expect(send).toHaveBeenLastCalledWith({
       type: "note:drag:end",
       noteId: NOTE_ID,
@@ -221,12 +222,13 @@ describe("useRoomNotes", () => {
         dragId: DRAG_ID,
         accepted: true,
       });
-      result.current.unpublishNote(NOTE_ID, true);
+      result.current.unpublishNote(NOTE_ID, 4, true);
     });
     expect(result.current.draggingNoteId).toBeNull();
     expect(send).toHaveBeenLastCalledWith({
       type: "note:unpublish",
       noteId: NOTE_ID,
+      privateIndex: 4,
     });
 
     act(() => result.current.cancelNoteDrag(NOTE_ID));
@@ -348,7 +350,7 @@ describe("useRoomNotes", () => {
     );
   });
 
-  it("active drag の cancel 後はサーバー確定位置の note:updated へ戻る", () => {
+  it("active drag の cancel 直後に元座標へ戻り、後続のサーバー確定位置も反映する", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));
     act(() => {
@@ -361,7 +363,7 @@ describe("useRoomNotes", () => {
       result.current.moveNote(NOTE_ID, 200, 300);
       result.current.cancelNoteDrag(NOTE_ID);
     });
-    expect(result.current.notes[0]).toMatchObject({ x: 200, y: 300 });
+    expect(result.current.notes[0]).toMatchObject({ x: 100, y: 120 });
 
     act(() =>
       result.current.applyMessage({

@@ -128,7 +128,7 @@ export function listNotes(
              FROM notes n
              LEFT JOIN note_appearances a ON a.note_id = n.id
              LEFT JOIN note_content_versions v ON v.note_id = n.id
-             ORDER BY n.created_at`,
+             ORDER BY n.stack_order, n.created_at, n.id`,
             NOTE_DEFAULT_FONT_SIZE,
           )
           .toArray()
@@ -140,7 +140,7 @@ export function listNotes(
              LEFT JOIN note_appearances a ON a.note_id = n.id
              LEFT JOIN note_content_versions v ON v.note_id = n.id
              WHERE n.phase = ?1
-             ORDER BY n.created_at`,
+             ORDER BY n.stack_order, n.created_at, n.id`,
             phase,
             NOTE_DEFAULT_FONT_SIZE,
           )
@@ -208,7 +208,7 @@ export function insertNote(sql: SqlStorage, note: NoteRow): void {
   );
 }
 
-function nextStackOrder(sql: SqlStorage): number {
+export function nextStackOrder(sql: SqlStorage): number {
   const row = sql
     .exec(
       `UPDATE room_state
@@ -241,18 +241,54 @@ export function publishNote(
   return stackOrder;
 }
 
-export function unpublishNote(
+export function unpublishNoteAtIndex(
   sql: SqlStorage,
   noteId: string,
+  authorId: string,
+  phase: number,
+  requestedIndex: number,
   updatedAt: string,
-): void {
-  sql.exec(
-    `UPDATE notes
-     SET visibility = 'private', updated_at = ?2
-     WHERE id = ?1`,
-    noteId,
-    updatedAt,
-  );
+): NoteRow[] {
+  const returned = findNote(sql, noteId);
+  if (!returned) return [];
+  const privateNotes = sql
+    .exec(
+      `SELECT n.*, COALESCE(a.font_size, ?4) AS font_size,
+              COALESCE(v.content_revision, 0) AS content_revision
+       FROM notes n
+       LEFT JOIN note_appearances a ON a.note_id = n.id
+       LEFT JOIN note_content_versions v ON v.note_id = n.id
+       WHERE n.author_id = ?1 AND n.phase = ?2 AND n.visibility = 'private'
+         AND n.id <> ?3
+       ORDER BY n.stack_order, n.created_at, n.id`,
+      authorId,
+      phase,
+      noteId,
+      NOTE_DEFAULT_FONT_SIZE,
+    )
+    .toArray()
+    .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+  const index = Math.min(Math.max(requestedIndex, 0), privateNotes.length);
+  const ordered = [...privateNotes];
+  ordered.splice(index, 0, { ...returned, visibility: "private" });
+
+  return ordered.map((note) => {
+    const stackOrder = nextStackOrder(sql);
+    sql.exec(
+      `UPDATE notes
+       SET visibility = 'private', updated_at = ?2, stack_order = ?3
+       WHERE id = ?1`,
+      note.id,
+      note.id === noteId ? updatedAt : note.updated_at,
+      stackOrder,
+    );
+    return {
+      ...note,
+      visibility: "private",
+      updated_at: note.id === noteId ? updatedAt : note.updated_at,
+      stack_order: stackOrder,
+    };
+  });
 }
 
 export function updateNoteContent(

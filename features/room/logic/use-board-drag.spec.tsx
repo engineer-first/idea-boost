@@ -26,13 +26,29 @@ function fakeElementRef(rect: {
   };
 }
 
+function fakePrivateToolbarRef(rect: {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}): RefObject<HTMLDivElement | null> {
+  return {
+    current: {
+      getBoundingClientRect: () => rect,
+      querySelectorAll: () => [],
+    } as unknown as HTMLDivElement,
+  };
+}
+
 function fakeToolbarWithNotes(
   noteRects: Array<{
     noteId: string;
     top: number;
     bottom: number;
   }>,
+  scrollContainer?: HTMLElement,
 ): RefObject<HTMLDivElement | null> {
+  const initialScrollTop = scrollContainer?.scrollTop ?? 0;
   return {
     current: {
       getBoundingClientRect: () => ({
@@ -44,14 +60,23 @@ function fakeToolbarWithNotes(
       querySelectorAll: () =>
         noteRects.map(({ noteId, top, bottom }) => ({
           dataset: { noteId },
-          getBoundingClientRect: () => ({
-            left: 600,
-            right: 800,
-            top,
-            bottom,
-            height: bottom - top,
-          }),
+          getBoundingClientRect: () => {
+            const scrollOffset =
+              initialScrollTop -
+              (scrollContainer?.scrollTop ?? initialScrollTop);
+            return {
+              left: 600,
+              right: 800,
+              top: top + scrollOffset,
+              bottom: bottom + scrollOffset,
+              height: bottom - top,
+            };
+          },
         })),
+      querySelector: (selector: string) =>
+        selector === "[data-testid='private-notes-scroll']"
+          ? (scrollContainer ?? null)
+          : null,
     } as unknown as HTMLDivElement,
   };
 }
@@ -228,10 +253,20 @@ describe("useBoardDrag", () => {
         pointerEvent(14, 100, 100),
       );
       result.current.handlePointerMove(pointerEvent(14, 400, 560));
+    });
+
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
+
+    act(() => {
       result.current.handlePointerEnd(pointerEvent(14, 400, 560));
     });
 
-    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1", true);
+    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith(
+      "shared-1",
+      expect.any(Number),
+      true,
+    );
     expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
   });
 
@@ -327,7 +362,7 @@ describe("useBoardDrag", () => {
     ]);
   });
 
-  it("自分の共有付箋をツールバーへ戻すと unpublish して returning になる", () => {
+  it("自分の共有付箋をツールバーへ重ねると確定せず returning になる", () => {
     const { args, result } = setup();
 
     act(() => {
@@ -340,7 +375,7 @@ describe("useBoardDrag", () => {
       result.current.handlePointerMove(pointerEvent(1, 400, 560));
     });
 
-    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1");
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
     expect(result.current.drag?.status).toBe("returning");
     // RoomDO の応答を待たずに、カードを表示上ツールバー側へ移す。
     expect(
@@ -351,6 +386,379 @@ describe("useBoardDrag", () => {
         (note) => note.id === "shared-1" && note.visibility === "private",
       ),
     ).toBe(true);
+  });
+
+  it.each([
+    { side: "上", clientX: 700, clientY: 100 },
+    { side: "下", clientX: 700, clientY: 425 },
+    { side: "右", clientX: 750, clientY: 300 },
+  ])("付箋本体がマイ付箋エリアの$side側に重なる場合は戻せる", ({
+    clientX,
+    clientY,
+  }) => {
+    const { args, result } = setup({
+      privateToolbarRef: fakePrivateToolbarRef({
+        left: 600,
+        top: 200,
+        right: 700,
+        bottom: 400,
+      }),
+    });
+    const startEvent = pointerEvent(1, 250, 250);
+    Object.defineProperty(startEvent, "currentTarget", {
+      value: {
+        getBoundingClientRect: () => ({
+          left: 170,
+          top: 220,
+          right: 362,
+          bottom: 364,
+          width: 192,
+          height: 144,
+        }),
+      },
+    });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart("shared-1", startEvent);
+      result.current.handlePointerMove(pointerEvent(1, clientX, clientY));
+    });
+
+    expect(result.current.drag?.status).toBe("returning");
+
+    act(() => {
+      result.current.handlePointerEnd(pointerEvent(1, clientX, clientY));
+    });
+
+    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith(
+      "shared-1",
+      expect.any(Number),
+    );
+    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+  });
+
+  it("マイ付箋エリアの左側は認識範囲を広げない", () => {
+    const { result } = setup({
+      privateToolbarRef: fakePrivateToolbarRef({
+        left: 600,
+        top: 200,
+        right: 700,
+        bottom: 400,
+      }),
+    });
+    const startEvent = pointerEvent(1, 250, 250);
+    Object.defineProperty(startEvent, "currentTarget", {
+      value: {
+        getBoundingClientRect: () => ({
+          left: 170,
+          top: 220,
+          right: 362,
+          bottom: 364,
+          width: 192,
+          height: 144,
+        }),
+      },
+    });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart("shared-1", startEvent);
+      result.current.handlePointerMove(pointerEvent(1, 590, 300));
+    });
+
+    expect(result.current.drag?.status).toBe("shared");
+  });
+
+  it("マイ付箋エリアへ入った後も上下移動に合わせて挿入位置を更新する", () => {
+    const privateNotes = [
+      buildNote({ id: "private-1", authorId: ME, visibility: "private" }),
+      buildNote({ id: "private-2", authorId: ME, visibility: "private" }),
+      buildNote({ id: "private-3", authorId: ME, visibility: "private" }),
+    ];
+    const toolbarRef = fakeToolbarWithNotes([
+      { noteId: "private-1", top: 100, bottom: 244 },
+      { noteId: "private-2", top: 256, bottom: 400 },
+      { noteId: "private-3", top: 412, bottom: 556 },
+    ]);
+    const { args, result } = setup({
+      privateNotes,
+      privateToolbarRef: toolbarRef,
+    });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 750, 120));
+    });
+    expect(result.current.drag?.status).toBe("returning");
+    expect(result.current.drag?.privateDropIndex).toBe(0);
+
+    act(() => {
+      result.current.handlePointerMove(pointerEvent(1, 760, 350));
+    });
+
+    expect(result.current.drag?.status).toBe("returning");
+    expect(result.current.drag?.clientX).toBe(760);
+    expect(result.current.drag?.clientY).toBe(350);
+    expect(result.current.drag?.privateDropIndex).toBe(2);
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+  });
+
+  it("戻すドラッグ中にリストの上下端へ近づくと自動スクロールする", () => {
+    const scrollContainer = {
+      getBoundingClientRect: () => ({
+        left: 600,
+        top: 100,
+        right: 800,
+        bottom: 500,
+        height: 400,
+        width: 200,
+      }),
+      scrollTop: 100,
+      scrollHeight: 1000,
+      clientHeight: 400,
+    } as HTMLElement;
+    const toolbarRef = fakeToolbarWithNotes(
+      [
+        { noteId: "private-1", top: 140, bottom: 220 },
+        { noteId: "private-2", top: 280, bottom: 360 },
+        { noteId: "private-3", top: 420, bottom: 564 },
+      ],
+      scrollContainer,
+    );
+    const pendingFrames = new Map<number, FrameRequestCallback>();
+    const cancelledFrames: number[] = [];
+    let nextFrameId = 1;
+    const originalRequestFrame = Object.getOwnPropertyDescriptor(
+      window,
+      "requestAnimationFrame",
+    );
+    const originalCancelFrame = Object.getOwnPropertyDescriptor(
+      window,
+      "cancelAnimationFrame",
+    );
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      value: (callback: FrameRequestCallback) => {
+        const frameId = nextFrameId++;
+        pendingFrames.set(frameId, callback);
+        return frameId;
+      },
+    });
+    Object.defineProperty(window, "cancelAnimationFrame", {
+      configurable: true,
+      value: (frameId: number) => {
+        cancelledFrames.push(frameId);
+        pendingFrames.delete(frameId);
+      },
+    });
+
+    try {
+      const { result } = setup({ privateToolbarRef: toolbarRef });
+      const runNextFrame = () => {
+        const next = pendingFrames.entries().next().value as
+          | [number, FrameRequestCallback]
+          | undefined;
+        if (!next) throw new Error("自動スクロールのフレームがありません");
+        const [frameId, callback] = next;
+        pendingFrames.delete(frameId);
+        act(() => callback(16));
+      };
+
+      act(() => {
+        result.current.handleSharedNoteDragStart(
+          "shared-1",
+          pointerEvent(1, 100, 100),
+        );
+        result.current.handlePointerMove(pointerEvent(1, 750, 490));
+      });
+      expect(result.current.drag?.status).toBe("returning");
+      expect(result.current.drag?.privateDropIndex).toBe(2);
+
+      runNextFrame();
+
+      expect(scrollContainer.scrollTop).toBeGreaterThan(100);
+      expect(result.current.drag?.privateDropIndex).toBe(3);
+
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 750, 110));
+      });
+      runNextFrame();
+      expect(scrollContainer.scrollTop).toBeLessThan(107);
+
+      const scrollTopBeforeUpperExtendedZone = scrollContainer.scrollTop;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 750, 90));
+      });
+      runNextFrame();
+      expect(scrollContainer.scrollTop).toBeLessThan(
+        scrollTopBeforeUpperExtendedZone,
+      );
+      const scrollTopNearUpperEdge = scrollContainer.scrollTop;
+      const upperEdgeScrollDelta =
+        scrollTopBeforeUpperExtendedZone - scrollTopNearUpperEdge;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 750, 70));
+      });
+      runNextFrame();
+      const upperFartherScrollDelta =
+        scrollTopNearUpperEdge - scrollContainer.scrollTop;
+      expect(upperFartherScrollDelta).toBeGreaterThan(upperEdgeScrollDelta);
+
+      const scrollTopBeforeLowerExtendedZone = scrollContainer.scrollTop;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 750, 510));
+      });
+      runNextFrame();
+      expect(scrollContainer.scrollTop).toBeGreaterThan(
+        scrollTopBeforeLowerExtendedZone,
+      );
+      const scrollTopNearLowerEdge = scrollContainer.scrollTop;
+      const lowerEdgeScrollDelta =
+        scrollTopNearLowerEdge - scrollTopBeforeLowerExtendedZone;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 750, 530));
+      });
+      runNextFrame();
+      const lowerFartherScrollDelta =
+        scrollContainer.scrollTop - scrollTopNearLowerEdge;
+      expect(lowerFartherScrollDelta).toBeGreaterThan(lowerEdgeScrollDelta);
+
+      const pendingFrameId = pendingFrames.keys().next().value as
+        | number
+        | undefined;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 500, 300));
+      });
+      if (pendingFrameId !== undefined) {
+        expect(cancelledFrames).toContain(pendingFrameId);
+      }
+    } finally {
+      if (originalRequestFrame) {
+        Object.defineProperty(
+          window,
+          "requestAnimationFrame",
+          originalRequestFrame,
+        );
+      } else {
+        Reflect.deleteProperty(window, "requestAnimationFrame");
+      }
+      if (originalCancelFrame) {
+        Object.defineProperty(
+          window,
+          "cancelAnimationFrame",
+          originalCancelFrame,
+        );
+      } else {
+        Reflect.deleteProperty(window, "cancelAnimationFrame");
+      }
+    }
+  });
+
+  it("returning をドロップした時だけ挿入位置付きで unpublish する", () => {
+    const toolbarRef = fakeToolbarWithNotes([
+      { noteId: "private-1", top: 100, bottom: 244 },
+    ]);
+    const { args, result, rerender } = setup({ privateToolbarRef: toolbarRef });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 750, 120));
+    });
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handlePointerEnd(pointerEvent(1, 750, 120));
+    });
+
+    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1", 0);
+    expect(
+      result.current.renderedNotes.some((note) => note.id === "shared-1"),
+    ).toBe(false);
+
+    // RoomDO の確定後も、ボードから消えたままマイ付箋に表示される。
+    args.notes = [];
+    args.privateNotes = [
+      ...args.privateNotes,
+      buildNote({ id: "shared-1", authorId: ME, visibility: "private" }),
+    ];
+    rerender();
+
+    expect(result.current.renderedNotes.map((note) => note.id)).not.toContain(
+      "shared-1",
+    );
+    expect(
+      result.current.renderedPrivateNotes.map((note) => note.id),
+    ).toContain("shared-1");
+  });
+
+  it("マイ付箋エリアの外で離した returning は非公開へ戻さない", () => {
+    const { args, result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 400, 560));
+      // ボードとマイ付箋の間にあるヘッダー領域へ移動する。
+      result.current.handlePointerMove(pointerEvent(1, 700, 550));
+      result.current.handlePointerEnd(pointerEvent(1, 700, 550));
+    });
+
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(result.current.drag).toBeNull();
+    expect(result.current.renderedNotes.map((note) => note.id)).toContain(
+      "shared-1",
+    );
+  });
+
+  it("map lock 中に戻し先候補から外れて離したら保持中のlockを解除する", () => {
+    const { args, result } = setup({ lockPrivateMapDrag: true });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(15, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(15, 400, 560));
+      result.current.handlePointerMove(pointerEvent(15, 700, 550));
+    });
+
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handlePointerEnd(pointerEvent(15, 700, 550));
+    });
+
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    expect(result.current.drag).toBeNull();
+  });
+
+  it("returning をキャンセルすると unpublish せず共有付箋を元の領域へ戻す", () => {
+    const { args, result } = setup();
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 400, 560));
+      result.current.handlePointerCancel(pointerEvent(1, 400, 560));
+    });
+
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(result.current.renderedNotes.map((note) => note.id)).toContain(
+      "shared-1",
+    );
+    expect(
+      result.current.renderedPrivateNotes.map((note) => note.id),
+    ).not.toContain("shared-1");
   });
 
   it("共有付箋をマイ付箋へ戻す位置に応じて末尾へ挿入する", () => {

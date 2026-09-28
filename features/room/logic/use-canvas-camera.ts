@@ -142,6 +142,9 @@ export function useCanvasCamera({
   }, []);
 
   const scheduleCamera = useCallback((next: CanvasCamera) => {
+    // 以降の付箋追加・公開で初期フィットが走り、ユーザーの操作位置を
+    // 不意に上書きしないよう、明示的なカメラ操作を記録する。
+    hasFitRef.current = true;
     cameraRef.current = next;
     pendingCameraRef.current = next;
     if (frameRef.current !== null) return;
@@ -183,6 +186,7 @@ export function useCanvasCamera({
   );
 
   const fitToNotes = useCallback(() => {
+    hasFitRef.current = true;
     if (fitViewport) {
       const element = viewportRef.current;
       const size = element ? viewportSize(element) : null;
@@ -224,6 +228,11 @@ export function useCanvasCamera({
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
+      if (target.closest("[data-testid='note-card']")) {
+        // 最初の個人付箋をボードへ出す操作中に初期フィットが重なると、
+        // ドロップ位置が飛んで見えるため、この時点で初期フィットを終える。
+        hasFitRef.current = true;
+      }
       const isBackground =
         event.target === event.currentTarget ||
         target.dataset.canvasBackground === "true";

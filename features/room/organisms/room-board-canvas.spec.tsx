@@ -660,6 +660,29 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByText("運んでいる付箋")).toBeInTheDocument();
   });
 
+  it("マイ付箋へ戻す間はポインターに追従する固定プレビューを描画する", () => {
+    const note = buildNote({ id: "returning-note", content: "戻している付箋" });
+    setup({
+      dragPreview: {
+        note,
+        left: 640,
+        top: 180,
+        width: 192,
+        height: 144,
+      },
+    });
+
+    expect(screen.getByTestId("private-note-drag-preview")).toHaveStyle({
+      left: "640px",
+      top: "180px",
+      width: "192px",
+      height: "144px",
+    });
+    expect(screen.getByTestId("private-note-drag-preview").parentElement).toBe(
+      document.body,
+    );
+  });
+
   it.each(
     NOTE_COLOR_PALETTE,
   )("%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う", (color) => {

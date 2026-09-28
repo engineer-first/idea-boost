@@ -4774,6 +4774,71 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     author.close();
     other.close();
   });
+
+  it("挿入位置付きunpublishで並び替える付箋の文字サイズを保つ", async () => {
+    const roomName = "room-note-unpublish-order-preserves-font-size";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(1), USER_A);
+    const author = await connectDirectly(roomName, USER_A, USER_A);
+
+    author.send(JSON.stringify({ type: "note:create", content: "戻す付箋" }));
+    const returned = (await nextJson(author)) as { note: { id: string } };
+    author.send(JSON.stringify({ type: "note:create", content: "残す付箋" }));
+    const remaining = (await nextJson(author)) as { note: { id: string } };
+    author.send(
+      JSON.stringify({
+        type: "note:update-font-size",
+        noteId: remaining.note.id,
+        fontSize: 24,
+        operationId: "88888888-8888-4888-8888-888888888888",
+      }),
+    );
+    await expect(nextJson(author)).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: remaining.note.id, fontSize: 24 },
+    });
+
+    await stub.setPhase(buildPhaseStep(2), USER_A);
+    const published = nextJson(author);
+    author.send(
+      JSON.stringify({
+        type: "note:publish",
+        noteId: returned.note.id,
+        x: 100,
+        y: 100,
+      }),
+    );
+    await expect(published).resolves.toMatchObject({
+      type: "note:inserted",
+      note: { id: returned.note.id, visibility: "shared" },
+    });
+
+    const deleted = nextJson(author);
+    const reordered = nextJson(author);
+    const restored = nextJson(author);
+    author.send(
+      JSON.stringify({
+        type: "note:unpublish",
+        noteId: returned.note.id,
+        privateIndex: 0,
+      }),
+    );
+    await expect(deleted).resolves.toMatchObject({
+      type: "note:deleted",
+      noteId: returned.note.id,
+    });
+    await expect(reordered).resolves.toMatchObject({
+      type: "note:updated",
+      note: { id: remaining.note.id, fontSize: 24 },
+    });
+    await expect(restored).resolves.toMatchObject({
+      type: "note:inserted",
+      note: { id: returned.note.id, visibility: "private" },
+    });
+
+    author.close();
+  });
 });
 
 describe("RoomDO Step 1-5 のボード凍結", () => {

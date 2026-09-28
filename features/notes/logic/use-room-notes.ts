@@ -106,6 +106,7 @@ export type UseRoomNotesResult = {
   publishNote: (noteId: string, x: number, y: number) => void;
   unpublishNote: (
     noteId: string,
+    privateIndex?: number,
     preserveDragUntilPointerEnd?: boolean,
   ) => void;
   startNoteDrag: (noteId: string, privateMapLock?: boolean) => void;
@@ -576,7 +577,11 @@ export function useRoomNotes({
   );
 
   const unpublishNote = useCallback(
-    (noteId: string, preserveDragUntilPointerEnd = false) => {
+    (
+      noteId: string,
+      privateIndex?: number,
+      preserveDragUntilPointerEnd = false,
+    ) => {
       sendDragRef.current?.cancel();
       if (
         !preserveDragUntilPointerEnd ||
@@ -592,7 +597,11 @@ export function useRoomNotes({
       if (pendingNoteFrontRef.current?.noteId === noteId) {
         updatePendingNoteFront(null);
       }
-      send({ type: "note:unpublish", noteId });
+      send(
+        privateIndex === undefined
+          ? { type: "note:unpublish", noteId }
+          : { type: "note:unpublish", noteId, privateIndex },
+      );
     },
     [send, updatePendingNoteDrop, updatePendingNoteFront],
   );
@@ -689,6 +698,14 @@ export function useRoomNotes({
         return;
       }
       sendDragRef.current?.cancel();
+      updateNotes((current) =>
+        moveNoteLocally(
+          current,
+          operation.noteId,
+          operation.initialX,
+          operation.initialY,
+        ),
+      );
       send({
         type: "note:drag:end",
         noteId: operation.noteId,
@@ -699,7 +716,7 @@ export function useRoomNotes({
       draggingNoteIdRef.current = null;
       setDraggingNoteId(null);
     },
-    [send],
+    [send, updateNotes],
   );
 
   const excludeNote = useCallback(
