@@ -594,6 +594,16 @@ describe("useBoardDrag", () => {
       expect(scrollContainer.scrollTop).toBeLessThan(
         scrollTopBeforeUpperExtendedZone,
       );
+      const scrollTopNearUpperEdge = scrollContainer.scrollTop;
+      const upperEdgeScrollDelta =
+        scrollTopBeforeUpperExtendedZone - scrollTopNearUpperEdge;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 750, 70));
+      });
+      runNextFrame();
+      const upperFartherScrollDelta =
+        scrollTopNearUpperEdge - scrollContainer.scrollTop;
+      expect(upperFartherScrollDelta).toBeGreaterThan(upperEdgeScrollDelta);
 
       const scrollTopBeforeLowerExtendedZone = scrollContainer.scrollTop;
       act(() => {
@@ -603,6 +613,16 @@ describe("useBoardDrag", () => {
       expect(scrollContainer.scrollTop).toBeGreaterThan(
         scrollTopBeforeLowerExtendedZone,
       );
+      const scrollTopNearLowerEdge = scrollContainer.scrollTop;
+      const lowerEdgeScrollDelta =
+        scrollTopNearLowerEdge - scrollTopBeforeLowerExtendedZone;
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(1, 750, 530));
+      });
+      runNextFrame();
+      const lowerFartherScrollDelta =
+        scrollContainer.scrollTop - scrollTopNearLowerEdge;
+      expect(lowerFartherScrollDelta).toBeGreaterThan(lowerEdgeScrollDelta);
 
       const pendingFrameId = pendingFrames.keys().next().value as
         | number

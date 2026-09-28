@@ -21,7 +21,21 @@ import { type CanvasPoint, clampCanvasCoordinate } from "./canvas-camera";
 
 const PRIVATE_LIST_AUTO_SCROLL_EDGE_PX = 56;
 const PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX = 80;
-const PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME = 8;
+const PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME = 8;
+const PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME = 16;
+
+function getPrivateListOutsideEdgeSpeed(distance: number): number {
+  const progress = Math.min(
+    distance / PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX,
+    1,
+  );
+  return (
+    PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME +
+    progress *
+      (PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME -
+        PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME)
+  );
+}
 
 /**
  * ドラッグ中の付箋の状態と位置情報を保持する型。
@@ -395,16 +409,14 @@ export function useBoardDrag({
     const distanceToBottom = rect.bottom - pointer.clientY;
     const speed =
       distanceToTop < 0
-        ? -PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME *
-          (1 + distanceToTop / PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX)
+        ? -getPrivateListOutsideEdgeSpeed(-distanceToTop)
         : distanceToTop < edgeSize
-          ? -PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME *
+          ? -PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME *
             (1 - distanceToTop / edgeSize)
           : distanceToBottom < 0
-            ? PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME *
-              (1 + distanceToBottom / PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX)
+            ? getPrivateListOutsideEdgeSpeed(-distanceToBottom)
             : distanceToBottom < edgeSize
-              ? PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME *
+              ? PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME *
                 (1 - distanceToBottom / edgeSize)
               : 0;
     if (speed === 0) {

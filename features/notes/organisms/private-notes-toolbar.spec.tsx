@@ -25,6 +25,37 @@ function setup(disabled = false) {
 }
 
 describe("PrivateNotesToolbar", () => {
+  it("一覧内ではボード上の座標を使わず、付箋を縦一列に配置する", () => {
+    render(
+      <PrivateNotesToolbar
+        notes={[
+          buildNote({
+            id: "offset-note",
+            visibility: "private",
+            x: 480,
+            y: 720,
+          }),
+        ]}
+        disabled={false}
+        selectedNoteId={null}
+        canCreateNote
+        canDeleteNote
+        canMoveNote
+        canEditNote
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+        onContentChange={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("note-card")).toHaveStyle({
+      left: "0px",
+      top: "0px",
+    });
+  });
+
   it("並べ替えが続いてもFLIPを重ねず、前の移動アニメーションを解除する", () => {
     const first = buildNote({ id: "first", visibility: "private" });
     const second = buildNote({ id: "second", visibility: "private" });

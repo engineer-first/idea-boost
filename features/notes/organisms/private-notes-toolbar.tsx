@@ -253,6 +253,8 @@ export function PrivateNotesToolbar({
                   onDraftCompositionStart={onDraftCompositionStart}
                   onDraftCompositionEnd={onDraftCompositionEnd}
                   onDelete={onDelete}
+                  // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
+                  style={{ left: 0, top: 0 }}
                   vote={{
                     displayMode: "hidden",
                     selectedKind: null,
