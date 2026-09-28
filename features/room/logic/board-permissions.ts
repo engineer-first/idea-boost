@@ -306,10 +306,16 @@ function getBaseBoardPermissions(phase: RoomPhase): BaseBoardPermissions {
   return ALL_DISABLED;
 }
 
-export function getBoardPermissions(phase: RoomPhase): BoardPermissions {
-  const canManageExclusion = isResultStep(phase);
+export function getBoardPermissions(
+  phase: RoomPhase,
+  isDecided = false,
+): BoardPermissions {
+  const canManageExclusion = isResultStep(phase) && !isDecided;
   return {
     ...getBaseBoardPermissions(phase),
+    ...(isResultStep(phase)
+      ? { canMoveNote: !isDecided, canDecide: !isDecided }
+      : {}),
     canExcludeNote: canManageExclusion,
     canRestoreNote: canManageExclusion,
   };

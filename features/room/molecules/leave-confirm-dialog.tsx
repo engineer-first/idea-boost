@@ -22,6 +22,8 @@ export type LeaveConfirmDialogProps = {
   isLeaving: boolean;
   // ホストは disband、それ以外は leave（既定）。
   mode?: LeaveConfirmMode;
+  completed?: boolean;
+  onReturnToOutcome?: () => void;
 };
 
 const COPY: Record<
@@ -55,8 +57,19 @@ export function LeaveConfirmDialog({
   onConfirm,
   isLeaving,
   mode = "leave",
+  completed = false,
+  onReturnToOutcome,
 }: LeaveConfirmDialogProps) {
-  const copy = COPY[mode];
+  const copy =
+    mode === "disband" && completed
+      ? {
+          title: "ルームを削除しますか？",
+          description:
+            "ルームと全員のデータが削除され、招待URLも使えなくなります。全員が各自の成果を持ち帰ったか確認してください。",
+          confirm: "ルームを削除（全員のデータ）",
+          confirming: "削除中…",
+        }
+      : COPY[mode];
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -66,7 +79,13 @@ export function LeaveConfirmDialog({
           <AlertDialogDescription>{copy.description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLeaving}>キャンセル</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLeaving} onClick={onReturnToOutcome}>
+            {completed
+              ? mode === "disband"
+                ? "削除をやめて成果へ戻る"
+                : "退出をやめて成果へ戻る"
+              : "キャンセル"}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault();

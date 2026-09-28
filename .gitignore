@@ -83,3 +83,6 @@ workers/room-do-migrations/index.ts
 # Python のローカルバイトコード
 __pycache__/
 *.py[cod]
+
+# 手動本番公開の成功receipt（記録再送用、秘密を含めない）
+/.release-history/

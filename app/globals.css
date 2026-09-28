@@ -2,17 +2,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark {
-  &:where(.dark, .dark *) {
-    @slot;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    @slot;
-  }
-}
-
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
 }

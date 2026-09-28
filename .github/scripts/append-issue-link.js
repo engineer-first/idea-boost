@@ -1,9 +1,15 @@
 function extractIssueNumber(branchRef) {
-  if (!branchRef) {
+  if (typeof branchRef !== "string" || !branchRef) {
     return null;
   }
-  const match = branchRef.match(/\d+/);
-  return match ? match[0] : null;
+  if (
+    /^codex\//i.test(branchRef) ||
+    /\/20\d{2}-\d{2}(?:-\d{2})?(?:-|$)/i.test(branchRef)
+  ) {
+    return null;
+  }
+  const match = branchRef.match(/^[^/]+\/#?(\d+)(?:$|[-/].*)$/);
+  return match ? match[1] : null;
 }
 
 function issueLinkMarker(issueNumber) {
@@ -11,12 +17,15 @@ function issueLinkMarker(issueNumber) {
 }
 
 function buildBodyWithIssueLink(currentBody, issueNumber) {
-  const body = currentBody ?? "";
-  const marker = issueLinkMarker(issueNumber);
-  if (body.includes(marker)) {
+  if (!/^\d+$/.test(String(issueNumber))) {
     return null;
   }
-  return `${body}\n\n${marker}\nCloses #${issueNumber}`;
+
+  const body = currentBody ?? "";
+  if (/<!--\s*issue-ref\s*:/i.test(body)) {
+    return null;
+  }
+  return `${body}\n\n${issueLinkMarker(issueNumber)}\nCloses #${issueNumber}`;
 }
 
 module.exports = {

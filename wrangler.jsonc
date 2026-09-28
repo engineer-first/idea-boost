@@ -7,6 +7,10 @@
   "main": "workers/app-worker.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://ideaboost.dev"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -15,6 +19,13 @@
     {
       "binding": "API_WORKER",
       "service": "idea-flow-api"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "ideaboost.dev",
+      "zone_name": "ideaboost.dev",
+      "custom_domain": true
     }
   ]
 }

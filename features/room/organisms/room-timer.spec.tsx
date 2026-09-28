@@ -14,9 +14,35 @@ const handlers = {
   onResume: vi.fn(),
   onExtend: vi.fn(),
   onStop: vi.fn(),
+  soundControls: {
+    enabled: false,
+    playbackBlocked: false,
+    onEnable: vi.fn(async () => undefined),
+    onMute: vi.fn(),
+  },
 };
 
 describe("RoomTimer", () => {
+  it("ホストと参加者の両方に端末ごとの通知音トグルを表示する", () => {
+    for (const isHost of [true, false]) {
+      const { unmount } = render(
+        <RoomTimer
+          timer={{ status: "idle" }}
+          serverOffsetMs={0}
+          isHost={isHost}
+          disabled={false}
+          {...handlers}
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "タイマー通知音" }),
+      ).toHaveAttribute("aria-pressed", "false");
+      expect(screen.queryByTestId("timer-sound-panel")).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
   it.each([
     { status: "idle" } as const,
     buildRunningTimer(),
@@ -465,7 +491,10 @@ describe("RoomTimer", () => {
     expect(chip).toHaveClass("h-10", "w-28");
     expect(chip.tagName).toBe("SPAN");
     expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "タイマー通知音" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
   it("実行中は補正済みサーバー時刻を基準に減り、ホスト操作を送る", () => {
@@ -530,7 +559,7 @@ describe("RoomTimer", () => {
     const panel = within(screen.getByTestId("room-timer-panel"));
     expect(panel.queryByText("実行中")).not.toBeInTheDocument();
     expect(panel.queryByText("05:00")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(3);
+    expect(panel.getAllByRole("button")).toHaveLength(2);
   });
 
   it("一時停止中は再開と終了の2操作だけを表示し、終了で onStop を呼ぶ", () => {

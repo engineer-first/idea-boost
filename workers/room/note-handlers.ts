@@ -1,6 +1,7 @@
 // note:* メッセージのハンドラ。各ハンドラは
 // 「認可（author / 可視性）→ 保存 → 配信 → 必要なら自動再編成」の順で閉じる。
 import {
+  NOTE_DEFAULT_FONT_SIZE,
   NOTE_SPAWN_JITTER,
   NOTE_SPAWN_X_MIN,
   NOTE_SPAWN_Y_MIN,
@@ -19,8 +20,10 @@ import {
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
+import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { getMemberColor, isHostUser } from "./members";
 import {
+  bringNoteToFront,
   broadcastNoteInserted,
   broadcastNoteUpdated,
   broadcastVoteUpdated,
@@ -42,9 +45,9 @@ import {
   toProtocolNote,
   touchNote,
   unpublishNoteAtIndex,
-  updateNoteContent,
+  updateNoteFontSize,
 } from "./notes";
-import { getPhase, isPersonalWritingStep } from "./phase";
+import { getPhase, getPhaseRevision, isPersonalWritingStep } from "./phase";
 import {
   addUserNoteVote,
   addVoteSticker,
@@ -92,12 +95,25 @@ function isFrozenSharedNoteAtPersonalStep(
   );
 }
 
+async function contentDigest(content: string): Promise<string> {
+  const bytes = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(content),
+  );
+  return Array.from(new Uint8Array(bytes), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 export const noteHandlers: MessageHandlers<
   | "note:create"
   | "note:publish"
   | "note:unpublish"
   | "note:update-content"
+  | "note:content-status"
+  | "note:update-font-size"
   | "note:move"
+  | "note:bring-to-front"
   | "note:drag:start"
   | "note:drag:move"
   | "note:drag:end"
@@ -128,6 +144,7 @@ export const noteHandlers: MessageHandlers<
       content: message.content ?? "",
       visibility: "private",
       color: color,
+      font_size: NOTE_DEFAULT_FONT_SIZE,
       x: NOTE_SPAWN_X_MIN + Math.random() * NOTE_SPAWN_JITTER,
       y: NOTE_SPAWN_Y_MIN + Math.random() * NOTE_SPAWN_JITTER,
       stack_order: nextStackOrder(ctx.sql),
@@ -178,7 +195,12 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
-    if (owner?.socket === ctx.ws) ctx.broadcaster.retireActiveDrag(ctx.ws);
+    const phase = getPhase(ctx.sql);
+    // 3-2 ではドックへ戻す pointerup/cancel まで匿名 map lock を維持する。
+    // 他フェーズでは従来どおり unpublish と同時にドラッグを終了する。
+    if (owner?.socket === ctx.ws && !isIdeaMapVisiblePhase(phase)) {
+      ctx.broadcaster.retireActiveDrag(ctx.ws);
+    }
     // shared の行を消す通知は、可視性を変える前に全メンバーへ送る。
     ctx.broadcaster.broadcast(
       { type: "note:deleted", noteId: message.noteId },
@@ -206,7 +228,138 @@ export const noteHandlers: MessageHandlers<
     autoReorganizeAtGroupingStep(ctx);
   },
 
-  "note:update-content": (ctx, message) => {
+  "note:update-content": async (ctx, message) => {
+    // WebCrypto は非同期なので、権限とフェーズの検査は計算が終わった後に行う。
+    const digest = await contentDigest(message.content);
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      !canEdit(row, ctx.userId) ||
+      row.excluded ||
+      isFrozenSharedNoteAtPersonalStep(ctx, row)
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    const prior = ctx.sql
+      .exec(
+        "SELECT user_id, note_id, content_digest, expected_content_revision, expected_phase_revision, content_revision FROM note_content_receipts WHERE operation_id = ?1",
+        message.operationId,
+      )
+      .toArray()[0] as
+      | {
+          user_id: string;
+          note_id: string;
+          content_digest: string;
+          expected_content_revision: number;
+          expected_phase_revision: number;
+          content_revision: number;
+        }
+      | undefined;
+    if (prior) {
+      if (
+        prior.user_id === ctx.userId &&
+        prior.note_id === message.noteId &&
+        prior.content_digest === digest &&
+        prior.expected_content_revision === message.expectedContentRevision &&
+        prior.expected_phase_revision === message.expectedPhaseRevision
+      ) {
+        ctx.reply({
+          type: "note:content-saved",
+          operationId: message.operationId,
+          noteId: message.noteId,
+          contentRevision: prior.content_revision,
+        });
+      } else {
+        ctx.reply({
+          type: "error",
+          code: "content-conflict",
+          message: "同じ保存IDで別の本文を保存できません。",
+        });
+      }
+      return;
+    }
+    if (
+      getPhaseRevision(ctx.sql) !== message.expectedPhaseRevision ||
+      (row.content_revision ?? 0) !== message.expectedContentRevision
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "content-conflict",
+        message: "付箋の本文が先に更新されました。",
+      });
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    const contentRevision = message.expectedContentRevision + 1;
+    ctx.storage.transactionSync(() => {
+      ctx.sql.exec(
+        "UPDATE notes SET content = ?2, updated_at = ?3 WHERE id = ?1",
+        message.noteId,
+        message.content,
+        updatedAt,
+      );
+      ctx.sql.exec(
+        "INSERT INTO note_content_versions (note_id, content_revision) VALUES (?1, ?2) ON CONFLICT(note_id) DO UPDATE SET content_revision = excluded.content_revision WHERE note_content_versions.content_revision = ?3",
+        message.noteId,
+        contentRevision,
+        message.expectedContentRevision,
+      );
+      if (Number(ctx.sql.exec("SELECT changes() AS count").one().count) !== 1)
+        throw new Error("本文のrevisionが競合しました。");
+      ctx.sql.exec(
+        "INSERT INTO note_content_receipts (operation_id, user_id, note_id, content_digest, expected_content_revision, expected_phase_revision, content_revision, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        message.operationId,
+        ctx.userId,
+        message.noteId,
+        digest,
+        message.expectedContentRevision,
+        message.expectedPhaseRevision,
+        contentRevision,
+        updatedAt,
+      );
+    });
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      content: message.content,
+      content_revision: contentRevision,
+      updated_at: updatedAt,
+    });
+    ctx.reply({
+      type: "note:content-saved",
+      operationId: message.operationId,
+      noteId: message.noteId,
+      contentRevision,
+    });
+  },
+  "note:content-status": (ctx, message) => {
+    const receipt = ctx.sql
+      .exec(
+        "SELECT note_id, content_revision FROM note_content_receipts WHERE operation_id = ?1 AND user_id = ?2",
+        message.operationId,
+        ctx.userId,
+      )
+      .toArray()[0] as
+      | { note_id: string; content_revision: number }
+      | undefined;
+    ctx.reply(
+      receipt
+        ? {
+            type: "note:content-status-result",
+            operationId: message.operationId,
+            status: "accepted",
+            noteId: receipt.note_id,
+            contentRevision: receipt.content_revision,
+          }
+        : {
+            type: "note:content-status-result",
+            operationId: message.operationId,
+            status: "unknown",
+          },
+    );
+  },
+
+  "note:update-font-size": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (
@@ -218,12 +371,17 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
-    updateNoteContent(ctx.sql, message.noteId, message.content, updatedAt);
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      content: message.content,
-      updated_at: updatedAt,
-    });
+    updateNoteFontSize(ctx.sql, message.noteId, message.fontSize, updatedAt);
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      {
+        ...row,
+        font_size: message.fontSize,
+        updated_at: updatedAt,
+      },
+      message.operationId,
+    );
   },
 
   "note:move": (ctx, message) => {
@@ -259,6 +417,27 @@ export const noteHandlers: MessageHandlers<
     }
   },
 
+  "note:bring-to-front": (ctx, message) => {
+    const row = requireNoteInCurrentPhase(ctx, message.noteId);
+    if (!row) return;
+    if (
+      row.visibility !== "shared" ||
+      row.excluded ||
+      !canEdit(row, ctx.userId) ||
+      ctx.broadcaster.findActiveDrag(message.noteId)
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    const stackOrder = bringNoteToFront(ctx.sql, message.noteId, updatedAt);
+    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
+      ...row,
+      stack_order: stackOrder,
+      updated_at: updatedAt,
+    });
+  },
+
   "note:drag:start": (ctx, message) => {
     const row = findNote(ctx.sql, message.noteId);
     const phase = getPhase(ctx.sql);
@@ -267,9 +446,17 @@ export const noteHandlers: MessageHandlers<
     const isActiveRetry = Boolean(
       current?.noteId === message.noteId && current.dragId === message.dragId,
     );
+    const isPrivateIdeaMapDrag = Boolean(
+      row?.visibility === "private" &&
+        phase.kind === "step" &&
+        phase.phase === 3 &&
+        phase.step === 2 &&
+        row.phase === 3 &&
+        row.author_id === ctx.userId,
+    );
     const accepted = Boolean(
       row &&
-        row.visibility === "shared" &&
+        (row.visibility === "shared" || isPrivateIdeaMapDrag) &&
         phase.kind === "step" &&
         row.phase === phase.phase &&
         canEdit(row, ctx.userId) &&
@@ -297,6 +484,9 @@ export const noteHandlers: MessageHandlers<
       dragId: message.dragId,
       accepted,
     });
+    if (accepted && isIdeaMapVisiblePhase(phase)) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+    }
   },
 
   "note:drag:move": (ctx, message) => {
@@ -309,12 +499,25 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = findNote(ctx.sql, message.noteId);
+    const phase = getPhase(ctx.sql);
+    if (
+      row?.visibility === "private" &&
+      isPhaseStep(phase, 3, 2) &&
+      row.phase === 3 &&
+      row.author_id === ctx.userId
+    ) {
+      // private drag start は内容を共有せず lock だけを保持する。
+      return;
+    }
     if (
       row?.visibility !== "shared" ||
       row.excluded ||
       !canEdit(row, ctx.userId)
     ) {
       ctx.broadcaster.retireActiveDrag(ctx.ws);
+      if (isIdeaMapVisiblePhase(phase)) {
+        broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      }
       return;
     }
     const updatedAt = new Date().toISOString();
@@ -344,12 +547,25 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = findNote(ctx.sql, message.noteId);
+    const phase = getPhase(ctx.sql);
     ctx.broadcaster.retireActiveDrag(ctx.ws);
+    if (
+      row?.visibility === "private" &&
+      isPhaseStep(phase, 3, 2) &&
+      row.phase === 3 &&
+      row.author_id === ctx.userId
+    ) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      return;
+    }
     if (
       row?.visibility !== "shared" ||
       row.excluded ||
       !canEdit(row, ctx.userId)
     ) {
+      if (isIdeaMapVisiblePhase(phase)) {
+        broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+      }
       return;
     }
     const updatedAt = new Date().toISOString();
@@ -373,6 +589,9 @@ export const noteHandlers: MessageHandlers<
         }
       : (findNote(ctx.sql, message.noteId) ?? row);
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, current);
+    if (isIdeaMapVisiblePhase(phase)) {
+      broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
+    }
     autoReorganizeAtGroupingStep(ctx);
   },
 
@@ -390,6 +609,12 @@ export const noteHandlers: MessageHandlers<
     }
     const updatedAt = new Date().toISOString();
     setNoteExcluded(ctx.sql, row.id, true, updatedAt);
+    if (ctx.broadcaster.retireAdoptionFocusForNote(row.id)) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
       ...row,
       excluded: true,
@@ -439,6 +664,14 @@ export const noteHandlers: MessageHandlers<
         updatedAt,
       );
     });
+    if (
+      targets.some(({ id }) => ctx.broadcaster.retireAdoptionFocusForNote(id))
+    ) {
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     for (const row of targets) {
       broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
         ...row,
@@ -450,6 +683,7 @@ export const noteHandlers: MessageHandlers<
       type: "note:bulk-excluded",
       operationId,
       count: targets.length,
+      source: "manual",
     });
   },
 
@@ -520,7 +754,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -567,7 +805,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-reset": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -594,7 +836,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-remove": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -630,7 +876,11 @@ export const noteHandlers: MessageHandlers<
   "note:vote-sticker:add": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       replyForbidden(ctx);
       return;
     }
@@ -717,6 +967,8 @@ export const noteHandlers: MessageHandlers<
     const target = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!target) return;
     if (
+      target.visibility !== "shared" ||
+      source.visibility !== "shared" ||
       !isVisibleTo(target, ctx.userId) ||
       target.excluded ||
       source.excluded
@@ -761,7 +1013,11 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const row = requireNoteInCurrentPhase(ctx, sticker.note_id);
-    if (!row || !isVisibleTo(row, ctx.userId) || row.excluded) {
+    if (
+      row?.visibility !== "shared" ||
+      !isVisibleTo(row, ctx.userId) ||
+      row.excluded
+    ) {
       if (row) replyForbidden(ctx);
       return;
     }

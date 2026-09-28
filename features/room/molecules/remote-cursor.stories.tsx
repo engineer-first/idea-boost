@@ -19,7 +19,7 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="relative h-72 bg-slate-100 dark:bg-slate-900">
+      <div className="relative h-72 bg-slate-100">
         <Story />
       </div>
     ),

@@ -4,8 +4,8 @@ type SchemaDiagramProps = {
   src: string;
 };
 
-// tbls が生成する graphviz SVG は黒文字前提のため、ダークテーマでも
-// 読めるよう背景を白に固定する。
+// tbls が生成する graphviz SVG の黒い文字を読みやすくするため、
+// 背景を白に固定する。
 export function SchemaDiagram({ title, description, src }: SchemaDiagramProps) {
   return (
     <div style={{ background: "#fff", padding: "1.5rem", color: "#111" }}>

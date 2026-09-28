@@ -89,6 +89,9 @@ jobs:
       - name: Run worker tests (Durable Objects / D1)
         run: npm run test:workers
 
+      - name: Run local verification worker tests
+        run: npm run test:verification
+
   browser:
     runs-on: ubuntu-latest
     steps:
@@ -103,8 +106,10 @@ jobs:
         run: npm ci
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Start Storybook
-        run: npm run storybook -- --ci --no-open > storybook-test.log 2>&1 &
+      - name: Build Storybook
+        run: npm run build-storybook > storybook-test.log 2>&1
+      - name: Serve built Storybook
+        run: python3 -m http.server 6006 --bind 127.0.0.1 --directory storybook-static >> storybook-test.log 2>&1 &
       - name: Check board layout in Chromium
         run: npm run test:browser
       - name: Save screenshots and Storybook log

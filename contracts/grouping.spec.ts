@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getNoteHeight, NOTE_HEIGHT } from "./board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
@@ -35,6 +36,32 @@ describe("calculateRenderGroups - 仮グループ（新規）", () => {
     expect(groups[0].name).toBe("グループ");
     expect(groups[0].isTemp).toBe(true);
     expect(groups[0].representativeNoteId).toBe("note-1");
+  });
+
+  it("長文付箋の実高を近接判定と外枠へ反映する", () => {
+    const content = "あ".repeat(240);
+    const fontSize = 24;
+    const tallHeight = getNoteHeight(content, fontSize);
+    const note1 = buildNote({
+      id: "note-1",
+      content,
+      fontSize,
+      x: 100,
+      y: 100,
+    });
+    const note2 = buildNote({
+      id: "note-2",
+      x: 100,
+      y: 100 + tallHeight + 60,
+    });
+
+    const groups = calculateRenderGroups([note1, note2], []);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({
+      y: 84,
+      height: tallHeight + 60 + NOTE_HEIGHT + 32,
+    });
   });
 });
 

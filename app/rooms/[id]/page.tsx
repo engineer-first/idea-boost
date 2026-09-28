@@ -9,6 +9,10 @@ import type { ProtocolMember } from "@/contracts/room-protocol";
 import { signOut } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomBoard } from "@/features/room";
+import {
+  isVerificationEnabled,
+  VerificationFollower,
+} from "@/features/verification";
 import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { getBaseUrl } from "@/lib/session/env";
@@ -17,10 +21,17 @@ export const dynamic = "force-dynamic";
 
 type RoomPageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ verify?: string }>;
 };
 
-export default async function RoomPage({ params }: RoomPageProps) {
+export default async function RoomPage({
+  params,
+  searchParams,
+}: RoomPageProps) {
   const { id } = await params;
+  const follow =
+    isVerificationEnabled() && (await searchParams)?.verify === "follow";
+  const suffix = follow ? "?verify=follow" : "";
 
   if (!isUuid(id)) {
     notFound();
@@ -28,7 +39,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
 
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login");
+    redirect(`/login?next=${encodeURIComponent(`/rooms/${id}${suffix}`)}`);
   }
 
   // メンバーシップは api-worker（の先の RoomDO）が判定する。
@@ -46,7 +57,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
   // lobby 状態なら付箋画面に直行させず、スタート画面へ誘導する。
   // 課題整理の全ステップはボードを直接開く。
   if (isLobby(parsed.data.phase)) {
-    redirect(`/rooms/${parsed.data.roomId}/start`);
+    redirect(`/rooms/${parsed.data.roomId}/start${suffix}`);
   }
 
   // メンバー一覧を SSR で取得して初回描画時の flicker を抑える。
@@ -74,6 +85,7 @@ export default async function RoomPage({ params }: RoomPageProps) {
   // 旧ルームの値を保持し、新ルームの snapshot が届くまで旧データが表示される。
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      {follow && <VerificationFollower roomId={id} />}
       <div className="min-h-0 flex-1 overflow-hidden">
         <RoomBoard
           key={parsed.data.roomId}

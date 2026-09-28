@@ -22,7 +22,9 @@ export function useIdeaValueFeasibilityMapInput({
 }: UseIdeaValueFeasibilityMapInputArgs) {
   const ideaMapPlaneRef = useRef<HTMLDivElement>(null);
   const isIdeaValueFeasibilityMappingStep =
-    isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+    isPhaseStep(phase, 3, 2) ||
+    isPhaseStep(phase, 3, 3) ||
+    isPhaseStep(phase, 3, 5);
 
   const pointFromClient = useCallback(
     (clientX: number, clientY: number): CanvasPoint | null => {

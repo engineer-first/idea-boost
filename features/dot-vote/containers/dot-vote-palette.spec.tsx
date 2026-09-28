@@ -176,7 +176,7 @@ describe("DotVotePalette", () => {
     );
   });
 
-  it("ダークモードの通常・hover・focus・ドラッグ中・残票ゼロを読みやすく示す", () => {
+  it("選択中・ドラッグ中・残票ゼロの状態をライト配色で示す", () => {
     const { rerender } = render(
       <DotVotePalette
         voteRemaining={{ subjective: 0, objective: 2 }}
@@ -197,35 +197,19 @@ describe("DotVotePalette", () => {
     });
 
     expect(subjective).toHaveClass(
-      "dark:border-rose-700",
-      "dark:bg-rose-950/60",
-      "dark:text-rose-100",
-      "dark:hover:bg-rose-900/80",
-      "dark:hover:text-rose-50",
-      "dark:focus-visible:border-rose-300",
-      "dark:focus-visible:ring-rose-300/70",
-      "dark:active:bg-rose-800/80",
-      "dark:disabled:border-slate-700",
-      "dark:disabled:bg-slate-900",
-      "dark:disabled:text-slate-400",
       "disabled:opacity-100",
-      "dark:disabled:opacity-100",
+      "bg-rose-50/80",
+      "text-rose-950",
+      "disabled:bg-slate-100",
+      "disabled:text-slate-500",
       "active:cursor-grabbing",
       "ring-rose-700/75",
       "ring-offset-white",
-      "dark:ring-rose-300",
-      "dark:ring-offset-slate-950",
     );
     expect(objective).toHaveClass(
-      "dark:border-blue-700",
-      "dark:bg-blue-950/60",
-      "dark:text-blue-100",
-      "dark:hover:bg-blue-900/80",
-      "dark:hover:text-blue-50",
-      "dark:focus-visible:border-blue-300",
-      "dark:focus-visible:ring-blue-300/70",
-      "dark:active:bg-blue-800/80",
       "active:cursor-grabbing",
+      "bg-blue-50/80",
+      "text-blue-950",
     );
 
     rerender(
@@ -242,11 +226,6 @@ describe("DotVotePalette", () => {
 
     expect(
       screen.getByRole("button", { name: "客観シール 残り2票" }),
-    ).toHaveClass(
-      "ring-blue-700/75",
-      "ring-offset-white",
-      "dark:ring-blue-300",
-      "dark:ring-offset-slate-950",
-    );
+    ).toHaveClass("ring-blue-700/75", "ring-offset-white");
   });
 });

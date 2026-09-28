@@ -1,6 +1,7 @@
 // 付箋（notes）の真実。ストレージアクセス・可視性判定・プロトコル射影と、
 // 受信者ごとの可視性を踏まえたノート配信ヘルパをここに集約する。
 
+import { NOTE_DEFAULT_FONT_SIZE } from "../../contracts/board";
 import { isVotingStep } from "../../contracts/phase";
 import type { NoteColor, ProtocolNote } from "../../contracts/room-protocol";
 import { projectNoteForViewer, visibleTo } from "../visibility";
@@ -18,8 +19,10 @@ export type NoteRow = {
   id: string;
   author_id: string;
   content: string;
+  content_revision?: number;
   visibility: "private" | "shared";
   color: NoteColor;
+  font_size: number;
   x: number;
   y: number;
   stack_order: number;
@@ -36,13 +39,28 @@ export const NULL_VIEWER_ID = "00000000-0000-0000-0000-000000000000";
 
 function normalizeNoteRow(row: Record<string, unknown>): NoteRow {
   return {
-    ...(row as Omit<NoteRow, "excluded">),
+    ...(row as Omit<NoteRow, "excluded" | "font_size">),
+    font_size:
+      typeof row.font_size === "number"
+        ? row.font_size
+        : NOTE_DEFAULT_FONT_SIZE,
     excluded: row.excluded === true || row.excluded === 1,
   };
 }
 
 export function findNote(sql: SqlStorage, noteId: string): NoteRow | null {
-  const rows = sql.exec("SELECT * FROM notes WHERE id = ?1", noteId).toArray();
+  const rows = sql
+    .exec(
+      `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size,
+              COALESCE(v.content_revision, 0) AS content_revision
+       FROM notes n
+       LEFT JOIN note_appearances a ON a.note_id = n.id
+       LEFT JOIN note_content_versions v ON v.note_id = n.id
+       WHERE n.id = ?1`,
+      noteId,
+      NOTE_DEFAULT_FONT_SIZE,
+    )
+    .toArray();
   return rows.length > 0
     ? normalizeNoteRow(rows[0] as Record<string, unknown>)
     : null;
@@ -104,14 +122,27 @@ export function listNotes(
   const rows =
     phase === undefined
       ? sql
-          .exec("SELECT * FROM notes ORDER BY stack_order, created_at, id")
+          .exec(
+            `SELECT n.*, COALESCE(a.font_size, ?1) AS font_size,
+                    COALESCE(v.content_revision, 0) AS content_revision
+             FROM notes n
+             LEFT JOIN note_appearances a ON a.note_id = n.id
+             LEFT JOIN note_content_versions v ON v.note_id = n.id
+             ORDER BY n.stack_order, n.created_at, n.id`,
+            NOTE_DEFAULT_FONT_SIZE,
+          )
           .toArray()
       : sql
           .exec(
-            `SELECT * FROM notes
-             WHERE phase = ?1
-             ORDER BY stack_order, created_at, id`,
+            `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size,
+                    COALESCE(v.content_revision, 0) AS content_revision
+             FROM notes n
+             LEFT JOIN note_appearances a ON a.note_id = n.id
+             LEFT JOIN note_content_versions v ON v.note_id = n.id
+             WHERE n.phase = ?1
+             ORDER BY n.stack_order, n.created_at, n.id`,
             phase,
+            NOTE_DEFAULT_FONT_SIZE,
           )
           .toArray();
   return rows.map((row) =>
@@ -169,6 +200,12 @@ export function insertNote(sql: SqlStorage, note: NoteRow): void {
     note.phase,
     note.excluded ? 1 : 0,
   );
+  sql.exec(
+    `INSERT INTO note_appearances (note_id, font_size)
+     VALUES (?1, ?2)`,
+    note.id,
+    note.font_size,
+  );
 }
 
 export function nextStackOrder(sql: SqlStorage): number {
@@ -216,13 +253,18 @@ export function unpublishNoteAtIndex(
   if (!returned) return [];
   const privateNotes = sql
     .exec(
-      `SELECT * FROM notes
-       WHERE author_id = ?1 AND phase = ?2 AND visibility = 'private'
-         AND id <> ?3
-       ORDER BY stack_order, created_at, id`,
+      `SELECT n.*, COALESCE(a.font_size, ?4) AS font_size,
+              COALESCE(v.content_revision, 0) AS content_revision
+       FROM notes n
+       LEFT JOIN note_appearances a ON a.note_id = n.id
+       LEFT JOIN note_content_versions v ON v.note_id = n.id
+       WHERE n.author_id = ?1 AND n.phase = ?2 AND n.visibility = 'private'
+         AND n.id <> ?3
+       ORDER BY n.stack_order, n.created_at, n.id`,
       authorId,
       phase,
       noteId,
+      NOTE_DEFAULT_FONT_SIZE,
     )
     .toArray()
     .map((row) => normalizeNoteRow(row as Record<string, unknown>));
@@ -263,6 +305,22 @@ export function updateNoteContent(
   );
 }
 
+export function updateNoteFontSize(
+  sql: SqlStorage,
+  noteId: string,
+  fontSize: number,
+  updatedAt: string,
+): void {
+  sql.exec(
+    `INSERT INTO note_appearances (note_id, font_size)
+     VALUES (?1, ?2)
+     ON CONFLICT(note_id) DO UPDATE SET font_size = excluded.font_size`,
+    noteId,
+    fontSize,
+  );
+  sql.exec("UPDATE notes SET updated_at = ?2 WHERE id = ?1", noteId, updatedAt);
+}
+
 export function moveNote(
   sql: SqlStorage,
   noteId: string,
@@ -294,6 +352,23 @@ export function moveNote(
   return stackOrder;
 }
 
+export function bringNoteToFront(
+  sql: SqlStorage,
+  noteId: string,
+  updatedAt: string,
+): number {
+  const stackOrder = nextStackOrder(sql);
+  sql.exec(
+    `UPDATE notes
+     SET stack_order = ?2, updated_at = ?3
+     WHERE id = ?1`,
+    noteId,
+    stackOrder,
+    updatedAt,
+  );
+  return stackOrder;
+}
+
 export function setNoteExcluded(
   sql: SqlStorage,
   noteId: string,
@@ -315,8 +390,9 @@ export function listBulkExclusionCandidates(
 ): NoteRow[] {
   return sql
     .exec(
-      `SELECT n.*
+      `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size
        FROM notes n
+       LEFT JOIN note_appearances a ON a.note_id = n.id
        WHERE n.phase = ?1
          AND n.visibility = 'shared'
          AND n.excluded = 0
@@ -329,9 +405,38 @@ export function listBulkExclusionCandidates(
          )
        ORDER BY n.created_at, n.id`,
       phase,
+      NOTE_DEFAULT_FONT_SIZE,
     )
     .toArray()
     .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+}
+
+// 投票完了時の自動整理では、少なくとも1件に票がある場合だけ0票候補を返す。
+// 全候補が0票なら未評価の可能性を優先し、既存の手動整理へ委ねる。
+export function listAutomaticExclusionCandidates(
+  sql: SqlStorage,
+  phase: number,
+): NoteRow[] {
+  const hasVotedCandidate =
+    sql
+      .exec(
+        `SELECT 1 AS found
+         FROM notes n
+         WHERE n.phase = ?1
+           AND n.visibility = 'shared'
+           AND n.excluded = 0
+           AND NOT EXISTS (
+             SELECT 1 FROM decisions d
+             WHERE d.phase = n.phase AND d.note_id = n.id
+           )
+           AND EXISTS (
+             SELECT 1 FROM note_vote_stickers v WHERE v.note_id = n.id
+           )
+         LIMIT 1`,
+        phase,
+      )
+      .toArray().length > 0;
+  return hasVotedCandidate ? listBulkExclusionCandidates(sql, phase) : [];
 }
 
 export function excludeNotesForBulkOperation(
@@ -363,13 +468,16 @@ export function listBulkRestoreTargets(
 ): NoteRow[] {
   return sql
     .exec(
-      `SELECT n.* FROM notes n
+      `SELECT n.*, COALESCE(a.font_size, ?3) AS font_size
+       FROM notes n
+       LEFT JOIN note_appearances a ON a.note_id = n.id
        INNER JOIN note_bulk_exclusions b ON b.note_id = n.id
        WHERE n.phase = ?1 AND n.visibility = 'shared' AND n.excluded = 1
          AND b.operation_id = ?2
        ORDER BY n.created_at, n.id`,
       phase,
       operationId,
+      NOTE_DEFAULT_FONT_SIZE,
     )
     .toArray()
     .map((row) => normalizeNoteRow(row as Record<string, unknown>));
@@ -392,6 +500,7 @@ export function restoreNotesForBulkOperation(
 
 export function deleteNote(sql: SqlStorage, noteId: string): void {
   sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
+  sql.exec("DELETE FROM note_appearances WHERE note_id = ?1", noteId);
   sql.exec("DELETE FROM notes WHERE id = ?1", noteId);
 }
 
@@ -414,8 +523,10 @@ export function toProtocolNote(
     id: row.id,
     authorId: row.author_id,
     content: row.content,
+    contentRevision: row.content_revision ?? 0,
     visibility: row.visibility,
     color: row.color,
+    fontSize: row.font_size,
     x: row.x,
     y: row.y,
     excluded: row.excluded,
@@ -459,6 +570,7 @@ export function broadcastNoteUpdated(
   sql: SqlStorage,
   broadcaster: RoomBroadcaster,
   row: NoteRow,
+  operationId?: string,
 ): void {
   const phase = getPhase(sql);
   broadcaster.broadcastNote((viewerId) => ({
@@ -467,6 +579,7 @@ export function broadcastNoteUpdated(
       { viewerId, phase },
       toProtocolNote(sql, row, viewerId),
     ),
+    ...(operationId === undefined ? {} : { operationId }),
   }));
 }
 
@@ -482,7 +595,7 @@ export function broadcastVoteUpdated(
 ): void {
   const phase = getPhase(sql);
   if (!isVotingStep(phase)) {
-    broadcastNoteUpdated(sql, broadcaster, row);
+    broadcastNoteUpdated(sql, broadcaster, row, operationId);
     return;
   }
 

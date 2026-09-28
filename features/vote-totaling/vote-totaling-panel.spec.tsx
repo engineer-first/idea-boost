@@ -232,30 +232,28 @@ describe("VoteTotalingPanel", () => {
     );
   });
 
-  it("ダークテーマでも結果面とランキング行の文字を読みやすくする", () => {
+  it("結果面とランキング行はライトテーマの文字色を使う", () => {
     const [note] = buildNotes(1);
 
     render(
-      <div className="dark">
-        <VoteTotalingPanel
-          isVotingComplete
-          members={buildMembers(1, ME)}
-          notes={[withVotes(note, 1, 2)]}
-          decision={null}
-          isHost={false}
-          isDisconnected={false}
-          onNoteDecide={vi.fn()}
-        />
-      </div>,
+      <VoteTotalingPanel
+        isVotingComplete
+        members={buildMembers(1, ME)}
+        notes={[withVotes(note, 1, 2)]}
+        decision={null}
+        isHost={false}
+        isDisconnected={false}
+        onNoteDecide={vi.fn()}
+      />,
     );
 
     expect(screen.getByTestId("vote-result-ranking")).toHaveClass(
-      "dark:bg-slate-950",
-      "dark:text-slate-50",
+      "bg-transparent",
+      "text-foreground",
     );
     expect(screen.getByTestId("vote-totaling-row-note-1")).toHaveClass(
-      "dark:bg-slate-900",
-      "dark:text-slate-50",
+      "bg-card",
+      "text-card-foreground",
     );
   });
 

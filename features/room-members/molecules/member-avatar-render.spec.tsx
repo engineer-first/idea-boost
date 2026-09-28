@@ -15,7 +15,9 @@ describe("MemberAvatar", () => {
 
     expect(screen.getByLabelText(color)).toHaveStyle({
       backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+      color: NOTE_COLOR_STYLES[color].foregroundColor,
     });
+    expect(screen.getByLabelText(color)).toHaveClass("border-transparent");
   });
 
   it("投票完了時は名前とチェックを同時に示す", () => {

@@ -38,7 +38,7 @@ export function VoteTotalingDialog({
 }: VoteTotalingDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto dark:bg-slate-950 dark:text-slate-50">
+      <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>投票結果</DialogTitle>
           <DialogDescription>

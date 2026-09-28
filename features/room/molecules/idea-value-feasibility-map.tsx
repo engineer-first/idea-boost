@@ -1,9 +1,9 @@
 import { ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
 import type { CSSProperties, ReactNode, Ref } from "react";
+import { IDEA_MAP_BASE_DIMENSIONS } from "@/contracts/board";
 import {
-  IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+  getIdeaValueFeasibilityMapDimensions,
   IDEA_VALUE_FEASIBILITY_MAP_LABELS,
-  IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
 } from "../logic/idea-value-feasibility-map";
 
 const MAP_GRID_STYLE = {
@@ -17,22 +17,27 @@ const MAP_GRID_STYLE = {
 export type IdeaValueFeasibilityMapProps = {
   children?: ReactNode;
   planeRef?: Ref<HTMLDivElement>;
+  sizeLevel?: number;
 };
 
 export function IdeaValueFeasibilityMap({
   children,
   planeRef,
+  sizeLevel = 0,
 }: IdeaValueFeasibilityMapProps) {
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
+  const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
 
   return (
     <section
       aria-label={labels.ariaLabel}
-      className="pointer-events-none absolute left-1/2 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 grid-cols-[4rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_4rem] gap-3 select-none"
+      className="pointer-events-none absolute z-10 grid grid-cols-[4rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_4rem] gap-3 select-none"
       data-testid="idea-value-feasibility-map"
       style={{
-        width: IDEA_VALUE_FEASIBILITY_MAP_WIDTH,
-        height: IDEA_VALUE_FEASIBILITY_MAP_HEIGHT,
+        width: dimensions.width,
+        height: dimensions.height,
+        left: `calc(50% - ${IDEA_MAP_BASE_DIMENSIONS.width / 2}px)`,
+        bottom: `calc(50% - ${IDEA_MAP_BASE_DIMENSIONS.height / 2}px)`,
       }}
     >
       <span className="sr-only absolute">{labels.title}</span>

@@ -1,11 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
+  getIdeaValueFeasibilityMapDimensions,
   getIdeaValueFeasibilityMapNotePosition,
   getIdeaValueFeasibilityMapPointFromClientPosition,
   getIdeaValueFeasibilityMapPosition,
 } from "./idea-value-feasibility-map";
 
 describe("getIdeaValueFeasibilityMapPosition", () => {
+  it("サイズ段階でマップだけを10%ずつ拡張し、付箋寸法と座標範囲を保つ", () => {
+    expect(getIdeaValueFeasibilityMapDimensions(0)).toEqual({
+      width: 1600,
+      height: 900,
+    });
+    expect(getIdeaValueFeasibilityMapDimensions(1)).toEqual({
+      width: 1760,
+      height: 990,
+    });
+    expect(getIdeaValueFeasibilityMapDimensions(99)).toEqual({
+      width: 6684,
+      height: 3760,
+    });
+    expect(
+      getIdeaValueFeasibilityMapNotePosition({ feasibility: 100, value: 0 }),
+    ).toEqual({
+      left: "clamp(0px, calc(100% - 100px), max(0px, calc(100% - 200px)))",
+      bottom: "clamp(0px, calc(0% - 75px), max(0px, calc(100% - 150px)))",
+    });
+  });
+
   it.each([
     0.5, 2,
   ])("倍率%sでもパン後のポインターを同じ相対座標に変換する", (zoom) => {
@@ -28,6 +50,17 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     ).toEqual({
       left: "clamp(0px, calc(1% - 100px), max(0px, calc(100% - 200px)))",
       bottom: "clamp(0px, calc(99% - 75px), max(0px, calc(100% - 150px)))",
+    });
+  });
+  it("長文付箋は実高を使って上下端からはみ出さない", () => {
+    expect(
+      getIdeaValueFeasibilityMapNotePosition(
+        { feasibility: 50, value: 100 },
+        600,
+      ),
+    ).toEqual({
+      left: "clamp(0px, calc(50% - 100px), max(0px, calc(100% - 200px)))",
+      bottom: "clamp(0px, calc(100% - 300px), max(0px, calc(100% - 600px)))",
     });
   });
   it("価値と実現可能性の0〜100を連続座標へ変換する", () => {

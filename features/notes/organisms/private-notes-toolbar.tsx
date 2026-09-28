@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
+import { getNoteHeight } from "@/contracts/board";
 import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
@@ -33,6 +34,10 @@ export type PrivateNotesToolbarProps = {
   onSelect: (noteId: string | null) => void;
   onAdd: () => void;
   onContentChange: (noteId: string, content: string) => void;
+  draftValue?: (noteId: string) => string | undefined;
+  onDraftChange?: (noteId: string, content: string) => void;
+  onDraftCompositionStart?: (noteId: string) => void;
+  onDraftCompositionEnd?: (noteId: string, content: string) => void;
   onDelete: (noteId: string) => void;
   onDragStart: (
     noteId: string,
@@ -59,6 +64,10 @@ export function PrivateNotesToolbar({
   onSelect,
   onAdd,
   onContentChange,
+  draftValue,
+  onDraftChange,
+  onDraftCompositionStart,
+  onDraftCompositionEnd,
   onDelete,
   onDragStart,
 }: PrivateNotesToolbarProps) {
@@ -222,7 +231,8 @@ export function PrivateNotesToolbar({
                   data-testid="private-note-placeholder"
                   data-note-id={note.id}
                   aria-hidden="true"
-                  className="animate-in h-36 w-48 rounded-md border-2 border-primary/50 border-dashed bg-primary/5 fade-in duration-150"
+                  className="animate-in w-48 shrink-0 rounded-md border-2 border-primary/50 border-dashed bg-primary/5 fade-in duration-150"
+                  style={{ height: getNoteHeight(note.content, note.fontSize) }}
                 />
               ) : (
                 <NoteCard
@@ -238,6 +248,10 @@ export function PrivateNotesToolbar({
                   onSelect={onSelect}
                   onDragStart={onDragStart}
                   onContentChange={onContentChange}
+                  draftValue={draftValue?.(note.id)}
+                  onDraftChange={onDraftChange}
+                  onDraftCompositionStart={onDraftCompositionStart}
+                  onDraftCompositionEnd={onDraftCompositionEnd}
                   onDelete={onDelete}
                   vote={{
                     displayMode: "hidden",
@@ -255,7 +269,6 @@ export function PrivateNotesToolbar({
                     newlyAddedNoteId === note.id &&
                       "animate-in fade-in slide-in-from-bottom-2 duration-200",
                   )}
-                  style={{ width: "192px", height: "144px" }}
                 />
               ),
             )}

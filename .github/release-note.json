@@ -1,0 +1,12 @@
+{
+  "previousCommit": "b86b5fdd11131d2ceae6c2789de6b0163bc4cabc",
+  "mode": "release",
+  "changes": [
+    {
+      "kind": "内部変更",
+      "text": "Issueの記入項目と本番公開の手順を更新しました。アプリ内の操作に変更はありません。",
+      "prs": [378, 379]
+    }
+  ],
+  "notices": []
+}

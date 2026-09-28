@@ -1,0 +1,29 @@
+{
+  "name": "idea-flow-verification-test",
+  "main": "verification-worker.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM_DO", "class_name": "VerificationRoomDO" },
+      {
+        "name": "VERIFICATION_WORKSPACE",
+        "class_name": "VerificationWorkspace"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["VerificationRoomDO", "VerificationWorkspace"]
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "verification-test",
+      "database_id": "verification-test",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

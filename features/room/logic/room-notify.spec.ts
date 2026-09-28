@@ -54,4 +54,18 @@ describe("roomNotify", () => {
     expect(mocks.toast).toHaveBeenCalledTimes(1);
     expect(mocks.toast).toHaveBeenCalledWith("ルームを解散しました");
   });
+
+  it("自動整理は結果モーダルを閉じた後もホストがUndoを見つけられるよう保持する", () => {
+    const onUndo = vi.fn();
+
+    roomNotify.automaticallyExcludedCandidates(8, onUndo);
+
+    expect(mocks.toast).toHaveBeenCalledWith(
+      "投票完了により0票の付箋8件を候補から外しました。必要なら戻せます",
+      {
+        action: { label: "まとめて元に戻す", onClick: onUndo },
+        duration: Number.POSITIVE_INFINITY,
+      },
+    );
+  });
 });

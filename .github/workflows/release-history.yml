@@ -1,0 +1,47 @@
+name: Record Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: '記録し直すDeployのrun ID（手動receiptとは併用不可）'
+        type: string
+      attempt:
+        description: '確認するDeployのattempt'
+        type: string
+      note_json:
+        description: '外部手動・旧版の履歴補完receipt JSON（run IDとは併用不可）'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release-${{ github.repository }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  record:
+    # 書込権限を渡す実行コードは既定ブランチのものだけを使う。
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+      - run: npm ci
+      - name: Record without redeploying
+        run: node scripts/release-automation.mts retry --publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+          RUN_ATTEMPT: ${{ inputs.attempt }}
+          RELEASE_NOTE_JSON: ${{ inputs.note_json }}

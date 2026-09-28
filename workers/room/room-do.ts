@@ -33,13 +33,21 @@ import {
   ROOM_DO_MIGRATIONS,
 } from "../room-do-migrations";
 import { filterVisible, projectNoteForViewer } from "../visibility";
+import { adoptionFocusHandlers } from "./adoption-focus-handlers";
+import { syncRoomAlarm } from "./alarms";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
 import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
 import { groupHandlers, listVisibleGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import {
+  buildIdeaMapServerState,
+  ideaMapHandlers,
+  isIdeaMapVisiblePhase,
+} from "./idea-map";
+import {
   ensureHost,
+  findMember,
   isHostUser,
   isMember,
   listMembers,
@@ -50,12 +58,26 @@ import {
 import { noteHandlers } from "./note-handlers";
 import { broadcastNoteUpdated, findNote, listNotes } from "./notes";
 import {
+  completeExpiredPhaseTransition,
   getBoardMutationForbiddenMessage,
+  getPendingPhaseTransition,
   getPhase,
+  getPhaseRevision,
+  isBoardMutation,
   phaseHandlers,
   savePhase,
 } from "./phase";
 import { presenceHandlers } from "./presence";
+import {
+  broadcastSharing,
+  sharingHandlers,
+  startPendingSharingTurn,
+} from "./sharing";
+import {
+  appendSharingMember,
+  getSharingState,
+  resetSharingForPhase,
+} from "./sharing-state";
 import { getTimerState, handleTimerAlarm, timerHandlers } from "./timer";
 import { listCompletedVoterIds } from "./votes";
 
@@ -74,22 +96,27 @@ export const HOST_ID_HEADER = "X-Idea-Boost-Host-Id";
 // 全 ClientMessage を網羅するハンドラ表。メッセージ型を追加すると、
 // ここでキー漏れがコンパイルエラーになる（旧 switch の never 網羅性チェック相当）。
 const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
+  ...adoptionFocusHandlers,
   ...noteHandlers,
   ...decisionHandlers,
   ...groupHandlers,
+  ...ideaMapHandlers,
   ...phaseHandlers,
   ...timerHandlers,
+  ...sharingHandlers,
   ...presenceHandlers,
 };
 
-function voteOperationIdOf(message: ClientMessage): string | undefined {
+function optimisticOperationIdOf(message: ClientMessage): string | undefined {
   switch (message.type) {
+    case "note:update-font-size":
     case "note:vote":
     case "note:vote-reset":
     case "note:vote-remove":
     case "note:vote-sticker:add":
     case "note:vote-sticker:move":
     case "note:vote-sticker:remove":
+    case "note:update-content":
       return message.operationId;
     default:
       return undefined;
@@ -126,7 +153,11 @@ export class RoomDO extends DurableObject {
     userId: string,
     name: string | undefined,
   ): Promise<UpsertMemberResult> {
-    return upsertMember(this.sql, this.broadcaster, userId, name);
+    const result = upsertMember(this.sql, this.broadcaster, userId, name);
+    const member = result.ok ? findMember(this.sql, userId) : null;
+    if (member && appendSharingMember(this.sql, member))
+      broadcastSharing({ sql: this.sql, broadcaster: this.broadcaster });
+    return result;
   }
 
   // 新規ルーム作成直後にロビー状態へ。
@@ -214,6 +245,7 @@ export class RoomDO extends DurableObject {
       return new Response("expected websocket", { status: 426 });
     }
 
+    await this.processExpiredTransition();
     const userId = request.headers.get(USER_ID_HEADER);
     if (!userId || !isMember(this.sql, userId)) {
       return new Response("forbidden", { status: 403 });
@@ -243,6 +275,7 @@ export class RoomDO extends DurableObject {
     ws: WebSocket,
     raw: ArrayBuffer | string,
   ): Promise<void> {
+    await this.processExpiredTransition();
     const attachment = ws.deserializeAttachment() as SocketAttachment | null;
     if (!attachment) {
       ws.close(1011, "missing attachment");
@@ -272,6 +305,12 @@ export class RoomDO extends DurableObject {
     // 付箋の移動者表示は切断時に消す。
     const previousAttachment =
       ws.deserializeAttachment() as SocketAttachment | null;
+    if (this.broadcaster.retireAdoptionFocus(ws)) {
+      this.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
+    }
     if (previousAttachment?.hasCursor || previousAttachment?.activeDrag) {
       const active = this.broadcaster.retireActiveDrag(ws);
       const attachment =
@@ -285,6 +324,11 @@ export class RoomDO extends DurableObject {
         const row = findNote(this.sql, active.noteId);
         if (row?.visibility === "shared") {
           broadcastNoteUpdated(this.sql, this.broadcaster, row);
+        }
+        if (isIdeaMapVisiblePhase(getPhase(this.sql))) {
+          this.broadcaster.broadcastToAll(
+            buildIdeaMapServerState(this.sql, this.broadcaster),
+          );
         }
       }
       if (this.broadcaster.hasOtherPresenceForUser(attachment.userId, ws)) {
@@ -308,7 +352,19 @@ export class RoomDO extends DurableObject {
   }
 
   override async alarm(): Promise<void> {
+    await this.processExpiredTransition();
+    await startPendingSharingTurn({
+      sql: this.sql,
+      storage: this.ctx.storage,
+      broadcaster: this.broadcaster,
+    });
     await handleTimerAlarm(this.sql, this.broadcaster);
+    await syncRoomAlarm(this.ctx.storage, this.sql);
+  }
+
+  private async processExpiredTransition(): Promise<void> {
+    const ctx = this.createHandlerCtx({} as WebSocket, "");
+    await completeExpiredPhaseTransition({ ...ctx, reply: () => {} });
   }
 
   // ------------------------------------------------------------
@@ -320,13 +376,26 @@ export class RoomDO extends DurableObject {
     attachment: SocketAttachment,
     message: ClientMessage,
   ): Promise<void> {
+    if (!isMember(this.sql, attachment.userId)) {
+      this.broadcaster.sendTo(ws, {
+        type: "error",
+        code: "forbidden",
+        message: "ルームに参加していません。",
+      });
+      return;
+    }
     const ctx = this.createHandlerCtx(
       ws,
       attachment.userId,
-      voteOperationIdOf(message),
+      optimisticOperationIdOf(message),
     );
     const phase = getPhase(this.sql);
-    const forbiddenMessage = getBoardMutationForbiddenMessage(phase, message);
+    const forbiddenMessage =
+      phase.kind === "step" &&
+      getDecision(this.sql, phase.phase) &&
+      isBoardMutation(message)
+        ? "採用確定後はボードを変更できません。"
+        : getBoardMutationForbiddenMessage(phase, message);
     if (forbiddenMessage) {
       ctx.reply({
         type: "error",
@@ -348,7 +417,7 @@ export class RoomDO extends DurableObject {
   private createHandlerCtx(
     ws: WebSocket,
     userId: string,
-    voteOperationId?: string,
+    operationId?: string,
   ): HandlerCtx {
     return {
       sql: this.sql,
@@ -358,11 +427,11 @@ export class RoomDO extends DurableObject {
       reply: (message) =>
         this.broadcaster.sendTo(
           ws,
-          message.type === "error" && voteOperationId !== undefined
-            ? { ...message, operationId: voteOperationId }
+          message.type === "error" && operationId !== undefined
+            ? { ...message, operationId }
             : message,
         ),
-      voteOperationId,
+      operationId,
       broadcaster: this.broadcaster,
       refreshSnapshots: () => this.refreshSnapshots(),
     };
@@ -383,6 +452,19 @@ export class RoomDO extends DurableObject {
   // 接続直後に現在状態を丸ごと届ける（再接続の復帰パスも兼ねる）。
   private sendSnapshot(ws: WebSocket, userId: string): void {
     const phase = getPhase(this.sql);
+    // 更新前から共有中のルームも、最初の接続で一度だけ順番を作る。
+    if (
+      phase.kind === "step" &&
+      phase.step === 2 &&
+      !getSharingState(this.sql)
+    ) {
+      resetSharingForPhase(this.sql, phase);
+    }
+    const ideaMapState = buildIdeaMapServerState(
+      this.sql,
+      this.broadcaster,
+      phase,
+    );
     const notes = filterVisible(
       { viewerId: userId },
       listNotes(
@@ -394,6 +476,7 @@ export class RoomDO extends DurableObject {
 
     this.broadcaster.sendTo(ws, {
       type: "snapshot",
+      sharing: getSharingState(this.sql),
       notes,
       // フェーズ2では既存のフェーズ1グループも表示しない。
       groups:
@@ -402,9 +485,19 @@ export class RoomDO extends DurableObject {
           : listVisibleGroups(this.sql, userId),
       members: listMembers(this.sql),
       phase,
+      phaseRevision: getPhaseRevision(this.sql),
+      pendingPhaseTransition: getPendingPhaseTransition(this.sql),
       isHost: isHostUser(this.sql, userId),
+      ideaMapSizeLevel: ideaMapState.sizeLevel,
+      ideaMapSizeInitialized: ideaMapState.initialized,
+      ideaMapDragging: ideaMapState.isDragging,
       decision:
         phase.kind === "step" ? getDecision(this.sql, phase.phase) : null,
+      outcomePublished:
+        this.sql
+          .exec("SELECT outcome_published FROM room_state WHERE id = 1")
+          .one().outcome_published === 1,
+      adoptionFocusNoteId: this.broadcaster.currentAdoptionFocusNoteId(),
       carryovers:
         phase.kind === "step" ? getCarryovers(this.sql, phase.phase) : [],
       completedVoterIds:

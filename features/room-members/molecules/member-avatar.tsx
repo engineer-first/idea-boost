@@ -62,7 +62,7 @@ export function MemberAvatar({
           aria-label={`${tooltipText}${isVotingComplete ? "（投票完了）" : ""}`}
           data-testid="avatar"
           data-self={isMe ? "true" : undefined}
-          className={`relative inline-flex shrink-0 items-center justify-center rounded-full border border-transparent font-semibold text-slate-900 ${NOTE_COLOR_STYLES[color].avatarClassName} ${
+          className={`relative inline-flex shrink-0 items-center justify-center rounded-full border font-semibold text-slate-900 ${NOTE_COLOR_STYLES[color].avatarClassName} ${
             isMe
               ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-background"
               : ""
@@ -72,6 +72,7 @@ export function MemberAvatar({
             height: size,
             fontSize: Math.round(size * 0.4),
             backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+            color: NOTE_COLOR_STYLES[color].foregroundColor,
           }}
         >
           {initials}

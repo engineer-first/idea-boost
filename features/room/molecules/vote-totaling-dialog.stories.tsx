@@ -86,7 +86,3 @@ export const LongContent: Story = {
 export const ZeroVotes: Story = {
   args: { notes: buildNotes(2) },
 };
-
-export const DarkMode: Story = {
-  globals: { theme: "dark" },
-};

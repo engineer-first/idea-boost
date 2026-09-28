@@ -8,6 +8,8 @@
 
 ## ドキュメント
 
+本番で公開した追加・変更・修正は [リリース履歴](https://github.com/engineer-first/idea-boost/releases) で確認できます。記録の書式・公開・訂正は [本番リリース履歴の運用](docs/release-history.md) を参照してください。
+
 プロダクトの詳細（PRD、ペルソナ、競合分析、画面イメージなど）は [Idea Boost Wiki](https://github.com/engineer-first/idea-boost/wiki) にまとめています。仕様や設計の確認は Wiki を参照してください。
 
 技術構成は **Next.js（UI）+ Cloudflare Workers（api-worker）+ Durable Objects（1ルーム = 1 権威サーバー）+ D1（ロビー）** です。採用の経緯と移行の記録は [`docs/refactor-cloudflare-do.md`](docs/refactor-cloudflare-do.md) を参照してください。
@@ -57,6 +59,19 @@ npm run dev
 まま誤って利用されることを防ぐため、意図的に認証処理で拒否されます。生成した
 値は Git にコミットせず、必ず両方のファイルで同じ値を使用してください。
 
+### Orca の worktree
+
+Orca で新しい worktree を作る場合は、Settings → Repository → Hooks の
+Setup Script に次を設定します。
+
+```bash
+bash scripts/setup-worktree.sh
+```
+
+このスクリプトは mise のツールと npm パッケージをインストールし、worktree
+専用の `SESSION_SECRET` を設定した環境ファイルを作成して、ローカル D1 migration
+を適用します。再実行時は既存の環境ファイルを保持します。
+
 ### 認証のローカル開発
 
 本番のログインは Google 認証（OIDC）のみを想定しています。ローカル開発では、固定のメール/パスワードユーザーでログインできます（`NEXT_PUBLIC_ENABLE_DEV_AUTH=true` かつ production 以外の環境でだけ表示されます）。
@@ -82,8 +97,8 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 | `npm run build`                             | Next.js 本番ビルド                                                                                                                                                                                                             |
 | `npm run build:cf`                          | Cloudflare Workers 向けビルド（OpenNext）                                                                                                                                                                                      |
 | `npm run deploy:api`                        | api-worker をデプロイ                                                                                                                                                                                                          |
-| `npm run deploy:app`                        | app-worker をビルド + デプロイ（api → app の順が必要な場合は `npm run deploy`）                                                                                                                                                |
-| `npm run deploy`                            | api → app の順で両方デプロイ                                                                                                                                                                                                   |
+| `npm run deploy:app`                        | app-worker をビルド + デプロイ（全体の公開は `npm run deploy`）                                                                                                                                                                |
+| `npm run deploy`                            | migration → api → app → health確認後、成功receiptを作りリリース履歴の記録を依頼                                                                                                                                                |
 | `npm run preview:cf`                        | Workers 向けビルドを workerd 上でローカル実行（2構成同時）                                                                                                                                                                     |
 | `npm run lint`                              | Biome による静的解析 (lint + format チェック)                                                                                                                                                                                  |
 | `npm run fix`                               | Biome の自動修正 (lint + format)                                                                                                                                                                                               |
@@ -96,14 +111,16 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 
 本番アプリは **<https://ideaboost.dev>** で利用できます。
 
-2 Worker + D1 + RoomDO 構成です。デプロイ順は **api → app**（`npm run deploy`）。CI と同じ D1 migration → api → app をこの 1 行で実行します。
+2 Worker + D1 + RoomDO 構成です。デプロイ順は **D1 migration → api → app → health確認** です。通常は `$release` から内容を確認し、Actionsで公開、成功後にリリースノートを自動記録します。
 
 | Worker          | 設定ファイル             | 役割                                                         |
 | --------------- | ------------------------ | ------------------------------------------------------------ |
 | `idea-flow-app` | `wrangler.jsonc`         | UI（Next.js / OpenNext）+ `/api/*` を service binding で転送 |
 | `idea-flow-api` | `workers/wrangler.jsonc` | REST + WebSocket（D1 / RoomDO への唯一の入口）               |
 
-**本番の更新方法:** `develop` の変更を `release` にマージ（または push）すると GitHub Actions（`deploy.yml`）が自動で D1 migrate → api → app → health を実行します。手動で出すときは `npm run deploy`（`wrangler login` 済みであること）。Actions には `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
+**本番の更新方法:** 開発PRを `develop` にマージし、CIと公開範囲を確認します。最新の `develop` を取得してCodexで `$release` → 内容確認・必要なら `edit` → `release`。GitHub上のdevelop全体が対象です。Promote Releaseが `release` を更新し、Deployの品質ゲート → D1 → API → App → health → GitHub Releaseへ進みます。SkillなしのActions操作、実行ブランチ、手動公開と復旧は [本番リリース手順書](https://engineer-first.github.io/idea-boost/release-flow/) に記載しています。Actionsには `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
+
+ローカルからの手動公開は `npm run deploy`（GitHub・Cloudflareへの認証が必要）。PR/Issue URLの入力は不要で、成功後にreceiptを作って履歴記録を自動依頼します。Actions経路で記録だけ失敗した場合は `$release` → `retry-record`（手動入口は **Record Release**）、ローカル公開の記録だけ失敗した場合は出力済みのreceiptを `npm run release:submit -- .release-history/出力されたファイル.json` で再送します。どちらも本番の再デプロイは不要です。各入口・部分再試行・ロールバックの扱いは [リリース履歴の運用](docs/release-history.md) を参照してください。
 
 秘密・初回手順・カスタムドメイン・CI・動作確認の詳細は **[デプロイ構成図](docs/site/deploy-map/index.html)**（公開後: [GitHub Pages](https://engineer-first.github.io/idea-boost/deploy-map/)）を参照してください。
 
@@ -123,7 +140,8 @@ Node.js のバージョンは `mise.toml` で LTS に固定しています。CI 
 
 ## スクラム運用
 
-- [学校スクラム開発のホワイトボードと GitHub Projects 連携](docs/scrum/whiteboard-github-projects.md)
+- [Issue と GitHub Project の運用ルール](docs/issue-management.md)
+- [物理ホワイトボードとの連携](docs/scrum/whiteboard-github-projects.md)
 
 ## ドキュメントのフォーマット
 
@@ -138,3 +156,10 @@ Markdown の整形には [remark](https://github.com/remarkjs/remark) を使用�
 | ファイル名           | `kebab-case` | `idea-card.tsx`, `use-idea-list.ts`, `format-date.ts` |
 | 関数名               | `camelCase`  | `getUserName`                                         |
 | スキーマ名 (型・zod) | `PascalCase` | `User`, `Idea`, `IdeaStatus`                          |
+
+## 開発用の状態再現
+
+`npm run dev:verify` で付箋付きの検証ルームを作れます。環境ファイルの編集は不要です。
+`http://localhost:3000/dev/verify` をOwnerで開き、開始待ち／全14ステップから選びます。
+Owner・Member・Viewerは既存の開発ログインを使い、別ブラウザの検証ボードも次の状態へ追従します。
+操作UIは別ページに置き、通常ボードに重ねません。詳しくは[ローカル検証環境](docs/local-verification.md)を参照してください。

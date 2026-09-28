@@ -5,8 +5,10 @@ import {
   TIMER_MAX_DURATION_MS,
   type TimerState,
 } from "../../contracts/room-protocol";
+import { syncRoomAlarm } from "./alarms";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
+import { getSharingState } from "./sharing-state";
 
 export type TimerAction =
   | { kind: "start"; durationMs: number }
@@ -164,7 +166,7 @@ export function getTimerState(sql: SqlStorage, now = Date.now()): TimerState {
   return timer;
 }
 
-function saveTimerState(sql: SqlStorage, timer: TimerState): void {
+export function saveTimerState(sql: SqlStorage, timer: TimerState): void {
   if (timer.status === "idle") {
     sql.exec(
       "UPDATE timer_state SET status = 'idle', ends_at = NULL, remaining_ms = NULL, duration_ms = NULL WHERE id = 1",
@@ -211,17 +213,6 @@ export function expireTimer(current: TimerState, now: number): TimerTransition {
   };
 }
 
-async function syncTimerAlarm(
-  storage: DurableObjectStorage,
-  timer: TimerState,
-): Promise<void> {
-  if (timer.status === "running") {
-    await storage.setAlarm(timer.endsAt);
-    return;
-  }
-  await storage.deleteAlarm();
-}
-
 function canControlTimer(sql: SqlStorage, userId: string): boolean {
   return isHostUser(sql, userId);
 }
@@ -250,6 +241,16 @@ async function applyTimerAction(
     replyTimerForbidden(ctx);
     return;
   }
+  const sharing = getSharingState(ctx.sql);
+  if (
+    sharing &&
+    sharing.status !== "inactive" &&
+    (sharing.startsAt !== null ||
+      (sharing.status === "ready" && action.kind === "start"))
+  ) {
+    replyTimerInvalidState(ctx);
+    return;
+  }
   const serverNow = Date.now();
   const result = transitionTimer(getTimerState(ctx.sql), action, serverNow);
   if (result.type === "invalid") {
@@ -258,7 +259,7 @@ async function applyTimerAction(
   }
   if (result.type === "noop") return;
   saveTimerState(ctx.sql, result.timer);
-  await syncTimerAlarm(ctx.storage, result.timer);
+  await syncRoomAlarm(ctx.storage, ctx.sql);
   ctx.broadcaster.broadcastToAll({
     type: "timer:updated",
     timer: result.timer,

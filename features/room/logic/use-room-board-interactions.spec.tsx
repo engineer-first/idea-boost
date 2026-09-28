@@ -9,13 +9,20 @@ import { useRoomBoardInteractions } from "./use-room-board-interactions";
 function setup({
   phase = buildPhaseStep(2),
   withSharedDrag = false,
+  withPrivateNote = false,
+  ideaMapSizeLevel = 0,
+  ideaMapSizeInitialized = true,
 }: {
   phase?: RoomPhase;
   withSharedDrag?: boolean;
+  withPrivateNote?: boolean;
+  ideaMapSizeLevel?: number;
+  ideaMapSizeInitialized?: boolean;
 } = {}) {
   const onCursorMove = vi.fn();
   const onCursorLeave = vi.fn();
   const onNoteDragCancel = vi.fn();
+  const onNoteDragStart = vi.fn();
   const onPrivateNoteUnpublish = vi.fn();
   const notes = withSharedDrag
     ? [
@@ -30,11 +37,15 @@ function setup({
   const { result } = renderHook(() =>
     useRoomBoardInteractions({
       notes,
-      privateNotes: [],
+      privateNotes: withPrivateNote
+        ? [buildNote({ id: "private-1", visibility: "private" })]
+        : [],
       currentUserId: "11111111-1111-4111-8111-111111111111",
       draggingNoteId: null,
       phase,
-      onNoteDragStart: vi.fn(),
+      ideaMapSizeLevel,
+      ideaMapSizeInitialized,
+      onNoteDragStart,
       onNoteDragMove: vi.fn(),
       onNoteDragEnd: vi.fn(),
       onNoteDragCancel,
@@ -52,6 +63,7 @@ function setup({
     onCursorMove,
     onCursorLeave,
     onNoteDragCancel,
+    onNoteDragStart,
     onPrivateNoteUnpublish,
     viewport,
   };
@@ -118,6 +130,46 @@ describe("useRoomBoardInteractions cursor input", () => {
     );
 
     expect(onCursorMove).toHaveBeenCalledWith({ x: 50, y: 75 }, null);
+  });
+
+  it("全体表示操作で共有された2軸マップ寸法を使う", () => {
+    const { result, viewport } = setup({
+      phase: buildPhaseStep(2, 3),
+      ideaMapSizeLevel: 1,
+      ideaMapSizeInitialized: true,
+    });
+    result.current.boardScrollerRef.current = viewport;
+
+    act(() => result.current.onFitToNotes());
+
+    expect(result.current.camera.zoom).toBeCloseTo(672 / 1760);
+  });
+
+  it("3-2では公開可能なprivate付箋のpointerdownから先にdrag lockを要求する", () => {
+    const { result, onNoteDragStart } = setup({
+      phase: buildPhaseStep(2, 3),
+      withPrivateNote: true,
+    });
+
+    act(() =>
+      result.current.onPrivateNoteDragStart("private-1", {
+        pointerId: 15,
+        clientX: 700,
+        clientY: 560,
+        currentTarget: {
+          getBoundingClientRect: () => ({
+            left: 600,
+            top: 500,
+            right: 800,
+            bottom: 650,
+            width: 200,
+            height: 150,
+          }),
+        },
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+
+    expect(onNoteDragStart).toHaveBeenCalledWith("private-1", true);
   });
 
   it("入力欄と touch の位置は送信せず、キャンバス退出を通知する", () => {
