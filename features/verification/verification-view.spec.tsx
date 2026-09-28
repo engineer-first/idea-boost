@@ -12,13 +12,9 @@ describe("検証の操作ページ", () => {
     onCreate: vi.fn(),
     onVote: vi.fn(),
     onRetry: vi.fn(),
-    outcomesLink: null,
-    outcomesLinkPending: false,
-    outcomesLinkError: false,
     roomName: "",
     onRoomNameChange: vi.fn(),
     onOutcome: vi.fn(),
-    onOutcomesLink: vi.fn(),
     onRecover: vi.fn(),
   };
   it("各ステップを1クリックで準備でき、ボードは専用タブで開く", () => {
@@ -30,13 +26,8 @@ describe("検証の操作ページ", () => {
     ).toHaveAttribute("target", "idea-boost-verification");
     expect(screen.getByText(/まだ検証ルーム/)).toBeInTheDocument();
   });
-  it("成果ケースと名前を準備操作に渡し、リンクはOwnerだけ取得できる", () => {
-    const { rerender } = render(
-      <VerificationView
-        {...props}
-        outcomesLink="http://localhost/shared-outcomes#token=test"
-      />,
-    );
+  it("成果ケースと名前を準備操作に渡し、Ownerだけ一覧導線を表示する", () => {
+    const { rerender } = render(<VerificationView {...props} />);
     fireEvent.change(screen.getByLabelText("成果検証のルーム名（任意）"), {
       target: { value: "同名のテスト" },
     });
@@ -45,7 +36,7 @@ describe("検証の操作ページ", () => {
     expect(props.onOutcome).toHaveBeenCalledWith("failure");
     expect(
       screen.getByRole("link", { name: "成果一覧を開く" }),
-    ).toHaveAttribute("href", "http://localhost/shared-outcomes#token=test");
+    ).toHaveAttribute("href", "/shared-outcomes");
     rerender(<VerificationView {...props} isOwner={false} />);
     expect(
       screen.queryByRole("link", { name: "成果一覧を開く" }),

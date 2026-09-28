@@ -1,11 +1,14 @@
 import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { PERMISSIONS } from "../contracts/access";
 import { isResultStep } from "../contracts/phase";
+import { TOKEN_AUDIENCE } from "../contracts/session";
 import {
   VERIFICATION_CHECKPOINTS,
   VerificationActiveSchema,
 } from "../contracts/verification";
 import { DEV_USERS } from "../lib/session/dev-users";
+import { signToken } from "../lib/session/token";
 import productionWorker from "./api-worker";
 import { getCarryovers, getDecision } from "./room/decisions";
 import { getIdeaMapSizeState } from "./room/idea-map";
@@ -16,6 +19,64 @@ import verificationWorker from "./verification-worker";
 
 const TOKEN = "verification-test-token-at-least-32-characters";
 const users = DEV_USERS.map((user) => ({ ...user, sub: user.id }));
+it("検証用ログイン後にOwnerだけが成果閲覧と管理を利用できる", async () => {
+  const member = DEV_USERS[1];
+  const assertion = await signToken(
+    { kind: "dev", userId: member.id, email: member.email, name: member.name },
+    {
+      secret: env.SESSION_SECRET,
+      audience: TOKEN_AUDIENCE.loginAssertion,
+      expiresInSeconds: 60,
+    },
+  );
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/auth/sync", {
+        method: "POST",
+        body: JSON.stringify({ assertion }),
+      })
+    ).status,
+  ).toBe(200);
+  const ownerCookie = await sessionCookieFor(users[0]);
+  const memberCookie = await sessionCookieFor(users[1]);
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/shared-outcomes", {
+        headers: { Cookie: ownerCookie },
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/admin/access", {
+        headers: { Cookie: ownerCookie },
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/shared-outcomes", {
+        headers: { Cookie: memberCookie },
+      })
+    ).status,
+  ).toBe(403);
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/admin/access", {
+        headers: { Cookie: memberCookie },
+      })
+    ).status,
+  ).toBe(403);
+  const permissions = await env.DB.prepare(
+    "SELECT permission FROM user_permissions WHERE user_id=? ORDER BY permission",
+  )
+    .bind(DEV_USERS[0].id)
+    .all<{ permission: string }>();
+  expect(permissions.results.map((row) => row.permission)).toEqual([
+    PERMISSIONS.manageSharedOutcomesAccess,
+    PERMISSIONS.readSharedOutcomes,
+  ]);
+});
 async function headers(index = 0): Promise<Record<string, string>> {
   return {
     Cookie: await sessionCookieFor(users[index]),
@@ -331,23 +392,12 @@ describe("検証用の初期状態", () => {
 });
 
 describe("成果の検証入口", () => {
-  it("閲覧用の秘密だけでは状態準備できず、Memberはリンクも取得できない", async () => {
-    const member = await SELF.fetch(
-      "http://localhost/api/verification/outcomes-link",
-      { headers: await headers(1) },
-    );
-    expect(member.status).toBe(403);
-    const owner = await SELF.fetch(
-      "http://localhost/api/verification/outcomes-link",
-      { headers: await headers() },
-    );
-    expect(owner.status).toBe(200);
-    expect(await owner.json()).toEqual({ token: "a".repeat(64) });
+  it("セッションのない呼び出しでは状態準備できない", async () => {
     const viewer = await SELF.fetch(
       "http://localhost/api/verification/outcomes",
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${"a".repeat(64)}` },
+        headers: { Authorization: "Bearer old-secret" },
         body: JSON.stringify({ scenario: "partial" }),
       },
     );

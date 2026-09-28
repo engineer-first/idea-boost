@@ -6,4 +6,4 @@ const meta = {
   component: SharedOutcomes,
 } satisfies Meta<typeof SharedOutcomes>;
 export default meta;
-export const MissingLink: StoryObj<typeof meta> = {};
+export const Default: StoryObj<typeof meta> = {};

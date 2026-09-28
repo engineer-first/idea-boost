@@ -5,7 +5,6 @@ import {
   VerificationCreateRequestSchema,
   VerificationOutcomeRecoverySchema,
   VerificationOutcomeRequestSchema,
-  VerificationOutcomesLinkSchema,
   VerificationStatusSchema,
   VerificationVoteRequestSchema,
   VerificationWorkspaceSchema,
@@ -114,12 +113,6 @@ export async function completeVerificationVotes(
     : error(400);
 }
 
-export async function getVerificationOutcomesLink(): Promise<Response> {
-  return (
-    (await authorize(true)) ??
-    proxy("/api/verification/outcomes-link", VerificationOutcomesLinkSchema)
-  );
-}
 export async function createVerificationOutcome(
   request: Request,
 ): Promise<Response> {

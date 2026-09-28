@@ -2,6 +2,7 @@
 // すべてのエンドポイントはセッション（または署名済みログイン主張）を要求する。
 // Next 側は UI とセッション Cookie の発行だけを担い、データへは必ずここを通る。
 import { z } from "zod";
+import { AccessEmailSchema, PERMISSIONS } from "../contracts/access";
 import { CreateRoomInputSchema } from "../contracts/api";
 import { isUuid } from "../contracts/ids";
 import {
@@ -14,6 +15,7 @@ import {
   TOKEN_AUDIENCE,
 } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
+import { hasPermission, seedDevOwnerAccess } from "./lib/access";
 import {
   deleteRoom,
   ensureUser,
@@ -34,7 +36,6 @@ export { RoomDO };
 // secret binding は生成されないため、公開境界で SESSION_SECRET を明示する。
 export type ApiWorkerEnv = Env & {
   SESSION_SECRET: string;
-  SHARED_OUTCOMES_TOKEN?: string;
 };
 
 const SyncRequestSchema = z.object({ assertion: z.string().min(1) });
@@ -87,6 +88,7 @@ async function handleAuthSync(
   }
 
   const userId = await upsertUserFromAssertion(env.DB, assertion);
+  if (assertion.kind === "dev") await seedDevOwnerAccess(env.DB);
   return json({ userId });
 }
 
@@ -321,12 +323,6 @@ export function createApiWorker(
         return json({ ok: true });
       }
 
-      if (
-        pathname === "/api/shared-outcomes" ||
-        pathname.startsWith("/api/shared-outcomes/")
-      )
-        return handleSharedOutcomes(request, env);
-
       // 設定漏れ（本番で secret 未設定）を既知鍵での fail-open にせず、
       // 明示的に落とす。認証を扱う前に必ず検証する。
       try {
@@ -343,6 +339,71 @@ export function createApiWorker(
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return error(401, "ログインが必要です。");
+      }
+
+      if (
+        pathname === "/api/shared-outcomes" ||
+        pathname.startsWith("/api/shared-outcomes/")
+      ) {
+        if (
+          !(await hasPermission(
+            env.DB,
+            session.sub,
+            PERMISSIONS.readSharedOutcomes,
+          ))
+        )
+          return error(403, "成果の閲覧権限がありません。");
+        return handleSharedOutcomes(request, env);
+      }
+
+      if (pathname === "/api/admin/access") {
+        if (
+          !(await hasPermission(
+            env.DB,
+            session.sub,
+            PERMISSIONS.manageSharedOutcomesAccess,
+          ))
+        )
+          return error(403, "成果閲覧者の管理権限がありません。");
+        if (method === "GET") {
+          const rows = await env.DB.prepare(
+            "SELECT users.id, users.name, users.email FROM user_permissions JOIN users ON users.id = user_permissions.user_id WHERE user_permissions.permission = ? ORDER BY users.email",
+          )
+            .bind(PERMISSIONS.readSharedOutcomes)
+            .all<{ id: string; name: string | null; email: string }>();
+          return json({ users: rows.results });
+        }
+        if (method === "POST" || method === "DELETE") {
+          const parsed = AccessEmailSchema.safeParse(
+            await readJsonBody(request),
+          );
+          if (!parsed.success)
+            return error(400, "メールアドレスを確認してください。");
+          const user = await env.DB.prepare(
+            "SELECT id FROM users WHERE lower(email) = lower(?)",
+          )
+            .bind(parsed.data.email)
+            .first<{ id: string }>();
+          if (!user)
+            return error(
+              404,
+              "このユーザーはまだ Idea Boost に登録されていません。先に Google ログインしてください。",
+            );
+          if (method === "POST")
+            await env.DB.prepare(
+              "INSERT OR IGNORE INTO user_permissions(user_id,permission) VALUES(?,?)",
+            )
+              .bind(user.id, PERMISSIONS.readSharedOutcomes)
+              .run();
+          else
+            await env.DB.prepare(
+              "DELETE FROM user_permissions WHERE user_id = ? AND permission = ?",
+            )
+              .bind(user.id, PERMISSIONS.readSharedOutcomes)
+              .run();
+          return json({ ok: true });
+        }
+        return error(405, "利用できない操作です。");
       }
 
       if (extension) {

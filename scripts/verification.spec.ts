@@ -90,37 +90,12 @@ describe("検証起動の隔離", () => {
     expect(vars).toContain(`VERIFICATION_CONTROL_TOKEN=${token}`);
   });
 
-  it("成果閲覧の秘密は検証領域で保持し、操作鍵と通常環境から分離する", async () => {
+  it("成果閲覧URLに秘密値を含めない", async () => {
     const path = await project();
-    const first = await prepareVerificationRuntime(path, {
-      SHARED_OUTCOMES_TOKEN: "production-secret",
-    });
-    const second = await prepareVerificationRuntime(path, {});
-    expect(first.env.SHARED_OUTCOMES_TOKEN).toMatch(/^[a-f0-9]{64}$/);
-    expect(first).toHaveProperty(
-      "outcomesUrl",
-      `http://localhost:3000/shared-outcomes#token=${first.env.SHARED_OUTCOMES_TOKEN}`,
-    );
-    expect(second).toHaveProperty(
-      "outcomesUrl",
-      `http://localhost:3000/shared-outcomes#token=${first.env.SHARED_OUTCOMES_TOKEN}`,
-    );
-    expect(first.env.SHARED_OUTCOMES_TOKEN).toBe(
-      second.env.SHARED_OUTCOMES_TOKEN,
-    );
-    expect(first.env.SHARED_OUTCOMES_TOKEN).not.toBe(
-      first.env.VERIFICATION_CONTROL_TOKEN,
-    );
-    expect(first.env.VERIFICATION_CONTROL_TOKEN).not.toBe(
-      second.env.VERIFICATION_CONTROL_TOKEN,
-    );
-    const vars = await readFile(join(first.directory, ".dev.vars"), "utf8");
-    expect(vars).toContain(
-      `SHARED_OUTCOMES_TOKEN=${first.env.SHARED_OUTCOMES_TOKEN}`,
-    );
-    expect(JSON.stringify(first.workerArgs)).not.toContain(
-      first.env.SHARED_OUTCOMES_TOKEN,
-    );
+    const runtime = await prepareVerificationRuntime(path, {});
+    expect(runtime.outcomesUrl).toBe("http://localhost:3000/shared-outcomes");
+    const vars = await readFile(join(runtime.directory, ".dev.vars"), "utf8");
+    expect(vars).not.toContain("SHARED_OUTCOMES_TOKEN");
   });
 
   it("検証用ポートを環境変数で選び、URL・Worker・Next に一貫して渡す", async () => {
@@ -132,10 +107,7 @@ describe("検証起動の隔離", () => {
     expect(runtime.appPort).toBe(3100);
     expect(runtime.apiPort).toBe(8788);
     expect(runtime.readyUrl).toBe("http://127.0.0.1:3100/login");
-    expect(runtime).toHaveProperty(
-      "outcomesUrl",
-      `http://localhost:3100/shared-outcomes#token=${runtime.env.SHARED_OUTCOMES_TOKEN}`,
-    );
+    expect(runtime.outcomesUrl).toBe("http://localhost:3100/shared-outcomes");
     expect(runtime.env.API_WORKER_URL).toBe("http://localhost:8788");
     expect(runtime.env.NEXT_PUBLIC_API_WORKER_URL).toBe(
       "http://localhost:8788",

@@ -19,13 +19,9 @@ const meta = {
     onCreate: fn(),
     onVote: fn(),
     onRetry: fn(),
-    outcomesLink: "http://localhost:3000/shared-outcomes#token=example-only",
-    outcomesLinkPending: false,
-    outcomesLinkError: false,
     roomName: "",
     onRoomNameChange: fn(),
     onOutcome: fn(),
-    onOutcomesLink: fn(),
     onRecover: fn(),
   },
 } satisfies Meta<typeof VerificationView>;
@@ -50,16 +46,4 @@ export const Member: Story = {
   },
 };
 
-export const OutcomesLink: Story = {
-  args: {
-    outcomesLink: "http://localhost:3000/shared-outcomes#token=example-only",
-    roomName: "学習会の企画",
-  },
-};
-
-export const LinkLoading: Story = {
-  args: { outcomesLink: null, outcomesLinkPending: true },
-};
-export const LinkFailure: Story = {
-  args: { outcomesLink: null, outcomesLinkError: true },
-};
+export const Outcomes: Story = { args: { roomName: "学習会の企画" } };

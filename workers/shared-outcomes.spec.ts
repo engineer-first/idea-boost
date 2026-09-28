@@ -1,47 +1,47 @@
 import { env } from "cloudflare:test";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { PERMISSIONS } from "../contracts/access";
 import worker from "./api-worker";
-import { createRoomAs, runInRoomDO } from "./test-helpers";
+import { createRoomAs, runInRoomDO, sessionCookieFor } from "./test-helpers";
 
-const TOKEN = "test-outcomes-token-with-32-bytes-entropy-equivalent";
 const owner = {
   sub: "11111111-1111-4111-8111-111111111111",
   name: "Owner",
   email: "owner@test.invalid",
 };
-const configured = () => ({ ...env, SHARED_OUTCOMES_TOKEN: TOKEN });
-function request(path = "", token: string | null = TOKEN, method = "GET") {
+let cookie: string;
+beforeAll(async () => {
+  cookie = await sessionCookieFor(owner);
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO users(id,email,name) VALUES(?,?,?)",
+  )
+    .bind(owner.sub, owner.email, owner.name)
+    .run();
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO user_permissions(user_id,permission) VALUES(?,?)",
+  )
+    .bind(owner.sub, PERMISSIONS.readSharedOutcomes)
+    .run();
+});
+const configured = () => env;
+function request(path = "", authenticated = true, method = "GET") {
   return new Request(`https://api.test/api/shared-outcomes${path}`, {
     method,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: authenticated ? { Cookie: cookie } : {},
   });
 }
-describe("共有成果の独立した秘密リンク認可", () => {
-  it("未設定・不一致・未認証と閲覧リンクでの更新を拒否する", async () => {
-    expect((await worker.fetch(request(), env)).status).toBe(403);
+describe("共有成果のセッション認可", () => {
+  it("未認証を拒否し、閲覧者の更新操作を禁止する", async () => {
+    expect((await worker.fetch(request("", false), env)).status).toBe(401);
     expect(
-      (await worker.fetch(request("", "wrong"), configured())).status,
-    ).toBe(403);
-    expect((await worker.fetch(request("", null), configured())).status).toBe(
-      403,
-    );
-    expect(
-      (await worker.fetch(request("", TOKEN, "POST"), configured())).status,
+      (await worker.fetch(request("", true, "POST"), configured())).status,
     ).toBe(405);
   });
-  it("有効なリンクはログインなしで使え、設定置換後は次の取得を拒否する", async () => {
+  it("閲覧権限のあるセッションは一覧を取得できる", async () => {
     const response = await worker.fetch(request(), configured());
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toEqual({ outcomes: [], nextCursor: null });
-    expect(
-      (
-        await worker.fetch(request(), {
-          ...env,
-          SHARED_OUTCOMES_TOKEN: "new-secret-value",
-        })
-      ).status,
-    ).toBe(403);
   });
   it("名前のないルームも作成時から保存し、削除後も保持する", async () => {
     const room = await createRoomAs(owner);

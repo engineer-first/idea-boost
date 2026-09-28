@@ -8,7 +8,6 @@ vi.mock("@/lib/api-client", () => ({ apiFetch: mocks.api }));
 import {
   createVerification,
   getVerificationActive,
-  getVerificationOutcomesLink,
   isVerificationEnabled,
 } from "./verification-server";
 
@@ -55,16 +54,4 @@ describe("検証APIのNext境界", () => {
     mocks.api.mockRejectedValue(new Error("offline"));
     expect((await getVerificationActive()).status).toBe(503);
   });
-});
-
-it("成果閲覧リンクはOwnerだけが取得でき、操作鍵を返さない", async () => {
-  mocks.user.mockResolvedValue({ sub: DEV_USERS[1].id });
-  expect((await getVerificationOutcomesLink()).status).toBe(403);
-  expect(mocks.api).not.toHaveBeenCalled();
-  mocks.user.mockResolvedValue({ sub: DEV_USERS[0].id });
-  mocks.api.mockResolvedValue(Response.json({ token: "a".repeat(64) }));
-  const response = await getVerificationOutcomesLink();
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ token: "a".repeat(64) });
-  expect(response.headers.get("Cache-Control")).toBe("no-store");
 });

@@ -42,7 +42,7 @@ export function SharedOutcomesView({
           <div className="space-y-2">
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <ShieldCheck className="size-4" aria-hidden />
-              秘密リンクによる閲覧専用
+              権限を持つログインユーザーの閲覧専用
             </p>
             <h1 className="text-2xl font-semibold tracking-tight">
               {detail

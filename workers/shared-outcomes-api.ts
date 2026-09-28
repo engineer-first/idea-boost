@@ -13,30 +13,10 @@ function response(body: unknown, status = 200): Response {
     },
   });
 }
-async function matches(actual: string, expected: string): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const [a, b] = await Promise.all([
-    crypto.subtle.digest("SHA-256", encoder.encode(actual)),
-    crypto.subtle.digest("SHA-256", encoder.encode(expected)),
-  ]);
-  const av = new Uint8Array(a),
-    bv = new Uint8Array(b);
-  let difference = 0;
-  for (let i = 0; i < av.length; i++) difference |= av[i] ^ bv[i];
-  return difference === 0;
-}
 export async function handleSharedOutcomes(
   request: Request,
   env: ApiWorkerEnv,
 ): Promise<Response> {
-  const expected = env.SHARED_OUTCOMES_TOKEN;
-  const authorization = request.headers.get("Authorization") ?? "";
-  if (
-    !expected ||
-    !authorization.startsWith("Bearer ") ||
-    !(await matches(authorization.slice(7), expected))
-  )
-    return response({ error: "この閲覧リンクは利用できません。" }, 403);
   if (request.method !== "GET")
     return response({ error: "読み取り専用です。" }, 405);
   const url = new URL(request.url);

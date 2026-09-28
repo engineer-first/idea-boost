@@ -62,7 +62,6 @@ export const Loading: Story = { args: { outcomes: [], loading: true } };
 export const Unavailable: Story = {
   args: {
     outcomes: [],
-    error:
-      "この秘密リンクでは閲覧できません。管理者へ有効なリンクをご確認ください。",
+    error: "共有成果の閲覧権限がありません。",
   },
 };

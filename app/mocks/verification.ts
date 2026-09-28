@@ -34,9 +34,6 @@ export function verificationHandlers({
     });
   }
   return [
-    http.get("*/api/verification/outcomes-link", () =>
-      Response.json({ token: "a".repeat(64) }),
-    ),
     http.get("*/api/verification/active", () => Response.json({ active })),
     http.get("*/api/verification/rooms/:id", () => Response.json(status())),
     http.post("*/api/verification/rooms/:id/vote", () => {

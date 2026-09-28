@@ -20,7 +20,7 @@
     "pretest:workers": "npm run gen:room-do-migrations",
     "test:workers": "vitest run --config vitest.workers.config.mts",
     "test:coverage": "vitest run --passWithNoTests --coverage",
-    "predev:api": "npm run gen:room-do-migrations && npm run outcomes:link -- issue local http://localhost:3000",
+    "predev:api": "npm run gen:room-do-migrations && npm run db:migrate",
     "dev:api": "wrangler dev --config workers/wrangler.jsonc --port 8787",
     "db:migrate": "wrangler d1 migrations apply DB --local --config workers/wrangler.jsonc",
     "db:schema:d1": "node --no-warnings scripts/build-d1-schema.mts",
@@ -49,7 +49,9 @@
     "release:record": "node scripts/release-history.mts",
     "release:submit": "node scripts/deploy-production.mts submit",
     "release:operator": "node scripts/release-operator.mts",
-    "outcomes:link": "node --no-warnings scripts/shared-outcomes-token.mts"
+    "access:grant": "node --no-warnings scripts/access.mts grant",
+    "access:revoke": "node --no-warnings scripts/access.mts revoke",
+    "access:list": "node --no-warnings scripts/access.mts list"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

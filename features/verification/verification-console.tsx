@@ -10,7 +10,7 @@ export function VerificationConsole({
   initialActive: VerificationActive | null;
   isOwner: boolean;
 }) {
-  const state = useVerification(initialActive, isOwner);
+  const state = useVerification(initialActive);
   return (
     <VerificationView
       {...state}
@@ -18,7 +18,6 @@ export function VerificationConsole({
       onCreate={state.create}
       onRoomNameChange={state.setRoomName}
       onOutcome={state.createOutcome}
-      onOutcomesLink={() => void state.getOutcomesLink()}
       onRecover={state.recoverOutcome}
       onVote={state.vote}
       onRetry={() => void state.refresh()}

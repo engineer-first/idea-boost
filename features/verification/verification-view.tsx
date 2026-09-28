@@ -19,13 +19,9 @@ export type VerificationViewProps = {
   onCreate: (checkpoint: VerificationCheckpoint) => void;
   onVote: () => void;
   onRetry: () => void;
-  outcomesLink: string | null;
-  outcomesLinkPending: boolean;
-  outcomesLinkError: boolean;
   roomName: string;
   onRoomNameChange: (name: string) => void;
   onOutcome: (scenario: VerificationOutcomeScenario) => void;
-  onOutcomesLink: () => void;
   onRecover: () => void;
 };
 export function VerificationView({
@@ -37,13 +33,9 @@ export function VerificationView({
   onCreate,
   onVote,
   onRetry,
-  outcomesLink,
-  outcomesLinkPending,
-  outcomesLinkError,
   roomName,
   onRoomNameChange,
   onOutcome,
-  onOutcomesLink,
   onRecover,
 }: VerificationViewProps) {
   return (
@@ -159,46 +151,11 @@ export function VerificationView({
             <p className="text-sm text-muted-foreground">
               障害を解除するとサーバーの再試行が再開します。期限切れは実際の30日判定を通り、一覧から消えます。
             </p>
-            {outcomesLinkPending && (
-              <p role="status" className="text-sm text-muted-foreground">
-                閲覧リンクを準備しています…
-              </p>
-            )}
-            {outcomesLinkError && (
-              <div
-                role="alert"
-                className="flex flex-wrap items-center gap-3 text-sm"
-              >
-                閲覧リンクを取得できませんでした。
-                <Button
-                  variant="outline"
-                  disabled={outcomesLinkPending}
-                  onClick={onOutcomesLink}
-                >
-                  閲覧リンクを再取得
-                </Button>
-              </div>
-            )}
-            {outcomesLink && (
-              <div className="space-y-2">
-                <Button asChild>
-                  <a href={outcomesLink} target="_blank" rel="noreferrer">
-                    成果一覧を開く
-                  </a>
-                </Button>
-                <label className="block space-y-1 text-sm">
-                  <span>
-                    未ログイン確認用リンク（コピーして別ブラウザで開く）
-                  </span>
-                  <input
-                    readOnly
-                    value={outcomesLink}
-                    onFocus={(event) => event.target.select()}
-                    className="block w-full rounded-md border bg-muted px-3 py-2"
-                  />
-                </label>
-              </div>
-            )}
+            <Button asChild>
+              <a href="/shared-outcomes" target="_blank" rel="noreferrer">
+                成果一覧を開く
+              </a>
+            </Button>
           </section>
         )}
         {isOwner ? (

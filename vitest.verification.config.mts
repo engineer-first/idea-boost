@@ -13,7 +13,6 @@ export default defineConfig({
         bindings: {
           TEST_MIGRATIONS: migrations,
           SESSION_SECRET: "test-only-session-secret-not-committed-to-prod",
-          SHARED_OUTCOMES_TOKEN: "a".repeat(64),
           IDEA_BOOST_VERIFY: "true",
           VERIFICATION_CONTROL_TOKEN:
             "verification-test-token-at-least-32-characters",

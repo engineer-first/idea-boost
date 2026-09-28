@@ -5,7 +5,6 @@ export {
   createVerification,
   createVerificationOutcome,
   getVerificationActive,
-  getVerificationOutcomesLink,
   getVerificationStatus,
   isVerificationEnabled,
   recoverVerificationOutcome,

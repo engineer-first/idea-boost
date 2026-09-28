@@ -39,27 +39,6 @@ const api = createApiWorker(async (request, baseEnv, session) => {
     env.ROOM_DO as unknown as DurableObjectNamespace<VerificationRoomDO>;
   if (request.method === "POST" && session.sub !== DEV_USERS[0].id)
     return Response.json({ error: "Ownerのみ操作できます。" }, { status: 403 });
-  if (request.method === "GET" && path === "/api/verification/outcomes-link") {
-    if (session.sub !== DEV_USERS[0].id)
-      return Response.json(
-        { error: "Ownerのみ操作できます。" },
-        { status: 403 },
-      );
-    if (!env.SHARED_OUTCOMES_TOKEN)
-      return Response.json(
-        { error: "閲覧設定がありません。" },
-        { status: 503 },
-      );
-    return Response.json(
-      { token: env.SHARED_OUTCOMES_TOKEN },
-      {
-        headers: {
-          "Cache-Control": "no-store",
-          "Referrer-Policy": "no-referrer",
-        },
-      },
-    );
-  }
   if (request.method === "POST" && path === "/api/verification/outcomes") {
     const parsed = VerificationOutcomeRequestSchema.safeParse(
       await request.json().catch(() => null),

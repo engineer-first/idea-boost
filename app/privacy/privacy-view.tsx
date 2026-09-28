@@ -17,15 +17,12 @@ export function PrivacyView() {
           </p>
         </section>
         <section className="space-y-2">
-          <h2 className="font-semibold">秘密リンクを持つ人が閲覧できます</h2>
+          <h2 className="font-semibold">権限を持つ運営者が閲覧します</h2>
           <p className="leading-relaxed">
-            管理者が発行する秘密リンクを持つ人は、ログインせずに、保存期間内の全ルームの共有成果を閲覧できます。リンクを転送した相手も同じ範囲を閲覧でき、閲覧者を特定することはできません。秘密リンクは公開せず、必要な相手だけに渡してください。
+            サービス改善のため、Googleでログインし、成果閲覧権限を付与された運営者が、保存期間内の全ルームの共有成果を閲覧します。
           </p>
           <p className="leading-relaxed">
             共有本文は自動で匿名化されません。氏名・連絡先などの個人情報や機密情報を書かないでください。
-          </p>
-          <p className="leading-relaxed">
-            秘密リンク自体に有効期限はなく、管理者が置換・無効化するまで使えます。同じリンクで、後日作られたルームの成果も閲覧できます。
           </p>
         </section>
         <section className="space-y-2">

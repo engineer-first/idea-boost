@@ -35,9 +35,9 @@ it("一覧の各ルームは並行取得し、各ルーム内は初期化の後�
   } as unknown as typeof env.ROOM_DO;
   const response = handleSharedOutcomes(
     new Request("https://api.test/api/shared-outcomes", {
-      headers: { Authorization: "Bearer test" },
+      headers: {},
     }),
-    { ...env, SHARED_OUTCOMES_TOKEN: "test", ROOM_DO: namespace },
+    { ...env, ROOM_DO: namespace },
   );
   try {
     await vi.waitFor(() => expect(started.size).toBe(2));

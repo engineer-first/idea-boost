@@ -41,23 +41,20 @@ describe("共有成果閲覧", () => {
         screen.queryByRole("heading", { name: "完了時点の共有ボード" }),
       ).not.toBeInTheDocument();
   });
-  it("秘密値をURLリクエストへ入れず、取得ごとに認可し失効時に前の内容を隠す", async () => {
-    window.history.replaceState(null, "", "/shared-outcomes#token=secret");
+  it("取得ごとに認可し、剥奪時に前の内容を隠す", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
         Response.json({ outcomes: [buildSharedOutcome()], nextCursor: null }),
       )
-      .mockResolvedValueOnce(new Response(null, { status: 401 }));
+      .mockResolvedValueOnce(new Response(null, { status: 403 }));
     vi.stubGlobal("fetch", fetchMock);
     render(<SharedOutcomes />);
     await screen.findByRole("button", { name: /相談ルーム/ });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/shared-outcomes",
       expect.objectContaining({
-        headers: { Authorization: "Bearer secret" },
         cache: "no-store",
-        referrerPolicy: "no-referrer",
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "最新の状態を取得" }));
@@ -67,7 +64,6 @@ describe("共有成果閲覧", () => {
     ).not.toBeInTheDocument();
   });
   it("一覧から詳細へ進み戻る操作でも新しく取得する", async () => {
-    window.history.replaceState(null, "", "/shared-outcomes#token=secret");
     const record = buildSharedOutcome();
     const fetchMock = vi
       .fn()

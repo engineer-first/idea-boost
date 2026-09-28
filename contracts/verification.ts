@@ -78,9 +78,6 @@ export const VerificationOutcomeRequestSchema = z
     roomName: z.string().trim().max(80).optional(),
   })
   .strict();
-export const VerificationOutcomesLinkSchema = z.object({
-  token: z.string().regex(/^[a-f0-9]{64}$/),
-});
 export const VerificationOutcomeRecoverySchema = z.object({
   recovered: z.literal(true),
 });
