@@ -223,6 +223,129 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onCursorLeave).not.toHaveBeenCalled();
   });
 
+  it("マイ付箋エリアの上側にある拡張認識範囲ではドラッグを解除しない", () => {
+    const { result, onCursorLeave, onNoteDragCancel } = setup({
+      withSharedDrag: true,
+    });
+    const toolbar = document.createElement("div");
+    toolbar.getBoundingClientRect = () => new DOMRect(600, 200, 200, 200);
+    result.current.privateToolbarRef.current = toolbar;
+    const surface = document.createElement("button");
+    surface.getBoundingClientRect = () => new DOMRect(100, 100, 192, 144);
+
+    act(() => {
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 7,
+        clientX: 150,
+        clientY: 150,
+        currentTarget: surface,
+      } as unknown as PointerEvent<HTMLButtonElement>);
+      result.current.onPresencePointerLeave({
+        pointerId: 7,
+        clientX: 650,
+        clientY: 130,
+      } as unknown as PointerEvent<HTMLDivElement>);
+    });
+
+    expect(onNoteDragCancel).not.toHaveBeenCalled();
+    expect(onCursorLeave).not.toHaveBeenCalled();
+    expect(result.current.isNoteDragging).toBe(true);
+  });
+
+  it("最初の共有付箋を戻すとき、ドラッグプレビューをマイ付箋一覧内に収める", () => {
+    const { result } = setup({ withSharedDrag: true });
+    const toolbar = document.createElement("div");
+    toolbar.getBoundingClientRect = () => new DOMRect(600, 0, 300, 600);
+    const scrollContainer = document.createElement("section");
+    scrollContainer.dataset.testid = "private-notes-scroll";
+    scrollContainer.getBoundingClientRect = () =>
+      new DOMRect(612, 128, 216, 350);
+    Object.defineProperty(scrollContainer, "scrollTop", {
+      configurable: true,
+      value: 0,
+      writable: true,
+    });
+    Object.defineProperty(scrollContainer, "scrollHeight", {
+      configurable: true,
+      value: 350,
+    });
+    Object.defineProperty(scrollContainer, "clientHeight", {
+      configurable: true,
+      value: 350,
+    });
+    toolbar.append(scrollContainer);
+    result.current.privateToolbarRef.current = toolbar;
+
+    const surface = document.createElement("button");
+    surface.getBoundingClientRect = () => new DOMRect(100, 100, 192, 144);
+    const originalRequestFrame = Object.getOwnPropertyDescriptor(
+      window,
+      "requestAnimationFrame",
+    );
+    const originalCancelFrame = Object.getOwnPropertyDescriptor(
+      window,
+      "cancelAnimationFrame",
+    );
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      value: () => 1,
+    });
+    Object.defineProperty(window, "cancelAnimationFrame", {
+      configurable: true,
+      value: vi.fn(),
+    });
+
+    try {
+      act(() => {
+        result.current.onNoteDragStart("shared-1", {
+          pointerId: 7,
+          clientX: 150,
+          clientY: 150,
+          currentTarget: surface,
+        } as unknown as PointerEvent<HTMLButtonElement>);
+        result.current.onPointerMove({
+          pointerId: 7,
+          clientX: 650,
+          clientY: 132,
+        } as unknown as PointerEvent<HTMLDivElement>);
+      });
+
+      expect(result.current.dragPreview).toMatchObject({
+        left: 612,
+        top: 128,
+      });
+
+      act(() =>
+        result.current.onPointerMove({
+          pointerId: 7,
+          clientX: 650,
+          clientY: 470,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
+
+      expect(result.current.dragPreview?.top).toBe(334);
+    } finally {
+      if (originalRequestFrame) {
+        Object.defineProperty(
+          window,
+          "requestAnimationFrame",
+          originalRequestFrame,
+        );
+      } else {
+        Reflect.deleteProperty(window, "requestAnimationFrame");
+      }
+      if (originalCancelFrame) {
+        Object.defineProperty(
+          window,
+          "cancelAnimationFrame",
+          originalCancelFrame,
+        );
+      } else {
+        Reflect.deleteProperty(window, "cancelAnimationFrame");
+      }
+    }
+  });
+
   it("shared drag 中に toolbar 以外へ出る presence leave は付箋操作とカーソルを同時に解除する", () => {
     const { result, onCursorLeave, onNoteDragCancel } = setup({
       withSharedDrag: true,
