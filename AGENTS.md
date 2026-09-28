@@ -29,6 +29,7 @@
 | D1 / RoomDO のスキーマ・migration                  | [Migration](docs/agent-workflows.md#migration)               |
 | Issue の作成・編集・振り分け・調査・状態判断       | [Issue 運用](docs/issue-management.md)                       |
 | PR 作成・本文更新                                  | [write-pr](.claude/skills/write-pr/SKILL.md)                 |
+| PR / Issue への画像・動画の添付                    | [github-media](.agents/skills/github-media/SKILL.md)         |
 | エージェント指示・ハーネスの保守                   | [保守記録](docs/agent-guidance-maintenance.md)               |
 
 ## 開発と検証

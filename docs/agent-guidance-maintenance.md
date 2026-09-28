@@ -112,3 +112,14 @@ Codex CLIの同じセッションを3ターン実行した。`$release` で下�
 `edit` でタイトルを「結果をテキストで保存」へ変更、`cancel` で終了できた。
 候補SHA・比較元・関連PRは維持され、operator呼び出しは読取statusの1回だけだった。
 この検証は自然言語編集とキャンセルの接続を対象とし、本番公開の成功を保証するものではない。
+
+## GitHub の画面資料（2026-09-29）
+
+GitHub CLI 2.99.0 以降の `--attach` に合わせ、PR と Issue の画像・動画添付を
+[github-media](../.agents/skills/github-media/SKILL.md) に集約した。
+PR の動作確認資料はコメントにまとめ、`write-pr` が本文からリンクする。
+Issue の要件を説明する画面イメージは本文、追加の調査結果はコメントに置く。
+旧 `write-pr` のブラウザ専用手順は削除し、PR テンプレートをコメント添付の方針に揃えた。
+Issue 運用と `AGENTS.md` から新しい Skill へ辿れるようにした。
+Codex のリポジトリ Skill は `.agents/skills` に置き、Claude Code からは同じファイルへの symlink を使う。
+ユーザー領域に同名 Skill は設けず、このリポジトリの運用をチームで共有する。
