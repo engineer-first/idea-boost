@@ -90,10 +90,10 @@ describe("検証起動の隔離", () => {
     expect(vars).toContain(`VERIFICATION_CONTROL_TOKEN=${token}`);
   });
 
-  it("成果閲覧URLに秘密値を含めない", async () => {
+  it("公開するサイトURLに秘密値を含めない", async () => {
     const path = await project();
     const runtime = await prepareVerificationRuntime(path, {});
-    expect(runtime.outcomesUrl).toBe("http://localhost:3000/shared-outcomes");
+    expect(runtime.env.NEXT_PUBLIC_SITE_URL).toBe("http://localhost:3000");
     const vars = await readFile(join(runtime.directory, ".dev.vars"), "utf8");
     expect(vars).not.toContain("SHARED_OUTCOMES_TOKEN");
   });
@@ -107,7 +107,6 @@ describe("検証起動の隔離", () => {
     expect(runtime.appPort).toBe(3100);
     expect(runtime.apiPort).toBe(8788);
     expect(runtime.readyUrl).toBe("http://127.0.0.1:3100/login");
-    expect(runtime.outcomesUrl).toBe("http://localhost:3100/shared-outcomes");
     expect(runtime.env.API_WORKER_URL).toBe("http://localhost:8788");
     expect(runtime.env.NEXT_PUBLIC_API_WORKER_URL).toBe(
       "http://localhost:8788",
