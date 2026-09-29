@@ -44,11 +44,15 @@ export async function handleCompletedRooms(
       )
       .all<{ room_id: string; completed_at: number }>();
     const page = rows.results.slice(0, 20);
+    const results = await Promise.all(
+      page.map((row) =>
+        env.ROOM_DO.get(env.ROOM_DO.idFromName(row.room_id)).getCompletedRoom(
+          userId,
+        ),
+      ),
+    );
     const rooms: CompletedRoomsResponse["rooms"] = [];
-    for (const row of page) {
-      const completed = await env.ROOM_DO.get(
-        env.ROOM_DO.idFromName(row.room_id),
-      ).getCompletedRoom(userId);
+    for (const completed of results) {
       if (completed)
         rooms.push({
           roomId: completed.roomId,

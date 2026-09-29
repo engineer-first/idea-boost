@@ -10,7 +10,10 @@ export async function proxyCompletedRooms(path: string): Promise<Response> {
     return Response.json({ error: "unauthorized" }, { status: 401, headers });
   try {
     const response = await apiFetch(path, { cache: "no-store" });
-    return Response.json(await response.json(), {
+    const body: unknown = await response
+      .json()
+      .catch(() => ({ error: "unavailable" }));
+    return Response.json(body, {
       status: response.status,
       headers,
     });

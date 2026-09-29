@@ -39,3 +39,15 @@ it("通信失敗を一覧0件に変換しない", async () => {
     (await GET(new Request("https://app.test/api/completed-rooms"))).status,
   ).toBe(503);
 });
+it.each([
+  404, 500, 502,
+])("JSONでない応答でも上流の%sを保持する", async (status) => {
+  mocks.user.mockResolvedValue({ sub: "user" });
+  mocks.api.mockResolvedValue(new Response("<html>error</html>", { status }));
+  const res = await GET(new Request("https://app.test/api/completed-rooms"));
+  expect(res.status).toBe(status);
+  expect(await res.json()).toEqual({ error: "unavailable" });
+  expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+  expect(res.headers.get("Referrer-Policy")).toBe("no-referrer");
+  expect(res.headers.get("X-Robots-Tag")).toBe("noindex, nofollow");
+});

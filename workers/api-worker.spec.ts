@@ -390,6 +390,69 @@ describe("ユーザー同期（ログイン時の upsert）", () => {
 });
 
 describe("退出（POST /api/rooms/:id/leave）", () => {
+  it("旧ルームでも未認証・非ホストからの要求はホストを補完せず、ルームを解散しない", async () => {
+    const { roomId, inviteCode } = await createRoomAs(OWNER);
+    await joinRoomAs(MEMBER, inviteCode);
+    await runInRoomDO(roomId, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE room_owner SET host_id = NULL WHERE id = 1",
+      );
+    });
+    for (const [user, status] of [
+      [null, 401],
+      [OUTSIDER, 404],
+      [MEMBER, 204],
+    ] as const) {
+      const res = await SELF.fetch(
+        `https://api.test/api/rooms/${roomId}/leave`,
+        {
+          method: "POST",
+          headers: {
+            ...(user ? { Cookie: await sessionCookie(user) } : {}),
+            [HOST_ID_HEADER]: user?.sub ?? OWNER.sub,
+          },
+        },
+      );
+      expect(res.status).toBe(status);
+      await runInRoomDO(roomId, (_instance, state) => {
+        expect(
+          state.storage.sql
+            .exec("SELECT host_id FROM room_owner WHERE id = 1")
+            .one().host_id,
+        ).toBeNull();
+      });
+      expect(
+        await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
+          .bind(roomId)
+          .first(),
+      ).not.toBeNull();
+    }
+    expect(await listMemberIds(roomId)).toEqual([OWNER.sub]);
+  });
+
+  it("ホスト未補完の旧ルームをWS再接続なしで解散できる", async () => {
+    const { roomId } = await createRoomAs(OWNER);
+    await runInRoomDO(roomId, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE room_owner SET host_id = NULL WHERE id = 1",
+      );
+    });
+    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
+      method: "POST",
+      headers: {
+        Cookie: await sessionCookie(OWNER),
+        [HOST_ID_HEADER]: OUTSIDER.sub,
+      },
+    });
+    expect(res.status).toBe(204);
+    expect(
+      await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
+        .bind(roomId)
+        .first(),
+    ).toBeNull();
+    expect(await listMemberIds(roomId)).toEqual([]);
+  });
+
   it("メンバーは退出でき 204 を返す", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);

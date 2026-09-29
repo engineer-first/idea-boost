@@ -17,6 +17,8 @@ import { roomWebSocketUrl } from "@/lib/room-client/ws-url";
 import type { RoomScreenConnectionStatus } from "./connection-status";
 import { roomNotify } from "./room-notify";
 
+const COMPLETION_REQUEST_TIMEOUT_MS = 10_000;
+
 export type UseRoomConnectionOptions = {
   roomId: string;
   onMessage: (message: ServerMessage) => void;
@@ -49,15 +51,24 @@ export function useRoomConnection({
   });
 
   useEffect(() => {
-    let completionRequest: AbortController | null = null;
+    let completionRequest: {
+      controller: AbortController;
+      timeout: ReturnType<typeof setTimeout>;
+    } | null = null;
     function cancelCompletionRequest(): void {
-      completionRequest?.abort();
+      if (!completionRequest) return;
+      clearTimeout(completionRequest.timeout);
+      completionRequest.controller.abort();
       completionRequest = null;
     }
     async function recoverCompletedRoom(): Promise<void> {
       if (completionRequest || isLeavingRef?.current) return;
       const request = new AbortController();
-      completionRequest = request;
+      const timeout = setTimeout(
+        cancelCompletionRequest,
+        COMPLETION_REQUEST_TIMEOUT_MS,
+      );
+      completionRequest = { controller: request, timeout };
       try {
         const response = await fetch(
           `/api/completed-rooms/${encodeURIComponent(roomId)}`,
@@ -80,7 +91,8 @@ export function useRoomConnection({
       } catch {
         // オフラインや一時障害では通常のWS再接続を続け、次の失敗時に再確認する。
       } finally {
-        if (completionRequest === request) completionRequest = null;
+        clearTimeout(timeout);
+        if (completionRequest?.controller === request) completionRequest = null;
       }
     }
     const client = createRoomClient({

@@ -208,7 +208,7 @@ export class RoomDO extends DurableObject {
     if (isRoomClosed(this.sql)) throw new Error("終了したルームです。");
     await this.upsertMember(hostId, hostName);
     // room_owner は api-worker が D1 rooms.host_id から渡した値だけで初期化する。
-    // 以後も WS 接続時の ensureHost 以外に独立して書き換える経路を持たない。
+    // 以後も WS 接続・解散時は、同じ D1 の値で未設定の旧ルームだけを補完する。
     ensureHost(this.sql, hostId);
     savePhase(this.sql, { kind: "lobby" });
     if (outcomeIdentity)
@@ -262,13 +262,15 @@ export class RoomDO extends DurableObject {
   }
 
   // ルーム解散。参加・編集用の状態を消去し、期限内の成果と再試行だけ残す。
-  async disband(byUserId?: string): Promise<boolean> {
+  async disband(byUserId?: string, hostId?: string): Promise<boolean> {
     if (
       readCompletion(this.sql) ||
       this.sql.exec("SELECT outcome_published FROM room_state WHERE id=1").one()
         .outcome_published === 1
     )
       return false;
+    // WS 未接続の旧ルームも、api-worker が解決した D1 のホストで補完する。
+    if (hostId) ensureHost(this.sql, hostId);
     if (
       byUserId &&
       !isHostUser(this.sql, byUserId) &&

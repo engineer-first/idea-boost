@@ -236,7 +236,7 @@ async function handleLeaveRoom(
   // 解散の成立は RoomDO の状態変更順で決める。D1 は許可後だけ削除する。
   if (room.hostId === session.sub && body.data.intent !== "self") {
     await stub.ensureSharedOutcome(roomId, room.createdAt);
-    if (!(await stub.disband(session.sub)))
+    if (!(await stub.disband(session.sub, room.hostId)))
       return error(409, "完了したルームは解散できません。");
     await deleteRoom(env.DB, roomId);
     return new Response(null, { status: 204 });

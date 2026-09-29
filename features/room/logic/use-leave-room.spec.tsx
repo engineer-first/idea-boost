@@ -135,8 +135,10 @@ it("完了後のホストは本人退出を送り、解散通知を出さない"
   );
   act(() => result.current.leave());
   await waitFor(() => expect(notifyMocks.roomLeft).toHaveBeenCalledTimes(1));
-  expect((LEAVE_ROOM.mock.calls[0]?.[0] as FormData).get("intent")).toBe(
-    "self",
-  );
+  const formData = LEAVE_ROOM.mock.calls[0]?.[0];
+  expect(formData).toBeInstanceOf(FormData);
+  if (!(formData instanceof FormData))
+    throw new Error("退出要求が送信されていない");
+  expect(formData.get("intent")).toBe("self");
   expect(notifyMocks.roomDisbandedBySelf).not.toHaveBeenCalled();
 });
