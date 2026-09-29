@@ -120,6 +120,8 @@ GitHub CLI 2.99.0 以降の `--attach` に合わせ、PR と Issue の画像・�
 PR の動作確認資料はコメントにまとめ、`write-pr` が本文からリンクする。
 Issue の要件を説明する画面イメージは本文、追加の調査結果はコメントに置く。
 旧 `write-pr` のブラウザ専用手順は削除し、PR テンプレートをコメント添付の方針に揃えた。
-Issue 運用と `AGENTS.md` から新しい Skill へ辿れるようにした。
+Issue 運用と `write-pr` から新しい Skill へ辿れるようにした。
 Codex のリポジトリ Skill は `.agents/skills` に置き、Claude Code からは同じファイルへの symlink を使う。
+[Codex の Skill 読込仕様](https://learn.chatgpt.com/docs/build-skills)により、作業中のリポジトリの Skill は自動探索され、通常は名前と説明が初期リストに載る。このため、添付 Skill の所在を知らせるだけの行は `AGENTS.md` に置かない。
+既存の `write-pr` 行は、PR 作成・本文更新でその手順を必ず読むという規則として維持する。
 ユーザー領域に同名 Skill は設けず、このリポジトリの運用をチームで共有する。
