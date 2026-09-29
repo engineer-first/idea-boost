@@ -20,6 +20,28 @@ export async function handleSharedOutcomes(
   if (request.method !== "GET")
     return response({ error: "読み取り専用です。" }, 405);
   const url = new URL(request.url);
+  const historyMatch = url.pathname.match(
+    /^\/api\/shared-outcomes\/([^/]+)\/history(?:\/([^/]+))?$/,
+  );
+  if (historyMatch) {
+    const [, roomId, recordId] = historyMatch;
+    if (!isUuid(roomId) || (recordId && !isUuid(recordId)))
+      return response({ error: "記録が見つかりません。" }, 404);
+    const rawCursor = url.searchParams.get("cursor");
+    const cursor = rawCursor === null ? 0 : Number(rawCursor);
+    if (!Number.isSafeInteger(cursor) || cursor < 0)
+      return response({ error: "取得位置が不正です。" }, 400);
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
+    const record = recordId
+      ? await stub.getProgressHistoryRecord(recordId)
+      : await stub.getProgressHistory(cursor);
+    return record
+      ? response(record)
+      : response(
+          { error: "記録が見つからないか、保存期間が終了しました。" },
+          404,
+        );
+  }
   const match = url.pathname.match(/^\/api\/shared-outcomes\/([^/]+)$/);
   if (match) {
     if (!isUuid(match[1]))

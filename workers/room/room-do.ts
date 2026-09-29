@@ -32,6 +32,8 @@ import {
   WS_CLOSE_ROOM_DISBANDED_REASON,
 } from "../../contracts/room-protocol";
 import type {
+  ProgressHistoryRecord,
+  ProgressHistoryResponse,
   SharedOutcomeRecord,
   SharedOutcomeSnapshot,
 } from "../../contracts/shared-outcomes";
@@ -76,6 +78,7 @@ import {
   savePhase,
 } from "./phase";
 import { presenceHandlers } from "./presence";
+import { ProgressHistoryStorage } from "./progress-history";
 import { SharedOutcomeStorage } from "./shared-outcome-storage";
 import { captureSharedOutcome, readOutcomeState } from "./shared-outcomes";
 import {
@@ -136,10 +139,17 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
 export class RoomDO extends DurableObject {
   private readonly broadcaster: RoomBroadcaster;
   private readonly outcomes: SharedOutcomeStorage;
+  private readonly history: ProgressHistoryStorage;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.broadcaster = new RoomBroadcaster(ctx);
+    this.history = new ProgressHistoryStorage(
+      ctx,
+      env.DB,
+      (id, snapshot, expiresAt) =>
+        this.writeProgressHistoryProjection(id, snapshot, expiresAt),
+    );
     this.outcomes = new SharedOutcomeStorage(ctx, env.DB, (snapshot) =>
       this.writeSharedOutcomeProjection(snapshot),
     );
@@ -295,10 +305,29 @@ export class RoomDO extends DurableObject {
 
   protected async flushSharedOutcome(): Promise<void> {
     await this.outcomes.flushSharedOutcome();
+    await this.history.flush();
   }
 
   async getSharedOutcome(): Promise<SharedOutcomeRecord | null> {
     return this.outcomes.getSharedOutcome();
+  }
+
+  async getProgressHistory(
+    cursor = 0,
+  ): Promise<ProgressHistoryResponse | null> {
+    return this.history.list(cursor);
+  }
+  async getProgressHistoryRecord(
+    id: string,
+  ): Promise<ProgressHistoryRecord | null> {
+    return this.history.get(id);
+  }
+  protected async writeProgressHistoryProjection(
+    id: string,
+    snapshot: string,
+    expiresAt: number,
+  ): Promise<void> {
+    await this.history.writeProjection(id, snapshot, expiresAt);
   }
 
   listMembers(): ProtocolMember[] {
@@ -332,7 +361,10 @@ export class RoomDO extends DurableObject {
       return new Response("expected websocket", { status: 426 });
     }
 
-    await this.processExpiredTransition();
+    if (!(await this.processExpiredTransition()))
+      return new Response("保存期限後の削除を再試行しています。", {
+        status: 503,
+      });
     const userId = request.headers.get(USER_ID_HEADER);
     if (!userId || !isMember(this.sql, userId)) {
       return new Response("forbidden", { status: 403 });
@@ -362,7 +394,15 @@ export class RoomDO extends DurableObject {
     ws: WebSocket,
     raw: ArrayBuffer | string,
   ): Promise<void> {
-    await this.processExpiredTransition();
+    if (!(await this.processExpiredTransition())) {
+      this.broadcaster.sendTo(ws, {
+        type: "error",
+        code: "invalid-message",
+        message:
+          "保存期限後の削除を再試行しています。時間をおいてもう一度お試しください。",
+      });
+      return;
+    }
     const attachment = ws.deserializeAttachment() as SocketAttachment | null;
     if (!attachment) {
       ws.close(1011, "missing attachment");
@@ -379,7 +419,17 @@ export class RoomDO extends DurableObject {
       return;
     }
 
-    await this.handleClientMessage(ws, attachment, message);
+    try {
+      await this.handleClientMessage(ws, attachment, message);
+    } catch (error) {
+      if (message.type !== "start_phase" && !message.type.startsWith("phase:"))
+        throw error;
+      this.broadcaster.sendTo(ws, {
+        type: "error",
+        code: "invalid-message",
+        message: "進行の記録を保存できませんでした。もう一度お試しください。",
+      });
+    }
   }
 
   override async webSocketClose(
@@ -441,7 +491,7 @@ export class RoomDO extends DurableObject {
   }
 
   override async alarm(): Promise<void> {
-    await this.processExpiredTransition();
+    if (!(await this.processExpiredTransition())) return;
     await startPendingSharingTurn({
       sql: this.sql,
       storage: this.ctx.storage,
@@ -452,12 +502,43 @@ export class RoomDO extends DurableObject {
     await syncRoomAlarm(this.ctx.storage, this.sql);
   }
 
-  private async processExpiredTransition(): Promise<void> {
+  private async processExpiredTransition(): Promise<boolean> {
+    const outcome = readOutcomeState(this.sql);
+    if (outcome && outcome.expires_at <= Date.now()) {
+      // 期限後の再開が未削除の過去記録を延命しないよう、共有操作より先に削除する。
+      await this.flushSharedOutcome();
+      const remaining = readOutcomeState(this.sql);
+      if (
+        remaining?.saved_json ||
+        remaining?.pending_json ||
+        this.sql.exec("SELECT 1 FROM progress_history LIMIT 1").toArray()
+          .length > 0
+      )
+        return false;
+    }
     const ctx = this.createHandlerCtx({} as WebSocket, "");
     const before = getPhaseRevision(this.sql);
-    await completeExpiredPhaseTransition({ ...ctx, reply: () => {} });
-    if (getPhaseRevision(this.sql) !== before)
-      await this.preserveSharedOutcome();
+    try {
+      await completeExpiredPhaseTransition({ ...ctx, reply: () => {} });
+    } catch {
+      this.sql.exec("DELETE FROM pending_phase_transition WHERE id=1");
+      this.broadcaster.broadcastToAll({
+        type: "error",
+        code: "invalid-message",
+        message: "進行の記録を保存できませんでした。もう一度お試しください。",
+      });
+      await syncRoomAlarm(this.ctx.storage, this.sql);
+      return true;
+    }
+    if (getPhaseRevision(this.sql) !== before) {
+      await this.outcomes.recordSharedActivity();
+      try {
+        await this.preserveSharedOutcome();
+      } catch {
+        /* 履歴の保全は移行と同時に成立済み */
+      }
+    }
+    return true;
   }
 
   // ------------------------------------------------------------
@@ -511,6 +592,15 @@ export class RoomDO extends DurableObject {
       isPhaseStep(phase, 3, 5) &&
       getDecision(this.sql, 3)
     ) {
+      if (
+        readOutcomeState(this.sql)?.confirmed ||
+        this.sql
+          .exec("SELECT outcome_published FROM room_state WHERE id=1")
+          .one().outcome_published === 1
+      ) {
+        ctx.reply({ type: "outcome:published", published: true });
+        return;
+      }
       try {
         await this.preserveSharedOutcome(true);
       } catch {
@@ -522,11 +612,15 @@ export class RoomDO extends DurableObject {
         });
         return;
       }
+      this.broadcaster.broadcastToAll({
+        type: "outcome:published",
+        published: true,
+      });
+      return;
     }
     const affectsOutcome =
-      (isBoardMutation(message) && !message.type.startsWith("note:drag:")) ||
-      message.type === "start_phase" ||
-      message.type.startsWith("phase:");
+      isBoardMutation(message) && !message.type.startsWith("note:drag:");
+    const phaseBefore = getPhaseRevision(this.sql);
     const before = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
       : null;
@@ -557,7 +651,17 @@ export class RoomDO extends DurableObject {
       "noteId" in message &&
       typeof message.noteId === "string" &&
       findNote(this.sql, message.noteId)?.visibility === "shared";
-    if (before !== after || (!rejected && (sharedVote || sharedDragEnded)))
+    if (getPhaseRevision(this.sql) !== phaseBefore) {
+      await this.outcomes.recordSharedActivity();
+      try {
+        await this.preserveSharedOutcome();
+      } catch {
+        /* 履歴は移行と同時に保全済み */
+      }
+    } else if (
+      before !== after ||
+      (!rejected && (sharedVote || sharedDragEnded))
+    )
       await this.preserveSharedOutcome();
     else if (!rejected && affectsSharedActivity) {
       const activityAfter = JSON.stringify({

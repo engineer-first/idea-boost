@@ -34,6 +34,8 @@ const ALL_TABLES = [
   "note_votes",
   "notes",
   "pending_phase_transition",
+  "progress_history",
+  "progress_history_outbox",
   "room_owner",
   "room_state",
   "schema_migrations",

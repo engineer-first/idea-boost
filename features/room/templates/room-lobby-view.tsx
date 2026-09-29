@@ -113,7 +113,7 @@ export function RoomLobbyView({
         </header>
 
         <p className="text-center text-sm text-muted-foreground">
-          共有した成果は自動保存されます。
+          途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。
           <Link
             href="/privacy"
             target="_blank"

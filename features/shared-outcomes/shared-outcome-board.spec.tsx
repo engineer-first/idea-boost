@@ -39,3 +39,17 @@ describe("成果の2軸盤面", () => {
     expect(note).toHaveAttribute("y", "375");
   });
 });
+
+it("保存した色と重なり順を盤面に再現する", () => {
+  const snapshot = buildSharedOutcome().snapshot;
+  if (!snapshot) throw new Error("snapshot required");
+  snapshot.notes = [
+    { ...snapshot.notes[0], id: "front", color: "blue", stackOrder: 2 },
+    { ...snapshot.notes[0], id: "back", color: "pink", stackOrder: 1 },
+  ];
+  snapshot.groups = [];
+  render(<SharedOutcomeBoard label="課題" phase={1} snapshot={snapshot} />);
+  const rectangles = screen.getByRole("img").querySelectorAll("rect");
+  expect(rectangles[0]).toHaveAttribute("fill", "#F39AB5");
+  expect(rectangles[1]).toHaveAttribute("fill", "#88BDF2");
+});

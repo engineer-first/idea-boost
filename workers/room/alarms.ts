@@ -27,6 +27,23 @@ export async function syncRoomAlarm(
     deadlines.push(Date.now() + 1);
   }
 
+  const history = sql
+    .exec("SELECT MIN(retry_at) AS retry_at FROM progress_history_outbox")
+    .toArray()[0];
+  if (
+    typeof history?.retry_at === "number" &&
+    typeof outcome?.expires_at === "number" &&
+    outcome.expires_at > Date.now()
+  )
+    deadlines.push(history.retry_at);
+  if (
+    typeof outcome?.expires_at === "number" &&
+    outcome.expires_at <= Date.now() &&
+    sql.exec("SELECT 1 FROM progress_history LIMIT 1").toArray().length > 0 &&
+    typeof outcome.retry_at !== "number"
+  )
+    deadlines.push(Date.now() + 1);
+
   const pending = sql
     .exec("SELECT deadline_at FROM pending_phase_transition WHERE id = 1")
     .toArray()[0];

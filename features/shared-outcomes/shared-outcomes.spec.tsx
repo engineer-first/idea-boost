@@ -71,6 +71,7 @@ describe("共有成果閲覧", () => {
         Response.json({ outcomes: [record], nextCursor: null }),
       )
       .mockResolvedValueOnce(Response.json(record))
+      .mockResolvedValueOnce(Response.json({ entries: [], nextCursor: null }))
       .mockResolvedValueOnce(Response.json({ outcomes: [], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);
     render(<SharedOutcomes />);
@@ -78,7 +79,7 @@ describe("共有成果閲覧", () => {
     await screen.findByRole("heading", { name: "決定した3項目" });
     fireEvent.click(screen.getByRole("button", { name: "成果一覧へ戻る" }));
     await screen.findByText("保存期間内の成果はありません。");
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
   });
   it("決定内容・候補外・グループ・保存失敗と前回成功分を表示する", async () => {
     const record = buildSharedOutcome({ saveStatus: "failed" });
