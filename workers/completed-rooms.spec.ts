@@ -832,3 +832,79 @@ it("A15: 初回完了由来の期限1ms前・等値・1ms後で、本文と索�
     socket?.close();
   }
 });
+
+it("導入前の完了ルームでも稼働中タイマーを停止し、過去のアラームを再予約しない", async () => {
+  const room = await createRoomAs(host);
+  await runInRoomDO(room.roomId, async (instance, state) => {
+    const now = Date.now();
+    state.storage.sql.exec(
+      "UPDATE room_state SET outcome_published=1 WHERE id=1",
+    );
+    state.storage.sql.exec(
+      "UPDATE timer_state SET status='running',ends_at=?,duration_ms=60000 WHERE id=1",
+      now + 10000,
+    );
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now + 20000);
+    try {
+      await instance.alarm();
+      expect(await state.storage.getAlarm()).toBeGreaterThan(Date.now());
+      expect(
+        state.storage.sql.exec("SELECT status FROM timer_state").one().status,
+      ).toBe("idle");
+      await instance.alarm();
+      expect(await state.storage.getAlarm()).toBeGreaterThan(Date.now());
+    } finally {
+      clock.mockRestore();
+    }
+  });
+});
+
+it("旧完了ルームもホスト本人が退出でき、未完了ホスト・非メンバー・未認証は許可しない", async () => {
+  const room = await createRoomAs(host);
+  expect(
+    (
+      await request(`rooms/${room.roomId}/leave`, host, "POST", {
+        intent: "self",
+      })
+    ).status,
+  ).toBe(409);
+  await runInRoomDO(room.roomId, (_instance, state) => {
+    state.storage.sql.exec(
+      "UPDATE room_state SET outcome_published=1 WHERE id=1",
+    );
+  });
+  expect(
+    (
+      await request(`rooms/${room.roomId}/leave`, outsider, "POST", {
+        intent: "self",
+      })
+    ).status,
+  ).toBe(404);
+  expect(
+    (
+      await worker.fetch(
+        new Request(`https://api.test/api/rooms/${room.roomId}/leave`, {
+          method: "POST",
+        }),
+        env,
+      )
+    ).status,
+  ).toBe(401);
+  expect(
+    (await request(`rooms/${room.roomId}/leave`, host, "POST")).status,
+  ).toBe(409);
+  expect(
+    (
+      await request(`rooms/${room.roomId}/leave`, host, "POST", {
+        intent: "self",
+      })
+    ).status,
+  ).toBe(204);
+  expect((await request(`rooms/${room.roomId}`)).status).toBe(404);
+  expect((await request(`completed-rooms/${room.roomId}`)).status).toBe(404);
+  expect(
+    await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
+      .bind(room.roomId)
+      .first(),
+  ).not.toBeNull();
+});

@@ -218,6 +218,14 @@ export class RoomDO extends DurableObject {
       );
   }
 
+  isCompleted(): boolean {
+    // 再訪記録を持たない導入前のルームも、公開済みなら完了として扱う。
+    return (
+      this.sql.exec("SELECT outcome_published FROM room_state WHERE id=1").one()
+        .outcome_published === 1
+    );
+  }
+
   isJoinable(): boolean {
     return !isRoomClosed(this.sql);
   }
@@ -551,6 +559,14 @@ export class RoomDO extends DurableObject {
   override async alarm(): Promise<void> {
     if (!(await this.processExpiredTransition())) return;
     if (isRoomClosed(this.sql)) {
+      // 導入前の完了では fixCompletion を通っていないため、残った進行予約も止める。
+      this.ctx.storage.transactionSync(() => {
+        this.sql.exec("DELETE FROM pending_phase_transition");
+        this.sql.exec("DELETE FROM sharing_state");
+        this.sql.exec(
+          "UPDATE timer_state SET status='idle',ends_at=NULL,remaining_ms=NULL,duration_ms=NULL WHERE id=1",
+        );
+      });
       await this.flushSharedOutcome();
       await syncRoomAlarm(this.ctx.storage, this.sql);
       return;

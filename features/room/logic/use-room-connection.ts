@@ -6,6 +6,7 @@
 // - onMessage は最新のハンドラへ届ける（ハンドラ差し替えで再接続しない）
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CompletedRoomSchema } from "@/contracts/completed-rooms";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import {
   createRoomClient,
@@ -48,10 +49,48 @@ export function useRoomConnection({
   });
 
   useEffect(() => {
+    let completionRequest: AbortController | null = null;
+    function cancelCompletionRequest(): void {
+      completionRequest?.abort();
+      completionRequest = null;
+    }
+    async function recoverCompletedRoom(): Promise<void> {
+      if (completionRequest || isLeavingRef?.current) return;
+      const request = new AbortController();
+      completionRequest = request;
+      try {
+        const response = await fetch(
+          `/api/completed-rooms/${encodeURIComponent(roomId)}`,
+          {
+            cache: "no-store",
+            signal: request.signal,
+          },
+        );
+        if (!response.ok) return;
+        const completed = CompletedRoomSchema.safeParse(await response.json());
+        if (
+          request.signal.aborted ||
+          !completed.success ||
+          completed.data.roomId !== roomId ||
+          isLeavingRef?.current
+        )
+          return;
+        client.close();
+        router.replace(`/completed-rooms/${encodeURIComponent(roomId)}`);
+      } catch {
+        // オフラインや一時障害では通常のWS再接続を続け、次の失敗時に再確認する。
+      } finally {
+        if (completionRequest === request) completionRequest = null;
+      }
+    }
     const client = createRoomClient({
       url: roomWebSocketUrl(roomId),
       onMessage: (message) => onMessageRef.current(message),
       onStatusChange: (status) => {
+        if (status === "open" || status === "ended" || status === "disbanded")
+          cancelCompletionRequest();
+        // 完了時に切断中だった在籍者にも、通知の受信に依存しない復帰経路を持つ。
+        if (status === "closed") void recoverCompletedRoom();
         // 退出・解散による意図的切断: 再接続せずホームへ戻す。
         if (status === "ended" || status === "disbanded") {
           // 他メンバーが解散されたときだけここで理由を出す。
@@ -68,6 +107,7 @@ export function useRoomConnection({
     });
     clientRef.current = client;
     return () => {
+      cancelCompletionRequest();
       clientRef.current = null;
       client.close();
     };

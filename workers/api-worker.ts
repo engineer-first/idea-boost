@@ -244,10 +244,7 @@ async function handleLeaveRoom(
   if (!(await stub.isMember(session.sub)))
     return error(404, "ルームが見つかりませんでした。");
   // 進行中のホスト退出は既存どおり解散のみ。本人退出は完了時だけ許す。
-  if (
-    room.hostId === session.sub &&
-    !(await stub.getCompletedRoom(session.sub))
-  )
+  if (room.hostId === session.sub && !(await stub.isCompleted()))
     return error(409, "進行中のホストはルームを解散してください。");
 
   await stub.leave(session.sub);
