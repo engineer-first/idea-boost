@@ -90,6 +90,14 @@ describe("検証起動の隔離", () => {
     expect(vars).toContain(`VERIFICATION_CONTROL_TOKEN=${token}`);
   });
 
+  it("公開するサイトURLに秘密値を含めない", async () => {
+    const path = await project();
+    const runtime = await prepareVerificationRuntime(path, {});
+    expect(runtime.env.NEXT_PUBLIC_SITE_URL).toBe("http://localhost:3000");
+    const vars = await readFile(join(runtime.directory, ".dev.vars"), "utf8");
+    expect(vars).not.toContain("SHARED_OUTCOMES_TOKEN");
+  });
+
   it("検証用ポートを環境変数で選び、URL・Worker・Next に一貫して渡す", async () => {
     const runtime = await prepareVerificationRuntime(await project(), {
       IDEA_BOOST_VERIFY_APP_PORT: "3100",

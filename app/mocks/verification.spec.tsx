@@ -9,6 +9,9 @@ describe("検証ページの通信", () => {
     const onCreate = vi.fn();
     server.use(...verificationHandlers({ onCreate }));
     render(<VerificationConsole initialActive={null} isOwner />);
+    expect(
+      await screen.findByRole("link", { name: "成果一覧を開く" }),
+    ).toHaveAttribute("href", "/shared-outcomes");
     fireEvent.click(screen.getByRole("button", { name: /2-3 投票/ }));
     await waitFor(() => expect(onCreate).toHaveBeenCalledWith("2-3"));
     await waitFor(() =>

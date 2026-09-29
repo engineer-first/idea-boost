@@ -4,14 +4,17 @@ import {
 } from "../../contracts/board";
 import { isResultStep, isVotingStep } from "../../contracts/phase";
 import { DOT_VOTE_LIMITS } from "../../contracts/room-protocol";
+import type { SharedOutcomeSnapshot } from "../../contracts/shared-outcomes";
 import {
   VERIFICATION_CHECKPOINTS,
   type VerificationCheckpoint,
+  type VerificationOutcomeScenario,
   type VerificationStatus,
   type VerificationVoteRequest,
 } from "../../contracts/verification";
 import { DEV_USERS } from "../../lib/session/dev-users";
 import { RoomBroadcaster } from "./broadcast";
+import { decisionHandlers } from "./decision-handlers";
 import { setDecision } from "./decisions";
 import { groupHandlers } from "./groups";
 import type { HandlerCtx } from "./handler-context";
@@ -20,6 +23,7 @@ import { noteHandlers } from "./note-handlers";
 import { findNote, insertNote, type NoteRow, toProtocolNote } from "./notes";
 import { getPhase, savePhase } from "./phase";
 import { RoomDO } from "./room-do";
+import { readOutcomeState } from "./shared-outcomes";
 import { VERIFICATION_NOTES } from "./verification-content";
 import { addVoteSticker, countUserVotes, hasCompletedVoting } from "./votes";
 
@@ -32,6 +36,8 @@ function noteId(phase: number, index: number): string {
 export class VerificationRoomDO extends RoomDO {
   async initializeVerification(
     checkpoint: VerificationCheckpoint,
+    roomId?: string,
+    roomName?: string,
   ): Promise<void> {
     await this.ctx.blockConcurrencyWhile(async () => {
       if (this.listMembers().length || (await this.ctx.storage.get(META_KEY)))
@@ -87,7 +93,83 @@ export class VerificationRoomDO extends RoomDO {
       if (target.kind === "step")
         for (let phase = 1; phase <= target.phase; phase++)
           await this.ctx.storage.put(`verification-prepared-${phase}`, true);
+      if (roomId) await this.initializeSharedOutcome(roomId, roomName);
     });
+  }
+
+  async prepareVerificationOutcome(
+    scenario: VerificationOutcomeScenario,
+  ): Promise<void> {
+    if (!(await this.ctx.storage.get(META_KEY)))
+      throw new Error("検証ルームがありません。");
+    if (scenario !== "empty") {
+      this.seedGroups();
+      this.ctx.storage.sql.exec(
+        "UPDATE notes SET visibility = 'private' WHERE id = ?",
+        noteId(3, 11),
+      );
+      this.ctx.storage.sql.exec(
+        "UPDATE notes SET excluded = 1 WHERE id = ?",
+        noteId(3, 10),
+      );
+      await this.preserveSharedOutcome();
+      await this.flushSharedOutcome();
+    }
+    if (scenario === "failure")
+      await this.ctx.storage.put("verification-outcome-failure", true);
+    if (scenario === "completed" || scenario === "failure") {
+      setDecision(
+        this.ctx.storage.sql,
+        3,
+        noteId(3, 0),
+        DEV_USERS[0].id,
+        VERIFICATION_NOTES[3][0],
+      );
+      await this.preserveSharedOutcome(true);
+      decisionHandlers["outcome:publish"](
+        this.handlerContext(DEV_USERS[0].id),
+        { type: "outcome:publish" },
+      );
+      await this.flushSharedOutcome();
+    }
+    if (scenario === "expired") {
+      this.ctx.storage.sql.exec(
+        "UPDATE shared_outcome_state SET last_used_at = ?, expires_at = ?, retry_at = ? WHERE id = 1",
+        Date.now() - 31 * 86400000,
+        Date.now() - 86400000,
+        Date.now(),
+      );
+      await this.flushSharedOutcome();
+    }
+  }
+
+  // 準備に失敗した検証ルームだけを破棄する。本番の解散による成果保持とは分ける。
+  async discardVerificationRoom(): Promise<void> {
+    const hasOutcome = Boolean(readOutcomeState(this.ctx.storage.sql));
+    await this.disband();
+    if (!hasOutcome) return;
+    // 進行中の投影を待ち、期限切れ処理で本文・outbox・D1索引を消す。
+    await this.flushSharedOutcome();
+    this.ctx.storage.sql.exec(
+      "UPDATE shared_outcome_state SET expires_at = 0, retry_at = 0 WHERE id = 1",
+    );
+    await this.flushSharedOutcome();
+  }
+
+  protected override async writeSharedOutcomeProjection(
+    snapshot: SharedOutcomeSnapshot | null,
+  ): Promise<void> {
+    if (await this.ctx.storage.get("verification-outcome-failure"))
+      throw new Error("検証用の成果投影障害");
+    await super.writeSharedOutcomeProjection(snapshot);
+  }
+
+  async recoverVerificationOutcome(): Promise<boolean> {
+    if (!(await this.ctx.storage.get(META_KEY))) return false;
+    await this.ctx.storage.delete("verification-outcome-failure");
+    // 元の pending 記録を変更せず、通常のアラーム経路を再開する。
+    await this.ctx.storage.setAlarm(Date.now() + 1);
+    return true;
   }
 
   override async webSocketMessage(

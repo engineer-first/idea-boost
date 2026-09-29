@@ -2,6 +2,8 @@
 // すべてのエンドポイントはセッション（または署名済みログイン主張）を要求する。
 // Next 側は UI とセッション Cookie の発行だけを担い、データへは必ずここを通る。
 import { z } from "zod";
+import { AccessEmailSchema, PERMISSIONS } from "../contracts/access";
+import { CreateRoomInputSchema } from "../contracts/api";
 import { isUuid } from "../contracts/ids";
 import {
   isValidInviteCode,
@@ -13,6 +15,7 @@ import {
   TOKEN_AUDIENCE,
 } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
+import { hasPermission, seedDevOwnerAccess } from "./lib/access";
 import {
   deleteRoom,
   ensureUser,
@@ -25,6 +28,7 @@ import {
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
 import { HOST_ID_HEADER, RoomDO, USER_ID_HEADER } from "./room/room-do";
+import { handleSharedOutcomes } from "./shared-outcomes-api";
 
 export { RoomDO };
 
@@ -84,14 +88,21 @@ async function handleAuthSync(
   }
 
   const userId = await upsertUserFromAssertion(env.DB, assertion);
+  if (assertion.kind === "dev") await seedDevOwnerAccess(env.DB);
   return json({ userId });
 }
 
 // POST /api/rooms — ルーム作成。D1 に行を作り、RoomDO に host を登録する。
 async function handleCreateRoom(
+  request: Request,
   env: ApiWorkerEnv,
   session: SessionPayload,
 ): Promise<Response> {
+  const body = CreateRoomInputSchema.safeParse(
+    (await readJsonBody(request)) ?? {},
+  );
+  if (!body.success)
+    return error(400, "ルーム名は80文字以内で入力してください。");
   await ensureUser(env.DB, {
     id: session.sub,
     email: session.email,
@@ -99,7 +110,11 @@ async function handleCreateRoom(
   });
   const room = await insertRoom(env.DB, session.sub);
   // 作成者をホスト登録し、フェーズを lobby（開始前）に初期化する。
-  await roomStub(env, room.roomId).initializeNewRoom(session.sub, session.name);
+  await roomStub(env, room.roomId).initializeNewRoom(
+    session.sub,
+    session.name,
+    { roomId: room.roomId, name: body.data.name },
+  );
   return json({ roomId: room.roomId, inviteCode: room.inviteCode });
 }
 
@@ -209,10 +224,11 @@ async function handleLeaveRoom(
   }
 
   // ホストの「退出」はルーム解散。残メンバーを開始不能にしない。
-  // D1 のディレクトリ抹消を先に行い fail-closed にする。
+  // 成果を先に保全し、その後は D1 ディレクトリ→作業領域の順に削除する。
   // disband 成功後に deleteRoom が失敗すると「招待コードで解決できるが
   // 中身は空」のゾンビルームが残り、ホストは既にメンバー外で再試行 404 になる。
   if (room.hostId === session.sub) {
+    await stub.ensureSharedOutcome(roomId, room.createdAt);
     await deleteRoom(env.DB, roomId);
     await stub.disband();
     return new Response(null, { status: 204 });
@@ -273,6 +289,7 @@ async function handleRoomWebSocket(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);
   headers.set(HOST_ID_HEADER, room.hostId);
@@ -324,13 +341,78 @@ export function createApiWorker(
         return error(401, "ログインが必要です。");
       }
 
+      if (
+        pathname === "/api/shared-outcomes" ||
+        pathname.startsWith("/api/shared-outcomes/")
+      ) {
+        if (
+          !(await hasPermission(
+            env.DB,
+            session.sub,
+            PERMISSIONS.readSharedOutcomes,
+          ))
+        )
+          return error(403, "成果の閲覧権限がありません。");
+        return handleSharedOutcomes(request, env);
+      }
+
+      if (pathname === "/api/admin/access") {
+        if (
+          !(await hasPermission(
+            env.DB,
+            session.sub,
+            PERMISSIONS.manageSharedOutcomesAccess,
+          ))
+        )
+          return error(403, "成果閲覧者の管理権限がありません。");
+        if (method === "GET") {
+          const rows = await env.DB.prepare(
+            "SELECT users.id, users.name, users.email FROM user_permissions JOIN users ON users.id = user_permissions.user_id WHERE user_permissions.permission = ? ORDER BY users.email",
+          )
+            .bind(PERMISSIONS.readSharedOutcomes)
+            .all<{ id: string; name: string | null; email: string }>();
+          return json({ users: rows.results });
+        }
+        if (method === "POST" || method === "DELETE") {
+          const parsed = AccessEmailSchema.safeParse(
+            await readJsonBody(request),
+          );
+          if (!parsed.success)
+            return error(400, "メールアドレスを確認してください。");
+          const user = await env.DB.prepare(
+            "SELECT id FROM users WHERE lower(email) = lower(?)",
+          )
+            .bind(parsed.data.email)
+            .first<{ id: string }>();
+          if (!user)
+            return error(
+              404,
+              "このユーザーはまだ Idea Boost に登録されていません。先に Google ログインしてください。",
+            );
+          if (method === "POST")
+            await env.DB.prepare(
+              "INSERT OR IGNORE INTO user_permissions(user_id,permission) VALUES(?,?)",
+            )
+              .bind(user.id, PERMISSIONS.readSharedOutcomes)
+              .run();
+          else
+            await env.DB.prepare(
+              "DELETE FROM user_permissions WHERE user_id = ? AND permission = ?",
+            )
+              .bind(user.id, PERMISSIONS.readSharedOutcomes)
+              .run();
+          return json({ ok: true });
+        }
+        return error(405, "利用できない操作です。");
+      }
+
       if (extension) {
         const response = await extension(request, env, session);
         if (response) return response;
       }
 
       if (method === "POST" && pathname === "/api/rooms") {
-        return handleCreateRoom(env, session);
+        return handleCreateRoom(request, env, session);
       }
 
       // /api/rooms/lookup — 招待コードからルーム解決（hostname を返す）

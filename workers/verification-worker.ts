@@ -1,5 +1,7 @@
 import {
+  type VerificationCheckpoint,
   VerificationCreateRequestSchema,
+  VerificationOutcomeRequestSchema,
   VerificationVoteRequestSchema,
 } from "../contracts/verification";
 import { DEV_USERS } from "../lib/session/dev-users";
@@ -37,6 +39,58 @@ const api = createApiWorker(async (request, baseEnv, session) => {
     env.ROOM_DO as unknown as DurableObjectNamespace<VerificationRoomDO>;
   if (request.method === "POST" && session.sub !== DEV_USERS[0].id)
     return Response.json({ error: "Ownerのみ操作できます。" }, { status: 403 });
+  if (request.method === "POST" && path === "/api/verification/outcomes") {
+    const parsed = VerificationOutcomeRequestSchema.safeParse(
+      await request.json().catch(() => null),
+    );
+    if (!parsed.success)
+      return Response.json(
+        { error: "検証ケースが不正です。" },
+        { status: 400 },
+      );
+    for (const user of DEV_USERS) await ensureUser(env.DB, user);
+    const room = await insertRoom(env.DB, DEV_USERS[0].id);
+    const stub = namespace.get(namespace.idFromName(room.roomId));
+    const checkpoint: VerificationCheckpoint =
+      parsed.data.scenario === "empty" ? "lobby" : "3-5";
+    try {
+      await stub.initializeVerification(
+        checkpoint,
+        room.roomId,
+        parsed.data.roomName,
+      );
+      await stub.prepareVerificationOutcome(parsed.data.scenario);
+      const active = {
+        roomId: room.roomId,
+        inviteCode: room.inviteCode,
+        checkpoint,
+      };
+      await workspace.setActive(active);
+      return Response.json(active);
+    } catch {
+      await deleteRoom(env.DB, room.roomId);
+      await stub.discardVerificationRoom();
+      // 初期化前の失敗にはDO側の成果状態がないため、初期索引も明示削除する。
+      await env.DB.prepare("DELETE FROM shared_outcomes WHERE room_id = ?")
+        .bind(room.roomId)
+        .run();
+      return Response.json(
+        { error: "検証状態の準備に失敗しました。" },
+        { status: 503 },
+      );
+    }
+  }
+  const recovery = path.match(
+    /^\/api\/verification\/outcomes\/([0-9a-f-]{36})\/recover$/,
+  );
+  if (request.method === "POST" && recovery) {
+    const stub = namespace.get(namespace.idFromName(recovery[1]));
+    const recovered = await stub.recoverVerificationOutcome();
+    return Response.json(
+      recovered ? { recovered: true } : { error: "検証ルームがありません。" },
+      { status: recovered ? 200 : 404 },
+    );
+  }
   if (request.method === "POST" && path === "/api/verification/rooms") {
     const parsed = VerificationCreateRequestSchema.safeParse(
       await request.json().catch(() => null),
@@ -50,7 +104,7 @@ const api = createApiWorker(async (request, baseEnv, session) => {
     const room = await insertRoom(env.DB, DEV_USERS[0].id);
     const stub = namespace.get(namespace.idFromName(room.roomId));
     try {
-      await stub.initializeVerification(parsed.data.checkpoint);
+      await stub.initializeVerification(parsed.data.checkpoint, room.roomId);
       const active = {
         roomId: room.roomId,
         inviteCode: room.inviteCode,

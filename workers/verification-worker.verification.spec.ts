@@ -1,11 +1,14 @@
 import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { PERMISSIONS } from "../contracts/access";
 import { isResultStep } from "../contracts/phase";
+import { TOKEN_AUDIENCE } from "../contracts/session";
 import {
   VERIFICATION_CHECKPOINTS,
   VerificationActiveSchema,
 } from "../contracts/verification";
 import { DEV_USERS } from "../lib/session/dev-users";
+import { signToken } from "../lib/session/token";
 import productionWorker from "./api-worker";
 import { getCarryovers, getDecision } from "./room/decisions";
 import { getIdeaMapSizeState } from "./room/idea-map";
@@ -16,6 +19,64 @@ import verificationWorker from "./verification-worker";
 
 const TOKEN = "verification-test-token-at-least-32-characters";
 const users = DEV_USERS.map((user) => ({ ...user, sub: user.id }));
+it("検証用ログイン後にOwnerだけが成果閲覧と管理を利用できる", async () => {
+  const member = DEV_USERS[1];
+  const assertion = await signToken(
+    { kind: "dev", userId: member.id, email: member.email, name: member.name },
+    {
+      secret: env.SESSION_SECRET,
+      audience: TOKEN_AUDIENCE.loginAssertion,
+      expiresInSeconds: 60,
+    },
+  );
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/auth/sync", {
+        method: "POST",
+        body: JSON.stringify({ assertion }),
+      })
+    ).status,
+  ).toBe(200);
+  const ownerCookie = await sessionCookieFor(users[0]);
+  const memberCookie = await sessionCookieFor(users[1]);
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/shared-outcomes", {
+        headers: { Cookie: ownerCookie },
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/admin/access", {
+        headers: { Cookie: ownerCookie },
+      })
+    ).status,
+  ).toBe(200);
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/shared-outcomes", {
+        headers: { Cookie: memberCookie },
+      })
+    ).status,
+  ).toBe(403);
+  expect(
+    (
+      await SELF.fetch("http://localhost/api/admin/access", {
+        headers: { Cookie: memberCookie },
+      })
+    ).status,
+  ).toBe(403);
+  const permissions = await env.DB.prepare(
+    "SELECT permission FROM user_permissions WHERE user_id=? ORDER BY permission",
+  )
+    .bind(DEV_USERS[0].id)
+    .all<{ permission: string }>();
+  expect(permissions.results.map((row) => row.permission)).toEqual([
+    PERMISSIONS.manageSharedOutcomesAccess,
+    PERMISSIONS.readSharedOutcomes,
+  ]);
+});
 async function headers(index = 0): Promise<Record<string, string>> {
   return {
     Cookie: await sessionCookieFor(users[index]),
@@ -328,4 +389,170 @@ describe("検証用の初期状態", () => {
       ).status,
     ).toBe(200);
   });
+});
+
+describe("成果の検証入口", () => {
+  it("セッションのない呼び出しでは状態準備できない", async () => {
+    const viewer = await SELF.fetch(
+      "http://localhost/api/verification/outcomes",
+      {
+        method: "POST",
+        headers: { Authorization: "Bearer old-secret" },
+        body: JSON.stringify({ scenario: "partial" }),
+      },
+    );
+    expect(viewer.status).toBe(404);
+  });
+});
+
+it("成果ケースは実保存を通り、失敗から同じ完了記録をアラームで復旧する", async () => {
+  async function outcome(scenario: string, roomName = "同名の検証") {
+    const response = await SELF.fetch(
+      "http://localhost/api/verification/outcomes",
+      {
+        method: "POST",
+        headers: await headers(),
+        body: JSON.stringify({ scenario, roomName }),
+      },
+    );
+    expect(response.status).toBe(200);
+    const active = VerificationActiveSchema.parse(await response.json());
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
+    return { active, stub };
+  }
+  const partial = await outcome("partial");
+  const partialRecord = await partial.stub.getSharedOutcome();
+  expect(partialRecord?.status).toBe("partial");
+  expect(partialRecord?.snapshot?.notes).toHaveLength(35);
+  expect(partialRecord?.snapshot?.groups).toHaveLength(2);
+  expect(partialRecord?.snapshot?.notes.some((note) => note.excluded)).toBe(
+    true,
+  );
+  const failed = await outcome("failure");
+  const failedRecord = await failed.stub.getSharedOutcome();
+  expect(failedRecord?.saveStatus).toBe("failed");
+  expect(failedRecord?.lastSavedAt).not.toBeNull();
+  expect(failedRecord?.snapshot?.decisions).toHaveLength(2);
+  const recovered = await SELF.fetch(
+    `http://localhost/api/verification/outcomes/${failed.active.roomId}/recover`,
+    { method: "POST", headers: await headers(), body: "{}" },
+  );
+  expect(recovered.status).toBe(200);
+  await runInDurableObject(failed.stub, async (instance, state) => {
+    state.storage.sql.exec(
+      "UPDATE shared_outcome_state SET retry_at = ? WHERE id = 1",
+      Date.now(),
+    );
+    await instance.alarm();
+  });
+  const confirmed = await failed.stub.getSharedOutcome();
+  expect(confirmed?.saveStatus).toBe("saved");
+  expect(confirmed?.status).toBe("confirmed");
+  expect(confirmed?.snapshot?.decisions).toHaveLength(3);
+  expect(confirmed?.displayId).not.toBe(partialRecord?.displayId);
+  const expired = await outcome("expired", "");
+  expect(await expired.stub.getSharedOutcome()).toBeNull();
+  expect(
+    await env.DB.prepare(
+      "SELECT room_id FROM shared_outcomes WHERE room_id = ?",
+    )
+      .bind(expired.active.roomId)
+      .first(),
+  ).toBeNull();
+  const empty = await outcome("empty");
+  expect((await empty.stub.getSharedOutcome())?.snapshot?.notes).toHaveLength(
+    0,
+  );
+});
+
+it.each([
+  "before-initialize",
+  "initialize",
+  "prepare",
+  "activate",
+])("成果準備の%s失敗では失敗ルームを残さず、元の検証先を維持する", async (stage) => {
+  const previous = await create("1-2");
+  let failedId = "";
+  const namespace = {
+    idFromName: (name: string) => env.ROOM_DO.idFromName(name),
+    get: (id: DurableObjectId) => {
+      const stub = env.ROOM_DO.get(id) as unknown as {
+        initializeVerification(
+          checkpoint: string,
+          roomId: string,
+          name?: string,
+        ): Promise<void>;
+        prepareVerificationOutcome(scenario: string): Promise<void>;
+        discardVerificationRoom(): Promise<void>;
+      };
+      return {
+        async initializeVerification(
+          checkpoint: string,
+          roomId: string,
+          name?: string,
+        ) {
+          failedId = roomId;
+          if (stage === "before-initialize")
+            throw new Error("before initialization");
+          await stub.initializeVerification(checkpoint, roomId, name);
+          if (stage === "initialize") throw new Error("initialization failed");
+        },
+        async prepareVerificationOutcome(scenario: string) {
+          await stub.prepareVerificationOutcome(scenario);
+          if (stage === "prepare") throw new Error("preparation failed");
+        },
+        discardVerificationRoom: () => stub.discardVerificationRoom(),
+      };
+    },
+  } as unknown as typeof env.ROOM_DO;
+  const workspace = {
+    idFromName: () => "active",
+    get: () => ({
+      setActive: async () => {
+        throw new Error("activation failed");
+      },
+    }),
+  } as unknown as import("./verification-worker").VerificationWorkerEnv["VERIFICATION_WORKSPACE"];
+  const response = await verificationWorker.fetch(
+    new Request("http://localhost/api/verification/outcomes", {
+      method: "POST",
+      headers: await headers(),
+      body: JSON.stringify({ scenario: "failure" }),
+    }),
+    {
+      ...env,
+      ROOM_DO: namespace,
+      IDEA_BOOST_VERIFY: "true",
+      VERIFICATION_CONTROL_TOKEN: TOKEN,
+      ...(stage === "activate" ? { VERIFICATION_WORKSPACE: workspace } : {}),
+    },
+  );
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({
+    error: "検証状態の準備に失敗しました。",
+  });
+  expect(
+    await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
+      .bind(failedId)
+      .first(),
+  ).toBeNull();
+  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(failedId));
+  await runInDurableObject(stub, async (instance, state) => {
+    if (stage !== "before-initialize") {
+      await instance.alarm();
+      expect(await instance.getSharedOutcome()).toBeNull();
+    } else {
+      expect((await state.storage.list()).size).toBe(0);
+    }
+    expect(await state.storage.getAlarm()).toBeNull();
+  });
+  expect(
+    await env.DB.prepare("SELECT room_id FROM shared_outcomes WHERE room_id=?")
+      .bind(failedId)
+      .first(),
+  ).toBeNull();
+  const active = await SELF.fetch("http://localhost/api/verification/active", {
+    headers: await headers(),
+  });
+  expect(await active.json()).toEqual({ active: previous });
 });

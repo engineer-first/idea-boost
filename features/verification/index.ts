@@ -3,7 +3,9 @@ export { VerificationFollower } from "./verification-follower";
 export {
   completeVerificationVotes,
   createVerification,
+  createVerificationOutcome,
   getVerificationActive,
   getVerificationStatus,
   isVerificationEnabled,
+  recoverVerificationOutcome,
 } from "./verification-server";

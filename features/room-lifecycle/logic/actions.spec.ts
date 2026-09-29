@@ -92,6 +92,23 @@ describe("createRoom", () => {
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
+  it("名前を正規化してAPIへ渡し、長すぎる名前は送信しない", async () => {
+    apiFetchMock.mockResolvedValue(
+      Response.json({
+        roomId: "123e4567-e89b-42d3-a456-426614174000",
+        inviteCode: "ABC123",
+      }),
+    );
+    await createRoom("  相談ルーム  ");
+    expect(apiFetchMock).toHaveBeenCalledWith(
+      "/api/rooms",
+      expect.objectContaining({ body: JSON.stringify({ name: "相談ルーム" }) }),
+    );
+    apiFetchMock.mockClear();
+    expect(await createRoom("あ".repeat(81))).toMatchObject({ ok: false });
+    expect(apiFetchMock).not.toHaveBeenCalled();
+  });
+
   it("API が非 2xx なら ok: false を返す", async () => {
     apiFetchMock.mockResolvedValue(new Response("error", { status: 500 }));
 

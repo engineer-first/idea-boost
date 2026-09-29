@@ -12,6 +12,10 @@ describe("検証の操作ページ", () => {
     onCreate: vi.fn(),
     onVote: vi.fn(),
     onRetry: vi.fn(),
+    roomName: "",
+    onRoomNameChange: vi.fn(),
+    onOutcome: vi.fn(),
+    onRecover: vi.fn(),
   };
   it("各ステップを1クリックで準備でき、ボードは専用タブで開く", () => {
     render(<VerificationView {...props} />);
@@ -21,6 +25,22 @@ describe("検証の操作ページ", () => {
       screen.getByRole("link", { name: "検証ボードを開く" }),
     ).toHaveAttribute("target", "idea-boost-verification");
     expect(screen.getByText(/まだ検証ルーム/)).toBeInTheDocument();
+  });
+  it("成果ケースと名前を準備操作に渡し、Ownerだけ一覧導線を表示する", () => {
+    const { rerender } = render(<VerificationView {...props} />);
+    fireEvent.change(screen.getByLabelText("成果検証のルーム名（任意）"), {
+      target: { value: "同名のテスト" },
+    });
+    expect(props.onRoomNameChange).toHaveBeenCalledWith("同名のテスト");
+    fireEvent.click(screen.getByRole("button", { name: "保存失敗を準備" }));
+    expect(props.onOutcome).toHaveBeenCalledWith("failure");
+    expect(
+      screen.getByRole("link", { name: "成果一覧を開く" }),
+    ).toHaveAttribute("href", "/shared-outcomes");
+    rerender(<VerificationView {...props} isOwner={false} />);
+    expect(
+      screen.queryByRole("link", { name: "成果一覧を開く" }),
+    ).not.toBeInTheDocument();
   });
   it("参加者は検証ルームを作り直せない", () => {
     render(<VerificationView {...props} isOwner={false} />);

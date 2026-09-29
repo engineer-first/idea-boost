@@ -56,6 +56,20 @@ describe("CreateRoomSection", () => {
     });
   });
 
+  it("任意のルーム名を作成処理へ渡す", async () => {
+    const user = userEvent.setup();
+    CREATE_ROOM.mockResolvedValueOnce({ ok: true, roomId: "room" });
+    render(<CreateRoomSection />);
+    await user.type(
+      screen.getByRole("textbox", { name: "ルーム名（任意）" }),
+      "新しいサービスの相談",
+    );
+    await user.click(screen.getByRole("button", { name: "ルームを作成" }));
+    await waitFor(() =>
+      expect(CREATE_ROOM).toHaveBeenCalledWith("新しいサービスの相談"),
+    );
+  });
+
   it("作成失敗時は error toast を出し遷移しない", async () => {
     const user = userEvent.setup();
     CREATE_ROOM.mockResolvedValueOnce({

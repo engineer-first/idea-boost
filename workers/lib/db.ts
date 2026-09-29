@@ -3,11 +3,13 @@
 
 import { generateInviteCode } from "../../contracts/invite-code";
 import type { LoginAssertion } from "../../contracts/session";
+import { SHARED_OUTCOME_RETENTION_MS } from "../../contracts/shared-outcomes";
 
 export type RoomRecord = {
   roomId: string;
   inviteCode: string;
   hostId: string;
+  createdAt?: number;
 };
 
 export async function findUserNameById(
@@ -119,12 +121,19 @@ export async function insertRoom(
     const roomId = crypto.randomUUID();
     const inviteCode = generateCode();
     try {
-      await db
-        .prepare(
-          "INSERT INTO rooms (id, invite_code, host_id) VALUES (?1, ?2, ?3)",
-        )
-        .bind(roomId, inviteCode, hostId)
-        .run();
+      const now = Date.now();
+      await db.batch([
+        db
+          .prepare(
+            "INSERT INTO rooms (id, invite_code, host_id) VALUES (?1, ?2, ?3)",
+          )
+          .bind(roomId, inviteCode, hostId),
+        db
+          .prepare(
+            "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?)",
+          )
+          .bind(roomId, now, now + SHARED_OUTCOME_RETENTION_MS),
+      ]);
       return { roomId, inviteCode, hostId };
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -155,11 +164,23 @@ export async function findRoomById(
   roomId: string,
 ): Promise<RoomRecord | null> {
   const row = await db
-    .prepare("SELECT id, invite_code, host_id FROM rooms WHERE id = ?1")
+    .prepare(
+      "SELECT id, invite_code, host_id, created_at FROM rooms WHERE id = ?1",
+    )
     .bind(roomId)
-    .first<{ id: string; invite_code: string; host_id: string }>();
+    .first<{
+      id: string;
+      invite_code: string;
+      host_id: string;
+      created_at: string;
+    }>();
   if (!row) return null;
-  return { roomId: row.id, inviteCode: row.invite_code, hostId: row.host_id };
+  return {
+    roomId: row.id,
+    inviteCode: row.invite_code,
+    hostId: row.host_id,
+    createdAt: Date.parse(`${row.created_at.replace(" ", "T")}Z`),
+  };
 }
 
 // ルーム行を削除する（ホストによる解散）。冪等: 無い id でも no-op。

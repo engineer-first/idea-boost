@@ -19,6 +19,10 @@ const meta = {
     onCreate: fn(),
     onVote: fn(),
     onRetry: fn(),
+    roomName: "",
+    onRoomNameChange: fn(),
+    onOutcome: fn(),
+    onRecover: fn(),
   },
 } satisfies Meta<typeof VerificationView>;
 export default meta;
@@ -41,3 +45,5 @@ export const Member: Story = {
     isOwner: false,
   },
 };
+
+export const Outcomes: Story = { args: { roomName: "学習会の企画" } };

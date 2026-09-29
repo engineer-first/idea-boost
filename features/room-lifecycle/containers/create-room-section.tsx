@@ -14,9 +14,9 @@ export function CreateRoomSection() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  function handleSubmit() {
+  function handleSubmit(name: string) {
     startTransition(async () => {
-      const result = await createRoom();
+      const result = await createRoom(name);
       if (!result.ok) {
         notify.error(result.error);
         return;

@@ -16,7 +16,11 @@
 // ハイバネーションでインメモリ状態は消える（次のイベントで constructor が再実行
 // される）ため、状態は毎回 SQL から導出し、各モジュールにキャッシュを持たせない。
 import { DurableObject } from "cloudflare:workers";
-import { isVotingStep, type RoomPhase } from "../../contracts/phase";
+import {
+  isPhaseStep,
+  isVotingStep,
+  type RoomPhase,
+} from "../../contracts/phase";
 import {
   type ClientMessage,
   type ProtocolMember,
@@ -27,6 +31,10 @@ import {
   WS_CLOSE_ROOM_DISBANDED,
   WS_CLOSE_ROOM_DISBANDED_REASON,
 } from "../../contracts/room-protocol";
+import type {
+  SharedOutcomeRecord,
+  SharedOutcomeSnapshot,
+} from "../../contracts/shared-outcomes";
 import {
   LEGACY_ROOM_DO_MIGRATION_IDS,
   migrateRoomStorage,
@@ -68,6 +76,8 @@ import {
   savePhase,
 } from "./phase";
 import { presenceHandlers } from "./presence";
+import { SharedOutcomeStorage } from "./shared-outcome-storage";
+import { captureSharedOutcome, readOutcomeState } from "./shared-outcomes";
 import {
   broadcastSharing,
   sharingHandlers,
@@ -125,10 +135,14 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
 
 export class RoomDO extends DurableObject {
   private readonly broadcaster: RoomBroadcaster;
+  private readonly outcomes: SharedOutcomeStorage;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.broadcaster = new RoomBroadcaster(ctx);
+    this.outcomes = new SharedOutcomeStorage(ctx, env.DB, (snapshot) =>
+      this.writeSharedOutcomeProjection(snapshot),
+    );
     // スキーマは room-do-migrations/ の版管理で管理する。
     // マイグレーション完了までイベント配信を止め、移行中のストレージに
     // 古い・新しいスキーマ前提の操作が届かないようにする。
@@ -164,12 +178,18 @@ export class RoomDO extends DurableObject {
   async initializeNewRoom(
     hostId: string,
     hostName: string | undefined,
+    outcomeIdentity?: { roomId: string; name?: string },
   ): Promise<void> {
     await this.upsertMember(hostId, hostName);
     // room_owner は api-worker が D1 rooms.host_id から渡した値だけで初期化する。
     // 以後も WS 接続時の ensureHost 以外に独立して書き換える経路を持たない。
     ensureHost(this.sql, hostId);
     savePhase(this.sql, { kind: "lobby" });
+    if (outcomeIdentity)
+      await this.initializeSharedOutcome(
+        outcomeIdentity.roomId,
+        outcomeIdentity.name,
+      );
   }
 
   isMember(userId: string): boolean {
@@ -199,10 +219,7 @@ export class RoomDO extends DurableObject {
     );
   }
 
-  // ルーム解散（ホスト操作）。全 WS を閉じ、ストレージを完全に空にする。
-  // deleteAll しないと room_state / room_owner / schema_migrations が残り、
-  // Durable Object が GC 対象にならない。次回起床時は constructor の
-  // マイグレーションがスキーマを再構築する。
+  // ルーム解散。参加・編集用の状態を消去し、期限内の成果と再試行だけ残す。
   async disband(): Promise<void> {
     for (const socket of this.ctx.getWebSockets()) {
       try {
@@ -211,7 +228,77 @@ export class RoomDO extends DurableObject {
         // 既に閉じている等のエラーは握りつぶす
       }
     }
-    await this.ctx.storage.deleteAll();
+    const outcome = readOutcomeState(this.sql);
+    if (!outcome) {
+      await this.ctx.storage.deleteAll();
+      return;
+    }
+    // 保全済みデータと outbox は解散後も維持し、自動再試行を継続する。
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec(
+        "UPDATE shared_outcome_identity SET disbanded = 1 WHERE id = 1",
+      );
+      for (const table of [
+        "notes",
+        "members",
+        "groups",
+        "decisions",
+        "note_votes",
+        "note_vote_stickers",
+        "note_content_receipts",
+        "used_note_drag_ids",
+        "member_color_assignments",
+        "pending_phase_transition",
+        "sharing_state",
+      ]) {
+        const exists = this.sql
+          .exec(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+            table,
+          )
+          .toArray().length;
+        if (exists) this.sql.exec(`DELETE FROM ${table}`);
+      }
+      this.sql.exec(
+        "UPDATE timer_state SET status = 'idle', ends_at = NULL, remaining_ms = NULL, duration_ms = NULL WHERE id = 1",
+      );
+      this.sql.exec("UPDATE room_owner SET host_id = NULL WHERE id = 1");
+    });
+    await syncRoomAlarm(this.ctx.storage, this.sql);
+  }
+
+  async ensureSharedOutcome(roomId: string, createdAt?: number): Promise<void> {
+    await this.outcomes.ensureSharedOutcome(roomId, createdAt);
+    await this.ctx.storage.sync();
+  }
+
+  protected async initializeSharedOutcome(
+    roomId: string,
+    name?: string,
+    createdAt = Date.now(),
+  ): Promise<void> {
+    await this.outcomes.initializeSharedOutcome(roomId, name, createdAt);
+  }
+
+  protected async preserveSharedOutcome(
+    confirmed = false,
+    now = Date.now(),
+  ): Promise<void> {
+    await this.outcomes.preserveSharedOutcome(confirmed, now);
+  }
+
+  protected async writeSharedOutcomeProjection(
+    snapshot: SharedOutcomeSnapshot | null,
+  ): Promise<void> {
+    await this.outcomes.writeSharedOutcomeProjection(snapshot);
+  }
+
+  protected async flushSharedOutcome(): Promise<void> {
+    await this.outcomes.flushSharedOutcome();
+  }
+
+  async getSharedOutcome(): Promise<SharedOutcomeRecord | null> {
+    return this.outcomes.getSharedOutcome();
   }
 
   listMembers(): ProtocolMember[] {
@@ -323,6 +410,8 @@ export class RoomDO extends DurableObject {
       if (active) {
         const row = findNote(this.sql, active.noteId);
         if (row?.visibility === "shared") {
+          // 終了メッセージが届かない切断でも、最後に受理した座標を保全する。
+          await this.preserveSharedOutcome();
           broadcastNoteUpdated(this.sql, this.broadcaster, row);
         }
         if (isIdeaMapVisiblePhase(getPhase(this.sql))) {
@@ -359,12 +448,16 @@ export class RoomDO extends DurableObject {
       broadcaster: this.broadcaster,
     });
     await handleTimerAlarm(this.sql, this.broadcaster);
+    await this.flushSharedOutcome();
     await syncRoomAlarm(this.ctx.storage, this.sql);
   }
 
   private async processExpiredTransition(): Promise<void> {
     const ctx = this.createHandlerCtx({} as WebSocket, "");
+    const before = getPhaseRevision(this.sql);
     await completeExpiredPhaseTransition({ ...ctx, reply: () => {} });
+    if (getPhaseRevision(this.sql) !== before)
+      await this.preserveSharedOutcome();
   }
 
   // ------------------------------------------------------------
@@ -411,7 +504,69 @@ export class RoomDO extends DurableObject {
       ctx: HandlerCtx,
       message: ClientMessage,
     ) => void | Promise<void>;
+    // 完了の成功通知より先に、同じ瞬間の盤面と再試行情報を永続化する。
+    if (
+      message.type === "outcome:publish" &&
+      isHostUser(this.sql, attachment.userId) &&
+      isPhaseStep(phase, 3, 5) &&
+      getDecision(this.sql, 3)
+    ) {
+      try {
+        await this.preserveSharedOutcome(true);
+      } catch {
+        ctx.reply({
+          type: "error",
+          code: "invalid-message",
+          message:
+            "完了時点の内容を保全できませんでした。接続を確認してもう一度お試しください。",
+        });
+        return;
+      }
+    }
+    const affectsOutcome =
+      (isBoardMutation(message) && !message.type.startsWith("note:drag:")) ||
+      message.type === "start_phase" ||
+      message.type.startsWith("phase:");
+    const before = affectsOutcome
+      ? JSON.stringify(captureSharedOutcome(this.sql, 0))
+      : null;
+    const affectsSharedActivity =
+      message.type.startsWith("timer:") || message.type.startsWith("sharing:");
+    const activityBefore = affectsSharedActivity
+      ? JSON.stringify({
+          timer: getTimerState(this.sql),
+          sharing: getSharingState(this.sql),
+        })
+      : null;
+    let rejected = false;
+    const reply = ctx.reply;
+    ctx.reply = (response) => {
+      if (response.type === "error") rejected = true;
+      reply(response);
+    };
+    let sharedDragEnded = false;
+    ctx.onSharedDragEnd = () => {
+      sharedDragEnded = true;
+    };
     await handler(ctx, message);
+    const after = affectsOutcome
+      ? JSON.stringify(captureSharedOutcome(this.sql, 0))
+      : null;
+    const sharedVote =
+      message.type.startsWith("note:vote") &&
+      "noteId" in message &&
+      typeof message.noteId === "string" &&
+      findNote(this.sql, message.noteId)?.visibility === "shared";
+    if (before !== after || (!rejected && (sharedVote || sharedDragEnded)))
+      await this.preserveSharedOutcome();
+    else if (!rejected && affectsSharedActivity) {
+      const activityAfter = JSON.stringify({
+        timer: getTimerState(this.sql),
+        sharing: getSharingState(this.sql),
+      });
+      if (activityBefore !== activityAfter)
+        await this.outcomes.recordSharedActivity();
+    }
   }
 
   private createHandlerCtx(

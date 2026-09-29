@@ -20,6 +20,8 @@ export type HandlerCtx = {
   // 深いハンドラでも失敗応答とクライアント表示を確実に対応付けられる。
   operationId?: string;
   broadcaster: RoomBroadcaster;
+  // 受理した共有付箋のドラッグ終了を、成果の保全へ接続する。
+  onSharedDragEnd?: () => void;
   // 結果ステップ遷移時に、接続を維持した各参加者へ受信者別の完全な状態を
   // 再送する。RoomDO が snapshot 構築を一元管理するためのコールバック。
   refreshSnapshots: () => void;

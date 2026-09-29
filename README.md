@@ -59,6 +59,14 @@ npm run dev
 まま誤って利用されることを防ぐため、意図的に認証処理で拒否されます。生成した
 値は Git にコミットせず、必ず両方のファイルで同じ値を使用してください。
 
+### 共有成果のローカル検証
+
+通常操作の共有成果は `dev` と `dev:api` を併用するとローカルへ保存され、再起動しても残ります。開発用 Owner でログインすると、`/shared-outcomes` の閲覧と `/admin/access` での閲覧者管理ができます。
+
+`npm run dev:verify` は通常開発と分離した保存先で起動します。Ownerで `/dev/verify` を開くと成果一覧への導線があり、途中・完了・空・保存失敗からの復旧・期限切れを準備できます。詳しくは [ローカル検証](docs/local-verification.md) と [共有成果の運用手順](docs/shared-outcomes.md) を参照してください。
+
+本番では既存の Google ログインと D1 のユーザー権限で閲覧を制御します。初期ユーザーへの権限付与は [共有成果の運用手順](docs/shared-outcomes.md) を参照してください。
+
 ### Orca の worktree
 
 Orca で新しい worktree を作る場合は、Settings → Repository → Hooks の

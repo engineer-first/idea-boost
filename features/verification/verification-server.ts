@@ -3,6 +3,8 @@ import { isUuid } from "@/contracts/ids";
 import {
   VerificationActiveSchema,
   VerificationCreateRequestSchema,
+  VerificationOutcomeRecoverySchema,
+  VerificationOutcomeRequestSchema,
   VerificationStatusSchema,
   VerificationVoteRequestSchema,
   VerificationWorkspaceSchema,
@@ -109,4 +111,34 @@ export async function completeVerificationVotes(
         parsed.data,
       )
     : error(400);
+}
+
+export async function createVerificationOutcome(
+  request: Request,
+): Promise<Response> {
+  const denied = await authorize(true);
+  if (denied) return denied;
+  if (request.headers.get("origin") !== new URL(request.url).origin)
+    return error(403);
+  const parsed = VerificationOutcomeRequestSchema.safeParse(
+    await request.json().catch(() => null),
+  );
+  return parsed.success
+    ? proxy("/api/verification/outcomes", VerificationActiveSchema, parsed.data)
+    : error(400);
+}
+export async function recoverVerificationOutcome(
+  request: Request,
+  id: string,
+): Promise<Response> {
+  const denied = await authorize(true);
+  if (denied) return denied;
+  if (!isUuid(id)) return error(404);
+  if (request.headers.get("origin") !== new URL(request.url).origin)
+    return error(403);
+  return proxy(
+    `/api/verification/outcomes/${id}/recover`,
+    VerificationOutcomeRecoverySchema,
+    {},
+  );
 }

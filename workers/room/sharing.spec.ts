@@ -277,8 +277,18 @@ describe("共有の遷移と同期", () => {
       step: 2,
     });
     expect(
-      await runInRoomDO(roomId, (_, context) => context.storage.getAlarm()),
-    ).toBeNull();
+      await runInRoomDO(roomId, async (_, context) => {
+        const row = context.storage.sql
+          .exec(
+            "SELECT retry_at, expires_at FROM shared_outcome_state WHERE id=1",
+          )
+          .one();
+        return (
+          (await context.storage.getAlarm()) ===
+          (row.retry_at ?? row.expires_at)
+        );
+      }),
+    ).toBe(true);
     owner.close();
     member.close();
   });
@@ -473,9 +483,15 @@ it.each([
     }),
   );
   await until(owner, "phase:updated");
-  expect(
-    await runInRoomDO(roomId, (_, state) => state.storage.getAlarm()),
-  ).toBeNull();
+  await runInRoomDO(roomId, async (_, state) => {
+    const row = state.storage.sql
+      .exec("SELECT retry_at, expires_at FROM shared_outcome_state WHERE id=1")
+      .one();
+    expect(await state.storage.getAlarm()).toBe(row.retry_at ?? row.expires_at);
+    expect(
+      state.storage.sql.exec("SELECT status FROM timer_state").one().status,
+    ).toBe("idle");
+  });
   const writing = await currentSnapshot(roomId);
   expect(writing).toMatchObject({
     phase: { kind: "step", phase, step: 1 },

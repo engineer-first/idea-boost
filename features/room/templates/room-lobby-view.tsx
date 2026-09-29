@@ -1,6 +1,7 @@
 "use client";
 
 import { DoorOpen, Link2, Play, Users } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -110,6 +111,18 @@ export function RoomLobbyView({
             </p>
           ) : null}
         </header>
+
+        <p className="text-center text-sm text-muted-foreground">
+          共有した成果は自動保存されます。
+          <Link
+            href="/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-1 underline underline-offset-4"
+          >
+            保存とプライバシーについて（別タブ）
+          </Link>
+        </p>
 
         <div
           className={`grid gap-4 sm:items-stretch ${

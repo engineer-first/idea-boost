@@ -1,4 +1,7 @@
-import type { VerificationCheckpoint } from "@/contracts/verification";
+import type {
+  VerificationCheckpoint,
+  VerificationOutcomeScenario,
+} from "@/contracts/verification";
 
 export const VERIFICATION_DESCRIPTIONS: Record<VerificationCheckpoint, string> =
   {
@@ -18,3 +21,14 @@ export const VERIFICATION_DESCRIPTIONS: Record<VerificationCheckpoint, string> =
     "3-4": "マップ配置済み。Memberは投票完了、OwnerとViewerは未投票。",
     "3-5": "アイデアの集計済み・採用前。除外・復元・検討中候補の共有を確認。",
   };
+
+export const OUTCOME_CASES: ReadonlyArray<{
+  scenario: VerificationOutcomeScenario;
+  label: string;
+}> = [
+  { scenario: "partial", label: "途中" },
+  { scenario: "completed", label: "完了" },
+  { scenario: "empty", label: "成果なし" },
+  { scenario: "failure", label: "保存失敗" },
+  { scenario: "expired", label: "期限切れ" },
+];

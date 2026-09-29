@@ -4,10 +4,11 @@ import {
   VERIFICATION_CHECKPOINTS,
   type VerificationActive,
   type VerificationCheckpoint,
+  type VerificationOutcomeScenario,
   type VerificationStatus,
 } from "@/contracts/verification";
 import { DEV_USERS } from "@/lib/session/dev-users";
-import { VERIFICATION_DESCRIPTIONS } from "./verification-copy";
+import { OUTCOME_CASES, VERIFICATION_DESCRIPTIONS } from "./verification-copy";
 
 export type VerificationViewProps = {
   active: VerificationActive | null;
@@ -18,6 +19,10 @@ export type VerificationViewProps = {
   onCreate: (checkpoint: VerificationCheckpoint) => void;
   onVote: () => void;
   onRetry: () => void;
+  roomName: string;
+  onRoomNameChange: (name: string) => void;
+  onOutcome: (scenario: VerificationOutcomeScenario) => void;
+  onRecover: () => void;
 };
 export function VerificationView({
   active,
@@ -28,6 +33,10 @@ export function VerificationView({
   onCreate,
   onVote,
   onRetry,
+  roomName,
+  onRoomNameChange,
+  onOutcome,
+  onRecover,
 }: VerificationViewProps) {
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-muted/20">
@@ -101,6 +110,54 @@ export function VerificationView({
             </div>
           )}
         </section>
+        {isOwner && (
+          <section
+            aria-label="共有成果の検証"
+            className="space-y-4 rounded-xl border bg-background p-5"
+          >
+            <h2 className="text-lg font-semibold">共有成果の保存と閲覧</h2>
+            <p className="text-sm text-muted-foreground">
+              各ケースは新しいルームを作ります。非共有メモは成果に含まれません。完了後にボードを編集しても確定した記録は変わりません。
+            </p>
+            <label className="block space-y-2 text-sm">
+              <span>成果検証のルーム名（任意）</span>
+              <input
+                className="block w-full rounded-md border bg-background px-3 py-2"
+                value={roomName}
+                maxLength={80}
+                disabled={pending}
+                onChange={(event) => onRoomNameChange(event.target.value)}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {OUTCOME_CASES.map((item) => (
+                <Button
+                  key={item.scenario}
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => onOutcome(item.scenario)}
+                >
+                  {item.label}を準備
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                disabled={pending || !active}
+                onClick={onRecover}
+              >
+                現在のルームの保存障害を解除
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              障害を解除するとサーバーの再試行が再開します。期限切れは実際の30日判定を通り、一覧から消えます。
+            </p>
+            <Button asChild>
+              <a href="/shared-outcomes" target="_blank" rel="noreferrer">
+                成果一覧を開く
+              </a>
+            </Button>
+          </section>
+        )}
         {isOwner ? (
           <div className="grid gap-6 md:grid-cols-3">
             {[1, 2, 3].map((phase) => (
