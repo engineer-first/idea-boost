@@ -24,6 +24,65 @@ const record = {
   createdAt: Date.now(),
   expiresAt: Date.now() + 100000,
 };
+it.each([
+  ["送信日時（開始）", "from", "送信日時（終了）", "to"],
+  ["送信日時（終了）", "to", "送信日時（開始）", "from"],
+])("%sが変換不能でも有効な日時・種類・対象の絞り込みを送る", async (invalidLabel, invalidKey, validLabel, validKey) => {
+  const queries: URLSearchParams[] = [];
+  server.use(
+    http.get("/api/feedback", ({ request }) => {
+      queries.push(new URL(request.url).searchParams);
+      return HttpResponse.json({
+        items: [],
+        nextCursor: null,
+        canReadOutcomes: false,
+      });
+    }),
+  );
+  render(<FeedbackList />);
+  await screen.findByText("条件に合う意見はありません。");
+  fireEvent.change(screen.getByLabelText("種類で絞る"), {
+    target: { value: "good" },
+  });
+  fireEvent.change(screen.getByLabelText("対象で絞る"), {
+    target: { value: "app" },
+  });
+  const valid = "2026-09-29T12:30";
+  fireEvent.change(screen.getByLabelText(validLabel), {
+    target: { value: valid },
+  });
+  await waitFor(() =>
+    expect(queries.at(-1)?.get(validKey)).toBe(
+      String(new Date(valid).getTime()),
+    ),
+  );
+  const before = queries.length;
+  // datetime-local は4桁を超える年を受け付けるが、Dateの範囲は有限。
+  fireEvent.change(screen.getByLabelText(invalidLabel), {
+    target: { value: "300000-01-01T00:00" },
+  });
+  expect(screen.getByLabelText(invalidLabel)).toHaveValue("300000-01-01T00:00");
+  await waitFor(() => expect(queries.length).toBeGreaterThan(before));
+  expect(Object.fromEntries(queries.at(-1) ?? [])).toEqual({
+    kind: "good",
+    target: "app",
+    [validKey]: String(new Date(valid).getTime()),
+  });
+  expect(queries.at(-1)?.has(invalidKey)).toBe(false);
+  fireEvent.change(screen.getByLabelText(invalidLabel), {
+    target: { value: valid },
+  });
+  await waitFor(() =>
+    expect(queries.at(-1)?.get(invalidKey)).toBe(
+      String(new Date(valid).getTime()),
+    ),
+  );
+  fireEvent.change(screen.getByLabelText(invalidLabel), {
+    target: { value: "" },
+  });
+  await waitFor(() => expect(queries.at(-1)?.has(invalidKey)).toBe(false));
+  expect(queries.at(-1)?.get(validKey)).toBe(String(new Date(valid).getTime()));
+});
 it("種類・対象を送信して絞り込み、追加取得し、権限取り消し後は本文を隠す", async () => {
   const urls: string[] = [];
   let forbidden = false;

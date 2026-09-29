@@ -705,15 +705,22 @@ export function RoomBoardView({
     }
   };
 
+  const feedbackButtonRef = useRef<HTMLButtonElement>(null);
   if (hasFinalDecision && outcomePublished && !outcomeDismissed) {
     return (
       <>
         <RoomOutcomeView
           onOpenFeedback={feedback ? () => feedback.open("app") : undefined}
+          feedbackButtonRef={feedbackButtonRef}
           onExportSuccess={feedback?.schedulePrompt}
           onExportFailure={feedback?.cancelPrompt}
           feedbackPrompt={
-            feedback ? <FeedbackPrompt feedback={feedback} /> : null
+            feedback ? (
+              <FeedbackPrompt
+                feedback={feedback}
+                returnFocusRef={feedbackButtonRef}
+              />
+            ) : null
           }
           outcome={outcome}
           connected={!isDisconnected}

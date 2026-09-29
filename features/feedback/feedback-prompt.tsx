@@ -1,7 +1,14 @@
 "use client";
+import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import type { FeedbackControls } from "./use-feedback";
-export function FeedbackPrompt({ feedback }: { feedback: FeedbackControls }) {
+export function FeedbackPrompt({
+  feedback,
+  returnFocusRef,
+}: {
+  feedback: FeedbackControls;
+  returnFocusRef?: RefObject<HTMLButtonElement | null>;
+}) {
   if (!feedback.promptVisible) return null;
   return (
     <aside
@@ -11,10 +18,19 @@ export function FeedbackPrompt({ feedback }: { feedback: FeedbackControls }) {
       <p role="status" className="mr-auto text-sm">
         使ってみた感想を送りませんか？
       </p>
-      <Button variant="outline" onClick={() => feedback.open("app")}>
+      <Button
+        variant="outline"
+        onClick={() => feedback.open("app", returnFocusRef?.current)}
+      >
         感想を送る
       </Button>
-      <Button variant="ghost" onClick={feedback.dismissPrompt}>
+      <Button
+        variant="ghost"
+        onClick={() => {
+          feedback.dismissPrompt();
+          returnFocusRef?.current?.focus();
+        }}
+      >
         案内を閉じる
       </Button>
     </aside>

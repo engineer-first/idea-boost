@@ -60,13 +60,22 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
           <p className="break-all text-xs text-muted-foreground">
             受付ID：{receipt}
           </p>
-          <Button onClick={() => feedback.open("app")}>別の意見を送る</Button>
+          <Button
+            onClick={() => {
+              feedback.open("app");
+              heading.current?.focus();
+            }}
+          >
+            別の意見を送る
+          </Button>
         </div>
       ) : (
         <form
           className="mt-3 space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
+            // 送信ボタンが消えても位置を保つ。非同期完了時には移動しない。
+            heading.current?.focus();
             void feedback.send();
           }}
         >

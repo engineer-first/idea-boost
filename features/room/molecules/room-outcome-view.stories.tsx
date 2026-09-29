@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useRef } from "react";
 import { fn } from "storybook/test";
 import {
   FeedbackPanel,
@@ -51,6 +52,7 @@ export const MissingDecision: Story = { args: { outcome: null } };
 
 export const WithFeedback: Story = {
   render: function Render(args) {
+    const feedbackButtonRef = useRef<HTMLButtonElement>(null);
     const feedback = useFeedback("outcome-story", async (_room, input) => ({
       ok: true,
       id: input.id,
@@ -60,9 +62,15 @@ export const WithFeedback: Story = {
         <RoomOutcomeView
           {...args}
           onOpenFeedback={() => feedback.open("app")}
+          feedbackButtonRef={feedbackButtonRef}
           onExportSuccess={feedback.schedulePrompt}
           onExportFailure={feedback.cancelPrompt}
-          feedbackPrompt={<FeedbackPrompt feedback={feedback} />}
+          feedbackPrompt={
+            <FeedbackPrompt
+              feedback={feedback}
+              returnFocusRef={feedbackButtonRef}
+            />
+          }
         />
         <FeedbackPanel feedback={feedback} />
       </>

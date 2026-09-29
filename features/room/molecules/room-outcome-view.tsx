@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { RoomOutcome } from "../logic/outcome-text";
@@ -12,6 +12,7 @@ export type RoomOutcomeViewProps = {
   connected: boolean;
   onBackToBoard: () => void;
   onOpenFeedback?: () => void;
+  feedbackButtonRef?: Ref<HTMLButtonElement>;
   onExportSuccess?: () => void;
   onExportFailure?: () => void;
   feedbackPrompt?: ReactNode;
@@ -28,6 +29,7 @@ export function RoomOutcomeView({
   connected,
   onBackToBoard,
   onOpenFeedback,
+  feedbackButtonRef,
   onExportSuccess,
   onExportFailure,
   feedbackPrompt,
@@ -186,6 +188,7 @@ export function RoomOutcomeView({
         ) : null}
         {onOpenFeedback ? (
           <Button
+            ref={feedbackButtonRef}
             type="button"
             variant="link"
             className="mt-3"

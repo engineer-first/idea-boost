@@ -21,7 +21,7 @@ export type FeedbackControls = {
   error: string | null;
   receipt: string | null;
   promptVisible: boolean;
-  open: (target: string) => void;
+  open: (target: string, returnFocusTo?: HTMLElement | null) => void;
   close: () => void;
   change: (patch: Partial<FeedbackDraft>) => void;
   send: () => Promise<void>;
@@ -110,12 +110,15 @@ export function useFeedback(
     }, 500);
   }, [roomId]);
   const open = useCallback(
-    (target: string): void => {
+    (target: string, returnFocusTo?: HTMLElement | null): void => {
       cancelPrompt();
-      trigger.current =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
+      if (!opened.current) {
+        trigger.current =
+          returnFocusTo ??
+          (document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null);
+      }
       if (!hasDraft.current) {
         setDraft({ ...empty(), target });
         setReceipt(null);
@@ -130,7 +133,7 @@ export function useFeedback(
   function close(): void {
     opened.current = false;
     setOpen(false);
-    trigger.current?.focus();
+    if (trigger.current?.isConnected) trigger.current.focus();
   }
   function change(patch: Partial<FeedbackDraft>): void {
     if (inFlight.current) return;

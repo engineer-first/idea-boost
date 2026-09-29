@@ -42,6 +42,7 @@ it("種類のみを送り、失敗しても入力と受付IDを保ち、成功�
   fireEvent.click(screen.getByRole("radio", { name: "不具合" }));
   fireEvent.click(screen.getByRole("button", { name: "送信" }));
   await screen.findByRole("alert");
+  expect(screen.getByRole("heading", { name: "意見を送る" })).toHaveFocus();
   expect(screen.getByRole("radio", { name: "不具合" })).toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: "送信" }));
   await screen.findByText(/意見を受け付けました/);

@@ -28,9 +28,10 @@ export function FeedbackList() {
         const params = new URLSearchParams();
         if (filters.kind) params.set("kind", filters.kind);
         if (filters.target) params.set("target", filters.target);
-        for (const name of ["from", "to"] as const)
-          if (filters[name])
-            params.set(name, String(new Date(filters[name]).getTime()));
+        for (const name of ["from", "to"] as const) {
+          const timestamp = new Date(filters[name]).getTime();
+          if (Number.isFinite(timestamp)) params.set(name, String(timestamp));
+        }
         if (next) params.set("cursor", next);
         const response = await fetch(
           `/api/feedback${params.size ? `?${params}` : ""}`,

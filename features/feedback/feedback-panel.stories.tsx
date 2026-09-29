@@ -64,3 +64,24 @@ export const Interactive: Story = {
     );
   },
 };
+
+export const DelayedSubmission: Story = {
+  render: function Render() {
+    const feedback = useFeedback(
+      "storybook-delayed-feedback",
+      async (_room, input) => {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        return { ok: true, id: input.id };
+      },
+    );
+    return (
+      <>
+        <button type="button" onClick={() => feedback.open("app")}>
+          意見を送る
+        </button>
+        <button type="button">作業に戻る</button>
+        <FeedbackPanel feedback={feedback} />
+      </>
+    );
+  },
+};
