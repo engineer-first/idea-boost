@@ -26,7 +26,7 @@ it("権限migrationは既存の権限と付与日時を保ち、意見閲覧を�
     const before = db
       .prepare("SELECT * FROM user_permissions ORDER BY permission")
       .all();
-    db.exec(migration("0004_feedback.sql"));
+    db.exec(migration("0005_feedback.sql"));
     expect(
       db.prepare("SELECT * FROM user_permissions ORDER BY permission").all(),
     ).toEqual(before);
@@ -64,7 +64,7 @@ it("緊急削除CLIは実行対象とUUIDを要求し、指定IDの本文だけ�
   try {
     db.exec(migration("0001_lobby.sql"));
     db.exec(migration("0003_user_permissions.sql"));
-    db.exec(migration("0004_feedback.sql"));
+    db.exec(migration("0005_feedback.sql"));
     db.prepare(
       "INSERT INTO feedback(id,id_hash,room_id,target,kind,body,rating,created_at,expires_at) VALUES(?,?,'room','app','good',?,NULL,0,9999999999999)",
     ).run(id, await hashFeedbackReceipt(id), "private");
@@ -86,7 +86,7 @@ it("緊急削除CLIは本文を消し、再受付を防ぐhashだけの失効記
   try {
     db.exec(migration("0001_lobby.sql"));
     db.exec(migration("0003_user_permissions.sql"));
-    db.exec(migration("0004_feedback.sql"));
+    db.exec(migration("0005_feedback.sql"));
     db.prepare(
       "INSERT INTO feedback(id,id_hash,room_id,target,kind,body,rating,created_at,expires_at) VALUES(?,?,'room','app','good','private',NULL,0,9999999999999)",
     ).run(id, await hashFeedbackReceipt(id));

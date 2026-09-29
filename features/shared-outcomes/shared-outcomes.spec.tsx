@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildProgressHistoryRecord } from "@/contracts/progress-history.fixture";
 import { buildSharedOutcome } from "@/contracts/shared-outcomes.fixture";
 import { SharedOutcomes } from "./shared-outcomes";
 import { SharedOutcomesView } from "./shared-outcomes-view";
@@ -139,19 +140,32 @@ describe("共有成果閲覧", () => {
   });
 });
 
-it("意見一覧からのルーム指定で共有成果を直接開ける", async () => {
+it("意見一覧からルーム指定で共有成果を直接開き、その進行記録も読める", async () => {
   const record = buildSharedOutcome();
   window.history.replaceState(
     null,
     "",
     `/shared-outcomes?roomId=${record.roomId}`,
   );
-  const fetchMock = vi.fn().mockResolvedValue(Response.json(record));
+  const history = buildProgressHistoryRecord();
+  const fetchMock = vi.fn(async (url: string) => {
+    if (url.endsWith(`/history/${history.id}`)) return Response.json(history);
+    if (url.endsWith("/history"))
+      return Response.json({ entries: [history], nextCursor: null });
+    return Response.json(record);
+  });
   vi.stubGlobal("fetch", fetchMock);
   render(<SharedOutcomes />);
   await screen.findByRole("heading", { name: "決定した3項目" });
   expect(fetchMock).toHaveBeenCalledWith(
     `/api/shared-outcomes/${record.roomId}`,
+    expect.objectContaining({ cache: "no-store" }),
+  );
+  fireEvent.click(await screen.findByRole("button", { name: /盤面を見る/ }));
+  await screen.findByRole("heading", { name: /記録 1 ·/ });
+  await screen.findAllByText("受付の案内を分かりやすくする");
+  expect(fetchMock).toHaveBeenCalledWith(
+    `/api/shared-outcomes/${record.roomId}/history/${history.id}`,
     expect.objectContaining({ cache: "no-store" }),
   );
 });
