@@ -51,7 +51,8 @@
     "release:operator": "node scripts/release-operator.mts",
     "access:grant": "node --no-warnings scripts/access.mts grant",
     "access:revoke": "node --no-warnings scripts/access.mts revoke",
-    "access:list": "node --no-warnings scripts/access.mts list"
+    "access:list": "node --no-warnings scripts/access.mts list",
+    "feedback:delete": "node --no-warnings scripts/feedback.mts delete"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

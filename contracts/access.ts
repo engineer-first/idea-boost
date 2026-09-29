@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const PERMISSIONS = {
+  readFeedback: "feedback:read",
   readSharedOutcomes: "shared_outcomes:read",
   manageSharedOutcomesAccess: "shared_outcomes:manage_access",
 } as const;

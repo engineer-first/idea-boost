@@ -138,3 +138,20 @@ describe("共有成果閲覧", () => {
     ).toBeInTheDocument();
   });
 });
+
+it("意見一覧からのルーム指定で共有成果を直接開ける", async () => {
+  const record = buildSharedOutcome();
+  window.history.replaceState(
+    null,
+    "",
+    `/shared-outcomes?roomId=${record.roomId}`,
+  );
+  const fetchMock = vi.fn().mockResolvedValue(Response.json(record));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<SharedOutcomes />);
+  await screen.findByRole("heading", { name: "決定した3項目" });
+  expect(fetchMock).toHaveBeenCalledWith(
+    `/api/shared-outcomes/${record.roomId}`,
+    expect.objectContaining({ cache: "no-store" }),
+  );
+});

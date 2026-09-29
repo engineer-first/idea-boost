@@ -29,6 +29,11 @@ import {
   type TimerState,
 } from "@/contracts/room-protocol";
 import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
+import {
+  type FeedbackControls,
+  FeedbackPanel,
+  FeedbackPrompt,
+} from "@/features/feedback";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
@@ -46,6 +51,7 @@ import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
 
 export type RoomBoardViewProps = {
+  feedback?: FeedbackControls;
   notes: Note[];
   groups: PersistentGroup[];
   inviteCode: string;
@@ -155,6 +161,7 @@ type VoteStampPointer = {
 };
 
 export function RoomBoardView({
+  feedback,
   notes,
   groups,
   inviteCode,
@@ -700,243 +707,265 @@ export function RoomBoardView({
 
   if (hasFinalDecision && outcomePublished && !outcomeDismissed) {
     return (
-      <RoomOutcomeView
-        outcome={outcome}
-        connected={!isDisconnected}
-        onBackToBoard={() => setOutcomeDismissed(true)}
-      />
+      <>
+        <RoomOutcomeView
+          onOpenFeedback={feedback ? () => feedback.open("app") : undefined}
+          onExportSuccess={feedback?.schedulePrompt}
+          onExportFailure={feedback?.cancelPrompt}
+          feedbackPrompt={
+            feedback ? <FeedbackPrompt feedback={feedback} /> : null
+          }
+          outcome={outcome}
+          connected={!isDisconnected}
+          onBackToBoard={() => setOutcomeDismissed(true)}
+        />
+        {feedback ? <FeedbackPanel feedback={feedback} /> : null}
+      </>
     );
   }
 
   return (
-    <div
-      ref={boardRootRef}
-      data-testid="room-board-view-root"
-      data-connection-status={connectionStatus}
-      className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
-        isNoteDragging
-          ? "cursor-grabbing"
-          : isAdoptMode
-            ? "cursor-crosshair"
-            : selectedVoteKind !== null
+    <>
+      <div
+        ref={boardRootRef}
+        data-testid="room-board-view-root"
+        data-connection-status={connectionStatus}
+        className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
+          isNoteDragging
+            ? "cursor-grabbing"
+            : isAdoptMode
               ? "cursor-crosshair"
-              : ""
-      }`}
-      onClickCapture={handleRootClickCapture}
-      onPointerMove={handleRootPointerMove}
-      onPointerUp={handleRootPointerEnd}
-      onPointerCancel={handleRootPointerCancel}
-      onPointerLeave={() => setVoteStampPointer(null)}
-    >
-      <RoomBoardHeader
-        hmwDecidedIssue={hmwDecidedIssue}
-        decidedHmw={decidedHmw}
-        inviteCode={inviteCode}
-        inviteUrl={inviteUrl}
-        phase={phase}
-        phaseRevision={phaseRevision}
-        bulkExclusionTargetCount={bulkExclusionTargetCount}
-        canManageCandidates={isResultStep(phase) && decision === null}
-        onBulkCandidateExclude={onBulkCandidateExclude}
-        sharing={sharing}
-        onSharingStart={onSharingStart}
-        onSharingAdvance={onSharingAdvance}
-        timer={timer}
-        timerServerOffsetMs={timerServerOffsetMs}
-        timerUpdateVersion={timerUpdateVersion}
-        isHost={isHost}
-        isDisconnected={isDisconnected}
-        connectionStatus={connectionStatus}
-        members={members}
-        currentUserId={currentUserId}
-        hostUserId={hostUserId}
-        completedVoterIds={completedVoterIds}
-        isNextPhasePending={isNextPhasePending}
-        isNextPhaseBlocked={isNextPhaseBlocked}
-        initialGuideState={initialGuideState}
-        hasFinalDecision={hasFinalDecision}
-        outcomePublished={outcomePublished}
-        onPublishOutcome={onPublishOutcome}
-        onShowOutcome={() => setOutcomeDismissed(false)}
-        signOutAction={signOutAction}
-        isLeaving={isLeaving}
-        onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
-        onLeaveClick={() => setLeaveDialogOpen(true)}
-        onNextPhase={onNextPhase}
-        onTimerStart={onTimerStart}
-        onTimerPause={onTimerPause}
-        onTimerResume={onTimerResume}
-        onTimerExtend={onTimerExtend}
-        onTimerStop={onTimerStop}
+              : selectedVoteKind !== null
+                ? "cursor-crosshair"
+                : ""
+        }`}
+        onClickCapture={handleRootClickCapture}
+        onPointerMove={handleRootPointerMove}
+        onPointerUp={handleRootPointerEnd}
+        onPointerCancel={handleRootPointerCancel}
+        onPointerLeave={() => setVoteStampPointer(null)}
       >
-        <BoardHelpPanel
-          {...help}
-          disabled={isDisconnected}
-          onHmwTemplateSelect={onHmwTemplateSelect}
-          onIdeaHintSelect={onIdeaHintSelect}
-        />
-      </RoomBoardHeader>
-
-      <RoomBoardCanvas
-        notes={renderedNotes}
-        groups={groups}
-        phase={phase}
-        permissions={permissions}
-        decision={decision}
-        adoptionFocusNoteId={adoptionFocusNoteId}
-        isHost={isHost}
-        privateNotes={toolbarNotes}
-        selectedNoteId={selectedNoteId}
-        draggingNoteId={draggingNoteId}
-        isDisconnected={isDisconnected}
-        ideaMapSizeLevel={ideaMapSizeLevel}
-        ideaMapSizeInitialized={ideaMapSizeInitialized}
-        ideaMapIsDragging={ideaMapIsDragging || isNoteDragging}
-        onIdeaMapResize={onIdeaMapResize}
-        voteRemaining={voteRemaining}
-        selectedVoteKind={selectedVoteKind}
-        pendingVoteOperations={pendingVoteOperations}
-        dragGhost={dragGhost}
-        dragPreview={dragPreview}
-        isReturnDropTarget={isReturnDropTarget}
-        privateDropPlaceholder={privateDropPlaceholder}
-        boardScrollerRef={boardScrollerRef}
-        ideaMapPlaneRef={ideaMapPlaneRef}
-        privateToolbarRef={privateToolbarRef}
-        camera={camera}
-        gridStyle={gridStyle}
-        isPanning={isPanning}
-        onCanvasPointerDown={handleCanvasPointerDown}
-        onCanvasPointerMove={handleCanvasPointerMove}
-        onCanvasPointerEnd={handleCanvasPointerEnd}
-        onPresencePointerMove={handlePresencePointerMove}
-        onPresencePointerLeave={handlePresencePointerLeave}
-        onZoomIn={zoomIn}
-        onZoomOut={zoomOut}
-        onResetZoom={resetZoom}
-        onFitToNotes={fitToNotes}
-        onSelect={handleNoteSelect}
-        onNoteDragStart={handleSharedNoteDragStart}
-        onNoteContentChange={onNoteContentChange}
-        draftValue={draftValue}
-        onDraftChange={onDraftChange}
-        onDraftCompositionStart={onDraftCompositionStart}
-        onDraftCompositionEnd={onDraftCompositionEnd}
-        onNoteFontSizeChange={onNoteFontSizeChange}
-        onNoteDelete={onNoteDelete}
-        onNoteExclude={onNoteExclude}
-        onNoteRestore={onNoteRestore}
-        onNoteVote={onNoteVote}
-        onNoteVoteRemove={onNoteVoteRemove}
-        onNoteVoteStickerRemove={onNoteVoteStickerRemove}
-        onNoteVoteStickerDragStart={handleVoteStickerDragStart}
-        isAdoptMode={isAdoptMode}
-        onAdoptionFocusChange={handleAdoptionFocusChange}
-        onAdoptNote={handleAdoptNote}
-        onGroupCreate={onGroupCreate}
-        onGroupUpdateName={onGroupUpdateName}
-        onAddPrivateNote={onAddPrivateNote}
-        onPrivateNoteContentChange={onPrivateNoteContentChange}
-        onPrivateNoteDelete={onPrivateNoteDelete}
-        onPrivateNoteDragStart={handlePrivateDragStart}
-        remoteCursors={remoteCursors}
-      />
-
-      {isVotingStep(phase) ? (
-        <div
-          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center"
-          data-testid="vote-palette-hud"
+        <RoomBoardHeader
+          onOpenFeedback={
+            feedback
+              ? () =>
+                  feedback.open(
+                    phase.kind === "step"
+                      ? `${phase.phase}-${phase.step}`
+                      : "unknown",
+                  )
+              : undefined
+          }
+          hmwDecidedIssue={hmwDecidedIssue}
+          decidedHmw={decidedHmw}
+          inviteCode={inviteCode}
+          inviteUrl={inviteUrl}
+          phase={phase}
+          phaseRevision={phaseRevision}
+          bulkExclusionTargetCount={bulkExclusionTargetCount}
+          canManageCandidates={isResultStep(phase) && decision === null}
+          onBulkCandidateExclude={onBulkCandidateExclude}
+          sharing={sharing}
+          onSharingStart={onSharingStart}
+          onSharingAdvance={onSharingAdvance}
+          timer={timer}
+          timerServerOffsetMs={timerServerOffsetMs}
+          timerUpdateVersion={timerUpdateVersion}
+          isHost={isHost}
+          isDisconnected={isDisconnected}
+          connectionStatus={connectionStatus}
+          members={members}
+          currentUserId={currentUserId}
+          hostUserId={hostUserId}
+          completedVoterIds={completedVoterIds}
+          isNextPhasePending={isNextPhasePending}
+          isNextPhaseBlocked={isNextPhaseBlocked}
+          initialGuideState={initialGuideState}
+          hasFinalDecision={hasFinalDecision}
+          outcomePublished={outcomePublished}
+          onPublishOutcome={onPublishOutcome}
+          onShowOutcome={() => setOutcomeDismissed(false)}
+          signOutAction={signOutAction}
+          isLeaving={isLeaving}
+          onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
+          onLeaveClick={() => setLeaveDialogOpen(true)}
+          onNextPhase={onNextPhase}
+          onTimerStart={onTimerStart}
+          onTimerPause={onTimerPause}
+          onTimerResume={onTimerResume}
+          onTimerExtend={onTimerExtend}
+          onTimerStop={onTimerStop}
         >
-          <DotVotePalette
-            voteRemaining={voteRemaining}
-            pendingOperationCount={pendingVoteOperations.length}
-            feedback={voteFeedback}
+          <BoardHelpPanel
+            {...help}
             disabled={isDisconnected}
-            selectedKind={selectedVoteKind}
-            isReturnDropTarget={isVoteStickerReturnDropTarget}
-            onStickerSelect={handlePaletteStickerSelect}
-            onStickerDragStart={handlePaletteStickerDragStart}
+            onHmwTemplateSelect={onHmwTemplateSelect}
+            onIdeaHintSelect={onIdeaHintSelect}
+          />
+        </RoomBoardHeader>
+
+        <RoomBoardCanvas
+          notes={renderedNotes}
+          groups={groups}
+          phase={phase}
+          permissions={permissions}
+          decision={decision}
+          adoptionFocusNoteId={adoptionFocusNoteId}
+          isHost={isHost}
+          privateNotes={toolbarNotes}
+          selectedNoteId={selectedNoteId}
+          draggingNoteId={draggingNoteId}
+          isDisconnected={isDisconnected}
+          ideaMapSizeLevel={ideaMapSizeLevel}
+          ideaMapSizeInitialized={ideaMapSizeInitialized}
+          ideaMapIsDragging={ideaMapIsDragging || isNoteDragging}
+          onIdeaMapResize={onIdeaMapResize}
+          voteRemaining={voteRemaining}
+          selectedVoteKind={selectedVoteKind}
+          pendingVoteOperations={pendingVoteOperations}
+          dragGhost={dragGhost}
+          dragPreview={dragPreview}
+          isReturnDropTarget={isReturnDropTarget}
+          privateDropPlaceholder={privateDropPlaceholder}
+          boardScrollerRef={boardScrollerRef}
+          ideaMapPlaneRef={ideaMapPlaneRef}
+          privateToolbarRef={privateToolbarRef}
+          camera={camera}
+          gridStyle={gridStyle}
+          isPanning={isPanning}
+          onCanvasPointerDown={handleCanvasPointerDown}
+          onCanvasPointerMove={handleCanvasPointerMove}
+          onCanvasPointerEnd={handleCanvasPointerEnd}
+          onPresencePointerMove={handlePresencePointerMove}
+          onPresencePointerLeave={handlePresencePointerLeave}
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
+          onResetZoom={resetZoom}
+          onFitToNotes={fitToNotes}
+          onSelect={handleNoteSelect}
+          onNoteDragStart={handleSharedNoteDragStart}
+          onNoteContentChange={onNoteContentChange}
+          draftValue={draftValue}
+          onDraftChange={onDraftChange}
+          onDraftCompositionStart={onDraftCompositionStart}
+          onDraftCompositionEnd={onDraftCompositionEnd}
+          onNoteFontSizeChange={onNoteFontSizeChange}
+          onNoteDelete={onNoteDelete}
+          onNoteExclude={onNoteExclude}
+          onNoteRestore={onNoteRestore}
+          onNoteVote={onNoteVote}
+          onNoteVoteRemove={onNoteVoteRemove}
+          onNoteVoteStickerRemove={onNoteVoteStickerRemove}
+          onNoteVoteStickerDragStart={handleVoteStickerDragStart}
+          isAdoptMode={isAdoptMode}
+          onAdoptionFocusChange={handleAdoptionFocusChange}
+          onAdoptNote={handleAdoptNote}
+          onGroupCreate={onGroupCreate}
+          onGroupUpdateName={onGroupUpdateName}
+          onAddPrivateNote={onAddPrivateNote}
+          onPrivateNoteContentChange={onPrivateNoteContentChange}
+          onPrivateNoteDelete={onPrivateNoteDelete}
+          onPrivateNoteDragStart={handlePrivateDragStart}
+          remoteCursors={remoteCursors}
+        />
+
+        {isVotingStep(phase) ? (
+          <div
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center"
+            data-testid="vote-palette-hud"
+          >
+            <DotVotePalette
+              voteRemaining={voteRemaining}
+              pendingOperationCount={pendingVoteOperations.length}
+              feedback={voteFeedback}
+              disabled={isDisconnected}
+              selectedKind={selectedVoteKind}
+              isReturnDropTarget={isVoteStickerReturnDropTarget}
+              onStickerSelect={handlePaletteStickerSelect}
+              onStickerDragStart={handlePaletteStickerDragStart}
+            />
+          </div>
+        ) : null}
+
+        <div
+          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
+          data-testid="phase-loop-hud"
+        >
+          <PhaseLoopControls
+            key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
+            phase={phase}
+            isHost={isHost}
+            isSelecting={isAdoptMode}
+            decisionContent={decisionContent}
+            candidateCount={candidateNotes.length}
+            disabled={isDisconnected || isNextPhasePending}
+            onRestartWriting={onRestartWriting}
+            onRevote={onRevote}
+            onStartSelection={() => {
+              setSelectedNoteId(null);
+              setIsAdoptMode(true);
+            }}
+            onCancelSelection={() => setIsAdoptMode(false)}
           />
         </div>
-      ) : null}
 
-      <div
-        className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
-        data-testid="phase-loop-hud"
-      >
-        <PhaseLoopControls
-          key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
-          phase={phase}
-          isHost={isHost}
-          isSelecting={isAdoptMode}
-          decisionContent={decisionContent}
-          candidateCount={candidateNotes.length}
-          disabled={isDisconnected || isNextPhasePending}
-          onRestartWriting={onRestartWriting}
-          onRevote={onRevote}
-          onStartSelection={() => {
-            setSelectedNoteId(null);
-            setIsAdoptMode(true);
-          }}
-          onCancelSelection={() => setIsAdoptMode(false)}
+        {voteStickerDrag !== null ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: voteStickerDrag.clientX,
+              top: voteStickerDrag.clientY,
+            }}
+          >
+            <DotVoteSticker
+              kind={voteStickerDrag.kind}
+              count={1}
+              state="preview"
+            />
+          </div>
+        ) : null}
+
+        {selectedVoteKind !== null &&
+        voteStampPointer !== null &&
+        voteStickerDrag === null ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2"
+            data-testid="vote-stamp-cursor"
+            style={{
+              left: voteStampPointer.clientX,
+              top: voteStampPointer.clientY,
+            }}
+          >
+            <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
+          </div>
+        ) : null}
+
+        {/* 採用操作の入口は画面下に一本化し、集計ダイアログでは結果の確認だけを行う。 */}
+        <VoteTotalingDialog
+          open={voteTotalingDialogOpen}
+          onOpenChange={setVoteTotalingDialogOpen}
+          isVotingComplete={isResultStep(phase)}
+          members={members}
+          notes={notes}
+          decision={decision}
+          isHost={false}
+          isDisconnected={isDisconnected}
+          onNoteDecide={onNoteDecide}
+        />
+
+        <LeaveConfirmDialog
+          open={leaveDialogOpen}
+          onOpenChange={setLeaveDialogOpen}
+          onConfirm={onLeave}
+          isLeaving={isLeaving}
+          mode={isHost ? "disband" : "leave"}
+          completed={outcomePublished}
+          onReturnToOutcome={() => setOutcomeDismissed(false)}
         />
       </div>
-
-      {voteStickerDrag !== null ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2"
-          style={{
-            left: voteStickerDrag.clientX,
-            top: voteStickerDrag.clientY,
-          }}
-        >
-          <DotVoteSticker
-            kind={voteStickerDrag.kind}
-            count={1}
-            state="preview"
-          />
-        </div>
-      ) : null}
-
-      {selectedVoteKind !== null &&
-      voteStampPointer !== null &&
-      voteStickerDrag === null ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-1/2"
-          data-testid="vote-stamp-cursor"
-          style={{
-            left: voteStampPointer.clientX,
-            top: voteStampPointer.clientY,
-          }}
-        >
-          <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
-        </div>
-      ) : null}
-
-      {/* 採用操作の入口は画面下に一本化し、集計ダイアログでは結果の確認だけを行う。 */}
-      <VoteTotalingDialog
-        open={voteTotalingDialogOpen}
-        onOpenChange={setVoteTotalingDialogOpen}
-        isVotingComplete={isResultStep(phase)}
-        members={members}
-        notes={notes}
-        decision={decision}
-        isHost={false}
-        isDisconnected={isDisconnected}
-        onNoteDecide={onNoteDecide}
-      />
-
-      <LeaveConfirmDialog
-        open={leaveDialogOpen}
-        onOpenChange={setLeaveDialogOpen}
-        onConfirm={onLeave}
-        isLeaving={isLeaving}
-        mode={isHost ? "disband" : "leave"}
-        completed={outcomePublished}
-        onReturnToOutcome={() => setOutcomeDismissed(false)}
-      />
-    </div>
+      {feedback ? <FeedbackPanel feedback={feedback} /> : null}
+    </>
   );
 }

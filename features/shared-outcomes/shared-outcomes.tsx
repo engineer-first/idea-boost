@@ -69,7 +69,8 @@ export function SharedOutcomes() {
     }
   }, []);
   useEffect(() => {
-    void load();
+    const roomId = new URL(window.location.href).searchParams.get("roomId");
+    void load(roomId ?? undefined);
     return () => {
       requestNumber.current++;
     };

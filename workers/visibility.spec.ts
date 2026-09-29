@@ -43,6 +43,12 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "意見の閲覧者にもprivate付箋を公開しない",
+    viewerId: OUTCOME_VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "成果閲覧者はprivate付箋を見られない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private" }),
