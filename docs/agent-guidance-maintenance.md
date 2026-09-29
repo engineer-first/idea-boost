@@ -115,13 +115,8 @@ Codex CLIの同じセッションを3ターン実行した。`$release` で下�
 
 ## GitHub の画面資料（2026-09-29）
 
-GitHub CLI 2.99.0 以降の `--attach` に合わせ、PR と Issue の画像・動画添付を
-[github-media](../.agents/skills/github-media/SKILL.md) に集約した。
-PR の動作確認資料はコメントにまとめ、`write-pr` が本文からリンクする。
+GitHub CLI 2.99.0 以降の `--attach` に合わせ、PR の動作確認資料はコメントにまとめ、`write-pr` が本文からリンクする。
 Issue の要件を説明する画面イメージは本文、追加の調査結果はコメントに置く。
 旧 `write-pr` のブラウザ専用手順は削除し、PR テンプレートをコメント添付の方針に揃えた。
-Issue 運用と `write-pr` から新しい Skill へ辿れるようにした。
-Codex のリポジトリ Skill は `.agents/skills` に置き、Claude Code からは同じファイルへの symlink を使う。
-[Codex の Skill 読込仕様](https://learn.chatgpt.com/docs/build-skills)により、作業中のリポジトリの Skill は自動探索され、通常は名前と説明が初期リストに載る。このため、添付 Skill の所在を知らせるだけの行は `AGENTS.md` に置かない。
-既存の `write-pr` 行は、PR 作成・本文更新でその手順を必ず読むという規則として維持する。
-ユーザー領域に同名 Skill は設けず、このリポジトリの運用をチームで共有する。
+リポジトリ固有の方針は `write-pr` と Issue 運用に記載し、汎用の添付手順は個人 Skill として管理する。このリポジトリの手順は個人 Skill がない環境でも使える。
+既存の `AGENTS.md` の `write-pr` 行は、PR 作成・本文更新でその手順を必ず読むという規則として維持する。
