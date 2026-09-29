@@ -4,6 +4,7 @@ import {
   NOTE_WIDTH,
 } from "@/contracts/board";
 import type { SharedOutcomeSnapshot } from "@/contracts/shared-outcomes";
+import { NOTE_COLOR_STYLES } from "@/features/room-members";
 export type SharedOutcomeBoardProps = {
   label: string;
   phase: number;
@@ -139,18 +140,15 @@ export function SharedOutcomeBoard({
             );
           })}
           {positions.map(({ note, x, y, height: noteHeight }) => (
-            <g key={note.id}>
+            <g key={note.id} opacity={note.excluded ? 0.5 : 1}>
               <rect
                 x={x}
                 y={y}
                 width={NOTE_WIDTH}
                 height={noteHeight}
                 rx={4}
-                className={
-                  note.excluded
-                    ? "fill-muted stroke-border"
-                    : "fill-amber-100 stroke-amber-300"
-                }
+                fill={NOTE_COLOR_STYLES[note.color].backgroundColor}
+                className="stroke-border"
                 strokeWidth={2}
               />
               <foreignObject

@@ -3222,7 +3222,7 @@ describe("RoomDO phase:next", () => {
   it("成果公開は採用決定後のホストだけが行い、全員と再接続へ反映する", async () => {
     const roomName = "room-publish-outcome-after-decision";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.initializeNewRoom(USER_A, "Host", { roomId: roomName });
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(5, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {

@@ -5,6 +5,7 @@ import {
 } from "../../contracts/shared-outcomes";
 import { syncRoomAlarm } from "./alarms";
 import { getPhase } from "./phase";
+import { recordProgressTransition } from "./progress-history";
 import {
   captureSharedOutcome,
   outcomeRecord,
@@ -64,9 +65,21 @@ export class SharedOutcomeStorage {
     now = Date.now(),
   ): Promise<void> {
     const row = readOutcomeState(this.sql);
-    if (!row || row.disbanded) return;
+    if (confirmed && (!row || row.disbanded))
+      throw new Error("成果保全が初期化されていません。");
+    if (!row || row.disbanded || (confirmed && row.confirmed)) return;
     const snapshot = row.confirmed ? null : captureSharedOutcome(this.sql, now);
     this.ctx.storage.transactionSync(() => {
+      if (confirmed) {
+        recordProgressTransition(
+          this.sql,
+          getPhase(this.sql),
+          null,
+          "complete",
+          now,
+        );
+        this.sql.exec("UPDATE room_state SET outcome_published=1 WHERE id=1");
+      }
       this.sql.exec(
         "UPDATE shared_outcome_state SET last_used_at = ?, expires_at = ? WHERE id = 1",
         now,

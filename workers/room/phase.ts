@@ -30,6 +30,7 @@ import {
   listAutomaticExclusionCandidates,
   type NoteRow,
 } from "./notes";
+import { recordProgressTransition } from "./progress-history";
 import { resetSharingForPhase } from "./sharing-state";
 import { resetTimerState } from "./timer";
 import { haveAllMembersCompletedVoting } from "./votes";
@@ -529,7 +530,10 @@ export const phaseHandlers: MessageHandlers<
       return;
     }
     const firstStep: RoomPhase = { kind: "step", phase: 1, step: 1 };
-    savePhase(ctx.sql, firstStep);
+    ctx.storage.transactionSync(() => {
+      recordProgressTransition(ctx.sql, getPhase(ctx.sql), firstStep, "next");
+      savePhase(ctx.sql, firstStep);
+    });
     ctx.broadcaster.broadcastToAll({
       type: "phase:updated",
       phase: firstStep,
@@ -642,6 +646,7 @@ export const phaseHandlers: MessageHandlers<
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
     ctx.storage.transactionSync(() => {
+      recordProgressTransition(ctx.sql, current, next, "next");
       if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);
       }
@@ -758,6 +763,12 @@ async function restartPhase(
   )
     return;
   ctx.storage.transactionSync(() => {
+    recordProgressTransition(
+      ctx.sql,
+      current,
+      next,
+      revote ? "revote" : "restart-writing",
+    );
     if (revote) {
       ctx.sql.exec(
         "DELETE FROM note_vote_stickers WHERE note_id IN (SELECT id FROM notes WHERE phase = ?1)",

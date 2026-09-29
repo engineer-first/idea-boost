@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { buildSharedOutcome } from "@/contracts/shared-outcomes.fixture";
+import { historyArgs } from "./progress-history-view.fixture";
 import { SharedOutcomesView } from "./shared-outcomes-view";
 
 const record = buildSharedOutcome();
@@ -42,7 +43,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const List: Story = {};
-export const Detail: Story = { args: { detail: record } };
+export const Detail: Story = { args: { detail: record, history: historyArgs } };
 export const Confirmed: Story = {
   args: { detail: buildSharedOutcome({ status: "confirmed" }) },
 };

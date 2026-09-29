@@ -1,4 +1,8 @@
-import { RoomPhaseSchema } from "../../contracts/phase";
+import {
+  isResultStep,
+  isVotingStep,
+  RoomPhaseSchema,
+} from "../../contracts/phase";
 import {
   type SharedOutcomeRecord,
   type SharedOutcomeSnapshot,
@@ -43,6 +47,7 @@ export function captureSharedOutcome(
       "SELECT phase, note_id, note_content FROM decisions ORDER BY phase",
     )
     .toArray();
+  const current = getPhase(sql);
   const decidedPhases = new Set(decisions.map((row) => row.phase));
   const notes = [1, 2, 3].flatMap((phase) =>
     filterVisible(
@@ -78,7 +83,17 @@ export function captureSharedOutcome(
       fontSize: note.fontSize,
       stackOrder: note.stackOrder,
       excluded: note.excluded,
-      votes: decidedPhases.has(note.phase) ? votes(note) : null,
+      votes:
+        current.kind === "step" &&
+        current.phase === note.phase &&
+        isVotingStep(current)
+          ? null
+          : decidedPhases.has(note.phase) ||
+              (current.kind === "step" &&
+                current.phase === note.phase &&
+                isResultStep(current))
+            ? votes(note)
+            : null,
     })),
     groups: listVisibleGroups(sql, NULL_VIEWER_ID).map(
       ({ id, name, noteIds }) => ({ id, name, noteIds }),

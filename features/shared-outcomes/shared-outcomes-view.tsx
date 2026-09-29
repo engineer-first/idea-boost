@@ -7,6 +7,10 @@ import type {
   SharedOutcomeRecord,
   SharedOutcomeSummary,
 } from "@/contracts/shared-outcomes";
+import {
+  ProgressHistoryView,
+  type ProgressHistoryViewProps,
+} from "./progress-history-view";
 import { SharedOutcomeBoard } from "./shared-outcome-board";
 import {
   formatOutcomeTime,
@@ -14,6 +18,7 @@ import {
   SAVE_STATUS_LABELS,
 } from "./shared-outcomes-content";
 export type SharedOutcomesViewProps = {
+  history?: ProgressHistoryViewProps;
   loading: boolean;
   error: string | null;
   outcomes: SharedOutcomeSummary[];
@@ -25,6 +30,7 @@ export type SharedOutcomesViewProps = {
   onMore: () => void;
 };
 export function SharedOutcomesView({
+  history,
   loading,
   error,
   outcomes,
@@ -239,6 +245,7 @@ export function SharedOutcomesView({
                 </section>
               </>
             )}
+            {history && <ProgressHistoryView {...history} />}
           </>
         )}
       </div>

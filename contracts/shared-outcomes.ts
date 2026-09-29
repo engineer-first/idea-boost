@@ -60,3 +60,27 @@ export type SharedOutcomesResponse = z.infer<
   typeof SharedOutcomesResponseSchema
 >;
 export const SHARED_OUTCOME_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+export const ProgressHistoryEntrySchema = z.object({
+  id: z.string().uuid(),
+  sequence: z.number().int().positive(),
+  phase: RoomPhaseSchema,
+  nextPhase: RoomPhaseSchema.nullable(),
+  action: z.enum(["next", "restart-writing", "revote", "complete"]).nullable(),
+  enteredAt: z.number().nullable(),
+  exitedAt: z.number().nullable(),
+  saveStatus: z.enum(["saved", "pending", "failed", "missing", "open"]),
+  reflectedAt: z.number().nullable(),
+});
+export const ProgressHistoryResponseSchema = z.object({
+  entries: z.array(ProgressHistoryEntrySchema),
+  nextCursor: z.string().nullable(),
+});
+export const ProgressHistoryRecordSchema = ProgressHistoryEntrySchema.extend({
+  snapshot: SharedOutcomeSnapshotSchema.nullable(),
+});
+export type ProgressHistoryEntry = z.infer<typeof ProgressHistoryEntrySchema>;
+export type ProgressHistoryResponse = z.infer<
+  typeof ProgressHistoryResponseSchema
+>;
+export type ProgressHistoryRecord = z.infer<typeof ProgressHistoryRecordSchema>;

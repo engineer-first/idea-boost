@@ -7,6 +7,7 @@ import {
   SharedOutcomesResponseSchema,
 } from "@/contracts/shared-outcomes";
 import { SharedOutcomesView } from "./shared-outcomes-view";
+import { useProgressHistory } from "./use-progress-history";
 
 export function SharedOutcomes() {
   const requestNumber = useRef(0);
@@ -15,6 +16,14 @@ export function SharedOutcomes() {
   const [outcomes, setOutcomes] = useState<SharedOutcomeSummary[]>([]);
   const [detail, setDetail] = useState<SharedOutcomeRecord | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const onDenied = useCallback((message: string) => {
+    requestNumber.current++;
+    setLoading(false);
+    setDetail(null);
+    setOutcomes([]);
+    setError(message);
+  }, []);
+  const history = useProgressHistory(detail?.roomId, onDenied);
   const load = useCallback(async (id?: string, cursor?: string) => {
     const request = ++requestNumber.current;
     setLoading(true);
@@ -67,6 +76,7 @@ export function SharedOutcomes() {
   }, [load]);
   return (
     <SharedOutcomesView
+      history={history}
       loading={loading}
       error={error}
       outcomes={outcomes}
@@ -74,7 +84,10 @@ export function SharedOutcomes() {
       nextCursor={nextCursor}
       onOpen={(id) => void load(id)}
       onBack={() => void load()}
-      onRefresh={() => void load(detail?.roomId)}
+      onRefresh={() => {
+        void load(detail?.roomId);
+        if (detail) history.onRefresh();
+      }}
       onMore={() => nextCursor && void load(undefined, nextCursor)}
     />
   );

@@ -14,7 +14,6 @@ import {
 } from "../../contracts/verification";
 import { DEV_USERS } from "../../lib/session/dev-users";
 import { RoomBroadcaster } from "./broadcast";
-import { decisionHandlers } from "./decision-handlers";
 import { setDecision } from "./decisions";
 import { groupHandlers } from "./groups";
 import type { HandlerCtx } from "./handler-context";
@@ -126,10 +125,6 @@ export class VerificationRoomDO extends RoomDO {
         VERIFICATION_NOTES[3][0],
       );
       await this.preserveSharedOutcome(true);
-      decisionHandlers["outcome:publish"](
-        this.handlerContext(DEV_USERS[0].id),
-        { type: "outcome:publish" },
-      );
       await this.flushSharedOutcome();
     }
     if (scenario === "expired") {
@@ -162,6 +157,16 @@ export class VerificationRoomDO extends RoomDO {
     if (await this.ctx.storage.get("verification-outcome-failure"))
       throw new Error("検証用の成果投影障害");
     await super.writeSharedOutcomeProjection(snapshot);
+  }
+
+  protected override async writeProgressHistoryProjection(
+    id: string,
+    snapshot: string,
+    expiresAt: number,
+  ): Promise<void> {
+    if (await this.ctx.storage.get("verification-outcome-failure"))
+      throw new Error("検証用の履歴投影障害");
+    await super.writeProgressHistoryProjection(id, snapshot, expiresAt);
   }
 
   async recoverVerificationOutcome(): Promise<boolean> {

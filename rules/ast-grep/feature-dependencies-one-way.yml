@@ -4,6 +4,7 @@
 #   room → notes / dot-vote / vote-totaling / room-members / invite / hmw
 #          / idea-support
 #   notes → dot-vote / room-members
+#   shared-outcomes → room-members（保存済みの付箋色の表示）
 #
 # それ以外の feature（dot-vote / vote-totaling / room-members / invite /
 # room-lifecycle / auth / hmw / idea-support）は他の feature を import
@@ -301,6 +302,7 @@ ignores:
   - "features/auth/**"
   - "features/hmw/**"
   - "features/idea-support/**"
+  - "features/shared-outcomes/**"
 message: 未登録の feature は feature を import できない。先に feature-dependencies-one-way.yml に登録する
 note: |
   新 feature の依存はまずこのファイルに明示する（葉なら leaf 規則の files に
@@ -329,6 +331,7 @@ ignores:
   - "features/auth/**"
   - "features/hmw/**"
   - "features/idea-support/**"
+  - "features/shared-outcomes/**"
 message: 未登録の feature は feature を import できない。先に feature-dependencies-one-way.yml に登録する
 note: |
   新 feature の依存はまずこのファイルに明示する（葉なら leaf 規則の files に
@@ -340,3 +343,42 @@ rule:
   has:
     field: source
     regex: "[.@]/+features/+"
+
+---
+id: shared-outcomes-feature-allowed-edges
+language: typescript
+severity: error
+files:
+  - features/shared-outcomes/**
+message: shared-outcomes は room-members の公開境界から付箋の表示色だけを共有する
+rule:
+  all:
+    - any:
+        - kind: import_statement
+        - kind: export_statement
+    - has:
+        field: source
+        regex: "[.@]/+features/+"
+    - not:
+        has:
+          field: source
+          regex: '^"@/features/room-members"$'
+---
+id: shared-outcomes-feature-allowed-edges-tsx
+language: tsx
+severity: error
+files:
+  - features/shared-outcomes/**
+message: shared-outcomes は room-members の公開境界から付箋の表示色だけを共有する
+rule:
+  all:
+    - any:
+        - kind: import_statement
+        - kind: export_statement
+    - has:
+        field: source
+        regex: "[.@]/+features/+"
+    - not:
+        has:
+          field: source
+          regex: '^"@/features/room-members"$'
