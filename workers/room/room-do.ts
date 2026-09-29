@@ -15,7 +15,13 @@
 // 単一スレッドで直列化されるため、フェーズ遷移や同時編集のレースは構造的に起きない。
 // ハイバネーションでインメモリ状態は消える（次のイベントで constructor が再実行
 // される）ため、状態は毎回 SQL から導出し、各モジュールにキャッシュを持たせない。
+
 import { DurableObject } from "cloudflare:workers";
+import type {
+  CompletedBoardResponse,
+  CompletedRoom,
+  CompletedSceneKind,
+} from "../../contracts/completed-rooms";
 import {
   isPhaseStep,
   isVotingStep,
@@ -46,6 +52,12 @@ import { filterVisible, projectNoteForViewer } from "../visibility";
 import { adoptionFocusHandlers } from "./adoption-focus-handlers";
 import { syncRoomAlarm } from "./alarms";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
+import {
+  CompletedRoomStorage,
+  fixCompletion,
+  isRoomClosed,
+  readCompletion,
+} from "./completed-rooms";
 import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
 import { groupHandlers, listVisibleGroups } from "./groups";
@@ -140,6 +152,7 @@ export class RoomDO extends DurableObject {
   private readonly broadcaster: RoomBroadcaster;
   private readonly outcomes: SharedOutcomeStorage;
   private readonly history: ProgressHistoryStorage;
+  private readonly completed: CompletedRoomStorage;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -153,6 +166,7 @@ export class RoomDO extends DurableObject {
     this.outcomes = new SharedOutcomeStorage(ctx, env.DB, (snapshot) =>
       this.writeSharedOutcomeProjection(snapshot),
     );
+    this.completed = new CompletedRoomStorage(ctx, env.DB, this.history);
     // スキーマは room-do-migrations/ の版管理で管理する。
     // マイグレーション完了までイベント配信を止め、移行中のストレージに
     // 古い・新しいスキーマ前提の操作が届かないようにする。
@@ -177,6 +191,7 @@ export class RoomDO extends DurableObject {
     userId: string,
     name: string | undefined,
   ): Promise<UpsertMemberResult> {
+    if (isRoomClosed(this.sql)) return { ok: false, reason: "room-closed" };
     const result = upsertMember(this.sql, this.broadcaster, userId, name);
     const member = result.ok ? findMember(this.sql, userId) : null;
     if (member && appendSharingMember(this.sql, member))
@@ -190,6 +205,7 @@ export class RoomDO extends DurableObject {
     hostName: string | undefined,
     outcomeIdentity?: { roomId: string; name?: string },
   ): Promise<void> {
+    if (isRoomClosed(this.sql)) throw new Error("終了したルームです。");
     await this.upsertMember(hostId, hostName);
     // room_owner は api-worker が D1 rooms.host_id から渡した値だけで初期化する。
     // 以後も WS 接続時の ensureHost 以外に独立して書き換える経路を持たない。
@@ -202,8 +218,16 @@ export class RoomDO extends DurableObject {
       );
   }
 
+  isJoinable(): boolean {
+    return !isRoomClosed(this.sql);
+  }
+
   isMember(userId: string): boolean {
-    return isMember(this.sql, userId);
+    return (
+      !readCompletion(this.sql)?.deleted &&
+      (readCompletion(this.sql)?.expires_at ?? Infinity) > Date.now() &&
+      isMember(this.sql, userId)
+    );
   }
 
   // 退出処理。
@@ -230,7 +254,19 @@ export class RoomDO extends DurableObject {
   }
 
   // ルーム解散。参加・編集用の状態を消去し、期限内の成果と再試行だけ残す。
-  async disband(): Promise<void> {
+  async disband(byUserId?: string): Promise<boolean> {
+    if (
+      readCompletion(this.sql) ||
+      this.sql.exec("SELECT outcome_published FROM room_state WHERE id=1").one()
+        .outcome_published === 1
+    )
+      return false;
+    if (
+      byUserId &&
+      !isHostUser(this.sql, byUserId) &&
+      !readOutcomeState(this.sql)?.disbanded
+    )
+      return false;
     for (const socket of this.ctx.getWebSockets()) {
       try {
         socket.close(WS_CLOSE_ROOM_DISBANDED, WS_CLOSE_ROOM_DISBANDED_REASON);
@@ -241,7 +277,7 @@ export class RoomDO extends DurableObject {
     const outcome = readOutcomeState(this.sql);
     if (!outcome) {
       await this.ctx.storage.deleteAll();
-      return;
+      return true;
     }
     // 保全済みデータと outbox は解散後も維持し、自動再試行を継続する。
     this.ctx.storage.transactionSync(() => {
@@ -275,6 +311,7 @@ export class RoomDO extends DurableObject {
       this.sql.exec("UPDATE room_owner SET host_id = NULL WHERE id = 1");
     });
     await syncRoomAlarm(this.ctx.storage, this.sql);
+    return true;
   }
 
   async ensureSharedOutcome(roomId: string, createdAt?: number): Promise<void> {
@@ -293,8 +330,15 @@ export class RoomDO extends DurableObject {
   protected async preserveSharedOutcome(
     confirmed = false,
     now = Date.now(),
+    participantCompletion = false,
   ): Promise<void> {
-    await this.outcomes.preserveSharedOutcome(confirmed, now);
+    await this.outcomes.preserveSharedOutcome(
+      confirmed,
+      now,
+      participantCompletion
+        ? (snapshot, time) => fixCompletion(this.sql, snapshot, time)
+        : undefined,
+    );
   }
 
   protected async writeSharedOutcomeProjection(
@@ -306,6 +350,18 @@ export class RoomDO extends DurableObject {
   protected async flushSharedOutcome(): Promise<void> {
     await this.outcomes.flushSharedOutcome();
     await this.history.flush();
+    await this.completed.flush();
+  }
+
+  async getCompletedRoom(userId: string): Promise<CompletedRoom | null> {
+    return this.completed.get(userId);
+  }
+
+  async getCompletedBoard(
+    userId: string,
+    kind: CompletedSceneKind,
+  ): Promise<CompletedBoardResponse | null> {
+    return this.completed.board(userId, kind);
   }
 
   async getSharedOutcome(): Promise<SharedOutcomeRecord | null> {
@@ -346,7 +402,7 @@ export class RoomDO extends DurableObject {
   // フェーズへ移動できるため、api-worker のエンドポイントなどクライアント
   // 到達経路には載せない（載せるとゲートが無言で無効化される）。
   async setPhase(phase: RoomPhase, byUserId: string): Promise<void> {
-    if (!isHostUser(this.sql, byUserId)) {
+    if (isRoomClosed(this.sql) || !isHostUser(this.sql, byUserId)) {
       throw new Error("進行状態を変更する権限がありません。");
     }
     savePhase(this.sql, phase);
@@ -365,6 +421,8 @@ export class RoomDO extends DurableObject {
       return new Response("保存期限後の削除を再試行しています。", {
         status: 503,
       });
+    if (readCompletion(this.sql))
+      return new Response("not found", { status: 404 });
     const userId = request.headers.get(USER_ID_HEADER);
     if (!userId || !isMember(this.sql, userId)) {
       return new Response("forbidden", { status: 403 });
@@ -492,6 +550,11 @@ export class RoomDO extends DurableObject {
 
   override async alarm(): Promise<void> {
     if (!(await this.processExpiredTransition())) return;
+    if (isRoomClosed(this.sql)) {
+      await this.flushSharedOutcome();
+      await syncRoomAlarm(this.ctx.storage, this.sql);
+      return;
+    }
     await startPendingSharingTurn({
       sql: this.sql,
       storage: this.ctx.storage,
@@ -516,6 +579,7 @@ export class RoomDO extends DurableObject {
       )
         return false;
     }
+    if (isRoomClosed(this.sql)) return true;
     const ctx = this.createHandlerCtx({} as WebSocket, "");
     const before = getPhaseRevision(this.sql);
     try {
@@ -563,6 +627,14 @@ export class RoomDO extends DurableObject {
       attachment.userId,
       optimisticOperationIdOf(message),
     );
+    if (isRoomClosed(this.sql) && message.type !== "outcome:publish") {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "完了したルームは変更できません。",
+      });
+      return;
+    }
     const phase = getPhase(this.sql);
     const forbiddenMessage =
       phase.kind === "step" &&
@@ -593,7 +665,6 @@ export class RoomDO extends DurableObject {
       getDecision(this.sql, 3)
     ) {
       if (
-        readOutcomeState(this.sql)?.confirmed ||
         this.sql
           .exec("SELECT outcome_published FROM room_state WHERE id=1")
           .one().outcome_published === 1
@@ -602,7 +673,7 @@ export class RoomDO extends DurableObject {
         return;
       }
       try {
-        await this.preserveSharedOutcome(true);
+        await this.preserveSharedOutcome(true, Date.now(), true);
       } catch {
         ctx.reply({
           type: "error",

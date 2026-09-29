@@ -527,7 +527,7 @@ describe("RoomBoardView", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("成果公開後に全員へ成果を表示し、ボード往復でも再表示できる", async () => {
+  it("成果公開後に全員へ成果を表示し、作業へ戻る操作を出さない", async () => {
     const idea = buildNote({
       id: "99999999-9999-4999-8999-999999999999",
       content: "採用する案\n次の行",
@@ -559,12 +559,10 @@ describe("RoomBoardView", () => {
     expect(
       screen.queryByRole("dialog", { name: /投票結果/ }),
     ).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "ボードへ戻る" }));
-    expect(screen.getByRole("button", { name: "成果を見る" })).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "成果を見る" }));
     expect(
-      screen.getByRole("heading", { name: "チームで決めた成果" }),
-    ).toBeVisible();
+      screen.queryByRole("button", { name: "ボードへ戻る" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "全文をコピー" })).toBeVisible();
   });
 
   it("成果が欠けた状態や切断時は保存を許さず再接続を案内する", () => {
@@ -622,7 +620,7 @@ describe("RoomBoardView", () => {
     expect(screen.getAllByText("未確認")).toHaveLength(3);
   });
 
-  it("完了後のホスト削除確認から成果へ戻れる", async () => {
+  it("完了後のホストにも作業ボードや全員のデータ削除を表示しない", async () => {
     const idea = buildNote({
       id: "99999999-9999-4999-8999-999999999999",
       content: "案",
@@ -638,19 +636,12 @@ describe("RoomBoardView", () => {
       isHost: true,
       onLeave,
     });
-    await userEvent.click(screen.getByRole("button", { name: "ボードへ戻る" }));
-    await userEvent.click(
-      screen.getByRole("button", { name: "ルームメニューを開く" }),
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: "ルームを削除（全員のデータ）" }),
-    );
-    expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "全員が各自の成果を持ち帰ったか",
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: "削除をやめて成果へ戻る" }),
-    );
+    expect(
+      screen.queryByRole("button", { name: "ボードへ戻る" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /ルームを削除|ルームを解散/ }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "チームで決めた成果" }),
     ).toBeVisible();

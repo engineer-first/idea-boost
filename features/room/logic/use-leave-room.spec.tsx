@@ -124,3 +124,19 @@ describe("useLeaveRoom", () => {
     expect(LEAVE_ROOM).toHaveBeenCalledTimes(1);
   });
 });
+
+it("完了後のホストは本人退出を送り、解散通知を出さない", async () => {
+  LEAVE_ROOM.mockReset();
+  notifyMocks.roomLeft.mockReset();
+  notifyMocks.roomDisbandedBySelf.mockReset();
+  LEAVE_ROOM.mockRejectedValueOnce(nextRedirectError());
+  const { result } = renderHook(() =>
+    useLeaveRoom({ roomId: ROOM_ID, isHost: true, completed: true }),
+  );
+  act(() => result.current.leave());
+  await waitFor(() => expect(notifyMocks.roomLeft).toHaveBeenCalledTimes(1));
+  expect((LEAVE_ROOM.mock.calls[0]?.[0] as FormData).get("intent")).toBe(
+    "self",
+  );
+  expect(notifyMocks.roomDisbandedBySelf).not.toHaveBeenCalled();
+});

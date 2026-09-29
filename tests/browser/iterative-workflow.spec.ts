@@ -311,8 +311,13 @@ test.each([
   await page.getByRole("heading", { name: "採用したアイデア" }).waitFor();
   expect(await page.getByRole("dialog").count()).toBe(0);
   expect(await page.getByRole("button", { name: progression }).count()).toBe(0);
-  await page.getByRole("button", { name: "ボードへ戻る" }).click();
-  const complete = page.getByRole("button", { name: "成果を見る" });
+  expect(await page.getByRole("button", { name: "ボードへ戻る" }).count()).toBe(
+    0,
+  );
+  expect(await page.getByRole("button", { name: "ルームを解散" }).count()).toBe(
+    0,
+  );
+  const complete = page.getByRole("button", { name: "テキストを保存" });
   await expectReadable(complete);
   expect(await page.getByRole("button", { name: progression }).count()).toBe(0);
   await page.screenshot({

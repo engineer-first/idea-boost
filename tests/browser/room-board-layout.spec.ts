@@ -403,7 +403,7 @@ test("透明効果を減らす設定ではボード上のHUD全体が不透明",
   }
 });
 
-test("成果公開後は成果を表示し、ボードへ戻っても再表示できる", async () => {
+test("成果公開後は3件を表示し、編集ボードへ戻さずホームへ進める", async () => {
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardlayout--completed&viewMode=story`,
   );
@@ -419,9 +419,13 @@ test("成果公開後は成果を表示し、ボードへ戻っても再表示�
   }
   expect(await page.getByRole("dialog").count()).toBe(0);
   await page.screenshot({ path: `${output}/completed-result.png` });
-  await page.getByRole("button", { name: "ボードへ戻る" }).click();
-  await page.getByRole("button", { name: "成果を見る" }).waitFor();
-  await expectLayout();
+  expect(await page.getByRole("button", { name: "ボードへ戻る" }).count()).toBe(
+    0,
+  );
+  const home = page.getByRole("link", { name: "保存を確認してホームへ" });
+  await home.scrollIntoViewIfNeeded();
+  expect(await home.isVisible()).toBe(true);
+  expect(await home.getAttribute("href")).toBe("/home");
 });
 
 test("採用案を選んだ後もボードに留まり、ホストにだけ完了チェックを示す", async () => {

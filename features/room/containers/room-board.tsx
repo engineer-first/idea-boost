@@ -68,7 +68,12 @@ export function RoomBoard({
   const latestExcludeOperationRef = useRef(0);
   const latestBulkExclusionOperationRef = useRef<string | null>(null);
 
-  const { isLeaving, isLeavingRef, leave } = useLeaveRoom({ roomId, isHost });
+  const roomState = useRoomState({ initialMembers, initialPhase });
+  const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
+    roomId,
+    isHost,
+    completed: roomState.outcomePublished,
+  });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   // useRoomConnection は常に最新のハンドラへ配送するため、
   // ハンドラの再生成で再接続されることはない。
@@ -81,7 +86,6 @@ export function RoomBoard({
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
   const noteGroups = useNoteGroups({ send });
-  const roomState = useRoomState({ initialMembers, initialPhase });
   const help = useBoardHelp(roomState.phase);
   const cursorPresence = useCursorPresence({
     currentUserId,

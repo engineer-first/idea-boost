@@ -166,17 +166,14 @@ export function RoomBoardHeader({
     (member) => member.userId === currentUserId,
   );
   const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
-  const leaveLabel = isHost
-    ? isLeaving
-      ? outcomePublished
-        ? "削除中…"
-        : "解散中…"
-      : outcomePublished
-        ? "ルームを削除（全員のデータ）"
+  const leaveLabel =
+    isHost && !outcomePublished
+      ? isLeaving
+        ? "解散中…"
         : "ルームを解散"
-    : isLeaving
-      ? "退出中…"
-      : "退出する";
+      : isLeaving
+        ? "退出中…"
+        : "退出する";
 
   return (
     <TooltipProvider delayDuration={300}>

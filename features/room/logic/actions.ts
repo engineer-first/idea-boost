@@ -31,6 +31,12 @@ export async function leaveRoom(formData: FormData): Promise<void> {
   // 5xx は呼び出し側でリカバリする。
   const res = await apiFetch(`/api/rooms/${roomId}/leave`, {
     method: "POST",
+    ...(formData.get("intent") === "self"
+      ? {
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ intent: "self" }),
+        }
+      : {}),
   });
 
   if (res.status === 404) {

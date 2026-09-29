@@ -108,3 +108,18 @@ describe("leaveRoom", () => {
     ).rejects.toThrow();
   });
 });
+
+it("本人退出のintentをAPIへ渡し、古い画面の解散要求と区別する", async () => {
+  apiFetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+  const form = leaveFormData(VALID_ROOM_ID);
+  form.set("intent", "self");
+  await callAndGetRedirect(() => leaveRoom(form));
+  expect(apiFetchMock).toHaveBeenCalledWith(
+    `/api/rooms/${VALID_ROOM_ID}/leave`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intent: "self" }),
+    },
+  );
+});

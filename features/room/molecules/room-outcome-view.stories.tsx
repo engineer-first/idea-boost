@@ -43,3 +43,6 @@ export const LongContent: Story = {
 };
 export const Disconnected: Story = { args: { connected: false } };
 export const MissingDecision: Story = { args: { outcome: null } };
+export const Revisit: Story = {
+  args: { authorized: true, connected: false, onBackToBoard: undefined },
+};

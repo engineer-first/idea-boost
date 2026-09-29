@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { AccessEmailSchema, PERMISSIONS } from "../contracts/access";
 import { CreateRoomInputSchema } from "../contracts/api";
+import { LeaveRoomRequestSchema } from "../contracts/completed-rooms";
 import { isUuid } from "../contracts/ids";
 import {
   isValidInviteCode,
@@ -15,6 +16,7 @@ import {
   TOKEN_AUDIENCE,
 } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
+import { handleCompletedRooms } from "./completed-rooms-api";
 import { hasPermission, seedDevOwnerAccess } from "./lib/access";
 import {
   deleteRoom,
@@ -44,7 +46,10 @@ const JoinRequestSchema = z.object({ code: z.string() });
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "private, no-store",
+    },
   });
 }
 
@@ -142,7 +147,12 @@ async function handleJoinRoom(
   const stub = roomStub(env, room.roomId);
   const joined = await stub.upsertMember(session.sub, session.name);
   if (!joined.ok) {
-    return error(409, "このルームは20人までです。");
+    return error(
+      409,
+      joined.reason === "room-closed"
+        ? "終了したルームには参加できません。"
+        : "このルームは20人までです。",
+    );
   }
   return json({ roomId: room.roomId });
 }
@@ -208,6 +218,7 @@ async function handleListMembers(
 //   - ルームが存在しない、または自分がメンバーでない場合は 404
 //     （存在秘匿。クライアントは 204/404 を成功相当としてよい）
 async function handleLeaveRoom(
+  request: Request,
   env: ApiWorkerEnv,
   session: SessionPayload,
   roomId: string,
@@ -218,21 +229,26 @@ async function handleLeaveRoom(
   }
 
   const stub = roomStub(env, roomId);
-  const member = await stub.isMember(session.sub);
-  if (!member) {
-    return error(404, "ルームが見つかりませんでした。");
-  }
-
-  // ホストの「退出」はルーム解散。残メンバーを開始不能にしない。
-  // 成果を先に保全し、その後は D1 ディレクトリ→作業領域の順に削除する。
-  // disband 成功後に deleteRoom が失敗すると「招待コードで解決できるが
-  // 中身は空」のゾンビルームが残り、ホストは既にメンバー外で再試行 404 になる。
-  if (room.hostId === session.sub) {
+  const body = LeaveRoomRequestSchema.safeParse(
+    (await readJsonBody(request)) ?? {},
+  );
+  if (!body.success) return error(400, "リクエスト形式が不正です。");
+  // 解散の成立は RoomDO の状態変更順で決める。D1 は許可後だけ削除する。
+  if (room.hostId === session.sub && body.data.intent !== "self") {
     await stub.ensureSharedOutcome(roomId, room.createdAt);
+    if (!(await stub.disband(session.sub)))
+      return error(409, "完了したルームは解散できません。");
     await deleteRoom(env.DB, roomId);
-    await stub.disband();
     return new Response(null, { status: 204 });
   }
+  if (!(await stub.isMember(session.sub)))
+    return error(404, "ルームが見つかりませんでした。");
+  // 進行中のホスト退出は既存どおり解散のみ。本人退出は完了時だけ許す。
+  if (
+    room.hostId === session.sub &&
+    !(await stub.getCompletedRoom(session.sub))
+  )
+    return error(409, "進行中のホストはルームを解散してください。");
 
   await stub.leave(session.sub);
   return new Response(null, { status: 204 });
@@ -256,6 +272,8 @@ async function handleLookupRoom(
   if (!room) {
     return error(404, "ルームが見つかりませんでした。");
   }
+  if (!(await roomStub(env, room.roomId).isJoinable()))
+    return error(404, "ルームが見つかりませんでした。");
   const hostName = await findUserNameById(env.DB, room.hostId);
   return json({
     roomId: room.roomId,
@@ -340,6 +358,12 @@ export function createApiWorker(
       if (!session) {
         return error(401, "ログインが必要です。");
       }
+
+      if (
+        pathname === "/api/completed-rooms" ||
+        pathname.startsWith("/api/completed-rooms/")
+      )
+        return handleCompletedRooms(request, env, session.sub);
 
       if (
         pathname === "/api/shared-outcomes" ||
@@ -449,7 +473,7 @@ export function createApiWorker(
         if (!isUuid(leaveMatch[1])) {
           return error(404, "ルームが見つかりませんでした。");
         }
-        return handleLeaveRoom(env, session, leaveMatch[1]);
+        return handleLeaveRoom(request, env, session, leaveMatch[1]);
       }
 
       const roomMatch = pathname.match(/^\/api\/rooms\/([^/]+)$/);
