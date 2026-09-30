@@ -44,7 +44,7 @@ test.each([
   expect(await page.getByRole("button", { name: "送信中…" }).isDisabled()).toBe(
     true,
   );
-  const outside = page.getByRole("button", { name: "作業に戻る" });
+  const outside = page.getByRole("button", { name: "作業に戻る" }).first();
   if (action === "外へ移動") await outside.click();
   if (action === "閉じる") {
     await page.getByRole("button", { name: "入力欄を閉じる" }).click();
@@ -116,6 +116,12 @@ test.each([
     await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
     expect(
+      await panel
+        .getByRole("button", { name: "作業に戻る" })
+        .evaluate((e) => e === document.activeElement),
+    ).toBe(true);
+    await page.keyboard.press("Tab");
+    expect(
       await page
         .getByRole("button", { name: "別の意見を送る" })
         .evaluate((e) => e === document.activeElement),
@@ -165,6 +171,10 @@ test("狭幅でも5段階をキーボードで選び、種類だけでも送信�
   );
   const panel = page.getByRole("dialog", { name: "意見を送る" });
   await panel.waitFor();
+  // 自動表示のstoryを閉じ、実際の入口から開いて復帰先を設定する。
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "意見を送る", exact: true }).click();
+  await panel.waitFor();
   expect(await panel.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
     true,
   );
@@ -183,7 +193,14 @@ test("狭幅でも5段階をキーボードで選び、種類だけでも送信�
     .getByRole("status")
     .filter({ hasText: "意見を受け付けました" })
     .waitFor();
-  await page.getByRole("button", { name: "入力欄を閉じる" }).click();
+  await panel.getByRole("button", { name: "作業に戻る" }).focus();
+  await page.keyboard.press("Enter");
+  await panel.waitFor({ state: "hidden" });
+  expect(
+    await page
+      .getByRole("button", { name: "意見を送る", exact: true })
+      .evaluate((e) => e === document.activeElement),
+  ).toBe(true);
   await page.getByRole("button", { name: "意見を送る", exact: true }).click();
   await panel.waitFor();
   await page.keyboard.press("Escape");
