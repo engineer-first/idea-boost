@@ -67,20 +67,33 @@ describe("InviteCodeDialog", () => {
     expect(formData?.get("code")).toBe("ABC234");
   });
 
-  it("参加失敗時は error toast を出し遷移しない", async () => {
+  it("確認後の終了を表示し、成功扱いせずキャンセルからhomeへ戻れる", async () => {
     const user = userEvent.setup();
     JOIN_ROOM.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error: "終了したルームには参加できません。",
+    });
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      value: { href: "" },
+      configurable: true,
     });
     renderDialog();
     await user.click(screen.getByTestId("invite-join-action"));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "終了したルームには参加できません。",
       );
     });
     expect(PUSH).not.toHaveBeenCalled();
+    expect(notifyMocks.joinedAsGuest).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(window.location.href).toBe("/home");
+    Object.defineProperty(window, "location", {
+      value: originalLocation,
+      configurable: true,
+    });
   });
 
   it("「キャンセル」クリックで /home へ戻る", async () => {

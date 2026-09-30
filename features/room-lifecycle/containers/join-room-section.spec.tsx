@@ -94,17 +94,21 @@ describe("JoinRoomSection", () => {
     const user = userEvent.setup();
     LOOKUP_INVITE.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。",
     });
     render(<JoinRoomSection />);
     await user.type(screen.getByLabelText("招待コード"), "AB12CD");
     await user.click(screen.getByRole("button", { name: "参加する" }));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。",
       );
     });
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(JOIN_ROOM).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("招待コード")).toHaveValue("AB12CD");
+    expect(screen.getByRole("button", { name: "参加する" })).toBeEnabled();
   });
 
   it("Dialog の「参加する」確定で toast して start へ遷移する", async () => {
@@ -125,21 +129,28 @@ describe("JoinRoomSection", () => {
     expect(formData?.get("code")).toBe("AB12CD");
   });
 
-  it("参加失敗時は error toast を出し遷移しない", async () => {
+  it("確認後の終了を表示し、入力を保持して別コードへ戻れる", async () => {
     const user = userEvent.setup();
     await openConfirmDialog(user);
     JOIN_ROOM.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error: "終了したルームには参加できません。",
     });
     await user.click(screen.getByTestId("join-confirm-action"));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "終了したルームには参加できません。",
       );
     });
     expect(PUSH).not.toHaveBeenCalled();
     expect(notifyMocks.joinedAsGuest).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "キャンセル" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+    const input = screen.getByLabelText("招待コード");
+    expect(input).toHaveValue("AB12CD");
+    await user.clear(input);
+    await user.type(input, "CD34EF");
+    expect(input).toHaveValue("CD34EF");
   });
 
   it("Dialog の「キャンセル」で Dialog が閉じる", async () => {
