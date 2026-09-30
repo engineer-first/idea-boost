@@ -7,6 +7,7 @@ export type CompletedRoomsViewProps = {
   loading: boolean;
   error: string | null;
   hasMore: boolean;
+  onRefresh: () => void;
   onRetry: () => void;
   onMore: () => void;
 };
@@ -15,6 +16,7 @@ export function CompletedRoomsView({
   loading,
   error,
   hasMore,
+  onRefresh,
   onRetry,
   onMore,
 }: CompletedRoomsViewProps) {
@@ -32,6 +34,14 @@ export function CompletedRoomsView({
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             完了したときに参加していたルームを、完了から30日間見返せます。
           </p>
+          <Button
+            className="mt-4 min-h-11"
+            variant="outline"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            最新の一覧を取得
+          </Button>
         </header>
         <ul className="space-y-4">
           {rooms.map((room) => (
@@ -95,11 +105,18 @@ export function CompletedRoomsView({
           </div>
         )}
         {!loading && !error && rooms.length === 0 && (
-          <p className="rounded-xl border bg-muted/30 p-6">
-            {hasMore
-              ? "このページに表示できるルームはありません。続きのルームを確認してください。"
-              : "以前のルームはまだありません。"}
-          </p>
+          <div className="space-y-2 rounded-xl border bg-muted/30 p-6">
+            <p>
+              {hasMore
+                ? "このページに表示できるルームはありません。続きのルームを確認してください。"
+                : "以前のルームはまだありません。"}
+            </p>
+            {!hasMore && (
+              <p className="text-sm leading-6 text-muted-foreground">
+                完了直後は表示まで時間がかかることがあります。時間をおいて「最新の一覧を取得」をお試しください。
+              </p>
+            )}
+          </div>
         )}
         {hasMore && !error && (
           <Button
