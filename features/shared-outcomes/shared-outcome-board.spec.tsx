@@ -22,10 +22,12 @@ describe("成果の2軸盤面", () => {
     expect(list.queryByText("採用済み")).not.toBeInTheDocument();
     expect(list.queryByText(/合計.*票/)).not.toBeInTheDocument();
   });
-  it("3-2の共有時点でも中心座標を元の盤面と同じ配置へ変換する", () => {
+  it.each([
+    1, 2, 3, 4, 5,
+  ])("3-%sの記録でも保存済みアイデアを2軸上の中心座標で再現する", (step) => {
     const snapshot = buildSharedOutcome().snapshot;
     if (!snapshot) throw new Error("snapshot required");
-    snapshot.phase = { kind: "step", phase: 3, step: 2 };
+    snapshot.phase = { kind: "step", phase: 3, step };
     snapshot.notes = [
       { ...snapshot.notes[0], id: "map-note", phase: 3, x: 50, y: 50 },
     ];
@@ -37,6 +39,9 @@ describe("成果の2軸盤面", () => {
     const note = screen.getByRole("img").querySelector("rect");
     expect(note).toHaveAttribute("x", "700");
     expect(note).toHaveAttribute("y", "375");
+    expect(
+      within(screen.getByRole("list")).getByText("実現のしやすさ 50 / 価値 50"),
+    ).toBeInTheDocument();
   });
 });
 

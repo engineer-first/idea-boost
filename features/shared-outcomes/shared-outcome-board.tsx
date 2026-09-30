@@ -24,11 +24,8 @@ export function SharedOutcomeBoard({
         {label}の共有付箋はありません。
       </p>
     );
-  const isMap =
-    phase === 3 &&
-    snapshot.phase.kind === "step" &&
-    snapshot.phase.phase === 3 &&
-    snapshot.phase.step >= 2;
+  // 書き足しでStep1に戻っても、共有済みアイデアの2軸座標は保持される。
+  const isMap = phase === 3;
   const dimensions = getIdeaMapDimensions(snapshot.ideaMapSizeLevel);
   const positions = notes.map((note) => ({
     note,
