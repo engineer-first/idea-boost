@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn, userEvent, within } from "storybook/test";
+import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildCarryover,
@@ -682,5 +683,21 @@ export const WithFeedback: Story = {
       async (_room, input) => ({ ok: true, id: input.id }),
     );
     return <RoomBoardView {...args} feedback={feedback} />;
+  },
+};
+
+export const FitUnavailable: Story = {
+  decorators: [
+    (Story) => (
+      <>
+        <Story />
+        <Toaster position="bottom-center" />
+      </>
+    ),
+  ],
+  args: {
+    phase: STEP_1_4,
+    initialGuideState: "detail",
+    interactions: { ...INTERACTIONS, onFitToNotes: fn(() => false) },
   },
 };

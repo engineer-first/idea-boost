@@ -227,3 +227,30 @@ describe("useCanvasCamera", () => {
     expect(stopPropagation).toHaveBeenCalledOnce();
   });
 });
+
+it("HUD変更は本人視野を変えず、明示fitと初期fitだけ最新insetsを使い安全領域なしなら視野を保つ", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
+  const viewportRef = { current: viewport };
+  let top = 240;
+  const getFitInsets = () => ({ top, left: 0, right: 0, bottom: 160 });
+  const notes = buildNotes(1);
+  const { result, rerender } = renderHook(() =>
+    useCanvasCamera({ viewportRef, notes, getFitInsets }),
+  );
+  const initial = result.current.camera;
+  expect(initial.y + notes[0].y * initial.zoom).toBeGreaterThanOrEqual(top);
+  act(() => result.current.zoomTo(2));
+  const before = result.current.cameraRef.current;
+  top = 300;
+  rerender();
+  expect(result.current.cameraRef.current).toEqual(before);
+  act(() => result.current.fitToNotes());
+  expect(
+    result.current.camera.y + notes[0].y * result.current.camera.zoom,
+  ).toBeGreaterThanOrEqual(top);
+  const fitted = result.current.camera;
+  top = 600;
+  act(() => expect(result.current.fitToNotes()).toBe(false));
+  expect(result.current.camera).toEqual(fitted);
+});

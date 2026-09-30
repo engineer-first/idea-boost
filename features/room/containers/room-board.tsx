@@ -11,7 +11,7 @@
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RoomPhase } from "@/contracts/phase";
+import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
 import { submitFeedback, useFeedback } from "@/features/feedback";
 import {
@@ -31,7 +31,7 @@ import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomState } from "../logic/use-room-state";
 import { ForceNextPhaseDialog } from "../molecules/force-next-phase-dialog";
-import { RoomBoardView } from "../templates/room-board-view";
+import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
 
 export type RoomBoardProps = {
   roomId: string;
@@ -67,6 +67,7 @@ export function RoomBoard({
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
+  const candidateNoticeIdsRef = useRef(new Set<string | number>());
   const latestExcludeOperationRef = useRef(0);
   const latestBulkExclusionOperationRef = useRef<string | null>(null);
 
@@ -96,7 +97,40 @@ export function RoomBoard({
     send,
   });
 
+  function clearCandidateNotices(): void {
+    latestExcludeOperationRef.current += 1;
+    latestBulkExclusionOperationRef.current = null;
+    for (const id of candidateNoticeIdsRef.current)
+      roomNotify.dismissCandidateNotice(id);
+    candidateNoticeIdsRef.current.clear();
+  }
+
+  useEffect(
+    () => () => {
+      for (const id of candidateNoticeIdsRef.current)
+        roomNotify.dismissCandidateNotice(id);
+      candidateNoticeIdsRef.current.clear();
+    },
+    [],
+  );
+
+  const rememberCandidateNotice = useCallback((id: string | number): void => {
+    candidateNoticeIdsRef.current.add(id);
+  }, []);
+
   function handleServerMessage(message: ServerMessage) {
+    if (
+      message.type === "snapshot" ||
+      message.type === "outcome:published" ||
+      (message.type === "decision:updated" && message.decision !== null) ||
+      (message.type === "phase:updated" &&
+        (!isResultStep(message.phase) ||
+          roomState.phase.kind !== "step" ||
+          message.phase.kind !== "step" ||
+          message.phase.phase !== roomState.phase.phase))
+    ) {
+      clearCandidateNotices();
+    }
     const receivedAt = Date.now();
     drafts.applyMessage(message);
     if (
@@ -121,13 +155,17 @@ export function RoomBoard({
           latestBulkExclusionOperationRef.current = isHost
             ? message.operationId
             : null;
-          roomNotify.automaticallyExcludedCandidates(
-            message.count,
-            isHost ? undo : undefined,
+          rememberCandidateNotice(
+            roomNotify.automaticallyExcludedCandidates(
+              message.count,
+              isHost ? undo : undefined,
+            ),
           );
         } else {
           latestBulkExclusionOperationRef.current = message.operationId;
-          roomNotify.bulkCandidatesExcluded(message.count, undo);
+          rememberCandidateNotice(
+            roomNotify.bulkCandidatesExcluded(message.count, undo),
+          );
         }
       }
     }
@@ -135,7 +173,7 @@ export function RoomBoard({
       message.type === "note:bulk-restored" &&
       latestBulkExclusionOperationRef.current === message.operationId
     ) {
-      latestBulkExclusionOperationRef.current = null;
+      clearCandidateNotices();
     }
     if (message.type === "error") {
       notes.applyMessage(message);
@@ -227,13 +265,15 @@ export function RoomBoard({
       const operation = latestExcludeOperationRef.current + 1;
       latestExcludeOperationRef.current = operation;
       notes.excludeNote(noteId);
-      roomNotify.noteExcluded(() => {
-        if (latestExcludeOperationRef.current !== operation) return;
-        latestExcludeOperationRef.current += 1;
-        notes.restoreNote(noteId);
-      });
+      rememberCandidateNotice(
+        roomNotify.noteExcluded(() => {
+          if (latestExcludeOperationRef.current !== operation) return;
+          latestExcludeOperationRef.current += 1;
+          notes.restoreNote(noteId);
+        }),
+      );
     },
-    [notes],
+    [notes, rememberCandidateNotice],
   );
 
   const handleNoteRestore = useCallback(
@@ -303,6 +343,7 @@ export function RoomBoard({
     (note) => note.visibility === "private",
   );
   const boardInteractions = useRoomBoardInteractions({
+    getFitInsets: getBoardFitInsets,
     notes: boardNotes,
     isDecided: roomState.decision !== null,
     privateNotes: boardPrivateNotes,

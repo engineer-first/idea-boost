@@ -23,6 +23,13 @@ export type CanvasBounds = CanvasPoint & {
   height: number;
 };
 
+export type CanvasFitInsets = Readonly<{
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}>;
+
 export type CanvasViewport = {
   width: number;
   height: number;
@@ -81,19 +88,45 @@ export function zoomAtScreenPoint(
 export function fitCanvasCamera(
   bounds: CanvasBounds,
   viewport: CanvasViewport,
+  padding?: number,
+): CanvasCamera;
+export function fitCanvasCamera(
+  bounds: CanvasBounds,
+  viewport: CanvasViewport,
+  padding: number | undefined,
+  insets: CanvasFitInsets | undefined,
+): CanvasCamera | null;
+export function fitCanvasCamera(
+  bounds: CanvasBounds,
+  viewport: CanvasViewport,
   padding = CANVAS_FIT_PADDING,
-): CanvasCamera {
-  const availableWidth = Math.max(viewport.width - padding * 2, 1);
-  const availableHeight = Math.max(viewport.height - padding * 2, 1);
+  insets?: CanvasFitInsets,
+): CanvasCamera | null {
+  const left = insets?.left ?? 0;
+  const top = insets?.top ?? 0;
+  const safeWidth = viewport.width - left - (insets?.right ?? 0);
+  const safeHeight = viewport.height - top - (insets?.bottom ?? 0);
+  if (
+    insets &&
+    (![left, top, safeWidth, safeHeight].every(Number.isFinite) ||
+      safeWidth <= padding * 2 ||
+      safeHeight <= padding * 2)
+  )
+    return null;
+  const availableWidth = Math.max(safeWidth - padding * 2, 1);
+  const availableHeight = Math.max(safeHeight - padding * 2, 1);
   const width = Math.max(bounds.width, 1);
   const height = Math.max(bounds.height, 1);
-  const zoom = clampCanvasZoom(
-    Math.min(availableWidth / width, availableHeight / height, 1),
+  const requestedZoom = Math.min(
+    availableWidth / width,
+    availableHeight / height,
+    1,
   );
-
+  if (insets && requestedZoom < MIN_CANVAS_ZOOM) return null;
+  const zoom = clampCanvasZoom(requestedZoom);
   return {
-    x: (viewport.width - width * zoom) / 2 - bounds.x * zoom,
-    y: (viewport.height - height * zoom) / 2 - bounds.y * zoom,
+    x: left + (safeWidth - width * zoom) / 2 - bounds.x * zoom,
+    y: top + (safeHeight - height * zoom) / 2 - bounds.y * zoom,
     zoom,
   };
 }

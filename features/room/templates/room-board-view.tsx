@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Button } from "@/components/ui/button";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
@@ -36,8 +37,10 @@ import {
 } from "@/features/feedback";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
+import type { CanvasFitInsets } from "../logic/canvas-camera";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
+import { roomNotify } from "../logic/room-notify";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
@@ -49,6 +52,80 @@ import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
+
+// 透過wrapper全体ではなく実際にpointerを受ける表示領域だけを計測する。
+// viewport/mapの物理寸法は変えず、本人fit時の利用可能領域にだけ使う。
+export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
+  const root = viewport.closest('[data-testid="room-board-view-root"]');
+  const area = viewport.getBoundingClientRect();
+  let top = 0;
+  let bottom = 0;
+  for (const group of root?.querySelectorAll<HTMLElement>(
+    "[data-board-fit-edge]",
+  ) ?? []) {
+    for (const element of [
+      group,
+      ...group.querySelectorAll<HTMLElement>("*"),
+    ]) {
+      if (
+        !(element instanceof HTMLElement) ||
+        getComputedStyle(element).pointerEvents === "none"
+      )
+        continue;
+      // 最外の対話領域が占有を代表する。スクロール内容の自然rectを足さない。
+      let parent = element.parentElement;
+      let nested = false;
+      while (parent && group.contains(parent)) {
+        if (getComputedStyle(parent).pointerEvents !== "none") {
+          nested = true;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+      if (nested) continue;
+      const box = element.getBoundingClientRect();
+      let left = Math.max(area.left, box.left);
+      let right = Math.min(area.right, box.right);
+      let visibleTop = Math.max(area.top, box.top);
+      let visibleBottom = Math.min(area.bottom, box.bottom);
+      for (
+        let clip = element.parentElement;
+        clip && clip !== root;
+        clip = clip.parentElement
+      ) {
+        const style = getComputedStyle(clip);
+        const rect = clip.getBoundingClientRect();
+        if (/hidden|clip|auto|scroll/.test(style.overflowX || style.overflow)) {
+          left = Math.max(left, rect.left);
+          right = Math.min(right, rect.right);
+        }
+        if (/hidden|clip|auto|scroll/.test(style.overflowY || style.overflow)) {
+          visibleTop = Math.max(visibleTop, rect.top);
+          visibleBottom = Math.min(visibleBottom, rect.bottom);
+        }
+      }
+      if (right <= left || visibleBottom <= visibleTop) continue;
+      if (group.dataset.boardFitEdge === "top")
+        top = Math.max(top, visibleBottom - area.top);
+      else bottom = Math.max(bottom, area.bottom - visibleTop);
+    }
+  }
+  for (const toast of document.querySelectorAll<HTMLElement>(
+    '[data-sonner-toast][data-visible="true"][data-removed="false"][data-y-position="bottom"]',
+  )) {
+    const box = toast.getBoundingClientRect();
+    if (
+      box.width > 0 &&
+      box.height > 0 &&
+      box.right > area.left &&
+      box.left < area.right &&
+      box.top < area.bottom &&
+      box.bottom > area.top
+    )
+      bottom = Math.max(bottom, area.bottom - box.top);
+  }
+  return { top, right: 0, bottom, left: 0 };
+}
 
 export type RoomBoardViewProps = {
   feedback?: FeedbackControls;
@@ -238,6 +315,7 @@ export function RoomBoardView({
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [isAdoptMode, setIsAdoptMode] = useState(false);
+  const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
   const [outcomeDismissed, setOutcomeDismissed] = useState(false);
@@ -801,6 +879,24 @@ export function RoomBoardView({
           }
           outcome={outcome}
           connected={!isDisconnected}
+        >
+          <Button
+            variant="outline"
+            className="min-h-11"
+            disabled={isLeaving}
+            onClick={() => setLeaveDialogOpen(true)}
+          >
+            退出してホームへ
+          </Button>
+        </RoomOutcomeView>
+        <LeaveConfirmDialog
+          open={leaveDialogOpen}
+          onOpenChange={setLeaveDialogOpen}
+          onConfirm={onLeave}
+          isLeaving={isLeaving}
+          mode="leave"
+          completed
+          onReturnToOutcome={() => setLeaveDialogOpen(false)}
         />
         {feedback ? <FeedbackPanel feedback={feedback} /> : null}
       </>
@@ -882,8 +978,14 @@ export function RoomBoardView({
           <BoardHelpPanel
             {...help}
             disabled={isDisconnected}
-            onHmwTemplateSelect={onHmwTemplateSelect}
-            onIdeaHintSelect={onIdeaHintSelect}
+            onHmwTemplateSelect={(content) => {
+              onHmwTemplateSelect(content);
+              setExpandPrivateNotesRequest((request) => request + 1);
+            }}
+            onIdeaHintSelect={(content) => {
+              onIdeaHintSelect(content);
+              setExpandPrivateNotesRequest((request) => request + 1);
+            }}
           />
         </RoomBoardHeader>
 
@@ -896,6 +998,7 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
+          expandPrivateNotesRequest={expandPrivateNotesRequest}
           selectedNoteId={selectedNoteId}
           draggingNoteId={draggingNoteId}
           isDisconnected={isDisconnected}
@@ -924,7 +1027,11 @@ export function RoomBoardView({
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
           onResetZoom={resetZoom}
-          onFitToNotes={fitToNotes}
+          onFitToNotes={() => {
+            const viewport = boardScrollerRef.current;
+            if (viewport && fitToNotes(getBoardFitInsets(viewport)) === false)
+              roomNotify.canvasFitUnavailable();
+          }}
           onSelect={handleNoteSelect}
           onNoteDragStart={handleSharedNoteDragStart}
           onNoteContentChange={onNoteContentChange}
@@ -956,6 +1063,7 @@ export function RoomBoardView({
           <div
             className="pointer-events-none absolute inset-x-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 flex justify-end lg:justify-center max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))] max-[639px]:justify-center"
             data-testid="vote-palette-hud"
+            data-board-fit-edge="bottom"
           >
             <DotVotePalette
               voteRemaining={voteRemaining}
@@ -973,6 +1081,7 @@ export function RoomBoardView({
         <div
           className="pointer-events-none absolute inset-x-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 flex justify-center max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))]"
           data-testid="phase-loop-hud"
+          data-board-fit-edge="bottom"
         >
           <PhaseLoopControls
             key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
