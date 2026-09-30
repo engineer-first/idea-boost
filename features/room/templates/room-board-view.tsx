@@ -697,7 +697,10 @@ export function RoomBoardView({
   useEffect(() => {
     const root = boardRootRef.current;
     if (!root) return;
-    const toasts = new ResizeObserver(updateNotificationInset);
+    const toasts =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateNotificationInset);
     const observedToasts = new Set<HTMLElement>();
     let previousInset = -1;
     function updateNotificationInset(): void {
@@ -709,12 +712,12 @@ export function RoomBoardView({
       );
       for (const toast of observedToasts) {
         if (currentToasts.has(toast)) continue;
-        toasts.unobserve(toast);
+        toasts?.unobserve(toast);
         observedToasts.delete(toast);
       }
       for (const toast of currentToasts) {
         if (!observedToasts.has(toast)) {
-          toasts.observe(toast);
+          toasts?.observe(toast);
           observedToasts.add(toast);
         }
         const toaster = toast.closest<HTMLElement>("[data-sonner-toaster]");
@@ -759,7 +762,7 @@ export function RoomBoardView({
     updateNotificationInset();
     return () => {
       mutations.disconnect();
-      toasts.disconnect();
+      toasts?.disconnect();
       window.removeEventListener("resize", updateNotificationInset);
       root.style.removeProperty("--board-notification-inset");
     };

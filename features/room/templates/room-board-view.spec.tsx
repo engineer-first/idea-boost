@@ -2184,6 +2184,34 @@ function notificationFixture(): { toaster: HTMLElement; toast: HTMLElement } {
 }
 
 describe("通知の寸法観測", () => {
+  it("寸法観測APIがない環境でもボードと通知の余白を表示する", async () => {
+    vi.stubGlobal("ResizeObserver", undefined);
+    const { toaster, toast } = notificationFixture();
+    let toastHeight = 80;
+    Object.defineProperty(toast, "offsetHeight", { get: () => toastHeight });
+    try {
+      setup();
+      const board = screen.getByTestId("room-board-view-root");
+      expect(board.style.getPropertyValue("--board-notification-inset")).toBe(
+        "128px",
+      );
+      toaster.style.bottom = "48px";
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(board.style.getPropertyValue("--board-notification-inset")).toBe(
+        "144px",
+      );
+      toastHeight = 100;
+      fireEvent(window, new Event("resize"));
+      expect(board.style.getPropertyValue("--board-notification-inset")).toBe(
+        "164px",
+      );
+    } finally {
+      toaster.remove();
+    }
+  });
+
   it("付箋や補助パネルのDOM更新では通知のlayoutを再計測しない", async () => {
     const { toaster } = notificationFixture();
     const computed = vi.spyOn(window, "getComputedStyle");
