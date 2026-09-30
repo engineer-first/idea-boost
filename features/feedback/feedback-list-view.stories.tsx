@@ -23,6 +23,7 @@ const meta = {
     canReadOutcomes: true,
     onFilter: fn(),
     onRefresh: fn(),
+    onRetry: fn(),
     onMore: fn(),
   },
 } satisfies Meta<typeof FeedbackListView>;
@@ -42,4 +43,18 @@ export const Loading: Story = {
 };
 export const Unavailable: Story = {
   args: { items: [], error: "意見の閲覧権限がありません。", nextCursor: null },
+};
+
+export const ContinuationError: Story = {
+  args: {
+    error: "意見を取得できませんでした。再試行してください。",
+    canReadOutcomes: false,
+  },
+};
+export const FetchError: Story = {
+  args: {
+    items: [],
+    error: "意見を取得できませんでした。再試行してください。",
+    nextCursor: null,
+  },
 };
