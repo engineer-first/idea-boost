@@ -51,18 +51,23 @@ export function DotVotePaletteView({
   onStickerSelect,
   onStickerDragStart,
 }: DotVotePaletteViewProps) {
-  const status =
-    pendingOperationCount > 0
-      ? "投票を送信中です。"
-      : feedback?.state === "confirmed"
+  const isComplete =
+    voteRemaining.subjective === 0 && voteRemaining.objective === 0;
+  const status = disabled
+    ? "接続を待っています。投票の確定は接続後に確認してください。"
+    : pendingOperationCount > 0
+      ? "投票を送信中です。確定までお待ちください。"
+      : feedback?.state === "failed"
         ? feedback.message
-        : feedback?.state === "failed"
-          ? feedback.message
-          : isReturnDropTarget
-            ? "ここへ戻すと1票取り消しになります。"
-            : selectedKind === null
-              ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
-              : `${DOT_VOTE_LABELS[selectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
+        : isReturnDropTarget
+          ? "ここへ戻すと1票取り消しになります。"
+          : isComplete
+            ? "4票の配布が確定しました。付け直すこともできます。"
+            : selectedKind !== null
+              ? `${DOT_VOTE_LABELS[selectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`
+              : feedback?.state === "confirmed"
+                ? feedback.message
+                : "シールを選んで付箋へ貼るか、ドラッグしてください。";
 
   return (
     <section
@@ -70,7 +75,7 @@ export function DotVotePaletteView({
       aria-describedby="dot-vote-palette-help"
       data-vote-palette="true"
       data-return-drop-target={isReturnDropTarget ? "true" : undefined}
-      className={`pointer-events-auto relative flex h-12 max-w-[calc(100vw-1.5rem)] items-center rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] ${
+      className={`pointer-events-auto relative flex w-[30rem] max-w-[calc(100vw-1.5rem)] flex-col items-stretch rounded-xl border border-border bg-white p-1 shadow-[0_4px_12px_rgba(69,54,36,0.12)] ${
         isReturnDropTarget
           ? "border-amber-500 bg-amber-50/95 ring-2 ring-amber-300/80 ring-offset-2 ring-offset-white"
           : ""
@@ -91,7 +96,7 @@ export function DotVotePaletteView({
           付箋に貼った自分のシールを投票パレットへ戻すと、その1票を取り消せます。
         </p>
       </div>
-      <fieldset className="flex min-w-0 flex-1 gap-1">
+      <fieldset className="flex min-w-0 gap-1">
         <legend className="sr-only">使用するシールの種類</legend>
         {DOT_VOTE_KINDS.map((kind) => {
           return (
@@ -103,7 +108,7 @@ export function DotVotePaletteView({
               disabled={disabled || voteRemaining[kind] <= 0}
               size="sm"
               variant="outline"
-              className={`h-10 min-w-0 flex-1 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]} ${
+              className={`h-auto min-h-12 min-w-0 flex-1 touch-none cursor-grab select-none gap-1.5 rounded-lg border px-1.5 py-1.5 active:cursor-grabbing disabled:cursor-not-allowed ${DOT_VOTE_BUTTON_TONE[kind]} ${
                 selectedKind === kind ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
@@ -121,11 +126,11 @@ export function DotVotePaletteView({
                   <span className="text-xs font-bold">
                     {DOT_VOTE_LABELS[kind]}
                   </span>
-                  <span className="text-[0.5rem] font-semibold tabular-nums opacity-65">
+                  <span className="text-xs font-semibold tabular-nums">
                     残り{voteRemaining[kind]}票
                   </span>
                 </span>
-                <span className="mt-0.5 whitespace-normal text-left text-[0.55rem] leading-tight font-medium opacity-70">
+                <span className="mt-0.5 whitespace-normal text-left text-xs leading-tight font-medium">
                   {DOT_VOTE_CRITERIA[kind]}
                 </span>
               </span>
@@ -133,9 +138,33 @@ export function DotVotePaletteView({
           );
         })}
       </fieldset>
-      <p className="sr-only" role="status" aria-live="polite">
+      <p
+        className={`px-1.5 pt-1.5 text-xs leading-relaxed break-words ${
+          feedback?.state === "failed" &&
+          !disabled &&
+          pendingOperationCount === 0
+            ? "font-semibold text-destructive"
+            : "text-foreground"
+        }`}
+        role="status"
+        aria-live="polite"
+      >
         {status}
       </p>
+      <details className="px-1.5 py-1 text-xs leading-relaxed text-foreground">
+        <summary className="w-fit cursor-pointer rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2">
+          貼り方・付け直し
+        </summary>
+        <p className="pt-1">
+          シールを選び、付箋をクリックするか、付箋にフォーカスしてEnter・Spaceで貼ります。ドラッグでも貼れます。
+        </p>
+        <p>
+          貼った自分のシールは押すと1票取消。ドラッグで別の付箋へ移動、パレットへ戻すと1票取消になります。
+        </p>
+        <p>
+          投票中の票は本人だけに見えます。全員には配布完了だけを共有します。
+        </p>
+      </details>
     </section>
   );
 }

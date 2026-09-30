@@ -37,3 +37,21 @@ export const ReturningSticker: Story = {
     isReturnDropTarget: true,
   },
 };
+
+export const Confirmed: Story = {
+  args: {
+    voteRemaining: { subjective: 0, objective: 2 },
+    feedback: { state: "confirmed", message: "投票を確定しました。" },
+  },
+};
+
+export const LastVotePending: Story = {
+  args: {
+    voteRemaining: { subjective: 0, objective: 0 },
+    pendingOperationCount: 1,
+  },
+};
+
+export const Disconnected: Story = {
+  args: { disabled: true, voteRemaining: { subjective: 0, objective: 0 } },
+};
