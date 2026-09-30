@@ -23,6 +23,11 @@ const baseArgs: RoomLobbyViewProps = {
   isLeaving: false,
 };
 
+const longNamedMembers = buildMembers(20, ME).map((member, index) => ({
+  ...member,
+  name: `とても長い表示名の参加者・プロジェクトチームメンバー${index + 1}`,
+}));
+
 const meta = {
   title: "Room/RoomLobbyView",
   component: RoomLobbyView,
@@ -155,5 +160,20 @@ export const AllInteractionStates: Story = {
         ))}
       </div>
     );
+  },
+};
+
+export const HostManyLongNames: Story = {
+  name: "ホスト・20人・長い名前",
+  args: { members: longNamedMembers },
+};
+
+export const GuestManyLongNames: Story = {
+  name: "参加者・20人・長い名前・本人とホストは省略一覧",
+  args: {
+    members: longNamedMembers,
+    isHost: false,
+    currentUserId: longNamedMembers[19]?.userId ?? ME,
+    hostUserId: longNamedMembers[18]?.userId ?? ME,
   },
 };

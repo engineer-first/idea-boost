@@ -37,7 +37,8 @@ export const WithCreateError: Story = {
 // 参加失敗。
 export const WithJoinError: Story = {
   args: {
-    error: "ルームが見つかりませんでした。",
+    error:
+      "この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。",
   },
 };
 
@@ -56,7 +57,10 @@ export const AllStates: Story = {
         [
           ["Default", undefined],
           ["WithCreateError", "ルームを作成できませんでした。"],
-          ["WithJoinError", "ルームが見つかりませんでした。"],
+          [
+            "WithJoinError",
+            "この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。",
+          ],
           ["WithInvalidCodeError", "招待コードは英数字6桁で入力してください。"],
         ] as const
       ).map(([label, error]) => (

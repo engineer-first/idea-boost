@@ -1,32 +1,36 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export type CopyInviteButtonProps = {
-  // 表示・クリップボードへ書き込む文字列（招待URL / 招待コード）。
   value: string;
-  // aria-label 用の対象名。既定は「招待URL」。
   itemLabel?: string;
   className?: string;
 };
 
-// 招待URL・招待コード自体を表示し、クリックでクリップボードへコピーする。
-// 成功したときだけ一時的に「コピーしました」に切り替える
-// （失敗時に成功表示を出すと、貼り付けたら空だった、という事故になる）。
+// 成功時だけ成功表示に切り替える。拒否時は値を選択して手動コピーできる。
 export function CopyInviteButton({
   value,
   itemLabel = "招待URL",
   className,
 }: CopyInviteButtonProps) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const manualInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (copyFailed) {
+      manualInputRef.current?.focus();
+      manualInputRef.current?.select();
+    }
+  }, [copyFailed]);
 
   useEffect(() => {
     return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
     };
   }, []);
 
@@ -34,27 +38,50 @@ export function CopyInviteButton({
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
+      setCopyFailed(false);
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error(`${itemLabel}のコピーに失敗しました:`, error);
+    } catch {
+      setCopied(false);
+      setCopyFailed(true);
     }
-  }, [value, itemLabel]);
+  }, [value]);
 
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={copied ? "コピーしました" : `${itemLabel}をコピー`}
-      title={copied ? "コピーしました" : `クリックで${itemLabel}をコピー`}
-      className={cn(
-        "max-w-full cursor-pointer truncate text-center font-mono text-sm font-semibold tracking-wider text-foreground underline-offset-2 hover:underline",
-        className,
-      )}
-    >
-      {copied ? "コピーしました" : value}
-    </button>
+    <div className="flex min-w-0 max-w-full flex-col items-stretch gap-2">
+      <button
+        type="button"
+        onClick={handleCopy}
+        aria-label={copied ? "コピーしました" : `${itemLabel}をコピー`}
+        title={copied ? "コピーしました" : `クリックで${itemLabel}をコピー`}
+        className={cn(
+          "min-h-11 max-w-full cursor-pointer truncate rounded-md px-2 text-center font-mono text-sm font-semibold tracking-wider text-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          className,
+        )}
+      >
+        {copied ? "コピーしました" : value}
+      </button>
+      <span aria-live="polite" aria-atomic="true" className="sr-only">
+        {copied ? `${itemLabel}をコピーしました` : ""}
+      </span>
+      {copyFailed ? (
+        <>
+          <p
+            role="alert"
+            className="text-center text-sm font-normal tracking-normal text-destructive"
+          >
+            コピーできませんでした。下の文字列を選択して手動でコピーするか、もう一度お試しください。
+          </p>
+          <Input
+            ref={manualInputRef}
+            aria-label={`${itemLabel}（手動コピー）`}
+            value={value}
+            readOnly
+            onFocus={(event) => event.currentTarget.select()}
+            className="text-base tracking-normal"
+          />
+        </>
+      ) : null}
+    </div>
   );
 }

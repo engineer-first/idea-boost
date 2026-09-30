@@ -34,7 +34,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
   const lookup = await lookupRoomByInviteCode(code);
   if (lookup.kind === "not_found") {
     redirect(
-      `/home?error=${encodeURIComponent("ルームが見つかりませんでした。")}`,
+      `/home?error=${encodeURIComponent("この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。")}`,
     );
   }
   if (lookup.kind === "unavailable") {

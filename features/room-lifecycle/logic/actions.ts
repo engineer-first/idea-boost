@@ -41,7 +41,7 @@ export type JoinRoomResult =
   | { ok: true; roomId: string }
   | { ok: false; error: string };
 
-// 参加確認 Dialog 用。ホスト名を先に解決し、存在しないコードは Dialog を開かない。
+// 参加確認 Dialog 用。ホスト名を先に解決し、参加可能と確認できないコードは Dialog を開かない。
 export type LookupInviteResult =
   | { ok: true; hostName: string; inviteCode: string }
   | { ok: false; error: string };
@@ -64,7 +64,11 @@ export async function lookupInviteRoom(
 
   const lookup = await lookupRoomByInviteCode(parsedInput.data.code);
   if (lookup.kind === "not_found") {
-    return { ok: false, error: "ルームが見つかりませんでした。" };
+    return {
+      ok: false,
+      error:
+        "この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。",
+    };
   }
   if (lookup.kind === "unavailable") {
     return {
@@ -91,11 +95,16 @@ export async function createRoom(name?: string): Promise<CreateRoomResult> {
   const input = CreateRoomInputSchema.safeParse({ name });
   if (!input.success)
     return { ok: false, error: "ルーム名は80文字以内で入力してください。" };
-  const res = await apiFetch("/api/rooms", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input.data),
-  });
+  let res: Response;
+  try {
+    res = await apiFetch("/api/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input.data),
+    });
+  } catch {
+    return { ok: false, error: "ルームを作成できませんでした。" };
+  }
   // 2xx でもボディが不正 JSON（プロキシの HTML エラーページ等）のことがある。
   const parsed = res.ok
     ? CreateRoomResponseSchema.safeParse(await res.json().catch(() => null))
@@ -144,12 +153,30 @@ export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {
     };
   }
 
-  // 404/400 はルーム不存在・入力不正。それ以外の非 2xx は一時障害扱い。
+  // 404/400から終了・不存在を推測せず、参加可能と確認できないことを伝える。
   if (res.status === 404 || res.status === 400) {
-    return { ok: false, error: "ルームが見つかりませんでした。" };
+    return {
+      ok: false,
+      error:
+        "この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。",
+    };
   }
   if (res.status === 409) {
-    return { ok: false, error: "このルームは20人までです。" };
+    const body: unknown = await res.json().catch(() => null);
+    const reason = z
+      .object({
+        error: z.enum([
+          "終了したルームには参加できません。",
+          "このルームは20人までです。",
+        ]),
+      })
+      .safeParse(body);
+    return {
+      ok: false,
+      error: reason.success
+        ? reason.data.error
+        : "この招待では参加できませんでした。招待した人に確認してください。",
+    };
   }
   if (!res.ok) {
     return {

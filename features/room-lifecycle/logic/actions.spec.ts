@@ -109,6 +109,14 @@ describe("createRoom", () => {
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
 
+  it("作成の通信失敗は再試行できるエラーとして返す", async () => {
+    apiFetchMock.mockRejectedValueOnce(new Error("network down"));
+    await expect(createRoom("相談ルーム")).resolves.toEqual({
+      ok: false,
+      error: "ルームを作成できませんでした。",
+    });
+  });
+
   it("API が非 2xx なら ok: false を返す", async () => {
     apiFetchMock.mockResolvedValue(new Response("error", { status: 500 }));
 
@@ -139,12 +147,14 @@ describe("lookupInviteRoom", () => {
     expect(lookupRoomByInviteCodeMock).not.toHaveBeenCalled();
   });
 
-  it("ルームが無ければ ok: false を返す", async () => {
+  it("lookup404は状態を断定せず、参加せずに確認方法を返す", async () => {
     lookupRoomByInviteCodeMock.mockResolvedValueOnce({ kind: "not_found" });
     await expect(lookupInviteRoom("ABC123")).resolves.toEqual({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。",
     });
+    expect(apiFetchMock).not.toHaveBeenCalled();
   });
 
   it("lookup が unavailable なら専用のエラー文言を返す", async () => {
@@ -195,22 +205,52 @@ describe("joinRoom", () => {
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it("API が 404 なら見つからないエラーを返す", async () => {
+  it("join404は未確認の参加不可として確認方法を返す", async () => {
     apiFetchMock.mockResolvedValue(new Response("not found", { status: 404 }));
 
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "この招待で参加できるルームを確認できませんでした。招待コードを確認し、招待した人に現在使える招待を確認してください。",
+    });
+  });
+
+  it("参加確認後に終了したルームを人数上限と誤案内しない", async () => {
+    apiFetchMock.mockResolvedValue(
+      Response.json(
+        { error: "終了したルームには参加できません。" },
+        { status: 409 },
+      ),
+    );
+    await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
+      ok: false,
+      error: "終了したルームには参加できません。",
     });
   });
 
   it("API が 409 ならルームの参加上限エラーを返す", async () => {
-    apiFetchMock.mockResolvedValue(new Response("full", { status: 409 }));
+    apiFetchMock.mockResolvedValue(
+      Response.json({ error: "このルームは20人までです。" }, { status: 409 }),
+    );
 
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: false,
       error: "このルームは20人までです。",
     });
+  });
+
+  it.each([
+    ["不正JSON", "<html>error</html>"],
+    ["未知理由", JSON.stringify({ error: "unknown reason" })],
+    ["理由欠落", JSON.stringify({})],
+    ["空body", ""],
+  ])("409の%sから満員や終了を推測しない", async (_label, body) => {
+    apiFetchMock.mockResolvedValue(new Response(body, { status: 409 }));
+    await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
+      ok: false,
+      error: "この招待では参加できませんでした。招待した人に確認してください。",
+    });
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("API が 5xx なら一時障害として見つからないと誤案内しない", async () => {

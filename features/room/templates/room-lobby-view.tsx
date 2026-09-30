@@ -65,28 +65,23 @@ export function RoomLobbyView({
 
   return (
     <div
-      className="relative flex h-full flex-1 items-center justify-center overflow-hidden p-4 sm:p-6"
+      className="relative flex h-full min-h-0 flex-1 items-start justify-center overflow-y-auto p-4 sm:p-6"
       data-testid="room-lobby-view"
       data-phase={
         isLobby(phase) ? "lobby" : `phase${phase.phase}-step${phase.step}`
       }
       data-host={isHost ? "true" : undefined}
     >
-      {/* ホームと同じ背景言語 */}
+      {/* 背景だけをクリップし、操作を含む内容はスクロールできるようにする。 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-muted/40"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-24 top-1/4 size-72 rounded-full bg-primary/5 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-16 bottom-1/4 size-80 rounded-full bg-secondary blur-3xl"
-      />
+        className="pointer-events-none absolute inset-0 overflow-hidden bg-muted/40"
+      >
+        <div className="absolute -left-24 top-1/4 size-72 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -right-16 bottom-1/4 size-80 rounded-full bg-secondary blur-3xl" />
+      </div>
 
-      <div className="relative z-10 flex w-full max-w-2xl flex-col gap-6">
+      <div className="relative z-10 my-auto flex w-full min-w-0 max-w-2xl flex-col gap-6">
         <header className="space-y-3 text-center">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
@@ -125,12 +120,12 @@ export function RoomLobbyView({
         </p>
 
         <div
-          className={`grid gap-4 sm:items-stretch ${
+          className={`grid min-w-0 grid-cols-1 gap-4 sm:items-stretch ${
             isHost ? "sm:grid-cols-2" : "sm:grid-cols-1"
           }`}
         >
           {/* メンバー一覧カード */}
-          <Card className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md">
+          <Card className="flex h-full min-w-0 flex-col border-border/80 shadow-sm">
             <CardHeader className="gap-3">
               <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
                 <Users className="size-5" aria-hidden />
@@ -162,7 +157,7 @@ export function RoomLobbyView({
           {/* 招待カード（ホストのみ） */}
           {isHost ? (
             <Card
-              className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
+              className="flex h-full min-w-0 flex-col border-border/80 shadow-sm"
               data-testid="room-lobby-view-invite"
             >
               <CardHeader className="gap-3">
@@ -210,7 +205,7 @@ export function RoomLobbyView({
                 disabled={isDisconnected || isStarting}
                 data-testid="start-phase-button"
                 size="lg"
-                className="w-full"
+                className="min-h-11 w-full"
               >
                 <Play className="size-4" aria-hidden />
                 {isStarting ? "開始中…" : "開始する"}
@@ -230,7 +225,7 @@ export function RoomLobbyView({
               disabled={isLeaving}
               data-testid="leave-button"
               size="lg"
-              className="w-full"
+              className="min-h-11 w-full"
             >
               <DoorOpen className="size-4" aria-hidden />
               {isHost
