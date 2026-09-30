@@ -105,7 +105,7 @@ describe("useLeaveRoom", () => {
 
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルーム退出 API が失敗しました: 503",
+        "退出を確認できませんでした。接続を確認して、もう一度「退出する」を押してください。",
       );
     });
     expect(result.current.isLeaving).toBe(false);
@@ -122,6 +122,42 @@ describe("useLeaveRoom", () => {
     act(() => result.current.leave());
 
     expect(LEAVE_ROOM).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { isHost: false, completed: false, action: "退出する", intent: null },
+    { isHost: true, completed: false, action: "ルームを解散", intent: null },
+    { isHost: true, completed: true, action: "退出する", intent: "self" },
+  ])("通信失敗後も同じ操作を再試行できる（$action / 完了=$completed）", async (options) => {
+    LEAVE_ROOM.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    LEAVE_ROOM.mockRejectedValueOnce(nextRedirectError());
+    const { result } = renderHook(() =>
+      useLeaveRoom({ roomId: ROOM_ID, ...options }),
+    );
+
+    act(() => result.current.leave());
+    await waitFor(() => expect(result.current.isLeaving).toBe(false));
+    expect(result.current.isLeavingRef.current).toBe(false);
+    expect(notifyMocks.error).toHaveBeenCalledWith(
+      expect.stringContaining(`もう一度「${options.action}」`),
+    );
+    expect(notifyMocks.roomLeft).not.toHaveBeenCalled();
+    expect(notifyMocks.roomDisbandedBySelf).not.toHaveBeenCalled();
+
+    act(() => result.current.leave());
+    await waitFor(() =>
+      expect(
+        options.isHost && !options.completed
+          ? notifyMocks.roomDisbandedBySelf
+          : notifyMocks.roomLeft,
+      ).toHaveBeenCalledTimes(1),
+    );
+    expect(LEAVE_ROOM).toHaveBeenCalledTimes(2);
+    for (const [formData] of LEAVE_ROOM.mock.calls) {
+      expect(formData.get("roomId")).toBe(ROOM_ID);
+      expect(formData.get("intent")).toBe(options.intent);
+    }
+    expect(notifyMocks.error).toHaveBeenCalledTimes(1);
   });
 });
 
