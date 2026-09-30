@@ -478,7 +478,8 @@ export function RoomBoardCanvas({
       <div className="relative h-full min-h-80" data-testid="board-frame">
         <div
           ref={boardScrollerRef}
-          className={`relative h-full overflow-hidden bg-muted/20 [container-type:size] ${
+          // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
+          className={`relative h-full overflow-clip bg-muted/20 [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
             isAdoptMode
               ? "cursor-crosshair"
               : selectedVoteKind !== null

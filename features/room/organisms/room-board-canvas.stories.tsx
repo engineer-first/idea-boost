@@ -15,6 +15,7 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
+import { useCanvasCamera } from "../logic/use-canvas-camera";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
 type RoomBoardCanvasStoryProps = Omit<
@@ -695,5 +696,82 @@ export const IdeaMapZoom200: Story = {
   args: {
     ...fixedSizeMapArgs,
     camera: { x: -400, y: -300, zoom: 2 },
+  },
+};
+
+// カメラと本文・文字サイズを接続した読む体験。共有保存は実接続で別途確認する。
+function NoteReadingPreview({ args }: { args: RoomBoardCanvasStoryProps }) {
+  const [notes, setNotes] = useState(args.notes);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const boardScrollerRef = useRef<HTMLDivElement>(null);
+  const ideaMapPlaneRef = useRef<HTMLDivElement>(null);
+  const privateToolbarRef = useRef<HTMLDivElement>(null);
+  const camera = useCanvasCamera({
+    viewportRef: boardScrollerRef,
+    notes,
+    fitViewport:
+      args.phase.kind === "step" &&
+      args.phase.phase === 3 &&
+      args.phase.step >= 2,
+  });
+  return (
+    <RoomBoardCanvas
+      {...args}
+      notes={notes}
+      selectedNoteId={selectedNoteId}
+      boardScrollerRef={boardScrollerRef}
+      ideaMapPlaneRef={ideaMapPlaneRef}
+      privateToolbarRef={privateToolbarRef}
+      camera={camera.camera}
+      gridStyle={camera.gridStyle}
+      isPanning={camera.isPanning}
+      onCanvasPointerDown={camera.handlePointerDown}
+      onCanvasPointerMove={camera.handlePointerMove}
+      onCanvasPointerEnd={camera.handlePointerEnd}
+      onZoomIn={camera.zoomIn}
+      onZoomOut={camera.zoomOut}
+      onResetZoom={camera.resetZoom}
+      onFitToNotes={camera.fitToNotes}
+      onSelect={setSelectedNoteId}
+      onNoteContentChange={(noteId, content) => {
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === noteId ? { ...note, content } : note,
+          ),
+        );
+      }}
+      onNoteFontSizeChange={(noteId, fontSize) => {
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === noteId ? { ...note, fontSize } : note,
+          ),
+        );
+      }}
+    />
+  );
+}
+
+export const InteractiveNoteReading: Story = {
+  args: {
+    notes: [buildNote({ content: "読む本文", x: 800, y: 500 })],
+    phase: STEP_1_2,
+    permissions: getBoardPermissions(STEP_1_2),
+  },
+  render: (args) => <NoteReadingPreview args={args} />,
+};
+
+export const InteractiveIdeaMapReading: Story = {
+  ...InteractiveNoteReading,
+  args: {
+    notes: [
+      buildNote({
+        content: `${"全文を順に読む。".repeat(250).slice(0, 1998)}末尾`,
+        fontSize: 24,
+        x: 50,
+        y: 50,
+      }),
+    ],
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
   },
 };

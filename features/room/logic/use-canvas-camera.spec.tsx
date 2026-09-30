@@ -1,10 +1,68 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PointerEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildNotes } from "@/contracts/room-protocol.fixture";
 import { useCanvasCamera } from "./use-canvas-camera";
 
 describe("useCanvasCamera", () => {
+  it("表示操作にフォーカスした方向キーとPageDownで個人の視野を移動し、入力中は動かさない", async () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
+    const frame = document.createElement("div");
+    const controls = document.createElement("fieldset");
+    controls.dataset.testid = "canvas-zoom-controls";
+    const button = document.createElement("button");
+    controls.append(button);
+    frame.append(viewport, controls);
+    document.body.append(frame);
+    const input = document.createElement("textarea");
+    viewport.append(input);
+    const { result, unmount } = renderHook(() =>
+      useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+    );
+    const original = result.current.camera;
+    try {
+      act(() =>
+        button.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "ArrowDown",
+            bubbles: true,
+          }),
+        ),
+      );
+      await waitFor(() =>
+        expect(result.current.camera.y).toBeLessThan(original.y),
+      );
+      const afterArrow = result.current.camera;
+      act(() =>
+        button.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "PageDown",
+            bubbles: true,
+          }),
+        ),
+      );
+      await waitFor(() =>
+        expect(result.current.camera.y).toBeLessThan(afterArrow.y),
+      );
+      const afterPage = result.current.camera;
+      act(() =>
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "ArrowDown",
+            bubbles: true,
+          }),
+        ),
+      );
+      expect(result.current.camera).toEqual(afterPage);
+      expect(result.current.camera.x).toBe(original.x);
+      expect(result.current.camera.zoom).toBe(original.zoom);
+    } finally {
+      unmount();
+      frame.remove();
+    }
+  });
+
   it("マップでは付箋座標ではなく1600×900の平面全体を初期表示する", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 800);
