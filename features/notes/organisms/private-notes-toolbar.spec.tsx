@@ -1,7 +1,18 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  within,
+} from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type { ClientMessage } from "@/contracts/room-protocol";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
+import { useNoteAutosave } from "../logic/use-note-autosave";
 import { PrivateNotesToolbar } from "./private-notes-toolbar";
 
 function setup(disabled = false) {
@@ -408,6 +419,70 @@ describe("PrivateNotesToolbar", () => {
     );
   });
 
+  it("追加応答を待つ間に既存下書きへ入力を戻した場合はフォーカスと選択を奪わない", () => {
+    const oldNote = buildNote({
+      id: "old-note",
+      visibility: "private",
+      content: "既存の本文",
+    });
+    const newNote = buildNote({
+      id: "new-note",
+      visibility: "private",
+      content: "",
+    });
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    const props = {
+      notes: [oldNote],
+      disabled: false,
+      selectedNoteId: "old-note",
+      canCreateNote: true,
+      canDeleteNote: true,
+      canMoveNote: true,
+      canEditNote: true,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    function Harness({ notes }: { notes: typeof props.notes }) {
+      const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
+        "old-note",
+      );
+      return (
+        <PrivateNotesToolbar
+          {...props}
+          notes={notes}
+          selectedNoteId={selectedNoteId}
+          onSelect={(id) => {
+            props.onSelect(id);
+            setSelectedNoteId(id);
+          }}
+        />
+      );
+    }
+    const view = render(<Harness notes={[oldNote]} />);
+    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
+      key: "Enter",
+    });
+    const editor = screen.getByRole("textbox");
+    fireEvent.change(editor, { target: { value: "既存draftへ入力を続ける" } });
+    expect(editor).toHaveFocus();
+
+    view.rerender(<Harness notes={[oldNote, newNote]} />);
+
+    expect(editor).toHaveFocus();
+    expect(editor).toHaveValue("既存draftへ入力を続ける");
+    expect(props.onSelect).not.toHaveBeenCalledWith("new-note");
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("textbox")[1]).toHaveAttribute("readonly");
+  });
+
   it("外部からの追加リクエストでも入力欄へフォーカスする", () => {
     const oldNote = buildNote({ id: "old-note", content: "前の付箋" });
     const newNote = buildNote({
@@ -446,6 +521,123 @@ describe("PrivateNotesToolbar", () => {
     );
 
     expect(screen.getAllByRole("textbox")[1]).toHaveFocus();
+  });
+
+  it("本文入力から対応するサーバーACKまで保存確認待ちを表示する", () => {
+    sessionStorage.clear();
+    vi.useFakeTimers();
+    try {
+      const note = buildNote({
+        id: "save-note",
+        authorId: "author",
+        visibility: "private",
+        content: "原文",
+      });
+      const send = vi.fn<(message: ClientMessage) => boolean>(() => true);
+      const hook = renderHook(() =>
+        useNoteAutosave({ roomId: "toolbar-room", userId: "author", send }),
+      );
+      act(() =>
+        hook.result.current.applyMessage({
+          type: "snapshot",
+          notes: [note],
+          members: [],
+          phase: buildPhaseStep(1),
+          phaseRevision: 1,
+          isHost: true,
+          decision: null,
+          carryovers: [],
+          completedVoterIds: [],
+          timer: { status: "idle" },
+          serverNow: 0,
+        }),
+      );
+      const props = {
+        notes: [note],
+        disabled: false,
+        selectedNoteId: "save-note",
+        canCreateNote: true,
+        canDeleteNote: true,
+        canMoveNote: true,
+        canEditNote: true,
+        onSelect: vi.fn(),
+        onAdd: vi.fn(),
+        onDelete: vi.fn(),
+        onDragStart: vi.fn(),
+        onContentChange: hook.result.current.blur,
+        onDraftChange: hook.result.current.change,
+      };
+      const view = render(
+        <PrivateNotesToolbar
+          {...props}
+          draftValue={hook.result.current.draftValue}
+        />,
+      );
+      fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
+        key: "Enter",
+      });
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "受理を待つ本文" },
+      });
+      view.rerender(
+        <PrivateNotesToolbar
+          {...props}
+          draftValue={hook.result.current.draftValue}
+        />,
+      );
+      expect(screen.getByRole("status")).toHaveTextContent("保存確認待ち");
+      expect(send).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1000));
+      const request = send.mock.calls[0]?.[0];
+      if (request?.type !== "note:update-content")
+        throw new Error("本文送信がありません");
+      // 他の操作のACKや付箋の配信だけでは、本人の受理確認を済ませない。
+      act(() =>
+        hook.result.current.applyMessage({
+          type: "note:updated",
+          note: { ...note, content: "受理を待つ本文", contentRevision: 1 },
+        }),
+      );
+      act(() =>
+        hook.result.current.applyMessage({
+          type: "note:content-saved",
+          noteId: note.id,
+          operationId: "unrelated",
+          contentRevision: 1,
+        }),
+      );
+      view.rerender(
+        <PrivateNotesToolbar
+          {...props}
+          draftValue={hook.result.current.draftValue}
+        />,
+      );
+      expect(screen.getByRole("status")).toHaveTextContent("保存確認待ち");
+      act(() => vi.advanceTimersByTime(3000));
+      expect(send).toHaveBeenLastCalledWith({
+        type: "note:content-status",
+        operationId: request.operationId,
+      });
+      act(() =>
+        hook.result.current.applyMessage({
+          type: "note:content-status-result",
+          operationId: request.operationId,
+          status: "accepted",
+          noteId: note.id,
+          contentRevision: 1,
+        }),
+      );
+      view.rerender(
+        <PrivateNotesToolbar
+          {...props}
+          draftValue={hook.result.current.draftValue}
+        />,
+      );
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+      sessionStorage.clear();
+    }
   });
 
   it("本文はフォーカスを外した時に保存する", () => {
