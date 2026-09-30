@@ -66,8 +66,11 @@ export function BoardHelpPanel({
             <ChevronDown aria-hidden="true" />
           )}
         </Button>
-        {isOpen ? (
-          kind === "idea" ? (
+        <div
+          hidden={!isOpen}
+          className={isOpen ? "flex min-h-0 flex-1 flex-col" : "hidden"}
+        >
+          {kind === "idea" ? (
             <Tabs
               value={tab}
               className="min-h-0 flex-1 gap-0"
@@ -98,13 +101,20 @@ export function BoardHelpPanel({
                 className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
               >
                 <TabsContent value="write">
-                  <IdeaGuidePanel
-                    className="w-full rounded-none border-0 shadow-none"
-                    disabled={disabled}
-                    onHintSelect={onIdeaHintSelect}
-                  />
+                  {isOpen ? (
+                    <IdeaGuidePanel
+                      className="w-full rounded-none border-0 shadow-none"
+                      disabled={disabled}
+                      onHintSelect={onIdeaHintSelect}
+                    />
+                  ) : null}
                 </TabsContent>
-                <TabsContent value="expand">
+                <TabsContent
+                  value="expand"
+                  forceMount
+                  hidden={tab !== "expand"}
+                  className={tab !== "expand" ? "hidden" : undefined}
+                >
                   <IdeaSupportSidebarContent />
                 </TabsContent>
               </div>
@@ -115,17 +125,19 @@ export function BoardHelpPanel({
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             >
               {kind === "hmw" ? (
-                <HmwTemplatePanel
-                  className="w-full rounded-none border-0 shadow-none"
-                  disabled={disabled}
-                  onTemplateSelect={onHmwTemplateSelect}
-                />
+                isOpen ? (
+                  <HmwTemplatePanel
+                    className="w-full rounded-none border-0 shadow-none"
+                    disabled={disabled}
+                    onTemplateSelect={onHmwTemplateSelect}
+                  />
+                ) : null
               ) : (
                 <IdeaSupportSidebarContent />
               )}
             </div>
-          )
-        ) : null}
+          )}
+        </div>
       </div>
     </aside>
   );

@@ -62,3 +62,6 @@ export const ideaSupportContents: IdeaSupportContent[] = [
     ],
   },
 ];
+
+export const IDEA_SUPPORT_DESCRIPTION =
+  "気になる問いを1つ、決定したHMWに当てはめよう。浮かんだ方法は付箋に書こう。";
