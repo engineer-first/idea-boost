@@ -2,7 +2,7 @@
 # containers → templates → organisms → molecules → logic の依存方向を強制する。
 # 規則は 3 つ: 上向き import 禁止・skip 合法（templates → molecules 等）・同帯合法。
 # 箱は「本質の分類」ではなく「依存権の宣言」。設計の記録は
-# docs/feature-internal-structure.md。
+# docs/adr/0003-feature-bands.md。
 #
 # 書き方はホワイトリスト型:「許可プレフィックスに一致しない相対 import を
 # すべて禁止」。ブラックリスト regex では攻撃的検証で実証された抜け道

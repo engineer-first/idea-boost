@@ -24,7 +24,7 @@ Issue の要件や不具合を理解するために必要な画面イメージ�
 
 組織には既存の `Feature` Type もあるが、idea-boost の標準運用では上表の6 Typeを使う。既存 Type は他リポジトリへの影響を避けるため変更・削除しない。Type の追加は組織全体で有効になるため、今後も他リポジトリへの影響を確認してから行う。
 
-PBI と DemoGoal をまとめて作る場合は [PBI DemoGoal スキル](../.agents/skills/pbi-demogoal/SKILL.md)を使う。スクリプトが PBI ID を作成された Issue 番号から確定し（例: Issue #340 → `PBI-340`）、両 Issue を作成して Project に追加する。スプリントの割当ては作成後に GitHub Milestone で行う。
+PBI と DemoGoal をまとめて作る場合は [PBI DemoGoal スキル](../../.agents/skills/pbi-demogoal/SKILL.md)を使う。スクリプトが PBI ID を作成された Issue 番号から確定し（例: Issue #340 → `PBI-340`）、両 Issue を作成して Project に追加する。スプリントの割当ては作成後に GitHub Milestone で行う。
 
 ## Project 状態
 
@@ -54,12 +54,6 @@ Project の組み込み単一選択フィールド名は GitHub の仕様上 `St
 他人への担当者割当て、割当て解除、Assign to Agent、Milestone・Priority・Type・Relationships の変更、ブランチ作成、通常 PR 作成、closing reference のないマージ、承認・変更要求だけでは状態を動かさない。
 PBI / DemoGoal の担当者は成果全体の責任者を表すため、アサインから開始とみなさない。Issue の close / reopen から状態を推測しない。
 
-## Project の刷新
-
-2026-09-20 の刷新で旧分類3種類（PBI分類・DemoGoal分類・Todo）と未使用の `Board Column` フィールドを廃止した。旧分類の open Issue 18件を `未整理` に移し、7状態を作業の流れ順に並べ直した。
-これはユーザーが依頼した一度限りの移行で、旧分類から作業開始・完了を推測したものではない。既存の `作業中` 2件・`完了` 74件は維持し、Issue 本文・担当者・Milestone は変更していない。
-以後、旧分類の互換値・二重の状態フィールドは作らない。
-
 ## Pull Request とレビュー状態
 
 PR 本文の `<!-- issue-ref:番号 -->` が、その PR が直接対応する Issue の機械判定用マーカー。PR 作成時、`feature/293-description` や `feature/#293-description` のようにブランチ名の最初の区切りが Issue 番号なら、ワークフローが `Closes #293` とマーカーを追記する。`develop` へのマージ時に GitHub が Issue を閉じ、状態同期が Project を `完了` にする。`codex/` や日付形式（`2026-09-20`）のブランチ名、任意箇所に数字を含む名前からは Issue を推測しない。無関係な PR や、マージだけで Issue 全体を完了しない PR は、番号を含むブランチ名にしない。
@@ -87,7 +81,7 @@ PR 本文の `<!-- issue-ref:番号 -->` が、その PR が直接対応する I
 
 ### 状態同期の初期設定
 
-Project の分類刷新は反映済み。自己アサイン・Draft PR・レビュー依頼・Draft 復帰の新しい連携は、PR #339 を既定ブランチ `develop` にマージした後のイベントから有効になる。
+自己アサイン・Draft PR・レビュー依頼・Draft復帰の連携はPR #339で導入済み。必要な設定と、未設定時の動作は以下の通り。
 
 GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため、次の権限に絞った GitHub App が必要。App は `idea-boost` リポジトリにのみインストールする。
 
@@ -109,6 +103,25 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 Project の作業・状態を変えるときは、Issue本文と Milestone は保ち、対象の状態フィールドのみを必要に応じて更新する。
 
-## 今後の改善案
+## 日常のビュー
 
-未実装の候補と導入順は [Issue 操作と自動化の改善案](issue-automation-proposals.md)にまとめる。現行の状態遷移ルールはこの文書を正本とする。
+| ビュー                                                                        | 読む目的                                 |
+| ----------------------------------------------------------------------------- | ---------------------------------------- |
+| [ホワイトボード](https://github.com/orgs/engineer-first/projects/3/views/2)   | 完了・見送りを除いた全体の状態           |
+| [タスク一覧](https://github.com/orgs/engineer-first/projects/3/views/3)       | Task / Bug / Spikeの作業                 |
+| [PBI・デモゴール](https://github.com/orgs/engineer-first/projects/3/views/4)  | 成果の受け入れ条件と子Issueの進捗        |
+| [未整理・壁打ち](https://github.com/orgs/engineer-first/projects/3/views/5)   | 背景・分類・優先度・完了条件を決める相談 |
+| [自分の作業](https://github.com/orgs/engineer-first/projects/3/views/6)       | ログインした本人が担当する未完了の作業   |
+| [レビュー待ち](https://github.com/orgs/engineer-first/projects/3/views/7)     | Statusがレビュー中の項目                 |
+| [スプリント未割当](https://github.com/orgs/engineer-first/projects/3/views/8) | 対象スプリントを決める項目               |
+| [完了・見送り](https://github.com/orgs/engineer-first/projects/3/views/9)     | 結果と過去の作業                         |
+
+各ビューはidea-boostだけを対象にし、状態・担当者・Milestone・親Issue・子Issue進捗・対応PR・更新日を表示する。自分の作業は`assignee:@me`で絞る。ビューの切り替えは既存Issueの状態や担当者を変えない。
+
+スプリントはMilestoneで管理する。現在のMilestoneが確定したらその値で絞り、期限から現在のスプリントを推測しない。`@current`はIteration用で、Milestoneには使わない。
+
+新規Issueは通常の作成画面から作り、`未整理`を初期状態にする。絞り込んだProjectビューから項目を作ると、そのビューのフィルター値が適用されるため、作成後の状態・担当者・Milestoneを確認する。[GitHubのフィルター仕様](https://docs.github.com/en/issues/planning-and-tracking-with-projects/customizing-views-in-your-project/filtering-projects)
+
+## 今後の改善
+
+未実装のIssue操作・自動化候補は[Issue #393](https://github.com/engineer-first/idea-boost/issues/393)で背景・判断・完了条件を整理する。進捗は文書へ複製しない。

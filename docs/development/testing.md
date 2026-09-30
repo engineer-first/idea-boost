@@ -3,7 +3,7 @@
 検知したい不具合を先に定め、その不具合を観測できる最小の層で検証する。
 テスト件数や query API の種類だけで、追加・維持・削除を判断しない。
 振る舞いを変えるときの red → 実装 → green の順序は
-[AGENTS.md の開発と検証](../AGENTS.md#開発と検証) に従う。
+[AGENTS.md の開発と検証](../../AGENTS.md#開発と検証) に従う。
 
 ## 検証する層を選ぶ
 
@@ -32,7 +32,7 @@
   投票対象・基準や誤操作防止の説明など、内容自体が PRD の要件なら必要部分の一致と表示条件を残す。
   全文を固定する場合は要件や過去の不具合を根拠として示す。
   クラスが操作可否等の仕組みに関わる場合も、可能なら結果の振る舞いを検証する。
-- すべての UI コンポーネントの stories は [UI 規約](agent-workflows.md#ui) に従って作る。
+- すべての UI コンポーネントの stories は [UI 規約](conventions.md#ui) に従って作る。
   story の存在や Chromatic の成功だけで、操作・認可・説明の分かりやすさを保証したとしない。
   振る舞いを保証するには、操作と結果を検査するテストを実際に実行する。
 - データに依存する UI は、適用される loading / empty / success / error の振る舞いを検証する。
@@ -49,14 +49,14 @@
 
 ## 実行経路
 
-コマンドの正本は [package.json](../package.json)。変更範囲に必要な検証を実行する。
+コマンドの正本は [package.json](../../package.json)。変更範囲に必要な検証を実行する。
 
-- unit / DOM: `npm run test`（[vitest.config.mts](../vitest.config.mts)、jsdom）
-- Worker / RoomDO: `npm run test:workers`（[vitest.workers.config.mts](../vitest.workers.config.mts)、`@cloudflare/vitest-pool-workers`）
+- unit / DOM: `npm run test`（[vitest.config.mts](../../vitest.config.mts)、jsdom）
+- Worker / RoomDO: `npm run test:workers`（[vitest.workers.config.mts](../../vitest.workers.config.mts)、`@cloudflare/vitest-pool-workers`）
 - browser: Storybook を起動または build して配信し、`npm run test:browser`
-  （[vitest.browser.config.mts](../vitest.browser.config.mts)、`tests/browser/`）。
+  （[vitest.browser.config.mts](../../vitest.browser.config.mts)、`tests/browser/`）。
   配信先は `STORYBOOK_TEST_URL`、既定は `http://127.0.0.1:6006`。
 
-[CI](../.github/workflows/ci.yml) は unit・Worker・browser 等を実行する。
-[Chromatic](../.github/workflows/chromatic.yml) の workflow 成功はアップロード完了を示し、
+[CI](../../.github/workflows/ci.yml) は unit・Worker・browser 等を実行する。
+[Chromatic](../../.github/workflows/chromatic.yml) の workflow 成功はアップロード完了を示し、
 見た目の差分は別の UI Tests / UI Review ステータスと差分画面で確認する。

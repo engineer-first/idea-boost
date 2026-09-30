@@ -241,8 +241,16 @@
     @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   }
 </style>
+<style>
+.doc-context{box-sizing:border-box;max-width:1100px;margin:20px auto;padding:16px 20px;border:1px solid currentColor;border-left:4px solid #40745d;background:#edf3ee;color:#233c31;font:14px/1.8 "Hiragino Sans","Yu Gothic",sans-serif;overflow-wrap:anywhere}
+.doc-context a{color:inherit;text-decoration:underline;text-underline-offset:3px}.doc-context p{margin:4px 0}.doc-context strong{font-weight:700}
+@media(prefers-color-scheme:dark){.doc-context{background:#1c2b24;color:#d4e7db}}
+:root[data-theme="light"] .doc-context{background:#edf3ee;color:#233c31}:root[data-theme="dark"] .doc-context{background:#1c2b24;color:#d4e7db}
+@media(max-width:700px){.doc-context{margin:12px;padding:12px}}
+</style>
 </head>
 <body>
+<aside class="doc-context" aria-label="文書の位置づけ"><strong>解説 / 2026-09-30に参照先を整理</strong><p><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/architecture/overview.md">現在の構成概要</a>がMarkdownの正本です。 D1は現在、ディレクトリに加え、権限・成果と進行記録の投影・完了ルーム索引・意見も持ちます。本文の基本例はRoomDOとの役割を学ぶためのものです。 <a href="../">目次</a></p></aside>
 <div class="page">
 <header>
   <p class="eyebrow">IDEA-FLOW-APP 技術解説 / CLOUDFLARE 編</p>
@@ -669,5 +677,18 @@ CREATE TABLE rooms (
   数値（拠点数など）は 2026 年時点の公称値。
 </footer>
 </div>
+<script data-preview-links>
+(() => {
+  // PRプレビューの文書はdevelopに未反映なので、同じコミットを参照する。
+  if (!['rawcdn.githack.com', 'raw.githack.com'].includes(location.hostname)) return;
+  const preview = location.pathname.match(/^\/engineer-first\/idea-boost\/([a-f0-9]{40})\/docs\/site\//);
+  if (!preview) return;
+  const source = /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//;
+  for (const link of document.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href && source.test(href)) link.setAttribute('href', href.replace(source, `$1${preview[1]}/`));
+  }
+})();
+</script>
 </body>
 </html>

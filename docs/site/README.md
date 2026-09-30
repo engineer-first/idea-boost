@@ -1,6 +1,6 @@
 # docs/site — GitHub Pages 公開ディレクトリ
 
-このディレクトリ配下がそのまま [https://engineer-first.github.io/idea-boost/](https://engineer-first.github.io/idea-boost/) として公開される。
+このディレクトリ配下がそのまま <https://engineer-first.github.io/idea-boost/> として公開される。
 主な読者・書き手は AI エージェント。ここへページを追加・変更する前にこのファイルを読むこと。
 
 ## デプロイの仕組み
@@ -9,14 +9,25 @@
 - ビルド工程はない。このディレクトリがそのまま Pages artifact としてアップロードされる。
 - feature ブランチ上では公開されない。ローカルでは HTML ファイルを直接ブラウザで開いて確認する。
 - PR で `docs/site/**` の HTML を追加・変更すると、`.github/workflows/docs-site-preview.yml` が githack 経由のプレビュー URL を PR に自動コメントする（デプロイは発生しない）。レビュー時はそのリンクから表示を確認できる。
+- プレビューでは、GitHub上の文書・設定へのリンクをHTMLと同じコミットへ切り替える。公開されたPagesとローカルファイルでは`develop`の正本を参照する。切り替えは各HTML末尾の`data-preview-links`スクリプトで行い、外部リソースを読み込まない。回帰検証は`npx vitest run scripts/docs-site-links.spec.ts`。
 - デプロイ状況の確認: `gh run list --workflow=deploy-pages.yml`
 - この README.md も公開対象に含まれ、URL 直打ちで取得できる。公開されて問題ない内容だけを書く（サイト内に導線は置かない）。
+
+## 文書の役割
+
+正本と整理基準は[docs/README.md](../README.md)。ここは図・解説・デモを公開する場所で、仕様・開発規約・詳細な運用の正本を複製しない。各ページから対応するMarkdownへ案内する。
+
+目次は「現行の手順」「構成と操作の解説」「過去の検討・旧構成」に分ける。過去資料は冒頭に対象時期・旧構成・現行の参照先を示す。現行の説明を更新したときは確認日を記し、story数・価格・パス・手順をコードや設定と照合する。
+
+`deploy-map/system.puml`は採用時の図の編集資料として保持する。現行構成の正本は[構成概要](../architecture/overview.md)と実際の設定で、HTMLとPlantUMLを別々の正本として手動更新しない。
 
 ## ページ追加の手順
 
 1. slug を kebab-case で決める（例: `realtime-explainer`）。
 2. `docs/site/<slug>/index.html` として作成する。1 ページ = 1 ディレクトリ。
-  - 理由: URL が `/<slug>/` と綺麗になり、画像などの付属アセットを同じディレクトリに同居させられる。ページが育って分割しても URL が壊れない。
+
+- 理由: URL が `/<slug>/` と綺麗になり、画像などの付属アセットを同じディレクトリに同居させられる。ページが育って分割しても URL が壊れない。
+
 3. ルートの `index.html`（目次）に新ページへのリンクを追加する。
 
 ## lint の扱い

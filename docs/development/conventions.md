@@ -1,6 +1,6 @@
-# 作業別エージェントルール
+# 開発規約
 
-[AGENTS.md](../AGENTS.md) の表で該当する節を、変更前に読む。
+[AGENTS.md](../../AGENTS.md) の表で該当する節を、変更前に読む。
 複数の境界にまたがる作業では各節を併用する。
 
 ## コード配置と命名
@@ -15,10 +15,10 @@
 | `lib/`           | ドメイン非依存インフラ。React コンポーネントを置かない。`api-client.ts` は Next サーバーから api-worker への唯一のクライアント。`session/` は HS256 JWT Cookie、`room-client/` は自動再接続付き WS、`throttle.ts` は汎用処理。`notify.ts` は文言を持たず、ドメイン文言は feature の notify に置く。 |
 
 依存方向の概略は `app → features → components/ui・lib → contracts`。
-細則・理由・許可エッジは [ast-grep ルール](../rules/ast-grep/) が正本
+細則・理由・許可エッジは [ast-grep ルール](../../rules/ast-grep) が正本
 （`npm run lint:boundaries`）。feature 間は公開境界経由、同一 feature 内は相対 import。
 依存エッジを増やすときは循環がないことを確認し、
-[feature-dependencies-one-way.yml](../rules/ast-grep/feature-dependencies-one-way.yml) を更新する。
+[feature-dependencies-one-way.yml](../../rules/ast-grep/feature-dependencies-one-way.yml) を更新する。
 `app/` を import できるのは `app/` だけ。
 
 - ファイルは `kebab-case`、関数は `camelCase`、型・zod スキーマは `PascalCase`。
@@ -29,8 +29,8 @@
   純関数・定数は `logic`。新規 UI の既定は `molecules/` とし、上帯の部品が必要なら昇格する。
   `atoms` は作らない（汎用部品は `components/ui/`）。
 - 配置・混在・入れ子は `npm run check:feature-layout`、帯の依存は
-  [feature-band-imports.yml](../rules/ast-grep/feature-band-imports.yml) で検査する。
-  背景は [feature 構造](feature-structure.md) と [feature 内部構造](feature-internal-structure.md)。
+  [feature-band-imports.yml](../../rules/ast-grep/feature-band-imports.yml) で検査する。
+  背景は[feature境界のADR](../adr/0002-feature-boundaries.md)と[内部構成のADR](../adr/0003-feature-bands.md)。
 - spec / stories / fixture は実装と同居させる。役割は `-view`、`-card`、`-dialog`、
   `-section`、`use-` 等のファイル名で表す。container と view はステムを揃える
   （`room-board.tsx` / `room-board-view.tsx`）。
@@ -52,7 +52,7 @@
   ガイド文言等の固定コンテンツはファイルの外へ置く。
   contracts 型のビルダーは `contracts/*.fixture.ts`、feature 固有の fixture は実装と同居。
 - データに依存する UI の loading / empty / success / error と、DOM・browser・stories の
-  検証責務は [テスト方針](testing-policy.md) に従う。
+  検証責務は [テスト方針](testing.md) に従う。
 
 ## API
 
@@ -66,13 +66,13 @@
 - メンバー・付箋・フェーズ・投票・グルーピング等の共有状態は RoomDO だけが持つ。
   D1 の `rooms` 行は招待コードからルームを解決するディレクトリにすぎない。
 - ノートのスナップショットと配信は必ず
-  [workers/visibility.ts](../workers/visibility.ts) の `visibleTo()` を経由する。
+  [workers/visibility.ts](../../workers/visibility.ts) の `visibleTo()` を経由する。
   メンバー・フェーズ進行は明示的な全員共有情報として配信する
   （`member_joined` / `member_left` は本人除外）。
   その他の新しい情報は既定で受信者ごとの可視性判定を経由し、
   全員配信は全員共有が明示的に設計された情報だけにする。
 - 可視性・認可ルールの変更では、非メンバー・非 author・未認証が「できない」否定系を先に書く。
-  [workers/visibility.spec.ts](../workers/visibility.spec.ts) のテーブルと
+  [workers/visibility.spec.ts](../../workers/visibility.spec.ts) のテーブルと
   `workers/` の関連する `*.spec.ts` の否定系を必ず更新する。
 - `authorId` / `roomId` 等、クライアントに書き換えさせたくないフィールドを
   クライアントが送るプロトコルメッセージに含めない。認可チェックだけに頼らず形で塞ぐ。
@@ -93,5 +93,5 @@
   `Schema/SchemaDiagram`（ER 図）と `Schema/SchemaDetails`（カラム・インデックス・制約）に
   自動反映される。Chromatic が develop との差分を検出し、手動生成・コミットは不要。
   両 DB は別ストレージで DB レベルの結合を持たないため、ER 図も分離する。
-- FK インデックス・カラム数等の構造ルールは [.tbls/](../.tbls/) の `lint` に追加し、
+- FK インデックス・カラム数等の構造ルールは [.tbls/](../../.tbls) の `lint` に追加し、
   `npm run db:schema:lint`（CI でも実行）で検査する。

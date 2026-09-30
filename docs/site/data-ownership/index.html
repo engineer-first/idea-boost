@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="D1 と RoomDO をなぜ2つに分けているか、contracts/ がどこまでの責任を負うか、PRD の残り機能でデータがどう増えるかを実コードの根拠つきで解説する。">
+<meta name="description" content="D1 と RoomDO をなぜ2つに分けているか、contracts/ がどこまでの責任を負うか、保存・閲覧でデータをどう分担するかを実コードの根拠つきで解説する。">
 <title>データはどこに住むのか — D1・RoomDO・contracts の責務マップ</title>
 <style>
   :root {
@@ -366,15 +366,23 @@
   footer code { font-size: 0.9em; }
   a { color: inherit; }
 </style>
+<style>
+.doc-context{box-sizing:border-box;max-width:1100px;margin:20px auto;padding:16px 20px;border:1px solid currentColor;border-left:4px solid #40745d;background:#edf3ee;color:#233c31;font:14px/1.8 "Hiragino Sans","Yu Gothic",sans-serif;overflow-wrap:anywhere}
+.doc-context a{color:inherit;text-decoration:underline;text-underline-offset:3px}.doc-context p{margin:4px 0}.doc-context strong{font-weight:700}
+@media(prefers-color-scheme:dark){.doc-context{background:#1c2b24;color:#d4e7db}}
+:root[data-theme="light"] .doc-context{background:#edf3ee;color:#233c31}:root[data-theme="dark"] .doc-context{background:#1c2b24;color:#d4e7db}
+@media(max-width:700px){.doc-context{margin:12px;padding:12px}}
+</style>
 </head>
 <body>
+<aside class="doc-context" aria-label="文書の位置づけ"><strong>解説 / 2026-09-30に参照先を整理</strong><p><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/architecture/overview.md">構成概要とデータ責務</a>がMarkdownの正本です。 <a href="../">目次</a></p></aside>
 
 <header class="hero">
   <p class="eyebrow">Idea Boost / Architecture Note</p>
   <h1>データはどこに住むのか — D1・RoomDO・contracts の責務マップ</h1>
-  <p class="lede">「なぜストレージが2つあるのか」「contracts/ はどこまで面倒を見るのか」「PRD の残り機能でデータはどう増えるのか」。現行コードの実装コメントと PRD を根拠に、3つの問いに答える。</p>
+  <p class="lede">「なぜストレージが2つあるのか」「contracts/ はどこまで面倒を見るのか」「保存・閲覧でデータをどう分担するのか」。現行コードの実装コメントと PRD を根拠に、3つの問いに答える。</p>
   <div class="legend">
-    <span class="chip d1">D1 — ロビー（ルーム横断）</span>
+    <span class="chip d1">D1 — ディレクトリ・投影・意見</span>
     <span class="chip do">RoomDO — ルームの中の真実</span>
     <span class="chip ct">contracts/ — 境界の形</span>
   </div>
@@ -398,14 +406,14 @@
       <div class="connector">セッション必須の REST / WS Upgrade</div>
       <div class="node">
         <div class="name">api-worker <code>workers/api-worker.ts</code></div>
-        <div class="desc">データへの唯一の入口。全エンドポイントでセッションを検証し、認可をここで完結させる。</div>
+        <div class="desc">データへの唯一の入口。保護された経路でセッションを検証し、経路の認証と権限を確認し、ルームの操作可否はRoomDOで判定する。</div>
       </div>
       <div class="connector">用途で行き先が分かれる</div>
       <div class="split">
         <div class="store d1">
           <div class="name">D1（グローバルな1つの SQLite）</div>
           <div class="tables">users（id, email, google_sub…）<br>rooms（id, invite_code, host_id）</div>
-          <div class="desc">ルーム横断のディレクトリ。「招待コード → どのルーム？」「このユーザーは誰？」に答える。ルームの<em>中身</em>は一切持たない。</div>
+          <div class="desc">ルーム横断のディレクトリ。「招待コード → どのルーム？」「このユーザーは誰？」に答える。権限・成果と進行記録の投影・完了ルーム索引・意見も持つ。ルームの操作を受理する権威にはしない。</div>
         </div>
         <div class="store do">
           <div class="name">RoomDO（1ルーム = 1 DO、各自が SQLite 内蔵）</div>
@@ -422,6 +430,7 @@
     </div>
   </div>
 
+  <p>上記は初期migrationの責務を示す抜粋。現在のD1には成果投影・権限・意見も追加されている。</p>
   <h3>分ける理由 1 — 答える質問のスコープが違う</h3>
   <p>D1 は「全ルームを横断して探す」ための場所です。招待コード <code>ABC123</code> がどのルームを指すかは、<strong>全ルームの中で一意</strong>であって初めて成立します（<code>rooms.invite_code</code> に <code>UNIQUE</code> 制約）。この一意性は、ルームごとに分断されたストレージでは原理的に保証できません。各 RoomDO は自分のルームのことしか知らないからです。</p>
   <p>逆に RoomDO は「このルームの中」だけに答えます。<code>workers/migrations/0001_lobby.sql</code> の冒頭コメントがこの分担をそのまま宣言しています:</p>
@@ -429,12 +438,9 @@
 -- D1 はルーム横断のディレクトリ（ユーザー・招待コード → ルーム解決）だけを持つ。</code></pre>
   <p class="code-caption">workers/migrations/0001_lobby.sql:1-2</p>
 
-  <h3>分ける理由 2 — 同時編集のレースを「構造」で消す</h3>
-  <p>Durable Object は 1 インスタンスが単一スレッドで動くため、そのルームへの操作はすべて<strong>自動的に直列化</strong>されます。2人が同時に同じ付箋を動かしても、フェーズ遷移と投票が同時に走っても、DO の中では必ず一列に並びます。ロックやトランザクション分離レベルの設計をアプリ側で考える必要がなくなる、というのが本質的な利点です。</p>
-  <p>もし付箋を D1 に置くと、複数の Worker インスタンスから同じ行への書き込みが並行して飛び、「最後に書いた方が勝つ」型の競合をアプリケーションコードで捌くことになります。ルームという自然な直列化単位があるのに、それを使わない手はありません。</p>
-
-  <h3>分ける理由 3 — リアルタイム配信とデータの同居</h3>
-  <p>RoomDO には WebSocket 接続そのものがぶら下がっています（Hibernation API）。付箋の状態と接続一覧が同じオブジェクトの中にあるので、<code>note:move</code> を受けたら「同期的に SQLite を更新 → その場で全接続へ配信」が 1 箇所で完結します。<code>this.ctx.storage.sql.exec()</code> は同期 API なので、メッセージ処理中にネットワーク往復すら発生しません。</p>
+  <h3>分ける理由 2 — ルーム内の操作を一つの権威に集める</h3><p>操作を受けるRoomDOと状態が同じ単位にある。単一スレッドだけで非同期処理の競合が消えると考えず、transaction、接続の操作権、操作IDを用いて状態を更新する。</p>
+<h3>分ける理由 3 — リアルタイム配信とデータの同居</h3>
+  <p>RoomDO には WebSocket 接続そのものがぶら下がっています（Hibernation API）。付箋の状態と接続一覧が同じオブジェクトの中にあるので、<code>note:move</code> を受けたら「同期的に SQLite を更新 → その場で可視性を確認して接続へ配信」が 1 箇所で完結します。<code>this.ctx.storage.sql.exec()</code> は同期 API なので、メッセージ処理中にネットワーク往復すら発生しません。</p>
   <p>D1 にはプッシュ通知の仕組みがないため、付箋を D1 に置いた場合「誰がどうやって変更を全員に配るのか」という別のインフラ（ポーリングや Pub/Sub）が必要になります。</p>
 
   <h3>分ける理由 4 — セキュリティ境界としても機能する</h3>
@@ -460,8 +466,8 @@
   </div>
 
   <div class="rule d1">
-    <div class="rule-title">運用ルール（CLAUDE.md より）</div>
-    <p>D1 の rooms 行は「招待コード → ルーム解決」のディレクトリにすぎない。ルームの中の真実（メンバー・付箋）は RoomDO だけが持つ。<strong>同じ事実を両方に持たせない</strong>ことで、二重管理の同期バグをそもそも起こせなくしている。</p>
+    <div class="rule-title">運用ルール（AGENTS.md より）</div>
+    <p>D1 の rooms 行は「招待コード → ルーム解決」のディレクトリにすぎない。ルームの中の真実（メンバー・付箋）は RoomDO だけが持つ。<strong>操作を受理する権威はRoomDOに一つ</strong>とし、D1の成果投影は横断閲覧用に保全後の反映と再試行で管理する。</p>
   </div>
 
   <h3>補足 — マイグレーションの流儀も2つある</h3>
@@ -479,7 +485,7 @@
         </tr>
         <tr>
           <td>適用タイミング</td>
-          <td>デプロイ時に <code>npm run db:migrate</code> で一括適用</td>
+          <td>ローカルは<code>npm run db:migrate</code>、本番はDeployのremote migration</td>
           <td>各 DO の起動時。<code>schema_migrations</code> テーブル（適用済みIDの記録）と突き合わせ、不足分だけを <code>transactionSync</code> で原子的に適用</td>
         </tr>
         <tr>
@@ -525,16 +531,16 @@
 
   <h3>なぜ「両方が import する」ことに意味があるのか</h3>
   <p>クライアント（<code>lib/room-client</code>）とサーバー（RoomDO）が<strong>同一のスキーマオブジェクト</strong>を import しているため、「クライアントは送れると思っているがサーバーは受け取れない」というズレが構造的に起きません。<code>contracts/board.ts</code> の座標安全上限もこの共有境界の一例です。</p>
-  <p>CLAUDE.md の「コントラクト層を厳密に定義し、実装層は再生成可能に保つ」はこのことで、<strong>形さえ合意されていれば、実装はどちら側も安全に書き直せる</strong>という設計です。</p>
+  <p>AGENTS.md の「コントラクト層を厳密に定義し、実装層は再生成可能に保つ」はこのことで、<strong>形さえ合意されていれば、実装はどちら側も安全に書き直せる</strong>という設計です。</p>
 
   <h3>バリデーションを超えた責任 — 「形で塞ぐ」セキュリティ</h3>
   <p>contracts/ の最も重要な仕事は、実は検証ではなく<strong>「何をプロトコルに存在させないか」の決定</strong>です。<code>contracts/room-protocol.ts</code> の設計上の不変条件:</p>
   <pre><code>// - authorId を書き換えるメッセージは存在しない（構造的に不可能にする）。
 //   authorId はサーバーが接続時のヘッダー（検証済みユーザーID）から決める。
-// - roomId はそもそもプロトコルに現れない。1 RoomDO = 1 ルームなので、
-//   接続先自体が roomId を意味しており、メッセージに含めて信頼する必要がない。</code></pre>
+// - roomId はクライアント送信の操作メッセージに含めない。1 RoomDO = 1 ルームなので、
+//   接続先自体が roomId を意味しており、クライアント送信の値として信頼する必要がない。サーバー応答のルーム情報とは区別する。</code></pre>
   <p class="code-caption">contracts/room-protocol.ts:6-11</p>
-  <p>「authorId の書き換えを認可チェックで拒否する」のではなく、<strong>書き換えを主張するフィールド自体が存在しない</strong>ので、チェックの書き忘れという事故クラスが丸ごと消えます。認可チェック（実装層）は人間が書き忘れうるコードですが、スキーマに無いフィールドは忘れようがありません。これが「認可チェックではなく形で塞ぐ」（CLAUDE.md）の意味です。</p>
+  <p>「authorId の書き換えを認可チェックで拒否する」のではなく、<strong>書き換えを主張するフィールド自体が存在しない</strong>ので、チェックの書き忘れという事故クラスが丸ごと消えます。認可チェック（実装層）は人間が書き忘れうるコードですが、スキーマに無いフィールドは忘れようがありません。これが「認可チェックではなく形で塞ぐ」（AGENTS.md）の意味です。</p>
 
   <h3>検証の実行場所と責任の分担</h3>
   <div class="table-wrap wide">
@@ -579,126 +585,23 @@
 </section>
 
 <!-- ================================================================ -->
-<section id="q3">
-  <p class="q-label">Q3</p>
-  <h2>PRD のこれからの機能で、データはどう増えるのか</h2>
-
-  <p>PRD（デザインスプリント MVP）の残り機能を分解すると、増えるデータの<strong>ほぼすべてが「ルームの中の真実」</strong>です。つまり Q1 の分担ルールに従えば、置き場所は考えるまでもなく RoomDO に決まります。D1 はほとんど太りません。</p>
-
-  <h3>機能 → データ → 置き場所のマッピング</h3>
-  <div class="table-wrap wide">
-    <table>
-      <thead>
-        <tr><th>PRD の機能</th><th>必要になるデータ</th><th>置き場所</th><th>理由</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>フェーズ / Stepper 進行<br>（②Map → ③HMW → ④Sketch → ⑤Decide）</td>
-          <td>現在フェーズ・ステップ、各フェーズの状態</td>
-          <td><span class="tag do">RoomDO</span> <code>room_state</code></td>
-          <td>フェーズ遷移は全員に同時に効く操作。DO の単一スレッドが「遷移と投票が同時に走る」レースを構造的に防ぐ</td>
-        </tr>
-        <tr>
-          <td>付箋の種別化<br>（課題 / HMW / アイデア）</td>
-          <td><code>notes.kind</code>、どのフェーズの産物か</td>
-          <td><span class="tag do">RoomDO</span> <code>notes</code> 列追加</td>
-          <td>既存 notes の拡張。v2 マイグレーションとして配列に追記</td>
-        </tr>
-        <tr>
-          <td>個人ワーク付箋 + タイマー</td>
-          <td>タイマーの締切時刻（永続）、付箋の可視範囲</td>
-          <td><span class="tag do">RoomDO</span> <code>room_state</code> + <code>visibleTo()</code> の分岐</td>
-          <td>「個人ワーク中は author 本人にしか見えない」は可視性ルール。データではなく <code>visibility.ts</code> の分岐として実装（コメントに将来の指示が既に書かれている）</td>
-        </tr>
-        <tr>
-          <td>グルーピング（共有・分類）</td>
-          <td>グループ、付箋の所属</td>
-          <td><span class="tag do">RoomDO</span> <code>groups</code> + <code>notes.group_id</code></td>
-          <td>ボード上の操作はすべてルーム内の事実</td>
-        </tr>
-        <tr>
-          <td>ステルス投票<br>（🔴主観×1 + 🔵客観×3）</td>
-          <td>誰が・どの付箋に・どの種類のドットを</td>
-          <td><span class="tag do">RoomDO</span> <code>votes</code></td>
-          <td>「他人の投票は開票まで見えない」= 可視性の問題。配信経路が <code>visibleTo()</code> に一点集約されているからこそ、送らない制御を1箇所で書ける</td>
-        </tr>
-        <tr>
-          <td>2軸マッピング（価値 × 実現難易度）</td>
-          <td>マップ上の座標（ボード座標とは別文脈）</td>
-          <td><span class="tag do">RoomDO</span> <code>notes</code> 列 or 別テーブル</td>
-          <td>「ホストのみドラッグ可（案）」はロール認可 → DO のハンドラで判定</td>
-        </tr>
-        <tr>
-          <td>成果物の決定<br>（課題 / HMW / アイデアの確定）</td>
-          <td>各フェーズで確定した付箋の参照</td>
-          <td><span class="tag do">RoomDO</span> <code>decisions</code></td>
-          <td>次フェーズの画面上部に固定表示する参照元。ルーム内で完結</td>
-        </tr>
-        <tr>
-          <td>ルーム一覧・再訪<br>（ロビー画面の充実）</td>
-          <td>ルーム名、進行状況ラベル、更新日時</td>
-          <td><span class="tag d1">D1</span> <code>rooms</code> 列追加</td>
-          <td><strong>唯一の例外</strong>。「入室する前」に見せる情報だけは横断クエリが必要なので D1 へ</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <h3>RoomDO 側 — 将来のマイグレーションのイメージ</h3>
-  <p>Q1 で見た版管理の仕組みに乗せると、増分は <code>workers/room-do-migrations/</code> 配下に <code>YYYYMMDDHHmmss-短い説明.sql</code> を1つ追加するだけです（<code>npm run new:room-do-migration -- 短い説明</code> が UTC で発番してスタブを作ります）。適用順序を決める集約ファイル <code>index.ts</code> は gitignore 済みの生成物で、<code>npm ci</code>・テスト・起動時に全 <code>*.sql</code> をタイムスタンプ順に読んで自動再生成されるため、コミットもレビューも <code>.sql</code> だけで完結します。ファイル名のタイムスタンプが衝突することはまずなく、万一 #79 と #80 が同じ秒に別々のファイルを追加しても、生成スクリプトが重複として検出してエラーにします。各 DO は次に起きたときに不足分だけを原子的に適用します。</p>
-  <pre><code>-- workers/room-do-migrations/20260810103000-phase-and-note-kind.sql（イメージ）
-CREATE TABLE room_state (
-  phase TEXT NOT NULL DEFAULT 'lobby',   -- lobby/map/hmw/sketch/decide
-  step  INTEGER NOT NULL DEFAULT 1,
-  timer_ends_at TEXT                     -- 個人ワークのタイマー締切
-);
-ALTER TABLE notes ADD COLUMN kind TEXT NOT NULL DEFAULT 'problem';
-ALTER TABLE notes ADD COLUMN group_id TEXT;
-
--- workers/room-do-migrations/20260812141500-votes-and-decisions.sql（イメージ）
-CREATE TABLE votes (
-  voter_id TEXT NOT NULL,                -- サーバーが接続から決める
-  note_id  TEXT NOT NULL,
-  dot      TEXT NOT NULL,                -- 'subjective' | 'objective'
-  phase    TEXT NOT NULL,
-  PRIMARY KEY (voter_id, note_id, dot, phase)
-);
-CREATE TABLE decisions (
-  phase   TEXT PRIMARY KEY,
-  note_id TEXT NOT NULL
-);</code></pre>
-  <p class="code-caption">イメージ（実際のスキーマは実装時に contracts と同時に設計する）。それぞれ別ファイル・別タイムスタンプなので、#79 と #80 が同時期に着手しても編集箇所もタイムスタンプも衝突しません。</p>
-
-  <h3>データと同時に増えるもの — 契約と可視性</h3>
-  <p>Q2・Q1 の構造から、テーブルを足すときは必ず3点セットで増えることになります。ここが今のアーキテクチャの効き所です。</p>
-  <ul class="plain">
-    <li><span class="tag ct">contracts</span> <code>room-protocol.ts</code> に <code>vote:cast</code> や <code>phase:advance</code> などのメッセージが増える。このとき既存の不変条件を踏襲し、<strong><code>voterId</code> をメッセージに含めない</strong>（authorId と同じく、投票者はサーバーが接続から決める。なりすまし投票を形で塞ぐ）。</li>
-    <li><span class="tag do">visibility</span> <code>visibleTo()</code> にフェーズ・ロールに応じた分岐が増える。「個人ワーク中は自分の付箋のみ」「ステルス投票中は自分の投票のみ」。配信経路がこの関数に一点集約されているため、<strong>見せない制御の実装箇所は増えない</strong>。</li>
-    <li><span class="tag do">否定系テスト</span> CLAUDE.md のルール通り、「非メンバー・非 author・未認証ができないこと」を先に書く。可視性ルールを変えたら <code>visibility.spec.ts</code> のテーブルを必ず更新する。</li>
-  </ul>
-
-  <div class="rule do">
-    <div class="rule-title">判断基準のまとめ</div>
-    <p>新しいデータの置き場所に迷ったら、<strong>「入室する前に必要か？」</strong>と問う。前に必要（ルーム解決・一覧・ユーザー同定）なら D1、入室後にしか意味を持たないなら RoomDO。PRD の残り機能はステルス投票もタイマーもグルーピングも、すべて「入室後」の世界の話 — だから D1 はディレクトリのまま薄く保たれる。</p>
-  </div>
-</section>
+<section id="q3"><p class="q-label">Q3</p><h2>保存・閲覧でデータをどう分担するか</h2><p>D1はディレクトリだけではない。ルーム内の操作はRoomDO、横断閲覧はD1の投影、意見は独立したD1の記録として扱う。</p><div class="table-wrap"><table><thead><tr><th>データ</th><th>場所</th><th>役割</th></tr></thead><tbody><tr><td>メンバー・ホスト・付箋・進行・票・操作権</td><td>RoomDO</td><td>操作の受理と受信者別配信の権威</td></tr><tr><td>成果保全・進行記録・完了在籍者・固定期限</td><td>RoomDO</td><td>同じ更新単位で保全し、失敗時の再試行元になる</td></tr><tr><td>成果・進行記録の投影と完了ルーム索引</td><td>D1</td><td>全ルーム・本人のルームを横断して探すための読み取り用</td></tr><tr><td>ユーザーと閲覧権限</td><td>D1</td><td>取得や操作のたびに現在の権限を確認</td></tr><tr><td>意見と期限・失効記録</td><td>D1</td><td>成果と独立した権限・30日期限で管理</td></tr></tbody></table></div><h3>正本と照合する</h3><p><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/architecture/overview.md">構成概要</a>からコード・スキーマ・運用へ辿る。スキーマ図はStorybookのSchema/*、依存図はDependencies/*の生成結果で確認し、将来の想像上のSQLを現行スキーマとして保守しない。</p><p>境界変更は失敗する振る舞いのテストを確認し、contracts、実装の順で変更する。認可・可視性の変更では否定系とWorkerテストを更新する。</p></section>
 
 </main>
 
-<footer>
-  根拠にした主なファイル:
-  <code>workers/migrations/0001_lobby.sql</code> /
-  <code>workers/room-do-migrations/</code> /
-  <code>scripts/generate-room-do-migrations.mjs</code> /
-  <code>workers/room-do.ts</code> /
-  <code>workers/api-worker.ts</code> /
-  <code>workers/visibility.ts</code> /
-  <code>contracts/room-protocol.ts</code> /
-  <code>contracts/session.ts</code> /
-  <code>contracts/board.ts</code> /
-  <code>contracts/invite-code.ts</code> /
-  <code>docs/prd.md</code>。
-  Q3 のスキーマは現行の設計ルールから導いたイメージであり、実装時は contracts → 否定系テスト → 実装の順で確定させる。
-</footer>
+<footer>2026-09-30に現行構成と照合。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/architecture/overview.md">構成の正本</a>と<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/development/conventions.md">開発規約</a>を参照する。</footer>
+<script data-preview-links>
+(() => {
+  // PRプレビューの文書はdevelopに未反映なので、同じコミットを参照する。
+  if (!['rawcdn.githack.com', 'raw.githack.com'].includes(location.hostname)) return;
+  const preview = location.pathname.match(/^\/engineer-first\/idea-boost\/([a-f0-9]{40})\/docs\/site\//);
+  if (!preview) return;
+  const source = /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//;
+  for (const link of document.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href && source.test(href)) link.setAttribute('href', href.replace(source, `$1${preview[1]}/`));
+  }
+})();
+</script>
 </body>
 </html>

@@ -7,7 +7,7 @@ description: Create one PBI and its consolidated DemoGoal issue for engineer-fir
 
 Use this skill to create one PBI issue and one consolidated DemoGoal issue for `engineer-first/idea-boost`.
 
-Use [Issue management](../../../docs/issue-management.md) as the source of truth for Issue Types, Project status, and PR links.
+Use [Issue management](../../../docs/team/issues.md) as the source of truth for Issue Types, Project status, and PR links.
 
 Do not use this skill for Task, Bug, or Spike issues. Create those through GitHub Issue Forms; Project auto-add places new open issues in `未整理`.
 

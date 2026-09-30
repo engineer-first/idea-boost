@@ -8,11 +8,11 @@
 
 ## ドキュメント
 
-本番で公開した追加・変更・修正は [リリース履歴](https://github.com/engineer-first/idea-boost/releases) で確認できます。記録の書式・公開・訂正は [本番リリース履歴の運用](docs/release-history.md) を参照してください。
+本番で公開した追加・変更・修正は [リリース履歴](https://github.com/engineer-first/idea-boost/releases) で確認できます。記録の書式・公開・訂正は [本番リリース履歴の運用](docs/operations/release.md) を参照してください。
 
-プロダクトの詳細（PRD、ペルソナ、競合分析、画面イメージなど）は [Idea Boost Wiki](https://github.com/engineer-first/idea-boost/wiki) にまとめています。仕様や設計の確認は Wiki を参照してください。
+文書の入口は[docs/README.md](docs/README.md)。プロダクト要求は[PRD](docs/prd.md)、進行と画面の詳細は[進行仕様](docs/product/sprint-flow.md)を正本とし、Wikiは更新しません。
 
-技術構成は **Next.js（UI）+ Cloudflare Workers（api-worker）+ Durable Objects（1ルーム = 1 権威サーバー）+ D1（ロビー）** です。採用の経緯と移行の記録は [`docs/refactor-cloudflare-do.md`](docs/refactor-cloudflare-do.md) を参照してください。
+技術構成は **Next.js（UI）+ Cloudflare Workers（api-worker）+ Durable Objects（1ルーム = 1 権威サーバー）+ D1（ディレクトリ・成果投影・意見）** です。[現在の構成](docs/architecture/overview.md)と[設計判断の記録](docs/adr/README.md)を参照してください。
 
 ## 環境構築
 
@@ -63,9 +63,9 @@ npm run dev
 
 通常操作の共有成果は `dev` と `dev:api` を併用するとローカルへ保存され、再起動しても残ります。開発用 Owner でログインすると、`/shared-outcomes` の閲覧と `/admin/access` での閲覧者管理ができます。
 
-`npm run dev:verify` は通常開発と分離した保存先で起動します。Ownerで `/dev/verify` を開くと成果一覧への導線があり、途中・完了・空・保存失敗からの復旧・期限切れを準備できます。詳しくは [ローカル検証](docs/local-verification.md) と [共有成果の運用手順](docs/shared-outcomes.md) を参照してください。
+`npm run dev:verify` は通常開発と分離した保存先で起動します。Ownerで `/dev/verify` を開くと成果一覧への導線があり、途中・完了・空・保存失敗からの復旧・期限切れを準備できます。詳しくは [ローカル検証](docs/development/local-verification.md) と [共有成果の運用手順](docs/operations/shared-outcomes.md) を参照してください。
 
-本番では既存の Google ログインと D1 のユーザー権限で閲覧を制御します。初期ユーザーへの権限付与は [共有成果の運用手順](docs/shared-outcomes.md) を参照してください。
+本番では既存の Google ログインと D1 のユーザー権限で閲覧を制御します。初期ユーザーへの権限付与は [本番の認証と閲覧権限](docs/operations/access.md) を参照してください。
 
 ### Orca の worktree
 
@@ -128,7 +128,7 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 
 **本番の更新方法:** 開発PRを `develop` にマージし、CIと公開範囲を確認します。最新の `develop` を取得してCodexで `$release` → 内容確認・必要なら `edit` → `release`。GitHub上のdevelop全体が対象です。Promote Releaseが `release` を更新し、Deployの品質ゲート → D1 → API → App → health → GitHub Releaseへ進みます。SkillなしのActions操作、実行ブランチ、手動公開と復旧は [本番リリース手順書](https://engineer-first.github.io/idea-boost/release-flow/) に記載しています。Actionsには `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `vars.NEXT_PUBLIC_SITE_URL` の設定が必要です。
 
-ローカルからの手動公開は `npm run deploy`（GitHub・Cloudflareへの認証が必要）。PR/Issue URLの入力は不要で、成功後にreceiptを作って履歴記録を自動依頼します。Actions経路で記録だけ失敗した場合は `$release` → `retry-record`（手動入口は **Record Release**）、ローカル公開の記録だけ失敗した場合は出力済みのreceiptを `npm run release:submit -- .release-history/出力されたファイル.json` で再送します。どちらも本番の再デプロイは不要です。各入口・部分再試行・ロールバックの扱いは [リリース履歴の運用](docs/release-history.md) を参照してください。
+ローカルからの手動公開は `npm run deploy`（GitHub・Cloudflareへの認証が必要）。PR/Issue URLの入力は不要で、成功後にreceiptを作って履歴記録を自動依頼します。Actions経路で記録だけ失敗した場合は `$release` → `retry-record`（手動入口は **Record Release**）、ローカル公開の記録だけ失敗した場合は出力済みのreceiptを `npm run release:submit -- .release-history/出力されたファイル.json` で再送します。どちらも本番の再デプロイは不要です。各入口・部分再試行・ロールバックの扱いは [リリース履歴の運用](docs/operations/release.md) を参照してください。
 
 秘密・初回手順・カスタムドメイン・CI・動作確認の詳細は **[デプロイ構成図](docs/site/deploy-map/index.html)**（公開後: [GitHub Pages](https://engineer-first.github.io/idea-boost/deploy-map/)）を参照してください。
 
@@ -148,8 +148,8 @@ Node.js のバージョンは `mise.toml` で LTS に固定しています。CI 
 
 ## スクラム運用
 
-- [Issue と GitHub Project の運用ルール](docs/issue-management.md)
-- [物理ホワイトボードとの連携](docs/scrum/whiteboard-github-projects.md)
+- [Issue と GitHub Project の運用ルール](docs/team/issues.md)
+- [物理ホワイトボードとの連携](docs/team/whiteboard.md)
 
 ## ドキュメントのフォーマット
 
@@ -170,4 +170,4 @@ Markdown の整形には [remark](https://github.com/remarkjs/remark) を使用�
 `npm run dev:verify` で付箋付きの検証ルームを作れます。環境ファイルの編集は不要です。
 `http://localhost:3000/dev/verify` をOwnerで開き、開始待ち／全14ステップから選びます。
 Owner・Member・Viewerは既存の開発ログインを使い、別ブラウザの検証ボードも次の状態へ追従します。
-操作UIは別ページに置き、通常ボードに重ねません。詳しくは[ローカル検証環境](docs/local-verification.md)を参照してください。
+操作UIは別ページに置き、通常ボードに重ねません。詳しくは[ローカル検証環境](docs/development/local-verification.md)を参照してください。

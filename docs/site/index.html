@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="Idea Boost のドキュメントサイト。PoC の技術解説と実装マップの目次。">
+<meta name="description" content="Idea Boost のドキュメントサイト。現行の手順・構成解説・過去資料を読むための目次。">
 <title>Idea Boost ドキュメント</title>
 <style>
   :root {
@@ -90,88 +90,79 @@
     margin-bottom: 0.15rem;
   }
   .toc .desc { font-size: 0.88rem; color: var(--muted); }
+h2{font-size:1.2rem;margin:2.5rem 0 .5rem}section .lede{margin-bottom:1rem}code{overflow-wrap:anywhere}a{color:var(--accent)}
 </style>
 </head>
 <body>
 <main>
   <p class="eyebrow">engineer-first / idea-boost</p>
   <h1>Idea Boost ドキュメント</h1>
-  <p class="lede">アーキテクチャ・設計判断・技術検証に関する解説ページの目次です。</p>
+  <p class="lede">本番の手順、構成の解説、過去の検討を分けて案内します。要求・規約・手順の正本は<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/README.md">リポジトリの文書一覧</a>から辿れます。</p>
 
-  <ul class="toc">
-    <li>
+  <section aria-label="現行の手順"><h2>現行の手順</h2><p class="lede">公開・復旧をしたいとき。閲覧権限は<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/operations/access.md">認証と権限付与</a>へ。</p><ul class="toc"><li>
       <a href="./release-flow/">
         <span class="title">本番リリース手順書</span>
         <span class="desc">ブランチ・事前準備・Skill／Actions／ローカルでの公開、失敗時の復旧、Pagesの更新手順。</span>
       </a>
-    </li>
-    <li>
-      <a href="./architecture/">
-        <span class="title">Idea Boost — 構成 &amp; デプロイ概観</span>
-        <span class="desc">2つの Cloudflare Worker（app / api）、RoomDO と D1 の責務分担、境界ルール、CI/CD、よく使うコマンドを1ページで俯瞰する。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./deploy-map/">
-        <span class="title">デプロイ構成図 — 本番経路・秘密・release CI</span>
-        <span class="desc">ランタイム経路（同一オリジン + service binding）、秘密の置き場所、api → app のデプロイ順、release ブランチの GitHub Actions を図で俯瞰する。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./cloudflare-map/">
-        <span class="title">Cloudflare の地図 — Workers / Durable Objects / D1</span>
-        <span class="desc">Go + Vue の経験を起点に Cloudflare の3部品を対応表から理解する。「1ルーム = 1 権威サーバー」の設計理由を実コードで辿る技術解説。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./data-ownership/">
-        <span class="title">データはどこに住むのか — D1・RoomDO・contracts の責務マップ</span>
-        <span class="desc">なぜ DB を D1 と RoomDO の2つに分けているのか、contracts/ はどこまでの責任を負うのか、PRD の残り機能でデータがどう増えるのかを実コードの根拠つきで解説する。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./room-creation-flow/">
-        <span class="title">系統図 — ルーム作成</span>
-        <span class="desc">「ルーム作成」と「ルーム参加」がコード上でどう流れるか。UI → Server Action → api-worker → D1 / RoomDO の境界と招待コードの仕様をコード引用つきで辿る。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./stack-reeval/">
-        <span class="title">技術選定の再評価 — 実装負荷を除外した場合</span>
-        <span class="desc">Cloudflare Workers + Durable Objects を選んだ意思決定メモ。コスト試算・候補比較・判断が反転する条件の記録。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./realtime/">
-        <span class="title">HTTPしか知らない人のための Supabase Realtime</span>
-        <span class="desc">今回の付箋アプリで新しかった WebSocket の部分を、知っている HTTP との差分だけで理解する技術解説。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./realtime-poc-map/">
-        <span class="title">PoC実装の現在地 — リアルタイム付箋同期</span>
-        <span class="desc">poc-realtime-note-sync ブランチの実装マップ。データの流れ2経路と、25ファイルの4層構成を1ページで俯瞰する。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./sticky-note-ux/">
-        <span class="title">影は、下にしか落ちない — 付箋UI/UXの熱弁</span>
-        <span class="desc">tldraw から移植した付箋インタラクションの解説。下方向だけの影、選択の青い枠、1クリック3つの意味。触れるデモ付き。</span>
-      </a>
-    </li>
-    <li>
-      <a href="./why-not-tldraw/">
-        <span class="title">付箋ボードを tldraw ではなく自前実装にした理由</span>
-        <span class="desc">付箋を「絵」ではなく「行」として扱う設計判断の記録。dnd-kit すら使わなかった理由と、tldraw から移植した UX。ドラッグできるデモ付き。</span>
-      </a>
-    </li>
-    <li>
+    </li><li>
       <a href="./vrt-operations/">
         <span class="title">Visual Regression Testing 運用ガイド</span>
         <span class="desc">VRT とは何か、Chromatic がこのリポジトリでどう動くか、PR で何をすればよいか。差分デモ付きのチーム向けリファレンス。</span>
       </a>
-    </li>
-  </ul>
+    </li></ul></section><section aria-label="構成と操作の解説"><h2>構成と操作の解説</h2><p class="lede">図・デモで理解する。具体的な設定と仕様は各ページから正本へ。</p><ul class="toc"><li>
+      <a href="./architecture/">
+        <span class="title">Idea Boost — 構成 &amp; デプロイ概観</span>
+        <span class="desc">2つの Cloudflare Worker（app / api）、RoomDO と D1 の責務分担、境界ルール、CI/CD、構成概要の正本へ辿る。</span>
+      </a>
+    </li><li>
+      <a href="./deploy-map/">
+        <span class="title">デプロイ構成図 — 本番経路・秘密・release CI</span>
+        <span class="desc">ランタイム経路（同一オリジン + service binding）、秘密の置き場所、api → app のデプロイ順、release ブランチの GitHub Actions を図で俯瞰する。</span>
+      </a>
+    </li><li>
+      <a href="./cloudflare-map/">
+        <span class="title">Cloudflare の地図 — Workers / Durable Objects / D1</span>
+        <span class="desc">Go + Vue の経験を起点に Cloudflare の3部品を対応表から理解する。「1ルーム = 1 権威サーバー」の設計理由を実コードで辿る技術解説。</span>
+      </a>
+    </li><li>
+      <a href="./data-ownership/">
+        <span class="title">データはどこに住むのか — D1・RoomDO・contracts の責務マップ</span>
+        <span class="desc">なぜ DB を D1 と RoomDO の2つに分けているのか、contracts/ はどこまでの責任を負うのか、成果投影・完了ルーム・意見をどこに保存するのかを実コードの根拠つきで解説する。</span>
+      </a>
+    </li><li>
+      <a href="./room-creation-flow/">
+        <span class="title">系統図 — ルーム作成</span>
+        <span class="desc">「ルーム作成」と「ルーム参加」がコード上でどう流れるか。UI → Server Action → api-worker → D1 / RoomDO の境界と招待コードの仕様をコード引用つきで辿る。</span>
+      </a>
+    </li></ul></section><section aria-label="過去の検討・旧構成"><h2>過去の検討・旧構成</h2><p class="lede">Supabase時代や2026年7月の判断資料。現行の設定・価格・実装状況として使わない。判断の要点は<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/adr/README.md">ADR</a>へ。</p><ul class="toc"><li>
+      <a href="./stack-reeval/">
+        <span class="title">技術選定の再評価 — 実装負荷を除外した場合</span>
+        <span class="desc">Cloudflare Workers + Durable Objects を選んだ意思決定メモ。コスト試算・候補比較・判断が反転する条件の記録。</span>
+      </a>
+    </li><li>
+      <a href="./why-not-tldraw/">
+        <span class="title">付箋ボードを tldraw ではなく自前実装にした理由</span>
+        <span class="desc">付箋を「絵」ではなく「行」として扱う設計判断の記録。dnd-kit すら使わなかった理由と、tldraw から移植した UX。ドラッグできるデモ付き。</span>
+      </a>
+    </li><li>
+      <a href="./realtime/">
+        <span class="title">HTTPしか知らない人のための Supabase Realtime</span>
+        <span class="desc">今回の付箋アプリで新しかった WebSocket の部分を、知っている HTTP との差分だけで理解する技術解説。</span>
+      </a>
+    </li></ul></section>
 </main>
+<script data-preview-links>
+(() => {
+  // PRプレビューの文書はdevelopに未反映なので、同じコミットを参照する。
+  if (!['rawcdn.githack.com', 'raw.githack.com'].includes(location.hostname)) return;
+  const preview = location.pathname.match(/^\/engineer-first\/idea-boost\/([a-f0-9]{40})\/docs\/site\//);
+  if (!preview) return;
+  const source = /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//;
+  for (const link of document.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href && source.test(href)) link.setAttribute('href', href.replace(source, `$1${preview[1]}/`));
+  }
+})();
+</script>
 </body>
 </html>

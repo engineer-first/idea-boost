@@ -10,7 +10,7 @@
 | GitHub Issues / Projects | Issue 内容、状態、担当者、PR との紐づき                  |
 | Markdown                 | 運用ルールと参照先                                       |
 
-Issue Type・フォーム・Project 状態の定義は[Issue と GitHub Project の運用](../issue-management.md)を参照してください。PBI や DemoGoal の本文、受け入れ条件、技術メモは Issue に記録し、Markdown や付箋に複製しません。
+Issue Type・フォーム・Project 状態の定義は[Issue と GitHub Project の運用](issues.md)を参照してください。PBI や DemoGoal の本文、受け入れ条件、技術メモは Issue に記録し、Markdown や付箋に複製しません。
 
 ## 付箋の書き方
 
@@ -28,4 +28,12 @@ DEMO-13 開発テーマ比較
 
 ホワイトボード写真は原則としてリポジトリに保存しません。証跡が必要な場合だけ Google Drive などリポジトリ外に保存します。
 
-スプリント対象かどうかは GitHub Milestone で管理します。スプリント期間は [sprints.md](sprints.md) を参照してください。
+スプリント対象かどうかは GitHub Milestone で管理します。現在の期間と割当てはMilestoneを参照してください。
+
+## 日常の参照先
+
+- [GitHub Project #3](https://github.com/orgs/engineer-first/projects/3): 状態と担当
+- [Milestones](https://github.com/engineer-first/idea-boost/milestones): スプリントの期間と対象
+- [Issue運用](issues.md): 種類・作成・自動化
+
+PBI・DemoGoal・Task・Bug・Spike・相談の内容はGitHub Issueを正本とし、本文や受け入れ条件をMarkdownと二重管理しない。

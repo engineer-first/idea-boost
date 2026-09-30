@@ -1,4 +1,4 @@
-# 本番リリースの履歴
+# 本番リリースの公開と復旧
 
 公開履歴の正本は [GitHub Releases](https://github.com/engineer-first/idea-boost/releases) です。
 本番で公開した機能・変更・修正を、公開日時・版・対象commitと結び付けます。

@@ -5,7 +5,7 @@ description: idea-boost の PBI issue と、それに紐づく DemoGoal issue �
 
 # PBI DemoGoal
 
-`engineer-first/idea-boost` に PBI issue 1件と、それに紐づく DemoGoal issue 1件を作成するスキル。Issue Type・状態・PR の扱いは [Issue 運用](../../../docs/issue-management.md)を正本とする。
+`engineer-first/idea-boost` に PBI issue 1件と、それに紐づく DemoGoal issue 1件を作成するスキル。Issue Type・状態・PR の扱いは [Issue 運用](../../../docs/team/issues.md)を正本とする。
 
 Task・Bug・Spike issue の作成にはこのスキルを使わない。それらは GitHub Issue Forms から作成し、Project の auto-add が取り込む。すべての新規 Issue の初期状態は `未整理`。
 
