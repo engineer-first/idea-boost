@@ -20,6 +20,7 @@ export function NoteFontSizeControls({
       className="board-hud pointer-events-auto flex items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-lg shadow-black/5"
       data-testid="note-font-size-controls"
       aria-label="選択した付箋の文字サイズ"
+      title="選択した付箋だけの文字サイズ。共有後は全員に反映されます"
     >
       <Button
         type="button"

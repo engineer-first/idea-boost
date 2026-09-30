@@ -17,6 +17,7 @@ import {
 import type { Note } from "@/features/notes";
 import {
   CANVAS_FIT_PADDING,
+  type CanvasBounds,
   type CanvasCamera,
   type CanvasPoint,
   clampCanvasZoom,
@@ -84,23 +85,74 @@ function notesBounds(notes: Note[]) {
   };
 }
 
+// マップの百分率座標を通常ボードのpx座標として扱わず、描画済みの付箋を
+// 本人のカメラのワールド座標へ戻す。共有状態にはブラウザの計測を保存しない。
+function renderedNotesBounds(
+  viewport: HTMLDivElement,
+  camera: CanvasCamera,
+): CanvasBounds | null {
+  const viewportRect = viewport.getBoundingClientRect();
+  const rectangles = Array.from(
+    viewport.querySelectorAll<HTMLDivElement>("[data-testid='note-card']"),
+    (element) => element.getBoundingClientRect(),
+  ).filter((rect) => rect.width > 0 && rect.height > 0);
+  if (rectangles.length === 0) return null;
+  const topLeft = screenToWorld(
+    {
+      x: Math.min(...rectangles.map((rect) => rect.left)) - viewportRect.left,
+      y: Math.min(...rectangles.map((rect) => rect.top)) - viewportRect.top,
+    },
+    camera,
+  );
+  const bottomRight = screenToWorld(
+    {
+      x: Math.max(...rectangles.map((rect) => rect.right)) - viewportRect.left,
+      y: Math.max(...rectangles.map((rect) => rect.bottom)) - viewportRect.top,
+    },
+    camera,
+  );
+  return {
+    ...topLeft,
+    width: bottomRight.x - topLeft.x,
+    height: bottomRight.y - topLeft.y,
+  };
+}
+
 function fitIdeaMapCamera(
   viewport: {
     width: number;
     height: number;
   },
   sizeLevel: number,
+  noteBounds: CanvasBounds | null = null,
 ): CanvasCamera {
   const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
+  const mapBounds: CanvasBounds = {
+    x: (viewport.width - IDEA_MAP_BASE_DIMENSIONS.width) / 2,
+    y:
+      viewport.height / 2 +
+      IDEA_MAP_BASE_DIMENSIONS.height / 2 -
+      dimensions.height,
+    width: dimensions.width,
+    height: dimensions.height,
+  };
+  if (!noteBounds) return fitCanvasCamera(mapBounds, viewport);
+  const x = Math.min(mapBounds.x, noteBounds.x);
+  const y = Math.min(mapBounds.y, noteBounds.y);
   return fitCanvasCamera(
     {
-      x: (viewport.width - IDEA_MAP_BASE_DIMENSIONS.width) / 2,
-      y:
-        viewport.height / 2 +
-        IDEA_MAP_BASE_DIMENSIONS.height / 2 -
-        dimensions.height,
-      width: dimensions.width,
-      height: dimensions.height,
+      x,
+      y,
+      width:
+        Math.max(
+          mapBounds.x + mapBounds.width,
+          noteBounds.x + noteBounds.width,
+        ) - x,
+      height:
+        Math.max(
+          mapBounds.y + mapBounds.height,
+          noteBounds.y + noteBounds.height,
+        ) - y,
     },
     viewport,
   );
@@ -192,7 +244,11 @@ export function useCanvasCamera({
       const size = element ? viewportSize(element) : null;
       if (size) {
         setCameraImmediately(
-          fitIdeaMapCamera(size, ideaMapSizeLevelRef.current),
+          fitIdeaMapCamera(
+            size,
+            ideaMapSizeLevelRef.current,
+            element ? renderedNotesBounds(element, cameraRef.current) : null,
+          ),
         );
       }
       return;
@@ -306,7 +362,13 @@ export function useCanvasCamera({
     const element = viewportRef.current;
     const size = element ? viewportSize(element) : null;
     if (size) {
-      setCameraImmediately(fitIdeaMapCamera(size, ideaMapSizeLevelRef.current));
+      setCameraImmediately(
+        fitIdeaMapCamera(
+          size,
+          ideaMapSizeLevelRef.current,
+          element ? renderedNotesBounds(element, cameraRef.current) : null,
+        ),
+      );
       hasFitIdeaMapRef.current = true;
     }
   }, [fitViewport, ideaMapSizeInitialized, setCameraImmediately, viewportRef]);
@@ -322,8 +384,43 @@ export function useCanvasCamera({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || isEditableTarget(event.target)) return;
-      spacePressedRef.current = true;
+      if (isEditableTarget(event.target)) return;
+      if (event.code === "Space") {
+        spacePressedRef.current = true;
+        return;
+      }
+      // このボードの表示操作にフォーカスした場合だけ読書用のキー操作を受ける。
+      // 付箋・投票・メニュー・入力欄のキー操作を横取りしない。
+      const viewport = viewportRef.current;
+      if (
+        !viewport ||
+        !(event.target instanceof HTMLElement) ||
+        !event.target.closest("[data-testid='canvas-zoom-controls']") ||
+        !viewport.parentElement?.contains(event.target) ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey
+      )
+        return;
+      const size = viewportSize(viewport);
+      const step = 80;
+      const pageStep = (size?.height ?? step) * 0.8;
+      const offsets: Partial<Record<string, CanvasPoint>> = {
+        ArrowLeft: { x: step, y: 0 },
+        ArrowRight: { x: -step, y: 0 },
+        ArrowUp: { x: 0, y: step },
+        ArrowDown: { x: 0, y: -step },
+        PageUp: { x: 0, y: pageStep },
+        PageDown: { x: 0, y: -pageStep },
+      };
+      const delta = offsets[event.key];
+      if (!delta) return;
+      event.preventDefault();
+      scheduleCamera({
+        ...cameraRef.current,
+        x: cameraRef.current.x + delta.x,
+        y: cameraRef.current.y + delta.y,
+      });
     };
     const handleKeyUp = (event: KeyboardEvent) => {
       if (event.code === "Space") spacePressedRef.current = false;
@@ -348,7 +445,7 @@ export function useCanvasCamera({
         }
       }
     };
-  }, []);
+  }, [scheduleCamera, viewportRef]);
 
   useEffect(() => {
     if (fitViewport) return;

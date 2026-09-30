@@ -579,12 +579,12 @@ export function NoteCard({
     if (isEditing) {
       const textarea = textareaRef.current;
       if (textarea) {
-        textarea.focus();
+        textarea.focus({ preventScroll: true });
         const caret = textarea.value.length;
         textarea.setSelectionRange(caret, caret);
       }
     } else if (isSelected) {
-      surfaceRef.current?.focus();
+      surfaceRef.current?.focus({ preventScroll: true });
     }
   }, [isEditing, isSelected]);
 
@@ -698,6 +698,13 @@ export function NoteCard({
       return;
     }
 
+    // Space は選択中もキャンバスのパンに使う。編集開始や末尾への空白追加を
+    // 行わず、window のカメラ用 keydown へ伝える（投票のSpaceは上で処理）。
+    if (event.code === "Space" || event.key === " ") {
+      event.preventDefault();
+      return;
+    }
+
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
       event.stopPropagation();
@@ -799,7 +806,7 @@ export function NoteCard({
                 if (event.key !== "Tab") return;
                 if (event.shiftKey) {
                   event.preventDefault();
-                  surfaceRef.current?.focus();
+                  surfaceRef.current?.focus({ preventScroll: true });
                   return;
                 }
                 const surface = surfaceRef.current;
@@ -862,7 +869,7 @@ export function NoteCard({
                   if (event.key !== "Escape") return;
                   event.preventDefault();
                   setIsActionMenuOpen(false);
-                  surfaceRef.current?.focus();
+                  surfaceRef.current?.focus({ preventScroll: true });
                 }}
               >
                 <button
@@ -1108,7 +1115,7 @@ export function NoteCard({
           onBlur={scheduleFocusActionHide}
           onKeyDown={handleKeyDown}
           onContextMenu={handleContextMenu}
-          className={`absolute inset-0 z-10 touch-none select-none outline-none ${
+          className={`absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700 ${
             disabled
               ? "cursor-not-allowed"
               : selectedStampKind !== null

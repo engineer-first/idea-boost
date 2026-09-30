@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -18,6 +20,7 @@ export function SharingPresenter({
   sharing,
   hostUserId,
 }: SharingPresenterProps) {
+  const descriptionId = useId();
   const current = sharing.order[sharing.currentIndex ?? sharing.results.length];
   const next =
     sharing.currentIndex === null
@@ -29,18 +32,19 @@ export function SharingPresenter({
         <Button
           variant="outline"
           aria-label="発表者と全体の順番を確認"
+          aria-describedby={descriptionId}
           className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-xl border-blue-200 bg-blue-50 px-2 text-left hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 max-[900px]:min-w-[220px] max-[900px]:flex-1"
         >
           {current && (
             <MemberAvatar name={current.name} color={current.color} size={28} />
           )}
-          <span className="min-w-0 flex-1">
+          <span id={descriptionId} className="min-w-0 flex-1">
             <span className="block truncate text-xs font-semibold">
               {sharing.status === "complete"
                 ? "一巡しました"
                 : sharing.status === "ready"
                   ? "一人ずつ共有します"
-                  : current?.name}
+                  : `${sharing.startsAt !== null ? "まもなく発表" : "発表中"}：${current?.name ?? ""}`}
             </span>
             <span className="block truncate text-[11px] text-muted-foreground">
               {sharing.status === "complete"
@@ -64,11 +68,9 @@ export function SharingPresenter({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80" aria-label="共有する順番">
-        <p className="mb-3 text-sm font-semibold">
-          共有する順番{" "}
-          <span className="text-xs font-normal text-muted-foreground">
-            3回共通
-          </span>
+        <p className="text-sm font-semibold">共有する順番</p>
+        <p className="mb-3 mt-1 text-xs text-muted-foreground">
+          課題・問い・アイデアを同じ順番で共有します。
         </p>
         <ol className="max-h-72 space-y-3 overflow-y-auto">
           {sharing.order.map((member, index) => (
