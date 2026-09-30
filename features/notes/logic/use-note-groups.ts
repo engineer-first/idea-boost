@@ -1,8 +1,8 @@
 "use client";
 
 // 永続グループ（付箋のまとまり）の状態とプロトコル化の hook（ボード画面専用）。
-// 作成・改名は楽観更新し、確定・他者の変更は group:updated / group:deleted で
-// 畳み込む。
+// 共有名・構成はサーバー確定後だけ更新する。拒否や切断で未保存の名前を
+// 共有済みと表示しない。確定・他者の変更は group:updated / group:deleted で畳み込む。
 import { useCallback, useState } from "react";
 import type { PersistentGroup } from "@/contracts/grouping";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
@@ -50,7 +50,6 @@ export function useNoteGroups({
         name,
         noteIds,
       };
-      setGroups((current) => [...current, newGroup]);
       send({
         type: "group:create",
         group: {
@@ -65,9 +64,6 @@ export function useNoteGroups({
 
   const renameGroup = useCallback(
     (groupId: string, name: string) => {
-      setGroups((current) =>
-        current.map((g) => (g.id === groupId ? { ...g, name } : g)),
-      );
       send({ type: "group:update-name", groupId, name });
     },
     [send],

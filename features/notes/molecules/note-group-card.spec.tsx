@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RenderGroup } from "@/contracts/grouping";
 import { NoteGroupCard } from "./note-group-card";
 
@@ -29,6 +29,7 @@ function setup(overrides: Partial<Parameters<typeof NoteGroupCard>[0]> = {}) {
 }
 
 describe("NoteGroupCard", () => {
+  afterEach(() => vi.useRealTimers());
   it("グループ枠の破線を濃くし、背景色を強める", () => {
     setup();
 
@@ -181,5 +182,126 @@ describe("NoteGroupCard", () => {
     expect(
       screen.getByRole("button", { name: baseGroup.name }),
     ).toBeInTheDocument();
+  });
+  it("IME変換中のEnterは送信せず、変換確定後のEnterで送信する", () => {
+    const { props } = setup();
+    fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
+    const input = screen.getByTestId("group-name-input");
+    fireEvent.change(input, { target: { value: "日本語の名前" } });
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(props.onUpdateName).not.toHaveBeenCalled();
+    expect(input).toBeInTheDocument();
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229 });
+    expect(props.onUpdateName).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onUpdateName).toHaveBeenCalledWith("日本語の名前");
+  });
+
+  it.each([
+    "Enter",
+    "Escape",
+  ])("%sで編集を終えたら命名入口へフォーカスを戻す", (key) => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
+    fireEvent.keyDown(screen.getByTestId("group-name-input"), { key });
+    expect(screen.getByRole("button", { name: baseGroup.name })).toHaveFocus();
+  });
+
+  it("編集中に別参加者が改名した場合は上書きせず入力を残し、Escapeで最新名へ戻す", () => {
+    const { props, view } = setup();
+    fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
+    fireEvent.change(screen.getByTestId("group-name-input"), {
+      target: { value: "自分の案" },
+    });
+    view.rerender(<NoteGroupCard {...props} name="別参加者の名前" />);
+    fireEvent.keyDown(screen.getByTestId("group-name-input"), { key: "Enter" });
+    expect(props.onUpdateName).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.getByTestId("group-name-input")).toHaveValue("自分の案");
+    fireEvent.keyDown(screen.getByTestId("group-name-input"), {
+      key: "Escape",
+    });
+    expect(
+      screen.getByRole("button", { name: "別参加者の名前" }),
+    ).toHaveFocus();
+  });
+
+  it("空の共有名でも命名を開始して送信できる", () => {
+    const { props } = setup({ name: "" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "グループに名前を付ける" }),
+    );
+    fireEvent.change(screen.getByTestId("group-name-input"), {
+      target: { value: "新しい名前" },
+    });
+    fireEvent.keyDown(screen.getByTestId("group-name-input"), { key: "Enter" });
+    expect(props.onUpdateName).toHaveBeenCalledWith("新しい名前");
+  });
+  it("2秒遅延中は入力を保持し受理待ちを示し、確定名を受信してから閉じる", () => {
+    vi.useFakeTimers();
+    const { props, view } = setup();
+    fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
+    const input = screen.getByRole("textbox", { name: "グループ名" });
+    fireEvent.change(input, { target: { value: "遅れて共有する名前" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input).toHaveValue("遅れて共有する名前");
+    expect(input).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("確認中");
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onUpdateName).toHaveBeenCalledOnce();
+    view.rerender(<NoteGroupCard {...props} name="遅れて共有する名前" />);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "遅れて共有する名前" }),
+    ).toHaveFocus();
+  });
+
+  it.each([
+    "拒否",
+    "切断",
+  ])("%sで応答が来なくても入力を保持し、2秒後に未確認として再送できる", () => {
+    vi.useFakeTimers();
+    const { props } = setup();
+    fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
+    const input = screen.getByRole("textbox", { name: "グループ名" });
+    fireEvent.change(input, { target: { value: "回収したい名前" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    act(() => vi.advanceTimersByTime(2100));
+    expect(input).toHaveValue("回収したい名前");
+    expect(screen.getByRole("status")).toHaveTextContent("確認できません");
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onUpdateName).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(screen.getByRole("button", { name: baseGroup.name })).toHaveFocus();
+  });
+  it("遅延応答の前に別の操作へ移った場合はフォーカスを奪わない", () => {
+    const { props, view } = setup();
+    fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
+    const input = screen.getByRole("textbox", { name: "グループ名" });
+    fireEvent.change(input, { target: { value: "共有する名前" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    const next = document.createElement("button");
+    next.textContent = "別の操作";
+    document.body.append(next);
+    next.focus();
+    view.rerender(<NoteGroupCard {...props} name="共有する名前" />);
+    expect(next).toHaveFocus();
+    next.remove();
+  });
+  it("送信後に他者の共有名が届いても未送信と断定せず入力を保持する", () => {
+    vi.useFakeTimers();
+    const { props, view } = setup();
+    fireEvent.click(screen.getByRole("button", { name: baseGroup.name }));
+    const input = screen.getByRole("textbox", { name: "グループ名" });
+    fireEvent.change(input, { target: { value: "送信済みの案" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onUpdateName).toHaveBeenCalledWith("送信済みの案");
+    view.rerender(<NoteGroupCard {...props} name="他者の確定名" />);
+    act(() => vi.advanceTimersByTime(2100));
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(props.onUpdateName).toHaveBeenCalledOnce();
+    expect(input).toHaveValue("送信済みの案");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("未送信");
+    expect(screen.getByRole("status")).toHaveTextContent("他者の確定名");
   });
 });
