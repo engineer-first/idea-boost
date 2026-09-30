@@ -129,6 +129,47 @@ describe("RoomTimer", () => {
     expect(onOutsideClick).toHaveBeenCalledOnce();
   });
 
+  it("パネル表示中も端末通知音は最初のクリックで切り替えられる", () => {
+    const onEnable = vi.fn(async () => undefined);
+    render(
+      <RoomTimer
+        timer={{ status: "idle" }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+        soundControls={{ ...handlers.soundControls, onEnable }}
+      />,
+    );
+    const sound = screen.getByRole("button", { name: "タイマー通知音" });
+    fireEvent.pointerDown(sound, { button: 0, pointerId: 1 });
+    fireEvent.pointerUp(sound, { button: 0, pointerId: 1 });
+    fireEvent.click(sound);
+    expect(onEnable).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+  });
+
+  it("一時停止への切り替えでフォーカスを終了へ引き継がない", () => {
+    const props = {
+      serverOffsetMs: 0,
+      isHost: true,
+      disabled: false,
+      defaultPanelOpen: true,
+      ...handlers,
+    };
+    const { rerender } = render(
+      <RoomTimer {...props} timer={buildRunningTimer()} />,
+    );
+    const pause = screen.getByRole("button", { name: "一時停止" });
+    pause.focus();
+    fireEvent.click(pause);
+    rerender(<RoomTimer {...props} timer={buildPausedTimer()} />);
+    expect(screen.getByTestId("room-timer")).toHaveFocus();
+    expect(screen.getByRole("button", { name: "終了" })).not.toHaveFocus();
+    expect(handlers.onStop).not.toHaveBeenCalled();
+  });
+
   it("外側操作がclickを生成しない場合はpointerup後に抑止を解除する", () => {
     const onOutsideClick = vi.fn();
     render(

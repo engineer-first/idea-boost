@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import { TimerSoundControl } from "./timer-sound-control";
 
 const meta = {
@@ -30,4 +30,13 @@ export const Enabled: Story = {
 };
 export const PlaybackBlocked: Story = {
   args: { playbackBlocked: true },
+};
+
+export const PlaybackBlockedDismissed: Story = {
+  args: { playbackBlocked: true },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "案内を閉じる" }),
+    );
+  },
 };
