@@ -105,7 +105,7 @@ export function RoomTimer({
   const [isReconfiguring, setIsReconfiguring] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const soundControlRef = useRef<HTMLDivElement>(null);
+  const timerControlsRef = useRef<HTMLDivElement>(null);
   const pauseOrStopRef = useRef<HTMLButtonElement>(null);
   const previousStatusRef = useRef(timer.status);
   const wasPanelOpenRef = useRef(panelOpen);
@@ -159,7 +159,7 @@ export function RoomTimer({
         !(target instanceof Node) ||
         triggerRef.current?.contains(target) ||
         panelRef.current?.contains(target) ||
-        soundControlRef.current?.contains(target)
+        timerControlsRef.current?.contains(target)
       ) {
         return;
       }
@@ -350,7 +350,7 @@ export function RoomTimer({
       onInteractOutside={(event) => {
         if (
           event.target instanceof Node &&
-          soundControlRef.current?.contains(event.target)
+          timerControlsRef.current?.contains(event.target)
         ) {
           event.preventDefault();
         }
@@ -515,7 +515,7 @@ export function RoomTimer({
   );
 
   return (
-    <div className="relative h-10 w-28 shrink-0">
+    <div ref={timerControlsRef} className="relative h-10 w-28 shrink-0">
       {isHost ? (
         <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
           <PopoverTrigger asChild>{hostChip}</PopoverTrigger>
@@ -524,9 +524,7 @@ export function RoomTimer({
       ) : (
         memberChip
       )}
-      <div ref={soundControlRef}>
-        <TimerSoundControl {...soundControls} />
-      </div>
+      <TimerSoundControl {...soundControls} />
       <span aria-live="polite" className="sr-only">
         {isEnded ? "タイマーが終了しました。時間になりました。" : null}
       </span>
