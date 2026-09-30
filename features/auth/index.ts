@@ -2,6 +2,7 @@
 // lib/session（Cookie / JWT の発行・検証）はインフラとして別レイヤーに置き、
 // ここは「ログイン UI と認証フローの配線」だけを持つ。
 export {
+  type DevAuthState,
   signInWithDevPassword,
   signInWithGoogle,
   signOut,

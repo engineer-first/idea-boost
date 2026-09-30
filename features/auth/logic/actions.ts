@@ -28,12 +28,15 @@ function loginError(message: string, next?: string): never {
   redirect(`${base}${separator}error=${encodeURIComponent(message)}`);
 }
 
+export type DevAuthState = { error?: string };
+
 export async function signInWithDevPassword(
   next: string,
+  _previousState: DevAuthState,
   formData: FormData,
-): Promise<void> {
+): Promise<DevAuthState> {
   if (!isDevAuthEnabled()) {
-    loginError("開発用ログインは無効です。", next);
+    return { error: "開発用ログインは無効です。" };
   }
 
   const email = String(formData.get("email") ?? "");
@@ -41,7 +44,7 @@ export async function signInWithDevPassword(
 
   const devUser = findDevUser(email);
   if (!devUser || password !== DEV_PASSWORD) {
-    loginError("メールアドレスまたはパスワードが違います。", next);
+    return { error: "メールアドレスまたはパスワードが違います。" };
   }
 
   const result = await establishSession({
@@ -52,7 +55,7 @@ export async function signInWithDevPassword(
   });
 
   if (!result.ok) {
-    loginError(result.error, next);
+    return { error: result.error };
   }
 
   redirect(sanitizeNextPath(next));
