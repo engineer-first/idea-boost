@@ -45,9 +45,9 @@ describe("TimerSoundControl", () => {
     expect(onMute).toHaveBeenCalledOnce();
   });
 
-  it("再生拒否時もダイアログを出さず、アイコンから再試行する", () => {
+  it("再生拒否を画面と読み上げで伝え、同じアイコンから再試行する", () => {
     const onEnable = vi.fn(async () => undefined);
-    render(
+    const { rerender } = render(
       <TimerSoundControl
         enabled={false}
         playbackBlocked
@@ -57,13 +57,22 @@ describe("TimerSoundControl", () => {
     );
 
     const toggle = screen.getByRole("button", { name: "タイマー通知音" });
-    expect(toggle).toHaveAttribute(
-      "title",
-      expect.stringContaining("ブラウザが音声の再生を拒否しました"),
-    );
+    expect(screen.getByRole("status")).toHaveTextContent("再生できません");
+    expect(toggle).toHaveAccessibleDescription(/再試行/);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     fireEvent.click(toggle);
     expect(onEnable).toHaveBeenCalledOnce();
+
+    rerender(
+      <TimerSoundControl
+        enabled
+        playbackBlocked={false}
+        onEnable={onEnable}
+        onMute={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
   });
 });

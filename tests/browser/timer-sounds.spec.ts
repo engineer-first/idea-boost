@@ -12,6 +12,7 @@ type AudioStartRecord = {
 };
 
 type AudioProbe = {
+  rejectPlayback: boolean;
   contextStates: AudioContextState[];
   resumeAttempts: number;
   starts: AudioStartRecord[];
@@ -33,6 +34,7 @@ let browser: Browser;
 
 function installAudioProbe(rejectPlayback: boolean): void {
   const probe: AudioProbe = {
+    rejectPlayback,
     contextStates: [],
     resumeAttempts: 0,
     starts: [],
@@ -43,7 +45,7 @@ function installAudioProbe(rejectPlayback: boolean): void {
   const nativeResume = prototype.resume;
   prototype.resume = function (): Promise<void> {
     probe.resumeAttempts += 1;
-    if (rejectPlayback) {
+    if (probe.rejectPlayback) {
       return Promise.reject(
         new DOMException("Playback was denied", "NotAllowedError"),
       );
@@ -91,7 +93,10 @@ function installAudioProbe(rejectPlayback: boolean): void {
       if (rejectPlayback) {
         Object.defineProperty(this, "state", {
           configurable: true,
-          get: () => "suspended" satisfies AudioContextState,
+          get: () =>
+            probe.rejectPlayback
+              ? ("suspended" satisfies AudioContextState)
+              : (Reflect.get(prototype, "state", this) as AudioContextState),
         });
       }
       probe.contextStates.push(this.state);
@@ -132,6 +137,49 @@ afterAll(async () => {
 });
 
 describe("RoomTimer の実ブラウザ音声経路", () => {
+  it("パネル表示中も音の1クリックが届き、一時停止後のEnterは終了しない", async () => {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    try {
+      await openStory(page);
+      await page.getByTestId("room-timer").click();
+      await page.getByTestId("timer-sound-toggle").click();
+      await vi.waitFor(async () => {
+        expect(
+          await page
+            .getByTestId("timer-sound-toggle")
+            .getAttribute("aria-pressed"),
+        ).toBe("true");
+      });
+      expect(await page.getByTestId("room-timer-panel").isVisible()).toBe(true);
+      await page.getByRole("button", { name: "開始", exact: true }).click();
+      const pause = page.getByRole("button", { name: "一時停止", exact: true });
+      await pause.focus();
+      await page.keyboard.press("Enter");
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector('[data-testid="room-timer"]')
+            ?.getAttribute("data-status") === "paused",
+      );
+      expect(
+        await page
+          .getByTestId("room-timer")
+          .evaluate((element) => element === document.activeElement),
+      ).toBe(true);
+      await page.keyboard.press("Enter");
+      expect(
+        await page.getByTestId("room-timer").getAttribute("data-status"),
+      ).toBe("paused");
+      await page.getByTestId("room-timer-panel").waitFor({ state: "hidden" });
+    } finally {
+      await context.close();
+    }
+  });
+
   it("アイコンで有効化すると確認音を鳴らし、開始・5秒予告・時間切れを再生する", async () => {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
@@ -224,9 +272,10 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
     }
   }, 25_000);
 
-  it("ブラウザが AudioContext.resume を拒否したとき有効扱いせず案内する", async () => {
+  it("再生拒否を表示し、キーボードで再試行すると実音声経路を有効化する", async () => {
     const context = await browser.newContext({
-      viewport: { width: 1280, height: 720 },
+      viewport: { width: 390, height: 844 },
+      reducedMotion: "reduce",
     });
     const page = await context.newPage();
     await page.addInitScript(installAudioProbe, true);
@@ -237,7 +286,7 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       await vi.waitFor(async () => {
         expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
         expect(await soundToggle.getAttribute("title")).toContain(
-          "ブラウザが音声の再生を拒否しました",
+          "通知音を再生できません",
         );
       });
       expect(await page.getByRole("dialog").count()).toBe(0);
@@ -247,7 +296,39 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
           localStorage.getItem("idea-boost.timer-sounds.enabled.v1"),
         ),
       ).toBeNull();
+      const status = page.getByRole("status");
+      await status.waitFor();
+      expect(await status.innerText()).toContain("再試行");
+      const bounds = await status.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds?.x).toBeGreaterThanOrEqual(0);
+      expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(390);
+      const background = await status.evaluate(
+        (element) =>
+          getComputedStyle(
+            element.closest("[data-slot=tooltip-content]") ?? element,
+          ).backgroundColor,
+      );
+      expect(background).not.toBe("rgba(0, 0, 0, 0)");
       await page.screenshot({ path: join(output, "playback-blocked.png") });
+
+      await page.evaluate(() => {
+        if (window.__timerAudioProbe)
+          window.__timerAudioProbe.rejectPlayback = false;
+      });
+      await soundToggle.focus();
+      await page.keyboard.press("Space");
+      await vi.waitFor(async () => {
+        expect(await soundToggle.getAttribute("aria-pressed")).toBe("true");
+      });
+      await page.getByRole("status").waitFor({ state: "hidden" });
+      const retried = await readAudioProbe(page);
+      expect(retried.starts).toHaveLength(2);
+      expect(retried.starts.every(({ state }) => state === "running")).toBe(
+        true,
+      );
+      await soundToggle.press("Space");
+      expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
     } finally {
       await context.close();
     }
