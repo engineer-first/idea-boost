@@ -44,12 +44,14 @@ export type BoardContextProps = {
   phase: RoomPhase;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
+  onOpenFeedback?: () => void;
 };
 
 export function BoardContext({
   phase,
   hmwDecidedIssue,
   decidedHmw,
+  onOpenFeedback,
 }: BoardContextProps) {
   const context = getPhaseContext(phase);
   const [isRouteOpen, setRouteOpen] = useState(false);
@@ -153,6 +155,15 @@ export function BoardContext({
             />
           ))}
         </span>
+        {onOpenFeedback ? (
+          <button
+            type="button"
+            onClick={onOpenFeedback}
+            className="mt-3 min-h-9 rounded-md px-2 text-xs underline underline-offset-4 hover:bg-muted"
+          >
+            意見を送る
+          </button>
+        ) : null}
         {phase.kind === "step" ? (
           <>
             <button

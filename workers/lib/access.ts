@@ -21,7 +21,10 @@ export async function seedDevOwnerAccess(db: D1Database): Promise<void> {
     .prepare("INSERT OR IGNORE INTO users(id,email,name) VALUES(?,?,?)")
     .bind(owner.id, owner.email, owner.name)
     .run();
-  for (const permission of Object.values(PERMISSIONS)) {
+  for (const permission of [
+    PERMISSIONS.readSharedOutcomes,
+    PERMISSIONS.manageSharedOutcomesAccess,
+  ]) {
     await db
       .prepare(
         "INSERT OR IGNORE INTO user_permissions(user_id,permission) VALUES(?,?)",

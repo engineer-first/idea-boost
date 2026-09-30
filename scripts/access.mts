@@ -69,7 +69,7 @@ export function run(
     !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
   )
     throw new Error(
-      `使い方: npm run access:${command} -- shared_outcomes:read|shared_outcomes:manage_access email@example.com`,
+      `使い方: npm run access:${command} -- ${allowed.join("|")} email@example.com`,
     );
   const user = execute(
     `SELECT id FROM users WHERE lower(email) = lower(${sqlLiteral(email)}) LIMIT 1`,
