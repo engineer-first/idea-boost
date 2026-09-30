@@ -13,7 +13,7 @@ disable-model-invocation: true
 
 - ドメイン UI は `features/<feature>/` に置く。既存 feature のフラット / 5 箱構成に合わせ、5 箱の新規部品は `molecules/` を起点に、必要な依存に応じて上の帯へ置く。
 - `app/` は予約ファイルとそのルート専用の組み立て view、`components/ui/` はドメインを知らない shadcn 汎用部品に限る。
-- 配置・責務はルートの `AGENTS.md` と、そこから案内される UI 規約に従う。検証は [テスト方針](../../../docs/testing-policy.md) を読む。既存実装から判断できる配置はそのまま進める。
+- 配置・責務はルートの `AGENTS.md` と、そこから案内される UI 規約に従う。検証は [テスト方針](../../../docs/development/testing.md) を読む。既存実装から判断できる配置はそのまま進める。
 
 ## 作成するファイルと条件
 

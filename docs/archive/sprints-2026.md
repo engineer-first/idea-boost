@@ -1,5 +1,7 @@
 # スプリント期間
 
+> 過去資料：2026年6〜8月の期間対応表。現在の期間と割当ては[GitHub Milestones](https://github.com/engineer-first/idea-boost/milestones)を参照する。
+
 このファイルは、GitHub Milestoneと、チーム内で話しているスプリント番号を対応させるための参照です。
 
 ## スプリント一覧

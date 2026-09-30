@@ -1,5 +1,7 @@
 # feature 内部の設計判断 — 5 箱「依存権の帯」（C′）
 
+> 過去資料：2026年7月の決定と分析の全文。現行規約は[開発規約](../development/conventions.md)、判断の要点は[ADR 0003](../adr/0003-feature-bands.md)。
+
 status: **決定・移行済み**（決定 2026-07-13、移行完了 2026-07-14）。
 検討の全文（案の比較・攻撃的検証・先行事例）は
 [feature-ui-directory-options.md](feature-ui-directory-options.md) が真実。
@@ -7,10 +9,10 @@ status: **決定・移行済み**（決定 2026-07-13、移行完了 2026-07-14�
 
 「Atomic Design を採らない」という判断は、実は独立した 2 つの問いの答えである。
 
-| 問い                              | 選択肢                                                  | 採用と文書                                                    |
-| --------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------- |
-| 1. リポジトリ全体を何で縦に切るか | 粒度（Atomic ツリー）か、機能（feature）か              | feature 縦割り → [feature-structure.md](feature-structure.md) |
-| 2. feature の**中**を何で分けるか | 本質の粒度分類か、役割 2 層か、**依存権の帯（5 箱）**か | C′「依存権の帯」→ 本ドキュメント                              |
+| 問い                              | 選択肢                                                  | 採用と文書                                                            |
+| --------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------- |
+| 1. リポジトリ全体を何で縦に切るか | 粒度（Atomic ツリー）か、機能（feature）か              | feature 縦割り → [feature-structure.md](feature-structure-2026-07.md) |
+| 2. feature の**中**を何で分けるか | 本質の粒度分類か、役割 2 層か、**依存権の帯（5 箱）**か | C′「依存権の帯」→ 本ドキュメント                                      |
 
 ## 決定（2026-07-13）
 
@@ -150,7 +152,7 @@ React を使う限り生まれる。C′ が logic/ を 5 箱の最下帯とし�
 
 - [feature-ui-directory-options.md](feature-ui-directory-options.md) —
   案 A/B/C/C′ の比較・攻撃的検証・先行事例調査の全文（決定記録）
-- [feature-structure.md](feature-structure.md) — 問い 1（feature 縦割り）の
+- [feature-structure.md](feature-structure-2026-07.md) — 問い 1（feature 縦割り）の
   判断。PR #128 以前に全体 Atomic ツリーで実際に起きたことの記録を含む
 - `rules/ast-grep/feature-band-imports.yml` — 帯規則の実装とコメント
 - `scripts/check-feature-layout.mts` — 配置の不変条件の実装とコメント

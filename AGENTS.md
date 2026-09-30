@@ -2,7 +2,7 @@
 
 このファイルをエージェント運用ルールの入口・正本とする。
 `CLAUDE.md` はこのファイルへの symlink を維持する。
-プロダクト要求の正本は [docs/prd.md](docs/prd.md)。
+プロダクト要求の正本は [docs/prd.md](docs/prd.md)。文書の入口と整理基準は[docs/README.md](docs/README.md)。
 
 ## 常に守ること
 
@@ -18,18 +18,19 @@
 該当する行をすべて読む。リンク先の作業別ルールも本指示の一部とする。
 ルートから作業する場合も、下位の指示ファイルの自動読込には依存しない。
 
-| 作業                                               | 読む資料                                                     |
-| -------------------------------------------------- | ------------------------------------------------------------ |
-| コードの追加・変更・移動                           | [コード配置と命名](docs/agent-workflows.md#コード配置と命名) |
-| 振る舞い・UI 表現・テストの変更                    | [テスト方針](docs/testing-policy.md)                         |
-| Next.js の実装                                     | `node_modules/next/dist/docs/` の関連ガイド                  |
-| UI・クライアント状態・stories・モック              | [UI](docs/agent-workflows.md#ui)                             |
-| API・Server Action・Route Handler・データアクセス  | [API](docs/agent-workflows.md#api)                           |
-| 共有状態・WS・可視性・認可（クライアント側を含む） | [共有状態と認可](docs/agent-workflows.md#共有状態と認可)     |
-| D1 / RoomDO のスキーマ・migration                  | [Migration](docs/agent-workflows.md#migration)               |
-| Issue の作成・編集・振り分け・調査・状態判断       | [Issue 運用](docs/issue-management.md)                       |
-| PR 作成・本文更新                                  | [write-pr](.claude/skills/write-pr/SKILL.md)                 |
-| エージェント指示・ハーネスの保守                   | [保守記録](docs/agent-guidance-maintenance.md)               |
+| 作業                                               | 読む資料                                                             |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| コードの追加・変更・移動                           | [コード配置と命名](docs/development/conventions.md#コード配置と命名) |
+| 振る舞い・UI 表現・テストの変更                    | [テスト方針](docs/development/testing.md)                            |
+| Next.js の実装                                     | `node_modules/next/dist/docs/` の関連ガイド                          |
+| UI・クライアント状態・stories・モック              | [UI](docs/development/conventions.md#ui)                             |
+| API・Server Action・Route Handler・データアクセス  | [API](docs/development/conventions.md#api)                           |
+| 共有状態・WS・可視性・認可（クライアント側を含む） | [共有状態と認可](docs/development/conventions.md#共有状態と認可)     |
+| D1 / RoomDO のスキーマ・migration                  | [Migration](docs/development/conventions.md#migration)               |
+| Issue の作成・編集・振り分け・調査・状態判断       | [Issue 運用](docs/team/issues.md)                                    |
+| PR 作成・本文更新                                  | [write-pr](.claude/skills/write-pr/SKILL.md)                         |
+| 重要な設計判断の追加・変更                         | [ADR運用](docs/adr/README.md)                                        |
+| エージェント指示・ハーネスの保守                   | [保守記録](docs/development/agent-maintenance.md)                    |
 
 ## 開発と検証
 
@@ -48,4 +49,4 @@
 ## 指示の保守
 
 指示は短く、最新に保ち、重複させない。静的検査で強制できるルールは
-Biome / [ast-grep](rules/ast-grep/) 等へ追加し、指示には判断に必要な意図と参照を残す。
+Biome / [ast-grep](rules/ast-grep) 等へ追加し、指示には判断に必要な意図と参照を残す。

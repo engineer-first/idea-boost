@@ -1,5 +1,5 @@
 // Step 2-1（HMW 個人執筆）の固定文言。
-// 文言の真実は docs/dezain-supurinto.md「③ 問いの作成（HMW）> Step1」で、
+// 文言の真実は docs/product/sprint-flow.md「HMW入力の具体例」で、
 // ここではそれをそのまま定数化する（新規の文言作成はしない）。
 
 // 持ち越された決定課題の固定表示に付けるラベル。

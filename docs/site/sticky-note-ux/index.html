@@ -406,8 +406,16 @@
   }
   footer p { margin: 0.4rem 0; }
 </style>
+<style>
+.doc-context{box-sizing:border-box;max-width:1100px;margin:20px auto;padding:16px 20px;border:1px solid currentColor;border-left:4px solid #40745d;background:#edf3ee;color:#233c31;font:14px/1.8 "Hiragino Sans","Yu Gothic",sans-serif;overflow-wrap:anywhere}
+.doc-context a{color:inherit;text-decoration:underline;text-underline-offset:3px}.doc-context p{margin:4px 0}.doc-context strong{font-weight:700}
+@media(prefers-color-scheme:dark){.doc-context{background:#1c2b24;color:#d4e7db}}
+:root[data-theme="light"] .doc-context{background:#edf3ee;color:#233c31}:root[data-theme="dark"] .doc-context{background:#1c2b24;color:#d4e7db}
+@media(max-width:700px){.doc-context{margin:12px;padding:12px}}
+</style>
 </head>
 <body>
+<aside class="doc-context" aria-label="文書の位置づけ"><strong>解説 / 2026-09-30に参照先を整理</strong><p><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/product/sprint-flow.md">現在の操作仕様</a>がMarkdownの正本です。 デモは選択・ドラッグ・影の説明用で、本番の認可・保存・全操作を再現しません。 <a href="../">目次</a></p></aside>
 
 <header>
   <p class="eyebrow">poc-realtime-note-sync / UIノート</p>

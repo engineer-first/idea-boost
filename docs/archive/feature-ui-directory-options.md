@@ -1,8 +1,10 @@
 # feature 内 UI の置き方 — 選択肢の比較（決定記録）
 
+> 過去資料：2026年7月の比較・検証全文。現行規約ではない。採用結果は[ADR 0003](../adr/0003-feature-bands.md)。
+
 status: **決定・移行済み（決定 2026-07-13、移行完了 2026-07-14）—
 C′「依存権の帯」方式を採用**。決定の要点と運用は
-[feature-internal-structure.md](feature-internal-structure.md) が真実。
+[feature-internal-structure.md](feature-internal-structure-2026-07.md) が真実。
 本ファイルは検討過程（案の比較・攻撃的検証・先行事例調査）の記録として
 凍結する。
 なお本文中の「C′ は nesting 併用が前提」という記述は不採用になった:
@@ -77,7 +79,7 @@ features/room/ui/
 - 短所・懸念:
   - **今回の課題（衛星倍率）を解決しない**（前提 2）。
   - molecule / organism 境界に機械判定器がなく、AI がコードを書く前提で
-    CI 強制できない（[feature-internal-structure.md](feature-internal-structure.md) §2）。
+    CI 強制できない（[feature-internal-structure.md](feature-internal-structure-2026-07.md) §2）。
   - 分類判断が 2 重になる（粒度の箱 + ui / logic の役割）。同 §1。
   - container（room-board.tsx 等）に箱がない。同 §1。
 

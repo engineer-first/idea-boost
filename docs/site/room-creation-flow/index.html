@@ -493,8 +493,17 @@ footer {
   .reveal { opacity: 1; transform: none; transition: none; }
 }
 </style>
+<style>
+.doc-context{box-sizing:border-box;max-width:1100px;margin:20px auto;padding:16px 20px;border:1px solid currentColor;border-left:4px solid #40745d;background:#edf3ee;color:#233c31;font:14px/1.8 "Hiragino Sans","Yu Gothic",sans-serif;overflow-wrap:anywhere}
+.doc-context a{color:inherit;text-decoration:underline;text-underline-offset:3px}.doc-context p{margin:4px 0}.doc-context strong{font-weight:700}
+@media(prefers-color-scheme:dark){.doc-context{background:#1c2b24;color:#d4e7db}}
+:root[data-theme="light"] .doc-context{background:#edf3ee;color:#233c31}:root[data-theme="dark"] .doc-context{background:#1c2b24;color:#d4e7db}
+@media(max-width:700px){.doc-context{margin:12px;padding:12px}}
+</style>
+<style>.section-head{flex-wrap:wrap}.section-head .section-en{white-space:normal;min-width:0;max-width:100%;overflow-wrap:anywhere}.step-title,.index-path{min-width:0;overflow-wrap:anywhere}</style>
 </head>
 <body>
+<aside class="doc-context" aria-label="文書の位置づけ"><strong>解説 / 2026-09-30に参照先を整理</strong><p><a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/architecture/overview.md">構成概要</a>がMarkdownの正本です。 <a href="../">目次</a></p></aside>
 <div class="sheet">
   <div class="frame">
     <span class="corner-bl"></span><span class="corner-br"></span>
@@ -563,71 +572,59 @@ footer {
         <span class="section-en">riser diagram / create</span>
       </div>
       <p class="body-text">
-        「ルームを作成」ボタンは、D1 への <strong>INSERT</strong> と RoomDO への <strong>join</strong> という
-        2 つの書き込みを経由してはじめて roomId を得る。招待コードはここで生成される。
+        「ルームを作成」ボタンは、D1 への <strong>INSERT</strong> と RoomDOの<strong>新規ルーム初期化</strong> という
+        2 つの書き込みを経由してはじめて APIの応答を受ける。招待コードはここで生成される。Server Actionは検証した結果をUIへ返し、UIが開始待ち画面へ移る。
       </p>
 
       <div class="riser" style="margin-top:24px;">
         <div class="step">
           <div class="step-node">1</div>
           <div class="step-row"><span class="step-zone">Browser</span><span class="step-title">「ルームを作成」フォームを送信</span></div>
-          <p class="step-desc">ボタンは Server Action <code style="font-family:var(--font-mono)">createRoom</code> を直接指す。クライアント側に状態は無い。</p>
-          <span class="step-ref">app/page.tsx:49-54</span>
+          <p class="step-desc">ホームの作成フォームからServer Actionへ送信する。送信状態や入力はUIが扱い、データの作成はAPIを経由する。</p>
+
         </div>
 
         <div class="step">
           <div class="step-node">2</div>
-          <div class="step-row"><span class="step-zone">Server Action</span><span class="step-title">createRoom() が認可だけを確認</span></div>
+          <div class="step-row"><span class="step-zone">Server Action</span><span class="step-title">createRoom() が認証と応答を確認</span></div>
           <p class="step-desc"><code style="font-family:var(--font-mono)">getCurrentUser()</code> がセッション Cookie を検証。未ログインなら <code style="font-family:var(--font-mono)">/login</code> へ即リダイレクトし、この先には進めない。</p>
-          <span class="step-ref">app/rooms/actions.ts:31-36</span>
-          <div class="step-code"><pre><code>export async function createRoom(): Promise&lt;void&gt; {
-  <span class="kw">const</span> user = <span class="kw">await</span> getCurrentUser();
-  <span class="kw">if</span> (!user) redirect(<span class="cm">"/login"</span>);
-  <span class="cm">// ここではビジネスロジックを一切持たない</span>
-  <span class="kw">const</span> res = <span class="kw">await</span> apiFetch(<span class="cm">"/api/rooms"</span>, { method: <span class="cm">"POST"</span> });</code></pre></div>
+
+
         </div>
 
         <div class="step">
           <div class="step-node">3</div>
           <div class="step-row"><span class="step-zone">→ api-worker</span><span class="step-title">セッションをもう一度検証</span></div>
           <p class="step-desc">Cookie は <code style="font-family:var(--font-mono)">apiFetch</code> がそのまま転送する。api-worker は Next 側の検証を信用せず、<code style="font-family:var(--font-mono)">getSessionFromRequest</code> で自前に検証し直す（二重検証）。</p>
-          <span class="step-ref">workers/api-worker.ts:183-186</span>
+
         </div>
 
         <div class="step is-key">
           <div class="step-node">4</div>
-          <div class="step-row"><span class="step-zone">D1 — write</span><span class="step-title">rooms 行を INSERT し、招待コード（鍵）を発行</span></div>
+          <div class="step-row"><span class="step-zone">D1 — write</span><span class="step-title">rooms行と成果の初期索引をD1 batchで作成し、招待コードを発行</span></div>
           <p class="step-desc">
             <code style="font-family:var(--font-mono)">roomId</code> は <code style="font-family:var(--font-mono)">crypto.randomUUID()</code>、
-            招待コードは CSPRNG で 6 桁生成。<code style="font-family:var(--font-mono)">invite_code UNIQUE</code> に衝突したら最大 10 回まで再生成する。
+            招待コードはCSPRNGで6桁生成。rooms行と成果の初期索引を同じD1 batchで作成する。<code style="font-family:var(--font-mono)">invite_code UNIQUE</code> に衝突したら最大 10 回まで再生成する。
           </p>
-          <span class="step-ref">workers/api-worker.ts:76-89 · workers/lib/db.ts:82-109</span>
-          <div class="step-code"><pre><code><span class="kw">for</span> (attempt &lt; maxAttempts) {
-  roomId = crypto.randomUUID();
-  inviteCode = generateInviteCode();
-  <span class="kw">try</span> {
-    INSERT INTO rooms (id, invite_code, host_id)
-    VALUES (roomId, inviteCode, hostId);
-    <span class="kw">return</span> { roomId, inviteCode, hostId };
-  } <span class="kw">catch</span> (e) { <span class="kw">if</span> (isUniqueViolation(e)) <span class="kw">continue</span>; <span class="kw">throw</span> e; }
-}</code></pre></div>
+
+
         </div>
 
         <div class="step">
           <div class="step-node">5</div>
-          <div class="step-row"><span class="step-zone">RoomDO — write</span><span class="step-title">join(hostId) — 作成者を最初のメンバーに</span></div>
+          <div class="step-row"><span class="step-zone">RoomDO — write</span><span class="step-title">initializeNewRoom — 作成者をホスト・最初のメンバーに</span></div>
           <p class="step-desc">
             <code style="font-family:var(--font-mono)">roomId</code> から <code style="font-family:var(--font-mono)">idFromName</code> で決定的に DO インスタンスへ到達し、
-            <code style="font-family:var(--font-mono)">members</code> テーブルへ冪等に INSERT。この時点で D1 と RoomDO、2 つの独立したストアに書き込みが分かれて着地する。
+            <code style="font-family:var(--font-mono)">members</code>へ登録し、room_ownerのホストとlobby状態を初期化する。この時点で D1 と RoomDO、2 つの独立したストアに書き込みが分かれて着地する。
           </p>
-          <span class="step-ref">workers/room-do.ts:70-76</span>
+
         </div>
 
         <div class="step">
           <div class="step-node">6</div>
-          <div class="step-row"><span class="step-zone">Browser</span><span class="step-title">{ roomId, inviteCode } を検証してリダイレクト</span></div>
-          <p class="step-desc"><code style="font-family:var(--font-mono)">CreateRoomResponseSchema</code>（zod）で形を確認できて初めて <code style="font-family:var(--font-mono)">/rooms/&#123;roomId&#125;</code> へ遷移する。</p>
-          <span class="step-ref">app/rooms/actions.ts:38-48 · contracts/api.ts:18</span>
+          <div class="step-row"><span class="step-zone">Next.js → Browser</span><span class="step-title">レスポンスを検証し、スタート画面へ遷移</span></div>
+          <p class="step-desc">Server Actionが <code style="font-family:var(--font-mono)">CreateRoomResponseSchema</code>（zod）でAPIの応答を検証し、<code style="font-family:var(--font-mono)">{ ok: true, roomId }</code> を返す。呼び出し側のUIが作成通知を表示し、<code style="font-family:var(--font-mono)">/rooms/&#123;roomId&#125;/start</code> へ遷移する。</p>
+
         </div>
       </div>
     </section>
@@ -640,7 +637,7 @@ footer {
       </div>
       <p class="body-text">
         参加は「鍵」を提示するだけの経路。D1 に新しい行は増えず、<strong>SELECT で照合するだけ</strong>。
-        入口はフォーム入力と招待 URL の 2 つがあるが、api-worker から先は作成フローと同じ <code style="font-family:var(--font-mono)">join()</code> RPC に合流する。
+        入口はフォーム入力と招待 URL の 2 つがあるが、api-workerから先は<code>upsertMember()</code>で参加する。作成時は<code>initializeNewRoom()</code>でホストと開始前の状態も初期化する。
       </p>
 
       <div class="riser" style="margin-top:24px;">
@@ -651,35 +648,35 @@ footer {
             フォーム: <code style="font-family:var(--font-mono)">joinRoom</code> Server Action へ。
             URL: <code style="font-family:var(--font-mono)">/invite/&#123;code&#125;</code> の Route Handler へ。未ログインなら <code style="font-family:var(--font-mono)">/login?next=/invite/&#123;code&#125;</code> に飛び、ログイン後に戻ってくる。
           </p>
-          <span class="step-ref">app/page.tsx:56-72 · app/invite/[inviteCode]/route.ts</span>
+
         </div>
 
         <div class="step">
           <div class="step-node">2</div>
           <div class="step-row"><span class="step-zone">Action / Route</span><span class="step-title">正規化してから形式を検証</span></div>
           <p class="step-desc"><code style="font-family:var(--font-mono)">normalizeInviteCode</code>（大文字化・空白除去）→ <code style="font-family:var(--font-mono)">isValidInviteCode</code>（英大文字+数字6桁）。どちらもクライアント/サーバー共有の contracts 層。</p>
-          <span class="step-ref">contracts/invite-code.ts:40-49</span>
+
         </div>
 
         <div class="step">
           <div class="step-node">3</div>
           <div class="step-row"><span class="step-zone">D1 — read only</span><span class="step-title">findRoomByCode — SELECT のみ、INSERT は無い</span></div>
           <p class="step-desc">招待コードから roomId を引くだけ。見つからなければ 404（ルームの存在は推測させない）。</p>
-          <span class="step-ref">workers/api-worker.ts:92-114 · workers/lib/db.ts:111-123</span>
+
         </div>
 
         <div class="step">
           <div class="step-node">4</div>
-          <div class="step-row"><span class="step-zone">RoomDO — write</span><span class="step-title">join(userId) — 作成フローと同じ冪等 RPC</span></div>
-          <p class="step-desc">host かどうかを区別するフラグは無く、招待された側もまったく同じ経路で <code style="font-family:var(--font-mono)">members</code> に加わる。</p>
-          <span class="step-ref">workers/room-do.ts:70-76</span>
+          <div class="step-row"><span class="step-zone">RoomDO — write</span><span class="step-title">upsertMember(userId, name) — 既存ルームへの参加</span></div>
+          <p class="step-desc">登録済みメンバーは冪等に扱い、新規参加者は定員とルームの終了状態を確認してmembersへ加わる。ホストの権威はroom_ownerに保持する。</p>
+
         </div>
 
         <div class="step">
           <div class="step-node">5</div>
           <div class="step-row"><span class="step-zone">Browser</span><span class="step-title">{ roomId } のみを受け取ってリダイレクト</span></div>
           <p class="step-desc"><code style="font-family:var(--font-mono)">inviteCode</code> はレスポンスに含まれない —— 参加者に招待コードを漏らさないための、型レベルでの塞ぎ方。</p>
-          <span class="step-ref">contracts/api.ts:20-22</span>
+
         </div>
       </div>
     </section>
@@ -713,8 +710,8 @@ footer {
             </tr>
             <tr>
               <td>RoomDO への操作</td>
-              <td class="mono">join(hostId)</td>
-              <td class="mono">join(userId)　— 同一の冪等 RPC</td>
+              <td class="mono">initializeNewRoom(hostId, hostName, …)</td>
+              <td class="mono">upsertMember(userId, name)</td>
             </tr>
             <tr>
               <td>レスポンス形状</td>
@@ -758,7 +755,7 @@ footer {
               <td class="mono">host_id</td>
               <td class="mono">TEXT</td>
               <td>NOT NULL, REFERENCES users(id)</td>
-              <td>作成者の user_id。RoomDO には複製しない</td>
+              <td>作成者のuser_id。RoomDOのroom_ownerがルーム操作のホスト権威を持つ</td>
             </tr>
             <tr>
               <td class="mono">created_at</td>
@@ -771,7 +768,7 @@ footer {
       </div>
       <p class="body-text" style="margin-top:14px; font-size:12.5px;">
         補助インデックス <code style="font-family:var(--font-mono)">rooms_host_id_idx (host_id)</code> あり。
-        「自分が作ったルーム一覧」向けと推測されるが、現状それを引く実装は見当たらない。
+        ルームのディレクトリ検索用。本人の完了ルーム再訪は別の索引・権利と固定期限で管理する。
       </p>
     </section>
 
@@ -815,9 +812,7 @@ footer {
         <p><strong>ログイン済みのユーザーなら誰でもルームを作成できる</strong>。特別な権限や事前の招待は要らない。</p>
         <p>
           作成者は D1 の <code style="font-family:var(--font-mono)">rooms.host_id</code> に記録され、RoomDO の <code style="font-family:var(--font-mono)">members</code> にも真っ先に登録される。
-          ただし RoomDO 側の <code style="font-family:var(--font-mono)">members</code> テーブルに host フラグは無く（<code style="font-family:var(--font-mono)">user_id</code> と <code style="font-family:var(--font-mono)">joined_at</code> のみ）、
-          <strong>host という区別は D1 の 1 カラムにしか残らない</strong>。強制退室のようなルームレベルの host 権限は未実装で、
-          あるのは付箋の <code style="font-family:var(--font-mono)">author_id</code> 単位の操作制御（削除は本人のみ）だけ。
+          RoomDOは<code>room_owner</code>にホストを保持し、進行・採用・候補整理などのホスト操作を毎回確認する。D1由来のhostIdヘッダーを操作時の認可ソースにはしない。
         </p>
       </div>
     </section>
@@ -829,15 +824,15 @@ footer {
         <span class="section-en">file index</span>
       </div>
       <ul class="index-list">
-        <li class="index-row"><span class="index-path">app/page.tsx</span><span class="index-desc">トップページ。作成／参加フォームの起点</span></li>
-        <li class="index-row"><span class="index-path">app/rooms/actions.ts</span><span class="index-desc">createRoom / joinRoom Server Action。認可とレスポンス検証のみ</span></li>
+        <li class="index-row"><span class="index-path">app/home/page.tsx</span><span class="index-desc">トップページ。作成／参加フォームの起点</span></li>
+        <li class="index-row"><span class="index-path">features/room-lifecycle/logic/actions.ts</span><span class="index-desc">createRoom / joinRoom Server Action。入力・認証・レスポンスを検証し、結果をUIへ返す</span></li>
         <li class="index-row"><span class="index-path">app/invite/[inviteCode]/route.ts</span><span class="index-desc">招待 URL 経由の参加ルート</span></li>
         <li class="index-row"><span class="index-path">lib/api-client.ts</span><span class="index-desc">api-worker への apiFetch（Cookie 転送・Service Binding）</span></li>
         <li class="index-row"><span class="index-path">lib/session/current-user.ts</span><span class="index-desc">getCurrentUser — Next 側のセッション検証</span></li>
         <li class="index-row"><span class="index-path">workers/api-worker.ts</span><span class="index-desc">D1・RoomDO への唯一の入口。handleCreateRoom / handleJoinRoom</span></li>
-        <li class="index-row"><span class="index-path">workers/lib/db.ts</span><span class="index-desc">ensureUser / insertRoom / findRoomByCode（D1 クエリ）</span></li>
-        <li class="index-row"><span class="index-path">workers/room-do.ts</span><span class="index-desc">RoomDO 本体。join / isMember RPC、members・notes の権威</span></li>
-        <li class="index-row"><span class="index-path">workers/migrations/0001_lobby.sql</span><span class="index-desc">D1 スキーマ（users / rooms）</span></li>
+        <li class="index-row"><span class="index-path">workers/lib/db.ts</span><span class="index-desc">ユーザー・ルーム・成果索引のD1操作</span></li>
+        <li class="index-row"><span class="index-path">workers/room/room-do.ts</span><span class="index-desc">RoomDO 本体。initializeNewRoom / upsertMember / isMember RPC、members・notes の権威</span></li>
+        <li class="index-row"><span class="index-path">workers/migrations/0001_lobby.sql</span><span class="index-desc">D1スキーマの初期版。現行の全テーブルはSchema/*とmigration一覧で確認</span></li>
         <li class="index-row"><span class="index-path">contracts/api.ts</span><span class="index-desc">CreateRoomResponseSchema / JoinRoomResponseSchema</span></li>
         <li class="index-row"><span class="index-path">contracts/invite-code.ts</span><span class="index-desc">招待コードの生成・正規化・検証（クライアント/サーバー共有）</span></li>
       </ul>
