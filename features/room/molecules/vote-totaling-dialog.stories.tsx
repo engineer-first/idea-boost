@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 import { fn } from "storybook/test";
 import {
   buildDecision,
@@ -85,4 +86,24 @@ export const LongContent: Story = {
 
 export const ZeroVotes: Story = {
   args: { notes: buildNotes(2) },
+};
+
+export const NoCandidates: Story = {
+  args: { notes: buildNotes(2).map((note) => ({ ...note, excluded: true })) },
+};
+
+// 本番と同様、集計では採用せず、閉じる→再表示を操作する。
+export const Interactive: Story = {
+  args: { open: false, isHost: false },
+  render: (args) => {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>
+          投票結果を表示
+        </button>
+        <VoteTotalingDialog {...args} open={open} onOpenChange={setOpen} />
+      </>
+    );
+  },
 };

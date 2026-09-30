@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useEffect, useState } from "react";
 import { fn, userEvent, within } from "storybook/test";
 import { BulkCandidateExclusion } from "./bulk-candidate-exclusion";
 
@@ -26,6 +27,31 @@ export const Confirming: Story = {
       within(canvasElement).getByRole("button", {
         name: "投票なしをまとめて候補から外す（3件）",
       }),
+    );
+  },
+};
+
+// 確認を開いた後に通信が切れた状態。確定だけを止め、取消へ戻れる。
+export const DisconnectedWhileConfirming: Story = {
+  render: (args) => {
+    const [disabled, setDisabled] = useState(false);
+    useEffect(() => {
+      const disconnect = (): void => setDisabled(true);
+      window.addEventListener("u11:disconnect", disconnect);
+      return () => window.removeEventListener("u11:disconnect", disconnect);
+    }, []);
+    return <BulkCandidateExclusion {...args} disabled={disabled} />;
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "投票なしをまとめて候補から外す（3件）",
+      }),
+    );
+    // 共有状態を作らず、確認が開いた後の接続props変更を再現する。
+    canvasElement.ownerDocument.defaultView?.dispatchEvent(
+      new Event("u11:disconnect"),
     );
   },
 };

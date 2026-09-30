@@ -116,7 +116,7 @@ export function VoteTotalingPanel({
           総合ポイントが高い順
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          候補 {result.candidateCount}件
+          候補 {result.candidateCount}件（投票あり {result.rows.length}件）
         </p>
       </div>
       <aside
@@ -143,7 +143,7 @@ export function VoteTotalingPanel({
               key={row.noteId}
               row={row}
               rank={rank}
-              canDecide={isHost && !isDisconnected}
+              canDecide={isHost && !isDisconnected && decision === null}
               isDecided={decision?.noteId === row.noteId}
               onDecide={() => onNoteDecide(row.noteId)}
             />
@@ -157,8 +157,8 @@ export function VoteTotalingPanel({
           role="status"
         >
           {result.candidateCount === 0
-            ? "候補がありません"
-            : "投票された付箋はありません"}
+            ? "候補がありません。ボードでホストが「候補に戻す」を選ぶまで、採用・再投票はできません。"
+            : "投票された付箋はありません。0票の候補もボードで話し合い、ホストが採用できます。"}
         </p>
       ) : null}
     </section>
