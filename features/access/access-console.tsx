@@ -1,61 +1,121 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { z } from "zod";
 import { type AccessUserSchema, AccessUsersSchema } from "@/contracts/access";
-import { AccessView } from "./access-view";
+import { AccessDeniedView, AccessView } from "./access-view";
 
 type AccessUser = z.infer<typeof AccessUserSchema>;
+type FailedOperation = { method: "POST" | "DELETE"; target: string };
 
-export function AccessConsole() {
+export function AccessConsole(): JSX.Element {
   const [users, setUsers] = useState<AccessUser[]>([]);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const refresh = useCallback(async () => {
+  const [failedOperation, setFailedOperation] =
+    useState<FailedOperation | null>(null);
+  const [denied, setDenied] = useState<401 | 403 | null>(null);
+  const locked = useRef(false);
+  const refreshing = useRef(false);
+  const deny = useCallback((status: 401 | 403): void => {
+    setDenied(status);
+    setUsers([]);
+    setFailedOperation(null);
+    setError(
+      status === 401
+        ? "ログイン状態を確認できません。もう一度ログインしてください。"
+        : "成果閲覧者の管理権限がありません。権限を確認してから再試行してください。",
+    );
+  }, []);
+  const refresh = useCallback(async (): Promise<
+    "success" | "denied" | "failed" | "busy"
+  > => {
+    if (refreshing.current) return "busy";
+    refreshing.current = true;
     setLoading(true);
+    setFailedOperation(null);
     try {
       const response = await fetch("/api/admin/access", { cache: "no-store" });
+      if (response.status === 401 || response.status === 403) {
+        deny(response.status);
+        return "denied";
+      }
       if (!response.ok) throw new Error("閲覧者を取得できませんでした。");
       setUsers(AccessUsersSchema.parse(await response.json()).users);
+      setDenied(null);
       setError(null);
+      return "success";
     } catch {
-      setError("閲覧者を取得できませんでした。再試行してください。");
+      setError(
+        "閲覧者一覧を取得できませんでした。最新の権限を確認するには再試行してください。",
+      );
+      return "failed";
     } finally {
+      refreshing.current = false;
       setLoading(false);
     }
-  }, []);
+  }, [deny]);
   useEffect(() => {
     void refresh();
   }, [refresh]);
-  async function mutate(method: "POST" | "DELETE", target: string) {
-    if (pending) return;
+  async function mutate(
+    method: "POST" | "DELETE",
+    target: string,
+  ): Promise<void> {
+    if (locked.current || refreshing.current || denied) return;
+    locked.current = true;
     setPending(true);
     setError(null);
+    setFailedOperation(null);
+    let message = `${target} の閲覧権限を${method === "POST" ? "追加" : "取消"}できませんでした。通信を確認して再試行してください。`;
     try {
       const response = await fetch("/api/admin/access", {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: target }),
       });
+      if (response.status === 401 || response.status === 403) {
+        deny(response.status);
+        return;
+      }
       if (!response.ok) {
-        const body: unknown = await response.json();
-        const message =
+        const body: unknown = await response.json().catch(() => null);
+        message =
           typeof body === "object" &&
           body !== null &&
           "error" in body &&
           typeof body.error === "string"
-            ? body.error
-            : "操作に失敗しました。";
+            ? `${target}：${body.error}`
+            : message;
         throw new Error(message);
       }
       if (method === "POST") setEmail("");
-      await refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "操作に失敗しました。");
+      const action = method === "POST" ? "追加" : "取消";
+      toast.success(`${target} の閲覧権限を${action}しました。`);
+      if ((await refresh()) === "failed") {
+        setError(
+          `${target} の閲覧権限の${action}は完了しました。一覧を取得できなかったため、再試行して最新の権限を確認してください。`,
+        );
+      }
+    } catch {
+      setFailedOperation({ method, target });
+      setError(message);
     } finally {
+      locked.current = false;
       setPending(false);
     }
+  }
+  if (denied) {
+    return (
+      <AccessDeniedView
+        unauthenticated={denied === 401}
+        error={error}
+        loading={loading}
+        onRetry={() => void refresh()}
+      />
+    );
   }
   return (
     <AccessView
@@ -64,10 +124,21 @@ export function AccessConsole() {
       loading={loading}
       pending={pending}
       error={error}
-      onEmailChange={setEmail}
+      onEmailChange={(value) => {
+        setEmail(value);
+        if (failedOperation?.method === "POST") {
+          setFailedOperation(null);
+          setError(null);
+        }
+      }}
       onAdd={() => void mutate("POST", email)}
       onRemove={(value) => void mutate("DELETE", value)}
-      onRetry={() => void refresh()}
+      onRetry={() => {
+        if (locked.current || refreshing.current) return;
+        if (failedOperation)
+          void mutate(failedOperation.method, failedOperation.target);
+        else void refresh();
+      }}
     />
   );
 }
