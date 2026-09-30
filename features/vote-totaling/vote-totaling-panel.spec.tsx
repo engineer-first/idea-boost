@@ -165,7 +165,7 @@ describe("VoteTotalingPanel", () => {
       />,
     );
 
-    expect(screen.getByText("候補がありません")).toBeInTheDocument();
+    expect(screen.getByText(/候補がありません/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /決定/ })).toBeNull();
   });
   it("配点の根拠と合計式を結果画面に表示する", () => {
@@ -206,7 +206,7 @@ describe("VoteTotalingPanel", () => {
     );
 
     expect(screen.getByTestId("vote-result-ranking")).toBeInTheDocument();
-    expect(screen.getByText("投票された付箋はありません")).toBeInTheDocument();
+    expect(screen.getByText(/投票された付箋はありません/)).toBeInTheDocument();
   });
 
   it("結果パネルの外枠ではなくランキング行で境界を示す", () => {
@@ -389,7 +389,7 @@ describe("VoteTotalingPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("決定済み行はstatusを表示し、別の行から決定し直せる", () => {
+  it("決定済みならstatusを表示し、別の候補にも決定し直す操作を出さない", () => {
     const notes = buildNotes(2).map((note) => withVotes(note, 1, 0));
     const onNoteDecide = vi.fn();
 
@@ -417,12 +417,9 @@ describe("VoteTotalingPanel", () => {
       }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(
-      within(screen.getByTestId("vote-totaling-row-note-2")).getByRole(
-        "button",
-        { name: "付箋 2を取り組む課題に決定" },
-      ),
-    );
-    expect(onNoteDecide).toHaveBeenCalledWith("note-2");
+    expect(
+      screen.queryByRole("button", { name: /取り組む課題に決定/ }),
+    ).not.toBeInTheDocument();
+    expect(onNoteDecide).not.toHaveBeenCalled();
   });
 });

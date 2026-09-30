@@ -56,12 +56,15 @@ export function BulkCandidateExclusion({
               投票のない候補{targetCount}件をまとめて外しますか？
             </AlertDialogTitle>
             <AlertDialogDescription>
-              実行時点でも主観・客観ともに投票のない共有済み候補だけを対象にします。実行後にまとめて元へ戻せます。
+              付箋は削除されません。本文・票・位置・グループはそのまま残り、同じ場所へ戻せます。実行時点でも主観・客観ともに投票のない共有済み候補だけを対象にします。実行直後の通知から、まとめて元に戻せます。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>キャンセル</AlertDialogCancel>
-            <AlertDialogAction onClick={onConfirm}>
+            <AlertDialogAction
+              disabled={disabled || !hasTargets}
+              onClick={onConfirm}
+            >
               {targetCount}件を候補から外す
             </AlertDialogAction>
           </AlertDialogFooter>

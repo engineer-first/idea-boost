@@ -38,7 +38,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Complete: Story = {};
-export const Waiting: Story = { args: { notes: buildNotes(1) } };
+export const Waiting: Story = {
+  args: { isVotingComplete: false, notes: buildNotes(1) },
+};
 
 export const Decided: Story = {
   args: {

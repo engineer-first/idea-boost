@@ -42,7 +42,7 @@ export function VoteTotalingDialog({
         <DialogHeader>
           <DialogTitle>投票結果</DialogTitle>
           <DialogDescription>
-            付箋ごとの投票結果を確認し、ボードに戻って話し合います。
+            集計は比較の参考です。閉じてボードに戻り、0票の候補も含めて話し合ってから採用を決めます。
           </DialogDescription>
         </DialogHeader>
         <VoteTotalingPanel

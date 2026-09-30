@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 
 export type AdoptionPhaseNumber = 1 | 2 | 3;
 
-export function getAdoptionTargetLabel(phaseNumber: AdoptionPhaseNumber) {
+export function getAdoptionTargetLabel(
+  phaseNumber: AdoptionPhaseNumber,
+): string {
   switch (phaseNumber) {
     case 1:
       return "付箋";
@@ -66,7 +68,7 @@ export function AdoptNoteControl({
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-2xl border-2 border-primary bg-background px-4 py-3 shadow-lg shadow-black/5"
+        className="pointer-events-auto grid max-w-xl grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-2xl border-2 border-primary bg-background px-4 py-3 shadow-lg shadow-black/5 sm:flex sm:items-center"
       >
         <MousePointerClick aria-hidden="true" className="size-5 shrink-0" />
         <div className="min-w-0 flex-1">
@@ -74,13 +76,14 @@ export function AdoptNoteControl({
             採用する{targetLabel}をクリックしてください
           </p>
           <p className="text-xs text-muted-foreground">
-            候補のみ選べます。Escape でもキャンセルできます。
+            クリックすると1件が確定します。確定後は取り消し・再投票できません。選ぶ前ならキャンセル・Escapeで戻れます。
           </p>
         </div>
         <Button
           type="button"
           variant="outline"
           aria-label="選択をキャンセル"
+          className="col-start-2 justify-self-start sm:shrink-0"
           onClick={onCancelSelection}
         >
           <X aria-hidden="true" />
