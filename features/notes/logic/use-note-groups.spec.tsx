@@ -87,30 +87,25 @@ describe("useNoteGroups", () => {
     expect(result.current.groups).toHaveLength(0);
   });
 
-  it("createGroup は楽観追加して group:create を送る", () => {
+  it("createGroup は確定応答まで共有グループへ追加せず group:create を送る", () => {
     const { result } = setup();
     act(() => result.current.createGroup("課題A", ["note-1", "note-2"]));
 
-    expect(result.current.groups).toHaveLength(1);
-    const created = result.current.groups[0];
-    expect(created).toMatchObject({
-      name: "課題A",
-      noteIds: ["note-1", "note-2"],
-    });
+    expect(result.current.groups).toHaveLength(0);
 
     expect(send).toHaveBeenCalledTimes(1);
     const sent = send.mock.calls[0]?.[0];
     expect(sent).toMatchObject({
       type: "group:create",
       group: expect.objectContaining({
-        id: created?.id,
+        id: expect.any(String),
         name: "課題A",
         noteIds: ["note-1", "note-2"],
       }),
     });
   });
 
-  it("renameGroup は楽観反映して group:update-name を送る", () => {
+  it("renameGroup は確定応答まで元の共有名を維持して group:update-name を送る", () => {
     const { result } = setup();
     act(() =>
       result.current.applyMessage({
@@ -121,7 +116,7 @@ describe("useNoteGroups", () => {
 
     act(() => result.current.renameGroup("g1", "新名"));
 
-    expect(result.current.groups[0]?.name).toBe("新名");
+    expect(result.current.groups[0]?.name).toBe("旧名");
     expect(send).toHaveBeenCalledWith({
       type: "group:update-name",
       groupId: "g1",

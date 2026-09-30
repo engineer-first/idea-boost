@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 import { fn } from "storybook/test";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { RenderGroup } from "@/contracts/grouping";
@@ -31,14 +32,17 @@ const meta = {
     onUpdateName: fn(),
   },
   decorators: [
-    (Story) => (
+    (Story, context) => (
       <TooltipProvider delayDuration={0}>
         <div
           className="relative bg-slate-50"
-          style={{ width: 616, height: 432 }}
+          style={{ width: "min(616px, 100%)", height: 432 }}
         >
           <Story />
-          <div aria-hidden="true">
+          <div
+            aria-hidden="true"
+            hidden={context.parameters.previewNotes === false}
+          >
             <StickyNote
               noteId="preview-note-1"
               color="yellow"
@@ -93,5 +97,58 @@ export const LongName: Story = {
 export const ReadOnly: Story = {
   args: {
     canGroupNote: false,
+  },
+};
+
+export const EmptyName: Story = {
+  args: { name: "" },
+};
+
+export const Interactive: Story = {
+  render: function InteractiveGroup(args) {
+    const [name, setName] = useState(args.name);
+    return <NoteGroupCard {...args} name={name} onUpdateName={setName} />;
+  },
+};
+
+export const ConcurrentRename: Story = {
+  render: function ConcurrentGroup(args) {
+    const [name, setName] = useState(args.name);
+    return (
+      <>
+        <button
+          type="button"
+          className="absolute bottom-2 left-2 rounded border bg-background px-3 py-2"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setName("別参加者が共有した名前")}
+        >
+          別参加者の改名を受信
+        </button>
+        <NoteGroupCard {...args} name={name} onUpdateName={args.onUpdateName} />
+      </>
+    );
+  },
+};
+
+export const UnconfirmedRename: Story = {
+  // サーバーの確定応答がない場合は共有名を変えない。
+};
+
+export const NarrowInteractive: Story = {
+  ...Interactive,
+  args: { group: { ...defaultGroup, x: 24, y: 120, width: 340 } },
+  parameters: { previewNotes: false },
+};
+
+export const DelayedRename: Story = {
+  render: function DelayedGroup(args) {
+    const [name, setName] = useState(args.name);
+    return (
+      <NoteGroupCard
+        {...args}
+        name={name}
+        onUpdateName={(nextName) => setTimeout(() => setName(nextName), 2200)}
+      />
+    );
   },
 };
