@@ -33,16 +33,17 @@ it("未ログインと偽装した属性・不正ルームIDをWorkerへ送ら�
   ).toBe(false);
   expect(apiFetch).not.toHaveBeenCalled();
 });
-it.each([
-  401, 404, 409, 503,
-])("Workerの%sを受付成功にしない", async (status) => {
-  apiFetch.mockResolvedValue(
-    Response.json({ error: "internal detail" }, { status }),
-  );
-  const result = await submitFeedback(roomId, input());
-  expect(result.ok).toBe(false);
-  expect(JSON.stringify(result)).not.toContain("internal detail");
-});
+it.each([401, 404, 409, 503])(
+  "Workerの%sを受付成功にしない",
+  async (status) => {
+    apiFetch.mockResolvedValue(
+      Response.json({ error: "internal detail" }, { status }),
+    );
+    const result = await submitFeedback(roomId, input());
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("internal detail");
+  },
+);
 it("保存失敗と応答喪失は再送可能な失敗として返し、同じIDを渡す", async () => {
   const value = input();
   apiFetch.mockRejectedValueOnce(new Error("lost response"));

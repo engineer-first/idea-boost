@@ -131,21 +131,24 @@ describe("RoomPhase の判定ヘルパー", () => {
       voting: false,
       result: true,
     },
-  ])("$phase の判定結果を返す", ({
-    phase,
-    expectedPhase,
-    expectedStep,
-    lobby,
-    grouping,
-    voting,
-    result,
-  }) => {
-    expect(isLobby(phase)).toBe(lobby);
-    expect(isPhaseStep(phase, expectedPhase, expectedStep)).toBe(!lobby);
-    expect(isAtOrAfterGroupingStep(phase)).toBe(grouping);
-    expect(isVotingStep(phase)).toBe(voting);
-    expect(isResultStep(phase)).toBe(result);
-  });
+  ])(
+    "$phase の判定結果を返す",
+    ({
+      phase,
+      expectedPhase,
+      expectedStep,
+      lobby,
+      grouping,
+      voting,
+      result,
+    }) => {
+      expect(isLobby(phase)).toBe(lobby);
+      expect(isPhaseStep(phase, expectedPhase, expectedStep)).toBe(!lobby);
+      expect(isAtOrAfterGroupingStep(phase)).toBe(grouping);
+      expect(isVotingStep(phase)).toBe(voting);
+      expect(isResultStep(phase)).toBe(result);
+    },
+  );
 
   it("異なるステップは isPhaseStep で false になる", () => {
     expect(isPhaseStep(buildPhaseStep(2), 1, 1)).toBe(false);

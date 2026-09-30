@@ -19,13 +19,16 @@ describe("useBoardHelp", () => {
     [3, 3, null, false],
     [3, 4, null, false],
     [3, 5, null, false],
-  ] as const)("Step %i-%i の補助パネルを必要な状態だけにする", (phase, step, kind, isOpen) => {
-    const { result } = renderHook(() =>
-      useBoardHelp(buildPhaseStep(step, phase)),
-    );
-    expect(result.current.kind).toBe(kind);
-    expect(result.current.isOpen).toBe(isOpen);
-  });
+  ] as const)(
+    "Step %i-%i の補助パネルを必要な状態だけにする",
+    (phase, step, kind, isOpen) => {
+      const { result } = renderHook(() =>
+        useBoardHelp(buildPhaseStep(step, phase)),
+      );
+      expect(result.current.kind).toBe(kind);
+      expect(result.current.isOpen).toBe(isOpen);
+    },
+  );
 
   it("個人執筆中も閉じられ、同じステップのデータ更新では再展開しない", () => {
     const phase = buildPhaseStep(1, 3);

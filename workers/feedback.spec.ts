@@ -363,25 +363,25 @@ it("再送は初回のサーバ受信時刻と30日期限を変えず、期限�
   ).toBe(409);
 });
 
-it.each([
-  0,
-  24 * 60 * 60 * 1000,
-])("緊急削除後は同じ受付IDの再送を拒否する（時計差%dms）", async (offset) => {
-  const { roomId } = await createRoomAs(owner);
-  const body = input({
-    id: createFeedbackId(Date.now() + offset),
-    body: "緊急削除する文章",
-  });
-  const path = `/api/rooms/${roomId}/feedback`;
-  expect((await call(path, owner, body)).status).toBe(200);
-  await env.DB.exec(await feedbackDeletionSql(body.id));
-  expect((await call(path, owner, body)).status).toBe(409);
-  expect(
-    await env.DB.prepare("SELECT id FROM feedback WHERE id=?")
-      .bind(body.id)
-      .first(),
-  ).toBeNull();
-});
+it.each([0, 24 * 60 * 60 * 1000])(
+  "緊急削除後は同じ受付IDの再送を拒否する（時計差%dms）",
+  async (offset) => {
+    const { roomId } = await createRoomAs(owner);
+    const body = input({
+      id: createFeedbackId(Date.now() + offset),
+      body: "緊急削除する文章",
+    });
+    const path = `/api/rooms/${roomId}/feedback`;
+    expect((await call(path, owner, body)).status).toBe(200);
+    await env.DB.exec(await feedbackDeletionSql(body.id));
+    expect((await call(path, owner, body)).status).toBe(409);
+    expect(
+      await env.DB.prepare("SELECT id FROM feedback WHERE id=?")
+        .bind(body.id)
+        .first(),
+    ).toBeNull();
+  },
+);
 
 it("削除と投稿が競合しても失効登録と本文削除の間に再保存できない", async () => {
   const { roomId } = await createRoomAs(owner);

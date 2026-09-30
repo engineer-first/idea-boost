@@ -35,7 +35,7 @@ export const SharedOutcomeSnapshotSchema = z.object({
   ideaMapSizeLevel: z.number(),
 });
 export const SharedOutcomeSummarySchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   name: z.string().nullable(),
   displayId: z.string(),
   lastUsedAt: z.number(),
@@ -62,7 +62,7 @@ export type SharedOutcomesResponse = z.infer<
 export const SHARED_OUTCOME_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const ProgressHistoryEntrySchema = z.object({
-  id: z.string().uuid(),
+  id: z.guid(),
   sequence: z.number().int().positive(),
   phase: RoomPhaseSchema,
   nextPhase: RoomPhaseSchema.nullable(),

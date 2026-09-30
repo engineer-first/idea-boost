@@ -254,56 +254,56 @@ describe("切断後の完了ルーム復帰", () => {
     vi.unstubAllGlobals();
     navigationMocks.replace.mockReset();
   });
-  it.each([
-    "接続",
-    "本文受信",
-  ])("%sが停止しても時間切れ後の切断通知で再確認できる", async (stage) => {
-    vi.useFakeTimers();
-    let signal: AbortSignal | undefined;
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockImplementationOnce(async (_url, options) => {
-        signal = options?.signal ?? undefined;
-        const stalled = new Promise<never>((_resolve, reject) => {
-          signal?.addEventListener(
-            "abort",
-            () => reject(new DOMException("Aborted", "AbortError")),
-            { once: true },
-          );
-        });
-        if (stage === "接続") return stalled;
-        const response = Response.json({});
-        vi.spyOn(response, "json").mockReturnValue(stalled);
-        return response;
-      })
-      .mockResolvedValueOnce(
-        Response.json(completedRoomFixture({ roomId: ROOM_ID })),
+  it.each(["接続", "本文受信"])(
+    "%sが停止しても時間切れ後の切断通知で再確認できる",
+    async (stage) => {
+      vi.useFakeTimers();
+      let signal: AbortSignal | undefined;
+      const fetchMock = vi
+        .fn<typeof fetch>()
+        .mockImplementationOnce(async (_url, options) => {
+          signal = options?.signal ?? undefined;
+          const stalled = new Promise<never>((_resolve, reject) => {
+            signal?.addEventListener(
+              "abort",
+              () => reject(new DOMException("Aborted", "AbortError")),
+              { once: true },
+            );
+          });
+          if (stage === "接続") return stalled;
+          const response = Response.json({});
+          vi.spyOn(response, "json").mockReturnValue(stalled);
+          return response;
+        })
+        .mockResolvedValueOnce(
+          Response.json(completedRoomFixture({ roomId: ROOM_ID })),
+        );
+      vi.stubGlobal("fetch", fetchMock);
+      const { unmount } = renderHook(() =>
+        useRoomConnection({
+          roomId: ROOM_ID,
+          onMessage: vi.fn(),
+          webSocketFactory: factory,
+        }),
       );
-    vi.stubGlobal("fetch", fetchMock);
-    const { unmount } = renderHook(() =>
-      useRoomConnection({
-        roomId: ROOM_ID,
-        onMessage: vi.fn(),
-        webSocketFactory: factory,
-      }),
-    );
-    await act(async () => lastSocket().simulateUnexpectedClose());
-    await act(async () => vi.advanceTimersByTimeAsync(9999));
-    expect(signal?.aborted).toBe(false);
-    await act(async () => lastSocket().simulateUnexpectedClose());
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    await act(async () => vi.advanceTimersByTimeAsync(1));
-    expect(signal?.aborted).toBe(true);
-    expect(navigationMocks.replace).not.toHaveBeenCalled();
-    await act(async () => vi.advanceTimersByTimeAsync(2000));
-    await act(async () => lastSocket().simulateUnexpectedClose());
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(navigationMocks.replace).toHaveBeenCalledWith(
-      `/completed-rooms/${ROOM_ID}`,
-    );
-    expect(vi.getTimerCount()).toBe(0);
-    unmount();
-  });
+      await act(async () => lastSocket().simulateUnexpectedClose());
+      await act(async () => vi.advanceTimersByTimeAsync(9999));
+      expect(signal?.aborted).toBe(false);
+      await act(async () => lastSocket().simulateUnexpectedClose());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await act(async () => vi.advanceTimersByTimeAsync(1));
+      expect(signal?.aborted).toBe(true);
+      expect(navigationMocks.replace).not.toHaveBeenCalled();
+      await act(async () => vi.advanceTimersByTimeAsync(2000));
+      await act(async () => lastSocket().simulateUnexpectedClose());
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(navigationMocks.replace).toHaveBeenCalledWith(
+        `/completed-rooms/${ROOM_ID}`,
+      );
+      expect(vi.getTimerCount()).toBe(0);
+      unmount();
+    },
+  );
   it("完了通知を受け損ねても認可済み成果へ移り、WS再接続を止める", async () => {
     const fetchMock = vi
       .fn()
@@ -339,61 +339,63 @@ describe("切断後の完了ルーム復帰", () => {
     );
     expect(socket.readyState).toBe(3);
   });
-  it.each([
-    401, 404, 503,
-  ])("%sの場合は再訪へ遷移せず通常の再接続を維持する", async (status) => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status }));
-    vi.stubGlobal("fetch", fetchMock);
-    renderHook(() =>
-      useRoomConnection({
-        roomId: ROOM_ID,
-        onMessage: vi.fn(),
-        webSocketFactory: factory,
-      }),
-    );
-    await act(async () => lastSocket().simulateUnexpectedClose());
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(navigationMocks.replace).not.toHaveBeenCalled();
-  });
-  it.each([
-    "unmount",
-    "open",
-    "leave",
-  ])("取得中の%s後に古い結果で遷移しない", async (event) => {
-    vi.useFakeTimers();
-    let resolve!: (value: Response) => void;
-    const fetchMock = vi.fn(
-      () =>
-        new Promise<Response>((done) => {
-          resolve = done;
+  it.each([401, 404, 503])(
+    "%sの場合は再訪へ遷移せず通常の再接続を維持する",
+    async (status) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response(null, { status }));
+      vi.stubGlobal("fetch", fetchMock);
+      renderHook(() =>
+        useRoomConnection({
+          roomId: ROOM_ID,
+          onMessage: vi.fn(),
+          webSocketFactory: factory,
         }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-    const { unmount } = renderHook(() =>
-      useRoomConnection({
-        roomId: ROOM_ID,
-        onMessage: vi.fn(),
-        webSocketFactory: factory,
-      }),
-    );
-    act(() => lastSocket().simulateUnexpectedClose());
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    act(() => {
-      if (event === "unmount") unmount();
-      else if (event === "open") lastSocket().simulateOpen();
-      else lastSocket().simulateLeftRoomClose();
-    });
-    const options = vi.mocked(fetch).mock.calls[0]?.[1];
-    expect(options?.signal?.aborted).toBe(true);
-    // 本文が未解決でも、アンマウントで完了確認・WS再接続のタイマーを残さない。
-    unmount();
-    expect(vi.getTimerCount()).toBe(0);
-    navigationMocks.replace.mockReset();
-    await act(async () =>
-      resolve(Response.json(completedRoomFixture({ roomId: ROOM_ID }))),
-    );
-    expect(navigationMocks.replace).not.toHaveBeenCalled();
-  });
+      );
+      await act(async () => lastSocket().simulateUnexpectedClose());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(navigationMocks.replace).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["unmount", "open", "leave"])(
+    "取得中の%s後に古い結果で遷移しない",
+    async (event) => {
+      vi.useFakeTimers();
+      let resolve!: (value: Response) => void;
+      const fetchMock = vi.fn(
+        () =>
+          new Promise<Response>((done) => {
+            resolve = done;
+          }),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const { unmount } = renderHook(() =>
+        useRoomConnection({
+          roomId: ROOM_ID,
+          onMessage: vi.fn(),
+          webSocketFactory: factory,
+        }),
+      );
+      act(() => lastSocket().simulateUnexpectedClose());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      act(() => {
+        if (event === "unmount") unmount();
+        else if (event === "open") lastSocket().simulateOpen();
+        else lastSocket().simulateLeftRoomClose();
+      });
+      const options = vi.mocked(fetch).mock.calls[0]?.[1];
+      expect(options?.signal?.aborted).toBe(true);
+      // 本文が未解決でも、アンマウントで完了確認・WS再接続のタイマーを残さない。
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+      navigationMocks.replace.mockReset();
+      await act(async () =>
+        resolve(Response.json(completedRoomFixture({ roomId: ROOM_ID }))),
+      );
+      expect(navigationMocks.replace).not.toHaveBeenCalled();
+    },
+  );
   it("通信障害後の再接続失敗で完了状態を再確認する", async () => {
     const fetchMock = vi
       .fn()

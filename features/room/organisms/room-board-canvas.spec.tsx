@@ -142,21 +142,24 @@ describe("RoomBoardCanvas", () => {
     [3, true],
     [4, false],
     [5, false],
-  ] as const)("3-%iでは調整可能なステップだけマップサイズ操作を表示する", (step, canResize) => {
-    const phase = buildPhaseStep(step, 3);
-    setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-      isHost: true,
-    });
+  ] as const)(
+    "3-%iでは調整可能なステップだけマップサイズ操作を表示する",
+    (step, canResize) => {
+      const phase = buildPhaseStep(step, 3);
+      setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        isHost: true,
+      });
 
-    const controls = screen.queryByTestId("idea-map-size-controls-hud");
-    if (canResize) {
-      expect(controls).toBeInTheDocument();
-    } else {
-      expect(controls).not.toBeInTheDocument();
-    }
-  });
+      const controls = screen.queryByTestId("idea-map-size-controls-hud");
+      if (canResize) {
+        expect(controls).toBeInTheDocument();
+      } else {
+        expect(controls).not.toBeInTheDocument();
+      }
+    },
+  );
 
   it("マップの広さ操作を既存の左下操作群から分離して画面下中央に置く", () => {
     const phase = buildPhaseStep(3, 3);
@@ -632,26 +635,27 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("note-group-card")).toBeInTheDocument();
   });
 
-  it.each([
-    2, 3, 4, 5,
-  ])("フェーズ3 Step3-%i では近接付箋や既存グループを描画しない", (step) => {
-    setup({
-      phase: buildPhaseStep(step, 3),
-      notes: [
-        buildNote({ id: "note-1", x: 100, y: 100 }),
-        buildNote({ id: "note-2", x: 350, y: 100 }),
-      ],
-      groups: [
-        {
-          id: "group-1",
-          name: "フェーズ1の残存グループ",
-          noteIds: ["note-1", "note-2"],
-        },
-      ],
-    });
+  it.each([2, 3, 4, 5])(
+    "フェーズ3 Step3-%i では近接付箋や既存グループを描画しない",
+    (step) => {
+      setup({
+        phase: buildPhaseStep(step, 3),
+        notes: [
+          buildNote({ id: "note-1", x: 100, y: 100 }),
+          buildNote({ id: "note-2", x: 350, y: 100 }),
+        ],
+        groups: [
+          {
+            id: "group-1",
+            name: "フェーズ1の残存グループ",
+            noteIds: ["note-1", "note-2"],
+          },
+        ],
+      });
 
-    expect(screen.queryByTestId("note-group-card")).not.toBeInTheDocument();
-  });
+      expect(screen.queryByTestId("note-group-card")).not.toBeInTheDocument();
+    },
+  );
 
   it("ドラッグ中のゴースト付箋を描画する", () => {
     const ghost = buildNote({ id: "ghost-note", content: "運んでいる付箋" });
@@ -683,32 +687,33 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
-  it.each(
-    NOTE_COLOR_PALETTE,
-  )("%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う", (color) => {
-    const normalPhase = buildPhaseStep(1);
-    const mapPhase = buildPhaseStep(2, 3);
-    const ghost = buildNote({
-      id: `ghost-${color}`,
-      color,
-      content: `運んでいる付箋 ${color}`,
-    });
-
-    for (const phase of [normalPhase, mapPhase]) {
-      const { unmount } = setup({
-        phase,
-        permissions: getBoardPermissions(phase),
-        dragGhost: { note: ghost, x: 120, y: 80 },
+  it.each(NOTE_COLOR_PALETTE)(
+    "%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う",
+    (color) => {
+      const normalPhase = buildPhaseStep(1);
+      const mapPhase = buildPhaseStep(2, 3);
+      const ghost = buildNote({
+        id: `ghost-${color}`,
+        color,
+        content: `運んでいる付箋 ${color}`,
       });
 
-      const ghostText = screen.getByText(`運んでいる付箋 ${color}`);
-      expect(ghostText.style.color).toBe(
-        hexColorToRgb(NOTE_COLOR_STYLES[color].foregroundColor),
-      );
-      expect(ghostText).not.toHaveClass("dark:text-slate-50");
-      unmount();
-    }
-  });
+      for (const phase of [normalPhase, mapPhase]) {
+        const { unmount } = setup({
+          phase,
+          permissions: getBoardPermissions(phase),
+          dragGhost: { note: ghost, x: 120, y: 80 },
+        });
+
+        const ghostText = screen.getByText(`運んでいる付箋 ${color}`);
+        expect(ghostText.style.color).toBe(
+          hexColorToRgb(NOTE_COLOR_STYLES[color].foregroundColor),
+        );
+        expect(ghostText).not.toHaveClass("dark:text-slate-50");
+        unmount();
+      }
+    },
+  );
 
   it("通常ボードでは永続順序を描画し own・名前付きカーソルの drag と ghost だけを一時最前面にする", () => {
     const notes = [
@@ -870,19 +875,20 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
-  it.each([
-    2, 3, 4, 5,
-  ])("Step3-%iでも価値×実現可能性の2軸マップを表示する", (step) => {
-    const phase = buildPhaseStep(step, 3);
+  it.each([2, 3, 4, 5])(
+    "Step3-%iでも価値×実現可能性の2軸マップを表示する",
+    (step) => {
+      const phase = buildPhaseStep(step, 3);
 
-    setup({ phase, permissions: getBoardPermissions(phase) });
+      setup({ phase, permissions: getBoardPermissions(phase) });
 
-    expect(
-      screen.getByRole("region", {
-        name: "価値と実現可能性の2軸マップ",
-      }),
-    ).toBeInTheDocument();
-  });
+      expect(
+        screen.getByRole("region", {
+          name: "価値と実現可能性の2軸マップ",
+        }),
+      ).toBeInTheDocument();
+    },
+  );
 
   it("2軸マップを無限キャンバスの世界レイヤー内に描画する", () => {
     const phase = buildPhaseStep(2, 3);
@@ -902,31 +908,32 @@ describe("RoomBoardCanvas", () => {
     });
   });
 
-  it.each([
-    0.5, 2,
-  ])("倍率%sでグラフ・付箋・ゴーストを同じカメラ倍率で拡縮する", (zoom) => {
-    setup({
-      phase: buildPhaseStep(3, 3),
-      camera: { x: 80, y: -40, zoom },
-      notes: [buildNote({ id: "fixed-size", x: 25, y: 75 })],
-      dragGhost: {
-        note: buildNote({ id: "fixed-ghost", content: "固定サイズゴースト" }),
-        x: 75,
-        y: 25,
-      },
-    });
-    expect(
-      screen.getByTestId("idea-value-feasibility-map-note-fixed-size"),
-    ).not.toHaveStyle({ transform: `scale(${1 / zoom})` });
-    expect(
-      screen
-        .getByText("固定サイズゴースト")
-        .closest("[data-slot='sticky-note']"),
-    ).not.toHaveStyle({ transform: `scale(${1 / zoom})` });
-    expect(screen.getByTestId("board-canvas")).toHaveStyle({
-      transform: `translate3d(80px, -40px, 0) scale(${zoom})`,
-    });
-  });
+  it.each([0.5, 2])(
+    "倍率%sでグラフ・付箋・ゴーストを同じカメラ倍率で拡縮する",
+    (zoom) => {
+      setup({
+        phase: buildPhaseStep(3, 3),
+        camera: { x: 80, y: -40, zoom },
+        notes: [buildNote({ id: "fixed-size", x: 25, y: 75 })],
+        dragGhost: {
+          note: buildNote({ id: "fixed-ghost", content: "固定サイズゴースト" }),
+          x: 75,
+          y: 25,
+        },
+      });
+      expect(
+        screen.getByTestId("idea-value-feasibility-map-note-fixed-size"),
+      ).not.toHaveStyle({ transform: `scale(${1 / zoom})` });
+      expect(
+        screen
+          .getByText("固定サイズゴースト")
+          .closest("[data-slot='sticky-note']"),
+      ).not.toHaveStyle({ transform: `scale(${1 / zoom})` });
+      expect(screen.getByTestId("board-canvas")).toHaveStyle({
+        transform: `translate3d(80px, -40px, 0) scale(${zoom})`,
+      });
+    },
+  );
 
   it("マップ・軸・付箋は同じカメラ変換内に配置する", () => {
     setup({ phase: buildPhaseStep(3, 3), camera: { x: 80, y: -40, zoom: 2 } });
@@ -944,41 +951,40 @@ describe("RoomBoardCanvas", () => {
     { id: "bottom-right", x: 100, y: 0 },
     { id: "top-left", x: 0, y: 100 },
     { id: "top-right", x: 100, y: 100 },
-  ])("2軸マップの四隅（$id）でも共有付箋を平面内に完全表示し、操作できる", ({
-    id,
-    x,
-    y,
-  }) => {
-    const phase = buildPhaseStep(2, 3);
-    const onNoteDragStart = vi.fn();
-    setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-      notes: [buildNote({ id, x, y })],
-      onNoteDragStart,
-    });
+  ])(
+    "2軸マップの四隅（$id）でも共有付箋を平面内に完全表示し、操作できる",
+    ({ id, x, y }) => {
+      const phase = buildPhaseStep(2, 3);
+      const onNoteDragStart = vi.fn();
+      setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        notes: [buildNote({ id, x, y })],
+        onNoteDragStart,
+      });
 
-    const mappedNote = screen.getByTestId(
-      `idea-value-feasibility-map-note-${id}`,
-    );
-    expect(mappedNote).toHaveStyle({
-      // clampの複合式はjsdomで未対応。範囲補正の式は純関数のspecで検証する。
-      transform: "none",
-    });
+      const mappedNote = screen.getByTestId(
+        `idea-value-feasibility-map-note-${id}`,
+      );
+      expect(mappedNote).toHaveStyle({
+        // clampの複合式はjsdomで未対応。範囲補正の式は純関数のspecで検証する。
+        transform: "none",
+      });
 
-    const surface = within(mappedNote).getByRole("button", { name: "付箋" });
-    fireEvent.pointerDown(surface, {
-      pointerId: 1,
-      clientX: 200,
-      clientY: 200,
-    });
-    fireEvent.pointerMove(surface, {
-      pointerId: 1,
-      clientX: 210,
-      clientY: 210,
-    });
-    expect(onNoteDragStart).toHaveBeenCalledWith(id, expect.anything());
-  });
+      const surface = within(mappedNote).getByRole("button", { name: "付箋" });
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      });
+      fireEvent.pointerMove(surface, {
+        pointerId: 1,
+        clientX: 210,
+        clientY: 210,
+      });
+      expect(onNoteDragStart).toHaveBeenCalledWith(id, expect.anything());
+    },
+  );
 
   it("2軸マップの端でもドラッグゴーストを平面内に完全表示する", () => {
     const phase = buildPhaseStep(2, 3);

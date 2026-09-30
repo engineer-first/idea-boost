@@ -366,28 +366,28 @@ describe("VoteTotalingPanel", () => {
   it.each([
     { isHost: false, isDisconnected: false },
     { isHost: true, isDisconnected: true },
-  ])("非ホストまたは切断中はランキング行に決定操作を出さない", ({
-    isHost,
-    isDisconnected,
-  }) => {
-    render(
-      <VoteTotalingPanel
-        isVotingComplete
-        members={buildMembers(2, ME)}
-        notes={buildNotes(2).map((note) => withVotes(note, 1, 0))}
-        decision={null}
-        isHost={isHost}
-        isDisconnected={isDisconnected}
-        onNoteDecide={vi.fn()}
-      />,
-    );
+  ])(
+    "非ホストまたは切断中はランキング行に決定操作を出さない",
+    ({ isHost, isDisconnected }) => {
+      render(
+        <VoteTotalingPanel
+          isVotingComplete
+          members={buildMembers(2, ME)}
+          notes={buildNotes(2).map((note) => withVotes(note, 1, 0))}
+          decision={null}
+          isHost={isHost}
+          isDisconnected={isDisconnected}
+          onNoteDecide={vi.fn()}
+        />,
+      );
 
-    expect(
-      screen.queryByRole("button", {
-        name: "付箋 1を取り組む課題に決定",
-      }),
-    ).not.toBeInTheDocument();
-  });
+      expect(
+        screen.queryByRole("button", {
+          name: "付箋 1を取り組む課題に決定",
+        }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("決定済み行はstatusを表示し、別の行から決定し直せる", () => {
     const notes = buildNotes(2).map((note) => withVotes(note, 1, 0));

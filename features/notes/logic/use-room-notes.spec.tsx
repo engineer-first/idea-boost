@@ -454,20 +454,18 @@ describe("useRoomNotes", () => {
     expect(result.current.notes[0]?.fontSize).toBe(14);
   });
 
-  it.each([
-    11,
-    12.5,
-    25,
-    Number.POSITIVE_INFINITY,
-  ])("不正な文字サイズ %s は楽観表示もRoomDOへの送信もしない", (fontSize) => {
-    const { result } = setup();
-    act(() => result.current.applyMessage(snapshotMessage()));
+  it.each([11, 12.5, 25, Number.POSITIVE_INFINITY])(
+    "不正な文字サイズ %s は楽観表示もRoomDOへの送信もしない",
+    (fontSize) => {
+      const { result } = setup();
+      act(() => result.current.applyMessage(snapshotMessage()));
 
-    act(() => result.current.changeNoteFontSize(NOTE_ID, fontSize));
+      act(() => result.current.changeNoteFontSize(NOTE_ID, fontSize));
 
-    expect(result.current.notes[0]?.fontSize).toBe(14);
-    expect(send).not.toHaveBeenCalled();
-  });
+      expect(result.current.notes[0]?.fontSize).toBe(14);
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
 
   it("連続した文字サイズ変更は途中応答で巻き戻さず、最後の拒否で確定値へ戻す", () => {
     const operationIds = [

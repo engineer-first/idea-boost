@@ -28,22 +28,23 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     });
   });
 
-  it.each([
-    0.5, 2,
-  ])("倍率%sでもパン後のポインターを同じ相対座標に変換する", (zoom) => {
-    expect(
-      getIdeaValueFeasibilityMapPointFromClientPosition(
-        80 + 300 * zoom,
-        40 + 100 * zoom,
-        {
-          left: 80,
-          top: 40,
-          right: 80 + 400 * zoom,
-          bottom: 40 + 400 * zoom,
-        },
-      ),
-    ).toEqual({ feasibility: 75, value: 75 });
-  });
+  it.each([0.5, 2])(
+    "倍率%sでもパン後のポインターを同じ相対座標に変換する",
+    (zoom) => {
+      expect(
+        getIdeaValueFeasibilityMapPointFromClientPosition(
+          80 + 300 * zoom,
+          40 + 100 * zoom,
+          {
+            left: 80,
+            top: 40,
+            right: 80 + 400 * zoom,
+            bottom: 40 + 400 * zoom,
+          },
+        ),
+      ).toEqual({ feasibility: 75, value: 75 });
+    },
+  );
   it("端付近でも付箋全体の寸法を考慮して表示位置を制限する", () => {
     expect(
       getIdeaValueFeasibilityMapNotePosition({ feasibility: 1, value: 99 }),

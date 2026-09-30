@@ -553,101 +553,114 @@ it("共有開始と交代の受理で最終利用を更新し、古い版の再�
   socket.close();
 });
 
-it.each([
-  "disconnect",
-  null,
-  { x: 70, y: 80 },
-])("ドラッグ途中は成果を保存せず、終了時に最終位置を保存する (%j)", async (position) => {
-  const { connectRoomAs } = await import("./test-helpers");
-  const room = await createRoomAs(owner);
-  const noteId = crypto.randomUUID();
-  await runInRoomDO(room.roomId, async (instance, state) => {
-    await instance.setPhase({ kind: "step", phase: 1, step: 2 }, owner.sub);
-    state.storage.sql.exec(
-      "INSERT INTO notes(id,author_id,content,x,y,created_at,updated_at,visibility,phase) VALUES(?,?,?,10,20,'2026-09-27','2026-09-27','shared',1)",
-      noteId,
-      owner.sub,
-      "移動する案",
-    );
-    await (
-      instance as unknown as { preserveSharedOutcome(): Promise<void> }
-    ).preserveSharedOutcome();
-    await instance.alarm();
-  });
-  const socket = await connectRoomAs(owner, room.roomId);
-  await socket.next();
-  const before = await runInRoomDO(room.roomId, (instance) =>
-    instance.getSharedOutcome(),
-  );
-  const dragId = crypto.randomUUID();
-  try {
-    socket.ws.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
-    expect(await socket.next()).toMatchObject({
-      type: "note:drag:result",
-      accepted: true,
-    });
-    socket.ws.send(
-      JSON.stringify({ type: "note:drag:move", noteId, dragId, x: 70, y: 80 }),
-    );
-    expect(await socket.next()).toMatchObject({ type: "note:updated" });
-    await runInRoomDO(room.roomId, async (instance) => {
+it.each(["disconnect", null, { x: 70, y: 80 }])(
+  "ドラッグ途中は成果を保存せず、終了時に最終位置を保存する (%j)",
+  async (position) => {
+    const { connectRoomAs } = await import("./test-helpers");
+    const room = await createRoomAs(owner);
+    const noteId = crypto.randomUUID();
+    await runInRoomDO(room.roomId, async (instance, state) => {
+      await instance.setPhase({ kind: "step", phase: 1, step: 2 }, owner.sub);
+      state.storage.sql.exec(
+        "INSERT INTO notes(id,author_id,content,x,y,created_at,updated_at,visibility,phase) VALUES(?,?,?,10,20,'2026-09-27','2026-09-27','shared',1)",
+        noteId,
+        owner.sub,
+        "移動する案",
+      );
+      await (
+        instance as unknown as { preserveSharedOutcome(): Promise<void> }
+      ).preserveSharedOutcome();
       await instance.alarm();
     });
-    expect(
-      await runInRoomDO(room.roomId, (instance) => instance.getSharedOutcome()),
-    ).toEqual(before);
-    if (position === "disconnect") {
-      socket.close();
-      await vi.waitFor(async () => {
-        const latest = await runInRoomDO(room.roomId, (instance) =>
-          instance.getSharedOutcome(),
-        );
-        expect(latest?.lastUsedAt).toBeGreaterThan(before?.lastUsedAt ?? 0);
+    const socket = await connectRoomAs(owner, room.roomId);
+    await socket.next();
+    const before = await runInRoomDO(room.roomId, (instance) =>
+      instance.getSharedOutcome(),
+    );
+    const dragId = crypto.randomUUID();
+    try {
+      socket.ws.send(
+        JSON.stringify({ type: "note:drag:start", noteId, dragId }),
+      );
+      expect(await socket.next()).toMatchObject({
+        type: "note:drag:result",
+        accepted: true,
       });
+      socket.ws.send(
+        JSON.stringify({
+          type: "note:drag:move",
+          noteId,
+          dragId,
+          x: 70,
+          y: 80,
+        }),
+      );
+      expect(await socket.next()).toMatchObject({ type: "note:updated" });
       await runInRoomDO(room.roomId, async (instance) => {
         await instance.alarm();
       });
       expect(
-        (
-          await runInRoomDO(room.roomId, (instance) =>
+        await runInRoomDO(room.roomId, (instance) =>
+          instance.getSharedOutcome(),
+        ),
+      ).toEqual(before);
+      if (position === "disconnect") {
+        socket.close();
+        await vi.waitFor(async () => {
+          const latest = await runInRoomDO(room.roomId, (instance) =>
             instance.getSharedOutcome(),
-          )
-        )?.snapshot?.notes,
-      ).toContainEqual(expect.objectContaining({ id: noteId, x: 70, y: 80 }));
-      return;
+          );
+          expect(latest?.lastUsedAt).toBeGreaterThan(before?.lastUsedAt ?? 0);
+        });
+        await runInRoomDO(room.roomId, async (instance) => {
+          await instance.alarm();
+        });
+        expect(
+          (
+            await runInRoomDO(room.roomId, (instance) =>
+              instance.getSharedOutcome(),
+            )
+          )?.snapshot?.notes,
+        ).toContainEqual(expect.objectContaining({ id: noteId, x: 70, y: 80 }));
+        return;
+      }
+      socket.ws.send(
+        JSON.stringify({ type: "note:drag:end", noteId, dragId, position }),
+      );
+      expect(await socket.next()).toMatchObject({ type: "note:updated" });
+      await runInRoomDO(room.roomId, async (instance) => {
+        await instance.alarm();
+      });
+      const after = await runInRoomDO(room.roomId, (instance) =>
+        instance.getSharedOutcome(),
+      );
+      expect(after?.snapshot?.notes).toContainEqual(
+        expect.objectContaining({ id: noteId, x: 70, y: 80 }),
+      );
+      expect(after?.lastUsedAt).toBeGreaterThan(before?.lastUsedAt ?? 0);
+      // 同じ終了の再送は保存・期限更新を行わない。
+      socket.ws.send(
+        JSON.stringify({
+          type: "note:drag:end",
+          noteId,
+          dragId,
+          position: { x: 99, y: 99 },
+        }),
+      );
+      socket.ws.send(
+        JSON.stringify({ type: "note:drag:start", noteId, dragId }),
+      );
+      expect(await socket.next()).toMatchObject({
+        type: "note:drag:result",
+        accepted: false,
+      });
+      expect(
+        await runInRoomDO(room.roomId, (instance) =>
+          instance.getSharedOutcome(),
+        ),
+      ).toEqual(after);
+    } finally {
+      socket.close();
     }
-    socket.ws.send(
-      JSON.stringify({ type: "note:drag:end", noteId, dragId, position }),
-    );
-    expect(await socket.next()).toMatchObject({ type: "note:updated" });
-    await runInRoomDO(room.roomId, async (instance) => {
-      await instance.alarm();
-    });
-    const after = await runInRoomDO(room.roomId, (instance) =>
-      instance.getSharedOutcome(),
-    );
-    expect(after?.snapshot?.notes).toContainEqual(
-      expect.objectContaining({ id: noteId, x: 70, y: 80 }),
-    );
-    expect(after?.lastUsedAt).toBeGreaterThan(before?.lastUsedAt ?? 0);
-    // 同じ終了の再送は保存・期限更新を行わない。
-    socket.ws.send(
-      JSON.stringify({
-        type: "note:drag:end",
-        noteId,
-        dragId,
-        position: { x: 99, y: 99 },
-      }),
-    );
-    socket.ws.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
-    expect(await socket.next()).toMatchObject({
-      type: "note:drag:result",
-      accepted: false,
-    });
-    expect(
-      await runInRoomDO(room.roomId, (instance) => instance.getSharedOutcome()),
-    ).toEqual(after);
-  } finally {
-    socket.close();
-  }
-});
+  },
+);

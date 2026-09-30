@@ -172,110 +172,112 @@ for (const { phase, count, goal } of phases) {
   }
 }
 
-test.each(phases)("フェーズ$phaseの全手順をキーボードで開閉できる", async ({
-  phase,
-  count,
-}) => {
-  await openStory(`room-roomboardlayout--phase-${phase}-step-2`);
-  const toggle = page.getByRole("button", {
-    name: "全手順を見る",
-    exact: true,
-  });
-  await toggle.focus();
-  await page.keyboard.press("Enter");
-  const route = page.getByRole("list", { name: "このフェーズの全手順" });
-  await route.waitFor();
-  expect(await route.locator("li").count()).toBe(count);
-  await expectReadable(route);
-  expect(await route.getByRole("button").count()).toBe(0);
-  expect(await route.locator('[aria-current="step"]').count()).toBe(1);
-  await page.keyboard.press("Space");
-  expect(await route.count()).toBe(0);
-  expect(
-    await toggle.evaluate((element) => document.activeElement === element),
-  ).toBe(true);
-});
-
-test.each(
-  phases,
-)("フェーズ$phaseの追加執筆確認は全員への影響を示しEscapeで戻れる", async ({
-  phase,
-}) => {
-  await openStory(`room-roomboardlayout--phase-${phase}-step-2`);
-  const trigger = page.getByRole("button", {
-    name: "もう一度付箋を書く",
-    exact: true,
-  });
-  await trigger.focus();
-  await page.keyboard.press("Enter");
-  const dialog = page.getByRole("alertdialog", {
-    name: "もう少し考えるために、個人作業へ戻りますか？",
-  });
-  await dialog.waitFor();
-  await expectReadable(dialog);
-  const text = await dialog.innerText();
-  for (const statement of [
-    "全員",
-    "タイマー",
-    "共有済み付箋と下書きは残",
-    "本人が共有するまで",
-  ])
-    expect(text).toContain(statement);
-  const confirm = dialog.getByRole("button", {
-    name: "個人作業へ戻る",
-    exact: true,
-  });
-  await expectReachable(confirm);
-  for (let index = 0; index < 4; index += 1) {
-    await page.keyboard.press("Tab");
+test.each(phases)(
+  "フェーズ$phaseの全手順をキーボードで開閉できる",
+  async ({ phase, count }) => {
+    await openStory(`room-roomboardlayout--phase-${phase}-step-2`);
+    const toggle = page.getByRole("button", {
+      name: "全手順を見る",
+      exact: true,
+    });
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    const route = page.getByRole("list", { name: "このフェーズの全手順" });
+    await route.waitFor();
+    expect(await route.locator("li").count()).toBe(count);
+    await expectReadable(route);
+    expect(await route.getByRole("button").count()).toBe(0);
+    expect(await route.locator('[aria-current="step"]').count()).toBe(1);
+    await page.keyboard.press("Space");
+    expect(await route.count()).toBe(0);
     expect(
-      await dialog.evaluate((element) =>
-        element.contains(document.activeElement),
-      ),
+      await toggle.evaluate((element) => document.activeElement === element),
     ).toBe(true);
-  }
-  await page.screenshot({ path: `${output}/restart-writing-${phase}.png` });
-  await page.keyboard.press("Escape");
-  await dialog.waitFor({ state: "hidden" });
-  expect(
-    await trigger.evaluate((element) => document.activeElement === element),
-  ).toBe(true);
-});
+  },
+);
 
-test.each(
-  phases,
-)("フェーズ$phaseの再投票確認は候補件数と票の削除だけを説明する", async ({
-  phase,
-  count,
-}) => {
-  await openStory(`room-roomboardlayout--phase-${phase}-step-${count}`);
-  await closeResults();
-  const trigger = page.getByRole("button", {
-    name: "もう一度投票する",
-    exact: true,
-  });
-  await trigger.press("Enter");
-  const dialog = page.getByRole("alertdialog", {
-    name: "候補3件に投票し直しますか？",
-  });
-  await dialog.waitFor();
-  await expectReadable(dialog);
-  expect(await dialog.innerText()).toContain("付箋は消えません");
-  expect(await dialog.innerText()).toContain("候補外");
-  expect(await dialog.locator("li, blockquote").count()).toBe(0);
-  await expectReachable(
-    dialog.getByRole("button", { name: "前回の票を消して始める", exact: true }),
-  );
-  await page.screenshot({ path: `${output}/revote-${phase}.png` });
-  await dialog
-    .getByRole("button", { name: "キャンセル", exact: true })
-    .press("Enter");
-  await dialog.waitFor({ state: "hidden" });
-  expect(
-    await trigger.evaluate((element) => document.activeElement === element),
-  ).toBe(true);
-  expect(await page.getByRole("button", { name: progression }).count()).toBe(2);
-});
+test.each(phases)(
+  "フェーズ$phaseの追加執筆確認は全員への影響を示しEscapeで戻れる",
+  async ({ phase }) => {
+    await openStory(`room-roomboardlayout--phase-${phase}-step-2`);
+    const trigger = page.getByRole("button", {
+      name: "もう一度付箋を書く",
+      exact: true,
+    });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("alertdialog", {
+      name: "もう少し考えるために、個人作業へ戻りますか？",
+    });
+    await dialog.waitFor();
+    await expectReadable(dialog);
+    const text = await dialog.innerText();
+    for (const statement of [
+      "全員",
+      "タイマー",
+      "共有済み付箋と下書きは残",
+      "本人が共有するまで",
+    ])
+      expect(text).toContain(statement);
+    const confirm = dialog.getByRole("button", {
+      name: "個人作業へ戻る",
+      exact: true,
+    });
+    await expectReachable(confirm);
+    for (let index = 0; index < 4; index += 1) {
+      await page.keyboard.press("Tab");
+      expect(
+        await dialog.evaluate((element) =>
+          element.contains(document.activeElement),
+        ),
+      ).toBe(true);
+    }
+    await page.screenshot({ path: `${output}/restart-writing-${phase}.png` });
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+    expect(
+      await trigger.evaluate((element) => document.activeElement === element),
+    ).toBe(true);
+  },
+);
+
+test.each(phases)(
+  "フェーズ$phaseの再投票確認は候補件数と票の削除だけを説明する",
+  async ({ phase, count }) => {
+    await openStory(`room-roomboardlayout--phase-${phase}-step-${count}`);
+    await closeResults();
+    const trigger = page.getByRole("button", {
+      name: "もう一度投票する",
+      exact: true,
+    });
+    await trigger.press("Enter");
+    const dialog = page.getByRole("alertdialog", {
+      name: "候補3件に投票し直しますか？",
+    });
+    await dialog.waitFor();
+    await expectReadable(dialog);
+    expect(await dialog.innerText()).toContain("付箋は消えません");
+    expect(await dialog.innerText()).toContain("候補外");
+    expect(await dialog.locator("li, blockquote").count()).toBe(0);
+    await expectReachable(
+      dialog.getByRole("button", {
+        name: "前回の票を消して始める",
+        exact: true,
+      }),
+    );
+    await page.screenshot({ path: `${output}/revote-${phase}.png` });
+    await dialog
+      .getByRole("button", { name: "キャンセル", exact: true })
+      .press("Enter");
+    await dialog.waitFor({ state: "hidden" });
+    expect(
+      await trigger.evaluate((element) => document.activeElement === element),
+    ).toBe(true);
+    expect(await page.getByRole("button", { name: progression }).count()).toBe(
+      2,
+    );
+  },
+);
 
 test("採用はキーボードで候補を選ぶと確認ダイアログなしで選択を終える", async () => {
   await openStory("room-roomboardview--ready-to-decide");
@@ -303,53 +305,55 @@ test("採用はキーボードで候補を選ぶと確認ダイアログなし�
   await page.screenshot({ path: `${output}/adoption-without-confirm.png` });
 });
 
-test.each([
-  true,
-  false,
-])("最終採用済み isHost=%s は全員へ成果を示しループ操作を消す", async (isHost) => {
-  await openStory("room-roomboardlayout--completed", isHost);
-  await page.getByRole("heading", { name: "採用したアイデア" }).waitFor();
-  expect(await page.getByRole("dialog").count()).toBe(0);
-  expect(await page.getByRole("button", { name: progression }).count()).toBe(0);
-  expect(await page.getByRole("button", { name: "ボードへ戻る" }).count()).toBe(
-    0,
-  );
-  expect(await page.getByRole("button", { name: "ルームを解散" }).count()).toBe(
-    0,
-  );
-  const complete = page.getByRole("button", { name: "テキストを保存" });
-  await expectReadable(complete);
-  expect(await page.getByRole("button", { name: progression }).count()).toBe(0);
-  await page.screenshot({
-    path: `${output}/complete-${isHost ? "host" : "member"}.png`,
-  });
-});
+test.each([true, false])(
+  "最終採用済み isHost=%s は全員へ成果を示しループ操作を消す",
+  async (isHost) => {
+    await openStory("room-roomboardlayout--completed", isHost);
+    await page.getByRole("heading", { name: "採用したアイデア" }).waitFor();
+    expect(await page.getByRole("dialog").count()).toBe(0);
+    expect(await page.getByRole("button", { name: progression }).count()).toBe(
+      0,
+    );
+    expect(
+      await page.getByRole("button", { name: "ボードへ戻る" }).count(),
+    ).toBe(0);
+    expect(
+      await page.getByRole("button", { name: "ルームを解散" }).count(),
+    ).toBe(0);
+    const complete = page.getByRole("button", { name: "テキストを保存" });
+    await expectReadable(complete);
+    expect(await page.getByRole("button", { name: progression }).count()).toBe(
+      0,
+    );
+    await page.screenshot({
+      path: `${output}/complete-${isHost ? "host" : "member"}.png`,
+    });
+  },
+);
 
-test.each(
-  phases,
-)("フェーズ$phaseで最初の投票へ進む確認に戻れない範囲と下書きを示す", async ({
-  phase,
-  count,
-}) => {
-  await openStory(`room-roomboardlayout--phase-${phase}-step-${count - 2}`);
-  await page
-    .getByRole("button", { name: "次のステップへ", exact: true })
-    .press("Enter");
-  const dialog = page.getByRole("alertdialog", {
-    name: "次のステップへ進みますか？",
-  });
-  await dialog.waitFor();
-  expect(await page.getByRole("alertdialog").count()).toBe(1);
-  expect(await dialog.innerText()).toContain("個人作業・共有には戻れません");
-  expect(await dialog.innerText()).toContain("未共有の下書き");
-  await expectReadable(dialog);
-  await expectReachable(
-    dialog.getByRole("button", { name: "移行する", exact: true }),
-  );
-  await page.screenshot({ path: `${output}/first-vote-${phase}.png` });
-  await page.keyboard.press("Escape");
-  await dialog.waitFor({ state: "hidden" });
-});
+test.each(phases)(
+  "フェーズ$phaseで最初の投票へ進む確認に戻れない範囲と下書きを示す",
+  async ({ phase, count }) => {
+    await openStory(`room-roomboardlayout--phase-${phase}-step-${count - 2}`);
+    await page
+      .getByRole("button", { name: "次のステップへ", exact: true })
+      .press("Enter");
+    const dialog = page.getByRole("alertdialog", {
+      name: "次のステップへ進みますか？",
+    });
+    await dialog.waitFor();
+    expect(await page.getByRole("alertdialog").count()).toBe(1);
+    expect(await dialog.innerText()).toContain("個人作業・共有には戻れません");
+    expect(await dialog.innerText()).toContain("未共有の下書き");
+    await expectReadable(dialog);
+    await expectReachable(
+      dialog.getByRole("button", { name: "移行する", exact: true }),
+    );
+    await page.screenshot({ path: `${output}/first-vote-${phase}.png` });
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+  },
+);
 
 test("課題の採用確定後は右上だけで次フェーズへ進み下書き破棄を確認する", async () => {
   await openStory("room-roomboardview--decided");

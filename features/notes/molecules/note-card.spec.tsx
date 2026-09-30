@@ -578,20 +578,16 @@ describe("NoteCard", () => {
     expect(screen.getByRole("textbox")).toHaveFocus();
   });
 
-  it.each<NoteColor>([
-    "yellow",
-    "green",
-    "blue",
-    "pink",
-    "orange",
-    "purple",
-  ])("%s の付箋をFigJam風パステルカラーで表示する", (color) => {
-    setup({ note: buildNote({ color }) });
+  it.each<NoteColor>(["yellow", "green", "blue", "pink", "orange", "purple"])(
+    "%s の付箋をFigJam風パステルカラーで表示する",
+    (color) => {
+      setup({ note: buildNote({ color }) });
 
-    expect(getCard()).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
-    });
-  });
+      expect(getCard()).toHaveStyle({
+        backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+      });
+    },
+  );
 
   it("薄い付箋色の上で本文を常に濃色で表示する", () => {
     setup();
@@ -703,30 +699,30 @@ describe("NoteCard", () => {
       expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
     });
 
-    it.each([
-      "Enter",
-      " ",
-    ])("シール選択中に%sを押すと付箋の中央へ投票する", (key) => {
-      const onVote = vi.fn();
-      const { props } = setup({
-        isSelected: true,
-        canEditNote: false,
-        vote: {
-          displayMode: "voting",
-          selectedKind: "subjective",
-          voteRemaining: { subjective: 1, objective: 3 },
-          canVote: true,
-          pendingOperations: [],
-          onVote,
-          onVoteRemove: vi.fn(),
-        },
-      });
+    it.each(["Enter", " "])(
+      "シール選択中に%sを押すと付箋の中央へ投票する",
+      (key) => {
+        const onVote = vi.fn();
+        const { props } = setup({
+          isSelected: true,
+          canEditNote: false,
+          vote: {
+            displayMode: "voting",
+            selectedKind: "subjective",
+            voteRemaining: { subjective: 1, objective: 3 },
+            canVote: true,
+            pendingOperations: [],
+            onVote,
+            onVoteRemove: vi.fn(),
+          },
+        });
 
-      fireEvent.keyDown(getNoteSurface(), { key });
+        fireEvent.keyDown(getNoteSurface(), { key });
 
-      expect(onVote).toHaveBeenCalledWith(props.note.id, "subjective");
-      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
-    });
+        expect(onVote).toHaveBeenCalledWith(props.note.id, "subjective");
+        expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+      },
+    );
 
     it("付箋のホバーでは投票用プレビューを出さない", () => {
       setup({

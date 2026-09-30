@@ -45,7 +45,7 @@ export const FeedbackTargetSchema = z
   );
 const FeedbackFieldsSchema = z
   .object({
-    id: z.string().uuid(),
+    id: z.guid(),
     target: FeedbackTargetSchema,
     kind: FeedbackKindSchema,
     body: z
@@ -62,7 +62,7 @@ export const FeedbackInputSchema = FeedbackFieldsSchema.refine(
 export type FeedbackInput = z.infer<typeof FeedbackInputSchema>;
 export type FeedbackKind = z.infer<typeof FeedbackKindSchema>;
 export const FeedbackRecordSchema = FeedbackFieldsSchema.extend({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   createdAt: z.number().int(),
   expiresAt: z.number().int(),
 });

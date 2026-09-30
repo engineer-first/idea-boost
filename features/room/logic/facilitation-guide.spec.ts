@@ -30,23 +30,22 @@ describe("getFacilitationGuide", () => {
     ]);
   });
 
-  it.each([
-    buildPhaseStep(4),
-    buildPhaseStep(3, 2),
-    buildPhaseStep(4, 3),
-  ])("%o は個々の付箋と共通の投票基準を案内する", (phase) => {
-    expect(getFacilitationGuide(phase)).toMatchObject({
-      message:
-        "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
-      steps: [
-        "投票対象は現在のフェーズの個々の付箋です。",
-        "主観は「激しく共感する、取り組みたい」。",
-        "客観は「自分以外の人にも価値がありそう」。",
-        "主観1票・客観3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。",
-        "貼ったシールを押すと、投票を1票取り消せます。",
-      ],
-    });
-  });
+  it.each([buildPhaseStep(4), buildPhaseStep(3, 2), buildPhaseStep(4, 3)])(
+    "%o は個々の付箋と共通の投票基準を案内する",
+    (phase) => {
+      expect(getFacilitationGuide(phase)).toMatchObject({
+        message:
+          "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
+        steps: [
+          "投票対象は現在のフェーズの個々の付箋です。",
+          "主観は「激しく共感する、取り組みたい」。",
+          "客観は「自分以外の人にも価値がありそう」。",
+          "主観1票・客観3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。",
+          "貼ったシールを押すと、投票を1票取り消せます。",
+        ],
+      });
+    },
+  );
 
   it("問いの決定ステップには投票基準を表示しない", () => {
     const guide = getFacilitationGuide(buildPhaseStep(4, 2));
@@ -144,13 +143,16 @@ describe("getFacilitationGuide", () => {
       "投票結果を参考に、採用する解決策をみんなで1つ決めよう。",
       "1つに決定したら、完了チェックを押して成果を確認しましょう。",
     ],
-  ] as const)("%o の所要時間・参加者向けガイド・ホスト向けガイドを返す", (phase, durationMinutes, message, hostMessage) => {
-    expect(getFacilitationGuide(phase)).toMatchObject({
-      durationMinutes,
-      message,
-      hostMessage,
-    });
-  });
+  ] as const)(
+    "%o の所要時間・参加者向けガイド・ホスト向けガイドを返す",
+    (phase, durationMinutes, message, hostMessage) => {
+      expect(getFacilitationGuide(phase)).toMatchObject({
+        durationMinutes,
+        message,
+        hostMessage,
+      });
+    },
+  );
 
   it.each([
     [buildPhaseStep(2), "全員の共有"],
@@ -169,19 +171,23 @@ describe("getFacilitationGuide", () => {
     [buildPhaseStep(5, 1), "付箋"],
     [buildPhaseStep(4, 2), "問い"],
     [buildPhaseStep(5, 3), "解決策"],
-  ] as const)("%o はホストが画面下から1件を確定する手順を案内する", (phase, target) => {
-    const guide = getFacilitationGuide(phase);
-    expect(guide?.steps?.join(" ")).toContain("画面下");
-    expect(guide?.steps?.join(" ")).toContain(target);
-    expect(guide?.steps?.join(" ")).toContain("1件");
-  });
+  ] as const)(
+    "%o はホストが画面下から1件を確定する手順を案内する",
+    (phase, target) => {
+      const guide = getFacilitationGuide(phase);
+      expect(guide?.steps?.join(" ")).toContain("画面下");
+      expect(guide?.steps?.join(" ")).toContain(target);
+      expect(guide?.steps?.join(" ")).toContain("1件");
+    },
+  );
 });
 
-it.each([
-  1, 2, 3,
-] as const)("フェーズ%iの共有は右上の固定順と進行操作を案内する", (phase) => {
-  const guide = getFacilitationGuide(buildPhaseStep(2, phase));
-  expect(guide?.steps?.join(" ")).toContain("右上");
-  expect(guide?.hostMessage).toContain("次の人へ");
-  expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
-});
+it.each([1, 2, 3] as const)(
+  "フェーズ%iの共有は右上の固定順と進行操作を案内する",
+  (phase) => {
+    const guide = getFacilitationGuide(buildPhaseStep(2, phase));
+    expect(guide?.steps?.join(" ")).toContain("右上");
+    expect(guide?.hostMessage).toContain("次の人へ");
+    expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
+  },
+);

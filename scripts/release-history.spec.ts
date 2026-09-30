@@ -103,29 +103,26 @@ describe("本番リリース履歴", () => {
     expect(api.mock.calls.every(([method]) => method === "GET")).toBe(true);
   });
 
-  it.each([
-    "failure",
-    "cancelled",
-    "in_progress",
-  ])("Deployが%sなら公開しない", async (status) => {
-    const { state, api } = server();
-    state.run.conclusion = status;
-    state.jobs[state.jobs.length - 1].conclusion = status;
-    await expect(recordRelease(note(), api, true)).rejects.toThrow();
-    expect(state.releases).toHaveLength(0);
-  });
+  it.each(["failure", "cancelled", "in_progress"])(
+    "Deployが%sなら公開しない",
+    async (status) => {
+      const { state, api } = server();
+      state.run.conclusion = status;
+      state.jobs[state.jobs.length - 1].conclusion = status;
+      await expect(recordRelease(note(), api, true)).rejects.toThrow();
+      expect(state.releases).toHaveLength(0);
+    },
+  );
 
-  it.each([
-    "gate",
-    "deploy-api",
-    "deploy-app",
-    "health-check",
-  ])("%sの途中失敗・欠落を成功扱いしない", async (name) => {
-    const { state, api } = server();
-    state.jobs = state.jobs.filter((job) => job.name !== name);
-    await expect(recordRelease(note(), api, true)).rejects.toThrow();
-    expect(state.releases).toHaveLength(0);
-  });
+  it.each(["gate", "deploy-api", "deploy-app", "health-check"])(
+    "%sの途中失敗・欠落を成功扱いしない",
+    async (name) => {
+      const { state, api } = server();
+      state.jobs = state.jobs.filter((job) => job.name !== name);
+      await expect(recordRelease(note(), api, true)).rejects.toThrow();
+      expect(state.releases).toHaveLength(0);
+    },
+  );
 
   it.each([
     { path: ".github/workflows/ci.yml" },
@@ -133,12 +130,15 @@ describe("本番リリース履歴", () => {
     { event: "pull_request" },
     { head_sha: "b".repeat(40) },
     { run_attempt: 2 },
-  ])("別のworkflow・ブランチ・commit・試行を公開しない: %j", async (override) => {
-    const { state, api } = server();
-    Object.assign(state.run, override);
-    await expect(recordRelease(note(), api, true)).rejects.toThrow();
-    expect(state.releases).toHaveLength(0);
-  });
+  ])(
+    "別のworkflow・ブランチ・commit・試行を公開しない: %j",
+    async (override) => {
+      const { state, api } = server();
+      Object.assign(state.run, override);
+      await expect(recordRelease(note(), api, true)).rejects.toThrow();
+      expect(state.releases).toHaveLength(0);
+    },
+  );
 
   it("応答を失った後の再実行でも同じ版を増やさず、訂正された本文を保持する", async () => {
     const { state, api } = server();
@@ -291,16 +291,16 @@ describe("履歴の継続とエラー処理", () => {
     expect(result.body).not.toContain("## 利用上の注意");
   });
 
-  it.each([
-    "draft",
-    "prerelease",
-  ])("既存版が%sなら勝手に公開しない", async (field) => {
-    const { state, api } = server();
-    await recordRelease(note(), api, true);
-    state.releases[0][field] = true;
-    await expect(recordRelease(note(), api, true)).rejects.toThrow();
-    expect(state.releases).toHaveLength(1);
-  });
+  it.each(["draft", "prerelease"])(
+    "既存版が%sなら勝手に公開しない",
+    async (field) => {
+      const { state, api } = server();
+      await recordRelease(note(), api, true);
+      state.releases[0][field] = true;
+      await expect(recordRelease(note(), api, true)).rejects.toThrow();
+      expect(state.releases).toHaveLength(1);
+    },
+  );
 
   it("公開情報の不一致と欠損を上書きしない", async () => {
     const { state, api } = server();

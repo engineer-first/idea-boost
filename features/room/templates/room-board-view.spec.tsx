@@ -1396,14 +1396,16 @@ describe("RoomBoardView", () => {
     // WebSocket が connecting / closed の間に編集させると、room-client が
     // 送信を黙って破棄するため「入力したのに再接続後のsnapshotで消える」
     // ことになる。未接続中はボタン・付箋の操作自体を無効化する。
-    it.each([
-      "connecting",
-      "closed",
-    ] as const)("%sの間はツールバーの「付箋を追加」ボタンが無効化される", (connectionStatus) => {
-      setup({ connectionStatus });
+    it.each(["connecting", "closed"] as const)(
+      "%sの間はツールバーの「付箋を追加」ボタンが無効化される",
+      (connectionStatus) => {
+        setup({ connectionStatus });
 
-      expect(screen.getByRole("button", { name: "付箋を追加" })).toBeDisabled();
-    });
+        expect(
+          screen.getByRole("button", { name: "付箋を追加" }),
+        ).toBeDisabled();
+      },
+    );
 
     it("openの間はツールバーの「付箋を追加」ボタンが有効", () => {
       setup({ connectionStatus: "open" });
@@ -1413,16 +1415,16 @@ describe("RoomBoardView", () => {
       ).not.toBeDisabled();
     });
 
-    it.each([
-      "connecting",
-      "closed",
-    ] as const)("%sの間は Step 2-1 の HMW テンプレートボタンが無効化される", (connectionStatus) => {
-      setup({ phase: buildPhaseStep(1, 2), notes: [], connectionStatus });
+    it.each(["connecting", "closed"] as const)(
+      "%sの間は Step 2-1 の HMW テンプレートボタンが無効化される",
+      (connectionStatus) => {
+        setup({ phase: buildPhaseStep(1, 2), notes: [], connectionStatus });
 
-      expect(
-        screen.getByRole("button", { name: HMW_TEMPLATES[0] }),
-      ).toBeDisabled();
-    });
+        expect(
+          screen.getByRole("button", { name: HMW_TEMPLATES[0] }),
+        ).toBeDisabled();
+      },
+    );
 
     it("openの間は Step 2-1 の HMW テンプレートを選ぶと onHmwTemplateSelect が呼ばれる", () => {
       const onHmwTemplateSelect = vi.fn();
@@ -2122,24 +2124,29 @@ describe("反復ワークフロー", () => {
     [1, 5, "付箋"],
     [2, 4, "問い"],
     [3, 5, "アイデア"],
-  ] as const)("%i-%iでは候補を選ぶと確認ダイアログなしで採用する", (phase, step, label) => {
-    const { props } = setup({
-      phase: buildPhaseStep(step, phase),
-      isHost: true,
-      notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
-    });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    expect(props.onNoteDecide).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: `採用する${label}: 選んだ候補` }),
-    );
-    expect(props.onNoteDecide).toHaveBeenCalledExactlyOnceWith("candidate");
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "選択をキャンセル" }),
-    ).not.toBeInTheDocument();
-  });
+  ] as const)(
+    "%i-%iでは候補を選ぶと確認ダイアログなしで採用する",
+    (phase, step, label) => {
+      const { props } = setup({
+        phase: buildPhaseStep(step, phase),
+        isHost: true,
+        notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
+      });
+      fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+      );
+      expect(props.onNoteDecide).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole("button", { name: `採用する${label}: 選んだ候補` }),
+      );
+      expect(props.onNoteDecide).toHaveBeenCalledExactlyOnceWith("candidate");
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "選択をキャンセル" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 });
 
 it("同じ決定ステップのsnapshot更新では結果一覧を再表示しない", () => {
