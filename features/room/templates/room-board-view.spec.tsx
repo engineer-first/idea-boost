@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
@@ -14,7 +14,18 @@ import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => {
+  sessionStorage.clear();
+  // jsdomには寸法観測がない。通知との重なりはPlaywright側で検証する。
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
+});
 
 const ME = "11111111-1111-4111-8111-111111111111";
 
@@ -2153,4 +2164,69 @@ it("同じ決定ステップのsnapshot更新では結果一覧を再表示し�
     />,
   );
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+function notificationFixture(): { toaster: HTMLElement; toast: HTMLElement } {
+  const toaster = document.createElement("ol");
+  toaster.setAttribute("data-sonner-toaster", "true");
+  toaster.style.bottom = "32px";
+  const toast = document.createElement("li");
+  for (const [name, value] of Object.entries({
+    "data-sonner-toast": "true",
+    "data-visible": "true",
+    "data-removed": "false",
+    "data-y-position": "bottom",
+  }))
+    toast.setAttribute(name, value);
+  toaster.append(toast);
+  document.body.append(toaster);
+  return { toaster, toast };
+}
+
+describe("通知の寸法観測", () => {
+  it("付箋や補助パネルのDOM更新では通知のlayoutを再計測しない", async () => {
+    const { toaster } = notificationFixture();
+    const computed = vi.spyOn(window, "getComputedStyle");
+    try {
+      setup();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      computed.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "全手順を見る" }));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(
+        computed.mock.calls.filter(([element]) => element === toaster),
+      ).toHaveLength(0);
+    } finally {
+      computed.mockRestore();
+      toaster.remove();
+    }
+  });
+  it("通知を削除したら寸法観測を解除する", async () => {
+    const observe = vi.fn(),
+      unobserve = vi.fn();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe = observe;
+        unobserve = unobserve;
+        disconnect(): void {}
+      },
+    );
+    const { toaster, toast } = notificationFixture();
+    try {
+      setup();
+      expect(observe).toHaveBeenCalledWith(toast);
+      toast.remove();
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      expect(unobserve).toHaveBeenCalledWith(toast);
+    } finally {
+      toaster.remove();
+    }
+  });
 });

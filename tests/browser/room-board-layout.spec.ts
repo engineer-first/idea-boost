@@ -68,7 +68,7 @@ async function expectLayout(): Promise<void> {
     expect(box.left, box.id).toBeGreaterThanOrEqual(0);
     expect(box.top, box.id).toBeGreaterThanOrEqual(0);
     expect(box.right, box.id).toBeLessThanOrEqual(viewport.width);
-    expect(box.bottom, box.id).toBeLessThanOrEqual(720);
+    expect(box.bottom, box.id).toBeLessThanOrEqual(viewport.height);
   }
   for (let i = 0; i < boxes.length; i++) {
     for (const other of boxes.slice(i + 1)) {
@@ -1015,3 +1015,210 @@ test.each([
     });
   }
 });
+
+test("U03: 3-3のマップ増減と書き足しへ通常pointerで到達できる", async () => {
+  await openStory("room-roomboardlayout--map-controls");
+  const map = page.getByRole("group", { name: "2軸マップの広さ操作" });
+  await map.waitFor();
+  await page.screenshot({ path: `${output}/u03-map.png` });
+  await map
+    .getByRole("button", { name: "マップを広くする" })
+    .click({ timeout: 2500 });
+  expect(await map.getByRole("status").innerText()).toContain("3段階目");
+  await map.getByRole("button", { name: "マップを狭くする" }).click();
+  expect(await map.getByRole("status").innerText()).toContain("2段階目");
+  await page
+    .getByRole("button", { name: "もう一度付箋を書く", exact: true })
+    .click();
+  expect(await page.getByRole("alertdialog").isVisible()).toBe(true);
+});
+
+test("U03: 390pxでガイド全文と現在の操作が画面内に収まる", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openStory("room-roomboardlayout--phase-3-step-1");
+  const guide = page.getByTestId("step-guide");
+  await guide.waitFor();
+  await page.screenshot({ path: `${output}/u03-narrow.png` });
+  const box = await guide.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(280);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
+  const controls = await page.getByTestId("board-control-hud").boundingBox();
+  expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "進め方", exact: true }).click();
+  expect(
+    await page
+      .getByRole("region", { name: "ファシリテーションガイド" })
+      .isVisible(),
+  ).toBe(true);
+});
+
+test.each([
+  1280, 390,
+])("U03: %ipxでUndo通知を残したまま付箋を追加できる", async (width) => {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+  await openStory("room-roomboardlayout--undo-notification");
+  await page.getByRole("button", { name: "除外通知を再現" }).click();
+  await page.getByText(/投票完了により0票の付箋1件/).waitFor();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${output}/u03-toast-${width}.png` });
+  await page
+    .getByRole("button", { name: "付箋を追加", exact: true })
+    .click({ timeout: 2500 });
+  expect(
+    await page
+      .getByTestId("private-notes-toolbar")
+      .getAttribute("data-expanded"),
+  ).toBe("true");
+  await page
+    .getByRole("button", { name: "まとめて元に戻す", exact: true })
+    .click();
+  expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
+    true,
+  );
+});
+
+// 空のpointer-events-none wrapperではなく、clip内に見える実操作対象を調べる。
+async function expectHudTargets(): Promise<void> {
+  const targets = page.locator(
+    [
+      '[data-testid="board-header-row"] button',
+      '[data-testid="board-header-row"] summary',
+      '[data-testid="board-tools-hud"] button',
+      '[data-testid="idea-map-size-controls-hud"] button',
+      '[data-testid="phase-loop-hud"] button',
+      '[data-testid="vote-palette-hud"] button',
+      '[data-testid="private-notes-toolbar"] button',
+    ].join(","),
+  );
+  const visible = await targets.evaluateAll((elements) =>
+    elements.flatMap((e) => {
+      const box = e.getBoundingClientRect();
+      if (
+        e.closest('[inert],[aria-hidden="true"]') ||
+        !e.checkVisibility() ||
+        !box.width ||
+        !box.height
+      )
+        return [];
+      let clip = {
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        bottom: box.bottom,
+      };
+      for (
+        let parent = e.parentElement;
+        parent;
+        parent = parent.parentElement
+      ) {
+        if (/(auto|hidden|scroll)/.test(getComputedStyle(parent).overflow)) {
+          const p = parent.getBoundingClientRect();
+          clip = {
+            left: Math.max(clip.left, p.left),
+            right: Math.min(clip.right, p.right),
+            top: Math.max(clip.top, p.top),
+            bottom: Math.min(clip.bottom, p.bottom),
+          };
+        }
+      }
+      if (clip.right - clip.left < 2 || clip.bottom - clip.top < 2) return [];
+      const x = (clip.left + clip.right) / 2,
+        y = (clip.top + clip.bottom) / 2;
+      const disabled = e instanceof HTMLButtonElement && e.disabled;
+      return [
+        {
+          // タイマー通知音は既存timer枠の内側に置く独立操作。中心の到達性は両方検査する。
+          family: e.parentElement?.querySelector(
+            ':scope > [data-testid="room-timer"]',
+          )
+            ? "timer"
+            : null,
+          index: elements.indexOf(e),
+          contains: elements
+            .filter((other) => other !== e && e.contains(other))
+            .map((other) => elements.indexOf(other)),
+          name: e.getAttribute("aria-label") ?? e.textContent,
+          ...clip,
+          hit: disabled || e.contains(document.elementFromPoint(x, y)),
+        },
+      ];
+    }),
+  );
+  for (const target of visible)
+    expect(target.hit, String(target.name)).toBe(true);
+  for (let index = 0; index < visible.length; index++)
+    for (const b of visible.slice(index + 1)) {
+      const a = visible[index];
+      if (
+        (a.family === "timer" && b.family === "timer") ||
+        a.contains.includes(b.index) ||
+        b.contains.includes(a.index)
+      )
+        continue;
+      expect(
+        Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1,
+        `${a.name} / ${b.name}`,
+      ).toBe(false);
+    }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    page.viewportSize()?.width,
+  );
+}
+
+test.each([
+  1280, 390,
+])("U03: %ipxの全14工程でhost/memberの実操作対象を遮らない", async (width) => {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+  for (const isHost of [true, false])
+    for (const step of steps) {
+      const [phase, number] = step.split("-");
+      await openStory(
+        `room-roomboardlayout--phase-${phase}-step-${number}&args=isHost:${isHost}`,
+      );
+      await page.getByTestId("board-context-hud").waitFor();
+      console.log("HUD", width, isHost, step);
+      const result = page.getByRole("dialog", {
+        name: "投票結果",
+        exact: true,
+      });
+      if (["1-5", "2-4", "3-5"].includes(step)) {
+        await result.waitFor();
+        await result
+          .getByRole("button", { name: "閉じる", exact: true })
+          .click();
+        await result.waitFor({ state: "hidden" });
+      }
+      await expect
+        .poll(() =>
+          page
+            .getByTestId("step-guide")
+            .evaluate((e) => e.getAnimations({ subtree: true }).length),
+        )
+        .toBe(0);
+      await page.keyboard.press("Escape");
+      await expect
+        .poll(() => page.getByTestId("step-guide").getAttribute("data-state"))
+        .toBe("compact");
+      await expect
+        .poll(() =>
+          page
+            .getByTestId("step-guide")
+            .evaluate((e) => e.getAnimations({ subtree: true }).length),
+        )
+        .toBe(0);
+      await expectHudTargets();
+      await page.getByRole("button", { name: "進め方", exact: true }).click();
+      await expect
+        .poll(() =>
+          page
+            .getByTestId("step-guide")
+            .evaluate((e) => e.getAnimations({ subtree: true }).length),
+        )
+        .toBe(0);
+      const box = await page.getByTestId("step-guide").boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(width === 390 ? 280 : 100);
+      await expectHudTargets();
+    }
+}, 60_000);

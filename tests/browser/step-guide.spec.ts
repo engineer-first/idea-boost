@@ -178,3 +178,60 @@ test.each([
     await page.close();
   }
 });
+
+test("390pxでも自動案内はfocusを奪わず、詳細を全文参照して操作へ戻れる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardview--phase-1-first-step-intro");
+    await settled(page, "intro");
+    const shell = page.getByTestId("step-guide");
+    expect(
+      await shell.evaluate((e) => e.contains(document.activeElement)),
+    ).toBe(false);
+    expect((await shell.boundingBox())?.width).toBeGreaterThanOrEqual(280);
+    await vi.waitFor(
+      async () =>
+        expect(await shell.getAttribute("data-state")).toBe("compact"),
+      { timeout: 7000 },
+    );
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
+    await settled(page, "detail");
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    await page.keyboard.press("End");
+    await page.waitForTimeout(5500);
+    expect(await shell.getAttribute("data-state")).toBe("detail");
+    expect(
+      await detail.evaluate(
+        (e) => e.scrollTop + e.clientHeight >= e.scrollHeight - 1,
+      ),
+    ).toBe(true);
+    expect(
+      await shell.evaluate((e) => getComputedStyle(e).transitionDuration),
+    ).toBe("0s");
+    await page.keyboard.press("Escape");
+    await settled(page, "compact");
+    await page.keyboard.press("Enter");
+    await settled(page, "detail");
+    await page.keyboard.press("Tab");
+    await settled(page, "compact");
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
+    await settled(page, "detail");
+    await page.getByRole("button", { name: "付箋を追加", exact: true }).click();
+    await settled(page, "compact");
+    expect(
+      await page
+        .getByTestId("private-notes-toolbar")
+        .getAttribute("data-expanded"),
+    ).toBe("true");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(390);
+  } finally {
+    await page.close();
+  }
+});
