@@ -46,9 +46,6 @@ export function IdeaSupportSidebarContent({
 
   return (
     <div className="px-4 py-2">
-      <p className="mb-3 text-muted-foreground text-xs">
-        {IDEA_SUPPORT_DESCRIPTION}
-      </p>
       <Tabs defaultValue={defaultContentId} className="w-full gap-0">
         <TabsList
           variant="line"
@@ -82,6 +79,9 @@ export function IdeaSupportSidebarContent({
           ))}
         </div>
       </Tabs>
+      <p className="mt-3 text-muted-foreground text-xs">
+        {IDEA_SUPPORT_DESCRIPTION}
+      </p>
     </div>
   );
 }
