@@ -23,5 +23,5 @@ feature内部のui/logic二層は当初の方式であり、現在は[ADR 0003](
 ## 根拠
 
 - [PR #128](https://github.com/engineer-first/idea-boost/pull/128)
-- [当時の分析全文](../archive/feature-structure-2026-07.md)（旧ui/logic構成を含む）
+- [当時の比較・検証記録](../archive/feature-design-2026-07.md)（旧ui/logic構成を含む）
 - [現行開発規約](../development/conventions.md#コード配置と命名)、[依存境界の検査](../../rules/ast-grep/feature-dependencies-one-way.yml)

@@ -22,6 +22,5 @@ featureのui/logic二層ではUI一覧の見通しが悪く、実装とspec / st
 
 ## 根拠
 
-- [当時の決定・改定の全文](../archive/feature-internal-structure-2026-07.md)
-- [候補比較・検証全文](../archive/feature-ui-directory-options.md)
+- [当時の比較・検証・改定記録](../archive/feature-design-2026-07.md)
 - [現行規約](../development/conventions.md#コード配置と命名)、[帯の検査](../../rules/ast-grep/feature-band-imports.yml)、[配置検査](../../scripts/check-feature-layout.mts)

@@ -103,6 +103,25 @@ GitHub Actions の `GITHUB_TOKEN` は組織 Project を更新できないため�
 
 Project の作業・状態を変えるときは、Issue本文と Milestone は保ち、対象の状態フィールドのみを必要に応じて更新する。
 
-## 過去の検討
+## 日常のビュー
 
-[Project刷新](../archive/project-refresh-2026-09.md)と[自動化の改善候補](../archive/issue-automation-proposals-2026-09.md)は当時の記録。未実装候補を着手する場合はIssueで背景・完了条件を整理し、進捗は文書へ複製しない。
+| ビュー                                                                        | 読む目的                                 |
+| ----------------------------------------------------------------------------- | ---------------------------------------- |
+| [ホワイトボード](https://github.com/orgs/engineer-first/projects/3/views/2)   | 完了・見送りを除いた全体の状態           |
+| [タスク一覧](https://github.com/orgs/engineer-first/projects/3/views/3)       | Task / Bug / Spikeの作業                 |
+| [PBI・デモゴール](https://github.com/orgs/engineer-first/projects/3/views/4)  | 成果の受け入れ条件と子Issueの進捗        |
+| [未整理・壁打ち](https://github.com/orgs/engineer-first/projects/3/views/5)   | 背景・分類・優先度・完了条件を決める相談 |
+| [自分の作業](https://github.com/orgs/engineer-first/projects/3/views/6)       | ログインした本人が担当する未完了の作業   |
+| [レビュー待ち](https://github.com/orgs/engineer-first/projects/3/views/7)     | Statusがレビュー中の項目                 |
+| [スプリント未割当](https://github.com/orgs/engineer-first/projects/3/views/8) | 対象スプリントを決める項目               |
+| [完了・見送り](https://github.com/orgs/engineer-first/projects/3/views/9)     | 結果と過去の作業                         |
+
+各ビューはidea-boostだけを対象にし、状態・担当者・Milestone・親Issue・子Issue進捗・対応PR・更新日を表示する。自分の作業は`assignee:@me`で絞る。ビューの切り替えは既存Issueの状態や担当者を変えない。
+
+スプリントはMilestoneで管理する。現在のMilestoneが確定したらその値で絞り、期限から現在のスプリントを推測しない。`@current`はIteration用で、Milestoneには使わない。
+
+新規Issueは通常の作成画面から作り、`未整理`を初期状態にする。絞り込んだProjectビューから項目を作ると、そのビューのフィルター値が適用されるため、作成後の状態・担当者・Milestoneを確認する。[GitHubのフィルター仕様](https://docs.github.com/en/issues/planning-and-tracking-with-projects/customizing-views-in-your-project/filtering-projects)
+
+## 今後の改善
+
+未実装のIssue操作・自動化候補は[Issue #393](https://github.com/engineer-first/idea-boost/issues/393)で背景・判断・完了条件を整理する。進捗は文書へ複製しない。
