@@ -296,7 +296,7 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
           localStorage.getItem("idea-boost.timer-sounds.enabled.v1"),
         ),
       ).toBeNull();
-      const status = page.getByRole("status");
+      const status = page.getByRole("group", { name: "通知音の再生エラー" });
       await status.waitFor();
       expect(await status.innerText()).toContain("再試行");
       const bounds = await status.boundingBox();
@@ -304,13 +304,20 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       expect(bounds?.x).toBeGreaterThanOrEqual(0);
       expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(390);
       const background = await status.evaluate(
-        (element) =>
-          getComputedStyle(
-            element.closest("[data-slot=tooltip-content]") ?? element,
-          ).backgroundColor,
+        (element) => getComputedStyle(element).backgroundColor,
       );
       expect(background).not.toBe("rgba(0, 0, 0, 0)");
       await page.screenshot({ path: join(output, "playback-blocked.png") });
+      await page.getByRole("button", { name: "案内を閉じる" }).click();
+      await status.waitFor({ state: "hidden" });
+      expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
+      expect(await soundToggle.getAttribute("title")).toContain("再試行");
+      expect((await readAudioProbe(page)).starts).toHaveLength(0);
+      await soundToggle.press("Space");
+      await status.waitFor();
+      expect(await soundToggle.getAttribute("aria-pressed")).toBe("false");
+      await page.getByRole("button", { name: "案内を閉じる" }).click();
+      await status.waitFor({ state: "hidden" });
 
       await page.evaluate(() => {
         if (window.__timerAudioProbe)
