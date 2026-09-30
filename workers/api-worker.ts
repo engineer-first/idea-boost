@@ -17,6 +17,11 @@ import {
 } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
 import { handleCompletedRooms } from "./completed-rooms-api";
+import {
+  acceptFeedback,
+  deleteExpiredFeedback,
+  listFeedback,
+} from "./feedback";
 import { hasPermission, seedDevOwnerAccess } from "./lib/access";
 import {
   deleteRoom,
@@ -318,6 +323,7 @@ export type AuthenticatedRoute = (
 ) => Promise<Response | null>;
 
 export type ApiWorkerHandler = {
+  scheduled(controller: ScheduledController, env: ApiWorkerEnv): Promise<void>;
   fetch(request: Request, env: ApiWorkerEnv): Promise<Response>;
 };
 
@@ -354,6 +360,25 @@ export function createApiWorker(
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return error(401, "ログインが必要です。");
+      }
+
+      const feedbackMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/feedback$/);
+      if (pathname === "/api/feedback" || feedbackMatch) {
+        try {
+          return pathname === "/api/feedback"
+            ? await listFeedback(request, env, session)
+            : await acceptFeedback(
+                request,
+                env,
+                session,
+                feedbackMatch?.[1] ?? "",
+              );
+        } catch {
+          return error(
+            503,
+            "意見を処理できませんでした。接続を確認して再試行してください。",
+          );
+        }
       }
 
       if (
@@ -482,6 +507,12 @@ export function createApiWorker(
       }
 
       return error(404, "not found");
+    },
+    async scheduled(
+      _controller: ScheduledController,
+      env: ApiWorkerEnv,
+    ): Promise<void> {
+      await deleteExpiredFeedback(env.DB);
     },
   } satisfies ExportedHandler<ApiWorkerEnv>;
 }

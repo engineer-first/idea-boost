@@ -70,20 +70,20 @@ rule:
     regex: "[.@]/features/"
 ---
 # room が依存してよいのは notes / dot-vote / vote-totaling / room-members /
-# invite / hmw / idea-support のみ。
+# invite / hmw / idea-support / feedback のみ。
 # room-lifecycle・auth への依存（および自 feature への alias import）は禁止。
 id: room-feature-allowed-edges
 language: typescript
 severity: error
 files:
   - features/room/**
-message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support のみ
+message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support・feedback のみ
 note: |
   room → room-lifecycle を許すと、room-lifecycle が room の状態（reducer 等）を
   使った時点で循環する。ルーム内で必要なロジックは features/room に置く。
   自 feature 内は相対 import（"./xxx"）を使う。
   denylist（room・room-lifecycle・auth のみ拒否）だと将来の未登録 feature
-  への依存が素通りするため、許可済み 7 feature 以外を拒否する allowlist で書く。
+  への依存が素通りするため、許可済み 8 feature 以外を拒否する allowlist で書く。
 rule:
   any:
     - kind: import_statement
@@ -93,20 +93,20 @@ rule:
     all:
       - regex: "[.@]/features/"
       - not:
-          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support)[\"'/]"
+          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback)[\"'/]"
 ---
 id: room-feature-allowed-edges-tsx
 language: tsx
 severity: error
 files:
   - features/room/**
-message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support のみ
+message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support・feedback のみ
 note: |
   room → room-lifecycle を許すと、room-lifecycle が room の状態（reducer 等）を
   使った時点で循環する。ルーム内で必要なロジックは features/room に置く。
   自 feature 内は相対 import（"./xxx"）を使う。
   denylist（room・room-lifecycle・auth のみ拒否）だと将来の未登録 feature
-  への依存が素通りするため、許可済み 7 feature 以外を拒否する allowlist で書く。
+  への依存が素通りするため、許可済み 8 feature 以外を拒否する allowlist で書く。
 rule:
   any:
     - kind: import_statement
@@ -116,7 +116,7 @@ rule:
     all:
       - regex: "[.@]/features/"
       - not:
-          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support)[\"'/]"
+          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback)[\"'/]"
 ---
 # notes が依存してよいのは dot-vote / room-members のみ。
 # room への依存は禁止（room → notes のエッジと循環する）。

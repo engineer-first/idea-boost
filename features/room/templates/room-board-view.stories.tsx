@@ -7,6 +7,7 @@ import {
   buildMembers,
   buildNotes,
 } from "@/contracts/room-protocol.fixture";
+import { useFeedback } from "@/features/feedback";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView } from "./room-board-view";
@@ -671,5 +672,15 @@ export const IdeaMapInteraction: Story = {
       x: [1, 50, 99][index],
       y: [99, 50, 1][index],
     })),
+  },
+};
+
+export const WithFeedback: Story = {
+  render: function Render(args) {
+    const feedback = useFeedback(
+      "board-feedback-story",
+      async (_room, input) => ({ ok: true, id: input.id }),
+    );
+    return <RoomBoardView {...args} feedback={feedback} />;
   },
 };

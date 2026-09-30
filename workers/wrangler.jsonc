@@ -4,6 +4,7 @@
   // テスト (vitest-pool-workers)・ローカル開発 (npm run dev:api)・デプロイの
   // すべてでこの構成を使う。
   "name": "idea-flow-api",
+  "triggers": { "crons": ["0 * * * *"] },
   "main": "api-worker.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],

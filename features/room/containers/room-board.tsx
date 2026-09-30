@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
+import { submitFeedback, useFeedback } from "@/features/feedback";
 import {
   NoteDraftRecovery,
   useNoteAutosave,
@@ -62,6 +63,7 @@ export function RoomBoard({
   signOutAction,
   webSocketFactory,
 }: RoomBoardProps) {
+  const feedback = useFeedback(roomId, submitFeedback);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
@@ -339,6 +341,7 @@ export function RoomBoard({
         onConfirm={handleForceNextPhase}
       />
       <RoomBoardView
+        feedback={feedback}
         notes={boardNotes}
         groups={noteGroups.groups}
         hmwDecidedIssue={hmwDecidedIssue}

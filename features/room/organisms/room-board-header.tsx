@@ -37,6 +37,7 @@ import { RoomTimer } from "./room-timer";
 
 export type RoomBoardHeaderProps = {
   children?: ReactNode;
+  onOpenFeedback?: () => void;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
   inviteCode: string;
@@ -83,6 +84,7 @@ export type RoomBoardHeaderProps = {
 
 export function RoomBoardHeader({
   children,
+  onOpenFeedback,
   hmwDecidedIssue,
   decidedHmw,
   inviteCode,
@@ -204,6 +206,7 @@ export function RoomBoardHeader({
         >
           <div className="w-full min-w-0 shrink-0">
             <BoardContext
+              onOpenFeedback={onOpenFeedback}
               phase={phase}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}

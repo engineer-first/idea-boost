@@ -1,5 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useRef } from "react";
 import { fn } from "storybook/test";
+import {
+  FeedbackPanel,
+  FeedbackPrompt,
+  useFeedback,
+} from "@/features/feedback";
 import { RoomOutcomeView } from "./room-outcome-view";
 
 const meta = {
@@ -45,4 +51,32 @@ export const Disconnected: Story = { args: { connected: false } };
 export const MissingDecision: Story = { args: { outcome: null } };
 export const Revisit: Story = {
   args: { authorized: true, connected: false, onBackToBoard: undefined },
+};
+
+export const WithFeedback: Story = {
+  render: function Render(args) {
+    const feedbackButtonRef = useRef<HTMLButtonElement>(null);
+    const feedback = useFeedback("outcome-story", async (_room, input) => ({
+      ok: true,
+      id: input.id,
+    }));
+    return (
+      <>
+        <RoomOutcomeView
+          {...args}
+          onOpenFeedback={() => feedback.open("app")}
+          feedbackButtonRef={feedbackButtonRef}
+          onExportSuccess={feedback.schedulePrompt}
+          onExportFailure={feedback.cancelPrompt}
+          feedbackPrompt={
+            <FeedbackPrompt
+              feedback={feedback}
+              returnFocusRef={feedbackButtonRef}
+            />
+          }
+        />
+        <FeedbackPanel feedback={feedback} />
+      </>
+    );
+  },
 };

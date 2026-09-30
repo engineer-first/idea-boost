@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, type Ref, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { RoomOutcome } from "../logic/outcome-text";
@@ -13,6 +13,11 @@ export type RoomOutcomeViewProps = {
   authorized?: boolean;
   children?: ReactNode;
   onBackToBoard?: () => void;
+  onOpenFeedback?: () => void;
+  feedbackButtonRef?: Ref<HTMLButtonElement>;
+  onExportSuccess?: () => void;
+  onExportFailure?: () => void;
+  feedbackPrompt?: ReactNode;
 };
 
 const CARDS = [
@@ -27,41 +32,92 @@ export function RoomOutcomeView({
   authorized,
   children,
   onBackToBoard,
+  onOpenFeedback,
+  feedbackButtonRef,
+  onExportSuccess,
+  onExportFailure,
+  feedbackPrompt,
 }: RoomOutcomeViewProps) {
   const [copyFailed, setCopyFailed] = useState(false);
   const [copySucceeded, setCopySucceeded] = useState(false);
+  const [downloadStarted, setDownloadStarted] = useState(false);
+  const [copyPending, setCopyPending] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const active = useRef(true);
+  const exportGeneration = useRef(0);
   const available = authorized ?? connected;
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      onExportFailure?.();
+    };
+  }, [onExportFailure]);
+  useEffect(() => {
+    if (!available || !outcome) {
+      exportGeneration.current++;
+      onExportFailure?.();
+    }
+  }, [available, outcome, onExportFailure]);
   const canExport = available && outcome !== null;
   const outputText = outcome ? formatOutcomeText(outcome, new Date()) : "";
 
   function saveText() {
     if (!canExport) return;
-    const now = new Date();
-    const blob = new Blob([`\uFEFF${formatOutcomeText(outcome, now)}`], {
-      type: "text/plain;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
+    setCopySucceeded(false);
+    setCopyFailed(false);
+    let url: string | undefined;
     const anchor = document.createElement("a");
-    anchor.href = url;
-    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    anchor.download = `idea-boost-outcome-${localDate}.txt`;
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+    try {
+      const now = new Date();
+      const blob = new Blob([`\uFEFF${formatOutcomeText(outcome, now)}`], {
+        type: "text/plain;charset=utf-8",
+      });
+      url = URL.createObjectURL(blob);
+      anchor.href = url;
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      anchor.download = `idea-boost-outcome-${localDate}.txt`;
+      document.body.append(anchor);
+      anchor.click();
+      setDownloadStarted(true);
+      setSaveFailed(false);
+      setCopySucceeded(false);
+      setCopyFailed(false);
+      onExportSuccess?.();
+    } catch {
+      setDownloadStarted(false);
+      setSaveFailed(true);
+      onExportFailure?.();
+    } finally {
+      anchor.remove();
+      if (url) {
+        const objectUrl = url;
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+      }
+    }
   }
 
   async function copyText() {
-    if (!canExport) return;
+    if (!canExport || copyPending) return;
+    const generation = exportGeneration.current;
+    setCopyPending(true);
+    setSaveFailed(false);
+    setDownloadStarted(false);
     try {
       await navigator.clipboard.writeText(
         formatOutcomeText(outcome, new Date()),
       );
+      if (!active.current || generation !== exportGeneration.current) return;
       setCopySucceeded(true);
       setCopyFailed(false);
+      onExportSuccess?.();
     } catch {
+      if (!active.current || generation !== exportGeneration.current) return;
+      onExportFailure?.();
       setCopySucceeded(false);
       setCopyFailed(true);
+    } finally {
+      if (active.current) setCopyPending(false);
     }
   }
 
@@ -125,6 +181,7 @@ export function RoomOutcomeView({
               type="button"
               variant="outline"
               onClick={() => void copyText()}
+              disabled={copyPending}
             >
               全文をコピー
             </Button>
@@ -135,9 +192,30 @@ export function RoomOutcomeView({
             保存したファイルを開いて内容を確認してください。コピーしたらメモに貼り付けて保存してください。
           </p>
         ) : null}
+        {onOpenFeedback ? (
+          <Button
+            ref={feedbackButtonRef}
+            type="button"
+            variant="link"
+            className="mt-3"
+            onClick={onOpenFeedback}
+          >
+            感想を送る
+          </Button>
+        ) : null}
+        {downloadStarted && canExport ? (
+          <p role="status" className="mt-3 text-sm">
+            ダウンロードを開始しました。保存したファイルを確認してください。
+          </p>
+        ) : null}
         {copySucceeded && canExport ? (
           <p role="status" className="mt-3 text-sm">
             コピーしました。メモに貼り付けて保存してください。
+          </p>
+        ) : null}
+        {saveFailed && canExport ? (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            保存を開始できませんでした。もう一度試すか、全文をコピーしてください。
           </p>
         ) : null}
         {copyFailed && canExport ? (
@@ -154,6 +232,7 @@ export function RoomOutcomeView({
             />
           </div>
         ) : null}
+        {feedbackPrompt}
         {children}
         <section className="mt-10 rounded-xl border border-border bg-card p-5 sm:p-6">
           <h2 className="text-lg font-bold">次に試すこと</h2>
