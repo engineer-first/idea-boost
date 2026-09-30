@@ -9,8 +9,10 @@ import { formatOutcomeText } from "../logic/outcome-text";
 
 export type RoomOutcomeViewProps = {
   outcome: RoomOutcome | null;
-  connected: boolean;
-  onBackToBoard: () => void;
+  connected?: boolean;
+  authorized?: boolean;
+  children?: ReactNode;
+  onBackToBoard?: () => void;
   onOpenFeedback?: () => void;
   feedbackButtonRef?: Ref<HTMLButtonElement>;
   onExportSuccess?: () => void;
@@ -26,7 +28,9 @@ const CARDS = [
 
 export function RoomOutcomeView({
   outcome,
-  connected,
+  connected = false,
+  authorized,
+  children,
   onBackToBoard,
   onOpenFeedback,
   feedbackButtonRef,
@@ -41,6 +45,7 @@ export function RoomOutcomeView({
   const [saveFailed, setSaveFailed] = useState(false);
   const active = useRef(true);
   const exportGeneration = useRef(0);
+  const available = authorized ?? connected;
   useEffect(() => {
     active.current = true;
     return () => {
@@ -49,12 +54,12 @@ export function RoomOutcomeView({
     };
   }, [onExportFailure]);
   useEffect(() => {
-    if (!connected || !outcome) {
+    if (!available || !outcome) {
       exportGeneration.current++;
       onExportFailure?.();
     }
-  }, [connected, outcome, onExportFailure]);
-  const canExport = connected && outcome !== null;
+  }, [available, outcome, onExportFailure]);
+  const canExport = available && outcome !== null;
   const outputText = outcome ? formatOutcomeText(outcome, new Date()) : "";
 
   function saveText() {
@@ -128,12 +133,12 @@ export function RoomOutcomeView({
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           決めた内容を持ち帰り、次の制作に使いましょう。
         </p>
-        {!connected || !outcome ? (
+        {!available || !outcome ? (
           <p
             role="alert"
             className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-sm leading-6"
           >
-            {!connected
+            {!available
               ? "接続が切れています。前回受信した内容は最新か確認できません。再接続してから成果を確認・保存してください。"
               : "決定内容をすべて確認できません。再接続してから成果を確認・保存してください。"}
           </p>
@@ -156,7 +161,7 @@ export function RoomOutcomeView({
                   {number}
                 </span>
                 {label}
-                {!connected ? (
+                {!available ? (
                   <span className="ml-auto text-xs font-medium">未確認</span>
                 ) : null}
               </h2>
@@ -168,10 +173,11 @@ export function RoomOutcomeView({
         </div>
         {canExport ? (
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button type="button" onClick={saveText}>
+            <Button className="min-h-11" type="button" onClick={saveText}>
               テキストを保存
             </Button>
             <Button
+              className="min-h-11"
               type="button"
               variant="outline"
               onClick={() => void copyText()}
@@ -227,6 +233,7 @@ export function RoomOutcomeView({
           </div>
         ) : null}
         {feedbackPrompt}
+        {children}
         <section className="mt-10 rounded-xl border border-border bg-card p-5 sm:p-6">
           <h2 className="text-lg font-bold">次に試すこと</h2>
           <p className="mt-2 text-sm leading-7">
@@ -235,18 +242,22 @@ export function RoomOutcomeView({
           </p>
         </section>
         <div className="mt-8 flex flex-wrap items-center gap-4 pb-8">
-          <Button type="button" variant="outline" onClick={onBackToBoard}>
-            ボードへ戻る
-          </Button>
+          {onBackToBoard && (
+            <Button type="button" variant="outline" onClick={onBackToBoard}>
+              ボードへ戻る
+            </Button>
+          )}
           <Link
-            href="/"
+            href="/home"
             className="inline-flex min-h-10 items-center rounded-md px-3 text-sm font-semibold underline-offset-4 hover:underline"
           >
             保存を確認してホームへ
           </Link>
         </div>
         <p className="pb-8 text-xs leading-5 text-muted-foreground">
-          ホームへ戻ってもルームは残ります。同じログイン状態なら招待URLから再び確認できます。
+          {authorized
+            ? "閲覧期限までは、ホームの「以前のルーム」から再び確認できます。"
+            : "完了したルームは、ホームの「以前のルーム」から完了後30日間見返せます。"}
         </p>
       </div>
     </main>

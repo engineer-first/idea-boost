@@ -39,3 +39,10 @@ describe("HomeView", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+it("以前のルームから本人の成果一覧へ移動できる", () => {
+  renderView();
+  expect(screen.getByRole("link", { name: /以前のルーム/ })).toHaveAttribute(
+    "href",
+    "/completed-rooms",
+  );
+});

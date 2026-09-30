@@ -36,12 +36,19 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
 // フェーズ概念の導入時に { phase, viewer, note作者, expected } の形へ拡張する。
 const OUTCOME_VIEWER = "00000000-0000-0000-0000-000000000000";
 
+// 本人向け再訪もNULL_VIEWERで捕捉した共有盤面のみを使用する。本人の未共有本文も含めない。
 const TABLE: Array<{
   name: string;
   viewerId: string;
   note: ProtocolNote;
   expected: boolean;
 }> = [
+  {
+    name: "完了時閲覧者も作者本人のprivate付箋を再訪記録で見られない",
+    viewerId: OUTCOME_VIEWER,
+    note: note({ visibility: "private", authorId: AUTHOR }),
+    expected: false,
+  },
   {
     name: "意見の閲覧者にもprivate付箋を公開しない",
     viewerId: OUTCOME_VIEWER,

@@ -33,8 +33,9 @@ export type UseLeaveRoomResult = {
 export function useLeaveRoom(options: {
   roomId: string;
   isHost: boolean;
+  completed?: boolean;
 }): UseLeaveRoomResult {
-  const { roomId, isHost } = options;
+  const { roomId, isHost, completed = false } = options;
   const [isLeaving, setIsLeaving] = useState(false);
   const [isLeavePending, startLeaveTransition] = useTransition();
   const isLeavingRef = useRef(false);
@@ -46,12 +47,13 @@ export function useLeaveRoom(options: {
     startLeaveTransition(async () => {
       const formData = new FormData();
       formData.append("roomId", roomId);
+      if (completed) formData.append("intent", "self");
       try {
         await leaveRoom(formData);
       } catch (error) {
         if (isNextRedirectError(error)) {
           // 自分の操作成功をトーストで伝える（ホーム遷移後も Toaster は root にある）。
-          if (isHost) {
+          if (isHost && !completed) {
             roomNotify.roomDisbandedBySelf();
           } else {
             roomNotify.roomLeft();
@@ -68,7 +70,7 @@ export function useLeaveRoom(options: {
         notify.error(message);
       }
     });
-  }, [isLeavePending, roomId, isHost]);
+  }, [isLeavePending, roomId, isHost, completed]);
 
   return { isLeaving, isLeavingRef, leave };
 }

@@ -25,7 +25,7 @@ export function findMember(
 
 export type UpsertMemberResult =
   | { ok: true }
-  | { ok: false; reason: "room-full" };
+  | { ok: false; reason: "room-full" | "room-closed" };
 
 // 参加処理。name は表示用（メンバー一覧で使う）。
 // 冪等: 既存メンバーなら name だけを最新に同期して終わる。

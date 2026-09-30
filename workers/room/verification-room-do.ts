@@ -116,7 +116,11 @@ export class VerificationRoomDO extends RoomDO {
     }
     if (scenario === "failure")
       await this.ctx.storage.put("verification-outcome-failure", true);
-    if (scenario === "completed" || scenario === "failure") {
+    if (
+      scenario === "completed" ||
+      scenario === "failure" ||
+      scenario === "expired"
+    ) {
       setDecision(
         this.ctx.storage.sql,
         3,
@@ -124,10 +128,15 @@ export class VerificationRoomDO extends RoomDO {
         DEV_USERS[0].id,
         VERIFICATION_NOTES[3][0],
       );
-      await this.preserveSharedOutcome(true);
+      await this.preserveSharedOutcome(true, Date.now(), true);
       await this.flushSharedOutcome();
     }
     if (scenario === "expired") {
+      this.ctx.storage.sql.exec(
+        "UPDATE completed_room SET expires_at=?,retry_at=? WHERE id=1",
+        Date.now() - 86400000,
+        Date.now(),
+      );
       this.ctx.storage.sql.exec(
         "UPDATE shared_outcome_state SET last_used_at = ?, expires_at = ?, retry_at = ? WHERE id = 1",
         Date.now() - 31 * 86400000,
@@ -147,6 +156,9 @@ export class VerificationRoomDO extends RoomDO {
     await this.flushSharedOutcome();
     this.ctx.storage.sql.exec(
       "UPDATE shared_outcome_state SET expires_at = 0, retry_at = 0 WHERE id = 1",
+    );
+    this.ctx.storage.sql.exec(
+      "UPDATE completed_room SET expires_at=0,retry_at=0 WHERE id=1",
     );
     await this.flushSharedOutcome();
   }

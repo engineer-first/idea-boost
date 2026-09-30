@@ -429,6 +429,7 @@ it("成果ケースは実保存を通り、失敗から同じ完了記録をア�
     true,
   );
   const failed = await outcome("failure");
+  expect(await failed.stub.getCompletedRoom(DEV_USERS[0].id)).not.toBeNull();
   const failedRecord = await failed.stub.getSharedOutcome();
   expect(failedRecord?.saveStatus).toBe("failed");
   expect(failedRecord?.lastSavedAt).not.toBeNull();

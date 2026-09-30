@@ -250,6 +250,17 @@ it("完了保全の失敗は成功通知せず、投影だけの失敗では参�
       owner.sub,
     );
   });
+  await runInRoomDO(room.roomId, (_instance, state) => {
+    for (const phase of [1, 2])
+      state.storage.sql.exec(
+        "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,?)",
+        phase,
+        crypto.randomUUID(),
+        `決定${phase}`,
+        owner.sub,
+        new Date().toISOString(),
+      );
+  });
   const hostSocket = await connectRoomAs(owner, room.roomId);
   const memberSocket = await connectRoomAs(member, room.roomId);
   await hostSocket.next();
@@ -293,7 +304,11 @@ it("完了保全の失敗は成功通知せず、投影だけの失敗では参�
     const pending = state.storage.sql
       .exec("SELECT pending_json FROM shared_outcome_state")
       .one().pending_json as string;
-    expect(JSON.parse(pending).decisions[0].content).toBe("持ち帰る確定案");
+    expect(
+      JSON.parse(pending).decisions.find(
+        (d: { phase: number }) => d.phase === 3,
+      ).content,
+    ).toBe("持ち帰る確定案");
   });
   hostSocket.close();
   memberSocket.close();
@@ -330,7 +345,7 @@ it("共有操作のない個人入力や成果閲覧は保持期限を延ばさ�
   socket.close();
 });
 
-it("投影中に期限を跨いでも本文を削除するアラームを残し、削除後は再予約しない", async () => {
+it("投影中に期限を跨いだ本文も直ちに削除し、削除後は再予約しない", async () => {
   const room = await createRoomAs(owner);
   await runInRoomDO(room.roomId, async (instance, state) => {
     const subject = instance as unknown as {
@@ -351,8 +366,8 @@ it("投影中に期限を跨いでも本文を削除するアラームを残し�
       state.storage.sql
         .exec("SELECT saved_json FROM shared_outcome_state")
         .one().saved_json,
-    ).not.toBeNull();
-    expect(await state.storage.getAlarm()).not.toBeNull();
+    ).toBeNull();
+    expect(await state.storage.getAlarm()).toBeNull();
     await instance.alarm();
     expect(
       state.storage.sql

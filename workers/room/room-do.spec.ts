@@ -3219,7 +3219,7 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
-  it("成果公開は採用決定後のホストだけが行い、全員と再接続へ反映する", async () => {
+  it("成果公開は採用決定後のホストだけが行い、全員へ反映し再訪は読取APIへ切り替える", async () => {
     const roomName = "room-publish-outcome-after-decision";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host", { roomId: roomName });
@@ -3231,6 +3231,17 @@ describe("RoomDO phase:next", () => {
          VALUES (3, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '採用案', ?1, '2026-09-26T00:00:00Z')`,
         USER_A,
       );
+    });
+    await runInRoomDO(roomName, (_instance, state) => {
+      for (const phase of [1, 2])
+        state.storage.sql.exec(
+          "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,?)",
+          phase,
+          crypto.randomUUID(),
+          `決定${phase}`,
+          USER_A,
+          new Date().toISOString(),
+        );
     });
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
@@ -3252,16 +3263,19 @@ describe("RoomDO phase:next", () => {
       type: "outcome:published",
       published: true,
     });
-    const reconnected = await connectDirectlyWithFirstMessage(
-      roomName,
-      USER_B,
-      USER_A,
-    );
-    expect(reconnected.firstMessage).toMatchObject({
-      type: "snapshot",
-      outcomePublished: true,
+    expect(await stub.getCompletedRoom(USER_B)).toMatchObject({
+      decisions: expect.arrayContaining([
+        expect.objectContaining({ content: "採用案" }),
+      ]),
     });
-    reconnected.ws.close();
+    const reconnected = await stub.fetch("https://room.test/ws", {
+      headers: {
+        Upgrade: "websocket",
+        [USER_ID_HEADER]: USER_B,
+        [HOST_ID_HEADER]: USER_A,
+      },
+    });
+    expect(reconnected.status).toBe(404);
     host.close();
     member.close();
   });

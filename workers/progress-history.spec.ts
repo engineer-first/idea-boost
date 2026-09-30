@@ -244,6 +244,15 @@ it("完了は一度だけ既存成果を参照し、盤面・outbox本文を二�
   const room = await createRoomAs(owner);
   await runInRoomDO(room.roomId, async (instance, state) => {
     await instance.setPhase({ kind: "step", phase: 3, step: 5 }, owner.sub);
+    for (const phase of [1, 2])
+      state.storage.sql.exec(
+        "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,?)",
+        phase,
+        crypto.randomUUID(),
+        `決定${phase}`,
+        owner.sub,
+        new Date().toISOString(),
+      );
     const id = seed(state, 3);
     state.storage.sql.exec(
       "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(3,?,?,?,'2026-09-27')",

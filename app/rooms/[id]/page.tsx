@@ -42,6 +42,21 @@ export default async function RoomPage({
     redirect(`/login?next=${encodeURIComponent(`/rooms/${id}${suffix}`)}`);
   }
 
+  // 完了時の閲覧権は退出後も残るため、現在の在籍より先に確認する。
+  let completed: Response;
+  try {
+    completed = await apiFetch(`/api/completed-rooms/${id}`, {
+      cache: "no-store",
+    });
+  } catch {
+    redirect(`/completed-rooms/${id}`);
+  }
+  if (completed.ok) redirect(`/completed-rooms/${id}`);
+  if (completed.status !== 404) {
+    // 一時障害も再訪ページの再取得へ。作業用の本文や招待情報へfallbackしない。
+    redirect(`/completed-rooms/${id}`);
+  }
+
   // メンバーシップは api-worker（の先の RoomDO）が判定する。
   // 非メンバー・存在しないルームはどちらも 404 で返るため、そのまま notFound() へ。
   const res = await apiFetch(`/api/rooms/${id}`);

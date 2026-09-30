@@ -22,6 +22,7 @@ const EXPAND_IDEA_MAP_SIZE_LEVEL_MIGRATION_ID = "20260921140000";
 const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 
 const ALL_TABLES = [
+  "completed_room",
   "decisions",
   "groups",
   "member_color_assignments",

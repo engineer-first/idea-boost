@@ -44,6 +44,22 @@ export async function syncRoomAlarm(
   )
     deadlines.push(Date.now() + 1);
 
+  const completion = sql
+    .exec("SELECT expires_at,retry_at,deleted FROM completed_room WHERE id=1")
+    .toArray()[0];
+  if (completion && completion.deleted === 0) {
+    if (typeof completion.retry_at === "number")
+      deadlines.push(completion.retry_at);
+    if (typeof completion.expires_at === "number")
+      deadlines.push(
+        completion.expires_at > Date.now()
+          ? completion.expires_at
+          : typeof completion.retry_at === "number"
+            ? completion.retry_at
+            : Date.now() + 1,
+      );
+  }
+
   const pending = sql
     .exec("SELECT deadline_at FROM pending_phase_transition WHERE id = 1")
     .toArray()[0];
@@ -58,5 +74,5 @@ export async function syncRoomAlarm(
   if (timer?.status === "running" && typeof timer.ends_at === "number")
     deadlines.push(timer.ends_at);
   if (deadlines.length === 0) await storage.deleteAlarm();
-  else await storage.setAlarm(Math.min(...deadlines));
+  else await storage.setAlarm(Math.max(1, Math.min(...deadlines)));
 }

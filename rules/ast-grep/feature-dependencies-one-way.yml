@@ -303,6 +303,7 @@ ignores:
   - "features/hmw/**"
   - "features/idea-support/**"
   - "features/shared-outcomes/**"
+  - "features/completed-rooms/**"
 message: 未登録の feature は feature を import できない。先に feature-dependencies-one-way.yml に登録する
 note: |
   新 feature の依存はまずこのファイルに明示する（葉なら leaf 規則の files に
@@ -332,6 +333,7 @@ ignores:
   - "features/hmw/**"
   - "features/idea-support/**"
   - "features/shared-outcomes/**"
+  - "features/completed-rooms/**"
 message: 未登録の feature は feature を import できない。先に feature-dependencies-one-way.yml に登録する
 note: |
   新 feature の依存はまずこのファイルに明示する（葉なら leaf 規則の files に
@@ -382,3 +384,43 @@ rule:
         has:
           field: source
           regex: '^"@/features/room-members"$'
+
+---
+# completed-rooms → room（成果出力）/ room-members（付箋色）。逆方向は許可しない。
+id: completed-rooms-feature-allowed-edges
+language: typescript
+severity: error
+files:
+  - features/completed-rooms/**
+message: completed-rooms は room と room-members の公開境界だけを共有する
+rule:
+  all:
+    - any:
+        - kind: import_statement
+        - kind: export_statement
+    - has:
+        field: source
+        regex: "[.@]/+features/+"
+    - not:
+        has:
+          field: source
+          regex: '^"@/features/(room|room-members)"$'
+---
+id: completed-rooms-feature-allowed-edges-tsx
+language: tsx
+severity: error
+files:
+  - features/completed-rooms/**
+message: completed-rooms は room と room-members の公開境界だけを共有する
+rule:
+  all:
+    - any:
+        - kind: import_statement
+        - kind: export_statement
+    - has:
+        field: source
+        regex: "[.@]/+features/+"
+    - not:
+        has:
+          field: source
+          regex: '^"@/features/(room|room-members)"$'

@@ -63,12 +63,18 @@ export class SharedOutcomeStorage {
   async preserveSharedOutcome(
     confirmed = false,
     now = Date.now(),
+    onConfirmed?: (snapshot: SharedOutcomeSnapshot, now: number) => void,
   ): Promise<void> {
     const row = readOutcomeState(this.sql);
     if (confirmed && (!row || row.disbanded))
       throw new Error("成果保全が初期化されていません。");
-    if (!row || row.disbanded || (confirmed && row.confirmed)) return;
-    const snapshot = row.confirmed ? null : captureSharedOutcome(this.sql, now);
+    if (!row || row.disbanded || (row.confirmed && !onConfirmed)) return;
+    const snapshot = row.confirmed
+      ? (JSON.parse(
+          row.pending_json ?? row.saved_json ?? "null",
+        ) as SharedOutcomeSnapshot | null)
+      : captureSharedOutcome(this.sql, now);
+    if (confirmed && !snapshot) throw new Error("完了内容がありません。");
     this.ctx.storage.transactionSync(() => {
       if (confirmed) {
         recordProgressTransition(
@@ -79,6 +85,7 @@ export class SharedOutcomeStorage {
           now,
         );
         this.sql.exec("UPDATE room_state SET outcome_published=1 WHERE id=1");
+        if (snapshot) onConfirmed?.(snapshot, now);
       }
       this.sql.exec(
         "UPDATE shared_outcome_state SET last_used_at = ?, expires_at = ? WHERE id = 1",
@@ -105,7 +112,7 @@ export class SharedOutcomeStorage {
   // タイマー・共有の進行は利用日時だけを進める。既存の保全盤面や成功時刻は変更しない。
   async recordSharedActivity(now = Date.now()): Promise<void> {
     const row = readOutcomeState(this.sql);
-    if (!row || row.disbanded) return;
+    if (!row || row.disbanded || row.confirmed) return;
     this.sql.exec(
       "UPDATE shared_outcome_state SET last_used_at = ?, expires_at = ?, retry_at = COALESCE(retry_at, ?) WHERE id = 1",
       now,
@@ -116,25 +123,11 @@ export class SharedOutcomeStorage {
   }
 
   private async finishSharedActivity(
-    roomId: string,
-    now: number,
+    _roomId: string,
+    _now: number,
   ): Promise<void> {
     // sync() は DO のローカル永続化だけを待つ。外部保存の成功を完了条件にしない。
     await this.ctx.storage.sync();
-    // 一覧の順序索引は本文投影とは分けて更新する。通常の完了はこの I/O を待たない。
-    this.ctx.waitUntil(
-      this.db
-        .prepare(
-          "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?) ON CONFLICT(room_id) DO UPDATE SET last_used_at = MAX(last_used_at,excluded.last_used_at), expires_at = MAX(expires_at,excluded.expires_at)",
-        )
-        .bind(roomId, now, now + SHARED_OUTCOME_RETENTION_MS)
-        .run()
-        .catch(() => {
-          console.error("shared-outcome-index-update-failed", {
-            roomId: roomId,
-          });
-        }),
-    );
     await syncRoomAlarm(this.ctx.storage, this.sql);
   }
 
@@ -203,6 +196,18 @@ export class SharedOutcomeStorage {
           ? (JSON.parse(row.pending_json) as SharedOutcomeSnapshot)
           : null,
       );
+      const latest = readOutcomeState(this.sql);
+      if (!latest || latest.expires_at <= Date.now()) {
+        await this.db
+          .prepare("DELETE FROM shared_outcomes WHERE room_id=?")
+          .bind(row.room_id)
+          .run();
+        this.sql.exec(
+          "UPDATE shared_outcome_state SET saved_json=NULL,pending_json=NULL,last_saved_at=NULL,retry_at=NULL WHERE id=1",
+        );
+        await syncRoomAlarm(this.ctx.storage, this.sql);
+        return;
+      }
       // 外部 I/O 中に新しい保全が入っても、送信した版だけを成功にする。
       this.sql.exec(
         `UPDATE shared_outcome_state SET

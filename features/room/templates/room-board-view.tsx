@@ -724,7 +724,6 @@ export function RoomBoardView({
           }
           outcome={outcome}
           connected={!isDisconnected}
-          onBackToBoard={() => setOutcomeDismissed(true)}
         />
         {feedback ? <FeedbackPanel feedback={feedback} /> : null}
       </>
@@ -967,7 +966,7 @@ export function RoomBoardView({
           onOpenChange={setLeaveDialogOpen}
           onConfirm={onLeave}
           isLeaving={isLeaving}
-          mode={isHost ? "disband" : "leave"}
+          mode={isHost && !outcomePublished ? "disband" : "leave"}
           completed={outcomePublished}
           onReturnToOutcome={() => setOutcomeDismissed(false)}
         />
