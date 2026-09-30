@@ -62,6 +62,35 @@ describe("CopyInviteButton", () => {
     );
   });
 
+  it("コピー拒否時は理由を知らせ、全文を選択して手動コピーでき、再試行できる", async () => {
+    const writeText = stubClipboard(() => Promise.reject(new Error("denied")));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const value = "https://idea-flow.example/invite/ABC234";
+    render(<CopyInviteButton value={value} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "招待URLをコピー" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "コピーできませんでした",
+    );
+    const manual = screen.getByRole("textbox", {
+      name: "招待URL（手動コピー）",
+    });
+    expect(manual).toHaveValue(value);
+    expect(manual).toHaveFocus();
+    expect((manual as HTMLInputElement).selectionStart).toBe(0);
+    expect((manual as HTMLInputElement).selectionEnd).toBe(value.length);
+    expect(
+      screen.queryByRole("button", { name: "コピーしました" }),
+    ).not.toBeInTheDocument();
+
+    writeText.mockResolvedValueOnce();
+    fireEvent.click(screen.getByRole("button", { name: "招待URLをコピー" }));
+    await screen.findByRole("button", { name: "コピーしました" });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
   it("コピー失敗時はラベルを変えない（成功表示を出さない）", async () => {
     stubClipboard(() => Promise.reject(new Error("denied")));
     render(

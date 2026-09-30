@@ -91,11 +91,16 @@ export async function createRoom(name?: string): Promise<CreateRoomResult> {
   const input = CreateRoomInputSchema.safeParse({ name });
   if (!input.success)
     return { ok: false, error: "ルーム名は80文字以内で入力してください。" };
-  const res = await apiFetch("/api/rooms", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input.data),
-  });
+  let res: Response;
+  try {
+    res = await apiFetch("/api/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input.data),
+    });
+  } catch {
+    return { ok: false, error: "ルームを作成できませんでした。" };
+  }
   // 2xx でもボディが不正 JSON（プロキシの HTML エラーページ等）のことがある。
   const parsed = res.ok
     ? CreateRoomResponseSchema.safeParse(await res.json().catch(() => null))
@@ -149,7 +154,14 @@ export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {
     return { ok: false, error: "ルームが見つかりませんでした。" };
   }
   if (res.status === 409) {
-    return { ok: false, error: "このルームは20人までです。" };
+    const body: unknown = await res.json().catch(() => null);
+    const closed = z
+      .object({ error: z.literal("終了したルームには参加できません。") })
+      .safeParse(body);
+    return {
+      ok: false,
+      error: closed.success ? closed.data.error : "このルームは20人までです。",
+    };
   }
   if (!res.ok) {
     return {

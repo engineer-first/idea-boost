@@ -109,6 +109,14 @@ describe("createRoom", () => {
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
 
+  it("作成の通信失敗は再試行できるエラーとして返す", async () => {
+    apiFetchMock.mockRejectedValueOnce(new Error("network down"));
+    await expect(createRoom("相談ルーム")).resolves.toEqual({
+      ok: false,
+      error: "ルームを作成できませんでした。",
+    });
+  });
+
   it("API が非 2xx なら ok: false を返す", async () => {
     apiFetchMock.mockResolvedValue(new Response("error", { status: 500 }));
 
@@ -201,6 +209,19 @@ describe("joinRoom", () => {
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: false,
       error: "ルームが見つかりませんでした。",
+    });
+  });
+
+  it("参加確認後に終了したルームを人数上限と誤案内しない", async () => {
+    apiFetchMock.mockResolvedValue(
+      Response.json(
+        { error: "終了したルームには参加できません。" },
+        { status: 409 },
+      ),
+    );
+    await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
+      ok: false,
+      error: "終了したルームには参加できません。",
     });
   });
 

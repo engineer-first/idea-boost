@@ -2,10 +2,10 @@
 
 // ルーム内メンバー一覧の表示用コンポーネント。
 // MemberAvatar + 名前を 横 4 × 縦 3（最大 12 人）のグリッドで表示する。
-// 自分は ring で識別（「（あなた）」文言は付けない）。ホストは名前下にラベル。
+// 自分は ring と「あなた」で識別。ホストは名前下にラベル。
 // 13 人以上は先頭 12 人 + +N（クリックで隠れメンバー Dialog）。
 // データ層に一切依存せず、members / currentUserId / hostUserId を props で受け取るだけ。
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,7 @@ export function RoomMembers({
   completedVoterIds = [],
 }: RoomMembersProps) {
   const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowButtonRef = useRef<HTMLButtonElement>(null);
   // 超過があるときは最終マスを +N に使う（4×3 の枠を崩さない）。
   const hasOverflow = members.length > maxVisible;
   const visibleCount = hasOverflow ? maxVisible - 1 : members.length;
@@ -74,10 +75,10 @@ export function RoomMembers({
                 isMe={isMe}
                 isVotingComplete={completedVoterIds.includes(member.userId)}
               />
-              <span className="flex min-w-0 flex-col items-center">
+              <span className="flex w-full min-w-0 flex-col items-center">
                 <span
                   className={cn(
-                    "max-w-full truncate text-[11px] leading-tight",
+                    "max-w-full truncate text-xs leading-tight",
                     isMe
                       ? "font-semibold text-foreground"
                       : "text-foreground/80",
@@ -85,10 +86,15 @@ export function RoomMembers({
                 >
                   {member.name}
                 </span>
+                {isMe ? (
+                  <span className="text-xs leading-tight text-muted-foreground">
+                    あなた
+                  </span>
+                ) : null}
                 {isHostMember ? (
                   <span
                     data-testid={`member-host-label-${member.userId}`}
-                    className="text-[10px] font-medium leading-tight text-muted-foreground"
+                    className="text-xs font-medium leading-tight text-muted-foreground"
                   >
                     ホスト
                   </span>
@@ -99,6 +105,7 @@ export function RoomMembers({
         })}
         {hidden > 0 ? (
           <button
+            ref={overflowButtonRef}
             type="button"
             aria-label={`他 ${hidden} 名`}
             data-testid="room-members-overflow"
@@ -114,6 +121,10 @@ export function RoomMembers({
         <DialogContent
           className="max-w-sm"
           data-testid="room-members-overflow-dialog"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            overflowButtonRef.current?.focus();
+          }}
         >
           <DialogHeader>
             <DialogTitle>他のメンバー</DialogTitle>
@@ -134,9 +145,19 @@ export function RoomMembers({
                   isMe={member.userId === currentUserId}
                   isVotingComplete={completedVoterIds.includes(member.userId)}
                 />
-                <span className="truncate text-sm text-foreground">
-                  {member.name}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm text-foreground">
+                    {member.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {member.userId === currentUserId ? "あなた" : ""}
+                    {member.userId === currentUserId &&
+                    member.userId === hostUserId
+                      ? " · "
+                      : ""}
+                    {member.userId === hostUserId ? "ホスト" : ""}
+                  </p>
+                </div>
               </li>
             ))}
           </ul>

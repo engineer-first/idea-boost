@@ -74,3 +74,17 @@ export const AllStates: Story = {
     );
   },
 };
+
+const longNamedMembers = buildMembers(20, ME).map((member, index) => ({
+  ...member,
+  name: `長い表示名の参加者・チームメンバー${index + 1}`,
+}));
+
+export const OverflowIdentities: Story = {
+  name: "20人・長い名前・本人とホストは省略一覧",
+  args: {
+    members: longNamedMembers,
+    currentUserId: longNamedMembers[19]?.userId ?? ME,
+    hostUserId: longNamedMembers[18]?.userId ?? ME,
+  },
+};

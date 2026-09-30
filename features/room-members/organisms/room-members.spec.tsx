@@ -1,7 +1,7 @@
 // RoomMembers（Avatar + 名前・2 列グリッド）の単体テスト。
 // データ層に依存しないプレゼンテーション層として、自分判定・ホスト表示・
 // 省略表示・名前常時表示・a11y 属性を検証する。
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { buildMembers } from "@/contracts/room-protocol.fixture";
@@ -86,12 +86,16 @@ describe("RoomMembers", () => {
     expect(within(group).getByText("Taro Yamada")).toBeInTheDocument();
   });
 
-  it("自分メンバーに（あなた）文言は付かない（ring で識別）", () => {
+  it("本人だけに「あなた」を表示し、名前と対応付ける", () => {
     const members = buildMembers(2, ME);
     render(<RoomMembers members={members} currentUserId={ME} />);
     const meRow = screen.getByTestId(`member-row-${ME}`).textContent;
     expect(meRow).toContain("Yuki Tanaka");
-    expect(meRow).not.toContain("（あなた）");
+    expect(meRow).toContain("あなた");
+    const other = members.find((member) => member.userId !== ME);
+    expect(
+      screen.getByTestId(`member-row-${other?.userId}`),
+    ).not.toHaveTextContent("あなた");
   });
 
   it("hostUserId に一致するメンバーの名前下に「ホスト」が出る", () => {
@@ -148,6 +152,32 @@ describe("RoomMembers", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("省略された本人とホストも名前に対応する役割を確認できる", async () => {
+    const user = userEvent.setup();
+    const members = buildMembers(5, ME);
+    const me = members[4];
+    const host = members[3];
+    if (!me || !host) throw new Error("メンバーが不足しています");
+    render(
+      <RoomMembers
+        members={members}
+        currentUserId={me.userId}
+        hostUserId={host.userId}
+        maxVisible={3}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "他 3 名" }));
+    expect(
+      screen.getByTestId(`overflow-member-${me.userId}`),
+    ).toHaveTextContent("あなた");
+    expect(
+      screen.getByTestId(`overflow-member-${host.userId}`),
+    ).toHaveTextContent("ホスト");
+    expect(
+      screen.getByTestId(`overflow-member-${members[2]?.userId}`),
+    ).not.toHaveTextContent(/あなた|ホスト/);
+  });
+
   it("maxVisible を超えると最終マスが +N になり 1 枠分を使う", () => {
     // maxVisible=4 で 6 人 → 表示 3 + +3
     render(
@@ -186,6 +216,25 @@ describe("RoomMembers", () => {
     expect(within(dialog).queryByText("Yuki Tanaka")).not.toBeInTheDocument();
     // ホストラベルなどは出さない（アイコン + 名前のみ）
     expect(within(dialog).queryByText("ホスト")).not.toBeInTheDocument();
+  });
+
+  it("省略一覧をEscapeで閉じると一覧を開いたボタンへフォーカスが戻る", async () => {
+    const user = userEvent.setup();
+    render(
+      <RoomMembers
+        members={buildMembers(5, ME)}
+        currentUserId={ME}
+        maxVisible={3}
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: "他 3 名" });
+    await user.click(trigger);
+    await screen.findByRole("dialog");
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(trigger).toHaveFocus();
   });
 
   it("maxVisible と同数のときは +N バッジは出ない", () => {
