@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useRef } from "react";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import {
   FeedbackPanel,
   FeedbackPrompt,
@@ -51,6 +51,59 @@ export const Disconnected: Story = { args: { connected: false } };
 export const MissingDecision: Story = { args: { outcome: null } };
 export const Revisit: Story = {
   args: { authorized: true, connected: false, onBackToBoard: undefined },
+};
+
+export const AccessUnavailable: Story = {
+  args: { authorized: false, connected: false, onBackToBoard: undefined },
+};
+
+async function attemptCopy(
+  canvasElement: HTMLElement,
+  writeText: (text: string) => Promise<void>,
+): Promise<void> {
+  const descriptor = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  try {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "全文をコピー" }),
+    );
+  } finally {
+    if (descriptor) Object.defineProperty(navigator, "clipboard", descriptor);
+    else Reflect.deleteProperty(navigator, "clipboard");
+  }
+}
+
+export const CopyPending: Story = {
+  play: async ({ canvasElement }) => {
+    await attemptCopy(canvasElement, () => new Promise<void>(() => {}));
+  },
+};
+
+export const CopyRejected: Story = {
+  play: async ({ canvasElement }) => {
+    await attemptCopy(canvasElement, async () => {
+      throw new Error("Clipboard permission denied");
+    });
+  },
+};
+
+export const SaveFailed: Story = {
+  play: async ({ canvasElement }) => {
+    const createObjectURL = URL.createObjectURL;
+    URL.createObjectURL = () => {
+      throw new Error("Download unavailable");
+    };
+    try {
+      await userEvent.click(
+        within(canvasElement).getByRole("button", { name: "テキストを保存" }),
+      );
+    } finally {
+      URL.createObjectURL = createObjectURL;
+    }
+  },
 };
 
 export const WithFeedback: Story = {
