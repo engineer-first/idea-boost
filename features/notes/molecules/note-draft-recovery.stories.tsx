@@ -35,3 +35,20 @@ export const MultipleLongDrafts: Story = {
     ],
   },
 };
+
+// 390px の実ボードで通知が重なったマイ付箋トリガーの位置を再現する。
+export const BoardToolbarReachability: Story = {
+  args: Conflict.args,
+  render: (args) => (
+    <>
+      <button
+        type="button"
+        aria-label="マイ付箋を開く"
+        className="fixed right-[113px] bottom-[133px] h-7 w-7 rounded border"
+      >
+        ＋
+      </button>
+      <NoteDraftRecovery {...args} />
+    </>
+  ),
+};

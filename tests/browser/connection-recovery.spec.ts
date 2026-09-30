@@ -88,3 +88,19 @@ test("クリップボード拒否時は全文を選択して手動回収でき�
     ),
   ).toBe((await text.inputValue()).length);
 });
+
+test("390pxで復旧通知を閉じると通常の付箋操作に戻れる", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(
+    `${origin}/iframe.html?id=notes-notedraftrecovery--board-toolbar-reachability&viewMode=story`,
+  );
+  const ordinaryAction = page.getByRole("button", { name: "マイ付箋を開く" });
+  await ordinaryAction.click({ timeout: 3000 });
+  await page.getByRole("button", { name: "確認・コピー" }).click();
+  await page.getByRole("button", { name: "閉じる", exact: true }).click();
+  await ordinaryAction.click({ timeout: 3000 });
+  await page.getByRole("button", { name: "確認・コピー" }).click();
+  expect(await page.getByRole("textbox").inputValue()).toBe(
+    "消さずに残した文章です。",
+  );
+});

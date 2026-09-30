@@ -16,10 +16,13 @@ export function NoteDraftRecovery({
   return (
     <aside
       aria-label="未反映の文章"
-      className="pointer-events-auto fixed right-3 bottom-20 z-[60] w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border border-amber-300 bg-white p-3 text-slate-900 shadow-xl"
+      className={`pointer-events-auto fixed z-[60] rounded-lg border border-amber-300 bg-white text-slate-900 shadow-xl ${expanded ? "right-3 bottom-20 w-[min(20rem,calc(100vw-1.5rem))] p-3" : "left-3 bottom-36 w-fit p-2"}`}
     >
-      <p role="status" className="text-sm font-semibold">
-        反映できなかった文章があります
+      <p
+        role="status"
+        className={expanded ? "text-sm font-semibold" : "text-xs font-semibold"}
+      >
+        {expanded ? "反映できなかった文章があります" : "未反映の文章"}
       </p>
       <button
         type="button"
