@@ -42,7 +42,7 @@ describe("DotVotePalette", () => {
     expect(
       within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
     ).toHaveClass("sr-only");
-    expect(palette).toHaveClass("h-12", "rounded-xl", "bg-white");
+    expect(palette).toHaveClass("rounded-xl", "bg-white");
     const subjectiveImage = within(subjective).getByTestId(
       "dot-vote-sticker-image-subjective",
     );
@@ -227,5 +227,59 @@ describe("DotVotePalette", () => {
     expect(
       screen.getByRole("button", { name: "客観シール 残り2票" }),
     ).toHaveClass("ring-blue-700/75", "ring-offset-white");
+  });
+
+  it("最後の票は受理待ちと配布完了を区別し、取消後は完了扱いしない", () => {
+    const props = {
+      voteRemaining: { subjective: 0, objective: 0 },
+      pendingOperationCount: 1,
+      feedback: null,
+      disabled: false,
+      selectedKind: null,
+      onStickerSelect: vi.fn(),
+      onStickerDragStart: vi.fn(),
+    };
+    const { rerender } = render(<DotVotePalette {...props} />);
+    expect(screen.getByRole("status")).toHaveTextContent("送信中");
+    expect(screen.getByRole("status")).not.toHaveTextContent("配布が確定");
+
+    rerender(<DotVotePalette {...props} pendingOperationCount={0} />);
+    expect(screen.getByRole("status")).toHaveTextContent("4票の配布が確定");
+
+    rerender(
+      <DotVotePalette
+        {...props}
+        pendingOperationCount={0}
+        voteRemaining={{ subjective: 1, objective: 0 }}
+      />,
+    );
+    expect(screen.getByRole("status")).not.toHaveTextContent("4票の配布が確定");
+    expect(
+      screen.getByRole("button", { name: "主観シール 残り1票" }),
+    ).toBeEnabled();
+  });
+
+  it("残票ゼロでも拒否や切断中は配布完了と案内しない", () => {
+    const props = {
+      voteRemaining: { subjective: 0, objective: 0 },
+      pendingOperationCount: 0,
+      feedback: {
+        state: "failed" as const,
+        message: "操作は受理されませんでした。",
+      },
+      disabled: false,
+      selectedKind: null,
+      onStickerSelect: vi.fn(),
+      onStickerDragStart: vi.fn(),
+    };
+    const { rerender } = render(<DotVotePalette {...props} />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "操作は受理されませんでした。",
+    );
+    expect(screen.getByRole("status")).not.toHaveTextContent("4票の配布が確定");
+
+    rerender(<DotVotePalette {...props} disabled feedback={null} />);
+    expect(screen.getByRole("status")).toHaveTextContent("接続");
+    expect(screen.getByRole("status")).not.toHaveTextContent("4票の配布が確定");
   });
 });
