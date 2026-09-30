@@ -48,18 +48,16 @@ export function CopyInviteButton({
   }, [value]);
 
   return (
-    <div
-      className={cn(
-        "flex min-w-0 max-w-full flex-col items-center gap-2",
-        className,
-      )}
-    >
+    <div className="flex min-w-0 max-w-full flex-col items-stretch gap-2">
       <button
         type="button"
         onClick={handleCopy}
         aria-label={copied ? "コピーしました" : `${itemLabel}をコピー`}
         title={copied ? "コピーしました" : `クリックで${itemLabel}をコピー`}
-        className="min-h-11 max-w-full cursor-pointer truncate rounded-md px-2 text-center font-mono text-sm font-semibold tracking-wider text-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className={cn(
+          "min-h-11 max-w-full cursor-pointer truncate rounded-md px-2 text-center font-mono text-sm font-semibold tracking-wider text-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          className,
+        )}
       >
         {copied ? "コピーしました" : value}
       </button>
