@@ -6,8 +6,15 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { FeedbackInputSchema } from "@/contracts/feedback";
+import { submitFeedback } from "@/features/feedback";
 import { CompletedRoomDetail } from "./completed-room-detail";
 import { CompletedRooms } from "./completed-rooms";
+
+vi.mock("@/features/feedback", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/feedback")>()),
+  submitFeedback: vi.fn(),
+}));
 
 const roomId = "11111111-1111-4111-8111-111111111111";
 const kinds = [
@@ -258,6 +265,9 @@ describe("本人の完了ルーム", () => {
     await waitFor(() =>
       expect(screen.queryByText("採用の全文")).not.toBeInTheDocument(),
     );
+    expect(
+      screen.queryByRole("button", { name: "感想を送る" }),
+    ).not.toBeInTheDocument();
   });
 });
 it("正常な0件では再取得エラーを出さない", async () => {
@@ -321,4 +331,101 @@ it("場面の通信エラーを記録欠落と断定せず、再取得できる"
   expect(screen.queryByText(/記録機能の導入前/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "場面を再取得" }));
   await screen.findByText(/記録機能の導入前/);
+});
+
+describe("read-only成果から感想へ", () => {
+  it("在籍再訪の常設入口からapp対象・種類のみで送信して受付へ進む", async () => {
+    vi.mocked(submitFeedback).mockResolvedValue({
+      ok: true,
+      id: "019a01f4-aaaa-7aaa-8aaa-aaaaaaaaaaaa",
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(detail)));
+    render(<CompletedRoomDetail roomId={roomId} />);
+    await screen.findByText("採用の全文");
+    const entry = screen.getByRole("button", { name: "感想を送る" });
+    expect(screen.getByText(/感想は現在参加中のルームからのみ/)).toBeVisible();
+    entry.focus();
+    fireEvent.click(entry);
+    expect(screen.getByRole("dialog", { name: "意見を送る" })).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "対象" })).toHaveValue("app");
+    fireEvent.click(screen.getByRole("radio", { name: "よかった" }));
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+    await screen.findByText(/受付ID：019a01f4/);
+    expect(submitFeedback).toHaveBeenLastCalledWith(
+      roomId,
+      expect.objectContaining({
+        target: "app",
+        kind: "good",
+        body: "",
+        rating: null,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "受領画面を閉じる" }));
+    expect(entry).toHaveFocus();
+    expect(screen.getByText("採用の全文")).toBeVisible();
+  });
+
+  it("退出後404ではpendingを解除し入力を保持、受付を偽らず成果の出力を保つ", async () => {
+    let resolve!: (result: Awaited<ReturnType<typeof submitFeedback>>) => void;
+    vi.mocked(submitFeedback)
+      .mockReset()
+      .mockResolvedValue({
+        ok: false,
+        error: "参加中のルームを確認できません。退出・解散後は送信できません。",
+      })
+      .mockReturnValueOnce(
+        new Promise((done) => {
+          resolve = done;
+        }),
+      );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(detail)));
+    const copy = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText: copy } });
+    render(<CompletedRoomDetail roomId={roomId} />);
+    await screen.findByText("採用の全文");
+    fireEvent.click(screen.getByRole("button", { name: "感想を送る" }));
+    fireEvent.click(screen.getByRole("radio", { name: "よかった" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "文章（任意）" }), {
+      target: { value: "退出後の入力を残す" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+    expect(screen.getByRole("button", { name: "送信中…" })).toBeDisabled();
+    await act(async () =>
+      resolve({
+        ok: false,
+        error: "参加中のルームを確認できません。退出・解散後は送信できません。",
+      }),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "退出・解散後は送信できません",
+    );
+    expect(screen.getByRole("textbox", { name: "文章（任意）" })).toHaveValue(
+      "退出後の入力を残す",
+    );
+    expect(screen.getByRole("button", { name: "送信" })).toBeEnabled();
+    expect(screen.queryByText(/受付ID：/)).not.toBeInTheDocument();
+    const firstId = FeedbackInputSchema.parse(
+      vi.mocked(submitFeedback).mock.calls[0][1],
+    ).id;
+    fireEvent.click(screen.getByRole("button", { name: "送信" }));
+    await waitFor(() => expect(submitFeedback).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "送信" })).toBeEnabled(),
+    );
+    expect(
+      FeedbackInputSchema.parse(vi.mocked(submitFeedback).mock.calls[1][1]).id,
+    ).toBe(firstId);
+    expect(screen.queryByText(/受付ID：/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "入力欄を閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    await waitFor(() => expect(copy).toHaveBeenCalledOnce());
+    expect(copy).toHaveBeenCalledWith(expect.stringContaining("採用の全文"));
+    expect(
+      screen.getByRole("button", { name: "テキストを保存" }),
+    ).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "感想を送る" }));
+    expect(screen.getByRole("textbox", { name: "文章（任意）" })).toHaveValue(
+      "退出後の入力を残す",
+    );
+  });
 });
