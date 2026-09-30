@@ -53,6 +53,29 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("選択中のSpaceは本文を書き換えず、キャンバスのパン操作へ渡す", () => {
+    const onDraftChange = vi.fn();
+    const onContentChange = vi.fn();
+    setup({
+      isSelected: true,
+      note: buildNote({ content: "読む本文" }),
+      onDraftChange,
+      onContentChange,
+    });
+    const onCanvasKeyDown = vi.fn();
+    window.addEventListener("keydown", onCanvasKeyDown);
+    try {
+      fireEvent.keyDown(getNoteSurface(), { key: " ", code: "Space" });
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+      expect(screen.getByRole("textbox")).toHaveValue("読む本文");
+      expect(onCanvasKeyDown).toHaveBeenCalledOnce();
+      expect(onDraftChange).not.toHaveBeenCalled();
+      expect(onContentChange).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("keydown", onCanvasKeyDown);
+    }
+  });
+
   it("編集中の確定入力をblur前に下書き保存層へ渡し、切断後も文章を保持する", () => {
     const onDraftChange = vi.fn();
     const { props, view } = setup({
