@@ -9,6 +9,7 @@
 - ビルド工程はない。このディレクトリがそのまま Pages artifact としてアップロードされる。
 - feature ブランチ上では公開されない。ローカルでは HTML ファイルを直接ブラウザで開いて確認する。
 - PR で `docs/site/**` の HTML を追加・変更すると、`.github/workflows/docs-site-preview.yml` が githack 経由のプレビュー URL を PR に自動コメントする（デプロイは発生しない）。レビュー時はそのリンクから表示を確認できる。
+- プレビューでは、GitHub上の文書・設定へのリンクをHTMLと同じコミットへ切り替える。公開されたPagesとローカルファイルでは`develop`の正本を参照する。切り替えは各HTML末尾の`data-preview-links`スクリプトで行い、外部リソースを読み込まない。回帰検証は`npx vitest run scripts/docs-site-links.spec.ts`。
 - デプロイ状況の確認: `gh run list --workflow=deploy-pages.yml`
 - この README.md も公開対象に含まれ、URL 直打ちで取得できる。公開されて問題ない内容だけを書く（サイト内に導線は置かない）。
 

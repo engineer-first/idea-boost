@@ -510,9 +510,6 @@
     </ul>
   </section>
 
-  <footer>
-    <p>付箋のインタラクション設計そのものの解説は <a href="../sticky-note-ux/">「影は、下にしか落ちない — 付箋UI/UXの熱弁」</a> へ。</p>
-  </footer>
 </main>
 
 <script>
@@ -596,6 +593,19 @@
       note.style.boxShadow = getNoteShadow(noteId, false);
     });
   });
+})();
+</script>
+<script data-preview-links>
+(() => {
+  // PRプレビューの文書はdevelopに未反映なので、同じコミットを参照する。
+  if (!['rawcdn.githack.com', 'raw.githack.com'].includes(location.hostname)) return;
+  const preview = location.pathname.match(/^\/engineer-first\/idea-boost\/([a-f0-9]{40})\/docs\/site\//);
+  if (!preview) return;
+  const source = /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//;
+  for (const link of document.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href && source.test(href)) link.setAttribute('href', href.replace(source, `$1${preview[1]}/`));
+  }
 })();
 </script>
 </body>

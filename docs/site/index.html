@@ -134,11 +134,6 @@ h2{font-size:1.2rem;margin:2.5rem 0 .5rem}section .lede{margin-bottom:1rem}code{
         <span class="title">系統図 — ルーム作成</span>
         <span class="desc">「ルーム作成」と「ルーム参加」がコード上でどう流れるか。UI → Server Action → api-worker → D1 / RoomDO の境界と招待コードの仕様をコード引用つきで辿る。</span>
       </a>
-    </li><li>
-      <a href="./sticky-note-ux/">
-        <span class="title">影は、下にしか落ちない — 付箋UI/UXの熱弁</span>
-        <span class="desc">tldraw から移植した付箋インタラクションの解説。下方向だけの影、選択の青い枠、1クリック3つの意味。触れるデモ付き。</span>
-      </a>
     </li></ul></section><section aria-label="過去の検討・旧構成"><h2>過去の検討・旧構成</h2><p class="lede">Supabase時代や2026年7月の判断資料。現行の設定・価格・実装状況として使わない。判断の要点は<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/adr/README.md">ADR</a>へ。</p><ul class="toc"><li>
       <a href="./stack-reeval/">
         <span class="title">技術選定の再評価 — 実装負荷を除外した場合</span>
@@ -161,5 +156,18 @@ h2{font-size:1.2rem;margin:2.5rem 0 .5rem}section .lede{margin-bottom:1rem}code{
       </a>
     </li></ul></section>
 </main>
+<script data-preview-links>
+(() => {
+  // PRプレビューの文書はdevelopに未反映なので、同じコミットを参照する。
+  if (!['rawcdn.githack.com', 'raw.githack.com'].includes(location.hostname)) return;
+  const preview = location.pathname.match(/^\/engineer-first\/idea-boost\/([a-f0-9]{40})\/docs\/site\//);
+  if (!preview) return;
+  const source = /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//;
+  for (const link of document.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href && source.test(href)) link.setAttribute('href', href.replace(source, `$1${preview[1]}/`));
+  }
+})();
+</script>
 </body>
 </html>

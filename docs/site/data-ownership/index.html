@@ -590,5 +590,18 @@
 </main>
 
 <footer>2026-09-30に現行構成と照合。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/architecture/overview.md">構成の正本</a>と<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/development/conventions.md">開発規約</a>を参照する。</footer>
+<script data-preview-links>
+(() => {
+  // PRプレビューの文書はdevelopに未反映なので、同じコミットを参照する。
+  if (!['rawcdn.githack.com', 'raw.githack.com'].includes(location.hostname)) return;
+  const preview = location.pathname.match(/^\/engineer-first\/idea-boost\/([a-f0-9]{40})\/docs\/site\//);
+  if (!preview) return;
+  const source = /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//;
+  for (const link of document.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href && source.test(href)) link.setAttribute('href', href.replace(source, `$1${preview[1]}/`));
+  }
+})();
+</script>
 </body>
 </html>
