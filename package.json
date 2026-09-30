@@ -59,7 +59,7 @@
     "clsx": "^2.1.1",
     "jose": "^6.2.3",
     "lucide-react": "^1.23.0",
-    "next": "16.2.9",
+    "next": "16.3.7",
     "radix-ui": "^1.6.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -72,8 +72,8 @@
   "devDependencies": {
     "@ast-grep/cli": "^0.44.1",
     "@biomejs/biome": "^2.5.1",
-    "@cloudflare/vitest-pool-workers": "^0.18.0",
-    "@opennextjs/cloudflare": "^1.20.1",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@opennextjs/cloudflare": "^1.20.7",
     "@storybook/addon-docs": "^10.4.6",
     "@storybook/nextjs-vite": "^10.4.6",
     "@tailwindcss/postcss": "^4",
@@ -84,7 +84,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.3",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.11",
     "chromatic": "^18.0.1",
     "jsdom": "^29.1.1",
     "mermaid": "^11.16.0",
@@ -98,9 +98,15 @@
     "string-width": "^8.2.2",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.9",
-    "wrangler": "^4.107.0",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.144.0",
     "yaml": "^2.9.1"
+  },
+  "overrides": {
+    "undici": "7.29.1",
+    "miniflare": {
+      "sharp": "0.35.4"
+    }
   },
   "msw": {
     "workerDirectory": [
