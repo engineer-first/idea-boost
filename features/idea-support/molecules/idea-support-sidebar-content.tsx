@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
+  IDEA_SUPPORT_DESCRIPTION,
   type IdeaSupportContent,
   type IdeaSupportType,
   ideaSupportContents,
@@ -45,6 +46,9 @@ export function IdeaSupportSidebarContent({
 
   return (
     <div className="px-4 py-2">
+      <p className="mb-3 text-muted-foreground text-xs">
+        {IDEA_SUPPORT_DESCRIPTION}
+      </p>
       <Tabs defaultValue={defaultContentId} className="w-full gap-0">
         <TabsList
           variant="line"
