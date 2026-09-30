@@ -39,9 +39,7 @@ describe("LeaveConfirmDialog（leave）", () => {
     );
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(screen.getByText("退出しますか？")).toBeInTheDocument();
-    expect(
-      screen.getByText(/退出すると、このルームに戻るには/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/あなたのみが退出/)).toBeInTheDocument();
   });
 
   it("「退出する」ボタンで onConfirm が呼ばれる", async () => {
@@ -77,6 +75,33 @@ describe("LeaveConfirmDialog（leave）", () => {
 });
 
 describe("LeaveConfirmDialog（disband）", () => {
+  it("確認中に完了したら、ホストの解散確認も本人退出だけに切り替わる", async () => {
+    const onConfirm = vi.fn();
+    const onReturnToOutcome = vi.fn();
+    const user = userEvent.setup();
+    const props = {
+      open: true,
+      onOpenChange: vi.fn(),
+      onConfirm,
+      onReturnToOutcome,
+      isLeaving: false,
+      mode: "disband" as const,
+    };
+    const { rerender } = render(<LeaveConfirmDialog {...props} />);
+    expect(screen.getByRole("button", { name: "ルームを解散" })).toBeEnabled();
+
+    rerender(<LeaveConfirmDialog {...props} completed />);
+    expect(screen.queryAllByRole("button", { name: /解散|削除/ })).toHaveLength(
+      0,
+    );
+    await user.click(screen.getByRole("button", { name: "退出する" }));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    await user.click(
+      screen.getByRole("button", { name: "退出をやめて成果へ戻る" }),
+    );
+    expect(onReturnToOutcome).toHaveBeenCalledTimes(1);
+  });
+
   it("ホスト向けに解散文言を表示する", () => {
     render(
       <LeaveConfirmDialog
@@ -88,7 +113,7 @@ describe("LeaveConfirmDialog（disband）", () => {
       />,
     );
     expect(screen.getByText("ルームを解散しますか？")).toBeInTheDocument();
-    expect(screen.getByText(/解散するとルームは削除され/)).toBeInTheDocument();
+    expect(screen.getByText(/メンバー全員が退出/)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "ルームを解散" }),
     ).toBeInTheDocument();

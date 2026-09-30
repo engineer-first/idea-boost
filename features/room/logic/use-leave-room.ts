@@ -37,11 +37,13 @@ export function useLeaveRoom(options: {
 }): UseLeaveRoomResult {
   const { roomId, isHost, completed = false } = options;
   const [isLeaving, setIsLeaving] = useState(false);
-  const [isLeavePending, startLeaveTransition] = useTransition();
+  const [, startLeaveTransition] = useTransition();
   const isLeavingRef = useRef(false);
 
   const leave = useCallback(() => {
-    if (isLeavingRef.current || isLeavePending) return;
+    // 送信可否は表示と同じ同期refで判定する。transitionの終了待ちを重ねると、
+    // 失敗後にボタンが有効になった直後の再試行を取りこぼす。
+    if (isLeavingRef.current) return;
     isLeavingRef.current = true;
     setIsLeaving(true);
     startLeaveTransition(async () => {
@@ -64,13 +66,13 @@ export function useLeaveRoom(options: {
         isLeavingRef.current = false;
         setIsLeaving(false);
         const message =
-          error instanceof Error
-            ? error.message
-            : "ルームからの退出に失敗しました。";
+          isHost && !completed
+            ? "解散を確認できませんでした。接続を確認して、もう一度「ルームを解散」を押してください。"
+            : "退出を確認できませんでした。接続を確認して、もう一度「退出する」を押してください。";
         notify.error(message);
       }
     });
-  }, [isLeavePending, roomId, isHost, completed]);
+  }, [roomId, isHost, completed]);
 
   return { isLeaving, isLeavingRef, leave };
 }

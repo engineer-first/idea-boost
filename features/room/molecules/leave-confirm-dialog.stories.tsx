@@ -30,6 +30,14 @@ export const CompletedLeave: Story = {
   },
 };
 
+// 確認中の完了通知で、ホストの旧modeが残っても本人退出だけを案内する。
+export const CompletedHostLeave: Story = {
+  args: {
+    mode: "disband",
+    completed: true,
+  },
+};
+
 // ホストの解散確認（ルーム削除の警告文言になる）。
 export const Disband: Story = {
   args: {
@@ -41,6 +49,21 @@ export const Disband: Story = {
 export const Leaving: Story = {
   args: {
     mode: "leave",
+    isLeaving: true,
+  },
+};
+
+export const Disbanding: Story = {
+  args: {
+    mode: "disband",
+    isLeaving: true,
+  },
+};
+
+export const CompletedLeaving: Story = {
+  args: {
+    mode: "leave",
+    completed: true,
     isLeaving: true,
   },
 };
