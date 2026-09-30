@@ -1,5 +1,6 @@
 "use client";
 import { ArrowLeft, ArrowRight, RefreshCw, ShieldCheck } from "lucide-react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getRoomPhaseLabel } from "@/contracts/phase";
@@ -41,6 +42,12 @@ export function SharedOutcomesView({
   onRefresh,
   onMore,
 }: SharedOutcomesViewProps) {
+  const historyRef = useRef<HTMLDivElement>(null);
+  function openHistory(): void {
+    const heading = historyRef.current?.querySelector("h2");
+    heading?.focus();
+    heading?.scrollIntoView?.({ block: "start" });
+  }
   return (
     <main className="flex-1 overflow-y-auto bg-muted/30 p-4 sm:p-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -56,7 +63,7 @@ export function SharedOutcomesView({
                 : "共有成果"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              すべてのルームの共有成果 · 最後の利用から30日間保存
+              すべてのルームの共有成果。途中は最後の利用から30日、完了は初回の成果公開から30日間保存。
             </p>
           </div>
           <Button
@@ -70,15 +77,30 @@ export function SharedOutcomesView({
           </Button>
         </header>
         {detail && (
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            disabled={loading}
-            className="min-h-11"
+          <nav
+            aria-label="成果と進行記録の移動"
+            className="flex flex-wrap gap-2"
           >
-            <ArrowLeft aria-hidden />
-            成果一覧へ戻る
-          </Button>
+            <Button
+              variant="ghost"
+              onClick={onBack}
+              disabled={loading}
+              className="min-h-11"
+            >
+              <ArrowLeft aria-hidden />
+              成果一覧へ戻る
+            </Button>
+            {history && (
+              <Button
+                variant="outline"
+                onClick={openHistory}
+                disabled={loading}
+                className="min-h-11"
+              >
+                進行の記録を見る
+              </Button>
+            )}
+          </nav>
         )}
         {loading && (
           <p role="status" className="rounded-xl border bg-card p-8">
@@ -245,7 +267,11 @@ export function SharedOutcomesView({
                 </section>
               </>
             )}
-            {history && <ProgressHistoryView {...history} />}
+            {history && (
+              <div ref={historyRef}>
+                <ProgressHistoryView {...history} />
+              </div>
+            )}
           </>
         )}
       </div>
