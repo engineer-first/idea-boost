@@ -42,6 +42,7 @@ function getPhaseContext(phase: RoomPhase): {
 
 export type BoardContextProps = {
   phase: RoomPhase;
+  isHost?: boolean;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
   onOpenFeedback?: () => void;
@@ -49,6 +50,7 @@ export type BoardContextProps = {
 
 export function BoardContext({
   phase,
+  isHost,
   hmwDecidedIssue,
   decidedHmw,
   onOpenFeedback,
@@ -70,7 +72,7 @@ export function BoardContext({
       <nav
         aria-label="アイデア出しのフェーズ進行"
         data-testid="board-phase-progress"
-        className="border-b border-border px-3 py-2.5 sm:px-4"
+        className="border-b border-border px-3 py-2 sm:px-4 max-[639px]:py-1"
       >
         <ol className="grid grid-cols-3 items-center gap-1">
           {PHASE_NUMBERS.map((phaseNumber, index) => {
@@ -97,7 +99,7 @@ export function BoardContext({
                 className="flex min-w-0 items-center"
               >
                 <span
-                  className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[10px] leading-4 sm:gap-1.5 sm:px-1.5 sm:text-xs ${labelClassName}`}
+                  className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[10px] leading-4 sm:gap-1.5 sm:px-1.5 sm:text-xs max-[639px]:flex-row ${labelClassName}`}
                 >
                   <span
                     aria-hidden="true"
@@ -124,7 +126,7 @@ export function BoardContext({
           })}
         </ol>
       </nav>
-      <div className="px-3 py-3 sm:px-4">
+      <div className="px-3 py-1.5 sm:px-4 max-[639px]:py-2">
         <span className="flex items-center gap-2">
           <span
             id="board-current-step"
@@ -155,6 +157,13 @@ export function BoardContext({
             />
           ))}
         </span>
+        {isHost !== undefined ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isHost
+              ? "ホスト：進行はあなたが操作"
+              : "参加者：次への進行はホストが操作"}
+          </p>
+        ) : null}
         {onOpenFeedback ? (
           <button
             type="button"
@@ -170,7 +179,7 @@ export function BoardContext({
               type="button"
               aria-expanded={isRouteOpen}
               aria-controls={routeId}
-              className="mt-3 min-h-8 text-xs text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+              className="mt-3 min-h-8 max-[639px]:mt-1 text-xs text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
               onClick={() => setRouteOpen(!isRouteOpen)}
             >
               {isRouteOpen ? "全手順を閉じる" : "全手順を見る"}
@@ -200,7 +209,7 @@ export function BoardContext({
                 )}
               </ol>
             ) : null}
-            <p className="mt-2 border-t border-border pt-2 text-xs">
+            <p className="mt-2 border-t border-border pt-2 text-xs max-[639px]:mt-1 max-[639px]:pt-1">
               ゴール：
               {phase.phase === 1
                 ? "課題"

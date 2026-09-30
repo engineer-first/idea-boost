@@ -127,7 +127,6 @@ describe("RoomBoardHeader", () => {
     setup({ phase: buildPhaseStep(5) });
 
     expect(screen.getByTestId("board-header-row")).toHaveClass(
-      "bottom-[7.5rem]",
       "max-[900px]:grid-cols-[306px_minmax(0,1fr)]",
     );
     expect(screen.getByTestId("board-context-column")).toHaveClass(
@@ -718,4 +717,21 @@ it.each([
   rerender(<RoomBoardHeader {...props} {...changed} />);
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   expect(props.onNextPhase).not.toHaveBeenCalled();
+});
+
+describe("U03 進行の役割", () => {
+  it.each([
+    true,
+    false,
+  ])("現在地に本人の進行権限を示す: isHost=%s", (isHost) => {
+    setup({ isHost });
+    const context = screen.getByTestId("board-context-hud");
+    expect(
+      within(context).getByText(
+        isHost
+          ? "ホスト：進行はあなたが操作"
+          : "参加者：次への進行はホストが操作",
+      ),
+    ).toBeVisible();
+  });
 });

@@ -169,12 +169,9 @@ describe("RoomBoardCanvas", () => {
     const existingTools = screen.getByTestId("board-tools-hud");
     const sizeControls = screen.getByTestId("idea-map-size-controls-hud");
     expect(existingTools).not.toContainElement(sizeControls);
-    expect(sizeControls).toHaveClass(
-      "absolute",
-      "bottom-3",
-      "left-1/2",
-      "-translate-x-1/2",
-    );
+    expect(
+      within(sizeControls).getByRole("button", { name: "マップを広くする" }),
+    ).toBeInTheDocument();
   });
 
   it("採用選択モードは候補だけを明示し、対象ボタンの操作を通知する", () => {

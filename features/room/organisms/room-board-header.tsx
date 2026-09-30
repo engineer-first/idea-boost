@@ -179,44 +179,49 @@ export function RoomBoardHeader({
 
   return (
     <TooltipProvider delayDuration={300}>
-      {transitioning && presenter ? (
-        <SharingAnnouncement member={presenter} />
-      ) : (
-        guide && (
-          <StepGuide
-            key={`${inviteCode}:${currentUserId}`}
-            sessionKey={`${inviteCode}:${currentUserId}`}
-            phaseKey={
-              phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
-            }
-            guide={guide}
-            isHost={isHost}
-            isReady={!isDisconnected}
-            initialState={initialGuideState}
-          />
-        )
-      )}
       <div
         data-testid="board-header-row"
-        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.5rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)]"
+        className={`pointer-events-none absolute inset-x-3 top-3 bottom-[calc(7.5rem+var(--board-notification-inset,0px))] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(20rem+var(--board-notification-inset,0px))] max-[639px]:gap-2 ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(16rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(11rem+var(--board-notification-inset,0px))]"}`}
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[901px]:max-[1199px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px]"
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[901px]:max-[1199px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-full max-[639px]:gap-2"
           data-testid="board-context-column"
         >
           <div className="w-full min-w-0 shrink-0">
             <BoardContext
               onOpenFeedback={onOpenFeedback}
               phase={phase}
+              isHost={isHost}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
             />
           </div>
-          {children}
+          {transitioning && presenter ? (
+            <SharingAnnouncement member={presenter} />
+          ) : (
+            guide && (
+              <StepGuide
+                key={`${inviteCode}:${currentUserId}`}
+                sessionKey={`${inviteCode}:${currentUserId}`}
+                phaseKey={
+                  phase.kind === "step"
+                    ? `${phase.phase}-${phase.step}`
+                    : "lobby"
+                }
+                guide={guide}
+                isHost={isHost}
+                isReady={!isDisconnected}
+                initialState={initialGuideState}
+              />
+            )
+          )}
+          <div className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:max-h-[140px]">
+            {children}
+          </div>
         </div>
 
         <fieldset
-          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap"
+          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
           aria-label="ルームの操作"
           data-testid="board-control-hud"
         >
