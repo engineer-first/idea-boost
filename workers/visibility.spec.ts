@@ -44,6 +44,12 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "マップ外カーソルの共有でも他者のprivate付箋は見られない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "確定取消で保持した下書きは作者本人だけに見える",
     viewerId: AUTHOR,
     note: note({ visibility: "private" }),
