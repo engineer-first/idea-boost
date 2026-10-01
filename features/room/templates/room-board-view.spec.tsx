@@ -1486,7 +1486,7 @@ describe("RoomBoardView", () => {
       clickNote(first);
 
       expect(first).toHaveAttribute("data-selected", "true");
-      expect(first).toHaveStyle({ zIndex: "1" });
+      expect(first.parentElement).toHaveStyle({ zIndex: "1" });
       expect(onNoteBringToFront).not.toHaveBeenCalled();
     });
 
