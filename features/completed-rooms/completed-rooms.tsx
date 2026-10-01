@@ -67,6 +67,7 @@ export function CompletedRooms() {
       loading={loading}
       error={error}
       hasMore={cursor !== null}
+      onRefresh={() => void load(null)}
       onRetry={() => void load(failedCursor.current)}
       onMore={() => void load(cursor)}
     />

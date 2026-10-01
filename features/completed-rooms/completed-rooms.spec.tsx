@@ -31,6 +31,36 @@ const detail = {
 };
 afterEach(() => vi.unstubAllGlobals());
 describe("本人の完了ルーム", () => {
+  it("正常空から一覧を開き直さず、遅れて反映された同じルームを再取得できる", async () => {
+    let resolveIndexed!: (response: Response) => void;
+    const indexed = new Promise<Response>((resolve) => {
+      resolveIndexed = resolve;
+    });
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ rooms: [], nextCursor: null }))
+      .mockReturnValueOnce(indexed);
+    vi.stubGlobal("fetch", fetcher);
+    render(<CompletedRooms />);
+    await screen.findByText("以前のルームはまだありません。");
+    fireEvent.click(screen.getByRole("button", { name: "最新の一覧を取得" }));
+    expect(screen.getByRole("status")).toHaveTextContent("読み込み");
+    expect(
+      screen.getByRole("button", { name: "最新の一覧を取得" }),
+    ).toBeDisabled();
+    await act(async () =>
+      resolveIndexed(Response.json({ rooms: [detail], nextCursor: null })),
+    );
+    await screen.findByText("採用の全文");
+    expect(
+      screen.queryByText("以前のルームはまだありません。"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "成果を見る" })).toHaveAttribute(
+      "href",
+      `/completed-rooms/${roomId}`,
+    );
+    expect(fetcher.mock.calls[1][0]).toBe("/api/completed-rooms");
+  });
   it("空の途中ページを0件と断定せず、続きの成果へ進める", async () => {
     const fetcher = vi
       .fn()
@@ -65,6 +95,80 @@ describe("本人の完了ルーム", () => {
     expect(
       screen.queryByRole("button", { name: "次のルームを表示" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("続きを重複なく追加し、成功後の更新は先頭ページから取り直す", async () => {
+    const second = {
+      ...detail,
+      roomId: "22222222-2222-4222-8222-222222222222",
+      idea: "次の成果",
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ rooms: [detail], nextCursor: "page-2" }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ rooms: [detail, second], nextCursor: "page-3" }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ rooms: [second], nextCursor: null }),
+      );
+    vi.stubGlobal("fetch", fetcher);
+    render(<CompletedRooms />);
+    await screen.findByText("採用の全文");
+    fireEvent.click(screen.getByRole("button", { name: "次のルームを表示" }));
+    await screen.findByText("次の成果");
+    expect(screen.getAllByRole("link", { name: "成果を見る" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "最新の一覧を取得" }));
+    await waitFor(() =>
+      expect(screen.queryByText("採用の全文")).not.toBeInTheDocument(),
+    );
+    expect(fetcher.mock.calls[2][0]).toBe("/api/completed-rooms");
+    expect(
+      screen.queryByRole("button", { name: "次のルームを表示" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    401, 404,
+  ])("一覧の更新で%sになったら前回の成果を残さない", async (status) => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ rooms: [detail], nextCursor: null }),
+      )
+      .mockResolvedValueOnce(Response.json({}, { status }));
+    vi.stubGlobal("fetch", fetcher);
+    render(<CompletedRooms />);
+    await screen.findByText("採用の全文");
+    fireEvent.click(screen.getByRole("button", { name: "最新の一覧を取得" }));
+    await screen.findByRole("alert");
+    expect(screen.queryByText("採用の全文")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("以前のルームはまだありません。"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("一覧を離れた後に遅い応答が届いても再訪した一覧へ混ざらない", async () => {
+    let resolveOld!: (response: Response) => void;
+    const old = new Promise<Response>((resolve) => {
+      resolveOld = resolve;
+    });
+    const fetcher = vi
+      .fn()
+      .mockReturnValueOnce(old)
+      .mockResolvedValueOnce(Response.json({ rooms: [], nextCursor: null }));
+    vi.stubGlobal("fetch", fetcher);
+    const first = render(<CompletedRooms />);
+    first.unmount();
+    expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+    render(<CompletedRooms />);
+    await screen.findByText("以前のルームはまだありません。");
+    await act(async () =>
+      resolveOld(Response.json({ rooms: [detail], nextCursor: null })),
+    );
+    expect(screen.queryByText("採用の全文")).not.toBeInTheDocument();
   });
 
   it("失敗を0件と扱わず再取得し、次ページを追加する", async () => {
