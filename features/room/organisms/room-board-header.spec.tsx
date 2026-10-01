@@ -106,6 +106,38 @@ describe("RoomBoardHeader", () => {
     expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
   });
 
+  it("ボードがpointerdownの伝播を止めても外側クリックで閉じ、元のクリックを通す", () => {
+    const onOutsideClick = vi.fn();
+    render(
+      <div onPointerDownCapture={(event) => event.stopPropagation()}>
+        <RoomBoardHeader {...setupProps({ isHost: true })} />
+        <button type="button" onClick={onOutsideClick}>
+          ボードの外側操作
+        </button>
+      </div>,
+    );
+    openRoomMenu();
+    const menu = screen.getByRole("dialog", { name: "ルームメニュー" });
+    fireEvent.pointerDown(menu, { button: 0, pointerId: 1 });
+    expect(menu).toBeInTheDocument();
+    const outside = screen.getByRole("button", { name: "ボードの外側操作" });
+    fireEvent.pointerDown(outside, { button: 0, pointerId: 2 });
+    fireEvent.pointerUp(outside, { button: 0, pointerId: 2 });
+    fireEvent.click(outside);
+    expect(
+      screen.queryByRole("dialog", { name: "ルームメニュー" }),
+    ).not.toBeInTheDocument();
+    expect(onOutsideClick).toHaveBeenCalledOnce();
+    openRoomMenu();
+    expect(
+      screen.getByRole("dialog", { name: "ルームメニュー" }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "ルームメニュー" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("現在地をキャンバス左上のフローティングHUDに表示する", () => {
     setup({ phase: buildPhaseStep(2) });
 
