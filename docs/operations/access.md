@@ -8,6 +8,8 @@
 2. 権限を付ける人が[本番アプリ](https://ideaboost.dev)へ一度Googleログインする。CLIは未登録ユーザーを作らない。
 3. `npm ci`を済ませ、D1を操作できるCloudflareアカウントでWranglerへ認証する。
 
+運用CLIは `npm ci` で導入したリポジトリ内のWranglerを使う。設定にJSONCを使うため、JSONC非対応のWrangler v3.91.0未満（v1を含む）は対象外。[Cloudflare公式の設定形式の説明](https://developers.cloudflare.com/workers/wrangler/configuration/)を参照する。
+
 ローカル端末では次を実行し、ブラウザでログインを完了する。
 
 ```sh
@@ -54,13 +56,13 @@ npm run access:list
 
 ## 失敗時
 
-| 表示・状況                                                  | 確認すること                                                                                                                                                                                                |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `In a non-interactive environment ... CLOUDFLARE_API_TOKEN` | CLIがWranglerを非対話で呼ぶため未認証のままログインできない。先に端末で`wrangler login`を完了するか、実行環境にtokenを設定する                                                                              |
-| `More than one account available ... non-interactive mode`  | 最新のWrangler設定に `account_id` があるか確認する。旧版で実行する場合は `CLOUDFLARE_ACCOUNT_ID=b50fc9e60dea7830912d07e616822266 npm run access:grant -- feedback:read reader@example.com` のように指定する |
-| Idea Boostに未登録という案内                                | 対象ユーザーが本番Googleログインを済ませたか                                                                                                                                                                |
-| D1へのアクセス拒否                                          | `wrangler whoami`のアカウント、対象D1とtokenの権限                                                                                                                                                          |
-| 付与済みでも画面が開けない                                  | 操作したメールと実際のログインアカウント、`access:list`の結果                                                                                                                                               |
+| 表示・状況                                                  | 確認すること                                                                                                                                                                                                                                                            |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `In a non-interactive environment ... CLOUDFLARE_API_TOKEN` | CLIがWranglerを非対話で呼ぶため未認証のままログインできない。先に端末で`wrangler login`を完了するか、実行環境にtokenを設定する                                                                                                                                          |
+| `More than one account available ... non-interactive mode`  | Wrangler設定に `account_id` があるか確認する。この設定変更を含まないリポジトリで実行する場合は、上記のWranglerの前提を満たしたうえで `CLOUDFLARE_ACCOUNT_ID=b50fc9e60dea7830912d07e616822266 npm run access:grant -- feedback:read reader@example.com` のように指定する |
+| Idea Boostに未登録という案内                                | 対象ユーザーが本番Googleログインを済ませたか                                                                                                                                                                                                                            |
+| D1へのアクセス拒否                                          | `wrangler whoami`のアカウント、対象D1とtokenの権限                                                                                                                                                                                                                      |
+| 付与済みでも画面が開けない                                  | 操作したメールと実際のログインアカウント、`access:list`の結果                                                                                                                                                                                                           |
 
 ## 機能ごとの運用とローカル検証
 
