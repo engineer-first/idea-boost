@@ -30,6 +30,12 @@ export const IDEA_VALUE_FEASIBILITY_MAP_LABELS = {
   feasibilityScaleAriaLabel: "実現可能性: 低から高",
 } as const;
 
+export const IDEA_MAP_SIZE_HELP = {
+  scope: "マップの広さと付箋の位置は全員に反映されます。",
+  camera: "表示倍率は自分だけの見え方です。左下の表示操作で調整できます。",
+  direction: "上ほど価値が高く、右ほど実現しやすいアイデアです。",
+} as const;
+
 export type IdeaValueFeasibilityPoint = {
   value: number;
   feasibility: number;

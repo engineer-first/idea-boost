@@ -4,6 +4,33 @@ import { IDEA_MAP_SIZE_LEVEL_RANGE } from "@/contracts/board";
 import { IdeaMapSizeControls } from "./idea-map-size-controls";
 
 describe("IdeaMapSizeControls", () => {
+  it("参加者も広さの説明を開き、共有範囲と変更できない理由を確認できる", () => {
+    const onResize = vi.fn();
+    render(
+      <IdeaMapSizeControls
+        sizeLevel={2}
+        initialized
+        isHost={false}
+        isDisconnected={false}
+        isDragging={false}
+        onResize={onResize}
+      />,
+    );
+    const help = screen.getByRole("button", { name: "マップの広さについて" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(help);
+    const explanation = screen.getByRole("dialog", {
+      name: "マップの広さについて",
+    });
+    expect(explanation).toHaveTextContent("全員に反映");
+    expect(explanation).toHaveTextContent("表示倍率は自分だけ");
+    expect(explanation).toHaveTextContent("ホストだけ");
+    expect(explanation).toHaveTextContent("価値");
+    fireEvent.keyDown(explanation, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onResize).not.toHaveBeenCalled();
+  });
+
   it("ホストは現在の段階から隣の段階へ変更できる", () => {
     const onResize = vi.fn();
     render(
