@@ -429,6 +429,13 @@ describe("RoomBoardCanvas", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("pointer captureを失ったらキャンバスのパンを終了する", () => {
+    const { props } = setup();
+    fireEvent.lostPointerCapture(screen.getByTestId("board-scroller"));
+
+    expect(props.onCanvasPointerEnd).toHaveBeenCalledOnce();
+  });
+
   it("パン・ズーム後の camera で board 座標を画面座標へ変換する", () => {
     setup({
       camera: { x: 30, y: -20, zoom: 2 },

@@ -482,6 +482,7 @@ export function RoomBoardCanvas({
           onPointerMove={handleViewportPointerMove}
           onPointerUp={onCanvasPointerEnd}
           onPointerCancel={onCanvasPointerEnd}
+          onLostPointerCapture={onCanvasPointerEnd}
           onPointerLeave={onPresencePointerLeave}
         >
           <div

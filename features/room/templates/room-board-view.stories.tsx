@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { Decision } from "@/contracts/room-protocol";
@@ -11,6 +11,7 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { useFeedback } from "@/features/feedback";
 import { useBoardHelp } from "../logic/use-board-help";
+import { useCanvasCamera } from "../logic/use-canvas-camera";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView } from "./room-board-view";
 
@@ -675,6 +676,39 @@ export const IdeaMapInteraction: Story = {
       x: [1, 50, 99][index],
       y: [99, 50, 1][index],
     })),
+  },
+};
+
+export const CanvasPanInteraction: Story = {
+  args: { phase: STEP_1_2, notes: CANVAS_HUD_NOTES },
+  render: function Render(args) {
+    const boardScrollerRef = useRef<HTMLDivElement>(null);
+    const camera = useCanvasCamera({
+      viewportRef: boardScrollerRef,
+      notes: args.notes,
+    });
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        help={help}
+        interactions={{
+          ...args.interactions,
+          notes: args.notes,
+          boardScrollerRef,
+          camera: camera.camera,
+          gridStyle: camera.gridStyle,
+          isPanning: camera.isPanning,
+          onCanvasPointerDown: camera.handlePointerDown,
+          onCanvasPointerMove: camera.handlePointerMove,
+          onCanvasPointerEnd: camera.handlePointerEnd,
+          onZoomIn: camera.zoomIn,
+          onZoomOut: camera.zoomOut,
+          onResetZoom: camera.resetZoom,
+          onFitToNotes: camera.fitToNotes,
+        }}
+      />
+    );
   },
 };
 
