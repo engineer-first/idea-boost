@@ -507,9 +507,9 @@ test("長文と結果行を分け、候補操作と決定済み印にも重ね�
 
 test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示す", async () => {
   await openStory("room-roomboardview--decided");
-  await page.getByRole("dialog").waitFor();
-  await page.keyboard.press("Escape");
-  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  expect(
+    await page.getByRole("dialog", { name: "投票結果", exact: true }).count(),
+  ).toBe(0);
   const decidedNote = page.locator('[data-note-id="note-1"]');
   await decidedNote.waitFor();
 
