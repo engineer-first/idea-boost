@@ -105,6 +105,9 @@ export function RoomTimer({
   const [isReconfiguring, setIsReconfiguring] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const timerControlsRef = useRef<HTMLDivElement>(null);
+  const pauseOrStopRef = useRef<HTMLButtonElement>(null);
+  const previousStatusRef = useRef(timer.status);
   const wasPanelOpenRef = useRef(panelOpen);
   const panelOpenRef = useRef(panelOpen);
 
@@ -119,6 +122,18 @@ export function RoomTimer({
     }
     wasPanelOpenRef.current = panelOpen;
   }, [panelOpen]);
+
+  useEffect(() => {
+    if (
+      previousStatusRef.current === "running" &&
+      timer.status === "paused" &&
+      document.activeElement === pauseOrStopRef.current
+    ) {
+      // 一時停止ボタンと同じ位置の「終了」へ連続入力を引き継がない。
+      triggerRef.current?.focus();
+    }
+    previousStatusRef.current = timer.status;
+  }, [timer.status]);
 
   useEffect(() => {
     let suppressedPointer:
@@ -143,7 +158,8 @@ export function RoomTimer({
         event.button !== 0 ||
         !(target instanceof Node) ||
         triggerRef.current?.contains(target) ||
-        panelRef.current?.contains(target)
+        panelRef.current?.contains(target) ||
+        timerControlsRef.current?.contains(target)
       ) {
         return;
       }
@@ -274,8 +290,9 @@ export function RoomTimer({
   const chipClassName = cn(
     "board-hud h-10 w-28 shrink-0 justify-start rounded-lg border-transparent bg-muted py-2 pr-10 pl-3 shadow-none hover:bg-muted disabled:opacity-100",
     "font-mono font-bold tabular-nums",
-    timer.status === "paused" && "text-amber-800",
-    isEnded && "text-red-700",
+    timer.status === "paused" &&
+      "text-amber-800 hover:text-amber-800 aria-expanded:text-amber-800",
+    isEnded && "text-red-700 hover:text-red-700 aria-expanded:text-red-700",
   );
   const chipDurationMs =
     timer.status === "idle" ? initialDurationMs : (remainingMs ?? 0);
@@ -329,7 +346,15 @@ export function RoomTimer({
       data-testid="room-timer-panel"
       aria-label="タイマー操作"
       align="end"
-      className="board-hud w-72 bg-background"
+      className="board-hud w-72 bg-background motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none"
+      onInteractOutside={(event) => {
+        if (
+          event.target instanceof Node &&
+          timerControlsRef.current?.contains(event.target)
+        ) {
+          event.preventDefault();
+        }
+      }}
     >
       {timer.status === "idle" || (isEnded && isReconfiguring) ? (
         <div className="flex flex-col gap-3">
@@ -461,6 +486,7 @@ export function RoomTimer({
           {timer.status === "paused" ? (
             <Button
               type="button"
+              ref={pauseOrStopRef}
               variant="destructive"
               size="sm"
               className="h-8 flex-1"
@@ -476,6 +502,7 @@ export function RoomTimer({
               size="sm"
               className="h-8 flex-1"
               disabled={disabled}
+              ref={pauseOrStopRef}
               onClick={onPause}
             >
               <Pause aria-hidden="true" />
@@ -488,7 +515,7 @@ export function RoomTimer({
   );
 
   return (
-    <div className="relative h-10 w-28 shrink-0">
+    <div ref={timerControlsRef} className="relative h-10 w-28 shrink-0">
       {isHost ? (
         <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
           <PopoverTrigger asChild>{hostChip}</PopoverTrigger>
