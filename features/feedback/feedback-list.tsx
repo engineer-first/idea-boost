@@ -1,8 +1,14 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { FeedbackListSchema, type FeedbackRecord } from "@/contracts/feedback";
 import { type FeedbackFilters, FeedbackListView } from "./feedback-list-view";
-export function FeedbackList() {
+export function FeedbackList(): ReactElement {
   const [filters, setFilters] = useState<FeedbackFilters>({
     kind: "",
     target: "",
@@ -13,6 +19,7 @@ export function FeedbackList() {
     [loading, setLoading] = useState(true),
     [error, setError] = useState<string | null>(null),
     [cursor, setCursor] = useState<string | null>(null),
+    [retryCursor, setRetryCursor] = useState<string | null>(null),
     [canReadOutcomes, setCanReadOutcomes] = useState(false);
   const sequence = useRef(0);
   const load = useCallback(
@@ -20,6 +27,8 @@ export function FeedbackList() {
       const ticket = ++sequence.current;
       setLoading(true);
       setError(null);
+      setRetryCursor(null);
+      let keepLoadedItems = Boolean(next);
       if (!next) {
         setItems([]);
         setCursor(null);
@@ -37,7 +46,8 @@ export function FeedbackList() {
           `/api/feedback${params.size ? `?${params}` : ""}`,
           { cache: "no-store" },
         );
-        if (!response.ok)
+        if (!response.ok) {
+          keepLoadedItems = Boolean(next) && response.status >= 500;
           throw new Error(
             response.status === 401
               ? "ログインしてください。"
@@ -47,6 +57,7 @@ export function FeedbackList() {
                   ? "絞り込み条件を確認してください。"
                   : "意見を取得できませんでした。再試行してください。",
           );
+        }
         const result = FeedbackListSchema.parse(await response.json());
         if (ticket !== sequence.current) return;
         setItems((previous) => {
@@ -63,11 +74,23 @@ export function FeedbackList() {
         setCanReadOutcomes(result.canReadOutcomes);
       } catch (cause) {
         if (ticket === sequence.current) {
-          setItems([]);
-          setCursor(null);
-          setCanReadOutcomes(false);
+          if (
+            keepLoadedItems &&
+            !(cause instanceof Error && cause.name === "ZodError")
+          ) {
+            setItems((previous) =>
+              previous.filter((item) => item.expiresAt > Date.now()),
+            );
+            setRetryCursor(next ?? null);
+          } else {
+            setItems([]);
+            setCursor(null);
+            setCanReadOutcomes(false);
+          }
           setError(
-            cause instanceof Error && cause.name !== "ZodError"
+            cause instanceof Error &&
+              cause.name !== "ZodError" &&
+              cause.name !== "TypeError"
               ? cause.message
               : "意見を取得できませんでした。再試行してください。",
           );
@@ -109,6 +132,7 @@ export function FeedbackList() {
       canReadOutcomes={canReadOutcomes}
       onFilter={(patch) => setFilters((value) => ({ ...value, ...patch }))}
       onRefresh={() => void load()}
+      onRetry={() => void load(retryCursor ?? undefined)}
       onMore={() => {
         if (cursor) void load(cursor);
       }}

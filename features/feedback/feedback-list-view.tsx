@@ -1,4 +1,5 @@
 "use client";
+import type { ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import {
   FEEDBACK_KINDS,
@@ -20,6 +21,7 @@ export type FeedbackListViewProps = {
   canReadOutcomes: boolean;
   onFilter: (patch: Partial<FeedbackFilters>) => void;
   onRefresh: () => void;
+  onRetry: () => void;
   onMore: () => void;
 };
 export function FeedbackListView({
@@ -31,8 +33,22 @@ export function FeedbackListView({
   canReadOutcomes,
   onFilter,
   onRefresh,
+  onRetry,
   onMore,
-}: FeedbackListViewProps) {
+}: FeedbackListViewProps): ReactElement {
+  const failure = error ? (
+    <div role="alert" className="space-y-2">
+      <p>{error}</p>
+      {items.length ? (
+        <p className="text-sm text-muted-foreground">
+          表示済みの意見は残っています。続きから再試行できます。
+        </p>
+      ) : null}
+      <Button variant="outline" disabled={loading} onClick={onRetry}>
+        再試行
+      </Button>
+    </div>
+  ) : null;
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -104,14 +120,7 @@ export function FeedbackListView({
           </p>
         </div>
         {loading ? <p role="status">読み込み中…</p> : null}
-        {error ? (
-          <div role="alert" className="space-y-2">
-            <p>{error}</p>
-            <Button variant="outline" onClick={onRefresh}>
-              再試行
-            </Button>
-          </div>
-        ) : null}
+        {!items.length ? failure : null}
         {!loading && !error && items.length === 0 ? (
           <p>条件に合う意見はありません。</p>
         ) : null}
@@ -167,7 +176,8 @@ export function FeedbackListView({
             </li>
           ))}
         </ul>
-        {nextCursor ? (
+        {items.length ? failure : null}
+        {!error && nextCursor ? (
           <Button variant="outline" disabled={loading} onClick={onMore}>
             さらに表示
           </Button>
