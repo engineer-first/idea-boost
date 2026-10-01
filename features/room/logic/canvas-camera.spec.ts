@@ -24,6 +24,7 @@ function createViewport() {
     }),
   });
   element.setPointerCapture = vi.fn();
+  element.hasPointerCapture = vi.fn(() => true);
   element.releasePointerCapture = vi.fn();
   return element;
 }
@@ -34,6 +35,7 @@ function pointerEvent(
 ) {
   return {
     button: 0,
+    buttons: 1,
     pointerId: 1,
     clientX: 100,
     clientY: 100,

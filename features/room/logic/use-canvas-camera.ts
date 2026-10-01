@@ -288,6 +288,17 @@ export function useCanvasCamera({
     [scheduleCamera, viewportRef],
   );
 
+  const endPan = useCallback(() => {
+    const pan = panRef.current;
+    if (!pan) return;
+    panRef.current = null;
+    setIsPanning(false);
+    const viewport = viewportRef.current;
+    if (viewport?.hasPointerCapture?.(pan.pointerId)) {
+      viewport.releasePointerCapture(pan.pointerId);
+    }
+  }, [viewportRef]);
+
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
@@ -322,24 +333,26 @@ export function useCanvasCamera({
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const pan = panRef.current;
       if (!pan || pan.pointerId !== event.pointerId) return;
+      if (event.buttons === 0) {
+        endPan();
+        return;
+      }
       scheduleCamera({
         x: pan.startCamera.x + event.clientX - pan.startClientX,
         y: pan.startCamera.y + event.clientY - pan.startClientY,
         zoom: pan.startCamera.zoom,
       });
     },
-    [scheduleCamera],
+    [endPan, scheduleCamera],
   );
 
   const handlePointerEnd = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const pan = panRef.current;
       if (!pan || pan.pointerId !== event.pointerId) return;
-      panRef.current = null;
-      setIsPanning(false);
-      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      endPan();
     },
-    [],
+    [endPan],
   );
 
   const handleWheel = useCallback(
@@ -436,6 +449,7 @@ export function useCanvasCamera({
     };
     const handleWindowBlur = () => {
       spacePressedRef.current = false;
+      endPan();
     };
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
@@ -454,7 +468,7 @@ export function useCanvasCamera({
         }
       }
     };
-  }, [scheduleCamera, viewportRef]);
+  }, [endPan, scheduleCamera, viewportRef]);
 
   useEffect(() => {
     if (fitViewport) return;

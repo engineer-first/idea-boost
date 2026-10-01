@@ -2529,6 +2529,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     });
     fireEvent.pointerMove(screen.getByTestId("board-scroller"), {
       pointerId: 7,
+      buttons: 1,
       clientX: 160,
       clientY: 130,
     });
@@ -2548,6 +2549,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     });
     fireEvent.pointerMove(surface, {
       pointerId: 8,
+      buttons: 1,
       clientX: 160,
       clientY: 130,
     });

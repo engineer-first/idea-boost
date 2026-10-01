@@ -5,6 +5,67 @@ import { buildNotes } from "@/contracts/room-protocol.fixture";
 import { useCanvasCamera } from "./use-canvas-camera";
 
 describe("useCanvasCamera", () => {
+  it("pointerupが届かなくてもボタンを離した移動でパンを終了する", () => {
+    const viewport = document.createElement("div");
+    const { result } = renderHook(() =>
+      useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+    );
+    const event = {
+      target: viewport,
+      currentTarget: viewport,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      clientX: 10,
+      clientY: 20,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as PointerEvent<HTMLDivElement>;
+    act(() => result.current.handlePointerDown(event));
+    act(() => result.current.handlePointerMove({ ...event, clientX: 30 }));
+    expect(result.current.cameraRef.current.x).toBe(20);
+    const cameraBeforeRelease = result.current.cameraRef.current;
+
+    act(() =>
+      result.current.handlePointerMove({
+        ...event,
+        buttons: 0,
+        clientX: 80,
+      }),
+    );
+
+    expect(result.current.cameraRef.current).toEqual(cameraBeforeRelease);
+    expect(result.current.isPanning).toBe(false);
+    act(() => result.current.handlePointerMove({ ...event, clientX: 100 }));
+    expect(result.current.cameraRef.current).toEqual(cameraBeforeRelease);
+  });
+
+  it("ウィンドウがフォーカスを失ったらパンを終了する", () => {
+    const viewport = document.createElement("div");
+    const { result } = renderHook(() =>
+      useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+    );
+    const event = {
+      target: viewport,
+      currentTarget: viewport,
+      button: 0,
+      buttons: 1,
+      pointerId: 1,
+      clientX: 10,
+      clientY: 20,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as PointerEvent<HTMLDivElement>;
+    act(() => result.current.handlePointerDown(event));
+    expect(result.current.isPanning).toBe(true);
+
+    act(() => window.dispatchEvent(new Event("blur")));
+    act(() => result.current.handlePointerMove({ ...event, clientX: 80 }));
+
+    expect(result.current.isPanning).toBe(false);
+    expect(result.current.cameraRef.current.x).toBe(0);
+  });
+
   it("表示操作にフォーカスした方向キーとPageDownで個人の視野を移動し、入力中は動かさない", async () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
