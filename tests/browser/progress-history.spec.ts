@@ -16,6 +16,12 @@ it.each([
       exact: true,
     });
     await region.waitFor();
+    await page.getByRole("button", { name: "進行の記録を見る" }).click();
+    expect(
+      await region
+        .getByRole("heading", { name: "進行の記録" })
+        .evaluate((heading) => document.activeElement === heading),
+    ).toBe(true);
     for (const button of [
       region.getByRole("button", { name: /記録 1 の盤面を見る/ }),
       region.getByRole("button", { name: "記録の最新状態を取得" }),
@@ -53,6 +59,14 @@ it.each([
       .getByText("待ち時間を減らす", { exact: true });
     await text.scrollIntoViewIfNeeded();
     expect(await text.isVisible()).toBe(true);
+    await selected.getByRole("button", { name: "記録一覧へ戻る" }).click();
+    const heading = region.getByRole("heading", { name: "進行の記録" });
+    expect(
+      await heading.evaluate((element) => document.activeElement === element),
+    ).toBe(true);
+    const headingBounds = await heading.boundingBox();
+    expect(headingBounds?.y).toBeGreaterThanOrEqual(0);
+    expect(headingBounds?.y).toBeLessThan(80);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
