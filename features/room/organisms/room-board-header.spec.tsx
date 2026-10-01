@@ -743,9 +743,7 @@ it("発表者本人は次の人へを操作でき、開始・パス・次ステ�
     onSharingAdvance: vi.fn(),
   });
   const { rerender } = render(<RoomBoardHeader {...props} />);
-  fireEvent.click(
-    screen.getByRole("button", { name: "次の人へ", exact: true }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "次の人へ" }));
   expect(props.onSharingAdvance).toHaveBeenCalledExactlyOnceWith("done");
   expect(
     screen.queryByRole("button", { name: "今回はパス" }),

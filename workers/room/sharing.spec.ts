@@ -536,8 +536,17 @@ it.each([
 });
 
 it("発表者本人は完了だけを進められ、同期・再接続・古い要求でも一度だけ交代する", async () => {
-  const { owner, member, roomId } = await setup();
-  const ready = await enterSharing(owner, roomId);
+  const { owner, member, roomId, inviteCode } = await setup();
+  await enterSharing(owner, roomId);
+  await joinRoomAs(
+    {
+      sub: "33333333-3333-4333-8333-333333333333",
+      name: "次の人",
+      email: "next@example.test",
+    },
+    inviteCode,
+  );
+  const ready = (await sharingMessage(owner)).sharing;
   owner.ws.send(
     JSON.stringify({
       type: "sharing:start",
@@ -609,8 +618,10 @@ it("発表者本人は完了だけを進められ、同期・再接続・古い�
   const observed = await presenter.next();
   expect(observed).toMatchObject({
     type: "sharing:updated",
-    sharing: { status: "complete", results: ["done", "done"] },
+    sharing: { status: "active", currentIndex: 2, results: ["done", "done"] },
   });
+  if (observed.type !== "sharing:updated")
+    throw new Error("交代状態が返っていない");
   expect((await sharingMessage(owner)).sharing).toEqual(observed.sharing);
   expect((await currentSnapshot(roomId)).sharing).toEqual(observed.sharing);
   member.ws.send(JSON.stringify(request));
