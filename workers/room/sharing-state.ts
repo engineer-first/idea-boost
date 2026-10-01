@@ -22,7 +22,11 @@ export function saveSharingState(sql: SqlStorage, state: SharingState): void {
   );
 }
 
-export function resetSharingForPhase(sql: SqlStorage, phase: RoomPhase): void {
+export function resetSharingForPhase(
+  sql: SqlStorage,
+  phase: RoomPhase,
+  startFirstTurn: boolean = false,
+): void {
   const previous = getSharingState(sql);
   const sharing = phase.kind === "step" && phase.step === 2;
   if (!sharing && !previous) return;
@@ -38,14 +42,15 @@ export function resetSharingForPhase(sql: SqlStorage, phase: RoomPhase): void {
     }
     order = host ? [host, ...others] : others;
   }
+  const startsFirstTurn = sharing && startFirstTurn && order.length > 0;
   saveSharingState(sql, {
     revision: crypto.randomUUID(),
     order,
-    status: sharing ? "ready" : "inactive",
-    currentIndex: null,
+    status: startsFirstTurn ? "active" : sharing ? "ready" : "inactive",
+    currentIndex: startsFirstTurn ? 0 : null,
     results: [],
     durationMs: previous?.durationMs ?? 180000,
-    startsAt: null,
+    startsAt: startsFirstTurn ? Date.now() + 2000 : null,
   });
 }
 

@@ -2596,7 +2596,11 @@ describe("RoomDO phase:next", () => {
     );
     expect(await nextJson(ws)).toMatchObject({
       type: "snapshot",
-      sharing: { status: "ready" },
+      sharing: {
+        status: "active",
+        currentIndex: 0,
+        startsAt: expect.any(Number),
+      },
       timer: { status: "idle" },
     });
     expect(await nextJson(ws)).toMatchObject({
@@ -2996,7 +3000,11 @@ describe("RoomDO phase:next", () => {
     );
     expect(await nextJson(ws)).toMatchObject({
       type: "snapshot",
-      sharing: { status: "ready" },
+      sharing: {
+        status: "active",
+        currentIndex: 0,
+        startsAt: expect.any(Number),
+      },
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
@@ -4001,7 +4009,11 @@ describe("RoomDO phase:next", () => {
 
     expect(body.type).toBe("snapshot");
     expect(body).toMatchObject({
-      sharing: { status: "ready" },
+      sharing: {
+        status: "active",
+        currentIndex: 0,
+        startsAt: expect.any(Number),
+      },
       phase: buildPhaseStep(2),
     });
 
@@ -5671,7 +5683,11 @@ describe("RoomDO 同フェーズ内のマイ付箋の保持", () => {
     // 順番を含む snapshot を再送しても、本人の下書きを維持する。
     expect(await nextJson(ws)).toMatchObject({
       type: "snapshot",
-      sharing: { status: "ready" },
+      sharing: {
+        status: "active",
+        currentIndex: 0,
+        startsAt: expect.any(Number),
+      },
       phase: buildPhaseStep(2),
       notes: [
         expect.objectContaining({
