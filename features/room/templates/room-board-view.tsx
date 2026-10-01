@@ -127,6 +127,7 @@ export type RoomBoardViewProps = {
   }>;
   voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
+  onDecisionClear?: () => void;
   onPublishOutcome: () => void;
   onAdoptionFocusChange?: (noteId: string | null) => void;
   onRestartWriting?: () => void;
@@ -219,6 +220,7 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onDecisionClear,
   onPublishOutcome,
   onNoteBringToFront,
   onAdoptionFocusChange: notifyAdoptionFocusChange,
@@ -307,11 +309,12 @@ export function RoomBoardView({
   }, [isAdoptMode]);
 
   useEffect(() => {
+    const resultKey = `${phaseKey}:${phaseRevision}`;
     if (isPhaseStep(phase, 3, 5) && decision?.phase === 3) {
+      resultShownFor.current = resultKey;
       setVoteTotalingDialogOpen(false);
       return;
     }
-    const resultKey = `${phaseKey}:${phaseRevision}`;
     if (resultShownFor.current === resultKey) return;
     resultShownFor.current = resultKey;
     setVoteTotalingDialogOpen(
@@ -989,6 +992,7 @@ export function RoomBoardView({
               setIsAdoptMode(true);
             }}
             onCancelSelection={() => setIsAdoptMode(false)}
+            onClearDecision={outcomePublished ? undefined : onDecisionClear}
           />
         </div>
 

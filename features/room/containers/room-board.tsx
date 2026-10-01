@@ -201,6 +201,11 @@ export function RoomBoard({
     [send],
   );
 
+  const handleDecisionClear = useCallback(() => {
+    if (!isHost || !roomState.decision || roomState.outcomePublished) return;
+    send({ type: "decision:clear", noteId: roomState.decision.noteId });
+  }, [isHost, roomState.decision, roomState.outcomePublished, send]);
+
   const handleAdoptionFocusChange = useCallback(
     (noteId: string | null) => {
       if (!isHost) return;
@@ -420,6 +425,7 @@ export function RoomBoard({
         onNoteVoteStickerRemove={notes.removeVoteSticker}
         onNoteVoteStickerMove={notes.moveVoteSticker}
         onNoteDecide={handleNoteDecide}
+        onDecisionClear={handleDecisionClear}
         onPublishOutcome={() => send({ type: "outcome:publish" })}
         onAdoptionFocusChange={handleAdoptionFocusChange}
         onRestartWriting={() => handleLoopPhase("phase:restart-writing")}

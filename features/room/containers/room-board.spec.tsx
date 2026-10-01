@@ -843,23 +843,30 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("採用後はホストも確定を解除できない", () => {
+  it("確定の取消を送信し、サーバーの解除を受けてから選び直せる", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
-      decision: {
-        phase: 1,
-        noteId: NOTE_ID,
-        decidedBy: USER_ID,
-      },
+      decision: { phase: 1, noteId: NOTE_ID, decidedBy: USER_ID },
     });
-
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "decision:clear", noteId: NOTE_ID }),
+    );
     expect(
-      screen.queryByRole("button", { name: "確定を解除" }),
+      screen.queryByRole("button", { name: "採用する付箋を選ぶ" }),
     ).not.toBeInTheDocument();
-    expect(socket.sent).not.toContain(
-      JSON.stringify({ type: "decision:clear" }),
+    act(() =>
+      socket.simulateServerMessage({
+        type: "decision:updated",
+        decision: null,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    fireEvent.click(screen.getByRole("button", { name: /採用する付箋:/ }));
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
     );
   });
 

@@ -288,7 +288,6 @@ for (const phase of [1, 2, 3] as const) {
       send(room.a, { type: "note:decide", noteId: candidateId });
       await until(room.a, "decision:updated");
       for (const action of [
-        { type: "decision:clear" },
         { type: "note:restore", noteId: excludedId },
         { type: "note:exclude", noteId: candidateId },
         { type: "note:move", noteId: candidateId, x: 1, y: 1 },
@@ -300,6 +299,108 @@ for (const phase of [1, 2, 3] as const) {
           code: "forbidden",
         });
       }
+      room.close();
+    });
+    it("ホストだけ確定を取り消せ、票・下書き・候補・過去決定を保って再採用を全員と再接続へ反映する", async () => {
+      const current: RoomPhase = {
+        kind: "step",
+        phase,
+        step: RESULT_STEP_BY_PHASE[phase],
+      };
+      const room = await setup(current);
+      await runInRoomDO(room.roomId, (_room, state) => {
+        state.storage.sql.exec(
+          "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES(?,?,?,'subjective',0.2,0.3,'2026-09-22')",
+          crypto.randomUUID(),
+          candidateId,
+          host.sub,
+        );
+        if (phase > 1)
+          state.storage.sql.exec(
+            "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(1,?,'過去の課題',?,'2026-09-22')",
+            crypto.randomUUID(),
+            host.sub,
+          );
+      });
+      send(room.a, { type: "note:decide", noteId: candidateId });
+      expect(await until(room.a, "decision:updated")).toMatchObject({
+        decision: { noteId: candidateId },
+      });
+      await until(room.b, "decision:updated");
+      send(room.b, { type: "decision:clear", noteId: candidateId });
+      expect(await room.b.next()).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      send(room.a, { type: "decision:clear", noteId: candidateId });
+      expect(await until(room.a, "decision:updated")).toMatchObject({
+        type: "decision:updated",
+        decision: null,
+      });
+      expect(await until(room.b, "decision:updated")).toMatchObject({
+        decision: null,
+      });
+      const reconnect = await connectRoomAs(host, room.roomId);
+      const snapshot = await reconnect.next();
+      expect(snapshot).toMatchObject({
+        type: "snapshot",
+        decision: null,
+        phase: current,
+        notes: expect.arrayContaining([
+          expect.objectContaining({
+            id: candidateId,
+            x: 40,
+            y: 50,
+            dotVotes: expect.objectContaining({
+              subjective: expect.objectContaining({ count: 1 }),
+            }),
+          }),
+          expect.objectContaining({ id: excludedId, excluded: true }),
+          expect.objectContaining({ id: draftId, visibility: "private" }),
+        ]),
+      });
+      if (snapshot.type === "snapshot" && phase > 1)
+        expect(snapshot.carryovers).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ content: "過去の課題" }),
+          ]),
+        );
+      reconnect.close();
+      if (phase < 3) {
+        send(room.a, transition("phase:next", current));
+        expect(await until(room.a, "phase:updated")).toMatchObject({
+          type: "error",
+          code: "forbidden",
+        });
+      } else {
+        send(room.a, { type: "outcome:publish" });
+        expect(await room.a.next()).toMatchObject({
+          type: "error",
+          code: "forbidden",
+        });
+      }
+      send(room.a, { type: "note:restore", noteId: excludedId });
+      await until(room.a, "note:updated");
+      await until(room.b, "note:updated");
+      send(room.a, { type: "note:decide", noteId: excludedId });
+      expect(await until(room.a, "decision:updated")).toMatchObject({
+        decision: { noteId: excludedId },
+      });
+      expect(await until(room.b, "decision:updated")).toMatchObject({
+        decision: { noteId: excludedId },
+      });
+      // 古いタブから届く前の決定の取消で、新しく採用した候補を消さない。
+      send(room.a, { type: "decision:clear", noteId: candidateId });
+      expect(await room.a.next()).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      const other = await connectRoomAs(member, room.roomId);
+      const otherSnapshot = await other.next();
+      expect(otherSnapshot).toMatchObject({ decision: { noteId: excludedId } });
+      if (otherSnapshot.type === "snapshot")
+        expect(otherSnapshot.notes.some((n) => n.id === draftId)).toBe(false);
+      other.close();
       room.close();
     });
     it("候補0件の初回投票・再投票は拒否し、決定後から個人作業へ戻れない", async () => {
@@ -432,6 +533,22 @@ it.each([
       type: "phase:updated",
     });
   }
+  if (phase === 3) {
+    await runInRoomDO(room.roomId, (_room, state) => {
+      for (const prior of [1, 2])
+        state.storage.sql.exec(
+          "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,'2026-09-22')",
+          prior,
+          crypto.randomUUID(),
+          `決定${prior}`,
+          host.sub,
+        );
+    });
+    send(room.a, { type: "outcome:publish" });
+    expect(await until(room.a, "outcome:published")).toMatchObject({
+      type: "outcome:published",
+    });
+  }
   expect(
     await runInRoomDO(
       room.roomId,
@@ -443,16 +560,18 @@ it.each([
           .one().count,
     ),
   ).toBe(0);
+  if (phase === 3) {
+    room.close();
+    return;
+  }
   const reconnect = await connectRoomAs(member, room.roomId);
   const snapshot = await reconnect.next();
   expect(snapshot.type).toBe("snapshot");
   if (snapshot.type === "snapshot") {
     expect(snapshot.notes.some((note) => note.id === draftId)).toBe(false);
-    if (phase === 3) expect(snapshot.decision?.noteId).toBe(candidateId);
-    else
-      expect(
-        snapshot.carryovers.some((value) => value.noteId === candidateId),
-      ).toBe(true);
+    expect(
+      snapshot.carryovers.some((value) => value.noteId === candidateId),
+    ).toBe(true);
   }
   reconnect.close();
   room.close();

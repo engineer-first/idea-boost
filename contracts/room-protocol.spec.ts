@@ -1048,14 +1048,25 @@ describe("ClientMessageSchema", () => {
     });
   });
 
-  it("decision:clear は認可情報を持たないメッセージとして受け入れる", () => {
+  it("decision:clear は取り消す決定の付箋IDを必須にし、認可情報を除去する", () => {
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     expect(
       ClientMessageSchema.parse({
         type: "decision:clear",
+        noteId,
         phase: 99,
         decidedBy: "attacker-id",
       }),
-    ).toEqual({ type: "decision:clear" });
+    ).toEqual({ type: "decision:clear", noteId });
+    expect(
+      ClientMessageSchema.safeParse({ type: "decision:clear" }).success,
+    ).toBe(false);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "decision:clear",
+        noteId: "invalid",
+      }).success,
+    ).toBe(false);
   });
 
   it("adoption-focus:update は UUID または null だけを受け入れ、認可情報を除去する", () => {

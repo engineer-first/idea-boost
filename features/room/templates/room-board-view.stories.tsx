@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 import { fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type { Decision } from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -142,6 +144,7 @@ const meta = {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: fn(),
+    onDecisionClear: fn(),
     onPublishOutcome: fn(),
 
     onLeave: fn(),
@@ -682,5 +685,60 @@ export const WithFeedback: Story = {
       async (_room, input) => ({ ok: true, id: input.id }),
     );
     return <RoomBoardView {...args} feedback={feedback} />;
+  },
+};
+
+// サーバー応答後に決定が解除された状態を再現し、取消から再採用まで操作できる。
+const decisionReselectionRender: Story["render"] =
+  function DecisionReselectionRender(args) {
+    const [decision, setDecision] = useState<Decision | null>(args.decision);
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        help={help}
+        interactions={{ ...args.interactions, notes: args.notes }}
+        decision={decision}
+        onDecisionClear={() => {
+          args.onDecisionClear?.();
+          setDecision(null);
+        }}
+        onNoteDecide={(noteId) => {
+          args.onNoteDecide(noteId);
+          setDecision(
+            buildDecision({
+              noteId,
+              phase: args.phase.kind === "step" ? args.phase.phase : 1,
+              decidedBy: ME,
+            }),
+          );
+        }}
+      />
+    );
+  };
+export const DecisionReselection: Story = {
+  render: decisionReselectionRender,
+  args: { ...Decided.args, isHost: true, initialGuideState: "compact" },
+};
+export const HmwDecisionReselection: Story = {
+  render: decisionReselectionRender,
+  args: {
+    ...DecisionReselection.args,
+    phase: buildPhaseStep(4, 2),
+    decision: buildDecision({ phase: 2, noteId: "note-1", decidedBy: ME }),
+    hmwDecidedIssue: GUIDE_ISSUE,
+  },
+};
+export const IdeaDecisionReselection: Story = {
+  render: decisionReselectionRender,
+  args: {
+    ...FinalDecisionPending.args,
+    isHost: true,
+    initialGuideState: "compact",
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 20 + index * 30,
+      y: 25 + index * 20,
+    })),
   },
 };
