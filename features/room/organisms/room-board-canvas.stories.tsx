@@ -863,3 +863,35 @@ export const MapAdoptionAfterRepeatedOperations: Story = {
     notes: adoptionLayeringNotes(true),
   },
 };
+
+export const IdeaMapAuthorColors: Story = {
+  name: "2軸マップ / 作者色と白い評価面",
+  args: {
+    ...fixedSizeMapArgs,
+    notes: [
+      buildNote({
+        id: "yellow-idea",
+        content: "小さく試す",
+        color: "yellow",
+        x: 20,
+        y: 25,
+      }),
+      buildNote({
+        id: "blue-idea",
+        content: "使い方を教える",
+        color: "blue",
+        x: 50,
+        y: 55,
+      }),
+      buildNote({
+        id: "pink-idea",
+        content: "自動化する",
+        color: "pink",
+        x: 80,
+        y: 85,
+      }),
+    ],
+    camera: IDEA_MAP_CAMERA,
+  },
+  decorators: IDEA_MAP_VIEWPORT,
+};

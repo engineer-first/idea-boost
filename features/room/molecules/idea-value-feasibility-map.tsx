@@ -8,7 +8,7 @@ import {
 
 const MAP_GRID_STYLE = {
   backgroundImage:
-    "linear-gradient(to right, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px)",
+    "linear-gradient(to right, color-mix(in srgb, var(--muted-foreground) 12%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--muted-foreground) 12%, transparent) 1px, transparent 1px)",
   backgroundSize: "10% 10%",
 } satisfies CSSProperties;
 
@@ -68,7 +68,7 @@ export function IdeaValueFeasibilityMap({
 
       <div
         ref={planeRef}
-        className="pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-sky-50/90 shadow-sm"
+        className="pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-background"
         data-canvas-background="true"
         data-coordinate-range="0-100"
         data-testid="idea-value-feasibility-map-plane"

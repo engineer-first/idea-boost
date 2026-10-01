@@ -20,9 +20,6 @@ describe("IdeaValueFeasibilityMap", () => {
     expect(screen.getByTestId("idea-value-feasibility-map-plane")).toHaveClass(
       "relative",
     );
-    expect(screen.getByTestId("idea-value-feasibility-map-plane")).toHaveClass(
-      "bg-sky-50/90",
-    );
     expect(
       screen.getByTestId("idea-value-feasibility-map-plane"),
     ).toHaveAttribute("data-coordinate-range", "0-100");
