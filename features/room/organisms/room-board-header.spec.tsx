@@ -380,7 +380,6 @@ describe("RoomBoardHeader", () => {
         "starting:opacity-0",
         "motion-reduce:transition-none",
         "text-emerald-700",
-        "dark:text-emerald-400",
       );
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),

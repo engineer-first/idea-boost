@@ -610,7 +610,7 @@ export function RoomBoardCanvas({
                   height: dragPreview.height,
                 }}
               >
-                <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900 dark:text-slate-50">
+                <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900">
                   {dragPreview.note.content || "メモを入力..."}
                 </p>
               </StickyNote>,
