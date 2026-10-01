@@ -2644,6 +2644,75 @@ describe("note:drag（エフェメラル同期）", () => {
 });
 
 describe("cursor presence（名前付きの一時同期）", () => {
+  it("3-3の余白でもprivate付箋を操作対象として漏らさず、3-4では位置自体を配信しない", async () => {
+    const room = await setupStartedRoom();
+    await runInRoomDO(room.roomId, (instance) =>
+      instance.setPhase(buildPhaseStep(1, 3), OWNER.sub),
+    );
+    send(room.owner, { type: "note:create" });
+    const drafted = await expectType(room.owner, "note:inserted");
+    await runInRoomDO(room.roomId, (instance) =>
+      instance.setPhase(buildPhaseStep(3, 3), OWNER.sub),
+    );
+    send(room.owner, {
+      type: "cursor:update",
+      x: 110,
+      y: -10,
+      draggingNoteId: drafted.note.id,
+    });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+    await runInRoomDO(room.roomId, (instance) =>
+      instance.setPhase(buildPhaseStep(4, 3), OWNER.sub),
+    );
+    send(room.owner, { type: "cursor:update", x: 110, y: -10 });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+    room.owner.close();
+    room.member.close();
+  });
+
+  it.each([
+    2, 3, 5,
+  ])("3-%iではマップ外カーソルを中継し、存在しない操作対象は中継しない", async (step) => {
+    const room = await setupStartedRoom();
+    await runInRoomDO(room.roomId, (instance) =>
+      instance.setPhase(buildPhaseStep(step, 3), OWNER.sub),
+    );
+    send(room.owner, { type: "cursor:update", x: 110, y: -10 });
+    expect(
+      (await expectType(room.member, "cursor:updated")).cursor,
+    ).toMatchObject({
+      userId: OWNER.sub,
+      x: 110,
+      y: -10,
+      draggingNoteId: null,
+    });
+    const privateNoteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    send(room.owner, {
+      type: "cursor:update",
+      x: 110,
+      y: -10,
+      draggingNoteId: privateNoteId,
+    });
+    expect(
+      await Promise.race([
+        room.member.next(),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
+      ]),
+    ).toBeNull();
+    room.owner.close();
+    room.member.close();
+  });
+
   it("共有作業中はメンバー・付箋と同じサーバー由来の色を付けて他メンバーだけへ中継する", async () => {
     const room = await setupStartedRoom();
     const noteId = await createNote(room);

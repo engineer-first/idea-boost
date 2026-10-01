@@ -863,3 +863,24 @@ export const MapAdoptionAfterRepeatedOperations: Story = {
     notes: adoptionLayeringNotes(true),
   },
 };
+
+export const IdeaMapMarginCursors: Story = {
+  args: {
+    ...fixedSizeMapArgs,
+    camera: IDEA_MAP_CAMERA,
+    remoteCursors: [
+      { x: -10, y: 50, name: "左余白" },
+      { x: 110, y: 50, name: "右余白" },
+      { x: 50, y: 110, name: "上余白" },
+      { x: 50, y: -10, name: "下余白" },
+    ].map((cursor, index) => ({
+      ...cursor,
+      userId: `22222222-2222-4222-8222-22222222222${index}`,
+      color: "blue",
+      draggingNoteId: null,
+      lastSeenAt: 0,
+      isIdle: false,
+    })),
+  },
+  decorators: IDEA_MAP_VIEWPORT,
+};

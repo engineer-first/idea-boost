@@ -503,10 +503,7 @@ export function RoomBoardCanvas({
               <IdeaValueFeasibilityMap
                 planeRef={ideaMapPlaneRef}
                 sizeLevel={ideaMapSizeLevel}
-              >
-                {orderedNotes.map(renderPositionedNote)}
-                {renderIdeaMapDragGhost()}
-                {remoteCursors.map((cursor) => (
+                overlay={remoteCursors.map((cursor) => (
                   <RemoteCursor
                     key={cursor.userId}
                     cursor={cursor}
@@ -519,6 +516,9 @@ export function RoomBoardCanvas({
                     }}
                   />
                 ))}
+              >
+                {orderedNotes.map(renderPositionedNote)}
+                {renderIdeaMapDragGhost()}
               </IdeaValueFeasibilityMap>
             ) : null}
             {renderGroups.map((rg) => {

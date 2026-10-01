@@ -70,6 +70,43 @@ function setup({
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
+  it.each([
+    2, 3, 5,
+  ])("3-%iのマップ四辺の外もcanvas上なら範囲を丸めず送信する", (step) => {
+    const { result, onCursorMove, onCursorLeave, viewport } = setup({
+      phase: buildPhaseStep(step, 3),
+    });
+    const plane = document.createElement("div");
+    plane.getBoundingClientRect = () => new DOMRect(100, 200, 400, 200);
+    result.current.ideaMapPlaneRef.current = plane;
+    for (const [clientX, clientY, x, y] of [
+      [550, 300, 112.5, 50],
+      [50, 300, -12.5, 50],
+      [300, 150, 50, 125],
+      [300, 450, 50, -25],
+    ]) {
+      act(() =>
+        result.current.onPresencePointerMove({
+          clientX,
+          clientY,
+          pointerType: "mouse",
+          target: viewport,
+        } as unknown as PointerEvent<HTMLDivElement>),
+      );
+      expect(onCursorMove).toHaveBeenLastCalledWith({ x, y }, null);
+    }
+    expect(onCursorLeave).not.toHaveBeenCalled();
+    act(() =>
+      result.current.onPresencePointerMove({
+        clientX: 850,
+        clientY: 300,
+        pointerType: "mouse",
+        target: viewport,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    expect(onCursorLeave).toHaveBeenCalledOnce();
+  });
+
   it("共有キャンバスの client 座標を board 座標へ変換する", () => {
     const { result, onCursorMove, viewport } = setup();
     act(() =>

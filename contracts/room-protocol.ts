@@ -271,6 +271,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     .strict(),
   z.object({
     type: z.literal("cursor:update"),
+    // マップ表示中は左下原点の百分率。余白は0〜100の外も許可し、
+    // 付箋の評価位置とは別にCanvasCoordinateSchemaの安全上限を守る。
     ...NotePositionSchema,
     // null はドラッグ終了後もカーソル自体は表示し続けることを明示する。
     draggingNoteId: z.string().uuid().nullable().optional(),

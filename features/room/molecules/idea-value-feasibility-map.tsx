@@ -16,12 +16,14 @@ const MAP_GRID_STYLE = {
 // 平面そのものを relative に保つ。子要素は0〜100の連続座標で配置する。
 export type IdeaValueFeasibilityMapProps = {
   children?: ReactNode;
+  overlay?: ReactNode;
   planeRef?: Ref<HTMLDivElement>;
   sizeLevel?: number;
 };
 
 export function IdeaValueFeasibilityMap({
   children,
+  overlay,
   planeRef,
   sizeLevel = 0,
 }: IdeaValueFeasibilityMapProps) {
@@ -82,6 +84,11 @@ export function IdeaValueFeasibilityMap({
         />
         {children}
       </div>
+      {overlay ? (
+        <div className="pointer-events-none relative z-20 col-start-2 row-start-1 min-h-0 min-w-0">
+          {overlay}
+        </div>
+      ) : null}
 
       <fieldset
         aria-label={labels.feasibilityScaleAriaLabel}

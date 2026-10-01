@@ -1,7 +1,6 @@
 // 名前付きカーソルの非永続中継。受信者に送る本人情報は、クライアント入力では
 // なく認証済みソケットと members テーブルから組み立てる。
 
-import { isIdeaValueFeasibilityMapCoordinate } from "../../contracts/board";
 import { isCursorSharingAllowed } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
 import type { MessageHandlers } from "./handler-context";
@@ -16,14 +15,6 @@ export const presenceHandlers: MessageHandlers<
   "cursor:update": (ctx, message) => {
     const phase = getPhase(ctx.sql);
     if (!isCursorSharingAllowed(phase)) return;
-    if (
-      phase.kind === "step" &&
-      phase.phase === 3 &&
-      (!isIdeaValueFeasibilityMapCoordinate(message.x) ||
-        !isIdeaValueFeasibilityMapCoordinate(message.y))
-    ) {
-      return;
-    }
 
     if (message.draggingNoteId) {
       const active = ctx.broadcaster.activeDragFor(ctx.ws);
