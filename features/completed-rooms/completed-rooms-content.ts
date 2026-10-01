@@ -18,12 +18,14 @@ export const SCENE_STATUS: Record<CompletedScene["status"], string> = {
   "before-recording": "記録機能の導入前のため、この場面の記録はありません。",
 };
 export function formatCompletedDate(value: number): string {
-  return new Intl.DateTimeFormat("ja-JP", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
+  const date = new Intl.DateTimeFormat("ja-JP", {
+    dateStyle: "long",
+    timeZone: "Asia/Tokyo",
+  }).format(value);
+  const time = new Intl.DateTimeFormat("ja-JP", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Asia/Tokyo",
   }).format(value);
+  return `${date} ${time}`;
 }
