@@ -2644,6 +2644,42 @@ describe("note:drag（エフェメラル同期）", () => {
 });
 
 describe("cursor presence（名前付きの一時同期）", () => {
+  it("3-3の有効な共有drag中も余白cursorを中継し、付箋の評価位置を変えない", async () => {
+    const room = await setupStartedRoom();
+    const noteId = await createNote(room);
+    await runInRoomDO(room.roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE notes SET phase = 3, x = 50, y = 50 WHERE id = ?1",
+        noteId,
+      );
+      await instance.setPhase(buildPhaseStep(3, 3), OWNER.sub);
+    });
+    const dragId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    send(room.owner, { type: "note:drag:start", noteId, dragId });
+    expect(await expectType(room.owner, "note:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    // マップのdrag状態のbroadcastを先に消費する。
+    await expectType(room.member, "idea-map:state");
+    send(room.owner, {
+      type: "cursor:update",
+      x: 110,
+      y: -10,
+      draggingNoteId: noteId,
+    });
+    expect(
+      (await expectType(room.member, "cursor:updated")).cursor,
+    ).toMatchObject({ x: 110, y: -10, draggingNoteId: noteId });
+    const position = await runInRoomDO(room.roomId, (_instance, state) =>
+      state.storage.sql
+        .exec("SELECT x, y FROM notes WHERE id = ?1", noteId)
+        .one(),
+    );
+    expect(position).toMatchObject({ x: 50, y: 50 });
+    room.owner.close();
+    room.member.close();
+  });
+
   it("3-3の余白でもprivate付箋を操作対象として漏らさず、3-4では位置自体を配信しない", async () => {
     const room = await setupStartedRoom();
     await runInRoomDO(room.roomId, (instance) =>

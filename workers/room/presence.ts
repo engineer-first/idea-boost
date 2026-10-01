@@ -30,8 +30,10 @@ export const presenceHandlers: MessageHandlers<
           type: "note:drag:move",
           noteId: message.draggingNoteId,
           dragId: active.dragId,
-          x: message.x,
-          y: message.y,
+          // フェーズの操作可否は付箋の位置で判定する。
+          // 余白を含むcursor位置を付箋の評価位置として検証しない。
+          x: row.x,
+          y: row.y,
         }) !== null
       ) {
         // private / 別フェーズ / 存在しない付箋の有無を配信結果から推測させない。

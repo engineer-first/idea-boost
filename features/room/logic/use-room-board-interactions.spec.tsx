@@ -10,12 +10,14 @@ function setup({
   phase = buildPhaseStep(2),
   withSharedDrag = false,
   withPrivateNote = false,
+  draggingNoteId = null,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = true,
 }: {
   phase?: RoomPhase;
   withSharedDrag?: boolean;
   withPrivateNote?: boolean;
+  draggingNoteId?: string | null;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
 } = {}) {
@@ -41,7 +43,7 @@ function setup({
         ? [buildNote({ id: "private-1", visibility: "private" })]
         : [],
       currentUserId: "11111111-1111-4111-8111-111111111111",
-      draggingNoteId: null,
+      draggingNoteId,
       phase,
       ideaMapSizeLevel,
       ideaMapSizeInitialized,
@@ -70,6 +72,40 @@ function setup({
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
+  it("共有drag中も余白の実カーソル座標と操作対象を送る", () => {
+    const { result, onCursorMove, viewport } = setup({
+      phase: buildPhaseStep(3, 3),
+      withSharedDrag: true,
+      draggingNoteId: "shared-1",
+    });
+    const plane = document.createElement("div");
+    plane.getBoundingClientRect = () => new DOMRect(100, 200, 400, 200);
+    result.current.ideaMapPlaneRef.current = plane;
+    act(() =>
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 15,
+        clientX: 300,
+        clientY: 250,
+        currentTarget: {
+          getBoundingClientRect: () => new DOMRect(200, 200, 200, 150),
+        },
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+    act(() =>
+      result.current.onPresencePointerMove({
+        pointerId: 15,
+        clientX: 550,
+        clientY: 300,
+        pointerType: "mouse",
+        target: viewport,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    expect(onCursorMove).toHaveBeenLastCalledWith(
+      { x: 112.5, y: 50 },
+      "shared-1",
+    );
+  });
+
   it.each([
     2, 3, 5,
   ])("3-%iのマップ四辺の外もcanvas上なら範囲を丸めず送信する", (step) => {
