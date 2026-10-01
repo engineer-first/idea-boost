@@ -326,3 +326,33 @@ test("ボード左上の入口から現行ステップを選んだ入力欄に�
   await page.getByRole("button", { name: "入力欄を閉じる" }).click();
   expect(await page.getByTestId("board-context-hud").isVisible()).toBe(true);
 });
+
+test.each([
+  390, 1280,
+])("%ipxでも「わからない」をキーボードで選び種類のみ送信できる", async (width) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto(
+    `${origin}/iframe.html?id=feedback-feedbackpanel--interactive&viewMode=story`,
+  );
+  const panel = page.getByRole("dialog", { name: "フィードバック" });
+  await panel.waitFor();
+  expect(
+    await panel.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  const kind = page.getByRole("radio", { name: "わからない", exact: true });
+  await kind.focus();
+  await page.keyboard.press("Space");
+  expect(await kind.isChecked()).toBe(true);
+  expect(
+    await page
+      .getByRole("radio", { name: "使いにくい", exact: true })
+      .isChecked(),
+  ).toBe(false);
+  await page.getByRole("button", { name: "送信", exact: true }).click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "意見を受け付けました" })
+    .waitFor();
+});

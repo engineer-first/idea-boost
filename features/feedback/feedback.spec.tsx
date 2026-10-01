@@ -224,3 +224,23 @@ it("期限切れIDだけを更新して、入力を変えず新しい意見と�
     body: "",
   });
 });
+
+it.each([
+  "1-3",
+  "app",
+])("対象%sで「わからない」を文章なしで送信できる", async (target) => {
+  const submit = vi
+    .fn<SubmitFeedback>()
+    .mockImplementation(async (_room, input) => ({ ok: true, id: input.id }));
+  render(<Harness submit={submit} target={target} />);
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
+  fireEvent.click(screen.getByRole("radio", { name: "わからない" }));
+  fireEvent.click(screen.getByRole("button", { name: "送信" }));
+  await screen.findByText(/意見を受け付けました/);
+  expect(submit.mock.calls[0][1]).toMatchObject({
+    target,
+    kind: "unclear",
+    body: "",
+    rating: null,
+  });
+});

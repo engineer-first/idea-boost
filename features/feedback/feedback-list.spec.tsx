@@ -280,3 +280,34 @@ it.each([
     screen.queryByRole("link", { name: "共有成果を見る" }),
   ).not.toBeInTheDocument();
 });
+
+it("「わからない」の投稿を表示し、同じ種類で絞り込める", async () => {
+  const queries: URLSearchParams[] = [];
+  server.use(
+    http.get("/api/feedback", ({ request }) => {
+      queries.push(new URL(request.url).searchParams);
+      return HttpResponse.json({
+        items: [
+          {
+            ...record,
+            kind: "unclear",
+            target: "1-3",
+            body: "何を基準に投票するかわからない",
+            rating: null,
+          },
+        ],
+        nextCursor: null,
+        canReadOutcomes: false,
+      });
+    }),
+  );
+  render(<FeedbackList />);
+  await screen.findByText("何を基準に投票するかわからない");
+  expect(
+    screen.getByText("わからない", { selector: "span" }),
+  ).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("種類で絞る"), {
+    target: { value: "unclear" },
+  });
+  await waitFor(() => expect(queries.at(-1)?.get("kind")).toBe("unclear"));
+});

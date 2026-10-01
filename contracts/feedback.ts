@@ -23,10 +23,17 @@ export const FEEDBACK_BODY_LIMIT = 2000;
 export const FEEDBACK_KINDS = {
   bug: "不具合",
   difficult: "使いにくい",
+  unclear: "わからない",
   want: "ほしい",
   good: "よかった",
 } as const;
-export const FeedbackKindSchema = z.enum(["bug", "difficult", "want", "good"]);
+export const FeedbackKindSchema = z.enum([
+  "bug",
+  "difficult",
+  "unclear",
+  "want",
+  "good",
+]);
 export const FEEDBACK_TARGETS = [
   { value: "app", label: "アプリ全体" },
   ...Object.entries(ROOM_PHASE_STEP_LABELS).flatMap(([phase, steps]) =>

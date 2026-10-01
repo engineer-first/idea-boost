@@ -20,6 +20,13 @@ export const Step: Story = {
     }),
   },
 };
+export const Unclear: Story = {
+  args: {
+    feedback: buildFeedbackControls({
+      draft: { target: "1-3", kind: "unclear", body: "", rating: null },
+    }),
+  },
+};
 export const Pending: Story = {
   args: { feedback: buildFeedbackControls({ pending: true }) },
 };

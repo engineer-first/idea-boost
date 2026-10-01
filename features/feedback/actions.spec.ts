@@ -57,3 +57,13 @@ it("保存失敗と応答喪失は再送可能な失敗として返し、同じI
   ).toEqual([value.id, value.id]);
   expect(apiFetch.mock.calls[0][1].cache).toBe("no-store");
 });
+
+it("「わからない」を検証してWorkerへ送信する", async () => {
+  const value = { ...input(), kind: "unclear", target: "1-3" };
+  apiFetch.mockResolvedValue(Response.json({ ok: true, id: value.id }));
+  expect(await submitFeedback(roomId, value)).toEqual({
+    ok: true,
+    id: value.id,
+  });
+  expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual(value);
+});
