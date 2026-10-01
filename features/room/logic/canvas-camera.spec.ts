@@ -248,3 +248,34 @@ describe("canvas-camera", () => {
     raf.mockRestore();
   });
 });
+
+describe("HUDを避ける本人fit", () => {
+  it("CSS px insetを引いた安全矩形の原点と中央に配置する", () => {
+    const camera = fitCanvasCamera(
+      { x: 100, y: 200, width: 400, height: 300 },
+      { width: 1280, height: 720 },
+      16,
+      { top: 240, right: 20, bottom: 160, left: 20 },
+    );
+    expect(camera).not.toBeNull();
+    expect(camera).toEqual({ x: 352, y: 64, zoom: 0.96 });
+  });
+  it("安全領域が消える/最小倍率でも入らない場合はfit成功を返さない", () => {
+    expect(
+      fitCanvasCamera(
+        { x: 0, y: 0, width: 400, height: 300 },
+        { width: 390, height: 844 },
+        16,
+        { top: 500, right: 0, bottom: 350, left: 0 },
+      ),
+    ).toBeNull();
+    expect(
+      fitCanvasCamera(
+        { x: 0, y: 0, width: 100000, height: 100000 },
+        { width: 390, height: 844 },
+        16,
+        { top: 400, right: 0, bottom: 200, left: 0 },
+      ),
+    ).toBeNull();
+  });
+});

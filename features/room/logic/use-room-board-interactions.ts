@@ -13,7 +13,11 @@ import {
 } from "@/contracts/phase";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "./board-permissions";
-import { type CanvasCamera, clampCanvasCoordinate } from "./canvas-camera";
+import {
+  type CanvasCamera,
+  type CanvasFitInsets,
+  clampCanvasCoordinate,
+} from "./canvas-camera";
 import {
   clampIdeaValueFeasibilityMapCoordinate,
   getIdeaValueFeasibilityMapPointFromClientPosition,
@@ -24,6 +28,7 @@ import { useCanvasCamera } from "./use-canvas-camera";
 import { useIdeaValueFeasibilityMapInput } from "./use-idea-value-feasibility-map-input";
 
 export type UseRoomBoardInteractionsArgs = {
+  getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
   notes: Note[];
   privateNotes: Note[];
   currentUserId: string;
@@ -76,7 +81,7 @@ export type RoomBoardInteractions = {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
-  onFitToNotes: () => void;
+  onFitToNotes: (insets?: CanvasFitInsets) => boolean | undefined;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -94,6 +99,7 @@ export type RoomBoardInteractions = {
 };
 
 export function useRoomBoardInteractions({
+  getFitInsets,
   notes,
   privateNotes,
   currentUserId,
@@ -129,6 +135,7 @@ export function useRoomBoardInteractions({
     handlePointerEnd: onCanvasPointerEnd,
   } = useCanvasCamera({
     viewportRef: boardScrollerRef,
+    getFitInsets,
     notes,
     fitViewport:
       phase.kind === "step" &&

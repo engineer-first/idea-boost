@@ -6,6 +6,15 @@
 import { toast } from "sonner";
 
 export const roomNotify = {
+  canvasFitUnavailable(): void {
+    toast.error(
+      "進め方・ヒント・マイ付箋を閉じてから、もう一度「付箋全体を表示」を押してください。",
+      { id: "canvas-fit-unavailable", duration: 4000, closeButton: true },
+    );
+  },
+  dismissCandidateNotice(id: string | number): void {
+    toast.dismiss(id);
+  },
   memberJoined(name: string): void {
     toast(`${name} さんが参加しました`);
   },
@@ -27,18 +36,21 @@ export const roomNotify = {
   cannotPublishNote() {
     toast.error("まだ共有できません");
   },
-  noteExcluded(onUndo: () => void): void {
-    toast("付箋を候補から外しました", {
+  noteExcluded(onUndo: () => void): string | number {
+    return toast("付箋を候補から外しました", {
       action: { label: "元に戻す", onClick: onUndo },
     });
   },
-  bulkCandidatesExcluded(count: number, onUndo: () => void): void {
-    toast(`${count}件の付箋を候補から外しました`, {
+  bulkCandidatesExcluded(count: number, onUndo: () => void): string | number {
+    return toast(`${count}件の付箋を候補から外しました`, {
       action: { label: "まとめて元に戻す", onClick: onUndo },
     });
   },
-  automaticallyExcludedCandidates(count: number, onUndo?: () => void): void {
-    toast(
+  automaticallyExcludedCandidates(
+    count: number,
+    onUndo?: () => void,
+  ): string | number {
+    return toast(
       onUndo
         ? `投票完了により0票の付箋${count}件を候補から外しました。必要なら戻せます`
         : `投票完了により0票の付箋${count}件を候補から外しました。ホストが戻せます`,

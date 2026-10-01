@@ -373,3 +373,65 @@ test("課題の確定後は取消と次フェーズ進行ができ、進行前�
   expect(await dialog.innerText()).toContain("前のフェーズへは戻れません");
   await expectReadable(dialog);
 });
+
+test("390px fit失敗の案内がルーム操作/閉じる操作を遮らず、案内を閉じられる", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openStory("room-roomboardview--fit-unavailable");
+  await page.getByRole("button", { name: "付箋全体を表示" }).click();
+  const notice = page.getByText(/進め方・ヒント・マイ付箋を閉じてから/);
+  await notice.waitFor();
+  const control = page.getByTestId("board-control-hud");
+  expect(
+    await control.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return el.contains(
+        document.elementFromPoint(
+          box.x + box.width / 2,
+          box.y + box.height / 2,
+        ),
+      );
+    }),
+  ).toBe(true);
+  const dismiss = page.getByRole("button", {
+    name: /通知を閉じる|Close toast/,
+  });
+  expect(await dismiss.count()).toBeGreaterThan(0);
+  await dismiss.click();
+  await notice.waitFor({ state: "hidden" });
+});
+
+test("390px template展開後のprivate本文がdock内で通常pointerとEnterから編集できる", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openStory("room-roomboardview--hmw-writing-step");
+  await page
+    .getByTestId("hmw-template-panel")
+    .getByRole("button")
+    .first()
+    .click();
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  await page.mouse.move(258, 627);
+  await page.mouse.wheel(0, 500);
+  await page.waitForFunction(() => {
+    const scroll = document.querySelector<HTMLElement>(
+      '[data-testid="private-notes-scroll"]',
+    );
+    return (
+      scroll &&
+      (scroll.scrollHeight <= scroll.clientHeight ||
+        Math.abs(scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop) <
+          1)
+    );
+  });
+  const card = toolbar.getByTestId("note-card").last();
+  const point = await card.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    return { x, y, reachable: el.contains(document.elementFromPoint(x, y)) };
+  });
+  expect(point.reachable).toBe(true);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.press("Enter");
+  expect(await card.locator("textarea").getAttribute("readonly")).toBeNull();
+  await page.screenshot({ path: `${output}/private-dock-mobile.png` });
+});

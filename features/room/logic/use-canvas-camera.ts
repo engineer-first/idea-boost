@@ -19,6 +19,7 @@ import {
   CANVAS_FIT_PADDING,
   type CanvasBounds,
   type CanvasCamera,
+  type CanvasFitInsets,
   type CanvasPoint,
   clampCanvasZoom,
   fitCanvasCamera,
@@ -45,6 +46,7 @@ type UseCanvasCameraArgs = {
   notes: Note[];
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
   fitViewport?: boolean;
+  getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
 };
@@ -125,7 +127,8 @@ function fitIdeaMapCamera(
   },
   sizeLevel: number,
   noteBounds: CanvasBounds | null = null,
-): CanvasCamera {
+  insets?: CanvasFitInsets,
+): CanvasCamera | null {
   const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
   const mapBounds: CanvasBounds = {
     x: (viewport.width - IDEA_MAP_BASE_DIMENSIONS.width) / 2,
@@ -136,7 +139,8 @@ function fitIdeaMapCamera(
     width: dimensions.width,
     height: dimensions.height,
   };
-  if (!noteBounds) return fitCanvasCamera(mapBounds, viewport);
+  if (!noteBounds)
+    return fitCanvasCamera(mapBounds, viewport, undefined, insets);
   const x = Math.min(mapBounds.x, noteBounds.x);
   const y = Math.min(mapBounds.y, noteBounds.y);
   return fitCanvasCamera(
@@ -155,6 +159,8 @@ function fitIdeaMapCamera(
         ) - y,
     },
     viewport,
+    undefined,
+    insets,
   );
 }
 
@@ -162,6 +168,7 @@ export function useCanvasCamera({
   viewportRef,
   notes,
   fitViewport = false,
+  getFitInsets,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = true,
 }: UseCanvasCameraArgs) {
@@ -173,6 +180,8 @@ export function useCanvasCamera({
   const [isPanning, setIsPanning] = useState(false);
   const cameraRef = useRef(camera);
   const notesRef = useRef(notes);
+  const getFitInsetsRef = useRef(getFitInsets);
+  getFitInsetsRef.current = getFitInsets;
   const panRef = useRef<CanvasPan | null>(null);
   const pendingCameraRef = useRef<CanvasCamera | null>(null);
   const frameRef = useRef<ScheduledFrame | null>(null);
@@ -237,33 +246,31 @@ export function useCanvasCamera({
     [getViewportPoint],
   );
 
-  const fitToNotes = useCallback(() => {
-    hasFitRef.current = true;
-    if (fitViewport) {
+  const fitToNotes = useCallback(
+    (insets?: CanvasFitInsets): boolean => {
       const element = viewportRef.current;
-      const size = element ? viewportSize(element) : null;
-      if (size) {
-        setCameraImmediately(
-          fitIdeaMapCamera(
+      if (!element) return false;
+      const size = viewportSize(element);
+      if (!size) return false;
+      const safeInsets = insets ?? getFitInsetsRef.current?.(element);
+      const bounds = fitViewport ? null : notesBounds(notesRef.current);
+      const next = fitViewport
+        ? fitIdeaMapCamera(
             size,
             ideaMapSizeLevelRef.current,
-            element ? renderedNotesBounds(element, cameraRef.current) : null,
-          ),
-        );
-      }
-      return;
-    }
-    const element = viewportRef.current;
-    if (!element) return;
-    const size = viewportSize(element);
-    if (!size) return;
-    const bounds = notesBounds(notesRef.current);
-    if (!bounds) {
-      setCameraImmediately(getDefaultCanvasCamera(size));
-      return;
-    }
-    setCameraImmediately(fitCanvasCamera(bounds, size));
-  }, [fitViewport, setCameraImmediately, viewportRef]);
+            renderedNotesBounds(element, cameraRef.current),
+            safeInsets,
+          )
+        : bounds
+          ? fitCanvasCamera(bounds, size, undefined, safeInsets)
+          : getDefaultCanvasCamera(size);
+      if (!next) return false;
+      hasFitRef.current = true;
+      setCameraImmediately(next);
+      return true;
+    },
+    [fitViewport, setCameraImmediately, viewportRef],
+  );
 
   const zoomTo = useCallback(
     (requestedZoom: number, point?: CanvasPoint) => {
@@ -362,14 +369,16 @@ export function useCanvasCamera({
     const element = viewportRef.current;
     const size = element ? viewportSize(element) : null;
     if (size) {
-      setCameraImmediately(
-        fitIdeaMapCamera(
-          size,
-          ideaMapSizeLevelRef.current,
-          element ? renderedNotesBounds(element, cameraRef.current) : null,
-        ),
+      const next = fitIdeaMapCamera(
+        size,
+        ideaMapSizeLevelRef.current,
+        element ? renderedNotesBounds(element, cameraRef.current) : null,
+        element ? getFitInsetsRef.current?.(element) : undefined,
       );
-      hasFitIdeaMapRef.current = true;
+      if (next) {
+        setCameraImmediately(next);
+        hasFitIdeaMapRef.current = true;
+      }
     }
   }, [fitViewport, ideaMapSizeInitialized, setCameraImmediately, viewportRef]);
 
@@ -456,8 +465,16 @@ export function useCanvasCamera({
     if (notes.length > 0 && !hasFitRef.current) {
       const bounds = notesBounds(notes);
       if (bounds) {
-        setCameraImmediately(fitCanvasCamera(bounds, size));
-        hasFitRef.current = true;
+        const next = fitCanvasCamera(
+          bounds,
+          size,
+          undefined,
+          getFitInsetsRef.current?.(element),
+        );
+        if (next) {
+          setCameraImmediately(next);
+          hasFitRef.current = true;
+        }
       }
     } else if (notes.length === 0 && !hasDefaultedRef.current) {
       setCameraImmediately(getDefaultCanvasCamera(size));
