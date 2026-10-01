@@ -163,7 +163,6 @@ describe("採用する付箋の選択モード", () => {
       notes: [buildNote({ id: "note-1", content: "候補A" })],
       onAdoptionFocusChange,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     const start = () => {
       fireEvent.click(
         screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
@@ -196,7 +195,6 @@ describe("採用する付箋の選択モード", () => {
       notes: [buildNote({ id: "note-1", content: "候補A" })],
       onNoteDecide,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     expect(screen.getByRole("status")).toHaveTextContent(
@@ -215,7 +213,6 @@ describe("採用する付箋の選択モード", () => {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     const start = () =>
       fireEvent.click(
         screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
@@ -238,7 +235,6 @@ describe("採用する付箋の選択モード", () => {
     expectSelectionModeClosed();
 
     rerender(<TestBoardView {...props} phase={buildPhaseStep(5)} />);
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     start();
     rerender(<TestBoardView {...props} connectionStatus="closed" />);
     expectSelectionModeClosed();
@@ -252,7 +248,6 @@ describe("採用する付箋の選択モード", () => {
       notes: [buildNote({ id: "note-1", content: "候補外", excluded: true })],
       onNoteDecide,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     fireEvent.click(screen.getByTestId("board-canvas"));
     expect(onNoteDecide).not.toHaveBeenCalled();
@@ -275,7 +270,6 @@ describe("採用する付箋の選択モード", () => {
       notes,
       decision,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     expect(screen.getAllByText("決定した課題")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
     expect(props.onDecisionClear).toHaveBeenCalledOnce();
@@ -299,7 +293,6 @@ describe("考えるヒントの外部制御", () => {
       decision: buildDecision({ noteId: "note-1" }),
       connectionStatus,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     const cancel = screen.getByRole("button", { name: "確定を取り消す" });
     expect(cancel).toBeDisabled();
     fireEvent.click(cancel);
@@ -381,7 +374,6 @@ describe("0票候補の一括整理", () => {
       ],
       decision: null,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     openRoomMenu();
     expect(
       screen.getByRole("button", {
@@ -465,16 +457,6 @@ describe("1280×720の補助UI", () => {
 
 function openMembers() {
   fireEvent.click(screen.getByRole("button", { name: /参加者 \d+人/ }));
-}
-
-function noteWithSingleVote() {
-  return buildNotes(1).map((note) => ({
-    ...note,
-    dotVotes: {
-      subjective: { count: 1, votedByMe: false, ownCount: 0 },
-      objective: { count: 0, votedByMe: false, ownCount: 0 },
-    },
-  }));
 }
 
 // カード内の選択・ドラッグ・キー操作を受けるサーフェス（透明なbutton）。
@@ -771,7 +753,6 @@ describe("RoomBoardView", () => {
       isHost: true,
       onNoteDecide,
     });
-    await userEvent.click(screen.getByRole("button", { name: "閉じる" }));
     await userEvent.click(
       screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
     );
@@ -1452,90 +1433,6 @@ describe("RoomBoardView", () => {
     ).not.toBeDisabled();
   });
 
-  it("Step 1-5 では投票結果をダイアログ表示し、閉じると元のボードで話し合える", () => {
-    setup({
-      phase: buildPhaseStep(5),
-      members: buildMembers(2, ME),
-      notes: buildNotes(4).map((note, index) => ({
-        ...note,
-        content: ["課題A", "課題B", "課題C", "課題D"][index],
-        dotVotes: {
-          subjective: {
-            count: [2, 0, 0, 0][index],
-            votedByMe: false,
-            ownCount: 0,
-          },
-          objective: {
-            count: [1, 5, 1, 0][index],
-            votedByMe: false,
-            ownCount: 0,
-          },
-        },
-      })),
-    });
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByTestId("vote-result-ranking")).toBeInTheDocument();
-    expect(screen.getByTestId("board-canvas")).toBeInTheDocument();
-    expect(screen.getByText("総合ポイントが高い順")).toBeInTheDocument();
-    expect(screen.getByText("1位")).toBeInTheDocument();
-    expect(screen.getByText("2位")).toBeInTheDocument();
-    expect(screen.getByText("3位")).toBeInTheDocument();
-    expect(screen.queryByText("TOP 3")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByTestId("board-canvas")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "投票結果を表示" }));
-
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-  });
-
-  it("結果ダイアログには決定操作を置かず、画面下の入口に一本化する", () => {
-    setup({
-      phase: buildPhaseStep(5),
-      isHost: true,
-      notes: noteWithSingleVote(),
-    });
-
-    expect(
-      within(screen.getByRole("dialog")).queryByRole("button", {
-        name: /取り組む課題に決定/,
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("結果ダイアログは決定済み付箋をstatusとして表示する", () => {
-    setup({
-      phase: buildPhaseStep(5),
-      decision: buildDecision({ noteId: "note-1", decidedBy: ME }),
-      notes: noteWithSingleVote(),
-    });
-
-    expect(
-      within(screen.getByRole("dialog")).getByRole("status", {
-        name: "取り組む課題に決定済み",
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it("切断中は結果ダイアログの決定操作を出さない", () => {
-    setup({
-      phase: buildPhaseStep(5),
-      isHost: true,
-      connectionStatus: "closed",
-      notes: noteWithSingleVote(),
-    });
-
-    expect(
-      within(screen.getByRole("dialog")).queryByRole("button", {
-        name: "付箋 1を取り組む課題に決定",
-      }),
-    ).not.toBeInTheDocument();
-  });
-
   it("パレットをクリックしても投票せず、ドロップ操作を待つ", () => {
     const onNoteVote = vi.fn();
 
@@ -1863,15 +1760,12 @@ describe("RoomBoardView", () => {
       expect(onNextPhase).toHaveBeenCalledTimes(1);
     });
 
-    it("Step 1-5 は未決定なら次への操作を出さない", () => {
+    it("Step 1-5 は未決定なら次への操作を無効にする", () => {
       setup({ isHost: true, phase: buildPhaseStep(5), decision: null });
 
-      // 結果ステップで自動表示される投票結果ダイアログを閉じてから検証する。
-      fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-
       expect(
-        screen.queryByRole("button", { name: "次のステップへ" }),
-      ).not.toBeInTheDocument();
+        screen.getByRole("button", { name: "次のステップへ" }),
+      ).toBeDisabled();
     });
 
     it("Step 1-5 で課題が決定されると2-1への「次のステップへ」を表示する", () => {
@@ -1880,8 +1774,6 @@ describe("RoomBoardView", () => {
         phase: buildPhaseStep(5),
         decision: buildDecision({ noteId: "note-1" }),
       });
-
-      fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
@@ -2035,8 +1927,6 @@ describe("RoomBoardView", () => {
       setup({
         phase: buildPhaseStep(5),
       });
-
-      fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
       expect(
         screen.queryByRole("region", { name: "投票パレット" }),
@@ -2284,12 +2174,11 @@ describe("反復ワークフロー", () => {
       screen.getByRole("button", { name: "個人作業へ戻る" }),
     ).toBeEnabled();
   });
-  it("採用前は次への操作を出さず再投票を確認できる", () => {
+  it("採用前は次への操作を無効にして再投票を確認できる", () => {
     setup({ phase: buildPhaseStep(5), isHost: true });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     expect(
-      screen.queryByRole("button", { name: "次のステップへ" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "もう一度投票する" }));
     expect(screen.getByRole("alertdialog")).toHaveTextContent(
       "付箋は消えません",
@@ -2305,7 +2194,6 @@ describe("反復ワークフロー", () => {
       isHost: true,
       notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     expect(props.onNoteDecide).not.toHaveBeenCalled();
     fireEvent.click(
@@ -2321,7 +2209,6 @@ describe("反復ワークフロー", () => {
 
 it("同じ決定ステップのsnapshot更新では結果一覧を再表示しない", () => {
   const { props, rerender } = setup({ phase: buildPhaseStep(5), isHost: true });
-  fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
   rerender(
     <TestBoardView
       {...props}
@@ -2585,5 +2472,40 @@ describe("fit HUDの可視境界", () => {
     } finally {
       root.remove();
     }
+  });
+});
+
+describe("付箋上の投票結果", () => {
+  it.each([
+    [buildPhaseStep(4), buildPhaseStep(5)],
+    [buildPhaseStep(3, 2), buildPhaseStep(4, 2)],
+    [buildPhaseStep(4, 3), buildPhaseStep(5, 3)],
+  ])("%jから決定へ進んでもモーダルを開かず、各付箋の集計を表示する", (voting, result) => {
+    const notes = [
+      buildNote({
+        content: "比較する候補",
+        dotVotes: {
+          subjective: { count: 2, ownCount: 0, votedByMe: false },
+          objective: { count: 3, ownCount: 0, votedByMe: false },
+        },
+      }),
+    ];
+    const { props, rerender } = setup({ phase: voting, notes, isHost: true });
+    rerender(<TestBoardView {...props} phase={result} />);
+    expect(
+      screen.queryByRole("dialog", { name: "投票結果" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "投票結果を表示" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "主観シール 2票" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "客観シール 3票" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    fireEvent.click(screen.getByRole("button", { name: /比較する候補/ }));
+    expect(props.onNoteDecide).toHaveBeenCalledOnce();
   });
 });

@@ -70,7 +70,6 @@ export type RoomBoardHeaderProps = {
   outcomePublished: boolean;
   isLeaving: boolean;
   signOutAction?: () => Promise<void>;
-  onShowVoteResult: () => void;
   onShowOutcome?: () => void;
   onPublishOutcome: () => void;
   onLeaveClick: () => void;
@@ -114,7 +113,6 @@ export function RoomBoardHeader({
   outcomePublished,
   isLeaving,
   signOutAction,
-  onShowVoteResult,
   onShowOutcome,
   onPublishOutcome,
   onLeaveClick,
@@ -252,22 +250,26 @@ export function RoomBoardHeader({
           data-testid="board-control-hud"
           data-board-fit-edge="top"
         >
-          {showVotingCompletion ? (
+          {isCurrentVotingStep || isResultStep(phase) ? (
             <span
-              className="shrink-0 max-[900px]:order-last max-[900px]:basis-full max-[900px]:pl-2"
-              data-testid="vote-completion-indicator"
+              className="shrink-0 max-[900px]:order-last max-[900px]:pl-2"
+              data-testid={
+                showVotingCompletion ? "vote-completion-indicator" : undefined
+              }
             >
               <span
                 aria-hidden="true"
-                className="inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none"
+                className={`${showVotingCompletion ? "" : "invisible "}inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none`}
                 data-testid="vote-completion-label"
               >
                 <Check className="size-3.5 shrink-0" />
                 全員OK
               </span>
-              <span className="sr-only" role="status" aria-live="polite">
-                全員の投票が完了しました
-              </span>
+              {showVotingCompletion && (
+                <span className="sr-only" role="status" aria-live="polite">
+                  全員の投票が完了しました
+                </span>
+              )}
             </span>
           ) : null}
           {activeSharing ? (
@@ -507,48 +509,52 @@ export function RoomBoardHeader({
           ) : null}
 
           {isResultStep(phase) ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 shrink-0 px-3 shadow-none"
-                onClick={onShowVoteResult}
-              >
-                投票結果を表示
-              </Button>
-              {isFinalStep && hasFinalDecision ? (
-                outcomePublished ? (
-                  <Button
-                    type="button"
-                    className="h-10 shrink-0 px-3"
-                    onClick={onShowOutcome}
+            isFinalStep ? (
+              isHost || outcomePublished ? (
+                <div className="grid shrink-0 items-center justify-items-end">
+                  <span
+                    aria-hidden="true"
+                    className="invisible col-start-1 row-start-1 inline-flex h-10 items-center rounded-lg border border-transparent px-4 text-sm font-medium whitespace-nowrap max-[900px]:px-2 max-[900px]:text-xs"
                   >
-                    成果を見る
-                  </Button>
-                ) : isHost ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="size-10 shrink-0"
-                    aria-label="完了して成果を表示"
-                    title="完了して成果を表示"
-                    disabled={isDisconnected}
-                    onClick={onPublishOutcome}
-                  >
-                    <Check aria-hidden="true" className="size-5" />
-                  </Button>
-                ) : null
-              ) : !isFinalStep && isHost && !isNextPhaseBlocked ? (
-                <NextPhaseConfirmDialog
-                  key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
-                  phase={phase}
-                  disabled={
-                    isDisconnected || isNextPhasePending || isNextPhaseBlocked
-                  }
-                  onConfirm={onNextPhase}
-                />
-              ) : null}
-            </>
+                    次のステップへ
+                  </span>
+                  <div className="col-start-1 row-start-1">
+                    {hasFinalDecision ? (
+                      outcomePublished ? (
+                        <Button
+                          type="button"
+                          className="h-10 shrink-0 px-3"
+                          onClick={onShowOutcome}
+                        >
+                          成果を見る
+                        </Button>
+                      ) : isHost ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          className="size-10 shrink-0"
+                          aria-label="完了して成果を表示"
+                          title="完了して成果を表示"
+                          disabled={isDisconnected}
+                          onClick={onPublishOutcome}
+                        >
+                          <Check aria-hidden="true" className="size-5" />
+                        </Button>
+                      ) : null
+                    ) : null}
+                  </div>
+                </div>
+              ) : null
+            ) : isHost ? (
+              <NextPhaseConfirmDialog
+                key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
+                phase={phase}
+                disabled={
+                  isDisconnected || isNextPhasePending || isNextPhaseBlocked
+                }
+                onConfirm={onNextPhase}
+              />
+            ) : null
           ) : isHost &&
             (!activeSharing || activeSharing.status === "complete") ? (
             <NextPhaseConfirmDialog

@@ -444,8 +444,6 @@ export const SelectingCandidate: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", { name: "採用する付箋を選ぶ" }),
     );
@@ -474,8 +472,6 @@ export const SelectingAt768px: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", { name: "採用する付箋を選ぶ" }),
     );
@@ -497,8 +493,6 @@ export const SelectingIdeaMapCandidate: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", {
         name: "採用する付箋を選ぶ",

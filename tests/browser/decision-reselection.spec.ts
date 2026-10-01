@@ -41,12 +41,6 @@ for (const width of [1280, 375]) {
         `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story`,
       );
       await page.getByTestId("phase-loop-hud").waitFor();
-      if (phase !== "3-5") {
-        const dialog = page.getByRole("dialog");
-        await dialog.waitFor();
-        await page.keyboard.press("Escape");
-        await dialog.waitFor({ state: "hidden" });
-      }
       await page.evaluate(() => document.fonts.ready);
       const cancel = page.getByRole("button", {
         name: "確定を取り消す",

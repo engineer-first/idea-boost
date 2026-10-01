@@ -80,23 +80,15 @@ async function expectReachable(target: Locator): Promise<void> {
   ).toBe(true);
 }
 
-async function closeResults(): Promise<void> {
-  const result = page.getByRole("dialog");
-  await result.waitFor();
-  await page.keyboard.press("Escape");
-  await result.waitFor({ state: "hidden" });
-}
-
 for (const { phase, count, goal } of phases) {
   for (let step = 1; step <= count; step += 1) {
     for (const isHost of [true, false]) {
-      test(`1280×720 ${phase}-${step} ${isHost ? "ホスト" : "参加者"}: 現在地と最大2操作を所定位置で読める`, async () => {
+      test(`1280×720 ${phase}-${step} ${isHost ? "ホスト" : "参加者"}: 現在地と最大2有効操作を所定位置で読める`, async () => {
         await openStory(
           `room-roomboardlayout--phase-${phase}-step-${step}`,
           isHost,
         );
         const isResult = step === count;
-        if (isResult) await closeResults();
         const context = page.getByTestId("board-context-hud");
         await expectReadable(context);
         expect(await context.innerText()).toContain(`${step}/${count}`);
@@ -126,14 +118,17 @@ for (const { phase, count, goal } of phases) {
         const canRestart =
           step === 2 || ((phase === 1 || phase === 3) && step === 3);
         const expected = !isHost ? 0 : isResult || canRestart ? 2 : 1;
-        const actions = page.getByRole("button", { name: progression });
+        const actions = page
+          .getByRole("button", { name: progression })
+          .and(page.locator("button:enabled"));
         expect(await actions.count()).toBe(expected);
         for (const action of await actions.all()) await expectReachable(action);
         const next = page.getByRole("button", {
           name: /^次の(ステップ|フェーズ)へ$/,
         });
-        if (isHost && !isResult) {
+        if (isHost && (!isResult || phase !== 3)) {
           expect(await next.count()).toBe(1);
+          if (isResult) expect(await next.isDisabled()).toBe(true);
           const box = await next.boundingBox();
           expect(box?.x).toBeGreaterThan(640);
           expect(box?.y).toBeLessThan(100);
@@ -153,11 +148,14 @@ for (const { phase, count, goal } of phases) {
           expect(Math.min(...boxes.map((box) => box.top))).toBeGreaterThan(600);
           expect(right - left).toBeLessThan(560);
         }
-        if (isResult) {
-          const result = page.getByRole("button", { name: "投票結果を表示" });
-          await expectReachable(result);
-          expect((await result.boundingBox())?.x).toBeGreaterThan(640);
-        }
+        expect(
+          await page.getByRole("button", { name: "投票結果を表示" }).count(),
+        ).toBe(0);
+        expect(
+          await page
+            .getByRole("dialog", { name: "投票結果", exact: true })
+            .count(),
+        ).toBe(0);
         expect(
           await page.evaluate(() => ({
             width: document.documentElement.scrollWidth,
@@ -249,7 +247,6 @@ test.each(
   count,
 }) => {
   await openStory(`room-roomboardlayout--phase-${phase}-step-${count}`);
-  await closeResults();
   const trigger = page.getByRole("button", {
     name: "もう一度投票する",
     exact: true,
@@ -274,12 +271,16 @@ test.each(
   expect(
     await trigger.evaluate((element) => document.activeElement === element),
   ).toBe(true);
-  expect(await page.getByRole("button", { name: progression }).count()).toBe(2);
+  expect(
+    await page
+      .getByRole("button", { name: progression })
+      .and(page.locator("button:enabled"))
+      .count(),
+  ).toBe(2);
 });
 
 test("採用はキーボードで候補を選ぶと確認ダイアログなしで選択を終える", async () => {
   await openStory("room-roomboardview--ready-to-decide");
-  await closeResults();
   await page
     .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
     .press("Enter");
@@ -299,7 +300,12 @@ test("採用はキーボードで候補を選ぶと確認ダイアログなし�
   await candidate.press("Enter");
   expect(await page.getByRole("alertdialog").count()).toBe(0);
   expect(await cancel.count()).toBe(0);
-  expect(await page.getByRole("button", { name: progression }).count()).toBe(2);
+  expect(
+    await page
+      .getByRole("button", { name: progression })
+      .and(page.locator("button:enabled"))
+      .count(),
+  ).toBe(2);
   await page.screenshot({ path: `${output}/adoption-without-confirm.png` });
 });
 
@@ -310,7 +316,12 @@ test.each([
   await openStory("room-roomboardlayout--completed", isHost);
   await page.getByRole("heading", { name: "採用したアイデア" }).waitFor();
   expect(await page.getByRole("dialog").count()).toBe(0);
-  expect(await page.getByRole("button", { name: progression }).count()).toBe(0);
+  expect(
+    await page
+      .getByRole("button", { name: progression })
+      .and(page.locator("button:enabled"))
+      .count(),
+  ).toBe(0);
   expect(await page.getByRole("button", { name: "ボードへ戻る" }).count()).toBe(
     0,
   );
@@ -319,7 +330,12 @@ test.each([
   );
   const complete = page.getByRole("button", { name: "テキストを保存" });
   await expectReadable(complete);
-  expect(await page.getByRole("button", { name: progression }).count()).toBe(0);
+  expect(
+    await page
+      .getByRole("button", { name: progression })
+      .and(page.locator("button:enabled"))
+      .count(),
+  ).toBe(0);
   await page.screenshot({
     path: `${output}/complete-${isHost ? "host" : "member"}.png`,
   });
@@ -353,11 +369,12 @@ test.each(
 
 test("課題の確定後は取消と次フェーズ進行ができ、進行前に下書き破棄を確認する", async () => {
   await openStory("room-roomboardview--decided");
-  await closeResults();
   expect(
     await page.getByTestId("phase-loop-hud").getByRole("button").count(),
   ).toBe(1);
-  const actions = page.getByRole("button", { name: progression });
+  const actions = page
+    .getByRole("button", { name: progression })
+    .and(page.locator("button:enabled"));
   expect(await actions.count()).toBe(1);
   const next = page.getByRole("button", {
     name: "次のステップへ",

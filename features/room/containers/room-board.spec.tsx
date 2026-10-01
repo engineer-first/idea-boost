@@ -771,7 +771,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       isHost: true,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     fireEvent.click(
       screen.getByRole("button", { name: "採用する付箋: 最初の付箋" }),
@@ -812,7 +811,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     const target = screen.getByRole("button", {
       name: "採用する付箋: 最初の付箋",
@@ -852,7 +850,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       isHost: true,
       decision: { phase: 1, noteId: NOTE_ID, decidedBy: USER_ID },
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
     expect(socket.sent).toContain(
       JSON.stringify({ type: "decision:clear", noteId: NOTE_ID }),
@@ -878,7 +875,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
     fireEvent.contextMenu(
       within(screen.getByTestId("note-card")).getByRole("button", {
@@ -904,7 +900,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
     fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
     const firstUndo = notifyMocks.noteExcluded.mock.calls[0]?.[0];
@@ -957,7 +952,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
       isHost: false,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
     expect(screen.queryByText("候補外")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
@@ -968,7 +962,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(
       screen.getByRole("button", { name: "ルームメニューを開く" }),
     );
