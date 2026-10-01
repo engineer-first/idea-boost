@@ -186,6 +186,7 @@ export function RoomBoardHeader({
         <div
           className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[901px]:max-[1199px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-full max-[639px]:gap-2"
           data-testid="board-context-column"
+          data-board-fit-edge="top"
         >
           <div className="w-full min-w-0 shrink-0">
             <BoardContext
@@ -224,6 +225,7 @@ export function RoomBoardHeader({
           className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
           aria-label="ルームの操作"
           data-testid="board-control-hud"
+          data-board-fit-edge="top"
         >
           {showVotingCompletion ? (
             <span

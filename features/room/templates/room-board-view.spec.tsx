@@ -12,7 +12,11 @@ import { HMW_TEMPLATES } from "@/features/hmw";
 import type { Note } from "@/features/notes";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
-import { RoomBoardView, type RoomBoardViewProps } from "./room-board-view";
+import {
+  getBoardFitInsets,
+  RoomBoardView,
+  type RoomBoardViewProps,
+} from "./room-board-view";
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -2300,6 +2304,169 @@ describe("通知の寸法観測", () => {
       expect(unobserve).toHaveBeenCalledWith(toast);
     } finally {
       toaster.remove();
+    }
+  });
+});
+
+describe("U13 通常入口の統合", () => {
+  it.each([
+    true,
+    false,
+  ])("公開後の本人退出はcancelで成果を保ちconfirm一回・pendingで二重送信しない host=%s", async (isHost) => {
+    const idea = buildNote({ id: "idea", content: "採用案" });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      isHost,
+      hmwDecidedIssue: "課題",
+      decidedHmw: "問い",
+    });
+    const published = {
+      ...props,
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      outcomePublished: true,
+    };
+    rerender(<TestBoardView {...published} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "退出してホームへ" }),
+    );
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("退出しますか？");
+    await userEvent.click(
+      screen.getByRole("button", { name: "退出をやめて成果へ戻る" }),
+    );
+    expect(props.onLeave).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "チームで決めた成果" }),
+    ).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "退出してホームへ" }),
+    );
+    await userEvent.click(screen.getByTestId("leave-confirm-action"));
+    expect(props.onLeave).toHaveBeenCalledTimes(1);
+    rerender(<TestBoardView {...published} isLeaving />);
+    expect(screen.getByTestId("leave-confirm-action")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("leave-confirm-action"));
+    expect(props.onLeave).toHaveBeenCalledTimes(1);
+    rerender(<TestBoardView {...published} />);
+    expect(screen.getByTestId("leave-confirm-action")).not.toBeDisabled();
+  });
+
+  it("確認中に公開されたら古い解散確認を本人退出に切り替える", async () => {
+    const idea = buildNote({ id: "idea", content: "採用案" });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5, 3),
+      notes: [idea],
+      isHost: true,
+      decision: buildDecision({ phase: 3, noteId: idea.id }),
+      hmwDecidedIssue: "課題",
+      decidedHmw: "問い",
+    });
+    openRoomMenu();
+    await userEvent.click(screen.getByRole("button", { name: "ルームを解散" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "ルームを解散しますか？",
+    );
+    rerender(<TestBoardView {...props} outcomePublished />);
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("退出しますか？");
+    expect(
+      screen.queryByRole("button", { name: "ルームを解散" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("leave-confirm-action"));
+    expect(props.onLeave).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    2, 3,
+  ] as const)("%s-1 template一回でマイ付箋を開き本文を編集でき、空付箋を増やさない", async (phase) => {
+    const privateNote = buildNote({
+      id: "private-template",
+      visibility: "private",
+      authorId: ME,
+      content: "もっと簡単に",
+    });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(1, phase),
+      notes: [],
+      interactions: buildInteractions([], []),
+    });
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "false",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "もっと簡単に" }));
+    const callback =
+      phase === 2 ? props.onHmwTemplateSelect : props.onIdeaHintSelect;
+    expect(callback).toHaveBeenCalledExactlyOnceWith("もっと簡単に");
+    expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+    rerender(
+      <TestBoardView
+        {...props}
+        notes={[privateNote]}
+        interactions={buildInteractions([], [privateNote])}
+      />,
+    );
+    const card = within(
+      screen.getByTestId("private-notes-toolbar"),
+    ).getByTestId("note-card");
+    expect(card).not.toBeNull();
+    fireEvent.keyDown(
+      within(card as HTMLElement).getByRole("button", { name: /付箋/ }),
+      { key: "Enter" },
+    );
+    const textbox = within(card as HTMLElement).getByRole("textbox");
+    fireEvent.change(textbox, { target: { value: "もっと簡単に入力できる" } });
+    fireEvent.blur(textbox);
+    expect(props.onPrivateNoteContentChange).toHaveBeenCalledWith(
+      privateNote.id,
+      "もっと簡単に入力できる",
+    );
+    expect(props.interactions.onResetZoom).not.toHaveBeenCalled();
+  });
+});
+
+describe("fit HUDの可視境界", () => {
+  it("長いhelp/privateのclip外本文と透過wrapperを占有に数えず、スクロール後も可視領域を使う", () => {
+    const root = document.createElement("div");
+    root.dataset.testid = "room-board-view-root";
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 390, 844);
+    root.append(viewport);
+    for (const edge of ["top", "bottom"]) {
+      const wrapper = document.createElement("div");
+      wrapper.dataset.boardFitEdge = edge;
+      wrapper.style.pointerEvents = "none";
+      wrapper.style.overflowX = "hidden";
+      wrapper.style.overflowY = "hidden";
+      wrapper.getBoundingClientRect = () =>
+        new DOMRect(12, edge === "top" ? 12 : 650, 366, 140);
+      const panel = document.createElement("div");
+      panel.style.pointerEvents = "auto";
+      panel.style.overflowX = "auto";
+      panel.style.overflowY = "auto";
+      panel.getBoundingClientRect = () =>
+        new DOMRect(12, edge === "top" ? 12 : 300, 366, 1000);
+      const content = document.createElement("button");
+      content.style.pointerEvents = "auto";
+      content.getBoundingClientRect = () =>
+        new DOMRect(12, edge === "top" ? 500 : -300, 366, 1000);
+      panel.append(content);
+      wrapper.append(panel);
+      root.append(wrapper);
+    }
+    document.body.append(root);
+    try {
+      expect(getBoardFitInsets(viewport)).toEqual({
+        top: 152,
+        right: 0,
+        bottom: 194,
+        left: 0,
+      });
+    } finally {
+      root.remove();
     }
   });
 });

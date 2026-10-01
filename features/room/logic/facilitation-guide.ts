@@ -242,7 +242,10 @@ const FACILITATION_GUIDES: Record<
       completion: "全員の投票が終わったら、次のステップへ進みます。",
       modalTitle: "採用したい解決策に投票しよう！",
       modalPurpose: null,
-      steps: DOT_VOTE_GUIDE_STEPS,
+      steps: [
+        "上ほど価値が高く、右ほど実現しやすいことを確認する",
+        ...DOT_VOTE_GUIDE_STEPS,
+      ],
     },
     5: {
       durationMinutes: 10,
@@ -257,6 +260,7 @@ const FACILITATION_GUIDES: Record<
       modalPurpose: null,
       steps: [
         "投票結果とマップ上の位置を確認する",
+        "上ほど価値が高く、右ほど実現しやすいことを確認する",
         "解決策の価値と実現のしやすさを話し合う",
         "実際に取り組む解決策を1つに決める",
         "ホストが画面下から採用する解決策を選び、1件を確定する",

@@ -7,8 +7,10 @@ import {
   CompletedRoomSchema,
   type CompletedSceneKind,
 } from "@/contracts/completed-rooms";
+import { submitFeedback, useFeedback } from "@/features/feedback";
 import { CompletedRoomDetailView } from "./completed-room-detail-view";
 export function CompletedRoomDetail({ roomId }: { roomId: string }) {
+  const feedback = useFeedback(roomId, submitFeedback);
   const [room, setRoom] = useState<CompletedRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +103,7 @@ export function CompletedRoomDetail({ roomId }: { roomId: string }) {
   }, [roomId, selected, expanded, room, retry]);
   return (
     <CompletedRoomDetailView
+      feedback={feedback}
       room={room}
       loading={loading}
       error={error}

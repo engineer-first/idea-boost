@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 import { fn, userEvent, within } from "storybook/test";
+import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { Decision } from "@/contracts/room-protocol";
 import {
@@ -740,5 +741,21 @@ export const IdeaDecisionReselection: Story = {
       x: 20 + index * 30,
       y: 25 + index * 20,
     })),
+  },
+};
+
+export const FitUnavailable: Story = {
+  decorators: [
+    (Story) => (
+      <>
+        <Story />
+        <Toaster position="bottom-center" />
+      </>
+    ),
+  ],
+  args: {
+    phase: STEP_1_4,
+    initialGuideState: "detail",
+    interactions: { ...INTERACTIONS, onFitToNotes: fn(() => false) },
   },
 };
