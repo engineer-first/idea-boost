@@ -48,7 +48,6 @@ import type { StepGuideState } from "../logic/use-step-guide";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
-import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
@@ -325,7 +324,6 @@ export function RoomBoardView({
   const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
   const [outcomeDismissed, setOutcomeDismissed] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
@@ -341,7 +339,6 @@ export function RoomBoardView({
   const suppressPaletteSelectRef = useRef(false);
   const previousPhaseKey = useRef(phaseKey);
   const previousRevision = useRef(phaseRevision);
-  const resultShownFor = useRef<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const permissions = getBoardPermissions(phase, decision !== null);
 
@@ -397,21 +394,6 @@ export function RoomBoardView({
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, []);
-
-  useEffect(() => {
-    const resultKey = `${phaseKey}:${phaseRevision}`;
-    if (isPhaseStep(phase, 3, 5) && decision?.phase === 3) {
-      resultShownFor.current = resultKey;
-      setVoteTotalingDialogOpen(false);
-      return;
-    }
-    if (resultShownFor.current === resultKey) return;
-    resultShownFor.current = resultKey;
-    setVoteTotalingDialogOpen(
-      isResultStep(phase) &&
-        !(isPhaseStep(phase, 3, 5) && decision?.phase === 3),
-    );
-  }, [phase, phaseKey, phaseRevision, decision]);
 
   useEffect(() => {
     if (isVotingStep(phase)) return;
@@ -514,15 +496,16 @@ export function RoomBoardView({
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
     const target = document.elementFromPoint(clientX, clientY);
     const note = target?.closest<HTMLElement>("[data-note-id]") ?? null;
-    if (
-      !note ||
-      !renderedNotes.some(
-        ({ id, excluded }) => id === note.dataset.noteId && !excluded,
-      )
-    ) {
+    if (!note || !renderedNotes.some(({ id }) => id === note.dataset.noteId)) {
       return null;
     }
     return note;
+  }
+
+  function isExcludedVoteTarget(note: HTMLElement): boolean {
+    return confirmedNotes.some(
+      ({ id, excluded }) => id === note.dataset.noteId && excluded,
+    );
   }
 
   function votePaletteElementAt(
@@ -638,7 +621,9 @@ export function RoomBoardView({
           onNoteVoteStickerRemove(stickerId);
         } else {
           const note = noteElementAt(event.clientX, event.clientY);
-          if (note) {
+          if (note && isExcludedVoteTarget(note)) {
+            roomNotify.cannotVoteExcludedNote();
+          } else if (note) {
             const rect = note.getBoundingClientRect();
             const noteId = note.dataset.noteId;
             if (noteId && rect.width > 0 && rect.height > 0) {
@@ -708,11 +693,13 @@ export function RoomBoardView({
 
     const note = target.closest<HTMLElement>("[data-note-id]");
     const noteId = note?.dataset.noteId;
-    if (
-      !note ||
-      !noteId ||
-      !confirmedNotes.some(({ id, excluded }) => id === noteId && !excluded)
-    ) {
+    if (!note || !noteId || !confirmedNotes.some(({ id }) => id === noteId)) {
+      return;
+    }
+    if (isExcludedVoteTarget(note)) {
+      event.preventDefault();
+      event.stopPropagation();
+      roomNotify.cannotVoteExcludedNote();
       return;
     }
     const rect = note.getBoundingClientRect();
@@ -992,7 +979,6 @@ export function RoomBoardView({
           onShowOutcome={() => setOutcomeDismissed(false)}
           signOutAction={signOutAction}
           isLeaving={isLeaving}
-          onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
           onLeaveClick={() => setLeaveDialogOpen(true)}
           onNextPhase={onNextPhase}
           onTimerStart={onTimerStart}
@@ -1164,19 +1150,6 @@ export function RoomBoardView({
             <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
           </div>
         ) : null}
-
-        {/* 採用操作の入口は画面下に一本化し、集計ダイアログでは結果の確認だけを行う。 */}
-        <VoteTotalingDialog
-          open={voteTotalingDialogOpen}
-          onOpenChange={setVoteTotalingDialogOpen}
-          isVotingComplete={isResultStep(phase)}
-          members={members}
-          notes={notes}
-          decision={decision}
-          isHost={false}
-          isDisconnected={isDisconnected}
-          onNoteDecide={onNoteDecide}
-        />
 
         <LeaveConfirmDialog
           open={leaveDialogOpen}

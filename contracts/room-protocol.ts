@@ -272,6 +272,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     .strict(),
   z.object({
     type: z.literal("cursor:update"),
+    // マップ表示中は左下原点の百分率。余白は0〜100の外も許可し、
+    // 付箋の評価位置とは別にCanvasCoordinateSchemaの安全上限を守る。
     ...NotePositionSchema,
     // null はドラッグ終了後もカーソル自体は表示し続けることを明示する。
     draggingNoteId: z.string().uuid().nullable().optional(),
@@ -452,7 +454,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // ロビーから課題整理 Step 1-1 へ。ホストのみ。
   z.object({ type: z.literal("start_phase") }),
   // 課題整理の次ステップへ。ホストのみ。
-  // force はフェーズ1・2の投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
+  // force は全フェーズの投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
   // ホストが進行できる）。ホスト判定が先に評価されるため、非ホストが
   // force を送っても効果はない。
   z.object({

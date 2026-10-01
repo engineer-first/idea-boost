@@ -110,7 +110,7 @@ it("成果の持ち帰り前から感想を開け、コピー結果を先に確�
       onExportFailure={cancelPrompt}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "感想を送る" }));
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
   expect(open).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
   await screen.findByText(/コピーしました/);

@@ -44,6 +44,12 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "マップ外カーソルの共有でも他者のprivate付箋は見られない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "移動した候補外も他の参加者へ共有する",
     viewerId: VIEWER,
     note: note({
@@ -111,6 +117,12 @@ const TABLE: Array<{
   },
   {
     name: "private: 他のメンバーは付箋を見られない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "発表者本人の完了権限でも他者のprivate付箋は見られない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
     expected: false,

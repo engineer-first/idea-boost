@@ -204,11 +204,6 @@ export function SharedOutcomeBoard({
                     グループ：{group.name}
                   </span>
                 )}
-                <span className="py-1">
-                  {isMap
-                    ? `実現のしやすさ ${note.x} / 価値 ${note.y}`
-                    : `配置 (${note.x}, ${note.y})`}
-                </span>
               </div>
               {note.votes && (
                 <p className="mt-3 text-sm text-muted-foreground">

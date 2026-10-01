@@ -65,7 +65,7 @@ export function RoomLobbyView({
 
   return (
     <div
-      className="relative flex h-full flex-1 items-center justify-center overflow-hidden p-4 sm:p-6"
+      className="relative flex h-full min-h-0 flex-1 flex-col items-center overflow-x-hidden overflow-y-auto p-4 sm:p-6"
       data-testid="room-lobby-view"
       data-phase={
         isLobby(phase) ? "lobby" : `phase${phase.phase}-step${phase.step}`
@@ -86,7 +86,7 @@ export function RoomLobbyView({
         className="pointer-events-none absolute -right-16 bottom-1/4 size-80 rounded-full bg-secondary blur-3xl"
       />
 
-      <div className="relative z-10 flex w-full max-w-2xl flex-col gap-6">
+      <div className="relative z-10 my-auto flex w-full max-w-2xl shrink-0 flex-col gap-6">
         <header className="space-y-3 text-center">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
@@ -125,7 +125,7 @@ export function RoomLobbyView({
         </p>
 
         <div
-          className={`grid gap-4 sm:items-stretch ${
+          className={`grid grid-cols-1 gap-4 sm:items-stretch ${
             isHost ? "sm:grid-cols-2" : "sm:grid-cols-1"
           }`}
         >

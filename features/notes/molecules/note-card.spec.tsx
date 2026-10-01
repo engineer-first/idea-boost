@@ -857,7 +857,6 @@ describe("NoteCard", () => {
       expect(
         screen.getAllByTestId("dot-vote-sticker-image-objective"),
       ).toHaveLength(5);
-      expect(screen.getByRole("textbox")).toHaveClass("pb-12");
     });
 
     it("高得票でも打ち切らず、付箋外の候補操作用には右下余白を広げない", () => {

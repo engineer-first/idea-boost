@@ -575,13 +575,12 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
-    // force はフェーズ1・2の投票ステップで使える脱出ハッチ。離脱者などが
+    // force は全フェーズの投票ステップで使える脱出ハッチ。離脱者などが
     // 投票を完了できなくても、ホストは結果ステップへ進められる。
     const completedVoting =
       !isVotingStep(current) ||
       haveAllMembersCompletedVoting(ctx.sql, current.phase);
-    const canForceIncompleteVoting =
-      (current.phase === 1 || current.phase === 2) && message.force === true;
+    const canForceIncompleteVoting = message.force === true;
     if (
       isVotingStep(current) &&
       !completedVoting &&
@@ -648,7 +647,7 @@ export const phaseHandlers: MessageHandlers<
       | undefined;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
-    ctx.storage.transactionSync(() => {
+    await ctx.storage.transaction(async () => {
       recordProgressTransition(ctx.sql, current, next, "next");
       if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);
@@ -688,11 +687,12 @@ export const phaseHandlers: MessageHandlers<
       }
       savePhase(ctx.sql, next);
       ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
-      resetSharingForPhase(ctx.sql, next);
+      resetSharingForPhase(ctx.sql, next, true);
       if (crossesPhaseBoundary) {
         clearUsedNoteDragIds(ctx.sql);
       }
       timerWasReset = resetTimerState(ctx.sql);
+      await syncRoomAlarm(ctx.storage, ctx.sql);
     });
     ctx.broadcaster.retireAllActiveDrags();
     if (ctx.broadcaster.retireAllAdoptionFocus()) {
@@ -701,7 +701,6 @@ export const phaseHandlers: MessageHandlers<
         noteId: null,
       });
     }
-    await syncRoomAlarm(ctx.storage, ctx.sql);
     // 投票ステップでは note:updated の count を秘匿しているため、結果ステップ
     // へ遷移した接続中の参加者にも完全な投票集計を届け直す。フェーズ境界を
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから

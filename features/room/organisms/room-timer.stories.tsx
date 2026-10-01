@@ -43,6 +43,20 @@ export const IdleHost: Story = {};
 export const IdleHostPanelOpen: Story = {
   args: { defaultPanelOpen: true },
 };
+export const FullWidthInput: Story = {
+  name: "全角入力を12:30として受け付ける",
+  args: { defaultPanelOpen: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement.ownerDocument.body);
+    const minutes = canvas.getByLabelText("タイマー時間（分）");
+    const seconds = canvas.getByLabelText("タイマー時間（秒）");
+    await userEvent.clear(minutes);
+    await userEvent.type(minutes, "１２");
+    await userEvent.clear(seconds);
+    await userEvent.type(seconds, "３０");
+    await userEvent.tab();
+  },
+};
 export const IdleHostMinimum: Story = {
   args: { initialDurationMs: ROOM_TIMER_IDLE_MIN_DURATION_MS },
 };

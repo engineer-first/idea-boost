@@ -271,10 +271,7 @@ export function useRoomBoardInteractions({
     ) {
       return null;
     }
-    const surface = isIdeaMapCursorSurface
-      ? ideaMapPlaneRef.current
-      : boardScrollerRef.current;
-    const bounds = surface?.getBoundingClientRect();
+    const bounds = boardScrollerRef.current?.getBoundingClientRect();
     if (
       !bounds ||
       event.clientX < bounds.left ||
@@ -284,23 +281,27 @@ export function useRoomBoardInteractions({
     ) {
       return null;
     }
-    const mapPoint = isIdeaMapCursorSurface
-      ? getIdeaValueFeasibilityMapPointFromClientPosition(
-          event.clientX,
-          event.clientY,
-          bounds,
-        )
-      : null;
+    const mapBounds = ideaMapPlaneRef.current?.getBoundingClientRect();
+    const mapPoint =
+      isIdeaMapCursorSurface && mapBounds
+        ? getIdeaValueFeasibilityMapPointFromClientPosition(
+            event.clientX,
+            event.clientY,
+            mapBounds,
+            false,
+          )
+        : null;
     const point = isIdeaMapCursorSurface
       ? mapPoint
         ? { x: mapPoint.feasibility, y: mapPoint.value }
         : null
       : pointFromClient(event.clientX, event.clientY);
     if (!point) return null;
-    const clamp = isIdeaValueFeasibilityMappingStep
-      ? clampIdeaValueFeasibilityMapCoordinate
-      : clampCanvasCoordinate;
-    return { x: clamp(point.x), y: clamp(point.y) };
+    // presenceだけはマップ外を許可する。付箋の評価座標の制約とは分ける。
+    return {
+      x: clampCanvasCoordinate(point.x),
+      y: clampCanvasCoordinate(point.y),
+    };
   };
 
   const handlePresencePointerMove = (

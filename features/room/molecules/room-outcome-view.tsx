@@ -216,7 +216,7 @@ export function RoomOutcomeView({
             className="mt-3"
             onClick={onOpenFeedback}
           >
-            感想を送る
+            フィードバック
           </Button>
         ) : null}
         {downloadStarted && canExport ? (

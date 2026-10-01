@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useRef, useState } from "react";
-import { fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { Decision } from "@/contracts/room-protocol";
@@ -444,8 +444,6 @@ export const SelectingCandidate: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", { name: "採用する付箋を選ぶ" }),
     );
@@ -474,8 +472,6 @@ export const SelectingAt768px: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", { name: "採用する付箋を選ぶ" }),
     );
@@ -497,8 +493,6 @@ export const SelectingIdeaMapCandidate: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", {
         name: "採用する付箋を選ぶ",
@@ -791,5 +785,46 @@ export const FitUnavailable: Story = {
     phase: STEP_1_4,
     initialGuideState: "detail",
     interactions: { ...INTERACTIONS, onFitToNotes: fn(() => false) },
+  },
+};
+
+export const ExcludedVoteAttempt: Story = {
+  decorators: [
+    (Story) => (
+      <>
+        <Story />
+        <Toaster position="bottom-center" />
+      </>
+    ),
+  ],
+  name: "再投票で候補外に投票したとき",
+  args: {
+    phase: STEP_1_4,
+    notes: buildNotes(2).map((note, index) => ({
+      ...note,
+      excluded: index === 0,
+    })),
+    initialGuideState: "compact",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "主観シール 残り1票" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^候補外の付箋$/ }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    const notice = await body.findByText(
+      "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
+      { exact: true },
+    );
+    await waitFor(() => expect(notice).toBeVisible());
+    await expect(
+      canvas.getByRole("button", { name: "主観シール 残り1票" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "客観シール 残り3票" }),
+    ).toBeVisible();
   },
 };

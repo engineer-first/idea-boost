@@ -106,6 +106,41 @@ test("OSが暗色設定でも投票パレットの色を切り替えない", asy
     .toEqual(darkStyles);
 });
 
+test.each([
+  ["room-sharingpresenter--ready", "発表者と全体の順番を確認"],
+  ["room-sharingpresenter--active", "発表者と全体の順番を確認"],
+  ["room-sharingpresenter--starting", "発表者と全体の順番を確認"],
+  ["room-sharingpresenter--complete", "発表者と全体の順番を確認"],
+  ["room-ideamapsizecontrols--host-can-adjust", "2軸マップの広さ操作"],
+  ["room-roomboardheader--voting-complete", "全員OK"],
+])("%s はOS・themeのdark設定でもライト設定と同じ色で表示する", async (id, label) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await openStory(id);
+  const target =
+    label === "2軸マップの広さ操作"
+      ? page.getByRole("group", { name: label })
+      : label === "全員OK"
+        ? page.getByText(label, { exact: true })
+        : page.getByRole("button", { name: label });
+  await target.waitFor();
+  const readColors = () =>
+    target.evaluate((element) =>
+      [element, ...element.querySelectorAll("*")].map((node) => {
+        const style = getComputedStyle(node);
+        return {
+          background: style.backgroundColor,
+          color: style.color,
+          border: style.borderTopColor,
+        };
+      }),
+    );
+  const light = await readColors();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect.poll(readColors).toEqual(light);
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await expect.poll(readColors).toEqual(light);
+});
+
 test("候補外の付箋は破線と影なしで状態を示す", async () => {
   await openStory("notes-stickynote--excluded");
   const note = page.locator('[data-slot="sticky-note"]');

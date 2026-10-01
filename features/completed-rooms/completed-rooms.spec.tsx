@@ -266,7 +266,7 @@ describe("本人の完了ルーム", () => {
       expect(screen.queryByText("採用の全文")).not.toBeInTheDocument(),
     );
     expect(
-      screen.queryByRole("button", { name: "感想を送る" }),
+      screen.queryByRole("button", { name: "フィードバック" }),
     ).not.toBeInTheDocument();
   });
 });
@@ -342,11 +342,13 @@ describe("read-only成果から感想へ", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(detail)));
     render(<CompletedRoomDetail roomId={roomId} />);
     await screen.findByText("採用の全文");
-    const entry = screen.getByRole("button", { name: "感想を送る" });
+    const entry = screen.getByRole("button", { name: "フィードバック" });
     expect(screen.getByText(/感想は現在参加中のルームからのみ/)).toBeVisible();
     entry.focus();
     fireEvent.click(entry);
-    expect(screen.getByRole("dialog", { name: "意見を送る" })).toBeVisible();
+    expect(
+      screen.getByRole("dialog", { name: "フィードバック" }),
+    ).toBeVisible();
     expect(screen.getByRole("combobox", { name: "対象" })).toHaveValue("app");
     fireEvent.click(screen.getByRole("radio", { name: "よかった" }));
     fireEvent.click(screen.getByRole("button", { name: "送信" }));
@@ -383,7 +385,7 @@ describe("read-only成果から感想へ", () => {
     vi.stubGlobal("navigator", { clipboard: { writeText: copy } });
     render(<CompletedRoomDetail roomId={roomId} />);
     await screen.findByText("採用の全文");
-    fireEvent.click(screen.getByRole("button", { name: "感想を送る" }));
+    fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
     fireEvent.click(screen.getByRole("radio", { name: "よかった" }));
     fireEvent.change(screen.getByRole("textbox", { name: "文章（任意）" }), {
       target: { value: "退出後の入力を残す" },
@@ -423,7 +425,7 @@ describe("read-only成果から感想へ", () => {
     expect(
       screen.getByRole("button", { name: "テキストを保存" }),
     ).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "感想を送る" }));
+    fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
     expect(screen.getByRole("textbox", { name: "文章（任意）" })).toHaveValue(
       "退出後の入力を残す",
     );
