@@ -679,14 +679,14 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();
 });
-it("参加者は発表者を確認できるが進行操作を持たない", () => {
+it("発表者以外の参加者は発表者を確認できるが進行操作を持たない", () => {
   render(
     <RoomBoardHeader
       {...setupProps({
         phase: buildPhaseStep(2),
         initialGuideState: "compact",
       })}
-      sharing={buildSharingState({ status: "active", currentIndex: 0 })}
+      sharing={buildSharingState({ status: "active", currentIndex: 1 })}
     />,
   );
   expect(
@@ -734,4 +734,46 @@ describe("U03 進行の役割", () => {
       ),
     ).toBeVisible();
   });
+});
+
+it("発表者本人は次の人へを操作でき、開始・パス・次ステップは操作できない", () => {
+  const props = setupProps({
+    phase: buildPhaseStep(2),
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+    onSharingAdvance: vi.fn(),
+  });
+  const { rerender } = render(<RoomBoardHeader {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: "次の人へ" }));
+  expect(props.onSharingAdvance).toHaveBeenCalledExactlyOnceWith("done");
+  expect(
+    screen.queryByRole("button", { name: "今回はパス" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "次のステップへ" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "最初の人を開始" }),
+  ).not.toBeInTheDocument();
+  rerender(
+    <RoomBoardHeader
+      {...props}
+      sharing={buildSharingState({
+        status: "active",
+        currentIndex: 0,
+        startsAt: Date.now() + 2000,
+      })}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+  rerender(<RoomBoardHeader {...props} isDisconnected />);
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+  rerender(
+    <RoomBoardHeader
+      {...props}
+      sharing={buildSharingState({ status: "active", currentIndex: 1 })}
+    />,
+  );
+  expect(
+    screen.queryByRole("button", { name: "次の人へ" }),
+  ).not.toBeInTheDocument();
 });
