@@ -544,3 +544,44 @@ export const ResultOnDarkCanvas: Story = {
     ),
   ],
 };
+
+// 基本高を超える前後。投票結果も同じ本文領域を確保する。
+export const HeightBoundary: Story = {
+  render: (args) => (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 200px)",
+        alignItems: "start",
+        gap: 24,
+      }}
+    >
+      {[14, 18, 24].flatMap((fontSize) =>
+        [3, 4, 5, 6].map((lines) => (
+          <div key={`${fontSize}-${lines}`}>
+            <p>
+              {fontSize}px・{lines}行
+            </p>
+            <NoteCard
+              {...args}
+              note={buildNote({
+                id: `height-${fontSize}-${lines}`,
+                content: Array.from({ length: lines }, () => "行").join("\n"),
+                fontSize,
+              })}
+              className="relative"
+              style={{}}
+            />
+          </div>
+        )),
+      )}
+    </div>
+  ),
+};
+
+export const HeightBoundaryWithResults: Story = {
+  ...HeightBoundary,
+  args: {
+    vote: { ...meta.args.vote, displayMode: "result" },
+  },
+};
