@@ -33,6 +33,13 @@ it.each([
           .isVisible(),
       ).toBe(true);
     }
+    expect(
+      await page
+        .getByRole("region", { name: "当時の共有ボード" })
+        .getByRole("list")
+        .getByText(/配置 \(|実現のしやすさ .*\/ 価値/)
+        .count(),
+    ).toBe(0);
     const retry = page.getByRole("button", { name: "場面を再取得" });
     await retry.scrollIntoViewIfNeeded();
     const bounds = await retry.boundingBox();
@@ -281,6 +288,33 @@ it.each([
     expect(
       await dialog.getByRole("textbox", { name: "文章（任意）" }).inputValue(),
     ).toBe("退出後の感想は未送信");
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  } finally {
+    await browser.close();
+  }
+});
+
+it.each([
+  375, 1280,
+])("Owner向け成果も%ipxで分類・採用・票数を読め、内部座標を表示しない", async (width) => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width, height: 844 } });
+    await page.goto(
+      `${origin}/iframe.html?id=sharedoutcomes-sharedoutcomeboard--adopted-with-votes&viewMode=story`,
+    );
+    const list = page.getByRole("list");
+    await list.waitFor();
+    expect(await list.getByText("採用済み").isVisible()).toBe(true);
+    expect(await list.getByText("グループ：受付の改善").isVisible()).toBe(true);
+    expect(
+      await list.getByText("主観 2票 / 客観 3票 / 合計 5票").isVisible(),
+    ).toBe(true);
+    expect(await list.getByText(/配置 \(/).count()).toBe(0);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
