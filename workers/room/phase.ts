@@ -575,13 +575,12 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
-    // force はフェーズ1・2の投票ステップで使える脱出ハッチ。離脱者などが
+    // force は全フェーズの投票ステップで使える脱出ハッチ。離脱者などが
     // 投票を完了できなくても、ホストは結果ステップへ進められる。
     const completedVoting =
       !isVotingStep(current) ||
       haveAllMembersCompletedVoting(ctx.sql, current.phase);
-    const canForceIncompleteVoting =
-      (current.phase === 1 || current.phase === 2) && message.force === true;
+    const canForceIncompleteVoting = message.force === true;
     if (
       isVotingStep(current) &&
       !completedVoting &&

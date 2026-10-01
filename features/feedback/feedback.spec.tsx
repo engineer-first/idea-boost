@@ -23,7 +23,7 @@ function Harness({
   return (
     <>
       <button type="button" onClick={() => feedback.open(target)}>
-        意見を送る
+        フィードバック
       </button>
       <FeedbackPanel feedback={feedback} />
     </>
@@ -36,7 +36,7 @@ it("受領後に作業へ戻り、元の入口から別の意見を再開でき�
     .fn<SubmitFeedback>()
     .mockImplementation(async (_room, input) => ({ ok: true, id: input.id }));
   render(<Harness submit={submit} />);
-  const trigger = screen.getByRole("button", { name: "意見を送る" });
+  const trigger = screen.getByRole("button", { name: "フィードバック" });
   trigger.focus();
   fireEvent.click(trigger);
   fireEvent.click(screen.getByRole("radio", { name: "よかった" }));
@@ -60,12 +60,12 @@ it("種類のみを送り、失敗しても入力と受付IDを保ち、成功�
     .mockResolvedValueOnce({ ok: false, error: "保存できませんでした" })
     .mockImplementation(async (_room, input) => ({ ok: true, id: input.id }));
   render(<Harness submit={submit} />);
-  fireEvent.click(screen.getByRole("button", { name: "意見を送る" }));
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
   expect(screen.getByLabelText("対象")).toHaveValue("1-3");
   fireEvent.click(screen.getByRole("radio", { name: "不具合" }));
   fireEvent.click(screen.getByRole("button", { name: "送信" }));
   await screen.findByRole("alert");
-  expect(screen.getByRole("heading", { name: "意見を送る" })).toHaveFocus();
+  expect(screen.getByRole("heading", { name: "フィードバック" })).toHaveFocus();
   expect(screen.getByRole("radio", { name: "不具合" })).toBeChecked();
   fireEvent.click(screen.getByRole("button", { name: "送信" }));
   await screen.findByText(/意見を受け付けました/);
@@ -80,14 +80,14 @@ it("種類のみを送り、失敗しても入力と受付IDを保ち、成功�
 it("工程移行と閉じる操作でも入力を維持し、アプリ全体だけ5段階を選べる", () => {
   const submit = vi.fn<SubmitFeedback>();
   const { rerender } = render(<Harness submit={submit} />);
-  fireEvent.click(screen.getByRole("button", { name: "意見を送る" }));
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
   fireEvent.change(screen.getByLabelText("文章（任意）"), {
     target: { value: "移動に迷った" },
   });
   rerender(<Harness submit={submit} target="1-4" />);
   expect(screen.getByLabelText("対象")).toHaveValue("1-3");
   fireEvent.click(screen.getByRole("button", { name: "入力欄を閉じる" }));
-  fireEvent.click(screen.getByRole("button", { name: "意見を送る" }));
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
   expect(screen.getByLabelText("文章（任意）")).toHaveValue("移動に迷った");
   fireEvent.change(screen.getByLabelText("対象"), { target: { value: "app" } });
   fireEvent.click(screen.getByRole("radio", { name: "4 使いやすい" }));
@@ -106,7 +106,7 @@ it("送信中の二重操作を防ぎ、本文を変えた再送には新しい�
       }),
   );
   render(<Harness submit={submit} />);
-  fireEvent.click(screen.getByRole("button", { name: "意見を送る" }));
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
   fireEvent.click(screen.getByRole("radio", { name: "よかった" }));
   fireEvent.click(screen.getByRole("button", { name: "送信" }));
   expect(screen.getByRole("button", { name: "送信中…" })).toBeDisabled();
@@ -211,7 +211,7 @@ it("期限切れIDだけを更新して、入力を変えず新しい意見と�
     })
     .mockImplementation(async (_room, input) => ({ ok: true, id: input.id }));
   render(<Harness submit={submit} />);
-  fireEvent.click(screen.getByRole("button", { name: "意見を送る" }));
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
   fireEvent.click(screen.getByRole("radio", { name: "よかった" }));
   fireEvent.click(screen.getByRole("button", { name: "送信" }));
   await screen.findByRole("alert");
