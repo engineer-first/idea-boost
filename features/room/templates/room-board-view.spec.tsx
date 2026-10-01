@@ -126,6 +126,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: vi.fn(),
+    onDecisionClear: vi.fn(),
     onPublishOutcome: vi.fn(),
     onAdoptionFocusChange: vi.fn(),
 
@@ -260,7 +261,7 @@ describe("採用する付箋の選択モード", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("決定済みの内容を全員に示し、取消は出さない", () => {
+  it("決定済みの内容を全員に示し、ホストだけが取り消せる", () => {
     const notes = [buildNote({ id: "note-1", content: "決定した課題" })];
     const decision = buildDecision({ noteId: "note-1" });
     const { rerender, props } = setup({
@@ -271,19 +272,63 @@ describe("採用する付箋の選択モード", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     expect(screen.getAllByText("決定した課題")).toHaveLength(2);
-    expect(
-      screen.queryByRole("button", { name: "確定を解除" }),
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    expect(props.onDecisionClear).toHaveBeenCalledOnce();
 
     rerender(<TestBoardView {...props} isHost={false} />);
     expect(screen.getAllByText("決定した課題")).toHaveLength(2);
     expect(
-      screen.queryByRole("button", { name: "確定を解除" }),
+      screen.queryByRole("button", { name: "確定を取り消す" }),
     ).not.toBeInTheDocument();
   });
 });
 
 describe("考えるヒントの外部制御", () => {
+  it.each([
+    "connecting",
+    "closed",
+  ] as const)("%s中の確定取消を無効にする", (connectionStatus) => {
+    const { props } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      decision: buildDecision({ noteId: "note-1" }),
+      connectionStatus,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    const cancel = screen.getByRole("button", { name: "確定を取り消す" });
+    expect(cancel).toBeDisabled();
+    fireEvent.click(cancel);
+    expect(props.onDecisionClear).not.toHaveBeenCalled();
+  });
+  it("3-5で確定を取り消しても結果ダイアログを再度開かずボードで選び直せる", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5, 3),
+      isHost: true,
+      decision: buildDecision({ phase: 3, noteId: "note-1" }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    rerender(<TestBoardView {...props} decision={null} />);
+    expect(
+      screen.queryByRole("dialog", { name: "投票結果" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    expect(
+      screen.getAllByRole("button", { name: /採用するアイデア:/ }),
+    ).toHaveLength(2);
+  });
+  it("成果公開後は確定を取り消せない", () => {
+    setup({
+      phase: buildPhaseStep(5, 3),
+      isHost: true,
+      decision: buildDecision({ phase: 3, noteId: "note-1" }),
+      outcomePublished: true,
+      hmwDecidedIssue: "課題",
+      decidedHmw: "問い",
+    });
+    expect(
+      screen.queryByRole("button", { name: "確定を取り消す" }),
+    ).not.toBeInTheDocument();
+  });
   it("渡された開閉状態を表示し、操作をコールバックで返す", async () => {
     const help = {
       kind: "idea" as const,
@@ -1486,7 +1531,7 @@ describe("RoomBoardView", () => {
       clickNote(first);
 
       expect(first).toHaveAttribute("data-selected", "true");
-      expect(first).toHaveStyle({ zIndex: "1" });
+      expect(first.parentElement).toHaveStyle({ zIndex: "1" });
       expect(onNoteBringToFront).not.toHaveBeenCalled();
     });
 

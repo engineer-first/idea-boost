@@ -3,7 +3,11 @@ import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NOTE_COLOR_PALETTE } from "@/contracts/room-protocol";
-import { buildNote, buildNotes } from "@/contracts/room-protocol.fixture";
+import {
+  buildDecision,
+  buildNote,
+  buildNotes,
+} from "@/contracts/room-protocol.fixture";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
 import { RoomBoardCanvas } from "./room-board-canvas";
@@ -203,6 +207,48 @@ describe("RoomBoardCanvas", () => {
       "data-adopt-mode",
       "true",
     );
+  });
+
+  it.each([
+    buildPhaseStep(5),
+    buildPhaseStep(4, 2),
+    buildPhaseStep(5, 3),
+  ])("%j の決定済み状態では別の候補も再採用できない", (phase) => {
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      decision: buildDecision({ noteId: "note-1", phase: phase.phase }),
+      notes: buildNotes(2),
+    });
+    expect(
+      screen.queryByRole("button", { name: /採用する.+:/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    buildPhaseStep(5),
+    buildPhaseStep(4, 2),
+    buildPhaseStep(5, 3),
+  ])("%j の採用選択中も切断・参加者・非共有の候補には採用領域を出さない", (phase) => {
+    const { props, rerender } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [buildNote({ visibility: "private" })],
+    });
+    const targets = () =>
+      screen.queryAllByRole("button", { name: /採用する.+:/ });
+    expect(targets()).toHaveLength(0);
+    const notes = buildNotes(2);
+    rerender(<RoomBoardCanvas {...props} notes={notes} isDisconnected />);
+    expect(targets()).toHaveLength(0);
+    rerender(<RoomBoardCanvas {...props} notes={notes} isHost={false} />);
+    expect(targets()).toHaveLength(0);
+    rerender(<RoomBoardCanvas {...props} notes={notes} />);
+    expect(targets()).toHaveLength(2);
   });
 
   it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
@@ -530,7 +576,7 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.getByText("候補がありません。候補外の付箋を戻してください。"),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("note-card")).toHaveStyle({
+    expect(screen.getByTestId("board-note-note-1")).toHaveStyle({
       left: "120px",
       top: "240px",
     });
@@ -554,8 +600,8 @@ describe("RoomBoardCanvas", () => {
     ]);
     expect(cards[0]).toHaveClass("z-0");
     expect(cards[1]).toHaveClass("z-10");
-    expect(cards[0]).toHaveStyle({ zIndex: "0" });
-    expect(cards[1]).toHaveStyle({ zIndex: "1" });
+    expect(cards[0].parentElement).toHaveStyle({ zIndex: "0" });
+    expect(cards[1].parentElement).toHaveStyle({ zIndex: "1" });
   });
 
   it("候補外付箋にはキーボードで投票できない", () => {
@@ -736,9 +782,9 @@ describe("RoomBoardCanvas", () => {
     });
 
     const [back, own, remote] = screen.getAllByTestId("note-card");
-    expect(back).toHaveStyle({ zIndex: "4" });
-    expect(own).toHaveStyle({ zIndex: "2147483647" });
-    expect(remote).toHaveStyle({ zIndex: "2147483647" });
+    expect(back.parentElement).toHaveStyle({ zIndex: "4" });
+    expect(own.parentElement).toHaveStyle({ zIndex: "2147483647" });
+    expect(remote.parentElement).toHaveStyle({ zIndex: "2147483647" });
     expect(
       screen
         .getByText("通常ボードのゴースト")
@@ -760,8 +806,8 @@ describe("RoomBoardCanvas", () => {
     });
 
     const [selected, front] = screen.getAllByTestId("note-card");
-    expect(selected).toHaveStyle({ zIndex: "7" });
-    expect(front).toHaveStyle({ zIndex: "12" });
+    expect(selected.parentElement).toHaveStyle({ zIndex: "7" });
+    expect(front.parentElement).toHaveStyle({ zIndex: "12" });
 
     rerender(
       <RoomBoardCanvas
@@ -772,8 +818,8 @@ describe("RoomBoardCanvas", () => {
       />,
     );
 
-    expect(selected).toHaveStyle({ zIndex: "2147483647" });
-    expect(front).toHaveStyle({ zIndex: "12" });
+    expect(selected.parentElement).toHaveStyle({ zIndex: "2147483647" });
+    expect(front.parentElement).toHaveStyle({ zIndex: "12" });
   });
 
   it("2軸マップでも選択・名前付きカーソルの drag・ghost を一時最前面にする", () => {

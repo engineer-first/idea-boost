@@ -703,7 +703,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
     fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
 
-    expect(selectedCard).toHaveStyle({ zIndex: "2147483647" });
+    expect(selectedCard.parentElement).toHaveStyle({ zIndex: "2147483647" });
 
     act(() =>
       socket.simulateServerMessage({
@@ -712,7 +712,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     expect(selectedCard).toHaveAttribute("data-selected", "true");
-    expect(selectedCard).toHaveStyle({ zIndex: "3" });
+    expect(selectedCard.parentElement).toHaveStyle({ zIndex: "3" });
 
     act(() =>
       socket.simulateServerMessage({
@@ -720,8 +720,8 @@ describe("サーバーメッセージ → 画面反映", () => {
         note: { ...other, stackOrder: 4 },
       }),
     );
-    expect(selectedCard).toHaveStyle({ zIndex: "3" });
-    expect(otherCard).toHaveStyle({ zIndex: "4" });
+    expect(selectedCard.parentElement).toHaveStyle({ zIndex: "3" });
+    expect(otherCard.parentElement).toHaveStyle({ zIndex: "4" });
   });
 
   it("移動不可ステップでは付箋を選択しても最前面への永続移動を送信しない", () => {
@@ -843,23 +843,30 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("採用後はホストも確定を解除できない", () => {
+  it("確定の取消を送信し、サーバーの解除を受けてから選び直せる", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
-      decision: {
-        phase: 1,
-        noteId: NOTE_ID,
-        decidedBy: USER_ID,
-      },
+      decision: { phase: 1, noteId: NOTE_ID, decidedBy: USER_ID },
     });
-
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "decision:clear", noteId: NOTE_ID }),
+    );
     expect(
-      screen.queryByRole("button", { name: "確定を解除" }),
+      screen.queryByRole("button", { name: "採用する付箋を選ぶ" }),
     ).not.toBeInTheDocument();
-    expect(socket.sent).not.toContain(
-      JSON.stringify({ type: "decision:clear" }),
+    act(() =>
+      socket.simulateServerMessage({
+        type: "decision:updated",
+        decision: null,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    fireEvent.click(screen.getByRole("button", { name: /採用する付箋:/ }));
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
     );
   });
 
@@ -1169,7 +1176,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(
       screen
         .getByDisplayValue("移動する付箋")
-        .closest("[data-testid='note-card']"),
+        .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "2147483647" });
 
     act(() =>
@@ -1181,7 +1188,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(
       screen
         .getByDisplayValue("移動する付箋")
-        .closest("[data-testid='note-card']"),
+        .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "2147483647" });
 
     act(() =>
@@ -1197,14 +1204,14 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(
       screen
         .getByDisplayValue("移動する付箋")
-        .closest("[data-testid='note-card']"),
+        .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "10" });
 
     fireEvent.pointerDown(screen.getByTestId("board-canvas"), { button: 0 });
     expect(
       screen
         .getByDisplayValue("移動する付箋")
-        .closest("[data-testid='note-card']"),
+        .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "10" });
   });
 

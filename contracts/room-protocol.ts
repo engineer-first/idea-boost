@@ -433,8 +433,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   // 最終案の採用とは別に、ホストが成果画面を全員へ公開する。
   z.object({ type: z.literal("outcome:publish") }),
-  // 旧クライアントの決定解除要求。採用は不可逆のためサーバーで常に拒否する。
-  z.object({ type: z.literal("decision:clear") }),
+  // 画面で確認した決定だけを取り消す。古いタブの要求で別の決定を消さない。
+  // フェーズと権限は送らせず、RoomDO の現在状態から検証する。
+  z.object({ type: z.literal("decision:clear"), noteId: z.string().uuid() }),
   // 採用選択モード中にホストが現在検討している候補。userId / phase は
   // 認証済みソケットと RoomDO の権威状態から導出する。
   z.object({

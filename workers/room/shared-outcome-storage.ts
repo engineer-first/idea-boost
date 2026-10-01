@@ -4,7 +4,7 @@ import {
   type SharedOutcomeSnapshot,
 } from "../../contracts/shared-outcomes";
 import { syncRoomAlarm } from "./alarms";
-import { getPhase } from "./phase";
+import { discardPrivateNotes, getPhase } from "./phase";
 import { recordProgressTransition } from "./progress-history";
 import {
   captureSharedOutcome,
@@ -85,6 +85,8 @@ export class SharedOutcomeStorage {
           now,
         );
         this.sql.exec("UPDATE room_state SET outcome_published=1 WHERE id=1");
+        // 採用は取り消せるため、下書きの破棄は成果公開の確定と同時に行う。
+        discardPrivateNotes(this.sql);
         if (snapshot) onConfirmed?.(snapshot, now);
       }
       this.sql.exec(

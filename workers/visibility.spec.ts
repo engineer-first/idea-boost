@@ -44,6 +44,24 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "確定取消で保持した下書きは作者本人だけに見える",
+    viewerId: AUTHOR,
+    note: note({ visibility: "private" }),
+    expected: true,
+  },
+  {
+    name: "確定取消で保持した下書きを他の参加者へ出さない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "確定取消後も共有された候補外の付箋は全員に見える",
+    viewerId: VIEWER,
+    note: note({ excluded: true }),
+    expected: true,
+  },
+  {
     name: "完了時閲覧者も作者本人のprivate付箋を再訪記録で見られない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private", authorId: AUTHOR }),
