@@ -168,7 +168,10 @@ it.each([
     await page.goto(
       `${origin}/iframe.html?id=completedrooms-detail--success&viewMode=story`,
     );
-    const entry = page.getByRole("button", { name: "感想を送る", exact: true });
+    const entry = page.getByRole("button", {
+      name: "フィードバック",
+      exact: true,
+    });
     await entry.waitFor();
     await page
       .getByRole("button", { name: "全文をコピー", exact: true })
@@ -180,10 +183,14 @@ it.each([
       .waitFor();
     await page.clock.runFor(499);
     expect(
-      await page.getByRole("complementary", { name: "感想の案内" }).count(),
+      await page
+        .getByRole("complementary", { name: "フィードバックの案内" })
+        .count(),
     ).toBe(0);
     await page.clock.runFor(1);
-    const prompt = page.getByRole("complementary", { name: "感想の案内" });
+    const prompt = page.getByRole("complementary", {
+      name: "フィードバックの案内",
+    });
     await prompt.waitFor();
     await prompt.getByRole("button", { name: "案内を閉じる" }).click();
     expect(await entry.evaluate((el) => el === document.activeElement)).toBe(
@@ -195,7 +202,7 @@ it.each([
     await page.clock.runFor(500);
     expect(await prompt.count()).toBe(0);
     await entry.click();
-    const dialog = page.getByRole("dialog", { name: "意見を送る" });
+    const dialog = page.getByRole("dialog", { name: "フィードバック" });
     expect(
       await dialog.getByRole("combobox", { name: "対象" }).inputValue(),
     ).toBe("app");
@@ -237,11 +244,14 @@ it.each([
     await page.goto(
       `${origin}/iframe.html?id=completedrooms-detail--feedback-after-leave&viewMode=story`,
     );
-    const entry = page.getByRole("button", { name: "感想を送る", exact: true });
+    const entry = page.getByRole("button", {
+      name: "フィードバック",
+      exact: true,
+    });
     await entry.waitFor();
     await page.getByText(/感想は現在参加中のルームからのみ/).waitFor();
     await entry.click();
-    const dialog = page.getByRole("dialog", { name: "意見を送る" });
+    const dialog = page.getByRole("dialog", { name: "フィードバック" });
     await dialog.getByText("よかった", { exact: true }).click();
     await dialog
       .getByRole("textbox", { name: "文章（任意）" })
