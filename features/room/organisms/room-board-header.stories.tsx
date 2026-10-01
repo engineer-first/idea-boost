@@ -13,6 +13,7 @@ const STEP_2_2 = buildPhaseStep(2, 2);
 const STEP_3_4 = buildPhaseStep(4, 3);
 const STEP_3_5 = buildPhaseStep(5, 3);
 const VOTING_MEMBERS = buildMembers(3, ME);
+const HUD_MEMBERS = buildMembers(12, ME);
 
 const meta = {
   title: "Room/RoomBoardHeader",
@@ -172,5 +173,34 @@ export const Leaving: Story = {
 export const TimerPaused: Story = {
   args: {
     timer: buildPausedTimer(),
+  },
+};
+
+export const VoteResultAwaitingDecision: Story = {
+  args: { phase: STEP_1_5, isNextPhaseBlocked: true, members: HUD_MEMBERS },
+};
+export const IdeaVoting: Story = {
+  args: { phase: STEP_3_4, members: HUD_MEMBERS },
+};
+export const IdeaResultAwaitingDecision: Story = {
+  args: { phase: STEP_3_5, isNextPhaseBlocked: true, members: HUD_MEMBERS },
+};
+
+export const IdeaVotingComplete: Story = {
+  args: {
+    phase: STEP_3_4,
+    members: HUD_MEMBERS,
+    completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
+  },
+};
+
+export const VotingHud: Story = {
+  args: { phase: STEP_1_4, members: HUD_MEMBERS },
+};
+export const VotingCompleteHud: Story = {
+  args: {
+    phase: STEP_1_4,
+    members: HUD_MEMBERS,
+    completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
   },
 };

@@ -463,6 +463,19 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
+    it.each([
+      buildPhaseStep(5),
+      buildPhaseStep(4, 2),
+    ])("%jで採用前は進行ボタンを表示したまま無効にする", (phase) => {
+      const onNextPhase = vi.fn();
+      setup({ isHost: true, phase, isNextPhaseBlocked: true, onNextPhase });
+      const next = screen.getByRole("button", { name: "次のステップへ" });
+      expect(next).toBeDisabled();
+      fireEvent.click(next);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(onNextPhase).not.toHaveBeenCalled();
+    });
+
     it("途中の結果ステップではホストに「次のステップへ」を表示する", () => {
       setup({ isHost: true, phase: buildPhaseStep(5) });
 

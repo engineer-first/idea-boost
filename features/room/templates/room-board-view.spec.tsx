@@ -1643,12 +1643,12 @@ describe("RoomBoardView", () => {
       expect(onNextPhase).toHaveBeenCalledTimes(1);
     });
 
-    it("Step 1-5 は未決定なら次への操作を出さない", () => {
+    it("Step 1-5 は未決定なら次への操作を無効にする", () => {
       setup({ isHost: true, phase: buildPhaseStep(5), decision: null });
 
       expect(
-        screen.queryByRole("button", { name: "次のステップへ" }),
-      ).not.toBeInTheDocument();
+        screen.getByRole("button", { name: "次のステップへ" }),
+      ).toBeDisabled();
     });
 
     it("Step 1-5 で課題が決定されると2-1への「次のステップへ」を表示する", () => {
@@ -2057,11 +2057,11 @@ describe("反復ワークフロー", () => {
       screen.getByRole("button", { name: "個人作業へ戻る" }),
     ).toBeEnabled();
   });
-  it("採用前は次への操作を出さず再投票を確認できる", () => {
+  it("採用前は次への操作を無効にして再投票を確認できる", () => {
     setup({ phase: buildPhaseStep(5), isHost: true });
     expect(
-      screen.queryByRole("button", { name: "次のステップへ" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "もう一度投票する" }));
     expect(screen.getByRole("alertdialog")).toHaveTextContent(
       "付箋は消えません",
