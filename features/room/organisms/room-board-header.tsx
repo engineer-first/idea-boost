@@ -2,7 +2,7 @@
 
 // ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
 import { Check, LogOut, MoreHorizontal } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -143,6 +143,30 @@ export function RoomBoardHeader({
       ? configuredDuration.durationMs
       : (activeSharing?.durationMs ?? 180000);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const roomMenuContentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!roomMenuOpen) return;
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        roomMenuTriggerRef.current?.contains(target) ||
+        roomMenuContentRef.current?.contains(target)
+      )
+        return;
+      // ボードのパン開始はpointerdownの伝播を止めるため、その前に判定する。
+      // 元のクリックやドラッグは消費せず、通常の操作へ渡す。
+      setRoomMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", handleOutsidePointerDown, true);
+    return () =>
+      document.removeEventListener(
+        "pointerdown",
+        handleOutsidePointerDown,
+        true,
+      );
+  }, [roomMenuOpen]);
   const isCurrentVotingStep = isVotingStep(phase);
   const completedVoterIdSet = new Set(completedVoterIds);
   const haveAllMembersCompletedVoting =
@@ -544,11 +568,16 @@ export function RoomBoardHeader({
                 variant="ghost"
                 className="h-10 w-8 shrink-0 p-0"
                 aria-label="ルームメニューを開く"
+                ref={roomMenuTriggerRef}
               >
                 <MoreHorizontal aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80" aria-label="ルームメニュー">
+            <PopoverContent
+              ref={roomMenuContentRef}
+              className="w-80"
+              aria-label="ルームメニュー"
+            >
               {currentMember ? (
                 <div className="mb-3 flex min-w-0 items-center gap-2 border-b border-border pb-3">
                   <MemberAvatar
