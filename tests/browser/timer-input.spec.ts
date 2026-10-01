@@ -75,3 +75,42 @@ test("全角の貼り付け相当の入力は12:30を保持し、ゼロ時間は
     await page.close();
   }
 });
+
+test.each([
+  "外側",
+  "Escape",
+])("IME変換中に%sで閉じても、再表示した設定で開始できる", async (close) => {
+  const page = await browser.newPage();
+  try {
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomtimer--idle-host-panel-open&viewMode=story`,
+    );
+    const input = page.getByLabel("タイマー時間（分）");
+    await input.focus();
+    await input.selectText();
+    const session = await page.context().newCDPSession(page);
+    await session.send("Input.imeSetComposition", {
+      text: "１２",
+      selectionStart: 2,
+      selectionEnd: 2,
+    });
+    expect(
+      await page
+        .getByRole("button", { name: "開始", exact: true })
+        .isDisabled(),
+    ).toBe(true);
+    if (close === "外側") await page.mouse.click(600, 400);
+    else await page.keyboard.press("Escape");
+    await expect
+      .poll(() => page.getByTestId("room-timer-panel").isVisible())
+      .toBe(false);
+    await page.getByTestId("room-timer").click();
+    await expect.poll(() => input.inputValue()).toMatch(/^\d{2}$/);
+    expect(
+      await page.getByRole("button", { name: "開始", exact: true }).isEnabled(),
+    ).toBe(true);
+    await session.detach();
+  } finally {
+    await page.close();
+  }
+});

@@ -285,6 +285,18 @@ export function RoomTimer({
     if (!isEnded) setIsReconfiguring(false);
   }, [isEnded]);
 
+  const hasDurationInputs =
+    timer.status === "idle" || (isEnded && isReconfiguring);
+  useEffect(() => {
+    if (panelOpen && hasDurationInputs) return;
+    // 閉じる操作や共有状態の更新でinputが消えるとblur/compositionendが来ない。
+    // その経路でも変換状態を終え、再表示時に開始できる値へ揃える。
+    composingRef.current = false;
+    setIsComposing(false);
+    setMinutesInput((value) => normalizeBlurredPart(value, 99));
+    setSecondsInput((value) => normalizeBlurredPart(value, 59));
+  }, [panelOpen, hasDurationInputs]);
+
   const parsedDuration = useMemo(
     () => (isComposing ? null : parseDuration(minutesInput, secondsInput)),
     [isComposing, minutesInput, secondsInput],
@@ -396,7 +408,7 @@ export function RoomTimer({
         }
       }}
     >
-      {timer.status === "idle" || (isEnded && isReconfiguring) ? (
+      {hasDurationInputs ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-1">
             <Button

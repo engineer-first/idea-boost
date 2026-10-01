@@ -376,6 +376,55 @@ describe("RoomTimer", () => {
     expect(screen.getByRole("button", { name: "開始" })).toBeDisabled();
   });
 
+  it.each([
+    "外側",
+    "Escape",
+  ])("IME変換中に%sで閉じても再表示後に開始できる", (close) => {
+    render(
+      <RoomTimer
+        timer={{ status: "idle" }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+    const minutes = screen.getByLabelText("タイマー時間（分）");
+    fireEvent.compositionStart(minutes);
+    fireEvent.change(minutes, { target: { value: "１２" } });
+    if (close === "外側") {
+      fireEvent.pointerDown(document.body, { button: 0, pointerId: 1 });
+      fireEvent.pointerUp(document.body, { button: 0, pointerId: 1 });
+      fireEvent.click(document.body);
+    } else fireEvent.keyDown(document, { key: "Escape" });
+    openPanel();
+    expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("12");
+    expect(screen.getByRole("button", { name: "開始" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    expect(handlers.onStart).toHaveBeenCalledWith(720_000);
+  });
+
+  it("IME変換中にサーバーから実行状態が届いて入力が消えても、再設定で開始できる", () => {
+    const props = {
+      serverOffsetMs: 0,
+      isHost: true,
+      disabled: false,
+      defaultPanelOpen: true,
+      ...handlers,
+    };
+    const { rerender } = render(
+      <RoomTimer {...props} timer={{ status: "idle" }} />,
+    );
+    const minutes = screen.getByLabelText("タイマー時間（分）");
+    fireEvent.compositionStart(minutes);
+    fireEvent.change(minutes, { target: { value: "１２" } });
+    rerender(<RoomTimer {...props} timer={buildRunningTimer()} />);
+    rerender(<RoomTimer {...props} timer={buildEndedTimer()} />);
+    fireEvent.click(screen.getByRole("button", { name: "設定し直す" }));
+    expect(screen.getByRole("button", { name: "開始" })).toBeEnabled();
+  });
+
   it("分は99、秒は59を上限に入力値を正規化する", () => {
     render(
       <RoomTimer
