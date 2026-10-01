@@ -47,7 +47,7 @@ export function RemoteCursor({
         style={{
           backgroundColor: color,
           color: NOTE_COLOR_STYLES[cursor.color].foregroundColor,
-          transform: `translateY(${labelOffset * 20}px)`,
+          transform: `translateY(${labelOffset * 32}px)`,
         }}
       >
         <span className="truncate">{cursor.name || "名前未設定"}</span>

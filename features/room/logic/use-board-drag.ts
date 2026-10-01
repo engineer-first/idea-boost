@@ -451,7 +451,8 @@ export function useBoardDrag({
 
   const handleSharedNoteDragStart = useCallback(
     (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!canMoveSharedNotes) return;
+      // 2本目の指で操作対象を上書きすると、最初の操作権を解放できなくなる。
+      if (dragRef.current || !canMoveSharedNotes) return;
       const note = notes.find((n) => n.id === noteId);
       if (!note || note.excluded) return;
       hasNotifiedBlockedRef.current = false;
@@ -491,6 +492,7 @@ export function useBoardDrag({
 
   const handlePrivateDragStart = useCallback(
     (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (dragRef.current) return;
       // RoomDO の応答前でも、楽観表示中の付箋をそのまま掴み直せるようにする。
       const note = renderedPrivateNotes.find((n) => n.id === noteId);
       if (!note || note.excluded) return;
