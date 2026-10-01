@@ -74,6 +74,12 @@ it("キーボードで入力・追加へ移動でき、不正メールとpending
       ),
     ).toBe(false);
     await input.fill("member@example.test");
+    // Storybookのargs反映で追加が有効になってからTab移動する。
+    await expect
+      .poll(() =>
+        page.getByRole("button", { name: "追加", exact: true }).isEnabled(),
+      )
+      .toBe(true);
     await page.keyboard.press("Tab");
     expect(
       await page
