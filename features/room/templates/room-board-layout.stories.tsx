@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 import { userEvent, within } from "storybook/test";
+import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildDecision,
@@ -7,6 +9,8 @@ import {
   buildNotes,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
+import { roomNotify } from "../logic/room-notify";
+import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView } from "./room-board-view";
 import boardMeta from "./room-board-view.stories";
 
@@ -35,7 +39,7 @@ const meta = {
   parameters: { layout: "fullscreen", chromatic: { viewports: [1280] } },
   decorators: [
     (Story) => (
-      <div style={{ height: 720, overflow: "hidden" }}>
+      <div style={{ height: "100dvh", overflow: "hidden" }}>
         <Story />
       </div>
     ),
@@ -240,4 +244,57 @@ export const SharingComplete: Story = {
 export const SharingMember: Story = {
   ...SharingActive,
   args: { ...SharingActive.args, isHost: false },
+};
+
+export const MapControls: Story = {
+  ...step(3, 3),
+  name: "マップと書き足しを操作",
+  args: {
+    ...step(3, 3).args,
+    ideaMapSizeInitialized: true,
+    initialGuideState: "compact",
+  },
+  render: function Render(args) {
+    const [level, setLevel] = useState(1);
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        help={help}
+        interactions={{ ...args.interactions, notes: args.notes }}
+        ideaMapSizeLevel={level}
+        onIdeaMapResize={setLevel}
+      />
+    );
+  },
+};
+
+export const UndoNotification: Story = {
+  ...step(2, 1),
+  name: "自動除外の通知を残して次工程へ",
+  args: { ...step(2, 1).args, initialGuideState: "compact" },
+  render: function Render(args) {
+    const help = useBoardHelp(args.phase);
+    const [undone, setUndone] = useState(false);
+    return (
+      <>
+        <RoomBoardView
+          {...args}
+          help={help}
+          interactions={{ ...args.interactions, notes: args.notes }}
+        />
+        <Toaster />
+        <button
+          type="button"
+          className="fixed top-3 left-1/2 z-50"
+          onClick={() =>
+            roomNotify.automaticallyExcludedCandidates(1, () => setUndone(true))
+          }
+        >
+          除外通知を再現
+        </button>
+        {undone && <p role="status">通知のUndo操作が届きました</p>}
+      </>
+    );
+  },
 };

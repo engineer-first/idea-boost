@@ -691,6 +691,83 @@ export function RoomBoardView({
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
+
+  // 通知はボードの外の portal に描画される。実際の占有高だけ HUD に渡し、
+  // 通知の寿命・Undo・camera・共有状態は変えない。
+  useEffect(() => {
+    const root = boardRootRef.current;
+    if (!root) return;
+    const toasts =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateNotificationInset);
+    const observedToasts = new Set<HTMLElement>();
+    let previousInset = -1;
+    function updateNotificationInset(): void {
+      let inset = 0;
+      const currentToasts = new Set(
+        document.querySelectorAll<HTMLElement>(
+          '[data-sonner-toast][data-visible="true"][data-removed="false"][data-y-position="bottom"]',
+        ),
+      );
+      for (const toast of observedToasts) {
+        if (currentToasts.has(toast)) continue;
+        toasts?.unobserve(toast);
+        observedToasts.delete(toast);
+      }
+      for (const toast of currentToasts) {
+        if (!observedToasts.has(toast)) {
+          toasts?.observe(toast);
+          observedToasts.add(toast);
+        }
+        const toaster = toast.closest<HTMLElement>("[data-sonner-toaster]");
+        if (!toaster) continue;
+        const bottom = Number.parseFloat(getComputedStyle(toaster).bottom) || 0;
+        const offset =
+          Number.parseFloat(toast.style.getPropertyValue("--offset")) || 0;
+        inset = Math.max(inset, bottom + offset + toast.offsetHeight + 16);
+      }
+      if (inset !== previousInset) {
+        root?.style.setProperty("--board-notification-inset", `${inset}px`);
+        previousInset = inset;
+      }
+    }
+    const mutations = new MutationObserver((records) => {
+      if (
+        records.some(({ target, type, addedNodes, removedNodes }) => {
+          if (
+            target instanceof Element &&
+            target.closest("[data-sonner-toaster]")
+          )
+            return true;
+          if (type !== "childList") return false;
+          // Portalの追加/削除だけを拾う。付箋入力等ではlayout計測しない。
+          return [...addedNodes, ...removedNodes].some(
+            (node) =>
+              node instanceof Element &&
+              (node.matches("[data-sonner-toaster]") ||
+                node.querySelector("[data-sonner-toaster]")),
+          );
+        })
+      )
+        updateNotificationInset();
+    });
+    mutations.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-visible", "data-removed", "style"],
+    });
+    window.addEventListener("resize", updateNotificationInset);
+    updateNotificationInset();
+    return () => {
+      mutations.disconnect();
+      toasts?.disconnect();
+      window.removeEventListener("resize", updateNotificationInset);
+      root.style.removeProperty("--board-notification-inset");
+    };
+  }, [boardRootRef]);
+
   const handleNoteSelect = (noteId: string | null) => {
     setSelectedNoteId(noteId);
     const isSharedNote =
@@ -877,7 +954,7 @@ export function RoomBoardView({
 
         {isVotingStep(phase) ? (
           <div
-            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center"
+            className="pointer-events-none absolute inset-x-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 flex justify-end lg:justify-center max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))] max-[639px]:justify-center"
             data-testid="vote-palette-hud"
           >
             <DotVotePalette
@@ -894,7 +971,7 @@ export function RoomBoardView({
         ) : null}
 
         <div
-          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
+          className="pointer-events-none absolute inset-x-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 flex justify-center max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))]"
           data-testid="phase-loop-hud"
         >
           <PhaseLoopControls

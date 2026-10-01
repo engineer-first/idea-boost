@@ -87,6 +87,23 @@
     transform: none;
   }
 }
+@media (max-width: 639px) {
+  .guide {
+    --guide-width: calc(100vw - 24px);
+    position: relative;
+    top: auto;
+    left: auto;
+    flex-shrink: 0;
+    transform: none;
+  }
+  .guide[data-state="detail"] {
+    height: min(180px, 22dvh);
+  }
+  [data-testid="room-board-view-root"]:has([data-expanded="true"])
+    .guide[data-state="detail"] {
+    height: 110px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .guide,
   .guide[data-state] .layer {
