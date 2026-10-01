@@ -70,7 +70,6 @@ export type RoomBoardHeaderProps = {
   outcomePublished: boolean;
   isLeaving: boolean;
   signOutAction?: () => Promise<void>;
-  onShowVoteResult: () => void;
   onShowOutcome?: () => void;
   onPublishOutcome: () => void;
   onLeaveClick: () => void;
@@ -114,7 +113,6 @@ export function RoomBoardHeader({
   outcomePublished,
   isLeaving,
   signOutAction,
-  onShowVoteResult,
   onShowOutcome,
   onPublishOutcome,
   onLeaveClick,
@@ -476,48 +474,38 @@ export function RoomBoardHeader({
           ) : null}
 
           {isResultStep(phase) ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 shrink-0 px-3 shadow-none"
-                onClick={onShowVoteResult}
-              >
-                投票結果を表示
-              </Button>
-              {isFinalStep && hasFinalDecision ? (
-                outcomePublished ? (
-                  <Button
-                    type="button"
-                    className="h-10 shrink-0 px-3"
-                    onClick={onShowOutcome}
-                  >
-                    成果を見る
-                  </Button>
-                ) : isHost ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="size-10 shrink-0"
-                    aria-label="完了して成果を表示"
-                    title="完了して成果を表示"
-                    disabled={isDisconnected}
-                    onClick={onPublishOutcome}
-                  >
-                    <Check aria-hidden="true" className="size-5" />
-                  </Button>
-                ) : null
-              ) : !isFinalStep && isHost && !isNextPhaseBlocked ? (
-                <NextPhaseConfirmDialog
-                  key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
-                  phase={phase}
-                  disabled={
-                    isDisconnected || isNextPhasePending || isNextPhaseBlocked
-                  }
-                  onConfirm={onNextPhase}
-                />
-              ) : null}
-            </>
+            isFinalStep && hasFinalDecision ? (
+              outcomePublished ? (
+                <Button
+                  type="button"
+                  className="h-10 shrink-0 px-3"
+                  onClick={onShowOutcome}
+                >
+                  成果を見る
+                </Button>
+              ) : isHost ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  className="size-10 shrink-0"
+                  aria-label="完了して成果を表示"
+                  title="完了して成果を表示"
+                  disabled={isDisconnected}
+                  onClick={onPublishOutcome}
+                >
+                  <Check aria-hidden="true" className="size-5" />
+                </Button>
+              ) : null
+            ) : !isFinalStep && isHost && !isNextPhaseBlocked ? (
+              <NextPhaseConfirmDialog
+                key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
+                phase={phase}
+                disabled={
+                  isDisconnected || isNextPhasePending || isNextPhaseBlocked
+                }
+                onConfirm={onNextPhase}
+              />
+            ) : null
           ) : isHost &&
             (!activeSharing || activeSharing.status === "complete") ? (
             <NextPhaseConfirmDialog

@@ -1179,17 +1179,11 @@ test.each([
       );
       await page.getByTestId("board-context-hud").waitFor();
       console.log("HUD", width, isHost, step);
-      const result = page.getByRole("dialog", {
-        name: "投票結果",
-        exact: true,
-      });
-      if (["1-5", "2-4", "3-5"].includes(step)) {
-        await result.waitFor();
-        await result
-          .getByRole("button", { name: "閉じる", exact: true })
-          .click();
-        await result.waitFor({ state: "hidden" });
-      }
+      expect(
+        await page
+          .getByRole("dialog", { name: "投票結果", exact: true })
+          .count(),
+      ).toBe(0);
       await expect
         .poll(() =>
           page

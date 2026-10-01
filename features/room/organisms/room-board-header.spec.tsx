@@ -33,7 +33,7 @@ function setupProps(
     outcomePublished: false,
     onPublishOutcome: vi.fn(),
     isLeaving: false,
-    onShowVoteResult: vi.fn(),
+
     onLeaveClick: vi.fn(),
     onNextPhase: vi.fn(),
     onTimerStart: vi.fn(),
@@ -499,22 +499,15 @@ describe("RoomBoardHeader", () => {
     });
   });
 
-  describe("投票結果ボタン（Step 1-5 限定）", () => {
-    it("Step 1-5 で表示され、押下で onShowVoteResult を呼ぶ", () => {
-      const onShowVoteResult = vi.fn();
-      setup({ phase: buildPhaseStep(5), onShowVoteResult });
-
-      fireEvent.click(screen.getByRole("button", { name: "投票結果を表示" }));
-
-      expect(onShowVoteResult).toHaveBeenCalledTimes(1);
-    });
-
-    it("Step 1-5 以外では表示しない", () => {
-      setup({ phase: buildPhaseStep(1) });
-      expect(
-        screen.queryByRole("button", { name: "投票結果を表示" }),
-      ).not.toBeInTheDocument();
-    });
+  it.each([
+    buildPhaseStep(5),
+    buildPhaseStep(4, 2),
+    buildPhaseStep(5, 3),
+  ])("%jで結果モーダルの再表示ボタンを出さない", (phase) => {
+    setup({ phase });
+    expect(
+      screen.queryByRole("button", { name: "投票結果を表示" }),
+    ).not.toBeInTheDocument();
   });
 
   describe("退出・解散", () => {

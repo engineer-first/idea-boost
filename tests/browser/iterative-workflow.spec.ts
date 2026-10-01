@@ -80,13 +80,6 @@ async function expectReachable(target: Locator): Promise<void> {
   ).toBe(true);
 }
 
-async function closeResults(): Promise<void> {
-  const result = page.getByRole("dialog");
-  await result.waitFor();
-  await page.keyboard.press("Escape");
-  await result.waitFor({ state: "hidden" });
-}
-
 for (const { phase, count, goal } of phases) {
   for (let step = 1; step <= count; step += 1) {
     for (const isHost of [true, false]) {
@@ -96,7 +89,6 @@ for (const { phase, count, goal } of phases) {
           isHost,
         );
         const isResult = step === count;
-        if (isResult) await closeResults();
         const context = page.getByTestId("board-context-hud");
         await expectReadable(context);
         expect(await context.innerText()).toContain(`${step}/${count}`);
@@ -153,11 +145,14 @@ for (const { phase, count, goal } of phases) {
           expect(Math.min(...boxes.map((box) => box.top))).toBeGreaterThan(600);
           expect(right - left).toBeLessThan(560);
         }
-        if (isResult) {
-          const result = page.getByRole("button", { name: "投票結果を表示" });
-          await expectReachable(result);
-          expect((await result.boundingBox())?.x).toBeGreaterThan(640);
-        }
+        expect(
+          await page.getByRole("button", { name: "投票結果を表示" }).count(),
+        ).toBe(0);
+        expect(
+          await page
+            .getByRole("dialog", { name: "投票結果", exact: true })
+            .count(),
+        ).toBe(0);
         expect(
           await page.evaluate(() => ({
             width: document.documentElement.scrollWidth,
@@ -249,7 +244,6 @@ test.each(
   count,
 }) => {
   await openStory(`room-roomboardlayout--phase-${phase}-step-${count}`);
-  await closeResults();
   const trigger = page.getByRole("button", {
     name: "もう一度投票する",
     exact: true,
@@ -279,7 +273,6 @@ test.each(
 
 test("採用はキーボードで候補を選ぶと確認ダイアログなしで選択を終える", async () => {
   await openStory("room-roomboardview--ready-to-decide");
-  await closeResults();
   await page
     .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
     .press("Enter");
@@ -353,7 +346,6 @@ test.each(
 
 test("課題の確定後は取消と次フェーズ進行ができ、進行前に下書き破棄を確認する", async () => {
   await openStory("room-roomboardview--decided");
-  await closeResults();
   expect(
     await page.getByTestId("phase-loop-hud").getByRole("button").count(),
   ).toBe(1);

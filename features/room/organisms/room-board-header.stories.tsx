@@ -42,7 +42,7 @@ const meta = {
     onPublishOutcome: fn(),
     signOutAction: fn(),
     isLeaving: false,
-    onShowVoteResult: fn(),
+
     onLeaveClick: fn(),
     onNextPhase: fn(),
     onTimerStart: fn(),
@@ -123,7 +123,7 @@ export const Reconnecting: Story = {
   },
 };
 
-// Step 1-5: 投票結果ボタンが現れ、ステップ移行は打ち止めになる。
+// Step 1-5: 結果は付箋上で確認し、採用するまで進行を止める。
 export const VoteTotaled: Story = {
   args: {
     phase: STEP_1_5,
@@ -145,7 +145,7 @@ export const FinalDecisionPending: Story = {
   },
 };
 
-// Step 1-4: ステルス投票中は投票結果ボタンをまだ表示しない。
+// Step 1-4: ステルス投票中は個別の票を他者へ表示しない。
 export const StealthVoting: Story = {
   args: {
     phase: STEP_1_4,

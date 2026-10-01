@@ -48,7 +48,6 @@ import type { StepGuideState } from "../logic/use-step-guide";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
-import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
@@ -319,7 +318,6 @@ export function RoomBoardView({
   const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
   const [outcomeDismissed, setOutcomeDismissed] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
@@ -335,7 +333,6 @@ export function RoomBoardView({
   const suppressPaletteSelectRef = useRef(false);
   const previousPhaseKey = useRef(phaseKey);
   const previousRevision = useRef(phaseRevision);
-  const resultShownFor = useRef<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const permissions = getBoardPermissions(phase, decision !== null);
 
@@ -385,21 +382,6 @@ export function RoomBoardView({
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isAdoptMode]);
-
-  useEffect(() => {
-    const resultKey = `${phaseKey}:${phaseRevision}`;
-    if (isPhaseStep(phase, 3, 5) && decision?.phase === 3) {
-      resultShownFor.current = resultKey;
-      setVoteTotalingDialogOpen(false);
-      return;
-    }
-    if (resultShownFor.current === resultKey) return;
-    resultShownFor.current = resultKey;
-    setVoteTotalingDialogOpen(
-      isResultStep(phase) &&
-        !(isPhaseStep(phase, 3, 5) && decision?.phase === 3),
-    );
-  }, [phase, phaseKey, phaseRevision, decision]);
 
   useEffect(() => {
     if (isVotingStep(phase)) return;
@@ -969,7 +951,6 @@ export function RoomBoardView({
           onShowOutcome={() => setOutcomeDismissed(false)}
           signOutAction={signOutAction}
           isLeaving={isLeaving}
-          onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
           onLeaveClick={() => setLeaveDialogOpen(true)}
           onNextPhase={onNextPhase}
           onTimerStart={onTimerStart}
@@ -1137,19 +1118,6 @@ export function RoomBoardView({
             <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
           </div>
         ) : null}
-
-        {/* 採用操作の入口は画面下に一本化し、集計ダイアログでは結果の確認だけを行う。 */}
-        <VoteTotalingDialog
-          open={voteTotalingDialogOpen}
-          onOpenChange={setVoteTotalingDialogOpen}
-          isVotingComplete={isResultStep(phase)}
-          members={members}
-          notes={notes}
-          decision={decision}
-          isHost={false}
-          isDisconnected={isDisconnected}
-          onNoteDecide={onNoteDecide}
-        />
 
         <LeaveConfirmDialog
           open={leaveDialogOpen}
