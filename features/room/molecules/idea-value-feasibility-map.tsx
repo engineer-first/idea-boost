@@ -58,7 +58,7 @@ export function IdeaValueFeasibilityMap({
           <ArrowUp className="absolute -top-2 left-1/2 size-4 -translate-x-1/2 text-primary" />
         </div>
         <span
-          className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background/95 px-1.5 py-2 text-[11px] font-medium tracking-wide text-foreground shadow-sm [writing-mode:vertical-rl]"
+          className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full border border-border bg-background/95 px-1.5 py-2 text-xl font-semibold tracking-wide text-foreground shadow-sm [writing-mode:vertical-rl]"
           data-testid="idea-value-feasibility-map-y-axis-label"
         >
           {labels.value}
@@ -106,7 +106,7 @@ export function IdeaValueFeasibilityMap({
           <ArrowRight className="absolute right-0 top-1/2 size-4 translate-x-1/2 -translate-y-1/2 text-primary" />
         </div>
         <span
-          className="absolute left-1/2 top-9 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-background/95 px-2.5 py-1 text-[11px] font-medium tracking-wide text-foreground shadow-sm"
+          className="absolute left-1/2 top-6 -translate-x-1/2 whitespace-nowrap rounded-full border border-border bg-background/95 px-2.5 py-1 text-xl font-semibold tracking-wide text-foreground shadow-sm"
           data-testid="idea-value-feasibility-map-x-axis-label"
         >
           {labels.feasibility}

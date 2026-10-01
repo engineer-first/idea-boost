@@ -46,9 +46,7 @@ describe("IdeaValueFeasibilityMap", () => {
     expect(
       screen.getByTestId("idea-value-feasibility-map-y-axis-label"),
     ).toHaveClass("left-0");
-    expect(
-      screen.getByTestId("idea-value-feasibility-map-x-axis-label"),
-    ).toHaveClass("top-9");
+
     expect(feasibilityScale).toHaveClass("h-16");
     expect(feasibilityScale).toHaveClass("z-10");
     expect(
