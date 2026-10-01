@@ -31,6 +31,29 @@ function Harness({
 }
 beforeEach(() => sessionStorage.clear());
 afterEach(() => vi.useRealTimers());
+it("受領後に作業へ戻り、元の入口から別の意見を再開できる", async () => {
+  const submit = vi
+    .fn<SubmitFeedback>()
+    .mockImplementation(async (_room, input) => ({ ok: true, id: input.id }));
+  render(<Harness submit={submit} />);
+  const trigger = screen.getByRole("button", { name: "意見を送る" });
+  trigger.focus();
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole("radio", { name: "よかった" }));
+  fireEvent.click(screen.getByRole("button", { name: "送信" }));
+  await screen.findByText(/意見を受け付けました/);
+  expect(
+    screen.getByText(`受付ID：${submit.mock.calls[0][1].id}`),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "作業に戻る" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+  fireEvent.click(trigger);
+  expect(screen.getByLabelText("対象")).toHaveValue("1-3");
+  expect(screen.getByLabelText("文章（任意）")).toHaveValue("");
+  expect(screen.getByRole("radio", { name: "よかった" })).not.toBeChecked();
+  expect(screen.getByRole("button", { name: "送信" })).toBeDisabled();
+});
 it("種類のみを送り、失敗しても入力と受付IDを保ち、成功後は別の意見を送れる", async () => {
   const submit = vi
     .fn<SubmitFeedback>()
