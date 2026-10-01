@@ -15,6 +15,8 @@ npx wrangler login
 npx wrangler whoami
 ```
 
+本番D1の所有アカウントはWrangler設定の `account_id` で明示しているため、複数アカウントに所属していても非対話CLIで選択できる。[Cloudflare公式の設定説明](https://developers.cloudflare.com/workers/wrangler/configuration/#inheritable-keys)も参照する。
+
 ブラウザログインを使わないCI等では、対象アカウントのD1操作権限を持つAPI tokenを`CLOUDFLARE_API_TOKEN`に設定する。値は秘密として管理し、文書やGitへ保存しない。設定方法は[Cloudflare公式のAPI token作成手順](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)を参照する。
 
 ## 必要な権限を選ぶ
@@ -52,12 +54,13 @@ npm run access:list
 
 ## 失敗時
 
-| 表示・状況                                                  | 確認すること                                                                                                                   |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `In a non-interactive environment ... CLOUDFLARE_API_TOKEN` | CLIがWranglerを非対話で呼ぶため未認証のままログインできない。先に端末で`wrangler login`を完了するか、実行環境にtokenを設定する |
-| Idea Boostに未登録という案内                                | 対象ユーザーが本番Googleログインを済ませたか                                                                                   |
-| D1へのアクセス拒否                                          | `wrangler whoami`のアカウント、対象D1とtokenの権限                                                                             |
-| 付与済みでも画面が開けない                                  | 操作したメールと実際のログインアカウント、`access:list`の結果                                                                  |
+| 表示・状況                                                  | 確認すること                                                                                                                                                                                                |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `In a non-interactive environment ... CLOUDFLARE_API_TOKEN` | CLIがWranglerを非対話で呼ぶため未認証のままログインできない。先に端末で`wrangler login`を完了するか、実行環境にtokenを設定する                                                                              |
+| `More than one account available ... non-interactive mode`  | 最新のWrangler設定に `account_id` があるか確認する。旧版で実行する場合は `CLOUDFLARE_ACCOUNT_ID=b50fc9e60dea7830912d07e616822266 npm run access:grant -- feedback:read reader@example.com` のように指定する |
+| Idea Boostに未登録という案内                                | 対象ユーザーが本番Googleログインを済ませたか                                                                                                                                                                |
+| D1へのアクセス拒否                                          | `wrangler whoami`のアカウント、対象D1とtokenの権限                                                                                                                                                          |
+| 付与済みでも画面が開けない                                  | 操作したメールと実際のログインアカウント、`access:list`の結果                                                                                                                                               |
 
 ## 機能ごとの運用とローカル検証
 
