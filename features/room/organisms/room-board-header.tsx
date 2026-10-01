@@ -259,7 +259,7 @@ export function RoomBoardHeader({
             >
               <span
                 aria-hidden="true"
-                className="inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none dark:text-emerald-400"
+                className="inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none"
                 data-testid="vote-completion-label"
               >
                 <Check className="size-3.5 shrink-0" />
