@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
+  IDEA_SUPPORT_DESCRIPTION,
   type IdeaSupportContent,
   type IdeaSupportType,
   ideaSupportContents,
@@ -78,6 +79,9 @@ export function IdeaSupportSidebarContent({
           ))}
         </div>
       </Tabs>
+      <p className="mt-3 text-muted-foreground text-xs">
+        {IDEA_SUPPORT_DESCRIPTION}
+      </p>
     </div>
   );
 }

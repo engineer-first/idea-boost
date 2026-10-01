@@ -8,6 +8,7 @@ import {
   IDEA_GUIDE_EXAMPLES,
   IDEA_GUIDE_HEADING,
   IDEA_GUIDE_HINTS,
+  IDEA_HINT_DESCRIPTION,
 } from "../logic/idea-guide-content";
 
 export type IdeaGuidePanelProps = {
@@ -35,7 +36,10 @@ export function IdeaGuidePanel({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <span className="text-muted-foreground text-xs">発想のヒント</span>
+          <span className="text-muted-foreground text-xs">書き出しを選ぶ</span>
+          <p className="text-muted-foreground text-xs">
+            {IDEA_HINT_DESCRIPTION}
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {IDEA_GUIDE_HINTS.map((hint) => (
               <Button
@@ -56,7 +60,7 @@ export function IdeaGuidePanel({
           <span className="text-muted-foreground text-xs">考え方の例</span>
           <ul className="flex flex-col gap-1">
             {IDEA_GUIDE_EXAMPLES.map((example) => (
-              <li key={example} className="text-muted-foreground text-xs">
+              <li key={example} className="text-sm leading-relaxed">
                 {example}
               </li>
             ))}
