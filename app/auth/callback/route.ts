@@ -7,7 +7,11 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { isEmailVerified, sanitizeNextPath } from "@/features/auth";
+import {
+  getLoginPath,
+  isEmailVerified,
+  sanitizeNextPath,
+} from "@/features/auth";
 import { OAUTH_STATE_COOKIE } from "@/lib/session/cookie";
 import {
   getBaseUrl,
@@ -37,10 +41,14 @@ const GoogleClaimsSchema = z.object({
   nonce: z.string().optional(),
 });
 
-function redirectToLogin(origin: string, message: string): NextResponse {
-  return NextResponse.redirect(
-    `${origin}/login?error=${encodeURIComponent(message)}`,
-  );
+function redirectToLogin(
+  origin: string,
+  message: string,
+  next?: string,
+): NextResponse {
+  const loginUrl = new URL(getLoginPath(next), origin);
+  loginUrl.searchParams.set("error", message);
+  return NextResponse.redirect(loginUrl);
 }
 
 function parseOauthStateCookie(
@@ -74,71 +82,86 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   );
   cookieStore.delete(OAUTH_STATE_COOKIE);
 
-  if (!code || !state || !oauthState || state !== oauthState.state) {
+  if (!state || !oauthState || state !== oauthState.state) {
     return redirectToLogin(origin, "ログインをやり直してください。");
   }
 
-  const tokenResponse = await fetch(GOOGLE_TOKEN_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code,
-      client_id: getGoogleClientId(),
-      client_secret: getGoogleClientSecret(),
-      redirect_uri: `${getBaseUrl()}/auth/callback`,
-      grant_type: "authorization_code",
-    }),
-  });
-
-  if (!tokenResponse.ok) {
-    console.error("Google token exchange failed:", tokenResponse.status);
-    return redirectToLogin(origin, "ログインに失敗しました。");
+  // 戻り先は state を照合できた Cookie からだけ復元する。
+  const next = sanitizeNextPath(oauthState.next);
+  if (!code) {
+    return redirectToLogin(origin, "ログインをやり直してください。", next);
   }
 
-  const { id_token: idToken } = (await tokenResponse.json()) as {
-    id_token?: string;
-  };
-  if (!idToken) {
-    return redirectToLogin(origin, "ログインに失敗しました。");
-  }
-
-  let claims: z.infer<typeof GoogleClaimsSchema>;
   try {
-    const { payload } = await jwtVerify(idToken, GOOGLE_JWKS, {
-      issuer: GOOGLE_ISSUERS,
-      audience: getGoogleClientId(),
+    const tokenResponse = await fetch(GOOGLE_TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: getGoogleClientId(),
+        client_secret: getGoogleClientSecret(),
+        redirect_uri: `${getBaseUrl()}/auth/callback`,
+        grant_type: "authorization_code",
+      }),
     });
-    const parsed = GoogleClaimsSchema.safeParse(payload);
-    if (!parsed.success) {
-      throw new Error("unexpected id_token claims");
+
+    if (!tokenResponse.ok) {
+      console.error("Google token exchange failed:", tokenResponse.status);
+      return redirectToLogin(origin, "ログインに失敗しました。", next);
     }
-    claims = parsed.data;
-  } catch (error) {
-    console.error("Failed to verify Google id_token:", error);
-    return redirectToLogin(origin, "ログインに失敗しました。");
-  }
 
-  if (claims.nonce !== oauthState.nonce) {
-    return redirectToLogin(origin, "ログインをやり直してください。");
-  }
+    const { id_token: idToken } = (await tokenResponse.json()) as {
+      id_token?: string;
+    };
+    if (!idToken) {
+      return redirectToLogin(origin, "ログインに失敗しました。", next);
+    }
 
-  // クレーム欠落も未検証扱い（fail-closed）。email でのアカウントリンクがあるため。
-  if (!isEmailVerified(claims)) {
-    return redirectToLogin(origin, "メールアドレスが確認されていません。");
-  }
+    let claims: z.infer<typeof GoogleClaimsSchema>;
+    try {
+      const { payload } = await jwtVerify(idToken, GOOGLE_JWKS, {
+        issuer: GOOGLE_ISSUERS,
+        audience: getGoogleClientId(),
+      });
+      const parsed = GoogleClaimsSchema.safeParse(payload);
+      if (!parsed.success) {
+        throw new Error("unexpected id_token claims");
+      }
+      claims = parsed.data;
+    } catch {
+      console.error("Failed to verify Google id_token");
+      return redirectToLogin(origin, "ログインに失敗しました。", next);
+    }
 
-  const result = await establishSession({
-    kind: "google",
-    googleSub: claims.sub,
-    email: claims.email,
-    name: claims.name,
-  });
+    if (claims.nonce !== oauthState.nonce) {
+      return redirectToLogin(origin, "ログインをやり直してください。", next);
+    }
 
-  if (!result.ok) {
-    return redirectToLogin(origin, result.error);
+    // クレーム欠落も未検証扱い（fail-closed）。email でのアカウントリンクがあるため。
+    if (!isEmailVerified(claims)) {
+      return redirectToLogin(
+        origin,
+        "メールアドレスが確認されていません。",
+        next,
+      );
+    }
+
+    const result = await establishSession({
+      kind: "google",
+      googleSub: claims.sub,
+      email: claims.email,
+      name: claims.name,
+    });
+
+    if (!result.ok) {
+      return redirectToLogin(origin, result.error, next);
+    }
+  } catch {
+    // 通信・JSON読取・セッション確立の例外でも認証成功には進めない。
+    console.error("Google login processing failed");
+    return redirectToLogin(origin, "ログインに失敗しました。", next);
   }
 
   // ログイン開始時に保存した戻り先（招待URL 等）へ戻す。安全化済みだが二重で通す。
-  const next = sanitizeNextPath(oauthState.next);
   return NextResponse.redirect(new URL(next, origin));
 }

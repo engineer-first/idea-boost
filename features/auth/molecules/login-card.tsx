@@ -1,6 +1,8 @@
 "use client";
 
 import { KeyRound, ShieldAlert } from "lucide-react";
+import { useActionState, useState } from "react";
+import type { DevAuthState } from "../logic/actions";
 import {
   DEV_AUTH_DEFAULT_EMAIL,
   DEV_AUTH_DEFAULT_PASSWORD,
@@ -11,7 +13,10 @@ export type LoginCardProps = {
   isConfigured: boolean;
   showDevAuth: boolean;
   googleAction: (formData: FormData) => void | Promise<void>;
-  passwordAction: (formData: FormData) => void | Promise<void>;
+  passwordAction: (
+    previousState: DevAuthState,
+    formData: FormData,
+  ) => Promise<DevAuthState>;
 };
 
 export function LoginCard({
@@ -21,9 +26,14 @@ export function LoginCard({
   googleAction,
   passwordAction,
 }: LoginCardProps) {
+  const [state, devAction, pending] = useActionState(passwordAction, {});
+  const [email, setEmail] = useState(DEV_AUTH_DEFAULT_EMAIL);
+  const [password, setPassword] = useState(DEV_AUTH_DEFAULT_PASSWORD);
+  const loginError = state.error ?? error;
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 p-4 text-slate-900">
-      <div className="w-full max-w-md space-y-6 bg-white p-8 shadow-sm rounded-2xl border border-slate-200">
+    <main className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto bg-slate-50 p-4 text-slate-900">
+      <div className="mx-auto my-auto w-full max-w-md space-y-6 bg-white p-8 shadow-sm rounded-2xl border border-slate-200">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-black text-indigo-600">Idea Boost</h1>
           <p className="text-sm text-slate-500">
@@ -31,10 +41,14 @@ export function LoginCard({
           </p>
         </div>
 
-        {error && (
-          <div className="p-3 text-xs bg-red-50 text-red-600 rounded-xl border border-red-100">
+        {loginError && (
+          <div
+            role="alert"
+            className="p-3 text-sm bg-red-50 text-red-700 rounded-xl border border-red-100"
+          >
             <span className="font-bold">エラー: </span>
-            {error}
+            {loginError}
+            <p className="mt-1">もう一度ログインをお試しください。</p>
           </div>
         )}
 
@@ -71,29 +85,45 @@ export function LoginCard({
               <KeyRound className="h-4 w-4" />
               <span>開発用ログイン</span>
             </div>
-            <form action={passwordAction} className="space-y-3">
+            <form action={devAction} className="space-y-3">
+              <label
+                htmlFor="dev-auth-email"
+                className="block text-sm font-medium"
+              >
+                メールアドレス
+              </label>
               <input
+                id="dev-auth-email"
                 name="email"
                 type="email"
                 placeholder="メールアドレス"
-                defaultValue={DEV_AUTH_DEFAULT_EMAIL}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 required
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 bg-slate-50/50"
               />
+              <label
+                htmlFor="dev-auth-password"
+                className="block text-sm font-medium"
+              >
+                パスワード
+              </label>
               <input
+                id="dev-auth-password"
                 name="password"
                 type="password"
                 placeholder="パスワード"
-                defaultValue={DEV_AUTH_DEFAULT_PASSWORD}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
                 required
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-indigo-500 bg-slate-50/50"
               />
               <button
                 type="submit"
-                disabled={!isConfigured}
+                disabled={!isConfigured || pending}
                 className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                開発用ユーザーでログイン
+                {pending ? "ログイン中…" : "開発用ユーザーでログイン"}
               </button>
             </form>
           </div>

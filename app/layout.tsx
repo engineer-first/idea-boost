@@ -31,7 +31,7 @@ export default async function RootLayout({
 
   return (
     <html
-      lang="en"
+      lang="ja"
       className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased`}
     >
       <body className="flex h-full flex-col overflow-hidden">
