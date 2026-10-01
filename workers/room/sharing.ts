@@ -22,19 +22,26 @@ export function broadcastSharing(
 function controllableState(
   ctx: HandlerCtx,
   revision: string,
+  allowPresenter: boolean = false,
 ): SharingState | null {
   const phase = getPhase(ctx.sql);
   const state = getSharingState(ctx.sql);
+  const isPresenter =
+    allowPresenter &&
+    state?.status === "active" &&
+    state.currentIndex !== null &&
+    state.order[state.currentIndex]?.userId === ctx.userId;
   if (
     !isMember(ctx.sql, ctx.userId) ||
-    !isHostUser(ctx.sql, ctx.userId) ||
+    (!isHostUser(ctx.sql, ctx.userId) && !isPresenter) ||
     phase.kind !== "step" ||
     phase.step !== 2
   ) {
     ctx.reply({
       type: "error",
       code: "forbidden",
-      message: "共有の進行は共有ステップで進行役だけが操作できます。",
+      message:
+        "共有の操作は共有ステップで進行役、発表完了は発表者本人も操作できます。",
     });
     return null;
   }
@@ -78,7 +85,11 @@ export const sharingHandlers: MessageHandlers<
     await commitTurn(ctx, state);
   },
   "sharing:advance": async (ctx, message) => {
-    const state = controllableState(ctx, message.revision);
+    const state = controllableState(
+      ctx,
+      message.revision,
+      message.outcome === "done",
+    );
     if (state?.status !== "active") return;
     state.results.push(message.outcome);
     await commitTurn(ctx, state);

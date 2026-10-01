@@ -132,6 +132,7 @@ export function RoomBoardHeader({
     activeSharing?.currentIndex != null
       ? activeSharing.order[activeSharing.currentIndex]
       : null;
+  const canAdvanceSharing = isHost || presenter?.userId === currentUserId;
   const [configuredDuration, setConfiguredDuration] = useState<{
     revision: string;
     durationMs: number;
@@ -396,25 +397,31 @@ export function RoomBoardHeader({
               />
             </div>
           )}
-          {activeSharing && isHost && activeSharing.status !== "complete" ? (
+          {activeSharing &&
+          canAdvanceSharing &&
+          activeSharing.status !== "complete" ? (
             activeSharing.status === "ready" ? (
-              <Button
-                className="h-10 shrink-0"
-                disabled={isDisconnected}
-                onClick={() => onSharingStart?.(sharingDuration)}
-              >
-                最初の人を開始
-              </Button>
+              isHost ? (
+                <Button
+                  className="h-10 shrink-0"
+                  disabled={isDisconnected}
+                  onClick={() => onSharingStart?.(sharingDuration)}
+                >
+                  最初の人を開始
+                </Button>
+              ) : null
             ) : (
               <>
-                <Button
-                  variant="outline"
-                  className="h-10 shrink-0 px-3"
-                  disabled={isDisconnected || transitioning}
-                  onClick={() => onSharingAdvance?.("passed")}
-                >
-                  今回はパス
-                </Button>
+                {isHost ? (
+                  <Button
+                    variant="outline"
+                    className="h-10 shrink-0 px-3"
+                    disabled={isDisconnected || transitioning}
+                    onClick={() => onSharingAdvance?.("passed")}
+                  >
+                    今回はパス
+                  </Button>
+                ) : null}
                 <Button
                   className="h-10 shrink-0 px-3"
                   disabled={isDisconnected || transitioning}
