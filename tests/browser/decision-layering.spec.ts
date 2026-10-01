@@ -74,6 +74,51 @@ for (const { phase, story } of cases) {
     await page.screenshot({ path: `${output}/${phase}-adopted.png` });
   });
 
+  test(`${phase}: 採用選択中にホバーすると除外が表示され、右クリックでも除外できる`, async () => {
+    await openStory(story);
+    const target = page.getByRole("button", { name: /採用する.+: 手前の候補/ });
+    await target.hover();
+    const action = page.locator(
+      '[data-candidate-action-note-id="layer-front"]',
+    );
+    await expect
+      .poll(() =>
+        action.evaluate((element) => getComputedStyle(element).opacity),
+      )
+      .toBe("1");
+    await target.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "候補から外す" }).click();
+    const front = page.locator('[data-note-id="layer-front"]');
+    await expect.poll(() => front.getAttribute("data-excluded")).toBe("true");
+    expect(await page.getByRole("status").innerText()).toBe("採用前");
+    expect(await target.count()).toBe(0);
+    // 既存の候補外付箋が同座標を覆うため、Tab相当で復帰ボタンへ進む。
+    await action.focus();
+    await action.click();
+    await target.waitFor();
+    await expect.poll(() => front.getAttribute("data-excluded")).toBeNull();
+    await target.click();
+    await page
+      .getByRole("status")
+      .filter({ hasText: "採用済み: 手前の候補" })
+      .waitFor();
+  });
+
+  test(`${phase}: キーボードで除外し、採用選択を続けたまま復帰できる`, async () => {
+    await openStory(story);
+    const target = page.getByRole("button", { name: /採用する.+: 手前の候補/ });
+    await target.focus();
+    await page.keyboard.press("Shift+F10");
+    await page.getByRole("menuitem", { name: "候補から外す" }).press("Enter");
+    const action = page.locator(
+      '[data-candidate-action-note-id="layer-front"]',
+    );
+    await action.focus();
+    await action.press("Enter");
+    await target.waitFor();
+    expect(await page.getByRole("status").innerText()).toBe("採用前");
+  });
+
   test(`${phase}: 高い重なり順でもキーボードで候補を採用できる`, async () => {
     await openStory(story);
     await page

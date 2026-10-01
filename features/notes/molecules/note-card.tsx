@@ -52,6 +52,15 @@ export type NoteCardProps = {
   canMoveNote: boolean;
   canExcludeNote?: boolean;
   canRestoreNote?: boolean;
+  adoptionTarget?: {
+    label: string;
+    className: string;
+    onAdopt: () => void;
+    onPointerEnter: () => void;
+    onPointerLeave: () => void;
+    onFocus: () => void;
+    onBlur: () => void;
+  };
   onSelect: (noteId: string) => void;
   onDragStart: (
     noteId: string,
@@ -229,6 +238,7 @@ export function NoteCard({
   canMoveNote,
   canExcludeNote = false,
   canRestoreNote = false,
+  adoptionTarget,
   onSelect,
   onDragStart,
   onContentChange,
@@ -589,7 +599,7 @@ export function NoteCard({
   }, [isEditing, isSelected]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
-    if (disabled) {
+    if (disabled || adoptionTarget) {
       return;
     }
     if (selectedStampKind !== null) {
@@ -687,6 +697,9 @@ export function NoteCard({
       if (canCandidateAction) setIsActionMenuOpen(true);
       return;
     }
+
+    // 採用はbutton本来のclick（Enter / Space）へ渡す。候補メニューは共通で使う。
+    if (adoptionTarget) return;
 
     if (
       selectedStampKind !== null &&
@@ -1093,12 +1106,14 @@ export function NoteCard({
         <button
           ref={surfaceRef}
           type="button"
+          data-adopt-target={adoptionTarget ? true : undefined}
           aria-label={
-            selectedStampKind === null
+            adoptionTarget?.label ??
+            (selectedStampKind === null
               ? note.excluded
                 ? "候補外の付箋"
                 : "付箋"
-              : `付箋（${selectedStampKind === "subjective" ? "主観" : "客観"}シールを貼る）`
+              : `付箋（${selectedStampKind === "subjective" ? "主観" : "客観"}シールを貼る）`)
           }
           aria-disabled={disabled || undefined}
           aria-haspopup={canCandidateAction ? "menu" : undefined}
@@ -1106,24 +1121,44 @@ export function NoteCard({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerEnter={schedulePointerActionShow}
-          onPointerLeave={schedulePointerActionHide}
+          onClick={
+            adoptionTarget
+              ? () => {
+                  if (!disabled) adoptionTarget.onAdopt();
+                }
+              : undefined
+          }
+          onPointerEnter={() => {
+            schedulePointerActionShow();
+            adoptionTarget?.onPointerEnter();
+          }}
+          onPointerLeave={() => {
+            schedulePointerActionHide();
+            adoptionTarget?.onPointerLeave();
+          }}
           onFocus={() => {
             cancelFocusActionHide();
             setIsFocusActionVisible(true);
+            adoptionTarget?.onFocus();
           }}
-          onBlur={scheduleFocusActionHide}
+          onBlur={() => {
+            scheduleFocusActionHide();
+            adoptionTarget?.onBlur();
+          }}
           onKeyDown={handleKeyDown}
           onContextMenu={handleContextMenu}
-          className={`absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700 ${
-            disabled
-              ? "cursor-not-allowed"
-              : selectedStampKind !== null
-                ? "cursor-none"
-                : isOwnDrag
-                  ? "cursor-grabbing"
-                  : "cursor-grab"
-          }`}
+          className={
+            adoptionTarget?.className ??
+            `absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700 ${
+              disabled
+                ? "cursor-not-allowed"
+                : selectedStampKind !== null
+                  ? "cursor-none"
+                  : isOwnDrag
+                    ? "cursor-grabbing"
+                    : "cursor-grab"
+            }`
+          }
         />
       )}
     </StickyNote>

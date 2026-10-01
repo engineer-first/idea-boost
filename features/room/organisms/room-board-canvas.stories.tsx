@@ -809,6 +809,7 @@ function AdoptionLayeringPreview({
 }: {
   args: RoomBoardCanvasStoryProps;
 }) {
+  const [notes, setNotes] = useState(args.notes);
   const [adoptedId, setAdoptedId] = useState<string | null>(null);
   return (
     <div className="flex h-full w-full flex-col">
@@ -819,6 +820,24 @@ function AdoptionLayeringPreview({
       </p>
       <RoomBoardCanvasWithLocalRefs
         {...args}
+        notes={notes}
+        permissions={getBoardPermissions(args.phase, adoptedId !== null)}
+        onNoteExclude={(noteId) => {
+          args.onNoteExclude?.(noteId);
+          setNotes((current) =>
+            current.map((note) =>
+              note.id === noteId ? { ...note, excluded: true } : note,
+            ),
+          );
+        }}
+        onNoteRestore={(noteId) => {
+          args.onNoteRestore?.(noteId);
+          setNotes((current) =>
+            current.map((note) =>
+              note.id === noteId ? { ...note, excluded: false } : note,
+            ),
+          );
+        }}
         isAdoptMode={!adoptedId}
         decision={
           adoptedId

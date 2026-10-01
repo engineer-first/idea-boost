@@ -251,6 +251,56 @@ describe("RoomBoardCanvas", () => {
     expect(targets()).toHaveLength(2);
   });
 
+  it.each([
+    buildPhaseStep(5),
+    buildPhaseStep(4, 2),
+    buildPhaseStep(5, 3),
+  ])("%j の採用選択中も右クリックとキーボードで候補を除外できる", (phase) => {
+    const onNoteExclude = vi.fn();
+    const { props } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [buildNote({ content: "除外する候補" })],
+      onNoteExclude,
+    });
+    const target = screen.getByRole("button", {
+      name: /採用する.+: 除外する候補/,
+    });
+    fireEvent.contextMenu(target);
+    fireEvent.click(screen.getByRole("menuitem", { name: "候補から外す" }));
+    expect(onNoteExclude).toHaveBeenCalledWith("note-1");
+    expect(props.onAdoptNote).not.toHaveBeenCalled();
+    fireEvent.keyDown(target, { key: "F10", shiftKey: true });
+    fireEvent.click(screen.getByRole("menuitem", { name: "候補から外す" }));
+    expect(onNoteExclude).toHaveBeenCalledTimes(2);
+    expect(props.onAdoptNote).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    buildPhaseStep(5),
+    buildPhaseStep(4, 2),
+    buildPhaseStep(5, 3),
+  ])("%j の採用選択中も候補外を復帰でき、切断中は復帰を送らない", (phase) => {
+    const onNoteRestore = vi.fn();
+    const { props, rerender } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [buildNote({ excluded: true })],
+      onNoteRestore,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "候補に戻す" }));
+    expect(onNoteRestore).toHaveBeenCalledWith("note-1");
+    expect(props.onAdoptNote).not.toHaveBeenCalled();
+    rerender(<RoomBoardCanvas {...props} isDisconnected />);
+    expect(screen.getByRole("button", { name: "候補に戻す" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "候補に戻す" }));
+    expect(onNoteRestore).toHaveBeenCalledOnce();
+  });
+
   it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
     setup({
       phase: buildPhaseStep(5),

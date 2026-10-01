@@ -312,7 +312,7 @@ export function RoomBoardCanvas({
     onNoteDelete(noteId);
   }
 
-  function renderNoteCard(note: Note) {
+  function renderNoteCard(note: Note, isAdoptTarget: boolean) {
     return (
       <NoteCard
         key={note.id}
@@ -341,7 +341,20 @@ export function RoomBoardCanvas({
           adoptionFocusNoteId === note.id &&
           decision?.noteId !== note.id
         }
-        disabled={isDisconnected || isAdoptMode}
+        disabled={isDisconnected}
+        adoptionTarget={
+          isAdoptTarget
+            ? {
+                label: `採用する${adoptionTargetLabel}: ${note.content || "内容なし"}`,
+                className: ADOPTION_TARGET_CLASS_NAME,
+                onAdopt: () => onAdoptNote(note.id),
+                onPointerEnter: () => handleAdoptionPointerEnter(note.id),
+                onPointerLeave: () => handleAdoptionPointerLeave(note.id),
+                onFocus: () => handleAdoptionFocus(note.id),
+                onBlur: () => handleAdoptionBlur(note.id),
+              }
+            : undefined
+        }
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
@@ -409,20 +422,8 @@ export function RoomBoardCanvas({
               : note.stackOrder,
         }}
       >
-        {renderNoteCard(note)}
-        {isAdoptTarget ? (
-          <button
-            type="button"
-            data-adopt-target="true"
-            aria-label={`採用する${adoptionTargetLabel}: ${note.content || "内容なし"}`}
-            className={ADOPTION_TARGET_CLASS_NAME}
-            onPointerEnter={() => handleAdoptionPointerEnter(note.id)}
-            onPointerLeave={() => handleAdoptionPointerLeave(note.id)}
-            onFocus={() => handleAdoptionFocus(note.id)}
-            onBlur={() => handleAdoptionBlur(note.id)}
-            onClick={() => onAdoptNote(note.id)}
-          />
-        ) : null}
+        {/* 採用と候補操作を同じsurfaceで受け、透明な別ボタンで候補操作を遮らない。 */}
+        {renderNoteCard(note, isAdoptTarget)}
       </div>
     );
   }
