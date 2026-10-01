@@ -1,10 +1,15 @@
-import type { JSX } from "react";
+import { type JSX, useId } from "react";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
-import type { AccessUserSchema } from "@/contracts/access";
+import {
+  type AccessUserSchema,
+  type ManagedReadPermission,
+  PERMISSIONS,
+} from "@/contracts/access";
 
 type AccessUser = z.infer<typeof AccessUserSchema>;
 export type AccessViewProps = {
+  permission?: ManagedReadPermission;
   users: AccessUser[];
   email: string;
   loading: boolean;
@@ -16,6 +21,7 @@ export type AccessViewProps = {
   onRetry(): void;
 };
 export function AccessView({
+  permission = PERMISSIONS.readSharedOutcomes,
   users,
   email,
   loading,
@@ -26,14 +32,20 @@ export function AccessView({
   onRemove,
   onRetry,
 }: AccessViewProps): JSX.Element {
+  const helpId = useId();
+  const headingId = useId();
+  const feedback = permission === PERMISSIONS.readFeedback;
   return (
-    <main className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6">
+    <section aria-labelledby={headingId} className="bg-muted/20 p-4 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-8 rounded-xl border bg-card p-6 sm:p-10">
         <header className="space-y-2">
-          <h1 className="text-2xl font-semibold">成果閲覧権限</h1>
+          <h2 id={headingId} className="text-2xl font-semibold">
+            {feedback ? "意見閲覧権限" : "成果閲覧権限"}
+          </h2>
           <p className="text-sm text-muted-foreground">
-            運営者専用の画面です。共有成果の閲覧権限だけを追加・取消します。
-            管理権限や意見の閲覧権限は付与されません。
+            {feedback
+              ? "意見の閲覧権限を追加・取消します。共有成果の閲覧権限や管理権限は変更されません。"
+              : "共有成果の閲覧権限を追加・取消します。意見の閲覧権限や管理権限は変更されません。"}
           </p>
         </header>
         {error && (
@@ -57,7 +69,9 @@ export function AccessView({
           aria-busy={loading || pending}
           aria-live="polite"
         >
-          <h2 className="font-semibold">成果を閲覧できるユーザー</h2>
+          <h3 className="font-semibold">
+            {feedback ? "意見を閲覧できるユーザー" : "成果を閲覧できるユーザー"}
+          </h3>
           {pending && (
             <p role="status" className="text-sm text-muted-foreground">
               閲覧権限を反映中…
@@ -108,8 +122,8 @@ export function AccessView({
             onAdd();
           }}
         >
-          <h2 className="font-semibold">閲覧者を追加</h2>
-          <p id="access-email-help" className="text-sm text-muted-foreground">
+          <h3 className="font-semibold">閲覧者を追加</h3>
+          <p id={helpId} className="text-sm text-muted-foreground">
             Idea Boost に Google
             ログイン済みのメールアドレスを入力してください。
           </p>
@@ -119,7 +133,7 @@ export function AccessView({
               type="email"
               required
               disabled={pending || loading}
-              aria-describedby="access-email-help"
+              aria-describedby={helpId}
               autoComplete="email"
               value={email}
               onChange={(event) => onEmailChange(event.target.value)}
@@ -136,25 +150,32 @@ export function AccessView({
           </Button>
         </form>
       </div>
-    </main>
+    </section>
   );
 }
 
 export function AccessDeniedView({
+  permission = PERMISSIONS.readSharedOutcomes,
   unauthenticated,
   error,
   loading,
   onRetry,
 }: {
+  permission?: ManagedReadPermission;
   unauthenticated: boolean;
   error: string | null;
   loading: boolean;
   onRetry(): void;
 }): JSX.Element {
+  const headingId = useId();
   return (
-    <main className="min-h-0 flex-1 overflow-y-auto bg-muted/20 p-4 sm:p-6">
+    <section aria-labelledby={headingId} className="bg-muted/20 p-4 sm:p-6">
       <div className="mx-auto max-w-3xl space-y-4 rounded-xl border bg-card p-6 sm:p-10">
-        <h1 className="text-2xl font-semibold">成果閲覧権限</h1>
+        <h2 id={headingId} className="text-2xl font-semibold">
+          {permission === PERMISSIONS.readFeedback
+            ? "意見閲覧権限"
+            : "成果閲覧権限"}
+        </h2>
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
@@ -178,6 +199,6 @@ export function AccessDeniedView({
           </Button>
         </div>
       </div>
-    </main>
+    </section>
   );
 }

@@ -8,3 +8,6 @@ const meta = {
 export default meta;
 // Browser specが通信を制御して、実containerの再試行・認可失効を確認する。
 export const Default: StoryObj<typeof meta> = {};
+export const Feedback: StoryObj<typeof meta> = {
+  args: { permission: "feedback:read" },
+};
