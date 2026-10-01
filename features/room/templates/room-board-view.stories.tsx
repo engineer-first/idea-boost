@@ -793,3 +793,24 @@ export const FitUnavailable: Story = {
     interactions: { ...INTERACTIONS, onFitToNotes: fn(() => false) },
   },
 };
+
+export const ExcludedVoteAttempt: Story = {
+  name: "再投票で候補外に投票したとき",
+  args: {
+    phase: STEP_1_4,
+    notes: buildNotes(2).map((note, index) => ({
+      ...note,
+      excluded: index === 0,
+    })),
+    initialGuideState: "compact",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "主観シール 残り1票" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^候補外の付箋$/ }),
+    );
+  },
+};

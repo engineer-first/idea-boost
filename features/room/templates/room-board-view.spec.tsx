@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
@@ -962,7 +963,8 @@ describe("RoomBoardView", () => {
     expect(onNoteVote).toHaveBeenCalledWith("note-1", "objective", 0.25, 0.5);
   });
 
-  it("パレットのシールを候補外付箋へドロップしても投票しない", () => {
+  it("候補外へのドロップは理由を通知し、票を消費しない", () => {
+    const notify = vi.spyOn(toast, "error");
     const onNoteVote = vi.fn();
     setup({
       phase: buildPhaseStep(4),
@@ -1002,6 +1004,17 @@ describe("RoomBoardView", () => {
     });
 
     expect(onNoteVote).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining("候補外の付箋には投票できません"),
+      expect.objectContaining({ id: "excluded-note-vote" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "主観シール 残り1票" }),
+    ).toBeEnabled();
+    notify.mockRestore();
   });
 
   it("パレットで選択したシールをマウスへ追従させ、付箋へ連続で貼る", () => {
@@ -1068,10 +1081,15 @@ describe("RoomBoardView", () => {
     expect(paletteSticker).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("選択中のシールで候補外付箋をクリックしても投票しない", () => {
+  it.each([
+    buildPhaseStep(4),
+    buildPhaseStep(3, 2),
+    buildPhaseStep(4, 3),
+  ])("投票ステップ %j で候補外へのクリックは理由を通知し、残票とシール選択を保つ", (phase) => {
+    const notify = vi.spyOn(toast, "error");
     const onNoteVote = vi.fn();
     setup({
-      phase: buildPhaseStep(4),
+      phase,
       notes: [buildNote({ id: "note-1", excluded: true })],
       onNoteVote,
     });
@@ -1100,6 +1118,20 @@ describe("RoomBoardView", () => {
     });
 
     expect(onNoteVote).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining("候補外の付箋には投票できません"),
+      expect.objectContaining({ id: "excluded-note-vote" }),
+    );
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "主観シール 残り1票" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り3票" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    notify.mockRestore();
   });
 
   it("選択中のシールは同じボタンの再クリックまたはEscapeで解除する", () => {
@@ -1218,6 +1250,91 @@ describe("RoomBoardView", () => {
       0.25,
       0.5,
     );
+  });
+
+  it("貼ったシールを候補外へ移動しても元の票を維持して理由を通知する", () => {
+    const notify = vi.spyOn(toast, "error");
+    const onNoteVoteStickerMove = vi.fn();
+    const stickerId = "33333333-3333-4333-8333-333333333333";
+    const notes = [
+      buildNotes(1)[0],
+      {
+        ...buildNotes(1)[0],
+        id: "note-2",
+        content: "移動先",
+        excluded: true,
+        x: 400,
+      },
+    ].map((note, index) =>
+      index === 0
+        ? {
+            ...note,
+            dotVotes: {
+              subjective: { count: 0, votedByMe: false, ownCount: 0 },
+              objective: { count: 1, votedByMe: true, ownCount: 1 },
+            },
+            dotVoteStickers: [
+              { id: stickerId, kind: "objective" as const, x: 0.2, y: 0.3 },
+            ],
+          }
+        : note,
+    );
+    setup({
+      phase: buildPhaseStep(4),
+      notes,
+      onNoteVoteStickerMove,
+    });
+
+    const target = screen
+      .getAllByTestId("note-card")
+      .find((note) => note.dataset.noteId === "note-2");
+    if (!target) throw new Error("移動先の付箋が見つかりません");
+    vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+      x: 400,
+      y: 100,
+      top: 100,
+      right: 600,
+      bottom: 250,
+      left: 400,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    });
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => target,
+    });
+
+    const root = screen.getByTestId("room-board-view-root");
+    fireEvent.pointerDown(
+      screen.getByRole("button", {
+        name: "客観シール 1票を1票取り消す",
+      }),
+      { pointerId: 12, clientX: 140, clientY: 145 },
+    );
+    fireEvent.pointerMove(root, {
+      pointerId: 12,
+      clientX: 450,
+      clientY: 175,
+    });
+    fireEvent.pointerUp(root, {
+      pointerId: 12,
+      clientX: 450,
+      clientY: 175,
+    });
+
+    expect(onNoteVoteStickerMove).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り2票" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+    ).toBeInTheDocument();
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining("候補外の付箋には投票できません"),
+      expect.objectContaining({ id: "excluded-note-vote" }),
+    );
+    notify.mockRestore();
   });
 
   it("自分のシールを投票パレットへ戻すと、既存のシール削除経路を呼ぶ", () => {
