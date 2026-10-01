@@ -59,7 +59,9 @@ export type RoomBoardCanvasProps = {
   isHost: boolean;
   privateNotes: Note[];
   selectedNoteId: string | null;
+  pendingCandidateNoteIds?: string[];
   draggingNoteId: string | null;
+  localDraggingNoteId?: string | null;
   isDisconnected: boolean;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
@@ -147,7 +149,9 @@ export function RoomBoardCanvas({
   isHost,
   privateNotes,
   selectedNoteId,
+  pendingCandidateNoteIds = [],
   draggingNoteId,
+  localDraggingNoteId = null,
   isDisconnected,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = false,
@@ -276,16 +280,41 @@ export function RoomBoardCanvas({
     publishAdoptionFocus();
   }
 
+  const adoptionDragRef = useRef<{
+    noteId: string;
+    pointerId: number;
+    x: number;
+    y: number;
+    didDrag: boolean;
+  } | null>(null);
+  const suppressAdoptionClickRef = useRef(false);
+  function finishAdoptionPointer(
+    event: ReactPointerEvent,
+    cancelled = false,
+  ): void {
+    const drag = adoptionDragRef.current;
+    if (drag?.pointerId !== event.pointerId) return;
+    suppressAdoptionClickRef.current = cancelled || drag.didDrag;
+    adoptionDragRef.current = null;
+  }
+  const backgroundPointerRef = useRef<{
+    x: number;
+    y: number;
+    moved: boolean;
+  } | null>(null);
+
   function handleBoardPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    // 付箋の上のpointerdownはバブリングしてくるので、ボード背景を
-    // 直接押したときだけ選択を解除する。
     if (
       event.button === 0 &&
       (event.target === event.currentTarget ||
         (event.target as HTMLElement).dataset.canvasBackground === "true")
     ) {
-      onSelect(null);
-    }
+      backgroundPointerRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        moved: false,
+      };
+    } else backgroundPointerRef.current = null;
   }
 
   function handleViewportPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -301,6 +330,13 @@ export function RoomBoardCanvas({
   }
 
   function handleViewportPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const background = backgroundPointerRef.current;
+    if (
+      background &&
+      Math.hypot(event.clientX - background.x, event.clientY - background.y) >=
+        4
+    )
+      background.moved = true;
     onCanvasPointerMove(event);
     onPresencePointerMove(event);
   }
@@ -317,7 +353,9 @@ export function RoomBoardCanvas({
       <NoteCard
         key={note.id}
         note={note}
-        isOwnDrag={draggingNoteId === note.id}
+        isOwnDrag={
+          draggingNoteId === note.id || localDraggingNoteId === note.id
+        }
         isSelected={selectedNoteId === note.id}
         editingDisabled={isResultStep(phase)}
         canDeleteNote={
@@ -332,16 +370,21 @@ export function RoomBoardCanvas({
           phase.step !== 1 &&
           !note.excluded
         }
-        canMoveNote={permissions.canMoveNote && !note.excluded}
-        canExcludeNote={isHost && permissions.canExcludeNote && !note.excluded}
-        canRestoreNote={isHost && permissions.canRestoreNote && note.excluded}
+        canMoveNote={permissions.canMoveNote}
+        canExcludeNote={
+          isHost && !isAdoptMode && permissions.canExcludeNote && !note.excluded
+        }
+        canRestoreNote={
+          isHost && !isAdoptMode && permissions.canRestoreNote && note.excluded
+        }
+        candidatePending={pendingCandidateNoteIds.includes(note.id)}
         isDecided={decision?.noteId === note.id}
         isAdoptionFocused={
           !isHost &&
           adoptionFocusNoteId === note.id &&
           decision?.noteId !== note.id
         }
-        disabled={isDisconnected || isAdoptMode}
+        disabled={isDisconnected}
         onSelect={onSelect}
         onDragStart={onNoteDragStart}
         onContentChange={onNoteContentChange}
@@ -420,7 +463,43 @@ export function RoomBoardCanvas({
             onPointerLeave={() => handleAdoptionPointerLeave(note.id)}
             onFocus={() => handleAdoptionFocus(note.id)}
             onBlur={() => handleAdoptionBlur(note.id)}
-            onClick={() => onAdoptNote(note.id)}
+            onPointerDown={(event) => {
+              if (event.button !== 0 || event.isPrimary === false) return;
+              suppressAdoptionClickRef.current = false;
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+              adoptionDragRef.current = {
+                noteId: note.id,
+                pointerId: event.pointerId,
+                x: event.clientX,
+                y: event.clientY,
+                didDrag: false,
+              };
+            }}
+            onPointerMove={(event) => {
+              const drag = adoptionDragRef.current;
+              if ((event.buttons & 1) === 0) {
+                adoptionDragRef.current = null;
+                return;
+              }
+              if (
+                !drag ||
+                drag.pointerId !== event.pointerId ||
+                drag.didDrag ||
+                Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 4
+              )
+                return;
+              drag.didDrag = true;
+              event.currentTarget.releasePointerCapture?.(event.pointerId);
+              onNoteDragStart(note.id, event);
+            }}
+            onPointerUp={(event) => finishAdoptionPointer(event)}
+            onPointerCancel={(event) => finishAdoptionPointer(event, true)}
+            onClick={(event) => {
+              if (suppressAdoptionClickRef.current && event.detail !== 0)
+                return;
+              adoptionDragRef.current = null;
+              onAdoptNote(note.id);
+            }}
           />
         ) : null}
       </div>
@@ -479,9 +558,26 @@ export function RoomBoardCanvas({
           data-adopt-mode={isAdoptMode || undefined}
           style={gridStyle}
           onPointerDownCapture={handleViewportPointerDown}
+          onPointerUp={(event) => {
+            finishAdoptionPointer(event);
+            const background = backgroundPointerRef.current;
+            if (
+              background &&
+              !background.moved &&
+              (event.target === event.currentTarget ||
+                (event.target as HTMLElement).dataset.canvasBackground ===
+                  "true")
+            )
+              onSelect(null);
+            backgroundPointerRef.current = null;
+            onCanvasPointerEnd(event);
+          }}
           onPointerMove={handleViewportPointerMove}
-          onPointerUp={onCanvasPointerEnd}
-          onPointerCancel={onCanvasPointerEnd}
+          onPointerCancel={(event) => {
+            finishAdoptionPointer(event, true);
+            backgroundPointerRef.current = null;
+            onCanvasPointerEnd(event);
+          }}
           onLostPointerCapture={onCanvasPointerEnd}
           onPointerLeave={onPresencePointerLeave}
         >

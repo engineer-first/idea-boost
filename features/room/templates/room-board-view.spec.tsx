@@ -249,7 +249,7 @@ describe("採用する付箋の選択モード", () => {
       onNoteDecide,
     });
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    fireEvent.click(screen.getByTestId("board-canvas"));
+    fireEvent.pointerUp(screen.getByTestId("board-canvas"));
     expect(onNoteDecide).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", { name: /採用する付箋:/ }),
@@ -1587,6 +1587,7 @@ describe("RoomBoardView", () => {
       fireEvent.pointerDown(screen.getByTestId("board-canvas"), {
         pointerId: 1,
       });
+      fireEvent.pointerUp(screen.getByTestId("board-canvas"));
       expect(first).not.toHaveAttribute("data-selected");
     });
 

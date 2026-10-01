@@ -16,6 +16,7 @@ import {
   listMemberIds,
   runInRoomDO,
 } from "../test-helpers";
+import type { SocketAttachment } from "./broadcast";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
@@ -1226,6 +1227,223 @@ describe("RoomDO 候補外付箋", () => {
     });
   }
 
+  it.each([
+    [1, 2],
+    [1, 3],
+    [1, 5],
+    [2, 2],
+    [2, 4],
+    [3, 2],
+    [3, 3],
+    [3, 5],
+  ] as const)("参加者は %i-%i で候補外を動かし、復帰しても現在位置を保持する", async (phase, step) => {
+    const name = `candidate-move-${phase}-${step}`;
+    await prepare(name, buildPhaseStep(step, phase), true);
+    const member = await connectDirectly(name, USER_B, USER_A);
+    member.send(
+      JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 60, y: 70 }),
+    );
+    expect(await nextJson(member)).toMatchObject({
+      type: "note:updated",
+      note: { excluded: true, x: 60, y: 70, content: "保持する本文" },
+    });
+    member.close();
+  });
+
+  it("別タブの再除外を古い個別Undoで復帰させない", async () => {
+    const name = "candidate-stale-undo";
+    await prepare(name);
+    const host = await connectDirectly(name, USER_A, USER_A);
+    const first = crypto.randomUUID();
+    const second = crypto.randomUUID();
+    host.send(
+      JSON.stringify({
+        type: "note:exclude",
+        noteId: NOTE_ID,
+        operationId: first,
+      }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:updated",
+      operationId: first,
+    });
+    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+    await nextJson(host);
+    host.send(
+      JSON.stringify({
+        type: "note:exclude",
+        noteId: NOTE_ID,
+        operationId: second,
+      }),
+    );
+    await nextJson(host);
+    host.send(
+      JSON.stringify({
+        type: "note:restore",
+        noteId: NOTE_ID,
+        operationId: crypto.randomUUID(),
+        expectedExclusionOperationId: first,
+      }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(
+        name,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT excluded FROM notes WHERE id = ?", NOTE_ID)
+            .one().excluded,
+      ),
+    ).toBe(1);
+    host.close();
+  });
+
+  it.each([
+    [1, 1, false],
+    [1, 2, true],
+    [1, 3, true],
+    [1, 4, false],
+    [1, 5, true],
+    [2, 1, false],
+    [2, 2, true],
+    [2, 3, false],
+    [2, 4, true],
+    [3, 1, false],
+    [3, 2, true],
+    [3, 3, true],
+    [3, 4, false],
+    [3, 5, true],
+  ] as const)("全14ステップ %i-%i の通常候補と候補外の移動認可が全員で一致する", async (phase, step, allowed) => {
+    for (const userId of [USER_A, USER_B])
+      for (const excluded of [false, true]) {
+        const name = `move-matrix-${phase}-${step}-${userId}-${excluded}`;
+        await prepare(name, buildPhaseStep(step, phase), excluded);
+        const ws = await connectDirectly(name, userId, USER_A);
+        ws.send(
+          JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 55, y: 60 }),
+        );
+        expect(await nextJson(ws)).toMatchObject(
+          allowed
+            ? { type: "note:updated", note: { x: 55, y: 60, excluded } }
+            : { type: "error", code: "forbidden" },
+        );
+        const dragId = crypto.randomUUID();
+        ws.send(
+          JSON.stringify({ type: "note:drag:start", noteId: NOTE_ID, dragId }),
+        );
+        expect(await nextJson(ws)).toMatchObject(
+          allowed
+            ? { type: "note:drag:result", accepted: true }
+            : { type: "error", code: "forbidden" },
+        );
+        if (!allowed)
+          await runInRoomDO(name, (_instance, state) => {
+            expect(
+              state.storage.sql
+                .exec("SELECT x, y, excluded FROM notes WHERE id = ?", NOTE_ID)
+                .one(),
+            ).toMatchObject({ x: 123, y: 456, excluded: excluded ? 1 : 0 });
+            for (const socket of state.getWebSockets())
+              expect(
+                (socket.deserializeAttachment() as SocketAttachment).activeDrag,
+              ).toBeUndefined();
+          });
+        if (allowed)
+          ws.send(
+            JSON.stringify({
+              type: "note:drag:cancel",
+              noteId: NOTE_ID,
+              dragId,
+            }),
+          );
+        ws.close();
+      }
+  });
+
+  it.each([
+    [1, 5],
+    [2, 4],
+    [3, 5],
+  ] as const)("%i-%i ではドラッグ中の候補整理と移動を独立させる", async (phase, step) => {
+    const name = `exclude-active-drag-${phase}`;
+    await prepare(name, buildPhaseStep(step, phase));
+    const host = await connectDirectly(name, USER_A, USER_A);
+    const member = await connectDirectly(name, USER_B, USER_A);
+    const dragId = crypto.randomUUID();
+    member.send(
+      JSON.stringify({ type: "note:drag:start", noteId: NOTE_ID, dragId }),
+    );
+    expect(await nextJsonOfType(member, "note:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    host.send(
+      JSON.stringify({
+        type: "note:exclude",
+        noteId: NOTE_ID,
+        operationId: crypto.randomUUID(),
+      }),
+    );
+    expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+      note: { excluded: true },
+    });
+    member.send(
+      JSON.stringify({
+        type: "note:drag:move",
+        noteId: NOTE_ID,
+        dragId,
+        x: 60,
+        y: 70,
+      }),
+    );
+    expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+      note: { excluded: true, x: 60, y: 70 },
+    });
+    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+    expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+      note: { excluded: false, x: 60, y: 70 },
+    });
+    member.send(
+      JSON.stringify({
+        type: "note:drag:end",
+        noteId: NOTE_ID,
+        dragId,
+        position: { x: 65, y: 75 },
+      }),
+    );
+    expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+      note: { excluded: false, x: 65, y: 75 },
+    });
+    host.close();
+    member.close();
+  });
+
+  it("移動で未共有の付箋を変更・共有せず、過去フェーズも拒否する", async () => {
+    for (const source of ["private", "past"] as const) {
+      const name = `candidate-invalid-source-${source}`;
+      await prepare(name, buildPhaseStep(2, 3));
+      await runInRoomDO(name, (_instance, state) => {
+        state.storage.sql.exec(
+          source === "private"
+            ? "UPDATE notes SET visibility = 'private' WHERE id = ?"
+            : "UPDATE notes SET phase = 1 WHERE id = ?",
+          NOTE_ID,
+        );
+      });
+      const ws = await connectDirectly(name, USER_B, USER_A);
+      ws.send(
+        JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 55, y: 60 }),
+      );
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      ws.close();
+    }
+  });
+
   it("非ホストは自分の付箋でも候補外にできない", async () => {
     const roomName = "room-exclude-non-host";
     await prepare(roomName);
@@ -1331,7 +1549,7 @@ describe("RoomDO 候補外付箋", () => {
     ws.close();
   });
 
-  it("候補外付箋は削除・ドラッグ・投票シール・グループを含むすべての変更対象にできない", async () => {
+  it("候補外付箋の本文・削除・投票シール・グループの変更を拒否する", async () => {
     const groupId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     const createdAt = "2026-09-17T00:00:00.000Z";
     const cases = [
@@ -1346,22 +1564,6 @@ describe("RoomDO 候補外付箋", () => {
           expectedPhaseRevision: 0,
           noteId: NOTE_ID,
           content: "変更",
-        },
-      },
-      {
-        name: "move",
-        phase: buildPhaseStep(2),
-        userId: USER_A,
-        message: { type: "note:move", noteId: NOTE_ID, x: 999, y: 999 },
-      },
-      {
-        name: "drag",
-        phase: buildPhaseStep(2),
-        userId: USER_A,
-        message: {
-          type: "note:drag:start",
-          noteId: NOTE_ID,
-          dragId: "99999999-9999-4999-8999-999999999999",
         },
       },
       {
@@ -1478,11 +1680,10 @@ describe("RoomDO 候補外付箋", () => {
       }
       const ws = await connectDirectly(roomName, testCase.userId, USER_A);
       ws.send(JSON.stringify(testCase.message));
-      expect(await nextJson(ws)).toMatchObject(
-        testCase.name === "drag"
-          ? { type: "note:drag:result", accepted: false }
-          : { type: "error", code: "forbidden" },
-      );
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
       const persisted = await runInRoomDO(roomName, (_instance, state) => ({
         note: state.storage.sql
           .exec(
@@ -1828,7 +2029,7 @@ describe("RoomDO 候補外付箋", () => {
           )
           .one(),
       ),
-    ).toEqual({ excluded: 1, operation_id: null });
+    ).toEqual({ excluded: 1, operation_id: expect.any(String) });
 
     host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
     await nextJson(host);
@@ -1895,6 +2096,7 @@ describe("RoomDO 候補外付箋", () => {
     expect(await nextJson(member)).toMatchObject({
       type: "error",
       code: "forbidden",
+      operationId: "33333333-3333-4333-8333-333333333333",
     });
     member.close();
 

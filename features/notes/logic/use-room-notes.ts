@@ -163,6 +163,9 @@ export function useRoomNotes({
   >([]);
   const [voteFeedback, setVoteFeedback] = useState<VoteFeedback | null>(null);
   const notesRef = useRef<Note[]>(notes);
+  const confirmedPositionsRef = useRef(
+    new Map<string, { x: number; y: number }>(),
+  );
   const draggingNoteIdRef = useRef<string | null>(null);
   const noteDragOperationRef = useRef<NoteDragOperation | null>(null);
   const pendingNoteDropRef = useRef<PendingNoteDrop | null>(null);
@@ -260,6 +263,33 @@ export function useRoomNotes({
 
   const applyMessage = useCallback(
     (message: ServerMessage) => {
+      if (message.type === "snapshot")
+        confirmedPositionsRef.current = new Map(
+          message.notes.map((note) => [note.id, { x: note.x, y: note.y }]),
+        );
+      if (message.type === "note:updated" || message.type === "note:inserted")
+        confirmedPositionsRef.current.set(message.note.id, {
+          x: message.note.x,
+          y: message.note.y,
+        });
+      const freezesDrag =
+        message.type === "phase:updated" ||
+        message.type === "outcome:published" ||
+        (message.type === "decision:updated" && message.decision !== null);
+      if (freezesDrag) {
+        sendDragRef.current?.cancel();
+        noteDragOperationRef.current = null;
+        draggingNoteIdRef.current = null;
+        setDraggingNoteId(null);
+        updatePendingNoteDrop(null);
+        updatePendingNoteFront(null);
+        updateNotes((current) =>
+          current.map((note) => ({
+            ...note,
+            ...confirmedPositionsRef.current.get(note.id),
+          })),
+        );
+      }
       const pendingDrop = pendingNoteDropRef.current;
       const pendingFront = pendingNoteFrontRef.current;
       if (message.type === "snapshot") {

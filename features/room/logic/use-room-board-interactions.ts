@@ -72,6 +72,7 @@ export type RoomBoardInteractions = {
   isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
   isNoteDragging: boolean;
+  localDraggingNoteId?: string | null;
   camera: CanvasCamera;
   gridStyle: CSSProperties;
   isPanning: boolean;
@@ -85,7 +86,7 @@ export type RoomBoardInteractions = {
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  cancelCurrentNoteDrag: () => void;
+  cancelCurrentNoteDrag: (includePrivate?: boolean) => void;
   onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onNoteDragStart: (
@@ -365,6 +366,7 @@ export function useRoomBoardInteractions({
         ? { noteId: drag.note.id }
         : undefined,
     isNoteDragging: drag !== null,
+    localDraggingNoteId: drag?.note.id ?? null,
     camera,
     gridStyle,
     isPanning,

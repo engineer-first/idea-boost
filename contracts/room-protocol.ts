@@ -141,6 +141,7 @@ export const NoteSchema = z.object({
   // 決定ステップで一時的に候補から外す状態。削除とは異なり、付箋の内容・
   // 票・グループ・座標はそのまま保持する。
   excluded: z.boolean().default(false),
+  exclusionOperationId: z.string().uuid().nullable().optional(),
   stackOrder: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -358,14 +359,20 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("note:exclude"),
     noteId: z.string().uuid(),
+    operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:restore"),
     noteId: z.string().uuid(),
+    operationId: OptimisticOperationIdSchema.optional(),
+    expectedExclusionOperationId: z.string().uuid().optional(),
   }),
   // 対象は実行時のサーバー状態から再判定するため、クライアントは件数や
   // note ID 群を送らない。
-  z.object({ type: z.literal("note:bulk-exclude") }),
+  z.object({
+    type: z.literal("note:bulk-exclude"),
+    operationId: OptimisticOperationIdSchema.optional(),
+  }),
   z.object({
     type: z.literal("note:bulk-restore"),
     operationId: BulkExclusionOperationIdSchema,

@@ -267,7 +267,7 @@ for (const phase of [1, 2, 3] as const) {
       reconnect.close();
       room.close();
     });
-    it("決定中の候補は参加者が移動でき、除外候補・確定後の変更は拒否する", async () => {
+    it("決定中は候補外も参加者が移動でき、確定後の変更は拒否する", async () => {
       const current: RoomPhase = {
         kind: "step",
         phase,
@@ -281,8 +281,8 @@ for (const phase of [1, 2, 3] as const) {
       });
       send(room.b, { type: "note:move", noteId: excludedId, x: 55, y: 60 });
       expect(await room.b.next()).toMatchObject({
-        type: "error",
-        code: "forbidden",
+        type: "note:updated",
+        note: { excluded: true, x: 55, y: 60 },
       });
       await until(room.a, "note:updated");
       send(room.a, { type: "note:decide", noteId: candidateId });

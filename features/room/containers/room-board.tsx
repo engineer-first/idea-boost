@@ -25,6 +25,7 @@ import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
+import { useCandidateOperations } from "../logic/use-candidate-operations";
 import { useCursorPresence } from "../logic/use-cursor-presence";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
@@ -68,8 +69,8 @@ export function RoomBoard({
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
-  const latestExcludeOperationRef = useRef(0);
-  const latestBulkExclusionOperationRef = useRef<string | null>(null);
+  const bulkUndoIdsRef = useRef(new Set<string>());
+  const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
@@ -88,6 +89,11 @@ export function RoomBoard({
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
+  const candidates = useCandidateOperations({
+    notes: notes.notes,
+    connected: connectionStatus === "open",
+    send,
+  });
   const noteGroups = useNoteGroups({ send });
   const help = useBoardHelp(roomState.phase);
   const cursorPresence = useCursorPresence({
@@ -98,8 +104,8 @@ export function RoomBoard({
   });
 
   function clearCandidateNotices(): void {
-    latestExcludeOperationRef.current += 1;
-    latestBulkExclusionOperationRef.current = null;
+    bulkUndoIdsRef.current.clear();
+    bulkNoticeIdsRef.current.clear();
     for (const id of candidateNoticeIdsRef.current)
       roomNotify.dismissCandidateNotice(id);
     candidateNoticeIdsRef.current.clear();
@@ -114,9 +120,13 @@ export function RoomBoard({
     [],
   );
 
-  const rememberCandidateNotice = useCallback((id: string | number): void => {
-    candidateNoticeIdsRef.current.add(id);
-  }, []);
+  const rememberCandidateNotice = useCallback(
+    (id: string | number, operationId: string): void => {
+      candidateNoticeIdsRef.current.add(id);
+      bulkNoticeIdsRef.current.set(operationId, id);
+    },
+    [],
+  );
 
   function handleServerMessage(message: ServerMessage) {
     if (
@@ -133,47 +143,44 @@ export function RoomBoard({
     }
     const receivedAt = Date.now();
     drafts.applyMessage(message);
-    if (
-      message.type === "snapshot" ||
-      (message.type === "note:updated" && !message.note.excluded)
-    ) {
-      latestExcludeOperationRef.current += 1;
-    }
+    if (candidates.applyMessage(message)) return;
     if (message.type === "snapshot") {
-      latestBulkExclusionOperationRef.current = null;
+      bulkUndoIdsRef.current.clear();
+      bulkNoticeIdsRef.current.clear();
     }
     if (message.type === "note:bulk-excluded") {
       if (message.count > 0) {
         const undo = () => {
-          if (latestBulkExclusionOperationRef.current !== message.operationId) {
-            return;
-          }
-          latestBulkExclusionOperationRef.current = null;
-          notes.bulkRestoreCandidates(message.operationId);
+          if (!bulkUndoIdsRef.current.has(message.operationId)) return;
+          if (candidates.bulkRestore(message.operationId))
+            bulkUndoIdsRef.current.delete(message.operationId);
         };
         if (message.source === "phase-transition") {
-          latestBulkExclusionOperationRef.current = isHost
-            ? message.operationId
-            : null;
+          if (isHost) bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
             roomNotify.automaticallyExcludedCandidates(
               message.count,
               isHost ? undo : undefined,
             ),
+            message.operationId,
           );
         } else {
-          latestBulkExclusionOperationRef.current = message.operationId;
+          bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
             roomNotify.bulkCandidatesExcluded(message.count, undo),
+            message.operationId,
           );
         }
       }
     }
-    if (
-      message.type === "note:bulk-restored" &&
-      latestBulkExclusionOperationRef.current === message.operationId
-    ) {
-      clearCandidateNotices();
+    if (message.type === "note:bulk-restored") {
+      const notice = bulkNoticeIdsRef.current.get(message.operationId);
+      if (notice !== undefined) {
+        roomNotify.dismissCandidateNotice(notice);
+        candidateNoticeIdsRef.current.delete(notice);
+        bulkNoticeIdsRef.current.delete(message.operationId);
+      }
+      bulkUndoIdsRef.current.delete(message.operationId);
     }
     if (message.type === "error") {
       notes.applyMessage(message);
@@ -205,6 +212,13 @@ export function RoomBoard({
     }
 
     notes.applyMessage(message);
+    if (
+      message.type === "snapshot" ||
+      message.type === "phase:updated" ||
+      message.type === "outcome:published" ||
+      (message.type === "decision:updated" && message.decision !== null)
+    )
+      boardInteractions.cancelCurrentNoteDrag(true);
     noteGroups.applyMessage(message);
     roomState.applyMessage(message, receivedAt);
     cursorPresence.applyMessage(message, receivedAt);
@@ -265,30 +279,6 @@ export function RoomBoard({
     [isNextPhasePending, send, roomState.phase, roomState.phaseRevision],
   );
 
-  const handleNoteExclude = useCallback(
-    (noteId: string) => {
-      const operation = latestExcludeOperationRef.current + 1;
-      latestExcludeOperationRef.current = operation;
-      notes.excludeNote(noteId);
-      rememberCandidateNotice(
-        roomNotify.noteExcluded(() => {
-          if (latestExcludeOperationRef.current !== operation) return;
-          latestExcludeOperationRef.current += 1;
-          notes.restoreNote(noteId);
-        }),
-      );
-    },
-    [notes, rememberCandidateNotice],
-  );
-
-  const handleNoteRestore = useCallback(
-    (noteId: string) => {
-      latestExcludeOperationRef.current += 1;
-      notes.restoreNote(noteId);
-    },
-    [notes],
-  );
-
   const handleTimerStart = useCallback(
     (durationMs: number) => send({ type: "timer:start", durationMs }),
     [send],
@@ -343,7 +333,9 @@ export function RoomBoard({
           ?.content ?? null)
       : null;
 
-  const boardNotes = notes.notes.filter((note) => note.visibility === "shared");
+  const boardNotes = candidates.notes.filter(
+    (note) => note.visibility === "shared",
+  );
   const boardPrivateNotes = notes.notes.filter(
     (note) => note.visibility === "private",
   );
@@ -371,7 +363,7 @@ export function RoomBoard({
     if (connectionStatus === "open") return;
     drafts.setConnected(false);
     notes.cancelNoteDrag();
-    boardInteractions.cancelCurrentNoteDrag();
+    boardInteractions.cancelCurrentNoteDrag(true);
   }, [
     boardInteractions.cancelCurrentNoteDrag,
     connectionStatus,
@@ -389,6 +381,11 @@ export function RoomBoard({
       <RoomBoardView
         feedback={feedback}
         notes={boardNotes}
+        confirmedNotes={notes.notes.filter(
+          (note) => note.visibility === "shared",
+        )}
+        pendingCandidateNoteIds={candidates.pendingNoteIds}
+        isCandidatePending={candidates.isPending}
         groups={noteGroups.groups}
         hmwDecidedIssue={hmwDecidedIssue}
         decidedHmw={decidedHmw}
@@ -456,9 +453,9 @@ export function RoomBoard({
         onNoteFontSizeChange={notes.changeNoteFontSize}
         onNoteDelete={notes.deleteNote}
         onNoteBringToFront={notes.bringNoteToFront}
-        onNoteExclude={handleNoteExclude}
-        onNoteRestore={handleNoteRestore}
-        onBulkCandidateExclude={notes.bulkExcludeZeroVoteCandidates}
+        onNoteExclude={candidates.exclude}
+        onNoteRestore={candidates.restore}
+        onBulkCandidateExclude={candidates.bulkExclude}
         onGroupCreate={noteGroups.createGroup}
         onGroupUpdateName={noteGroups.renameGroup}
         onNoteVote={notes.voteNote}

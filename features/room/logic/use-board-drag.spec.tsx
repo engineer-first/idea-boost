@@ -1166,3 +1166,16 @@ describe("useBoardDrag", () => {
     expect(result.current.drag?.status).toBe("shared");
   });
 });
+
+it("候補外も共有付箋としてドラッグを開始する", () => {
+  const { result, args } = setup({
+    notes: [buildNote({ id: "excluded", excluded: true })],
+  });
+  act(() =>
+    result.current.handleSharedNoteDragStart(
+      "excluded",
+      pointerEvent(1, 100, 100),
+    ),
+  );
+  expect(args.onNoteDragStart).toHaveBeenCalledWith("excluded");
+});

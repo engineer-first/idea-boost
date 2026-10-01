@@ -129,6 +129,9 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
 export type RoomBoardViewProps = {
   feedback?: FeedbackControls;
   notes: Note[];
+  confirmedNotes?: Note[];
+  pendingCandidateNoteIds?: string[];
+  isCandidatePending?: boolean;
   groups: PersistentGroup[];
   inviteCode: string;
   inviteUrl: string;
@@ -240,6 +243,9 @@ type VoteStampPointer = {
 export function RoomBoardView({
   feedback,
   notes,
+  confirmedNotes = notes,
+  pendingCandidateNoteIds = [],
+  isCandidatePending = false,
   groups,
   inviteCode,
   inviteUrl,
@@ -344,18 +350,24 @@ export function RoomBoardView({
     if (previousPhaseKey.current === phaseKey) return;
     previousPhaseKey.current = phaseKey;
     setIsAdoptMode(false);
+    setSelectedNoteId(null);
   }, [phaseKey]);
 
   useEffect(() => {
     if (previousRevision.current === phaseRevision) return;
     previousRevision.current = phaseRevision;
     setIsAdoptMode(false);
+    setSelectedNoteId(null);
   }, [phaseRevision]);
 
   useEffect(() => {
     if (connectionStatus === "open" && isHost && decision === null) return;
     setIsAdoptMode(false);
   }, [connectionStatus, decision, isHost]);
+
+  useEffect(() => {
+    if (connectionStatus !== "open" || isAdoptMode) setSelectedNoteId(null);
+  }, [connectionStatus, isAdoptMode]);
 
   useEffect(() => {
     if (isAdoptMode || sharedAdoptionFocusRef.current === null) return;
@@ -373,15 +385,15 @@ export function RoomBoardView({
   );
 
   useEffect(() => {
-    if (!isAdoptMode) return;
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
       setIsAdoptMode(false);
+      setSelectedNoteId(null);
     }
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isAdoptMode]);
+  }, []);
 
   useEffect(() => {
     if (isVotingStep(phase)) return;
@@ -429,10 +441,10 @@ export function RoomBoardView({
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
-  const candidateNotes = notes.filter(
+  const candidateNotes = confirmedNotes.filter(
     (note) => note.visibility === "shared" && !note.excluded,
   );
-  const bulkExclusionTargetCount = notes.filter(
+  const bulkExclusionTargetCount = confirmedNotes.filter(
     (note) =>
       note.visibility === "shared" &&
       !note.excluded &&
@@ -441,6 +453,7 @@ export function RoomBoardView({
       note.dotVotes.objective.count === 0,
   ).length;
   const isNextPhaseBlocked =
+    isCandidatePending ||
     (isResultStep(phase) &&
       (decision === null || candidateNotes.length === 0)) ||
     (phase.kind === "step" &&
@@ -463,7 +476,12 @@ export function RoomBoardView({
         "確定した内容");
 
   function handleAdoptNote(noteId: string) {
-    if (!isAdoptMode) return;
+    if (
+      !isAdoptMode ||
+      isCandidatePending ||
+      !confirmedNotes.some((note) => note.id === noteId && !note.excluded)
+    )
+      return;
     handleAdoptionFocusChange(null);
     setIsAdoptMode(false);
     onNoteDecide(noteId);
@@ -485,7 +503,7 @@ export function RoomBoardView({
   }
 
   function isExcludedVoteTarget(note: HTMLElement): boolean {
-    return renderedNotes.some(
+    return confirmedNotes.some(
       ({ id, excluded }) => id === note.dataset.noteId && excluded,
     );
   }
@@ -675,7 +693,7 @@ export function RoomBoardView({
 
     const note = target.closest<HTMLElement>("[data-note-id]");
     const noteId = note?.dataset.noteId;
-    if (!note || !noteId || !renderedNotes.some(({ id }) => id === noteId)) {
+    if (!note || !noteId || !confirmedNotes.some(({ id }) => id === noteId)) {
       return;
     }
     if (isExcludedVoteTarget(note)) {
@@ -837,13 +855,16 @@ export function RoomBoardView({
   }, [boardRootRef]);
 
   const handleNoteSelect = (noteId: string | null) => {
+    if (isAdoptMode) return;
     setSelectedNoteId(noteId);
     const isSharedNote =
-      noteId !== null && renderedNotes.some(({ id }) => id === noteId);
+      noteId !== null &&
+      confirmedNotes.some(({ id, excluded }) => id === noteId && !excluded);
     if (
       noteId !== null &&
       isSharedNote &&
       permissions.canMoveNote &&
+      !pendingCandidateNoteIds.includes(noteId) &&
       !isDisconnected
     ) {
       onNoteBringToFront(noteId);
@@ -932,7 +953,9 @@ export function RoomBoardView({
           phase={phase}
           phaseRevision={phaseRevision}
           bulkExclusionTargetCount={bulkExclusionTargetCount}
-          canManageCandidates={isResultStep(phase) && decision === null}
+          canManageCandidates={
+            isResultStep(phase) && decision === null && !isCandidatePending
+          }
           onBulkCandidateExclude={onBulkCandidateExclude}
           sharing={sharing}
           onSharingStart={onSharingStart}
@@ -989,7 +1012,9 @@ export function RoomBoardView({
           privateNotes={toolbarNotes}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           selectedNoteId={selectedNoteId}
+          pendingCandidateNoteIds={pendingCandidateNoteIds}
           draggingNoteId={draggingNoteId}
+          localDraggingNoteId={interactions.localDraggingNoteId}
           isDisconnected={isDisconnected}
           ideaMapSizeLevel={ideaMapSizeLevel}
           ideaMapSizeInitialized={ideaMapSizeInitialized}
@@ -1079,7 +1104,9 @@ export function RoomBoardView({
             isSelecting={isAdoptMode}
             decisionContent={decisionContent}
             candidateCount={candidateNotes.length}
-            disabled={isDisconnected || isNextPhasePending}
+            disabled={
+              isDisconnected || isNextPhasePending || isCandidatePending
+            }
             onRestartWriting={onRestartWriting}
             onRevote={onRevote}
             onStartSelection={() => {

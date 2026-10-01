@@ -134,6 +134,10 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
 
 function optimisticOperationIdOf(message: ClientMessage): string | undefined {
   switch (message.type) {
+    case "note:exclude":
+    case "note:restore":
+    case "note:bulk-exclude":
+    case "note:bulk-restore":
     case "note:update-font-size":
     case "note:vote":
     case "note:vote-reset":

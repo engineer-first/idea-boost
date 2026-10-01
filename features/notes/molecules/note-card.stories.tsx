@@ -585,3 +585,26 @@ export const HeightBoundaryWithResults: Story = {
     vote: { ...meta.args.vote, displayMode: "result" },
   },
 };
+
+export const SelectedCandidate: Story = {
+  args: { isSelected: true, canExcludeNote: true, canEditNote: false },
+};
+export const CandidatePending: Story = {
+  args: {
+    note: buildNote({ excluded: true }),
+    isSelected: true,
+    canRestoreNote: true,
+    candidatePending: true,
+    canEditNote: false,
+  },
+};
+export const SelectedExcludedForParticipant: Story = {
+  args: {
+    note: buildNote({ excluded: true }),
+    isSelected: true,
+    canMoveNote: true,
+    canEditNote: false,
+    canExcludeNote: false,
+    canRestoreNote: false,
+  },
+};
