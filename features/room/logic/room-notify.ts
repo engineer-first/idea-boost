@@ -6,6 +6,12 @@
 import { toast } from "sonner";
 
 export const roomNotify = {
+  cannotVoteExcludedNote(): void {
+    toast.error(
+      "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
+      { id: "excluded-note-vote", duration: 4000, closeButton: true },
+    );
+  },
   canvasFitUnavailable(): void {
     toast.error(
       "進め方・ヒント・マイ付箋を閉じてから、もう一度「付箋全体を表示」を押してください。",
