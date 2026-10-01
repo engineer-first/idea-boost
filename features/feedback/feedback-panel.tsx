@@ -39,7 +39,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
           id={`${id}-heading`}
           className="text-lg font-semibold outline-none"
         >
-          意見を送る
+          フィードバック
         </h2>
         <Button
           type="button"
@@ -69,7 +69,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                 heading.current?.focus();
               }}
             >
-              別の意見を送る
+              別のフィードバック
             </Button>
           </div>
         </div>

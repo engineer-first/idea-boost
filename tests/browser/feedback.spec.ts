@@ -33,9 +33,12 @@ test.each([
   await page.goto(
     `${origin}/iframe.html?id=feedback-feedbackpanel--delayed-submission&viewMode=story`,
   );
-  const trigger = page.getByRole("button", { name: "意見を送る", exact: true });
+  const trigger = page.getByRole("button", {
+    name: "フィードバック",
+    exact: true,
+  });
   await trigger.click();
-  const panel = page.getByRole("dialog", { name: "意見を送る" });
+  const panel = page.getByRole("dialog", { name: "フィードバック" });
   await panel.waitFor();
   await page.clock.install();
   await page.clock.pauseAt(new Date());
@@ -60,7 +63,7 @@ test.each([
       true,
     );
   } else {
-    await page.getByRole("button", { name: "別の意見を送る" }).waitFor();
+    await page.getByRole("button", { name: "別のフィードバック" }).waitFor();
     if (action === "外へ移動") {
       expect(await outside.evaluate((e) => e === document.activeElement)).toBe(
         true,
@@ -92,7 +95,9 @@ test.each([
   const save = page.getByRole("button", { name: "テキストを保存" });
   await save.focus();
   await page.keyboard.press("Enter");
-  const prompt = page.getByRole("complementary", { name: "感想の案内" });
+  const prompt = page.getByRole("complementary", {
+    name: "フィードバックの案内",
+  });
   await prompt.waitFor();
   // 保存からTabだけで案内の入口まで進む。
   await page.keyboard.press("Tab");
@@ -100,16 +105,16 @@ test.each([
   await page.keyboard.press("Tab");
   expect(
     await prompt
-      .getByRole("button", { name: "感想を送る" })
+      .getByRole("button", { name: "フィードバック" })
       .evaluate((e) => e === document.activeElement),
   ).toBe(true);
   await page.keyboard.press("Enter");
-  const panel = page.getByRole("dialog", { name: "意見を送る" });
+  const panel = page.getByRole("dialog", { name: "フィードバック" });
   await panel.waitFor();
   if (close === "送信して別の意見") {
     await page.getByText("よかった", { exact: true }).click();
     await page.getByRole("button", { name: "送信", exact: true }).click();
-    await page.getByRole("button", { name: "別の意見を送る" }).waitFor();
+    await page.getByRole("button", { name: "別のフィードバック" }).waitFor();
     expect(
       await panel.evaluate((e) => e.contains(document.activeElement)),
     ).toBe(true);
@@ -123,7 +128,7 @@ test.each([
     await page.keyboard.press("Tab");
     expect(
       await page
-        .getByRole("button", { name: "別の意見を送る" })
+        .getByRole("button", { name: "別のフィードバック" })
         .evaluate((e) => e === document.activeElement),
     ).toBe(true);
     await page.keyboard.press("Enter");
@@ -134,7 +139,7 @@ test.each([
     await panel.waitFor({ state: "hidden" });
     expect(
       await page
-        .getByRole("button", { name: "感想を送る", exact: true })
+        .getByRole("button", { name: "フィードバック", exact: true })
         .evaluate((e) => e === document.activeElement),
     ).toBe(true);
     await page.keyboard.press("Enter");
@@ -148,7 +153,7 @@ test.each([
   }
   await panel.waitFor({ state: "hidden" });
   const permanent = page.getByRole("button", {
-    name: "感想を送る",
+    name: "フィードバック",
     exact: true,
   });
   expect(await permanent.evaluate((e) => e === document.activeElement)).toBe(
@@ -169,11 +174,13 @@ test("狭幅でも5段階をキーボードで選び、種類だけでも送信�
   await page.goto(
     `${origin}/iframe.html?id=feedback-feedbackpanel--interactive&viewMode=story`,
   );
-  const panel = page.getByRole("dialog", { name: "意見を送る" });
+  const panel = page.getByRole("dialog", { name: "フィードバック" });
   await panel.waitFor();
   // 自動表示のstoryを閉じ、実際の入口から開いて復帰先を設定する。
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "意見を送る", exact: true }).click();
+  await page
+    .getByRole("button", { name: "フィードバック", exact: true })
+    .click();
   await panel.waitFor();
   expect(await panel.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
     true,
@@ -198,15 +205,17 @@ test("狭幅でも5段階をキーボードで選び、種類だけでも送信�
   await panel.waitFor({ state: "hidden" });
   expect(
     await page
-      .getByRole("button", { name: "意見を送る", exact: true })
+      .getByRole("button", { name: "フィードバック", exact: true })
       .evaluate((e) => e === document.activeElement),
   ).toBe(true);
-  await page.getByRole("button", { name: "意見を送る", exact: true }).click();
+  await page
+    .getByRole("button", { name: "フィードバック", exact: true })
+    .click();
   await panel.waitFor();
   await page.keyboard.press("Escape");
   expect(
     await page
-      .getByRole("button", { name: "意見を送る", exact: true })
+      .getByRole("button", { name: "フィードバック", exact: true })
       .evaluate((e) => e === document.activeElement),
   ).toBe(true);
 });
@@ -225,14 +234,20 @@ test("保存結果が先に出て500ms後に案内し、閉じる・再表示・
     "ダウンロードを開始しました",
   );
   expect(
-    await page.getByRole("complementary", { name: "感想の案内" }).count(),
+    await page
+      .getByRole("complementary", { name: "フィードバックの案内" })
+      .count(),
   ).toBe(0);
   await page.clock.runFor(499);
   expect(
-    await page.getByRole("complementary", { name: "感想の案内" }).count(),
+    await page
+      .getByRole("complementary", { name: "フィードバックの案内" })
+      .count(),
   ).toBe(0);
   await page.clock.runFor(1);
-  await page.getByRole("complementary", { name: "感想の案内" }).waitFor();
+  await page
+    .getByRole("complementary", { name: "フィードバックの案内" })
+    .waitFor();
   expect(
     await page.getByRole("button", { name: "テキストを保存" }).isEnabled(),
   ).toBe(true);
@@ -245,21 +260,27 @@ test("保存結果が先に出て500ms後に案内し、閉じる・再表示・
   await page.keyboard.press("Enter");
   expect(
     await page
-      .getByRole("button", { name: "感想を送る", exact: true })
+      .getByRole("button", { name: "フィードバック", exact: true })
       .evaluate((e) => e === document.activeElement),
   ).toBe(true);
   await page.getByRole("button", { name: "テキストを保存" }).click();
   await page.clock.runFor(500);
   expect(
-    await page.getByRole("complementary", { name: "感想の案内" }).count(),
+    await page
+      .getByRole("complementary", { name: "フィードバックの案内" })
+      .count(),
   ).toBe(0);
   await page.reload();
   await page.getByRole("button", { name: "テキストを保存" }).click();
   await page.clock.runFor(500);
   expect(
-    await page.getByRole("complementary", { name: "感想の案内" }).count(),
+    await page
+      .getByRole("complementary", { name: "フィードバックの案内" })
+      .count(),
   ).toBe(0);
-  await page.getByRole("button", { name: "感想を送る", exact: true }).click();
+  await page
+    .getByRole("button", { name: "フィードバック", exact: true })
+    .click();
   expect(await page.getByLabel("対象", { exact: true }).inputValue()).toBe(
     "app",
   );
@@ -281,7 +302,9 @@ test("コピー失敗はエラーを表示して案内せず、操作フォー�
   await page.getByRole("alert").waitFor();
   await page.waitForTimeout(600);
   expect(
-    await page.getByRole("complementary", { name: "感想の案内" }).count(),
+    await page
+      .getByRole("complementary", { name: "フィードバックの案内" })
+      .count(),
   ).toBe(0);
   expect(
     await page
@@ -294,7 +317,9 @@ test("ボード左上の入口から現行ステップを選んだ入力欄に�
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--with-feedback&viewMode=story`,
   );
-  await page.getByRole("button", { name: "意見を送る", exact: true }).click();
+  await page
+    .getByRole("button", { name: "フィードバック", exact: true })
+    .click();
   expect(await page.getByLabel("対象", { exact: true }).inputValue()).toMatch(
     /^[123]-[1-5]$/,
   );
