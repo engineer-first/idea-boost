@@ -37,8 +37,7 @@ const FACILITATION_GUIDES: Record<
     1: {
       durationMinutes: 3,
       intro: "まずは、最近あった困ったことを付箋に。1枚に1つずつ書こう。",
-      message:
-        "アイデア出しを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
+      message: "1枚につき1つ書こう。",
       hostMessage:
         "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
       ...DEFAULT_DETAILS,

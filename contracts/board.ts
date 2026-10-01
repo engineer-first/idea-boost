@@ -61,13 +61,12 @@ export const NOTE_DEFAULT_FONT_SIZE = 14;
 export const NOTE_FONT_SIZE_RANGE = { min: 12, max: 24, step: 1 } as const;
 
 // 本文は左右 8px を基準にしつつ、右側の付箋操作へ 40px を予約する。
-// 基本高を超えたときは、下側の票・決定表示や除外表示の余白も追加する。
+// 下側は本文余白と票・決定表示の領域を合わせて 48px 予約する。
 // ブラウザのフォント計測値を共有状態へ混ぜず、
 // 全クライアント・グループ判定・カメラが同じ高さを再現できるよう、1文字を
 // fontSize px とみなす保守的な折り返しで必要高を決める。
 const NOTE_TEXT_HORIZONTAL_SPACE = 48;
 const NOTE_TEXT_VERTICAL_SPACE = 56;
-const NOTE_OVERFLOW_CHROME_SPACE = 80;
 const NOTE_TEXT_LINE_HEIGHT_RATIO = 1.5;
 
 export function getNoteHeight(content: string, fontSize: number): number {
@@ -86,9 +85,7 @@ export function getNoteHeight(content: string, fontSize: number): number {
   }, 0);
   const lineHeight = Math.ceil(safeFontSize * NOTE_TEXT_LINE_HEIGHT_RATIO);
   const contentHeight = visualLineCount * lineHeight + NOTE_TEXT_VERTICAL_SPACE;
-  return contentHeight <= NOTE_HEIGHT
-    ? NOTE_HEIGHT
-    : contentHeight + NOTE_OVERFLOW_CHROME_SPACE;
+  return Math.max(NOTE_HEIGHT, contentHeight);
 }
 
 // 新規付箋の初期配置範囲。ボード中央付近に JITTER 分だけずらして重なりを避ける。

@@ -57,7 +57,7 @@ export const Interactive: Story = {
     return (
       <>
         <button type="button" onClick={() => open("app")}>
-          意見を送る
+          フィードバック
         </button>
         <FeedbackPanel feedback={feedback} />
       </>
@@ -77,7 +77,7 @@ export const DelayedSubmission: Story = {
     return (
       <>
         <button type="button" onClick={() => feedback.open("app")}>
-          意見を送る
+          フィードバック
         </button>
         <button type="button" className="fixed right-4 top-4">
           作業に戻る

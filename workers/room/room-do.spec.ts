@@ -2719,6 +2719,69 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
+  it("Step 3-4 の未投票確認後、強制進行は全員へ同期され再接続でも保持される", async () => {
+    const roomName = "room-phase3-force-confirm";
+    const stub = roomStub(roomName);
+    const voting = buildPhaseStep(4, 3);
+    const result = buildPhaseStep(5, 3);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(voting, USER_A);
+    const owner = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const request = {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomName)),
+    };
+    member.send(JSON.stringify({ ...request, force: true }));
+    expect(await nextJson(member)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    owner.send(JSON.stringify(request));
+    expect(await nextJson(owner)).toMatchObject({
+      type: "error",
+      code: "voting-incomplete",
+    });
+    expect(await stub.getPhase()).toEqual(voting);
+    owner.send(JSON.stringify({ ...request, force: true }));
+    expect(await nextJson(owner)).toMatchObject({
+      type: "snapshot",
+      phase: result,
+      timer: { status: "idle" },
+    });
+    expect(await nextJson(owner)).toMatchObject({
+      type: "phase:updated",
+      phase: result,
+    });
+    expect(await nextJson(member)).toMatchObject({
+      type: "snapshot",
+      phase: result,
+    });
+    expect(await nextJson(member)).toMatchObject({
+      type: "phase:updated",
+      phase: result,
+    });
+    const returned = await connectDirectlyWithFirstMessage(
+      roomName,
+      USER_B,
+      USER_A,
+    );
+    expect(returned.firstMessage).toMatchObject({
+      type: "snapshot",
+      phase: result,
+    });
+    owner.send(JSON.stringify({ ...request, force: true }));
+    expect(await nextJson(owner)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(await stub.getPhase()).toEqual(result);
+    owner.close();
+    member.close();
+    returned.ws.close();
+  });
+
   it("ホスト以外は force を付けても phase を進められない", async () => {
     const roomName = "room-phase-force-non-host";
     const stub = roomStub(roomName);

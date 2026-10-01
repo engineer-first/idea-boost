@@ -178,11 +178,6 @@ export function CompletedBoardView({ board }: { board: CompletedBoard }) {
                         グループ：{g.name}
                       </span>
                     ))}
-                  <span className="py-1">
-                    {map
-                      ? `実現のしやすさ ${note.x} / 価値 ${note.y}`
-                      : `配置 (${note.x}, ${note.y})`}
-                  </span>
                 </div>
               </li>
             ))}

@@ -40,8 +40,10 @@ describe("成果の2軸盤面", () => {
     expect(note).toHaveAttribute("x", "700");
     expect(note).toHaveAttribute("y", "375");
     expect(
-      within(screen.getByRole("list")).getByText("実現のしやすさ 50 / 価値 50"),
-    ).toBeInTheDocument();
+      within(screen.getByRole("list")).queryByText(
+        "実現のしやすさ 50 / 価値 50",
+      ),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -57,4 +59,40 @@ it("保存した色と重なり順を盤面に再現する", () => {
   const rectangles = screen.getByRole("img").querySelectorAll("rect");
   expect(rectangles[0]).toHaveAttribute("fill", "#F39AB5");
   expect(rectangles[1]).toHaveAttribute("fill", "#88BDF2");
+});
+
+it.each([
+  1, 2, 3,
+])("Owner向けフェーズ%sの成果も内部座標を省き、本文・分類・状態・票数を示す", (phase) => {
+  const snapshot = buildSharedOutcome().snapshot;
+  if (!snapshot) throw new Error("snapshot required");
+  const note = { ...snapshot.notes[0], phase };
+  note.x = 1145.80481372;
+  note.y = -16.08523418;
+  note.votes = { subjective: 2, objective: 3 };
+  snapshot.notes = [note];
+  snapshot.groups = [
+    {
+      id: "meaningful-group",
+      name: "つながりのきっかけ",
+      noteIds: [note.id],
+    },
+  ];
+  snapshot.decisions = [
+    {
+      phase,
+      noteId: note.id,
+      content: note.content,
+      votes: { subjective: 2, objective: 3 },
+    },
+  ];
+  render(<SharedOutcomeBoard label="成果" phase={phase} snapshot={snapshot} />);
+  const list = within(screen.getByRole("list"));
+  expect(list.getByText(note.content)).toBeVisible();
+  expect(list.getByText("採用済み")).toBeVisible();
+  expect(list.getByText("グループ：つながりのきっかけ")).toBeVisible();
+  expect(list.getByText("主観 2票 / 客観 3票 / 合計 5票")).toBeVisible();
+  expect(
+    list.queryByText(/配置 \(|実現のしやすさ .*\/ 価値/),
+  ).not.toBeInTheDocument();
 });
