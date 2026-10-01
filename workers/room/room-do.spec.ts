@@ -1060,7 +1060,7 @@ describe("RoomDO note:decide", () => {
     ws.close();
   });
 
-  it("ホストも確定済み決定を解除できず参加者の決定を保持する", async () => {
+  it("ホストの取消を全員へ配信し決定を削除する", async () => {
     const roomName = "room-decision-clear-host";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -1076,22 +1076,27 @@ describe("RoomDO note:decide", () => {
     await memberDecision;
 
     const hostCleared = nextJson(host);
-
-    host.send(JSON.stringify({ type: "decision:clear" }));
-
-    await expect(hostCleared).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
+    const memberCleared = nextJson(member);
+    host.send(
+      JSON.stringify({ type: "decision:clear", noteId: FIRST_NOTE_ID }),
+    );
+    await expect(hostCleared).resolves.toEqual({
+      type: "decision:updated",
+      decision: null,
+    });
+    await expect(memberCleared).resolves.toEqual({
+      type: "decision:updated",
+      decision: null,
     });
     expect(
       await runInRoomDO(
         roomName,
         (_instance, state) =>
           state.storage.sql
-            .exec("SELECT COUNT(*) AS count FROM decisions WHERE phase = 1")
-            .one().count as number,
+            .exec("SELECT COUNT(*) AS count FROM decisions WHERE phase=1")
+            .one().count,
       ),
-    ).toBe(1);
+    ).toBe(0);
     host.close();
     member.close();
   });
@@ -1115,7 +1120,9 @@ describe("RoomDO note:decide", () => {
     });
 
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    member.send(JSON.stringify({ type: "decision:clear" }));
+    member.send(
+      JSON.stringify({ type: "decision:clear", noteId: FIRST_NOTE_ID }),
+    );
 
     expect(await nextJson(member)).toMatchObject({
       type: "error",
@@ -1133,6 +1140,36 @@ describe("RoomDO note:decide", () => {
     member.close();
   });
 
+  it("非メンバーのソケットからの取消を拒否し決定を保持する", async () => {
+    const roomName = "room-decision-clear-non-member";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, FIRST_NOTE_ID);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    host.send(JSON.stringify({ type: "note:decide", noteId: FIRST_NOTE_ID }));
+    await nextJson(host);
+    await runInRoomDO(roomName, (_instance, state) =>
+      state.storage.sql.exec("DELETE FROM members WHERE user_id=?", USER_A),
+    );
+    host.send(
+      JSON.stringify({ type: "decision:clear", noteId: FIRST_NOTE_ID }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT note_id FROM decisions WHERE phase=1")
+            .one().note_id,
+      ),
+    ).toBe(FIRST_NOTE_ID);
+    host.close();
+  });
   it("結果ステップ以外では決定を解除できない", async () => {
     const roomName = "room-decision-clear-wrong-step";
     const stub = roomStub(roomName);
@@ -1140,7 +1177,9 @@ describe("RoomDO note:decide", () => {
     await stub.setPhase(buildPhaseStep(4), USER_A);
 
     const host = await connectDirectly(roomName, USER_A, USER_A);
-    host.send(JSON.stringify({ type: "decision:clear" }));
+    host.send(
+      JSON.stringify({ type: "decision:clear", noteId: FIRST_NOTE_ID }),
+    );
 
     expect(await nextJson(host)).toMatchObject({
       type: "error",
@@ -3262,6 +3301,21 @@ describe("RoomDO phase:next", () => {
     expect(await memberPublished).toEqual({
       type: "outcome:published",
       published: true,
+    });
+    expect(await stub.getCompletedRoom(USER_B)).toMatchObject({
+      decisions: expect.arrayContaining([
+        expect.objectContaining({ content: "採用案" }),
+      ]),
+    });
+    host.send(
+      JSON.stringify({
+        type: "decision:clear",
+        noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
     });
     expect(await stub.getCompletedRoom(USER_B)).toMatchObject({
       decisions: expect.arrayContaining([

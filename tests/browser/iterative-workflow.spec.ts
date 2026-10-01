@@ -351,12 +351,12 @@ test.each(
   await dialog.waitFor({ state: "hidden" });
 });
 
-test("課題の採用確定後は右上だけで次フェーズへ進み下書き破棄を確認する", async () => {
+test("課題の確定後は取消と次フェーズ進行ができ、進行前に下書き破棄を確認する", async () => {
   await openStory("room-roomboardview--decided");
   await closeResults();
   expect(
     await page.getByTestId("phase-loop-hud").getByRole("button").count(),
-  ).toBe(0);
+  ).toBe(1);
   const actions = page.getByRole("button", { name: progression });
   expect(await actions.count()).toBe(1);
   const next = page.getByRole("button", {

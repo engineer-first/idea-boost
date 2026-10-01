@@ -18,3 +18,6 @@ export const IDEA_GUIDE_EXAMPLES = [
   "誰かと一緒なら続けられない？",
   "当たり前を逆にしたらどうなる？",
 ] as const;
+
+export const IDEA_HINT_DESCRIPTION =
+  "選ぶとマイ付箋を1枚作ります。マイ付箋を開き、続きにHMWを実現する方法を書こう。";

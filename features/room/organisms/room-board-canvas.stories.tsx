@@ -775,3 +775,91 @@ export const InteractiveIdeaMapReading: Story = {
     permissions: getBoardPermissions(STEP_3_2),
   },
 };
+
+// 本番で採用領域(旧z-50)を付箋が覆った状態。順序は枚数ではなく操作履歴で増える。
+function adoptionLayeringNotes(isMap: boolean) {
+  return [
+    buildNote({
+      id: "layer-back",
+      content: "奥の候補",
+      x: isMap ? 40 : 260,
+      y: isMap ? 55 : 180,
+      stackOrder: 58,
+    }),
+    buildNote({
+      id: "layer-front",
+      content: "手前の候補",
+      x: isMap ? 43 : 340,
+      y: isMap ? 53 : 210,
+      stackOrder: 2_147_483_646,
+    }),
+    buildNote({
+      id: "layer-excluded",
+      content: "候補外",
+      x: isMap ? 43 : 340,
+      y: isMap ? 53 : 210,
+      stackOrder: 2_147_483_647,
+      excluded: true,
+    }),
+  ];
+}
+
+function AdoptionLayeringPreview({
+  args,
+}: {
+  args: RoomBoardCanvasStoryProps;
+}) {
+  const [adoptedId, setAdoptedId] = useState<string | null>(null);
+  return (
+    <div className="flex h-full w-full flex-col">
+      <p role="status">
+        {adoptedId
+          ? `採用済み: ${args.notes.find((note) => note.id === adoptedId)?.content}`
+          : "採用前"}
+      </p>
+      <RoomBoardCanvasWithLocalRefs
+        {...args}
+        isAdoptMode={!adoptedId}
+        decision={
+          adoptedId
+            ? buildDecision({
+                noteId: adoptedId,
+                phase: args.phase.kind === "step" ? args.phase.phase : 1,
+              })
+            : null
+        }
+        onAdoptNote={(noteId) => {
+          args.onAdoptNote(noteId);
+          setAdoptedId(noteId);
+        }}
+      />
+    </div>
+  );
+}
+
+export const AdoptionAfterRepeatedOperations: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: adoptionLayeringNotes(false),
+  },
+  render: (args) => <AdoptionLayeringPreview args={args} />,
+};
+
+export const HmwAdoptionAfterRepeatedOperations: Story = {
+  ...AdoptionAfterRepeatedOperations,
+  args: {
+    ...AdoptionAfterRepeatedOperations.args,
+    phase: buildPhaseStep(4, 2),
+    permissions: getBoardPermissions(buildPhaseStep(4, 2)),
+  },
+};
+
+export const MapAdoptionAfterRepeatedOperations: Story = {
+  ...AdoptionAfterRepeatedOperations,
+  args: {
+    phase: buildPhaseStep(5, 3),
+    permissions: getBoardPermissions(buildPhaseStep(5, 3)),
+    notes: adoptionLayeringNotes(true),
+  },
+};

@@ -10,7 +10,7 @@ import type {
 } from "react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { getNoteHeight, NOTE_WIDTH } from "@/contracts/board";
+import { getNoteHeight } from "@/contracts/board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
@@ -49,7 +49,7 @@ import { RemoteCursor } from "../molecules/remote-cursor";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
 const ADOPTION_TARGET_CLASS_NAME =
-  "absolute z-50 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
+  "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
 export type RoomBoardCanvasProps = {
   notes: Note[];
@@ -208,8 +208,8 @@ export function RoomBoardCanvas({
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? calculateRenderGroups(notes, groups)
     : [];
-  // 候補外を先に描き、通常候補を後から重ねる。z-index も NoteCard / map wrapper
-  // で明示し、入力順が変わっても候補外が前面へ戻らないようにする。
+  // 候補外を先に描き、付箋単位の wrapper で重なり順を管理する。
+  // カードと採用領域を同じ単位に収め、見えている候補とクリック先を一致させる。
   const orderedNotes = [...notes].sort(
     (left, right) => Number(right.excluded) - Number(left.excluded),
   );
@@ -312,11 +312,7 @@ export function RoomBoardCanvas({
     onNoteDelete(noteId);
   }
 
-  function renderNoteCard(note: Note, isOnIdeaMap = false) {
-    const isRemoteDrag =
-      !isDisconnected &&
-      remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
-    const isTemporarilyFront = draggingNoteId === note.id || isRemoteDrag;
+  function renderNoteCard(note: Note) {
     return (
       <NoteCard
         key={note.id}
@@ -369,32 +365,19 @@ export function RoomBoardCanvas({
           onStickerRemove: onNoteVoteStickerRemove,
           onStickerDragStart: onNoteVoteStickerDragStart,
         }}
-        className={isOnIdeaMap ? "relative pointer-events-auto" : undefined}
-        style={
-          isOnIdeaMap
-            ? {}
-            : {
-                left: note.x,
-                top: note.y,
-                zIndex: isTemporarilyFront
-                  ? TEMPORARY_FRONT_Z_INDEX
-                  : note.excluded
-                    ? 0
-                    : note.stackOrder,
-              }
-        }
+        className="relative pointer-events-auto"
+        style={{}}
       />
     );
   }
 
-  function renderIdeaMapNote(note: Note) {
-    const position = getIdeaValueFeasibilityMapNotePosition(
-      {
-        value: note.y,
-        feasibility: note.x,
-      },
-      getNoteHeight(note.content, note.fontSize),
-    );
+  function renderPositionedNote(note: Note) {
+    const position = isIdeaValueFeasibilityMapVisible
+      ? getIdeaValueFeasibilityMapNotePosition(
+          { value: note.y, feasibility: note.x },
+          getNoteHeight(note.content, note.fontSize),
+        )
+      : { left: note.x, top: note.y };
     const isAdoptTarget =
       isAdoptMode &&
       isHost &&
@@ -402,7 +385,7 @@ export function RoomBoardCanvas({
       isResultStep(phase) &&
       note.visibility === "shared" &&
       !note.excluded &&
-      decision?.noteId !== note.id;
+      decision === null;
     const isRemoteDrag =
       !isDisconnected &&
       remoteCursors.some((cursor) => cursor.draggingNoteId === note.id);
@@ -411,8 +394,12 @@ export function RoomBoardCanvas({
     return (
       <div
         key={note.id}
-        className="pointer-events-auto absolute"
-        data-testid={`idea-value-feasibility-map-note-${note.id}`}
+        className="isolate pointer-events-auto absolute"
+        data-testid={
+          isIdeaValueFeasibilityMapVisible
+            ? `idea-value-feasibility-map-note-${note.id}`
+            : `board-note-${note.id}`
+        }
         style={{
           ...position,
           zIndex: isTemporarilyFront
@@ -422,13 +409,13 @@ export function RoomBoardCanvas({
               : note.stackOrder,
         }}
       >
-        {renderNoteCard(note, true)}
+        {renderNoteCard(note)}
         {isAdoptTarget ? (
           <button
             type="button"
             data-adopt-target="true"
             aria-label={`採用する${adoptionTargetLabel}: ${note.content || "内容なし"}`}
-            className={`${ADOPTION_TARGET_CLASS_NAME} inset-0`}
+            className={ADOPTION_TARGET_CLASS_NAME}
             onPointerEnter={() => handleAdoptionPointerEnter(note.id)}
             onPointerLeave={() => handleAdoptionPointerLeave(note.id)}
             onFocus={() => handleAdoptionFocus(note.id)}
@@ -516,7 +503,7 @@ export function RoomBoardCanvas({
                 planeRef={ideaMapPlaneRef}
                 sizeLevel={ideaMapSizeLevel}
               >
-                {orderedNotes.map(renderIdeaMapNote)}
+                {orderedNotes.map(renderPositionedNote)}
                 {renderIdeaMapDragGhost()}
                 {remoteCursors.map((cursor) => (
                   <RemoteCursor
@@ -555,38 +542,7 @@ export function RoomBoardCanvas({
             })}
 
             {!isIdeaValueFeasibilityMapVisible
-              ? orderedNotes.map((note) => renderNoteCard(note))
-              : null}
-            {!isIdeaValueFeasibilityMapVisible && isAdoptMode
-              ? orderedNotes.map((note) => {
-                  const isTarget =
-                    isHost &&
-                    !isDisconnected &&
-                    isResultStep(phase) &&
-                    note.visibility === "shared" &&
-                    !note.excluded &&
-                    decision?.noteId !== note.id;
-                  return isTarget ? (
-                    <button
-                      key={`adopt-${note.id}`}
-                      type="button"
-                      data-adopt-target="true"
-                      aria-label={`採用する${adoptionTargetLabel}: ${note.content || "内容なし"}`}
-                      className={ADOPTION_TARGET_CLASS_NAME}
-                      style={{
-                        left: note.x,
-                        top: note.y,
-                        width: NOTE_WIDTH,
-                        height: getNoteHeight(note.content, note.fontSize),
-                      }}
-                      onPointerEnter={() => handleAdoptionPointerEnter(note.id)}
-                      onPointerLeave={() => handleAdoptionPointerLeave(note.id)}
-                      onFocus={() => handleAdoptionFocus(note.id)}
-                      onBlur={() => handleAdoptionBlur(note.id)}
-                      onClick={() => onAdoptNote(note.id)}
-                    />
-                  ) : null;
-                })
+              ? orderedNotes.map(renderPositionedNote)
               : null}
             {isResultStep(phase) &&
             notes.filter((note) => !note.excluded).length === 0 ? (

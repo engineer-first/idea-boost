@@ -31,6 +31,7 @@ export type PhaseLoopControlsProps = {
   onRevote: () => void;
   onStartSelection: () => void;
   onCancelSelection: () => void;
+  onClearDecision?: () => void;
 };
 
 export function PhaseLoopControls({
@@ -44,6 +45,7 @@ export function PhaseLoopControls({
   onRevote,
   onStartSelection,
   onCancelSelection,
+  onClearDecision,
 }: PhaseLoopControlsProps) {
   const [dialog, setDialog] = useState<"writing" | "revote" | null>(null);
   if (phase.kind !== "step") return null;
@@ -60,6 +62,7 @@ export function PhaseLoopControls({
         disabled={disabled}
         onStartSelection={onStartSelection}
         onCancelSelection={onCancelSelection}
+        onClearDecision={isResult ? onClearDecision : undefined}
       />
     );
   if (!isHost)

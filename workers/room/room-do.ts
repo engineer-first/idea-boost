@@ -657,7 +657,8 @@ export class RoomDO extends DurableObject {
     const forbiddenMessage =
       phase.kind === "step" &&
       getDecision(this.sql, phase.phase) &&
-      isBoardMutation(message)
+      isBoardMutation(message) &&
+      message.type !== "decision:clear"
         ? "採用確定後はボードを変更できません。"
         : getBoardMutationForbiddenMessage(phase, message);
     if (forbiddenMessage) {

@@ -43,12 +43,14 @@ describe("AdoptNoteControl", () => {
     expect(onCancelSelection).toHaveBeenCalledTimes(1);
   });
 
-  it("決定内容は全員に示し、解除操作は誰にも出さない", () => {
+  it("ホストだけ確定を取り消せ、切断中は無効で参加者には出さない", () => {
+    const onClearDecision = vi.fn();
     const { rerender } = render(
       <AdoptNoteControl
         phaseNumber={3}
         isHost
         isSelecting={false}
+        onClearDecision={onClearDecision}
         decisionContent="採用するアイデア"
         disabled={false}
         onStartSelection={vi.fn()}
@@ -57,15 +59,30 @@ describe("AdoptNoteControl", () => {
     );
 
     expect(screen.getByText("採用するアイデア")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    expect(onClearDecision).toHaveBeenCalledOnce();
+    rerender(
+      <AdoptNoteControl
+        phaseNumber={3}
+        isHost
+        isSelecting={false}
+        decisionContent="採用するアイデア"
+        disabled
+        onStartSelection={vi.fn()}
+        onCancelSelection={vi.fn()}
+        onClearDecision={onClearDecision}
+      />,
+    );
     expect(
-      screen.queryByRole("button", { name: "確定を解除" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "確定を取り消す" }),
+    ).toBeDisabled();
 
     rerender(
       <AdoptNoteControl
         phaseNumber={3}
         isHost={false}
         isSelecting={false}
+        onClearDecision={onClearDecision}
         decisionContent="採用するアイデア"
         disabled={false}
         onStartSelection={vi.fn()}
@@ -74,7 +91,7 @@ describe("AdoptNoteControl", () => {
     );
     expect(screen.getByText("採用するアイデア")).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "確定を解除" }),
+      screen.queryByRole("button", { name: "確定を取り消す" }),
     ).not.toBeInTheDocument();
   });
 });

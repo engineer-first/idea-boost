@@ -112,3 +112,41 @@ it.each([
     await browser.close();
   }
 });
+
+it.each([
+  390, 1280,
+])("正常空から最新一覧を%ipxで再取得できる", async (width) => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width, height: 844 } });
+    await page.goto(
+      `${origin}/iframe.html?id=completedrooms-list--empty-then-indexed&viewMode=story`,
+    );
+    const refresh = page.getByRole("button", { name: "最新の一覧を取得" });
+    await refresh.waitFor();
+    expect(
+      await page.getByText("以前のルームはまだありません。").isVisible(),
+    ).toBe(true);
+    await refresh.scrollIntoViewIfNeeded();
+    const bounds = await refresh.boundingBox();
+    if (!bounds) throw new Error("最新一覧の取得操作がありません");
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.height).toBeGreaterThanOrEqual(44);
+    await refresh.focus();
+    await page.keyboard.press("Enter");
+    expect(await refresh.isDisabled()).toBe(true);
+    await page.getByRole("link", { name: "成果を見る" }).waitFor();
+    expect(await page.getByText("以前のルームはまだありません。").count()).toBe(
+      0,
+    );
+    expect(await refresh.isEnabled()).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  } finally {
+    await browser.close();
+  }
+});
