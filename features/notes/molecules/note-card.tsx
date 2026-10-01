@@ -52,6 +52,7 @@ export type NoteCardProps = {
   canMoveNote: boolean;
   canExcludeNote?: boolean;
   canRestoreNote?: boolean;
+  candidatePending?: boolean;
   onSelect: (noteId: string) => void;
   onDragStart: (
     noteId: string,
@@ -229,6 +230,7 @@ export function NoteCard({
   canMoveNote,
   canExcludeNote = false,
   canRestoreNote = false,
+  candidatePending = false,
   onSelect,
   onDragStart,
   onContentChange,
@@ -270,7 +272,11 @@ export function NoteCard({
   const candidateActionLabel = note.excluded ? "候補に戻す" : "候補から外す";
   const candidateActionText = note.excluded ? "戻す" : "除外";
   const isCandidateActionVisible =
-    isTouchActionVisible || isPointerActionVisible || isFocusActionVisible;
+    !isOwnDrag &&
+    (isSelected ||
+      isTouchActionVisible ||
+      isPointerActionVisible ||
+      isFocusActionVisible);
 
   const updateCandidateOverlayLayout = useCallback(() => {
     const anchor = noteRef.current?.getBoundingClientRect();
@@ -663,7 +669,8 @@ export function NoteCard({
     releaseTouchAction();
     setIsPointerActionVisible(false);
     releasePointerAction();
-    if (disabled) return;
+    if (disabled || candidatePending) return;
+    onSelect(note.id);
     if (note.excluded) {
       if (canRestoreNote) onRestore?.(note.id);
       return;
@@ -713,6 +720,12 @@ export function NoteCard({
         onDelete(note.id);
       }
 
+      return;
+    }
+
+    if (event.key === "Enter" && (!canEditNote || editingDisabled)) {
+      event.preventDefault();
+      onSelect(note.id);
       return;
     }
 
@@ -788,7 +801,8 @@ export function NoteCard({
               data-candidate-action="true"
               data-candidate-action-note-id={note.id}
               data-placement={candidateOverlayLayout.action.placement}
-              disabled={disabled}
+              disabled={disabled || candidatePending}
+              aria-busy={candidatePending}
               tabIndex={isCandidateActionVisible ? 0 : -1}
               onPointerEnter={() => {
                 cancelPointerActionShow();
@@ -853,7 +867,7 @@ export function NoteCard({
               ) : (
                 <ListMinus aria-hidden="true" className="size-4" />
               )}
-              {candidateActionText}
+              {candidatePending ? "処理中…" : candidateActionText}
             </button>
             {isActionMenuOpen ? (
               <div
@@ -914,7 +928,7 @@ export function NoteCard({
       data-excluded={note.excluded || undefined}
       className={`${className ?? "absolute"} group ${note.excluded ? "z-0" : "z-10"} ${
         note.excluded
-          ? `${isTouchActionVisible ? "opacity-90" : "opacity-45"} grayscale transition-opacity hover:opacity-90 focus-within:opacity-90`
+          ? `${isSelected || isTouchActionVisible ? "opacity-90" : "opacity-45"} grayscale transition-opacity hover:opacity-90 focus-within:opacity-90`
           : ""
       }`}
       style={
@@ -925,6 +939,11 @@ export function NoteCard({
       }
     >
       {candidateOverlay}
+      {note.excluded ? (
+        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-sm bg-white/90 px-1 py-0.5 text-[10px] font-semibold text-slate-700">
+          候補外
+        </span>
+      ) : null}
       <textarea
         ref={textareaRef}
         value={localContent}

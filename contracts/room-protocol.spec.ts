@@ -1393,3 +1393,15 @@ describe("共有進行の境界", () => {
     ).toBe(false);
   });
 });
+
+describe("候補操作の対応付け", () => {
+  it("復帰の操作IDとUndo対象IDを保持する", () => {
+    const message = {
+      type: "note:restore",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      operationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      expectedExclusionOperationId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    };
+    expect(ClientMessageSchema.parse(message)).toEqual(message);
+  });
+});

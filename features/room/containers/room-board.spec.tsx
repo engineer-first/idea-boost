@@ -873,83 +873,85 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("結果ステップのホストが右クリックメニューから候補外にし、通知のUndoで復帰する", () => {
+  it("個別候補操作は即時反映し、成功確認後だけUndoを表示する", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-
     fireEvent.contextMenu(
       within(screen.getByTestId("note-card")).getByRole("button", {
         name: "付箋",
       }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "候補から外す" }));
-
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }),
+    const message = socket.sent
+      .map((item) => JSON.parse(item))
+      .find((item) => item.type === "note:exclude");
+    expect(message).toMatchObject({ type: "note:exclude", noteId: NOTE_ID });
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-excluded",
+      "true",
     );
-    expect(notifyMocks.noteExcluded).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "候補に戻す" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+    ).toBeDisabled();
+    expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: message.operationId,
+        note: protocolNote({
+          excluded: true,
+          exclusionOperationId: message.operationId,
+        }),
+      }),
+    );
+    expect(notifyMocks.noteExcluded).toHaveBeenCalledOnce();
     const undo = notifyMocks.noteExcluded.mock.calls[0]?.[0];
-    if (typeof undo !== "function") throw new Error("Undo がありません");
-    undo();
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:restore", noteId: NOTE_ID }),
+    act(() => undo?.());
+    expect(socket.sent.map((item) => JSON.parse(item))).toContainEqual(
+      expect.objectContaining({
+        type: "note:restore",
+        noteId: NOTE_ID,
+        expectedExclusionOperationId: message.operationId,
+      }),
     );
   });
 
-  it("復帰後の古いUndoと再除外後の一代前のUndoは別操作を巻き戻さない", () => {
+  it("候補操作の拒否では最新位置を保持し、成功通知を出さない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
-
     fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
-    const firstUndo = notifyMocks.noteExcluded.mock.calls[0]?.[0];
-    if (typeof firstUndo !== "function") throw new Error("Undo がありません");
-
+    const message = socket.sent
+      .map((item) => JSON.parse(item))
+      .find((item) => item.type === "note:exclude");
     act(() =>
       socket.simulateServerMessage({
         type: "note:updated",
-        note: protocolNote({ excluded: true }),
+        note: protocolNote({ x: 300, y: 350 }),
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "候補に戻す" }));
-    const restoreCountAfterExplicitRestore = socket.sent.filter(
-      (message) => JSON.parse(message).type === "note:restore",
-    ).length;
-    firstUndo();
-    expect(
-      socket.sent.filter(
-        (message) => JSON.parse(message).type === "note:restore",
-      ),
-    ).toHaveLength(restoreCountAfterExplicitRestore);
-
     act(() =>
       socket.simulateServerMessage({
-        type: "note:updated",
-        note: protocolNote({ excluded: false }),
+        type: "error",
+        code: "forbidden",
+        message: "採用確定後は変更できません。",
+        operationId: message.operationId,
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
-    const secondUndo = notifyMocks.noteExcluded.mock.calls[1]?.[0];
-    if (typeof secondUndo !== "function")
-      throw new Error("2回目のUndoがありません");
-
-    firstUndo();
-    expect(
-      socket.sent.filter(
-        (message) => JSON.parse(message).type === "note:restore",
-      ),
-    ).toHaveLength(restoreCountAfterExplicitRestore);
-    secondUndo();
-    expect(
-      socket.sent.filter(
-        (message) => JSON.parse(message).type === "note:restore",
-      ),
-    ).toHaveLength(restoreCountAfterExplicitRestore + 1);
+    expect(screen.getByTestId("note-card")).not.toHaveAttribute(
+      "data-excluded",
+    );
+    expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+      left: "300px",
+      top: "350px",
+    });
+    expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
   });
 
   it("結果ステップの非ホストは候補外付箋の復帰操作を見られない", () => {
@@ -978,10 +980,14 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "1件を候補から外す" }));
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:bulk-exclude" }),
+    expect(socket.sent.map((item) => JSON.parse(item))).toContainEqual(
+      expect.objectContaining({ type: "note:bulk-exclude" }),
     );
-    const operationId = "33333333-3333-4333-8333-333333333333";
+    const operationId = JSON.parse(
+      socket.sent.find(
+        (item) => JSON.parse(item).type === "note:bulk-exclude",
+      ) ?? "{}",
+    ).operationId;
     act(() =>
       socket.simulateServerMessage({
         type: "note:bulk-excluded",

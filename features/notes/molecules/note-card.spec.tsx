@@ -144,7 +144,7 @@ describe("NoteCard", () => {
     expect(getCard()).toHaveAttribute("data-excluded", "true");
     expect(getCard()).toHaveStyle({ left: "320px", top: "180px" });
     expect(screen.getByDisplayValue("残して読む本文")).toBeInTheDocument();
-    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeVisible();
     expect(getCard()).toHaveStyle({ boxShadow: "none" });
     expect(getCard()).toHaveStyle({ borderWidth: "1px" });
     expect(screen.getByRole("textbox")).not.toHaveClass("pt-12");
@@ -522,7 +522,7 @@ describe("NoteCard", () => {
 
     expect(restore).toHaveClass("opacity-100");
     expect(getCard()).toHaveClass("opacity-90");
-    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeVisible();
   });
 
   it("非ホストもタップすると候補外付箋の本文を読める濃さに戻せる", () => {
@@ -543,7 +543,7 @@ describe("NoteCard", () => {
     fireEvent.pointerUp(surface, { pointerId: 8, pointerType: "touch" });
 
     expect(getCard()).toHaveClass("opacity-90");
-    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeVisible();
     expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
   });
 
@@ -1393,4 +1393,19 @@ describe("NoteCard", () => {
       expect(screen.getByDisplayValue("編集中の本文")).toBeInTheDocument();
     });
   });
+});
+
+it("選択した付箋の候補操作はホバーとフォーカスが外れても表示する", () => {
+  setup({ isSelected: true, canExcludeNote: true });
+  const surface = getNoteSurface();
+  fireEvent.focus(surface);
+  fireEvent.blur(surface);
+  expect(screen.getByRole("button", { name: "候補から外す" })).toHaveClass(
+    "opacity-100",
+  );
+});
+it("候補ボタンを押した付箋を先に選択する", () => {
+  const { props } = setup({ canExcludeNote: true, onExclude: vi.fn() });
+  fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
+  expect(props.onSelect).toHaveBeenCalledWith(props.note.id);
 });

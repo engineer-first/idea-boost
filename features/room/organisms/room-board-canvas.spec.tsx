@@ -94,6 +94,22 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("ドラッグ権利の応答前もドラッグ中の候補操作を隠し、終了後に選択表示へ戻す", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      permissions: getBoardPermissions(buildPhaseStep(5)),
+      isHost: true,
+      selectedNoteId: "note-1",
+      onNoteExclude: vi.fn(),
+    });
+    const action = screen.getAllByRole("button", { name: "候補から外す" })[0];
+    expect(action).toHaveClass("opacity-100");
+    rerender(<RoomBoardCanvas {...props} localDraggingNoteId="note-1" />);
+    expect(action).toHaveClass("opacity-0");
+    rerender();
+    expect(action).toHaveClass("opacity-100");
+  });
+
   it("文字サイズ操作をズーム操作とは別に左下へ置き、選択付箋だけを1px刻みで変更する", () => {
     const onNoteFontSizeChange = vi.fn();
     setup({
@@ -632,13 +648,15 @@ describe("RoomBoardCanvas", () => {
     expect(onNoteVote).not.toHaveBeenCalled();
   });
 
-  it("ボード背景を直接押すと onSelect(null) で選択を解除する", () => {
+  it("ボード背景をクリックすると onSelect(null) で選択を解除する", () => {
     const onSelect = vi.fn();
     setup({ onSelect });
 
     fireEvent.pointerDown(screen.getByTestId("board-canvas"), {
       pointerId: 1,
     });
+
+    fireEvent.pointerUp(screen.getByTestId("board-canvas"));
 
     expect(onSelect).toHaveBeenCalledWith(null);
   });
@@ -1162,4 +1180,63 @@ describe("RoomBoardCanvas", () => {
       expect(note).toHaveAttribute("data-vote-drop-target", "true");
     }
   });
+});
+
+it("採用選択中も候補をドラッグでき、ドラッグでは採用しない", () => {
+  const phase = buildPhaseStep(5);
+  const { props } = setup({
+    phase,
+    permissions: getBoardPermissions(phase),
+    isHost: true,
+    isAdoptMode: true,
+  });
+  const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];
+  fireEvent.pointerDown(target, {
+    pointerId: 1,
+    button: 0,
+    isPrimary: true,
+    clientX: 10,
+    clientY: 10,
+  });
+  fireEvent.pointerMove(target, {
+    pointerId: 1,
+    buttons: 1,
+    clientX: 100,
+    clientY: 100,
+  });
+  fireEvent.pointerUp(target, { pointerId: 1, clientX: 100, clientY: 100 });
+  fireEvent.click(target, { detail: 1 });
+  expect(props.onNoteDragStart).toHaveBeenCalled();
+  expect(props.onAdoptNote).not.toHaveBeenCalled();
+});
+
+it.each([
+  "secondary",
+  "released",
+  "cancelled",
+])("採用overlayの%s pointerはhover移動からドラッグを開始しない", (kind) => {
+  const phase = buildPhaseStep(5);
+  const { props } = setup({
+    phase,
+    permissions: getBoardPermissions(phase),
+    isHost: true,
+    isAdoptMode: true,
+  });
+  const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];
+  fireEvent.pointerDown(target, {
+    pointerId: 1,
+    button: kind === "secondary" ? 2 : 0,
+    isPrimary: true,
+    clientX: 10,
+    clientY: 10,
+  });
+  if (kind === "cancelled") fireEvent.pointerCancel(target, { pointerId: 1 });
+  else fireEvent.pointerUp(target, { pointerId: 1 });
+  fireEvent.pointerMove(target, {
+    pointerId: 1,
+    buttons: 0,
+    clientX: 100,
+    clientY: 100,
+  });
+  expect(props.onNoteDragStart).not.toHaveBeenCalled();
 });

@@ -60,6 +60,42 @@ describe("useRoomNotes", () => {
     );
   }
 
+  it("採用が確定したらドラッグを止め、最後に受理された位置へ揃える", () => {
+    const { result } = setup();
+    act(() =>
+      result.current.applyMessage(
+        snapshotMessage([buildNote({ id: NOTE_ID, x: 100, y: 100 })]),
+      ),
+    );
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      }),
+    );
+    act(() => result.current.moveNote(NOTE_ID, 150, 150));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: buildNote({ id: NOTE_ID, x: 140, y: 140 }),
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "decision:updated",
+        decision: {
+          phase: 1,
+          noteId: NOTE_ID,
+          decidedBy: "11111111-1111-4111-8111-111111111111",
+        },
+      }),
+    );
+    expect(result.current.draggingNoteId).toBeNull();
+    expect(result.current.notes[0]).toMatchObject({ x: 140, y: 140 });
+  });
+
   it("snapshot で notes を全置換する", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshotMessage()));

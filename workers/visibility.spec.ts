@@ -44,6 +44,24 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "移動した候補外も他の参加者へ共有する",
+    viewerId: VIEWER,
+    note: note({
+      excluded: true,
+      x: 70,
+      y: 60,
+      exclusionOperationId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    }),
+    expected: true,
+  },
+  {
+    name: "移動の拒否後も他者の未共有付箋を見せない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private", x: 70, y: 60 }),
+    expected: false,
+  },
+
+  {
     name: "確定取消で保持した下書きは作者本人だけに見える",
     viewerId: AUTHOR,
     note: note({ visibility: "private" }),
