@@ -227,7 +227,7 @@ export function RoomBoardHeader({
         >
           {isCurrentVotingStep || isResultStep(phase) ? (
             <span
-              className="shrink-0 max-[900px]:order-last max-[900px]:basis-full max-[900px]:pl-2"
+              className="shrink-0 max-[900px]:order-last max-[900px]:pl-2"
               data-testid={
                 showVotingCompletion ? "vote-completion-indicator" : undefined
               }

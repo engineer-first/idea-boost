@@ -41,6 +41,9 @@ it.each([
           avatar: await avatar.boundingBox(),
           timer: await timer.boundingBox(),
         });
+        expect((await hud.boundingBox())?.height).toBeLessThanOrEqual(
+          width < 900 ? 98 : 56,
+        );
         if (!reference) reference = await read();
         else await expect.poll(read).toEqual(reference);
         expect(

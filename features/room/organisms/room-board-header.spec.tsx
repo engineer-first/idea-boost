@@ -360,7 +360,7 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("狭い幅では操作類の後の二行目に送り、120msの幅・透明度変化を抑制できる", () => {
+    it("狭い幅では操作類の後へ置き、120msの幅・透明度変化を抑制できる", () => {
       const members = buildMembers(2, ME);
       setup({
         phase: buildPhaseStep(4),
@@ -371,7 +371,6 @@ describe("RoomBoardHeader", () => {
 
       expect(screen.getByTestId("vote-completion-indicator")).toHaveClass(
         "max-[900px]:order-last",
-        "max-[900px]:basis-full",
       );
       expect(screen.getByTestId("vote-completion-label")).toHaveClass(
         "transition-[max-width,opacity]",
