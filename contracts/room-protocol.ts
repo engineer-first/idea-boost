@@ -445,7 +445,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // ロビーから課題整理 Step 1-1 へ。ホストのみ。
   z.object({ type: z.literal("start_phase") }),
   // 課題整理の次ステップへ。ホストのみ。
-  // force はフェーズ1・2の投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
+  // force は全フェーズの投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
   // ホストが進行できる）。ホスト判定が先に評価されるため、非ホストが
   // force を送っても効果はない。
   z.object({
