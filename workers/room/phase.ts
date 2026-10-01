@@ -604,15 +604,15 @@ export const phaseHandlers: MessageHandlers<
       return;
     }
     const crossesPhaseBoundary = !isLobby(next) && current.phase !== next.phase;
-    // フェーズ境界を越えるときは、現在フェーズの決定が確定していることを
-    // 要求する（fail-closed）。決定なしで次フェーズへ進むと、持ち越し表示の
+    // フェーズ境界を越えるときは、現在フェーズの採用候補が選ばれていることを
+    // 要求する（fail-closed）。選択なしで次フェーズへ進むと、持ち越し表示の
     // 前提が崩れたまま進行が続いてしまう。force は未投票メンバー向けの
     // 脱出ハッチであり、このゲートは迂回できない。
     if (crossesPhaseBoundary && !getDecision(ctx.sql, current.phase)) {
       ctx.reply({
         type: "error",
         code: "forbidden",
-        message: "決定が確定するまで次のフェーズへ進めません。",
+        message: "採用候補を選ぶまで次のフェーズへ進めません。",
       });
       return;
     }
@@ -745,7 +745,6 @@ async function restartPhase(
     !isHostUser(ctx.sql, ctx.userId) ||
     !matchesExpectedPhase(ctx, message) ||
     current.kind !== "step" ||
-    getDecision(ctx.sql, current.phase) ||
     (revote
       ? !isResultStep(current) || !hasCandidateNotes(ctx.sql, current.phase)
       : !isRestartWritingAllowedStep(current))
@@ -763,6 +762,9 @@ async function restartPhase(
   )
     return;
   ctx.storage.transactionSync(() => {
+    if (revote) {
+      ctx.sql.exec("DELETE FROM decisions WHERE phase = ?1", current.phase);
+    }
     recordProgressTransition(
       ctx.sql,
       current,

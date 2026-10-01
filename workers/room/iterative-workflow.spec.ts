@@ -267,7 +267,7 @@ for (const phase of [1, 2, 3] as const) {
       reconnect.close();
       room.close();
     });
-    it("決定中の候補は参加者が移動でき、除外候補・確定後の変更は拒否する", async () => {
+    it("候補を選んだ後も移動・復帰・再投票でき、選択候補の除外は拒否する", async () => {
       const current: RoomPhase = {
         kind: "step",
         phase,
@@ -289,10 +289,7 @@ for (const phase of [1, 2, 3] as const) {
       await until(room.a, "decision:updated");
       for (const action of [
         { type: "decision:clear" },
-        { type: "note:restore", noteId: excludedId },
         { type: "note:exclude", noteId: candidateId },
-        { type: "note:move", noteId: candidateId, x: 1, y: 1 },
-        transition("phase:revote", current),
       ]) {
         send(room.a, action);
         expect(await room.a.next()).toMatchObject({
@@ -300,6 +297,24 @@ for (const phase of [1, 2, 3] as const) {
           code: "forbidden",
         });
       }
+      send(room.a, { type: "note:restore", noteId: excludedId });
+      expect(await room.a.next()).toMatchObject({
+        type: "note:updated",
+        note: { id: excludedId, excluded: false },
+      });
+      send(room.a, { type: "note:move", noteId: candidateId, x: 1, y: 1 });
+      expect(await room.a.next()).toMatchObject({
+        type: "note:updated",
+        note: { id: candidateId, x: 1, y: 1 },
+      });
+      send(room.a, transition("phase:revote", current));
+      expect(await until(room.a, "snapshot")).toMatchObject({
+        type: "snapshot",
+        decision: null,
+      });
+      expect(await until(room.a, "phase:updated")).toMatchObject({
+        phase: { kind: "step", phase, step: VOTING_STEP_BY_PHASE[phase] },
+      });
       room.close();
     });
     it("候補0件の初回投票・再投票は拒否し、決定後から個人作業へ戻れない", async () => {
@@ -411,22 +426,41 @@ it.each([
     step: RESULT_STEP_BY_PHASE[phase],
   };
   const room = await setup(result);
+  if (phase === 3) {
+    await runInRoomDO(room.roomId, (_room, state) => {
+      for (const previousPhase of [1, 2]) {
+        state.storage.sql.exec(
+          "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?1,?2,?3,?4,?5)",
+          previousPhase,
+          crypto.randomUUID(),
+          `前フェーズの決定${previousPhase}`,
+          host.sub,
+          new Date().toISOString(),
+        );
+      }
+    });
+  }
   send(room.a, { type: "note:decide", noteId: candidateId });
   expect(await until(room.a, "decision:updated")).toMatchObject({
     type: "decision:updated",
   });
-  if (phase !== 3) {
-    expect(
-      await runInRoomDO(
-        room.roomId,
-        (_room, state) =>
-          state.storage.sql
-            .exec(
-              "SELECT COUNT(*) AS count FROM notes WHERE visibility = 'private'",
-            )
-            .one().count,
-      ),
-    ).toBe(1);
+  expect(
+    await runInRoomDO(
+      room.roomId,
+      (_room, state) =>
+        state.storage.sql
+          .exec(
+            "SELECT COUNT(*) AS count FROM notes WHERE visibility = 'private'",
+          )
+          .one().count,
+    ),
+  ).toBe(1);
+  if (phase === 3) {
+    send(room.a, { type: "outcome:publish" });
+    expect(await until(room.a, "outcome:published")).toMatchObject({
+      type: "outcome:published",
+    });
+  } else {
     send(room.a, transition("phase:next", result));
     expect(await until(room.a, "phase:updated")).toMatchObject({
       type: "phase:updated",
@@ -443,16 +477,18 @@ it.each([
           .one().count,
     ),
   ).toBe(0);
+  if (phase === 3) {
+    room.close();
+    return;
+  }
   const reconnect = await connectRoomAs(member, room.roomId);
   const snapshot = await reconnect.next();
   expect(snapshot.type).toBe("snapshot");
   if (snapshot.type === "snapshot") {
     expect(snapshot.notes.some((note) => note.id === draftId)).toBe(false);
-    if (phase === 3) expect(snapshot.decision?.noteId).toBe(candidateId);
-    else
-      expect(
-        snapshot.carryovers.some((value) => value.noteId === candidateId),
-      ).toBe(true);
+    expect(
+      snapshot.carryovers.some((value) => value.noteId === candidateId),
+    ).toBe(true);
   }
   reconnect.close();
   room.close();

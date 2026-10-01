@@ -478,7 +478,7 @@ test("長文と結果行を分け、候補操作と決定済み印にも重ね�
 
   for (const [storyId, controlName, objectiveCount] of [
     ["notes-notecard--result-with-candidate-action", "候補から外す", 8],
-    ["notes-notecard--result-with-decision", "取り組む課題に決定済み", 10],
+    ["notes-notecard--result-with-decision", "採用候補として選択中", 10],
   ] as const) {
     await openStory(storyId);
     const votes = await page
@@ -558,6 +558,41 @@ test("採用候補は通常時に黒枠を出さずhover時だけ緑枠を示す
   });
 
   await page.screenshot({ path: `${output}/adopt-candidate-hover.png` });
+});
+
+test.each([
+  ["通常キャンバス", "room-roomboardcanvas--ready-to-decide", /採用する付箋:/],
+  [
+    "アイデアマップ",
+    "room-roomboardcanvas--two-client-shared-idea-adoption-focus",
+    /採用するアイデア:/,
+  ],
+] as const)("%s で付箋の重なり順が高くても採用対象を直接クリックできる", async (_label, storyId, targetName) => {
+  await openStory(storyId);
+  const target = page.getByRole("button", { name: targetName }).first();
+  const card = storyId.includes("idea")
+    ? page.locator('[data-testid^="idea-value-feasibility-map-note-"]').first()
+    : page.getByTestId("note-card").first();
+  await card.evaluate((element) => {
+    (element as HTMLElement).style.zIndex = "100";
+  });
+
+  await target.hover();
+  expect(await page.getByRole("button", { name: "候補から外す" }).count()).toBe(
+    0,
+  );
+
+  expect(
+    await target.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const top = document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
+      return top === element || element.contains(top);
+    }),
+  ).toBe(true);
+  await target.click();
 });
 
 test.each([

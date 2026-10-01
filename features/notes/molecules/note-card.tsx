@@ -985,7 +985,7 @@ export function NoteCard({
       {isDecided ? (
         <span
           role="status"
-          aria-label="取り組む課題に決定済み"
+          aria-label="採用候補として選択中"
           className="pointer-events-none absolute bottom-1 right-1 z-30 flex size-9 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
         >
           <Check aria-hidden="true" className="size-5" strokeWidth={3} />

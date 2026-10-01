@@ -55,11 +55,11 @@ export function VoteTotalingRow({
         {isDecided ? (
           <span
             role="status"
-            aria-label="取り組む課題に決定済み"
+            aria-label="採用候補として選択中"
             className="inline-flex h-7 items-center gap-1 rounded-md bg-emerald-700 px-2 text-xs font-medium text-white"
           >
             <Check aria-hidden="true" className="size-3.5" />
-            決定済み
+            選択中
           </span>
         ) : canDecide ? (
           <Button

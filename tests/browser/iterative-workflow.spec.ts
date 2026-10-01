@@ -284,7 +284,7 @@ test("採用はキーボードで候補を選ぶと確認ダイアログなし�
     .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
     .press("Enter");
   const cancel = page.getByRole("button", {
-    name: "選択をキャンセル",
+    name: "選択モードを終了",
     exact: true,
   });
   await cancel.waitFor();

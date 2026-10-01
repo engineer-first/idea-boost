@@ -50,20 +50,18 @@ export function PhaseLoopControls({
   const isResult = isResultStep(phase);
   const canRestart = isRestartWritingAllowedStep(phase);
   if (!isResult && (!canRestart || !isHost)) return null;
-  if (decisionContent !== null)
-    return (
+  if (!isHost)
+    return decisionContent !== null ? (
       <AdoptNoteControl
         phaseNumber={phase.phase}
-        isHost={isHost}
+        isHost={false}
         isSelecting={false}
         decisionContent={decisionContent}
         disabled={disabled}
         onStartSelection={onStartSelection}
         onCancelSelection={onCancelSelection}
       />
-    );
-  if (!isHost)
-    return isResult ? (
+    ) : isResult ? (
       <p
         role="status"
         className="pointer-events-auto max-w-lg rounded-xl border bg-background px-4 py-3 text-sm shadow-sm"
@@ -132,7 +130,7 @@ export function PhaseLoopControls({
             phaseNumber={phase.phase}
             isHost
             isSelecting={isSelecting}
-            decisionContent={null}
+            decisionContent={decisionContent}
             disabled={disabled || candidateCount === 0}
             onStartSelection={onStartSelection}
             onCancelSelection={onCancelSelection}

@@ -155,7 +155,7 @@ describe("getFacilitationGuide", () => {
   it.each([
     [buildPhaseStep(2), "全員の共有"],
     [buildPhaseStep(4), "全員の投票"],
-    [buildPhaseStep(5), "ホストが採用する付箋を確定"],
+    [buildPhaseStep(5), "次のフェーズへ進むと採用が確定"],
     [buildPhaseStep(3, 3), "全員が納得できる位置"],
     [buildPhaseStep(5, 3), "成果を確認"],
   ] as const)("%oの詳細には実際の次へ進む目安を含める", (phase, criterion) => {
@@ -169,7 +169,7 @@ describe("getFacilitationGuide", () => {
     [buildPhaseStep(5, 1), "付箋"],
     [buildPhaseStep(4, 2), "問い"],
     [buildPhaseStep(5, 3), "解決策"],
-  ] as const)("%o はホストが画面下から1件を確定する手順を案内する", (phase, target) => {
+  ] as const)("%o はホストが画面下から1件を選ぶ手順を案内する", (phase, target) => {
     const guide = getFacilitationGuide(phase);
     expect(guide?.steps?.join(" ")).toContain("画面下");
     expect(guide?.steps?.join(" ")).toContain(target);

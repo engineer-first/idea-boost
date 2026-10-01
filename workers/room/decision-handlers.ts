@@ -1,10 +1,10 @@
-// 採用確定の認可・永続化・全員配信。確定後の変更・取消は許可しない。
+// 採用候補の選択・選び直しを認可し、全員へ同期する。
 import { isPhaseStep } from "../../contracts/phase";
 import { getDecision, setDecision } from "./decisions";
 import { type MessageHandlers, replyForbidden } from "./handler-context";
 import { isHostUser } from "./members";
 import { requireNoteInCurrentPhase } from "./notes";
-import { discardPrivateNotes, getPhase } from "./phase";
+import { getPhase } from "./phase";
 
 export const decisionHandlers: MessageHandlers<
   "note:decide" | "decision:clear" | "outcome:publish"
@@ -36,18 +36,8 @@ export const decisionHandlers: MessageHandlers<
       });
     }
 
-    ctx.storage.transactionSync(() => {
-      setDecision(
-        ctx.sql,
-        phase.phase,
-        message.noteId,
-        ctx.userId,
-        note.content,
-      );
-      if (phase.phase === 3) discardPrivateNotes(ctx.sql);
-    });
+    setDecision(ctx.sql, phase.phase, message.noteId, ctx.userId, note.content);
     ctx.broadcaster.retireAllActiveDrags();
-    if (phase.phase === 3) ctx.refreshSnapshots();
     ctx.broadcaster.broadcastToAll({
       type: "decision:updated",
       decision: {

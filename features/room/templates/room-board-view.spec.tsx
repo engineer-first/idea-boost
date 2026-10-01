@@ -149,7 +149,7 @@ function openRoomMenu() {
 }
 
 describe("採用する付箋の選択モード", () => {
-  it("hover・focus を共有し、Escape・キャンセル・確定・切断で解除を通知する", () => {
+  it("hover・focus を共有し、Escape・キャンセル・候補選択・切断で解除を通知する", () => {
     const onAdoptionFocusChange = vi.fn();
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
@@ -171,18 +171,20 @@ describe("採用する付箋の選択モード", () => {
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
     fireEvent.focus(start());
-    fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
+    fireEvent.click(screen.getByRole("button", { name: "選択モードを終了" }));
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
     fireEvent.click(start());
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
-    const target = start();
+    const target = screen.getByRole("button", {
+      name: "採用する付箋: 候補A",
+    });
     fireEvent.pointerEnter(target);
     rerender(<TestBoardView {...props} connectionStatus="closed" />);
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
   });
-  it("画面下の入口から開始し、対象を1件クリックすると確定して終了する", () => {
+  it("画面下の入口から開始し、対象を1件クリックしても選択モードを続ける", () => {
     const onNoteDecide = vi.fn();
     setup({
       phase: buildPhaseStep(5),
@@ -201,7 +203,49 @@ describe("採用する付箋の選択モード", () => {
       screen.getByRole("button", { name: "採用する付箋: 候補A" }),
     );
     expect(onNoteDecide).toHaveBeenCalledWith("note-1");
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "採用する付箋をクリックしてください",
+    );
+  });
+
+  it("Step 1-5 で一度選んだ後も別の候補を選び直し、移行時の確認へ進める", () => {
+    const onNoteDecide = vi.fn();
+    const onNextPhase = vi.fn();
+    const first = buildNote({ id: "note-1", content: "候補A" });
+    const second = buildNote({ id: "note-2", content: "候補B" });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: [first, second],
+      onNoteDecide,
+      onNextPhase,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "採用する付箋: 候補A" }),
+    );
+    rerender(
+      <TestBoardView
+        {...props}
+        decision={buildDecision({ noteId: first.id })}
+      />,
+    );
+    expect(screen.getByText("選択中: 候補A")).toBeVisible();
+    fireEvent.click(
+      screen.getByRole("button", { name: "採用する付箋: 候補B" }),
+    );
+    expect(onNoteDecide).toHaveBeenLastCalledWith(second.id);
+    rerender(
+      <TestBoardView
+        {...props}
+        decision={buildDecision({ noteId: second.id })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("確定");
+    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
+    expect(onNextPhase).toHaveBeenCalledOnce();
   });
 
   it("Escape・キャンセル・ステップ変更・切断で選択モードを解除する", () => {
@@ -224,7 +268,7 @@ describe("採用する付箋の選択モード", () => {
     expectSelectionModeClosed();
 
     start();
-    fireEvent.click(screen.getByRole("button", { name: "選択をキャンセル" }));
+    fireEvent.click(screen.getByRole("button", { name: "選択モードを終了" }));
     expectSelectionModeClosed();
 
     start();
@@ -260,7 +304,7 @@ describe("採用する付箋の選択モード", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("決定済みの内容を全員に示し、取消は出さない", () => {
+  it("選択中の内容を全員に示し、解除操作は出さない", () => {
     const notes = [buildNote({ id: "note-1", content: "決定した課題" })];
     const decision = buildDecision({ noteId: "note-1" });
     const { rerender, props } = setup({
@@ -1350,7 +1394,7 @@ describe("RoomBoardView", () => {
 
     expect(
       within(screen.getByRole("dialog")).getByRole("status", {
-        name: "取り組む課題に決定済み",
+        name: "採用候補として選択中",
       }),
     ).toBeInTheDocument();
   });
@@ -2148,8 +2192,8 @@ describe("反復ワークフロー", () => {
     expect(props.onNoteDecide).toHaveBeenCalledExactlyOnceWith("candidate");
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "選択をキャンセル" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "選択モードを終了" }),
+    ).toBeInTheDocument();
   });
 });
 

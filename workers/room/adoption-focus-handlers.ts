@@ -1,7 +1,6 @@
 // 採用選択中の一時フォーカス。永続化せず SocketAttachment にだけ保持し、
 // RoomDO がホスト権限・現在ステップ・候補妥当性を毎回再検証する。
 import { isResultStep } from "../../contracts/phase";
-import { getDecision } from "./decisions";
 import { type MessageHandlers, replyForbidden } from "./handler-context";
 import { isHostUser } from "./members";
 import { requireNoteInCurrentPhase } from "./notes";
@@ -26,11 +25,7 @@ export const adoptionFocusHandlers: MessageHandlers<"adoption-focus:update"> = {
     }
 
     const phase = getPhase(ctx.sql);
-    if (
-      phase.kind !== "step" ||
-      !isResultStep(phase) ||
-      getDecision(ctx.sql, phase.phase)
-    ) {
+    if (phase.kind !== "step" || !isResultStep(phase)) {
       replyForbidden(ctx);
       return;
     }

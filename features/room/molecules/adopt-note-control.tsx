@@ -37,31 +37,7 @@ export function AdoptNoteControl({
 }: AdoptNoteControlProps) {
   const targetLabel = getAdoptionTargetLabel(phaseNumber);
 
-  if (decisionContent !== null) {
-    return (
-      <section
-        aria-label={`採用する${targetLabel}の確定状態`}
-        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-2xl border border-emerald-600/40 bg-background px-4 py-3 shadow-lg shadow-black/5"
-      >
-        <CheckCircle2
-          aria-hidden="true"
-          className="size-5 shrink-0 text-emerald-700"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-emerald-700">
-            {targetLabel}を1件確定済み
-          </p>
-          <p className="truncate text-sm font-medium" title={decisionContent}>
-            {decisionContent}
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  if (!isHost) return null;
-
-  if (isSelecting) {
+  if (isSelecting && isHost) {
     return (
       <div
         role="status"
@@ -73,22 +49,62 @@ export function AdoptNoteControl({
           <p className="text-sm font-semibold">
             採用する{targetLabel}をクリックしてください
           </p>
+          {decisionContent !== null ? (
+            <p className="truncate text-sm font-medium" title={decisionContent}>
+              選択中: {decisionContent}
+            </p>
+          ) : null}
           <p className="text-xs text-muted-foreground">
-            候補のみ選べます。Escape でもキャンセルできます。
+            別の候補をクリックすると切り替わります。Escape
+            で選択モードを終了できます。
           </p>
         </div>
         <Button
           type="button"
           variant="outline"
-          aria-label="選択をキャンセル"
+          aria-label="選択モードを終了"
           onClick={onCancelSelection}
         >
           <X aria-hidden="true" />
-          キャンセル
+          終了
         </Button>
       </div>
     );
   }
+
+  if (decisionContent !== null) {
+    return (
+      <section
+        aria-label={`採用する${targetLabel}の選択状態`}
+        className="pointer-events-auto flex max-w-xl items-center gap-3 rounded-2xl border border-emerald-600/40 bg-background px-4 py-3 shadow-lg shadow-black/5"
+      >
+        <CheckCircle2
+          aria-hidden="true"
+          className="size-5 shrink-0 text-emerald-700"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold text-emerald-700">
+            {targetLabel}を1件選択中
+          </p>
+          <p className="truncate text-sm font-medium" title={decisionContent}>
+            {decisionContent}
+          </p>
+        </div>
+        {isHost ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled}
+            onClick={onStartSelection}
+          >
+            別の付箋を選ぶ
+          </Button>
+        ) : null}
+      </section>
+    );
+  }
+
+  if (!isHost) return null;
 
   return (
     <Button

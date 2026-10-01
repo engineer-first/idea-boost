@@ -39,6 +39,13 @@ export const OneCandidate: Story = {
 export const Selecting: Story = {
   args: { phase: buildPhaseStep(5, 3), isSelecting: true },
 };
+export const Reselecting: Story = {
+  args: {
+    phase: buildPhaseStep(5),
+    isSelecting: true,
+    decisionContent: "初参加の人が発言しやすい場を作る",
+  },
+};
 export const Member: Story = {
   args: { phase: buildPhaseStep(5), isHost: false },
 };

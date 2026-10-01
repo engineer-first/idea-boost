@@ -966,13 +966,13 @@ describe("NoteCard", () => {
       expect(getCard()).not.toHaveAttribute("data-selected");
     });
 
-    it("isDecided=true の付箋を強調し、決定済みのstatusを表示する", () => {
+    it("isDecided=true の付箋を強調し、選択中のstatusを表示する", () => {
       setup({ isDecided: true });
 
       expect(getCard()).toHaveAttribute("data-decided", "true");
       expect(getCard()).toHaveClass("outline-4", "outline-emerald-600");
       expect(
-        screen.getByRole("status", { name: "取り組む課題に決定済み" }),
+        screen.getByRole("status", { name: "採用候補として選択中" }),
       ).toHaveClass(
         "bottom-1",
         "right-1",

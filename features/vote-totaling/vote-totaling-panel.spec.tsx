@@ -389,7 +389,7 @@ describe("VoteTotalingPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("決定済み行はstatusを表示し、別の行から決定し直せる", () => {
+  it("選択中の行はstatusを表示し、別の行から選び直せる", () => {
     const notes = buildNotes(2).map((note) => withVotes(note, 1, 0));
     const onNoteDecide = vi.fn();
 
@@ -408,9 +408,9 @@ describe("VoteTotalingPanel", () => {
     const decidedRow = screen.getByTestId("vote-totaling-row-note-1");
     expect(
       within(decidedRow).getByRole("status", {
-        name: "取り組む課題に決定済み",
+        name: "採用候補として選択中",
       }),
-    ).toHaveTextContent("決定済み");
+    ).toHaveTextContent("選択中");
     expect(
       within(decidedRow).queryByRole("button", {
         name: "付箋 1を取り組む課題に決定",

@@ -41,13 +41,20 @@ export function readOutcomeState(sql: SqlStorage): OutcomeState | null {
 export function captureSharedOutcome(
   sql: SqlStorage,
   now: number,
+  includeCurrentSelection = false,
 ): SharedOutcomeSnapshot {
+  const current = getPhase(sql);
   const decisions = sql
     .exec<{ phase: number; note_id: string; note_content: string }>(
       "SELECT phase, note_id, note_content FROM decisions ORDER BY phase",
     )
-    .toArray();
-  const current = getPhase(sql);
+    .toArray()
+    .filter(
+      (row) =>
+        includeCurrentSelection ||
+        current.kind !== "step" ||
+        row.phase < current.phase,
+    );
   const decidedPhases = new Set(decisions.map((row) => row.phase));
   const notes = [1, 2, 3].flatMap((phase) =>
     filterVisible(

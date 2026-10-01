@@ -337,8 +337,16 @@ export function RoomBoardCanvas({
           !note.excluded
         }
         canMoveNote={permissions.canMoveNote && !note.excluded}
-        canExcludeNote={isHost && permissions.canExcludeNote && !note.excluded}
-        canRestoreNote={isHost && permissions.canRestoreNote && note.excluded}
+        canExcludeNote={
+          isHost &&
+          !isAdoptMode &&
+          permissions.canExcludeNote &&
+          !note.excluded &&
+          decision?.noteId !== note.id
+        }
+        canRestoreNote={
+          isHost && !isAdoptMode && permissions.canRestoreNote && note.excluded
+        }
         isDecided={decision?.noteId === note.id}
         isAdoptionFocused={
           !isHost &&
@@ -417,9 +425,11 @@ export function RoomBoardCanvas({
           ...position,
           zIndex: isTemporarilyFront
             ? TEMPORARY_FRONT_Z_INDEX
-            : note.excluded
-              ? 0
-              : note.stackOrder,
+            : isAdoptTarget
+              ? TEMPORARY_FRONT_Z_INDEX
+              : note.excluded
+                ? 0
+                : note.stackOrder,
         }}
       >
         {renderNoteCard(note, true)}
@@ -577,6 +587,7 @@ export function RoomBoardCanvas({
                         top: note.y,
                         width: NOTE_WIDTH,
                         height: getNoteHeight(note.content, note.fontSize),
+                        zIndex: TEMPORARY_FRONT_Z_INDEX,
                       }}
                       onPointerEnter={() => handleAdoptionPointerEnter(note.id)}
                       onPointerLeave={() => handleAdoptionPointerLeave(note.id)}

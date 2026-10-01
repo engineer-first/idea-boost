@@ -304,7 +304,7 @@ export function RoomBoard({
   );
   const boardInteractions = useRoomBoardInteractions({
     notes: boardNotes,
-    isDecided: roomState.decision !== null,
+    isDecided: false,
     privateNotes: boardPrivateNotes,
     currentUserId,
     draggingNoteId: notes.draggingNoteId,

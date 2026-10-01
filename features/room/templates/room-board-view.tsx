@@ -257,7 +257,7 @@ export function RoomBoardView({
   const previousRevision = useRef(phaseRevision);
   const resultShownFor = useRef<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-  const permissions = getBoardPermissions(phase, decision !== null);
+  const permissions = getBoardPermissions(phase);
 
   useEffect(() => {
     setIsMounted(true);
@@ -276,9 +276,9 @@ export function RoomBoardView({
   }, [phaseRevision]);
 
   useEffect(() => {
-    if (connectionStatus === "open" && isHost && decision === null) return;
+    if (connectionStatus === "open" && isHost) return;
     setIsAdoptMode(false);
-  }, [connectionStatus, decision, isHost]);
+  }, [connectionStatus, isHost]);
 
   useEffect(() => {
     if (isAdoptMode || sharedAdoptionFocusRef.current === null) return;
@@ -364,7 +364,7 @@ export function RoomBoardView({
   }, [isDisconnected, selectedVoteRemaining]);
 
   // 「次のステップへ」を進められない状態。
-  // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
+  // - 結果ステップ: 採用候補を選ぶまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
   const candidateNotes = notes.filter(
     (note) => note.visibility === "shared" && !note.excluded,
@@ -397,12 +397,11 @@ export function RoomBoardView({
     decision === null
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
-        "確定した内容");
+        "選択中の内容");
 
   function handleAdoptNote(noteId: string) {
     if (!isAdoptMode) return;
     handleAdoptionFocusChange(null);
-    setIsAdoptMode(false);
     onNoteDecide(noteId);
   }
 
@@ -846,7 +845,7 @@ export function RoomBoardView({
           phase={phase}
           phaseRevision={phaseRevision}
           bulkExclusionTargetCount={bulkExclusionTargetCount}
-          canManageCandidates={isResultStep(phase) && decision === null}
+          canManageCandidates={isResultStep(phase)}
           onBulkCandidateExclude={onBulkCandidateExclude}
           sharing={sharing}
           onSharingStart={onSharingStart}

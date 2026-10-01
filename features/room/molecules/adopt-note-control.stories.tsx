@@ -30,6 +30,13 @@ export const Ready: Story = {};
 export const SelectingQuestion: Story = {
   args: { phaseNumber: 2, isSelecting: true },
 };
+export const ReselectingQuestion: Story = {
+  args: {
+    phaseNumber: 2,
+    isSelecting: true,
+    decisionContent: "発言しやすくするには？",
+  },
+};
 export const DecidedIdeaForHost: Story = {
   args: {
     phaseNumber: 3,

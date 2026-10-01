@@ -24,6 +24,7 @@ import type {
 } from "../../contracts/completed-rooms";
 import {
   isPhaseStep,
+  isResultStep,
   isVotingStep,
   type RoomPhase,
 } from "../../contracts/phase";
@@ -657,6 +658,7 @@ export class RoomDO extends DurableObject {
     const forbiddenMessage =
       phase.kind === "step" &&
       getDecision(this.sql, phase.phase) &&
+      !isResultStep(phase) &&
       isBoardMutation(message)
         ? "採用確定後はボードを変更できません。"
         : getBoardMutationForbiddenMessage(phase, message);

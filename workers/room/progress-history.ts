@@ -29,7 +29,14 @@ export function recordProgressTransition(
   next: RoomPhase | null,
   action: NonNullable<ProgressHistoryEntry["action"]>,
   now = Date.now(),
-  capture: () => SharedOutcomeSnapshot = () => captureSharedOutcome(sql, now),
+  capture: () => SharedOutcomeSnapshot = () =>
+    captureSharedOutcome(
+      sql,
+      now,
+      current.kind === "step" &&
+        next?.kind === "step" &&
+        current.phase !== next.phase,
+    ),
 ): void {
   if (current.kind === "step") {
     let row = sql

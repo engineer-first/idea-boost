@@ -932,16 +932,18 @@ describe("RoomDO note:decide", () => {
   async function insertSharedNote(
     roomName: string,
     noteId: string,
+    phase = 1,
   ): Promise<void> {
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
       state.storage.sql.exec(
         `INSERT INTO notes
-           (id, author_id, content, visibility, color, x, y, created_at, updated_at)
-         VALUES (?1, ?2, '', 'shared', 'yellow', 0, 0, ?3, ?3)`,
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
+         VALUES (?1, ?2, '', 'shared', 'yellow', 0, 0, ?3, ?3, ?4)`,
         noteId,
         USER_A,
         now,
+        phase,
       );
     });
   }
@@ -1016,7 +1018,7 @@ describe("RoomDO note:decide", () => {
     member.close();
   });
 
-  it("同じフェーズで再確定を拒否し最初の決定を保持する", async () => {
+  it("同じ決定ステップでは候補を選び直し、最後の選択を保持する", async () => {
     const roomName = "room-decide-replace";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -1030,15 +1032,143 @@ describe("RoomDO note:decide", () => {
     ws.send(JSON.stringify({ type: "note:decide", noteId: SECOND_NOTE_ID }));
 
     expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "decision:updated",
+      decision: { phase: 1, noteId: SECOND_NOTE_ID },
     });
     const decision = await runInRoomDO(roomName, (_instance, state) => {
       return state.storage.sql
         .exec("SELECT note_id FROM decisions WHERE phase = 1")
         .one() as { note_id: string };
     });
-    expect(decision).toEqual({ note_id: FIRST_NOTE_ID });
+    expect(decision).toEqual({ note_id: SECOND_NOTE_ID });
+    ws.close();
+  });
+
+  it("Step 1-5 で候補を選び直し、2-1 への移行時に最後の候補を持ち越す", async () => {
+    const roomName = "room-decide-before-next-phase";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, FIRST_NOTE_ID);
+    await insertSharedNote(roomName, SECOND_NOTE_ID);
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: FIRST_NOTE_ID }));
+    await nextJson(ws);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: SECOND_NOTE_ID }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "decision:updated",
+      decision: { noteId: SECOND_NOTE_ID },
+    });
+    ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomName)),
+      }),
+    );
+    expect(await nextJson(ws)).toMatchObject({
+      type: "snapshot",
+      phase: buildPhaseStep(1, 2),
+      carryovers: expect.arrayContaining([
+        expect.objectContaining({ phase: 1, noteId: SECOND_NOTE_ID }),
+      ]),
+    });
+    expect(await stub.getPhase()).toEqual(buildPhaseStep(1, 2));
+    ws.close();
+  });
+
+  it("Step 2-4 で候補を選び直し、3-1 への移行時に最後の候補を持ち越す", async () => {
+    const roomName = "room-decide-before-phase-three";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(4, 2), USER_A);
+    await insertSharedNote(roomName, FIRST_NOTE_ID, 2);
+    await insertSharedNote(roomName, SECOND_NOTE_ID, 2);
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: FIRST_NOTE_ID }));
+    await nextJson(ws);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: SECOND_NOTE_ID }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "decision:updated",
+      decision: { phase: 2, noteId: SECOND_NOTE_ID },
+    });
+    ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomName)),
+      }),
+    );
+    expect(await nextJson(ws)).toMatchObject({
+      type: "snapshot",
+      phase: buildPhaseStep(1, 3),
+      carryovers: expect.arrayContaining([
+        expect.objectContaining({ phase: 2, noteId: SECOND_NOTE_ID }),
+      ]),
+    });
+    expect(await stub.getPhase()).toEqual(buildPhaseStep(1, 3));
+    ws.close();
+  });
+
+  it("Step 3-5 で候補を選び直し、成果公開時に最後の候補を確定する", async () => {
+    const roomName = "room-decide-before-completion";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host", { roomId: roomName });
+    await stub.setPhase(buildPhaseStep(5, 3), USER_A);
+    await insertSharedNote(roomName, FIRST_NOTE_ID, 3);
+    await insertSharedNote(roomName, SECOND_NOTE_ID, 3);
+    await runInRoomDO(roomName, (_instance, state) => {
+      for (const phase of [1, 2]) {
+        state.storage.sql.exec(
+          "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,?)",
+          phase,
+          crypto.randomUUID(),
+          `前フェーズの決定${phase}`,
+          USER_A,
+          new Date().toISOString(),
+        );
+      }
+    });
+
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: FIRST_NOTE_ID }));
+    await nextJson(ws);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: SECOND_NOTE_ID }));
+    expect(await nextJson(ws)).toMatchObject({
+      type: "decision:updated",
+      decision: { phase: 3, noteId: SECOND_NOTE_ID },
+    });
+    ws.send(JSON.stringify({ type: "outcome:publish" }));
+    expect(await nextJson(ws)).toMatchObject({ type: "outcome:published" });
+    expect(await stub.getCompletedRoom(USER_A)).toMatchObject({
+      decisions: expect.arrayContaining([
+        expect.objectContaining({ phase: 3, noteId: SECOND_NOTE_ID }),
+      ]),
+    });
+    ws.close();
+  });
+
+  it("Step 1-5 で採用候補を選んだ後も再投票でき、候補選択を解除する", async () => {
+    const roomName = "room-revote-after-selection";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, FIRST_NOTE_ID);
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    ws.send(JSON.stringify({ type: "note:decide", noteId: FIRST_NOTE_ID }));
+    await nextJson(ws);
+    ws.send(
+      JSON.stringify({
+        type: "phase:revote",
+        ...(await currentPhaseExpectation(roomName)),
+      }),
+    );
+    expect(await nextJson(ws)).toMatchObject({
+      type: "snapshot",
+      phase: buildPhaseStep(4),
+      decision: null,
+    });
+    expect(await stub.getPhase()).toEqual(buildPhaseStep(4));
     ws.close();
   });
 
@@ -2717,6 +2847,15 @@ describe("RoomDO phase:next", () => {
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        "INSERT INTO notes (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase) VALUES (?1, ?2, '候補', 'shared', 'yellow', 0, 0, ?3, ?3, 1)",
+        crypto.randomUUID(),
+        USER_A,
+        now,
+      );
+    });
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "timer:start", durationMs: 60_000 }));
@@ -2731,6 +2870,7 @@ describe("RoomDO phase:next", () => {
     expect(await nextJsonWithin(ws)).toMatchObject({
       type: "error",
       code: "forbidden",
+      message: "採用候補を選ぶまで次のフェーズへ進めません。",
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(5));
     expect(await stub.getTimerState()).toMatchObject({
@@ -3208,10 +3348,6 @@ describe("RoomDO phase:next", () => {
     });
 
     ws.send(JSON.stringify({ type: "note:decide", noteId: created.note.id }));
-    expect(await nextJson(ws)).toMatchObject({
-      type: "snapshot",
-      decision: { noteId: created.note.id },
-    });
     expect(await nextJson(ws)).toMatchObject({
       type: "decision:updated",
       decision: { phase: 3, noteId: created.note.id },

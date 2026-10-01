@@ -50,10 +50,13 @@ describe("PhaseLoopControls", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("お待ちください");
   });
-  it("採用後は取消も再投票も出さない", () => {
-    setup({ decisionContent: "確定した課題" });
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByText("確定した課題")).toBeVisible();
+  it("採用候補の選択後も選び直しと再投票を案内する", () => {
+    const { props } = setup({ decisionContent: "候補A" });
+    expect(screen.getByText("候補A")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "別の付箋を選ぶ" }));
+    expect(props.onStartSelection).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "もう一度投票する" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("候補2件");
   });
   it("共有の追加作業は確認で通知する", () => {
     const { props } = setup({ phase: buildPhaseStep(2) });

@@ -252,6 +252,58 @@ describe("RoomBoardCanvas", () => {
   it.each([
     ["通常キャンバス", buildPhaseStep(5)],
     ["アイデアマップ", buildPhaseStep(5, 3)],
+  ] as const)("%s の採用対象は重なり順100の付箋より前面に置く", (_label, phase) => {
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({
+          id: "note-1",
+          content: "重なり順の高い候補",
+          visibility: "shared",
+          stackOrder: 100,
+        }),
+        buildNote({
+          id: "excluded",
+          content: "同じ場所の候補外",
+          visibility: "shared",
+          excluded: true,
+          stackOrder: 101,
+        }),
+      ],
+    });
+
+    const target = screen.getByRole("button", {
+      name: /採用する.+: 重なり順の高い候補/,
+    });
+    const card = screen
+      .getAllByTestId("note-card")
+      .find((element) => element.dataset.noteId === "note-1");
+    const foreground =
+      phase.phase === 3
+        ? target.closest<HTMLElement>(
+            '[data-testid="idea-value-feasibility-map-note-note-1"]',
+          )
+        : target;
+
+    expect(foreground).not.toBeNull();
+    expect(card).toBeDefined();
+    expect(Number(foreground?.style.zIndex)).toBeGreaterThan(
+      Number(card?.style.zIndex),
+    );
+    expect(
+      screen.queryByRole("button", { name: "候補から外す" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "候補に戻す" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["通常キャンバス", buildPhaseStep(5)],
+    ["アイデアマップ", buildPhaseStep(5, 3)],
   ] as const)("%s の候補 hover・focus・離脱を即時通知する", (_label, phase) => {
     const onAdoptionFocusChange = vi.fn();
     setup({
@@ -342,7 +394,7 @@ describe("RoomBoardCanvas", () => {
       "outline-emerald-600",
     );
     expect(
-      screen.getByRole("status", { name: "取り組む課題に決定済み" }),
+      screen.getByRole("status", { name: "採用候補として選択中" }),
     ).toBeInTheDocument();
   });
 

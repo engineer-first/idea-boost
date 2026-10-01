@@ -73,7 +73,7 @@ export class SharedOutcomeStorage {
       ? (JSON.parse(
           row.pending_json ?? row.saved_json ?? "null",
         ) as SharedOutcomeSnapshot | null)
-      : captureSharedOutcome(this.sql, now);
+      : captureSharedOutcome(this.sql, now, confirmed);
     if (confirmed && !snapshot) throw new Error("完了内容がありません。");
     this.ctx.storage.transactionSync(() => {
       if (confirmed) {

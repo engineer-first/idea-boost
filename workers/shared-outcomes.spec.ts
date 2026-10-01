@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { PERMISSIONS } from "../contracts/access";
 import worker from "./api-worker";
+import { captureSharedOutcome } from "./room/shared-outcomes";
 import { createRoomAs, runInRoomDO, sessionCookieFor } from "./test-helpers";
 
 const owner = {
@@ -67,6 +68,21 @@ describe("共有成果のセッション認可", () => {
 });
 
 describe("保全・再試行・期限", () => {
+  it("決定ステップで選択中の付箋は、フェーズ境界で確定するまで成果の決定に含めない", async () => {
+    const room = await createRoomAs(owner);
+    await runInRoomDO(room.roomId, (_instance, state) => {
+      const sql = state.storage.sql;
+      sql.exec("UPDATE room_state SET phase='phase1-step5' WHERE id=1");
+      sql.exec(
+        "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(1,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','候補A',?,'2026-10-01')",
+        owner.sub,
+      );
+      expect(captureSharedOutcome(sql, Date.now()).decisions).toEqual([]);
+      expect(
+        captureSharedOutcome(sql, Date.now(), true).decisions,
+      ).toMatchObject([{ phase: 1, content: "候補A" }]);
+    });
+  });
   it("共有盤面は匿名化し、個人用へ戻した付箋を次の記録から除く", async () => {
     const room = await createRoomAs(owner);
     await runInRoomDO(room.roomId, async (instance, state) => {

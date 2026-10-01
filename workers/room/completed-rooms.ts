@@ -8,6 +8,7 @@ import {
   SHARED_OUTCOME_RETENTION_MS,
   type SharedOutcomeSnapshot,
 } from "../../contracts/shared-outcomes";
+import { discardPrivateNotes } from "./phase";
 import type { ProgressHistoryStorage } from "./progress-history";
 import { readOutcomeState } from "./shared-outcomes";
 
@@ -111,6 +112,7 @@ export function fixCompletion(
     now + 1000,
   );
   sql.exec("DELETE FROM pending_phase_transition");
+  discardPrivateNotes(sql);
   sql.exec("DELETE FROM sharing_state");
   sql.exec(
     "UPDATE timer_state SET status='idle',ends_at=NULL,remaining_ms=NULL,duration_ms=NULL WHERE id=1",
