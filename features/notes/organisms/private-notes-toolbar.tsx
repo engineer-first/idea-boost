@@ -81,6 +81,10 @@ export function PrivateNotesToolbar({
   const previousNoteTopsRef = useRef(new Map<string, number>());
   const noteAnimationsRef = useRef(new Map<HTMLElement, Animation>());
   const noteOrderKey = JSON.stringify(notes.map((note) => note.id));
+  // draftValue は未受理の入力がある間だけ値を返す。通常配信だけでは消さない。
+  const awaitingSaveConfirmation = notes.some(
+    (note) => draftValue?.(note.id) !== undefined,
+  );
   const handleAdd = useCallback(() => {
     noteIdsBeforeAddRef.current = new Set(notes.map((note) => note.id));
     setIsExpanded(true);
@@ -95,6 +99,14 @@ export function PrivateNotesToolbar({
     if (!insertedNote) return;
 
     noteIdsBeforeAddRef.current = null;
+    // 追加応答を待つ間に別の下書きへ戻った場合は、その入力を優先する。
+    const activeEditor = document.activeElement;
+    if (
+      activeEditor instanceof HTMLTextAreaElement &&
+      !activeEditor.readOnly &&
+      scrollContainerRef.current?.contains(activeEditor)
+    )
+      return;
     setAutoFocusNoteId(insertedNote.id);
     setNewlyAddedNoteId(insertedNote.id);
     onSelect(insertedNote.id);
@@ -290,7 +302,19 @@ export function PrivateNotesToolbar({
           )}
           data-testid="private-notes-controls"
         >
-          <CardTitle className="whitespace-nowrap text-sm">マイ付箋</CardTitle>
+          <div className="min-w-0">
+            <CardTitle className="whitespace-nowrap text-sm">
+              マイ付箋
+            </CardTitle>
+            {awaitingSaveConfirmation ? (
+              <p
+                role="status"
+                className="whitespace-nowrap text-xs text-muted-foreground"
+              >
+                保存確認待ち
+              </p>
+            ) : null}
+          </div>
           <div className="flex w-fit shrink-0 items-center gap-2">
             <Button
               type="button"
