@@ -170,7 +170,7 @@ export function BoardContext({
             onClick={onOpenFeedback}
             className="mt-3 min-h-9 rounded-md px-2 text-xs underline underline-offset-4 hover:bg-muted"
           >
-            意見を送る
+            フィードバック
           </button>
         ) : null}
         {phase.kind === "step" ? (

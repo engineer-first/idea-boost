@@ -478,15 +478,16 @@ export function RoomBoardView({
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
     const target = document.elementFromPoint(clientX, clientY);
     const note = target?.closest<HTMLElement>("[data-note-id]") ?? null;
-    if (
-      !note ||
-      !renderedNotes.some(
-        ({ id, excluded }) => id === note.dataset.noteId && !excluded,
-      )
-    ) {
+    if (!note || !renderedNotes.some(({ id }) => id === note.dataset.noteId)) {
       return null;
     }
     return note;
+  }
+
+  function isExcludedVoteTarget(note: HTMLElement): boolean {
+    return renderedNotes.some(
+      ({ id, excluded }) => id === note.dataset.noteId && excluded,
+    );
   }
 
   function votePaletteElementAt(
@@ -602,7 +603,9 @@ export function RoomBoardView({
           onNoteVoteStickerRemove(stickerId);
         } else {
           const note = noteElementAt(event.clientX, event.clientY);
-          if (note) {
+          if (note && isExcludedVoteTarget(note)) {
+            roomNotify.cannotVoteExcludedNote();
+          } else if (note) {
             const rect = note.getBoundingClientRect();
             const noteId = note.dataset.noteId;
             if (noteId && rect.width > 0 && rect.height > 0) {
@@ -672,11 +675,13 @@ export function RoomBoardView({
 
     const note = target.closest<HTMLElement>("[data-note-id]");
     const noteId = note?.dataset.noteId;
-    if (
-      !note ||
-      !noteId ||
-      !renderedNotes.some(({ id, excluded }) => id === noteId && !excluded)
-    ) {
+    if (!note || !noteId || !renderedNotes.some(({ id }) => id === noteId)) {
+      return;
+    }
+    if (isExcludedVoteTarget(note)) {
+      event.preventDefault();
+      event.stopPropagation();
+      roomNotify.cannotVoteExcludedNote();
       return;
     }
     const rect = note.getBoundingClientRect();

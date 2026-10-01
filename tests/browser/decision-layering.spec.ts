@@ -98,3 +98,33 @@ for (const { phase, story } of cases) {
       .waitFor();
   });
 }
+
+test("候補外への拒否Storyは説明通知を表示し、主観・客観の残票を保つ", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 900 },
+    });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardview--excluded-vote-attempt&viewMode=story`,
+    );
+    await page.getByRole("button", { name: "主観シール 残り1票" }).waitFor();
+    const notice = page.getByText(
+      "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
+      { exact: true },
+    );
+    await expect.poll(() => notice.isVisible()).toBe(true);
+    expect(
+      await page
+        .getByRole("button", { name: "主観シール 残り1票" })
+        .isVisible(),
+    ).toBe(true);
+    expect(
+      await page
+        .getByRole("button", { name: "客観シール 残り3票" })
+        .isVisible(),
+    ).toBe(true);
+  } finally {
+    await browser.close();
+  }
+});

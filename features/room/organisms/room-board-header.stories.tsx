@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import { buildMembers } from "@/contracts/room-protocol.fixture";
+import {
+  buildMembers,
+  buildSharingState,
+} from "@/contracts/room-protocol.fixture";
 import { RoomBoardHeader } from "./room-board-header";
 import { buildPausedTimer } from "./room-timer.fixture";
 
@@ -202,5 +205,42 @@ export const VotingCompleteHud: Story = {
     phase: STEP_1_4,
     members: HUD_MEMBERS,
     completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
+  },
+};
+
+const SHARING_MEMBERS = buildMembers(3, ME);
+export const PresentingMember: Story = {
+  args: {
+    phase: buildPhaseStep(2),
+    isHost: false,
+    currentUserId: SHARING_MEMBERS[1].userId,
+    sharing: buildSharingState({
+      order: SHARING_MEMBERS,
+      status: "active",
+      currentIndex: 1,
+    }),
+    onSharingAdvance: fn(),
+    initialGuideState: "compact",
+  },
+};
+export const WaitingMember: Story = {
+  args: { ...PresentingMember.args, currentUserId: SHARING_MEMBERS[2].userId },
+};
+export const PresenterTransitioning: Story = {
+  args: {
+    ...PresentingMember.args,
+    sharing: buildSharingState({
+      order: SHARING_MEMBERS,
+      status: "active",
+      currentIndex: 1,
+      startsAt: Date.now() + 2000,
+    }),
+  },
+};
+export const PresenterDisconnected: Story = {
+  args: {
+    ...PresentingMember.args,
+    isDisconnected: true,
+    connectionStatus: "closed",
   },
 };

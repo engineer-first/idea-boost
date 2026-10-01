@@ -241,7 +241,7 @@ test("保存失敗からコピーに回復し、成功通知の500ms後に感想
     await localPage.getByRole("alert").waitFor();
     expect(
       await localPage
-        .getByRole("complementary", { name: "感想の案内" })
+        .getByRole("complementary", { name: "フィードバックの案内" })
         .count(),
     ).toBe(0);
     await localPage.clock.pauseAt(new Date());
@@ -250,16 +250,16 @@ test("保存失敗からコピーに回復し、成功通知の500ms後に感想
     await localPage.clock.runFor(499);
     expect(
       await localPage
-        .getByRole("complementary", { name: "感想の案内" })
+        .getByRole("complementary", { name: "フィードバックの案内" })
         .count(),
     ).toBe(0);
     await localPage.clock.runFor(1);
     await localPage
-      .getByRole("complementary", { name: "感想の案内" })
+      .getByRole("complementary", { name: "フィードバックの案内" })
       .waitFor();
     expect(
       await localPage
-        .getByRole("button", { name: "感想を送る", exact: true })
+        .getByRole("button", { name: "フィードバック", exact: true })
         .count(),
     ).toBe(2);
   } finally {

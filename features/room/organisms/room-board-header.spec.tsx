@@ -106,6 +106,38 @@ describe("RoomBoardHeader", () => {
     expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
   });
 
+  it("ボードがpointerdownの伝播を止めても外側クリックで閉じ、元のクリックを通す", () => {
+    const onOutsideClick = vi.fn();
+    render(
+      <div onPointerDownCapture={(event) => event.stopPropagation()}>
+        <RoomBoardHeader {...setupProps({ isHost: true })} />
+        <button type="button" onClick={onOutsideClick}>
+          ボードの外側操作
+        </button>
+      </div>,
+    );
+    openRoomMenu();
+    const menu = screen.getByRole("dialog", { name: "ルームメニュー" });
+    fireEvent.pointerDown(menu, { button: 0, pointerId: 1 });
+    expect(menu).toBeInTheDocument();
+    const outside = screen.getByRole("button", { name: "ボードの外側操作" });
+    fireEvent.pointerDown(outside, { button: 0, pointerId: 2 });
+    fireEvent.pointerUp(outside, { button: 0, pointerId: 2 });
+    fireEvent.click(outside);
+    expect(
+      screen.queryByRole("dialog", { name: "ルームメニュー" }),
+    ).not.toBeInTheDocument();
+    expect(onOutsideClick).toHaveBeenCalledOnce();
+    openRoomMenu();
+    expect(
+      screen.getByRole("dialog", { name: "ルームメニュー" }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "ルームメニュー" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("現在地をキャンバス左上のフローティングHUDに表示する", () => {
     setup({ phase: buildPhaseStep(2) });
 
@@ -379,7 +411,6 @@ describe("RoomBoardHeader", () => {
         "starting:opacity-0",
         "motion-reduce:transition-none",
         "text-emerald-700",
-        "dark:text-emerald-400",
       );
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
@@ -684,14 +715,14 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();
 });
-it("参加者は発表者を確認できるが進行操作を持たない", () => {
+it("発表者以外の参加者は発表者を確認できるが進行操作を持たない", () => {
   render(
     <RoomBoardHeader
       {...setupProps({
         phase: buildPhaseStep(2),
         initialGuideState: "compact",
       })}
-      sharing={buildSharingState({ status: "active", currentIndex: 0 })}
+      sharing={buildSharingState({ status: "active", currentIndex: 1 })}
     />,
   );
   expect(
@@ -739,4 +770,46 @@ describe("U03 進行の役割", () => {
       ),
     ).toBeVisible();
   });
+});
+
+it("発表者本人は次の人へを操作でき、開始・パス・次ステップは操作できない", () => {
+  const props = setupProps({
+    phase: buildPhaseStep(2),
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+    onSharingAdvance: vi.fn(),
+  });
+  const { rerender } = render(<RoomBoardHeader {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: "次の人へ" }));
+  expect(props.onSharingAdvance).toHaveBeenCalledExactlyOnceWith("done");
+  expect(
+    screen.queryByRole("button", { name: "今回はパス" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "次のステップへ" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "最初の人を開始" }),
+  ).not.toBeInTheDocument();
+  rerender(
+    <RoomBoardHeader
+      {...props}
+      sharing={buildSharingState({
+        status: "active",
+        currentIndex: 0,
+        startsAt: Date.now() + 2000,
+      })}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+  rerender(<RoomBoardHeader {...props} isDisconnected />);
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+  rerender(
+    <RoomBoardHeader
+      {...props}
+      sharing={buildSharingState({ status: "active", currentIndex: 1 })}
+    />,
+  );
+  expect(
+    screen.queryByRole("button", { name: "次の人へ" }),
+  ).not.toBeInTheDocument();
 });
