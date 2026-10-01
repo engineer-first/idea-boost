@@ -954,14 +954,14 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
   });
 
-  it("結果ステップの非ホストは候補外付箋の復帰操作を見られない", () => {
+  it("結果ステップの非ホストは候補外を読めるが復帰操作は見られない", () => {
     connectWithSnapshot([protocolNote({ excluded: true })], {
       phase: buildPhaseStep(5),
       isHost: false,
     });
     fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
-    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeVisible();
     expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
   });
 
@@ -1008,7 +1008,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("新しい一括操作の確定後は古いUndoを無視し、0件では通知しない", () => {
+  it("別の一括操作では元のUndoを失効させず、復帰要求を順に送り0件では通知しない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
@@ -1041,14 +1041,21 @@ describe("サーバーメッセージ → 画面反映", () => {
     if (typeof firstUndo !== "function" || typeof secondUndo !== "function") {
       throw new Error("Undo がありません");
     }
-    firstUndo();
-    expect(socket.sent).not.toContain(
+    act(() => firstUndo());
+    expect(socket.sent).toContain(
       JSON.stringify({
         type: "note:bulk-restore",
         operationId: firstOperationId,
       }),
     );
-    secondUndo();
+    act(() => secondUndo());
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:bulk-restored",
+        operationId: firstOperationId,
+        count: 1,
+      }),
+    );
     expect(socket.sent).toContain(
       JSON.stringify({
         type: "note:bulk-restore",

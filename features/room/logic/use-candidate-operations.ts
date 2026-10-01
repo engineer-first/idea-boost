@@ -13,11 +13,14 @@ export type CandidateOperations = {
   exclude: (noteId: string) => void;
   restore: (noteId: string) => void;
   bulkExclude: () => void;
-  bulkRestore: (operationId: string) => void;
+  bulkRestore: (operationId: string) => boolean;
   applyMessage: (message: ServerMessage) => boolean;
 };
 
 type PendingCandidate = { id: string; noteId: string; excluded: boolean };
+type PendingRestore =
+  | { kind: "bulk"; id: string }
+  | { kind: "individual"; noteId: string; id: string };
 
 // 確定した付箋に候補状態だけを畳み込む。位置・票・本文は常に受信した最新値。
 export function useCandidateOperations({
@@ -33,6 +36,11 @@ export function useCandidateOperations({
   const pendingRef = useRef<PendingCandidate[]>([]);
   const [bulkPending, setBulkPending] = useState(false);
   const bulkRef = useRef<string | null>(null);
+  const queuedRestoresRef = useRef<PendingRestore[]>([]);
+  const restoreQueuedNoteRef = useRef<
+    ((noteId: string, token: string) => void) | null
+  >(null);
+  const [hasQueuedRestores, setHasQueuedRestores] = useState(false);
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const connectedRef = useRef(connected);
@@ -40,11 +48,33 @@ export function useCandidateOperations({
   const issuedIds = useRef(new Set<string>());
   const notices = useRef(new Set<string | number>());
 
+  const drainRestores = useCallback(() => {
+    if (!connectedRef.current || bulkRef.current || pendingRef.current.length)
+      return;
+    while (queuedRestoresRef.current.length > 0) {
+      const operation = queuedRestoresRef.current.shift();
+      if (!operation) break;
+      if (operation.kind === "individual") {
+        restoreQueuedNoteRef.current?.(operation.noteId, operation.id);
+        if (pendingRef.current.length) break;
+        continue;
+      }
+      issuedIds.current.add(operation.id);
+      bulkRef.current = operation.id;
+      setBulkPending(true);
+      send({ type: "note:bulk-restore", operationId: operation.id });
+      break;
+    }
+    setHasQueuedRestores(queuedRestoresRef.current.length > 0);
+  }, [send]);
+
   const clear = useCallback(() => {
     pendingRef.current = [];
     setPending([]);
     bulkRef.current = null;
     setBulkPending(false);
+    queuedRestoresRef.current = [];
+    setHasQueuedRestores(false);
     for (const id of notices.current) roomNotify.dismissCandidateNotice(id);
     notices.current.clear();
   }, []);
@@ -72,7 +102,6 @@ export function useCandidateOperations({
     ) => {
       if (
         !connectedRef.current ||
-        bulkRef.current ||
         pendingRef.current.some((item) => item.noteId === noteId)
       )
         return;
@@ -83,6 +112,25 @@ export function useCandidateOperations({
         note.exclusionOperationId !== expectedExclusionOperationId
       )
         return;
+      if (bulkRef.current) {
+        if (
+          expectedExclusionOperationId !== undefined &&
+          !queuedRestoresRef.current.some(
+            (operation) =>
+              operation.kind === "individual" &&
+              operation.noteId === noteId &&
+              operation.id === expectedExclusionOperationId,
+          )
+        ) {
+          queuedRestoresRef.current.push({
+            kind: "individual",
+            noteId,
+            id: expectedExclusionOperationId,
+          });
+          setHasQueuedRestores(true);
+        }
+        return;
+      }
       const id = crypto.randomUUID();
       issuedIds.current.add(id);
       pendingRef.current = [...pendingRef.current, { id, noteId, excluded }];
@@ -103,6 +151,9 @@ export function useCandidateOperations({
     [send],
   );
 
+  restoreQueuedNoteRef.current = (noteId, token) =>
+    change(noteId, false, token);
+
   const applyMessage = useCallback(
     (message: ServerMessage): boolean => {
       if (
@@ -121,6 +172,7 @@ export function useCandidateOperations({
         if (bulkRef.current === message.operationId) {
           bulkRef.current = null;
           setBulkPending(false);
+          drainRestores();
         } else if (issuedIds.current.has(message.operationId)) return true;
         return false;
       }
@@ -144,6 +196,7 @@ export function useCandidateOperations({
           bulkRef.current = null;
           setBulkPending(false);
         }
+        drainRestores();
         notify.error(message.message);
         return true;
       }
@@ -162,9 +215,10 @@ export function useCandidateOperations({
           roomNotify.noteExcluded(() => change(operation.noteId, false, id)),
         );
       }
+      drainRestores();
       return superseded;
     },
-    [change, clear],
+    [change, clear, drainRestores],
   );
 
   const bulkExclude = useCallback(() => {
@@ -178,15 +232,23 @@ export function useCandidateOperations({
   }, [send]);
 
   const bulkRestore = useCallback(
-    (operationId: string) => {
-      if (!connectedRef.current || pendingRef.current.length || bulkRef.current)
-        return;
-      issuedIds.current.add(operationId);
-      bulkRef.current = operationId;
-      setBulkPending(true);
-      send({ type: "note:bulk-restore", operationId });
+    (operationId: string): boolean => {
+      if (
+        !connectedRef.current ||
+        bulkRef.current === operationId ||
+        queuedRestoresRef.current.some(
+          (operation) =>
+            operation.kind === "bulk" && operation.id === operationId,
+        )
+      )
+        return false;
+      // 通知のクリックは一度きりでも、別の候補操作の完了後にUndoを届ける。
+      queuedRestoresRef.current.push({ kind: "bulk", id: operationId });
+      setHasQueuedRestores(true);
+      drainRestores();
+      return true;
     },
-    [send],
+    [drainRestores],
   );
 
   return {
@@ -195,7 +257,7 @@ export function useCandidateOperations({
       return operation ? { ...note, excluded: operation.excluded } : note;
     }),
     pendingNoteIds: pending.map((item) => item.noteId),
-    isPending: pending.length > 0 || bulkPending,
+    isPending: pending.length > 0 || bulkPending || hasQueuedRestores,
     exclude: (noteId: string) => change(noteId, true),
     restore: (noteId: string) => change(noteId, false),
     bulkExclude,

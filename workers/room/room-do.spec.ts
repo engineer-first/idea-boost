@@ -16,6 +16,7 @@ import {
   listMemberIds,
   runInRoomDO,
 } from "../test-helpers";
+import type { SocketAttachment } from "./broadcast";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
@@ -1329,6 +1330,35 @@ describe("RoomDO 候補外付箋", () => {
             ? { type: "note:updated", note: { x: 55, y: 60, excluded } }
             : { type: "error", code: "forbidden" },
         );
+        const dragId = crypto.randomUUID();
+        ws.send(
+          JSON.stringify({ type: "note:drag:start", noteId: NOTE_ID, dragId }),
+        );
+        expect(await nextJson(ws)).toMatchObject(
+          allowed
+            ? { type: "note:drag:result", accepted: true }
+            : { type: "error", code: "forbidden" },
+        );
+        if (!allowed)
+          await runInRoomDO(name, (_instance, state) => {
+            expect(
+              state.storage.sql
+                .exec("SELECT x, y, excluded FROM notes WHERE id = ?", NOTE_ID)
+                .one(),
+            ).toMatchObject({ x: 123, y: 456, excluded: excluded ? 1 : 0 });
+            for (const socket of state.getWebSockets())
+              expect(
+                (socket.deserializeAttachment() as SocketAttachment).activeDrag,
+              ).toBeUndefined();
+          });
+        if (allowed)
+          ws.send(
+            JSON.stringify({
+              type: "note:drag:cancel",
+              noteId: NOTE_ID,
+              dragId,
+            }),
+          );
         ws.close();
       }
   });
@@ -2066,6 +2096,7 @@ describe("RoomDO 候補外付箋", () => {
     expect(await nextJson(member)).toMatchObject({
       type: "error",
       code: "forbidden",
+      operationId: "33333333-3333-4333-8333-333333333333",
     });
     member.close();
 

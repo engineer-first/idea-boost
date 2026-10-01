@@ -410,6 +410,22 @@ export function NoteCard({
     }, ACTION_HIDE_DELAY_MS);
   }, [cancelPointerActionHide, cancelPointerActionShow, releasePointerAction]);
 
+  useEffect(() => {
+    if (!isFocusActionVisible) return;
+    const ownerDocument = noteRef.current?.ownerDocument;
+    if (!ownerDocument) return;
+    // 前面順のDOM移動でblurが届かない場合も、実際の次のfocusに追従する。
+    const handleFocusIn = (event: FocusEvent) => {
+      if (
+        event.target !== surfaceRef.current &&
+        event.target !== candidateActionRef.current
+      )
+        setIsFocusActionVisible(false);
+    };
+    ownerDocument.addEventListener("focusin", handleFocusIn);
+    return () => ownerDocument.removeEventListener("focusin", handleFocusIn);
+  }, [isFocusActionVisible]);
+
   const cancelFocusActionHide = useCallback(() => {
     if (focusHideTimeoutRef.current === null) return;
     window.clearTimeout(focusHideTimeoutRef.current);

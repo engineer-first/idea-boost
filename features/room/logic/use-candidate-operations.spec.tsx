@@ -26,6 +26,78 @@ function setup() {
 }
 
 describe("候補操作", () => {
+  it("一括操作待ちで押した別付箋の個別Undoも消費せず送信する", () => {
+    const { result, send, notes, rerender } = setup();
+    act(() => result.current.exclude("a"));
+    const request = send.mock.calls[0][0];
+    if (!("operationId" in request)) throw new Error("IDが必要です");
+    const note = {
+      ...notes[0],
+      excluded: true,
+      exclusionOperationId: request.operationId,
+    };
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note,
+        operationId: request.operationId,
+      }),
+    );
+    rerender({ notes: [note, notes[1]], connected: true });
+    const bulkId = crypto.randomUUID();
+    act(() => result.current.bulkRestore(bulkId));
+    act(() => excluded.mock.calls[0][0]());
+    expect(send).toHaveBeenCalledTimes(2);
+    act(() =>
+      result.current.applyMessage({
+        type: "note:bulk-restored",
+        operationId: bulkId,
+        count: 1,
+      }),
+    );
+    expect(send).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "note:restore",
+        noteId: "a",
+        expectedExclusionOperationId: request.operationId,
+      }),
+    );
+  });
+
+  it("別付箋の個別操作待ちで押した一括UndoをACK後に送信する", () => {
+    const { result, send, notes } = setup();
+    const bulkId = crypto.randomUUID();
+    act(() => result.current.exclude("b"));
+    const request = send.mock.calls[0][0];
+    if (!("operationId" in request)) throw new Error("IDが必要です");
+    act(() => result.current.bulkRestore(bulkId));
+    expect(send).toHaveBeenCalledOnce();
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: {
+          ...notes[1],
+          excluded: true,
+          exclusionOperationId: request.operationId,
+        },
+        operationId: request.operationId,
+      }),
+    );
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:bulk-restore",
+      operationId: bulkId,
+    });
+    expect(result.current.isPending).toBe(true);
+    act(() =>
+      result.current.applyMessage({
+        type: "note:bulk-restored",
+        operationId: bulkId,
+        count: 1,
+      }),
+    );
+    expect(result.current.isPending).toBe(false);
+  });
+
   it("新しい位置更新の後に届いた古い成功応答は確定処理だけ行い盤面へ再適用しない", () => {
     const { result, send, notes, rerender } = setup();
     act(() => result.current.exclude("a"));

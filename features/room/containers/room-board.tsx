@@ -69,7 +69,8 @@ export function RoomBoard({
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
-  const latestBulkExclusionOperationRef = useRef<string | null>(null);
+  const bulkUndoIdsRef = useRef(new Set<string>());
+  const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
@@ -103,7 +104,8 @@ export function RoomBoard({
   });
 
   function clearCandidateNotices(): void {
-    latestBulkExclusionOperationRef.current = null;
+    bulkUndoIdsRef.current.clear();
+    bulkNoticeIdsRef.current.clear();
     for (const id of candidateNoticeIdsRef.current)
       roomNotify.dismissCandidateNotice(id);
     candidateNoticeIdsRef.current.clear();
@@ -118,9 +120,13 @@ export function RoomBoard({
     [],
   );
 
-  const rememberCandidateNotice = useCallback((id: string | number): void => {
-    candidateNoticeIdsRef.current.add(id);
-  }, []);
+  const rememberCandidateNotice = useCallback(
+    (id: string | number, operationId: string): void => {
+      candidateNoticeIdsRef.current.add(id);
+      bulkNoticeIdsRef.current.set(operationId, id);
+    },
+    [],
+  );
 
   function handleServerMessage(message: ServerMessage) {
     if (
@@ -139,40 +145,42 @@ export function RoomBoard({
     drafts.applyMessage(message);
     if (candidates.applyMessage(message)) return;
     if (message.type === "snapshot") {
-      latestBulkExclusionOperationRef.current = null;
+      bulkUndoIdsRef.current.clear();
+      bulkNoticeIdsRef.current.clear();
     }
     if (message.type === "note:bulk-excluded") {
       if (message.count > 0) {
         const undo = () => {
-          if (latestBulkExclusionOperationRef.current !== message.operationId) {
-            return;
-          }
-          latestBulkExclusionOperationRef.current = null;
-          candidates.bulkRestore(message.operationId);
+          if (!bulkUndoIdsRef.current.has(message.operationId)) return;
+          if (candidates.bulkRestore(message.operationId))
+            bulkUndoIdsRef.current.delete(message.operationId);
         };
         if (message.source === "phase-transition") {
-          latestBulkExclusionOperationRef.current = isHost
-            ? message.operationId
-            : null;
+          if (isHost) bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
             roomNotify.automaticallyExcludedCandidates(
               message.count,
               isHost ? undo : undefined,
             ),
+            message.operationId,
           );
         } else {
-          latestBulkExclusionOperationRef.current = message.operationId;
+          bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
             roomNotify.bulkCandidatesExcluded(message.count, undo),
+            message.operationId,
           );
         }
       }
     }
-    if (
-      message.type === "note:bulk-restored" &&
-      latestBulkExclusionOperationRef.current === message.operationId
-    ) {
-      clearCandidateNotices();
+    if (message.type === "note:bulk-restored") {
+      const notice = bulkNoticeIdsRef.current.get(message.operationId);
+      if (notice !== undefined) {
+        roomNotify.dismissCandidateNotice(notice);
+        candidateNoticeIdsRef.current.delete(notice);
+        bulkNoticeIdsRef.current.delete(message.operationId);
+      }
+      bulkUndoIdsRef.current.delete(message.operationId);
     }
     if (message.type === "error") {
       notes.applyMessage(message);

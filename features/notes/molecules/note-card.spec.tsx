@@ -53,6 +53,21 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("DOM移動でblurが届かなくても別付箋へのfocusで古い一時表示を残さない", () => {
+    const { props, view } = setup({ isSelected: true, canExcludeNote: true });
+    const action = screen.getByRole("button", { name: "候補から外す" });
+    fireEvent.focus(getNoteSurface());
+    view.rerender(<NoteCard {...props} isSelected={false} />);
+    const other = document.createElement("button");
+    document.body.append(other);
+    try {
+      fireEvent.focusIn(other);
+      expect(action).toHaveClass("opacity-0");
+    } finally {
+      other.remove();
+    }
+  });
+
   it("選択中のSpaceは本文を書き換えず、キャンバスのパン操作へ渡す", () => {
     const onDraftChange = vi.fn();
     const onContentChange = vi.fn();
