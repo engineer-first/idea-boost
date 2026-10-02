@@ -147,12 +147,20 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
         <h2 id={`${id}-title`} className="text-lg leading-7 font-semibold">
           {guide.action ?? guide.modalTitle ?? guide.message}
         </h2>
-        <dl className="mt-4 space-y-4 text-sm leading-6">
+        <dl className="mt-2 space-y-4 text-sm leading-6">
           <div>
-            <dt className="text-xs font-semibold text-muted-foreground">
+            <dt
+              className={
+                guide.firstAction
+                  ? "sr-only"
+                  : "text-xs font-semibold text-muted-foreground"
+              }
+            >
               {guide.firstAction ? "まず" : "いまやること"}
             </dt>
-            <dd className="mt-1">{guide.firstAction ?? guide.message}</dd>
+            <dd className={guide.firstAction ? undefined : "mt-1"}>
+              {guide.firstAction ?? guide.message}
+            </dd>
           </div>
           {guide.visualExample && (
             <div>

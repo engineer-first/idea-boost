@@ -61,11 +61,10 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.intro > * {
-  width: calc(var(--guide-width) - 42px);
-}
+/* 縦スクロールバーの幅も引いた、実際に使える内側の幅に合わせる。 */
+.intro > *,
 .detail > * {
-  width: calc(var(--guide-width) - 50px);
+  width: 100%;
 }
 .guide[data-state="compact"] .compact,
 .guide[data-state="intro"] .intro,
@@ -96,6 +95,9 @@
   }
 }
 @media (max-width: 639px) {
+  .detail {
+    padding: 12px 24px;
+  }
   .guide {
     --guide-width: calc(100vw - 24px);
     position: relative;
