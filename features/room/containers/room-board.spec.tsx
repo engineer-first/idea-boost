@@ -438,7 +438,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.click(screen.getByTestId("room-timer"));
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
     expect(socket.sent).toContain(
-      JSON.stringify({ type: "timer:start", durationMs: 180_000 }),
+      JSON.stringify({ type: "timer:start", durationMs: 300_000 }),
     );
 
     act(() =>
@@ -463,7 +463,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     const timer = within(controls).getByTestId("room-timer");
     expect(timer).toBeVisible();
     expect(timer.tagName).toBe("SPAN");
-    expect(timer).toHaveTextContent("03:00");
+    expect(timer).toHaveTextContent("05:00");
     expect(within(timer).queryByRole("button")).not.toBeInTheDocument();
 
     act(() =>
