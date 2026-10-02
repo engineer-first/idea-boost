@@ -1,12 +1,8 @@
 "use client";
 
-import { Check, ChevronRight, ChevronUp } from "lucide-react";
-import { useId, useState } from "react";
-import {
-  PHASE_STEP_COUNTS,
-  ROOM_PHASE_STEP_LABELS,
-  type RoomPhase,
-} from "@/contracts/phase";
+import { Check, ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
+import { type ReactNode, useId, useState } from "react";
+import { PHASE_STEP_COUNTS, type RoomPhase } from "@/contracts/phase";
 import {
   getPhaseLabel,
   getPhaseProgressState,
@@ -14,6 +10,7 @@ import {
   PHASE_LABELS,
   PHASE_NUMBERS,
 } from "../logic/phase-labels";
+import styles from "./board-context.module.css";
 
 const PROGRESS_STEPS = [1, 2, 3, 4, 5] as const;
 
@@ -42,7 +39,6 @@ function getPhaseContext(phase: RoomPhase): {
 
 export type BoardContextProps = {
   phase: RoomPhase;
-  isHost?: boolean;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
   onOpenFeedback?: () => void;
@@ -50,20 +46,49 @@ export type BoardContextProps = {
 
 export function BoardContext({
   phase,
-  isHost,
   hmwDecidedIssue,
   decidedHmw,
   onOpenFeedback,
 }: BoardContextProps) {
   const context = getPhaseContext(phase);
-  const [isRouteOpen, setRouteOpen] = useState(false);
-  const routeId = useId();
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+  const [openState, setOpenState] = useState<{
+    phaseKey: string;
+    id: string | null;
+  }>({ phaseKey, id: null });
+  const openDisclosureId =
+    openState.phaseKey === phaseKey ? openState.id : null;
+  const id = useId();
+
+  const disclosures: {
+    id: string;
+    label: string;
+    content: ReactNode;
+  }[] = [];
+
   const decisions = [
     { id: "hmw", label: "決定したHMW", content: decidedHmw },
     { id: "issue", label: "決定した課題", content: hmwDecidedIssue },
   ].filter((item) => item.content !== null);
+
+  for (const decision of decisions) {
+    disclosures.push({
+      id: decision.id,
+      label: decision.label,
+      content: (
+        <div
+          data-testid={`board-reference-${decision.id}-content`}
+          className="max-h-24 overflow-y-auto overscroll-contain px-4 py-2"
+        >
+          <p className="whitespace-pre-wrap break-words text-sm leading-5">
+            {decision.content}
+          </p>
+        </div>
+      ),
+    });
+  }
+
   return (
     <header
       data-testid="board-context-hud"
@@ -126,26 +151,36 @@ export function BoardContext({
           })}
         </ol>
       </nav>
-      <div className="px-3 py-1.5 sm:px-4 max-[639px]:py-2">
-        <span className="flex items-center gap-2">
+
+      <div className="px-3 py-1.5 sm:px-4">
+        <div className="flex min-w-0 items-center gap-1.5">
           <span
             id="board-current-step"
             data-testid="board-current-step"
-            className="min-w-0 flex-1 text-sm font-semibold"
+            className="min-w-0 flex-1 text-sm leading-5 font-semibold"
           >
             {context.stepLabel}
           </span>
-          <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-            {context.step}/{context.stepCount}
-          </span>
-        </span>
+          {onOpenFeedback ? (
+            <button
+              type="button"
+              aria-label="フィードバック"
+              title="フィードバック"
+              onClick={onOpenFeedback}
+              className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <MessageSquare aria-hidden="true" className="size-4" />
+              <span className="whitespace-nowrap">フィードバック</span>
+            </button>
+          ) : null}
+        </div>
         <span
           role="progressbar"
           aria-label={`${context.title}の進行状況`}
           aria-valuemin={0}
           aria-valuemax={context.stepCount}
           aria-valuenow={context.step}
-          className="mt-2.5 flex h-0.5 w-full gap-1"
+          className="mt-1.5 flex h-0.5 w-full gap-1"
           data-testid="board-progress-rail"
         >
           {PROGRESS_STEPS.slice(0, context.stepCount).map((stepNumber) => (
@@ -157,99 +192,63 @@ export function BoardContext({
             />
           ))}
         </span>
-        {isHost !== undefined ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {isHost
-              ? "ホスト：進行はあなたが操作"
-              : "参加者：次への進行はホストが操作"}
-          </p>
-        ) : null}
-        {onOpenFeedback ? (
-          <button
-            type="button"
-            onClick={onOpenFeedback}
-            className="mt-3 min-h-9 rounded-md px-2 text-xs underline underline-offset-4 hover:bg-muted"
-          >
-            フィードバック
-          </button>
-        ) : null}
-        {phase.kind === "step" ? (
-          <>
-            <button
-              type="button"
-              aria-expanded={isRouteOpen}
-              aria-controls={routeId}
-              className="mt-3 min-h-8 max-[639px]:mt-1 text-xs text-primary underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
-              onClick={() => setRouteOpen(!isRouteOpen)}
-            >
-              {isRouteOpen ? "全手順を閉じる" : "全手順を見る"}
-            </button>
-            {isRouteOpen ? (
-              <ol
-                id={routeId}
-                aria-label="このフェーズの全手順"
-                className="mt-2 space-y-1 text-xs leading-5"
-              >
-                {Object.entries(ROOM_PHASE_STEP_LABELS[phase.phase]).map(
-                  ([step, label]) => (
-                    <li
-                      key={step}
-                      aria-current={
-                        Number(step) === phase.step ? "step" : undefined
-                      }
-                      className={
-                        Number(step) === phase.step
-                          ? "font-semibold text-primary"
-                          : "text-muted-foreground"
-                      }
-                    >
-                      {label}
-                    </li>
-                  ),
-                )}
-              </ol>
-            ) : null}
-            <p className="mt-2 border-t border-border pt-2 text-xs max-[639px]:mt-1 max-[639px]:pt-1">
-              ゴール：
-              {phase.phase === 1
-                ? "課題"
-                : phase.phase === 2
-                  ? "HMW"
-                  : "アイデア"}
-              を1つ決める
-            </p>
-          </>
-        ) : null}
       </div>
 
-      {decisions.map(({ id, label, content }, index) => (
-        <details
-          key={`${phaseKey}-${id}`}
-          open={phase.kind === "step" && phase.step === 1 && index === 0}
-          className="group/reference border-t border-border"
-          data-testid={`board-reference-${id}`}
-        >
-          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-xs font-medium outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-            <Check
-              aria-hidden="true"
-              className="size-3.5 shrink-0 text-muted-foreground"
-            />
-            <span className="flex-1">{label}</span>
-            <ChevronUp
-              aria-hidden="true"
-              className="size-3.5 shrink-0 rotate-180 text-muted-foreground transition-transform group-open/reference:rotate-0 motion-reduce:transition-none"
-            />
-          </summary>
-          <div
-            data-testid={`board-reference-${id}-content`}
-            className="max-h-24 overflow-y-auto overscroll-contain px-4 pb-3"
+      {disclosures.map((disclosure) => {
+        const isOpen = openDisclosureId === disclosure.id;
+        const triggerId = `${id}-${disclosure.id}-trigger`;
+        const contentId = `${id}-${disclosure.id}-content`;
+
+        return (
+          <section
+            key={disclosure.id}
+            className="border-t border-border"
+            data-testid={
+              disclosure.id === "hmw" || disclosure.id === "issue"
+                ? `board-reference-${disclosure.id}`
+                : `board-context-${disclosure.id}`
+            }
+            data-open={isOpen}
           >
-            <p className="whitespace-pre-wrap break-words text-sm leading-5">
-              {content}
-            </p>
-          </div>
-        </details>
-      ))}
+            <button
+              id={triggerId}
+              type="button"
+              aria-expanded={isOpen}
+              aria-controls={contentId}
+              className="flex min-h-8 w-full cursor-pointer items-center gap-1.5 px-4 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              onClick={() =>
+                setOpenState({
+                  phaseKey,
+                  id: isOpen ? null : disclosure.id,
+                })
+              }
+            >
+              {disclosure.id === "hmw" || disclosure.id === "issue" ? (
+                <Check
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                />
+              ) : null}
+              <span className="flex-1">{disclosure.label}</span>
+              <ChevronDown
+                aria-hidden="true"
+                className={`size-3.5 shrink-0 text-muted-foreground ${isOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            <section
+              id={contentId}
+              aria-labelledby={triggerId}
+              aria-hidden={!isOpen}
+              inert={!isOpen}
+              hidden={!isOpen}
+              data-open={isOpen}
+              className={styles.disclosure}
+            >
+              <div className={styles.disclosureInner}>{disclosure.content}</div>
+            </section>
+          </section>
+        );
+      })}
     </header>
   );
 }

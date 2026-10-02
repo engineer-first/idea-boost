@@ -8,7 +8,7 @@ describe("SharingPresenter", () => {
   it.each([
     { startsAt: 2_000, expected: "まもなく発表" },
     { startsAt: null, expected: "発表中" },
-  ])("開始予告と発表中を読み分け、現在と次の人を入口で確認できる ($startsAt)", ({
+  ])("開始予告と発表中は発表者名と全体の順番だけを示す ($startsAt)", ({
     startsAt,
     expected,
   }) => {
@@ -30,10 +30,8 @@ describe("SharingPresenter", () => {
       name: "発表者と全体の順番を確認",
     });
     expect(trigger).toHaveAccessibleDescription(
-      expect.stringContaining(`${expected}：${sharing.order[1].name}`),
+      `${expected}：${sharing.order[1].name}`,
     );
-    expect(trigger).toHaveAccessibleDescription(
-      expect.stringContaining(`次 ${sharing.order[2].name}`),
-    );
+    expect(trigger).toHaveTextContent("2/3");
   });
 });
