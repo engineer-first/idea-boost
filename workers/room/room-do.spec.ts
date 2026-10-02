@@ -1323,7 +1323,12 @@ describe("RoomDO 候補外付箋", () => {
         await prepare(name, buildPhaseStep(step, phase), excluded);
         const ws = await connectDirectly(name, userId, USER_A);
         ws.send(
-          JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 55, y: 60 }),
+          JSON.stringify({
+            type: "note:move",
+            noteId: NOTE_ID,
+            x: 55,
+            y: 60,
+          }),
         );
         expect(await nextJson(ws)).toMatchObject(
           allowed
@@ -1332,7 +1337,11 @@ describe("RoomDO 候補外付箋", () => {
         );
         const dragId = crypto.randomUUID();
         ws.send(
-          JSON.stringify({ type: "note:drag:start", noteId: NOTE_ID, dragId }),
+          JSON.stringify({
+            type: "note:drag:start",
+            noteId: NOTE_ID,
+            dragId,
+          }),
         );
         expect(await nextJson(ws)).toMatchObject(
           allowed
@@ -2658,7 +2667,10 @@ describe("RoomDO phase:next", () => {
         phase: buildPhaseStep(resultStep, phase),
         notes: expect.arrayContaining([
           expect.objectContaining({ id: AUTO_ZERO_NOTE_ID, excluded: true }),
-          expect.objectContaining({ id: AUTO_VOTED_NOTE_ID, excluded: false }),
+          expect.objectContaining({
+            id: AUTO_VOTED_NOTE_ID,
+            excluded: false,
+          }),
         ]),
       });
       expect(messages[1]).toMatchObject({
@@ -3139,7 +3151,7 @@ describe("RoomDO phase:next", () => {
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
          VALUES (?1, ?2, '課題', 'shared', 'yellow', 0, 0, ?3, ?3, 1),
-                (?4, ?2, 'HMW', 'shared', 'yellow', 100, 0, ?3, ?3, 2)`,
+                 (?4, ?2, '問い', 'shared', 'yellow', 100, 0, ?3, ?3, 2)`,
         phase1NoteId,
         USER_A,
         now,
@@ -3300,7 +3312,7 @@ describe("RoomDO phase:next", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+         VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         noteId,
         USER_A,
         now,
@@ -4648,7 +4660,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
       code: "forbidden",
-      message: expect.stringContaining("2-2 HMW共有"),
+      message: expect.stringContaining("2-2 問い共有"),
     });
     ws.close();
   });
@@ -5477,7 +5489,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+          VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         HMW_NOTE_ID,
         USER_A,
         now,
@@ -5496,7 +5508,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-4 ではホストのHMW決定が許可される", async () => {
+  it("Step 2-4 ではホストの問い決定が許可される", async () => {
     const roomName = "room-phase2-decide-gate";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -5506,7 +5518,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+          VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         HMW_NOTE_ID,
         USER_A,
         now,
@@ -5522,7 +5534,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-4 では非ホストのHMW決定を forbidden で拒否する", async () => {
+  it("Step 2-4 では非ホストの問い決定を forbidden で拒否する", async () => {
     const roomName = "room-phase2-decide-non-host";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -5533,7 +5545,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+          VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         HMW_NOTE_ID,
         USER_A,
         now,
@@ -5933,7 +5945,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-1 では他者の HMW 付箋が snapshot に含まれず、note:vote も forbidden になる", async () => {
+  it("Step 2-1 では他者の問いの付箋が snapshot に含まれず、note:vote も forbidden になる", async () => {
     const roomName = "room-step2-1-others-hidden";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -5942,7 +5954,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
 
     const memberWs = await connectDirectly(roomName, USER_B, USER_A);
     memberWs.send(
-      JSON.stringify({ type: "note:create", content: "他人のHMW" }),
+      JSON.stringify({ type: "note:create", content: "他人の問い" }),
     );
     const inserted = (await nextJson(memberWs)) as {
       note: { id: string };
@@ -5987,7 +5999,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
-    ws.send(JSON.stringify({ type: "note:create", content: "自分のHMW" }));
+    ws.send(JSON.stringify({ type: "note:create", content: "自分の問い" }));
     const inserted = (await nextJson(ws)) as { note: { id: string } };
 
     ws.send(
@@ -6149,7 +6161,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-2 では publish した HMW が全員に共有され、近接してもグループ化されない", async () => {
+  it("Step 2-2 では publish した問いが全員に共有され、近接してもグループ化されない", async () => {
     const roomName = "room-step2-2-share-hmw";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -6157,7 +6169,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
     const authorWs = await connectDirectly(roomName, USER_A, USER_A);
-    authorWs.send(JSON.stringify({ type: "note:create", content: "HMW" }));
+    authorWs.send(JSON.stringify({ type: "note:create", content: "問い" }));
     const inserted = (await nextJson(authorWs)) as { note: { id: string } };
 
     await stub.setPhase(buildPhaseStep(2, 2), USER_A);
@@ -6228,7 +6240,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.close();
   });
 
-  it("付箋は作成時のフェーズに紐づき、Step 2-2 の snapshot は HMW だけを返す", async () => {
+  it("付箋は作成時のフェーズに紐づき、Step 2-2 の snapshot は問いだけを返す", async () => {
     const roomName = "room-step2-note-phase-isolation";
     const oldNoteId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
     const hmwNoteId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef";
@@ -6241,7 +6253,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
          VALUES (?1, ?2, '課題', 'shared', 'yellow', 0, 0, ?3, ?3, 1),
-                (?4, ?2, 'HMW', 'shared', 'blue', 100, 100, ?3, ?3, 2)`,
+                 (?4, ?2, '問い', 'shared', 'blue', 100, 100, ?3, ?3, 2)`,
         oldNoteId,
         USER_A,
         now,

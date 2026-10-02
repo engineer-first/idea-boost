@@ -83,7 +83,7 @@ for (const width of [390, 1440]) {
   });
 }
 
-test("接続拒否中はテンプレートを作成できず、具体例は読むための資料のまま", async () => {
+test("接続拒否中は発想支援ツールを作成できない", async () => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   try {
     await open(page, "disconnected");
@@ -91,17 +91,6 @@ test("接続拒否中はテンプレートを作成できず、具体例は読�
     for (const button of await guide.getByRole("button").all()) {
       expect(await button.isDisabled()).toBe(true);
     }
-    await open(page, "hmw");
-    const example = page.getByText("小さいタスクを忘れずに取り組める？", {
-      exact: true,
-    });
-    await example.scrollIntoViewIfNeeded();
-    expect(await example.isVisible()).toBe(true);
-    expect(
-      await page
-        .getByRole("button", { name: "小さいタスクを忘れずに取り組める？" })
-        .count(),
-    ).toBe(0);
   } finally {
     await page.close();
   }

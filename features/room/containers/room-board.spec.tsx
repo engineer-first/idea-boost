@@ -62,7 +62,7 @@ import type {
   ProtocolNote,
 } from "@/contracts/room-protocol";
 import { buildCarryover, buildGroup } from "@/contracts/room-protocol.fixture";
-import { DECIDED_ISSUE_LABEL, HMW_TEMPLATES } from "@/features/hmw";
+import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
 import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
 import { RoomBoard } from "./room-board";
 
@@ -2409,7 +2409,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   });
 });
 
-describe("Step 2-1（HMW 個人執筆）", () => {
+describe("Step 2-1（問いの個人執筆）", () => {
   function connectAtHmwStep(notes: ProtocolNote[] = []) {
     return connectWithSnapshot(notes, {
       phase: buildPhaseStep(1, 2),
@@ -2431,17 +2431,6 @@ describe("Step 2-1（HMW 個人執筆）", () => {
 
     expect(screen.getByText(DECIDED_ISSUE_LABEL)).toBeInTheDocument();
     expect(screen.getByText("宿題を後回しにしてしまう")).toBeInTheDocument();
-  });
-
-  it("テンプレートを選ぶと content 付き note:create を送る", () => {
-    const { socket } = connectAtHmwStep();
-
-    fireEvent.click(screen.getByRole("button", { name: HMW_TEMPLATES[0] }));
-
-    expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual({
-      type: "note:create",
-      content: HMW_TEMPLATES[0],
-    });
   });
 
   it("「付箋を追加」は content なしの note:create を送る（イベントを content に流さない）", () => {
@@ -2472,7 +2461,7 @@ describe("Step 2-1（HMW 個人執筆）", () => {
     expect(screen.queryByText("フェーズ1のグループ")).not.toBeInTheDocument();
   });
 
-  it("Step 1-1 では HMW テンプレートパネルを表示しない", () => {
+  it("Step 1-1 では問いのテンプレートパネルを表示しない", () => {
     connectWithSnapshot([], { phase: buildPhaseStep(1) });
 
     expect(screen.queryByTestId("hmw-template-panel")).not.toBeInTheDocument();
@@ -2505,7 +2494,7 @@ describe("Step 3-1（アイデア個人執筆）", () => {
     expect(
       screen.getByText("どうすれば着手しやすくできるか"),
     ).not.toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "決定したHMW" }));
+    fireEvent.click(screen.getByRole("button", { name: "決定した問い" }));
     expect(screen.getByText("優先順位を決められない")).not.toBeVisible();
     expect(
       screen.getByText("どうすれば着手しやすくできるか"),

@@ -60,6 +60,17 @@ describe("useRoomNotes", () => {
     );
   }
 
+  it("snapshotを適用するたびにsnapshotVersionを進める", () => {
+    const { result } = setup();
+    expect(result.current.snapshotVersion).toBe(0);
+
+    act(() => result.current.applyMessage(snapshotMessage()));
+    expect(result.current.snapshotVersion).toBe(1);
+
+    act(() => result.current.applyMessage(snapshotMessage([])));
+    expect(result.current.snapshotVersion).toBe(2);
+  });
+
   it("採用が確定したらドラッグを止め、最後に受理された位置へ揃える", () => {
     const { result } = setup();
     act(() =>

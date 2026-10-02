@@ -247,7 +247,7 @@ export function discardPrivateNotes(sql: SqlStorage): void {
   sql.exec("DELETE FROM notes WHERE visibility = 'private'");
 }
 
-// 個人執筆ステップ（各フェーズの Step 1: 課題 / HMW / アイデアを個人で書く）
+// 個人執筆ステップ（各フェーズの Step 1: 課題 / 問い / アイデアを個人で書く）
 // かどうか。これらのステップでは変更してよいのは自分の private 付箋だけで、
 // 前フェーズから残る共有付箋は記録として凍結する。共有ステップの
 // 「共有付箋は全員で修正できる」認可（note-handlers の canEdit）が
@@ -364,7 +364,7 @@ const allowedBoardMutationsByPhase: {
     ],
   },
   2: {
-    // Step 2-1（HMW 個人執筆）は自分専用付箋の作成・編集・削除だけ。
+    // Step 2-1（問いの個人執筆）は自分専用付箋の作成・編集・削除だけ。
     1: [
       "note:create",
       "note:update-content",

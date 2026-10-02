@@ -54,7 +54,7 @@ describe("現在地と補足情報", () => {
       />,
     );
 
-    const hmw = screen.getByRole("button", { name: "決定したHMW" });
+    const hmw = screen.getByRole("button", { name: "決定した問い" });
     const issue = screen.getByRole("button", { name: "決定した課題" });
     expect(hmw).toHaveAttribute("aria-expanded", "false");
     expect(issue).toHaveAttribute("aria-expanded", "false");

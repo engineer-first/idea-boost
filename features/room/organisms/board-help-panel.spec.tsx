@@ -54,7 +54,7 @@ describe("BoardHelpPanel", () => {
     expect(button).toHaveFocus();
   });
 
-  it("HMWのテンプレートから従来どおり付箋を作れる", () => {
+  it("問いのテンプレートから従来どおり付箋を作れる", () => {
     const { props } = setup({ kind: "hmw" });
     const button = within(
       screen.getByTestId("hmw-template-panel"),

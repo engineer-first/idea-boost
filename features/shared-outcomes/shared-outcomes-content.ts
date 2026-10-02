@@ -1,4 +1,4 @@
-export const PHASE_LABELS = ["課題", "HMW", "アイデア"] as const;
+export const PHASE_LABELS = ["課題", "問い", "アイデア"] as const;
 export const SAVE_STATUS_LABELS = {
   saved: "保存済み",
   pending: "反映待ち",

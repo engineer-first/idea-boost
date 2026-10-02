@@ -68,7 +68,7 @@ export function BoardContext({
   }[] = [];
 
   const decisions = [
-    { id: "hmw", label: "決定したHMW", content: decidedHmw },
+    { id: "hmw", label: "決定した問い", content: decidedHmw },
     { id: "issue", label: "決定した課題", content: hmwDecidedIssue },
   ].filter((item) => item.content !== null);
 

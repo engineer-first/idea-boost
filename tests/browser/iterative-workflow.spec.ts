@@ -13,9 +13,9 @@ const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/iterative-workflow";
 const viewport = { width: 1280, height: 720 };
 const phases = [
-  { phase: 1, count: 5 },
-  { phase: 2, count: 4 },
-  { phase: 3, count: 5 },
+  { phase: 1, count: 5, goal: "課題" },
+  { phase: 2, count: 4, goal: "問い" },
+  { phase: 3, count: 5, goal: "アイデア" },
 ] as const;
 const progression =
   /^(次のステップへ|次のフェーズへ|もう一度付箋を書く|もう一度投票する|採用する付箋を選ぶ)$/;
@@ -254,7 +254,10 @@ test.each(
   expect(await dialog.innerText()).toContain("候補外");
   expect(await dialog.locator("li, blockquote").count()).toBe(0);
   await expectReachable(
-    dialog.getByRole("button", { name: "前回の票を消して始める", exact: true }),
+    dialog.getByRole("button", {
+      name: "前回の票を消して始める",
+      exact: true,
+    }),
   );
   await page.screenshot({ path: `${output}/revote-${phase}.png` });
   await dialog
@@ -413,11 +416,6 @@ test("390px fit失敗の案内がルーム操作/閉じる操作を遮らず、�
 test("390px template展開後のprivate本文がdock内で通常pointerとEnterから編集できる", async () => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openStory("room-roomboardview--hmw-writing-step");
-  await page
-    .getByTestId("hmw-template-panel")
-    .getByRole("button")
-    .first()
-    .click();
   const toolbar = page.getByTestId("private-notes-toolbar");
   await page.mouse.move(258, 627);
   await page.mouse.wheel(0, 500);

@@ -175,7 +175,6 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
   await openStory("room-roomboardlayout--phase-3-step-1");
   const canvas = page.getByTestId("board-canvas");
   const before = await canvas.boundingBox();
-  await page.getByRole("button", { name: "マイ付箋を開く" }).click();
   const scroll = page.getByTestId("private-notes-scroll");
   const size = await scroll.evaluate((e) => ({
     height: e.clientHeight,
@@ -240,7 +239,7 @@ test.each([
   await page.getByText("決定した課題", { exact: true }).click();
   const content = page.getByTestId("board-context-hud");
   expect(await content.innerText()).toContain("全員が自分の考えを伝え");
-  expect(await content.innerText()).toContain("決定したHMW");
+  expect(await content.innerText()).toContain("決定した問い");
   await expectLayout();
 });
 
@@ -329,30 +328,25 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-test("進め方を閉じると採用課題を残したままHMW例を末尾まで読める", async () => {
+test("2-1は例付箋をマイ付箋に表示し、考えるヒントを表示しない", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
   await page.getByRole("button", { name: "決定した課題" }).click();
   await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-issue-content").isVisible(),
   ).toBe(true);
-  const content = page.locator("#board-help-content");
-  // 決定内容を参照しながら、例文一覧を内部スクロールで読む。
-  await content.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  const contentBox = await content.boundingBox();
-  const lastExample = await content.locator("li").last().boundingBox();
-  expect(
-    lastExample ? lastExample.y + lastExample.height : Infinity,
-  ).toBeLessThanOrEqual((contentBox?.y ?? 0) + (contentBox?.height ?? 0));
-  await page.getByRole("button", { name: "考えるヒントを閉じる" }).focus();
-  await page.keyboard.press("Escape");
+  expect(await page.getByTestId("board-help-panel").count()).toBe(0);
   expect(
     await page
-      .getByRole("button", { name: "考えるヒントを開く" })
-      .getAttribute("aria-expanded"),
-  ).toBe("false");
+      .getByTestId("private-notes-toolbar")
+      .getAttribute("data-expanded"),
+  ).toBe("true");
+  expect(
+    await page
+      .getByTestId("private-notes-scroll")
+      .getByTestId("note-card")
+      .count(),
+  ).toBeGreaterThanOrEqual(2);
   await expectLayout();
 });
 
@@ -409,11 +403,7 @@ test("成果公開後は3件を表示し、編集ボードへ戻さずホーム�
     `${origin}/iframe.html?id=room-roomboardlayout--completed&viewMode=story`,
   );
   await page.getByRole("heading", { name: "チームで決めた成果" }).waitFor();
-  for (const label of [
-    "決定した課題",
-    "決定した問い（HMW）",
-    "採用したアイデア",
-  ]) {
+  for (const label of ["決定した課題", "決定した問い", "採用したアイデア"]) {
     expect(await page.getByRole("heading", { name: label }).isVisible()).toBe(
       true,
     );
@@ -831,7 +821,7 @@ test.each([
   expect(await page.getByTestId("board-canvas").boundingBox()).toEqual(canvas);
 
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const hmwTrigger = page.getByRole("button", { name: "決定したHMW" });
+  const hmwTrigger = page.getByRole("button", { name: "決定した問い" });
   await hmwTrigger.click();
   expect(await issueTrigger.getAttribute("aria-expanded")).toBe("false");
   expect(await hmwTrigger.getAttribute("aria-expanded")).toBe("true");
@@ -851,7 +841,7 @@ test.each([
 
 test("決定内容を参照したまま発想支援を3項目以上読める", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
-  await page.getByRole("button", { name: "決定したHMW" }).click();
+  await page.getByRole("button", { name: "決定した問い" }).click();
   await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-hmw-content").isVisible(),
@@ -894,7 +884,7 @@ test.each([
   const canvas = await page.getByTestId("board-canvas").boundingBox();
   const timer = await page.getByTestId("room-timer").boundingBox();
   const notes = await page.getByTestId("private-notes-toolbar").boundingBox();
-  const hmw = page.getByRole("button", { name: "決定したHMW" });
+  const hmw = page.getByRole("button", { name: "決定した問い" });
   const issue = page.getByRole("button", { name: "決定した課題" });
   expect(await hmw.getAttribute("aria-expanded")).toBe("false");
   expect(await issue.getAttribute("aria-expanded")).toBe("false");

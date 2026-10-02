@@ -220,7 +220,7 @@ describe("RoomBoardHeader", () => {
     setup({ phase: buildPhaseStep(1, 2) });
 
     expect(screen.getByTestId("board-current-step")).toHaveTextContent(
-      "課題に対するHMW（個人）",
+      "課題に対する問い（個人）",
     );
   });
 

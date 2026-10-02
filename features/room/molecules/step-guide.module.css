@@ -24,6 +24,13 @@
   height: min(440px, calc(100dvh - 200px));
   border-radius: 20px;
 }
+.guide:has(.detail[data-no-footer="true"])[data-state="detail"] {
+  height: min(440px, calc(100dvh - 160px));
+}
+.detail[data-no-footer="true"] {
+  overflow: hidden;
+  padding-bottom: 56px;
+}
 .layer {
   position: absolute;
   inset: 0;
@@ -99,9 +106,16 @@
   .guide[data-state="detail"] {
     height: min(180px, 22dvh);
   }
+  .guide:has(.detail[data-no-footer="true"])[data-state="detail"] {
+    height: min(420px, calc(100dvh - 120px));
+  }
   [data-testid="room-board-view-root"]:has([data-expanded="true"])
     .guide[data-state="detail"] {
     height: 110px;
+  }
+  [data-testid="room-board-view-root"]:has([data-expanded="true"])
+    .guide:has(.detail[data-no-footer="true"])[data-state="detail"] {
+    height: min(420px, calc(100dvh - 120px));
   }
 }
 @media (prefers-reduced-motion: reduce) {

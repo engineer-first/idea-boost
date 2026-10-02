@@ -16,7 +16,7 @@ import boardMeta from "./room-board-view.stories";
 
 const LONG_ISSUE =
   "チームで何を作るか決めるとき、発言が得意な人の意見だけで進んでしまい、初めて参加する学生が自分の困りごとや案を出せない。全員が自分の考えを伝え、互いの案を比べられるようにしたい。";
-const LONG_HMW =
+const LONG_QUESTION =
   "どうすれば私たちは、初参加の学生も安心して自分の考えを書き出し、全員の案を根拠とともに比較して、納得できるアイデアを選べるだろうか？";
 const PRIVATE_NOTES = buildNotes(20).map((note, index) => ({
   ...note,
@@ -55,7 +55,7 @@ function step(phase: 1 | 2 | 3, value: number): Story {
       phase: buildPhaseStep(value, phase),
       notes: value === 1 ? [] : buildNotes(3),
       hmwDecidedIssue: phase >= 2 ? LONG_ISSUE : null,
-      decidedHmw: phase === 3 ? LONG_HMW : null,
+      decidedHmw: phase === 3 ? LONG_QUESTION : null,
       members: buildMembers(12, boardMeta.args.currentUserId),
       interactions: {
         ...boardMeta.args.interactions,
@@ -148,7 +148,7 @@ export const NarrowWidth: Story = {
 
 export const DecisionsAndNotes: Story = {
   ...ReferenceAndNotes,
-  name: "進め方と課題・HMWを同時に参照",
+  name: "進め方と課題・問いを同時に参照",
   play: async (context) => {
     await ReferenceAndNotes.play?.(context);
     await userEvent.click(
@@ -161,7 +161,7 @@ export const DecisionsAndNotes: Story = {
 };
 export const ContextCollapsed: Story = {
   ...ReferenceAndNotes,
-  name: "進め方を閉じてHMWを参照しながら作業",
+  name: "進め方を閉じて問いを参照しながら作業",
   args: { ...ReferenceAndNotes.args, initialGuideState: "compact" },
 };
 

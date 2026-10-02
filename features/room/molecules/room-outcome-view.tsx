@@ -22,7 +22,7 @@ export type RoomOutcomeViewProps = {
 
 const CARDS = [
   { number: "1", label: "決定した課題", key: "issue" },
-  { number: "2", label: "決定した問い（HMW）", key: "hmw" },
+  { number: "2", label: "決定した問い", key: "hmw" },
   { number: "3", label: "採用したアイデア", key: "idea" },
 ] as const;
 
