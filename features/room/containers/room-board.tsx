@@ -472,6 +472,33 @@ export function RoomBoard({
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
+        onShareNote={(noteId, x, y) => {
+          const note = notes.notes.find((item) => item.id === noteId);
+          if (
+            connectionStatus !== "open" ||
+            roomState.phase.kind !== "step" ||
+            roomState.phase.step !== 2 ||
+            !note ||
+            note.authorId !== currentUserId ||
+            note.visibility !== "private" ||
+            drafts.draftValue(noteId) !== undefined
+          )
+            return;
+          notes.publishNote(noteId, x, y);
+        }}
+        onUnshareNote={(noteId) => {
+          const note = notes.notes.find((item) => item.id === noteId);
+          if (
+            connectionStatus !== "open" ||
+            roomState.phase.kind !== "step" ||
+            roomState.phase.step !== 2 ||
+            !note ||
+            note.authorId !== currentUserId ||
+            note.visibility !== "shared"
+          )
+            return;
+          notes.unpublishNote(noteId);
+        }}
         onHmwTemplateSelect={handleHmwTemplateSelect}
         onIdeaHintSelect={handleIdeaHintSelect}
         onPrivateNoteContentChange={drafts.blur}

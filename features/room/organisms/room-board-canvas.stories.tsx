@@ -1086,3 +1086,104 @@ export const IdeaMapMarginCursors: Story = {
   },
   decorators: IDEA_MAP_VIEWPORT,
 };
+
+const guidanceNotes = [
+  buildNote({
+    id: "guidance-first",
+    authorId: "guidance-user",
+    visibility: "private",
+    content: "みんなが困っていること",
+    x: 50,
+    y: 50,
+  }),
+  buildNote({
+    id: "guidance-second",
+    authorId: "guidance-user",
+    visibility: "private",
+    content: "もう一つの考え",
+    x: 270,
+    y: 50,
+  }),
+];
+
+// 表示・キーボード操作用の例。共有の確定はこの例だけローカル更新で模擬する。
+// 実通信と非公開境界は container / Worker のテストで検証する。
+function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
+  const [notes, setNotes] = useState([...args.notes, ...args.privateNotes]);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const updateContent = (id: string, content: string) =>
+    setNotes((current) =>
+      current.map((note) => (note.id === id ? { ...note, content } : note)),
+    );
+  return (
+    <RoomBoardCanvasWithLocalRefs
+      {...args}
+      currentUserId="guidance-user"
+      notes={notes.filter((note) => note.visibility === "shared")}
+      privateNotes={notes.filter((note) => note.visibility === "private")}
+      selectedNoteId={selectedNoteId}
+      onSelect={setSelectedNoteId}
+      onAddPrivateNote={() =>
+        setNotes((current) => [
+          ...current,
+          buildNote({
+            id: `created-${current.length}`,
+            authorId: "guidance-user",
+            visibility: "private",
+            content: "",
+          }),
+        ])
+      }
+      onPrivateNoteContentChange={updateContent}
+      onNoteContentChange={updateContent}
+      onShareNote={(id, x, y) =>
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === id ? { ...note, visibility: "shared", x, y } : note,
+          ),
+        )
+      }
+      onUnshareNote={(id) =>
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === id ? { ...note, visibility: "private" } : note,
+          ),
+        )
+      }
+    />
+  );
+}
+
+export const PrivateGuidanceEmpty: Story = {
+  args: { notes: [], privateNotes: [], isHost: false },
+  render: (args) => <PrivateNoteGuidanceExample {...args} />,
+};
+export const PrivateGuidanceMultiple: Story = {
+  ...PrivateGuidanceEmpty,
+  args: { ...PrivateGuidanceEmpty.args, privateNotes: guidanceNotes },
+};
+export const PrivateGuidanceSharing: Story = {
+  ...PrivateGuidanceEmpty,
+  args: {
+    ...PrivateGuidanceMultiple.args,
+    phase: STEP_1_2,
+    permissions: getBoardPermissions(STEP_1_2),
+    expandPrivateNotesRequest: 1,
+  },
+};
+export const PrivateGuidanceDisconnected: Story = {
+  ...PrivateGuidanceSharing,
+  args: { ...PrivateGuidanceSharing.args, isDisconnected: true },
+};
+export const PrivateGuidanceVoting: Story = {
+  ...PrivateGuidanceEmpty,
+  args: {
+    ...PrivateGuidanceEmpty.args,
+    phase: STEP_1_4,
+    permissions: getBoardPermissions(STEP_1_4),
+    notes: guidanceNotes.map((note) => ({
+      ...note,
+      visibility: "shared" as const,
+    })),
+  },
+};

@@ -16,6 +16,7 @@ import { Check, ListMinus, ListPlus } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -50,6 +51,13 @@ export type NoteCardProps = {
   canEditNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
+  visibilityAction?: {
+    label: string;
+    description: string;
+    disabled?: boolean;
+    onAction: (noteId: string) => void;
+  };
+  readOnlyReason?: string;
   canExcludeNote?: boolean;
   canRestoreNote?: boolean;
   candidatePending?: boolean;
@@ -241,12 +249,15 @@ export function NoteCard({
   onDelete,
   onExclude,
   onRestore,
+  visibilityAction,
+  readOnlyReason,
   vote,
   className,
   style,
   autoFocusEditor = false,
   onAutoFocusEditorComplete,
 }: NoteCardProps) {
+  const actionDescriptionId = useId();
   const [localContent, setLocalContent] = useState(draftValue ?? note.content);
   const [isEditing, setIsEditing] = useState(false);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -955,6 +966,35 @@ export function NoteCard({
       }
     >
       {candidateOverlay}
+      {visibilityAction ? (
+        <div className="absolute inset-x-1 bottom-1 z-20 flex flex-col items-center gap-0.5">
+          <button
+            type="button"
+            className="min-h-8 w-full rounded border border-slate-300 bg-white/95 px-1 text-xs font-medium text-slate-900 hover:bg-white focus-visible:outline-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={disabled || isOwnDrag || visibilityAction.disabled}
+            aria-describedby={actionDescriptionId}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (!disabled && !isOwnDrag && !visibilityAction.disabled)
+                visibilityAction.onAction(note.id);
+            }}
+          >
+            {visibilityAction.label}
+          </button>
+          <p
+            id={actionDescriptionId}
+            className="text-[10px] leading-3 text-slate-700"
+          >
+            {visibilityAction.description}
+          </p>
+        </div>
+      ) : readOnlyReason &&
+        (disabled || editingDisabled || !canEditNote) &&
+        isSelected ? (
+        <p className="pointer-events-none absolute inset-x-1 bottom-1 z-20 rounded bg-white/95 p-1 text-xs text-slate-700">
+          {readOnlyReason}
+        </p>
+      ) : null}
       {note.excluded ? (
         <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-sm bg-white/90 px-1 py-0.5 text-[10px] font-semibold text-slate-700">
           候補外

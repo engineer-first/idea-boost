@@ -10,7 +10,11 @@ import type {
 } from "react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { getNoteHeight } from "@/contracts/board";
+import {
+  getNoteHeight,
+  isIdeaValueFeasibilityMapCoordinate,
+  NOTE_WIDTH,
+} from "@/contracts/board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
@@ -33,7 +37,12 @@ import {
 } from "@/features/notes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { BoardPermissions } from "../logic/board-permissions";
-import { type CanvasCamera, worldToScreen } from "../logic/canvas-camera";
+import {
+  type CanvasCamera,
+  clampCanvasCoordinate,
+  screenToWorld,
+  worldToScreen,
+} from "../logic/canvas-camera";
 import {
   getCursorLabelOffset,
   type RenderedRemoteCursorPresence,
@@ -66,6 +75,9 @@ export type RoomBoardCanvasProps = {
   decision: Decision | null;
   isHost: boolean;
   privateNotes: Note[];
+  currentUserId?: string;
+  onShareNote?: (noteId: string, x: number, y: number) => void;
+  onUnshareNote?: (noteId: string) => void;
   selectedNoteId: string | null;
   pendingCandidateNoteIds?: string[];
   draggingNoteId: string | null;
@@ -159,6 +171,9 @@ export function RoomBoardCanvas({
   decision,
   isHost,
   privateNotes,
+  currentUserId,
+  onShareNote,
+  onUnshareNote,
   selectedNoteId,
   pendingCandidateNoteIds = [],
   draggingNoteId,
@@ -220,6 +235,7 @@ export function RoomBoardCanvas({
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
+  const isSharingStep = phase.kind === "step" && phase.step === 2;
   const movingNoteIds = new Set(movingGroups.flatMap((group) => group.noteIds));
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? [
@@ -413,6 +429,34 @@ export function RoomBoardCanvas({
         onDelete={handleNoteDelete}
         onExclude={onNoteExclude}
         onRestore={onNoteRestore}
+        readOnlyReason={
+          isDisconnected
+            ? "接続を確認しています"
+            : isVotingStep(phase)
+              ? "投票中は本文を編集できません"
+              : "この工程では本文を編集できません"
+        }
+        visibilityAction={
+          isSharingStep && note.authorId === currentUserId && onUnshareNote
+            ? {
+                label: "マイ付箋へ戻す",
+                description: isDisconnected
+                  ? "接続を確認しています"
+                  : remoteCursors.some(
+                        (cursor) => cursor.draggingNoteId === note.id,
+                      )
+                    ? "ほかの人が移動中です"
+                    : localDraggingNoteId === note.id
+                      ? "移動を終えてから戻せます"
+                      : "自分だけに戻します",
+                disabled:
+                  remoteCursors.some(
+                    (cursor) => cursor.draggingNoteId === note.id,
+                  ) || localDraggingNoteId === note.id,
+                onAction: onUnshareNote,
+              }
+            : undefined
+        }
         vote={{
           displayMode: voteDisplayMode,
           selectedKind: selectedVoteKind,
@@ -806,6 +850,70 @@ export function RoomBoardCanvas({
               canCreateNote={permissions.canCreateNote}
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
+              canShareNote={isSharingStep}
+              sharePlacementDescription={
+                phase.kind === "step" && phase.phase === 3
+                  ? (noteId) => {
+                      const note = privateNotes.find(
+                        (item) => item.id === noteId,
+                      );
+                      return note &&
+                        isIdeaValueFeasibilityMapCoordinate(note.x) &&
+                        isIdeaValueFeasibilityMapCoordinate(note.y)
+                        ? "マップの前の位置へ共有します"
+                        : "マップ中央へ。あとで動かせます";
+                    }
+                  : undefined
+              }
+              onShareNote={
+                onShareNote
+                  ? (noteId) => {
+                      const note = privateNotes.find(
+                        (item) => item.id === noteId,
+                      );
+                      if (
+                        !note ||
+                        note.authorId !== currentUserId ||
+                        isDisconnected ||
+                        !isSharingStep ||
+                        draftValue?.(noteId) !== undefined
+                      )
+                        return;
+                      if (phase.kind === "step" && phase.phase === 3) {
+                        const hasMapPosition =
+                          isIdeaValueFeasibilityMapCoordinate(note.x) &&
+                          isIdeaValueFeasibilityMapCoordinate(note.y);
+                        onShareNote(
+                          noteId,
+                          hasMapPosition ? note.x : 50,
+                          hasMapPosition ? note.y : 50,
+                        );
+                      } else {
+                        const rect =
+                          boardScrollerRef.current?.getBoundingClientRect();
+                        const center = rect
+                          ? screenToWorld(
+                              { x: rect.width / 2, y: rect.height / 3 },
+                              camera,
+                            )
+                          : {
+                              x: note.x + NOTE_WIDTH / 2,
+                              y:
+                                note.y +
+                                getNoteHeight(note.content, note.fontSize) / 2,
+                            };
+                        onShareNote(
+                          noteId,
+                          clampCanvasCoordinate(center.x - NOTE_WIDTH / 2),
+                          clampCanvasCoordinate(
+                            center.y -
+                              getNoteHeight(note.content, note.fontSize) / 2,
+                          ),
+                        );
+                      }
+                    }
+                  : undefined
+              }
               editingDisabled={isResultStep(phase)}
               defaultExpanded={
                 phase.kind === "step" && phase.step === 1 && phase.phase <= 3

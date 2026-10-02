@@ -608,3 +608,32 @@ export const SelectedExcludedForParticipant: Story = {
     canRestoreNote: false,
   },
 };
+
+export const ReturnToPrivate: Story = {
+  args: {
+    visibilityAction: {
+      label: "マイ付箋へ戻す",
+      description: "自分だけに戻します",
+      onAction: fn(),
+    },
+  },
+};
+
+export const ReturnDisconnected: Story = {
+  args: {
+    disabled: true,
+    visibilityAction: {
+      label: "マイ付箋へ戻す",
+      description: "接続を確認しています",
+      onAction: fn(),
+    },
+  },
+};
+
+export const VotingReadOnly: Story = {
+  args: {
+    canEditNote: false,
+    isSelected: true,
+    readOnlyReason: "投票中は本文を編集できません",
+  },
+};

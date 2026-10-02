@@ -899,6 +899,46 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
+  it("共有ボタンは本人のクリックでのみpublishを送り、サーバー配信でボードへ移す", () => {
+    const note = protocolNote({
+      visibility: "private",
+      content: "本人だけの下書き",
+    });
+    const { socket } = connectWithSnapshot([note], {
+      phase: buildPhaseStep(2),
+    });
+    const toolbar = openPrivateNotesToolbar();
+    expect(
+      socket.sent.some((message) => message.includes('"type":"note:publish"')),
+    ).toBe(false);
+    fireEvent.click(
+      within(toolbar).getByRole("button", { name: "ボードに共有" }),
+    );
+    expect(
+      socket.sent
+        .map((message) => JSON.parse(message))
+        .filter((message) => message.type === "note:publish"),
+    ).toEqual([
+      expect.objectContaining({ type: "note:publish", noteId: note.id }),
+    ]);
+    expect(
+      within(toolbar).getByDisplayValue("本人だけの下書き"),
+    ).toBeInTheDocument();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: { ...note, visibility: "shared" },
+      }),
+    );
+    expect(
+      within(toolbar).queryByDisplayValue("本人だけの下書き"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "マイ付箋へ戻す" }));
+    expectSent(socket, { type: "note:unpublish", noteId: note.id });
+    expect(toolbar).toHaveAttribute("data-expanded", "true");
+  });
+
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
     const { socket } = connectWithSnapshot(
       [protocolNote({ visibility: "private", content: "個人付箋" })],

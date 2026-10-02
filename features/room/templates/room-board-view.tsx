@@ -172,6 +172,8 @@ export type RoomBoardViewProps = {
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
   onAddPrivateNote: () => void;
+  onShareNote?: (noteId: string, x: number, y: number) => void;
+  onUnshareNote?: (noteId: string) => void;
   // Step 2-1 でテンプレート・具体例を起点に付箋を作る。
   onHmwTemplateSelect: (content: string) => void;
   onIdeaHintSelect: (content: string) => void;
@@ -280,6 +282,8 @@ export function RoomBoardView({
   hmwDecidedIssue,
   decidedHmw,
   onAddPrivateNote,
+  onShareNote,
+  onUnshareNote,
   onHmwTemplateSelect,
   onIdeaHintSelect,
   onPrivateNoteContentChange,
@@ -1007,6 +1011,16 @@ export function RoomBoardView({
         </RoomBoardHeader>
 
         <RoomBoardCanvas
+          currentUserId={currentUserId}
+          onShareNote={onShareNote}
+          onUnshareNote={
+            onUnshareNote
+              ? (noteId) => {
+                  onUnshareNote(noteId);
+                  setExpandPrivateNotesRequest((request) => request + 1);
+                }
+              : undefined
+          }
           movingGroups={interactions.movingGroups}
           onGroupDragStart={interactions.onGroupDragStart}
           notes={renderedNotes}
