@@ -306,6 +306,16 @@ test.each([
         .isVisible(),
     ).toBe(true);
     await page.screenshot({ path: `${output}/clear-first-step-${width}.png` });
+    const actionBounds = await detail
+      .getByText("「付箋を追加」を押し、最近あった困ったことを1つ書く。")
+      .boundingBox();
+    const detailBounds = await detail.boundingBox();
+    if (!actionBounds || !detailBounds)
+      throw new Error("最初の操作の表示範囲を取得できません");
+    expect(actionBounds.y + actionBounds.height).toBeLessThanOrEqual(
+      detailBounds.y + detailBounds.height,
+    );
+
     await page.keyboard.press("Escape");
     await settled(page, "compact");
     const trigger = page.getByRole("button", { name: "進め方", exact: true });
