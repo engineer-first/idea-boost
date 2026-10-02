@@ -637,3 +637,25 @@ export const VotingReadOnly: Story = {
     readOnlyReason: "投票中は本文を編集できません",
   },
 };
+
+export const ReturnSavePending: Story = {
+  args: {
+    visibilityAction: {
+      label: "マイ付箋へ戻す",
+      description: "保存確認後に操作できます",
+      disabled: true,
+      onAction: fn(),
+    },
+  },
+};
+
+export const ReturnRecoveryPending: Story = {
+  args: {
+    visibilityAction: {
+      label: "マイ付箋へ戻す",
+      description: "未保存あり。「確認・コピー」へ",
+      disabled: true,
+      onAction: fn(),
+    },
+  },
+};

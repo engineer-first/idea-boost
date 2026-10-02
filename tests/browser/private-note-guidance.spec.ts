@@ -82,6 +82,17 @@ for (const width of [390, 1280]) {
       await page.getByRole("button", { name: "付箋を追加" }).isDisabled(),
     ).toBe(true);
     expect(await toolbar.innerText()).toContain("追加は個人作業");
+    const firstShareBounds = await toolbar
+      .getByRole("button", { name: "ボードに共有" })
+      .first()
+      .boundingBox();
+    const scrollBounds = await page
+      .getByTestId("private-notes-scroll")
+      .boundingBox();
+    expect(firstShareBounds).not.toBeNull();
+    expect(
+      (firstShareBounds?.y ?? 0) + (firstShareBounds?.height ?? 0),
+    ).toBeLessThanOrEqual((scrollBounds?.y ?? 0) + (scrollBounds?.height ?? 0));
     await page.screenshot({
       path: `${output}/${width}-sharing-before-action.png`,
     });
@@ -98,6 +109,22 @@ for (const width of [390, 1280]) {
     expect(
       await page.getByRole("button", { name: "マイ付箋へ戻す" }).count(),
     ).toBe(0);
+  });
+
+  test(`${width}px: ホストの共有工程でも最初の共有操作がスクロール前に見える`, async () => {
+    await openStory("sharing-host", width);
+    const share = page
+      .getByTestId("private-notes-toolbar")
+      .getByRole("button", { name: "ボードに共有" })
+      .first();
+    const bounds = await share.boundingBox();
+    const scroll = await page.getByTestId("private-notes-scroll").boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds?.y).toBeGreaterThanOrEqual(scroll?.y ?? 0);
+    expect((bounds?.y ?? 0) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
+      (scroll?.y ?? 0) + (scroll?.height ?? 0),
+    );
+    await page.screenshot({ path: `${output}/${width}-sharing-host.png` });
   });
 
   test(`${width}px: 切断理由が見え、共有・追加を実行できない`, async () => {

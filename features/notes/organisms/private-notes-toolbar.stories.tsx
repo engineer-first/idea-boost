@@ -184,3 +184,11 @@ export const SharingSavePending: Story = {
     draftValue: () => "保存を確認中の下書き",
   },
 };
+
+export const SharingRecoveryPending: Story = {
+  args: {
+    ...Sharing.args,
+    notes: [singleNote],
+    getVisibilityDisabledReason: () => "未保存あり。「確認・コピー」へ",
+  },
+};

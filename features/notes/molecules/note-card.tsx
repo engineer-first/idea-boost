@@ -971,11 +971,19 @@ export function NoteCard({
           <button
             type="button"
             className="min-h-8 w-full rounded border border-slate-300 bg-white/95 px-1 text-xs font-medium text-slate-900 hover:bg-white focus-visible:outline-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={disabled || isOwnDrag || visibilityAction.disabled}
+            disabled={
+              disabled || isOwnDrag || isEditing || visibilityAction.disabled
+            }
             aria-describedby={actionDescriptionId}
             onClick={(event) => {
               event.stopPropagation();
-              if (!disabled && !isOwnDrag && !visibilityAction.disabled)
+              if (
+                !disabled &&
+                !isOwnDrag &&
+                !isEditing &&
+                !compositionActiveRef.current &&
+                !visibilityAction.disabled
+              )
                 visibilityAction.onAction(note.id);
             }}
           >
@@ -985,7 +993,9 @@ export function NoteCard({
             id={actionDescriptionId}
             className="text-[10px] leading-3 text-slate-700"
           >
-            {visibilityAction.description}
+            {isEditing
+              ? "入力を終えてから操作できます"
+              : visibilityAction.description}
           </p>
         </div>
       ) : readOnlyReason &&

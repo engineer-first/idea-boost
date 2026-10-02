@@ -78,6 +78,7 @@ export type RoomBoardCanvasProps = {
   currentUserId?: string;
   onShareNote?: (noteId: string, x: number, y: number) => void;
   onUnshareNote?: (noteId: string) => void;
+  getVisibilityDisabledReason?: (noteId: string) => string | undefined;
   selectedNoteId: string | null;
   pendingCandidateNoteIds?: string[];
   draggingNoteId: string | null;
@@ -174,6 +175,7 @@ export function RoomBoardCanvas({
   currentUserId,
   onShareNote,
   onUnshareNote,
+  getVisibilityDisabledReason,
   selectedNoteId,
   pendingCandidateNoteIds = [],
   draggingNoteId,
@@ -442,17 +444,23 @@ export function RoomBoardCanvas({
                 label: "マイ付箋へ戻す",
                 description: isDisconnected
                   ? "接続を確認しています"
-                  : remoteCursors.some(
-                        (cursor) => cursor.draggingNoteId === note.id,
-                      )
-                    ? "ほかの人が移動中です"
-                    : localDraggingNoteId === note.id
-                      ? "移動を終えてから戻せます"
-                      : "自分だけに戻します",
+                  : (getVisibilityDisabledReason?.(note.id) ??
+                    (draftValue?.(note.id) !== undefined
+                      ? "保存確認後に操作できます"
+                      : remoteCursors.some(
+                            (cursor) => cursor.draggingNoteId === note.id,
+                          )
+                        ? "ほかの人が移動中です"
+                        : localDraggingNoteId === note.id
+                          ? "移動を終えてから戻せます"
+                          : "自分だけに戻します")),
                 disabled:
+                  getVisibilityDisabledReason?.(note.id) !== undefined ||
+                  draftValue?.(note.id) !== undefined ||
                   remoteCursors.some(
                     (cursor) => cursor.draggingNoteId === note.id,
-                  ) || localDraggingNoteId === note.id,
+                  ) ||
+                  localDraggingNoteId === note.id,
                 onAction: onUnshareNote,
               }
             : undefined
@@ -839,7 +847,7 @@ export function RoomBoardCanvas({
         ) : null}
         {permissions.showPrivateToolbar ? (
           <div
-            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[180px] max-[639px]:max-h-[180px] ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(11.5rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))]"}`}
+            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-80 ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(11.5rem+var(--board-notification-inset,0px))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]"}`}
             data-testid="private-notes-dock"
             data-board-fit-edge="bottom"
           >
@@ -851,6 +859,7 @@ export function RoomBoardCanvas({
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               canShareNote={isSharingStep}
+              getVisibilityDisabledReason={getVisibilityDisabledReason}
               sharePlacementDescription={
                 phase.kind === "step" && phase.phase === 3
                   ? (noteId) => {
@@ -876,7 +885,8 @@ export function RoomBoardCanvas({
                         note.authorId !== currentUserId ||
                         isDisconnected ||
                         !isSharingStep ||
-                        draftValue?.(noteId) !== undefined
+                        draftValue?.(noteId) !== undefined ||
+                        getVisibilityDisabledReason?.(noteId) !== undefined
                       )
                         return;
                       if (phase.kind === "step" && phase.phase === 3) {

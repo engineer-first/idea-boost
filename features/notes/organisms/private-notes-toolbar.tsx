@@ -31,6 +31,7 @@ export type PrivateNotesToolbarProps = {
   canShareNote?: boolean;
   sharePlacementDescription?: (noteId: string) => string;
   onShareNote?: (noteId: string) => void;
+  getVisibilityDisabledReason?: (noteId: string) => string | undefined;
   defaultExpanded?: boolean;
   expandRequest?: number;
   addRequest?: number;
@@ -63,6 +64,7 @@ export function PrivateNotesToolbar({
   canShareNote = false,
   sharePlacementDescription,
   onShareNote,
+  getVisibilityDisabledReason,
   canEditNote,
   defaultExpanded = true,
   expandRequest = 0,
@@ -300,13 +302,16 @@ export function PrivateNotesToolbar({
                       ? {
                           label: "ボードに共有",
                           description:
-                            draftValue?.(note.id) !== undefined && !disabled
+                            getVisibilityDisabledReason?.(note.id) ??
+                            (draftValue?.(note.id) !== undefined && !disabled
                               ? "保存確認後に共有できます"
                               : canShareNote && !disabled
                                 ? (sharePlacementDescription?.(note.id) ??
                                   shareDescription)
-                                : shareDescription,
+                                : shareDescription),
                           disabled:
+                            getVisibilityDisabledReason?.(note.id) !==
+                              undefined ||
                             !canShareNote ||
                             draftValue?.(note.id) !== undefined,
                           onAction: onShareNote,

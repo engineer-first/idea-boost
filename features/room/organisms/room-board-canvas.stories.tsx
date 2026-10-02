@@ -1187,3 +1187,8 @@ export const PrivateGuidanceVoting: Story = {
     })),
   },
 };
+
+export const PrivateGuidanceSharingHost: Story = {
+  ...PrivateGuidanceSharing,
+  args: { ...PrivateGuidanceSharing.args, isHost: true },
+};

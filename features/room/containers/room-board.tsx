@@ -92,6 +92,14 @@ export function RoomBoard({
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
+  // draftValueは回収対象を隠すため、未保存判定ではrecoveriesも確認する。
+  const getVisibilityDisabledReason = (noteId: string): string | undefined => {
+    if (drafts.recoveries.some((item) => item.noteId === noteId))
+      return "未保存あり。「確認・コピー」へ";
+    if (drafts.draftValue(noteId) !== undefined)
+      return "保存確認後に操作できます";
+    return undefined;
+  };
   const candidates = useCandidateOperations({
     notes: notes.notes,
     connected: connectionStatus === "open",
@@ -472,6 +480,7 @@ export function RoomBoard({
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
+        getVisibilityDisabledReason={getVisibilityDisabledReason}
         onShareNote={(noteId, x, y) => {
           const note = notes.notes.find((item) => item.id === noteId);
           if (
@@ -481,7 +490,7 @@ export function RoomBoard({
             !note ||
             note.authorId !== currentUserId ||
             note.visibility !== "private" ||
-            drafts.draftValue(noteId) !== undefined
+            getVisibilityDisabledReason(noteId) !== undefined
           )
             return;
           notes.publishNote(noteId, x, y);
@@ -494,7 +503,8 @@ export function RoomBoard({
             roomState.phase.step !== 2 ||
             !note ||
             note.authorId !== currentUserId ||
-            note.visibility !== "shared"
+            note.visibility !== "shared" ||
+            getVisibilityDisabledReason(noteId) !== undefined
           )
             return;
           notes.unpublishNote(noteId);
