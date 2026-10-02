@@ -57,9 +57,13 @@ for (const viewport of [
     expect(
       await help.evaluate((element) => element.clientHeight),
     ).toBeGreaterThanOrEqual(48);
+    const note = toolbar
+      .getByRole("button", { name: "付箋", exact: true })
+      .first();
+    await note.scrollIntoViewIfNeeded();
+    await note.focus();
+    await page.keyboard.press("Enter");
     const editor = toolbar.getByRole("textbox").first();
-    await editor.scrollIntoViewIfNeeded();
-    await editor.dblclick();
     expect(await editor.getAttribute("readonly")).toBeNull();
     await page.keyboard.press("Escape");
     await page.screenshot({

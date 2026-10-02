@@ -847,7 +847,7 @@ export function RoomBoardCanvas({
         ) : null}
         {permissions.showPrivateToolbar ? (
           <div
-            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-80 ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(11.5rem+var(--board-notification-inset,0px))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]"}`}
+            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(11.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(7.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]"}`}
             data-testid="private-notes-dock"
             data-board-fit-edge="bottom"
           >
