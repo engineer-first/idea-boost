@@ -17,7 +17,11 @@ import {
   NOTE_DEFAULT_FONT_SIZE,
   NOTE_FONT_SIZE_RANGE,
 } from "./board";
+import { UUID_PATTERN } from "./ids";
 import { RoomPhaseSchema } from "./phase";
+
+// 既存 ID の受理範囲を Zod のバージョンに依存させない。
+const HostUserIdSchema = z.string().regex(UUID_PATTERN);
 
 export const NOTE_CONTENT_MAX_LENGTH = 2000;
 
@@ -531,7 +535,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("host:transfer"),
-      targetUserId: z.string().uuid(),
+      targetUserId: HostUserIdSchema,
       expectedHostRevision: z.number().int().nonnegative(),
     })
     .strict(),
@@ -596,7 +600,7 @@ export type PendingPhaseTransition = z.infer<
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("host:updated"),
-    hostUserId: z.string().uuid(),
+    hostUserId: HostUserIdSchema,
     hostRevision: z.number().int().nonnegative(),
   }),
   z.object({
@@ -627,7 +631,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     phaseRevision: z.number().int().nonnegative().default(0),
     pendingPhaseTransition: PendingPhaseTransitionSchema.nullable().optional(),
     isHost: z.boolean(),
-    hostUserId: z.string().uuid().nullable().optional(),
+    hostUserId: HostUserIdSchema.nullable().optional(),
     hostRevision: z.number().int().nonnegative().optional(),
     decision: DecisionSchema.nullable(),
     outcomePublished: z.boolean().optional(),
