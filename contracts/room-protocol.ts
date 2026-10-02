@@ -524,7 +524,17 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     noteId: z.string().uuid().nullable(),
   }),
   // ロビーから課題整理 Step 1-1 へ。ホストのみ。
-  z.object({ type: z.literal("start_phase") }),
+  z.object({
+    type: z.literal("start_phase"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
+  }),
+  z
+    .object({
+      type: z.literal("host:transfer"),
+      targetUserId: z.string().uuid(),
+      expectedHostRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
   // 課題整理の次ステップへ。ホストのみ。
   // force は全フェーズの投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
   // ホストが進行できる）。ホスト判定が先に評価されるため、非ホストが
@@ -585,6 +595,11 @@ export type PendingPhaseTransition = z.infer<
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("host:updated"),
+    hostUserId: z.string().uuid(),
+    hostRevision: z.number().int().nonnegative(),
+  }),
+  z.object({
     type: z.literal("sharing:updated"),
     sharing: SharingStateSchema,
     timer: TimerStateSchema,
@@ -612,6 +627,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     phaseRevision: z.number().int().nonnegative().default(0),
     pendingPhaseTransition: PendingPhaseTransitionSchema.nullable().optional(),
     isHost: z.boolean(),
+    hostUserId: z.string().uuid().nullable().optional(),
+    hostRevision: z.number().int().nonnegative().optional(),
     decision: DecisionSchema.nullable(),
     outcomePublished: z.boolean().optional(),
     // 永続化しない一時状態。再接続直後にも現在の共有フォーカスを復元する。

@@ -583,7 +583,12 @@ export function useRoomNotes({
           );
           setVoteFeedback({
             state: "confirmed",
-            message: "投票を確定しました。",
+            message:
+              operation.action === "remove"
+                ? "投票を1票取り消しました。"
+                : operation.action === "move"
+                  ? "シールを移動しました。"
+                  : "投票を確定しました。",
           });
         }
       }

@@ -1508,3 +1508,32 @@ describe("グループ一括ドラッグの境界", () => {
     ).toBe(true);
   });
 });
+
+describe("開始前ホスト移譲の契約", () => {
+  const transfer = {
+    type: "host:transfer",
+    targetUserId: USER_B,
+    expectedHostRevision: 0,
+  };
+  it("対象と現在改訂を受け入れる", () => {
+    expect(parseClientMessage(JSON.stringify(transfer))).toEqual(transfer);
+  });
+  it.each([
+    { expectedHostRevision: -1 },
+    { expectedHostRevision: undefined },
+    { targetUserId: "bad" },
+    { actorId: USER_A },
+  ])("不正または送信者の偽装を拒否する %j", (change) => {
+    expect(
+      parseClientMessage(JSON.stringify({ ...transfer, ...change })),
+    ).toBeNull();
+  });
+  it("共有ホスト更新を読み取る", () => {
+    const update = {
+      type: "host:updated",
+      hostUserId: USER_B,
+      hostRevision: 1,
+    };
+    expect(parseServerMessage(JSON.stringify(update))).toEqual(update);
+  });
+});

@@ -24,7 +24,7 @@ import {
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
-import { isHostUser, isMember } from "./members";
+import { getHostState, isHostUser, isMember } from "./members";
 import {
   excludeNotesForBulkOperation,
   hasCandidateNotes,
@@ -298,6 +298,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:content-status":
     case "cursor:leave":
     case "adoption-focus:update":
+    case "host:transfer":
     case "start_phase":
     case "phase:next":
     case "outcome:publish":
@@ -524,7 +525,17 @@ export const phaseHandlers: MessageHandlers<
   "start_phase" | "phase:next" | "phase:restart-writing" | "phase:revote"
 > = {
   // ロビー → Step 1-1（ボード開始）。ホストのみ。
-  start_phase: (ctx) => {
+  start_phase: (ctx, message) => {
+    const revision = getHostState(ctx.sql).hostRevision;
+    if ((message.expectedHostRevision ?? 0) !== revision) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message:
+          "ホストが変更されています。画面を更新してから開始してください。",
+      });
+      return;
+    }
     if (!isHostUser(ctx.sql, ctx.userId)) {
       ctx.reply({
         type: "error",

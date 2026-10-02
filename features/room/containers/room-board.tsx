@@ -59,8 +59,8 @@ export function RoomBoard({
   inviteCode,
   inviteUrl,
   currentUserId,
-  isHost,
-  hostUserId,
+  isHost: initialIsHost,
+  hostUserId: initialHostUserId,
   initialMembers,
   initialPhase,
   signOutAction,
@@ -76,10 +76,15 @@ export function RoomBoard({
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
+  const hostUserId = roomState.host.hostUserId ?? initialHostUserId;
+  const isHost = roomState.host.hostUserId
+    ? hostUserId === currentUserId
+    : (roomState.host.isHost ?? initialIsHost);
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
     roomId,
     isHost,
     completed: roomState.outcomePublished,
+    hostRevision: roomState.host.hostRevision ?? 0,
   });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   // useRoomConnection は常に最新のハンドラへ配送するため、
@@ -92,6 +97,14 @@ export function RoomBoard({
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
+  // draftValueは回収対象を隠すため、未保存判定ではrecoveriesも確認する。
+  const getVisibilityDisabledReason = (noteId: string): string | undefined => {
+    if (drafts.recoveries.some((item) => item.noteId === noteId))
+      return "未保存あり。「確認・コピー」へ";
+    if (drafts.draftValue(noteId) !== undefined)
+      return "保存確認後に操作できます";
+    return undefined;
+  };
   const candidates = useCandidateOperations({
     notes: notes.notes,
     connected: connectionStatus === "open",
@@ -472,6 +485,35 @@ export function RoomBoard({
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
+        getVisibilityDisabledReason={getVisibilityDisabledReason}
+        onShareNote={(noteId, x, y) => {
+          const note = notes.notes.find((item) => item.id === noteId);
+          if (
+            connectionStatus !== "open" ||
+            roomState.phase.kind !== "step" ||
+            roomState.phase.step !== 2 ||
+            !note ||
+            note.authorId !== currentUserId ||
+            note.visibility !== "private" ||
+            getVisibilityDisabledReason(noteId) !== undefined
+          )
+            return;
+          notes.publishNote(noteId, x, y);
+        }}
+        onUnshareNote={(noteId) => {
+          const note = notes.notes.find((item) => item.id === noteId);
+          if (
+            connectionStatus !== "open" ||
+            roomState.phase.kind !== "step" ||
+            roomState.phase.step !== 2 ||
+            !note ||
+            note.authorId !== currentUserId ||
+            note.visibility !== "shared" ||
+            getVisibilityDisabledReason(noteId) !== undefined
+          )
+            return;
+          notes.unpublishNote(noteId);
+        }}
         onHmwTemplateSelect={handleHmwTemplateSelect}
         onIdeaHintSelect={handleIdeaHintSelect}
         onPrivateNoteContentChange={drafts.blur}

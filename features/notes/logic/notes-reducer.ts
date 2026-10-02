@@ -101,6 +101,7 @@ export function applyServerMessage(
     case "cursor:drag-ended":
     case "cursor:left":
     case "member_vote_status":
+    case "host:updated":
     case "error": {
       // ノート以外の状態は別リデューサが担当する（room-reducer.ts）。
       // グループ・フェーズの同期は RoomBoard 側で管理するため、ここでは付箋状態を変えない。

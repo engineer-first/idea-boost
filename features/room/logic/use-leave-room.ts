@@ -34,8 +34,9 @@ export function useLeaveRoom(options: {
   roomId: string;
   isHost: boolean;
   completed?: boolean;
+  hostRevision?: number;
 }): UseLeaveRoomResult {
-  const { roomId, isHost, completed = false } = options;
+  const { roomId, isHost, completed = false, hostRevision } = options;
   const [isLeaving, setIsLeaving] = useState(false);
   const [isLeavePending, startLeaveTransition] = useTransition();
   const isLeavingRef = useRef(false);
@@ -47,7 +48,9 @@ export function useLeaveRoom(options: {
     startLeaveTransition(async () => {
       const formData = new FormData();
       formData.append("roomId", roomId);
-      if (completed) formData.append("intent", "self");
+      formData.append("intent", isHost && !completed ? "disband" : "self");
+      if (hostRevision !== undefined)
+        formData.append("expectedHostRevision", String(hostRevision));
       try {
         await leaveRoom(formData);
       } catch (error) {
@@ -70,7 +73,7 @@ export function useLeaveRoom(options: {
         notify.error(message);
       }
     });
-  }, [isLeavePending, roomId, isHost, completed]);
+  }, [isLeavePending, roomId, isHost, completed, hostRevision]);
 
   return { isLeaving, isLeavingRef, leave };
 }

@@ -3,7 +3,7 @@ import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
-const output = "test-results/step-guide";
+const output = "test-results/board-layout/step-guide";
 let browser: Browser;
 beforeAll(async () => {
   await mkdir(output, { recursive: true });
@@ -276,5 +276,123 @@ test("390pxの問い作成ガイドは付箋操作を覆わず末尾まで読め
     ).toBe(true);
   } finally {
     await page.close();
+  }
+});
+
+test.each([
+  390, 1280,
+])("%ipxで短い作業と例を読み、初回案内から直接開いて操作へ戻れる", async (width) => {
+  const page = await browser.newPage({
+    viewport: { width, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardview--phase-1-first-step-intro");
+    await page
+      .getByRole("button", { name: "進め方を見る", exact: true })
+      .click();
+    await settled(page, "detail");
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    expect(
+      await detail
+        .getByRole("heading", { name: "困ったことを書く" })
+        .isVisible(),
+    ).toBe(true);
+    expect(
+      await detail
+        .getByText("「付箋を追加」を押し、最近あった困ったことを1つ書く。")
+        .isVisible(),
+    ).toBe(true);
+    await page.screenshot({ path: `${output}/clear-first-step-${width}.png` });
+    const actionBounds = await detail
+      .getByText("「付箋を追加」を押し、最近あった困ったことを1つ書く。")
+      .boundingBox();
+    const detailBounds = await detail.boundingBox();
+    if (!actionBounds || !detailBounds)
+      throw new Error("最初の操作の表示範囲を取得できません");
+    expect(actionBounds.y + actionBounds.height).toBeLessThanOrEqual(
+      detailBounds.y + detailBounds.height,
+    );
+
+    await page.keyboard.press("Escape");
+    await settled(page, "compact");
+    const trigger = page.getByRole("button", { name: "進め方", exact: true });
+    expect(await trigger.textContent()).toContain("困ったことを書く");
+    expect(await trigger.evaluate((e) => e === document.activeElement)).toBe(
+      true,
+    );
+    await trigger.press("Enter");
+    await settled(page, "detail");
+    await page.getByRole("button", { name: "付箋を追加", exact: true }).click();
+    await settled(page, "compact");
+    expect(
+      await page
+        .getByTestId("private-notes-toolbar")
+        .getAttribute("data-expanded"),
+    ).toBe("true");
+    await page.screenshot({
+      path: `${output}/clear-first-action-${width}.png`,
+    });
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
+  390, 1180, 1280,
+])("%ipxで幅を取るスクロールバーでも例が読め、横にはみ出さない", async (width) => {
+  // headlessの既定 --hide-scrollbars を外し、実際に幅を取るスクロールバーを検証する。
+  const classicBrowser = await chromium.launch({
+    ignoreDefaultArgs: ["--hide-scrollbars"],
+  });
+  const page = await classicBrowser.newPage({
+    viewport: { width, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    for (const story of [
+      "detail",
+      "sharing",
+      "grouping",
+      "voting",
+      "question",
+      "comparing",
+      "host",
+      "sharing-host",
+    ]) {
+      await open(page, `room-stepguide--${story}`);
+      await settled(page, "detail");
+      const detail = page.getByRole("region", {
+        name: "ファシリテーションガイド",
+      });
+      await page.screenshot({
+        path: `${output}/clear-${story}-first-${width}.png`,
+      });
+      const figure = detail.getByRole("figure");
+      await figure.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${output}/clear-${story}-${width}.png` });
+      const box = await figure.boundingBox();
+      expect(box?.x).toBeGreaterThanOrEqual(0);
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
+      expect(await detail.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
+        true,
+      );
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBe(width);
+      await page.screenshot({ path: `${output}/clear-${story}-${width}.png` });
+      if (story === "host" || story === "sharing-host") {
+        await detail
+          .getByText("進行役へ", { exact: true })
+          .scrollIntoViewIfNeeded();
+        await page.screenshot({
+          path: `${output}/clear-${story}-timer-${width}.png`,
+        });
+      }
+    }
+  } finally {
+    await classicBrowser.close();
   }
 });

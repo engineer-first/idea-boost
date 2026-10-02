@@ -123,3 +123,19 @@ it("本人退出のintentをAPIへ渡し、古い画面の解散要求と区別�
     },
   );
 });
+
+it("解散の意図とホスト改訂をAPIへ渡す", async () => {
+  apiFetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  const form = leaveFormData(VALID_ROOM_ID);
+  form.set("intent", "disband");
+  form.set("expectedHostRevision", "2");
+  expect(await callAndGetRedirect(() => leaveRoom(form))).toBe("/home");
+  expect(apiFetchMock).toHaveBeenCalledWith(
+    `/api/rooms/${VALID_ROOM_ID}/leave`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intent: "disband", expectedHostRevision: 2 }),
+    },
+  );
+});

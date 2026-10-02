@@ -21,6 +21,7 @@ const baseArgs: RoomLobbyViewProps = {
   onStart: fn(),
   onLeave: fn(),
   isLeaving: false,
+  onTransferHost: fn(),
 };
 
 const meta = {

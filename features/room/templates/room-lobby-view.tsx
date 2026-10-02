@@ -2,7 +2,7 @@
 
 import { DoorOpen, Link2, Play, Users } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,13 +16,14 @@ import { isLobby, type RoomPhase } from "@/contracts/phase";
 // スタート画面（メンバー一覧 + 開始ボタン）のプレゼンテーション層。
 // ホーム画面と同じ shadcn ベースのレイアウト言語（背景・ヘッダー・Card 分割）。
 // WebSocket 接続やプロトコル送信は room-lobby.tsx（コンテナ）の責務。
-import { CopyInviteButton } from "@/features/invite";
+import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
 import { RoomMembers } from "@/features/room-members";
 import {
   CONNECTION_STATUS_LABELS,
   type RoomScreenConnectionStatus,
 } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
+import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 
 export type RoomLobbyViewProps = {
@@ -43,6 +44,9 @@ export type RoomLobbyViewProps = {
   // 退出。
   onLeave: () => void;
   isLeaving: boolean;
+  onTransferHost?: (targetUserId: string) => void;
+  isTransferring?: boolean;
+  transferError?: string | null;
 };
 
 export function RoomLobbyView({
@@ -58,9 +62,14 @@ export function RoomLobbyView({
   onStart,
   onLeave,
   isLeaving,
+  onTransferHost,
+  isTransferring = false,
+  transferError = null,
 }: RoomLobbyViewProps) {
   const isDisconnected = connectionStatus !== "open";
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const transferTriggerRef = useRef<HTMLButtonElement>(null);
   const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
 
   return (
@@ -148,6 +157,38 @@ export function RoomLobbyView({
                 currentUserId={currentUserId}
                 hostUserId={hostUserId}
               />
+              {isHost && isLobby(phase) && onTransferHost ? (
+                <>
+                  <Button
+                    ref={transferTriggerRef}
+                    variant="outline"
+                    className="mt-4"
+                    disabled={
+                      isDisconnected ||
+                      isStarting ||
+                      isTransferring ||
+                      isLeaving ||
+                      members.length < 2
+                    }
+                    onClick={() => setTransferDialogOpen(true)}
+                  >
+                    ホストを引き継ぐ
+                  </Button>
+                  {transferDialogOpen ? (
+                    <HostTransferDialog
+                      open
+                      onOpenChange={setTransferDialogOpen}
+                      members={members}
+                      currentUserId={currentUserId}
+                      onConfirm={onTransferHost}
+                      pending={isTransferring}
+                      disconnected={isDisconnected}
+                      error={transferError}
+                      onClosed={() => transferTriggerRef.current?.focus()}
+                    />
+                  ) : null}
+                </>
+              ) : null}
             </CardContent>
             <CardFooter className="justify-center border-t border-border/60 pt-4">
               <span
@@ -179,11 +220,7 @@ export function RoomLobbyView({
               <CardContent className="flex flex-1 flex-col justify-center gap-5">
                 <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 px-3 py-3">
                   <span className="text-xs text-muted-foreground">招待URL</span>
-                  <CopyInviteButton
-                    value={inviteUrl}
-                    itemLabel="招待URL"
-                    className="max-w-full"
-                  />
+                  <InviteUrlActions value={inviteUrl} />
                 </div>
                 <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 px-3 py-3">
                   <span className="text-xs text-muted-foreground">
@@ -207,7 +244,7 @@ export function RoomLobbyView({
               <Button
                 type="button"
                 onClick={onStart}
-                disabled={isDisconnected || isStarting}
+                disabled={isDisconnected || isStarting || isTransferring}
                 data-testid="start-phase-button"
                 size="lg"
                 className="w-full"
@@ -246,7 +283,8 @@ export function RoomLobbyView({
       </div>
 
       <LeaveConfirmDialog
-        open={leaveDialogOpen}
+        key={hostUserId}
+        open={leaveDialogOpen && !isTransferring}
         onOpenChange={setLeaveDialogOpen}
         onConfirm={onLeave}
         isLeaving={isLeaving}
