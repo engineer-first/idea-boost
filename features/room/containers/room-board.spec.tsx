@@ -907,10 +907,9 @@ describe("サーバーメッセージ → 画面反映", () => {
       const { socket } = connectWithSnapshot([note], {
         phase: buildPhaseStep(2),
       });
-      fireEvent.keyDown(
-        screen.getByRole("button", { name: "付箋", exact: true }),
-        { key: "Enter" },
-      );
+      fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
+        key: "Enter",
+      });
       const editor = screen.getByRole("textbox");
       fireEvent.change(editor, { target: { value: "A" } });
       act(() => vi.advanceTimersByTime(1000));
@@ -1005,10 +1004,9 @@ describe("サーバーメッセージ → 画面反映", () => {
         phase: buildPhaseStep(2),
       });
       openPrivateNotesToolbar();
-      fireEvent.keyDown(
-        screen.getByRole("button", { name: "付箋", exact: true }),
-        { key: "Enter" },
-      );
+      fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
+        key: "Enter",
+      });
       const editor = screen.getByRole("textbox");
       fireEvent.change(editor, { target: { value: "回収すべき文章" } });
       act(() =>
@@ -1048,10 +1046,9 @@ describe("サーバーメッセージ → 画面反映", () => {
         phase: buildPhaseStep(2),
       });
       openPrivateNotesToolbar();
-      fireEvent.keyDown(
-        screen.getByRole("button", { name: "付箋", exact: true }),
-        { key: "Enter" },
-      );
+      fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
+        key: "Enter",
+      });
       fireEvent.compositionStart(screen.getByRole("textbox"));
       const action = screen.getByRole("button", {
         name: visibility === "private" ? "ボードに共有" : "マイ付箋へ戻す",
