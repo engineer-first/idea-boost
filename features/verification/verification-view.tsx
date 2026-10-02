@@ -166,7 +166,7 @@ export function VerificationView({
                   {phase === 1
                     ? "1 課題整理"
                     : phase === 2
-                      ? "2 HMW"
+                      ? "2 問い"
                       : "3 アイデア"}
                 </h2>
                 {VERIFICATION_CHECKPOINTS.filter(

@@ -1,4 +1,4 @@
-export const IDEA_GUIDE_HEADING = "アイデア = 決定したHMWを実現する方法";
+export const IDEA_GUIDE_HEADING = "アイデア = 決定した問いを実現する方法";
 
 export const IDEA_GUIDE_DESCRIPTION =
   "正しさよりも数を意識して、思いついたことを1枚に1つ書こう。";
@@ -20,4 +20,4 @@ export const IDEA_GUIDE_EXAMPLES = [
 ] as const;
 
 export const IDEA_HINT_DESCRIPTION =
-  "選ぶとマイ付箋を1枚作ります。マイ付箋を開き、続きにHMWを実現する方法を書こう。";
+  "選ぶとマイ付箋を1枚作ります。マイ付箋を開き、続きに問いを実現する方法を書こう。";

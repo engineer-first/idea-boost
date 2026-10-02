@@ -1,6 +1,6 @@
 "use client";
 
-// Step 2-1（HMW 個人執筆）の入力の起点パネル。キャンバス左端に浮かせる view で、
+// Step 2-1（問いの個人執筆）の入力の起点パネル。キャンバス左端に浮かせる view で、
 // 「props in、コールバック out」だけでデータ層に依存しない。
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

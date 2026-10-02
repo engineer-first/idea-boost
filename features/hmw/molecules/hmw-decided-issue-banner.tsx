@@ -32,7 +32,7 @@ export function HmwDecidedIssueBanner({
       <span className="shrink-0 font-medium text-muted-foreground text-sm">
         {label}
       </span>
-      {/* 決定課題を見ながらHMWを考えるため、省略せず折り返して全文を表示する */}
+      {/* 決定課題を見ながら問いを考えるため、省略せず折り返して全文を表示する */}
       <span className="min-w-0 whitespace-normal break-words font-semibold text-sm">
         {content}
       </span>

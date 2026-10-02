@@ -240,7 +240,7 @@ test.each([
   await page.getByText("決定した課題", { exact: true }).click();
   const content = page.getByTestId("board-context-hud");
   expect(await content.innerText()).toContain("全員が自分の考えを伝え");
-  expect(await content.innerText()).toContain("決定したHMW");
+  expect(await content.innerText()).toContain("決定した問い");
   await expectLayout();
 });
 
@@ -329,7 +329,7 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-test("進め方を閉じると採用課題を残したままHMW例を末尾まで読める", async () => {
+test("進め方を閉じると採用課題を残したまま問いの例を末尾まで読める", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
   await page.keyboard.press("Escape");
   expect(
@@ -408,11 +408,7 @@ test("成果公開後は3件を表示し、編集ボードへ戻さずホーム�
     `${origin}/iframe.html?id=room-roomboardlayout--completed&viewMode=story`,
   );
   await page.getByRole("heading", { name: "チームで決めた成果" }).waitFor();
-  for (const label of [
-    "決定した課題",
-    "決定した問い（HMW）",
-    "採用したアイデア",
-  ]) {
+  for (const label of ["決定した課題", "決定した問い", "採用したアイデア"]) {
     expect(await page.getByRole("heading", { name: label }).isVisible()).toBe(
       true,
     );
@@ -796,7 +792,7 @@ test.each([
   expect(await dialog.locator("li").count()).toBe(12);
 });
 
-test("進め方を閉じるとHMWを残したまま発想支援を3項目以上読める", async () => {
+test("進め方を閉じると問いを残したまま発想支援を3項目以上読める", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
   await page.keyboard.press("Escape");
   expect(
@@ -840,7 +836,7 @@ test.each([
   expect(await page.getByTestId("board-carryovers").count()).toBe(0);
   const context = page.getByTestId("board-context-hud");
   expect(await context.innerText()).toContain("決定した課題");
-  expect(await context.innerText()).toContain("決定したHMW");
+  expect(await context.innerText()).toContain("決定した問い");
   const before = await page.getByTestId("board-help-panel").boundingBox();
   const timer = await page.getByTestId("room-timer").boundingBox();
   const notes = await page.getByTestId("private-notes-toolbar").boundingBox();

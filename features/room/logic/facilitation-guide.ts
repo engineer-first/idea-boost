@@ -114,7 +114,7 @@ const FACILITATION_GUIDES: Record<
       durationMinutes: 3,
       intro:
         "決定した課題を問いに変えよう。「どうすれば私たちは〇〇できるだろう？」",
-      message: "決定した課題に対するHMWを、付箋に書き出そう。",
+      message: "決定した課題に対する問いを、付箋に書き出そう。",
       hostMessage:
         "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
       purpose: "決定した課題を、アイデアが生まれる問いに変換します。",
@@ -161,7 +161,7 @@ const FACILITATION_GUIDES: Record<
     4: {
       durationMinutes: 10,
       intro: "投票結果を見て、アイデアが広がる問いを1つ話し合おう。",
-      message: "投票結果を参考に、HMWをみんなで1つ決めよう。",
+      message: "投票結果を参考に、問いをみんなで1つ決めよう。",
       hostMessage:
         "納得できるまで話し合い、1つに絞れたら次のステップへ進んでください。",
       ...DEFAULT_DETAILS,
@@ -181,7 +181,7 @@ const FACILITATION_GUIDES: Record<
       durationMinutes: 3,
       intro: "決めた問いに対する解決策を付箋に。実現方法を気にしすぎず書こう。",
       message:
-        "決定したHMWをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",
+        "決定した問いをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",
       hostMessage:
         "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
       ...DEFAULT_DETAILS,

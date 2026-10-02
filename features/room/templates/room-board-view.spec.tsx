@@ -597,7 +597,7 @@ describe("RoomBoardView", () => {
       screen.getByRole("heading", { name: "チームで決めた成果" }),
     ).toBeVisible();
     expect(screen.getByText("決定課題")).toBeVisible();
-    expect(screen.getByText("決定した問い")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "決定した問い" })).toBeVisible();
     expect(screen.getByText(/採用する案/)).toBeVisible();
     expect(
       screen.queryByRole("dialog", { name: /投票結果/ }),
@@ -1490,7 +1490,7 @@ describe("RoomBoardView", () => {
     it.each([
       "connecting",
       "closed",
-    ] as const)("%sの間は Step 2-1 の HMW テンプレートボタンが無効化される", (connectionStatus) => {
+    ] as const)("%sの間は Step 2-1 の問いテンプレートボタンが無効化される", (connectionStatus) => {
       setup({ phase: buildPhaseStep(1, 2), notes: [], connectionStatus });
 
       expect(
@@ -1498,7 +1498,7 @@ describe("RoomBoardView", () => {
       ).toBeDisabled();
     });
 
-    it("openの間は Step 2-1 の HMW テンプレートを選ぶと onHmwTemplateSelect が呼ばれる", () => {
+    it("openの間は Step 2-1 の問いテンプレートを選ぶと onHmwTemplateSelect が呼ばれる", () => {
       const onHmwTemplateSelect = vi.fn();
       setup({
         phase: buildPhaseStep(1, 2),
@@ -2076,7 +2076,7 @@ describe("ステップに結び付いた決定事項", () => {
     expect(hud).not.toContainElement(guide);
   });
 
-  it("HMW作成では進め方と採用した課題を同時に読める", () => {
+  it("問いの作成では進め方と採用した課題を同時に読める", () => {
     setup({
       phase: buildPhaseStep(1, 2),
       hmwDecidedIssue: "忘れ物を減らしたい",
@@ -2096,7 +2096,7 @@ describe("ステップに結び付いた決定事項", () => {
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
     ).toBeVisible();
   });
-  it("アイデア作成ではHMWを開いて始め、元の課題も独立して開閉できる", () => {
+  it("アイデア作成では問いを開いて始め、元の課題も独立して開閉できる", () => {
     setup({
       phase: buildPhaseStep(1, 3),
       hmwDecidedIssue: "全員が安心して意見を出せない",
@@ -2108,7 +2108,7 @@ describe("ステップに結び付いた決定事項", () => {
     expect(screen.getByText("全員が安心して意見を出せない")).not.toBeVisible();
     fireEvent.click(screen.getByText("決定した課題"));
     expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
-    fireEvent.click(screen.getByText("決定したHMW"));
+    fireEvent.click(screen.getByText("決定した問い"));
     expect(
       screen.getByText("どうすれば全員が安心して話せるだろうか？"),
     ).not.toBeVisible();
@@ -2124,7 +2124,7 @@ describe("ステップに結び付いた決定事項", () => {
       screen.getByText("どうすれば全員が安心して話せるだろうか？"),
     ).not.toBeVisible();
   });
-  it("ステップ移行後は参照欄を初期状態に戻し、次フェーズの執筆ではHMWを開く", () => {
+  it("ステップ移行後は参照欄を初期状態に戻し、次フェーズの執筆では問いを開く", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(1, 2),
       hmwDecidedIssue: "採用した課題",
@@ -2138,10 +2138,10 @@ describe("ステップに結び付いた決定事項", () => {
       <TestBoardView
         {...props}
         phase={buildPhaseStep(1, 3)}
-        decidedHmw="採用したHMW"
+        decidedHmw="採用した問い"
       />,
     );
-    expect(screen.getByText("採用したHMW")).toBeVisible();
+    expect(screen.getByText("採用した問い")).toBeVisible();
     expect(screen.getByText("採用した課題")).not.toBeVisible();
   });
   it("持ち越しのないフェーズでは空の決定事項を表示しない", () => {
@@ -2151,7 +2151,7 @@ describe("ステップに結び付いた決定事項", () => {
       decidedHmw: null,
     });
     expect(screen.queryByText("決定した課題")).not.toBeInTheDocument();
-    expect(screen.queryByText("決定したHMW")).not.toBeInTheDocument();
+    expect(screen.queryByText("決定した問い")).not.toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
     ).toBeVisible();
@@ -2423,7 +2423,9 @@ describe("U13 通常入口の統合", () => {
       { key: "Enter" },
     );
     const textbox = within(card as HTMLElement).getByRole("textbox");
-    fireEvent.change(textbox, { target: { value: "もっと簡単に入力できる" } });
+    fireEvent.change(textbox, {
+      target: { value: "もっと簡単に入力できる" },
+    });
     fireEvent.blur(textbox);
     expect(props.onPrivateNoteContentChange).toHaveBeenCalledWith(
       privateNote.id,

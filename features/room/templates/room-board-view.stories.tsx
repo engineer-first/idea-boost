@@ -25,7 +25,7 @@ const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_1 = buildPhaseStep(1, 2);
 const STEP_3_5 = buildPhaseStep(5, 3);
 const GUIDE_ISSUE = "会議で発言する人が偏ってしまう";
-const GUIDE_HMW = "どうすれば全員が安心してアイデアを共有できるだろうか？";
+const GUIDE_QUESTION = "どうすれば全員が安心してアイデアを共有できるだろうか？";
 const CANVAS_HUD_POSITIONS = [
   [180, 120],
   [380, 220],
@@ -179,7 +179,7 @@ function guideStory(phase: 1 | 2 | 3, step: number): Story {
       notes: step === 1 ? [] : buildNotes(3),
       initialGuideState: "detail",
       hmwDecidedIssue: phase >= 2 ? GUIDE_ISSUE : null,
-      decidedHmw: phase === 3 ? GUIDE_HMW : null,
+      decidedHmw: phase === 3 ? GUIDE_QUESTION : null,
     },
   };
 }
@@ -630,7 +630,7 @@ export const NextPhaseConfirmDialog: Story = {
   },
 };
 
-// Step 2-1（HMW 個人執筆）: 持ち越された決定課題バナー（上端）と HMW
+// Step 2-1（問いの個人執筆）: 持ち越された決定課題バナー（上端）と問い
 // テンプレートパネル（左端）がボード上に浮かび、ボード面は自分の付箋だけ
 // （共有付箋・グループは出さない）。
 export const HmwWritingStep: Story = {

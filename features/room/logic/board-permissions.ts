@@ -139,7 +139,7 @@ function getBaseBoardPermissions(phase: RoomPhase): BaseBoardPermissions {
     }
   }
 
-  // フェーズ2 Step2-1 HMW個人執筆
+  // フェーズ2 Step2-1の問いの個人執筆
   if (phase.phase === 2 && phase.step === 1) {
     return {
       showPrivateToolbar: true,
@@ -158,7 +158,7 @@ function getBaseBoardPermissions(phase: RoomPhase): BaseBoardPermissions {
     };
   }
 
-  // フェーズ2 Step2-2 HMW共有
+  // フェーズ2 Step2-2 問い共有
   if (phase.phase === 2 && phase.step === 2) {
     return {
       showPrivateToolbar: true,
@@ -177,7 +177,7 @@ function getBaseBoardPermissions(phase: RoomPhase): BaseBoardPermissions {
     };
   }
 
-  // フェーズ2 Step2-3 HMWステルス投票
+  // フェーズ2 Step2-3 問いのステルス投票
   if (phase.phase === 2 && phase.step === 3) {
     return {
       showPrivateToolbar: false,

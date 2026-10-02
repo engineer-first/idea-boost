@@ -233,7 +233,7 @@ export type Decision = z.infer<typeof DecisionSchema>;
 
 // フェーズをまたいで引き継ぐ確定情報（前フェーズで決定された付箋）。
 // content は決定時点のコピーで、元付箋の後からの編集・削除に影響されない。
-// フェーズ2の「決定した課題」表示が最初の利用者で、フェーズ3の決定 HMW
+// フェーズ2の「決定した課題」表示が最初の利用者で、フェーズ3の決定した問い
 // 表示でも同じ形を再利用する。
 export const CarryoverSchema = z.object({
   phase: z.number().int().min(1).max(3),

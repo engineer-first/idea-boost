@@ -318,7 +318,7 @@ export function RoomBoard({
     [addNote],
   );
 
-  // フェーズ2では決定課題を、フェーズ3では決定課題と決定HMWを掲示する。
+  // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。
   // 持ち越しはフェーズ昇順の配列なので、由来フェーズで取り出す。
   const currentPhase =
     roomState.phase.kind === "step" ? roomState.phase.phase : null;

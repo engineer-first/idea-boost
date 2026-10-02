@@ -2409,7 +2409,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   });
 });
 
-describe("Step 2-1（HMW 個人執筆）", () => {
+describe("Step 2-1（問いの個人執筆）", () => {
   function connectAtHmwStep(notes: ProtocolNote[] = []) {
     return connectWithSnapshot(notes, {
       phase: buildPhaseStep(1, 2),
@@ -2472,7 +2472,7 @@ describe("Step 2-1（HMW 個人執筆）", () => {
     expect(screen.queryByText("フェーズ1のグループ")).not.toBeInTheDocument();
   });
 
-  it("Step 1-1 では HMW テンプレートパネルを表示しない", () => {
+  it("Step 1-1 では問いのテンプレートパネルを表示しない", () => {
     connectWithSnapshot([], { phase: buildPhaseStep(1) });
 
     expect(screen.queryByTestId("hmw-template-panel")).not.toBeInTheDocument();

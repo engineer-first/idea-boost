@@ -61,7 +61,7 @@ export function BoardContext({
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const decisions = [
-    { id: "hmw", label: "決定したHMW", content: decidedHmw },
+    { id: "hmw", label: "決定した問い", content: decidedHmw },
     { id: "issue", label: "決定した課題", content: hmwDecidedIssue },
   ].filter((item) => item.content !== null);
   return (
@@ -214,7 +214,7 @@ export function BoardContext({
               {phase.phase === 1
                 ? "課題"
                 : phase.phase === 2
-                  ? "HMW"
+                  ? "問い"
                   : "アイデア"}
               を1つ決める
             </p>

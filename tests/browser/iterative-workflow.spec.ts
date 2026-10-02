@@ -14,7 +14,7 @@ const output = "test-results/iterative-workflow";
 const viewport = { width: 1280, height: 720 };
 const phases = [
   { phase: 1, count: 5, goal: "課題" },
-  { phase: 2, count: 4, goal: "HMW" },
+  { phase: 2, count: 4, goal: "問い" },
   { phase: 3, count: 5, goal: "アイデア" },
 ] as const;
 const progression =
@@ -261,7 +261,10 @@ test.each(
   expect(await dialog.innerText()).toContain("候補外");
   expect(await dialog.locator("li, blockquote").count()).toBe(0);
   await expectReachable(
-    dialog.getByRole("button", { name: "前回の票を消して始める", exact: true }),
+    dialog.getByRole("button", {
+      name: "前回の票を消して始める",
+      exact: true,
+    }),
   );
   await page.screenshot({ path: `${output}/revote-${phase}.png` });
   await dialog
