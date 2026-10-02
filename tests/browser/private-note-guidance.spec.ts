@@ -63,7 +63,17 @@ for (const width of [390, 1280]) {
     await expect
       .poll(() => page.locator("textarea:not([readonly])").count())
       .toBe(1);
+    await expect
+      .poll(() =>
+        page
+          .getByRole("textbox")
+          .evaluate((element) => element === document.activeElement),
+      )
+      .toBe(true);
     await page.keyboard.insertText("自分で書いた下書き");
+    await expect
+      .poll(() => page.getByRole("textbox").inputValue())
+      .toBe("自分で書いた下書き");
     await page.keyboard.press("Escape");
     expect(await page.getByRole("textbox").inputValue()).toBe(
       "自分で書いた下書き",

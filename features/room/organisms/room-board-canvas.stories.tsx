@@ -1112,12 +1112,19 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
   const [expandRequest, setExpandRequest] = useState(
     args.expandPrivateNotesRequest ?? 0,
   );
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState([...args.notes, ...args.privateNotes]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const updateContent = (id: string, content: string) =>
+  const updateContent = (id: string, content: string) => {
+    setDrafts((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     setNotes((current) =>
       current.map((note) => (note.id === id ? { ...note, content } : note)),
     );
+  };
   return (
     <RoomBoardCanvasWithLocalRefs
       {...args}
@@ -1137,6 +1144,10 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
             content: "",
           }),
         ])
+      }
+      draftValue={(id) => drafts[id]}
+      onDraftChange={(id, content) =>
+        setDrafts((current) => ({ ...current, [id]: content }))
       }
       onPrivateNoteContentChange={updateContent}
       onNoteContentChange={updateContent}
