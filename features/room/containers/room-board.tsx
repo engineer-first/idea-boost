@@ -69,7 +69,7 @@ export function RoomBoard({
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
-  const hmwExamplesInitializedRef = useRef(false);
+  const hmwExamplesInitializedVersionRef = useRef(0);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
   const bulkUndoIdsRef = useRef(new Set<string>());
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
@@ -328,20 +328,27 @@ export function RoomBoard({
     if (
       !isHmwWritingStep ||
       connectionStatus !== "open" ||
-      hmwExamplesInitializedRef.current
+      notes.snapshotVersion === 0 ||
+      hmwExamplesInitializedVersionRef.current === notes.snapshotVersion
     )
       return;
 
-    hmwExamplesInitializedRef.current = true;
     const existingContents = new Set(
       notes.notes
         .filter((note) => note.visibility === "private")
         .map((note) => note.content),
     );
+    hmwExamplesInitializedVersionRef.current = notes.snapshotVersion;
     for (const example of HMW_EXAMPLES) {
       if (!existingContents.has(example)) addNote(example);
     }
-  }, [addNote, connectionStatus, notes.notes, roomState.phase]);
+  }, [
+    addNote,
+    connectionStatus,
+    notes.notes,
+    notes.snapshotVersion,
+    roomState.phase,
+  ]);
 
   // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。
   // 持ち越しはフェーズ昇順の配列なので、由来フェーズで取り出す。
