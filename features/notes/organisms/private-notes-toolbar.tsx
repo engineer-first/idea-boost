@@ -314,7 +314,14 @@ export function PrivateNotesToolbar({
                               undefined ||
                             !canShareNote ||
                             draftValue?.(note.id) !== undefined,
-                          onAction: onShareNote,
+                          onAction: (noteId) => {
+                            onShareNote(noteId);
+                            // 狭幅では共有先の付箋をトレイで覆わない。ドラッグ共有は畳まない。
+                            if (
+                              window.matchMedia?.("(max-width: 639px)").matches
+                            )
+                              setIsExpanded(false);
+                          },
                         }
                       : undefined
                   }

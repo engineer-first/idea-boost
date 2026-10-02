@@ -101,11 +101,15 @@ for (const width of [390, 1280]) {
     await share.focus();
     await page.keyboard.press("Enter");
     await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(1);
+    expect(await toolbar.getAttribute("data-expanded")).toBe(
+      width < 640 ? "false" : "true",
+    );
     const back = page.getByRole("button", { name: "マイ付箋へ戻す" });
     await back.waitFor();
     await page.screenshot({ path: `${output}/${width}-return-action.png` });
     await back.tap();
     await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(2);
+    expect(await toolbar.getAttribute("data-expanded")).toBe("true");
     expect(
       await page.getByRole("button", { name: "マイ付箋へ戻す" }).count(),
     ).toBe(0);

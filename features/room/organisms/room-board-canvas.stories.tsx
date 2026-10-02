@@ -1109,6 +1109,9 @@ const guidanceNotes = [
 // 表示・キーボード操作用の例。共有の確定はこの例だけローカル更新で模擬する。
 // 実通信と非公開境界は container / Worker のテストで検証する。
 function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
+  const [expandRequest, setExpandRequest] = useState(
+    args.expandPrivateNotesRequest ?? 0,
+  );
   const [notes, setNotes] = useState([...args.notes, ...args.privateNotes]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const updateContent = (id: string, content: string) =>
@@ -1119,6 +1122,7 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
     <RoomBoardCanvasWithLocalRefs
       {...args}
       currentUserId="guidance-user"
+      expandPrivateNotesRequest={expandRequest}
       notes={notes.filter((note) => note.visibility === "shared")}
       privateNotes={notes.filter((note) => note.visibility === "private")}
       selectedNoteId={selectedNoteId}
@@ -1143,13 +1147,14 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
           ),
         )
       }
-      onUnshareNote={(id) =>
+      onUnshareNote={(id) => {
+        setExpandRequest((request) => request + 1);
         setNotes((current) =>
           current.map((note) =>
             note.id === id ? { ...note, visibility: "private" } : note,
           ),
-        )
-      }
+        );
+      }}
     />
   );
 }

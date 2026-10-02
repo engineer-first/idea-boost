@@ -36,6 +36,47 @@ function setup(disabled = false) {
 }
 
 describe("PrivateNotesToolbar", () => {
+  it.each([
+    true,
+    false,
+  ])("共有ボタンで狭幅のトレイだけ畳み、共有先を隠さない: narrow=%s", (narrow) => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query.includes("max-width") && narrow,
+      })),
+    );
+    try {
+      const onShareNote = vi.fn();
+      render(
+        <PrivateNotesToolbar
+          notes={[buildNote({ visibility: "private" })]}
+          disabled={false}
+          selectedNoteId={null}
+          canCreateNote={false}
+          canDeleteNote={false}
+          canMoveNote
+          canEditNote
+          canShareNote
+          onShareNote={onShareNote}
+          onSelect={vi.fn()}
+          onAdd={vi.fn()}
+          onContentChange={vi.fn()}
+          onDelete={vi.fn()}
+          onDragStart={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "ボードに共有" }));
+      expect(onShareNote).toHaveBeenCalledExactlyOnceWith("note-1");
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        narrow ? "false" : "true",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("空でも追加の動詞と本人だけに見える説明があり、操作するまで作成しない", () => {
     const onAdd = vi.fn();
     render(
