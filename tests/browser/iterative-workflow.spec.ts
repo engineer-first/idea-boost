@@ -13,9 +13,9 @@ const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/iterative-workflow";
 const viewport = { width: 1280, height: 720 };
 const phases = [
-  { phase: 1, count: 5, goal: "課題" },
-  { phase: 2, count: 4, goal: "HMW" },
-  { phase: 3, count: 5, goal: "アイデア" },
+  { phase: 1, count: 5 },
+  { phase: 2, count: 4 },
+  { phase: 3, count: 5 },
 ] as const;
 const progression =
   /^(次のステップへ|次のフェーズへ|もう一度付箋を書く|もう一度投票する|採用する付箋を選ぶ)$/;
@@ -80,7 +80,7 @@ async function expectReachable(target: Locator): Promise<void> {
   ).toBe(true);
 }
 
-for (const { phase, count, goal } of phases) {
+for (const { phase, count } of phases) {
   for (let step = 1; step <= count; step += 1) {
     for (const isHost of [true, false]) {
       test(`1280×720 ${phase}-${step} ${isHost ? "ホスト" : "参加者"}: 現在地と最大2有効操作を所定位置で読める`, async () => {
@@ -91,10 +91,15 @@ for (const { phase, count, goal } of phases) {
         const isResult = step === count;
         const context = page.getByTestId("board-context-hud");
         await expectReadable(context);
+        await expect(page.getByTestId("board-current-step")).toBeVisible();
+        await expect(page.getByTestId("board-phase-progress")).toBeVisible();
         expect(await context.innerText()).toContain(`${step}/${count}`);
-        expect(await context.innerText()).toContain(
-          `ゴール：${goal}を1つ決める`,
-        );
+        expect(
+          await page.getByRole("button", { name: "ゴールと進行" }).count(),
+        ).toBe(0);
+        expect(
+          await page.getByRole("button", { name: "全手順を見る" }).count(),
+        ).toBe(0);
         expect(
           await page
             .getByTestId(`board-phase-${phase}`)
@@ -103,11 +108,6 @@ for (const { phase, count, goal } of phases) {
         expect(
           await page.getByTestId("board-phase-progress").locator("li").count(),
         ).toBe(3);
-        expect(
-          await page
-            .getByRole("button", { name: "全手順を見る", exact: true })
-            .getAttribute("aria-expanded"),
-        ).toBe("false");
         expect(
           await page
             .getByRole("list", { name: "このフェーズの全手順" })
@@ -170,25 +170,18 @@ for (const { phase, count, goal } of phases) {
   }
 }
 
-test.each(phases)("フェーズ$phaseの全手順をキーボードで開閉できる", async ({
-  phase,
-  count,
-}) => {
-  await openStory(`room-roomboardlayout--phase-${phase}-step-2`);
+test("決定内容をキーボードで開閉し、フォーカスを保つ", async () => {
+  await openStory("room-roomboardlayout--phase-3-step-2");
   const toggle = page.getByRole("button", {
-    name: "全手順を見る",
+    name: "決定したHMW",
     exact: true,
   });
   await toggle.focus();
   await page.keyboard.press("Enter");
-  const route = page.getByRole("list", { name: "このフェーズの全手順" });
-  await route.waitFor();
-  expect(await route.locator("li").count()).toBe(count);
-  await expectReadable(route);
-  expect(await route.getByRole("button").count()).toBe(0);
-  expect(await route.locator('[aria-current="step"]').count()).toBe(1);
+  expect(await toggle.getAttribute("aria-expanded")).toBe("true");
+  await expect(page.getByTestId("board-reference-hmw-content")).toBeVisible();
   await page.keyboard.press("Space");
-  expect(await route.count()).toBe(0);
+  expect(await toggle.getAttribute("aria-expanded")).toBe("false");
   expect(
     await toggle.evaluate((element) => document.activeElement === element),
   ).toBe(true);

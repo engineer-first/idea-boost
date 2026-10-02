@@ -2500,8 +2500,13 @@ describe("Step 3-1（アイデア個人執筆）", () => {
       ],
     });
 
-    fireEvent.click(screen.getByText("決定した課題"));
+    fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
     expect(screen.getByText("優先順位を決められない")).toBeInTheDocument();
+    expect(
+      screen.getByText("どうすれば着手しやすくできるか"),
+    ).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "決定したHMW" }));
+    expect(screen.getByText("優先順位を決められない")).not.toBeVisible();
     expect(
       screen.getByText("どうすれば着手しやすくできるか"),
     ).toBeInTheDocument();

@@ -27,9 +27,18 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const CurrentStep: Story = {};
-export const Decisions: Story = {
+export const IssueExpanded: Story = {
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByText("決定した課題"));
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "決定した課題" }),
+    );
+  },
+};
+export const HmwExpanded: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "決定したHMW" }),
+    );
   },
 };
 export const NoDecisions: Story = {

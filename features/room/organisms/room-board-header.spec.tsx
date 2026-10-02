@@ -248,9 +248,10 @@ describe("RoomBoardHeader", () => {
     });
 
     it.each([
-      [buildPhaseStep(1), "03"],
+      [buildPhaseStep(1), "05"],
       [buildPhaseStep(3), "04"],
       [buildPhaseStep(2), "06"],
+      [buildPhaseStep(1, 3), "05"],
       [buildPhaseStep(3, 3), "07"],
       [buildPhaseStep(5), "10"],
     ] as const)("$phase の推奨$minutes分をタイマー初期値にするが自動開始しない", (phase, minutes) => {
@@ -616,7 +617,7 @@ describe("共有の進行欄", () => {
     durationMs: 180000,
     startsAt: null,
   };
-  it("現在・次・3回共通と全体の順番を表示する", () => {
+  it("現在の進行状況と全体の順番を表示する", () => {
     render(
       <RoomBoardHeader
         {...setupProps({
@@ -627,7 +628,6 @@ describe("共有の進行欄", () => {
         {...{ sharing, onSharingStart: vi.fn(), onSharingAdvance: vi.fn() }}
       />,
     );
-    expect(screen.getByText("3回共通")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "次の人へ" })).toBeEnabled();
     fireEvent.click(
       screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
@@ -759,16 +759,14 @@ describe("U03 進行の役割", () => {
   it.each([
     true,
     false,
-  ])("現在地に本人の進行権限を示す: isHost=%s", (isHost) => {
+  ])("HUDに進行役の案内を表示しない: isHost=%s", (isHost) => {
     setup({ isHost });
     const context = screen.getByTestId("board-context-hud");
+    expect(context).not.toHaveTextContent("ホスト：進行はあなたが操作");
+    expect(context).not.toHaveTextContent("参加者：次への進行はホストが操作");
     expect(
-      within(context).getByText(
-        isHost
-          ? "ホスト：進行はあなたが操作"
-          : "参加者：次への進行はホストが操作",
-      ),
-    ).toBeVisible();
+      within(context).queryByRole("button", { name: "ゴールと進行" }),
+    ).not.toBeInTheDocument();
   });
 });
 
