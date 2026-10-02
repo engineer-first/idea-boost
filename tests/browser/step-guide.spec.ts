@@ -3,7 +3,7 @@ import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
-const output = "test-results/step-guide";
+const output = "test-results/board-layout/step-guide";
 let browser: Browser;
 beforeAll(async () => {
   await mkdir(output, { recursive: true });
@@ -305,6 +305,7 @@ test.each([
         .getByText("「付箋を追加」を押し、最近あった困ったことを1つ書く。")
         .isVisible(),
     ).toBe(true);
+    await page.screenshot({ path: `${output}/clear-first-step-${width}.png` });
     await page.keyboard.press("Escape");
     await settled(page, "compact");
     const trigger = page.getByRole("button", { name: "進め方", exact: true });
@@ -330,8 +331,8 @@ test.each([
 });
 
 test.each([
-  390, 1280,
-])("%ipxで対象工程の例が読み取れ、横にはみ出さない", async (width) => {
+  390, 1180, 1280,
+])("%ipxで幅を取るスクロールバーでも例が読め、横にはみ出さない", async (width) => {
   const page = await browser.newPage({
     viewport: { width, height: 844 },
     reducedMotion: "reduce",
@@ -349,11 +350,20 @@ test.each([
     ]) {
       await open(page, `room-stepguide--${story}`);
       await settled(page, "detail");
+      // overlay scrollbarだけでは固定幅の欠陥を検知できない。幅を取る表示も再現する。
+      await page.addStyleTag({
+        content:
+          '[aria-label="ファシリテーションガイド"]::-webkit-scrollbar { width: 16px; height: 16px; }',
+      });
       const detail = page.getByRole("region", {
         name: "ファシリテーションガイド",
       });
+      await page.screenshot({
+        path: `${output}/clear-${story}-first-${width}.png`,
+      });
       const figure = detail.getByRole("figure");
       await figure.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `${output}/clear-${story}-${width}.png` });
       const box = await figure.boundingBox();
       expect(box?.x).toBeGreaterThanOrEqual(0);
       expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
