@@ -67,7 +67,7 @@ describe("getFacilitationGuide", () => {
   it.each([
     [
       buildPhaseStep(1),
-      3,
+      5,
       "1枚につき1つ書こう。",
       "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
     ],
@@ -121,7 +121,7 @@ describe("getFacilitationGuide", () => {
     ],
     [
       buildPhaseStep(1, 3),
-      3,
+      5,
       "決定した問いをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",
       null,
     ],

@@ -35,7 +35,7 @@ const FACILITATION_GUIDES: Record<
 > = {
   1: {
     1: {
-      durationMinutes: 3,
+      durationMinutes: 5,
       intro: "まずは、最近あった困ったことを付箋に。1枚に1つずつ書こう。",
       message: "1枚につき1つ書こう。",
       hostMessage:
@@ -178,7 +178,7 @@ const FACILITATION_GUIDES: Record<
   },
   3: {
     1: {
-      durationMinutes: 3,
+      durationMinutes: 5,
       intro: "決めた問いに対する解決策を付箋に。実現方法を気にしすぎず書こう。",
       message:
         "決定した問いをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",

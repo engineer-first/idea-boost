@@ -141,6 +141,7 @@ test.each([
   try {
     await open(page, "room-roomboardview--guide-phase-2-step-1");
     await settled(page, "detail");
+    await page.getByRole("button", { name: "決定した課題" }).click();
     const shell = page.getByTestId("step-guide");
     const detail = await shell.boundingBox();
     expect(detail?.x).toBeGreaterThanOrEqual(0);

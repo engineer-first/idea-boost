@@ -2032,7 +2032,7 @@ describe("参加者 HUD", () => {
 });
 
 describe("ステップに結び付いた決定事項", () => {
-  it("決定した課題を左上に残し、ガイドは独立した枠に表示する", () => {
+  it("決定した課題を左上の閉じた参照欄に残し、ガイドは独立した枠に表示する", () => {
     setup({
       phase: buildPhaseStep(1, 2),
       hmwDecidedIssue: "忘れ物を減らしたい",
@@ -2046,6 +2046,8 @@ describe("ステップに結び付いた決定事項", () => {
     });
 
     expect(hud).toContainElement(reference);
+    expect(reference).toHaveAttribute("data-open", "false");
+    expect(screen.getByText("忘れ物を減らしたい")).not.toBeVisible();
     expect(hud).not.toContainElement(guide);
   });
 
@@ -2058,6 +2060,8 @@ describe("ステップに結び付いた決定事項", () => {
     expect(
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
     ).toBeVisible();
+    expect(screen.getByText("忘れ物を減らしたい")).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
     expect(screen.getByText("忘れ物を減らしたい")).toBeVisible();
     expect(
       screen.queryByRole("tab", { name: /決定事項/ }),
@@ -2077,14 +2081,13 @@ describe("ステップに結び付いた決定事項", () => {
     });
     expect(
       screen.getByText("どうすれば全員が安心して話せるだろうか？"),
-    ).toBeVisible();
+    ).not.toBeVisible();
     expect(screen.getByText("全員が安心して意見を出せない")).not.toBeVisible();
-    fireEvent.click(screen.getByText("決定した課題"));
-    expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
-    fireEvent.click(screen.getByText("決定した問い"));
+    fireEvent.click(screen.getByRole("button", { name: "決定した問い" }));
     expect(
       screen.getByText("どうすれば全員が安心して話せるだろうか？"),
-    ).not.toBeVisible();
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
     expect(screen.getByText("全員が安心して意見を出せない")).toBeVisible();
     expect(screen.getByTestId("step-guide")).toHaveAttribute(
       "data-state",
@@ -2103,8 +2106,8 @@ describe("ステップに結び付いた決定事項", () => {
       hmwDecidedIssue: "採用した課題",
       decidedHmw: null,
     });
-    fireEvent.click(screen.getByText("決定した課題"));
-    expect(screen.getByText("採用した課題")).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
+    expect(screen.getByText("採用した課題")).toBeVisible();
     rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 2)} />);
     expect(screen.getByText("採用した課題")).not.toBeVisible();
     rerender(
@@ -2114,7 +2117,7 @@ describe("ステップに結び付いた決定事項", () => {
         decidedHmw="採用した問い"
       />,
     );
-    expect(screen.getByText("採用した問い")).toBeVisible();
+    expect(screen.getByText("採用した問い")).not.toBeVisible();
     expect(screen.getByText("採用した課題")).not.toBeVisible();
   });
   it("持ち越しのないフェーズでは空の決定事項を表示しない", () => {
@@ -2243,12 +2246,12 @@ describe("通知の寸法観測", () => {
     const { toaster } = notificationFixture();
     const computed = vi.spyOn(window, "getComputedStyle");
     try {
-      setup();
+      setup({ hmwDecidedIssue: "採用した課題" });
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
       computed.mockClear();
-      fireEvent.click(screen.getByRole("button", { name: "全手順を見る" }));
+      fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
