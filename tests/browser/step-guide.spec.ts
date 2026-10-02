@@ -278,3 +278,102 @@ test("390pxの問い作成ガイドは付箋操作を覆わず末尾まで読め
     await page.close();
   }
 });
+
+test.each([
+  390, 1280,
+])("%ipxで短い作業と例を読み、初回案内から直接開いて操作へ戻れる", async (width) => {
+  const page = await browser.newPage({
+    viewport: { width, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardview--phase-1-first-step-intro");
+    await page
+      .getByRole("button", { name: "進め方を見る", exact: true })
+      .click();
+    await settled(page, "detail");
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    expect(
+      await detail
+        .getByRole("heading", { name: "困ったことを書く" })
+        .isVisible(),
+    ).toBe(true);
+    expect(
+      await detail
+        .getByText("「付箋を追加」を押し、最近あった困ったことを1つ書く。")
+        .isVisible(),
+    ).toBe(true);
+    await page.keyboard.press("Escape");
+    await settled(page, "compact");
+    const trigger = page.getByRole("button", { name: "進め方", exact: true });
+    expect(await trigger.textContent()).toContain("困ったことを書く");
+    expect(await trigger.evaluate((e) => e === document.activeElement)).toBe(
+      true,
+    );
+    await trigger.press("Enter");
+    await settled(page, "detail");
+    await page.getByRole("button", { name: "付箋を追加", exact: true }).click();
+    await settled(page, "compact");
+    expect(
+      await page
+        .getByTestId("private-notes-toolbar")
+        .getAttribute("data-expanded"),
+    ).toBe("true");
+    await page.screenshot({
+      path: `${output}/clear-first-action-${width}.png`,
+    });
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
+  390, 1280,
+])("%ipxで対象工程の例が読み取れ、横にはみ出さない", async (width) => {
+  const page = await browser.newPage({
+    viewport: { width, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    for (const story of [
+      "detail",
+      "sharing",
+      "grouping",
+      "voting",
+      "question",
+      "comparing",
+      "host",
+      "sharing-host",
+    ]) {
+      await open(page, `room-stepguide--${story}`);
+      await settled(page, "detail");
+      const detail = page.getByRole("region", {
+        name: "ファシリテーションガイド",
+      });
+      const figure = detail.getByRole("figure");
+      await figure.scrollIntoViewIfNeeded();
+      const box = await figure.boundingBox();
+      expect(box?.x).toBeGreaterThanOrEqual(0);
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
+      expect(await detail.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
+        true,
+      );
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBe(width);
+      await page.screenshot({ path: `${output}/clear-${story}-${width}.png` });
+      if (story === "host" || story === "sharing-host") {
+        await detail
+          .getByText("進行役へ", { exact: true })
+          .scrollIntoViewIfNeeded();
+        await page.screenshot({
+          path: `${output}/clear-${story}-timer-${width}.png`,
+        });
+      }
+    }
+  } finally {
+    await page.close();
+  }
+});
