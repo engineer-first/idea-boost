@@ -23,6 +23,7 @@ import {
   type RoomScreenConnectionStatus,
 } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
+import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 
 export type RoomLobbyViewProps = {
@@ -43,6 +44,9 @@ export type RoomLobbyViewProps = {
   // 退出。
   onLeave: () => void;
   isLeaving: boolean;
+  onTransferHost?: (targetUserId: string) => void;
+  isTransferring?: boolean;
+  transferError?: string | null;
 };
 
 export function RoomLobbyView({
@@ -58,9 +62,13 @@ export function RoomLobbyView({
   onStart,
   onLeave,
   isLeaving,
+  onTransferHost,
+  isTransferring = false,
+  transferError = null,
 }: RoomLobbyViewProps) {
   const isDisconnected = connectionStatus !== "open";
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
 
   return (
@@ -148,6 +156,36 @@ export function RoomLobbyView({
                 currentUserId={currentUserId}
                 hostUserId={hostUserId}
               />
+              {isHost && isLobby(phase) && onTransferHost ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    disabled={
+                      isDisconnected ||
+                      isStarting ||
+                      isTransferring ||
+                      isLeaving ||
+                      members.length < 2
+                    }
+                    onClick={() => setTransferDialogOpen(true)}
+                  >
+                    ホストを引き継ぐ
+                  </Button>
+                  {transferDialogOpen ? (
+                    <HostTransferDialog
+                      open
+                      onOpenChange={setTransferDialogOpen}
+                      members={members}
+                      currentUserId={currentUserId}
+                      onConfirm={onTransferHost}
+                      pending={isTransferring}
+                      disconnected={isDisconnected}
+                      error={transferError}
+                    />
+                  ) : null}
+                </>
+              ) : null}
             </CardContent>
             <CardFooter className="justify-center border-t border-border/60 pt-4">
               <span
@@ -207,7 +245,7 @@ export function RoomLobbyView({
               <Button
                 type="button"
                 onClick={onStart}
-                disabled={isDisconnected || isStarting}
+                disabled={isDisconnected || isStarting || isTransferring}
                 data-testid="start-phase-button"
                 size="lg"
                 className="w-full"
@@ -246,7 +284,8 @@ export function RoomLobbyView({
       </div>
 
       <LeaveConfirmDialog
-        open={leaveDialogOpen}
+        key={hostUserId}
+        open={leaveDialogOpen && !isTransferring}
         onOpenChange={setLeaveDialogOpen}
         onConfirm={onLeave}
         isLeaving={isLeaving}

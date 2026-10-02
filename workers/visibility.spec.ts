@@ -44,6 +44,12 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "ホストを引き継いでも他者の未共有付箋を見せない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "グループの一括移動でも他者の未共有付箋を配信しない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

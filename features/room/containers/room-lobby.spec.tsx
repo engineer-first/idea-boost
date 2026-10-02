@@ -281,7 +281,9 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   it("「開始する」クリックで start_phase が WS に送られる", () => {
     const { socket } = renderStart();
     fireEvent.click(screen.getByTestId("start-phase-button"));
-    expect(socket.sent).toContain(JSON.stringify({ type: "start_phase" }));
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "start_phase", expectedHostRevision: 0 }),
+    );
   });
 
   it("「開始する」クリック直後は isStarting=true でボタンが disabled になる", () => {
@@ -322,4 +324,92 @@ it("開始後のボードURLを指定した場合は追従先を保持する", (
   expect(navigationMocks.replace).toHaveBeenCalledWith(
     `/rooms/${ROOM_ID}?verify=follow`,
   );
+});
+
+describe("開始前のホスト引き継ぎ", () => {
+  const members: ProtocolMember[] = [
+    { userId: HOST_ID, name: "作成者", color: "yellow" },
+    { userId: MEMBER_ID, name: "次の進行役", color: "blue" },
+  ];
+  it("移譲通知で旧ホストの開始操作をなくす", () => {
+    const { socket } = renderStart({ initialMembers: members });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: MEMBER_ID,
+        hostRevision: 1,
+      }),
+    );
+    expect(screen.queryByTestId("start-phase-button")).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId(`member-host-label-${MEMBER_ID}`),
+    ).toBeInTheDocument();
+  });
+  it("対象名を確認しキャンセルでき、確認したときだけ改訂付きで送る", () => {
+    const { socket } = renderStart({ initialMembers: members });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: HOST_ID,
+        hostRevision: 0,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "ホストを引き継ぐ" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "引き継ぎ先" }), {
+      target: { value: MEMBER_ID },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(socket.sent).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: "ホストを引き継ぐ" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "引き継ぎ先" }), {
+      target: { value: MEMBER_ID },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "次の進行役さんに引き継ぐ" }),
+    );
+    expect(JSON.parse(socket.sent[0])).toEqual({
+      type: "host:transfer",
+      targetUserId: MEMBER_ID,
+      expectedHostRevision: 0,
+    });
+    expect(screen.getByRole("button", { name: "引き継ぎ中…" })).toBeDisabled();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "error",
+        code: "forbidden",
+        message: "相手が切断しました",
+      }),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("相手が切断しました");
+    expect(
+      screen.getByRole("button", { name: "次の進行役さんに引き継ぐ" }),
+    ).toBeEnabled();
+  });
+});
+
+it("ホスト変更時に古い解散確認を閉じ、戻った後も古い確認を使わない", () => {
+  const { socket } = renderStart();
+  fireEvent.click(screen.getByRole("button", { name: "ルームを解散" }));
+  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  act(() =>
+    socket.simulateServerMessage({
+      type: "host:updated",
+      hostUserId: MEMBER_ID,
+      hostRevision: 1,
+    }),
+  );
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  act(() =>
+    socket.simulateServerMessage({
+      type: "host:updated",
+      hostUserId: HOST_ID,
+      hostRevision: 2,
+    }),
+  );
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByTestId("start-phase-button"));
+  expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({
+    type: "start_phase",
+    expectedHostRevision: 2,
+  });
 });

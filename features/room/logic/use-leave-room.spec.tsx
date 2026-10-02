@@ -142,3 +142,22 @@ it("完了後のホストは本人退出を送り、解散通知を出さない"
   expect(formData.get("intent")).toBe("self");
   expect(notifyMocks.roomDisbandedBySelf).not.toHaveBeenCalled();
 });
+
+it("ホストの解散と参加者の退出は明示的な意図と現在改訂を送る", () => {
+  LEAVE_ROOM.mockReset();
+  LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
+  const host = renderHook(() =>
+    useLeaveRoom({ roomId: ROOM_ID, isHost: true, hostRevision: 2 }),
+  );
+  act(() => host.result.current.leave());
+  const hostForm = LEAVE_ROOM.mock.calls[0]?.[0] as FormData;
+  expect(hostForm.get("intent")).toBe("disband");
+  expect(hostForm.get("expectedHostRevision")).toBe("2");
+  const member = renderHook(() =>
+    useLeaveRoom({ roomId: ROOM_ID, isHost: false, hostRevision: 2 }),
+  );
+  act(() => member.result.current.leave());
+  const memberForm = LEAVE_ROOM.mock.calls[1]?.[0] as FormData;
+  expect(memberForm.get("intent")).toBe("self");
+  expect(memberForm.get("expectedHostRevision")).toBe("2");
+});
