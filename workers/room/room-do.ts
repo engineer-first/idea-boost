@@ -60,7 +60,8 @@ import {
 } from "./completed-rooms";
 import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
-import { groupHandlers, listVisibleGroups } from "./groups";
+import { broadcastGroupDrag, groupDragHandlers } from "./group-drag";
+import { autoReorganize, groupHandlers, listVisibleGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import {
   buildIdeaMapServerState,
@@ -125,6 +126,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...noteHandlers,
   ...decisionHandlers,
   ...groupHandlers,
+  ...groupDragHandlers,
   ...ideaMapHandlers,
   ...phaseHandlers,
   ...timerHandlers,
@@ -160,7 +162,7 @@ export class RoomDO extends DurableObject {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.broadcaster = new RoomBroadcaster(ctx);
+    this.broadcaster = new RoomBroadcaster(ctx, ctx.storage.sql);
     this.history = new ProgressHistoryStorage(
       ctx,
       env.DB,
@@ -530,6 +532,10 @@ export class RoomDO extends DurableObject {
         hasCursor: false,
       } satisfies SocketAttachment);
       if (active) {
+        if (active.group) {
+          broadcastGroupDrag(this.sql, this.broadcaster, active, true);
+          autoReorganize(this.ctx.storage, this.broadcaster);
+        }
         const row = findNote(this.sql, active.noteId);
         if (row?.visibility === "shared") {
           // 終了メッセージが届かない切断でも、最後に受理した座標を保全する。
@@ -713,7 +719,9 @@ export class RoomDO extends DurableObject {
       return;
     }
     const affectsOutcome =
-      isBoardMutation(message) && !message.type.startsWith("note:drag:");
+      isBoardMutation(message) &&
+      !message.type.startsWith("note:drag:") &&
+      !message.type.startsWith("group:drag:");
     const phaseBefore = getPhaseRevision(this.sql);
     const before = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
@@ -831,6 +839,27 @@ export class RoomDO extends DurableObject {
       type: "snapshot",
       sharing: getSharingState(this.sql),
       notes,
+      groupDrags: this.broadcaster.activeGroupDrags().flatMap((active) => {
+        const group = active.group;
+        if (
+          !group?.positions.every(({ noteId }) =>
+            notes.some((note) => note.id === noteId),
+          )
+        )
+          return [];
+        return [
+          {
+            dragId: active.dragId,
+            sequence: group.sequence,
+            group: {
+              ...group.frame,
+              x: group.frame.x + group.delta.x,
+              y: group.frame.y + group.delta.y,
+            },
+            noteIds: group.positions.map(({ noteId }) => noteId),
+          },
+        ];
+      }),
       // フェーズ2では既存のフェーズ1グループも表示しない。
       groups:
         phase.kind === "step" && phase.phase === 2

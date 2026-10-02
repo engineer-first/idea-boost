@@ -28,7 +28,48 @@ function setup(overrides: Partial<Parameters<typeof NoteGroupCard>[0]> = {}) {
   return { props, view };
 }
 
+function pointer(
+  element: HTMLElement,
+  type: string,
+  init: MouseEventInit,
+): void {
+  fireEvent(
+    element,
+    Object.assign(new MouseEvent(type, { bubbles: true, ...init }), {
+      pointerId: 1,
+      isPrimary: true,
+    }),
+  );
+}
+
 describe("NoteGroupCard", () => {
+  it("枠内背景を4px以上動かすと、掴んだ枠と開始位置を渡して一括移動を始める", () => {
+    const onDragStart = vi.fn();
+    const props = { canMoveGroup: true, onDragStart };
+    setup(props);
+    const background = screen.getByTestId("note-group-card");
+    pointer(background, "pointerdown", {
+      button: 0,
+      clientX: 100,
+      clientY: 110,
+    });
+    pointer(background, "pointermove", {
+      buttons: 1,
+      clientX: 102,
+      clientY: 110,
+    });
+    expect(onDragStart).not.toHaveBeenCalled();
+    pointer(background, "pointermove", {
+      buttons: 1,
+      clientX: 108,
+      clientY: 115,
+    });
+    expect(onDragStart).toHaveBeenCalledWith(baseGroup, expect.anything(), {
+      x: 100,
+      y: 110,
+    });
+  });
+
   it("グループ枠の破線を濃くし、背景色を強める", () => {
     setup();
 

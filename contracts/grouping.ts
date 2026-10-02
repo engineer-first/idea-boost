@@ -1,4 +1,4 @@
-import { getNoteHeight, NOTE_WIDTH } from "./board";
+import { CANVAS_COORDINATE_LIMIT, getNoteHeight, NOTE_WIDTH } from "./board";
 import type { ProtocolNote } from "./room-protocol";
 
 type Note = ProtocolNote;
@@ -18,8 +18,52 @@ export interface RenderGroup {
   height: number;
   isTemp?: boolean;
   persistentGroupId?: string;
-  representativeNoteId?: string; // 新規登録用
+  representativeNoteId?: string; // 新規登録・表示枠の識別用
   hue?: number;
+}
+
+export type GroupBounds = Pick<RenderGroup, "x" | "y" | "width" | "height">;
+
+// 表示枠の中心点判定をUIとRoomDOで共用する。保存上の所属に依存しない。
+export function getGroupMoveTargets(
+  notes: Note[],
+  bounds: GroupBounds,
+): Note[] {
+  return notes.filter((note) => {
+    const centerX = note.x + NOTE_WIDTH / 2;
+    const centerY = note.y + getNoteHeight(note.content, note.fontSize) / 2;
+    return (
+      note.visibility === "shared" &&
+      centerX >= bounds.x &&
+      centerX <= bounds.x + bounds.width &&
+      centerY >= bounds.y &&
+      centerY <= bounds.y + bounds.height
+    );
+  });
+}
+
+// 端に達しても全対象へ同じ差分を適用し、相対配置を保つ。
+export function clampGroupDelta(
+  positions: readonly { x: number; y: number }[],
+  delta: { x: number; y: number },
+): { x: number; y: number } {
+  if (positions.length === 0) return { x: 0, y: 0 };
+  return {
+    x: Math.max(
+      -CANVAS_COORDINATE_LIMIT - Math.min(...positions.map((p) => p.x)),
+      Math.min(
+        CANVAS_COORDINATE_LIMIT - Math.max(...positions.map((p) => p.x)),
+        delta.x,
+      ),
+    ),
+    y: Math.max(
+      -CANVAS_COORDINATE_LIMIT - Math.min(...positions.map((p) => p.y)),
+      Math.min(
+        CANVAS_COORDINATE_LIMIT - Math.max(...positions.map((p) => p.y)),
+        delta.y,
+      ),
+    ),
+  };
 }
 
 const DISTANCE_THRESHOLD = 60;
@@ -266,6 +310,7 @@ export function calculateRenderGroups(
         width: box.width,
         height: box.height,
         persistentGroupId: dominant.id,
+        representativeNoteId: cluster[0],
       });
     } else if (activeGroups.length === 1) {
       // 単一グループケース
@@ -277,6 +322,7 @@ export function calculateRenderGroups(
         width: box.width,
         height: box.height,
         persistentGroupId: activeGroups[0].id,
+        representativeNoteId: cluster[0],
       });
     } else {
       // 新規仮グループケース

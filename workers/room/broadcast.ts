@@ -5,6 +5,7 @@
 // RoomDO はハイバネーションでメモリから消えるため、接続一覧を自前で保持せず、
 // 送信のたびに getWebSockets() から取得する。
 import type {
+  GroupDragFrame,
   ProtocolNote,
   ServerMessage,
 } from "../../contracts/room-protocol";
@@ -12,12 +13,19 @@ import { visibleTo } from "../visibility";
 
 // WS 接続ごとに serializeAttachment で永続化する状態。
 // ハイバネーション復帰後も deserializeAttachment で取り出せる。
+export type ActiveGroupDrag = {
+  frame: GroupDragFrame;
+  positions: { noteId: string; x: number; y: number }[];
+  sequence: number;
+  delta: { x: number; y: number };
+};
+
 export type SocketAttachment = {
   userId: string;
   hasCursor?: boolean;
   adoptionFocusNoteId?: string;
   // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
-  activeDrag?: { noteId: string; dragId: string };
+  activeDrag?: { noteId: string; dragId: string; group?: true };
 };
 
 export type ActiveDragOwner = {
@@ -25,11 +33,13 @@ export type ActiveDragOwner = {
   attachment: SocketAttachment;
   noteId: string;
   dragId: string;
+  group?: ActiveGroupDrag;
 };
 
 export class RoomBroadcaster {
   constructor(
     private readonly connections: Pick<DurableObjectState, "getWebSockets">,
+    private readonly sql?: SqlStorage,
   ) {}
 
   sendTo(ws: WebSocket, message: ServerMessage): void {
@@ -48,6 +58,27 @@ export class RoomBroadcaster {
       if (!attachment) continue;
       const message = buildMessage(attachment.userId);
       if (!visibleTo({ viewerId: attachment.userId }, message.note)) continue;
+      this.trySend(socket, JSON.stringify(message));
+    }
+  }
+
+  // 一括更新も各受信者へ射影し、全対象の可視性を確認してから一度に送る。
+  broadcastGroupNotes(
+    buildMessage: (
+      viewerId: string,
+    ) => Extract<ServerMessage, { type: "group:drag:updated" }>,
+  ): void {
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (!attachment) continue;
+      const message = buildMessage(attachment.userId);
+      if (
+        !message.notes.every((note) =>
+          visibleTo({ viewerId: attachment.userId }, note),
+        )
+      )
+        continue;
       this.trySend(socket, JSON.stringify(message));
     }
   }
@@ -185,14 +216,21 @@ export class RoomBroadcaster {
 
   findActiveDrag(noteId: string): ActiveDragOwner | null {
     for (const socket of this.connections.getWebSockets()) {
-      const attachment =
-        socket.deserializeAttachment() as SocketAttachment | null;
-      if (attachment?.activeDrag?.noteId !== noteId) continue;
+      const active = this.activeDragFor(socket);
+      if (
+        !active ||
+        (active.noteId !== noteId &&
+          !active.group?.positions.some(
+            (position) => position.noteId === noteId,
+          ))
+      )
+        continue;
       return {
         socket,
-        attachment,
+        attachment: active.attachment,
         noteId,
-        dragId: attachment.activeDrag.dragId,
+        dragId: active.dragId,
+        group: active.group,
       };
     }
     return null;
@@ -206,6 +244,9 @@ export class RoomBroadcaster {
       socket,
       attachment,
       ...attachment.activeDrag,
+      group: attachment.activeDrag.group
+        ? this.readGroupDrag(attachment.activeDrag.dragId)
+        : undefined,
     };
   }
 
@@ -217,9 +258,75 @@ export class RoomBroadcaster {
     });
   }
 
+  hasActiveGroupDrag(): boolean {
+    return this.connections.getWebSockets().some((socket) => {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      return Boolean(attachment?.activeDrag?.group);
+    });
+  }
+
+  activeGroupDrags(): ActiveDragOwner[] {
+    return this.connections.getWebSockets().flatMap((socket) => {
+      const active = this.activeDragFor(socket);
+      return active?.group ? [active] : [];
+    });
+  }
+
+  saveGroupDrag(socket: WebSocket, group: ActiveGroupDrag): void {
+    const attachment = socket.deserializeAttachment() as SocketAttachment;
+    const active = attachment.activeDrag;
+    if (!this.sql || !active)
+      throw new Error("一括ドラッグの保存先がありません。");
+    this.sql.exec(
+      "INSERT INTO active_group_drags (drag_id, state_json) VALUES (?1, ?2) ON CONFLICT(drag_id) DO UPDATE SET state_json = ?2",
+      active.dragId,
+      JSON.stringify(group),
+    );
+  }
+
+  private readGroupDrag(dragId: string): ActiveGroupDrag | undefined {
+    const row = this.sql
+      ?.exec(
+        "SELECT state_json FROM active_group_drags WHERE drag_id = ?1",
+        dragId,
+      )
+      .toArray()[0];
+    return row
+      ? (JSON.parse(String(row.state_json)) as ActiveGroupDrag)
+      : undefined;
+  }
+
+  pruneGroupDrags(): void {
+    if (!this.sql) return;
+    const liveIds = new Set(
+      this.connections.getWebSockets().flatMap((socket) => {
+        const attachment =
+          socket.deserializeAttachment() as SocketAttachment | null;
+        return attachment?.activeDrag?.group
+          ? [attachment.activeDrag.dragId]
+          : [];
+      }),
+    );
+    for (const row of this.sql
+      .exec("SELECT drag_id FROM active_group_drags")
+      .toArray()) {
+      if (!liveIds.has(String(row.drag_id)))
+        this.sql.exec(
+          "DELETE FROM active_group_drags WHERE drag_id = ?1",
+          row.drag_id,
+        );
+    }
+  }
+
   retireActiveDrag(socket: WebSocket): ActiveDragOwner | null {
     const active = this.activeDragFor(socket);
     if (!active) return null;
+    if (active.group)
+      this.sql?.exec(
+        "DELETE FROM active_group_drags WHERE drag_id = ?1",
+        active.dragId,
+      );
     socket.serializeAttachment({
       ...active.attachment,
       activeDrag: undefined,
@@ -233,6 +340,7 @@ export class RoomBroadcaster {
       const active = this.retireActiveDrag(socket);
       if (active) retired.push(active);
     }
+    this.sql?.exec("DELETE FROM active_group_drags");
     return retired;
   }
 

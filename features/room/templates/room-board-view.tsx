@@ -1002,6 +1002,8 @@ export function RoomBoardView({
         </RoomBoardHeader>
 
         <RoomBoardCanvas
+          movingGroups={interactions.movingGroups}
+          onGroupDragStart={interactions.onGroupDragStart}
           notes={renderedNotes}
           groups={groups}
           phase={phase}

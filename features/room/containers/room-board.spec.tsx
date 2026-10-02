@@ -44,6 +44,7 @@ vi.mock("../logic/room-notify", () => ({
     memberLeft: notifyMocks.memberLeft,
     roomDisbanded: notifyMocks.roomDisbanded,
     roomLeft: vi.fn(),
+    groupMoveRejected: vi.fn(),
     roomDisbandedBySelf: vi.fn(),
     dismissCandidateNotice: notifyMocks.dismissCandidateNotice,
     noteExcluded: notifyMocks.noteExcluded,
@@ -54,6 +55,7 @@ vi.mock("../logic/room-notify", () => ({
 }));
 
 import type { PersistentGroup } from "@/contracts/grouping";
+import { calculateRenderGroups } from "@/contracts/grouping";
 import type { RoomPhase } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type {
@@ -157,6 +159,102 @@ function expectSent(socket: FakeWebSocket, expected: object): void {
     expect.objectContaining(expected),
   );
 }
+
+function groupPointer(
+  element: HTMLElement,
+  type: string,
+  clientX: number,
+  clientY: number,
+): void {
+  fireEvent(
+    element,
+    Object.assign(
+      new MouseEvent(type, {
+        bubbles: true,
+        button: 0,
+        buttons: type === "pointerup" ? 0 : 1,
+        clientX,
+        clientY,
+      }),
+      { pointerId: 1, isPrimary: true },
+    ),
+  );
+}
+
+it("グループ背景のドラッグは受理後に全付箋を動かし、一括確定を送る", () => {
+  const first = protocolNote({ x: 100, y: 100 });
+  const second = protocolNote({ id: TARGET_NOTE_ID, x: 360, y: 120 });
+  const { socket } = connectWithSnapshot([first, second], {
+    phase: buildPhaseStep(3),
+  });
+  const scroller = screen.getByTestId("board-scroller");
+  vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue({
+    left: 0,
+    top: 0,
+    right: 1000,
+    bottom: 1000,
+    width: 1000,
+    height: 1000,
+  } as DOMRect);
+  const frame = screen.getByTestId("note-group-card");
+  groupPointer(frame, "pointerdown", 330, 110);
+  groupPointer(frame, "pointermove", 350, 120);
+  const request = socket.sent
+    .map((message) => JSON.parse(message))
+    .find((message) => message.type === "group:drag:start");
+  expect(request).toMatchObject({
+    anchorNoteId: NOTE_ID,
+    positions: [
+      { noteId: NOTE_ID, x: 100, y: 100 },
+      { noteId: TARGET_NOTE_ID, x: 360, y: 120 },
+    ],
+  });
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "100px",
+    top: "100px",
+  });
+  act(() =>
+    socket.simulateServerMessage({
+      type: "group:drag:result",
+      dragId: request.dragId,
+      accepted: true,
+    }),
+  );
+  const root = screen.getByTestId("room-board-view-root");
+  groupPointer(root, "pointermove", 410, 150);
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "180px",
+    top: "140px",
+  });
+  expect(screen.getByTestId(`board-note-${TARGET_NOTE_ID}`)).toHaveStyle({
+    left: "440px",
+    top: "160px",
+  });
+  groupPointer(root, "pointerup", 410, 150);
+  expectSent(socket, {
+    type: "group:drag:end",
+    dragId: request.dragId,
+    delta: { x: 80, y: 40 },
+  });
+  const group = calculateRenderGroups([first, second], [])[0];
+  act(() =>
+    socket.simulateServerMessage({
+      type: "group:drag:updated",
+      dragId: request.dragId,
+      sequence: 10,
+      group: { ...group, x: group.x + 80, y: group.y + 40 },
+      notes: [
+        { ...first, x: 180, y: 140 },
+        { ...second, x: 440, y: 160 },
+      ],
+      ended: true,
+    }),
+  );
+  expect(screen.getByTestId(`board-note-${TARGET_NOTE_ID}`)).toHaveStyle({
+    left: "440px",
+    top: "160px",
+  });
+});
 
 function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
   return {

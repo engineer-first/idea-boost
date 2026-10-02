@@ -31,6 +31,10 @@ export function applyServerMessage(
   options: ApplyServerMessageOptions,
 ): Note[] {
   switch (message.type) {
+    case "group:drag:updated": {
+      const updates = new Map(message.notes.map((note) => [note.id, note]));
+      return notes.map((note) => updates.get(note.id) ?? note);
+    }
     case "snapshot": {
       // 接続・再接続時の一括復元。確定状態はサーバーが真実なので、
       // ドラッグ中でも丸ごと置き換える。
@@ -84,6 +88,7 @@ export function applyServerMessage(
     case "sharing:updated":
     case "timer:updated":
     case "group:updated":
+    case "group:drag:result":
     case "group:deleted":
     case "decision:updated":
     case "outcome:published":

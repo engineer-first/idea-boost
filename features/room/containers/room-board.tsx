@@ -129,6 +129,7 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    if (boardInteractions.applyGroupMessage?.(message) === false) return;
     if (
       message.type === "snapshot" ||
       message.type === "outcome:published" ||
@@ -340,6 +341,8 @@ export function RoomBoard({
     (note) => note.visibility === "private",
   );
   const boardInteractions = useRoomBoardInteractions({
+    send,
+    connected: connectionStatus === "open",
     getFitInsets: getBoardFitInsets,
     notes: boardNotes,
     isDecided: roomState.decision !== null,

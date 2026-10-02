@@ -14,6 +14,7 @@ import { getNoteHeight } from "@/contracts/board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
+  type RenderGroup,
 } from "@/contracts/grouping";
 import {
   isAtOrAfterGroupingStep,
@@ -39,6 +40,7 @@ import {
 } from "../logic/cursor-presence";
 import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
+import type { MovingGroup } from "../logic/use-group-drag";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -52,6 +54,12 @@ const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
 export type RoomBoardCanvasProps = {
+  movingGroups?: MovingGroup[];
+  onGroupDragStart?: (
+    group: RenderGroup,
+    event: ReactPointerEvent<HTMLDivElement>,
+    origin: { x: number; y: number },
+  ) => void;
   notes: Note[];
   groups: PersistentGroup[];
   phase: RoomPhase;
@@ -143,6 +151,8 @@ export type RoomBoardCanvasProps = {
 
 export function RoomBoardCanvas({
   notes,
+  movingGroups = [],
+  onGroupDragStart,
   groups,
   phase,
   decision,
@@ -209,8 +219,15 @@ export function RoomBoardCanvas({
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
+  const movingNoteIds = new Set(movingGroups.flatMap((group) => group.noteIds));
   const renderGroups = isAtOrAfterGroupingStep(phase)
-    ? calculateRenderGroups(notes, groups)
+    ? [
+        ...calculateRenderGroups(
+          notes.filter((note) => !movingNoteIds.has(note.id)),
+          groups,
+        ),
+        ...movingGroups.map(({ group }) => group),
+      ]
     : [];
   // 候補外を先に描き、付箋単位の wrapper で重なり順を管理する。
   // カードと採用領域を同じ単位に収め、見えている候補とクリック先を一致させる。
@@ -633,6 +650,12 @@ export function RoomBoardCanvas({
                   group={rg}
                   name={rg.name}
                   canGroupNote={permissions.canGroupNote}
+                  canMoveGroup={permissions.canGroupNote && !isDisconnected}
+                  isMoving={movingGroups.some(
+                    (group) => group.group.id === rg.id,
+                  )}
+                  onDragStart={onGroupDragStart}
+                  onBackgroundClick={() => onSelect(null)}
                   onUpdateName={handleUpdateName}
                 />
               );

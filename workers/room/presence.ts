@@ -1,8 +1,10 @@
 // 名前付きカーソルの非永続中継。受信者に送る本人情報は、クライアント入力では
 // なく認証済みソケットと members テーブルから組み立てる。
 
-import { isCursorSharingAllowed } from "../../contracts/phase";
+import { isCursorSharingAllowed, isPhaseStep } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
+import { broadcastGroupDrag } from "./group-drag";
+import { autoReorganize } from "./groups";
 import type { MessageHandlers } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { findMember } from "./members";
@@ -82,6 +84,12 @@ export const presenceHandlers: MessageHandlers<
       hasCursor: false,
     } satisfies SocketAttachment);
     if (active) {
+      if (active.group) {
+        broadcastGroupDrag(ctx.sql, ctx.broadcaster, active, true);
+        if (isPhaseStep(getPhase(ctx.sql), 1, 3))
+          autoReorganize(ctx.storage, ctx.broadcaster);
+        ctx.onSharedDragEnd?.();
+      }
       const row = findNote(ctx.sql, active.noteId);
       if (row?.visibility === "shared") {
         broadcastNoteUpdated(ctx.sql, ctx.broadcaster, row);

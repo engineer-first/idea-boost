@@ -444,7 +444,9 @@ export const noteHandlers: MessageHandlers<
     const current = ctx.broadcaster.activeDragFor(ctx.ws);
     const competing = ctx.broadcaster.findActiveDrag(message.noteId);
     const isActiveRetry = Boolean(
-      current?.noteId === message.noteId && current.dragId === message.dragId,
+      !current?.group &&
+        current?.noteId === message.noteId &&
+        current.dragId === message.dragId,
     );
     const isPrivateIdeaMapDrag = Boolean(
       row?.visibility === "private" &&
@@ -492,6 +494,7 @@ export const noteHandlers: MessageHandlers<
     const active = ctx.broadcaster.activeDragFor(ctx.ws);
     if (
       !active ||
+      active.group ||
       active.noteId !== message.noteId ||
       active.dragId !== message.dragId
     ) {
@@ -536,6 +539,7 @@ export const noteHandlers: MessageHandlers<
     const active = ctx.broadcaster.activeDragFor(ctx.ws);
     if (
       !active ||
+      active.group ||
       active.noteId !== message.noteId ||
       active.dragId !== message.dragId
     ) {

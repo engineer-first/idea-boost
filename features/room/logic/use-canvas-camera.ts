@@ -191,6 +191,7 @@ export function useCanvasCamera({
   const ideaMapSizeLevelRef = useRef(ideaMapSizeLevel);
   ideaMapSizeLevelRef.current = ideaMapSizeLevel;
   const spacePressedRef = useRef(false);
+  const interactionLockedRef = useRef(false);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -248,6 +249,7 @@ export function useCanvasCamera({
 
   const fitToNotes = useCallback(
     (insets?: CanvasFitInsets): boolean => {
+      if (interactionLockedRef.current) return true;
       const element = viewportRef.current;
       if (!element) return false;
       const size = viewportSize(element);
@@ -274,6 +276,7 @@ export function useCanvasCamera({
 
   const zoomTo = useCallback(
     (requestedZoom: number, point?: CanvasPoint) => {
+      if (interactionLockedRef.current) return;
       const element = viewportRef.current;
       if (!element) return;
       const size = viewportSize(element);
@@ -301,8 +304,13 @@ export function useCanvasCamera({
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (interactionLockedRef.current) return;
       const target = event.target as HTMLElement;
-      if (target.closest("[data-testid='note-card']")) {
+      if (
+        target.closest(
+          "[data-testid='note-card'], [data-testid='note-group-card']",
+        )
+      ) {
         // 最初の個人付箋をボードへ出す操作中に初期フィットが重なると、
         // ドロップ位置が飛んで見えるため、この時点で初期フィットを終える。
         hasFitRef.current = true;
@@ -358,6 +366,7 @@ export function useCanvasCamera({
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       event.preventDefault();
+      if (interactionLockedRef.current) return;
       const point = getViewportPoint(event.clientX, event.clientY);
       if (!point) return;
       if (event.ctrlKey || event.metaKey) {
@@ -438,6 +447,7 @@ export function useCanvasCamera({
       const delta = offsets[event.key];
       if (!delta) return;
       event.preventDefault();
+      if (interactionLockedRef.current) return;
       scheduleCamera({
         ...cameraRef.current,
         x: cameraRef.current.x + delta.x,
@@ -510,7 +520,19 @@ export function useCanvasCamera({
     };
   }, [camera]);
 
+  const lockInteraction = useCallback(
+    (locked: boolean) => {
+      interactionLockedRef.current = locked;
+      if (locked) {
+        hasFitRef.current = true;
+        endPan();
+      }
+    },
+    [endPan],
+  );
+
   return {
+    lockInteraction,
     camera,
     cameraRef,
     isPanning,

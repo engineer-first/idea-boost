@@ -98,6 +98,8 @@ export function applyMemberServerMessage(
     case "phase:updated":
     case "sharing:updated":
     case "timer:updated":
+    case "group:drag:result":
+    case "group:drag:updated":
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
@@ -145,6 +147,8 @@ export function applyVotingCompletionServerMessage(
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":
+    case "group:drag:result":
+    case "group:drag:updated":
     case "group:updated":
     case "group:deleted":
     case "decision:updated":
@@ -217,6 +221,8 @@ export function applyDecisionServerMessage(
     case "member_joined":
     case "member_left":
     case "member_vote_status":
+    case "group:drag:result":
+    case "group:drag:updated":
     case "group:updated":
     case "group:deleted":
     case "sharing:updated":
@@ -301,6 +307,8 @@ export function applyPhaseServerMessage(
     case "member_joined":
     case "member_left":
     case "member_vote_status":
+    case "group:drag:result":
+    case "group:drag:updated":
     case "group:updated":
     case "group:deleted":
     case "sharing:updated":

@@ -1,13 +1,19 @@
 "use client";
 
 import { Pencil } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { RenderGroup } from "@/contracts/grouping";
 
 export type NoteGroupCardProps = {
@@ -15,6 +21,14 @@ export type NoteGroupCardProps = {
   name: string;
   canGroupNote: boolean;
   onUpdateName: (name: string) => void;
+  canMoveGroup?: boolean;
+  isMoving?: boolean;
+  onBackgroundClick?: () => void;
+  onDragStart?: (
+    group: RenderGroup,
+    event: ReactPointerEvent<HTMLDivElement>,
+    origin: { x: number; y: number },
+  ) => void;
 };
 
 function getHashCode(str: string): number {
@@ -30,10 +44,19 @@ export function NoteGroupCard({
   name,
   canGroupNote,
   onUpdateName,
+  canMoveGroup = false,
+  isMoving = false,
+  onBackgroundClick,
+  onDragStart,
 }: NoteGroupCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [localName, setLocalName] = useState(name);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pointerOriginRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!isEditing) {
@@ -79,7 +102,49 @@ export function NoteGroupCard({
   return (
     <div
       data-testid="note-group-card"
-      className="pointer-events-none absolute rounded-lg border-2 border-dashed border-[hsl(var(--group-hue),65%,42%)] bg-[hsla(var(--group-hue),65%,55%,0.07)] transition-all duration-200 ease-out"
+      data-group-moving={isMoving || undefined}
+      className={`absolute rounded-lg border-2 border-dashed border-[hsl(var(--group-hue),65%,42%)] bg-[hsla(var(--group-hue),65%,55%,0.07)] ${canMoveGroup ? "pointer-events-auto touch-none cursor-grab" : "pointer-events-none"} ${isMoving ? "cursor-grabbing" : "transition-all duration-200 ease-out"}`}
+      onPointerDown={(event) => {
+        if (
+          event.target !== event.currentTarget ||
+          !canMoveGroup ||
+          isEditing ||
+          event.button !== 0 ||
+          event.isPrimary === false
+        )
+          return;
+        event.preventDefault();
+        pointerOriginRef.current = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+        };
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const origin = pointerOriginRef.current;
+        if (!origin || origin.pointerId !== event.pointerId || !canMoveGroup)
+          return;
+        if (
+          Math.hypot(event.clientX - origin.x, event.clientY - origin.y) <
+          DRAG_THRESHOLD_PX
+        )
+          return;
+        pointerOriginRef.current = null;
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+        onDragStart?.(group, event, { x: origin.x, y: origin.y });
+      }}
+      onPointerUp={(event) => {
+        const origin = pointerOriginRef.current;
+        pointerOriginRef.current = null;
+        if (origin?.pointerId !== event.pointerId) return;
+        if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        onBackgroundClick?.();
+      }}
+      onPointerCancel={() => {
+        pointerOriginRef.current = null;
+      }}
       style={{
         left: group.x,
         top: group.y,

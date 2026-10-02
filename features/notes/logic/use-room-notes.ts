@@ -263,6 +263,9 @@ export function useRoomNotes({
 
   const applyMessage = useCallback(
     (message: ServerMessage) => {
+      if (message.type === "group:drag:updated")
+        for (const note of message.notes)
+          confirmedPositionsRef.current.set(note.id, { x: note.x, y: note.y });
       if (message.type === "snapshot")
         confirmedPositionsRef.current = new Map(
           message.notes.map((note) => [note.id, { x: note.x, y: note.y }]),

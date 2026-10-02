@@ -6,6 +6,12 @@
 import { toast } from "sonner";
 
 export const roomNotify = {
+  groupMoveRejected(): void {
+    toast.error(
+      "グループ内の付箋が操作中、または配置が変わりました。もう一度動かしてください。",
+      { id: "group-move-rejected", duration: 4000 },
+    );
+  },
   cannotVoteExcludedNote(): void {
     toast.error(
       "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",

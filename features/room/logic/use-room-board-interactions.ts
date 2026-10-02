@@ -6,11 +6,13 @@ import type {
   RefObject,
 } from "react";
 import { useRef } from "react";
+import type { RenderGroup } from "@/contracts/grouping";
 import {
   isPhaseStep,
   isPublishAllowedStep,
   type RoomPhase,
 } from "@/contracts/phase";
+import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "./board-permissions";
 import {
@@ -25,10 +27,13 @@ import {
 import { roomNotify } from "./room-notify";
 import { useBoardDrag } from "./use-board-drag";
 import { useCanvasCamera } from "./use-canvas-camera";
+import { type MovingGroup, useGroupDrag } from "./use-group-drag";
 import { useIdeaValueFeasibilityMapInput } from "./use-idea-value-feasibility-map-input";
 
 export type UseRoomBoardInteractionsArgs = {
   getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
+  send?: (message: ClientMessage) => void;
+  connected?: boolean;
   notes: Note[];
   privateNotes: Note[];
   currentUserId: string;
@@ -55,6 +60,13 @@ export type UseRoomBoardInteractionsArgs = {
 };
 
 export type RoomBoardInteractions = {
+  movingGroups?: MovingGroup[];
+  onGroupDragStart?: (
+    group: RenderGroup,
+    event: ReactPointerEvent<HTMLDivElement>,
+    origin: { x: number; y: number },
+  ) => void;
+  applyGroupMessage?: (message: ServerMessage) => boolean;
   boardRootRef: RefObject<HTMLDivElement | null>;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   ideaMapPlaneRef: RefObject<HTMLDivElement | null>;
@@ -100,6 +112,8 @@ export type RoomBoardInteractions = {
 };
 
 export function useRoomBoardInteractions({
+  send,
+  connected = true,
   getFitInsets,
   notes,
   privateNotes,
@@ -123,6 +137,7 @@ export function useRoomBoardInteractions({
   const privateToolbarRef = useRef<HTMLDivElement>(null);
 
   const {
+    lockInteraction,
     camera,
     gridStyle,
     isPanning,
@@ -195,6 +210,16 @@ export function useRoomBoardInteractions({
     onNoteDragCancel,
     onPrivateNotePublish,
     onPrivateNoteUnpublish,
+  });
+
+  const groupDrag = useGroupDrag({
+    notes: renderedNotes,
+    enabled: connected && isPhaseStep(phase, 1, 3),
+    send,
+    viewportRef: boardScrollerRef,
+    worldPointFromClient,
+    lockCamera: lockInteraction,
+    onRejected: roomNotify.groupMoveRejected,
   });
 
   const dragGhost =
@@ -317,11 +342,12 @@ export function useRoomBoardInteractions({
       point,
       drag?.status === "shared" && draggingNoteId === drag.note.id
         ? drag.note.id
-        : null,
+        : groupDrag.draggingNoteId,
     );
   };
 
   const handleBoardPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    groupDrag.end(event);
     handlePointerEnd(event);
     const point = presencePointFromPointer(event);
     if (point) {
@@ -335,6 +361,7 @@ export function useRoomBoardInteractions({
   function handlePresencePointerLeave(
     event: ReactPointerEvent<HTMLDivElement>,
   ) {
+    groupDrag.cancel();
     if (!isCurrentDragPointer(event.pointerId)) return;
     if (event.type === "pointercancel") {
       onCursorLeave();
@@ -349,11 +376,14 @@ export function useRoomBoardInteractions({
   }
 
   return {
+    movingGroups: groupDrag.movingGroups,
+    onGroupDragStart: groupDrag.start,
+    applyGroupMessage: groupDrag.applyMessage,
     boardRootRef,
     boardScrollerRef,
     ideaMapPlaneRef,
     privateToolbarRef,
-    notes: renderedNotes,
+    notes: groupDrag.renderedNotes,
     privateNotes: toolbarNotes,
     dragGhost,
     dragPreview,
@@ -365,7 +395,7 @@ export function useRoomBoardInteractions({
       drag.privateDropIndex !== null
         ? { noteId: drag.note.id }
         : undefined,
-    isNoteDragging: drag !== null,
+    isNoteDragging: drag !== null || groupDrag.isDragging,
     localDraggingNoteId: drag?.note.id ?? null,
     camera,
     gridStyle,
@@ -377,9 +407,15 @@ export function useRoomBoardInteractions({
     onZoomOut: zoomOut,
     onResetZoom: resetZoom,
     onFitToNotes: fitToNotes,
-    onPointerMove: handlePointerMove,
+    onPointerMove: (event) => {
+      groupDrag.move(event);
+      handlePointerMove(event);
+    },
     onPointerEnd: handleBoardPointerEnd,
-    onPointerCancel: handlePointerCancel,
+    onPointerCancel: (event) => {
+      groupDrag.cancel();
+      handlePointerCancel(event);
+    },
     cancelCurrentNoteDrag,
     onPresencePointerMove: handlePresencePointerMove,
     onPresencePointerLeave: handlePresencePointerLeave,

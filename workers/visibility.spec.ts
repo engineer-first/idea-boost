@@ -44,6 +44,18 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "グループの一括移動でも他者の未共有付箋を配信しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "グループの一括移動は他者が作成した共有付箋も配信する",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared", x: 300, y: 250 }),
+    expected: true,
+  },
+  {
     name: "マップ外カーソルの共有でも他者のprivate付箋は見られない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
