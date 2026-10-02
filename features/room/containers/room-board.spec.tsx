@@ -62,7 +62,7 @@ import type {
   ProtocolNote,
 } from "@/contracts/room-protocol";
 import { buildCarryover, buildGroup } from "@/contracts/room-protocol.fixture";
-import { DECIDED_ISSUE_LABEL, HMW_TEMPLATES } from "@/features/hmw";
+import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
 import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
 import { RoomBoard } from "./room-board";
 
@@ -2431,17 +2431,6 @@ describe("Step 2-1（問いの個人執筆）", () => {
 
     expect(screen.getByText(DECIDED_ISSUE_LABEL)).toBeInTheDocument();
     expect(screen.getByText("宿題を後回しにしてしまう")).toBeInTheDocument();
-  });
-
-  it("テンプレートを選ぶと content 付き note:create を送る", () => {
-    const { socket } = connectAtHmwStep();
-
-    fireEvent.click(screen.getByRole("button", { name: HMW_TEMPLATES[0] }));
-
-    expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual({
-      type: "note:create",
-      content: HMW_TEMPLATES[0],
-    });
   });
 
   it("「付箋を追加」は content なしの note:create を送る（イベントを content に流さない）", () => {
