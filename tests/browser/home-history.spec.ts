@@ -72,7 +72,10 @@ it.each([
       0,
     );
     await more.click();
-    const outcome = page.getByRole("link", { name: "成果を見る" });
+    // 閉じた details 内も検査するため、accessibility tree ではなく DOM を参照する。
+    const outcome = page.locator(
+      `a[href="/completed-rooms/${completedRoomFixture().roomId}"]`,
+    );
     await outcome.waitFor();
     expect(await outcome.getAttribute("href")).toBe(
       `/completed-rooms/${completedRoomFixture().roomId}`,
