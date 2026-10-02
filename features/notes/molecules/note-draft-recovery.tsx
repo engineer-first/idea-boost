@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { RecoveryItem } from "../logic/use-note-autosave";
 
 export function NoteDraftRecovery({
@@ -10,24 +10,37 @@ export function NoteDraftRecovery({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [copiedItem, setCopiedItem] = useState<RecoveryItem | null>(null);
+  const contentId = useId();
   if (items.length === 0) return null;
   return (
     <aside
       aria-label="未反映の文章"
-      className="pointer-events-auto fixed right-3 bottom-20 z-[60] w-[min(20rem,calc(100vw-1.5rem))] rounded-lg border border-amber-300 bg-white p-3 text-slate-900 shadow-xl"
+      className={`pointer-events-auto fixed z-[60] rounded-lg border border-amber-300 bg-white text-slate-900 shadow-xl ${expanded ? "right-3 bottom-20 w-[min(20rem,calc(100vw-1.5rem))] p-3" : "left-3 bottom-36 w-fit p-2"}`}
     >
-      <p role="status" className="text-sm font-semibold">
-        反映できなかった文章があります
+      <p
+        role="status"
+        className={expanded ? "text-sm font-semibold" : "text-xs font-semibold"}
+      >
+        {expanded ? "反映できなかった文章があります" : "未反映の文章"}
       </p>
       <button
         type="button"
-        className="mt-2 rounded bg-slate-900 px-3 py-1.5 text-sm text-white"
+        aria-expanded={expanded}
+        aria-controls={expanded ? contentId : undefined}
+        className="mt-2 min-h-11 rounded bg-slate-900 px-3 py-1.5 text-sm text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
         onClick={() => setExpanded((value) => !value)}
       >
         {expanded ? "閉じる" : "確認・コピー"}
       </button>
       {expanded ? (
-        <div className="mt-3 max-h-[min(55vh,24rem)] space-y-3 overflow-auto">
+        <div
+          id={contentId}
+          className="mt-3 max-h-[min(55vh,24rem)] space-y-3 overflow-auto"
+        >
+          <p className="text-xs text-slate-600">
+            閉じても文章はこの画面に残ります。現在の付箋と見比べて、必要な部分をコピーして使ってください。
+          </p>
           {items.map((item, index) => (
             <div key={item.noteId}>
               <p className="text-xs text-slate-600">
@@ -42,11 +55,14 @@ export function NoteDraftRecovery({
               />
               <button
                 type="button"
-                className="rounded border px-2 py-1 text-sm"
+                className="min-h-11 rounded border px-3 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
                 onClick={async () => {
+                  setCopiedItem(null);
+                  setCopyFailed(false);
                   try {
                     await navigator.clipboard.writeText(item.text);
                     setCopyFailed(false);
+                    setCopiedItem(item);
                   } catch {
                     setCopyFailed(true);
                   }
@@ -54,6 +70,16 @@ export function NoteDraftRecovery({
               >
                 コピー
               </button>
+              {copiedItem?.noteId === item.noteId &&
+              copiedItem.text === item.text ? (
+                <p
+                  role="status"
+                  aria-label="コピー結果"
+                  className="mt-1 text-xs"
+                >
+                  コピーしました
+                </p>
+              ) : null}
             </div>
           ))}
           {copyFailed ? (

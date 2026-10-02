@@ -39,13 +39,13 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
           id={`${id}-heading`}
           className="text-lg font-semibold outline-none"
         >
-          意見を送る
+          フィードバック
         </h2>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          aria-label="入力欄を閉じる"
+          aria-label={feedback.receipt ? "受領画面を閉じる" : "入力欄を閉じる"}
           onClick={feedback.close}
         >
           <X className="size-4" />
@@ -60,14 +60,18 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
           <p className="break-all text-xs text-muted-foreground">
             受付ID：{receipt}
           </p>
-          <Button
-            onClick={() => {
-              feedback.open("app");
-              heading.current?.focus();
-            }}
-          >
-            別の意見を送る
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={feedback.close}>作業に戻る</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                feedback.open("app");
+                heading.current?.focus();
+              }}
+            >
+              別のフィードバック
+            </Button>
+          </div>
         </div>
       ) : (
         <form
@@ -103,8 +107,11 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
             </label>
             <fieldset>
               <legend className="mb-2 text-sm font-medium">
-                種類（1つ選択）
+                種類（必須・1つ選択）
               </legend>
+              <p className="mb-2 text-xs text-muted-foreground">
+                種類を選ぶだけでも送れます。
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(FEEDBACK_KINDS).map(([value, label]) => (
                   <label key={value} className="cursor-pointer">
@@ -175,7 +182,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                               <Check aria-hidden="true" className="size-3" />
                             ) : null}
                           </span>
-                          <span className="text-[10px] leading-4">{label}</span>
+                          <span className="text-xs leading-4">{label}</span>
                         </span>
                       </label>
                     );

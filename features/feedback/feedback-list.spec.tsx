@@ -212,3 +212,112 @@ it("開いている一覧でも期限を迎えた本文を消す", async () => {
     screen.queryByRole("link", { name: "共有成果を見る" }),
   ).not.toBeInTheDocument();
 });
+
+it.each(["503", "network"])(
+  "続きの%s取得失敗では既読一覧を残し、再試行は同じ取得位置から重複なく追加する",
+  async (failure) => {
+    const cursors: Array<string | null> = [];
+    let failed = true;
+    server.use(
+      http.get("/api/feedback", ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get("cursor");
+        cursors.push(cursor);
+        if (cursor && failed)
+          return failure === "network"
+            ? HttpResponse.error()
+            : HttpResponse.json({}, { status: 503 });
+        return HttpResponse.json({
+          items: cursor
+            ? [
+                record,
+                {
+                  ...record,
+                  id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                  body: "続きの意見",
+                },
+              ]
+            : [record],
+          nextCursor: cursor ? null : "next",
+          canReadOutcomes: true,
+        });
+      }),
+    );
+    render(<FeedbackList />);
+    await screen.findByText(record.body);
+    fireEvent.click(screen.getByRole("button", { name: "さらに表示" }));
+    await screen.findByText("意見を取得できませんでした。再試行してください。");
+    expect(screen.getByText(record.body)).toBeInTheDocument();
+    expect(
+      screen.queryByText("条件に合う意見はありません。"),
+    ).not.toBeInTheDocument();
+    const beforeRetry = cursors.length;
+    failed = false;
+    fireEvent.click(screen.getByRole("button", { name: "再試行" }));
+    await screen.findByText("続きの意見");
+    expect(cursors.length).toBeGreaterThan(beforeRetry);
+    expect(
+      cursors.slice(beforeRetry).every((cursor) => cursor === "next"),
+    ).toBe(true);
+    expect(screen.getAllByText(record.body)).toHaveLength(1);
+  },
+);
+
+it.each([401, 403])(
+  "続きの取得が%dで拒否された場合は既読本文と成果リンクも消す",
+  async (status) => {
+    server.use(
+      http.get("/api/feedback", ({ request }) =>
+        new URL(request.url).searchParams.has("cursor")
+          ? HttpResponse.json({}, { status })
+          : HttpResponse.json({
+              items: [record],
+              nextCursor: "next",
+              canReadOutcomes: true,
+            }),
+      ),
+    );
+    render(<FeedbackList />);
+    await screen.findByText(record.body);
+    fireEvent.click(screen.getByRole("button", { name: "さらに表示" }));
+    await screen.findByText(
+      status === 401
+        ? "ログインしてください。"
+        : "意見の閲覧権限がありません。",
+    );
+    expect(screen.queryByText(record.body)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "共有成果を見る" }),
+    ).not.toBeInTheDocument();
+  },
+);
+
+it("「わからない」の投稿を表示し、同じ種類で絞り込める", async () => {
+  const queries: URLSearchParams[] = [];
+  server.use(
+    http.get("/api/feedback", ({ request }) => {
+      queries.push(new URL(request.url).searchParams);
+      return HttpResponse.json({
+        items: [
+          {
+            ...record,
+            kind: "unclear",
+            target: "1-3",
+            body: "何を基準に投票するかわからない",
+            rating: null,
+          },
+        ],
+        nextCursor: null,
+        canReadOutcomes: false,
+      });
+    }),
+  );
+  render(<FeedbackList />);
+  await screen.findByText("何を基準に投票するかわからない");
+  expect(
+    screen.getByText("わからない", { selector: "span" }),
+  ).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("種類で絞る"), {
+    target: { value: "unclear" },
+  });
+  await waitFor(() => expect(queries.at(-1)?.get("kind")).toBe("unclear"));
+});

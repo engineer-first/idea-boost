@@ -22,22 +22,30 @@ describe("成果の2軸盤面", () => {
     expect(list.queryByText("採用済み")).not.toBeInTheDocument();
     expect(list.queryByText(/合計.*票/)).not.toBeInTheDocument();
   });
-  it("3-2の共有時点でも中心座標を元の盤面と同じ配置へ変換する", () => {
-    const snapshot = buildSharedOutcome().snapshot;
-    if (!snapshot) throw new Error("snapshot required");
-    snapshot.phase = { kind: "step", phase: 3, step: 2 };
-    snapshot.notes = [
-      { ...snapshot.notes[0], id: "map-note", phase: 3, x: 50, y: 50 },
-    ];
-    snapshot.groups = [];
-    render(
-      <SharedOutcomeBoard label="アイデア" phase={3} snapshot={snapshot} />,
-    );
-    expect(screen.getByText(/縦軸：価値/)).toBeInTheDocument();
-    const note = screen.getByRole("img").querySelector("rect");
-    expect(note).toHaveAttribute("x", "700");
-    expect(note).toHaveAttribute("y", "375");
-  });
+  it.each([1, 2, 3, 4, 5])(
+    "3-%sの記録でも保存済みアイデアを2軸上の中心座標で再現する",
+    (step) => {
+      const snapshot = buildSharedOutcome().snapshot;
+      if (!snapshot) throw new Error("snapshot required");
+      snapshot.phase = { kind: "step", phase: 3, step };
+      snapshot.notes = [
+        { ...snapshot.notes[0], id: "map-note", phase: 3, x: 50, y: 50 },
+      ];
+      snapshot.groups = [];
+      render(
+        <SharedOutcomeBoard label="アイデア" phase={3} snapshot={snapshot} />,
+      );
+      expect(screen.getByText(/縦軸：価値/)).toBeInTheDocument();
+      const note = screen.getByRole("img").querySelector("rect");
+      expect(note).toHaveAttribute("x", "700");
+      expect(note).toHaveAttribute("y", "375");
+      expect(
+        within(screen.getByRole("list")).queryByText(
+          "実現のしやすさ 50 / 価値 50",
+        ),
+      ).not.toBeInTheDocument();
+    },
+  );
 });
 
 it("保存した色と重なり順を盤面に再現する", () => {
@@ -53,3 +61,42 @@ it("保存した色と重なり順を盤面に再現する", () => {
   expect(rectangles[0]).toHaveAttribute("fill", "#F39AB5");
   expect(rectangles[1]).toHaveAttribute("fill", "#88BDF2");
 });
+
+it.each([1, 2, 3])(
+  "Owner向けフェーズ%sの成果も内部座標を省き、本文・分類・状態・票数を示す",
+  (phase) => {
+    const snapshot = buildSharedOutcome().snapshot;
+    if (!snapshot) throw new Error("snapshot required");
+    const note = { ...snapshot.notes[0], phase };
+    note.x = 1145.80481372;
+    note.y = -16.08523418;
+    note.votes = { subjective: 2, objective: 3 };
+    snapshot.notes = [note];
+    snapshot.groups = [
+      {
+        id: "meaningful-group",
+        name: "つながりのきっかけ",
+        noteIds: [note.id],
+      },
+    ];
+    snapshot.decisions = [
+      {
+        phase,
+        noteId: note.id,
+        content: note.content,
+        votes: { subjective: 2, objective: 3 },
+      },
+    ];
+    render(
+      <SharedOutcomeBoard label="成果" phase={phase} snapshot={snapshot} />,
+    );
+    const list = within(screen.getByRole("list"));
+    expect(list.getByText(note.content)).toBeVisible();
+    expect(list.getByText("採用済み")).toBeVisible();
+    expect(list.getByText("グループ：つながりのきっかけ")).toBeVisible();
+    expect(list.getByText("主観 2票 / 客観 3票 / 合計 5票")).toBeVisible();
+    expect(
+      list.queryByText(/配置 \(|実現のしやすさ .*\/ 価値/),
+    ).not.toBeInTheDocument();
+  },
+);

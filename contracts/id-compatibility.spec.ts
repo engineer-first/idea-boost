@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { JoinRoomResponseSchema } from "./api";
-import { parseClientMessage, parseServerMessage } from "./room-protocol";
+import {
+  NoteSchema,
+  parseClientMessage,
+  parseServerMessage,
+} from "./room-protocol";
 import { SessionPayloadSchema } from "./session";
 
 // Zod 3 が受理していた ID を、依存更新だけで拒否しない。
@@ -48,6 +52,89 @@ describe("ID の境界互換性", () => {
       expect(
         parseServerMessage(
           JSON.stringify({ type: "note:deleted", noteId: id }),
+        ),
+      ).toBeNull();
+    },
+  );
+});
+
+describe("最新ルーム操作の ID 互換性", () => {
+  const legacyId = "11111111-1111-1111-1111-111111111111";
+  const otherId = "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF";
+
+  it.each([legacyId, otherId])(
+    "除外の復元・決定取消に旧形式 %s を使える",
+    (id) => {
+      expect(
+        parseClientMessage(
+          JSON.stringify({
+            type: "note:restore",
+            noteId: id,
+            expectedExclusionOperationId: id,
+          }),
+        ),
+      ).toEqual({
+        type: "note:restore",
+        noteId: id,
+        expectedExclusionOperationId: id,
+      });
+      expect(
+        parseClientMessage(
+          JSON.stringify({ type: "decision:clear", noteId: id }),
+        ),
+      ).toEqual({ type: "decision:clear", noteId: id });
+      expect(NoteSchema.shape.exclusionOperationId.safeParse(id).success).toBe(
+        true,
+      );
+    },
+  );
+
+  it("グループ移動開始でも旧形式の付箋IDを受け入れる", () => {
+    const message = {
+      type: "group:drag:start",
+      dragId: legacyId,
+      anchorNoteId: legacyId,
+      bounds: { x: 0, y: 0, width: 200, height: 200 },
+      positions: [
+        { noteId: legacyId, x: 0, y: 0 },
+        { noteId: otherId, x: 100, y: 100 },
+      ],
+    };
+    expect(parseClientMessage(JSON.stringify(message))).toEqual(message);
+  });
+
+  it.each(["not-a-uuid", "11111111-1111-1111-1111-11111111111g", ""])(
+    "追加された境界でも不正なID %s は拒否する",
+    (id) => {
+      expect(NoteSchema.shape.exclusionOperationId.safeParse(id).success).toBe(
+        false,
+      );
+      expect(
+        parseClientMessage(
+          JSON.stringify({
+            type: "note:restore",
+            noteId: legacyId,
+            expectedExclusionOperationId: id,
+          }),
+        ),
+      ).toBeNull();
+      expect(
+        parseClientMessage(
+          JSON.stringify({ type: "decision:clear", noteId: id }),
+        ),
+      ).toBeNull();
+      expect(
+        parseClientMessage(
+          JSON.stringify({
+            type: "group:drag:start",
+            dragId: legacyId,
+            anchorNoteId: id,
+            bounds: { x: 0, y: 0, width: 200, height: 200 },
+            positions: [
+              { noteId: legacyId, x: 0, y: 0 },
+              { noteId: otherId, x: 100, y: 100 },
+            ],
+          }),
         ),
       ).toBeNull();
     },

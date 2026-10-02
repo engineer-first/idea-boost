@@ -52,6 +52,7 @@ export type NoteCardProps = {
   canMoveNote: boolean;
   canExcludeNote?: boolean;
   canRestoreNote?: boolean;
+  candidatePending?: boolean;
   onSelect: (noteId: string) => void;
   onDragStart: (
     noteId: string,
@@ -229,6 +230,7 @@ export function NoteCard({
   canMoveNote,
   canExcludeNote = false,
   canRestoreNote = false,
+  candidatePending = false,
   onSelect,
   onDragStart,
   onContentChange,
@@ -270,7 +272,11 @@ export function NoteCard({
   const candidateActionLabel = note.excluded ? "候補に戻す" : "候補から外す";
   const candidateActionText = note.excluded ? "戻す" : "除外";
   const isCandidateActionVisible =
-    isTouchActionVisible || isPointerActionVisible || isFocusActionVisible;
+    !isOwnDrag &&
+    (isSelected ||
+      isTouchActionVisible ||
+      isPointerActionVisible ||
+      isFocusActionVisible);
 
   const updateCandidateOverlayLayout = useCallback(() => {
     const anchor = noteRef.current?.getBoundingClientRect();
@@ -403,6 +409,22 @@ export function NoteCard({
       pointerHideTimeoutRef.current = null;
     }, ACTION_HIDE_DELAY_MS);
   }, [cancelPointerActionHide, cancelPointerActionShow, releasePointerAction]);
+
+  useEffect(() => {
+    if (!isFocusActionVisible) return;
+    const ownerDocument = noteRef.current?.ownerDocument;
+    if (!ownerDocument) return;
+    // 前面順のDOM移動でblurが届かない場合も、実際の次のfocusに追従する。
+    const handleFocusIn = (event: FocusEvent) => {
+      if (
+        event.target !== surfaceRef.current &&
+        event.target !== candidateActionRef.current
+      )
+        setIsFocusActionVisible(false);
+    };
+    ownerDocument.addEventListener("focusin", handleFocusIn);
+    return () => ownerDocument.removeEventListener("focusin", handleFocusIn);
+  }, [isFocusActionVisible]);
 
   const cancelFocusActionHide = useCallback(() => {
     if (focusHideTimeoutRef.current === null) return;
@@ -579,12 +601,12 @@ export function NoteCard({
     if (isEditing) {
       const textarea = textareaRef.current;
       if (textarea) {
-        textarea.focus();
+        textarea.focus({ preventScroll: true });
         const caret = textarea.value.length;
         textarea.setSelectionRange(caret, caret);
       }
     } else if (isSelected) {
-      surfaceRef.current?.focus();
+      surfaceRef.current?.focus({ preventScroll: true });
     }
   }, [isEditing, isSelected]);
 
@@ -663,7 +685,8 @@ export function NoteCard({
     releaseTouchAction();
     setIsPointerActionVisible(false);
     releasePointerAction();
-    if (disabled) return;
+    if (disabled || candidatePending) return;
+    onSelect(note.id);
     if (note.excluded) {
       if (canRestoreNote) onRestore?.(note.id);
       return;
@@ -698,6 +721,13 @@ export function NoteCard({
       return;
     }
 
+    // Space は選択中もキャンバスのパンに使う。編集開始や末尾への空白追加を
+    // 行わず、window のカメラ用 keydown へ伝える（投票のSpaceは上で処理）。
+    if (event.code === "Space" || event.key === " ") {
+      event.preventDefault();
+      return;
+    }
+
     if (event.key === "Backspace" || event.key === "Delete") {
       event.preventDefault();
       event.stopPropagation();
@@ -706,6 +736,12 @@ export function NoteCard({
         onDelete(note.id);
       }
 
+      return;
+    }
+
+    if (event.key === "Enter" && (!canEditNote || editingDisabled)) {
+      event.preventDefault();
+      onSelect(note.id);
       return;
     }
 
@@ -781,7 +817,8 @@ export function NoteCard({
               data-candidate-action="true"
               data-candidate-action-note-id={note.id}
               data-placement={candidateOverlayLayout.action.placement}
-              disabled={disabled}
+              disabled={disabled || candidatePending}
+              aria-busy={candidatePending}
               tabIndex={isCandidateActionVisible ? 0 : -1}
               onPointerEnter={() => {
                 cancelPointerActionShow();
@@ -799,7 +836,7 @@ export function NoteCard({
                 if (event.key !== "Tab") return;
                 if (event.shiftKey) {
                   event.preventDefault();
-                  surfaceRef.current?.focus();
+                  surfaceRef.current?.focus({ preventScroll: true });
                   return;
                 }
                 const surface = surfaceRef.current;
@@ -846,7 +883,7 @@ export function NoteCard({
               ) : (
                 <ListMinus aria-hidden="true" className="size-4" />
               )}
-              {candidateActionText}
+              {candidatePending ? "処理中…" : candidateActionText}
             </button>
             {isActionMenuOpen ? (
               <div
@@ -862,7 +899,7 @@ export function NoteCard({
                   if (event.key !== "Escape") return;
                   event.preventDefault();
                   setIsActionMenuOpen(false);
-                  surfaceRef.current?.focus();
+                  surfaceRef.current?.focus({ preventScroll: true });
                 }}
               >
                 <button
@@ -907,7 +944,7 @@ export function NoteCard({
       data-excluded={note.excluded || undefined}
       className={`${className ?? "absolute"} group ${note.excluded ? "z-0" : "z-10"} ${
         note.excluded
-          ? `${isTouchActionVisible ? "opacity-90" : "opacity-45"} grayscale transition-opacity hover:opacity-90 focus-within:opacity-90`
+          ? `${isSelected || isTouchActionVisible ? "opacity-90" : "opacity-45"} grayscale transition-opacity hover:opacity-90 focus-within:opacity-90`
           : ""
       }`}
       style={
@@ -918,6 +955,11 @@ export function NoteCard({
       }
     >
       {candidateOverlay}
+      {note.excluded ? (
+        <span className="pointer-events-none absolute bottom-1 right-1 z-20 rounded-sm bg-white/90 px-1 py-0.5 text-[10px] font-semibold text-slate-700">
+          候補外
+        </span>
+      ) : null}
       <textarea
         ref={textareaRef}
         value={localContent}
@@ -973,9 +1015,9 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 pr-10 pb-12 text-slate-900 outline-none ${
-          isEditing ? "" : "pointer-events-none select-none"
-        }`}
+        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 pr-10 text-slate-900 outline-none ${
+          vote.displayMode === "result" ? "pb-2" : "pb-12"
+        } ${isEditing ? "" : "pointer-events-none select-none"}`}
         style={{
           fontSize: `${note.fontSize}px`,
           lineHeight: `${Math.ceil(note.fontSize * 1.5)}px`,
@@ -1108,7 +1150,7 @@ export function NoteCard({
           onBlur={scheduleFocusActionHide}
           onKeyDown={handleKeyDown}
           onContextMenu={handleContextMenu}
-          className={`absolute inset-0 z-10 touch-none select-none outline-none ${
+          className={`absolute inset-0 z-10 touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700 ${
             disabled
               ? "cursor-not-allowed"
               : selectedStampKind !== null

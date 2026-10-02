@@ -54,7 +54,7 @@ describe("BoardHelpPanel", () => {
     expect(button).toHaveFocus();
   });
 
-  it("HMWのテンプレートから従来どおり付箋を作れる", () => {
+  it("問いのテンプレートから従来どおり付箋を作れる", () => {
     const { props } = setup({ kind: "hmw" });
     const button = within(
       screen.getByTestId("hmw-template-panel"),
@@ -76,4 +76,58 @@ describe("BoardHelpPanel", () => {
     const { container } = setup({ kind: null });
     expect(container).toBeEmptyDOMElement();
   });
+});
+
+it("選んだ発想法を閉じて再表示しても保持する", () => {
+  const props: BoardHelpPanelProps = {
+    kind: "idea",
+    isOpen: true,
+    tab: "expand",
+    disabled: false,
+    onOpenChange: vi.fn(),
+    onTabChange: vi.fn(),
+    onHmwTemplateSelect: vi.fn(),
+    onIdeaHintSelect: vi.fn(),
+  };
+  const { rerender } = render(<BoardHelpPanel {...props} />);
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "SCAMPER" }), {
+    button: 0,
+  });
+  expect(screen.getByRole("heading", { name: "SCAMPER法" })).toBeVisible();
+  rerender(<BoardHelpPanel {...props} isOpen={false} />);
+  expect(
+    screen.queryByRole("tab", { name: "SCAMPER" }),
+  ).not.toBeInTheDocument();
+  rerender(<BoardHelpPanel {...props} />);
+  expect(screen.getByRole("tab", { name: "SCAMPER" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(screen.getByRole("heading", { name: "SCAMPER法" })).toBeVisible();
+});
+
+it("発想法から書き出しへ戻り、再び広げると選んだ道具を読める", () => {
+  const props: BoardHelpPanelProps = {
+    kind: "idea",
+    isOpen: true,
+    tab: "expand",
+    disabled: false,
+    onOpenChange: vi.fn(),
+    onTabChange: vi.fn(),
+    onHmwTemplateSelect: vi.fn(),
+    onIdeaHintSelect: vi.fn(),
+  };
+  const { rerender } = render(<BoardHelpPanel {...props} />);
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "他業界事例" }), {
+    button: 0,
+  });
+  rerender(<BoardHelpPanel {...props} tab="write" />);
+  expect(
+    screen.queryByRole("heading", { name: "他業界からヒントを探す" }),
+  ).not.toBeInTheDocument();
+  rerender(<BoardHelpPanel {...props} />);
+  expect(screen.getByRole("tab", { name: "他業界事例" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });

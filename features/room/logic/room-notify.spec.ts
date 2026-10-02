@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
   success: vi.fn(),
   error: vi.fn(),
+  dismiss: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -13,6 +14,7 @@ vi.mock("sonner", () => ({
   toast: Object.assign(mocks.toast, {
     success: mocks.success,
     error: mocks.error,
+    dismiss: mocks.dismiss,
   }),
 }));
 

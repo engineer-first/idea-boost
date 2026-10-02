@@ -53,6 +53,44 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("DOM移動でblurが届かなくても別付箋へのfocusで古い一時表示を残さない", () => {
+    const { props, view } = setup({ isSelected: true, canExcludeNote: true });
+    const action = screen.getByRole("button", { name: "候補から外す" });
+    fireEvent.focus(getNoteSurface());
+    view.rerender(<NoteCard {...props} isSelected={false} />);
+    const other = document.createElement("button");
+    document.body.append(other);
+    try {
+      fireEvent.focusIn(other);
+      expect(action).toHaveClass("opacity-0");
+    } finally {
+      other.remove();
+    }
+  });
+
+  it("選択中のSpaceは本文を書き換えず、キャンバスのパン操作へ渡す", () => {
+    const onDraftChange = vi.fn();
+    const onContentChange = vi.fn();
+    setup({
+      isSelected: true,
+      note: buildNote({ content: "読む本文" }),
+      onDraftChange,
+      onContentChange,
+    });
+    const onCanvasKeyDown = vi.fn();
+    window.addEventListener("keydown", onCanvasKeyDown);
+    try {
+      fireEvent.keyDown(getNoteSurface(), { key: " ", code: "Space" });
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+      expect(screen.getByRole("textbox")).toHaveValue("読む本文");
+      expect(onCanvasKeyDown).toHaveBeenCalledOnce();
+      expect(onDraftChange).not.toHaveBeenCalled();
+      expect(onContentChange).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("keydown", onCanvasKeyDown);
+    }
+  });
+
   it("編集中の確定入力をblur前に下書き保存層へ渡し、切断後も文章を保持する", () => {
     const onDraftChange = vi.fn();
     const { props, view } = setup({
@@ -121,7 +159,7 @@ describe("NoteCard", () => {
     expect(getCard()).toHaveAttribute("data-excluded", "true");
     expect(getCard()).toHaveStyle({ left: "320px", top: "180px" });
     expect(screen.getByDisplayValue("残して読む本文")).toBeInTheDocument();
-    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeVisible();
     expect(getCard()).toHaveStyle({ boxShadow: "none" });
     expect(getCard()).toHaveStyle({ borderWidth: "1px" });
     expect(screen.getByRole("textbox")).not.toHaveClass("pt-12");
@@ -499,7 +537,7 @@ describe("NoteCard", () => {
 
     expect(restore).toHaveClass("opacity-100");
     expect(getCard()).toHaveClass("opacity-90");
-    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeVisible();
   });
 
   it("非ホストもタップすると候補外付箋の本文を読める濃さに戻せる", () => {
@@ -520,7 +558,7 @@ describe("NoteCard", () => {
     fireEvent.pointerUp(surface, { pointerId: 8, pointerType: "touch" });
 
     expect(getCard()).toHaveClass("opacity-90");
-    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeVisible();
     expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
   });
 
@@ -815,7 +853,6 @@ describe("NoteCard", () => {
       expect(
         screen.getAllByTestId("dot-vote-sticker-image-objective"),
       ).toHaveLength(5);
-      expect(screen.getByRole("textbox")).toHaveClass("pb-12");
     });
 
     it("高得票でも打ち切らず、付箋外の候補操作用には右下余白を広げない", () => {
@@ -1366,4 +1403,19 @@ describe("NoteCard", () => {
       expect(screen.getByDisplayValue("編集中の本文")).toBeInTheDocument();
     });
   });
+});
+
+it("選択した付箋の候補操作はホバーとフォーカスが外れても表示する", () => {
+  setup({ isSelected: true, canExcludeNote: true });
+  const surface = getNoteSurface();
+  fireEvent.focus(surface);
+  fireEvent.blur(surface);
+  expect(screen.getByRole("button", { name: "候補から外す" })).toHaveClass(
+    "opacity-100",
+  );
+});
+it("候補ボタンを押した付箋を先に選択する", () => {
+  const { props } = setup({ canExcludeNote: true, onExclude: vi.fn() });
+  fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
+  expect(props.onSelect).toHaveBeenCalledWith(props.note.id);
 });

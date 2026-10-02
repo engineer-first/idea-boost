@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 import { userEvent, within } from "storybook/test";
+import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildDecision,
@@ -7,12 +9,14 @@ import {
   buildNotes,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
+import { roomNotify } from "../logic/room-notify";
+import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView } from "./room-board-view";
 import boardMeta from "./room-board-view.stories";
 
 const LONG_ISSUE =
   "チームで何を作るか決めるとき、発言が得意な人の意見だけで進んでしまい、初めて参加する学生が自分の困りごとや案を出せない。全員が自分の考えを伝え、互いの案を比べられるようにしたい。";
-const LONG_HMW =
+const LONG_QUESTION =
   "どうすれば私たちは、初参加の学生も安心して自分の考えを書き出し、全員の案を根拠とともに比較して、納得できるアイデアを選べるだろうか？";
 const PRIVATE_NOTES = buildNotes(20).map((note, index) => ({
   ...note,
@@ -35,7 +39,7 @@ const meta = {
   parameters: { layout: "fullscreen", chromatic: { viewports: [1280] } },
   decorators: [
     (Story) => (
-      <div style={{ height: 720, overflow: "hidden" }}>
+      <div style={{ height: "100dvh", overflow: "hidden" }}>
         <Story />
       </div>
     ),
@@ -51,7 +55,7 @@ function step(phase: 1 | 2 | 3, value: number): Story {
       phase: buildPhaseStep(value, phase),
       notes: value === 1 ? [] : buildNotes(3),
       hmwDecidedIssue: phase >= 2 ? LONG_ISSUE : null,
-      decidedHmw: phase === 3 ? LONG_HMW : null,
+      decidedHmw: phase === 3 ? LONG_QUESTION : null,
       members: buildMembers(12, boardMeta.args.currentUserId),
       interactions: {
         ...boardMeta.args.interactions,
@@ -144,7 +148,7 @@ export const NarrowWidth: Story = {
 
 export const DecisionsAndNotes: Story = {
   ...ReferenceAndNotes,
-  name: "進め方と課題・HMWを同時に参照",
+  name: "進め方と課題・問いを同時に参照",
   play: async (context) => {
     await ReferenceAndNotes.play?.(context);
     await userEvent.click(
@@ -157,7 +161,7 @@ export const DecisionsAndNotes: Story = {
 };
 export const ContextCollapsed: Story = {
   ...ReferenceAndNotes,
-  name: "進め方を閉じてHMWを参照しながら作業",
+  name: "進め方を閉じて問いを参照しながら作業",
   args: { ...ReferenceAndNotes.args, initialGuideState: "compact" },
 };
 
@@ -240,4 +244,57 @@ export const SharingComplete: Story = {
 export const SharingMember: Story = {
   ...SharingActive,
   args: { ...SharingActive.args, isHost: false },
+};
+
+export const MapControls: Story = {
+  ...step(3, 3),
+  name: "マップと書き足しを操作",
+  args: {
+    ...step(3, 3).args,
+    ideaMapSizeInitialized: true,
+    initialGuideState: "compact",
+  },
+  render: function Render(args) {
+    const [level, setLevel] = useState(1);
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        help={help}
+        interactions={{ ...args.interactions, notes: args.notes }}
+        ideaMapSizeLevel={level}
+        onIdeaMapResize={setLevel}
+      />
+    );
+  },
+};
+
+export const UndoNotification: Story = {
+  ...step(2, 1),
+  name: "自動除外の通知を残して次工程へ",
+  args: { ...step(2, 1).args, initialGuideState: "compact" },
+  render: function Render(args) {
+    const help = useBoardHelp(args.phase);
+    const [undone, setUndone] = useState(false);
+    return (
+      <>
+        <RoomBoardView
+          {...args}
+          help={help}
+          interactions={{ ...args.interactions, notes: args.notes }}
+        />
+        <Toaster />
+        <button
+          type="button"
+          className="fixed top-3 left-1/2 z-50"
+          onClick={() =>
+            roomNotify.automaticallyExcludedCandidates(1, () => setUndone(true))
+          }
+        >
+          除外通知を再現
+        </button>
+        {undone && <p role="status">通知のUndo操作が届きました</p>}
+      </>
+    );
+  },
 };

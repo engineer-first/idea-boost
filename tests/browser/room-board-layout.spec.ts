@@ -68,7 +68,7 @@ async function expectLayout(): Promise<void> {
     expect(box.left, box.id).toBeGreaterThanOrEqual(0);
     expect(box.top, box.id).toBeGreaterThanOrEqual(0);
     expect(box.right, box.id).toBeLessThanOrEqual(viewport.width);
-    expect(box.bottom, box.id).toBeLessThanOrEqual(720);
+    expect(box.bottom, box.id).toBeLessThanOrEqual(viewport.height);
   }
   for (let i = 0; i < boxes.length; i++) {
     for (const other of boxes.slice(i + 1)) {
@@ -176,7 +176,6 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
   await openStory("room-roomboardlayout--phase-3-step-1");
   const canvas = page.getByTestId("board-canvas");
   const before = await canvas.boundingBox();
-  await page.getByRole("button", { name: "マイ付箋を開く" }).click();
   const scroll = page.getByTestId("private-notes-scroll");
   const size = await scroll.evaluate((e) => ({
     height: e.clientHeight,
@@ -240,7 +239,7 @@ test.each(["reconnecting", "participant"])(
     await page.getByText("決定した課題", { exact: true }).click();
     const content = page.getByTestId("board-context-hud");
     expect(await content.innerText()).toContain("全員が自分の考えを伝え");
-    expect(await content.innerText()).toContain("決定したHMW");
+    expect(await content.innerText()).toContain("決定した問い");
     await expectLayout();
   },
 );
@@ -330,29 +329,25 @@ for (const theme of ["light", "dark"]) {
   }
 }
 
-test("進め方を閉じると採用課題を残したままHMW例を末尾まで読める", async () => {
+test("2-1は例付箋をマイ付箋に表示し、考えるヒントを表示しない", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
+  await page.getByRole("button", { name: "決定した課題" }).click();
   await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-issue-content").isVisible(),
   ).toBe(true);
-  const content = page.locator("#board-help-content");
-  // 現在地のゴール・全手順入口を残し、例文一覧は内部スクロールで読む。
-  await content.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  const contentBox = await content.boundingBox();
-  const lastExample = await content.locator("li").last().boundingBox();
-  expect(
-    lastExample ? lastExample.y + lastExample.height : Infinity,
-  ).toBeLessThanOrEqual((contentBox?.y ?? 0) + (contentBox?.height ?? 0));
-  await page.getByRole("button", { name: "考えるヒントを閉じる" }).focus();
-  await page.keyboard.press("Escape");
+  expect(await page.getByTestId("board-help-panel").count()).toBe(0);
   expect(
     await page
-      .getByRole("button", { name: "考えるヒントを開く" })
-      .getAttribute("aria-expanded"),
-  ).toBe("false");
+      .getByTestId("private-notes-toolbar")
+      .getAttribute("data-expanded"),
+  ).toBe("true");
+  expect(
+    await page
+      .getByTestId("private-notes-scroll")
+      .getByTestId("note-card")
+      .count(),
+  ).toBeGreaterThanOrEqual(2);
   await expectLayout();
 });
 
@@ -409,11 +404,7 @@ test("成果公開後は3件を表示し、編集ボードへ戻さずホーム�
     `${origin}/iframe.html?id=room-roomboardlayout--completed&viewMode=story`,
   );
   await page.getByRole("heading", { name: "チームで決めた成果" }).waitFor();
-  for (const label of [
-    "決定した課題",
-    "決定した問い（HMW）",
-    "採用したアイデア",
-  ]) {
+  for (const label of ["決定した課題", "決定した問い", "採用したアイデア"]) {
     expect(await page.getByRole("heading", { name: label }).isVisible()).toBe(
       true,
     );
@@ -508,9 +499,9 @@ test("長文と結果行を分け、候補操作と決定済み印にも重ね�
 
 test("確定済み付箋は影と競合せずcomputed styleで太い緑枠を示す", async () => {
   await openStory("room-roomboardview--decided");
-  await page.getByRole("dialog").waitFor();
-  await page.keyboard.press("Escape");
-  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  expect(
+    await page.getByRole("dialog", { name: "投票結果", exact: true }).count(),
+  ).toBe(0);
   const decidedNote = page.locator('[data-note-id="note-1"]');
   await decidedNote.waitFor();
 
@@ -681,7 +672,11 @@ test.each([1280, 1024, 768])(
     const box = await next.boundingBox();
     expect(box).not.toBeNull();
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
-    await page.getByRole("button", { name: "マイ付箋を開く" }).click();
+    expect(
+      await page
+        .getByTestId("private-notes-toolbar")
+        .getAttribute("data-expanded"),
+    ).toBe("true");
     expect(
       (await page.getByTestId("private-notes-toolbar").boundingBox())?.width,
     ).toBe(240);
@@ -807,8 +802,70 @@ test.each([1280, 1024, 768])(
   },
 );
 
-test("進め方を閉じるとHMWを残したまま発想支援を3項目以上読める", async () => {
+test.each([1280, 768])(
+  "%ipxでHUDを約220pxに畳み、決定内容を開いてもキャンバスを固定する",
+  async (width) => {
+    await page.setViewportSize({ width, height: 720 });
+    await openStory("room-roomboardlayout--phase-3-step-1");
+    const hud = page.getByTestId("board-context-hud");
+    const canvas = await page.getByTestId("board-canvas").boundingBox();
+    const initial = await hud.boundingBox();
+    expect(initial?.height).toBeLessThanOrEqual(230);
+    expect(await page.getByTestId("board-phase-progress").isVisible()).toBe(
+      true,
+    );
+    expect(await page.getByTestId("board-current-step").isVisible()).toBe(true);
+    expect(await page.getByTestId("board-progress-rail").isVisible()).toBe(
+      true,
+    );
+
+    const issueTrigger = page.getByRole("button", { name: "決定した課題" });
+    await issueTrigger.click();
+    expect(
+      await page.getByTestId("board-reference-issue-content").isVisible(),
+    ).toBe(true);
+    const issueContent = page.locator(
+      `[id="${await issueTrigger.getAttribute("aria-controls")}"]`,
+    );
+    await expect
+      .poll(() =>
+        issueContent.evaluate((element) =>
+          element
+            .getAnimations()
+            .every((animation) => animation.playState === "finished"),
+        ),
+      )
+      .toBe(true);
+    await expectLayout();
+    expect(await page.getByTestId("board-canvas").boundingBox()).toEqual(
+      canvas,
+    );
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const hmwTrigger = page.getByRole("button", { name: "決定した問い" });
+    await hmwTrigger.click();
+    expect(await issueTrigger.getAttribute("aria-expanded")).toBe("false");
+    expect(await hmwTrigger.getAttribute("aria-expanded")).toBe("true");
+    const hmwContent = page.getByTestId("board-reference-hmw-content");
+    const hmwDisclosure = page.locator(
+      `[id="${await hmwTrigger.getAttribute("aria-controls")}"]`,
+    );
+    expect(await hmwContent.isVisible()).toBe(true);
+    expect(
+      await hmwDisclosure.evaluate(
+        (element) => getComputedStyle(element).transitionDuration,
+      ),
+    ).toBe("0s");
+    expect(await page.getByTestId("board-canvas").boundingBox()).toEqual(
+      canvas,
+    );
+    await expectLayout();
+  },
+);
+
+test("決定内容を参照したまま発想支援を3項目以上読める", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
+  await page.getByRole("button", { name: "決定した問い" }).click();
   await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-hmw-content").isVisible(),
@@ -843,59 +900,54 @@ test("参加者が全員表示される幅では省略マークを出さない",
 });
 
 test.each([1280, 1024, 768])(
-  "%dpxで決定事項が現在地に収まり、閉じた分だけヒント領域が広がる",
+  "%dpxで決定内容を1項目ずつ展開でき、作業領域を動かさない",
   async (width) => {
     await page.setViewportSize({ width, height: 720 });
     await openStory("room-roomboardlayout--reference-and-notes");
-    await page.getByText("決定した課題", { exact: true }).click();
     expect(await page.getByTestId("board-carryovers").count()).toBe(0);
-    const context = page.getByTestId("board-context-hud");
-    expect(await context.innerText()).toContain("決定した課題");
-    expect(await context.innerText()).toContain("決定したHMW");
-    const before = await page.getByTestId("board-help-panel").boundingBox();
+    const canvas = await page.getByTestId("board-canvas").boundingBox();
     const timer = await page.getByTestId("room-timer").boundingBox();
     const notes = await page.getByTestId("private-notes-toolbar").boundingBox();
+    const hmw = page.getByRole("button", { name: "決定した問い" });
+    const issue = page.getByRole("button", { name: "決定した課題" });
+    expect(await hmw.getAttribute("aria-expanded")).toBe("false");
+    expect(await issue.getAttribute("aria-expanded")).toBe("false");
+
+    await hmw.click();
+    await expect.poll(() => hmw.getAttribute("aria-expanded")).toBe("true");
+    const hmwContent = page.getByTestId("board-reference-hmw-content");
+    expect(await hmwContent.isVisible()).toBe(true);
     await expectLayout();
-    await page.getByTestId("board-reference-hmw-content").evaluate((e) => {
+    await hmwContent.evaluate((e) => {
       e.scrollTop = e.scrollHeight;
     });
-    const lastText = page
-      .getByTestId("board-reference-hmw-content")
-      .locator("p");
+    const lastText = hmwContent.locator("p");
     const textBox = await lastText.boundingBox();
-    const scrollBox = await page
-      .getByTestId("board-reference-hmw-content")
-      .boundingBox();
+    const scrollBox = await hmwContent.boundingBox();
     if (!textBox || !scrollBox)
       throw new Error("決定文の表示領域が見つかりません");
     expect(textBox.y + textBox.height).toBeLessThanOrEqual(
       scrollBox.y + scrollBox.height,
     );
-    await page.keyboard.press("Escape");
-    const after = await page.getByTestId("board-help-panel").boundingBox();
-    if (!before || !after) throw new Error("ヒントの表示領域が見つかりません");
-    expect(after).toEqual(before);
+
+    await issue.click();
+    await expect.poll(() => issue.getAttribute("aria-expanded")).toBe("true");
+    await expect.poll(() => hmw.getAttribute("aria-expanded")).toBe("false");
+    expect(
+      await page.getByTestId("board-reference-issue-content").isVisible(),
+    ).toBe(true);
+    expect(
+      await page.getByTestId("board-reference-hmw-content").isVisible(),
+    ).toBe(false);
     expect(await page.getByTestId("room-timer").boundingBox()).toEqual(timer);
     expect(
       await page.getByTestId("private-notes-toolbar").boundingBox(),
     ).toEqual(notes);
-    expect(
-      await page.getByTestId("board-reference-hmw").getAttribute("open"),
-    ).not.toBeNull();
-    expect(
-      await page.getByTestId("board-reference-issue").getAttribute("open"),
-    ).not.toBeNull();
+    expect(await page.getByTestId("board-canvas").boundingBox()).toEqual(
+      canvas,
+    );
     await expectLayout();
-    await page.screenshot({ path: `${output}/context-collapsed-${width}.png` });
-    await page.getByRole("button", { name: "進め方", exact: true }).click();
-    expect(
-      await page.getByTestId("board-reference-hmw").getAttribute("open"),
-    ).not.toBeNull();
-    expect(
-      await page.getByTestId("board-reference-issue").getAttribute("open"),
-    ).not.toBeNull();
-    await expectLayout();
-    await page.screenshot({ path: `${output}/context-decisions-${width}.png` });
+    await page.screenshot({ path: `${output}/context-issue-${width}.png` });
   },
 );
 
@@ -976,9 +1028,11 @@ test.each(["reconnecting", "connecting"])(
         : "room-roomboardlayout--connecting",
     );
     await page.getByTestId("board-connection-status").waitFor();
-    await page
-      .getByRole("button", { name: "マイ付箋を開く", exact: true })
-      .click();
+    expect(
+      await page
+        .getByTestId("private-notes-toolbar")
+        .getAttribute("data-expanded"),
+    ).toBe("true");
     await expectLayout();
   },
 );
@@ -999,8 +1053,16 @@ test.each([1280, 1024, 768])(
       const content = page.getByTestId(`board-reference-${reference}-content`);
       await decision.waitFor();
       expect(await guide.isVisible()).toBe(true);
+      expect(await content.isHidden()).toBe(true);
+      const trigger = page.getByRole("button", {
+        name: reference === "hmw" ? "決定した問い" : "決定した課題",
+        exact: true,
+      });
+      await trigger.click();
+      await page.getByRole("button", { name: "進め方", exact: true }).click();
+      expect(await guide.isVisible()).toBe(true);
       expect(await content.isVisible()).toBe(true);
-      expect(await decision.getAttribute("open")).not.toBeNull();
+      expect(await trigger.getAttribute("aria-expanded")).toBe("true");
       const scrollBox = await content.boundingBox();
       if (!scrollBox) throw new Error("参照欄が見つかりません");
       const fullText = await content.locator("p").boundingBox();
@@ -1021,10 +1083,10 @@ test.each([1280, 1024, 768])(
         after.y + after.height,
       );
       await page.getByRole("button", { name: "進め方", exact: true }).click();
-      await decision.locator("summary").click();
+      await trigger.click();
       expect(await guide.isVisible()).toBe(false);
       expect(await content.isVisible()).toBe(false);
-      await decision.locator("summary").press("Enter");
+      await trigger.press("Enter");
       expect(await content.isVisible()).toBe(true);
       await expectLayout();
       await page.screenshot({
@@ -1032,4 +1094,208 @@ test.each([1280, 1024, 768])(
       });
     }
   },
+);
+
+test("U03: 3-3のマップ増減と書き足しへ通常pointerで到達できる", async () => {
+  await openStory("room-roomboardlayout--map-controls");
+  const map = page.getByRole("group", { name: "2軸マップの広さ操作" });
+  await map.waitFor();
+  await page.screenshot({ path: `${output}/u03-map.png` });
+  await map
+    .getByRole("button", { name: "マップを広くする" })
+    .click({ timeout: 2500 });
+  expect(await map.getByRole("status").innerText()).toContain("3段階目");
+  await map.getByRole("button", { name: "マップを狭くする" }).click();
+  expect(await map.getByRole("status").innerText()).toContain("2段階目");
+  await page
+    .getByRole("button", { name: "もう一度付箋を書く", exact: true })
+    .click();
+  expect(await page.getByRole("alertdialog").isVisible()).toBe(true);
+});
+
+test("U03: 390pxでガイド全文と現在の操作が画面内に収まる", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openStory("room-roomboardlayout--phase-3-step-1");
+  const guide = page.getByTestId("step-guide");
+  await guide.waitFor();
+  await page.screenshot({ path: `${output}/u03-narrow.png` });
+  const box = await guide.boundingBox();
+  expect(box?.width).toBeGreaterThanOrEqual(280);
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(390);
+  const controls = await page.getByTestId("board-control-hud").boundingBox();
+  expect((controls?.x ?? 0) + (controls?.width ?? 0)).toBeLessThanOrEqual(390);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "進め方", exact: true }).click();
+  expect(
+    await page
+      .getByRole("region", { name: "ファシリテーションガイド" })
+      .isVisible(),
+  ).toBe(true);
+});
+
+test.each([1280, 390])(
+  "U03: %ipxでUndo通知を残したまま付箋を追加できる",
+  async (width) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+    await openStory("room-roomboardlayout--undo-notification");
+    await page.getByRole("button", { name: "除外通知を再現" }).click();
+    await page.getByText(/投票完了により0票の付箋1件/).waitFor();
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: `${output}/u03-toast-${width}.png` });
+    await page
+      .getByRole("button", { name: "付箋を追加", exact: true })
+      .click({ timeout: 2500 });
+    expect(
+      await page
+        .getByTestId("private-notes-toolbar")
+        .getAttribute("data-expanded"),
+    ).toBe("true");
+    await page
+      .getByRole("button", { name: "まとめて元に戻す", exact: true })
+      .click();
+    expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
+      true,
+    );
+  },
+);
+
+// 空のpointer-events-none wrapperではなく、clip内に見える実操作対象を調べる。
+async function expectHudTargets(): Promise<void> {
+  const targets = page.locator(
+    [
+      '[data-testid="board-header-row"] button',
+      '[data-testid="board-header-row"] summary',
+      '[data-testid="board-tools-hud"] button',
+      '[data-testid="idea-map-size-controls-hud"] button',
+      '[data-testid="phase-loop-hud"] button',
+      '[data-testid="vote-palette-hud"] button',
+      '[data-testid="private-notes-toolbar"] button',
+    ].join(","),
+  );
+  const visible = await targets.evaluateAll((elements) =>
+    elements.flatMap((e) => {
+      const box = e.getBoundingClientRect();
+      if (
+        e.closest('[inert],[aria-hidden="true"]') ||
+        !e.checkVisibility() ||
+        !box.width ||
+        !box.height
+      )
+        return [];
+      let clip = {
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        bottom: box.bottom,
+      };
+      for (
+        let parent = e.parentElement;
+        parent;
+        parent = parent.parentElement
+      ) {
+        if (/(auto|hidden|scroll)/.test(getComputedStyle(parent).overflow)) {
+          const p = parent.getBoundingClientRect();
+          clip = {
+            left: Math.max(clip.left, p.left),
+            right: Math.min(clip.right, p.right),
+            top: Math.max(clip.top, p.top),
+            bottom: Math.min(clip.bottom, p.bottom),
+          };
+        }
+      }
+      if (clip.right - clip.left < 2 || clip.bottom - clip.top < 2) return [];
+      const x = (clip.left + clip.right) / 2,
+        y = (clip.top + clip.bottom) / 2;
+      const disabled = e instanceof HTMLButtonElement && e.disabled;
+      return [
+        {
+          // タイマー通知音は既存timer枠の内側に置く独立操作。中心の到達性は両方検査する。
+          family: e.parentElement?.querySelector(
+            ':scope > [data-testid="room-timer"]',
+          )
+            ? "timer"
+            : null,
+          index: elements.indexOf(e),
+          contains: elements
+            .filter((other) => other !== e && e.contains(other))
+            .map((other) => elements.indexOf(other)),
+          name: e.getAttribute("aria-label") ?? e.textContent,
+          ...clip,
+          hit: disabled || e.contains(document.elementFromPoint(x, y)),
+        },
+      ];
+    }),
+  );
+  for (const target of visible)
+    expect(target.hit, String(target.name)).toBe(true);
+  for (let index = 0; index < visible.length; index++)
+    for (const b of visible.slice(index + 1)) {
+      const a = visible[index];
+      if (
+        (a.family === "timer" && b.family === "timer") ||
+        a.contains.includes(b.index) ||
+        b.contains.includes(a.index)
+      )
+        continue;
+      expect(
+        Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+          Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1,
+        `${a.name} / ${b.name}`,
+      ).toBe(false);
+    }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    page.viewportSize()?.width,
+  );
+}
+
+test.each([1280, 390])(
+  "U03: %ipxの全14工程でhost/memberの実操作対象を遮らない",
+  async (width) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+    for (const isHost of [true, false])
+      for (const step of steps) {
+        const [phase, number] = step.split("-");
+        await openStory(
+          `room-roomboardlayout--phase-${phase}-step-${number}&args=isHost:${isHost}`,
+        );
+        await page.getByTestId("board-context-hud").waitFor();
+        console.log("HUD", width, isHost, step);
+        expect(
+          await page
+            .getByRole("dialog", { name: "投票結果", exact: true })
+            .count(),
+        ).toBe(0);
+        await expect
+          .poll(() =>
+            page
+              .getByTestId("step-guide")
+              .evaluate((e) => e.getAnimations({ subtree: true }).length),
+          )
+          .toBe(0);
+        await page.keyboard.press("Escape");
+        await expect
+          .poll(() => page.getByTestId("step-guide").getAttribute("data-state"))
+          .toBe("compact");
+        await expect
+          .poll(() =>
+            page
+              .getByTestId("step-guide")
+              .evaluate((e) => e.getAnimations({ subtree: true }).length),
+          )
+          .toBe(0);
+        await expectHudTargets();
+        await page.getByRole("button", { name: "進め方", exact: true }).click();
+        await expect
+          .poll(() =>
+            page
+              .getByTestId("step-guide")
+              .evaluate((e) => e.getAnimations({ subtree: true }).length),
+          )
+          .toBe(0);
+        const box = await page.getByTestId("step-guide").boundingBox();
+        expect(box?.width).toBeGreaterThanOrEqual(width === 390 ? 280 : 100);
+        await expectHudTargets();
+      }
+  },
+  60_000,
 );

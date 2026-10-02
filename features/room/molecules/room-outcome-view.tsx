@@ -22,7 +22,7 @@ export type RoomOutcomeViewProps = {
 
 const CARDS = [
   { number: "1", label: "決定した課題", key: "issue" },
-  { number: "2", label: "決定した問い（HMW）", key: "hmw" },
+  { number: "2", label: "決定した問い", key: "hmw" },
   { number: "3", label: "採用したアイデア", key: "idea" },
 ] as const;
 
@@ -56,6 +56,11 @@ export function RoomOutcomeView({
   useEffect(() => {
     if (!available || !outcome) {
       exportGeneration.current++;
+      setCopyPending(false);
+      setCopySucceeded(false);
+      setCopyFailed(false);
+      setDownloadStarted(false);
+      setSaveFailed(false);
       onExportFailure?.();
     }
   }, [available, outcome, onExportFailure]);
@@ -63,7 +68,7 @@ export function RoomOutcomeView({
   const outputText = outcome ? formatOutcomeText(outcome, new Date()) : "";
 
   function saveText() {
-    if (!canExport) return;
+    if (!canExport || copyPending) return;
     setCopySucceeded(false);
     setCopyFailed(false);
     let url: string | undefined;
@@ -101,6 +106,9 @@ export function RoomOutcomeView({
     if (!canExport || copyPending) return;
     const generation = exportGeneration.current;
     setCopyPending(true);
+    if (copySucceeded || downloadStarted) onExportFailure?.();
+    setCopySucceeded(false);
+    setCopyFailed(false);
     setSaveFailed(false);
     setDownloadStarted(false);
     try {
@@ -117,7 +125,8 @@ export function RoomOutcomeView({
       setCopySucceeded(false);
       setCopyFailed(true);
     } finally {
-      if (active.current) setCopyPending(false);
+      if (active.current && generation === exportGeneration.current)
+        setCopyPending(false);
     }
   }
 
@@ -138,9 +147,11 @@ export function RoomOutcomeView({
             role="alert"
             className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-sm leading-6"
           >
-            {!available
-              ? "接続が切れています。前回受信した内容は最新か確認できません。再接続してから成果を確認・保存してください。"
-              : "決定内容をすべて確認できません。再接続してから成果を確認・保存してください。"}
+            {authorized === false
+              ? "閲覧権限を確認できません。ホームの「以前のルーム」から開き直してください。"
+              : !available
+                ? "接続が切れています。前回受信した内容は最新か確認できません。再接続してから成果を確認・保存してください。"
+                : "決定内容をすべて確認できません。再接続してから成果を確認・保存してください。"}
           </p>
         ) : null}
         <div className="mt-8 grid gap-4">
@@ -173,7 +184,12 @@ export function RoomOutcomeView({
         </div>
         {canExport ? (
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button className="min-h-11" type="button" onClick={saveText}>
+            <Button
+              className="min-h-11"
+              type="button"
+              onClick={saveText}
+              disabled={copyPending}
+            >
               テキストを保存
             </Button>
             <Button
@@ -183,7 +199,7 @@ export function RoomOutcomeView({
               onClick={() => void copyText()}
               disabled={copyPending}
             >
-              全文をコピー
+              {copyPending ? "コピー中…" : "全文をコピー"}
             </Button>
           </div>
         ) : null}
@@ -200,7 +216,7 @@ export function RoomOutcomeView({
             className="mt-3"
             onClick={onOpenFeedback}
           >
-            感想を送る
+            フィードバック
           </Button>
         ) : null}
         {downloadStarted && canExport ? (

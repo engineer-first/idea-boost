@@ -141,6 +141,11 @@ test.each([1280, 1024, 768])(
     try {
       await open(page, "room-roomboardview--guide-phase-2-step-1");
       await settled(page, "detail");
+      await page.getByRole("button", { name: "決定した課題" }).click();
+      // 参照欄への外側クリックで閉じたガイドを再度開いて同時表示を検証する。
+      await settled(page, "compact");
+      await page.getByRole("button", { name: "進め方", exact: true }).click();
+      await settled(page, "detail");
       const shell = page.getByTestId("step-guide");
       const detail = await shell.boundingBox();
       expect(detail?.x).toBeGreaterThanOrEqual(0);
@@ -181,3 +186,98 @@ test.each([1280, 1024, 768])(
     }
   },
 );
+
+test("390pxでも自動案内はfocusを奪わず、詳細を全文参照して操作へ戻れる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardview--phase-1-first-step-intro");
+    await settled(page, "intro");
+    const shell = page.getByTestId("step-guide");
+    expect(
+      await shell.evaluate((e) => e.contains(document.activeElement)),
+    ).toBe(false);
+    expect((await shell.boundingBox())?.width).toBeGreaterThanOrEqual(280);
+    await vi.waitFor(
+      async () =>
+        expect(await shell.getAttribute("data-state")).toBe("compact"),
+      { timeout: 7000 },
+    );
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
+    await settled(page, "detail");
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    await page.keyboard.press("End");
+    await page.waitForTimeout(5500);
+    expect(await shell.getAttribute("data-state")).toBe("detail");
+    expect(
+      await detail.evaluate(
+        (e) => e.scrollTop + e.clientHeight >= e.scrollHeight - 1,
+      ),
+    ).toBe(true);
+    expect(
+      await shell.evaluate((e) => getComputedStyle(e).transitionDuration),
+    ).toBe("0s");
+    await page.keyboard.press("Escape");
+    await settled(page, "compact");
+    await page.keyboard.press("Enter");
+    await settled(page, "detail");
+    await page.keyboard.press("Tab");
+    await settled(page, "compact");
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
+    await settled(page, "detail");
+    await page.getByRole("button", { name: "付箋を追加", exact: true }).click();
+    await settled(page, "compact");
+    expect(
+      await page
+        .getByTestId("private-notes-toolbar")
+        .getAttribute("data-expanded"),
+    ).toBe("true");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(390);
+  } finally {
+    await page.close();
+  }
+});
+
+test("390pxの問い作成ガイドは付箋操作を覆わず末尾まで読める", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardlayout--phase-2-step-1");
+    await settled(page, "detail");
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    await detail.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const last = await detail.locator("dl > div").last().boundingBox();
+    const box = await detail.boundingBox();
+    expect(last).not.toBeNull();
+    expect(box).not.toBeNull();
+    expect((last?.y ?? 0) + (last?.height ?? 0)).toBeLessThanOrEqual(
+      (box?.y ?? 0) + (box?.height ?? 0),
+    );
+    const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+    expect(
+      await add.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return element.contains(
+          document.elementFromPoint(
+            rect.x + rect.width / 2,
+            rect.y + rect.height / 2,
+          ),
+        );
+      }),
+    ).toBe(true);
+  } finally {
+    await page.close();
+  }
+});

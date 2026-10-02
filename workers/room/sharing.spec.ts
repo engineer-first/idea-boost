@@ -9,8 +9,12 @@ import {
   runInRoomDO,
   sessionCookieFor,
 } from "../test-helpers";
+import { syncRoomAlarm } from "./alarms";
 import { RoomBroadcaster } from "./broadcast";
+import { getPhase, phaseHandlers, savePhase } from "./phase";
 import { sharingHandlers } from "./sharing";
+import { resetSharingForPhase } from "./sharing-state";
+import { resetTimerState } from "./timer";
 
 const host = {
   sub: "11111111-1111-4111-8111-111111111111",
@@ -74,7 +78,7 @@ describe("一人ずつの共有", () => {
     owner.close();
     member.close();
   });
-  it("共有へ入ると進行役を先頭に順番を共有し、まだ計時しない", async () => {
+  it("共有へ入ると進行役を先頭に発表を予約し、予告中はまだ計時しない", async () => {
     const { owner, member, roomId } = await setup();
     owner.ws.send(
       JSON.stringify({
@@ -88,11 +92,11 @@ describe("一人ずつの共有", () => {
       type: "snapshot",
       timer: { status: "idle" },
       sharing: {
-        status: "ready",
+        status: "active",
         order: [{ userId: host.sub }, { userId: guest.sub }],
         results: [],
-        currentIndex: null,
-        startsAt: null,
+        currentIndex: 0,
+        startsAt: expect.any(Number),
       },
     });
     owner.close();
@@ -123,6 +127,21 @@ async function enterSharing(owner: RoomSocket, roomId: string) {
     throw new Error("共有状態がない");
   return snapshot.sharing;
 }
+// 更新前の共有待機状態を再現し、開始ボタンの互換経路も引き続き検証する。
+async function prepareLegacySharing(_owner: RoomSocket, roomId: string) {
+  await runInRoomDO(roomId, async (_, state) => {
+    await state.storage.transaction(async () => {
+      const phase = getPhase(state.storage.sql);
+      if (phase.kind !== "step") throw new Error("作業フェーズではない");
+      const sharingPhase = { ...phase, step: 2 };
+      savePhase(state.storage.sql, sharingPhase);
+      resetSharingForPhase(state.storage.sql, sharingPhase);
+      resetTimerState(state.storage.sql);
+      await syncRoomAlarm(state.storage, state.storage.sql);
+    });
+  });
+  return (await currentSnapshot(roomId)).sharing;
+}
 async function makeTurnDue(roomId: string) {
   await runInRoomDO(roomId, async (instance, state) => {
     state.storage.sql.exec(
@@ -144,7 +163,7 @@ async function currentSnapshot(roomId: string) {
 describe("共有の遷移と同期", () => {
   it("開始で即座に発表者を揃え、2秒間計時せず、その後同じ持ち時間で開始する", async () => {
     const { owner, member, roomId, stub } = await setup();
-    const ready = await enterSharing(owner, roomId);
+    const ready = await prepareLegacySharing(owner, roomId);
     const before = Date.now();
     owner.ws.send(
       JSON.stringify({
@@ -186,7 +205,7 @@ describe("共有の遷移と同期", () => {
     "%sからの交代は延長を持ち越さず、再送・連打を一度に畳む",
     async (timerStatus) => {
       const { owner, member, roomId } = await setup();
-      const ready = await enterSharing(owner, roomId);
+      const ready = await prepareLegacySharing(owner, roomId);
       owner.ws.send(
         JSON.stringify({
           type: "sharing:start",
@@ -294,7 +313,7 @@ describe("共有の遷移と同期", () => {
 
   it("途中参加は末尾へ一度追加し、再接続と3フェーズの共有で順番を維持する", async () => {
     const { owner, member, roomId, inviteCode, stub } = await setup();
-    const ready = await enterSharing(owner, roomId);
+    const ready = await prepareLegacySharing(owner, roomId);
     const late = {
       sub: "33333333-3333-4333-8333-333333333333",
       name: "途中参加",
@@ -326,10 +345,10 @@ describe("共有の遷移と同期", () => {
       const reset = await enterSharing(owner, roomId);
       expect(reset.order).toEqual(joined.order);
       expect(reset).toMatchObject({
-        status: "ready",
+        status: "active",
         results: [],
-        currentIndex: null,
-        startsAt: null,
+        currentIndex: 0,
+        startsAt: expect.any(Number),
       });
       expect((await currentSnapshot(roomId)).timer).toEqual({ status: "idle" });
     }
@@ -339,7 +358,7 @@ describe("共有の遷移と同期", () => {
 
   it("非ホストは有効な版でも開始・交代できず、非メンバーは接続できない", async () => {
     const { owner, member, roomId } = await setup();
-    const ready = await enterSharing(owner, roomId);
+    const ready = await prepareLegacySharing(owner, roomId);
     for (const message of [
       { type: "sharing:start", durationMs: 30000 },
       { type: "sharing:advance", outcome: "passed" },
@@ -363,6 +382,13 @@ describe("共有の遷移と同期", () => {
       },
     );
     expect(response.status).toBe(404);
+    expect(
+      (
+        await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
+          headers: { Upgrade: "websocket" },
+        })
+      ).status,
+    ).toBe(401);
     owner.close();
     member.close();
   });
@@ -370,7 +396,7 @@ describe("共有の遷移と同期", () => {
 
 it("計時予約の保存に失敗したら発表者もタイマーも変更しない", async () => {
   const { owner, member, roomId } = await setup();
-  const ready = await enterSharing(owner, roomId);
+  const ready = await prepareLegacySharing(owner, roomId);
   await runInRoomDO(roomId, async (_, state) => {
     const storage = new Proxy(state.storage, {
       get(target, key) {
@@ -424,7 +450,7 @@ it("発表者以外も自分の付箋を共有でき、交代では他者の下�
   );
   const inserted = await until(member, "note:inserted");
   const noteId = (inserted.note as { id: string }).id;
-  const ready = await enterSharing(owner, roomId);
+  const ready = await prepareLegacySharing(owner, roomId);
   owner.ws.send(
     JSON.stringify({
       type: "sharing:start",
@@ -464,7 +490,7 @@ it.each([1, 2, 3] as const)(
   async (phase) => {
     const { owner, member, roomId, stub } = await setup();
     await stub.setPhase({ kind: "step", phase, step: 1 }, host.sub);
-    const ready = await enterSharing(owner, roomId);
+    const ready = await prepareLegacySharing(owner, roomId);
     owner.ws.send(
       JSON.stringify({
         type: "sharing:start",
@@ -511,10 +537,10 @@ it.each([1, 2, 3] as const)(
     expect(await stub.getTimerState()).toEqual({ status: "idle" });
     const again = await enterSharing(owner, roomId);
     expect(again).toMatchObject({
-      status: "ready",
-      currentIndex: null,
+      status: "active",
+      currentIndex: 0,
       results: [],
-      startsAt: null,
+      startsAt: expect.any(Number),
       order: ready.order,
       durationMs: 30000,
     });
@@ -531,3 +557,196 @@ it.each([1, 2, 3] as const)(
     member.close();
   },
 );
+
+it.each([1, 2, 3] as const)(
+  "フェーズ%iの共有への遷移だけで一人目を予約し全員・新しい接続へ同期する",
+  async (phase) => {
+    const { owner, member, roomId, stub } = await setup();
+    await stub.setPhase({ kind: "step", phase, step: 1 }, host.sub);
+    const request = {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomId)),
+    };
+    member.ws.send(JSON.stringify(request));
+    expect(await until(member, "error")).toMatchObject({ code: "forbidden" });
+    const sharing = await enterSharing(owner, roomId);
+    expect(sharing).toMatchObject({
+      status: "active",
+      currentIndex: 0,
+      results: [],
+      durationMs: 180000,
+      order: [{ userId: host.sub }, { userId: guest.sub }],
+    });
+    expect(sharing.startsAt).toEqual(expect.any(Number));
+    const broadcast = await until(member, "snapshot");
+    expect(broadcast).toMatchObject({ sharing, timer: { status: "idle" } });
+    expect((await currentSnapshot(roomId)).sharing).toEqual(sharing);
+    owner.ws.send(JSON.stringify(request));
+    expect(await until(owner, "error")).toMatchObject({ code: "forbidden" });
+    expect((await currentSnapshot(roomId)).sharing).toEqual(sharing);
+    await makeTurnDue(roomId);
+    const started = await sharingMessage(owner);
+    expect(started.sharing).toMatchObject({
+      status: "active",
+      currentIndex: 0,
+      startsAt: null,
+      results: [],
+    });
+    expect(started.timer).toMatchObject({
+      status: "running",
+      durationMs: 180000,
+    });
+    expect((await sharingMessage(member)).sharing).toEqual(started.sharing);
+    expect((await currentSnapshot(roomId)).timer).toEqual(started.timer);
+    owner.close();
+    member.close();
+  },
+);
+
+it("共有への自動開始の予約に失敗したら遷移・共有状態・タイマーをまとめて戻し配信しない", async () => {
+  const { owner, member, roomId } = await setup();
+  const expectation = await currentPhaseExpectation(roomId);
+  await runInRoomDO(roomId, async (_, state) => {
+    const broadcaster = new RoomBroadcaster(state);
+    const ctx = {
+      sql: state.storage.sql,
+      storage: state.storage,
+      userId: host.sub,
+      ws: owner.ws,
+      broadcaster,
+      reply: vi.fn(),
+      refreshSnapshots: vi.fn(),
+    };
+    const request = { type: "phase:next" as const, ...expectation };
+    await phaseHandlers["phase:next"](ctx, request);
+    state.storage.sql.exec(
+      "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+      Date.now() - 1,
+    );
+    const broadcast = vi.spyOn(broadcaster, "broadcastToAll");
+    const storage = new Proxy(state.storage, {
+      get(target, key) {
+        if (key === "setAlarm")
+          return () => Promise.reject(new Error("予約失敗"));
+        const value = Reflect.get(target, key, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    await expect(
+      phaseHandlers["phase:next"]({ ...ctx, storage }, request),
+    ).rejects.toThrow("予約失敗");
+    expect(getPhase(state.storage.sql)).toEqual(expectation.expectedPhase);
+    expect(
+      state.storage.sql.exec("SELECT state_json FROM sharing_state").toArray(),
+    ).toHaveLength(0);
+    expect(
+      state.storage.sql.exec("SELECT status FROM timer_state").one().status,
+    ).toBe("idle");
+    expect(
+      state.storage.sql
+        .exec("SELECT expected_revision FROM pending_phase_transition")
+        .one().expected_revision,
+    ).toBe(expectation.expectedRevision);
+    expect(broadcast).not.toHaveBeenCalled();
+    expect(ctx.refreshSnapshots).not.toHaveBeenCalled();
+  });
+  owner.close();
+  member.close();
+});
+
+it("発表者本人は完了だけを進められ、同期・再接続・古い要求でも一度だけ交代する", async () => {
+  const { owner, member, roomId, inviteCode } = await setup();
+  await enterSharing(owner, roomId);
+  await joinRoomAs(
+    {
+      sub: "33333333-3333-4333-8333-333333333333",
+      name: "次の人",
+      email: "next@example.test",
+    },
+    inviteCode,
+  );
+  const ready = (await sharingMessage(owner)).sharing;
+  owner.ws.send(
+    JSON.stringify({
+      type: "sharing:start",
+      revision: ready.revision,
+      durationMs: 30000,
+    }),
+  );
+  let sharing = (await sharingMessage(owner)).sharing;
+  await makeTurnDue(roomId);
+  sharing = (await sharingMessage(owner)).sharing;
+  // 他の発表者・開始・パスを本人権限に含めない。
+  member.ws.send(
+    JSON.stringify({
+      type: "sharing:advance",
+      revision: sharing.revision,
+      outcome: "done",
+    }),
+  );
+  expect(await until(member, "error")).toMatchObject({ code: "forbidden" });
+  owner.ws.send(
+    JSON.stringify({
+      type: "sharing:advance",
+      revision: sharing.revision,
+      outcome: "done",
+    }),
+  );
+  sharing = (await sharingMessage(owner)).sharing;
+  const presenter = await connectRoomAs(guest, roomId);
+  await presenter.next();
+  presenter.ws.send(
+    JSON.stringify({
+      type: "sharing:advance",
+      revision: sharing.revision,
+      outcome: "done",
+    }),
+  );
+  expect(await presenter.next()).toMatchObject({
+    type: "sharing:updated",
+    sharing,
+  });
+  expect((await currentSnapshot(roomId)).sharing).toEqual(sharing);
+  await makeTurnDue(roomId);
+  sharing = (await sharingMessage(owner)).sharing;
+  await presenter.next();
+  presenter.ws.send(
+    JSON.stringify({
+      type: "sharing:advance",
+      revision: crypto.randomUUID(),
+      outcome: "done",
+    }),
+  );
+  expect(await presenter.next()).toMatchObject({
+    type: "sharing:updated",
+    sharing,
+  });
+  for (const message of [
+    { type: "sharing:start", durationMs: 30000 },
+    { type: "sharing:advance", outcome: "passed" },
+  ]) {
+    member.ws.send(JSON.stringify({ ...message, revision: sharing.revision }));
+    expect(await until(member, "error")).toMatchObject({ code: "forbidden" });
+  }
+  const request = {
+    type: "sharing:advance",
+    revision: sharing.revision,
+    outcome: "done",
+  };
+  presenter.ws.send(JSON.stringify(request));
+  const observed = await presenter.next();
+  expect(observed).toMatchObject({
+    type: "sharing:updated",
+    sharing: { status: "active", currentIndex: 2, results: ["done", "done"] },
+  });
+  if (observed.type !== "sharing:updated")
+    throw new Error("交代状態が返っていない");
+  expect((await sharingMessage(owner)).sharing).toEqual(observed.sharing);
+  expect((await currentSnapshot(roomId)).sharing).toEqual(observed.sharing);
+  member.ws.send(JSON.stringify(request));
+  expect(await until(member, "error")).toMatchObject({ code: "forbidden" });
+  expect((await currentSnapshot(roomId)).sharing).toEqual(observed.sharing);
+  owner.close();
+  member.close();
+  presenter.close();
+});

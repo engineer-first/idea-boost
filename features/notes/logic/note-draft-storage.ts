@@ -45,9 +45,13 @@ export function loadNoteDrafts(key: string): {
   try {
     const raw = sessionStorage.getItem(key);
     if (raw === null) return { drafts: [], failureText: null };
-    const parsed = StoredDraftsSchema.safeParse(JSON.parse(raw));
-    if (parsed.success)
-      return { drafts: parsed.data.drafts, failureText: null };
+    try {
+      const parsed = StoredDraftsSchema.safeParse(JSON.parse(raw));
+      if (parsed.success)
+        return { drafts: parsed.data.drafts, failureText: null };
+    } catch {
+      // 解釈できなくても、読み取れた文章は手動回収のために残す。
+    }
     return { drafts: [], failureText: raw };
   } catch {
     return { drafts: [], failureText: "保存領域を読み取れませんでした。" };

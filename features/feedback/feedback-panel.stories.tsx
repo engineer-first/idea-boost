@@ -20,6 +20,13 @@ export const Step: Story = {
     }),
   },
 };
+export const Unclear: Story = {
+  args: {
+    feedback: buildFeedbackControls({
+      draft: { target: "1-3", kind: "unclear", body: "", rating: null },
+    }),
+  },
+};
 export const Pending: Story = {
   args: { feedback: buildFeedbackControls({ pending: true }) },
 };
@@ -57,7 +64,7 @@ export const Interactive: Story = {
     return (
       <>
         <button type="button" onClick={() => open("app")}>
-          意見を送る
+          フィードバック
         </button>
         <FeedbackPanel feedback={feedback} />
       </>
@@ -77,9 +84,11 @@ export const DelayedSubmission: Story = {
     return (
       <>
         <button type="button" onClick={() => feedback.open("app")}>
-          意見を送る
+          フィードバック
         </button>
-        <button type="button">作業に戻る</button>
+        <button type="button" className="fixed right-4 top-4">
+          作業に戻る
+        </button>
         <FeedbackPanel feedback={feedback} />
       </>
     );

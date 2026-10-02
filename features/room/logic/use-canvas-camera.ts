@@ -17,7 +17,9 @@ import {
 import type { Note } from "@/features/notes";
 import {
   CANVAS_FIT_PADDING,
+  type CanvasBounds,
   type CanvasCamera,
+  type CanvasFitInsets,
   type CanvasPoint,
   clampCanvasZoom,
   fitCanvasCamera,
@@ -44,6 +46,7 @@ type UseCanvasCameraArgs = {
   notes: Note[];
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
   fitViewport?: boolean;
+  getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
 };
@@ -84,32 +87,89 @@ function notesBounds(notes: Note[]) {
   };
 }
 
+// マップの百分率座標を通常ボードのpx座標として扱わず、描画済みの付箋を
+// 本人のカメラのワールド座標へ戻す。共有状態にはブラウザの計測を保存しない。
+function renderedNotesBounds(
+  viewport: HTMLDivElement,
+  camera: CanvasCamera,
+): CanvasBounds | null {
+  const viewportRect = viewport.getBoundingClientRect();
+  const rectangles = Array.from(
+    viewport.querySelectorAll<HTMLDivElement>("[data-testid='note-card']"),
+    (element) => element.getBoundingClientRect(),
+  ).filter((rect) => rect.width > 0 && rect.height > 0);
+  if (rectangles.length === 0) return null;
+  const topLeft = screenToWorld(
+    {
+      x: Math.min(...rectangles.map((rect) => rect.left)) - viewportRect.left,
+      y: Math.min(...rectangles.map((rect) => rect.top)) - viewportRect.top,
+    },
+    camera,
+  );
+  const bottomRight = screenToWorld(
+    {
+      x: Math.max(...rectangles.map((rect) => rect.right)) - viewportRect.left,
+      y: Math.max(...rectangles.map((rect) => rect.bottom)) - viewportRect.top,
+    },
+    camera,
+  );
+  return {
+    ...topLeft,
+    width: bottomRight.x - topLeft.x,
+    height: bottomRight.y - topLeft.y,
+  };
+}
+
 function fitIdeaMapCamera(
   viewport: {
     width: number;
     height: number;
   },
   sizeLevel: number,
-): CanvasCamera {
+  noteBounds: CanvasBounds | null = null,
+  insets?: CanvasFitInsets,
+): CanvasCamera | null {
   const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
+  const mapBounds: CanvasBounds = {
+    x: (viewport.width - IDEA_MAP_BASE_DIMENSIONS.width) / 2,
+    y:
+      viewport.height / 2 +
+      IDEA_MAP_BASE_DIMENSIONS.height / 2 -
+      dimensions.height,
+    width: dimensions.width,
+    height: dimensions.height,
+  };
+  if (!noteBounds)
+    return fitCanvasCamera(mapBounds, viewport, undefined, insets);
+  const x = Math.min(mapBounds.x, noteBounds.x);
+  const y = Math.min(mapBounds.y, noteBounds.y);
   return fitCanvasCamera(
     {
-      x: (viewport.width - IDEA_MAP_BASE_DIMENSIONS.width) / 2,
-      y:
-        viewport.height / 2 +
-        IDEA_MAP_BASE_DIMENSIONS.height / 2 -
-        dimensions.height,
-      width: dimensions.width,
-      height: dimensions.height,
+      x,
+      y,
+      width:
+        Math.max(
+          mapBounds.x + mapBounds.width,
+          noteBounds.x + noteBounds.width,
+        ) - x,
+      height:
+        Math.max(
+          mapBounds.y + mapBounds.height,
+          noteBounds.y + noteBounds.height,
+        ) - y,
     },
     viewport,
+    undefined,
+    insets,
   );
 }
 
+/** 画面移動・ズーム・全体表示を管理し、付箋の一括移動中はカメラ操作を固定する。 */
 export function useCanvasCamera({
   viewportRef,
   notes,
   fitViewport = false,
+  getFitInsets,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = true,
 }: UseCanvasCameraArgs) {
@@ -121,6 +181,8 @@ export function useCanvasCamera({
   const [isPanning, setIsPanning] = useState(false);
   const cameraRef = useRef(camera);
   const notesRef = useRef(notes);
+  const getFitInsetsRef = useRef(getFitInsets);
+  getFitInsetsRef.current = getFitInsets;
   const panRef = useRef<CanvasPan | null>(null);
   const pendingCameraRef = useRef<CanvasCamera | null>(null);
   const frameRef = useRef<ScheduledFrame | null>(null);
@@ -130,6 +192,7 @@ export function useCanvasCamera({
   const ideaMapSizeLevelRef = useRef(ideaMapSizeLevel);
   ideaMapSizeLevelRef.current = ideaMapSizeLevel;
   const spacePressedRef = useRef(false);
+  const interactionLockedRef = useRef(false);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -185,32 +248,38 @@ export function useCanvasCamera({
     [getViewportPoint],
   );
 
-  const fitToNotes = useCallback(() => {
-    hasFitRef.current = true;
-    if (fitViewport) {
+  /** 表示領域と付箋の境界から全体表示のカメラを求め、操作固定中は位置を変えない。 */
+  const fitToNotes = useCallback(
+    (insets?: CanvasFitInsets): boolean => {
+      if (interactionLockedRef.current) return true;
       const element = viewportRef.current;
-      const size = element ? viewportSize(element) : null;
-      if (size) {
-        setCameraImmediately(
-          fitIdeaMapCamera(size, ideaMapSizeLevelRef.current),
-        );
-      }
-      return;
-    }
-    const element = viewportRef.current;
-    if (!element) return;
-    const size = viewportSize(element);
-    if (!size) return;
-    const bounds = notesBounds(notesRef.current);
-    if (!bounds) {
-      setCameraImmediately(getDefaultCanvasCamera(size));
-      return;
-    }
-    setCameraImmediately(fitCanvasCamera(bounds, size));
-  }, [fitViewport, setCameraImmediately, viewportRef]);
+      if (!element) return false;
+      const size = viewportSize(element);
+      if (!size) return false;
+      const safeInsets = insets ?? getFitInsetsRef.current?.(element);
+      const bounds = fitViewport ? null : notesBounds(notesRef.current);
+      const next = fitViewport
+        ? fitIdeaMapCamera(
+            size,
+            ideaMapSizeLevelRef.current,
+            renderedNotesBounds(element, cameraRef.current),
+            safeInsets,
+          )
+        : bounds
+          ? fitCanvasCamera(bounds, size, undefined, safeInsets)
+          : getDefaultCanvasCamera(size);
+      if (!next) return false;
+      hasFitRef.current = true;
+      setCameraImmediately(next);
+      return true;
+    },
+    [fitViewport, setCameraImmediately, viewportRef],
+  );
 
+  /** 指定した画面上の基点を保ってズームし、操作固定中は要求を無視する。 */
   const zoomTo = useCallback(
     (requestedZoom: number, point?: CanvasPoint) => {
+      if (interactionLockedRef.current) return;
       const element = viewportRef.current;
       if (!element) return;
       const size = viewportSize(element);
@@ -225,10 +294,27 @@ export function useCanvasCamera({
     [scheduleCamera, viewportRef],
   );
 
+  const endPan = useCallback(() => {
+    const pan = panRef.current;
+    if (!pan) return;
+    panRef.current = null;
+    setIsPanning(false);
+    const viewport = viewportRef.current;
+    if (viewport?.hasPointerCapture?.(pan.pointerId)) {
+      viewport.releasePointerCapture(pan.pointerId);
+    }
+  }, [viewportRef]);
+
+  /** Spaceキーまたは中ボタンによる画面移動を開始し、編集や固定中の入力を除く。 */
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (interactionLockedRef.current) return;
       const target = event.target as HTMLElement;
-      if (target.closest("[data-testid='note-card']")) {
+      if (
+        target.closest(
+          "[data-testid='note-card'], [data-testid='note-group-card']",
+        )
+      ) {
         // 最初の個人付箋をボードへ出す操作中に初期フィットが重なると、
         // ドロップ位置が飛んで見えるため、この時点で初期フィットを終える。
         hasFitRef.current = true;
@@ -259,29 +345,33 @@ export function useCanvasCamera({
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const pan = panRef.current;
       if (!pan || pan.pointerId !== event.pointerId) return;
+      if (event.buttons === 0) {
+        endPan();
+        return;
+      }
       scheduleCamera({
         x: pan.startCamera.x + event.clientX - pan.startClientX,
         y: pan.startCamera.y + event.clientY - pan.startClientY,
         zoom: pan.startCamera.zoom,
       });
     },
-    [scheduleCamera],
+    [endPan, scheduleCamera],
   );
 
   const handlePointerEnd = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const pan = panRef.current;
       if (!pan || pan.pointerId !== event.pointerId) return;
-      panRef.current = null;
-      setIsPanning(false);
-      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      endPan();
     },
-    [],
+    [endPan],
   );
 
+  /** ホイールの画面移動とズームを処理し、一括移動中のカメラ変更を防ぐ。 */
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       event.preventDefault();
+      if (interactionLockedRef.current) return;
       const point = getViewportPoint(event.clientX, event.clientY);
       if (!point) return;
       if (event.ctrlKey || event.metaKey) {
@@ -306,8 +396,16 @@ export function useCanvasCamera({
     const element = viewportRef.current;
     const size = element ? viewportSize(element) : null;
     if (size) {
-      setCameraImmediately(fitIdeaMapCamera(size, ideaMapSizeLevelRef.current));
-      hasFitIdeaMapRef.current = true;
+      const next = fitIdeaMapCamera(
+        size,
+        ideaMapSizeLevelRef.current,
+        element ? renderedNotesBounds(element, cameraRef.current) : null,
+        element ? getFitInsetsRef.current?.(element) : undefined,
+      );
+      if (next) {
+        setCameraImmediately(next);
+        hasFitIdeaMapRef.current = true;
+      }
     }
   }, [fitViewport, ideaMapSizeInitialized, setCameraImmediately, viewportRef]);
 
@@ -321,15 +419,53 @@ export function useCanvasCamera({
   }, [handleWheel, viewportRef]);
 
   useEffect(() => {
+    /** 編集欄を除いてカメラ操作のキー入力を処理し、固定中はカメラを動かさない。 */
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || isEditableTarget(event.target)) return;
-      spacePressedRef.current = true;
+      if (isEditableTarget(event.target)) return;
+      if (event.code === "Space") {
+        spacePressedRef.current = true;
+        return;
+      }
+      // このボードの表示操作にフォーカスした場合だけ読書用のキー操作を受ける。
+      // 付箋・投票・メニュー・入力欄のキー操作を横取りしない。
+      const viewport = viewportRef.current;
+      if (
+        !viewport ||
+        !(event.target instanceof HTMLElement) ||
+        !event.target.closest("[data-testid='canvas-zoom-controls']") ||
+        !viewport.parentElement?.contains(event.target) ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey
+      )
+        return;
+      const size = viewportSize(viewport);
+      const step = 80;
+      const pageStep = (size?.height ?? step) * 0.8;
+      const offsets: Partial<Record<string, CanvasPoint>> = {
+        ArrowLeft: { x: step, y: 0 },
+        ArrowRight: { x: -step, y: 0 },
+        ArrowUp: { x: 0, y: step },
+        ArrowDown: { x: 0, y: -step },
+        PageUp: { x: 0, y: pageStep },
+        PageDown: { x: 0, y: -pageStep },
+      };
+      const delta = offsets[event.key];
+      if (!delta) return;
+      event.preventDefault();
+      if (interactionLockedRef.current) return;
+      scheduleCamera({
+        ...cameraRef.current,
+        x: cameraRef.current.x + delta.x,
+        y: cameraRef.current.y + delta.y,
+      });
     };
     const handleKeyUp = (event: KeyboardEvent) => {
       if (event.code === "Space") spacePressedRef.current = false;
     };
     const handleWindowBlur = () => {
       spacePressedRef.current = false;
+      endPan();
     };
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
@@ -348,7 +484,7 @@ export function useCanvasCamera({
         }
       }
     };
-  }, []);
+  }, [endPan, scheduleCamera, viewportRef]);
 
   useEffect(() => {
     if (fitViewport) return;
@@ -359,8 +495,16 @@ export function useCanvasCamera({
     if (notes.length > 0 && !hasFitRef.current) {
       const bounds = notesBounds(notes);
       if (bounds) {
-        setCameraImmediately(fitCanvasCamera(bounds, size));
-        hasFitRef.current = true;
+        const next = fitCanvasCamera(
+          bounds,
+          size,
+          undefined,
+          getFitInsetsRef.current?.(element),
+        );
+        if (next) {
+          setCameraImmediately(next);
+          hasFitRef.current = true;
+        }
       }
     } else if (notes.length === 0 && !hasDefaultedRef.current) {
       setCameraImmediately(getDefaultCanvasCamera(size));
@@ -382,7 +526,20 @@ export function useCanvasCamera({
     };
   }, [camera]);
 
+  /** 一括移動の開始・終了に合わせてカメラ操作の固定状態を切り替える。 */
+  const lockInteraction = useCallback(
+    (locked: boolean) => {
+      interactionLockedRef.current = locked;
+      if (locked) {
+        hasFitRef.current = true;
+        endPan();
+      }
+    },
+    [endPan],
+  );
+
   return {
+    lockInteraction,
     camera,
     cameraRef,
     isPanning,

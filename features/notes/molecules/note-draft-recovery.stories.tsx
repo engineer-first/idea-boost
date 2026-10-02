@@ -18,3 +18,37 @@ export const Conflict: Story = {
     ],
   },
 };
+
+export const MultipleLongDrafts: Story = {
+  args: {
+    items: [
+      {
+        noteId: "中断した付箋",
+        text: "接続が切れる前に考えていた文章です。\n".repeat(50),
+        reason: "現在は編集できません。",
+      },
+      {
+        noteId: "変換中の付箋",
+        text: "かんじに変換していた未確定の文章",
+        reason: "変換中に中断されました。",
+      },
+    ],
+  },
+};
+
+// 390px の実ボードで通知が重なったマイ付箋トリガーの位置を再現する。
+export const BoardToolbarReachability: Story = {
+  args: Conflict.args,
+  render: (args) => (
+    <>
+      <button
+        type="button"
+        aria-label="マイ付箋を開く"
+        className="fixed right-[113px] bottom-[133px] h-7 w-7 rounded border"
+      >
+        ＋
+      </button>
+      <NoteDraftRecovery {...args} />
+    </>
+  ),
+};

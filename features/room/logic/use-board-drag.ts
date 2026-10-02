@@ -451,9 +451,10 @@ export function useBoardDrag({
 
   const handleSharedNoteDragStart = useCallback(
     (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
-      if (!canMoveSharedNotes) return;
+      // 2本目の指で操作対象を上書きすると、最初の操作権を解放できなくなる。
+      if (dragRef.current || !canMoveSharedNotes) return;
       const note = notes.find((n) => n.id === noteId);
-      if (!note || note.excluded) return;
+      if (!note) return;
       hasNotifiedBlockedRef.current = false;
       boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const pointerPosition = boardPositionFromPointer(
@@ -491,6 +492,7 @@ export function useBoardDrag({
 
   const handlePrivateDragStart = useCallback(
     (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (dragRef.current) return;
       // RoomDO の応答前でも、楽観表示中の付箋をそのまま掴み直せるようにする。
       const note = renderedPrivateNotes.find((n) => n.id === noteId);
       if (!note || note.excluded) return;
@@ -791,30 +793,29 @@ export function useBoardDrag({
     ],
   );
 
-  const cancelCurrentNoteDrag = useCallback(() => {
-    const current = dragRef.current;
-    stopPrivateListAutoScroll();
-    if (
-      !current ||
-      (current.status !== "shared" &&
-        !(
-          lockPrivateMapDrag &&
-          (current.status === "private" || current.status === "returning")
-        ))
-    ) {
-      return;
-    }
-    hasNotifiedBlockedRef.current = false;
-    onNoteDragCancel(current.note.id);
-    boardScrollerRef.current?.releasePointerCapture?.(current.pointerId);
-    updateDrag(null);
-  }, [
-    boardScrollerRef,
-    lockPrivateMapDrag,
-    onNoteDragCancel,
-    stopPrivateListAutoScroll,
-    updateDrag,
-  ]);
+  const cancelCurrentNoteDrag = useCallback(
+    (includePrivate = false) => {
+      const current = dragRef.current;
+      stopPrivateListAutoScroll();
+      if (
+        !current ||
+        (!includePrivate && current.status === "private" && !lockPrivateMapDrag)
+      )
+        return;
+      hasNotifiedBlockedRef.current = false;
+      if (current.status === "shared" || lockPrivateMapDrag)
+        onNoteDragCancel(current.note.id);
+      boardScrollerRef.current?.releasePointerCapture?.(current.pointerId);
+      updateDrag(null);
+    },
+    [
+      boardScrollerRef,
+      lockPrivateMapDrag,
+      onNoteDragCancel,
+      stopPrivateListAutoScroll,
+      updateDrag,
+    ],
+  );
 
   const isCurrentDragPointer = useCallback((pointerId: number) => {
     const current = dragRef.current;

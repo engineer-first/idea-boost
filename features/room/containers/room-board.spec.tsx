@@ -29,6 +29,7 @@ const notifyMocks = vi.hoisted(() => ({
   noteExcluded: vi.fn(),
   bulkCandidatesExcluded: vi.fn(),
   automaticallyExcludedCandidates: vi.fn(),
+  dismissCandidateNotice: vi.fn(),
 }));
 
 vi.mock("@/lib/notify", () => ({
@@ -43,7 +44,9 @@ vi.mock("../logic/room-notify", () => ({
     memberLeft: notifyMocks.memberLeft,
     roomDisbanded: notifyMocks.roomDisbanded,
     roomLeft: vi.fn(),
+    groupMoveRejected: vi.fn(),
     roomDisbandedBySelf: vi.fn(),
+    dismissCandidateNotice: notifyMocks.dismissCandidateNotice,
     noteExcluded: notifyMocks.noteExcluded,
     bulkCandidatesExcluded: notifyMocks.bulkCandidatesExcluded,
     automaticallyExcludedCandidates:
@@ -52,6 +55,7 @@ vi.mock("../logic/room-notify", () => ({
 }));
 
 import type { PersistentGroup } from "@/contracts/grouping";
+import { calculateRenderGroups } from "@/contracts/grouping";
 import type { RoomPhase } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type {
@@ -60,7 +64,7 @@ import type {
   ProtocolNote,
 } from "@/contracts/room-protocol";
 import { buildCarryover, buildGroup } from "@/contracts/room-protocol.fixture";
-import { DECIDED_ISSUE_LABEL, HMW_TEMPLATES } from "@/features/hmw";
+import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
 import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
 import { RoomBoard } from "./room-board";
 
@@ -155,6 +159,158 @@ function expectSent(socket: FakeWebSocket, expected: object): void {
     expect.objectContaining(expected),
   );
 }
+
+/** グループ背景からボードの入力処理へ渡るポインターイベントを作る。 */
+function groupPointer(
+  element: HTMLElement,
+  type: string,
+  clientX: number,
+  clientY: number,
+): void {
+  fireEvent(
+    element,
+    Object.assign(
+      new MouseEvent(type, {
+        bubbles: true,
+        button: 0,
+        buttons: type === "pointerup" ? 0 : 1,
+        clientX,
+        clientY,
+      }),
+      { pointerId: 1, isPrimary: true },
+    ),
+  );
+}
+
+it("グループ背景のドラッグは受理後に全付箋を動かし、一括確定を送る", () => {
+  const first = protocolNote({ x: 100, y: 100 });
+  const second = protocolNote({ id: TARGET_NOTE_ID, x: 360, y: 120 });
+  const { socket } = connectWithSnapshot([first, second], {
+    phase: buildPhaseStep(3),
+  });
+  const scroller = screen.getByTestId("board-scroller");
+  vi.spyOn(scroller, "getBoundingClientRect").mockReturnValue({
+    left: 0,
+    top: 0,
+    right: 1000,
+    bottom: 1000,
+    width: 1000,
+    height: 1000,
+  } as DOMRect);
+  const frame = screen.getByTestId("note-group-card");
+  groupPointer(frame, "pointerdown", 330, 110);
+  groupPointer(frame, "pointermove", 350, 120);
+  const request = socket.sent
+    .map((message) => JSON.parse(message))
+    .find((message) => message.type === "group:drag:start");
+  expect(request).toMatchObject({
+    anchorNoteId: NOTE_ID,
+    positions: [
+      { noteId: NOTE_ID, x: 100, y: 100 },
+      { noteId: TARGET_NOTE_ID, x: 360, y: 120 },
+    ],
+  });
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "100px",
+    top: "100px",
+  });
+  act(() =>
+    socket.simulateServerMessage({
+      type: "group:drag:result",
+      dragId: request.dragId,
+      accepted: true,
+    }),
+  );
+  const root = screen.getByTestId("room-board-view-root");
+  groupPointer(root, "pointermove", 410, 150);
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "180px",
+    top: "140px",
+  });
+  expect(screen.getByTestId(`board-note-${TARGET_NOTE_ID}`)).toHaveStyle({
+    left: "440px",
+    top: "160px",
+  });
+  groupPointer(root, "pointerup", 410, 150);
+  expectSent(socket, {
+    type: "group:drag:end",
+    dragId: request.dragId,
+    delta: { x: 80, y: 40 },
+  });
+  const group = calculateRenderGroups([first, second], [])[0];
+  act(() =>
+    socket.simulateServerMessage({
+      type: "group:drag:updated",
+      dragId: request.dragId,
+      sequence: 10,
+      group: { ...group, x: group.x + 80, y: group.y + 40 },
+      notes: [
+        { ...first, x: 180, y: 140 },
+        { ...second, x: 440, y: 160 },
+      ],
+      ended: true,
+    }),
+  );
+  expect(screen.getByTestId(`board-note-${TARGET_NOTE_ID}`)).toHaveStyle({
+    left: "440px",
+    top: "160px",
+  });
+});
+
+it("他の参加者の座標だけの一括通知を表示し、古い通知で戻さない", () => {
+  const first = protocolNote({ x: 100, y: 100, content: "保持する本文" });
+  const second = protocolNote({ id: TARGET_NOTE_ID, x: 360, y: 120 });
+  const { socket } = connectWithSnapshot([first, second], {
+    phase: buildPhaseStep(3),
+  });
+  const group = calculateRenderGroups([first, second], [])[0];
+  const message = {
+    type: "group:drag:updated",
+    dragId: STICKER_ID,
+    sequence: 2,
+    group: { ...group, x: group.x + 80, y: group.y + 40 },
+    notes: [first, second].map(({ id, x, y, updatedAt }) => ({
+      id,
+      x: x + 80,
+      y: y + 40,
+      updatedAt,
+    })),
+    ended: false,
+  };
+  act(() => socket.simulateServerMessage(message));
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "180px",
+    top: "140px",
+  });
+  expect(screen.getByText("保持する本文")).toBeInTheDocument();
+  act(() =>
+    socket.simulateServerMessage({
+      ...message,
+      sequence: 1,
+      notes: [first, second],
+    }),
+  );
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "180px",
+    top: "140px",
+  });
+  act(() =>
+    socket.simulateServerMessage({
+      ...message,
+      sequence: 3,
+      ended: true,
+      notes: [first, second].map((note) => ({
+        ...note,
+        x: note.x + 90,
+        y: note.y + 50,
+      })),
+    }),
+  );
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "190px",
+    top: "150px",
+  });
+});
 
 function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
   return {
@@ -346,6 +502,7 @@ afterEach(() => {
   notifyMocks.noteExcluded.mockReset();
   notifyMocks.bulkCandidatesExcluded.mockReset();
   notifyMocks.automaticallyExcludedCandidates.mockReset();
+  notifyMocks.dismissCandidateNotice.mockReset();
 });
 
 describe("メンバー参加・退出の通知", () => {
@@ -435,7 +592,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.click(screen.getByTestId("room-timer"));
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
     expect(socket.sent).toContain(
-      JSON.stringify({ type: "timer:start", durationMs: 180_000 }),
+      JSON.stringify({ type: "timer:start", durationMs: 300_000 }),
     );
 
     act(() =>
@@ -460,7 +617,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     const timer = within(controls).getByTestId("room-timer");
     expect(timer).toBeVisible();
     expect(timer.tagName).toBe("SPAN");
-    expect(timer).toHaveTextContent("03:00");
+    expect(timer).toHaveTextContent("05:00");
     expect(within(timer).queryByRole("button")).not.toBeInTheDocument();
 
     act(() =>
@@ -656,7 +813,7 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
       width: "1936px",
-      height: "1089px",
+      height: "1109px",
     });
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expectSent(socket, { type: "idea-map:resize", sizeLevel: 3 });
@@ -703,7 +860,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
     fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
 
-    expect(selectedCard).toHaveStyle({ zIndex: "2147483647" });
+    expect(selectedCard.parentElement).toHaveStyle({ zIndex: "2147483647" });
 
     act(() =>
       socket.simulateServerMessage({
@@ -712,7 +869,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     expect(selectedCard).toHaveAttribute("data-selected", "true");
-    expect(selectedCard).toHaveStyle({ zIndex: "3" });
+    expect(selectedCard.parentElement).toHaveStyle({ zIndex: "3" });
 
     act(() =>
       socket.simulateServerMessage({
@@ -720,8 +877,8 @@ describe("サーバーメッセージ → 画面反映", () => {
         note: { ...other, stackOrder: 4 },
       }),
     );
-    expect(selectedCard).toHaveStyle({ zIndex: "3" });
-    expect(otherCard).toHaveStyle({ zIndex: "4" });
+    expect(selectedCard.parentElement).toHaveStyle({ zIndex: "3" });
+    expect(otherCard.parentElement).toHaveStyle({ zIndex: "4" });
   });
 
   it("移動不可ステップでは付箋を選択しても最前面への永続移動を送信しない", () => {
@@ -768,7 +925,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       isHost: true,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     fireEvent.click(
       screen.getByRole("button", { name: "採用する付箋: 最初の付箋" }),
@@ -809,7 +965,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
     const target = screen.getByRole("button", {
       name: "採用する付箋: 最初の付箋",
@@ -843,32 +998,37 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("採用後はホストも確定を解除できない", () => {
+  it("確定の取消を送信し、サーバーの解除を受けてから選び直せる", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
-      decision: {
-        phase: 1,
-        noteId: NOTE_ID,
-        decidedBy: USER_ID,
-      },
+      decision: { phase: 1, noteId: NOTE_ID, decidedBy: USER_ID },
     });
-
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "decision:clear", noteId: NOTE_ID }),
+    );
     expect(
-      screen.queryByRole("button", { name: "確定を解除" }),
+      screen.queryByRole("button", { name: "採用する付箋を選ぶ" }),
     ).not.toBeInTheDocument();
-    expect(socket.sent).not.toContain(
-      JSON.stringify({ type: "decision:clear" }),
+    act(() =>
+      socket.simulateServerMessage({
+        type: "decision:updated",
+        decision: null,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    fireEvent.click(screen.getByRole("button", { name: /採用する付箋:/ }));
+    expect(socket.sent).toContain(
+      JSON.stringify({ type: "note:decide", noteId: NOTE_ID }),
     );
   });
 
-  it("結果ステップのホストが右クリックメニューから候補外にし、通知のUndoで復帰する", () => {
+  it("個別候補操作は即時反映し、成功確認後だけUndoを表示する", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
     fireEvent.contextMenu(
       within(screen.getByTestId("note-card")).getByRole("button", {
@@ -876,80 +1036,82 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "候補から外す" }));
-
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }),
+    const message = socket.sent
+      .map((item) => JSON.parse(item))
+      .find((item) => item.type === "note:exclude");
+    expect(message).toMatchObject({ type: "note:exclude", noteId: NOTE_ID });
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-excluded",
+      "true",
     );
-    expect(notifyMocks.noteExcluded).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "候補に戻す" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+    ).toBeDisabled();
+    expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: message.operationId,
+        note: protocolNote({
+          excluded: true,
+          exclusionOperationId: message.operationId,
+        }),
+      }),
+    );
+    expect(notifyMocks.noteExcluded).toHaveBeenCalledOnce();
     const undo = notifyMocks.noteExcluded.mock.calls[0]?.[0];
-    if (typeof undo !== "function") throw new Error("Undo がありません");
-    undo();
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:restore", noteId: NOTE_ID }),
+    act(() => undo?.());
+    expect(socket.sent.map((item) => JSON.parse(item))).toContainEqual(
+      expect.objectContaining({
+        type: "note:restore",
+        noteId: NOTE_ID,
+        expectedExclusionOperationId: message.operationId,
+      }),
     );
   });
 
-  it("復帰後の古いUndoと再除外後の一代前のUndoは別操作を巻き戻さない", () => {
+  it("候補操作の拒否では最新位置を保持し、成功通知を出さない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
     fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
-    const firstUndo = notifyMocks.noteExcluded.mock.calls[0]?.[0];
-    if (typeof firstUndo !== "function") throw new Error("Undo がありません");
-
+    const message = socket.sent
+      .map((item) => JSON.parse(item))
+      .find((item) => item.type === "note:exclude");
     act(() =>
       socket.simulateServerMessage({
         type: "note:updated",
-        note: protocolNote({ excluded: true }),
+        note: protocolNote({ x: 300, y: 350 }),
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "候補に戻す" }));
-    const restoreCountAfterExplicitRestore = socket.sent.filter(
-      (message) => JSON.parse(message).type === "note:restore",
-    ).length;
-    firstUndo();
-    expect(
-      socket.sent.filter(
-        (message) => JSON.parse(message).type === "note:restore",
-      ),
-    ).toHaveLength(restoreCountAfterExplicitRestore);
-
     act(() =>
       socket.simulateServerMessage({
-        type: "note:updated",
-        note: protocolNote({ excluded: false }),
+        type: "error",
+        code: "forbidden",
+        message: "採用確定後は変更できません。",
+        operationId: message.operationId,
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
-    const secondUndo = notifyMocks.noteExcluded.mock.calls[1]?.[0];
-    if (typeof secondUndo !== "function")
-      throw new Error("2回目のUndoがありません");
-
-    firstUndo();
-    expect(
-      socket.sent.filter(
-        (message) => JSON.parse(message).type === "note:restore",
-      ),
-    ).toHaveLength(restoreCountAfterExplicitRestore);
-    secondUndo();
-    expect(
-      socket.sent.filter(
-        (message) => JSON.parse(message).type === "note:restore",
-      ),
-    ).toHaveLength(restoreCountAfterExplicitRestore + 1);
+    expect(screen.getByTestId("note-card")).not.toHaveAttribute(
+      "data-excluded",
+    );
+    expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+      left: "300px",
+      top: "350px",
+    });
+    expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
   });
 
-  it("結果ステップの非ホストは候補外付箋の復帰操作を見られない", () => {
+  it("結果ステップの非ホストは候補外を読めるが復帰操作は見られない", () => {
     connectWithSnapshot([protocolNote({ excluded: true })], {
       phase: buildPhaseStep(5),
       isHost: false,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
 
-    expect(screen.queryByText("候補外")).not.toBeInTheDocument();
+    expect(screen.getByText("候補外")).toBeVisible();
     expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
   });
 
@@ -958,7 +1120,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
     fireEvent.click(
       screen.getByRole("button", { name: "ルームメニューを開く" }),
     );
@@ -968,10 +1129,14 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "1件を候補から外す" }));
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:bulk-exclude" }),
+    expect(socket.sent.map((item) => JSON.parse(item))).toContainEqual(
+      expect.objectContaining({ type: "note:bulk-exclude" }),
     );
-    const operationId = "33333333-3333-4333-8333-333333333333";
+    const operationId = JSON.parse(
+      socket.sent.find(
+        (item) => JSON.parse(item).type === "note:bulk-exclude",
+      ) ?? "{}",
+    ).operationId;
     act(() =>
       socket.simulateServerMessage({
         type: "note:bulk-excluded",
@@ -992,7 +1157,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("新しい一括操作の確定後は古いUndoを無視し、0件では通知しない", () => {
+  it("別の一括操作では元のUndoを失効させず、復帰要求を順に送り0件では通知しない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
@@ -1025,14 +1190,21 @@ describe("サーバーメッセージ → 画面反映", () => {
     if (typeof firstUndo !== "function" || typeof secondUndo !== "function") {
       throw new Error("Undo がありません");
     }
-    firstUndo();
-    expect(socket.sent).not.toContain(
+    act(() => firstUndo());
+    expect(socket.sent).toContain(
       JSON.stringify({
         type: "note:bulk-restore",
         operationId: firstOperationId,
       }),
     );
-    secondUndo();
+    act(() => secondUndo());
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:bulk-restored",
+        operationId: firstOperationId,
+        count: 1,
+      }),
+    );
     expect(socket.sent).toContain(
       JSON.stringify({
         type: "note:bulk-restore",
@@ -1169,7 +1341,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(
       screen
         .getByDisplayValue("移動する付箋")
-        .closest("[data-testid='note-card']"),
+        .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "2147483647" });
 
     act(() =>
@@ -1181,7 +1353,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(
       screen
         .getByDisplayValue("移動する付箋")
-        .closest("[data-testid='note-card']"),
+        .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "2147483647" });
 
     act(() =>
@@ -1197,14 +1369,14 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(
       screen
         .getByDisplayValue("移動する付箋")
-        .closest("[data-testid='note-card']"),
+        .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "10" });
 
     fireEvent.pointerDown(screen.getByTestId("board-canvas"), { button: 0 });
     expect(
       screen
         .getByDisplayValue("移動する付箋")
-        .closest("[data-testid='note-card']"),
+        .closest("[data-testid='note-card']")?.parentElement,
     ).toHaveStyle({ zIndex: "10" });
   });
 
@@ -2391,7 +2563,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   });
 });
 
-describe("Step 2-1（HMW 個人執筆）", () => {
+describe("Step 2-1（問いの個人執筆）", () => {
   function connectAtHmwStep(notes: ProtocolNote[] = []) {
     return connectWithSnapshot(notes, {
       phase: buildPhaseStep(1, 2),
@@ -2413,17 +2585,6 @@ describe("Step 2-1（HMW 個人執筆）", () => {
 
     expect(screen.getByText(DECIDED_ISSUE_LABEL)).toBeInTheDocument();
     expect(screen.getByText("宿題を後回しにしてしまう")).toBeInTheDocument();
-  });
-
-  it("テンプレートを選ぶと content 付き note:create を送る", () => {
-    const { socket } = connectAtHmwStep();
-
-    fireEvent.click(screen.getByRole("button", { name: HMW_TEMPLATES[0] }));
-
-    expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual({
-      type: "note:create",
-      content: HMW_TEMPLATES[0],
-    });
   });
 
   it("「付箋を追加」は content なしの note:create を送る（イベントを content に流さない）", () => {
@@ -2454,7 +2615,7 @@ describe("Step 2-1（HMW 個人執筆）", () => {
     expect(screen.queryByText("フェーズ1のグループ")).not.toBeInTheDocument();
   });
 
-  it("Step 1-1 では HMW テンプレートパネルを表示しない", () => {
+  it("Step 1-1 では問いのテンプレートパネルを表示しない", () => {
     connectWithSnapshot([], { phase: buildPhaseStep(1) });
 
     expect(screen.queryByTestId("hmw-template-panel")).not.toBeInTheDocument();
@@ -2482,8 +2643,13 @@ describe("Step 3-1（アイデア個人執筆）", () => {
       ],
     });
 
-    fireEvent.click(screen.getByText("決定した課題"));
+    fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
     expect(screen.getByText("優先順位を決められない")).toBeInTheDocument();
+    expect(
+      screen.getByText("どうすれば着手しやすくできるか"),
+    ).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "決定した問い" }));
+    expect(screen.getByText("優先順位を決められない")).not.toBeVisible();
     expect(
       screen.getByText("どうすれば着手しやすくできるか"),
     ).toBeInTheDocument();
@@ -2519,6 +2685,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     });
     fireEvent.pointerMove(screen.getByTestId("board-scroller"), {
       pointerId: 7,
+      buttons: 1,
       clientX: 160,
       clientY: 130,
     });
@@ -2538,6 +2705,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     });
     fireEvent.pointerMove(surface, {
       pointerId: 8,
+      buttons: 1,
       clientX: 160,
       clientY: 130,
     });
@@ -2728,4 +2896,72 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       ).not.toContain("note:drag:end");
     },
   );
+});
+
+describe("候補Undoの結果工程内の寿命", () => {
+  it.each([true, false])(
+    "採用後は旧Undo/ホストが戻せる通知を消しcallbackも送信しない host=%s",
+    (isHost) => {
+      notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
+        "u13-candidate-toast",
+      );
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(5),
+        isHost,
+      });
+      const operationId = "33333333-3333-4333-8333-333333333333";
+      act(() =>
+        socket.simulateServerMessage({
+          type: "note:bulk-excluded",
+          operationId,
+          count: 1,
+          source: "phase-transition",
+        }),
+      );
+      const undo =
+        notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
+      act(() =>
+        socket.simulateServerMessage({
+          type: "decision:updated",
+          decision: { phase: 1, noteId: NOTE_ID, decidedBy: USER_ID },
+        }),
+      );
+      expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
+        "u13-candidate-toast",
+      );
+      if (typeof undo === "function") undo();
+      expect(socket.sent).not.toContain(
+        JSON.stringify({ type: "note:bulk-restore", operationId }),
+      );
+    },
+  );
+  it("結果工程を離れたら旧Undo送信を止めるが、結果工程内では有効", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(5),
+      isHost: true,
+    });
+    const operationId = "33333333-3333-4333-8333-333333333333";
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId,
+        count: 1,
+        source: "manual",
+      }),
+    );
+    const undo = notifyMocks.bulkCandidatesExcluded.mock.calls.at(-1)?.[1];
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(4),
+        phaseRevision: 1,
+        timer: { status: "idle" },
+      }),
+    );
+    if (typeof undo !== "function") throw new Error("Undoがありません");
+    undo();
+    expect(socket.sent).not.toContain(
+      JSON.stringify({ type: "note:bulk-restore", operationId }),
+    );
+  });
 });

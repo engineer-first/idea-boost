@@ -129,6 +129,47 @@ describe("RoomTimer", () => {
     expect(onOutsideClick).toHaveBeenCalledOnce();
   });
 
+  it("パネル表示中も端末通知音は最初のクリックで切り替えられる", () => {
+    const onEnable = vi.fn(async () => undefined);
+    render(
+      <RoomTimer
+        timer={{ status: "idle" }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+        soundControls={{ ...handlers.soundControls, onEnable }}
+      />,
+    );
+    const sound = screen.getByRole("button", { name: "タイマー通知音" });
+    fireEvent.pointerDown(sound, { button: 0, pointerId: 1 });
+    fireEvent.pointerUp(sound, { button: 0, pointerId: 1 });
+    fireEvent.click(sound);
+    expect(onEnable).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+  });
+
+  it("一時停止への切り替えでフォーカスを終了へ引き継がない", () => {
+    const props = {
+      serverOffsetMs: 0,
+      isHost: true,
+      disabled: false,
+      defaultPanelOpen: true,
+      ...handlers,
+    };
+    const { rerender } = render(
+      <RoomTimer {...props} timer={buildRunningTimer()} />,
+    );
+    const pause = screen.getByRole("button", { name: "一時停止" });
+    pause.focus();
+    fireEvent.click(pause);
+    rerender(<RoomTimer {...props} timer={buildPausedTimer()} />);
+    expect(screen.getByTestId("room-timer")).toHaveFocus();
+    expect(screen.getByRole("button", { name: "終了" })).not.toHaveFocus();
+    expect(handlers.onStop).not.toHaveBeenCalled();
+  });
+
   it("外側操作がclickを生成しない場合はpointerup後に抑止を解除する", () => {
     const onOutsideClick = vi.fn();
     render(
@@ -262,6 +303,126 @@ describe("RoomTimer", () => {
       "true",
     );
     expect(screen.getByRole("button", { name: "開始" })).toBeDisabled();
+  });
+
+  it("全角・半角の数字を混ぜて入力しても分秒を保持し、開始時間へ渡す", () => {
+    render(
+      <RoomTimer
+        timer={{ status: "idle" }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+    const minutes = screen.getByLabelText("タイマー時間（分）");
+    const seconds = screen.getByLabelText("タイマー時間（秒）");
+    fireEvent.change(minutes, { target: { value: "１2" } });
+    fireEvent.change(seconds, { target: { value: "３０" } });
+    fireEvent.blur(minutes);
+    fireEvent.blur(seconds);
+    expect(minutes).toHaveValue("12");
+    expect(seconds).toHaveValue("30");
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    expect(handlers.onStart).toHaveBeenCalledWith(750_000);
+  });
+
+  it("IME変換中の文字を消さず、確定するまで開始・時間調整を無効にする", () => {
+    render(
+      <RoomTimer
+        timer={{ status: "idle" }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+    const minutes = screen.getByLabelText("タイマー時間（分）");
+    fireEvent.compositionStart(minutes);
+    fireEvent.change(minutes, { target: { value: "あ" } });
+    expect(minutes).toHaveValue("あ");
+    expect(screen.getByRole("button", { name: "開始" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "+1分" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "-1分" })).toBeDisabled();
+    fireEvent.change(minutes, { target: { value: "１２" } });
+    expect(minutes).toHaveValue("１２");
+    fireEvent.compositionEnd(minutes, { data: "１２" });
+    // compositionend の後に input/change が届くブラウザも同じ値を保つ。
+    fireEvent.change(minutes, { target: { value: "１２" } });
+    expect(minutes).toHaveValue("12");
+    fireEvent.click(screen.getByRole("button", { name: "開始" }));
+    expect(handlers.onStart).toHaveBeenCalledWith(720_000);
+  });
+
+  it("全角入力でも秒は59を上限とし、00:00は開始できない", () => {
+    render(
+      <RoomTimer
+        timer={{ status: "idle" }}
+        serverOffsetMs={0}
+        isHost
+        disabled={false}
+        defaultPanelOpen
+        {...handlers}
+      />,
+    );
+    const minutes = screen.getByLabelText("タイマー時間（分）");
+    const seconds = screen.getByLabelText("タイマー時間（秒）");
+    fireEvent.change(minutes, { target: { value: "００" } });
+    fireEvent.change(seconds, { target: { value: "９９" } });
+    expect(seconds).toHaveValue("59");
+    fireEvent.change(seconds, { target: { value: "００" } });
+    expect(screen.getByRole("button", { name: "開始" })).toBeDisabled();
+  });
+
+  it.each(["外側", "Escape"])(
+    "IME変換中に%sで閉じても再表示後に開始できる",
+    (close) => {
+      render(
+        <RoomTimer
+          timer={{ status: "idle" }}
+          serverOffsetMs={0}
+          isHost
+          disabled={false}
+          defaultPanelOpen
+          {...handlers}
+        />,
+      );
+      const minutes = screen.getByLabelText("タイマー時間（分）");
+      fireEvent.compositionStart(minutes);
+      fireEvent.change(minutes, { target: { value: "１２" } });
+      if (close === "外側") {
+        fireEvent.pointerDown(document.body, { button: 0, pointerId: 1 });
+        fireEvent.pointerUp(document.body, { button: 0, pointerId: 1 });
+        fireEvent.click(document.body);
+      } else fireEvent.keyDown(document, { key: "Escape" });
+      openPanel();
+      expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue("12");
+      expect(screen.getByRole("button", { name: "開始" })).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "開始" }));
+      expect(handlers.onStart).toHaveBeenCalledWith(720_000);
+    },
+  );
+
+  it("IME変換中にサーバーから実行状態が届いて入力が消えても、再設定で開始できる", () => {
+    const props = {
+      serverOffsetMs: 0,
+      isHost: true,
+      disabled: false,
+      defaultPanelOpen: true,
+      ...handlers,
+    };
+    const { rerender } = render(
+      <RoomTimer {...props} timer={{ status: "idle" }} />,
+    );
+    const minutes = screen.getByLabelText("タイマー時間（分）");
+    fireEvent.compositionStart(minutes);
+    fireEvent.change(minutes, { target: { value: "１２" } });
+    rerender(<RoomTimer {...props} timer={buildRunningTimer()} />);
+    rerender(<RoomTimer {...props} timer={buildEndedTimer()} />);
+    fireEvent.click(screen.getByRole("button", { name: "設定し直す" }));
+    expect(screen.getByRole("button", { name: "開始" })).toBeEnabled();
   });
 
   it("分は99、秒は59を上限に入力値を正規化する", () => {

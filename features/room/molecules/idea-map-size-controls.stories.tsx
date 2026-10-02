@@ -43,3 +43,11 @@ export const AtMaximum: Story = {
 export const AtMinimum: Story = {
   args: { sizeLevel: 0 },
 };
+
+export const Initializing: Story = {
+  args: { initialized: false },
+};
+
+export const Disconnected: Story = {
+  args: { isDisconnected: true },
+};

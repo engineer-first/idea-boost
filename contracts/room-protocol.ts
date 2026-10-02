@@ -141,6 +141,7 @@ export const NoteSchema = z.object({
   // 決定ステップで一時的に候補から外す状態。削除とは異なり、付箋の内容・
   // 票・グループ・座標はそのまま保持する。
   excluded: z.boolean().default(false),
+  exclusionOperationId: z.guid().nullable().optional(),
   stackOrder: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -164,6 +165,53 @@ export const GroupSchema = z.object({
 });
 
 export type ProtocolGroup = z.infer<typeof GroupSchema>;
+
+export const GroupBoundsSchema = z
+  .object({
+    x: z.number().finite(),
+    y: z.number().finite(),
+    width: z.number().finite().positive(),
+    height: z.number().finite().positive(),
+  })
+  .strict();
+
+export const GroupDragFrameSchema = GroupBoundsSchema.extend({
+  id: z.string(),
+  // 結合した表示枠の名前は複数の保存グループ名を連結する。
+  name: z.string(),
+  isTemp: z.boolean().optional(),
+  persistentGroupId: z.guid().optional(),
+  representativeNoteId: z.guid(),
+  hue: z.number().finite().optional(),
+});
+export type GroupDragFrame = z.infer<typeof GroupDragFrameSchema>;
+
+const GroupDragPositionSchema = z
+  .object({
+    noteId: z.guid(),
+    x: CanvasCoordinateSchema,
+    y: CanvasCoordinateSchema,
+  })
+  .strict();
+const GroupDragDeltaSchema = z
+  .object({
+    x: z
+      .number()
+      .finite()
+      .min(-2 * CANVAS_COORDINATE_LIMIT)
+      .max(2 * CANVAS_COORDINATE_LIMIT),
+    y: z
+      .number()
+      .finite()
+      .min(-2 * CANVAS_COORDINATE_LIMIT)
+      .max(2 * CANVAS_COORDINATE_LIMIT),
+  })
+  .strict();
+const GroupDragSequenceSchema = z
+  .number()
+  .int()
+  .nonnegative()
+  .max(Number.MAX_SAFE_INTEGER);
 
 export const TIMER_MAX_DURATION_MS = 5_999_000;
 const TimerMillisecondsSchema = z.number().int().finite().min(0);
@@ -232,7 +280,7 @@ export type Decision = z.infer<typeof DecisionSchema>;
 
 // フェーズをまたいで引き継ぐ確定情報（前フェーズで決定された付箋）。
 // content は決定時点のコピーで、元付箋の後からの編集・削除に影響されない。
-// フェーズ2の「決定した課題」表示が最初の利用者で、フェーズ3の決定 HMW
+// フェーズ2の「決定した課題」表示が最初の利用者で、フェーズ3の決定した問い
 // 表示でも同じ形を再利用する。
 export const CarryoverSchema = z.object({
   phase: z.number().int().min(1).max(3),
@@ -271,6 +319,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     .strict(),
   z.object({
     type: z.literal("cursor:update"),
+    // マップ表示中は左下原点の百分率。余白は0〜100の外も許可し、
+    // 付箋の評価位置とは別にCanvasCoordinateSchemaの安全上限を守る。
     ...NotePositionSchema,
     // null はドラッグ終了後もカーソル自体は表示し続けることを明示する。
     draggingNoteId: z.guid().nullable().optional(),
@@ -356,14 +406,20 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("note:exclude"),
     noteId: z.guid(),
+    operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:restore"),
     noteId: z.guid(),
+    operationId: OptimisticOperationIdSchema.optional(),
+    expectedExclusionOperationId: z.guid().optional(),
   }),
   // 対象は実行時のサーバー状態から再判定するため、クライアントは件数や
   // note ID 群を送らない。
-  z.object({ type: z.literal("note:bulk-exclude") }),
+  z.object({
+    type: z.literal("note:bulk-exclude"),
+    operationId: OptimisticOperationIdSchema.optional(),
+  }),
   z.object({
     type: z.literal("note:bulk-restore"),
     operationId: BulkExclusionOperationIdSchema,
@@ -381,6 +437,31 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     groupId: z.guid(),
     name: z.string().max(50, "グループ名は50文字以内で入力してください。"),
   }),
+  z
+    .object({
+      type: z.literal("group:drag:start"),
+      dragId: NoteDragIdSchema,
+      anchorNoteId: z.guid(),
+      bounds: GroupBoundsSchema,
+      positions: z.array(GroupDragPositionSchema).min(2),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("group:drag:move"),
+      dragId: NoteDragIdSchema,
+      sequence: GroupDragSequenceSchema,
+      delta: GroupDragDeltaSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("group:drag:end"),
+      dragId: NoteDragIdSchema,
+      sequence: GroupDragSequenceSchema,
+      delta: GroupDragDeltaSchema.nullable(),
+    })
+    .strict(),
   z.object({
     type: z.literal("note:vote"),
     noteId: z.guid(),
@@ -433,8 +514,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   // 最終案の採用とは別に、ホストが成果画面を全員へ公開する。
   z.object({ type: z.literal("outcome:publish") }),
-  // 旧クライアントの決定解除要求。採用は不可逆のためサーバーで常に拒否する。
-  z.object({ type: z.literal("decision:clear") }),
+  // 画面で確認した決定だけを取り消す。古いタブの要求で別の決定を消さない。
+  // フェーズと権限は送らせず、RoomDO の現在状態から検証する。
+  z.object({ type: z.literal("decision:clear"), noteId: z.guid() }),
   // 採用選択モード中にホストが現在検討している候補。userId / phase は
   // 認証済みソケットと RoomDO の権威状態から導出する。
   z.object({
@@ -444,7 +526,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // ロビーから課題整理 Step 1-1 へ。ホストのみ。
   z.object({ type: z.literal("start_phase") }),
   // 課題整理の次ステップへ。ホストのみ。
-  // force はフェーズ1・2の投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
+  // force は全フェーズの投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
   // ホストが進行できる）。ホスト判定が先に評価されるため、非ホストが
   // force を送っても効果はない。
   z.object({
@@ -513,6 +595,18 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     sharing: SharingStateSchema.nullable().optional(),
     notes: z.array(NoteSchema),
     groups: z.array(GroupSchema).optional(),
+    groupDrags: z
+      .array(
+        z
+          .object({
+            dragId: NoteDragIdSchema,
+            sequence: GroupDragSequenceSchema,
+            group: GroupDragFrameSchema,
+            noteIds: z.array(z.guid()).min(2),
+          })
+          .strict(),
+      )
+      .optional(),
     members: z.array(MemberSchema),
     phase: RoomPhaseSchema,
     phaseRevision: z.number().int().nonnegative().default(0),
@@ -579,6 +673,32 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("group:updated"),
     group: GroupSchema,
+  }),
+  z.object({
+    type: z.literal("group:drag:result"),
+    dragId: NoteDragIdSchema,
+    accepted: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("group:drag:updated"),
+    dragId: NoteDragIdSchema,
+    sequence: GroupDragSequenceSchema,
+    group: GroupDragFrameSchema,
+    // 開始・終了は完全な付箋、途中は保存済み座標だけを配信する。
+    notes: z.union([
+      z.array(NoteSchema).min(2),
+      z
+        .array(
+          NoteSchema.pick({
+            id: true,
+            x: true,
+            y: true,
+            updatedAt: true,
+          }).strict(),
+        )
+        .min(2),
+    ]),
+    ended: z.boolean(),
   }),
   z.object({
     type: z.literal("group:deleted"),

@@ -3,11 +3,19 @@ import {
   type ComponentProps,
   type ComponentType,
   createRef,
+  useCallback,
   useRef,
   useState,
 } from "react";
 import { expect, fireEvent, fn, within } from "storybook/test";
+import { calculateRenderGroups } from "@/contracts/grouping";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type {
+  ClientMessage,
+  GroupDragFrame,
+  ProtocolNote,
+  ServerMessage,
+} from "@/contracts/room-protocol";
 import {
   buildDecision,
   buildNote,
@@ -15,6 +23,8 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
+import { useCanvasCamera } from "../logic/use-canvas-camera";
+import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
 type RoomBoardCanvasStoryProps = Omit<
@@ -544,6 +554,184 @@ export const Step1Grouping: Story = {
   },
 };
 
+const GROUP_MOVE_NOTES = [
+  buildNote({
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    content: "課題A",
+    x: 100,
+    y: 140,
+  }),
+  buildNote({
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    content: "課題B",
+    x: 360,
+    y: 160,
+  }),
+  buildNote({
+    id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    content: "領域外の付箋",
+    x: 900,
+    y: 480,
+  }),
+];
+
+/**
+ * 実際の入力hookを使い、RoomDOの受理と一括更新だけを再現する。
+ */
+function GroupMovePreview({
+  args,
+  reject = false,
+}: {
+  args: RoomBoardCanvasStoryProps;
+  reject?: boolean;
+}) {
+  const [notes, setNotes] = useState(args.notes);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [starts, setStarts] = useState(0);
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const applyRef = useRef<(message: ServerMessage) => boolean>(() => true);
+  const activeRef = useRef<{
+    dragId: string;
+    frame: GroupDragFrame;
+    notes: ProtocolNote[];
+    delta: { x: number; y: number };
+  } | null>(null);
+  /** RoomDOの開始応答と共通移動の確定通知を再現し、ストーリーの付箋状態を更新する。 */
+  const send = useCallback(
+    (message: ClientMessage) => {
+      queueMicrotask(() => {
+        if (message.type === "group:drag:start") {
+          setStarts((count) => count + 1);
+          const frame = calculateRenderGroups(
+            notesRef.current,
+            args.groups,
+          ).find(
+            ({ representativeNoteId }) =>
+              representativeNoteId === message.anchorNoteId,
+          );
+          applyRef.current({
+            type: "group:drag:result",
+            dragId: message.dragId,
+            accepted: !reject && Boolean(frame),
+          });
+          if (!frame?.representativeNoteId || reject) return;
+          activeRef.current = {
+            dragId: message.dragId,
+            frame: {
+              ...frame,
+              representativeNoteId: frame.representativeNoteId,
+            },
+            notes: notesRef.current.filter(({ id }) =>
+              message.positions.some(({ noteId }) => noteId === id),
+            ),
+            delta: { x: 0, y: 0 },
+          };
+        } else if (
+          message.type === "group:drag:move" ||
+          message.type === "group:drag:end"
+        ) {
+          const active = activeRef.current;
+          if (!active || active.dragId !== message.dragId) return;
+          active.delta = message.delta ?? active.delta;
+          const moved = active.notes.map((note) => ({
+            ...note,
+            x: note.x + active.delta.x,
+            y: note.y + active.delta.y,
+          }));
+          setNotes((current) =>
+            current.map(
+              (note) => moved.find(({ id }) => id === note.id) ?? note,
+            ),
+          );
+          applyRef.current({
+            type: "group:drag:updated",
+            dragId: active.dragId,
+            sequence: message.sequence,
+            group: {
+              ...active.frame,
+              x: active.frame.x + active.delta.x,
+              y: active.frame.y + active.delta.y,
+            },
+            notes: moved,
+            ended: message.type === "group:drag:end",
+          });
+          if (message.type === "group:drag:end") activeRef.current = null;
+        }
+      });
+    },
+    [args.groups, reject],
+  );
+  /** 個別移動の対象だけを更新し、一括移動と混同しない操作確認を可能にする。 */
+  const moveNote = (id: string, x: number, y: number) =>
+    setNotes((current) =>
+      current.map((note) => (note.id === id ? { ...note, x, y } : note)),
+    );
+  const interactions = useRoomBoardInteractions({
+    notes,
+    privateNotes: [],
+    currentUserId: GROUP_MOVE_NOTES[0].authorId,
+    draggingNoteId: null,
+    phase: args.phase,
+    send,
+    onNoteDragStart: () => {},
+    onNoteDragMove: moveNote,
+    onNoteDragEnd: moveNote,
+    onNoteDragCancel: () => {},
+    onPrivateNotePublish: () => {},
+    onPrivateNoteUnpublish: () => {},
+    onCursorMove: () => {},
+    onCursorLeave: () => {},
+  });
+  applyRef.current = interactions.applyGroupMessage ?? (() => true);
+  return (
+    <div
+      className="relative flex h-full min-h-0 w-full flex-col"
+      ref={interactions.boardRootRef}
+      onPointerMove={interactions.onPointerMove}
+      onPointerUp={interactions.onPointerEnd}
+      onPointerCancel={interactions.onPointerCancel}
+    >
+      <output data-testid="group-start-count" className="sr-only">
+        {starts}
+      </output>
+      <RoomBoardCanvas
+        {...args}
+        {...interactions}
+        selectedNoteId={selectedNoteId}
+        onSelect={setSelectedNoteId}
+        onNoteDragStart={interactions.onNoteDragStart}
+      />
+    </div>
+  );
+}
+
+export const GroupBackgroundMove: Story = {
+  args: {
+    phase: STEP_1_3,
+    permissions: getBoardPermissions(STEP_1_3),
+    notes: GROUP_MOVE_NOTES,
+  },
+  render: (args) => <GroupMovePreview args={args} />,
+};
+export const SavedGroupBackgroundMove: Story = {
+  ...GroupBackgroundMove,
+  args: {
+    ...GroupBackgroundMove.args,
+    groups: [
+      {
+        id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        name: "課題グループ",
+        noteIds: GROUP_MOVE_NOTES.slice(0, 2).map(({ id }) => id),
+      },
+    ],
+  },
+};
+export const GroupBackgroundMoveRejected: Story = {
+  ...GroupBackgroundMove,
+  render: (args) => <GroupMovePreview args={args} reject />,
+};
+
 // Step1-4: 投票
 export const Step1Voting: Story = {
   args: {
@@ -696,4 +884,205 @@ export const IdeaMapZoom200: Story = {
     ...fixedSizeMapArgs,
     camera: { x: -400, y: -300, zoom: 2 },
   },
+};
+
+// カメラと本文・文字サイズを接続した読む体験。共有保存は実接続で別途確認する。
+function NoteReadingPreview({ args }: { args: RoomBoardCanvasStoryProps }) {
+  const [notes, setNotes] = useState(args.notes);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const boardScrollerRef = useRef<HTMLDivElement>(null);
+  const ideaMapPlaneRef = useRef<HTMLDivElement>(null);
+  const privateToolbarRef = useRef<HTMLDivElement>(null);
+  const camera = useCanvasCamera({
+    viewportRef: boardScrollerRef,
+    notes,
+    fitViewport:
+      args.phase.kind === "step" &&
+      args.phase.phase === 3 &&
+      args.phase.step >= 2,
+  });
+  return (
+    <RoomBoardCanvas
+      {...args}
+      notes={notes}
+      selectedNoteId={selectedNoteId}
+      boardScrollerRef={boardScrollerRef}
+      ideaMapPlaneRef={ideaMapPlaneRef}
+      privateToolbarRef={privateToolbarRef}
+      camera={camera.camera}
+      gridStyle={camera.gridStyle}
+      isPanning={camera.isPanning}
+      onCanvasPointerDown={camera.handlePointerDown}
+      onCanvasPointerMove={camera.handlePointerMove}
+      onCanvasPointerEnd={camera.handlePointerEnd}
+      onZoomIn={camera.zoomIn}
+      onZoomOut={camera.zoomOut}
+      onResetZoom={camera.resetZoom}
+      onFitToNotes={camera.fitToNotes}
+      onSelect={setSelectedNoteId}
+      onNoteContentChange={(noteId, content) => {
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === noteId ? { ...note, content } : note,
+          ),
+        );
+      }}
+      onNoteFontSizeChange={(noteId, fontSize) => {
+        setNotes((current) =>
+          current.map((note) =>
+            note.id === noteId ? { ...note, fontSize } : note,
+          ),
+        );
+      }}
+    />
+  );
+}
+
+export const InteractiveNoteReading: Story = {
+  args: {
+    notes: [buildNote({ content: "読む本文", x: 800, y: 500 })],
+    phase: STEP_1_2,
+    permissions: getBoardPermissions(STEP_1_2),
+  },
+  render: (args) => <NoteReadingPreview args={args} />,
+};
+
+export const InteractiveIdeaMapReading: Story = {
+  ...InteractiveNoteReading,
+  args: {
+    notes: [
+      buildNote({
+        content: `${"全文を順に読む。".repeat(250).slice(0, 1998)}末尾`,
+        fontSize: 24,
+        x: 50,
+        y: 50,
+      }),
+    ],
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+  },
+};
+
+// 本番で採用領域(旧z-50)を付箋が覆った状態。順序は枚数ではなく操作履歴で増える。
+function adoptionLayeringNotes(isMap: boolean) {
+  return [
+    buildNote({
+      id: "layer-back",
+      content: "奥の候補",
+      x: isMap ? 40 : 260,
+      y: isMap ? 55 : 180,
+      stackOrder: 58,
+    }),
+    buildNote({
+      id: "layer-front",
+      content: "手前の候補",
+      x: isMap ? 43 : 340,
+      y: isMap ? 53 : 210,
+      stackOrder: 2_147_483_646,
+    }),
+    buildNote({
+      id: "layer-excluded",
+      content: "候補外",
+      x: isMap ? 43 : 340,
+      y: isMap ? 53 : 210,
+      stackOrder: 2_147_483_647,
+      excluded: true,
+    }),
+  ];
+}
+
+function AdoptionLayeringPreview({
+  args,
+}: {
+  args: RoomBoardCanvasStoryProps;
+}) {
+  const [adoptedId, setAdoptedId] = useState<string | null>(null);
+  return (
+    <div className="flex h-full w-full flex-col">
+      <p role="status">
+        {adoptedId
+          ? `採用済み: ${args.notes.find((note) => note.id === adoptedId)?.content}`
+          : "採用前"}
+      </p>
+      <RoomBoardCanvasWithLocalRefs
+        {...args}
+        isAdoptMode={!adoptedId}
+        decision={
+          adoptedId
+            ? buildDecision({
+                noteId: adoptedId,
+                phase: args.phase.kind === "step" ? args.phase.phase : 1,
+              })
+            : null
+        }
+        onAdoptNote={(noteId) => {
+          args.onAdoptNote(noteId);
+          setAdoptedId(noteId);
+        }}
+      />
+    </div>
+  );
+}
+
+export const AdoptionAfterRepeatedOperations: Story = {
+  args: {
+    phase: STEP_1_5,
+    permissions: getBoardPermissions(STEP_1_5),
+    notes: adoptionLayeringNotes(false),
+  },
+  render: (args) => <AdoptionLayeringPreview args={args} />,
+};
+
+export const HmwAdoptionAfterRepeatedOperations: Story = {
+  ...AdoptionAfterRepeatedOperations,
+  args: {
+    ...AdoptionAfterRepeatedOperations.args,
+    phase: buildPhaseStep(4, 2),
+    permissions: getBoardPermissions(buildPhaseStep(4, 2)),
+  },
+};
+
+export const MapAdoptionAfterRepeatedOperations: Story = {
+  ...AdoptionAfterRepeatedOperations,
+  args: {
+    phase: buildPhaseStep(5, 3),
+    permissions: getBoardPermissions(buildPhaseStep(5, 3)),
+    notes: adoptionLayeringNotes(true),
+  },
+};
+
+export const IdeaMapInitialAxes: Story = {
+  name: "2軸マップ / 初期82%の軸ラベル",
+  args: {
+    ...fixedSizeMapArgs,
+    camera: { x: 128, y: 40, zoom: 0.82 },
+  },
+  decorators: [
+    (Story) => (
+      <div className="flex h-[1000px] w-[1440px] p-4">
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+export const IdeaMapMarginCursors: Story = {
+  args: {
+    ...fixedSizeMapArgs,
+    camera: IDEA_MAP_CAMERA,
+    remoteCursors: [
+      { x: -10, y: 50, name: "左余白" },
+      { x: 110, y: 50, name: "右余白" },
+      { x: 50, y: 110, name: "上余白" },
+      { x: 50, y: -10, name: "下余白" },
+    ].map((cursor, index) => ({
+      ...cursor,
+      userId: `22222222-2222-4222-8222-22222222222${index}`,
+      color: "blue",
+      draggingNoteId: null,
+      lastSeenAt: 0,
+      isIdle: false,
+    })),
+  },
+  decorators: IDEA_MAP_VIEWPORT,
 };

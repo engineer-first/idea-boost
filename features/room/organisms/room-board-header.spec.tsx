@@ -33,7 +33,7 @@ function setupProps(
     outcomePublished: false,
     onPublishOutcome: vi.fn(),
     isLeaving: false,
-    onShowVoteResult: vi.fn(),
+
     onLeaveClick: vi.fn(),
     onNextPhase: vi.fn(),
     onTimerStart: vi.fn(),
@@ -106,6 +106,38 @@ describe("RoomBoardHeader", () => {
     expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
   });
 
+  it("ボードがpointerdownの伝播を止めても外側クリックで閉じ、元のクリックを通す", () => {
+    const onOutsideClick = vi.fn();
+    render(
+      <div onPointerDownCapture={(event) => event.stopPropagation()}>
+        <RoomBoardHeader {...setupProps({ isHost: true })} />
+        <button type="button" onClick={onOutsideClick}>
+          ボードの外側操作
+        </button>
+      </div>,
+    );
+    openRoomMenu();
+    const menu = screen.getByRole("dialog", { name: "ルームメニュー" });
+    fireEvent.pointerDown(menu, { button: 0, pointerId: 1 });
+    expect(menu).toBeInTheDocument();
+    const outside = screen.getByRole("button", { name: "ボードの外側操作" });
+    fireEvent.pointerDown(outside, { button: 0, pointerId: 2 });
+    fireEvent.pointerUp(outside, { button: 0, pointerId: 2 });
+    fireEvent.click(outside);
+    expect(
+      screen.queryByRole("dialog", { name: "ルームメニュー" }),
+    ).not.toBeInTheDocument();
+    expect(onOutsideClick).toHaveBeenCalledOnce();
+    openRoomMenu();
+    expect(
+      screen.getByRole("dialog", { name: "ルームメニュー" }),
+    ).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(
+      screen.queryByRole("dialog", { name: "ルームメニュー" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("現在地をキャンバス左上のフローティングHUDに表示する", () => {
     setup({ phase: buildPhaseStep(2) });
 
@@ -117,7 +149,7 @@ describe("RoomBoardHeader", () => {
     );
     expect(screen.getByTestId("board-context-hud")).not.toHaveClass("absolute");
     expect(screen.getByText("課題整理")).toBeInTheDocument();
-    expect(screen.getByText("2/5")).toBeInTheDocument();
+    expect(screen.queryByText("2/5")).not.toBeInTheDocument();
     expect(
       screen.getByRole("progressbar", { name: "課題整理の進行状況" }),
     ).toHaveAttribute("aria-valuenow", "2");
@@ -127,7 +159,6 @@ describe("RoomBoardHeader", () => {
     setup({ phase: buildPhaseStep(5) });
 
     expect(screen.getByTestId("board-header-row")).toHaveClass(
-      "bottom-[7.5rem]",
       "max-[900px]:grid-cols-[306px_minmax(0,1fr)]",
     );
     expect(screen.getByTestId("board-context-column")).toHaveClass(
@@ -192,7 +223,7 @@ describe("RoomBoardHeader", () => {
     setup({ phase: buildPhaseStep(1, 2) });
 
     expect(screen.getByTestId("board-current-step")).toHaveTextContent(
-      "課題に対するHMW（個人）",
+      "課題に対する問い（個人）",
     );
   });
 
@@ -220,9 +251,10 @@ describe("RoomBoardHeader", () => {
     });
 
     it.each([
-      [buildPhaseStep(1), "03"],
+      [buildPhaseStep(1), "05"],
       [buildPhaseStep(3), "04"],
       [buildPhaseStep(2), "06"],
+      [buildPhaseStep(1, 3), "05"],
       [buildPhaseStep(3, 3), "07"],
       [buildPhaseStep(5), "10"],
     ] as const)(
@@ -261,7 +293,12 @@ describe("RoomBoardHeader", () => {
     const context = screen.getByTestId("board-context-hud");
     expect(within(context).getByText("課題整理")).toBeVisible();
     expect(within(context).getByText("自分の課題（個人）")).toBeVisible();
-    expect(within(context).getByText("1/5")).toBeVisible();
+    expect(within(context).queryByText("1/5")).not.toBeInTheDocument();
+    const progress = within(context).getByRole("progressbar", {
+      name: "課題整理の進行状況",
+    });
+    expect(progress).toBeVisible();
+    expect(progress).toHaveAttribute("aria-valuenow", "1");
     expect(within(context).queryByText("Idea Boost")).not.toBeInTheDocument();
     expect(within(context).queryByText("フェーズ1")).not.toBeInTheDocument();
     rerender(
@@ -368,7 +405,7 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("狭い幅では操作類の後の二行目に送り、120msの幅・透明度変化を抑制できる", () => {
+    it("狭い幅では操作類の後へ置き、120msの幅・透明度変化を抑制できる", () => {
       const members = buildMembers(2, ME);
       setup({
         phase: buildPhaseStep(4),
@@ -379,7 +416,6 @@ describe("RoomBoardHeader", () => {
 
       expect(screen.getByTestId("vote-completion-indicator")).toHaveClass(
         "max-[900px]:order-last",
-        "max-[900px]:basis-full",
       );
       expect(screen.getByTestId("vote-completion-label")).toHaveClass(
         "transition-[max-width,opacity]",
@@ -388,7 +424,6 @@ describe("RoomBoardHeader", () => {
         "starting:opacity-0",
         "motion-reduce:transition-none",
         "text-emerald-700",
-        "dark:text-emerald-400",
       );
       expect(
         screen.getByRole("button", { name: "次のステップへ" }),
@@ -471,6 +506,19 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
+    it.each([buildPhaseStep(5), buildPhaseStep(4, 2)])(
+      "%jで採用前は進行ボタンを表示したまま無効にする",
+      (phase) => {
+        const onNextPhase = vi.fn();
+        setup({ isHost: true, phase, isNextPhaseBlocked: true, onNextPhase });
+        const next = screen.getByRole("button", { name: "次のステップへ" });
+        expect(next).toBeDisabled();
+        fireEvent.click(next);
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+        expect(onNextPhase).not.toHaveBeenCalled();
+      },
+    );
+
     it("途中の結果ステップではホストに「次のステップへ」を表示する", () => {
       setup({ isHost: true, phase: buildPhaseStep(5) });
 
@@ -507,23 +555,15 @@ describe("RoomBoardHeader", () => {
     });
   });
 
-  describe("投票結果ボタン（Step 1-5 限定）", () => {
-    it("Step 1-5 で表示され、押下で onShowVoteResult を呼ぶ", () => {
-      const onShowVoteResult = vi.fn();
-      setup({ phase: buildPhaseStep(5), onShowVoteResult });
-
-      fireEvent.click(screen.getByRole("button", { name: "投票結果を表示" }));
-
-      expect(onShowVoteResult).toHaveBeenCalledTimes(1);
-    });
-
-    it("Step 1-5 以外では表示しない", () => {
-      setup({ phase: buildPhaseStep(1) });
+  it.each([buildPhaseStep(5), buildPhaseStep(4, 2), buildPhaseStep(5, 3)])(
+    "%jで結果モーダルの再表示ボタンを出さない",
+    (phase) => {
+      setup({ phase });
       expect(
         screen.queryByRole("button", { name: "投票結果を表示" }),
       ).not.toBeInTheDocument();
-    });
-  });
+    },
+  );
 
   describe("退出・解散", () => {
     it("host は「ルームを解散」、非 host は「退出する」の文言になる", () => {
@@ -588,7 +628,7 @@ describe("共有の進行欄", () => {
     durationMs: 180000,
     startsAt: null,
   };
-  it("現在・次・3回共通と全体の順番を表示する", () => {
+  it("現在の進行状況と全体の順番を表示する", () => {
     render(
       <RoomBoardHeader
         {...setupProps({
@@ -599,7 +639,6 @@ describe("共有の進行欄", () => {
         {...{ sharing, onSharingStart: vi.fn(), onSharingAdvance: vi.fn() }}
       />,
     );
-    expect(screen.getByText("3回共通")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "次の人へ" })).toBeEnabled();
     fireEvent.click(
       screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
@@ -687,14 +726,14 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();
 });
-it("参加者は発表者を確認できるが進行操作を持たない", () => {
+it("発表者以外の参加者は発表者を確認できるが進行操作を持たない", () => {
   render(
     <RoomBoardHeader
       {...setupProps({
         phase: buildPhaseStep(2),
         initialGuideState: "compact",
       })}
-      sharing={buildSharingState({ status: "active", currentIndex: 0 })}
+      sharing={buildSharingState({ status: "active", currentIndex: 1 })}
     />,
   );
   expect(
@@ -726,3 +765,60 @@ it.each([{ phaseRevision: 2 }, { isDisconnected: true }])(
     expect(props.onNextPhase).not.toHaveBeenCalled();
   },
 );
+
+describe("U03 進行の役割", () => {
+  it.each([true, false])(
+    "HUDに進行役の案内を表示しない: isHost=%s",
+    (isHost) => {
+      setup({ isHost });
+      const context = screen.getByTestId("board-context-hud");
+      expect(context).not.toHaveTextContent("ホスト：進行はあなたが操作");
+      expect(context).not.toHaveTextContent("参加者：次への進行はホストが操作");
+      expect(
+        within(context).queryByRole("button", { name: "ゴールと進行" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+});
+
+it("発表者本人は次の人へを操作でき、開始・パス・次ステップは操作できない", () => {
+  const props = setupProps({
+    phase: buildPhaseStep(2),
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+    onSharingAdvance: vi.fn(),
+  });
+  const { rerender } = render(<RoomBoardHeader {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: "次の人へ" }));
+  expect(props.onSharingAdvance).toHaveBeenCalledExactlyOnceWith("done");
+  expect(
+    screen.queryByRole("button", { name: "今回はパス" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "次のステップへ" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "最初の人を開始" }),
+  ).not.toBeInTheDocument();
+  rerender(
+    <RoomBoardHeader
+      {...props}
+      sharing={buildSharingState({
+        status: "active",
+        currentIndex: 0,
+        startsAt: Date.now() + 2000,
+      })}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+  rerender(<RoomBoardHeader {...props} isDisconnected />);
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+  rerender(
+    <RoomBoardHeader
+      {...props}
+      sharing={buildSharingState({ status: "active", currentIndex: 1 })}
+    />,
+  );
+  expect(
+    screen.queryByRole("button", { name: "次の人へ" }),
+  ).not.toBeInTheDocument();
+});

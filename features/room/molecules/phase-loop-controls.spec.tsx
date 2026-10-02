@@ -18,6 +18,7 @@ function setup(overrides: Partial<PhaseLoopControlsProps> = {}) {
     onRevote: vi.fn(),
     onStartSelection: vi.fn(),
     onCancelSelection: vi.fn(),
+    onClearDecision: vi.fn(),
     ...overrides,
   };
   return { ...render(<PhaseLoopControls {...props} />), props };
@@ -50,9 +51,13 @@ describe("PhaseLoopControls", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("お待ちください");
   });
-  it("採用後は取消も再投票も出さない", () => {
-    setup({ decisionContent: "確定した課題" });
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  it("採用後は確定の取消だけを出し再投票は出さない", () => {
+    const { props } = setup({ decisionContent: "確定した課題" });
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    expect(props.onClearDecision).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("button", { name: "もう一度投票する" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("確定した課題")).toBeVisible();
   });
   it("共有の追加作業は確認で通知する", () => {

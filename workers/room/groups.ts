@@ -73,11 +73,14 @@ function saveGroups(
   });
 }
 
-// shared 付箋の現在位置からグループを再計算し、差分だけを配信する。
+/**
+ * shared 付箋の現在位置からグループを再計算し、差分だけを配信する。
+ */
 export function autoReorganize(
   storage: DurableObjectStorage,
   broadcaster: RoomBroadcaster,
 ): void {
+  if (broadcaster.hasActiveGroupDrag()) return;
   const sql = storage.sql;
   const notes = listSharedNotes(sql);
   const currentGroups = listGroups(sql);

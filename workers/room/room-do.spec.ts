@@ -16,6 +16,7 @@ import {
   listMemberIds,
   runInRoomDO,
 } from "../test-helpers";
+import type { SocketAttachment } from "./broadcast";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
@@ -1071,7 +1072,7 @@ describe("RoomDO note:decide", () => {
     ws.close();
   });
 
-  it("ホストも確定済み決定を解除できず参加者の決定を保持する", async () => {
+  it("ホストの取消を全員へ配信し決定を削除する", async () => {
     const roomName = "room-decision-clear-host";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -1087,22 +1088,27 @@ describe("RoomDO note:decide", () => {
     await memberDecision;
 
     const hostCleared = nextJson(host);
-
-    host.send(JSON.stringify({ type: "decision:clear" }));
-
-    await expect(hostCleared).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
+    const memberCleared = nextJson(member);
+    host.send(
+      JSON.stringify({ type: "decision:clear", noteId: FIRST_NOTE_ID }),
+    );
+    await expect(hostCleared).resolves.toEqual({
+      type: "decision:updated",
+      decision: null,
+    });
+    await expect(memberCleared).resolves.toEqual({
+      type: "decision:updated",
+      decision: null,
     });
     expect(
       await runInRoomDO(
         roomName,
         (_instance, state) =>
           state.storage.sql
-            .exec("SELECT COUNT(*) AS count FROM decisions WHERE phase = 1")
-            .one().count as number,
+            .exec("SELECT COUNT(*) AS count FROM decisions WHERE phase=1")
+            .one().count,
       ),
-    ).toBe(1);
+    ).toBe(0);
     host.close();
     member.close();
   });
@@ -1126,7 +1132,9 @@ describe("RoomDO note:decide", () => {
     });
 
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    member.send(JSON.stringify({ type: "decision:clear" }));
+    member.send(
+      JSON.stringify({ type: "decision:clear", noteId: FIRST_NOTE_ID }),
+    );
 
     expect(await nextJson(member)).toMatchObject({
       type: "error",
@@ -1144,6 +1152,36 @@ describe("RoomDO note:decide", () => {
     member.close();
   });
 
+  it("非メンバーのソケットからの取消を拒否し決定を保持する", async () => {
+    const roomName = "room-decision-clear-non-member";
+    const stub = roomStub(roomName);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, FIRST_NOTE_ID);
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    host.send(JSON.stringify({ type: "note:decide", noteId: FIRST_NOTE_ID }));
+    await nextJson(host);
+    await runInRoomDO(roomName, (_instance, state) =>
+      state.storage.sql.exec("DELETE FROM members WHERE user_id=?", USER_A),
+    );
+    host.send(
+      JSON.stringify({ type: "decision:clear", noteId: FIRST_NOTE_ID }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(
+        roomName,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT note_id FROM decisions WHERE phase=1")
+            .one().note_id,
+      ),
+    ).toBe(FIRST_NOTE_ID);
+    host.close();
+  });
   it("結果ステップ以外では決定を解除できない", async () => {
     const roomName = "room-decision-clear-wrong-step";
     const stub = roomStub(roomName);
@@ -1151,7 +1189,9 @@ describe("RoomDO note:decide", () => {
     await stub.setPhase(buildPhaseStep(4), USER_A);
 
     const host = await connectDirectly(roomName, USER_A, USER_A);
-    host.send(JSON.stringify({ type: "decision:clear" }));
+    host.send(
+      JSON.stringify({ type: "decision:clear", noteId: FIRST_NOTE_ID }),
+    );
 
     expect(await nextJson(host)).toMatchObject({
       type: "error",
@@ -1197,6 +1237,245 @@ describe("RoomDO 候補外付箋", () => {
       );
     });
   }
+
+  it.each([
+    [1, 2],
+    [1, 3],
+    [1, 5],
+    [2, 2],
+    [2, 4],
+    [3, 2],
+    [3, 3],
+    [3, 5],
+  ] as const)(
+    "参加者は %i-%i で候補外を動かし、復帰しても現在位置を保持する",
+    async (phase, step) => {
+      const name = `candidate-move-${phase}-${step}`;
+      await prepare(name, buildPhaseStep(step, phase), true);
+      const member = await connectDirectly(name, USER_B, USER_A);
+      member.send(
+        JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 60, y: 70 }),
+      );
+      expect(await nextJson(member)).toMatchObject({
+        type: "note:updated",
+        note: { excluded: true, x: 60, y: 70, content: "保持する本文" },
+      });
+      member.close();
+    },
+  );
+
+  it("別タブの再除外を古い個別Undoで復帰させない", async () => {
+    const name = "candidate-stale-undo";
+    await prepare(name);
+    const host = await connectDirectly(name, USER_A, USER_A);
+    const first = crypto.randomUUID();
+    const second = crypto.randomUUID();
+    host.send(
+      JSON.stringify({
+        type: "note:exclude",
+        noteId: NOTE_ID,
+        operationId: first,
+      }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "note:updated",
+      operationId: first,
+    });
+    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+    await nextJson(host);
+    host.send(
+      JSON.stringify({
+        type: "note:exclude",
+        noteId: NOTE_ID,
+        operationId: second,
+      }),
+    );
+    await nextJson(host);
+    host.send(
+      JSON.stringify({
+        type: "note:restore",
+        noteId: NOTE_ID,
+        operationId: crypto.randomUUID(),
+        expectedExclusionOperationId: first,
+      }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(
+        name,
+        (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT excluded FROM notes WHERE id = ?", NOTE_ID)
+            .one().excluded,
+      ),
+    ).toBe(1);
+    host.close();
+  });
+
+  it.each([
+    [1, 1, false],
+    [1, 2, true],
+    [1, 3, true],
+    [1, 4, false],
+    [1, 5, true],
+    [2, 1, false],
+    [2, 2, true],
+    [2, 3, false],
+    [2, 4, true],
+    [3, 1, false],
+    [3, 2, true],
+    [3, 3, true],
+    [3, 4, false],
+    [3, 5, true],
+  ] as const)(
+    "全14ステップ %i-%i の通常候補と候補外の移動認可が全員で一致する",
+    async (phase, step, allowed) => {
+      for (const userId of [USER_A, USER_B])
+        for (const excluded of [false, true]) {
+          const name = `move-matrix-${phase}-${step}-${userId}-${excluded}`;
+          await prepare(name, buildPhaseStep(step, phase), excluded);
+          const ws = await connectDirectly(name, userId, USER_A);
+          ws.send(
+            JSON.stringify({
+              type: "note:move",
+              noteId: NOTE_ID,
+              x: 55,
+              y: 60,
+            }),
+          );
+          expect(await nextJson(ws)).toMatchObject(
+            allowed
+              ? { type: "note:updated", note: { x: 55, y: 60, excluded } }
+              : { type: "error", code: "forbidden" },
+          );
+          const dragId = crypto.randomUUID();
+          ws.send(
+            JSON.stringify({
+              type: "note:drag:start",
+              noteId: NOTE_ID,
+              dragId,
+            }),
+          );
+          expect(await nextJson(ws)).toMatchObject(
+            allowed
+              ? { type: "note:drag:result", accepted: true }
+              : { type: "error", code: "forbidden" },
+          );
+          if (!allowed)
+            await runInRoomDO(name, (_instance, state) => {
+              expect(
+                state.storage.sql
+                  .exec(
+                    "SELECT x, y, excluded FROM notes WHERE id = ?",
+                    NOTE_ID,
+                  )
+                  .one(),
+              ).toMatchObject({ x: 123, y: 456, excluded: excluded ? 1 : 0 });
+              for (const socket of state.getWebSockets())
+                expect(
+                  (socket.deserializeAttachment() as SocketAttachment)
+                    .activeDrag,
+                ).toBeUndefined();
+            });
+          if (allowed)
+            ws.send(
+              JSON.stringify({
+                type: "note:drag:cancel",
+                noteId: NOTE_ID,
+                dragId,
+              }),
+            );
+          ws.close();
+        }
+    },
+  );
+
+  it.each([
+    [1, 5],
+    [2, 4],
+    [3, 5],
+  ] as const)(
+    "%i-%i ではドラッグ中の候補整理と移動を独立させる",
+    async (phase, step) => {
+      const name = `exclude-active-drag-${phase}`;
+      await prepare(name, buildPhaseStep(step, phase));
+      const host = await connectDirectly(name, USER_A, USER_A);
+      const member = await connectDirectly(name, USER_B, USER_A);
+      const dragId = crypto.randomUUID();
+      member.send(
+        JSON.stringify({ type: "note:drag:start", noteId: NOTE_ID, dragId }),
+      );
+      expect(await nextJsonOfType(member, "note:drag:result")).toMatchObject({
+        accepted: true,
+      });
+      host.send(
+        JSON.stringify({
+          type: "note:exclude",
+          noteId: NOTE_ID,
+          operationId: crypto.randomUUID(),
+        }),
+      );
+      expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+        note: { excluded: true },
+      });
+      member.send(
+        JSON.stringify({
+          type: "note:drag:move",
+          noteId: NOTE_ID,
+          dragId,
+          x: 60,
+          y: 70,
+        }),
+      );
+      expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+        note: { excluded: true, x: 60, y: 70 },
+      });
+      host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+      expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+        note: { excluded: false, x: 60, y: 70 },
+      });
+      member.send(
+        JSON.stringify({
+          type: "note:drag:end",
+          noteId: NOTE_ID,
+          dragId,
+          position: { x: 65, y: 75 },
+        }),
+      );
+      expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+        note: { excluded: false, x: 65, y: 75 },
+      });
+      host.close();
+      member.close();
+    },
+  );
+
+  it("移動で未共有の付箋を変更・共有せず、過去フェーズも拒否する", async () => {
+    for (const source of ["private", "past"] as const) {
+      const name = `candidate-invalid-source-${source}`;
+      await prepare(name, buildPhaseStep(2, 3));
+      await runInRoomDO(name, (_instance, state) => {
+        state.storage.sql.exec(
+          source === "private"
+            ? "UPDATE notes SET visibility = 'private' WHERE id = ?"
+            : "UPDATE notes SET phase = 1 WHERE id = ?",
+          NOTE_ID,
+        );
+      });
+      const ws = await connectDirectly(name, USER_B, USER_A);
+      ws.send(
+        JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 55, y: 60 }),
+      );
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      ws.close();
+    }
+  });
 
   it("非ホストは自分の付箋でも候補外にできない", async () => {
     const roomName = "room-exclude-non-host";
@@ -1306,7 +1585,7 @@ describe("RoomDO 候補外付箋", () => {
     ws.close();
   });
 
-  it("候補外付箋は削除・ドラッグ・投票シール・グループを含むすべての変更対象にできない", async () => {
+  it("候補外付箋の本文・削除・投票シール・グループの変更を拒否する", async () => {
     const groupId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     const createdAt = "2026-09-17T00:00:00.000Z";
     const cases = [
@@ -1321,22 +1600,6 @@ describe("RoomDO 候補外付箋", () => {
           expectedPhaseRevision: 0,
           noteId: NOTE_ID,
           content: "変更",
-        },
-      },
-      {
-        name: "move",
-        phase: buildPhaseStep(2),
-        userId: USER_A,
-        message: { type: "note:move", noteId: NOTE_ID, x: 999, y: 999 },
-      },
-      {
-        name: "drag",
-        phase: buildPhaseStep(2),
-        userId: USER_A,
-        message: {
-          type: "note:drag:start",
-          noteId: NOTE_ID,
-          dragId: "99999999-9999-4999-8999-999999999999",
         },
       },
       {
@@ -1453,11 +1716,10 @@ describe("RoomDO 候補外付箋", () => {
       }
       const ws = await connectDirectly(roomName, testCase.userId, USER_A);
       ws.send(JSON.stringify(testCase.message));
-      expect(await nextJson(ws)).toMatchObject(
-        testCase.name === "drag"
-          ? { type: "note:drag:result", accepted: false }
-          : { type: "error", code: "forbidden" },
-      );
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
       const persisted = await runInRoomDO(roomName, (_instance, state) => ({
         note: state.storage.sql
           .exec(
@@ -1806,7 +2068,7 @@ describe("RoomDO 候補外付箋", () => {
           )
           .one(),
       ),
-    ).toEqual({ excluded: 1, operation_id: null });
+    ).toEqual({ excluded: 1, operation_id: expect.any(String) });
 
     host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
     await nextJson(host);
@@ -1873,6 +2135,7 @@ describe("RoomDO 候補外付箋", () => {
     expect(await nextJson(member)).toMatchObject({
       type: "error",
       code: "forbidden",
+      operationId: "33333333-3333-4333-8333-333333333333",
     });
     member.close();
 
@@ -2581,7 +2844,11 @@ describe("RoomDO phase:next", () => {
     );
     expect(await nextJson(ws)).toMatchObject({
       type: "snapshot",
-      sharing: { status: "ready" },
+      sharing: {
+        status: "active",
+        currentIndex: 0,
+        startsAt: expect.any(Number),
+      },
       timer: { status: "idle" },
     });
     expect(await nextJson(ws)).toMatchObject({
@@ -2698,6 +2965,69 @@ describe("RoomDO phase:next", () => {
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(5));
     ws.close();
+  });
+
+  it("Step 3-4 の未投票確認後、強制進行は全員へ同期され再接続でも保持される", async () => {
+    const roomName = "room-phase3-force-confirm";
+    const stub = roomStub(roomName);
+    const voting = buildPhaseStep(4, 3);
+    const result = buildPhaseStep(5, 3);
+    await stub.initializeNewRoom(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(voting, USER_A);
+    const owner = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const request = {
+      type: "phase:next",
+      ...(await currentPhaseExpectation(roomName)),
+    };
+    member.send(JSON.stringify({ ...request, force: true }));
+    expect(await nextJson(member)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    owner.send(JSON.stringify(request));
+    expect(await nextJson(owner)).toMatchObject({
+      type: "error",
+      code: "voting-incomplete",
+    });
+    expect(await stub.getPhase()).toEqual(voting);
+    owner.send(JSON.stringify({ ...request, force: true }));
+    expect(await nextJson(owner)).toMatchObject({
+      type: "snapshot",
+      phase: result,
+      timer: { status: "idle" },
+    });
+    expect(await nextJson(owner)).toMatchObject({
+      type: "phase:updated",
+      phase: result,
+    });
+    expect(await nextJson(member)).toMatchObject({
+      type: "snapshot",
+      phase: result,
+    });
+    expect(await nextJson(member)).toMatchObject({
+      type: "phase:updated",
+      phase: result,
+    });
+    const returned = await connectDirectlyWithFirstMessage(
+      roomName,
+      USER_B,
+      USER_A,
+    );
+    expect(returned.firstMessage).toMatchObject({
+      type: "snapshot",
+      phase: result,
+    });
+    owner.send(JSON.stringify({ ...request, force: true }));
+    expect(await nextJson(owner)).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    expect(await stub.getPhase()).toEqual(result);
+    owner.close();
+    member.close();
+    returned.ws.close();
   });
 
   it("ホスト以外は force を付けても phase を進められない", async () => {
@@ -2855,7 +3185,7 @@ describe("RoomDO phase:next", () => {
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
          VALUES (?1, ?2, '課題', 'shared', 'yellow', 0, 0, ?3, ?3, 1),
-                (?4, ?2, 'HMW', 'shared', 'yellow', 100, 0, ?3, ?3, 2)`,
+                 (?4, ?2, '問い', 'shared', 'yellow', 100, 0, ?3, ?3, 2)`,
         phase1NoteId,
         USER_A,
         now,
@@ -2918,7 +3248,11 @@ describe("RoomDO phase:next", () => {
     );
     expect(await nextJson(ws)).toMatchObject({
       type: "snapshot",
-      sharing: { status: "ready" },
+      sharing: {
+        status: "active",
+        currentIndex: 0,
+        startsAt: expect.any(Number),
+      },
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
@@ -3012,7 +3346,7 @@ describe("RoomDO phase:next", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+         VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         noteId,
         USER_A,
         now,
@@ -3286,6 +3620,21 @@ describe("RoomDO phase:next", () => {
     expect(await memberPublished).toEqual({
       type: "outcome:published",
       published: true,
+    });
+    expect(await stub.getCompletedRoom(USER_B)).toMatchObject({
+      decisions: expect.arrayContaining([
+        expect.objectContaining({ content: "採用案" }),
+      ]),
+    });
+    host.send(
+      JSON.stringify({
+        type: "decision:clear",
+        noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      }),
+    );
+    expect(await nextJson(host)).toMatchObject({
+      type: "error",
+      code: "forbidden",
     });
     expect(await stub.getCompletedRoom(USER_B)).toMatchObject({
       decisions: expect.arrayContaining([
@@ -3910,7 +4259,11 @@ describe("RoomDO phase:next", () => {
 
     expect(body.type).toBe("snapshot");
     expect(body).toMatchObject({
-      sharing: { status: "ready" },
+      sharing: {
+        status: "active",
+        currentIndex: 0,
+        startsAt: expect.any(Number),
+      },
       phase: buildPhaseStep(2),
     });
 
@@ -4343,7 +4696,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
       code: "forbidden",
-      message: expect.stringContaining("2-2 HMW共有"),
+      message: expect.stringContaining("2-2 問い共有"),
     });
     ws.close();
   });
@@ -5170,7 +5523,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+          VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         HMW_NOTE_ID,
         USER_A,
         now,
@@ -5189,7 +5542,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-4 ではホストのHMW決定が許可される", async () => {
+  it("Step 2-4 ではホストの問い決定が許可される", async () => {
     const roomName = "room-phase2-decide-gate";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -5199,7 +5552,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+          VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         HMW_NOTE_ID,
         USER_A,
         now,
@@ -5215,7 +5568,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-4 では非ホストのHMW決定を forbidden で拒否する", async () => {
+  it("Step 2-4 では非ホストの問い決定を forbidden で拒否する", async () => {
     const roomName = "room-phase2-decide-non-host";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -5226,7 +5579,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+          VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         HMW_NOTE_ID,
         USER_A,
         now,
@@ -5578,7 +5931,11 @@ describe("RoomDO 同フェーズ内のマイ付箋の保持", () => {
     // 順番を含む snapshot を再送しても、本人の下書きを維持する。
     expect(await nextJson(ws)).toMatchObject({
       type: "snapshot",
-      sharing: { status: "ready" },
+      sharing: {
+        status: "active",
+        currentIndex: 0,
+        startsAt: expect.any(Number),
+      },
       phase: buildPhaseStep(2),
       notes: [
         expect.objectContaining({
@@ -5622,7 +5979,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-1 では他者の HMW 付箋が snapshot に含まれず、note:vote も forbidden になる", async () => {
+  it("Step 2-1 では他者の問いの付箋が snapshot に含まれず、note:vote も forbidden になる", async () => {
     const roomName = "room-step2-1-others-hidden";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -5631,7 +5988,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
 
     const memberWs = await connectDirectly(roomName, USER_B, USER_A);
     memberWs.send(
-      JSON.stringify({ type: "note:create", content: "他人のHMW" }),
+      JSON.stringify({ type: "note:create", content: "他人の問い" }),
     );
     const inserted = (await nextJson(memberWs)) as {
       note: { id: string };
@@ -5676,7 +6033,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
-    ws.send(JSON.stringify({ type: "note:create", content: "自分のHMW" }));
+    ws.send(JSON.stringify({ type: "note:create", content: "自分の問い" }));
     const inserted = (await nextJson(ws)) as { note: { id: string } };
 
     ws.send(
@@ -5838,7 +6195,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-2 では publish した HMW が全員に共有され、近接してもグループ化されない", async () => {
+  it("Step 2-2 では publish した問いが全員に共有され、近接してもグループ化されない", async () => {
     const roomName = "room-step2-2-share-hmw";
     const stub = roomStub(roomName);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -5846,7 +6203,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
     const authorWs = await connectDirectly(roomName, USER_A, USER_A);
-    authorWs.send(JSON.stringify({ type: "note:create", content: "HMW" }));
+    authorWs.send(JSON.stringify({ type: "note:create", content: "問い" }));
     const inserted = (await nextJson(authorWs)) as { note: { id: string } };
 
     await stub.setPhase(buildPhaseStep(2, 2), USER_A);
@@ -5917,7 +6274,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     ws.close();
   });
 
-  it("付箋は作成時のフェーズに紐づき、Step 2-2 の snapshot は HMW だけを返す", async () => {
+  it("付箋は作成時のフェーズに紐づき、Step 2-2 の snapshot は問いだけを返す", async () => {
     const roomName = "room-step2-note-phase-isolation";
     const oldNoteId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
     const hmwNoteId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef";
@@ -5930,7 +6287,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
          VALUES (?1, ?2, '課題', 'shared', 'yellow', 0, 0, ?3, ?3, 1),
-                (?4, ?2, 'HMW', 'shared', 'blue', 100, 100, ?3, ?3, 2)`,
+                 (?4, ?2, '問い', 'shared', 'blue', 100, 100, ?3, ?3, 2)`,
         oldNoteId,
         USER_A,
         now,

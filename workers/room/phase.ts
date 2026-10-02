@@ -18,6 +18,7 @@ import type { ClientMessage } from "../../contracts/room-protocol";
 import { syncRoomAlarm } from "./alarms";
 import { getDecision } from "./decisions";
 import { clearUsedNoteDragIds } from "./drag-operations";
+import { autoReorganize } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
@@ -247,7 +248,7 @@ export function discardPrivateNotes(sql: SqlStorage): void {
   sql.exec("DELETE FROM notes WHERE visibility = 'private'");
 }
 
-// 個人執筆ステップ（各フェーズの Step 1: 課題 / HMW / アイデアを個人で書く）
+// 個人執筆ステップ（各フェーズの Step 1: 課題 / 問い / アイデアを個人で書く）
 // かどうか。これらのステップでは変更してよいのは自分の private 付箋だけで、
 // 前フェーズから残る共有付箋は記録として凍結する。共有ステップの
 // 「共有付箋は全員で修正できる」認可（note-handlers の canEdit）が
@@ -257,8 +258,10 @@ export function isPersonalWritingStep(phase: RoomPhase): boolean {
   return !isLobby(phase) && phase.step === 1;
 }
 
-// WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
-// room-do.ts の handleClientMessage 前段で一元的に判定する。
+/**
+ * WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
+ * room-do.ts の handleClientMessage 前段で一元的に判定する。
+ */
 export function isBoardMutation(message: ClientMessage): boolean {
   switch (message.type) {
     case "note:create":
@@ -286,6 +289,9 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "decision:clear":
     case "group:create":
     case "group:update-name":
+    case "group:drag:start":
+    case "group:drag:move":
+    case "group:drag:end":
     case "idea-map:resize":
       return true;
     case "cursor:update":
@@ -340,6 +346,9 @@ const allowedBoardMutationsByPhase: {
       "note:drag:end",
       "group:create",
       "group:update-name",
+      "group:drag:start",
+      "group:drag:move",
+      "group:drag:end",
     ],
     4: [
       "note:vote",
@@ -355,6 +364,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
       "note:move",
       "note:bring-to-front",
       "note:drag:start",
@@ -363,7 +373,7 @@ const allowedBoardMutationsByPhase: {
     ],
   },
   2: {
-    // Step 2-1（HMW 個人執筆）は自分専用付箋の作成・編集・削除だけ。
+    // Step 2-1（問いの個人執筆）は自分専用付箋の作成・編集・削除だけ。
     1: [
       "note:create",
       "note:update-content",
@@ -397,6 +407,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
       "note:move",
       "note:bring-to-front",
       "note:drag:start",
@@ -445,6 +456,7 @@ const allowedBoardMutationsByPhase: {
       "note:bulk-exclude",
       "note:bulk-restore",
       "note:decide",
+      "decision:clear",
       "note:move",
       "note:bring-to-front",
       "note:drag:start",
@@ -541,7 +553,9 @@ export const phaseHandlers: MessageHandlers<
     });
   },
 
-  // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
+  /**
+   * 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
+   */
   "phase:next": async (ctx, message) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
       ctx.reply({
@@ -572,13 +586,12 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
-    // force はフェーズ1・2の投票ステップで使える脱出ハッチ。離脱者などが
+    // force は全フェーズの投票ステップで使える脱出ハッチ。離脱者などが
     // 投票を完了できなくても、ホストは結果ステップへ進められる。
     const completedVoting =
       !isVotingStep(current) ||
       haveAllMembersCompletedVoting(ctx.sql, current.phase);
-    const canForceIncompleteVoting =
-      (current.phase === 1 || current.phase === 2) && message.force === true;
+    const canForceIncompleteVoting = message.force === true;
     if (
       isVotingStep(current) &&
       !completedVoting &&
@@ -645,7 +658,7 @@ export const phaseHandlers: MessageHandlers<
       | undefined;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
-    ctx.storage.transactionSync(() => {
+    await ctx.storage.transaction(async () => {
       recordProgressTransition(ctx.sql, current, next, "next");
       if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);
@@ -685,20 +698,22 @@ export const phaseHandlers: MessageHandlers<
       }
       savePhase(ctx.sql, next);
       ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
-      resetSharingForPhase(ctx.sql, next);
+      resetSharingForPhase(ctx.sql, next, true);
       if (crossesPhaseBoundary) {
         clearUsedNoteDragIds(ctx.sql);
       }
       timerWasReset = resetTimerState(ctx.sql);
+      await syncRoomAlarm(ctx.storage, ctx.sql);
     });
-    ctx.broadcaster.retireAllActiveDrags();
+    const retiredDrags = ctx.broadcaster.retireAllActiveDrags();
+    if (retiredDrags.some((active) => active.group))
+      autoReorganize(ctx.storage, ctx.broadcaster);
     if (ctx.broadcaster.retireAllAdoptionFocus()) {
       ctx.broadcaster.broadcastToAll({
         type: "adoption-focus:updated",
         noteId: null,
       });
     }
-    await syncRoomAlarm(ctx.storage, ctx.sql);
     // 投票ステップでは note:updated の count を秘匿しているため、結果ステップ
     // へ遷移した接続中の参加者にも完全な投票集計を届け直す。フェーズ境界を
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから
@@ -731,7 +746,9 @@ export const phaseHandlers: MessageHandlers<
   "phase:revote": (ctx, message) => restartPhase(ctx, message, true),
 };
 
-// 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
+/**
+ * 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
+ */
 async function restartPhase(
   ctx: HandlerCtx,
   message: Extract<
@@ -784,7 +801,9 @@ async function restartPhase(
     resetSharingForPhase(ctx.sql, next);
     resetTimerState(ctx.sql);
   });
-  ctx.broadcaster.retireAllActiveDrags();
+  const retiredDrags = ctx.broadcaster.retireAllActiveDrags();
+  if (retiredDrags.some((active) => active.group))
+    autoReorganize(ctx.storage, ctx.broadcaster);
   ctx.broadcaster.retireAllAdoptionFocus();
   // 共有の交代待機中はtimerがidleでも開始予約がある。
   await syncRoomAlarm(ctx.storage, ctx.sql);

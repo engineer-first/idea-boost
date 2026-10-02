@@ -6,6 +6,28 @@
 import { toast } from "sonner";
 
 export const roomNotify = {
+  /** グループの移動開始が競合や配置変更で拒否されたことを通知する。 */
+  groupMoveRejected(): void {
+    toast.error(
+      "グループ内の付箋が操作中、または配置が変わりました。もう一度動かしてください。",
+      { id: "group-move-rejected", duration: 4000 },
+    );
+  },
+  cannotVoteExcludedNote(): void {
+    toast.error(
+      "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
+      { id: "excluded-note-vote", duration: 4000, closeButton: true },
+    );
+  },
+  canvasFitUnavailable(): void {
+    toast.error(
+      "進め方・ヒント・マイ付箋を閉じてから、もう一度「付箋全体を表示」を押してください。",
+      { id: "canvas-fit-unavailable", duration: 4000, closeButton: true },
+    );
+  },
+  dismissCandidateNotice(id: string | number): void {
+    toast.dismiss(id);
+  },
   memberJoined(name: string): void {
     toast(`${name} さんが参加しました`);
   },
@@ -27,18 +49,21 @@ export const roomNotify = {
   cannotPublishNote() {
     toast.error("まだ共有できません");
   },
-  noteExcluded(onUndo: () => void): void {
-    toast("付箋を候補から外しました", {
+  noteExcluded(onUndo: () => void): string | number {
+    return toast("付箋を候補から外しました", {
       action: { label: "元に戻す", onClick: onUndo },
     });
   },
-  bulkCandidatesExcluded(count: number, onUndo: () => void): void {
-    toast(`${count}件の付箋を候補から外しました`, {
+  bulkCandidatesExcluded(count: number, onUndo: () => void): string | number {
+    return toast(`${count}件の付箋を候補から外しました`, {
       action: { label: "まとめて元に戻す", onClick: onUndo },
     });
   },
-  automaticallyExcludedCandidates(count: number, onUndo?: () => void): void {
-    toast(
+  automaticallyExcludedCandidates(
+    count: number,
+    onUndo?: () => void,
+  ): string | number {
+    return toast(
       onUndo
         ? `投票完了により0票の付箋${count}件を候補から外しました。必要なら戻せます`
         : `投票完了により0票の付箋${count}件を候補から外しました。ホストが戻せます`,

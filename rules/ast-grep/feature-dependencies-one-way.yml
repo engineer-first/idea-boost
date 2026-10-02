@@ -386,13 +386,13 @@ rule:
           regex: '^"@/features/room-members"$'
 
 ---
-# completed-rooms → room（成果出力）/ room-members（付箋色）。逆方向は許可しない。
+# completed-rooms → room（成果出力）/ room-members（付箋色）/ feedback（感想入口）。逆方向は許可しない。
 id: completed-rooms-feature-allowed-edges
 language: typescript
 severity: error
 files:
   - features/completed-rooms/**
-message: completed-rooms は room と room-members の公開境界だけを共有する
+message: completed-rooms は room・room-members・feedback の公開境界だけを共有する
 rule:
   all:
     - any:
@@ -404,14 +404,14 @@ rule:
     - not:
         has:
           field: source
-          regex: '^"@/features/(room|room-members)"$'
+          regex: '^"@/features/(room|room-members|feedback)"$'
 ---
 id: completed-rooms-feature-allowed-edges-tsx
 language: tsx
 severity: error
 files:
   - features/completed-rooms/**
-message: completed-rooms は room と room-members の公開境界だけを共有する
+message: completed-rooms は room・room-members・feedback の公開境界だけを共有する
 rule:
   all:
     - any:
@@ -423,4 +423,4 @@ rule:
     - not:
         has:
           field: source
-          regex: '^"@/features/(room|room-members)"$'
+          regex: '^"@/features/(room|room-members|feedback)"$'

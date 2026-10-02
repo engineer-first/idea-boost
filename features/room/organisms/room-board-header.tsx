@@ -2,7 +2,7 @@
 
 // ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
 import { Check, LogOut, MoreHorizontal } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -70,7 +70,6 @@ export type RoomBoardHeaderProps = {
   outcomePublished: boolean;
   isLeaving: boolean;
   signOutAction?: () => Promise<void>;
-  onShowVoteResult: () => void;
   onShowOutcome?: () => void;
   onPublishOutcome: () => void;
   onLeaveClick: () => void;
@@ -114,7 +113,6 @@ export function RoomBoardHeader({
   outcomePublished,
   isLeaving,
   signOutAction,
-  onShowVoteResult,
   onShowOutcome,
   onPublishOutcome,
   onLeaveClick,
@@ -132,6 +130,7 @@ export function RoomBoardHeader({
     activeSharing?.currentIndex != null
       ? activeSharing.order[activeSharing.currentIndex]
       : null;
+  const canAdvanceSharing = isHost || presenter?.userId === currentUserId;
   const [configuredDuration, setConfiguredDuration] = useState<{
     revision: string;
     durationMs: number;
@@ -142,6 +141,30 @@ export function RoomBoardHeader({
       ? configuredDuration.durationMs
       : (activeSharing?.durationMs ?? 180000);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const roomMenuContentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!roomMenuOpen) return;
+    const handleOutsidePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        roomMenuTriggerRef.current?.contains(target) ||
+        roomMenuContentRef.current?.contains(target)
+      )
+        return;
+      // ボードのパン開始はpointerdownの伝播を止めるため、その前に判定する。
+      // 元のクリックやドラッグは消費せず、通常の操作へ渡す。
+      setRoomMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", handleOutsidePointerDown, true);
+    return () =>
+      document.removeEventListener(
+        "pointerdown",
+        handleOutsidePointerDown,
+        true,
+      );
+  }, [roomMenuOpen]);
   const isCurrentVotingStep = isVotingStep(phase);
   const completedVoterIdSet = new Set(completedVoterIds);
   const haveAllMembersCompletedVoting =
@@ -179,30 +202,14 @@ export function RoomBoardHeader({
 
   return (
     <TooltipProvider delayDuration={300}>
-      {transitioning && presenter ? (
-        <SharingAnnouncement member={presenter} />
-      ) : (
-        guide && (
-          <StepGuide
-            key={`${inviteCode}:${currentUserId}`}
-            sessionKey={`${inviteCode}:${currentUserId}`}
-            phaseKey={
-              phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
-            }
-            guide={guide}
-            isHost={isHost}
-            isReady={!isDisconnected}
-            initialState={initialGuideState}
-          />
-        )
-      )}
       <div
         data-testid="board-header-row"
-        className="pointer-events-none absolute inset-x-3 top-3 bottom-[7.5rem] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)]"
+        className={`pointer-events-none absolute inset-x-3 top-3 bottom-[calc(7.5rem+var(--board-notification-inset,0px))] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(20rem+var(--board-notification-inset,0px))] max-[639px]:gap-2 ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(16rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(11rem+var(--board-notification-inset,0px))]"}`}
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[901px]:max-[1199px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px]"
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[901px]:max-[1199px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-full max-[639px]:gap-2"
           data-testid="board-context-column"
+          data-board-fit-edge="top"
         >
           <div className="w-full min-w-0 shrink-0">
             <BoardContext
@@ -212,30 +219,56 @@ export function RoomBoardHeader({
               decidedHmw={decidedHmw}
             />
           </div>
-          {children}
+          {transitioning && presenter ? (
+            <SharingAnnouncement member={presenter} />
+          ) : (
+            guide && (
+              <StepGuide
+                key={`${inviteCode}:${currentUserId}`}
+                sessionKey={`${inviteCode}:${currentUserId}`}
+                phaseKey={
+                  phase.kind === "step"
+                    ? `${phase.phase}-${phase.step}`
+                    : "lobby"
+                }
+                guide={guide}
+                isHost={isHost}
+                isReady={!isDisconnected}
+                initialState={initialGuideState}
+              />
+            )
+          )}
+          <div className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:max-h-[140px]">
+            {children}
+          </div>
         </div>
 
         <fieldset
-          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap"
+          className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
           aria-label="ルームの操作"
           data-testid="board-control-hud"
+          data-board-fit-edge="top"
         >
-          {showVotingCompletion ? (
+          {isCurrentVotingStep || isResultStep(phase) ? (
             <span
-              className="shrink-0 max-[900px]:order-last max-[900px]:basis-full max-[900px]:pl-2"
-              data-testid="vote-completion-indicator"
+              className="shrink-0 max-[900px]:order-last max-[900px]:pl-2"
+              data-testid={
+                showVotingCompletion ? "vote-completion-indicator" : undefined
+              }
             >
               <span
                 aria-hidden="true"
-                className="inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none dark:text-emerald-400"
+                className={`${showVotingCompletion ? "" : "invisible "}inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none`}
                 data-testid="vote-completion-label"
               >
                 <Check className="size-3.5 shrink-0" />
                 全員OK
               </span>
-              <span className="sr-only" role="status" aria-live="polite">
-                全員の投票が完了しました
-              </span>
+              {showVotingCompletion && (
+                <span className="sr-only" role="status" aria-live="polite">
+                  全員の投票が完了しました
+                </span>
+              )}
             </span>
           ) : null}
           {activeSharing ? (
@@ -389,25 +422,31 @@ export function RoomBoardHeader({
               />
             </div>
           )}
-          {activeSharing && isHost && activeSharing.status !== "complete" ? (
+          {activeSharing &&
+          canAdvanceSharing &&
+          activeSharing.status !== "complete" ? (
             activeSharing.status === "ready" ? (
-              <Button
-                className="h-10 shrink-0"
-                disabled={isDisconnected}
-                onClick={() => onSharingStart?.(sharingDuration)}
-              >
-                最初の人を開始
-              </Button>
+              isHost ? (
+                <Button
+                  className="h-10 shrink-0"
+                  disabled={isDisconnected}
+                  onClick={() => onSharingStart?.(sharingDuration)}
+                >
+                  最初の人を開始
+                </Button>
+              ) : null
             ) : (
               <>
-                <Button
-                  variant="outline"
-                  className="h-10 shrink-0 px-3"
-                  disabled={isDisconnected || transitioning}
-                  onClick={() => onSharingAdvance?.("passed")}
-                >
-                  今回はパス
-                </Button>
+                {isHost ? (
+                  <Button
+                    variant="outline"
+                    className="h-10 shrink-0 px-3"
+                    disabled={isDisconnected || transitioning}
+                    onClick={() => onSharingAdvance?.("passed")}
+                  >
+                    今回はパス
+                  </Button>
+                ) : null}
                 <Button
                   className="h-10 shrink-0 px-3"
                   disabled={isDisconnected || transitioning}
@@ -469,48 +508,52 @@ export function RoomBoardHeader({
           ) : null}
 
           {isResultStep(phase) ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 shrink-0 px-3 shadow-none"
-                onClick={onShowVoteResult}
-              >
-                投票結果を表示
-              </Button>
-              {isFinalStep && hasFinalDecision ? (
-                outcomePublished ? (
-                  <Button
-                    type="button"
-                    className="h-10 shrink-0 px-3"
-                    onClick={onShowOutcome}
+            isFinalStep ? (
+              isHost || outcomePublished ? (
+                <div className="grid shrink-0 items-center justify-items-end">
+                  <span
+                    aria-hidden="true"
+                    className="invisible col-start-1 row-start-1 inline-flex h-10 items-center rounded-lg border border-transparent px-4 text-sm font-medium whitespace-nowrap max-[900px]:px-2 max-[900px]:text-xs"
                   >
-                    成果を見る
-                  </Button>
-                ) : isHost ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    className="size-10 shrink-0"
-                    aria-label="完了して成果を表示"
-                    title="完了して成果を表示"
-                    disabled={isDisconnected}
-                    onClick={onPublishOutcome}
-                  >
-                    <Check aria-hidden="true" className="size-5" />
-                  </Button>
-                ) : null
-              ) : !isFinalStep && isHost && !isNextPhaseBlocked ? (
-                <NextPhaseConfirmDialog
-                  key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
-                  phase={phase}
-                  disabled={
-                    isDisconnected || isNextPhasePending || isNextPhaseBlocked
-                  }
-                  onConfirm={onNextPhase}
-                />
-              ) : null}
-            </>
+                    次のステップへ
+                  </span>
+                  <div className="col-start-1 row-start-1">
+                    {hasFinalDecision ? (
+                      outcomePublished ? (
+                        <Button
+                          type="button"
+                          className="h-10 shrink-0 px-3"
+                          onClick={onShowOutcome}
+                        >
+                          成果を見る
+                        </Button>
+                      ) : isHost ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          className="size-10 shrink-0"
+                          aria-label="完了して成果を表示"
+                          title="完了して成果を表示"
+                          disabled={isDisconnected}
+                          onClick={onPublishOutcome}
+                        >
+                          <Check aria-hidden="true" className="size-5" />
+                        </Button>
+                      ) : null
+                    ) : null}
+                  </div>
+                </div>
+              ) : null
+            ) : isHost ? (
+              <NextPhaseConfirmDialog
+                key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
+                phase={phase}
+                disabled={
+                  isDisconnected || isNextPhasePending || isNextPhaseBlocked
+                }
+                onConfirm={onNextPhase}
+              />
+            ) : null
           ) : isHost &&
             (!activeSharing || activeSharing.status === "complete") ? (
             <NextPhaseConfirmDialog
@@ -530,11 +573,16 @@ export function RoomBoardHeader({
                 variant="ghost"
                 className="h-10 w-8 shrink-0 p-0"
                 aria-label="ルームメニューを開く"
+                ref={roomMenuTriggerRef}
               >
                 <MoreHorizontal aria-hidden="true" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80" aria-label="ルームメニュー">
+            <PopoverContent
+              ref={roomMenuContentRef}
+              className="w-80"
+              aria-label="ルームメニュー"
+            >
               {currentMember ? (
                 <div className="mb-3 flex min-w-0 items-center gap-2 border-b border-border pb-3">
                   <MemberAvatar

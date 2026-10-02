@@ -3,7 +3,11 @@ import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { NOTE_COLOR_PALETTE } from "@/contracts/room-protocol";
-import { buildNote, buildNotes } from "@/contracts/room-protocol.fixture";
+import {
+  buildDecision,
+  buildNote,
+  buildNotes,
+} from "@/contracts/room-protocol.fixture";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
 import { RoomBoardCanvas } from "./room-board-canvas";
@@ -90,6 +94,22 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("ドラッグ権利の応答前もドラッグ中の候補操作を隠し、終了後に選択表示へ戻す", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      permissions: getBoardPermissions(buildPhaseStep(5)),
+      isHost: true,
+      selectedNoteId: "note-1",
+      onNoteExclude: vi.fn(),
+    });
+    const action = screen.getAllByRole("button", { name: "候補から外す" })[0];
+    expect(action).toHaveClass("opacity-100");
+    rerender(<RoomBoardCanvas {...props} localDraggingNoteId="note-1" />);
+    expect(action).toHaveClass("opacity-0");
+    rerender();
+    expect(action).toHaveClass("opacity-100");
+  });
+
   it("文字サイズ操作をズーム操作とは別に左下へ置き、選択付箋だけを1px刻みで変更する", () => {
     const onNoteFontSizeChange = vi.fn();
     setup({
@@ -172,12 +192,9 @@ describe("RoomBoardCanvas", () => {
     const existingTools = screen.getByTestId("board-tools-hud");
     const sizeControls = screen.getByTestId("idea-map-size-controls-hud");
     expect(existingTools).not.toContainElement(sizeControls);
-    expect(sizeControls).toHaveClass(
-      "absolute",
-      "bottom-3",
-      "left-1/2",
-      "-translate-x-1/2",
-    );
+    expect(
+      within(sizeControls).getByRole("button", { name: "マップを広くする" }),
+    ).toBeInTheDocument();
   });
 
   it("採用選択モードは候補だけを明示し、対象ボタンの操作を通知する", () => {
@@ -210,6 +227,46 @@ describe("RoomBoardCanvas", () => {
       "true",
     );
   });
+
+  it.each([buildPhaseStep(5), buildPhaseStep(4, 2), buildPhaseStep(5, 3)])(
+    "%j の決定済み状態では別の候補も再採用できない",
+    (phase) => {
+      setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        isHost: true,
+        isAdoptMode: true,
+        decision: buildDecision({ noteId: "note-1", phase: phase.phase }),
+        notes: buildNotes(2),
+      });
+      expect(
+        screen.queryByRole("button", { name: /採用する.+:/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([buildPhaseStep(5), buildPhaseStep(4, 2), buildPhaseStep(5, 3)])(
+    "%j の採用選択中も切断・参加者・非共有の候補には採用領域を出さない",
+    (phase) => {
+      const { props, rerender } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        isHost: true,
+        isAdoptMode: true,
+        notes: [buildNote({ visibility: "private" })],
+      });
+      const targets = () =>
+        screen.queryAllByRole("button", { name: /採用する.+:/ });
+      expect(targets()).toHaveLength(0);
+      const notes = buildNotes(2);
+      rerender(<RoomBoardCanvas {...props} notes={notes} isDisconnected />);
+      expect(targets()).toHaveLength(0);
+      rerender(<RoomBoardCanvas {...props} notes={notes} isHost={false} />);
+      expect(targets()).toHaveLength(0);
+      rerender(<RoomBoardCanvas {...props} notes={notes} />);
+      expect(targets()).toHaveLength(2);
+    },
+  );
 
   it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
     setup({
@@ -389,6 +446,13 @@ describe("RoomBoardCanvas", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("pointer captureを失ったらキャンバスのパンを終了する", () => {
+    const { props } = setup();
+    fireEvent.lostPointerCapture(screen.getByTestId("board-scroller"));
+
+    expect(props.onCanvasPointerEnd).toHaveBeenCalledOnce();
+  });
+
   it("パン・ズーム後の camera で board 座標を画面座標へ変換する", () => {
     setup({
       camera: { x: 30, y: -20, zoom: 2 },
@@ -510,7 +574,9 @@ describe("RoomBoardCanvas", () => {
 
     expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
       width: "1936px",
-      height: "1089px",
+      height: "1109px",
+      bottom: "calc(50% - 450px - 20px)",
+      gridTemplateRows: "minmax(0, 1fr) 84px",
     });
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expect(onIdeaMapResize).toHaveBeenCalledWith(3);
@@ -536,7 +602,7 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.getByText("候補がありません。候補外の付箋を戻してください。"),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("note-card")).toHaveStyle({
+    expect(screen.getByTestId("board-note-note-1")).toHaveStyle({
       left: "120px",
       top: "240px",
     });
@@ -560,8 +626,8 @@ describe("RoomBoardCanvas", () => {
     ]);
     expect(cards[0]).toHaveClass("z-0");
     expect(cards[1]).toHaveClass("z-10");
-    expect(cards[0]).toHaveStyle({ zIndex: "0" });
-    expect(cards[1]).toHaveStyle({ zIndex: "1" });
+    expect(cards[0].parentElement).toHaveStyle({ zIndex: "0" });
+    expect(cards[1].parentElement).toHaveStyle({ zIndex: "1" });
   });
 
   it("候補外付箋にはキーボードで投票できない", () => {
@@ -585,13 +651,15 @@ describe("RoomBoardCanvas", () => {
     expect(onNoteVote).not.toHaveBeenCalled();
   });
 
-  it("ボード背景を直接押すと onSelect(null) で選択を解除する", () => {
+  it("ボード背景をクリックすると onSelect(null) で選択を解除する", () => {
     const onSelect = vi.fn();
     setup({ onSelect });
 
     fireEvent.pointerDown(screen.getByTestId("board-canvas"), {
       pointerId: 1,
     });
+
+    fireEvent.pointerUp(screen.getByTestId("board-canvas"));
 
     expect(onSelect).toHaveBeenCalledWith(null);
   });
@@ -744,9 +812,9 @@ describe("RoomBoardCanvas", () => {
     });
 
     const [back, own, remote] = screen.getAllByTestId("note-card");
-    expect(back).toHaveStyle({ zIndex: "4" });
-    expect(own).toHaveStyle({ zIndex: "2147483647" });
-    expect(remote).toHaveStyle({ zIndex: "2147483647" });
+    expect(back.parentElement).toHaveStyle({ zIndex: "4" });
+    expect(own.parentElement).toHaveStyle({ zIndex: "2147483647" });
+    expect(remote.parentElement).toHaveStyle({ zIndex: "2147483647" });
     expect(
       screen
         .getByText("通常ボードのゴースト")
@@ -768,8 +836,8 @@ describe("RoomBoardCanvas", () => {
     });
 
     const [selected, front] = screen.getAllByTestId("note-card");
-    expect(selected).toHaveStyle({ zIndex: "7" });
-    expect(front).toHaveStyle({ zIndex: "12" });
+    expect(selected.parentElement).toHaveStyle({ zIndex: "7" });
+    expect(front.parentElement).toHaveStyle({ zIndex: "12" });
 
     rerender(
       <RoomBoardCanvas
@@ -780,8 +848,8 @@ describe("RoomBoardCanvas", () => {
       />,
     );
 
-    expect(selected).toHaveStyle({ zIndex: "2147483647" });
-    expect(front).toHaveStyle({ zIndex: "12" });
+    expect(selected.parentElement).toHaveStyle({ zIndex: "2147483647" });
+    expect(front.parentElement).toHaveStyle({ zIndex: "12" });
   });
 
   it("2軸マップでも選択・名前付きカーソルの drag・ghost を一時最前面にする", () => {
@@ -1119,3 +1187,61 @@ describe("RoomBoardCanvas", () => {
     }
   });
 });
+
+it("採用選択中も候補をドラッグでき、ドラッグでは採用しない", () => {
+  const phase = buildPhaseStep(5);
+  const { props } = setup({
+    phase,
+    permissions: getBoardPermissions(phase),
+    isHost: true,
+    isAdoptMode: true,
+  });
+  const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];
+  fireEvent.pointerDown(target, {
+    pointerId: 1,
+    button: 0,
+    isPrimary: true,
+    clientX: 10,
+    clientY: 10,
+  });
+  fireEvent.pointerMove(target, {
+    pointerId: 1,
+    buttons: 1,
+    clientX: 100,
+    clientY: 100,
+  });
+  fireEvent.pointerUp(target, { pointerId: 1, clientX: 100, clientY: 100 });
+  fireEvent.click(target, { detail: 1 });
+  expect(props.onNoteDragStart).toHaveBeenCalled();
+  expect(props.onAdoptNote).not.toHaveBeenCalled();
+});
+
+it.each(["secondary", "released", "cancelled"])(
+  "採用overlayの%s pointerはhover移動からドラッグを開始しない",
+  (kind) => {
+    const phase = buildPhaseStep(5);
+    const { props } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+    });
+    const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];
+    fireEvent.pointerDown(target, {
+      pointerId: 1,
+      button: kind === "secondary" ? 2 : 0,
+      isPrimary: true,
+      clientX: 10,
+      clientY: 10,
+    });
+    if (kind === "cancelled") fireEvent.pointerCancel(target, { pointerId: 1 });
+    else fireEvent.pointerUp(target, { pointerId: 1 });
+    fireEvent.pointerMove(target, {
+      pointerId: 1,
+      buttons: 0,
+      clientX: 100,
+      clientY: 100,
+    });
+    expect(props.onNoteDragStart).not.toHaveBeenCalled();
+  },
+);

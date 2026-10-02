@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, MousePointerClick, X } from "lucide-react";
+import { CheckCircle2, MousePointerClick, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export type AdoptionPhaseNumber = 1 | 2 | 3;
@@ -24,6 +24,7 @@ export type AdoptNoteControlProps = {
   disabled: boolean;
   onStartSelection: () => void;
   onCancelSelection: () => void;
+  onClearDecision?: () => void;
 };
 
 export function AdoptNoteControl({
@@ -34,6 +35,7 @@ export function AdoptNoteControl({
   disabled,
   onStartSelection,
   onCancelSelection,
+  onClearDecision,
 }: AdoptNoteControlProps) {
   const targetLabel = getAdoptionTargetLabel(phaseNumber);
 
@@ -55,6 +57,18 @@ export function AdoptNoteControl({
             {decisionContent}
           </p>
         </div>
+        {isHost && onClearDecision ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0"
+            disabled={disabled}
+            onClick={onClearDecision}
+          >
+            <Undo2 aria-hidden="true" />
+            確定を取り消す
+          </Button>
+        ) : null}
       </section>
     );
   }

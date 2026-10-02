@@ -46,6 +46,7 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
     onRetry,
   } = props;
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousSelection = useRef(selected?.id);
   useEffect(() => {
     if (selected?.id && previousSelection.current !== selected.id) {
@@ -58,7 +59,13 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
   return (
     <section className="space-y-4" aria-label="進行の記録">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">進行の記録</h2>
+        <h2
+          ref={listHeadingRef}
+          tabIndex={-1}
+          className="scroll-mt-4 text-xl font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          進行の記録
+        </h2>
         <Button
           variant="outline"
           className="min-h-11"
@@ -254,6 +261,16 @@ export function ProgressHistoryView(props: ProgressHistoryViewProps) {
               </p>
             )
           )}
+          <Button
+            variant="outline"
+            className="min-h-11"
+            onClick={() => {
+              listHeadingRef.current?.focus();
+              listHeadingRef.current?.scrollIntoView?.({ block: "start" });
+            }}
+          >
+            記録一覧へ戻る
+          </Button>
         </section>
       )}
     </section>

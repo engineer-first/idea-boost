@@ -1,9 +1,10 @@
 // 名前付きカーソルの非永続中継。受信者に送る本人情報は、クライアント入力では
 // なく認証済みソケットと members テーブルから組み立てる。
 
-import { isIdeaValueFeasibilityMapCoordinate } from "../../contracts/board";
-import { isCursorSharingAllowed } from "../../contracts/phase";
+import { isCursorSharingAllowed, isPhaseStep } from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
+import { broadcastGroupDrag } from "./group-drag";
+import { autoReorganize } from "./groups";
 import type { MessageHandlers } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { findMember } from "./members";
@@ -16,14 +17,6 @@ export const presenceHandlers: MessageHandlers<
   "cursor:update": (ctx, message) => {
     const phase = getPhase(ctx.sql);
     if (!isCursorSharingAllowed(phase)) return;
-    if (
-      phase.kind === "step" &&
-      phase.phase === 3 &&
-      (!isIdeaValueFeasibilityMapCoordinate(message.x) ||
-        !isIdeaValueFeasibilityMapCoordinate(message.y))
-    ) {
-      return;
-    }
 
     if (message.draggingNoteId) {
       const active = ctx.broadcaster.activeDragFor(ctx.ws);
@@ -39,8 +32,10 @@ export const presenceHandlers: MessageHandlers<
           type: "note:drag:move",
           noteId: message.draggingNoteId,
           dragId: active.dragId,
-          x: message.x,
-          y: message.y,
+          // フェーズの操作可否は付箋の位置で判定する。
+          // 余白を含むcursor位置を付箋の評価位置として検証しない。
+          x: row.x,
+          y: row.y,
         }) !== null
       ) {
         // private / 別フェーズ / 存在しない付箋の有無を配信結果から推測させない。
@@ -71,6 +66,7 @@ export const presenceHandlers: MessageHandlers<
       ctx.userId,
     );
   },
+  /** 画面から離れた接続の操作権を解除し、グルーピング工程でだけ所属を再編成する。 */
   "cursor:leave": (ctx) => {
     const previousAttachment =
       ctx.ws.deserializeAttachment() as SocketAttachment | null;
@@ -89,6 +85,12 @@ export const presenceHandlers: MessageHandlers<
       hasCursor: false,
     } satisfies SocketAttachment);
     if (active) {
+      if (active.group) {
+        broadcastGroupDrag(ctx.sql, ctx.broadcaster, active, true);
+        if (isPhaseStep(getPhase(ctx.sql), 1, 3))
+          autoReorganize(ctx.storage, ctx.broadcaster);
+        ctx.onSharedDragEnd?.();
+      }
       const row = findNote(ctx.sql, active.noteId);
       if (row?.visibility === "shared") {
         broadcastNoteUpdated(ctx.sql, ctx.broadcaster, row);

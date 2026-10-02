@@ -10,7 +10,7 @@ describe("useBoardHelp", () => {
     [1, 3, null, false],
     [1, 4, null, false],
     [1, 5, null, false],
-    [2, 1, "hmw", true],
+    [2, 1, null, false],
     [2, 2, null, false],
     [2, 3, null, false],
     [2, 4, null, false],

@@ -126,6 +126,81 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
 }
 
 describe("useBoardDrag", () => {
+  it.each([
+    ["shared", "shared"],
+    ["shared", "private"],
+    ["private", "shared"],
+    ["private", "private"],
+  ] as const)(
+    "%s ドラッグ中に別の指で %s 付箋を掴んでも、最初の操作を最後まで保つ",
+    (firstKind, secondKind) => {
+      const { args, result } = setup();
+      const firstId = firstKind === "shared" ? "shared-1" : "private-1";
+      const startFirst = () =>
+        firstKind === "shared"
+          ? result.current.handleSharedNoteDragStart(
+              firstId,
+              pointerEvent(7, 120, 130),
+            )
+          : result.current.handlePrivateDragStart(
+              firstId,
+              pointerEvent(7, 400, 560),
+            );
+      act(startFirst);
+      act(() => {
+        if (secondKind === "shared") {
+          result.current.handleSharedNoteDragStart(
+            "shared-1",
+            pointerEvent(8, 250, 200),
+          );
+        } else {
+          result.current.handlePrivateDragStart(
+            "private-1",
+            pointerEvent(8, 400, 560),
+          );
+        }
+        result.current.handlePointerMove(pointerEvent(8, 500, 300));
+        result.current.handlePointerEnd(pointerEvent(8, 500, 300));
+      });
+
+      expect(result.current.drag?.note.id).toBe(firstId);
+      expect(result.current.isCurrentDragPointer(7)).toBe(true);
+      expect(result.current.isCurrentDragPointer(8)).toBe(false);
+      expect(
+        args.boardScrollerRef.current?.setPointerCapture,
+      ).toHaveBeenCalledTimes(1);
+      expect(args.onNoteDragStart).toHaveBeenCalledTimes(
+        firstKind === "shared" ? 1 : 0,
+      );
+      expect(args.onNoteDragMove).not.toHaveBeenCalled();
+      expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+      expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(7, 300, 200));
+        result.current.handlePointerEnd(pointerEvent(7, 300, 200));
+      });
+      expect(args.onNoteDragMove).toHaveBeenLastCalledWith(
+        firstId,
+        expect.any(Number),
+        expect.any(Number),
+      );
+      expect(args.onNoteDragEnd).toHaveBeenLastCalledWith(
+        firstId,
+        expect.any(Number),
+        expect.any(Number),
+      );
+      expect(
+        args.boardScrollerRef.current?.releasePointerCapture,
+      ).toHaveBeenLastCalledWith(7);
+      expect(result.current.drag).toBeNull();
+
+      act(startFirst);
+      act(() => result.current.handlePointerCancel(pointerEvent(7, 300, 200)));
+      expect(result.current.drag).toBeNull();
+    },
+  );
+
   it("pointer cancel は確定位置を送らず操作権を即時解除する", () => {
     const { args, result } = setup();
     act(() => {
@@ -1092,4 +1167,17 @@ describe("useBoardDrag", () => {
     expect(args.onNoteDragMove).not.toHaveBeenCalled();
     expect(result.current.drag?.status).toBe("shared");
   });
+});
+
+it("候補外も共有付箋としてドラッグを開始する", () => {
+  const { result, args } = setup({
+    notes: [buildNote({ id: "excluded", excluded: true })],
+  });
+  act(() =>
+    result.current.handleSharedNoteDragStart(
+      "excluded",
+      pointerEvent(1, 100, 100),
+    ),
+  );
+  expect(args.onNoteDragStart).toHaveBeenCalledWith("excluded");
 });

@@ -14,7 +14,7 @@ const output = "test-results/iterative-workflow";
 const viewport = { width: 1280, height: 720 };
 const phases = [
   { phase: 1, count: 5, goal: "課題" },
-  { phase: 2, count: 4, goal: "HMW" },
+  { phase: 2, count: 4, goal: "問い" },
   { phase: 3, count: 5, goal: "アイデア" },
 ] as const;
 const progression =
@@ -80,29 +80,34 @@ async function expectReachable(target: Locator): Promise<void> {
   ).toBe(true);
 }
 
-async function closeResults(): Promise<void> {
-  const result = page.getByRole("dialog");
-  await result.waitFor();
-  await page.keyboard.press("Escape");
-  await result.waitFor({ state: "hidden" });
-}
-
-for (const { phase, count, goal } of phases) {
+for (const { phase, count } of phases) {
   for (let step = 1; step <= count; step += 1) {
     for (const isHost of [true, false]) {
-      test(`1280×720 ${phase}-${step} ${isHost ? "ホスト" : "参加者"}: 現在地と最大2操作を所定位置で読める`, async () => {
+      test(`1280×720 ${phase}-${step} ${isHost ? "ホスト" : "参加者"}: 現在地と最大2有効操作を所定位置で読める`, async () => {
         await openStory(
           `room-roomboardlayout--phase-${phase}-step-${step}`,
           isHost,
         );
         const isResult = step === count;
-        if (isResult) await closeResults();
         const context = page.getByTestId("board-context-hud");
         await expectReadable(context);
-        expect(await context.innerText()).toContain(`${step}/${count}`);
-        expect(await context.innerText()).toContain(
-          `ゴール：${goal}を1つ決める`,
+        await expect
+          .poll(() => page.getByTestId("board-current-step").isVisible())
+          .toBe(true);
+        await expect
+          .poll(() => page.getByTestId("board-phase-progress").isVisible())
+          .toBe(true);
+        const progress = page.getByTestId("board-progress-rail");
+        expect(await progress.getAttribute("aria-valuenow")).toBe(String(step));
+        expect(await progress.getAttribute("aria-valuemax")).toBe(
+          String(count),
         );
+        expect(
+          await page.getByRole("button", { name: "ゴールと進行" }).count(),
+        ).toBe(0);
+        expect(
+          await page.getByRole("button", { name: "全手順を見る" }).count(),
+        ).toBe(0);
         expect(
           await page
             .getByTestId(`board-phase-${phase}`)
@@ -113,11 +118,6 @@ for (const { phase, count, goal } of phases) {
         ).toBe(3);
         expect(
           await page
-            .getByRole("button", { name: "全手順を見る", exact: true })
-            .getAttribute("aria-expanded"),
-        ).toBe("false");
-        expect(
-          await page
             .getByRole("list", { name: "このフェーズの全手順" })
             .count(),
         ).toBe(0);
@@ -126,14 +126,17 @@ for (const { phase, count, goal } of phases) {
         const canRestart =
           step === 2 || ((phase === 1 || phase === 3) && step === 3);
         const expected = !isHost ? 0 : isResult || canRestart ? 2 : 1;
-        const actions = page.getByRole("button", { name: progression });
+        const actions = page
+          .getByRole("button", { name: progression })
+          .and(page.locator("button:enabled"));
         expect(await actions.count()).toBe(expected);
         for (const action of await actions.all()) await expectReachable(action);
         const next = page.getByRole("button", {
           name: /^次の(ステップ|フェーズ)へ$/,
         });
-        if (isHost && !isResult) {
+        if (isHost && (!isResult || phase !== 3)) {
           expect(await next.count()).toBe(1);
+          if (isResult) expect(await next.isDisabled()).toBe(true);
           const box = await next.boundingBox();
           expect(box?.x).toBeGreaterThan(640);
           expect(box?.y).toBeLessThan(100);
@@ -153,11 +156,14 @@ for (const { phase, count, goal } of phases) {
           expect(Math.min(...boxes.map((box) => box.top))).toBeGreaterThan(600);
           expect(right - left).toBeLessThan(560);
         }
-        if (isResult) {
-          const result = page.getByRole("button", { name: "投票結果を表示" });
-          await expectReachable(result);
-          expect((await result.boundingBox())?.x).toBeGreaterThan(640);
-        }
+        expect(
+          await page.getByRole("button", { name: "投票結果を表示" }).count(),
+        ).toBe(0);
+        expect(
+          await page
+            .getByRole("dialog", { name: "投票結果", exact: true })
+            .count(),
+        ).toBe(0);
         expect(
           await page.evaluate(() => ({
             width: document.documentElement.scrollWidth,
@@ -172,29 +178,24 @@ for (const { phase, count, goal } of phases) {
   }
 }
 
-test.each(phases)(
-  "フェーズ$phaseの全手順をキーボードで開閉できる",
-  async ({ phase, count }) => {
-    await openStory(`room-roomboardlayout--phase-${phase}-step-2`);
-    const toggle = page.getByRole("button", {
-      name: "全手順を見る",
-      exact: true,
-    });
-    await toggle.focus();
-    await page.keyboard.press("Enter");
-    const route = page.getByRole("list", { name: "このフェーズの全手順" });
-    await route.waitFor();
-    expect(await route.locator("li").count()).toBe(count);
-    await expectReadable(route);
-    expect(await route.getByRole("button").count()).toBe(0);
-    expect(await route.locator('[aria-current="step"]').count()).toBe(1);
-    await page.keyboard.press("Space");
-    expect(await route.count()).toBe(0);
-    expect(
-      await toggle.evaluate((element) => document.activeElement === element),
-    ).toBe(true);
-  },
-);
+test("決定内容をキーボードで開閉し、フォーカスを保つ", async () => {
+  await openStory("room-roomboardlayout--phase-3-step-2");
+  const toggle = page.getByRole("button", {
+    name: "決定した問い",
+    exact: true,
+  });
+  await toggle.focus();
+  await page.keyboard.press("Enter");
+  expect(await toggle.getAttribute("aria-expanded")).toBe("true");
+  await expect
+    .poll(() => page.getByTestId("board-reference-hmw-content").isVisible())
+    .toBe(true);
+  await page.keyboard.press("Space");
+  expect(await toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(
+    await toggle.evaluate((element) => document.activeElement === element),
+  ).toBe(true);
+});
 
 test.each(phases)(
   "フェーズ$phaseの追加執筆確認は全員への影響を示しEscapeで戻れる",
@@ -245,7 +246,6 @@ test.each(phases)(
   "フェーズ$phaseの再投票確認は候補件数と票の削除だけを説明する",
   async ({ phase, count }) => {
     await openStory(`room-roomboardlayout--phase-${phase}-step-${count}`);
-    await closeResults();
     const trigger = page.getByRole("button", {
       name: "もう一度投票する",
       exact: true,
@@ -273,15 +273,17 @@ test.each(phases)(
     expect(
       await trigger.evaluate((element) => document.activeElement === element),
     ).toBe(true);
-    expect(await page.getByRole("button", { name: progression }).count()).toBe(
-      2,
-    );
+    expect(
+      await page
+        .getByRole("button", { name: progression })
+        .and(page.locator("button:enabled"))
+        .count(),
+    ).toBe(2);
   },
 );
 
 test("採用はキーボードで候補を選ぶと確認ダイアログなしで選択を終える", async () => {
   await openStory("room-roomboardview--ready-to-decide");
-  await closeResults();
   await page
     .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
     .press("Enter");
@@ -301,7 +303,12 @@ test("採用はキーボードで候補を選ぶと確認ダイアログなし�
   await candidate.press("Enter");
   expect(await page.getByRole("alertdialog").count()).toBe(0);
   expect(await cancel.count()).toBe(0);
-  expect(await page.getByRole("button", { name: progression }).count()).toBe(2);
+  expect(
+    await page
+      .getByRole("button", { name: progression })
+      .and(page.locator("button:enabled"))
+      .count(),
+  ).toBe(2);
   await page.screenshot({ path: `${output}/adoption-without-confirm.png` });
 });
 
@@ -311,9 +318,12 @@ test.each([true, false])(
     await openStory("room-roomboardlayout--completed", isHost);
     await page.getByRole("heading", { name: "採用したアイデア" }).waitFor();
     expect(await page.getByRole("dialog").count()).toBe(0);
-    expect(await page.getByRole("button", { name: progression }).count()).toBe(
-      0,
-    );
+    expect(
+      await page
+        .getByRole("button", { name: progression })
+        .and(page.locator("button:enabled"))
+        .count(),
+    ).toBe(0);
     expect(
       await page.getByRole("button", { name: "ボードへ戻る" }).count(),
     ).toBe(0);
@@ -322,9 +332,12 @@ test.each([true, false])(
     ).toBe(0);
     const complete = page.getByRole("button", { name: "テキストを保存" });
     await expectReadable(complete);
-    expect(await page.getByRole("button", { name: progression }).count()).toBe(
-      0,
-    );
+    expect(
+      await page
+        .getByRole("button", { name: progression })
+        .and(page.locator("button:enabled"))
+        .count(),
+    ).toBe(0);
     await page.screenshot({
       path: `${output}/complete-${isHost ? "host" : "member"}.png`,
     });
@@ -355,13 +368,14 @@ test.each(phases)(
   },
 );
 
-test("課題の採用確定後は右上だけで次フェーズへ進み下書き破棄を確認する", async () => {
+test("課題の確定後は取消と次フェーズ進行ができ、進行前に下書き破棄を確認する", async () => {
   await openStory("room-roomboardview--decided");
-  await closeResults();
   expect(
     await page.getByTestId("phase-loop-hud").getByRole("button").count(),
-  ).toBe(0);
-  const actions = page.getByRole("button", { name: progression });
+  ).toBe(1);
+  const actions = page
+    .getByRole("button", { name: progression })
+    .and(page.locator("button:enabled"));
   expect(await actions.count()).toBe(1);
   const next = page.getByRole("button", {
     name: "次のステップへ",
@@ -376,4 +390,61 @@ test("課題の採用確定後は右上だけで次フェーズへ進み下書�
   expect(await dialog.innerText()).toContain("未共有の下書きを破棄");
   expect(await dialog.innerText()).toContain("前のフェーズへは戻れません");
   await expectReadable(dialog);
+});
+
+test("390px fit失敗の案内がルーム操作/閉じる操作を遮らず、案内を閉じられる", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openStory("room-roomboardview--fit-unavailable");
+  await page.getByRole("button", { name: "付箋全体を表示" }).click();
+  const notice = page.getByText(/進め方・ヒント・マイ付箋を閉じてから/);
+  await notice.waitFor();
+  const control = page.getByTestId("board-control-hud");
+  expect(
+    await control.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return el.contains(
+        document.elementFromPoint(
+          box.x + box.width / 2,
+          box.y + box.height / 2,
+        ),
+      );
+    }),
+  ).toBe(true);
+  const dismiss = page.getByRole("button", {
+    name: /通知を閉じる|Close toast/,
+  });
+  expect(await dismiss.count()).toBeGreaterThan(0);
+  await dismiss.click();
+  await notice.waitFor({ state: "hidden" });
+});
+
+test("390px template展開後のprivate本文がdock内で通常pointerとEnterから編集できる", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openStory("room-roomboardview--hmw-writing-step");
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  await page.mouse.move(258, 627);
+  await page.mouse.wheel(0, 500);
+  await page.waitForFunction(() => {
+    const scroll = document.querySelector<HTMLElement>(
+      '[data-testid="private-notes-scroll"]',
+    );
+    return (
+      scroll &&
+      (scroll.scrollHeight <= scroll.clientHeight ||
+        Math.abs(scroll.scrollHeight - scroll.clientHeight - scroll.scrollTop) <
+          1)
+    );
+  });
+  const card = toolbar.getByTestId("note-card").last();
+  const point = await card.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    return { x, y, reachable: el.contains(document.elementFromPoint(x, y)) };
+  });
+  expect(point.reachable).toBe(true);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.press("Enter");
+  expect(await card.locator("textarea").getAttribute("readonly")).toBeNull();
+  await page.screenshot({ path: `${output}/private-dock-mobile.png` });
 });

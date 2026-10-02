@@ -25,3 +25,11 @@ export const AdoptedWithVotes: StoryObj<typeof meta> = {
 export const IdeaMap: StoryObj<typeof meta> = {
   args: { label: "アイデア", phase: 3 },
 };
+
+export const IdeaMapAfterRewrite: StoryObj<typeof meta> = {
+  args: {
+    label: "アイデア",
+    phase: 3,
+    snapshot: { ...snapshot, phase: { kind: "step", phase: 3, step: 1 } },
+  },
+};

@@ -6,14 +6,20 @@ import type {
   RefObject,
 } from "react";
 import { useRef } from "react";
+import type { RenderGroup } from "@/contracts/grouping";
 import {
   isPhaseStep,
   isPublishAllowedStep,
   type RoomPhase,
 } from "@/contracts/phase";
+import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "./board-permissions";
-import { type CanvasCamera, clampCanvasCoordinate } from "./canvas-camera";
+import {
+  type CanvasCamera,
+  type CanvasFitInsets,
+  clampCanvasCoordinate,
+} from "./canvas-camera";
 import {
   clampIdeaValueFeasibilityMapCoordinate,
   getIdeaValueFeasibilityMapPointFromClientPosition,
@@ -21,9 +27,13 @@ import {
 import { roomNotify } from "./room-notify";
 import { useBoardDrag } from "./use-board-drag";
 import { useCanvasCamera } from "./use-canvas-camera";
+import { type MovingGroup, useGroupDrag } from "./use-group-drag";
 import { useIdeaValueFeasibilityMapInput } from "./use-idea-value-feasibility-map-input";
 
 export type UseRoomBoardInteractionsArgs = {
+  getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
+  send?: (message: ClientMessage) => void;
+  connected?: boolean;
   notes: Note[];
   privateNotes: Note[];
   currentUserId: string;
@@ -50,6 +60,13 @@ export type UseRoomBoardInteractionsArgs = {
 };
 
 export type RoomBoardInteractions = {
+  movingGroups?: MovingGroup[];
+  onGroupDragStart?: (
+    group: RenderGroup,
+    event: ReactPointerEvent<HTMLDivElement>,
+    origin: { x: number; y: number },
+  ) => void;
+  applyGroupMessage?: (message: ServerMessage) => boolean;
   boardRootRef: RefObject<HTMLDivElement | null>;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   ideaMapPlaneRef: RefObject<HTMLDivElement | null>;
@@ -67,6 +84,7 @@ export type RoomBoardInteractions = {
   isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
   isNoteDragging: boolean;
+  localDraggingNoteId?: string | null;
   camera: CanvasCamera;
   gridStyle: CSSProperties;
   isPanning: boolean;
@@ -76,11 +94,11 @@ export type RoomBoardInteractions = {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
-  onFitToNotes: () => void;
+  onFitToNotes: (insets?: CanvasFitInsets) => boolean | undefined;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  cancelCurrentNoteDrag: () => void;
+  cancelCurrentNoteDrag: (includePrivate?: boolean) => void;
   onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onNoteDragStart: (
@@ -93,7 +111,11 @@ export type RoomBoardInteractions = {
   ) => void;
 };
 
+/** 個別移動・一括移動・カメラ操作を束ね、同じ画面入力から各操作へ振り分ける。 */
 export function useRoomBoardInteractions({
+  send,
+  connected = true,
+  getFitInsets,
   notes,
   privateNotes,
   currentUserId,
@@ -116,6 +138,7 @@ export function useRoomBoardInteractions({
   const privateToolbarRef = useRef<HTMLDivElement>(null);
 
   const {
+    lockInteraction,
     camera,
     gridStyle,
     isPanning,
@@ -129,6 +152,7 @@ export function useRoomBoardInteractions({
     handlePointerEnd: onCanvasPointerEnd,
   } = useCanvasCamera({
     viewportRef: boardScrollerRef,
+    getFitInsets,
     notes,
     fitViewport:
       phase.kind === "step" &&
@@ -187,6 +211,16 @@ export function useRoomBoardInteractions({
     onNoteDragCancel,
     onPrivateNotePublish,
     onPrivateNoteUnpublish,
+  });
+
+  const groupDrag = useGroupDrag({
+    notes: renderedNotes,
+    enabled: connected && isPhaseStep(phase, 1, 3),
+    send,
+    viewportRef: boardScrollerRef,
+    worldPointFromClient,
+    lockCamera: lockInteraction,
+    onRejected: roomNotify.groupMoveRejected,
   });
 
   const dragGhost =
@@ -263,10 +297,7 @@ export function useRoomBoardInteractions({
     ) {
       return null;
     }
-    const surface = isIdeaMapCursorSurface
-      ? ideaMapPlaneRef.current
-      : boardScrollerRef.current;
-    const bounds = surface?.getBoundingClientRect();
+    const bounds = boardScrollerRef.current?.getBoundingClientRect();
     if (
       !bounds ||
       event.clientX < bounds.left ||
@@ -276,25 +307,30 @@ export function useRoomBoardInteractions({
     ) {
       return null;
     }
-    const mapPoint = isIdeaMapCursorSurface
-      ? getIdeaValueFeasibilityMapPointFromClientPosition(
-          event.clientX,
-          event.clientY,
-          bounds,
-        )
-      : null;
+    const mapBounds = ideaMapPlaneRef.current?.getBoundingClientRect();
+    const mapPoint =
+      isIdeaMapCursorSurface && mapBounds
+        ? getIdeaValueFeasibilityMapPointFromClientPosition(
+            event.clientX,
+            event.clientY,
+            mapBounds,
+            false,
+          )
+        : null;
     const point = isIdeaMapCursorSurface
       ? mapPoint
         ? { x: mapPoint.feasibility, y: mapPoint.value }
         : null
       : pointFromClient(event.clientX, event.clientY);
     if (!point) return null;
-    const clamp = isIdeaValueFeasibilityMappingStep
-      ? clampIdeaValueFeasibilityMapCoordinate
-      : clampCanvasCoordinate;
-    return { x: clamp(point.x), y: clamp(point.y) };
+    // presenceだけはマップ外を許可する。付箋の評価座標の制約とは分ける。
+    return {
+      x: clampCanvasCoordinate(point.x),
+      y: clampCanvasCoordinate(point.y),
+    };
   };
 
+  /** 公開領域のポインター位置と、個別またはグループ移動の代表付箋を共有する。 */
   const handlePresencePointerMove = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
@@ -308,11 +344,13 @@ export function useRoomBoardInteractions({
       point,
       drag?.status === "shared" && draggingNoteId === drag.note.id
         ? drag.note.id
-        : null,
+        : groupDrag.draggingNoteId,
     );
   };
 
+  /** 個別・一括移動を終了し、次のポインター移動を待たず移動者表示を解除する。 */
   const handleBoardPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    groupDrag.end(event);
     handlePointerEnd(event);
     const point = presencePointFromPointer(event);
     if (point) {
@@ -323,9 +361,11 @@ export function useRoomBoardInteractions({
     }
   };
 
+  /** 画面離脱やポインター中断で移動を解除し、個人付箋へのドロップは継続する。 */
   function handlePresencePointerLeave(
     event: ReactPointerEvent<HTMLDivElement>,
   ) {
+    groupDrag.cancel();
     if (!isCurrentDragPointer(event.pointerId)) return;
     if (event.type === "pointercancel") {
       onCursorLeave();
@@ -340,11 +380,14 @@ export function useRoomBoardInteractions({
   }
 
   return {
+    movingGroups: groupDrag.movingGroups,
+    onGroupDragStart: groupDrag.start,
+    applyGroupMessage: groupDrag.applyMessage,
     boardRootRef,
     boardScrollerRef,
     ideaMapPlaneRef,
     privateToolbarRef,
-    notes: renderedNotes,
+    notes: groupDrag.renderedNotes,
     privateNotes: toolbarNotes,
     dragGhost,
     dragPreview,
@@ -356,7 +399,8 @@ export function useRoomBoardInteractions({
       drag.privateDropIndex !== null
         ? { noteId: drag.note.id }
         : undefined,
-    isNoteDragging: drag !== null,
+    isNoteDragging: drag !== null || groupDrag.isDragging,
+    localDraggingNoteId: drag?.note.id ?? null,
     camera,
     gridStyle,
     isPanning,
@@ -367,9 +411,15 @@ export function useRoomBoardInteractions({
     onZoomOut: zoomOut,
     onResetZoom: resetZoom,
     onFitToNotes: fitToNotes,
-    onPointerMove: handlePointerMove,
+    onPointerMove: (event) => {
+      groupDrag.move(event);
+      handlePointerMove(event);
+    },
     onPointerEnd: handleBoardPointerEnd,
-    onPointerCancel: handlePointerCancel,
+    onPointerCancel: (event) => {
+      groupDrag.cancel();
+      handlePointerCancel(event);
+    },
     cancelCurrentNoteDrag,
     onPresencePointerMove: handlePresencePointerMove,
     onPresencePointerLeave: handlePresencePointerLeave,

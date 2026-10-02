@@ -103,7 +103,7 @@ test("テキスト保存と全文コピーには同じ3項目が入り、操作�
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   for (const part of [
     "1. 決定した課題",
-    "2. 決定した問い（HMW）",
+    "2. 決定した問い",
     "3. 採用したアイデア",
     "次に試すこと",
   ]) {
@@ -140,6 +140,129 @@ test("日本時間の深夜でも保存ファイル名と本文の日付が一�
       "idea-boost-outcome-2026-09-26.txt",
     );
     expect(saved).toContain("出力日: 2026/09/26 00:30");
+  } finally {
+    await context.close();
+  }
+});
+
+test("再コピー中は前の成功を消して二重操作を防ぎ、完了後に通知する", async () => {
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
+  );
+  await page.getByRole("button", { name: "全文をコピー" }).click();
+  await page.getByRole("status").waitFor();
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: () =>
+          new Promise<void>((resolve) => {
+            window.addEventListener("finish-copy", () => resolve(), {
+              once: true,
+            });
+          }),
+      },
+    });
+  });
+  await page.getByRole("button", { name: "全文をコピー" }).click();
+  expect(
+    await page.getByRole("button", { name: "コピー中…" }).isDisabled(),
+  ).toBe(true);
+  expect(
+    await page.getByRole("button", { name: "テキストを保存" }).isDisabled(),
+  ).toBe(true);
+  expect(await page.getByRole("status").count()).toBe(0);
+  await page.evaluate(() => window.dispatchEvent(new Event("finish-copy")));
+  await page.getByRole("status").waitFor();
+  expect(
+    await page.getByRole("button", { name: "全文をコピー" }).isEnabled(),
+  ).toBe(true);
+});
+
+test("コピー拒否時の全文をキーボードで選択でき、再試行で回復する", async () => {
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
+  );
+  await page.getByTestId("room-outcome-view").waitFor();
+  await page.evaluate(() => {
+    const original = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = async () => {
+      navigator.clipboard.writeText = original;
+      throw new Error("Permission denied");
+    };
+  });
+  await page.getByRole("button", { name: "全文をコピー" }).click();
+  const manual = page.getByRole("textbox", {
+    name: "手動でコピーする成果全文",
+  });
+  await manual.waitFor();
+  const text = await manual.inputValue();
+  for (const section of await page
+    .getByTestId("room-outcome-view")
+    .locator("section")
+    .all()) {
+    if (await section.getByRole("heading", { name: "次に試すこと" }).count())
+      continue;
+    expect(text).toContain(await section.locator("p").innerText());
+  }
+  await page.keyboard.press("Tab");
+  expect(
+    await manual.evaluate((element) => element === document.activeElement),
+  ).toBe(true);
+  expect(
+    await manual.evaluate(
+      (element: HTMLTextAreaElement) =>
+        element.selectionEnd - element.selectionStart,
+    ),
+  ).toBe(text.length);
+  await page.getByRole("button", { name: "全文をコピー" }).click();
+  await page.getByRole("status").waitFor();
+  expect(await manual.count()).toBe(0);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
+});
+
+test("保存失敗からコピーに回復し、成功通知の500ms後に感想を案内する", async () => {
+  const context = await browser.newContext({
+    permissions: ["clipboard-read", "clipboard-write"],
+  });
+  const localPage = await context.newPage();
+  try {
+    // Nodeとブラウザの実時計を混ぜず、読込後も確実に未来となる時刻で停止する。
+    await localPage.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+    await localPage.goto(
+      `${origin}/iframe.html?id=room-roomoutcomeview--with-feedback&viewMode=story`,
+    );
+    await localPage.getByTestId("room-outcome-view").waitFor();
+    await localPage.evaluate(() => {
+      URL.createObjectURL = () => {
+        throw new Error("Unavailable");
+      };
+    });
+    await localPage.getByRole("button", { name: "テキストを保存" }).click();
+    await localPage.getByRole("alert").waitFor();
+    expect(
+      await localPage
+        .getByRole("complementary", { name: "フィードバックの案内" })
+        .count(),
+    ).toBe(0);
+    await localPage.clock.pauseAt(new Date("2026-01-01T01:00:00Z"));
+    await localPage.getByRole("button", { name: "全文をコピー" }).click();
+    await localPage.getByText(/コピーしました/).waitFor();
+    await localPage.clock.runFor(499);
+    expect(
+      await localPage
+        .getByRole("complementary", { name: "フィードバックの案内" })
+        .count(),
+    ).toBe(0);
+    await localPage.clock.runFor(1);
+    await localPage
+      .getByRole("complementary", { name: "フィードバックの案内" })
+      .waitFor();
+    expect(
+      await localPage
+        .getByRole("button", { name: "フィードバック", exact: true })
+        .count(),
+    ).toBe(2);
   } finally {
     await context.close();
   }

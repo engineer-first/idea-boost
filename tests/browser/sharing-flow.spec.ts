@@ -61,3 +61,84 @@ describe("共有HUD", () => {
     await page.close();
   });
 });
+
+describe("共有する人の表示", () => {
+  it("同位置にいる別の操作者の名前を重ねない", async () => {
+    const page = await browser.newPage();
+    try {
+      await page.goto(
+        `${origin}/iframe.html?id=room-remotecursor--long-name-at-same-position&viewMode=story`,
+      );
+      const cursors = page.locator("[data-testid^='remote-cursor-']");
+      await cursors.first().waitFor({ state: "attached" });
+      const labels = await cursors.evaluateAll((elements) =>
+        elements.map((element) => {
+          const label = element.querySelector("div");
+          if (!label) throw new Error("名前ラベルがない");
+          const { top, bottom } = label.getBoundingClientRect();
+          return { top, bottom };
+        }),
+      );
+      expect(labels).toHaveLength(2);
+      expect(labels[1].top).toBeGreaterThanOrEqual(labels[0].bottom);
+    } finally {
+      await page.close();
+    }
+  });
+
+  it.each([1440, 900, 390])(
+    "%ipxで交代案内が現在地と発表者カードを覆わない",
+    async (width) => {
+      const page = await browser.newPage({
+        viewport: { width, height: 900 },
+        reducedMotion: "reduce",
+      });
+      try {
+        await page.goto(
+          `${origin}/iframe.html?id=room-roomboardlayout--sharing-transition&viewMode=story`,
+        );
+        const notice = page
+          .getByRole("status")
+          .filter({ hasText: "さんのターンです" });
+        await notice.waitFor();
+        const box = await notice.boundingBox();
+        if (!box) throw new Error("交代案内がない");
+        for (const target of [
+          page.getByTestId("board-context-hud"),
+          page.getByTestId("board-control-hud"),
+        ]) {
+          const hud = await target.boundingBox();
+          if (!hud) throw new Error("共有HUDがない");
+          const overlaps =
+            box.x < hud.x + hud.width &&
+            box.x + box.width > hud.x &&
+            box.y < hud.y + hud.height &&
+            box.y + box.height > hud.y;
+          expect(overlaps).toBe(false);
+        }
+      } finally {
+        await page.close();
+      }
+    },
+  );
+
+  it.each([
+    "room-sharingpresenter--ready",
+    "room-sharingpresenter--active",
+    "room-sharingannouncement--default",
+  ])("%sを単体で描画できる", async (id) => {
+    const page = await browser.newPage();
+    try {
+      await page.goto(`${origin}/iframe.html?id=${id}&viewMode=story`);
+      if (id.includes("sharingpresenter")) {
+        await page
+          .getByRole("button", { name: "発表者と全体の順番を確認" })
+          .waitFor();
+      } else {
+        await page.getByRole("status").waitFor();
+      }
+    } finally {
+      await page.close();
+    }
+  });
+});

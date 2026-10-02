@@ -157,3 +157,37 @@ it("旧ルームの盤面取得中に別ルームへ移っても更新操作が�
     screen.queryByRole("region", { name: "選択した記録" }),
   ).not.toBeInTheDocument();
 });
+
+it("履歴へ進み、全文を読んだ後に記録一覧へ戻って別の記録を選べる", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      const entry = entries.find((item) => url.endsWith(`/history/${item.id}`));
+      if (entry) return Response.json({ ...entry, snapshot: outcome.snapshot });
+      if (url.endsWith("/history"))
+        return Response.json({ entries, nextCursor: null });
+      if (url.endsWith(outcome.roomId)) return Response.json(outcome);
+      return Response.json({ outcomes: [outcome], nextCursor: null });
+    }),
+  );
+  render(<SharedOutcomes />);
+  fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "進行の記録を見る" }),
+  );
+  expect(screen.getByRole("heading", { name: "進行の記録" })).toHaveFocus();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "記録 1 の盤面を見る" }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByText("盤面を読み込んでいます…"),
+    ).not.toBeInTheDocument(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "記録一覧へ戻る" }));
+  expect(screen.getByRole("heading", { name: "進行の記録" })).toHaveFocus();
+  fireEvent.click(screen.getByRole("button", { name: "記録 2 の盤面を見る" }));
+  expect(
+    await screen.findByRole("heading", { name: /記録 2 ·/ }),
+  ).toHaveFocus();
+});

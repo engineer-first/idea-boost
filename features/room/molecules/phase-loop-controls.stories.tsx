@@ -17,6 +17,7 @@ const meta = {
     onRevote: fn(),
     onStartSelection: fn(),
     onCancelSelection: fn(),
+    onClearDecision: fn(),
   },
   decorators: [
     (Story) => (

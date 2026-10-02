@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { buildSharingState } from "@/contracts/room-protocol.fixture";
 import { SharingAnnouncement } from "./sharing-announcement";
 
@@ -8,9 +9,11 @@ const meta = {
   args: { member: buildSharingState().order[0] },
   decorators: [
     (Story) => (
-      <div className="relative h-96">
-        <Story />
-      </div>
+      <TooltipProvider>
+        <div className="relative h-[600px]">
+          <Story />
+        </div>
+      </TooltipProvider>
     ),
   ],
 } satisfies Meta<typeof SharingAnnouncement>;

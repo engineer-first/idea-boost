@@ -467,3 +467,31 @@ it("未来24時間のIDも再受付窓の終端まで失効し、その後は失
     clock.mockRestore();
   }
 });
+
+it.each(["", "何を基準に投票するかわからない"])(
+  "「わからない」を保存し、再送を重複させず種類で取得する（本文: %s）",
+  async (text) => {
+    const { roomId } = await createRoomAs(owner);
+    const body = input({ kind: "unclear", body: text });
+    const path = `/api/rooms/${roomId}/feedback`;
+    expect((await call(path, owner, body)).status).toBe(200);
+    expect((await call(path, owner, body)).status).toBe(200);
+    await grant(outsider, "feedback:read");
+    const response = await call(
+      "/api/feedback?kind=unclear&target=1-3",
+      outsider,
+    );
+    expect(response.status).toBe(200);
+    const data = await response.json<{ items: Record<string, unknown>[] }>();
+    const items = data.items.filter((item) => item.id === body.id);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      roomId,
+      target: "1-3",
+      kind: "unclear",
+      body: text,
+      rating: null,
+    });
+    expect((await call("/api/feedback?kind=good", outsider)).status).toBe(200);
+  },
+);

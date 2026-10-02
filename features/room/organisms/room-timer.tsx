@@ -1,7 +1,15 @@
 "use client";
 
 import { Pause, Play, RotateCcw, Settings2, Square } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type CompositionEvent,
+  type FocusEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,7 +49,12 @@ const systemNow = (): number => Date.now();
 
 function parseDuration(minutes: string, seconds: string): number | null {
   const durationMs = (Number(minutes) * 60 + Number(seconds)) * 1_000;
-  if (durationMs < 1 || durationMs > TIMER_MAX_DURATION_MS) return null;
+  if (
+    !Number.isFinite(durationMs) ||
+    durationMs < 1 ||
+    durationMs > TIMER_MAX_DURATION_MS
+  )
+    return null;
   return durationMs;
 }
 
@@ -63,13 +76,17 @@ function fieldsFromDuration(durationMs: number): {
 }
 
 function normalizeEditingPart(value: string, max: number): string {
-  const digits = value.replace(/\D/g, "");
+  const digits = value
+    .replace(/[０-９]/g, (digit) =>
+      String.fromCharCode(digit.charCodeAt(0) - 0xfee0),
+    )
+    .replace(/\D/g, "");
   if (digits === "") return "";
   return Number(digits) > max ? String(max) : digits;
 }
 
 function normalizeBlurredPart(value: string, max: number): string {
-  const numeric = value === "" ? 0 : Number(value);
+  const numeric = Number(normalizeEditingPart(value, max));
   return formatPart(Math.min(numeric, max));
 }
 
@@ -101,10 +118,15 @@ export function RoomTimer({
   const initialFields = fieldsFromDuration(initialDurationMs);
   const [minutesInput, setMinutesInput] = useState(initialFields.minutes);
   const [secondsInput, setSecondsInput] = useState(initialFields.seconds);
+  const [isComposing, setIsComposing] = useState(false);
+  const composingRef = useRef(false);
   const [panelOpen, setPanelOpen] = useState(defaultPanelOpen);
   const [isReconfiguring, setIsReconfiguring] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const timerControlsRef = useRef<HTMLDivElement>(null);
+  const pauseOrStopRef = useRef<HTMLButtonElement>(null);
+  const previousStatusRef = useRef(timer.status);
   const wasPanelOpenRef = useRef(panelOpen);
   const panelOpenRef = useRef(panelOpen);
 
@@ -119,6 +141,18 @@ export function RoomTimer({
     }
     wasPanelOpenRef.current = panelOpen;
   }, [panelOpen]);
+
+  useEffect(() => {
+    if (
+      previousStatusRef.current === "running" &&
+      timer.status === "paused" &&
+      document.activeElement === pauseOrStopRef.current
+    ) {
+      // 一時停止ボタンと同じ位置の「終了」へ連続入力を引き継がない。
+      triggerRef.current?.focus();
+    }
+    previousStatusRef.current = timer.status;
+  }, [timer.status]);
 
   useEffect(() => {
     let suppressedPointer:
@@ -143,7 +177,8 @@ export function RoomTimer({
         event.button !== 0 ||
         !(target instanceof Node) ||
         triggerRef.current?.contains(target) ||
-        panelRef.current?.contains(target)
+        panelRef.current?.contains(target) ||
+        timerControlsRef.current?.contains(target)
       ) {
         return;
       }
@@ -250,10 +285,43 @@ export function RoomTimer({
     if (!isEnded) setIsReconfiguring(false);
   }, [isEnded]);
 
+  const hasDurationInputs =
+    timer.status === "idle" || (isEnded && isReconfiguring);
+  useEffect(() => {
+    if (panelOpen && hasDurationInputs) return;
+    // 閉じる操作や共有状態の更新でinputが消えるとblur/compositionendが来ない。
+    // その経路でも変換状態を終え、再表示時に開始できる値へ揃える。
+    composingRef.current = false;
+    setIsComposing(false);
+    setMinutesInput((value) => normalizeBlurredPart(value, 99));
+    setSecondsInput((value) => normalizeBlurredPart(value, 59));
+  }, [panelOpen, hasDurationInputs]);
+
   const parsedDuration = useMemo(
-    () => parseDuration(minutesInput, secondsInput),
-    [minutesInput, secondsInput],
+    () => (isComposing ? null : parseDuration(minutesInput, secondsInput)),
+    [isComposing, minutesInput, secondsInput],
   );
+
+  const inputHandlers = (setValue: (value: string) => void, max: number) => ({
+    onCompositionStart: () => {
+      composingRef.current = true;
+      setIsComposing(true);
+    },
+    onCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => {
+      composingRef.current = false;
+      setIsComposing(false);
+      setValue(normalizeEditingPart(event.currentTarget.value, max));
+    },
+    onChange: (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.currentTarget.value;
+      setValue(composingRef.current ? value : normalizeEditingPart(value, max));
+    },
+    onBlur: (event: FocusEvent<HTMLInputElement>) => {
+      composingRef.current = false;
+      setIsComposing(false);
+      setValue(normalizeBlurredPart(event.currentTarget.value, max));
+    },
+  });
 
   const setDuration = (durationMs: number) => {
     const fields = fieldsFromDuration(durationMs);
@@ -274,8 +342,9 @@ export function RoomTimer({
   const chipClassName = cn(
     "board-hud h-10 w-28 shrink-0 justify-start rounded-lg border-transparent bg-muted py-2 pr-10 pl-3 shadow-none hover:bg-muted disabled:opacity-100",
     "font-mono font-bold tabular-nums",
-    timer.status === "paused" && "text-amber-800",
-    isEnded && "text-red-700",
+    timer.status === "paused" &&
+      "text-amber-800 hover:text-amber-800 aria-expanded:text-amber-800",
+    isEnded && "text-red-700 hover:text-red-700 aria-expanded:text-red-700",
   );
   const chipDurationMs =
     timer.status === "idle" ? initialDurationMs : (remainingMs ?? 0);
@@ -329,9 +398,17 @@ export function RoomTimer({
       data-testid="room-timer-panel"
       aria-label="タイマー操作"
       align="end"
-      className="board-hud w-72 bg-background"
+      className="board-hud w-72 bg-background motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none"
+      onInteractOutside={(event) => {
+        if (
+          event.target instanceof Node &&
+          timerControlsRef.current?.contains(event.target)
+        ) {
+          event.preventDefault();
+        }
+      }}
     >
-      {timer.status === "idle" || (isEnded && isReconfiguring) ? (
+      {hasDurationInputs ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-1">
             <Button
@@ -339,14 +416,14 @@ export function RoomTimer({
               variant="outline"
               size="sm"
               className="h-8 px-2 text-xs"
-              disabled={disabled}
+              disabled={disabled || isComposing}
               onClick={() => adjustDuration(-60_000)}
             >
               -1分
             </Button>
             <Input
               aria-label="タイマー時間（分）"
-              aria-invalid={parsedDuration === null}
+              aria-invalid={!isComposing && parsedDuration === null}
               inputMode="numeric"
               maxLength={2}
               placeholder="00"
@@ -354,17 +431,12 @@ export function RoomTimer({
               disabled={disabled}
               className="h-8 w-12 px-2 text-center font-mono tabular-nums"
               onFocus={(event) => event.currentTarget.select()}
-              onBlur={(event) =>
-                setMinutesInput(normalizeBlurredPart(event.target.value, 99))
-              }
-              onChange={(event) =>
-                setMinutesInput(normalizeEditingPart(event.target.value, 99))
-              }
+              {...inputHandlers(setMinutesInput, 99)}
             />
             <span className="font-mono font-bold">:</span>
             <Input
               aria-label="タイマー時間（秒）"
-              aria-invalid={parsedDuration === null}
+              aria-invalid={!isComposing && parsedDuration === null}
               inputMode="numeric"
               maxLength={2}
               placeholder="00"
@@ -372,19 +444,14 @@ export function RoomTimer({
               disabled={disabled}
               className="h-8 w-12 px-2 text-center font-mono tabular-nums"
               onFocus={(event) => event.currentTarget.select()}
-              onBlur={(event) =>
-                setSecondsInput(normalizeBlurredPart(event.target.value, 59))
-              }
-              onChange={(event) =>
-                setSecondsInput(normalizeEditingPart(event.target.value, 59))
-              }
+              {...inputHandlers(setSecondsInput, 59)}
             />
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="h-8 px-2 text-xs"
-              disabled={disabled}
+              disabled={disabled || isComposing}
               onClick={() => adjustDuration(60_000)}
             >
               +1分
@@ -461,6 +528,7 @@ export function RoomTimer({
           {timer.status === "paused" ? (
             <Button
               type="button"
+              ref={pauseOrStopRef}
               variant="destructive"
               size="sm"
               className="h-8 flex-1"
@@ -476,6 +544,7 @@ export function RoomTimer({
               size="sm"
               className="h-8 flex-1"
               disabled={disabled}
+              ref={pauseOrStopRef}
               onClick={onPause}
             >
               <Pause aria-hidden="true" />
@@ -488,7 +557,7 @@ export function RoomTimer({
   );
 
   return (
-    <div className="relative h-10 w-28 shrink-0">
+    <div ref={timerControlsRef} className="relative h-10 w-28 shrink-0">
       {isHost ? (
         <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
           <PopoverTrigger asChild>{hostChip}</PopoverTrigger>

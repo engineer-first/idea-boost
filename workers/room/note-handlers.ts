@@ -387,7 +387,7 @@ export const noteHandlers: MessageHandlers<
   "note:move": (ctx, message) => {
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
-    if (!canEdit(row, ctx.userId) || row.excluded) {
+    if (row.visibility !== "shared" || !canEdit(row, ctx.userId)) {
       replyForbidden(ctx);
       return;
     }
@@ -438,13 +438,16 @@ export const noteHandlers: MessageHandlers<
     });
   },
 
+  /** 付箋の単独操作権を取得し、一括移動との競合や操作IDの再利用を拒否する。 */
   "note:drag:start": (ctx, message) => {
     const row = findNote(ctx.sql, message.noteId);
     const phase = getPhase(ctx.sql);
     const current = ctx.broadcaster.activeDragFor(ctx.ws);
     const competing = ctx.broadcaster.findActiveDrag(message.noteId);
     const isActiveRetry = Boolean(
-      current?.noteId === message.noteId && current.dragId === message.dragId,
+      !current?.group &&
+        current?.noteId === message.noteId &&
+        current.dragId === message.dragId,
     );
     const isPrivateIdeaMapDrag = Boolean(
       row?.visibility === "private" &&
@@ -460,7 +463,6 @@ export const noteHandlers: MessageHandlers<
         phase.kind === "step" &&
         row.phase === phase.phase &&
         canEdit(row, ctx.userId) &&
-        !row.excluded &&
         (isActiveRetry ||
           (!current &&
             !hasUsedNoteDragId(ctx.sql, ctx.userId, message.dragId) &&
@@ -489,10 +491,12 @@ export const noteHandlers: MessageHandlers<
     }
   },
 
+  /** 単独操作の所有者だけが付箋の途中位置を更新でき、一括移動には適用しない。 */
   "note:drag:move": (ctx, message) => {
     const active = ctx.broadcaster.activeDragFor(ctx.ws);
     if (
       !active ||
+      active.group ||
       active.noteId !== message.noteId ||
       active.dragId !== message.dragId
     ) {
@@ -509,11 +513,7 @@ export const noteHandlers: MessageHandlers<
       // private drag start は内容を共有せず lock だけを保持する。
       return;
     }
-    if (
-      row?.visibility !== "shared" ||
-      row.excluded ||
-      !canEdit(row, ctx.userId)
-    ) {
+    if (row?.visibility !== "shared" || !canEdit(row, ctx.userId)) {
       ctx.broadcaster.retireActiveDrag(ctx.ws);
       if (isIdeaMapVisiblePhase(phase)) {
         broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
@@ -537,10 +537,12 @@ export const noteHandlers: MessageHandlers<
     });
   },
 
+  /** 単独操作の最終位置を確定または中断し、操作権と移動者表示を解除する。 */
   "note:drag:end": (ctx, message) => {
     const active = ctx.broadcaster.activeDragFor(ctx.ws);
     if (
       !active ||
+      active.group ||
       active.noteId !== message.noteId ||
       active.dragId !== message.dragId
     ) {
@@ -558,11 +560,7 @@ export const noteHandlers: MessageHandlers<
       broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
       return;
     }
-    if (
-      row?.visibility !== "shared" ||
-      row.excluded ||
-      !canEdit(row, ctx.userId)
-    ) {
+    if (row?.visibility !== "shared" || !canEdit(row, ctx.userId)) {
       if (isIdeaMapVisiblePhase(phase)) {
         broadcastIdeaMapState(ctx.sql, ctx.broadcaster);
       }
@@ -609,18 +607,23 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
-    setNoteExcluded(ctx.sql, row.id, true, updatedAt);
+    setNoteExcluded(ctx.sql, row.id, true, updatedAt, message.operationId);
     if (ctx.broadcaster.retireAdoptionFocusForNote(row.id)) {
       ctx.broadcaster.broadcastToAll({
         type: "adoption-focus:updated",
         noteId: null,
       });
     }
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      excluded: true,
-      updated_at: updatedAt,
-    });
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      {
+        ...row,
+        excluded: true,
+        updated_at: updatedAt,
+      },
+      message.operationId,
+    );
   },
 
   "note:restore": (ctx, message) => {
@@ -629,21 +632,29 @@ export const noteHandlers: MessageHandlers<
     if (
       !isHostUser(ctx.sql, ctx.userId) ||
       row.visibility !== "shared" ||
-      !row.excluded
+      !row.excluded ||
+      (message.expectedExclusionOperationId !== undefined &&
+        toProtocolNote(ctx.sql, row, ctx.userId).exclusionOperationId !==
+          message.expectedExclusionOperationId)
     ) {
       replyForbidden(ctx);
       return;
     }
     const updatedAt = new Date().toISOString();
     setNoteExcluded(ctx.sql, row.id, false, updatedAt);
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      excluded: false,
-      updated_at: updatedAt,
-    });
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      {
+        ...row,
+        excluded: false,
+        updated_at: updatedAt,
+      },
+      message.operationId,
+    );
   },
 
-  "note:bulk-exclude": (ctx) => {
+  "note:bulk-exclude": (ctx, message) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
       replyForbidden(ctx);
       return;
@@ -653,7 +664,7 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
-    const operationId = crypto.randomUUID();
+    const operationId = message.operationId ?? crypto.randomUUID();
     const updatedAt = new Date().toISOString();
     let targets: NoteRow[] = [];
     ctx.storage.transactionSync(() => {

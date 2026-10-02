@@ -35,10 +35,9 @@ const FACILITATION_GUIDES: Record<
 > = {
   1: {
     1: {
-      durationMinutes: 3,
+      durationMinutes: 5,
       intro: "まずは、最近あった困ったことを付箋に。1枚に1つずつ書こう。",
-      message:
-        "アイデア出しを始めよう！まずは最近あった困ったことを、1枚につき1つ付箋に書き出そう。",
+      message: "1枚につき1つ書こう。",
       hostMessage:
         "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
       ...DEFAULT_DETAILS,
@@ -113,23 +112,23 @@ const FACILITATION_GUIDES: Record<
   2: {
     1: {
       durationMinutes: 3,
-      intro:
-        "決定した課題を問いに変えよう。「どうすれば私たちは〇〇できるだろう？」",
-      message: "決定した課題に対するHMWを、付箋に書き出そう。",
-      hostMessage:
-        "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
-      purpose: "決定した課題を、アイデアが生まれる問いに変換します。",
+      intro: "決めた課題を、もっとくわしく見てみよう！",
+      message: "何をよくしたいのかがわかる質問を、付箋に書こう。",
+      hostMessage: null,
+      purpose: "課題の何が困っているのか、どうなったらよいのかを考えます。",
       example: null,
-      completion: "アイデアにつながる問いを複数書き出せたら完了です。",
-      modalIntro: "次は、問いをつくろう！",
-      modalTitle: "決めた課題を、アイデアが生まれる問いに変えよう！",
+      completion: undefined,
+      modalIntro: "次は、課題をくわしく見てみよう！",
+      modalTitle: "決めた課題を、もっとくわしく見てみよう！",
       modalPurpose: null,
       steps: [
-        "決定した課題に対して\n「どうすれば私たちは〇〇できるだろう？」の形に言い換える",
+        "課題を見て、何が困っているのかを考える",
+        "どうなったらよいかを考える",
+        "「どうすれば私たちは〇〇できるだろう？」の形で書く",
       ],
       modalExamples: [
-        "課題: 学校の出席率がまずい",
-        "問い: あと何日休めるだろう？",
+        "課題: 学校に来られない人が多い",
+        "質問: どうすれば、学校に来やすくなるだろう？",
       ],
     },
     2: {
@@ -162,7 +161,7 @@ const FACILITATION_GUIDES: Record<
     4: {
       durationMinutes: 10,
       intro: "投票結果を見て、アイデアが広がる問いを1つ話し合おう。",
-      message: "投票結果を参考に、HMWをみんなで1つ決めよう。",
+      message: "投票結果を参考に、問いをみんなで1つ決めよう。",
       hostMessage:
         "納得できるまで話し合い、1つに絞れたら次のステップへ進んでください。",
       ...DEFAULT_DETAILS,
@@ -179,14 +178,13 @@ const FACILITATION_GUIDES: Record<
   },
   3: {
     1: {
-      durationMinutes: 3,
+      durationMinutes: 5,
       intro: "決めた問いに対する解決策を付箋に。実現方法を気にしすぎず書こう。",
       message:
-        "決定したHMWをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",
-      hostMessage:
-        "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
+        "決定した問いをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",
+      hostMessage: null,
       ...DEFAULT_DETAILS,
-      completion: "書き終えたら手を止めて、進行役の案内を待ちます。",
+      completion: undefined,
       modalIntro: "最後は、解決策を考えよう！",
       modalTitle: "決めた問いに対する解決策を書き出そう",
       modalPurpose: null,
@@ -242,7 +240,10 @@ const FACILITATION_GUIDES: Record<
       completion: "全員の投票が終わったら、次のステップへ進みます。",
       modalTitle: "採用したい解決策に投票しよう！",
       modalPurpose: null,
-      steps: DOT_VOTE_GUIDE_STEPS,
+      steps: [
+        "上ほど価値が高く、右ほど実現しやすいことを確認する",
+        ...DOT_VOTE_GUIDE_STEPS,
+      ],
     },
     5: {
       durationMinutes: 10,
@@ -257,6 +258,7 @@ const FACILITATION_GUIDES: Record<
       modalPurpose: null,
       steps: [
         "投票結果とマップ上の位置を確認する",
+        "上ほど価値が高く、右ほど実現しやすいことを確認する",
         "解決策の価値と実現のしやすさを話し合う",
         "実際に取り組む解決策を1つに決める",
         "ホストが画面下から採用する解決策を選び、1件を確定する",

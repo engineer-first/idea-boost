@@ -44,13 +44,68 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "グループの一括移動でも他者の未共有付箋を配信しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "グループの一括移動は他者が作成した共有付箋も配信する",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared", x: 300, y: 250 }),
+    expected: true,
+  },
+  {
+    name: "マップ外カーソルの共有でも他者のprivate付箋は見られない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "移動した候補外も他の参加者へ共有する",
+    viewerId: VIEWER,
+    note: note({
+      excluded: true,
+      x: 70,
+      y: 60,
+      exclusionOperationId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    }),
+    expected: true,
+  },
+  {
+    name: "移動の拒否後も他者の未共有付箋を見せない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private", x: 70, y: 60 }),
+    expected: false,
+  },
+
+  {
+    name: "確定取消で保持した下書きは作者本人だけに見える",
+    viewerId: AUTHOR,
+    note: note({ visibility: "private" }),
+    expected: true,
+  },
+  {
+    name: "確定取消で保持した下書きを他の参加者へ出さない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "確定取消後も共有された候補外の付箋は全員に見える",
+    viewerId: VIEWER,
+    note: note({ excluded: true }),
+    expected: true,
+  },
+  {
     name: "完了時閲覧者も作者本人のprivate付箋を再訪記録で見られない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private", authorId: AUTHOR }),
     expected: false,
   },
   {
-    name: "意見の閲覧者にもprivate付箋を公開しない",
+    // 意見権限はD1の閲覧API専用。GUI/CLIの付与経路は可視性に渡さない。
+    name: "GUI・CLIで付与した意見の閲覧者にもprivate付箋を公開しない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private" }),
     expected: false,
@@ -75,6 +130,12 @@ const TABLE: Array<{
   },
   {
     name: "private: 他のメンバーは付箋を見られない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "発表者本人の完了権限でも他者のprivate付箋は見られない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
     expected: false,

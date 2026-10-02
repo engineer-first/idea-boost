@@ -1,10 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { buildSharingState } from "@/contracts/room-protocol.fixture";
 import { SharingPresenter } from "./sharing-presenter";
 
 const meta = {
   title: "Room/SharingPresenter",
   component: SharingPresenter,
+  decorators: [
+    (Story) => (
+      <TooltipProvider>
+        <Story />
+      </TooltipProvider>
+    ),
+  ],
   args: {
     sharing: buildSharingState(),
     hostUserId: "11111111-1111-4111-8111-111111111111",
@@ -27,6 +35,17 @@ export const Complete: Story = {
     sharing: buildSharingState({
       status: "complete",
       results: ["done", "passed", "done"],
+    }),
+  },
+};
+
+export const Starting: Story = {
+  args: {
+    sharing: buildSharingState({
+      status: "active",
+      currentIndex: 1,
+      results: ["done"],
+      startsAt: 2_000,
     }),
   },
 };

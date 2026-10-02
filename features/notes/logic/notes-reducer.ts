@@ -25,12 +25,20 @@ export type ApplyServerMessageOptions = {
   draggingNoteId: string | null;
 };
 
+/** 共有付箋の受信状態を畳み込み、一括移動では対象の確定位置をまとめて反映する。 */
 export function applyServerMessage(
   notes: Note[],
   message: ServerMessage,
   options: ApplyServerMessageOptions,
 ): Note[] {
   switch (message.type) {
+    case "group:drag:updated": {
+      const updates = new Map(message.notes.map((note) => [note.id, note]));
+      return notes.map((note) => {
+        const update = updates.get(note.id);
+        return update ? { ...note, ...update } : note;
+      });
+    }
     case "snapshot": {
       // 接続・再接続時の一括復元。確定状態はサーバーが真実なので、
       // ドラッグ中でも丸ごと置き換える。
@@ -84,6 +92,7 @@ export function applyServerMessage(
     case "sharing:updated":
     case "timer:updated":
     case "group:updated":
+    case "group:drag:result":
     case "group:deleted":
     case "decision:updated":
     case "outcome:published":

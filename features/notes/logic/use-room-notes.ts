@@ -94,6 +94,8 @@ export type VoteFeedback = {
 
 export type UseRoomNotesResult = {
   notes: Note[];
+  // 接続後のサーバー状態を適用した回数。初期データとの照合が必要な処理で使う。
+  snapshotVersion: number;
   draggingNoteId: string | null;
   // クリック・pointer-up 後も RoomDO の確定応答までは対象付箋を一時最前面に保つ。
   frontNoteId: string | null;
@@ -137,6 +139,7 @@ export type UseRoomNotesResult = {
   voteFeedback: VoteFeedback | null;
 };
 
+/** 共有・個人付箋の操作と楽観表示を管理し、受信したRoomDOの確定状態へ収束させる。 */
 export function useRoomNotes({
   send,
   createVoteOperationId = () => crypto.randomUUID(),
@@ -153,6 +156,7 @@ export function useRoomNotes({
   // 付箋の初期状態は空。確定状態の真実はサーバー（RoomDO）側にあり、
   // 接続直後に送られてくる snapshot で復元される。
   const [notes, setNotes] = useState<Note[]>([]);
+  const [snapshotVersion, setSnapshotVersion] = useState(0);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const [pendingNoteDrop, setPendingNoteDrop] =
     useState<PendingNoteDrop | null>(null);
@@ -163,6 +167,9 @@ export function useRoomNotes({
   >([]);
   const [voteFeedback, setVoteFeedback] = useState<VoteFeedback | null>(null);
   const notesRef = useRef<Note[]>(notes);
+  const confirmedPositionsRef = useRef(
+    new Map<string, { x: number; y: number }>(),
+  );
   const draggingNoteIdRef = useRef<string | null>(null);
   const noteDragOperationRef = useRef<NoteDragOperation | null>(null);
   const pendingNoteDropRef = useRef<PendingNoteDrop | null>(null);
@@ -258,8 +265,41 @@ export function useRoomNotes({
     [updatePendingNoteDrop],
   );
 
+  /** 操作IDに対応する確定・拒否通知を処理し、受信した座標で付箋の表示を更新する。 */
   const applyMessage = useCallback(
     (message: ServerMessage) => {
+      if (message.type === "group:drag:updated")
+        for (const note of message.notes)
+          confirmedPositionsRef.current.set(note.id, { x: note.x, y: note.y });
+      if (message.type === "snapshot")
+        confirmedPositionsRef.current = new Map(
+          message.notes.map((note) => [note.id, { x: note.x, y: note.y }]),
+        );
+      if (message.type === "snapshot")
+        setSnapshotVersion((version) => version + 1);
+      if (message.type === "note:updated" || message.type === "note:inserted")
+        confirmedPositionsRef.current.set(message.note.id, {
+          x: message.note.x,
+          y: message.note.y,
+        });
+      const freezesDrag =
+        message.type === "phase:updated" ||
+        message.type === "outcome:published" ||
+        (message.type === "decision:updated" && message.decision !== null);
+      if (freezesDrag) {
+        sendDragRef.current?.cancel();
+        noteDragOperationRef.current = null;
+        draggingNoteIdRef.current = null;
+        setDraggingNoteId(null);
+        updatePendingNoteDrop(null);
+        updatePendingNoteFront(null);
+        updateNotes((current) =>
+          current.map((note) => ({
+            ...note,
+            ...confirmedPositionsRef.current.get(note.id),
+          })),
+        );
+      }
       const pendingDrop = pendingNoteDropRef.current;
       const pendingFront = pendingNoteFrontRef.current;
       if (message.type === "snapshot") {
@@ -931,6 +971,7 @@ export function useRoomNotes({
 
   return {
     notes,
+    snapshotVersion,
     draggingNoteId,
     frontNoteId:
       draggingNoteId ??

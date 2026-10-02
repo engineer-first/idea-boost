@@ -66,6 +66,27 @@ export function findNote(sql: SqlStorage, noteId: string): NoteRow | null {
     : null;
 }
 
+/** 対象IDを1つのJSON引数で渡し、SQL変数数の上限や付箋ごとの照会を避ける。 */
+export function findNotes(
+  sql: SqlStorage,
+  noteIds: readonly string[],
+): NoteRow[] {
+  return sql
+    .exec(
+      `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size,
+            COALESCE(v.content_revision, 0) AS content_revision
+     FROM json_each(?1) target
+     JOIN notes n ON n.id = target.value
+     LEFT JOIN note_appearances a ON a.note_id = n.id
+     LEFT JOIN note_content_versions v ON v.note_id = n.id
+     ORDER BY target.key`,
+      JSON.stringify(noteIds),
+      NOTE_DEFAULT_FONT_SIZE,
+    )
+    .toArray()
+    .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+}
+
 export function requireNote(ctx: HandlerCtx, noteId: string): NoteRow | null {
   const row = findNote(ctx.sql, noteId);
   if (!row) {
@@ -374,6 +395,7 @@ export function setNoteExcluded(
   noteId: string,
   excluded: boolean,
   updatedAt: string,
+  operationId = crypto.randomUUID(),
 ): void {
   sql.exec(
     "UPDATE notes SET excluded = ?2, updated_at = ?3 WHERE id = ?1",
@@ -381,7 +403,15 @@ export function setNoteExcluded(
     excluded ? 1 : 0,
     updatedAt,
   );
-  sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
+  if (excluded) {
+    sql.exec(
+      "INSERT INTO note_bulk_exclusions (note_id, operation_id) VALUES (?1, ?2) ON CONFLICT(note_id) DO UPDATE SET operation_id = excluded.operation_id",
+      noteId,
+      operationId,
+    );
+  } else {
+    sql.exec("DELETE FROM note_bulk_exclusions WHERE note_id = ?1", noteId);
+  }
 }
 
 export function listBulkExclusionCandidates(
@@ -530,6 +560,13 @@ export function toProtocolNote(
     x: row.x,
     y: row.y,
     excluded: row.excluded,
+    exclusionOperationId:
+      (sql
+        .exec(
+          "SELECT operation_id FROM note_bulk_exclusions WHERE note_id = ?1",
+          row.id,
+        )
+        .toArray()[0]?.operation_id as string | undefined) ?? null,
     stackOrder: row.stack_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

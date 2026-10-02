@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import { buildMembers } from "@/contracts/room-protocol.fixture";
+import {
+  buildMembers,
+  buildSharingState,
+} from "@/contracts/room-protocol.fixture";
 import { RoomBoardHeader } from "./room-board-header";
 import { buildPausedTimer } from "./room-timer.fixture";
 
@@ -13,6 +16,7 @@ const STEP_2_2 = buildPhaseStep(2, 2);
 const STEP_3_4 = buildPhaseStep(4, 3);
 const STEP_3_5 = buildPhaseStep(5, 3);
 const VOTING_MEMBERS = buildMembers(3, ME);
+const HUD_MEMBERS = buildMembers(12, ME);
 
 const meta = {
   title: "Room/RoomBoardHeader",
@@ -42,7 +46,7 @@ const meta = {
     onPublishOutcome: fn(),
     signOutAction: fn(),
     isLeaving: false,
-    onShowVoteResult: fn(),
+
     onLeaveClick: fn(),
     onNextPhase: fn(),
     onTimerStart: fn(),
@@ -123,7 +127,7 @@ export const Reconnecting: Story = {
   },
 };
 
-// Step 1-5: 投票結果ボタンが現れ、ステップ移行は打ち止めになる。
+// Step 1-5: 結果は付箋上で確認し、採用するまで進行を止める。
 export const VoteTotaled: Story = {
   args: {
     phase: STEP_1_5,
@@ -145,7 +149,7 @@ export const FinalDecisionPending: Story = {
   },
 };
 
-// Step 1-4: ステルス投票中は投票結果ボタンをまだ表示しない。
+// Step 1-4: ステルス投票中は個別の票を他者へ表示しない。
 export const StealthVoting: Story = {
   args: {
     phase: STEP_1_4,
@@ -172,5 +176,71 @@ export const Leaving: Story = {
 export const TimerPaused: Story = {
   args: {
     timer: buildPausedTimer(),
+  },
+};
+
+export const VoteResultAwaitingDecision: Story = {
+  args: { phase: STEP_1_5, isNextPhaseBlocked: true, members: HUD_MEMBERS },
+};
+export const IdeaVoting: Story = {
+  args: { phase: STEP_3_4, members: HUD_MEMBERS },
+};
+export const IdeaResultAwaitingDecision: Story = {
+  args: { phase: STEP_3_5, isNextPhaseBlocked: true, members: HUD_MEMBERS },
+};
+
+export const IdeaVotingComplete: Story = {
+  args: {
+    phase: STEP_3_4,
+    members: HUD_MEMBERS,
+    completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
+  },
+};
+
+export const VotingHud: Story = {
+  args: { phase: STEP_1_4, members: HUD_MEMBERS },
+};
+export const VotingCompleteHud: Story = {
+  args: {
+    phase: STEP_1_4,
+    members: HUD_MEMBERS,
+    completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
+  },
+};
+
+const SHARING_MEMBERS = buildMembers(3, ME);
+export const PresentingMember: Story = {
+  args: {
+    phase: buildPhaseStep(2),
+    isHost: false,
+    currentUserId: SHARING_MEMBERS[1].userId,
+    sharing: buildSharingState({
+      order: SHARING_MEMBERS,
+      status: "active",
+      currentIndex: 1,
+    }),
+    onSharingAdvance: fn(),
+    initialGuideState: "compact",
+  },
+};
+export const WaitingMember: Story = {
+  args: { ...PresentingMember.args, currentUserId: SHARING_MEMBERS[2].userId },
+};
+export const PresenterTransitioning: Story = {
+  args: {
+    ...PresentingMember.args,
+    sharing: buildSharingState({
+      order: SHARING_MEMBERS,
+      status: "active",
+      currentIndex: 1,
+      startsAt: Date.now() + 2000,
+    }),
+  },
+};
+export const PresenterDisconnected: Story = {
+  args: {
+    ...PresentingMember.args,
+    isDisconnected: true,
+    connectionStatus: "closed",
   },
 };

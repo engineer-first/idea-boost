@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -18,38 +20,27 @@ export function SharingPresenter({
   sharing,
   hostUserId,
 }: SharingPresenterProps) {
+  const descriptionId = useId();
   const current = sharing.order[sharing.currentIndex ?? sharing.results.length];
-  const next =
-    sharing.currentIndex === null
-      ? undefined
-      : sharing.order[sharing.currentIndex + 1];
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           aria-label="発表者と全体の順番を確認"
-          className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-xl border-blue-200 bg-blue-50 px-2 text-left hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 max-[900px]:min-w-[220px] max-[900px]:flex-1"
+          aria-describedby={descriptionId}
+          className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-xl border-blue-200 bg-blue-50 px-2 text-left hover:bg-blue-100 max-[900px]:min-w-[220px] max-[900px]:flex-1"
         >
           {current && (
             <MemberAvatar name={current.name} color={current.color} size={28} />
           )}
-          <span className="min-w-0 flex-1">
+          <span id={descriptionId} className="min-w-0 flex-1">
             <span className="block truncate text-xs font-semibold">
               {sharing.status === "complete"
                 ? "一巡しました"
                 : sharing.status === "ready"
                   ? "一人ずつ共有します"
-                  : current?.name}
-            </span>
-            <span className="block truncate text-[11px] text-muted-foreground">
-              {sharing.status === "complete"
-                ? "結果と順番を見る"
-                : sharing.status === "ready"
-                  ? `最初 ${current?.name ?? ""}`
-                  : next
-                    ? `次 ${next.name}`
-                    : "この人で最後"}
+                  : `${sharing.startsAt !== null ? "まもなく発表" : "発表中"}：${current?.name ?? ""}`}
             </span>
           </span>
           <span className="shrink-0 text-right text-xs tabular-nums">
@@ -57,18 +48,13 @@ export function SharingPresenter({
               ? sharing.results.length
               : sharing.currentIndex + 1}
             /{sharing.order.length}
-            <span className="block text-[10px] text-blue-700 dark:text-blue-300">
-              3回共通
-            </span>
           </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80" aria-label="共有する順番">
-        <p className="mb-3 text-sm font-semibold">
-          共有する順番{" "}
-          <span className="text-xs font-normal text-muted-foreground">
-            3回共通
-          </span>
+        <p className="text-sm font-semibold">共有する順番</p>
+        <p className="mb-3 mt-1 text-xs text-muted-foreground">
+          課題・問い・アイデアを同じ順番で共有します。
         </p>
         <ol className="max-h-72 space-y-3 overflow-y-auto">
           {sharing.order.map((member, index) => (

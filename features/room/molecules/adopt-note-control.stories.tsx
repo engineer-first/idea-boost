@@ -13,6 +13,7 @@ const meta = {
     disabled: false,
     onStartSelection: fn(),
     onCancelSelection: fn(),
+    onClearDecision: fn(),
   },
   decorators: [
     (Story) => (

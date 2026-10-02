@@ -11,9 +11,10 @@
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RoomPhase } from "@/contracts/phase";
+import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
 import { submitFeedback, useFeedback } from "@/features/feedback";
+import { HMW_EXAMPLES } from "@/features/hmw";
 import {
   NoteDraftRecovery,
   useNoteAutosave,
@@ -25,13 +26,14 @@ import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
+import { useCandidateOperations } from "../logic/use-candidate-operations";
 import { useCursorPresence } from "../logic/use-cursor-presence";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomState } from "../logic/use-room-state";
 import { ForceNextPhaseDialog } from "../molecules/force-next-phase-dialog";
-import { RoomBoardView } from "../templates/room-board-view";
+import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
 
 export type RoomBoardProps = {
   roomId: string;
@@ -51,6 +53,7 @@ export type RoomBoardProps = {
   // テストでボード操作を単体検証するときは案内モーダルを無効化する。
 };
 
+/** ルームの受信状態と各操作hookを束ね、共有ボードの表示と操作を接続する。 */
 export function RoomBoard({
   roomId,
   inviteCode,
@@ -67,8 +70,10 @@ export function RoomBoard({
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
-  const latestExcludeOperationRef = useRef(0);
-  const latestBulkExclusionOperationRef = useRef<string | null>(null);
+  const hmwExamplesInitializedVersionRef = useRef(0);
+  const candidateNoticeIdsRef = useRef(new Set<string | number>());
+  const bulkUndoIdsRef = useRef(new Set<string>());
+  const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
@@ -87,6 +92,11 @@ export function RoomBoard({
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
+  const candidates = useCandidateOperations({
+    notes: notes.notes,
+    connected: connectionStatus === "open",
+    send,
+  });
   const noteGroups = useNoteGroups({ send });
   const help = useBoardHelp(roomState.phase);
   const cursorPresence = useCursorPresence({
@@ -96,46 +106,86 @@ export function RoomBoard({
     send,
   });
 
+  function clearCandidateNotices(): void {
+    bulkUndoIdsRef.current.clear();
+    bulkNoticeIdsRef.current.clear();
+    for (const id of candidateNoticeIdsRef.current)
+      roomNotify.dismissCandidateNotice(id);
+    candidateNoticeIdsRef.current.clear();
+  }
+
+  useEffect(
+    () => () => {
+      for (const id of candidateNoticeIdsRef.current)
+        roomNotify.dismissCandidateNotice(id);
+      candidateNoticeIdsRef.current.clear();
+    },
+    [],
+  );
+
+  const rememberCandidateNotice = useCallback(
+    (id: string | number, operationId: string): void => {
+      candidateNoticeIdsRef.current.add(id);
+      bulkNoticeIdsRef.current.set(operationId, id);
+    },
+    [],
+  );
+
+  /** 古いグループ移動の通知を除き、付箋・進行・通知の各状態へサーバーメッセージを渡す。 */
   function handleServerMessage(message: ServerMessage) {
-    const receivedAt = Date.now();
-    drafts.applyMessage(message);
+    if (boardInteractions.applyGroupMessage?.(message) === false) return;
     if (
       message.type === "snapshot" ||
-      (message.type === "note:updated" && !message.note.excluded)
+      message.type === "outcome:published" ||
+      (message.type === "decision:updated" && message.decision !== null) ||
+      (message.type === "phase:updated" &&
+        (!isResultStep(message.phase) ||
+          roomState.phase.kind !== "step" ||
+          message.phase.kind !== "step" ||
+          message.phase.phase !== roomState.phase.phase))
     ) {
-      latestExcludeOperationRef.current += 1;
+      clearCandidateNotices();
     }
+    const receivedAt = Date.now();
+    drafts.applyMessage(message);
+    if (candidates.applyMessage(message)) return;
     if (message.type === "snapshot") {
-      latestBulkExclusionOperationRef.current = null;
+      bulkUndoIdsRef.current.clear();
+      bulkNoticeIdsRef.current.clear();
     }
     if (message.type === "note:bulk-excluded") {
       if (message.count > 0) {
         const undo = () => {
-          if (latestBulkExclusionOperationRef.current !== message.operationId) {
-            return;
-          }
-          latestBulkExclusionOperationRef.current = null;
-          notes.bulkRestoreCandidates(message.operationId);
+          if (!bulkUndoIdsRef.current.has(message.operationId)) return;
+          if (candidates.bulkRestore(message.operationId))
+            bulkUndoIdsRef.current.delete(message.operationId);
         };
         if (message.source === "phase-transition") {
-          latestBulkExclusionOperationRef.current = isHost
-            ? message.operationId
-            : null;
-          roomNotify.automaticallyExcludedCandidates(
-            message.count,
-            isHost ? undo : undefined,
+          if (isHost) bulkUndoIdsRef.current.add(message.operationId);
+          rememberCandidateNotice(
+            roomNotify.automaticallyExcludedCandidates(
+              message.count,
+              isHost ? undo : undefined,
+            ),
+            message.operationId,
           );
         } else {
-          latestBulkExclusionOperationRef.current = message.operationId;
-          roomNotify.bulkCandidatesExcluded(message.count, undo);
+          bulkUndoIdsRef.current.add(message.operationId);
+          rememberCandidateNotice(
+            roomNotify.bulkCandidatesExcluded(message.count, undo),
+            message.operationId,
+          );
         }
       }
     }
-    if (
-      message.type === "note:bulk-restored" &&
-      latestBulkExclusionOperationRef.current === message.operationId
-    ) {
-      latestBulkExclusionOperationRef.current = null;
+    if (message.type === "note:bulk-restored") {
+      const notice = bulkNoticeIdsRef.current.get(message.operationId);
+      if (notice !== undefined) {
+        roomNotify.dismissCandidateNotice(notice);
+        candidateNoticeIdsRef.current.delete(notice);
+        bulkNoticeIdsRef.current.delete(message.operationId);
+      }
+      bulkUndoIdsRef.current.delete(message.operationId);
     }
     if (message.type === "error") {
       notes.applyMessage(message);
@@ -167,6 +217,13 @@ export function RoomBoard({
     }
 
     notes.applyMessage(message);
+    if (
+      message.type === "snapshot" ||
+      message.type === "phase:updated" ||
+      message.type === "outcome:published" ||
+      (message.type === "decision:updated" && message.decision !== null)
+    )
+      boardInteractions.cancelCurrentNoteDrag(true);
     noteGroups.applyMessage(message);
     roomState.applyMessage(message, receivedAt);
     cursorPresence.applyMessage(message, receivedAt);
@@ -201,6 +258,11 @@ export function RoomBoard({
     [send],
   );
 
+  const handleDecisionClear = useCallback(() => {
+    if (!isHost || !roomState.decision || roomState.outcomePublished) return;
+    send({ type: "decision:clear", noteId: roomState.decision.noteId });
+  }, [isHost, roomState.decision, roomState.outcomePublished, send]);
+
   const handleAdoptionFocusChange = useCallback(
     (noteId: string | null) => {
       if (!isHost) return;
@@ -220,28 +282,6 @@ export function RoomBoard({
       });
     },
     [isNextPhasePending, send, roomState.phase, roomState.phaseRevision],
-  );
-
-  const handleNoteExclude = useCallback(
-    (noteId: string) => {
-      const operation = latestExcludeOperationRef.current + 1;
-      latestExcludeOperationRef.current = operation;
-      notes.excludeNote(noteId);
-      roomNotify.noteExcluded(() => {
-        if (latestExcludeOperationRef.current !== operation) return;
-        latestExcludeOperationRef.current += 1;
-        notes.restoreNote(noteId);
-      });
-    },
-    [notes],
-  );
-
-  const handleNoteRestore = useCallback(
-    (noteId: string) => {
-      latestExcludeOperationRef.current += 1;
-      notes.restoreNote(noteId);
-    },
-    [notes],
   );
 
   const handleTimerStart = useCallback(
@@ -283,7 +323,37 @@ export function RoomBoard({
     [addNote],
   );
 
-  // フェーズ2では決定課題を、フェーズ3では決定課題と決定HMWを掲示する。
+  useEffect(() => {
+    const isHmwWritingStep =
+      roomState.phase.kind === "step" &&
+      roomState.phase.phase === 2 &&
+      roomState.phase.step === 1;
+    if (
+      !isHmwWritingStep ||
+      connectionStatus !== "open" ||
+      notes.snapshotVersion === 0 ||
+      hmwExamplesInitializedVersionRef.current === notes.snapshotVersion
+    )
+      return;
+
+    const existingContents = new Set(
+      notes.notes
+        .filter((note) => note.visibility === "private")
+        .map((note) => note.content),
+    );
+    hmwExamplesInitializedVersionRef.current = notes.snapshotVersion;
+    for (const example of HMW_EXAMPLES) {
+      if (!existingContents.has(example)) addNote(example);
+    }
+  }, [
+    addNote,
+    connectionStatus,
+    notes.notes,
+    notes.snapshotVersion,
+    roomState.phase,
+  ]);
+
+  // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。
   // 持ち越しはフェーズ昇順の配列なので、由来フェーズで取り出す。
   const currentPhase =
     roomState.phase.kind === "step" ? roomState.phase.phase : null;
@@ -298,11 +368,16 @@ export function RoomBoard({
           ?.content ?? null)
       : null;
 
-  const boardNotes = notes.notes.filter((note) => note.visibility === "shared");
+  const boardNotes = candidates.notes.filter(
+    (note) => note.visibility === "shared",
+  );
   const boardPrivateNotes = notes.notes.filter(
     (note) => note.visibility === "private",
   );
   const boardInteractions = useRoomBoardInteractions({
+    send,
+    connected: connectionStatus === "open",
+    getFitInsets: getBoardFitInsets,
     notes: boardNotes,
     isDecided: roomState.decision !== null,
     privateNotes: boardPrivateNotes,
@@ -325,7 +400,7 @@ export function RoomBoard({
     if (connectionStatus === "open") return;
     drafts.setConnected(false);
     notes.cancelNoteDrag();
-    boardInteractions.cancelCurrentNoteDrag();
+    boardInteractions.cancelCurrentNoteDrag(true);
   }, [
     boardInteractions.cancelCurrentNoteDrag,
     connectionStatus,
@@ -343,6 +418,11 @@ export function RoomBoard({
       <RoomBoardView
         feedback={feedback}
         notes={boardNotes}
+        confirmedNotes={notes.notes.filter(
+          (note) => note.visibility === "shared",
+        )}
+        pendingCandidateNoteIds={candidates.pendingNoteIds}
+        isCandidatePending={candidates.isPending}
         groups={noteGroups.groups}
         hmwDecidedIssue={hmwDecidedIssue}
         decidedHmw={decidedHmw}
@@ -410,9 +490,9 @@ export function RoomBoard({
         onNoteFontSizeChange={notes.changeNoteFontSize}
         onNoteDelete={notes.deleteNote}
         onNoteBringToFront={notes.bringNoteToFront}
-        onNoteExclude={handleNoteExclude}
-        onNoteRestore={handleNoteRestore}
-        onBulkCandidateExclude={notes.bulkExcludeZeroVoteCandidates}
+        onNoteExclude={candidates.exclude}
+        onNoteRestore={candidates.restore}
+        onBulkCandidateExclude={candidates.bulkExclude}
         onGroupCreate={noteGroups.createGroup}
         onGroupUpdateName={noteGroups.renameGroup}
         onNoteVote={notes.voteNote}
@@ -420,6 +500,7 @@ export function RoomBoard({
         onNoteVoteStickerRemove={notes.removeVoteSticker}
         onNoteVoteStickerMove={notes.moveVoteSticker}
         onNoteDecide={handleNoteDecide}
+        onDecisionClear={handleDecisionClear}
         onPublishOutcome={() => send({ type: "outcome:publish" })}
         onAdoptionFocusChange={handleAdoptionFocusChange}
         onRestartWriting={() => handleLoopPhase("phase:restart-writing")}

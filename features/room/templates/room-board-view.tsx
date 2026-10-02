@@ -14,6 +14,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Button } from "@/components/ui/button";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
@@ -36,8 +37,10 @@ import {
 } from "@/features/feedback";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
+import type { CanvasFitInsets } from "../logic/canvas-camera";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
+import { roomNotify } from "../logic/room-notify";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
@@ -45,14 +48,90 @@ import type { StepGuideState } from "../logic/use-step-guide";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
-import { VoteTotalingDialog } from "../molecules/vote-totaling-dialog";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
 import { RoomBoardHeader } from "../organisms/room-board-header";
 
+// 透過wrapper全体ではなく実際にpointerを受ける表示領域だけを計測する。
+// viewport/mapの物理寸法は変えず、本人fit時の利用可能領域にだけ使う。
+export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
+  const root = viewport.closest('[data-testid="room-board-view-root"]');
+  const area = viewport.getBoundingClientRect();
+  let top = 0;
+  let bottom = 0;
+  for (const group of root?.querySelectorAll<HTMLElement>(
+    "[data-board-fit-edge]",
+  ) ?? []) {
+    for (const element of [
+      group,
+      ...group.querySelectorAll<HTMLElement>("*"),
+    ]) {
+      if (
+        !(element instanceof HTMLElement) ||
+        getComputedStyle(element).pointerEvents === "none"
+      )
+        continue;
+      // 最外の対話領域が占有を代表する。スクロール内容の自然rectを足さない。
+      let parent = element.parentElement;
+      let nested = false;
+      while (parent && group.contains(parent)) {
+        if (getComputedStyle(parent).pointerEvents !== "none") {
+          nested = true;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+      if (nested) continue;
+      const box = element.getBoundingClientRect();
+      let left = Math.max(area.left, box.left);
+      let right = Math.min(area.right, box.right);
+      let visibleTop = Math.max(area.top, box.top);
+      let visibleBottom = Math.min(area.bottom, box.bottom);
+      for (
+        let clip = element.parentElement;
+        clip && clip !== root;
+        clip = clip.parentElement
+      ) {
+        const style = getComputedStyle(clip);
+        const rect = clip.getBoundingClientRect();
+        if (/hidden|clip|auto|scroll/.test(style.overflowX || style.overflow)) {
+          left = Math.max(left, rect.left);
+          right = Math.min(right, rect.right);
+        }
+        if (/hidden|clip|auto|scroll/.test(style.overflowY || style.overflow)) {
+          visibleTop = Math.max(visibleTop, rect.top);
+          visibleBottom = Math.min(visibleBottom, rect.bottom);
+        }
+      }
+      if (right <= left || visibleBottom <= visibleTop) continue;
+      if (group.dataset.boardFitEdge === "top")
+        top = Math.max(top, visibleBottom - area.top);
+      else bottom = Math.max(bottom, area.bottom - visibleTop);
+    }
+  }
+  for (const toast of document.querySelectorAll<HTMLElement>(
+    '[data-sonner-toast][data-visible="true"][data-removed="false"][data-y-position="bottom"]',
+  )) {
+    const box = toast.getBoundingClientRect();
+    if (
+      box.width > 0 &&
+      box.height > 0 &&
+      box.right > area.left &&
+      box.left < area.right &&
+      box.top < area.bottom &&
+      box.bottom > area.top
+    )
+      bottom = Math.max(bottom, area.bottom - box.top);
+  }
+  return { top, right: 0, bottom, left: 0 };
+}
+
 export type RoomBoardViewProps = {
   feedback?: FeedbackControls;
   notes: Note[];
+  confirmedNotes?: Note[];
+  pendingCandidateNoteIds?: string[];
+  isCandidatePending?: boolean;
   groups: PersistentGroup[];
   inviteCode: string;
   inviteUrl: string;
@@ -127,6 +206,7 @@ export type RoomBoardViewProps = {
   }>;
   voteFeedback: { state: "confirmed" | "failed"; message: string } | null;
   onNoteDecide: (noteId: string) => void;
+  onDecisionClear?: () => void;
   onPublishOutcome: () => void;
   onAdoptionFocusChange?: (noteId: string | null) => void;
   onRestartWriting?: () => void;
@@ -160,9 +240,13 @@ type VoteStampPointer = {
   clientY: number;
 };
 
+/** 共有ボードと進行用の画面を組み立て、表示と操作コールバックを各部品へ渡す。 */
 export function RoomBoardView({
   feedback,
   notes,
+  confirmedNotes = notes,
+  pendingCandidateNoteIds = [],
+  isCandidatePending = false,
   groups,
   inviteCode,
   inviteUrl,
@@ -219,6 +303,7 @@ export function RoomBoardView({
   pendingVoteOperations,
   voteFeedback,
   onNoteDecide,
+  onDecisionClear,
   onPublishOutcome,
   onNoteBringToFront,
   onAdoptionFocusChange: notifyAdoptionFocusChange,
@@ -236,10 +321,12 @@ export function RoomBoardView({
 }: RoomBoardViewProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+  const shouldExpandPrivateNotes =
+    phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [isAdoptMode, setIsAdoptMode] = useState(false);
+  const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [voteTotalingDialogOpen, setVoteTotalingDialogOpen] = useState(false);
   const [outcomeDismissed, setOutcomeDismissed] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
@@ -255,7 +342,6 @@ export function RoomBoardView({
   const suppressPaletteSelectRef = useRef(false);
   const previousPhaseKey = useRef(phaseKey);
   const previousRevision = useRef(phaseRevision);
-  const resultShownFor = useRef<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const permissions = getBoardPermissions(phase, decision !== null);
 
@@ -267,18 +353,26 @@ export function RoomBoardView({
     if (previousPhaseKey.current === phaseKey) return;
     previousPhaseKey.current = phaseKey;
     setIsAdoptMode(false);
-  }, [phaseKey]);
+    setSelectedNoteId(null);
+    if (shouldExpandPrivateNotes)
+      setExpandPrivateNotesRequest((request) => request + 1);
+  }, [phaseKey, shouldExpandPrivateNotes]);
 
   useEffect(() => {
     if (previousRevision.current === phaseRevision) return;
     previousRevision.current = phaseRevision;
     setIsAdoptMode(false);
+    setSelectedNoteId(null);
   }, [phaseRevision]);
 
   useEffect(() => {
     if (connectionStatus === "open" && isHost && decision === null) return;
     setIsAdoptMode(false);
   }, [connectionStatus, decision, isHost]);
+
+  useEffect(() => {
+    if (connectionStatus !== "open" || isAdoptMode) setSelectedNoteId(null);
+  }, [connectionStatus, isAdoptMode]);
 
   useEffect(() => {
     if (isAdoptMode || sharedAdoptionFocusRef.current === null) return;
@@ -296,29 +390,15 @@ export function RoomBoardView({
   );
 
   useEffect(() => {
-    if (!isAdoptMode) return;
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
       setIsAdoptMode(false);
+      setSelectedNoteId(null);
     }
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [isAdoptMode]);
-
-  useEffect(() => {
-    if (isPhaseStep(phase, 3, 5) && decision?.phase === 3) {
-      setVoteTotalingDialogOpen(false);
-      return;
-    }
-    const resultKey = `${phaseKey}:${phaseRevision}`;
-    if (resultShownFor.current === resultKey) return;
-    resultShownFor.current = resultKey;
-    setVoteTotalingDialogOpen(
-      isResultStep(phase) &&
-        !(isPhaseStep(phase, 3, 5) && decision?.phase === 3),
-    );
-  }, [phase, phaseKey, phaseRevision, decision]);
+  }, []);
 
   useEffect(() => {
     if (isVotingStep(phase)) return;
@@ -366,10 +446,10 @@ export function RoomBoardView({
   // 「次のステップへ」を進められない状態。
   // - 結果ステップ: 決定が確定するまで進めない（サーバーの遷移ゲートと対の
   //   UI 側の入口無効化）
-  const candidateNotes = notes.filter(
+  const candidateNotes = confirmedNotes.filter(
     (note) => note.visibility === "shared" && !note.excluded,
   );
-  const bulkExclusionTargetCount = notes.filter(
+  const bulkExclusionTargetCount = confirmedNotes.filter(
     (note) =>
       note.visibility === "shared" &&
       !note.excluded &&
@@ -378,6 +458,7 @@ export function RoomBoardView({
       note.dotVotes.objective.count === 0,
   ).length;
   const isNextPhaseBlocked =
+    isCandidatePending ||
     (isResultStep(phase) &&
       (decision === null || candidateNotes.length === 0)) ||
     (phase.kind === "step" &&
@@ -400,7 +481,12 @@ export function RoomBoardView({
         "確定した内容");
 
   function handleAdoptNote(noteId: string) {
-    if (!isAdoptMode) return;
+    if (
+      !isAdoptMode ||
+      isCandidatePending ||
+      !confirmedNotes.some((note) => note.id === noteId && !note.excluded)
+    )
+      return;
     handleAdoptionFocusChange(null);
     setIsAdoptMode(false);
     onNoteDecide(noteId);
@@ -415,15 +501,16 @@ export function RoomBoardView({
   function noteElementAt(clientX: number, clientY: number): HTMLElement | null {
     const target = document.elementFromPoint(clientX, clientY);
     const note = target?.closest<HTMLElement>("[data-note-id]") ?? null;
-    if (
-      !note ||
-      !renderedNotes.some(
-        ({ id, excluded }) => id === note.dataset.noteId && !excluded,
-      )
-    ) {
+    if (!note || !renderedNotes.some(({ id }) => id === note.dataset.noteId)) {
       return null;
     }
     return note;
+  }
+
+  function isExcludedVoteTarget(note: HTMLElement): boolean {
+    return confirmedNotes.some(
+      ({ id, excluded }) => id === note.dataset.noteId && excluded,
+    );
   }
 
   function votePaletteElementAt(
@@ -539,7 +626,9 @@ export function RoomBoardView({
           onNoteVoteStickerRemove(stickerId);
         } else {
           const note = noteElementAt(event.clientX, event.clientY);
-          if (note) {
+          if (note && isExcludedVoteTarget(note)) {
+            roomNotify.cannotVoteExcludedNote();
+          } else if (note) {
             const rect = note.getBoundingClientRect();
             const noteId = note.dataset.noteId;
             if (noteId && rect.width > 0 && rect.height > 0) {
@@ -609,11 +698,13 @@ export function RoomBoardView({
 
     const note = target.closest<HTMLElement>("[data-note-id]");
     const noteId = note?.dataset.noteId;
-    if (
-      !note ||
-      !noteId ||
-      !renderedNotes.some(({ id, excluded }) => id === noteId && !excluded)
-    ) {
+    if (!note || !noteId || !confirmedNotes.some(({ id }) => id === noteId)) {
+      return;
+    }
+    if (isExcludedVoteTarget(note)) {
+      event.preventDefault();
+      event.stopPropagation();
+      roomNotify.cannotVoteExcludedNote();
       return;
     }
     const rect = note.getBoundingClientRect();
@@ -691,14 +782,94 @@ export function RoomBoardView({
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
+
+  // 通知はボードの外の portal に描画される。実際の占有高だけ HUD に渡し、
+  // 通知の寿命・Undo・camera・共有状態は変えない。
+  useEffect(() => {
+    const root = boardRootRef.current;
+    if (!root) return;
+    const toasts =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateNotificationInset);
+    const observedToasts = new Set<HTMLElement>();
+    let previousInset = -1;
+    function updateNotificationInset(): void {
+      let inset = 0;
+      const currentToasts = new Set(
+        document.querySelectorAll<HTMLElement>(
+          '[data-sonner-toast][data-visible="true"][data-removed="false"][data-y-position="bottom"]',
+        ),
+      );
+      for (const toast of observedToasts) {
+        if (currentToasts.has(toast)) continue;
+        toasts?.unobserve(toast);
+        observedToasts.delete(toast);
+      }
+      for (const toast of currentToasts) {
+        if (!observedToasts.has(toast)) {
+          toasts?.observe(toast);
+          observedToasts.add(toast);
+        }
+        const toaster = toast.closest<HTMLElement>("[data-sonner-toaster]");
+        if (!toaster) continue;
+        const bottom = Number.parseFloat(getComputedStyle(toaster).bottom) || 0;
+        const offset =
+          Number.parseFloat(toast.style.getPropertyValue("--offset")) || 0;
+        inset = Math.max(inset, bottom + offset + toast.offsetHeight + 16);
+      }
+      if (inset !== previousInset) {
+        root?.style.setProperty("--board-notification-inset", `${inset}px`);
+        previousInset = inset;
+      }
+    }
+    const mutations = new MutationObserver((records) => {
+      if (
+        records.some(({ target, type, addedNodes, removedNodes }) => {
+          if (
+            target instanceof Element &&
+            target.closest("[data-sonner-toaster]")
+          )
+            return true;
+          if (type !== "childList") return false;
+          // Portalの追加/削除だけを拾う。付箋入力等ではlayout計測しない。
+          return [...addedNodes, ...removedNodes].some(
+            (node) =>
+              node instanceof Element &&
+              (node.matches("[data-sonner-toaster]") ||
+                node.querySelector("[data-sonner-toaster]")),
+          );
+        })
+      )
+        updateNotificationInset();
+    });
+    mutations.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-visible", "data-removed", "style"],
+    });
+    window.addEventListener("resize", updateNotificationInset);
+    updateNotificationInset();
+    return () => {
+      mutations.disconnect();
+      toasts?.disconnect();
+      window.removeEventListener("resize", updateNotificationInset);
+      root.style.removeProperty("--board-notification-inset");
+    };
+  }, [boardRootRef]);
+
   const handleNoteSelect = (noteId: string | null) => {
+    if (isAdoptMode) return;
     setSelectedNoteId(noteId);
     const isSharedNote =
-      noteId !== null && renderedNotes.some(({ id }) => id === noteId);
+      noteId !== null &&
+      confirmedNotes.some(({ id, excluded }) => id === noteId && !excluded);
     if (
       noteId !== null &&
       isSharedNote &&
       permissions.canMoveNote &&
+      !pendingCandidateNoteIds.includes(noteId) &&
       !isDisconnected
     ) {
       onNoteBringToFront(noteId);
@@ -724,6 +895,24 @@ export function RoomBoardView({
           }
           outcome={outcome}
           connected={!isDisconnected}
+        >
+          <Button
+            variant="outline"
+            className="min-h-11"
+            disabled={isLeaving}
+            onClick={() => setLeaveDialogOpen(true)}
+          >
+            退出してホームへ
+          </Button>
+        </RoomOutcomeView>
+        <LeaveConfirmDialog
+          open={leaveDialogOpen}
+          onOpenChange={setLeaveDialogOpen}
+          onConfirm={onLeave}
+          isLeaving={isLeaving}
+          mode="leave"
+          completed
+          onReturnToOutcome={() => setLeaveDialogOpen(false)}
         />
         {feedback ? <FeedbackPanel feedback={feedback} /> : null}
       </>
@@ -769,7 +958,9 @@ export function RoomBoardView({
           phase={phase}
           phaseRevision={phaseRevision}
           bulkExclusionTargetCount={bulkExclusionTargetCount}
-          canManageCandidates={isResultStep(phase) && decision === null}
+          canManageCandidates={
+            isResultStep(phase) && decision === null && !isCandidatePending
+          }
           onBulkCandidateExclude={onBulkCandidateExclude}
           sharing={sharing}
           onSharingStart={onSharingStart}
@@ -793,7 +984,6 @@ export function RoomBoardView({
           onShowOutcome={() => setOutcomeDismissed(false)}
           signOutAction={signOutAction}
           isLeaving={isLeaving}
-          onShowVoteResult={() => setVoteTotalingDialogOpen(true)}
           onLeaveClick={() => setLeaveDialogOpen(true)}
           onNextPhase={onNextPhase}
           onTimerStart={onTimerStart}
@@ -805,12 +995,20 @@ export function RoomBoardView({
           <BoardHelpPanel
             {...help}
             disabled={isDisconnected}
-            onHmwTemplateSelect={onHmwTemplateSelect}
-            onIdeaHintSelect={onIdeaHintSelect}
+            onHmwTemplateSelect={(content) => {
+              onHmwTemplateSelect(content);
+              setExpandPrivateNotesRequest((request) => request + 1);
+            }}
+            onIdeaHintSelect={(content) => {
+              onIdeaHintSelect(content);
+              setExpandPrivateNotesRequest((request) => request + 1);
+            }}
           />
         </RoomBoardHeader>
 
         <RoomBoardCanvas
+          movingGroups={interactions.movingGroups}
+          onGroupDragStart={interactions.onGroupDragStart}
           notes={renderedNotes}
           groups={groups}
           phase={phase}
@@ -819,8 +1017,11 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
+          expandPrivateNotesRequest={expandPrivateNotesRequest}
           selectedNoteId={selectedNoteId}
+          pendingCandidateNoteIds={pendingCandidateNoteIds}
           draggingNoteId={draggingNoteId}
+          localDraggingNoteId={interactions.localDraggingNoteId}
           isDisconnected={isDisconnected}
           ideaMapSizeLevel={ideaMapSizeLevel}
           ideaMapSizeInitialized={ideaMapSizeInitialized}
@@ -847,7 +1048,11 @@ export function RoomBoardView({
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
           onResetZoom={resetZoom}
-          onFitToNotes={fitToNotes}
+          onFitToNotes={() => {
+            const viewport = boardScrollerRef.current;
+            if (viewport && fitToNotes(getBoardFitInsets(viewport)) === false)
+              roomNotify.canvasFitUnavailable();
+          }}
           onSelect={handleNoteSelect}
           onNoteDragStart={handleSharedNoteDragStart}
           onNoteContentChange={onNoteContentChange}
@@ -877,8 +1082,9 @@ export function RoomBoardView({
 
         {isVotingStep(phase) ? (
           <div
-            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center"
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center max-[639px]:bottom-[7.5rem] max-[639px]:justify-center"
             data-testid="vote-palette-hud"
+            data-board-fit-edge="bottom"
           >
             <DotVotePalette
               voteRemaining={voteRemaining}
@@ -894,8 +1100,9 @@ export function RoomBoardView({
         ) : null}
 
         <div
-          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center"
+          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[7.5rem]"
           data-testid="phase-loop-hud"
+          data-board-fit-edge="bottom"
         >
           <PhaseLoopControls
             key={`${phaseKey}:${phaseRevision}:${connectionStatus}`}
@@ -904,7 +1111,9 @@ export function RoomBoardView({
             isSelecting={isAdoptMode}
             decisionContent={decisionContent}
             candidateCount={candidateNotes.length}
-            disabled={isDisconnected || isNextPhasePending}
+            disabled={
+              isDisconnected || isNextPhasePending || isCandidatePending
+            }
             onRestartWriting={onRestartWriting}
             onRevote={onRevote}
             onStartSelection={() => {
@@ -912,6 +1121,7 @@ export function RoomBoardView({
               setIsAdoptMode(true);
             }}
             onCancelSelection={() => setIsAdoptMode(false)}
+            onClearDecision={outcomePublished ? undefined : onDecisionClear}
           />
         </div>
 
@@ -947,19 +1157,6 @@ export function RoomBoardView({
             <DotVoteSticker kind={selectedVoteKind} count={1} state="preview" />
           </div>
         ) : null}
-
-        {/* 採用操作の入口は画面下に一本化し、集計ダイアログでは結果の確認だけを行う。 */}
-        <VoteTotalingDialog
-          open={voteTotalingDialogOpen}
-          onOpenChange={setVoteTotalingDialogOpen}
-          isVotingComplete={isResultStep(phase)}
-          members={members}
-          notes={notes}
-          decision={decision}
-          isHost={false}
-          isDisconnected={isDisconnected}
-          onNoteDecide={onNoteDecide}
-        />
 
         <LeaveConfirmDialog
           open={leaveDialogOpen}

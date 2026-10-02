@@ -13,6 +13,7 @@ const meta = {
     loading: false,
     error: null,
     hasMore: true,
+    onRefresh: fn(),
     onRetry: fn(),
     onMore: fn(),
   },
@@ -62,4 +63,29 @@ export const EmptyPageWithMore: Story = {
       />
     );
   },
+};
+
+export const EmptyThenIndexed: Story = {
+  args: { rooms: [], hasMore: false },
+  render: (args) => {
+    const [rooms, setRooms] = useState(args.rooms);
+    const [loading, setLoading] = useState(false);
+    return (
+      <CompletedRoomsView
+        {...args}
+        rooms={rooms}
+        loading={loading}
+        onRefresh={() => {
+          setLoading(true);
+          setTimeout(() => {
+            setRooms(nextPageRooms);
+            setLoading(false);
+          }, 500);
+        }}
+      />
+    );
+  },
+};
+export const Refreshing: Story = {
+  args: { loading: true },
 };

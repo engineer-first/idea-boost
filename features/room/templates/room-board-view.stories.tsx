@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn, userEvent, within } from "storybook/test";
+import { useRef, useState } from "react";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type { Decision } from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -9,6 +12,7 @@ import {
 } from "@/contracts/room-protocol.fixture";
 import { useFeedback } from "@/features/feedback";
 import { useBoardHelp } from "../logic/use-board-help";
+import { useCanvasCamera } from "../logic/use-canvas-camera";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardView } from "./room-board-view";
 
@@ -21,7 +25,7 @@ const STEP_1_5 = buildPhaseStep(5);
 const STEP_2_1 = buildPhaseStep(1, 2);
 const STEP_3_5 = buildPhaseStep(5, 3);
 const GUIDE_ISSUE = "会議で発言する人が偏ってしまう";
-const GUIDE_HMW = "どうすれば全員が安心してアイデアを共有できるだろうか？";
+const GUIDE_QUESTION = "どうすれば全員が安心してアイデアを共有できるだろうか？";
 const CANVAS_HUD_POSITIONS = [
   [180, 120],
   [380, 220],
@@ -142,6 +146,7 @@ const meta = {
     pendingVoteOperations: [],
     voteFeedback: null,
     onNoteDecide: fn(),
+    onDecisionClear: fn(),
     onPublishOutcome: fn(),
 
     onLeave: fn(),
@@ -174,7 +179,7 @@ function guideStory(phase: 1 | 2 | 3, step: number): Story {
       notes: step === 1 ? [] : buildNotes(3),
       initialGuideState: "detail",
       hmwDecidedIssue: phase >= 2 ? GUIDE_ISSUE : null,
-      decidedHmw: phase === 3 ? GUIDE_HMW : null,
+      decidedHmw: phase === 3 ? GUIDE_QUESTION : null,
     },
   };
 }
@@ -439,8 +444,6 @@ export const SelectingCandidate: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", { name: "採用する付箋を選ぶ" }),
     );
@@ -469,8 +472,6 @@ export const SelectingAt768px: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", { name: "採用する付箋を選ぶ" }),
     );
@@ -492,8 +493,6 @@ export const SelectingIdeaMapCandidate: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await within(document.body).findByRole("dialog");
-    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       await canvas.findByRole("button", {
         name: "採用する付箋を選ぶ",
@@ -631,7 +630,7 @@ export const NextPhaseConfirmDialog: Story = {
   },
 };
 
-// Step 2-1（HMW 個人執筆）: 持ち越された決定課題バナー（上端）と HMW
+// Step 2-1（問いの個人執筆）: 持ち越された決定課題バナー（上端）と問い
 // テンプレートパネル（左端）がボード上に浮かび、ボード面は自分の付箋だけ
 // （共有付箋・グループは出さない）。
 export const HmwWritingStep: Story = {
@@ -675,6 +674,39 @@ export const IdeaMapInteraction: Story = {
   },
 };
 
+export const CanvasPanInteraction: Story = {
+  args: { phase: STEP_1_2, notes: CANVAS_HUD_NOTES },
+  render: function Render(args) {
+    const boardScrollerRef = useRef<HTMLDivElement>(null);
+    const camera = useCanvasCamera({
+      viewportRef: boardScrollerRef,
+      notes: args.notes,
+    });
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        help={help}
+        interactions={{
+          ...args.interactions,
+          notes: args.notes,
+          boardScrollerRef,
+          camera: camera.camera,
+          gridStyle: camera.gridStyle,
+          isPanning: camera.isPanning,
+          onCanvasPointerDown: camera.handlePointerDown,
+          onCanvasPointerMove: camera.handlePointerMove,
+          onCanvasPointerEnd: camera.handlePointerEnd,
+          onZoomIn: camera.zoomIn,
+          onZoomOut: camera.zoomOut,
+          onResetZoom: camera.resetZoom,
+          onFitToNotes: camera.fitToNotes,
+        }}
+      />
+    );
+  },
+};
+
 export const WithFeedback: Story = {
   render: function Render(args) {
     const feedback = useFeedback(
@@ -682,5 +714,117 @@ export const WithFeedback: Story = {
       async (_room, input) => ({ ok: true, id: input.id }),
     );
     return <RoomBoardView {...args} feedback={feedback} />;
+  },
+};
+
+// サーバー応答後に決定が解除された状態を再現し、取消から再採用まで操作できる。
+const decisionReselectionRender: Story["render"] =
+  function DecisionReselectionRender(args) {
+    const [decision, setDecision] = useState<Decision | null>(args.decision);
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        help={help}
+        interactions={{ ...args.interactions, notes: args.notes }}
+        decision={decision}
+        onDecisionClear={() => {
+          args.onDecisionClear?.();
+          setDecision(null);
+        }}
+        onNoteDecide={(noteId) => {
+          args.onNoteDecide(noteId);
+          setDecision(
+            buildDecision({
+              noteId,
+              phase: args.phase.kind === "step" ? args.phase.phase : 1,
+              decidedBy: ME,
+            }),
+          );
+        }}
+      />
+    );
+  };
+export const DecisionReselection: Story = {
+  render: decisionReselectionRender,
+  args: { ...Decided.args, isHost: true, initialGuideState: "compact" },
+};
+export const HmwDecisionReselection: Story = {
+  render: decisionReselectionRender,
+  args: {
+    ...DecisionReselection.args,
+    phase: buildPhaseStep(4, 2),
+    decision: buildDecision({ phase: 2, noteId: "note-1", decidedBy: ME }),
+    hmwDecidedIssue: GUIDE_ISSUE,
+  },
+};
+export const IdeaDecisionReselection: Story = {
+  render: decisionReselectionRender,
+  args: {
+    ...FinalDecisionPending.args,
+    isHost: true,
+    initialGuideState: "compact",
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 20 + index * 30,
+      y: 25 + index * 20,
+    })),
+  },
+};
+
+export const FitUnavailable: Story = {
+  decorators: [
+    (Story) => (
+      <>
+        <Story />
+        <Toaster position="bottom-center" />
+      </>
+    ),
+  ],
+  args: {
+    phase: STEP_1_4,
+    initialGuideState: "detail",
+    interactions: { ...INTERACTIONS, onFitToNotes: fn(() => false) },
+  },
+};
+
+export const ExcludedVoteAttempt: Story = {
+  decorators: [
+    (Story) => (
+      <>
+        <Story />
+        <Toaster position="bottom-center" />
+      </>
+    ),
+  ],
+  name: "再投票で候補外に投票したとき",
+  args: {
+    phase: STEP_1_4,
+    notes: buildNotes(2).map((note, index) => ({
+      ...note,
+      excluded: index === 0,
+    })),
+    initialGuideState: "compact",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "主観シール 残り1票" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: /^候補外の付箋$/ }),
+    );
+    const body = within(canvasElement.ownerDocument.body);
+    const notice = await body.findByText(
+      "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",
+      { exact: true },
+    );
+    await waitFor(() => expect(notice).toBeVisible());
+    await expect(
+      canvas.getByRole("button", { name: "主観シール 残り1票" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "客観シール 残り3票" }),
+    ).toBeVisible();
   },
 };
