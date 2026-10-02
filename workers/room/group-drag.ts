@@ -65,8 +65,17 @@ export function broadcastGroupDrag(
   if (
     rows.length !== group.positions.length ||
     rows.some((row) => row.visibility !== "shared" || row.phase !== 1)
-  )
+  ) {
+    // 対象が非公開化・削除された場合も操作権の終了だけは全員へ伝える。
+    // 本文・対象ID・枠・座標を含めず、既に共有された操作IDだけを無効化する。
+    if (ended)
+      broadcaster.broadcastToAll({
+        type: "group:drag:result",
+        dragId: active.dragId,
+        accepted: false,
+      });
     return;
+  }
   broadcaster.broadcastGroupNotes((viewerId) => ({
     type: "group:drag:updated",
     dragId: active.dragId,
@@ -135,6 +144,7 @@ export const groupDragHandlers: MessageHandlers<
           message.dragId,
         )
         .toArray().length > 0;
+    const lockedNoteIds = ctx.broadcaster.activeDraggedNoteIds();
     const accepted = Boolean(
       frame?.representativeNoteId &&
         !current &&
@@ -151,7 +161,7 @@ export const groupDragHandlers: MessageHandlers<
           (note) =>
             expected.get(note.id)?.x === note.x &&
             expected.get(note.id)?.y === note.y &&
-            !ctx.broadcaster.findActiveDrag(note.id),
+            !lockedNoteIds.has(note.id),
         ),
     );
     if (!accepted || !frame?.representativeNoteId) {

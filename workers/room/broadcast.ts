@@ -264,6 +264,19 @@ export class RoomBroadcaster {
     return null;
   }
 
+  /** 開始要求ごとに単独・一括移動のロックを1巡で集め、対象数に比例するSQL再読込を避ける。 */
+  activeDraggedNoteIds(): Set<string> {
+    const noteIds = new Set<string>();
+    for (const socket of this.connections.getWebSockets()) {
+      const active = this.activeDragFor(socket);
+      if (!active) continue;
+      noteIds.add(active.noteId);
+      for (const position of active.group?.positions ?? [])
+        noteIds.add(position.noteId);
+    }
+    return noteIds;
+  }
+
   /** ソケット添付の操作IDから、必要に応じてSQLに保存されたグループ移動を復元する。 */
   activeDragFor(socket: WebSocket): ActiveDragOwner | null {
     const attachment =

@@ -344,6 +344,13 @@ export function useGroupDrag({
         return true;
       }
       if (message.type === "group:drag:result") {
+        if (!message.accepted) {
+          rememberClosed(message.dragId);
+          awaitingFinalIdsRef.current.delete(message.dragId);
+          setMovingGroups((groups) =>
+            groups.filter((group) => group.dragId !== message.dragId),
+          );
+        }
         const current = operationRef.current;
         if (!current || current.dragId !== message.dragId) return true;
         if (!message.accepted) {
