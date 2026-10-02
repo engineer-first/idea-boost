@@ -26,7 +26,7 @@ for (const width of [390, 1280]) {
       await open(page, "room-boardhelppanel--writing");
       const guide = page.getByTestId("idea-guide-panel");
       await guide.waitFor();
-      const toggle = guide.getByRole("button", { name: "ほかの考え方を見る" });
+      const toggle = guide.getByRole("button", { name: /ほかの考え方/ });
       const last = guide.getByText("当たり前を逆にしたらどうなる？", {
         exact: true,
       });
@@ -76,7 +76,7 @@ for (const width of [390, 1280]) {
       expect(await last.isVisible()).toBe(false);
       await scamper.press("Tab");
       // Radixのtabpanel自体もTabで辿れる。実際に操作対象へ移動する。
-      const more = page.getByRole("button", { name: /ほかの問いを見る/ });
+      const more = page.getByRole("button", { name: /ほかの問い/ });
       await more.focus();
       await page.keyboard.press("Enter");
       await last.scrollIntoViewIfNeeded();
@@ -100,7 +100,7 @@ for (const width of [390, 1280]) {
       expect(await last.isVisible()).toBe(true);
       for (const category of ["逆転発想", "他業界事例", "オズボーン"]) {
         await page.getByRole("tab", { name: category, exact: true }).click();
-        const toggle = page.getByRole("button", { name: /ほかの問いを見る/ });
+        const toggle = page.getByRole("button", { name: /ほかの問い/ });
         await toggle.press("Enter");
         expect(await toggle.getAttribute("aria-expanded")).toBe("true");
         await toggle.press("Space");
@@ -135,6 +135,9 @@ for (const width of [390, 1280]) {
       await page
         .getByRole("region", { name: "ファシリテーションガイド" })
         .press("Escape");
+      await page.screenshot({
+        path: `${output}/after-phase-3-1-initial-${width}.png`,
+      });
       const template = help.getByRole("button", {
         name: "もっと簡単に",
         exact: true,
@@ -144,7 +147,9 @@ for (const width of [390, 1280]) {
       const box = await template.boundingBox();
       expect(box?.x).toBeGreaterThanOrEqual(0);
       expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
-      await page.screenshot({ path: `${output}/after-phase-3-1-${width}.png` });
+      await page.screenshot({
+        path: `${output}/after-phase-3-1-templates-${width}.png`,
+      });
     } finally {
       await page.close();
     }

@@ -96,7 +96,7 @@ test("接続拒否中は発想支援ツールを作成できない", async () =>
       .all()) {
       expect(await button.isDisabled()).toBe(true);
     }
-    const more = guide.getByRole("button", { name: "ほかの考え方を見る" });
+    const more = guide.getByRole("button", { name: /ほかの考え方/ });
     await more.press("Enter");
     expect(await more.getAttribute("aria-expanded")).toBe("true");
   } finally {
