@@ -153,34 +153,34 @@ describe("工程ガイド", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
-  it.each([
-    "intro",
-    "detail",
-  ] as const)("%sを外側クリックで畳み、その1回で元の操作も実行する", (initialState) => {
-    const { onAction } = setup({ initialState });
-    outsideClick();
-    expect(frame()).toHaveAttribute("data-state", "compact");
-    expect(onAction).toHaveBeenCalledOnce();
-  });
-  it.each([
-    "{Enter}",
-    " ",
-  ])("%sで開き、Escapeで入口に戻し、Tabでは移動先に留める", async (key) => {
-    const user = userEvent.setup();
-    setup({ initialState: "compact" });
-    const button = screen.getByRole("button", { name: "進め方" });
-    act(() => button.focus());
-    await user.keyboard(key);
-    expect(
-      screen.getByRole("region", { name: "ファシリテーションガイド" }),
-    ).toHaveFocus();
-    await user.keyboard("{Escape}");
-    expect(button).toHaveFocus();
-    await user.keyboard(key);
-    await user.tab();
-    expect(screen.getByRole("button", { name: "付箋を追加" })).toHaveFocus();
-    expect(frame()).toHaveAttribute("data-state", "compact");
-  });
+  it.each(["intro", "detail"] as const)(
+    "%sを外側クリックで畳み、その1回で元の操作も実行する",
+    (initialState) => {
+      const { onAction } = setup({ initialState });
+      outsideClick();
+      expect(frame()).toHaveAttribute("data-state", "compact");
+      expect(onAction).toHaveBeenCalledOnce();
+    },
+  );
+  it.each(["{Enter}", " "])(
+    "%sで開き、Escapeで入口に戻し、Tabでは移動先に留める",
+    async (key) => {
+      const user = userEvent.setup();
+      setup({ initialState: "compact" });
+      const button = screen.getByRole("button", { name: "進め方" });
+      act(() => button.focus());
+      await user.keyboard(key);
+      expect(
+        screen.getByRole("region", { name: "ファシリテーションガイド" }),
+      ).toHaveFocus();
+      await user.keyboard("{Escape}");
+      expect(button).toHaveFocus();
+      await user.keyboard(key);
+      await user.tab();
+      expect(screen.getByRole("button", { name: "付箋を追加" })).toHaveFocus();
+      expect(frame()).toHaveAttribute("data-state", "compact");
+    },
+  );
   it("初めての工程だけ案内し、戻る・再マウントでは畳んで始める", () => {
     const { rerender, unmount, props } = setup();
     outsideClick();

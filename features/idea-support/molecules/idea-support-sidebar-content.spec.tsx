@@ -6,23 +6,24 @@ import { ideaSupportContents } from "../logic/idea-support-content";
 import { IdeaSupportSidebarContent } from "./idea-support-sidebar-content";
 
 describe("IdeaSupportSidebarContent", () => {
-  it.each(
-    ideaSupportContents,
-  )("$labelは代表の問いだけ表示し、残りを開閉できる", async (item) => {
-    const user = userEvent.setup();
-    render(<IdeaSupportSidebarContent defaultContentId={item.id} />);
-    expect(screen.getByText(item.content[0])).toBeVisible();
-    for (const text of item.content.slice(1)) {
-      expect(screen.queryByText(text)).not.toBeVisible();
-    }
-    const toggle = screen.getByRole("button", { name: /ほかの問いを見る/ });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await user.click(toggle);
-    for (const text of item.content)
-      expect(screen.getByText(text)).toBeVisible();
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-  });
+  it.each(ideaSupportContents)(
+    "$labelは代表の問いだけ表示し、残りを開閉できる",
+    async (item) => {
+      const user = userEvent.setup();
+      render(<IdeaSupportSidebarContent defaultContentId={item.id} />);
+      expect(screen.getByText(item.content[0])).toBeVisible();
+      for (const text of item.content.slice(1)) {
+        expect(screen.queryByText(text)).not.toBeVisible();
+      }
+      const toggle = screen.getByRole("button", { name: /ほかの問いを見る/ });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await user.click(toggle);
+      for (const text of item.content)
+        expect(screen.getByText(text)).toBeVisible();
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+    },
+  );
 
   it("カテゴリを切り替えて戻っても、選んだ補足の開閉状態を保つ", async () => {
     const user = userEvent.setup();

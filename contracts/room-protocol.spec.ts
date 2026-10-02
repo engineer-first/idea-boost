@@ -270,20 +270,18 @@ describe("NoteSchema", () => {
     );
   });
 
-  it.each([
-    11,
-    12.5,
-    25,
-    Number.POSITIVE_INFINITY,
-  ])("文字サイズ %s は拒否する", (fontSize) => {
-    expect(
-      NoteSchema.safeParse({
-        ...note,
-        visibility: "shared",
-        fontSize,
-      }).success,
-    ).toBe(false);
-  });
+  it.each([11, 12.5, 25, Number.POSITIVE_INFINITY])(
+    "文字サイズ %s は拒否する",
+    (fontSize) => {
+      expect(
+        NoteSchema.safeParse({
+          ...note,
+          visibility: "shared",
+          fontSize,
+        }).success,
+      ).toBe(false);
+    },
+  );
 });
 
 describe("ServerMessageSchema", () => {
@@ -796,33 +794,33 @@ describe("ClientMessageSchema", () => {
     ).toBe(false);
   });
 
-  it.each([
-    "note:exclude",
-    "note:restore",
-  ])("%s は付箋IDだけを受け入れ、認可情報を受け取らない", (type) => {
-    expect(
-      ClientMessageSchema.parse({
+  it.each(["note:exclude", "note:restore"])(
+    "%s は付箋IDだけを受け入れ、認可情報を受け取らない",
+    (type) => {
+      expect(
+        ClientMessageSchema.parse({
+          type,
+          noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          authorId: USER_B,
+          isHost: true,
+          x: 999,
+          y: 999,
+        }),
+      ).toEqual({
         type,
         noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        authorId: USER_B,
-        isHost: true,
-        x: 999,
-        y: 999,
-      }),
-    ).toEqual({
-      type,
-      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    });
-  });
+      });
+    },
+  );
 
-  it.each([
-    "note:exclude",
-    "note:restore",
-  ])("%s はUUIDでない付箋IDを拒否する", (type) => {
-    expect(
-      ClientMessageSchema.safeParse({ type, noteId: "not-a-uuid" }).success,
-    ).toBe(false);
-  });
+  it.each(["note:exclude", "note:restore"])(
+    "%s はUUIDでない付箋IDを拒否する",
+    (type) => {
+      expect(
+        ClientMessageSchema.safeParse({ type, noteId: "not-a-uuid" }).success,
+      ).toBe(false);
+    },
+  );
 
   it("note:drag:start は移動者情報をクライアントから受け取らない", () => {
     expect(
@@ -926,14 +924,12 @@ describe("ClientMessageSchema", () => {
     }
   });
 
-  it.each([
-    "timer:pause",
-    "timer:resume",
-    "timer:extend",
-    "timer:stop",
-  ])("%s はペイロードなしで受け入れる", (type) => {
-    expect(ClientMessageSchema.parse({ type })).toEqual({ type });
-  });
+  it.each(["timer:pause", "timer:resume", "timer:extend", "timer:stop"])(
+    "%s はペイロードなしで受け入れる",
+    (type) => {
+      expect(ClientMessageSchema.parse({ type })).toEqual({ type });
+    },
+  );
 
   it("note:publish は付箋IDとボード座標を受け入れる", () => {
     expect(
@@ -1123,21 +1119,21 @@ describe("ClientMessageSchema", () => {
 });
 
 describe("一括候補外のサーバー確定通知", () => {
-  it.each([
-    "note:bulk-excluded",
-    "note:bulk-restored",
-  ] as const)("%s はサーバー採番の operation ID と実件数を運ぶ", (type) => {
-    const message = {
-      type,
-      operationId: "33333333-3333-4333-8333-333333333333",
-      count: 2,
-      ...(type === "note:bulk-excluded" ? { source: "manual" as const } : {}),
-    };
-    expect(ServerMessageSchema.parse(message)).toEqual(message);
-    expect(
-      ServerMessageSchema.safeParse({ ...message, count: -1 }).success,
-    ).toBe(false);
-  });
+  it.each(["note:bulk-excluded", "note:bulk-restored"] as const)(
+    "%s はサーバー採番の operation ID と実件数を運ぶ",
+    (type) => {
+      const message = {
+        type,
+        operationId: "33333333-3333-4333-8333-333333333333",
+        count: 2,
+        ...(type === "note:bulk-excluded" ? { source: "manual" as const } : {}),
+      };
+      expect(ServerMessageSchema.parse(message)).toEqual(message);
+      expect(
+        ServerMessageSchema.safeParse({ ...message, count: -1 }).success,
+      ).toBe(false);
+    },
+  );
 
   it("自動整理の通知は投票完了後のステップ移行が起点だと識別できる", () => {
     const message = {
@@ -1332,28 +1328,27 @@ describe("プロトコル整合性", () => {
 void USER_B;
 
 describe("反復の進行要求", () => {
-  it.each([
-    "phase:next",
-    "phase:restart-writing",
-    "phase:revote",
-  ])("%s は期待ステップとrevisionを必須にする", (type) => {
-    const valid = { type, expectedPhase: STEP_1_2, expectedRevision: 7 };
-    expect(ClientMessageSchema.parse(valid)).toEqual(valid);
-    expect(ClientMessageSchema.safeParse({ type }).success).toBe(false);
-    expect(
-      ClientMessageSchema.safeParse({ ...valid, expectedPhase: undefined })
-        .success,
-    ).toBe(false);
-    expect(
-      ClientMessageSchema.safeParse({ ...valid, expectedRevision: undefined })
-        .success,
-    ).toBe(false);
-    for (const expectedRevision of [-1, 0.5, "7"]) {
+  it.each(["phase:next", "phase:restart-writing", "phase:revote"])(
+    "%s は期待ステップとrevisionを必須にする",
+    (type) => {
+      const valid = { type, expectedPhase: STEP_1_2, expectedRevision: 7 };
+      expect(ClientMessageSchema.parse(valid)).toEqual(valid);
+      expect(ClientMessageSchema.safeParse({ type }).success).toBe(false);
       expect(
-        ClientMessageSchema.safeParse({ ...valid, expectedRevision }).success,
+        ClientMessageSchema.safeParse({ ...valid, expectedPhase: undefined })
+          .success,
       ).toBe(false);
-    }
-  });
+      expect(
+        ClientMessageSchema.safeParse({ ...valid, expectedRevision: undefined })
+          .success,
+      ).toBe(false);
+      for (const expectedRevision of [-1, 0.5, "7"]) {
+        expect(
+          ClientMessageSchema.safeParse({ ...valid, expectedRevision }).success,
+        ).toBe(false);
+      }
+    },
+  );
 });
 
 describe("共有進行の境界", () => {
@@ -1369,13 +1364,14 @@ describe("共有進行の境界", () => {
       false,
     );
   });
-  it.each([
-    0, -1, 6000000, 0.5,
-  ])("不正な持ち時間 %i を拒否する", (durationMs) => {
-    expect(
-      ClientMessageSchema.safeParse({ ...start, durationMs }).success,
-    ).toBe(false);
-  });
+  it.each([0, -1, 6000000, 0.5])(
+    "不正な持ち時間 %i を拒否する",
+    (durationMs) => {
+      expect(
+        ClientMessageSchema.safeParse({ ...start, durationMs }).success,
+      ).toBe(false);
+    },
+  );
   it("共有の開始と交代には現在の版を必須にする", () => {
     expect(ClientMessageSchema.safeParse(start).success).toBe(true);
     expect(

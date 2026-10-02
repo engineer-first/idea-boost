@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const InFlightSchema = z.object({
-  operationId: z.string().uuid(),
+  operationId: z.guid(),
   content: z.string(),
   expectedContentRevision: z.number().int().nonnegative(),
   expectedPhaseRevision: z.number().int().nonnegative(),

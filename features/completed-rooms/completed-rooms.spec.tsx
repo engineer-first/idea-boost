@@ -137,25 +137,26 @@ describe("本人の完了ルーム", () => {
     ).not.toBeInTheDocument();
   });
 
-  it.each([
-    401, 404,
-  ])("一覧の更新で%sになったら前回の成果を残さない", async (status) => {
-    const fetcher = vi
-      .fn()
-      .mockResolvedValueOnce(
-        Response.json({ rooms: [detail], nextCursor: null }),
-      )
-      .mockResolvedValueOnce(Response.json({}, { status }));
-    vi.stubGlobal("fetch", fetcher);
-    render(<CompletedRooms />);
-    await screen.findByText("採用の全文");
-    fireEvent.click(screen.getByRole("button", { name: "最新の一覧を取得" }));
-    await screen.findByRole("alert");
-    expect(screen.queryByText("採用の全文")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("以前のルームはまだありません。"),
-    ).not.toBeInTheDocument();
-  });
+  it.each([401, 404])(
+    "一覧の更新で%sになったら前回の成果を残さない",
+    async (status) => {
+      const fetcher = vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({ rooms: [detail], nextCursor: null }),
+        )
+        .mockResolvedValueOnce(Response.json({}, { status }));
+      vi.stubGlobal("fetch", fetcher);
+      render(<CompletedRooms />);
+      await screen.findByText("採用の全文");
+      fireEvent.click(screen.getByRole("button", { name: "最新の一覧を取得" }));
+      await screen.findByRole("alert");
+      expect(screen.queryByText("採用の全文")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("以前のルームはまだありません。"),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("一覧を離れた後に遅い応答が届いても再訪した一覧へ混ざらない", async () => {
     let resolveOld!: (response: Response) => void;

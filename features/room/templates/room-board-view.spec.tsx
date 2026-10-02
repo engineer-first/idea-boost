@@ -282,21 +282,21 @@ describe("採用する付箋の選択モード", () => {
 });
 
 describe("考えるヒントの外部制御", () => {
-  it.each([
-    "connecting",
-    "closed",
-  ] as const)("%s中の確定取消を無効にする", (connectionStatus) => {
-    const { props } = setup({
-      phase: buildPhaseStep(5),
-      isHost: true,
-      decision: buildDecision({ noteId: "note-1" }),
-      connectionStatus,
-    });
-    const cancel = screen.getByRole("button", { name: "確定を取り消す" });
-    expect(cancel).toBeDisabled();
-    fireEvent.click(cancel);
-    expect(props.onDecisionClear).not.toHaveBeenCalled();
-  });
+  it.each(["connecting", "closed"] as const)(
+    "%s中の確定取消を無効にする",
+    (connectionStatus) => {
+      const { props } = setup({
+        phase: buildPhaseStep(5),
+        isHost: true,
+        decision: buildDecision({ noteId: "note-1" }),
+        connectionStatus,
+      });
+      const cancel = screen.getByRole("button", { name: "確定を取り消す" });
+      expect(cancel).toBeDisabled();
+      fireEvent.click(cancel);
+      expect(props.onDecisionClear).not.toHaveBeenCalled();
+    },
+  );
   it("3-5で確定を取り消しても結果ダイアログを再度開かずボードで選び直せる", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5, 3),
@@ -1060,58 +1060,57 @@ describe("RoomBoardView", () => {
     expect(paletteSticker).toHaveAttribute("aria-pressed", "true");
   });
 
-  it.each([
-    buildPhaseStep(4),
-    buildPhaseStep(3, 2),
-    buildPhaseStep(4, 3),
-  ])("投票ステップ %j で候補外へのクリックは理由を通知し、残票とシール選択を保つ", (phase) => {
-    const notify = vi.spyOn(toast, "error");
-    const onNoteVote = vi.fn();
-    setup({
-      phase,
-      notes: [buildNote({ id: "note-1", excluded: true })],
-      onNoteVote,
-    });
-    vi.spyOn(
-      screen.getByTestId("note-card"),
-      "getBoundingClientRect",
-    ).mockReturnValue({
-      x: 100,
-      y: 100,
-      top: 100,
-      right: 300,
-      bottom: 250,
-      left: 100,
-      width: 200,
-      height: 150,
-      toJSON: () => ({}),
-    });
+  it.each([buildPhaseStep(4), buildPhaseStep(3, 2), buildPhaseStep(4, 3)])(
+    "投票ステップ %j で候補外へのクリックは理由を通知し、残票とシール選択を保つ",
+    (phase) => {
+      const notify = vi.spyOn(toast, "error");
+      const onNoteVote = vi.fn();
+      setup({
+        phase,
+        notes: [buildNote({ id: "note-1", excluded: true })],
+        onNoteVote,
+      });
+      vi.spyOn(
+        screen.getByTestId("note-card"),
+        "getBoundingClientRect",
+      ).mockReturnValue({
+        x: 100,
+        y: 100,
+        top: 100,
+        right: 300,
+        bottom: 250,
+        left: 100,
+        width: 200,
+        height: 150,
+        toJSON: () => ({}),
+      });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
-      { clientX: 320, clientY: 24 },
-    );
-    fireEvent.click(screen.getByRole("button", { name: "候補外の付箋" }), {
-      clientX: 150,
-      clientY: 175,
-    });
+      fireEvent.click(
+        screen.getByRole("button", { name: "客観シール 残り3票" }),
+        { clientX: 320, clientY: 24 },
+      );
+      fireEvent.click(screen.getByRole("button", { name: "候補外の付箋" }), {
+        clientX: 150,
+        clientY: 175,
+      });
 
-    expect(onNoteVote).not.toHaveBeenCalled();
-    expect(notify).toHaveBeenCalledWith(
-      expect.stringContaining("候補外の付箋には投票できません"),
-      expect.objectContaining({ id: "excluded-note-vote" }),
-    );
-    expect(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "主観シール 残り1票" }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "客観シール 残り3票" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    notify.mockRestore();
-  });
+      expect(onNoteVote).not.toHaveBeenCalled();
+      expect(notify).toHaveBeenCalledWith(
+        expect.stringContaining("候補外の付箋には投票できません"),
+        expect.objectContaining({ id: "excluded-note-vote" }),
+      );
+      expect(
+        screen.getByRole("button", { name: "客観シール 残り3票" }),
+      ).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "主観シール 残り1票" }),
+      ).toBeEnabled();
+      expect(
+        screen.getByRole("button", { name: "客観シール 残り3票" }),
+      ).toHaveAttribute("aria-pressed", "true");
+      notify.mockRestore();
+    },
+  );
 
   it("選択中のシールは同じボタンの再クリックまたはEscapeで解除する", () => {
     setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
@@ -1468,14 +1467,16 @@ describe("RoomBoardView", () => {
     // WebSocket が connecting / closed の間に編集させると、room-client が
     // 送信を黙って破棄するため「入力したのに再接続後のsnapshotで消える」
     // ことになる。未接続中はボタン・付箋の操作自体を無効化する。
-    it.each([
-      "connecting",
-      "closed",
-    ] as const)("%sの間はツールバーの「付箋を追加」ボタンが無効化される", (connectionStatus) => {
-      setup({ connectionStatus });
+    it.each(["connecting", "closed"] as const)(
+      "%sの間はツールバーの「付箋を追加」ボタンが無効化される",
+      (connectionStatus) => {
+        setup({ connectionStatus });
 
-      expect(screen.getByRole("button", { name: "付箋を追加" })).toBeDisabled();
-    });
+        expect(
+          screen.getByRole("button", { name: "付箋を追加" }),
+        ).toBeDisabled();
+      },
+    );
 
     it("openの間はツールバーの「付箋を追加」ボタンが有効", () => {
       setup({ connectionStatus: "open" });
@@ -2165,23 +2166,28 @@ describe("反復ワークフロー", () => {
     [1, 5, "付箋"],
     [2, 4, "問い"],
     [3, 5, "アイデア"],
-  ] as const)("%i-%iでは候補を選ぶと確認ダイアログなしで採用する", (phase, step, label) => {
-    const { props } = setup({
-      phase: buildPhaseStep(step, phase),
-      isHost: true,
-      notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
-    });
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    expect(props.onNoteDecide).not.toHaveBeenCalled();
-    fireEvent.click(
-      screen.getByRole("button", { name: `採用する${label}: 選んだ候補` }),
-    );
-    expect(props.onNoteDecide).toHaveBeenCalledExactlyOnceWith("candidate");
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "選択をキャンセル" }),
-    ).not.toBeInTheDocument();
-  });
+  ] as const)(
+    "%i-%iでは候補を選ぶと確認ダイアログなしで採用する",
+    (phase, step, label) => {
+      const { props } = setup({
+        phase: buildPhaseStep(step, phase),
+        isHost: true,
+        notes: [buildNote({ id: "candidate", content: "選んだ候補" })],
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+      );
+      expect(props.onNoteDecide).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole("button", { name: `採用する${label}: 選んだ候補` }),
+      );
+      expect(props.onNoteDecide).toHaveBeenCalledExactlyOnceWith("candidate");
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "選択をキャンセル" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 });
 
 it("同じ決定ステップのsnapshot更新では結果一覧を再表示しない", () => {
@@ -2290,47 +2296,49 @@ describe("通知の寸法観測", () => {
 });
 
 describe("U13 通常入口の統合", () => {
-  it.each([
-    true,
-    false,
-  ])("公開後の本人退出はcancelで成果を保ちconfirm一回・pendingで二重送信しない host=%s", async (isHost) => {
-    const idea = buildNote({ id: "idea", content: "採用案" });
-    const { props, rerender } = setup({
-      phase: buildPhaseStep(5, 3),
-      notes: [idea],
-      isHost,
-      hmwDecidedIssue: "課題",
-      decidedHmw: "問い",
-    });
-    const published = {
-      ...props,
-      decision: buildDecision({ phase: 3, noteId: idea.id }),
-      outcomePublished: true,
-    };
-    rerender(<TestBoardView {...published} />);
-    await userEvent.click(
-      screen.getByRole("button", { name: "退出してホームへ" }),
-    );
-    expect(screen.getByRole("alertdialog")).toHaveTextContent("退出しますか？");
-    await userEvent.click(
-      screen.getByRole("button", { name: "退出をやめて成果へ戻る" }),
-    );
-    expect(props.onLeave).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("heading", { name: "チームで決めた成果" }),
-    ).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "退出してホームへ" }),
-    );
-    await userEvent.click(screen.getByTestId("leave-confirm-action"));
-    expect(props.onLeave).toHaveBeenCalledTimes(1);
-    rerender(<TestBoardView {...published} isLeaving />);
-    expect(screen.getByTestId("leave-confirm-action")).toBeDisabled();
-    fireEvent.click(screen.getByTestId("leave-confirm-action"));
-    expect(props.onLeave).toHaveBeenCalledTimes(1);
-    rerender(<TestBoardView {...published} />);
-    expect(screen.getByTestId("leave-confirm-action")).not.toBeDisabled();
-  });
+  it.each([true, false])(
+    "公開後の本人退出はcancelで成果を保ちconfirm一回・pendingで二重送信しない host=%s",
+    async (isHost) => {
+      const idea = buildNote({ id: "idea", content: "採用案" });
+      const { props, rerender } = setup({
+        phase: buildPhaseStep(5, 3),
+        notes: [idea],
+        isHost,
+        hmwDecidedIssue: "課題",
+        decidedHmw: "問い",
+      });
+      const published = {
+        ...props,
+        decision: buildDecision({ phase: 3, noteId: idea.id }),
+        outcomePublished: true,
+      };
+      rerender(<TestBoardView {...published} />);
+      await userEvent.click(
+        screen.getByRole("button", { name: "退出してホームへ" }),
+      );
+      expect(screen.getByRole("alertdialog")).toHaveTextContent(
+        "退出しますか？",
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: "退出をやめて成果へ戻る" }),
+      );
+      expect(props.onLeave).not.toHaveBeenCalled();
+      expect(
+        screen.getByRole("heading", { name: "チームで決めた成果" }),
+      ).toBeVisible();
+      await userEvent.click(
+        screen.getByRole("button", { name: "退出してホームへ" }),
+      );
+      await userEvent.click(screen.getByTestId("leave-confirm-action"));
+      expect(props.onLeave).toHaveBeenCalledTimes(1);
+      rerender(<TestBoardView {...published} isLeaving />);
+      expect(screen.getByTestId("leave-confirm-action")).toBeDisabled();
+      fireEvent.click(screen.getByTestId("leave-confirm-action"));
+      expect(props.onLeave).toHaveBeenCalledTimes(1);
+      rerender(<TestBoardView {...published} />);
+      expect(screen.getByTestId("leave-confirm-action")).not.toBeDisabled();
+    },
+  );
 
   it("確認中に公開されたら古い解散確認を本人退出に切り替える", async () => {
     const idea = buildNote({ id: "idea", content: "採用案" });
@@ -2457,32 +2465,37 @@ describe("付箋上の投票結果", () => {
     [buildPhaseStep(4), buildPhaseStep(5)],
     [buildPhaseStep(3, 2), buildPhaseStep(4, 2)],
     [buildPhaseStep(4, 3), buildPhaseStep(5, 3)],
-  ])("%jから決定へ進んでもモーダルを開かず、各付箋の集計を表示する", (voting, result) => {
-    const notes = [
-      buildNote({
-        content: "比較する候補",
-        dotVotes: {
-          subjective: { count: 2, ownCount: 0, votedByMe: false },
-          objective: { count: 3, ownCount: 0, votedByMe: false },
-        },
-      }),
-    ];
-    const { props, rerender } = setup({ phase: voting, notes, isHost: true });
-    rerender(<TestBoardView {...props} phase={result} />);
-    expect(
-      screen.queryByRole("dialog", { name: "投票結果" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "投票結果を表示" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "主観シール 2票" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("img", { name: "客観シール 3票" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    fireEvent.click(screen.getByRole("button", { name: /比較する候補/ }));
-    expect(props.onNoteDecide).toHaveBeenCalledOnce();
-  });
+  ])(
+    "%jから決定へ進んでもモーダルを開かず、各付箋の集計を表示する",
+    (voting, result) => {
+      const notes = [
+        buildNote({
+          content: "比較する候補",
+          dotVotes: {
+            subjective: { count: 2, ownCount: 0, votedByMe: false },
+            objective: { count: 3, ownCount: 0, votedByMe: false },
+          },
+        }),
+      ];
+      const { props, rerender } = setup({ phase: voting, notes, isHost: true });
+      rerender(<TestBoardView {...props} phase={result} />);
+      expect(
+        screen.queryByRole("dialog", { name: "投票結果" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "投票結果を表示" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("img", { name: "主観シール 2票" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("img", { name: "客観シール 3票" }),
+      ).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+      );
+      fireEvent.click(screen.getByRole("button", { name: /比較する候補/ }));
+      expect(props.onNoteDecide).toHaveBeenCalledOnce();
+    },
+  );
 });

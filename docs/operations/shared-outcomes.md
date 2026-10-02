@@ -2,11 +2,11 @@
 
 通常開発・検証・本番は同じ RoomDO の保全、再試行、30日の期限判定を使います。保存先は環境ごとに分離され、全ルームの成果一覧・詳細は Google または開発用アカウントでログインした、`shared_outcomes:read` を持つユーザーだけが `/shared-outcomes` から閲覧できます。Worker は取得のたびにセッションと D1 の現在の権限を確認します。
 
-| 環境     | 起動・保存先                                                       | 初期権限                                                                       |
-| -------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| 通常開発 | `npm run dev` と `npm run dev:api`。通常の Wrangler ローカル保存先 | 開発用ログイン時、`DEV_USERS[0]` の Owner に read と manage\_access を自動登録 |
-| 検証     | `npm run dev:verify`。`.wrangler/verification/state`               | 同じ Owner に自動登録                                                          |
-| 本番     | 本番 Worker・D1・RoomDO                                            | 運用 CLI で既存ユーザーに明示的に登録                                          |
+| 環境     | 起動・保存先                                                       | 初期権限                                                                      |
+| -------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| 通常開発 | `npm run dev` と `npm run dev:api`。通常の Wrangler ローカル保存先 | 開発用ログイン時、`DEV_USERS[0]` の Owner に read と manage_access を自動登録 |
+| 検証     | `npm run dev:verify`。`.wrangler/verification/state`               | 同じ Owner に自動登録                                                         |
+| 本番     | 本番 Worker・D1・RoomDO                                            | 運用 CLI で既存ユーザーに明示的に登録                                         |
 
 `npm run dev` だけでは Next.js のみ起動します。通常開発の D1 migration は `dev:api` 起動時に適用されます。検証環境は専用 D1 に migration を適用します。
 
@@ -16,7 +16,7 @@
 
 ## 閲覧者の管理
 
-`shared_outcomes:manage_access` を持つユーザーは `/admin/access` で登録済みユーザーに read 権限を付与・剥奪できます。対象ユーザーは事前に Google ログインを済ませてください。この画面と API から manage\_access 自体を変更することはできません。Worker が操作のたびに管理権限を確認します。
+`shared_outcomes:manage_access` を持つユーザーは `/admin/access` で登録済みユーザーに read 権限を付与・剥奪できます。対象ユーザーは事前に Google ログインを済ませてください。この画面と API から manage_access 自体を変更することはできません。Worker が操作のたびに管理権限を確認します。
 
 ## 保存状態と失敗時の対応
 

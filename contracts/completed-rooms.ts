@@ -20,7 +20,7 @@ export const CompletedSceneSchema = z.object({
   status: z.enum(["saved", "pending", "failed", "missing", "before-recording"]),
 });
 export const CompletedRoomSummarySchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   idea: z.string(),
   completedAt: z.number(),
   expiresAt: z.number(),
@@ -84,7 +84,7 @@ export type CompletedBoardResponse = z.infer<
 >;
 export const CompletedRoomsCursorSchema = z.object({
   completedAt: z.number().int().nonnegative(),
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
 });
 export const LeaveRoomRequestSchema = z.object({
   intent: z.enum(["self", "disband"]).optional(),

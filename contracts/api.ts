@@ -5,14 +5,14 @@ import { RoomPhaseSchema } from "./phase";
 import { NoteColorSchema } from "./room-protocol";
 
 export const SyncUserResponseSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.guid(),
 });
 
 // ルーム作成直後のレスポンス。最小限の形を維持し、進行状態などの派生情報は
 // ルーム情報取得 (/api/rooms/[id]) 側にだけ載せる（作成直後は lobby 確定で
 // 十分なので追加しない）。
 export const RoomSummarySchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   inviteCode: z.string(),
 });
 
@@ -23,7 +23,7 @@ export const CreateRoomInputSchema = z.object({
 });
 
 export const JoinRoomResponseSchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
 });
 
 // ルーム情報取得のレスポンス。isHost / hostUserId / phase はこのエンドポイント
@@ -35,7 +35,7 @@ export const JoinRoomResponseSchema = z.object({
 // - phase: 現在の進行状態。start_phase の二重防御用に進行状態を観測可能にする。
 export const RoomInfoResponseSchema = RoomSummarySchema.extend({
   isHost: z.boolean(),
-  hostUserId: z.string().uuid(),
+  hostUserId: z.guid(),
   phase: RoomPhaseSchema,
   name: z.string().nullable().optional(),
   displayId: z.string().optional(),
@@ -44,7 +44,7 @@ export const RoomInfoResponseSchema = RoomSummarySchema.extend({
 // メンバー一覧のレスポンス。SSR で初期表示を組み立てるために使う。
 // Realtime での member_joined は WS 側で別途配信する。
 export const RoomMemberSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.guid(),
   name: z.string(),
   color: NoteColorSchema,
 });
@@ -54,7 +54,7 @@ export const RoomMembersResponseSchema = z.object({
 
 // GET /api/rooms/lookup?code= のレスポンス。招待確認 Dialog のホスト名表示用。
 export const RoomLookupResponseSchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   inviteCode: z.string(),
   hostName: z.string(),
 });

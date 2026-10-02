@@ -177,27 +177,30 @@ describe("RoomBoardHeader", () => {
     [buildPhaseStep(3, 1), 1, "課題整理", 5],
     [buildPhaseStep(2, 2), 2, "問いの整理", 4],
     [buildPhaseStep(4, 3), 3, "アイデア決定", 5],
-  ] as const)("フェーズ別に3フェーズの現在地とステップ進捗を同時に表示する", (phase, currentPhaseNumber, currentPhaseLabel, stepCount) => {
-    setup({ phase });
+  ] as const)(
+    "フェーズ別に3フェーズの現在地とステップ進捗を同時に表示する",
+    (phase, currentPhaseNumber, currentPhaseLabel, stepCount) => {
+      setup({ phase });
 
-    const phaseProgress = screen.getByTestId("board-phase-progress");
-    expect(phaseProgress).toHaveAttribute(
-      "aria-label",
-      "アイデア出しのフェーズ進行",
-    );
-    expect(within(phaseProgress).getByText("課題整理")).toBeVisible();
-    expect(within(phaseProgress).getByText("問いの整理")).toBeVisible();
-    expect(within(phaseProgress).getByText("アイデア決定")).toBeVisible();
-    const currentPhase = within(phaseProgress).getByTestId(
-      `board-phase-${currentPhaseNumber}`,
-    );
-    expect(currentPhase).toHaveAttribute("aria-current", "step");
-    expect(currentPhase).toHaveTextContent(currentPhaseLabel);
+      const phaseProgress = screen.getByTestId("board-phase-progress");
+      expect(phaseProgress).toHaveAttribute(
+        "aria-label",
+        "アイデア出しのフェーズ進行",
+      );
+      expect(within(phaseProgress).getByText("課題整理")).toBeVisible();
+      expect(within(phaseProgress).getByText("問いの整理")).toBeVisible();
+      expect(within(phaseProgress).getByText("アイデア決定")).toBeVisible();
+      const currentPhase = within(phaseProgress).getByTestId(
+        `board-phase-${currentPhaseNumber}`,
+      );
+      expect(currentPhase).toHaveAttribute("aria-current", "step");
+      expect(currentPhase).toHaveTextContent(currentPhaseLabel);
 
-    const progressRail = screen.getByTestId("board-progress-rail");
-    expect(progressRail).toHaveAttribute("aria-valuemax", `${stepCount}`);
-    expect(screen.getByTestId("board-current-step")).toBeVisible();
-  });
+      const progressRail = screen.getByTestId("board-progress-rail");
+      expect(progressRail).toHaveAttribute("aria-valuemax", `${stepCount}`);
+      expect(screen.getByTestId("board-current-step")).toBeVisible();
+    },
+  );
 
   it("現在フェーズ以外も完了・未着手の状態を形と色で区別する", () => {
     setup({ phase: buildPhaseStep(1, 2) });
@@ -254,23 +257,28 @@ describe("RoomBoardHeader", () => {
       [buildPhaseStep(1, 3), "05"],
       [buildPhaseStep(3, 3), "07"],
       [buildPhaseStep(5), "10"],
-    ] as const)("$phase の推奨$minutes分をタイマー初期値にするが自動開始しない", (phase, minutes) => {
-      const onTimerStart = vi.fn();
-      setup({
-        isHost: true,
-        phase,
-        onTimerStart,
-      });
+    ] as const)(
+      "$phase の推奨$minutes分をタイマー初期値にするが自動開始しない",
+      (phase, minutes) => {
+        const onTimerStart = vi.fn();
+        setup({
+          isHost: true,
+          phase,
+          onTimerStart,
+        });
 
-      expect(screen.getByTestId("room-timer")).toHaveTextContent(
-        `${minutes}:00`,
-      );
-      fireEvent.click(screen.getByTestId("room-timer"));
+        expect(screen.getByTestId("room-timer")).toHaveTextContent(
+          `${minutes}:00`,
+        );
+        fireEvent.click(screen.getByTestId("room-timer"));
 
-      expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue(minutes);
-      expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("00");
-      expect(onTimerStart).not.toHaveBeenCalled();
-    });
+        expect(screen.getByLabelText("タイマー時間（分）")).toHaveValue(
+          minutes,
+        );
+        expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("00");
+        expect(onTimerStart).not.toHaveBeenCalled();
+      },
+    );
   });
 
   it("折り畳んでもフェーズ名・正式なステップ名・進捗が読め、重複する見出しを省く", () => {
@@ -345,27 +353,26 @@ describe("RoomBoardHeader", () => {
   });
 
   describe("全員の投票完了表示", () => {
-    it.each([
-      buildPhaseStep(4, 1),
-      buildPhaseStep(3, 2),
-      buildPhaseStep(4, 3),
-    ])("投票ステップ $phase-$step で全員完了を表示する", (phase) => {
-      const members = buildMembers(4, ME);
-      setup({
-        phase,
-        members,
-        completedVoterIds: members.map(({ userId }) => userId),
-      });
+    it.each([buildPhaseStep(4, 1), buildPhaseStep(3, 2), buildPhaseStep(4, 3)])(
+      "投票ステップ $phase-$step で全員完了を表示する",
+      (phase) => {
+        const members = buildMembers(4, ME);
+        setup({
+          phase,
+          members,
+          completedVoterIds: members.map(({ userId }) => userId),
+        });
 
-      const indicator = screen.getByTestId("vote-completion-indicator");
-      expect(indicator).toHaveTextContent("全員OK");
-      expect(screen.getByRole("status")).toHaveTextContent(
-        "全員の投票が完了しました",
-      );
-      expect(indicator.nextElementSibling).toBe(
-        screen.getByRole("button", { name: "参加者 4人" }),
-      );
-    });
+        const indicator = screen.getByTestId("vote-completion-indicator");
+        expect(indicator).toHaveTextContent("全員OK");
+        expect(screen.getByRole("status")).toHaveTextContent(
+          "全員の投票が完了しました",
+        );
+        expect(indicator.nextElementSibling).toBe(
+          screen.getByRole("button", { name: "参加者 4人" }),
+        );
+      },
+    );
 
     it("省略表示される参加者が未完了なら表示しない", () => {
       const members = buildMembers(5, ME);
@@ -499,18 +506,18 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
-    it.each([
-      buildPhaseStep(5),
-      buildPhaseStep(4, 2),
-    ])("%jで採用前は進行ボタンを表示したまま無効にする", (phase) => {
-      const onNextPhase = vi.fn();
-      setup({ isHost: true, phase, isNextPhaseBlocked: true, onNextPhase });
-      const next = screen.getByRole("button", { name: "次のステップへ" });
-      expect(next).toBeDisabled();
-      fireEvent.click(next);
-      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-      expect(onNextPhase).not.toHaveBeenCalled();
-    });
+    it.each([buildPhaseStep(5), buildPhaseStep(4, 2)])(
+      "%jで採用前は進行ボタンを表示したまま無効にする",
+      (phase) => {
+        const onNextPhase = vi.fn();
+        setup({ isHost: true, phase, isNextPhaseBlocked: true, onNextPhase });
+        const next = screen.getByRole("button", { name: "次のステップへ" });
+        expect(next).toBeDisabled();
+        fireEvent.click(next);
+        expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+        expect(onNextPhase).not.toHaveBeenCalled();
+      },
+    );
 
     it("途中の結果ステップではホストに「次のステップへ」を表示する", () => {
       setup({ isHost: true, phase: buildPhaseStep(5) });
@@ -548,16 +555,15 @@ describe("RoomBoardHeader", () => {
     });
   });
 
-  it.each([
-    buildPhaseStep(5),
-    buildPhaseStep(4, 2),
-    buildPhaseStep(5, 3),
-  ])("%jで結果モーダルの再表示ボタンを出さない", (phase) => {
-    setup({ phase });
-    expect(
-      screen.queryByRole("button", { name: "投票結果を表示" }),
-    ).not.toBeInTheDocument();
-  });
+  it.each([buildPhaseStep(5), buildPhaseStep(4, 2), buildPhaseStep(5, 3)])(
+    "%jで結果モーダルの再表示ボタンを出さない",
+    (phase) => {
+      setup({ phase });
+      expect(
+        screen.queryByRole("button", { name: "投票結果を表示" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   describe("退出・解散", () => {
     it("host は「ルームを解散」、非 host は「退出する」の文言になる", () => {
@@ -741,38 +747,38 @@ it("発表者以外の参加者は発表者を確認できるが進行操作を�
   ).not.toBeInTheDocument();
 });
 
-it.each([
-  { phaseRevision: 2 },
-  { isDisconnected: true },
-])("共有中のメニューで開いた確認も状態変更 %j で破棄する", (changed) => {
-  const props = setupProps({
-    isHost: true,
-    phase: buildPhaseStep(2),
-    phaseRevision: 1,
-    sharing: buildSharingState(),
-  });
-  const { rerender } = render(<RoomBoardHeader {...props} />);
-  openRoomMenu();
-  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-  rerender(<RoomBoardHeader {...props} {...changed} />);
-  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-  expect(props.onNextPhase).not.toHaveBeenCalled();
-});
+it.each([{ phaseRevision: 2 }, { isDisconnected: true }])(
+  "共有中のメニューで開いた確認も状態変更 %j で破棄する",
+  (changed) => {
+    const props = setupProps({
+      isHost: true,
+      phase: buildPhaseStep(2),
+      phaseRevision: 1,
+      sharing: buildSharingState(),
+    });
+    const { rerender } = render(<RoomBoardHeader {...props} />);
+    openRoomMenu();
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    rerender(<RoomBoardHeader {...props} {...changed} />);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(props.onNextPhase).not.toHaveBeenCalled();
+  },
+);
 
 describe("U03 進行の役割", () => {
-  it.each([
-    true,
-    false,
-  ])("HUDに進行役の案内を表示しない: isHost=%s", (isHost) => {
-    setup({ isHost });
-    const context = screen.getByTestId("board-context-hud");
-    expect(context).not.toHaveTextContent("ホスト：進行はあなたが操作");
-    expect(context).not.toHaveTextContent("参加者：次への進行はホストが操作");
-    expect(
-      within(context).queryByRole("button", { name: "ゴールと進行" }),
-    ).not.toBeInTheDocument();
-  });
+  it.each([true, false])(
+    "HUDに進行役の案内を表示しない: isHost=%s",
+    (isHost) => {
+      setup({ isHost });
+      const context = screen.getByTestId("board-context-hud");
+      expect(context).not.toHaveTextContent("ホスト：進行はあなたが操作");
+      expect(context).not.toHaveTextContent("参加者：次への進行はホストが操作");
+      expect(
+        within(context).queryByRole("button", { name: "ゴールと進行" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 });
 
 it("発表者本人は次の人へを操作でき、開始・パス・次ステップは操作できない", () => {

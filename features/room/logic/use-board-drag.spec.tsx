@@ -131,72 +131,75 @@ describe("useBoardDrag", () => {
     ["shared", "private"],
     ["private", "shared"],
     ["private", "private"],
-  ] as const)("%s ドラッグ中に別の指で %s 付箋を掴んでも、最初の操作を最後まで保つ", (firstKind, secondKind) => {
-    const { args, result } = setup();
-    const firstId = firstKind === "shared" ? "shared-1" : "private-1";
-    const startFirst = () =>
-      firstKind === "shared"
-        ? result.current.handleSharedNoteDragStart(
-            firstId,
-            pointerEvent(7, 120, 130),
-          )
-        : result.current.handlePrivateDragStart(
-            firstId,
-            pointerEvent(7, 400, 560),
+  ] as const)(
+    "%s ドラッグ中に別の指で %s 付箋を掴んでも、最初の操作を最後まで保つ",
+    (firstKind, secondKind) => {
+      const { args, result } = setup();
+      const firstId = firstKind === "shared" ? "shared-1" : "private-1";
+      const startFirst = () =>
+        firstKind === "shared"
+          ? result.current.handleSharedNoteDragStart(
+              firstId,
+              pointerEvent(7, 120, 130),
+            )
+          : result.current.handlePrivateDragStart(
+              firstId,
+              pointerEvent(7, 400, 560),
+            );
+      act(startFirst);
+      act(() => {
+        if (secondKind === "shared") {
+          result.current.handleSharedNoteDragStart(
+            "shared-1",
+            pointerEvent(8, 250, 200),
           );
-    act(startFirst);
-    act(() => {
-      if (secondKind === "shared") {
-        result.current.handleSharedNoteDragStart(
-          "shared-1",
-          pointerEvent(8, 250, 200),
-        );
-      } else {
-        result.current.handlePrivateDragStart(
-          "private-1",
-          pointerEvent(8, 400, 560),
-        );
-      }
-      result.current.handlePointerMove(pointerEvent(8, 500, 300));
-      result.current.handlePointerEnd(pointerEvent(8, 500, 300));
-    });
+        } else {
+          result.current.handlePrivateDragStart(
+            "private-1",
+            pointerEvent(8, 400, 560),
+          );
+        }
+        result.current.handlePointerMove(pointerEvent(8, 500, 300));
+        result.current.handlePointerEnd(pointerEvent(8, 500, 300));
+      });
 
-    expect(result.current.drag?.note.id).toBe(firstId);
-    expect(result.current.isCurrentDragPointer(7)).toBe(true);
-    expect(result.current.isCurrentDragPointer(8)).toBe(false);
-    expect(
-      args.boardScrollerRef.current?.setPointerCapture,
-    ).toHaveBeenCalledTimes(1);
-    expect(args.onNoteDragStart).toHaveBeenCalledTimes(
-      firstKind === "shared" ? 1 : 0,
-    );
-    expect(args.onNoteDragMove).not.toHaveBeenCalled();
-    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
-    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+      expect(result.current.drag?.note.id).toBe(firstId);
+      expect(result.current.isCurrentDragPointer(7)).toBe(true);
+      expect(result.current.isCurrentDragPointer(8)).toBe(false);
+      expect(
+        args.boardScrollerRef.current?.setPointerCapture,
+      ).toHaveBeenCalledTimes(1);
+      expect(args.onNoteDragStart).toHaveBeenCalledTimes(
+        firstKind === "shared" ? 1 : 0,
+      );
+      expect(args.onNoteDragMove).not.toHaveBeenCalled();
+      expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+      expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
 
-    act(() => {
-      result.current.handlePointerMove(pointerEvent(7, 300, 200));
-      result.current.handlePointerEnd(pointerEvent(7, 300, 200));
-    });
-    expect(args.onNoteDragMove).toHaveBeenLastCalledWith(
-      firstId,
-      expect.any(Number),
-      expect.any(Number),
-    );
-    expect(args.onNoteDragEnd).toHaveBeenLastCalledWith(
-      firstId,
-      expect.any(Number),
-      expect.any(Number),
-    );
-    expect(
-      args.boardScrollerRef.current?.releasePointerCapture,
-    ).toHaveBeenLastCalledWith(7);
-    expect(result.current.drag).toBeNull();
+      act(() => {
+        result.current.handlePointerMove(pointerEvent(7, 300, 200));
+        result.current.handlePointerEnd(pointerEvent(7, 300, 200));
+      });
+      expect(args.onNoteDragMove).toHaveBeenLastCalledWith(
+        firstId,
+        expect.any(Number),
+        expect.any(Number),
+      );
+      expect(args.onNoteDragEnd).toHaveBeenLastCalledWith(
+        firstId,
+        expect.any(Number),
+        expect.any(Number),
+      );
+      expect(
+        args.boardScrollerRef.current?.releasePointerCapture,
+      ).toHaveBeenLastCalledWith(7);
+      expect(result.current.drag).toBeNull();
 
-    act(startFirst);
-    act(() => result.current.handlePointerCancel(pointerEvent(7, 300, 200)));
-    expect(result.current.drag).toBeNull();
-  });
+      act(startFirst);
+      act(() => result.current.handlePointerCancel(pointerEvent(7, 300, 200)));
+      expect(result.current.drag).toBeNull();
+    },
+  );
 
   it("pointer cancel は確定位置を送らず操作権を即時解除する", () => {
     const { args, result } = setup();
@@ -464,49 +467,49 @@ describe("useBoardDrag", () => {
     { side: "上", clientX: 700, clientY: 100 },
     { side: "下", clientX: 700, clientY: 425 },
     { side: "右", clientX: 750, clientY: 300 },
-  ])("付箋本体がマイ付箋エリアの$side側に重なる場合は戻せる", ({
-    clientX,
-    clientY,
-  }) => {
-    const { args, result } = setup({
-      privateToolbarRef: fakePrivateToolbarRef({
-        left: 600,
-        top: 200,
-        right: 700,
-        bottom: 400,
-      }),
-    });
-    const startEvent = pointerEvent(1, 250, 250);
-    Object.defineProperty(startEvent, "currentTarget", {
-      value: {
-        getBoundingClientRect: () => ({
-          left: 170,
-          top: 220,
-          right: 362,
-          bottom: 364,
-          width: 192,
-          height: 144,
+  ])(
+    "付箋本体がマイ付箋エリアの$side側に重なる場合は戻せる",
+    ({ clientX, clientY }) => {
+      const { args, result } = setup({
+        privateToolbarRef: fakePrivateToolbarRef({
+          left: 600,
+          top: 200,
+          right: 700,
+          bottom: 400,
         }),
-      },
-    });
+      });
+      const startEvent = pointerEvent(1, 250, 250);
+      Object.defineProperty(startEvent, "currentTarget", {
+        value: {
+          getBoundingClientRect: () => ({
+            left: 170,
+            top: 220,
+            right: 362,
+            bottom: 364,
+            width: 192,
+            height: 144,
+          }),
+        },
+      });
 
-    act(() => {
-      result.current.handleSharedNoteDragStart("shared-1", startEvent);
-      result.current.handlePointerMove(pointerEvent(1, clientX, clientY));
-    });
+      act(() => {
+        result.current.handleSharedNoteDragStart("shared-1", startEvent);
+        result.current.handlePointerMove(pointerEvent(1, clientX, clientY));
+      });
 
-    expect(result.current.drag?.status).toBe("returning");
+      expect(result.current.drag?.status).toBe("returning");
 
-    act(() => {
-      result.current.handlePointerEnd(pointerEvent(1, clientX, clientY));
-    });
+      act(() => {
+        result.current.handlePointerEnd(pointerEvent(1, clientX, clientY));
+      });
 
-    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith(
-      "shared-1",
-      expect.any(Number),
-    );
-    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
-  });
+      expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith(
+        "shared-1",
+        expect.any(Number),
+      );
+      expect(args.onNoteDragEnd).not.toHaveBeenCalled();
+    },
+  );
 
   it("マイ付箋エリアの左側は認識範囲を広げない", () => {
     const { result } = setup({
@@ -886,41 +889,40 @@ describe("useBoardDrag", () => {
       dropIndex: 3,
       expected: ["private-1", "private-2", "private-3", "shared-1"],
     },
-  ])("縦方向の$positionへドロップすると付箋の上下中央で挿入する", ({
-    clientY,
-    dropIndex,
-    expected,
-  }) => {
-    const privateNotes = [
-      buildNote({ id: "private-1", authorId: ME, visibility: "private" }),
-      buildNote({ id: "private-2", authorId: ME, visibility: "private" }),
-      buildNote({ id: "private-3", authorId: ME, visibility: "private" }),
-    ];
-    const toolbarRef = fakeToolbarWithNotes([
-      { noteId: "private-1", top: 100, bottom: 244 },
-      { noteId: "private-2", top: 256, bottom: 400 },
-      { noteId: "private-3", top: 412, bottom: 556 },
-    ]);
-    const { result } = setup({
-      privateNotes,
-      privateToolbarRef: toolbarRef,
-    });
+  ])(
+    "縦方向の$positionへドロップすると付箋の上下中央で挿入する",
+    ({ clientY, dropIndex, expected }) => {
+      const privateNotes = [
+        buildNote({ id: "private-1", authorId: ME, visibility: "private" }),
+        buildNote({ id: "private-2", authorId: ME, visibility: "private" }),
+        buildNote({ id: "private-3", authorId: ME, visibility: "private" }),
+      ];
+      const toolbarRef = fakeToolbarWithNotes([
+        { noteId: "private-1", top: 100, bottom: 244 },
+        { noteId: "private-2", top: 256, bottom: 400 },
+        { noteId: "private-3", top: 412, bottom: 556 },
+      ]);
+      const { result } = setup({
+        privateNotes,
+        privateToolbarRef: toolbarRef,
+      });
 
-    act(() => {
-      result.current.handleSharedNoteDragStart(
-        "shared-1",
-        pointerEvent(1, 100, 100),
-      );
-      // clientX は常に同じ値にし、横方向の矩形判定に依存しないことも検証する。
-      result.current.handlePointerMove(pointerEvent(1, 750, clientY));
-    });
+      act(() => {
+        result.current.handleSharedNoteDragStart(
+          "shared-1",
+          pointerEvent(1, 100, 100),
+        );
+        // clientX は常に同じ値にし、横方向の矩形判定に依存しないことも検証する。
+        result.current.handlePointerMove(pointerEvent(1, 750, clientY));
+      });
 
-    expect(result.current.drag?.status).toBe("returning");
-    expect(result.current.drag?.privateDropIndex).toBe(dropIndex);
-    expect(result.current.renderedPrivateNotes.map((note) => note.id)).toEqual(
-      expected,
-    );
-  });
+      expect(result.current.drag?.status).toBe("returning");
+      expect(result.current.drag?.privateDropIndex).toBe(dropIndex);
+      expect(
+        result.current.renderedPrivateNotes.map((note) => note.id),
+      ).toEqual(expected);
+    },
+  );
 
   it("他人の共有付箋はツールバーに重ねても unpublish しない", () => {
     const { args, result } = setup({

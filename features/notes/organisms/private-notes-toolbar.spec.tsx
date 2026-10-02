@@ -36,46 +36,46 @@ function setup(disabled = false) {
 }
 
 describe("PrivateNotesToolbar", () => {
-  it.each([
-    true,
-    false,
-  ])("共有ボタンで狭幅のトレイだけ畳み、共有先を隠さない: narrow=%s", (narrow) => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn((query: string) => ({
-        matches: query.includes("max-width") && narrow,
-      })),
-    );
-    try {
-      const onShareNote = vi.fn();
-      render(
-        <PrivateNotesToolbar
-          notes={[buildNote({ visibility: "private" })]}
-          disabled={false}
-          selectedNoteId={null}
-          canCreateNote={false}
-          canDeleteNote={false}
-          canMoveNote
-          canEditNote
-          canShareNote
-          onShareNote={onShareNote}
-          onSelect={vi.fn()}
-          onAdd={vi.fn()}
-          onContentChange={vi.fn()}
-          onDelete={vi.fn()}
-          onDragStart={vi.fn()}
-        />,
+  it.each([true, false])(
+    "共有ボタンで狭幅のトレイだけ畳み、共有先を隠さない: narrow=%s",
+    (narrow) => {
+      vi.stubGlobal(
+        "matchMedia",
+        vi.fn((query: string) => ({
+          matches: query.includes("max-width") && narrow,
+        })),
       );
-      fireEvent.click(screen.getByRole("button", { name: "ボードに共有" }));
-      expect(onShareNote).toHaveBeenCalledExactlyOnceWith("note-1");
-      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
-        "data-expanded",
-        narrow ? "false" : "true",
-      );
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
+      try {
+        const onShareNote = vi.fn();
+        render(
+          <PrivateNotesToolbar
+            notes={[buildNote({ visibility: "private" })]}
+            disabled={false}
+            selectedNoteId={null}
+            canCreateNote={false}
+            canDeleteNote={false}
+            canMoveNote
+            canEditNote
+            canShareNote
+            onShareNote={onShareNote}
+            onSelect={vi.fn()}
+            onAdd={vi.fn()}
+            onContentChange={vi.fn()}
+            onDelete={vi.fn()}
+            onDragStart={vi.fn()}
+          />,
+        );
+        fireEvent.click(screen.getByRole("button", { name: "ボードに共有" }));
+        expect(onShareNote).toHaveBeenCalledExactlyOnceWith("note-1");
+        expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+          "data-expanded",
+          narrow ? "false" : "true",
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 
   it("空でも追加の動詞と本人だけに見える説明があり、操作するまで作成しない", () => {
     const onAdd = vi.fn();
@@ -152,38 +152,36 @@ describe("PrivateNotesToolbar", () => {
       draftValue: () => "保存待ち",
       reason: /保存/,
     },
-  ])("共有不可理由をhoverなしで表示し、共有しない: $reason", ({
-    disabled,
-    canShareNote,
-    draftValue,
-    reason,
-  }) => {
-    const onShareNote = vi.fn();
-    render(
-      <PrivateNotesToolbar
-        notes={[buildNote({ visibility: "private" })]}
-        disabled={disabled}
-        selectedNoteId={null}
-        canCreateNote
-        canDeleteNote
-        canMoveNote
-        canEditNote
-        canShareNote={canShareNote}
-        draftValue={draftValue}
-        onShareNote={onShareNote}
-        onSelect={vi.fn()}
-        onAdd={vi.fn()}
-        onContentChange={vi.fn()}
-        onDelete={vi.fn()}
-        onDragStart={vi.fn()}
-      />,
-    );
-    const share = screen.getByRole("button", { name: "ボードに共有" });
-    expect(share).toBeDisabled();
-    expect(share).toHaveAccessibleDescription(reason);
-    fireEvent.click(share);
-    expect(onShareNote).not.toHaveBeenCalled();
-  });
+  ])(
+    "共有不可理由をhoverなしで表示し、共有しない: $reason",
+    ({ disabled, canShareNote, draftValue, reason }) => {
+      const onShareNote = vi.fn();
+      render(
+        <PrivateNotesToolbar
+          notes={[buildNote({ visibility: "private" })]}
+          disabled={disabled}
+          selectedNoteId={null}
+          canCreateNote
+          canDeleteNote
+          canMoveNote
+          canEditNote
+          canShareNote={canShareNote}
+          draftValue={draftValue}
+          onShareNote={onShareNote}
+          onSelect={vi.fn()}
+          onAdd={vi.fn()}
+          onContentChange={vi.fn()}
+          onDelete={vi.fn()}
+          onDragStart={vi.fn()}
+        />,
+      );
+      const share = screen.getByRole("button", { name: "ボードに共有" });
+      expect(share).toBeDisabled();
+      expect(share).toHaveAccessibleDescription(reason);
+      fireEvent.click(share);
+      expect(onShareNote).not.toHaveBeenCalled();
+    },
+  );
 
   it("一覧内ではボード上の座標を使わず、付箋を縦一列に配置する", () => {
     render(

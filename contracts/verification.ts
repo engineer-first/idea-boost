@@ -47,7 +47,7 @@ export type VerificationVoteRequest = z.infer<
   typeof VerificationVoteRequestSchema
 >;
 export const VerificationActiveSchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   inviteCode: z.string(),
   checkpoint: VerificationCheckpointSchema,
 });

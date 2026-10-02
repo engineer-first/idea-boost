@@ -19,26 +19,25 @@ describe("getFacilitationGuide", () => {
     expect(guide?.steps?.join(" ")).toContain("どうすれば私たちは");
   });
 
-  it.each([
-    buildPhaseStep(4),
-    buildPhaseStep(3, 2),
-    buildPhaseStep(4, 3),
-  ])("%o は個々の付箋と共通の投票基準を案内する", (phase) => {
-    expect(getFacilitationGuide(phase)).toMatchObject({
-      message:
-        "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
-      steps: [
-        ...(phase.kind === "step" && phase.phase === 3
-          ? ["上ほど価値が高く、右ほど実現しやすいことを確認する"]
-          : []),
-        "投票対象は現在のフェーズの個々の付箋です。",
-        "主観は「激しく共感する、取り組みたい」。",
-        "客観は「自分以外の人にも価値がありそう」。",
-        "主観1票・客観3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。",
-        "貼ったシールを押すと、投票を1票取り消せます。",
-      ],
-    });
-  });
+  it.each([buildPhaseStep(4), buildPhaseStep(3, 2), buildPhaseStep(4, 3)])(
+    "%o は個々の付箋と共通の投票基準を案内する",
+    (phase) => {
+      expect(getFacilitationGuide(phase)).toMatchObject({
+        message:
+          "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
+        steps: [
+          ...(phase.kind === "step" && phase.phase === 3
+            ? ["上ほど価値が高く、右ほど実現しやすいことを確認する"]
+            : []),
+          "投票対象は現在のフェーズの個々の付箋です。",
+          "主観は「激しく共感する、取り組みたい」。",
+          "客観は「自分以外の人にも価値がありそう」。",
+          "主観1票・客観3票を、シールをドラッグするか選択して投票対象の付箋へ貼ります。",
+          "貼ったシールを押すと、投票を1票取り消せます。",
+        ],
+      });
+    },
+  );
 
   it("問いの決定ステップには投票基準を表示しない", () => {
     const guide = getFacilitationGuide(buildPhaseStep(4, 2));
@@ -80,14 +79,17 @@ describe("getFacilitationGuide", () => {
     [1, 4],
     [2, 1],
     [3, 3],
-  ] as const)("%i-%i に短い作業・最初の操作・静的な例・目的を用意する", (phase, step) => {
-    const guide = getFacilitationGuide(buildPhaseStep(step, phase));
-    expect(guide?.action?.length).toBeLessThanOrEqual(14);
-    expect(guide?.firstAction).toBeTruthy();
-    expect(guide?.visualExample?.items.length).toBeGreaterThanOrEqual(2);
-    expect(guide?.purpose).toBeTruthy();
-    expect(guide?.hostTimerGuide).toContain("画面上");
-  });
+  ] as const)(
+    "%i-%i に短い作業・最初の操作・静的な例・目的を用意する",
+    (phase, step) => {
+      const guide = getFacilitationGuide(buildPhaseStep(step, phase));
+      expect(guide?.action?.length).toBeLessThanOrEqual(14);
+      expect(guide?.firstAction).toBeTruthy();
+      expect(guide?.visualExample?.items.length).toBeGreaterThanOrEqual(2);
+      expect(guide?.purpose).toBeTruthy();
+      expect(guide?.hostTimerGuide).toContain("画面上");
+    },
+  );
 
   it("個人ワークはホストへタイマーの場所と開始操作を示す", () => {
     const guide = getFacilitationGuide(buildPhaseStep(1));
@@ -113,23 +115,27 @@ describe("getFacilitationGuide", () => {
     [buildPhaseStep(5, 1), "付箋"],
     [buildPhaseStep(4, 2), "問い"],
     [buildPhaseStep(5, 3), "解決策"],
-  ] as const)("%o はホストが画面下から1件を確定する手順を案内する", (phase, target) => {
-    const guide = getFacilitationGuide(phase);
-    expect(guide?.steps?.join(" ")).toContain("画面下");
-    expect(guide?.steps?.join(" ")).toContain(target);
-    expect(guide?.steps?.join(" ")).toContain("1件");
-  });
+  ] as const)(
+    "%o はホストが画面下から1件を確定する手順を案内する",
+    (phase, target) => {
+      const guide = getFacilitationGuide(phase);
+      expect(guide?.steps?.join(" ")).toContain("画面下");
+      expect(guide?.steps?.join(" ")).toContain(target);
+      expect(guide?.steps?.join(" ")).toContain("1件");
+    },
+  );
 });
 
-it.each([
-  1, 2, 3,
-] as const)("フェーズ%iの共有は本人・ホストの交代と自由な共有を案内する", (phase) => {
-  const guide = getFacilitationGuide(buildPhaseStep(2, phase));
-  expect(guide?.firstAction).toContain("画面上");
-  expect(guide?.steps?.join(" ")).toContain("本人");
-  expect(guide?.steps?.join(" ")).toContain("自分の番でなくても");
-  expect(guide?.hostTimerGuide).toContain("自動で始まります");
-  expect(guide?.hostMessage).toContain("ホストも");
-  expect(guide?.hostMessage).toContain("次の人へ");
-  expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
-});
+it.each([1, 2, 3] as const)(
+  "フェーズ%iの共有は本人・ホストの交代と自由な共有を案内する",
+  (phase) => {
+    const guide = getFacilitationGuide(buildPhaseStep(2, phase));
+    expect(guide?.firstAction).toContain("画面上");
+    expect(guide?.steps?.join(" ")).toContain("本人");
+    expect(guide?.steps?.join(" ")).toContain("自分の番でなくても");
+    expect(guide?.hostTimerGuide).toContain("自動で始まります");
+    expect(guide?.hostMessage).toContain("ホストも");
+    expect(guide?.hostMessage).toContain("次の人へ");
+    expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
+  },
+);

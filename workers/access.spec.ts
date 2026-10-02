@@ -223,57 +223,55 @@ describe("成果閲覧者の管理", () => {
 
 describe("意見閲覧者のGUI管理", () => {
   const path = "/api/admin/access?permission=feedback%3Aread";
-  it.each([
-    "GET",
-    "POST",
-    "DELETE",
-  ])("%sは未認証・閲覧者のみ・管理権限取消後に拒否する", async (method) => {
-    const body = method === "GET" ? undefined : { email: reader.email };
-    expect((await call(path, undefined, method, body)).status).toBe(401);
-    await env.DB.prepare(
-      "INSERT INTO user_permissions(user_id,permission) VALUES(?,?)",
-    )
-      .bind(reader.sub, PERMISSIONS.readFeedback)
-      .run();
-    expect((await call(path, reader, method, body)).status).toBe(403);
-    await env.DB.prepare(
-      "INSERT INTO user_permissions(user_id,permission) VALUES(?,?)",
-    )
-      .bind(manager.sub, PERMISSIONS.manageSharedOutcomesAccess)
-      .run();
-    expect((await call(path, manager, method, body)).status).toBe(200);
-    await env.DB.prepare("DELETE FROM user_permissions WHERE user_id=?")
-      .bind(manager.sub)
-      .run();
-    expect((await call(path, manager, method, body)).status).toBe(403);
-  });
-  it.each([
-    "GET",
-    "POST",
-    "DELETE",
-  ])("%sで管理権限や未知の権限を指定しても変更・一覧できない", async (method) => {
-    await env.DB.prepare(
-      "INSERT INTO user_permissions(user_id,permission) VALUES(?,?)",
-    )
-      .bind(manager.sub, PERMISSIONS.manageSharedOutcomesAccess)
-      .run();
-    for (const permission of [
-      PERMISSIONS.manageSharedOutcomesAccess,
-      "unknown",
-      "",
-    ]) {
-      expect(
-        (
-          await call(
-            `/api/admin/access?permission=${encodeURIComponent(permission)}`,
-            manager,
-            method,
-            method === "GET" ? undefined : { email: reader.email },
-          )
-        ).status,
-      ).toBe(400);
-    }
-  });
+  it.each(["GET", "POST", "DELETE"])(
+    "%sは未認証・閲覧者のみ・管理権限取消後に拒否する",
+    async (method) => {
+      const body = method === "GET" ? undefined : { email: reader.email };
+      expect((await call(path, undefined, method, body)).status).toBe(401);
+      await env.DB.prepare(
+        "INSERT INTO user_permissions(user_id,permission) VALUES(?,?)",
+      )
+        .bind(reader.sub, PERMISSIONS.readFeedback)
+        .run();
+      expect((await call(path, reader, method, body)).status).toBe(403);
+      await env.DB.prepare(
+        "INSERT INTO user_permissions(user_id,permission) VALUES(?,?)",
+      )
+        .bind(manager.sub, PERMISSIONS.manageSharedOutcomesAccess)
+        .run();
+      expect((await call(path, manager, method, body)).status).toBe(200);
+      await env.DB.prepare("DELETE FROM user_permissions WHERE user_id=?")
+        .bind(manager.sub)
+        .run();
+      expect((await call(path, manager, method, body)).status).toBe(403);
+    },
+  );
+  it.each(["GET", "POST", "DELETE"])(
+    "%sで管理権限や未知の権限を指定しても変更・一覧できない",
+    async (method) => {
+      await env.DB.prepare(
+        "INSERT INTO user_permissions(user_id,permission) VALUES(?,?)",
+      )
+        .bind(manager.sub, PERMISSIONS.manageSharedOutcomesAccess)
+        .run();
+      for (const permission of [
+        PERMISSIONS.manageSharedOutcomesAccess,
+        "unknown",
+        "",
+      ]) {
+        expect(
+          (
+            await call(
+              `/api/admin/access?permission=${encodeURIComponent(permission)}`,
+              manager,
+              method,
+              method === "GET" ? undefined : { email: reader.email },
+            )
+          ).status,
+        ).toBe(400);
+      }
+    },
+  );
   it("意見の付与・一覧・取消は共有成果の権限と独立し、取消直後は同じセッションで意見を読めない", async () => {
     await env.DB.prepare(
       "INSERT INTO user_permissions(user_id,permission) VALUES(?,?)",

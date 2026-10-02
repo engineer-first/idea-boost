@@ -60,31 +60,35 @@ async function drag(
   await page.mouse.up({ button });
 }
 
-test.each([
-  "group-background-move",
-  "saved-group-background-move",
-])("%s: 背景で領域内の付箋を配置を保って移動する", async (story) => {
-  const page = await open(story);
-  try {
-    const before = await positions(page);
-    const camera = await transform(page);
-    await drag(page);
-    await vi.waitFor(async () =>
-      expect((await positions(page))[0].x).not.toBe(before[0].x),
-    );
-    const after = await positions(page);
-    expect(after[0].x - before[0].x).toBeCloseTo(after[1].x - before[1].x);
-    expect(after[0].y - before[0].y).toBeCloseTo(after[1].y - before[1].y);
-    expect(after[2]).toEqual(before[2]);
-    expect(await transform(page)).toBe(camera);
-    expect(await page.getByTestId("group-start-count").textContent()).toBe("1");
-    await vi.waitFor(async () =>
-      expect(await page.locator("[data-group-moving='true']").count()).toBe(0),
-    );
-  } finally {
-    await page.close();
-  }
-});
+test.each(["group-background-move", "saved-group-background-move"])(
+  "%s: 背景で領域内の付箋を配置を保って移動する",
+  async (story) => {
+    const page = await open(story);
+    try {
+      const before = await positions(page);
+      const camera = await transform(page);
+      await drag(page);
+      await vi.waitFor(async () =>
+        expect((await positions(page))[0].x).not.toBe(before[0].x),
+      );
+      const after = await positions(page);
+      expect(after[0].x - before[0].x).toBeCloseTo(after[1].x - before[1].x);
+      expect(after[0].y - before[0].y).toBeCloseTo(after[1].y - before[1].y);
+      expect(after[2]).toEqual(before[2]);
+      expect(await transform(page)).toBe(camera);
+      expect(await page.getByTestId("group-start-count").textContent()).toBe(
+        "1",
+      );
+      await vi.waitFor(async () =>
+        expect(await page.locator("[data-group-moving='true']").count()).toBe(
+          0,
+        ),
+      );
+    } finally {
+      await page.close();
+    }
+  },
+);
 
 test("ズーム後は画面の移動量をワールド座標へ換算し、移動中はカメラを固定する", async () => {
   const page = await open();
@@ -119,24 +123,26 @@ test("ズーム後は画面の移動量をワールド座標へ換算し、移�
   }
 });
 
-test.each([
-  "space",
-  "middle",
-])("%sで背景を掴むと一括移動せずパンする", async (mode) => {
-  const page = await open();
-  try {
-    const before = await positions(page);
-    const camera = await transform(page);
-    if (mode === "space") await page.keyboard.down("Space");
-    await drag(page, 80, 50, mode === "middle" ? "middle" : "left");
-    if (mode === "space") await page.keyboard.up("Space");
-    expect(await positions(page)).toEqual(before);
-    expect(await page.getByTestId("group-start-count").textContent()).toBe("0");
-    expect(await transform(page)).not.toBe(camera);
-  } finally {
-    await page.close();
-  }
-});
+test.each(["space", "middle"])(
+  "%sで背景を掴むと一括移動せずパンする",
+  async (mode) => {
+    const page = await open();
+    try {
+      const before = await positions(page);
+      const camera = await transform(page);
+      if (mode === "space") await page.keyboard.down("Space");
+      await drag(page, 80, 50, mode === "middle" ? "middle" : "left");
+      if (mode === "space") await page.keyboard.up("Space");
+      expect(await positions(page)).toEqual(before);
+      expect(await page.getByTestId("group-start-count").textContent()).toBe(
+        "0",
+      );
+      expect(await transform(page)).not.toBe(camera);
+    } finally {
+      await page.close();
+    }
+  },
+);
 
 test("名前の編集と付箋の個別ドラッグで一括移動を開始しない", async () => {
   const page = await open();

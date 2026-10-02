@@ -11,9 +11,8 @@ const preview: Preview = {
     try {
       const { worker } = await import("../app/mocks/browser");
       await worker.start({
-        onUnhandledRequest: "warn",
+        onUnhandledFrame: "warn",
         quiet: true,
-        waitUntilReady: true,
       });
     } catch (error) {
       console.error("[MSW] Failed to start the mock service worker:", error);
