@@ -149,7 +149,7 @@ describe("RoomBoardHeader", () => {
     );
     expect(screen.getByTestId("board-context-hud")).not.toHaveClass("absolute");
     expect(screen.getByText("課題整理")).toBeInTheDocument();
-    expect(screen.getByText("2/5")).toBeInTheDocument();
+    expect(screen.queryByText("2/5")).not.toBeInTheDocument();
     expect(
       screen.getByRole("progressbar", { name: "課題整理の進行状況" }),
     ).toHaveAttribute("aria-valuenow", "2");
@@ -285,7 +285,12 @@ describe("RoomBoardHeader", () => {
     const context = screen.getByTestId("board-context-hud");
     expect(within(context).getByText("課題整理")).toBeVisible();
     expect(within(context).getByText("自分の課題（個人）")).toBeVisible();
-    expect(within(context).getByText("1/5")).toBeVisible();
+    expect(within(context).queryByText("1/5")).not.toBeInTheDocument();
+    const progress = within(context).getByRole("progressbar", {
+      name: "課題整理の進行状況",
+    });
+    expect(progress).toBeVisible();
+    expect(progress).toHaveAttribute("aria-valuenow", "1");
     expect(within(context).queryByText("Idea Boost")).not.toBeInTheDocument();
     expect(within(context).queryByText("フェーズ1")).not.toBeInTheDocument();
     rerender(
