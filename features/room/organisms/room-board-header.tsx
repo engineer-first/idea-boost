@@ -215,7 +215,6 @@ export function RoomBoardHeader({
             <BoardContext
               onOpenFeedback={onOpenFeedback}
               phase={phase}
-              isHost={isHost}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
             />

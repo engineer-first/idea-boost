@@ -21,7 +21,7 @@ export function formatOutcomeText(
     "",
     `1. 決定した課題\n${outcome.issue}`,
     "",
-    `2. 決定した問い（HMW）\n${outcome.hmw}`,
+    `2. 決定した問い\n${outcome.hmw}`,
     "",
     `3. 採用したアイデア\n${outcome.idea}`,
     "",

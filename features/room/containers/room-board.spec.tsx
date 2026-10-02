@@ -64,7 +64,7 @@ import type {
   ProtocolNote,
 } from "@/contracts/room-protocol";
 import { buildCarryover, buildGroup } from "@/contracts/room-protocol.fixture";
-import { DECIDED_ISSUE_LABEL, HMW_TEMPLATES } from "@/features/hmw";
+import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
 import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
 import { RoomBoard } from "./room-board";
 
@@ -254,6 +254,61 @@ it("グループ背景のドラッグは受理後に全付箋を動かし、一�
   expect(screen.getByTestId(`board-note-${TARGET_NOTE_ID}`)).toHaveStyle({
     left: "440px",
     top: "160px",
+  });
+});
+
+it("他の参加者の座標だけの一括通知を表示し、古い通知で戻さない", () => {
+  const first = protocolNote({ x: 100, y: 100, content: "保持する本文" });
+  const second = protocolNote({ id: TARGET_NOTE_ID, x: 360, y: 120 });
+  const { socket } = connectWithSnapshot([first, second], {
+    phase: buildPhaseStep(3),
+  });
+  const group = calculateRenderGroups([first, second], [])[0];
+  const message = {
+    type: "group:drag:updated",
+    dragId: STICKER_ID,
+    sequence: 2,
+    group: { ...group, x: group.x + 80, y: group.y + 40 },
+    notes: [first, second].map(({ id, x, y, updatedAt }) => ({
+      id,
+      x: x + 80,
+      y: y + 40,
+      updatedAt,
+    })),
+    ended: false,
+  };
+  act(() => socket.simulateServerMessage(message));
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "180px",
+    top: "140px",
+  });
+  expect(screen.getByText("保持する本文")).toBeInTheDocument();
+  act(() =>
+    socket.simulateServerMessage({
+      ...message,
+      sequence: 1,
+      notes: [first, second],
+    }),
+  );
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "180px",
+    top: "140px",
+  });
+  act(() =>
+    socket.simulateServerMessage({
+      ...message,
+      sequence: 3,
+      ended: true,
+      notes: [first, second].map((note) => ({
+        ...note,
+        x: note.x + 90,
+        y: note.y + 50,
+      })),
+    }),
+  );
+  expect(screen.getByTestId(`board-note-${NOTE_ID}`)).toHaveStyle({
+    left: "190px",
+    top: "150px",
   });
 });
 
@@ -537,7 +592,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.click(screen.getByTestId("room-timer"));
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
     expect(socket.sent).toContain(
-      JSON.stringify({ type: "timer:start", durationMs: 180_000 }),
+      JSON.stringify({ type: "timer:start", durationMs: 300_000 }),
     );
 
     act(() =>
@@ -562,7 +617,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     const timer = within(controls).getByTestId("room-timer");
     expect(timer).toBeVisible();
     expect(timer.tagName).toBe("SPAN");
-    expect(timer).toHaveTextContent("03:00");
+    expect(timer).toHaveTextContent("05:00");
     expect(within(timer).queryByRole("button")).not.toBeInTheDocument();
 
     act(() =>
@@ -758,7 +813,7 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
       width: "1936px",
-      height: "1089px",
+      height: "1109px",
     });
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expectSent(socket, { type: "idea-map:resize", sizeLevel: 3 });
@@ -2508,7 +2563,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   });
 });
 
-describe("Step 2-1（HMW 個人執筆）", () => {
+describe("Step 2-1（問いの個人執筆）", () => {
   function connectAtHmwStep(notes: ProtocolNote[] = []) {
     return connectWithSnapshot(notes, {
       phase: buildPhaseStep(1, 2),
@@ -2530,17 +2585,6 @@ describe("Step 2-1（HMW 個人執筆）", () => {
 
     expect(screen.getByText(DECIDED_ISSUE_LABEL)).toBeInTheDocument();
     expect(screen.getByText("宿題を後回しにしてしまう")).toBeInTheDocument();
-  });
-
-  it("テンプレートを選ぶと content 付き note:create を送る", () => {
-    const { socket } = connectAtHmwStep();
-
-    fireEvent.click(screen.getByRole("button", { name: HMW_TEMPLATES[0] }));
-
-    expect(socket.sent.map((raw) => JSON.parse(raw))).toContainEqual({
-      type: "note:create",
-      content: HMW_TEMPLATES[0],
-    });
   });
 
   it("「付箋を追加」は content なしの note:create を送る（イベントを content に流さない）", () => {
@@ -2571,7 +2615,7 @@ describe("Step 2-1（HMW 個人執筆）", () => {
     expect(screen.queryByText("フェーズ1のグループ")).not.toBeInTheDocument();
   });
 
-  it("Step 1-1 では HMW テンプレートパネルを表示しない", () => {
+  it("Step 1-1 では問いのテンプレートパネルを表示しない", () => {
     connectWithSnapshot([], { phase: buildPhaseStep(1) });
 
     expect(screen.queryByTestId("hmw-template-panel")).not.toBeInTheDocument();
@@ -2599,8 +2643,13 @@ describe("Step 3-1（アイデア個人執筆）", () => {
       ],
     });
 
-    fireEvent.click(screen.getByText("決定した課題"));
+    fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
     expect(screen.getByText("優先順位を決められない")).toBeInTheDocument();
+    expect(
+      screen.getByText("どうすれば着手しやすくできるか"),
+    ).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "決定した問い" }));
+    expect(screen.getByText("優先順位を決められない")).not.toBeVisible();
     expect(
       screen.getByText("どうすれば着手しやすくできるか"),
     ).toBeInTheDocument();

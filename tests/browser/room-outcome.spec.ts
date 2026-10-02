@@ -103,7 +103,7 @@ test("テキスト保存と全文コピーには同じ3項目が入り、操作�
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   for (const part of [
     "1. 決定した課題",
-    "2. 決定した問い（HMW）",
+    "2. 決定した問い",
     "3. 採用したアイデア",
     "次に試すこと",
   ]) {

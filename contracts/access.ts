@@ -7,6 +7,13 @@ export const PERMISSIONS = {
 } as const;
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
+// GUIで変更できるのは閲覧権限だけ。管理者資格はCLIで運用する。
+export const ManagedReadPermissionSchema = z.enum([
+  PERMISSIONS.readSharedOutcomes,
+  PERMISSIONS.readFeedback,
+]);
+export type ManagedReadPermission = z.infer<typeof ManagedReadPermissionSchema>;
+
 export const AccessEmailSchema = z
   .object({ email: z.string().trim().email() })
   .strict();

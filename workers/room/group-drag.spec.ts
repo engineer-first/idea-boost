@@ -5,6 +5,8 @@ import { buildPhaseStep } from "../../contracts/phase.fixture";
 import type { ClientMessage } from "../../contracts/room-protocol";
 import { buildGroup, buildNote } from "../../contracts/room-protocol.fixture";
 import { currentPhaseExpectation, runInRoomDO } from "../test-helpers";
+import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
+import { groupDragHandlers } from "./group-drag";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const hostId = "11111111-1111-4111-8111-111111111111";
@@ -420,14 +422,122 @@ describe("グループ一括ドラッグ", () => {
     const update = await host.until("group:drag:updated");
     expect(update).toMatchObject({ type: "group:drag:updated", ended: false });
     expect(update.notes).toHaveLength(300);
+    await connect(roomName, hostId);
+    await connect(roomName, guestId);
+    const sqlCalls = await runInRoomDO(roomName, async (_room, state) => {
+      let calls = 0;
+      const sql = new Proxy(state.storage.sql, {
+        get(target, key) {
+          if (key === "exec")
+            return (...args: Parameters<SqlStorage["exec"]>) => {
+              calls++;
+              return target.exec(...args);
+            };
+          return Reflect.get(target, key, target);
+        },
+      });
+      const ws = state
+        .getWebSockets()
+        .find(
+          (socket) =>
+            (socket.deserializeAttachment() as SocketAttachment).activeDrag
+              ?.dragId === dragId,
+        );
+      if (!ws) throw new Error("active socket missing");
+      await groupDragHandlers["group:drag:move"](
+        {
+          sql,
+          storage: state.storage,
+          ws,
+          userId: hostId,
+          broadcaster: new RoomBroadcaster(state, sql),
+          reply: () => {},
+          refreshSnapshots: () => {},
+        },
+        {
+          type: "group:drag:move",
+          dragId,
+          sequence: 1,
+          delta: { x: 40, y: 20 },
+        },
+      );
+      return calls;
+    });
+    expect(sqlCalls).toBe(4);
+    const movement = await host.until("group:drag:updated");
+    expect(movement.notes).toHaveLength(300);
+    expect((movement.notes as Record<string, unknown>[])[0]).toEqual({
+      id: notes[0].id,
+      x: notes[0].x + 40,
+      y: notes[0].y + 20,
+      updatedAt: expect.any(String),
+    });
+    expect(JSON.stringify(movement).length).toBeLessThan(60_000);
+    expect(JSON.stringify(movement).length).toBeLessThan(
+      JSON.stringify(update).length / 2,
+    );
+    expect(await positions(roomName)).toEqual(
+      notes.map((note) => ({ id: note.id, x: note.x + 40, y: note.y + 20 })),
+    );
+    host.send({ type: "group:drag:end", dragId, sequence: 2, delta: null });
+    const final = await host.until("group:drag:updated");
+    expect(final.ended).toBe(true);
+    expect((final.notes as Record<string, unknown>[])[0]).toMatchObject({
+      id: notes[0].id,
+      content: notes[0].content,
+      x: notes[0].x + 40,
+      y: notes[0].y + 20,
+    });
+  });
+  it.each([
+    "private",
+    "deleted",
+    "phase",
+  ])("開始後に対象が%sへ変わったら全件を移動・配信しない", async (change) => {
+    const roomName = `group-drag-changed-target-${change}`;
+    const { host, guest } = await setup(roomName);
+    host.send(start);
+    await host.until("group:drag:result");
+    await host.until("group:drag:updated");
+    await guest.until("group:drag:updated");
+    await runInRoomDO(roomName, (_room, state) => {
+      if (change === "deleted")
+        state.storage.sql.exec("DELETE FROM notes WHERE id = ?1", noteA.id);
+      else if (change === "private")
+        state.storage.sql.exec(
+          "UPDATE notes SET visibility = 'private' WHERE id = ?1",
+          noteA.id,
+        );
+      else
+        state.storage.sql.exec(
+          "UPDATE notes SET phase = 2 WHERE id = ?1",
+          noteA.id,
+        );
+    });
     host.send({
       type: "group:drag:move",
       dragId,
       sequence: 1,
-      delta: { x: 40, y: 20 },
+      delta: { x: 80, y: 40 },
     });
-    expect((await host.until("group:drag:updated")).notes).toHaveLength(300);
+    host.send({
+      type: "note:drag:start",
+      noteId: noteB.id,
+      dragId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    });
+    expect(await host.until("note:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    expect(await positions(roomName)).toContainEqual({
+      id: noteB.id,
+      x: noteB.x,
+      y: noteB.y,
+    });
+    expect(
+      guest.messages.some((message) => message.type === "group:drag:updated"),
+    ).toBe(false);
   });
+
   it("非メンバーの一括移動を拒否する", async () => {
     const roomName = "group-drag-non-member";
     const { guest } = await setup(roomName);

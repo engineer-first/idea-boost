@@ -68,9 +68,12 @@ export class RoomBroadcaster {
    * 一括更新も各受信者へ射影し、全対象の可視性を確認してから一度に送る。
    */
   broadcastGroupNotes(
-    buildMessage: (
-      viewerId: string,
-    ) => Extract<ServerMessage, { type: "group:drag:updated" }>,
+    buildMessage: (viewerId: string) => Extract<
+      ServerMessage,
+      { type: "group:drag:updated" }
+    > & {
+      notes: ProtocolNote[];
+    },
   ): void {
     for (const socket of this.connections.getWebSockets()) {
       const attachment =
@@ -84,6 +87,26 @@ export class RoomBroadcaster {
       )
         continue;
       this.trySend(socket, JSON.stringify(message));
+    }
+  }
+
+  /** 座標だけの途中通知も対象の可視性を確認し、同じpayloadを各接続で再利用する。 */
+  broadcastGroupMovement(
+    message: Extract<ServerMessage, { type: "group:drag:updated" }>,
+    subjects: Pick<ProtocolNote, "visibility" | "authorId">[],
+  ): void {
+    const payload = JSON.stringify(message);
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (
+        !attachment ||
+        !subjects.every((note) =>
+          visibleTo({ viewerId: attachment.userId }, note),
+        )
+      )
+        continue;
+      this.trySend(socket, payload);
     }
   }
 

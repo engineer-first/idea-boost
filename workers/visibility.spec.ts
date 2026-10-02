@@ -104,7 +104,8 @@ const TABLE: Array<{
     expected: false,
   },
   {
-    name: "意見の閲覧者にもprivate付箋を公開しない",
+    // 意見権限はD1の閲覧API専用。GUI/CLIの付与経路は可視性に渡さない。
+    name: "GUI・CLIで付与した意見の閲覧者にもprivate付箋を公開しない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private" }),
     expected: false,

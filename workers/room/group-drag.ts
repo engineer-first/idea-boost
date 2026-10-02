@@ -16,7 +16,7 @@ import {
 } from "./drag-operations";
 import { autoReorganize, listGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
-import { findNote, listSharedNotes, toProtocolNote } from "./notes";
+import { findNotes, listSharedNotes, toProtocolNote } from "./notes";
 import { getPhase } from "./phase";
 
 export const GROUP_DRAG_MAX_DURATION_MS = 60_000;
@@ -58,8 +58,14 @@ export function broadcastGroupDrag(
 ): void {
   const group = active.group;
   if (!group) return;
-  const rows = group.positions.map(({ noteId }) => findNote(sql, noteId));
-  if (rows.some((row) => row?.visibility !== "shared" || row.phase !== 1))
+  const rows = findNotes(
+    sql,
+    group.positions.map(({ noteId }) => noteId),
+  );
+  if (
+    rows.length !== group.positions.length ||
+    rows.some((row) => row.visibility !== "shared" || row.phase !== 1)
+  )
     return;
   broadcaster.broadcastGroupNotes((viewerId) => ({
     type: "group:drag:updated",
@@ -227,8 +233,14 @@ async function applyGroupMovement(
     await closeGroupDrag(ctx, active);
     return;
   }
-  const rows = group.positions.map(({ noteId }) => findNote(ctx.sql, noteId));
-  if (rows.some((row) => row?.visibility !== "shared" || row.phase !== 1)) {
+  const rows = findNotes(
+    ctx.sql,
+    group.positions.map(({ noteId }) => noteId),
+  );
+  if (
+    rows.length !== group.positions.length ||
+    rows.some((row) => row.visibility !== "shared" || row.phase !== 1)
+  ) {
     await closeGroupDrag(ctx, active);
     return;
   }
@@ -237,18 +249,22 @@ async function applyGroupMovement(
     : group.delta;
   const nextGroup = { ...group, sequence: message.sequence, delta };
   const next: ActiveDragOwner = { ...active, group: nextGroup };
+  const updatedAt = new Date().toISOString();
   try {
     ctx.storage.transactionSync(() => {
       if (message.delta) {
-        const updatedAt = new Date().toISOString();
-        for (const position of group.positions)
-          ctx.sql.exec(
-            "UPDATE notes SET x = ?2, y = ?3, updated_at = ?4 WHERE id = ?1",
-            position.noteId,
-            position.x + delta.x,
-            position.y + delta.y,
-            updatedAt,
-          );
+        ctx.sql.exec(
+          `UPDATE notes
+           SET x = json_extract(target.value, '$.x') + ?2,
+               y = json_extract(target.value, '$.y') + ?3,
+               updated_at = ?4
+           FROM json_each(?1) target
+           WHERE notes.id = json_extract(target.value, '$.noteId')`,
+          JSON.stringify(group.positions),
+          delta.x,
+          delta.y,
+          updatedAt,
+        );
       }
       ctx.broadcaster.saveGroupDrag(ctx.ws, nextGroup);
     });
@@ -263,5 +279,28 @@ async function applyGroupMovement(
     return;
   }
   if (ended) await closeGroupDrag(ctx, next);
-  else broadcastGroupDrag(ctx.sql, ctx.broadcaster, next, false);
+  else
+    ctx.broadcaster.broadcastGroupMovement(
+      {
+        type: "group:drag:updated",
+        dragId: next.dragId,
+        sequence: nextGroup.sequence,
+        group: {
+          ...group.frame,
+          x: group.frame.x + delta.x,
+          y: group.frame.y + delta.y,
+        },
+        notes: group.positions.map(({ noteId, x, y }) => ({
+          id: noteId,
+          x: x + delta.x,
+          y: y + delta.y,
+          updatedAt,
+        })),
+        ended: false,
+      },
+      rows.map((row) => ({
+        visibility: row.visibility,
+        authorId: row.author_id,
+      })),
+    );
 }

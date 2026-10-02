@@ -34,7 +34,10 @@ export function applyServerMessage(
   switch (message.type) {
     case "group:drag:updated": {
       const updates = new Map(message.notes.map((note) => [note.id, note]));
-      return notes.map((note) => updates.get(note.id) ?? note);
+      return notes.map((note) => {
+        const update = updates.get(note.id);
+        return update ? { ...note, ...update } : note;
+      });
     }
     case "snapshot": {
       // 接続・再接続時の一括復元。確定状態はサーバーが真実なので、

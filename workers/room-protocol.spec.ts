@@ -1649,7 +1649,7 @@ describe("note:vote（課題ドット投票）", () => {
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
-         VALUES (?1, ?2, 'HMW', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
+         VALUES (?1, ?2, '問い', 'shared', 'yellow', 0, 0, ?3, ?3, 2)`,
         noteId,
         OWNER.sub,
         now,

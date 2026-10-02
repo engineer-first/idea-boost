@@ -66,6 +66,27 @@ export function findNote(sql: SqlStorage, noteId: string): NoteRow | null {
     : null;
 }
 
+/** 対象IDを1つのJSON引数で渡し、SQL変数数の上限や付箋ごとの照会を避ける。 */
+export function findNotes(
+  sql: SqlStorage,
+  noteIds: readonly string[],
+): NoteRow[] {
+  return sql
+    .exec(
+      `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size,
+            COALESCE(v.content_revision, 0) AS content_revision
+     FROM json_each(?1) target
+     JOIN notes n ON n.id = target.value
+     LEFT JOIN note_appearances a ON a.note_id = n.id
+     LEFT JOIN note_content_versions v ON v.note_id = n.id
+     ORDER BY target.key`,
+      JSON.stringify(noteIds),
+      NOTE_DEFAULT_FONT_SIZE,
+    )
+    .toArray()
+    .map((row) => normalizeNoteRow(row as Record<string, unknown>));
+}
+
 export function requireNote(ctx: HandlerCtx, noteId: string): NoteRow | null {
   const row = findNote(ctx.sql, noteId);
   if (!row) {

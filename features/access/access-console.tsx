@@ -2,13 +2,27 @@
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { z } from "zod";
-import { type AccessUserSchema, AccessUsersSchema } from "@/contracts/access";
+import {
+  type AccessUserSchema,
+  AccessUsersSchema,
+  type ManagedReadPermission,
+  PERMISSIONS,
+} from "@/contracts/access";
 import { AccessDeniedView, AccessView } from "./access-view";
 
 type AccessUser = z.infer<typeof AccessUserSchema>;
 type FailedOperation = { method: "POST" | "DELETE"; target: string };
 
-export function AccessConsole(): JSX.Element {
+export function AccessConsole({
+  permission = PERMISSIONS.readSharedOutcomes,
+}: {
+  permission?: ManagedReadPermission;
+}): JSX.Element {
+  const path =
+    permission === PERMISSIONS.readSharedOutcomes
+      ? "/api/admin/access"
+      : `/api/admin/access?permission=${encodeURIComponent(permission)}`;
+  const label = permission === PERMISSIONS.readFeedback ? "意見" : "成果";
   const [users, setUsers] = useState<AccessUser[]>([]);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -26,7 +40,7 @@ export function AccessConsole(): JSX.Element {
     setError(
       status === 401
         ? "ログイン状態を確認できません。もう一度ログインしてください。"
-        : "成果閲覧者の管理権限がありません。権限を確認してから再試行してください。",
+        : "閲覧者の管理権限がありません。権限を確認してから再試行してください。",
     );
   }, []);
   const refresh = useCallback(async (): Promise<
@@ -37,7 +51,7 @@ export function AccessConsole(): JSX.Element {
     setLoading(true);
     setFailedOperation(null);
     try {
-      const response = await fetch("/api/admin/access", { cache: "no-store" });
+      const response = await fetch(path, { cache: "no-store" });
       if (response.status === 401 || response.status === 403) {
         deny(response.status);
         return "denied";
@@ -56,7 +70,7 @@ export function AccessConsole(): JSX.Element {
       refreshing.current = false;
       setLoading(false);
     }
-  }, [deny]);
+  }, [deny, path]);
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -69,9 +83,9 @@ export function AccessConsole(): JSX.Element {
     setPending(true);
     setError(null);
     setFailedOperation(null);
-    let message = `${target} の閲覧権限を${method === "POST" ? "追加" : "取消"}できませんでした。通信を確認して再試行してください。`;
+    let message = `${target} の${label}閲覧権限を${method === "POST" ? "追加" : "取消"}できませんでした。通信を確認して再試行してください。`;
     try {
-      const response = await fetch("/api/admin/access", {
+      const response = await fetch(path, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: target }),
@@ -93,10 +107,10 @@ export function AccessConsole(): JSX.Element {
       }
       if (method === "POST") setEmail("");
       const action = method === "POST" ? "追加" : "取消";
-      toast.success(`${target} の閲覧権限を${action}しました。`);
+      toast.success(`${target} の${label}閲覧権限を${action}しました。`);
       if ((await refresh()) === "failed") {
         setError(
-          `${target} の閲覧権限の${action}は完了しました。一覧を取得できなかったため、再試行して最新の権限を確認してください。`,
+          `${target} の${label}閲覧権限の${action}は完了しました。一覧を取得できなかったため、再試行して最新の権限を確認してください。`,
         );
       }
     } catch {
@@ -110,6 +124,7 @@ export function AccessConsole(): JSX.Element {
   if (denied) {
     return (
       <AccessDeniedView
+        permission={permission}
         unauthenticated={denied === 401}
         error={error}
         loading={loading}
@@ -119,6 +134,7 @@ export function AccessConsole(): JSX.Element {
   }
   return (
     <AccessView
+      permission={permission}
       users={users}
       email={email}
       loading={loading}

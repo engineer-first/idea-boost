@@ -79,7 +79,7 @@ export const PermissionDenied: StoryObj<typeof meta> = {
   render: () => (
     <AccessDeniedView
       unauthenticated={false}
-      error="成果閲覧者の管理権限がありません。権限を確認してから再試行してください。"
+      error="閲覧者の管理権限がありません。権限を確認してから再試行してください。"
       loading={false}
       onRetry={() => {}}
     />
@@ -94,4 +94,28 @@ export const SessionExpired: StoryObj<typeof meta> = {
       onRetry={() => {}}
     />
   ),
+};
+
+export const Feedback: StoryObj<typeof meta> = {
+  args: { permission: "feedback:read" },
+};
+export const FeedbackEmpty: StoryObj<typeof meta> = {
+  args: { permission: "feedback:read", users: [] },
+};
+export const FeedbackLoading: StoryObj<typeof meta> = {
+  args: { permission: "feedback:read", loading: true, users: [] },
+};
+export const FeedbackPending: StoryObj<typeof meta> = {
+  args: {
+    permission: "feedback:read",
+    pending: true,
+    email: "member@example.test",
+  },
+};
+export const FeedbackFailed: StoryObj<typeof meta> = {
+  args: {
+    permission: "feedback:read",
+    users: [],
+    error: "意見の閲覧者一覧を取得できませんでした。再試行してください。",
+  },
 };

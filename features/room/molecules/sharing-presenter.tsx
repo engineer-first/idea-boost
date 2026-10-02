@@ -22,10 +22,6 @@ export function SharingPresenter({
 }: SharingPresenterProps) {
   const descriptionId = useId();
   const current = sharing.order[sharing.currentIndex ?? sharing.results.length];
-  const next =
-    sharing.currentIndex === null
-      ? undefined
-      : sharing.order[sharing.currentIndex + 1];
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -46,22 +42,12 @@ export function SharingPresenter({
                   ? "一人ずつ共有します"
                   : `${sharing.startsAt !== null ? "まもなく発表" : "発表中"}：${current?.name ?? ""}`}
             </span>
-            <span className="block truncate text-[11px] text-muted-foreground">
-              {sharing.status === "complete"
-                ? "結果と順番を見る"
-                : sharing.status === "ready"
-                  ? `最初 ${current?.name ?? ""}`
-                  : next
-                    ? `次 ${next.name}`
-                    : "この人で最後"}
-            </span>
           </span>
           <span className="shrink-0 text-right text-xs tabular-nums">
             {sharing.currentIndex === null
               ? sharing.results.length
               : sharing.currentIndex + 1}
             /{sharing.order.length}
-            <span className="block text-[10px] text-blue-700">3回共通</span>
           </span>
         </Button>
       </PopoverTrigger>

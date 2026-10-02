@@ -8,7 +8,7 @@ describe("formatOutcomeText", () => {
       new Date("2026-10-01T03:00:00+09:00"),
     );
     expect(result).toContain("1. 決定した課題\n課題\n2行目");
-    expect(result).toContain("2. 決定した問い（HMW）\n問い");
+    expect(result).toContain("2. 決定した問い\n問い");
     expect(result).toContain("3. 採用したアイデア\n採用案");
     expect(result).toContain("出力日:");
     expect(result).toContain("次に試すこと\n");

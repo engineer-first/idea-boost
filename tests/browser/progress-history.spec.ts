@@ -42,7 +42,7 @@ it.each([
     await expect
       .poll(() =>
         selected
-          .getByRole("tab", { name: "HMW" })
+          .getByRole("tab", { name: "問い" })
           .getAttribute("aria-selected"),
       )
       .toBe("true");

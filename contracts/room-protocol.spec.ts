@@ -1473,6 +1473,28 @@ describe("グループ一括ドラッグの境界", () => {
     };
     expect(ServerMessageSchema.parse(message).type).toBe("group:drag:updated");
   });
+  it("途中更新では本文や投票を持たない確定座標だけを受け取れる", () => {
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "group:drag:updated",
+        dragId,
+        sequence: 1,
+        ended: false,
+        group: {
+          id: "frame",
+          name: "group",
+          ...start.bounds,
+          representativeNoteId: USER_A,
+        },
+        notes: positions.map(({ noteId, x, y }) => ({
+          id: noteId,
+          x,
+          y,
+          updatedAt: "2026-10-02T00:00:00.000Z",
+        })),
+      }).success,
+    ).toBe(true);
+  });
   it("1000枚を超える対象でも開始要求を受け取れる", () => {
     expect(
       ClientMessageSchema.safeParse({

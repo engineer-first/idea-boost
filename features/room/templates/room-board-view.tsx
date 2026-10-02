@@ -321,6 +321,8 @@ export function RoomBoardView({
 }: RoomBoardViewProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+  const shouldExpandPrivateNotes =
+    phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
@@ -352,7 +354,9 @@ export function RoomBoardView({
     previousPhaseKey.current = phaseKey;
     setIsAdoptMode(false);
     setSelectedNoteId(null);
-  }, [phaseKey]);
+    if (shouldExpandPrivateNotes)
+      setExpandPrivateNotesRequest((request) => request + 1);
+  }, [phaseKey, shouldExpandPrivateNotes]);
 
   useEffect(() => {
     if (previousRevision.current === phaseRevision) return;
@@ -1078,7 +1082,7 @@ export function RoomBoardView({
 
         {isVotingStep(phase) ? (
           <div
-            className="pointer-events-none absolute inset-x-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 flex justify-end lg:justify-center max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))] max-[639px]:justify-center"
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center max-[639px]:bottom-[7.5rem] max-[639px]:justify-center"
             data-testid="vote-palette-hud"
             data-board-fit-edge="bottom"
           >
@@ -1096,7 +1100,7 @@ export function RoomBoardView({
         ) : null}
 
         <div
-          className="pointer-events-none absolute inset-x-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 flex justify-center max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))]"
+          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[7.5rem]"
           data-testid="phase-loop-hud"
           data-board-fit-edge="bottom"
         >
