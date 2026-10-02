@@ -32,9 +32,7 @@ describe("IdeaGuidePanel", () => {
   )("%sを選ぶと同じ書き出しを一枚分だけ返す", async (hint) => {
     const onHintSelect = vi.fn();
     render(<IdeaGuidePanel onHintSelect={onHintSelect} />);
-    await userEvent.click(
-      screen.getByRole("button", { name: hint }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: hint }));
     expect(onHintSelect).toHaveBeenCalledExactlyOnceWith(hint);
   });
 
