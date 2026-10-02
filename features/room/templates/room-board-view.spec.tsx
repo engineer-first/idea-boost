@@ -9,7 +9,6 @@ import {
   buildNote,
   buildNotes,
 } from "@/contracts/room-protocol.fixture";
-import { HMW_TEMPLATES } from "@/features/hmw";
 import type { Note } from "@/features/notes";
 import { useBoardHelp } from "../logic/use-board-help";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
@@ -424,9 +423,8 @@ describe("1280×720の補助UI", () => {
     });
     expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
       "data-expanded",
-      "false",
+      "true",
     );
-    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
     fireEvent.click(
       screen.getByRole("button", { name: "考えるヒントを閉じる" }),
     );
@@ -1487,31 +1485,6 @@ describe("RoomBoardView", () => {
       ).not.toBeDisabled();
     });
 
-    it.each([
-      "connecting",
-      "closed",
-    ] as const)("%sの間は Step 2-1 の問いテンプレートボタンが無効化される", (connectionStatus) => {
-      setup({ phase: buildPhaseStep(1, 2), notes: [], connectionStatus });
-
-      expect(
-        screen.getByRole("button", { name: HMW_TEMPLATES[0] }),
-      ).toBeDisabled();
-    });
-
-    it("openの間は Step 2-1 の問いテンプレートを選ぶと onHmwTemplateSelect が呼ばれる", () => {
-      const onHmwTemplateSelect = vi.fn();
-      setup({
-        phase: buildPhaseStep(1, 2),
-        notes: [],
-        connectionStatus: "open",
-        onHmwTemplateSelect,
-      });
-
-      fireEvent.click(screen.getByRole("button", { name: HMW_TEMPLATES[0] }));
-
-      expect(onHmwTemplateSelect).toHaveBeenCalledWith(HMW_TEMPLATES[0]);
-    });
-
     it("closedの間は付箋をクリックしても選択されない", () => {
       setup({ connectionStatus: "closed" });
 
@@ -2380,9 +2353,8 @@ describe("U13 通常入口の統合", () => {
     expect(props.onLeave).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    2, 3,
-  ] as const)("%s-1 template一回でマイ付箋を開き本文を編集でき、空付箋を増やさない", async (phase) => {
+  it("3-1 hint一回でマイ付箋を開き本文を編集でき、空付箋を増やさない", async () => {
+    const phase = 3 as const;
     const privateNote = buildNote({
       id: "private-template",
       visibility: "private",
@@ -2396,11 +2368,10 @@ describe("U13 通常入口の統合", () => {
     });
     expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
       "data-expanded",
-      "false",
+      "true",
     );
     await userEvent.click(screen.getByRole("button", { name: "もっと簡単に" }));
-    const callback =
-      phase === 2 ? props.onHmwTemplateSelect : props.onIdeaHintSelect;
+    const callback = props.onIdeaHintSelect;
     expect(callback).toHaveBeenCalledExactlyOnceWith("もっと簡単に");
     expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
       "data-expanded",

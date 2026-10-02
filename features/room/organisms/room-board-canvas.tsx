@@ -783,7 +783,9 @@ export function RoomBoardCanvas({
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               editingDisabled={isResultStep(phase)}
-              defaultExpanded={false}
+              defaultExpanded={
+                phase.kind === "step" && phase.step === 1 && phase.phase <= 3
+              }
               expandRequest={expandPrivateNotesRequest}
               addRequest={addPrivateNoteRequest}
               className="pointer-events-auto max-h-full"

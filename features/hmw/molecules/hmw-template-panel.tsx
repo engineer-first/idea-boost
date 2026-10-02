@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
-  HMW_EXAMPLE_DESCRIPTION,
-  HMW_EXAMPLES,
   HMW_GUIDE_HEADING,
   HMW_TEMPLATE_DESCRIPTION,
   HMW_TEMPLATES,
@@ -51,23 +49,6 @@ export function HmwTemplatePanel({
               </Button>
             ))}
           </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <span className="text-muted-foreground text-xs">
-            具体例（読むヒント）
-          </span>
-          <p className="text-muted-foreground text-xs">
-            {HMW_EXAMPLE_DESCRIPTION}
-          </p>
-          {/* お手本として読むだけの表示専用リスト。クリックで付箋は作らない */}
-          <ul className="flex flex-col gap-1">
-            {HMW_EXAMPLES.map((example) => (
-              <li key={example} className="text-sm leading-relaxed">
-                {example}
-              </li>
-            ))}
-          </ul>
         </div>
       </CardContent>
     </Card>

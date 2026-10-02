@@ -320,6 +320,8 @@ export function RoomBoardView({
 }: RoomBoardViewProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+  const shouldExpandPrivateNotes =
+    phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [isAdoptMode, setIsAdoptMode] = useState(false);
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
@@ -351,7 +353,9 @@ export function RoomBoardView({
     previousPhaseKey.current = phaseKey;
     setIsAdoptMode(false);
     setSelectedNoteId(null);
-  }, [phaseKey]);
+    if (shouldExpandPrivateNotes)
+      setExpandPrivateNotesRequest((request) => request + 1);
+  }, [phaseKey, shouldExpandPrivateNotes]);
 
   useEffect(() => {
     if (previousRevision.current === phaseRevision) return;

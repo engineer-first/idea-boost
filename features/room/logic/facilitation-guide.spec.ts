@@ -10,9 +10,11 @@ describe("getFacilitationGuide", () => {
     ]);
   });
 
-  it("フェーズ2 Step 1のやることを1項目だけ返す", () => {
+  it("フェーズ2 Step 1のやることを返す", () => {
     expect(getFacilitationGuide(buildPhaseStep(1, 2))?.steps).toEqual([
-      "決定した課題に対して\n「どうすれば私たちは〇〇できるだろう？」の形に言い換える",
+      "課題を見て、何が困っているのかを考える",
+      "どうなったらよいかを考える",
+      "「どうすれば私たちは〇〇できるだろう？」の形で書く",
     ]);
   });
 
@@ -96,8 +98,8 @@ describe("getFacilitationGuide", () => {
     [
       buildPhaseStep(1, 2),
       3,
-      "決定した課題に対する問いを、付箋に書き出そう。",
-      "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
+      "何をよくしたいのかがわかる質問を、付箋に書こう。",
+      null,
     ],
     [
       buildPhaseStep(2, 2),
@@ -121,7 +123,7 @@ describe("getFacilitationGuide", () => {
       buildPhaseStep(1, 3),
       3,
       "決定した問いをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",
-      "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
+      null,
     ],
     [
       buildPhaseStep(2, 3),

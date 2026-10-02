@@ -24,6 +24,13 @@
   height: min(440px, calc(100dvh - 200px));
   border-radius: 20px;
 }
+.guide:has(.detail[data-no-footer="true"])[data-state="detail"] {
+  height: min(400px, calc(100dvh - 200px));
+}
+.detail[data-no-footer="true"] {
+  overflow: hidden;
+  padding-bottom: 56px;
+}
 .layer {
   position: absolute;
   inset: 0;
@@ -97,6 +104,9 @@
     transform: none;
   }
   .guide[data-state="detail"] {
+    height: min(180px, 22dvh);
+  }
+  .guide:has(.detail[data-no-footer="true"])[data-state="detail"] {
     height: min(180px, 22dvh);
   }
   [data-testid="room-board-view-root"]:has([data-expanded="true"])

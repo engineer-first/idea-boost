@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
 import { submitFeedback, useFeedback } from "@/features/feedback";
+import { HMW_EXAMPLES } from "@/features/hmw";
 import {
   NoteDraftRecovery,
   useNoteAutosave,
@@ -68,6 +69,7 @@ export function RoomBoard({
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
   const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
     useState(false);
+  const hmwExamplesInitializedRef = useRef(false);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
   const bulkUndoIdsRef = useRef(new Set<string>());
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
@@ -317,6 +319,29 @@ export function RoomBoard({
     (content: string) => addNote(content),
     [addNote],
   );
+
+  useEffect(() => {
+    const isHmwWritingStep =
+      roomState.phase.kind === "step" &&
+      roomState.phase.phase === 2 &&
+      roomState.phase.step === 1;
+    if (
+      !isHmwWritingStep ||
+      connectionStatus !== "open" ||
+      hmwExamplesInitializedRef.current
+    )
+      return;
+
+    hmwExamplesInitializedRef.current = true;
+    const existingContents = new Set(
+      notes.notes
+        .filter((note) => note.visibility === "private")
+        .map((note) => note.content),
+    );
+    for (const example of HMW_EXAMPLES) {
+      if (!existingContents.has(example)) addNote(example);
+    }
+  }, [addNote, connectionStatus, notes.notes, roomState.phase]);
 
   // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。
   // 持ち越しはフェーズ昇順の配列なので、由来フェーズで取り出す。

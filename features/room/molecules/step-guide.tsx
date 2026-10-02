@@ -122,6 +122,9 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
         tabIndex={-1}
         inert={state !== "detail"}
         aria-hidden={state !== "detail"}
+        data-no-footer={
+          !guide.completion && !guide.hostMessage ? "true" : undefined
+        }
         className={`${styles.layer} ${styles.detail} focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring`}
       >
         <p className="text-xs font-semibold text-primary">進め方</p>
