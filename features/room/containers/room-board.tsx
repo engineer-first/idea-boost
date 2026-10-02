@@ -53,6 +53,7 @@ export type RoomBoardProps = {
   // テストでボード操作を単体検証するときは案内モーダルを無効化する。
 };
 
+/** ルームの受信状態と各操作hookを束ね、共有ボードの表示と操作を接続する。 */
 export function RoomBoard({
   roomId,
   inviteCode,
@@ -130,7 +131,9 @@ export function RoomBoard({
     [],
   );
 
+  /** 古いグループ移動の通知を除き、付箋・進行・通知の各状態へサーバーメッセージを渡す。 */
   function handleServerMessage(message: ServerMessage) {
+    if (boardInteractions.applyGroupMessage?.(message) === false) return;
     if (
       message.type === "snapshot" ||
       message.type === "outcome:published" ||
@@ -372,6 +375,8 @@ export function RoomBoard({
     (note) => note.visibility === "private",
   );
   const boardInteractions = useRoomBoardInteractions({
+    send,
+    connected: connectionStatus === "open",
     getFitInsets: getBoardFitInsets,
     notes: boardNotes,
     isDecided: roomState.decision !== null,

@@ -14,6 +14,7 @@ import { getNoteHeight } from "@/contracts/board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
+  type RenderGroup,
 } from "@/contracts/grouping";
 import {
   isAtOrAfterGroupingStep,
@@ -39,6 +40,7 @@ import {
 } from "../logic/cursor-presence";
 import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
+import type { MovingGroup } from "../logic/use-group-drag";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -52,6 +54,12 @@ const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
 export type RoomBoardCanvasProps = {
+  movingGroups?: MovingGroup[];
+  onGroupDragStart?: (
+    group: RenderGroup,
+    event: ReactPointerEvent<HTMLDivElement>,
+    origin: { x: number; y: number },
+  ) => void;
   notes: Note[];
   groups: PersistentGroup[];
   phase: RoomPhase;
@@ -141,8 +149,11 @@ export type RoomBoardCanvasProps = {
   addPrivateNoteRequest?: number;
 };
 
+/** ボードと付箋を描画し、移動対象を再計算から除いて移動中のグループ枠を維持する。 */
 export function RoomBoardCanvas({
   notes,
+  movingGroups = [],
+  onGroupDragStart,
   groups,
   phase,
   decision,
@@ -209,8 +220,15 @@ export function RoomBoardCanvas({
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
+  const movingNoteIds = new Set(movingGroups.flatMap((group) => group.noteIds));
   const renderGroups = isAtOrAfterGroupingStep(phase)
-    ? calculateRenderGroups(notes, groups)
+    ? [
+        ...calculateRenderGroups(
+          notes.filter((note) => !movingNoteIds.has(note.id)),
+          groups,
+        ),
+        ...movingGroups.map(({ group }) => group),
+      ]
     : [];
   // 候補外を先に描き、付箋単位の wrapper で重なり順を管理する。
   // カードと採用領域を同じ単位に収め、見えている候補とクリック先を一致させる。
@@ -633,6 +651,12 @@ export function RoomBoardCanvas({
                   group={rg}
                   name={rg.name}
                   canGroupNote={permissions.canGroupNote}
+                  canMoveGroup={permissions.canGroupNote && !isDisconnected}
+                  isMoving={movingGroups.some(
+                    (group) => group.group.id === rg.id,
+                  )}
+                  onDragStart={onGroupDragStart}
+                  onBackgroundClick={() => onSelect(null)}
                   onUpdateName={handleUpdateName}
                 />
               );
@@ -714,7 +738,7 @@ export function RoomBoardCanvas({
             )
           : null}
         <div
-          className="pointer-events-none absolute bottom-3 left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
         >
@@ -755,7 +779,7 @@ export function RoomBoardCanvas({
         </div>
         {isIdeaMapSizeControlsVisible ? (
           <div
-            className="pointer-events-auto absolute bottom-[4.5rem] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-3 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
+            className="pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-[calc(0.75rem+var(--board-notification-inset,0px))] max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
             data-testid="idea-map-size-controls-hud"
             data-board-fit-edge="bottom"
           >
@@ -771,7 +795,7 @@ export function RoomBoardCanvas({
         ) : null}
         {permissions.showPrivateToolbar ? (
           <div
-            className={`pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[180px] max-[639px]:max-h-[180px] ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[11.5rem]" : "max-[639px]:bottom-[7.5rem]"}`}
+            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[180px] max-[639px]:max-h-[180px] ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(11.5rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))]"}`}
             data-testid="private-notes-dock"
             data-board-fit-edge="bottom"
           >

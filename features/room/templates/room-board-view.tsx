@@ -240,6 +240,7 @@ type VoteStampPointer = {
   clientY: number;
 };
 
+/** 共有ボードと進行用の画面を組み立て、表示と操作コールバックを各部品へ渡す。 */
 export function RoomBoardView({
   feedback,
   notes,
@@ -1006,6 +1007,8 @@ export function RoomBoardView({
         </RoomBoardHeader>
 
         <RoomBoardCanvas
+          movingGroups={interactions.movingGroups}
+          onGroupDragStart={interactions.onGroupDragStart}
           notes={renderedNotes}
           groups={groups}
           phase={phase}

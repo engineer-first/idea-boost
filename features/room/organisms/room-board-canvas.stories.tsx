@@ -3,11 +3,19 @@ import {
   type ComponentProps,
   type ComponentType,
   createRef,
+  useCallback,
   useRef,
   useState,
 } from "react";
 import { expect, fireEvent, fn, within } from "storybook/test";
+import { calculateRenderGroups } from "@/contracts/grouping";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type {
+  ClientMessage,
+  GroupDragFrame,
+  ProtocolNote,
+  ServerMessage,
+} from "@/contracts/room-protocol";
 import {
   buildDecision,
   buildNote,
@@ -16,6 +24,7 @@ import {
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import { useCanvasCamera } from "../logic/use-canvas-camera";
+import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
 type RoomBoardCanvasStoryProps = Omit<
@@ -543,6 +552,184 @@ export const Step1Grouping: Story = {
       },
     ],
   },
+};
+
+const GROUP_MOVE_NOTES = [
+  buildNote({
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    content: "課題A",
+    x: 100,
+    y: 140,
+  }),
+  buildNote({
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    content: "課題B",
+    x: 360,
+    y: 160,
+  }),
+  buildNote({
+    id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    content: "領域外の付箋",
+    x: 900,
+    y: 480,
+  }),
+];
+
+/**
+ * 実際の入力hookを使い、RoomDOの受理と一括更新だけを再現する。
+ */
+function GroupMovePreview({
+  args,
+  reject = false,
+}: {
+  args: RoomBoardCanvasStoryProps;
+  reject?: boolean;
+}) {
+  const [notes, setNotes] = useState(args.notes);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [starts, setStarts] = useState(0);
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const applyRef = useRef<(message: ServerMessage) => boolean>(() => true);
+  const activeRef = useRef<{
+    dragId: string;
+    frame: GroupDragFrame;
+    notes: ProtocolNote[];
+    delta: { x: number; y: number };
+  } | null>(null);
+  /** RoomDOの開始応答と共通移動の確定通知を再現し、ストーリーの付箋状態を更新する。 */
+  const send = useCallback(
+    (message: ClientMessage) => {
+      queueMicrotask(() => {
+        if (message.type === "group:drag:start") {
+          setStarts((count) => count + 1);
+          const frame = calculateRenderGroups(
+            notesRef.current,
+            args.groups,
+          ).find(
+            ({ representativeNoteId }) =>
+              representativeNoteId === message.anchorNoteId,
+          );
+          applyRef.current({
+            type: "group:drag:result",
+            dragId: message.dragId,
+            accepted: !reject && Boolean(frame),
+          });
+          if (!frame?.representativeNoteId || reject) return;
+          activeRef.current = {
+            dragId: message.dragId,
+            frame: {
+              ...frame,
+              representativeNoteId: frame.representativeNoteId,
+            },
+            notes: notesRef.current.filter(({ id }) =>
+              message.positions.some(({ noteId }) => noteId === id),
+            ),
+            delta: { x: 0, y: 0 },
+          };
+        } else if (
+          message.type === "group:drag:move" ||
+          message.type === "group:drag:end"
+        ) {
+          const active = activeRef.current;
+          if (!active || active.dragId !== message.dragId) return;
+          active.delta = message.delta ?? active.delta;
+          const moved = active.notes.map((note) => ({
+            ...note,
+            x: note.x + active.delta.x,
+            y: note.y + active.delta.y,
+          }));
+          setNotes((current) =>
+            current.map(
+              (note) => moved.find(({ id }) => id === note.id) ?? note,
+            ),
+          );
+          applyRef.current({
+            type: "group:drag:updated",
+            dragId: active.dragId,
+            sequence: message.sequence,
+            group: {
+              ...active.frame,
+              x: active.frame.x + active.delta.x,
+              y: active.frame.y + active.delta.y,
+            },
+            notes: moved,
+            ended: message.type === "group:drag:end",
+          });
+          if (message.type === "group:drag:end") activeRef.current = null;
+        }
+      });
+    },
+    [args.groups, reject],
+  );
+  /** 個別移動の対象だけを更新し、一括移動と混同しない操作確認を可能にする。 */
+  const moveNote = (id: string, x: number, y: number) =>
+    setNotes((current) =>
+      current.map((note) => (note.id === id ? { ...note, x, y } : note)),
+    );
+  const interactions = useRoomBoardInteractions({
+    notes,
+    privateNotes: [],
+    currentUserId: GROUP_MOVE_NOTES[0].authorId,
+    draggingNoteId: null,
+    phase: args.phase,
+    send,
+    onNoteDragStart: () => {},
+    onNoteDragMove: moveNote,
+    onNoteDragEnd: moveNote,
+    onNoteDragCancel: () => {},
+    onPrivateNotePublish: () => {},
+    onPrivateNoteUnpublish: () => {},
+    onCursorMove: () => {},
+    onCursorLeave: () => {},
+  });
+  applyRef.current = interactions.applyGroupMessage ?? (() => true);
+  return (
+    <div
+      className="relative flex h-full min-h-0 w-full flex-col"
+      ref={interactions.boardRootRef}
+      onPointerMove={interactions.onPointerMove}
+      onPointerUp={interactions.onPointerEnd}
+      onPointerCancel={interactions.onPointerCancel}
+    >
+      <output data-testid="group-start-count" className="sr-only">
+        {starts}
+      </output>
+      <RoomBoardCanvas
+        {...args}
+        {...interactions}
+        selectedNoteId={selectedNoteId}
+        onSelect={setSelectedNoteId}
+        onNoteDragStart={interactions.onNoteDragStart}
+      />
+    </div>
+  );
+}
+
+export const GroupBackgroundMove: Story = {
+  args: {
+    phase: STEP_1_3,
+    permissions: getBoardPermissions(STEP_1_3),
+    notes: GROUP_MOVE_NOTES,
+  },
+  render: (args) => <GroupMovePreview args={args} />,
+};
+export const SavedGroupBackgroundMove: Story = {
+  ...GroupBackgroundMove,
+  args: {
+    ...GroupBackgroundMove.args,
+    groups: [
+      {
+        id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        name: "課題グループ",
+        noteIds: GROUP_MOVE_NOTES.slice(0, 2).map(({ id }) => id),
+      },
+    ],
+  },
+};
+export const GroupBackgroundMoveRejected: Story = {
+  ...GroupBackgroundMove,
+  render: (args) => <GroupMovePreview args={args} reject />,
 };
 
 // Step1-4: 投票

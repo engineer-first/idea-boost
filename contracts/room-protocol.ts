@@ -166,6 +166,53 @@ export const GroupSchema = z.object({
 
 export type ProtocolGroup = z.infer<typeof GroupSchema>;
 
+export const GroupBoundsSchema = z
+  .object({
+    x: z.number().finite(),
+    y: z.number().finite(),
+    width: z.number().finite().positive(),
+    height: z.number().finite().positive(),
+  })
+  .strict();
+
+export const GroupDragFrameSchema = GroupBoundsSchema.extend({
+  id: z.string(),
+  // 結合した表示枠の名前は複数の保存グループ名を連結する。
+  name: z.string(),
+  isTemp: z.boolean().optional(),
+  persistentGroupId: z.string().uuid().optional(),
+  representativeNoteId: z.string().uuid(),
+  hue: z.number().finite().optional(),
+});
+export type GroupDragFrame = z.infer<typeof GroupDragFrameSchema>;
+
+const GroupDragPositionSchema = z
+  .object({
+    noteId: z.string().uuid(),
+    x: CanvasCoordinateSchema,
+    y: CanvasCoordinateSchema,
+  })
+  .strict();
+const GroupDragDeltaSchema = z
+  .object({
+    x: z
+      .number()
+      .finite()
+      .min(-2 * CANVAS_COORDINATE_LIMIT)
+      .max(2 * CANVAS_COORDINATE_LIMIT),
+    y: z
+      .number()
+      .finite()
+      .min(-2 * CANVAS_COORDINATE_LIMIT)
+      .max(2 * CANVAS_COORDINATE_LIMIT),
+  })
+  .strict();
+const GroupDragSequenceSchema = z
+  .number()
+  .int()
+  .nonnegative()
+  .max(Number.MAX_SAFE_INTEGER);
+
 export const TIMER_MAX_DURATION_MS = 5_999_000;
 const TimerMillisecondsSchema = z.number().int().finite().min(0);
 const TimerDurationSchema = TimerMillisecondsSchema.max(TIMER_MAX_DURATION_MS);
@@ -390,6 +437,31 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     groupId: z.string().uuid(),
     name: z.string().max(50, "グループ名は50文字以内で入力してください。"),
   }),
+  z
+    .object({
+      type: z.literal("group:drag:start"),
+      dragId: NoteDragIdSchema,
+      anchorNoteId: z.string().uuid(),
+      bounds: GroupBoundsSchema,
+      positions: z.array(GroupDragPositionSchema).min(2),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("group:drag:move"),
+      dragId: NoteDragIdSchema,
+      sequence: GroupDragSequenceSchema,
+      delta: GroupDragDeltaSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("group:drag:end"),
+      dragId: NoteDragIdSchema,
+      sequence: GroupDragSequenceSchema,
+      delta: GroupDragDeltaSchema.nullable(),
+    })
+    .strict(),
   z.object({
     type: z.literal("note:vote"),
     noteId: z.string().uuid(),
@@ -523,6 +595,18 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     sharing: SharingStateSchema.nullable().optional(),
     notes: z.array(NoteSchema),
     groups: z.array(GroupSchema).optional(),
+    groupDrags: z
+      .array(
+        z
+          .object({
+            dragId: NoteDragIdSchema,
+            sequence: GroupDragSequenceSchema,
+            group: GroupDragFrameSchema,
+            noteIds: z.array(z.string().uuid()).min(2),
+          })
+          .strict(),
+      )
+      .optional(),
     members: z.array(MemberSchema),
     phase: RoomPhaseSchema,
     phaseRevision: z.number().int().nonnegative().default(0),
@@ -589,6 +673,32 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("group:updated"),
     group: GroupSchema,
+  }),
+  z.object({
+    type: z.literal("group:drag:result"),
+    dragId: NoteDragIdSchema,
+    accepted: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("group:drag:updated"),
+    dragId: NoteDragIdSchema,
+    sequence: GroupDragSequenceSchema,
+    group: GroupDragFrameSchema,
+    // 開始・終了は完全な付箋、途中は保存済み座標だけを配信する。
+    notes: z.union([
+      z.array(NoteSchema).min(2),
+      z
+        .array(
+          NoteSchema.pick({
+            id: true,
+            x: true,
+            y: true,
+            updatedAt: true,
+          }).strict(),
+        )
+        .min(2),
+    ]),
+    ended: z.boolean(),
   }),
   z.object({
     type: z.literal("group:deleted"),

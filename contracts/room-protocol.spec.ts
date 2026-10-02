@@ -23,7 +23,7 @@ import {
   ServerMessageSchema,
   TimerStateSchema,
 } from "./room-protocol";
-import { buildDecision } from "./room-protocol.fixture";
+import { buildDecision, buildNote } from "./room-protocol.fixture";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
@@ -1403,5 +1403,108 @@ describe("候補操作の対応付け", () => {
       expectedExclusionOperationId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     };
     expect(ClientMessageSchema.parse(message)).toEqual(message);
+  });
+});
+
+describe("グループ一括ドラッグの境界", () => {
+  const dragId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const positions = [USER_A, USER_B].map((noteId) => ({
+    noteId,
+    x: 100,
+    y: 200,
+  }));
+  const start = {
+    type: "group:drag:start",
+    dragId,
+    anchorNoteId: USER_A,
+    bounds: { x: 84, y: 184, width: 500, height: 200 },
+    positions,
+  };
+  it("有効な開始と終了を受け入れる", () => {
+    expect(ClientMessageSchema.parse(start)).toEqual(start);
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "group:drag:end",
+        dragId,
+        sequence: 1,
+        delta: null,
+      }).success,
+    ).toBe(true);
+  });
+  it("空の対象・不正な枠・権限に関わる余分な入力を拒否する", () => {
+    for (const input of [
+      { ...start, positions: [] },
+      { ...start, bounds: { ...start.bounds, width: 0 } },
+      { ...start, authorId: USER_A },
+      { ...start, positions: [{ ...positions[0], x: Infinity }, positions[1]] },
+    ])
+      expect(ClientMessageSchema.safeParse(input).success).toBe(false);
+  });
+  it("不正な更新番号と有限でない移動量を拒否する", () => {
+    for (const input of [
+      { sequence: -1, delta: { x: 1, y: 1 } },
+      { sequence: 1.5, delta: { x: 1, y: 1 } },
+      { sequence: 1, delta: { x: NaN, y: 0 } },
+    ])
+      expect(
+        ClientMessageSchema.safeParse({
+          type: "group:drag:move",
+          dragId,
+          ...input,
+        }).success,
+      ).toBe(false);
+  });
+  it("保存グループ名の連結結果が50文字を超えても一括通知を受け取れる", () => {
+    const message = {
+      type: "group:drag:updated",
+      dragId,
+      sequence: 0,
+      group: {
+        id: "combined",
+        name: `${"あ".repeat(50)} / ${"い".repeat(50)}`,
+        ...start.bounds,
+        representativeNoteId: USER_A,
+      },
+      notes: [
+        buildNote({ id: USER_A, authorId: USER_A }),
+        buildNote({ id: USER_B, authorId: USER_B }),
+      ],
+      ended: false,
+    };
+    expect(ServerMessageSchema.parse(message).type).toBe("group:drag:updated");
+  });
+  it("途中更新では本文や投票を持たない確定座標だけを受け取れる", () => {
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "group:drag:updated",
+        dragId,
+        sequence: 1,
+        ended: false,
+        group: {
+          id: "frame",
+          name: "group",
+          ...start.bounds,
+          representativeNoteId: USER_A,
+        },
+        notes: positions.map(({ noteId, x, y }) => ({
+          id: noteId,
+          x,
+          y,
+          updatedAt: "2026-10-02T00:00:00.000Z",
+        })),
+      }).success,
+    ).toBe(true);
+  });
+  it("1000枚を超える対象でも開始要求を受け取れる", () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        ...start,
+        positions: Array.from({ length: 1001 }, (_, index) => ({
+          noteId: `${index.toString(16).padStart(8, "0")}-0000-4000-8000-000000000000`,
+          x: index,
+          y: 0,
+        })),
+      }).success,
+    ).toBe(true);
   });
 });

@@ -139,6 +139,7 @@ export type UseRoomNotesResult = {
   voteFeedback: VoteFeedback | null;
 };
 
+/** 共有・個人付箋の操作と楽観表示を管理し、受信したRoomDOの確定状態へ収束させる。 */
 export function useRoomNotes({
   send,
   createVoteOperationId = () => crypto.randomUUID(),
@@ -264,8 +265,12 @@ export function useRoomNotes({
     [updatePendingNoteDrop],
   );
 
+  /** 操作IDに対応する確定・拒否通知を処理し、受信した座標で付箋の表示を更新する。 */
   const applyMessage = useCallback(
     (message: ServerMessage) => {
+      if (message.type === "group:drag:updated")
+        for (const note of message.notes)
+          confirmedPositionsRef.current.set(note.id, { x: note.x, y: note.y });
       if (message.type === "snapshot")
         confirmedPositionsRef.current = new Map(
           message.notes.map((note) => [note.id, { x: note.x, y: note.y }]),

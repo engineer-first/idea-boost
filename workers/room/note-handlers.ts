@@ -438,13 +438,16 @@ export const noteHandlers: MessageHandlers<
     });
   },
 
+  /** 付箋の単独操作権を取得し、一括移動との競合や操作IDの再利用を拒否する。 */
   "note:drag:start": (ctx, message) => {
     const row = findNote(ctx.sql, message.noteId);
     const phase = getPhase(ctx.sql);
     const current = ctx.broadcaster.activeDragFor(ctx.ws);
     const competing = ctx.broadcaster.findActiveDrag(message.noteId);
     const isActiveRetry = Boolean(
-      current?.noteId === message.noteId && current.dragId === message.dragId,
+      !current?.group &&
+        current?.noteId === message.noteId &&
+        current.dragId === message.dragId,
     );
     const isPrivateIdeaMapDrag = Boolean(
       row?.visibility === "private" &&
@@ -488,10 +491,12 @@ export const noteHandlers: MessageHandlers<
     }
   },
 
+  /** 単独操作の所有者だけが付箋の途中位置を更新でき、一括移動には適用しない。 */
   "note:drag:move": (ctx, message) => {
     const active = ctx.broadcaster.activeDragFor(ctx.ws);
     if (
       !active ||
+      active.group ||
       active.noteId !== message.noteId ||
       active.dragId !== message.dragId
     ) {
@@ -532,10 +537,12 @@ export const noteHandlers: MessageHandlers<
     });
   },
 
+  /** 単独操作の最終位置を確定または中断し、操作権と移動者表示を解除する。 */
   "note:drag:end": (ctx, message) => {
     const active = ctx.broadcaster.activeDragFor(ctx.ws);
     if (
       !active ||
+      active.group ||
       active.noteId !== message.noteId ||
       active.dragId !== message.dragId
     ) {

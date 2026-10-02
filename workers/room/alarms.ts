@@ -1,11 +1,20 @@
 import { getSharingState } from "./sharing-state";
 
-// DO の alarm は一件だけなので、永続状態から最も早い期限を毎回選ぶ。
+/**
+ * DO の alarm は一件だけなので、永続状態から最も早い期限を毎回選ぶ。
+ */
 export async function syncRoomAlarm(
   storage: DurableObjectStorage,
   sql: SqlStorage,
 ): Promise<void> {
   const deadlines: number[] = [];
+  const groupDrag = sql
+    .exec(
+      "SELECT MIN(COALESCE(json_extract(state_json, '$.expiresAt'), 0)) AS expires_at FROM active_group_drags",
+    )
+    .toArray()[0];
+  if (typeof groupDrag?.expires_at === "number")
+    deadlines.push(groupDrag.expires_at);
   const outcome = sql
     .exec(
       "SELECT expires_at, retry_at, (pending_json IS NOT NULL OR saved_json IS NOT NULL) AS has_content FROM shared_outcome_state WHERE id = 1",

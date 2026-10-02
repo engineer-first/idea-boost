@@ -164,6 +164,7 @@ function fitIdeaMapCamera(
   );
 }
 
+/** 画面移動・ズーム・全体表示を管理し、付箋の一括移動中はカメラ操作を固定する。 */
 export function useCanvasCamera({
   viewportRef,
   notes,
@@ -191,6 +192,7 @@ export function useCanvasCamera({
   const ideaMapSizeLevelRef = useRef(ideaMapSizeLevel);
   ideaMapSizeLevelRef.current = ideaMapSizeLevel;
   const spacePressedRef = useRef(false);
+  const interactionLockedRef = useRef(false);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -246,8 +248,10 @@ export function useCanvasCamera({
     [getViewportPoint],
   );
 
+  /** 表示領域と付箋の境界から全体表示のカメラを求め、操作固定中は位置を変えない。 */
   const fitToNotes = useCallback(
     (insets?: CanvasFitInsets): boolean => {
+      if (interactionLockedRef.current) return true;
       const element = viewportRef.current;
       if (!element) return false;
       const size = viewportSize(element);
@@ -272,8 +276,10 @@ export function useCanvasCamera({
     [fitViewport, setCameraImmediately, viewportRef],
   );
 
+  /** 指定した画面上の基点を保ってズームし、操作固定中は要求を無視する。 */
   const zoomTo = useCallback(
     (requestedZoom: number, point?: CanvasPoint) => {
+      if (interactionLockedRef.current) return;
       const element = viewportRef.current;
       if (!element) return;
       const size = viewportSize(element);
@@ -299,10 +305,16 @@ export function useCanvasCamera({
     }
   }, [viewportRef]);
 
+  /** Spaceキーまたは中ボタンによる画面移動を開始し、編集や固定中の入力を除く。 */
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (interactionLockedRef.current) return;
       const target = event.target as HTMLElement;
-      if (target.closest("[data-testid='note-card']")) {
+      if (
+        target.closest(
+          "[data-testid='note-card'], [data-testid='note-group-card']",
+        )
+      ) {
         // 最初の個人付箋をボードへ出す操作中に初期フィットが重なると、
         // ドロップ位置が飛んで見えるため、この時点で初期フィットを終える。
         hasFitRef.current = true;
@@ -355,9 +367,11 @@ export function useCanvasCamera({
     [endPan],
   );
 
+  /** ホイールの画面移動とズームを処理し、一括移動中のカメラ変更を防ぐ。 */
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       event.preventDefault();
+      if (interactionLockedRef.current) return;
       const point = getViewportPoint(event.clientX, event.clientY);
       if (!point) return;
       if (event.ctrlKey || event.metaKey) {
@@ -405,6 +419,7 @@ export function useCanvasCamera({
   }, [handleWheel, viewportRef]);
 
   useEffect(() => {
+    /** 編集欄を除いてカメラ操作のキー入力を処理し、固定中はカメラを動かさない。 */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
       if (event.code === "Space") {
@@ -438,6 +453,7 @@ export function useCanvasCamera({
       const delta = offsets[event.key];
       if (!delta) return;
       event.preventDefault();
+      if (interactionLockedRef.current) return;
       scheduleCamera({
         ...cameraRef.current,
         x: cameraRef.current.x + delta.x,
@@ -510,7 +526,20 @@ export function useCanvasCamera({
     };
   }, [camera]);
 
+  /** 一括移動の開始・終了に合わせてカメラ操作の固定状態を切り替える。 */
+  const lockInteraction = useCallback(
+    (locked: boolean) => {
+      interactionLockedRef.current = locked;
+      if (locked) {
+        hasFitRef.current = true;
+        endPan();
+      }
+    },
+    [endPan],
+  );
+
   return {
+    lockInteraction,
     camera,
     cameraRef,
     isPanning,

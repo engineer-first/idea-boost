@@ -18,6 +18,7 @@ import type { ClientMessage } from "../../contracts/room-protocol";
 import { syncRoomAlarm } from "./alarms";
 import { getDecision } from "./decisions";
 import { clearUsedNoteDragIds } from "./drag-operations";
+import { autoReorganize } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
@@ -257,8 +258,10 @@ export function isPersonalWritingStep(phase: RoomPhase): boolean {
   return !isLobby(phase) && phase.step === 1;
 }
 
-// WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
-// room-do.ts の handleClientMessage 前段で一元的に判定する。
+/**
+ * WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
+ * room-do.ts の handleClientMessage 前段で一元的に判定する。
+ */
 export function isBoardMutation(message: ClientMessage): boolean {
   switch (message.type) {
     case "note:create":
@@ -286,6 +289,9 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "decision:clear":
     case "group:create":
     case "group:update-name":
+    case "group:drag:start":
+    case "group:drag:move":
+    case "group:drag:end":
     case "idea-map:resize":
       return true;
     case "cursor:update":
@@ -340,6 +346,9 @@ const allowedBoardMutationsByPhase: {
       "note:drag:end",
       "group:create",
       "group:update-name",
+      "group:drag:start",
+      "group:drag:move",
+      "group:drag:end",
     ],
     4: [
       "note:vote",
@@ -544,7 +553,9 @@ export const phaseHandlers: MessageHandlers<
     });
   },
 
-  // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
+  /**
+   * 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
+   */
   "phase:next": async (ctx, message) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
       ctx.reply({
@@ -694,7 +705,9 @@ export const phaseHandlers: MessageHandlers<
       timerWasReset = resetTimerState(ctx.sql);
       await syncRoomAlarm(ctx.storage, ctx.sql);
     });
-    ctx.broadcaster.retireAllActiveDrags();
+    const retiredDrags = ctx.broadcaster.retireAllActiveDrags();
+    if (retiredDrags.some((active) => active.group))
+      autoReorganize(ctx.storage, ctx.broadcaster);
     if (ctx.broadcaster.retireAllAdoptionFocus()) {
       ctx.broadcaster.broadcastToAll({
         type: "adoption-focus:updated",
@@ -733,7 +746,9 @@ export const phaseHandlers: MessageHandlers<
   "phase:revote": (ctx, message) => restartPhase(ctx, message, true),
 };
 
-// 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
+/**
+ * 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
+ */
 async function restartPhase(
   ctx: HandlerCtx,
   message: Extract<
@@ -786,7 +801,9 @@ async function restartPhase(
     resetSharingForPhase(ctx.sql, next);
     resetTimerState(ctx.sql);
   });
-  ctx.broadcaster.retireAllActiveDrags();
+  const retiredDrags = ctx.broadcaster.retireAllActiveDrags();
+  if (retiredDrags.some((active) => active.group))
+    autoReorganize(ctx.storage, ctx.broadcaster);
   ctx.broadcaster.retireAllAdoptionFocus();
   // 共有の交代待機中はtimerがidleでも開始予約がある。
   await syncRoomAlarm(ctx.storage, ctx.sql);

@@ -37,6 +37,32 @@ function makeNote(overrides: Partial<Note> = {}): Note {
 }
 
 describe("applyServerMessage", () => {
+  it("グループの座標通知で本文・投票・個人表示を上書きしない", () => {
+    const message = {
+      type: "group:drag:updated",
+      dragId: USER_ID,
+      sequence: 1,
+      group: {
+        id: "group",
+        name: "group",
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 200,
+        representativeNoteId: note.id,
+      },
+      notes: [
+        { id: note.id, x: 100, y: 200, updatedAt: "2026-10-02T00:00:00.000Z" },
+      ],
+      ended: false,
+    } as ServerMessage;
+    expect(
+      applyServerMessage([note], message, { draggingNoteId: null }),
+    ).toEqual([
+      { ...note, x: 100, y: 200, updatedAt: "2026-10-02T00:00:00.000Z" },
+    ]);
+  });
+
   it("timer:updated は付箋配列を同じ参照のまま変更しない", () => {
     const notes = [note];
     const result = applyServerMessage(

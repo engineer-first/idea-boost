@@ -1,11 +1,70 @@
 import { describe, expect, it } from "vitest";
-import { getNoteHeight, NOTE_HEIGHT } from "./board";
+import {
+  CANVAS_COORDINATE_LIMIT,
+  getNoteHeight,
+  NOTE_HEIGHT,
+  NOTE_WIDTH,
+} from "./board";
 import {
   calculateRenderGroups,
+  clampGroupDelta,
+  getGroupMoveTargets,
   type PersistentGroup,
   reorganizeGroups,
 } from "./grouping";
 import { buildNote } from "./room-protocol.fixture";
+
+describe("グループ移動対象と共通の移動量", () => {
+  it("枠上を含む中心点で判定し、未共有と中心が枠外の付箋を除く", () => {
+    const inside = buildNote({ id: "inside", x: 100, y: 100 });
+    const edge = buildNote({ id: "edge", x: 500 - NOTE_WIDTH / 2, y: 100 });
+    const outside = buildNote({ id: "outside", x: edge.x + 1, y: 100 });
+    const personal = buildNote({
+      id: "private",
+      x: 100,
+      y: 100,
+      visibility: "private",
+    });
+    expect(
+      getGroupMoveTargets([inside, edge, outside, personal], {
+        x: 100,
+        y: 100,
+        width: 400,
+        height: 400,
+      }),
+    ).toEqual([inside, edge]);
+  });
+  it("長文付箋は実際の高さから中心点を求める", () => {
+    const note = buildNote({
+      content: "あ".repeat(240),
+      fontSize: 24,
+      x: 100,
+      y: 100,
+    });
+    const centerY = note.y + getNoteHeight(note.content, note.fontSize) / 2;
+    expect(
+      getGroupMoveTargets([note], {
+        x: 0,
+        y: 0,
+        width: 500,
+        height: centerY - 1,
+      }),
+    ).toEqual([]);
+    expect(
+      getGroupMoveTargets([note], { x: 0, y: 0, width: 500, height: centerY }),
+    ).toEqual([note]);
+  });
+  it("座標端では全付箋の移動量を揃え、内部の距離を保つ", () => {
+    const positions = [
+      { x: CANVAS_COORDINATE_LIMIT - 10, y: -CANVAS_COORDINATE_LIMIT + 20 },
+      { x: 0, y: 0 },
+    ];
+    expect(clampGroupDelta(positions, { x: 100, y: -100 })).toEqual({
+      x: 10,
+      y: -20,
+    });
+  });
+});
 
 describe("calculateRenderGroups - 仮グループ（新規）", () => {
   it("付箋が空の場合は、グループも空であること", () => {
