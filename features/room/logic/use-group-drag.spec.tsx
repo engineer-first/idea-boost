@@ -131,9 +131,20 @@ describe("一括ドラッグの表示と開始待ち", () => {
     expect(lockCamera).toHaveBeenLastCalledWith(false);
   });
 
-  it("拒否されたときは一枚も動かさず、理由を案内する", () => {
-    const { result, onRejected, start } = setup();
+  it.each([
+    false,
+    true,
+  ])("拒否・無効化では移動を解除し、理由を案内する（受理済み: %s）", (accepted) => {
+    const { result, onRejected, lockCamera, send, start } = setup();
     const dragId = start();
+    if (accepted)
+      act(() =>
+        result.current.applyMessage({
+          type: "group:drag:result",
+          dragId,
+          accepted: true,
+        }),
+      );
     act(() =>
       result.current.applyMessage({
         type: "group:drag:result",
@@ -144,6 +155,10 @@ describe("一括ドラッグの表示と開始待ち", () => {
     expect(result.current.renderedNotes).toEqual(notes);
     expect(result.current.isDragging).toBe(false);
     expect(onRejected).toHaveBeenCalledOnce();
+    expect(lockCamera).toHaveBeenLastCalledWith(false);
+    expect(
+      send.mock.calls.some(([message]) => message.type === "group:drag:end"),
+    ).toBe(false);
   });
 
   it.each([
@@ -222,6 +237,33 @@ describe("一括ドラッグの表示と開始待ち", () => {
       ).toBe(false),
     );
     act(() => expect(result.current.applyMessage(update)).toBe(false));
+  });
+
+  it("対象無効化の結果通知だけで閲覧中の枠を終了し、遅い更新を拒否する", () => {
+    const { result } = setup();
+    const update = {
+      type: "group:drag:updated" as const,
+      dragId: remoteDragId,
+      sequence: 2,
+      group,
+      notes,
+      ended: false,
+    };
+    act(() => result.current.applyMessage(update));
+    expect(result.current.movingGroups).toHaveLength(1);
+    act(() =>
+      result.current.applyMessage({
+        type: "group:drag:result",
+        dragId: remoteDragId,
+        accepted: false,
+      }),
+    );
+    expect(result.current.movingGroups).toEqual([]);
+    act(() =>
+      expect(result.current.applyMessage({ ...update, sequence: 3 })).toBe(
+        false,
+      ),
+    );
   });
 
   it("自分の開始が拒否されても、別参加者の独立した移動枠を消さない", () => {
