@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { AccessConsole } from "./access-console";
+import { AccessManagement } from "./access-management";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -222,4 +223,55 @@ it.each([
   await screen.findByText("Reader");
   expect(fetcher.mock.calls[callsBeforeRetry]?.[1]?.method).toBeUndefined();
   expect(fetcher.mock.calls.filter(([, init]) => init?.method)).toHaveLength(1);
+});
+
+it("意見のセクションは意見の閲覧者を表示し、付与・取消・再取得のすべてで意見権限を指定する", async () => {
+  const fetcher = vi.fn(async (_path: RequestInfo | URL, _init?: RequestInit) =>
+    Response.json({
+      users: [
+        {
+          id: "feedback",
+          name: "Feedback Reader",
+          email: "feedback@example.test",
+        },
+      ],
+    }),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  render(<AccessConsole permission="feedback:read" />);
+  await screen.findByText("Feedback Reader");
+  expect(
+    screen.getByRole("heading", { name: "意見閲覧権限" }),
+  ).toBeInTheDocument();
+  fireEvent.change(screen.getByRole("textbox", { name: "メールアドレス" }), {
+    target: { value: "next@example.test" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "追加" }));
+  await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "feedback@example.test の閲覧権限を取り消す",
+    }),
+  );
+  await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(5));
+  expect(fetcher.mock.calls.map(([path]) => path)).toEqual(
+    Array(5).fill("/api/admin/access?permission=feedback%3Aread"),
+  );
+});
+
+it("意見側の取得拒否も対象のセクション内で案内し、mainを入れ子にしない", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: RequestInfo | URL) =>
+      String(path).includes("feedback")
+        ? Response.json({ error: "denied" }, { status: 403 })
+        : Response.json({ users: [] }),
+    ),
+  );
+  render(<AccessManagement />);
+  await screen.findByRole("alert");
+  expect(screen.getAllByRole("main")).toHaveLength(1);
+  expect(screen.getByRole("region", { name: "意見閲覧権限" })).toContainElement(
+    screen.getByRole("alert"),
+  );
 });

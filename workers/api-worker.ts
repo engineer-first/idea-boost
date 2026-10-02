@@ -2,7 +2,11 @@
 // すべてのエンドポイントはセッション（または署名済みログイン主張）を要求する。
 // Next 側は UI とセッション Cookie の発行だけを担い、データへは必ずここを通る。
 import { z } from "zod";
-import { AccessEmailSchema, PERMISSIONS } from "../contracts/access";
+import {
+  AccessEmailSchema,
+  ManagedReadPermissionSchema,
+  PERMISSIONS,
+} from "../contracts/access";
 import { CreateRoomInputSchema } from "../contracts/api";
 import { LeaveRoomRequestSchema } from "../contracts/completed-rooms";
 import { isUuid } from "../contracts/ids";
@@ -410,12 +414,17 @@ export function createApiWorker(
             PERMISSIONS.manageSharedOutcomesAccess,
           ))
         )
-          return error(403, "成果閲覧者の管理権限がありません。");
+          return error(403, "閲覧者の管理権限がありません。");
+        const permission = ManagedReadPermissionSchema.safeParse(
+          url.searchParams.get("permission") ?? PERMISSIONS.readSharedOutcomes,
+        );
+        if (!permission.success)
+          return error(400, "管理できる閲覧権限を指定してください。");
         if (method === "GET") {
           const rows = await env.DB.prepare(
             "SELECT users.id, users.name, users.email FROM user_permissions JOIN users ON users.id = user_permissions.user_id WHERE user_permissions.permission = ? ORDER BY users.email",
           )
-            .bind(PERMISSIONS.readSharedOutcomes)
+            .bind(permission.data)
             .all<{ id: string; name: string | null; email: string }>();
           return json({ users: rows.results });
         }
@@ -439,13 +448,13 @@ export function createApiWorker(
             await env.DB.prepare(
               "INSERT OR IGNORE INTO user_permissions(user_id,permission) VALUES(?,?)",
             )
-              .bind(user.id, PERMISSIONS.readSharedOutcomes)
+              .bind(user.id, permission.data)
               .run();
           else
             await env.DB.prepare(
               "DELETE FROM user_permissions WHERE user_id = ? AND permission = ?",
             )
-              .bind(user.id, PERMISSIONS.readSharedOutcomes)
+              .bind(user.id, permission.data)
               .run();
           return json({ ok: true });
         }
