@@ -59,14 +59,6 @@ export const DotVote: Story = {
   },
 };
 
-export const VoteTotaling: Story = {
-  args: {
-    title: "vote-totaling",
-    description: "投票集計の表示。表示部品のみの単層 feature。",
-    src: "/dependency-diagrams/feature-vote-totaling.mmd",
-  },
-};
-
 export const Invite: Story = {
   args: {
     title: "invite",
