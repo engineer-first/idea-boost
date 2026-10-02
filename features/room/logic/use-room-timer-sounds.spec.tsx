@@ -16,6 +16,7 @@ const startedTones: StartedTone[] = [];
 const audioContexts: FakeAudioContext[] = [];
 let nowMs = 1_720_000_000_000;
 let rejectResume = false;
+let resumeGate: Promise<void> | null = null;
 
 class FakeAudioContext {
   state: AudioContextState = "suspended";
@@ -27,6 +28,10 @@ class FakeAudioContext {
   }
 
   async resume(): Promise<void> {
+    if (resumeGate) await resumeGate;
+    if (this.state === "closed") {
+      throw new DOMException("AudioContext is closed", "InvalidStateError");
+    }
     if (rejectResume) {
       throw new DOMException("Playback was denied", "NotAllowedError");
     }
@@ -173,6 +178,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   nowMs = 1_720_000_000_000;
   rejectResume = false;
+  resumeGate = null;
   startedTones.length = 0;
   audioContexts.length = 0;
   localStorage.clear();
@@ -190,7 +196,286 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+function deferResume(): () => void {
+  let release: () => void = () => undefined;
+  resumeGate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return release;
+}
+
 describe("useRoomTimerSounds", () => {
+  it.each([
+    2_000, 2_001,
+  ])("終了音のresume待機(%ims)でも2秒の許容期限を守る", async (resumeDelay) => {
+    const durationMs = 1_000;
+    const { result, rerender } = setup(
+      activeSound(nowMs + durationMs, durationMs),
+    );
+    await enableSounds(result);
+    audioContexts[0].state = "suspended";
+    const release = deferResume();
+    await advance(durationMs);
+    await rerenderTimer(rerender, { status: "ended", durationMs }, 1);
+    await advance(resumeDelay);
+    await act(async () => {
+      release();
+    });
+    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual(
+      resumeDelay <= 2_000 ? [392, 329.63] : [],
+    );
+  });
+
+  it.each([
+    0, 20,
+  ])("期限直後の通常再描画・時刻補正(%ims)で終了通知を失わない", async (offset) => {
+    const durationMs = 1_000;
+    const timer = activeSound(nowMs + durationMs, durationMs);
+    const { result, rerender } = setup(timer);
+    await enableSounds(result);
+    await advance(durationMs);
+    await rerenderTimer(rerender, { ...timer }, 0, offset);
+    await rerenderTimer(rerender, { status: "ended", durationMs }, 1, offset);
+    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([
+      392, 329.63,
+    ]);
+    await rerenderTimer(rerender, { status: "ended", durationMs }, 2, offset);
+    expect(startedTones).toHaveLength(2);
+  });
+
+  it("終了待ちを保持しても許容2秒を超えた終了音は後追いしない", async () => {
+    const durationMs = 1_000;
+    const timer = activeSound(nowMs + durationMs, durationMs);
+    const { result, rerender } = setup(timer);
+    await enableSounds(result);
+    await advance(durationMs + 2_001);
+    await rerenderTimer(rerender, { ...timer }, 0);
+    await rerenderTimer(rerender, { status: "ended", durationMs }, 1);
+    expect(startedTones).toHaveLength(0);
+  });
+
+  it.each([
+    "start",
+    "end",
+  ] as const)("resume待機中の%s通知は別のタイマー状態で取り消す", async (kind) => {
+    const timer = activeSound(nowMs + 1_000, 1_000);
+    const { result, rerender } = setup(
+      kind === "start" ? { status: "idle" } : timer,
+    );
+    await enableSounds(result);
+    audioContexts[0].state = "suspended";
+    const release = deferResume();
+    if (kind === "start") {
+      await rerenderTimer(rerender, timer, 1);
+    } else {
+      await advance(1_000);
+      await rerenderTimer(rerender, { status: "ended", durationMs: 1_000 }, 1);
+    }
+    await rerenderTimer(rerender, { status: "idle" }, 2);
+    await act(async () => {
+      release();
+    });
+    expect(startedTones).toHaveLength(0);
+  });
+
+  it("古い予告の失敗が再有効化後の音と設定を止めない", async () => {
+    const { result } = setup(activeSound(nowMs + 6_000, 6_000));
+    await enableSounds(result);
+    audioContexts[0].state = "suspended";
+    const release = deferResume();
+    await advance(1_000);
+    act(() => result.current.onMute());
+    resumeGate = null;
+    await act(async () => {
+      await result.current.onEnable();
+    });
+    rejectResume = true;
+    await act(async () => {
+      release();
+    });
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.playbackBlocked).toBe(false);
+    expect(
+      startedTones.every(
+        ({ stopsAt, startsAt }) => stopsAt !== null && stopsAt > startsAt,
+      ),
+    ).toBe(true);
+    expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBe("true");
+  });
+
+  it("開始・予告・終了音を通常再描画や時刻補正で途中停止しない", async () => {
+    const { result, rerender } = setup({ status: "idle" });
+    await enableSounds(result);
+    const timer = activeSound(nowMs + 6_000, 6_000);
+    await rerenderTimer(rerender, timer, 1);
+    const startStops = startedTones.map(({ stopsAt }) => stopsAt);
+    await rerenderTimer(rerender, { ...timer }, 1, 10);
+    expect(startedTones.map(({ stopsAt }) => stopsAt)).toEqual(startStops);
+    await advance(1_000);
+    const warningStops = startedTones.map(({ stopsAt }) => stopsAt);
+    await rerenderTimer(rerender, { ...timer }, 1, 20);
+    expect(startedTones.map(({ stopsAt }) => stopsAt)).toEqual(warningStops);
+    await advance(5_000);
+    const ended: TimerState = { status: "ended", durationMs: 6_000 };
+    await rerenderTimer(rerender, ended, 2, 20);
+    const endStops = startedTones.map(({ stopsAt }) => stopsAt);
+    expect(
+      startedTones.slice(-2).map(({ frequencyHz }) => frequencyHz),
+    ).toEqual([392, 329.63]);
+    await rerenderTimer(rerender, { ...ended }, 3, 30);
+    expect(startedTones.map(({ stopsAt }) => stopsAt)).toEqual(endStops);
+    expect(audioContexts).toHaveLength(1);
+    expect(audioContexts[0].state).toBe("running");
+  });
+
+  it.each([
+    "pause",
+    "end",
+    "extend",
+    "snapshot",
+  ] as const)("resume 待機中に %s された古い予告を後から鳴らさない", async (operation) => {
+    const timer = activeSound(nowMs + 6_000, 6_000);
+    const { result, rerender } = setup(timer);
+    await enableSounds(result);
+    audioContexts[0].state = "suspended";
+    const release = deferResume();
+    await advance(1_000);
+    expect(startedTones).toHaveLength(0);
+    const replacement: TimerState =
+      operation === "pause"
+        ? { status: "paused", remainingMs: 5_000, durationMs: 6_000 }
+        : operation === "end"
+          ? { status: "ended", durationMs: 6_000 }
+          : activeSound(nowMs + 65_000, 66_000);
+    await rerenderTimer(
+      rerender,
+      replacement,
+      operation === "snapshot" ? 0 : 1,
+    );
+    await act(async () => {
+      release();
+    });
+    expect(startedTones).toHaveLength(0);
+  });
+
+  it("resume 待機中の通常再描画は有効な予告を取り消さない", async () => {
+    const timer = activeSound(nowMs + 6_000, 6_000);
+    const { result, rerender } = setup(timer);
+    await enableSounds(result);
+    audioContexts[0].state = "suspended";
+    const release = deferResume();
+    await advance(1_000);
+    await rerenderTimer(rerender, { ...timer }, 0, 10);
+    await act(async () => {
+      release();
+    });
+    expect(startedTones.map(({ frequencyHz }) => frequencyHz)).toEqual([880]);
+  });
+
+  it("古い有効化の失敗が新しい有効化成功を取り消さない", async () => {
+    const { result } = setup({ status: "idle" });
+    const release = deferResume();
+    let oldEnable: Promise<void> = Promise.resolve();
+    act(() => {
+      oldEnable = result.current.onEnable();
+    });
+    act(() => result.current.onMute());
+    resumeGate = null;
+    await act(async () => {
+      await result.current.onEnable();
+    });
+    rejectResume = true;
+    await act(async () => {
+      release();
+      await oldEnable;
+    });
+    expect(result.current.enabled).toBe(true);
+    expect(result.current.playbackBlocked).toBe(false);
+    expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBe("true");
+  });
+
+  it("resume 待機中に古くなった予告は同じタイマーでも後追い再生しない", async () => {
+    const { result } = setup(activeSound(nowMs + 6_000, 6_000));
+    await enableSounds(result);
+    audioContexts[0].state = "suspended";
+    const release = deferResume();
+    await advance(1_000);
+    await advance(300);
+    await act(async () => {
+      release();
+    });
+    expect(startedTones).toHaveLength(0);
+  });
+
+  it("resume 待機中の予告をアンマウントで取り消す", async () => {
+    const { result, unmount } = setup(activeSound(nowMs + 6_000, 6_000));
+    await enableSounds(result);
+    audioContexts[0].state = "suspended";
+    const release = deferResume();
+    await advance(1_000);
+    unmount();
+    await act(async () => {
+      release();
+    });
+    expect(startedTones).toHaveLength(0);
+  });
+
+  it.each([
+    "mute",
+    "unmount",
+  ] as const)("有効化の resume 待機中に %s したら音と設定保存を取り消す", async (operation) => {
+    const { result, unmount } = setup({ status: "idle" });
+    const release = deferResume();
+    let enable: Promise<void> = Promise.resolve();
+    act(() => {
+      enable = result.current.onEnable();
+    });
+    act(() => {
+      operation === "mute" ? result.current.onMute() : unmount();
+    });
+    await act(async () => {
+      release();
+      await enable;
+    });
+    expect(startedTones).toHaveLength(0);
+    expect(localStorage.getItem(ROOM_TIMER_SOUND_STORAGE_KEY)).toBeNull();
+    if (operation === "mute") expect(result.current.enabled).toBe(false);
+  });
+
+  it("消音とアンマウントは再生中の全音を停止し、退出で context を閉じる", async () => {
+    const { result, unmount } = setup({ status: "idle" });
+    await act(async () => {
+      await result.current.onEnable();
+    });
+    expect(
+      startedTones.every(({ stopsAt }) => stopsAt !== null && stopsAt > 0),
+    ).toBe(true);
+    act(() => result.current.onMute());
+    expect(startedTones.every(({ stopsAt }) => stopsAt === 0)).toBe(true);
+    await act(async () => {
+      await result.current.onEnable();
+    });
+    unmount();
+    expect(startedTones.every(({ stopsAt }) => stopsAt === 0)).toBe(true);
+    expect(audioContexts[0].state).toBe("closed");
+  });
+
+  it("再生拒否後も明示的な有効化で再試行できる", async () => {
+    rejectResume = true;
+    const { result } = setup({ status: "idle" });
+    await act(async () => {
+      await result.current.onEnable();
+    });
+    expect(result.current.playbackBlocked).toBe(true);
+    rejectResume = false;
+    await act(async () => {
+      await result.current.onEnable();
+    });
+    expect(result.current.playbackBlocked).toBe(false);
+    expect(result.current.enabled).toBe(true);
+    expect(startedTones).toHaveLength(2);
+  });
+
   it("snapshot の開始音は再生せず、timer:updated の新規開始だけ開始音を鳴らす", async () => {
     const initialTimer = activeSound(nowMs + 10_000);
     const snapshot = setup(initialTimer);
