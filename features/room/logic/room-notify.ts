@@ -6,6 +6,7 @@
 import { toast } from "sonner";
 
 export const roomNotify = {
+  /** グループの移動開始が競合や配置変更で拒否されたことを通知する。 */
   groupMoveRejected(): void {
     toast.error(
       "グループ内の付箋が操作中、または配置が変わりました。もう一度動かしてください。",

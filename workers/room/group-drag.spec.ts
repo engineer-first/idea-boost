@@ -1,7 +1,8 @@
 import { env } from "cloudflare:test";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { calculateRenderGroups } from "../../contracts/grouping";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
+import type { ClientMessage } from "../../contracts/room-protocol";
 import { buildGroup, buildNote } from "../../contracts/room-protocol.fixture";
 import { currentPhaseExpectation, runInRoomDO } from "../test-helpers";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
@@ -43,13 +44,14 @@ const start = {
   anchorNoteId: noteA.id,
   bounds: { x: frame.x, y: frame.y, width: frame.width, height: frame.height },
   positions: [noteA, noteB].map(({ id, x, y }) => ({ noteId: id, x, y })),
-};
+} satisfies ClientMessage;
 type Message = Record<string, unknown>;
 const sockets: WebSocket[] = [];
 afterEach(() => {
   for (const socket of sockets.splice(0)) socket.close();
 });
 
+/** 参加者としてRoomDOへ接続し、サーバーの受信通知を到着順に読み出せるようにする。 */
 async function connect(roomName: string, userId: string) {
   const response = await env.ROOM_DO.get(
     env.ROOM_DO.idFromName(roomName),
@@ -73,8 +75,10 @@ async function connect(roomName: string, userId: string) {
     if (resolve) resolve(message);
     else messages.push(message);
   });
+  /** 届いた通知を取り出し、未到着なら次のWebSocket通知まで待つ。 */
   const next = async (): Promise<Message> =>
     messages.shift() ?? new Promise((resolve) => waiting.push(resolve));
+  /** 目的の通知またはエラーまで受信を進め、操作の受理と確定を検証する。 */
   const until = async (type: string): Promise<Message> => {
     for (let index = 0; index < 20; index++) {
       const message = await next();
@@ -88,10 +92,11 @@ async function connect(roomName: string, userId: string) {
     snapshot,
     until,
     messages,
-    send: (message: unknown) => ws.send(JSON.stringify(message)),
+    send: (message: ClientMessage) => ws.send(JSON.stringify(message)),
   };
 }
 
+/** 共有・個人・領域外の付箋を用意し、ホストと参加者の接続を作る。 */
 async function setup(roomName: string, step = 3) {
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
   await stub.initializeNewRoom(hostId, "Host");
@@ -118,6 +123,7 @@ async function setup(roomName: string, step = 3) {
   };
 }
 
+/** RoomDOの保存座標を読み、配信だけでなく移動の永続化を検証する。 */
 function positions(roomName: string) {
   return runInRoomDO(roomName, (_room, state) =>
     state.storage.sql.exec("SELECT id, x, y FROM notes ORDER BY id").toArray(),
@@ -125,6 +131,193 @@ function positions(roomName: string) {
 }
 
 describe("グループ一括ドラッグ", () => {
+  it("接続を維持しても開始から60秒で終了するalarmを予約する", async () => {
+    const roomName = "group-drag-expiry-alarm";
+    const { host } = await setup(roomName);
+    const before = Date.now();
+    host.send(start);
+    expect(await host.until("group:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    const deadline = await runInRoomDO(roomName, (_room, state) =>
+      state.storage.getAlarm(),
+    );
+    expect(deadline).toBeGreaterThanOrEqual(before + 60_000);
+    expect(deadline).toBeLessThanOrEqual(Date.now() + 60_000);
+  });
+
+  it("期限を迎えた移動は最後の位置で終了し、ロックと再編成の抑止を解除する", async () => {
+    const roomName = "group-drag-expiry-recovery";
+    const { host, guest } = await setup(roomName);
+    const groupId = "99999999-9999-4999-8999-999999999999";
+    host.send({
+      type: "group:create",
+      group: buildGroup({ id: groupId, noteIds: [noteA.id, noteB.id] }),
+    });
+    await guest.until("group:updated");
+    host.send(start);
+    expect(await host.until("group:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    await guest.until("group:drag:updated");
+    host.send({
+      type: "group:drag:move",
+      dragId,
+      sequence: 1,
+      delta: { x: 600, y: 900 },
+    });
+    await guest.until("group:drag:updated");
+    await runInRoomDO(roomName, async (room, state) => {
+      state.storage.sql.exec(
+        "UPDATE active_group_drags SET state_json = json_set(state_json, '$.expiresAt', ?1)",
+        Date.now() - 1,
+      );
+      await room.alarm();
+    });
+    expect(
+      await runInRoomDO(roomName, (_room, state) =>
+        state.storage.sql
+          .exec("SELECT drag_id FROM active_group_drags")
+          .toArray(),
+      ),
+    ).toEqual([]);
+    expect(await guest.until("group:drag:updated")).toMatchObject({
+      dragId,
+      ended: true,
+      notes: [
+        expect.objectContaining({ id: noteA.id, x: 700, y: 1000 }),
+        expect.objectContaining({ id: noteB.id, x: 960, y: 1020 }),
+      ],
+    });
+    const reconnected = await connect(roomName, guestId);
+    expect(reconnected.snapshot.groups).toEqual([
+      expect.objectContaining({
+        id: groupId,
+        noteIds: [noteA.id, noteB.id, outside.id],
+      }),
+    ]);
+    const nextDragId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+    guest.send({
+      type: "note:drag:start",
+      noteId: noteB.id,
+      dragId: nextDragId,
+    });
+    expect(await guest.until("note:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    host.send({
+      type: "group:drag:end",
+      dragId,
+      sequence: 2,
+      delta: { x: -600, y: -900 },
+    });
+    guest.send({
+      type: "note:drag:end",
+      noteId: noteB.id,
+      dragId: nextDragId,
+      position: { x: 970, y: 1020 },
+    });
+    await guest.until("note:updated");
+    await vi.waitFor(async () =>
+      expect(await positions(roomName)).toContainEqual({
+        id: noteB.id,
+        x: 970,
+        y: 1020,
+      }),
+    );
+  });
+
+  it("alarm前でも期限後の移動量を適用せず、最後の位置で操作を終了する", async () => {
+    const roomName = "group-drag-expired-message";
+    const { host, guest } = await setup(roomName);
+    host.send(start);
+    expect(await host.until("group:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    await guest.until("group:drag:updated");
+    await runInRoomDO(roomName, (_room, state) =>
+      state.storage.sql.exec(
+        "UPDATE active_group_drags SET state_json = json_set(state_json, '$.expiresAt', ?1)",
+        Date.now() - 1,
+      ),
+    );
+    host.send({
+      type: "group:drag:move",
+      dragId,
+      sequence: 1,
+      delta: { x: 80, y: 40 },
+    });
+    expect(await guest.until("group:drag:updated")).toMatchObject({
+      ended: true,
+      notes: [
+        expect.objectContaining({ id: noteA.id, x: 100, y: 100 }),
+        expect.objectContaining({ id: noteB.id, x: 360, y: 120 }),
+      ],
+    });
+  });
+
+  it("別のalarmで期限前の移動を終了せず、途中更新で期限を延ばさない", async () => {
+    const roomName = "group-drag-live-deadline";
+    const { host, guest } = await setup(roomName);
+    host.send(start);
+    expect(await host.until("group:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    await guest.until("group:drag:updated");
+    const deadline = await runInRoomDO(roomName, (_room, state) =>
+      state.storage.getAlarm(),
+    );
+    expect(deadline).not.toBeNull();
+    await runInRoomDO(roomName, (room) => room.alarm());
+    host.send({
+      type: "group:drag:move",
+      dragId,
+      sequence: 1,
+      delta: { x: 80, y: 40 },
+    });
+    expect(await guest.until("group:drag:updated")).toMatchObject({
+      ended: false,
+    });
+    expect(
+      await runInRoomDO(roomName, (_room, state) => state.storage.getAlarm()),
+    ).toBe(deadline);
+  });
+
+  it("グルーピング工程外の切断では残った枠の所属を再編成しない", async () => {
+    const roomName = "group-drag-disconnect-outside-grouping";
+    const { host, guest } = await setup(roomName);
+    const groupId = "99999999-9999-4999-8999-999999999999";
+    host.send({
+      type: "group:create",
+      group: buildGroup({ id: groupId, noteIds: [noteA.id, noteB.id] }),
+    });
+    await guest.until("group:updated");
+    host.send(start);
+    expect(await host.until("group:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    await guest.until("group:drag:updated");
+    host.send({
+      type: "group:drag:move",
+      dragId,
+      sequence: 1,
+      delta: { x: 600, y: 900 },
+    });
+    await guest.until("group:drag:updated");
+    await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName)).setPhase(
+      buildPhaseStep(4),
+      hostId,
+    );
+    host.ws.close();
+    expect(await guest.until("group:drag:updated")).toMatchObject({
+      ended: true,
+    });
+    const reconnected = await connect(roomName, guestId);
+    expect(reconnected.snapshot.groups).toEqual([
+      expect.objectContaining({ id: groupId, noteIds: [noteA.id, noteB.id] }),
+    ]);
+  });
+
   it("別の参加者が操作IDを流用して他のグループの開始状態を上書きできない", async () => {
     const roomName = "group-drag-id-collision";
     const { host, guest } = await setup(roomName);

@@ -28,6 +28,7 @@ function setup(overrides: Partial<Parameters<typeof NoteGroupCard>[0]> = {}) {
   return { props, view };
 }
 
+/** 背景のドラッグ開始を検証するため、ポインター位置と操作状態を持つイベントを作る。 */
 function pointer(
   element: HTMLElement,
   type: string,

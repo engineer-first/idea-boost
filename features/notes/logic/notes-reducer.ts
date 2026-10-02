@@ -25,6 +25,7 @@ export type ApplyServerMessageOptions = {
   draggingNoteId: string | null;
 };
 
+/** 共有付箋の受信状態を畳み込み、一括移動では対象の確定位置をまとめて反映する。 */
 export function applyServerMessage(
   notes: Note[],
   message: ServerMessage,

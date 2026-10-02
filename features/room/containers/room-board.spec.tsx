@@ -160,6 +160,7 @@ function expectSent(socket: FakeWebSocket, expected: object): void {
   );
 }
 
+/** グループ背景からボードの入力処理へ渡るポインターイベントを作る。 */
 function groupPointer(
   element: HTMLElement,
   type: string,

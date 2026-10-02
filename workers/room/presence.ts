@@ -66,6 +66,7 @@ export const presenceHandlers: MessageHandlers<
       ctx.userId,
     );
   },
+  /** 画面から離れた接続の操作権を解除し、グルーピング工程でだけ所属を再編成する。 */
   "cursor:leave": (ctx) => {
     const previousAttachment =
       ctx.ws.deserializeAttachment() as SocketAttachment | null;

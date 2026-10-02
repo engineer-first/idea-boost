@@ -258,8 +258,10 @@ export function isPersonalWritingStep(phase: RoomPhase): boolean {
   return !isLobby(phase) && phase.step === 1;
 }
 
-// WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
-// room-do.ts の handleClientMessage 前段で一元的に判定する。
+/**
+ * WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
+ * room-do.ts の handleClientMessage 前段で一元的に判定する。
+ */
 export function isBoardMutation(message: ClientMessage): boolean {
   switch (message.type) {
     case "note:create":
@@ -551,7 +553,9 @@ export const phaseHandlers: MessageHandlers<
     });
   },
 
-  // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
+  /**
+   * 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
+   */
   "phase:next": async (ctx, message) => {
     if (!isHostUser(ctx.sql, ctx.userId)) {
       ctx.reply({
@@ -742,7 +746,9 @@ export const phaseHandlers: MessageHandlers<
   "phase:revote": (ctx, message) => restartPhase(ctx, message, true),
 };
 
-// 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
+/**
+ * 両ループも通常の前進と同じ権威状態・競合チェックで確定する。
+ */
 async function restartPhase(
   ctx: HandlerCtx,
   message: Extract<

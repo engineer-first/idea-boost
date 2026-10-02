@@ -575,7 +575,9 @@ const GROUP_MOVE_NOTES = [
   }),
 ];
 
-// 実際の入力hookを使い、RoomDOの受理と一括更新だけを再現する。
+/**
+ * 実際の入力hookを使い、RoomDOの受理と一括更新だけを再現する。
+ */
 function GroupMovePreview({
   args,
   reject = false,
@@ -595,6 +597,7 @@ function GroupMovePreview({
     notes: ProtocolNote[];
     delta: { x: number; y: number };
   } | null>(null);
+  /** RoomDOの開始応答と共通移動の確定通知を再現し、ストーリーの付箋状態を更新する。 */
   const send = useCallback(
     (message: ClientMessage) => {
       queueMicrotask(() => {
@@ -659,6 +662,7 @@ function GroupMovePreview({
     },
     [args.groups, reject],
   );
+  /** 個別移動の対象だけを更新し、一括移動と混同しない操作確認を可能にする。 */
   const moveNote = (id: string, x: number, y: number) =>
     setNotes((current) =>
       current.map((note) => (note.id === id ? { ...note, x, y } : note)),

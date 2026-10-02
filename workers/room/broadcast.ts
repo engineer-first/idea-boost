@@ -18,6 +18,8 @@ export type ActiveGroupDrag = {
   positions: { noteId: string; x: number; y: number }[];
   sequence: number;
   delta: { x: number; y: number };
+  // 旧バージョンで開始済みの状態は期限なしとして読み、次のalarmで解放する。
+  expiresAt?: number;
 };
 
 export type SocketAttachment = {
@@ -62,7 +64,9 @@ export class RoomBroadcaster {
     }
   }
 
-  // 一括更新も各受信者へ射影し、全対象の可視性を確認してから一度に送る。
+  /**
+   * 一括更新も各受信者へ射影し、全対象の可視性を確認してから一度に送る。
+   */
   broadcastGroupNotes(
     buildMessage: (
       viewerId: string,
@@ -214,6 +218,7 @@ export class RoomBroadcaster {
     return false;
   }
 
+  /** 付箋を操作中の接続を探し、グループ移動では代表以外の対象もロックとして扱う。 */
   findActiveDrag(noteId: string): ActiveDragOwner | null {
     for (const socket of this.connections.getWebSockets()) {
       const active = this.activeDragFor(socket);
@@ -236,6 +241,7 @@ export class RoomBroadcaster {
     return null;
   }
 
+  /** ソケット添付の操作IDから、必要に応じてSQLに保存されたグループ移動を復元する。 */
   activeDragFor(socket: WebSocket): ActiveDragOwner | null {
     const attachment =
       socket.deserializeAttachment() as SocketAttachment | null;
@@ -258,6 +264,7 @@ export class RoomBroadcaster {
     });
   }
 
+  /** 接続中のグループ移動があり、自動再編成を待つ必要があるか返す。 */
   hasActiveGroupDrag(): boolean {
     return this.connections.getWebSockets().some((socket) => {
       const attachment =
@@ -266,6 +273,7 @@ export class RoomBroadcaster {
     });
   }
 
+  /** 各接続の操作IDに対応する、保存済みのグループ移動状態を列挙する。 */
   activeGroupDrags(): ActiveDragOwner[] {
     return this.connections.getWebSockets().flatMap((socket) => {
       const active = this.activeDragFor(socket);
@@ -273,6 +281,7 @@ export class RoomBroadcaster {
     });
   }
 
+  /** 大量の付箋をソケット添付に含めず、操作IDに対応する移動状態をSQLへ保存する。 */
   saveGroupDrag(socket: WebSocket, group: ActiveGroupDrag): void {
     const attachment = socket.deserializeAttachment() as SocketAttachment;
     const active = attachment.activeDrag;
@@ -285,6 +294,7 @@ export class RoomBroadcaster {
     );
   }
 
+  /** 操作IDに対応するグループ枠・開始位置・移動量・期限をSQLから読む。 */
   private readGroupDrag(dragId: string): ActiveGroupDrag | undefined {
     const row = this.sql
       ?.exec(
@@ -297,6 +307,7 @@ export class RoomBroadcaster {
       : undefined;
   }
 
+  /** 接続の操作IDから参照されなくなったグループ移動の保存状態を削除する。 */
   pruneGroupDrags(): void {
     if (!this.sql) return;
     const liveIds = new Set(
@@ -319,6 +330,7 @@ export class RoomBroadcaster {
     }
   }
 
+  /** 接続の操作権を解除し、終了配信に使う直前の移動状態を返す。 */
   retireActiveDrag(socket: WebSocket): ActiveDragOwner | null {
     const active = this.activeDragFor(socket);
     if (!active) return null;
@@ -334,6 +346,7 @@ export class RoomBroadcaster {
     return active;
   }
 
+  /** フェーズ変更などで全接続の操作権と保存されたグループ移動を解除する。 */
   retireAllActiveDrags(): ActiveDragOwner[] {
     const retired: ActiveDragOwner[] = [];
     for (const socket of this.connections.getWebSockets()) {

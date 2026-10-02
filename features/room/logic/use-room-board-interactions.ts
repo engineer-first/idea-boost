@@ -111,6 +111,7 @@ export type RoomBoardInteractions = {
   ) => void;
 };
 
+/** 個別移動・一括移動・カメラ操作を束ね、同じ画面入力から各操作へ振り分ける。 */
 export function useRoomBoardInteractions({
   send,
   connected = true,
@@ -329,6 +330,7 @@ export function useRoomBoardInteractions({
     };
   };
 
+  /** 公開領域のポインター位置と、個別またはグループ移動の代表付箋を共有する。 */
   const handlePresencePointerMove = (
     event: ReactPointerEvent<HTMLDivElement>,
   ) => {
@@ -346,6 +348,7 @@ export function useRoomBoardInteractions({
     );
   };
 
+  /** 個別・一括移動を終了し、次のポインター移動を待たず移動者表示を解除する。 */
   const handleBoardPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
     groupDrag.end(event);
     handlePointerEnd(event);
@@ -358,6 +361,7 @@ export function useRoomBoardInteractions({
     }
   };
 
+  /** 画面離脱やポインター中断で移動を解除し、個人付箋へのドロップは継続する。 */
   function handlePresencePointerLeave(
     event: ReactPointerEvent<HTMLDivElement>,
   ) {

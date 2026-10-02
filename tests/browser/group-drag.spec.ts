@@ -10,6 +10,7 @@ afterAll(async () => {
   await browser.close();
 });
 
+/** グループ移動用ストーリーを開き、枠とフォントの描画が完了するまで待つ。 */
 async function open(story = "group-background-move"): Promise<Page> {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 900 },
@@ -21,6 +22,7 @@ async function open(story = "group-background-move"): Promise<Page> {
   await page.evaluate(() => document.fonts.ready);
   return page;
 }
+/** 各付箋の配置用要素からワールド座標を読み、共通移動量と領域外の維持を検証する。 */
 async function positions(page: Page) {
   return page.getByTestId("note-card").evaluateAll((elements) =>
     elements.map((element) => ({
@@ -29,6 +31,7 @@ async function positions(page: Page) {
     })),
   );
 }
+/** 描画フレームの反映後にカメラ変換を読み、移動中の固定や画面移動を検証する。 */
 async function transform(page: Page) {
   return page.getByTestId("board-canvas").evaluate(async (element) => {
     await new Promise<void>((resolve) =>
@@ -37,11 +40,13 @@ async function transform(page: Page) {
     return element.style.transform;
   });
 }
+/** 付箋や名前編集に重ならないグループ背景上の操作開始点を求める。 */
 async function backgroundPoint(page: Page) {
   const box = await page.getByTestId("note-group-card").first().boundingBox();
   if (!box) throw new Error("グループ枠がありません");
   return { x: box.x + 5, y: box.y + box.height / 2 };
 }
+/** グループの背景を指定した距離とマウスボタンでドラッグする。 */
 async function drag(
   page: Page,
   dx = 80,

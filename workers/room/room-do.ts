@@ -60,7 +60,11 @@ import {
 } from "./completed-rooms";
 import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
-import { broadcastGroupDrag, groupDragHandlers } from "./group-drag";
+import {
+  broadcastGroupDrag,
+  expireGroupDrags,
+  groupDragHandlers,
+} from "./group-drag";
 import { autoReorganize, groupHandlers, listVisibleGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import {
@@ -506,6 +510,7 @@ export class RoomDO extends DurableObject {
     }
   }
 
+  /** 切断した接続のカーソルと操作権を解除し、最後の共有位置を保全する。 */
   override async webSocketClose(
     ws: WebSocket,
     _code: number,
@@ -534,7 +539,9 @@ export class RoomDO extends DurableObject {
       if (active) {
         if (active.group) {
           broadcastGroupDrag(this.sql, this.broadcaster, active, true);
-          autoReorganize(this.ctx.storage, this.broadcaster);
+          if (isPhaseStep(getPhase(this.sql), 1, 3))
+            autoReorganize(this.ctx.storage, this.broadcaster);
+          await syncRoomAlarm(this.ctx.storage, this.sql);
         }
         const row = findNote(this.sql, active.noteId);
         if (row?.visibility === "shared") {
@@ -568,8 +575,11 @@ export class RoomDO extends DurableObject {
     ws.close(1011, "websocket error");
   }
 
+  /** 進行・移動・タイマー・成果の期限を処理し、残る期限のうち最も早いalarmを予約する。 */
   override async alarm(): Promise<void> {
     if (!(await this.processExpiredTransition())) return;
+    if (expireGroupDrags(this.sql, this.ctx.storage, this.broadcaster))
+      await this.preserveSharedOutcome();
     if (isRoomClosed(this.sql)) {
       // 導入前の完了では fixCompletion を通っていないため、残った進行予約も止める。
       this.ctx.storage.transactionSync(() => {
@@ -637,6 +647,7 @@ export class RoomDO extends DurableObject {
   // プロトコル処理
   // ------------------------------------------------------------
 
+  /** メンバーと進行工程を検証してドメイン処理へ渡し、共有状態の変更を成果へ保全する。 */
   private async handleClientMessage(
     ws: WebSocket,
     attachment: SocketAttachment,
@@ -810,7 +821,9 @@ export class RoomDO extends DurableObject {
     }
   }
 
-  // 接続直後に現在状態を丸ごと届ける（再接続の復帰パスも兼ねる）。
+  /**
+   * 接続直後に現在状態を丸ごと届ける（再接続の復帰パスも兼ねる）。
+   */
   private sendSnapshot(ws: WebSocket, userId: string): void {
     const phase = getPhase(this.sql);
     // 更新前から共有中のルームも、最初の接続で一度だけ順番を作る。

@@ -240,6 +240,7 @@ type VoteStampPointer = {
   clientY: number;
 };
 
+/** 共有ボードと進行用の画面を組み立て、表示と操作コールバックを各部品へ渡す。 */
 export function RoomBoardView({
   feedback,
   notes,

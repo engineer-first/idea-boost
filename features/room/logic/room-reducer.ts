@@ -54,8 +54,10 @@ export function applyIdeaMapServerMessage(
   return state;
 }
 
-// snapshot / member_joined / member_left を受けて members state を更新する純粋関数。
-// 進行状態メッセージは早期 return。
+/**
+ * snapshot / member_joined / member_left を受けて members state を更新する純粋関数。
+ * 進行状態メッセージは早期 return。
+ */
 export function applyMemberServerMessage(
   members: Member[],
   message: ServerMessage,
@@ -117,8 +119,10 @@ export function applyMemberServerMessage(
   }
 }
 
-// 投票完了状態は userId の集合だけをサーバーから畳み込む。投票先や票種別の
-// 残数はこの state に存在しないため、投票中の秘匿境界を越えない。
+/**
+ * 投票完了状態は userId の集合だけをサーバーから畳み込む。投票先や票種別の
+ * 残数はこの state に存在しないため、投票中の秘匿境界を越えない。
+ */
 export function applyVotingCompletionServerMessage(
   completedVoterIds: string[],
   message: ServerMessage,
@@ -195,8 +199,10 @@ export function applyTimerServerMessage(
   };
 }
 
-// 決定状態はフェーズ単位のサーバー権威。snapshot で再接続を復元し、
-// フェーズが進んだら前フェーズの決定を表示し続けないようクリアする。
+/**
+ * 決定状態はフェーズ単位のサーバー権威。snapshot で再接続を復元し、
+ * フェーズが進んだら前フェーズの決定を表示し続けないようクリアする。
+ */
 export function applyDecisionServerMessage(
   decision: Decision | null,
   message: ServerMessage,
@@ -280,7 +286,9 @@ export function applyCarryoverServerMessage(
   return carryovers;
 }
 
-// phase state を更新する純粋関数。phase 以外のメッセージは何もしない。
+/**
+ * phase state を更新する純粋関数。phase 以外のメッセージは何もしない。
+ */
 export function applyPhaseServerMessage(
   phase: RoomPhase,
   message: ServerMessage,

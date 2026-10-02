@@ -149,6 +149,7 @@ export type RoomBoardCanvasProps = {
   addPrivateNoteRequest?: number;
 };
 
+/** ボードと付箋を描画し、移動対象を再計算から除いて移動中のグループ枠を維持する。 */
 export function RoomBoardCanvas({
   notes,
   movingGroups = [],

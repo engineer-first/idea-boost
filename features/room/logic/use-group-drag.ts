@@ -64,6 +64,7 @@ export type GroupDragControls = {
   draggingNoteId: string | null;
 };
 
+/** 開始受理を待って領域内の付箋を同じ差分で表示し、RoomDOの確定通知で移動を終了する。 */
 export function useGroupDrag({
   notes,
   enabled,
@@ -80,6 +81,7 @@ export function useGroupDrag({
   const closedIdsRef = useRef(new Set<string>());
   const awaitingFinalIdsRef = useRef(new Set<string>());
 
+  /** 終了した操作IDを上限付きで記憶し、遅れて届いた移動通知による復活を防ぐ。 */
   const rememberClosed = useCallback((dragId: string) => {
     closedIdsRef.current.add(dragId);
     if (closedIdsRef.current.size > 256) {
@@ -92,6 +94,7 @@ export function useGroupDrag({
     versionsRef.current.delete(dragId);
   }, []);
 
+  /** 受理済みの移動量を送信間隔で制限し、増加する更新番号とともに送る。 */
   const sendMovement = useMemo(
     () =>
       createThrottled((delta: Point) => {
@@ -108,6 +111,7 @@ export function useGroupDrag({
     [send],
   );
 
+  /** 対象ポインターを取得している場合だけ、移動終了時に取得状態を解除する。 */
   const releasePointer = useCallback(
     (pointerId: number) => {
       const viewport = viewportRef.current;
@@ -117,6 +121,7 @@ export function useGroupDrag({
     [viewportRef],
   );
 
+  /** 必要なら中断を送信し、ローカル移動・カメラ固定・ポインター取得を解除する。 */
   const reset = useCallback(
     (sendCancel = true, clearRemote = false) => {
       sendMovement.cancel();
@@ -153,7 +158,9 @@ export function useGroupDrag({
   }, [enabled, reset]);
 
   useEffect(() => {
+    /** ウィンドウのフォーカスが失われたときに、進行中の一括移動を中断する。 */
     const stop = () => reset();
+    /** 移動中のEscapeキーを中断操作として処理する。 */
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && operationRef.current) {
         event.preventDefault();
@@ -169,6 +176,7 @@ export function useGroupDrag({
     };
   }, [reset, sendMovement]);
 
+  /** 表示枠内の対象と開始座標を固定し、カメラを固定してサーバーへ開始を要求する。 */
   const start = useCallback(
     (
       group: RenderGroup,
@@ -220,6 +228,7 @@ export function useGroupDrag({
     [enabled, lockCamera, notes, send, viewportRef, worldPointFromClient],
   );
 
+  /** 開始点からの共通移動量を更新し、画面外やポインター終了では移動を中断する。 */
   const move = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>): void => {
       const current = operationRef.current;
@@ -260,6 +269,7 @@ export function useGroupDrag({
     [reset, sendMovement, viewportRef, worldPointFromClient],
   );
 
+  /** ポインター終了位置を最終移動量として送信し、確定通知が来るまで表示を維持する。 */
   const end = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>): void => {
       const current = operationRef.current;
@@ -300,6 +310,7 @@ export function useGroupDrag({
     [releasePointer, reset, send, sendMovement, worldPointFromClient],
   );
 
+  /** 開始受理・拒否・確定更新を反映し、古い通知や別操作のエラーで移動を変更しない。 */
   const applyMessage = useCallback(
     (message: ServerMessage): boolean => {
       if (
@@ -324,7 +335,11 @@ export function useGroupDrag({
         }
         return true;
       }
-      if (message.type === "error" && operationRef.current) {
+      if (
+        message.type === "error" &&
+        message.operationId === undefined &&
+        operationRef.current
+      ) {
         reset();
         return true;
       }

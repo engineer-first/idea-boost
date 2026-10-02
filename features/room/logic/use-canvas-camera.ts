@@ -164,6 +164,7 @@ function fitIdeaMapCamera(
   );
 }
 
+/** 画面移動・ズーム・全体表示を管理し、付箋の一括移動中はカメラ操作を固定する。 */
 export function useCanvasCamera({
   viewportRef,
   notes,
@@ -247,6 +248,7 @@ export function useCanvasCamera({
     [getViewportPoint],
   );
 
+  /** 表示領域と付箋の境界から全体表示のカメラを求め、操作固定中は位置を変えない。 */
   const fitToNotes = useCallback(
     (insets?: CanvasFitInsets): boolean => {
       if (interactionLockedRef.current) return true;
@@ -274,6 +276,7 @@ export function useCanvasCamera({
     [fitViewport, setCameraImmediately, viewportRef],
   );
 
+  /** 指定した画面上の基点を保ってズームし、操作固定中は要求を無視する。 */
   const zoomTo = useCallback(
     (requestedZoom: number, point?: CanvasPoint) => {
       if (interactionLockedRef.current) return;
@@ -302,6 +305,7 @@ export function useCanvasCamera({
     }
   }, [viewportRef]);
 
+  /** Spaceキーまたは中ボタンによる画面移動を開始し、編集や固定中の入力を除く。 */
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (interactionLockedRef.current) return;
@@ -363,6 +367,7 @@ export function useCanvasCamera({
     [endPan],
   );
 
+  /** ホイールの画面移動とズームを処理し、一括移動中のカメラ変更を防ぐ。 */
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       event.preventDefault();
@@ -414,6 +419,7 @@ export function useCanvasCamera({
   }, [handleWheel, viewportRef]);
 
   useEffect(() => {
+    /** 編集欄を除いてカメラ操作のキー入力を処理し、固定中はカメラを動かさない。 */
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
       if (event.code === "Space") {
@@ -520,6 +526,7 @@ export function useCanvasCamera({
     };
   }, [camera]);
 
+  /** 一括移動の開始・終了に合わせてカメラ操作の固定状態を切り替える。 */
   const lockInteraction = useCallback(
     (locked: boolean) => {
       interactionLockedRef.current = locked;

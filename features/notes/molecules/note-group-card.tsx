@@ -39,6 +39,7 @@ function getHashCode(str: string): number {
   return Math.abs(hash);
 }
 
+/** グループ枠と名前編集を表示し、背景上のドラッグだけを一括移動の開始操作へ渡す。 */
 export function NoteGroupCard({
   group,
   name,

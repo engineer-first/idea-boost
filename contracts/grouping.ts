@@ -24,7 +24,9 @@ export interface RenderGroup {
 
 export type GroupBounds = Pick<RenderGroup, "x" | "y" | "width" | "height">;
 
-// 表示枠の中心点判定をUIとRoomDOで共用する。保存上の所属に依存しない。
+/**
+ * 表示枠の中心点判定をUIとRoomDOで共用する。保存上の所属に依存しない。
+ */
 export function getGroupMoveTargets(
   notes: Note[],
   bounds: GroupBounds,
@@ -42,7 +44,9 @@ export function getGroupMoveTargets(
   });
 }
 
-// 端に達しても全対象へ同じ差分を適用し、相対配置を保つ。
+/**
+ * 端に達しても全対象へ同じ差分を適用し、相対配置を保つ。
+ */
 export function clampGroupDelta(
   positions: readonly { x: number; y: number }[],
   delta: { x: number; y: number },
@@ -252,7 +256,9 @@ function calculateBoundingBox(notes: Note[]): {
   };
 }
 
-// 描画用のグループ枠計算
+/**
+ * 描画用のグループ枠計算
+ */
 export function calculateRenderGroups(
   notes: Note[],
   groups: PersistentGroup[],
@@ -264,6 +270,7 @@ export function calculateRenderGroups(
 
   for (const cluster of clusters) {
     const clusterNoteIds = new Set(cluster);
+    const sortedIds = [...cluster].sort();
 
     // このクラスターと交差する永続グループを抽出
     const intersectingGroups = groups.filter((g) =>
@@ -303,30 +310,29 @@ export function calculateRenderGroups(
       }
 
       renderGroups.push({
-        id: `combined-${cluster.sort().join(",")}`,
+        id: `combined-${sortedIds.join(",")}`,
         name: dominant.name,
         x: box.x,
         y: box.y,
         width: box.width,
         height: box.height,
         persistentGroupId: dominant.id,
-        representativeNoteId: cluster[0],
+        representativeNoteId: sortedIds[0],
       });
     } else if (activeGroups.length === 1) {
       // 単一グループケース
       renderGroups.push({
-        id: `${activeGroups[0].id}-${cluster.sort().join(",")}`,
+        id: `${activeGroups[0].id}-${sortedIds.join(",")}`,
         name: activeGroups[0].name,
         x: box.x,
         y: box.y,
         width: box.width,
         height: box.height,
         persistentGroupId: activeGroups[0].id,
-        representativeNoteId: cluster[0],
+        representativeNoteId: sortedIds[0],
       });
     } else {
       // 新規仮グループケース
-      const sortedIds = cluster.sort();
       renderGroups.push({
         id: `temp-${sortedIds.join(",")}`,
         name: "グループ",

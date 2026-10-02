@@ -3,6 +3,8 @@ import {
   clampGroupDelta,
   getGroupMoveTargets,
 } from "../../contracts/grouping";
+import { isPhaseStep } from "../../contracts/phase";
+import { syncRoomAlarm } from "./alarms";
 import type {
   ActiveDragOwner,
   RoomBroadcaster,
@@ -15,7 +17,39 @@ import {
 import { autoReorganize, listGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { findNote, listSharedNotes, toProtocolNote } from "./notes";
+import { getPhase } from "./phase";
 
+export const GROUP_DRAG_MAX_DURATION_MS = 60_000;
+
+/** 接続を維持したまま終了されない移動も期限で解放し、最後の確定位置を共有する。 */
+export function expireGroupDrags(
+  sql: SqlStorage,
+  storage: DurableObjectStorage,
+  broadcaster: RoomBroadcaster,
+  now = Date.now(),
+): boolean {
+  let expired = false;
+  for (const active of broadcaster.activeGroupDrags()) {
+    if (
+      (active.group?.expiresAt ?? 0) > now ||
+      broadcaster.activeDragFor(active.socket)?.dragId !== active.dragId
+    )
+      continue;
+    const retired = broadcaster.retireActiveDrag(active.socket);
+    if (!retired?.group) continue;
+    expired = true;
+    broadcastGroupDrag(sql, broadcaster, retired, true);
+    broadcaster.broadcastToAllExcept(
+      { type: "cursor:drag-ended", userId: retired.attachment.userId },
+      retired.attachment.userId,
+    );
+  }
+  if (expired && isPhaseStep(getPhase(sql), 1, 3))
+    autoReorganize(storage, broadcaster);
+  return expired;
+}
+
+/** 全対象が共有中であることを確認し、最後の確定位置と表示枠を受信者ごとに配信する。 */
 export function broadcastGroupDrag(
   sql: SqlStorage,
   broadcaster: RoomBroadcaster,
@@ -43,18 +77,28 @@ export function broadcastGroupDrag(
   }));
 }
 
-function closeGroupDrag(ctx: HandlerCtx, active: ActiveDragOwner): void {
+/** 操作権を解除して終了を配信し、再編成・成果保存・次のalarm予約へ接続する。 */
+async function closeGroupDrag(
+  ctx: HandlerCtx,
+  active: ActiveDragOwner,
+): Promise<void> {
   ctx.broadcaster.retireActiveDrag(ctx.ws);
   broadcastGroupDrag(ctx.sql, ctx.broadcaster, active, true);
   if (!ctx.broadcaster.hasActiveGroupDrag())
     autoReorganize(ctx.storage, ctx.broadcaster);
   ctx.onSharedDragEnd?.();
+  await syncRoomAlarm(ctx.storage, ctx.sql);
 }
 
 export const groupDragHandlers: MessageHandlers<
   "group:drag:start" | "group:drag:move" | "group:drag:end"
 > = {
-  "group:drag:start": (ctx, message) => {
+  /** 表示枠・開始位置・競合を検証し、全対象の操作権と延長されない終了期限を保存する。 */
+  "group:drag:start": async (ctx, message) => {
+    if (expireGroupDrags(ctx.sql, ctx.storage, ctx.broadcaster)) {
+      ctx.onSharedDragEnd?.();
+      await syncRoomAlarm(ctx.storage, ctx.sql);
+    }
     ctx.broadcaster.pruneGroupDrags();
     const current = ctx.broadcaster.activeDragFor(ctx.ws);
     if (
@@ -133,8 +177,10 @@ export const groupDragHandlers: MessageHandlers<
           positions: targets.map(({ id, x, y }) => ({ noteId: id, x, y })),
           sequence: 0,
           delta: { x: 0, y: 0 },
+          expiresAt: Date.now() + GROUP_DRAG_MAX_DURATION_MS,
         });
       });
+      await syncRoomAlarm(ctx.storage, ctx.sql);
     } catch {
       ctx.broadcaster.retireActiveDrag(ctx.ws);
       ctx.reply({
@@ -152,11 +198,14 @@ export const groupDragHandlers: MessageHandlers<
     const active = ctx.broadcaster.activeDragFor(ctx.ws);
     if (active) broadcastGroupDrag(ctx.sql, ctx.broadcaster, active, false);
   },
+  /** 現在の操作IDと更新番号に対応する共通移動量を処理する。 */
   "group:drag:move": (ctx, message) => applyGroupMovement(ctx, message, false),
+  /** 現在の操作IDに対応する最終移動量を確定し、全対象の操作権を解除する。 */
   "group:drag:end": (ctx, message) => applyGroupMovement(ctx, message, true),
 };
 
-function applyGroupMovement(
+/** 期限と更新順を検証して全座標を一括保存し、保存失敗や期限切れでは操作を終了する。 */
+async function applyGroupMovement(
   ctx: HandlerCtx,
   message: {
     dragId: string;
@@ -164,7 +213,7 @@ function applyGroupMovement(
     delta: { x: number; y: number } | null;
   },
   ended: boolean,
-): void {
+): Promise<void> {
   const active = ctx.broadcaster.activeDragFor(ctx.ws);
   const group = active?.group;
   if (
@@ -174,9 +223,13 @@ function applyGroupMovement(
     message.sequence <= group.sequence
   )
     return;
+  if ((group.expiresAt ?? 0) <= Date.now()) {
+    await closeGroupDrag(ctx, active);
+    return;
+  }
   const rows = group.positions.map(({ noteId }) => findNote(ctx.sql, noteId));
   if (rows.some((row) => row?.visibility !== "shared" || row.phase !== 1)) {
-    closeGroupDrag(ctx, active);
+    await closeGroupDrag(ctx, active);
     return;
   }
   const delta = message.delta
@@ -200,7 +253,7 @@ function applyGroupMovement(
       ctx.broadcaster.saveGroupDrag(ctx.ws, nextGroup);
     });
   } catch {
-    closeGroupDrag(ctx, active);
+    await closeGroupDrag(ctx, active);
     ctx.reply({
       type: "error",
       code: "invalid-message",
@@ -209,6 +262,6 @@ function applyGroupMovement(
     });
     return;
   }
-  if (ended) closeGroupDrag(ctx, next);
+  if (ended) await closeGroupDrag(ctx, next);
   else broadcastGroupDrag(ctx.sql, ctx.broadcaster, next, false);
 }

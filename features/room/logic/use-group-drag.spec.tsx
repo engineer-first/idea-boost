@@ -13,6 +13,7 @@ const notes = [
 ];
 const group = calculateRenderGroups(notes, [])[0] as GroupDragFrame;
 const remoteDragId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+/** ドラッグの画面座標とポインター状態を持つテストイベントを作る。 */
 function event(x: number, y: number): ReactPointerEvent<HTMLDivElement> {
   return {
     pointerId: 1,
@@ -22,6 +23,7 @@ function event(x: number, y: number): ReactPointerEvent<HTMLDivElement> {
     preventDefault: vi.fn(),
   } as unknown as ReactPointerEvent<HTMLDivElement>;
 }
+/** カメラ座標の変換と送信を観測できる一括移動hookのテスト環境を作る。 */
 function setup(zoom = 1) {
   const send = vi.fn<(message: ClientMessage) => void>();
   const lockCamera = vi.fn();
@@ -44,6 +46,7 @@ function setup(zoom = 1) {
       worldPointFromClient: (x, y) => ({ x: x / zoom, y: y / zoom }),
     }),
   );
+  /** 背景の移動を開始し、サーバーへ送った操作IDを後続の応答に使えるように返す。 */
   function start() {
     act(() => result.current.start(group, event(110, 110), { x: 100, y: 100 }));
     const request = send.mock.calls[0]?.[0];
@@ -141,6 +144,65 @@ describe("一括ドラッグの表示と開始待ち", () => {
     expect(result.current.renderedNotes).toEqual(notes);
     expect(result.current.isDragging).toBe(false);
     expect(onRejected).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    false,
+    true,
+  ])("別操作のエラーでは移動とカメラ固定を維持する（開始受理済み: %s）", (accepted) => {
+    const { result, send, lockCamera, start } = setup();
+    const dragId = start();
+    if (accepted)
+      act(() =>
+        result.current.applyMessage({
+          type: "group:drag:result",
+          dragId,
+          accepted: true,
+        }),
+      );
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "invalid-message",
+        message: "別の付箋の操作が拒否されました。",
+        operationId: remoteDragId,
+      }),
+    );
+    expect(result.current.isDragging).toBe(true);
+    expect(lockCamera).toHaveBeenLastCalledWith(true);
+    expect(
+      send.mock.calls.some(([message]) => message.type === "group:drag:end"),
+    ).toBe(false);
+  });
+
+  it.each([
+    false,
+    true,
+  ])("操作IDのないエラーでは移動を終了してカメラ固定を解除する（開始受理済み: %s）", (accepted) => {
+    const { result, send, lockCamera, start } = setup();
+    const dragId = start();
+    if (accepted)
+      act(() =>
+        result.current.applyMessage({
+          type: "group:drag:result",
+          dragId,
+          accepted: true,
+        }),
+      );
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "invalid-message",
+        message: "グループの移動を保存できませんでした。",
+      }),
+    );
+    expect(result.current.isDragging).toBe(false);
+    expect(lockCamera).toHaveBeenLastCalledWith(false);
+    expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "group:drag:end",
+      dragId,
+      delta: null,
+    });
   });
 
   it("終了済み操作の遅い更新・重複した終了通知を再適用しない", () => {
