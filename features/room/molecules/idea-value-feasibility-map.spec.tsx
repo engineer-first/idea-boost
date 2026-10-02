@@ -12,9 +12,12 @@ describe("IdeaValueFeasibilityMap", () => {
 
     expect(map).toBeInTheDocument();
     expect(map).not.toHaveClass("aspect-square");
-    expect(map).toHaveStyle({ width: "1600px", height: "900px" });
+    expect(map).toHaveStyle({
+      width: "1600px",
+      height: "910px",
+      gridTemplateRows: "minmax(0, 1fr) 74px",
+    });
     expect(map).toHaveClass("grid-cols-[4rem_minmax(0,1fr)]");
-    expect(map).toHaveClass("grid-rows-[minmax(0,1fr)_4rem]");
     expect(map).toHaveClass("gap-3");
     expect(map).toHaveClass("z-10");
     expect(screen.getByTestId("idea-value-feasibility-map-plane")).toHaveClass(
@@ -45,9 +48,9 @@ describe("IdeaValueFeasibilityMap", () => {
     ).toHaveClass("bg-linear-to-r");
     expect(
       screen.getByTestId("idea-value-feasibility-map-y-axis-label"),
-    ).toHaveClass("left-0");
+    ).toHaveClass("right-0");
 
-    expect(feasibilityScale).toHaveClass("h-16");
+    expect(feasibilityScale).toHaveClass("h-full");
     expect(feasibilityScale).toHaveClass("z-10");
     expect(
       screen.getByTestId("idea-value-feasibility-map-plane-grid").style
@@ -75,11 +78,38 @@ describe("IdeaValueFeasibilityMap", () => {
     const map = screen.getByTestId("idea-value-feasibility-map");
     expect(map).toHaveStyle({
       width: "1936px",
-      height: "1089px",
+      height: "1109px",
       left: "calc(50% - 800px)",
-      bottom: "calc(50% - 450px)",
+      bottom: "calc(50% - 450px - 20px)",
+      gridTemplateRows: "minmax(0, 1fr) 84px",
     });
     expect(map).not.toHaveClass("-translate-x-1/2");
     expect(map).not.toHaveClass("-translate-y-1/2");
+  });
+
+  it.each([
+    [0, "48px"],
+    [2, "58px"],
+    [4, "70px"],
+    [15, "87px"],
+  ])("サイズ段階 %i に応じて両軸ラベルを拡縮する", (sizeLevel, fontSize) => {
+    render(<IdeaValueFeasibilityMap sizeLevel={sizeLevel} />);
+
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-y-axis-label"),
+    ).toHaveStyle({ fontSize, lineHeight: fontSize });
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-x-axis-label"),
+    ).toHaveStyle({ fontSize, lineHeight: fontSize });
+  });
+
+  it("大きいラベル分の下余白を確保し、マップ面の高さを保つ", () => {
+    render(<IdeaValueFeasibilityMap sizeLevel={4} />);
+
+    expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
+      height: "1350px",
+      bottom: "calc(50% - 450px - 32px)",
+      gridTemplateRows: "minmax(0, 1fr) 96px",
+    });
   });
 });
