@@ -333,7 +333,11 @@ test.each([
 test.each([
   390, 1180, 1280,
 ])("%ipxで幅を取るスクロールバーでも例が読め、横にはみ出さない", async (width) => {
-  const page = await browser.newPage({
+  // headlessの既定 --hide-scrollbars を外し、実際に幅を取るスクロールバーを検証する。
+  const classicBrowser = await chromium.launch({
+    ignoreDefaultArgs: ["--hide-scrollbars"],
+  });
+  const page = await classicBrowser.newPage({
     viewport: { width, height: 844 },
     reducedMotion: "reduce",
   });
@@ -350,11 +354,6 @@ test.each([
     ]) {
       await open(page, `room-stepguide--${story}`);
       await settled(page, "detail");
-      // overlay scrollbarだけでは固定幅の欠陥を検知できない。幅を取る表示も再現する。
-      await page.addStyleTag({
-        content:
-          '[aria-label="ファシリテーションガイド"]::-webkit-scrollbar { width: 16px; height: 16px; }',
-      });
       const detail = page.getByRole("region", {
         name: "ファシリテーションガイド",
       });
@@ -384,6 +383,6 @@ test.each([
       }
     }
   } finally {
-    await page.close();
+    await classicBrowser.close();
   }
 });
