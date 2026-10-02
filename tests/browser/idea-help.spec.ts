@@ -33,7 +33,9 @@ for (const width of [390, 1440]) {
       });
       const tools = page.getByRole("tablist", { name: "発想法" });
       const panel = page.getByRole("tabpanel").filter({ has: tools });
-      expect(await panel.getByRole("button").count()).toBe(0);
+      const more = panel.getByRole("button", { name: /ほかの問いを見る/ });
+      expect(await more.getAttribute("aria-expanded")).toBe("false");
+      await more.press("Enter");
       const last = page.getByText(
         "Reverse（逆転する）：順番や役割を逆にできないか？",
         { exact: true },
@@ -88,9 +90,15 @@ test("接続拒否中は発想支援ツールを作成できない", async () =>
   try {
     await open(page, "disconnected");
     const guide = page.getByTestId("idea-guide-panel");
-    for (const button of await guide.getByRole("button").all()) {
+    for (const button of await guide
+      .getByRole("button")
+      .filter({ hasNotText: "ほかの考え方" })
+      .all()) {
       expect(await button.isDisabled()).toBe(true);
     }
+    const more = guide.getByRole("button", { name: "ほかの考え方を見る" });
+    await more.press("Enter");
+    expect(await more.getAttribute("aria-expanded")).toBe("true");
   } finally {
     await page.close();
   }
