@@ -380,6 +380,94 @@ describe("グループ一括ドラッグ", () => {
       y: 140,
     });
   });
+  it("別グループ移動中の300枚の開始判定で移動状態を対象ごとに再読込しない", async () => {
+    const roomName = "group-drag-batched-start-locks";
+    const { host, guest } = await setup(roomName);
+    host.send(start);
+    await host.until("group:drag:result");
+    guest.send({
+      type: "note:drag:start",
+      noteId: outside.id,
+      dragId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+    });
+    expect(await guest.until("note:drag:result")).toMatchObject({
+      accepted: true,
+    });
+    const requester = await connect(roomName, hostId);
+    const targets = Array.from({ length: 300 }, (_, index) =>
+      buildNote({
+        id: `${index.toString(16).padStart(8, "0")}-0000-4000-8000-000000000000`,
+        content: "",
+        x: 3000 + (index % 10) * 260,
+        y: 3000 + Math.floor(index / 10) * 180,
+      }),
+    );
+    await runInRoomDO(roomName, (_room, state) => {
+      for (const note of targets)
+        state.storage.sql.exec(
+          "INSERT INTO notes (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at) VALUES (?1, ?2, '', 'shared', 'yellow', ?3, ?4, 1, '', '')",
+          note.id,
+          hostId,
+          note.x,
+          note.y,
+        );
+    });
+    const targetFrame = calculateRenderGroups(targets, [])[0];
+    const observed = await runInRoomDO(roomName, async (_room, state) => {
+      let stateReads = 0;
+      const sql = new Proxy(state.storage.sql, {
+        get(target, key) {
+          if (key === "exec")
+            return (...args: Parameters<SqlStorage["exec"]>) => {
+              if (args[0].includes("SELECT state_json FROM active_group_drags"))
+                stateReads++;
+              return target.exec(...args);
+            };
+          return Reflect.get(target, key, target);
+        },
+      });
+      const ws = state.getWebSockets().find((socket) => {
+        const attachment = socket.deserializeAttachment() as SocketAttachment;
+        return attachment.userId === hostId && !attachment.activeDrag;
+      });
+      if (!ws) throw new Error("requester missing");
+      const replies: unknown[] = [];
+      await groupDragHandlers["group:drag:start"](
+        {
+          sql,
+          storage: state.storage,
+          ws,
+          userId: hostId,
+          broadcaster: new RoomBroadcaster(state, sql),
+          reply: (message) => {
+            replies.push(message);
+          },
+          refreshSnapshots: () => {},
+        },
+        {
+          type: "group:drag:start",
+          dragId: "eeeeeeee-1111-4111-8111-eeeeeeeeeeee",
+          anchorNoteId: targets[0].id,
+          bounds: {
+            x: targetFrame.x,
+            y: targetFrame.y,
+            width: targetFrame.width,
+            height: targetFrame.height,
+          },
+          positions: targets.map(({ id, x, y }) => ({ noteId: id, x, y })),
+        },
+      );
+      return { stateReads, replies };
+    });
+    expect(observed.replies).toContainEqual(
+      expect.objectContaining({ accepted: true }),
+    );
+    expect(observed.stateReads).toBeLessThanOrEqual(5);
+    expect(await requester.until("group:drag:updated")).toMatchObject({
+      ended: false,
+    });
+  });
+
   it("300枚のまとまりも接続の付帯情報のサイズに依存せず一括移動できる", async () => {
     const roomName = "group-drag-large";
     const { host } = await setup(roomName);
@@ -493,7 +581,7 @@ describe("グループ一括ドラッグ", () => {
     "private",
     "deleted",
     "phase",
-  ])("開始後に対象が%sへ変わったら全件を移動・配信しない", async (change) => {
+  ])("開始後に対象が%sへ変わったら移動せず内容なしで終了を配信する", async (change) => {
     const roomName = `group-drag-changed-target-${change}`;
     const { host, guest } = await setup(roomName);
     host.send(start);
@@ -514,6 +602,10 @@ describe("グループ一括ドラッグ", () => {
           noteA.id,
         );
     });
+    const operatorMessages: Message[] = [];
+    host.ws.addEventListener("message", (event) => {
+      operatorMessages.push(JSON.parse(String(event.data)) as Message);
+    });
     host.send({
       type: "group:drag:move",
       dragId,
@@ -533,6 +625,15 @@ describe("グループ一括ドラッグ", () => {
       x: noteB.x,
       y: noteB.y,
     });
+    const ended = { type: "group:drag:result", dragId, accepted: false };
+    expect(
+      operatorMessages.filter(
+        (message) => message.type === "group:drag:result",
+      ),
+    ).toEqual([ended]);
+    expect(
+      guest.messages.filter((message) => message.type === "group:drag:result"),
+    ).toEqual([ended]);
     expect(
       guest.messages.some((message) => message.type === "group:drag:updated"),
     ).toBe(false);
