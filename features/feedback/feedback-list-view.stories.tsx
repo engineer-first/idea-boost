@@ -30,6 +30,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const List: Story = {};
+export const Unclear: Story = {
+  args: {
+    items: [
+      buildFeedback({
+        kind: "unclear",
+        target: "1-3",
+        body: "何を基準に投票するかわからない",
+        rating: null,
+      }),
+    ],
+    filters: { kind: "unclear", target: "", from: "", to: "" },
+    nextCursor: null,
+  },
+};
 export const LongBody: Story = {
   args: {
     items: [

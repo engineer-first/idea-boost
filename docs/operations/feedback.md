@@ -5,7 +5,7 @@ Issue #386 の任意投稿を、共有成果とは独立した閲覧権限と期
 
 ## 収集開始前
 
-- D1 migration `0005_feedback.sql` を適用し、対応するアプリとAPI Workerを配置する。
+- D1 migration `0005_feedback.sql` と、種類「わからない」を追加する `0007_feedback_unclear.sql` を適用し、対応するアプリとAPI Workerを配置する。
 - API Worker の `triggers.crons` にある `0 * * * *` が配置されていることを確認する。期限による取得拒否は定期処理とは独立して働く。
 - `/privacy` の意見説明と、入力欄の説明が表示されることを確認する。
 - [認証と権限付与](access.md)に従い、閲覧担当者に`feedback:read`を付与する。成果閲覧者には自動付与しない。
