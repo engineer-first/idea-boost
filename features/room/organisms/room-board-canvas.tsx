@@ -714,7 +714,7 @@ export function RoomBoardCanvas({
             )
           : null}
         <div
-          className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          className="pointer-events-none absolute bottom-3 left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
         >
@@ -755,7 +755,7 @@ export function RoomBoardCanvas({
         </div>
         {isIdeaMapSizeControlsVisible ? (
           <div
-            className="pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-[calc(0.75rem+var(--board-notification-inset,0px))] max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
+            className="pointer-events-auto absolute bottom-[4.5rem] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-3 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
             data-testid="idea-map-size-controls-hud"
             data-board-fit-edge="bottom"
           >
@@ -771,7 +771,7 @@ export function RoomBoardCanvas({
         ) : null}
         {permissions.showPrivateToolbar ? (
           <div
-            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[180px] max-[639px]:max-h-[180px] ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(11.5rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(7.5rem+var(--board-notification-inset,0px))]"}`}
+            className={`pointer-events-none absolute right-3 bottom-3 top-[4.5rem] group-data-[connection-status=closed]/board:top-[7.5rem] group-data-[connection-status=connecting]/board:top-[7.5rem] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[180px] max-[639px]:max-h-[180px] ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[11.5rem]" : "max-[639px]:bottom-[7.5rem]"}`}
             data-testid="private-notes-dock"
             data-board-fit-edge="bottom"
           >
