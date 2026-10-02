@@ -573,7 +573,9 @@ describe("RoomBoardCanvas", () => {
 
     expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
       width: "1936px",
-      height: "1089px",
+      height: "1109px",
+      bottom: "calc(50% - 450px - 20px)",
+      gridTemplateRows: "minmax(0, 1fr) 84px",
     });
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expect(onIdeaMapResize).toHaveBeenCalledWith(3);
