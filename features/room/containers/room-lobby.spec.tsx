@@ -413,3 +413,25 @@ it("ホスト変更時に古い解散確認を閉じ、戻った後も古い確�
     expectedHostRevision: 2,
   });
 });
+
+it("引き継ぎ確認をキャンセルすると起点ボタンへフォーカスを戻す", async () => {
+  const { socket } = renderStart({
+    initialMembers: [
+      { userId: HOST_ID, name: "作成者", color: "yellow" },
+      { userId: MEMBER_ID, name: "次の進行役", color: "blue" },
+    ],
+  });
+  act(() =>
+    socket.simulateServerMessage({
+      type: "host:updated",
+      hostUserId: HOST_ID,
+      hostRevision: 0,
+    }),
+  );
+  const trigger = screen.getByRole("button", {
+    name: "ホストを引き継ぐ",
+  });
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+  await vi.waitFor(() => expect(trigger).toHaveFocus());
+});

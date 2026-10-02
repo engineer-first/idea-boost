@@ -22,6 +22,7 @@ export type HostTransferDialogProps = {
   pending: boolean;
   disconnected: boolean;
   error: string | null;
+  onClosed?: () => void;
 };
 
 export function HostTransferDialog({
@@ -33,6 +34,7 @@ export function HostTransferDialog({
   pending,
   disconnected,
   error,
+  onClosed,
 }: HostTransferDialogProps) {
   const [targetId, setTargetId] = useState("");
   const candidates = members.filter(
@@ -46,7 +48,14 @@ export function HostTransferDialog({
         if (!pending) onOpenChange(value);
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent
+        onCloseAutoFocus={(event) => {
+          if (onClosed) {
+            event.preventDefault();
+            onClosed();
+          }
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>ホストを引き継ぎますか？</AlertDialogTitle>
           <AlertDialogDescription>

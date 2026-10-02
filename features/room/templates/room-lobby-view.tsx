@@ -2,7 +2,7 @@
 
 import { DoorOpen, Link2, Play, Users } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -69,6 +69,7 @@ export function RoomLobbyView({
   const isDisconnected = connectionStatus !== "open";
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const transferTriggerRef = useRef<HTMLButtonElement>(null);
   const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
 
   return (
@@ -159,6 +160,7 @@ export function RoomLobbyView({
               {isHost && isLobby(phase) && onTransferHost ? (
                 <>
                   <Button
+                    ref={transferTriggerRef}
                     variant="outline"
                     className="mt-4"
                     disabled={
@@ -182,6 +184,7 @@ export function RoomLobbyView({
                       pending={isTransferring}
                       disconnected={isDisconnected}
                       error={transferError}
+                      onClosed={() => transferTriggerRef.current?.focus()}
                     />
                   ) : null}
                 </>
