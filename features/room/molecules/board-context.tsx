@@ -161,9 +161,6 @@ export function BoardContext({
           >
             {context.stepLabel}
           </span>
-          <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-            {context.step}/{context.stepCount}
-          </span>
           {onOpenFeedback ? (
             <button
               type="button"
