@@ -23,8 +23,7 @@ export function useBoardHelp(phase: RoomPhase): BoardHelpControls {
       : null;
   const visited = useRef(new Set<string>());
   const activePhase = useRef(phaseKey);
-  const initiallyOpen =
-    (kind === "hmw" || kind === "idea") && !visited.current.has(phaseKey);
+  const initiallyOpen = kind === "idea" && !visited.current.has(phaseKey);
   const [display, setDisplay] = useState({
     phaseKey,
     isOpen: initiallyOpen,
