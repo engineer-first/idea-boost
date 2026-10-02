@@ -161,3 +161,23 @@ describe("招待URL/コード（host 限定表示）", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+it("招待URLの共有は明示操作からURLだけを送る", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: share,
+  });
+  try {
+    renderView();
+    expect(share).not.toHaveBeenCalled();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "招待URLを共有" }));
+    expect(share).toHaveBeenCalledExactlyOnceWith({
+      url: "https://idea-flow.example/invite/AB12CD",
+    });
+  } finally {
+    Reflect.deleteProperty(navigator, "share");
+  }
+});
