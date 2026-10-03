@@ -766,7 +766,7 @@ export function RoomBoardCanvas({
             )
           : null}
         <div
-          className="pointer-events-none absolute bottom-3 left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
         >
@@ -807,7 +807,7 @@ export function RoomBoardCanvas({
         </div>
         {isIdeaMapSizeControlsVisible ? (
           <div
-            className="pointer-events-auto absolute bottom-[4.5rem] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-3 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
+            className="pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-[calc(0.75rem+var(--board-notification-inset,0px))] max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
             data-testid="idea-map-size-controls-hud"
             data-board-fit-edge="bottom"
           >
