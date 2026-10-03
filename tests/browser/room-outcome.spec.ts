@@ -227,7 +227,8 @@ test("保存失敗からコピーに回復し、成功通知の500ms後に感想
   });
   const localPage = await context.newPage();
   try {
-    await localPage.clock.install();
+    // Nodeとブラウザの実時計を混ぜず、読込後も確実に未来となる時刻で停止する。
+    await localPage.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
     await localPage.goto(
       `${origin}/iframe.html?id=room-roomoutcomeview--with-feedback&viewMode=story`,
     );
@@ -244,7 +245,7 @@ test("保存失敗からコピーに回復し、成功通知の500ms後に感想
         .getByRole("complementary", { name: "フィードバックの案内" })
         .count(),
     ).toBe(0);
-    await localPage.clock.pauseAt(new Date());
+    await localPage.clock.pauseAt(new Date("2026-01-01T01:00:00Z"));
     await localPage.getByRole("button", { name: "全文をコピー" }).click();
     await localPage.getByText(/コピーしました/).waitFor();
     await localPage.clock.runFor(499);

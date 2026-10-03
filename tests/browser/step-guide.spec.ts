@@ -142,6 +142,10 @@ test.each([
     await open(page, "room-roomboardview--guide-phase-2-step-1");
     await settled(page, "detail");
     await page.getByRole("button", { name: "決定した課題" }).click();
+    // 参照欄への外側クリックで閉じたガイドを再度開いて同時表示を検証する。
+    await settled(page, "compact");
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
+    await settled(page, "detail");
     const shell = page.getByTestId("step-guide");
     const detail = await shell.boundingBox();
     expect(detail?.x).toBeGreaterThanOrEqual(0);
