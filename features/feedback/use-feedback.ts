@@ -41,6 +41,12 @@ export function useFeedback(
 ): FeedbackControls {
   const [retryWithNewId, setRetryWithNewId] = useState(false);
   const [draft, setDraft] = useState<FeedbackDraft>(empty);
+  // IME確定などの入力更新と送信が同じイベント内でも、最新の下書きを使う。
+  const currentDraft = useRef(draft);
+  const replaceDraft = useCallback((value: FeedbackDraft): void => {
+    currentDraft.current = value;
+    setDraft(value);
+  }, []);
   const [isOpen, setOpen] = useState(false),
     [pending, setPending] = useState(false),
     [error, setError] = useState<string | null>(null),
@@ -62,7 +68,7 @@ export function useFeedback(
   }, []);
   useEffect(() => {
     generation.current++;
-    setDraft(empty());
+    replaceDraft(empty());
     setOpen(false);
     setPending(false);
     setRetryWithNewId(false);
@@ -86,7 +92,7 @@ export function useFeedback(
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = null;
     };
-  }, [roomId]);
+  }, [roomId, replaceDraft]);
   const schedulePrompt = useCallback(() => {
     if (
       shown.current ||
@@ -120,7 +126,7 @@ export function useFeedback(
             : null);
       }
       if (!hasDraft.current) {
-        setDraft({ ...empty(), target });
+        replaceDraft({ ...empty(), target });
         setReceipt(null);
         setError(null);
         hasDraft.current = true;
@@ -128,7 +134,7 @@ export function useFeedback(
       opened.current = true;
       setOpen(true);
     },
-    [cancelPrompt],
+    [cancelPrompt, replaceDraft],
   );
   function close(): void {
     opened.current = false;
@@ -137,22 +143,23 @@ export function useFeedback(
   }
   function change(patch: Partial<FeedbackDraft>): void {
     if (inFlight.current) return;
-    setDraft((value) => ({
-      ...value,
+    replaceDraft({
+      ...currentDraft.current,
       ...patch,
       ...(patch.target && patch.target !== "app" ? { rating: null } : {}),
-    }));
+    });
     setError(null);
     setRetryWithNewId(false);
   }
   async function send(): Promise<void> {
     if (inFlight.current) return;
     if (retryWithNewId) request.current = null;
-    const fingerprint = JSON.stringify(draft);
+    const latestDraft = currentDraft.current;
+    const fingerprint = JSON.stringify(latestDraft);
     if (request.current?.fingerprint !== fingerprint)
       request.current = { fingerprint, id: createFeedbackId() };
     const parsed = FeedbackInputSchema.safeParse({
-      ...draft,
+      ...latestDraft,
       id: request.current.id,
     });
     if (!parsed.success) {
@@ -169,7 +176,7 @@ export function useFeedback(
       if (current !== generation.current) return;
       if (result.ok) {
         setReceipt(result.id);
-        setDraft(empty());
+        replaceDraft(empty());
         hasDraft.current = false;
         request.current = null;
         sent.current = true;

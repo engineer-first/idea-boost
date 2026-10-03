@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import type { FeedbackInput } from "@/contracts/feedback";
 import { buildFeedbackControls } from "./feedback.fixture";
 import { FeedbackPanel } from "./feedback-panel";
 import { useFeedback } from "./use-feedback";
@@ -89,6 +90,39 @@ export const DelayedSubmission: Story = {
         <button type="button" className="fixed right-4 top-4">
           作業に戻る
         </button>
+        <FeedbackPanel feedback={feedback} />
+      </>
+    );
+  },
+};
+
+export const SubmissionContents: Story = {
+  render: function Render() {
+    const [submitted, setSubmitted] = useState<FeedbackInput | null>(null);
+    const feedback = useFeedback(
+      "storybook-feedback-contents",
+      async (_room, input) => {
+        setSubmitted(input);
+        return { ok: true, id: input.id };
+      },
+    );
+    return (
+      <>
+        <button type="button" onClick={() => feedback.open("1-3")}>
+          フィードバック
+        </button>
+        <aside className="fixed right-5 top-5 w-[min(28rem,calc(100vw-2.5rem))] rounded-xl border bg-muted p-5">
+          <h2 className="font-semibold">検証用: 送信された文章</h2>
+          <p className="my-2 text-sm">
+            送信処理へ渡した内容を表示します。本番への投稿は行いません。
+          </p>
+          <pre
+            data-testid="submitted-feedback"
+            className="whitespace-pre-wrap break-words text-sm"
+          >
+            {submitted ? submitted.body : "未送信"}
+          </pre>
+        </aside>
         <FeedbackPanel feedback={feedback} />
       </>
     );

@@ -14,9 +14,11 @@ import type { FeedbackControls } from "./use-feedback";
 const FACES = [Angry, Frown, Meh, Smile, Laugh];
 export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
   const id = useId(),
-    heading = useRef<HTMLHeadingElement>(null);
+    heading = useRef<HTMLHeadingElement>(null),
+    composing = useRef(false);
   useEffect(() => {
     if (feedback.isOpen) heading.current?.focus();
+    else composing.current = false;
   }, [feedback.isOpen]);
   if (!feedback.isOpen) return null;
   const { draft, pending, error, receipt } = feedback;
@@ -27,6 +29,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.stopPropagation();
+          if (composing.current || event.nativeEvent.isComposing) return;
           feedback.close();
         }
       }}
@@ -78,6 +81,7 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
           className="mt-3 space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
+            if (composing.current) return;
             // 送信ボタンが消えても位置を保つ。非同期完了時には移動しない。
             heading.current?.focus();
             void feedback.send();
@@ -145,6 +149,13 @@ export function FeedbackPanel({ feedback }: { feedback: FeedbackControls }) {
                 onChange={(event) =>
                   feedback.change({ body: event.target.value })
                 }
+                onCompositionStart={() => {
+                  composing.current = true;
+                }}
+                onCompositionEnd={(event) => {
+                  composing.current = false;
+                  feedback.change({ body: event.currentTarget.value });
+                }}
                 rows={3}
                 className="mt-1 block w-full resize-y rounded-md border bg-background p-2 font-normal"
               />

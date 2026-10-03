@@ -118,6 +118,7 @@ it("送信中の二重操作を防ぎ、本文を変えた再送には新しい�
   fireEvent.click(screen.getByRole("button", { name: "送信" }));
   await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
   expect(submit.mock.calls[1][1].id).not.toBe(submit.mock.calls[0][1].id);
+  expect(submit.mock.calls[1][1].body).toBe("わかりやすかった");
 });
 it("案内は500ms後に同じタブ・ルームで一度だけ表示し、入力中や失敗で予約を消す", () => {
   vi.useFakeTimers();
@@ -179,6 +180,10 @@ it("応答が失われても同じIDで再送し、別ルームに移動した�
   expect(hook.result.current.draft.body).toBe("届いたかわからない");
   await act(() => hook.result.current.send());
   expect(submit.mock.calls[0][1].id).toBe(submit.mock.calls[1][1].id);
+  expect(submit.mock.calls.map((call) => call[1].body)).toEqual([
+    "届いたかわからない",
+    "届いたかわからない",
+  ]);
   let complete!: (value: { ok: true; id: string }) => void;
   submit.mockImplementation(
     () =>
@@ -243,4 +248,80 @@ it.each([
     body: "",
     rating: null,
   });
+});
+
+it("入力した日本語・改行・記号を、末尾の入力直後の送信でも本文として渡す", async () => {
+  const submit = vi
+    .fn<SubmitFeedback>()
+    .mockImplementation(async (_room, input) => ({ ok: true, id: input.id }));
+  render(<Harness submit={submit} />);
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
+  fireEvent.click(screen.getByRole("radio", { name: "不具合" }));
+  const body = "日本語の意見です。\n改行・絵文字🙂・記号<&>も残す";
+  fireEvent.change(screen.getByLabelText("文章（任意）"), {
+    target: { value: body },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "送信" }));
+  await screen.findByText(/意見を受け付けました/);
+  expect(submit).toHaveBeenCalledExactlyOnceWith(
+    roomId,
+    expect.objectContaining({ body }),
+  );
+});
+
+it("日本語の変換中は送信せず、確定後の文章を送信する", async () => {
+  const submit = vi
+    .fn<SubmitFeedback>()
+    .mockImplementation(async (_room, input) => ({ ok: true, id: input.id }));
+  render(<Harness submit={submit} />);
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
+  fireEvent.click(screen.getByRole("radio", { name: "不具合" }));
+  const textarea = screen.getByLabelText("文章（任意）");
+  fireEvent.compositionStart(textarea);
+  fireEvent.change(textarea, { target: { value: "にほんご" } });
+  const form = textarea.closest("form");
+  if (!form) throw new Error("入力フォームが見つかりません");
+  fireEvent.submit(form);
+  expect(submit).not.toHaveBeenCalled();
+  await act(async () => {
+    fireEvent.compositionEnd(textarea, {
+      data: "日本語",
+      target: { value: "日本語" },
+    });
+    fireEvent.submit(form);
+  });
+  await screen.findByText(/意見を受け付けました/);
+  expect(submit).toHaveBeenCalledExactlyOnceWith(
+    roomId,
+    expect.objectContaining({ body: "日本語" }),
+  );
+});
+
+it("文章の確定と送信が同じイベント内でも、最新の入力を送る", async () => {
+  const submit = vi
+    .fn<SubmitFeedback>()
+    .mockImplementation(async (_room, input) => ({ ok: true, id: input.id }));
+  const hook = renderHook(() => useFeedback(roomId, submit));
+  act(() => hook.result.current.open("app"));
+  act(() => hook.result.current.change({ kind: "bug" }));
+  await act(async () => {
+    hook.result.current.change({ body: "確定した文章" });
+    await hook.result.current.send();
+  });
+  expect(submit).toHaveBeenCalledExactlyOnceWith(
+    roomId,
+    expect.objectContaining({ body: "確定した文章" }),
+  );
+});
+
+it("IMEの変換を取り消すEscapeでは入力欄を閉じない", () => {
+  render(<Harness submit={vi.fn<SubmitFeedback>()} />);
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
+  const textarea = screen.getByLabelText("文章（任意）");
+  fireEvent.compositionStart(textarea);
+  fireEvent.keyDown(textarea, { key: "Escape", isComposing: true });
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  fireEvent.compositionEnd(textarea);
+  fireEvent.keyDown(textarea, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });

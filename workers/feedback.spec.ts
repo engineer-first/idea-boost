@@ -495,3 +495,22 @@ it.each([
   });
   expect((await call("/api/feedback?kind=good", outsider)).status).toBe(200);
 });
+
+it("日本語・改行・絵文字の本文を保存し、再送後の閲覧でも一字ずつ保持する", async () => {
+  const { roomId } = await createRoomAs(owner);
+  const submitted = input({
+    body: "日本語の意見です。\n改行・絵文字🙂・記号<&>も残す",
+  });
+  const path = `/api/rooms/${roomId}/feedback`;
+  expect((await call(path, owner, submitted)).status).toBe(200);
+  expect((await call(path, owner, submitted)).status).toBe(200);
+  await grant(outsider, "feedback:read");
+  const response = await call("/api/feedback", outsider);
+  expect(response.status).toBe(200);
+  const { items } = await response.json<{
+    items: { id: string; body: string }[];
+  }>();
+  const matches = items.filter((item) => item.id === submitted.id);
+  expect(matches).toHaveLength(1);
+  expect(matches[0].body).toBe(submitted.body);
+});

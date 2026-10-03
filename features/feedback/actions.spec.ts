@@ -67,3 +67,16 @@ it("「わからない」を検証してWorkerへ送信する", async () => {
   });
   expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual(value);
 });
+
+it("日本語・改行・絵文字を含む本文をWorkerへそのまま転送する", async () => {
+  const value = {
+    ...input(),
+    body: "日本語の意見です。\n改行・絵文字🙂・記号<&>も残す",
+  };
+  apiFetch.mockResolvedValue(Response.json({ ok: true, id: value.id }));
+  expect(await submitFeedback(roomId, value)).toEqual({
+    ok: true,
+    id: value.id,
+  });
+  expect(JSON.parse(apiFetch.mock.calls[0][1].body)).toEqual(value);
+});
