@@ -3,33 +3,20 @@ import { buildLobbyPhase, buildPhaseStep } from "@/contracts/phase.fixture";
 import { getFacilitationGuide } from "./facilitation-guide";
 
 describe("getFacilitationGuide", () => {
-  it("フェーズ1 Step 3のやることをグループ名付けの流れで返す", () => {
-    expect(getFacilitationGuide(buildPhaseStep(3, 1))?.steps).toEqual([
-      "内容が似ている付箋を近くに移動する",
-      "付箋のグループに名前をつける",
-    ]);
+  it("グループ化では目的と、枠に名前を付ける操作を示す", () => {
+    const guide = getFacilitationGuide(buildPhaseStep(3, 1));
+    expect(guide?.firstAction).toContain("2枚");
+    expect(guide?.purpose).toContain("投票で比べやすく");
+    expect(guide?.purpose).toContain("そのままで大丈夫");
+    expect(guide?.steps?.join(" ")).toContain("名前を押す");
+    expect(guide?.visualExample?.grouped).toBe(true);
   });
 
-  it("フェーズ2 Step 1のやることを返す", () => {
-    expect(getFacilitationGuide(buildPhaseStep(1, 2))?.steps).toEqual([
-      "課題を見て、何が困っているのかを考える",
-      "どうなったらよいかを考える",
-      "「どうすれば私たちは〇〇できるだろう？」の形で書く",
-    ]);
-  });
-
-  it("フェーズ2 Step 2のやることから順番決めを除く", () => {
-    expect(getFacilitationGuide(buildPhaseStep(2, 2))?.steps).toEqual([
-      "最初の順番の人が、問いを1つずつ説明しながら共有する",
-      "右上の順番に沿って、次の人が発表する",
-    ]);
-  });
-
-  it("フェーズ3 Step 2のやることから順番決めを除く", () => {
-    expect(getFacilitationGuide(buildPhaseStep(2, 3))?.steps).toEqual([
-      "右上の順番に沿って、解決策を1つずつ説明しながら共有する",
-      "価値と実現のしやすさを考えて、マップへ仮置きする",
-    ]);
+  it("問いの作成は元の課題から質問へ変える例と型を示す", () => {
+    const guide = getFacilitationGuide(buildPhaseStep(1, 2));
+    expect(guide?.firstAction).toContain("決定した課題");
+    expect(guide?.visualExample?.flow).toBe(true);
+    expect(guide?.steps?.join(" ")).toContain("どうすれば私たちは");
   });
 
   it.each([
@@ -64,97 +51,49 @@ describe("getFacilitationGuide", () => {
     );
   });
 
+  // 文言全体の複製を避け、所要時間と表示内容の要件を個別に守る。
   it.each([
-    [
-      buildPhaseStep(1),
-      5,
-      "1枚につき1つ書こう。",
-      "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
-    ],
-    [
-      buildPhaseStep(2),
-      6,
-      "右上の順番に沿って、自分の付箋を説明しながらドラッグして共有しよう。",
-      "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
-    ],
-    [
-      buildPhaseStep(3),
-      4,
-      "共有した付箋のうち、似ているものを近づけてグループに分けよう。",
-      "グループ化が終わったら、次のステップへ進んでください。",
-    ],
-    [
-      buildPhaseStep(4),
-      3,
-      "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
-      "全員の投票が終わったら、次のステップへ進んでください。",
-    ],
-    [
-      buildPhaseStep(5),
-      10,
-      "投票結果を参考に、取り組む課題をみんなで1つ決めよう。",
-      "納得できるまで話し合い、1つに絞れたら次のステップへ進んでください。",
-    ],
-    [
-      buildPhaseStep(1, 2),
-      3,
-      "何をよくしたいのかがわかる質問を、付箋に書こう。",
-      null,
-    ],
-    [
-      buildPhaseStep(2, 2),
-      6,
-      "右上の順番に沿って、自分の付箋を説明しながらドラッグして共有しよう。",
-      "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
-    ],
-    [
-      buildPhaseStep(3, 2),
-      4,
-      "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
-      "全員の投票が終わったら、次のステップへ進んでください。",
-    ],
-    [
-      buildPhaseStep(4, 2),
-      10,
-      "投票結果を参考に、問いをみんなで1つ決めよう。",
-      "納得できるまで話し合い、1つに絞れたら次のステップへ進んでください。",
-    ],
-    [
-      buildPhaseStep(1, 3),
-      5,
-      "決定した問いをもとに、解決策を付箋に書き出そう。書き終えたら手を止めて待とう。",
-      null,
-    ],
-    [
-      buildPhaseStep(2, 3),
-      6,
-      "解決策をみんなに共有し、発表しながら2軸マップに置こう。ほかの人が発表している間は手を止めて聞こう。",
-      "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
-    ],
-    [
-      buildPhaseStep(3, 3),
-      7,
-      "付箋を動かし、縦軸の「価値」と横軸の「実現可能性」で評価しよう。",
-      "評価が終わったら、次のステップへ進んでください。",
-    ],
-    [
-      buildPhaseStep(4, 3),
-      3,
-      "主観1票・客観3票を使い、現在のフェーズの個々の付箋へ投票します。",
-      "全員の投票が終わったら、次のステップへ進んでください。",
-    ],
-    [
-      buildPhaseStep(5, 3),
-      10,
-      "投票結果を参考に、採用する解決策をみんなで1つ決めよう。",
-      "1つに決定したら、完了チェックを押して成果を確認しましょう。",
-    ],
-  ] as const)("%o の所要時間・参加者向けガイド・ホスト向けガイドを返す", (phase, durationMinutes, message, hostMessage) => {
-    expect(getFacilitationGuide(phase)).toMatchObject({
-      durationMinutes,
-      message,
-      hostMessage,
-    });
+    [1, 1, 5],
+    [1, 2, 6],
+    [1, 3, 4],
+    [1, 4, 3],
+    [1, 5, 10],
+    [2, 1, 3],
+    [2, 2, 6],
+    [2, 3, 4],
+    [2, 4, 10],
+    [3, 1, 5],
+    [3, 2, 6],
+    [3, 3, 7],
+    [3, 4, 3],
+    [3, 5, 10],
+  ] as const)("%i-%i の所要時間を維持する", (phase, step, durationMinutes) => {
+    expect(
+      getFacilitationGuide(buildPhaseStep(step, phase))?.durationMinutes,
+    ).toBe(durationMinutes);
+  });
+
+  it.each([
+    [1, 1],
+    [1, 2],
+    [1, 3],
+    [1, 4],
+    [2, 1],
+    [3, 3],
+  ] as const)("%i-%i に短い作業・最初の操作・静的な例・目的を用意する", (phase, step) => {
+    const guide = getFacilitationGuide(buildPhaseStep(step, phase));
+    expect(guide?.action?.length).toBeLessThanOrEqual(14);
+    expect(guide?.firstAction).toBeTruthy();
+    expect(guide?.visualExample?.items.length).toBeGreaterThanOrEqual(2);
+    expect(guide?.purpose).toBeTruthy();
+    expect(guide?.hostTimerGuide).toContain("画面上");
+  });
+
+  it("個人ワークはホストへタイマーの場所と開始操作を示す", () => {
+    const guide = getFacilitationGuide(buildPhaseStep(1));
+    expect(guide?.hostTimerGuide).toContain("時間表示を押す");
+    expect(guide?.hostTimerGuide).toContain("分・秒");
+    expect(guide?.hostTimerGuide).toContain("「開始」");
   });
 
   it.each([
@@ -184,9 +123,13 @@ describe("getFacilitationGuide", () => {
 
 it.each([
   1, 2, 3,
-] as const)("フェーズ%iの共有は右上の固定順と進行操作を案内する", (phase) => {
+] as const)("フェーズ%iの共有は本人・ホストの交代と自由な共有を案内する", (phase) => {
   const guide = getFacilitationGuide(buildPhaseStep(2, phase));
-  expect(guide?.steps?.join(" ")).toContain("右上");
+  expect(guide?.firstAction).toContain("画面上");
+  expect(guide?.steps?.join(" ")).toContain("本人");
+  expect(guide?.steps?.join(" ")).toContain("自分の番でなくても");
+  expect(guide?.hostTimerGuide).toContain("自動で始まります");
+  expect(guide?.hostMessage).toContain("ホストも");
   expect(guide?.hostMessage).toContain("次の人へ");
   expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
 });
