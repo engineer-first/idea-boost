@@ -91,9 +91,17 @@ for (const { phase, count } of phases) {
         const isResult = step === count;
         const context = page.getByTestId("board-context-hud");
         await expectReadable(context);
-        await expect(page.getByTestId("board-current-step")).toBeVisible();
-        await expect(page.getByTestId("board-phase-progress")).toBeVisible();
-        expect(await context.innerText()).toContain(`${step}/${count}`);
+        await expect
+          .poll(() => page.getByTestId("board-current-step").isVisible())
+          .toBe(true);
+        await expect
+          .poll(() => page.getByTestId("board-phase-progress").isVisible())
+          .toBe(true);
+        const progress = page.getByTestId("board-progress-rail");
+        expect(await progress.getAttribute("aria-valuenow")).toBe(String(step));
+        expect(await progress.getAttribute("aria-valuemax")).toBe(
+          String(count),
+        );
         expect(
           await page.getByRole("button", { name: "ゴールと進行" }).count(),
         ).toBe(0);
@@ -173,13 +181,15 @@ for (const { phase, count } of phases) {
 test("決定内容をキーボードで開閉し、フォーカスを保つ", async () => {
   await openStory("room-roomboardlayout--phase-3-step-2");
   const toggle = page.getByRole("button", {
-    name: "決定したHMW",
+    name: "決定した問い",
     exact: true,
   });
   await toggle.focus();
   await page.keyboard.press("Enter");
   expect(await toggle.getAttribute("aria-expanded")).toBe("true");
-  await expect(page.getByTestId("board-reference-hmw-content")).toBeVisible();
+  await expect
+    .poll(() => page.getByTestId("board-reference-hmw-content").isVisible())
+    .toBe(true);
   await page.keyboard.press("Space");
   expect(await toggle.getAttribute("aria-expanded")).toBe("false");
   expect(
