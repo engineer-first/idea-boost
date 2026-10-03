@@ -74,6 +74,45 @@ describe("DotVotePalette", () => {
     ).toBeDisabled();
   });
 
+  it.each([
+    "subjective",
+    "objective",
+  ] as const)("%sを使い切ってもアイコンを残し、説明と選択表示を外して追加操作を防ぐ", (kind) => {
+    const onStickerSelect = vi.fn();
+    const onStickerDragStart = vi.fn();
+    const remaining = { subjective: 1, objective: 3, [kind]: 0 };
+    const otherKind = kind === "subjective" ? "objective" : "subjective";
+    render(
+      <DotVotePalette
+        voteRemaining={remaining}
+        pendingOperationCount={0}
+        feedback={null}
+        disabled={false}
+        selectedKind={kind}
+        onStickerSelect={onStickerSelect}
+        onStickerDragStart={onStickerDragStart}
+      />,
+    );
+
+    const exhausted = screen.getByRole("button", { name: /残り0票/ });
+    expect(exhausted).toBeDisabled();
+    expect.soft(exhausted).toHaveAttribute("aria-pressed", "false");
+    expect(exhausted).toHaveAccessibleDescription("使い切りました");
+    expect
+      .soft(within(exhausted).queryByTestId(`dot-vote-sticker-icon-${kind}`))
+      .toBeVisible();
+    expect.soft(within(exhausted).queryByText(/は「/)).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId(`dot-vote-sticker-icon-${otherKind}`),
+    ).toBeVisible();
+    expect(screen.getAllByText(/は「/).length).toBe(1);
+    expect(screen.getByRole("status")).not.toHaveTextContent("選択中");
+    fireEvent.click(exhausted);
+    fireEvent.pointerDown(exhausted, { pointerId: 1 });
+    expect(onStickerSelect).not.toHaveBeenCalled();
+    expect(onStickerDragStart).not.toHaveBeenCalled();
+  });
+
   it("シールを戻す操作中は取り消しの意味を常時見えるヒントで示す", () => {
     render(
       <DotVotePalette
@@ -200,9 +239,8 @@ describe("DotVotePalette", () => {
       "disabled:bg-slate-100",
       "disabled:text-slate-500",
       "active:cursor-grabbing",
-      "ring-rose-700/75",
-      "ring-offset-white",
     );
+    expect(subjective).not.toHaveClass("ring-rose-700/75");
     expect(objective).toHaveClass(
       "active:cursor-grabbing",
       "bg-blue-50/80",
@@ -262,8 +300,8 @@ describe("DotVotePalette", () => {
       "投票を反映しました。",
     );
     expect(
-      screen.getByText("貼った自分のシールは移動・取り消しできます。"),
-    ).toBeVisible();
+      screen.queryByText("貼った自分のシールは移動・取り消しできます。"),
+    ).not.toBeInTheDocument();
   });
 
   it.each([
@@ -293,6 +331,7 @@ describe("DotVotePalette", () => {
       name: "客観シール 残り1票",
     });
     expect(objective).toBeEnabled();
+    expect(within(objective).getByText(/自分以外の人にも価値/)).toBeVisible();
     fireEvent.click(objective);
     expect(props.onStickerSelect).toHaveBeenCalledWith(
       "objective",

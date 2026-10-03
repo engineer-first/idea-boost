@@ -56,6 +56,19 @@ it.each([
           ),
         ).toBeGreaterThanOrEqual(14);
       }
+      for (const kind of ["subjective", "objective"]) {
+        expect(
+          await palette
+            .getByTestId(`dot-vote-sticker-icon-${kind}`)
+            .isVisible(),
+        ).toBe(true);
+      }
+      expect(await palette.getByText(/は「/).count()).toBe(2 - state.exhausted);
+      expect(
+        await palette
+          .getByText("貼った自分のシールは移動・取り消しできます。")
+          .count(),
+      ).toBe(0);
       expect(await palette.getByRole("status").isVisible()).toBe(true);
       if (state.story === "all-pending")
         expect(

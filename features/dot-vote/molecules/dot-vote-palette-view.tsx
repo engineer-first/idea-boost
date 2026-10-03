@@ -54,6 +54,10 @@ export function DotVotePaletteView({
   onStickerDragStart,
 }: DotVotePaletteViewProps) {
   const paletteId = useId();
+  const activeSelectedKind =
+    selectedKind !== null && voteRemaining[selectedKind] > 0 && !disabled
+      ? selectedKind
+      : null;
   const status = disabled
     ? "再接続を待っています。接続後に残票を確認してください。"
     : pendingOperationCount > 0
@@ -66,9 +70,9 @@ export function DotVotePaletteView({
             ? "ここへ戻すと1票取り消しになります。"
             : voteRemaining.subjective === 0 && voteRemaining.objective === 0
               ? "すべてのシールを使い切りました。"
-              : selectedKind === null
+              : activeSelectedKind === null
                 ? "シールをドラッグするか、クリックしてから付箋へ貼ってください。"
-                : `${DOT_VOTE_LABELS[selectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
+                : `${DOT_VOTE_LABELS[activeSelectedKind]}シールを選択中です。付箋をクリックして連続で貼れます。`;
 
   return (
     <section
@@ -108,13 +112,14 @@ export function DotVotePaletteView({
           const isEmpty = voteRemaining[kind] <= 0;
           const isWaiting = isEmpty && (pendingOperationCount > 0 || disabled);
           const isExhausted = isEmpty && !isWaiting;
+          const isSelected = activeSelectedKind === kind;
           const stateLabel = disabled
             ? "接続待ち"
             : isWaiting
               ? "確認待ち"
               : isExhausted
                 ? "使い切りました"
-                : selectedKind === kind
+                : isSelected
                   ? "選択中"
                   : "選んで貼る";
           return (
@@ -122,13 +127,13 @@ export function DotVotePaletteView({
               key={kind}
               type="button"
               aria-label={dotVoteRemainingLabel(kind, voteRemaining[kind])}
-              aria-pressed={selectedKind === kind}
+              aria-pressed={isSelected}
               aria-describedby={`${paletteId}-${kind}-state`}
               disabled={disabled || voteRemaining[kind] <= 0}
               size="sm"
               variant="outline"
-              className={`h-auto min-h-24 min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "border-dashed" : ""} ${DOT_VOTE_BUTTON_TONE[kind]} ${
-                selectedKind === kind ? DOT_VOTE_SELECTED_TONE[kind] : ""
+              className={`h-auto min-w-0 flex-1 touch-none cursor-grab select-none flex-col items-stretch gap-1 rounded-lg border p-2 active:cursor-grabbing disabled:cursor-not-allowed ${isExhausted ? "min-h-20 border-dashed" : "min-h-24"} ${DOT_VOTE_BUTTON_TONE[kind]} ${
+                isSelected ? DOT_VOTE_SELECTED_TONE[kind] : ""
               }`}
               onClick={(event) => {
                 if (disabled || voteRemaining[kind] <= 0) return;
@@ -140,16 +145,13 @@ export function DotVotePaletteView({
               }}
             >
               <span className="flex items-center gap-1.5">
-                {isExhausted ? (
-                  <span
-                    aria-hidden="true"
-                    className="flex size-7 shrink-0 items-center justify-center rounded-lg border-2 border-dashed"
-                  >
-                    <Check className="size-4" />
-                  </span>
-                ) : (
+                <span
+                  className={
+                    isEmpty || disabled ? "opacity-50 grayscale" : undefined
+                  }
+                >
                   <DotVoteStickerImage kind={kind} />
-                )}
+                </span>
                 <span className="text-sm font-bold">
                   {DOT_VOTE_LABELS[kind]}
                 </span>
@@ -157,9 +159,11 @@ export function DotVotePaletteView({
                   残り{voteRemaining[kind]}票
                 </span>
               </span>
-              <span className="whitespace-normal text-left text-xs leading-snug">
-                {DOT_VOTE_CRITERIA[kind]}
-              </span>
+              {!isExhausted ? (
+                <span className="whitespace-normal text-left text-xs font-semibold leading-snug">
+                  {DOT_VOTE_CRITERIA[kind]}
+                </span>
+              ) : null}
               <span
                 id={`${paletteId}-${kind}-state`}
                 className="mt-auto flex items-center justify-center gap-1 text-xs font-semibold"
@@ -167,7 +171,7 @@ export function DotVotePaletteView({
                 {isWaiting ? (
                   <Clock3 aria-hidden="true" className="size-3.5" />
                 ) : null}
-                {selectedKind === kind && !isEmpty ? (
+                {isExhausted || isSelected ? (
                   <Check aria-hidden="true" className="size-3.5" />
                 ) : null}
                 {stateLabel}
@@ -183,14 +187,6 @@ export function DotVotePaletteView({
       >
         {status}
       </p>
-      {voteRemaining.subjective === 0 &&
-      voteRemaining.objective === 0 &&
-      !disabled &&
-      pendingOperationCount === 0 ? (
-        <p className="w-full text-xs leading-snug text-slate-700">
-          貼った自分のシールは移動・取り消しできます。
-        </p>
-      ) : null}
     </section>
   );
 }
