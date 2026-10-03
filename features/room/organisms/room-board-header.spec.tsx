@@ -816,3 +816,24 @@ it("発表者本人は次の人へを操作でき、開始・パス・次ステ�
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();
 });
+
+it("招待PopoverからURLのみを共有する", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: share,
+  });
+  try {
+    setup({ isHost: true, hmwDecidedIssue: "非公開内容をpayloadへ入れない" });
+    fireEvent.click(screen.getByRole("button", { name: "招待" }));
+    expect(share).not.toHaveBeenCalled();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "招待URLを共有" }),
+    );
+    expect(share).toHaveBeenCalledExactlyOnceWith({
+      url: "https://idea-flow.example/invite/AB12CD",
+    });
+  } finally {
+    Reflect.deleteProperty(navigator, "share");
+  }
+});
