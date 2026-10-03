@@ -197,6 +197,7 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
   );
   await page.getByRole("tab", { name: "発想を広げる" }).click();
   const help = page.locator("#board-help-content");
+  await help.getByRole("button", { name: /ほかの問いを見る/ }).click();
   expect(await help.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(
     true,
   );

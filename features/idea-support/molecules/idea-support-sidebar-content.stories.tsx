@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
+import { userEvent, within } from "storybook/test";
+
 import { IdeaSupportSidebarContent } from "./idea-support-sidebar-content";
 
 const meta = {
@@ -7,12 +9,13 @@ const meta = {
   component: IdeaSupportSidebarContent,
   parameters: {
     layout: "padded",
+    chromatic: { viewports: [390, 1280] },
   },
   decorators: [
     (Story) => (
       <div
         style={{
-          width: 400,
+          width: "min(100%, 400px)",
           height: 500,
         }}
       >
@@ -67,5 +70,13 @@ export const Empty: Story = {
 export const Failure: Story = {
   args: {
     status: "error",
+  },
+};
+
+export const MoreQuestions: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: /ほかの問いを見る/ }),
+    );
   },
 };
