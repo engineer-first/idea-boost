@@ -1,3 +1,8 @@
+"use client";
+
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useId, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
@@ -20,6 +25,10 @@ export function IdeaSupportSidebarContent({
   defaultContentId = "osborn",
   contents = ideaSupportContents,
 }: IdeaSupportSidebarContentProps) {
+  const [expanded, setExpanded] = useState<
+    Partial<Record<IdeaSupportType, boolean>>
+  >({});
+  const contentId = useId();
   if (status === "loading") {
     return (
       <p className="p-4 text-sm text-muted-foreground" role="status">
@@ -68,8 +77,44 @@ export function IdeaSupportSidebarContent({
             <TabsContent key={item.id} value={item.id}>
               <h3 className="mb-2 font-semibold">{item.title}</h3>
 
-              <ul className="list-disc space-y-2 pl-4 marker:text-muted-foreground">
-                {item.content.map((text) => (
+              <p className="rounded-md bg-muted/50 p-3 text-sm leading-relaxed">
+                {item.content[0]}
+              </p>
+              {item.content.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 w-full justify-between"
+                  aria-expanded={!!expanded[item.id]}
+                  aria-controls={`${contentId}-${item.id}`}
+                  onClick={() =>
+                    setExpanded((previous) => ({
+                      ...previous,
+                      [item.id]: !previous[item.id],
+                    }))
+                  }
+                >
+                  {expanded[item.id]
+                    ? "ほかの問いを閉じる"
+                    : `ほかの問いを見る（${item.content.length - 1}）`}
+                  {expanded[item.id] ? (
+                    <ChevronUp aria-hidden="true" />
+                  ) : (
+                    <ChevronDown aria-hidden="true" />
+                  )}
+                </Button>
+              )}
+              <ul
+                id={`${contentId}-${item.id}`}
+                hidden={!expanded[item.id]}
+                className={
+                  expanded[item.id]
+                    ? "mt-2 list-disc space-y-2 pl-4 marker:text-muted-foreground"
+                    : "hidden"
+                }
+              >
+                {item.content.slice(1).map((text) => (
                   <li key={text} className="text-sm leading-relaxed">
                     {text}
                   </li>
