@@ -1,6 +1,6 @@
 // ホーム template の単体テスト。
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -10,6 +10,14 @@ vi.mock("next/navigation", () => ({
 // 呼ばれないため、ここではモックせずそのまま import する。
 
 import { HomeView } from "./home-view";
+
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(Response.json({ rooms: [], nextCursor: null })),
+  );
+});
+afterEach(() => vi.unstubAllGlobals());
 
 function renderView(
   overrides: Partial<React.ComponentProps<typeof HomeView>> = {},
@@ -39,10 +47,14 @@ describe("HomeView", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
-it("以前のルームから本人の成果一覧へ移動できる", () => {
+it("過去の成果はホーム内に取得せず、同じタブの専用一覧へのリンクで案内する", () => {
   renderView();
-  expect(screen.getByRole("link", { name: /以前のルーム/ })).toHaveAttribute(
-    "href",
-    "/completed-rooms",
-  );
+  const history = screen.getByRole("link", { name: /過去の成果を見る/ });
+  expect(history).toHaveAttribute("href", "/completed-rooms");
+  expect(history).not.toHaveAttribute("target", "_blank");
+  expect(history).not.toHaveAttribute("aria-expanded");
+  expect(
+    screen.queryByRole("button", { name: "最新の一覧を取得" }),
+  ).not.toBeInTheDocument();
+  expect(fetch).not.toHaveBeenCalled();
 });

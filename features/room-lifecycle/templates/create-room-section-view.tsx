@@ -58,11 +58,7 @@ export function CreateRoomSectionView({
               maxLength={80}
               disabled={pending}
               placeholder="例：新しいサービスの相談"
-              aria-describedby="room-name-help"
             />
-            <p id="room-name-help" className="text-xs text-muted-foreground">
-              空欄でも作成できます。個人名は入力しないでください。
-            </p>
           </div>
           <Button
             type="submit"

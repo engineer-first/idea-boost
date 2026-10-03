@@ -20,12 +20,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
 export type JoinRoomSectionViewProps = {
   code: string;
   onCodeChange: (code: string) => void;
+  onCodeBlur?: () => void;
+  codeError?: string;
   // lookup 中（「確認中…」）。
   lookingUp?: boolean;
   // join 確定処理中（「参加中…」）。
@@ -41,6 +43,8 @@ export type JoinRoomSectionViewProps = {
 export function JoinRoomSectionView({
   code,
   onCodeChange,
+  onCodeBlur,
+  codeError,
   lookingUp = false,
   joining = false,
   dialogOpen,
@@ -82,6 +86,9 @@ export function JoinRoomSectionView({
               onChange={(event) =>
                 onCodeChange(event.target.value.toUpperCase())
               }
+              onBlur={onCodeBlur}
+              aria-invalid={codeError ? true : undefined}
+              aria-describedby={codeError ? "invite-code-error" : undefined}
               maxLength={6}
               placeholder="AB12CD"
               autoComplete="off"
@@ -89,7 +96,11 @@ export function JoinRoomSectionView({
               spellCheck={false}
               className="h-11 font-mono text-center text-base tracking-[0.35em] uppercase"
             />
-            <FieldDescription>英数字 6 桁（大文字に自動変換）</FieldDescription>
+            {codeError ? (
+              <FieldError id="invite-code-error" role="alert">
+                {codeError}
+              </FieldError>
+            ) : null}
           </Field>
           <Button
             type="submit"

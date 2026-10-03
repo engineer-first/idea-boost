@@ -13,16 +13,27 @@ import { JoinRoomSectionView } from "../templates/join-room-section-view";
 export function JoinRoomSection() {
   const router = useRouter();
   const [code, setCode] = useState("");
+  const [showCodeError, setShowCodeError] = useState(false);
   const [hostName, setHostName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lookingUp, startLookup] = useTransition();
   const [joining, startJoin] = useTransition();
 
   const isValidCode = /^[A-Z0-9]{6}$/.test(code);
+  const codeError =
+    showCodeError && !isValidCode ? "英数字6桁で入力してください。" : undefined;
+
+  function handleCodeChange(value: string) {
+    setCode(value);
+    setShowCodeError(false);
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isValidCode) return;
+    if (!isValidCode) {
+      setShowCodeError(code.length > 0);
+      return;
+    }
     startLookup(async () => {
       const result = await lookupInviteRoom(code);
       if (!result.ok) {
@@ -53,7 +64,9 @@ export function JoinRoomSection() {
   return (
     <JoinRoomSectionView
       code={code}
-      onCodeChange={setCode}
+      onCodeChange={handleCodeChange}
+      onCodeBlur={() => setShowCodeError(code.length > 0 && !isValidCode)}
+      codeError={codeError}
       lookingUp={lookingUp}
       joining={joining}
       dialogOpen={dialogOpen}
