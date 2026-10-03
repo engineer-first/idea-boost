@@ -745,211 +745,29 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("Aの保存中にBを入力しても、BのACKまで戻す操作を止めて下書きを保持する", async () => {
-    vi.useFakeTimers();
-    sessionStorage.clear();
-    try {
-      const note = protocolNote({ content: "原文" });
-      const { socket } = connectWithSnapshot([note], {
-        phase: buildPhaseStep(2),
-      });
-      fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
-        key: "Enter",
-      });
-      const editor = screen.getByRole("textbox");
-      fireEvent.change(editor, { target: { value: "A" } });
-      act(() => vi.advanceTimersByTime(1000));
-      const first = socket.sent
-        .map((item) => JSON.parse(item))
-        .find((item) => item.type === "note:update-content");
-      expect(first?.content).toBe("A");
-      fireEvent.change(editor, { target: { value: "B" } });
-      fireEvent.blur(editor);
-      const back = screen.getByRole("button", { name: "マイ付箋へ戻す" });
-      expect(back).toBeDisabled();
-      expect(back).toHaveAccessibleDescription(/保存/);
-      fireEvent.click(back);
-      expect(
-        socket.sent.some((item) => item.includes('"type":"note:unpublish"')),
-      ).toBe(false);
-      act(() =>
-        socket.simulateServerMessage({
-          type: "note:updated",
-          note: { ...note, content: "A", contentRevision: 1 },
-        }),
-      );
-      act(() =>
-        socket.simulateServerMessage({
-          type: "note:content-saved",
-          noteId: note.id,
-          operationId: first.operationId,
-          contentRevision: 1,
-        }),
-      );
-      await act(async () => {});
-      const saves = socket.sent
-        .map((item) => JSON.parse(item))
-        .filter((item) => item.type === "note:update-content");
-      expect(saves).toHaveLength(2);
-      const second = saves[1];
-      expect(second.content).toBe("B");
-      expect(back).toBeDisabled();
-      act(() =>
-        socket.simulateServerMessage({
-          type: "note:updated",
-          note: { ...note, content: "B", contentRevision: 2 },
-        }),
-      );
-      act(() =>
-        socket.simulateServerMessage({
-          type: "note:content-saved",
-          noteId: note.id,
-          operationId: second.operationId,
-          contentRevision: 2,
-        }),
-      );
-      expect(back).toBeEnabled();
-      fireEvent.click(back);
-      expectSent(socket, { type: "note:unpublish", noteId: note.id });
-      act(() =>
-        socket.simulateServerMessage({ type: "note:deleted", noteId: note.id }),
-      );
-      act(() =>
-        socket.simulateServerMessage({
-          type: "note:inserted",
-          note: {
-            ...note,
-            visibility: "private",
-            content: "B",
-            contentRevision: 2,
-          },
-        }),
-      );
-      expect(
-        within(screen.getByTestId("private-notes-toolbar")).getByDisplayValue(
-          "B",
-        ),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByText("付箋が見つかりません。"),
-      ).not.toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-      sessionStorage.clear();
-    }
-  });
-
   it.each([
     "private",
     "shared",
-  ] as const)("%sの回収対象の文章が残る間は共有/戻すを実行しない", (visibility) => {
-    sessionStorage.clear();
-    try {
-      const note = protocolNote({ visibility, content: "原文" });
-      const { socket } = connectWithSnapshot([note], {
-        phase: buildPhaseStep(2),
-      });
-      openPrivateNotesToolbar();
-      fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
-        key: "Enter",
-      });
-      const editor = screen.getByRole("textbox");
-      fireEvent.change(editor, { target: { value: "回収すべき文章" } });
-      act(() =>
-        socket.simulateServerMessage({
-          type: "note:updated",
-          note: { ...note, content: "別の編集", contentRevision: 1 },
-        }),
-      );
-      fireEvent.blur(editor);
-      const action = screen.getByRole("button", {
-        name: visibility === "private" ? "ボードに共有" : "マイ付箋へ戻す",
-      });
-      expect(action).toBeDisabled();
-      expect(action).toHaveAccessibleDescription(/未保存/);
-      fireEvent.click(action);
-      expect(
-        socket.sent.some((item) =>
-          /"type":"note:(publish|unpublish)"/.test(item),
-        ),
-      ).toBe(false);
-      fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
-      expect(
-        screen.getByRole("textbox", { name: "未反映の文章 1" }),
-      ).toHaveValue("回収すべき文章");
-    } finally {
-      sessionStorage.clear();
-    }
-  });
-
-  it.each([
-    "private",
-    "shared",
-  ] as const)("%sのIME変換中は共有/戻すを止める", (visibility) => {
-    sessionStorage.clear();
-    try {
-      const { socket } = connectWithSnapshot([protocolNote({ visibility })], {
-        phase: buildPhaseStep(2),
-      });
-      openPrivateNotesToolbar();
-      fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
-        key: "Enter",
-      });
-      fireEvent.compositionStart(screen.getByRole("textbox"));
-      const action = screen.getByRole("button", {
-        name: visibility === "private" ? "ボードに共有" : "マイ付箋へ戻す",
-      });
-      expect(action).toBeDisabled();
-      expect(action).toHaveAccessibleDescription(/入力/);
-      fireEvent.click(action);
-      expect(
-        socket.sent.some((item) =>
-          /"type":"note:(publish|unpublish)"/.test(item),
-        ),
-      ).toBe(false);
-    } finally {
-      sessionStorage.clear();
-    }
-  });
-
-  it("共有ボタンは本人のクリックでのみpublishを送り、サーバー配信でボードへ移す", () => {
-    const note = protocolNote({
-      visibility: "private",
-      content: "本人だけの下書き",
-    });
-    const { socket } = connectWithSnapshot([note], {
+  ] as const)("%sの共有・戻すボタンを置かず、Enterやクリックで可視性を変えない", (visibility) => {
+    const { socket } = connectWithSnapshot([protocolNote({ visibility })], {
       phase: buildPhaseStep(2),
     });
-    const toolbar = openPrivateNotesToolbar();
+    openPrivateNotesToolbar();
     expect(
-      socket.sent.some((message) => message.includes('"type":"note:publish"')),
-    ).toBe(false);
-    fireEvent.click(
-      within(toolbar).getByRole("button", { name: "ボードに共有" }),
-    );
-    expect(
-      socket.sent
-        .map((message) => JSON.parse(message))
-        .filter((message) => message.type === "note:publish"),
-    ).toEqual([
-      expect.objectContaining({ type: "note:publish", noteId: note.id }),
-    ]);
-    expect(
-      within(toolbar).getByDisplayValue("本人だけの下書き"),
-    ).toBeInTheDocument();
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:updated",
-        note: { ...note, visibility: "shared" },
-      }),
-    );
-    expect(
-      within(toolbar).queryByDisplayValue("本人だけの下書き"),
+      screen.queryByRole("button", { name: "ボードに共有" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を閉じる" }));
-    fireEvent.click(screen.getByRole("button", { name: "マイ付箋へ戻す" }));
-    expectSent(socket, { type: "note:unpublish", noteId: note.id });
-    expect(toolbar).toHaveAttribute("data-expanded", "true");
+    expect(
+      screen.queryByRole("button", { name: "マイ付箋へ戻す" }),
+    ).not.toBeInTheDocument();
+    const note = screen.getByRole("button", { name: "付箋" });
+    fireEvent.click(note);
+    fireEvent.keyDown(note, { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect(
+      socket.sent.some((message) =>
+        /"type":"note:(publish|unpublish)"/.test(message),
+      ),
+    ).toBe(false);
   });
 
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {

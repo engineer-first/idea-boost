@@ -4,7 +4,6 @@ import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import {
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -28,10 +27,6 @@ export type PrivateNotesToolbarProps = {
   canCreateNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
-  canShareNote?: boolean;
-  sharePlacementDescription?: (noteId: string) => string;
-  onShareNote?: (noteId: string) => void;
-  getVisibilityDisabledReason?: (noteId: string) => string | undefined;
   defaultExpanded?: boolean;
   expandRequest?: number;
   addRequest?: number;
@@ -61,10 +56,6 @@ export function PrivateNotesToolbar({
   canCreateNote,
   canDeleteNote,
   canMoveNote,
-  canShareNote = false,
-  sharePlacementDescription,
-  onShareNote,
-  getVisibilityDisabledReason,
   canEditNote,
   defaultExpanded = true,
   expandRequest = 0,
@@ -80,17 +71,6 @@ export function PrivateNotesToolbar({
   onDelete,
   onDragStart,
 }: PrivateNotesToolbarProps) {
-  const guidanceId = useId();
-  const addDisabledReason = disabled
-    ? "接続を確認中。再接続まで操作できません"
-    : !canCreateNote
-      ? "追加は個人作業でできます"
-      : null;
-  const shareDescription = disabled
-    ? "接続を確認しています"
-    : !canShareNote
-      ? "共有の工程で共有できます"
-      : "みんなに見えるようになります";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [autoFocusNoteId, setAutoFocusNoteId] = useState<string | null>(null);
   const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
@@ -221,7 +201,7 @@ export function PrivateNotesToolbar({
         isReturnDropTarget && "bg-primary/5 ring-2 ring-primary/40",
         isExpanded
           ? "h-[min(48rem,calc(100vh-6rem))] w-[min(15rem,calc(100vw-1.5rem))] flex-col"
-          : "w-fit max-w-full flex-col",
+          : "h-14 w-fit max-w-full flex-col",
         className,
       )}
       data-testid="private-notes-toolbar"
@@ -247,17 +227,9 @@ export function PrivateNotesToolbar({
             if (e.key === "Escape") onSelect(null);
           }}
         >
-          <div className="mb-3 space-y-1 text-xs text-muted-foreground">
-            <p>自分だけに見える下書き</p>
-            {canShareNote ? (
-              <p>「共有」を押すか、ボードへドラッグ</p>
-            ) : (
-              <p>付箋を選んで Enter またはもう一度タップで入力</p>
-            )}
-            {editingDisabled || !canEditNote ? (
-              <p>この工程では本文を編集できません</p>
-            ) : null}
-          </div>
+          <p className="mb-3 text-xs text-muted-foreground">
+            自分だけに見える付箋
+          </p>
           <div
             ref={listRef}
             className="grid grid-cols-1 justify-items-center gap-3"
@@ -297,34 +269,6 @@ export function PrivateNotesToolbar({
                   onDraftCompositionStart={onDraftCompositionStart}
                   onDraftCompositionEnd={onDraftCompositionEnd}
                   onDelete={onDelete}
-                  visibilityAction={
-                    onShareNote
-                      ? {
-                          label: "ボードに共有",
-                          description:
-                            getVisibilityDisabledReason?.(note.id) ??
-                            (draftValue?.(note.id) !== undefined && !disabled
-                              ? "保存確認後に共有できます"
-                              : canShareNote && !disabled
-                                ? (sharePlacementDescription?.(note.id) ??
-                                  shareDescription)
-                                : shareDescription),
-                          disabled:
-                            getVisibilityDisabledReason?.(note.id) !==
-                              undefined ||
-                            !canShareNote ||
-                            draftValue?.(note.id) !== undefined,
-                          onAction: (noteId) => {
-                            onShareNote(noteId);
-                            // 狭幅では共有先の付箋をトレイで覆わない。ドラッグ共有は畳まない。
-                            if (
-                              window.matchMedia?.("(max-width: 639px)").matches
-                            )
-                              setIsExpanded(false);
-                          },
-                        }
-                      : undefined
-                  }
                   // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
                   style={{ left: 0, top: 0 }}
                   vote={{
@@ -351,7 +295,7 @@ export function PrivateNotesToolbar({
       </CardContent>
       <CardFooter
         className={cn(
-          "relative z-20 flex min-h-14 shrink-0 flex-col items-stretch gap-1 bg-card p-3",
+          "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
           isExpanded && "border-t border-border",
         )}
       >
@@ -378,14 +322,12 @@ export function PrivateNotesToolbar({
           <div className="flex w-fit shrink-0 items-center gap-2">
             <Button
               type="button"
-              size="sm"
+              size="icon-sm"
               disabled={disabled || !canCreateNote}
-              aria-describedby={addDisabledReason ? guidanceId : undefined}
               aria-label="付箋を追加"
               onClick={handleAdd}
             >
               <Plus aria-hidden="true" />
-              追加
             </Button>
             <Button
               type="button"
@@ -403,11 +345,6 @@ export function PrivateNotesToolbar({
             </Button>
           </div>
         </div>
-        {addDisabledReason ? (
-          <p id={guidanceId} className="max-w-52 text-xs text-muted-foreground">
-            {addDisabledReason}
-          </p>
-        ) : null}
       </CardFooter>
     </Card>
   );

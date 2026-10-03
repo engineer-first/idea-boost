@@ -159,36 +159,3 @@ export const SaveConfirmationPending: Story = {
     },
   },
 };
-
-export const Sharing: Story = {
-  args: {
-    canCreateNote: false,
-    canDeleteNote: false,
-    canShareNote: true,
-    onShareNote: fn(),
-  },
-};
-
-export const PersonalWriting: Story = {
-  args: { canMoveNote: false, canShareNote: false, onShareNote: fn() },
-};
-
-export const SharingDisconnected: Story = {
-  args: { ...Sharing.args, disabled: true },
-};
-
-export const SharingSavePending: Story = {
-  args: {
-    ...Sharing.args,
-    notes: [singleNote],
-    draftValue: () => "保存を確認中の下書き",
-  },
-};
-
-export const SharingRecoveryPending: Story = {
-  args: {
-    ...Sharing.args,
-    notes: [singleNote],
-    getVisibilityDisabledReason: () => "未保存あり。「確認・コピー」へ",
-  },
-};

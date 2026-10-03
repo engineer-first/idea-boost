@@ -48,7 +48,9 @@ for (const width of [390, 1280]) {
     await openStory("empty", width);
     expect(await page.getByTestId("note-card").count()).toBe(0);
     const add = page.getByRole("button", { name: "付箋を追加" });
-    expect(await add.innerText()).toContain("追加");
+    expect(
+      await page.getByText("自分だけに見える付箋", { exact: true }).isVisible(),
+    ).toBe(true);
     await expectInsideViewport('[aria-label="付箋を追加"]');
     await add.focus();
     await page.keyboard.press("Tab");
@@ -79,57 +81,67 @@ for (const width of [390, 1280]) {
       "自分で書いた下書き",
     );
     expect(
-      await page.getByRole("button", { name: "ボードに共有" }).isDisabled(),
-    ).toBe(true);
+      await page.getByRole("button", { name: "付箋", exact: true }).count(),
+    ).toBe(0);
     await page.screenshot({ path: `${output}/${width}-personal.png` });
   });
 
-  test(`${width}px: 複数の下書きから一枚を共有し、タッチ相当で個人へ戻す`, async () => {
+  test(`${width}px: クリックやEnterでは共有せず、ドラッグで一枚を共有して戻す`, async () => {
     await openStory("sharing", width, true);
     const toolbar = page.getByTestId("private-notes-toolbar");
+    const firstNote = toolbar.locator('[data-note-id="guidance-first"]');
     expect(await toolbar.getByTestId("note-card").count()).toBe(2);
     expect(
       await page.getByRole("button", { name: "付箋を追加" }).isDisabled(),
     ).toBe(true);
-    expect(await toolbar.innerText()).toContain("追加は個人作業");
-    const firstShareBounds = await toolbar
-      .getByRole("button", { name: "ボードに共有" })
-      .first()
-      .boundingBox();
-    const scrollBounds = await page
-      .getByTestId("private-notes-scroll")
-      .boundingBox();
-    expect(firstShareBounds).not.toBeNull();
     expect(
-      (firstShareBounds?.y ?? 0) + (firstShareBounds?.height ?? 0),
-    ).toBeLessThanOrEqual((scrollBounds?.y ?? 0) + (scrollBounds?.height ?? 0));
-    await page.screenshot({
-      path: `${output}/${width}-sharing-before-action.png`,
-    });
-    const share = toolbar.getByRole("button", { name: "ボードに共有" }).first();
-    await share.scrollIntoViewIfNeeded();
-    await share.focus();
-    await page.keyboard.press("Enter");
-    await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(1);
-    expect(await toolbar.getAttribute("data-expanded")).toBe(
-      width < 640 ? "false" : "true",
-    );
-    const back = page.getByRole("button", { name: "マイ付箋へ戻す" });
-    await back.waitFor();
-    await page.screenshot({ path: `${output}/${width}-return-action.png` });
-    await back.tap();
-    await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(2);
-    expect(await toolbar.getAttribute("data-expanded")).toBe("true");
-    expect(
-      await page.getByRole("button", { name: "マイ付箋へ戻す" }).count(),
+      await page
+        .getByRole("button", { name: /ボードに共有|マイ付箋へ戻す/ })
+        .count(),
     ).toBe(0);
+    const first = firstNote.getByRole("button", { name: "付箋", exact: true });
+    await first.tap();
+    await first.press("Enter");
+    await page.keyboard.press("Escape");
+    expect(await toolbar.getByTestId("note-card").count()).toBe(2);
+    await page.screenshot({
+      path: `${output}/${width}-sharing-before-drag.png`,
+    });
+    const start = await first.boundingBox();
+    const frame = await page.getByTestId("board-frame").boundingBox();
+    if (!start || !frame) throw new Error("ドラッグ元・先がありません");
+    await page.mouse.move(start.x + 40, start.y + 40);
+    await page.mouse.down();
+    await page.mouse.move(start.x + 46, start.y + 46);
+    await page.mouse.move(frame.x + 45, frame.y + 100, { steps: 12 });
+    await page.mouse.up();
+    await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(1);
+    const shared = page.getByTestId("board-note-guidance-first");
+    await shared.waitFor();
+    await page.screenshot({ path: `${output}/${width}-shared-by-drag.png` });
+    const back = await shared
+      .getByRole("button", { name: "付箋", exact: true })
+      .boundingBox();
+    const target = await toolbar.boundingBox();
+    if (!back || !target) throw new Error("戻すドラッグ元・先がありません");
+    await page.mouse.move(back.x + 40, back.y + 40);
+    await page.mouse.down();
+    await page.mouse.move(back.x + 46, back.y + 46);
+    await page.mouse.move(target.x + target.width / 2, target.y + 80, {
+      steps: 12,
+    });
+    await page.mouse.up();
+    await expect.poll(() => toolbar.getByTestId("note-card").count()).toBe(2);
+    expect(await page.getByTestId("board-note-guidance-first").count()).toBe(0);
+    expect(await toolbar.getAttribute("data-expanded")).toBe("true");
+    await page.screenshot({ path: `${output}/${width}-returned-by-drag.png` });
   });
 
-  test(`${width}px: ホストの共有工程でも最初の共有操作がスクロール前に見える`, async () => {
+  test(`${width}px: ホストの共有工程でも最初の付箋をスクロール前にドラッグできる`, async () => {
     await openStory("sharing-host", width);
     const share = page
       .getByTestId("private-notes-toolbar")
-      .getByRole("button", { name: "ボードに共有" })
+      .getByRole("button", { name: "付箋", exact: true })
       .first();
     const bounds = await share.boundingBox();
     const scroll = await page.getByTestId("private-notes-scroll").boundingBox();
@@ -141,23 +153,27 @@ for (const width of [390, 1280]) {
     await page.screenshot({ path: `${output}/${width}-sharing-host.png` });
   });
 
-  test(`${width}px: 切断理由が見え、共有・追加を実行できない`, async () => {
+  test(`${width}px: 切断中は追加と付箋操作を実行できない`, async () => {
     await openStory("disconnected", width);
     const toolbar = page.getByTestId("private-notes-toolbar");
-    expect(await toolbar.innerText()).toContain("接続を確認中");
+    expect(
+      await toolbar
+        .getByText("自分だけに見える付箋", { exact: true })
+        .isVisible(),
+    ).toBe(true);
     expect(
       await page.getByRole("button", { name: "付箋を追加" }).isDisabled(),
     ).toBe(true);
     expect(
       await toolbar
-        .getByRole("button", { name: "ボードに共有" })
+        .getByRole("button", { name: "付箋", exact: true })
         .first()
         .isDisabled(),
     ).toBe(true);
     await page.screenshot({ path: `${output}/${width}-disconnected.png` });
   });
 
-  test(`${width}px: 投票では下書き共有/戻すを出さず編集不可理由を選択点で示す`, async () => {
+  test(`${width}px: 投票では下書き共有/戻すを出さず本文を編集できない`, async () => {
     await openStory("voting", width);
     expect(await page.getByTestId("private-notes-toolbar").count()).toBe(0);
     expect(
@@ -168,9 +184,6 @@ for (const width of [390, 1280]) {
       .first()
       .focus();
     await page.keyboard.press("Enter");
-    expect(await page.getByText("投票中は本文を編集できません").count()).toBe(
-      1,
-    );
     expect(await page.locator("textarea:not([readonly])").count()).toBe(0);
     await page.screenshot({ path: `${output}/${width}-voting.png` });
   });

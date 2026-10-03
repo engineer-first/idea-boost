@@ -78,3 +78,39 @@ for (const viewport of [
     });
   });
 }
+
+for (const step of [2, 3]) {
+  test(`390px・1-${step}: トレイを閉じた上部欄の下の空白でボードを操作できる`, async () => {
+    page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-${step}&viewMode=story&args=initialGuideState:compact`,
+    );
+    const column = page.getByTestId("board-context-column");
+    await column.waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    const close = page.getByRole("button", { name: "マイ付箋を閉じる" });
+    if (await close.count()) await close.click();
+    const blank = await column.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      const contentBottom = Math.max(
+        ...Array.from(
+          element.children,
+          (child) => child.getBoundingClientRect().bottom,
+        ),
+      );
+      return {
+        x: bounds.x + 10,
+        y: contentBottom + 10,
+      };
+    });
+    // コンテンツの直下が同じ高さの透明な上部欄で覆われない。
+    const target = await page.evaluate(
+      ({ x, y }) =>
+        document
+          .elementFromPoint(x, y)
+          ?.closest('[data-testid="board-context-column"]') !== null,
+      blank,
+    );
+    expect(target).toBe(false);
+  });
+}

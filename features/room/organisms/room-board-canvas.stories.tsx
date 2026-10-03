@@ -16,6 +16,7 @@ import {
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import { useCanvasCamera } from "../logic/use-canvas-camera";
+import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
 type RoomBoardCanvasStoryProps = Omit<
@@ -919,15 +920,49 @@ const guidanceNotes = [
   }),
 ];
 
-// 表示・キーボード操作用の例。共有の確定はこの例だけローカル更新で模擬する。
+// 本番のドラッグ処理に、保存と共有状態のローカル更新を接続した操作用の例。
 // 実通信と非公開境界は container / Worker のテストで検証する。
 function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
-  const [expandRequest, setExpandRequest] = useState(
-    args.expandPrivateNotesRequest ?? 0,
-  );
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState([...args.notes, ...args.privateNotes]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+  const moveNote = (id: string, x: number, y: number) =>
+    setNotes((current) =>
+      current.map((note) => (note.id === id ? { ...note, x, y } : note)),
+    );
+  const interactions = useRoomBoardInteractions({
+    notes: notes.filter((note) => note.visibility === "shared"),
+    privateNotes: notes.filter((note) => note.visibility === "private"),
+    currentUserId: "guidance-user",
+    draggingNoteId,
+    phase: args.phase,
+    onNoteDragStart: setDraggingNoteId,
+    onNoteDragMove: moveNote,
+    onNoteDragEnd: (id, x, y) => {
+      moveNote(id, x, y);
+      setDraggingNoteId(null);
+    },
+    onNoteDragCancel: () => setDraggingNoteId(null),
+    onPrivateNotePublish: (id, x, y) => {
+      setNotes((current) =>
+        current.map((note) =>
+          note.id === id ? { ...note, visibility: "shared", x, y } : note,
+        ),
+      );
+      setDraggingNoteId(id);
+    },
+    onPrivateNoteUnpublish: (id) => {
+      setNotes((current) =>
+        current.map((note) =>
+          note.id === id ? { ...note, visibility: "private" } : note,
+        ),
+      );
+      setDraggingNoteId(null);
+    },
+    onCursorMove: () => {},
+    onCursorLeave: () => {},
+  });
   const updateContent = (id: string, content: string) => {
     setDrafts((current) => {
       const next = { ...current };
@@ -939,47 +974,38 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
     );
   };
   return (
-    <RoomBoardCanvasWithLocalRefs
-      {...args}
-      currentUserId="guidance-user"
-      expandPrivateNotesRequest={expandRequest}
-      notes={notes.filter((note) => note.visibility === "shared")}
-      privateNotes={notes.filter((note) => note.visibility === "private")}
-      selectedNoteId={selectedNoteId}
-      onSelect={setSelectedNoteId}
-      onAddPrivateNote={() =>
-        setNotes((current) => [
-          ...current,
-          buildNote({
-            id: `created-${current.length}`,
-            authorId: "guidance-user",
-            visibility: "private",
-            content: "",
-          }),
-        ])
-      }
-      draftValue={(id) => drafts[id]}
-      onDraftChange={(id, content) =>
-        setDrafts((current) => ({ ...current, [id]: content }))
-      }
-      onPrivateNoteContentChange={updateContent}
-      onNoteContentChange={updateContent}
-      onShareNote={(id, x, y) =>
-        setNotes((current) =>
-          current.map((note) =>
-            note.id === id ? { ...note, visibility: "shared", x, y } : note,
-          ),
-        )
-      }
-      onUnshareNote={(id) => {
-        setExpandRequest((request) => request + 1);
-        setNotes((current) =>
-          current.map((note) =>
-            note.id === id ? { ...note, visibility: "private" } : note,
-          ),
-        );
-      }}
-    />
+    <div
+      ref={interactions.boardRootRef}
+      className="relative flex h-full w-full"
+      onPointerMove={interactions.onPointerMove}
+      onPointerUp={interactions.onPointerEnd}
+      onPointerCancel={interactions.onPointerCancel}
+    >
+      <RoomBoardCanvas
+        {...args}
+        {...interactions}
+        draggingNoteId={draggingNoteId}
+        selectedNoteId={selectedNoteId}
+        onSelect={setSelectedNoteId}
+        onAddPrivateNote={() =>
+          setNotes((current) => [
+            ...current,
+            buildNote({
+              id: `created-${current.length}`,
+              authorId: "guidance-user",
+              visibility: "private",
+              content: "",
+            }),
+          ])
+        }
+        draftValue={(id) => drafts[id]}
+        onDraftChange={(id, content) =>
+          setDrafts((current) => ({ ...current, [id]: content }))
+        }
+        onPrivateNoteContentChange={updateContent}
+        onNoteContentChange={updateContent}
+      />
+    </div>
   );
 }
 
