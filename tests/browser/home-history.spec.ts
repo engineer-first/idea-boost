@@ -57,9 +57,18 @@ it.each(
     const join = page.getByRole("button", { name: "参加する", exact: true });
     const error = page.getByRole("alert");
     const entry = page.getByRole("link", { name: /過去の成果を見る/ });
-    const destructive = await code.evaluate((element) =>
-      getComputedStyle(element).getPropertyValue("--destructive").trim(),
-    );
+    const destructive = await code.evaluate((element) => {
+      // CSS最適化による百分率等の表記差を、同じブラウザのcomputed色へ正規化する。
+      const reference = document.createElement("span");
+      reference.hidden = true;
+      reference.style.color = "var(--destructive)";
+      (element.parentElement ?? document.body).append(reference);
+      try {
+        return getComputedStyle(reference).color;
+      } finally {
+        reference.remove();
+      }
+    });
     const initialBorder = await code.evaluate(
       (element) => getComputedStyle(element).borderColor,
     );
