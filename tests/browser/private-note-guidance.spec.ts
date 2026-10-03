@@ -54,8 +54,14 @@ for (const width of [390, 1280]) {
     await openStory("empty", width);
     expect(await page.getByTestId("note-card").count()).toBe(0);
     const add = page.getByRole("button", { name: "付箋を追加" });
+    const privateAreaLabel = page.getByText("自分だけに見える付箋エリア", {
+      exact: true,
+    });
+    expect(await privateAreaLabel.isVisible()).toBe(true);
     expect(
-      await page.getByText("自分だけに見える付箋", { exact: true }).isVisible(),
+      await privateAreaLabel.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
     ).toBe(true);
     await expectInsideViewport('[aria-label="付箋を追加"]');
     await add.focus();
@@ -164,7 +170,7 @@ for (const width of [390, 1280]) {
     const toolbar = page.getByTestId("private-notes-toolbar");
     expect(
       await toolbar
-        .getByText("自分だけに見える付箋", { exact: true })
+        .getByText("自分だけに見える付箋エリア", { exact: true })
         .isVisible(),
     ).toBe(true);
     expect(

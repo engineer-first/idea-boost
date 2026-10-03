@@ -228,7 +228,7 @@ export function PrivateNotesToolbar({
           }}
         >
           <p className="mb-3 text-xs text-muted-foreground">
-            自分だけに見える付箋
+            自分だけに見える付箋エリア
           </p>
           <div
             ref={listRef}
