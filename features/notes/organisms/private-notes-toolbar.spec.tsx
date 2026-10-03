@@ -36,6 +36,155 @@ function setup(disabled = false) {
 }
 
 describe("PrivateNotesToolbar", () => {
+  it.each([
+    true,
+    false,
+  ])("共有ボタンで狭幅のトレイだけ畳み、共有先を隠さない: narrow=%s", (narrow) => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query.includes("max-width") && narrow,
+      })),
+    );
+    try {
+      const onShareNote = vi.fn();
+      render(
+        <PrivateNotesToolbar
+          notes={[buildNote({ visibility: "private" })]}
+          disabled={false}
+          selectedNoteId={null}
+          canCreateNote={false}
+          canDeleteNote={false}
+          canMoveNote
+          canEditNote
+          canShareNote
+          onShareNote={onShareNote}
+          onSelect={vi.fn()}
+          onAdd={vi.fn()}
+          onContentChange={vi.fn()}
+          onDelete={vi.fn()}
+          onDragStart={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "ボードに共有" }));
+      expect(onShareNote).toHaveBeenCalledExactlyOnceWith("note-1");
+      expect(screen.getByTestId("private-notes-toolbar")).toHaveAttribute(
+        "data-expanded",
+        narrow ? "false" : "true",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("空でも追加の動詞と本人だけに見える説明があり、操作するまで作成しない", () => {
+    const onAdd = vi.fn();
+    render(
+      <PrivateNotesToolbar
+        notes={[]}
+        disabled={false}
+        selectedNoteId={null}
+        canCreateNote
+        canDeleteNote
+        canMoveNote={false}
+        canEditNote
+        onSelect={vi.fn()}
+        onAdd={onAdd}
+        onContentChange={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+      />,
+    );
+    const add = screen.getByRole("button", { name: "付箋を追加" });
+    expect(add).toHaveTextContent("追加");
+    expect(screen.getByText("自分だけに見える下書き")).toBeVisible();
+    expect(onAdd).not.toHaveBeenCalled();
+    fireEvent.click(add);
+    expect(onAdd).toHaveBeenCalledOnce();
+  });
+
+  it("共有工程は追加不可理由をボタンから説明し、本人のクリックだけで一枚共有する", () => {
+    const onShareNote = vi.fn();
+    const onAdd = vi.fn();
+    render(
+      <PrivateNotesToolbar
+        notes={[buildNote({ visibility: "private" })]}
+        disabled={false}
+        selectedNoteId={null}
+        canCreateNote={false}
+        canDeleteNote={false}
+        canMoveNote
+        canEditNote
+        canShareNote
+        onShareNote={onShareNote}
+        onSelect={vi.fn()}
+        onAdd={onAdd}
+        onContentChange={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+      />,
+    );
+    const add = screen.getByRole("button", { name: "付箋を追加" });
+    expect(add).toHaveAccessibleDescription(/個人作業/);
+    fireEvent.click(add);
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(onShareNote).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "ボードに共有" }));
+    expect(onShareNote).toHaveBeenCalledExactlyOnceWith("note-1");
+  });
+
+  it.each([
+    {
+      disabled: true,
+      canShareNote: true,
+      draftValue: undefined,
+      reason: /接続/,
+    },
+    {
+      disabled: false,
+      canShareNote: false,
+      draftValue: undefined,
+      reason: /共有の工程/,
+    },
+    {
+      disabled: false,
+      canShareNote: true,
+      draftValue: () => "保存待ち",
+      reason: /保存/,
+    },
+  ])("共有不可理由をhoverなしで表示し、共有しない: $reason", ({
+    disabled,
+    canShareNote,
+    draftValue,
+    reason,
+  }) => {
+    const onShareNote = vi.fn();
+    render(
+      <PrivateNotesToolbar
+        notes={[buildNote({ visibility: "private" })]}
+        disabled={disabled}
+        selectedNoteId={null}
+        canCreateNote
+        canDeleteNote
+        canMoveNote
+        canEditNote
+        canShareNote={canShareNote}
+        draftValue={draftValue}
+        onShareNote={onShareNote}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+        onContentChange={vi.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+      />,
+    );
+    const share = screen.getByRole("button", { name: "ボードに共有" });
+    expect(share).toBeDisabled();
+    expect(share).toHaveAccessibleDescription(reason);
+    fireEvent.click(share);
+    expect(onShareNote).not.toHaveBeenCalled();
+  });
+
   it("一覧内ではボード上の座標を使わず、付箋を縦一列に配置する", () => {
     render(
       <PrivateNotesToolbar
@@ -204,7 +353,7 @@ describe("PrivateNotesToolbar", () => {
     );
     expect(screen.getByRole("button", { name: "付箋を追加" })).toHaveAttribute(
       "data-size",
-      "icon-sm",
+      "sm",
     );
     expect(screen.queryByText("1件")).not.toBeInTheDocument();
     expect(
@@ -219,7 +368,7 @@ describe("PrivateNotesToolbar", () => {
     fireEvent.click(closeButton);
 
     expect(toolbar).toHaveAttribute("data-expanded", "false");
-    expect(toolbar).toHaveClass("h-14", "w-fit");
+    expect(toolbar).toHaveClass("w-fit");
     expect(
       screen.queryByRole("button", { name: "付箋" }),
     ).not.toBeInTheDocument();

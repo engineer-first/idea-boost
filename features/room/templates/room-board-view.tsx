@@ -8,6 +8,7 @@
 // 描画の実体はヘッダー（room-board-header）とボード面（room-board-canvas）が
 // 持ち、この view は UI 状態と表示用 props・コールバックの配線に徹する。
 import {
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
@@ -172,6 +173,9 @@ export type RoomBoardViewProps = {
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
   onAddPrivateNote: () => void;
+  onShareNote?: (noteId: string, x: number, y: number) => void;
+  onUnshareNote?: (noteId: string) => void;
+  getVisibilityDisabledReason?: (noteId: string) => string | undefined;
   // Step 2-1 でテンプレート・具体例を起点に付箋を作る。
   onHmwTemplateSelect: (content: string) => void;
   onIdeaHintSelect: (content: string) => void;
@@ -279,6 +283,9 @@ export function RoomBoardView({
   hmwDecidedIssue,
   decidedHmw,
   onAddPrivateNote,
+  onShareNote,
+  onUnshareNote,
+  getVisibilityDisabledReason,
   onHmwTemplateSelect,
   onIdeaHintSelect,
   onPrivateNoteContentChange,
@@ -924,6 +931,15 @@ export function RoomBoardView({
         ref={boardRootRef}
         data-testid="room-board-view-root"
         data-connection-status={connectionStatus}
+        style={
+          {
+            // トレイの操作欄を含む総高を、上部パネルの予約にも使う。
+            // 低い画面では上部に16.5remを残し、各一覧内でスクロールする。
+            "--board-private-dock-bottom": `calc(${isHost && phase.kind === "step" && phase.step === 2 ? "11.5rem" : "7.5rem"} + var(--board-notification-inset, 0px))`,
+            "--board-private-dock-height":
+              "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))",
+          } as CSSProperties
+        }
         className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
           isNoteDragging
             ? "cursor-grabbing"
@@ -1006,6 +1022,17 @@ export function RoomBoardView({
         </RoomBoardHeader>
 
         <RoomBoardCanvas
+          currentUserId={currentUserId}
+          onShareNote={onShareNote}
+          getVisibilityDisabledReason={getVisibilityDisabledReason}
+          onUnshareNote={
+            onUnshareNote
+              ? (noteId) => {
+                  onUnshareNote(noteId);
+                  setExpandPrivateNotesRequest((request) => request + 1);
+                }
+              : undefined
+          }
           notes={renderedNotes}
           groups={groups}
           phase={phase}

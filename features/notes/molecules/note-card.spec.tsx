@@ -53,6 +53,40 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("戻す操作は選択やhoverなしで読め、押した一枚だけを個人へ戻す", () => {
+    const onAction = vi.fn();
+    setup({
+      visibilityAction: {
+        label: "マイ付箋へ戻す",
+        description: "自分だけに見える下書きに戻します",
+        onAction,
+      },
+    });
+    const action = screen.getByRole("button", { name: "マイ付箋へ戻す" });
+    expect(action).toHaveTextContent("マイ付箋へ戻す");
+    expect(action).toHaveAccessibleDescription(/自分だけ/);
+    expect(onAction).not.toHaveBeenCalled();
+    fireEvent.click(action);
+    expect(onAction).toHaveBeenCalledExactlyOnceWith("note-1");
+  });
+
+  it("切断中の戻す操作は理由を表示して送信しない", () => {
+    const onAction = vi.fn();
+    setup({
+      disabled: true,
+      visibilityAction: {
+        label: "マイ付箋へ戻す",
+        description: "接続を確認しています",
+        onAction,
+      },
+    });
+    const action = screen.getByRole("button", { name: "マイ付箋へ戻す" });
+    expect(action).toBeDisabled();
+    expect(action).toHaveAccessibleDescription(/接続/);
+    fireEvent.click(action);
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
   it("DOM移動でblurが届かなくても別付箋へのfocusで古い一時表示を残さない", () => {
     const { props, view } = setup({ isSelected: true, canExcludeNote: true });
     const action = screen.getByRole("button", { name: "候補から外す" });
