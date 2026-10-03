@@ -19,19 +19,15 @@ export function HomeView({ error }: HomeViewProps) {
       className="relative flex h-full min-h-0 flex-1 items-start justify-center overflow-y-auto p-4 sm:p-6"
       data-testid="home-view"
     >
-      {/* 背景: 落ち着いたグラデーション + ぼかし（shadcn のトークン色のみ） */}
+      {/* 装飾はスクロール領域からはみ出さないよう、この枠内で切り取る。 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-muted/40"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-24 top-1/4 size-72 rounded-full bg-primary/5 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-16 bottom-1/4 size-80 rounded-full bg-secondary blur-3xl"
-      />
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-muted/40" />
+        <div className="absolute -left-24 top-1/4 size-72 rounded-full bg-primary/5 blur-3xl" />
+        <div className="absolute -right-16 bottom-1/4 size-80 rounded-full bg-secondary blur-3xl" />
+      </div>
 
       <div className="relative z-10 my-auto flex w-full max-w-2xl flex-col gap-6">
         <header className="space-y-2 text-center">
