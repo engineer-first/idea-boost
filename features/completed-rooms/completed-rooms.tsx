@@ -5,7 +5,7 @@ import {
   CompletedRoomsResponseSchema,
 } from "@/contracts/completed-rooms";
 import { CompletedRoomsView } from "./completed-rooms-view";
-export function CompletedRooms() {
+export function CompletedRooms({ embedded = false }: { embedded?: boolean }) {
   const [rooms, setRooms] = useState<CompletedRoomSummary[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +63,7 @@ export function CompletedRooms() {
   }, [load]);
   return (
     <CompletedRoomsView
+      embedded={embedded}
       rooms={rooms}
       loading={loading}
       error={error}
