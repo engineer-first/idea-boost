@@ -197,6 +197,7 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
   );
   await page.getByRole("tab", { name: "発想を広げる" }).click();
   const help = page.locator("#board-help-content");
+  await help.getByRole("button", { name: /ほかの問いを見る/ }).click();
   expect(await help.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(
     true,
   );
@@ -664,7 +665,11 @@ test.each([
   const box = await next.boundingBox();
   expect(box).not.toBeNull();
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width);
-  await page.getByRole("button", { name: "マイ付箋を開く" }).click();
+  expect(
+    await page
+      .getByTestId("private-notes-toolbar")
+      .getAttribute("data-expanded"),
+  ).toBe("true");
   expect(
     (await page.getByTestId("private-notes-toolbar").boundingBox())?.width,
   ).toBe(240);
@@ -999,9 +1004,11 @@ test.each([
       : "room-roomboardlayout--connecting",
   );
   await page.getByTestId("board-connection-status").waitFor();
-  await page
-    .getByRole("button", { name: "マイ付箋を開く", exact: true })
-    .click();
+  expect(
+    await page
+      .getByTestId("private-notes-toolbar")
+      .getAttribute("data-expanded"),
+  ).toBe("true");
   await expectLayout();
 });
 
@@ -1023,7 +1030,7 @@ test.each([
     expect(await guide.isVisible()).toBe(true);
     expect(await content.isHidden()).toBe(true);
     const trigger = page.getByRole("button", {
-      name: reference === "hmw" ? "決定したHMW" : "決定した課題",
+      name: reference === "hmw" ? "決定した問い" : "決定した課題",
       exact: true,
     });
     await trigger.click();
