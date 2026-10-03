@@ -241,13 +241,16 @@ test("390pxでも自動案内はfocusを奪わず、詳細を全文参照して�
   }
 });
 
-test("390pxの問い作成ガイドは付箋操作を覆わず末尾まで読める", async () => {
+test.each([
+  { name: "問い作成", story: "phase-2-step-1" },
+  { name: "アイデア作成", story: "phase-3-step-1" },
+])("390pxの$nameガイドは付箋操作を覆わず末尾まで読める", async ({ story }) => {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 },
     reducedMotion: "reduce",
   });
   try {
-    await open(page, "room-roomboardlayout--phase-2-step-1");
+    await open(page, `room-roomboardlayout--${story}`);
     await settled(page, "detail");
     const detail = page.getByRole("region", {
       name: "ファシリテーションガイド",
