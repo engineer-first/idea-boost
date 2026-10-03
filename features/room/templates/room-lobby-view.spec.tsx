@@ -66,7 +66,11 @@ describe("RoomLobbyView", () => {
 
   it("接続が切れているときは再接続中の表示が出る", () => {
     renderView({ connectionStatus: "closed" });
-    expect(screen.getByRole("status")).toHaveTextContent("再接続");
+    expect(
+      screen
+        .getAllByRole("status")
+        .find((status) => status.textContent?.includes("接続が切れました")),
+    ).toHaveTextContent("再接続");
   });
 
   it("メンバー数を見出しに出す", () => {
@@ -160,4 +164,24 @@ describe("招待URL/コード（host 限定表示）", () => {
       screen.queryByRole("button", { name: "招待コードをコピー" }),
     ).not.toBeInTheDocument();
   });
+});
+
+it("招待URLの共有は明示操作からURLだけを送る", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: share,
+  });
+  try {
+    renderView();
+    expect(share).not.toHaveBeenCalled();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "招待URLを共有" }));
+    expect(share).toHaveBeenCalledExactlyOnceWith({
+      url: "https://idea-flow.example/invite/AB12CD",
+    });
+  } finally {
+    Reflect.deleteProperty(navigator, "share");
+  }
 });

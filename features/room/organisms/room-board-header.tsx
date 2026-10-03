@@ -17,7 +17,7 @@ import {
   type RoomPhase,
 } from "@/contracts/phase";
 import type { SharingState, TimerState } from "@/contracts/room-protocol";
-import { CopyInviteButton } from "@/features/invite";
+import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
 import { MemberAvatar } from "@/features/room-members";
 import {
   CONNECTION_STATUS_LABELS,
@@ -486,11 +486,7 @@ export function RoomBoardHeader({
                     <span className="block text-xs text-muted-foreground">
                       招待URL
                     </span>
-                    <CopyInviteButton
-                      value={inviteUrl}
-                      itemLabel="招待URL"
-                      className="mt-1 block max-w-full text-left"
-                    />
+                    <InviteUrlActions value={inviteUrl} />
                   </div>
                   <div className="min-w-0">
                     <span className="block text-xs text-muted-foreground">
@@ -499,7 +495,7 @@ export function RoomBoardHeader({
                     <CopyInviteButton
                       value={inviteCode}
                       itemLabel="招待コード"
-                      className="mt-1 block max-w-full text-left"
+                      className="mt-1"
                     />
                   </div>
                 </div>
