@@ -37,3 +37,42 @@ export const ReturningSticker: Story = {
     isReturnDropTarget: true,
   },
 };
+
+export const Available: Story = {};
+
+export const SubjectiveExhausted: Story = {
+  args: { voteRemaining: { subjective: 0, objective: 3 } },
+};
+
+export const ObjectiveExhausted: Story = {
+  args: { voteRemaining: { subjective: 1, objective: 0 } },
+};
+
+export const AllPending: Story = {
+  args: {
+    voteRemaining: { subjective: 0, objective: 0 },
+    pendingOperationCount: 4,
+  },
+};
+
+export const Rejected: Story = {
+  args: {
+    voteRemaining: { subjective: 0, objective: 1 },
+    feedback: { state: "failed", message: "この付箋には投票できません。" },
+  },
+};
+
+export const Disconnected: Story = {
+  args: {
+    voteRemaining: { subjective: 0, objective: 0 },
+    pendingOperationCount: 4,
+    disabled: true,
+  },
+};
+
+export const OneVoteReturned: Story = {
+  args: {
+    voteRemaining: { subjective: 0, objective: 1 },
+    feedback: { state: "confirmed", message: "投票を1票取り消しました。" },
+  },
+};
