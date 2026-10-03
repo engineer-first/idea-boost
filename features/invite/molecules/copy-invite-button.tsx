@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, CircleAlert, Copy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type CopyInviteButtonProps = {
@@ -11,50 +12,98 @@ export type CopyInviteButtonProps = {
   className?: string;
 };
 
-// 招待URL・招待コード自体を表示し、クリックでクリップボードへコピーする。
-// 成功したときだけ一時的に「コピーしました」に切り替える
-// （失敗時に成功表示を出すと、貼り付けたら空だった、という事故になる）。
-export function CopyInviteButton({
+type CopyState = "idle" | "success" | "error";
+
+export function CopyInviteButton(props: CopyInviteButtonProps) {
+  // コード単独の利用でも、ルーム切替時に前の結果を持ち越さない。
+  return <CopyInviteButtonContent key={props.value} {...props} />;
+}
+
+function CopyInviteButtonContent({
   value,
   itemLabel = "招待URL",
   className,
 }: CopyInviteButtonProps) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<CopyState>("idle");
+  const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
+  const mountedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
+      mountedRef.current = false;
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
     };
   }, []);
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = async () => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setPending(true);
+    setState("idle");
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
+    let result: CopyState = "success";
     try {
+      // Clipboard APIだけを使用する。追加の権限問い合わせや自動コピーは行わない。
       await navigator.clipboard.writeText(value);
-      setCopied(true);
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-      timerRef.current = setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error(`${itemLabel}のコピーに失敗しました:`, error);
+    } catch {
+      result = "error";
     }
-  }, [value, itemLabel]);
+    if (!mountedRef.current) return;
+    pendingRef.current = false;
+    setPending(false);
+    setState(result);
+    timerRef.current = setTimeout(() => {
+      setState("idle");
+      timerRef.current = null;
+    }, 2000);
+  };
+
+  const Icon =
+    state === "success" ? Check : state === "error" ? CircleAlert : Copy;
+  const resultMessage =
+    state === "success"
+      ? `${itemLabel}をコピーしました`
+      : state === "error"
+        ? `${itemLabel}をコピーできませんでした。もう一度お試しください。`
+        : "";
 
   return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      aria-label={copied ? "コピーしました" : `${itemLabel}をコピー`}
-      title={copied ? "コピーしました" : `クリックで${itemLabel}をコピー`}
-      className={cn(
-        "max-w-full cursor-pointer truncate text-center font-mono text-sm font-semibold tracking-wider text-foreground underline-offset-2 hover:underline",
-        className,
-      )}
-    >
-      {copied ? "コピーしました" : value}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={handleCopy}
+        disabled={pending}
+        aria-busy={pending}
+        aria-label={`${itemLabel}をコピー`}
+        title={resultMessage || `${itemLabel}をコピー: ${value}`}
+        data-copy-state={state}
+        className={cn(
+          "inline-flex h-10 w-full min-w-0 max-w-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-background px-3 text-left text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:bg-muted disabled:cursor-wait",
+          className,
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate font-mono text-sm font-semibold tracking-wider">
+          {value}
+        </span>
+        <Icon
+          aria-hidden="true"
+          className={cn(
+            "size-4 shrink-0",
+            state === "error" && "text-destructive",
+          )}
+        />
+      </button>
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {resultMessage}
+      </span>
+    </>
   );
 }
