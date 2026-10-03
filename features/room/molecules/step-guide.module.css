@@ -5,8 +5,8 @@
   top: 12px;
   z-index: 41;
   transform: translateX(-50%);
-  width: min(310px, var(--guide-width));
-  height: 48px;
+  width: 126px;
+  height: 42px;
   overflow: hidden;
   border-radius: 23px;
   transition:
@@ -49,8 +49,7 @@
   gap: 7px;
   font-size: 13px;
   font-weight: 600;
-  padding: 0 16px;
-  text-align: left;
+  white-space: nowrap;
 }
 .intro {
   padding: 18px 20px;
@@ -128,21 +127,6 @@
   }
 }
 
-.currentTask {
-  min-width: 0;
-  flex: 1;
-  font-size: 13px;
-  line-height: 1.4;
-}
-.guideLabel {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .introLink {
   min-height: 32px;
   font-size: 13px;

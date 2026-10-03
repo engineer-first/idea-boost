@@ -322,7 +322,11 @@ test.each([
     await page.keyboard.press("Escape");
     await settled(page, "compact");
     const trigger = page.getByRole("button", { name: "進め方", exact: true });
-    expect(await trigger.textContent()).toContain("困ったことを書く");
+    expect((await trigger.textContent())?.trim()).toBe("進め方");
+    const compactBounds = await page.getByTestId("step-guide").boundingBox();
+    expect(compactBounds?.width).toBe(126);
+    expect(compactBounds?.height).toBe(42);
+    await page.screenshot({ path: `${output}/simple-compact-${width}.png` });
     expect(await trigger.evaluate((e) => e === document.activeElement)).toBe(
       true,
     );

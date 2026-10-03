@@ -95,21 +95,13 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
         aria-expanded={state === "detail"}
         aria-controls={`${id}-detail`}
         aria-label="進め方"
-        aria-describedby={guide.action ? `${id}-action` : undefined}
         aria-hidden={state !== "compact"}
         inert={state !== "compact"}
         className={`${styles.layer} ${styles.compact} text-primary focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring`}
         onClick={openDetail}
       >
-        {guide.action && (
-          <span id={`${id}-action`} className={styles.currentTask}>
-            {guide.action}
-          </span>
-        )}
-        <span className={styles.guideLabel}>
-          <CircleHelp aria-hidden="true" className="size-4 shrink-0" />
-          進め方
-        </span>
+        <CircleHelp aria-hidden="true" className="size-4" />
+        進め方
       </button>
       <div
         role="status"

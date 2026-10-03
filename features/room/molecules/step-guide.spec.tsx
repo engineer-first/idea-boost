@@ -57,11 +57,11 @@ afterEach(() => {
 });
 
 describe("工程ガイド", () => {
-  it("畳んだ入口にも現在の作業を示す", () => {
+  it("畳んだ入口は進め方だけを示し、現在の作業を併記しない", () => {
     setup({ initialState: "compact" });
-    expect(screen.getByRole("button", { name: "進め方" })).toHaveTextContent(
-      guide.action,
-    );
+    const trigger = screen.getByRole("button", { name: "進め方" });
+    expect(trigger).toHaveTextContent(/^進め方$/);
+    expect(trigger).not.toHaveAccessibleDescription();
   });
   it("初回の短い案内から直接詳細を開けて、最初の操作と目的・例を読める", () => {
     setup();
