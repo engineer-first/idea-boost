@@ -40,7 +40,7 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 // Storybook の Next router はモック。実際の URL 遷移は下の実 Next/Worker で検証する。
 it.each(
   widths,
-)("ホームの履歴入口にTabで到達でき、入力を%ipxで保持する", async (width) => {
+)("招待コードのblur検証と履歴入口のTab操作を%ipxで行える", async (width) => {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width, height: 844 } });
@@ -54,9 +54,94 @@ it.each(
     );
     const name = page.getByRole("textbox", { name: "ルーム名（任意）" });
     const code = page.getByRole("textbox", { name: "招待コード" });
-    await name.fill("授業の相談");
-    await code.fill("ABC123");
+    const join = page.getByRole("button", { name: "参加する", exact: true });
+    const error = page.getByRole("alert");
     const entry = page.getByRole("link", { name: /過去の成果を見る/ });
+    const destructive = await code.evaluate((element) =>
+      getComputedStyle(element).getPropertyValue("--destructive").trim(),
+    );
+    const initialBorder = await code.evaluate(
+      (element) => getComputedStyle(element).borderColor,
+    );
+    expect(await code.inputValue()).toBe("");
+    expect(await error.count()).toBe(0);
+    expect(await code.getAttribute("aria-invalid")).not.toBe("true");
+    expect(initialBorder).not.toBe(destructive);
+    expect(await join.isDisabled()).toBe(true);
+    await expectNoHorizontalOverflow(page);
+    await capture(page, `home-invite-${width}-initial`);
+
+    await code.focus();
+    await page.keyboard.press("Tab");
+    expect(await error.count()).toBe(0);
+    await code.fill("ab");
+    expect(await code.inputValue()).toBe("AB");
+    expect(await error.count()).toBe(0);
+    expect(await code.getAttribute("aria-invalid")).not.toBe("true");
+    expect(await join.isDisabled()).toBe(true);
+    await page.keyboard.press("Tab");
+    await error.waitFor();
+    expect(await code.getAttribute("aria-invalid")).toBe("true");
+    const errorId = await error.getAttribute("id");
+    expect(errorId).toBeTruthy();
+    expect(
+      (await code.getAttribute("aria-describedby"))?.split(/\s+/),
+    ).toContain(errorId);
+    expect(
+      await error.evaluate((element) => getComputedStyle(element).color),
+    ).toBe(destructive);
+    await expect
+      .poll(() =>
+        code.evaluate((element) => getComputedStyle(element).borderColor),
+      )
+      .toBe(destructive);
+    await code.scrollIntoViewIfNeeded();
+    await entry.scrollIntoViewIfNeeded();
+    const inputBounds = await code.boundingBox();
+    const errorBounds = await error.boundingBox();
+    const joinBounds = await join.boundingBox();
+    expect(inputBounds).not.toBeNull();
+    expect(errorBounds).not.toBeNull();
+    for (const bounds of [
+      inputBounds,
+      errorBounds,
+      joinBounds,
+      await entry.boundingBox(),
+    ]) {
+      expect(bounds?.y).toBeGreaterThanOrEqual(0);
+      expect((bounds?.y ?? 844) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
+        844,
+      );
+    }
+    expect(errorBounds?.y).toBeGreaterThanOrEqual(
+      (inputBounds?.y ?? 0) + (inputBounds?.height ?? 0),
+    );
+    expect(
+      (errorBounds?.y ?? 844) + (errorBounds?.height ?? 0),
+    ).toBeLessThanOrEqual(joinBounds?.y ?? 0);
+    await expectNoHorizontalOverflow(page);
+    await capture(page, `home-invite-${width}-error`);
+
+    await code.focus();
+    await page.keyboard.press("Backspace");
+    expect(await code.inputValue()).toBe("A");
+    expect(await error.count()).toBe(0);
+    expect(await code.getAttribute("aria-invalid")).not.toBe("true");
+    expect(await code.getAttribute("aria-describedby")).toBeNull();
+    await code.fill("abc123");
+    await page.keyboard.press("Tab");
+    expect(await code.inputValue()).toBe("ABC123");
+    expect(await join.isEnabled()).toBe(true);
+    expect(await error.count()).toBe(0);
+    expect(await code.getAttribute("aria-invalid")).not.toBe("true");
+    await expect
+      .poll(() =>
+        code.evaluate((element) => getComputedStyle(element).borderColor),
+      )
+      .toBe(initialBorder);
+    await expectNoHorizontalOverflow(page);
+    await capture(page, `home-invite-${width}-corrected`);
+    await name.fill("授業の相談");
     expect(await entry.getAttribute("href")).toBe("/completed-rooms");
     expect(await entry.getAttribute("target")).not.toBe("_blank");
     expect(await page.locator("details, summary").count()).toBe(0);

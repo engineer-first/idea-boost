@@ -45,20 +45,20 @@ export function HomeView({ error }: HomeViewProps) {
           <CreateRoomSection />
           <JoinRoomSection />
         </div>
-        <Link
-          href="/completed-rooms"
-          className="flex min-h-14 items-center gap-3 rounded-xl border bg-card px-5 py-4 text-sm shadow-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2"
+        <nav
+          aria-label="過去の成果"
+          className="flex justify-end border-t border-border/60 pt-2"
         >
-          <span className="min-w-0 flex-1">
-            <span className="font-semibold underline underline-offset-4">
+          <Link
+            href="/completed-rooms"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            <span className="underline underline-offset-4">
               過去の成果を見る
             </span>
-            <span className="mt-1 block leading-relaxed text-muted-foreground">
-              専用の一覧ページで、完了したルームの成果を見返せます。
-            </span>
-          </span>
-          <ArrowRight className="size-5 shrink-0" aria-hidden />
-        </Link>
+            <ArrowRight className="size-4 shrink-0" aria-hidden />
+          </Link>
+        </nav>
       </div>
     </div>
   );

@@ -53,7 +53,6 @@ it("過去の成果はホーム内に取得せず、同じタブの専用一覧�
   expect(history).toHaveAttribute("href", "/completed-rooms");
   expect(history).not.toHaveAttribute("target", "_blank");
   expect(history).not.toHaveAttribute("aria-expanded");
-  expect(history).toHaveTextContent("専用の一覧ページ");
   expect(
     screen.queryByRole("button", { name: "最新の一覧を取得" }),
   ).not.toBeInTheDocument();
