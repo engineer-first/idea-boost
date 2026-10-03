@@ -41,7 +41,7 @@ function controllableState(
       type: "error",
       code: "forbidden",
       message:
-        "共有の操作は共有ステップで進行役、発表完了は発表者本人も操作できます。",
+        "共有の操作は共有ステップでホスト、発表完了は発表者本人も操作できます。",
     });
     return null;
   }

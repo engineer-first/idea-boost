@@ -185,3 +185,17 @@ it("招待URLの共有は明示操作からURLだけを送る", async () => {
     Reflect.deleteProperty(navigator, "share");
   }
 });
+
+it("省略された参加者から確認を開いて取消すと一覧の入口へ戻る", async () => {
+  const members = buildMembers(14, ME);
+  const onTransferHost = vi.fn();
+  const user = userEvent.setup();
+  renderView({ members, onTransferHost });
+  const overflow = screen.getByRole("button", { name: "他 3 名" });
+  await user.click(overflow);
+  await user.click(screen.getByRole("button", { name: members[13].name }));
+  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "キャンセル" }));
+  await vi.waitFor(() => expect(overflow).toHaveFocus());
+  expect(onTransferHost).not.toHaveBeenCalled();
+});

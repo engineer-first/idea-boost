@@ -35,7 +35,7 @@ export function resetSharingForPhase(
     const members = listMembers(sql);
     const host = members.find(({ userId }) => isHostUser(sql, userId));
     const others = members.filter(({ userId }) => !isHostUser(sql, userId));
-    // Fisher–Yates は最初の共有への入場時だけ。進行役は抽選対象にしない。
+    // Fisher–Yates は最初の共有への入場時だけ。ホストは抽選対象にしない。
     for (let index = others.length - 1; index > 0; index--) {
       const target = Math.floor(Math.random() * (index + 1));
       [others[index], others[target]] = [others[target], others[index]];

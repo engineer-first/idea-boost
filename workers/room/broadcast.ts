@@ -32,6 +32,17 @@ export class RoomBroadcaster {
     private readonly connections: Pick<DurableObjectState, "getWebSockets">,
   ) {}
 
+  isConnected(userId: string): boolean {
+    return this.connections
+      .getWebSockets()
+      .some(
+        (socket) =>
+          socket.readyState === WebSocket.OPEN &&
+          (socket.deserializeAttachment() as SocketAttachment | null)
+            ?.userId === userId,
+      );
+  }
+
   sendTo(ws: WebSocket, message: ServerMessage): void {
     this.trySend(ws, JSON.stringify(message));
   }

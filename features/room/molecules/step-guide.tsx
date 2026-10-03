@@ -185,7 +185,7 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
         </dl>
         {isHost && guide.hostMessage && (
           <div className="mt-4 border-t border-border pt-3 text-xs leading-5">
-            <p className="font-semibold">進行役へ</p>
+            <p className="font-semibold">ホストへ</p>
             <p className="mt-1 whitespace-pre-line text-muted-foreground">
               {guide.hostMessage}
             </p>

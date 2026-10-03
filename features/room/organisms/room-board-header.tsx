@@ -18,7 +18,7 @@ import {
 } from "@/contracts/phase";
 import type { SharingState, TimerState } from "@/contracts/room-protocol";
 import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
-import { MemberAvatar } from "@/features/room-members";
+import { MemberAvatar, MemberSelection } from "@/features/room-members";
 import {
   CONNECTION_STATUS_LABELS,
   type RoomScreenConnectionStatus,
@@ -62,6 +62,9 @@ export type RoomBoardHeaderProps = {
   hostUserId: string;
   completedVoterIds?: ReadonlyArray<string>;
   isNextPhasePending: boolean;
+  hostRevision?: number;
+  onSelectHostTarget?: (userId: string) => void;
+  isTransferring?: boolean;
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
@@ -107,6 +110,9 @@ export function RoomBoardHeader({
   hostUserId,
   completedVoterIds = [],
   isNextPhasePending,
+  hostRevision = 0,
+  onSelectHostTarget,
+  isTransferring = false,
   isNextPhaseBlocked,
   initialGuideState,
   hasFinalDecision,
@@ -141,6 +147,10 @@ export function RoomBoardHeader({
       ? configuredDuration.durationMs
       : (activeSharing?.durationMs ?? 180000);
   const [roomMenuOpen, setRoomMenuOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const canSelectHost = isHost && !outcomePublished && onSelectHostTarget;
+  const hostSelectionDisabled =
+    isDisconnected || isNextPhasePending || isTransferring || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const roomMenuContentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -272,15 +282,25 @@ export function RoomBoardHeader({
             </span>
           ) : null}
           {activeSharing ? (
-            <SharingPresenter sharing={activeSharing} hostUserId={hostUserId} />
+            <SharingPresenter
+              sharing={activeSharing}
+              hostUserId={hostUserId}
+              currentUserId={currentUserId}
+              onSelectHostTarget={
+                canSelectHost ? onSelectHostTarget : undefined
+              }
+              selectionDisabled={hostSelectionDisabled}
+              members={members}
+            />
           ) : (
-            <Popover>
+            <Popover open={membersOpen} onOpenChange={setMembersOpen}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
                   className="h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
                   aria-label={`参加者 ${members.length}人`}
+                  data-host-transfer-origin
                   title="参加者一覧を開く"
                 >
                   <span
@@ -349,31 +369,45 @@ export function RoomBoardHeader({
                       }
                       className="flex min-w-0 items-center gap-2"
                     >
-                      <MemberAvatar
+                      <MemberSelection
                         name={member.name}
-                        color={member.color}
-                        size={32}
-                        isMe={member.userId === currentUserId}
-                        isVotingComplete={completedVoterIds.includes(
-                          member.userId,
-                        )}
-                      />
-                      <span className="min-w-0 flex-1 truncate text-sm">
-                        {member.name}
-                      </span>
-                      {member.userId === hostUserId ? (
-                        <span
-                          className="text-xs text-muted-foreground"
-                          data-testid={`member-host-label-${member.userId}`}
-                        >
-                          ホスト
+                        className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
+                        disabled={hostSelectionDisabled}
+                        onSelect={
+                          canSelectHost && member.userId !== currentUserId
+                            ? () => {
+                                setMembersOpen(false);
+                                onSelectHostTarget?.(member.userId);
+                              }
+                            : undefined
+                        }
+                      >
+                        <MemberAvatar
+                          name={member.name}
+                          color={member.color}
+                          size={32}
+                          isMe={member.userId === currentUserId}
+                          isVotingComplete={completedVoterIds.includes(
+                            member.userId,
+                          )}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm">
+                          {member.name}
                         </span>
-                      ) : null}
-                      {member.userId === currentUserId ? (
-                        <span className="text-xs text-muted-foreground">
-                          あなた
-                        </span>
-                      ) : null}
+                        {member.userId === hostUserId ? (
+                          <span
+                            className="text-xs text-muted-foreground"
+                            data-testid={`member-host-label-${member.userId}`}
+                          >
+                            ホスト
+                          </span>
+                        ) : null}
+                        {member.userId === currentUserId ? (
+                          <span className="text-xs text-muted-foreground">
+                            あなた
+                          </span>
+                        ) : null}
+                      </MemberSelection>
                     </li>
                   ))}
                 </ul>
@@ -393,14 +427,14 @@ export function RoomBoardHeader({
               <RoomTimer
                 key={
                   phase.kind === "step"
-                    ? `${phase.phase}-${phase.step}`
-                    : "lobby"
+                    ? `${phase.phase}-${phase.step}:${hostRevision}`
+                    : `lobby:${hostRevision}`
                 }
                 timer={timer}
                 serverOffsetMs={timerServerOffsetMs}
                 soundControls={timerSoundControls}
                 isHost={isHost}
-                disabled={isDisconnected || transitioning}
+                disabled={isDisconnected || transitioning || isTransferring}
                 configureOnly={activeSharing?.status === "ready"}
                 onConfigureDuration={(durationMs) => {
                   if (activeSharing)
@@ -429,7 +463,7 @@ export function RoomBoardHeader({
               isHost ? (
                 <Button
                   className="h-10 shrink-0"
-                  disabled={isDisconnected}
+                  disabled={isDisconnected || isTransferring}
                   onClick={() => onSharingStart?.(sharingDuration)}
                 >
                   最初の人を開始
@@ -441,7 +475,7 @@ export function RoomBoardHeader({
                   <Button
                     variant="outline"
                     className="h-10 shrink-0 px-3"
-                    disabled={isDisconnected || transitioning}
+                    disabled={isDisconnected || transitioning || isTransferring}
                     onClick={() => onSharingAdvance?.("passed")}
                   >
                     今回はパス
@@ -449,7 +483,7 @@ export function RoomBoardHeader({
                 ) : null}
                 <Button
                   className="h-10 shrink-0 px-3"
-                  disabled={isDisconnected || transitioning}
+                  disabled={isDisconnected || transitioning || isTransferring}
                   onClick={() => onSharingAdvance?.("done")}
                 >
                   次の人へ
@@ -530,7 +564,7 @@ export function RoomBoardHeader({
                           className="size-10 shrink-0"
                           aria-label="完了して成果を表示"
                           title="完了して成果を表示"
-                          disabled={isDisconnected}
+                          disabled={isDisconnected || isTransferring}
                           onClick={onPublishOutcome}
                         >
                           <Check aria-hidden="true" className="size-5" />
@@ -542,10 +576,13 @@ export function RoomBoardHeader({
               ) : null
             ) : isHost ? (
               <NextPhaseConfirmDialog
-                key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
+                key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
                 phase={phase}
                 disabled={
-                  isDisconnected || isNextPhasePending || isNextPhaseBlocked
+                  isDisconnected ||
+                  isNextPhasePending ||
+                  isNextPhaseBlocked ||
+                  isTransferring
                 }
                 onConfirm={onNextPhase}
               />
@@ -553,10 +590,13 @@ export function RoomBoardHeader({
           ) : isHost &&
             (!activeSharing || activeSharing.status === "complete") ? (
             <NextPhaseConfirmDialog
-              key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
+              key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
               phase={phase}
               disabled={
-                isDisconnected || isNextPhasePending || isNextPhaseBlocked
+                isDisconnected ||
+                isNextPhasePending ||
+                isNextPhaseBlocked ||
+                isTransferring
               }
               onConfirm={onNextPhase}
             />
@@ -601,8 +641,9 @@ export function RoomBoardHeader({
               <div className="flex flex-col gap-1">
                 {isHost && canManageCandidates ? (
                   <BulkCandidateExclusion
+                    key={hostRevision}
                     targetCount={bulkExclusionTargetCount}
-                    disabled={isDisconnected}
+                    disabled={isDisconnected || isTransferring}
                     onConfirm={onBulkCandidateExclude}
                   />
                 ) : null}
@@ -610,10 +651,13 @@ export function RoomBoardHeader({
                 activeSharing &&
                 activeSharing.status !== "complete" ? (
                   <NextPhaseConfirmDialog
-                    key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${isDisconnected}`}
+                    key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
                     phase={phase}
                     disabled={
-                      isDisconnected || isNextPhasePending || isNextPhaseBlocked
+                      isDisconnected ||
+                      isNextPhasePending ||
+                      isNextPhaseBlocked ||
+                      isTransferring
                     }
                     onConfirm={onNextPhase}
                   />
@@ -622,7 +666,7 @@ export function RoomBoardHeader({
                   type="button"
                   variant="destructive"
                   className="h-10 justify-start"
-                  disabled={isLeaving}
+                  disabled={isLeaving || isTransferring}
                   data-testid="leave-button"
                   onClick={() => {
                     setRoomMenuOpen(false);

@@ -684,3 +684,244 @@ describe("GET /api/health（疎通確認用、認可不要）", () => {
     expect(await res.json()).toEqual({ ok: true });
   });
 });
+
+function nextHostMessage(socket: WebSocket): Promise<Record<string, unknown>> {
+  return new Promise((resolve) =>
+    socket.addEventListener(
+      "message",
+      (event) => resolve(JSON.parse(String(event.data))),
+      { once: true },
+    ),
+  );
+}
+async function connectHostTest(user: typeof OWNER, roomId: string) {
+  const response = await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
+    headers: { Upgrade: "websocket", Cookie: await sessionCookie(user) },
+  });
+  expect(response.status).toBe(101);
+  const socket = response.webSocket;
+  if (!socket) throw new Error("WSが接続できませんでした");
+  socket.accept();
+  const snapshot = await nextHostMessage(socket);
+  return { socket, snapshot };
+}
+async function transferred() {
+  const room = await createRoomAs(OWNER);
+  await joinRoomAs(MEMBER, room.inviteCode);
+  const oldHost = await connectHostTest(OWNER, room.roomId);
+  const newHost = await connectHostTest(MEMBER, room.roomId);
+  const oldUpdate = nextHostMessage(oldHost.socket);
+  const newUpdate = nextHostMessage(newHost.socket);
+  oldHost.socket.send(
+    JSON.stringify({
+      type: "host:transfer",
+      targetUserId: MEMBER.sub,
+      expectedHostRevision: 0,
+    }),
+  );
+  expect(await oldUpdate).toMatchObject({
+    type: "host:updated",
+    hostUserId: MEMBER.sub,
+    hostRevision: 1,
+  });
+  expect(await newUpdate).toMatchObject({
+    type: "host:updated",
+    hostUserId: MEMBER.sub,
+    hostRevision: 1,
+  });
+  oldHost.socket.close();
+  newHost.socket.close();
+  return room;
+}
+
+describe("移譲後のREST権限", () => {
+  it("D1作成者ではなくDOの現在ホストを返す", async () => {
+    const { roomId } = await transferred();
+    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
+      headers: { Cookie: await sessionCookie(MEMBER) },
+    });
+    expect(await res.json()).toMatchObject({
+      isHost: true,
+      hostUserId: MEMBER.sub,
+    });
+  });
+  it("旧ホストの本人退出はルームを解散せず、新ホストが解散できる", async () => {
+    const { roomId } = await transferred();
+    const oldLeave = await SELF.fetch(
+      `https://api.test/api/rooms/${roomId}/leave`,
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookie(OWNER),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ intent: "self", expectedHostRevision: 1 }),
+      },
+    );
+    expect(oldLeave.status).toBe(204);
+    expect(await listMemberIds(roomId)).toContain(MEMBER.sub);
+    const newDisband = await SELF.fetch(
+      `https://api.test/api/rooms/${roomId}/leave`,
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookie(MEMBER),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ intent: "disband", expectedHostRevision: 1 }),
+      },
+    );
+    expect(newDisband.status).toBe(204);
+    const room = await env.DB.prepare("SELECT id FROM rooms WHERE id=?1")
+      .bind(roomId)
+      .first();
+    expect(room).toBeNull();
+  });
+});
+
+describe("移譲改訂と退出要求の境界", () => {
+  it("移譲後の曖昧な旧クライアント要求、古い改訂、第三者の解散を拒否する", async () => {
+    const { roomId, inviteCode } = await createRoomAs(OWNER);
+    await joinRoomAs(MEMBER, inviteCode);
+    await runInRoomDO(roomId, (_room, state) =>
+      state.storage.sql.exec(
+        "UPDATE room_owner SET host_id=?1, host_revision=1 WHERE id=1",
+        MEMBER.sub,
+      ),
+    );
+    for (const [user, body, expected] of [
+      [MEMBER, {}, 409],
+      [OWNER, { intent: "disband", expectedHostRevision: 0 }, 409],
+      [MEMBER, { intent: "self", expectedHostRevision: 0 }, 409],
+      [OUTSIDER, { intent: "disband", expectedHostRevision: 1 }, 404],
+    ] as const) {
+      const result = await SELF.fetch(
+        `https://api.test/api/rooms/${roomId}/leave`,
+        {
+          method: "POST",
+          headers: {
+            Cookie: await sessionCookie(user),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        },
+      );
+      expect(result.status).toBe(expected);
+    }
+    expect(await listMemberIds(roomId)).toEqual([OWNER.sub, MEMBER.sub]);
+    expect(
+      await env.DB.prepare("SELECT host_id FROM rooms WHERE id=?1")
+        .bind(roomId)
+        .first(),
+    ).toMatchObject({ host_id: OWNER.sub });
+  });
+  it("移譲済みのownerが空でも旧D1シードで権限を復活させない", async () => {
+    const { roomId } = await createRoomAs(OWNER);
+    await runInRoomDO(roomId, (_room, state) =>
+      state.storage.sql.exec(
+        "UPDATE room_owner SET host_id=NULL, host_revision=1 WHERE id=1",
+      ),
+    );
+    const response = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
+      headers: { Cookie: await sessionCookie(OWNER) },
+    });
+    expect(response.status).toBe(409);
+    const host = await env.ROOM_DO.get(
+      env.ROOM_DO.idFromName(roomId),
+    ).getCurrentHost(OWNER.sub);
+    expect(host).toEqual({ hostUserId: null, hostRevision: 1 });
+  });
+  it("新ホストの解散後にD1削除を再試行しても旧作成者へ戻らない", async () => {
+    const { roomId, inviteCode } = await createRoomAs(OWNER);
+    await joinRoomAs(MEMBER, inviteCode);
+    await runInRoomDO(roomId, (_room, state) =>
+      state.storage.sql.exec(
+        "UPDATE room_owner SET host_id=?1, host_revision=1 WHERE id=1",
+        MEMBER.sub,
+      ),
+    );
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
+    // DOで確定した直後にD1削除が届かなかった状態を再現する。
+    expect(await stub.leaveOrDisband(MEMBER.sub, OWNER.sub, "disband", 1)).toBe(
+      "disbanded",
+    );
+    expect(await stub.leaveOrDisband(OWNER.sub, OWNER.sub, "disband", 1)).toBe(
+      "not-member",
+    );
+    const response = await SELF.fetch(
+      `https://api.test/api/rooms/${roomId}/leave`,
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookie(MEMBER),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ intent: "disband", expectedHostRevision: 1 }),
+      },
+    );
+    expect(response.status).toBe(204);
+    expect(
+      await env.DB.prepare("SELECT id FROM rooms WHERE id=?1")
+        .bind(roomId)
+        .first(),
+    ).toBeNull();
+  });
+});
+
+it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メモを含まない", async () => {
+  const { roomId } = await transferred();
+  const old = await connectHostTest(OWNER, roomId);
+  const current = await connectHostTest(MEMBER, roomId);
+  expect(old.snapshot).toMatchObject({
+    isHost: false,
+    hostUserId: MEMBER.sub,
+    hostRevision: 1,
+  });
+  expect(current.snapshot).toMatchObject({
+    isHost: true,
+    hostUserId: MEMBER.sub,
+    hostRevision: 1,
+  });
+  const denied = nextHostMessage(old.socket);
+  old.socket.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
+  expect(await denied).toMatchObject({ type: "error", code: "forbidden" });
+  const oldStart = nextHostMessage(old.socket);
+  const currentStart = nextHostMessage(current.socket);
+  current.socket.send(
+    JSON.stringify({ type: "start_phase", expectedHostRevision: 1 }),
+  );
+  expect(await currentStart).toMatchObject({ type: "phase:updated" });
+  await oldStart;
+  for (const [socket, content] of [
+    [old.socket, "作成者だけの未共有メモ"],
+    [current.socket, "新ホストだけの未共有メモ"],
+  ] as const) {
+    const inserted = nextHostMessage(socket);
+    socket.send(JSON.stringify({ type: "note:create", content }));
+    expect(await inserted).toMatchObject({
+      type: "note:inserted",
+      note: { content, visibility: "private" },
+    });
+  }
+  old.socket.close();
+  current.socket.close();
+  const oldAgain = await connectHostTest(OWNER, roomId);
+  const currentAgain = await connectHostTest(MEMBER, roomId);
+  expect(oldAgain.snapshot.notes).toEqual([
+    expect.objectContaining({
+      authorId: OWNER.sub,
+      content: "作成者だけの未共有メモ",
+    }),
+  ]);
+  expect(currentAgain.snapshot.notes).toEqual([
+    expect.objectContaining({
+      authorId: MEMBER.sub,
+      content: "新ホストだけの未共有メモ",
+    }),
+  ]);
+  expect(JSON.stringify(currentAgain.snapshot)).not.toContain(
+    "作成者だけの未共有メモ",
+  );
+  oldAgain.socket.close();
+  currentAgain.socket.close();
+});

@@ -87,5 +87,6 @@ export const CompletedRoomsCursorSchema = z.object({
   roomId: z.string().uuid(),
 });
 export const LeaveRoomRequestSchema = z.object({
-  intent: z.literal("self").optional(),
+  intent: z.enum(["self", "disband"]).optional(),
+  expectedHostRevision: z.number().int().nonnegative().optional(),
 });
