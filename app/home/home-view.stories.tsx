@@ -1,7 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn } from "storybook/test";
-import { completedRoomFixture } from "@/contracts/completed-rooms.fixture";
-import { CompletedRoomsView } from "@/features/completed-rooms";
 import {
   CreateRoomSectionView,
   JoinRoomSectionView,
@@ -98,61 +96,4 @@ export const AllStates: Story = {
       ))}
     </div>
   ),
-};
-
-const historyArgs = {
-  embedded: true,
-  rooms: [completedRoomFixture()],
-  loading: false,
-  error: null,
-  hasMore: false,
-  onRefresh: fn(),
-  onRetry: fn(),
-  onMore: fn(),
-};
-const showHistory: NonNullable<Story["play"]> = async ({ canvasElement }) => {
-  canvasElement.querySelector("summary")?.click();
-};
-export const HistorySuccess: Story = {
-  args: { completedRooms: <CompletedRoomsView {...historyArgs} /> },
-  play: showHistory,
-};
-export const HistoryEmpty: Story = {
-  args: { completedRooms: <CompletedRoomsView {...historyArgs} rooms={[]} /> },
-  play: showHistory,
-};
-export const HistoryLoading: Story = {
-  args: {
-    completedRooms: <CompletedRoomsView {...historyArgs} rooms={[]} loading />,
-  },
-  play: showHistory,
-};
-export const HistoryError: Story = {
-  args: {
-    completedRooms: (
-      <CompletedRoomsView
-        {...historyArgs}
-        rooms={[]}
-        error="以前のルームを取得できませんでした。再取得をお試しください。"
-      />
-    ),
-  },
-  play: showHistory,
-};
-export const HistoryManyRooms: Story = {
-  args: {
-    completedRooms: (
-      <CompletedRoomsView
-        {...historyArgs}
-        hasMore
-        rooms={Array.from({ length: 30 }, (_, index) =>
-          completedRoomFixture({
-            roomId: `11111111-1111-4111-8111-${String(index).padStart(12, "0")}`,
-            idea: `${index + 1}件目：${"授業で考えた長いアイデア".repeat(30)}`,
-          }),
-        )}
-      />
-    ),
-  },
-  play: showHistory,
 };

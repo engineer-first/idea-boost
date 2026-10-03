@@ -4,18 +4,16 @@
 //
 // UX: 2 つの明確な入口（作成 / 参加）を並列に置き、視線誘導と行動の選択を最短にする。
 
-import { ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
-import { CompletedRooms } from "@/features/completed-rooms";
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { CreateRoomSection, JoinRoomSection } from "@/features/room-lifecycle";
 import { HomeErrorAlert } from "./home-error-alert";
 
 export type HomeViewProps = {
   error?: string;
-  completedRooms?: ReactNode;
 };
 
-export function HomeView({ error, completedRooms }: HomeViewProps) {
+export function HomeView({ error }: HomeViewProps) {
   return (
     <div
       className="relative flex h-full min-h-0 flex-1 items-start justify-center overflow-y-auto p-4 sm:p-6"
@@ -51,23 +49,20 @@ export function HomeView({ error, completedRooms }: HomeViewProps) {
           <CreateRoomSection />
           <JoinRoomSection />
         </div>
-        <details className="group rounded-xl border bg-card shadow-sm">
-          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 rounded-xl px-5 py-4 text-sm font-semibold hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 [&::-webkit-details-marker]:hidden">
-            <span className="min-w-0 flex-1">
-              以前のルーム
-              <span className="mt-1 block font-normal text-muted-foreground">
-                完了した成果を見返す
-              </span>
+        <Link
+          href="/completed-rooms"
+          className="flex min-h-14 items-center gap-3 rounded-xl border bg-card px-5 py-4 text-sm shadow-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold underline underline-offset-4">
+              過去の成果を見る
             </span>
-            <ChevronDown
-              className="size-5 shrink-0 group-open:rotate-180"
-              aria-hidden
-            />
-          </summary>
-          <div className="border-t p-4 sm:p-5">
-            {completedRooms ?? <CompletedRooms embedded />}
-          </div>
-        </details>
+            <span className="mt-1 block leading-relaxed text-muted-foreground">
+              専用の一覧ページで、完了したルームの成果を見返せます。
+            </span>
+          </span>
+          <ArrowRight className="size-5 shrink-0" aria-hidden />
+        </Link>
       </div>
     </div>
   );

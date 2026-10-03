@@ -148,7 +148,7 @@ export function RoomOutcomeView({
             className="mt-6 rounded-lg border border-border bg-muted px-4 py-3 text-sm leading-6"
           >
             {authorized === false
-              ? "閲覧権限を確認できません。ホームの「以前のルーム」から開き直してください。"
+              ? "閲覧権限を確認できません。ホームの「過去の成果を見る」から開き直してください。"
               : !available
                 ? "接続が切れています。前回受信した内容は最新か確認できません。再接続してから成果を確認・保存してください。"
                 : "決定内容をすべて確認できません。再接続してから成果を確認・保存してください。"}
@@ -272,8 +272,8 @@ export function RoomOutcomeView({
         </div>
         <p className="pb-8 text-xs leading-5 text-muted-foreground">
           {authorized
-            ? "閲覧期限までは、ホームの「以前のルーム」から再び確認できます。"
-            : "完了したルームは、ホームの「以前のルーム」から完了後30日間見返せます。"}
+            ? "閲覧期限までは、ホームの「過去の成果を見る」から再び確認できます。"
+            : "完了したルームは、ホームの「過去の成果を見る」から完了後30日間見返せます。"}
         </p>
       </div>
     </main>

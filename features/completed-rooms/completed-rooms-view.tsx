@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import type { CompletedRoomSummary } from "@/contracts/completed-rooms";
 import { formatCompletedDate } from "./completed-rooms-content";
 export type CompletedRoomsViewProps = {
-  embedded?: boolean;
   rooms: CompletedRoomSummary[];
   loading: boolean;
   error: string | null;
@@ -13,7 +12,6 @@ export type CompletedRoomsViewProps = {
   onMore: () => void;
 };
 export function CompletedRoomsView({
-  embedded = false,
   rooms,
   loading,
   error,
@@ -22,26 +20,17 @@ export function CompletedRoomsView({
   onRetry,
   onMore,
 }: CompletedRoomsViewProps) {
-  const Root = embedded ? "div" : "main";
   return (
-    <Root
-      className={
-        embedded
-          ? "min-w-0"
-          : "h-full min-h-0 overflow-y-auto bg-background px-4 py-8 sm:px-8 sm:py-12"
-      }
-    >
+    <main className="h-full min-h-0 overflow-y-auto bg-background px-4 py-8 sm:px-8 sm:py-12">
       <div className="mx-auto max-w-3xl space-y-6">
-        {!embedded && (
-          <Link
-            href="/home"
-            className="inline-flex min-h-11 items-center underline underline-offset-4"
-          >
-            ホームへ
-          </Link>
-        )}
+        <Link
+          href="/home"
+          className="inline-flex min-h-11 items-center underline underline-offset-4"
+        >
+          ホームへ
+        </Link>
         <header>
-          {!embedded && <h1 className="text-3xl font-bold">以前のルーム</h1>}
+          <h1 className="text-3xl font-bold">以前のルーム</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             完了したときに参加していたルームを、完了から30日間見返せます。
           </p>
@@ -140,6 +129,6 @@ export function CompletedRoomsView({
           </Button>
         )}
       </div>
-    </Root>
+    </main>
   );
 }

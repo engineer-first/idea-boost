@@ -165,40 +165,48 @@ describe("共有の遷移と同期", () => {
     const { owner, member, roomId, stub } = await setup();
     const ready = await prepareLegacySharing(owner, roomId);
     const before = Date.now();
-    owner.ws.send(
-      JSON.stringify({
-        type: "sharing:start",
-        revision: ready.revision,
+    const clock = vi.spyOn(Date, "now").mockReturnValue(before);
+    try {
+      owner.ws.send(
+        JSON.stringify({
+          type: "sharing:start",
+          revision: ready.revision,
+          durationMs: 180000,
+        }),
+      );
+      const pending = await sharingMessage(owner);
+      expect(pending.sharing).toMatchObject({
+        status: "active",
+        currentIndex: 0,
         durationMs: 180000,
-      }),
-    );
-    const pending = await sharingMessage(owner);
-    expect(pending.sharing).toMatchObject({
-      status: "active",
-      currentIndex: 0,
-      durationMs: 180000,
-    });
-    expect(pending.sharing.startsAt).toBeGreaterThanOrEqual(before + 2000);
-    expect(pending.timer).toEqual({ status: "idle" });
-    expect(await sharingMessage(member)).toEqual(pending);
-    await runInRoomDO(roomId, (instance) => instance.alarm());
-    expect(await stub.getTimerState()).toEqual({ status: "idle" });
-    expect((await currentSnapshot(roomId)).sharing).toEqual(pending.sharing);
-    // 実時刻でも2秒の境界を通す（アラームが自動実行されないpoolにも対応）。
-    await new Promise((resolve) => setTimeout(resolve, 2050));
-    await runInRoomDO(roomId, (instance) => instance.alarm());
-    const running = await sharingMessage(owner);
-    expect(running.timer).toMatchObject({
-      status: "running",
-      durationMs: 180000,
-    });
-    if (running.timer.status !== "running")
-      throw new Error("計時が開始していない");
-    expect(running.timer.endsAt - running.serverNow).toBeGreaterThan(179900);
-    expect(running.sharing.startsAt).toBeNull();
-    expect(await sharingMessage(member)).toEqual(running);
-    owner.close();
-    member.close();
+      });
+      expect(pending.sharing.startsAt).toBe(before + 2000);
+      clock.mockReturnValue(before + 1999);
+      expect(pending.timer).toEqual({ status: "idle" });
+      expect(await sharingMessage(member)).toEqual(pending);
+      await runInRoomDO(roomId, (instance) => instance.alarm());
+      expect(await stub.getTimerState()).toEqual({ status: "idle" });
+      expect((await currentSnapshot(roomId)).sharing).toEqual(pending.sharing);
+      // 実際のAlarm経路で、予告期限ちょうどに持ち時間が始まることを検証する。
+      clock.mockReturnValue(before + 2000);
+      await runInRoomDO(roomId, (instance) => instance.alarm());
+      const running = await sharingMessage(owner);
+      expect(running.timer).toMatchObject({
+        status: "running",
+        durationMs: 180000,
+      });
+      if (running.timer.status !== "running")
+        throw new Error("計時が開始していない");
+      expect(running.serverNow).toBe(before + 2000);
+      expect(running.timer.endsAt).toBe(before + 2000 + 180000);
+      expect(running.timer.endsAt - running.serverNow).toBe(180000);
+      expect(running.sharing.startsAt).toBeNull();
+      expect(await sharingMessage(member)).toEqual(running);
+    } finally {
+      clock.mockRestore();
+      owner.close();
+      member.close();
+    }
   });
 
   it.each([
