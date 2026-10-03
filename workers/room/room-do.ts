@@ -62,6 +62,7 @@ import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
 import { groupHandlers, listVisibleGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
+import { hostHandlers } from "./host-transfer";
 import {
   buildIdeaMapServerState,
   ideaMapHandlers,
@@ -70,6 +71,8 @@ import {
 import {
   ensureHost,
   findMember,
+  getHostState,
+  type HostState,
   isHostUser,
   isMember,
   listMembers,
@@ -121,6 +124,7 @@ export const HOST_ID_HEADER = "X-Idea-Boost-Host-Id";
 // 全 ClientMessage を網羅するハンドラ表。メッセージ型を追加すると、
 // ここでキー漏れがコンパイルエラーになる（旧 switch の never 網羅性チェック相当）。
 const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
+  ...hostHandlers,
   ...adoptionFocusHandlers,
   ...noteHandlers,
   ...decisionHandlers,
@@ -242,6 +246,49 @@ export class RoomDO extends DurableObject {
     );
   }
 
+  getCurrentHost(creatorSeed?: string): HostState {
+    if (creatorSeed && !isRoomClosed(this.sql))
+      ensureHost(this.sql, creatorSeed);
+    return getHostState(this.sql);
+  }
+
+  // RESTの意図を現在の権限と同じDOイベント内で判定する。呼出側で
+  // isHostを取得してからleaveへ分岐すると、移譲との間に競合ができる。
+  async leaveOrDisband(
+    userId: string,
+    creatorSeed: string,
+    intent?: "self" | "disband",
+    expectedHostRevision?: number,
+  ): Promise<"left" | "disbanded" | "not-member" | "forbidden"> {
+    if (userId === creatorSeed && !isRoomClosed(this.sql))
+      ensureHost(this.sql, creatorSeed);
+    const host = getHostState(this.sql);
+    const disbanded = Boolean(readOutcomeState(this.sql)?.disbanded);
+    const canRetryDisband =
+      disbanded &&
+      (host.hostUserId === userId ||
+        (!host.hostUserId &&
+          host.hostRevision === 0 &&
+          userId === creatorSeed));
+    if (!isMember(this.sql, userId) && !canRetryDisband) return "not-member";
+    if (
+      (expectedHostRevision !== undefined &&
+        expectedHostRevision !== host.hostRevision) ||
+      (host.hostRevision > 0 && (!intent || expectedHostRevision === undefined))
+    )
+      return "forbidden";
+    const isHost = host.hostUserId === userId;
+    if (intent === "disband" || (!intent && isHost)) {
+      if (!isHost && !canRetryDisband) return "forbidden";
+      if (canRetryDisband) return "disbanded";
+      return (await this.disband(userId)) ? "disbanded" : "forbidden";
+    }
+    if (!isMember(this.sql, userId)) return "not-member";
+    if (isHost && !this.isCompleted()) return "forbidden";
+    await this.leave(userId);
+    return "left";
+  }
+
   // 退出処理。
   async leave(userId: string): Promise<void> {
     if (!isMember(this.sql, userId)) {
@@ -322,7 +369,8 @@ export class RoomDO extends DurableObject {
       this.sql.exec(
         "UPDATE timer_state SET status = 'idle', ends_at = NULL, remaining_ms = NULL, duration_ms = NULL WHERE id = 1",
       );
-      this.sql.exec("UPDATE room_owner SET host_id = NULL WHERE id = 1");
+      // D1削除失敗時の本人による解散再試行に使う。期限後の完全削除で消去する。
+      // 閉鎖済みのDOではこのIDから操作権を復活させない。
     });
     await syncRoomAlarm(this.ctx.storage, this.sql);
     return true;
@@ -841,6 +889,7 @@ export class RoomDO extends DurableObject {
       phaseRevision: getPhaseRevision(this.sql),
       pendingPhaseTransition: getPendingPhaseTransition(this.sql),
       isHost: isHostUser(this.sql, userId),
+      ...getHostState(this.sql),
       ideaMapSizeLevel: ideaMapState.sizeLevel,
       ideaMapSizeInitialized: ideaMapState.initialized,
       ideaMapDragging: ideaMapState.isDragging,

@@ -40,14 +40,23 @@ export function RoomLobby({
   inviteCode,
   inviteUrl,
   currentUserId,
-  isHost,
-  hostUserId,
+  isHost: initialIsHost,
+  hostUserId: initialHostUserId,
   initialPhase,
   initialMembers,
   webSocketFactory,
 }: RoomLobbyProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = useState(false);
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const transferringRef = useRef(false);
+  const transferTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const roomState = useRoomState({ initialMembers, initialPhase });
+  const hostUserId = roomState.host.hostUserId ?? initialHostUserId;
+  const isHost = roomState.host.hostUserId
+    ? hostUserId === currentUserId
+    : (roomState.host.isHost ?? initialIsHost);
   const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearStartTimeout = useCallback(() => {
@@ -60,10 +69,15 @@ export function RoomLobby({
   useEffect(() => {
     return () => {
       clearStartTimeout();
+      if (transferTimeoutRef.current) clearTimeout(transferTimeoutRef.current);
     };
   }, [clearStartTimeout]);
 
-  const { isLeaving, isLeavingRef, leave } = useLeaveRoom({ roomId, isHost });
+  const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
+    roomId,
+    isHost,
+    hostRevision: roomState.host.hostRevision ?? 0,
+  });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   const { connectionStatus, send } = useRoomConnection({
     roomId,
@@ -71,8 +85,6 @@ export function RoomLobby({
     webSocketFactory,
     isLeavingRef,
   });
-  const roomState = useRoomState({ initialMembers, initialPhase });
-
   // 既にボード工程ならボードへ直行（SSR でも redirect しているが、state 初期値が
   // 古い場合のリカバリとしても機能する）。
   useEffect(() => {
@@ -81,8 +93,26 @@ export function RoomLobby({
     }
   }, [roomState.phase, roomId, boardHref, router]);
 
+  function finishTransfer(error: string | null = null) {
+    transferringRef.current = false;
+    setIsTransferring(false);
+    setTransferError(error);
+    if (transferTimeoutRef.current) clearTimeout(transferTimeoutRef.current);
+    transferTimeoutRef.current = null;
+  }
+
   function handleServerMessage(message: ServerMessage) {
+    if (
+      message.type === "host:updated" ||
+      message.type === "snapshot" ||
+      message.type === "phase:updated"
+    ) {
+      finishTransfer();
+      clearStartTimeout();
+      setIsStarting(false);
+    }
     if (message.type === "error") {
+      if (transferringRef.current) finishTransfer(message.message);
       console.error(`ルーム操作エラー (${message.code}): ${message.message}`);
       if (message.code === "forbidden") {
         // 権限なしで start_phase を送った場合は「開始中」を解除してあげる
@@ -96,9 +126,12 @@ export function RoomLobby({
   }
 
   const handleStart = useCallback(() => {
-    if (!isHost) return;
+    if (!isHost || transferringRef.current) return;
     setIsStarting(true);
-    send({ type: "start_phase" });
+    send({
+      type: "start_phase",
+      expectedHostRevision: roomState.host.hostRevision ?? 0,
+    });
     // 成功時は phase:updated → router.replace で /rooms/[id] へ遷移。
     // 失敗時（forbidden / 接続断）は上記の error ハンドラで isStarting を解除。
     // 万一何も起きない場合は 5 秒でタイムアウトさせて再操作可能にする。
@@ -107,10 +140,37 @@ export function RoomLobby({
       startTimeoutRef.current = null;
       setIsStarting(false);
     }, 5000);
-  }, [isHost, send, clearStartTimeout]);
+  }, [isHost, send, clearStartTimeout, roomState.host.hostRevision]);
+
+  function handleTransfer(targetUserId: string) {
+    if (
+      !isHost ||
+      isStarting ||
+      transferringRef.current ||
+      connectionStatus !== "open" ||
+      roomState.host.hostRevision === null
+    )
+      return;
+    transferringRef.current = true;
+    setIsTransferring(true);
+    setTransferError(null);
+    send({
+      type: "host:transfer",
+      targetUserId,
+      expectedHostRevision: roomState.host.hostRevision,
+    });
+    transferTimeoutRef.current = setTimeout(
+      () =>
+        finishTransfer(
+          "結果を確認できませんでした。接続を確認してから操作し直してください。",
+        ),
+      5000,
+    );
+  }
 
   return (
     <RoomLobbyView
+      key={`${hostUserId}:${roomState.host.hostRevision ?? 0}`}
       members={roomState.members}
       currentUserId={currentUserId}
       isHost={isHost}
@@ -120,6 +180,11 @@ export function RoomLobby({
       inviteUrl={inviteUrl}
       connectionStatus={connectionStatus}
       isStarting={isStarting}
+      onTransferHost={
+        roomState.host.hostRevision === null ? undefined : handleTransfer
+      }
+      isTransferring={isTransferring}
+      transferError={transferError}
       onStart={handleStart}
       onLeave={leave}
       isLeaving={isLeaving}

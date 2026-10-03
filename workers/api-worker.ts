@@ -187,11 +187,13 @@ async function handleGetRoom(
   }
 
   const phase = await stub.getPhase();
+  const host = await stub.getCurrentHost(room.hostId);
+  if (!host.hostUserId) return error(409, "ホスト情報を取得できませんでした。");
   return json({
     roomId: room.roomId,
     inviteCode: room.inviteCode,
-    isHost: room.hostId === session.sub,
-    hostUserId: room.hostId,
+    isHost: host.hostUserId === session.sub,
+    hostUserId: host.hostUserId,
     phase,
   });
 }
@@ -242,21 +244,23 @@ async function handleLeaveRoom(
     (await readJsonBody(request)) ?? {},
   );
   if (!body.success) return error(400, "リクエスト形式が不正です。");
-  // 解散の成立は RoomDO の状態変更順で決める。D1 は許可後だけ削除する。
-  if (room.hostId === session.sub && body.data.intent !== "self") {
+  // 作成者IDはlegacy seedのみ。判定と更新を別RPCに分けず、DOで直列化する。
+  if (body.data.intent !== "self" && (await stub.isMember(session.sub)))
     await stub.ensureSharedOutcome(roomId, room.createdAt);
-    if (!(await stub.disband(session.sub, room.hostId)))
-      return error(409, "完了したルームは解散できません。");
-    await deleteRoom(env.DB, roomId);
-    return new Response(null, { status: 204 });
-  }
-  if (!(await stub.isMember(session.sub)))
+  const result = await stub.leaveOrDisband(
+    session.sub,
+    room.hostId,
+    body.data.intent,
+    body.data.expectedHostRevision,
+  );
+  if (result === "not-member")
     return error(404, "ルームが見つかりませんでした。");
-  // 進行中のホスト退出は既存どおり解散のみ。本人退出は完了時だけ許す。
-  if (room.hostId === session.sub && !(await stub.isCompleted()))
-    return error(409, "進行中のホストはルームを解散してください。");
-
-  await stub.leave(session.sub);
+  if (result === "forbidden")
+    return error(
+      409,
+      "ホストまたはルームの状態が変わりました。画面を更新して操作し直してください。",
+    );
+  if (result === "disbanded") await deleteRoom(env.DB, roomId);
   return new Response(null, { status: 204 });
 }
 

@@ -16,6 +16,7 @@ import {
   applyAdoptionFocusServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
+  applyHostServerMessage,
   applyIdeaMapServerMessage,
   applyMemberServerMessage,
   applyOutcomePublishedServerMessage,
@@ -25,6 +26,7 @@ import {
   applyVotingCompletionServerMessage,
   type Carryover,
   type Decision,
+  type HostClientState,
   type IdeaMapClientState,
   INITIAL_IDEA_MAP_STATE,
   type Member,
@@ -32,6 +34,7 @@ import {
 } from "./room-reducer";
 
 export type UseRoomStateResult = {
+  host: HostClientState;
   sharing: SharingState | null;
   members: Member[];
   phase: RoomPhase;
@@ -53,6 +56,11 @@ export function useRoomState(options: {
   initialMembers: Member[];
   initialPhase: RoomPhase;
 }): UseRoomStateResult {
+  const [host, setHost] = useState<HostClientState>({
+    hostUserId: null,
+    hostRevision: null,
+    isHost: null,
+  });
   const [sharing, setSharing] = useState<SharingState | null>(null);
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
@@ -95,6 +103,7 @@ export function useRoomState(options: {
       const nextMembers = applyMemberServerMessage(membersRef.current, message);
       membersRef.current = nextMembers;
       setMembers(nextMembers);
+      setHost((current) => applyHostServerMessage(current, message));
       setSharing((current) => applySharingServerMessage(current, message));
       setPhase((current) => applyPhaseServerMessage(current, message));
       if (message.type === "snapshot" || message.type === "phase:updated")
@@ -119,6 +128,7 @@ export function useRoomState(options: {
   );
 
   return {
+    host,
     sharing,
     members,
     phase,

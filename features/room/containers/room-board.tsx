@@ -58,8 +58,8 @@ export function RoomBoard({
   inviteCode,
   inviteUrl,
   currentUserId,
-  isHost,
-  hostUserId,
+  isHost: initialIsHost,
+  hostUserId: initialHostUserId,
   initialMembers,
   initialPhase,
   signOutAction,
@@ -75,10 +75,15 @@ export function RoomBoard({
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
+  const hostUserId = roomState.host.hostUserId ?? initialHostUserId;
+  const isHost = roomState.host.hostUserId
+    ? hostUserId === currentUserId
+    : (roomState.host.isHost ?? initialIsHost);
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
     roomId,
     isHost,
     completed: roomState.outcomePublished,
+    hostRevision: roomState.host.hostRevision ?? 0,
   });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   // useRoomConnection は常に最新のハンドラへ配送するため、
