@@ -145,6 +145,8 @@ export function useRoomTimerSounds({
   const enabledRef = useRef(false);
   const playbackBlockedRef = useRef(false);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const playbackGenerationRef = useRef(0);
+  const timerCueGenerationRef = useRef(0);
   const activeOscillatorsRef = useRef(new Set<OscillatorNode>());
   const firedCueKeysRef = useRef(new Set<string>());
   const notifiedVotingRoundsRef = useRef(
@@ -167,6 +169,7 @@ export function useRoomTimerSounds({
   }, []);
 
   const stopActiveSounds = useCallback(() => {
+    playbackGenerationRef.current += 1;
     for (const oscillator of activeOscillatorsRef.current) {
       try {
         oscillator.stop();
@@ -203,11 +206,14 @@ export function useRoomTimerSounds({
   }, []);
 
   const playSound = useCallback(
-    (kind: TimerSoundKind) => {
+    (kind: TimerSoundKind, canPlay: () => boolean = () => true) => {
       if (!enabledRef.current) return;
+      const generation = playbackGenerationRef.current;
+      const isCurrent = () =>
+        generation === playbackGenerationRef.current && canPlay();
       void getReadyAudioContext()
         .then((context) => {
-          if (!enabledRef.current) return;
+          if (!enabledRef.current || !isCurrent()) return;
           createTimerSound(
             context,
             kind,
@@ -215,18 +221,26 @@ export function useRoomTimerSounds({
             (oscillator) => activeOscillatorsRef.current.delete(oscillator),
           );
         })
-        .catch(blockPlayback);
+        .catch(() => {
+          if (isCurrent()) blockPlayback();
+        });
     },
     [blockPlayback, getReadyAudioContext],
   );
 
   const playCueOnce = useCallback(
-    (key: string, kind: TimerSoundKind) => {
+    (key: string, kind: TimerSoundKind, expiresAt?: number) => {
       if (!enabledRef.current || firedCueKeysRef.current.has(key)) return;
       firedCueKeysRef.current.add(key);
-      playSound(kind);
+      const generation = timerCueGenerationRef.current;
+      playSound(
+        kind,
+        () =>
+          generation === timerCueGenerationRef.current &&
+          (expiresAt === undefined || now() <= expiresAt),
+      );
     },
-    [playSound],
+    [now, playSound],
   );
 
   useEffect(() => {
@@ -235,6 +249,15 @@ export function useRoomTimerSounds({
 
   useEffect(() => {
     const previous = previousTimerEventRef.current;
+    if (
+      previous.timer.status !== timer.status ||
+      (previous.timer.status === "running" &&
+        timer.status === "running" &&
+        previous.timer.endsAt !== timer.endsAt)
+    ) {
+      // 再描画や時刻補正では再生を切らず、意味が変わった未再生の通知だけ取り消す。
+      timerCueGenerationRef.current += 1;
+    }
     const receivedTimerUpdate =
       previous.timerUpdateVersion !== timerUpdateVersion;
 
@@ -257,7 +280,11 @@ export function useRoomTimerSounds({
           lateByMs >= 0 &&
           lateByMs <= END_LATE_TOLERANCE_MS
         ) {
-          playCueOnce(`end:${previousRunKey}`, "end");
+          playCueOnce(
+            `end:${previousRunKey}`,
+            "end",
+            previous.timer.endsAt - serverOffsetMs + END_LATE_TOLERANCE_MS,
+          );
         }
       }
     }
@@ -310,12 +337,16 @@ export function useRoomTimerSounds({
 
     const clientEndsAt = timer.endsAt - serverOffsetMs;
     const scheduledAt = now();
+    const runKey = getTimerRunKey(timerUpdateVersion, timer.endsAt);
     if (clientEndsAt <= scheduledAt) {
-      armedEndRunKeyRef.current = null;
+      // 期限後の再描画でも既に予約した終了通知は受信まで保持する。
+      // 期限切れsnapshotで初めて見たrunを後から予約することはない。
+      if (armedEndRunKeyRef.current !== runKey) {
+        armedEndRunKeyRef.current = null;
+      }
       return;
     }
 
-    const runKey = getTimerRunKey(timerUpdateVersion, timer.endsAt);
     armedEndRunKeyRef.current = runKey;
     const scheduledTimeouts = new Set<number>();
 
@@ -345,7 +376,11 @@ export function useRoomTimerSounds({
       if (dueAt <= scheduledAt) continue;
       scheduleAt(dueAt, (lateByMs) => {
         if (lateByMs > WARNING_LATE_TOLERANCE_MS) return;
-        playCueOnce(`warning:${runKey}:${seconds}`, "warning");
+        playCueOnce(
+          `warning:${runKey}:${seconds}`,
+          "warning",
+          dueAt + WARNING_LATE_TOLERANCE_MS,
+        );
       });
     }
 
@@ -369,10 +404,12 @@ export function useRoomTimerSounds({
   );
 
   const onEnable = useCallback(async () => {
+    const generation = ++playbackGenerationRef.current;
     playbackBlockedRef.current = false;
     setPlaybackBlocked(false);
     try {
       const context = await getReadyAudioContext();
+      if (generation !== playbackGenerationRef.current) return;
       createTimerSound(
         context,
         "start",
@@ -382,7 +419,7 @@ export function useRoomTimerSounds({
       setEnabledState(true);
       writeSoundPreference(true);
     } catch {
-      blockPlayback();
+      if (generation === playbackGenerationRef.current) blockPlayback();
     }
   }, [blockPlayback, getReadyAudioContext, setEnabledState]);
 

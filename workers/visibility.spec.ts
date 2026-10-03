@@ -135,7 +135,7 @@ const TABLE: Array<{
     expected: false,
   },
   {
-    name: "共有の進行役でも他者のprivate付箋は見られない",
+    name: "共有のホストでも他者のprivate付箋は見られない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
     expected: false,

@@ -329,7 +329,7 @@ it("開始後のボードURLを指定した場合は追従先を保持する", (
 describe("開始前のホスト引き継ぎ", () => {
   const members: ProtocolMember[] = [
     { userId: HOST_ID, name: "作成者", color: "yellow" },
-    { userId: MEMBER_ID, name: "次の進行役", color: "blue" },
+    { userId: MEMBER_ID, name: "Hana Sato", color: "blue" },
   ];
   it("移譲通知で旧ホストの開始操作をなくす", () => {
     const { socket } = renderStart({ initialMembers: members });
@@ -354,25 +354,19 @@ describe("開始前のホスト引き継ぎ", () => {
         hostRevision: 0,
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "ホストを引き継ぐ" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "引き継ぎ先" }), {
-      target: { value: MEMBER_ID },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Hana Sato" }));
     fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(socket.sent).toEqual([]);
-    fireEvent.click(screen.getByRole("button", { name: "ホストを引き継ぐ" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "引き継ぎ先" }), {
-      target: { value: MEMBER_ID },
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Hana Sato" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "次の進行役さんに引き継ぐ" }),
+      screen.getByRole("button", { name: "Hana Satoさんをホストにする" }),
     );
     expect(JSON.parse(socket.sent[0])).toEqual({
       type: "host:transfer",
       targetUserId: MEMBER_ID,
       expectedHostRevision: 0,
     });
-    expect(screen.getByRole("button", { name: "引き継ぎ中…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "変更中…" })).toBeDisabled();
     act(() =>
       socket.simulateServerMessage({
         type: "error",
@@ -382,7 +376,7 @@ describe("開始前のホスト引き継ぎ", () => {
     );
     expect(screen.getByRole("alert")).toHaveTextContent("相手が切断しました");
     expect(
-      screen.getByRole("button", { name: "次の進行役さんに引き継ぐ" }),
+      screen.getByRole("button", { name: "Hana Satoさんをホストにする" }),
     ).toBeEnabled();
   });
 });
@@ -418,7 +412,7 @@ it("引き継ぎ確認をキャンセルすると起点ボタンへフォーカ�
   const { socket } = renderStart({
     initialMembers: [
       { userId: HOST_ID, name: "作成者", color: "yellow" },
-      { userId: MEMBER_ID, name: "次の進行役", color: "blue" },
+      { userId: MEMBER_ID, name: "Hana Sato", color: "blue" },
     ],
   });
   act(() =>
@@ -429,7 +423,7 @@ it("引き継ぎ確認をキャンセルすると起点ボタンへフォーカ�
     }),
   );
   const trigger = screen.getByRole("button", {
-    name: "ホストを引き継ぐ",
+    name: "Hana Sato",
   });
   fireEvent.click(trigger);
   fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));

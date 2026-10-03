@@ -78,11 +78,11 @@ describe("RoomBoardHeader", () => {
       expect(within(invite).getByText("招待URL")).toHaveClass("block");
       expect(
         within(invite).getByRole("button", { name: "招待URLをコピー" }),
-      ).toHaveClass("block", "text-left");
+      ).toHaveClass("w-full", "text-left");
       expect(within(invite).getByText("招待コード")).toHaveClass("block");
       expect(
         within(invite).getByRole("button", { name: "招待コードをコピー" }),
-      ).toHaveClass("block", "text-left");
+      ).toHaveClass("w-full", "text-left");
     });
 
     it("非 host には招待情報を表示しない", () => {
@@ -231,7 +231,7 @@ describe("RoomBoardHeader", () => {
       expect(screen.getByTestId("board-context-hud")).not.toContainElement(
         shell,
       );
-      expect(screen.getByText("進行役へ")).toBeVisible();
+      expect(screen.getByText("ホストへ")).toBeVisible();
       fireEvent.click(document.body);
       expect(shell).toHaveAttribute("data-state", "compact");
       fireEvent.click(screen.getByRole("button", { name: "進め方" }));
@@ -244,7 +244,7 @@ describe("RoomBoardHeader", () => {
       expect(
         screen.getByRole("region", { name: "ファシリテーションガイド" }),
       ).toHaveTextContent("最近あった困ったこと");
-      expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
+      expect(screen.queryByText("ホストへ")).not.toBeInTheDocument();
     });
 
     it.each([
@@ -764,7 +764,7 @@ describe("U03 進行の役割", () => {
   it.each([
     true,
     false,
-  ])("HUDに進行役の案内を表示しない: isHost=%s", (isHost) => {
+  ])("HUDにホストの案内を表示しない: isHost=%s", (isHost) => {
     setup({ isHost });
     const context = screen.getByTestId("board-context-hud");
     expect(context).not.toHaveTextContent("ホスト：進行はあなたが操作");
@@ -815,4 +815,64 @@ it("発表者本人は次の人へを操作でき、開始・パス・次ステ�
   expect(
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();
+});
+
+it("招待PopoverからURLのみを共有する", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: share,
+  });
+  try {
+    setup({ isHost: true, hmwDecidedIssue: "非公開内容をpayloadへ入れない" });
+    fireEvent.click(screen.getByRole("button", { name: "招待" }));
+    expect(share).not.toHaveBeenCalled();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "招待URLを共有" }),
+    );
+    expect(share).toHaveBeenCalledExactlyOnceWith({
+      url: "https://idea-flow.example/invite/AB12CD",
+    });
+  } finally {
+    Reflect.deleteProperty(navigator, "share");
+  }
+});
+
+describe("作業中のホスト変更", () => {
+  it.each([1, 2, 3, 4, 5])("ステップ%sでも参加者一覧から相手を選ぶ", (step) => {
+    const onSelectHostTarget = vi.fn();
+    const props = setup({
+      isHost: true,
+      phase: buildPhaseStep(step),
+      onSelectHostTarget,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+    fireEvent.click(screen.getByRole("button", { name: "Taro Yamada" }));
+    expect(onSelectHostTarget).toHaveBeenCalledExactlyOnceWith(
+      props.members[1].userId,
+    );
+    expect(
+      screen.queryByRole("button", { name: "ホスト交代" }),
+    ).not.toBeInTheDocument();
+  });
+  it.each([
+    { isHost: false },
+    { outcomePublished: true },
+  ])("非ホスト・完了後は相手をホストにできない %o", (state) => {
+    setup({ isHost: true, onSelectHostTarget: vi.fn(), ...state });
+    fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+    expect(
+      screen.queryByRole("button", { name: "Taro Yamada" }),
+    ).not.toBeInTheDocument();
+  });
+  it.each([
+    { isDisconnected: true },
+    { isNextPhasePending: true },
+    { isTransferring: true },
+    { isLeaving: true },
+  ])("別処理中・切断中には選択を止める %o", (state) => {
+    setup({ isHost: true, onSelectHostTarget: vi.fn(), ...state });
+    fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+    expect(screen.getByRole("button", { name: "Taro Yamada" })).toBeDisabled();
+  });
 });

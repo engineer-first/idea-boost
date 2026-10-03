@@ -18,7 +18,7 @@ import { resetTimerState } from "./timer";
 
 const host = {
   sub: "11111111-1111-4111-8111-111111111111",
-  name: "進行役",
+  name: "Ken Mori",
   email: "host@example.test",
 };
 const guest = {
@@ -78,7 +78,7 @@ describe("一人ずつの共有", () => {
     owner.close();
     member.close();
   });
-  it("共有へ入ると進行役を先頭に発表を予約し、予告中はまだ計時しない", async () => {
+  it("共有へ入るとホストを先頭に発表を予約し、予告中はまだ計時しない", async () => {
     const { owner, member, roomId } = await setup();
     owner.ws.send(
       JSON.stringify({
@@ -165,40 +165,48 @@ describe("共有の遷移と同期", () => {
     const { owner, member, roomId, stub } = await setup();
     const ready = await prepareLegacySharing(owner, roomId);
     const before = Date.now();
-    owner.ws.send(
-      JSON.stringify({
-        type: "sharing:start",
-        revision: ready.revision,
+    const clock = vi.spyOn(Date, "now").mockReturnValue(before);
+    try {
+      owner.ws.send(
+        JSON.stringify({
+          type: "sharing:start",
+          revision: ready.revision,
+          durationMs: 180000,
+        }),
+      );
+      const pending = await sharingMessage(owner);
+      expect(pending.sharing).toMatchObject({
+        status: "active",
+        currentIndex: 0,
         durationMs: 180000,
-      }),
-    );
-    const pending = await sharingMessage(owner);
-    expect(pending.sharing).toMatchObject({
-      status: "active",
-      currentIndex: 0,
-      durationMs: 180000,
-    });
-    expect(pending.sharing.startsAt).toBeGreaterThanOrEqual(before + 2000);
-    expect(pending.timer).toEqual({ status: "idle" });
-    expect(await sharingMessage(member)).toEqual(pending);
-    await runInRoomDO(roomId, (instance) => instance.alarm());
-    expect(await stub.getTimerState()).toEqual({ status: "idle" });
-    expect((await currentSnapshot(roomId)).sharing).toEqual(pending.sharing);
-    // 実時刻でも2秒の境界を通す（アラームが自動実行されないpoolにも対応）。
-    await new Promise((resolve) => setTimeout(resolve, 2050));
-    await runInRoomDO(roomId, (instance) => instance.alarm());
-    const running = await sharingMessage(owner);
-    expect(running.timer).toMatchObject({
-      status: "running",
-      durationMs: 180000,
-    });
-    if (running.timer.status !== "running")
-      throw new Error("計時が開始していない");
-    expect(running.timer.endsAt - running.serverNow).toBeGreaterThan(179900);
-    expect(running.sharing.startsAt).toBeNull();
-    expect(await sharingMessage(member)).toEqual(running);
-    owner.close();
-    member.close();
+      });
+      expect(pending.sharing.startsAt).toBe(before + 2000);
+      clock.mockReturnValue(before + 1999);
+      expect(pending.timer).toEqual({ status: "idle" });
+      expect(await sharingMessage(member)).toEqual(pending);
+      await runInRoomDO(roomId, (instance) => instance.alarm());
+      expect(await stub.getTimerState()).toEqual({ status: "idle" });
+      expect((await currentSnapshot(roomId)).sharing).toEqual(pending.sharing);
+      // 実際のAlarm経路で、予告期限ちょうどに持ち時間が始まることを検証する。
+      clock.mockReturnValue(before + 2000);
+      await runInRoomDO(roomId, (instance) => instance.alarm());
+      const running = await sharingMessage(owner);
+      expect(running.timer).toMatchObject({
+        status: "running",
+        durationMs: 180000,
+      });
+      if (running.timer.status !== "running")
+        throw new Error("計時が開始していない");
+      expect(running.serverNow).toBe(before + 2000);
+      expect(running.timer.endsAt).toBe(before + 2000 + 180000);
+      expect(running.timer.endsAt - running.serverNow).toBe(180000);
+      expect(running.sharing.startsAt).toBeNull();
+      expect(await sharingMessage(member)).toEqual(running);
+    } finally {
+      clock.mockRestore();
+      owner.close();
+      member.close();
+    }
   });
 
   it.each([
@@ -443,7 +451,7 @@ it("更新前から共有ステップにいるルームも接続時に順番を�
 it("発表者以外も自分の付箋を共有でき、交代では他者の下書きを公開しない", async () => {
   const { owner, member, roomId } = await setup();
   owner.ws.send(
-    JSON.stringify({ type: "note:create", content: "進行役だけの下書き" }),
+    JSON.stringify({ type: "note:create", content: "ホストだけの下書き" }),
   );
   await until(owner, "note:inserted");
   member.ws.send(
@@ -471,11 +479,11 @@ it("発表者以外も自分の付箋を共有でき、交代では他者の下�
   expect(snapshot).toMatchObject({
     notes: [expect.objectContaining({ id: noteId, visibility: "shared" })],
   });
-  expect(JSON.stringify(snapshot)).not.toContain("進行役だけの下書き");
+  expect(JSON.stringify(snapshot)).not.toContain("ホストだけの下書き");
   expect((await currentSnapshot(roomId)).notes).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        content: "進行役だけの下書き",
+        content: "ホストだけの下書き",
         visibility: "private",
       }),
     ]),

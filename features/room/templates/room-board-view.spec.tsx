@@ -2486,3 +2486,72 @@ describe("付箋上の投票結果", () => {
     expect(props.onNoteDecide).toHaveBeenCalledOnce();
   });
 });
+
+describe("ホスト世代をまたぐ古い操作を破棄する", () => {
+  it("往復移譲で古い再投票確認を閉じ、前回の票を消さない", () => {
+    const onRevote = vi.fn();
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      hostRevision: 0,
+      onRevote,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "もう一度投票する" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    rerender(<TestBoardView {...props} hostRevision={2} />);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(onRevote).not.toHaveBeenCalled();
+  });
+  it("同一描画内の往復移譲でも古い採用選択をやめる", () => {
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      hostRevision: 0,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    expect(
+      screen.getByRole("button", { name: "選択をキャンセル" }),
+    ).toBeInTheDocument();
+    rerender(<TestBoardView {...props} hostRevision={2} />);
+    expect(
+      screen.queryByRole("button", { name: "選択をキャンセル" }),
+    ).not.toBeInTheDocument();
+    expect(props.onNoteDecide).not.toHaveBeenCalled();
+  });
+  it("ホスト変更送信中は再投票・採用を開始しない", () => {
+    setup({ phase: buildPhaseStep(5), isHost: true, isTransferring: true });
+    expect(
+      screen.getByRole("button", { name: "もう一度投票する" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+    ).toBeDisabled();
+  });
+});
+
+it("ホスト変更で採用hoverを破棄するとき旧権限の解除要求を送らない", () => {
+  const oldFocus = vi.fn();
+  const newFocus = vi.fn();
+  const { props, rerender } = setup({
+    phase: buildPhaseStep(5),
+    isHost: true,
+    hostRevision: 0,
+    notes: [buildNote({ id: "note-1", content: "候補" })],
+    onAdoptionFocusChange: oldFocus,
+  });
+  fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+  fireEvent.pointerEnter(
+    screen.getByRole("button", { name: /採用する付箋: 候補/ }),
+  );
+  expect(oldFocus).toHaveBeenLastCalledWith("note-1");
+  oldFocus.mockClear();
+  rerender(
+    <TestBoardView
+      {...props}
+      hostRevision={2}
+      onAdoptionFocusChange={newFocus}
+    />,
+  );
+  expect(oldFocus).not.toHaveBeenCalled();
+  expect(newFocus).not.toHaveBeenCalled();
+});

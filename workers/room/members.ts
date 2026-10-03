@@ -159,3 +159,15 @@ export function getHostState(sql: SqlStorage): HostState {
     hostRevision: Number(row.host_revision),
   };
 }
+
+// 開始後の移譲も含め、同じ人へ戻るABAをホスト世代で区別する。
+export function isCurrentHost(
+  sql: SqlStorage,
+  userId: string,
+  expectedHostRevision = 0,
+): boolean {
+  const host = getHostState(sql);
+  return (
+    host.hostUserId === userId && host.hostRevision === expectedHostRevision
+  );
+}

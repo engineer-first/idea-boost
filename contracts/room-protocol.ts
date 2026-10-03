@@ -263,6 +263,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("sharing:start"),
+      expectedHostRevision: z.number().int().nonnegative().optional(),
       revision: z.string().uuid(),
       durationMs: z.number().int().min(1).max(TIMER_MAX_DURATION_MS),
     })
@@ -270,6 +271,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("sharing:advance"),
+      expectedHostRevision: z.number().int().nonnegative().optional(),
       revision: z.string().uuid(),
       outcome: z.enum(["done", "passed"]),
     })
@@ -362,11 +364,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("note:exclude"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid(),
     operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:restore"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid(),
     operationId: OptimisticOperationIdSchema.optional(),
     expectedExclusionOperationId: z.string().uuid().optional(),
@@ -375,10 +379,12 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // note ID 群を送らない。
   z.object({
     type: z.literal("note:bulk-exclude"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:bulk-restore"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     operationId: BulkExclusionOperationIdSchema,
   }),
   z.object({
@@ -442,17 +448,26 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("note:decide"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid(),
   }),
   // 最終案の採用とは別に、ホストが成果画面を全員へ公開する。
-  z.object({ type: z.literal("outcome:publish") }),
+  z.object({
+    type: z.literal("outcome:publish"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
+  }),
   // 画面で確認した決定だけを取り消す。古いタブの要求で別の決定を消さない。
   // フェーズと権限は送らせず、RoomDO の現在状態から検証する。
-  z.object({ type: z.literal("decision:clear"), noteId: z.string().uuid() }),
+  z.object({
+    type: z.literal("decision:clear"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
+    noteId: z.string().uuid(),
+  }),
   // 採用選択モード中にホストが現在検討している候補。userId / phase は
   // 認証済みソケットと RoomDO の権威状態から導出する。
   z.object({
     type: z.literal("adoption-focus:update"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid().nullable(),
   }),
   // ロビーから課題整理 Step 1-1 へ。ホストのみ。
@@ -463,6 +478,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("host:transfer"),
+      operationId: OptimisticOperationIdSchema.optional(),
       targetUserId: HostUserIdSchema,
       expectedHostRevision: z.number().int().nonnegative(),
     })
@@ -473,37 +489,90 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // force を送っても効果はない。
   z.object({
     type: z.literal("phase:next"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     expectedPhase: RoomPhaseSchema,
     expectedRevision: z.number().int().nonnegative(),
     force: z.boolean().optional(),
   }),
   z.object({
     type: z.literal("phase:restart-writing"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     expectedPhase: RoomPhaseSchema,
     expectedRevision: z.number().int().nonnegative(),
   }),
   z.object({
     type: z.literal("phase:revote"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     expectedPhase: RoomPhaseSchema,
     expectedRevision: z.number().int().nonnegative(),
   }),
   z
     .object({
       type: z.literal("idea-map:resize"),
+      expectedHostRevision: z.number().int().nonnegative().optional(),
       sizeLevel: IdeaMapSizeLevelSchema,
     })
     .strict(),
   z.object({
     type: z.literal("timer:start"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
     durationMs: z.number().int().min(1).max(TIMER_MAX_DURATION_MS),
   }),
-  z.object({ type: z.literal("timer:pause") }),
-  z.object({ type: z.literal("timer:resume") }),
-  z.object({ type: z.literal("timer:extend") }),
-  z.object({ type: z.literal("timer:stop") }),
+  z.object({
+    type: z.literal("timer:pause"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
+  }),
+  z.object({
+    type: z.literal("timer:resume"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
+  }),
+  z.object({
+    type: z.literal("timer:extend"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
+  }),
+  z.object({
+    type: z.literal("timer:stop"),
+    expectedHostRevision: z.number().int().nonnegative().optional(),
+  }),
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
+
+// ホスト権限で送る操作の世代。省略は移譲導入前の世代0との互換用。
+export const HOST_REVISION_MESSAGE_TYPES = [
+  "start_phase",
+  "host:transfer",
+  "sharing:start",
+  "sharing:advance",
+  "note:exclude",
+  "note:restore",
+  "note:bulk-exclude",
+  "note:bulk-restore",
+  "note:decide",
+  "outcome:publish",
+  "decision:clear",
+  "adoption-focus:update",
+  "phase:next",
+  "phase:restart-writing",
+  "phase:revote",
+  "idea-map:resize",
+  "timer:start",
+  "timer:pause",
+  "timer:resume",
+  "timer:extend",
+  "timer:stop",
+] as const satisfies readonly ClientMessage["type"][];
+
+export function needsHostRevision(
+  message: ClientMessage,
+): message is Extract<
+  ClientMessage,
+  { type: (typeof HOST_REVISION_MESSAGE_TYPES)[number] }
+> {
+  return (HOST_REVISION_MESSAGE_TYPES as readonly string[]).includes(
+    message.type,
+  );
+}
 
 // ---------------------------------------------------------------
 // サーバー → クライアント
@@ -528,6 +597,7 @@ export type PendingPhaseTransition = z.infer<
 export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("host:updated"),
+    operationId: OptimisticOperationIdSchema.optional(),
     hostUserId: HostUserIdSchema,
     hostRevision: z.number().int().nonnegative(),
   }),

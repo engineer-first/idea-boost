@@ -2809,3 +2809,130 @@ describe("候補Undoの結果工程内の寿命", () => {
     );
   });
 });
+
+describe("作業中のホスト交代", () => {
+  function connectTransferBoard(hostUserId = USER_ID) {
+    const result = connectWithSnapshot();
+    act(() =>
+      result.socket.simulateServerMessage({
+        type: "snapshot",
+        phaseRevision: 0,
+        notes: [],
+        members: [
+          { userId: USER_ID, name: "Yuki Tanaka", color: "yellow" },
+          { userId: OTHER_USER_ID, name: "Hana Sato", color: "blue" },
+        ],
+        phase: buildPhaseStep(1),
+        isHost: hostUserId === USER_ID,
+        hostUserId,
+        hostRevision: 0,
+        decision: null,
+        outcomePublished: false,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+    return result;
+  }
+  it("新ホストは再読込せず現在世代で進行できる", () => {
+    const { socket } = connectTransferBoard(OTHER_USER_ID);
+    expect(
+      screen.queryByRole("button", { name: "次のステップへ" }),
+    ).not.toBeInTheDocument();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: USER_ID,
+        hostRevision: 1,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
+    expectSent(socket, { type: "phase:next", expectedHostRevision: 1 });
+  });
+  it("古い解散確認は往復移譲後に残らない", () => {
+    const { socket } = connectTransferBoard();
+    fireEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "ルームを解散" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    act(() => {
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: OTHER_USER_ID,
+        hostRevision: 1,
+      });
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: USER_ID,
+        hostRevision: 2,
+      });
+    });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+  it("相手名の確認後に改訂付きで送り、確定すると旧ホストの操作を消す", () => {
+    const { socket } = connectTransferBoard();
+    fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hana Sato" }));
+    expect(
+      socket.sent
+        .map((raw) => JSON.parse(raw))
+        .filter((message) => message.type === "host:transfer"),
+    ).toHaveLength(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Hana Satoさんをホストにする" }),
+    );
+    expect(
+      socket.sent
+        .map((raw) => JSON.parse(raw))
+        .filter((message) => message.type === "host:transfer"),
+    ).toEqual([
+      expect.objectContaining({
+        targetUserId: OTHER_USER_ID,
+        expectedHostRevision: 0,
+      }),
+    ]);
+    expect(screen.getByRole("button", { name: "変更中…" })).toBeDisabled();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: OTHER_USER_ID,
+        hostRevision: 1,
+      }),
+    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Hana Sato" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "次のステップへ" }),
+    ).not.toBeInTheDocument();
+  });
+  it("同じ描画前の往復移譲で古い確認を破棄し、盤面を維持する", () => {
+    const { socket } = connectTransferBoard();
+    fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hana Sato" }));
+    act(() => {
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: OTHER_USER_ID,
+        hostRevision: 1,
+      });
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: USER_ID,
+        hostRevision: 2,
+      });
+    });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("room-board-view-root")).toBeInTheDocument();
+    expect(
+      socket.sent
+        .map((raw) => JSON.parse(raw))
+        .filter((message) => message.type === "host:transfer"),
+    ).toHaveLength(0);
+  });
+});

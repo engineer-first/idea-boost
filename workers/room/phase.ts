@@ -16,6 +16,7 @@ import {
 } from "../../contracts/phase";
 import type { ClientMessage } from "../../contracts/room-protocol";
 import { syncRoomAlarm } from "./alarms";
+import { isRoomClosed } from "./completed-rooms";
 import { getDecision } from "./decisions";
 import { clearUsedNoteDragIds } from "./drag-operations";
 import {
@@ -23,7 +24,7 @@ import {
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
-import { getHostState, isHostUser, isMember } from "./members";
+import { getHostState, isCurrentHost, isHostUser, isMember } from "./members";
 import {
   excludeNotesForBulkOperation,
   hasCandidateNotes,
@@ -92,6 +93,7 @@ async function deferEditableTransition(
     expectedPhase: RoomPhase;
     expectedRevision: number;
     force?: boolean;
+    expectedHostRevision?: number;
   },
 ): Promise<boolean> {
   const current = getPhase(ctx.sql);
@@ -115,7 +117,16 @@ async function deferEditableTransition(
   }
   const deadlineAt = Date.now() + 2_000;
   const transitionId = crypto.randomUUID();
+  let reserved = false;
   await ctx.storage.transaction(async () => {
+    if (
+      !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
+      isRoomClosed(ctx.sql) ||
+      !matchesExpectedPhase(ctx, message)
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
     ctx.sql.exec(
       "INSERT INTO pending_phase_transition (id, transition_id, requested_by, action, expected_phase, expected_revision, force, deadline_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
       transitionId,
@@ -127,7 +138,9 @@ async function deferEditableTransition(
       deadlineAt,
     );
     await syncRoomAlarm(ctx.storage, ctx.sql);
+    reserved = true;
   });
+  if (!reserved) return true;
   ctx.broadcaster.broadcastToAll({
     type: "phase:save-requested",
     transitionId,
@@ -156,12 +169,15 @@ export async function completeExpiredPhaseTransition(
     ctx.refreshSnapshots();
     return;
   }
+  // host:transferはこの予約がある間拒否されるため、予約中にホスト世代は変わらない。
+  // 通常WSと同じ世代ガードを通し、新ホストが作った予約も正しく実行する。
   const deferredCtx = { ...ctx, userId: row.requested_by, reply: () => {} };
   if (row.action === "next") {
     await phaseHandlers["phase:next"](deferredCtx, {
       type: "phase:next",
       expectedPhase,
       expectedRevision: row.expected_revision,
+      expectedHostRevision: getHostState(ctx.sql).hostRevision,
       force: Boolean(row.force),
     });
   } else {
@@ -169,6 +185,7 @@ export async function completeExpiredPhaseTransition(
       type: "phase:restart-writing",
       expectedPhase,
       expectedRevision: row.expected_revision,
+      expectedHostRevision: getHostState(ctx.sql).hostRevision,
     });
   }
   if (getPendingRow(ctx.sql)?.transition_id === row.transition_id) {
@@ -527,7 +544,7 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
-    if (!isHostUser(ctx.sql, ctx.userId)) {
+    if (!isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision)) {
       ctx.reply({
         type: "error",
         code: "forbidden",
@@ -557,7 +574,7 @@ export const phaseHandlers: MessageHandlers<
 
   // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
   "phase:next": async (ctx, message) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
+    if (!isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision)) {
       ctx.reply({
         type: "error",
         code: "forbidden",
@@ -658,7 +675,16 @@ export const phaseHandlers: MessageHandlers<
       | undefined;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
+    let committed = false;
     await ctx.storage.transaction(async () => {
+      if (
+        !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
+        isRoomClosed(ctx.sql) ||
+        !matchesExpectedPhase(ctx, message)
+      ) {
+        replyForbidden(ctx);
+        return;
+      }
       recordProgressTransition(ctx.sql, current, next, "next");
       if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);
@@ -704,7 +730,9 @@ export const phaseHandlers: MessageHandlers<
       }
       timerWasReset = resetTimerState(ctx.sql);
       await syncRoomAlarm(ctx.storage, ctx.sql);
+      committed = true;
     });
+    if (!committed) return;
     ctx.broadcaster.retireAllActiveDrags();
     if (ctx.broadcaster.retireAllAdoptionFocus()) {
       ctx.broadcaster.broadcastToAll({
@@ -755,7 +783,7 @@ async function restartPhase(
 ): Promise<void> {
   const current = getPhase(ctx.sql);
   if (
-    !isHostUser(ctx.sql, ctx.userId) ||
+    !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
     !matchesExpectedPhase(ctx, message) ||
     current.kind !== "step" ||
     getDecision(ctx.sql, current.phase) ||
@@ -775,6 +803,14 @@ async function restartPhase(
     (await deferEditableTransition(ctx, "restart-writing", message))
   )
     return;
+  if (
+    !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
+    isRoomClosed(ctx.sql) ||
+    !matchesExpectedPhase(ctx, message)
+  ) {
+    replyForbidden(ctx);
+    return;
+  }
   ctx.storage.transactionSync(() => {
     recordProgressTransition(
       ctx.sql,

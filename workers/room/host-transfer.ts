@@ -1,8 +1,9 @@
+import { isRoomClosed } from "./completed-rooms";
 import type { MessageHandlers } from "./handler-context";
 import { getHostState, isMember } from "./members";
-import { getPhase } from "./phase";
+import { getPendingPhaseTransition } from "./phase";
 
-// 開始前だけの一操作。認可/対象/改訂確認と更新の間にawaitを置かない。
+// 認可・対象・改訂確認と更新の間にawaitを置かない。進行状態には触れない。
 export const hostHandlers: MessageHandlers<"host:transfer"> = {
   "host:transfer": (ctx, message) => {
     const accepted = ctx.storage.transactionSync(() => {
@@ -10,7 +11,8 @@ export const hostHandlers: MessageHandlers<"host:transfer"> = {
       if (
         host.hostUserId !== ctx.userId ||
         host.hostRevision !== message.expectedHostRevision ||
-        getPhase(ctx.sql).kind !== "lobby" ||
+        isRoomClosed(ctx.sql) ||
+        getPendingPhaseTransition(ctx.sql) !== null ||
         message.targetUserId === ctx.userId ||
         !isMember(ctx.sql, message.targetUserId) ||
         !ctx.broadcaster.isConnected(message.targetUserId)
@@ -27,7 +29,7 @@ export const hostHandlers: MessageHandlers<"host:transfer"> = {
         type: "error",
         code: "forbidden",
         message:
-          "引き継げませんでした。開始前に、接続中の別メンバーを選び直してください。",
+          "引き継げませんでした。進行処理が終わってから、接続中の別メンバーを選び直してください。",
       });
       return;
     }
@@ -35,6 +37,12 @@ export const hostHandlers: MessageHandlers<"host:transfer"> = {
       type: "host:updated",
       hostUserId: message.targetUserId,
       hostRevision: getHostState(ctx.sql).hostRevision,
+      ...(message.operationId ? { operationId: message.operationId } : {}),
     });
+    if (ctx.broadcaster.retireAllAdoptionFocus())
+      ctx.broadcaster.broadcastToAll({
+        type: "adoption-focus:updated",
+        noteId: null,
+      });
   },
 };

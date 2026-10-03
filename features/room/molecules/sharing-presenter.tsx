@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -8,22 +8,34 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { SharingState } from "@/contracts/room-protocol";
-import { MemberAvatar } from "@/features/room-members";
+import type { ProtocolMember, SharingState } from "@/contracts/room-protocol";
+import { MemberAvatar, MemberSelection } from "@/features/room-members";
 
 export type SharingPresenterProps = {
   sharing: SharingState;
   hostUserId: string;
+  currentUserId?: string;
+  onSelectHostTarget?: (userId: string) => void;
+  selectionDisabled?: boolean;
+  members?: ProtocolMember[];
 };
 
 export function SharingPresenter({
   sharing,
   hostUserId,
+  currentUserId,
+  onSelectHostTarget,
+  selectionDisabled = false,
+  members = sharing.order,
 }: SharingPresenterProps) {
   const descriptionId = useId();
+  const [open, setOpen] = useState(false);
   const current = sharing.order[sharing.currentIndex ?? sharing.results.length];
+  const otherMembers = members.filter(
+    (member) => !sharing.order.some((entry) => entry.userId === member.userId),
+  );
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -51,7 +63,11 @@ export function SharingPresenter({
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80" aria-label="共有する順番">
+      <PopoverContent
+        align="end"
+        className="w-80 max-h-[calc(100dvh-2rem)] overflow-y-auto"
+        aria-label="共有する順番"
+      >
         <p className="text-sm font-semibold">共有する順番</p>
         <p className="mb-3 mt-1 text-xs text-muted-foreground">
           課題・問い・アイデアを同じ順番で共有します。
@@ -59,25 +75,78 @@ export function SharingPresenter({
         <ol className="max-h-72 space-y-3 overflow-y-auto">
           {sharing.order.map((member, index) => (
             <li key={member.userId} className="flex items-center gap-2 text-xs">
-              <MemberAvatar name={member.name} color={member.color} size={28} />
-              <span className="min-w-0 flex-1 break-words">
-                {index + 1}. {member.name}
-                {member.userId === hostUserId && (
-                  <span className="block text-muted-foreground">進行役</span>
-                )}
-              </span>
-              <span className="shrink-0">
-                {sharing.results[index] === "passed"
-                  ? "今回はパス"
-                  : sharing.results[index] === "done"
-                    ? "発表済み"
-                    : index === sharing.currentIndex
-                      ? "発表中"
-                      : "これから"}
-              </span>
+              <MemberSelection
+                name={member.name}
+                className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
+                disabled={selectionDisabled}
+                onSelect={
+                  onSelectHostTarget &&
+                  member.userId !== currentUserId &&
+                  members.some((entry) => entry.userId === member.userId)
+                    ? () => {
+                        setOpen(false);
+                        onSelectHostTarget(member.userId);
+                      }
+                    : undefined
+                }
+              >
+                <MemberAvatar
+                  name={member.name}
+                  color={member.color}
+                  size={28}
+                />
+                <span className="min-w-0 flex-1 break-words">
+                  {index + 1}. {member.name}
+                  {member.userId === hostUserId && (
+                    <span className="block text-muted-foreground">ホスト</span>
+                  )}
+                </span>
+                <span className="shrink-0">
+                  {sharing.results[index] === "passed"
+                    ? "今回はパス"
+                    : sharing.results[index] === "done"
+                      ? "発表済み"
+                      : index === sharing.currentIndex
+                        ? "発表中"
+                        : "これから"}
+                </span>
+              </MemberSelection>
             </li>
           ))}
         </ol>
+        {otherMembers.length > 0 ? (
+          <div className="mt-3 border-t border-border pt-3">
+            <p className="mb-1 text-xs text-muted-foreground">ほかの参加者</p>
+            {otherMembers.map((member) => (
+              <MemberSelection
+                key={member.userId}
+                name={member.name}
+                className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
+                disabled={selectionDisabled}
+                onSelect={
+                  onSelectHostTarget && member.userId !== currentUserId
+                    ? () => {
+                        setOpen(false);
+                        onSelectHostTarget(member.userId);
+                      }
+                    : undefined
+                }
+              >
+                <MemberAvatar
+                  name={member.name}
+                  color={member.color}
+                  size={28}
+                />
+                <span className="min-w-0 break-words text-sm">
+                  {member.name}
+                </span>
+                {member.userId === hostUserId ? (
+                  <span className="text-xs text-muted-foreground">ホスト</span>
+                ) : null}
+              </MemberSelection>
+            ))}
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

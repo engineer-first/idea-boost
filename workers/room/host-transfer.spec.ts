@@ -15,7 +15,7 @@ function next(ws: WebSocket): Promise<Record<string, unknown>> {
 async function setup() {
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(crypto.randomUUID()));
   await stub.initializeNewRoom(A, "作成者");
-  await stub.upsertMember(B, "次のホスト");
+  await stub.upsertMember(B, "Hana Sato");
   await stub.upsertMember(C, "一般参加者");
   async function connect(user: string) {
     const res = await stub.fetch("https://do/ws", {
@@ -121,14 +121,15 @@ describe("開始前ホスト移譲", () => {
     a.close();
     b.close();
   });
-  it("開始が先なら移譲を拒否する", async () => {
+  it("開始が先でも進行中の移譲を受理する", async () => {
     const { a, b } = await setup();
     const start = next(a);
     a.send(JSON.stringify({ type: "start_phase" }));
     await start;
     expect(await transfer(a)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "host:updated",
+      hostUserId: B,
+      hostRevision: 1,
     });
     a.close();
     b.close();

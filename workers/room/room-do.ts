@@ -29,6 +29,7 @@ import {
 } from "../../contracts/phase";
 import {
   type ClientMessage,
+  needsHostRevision,
   type ProtocolMember,
   parseClientMessage,
   type TimerState,
@@ -138,6 +139,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
 
 function optimisticOperationIdOf(message: ClientMessage): string | undefined {
   switch (message.type) {
+    case "host:transfer":
     case "note:exclude":
     case "note:restore":
     case "note:bulk-exclude":
@@ -702,6 +704,30 @@ export class RoomDO extends DurableObject {
         type: "error",
         code: "forbidden",
         message: "完了したルームは変更できません。",
+      });
+      return;
+    }
+    // 世代を持たない旧クライアントは初代ホストの期間のみ互換受理する。
+    // 発表者本人の完了はホストとは別の権限で、現在ターンのrevisionで検証する。
+    const sharing = getSharingState(this.sql);
+    const presenterDone =
+      message.type === "sharing:advance" &&
+      message.outcome === "done" &&
+      sharing?.status === "active" &&
+      sharing.currentIndex !== null &&
+      sharing.order[sharing.currentIndex]?.userId === attachment.userId;
+    if (
+      needsHostRevision(message) &&
+      message.type !== "host:transfer" &&
+      !presenterDone &&
+      (message.expectedHostRevision ?? 0) !==
+        getHostState(this.sql).hostRevision
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message:
+          "ホストが変更されています。現在の状態を確認して操作し直してください。",
       });
       return;
     }

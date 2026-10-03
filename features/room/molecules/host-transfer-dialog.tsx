@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,11 +15,11 @@ import type { Member } from "../logic/room-reducer";
 export type HostTransferDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  members: Member[];
-  currentUserId: string;
+  target: Member | null;
   onConfirm: (targetUserId: string) => void;
   pending: boolean;
   disconnected: boolean;
+  blocked?: boolean;
   error: string | null;
   onClosed?: () => void;
 };
@@ -28,19 +27,14 @@ export type HostTransferDialogProps = {
 export function HostTransferDialog({
   open,
   onOpenChange,
-  members,
-  currentUserId,
+  target,
   onConfirm,
   pending,
   disconnected,
+  blocked = false,
   error,
   onClosed,
 }: HostTransferDialogProps) {
-  const [targetId, setTargetId] = useState("");
-  const candidates = members.filter(
-    (member) => member.userId !== currentUserId,
-  );
-  const target = candidates.find((member) => member.userId === targetId);
   return (
     <AlertDialog
       open={open}
@@ -57,35 +51,29 @@ export function HostTransferDialog({
         }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>ホストを引き継ぎますか？</AlertDialogTitle>
+          <AlertDialogTitle>このユーザーをホストにしますか？</AlertDialogTitle>
+          {target ? (
+            <p className="break-all text-base font-semibold">
+              {target.name || "名前未設定"}
+            </p>
+          ) : null}
           <AlertDialogDescription>
-            開始・進行・解散の操作を相手に引き継ぎます。開始前なら、新しいホストから再び引き継げます。接続中の相手を選んでください。
+            開始・進行・解散の操作を渡します。作業内容はそのままです。
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <label className="grid gap-2 text-sm font-medium">
-          引き継ぎ先
-          <select
-            value={target ? targetId : ""}
-            onChange={(event) => setTargetId(event.target.value)}
-            disabled={pending || disconnected}
-            className="h-11 w-full rounded-md border border-input bg-background px-3 text-foreground"
-          >
-            <option value="">メンバーを選択</option>
-            {candidates.map((member) => (
-              <option key={member.userId} value={member.userId}>
-                {member.name || "名前未設定"}
-              </option>
-            ))}
-          </select>
-        </label>
-        {candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            ほかのメンバーが参加すると引き継げます。
+        {!target ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            このユーザーは退出しました。参加者を選び直してください。
           </p>
         ) : null}
         {disconnected ? (
           <p role="status" className="text-sm text-muted-foreground">
             再接続してから操作してください。
+          </p>
+        ) : null}
+        {blocked ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            進行中の操作が終わってから操作してください。
           </p>
         ) : null}
         {error ? (
@@ -96,17 +84,18 @@ export function HostTransferDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>キャンセル</AlertDialogCancel>
           <AlertDialogAction
-            disabled={!target || pending || disconnected}
+            className="h-auto min-h-11 whitespace-normal break-all"
+            disabled={!target || pending || disconnected || blocked}
             onClick={(event) => {
               event.preventDefault();
               if (target) onConfirm(target.userId);
             }}
           >
             {pending
-              ? "引き継ぎ中…"
+              ? "変更中…"
               : target
-                ? `${target.name || "名前未設定"}さんに引き継ぐ`
-                : "引き継ぐ"}
+                ? `${target.name || "名前未設定"}さんをホストにする`
+                : "ホストにする"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

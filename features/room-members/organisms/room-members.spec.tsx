@@ -3,7 +3,7 @@
 // 省略表示・名前常時表示・a11y 属性を検証する。
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildMembers } from "@/contracts/room-protocol.fixture";
 import { NOTE_COLOR_STYLES } from "../logic/note-color";
 import { ROOM_MEMBERS_MAX_VISIBLE, RoomMembers } from "./room-members";
@@ -215,4 +215,47 @@ describe("RoomMembers", () => {
     const group = screen.getByRole("group", { name: "参加者" });
     expect(within(group).getAllByTestId("avatar")).toHaveLength(1);
   });
+});
+
+it("選択操作を渡したときだけ自分以外の参加者をタップして選べる", async () => {
+  const members = buildMembers(3, ME);
+  const onSelectMember = vi.fn();
+  render(
+    <RoomMembers
+      members={members}
+      currentUserId={ME}
+      onSelectMember={onSelectMember}
+    />,
+  );
+  expect(
+    screen.queryByRole("button", { name: "Yuki Tanaka" }),
+  ).not.toBeInTheDocument();
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Taro Yamada" }));
+  expect(onSelectMember).toHaveBeenCalledExactlyOnceWith(members[1].userId);
+});
+
+it("省略された参加者への移譲もホストラベルを更新する", async () => {
+  const members = buildMembers(14, ME);
+  const target = members[13];
+  const { rerender } = render(
+    <RoomMembers members={members} currentUserId={ME} hostUserId={ME} />,
+  );
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "他 3 名" }));
+  rerender(
+    <RoomMembers
+      members={members}
+      currentUserId={ME}
+      hostUserId={target.userId}
+    />,
+  );
+  expect(
+    screen.getByTestId(`member-host-label-${target.userId}`),
+  ).toHaveTextContent("ホスト");
+  expect(
+    screen.queryByTestId(`member-host-label-${ME}`),
+  ).not.toBeInTheDocument();
 });

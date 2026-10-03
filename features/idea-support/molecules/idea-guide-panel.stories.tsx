@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import { IdeaGuidePanel } from "./idea-guide-panel";
 
 const meta = {
   title: "IdeaSupport/IdeaGuidePanel",
   component: IdeaGuidePanel,
+  parameters: { chromatic: { viewports: [390, 1280] } },
   args: {
     onHintSelect: fn(),
   },
@@ -17,4 +18,12 @@ export const Default: Story = {};
 
 export const Disabled: Story = {
   args: { disabled: true },
+};
+
+export const MoreExamples: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "ほかの考え方を見る" }),
+    );
+  },
 };

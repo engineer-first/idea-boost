@@ -16,7 +16,7 @@ import { isLobby, type RoomPhase } from "@/contracts/phase";
 // スタート画面（メンバー一覧 + 開始ボタン）のプレゼンテーション層。
 // ホーム画面と同じ shadcn ベースのレイアウト言語（背景・ヘッダー・Card 分割）。
 // WebSocket 接続やプロトコル送信は room-lobby.tsx（コンテナ）の責務。
-import { CopyInviteButton } from "@/features/invite";
+import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
 import { RoomMembers } from "@/features/room-members";
 import {
   CONNECTION_STATUS_LABELS,
@@ -67,13 +67,16 @@ export function RoomLobbyView({
   transferError = null,
 }: RoomLobbyViewProps) {
   const isDisconnected = connectionStatus !== "open";
+  const lobbyRef = useRef<HTMLDivElement>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
-  const transferTriggerRef = useRef<HTMLButtonElement>(null);
+  const [hostTargetId, setHostTargetId] = useState<string | null>(null);
+  const transferTriggerRef = useRef<HTMLElement | null>(null);
   const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
 
   return (
     <div
+      ref={lobbyRef}
+      tabIndex={-1}
       className="relative flex h-full min-h-0 flex-1 flex-col items-center overflow-x-hidden overflow-y-auto p-4 sm:p-6"
       data-testid="room-lobby-view"
       data-phase={
@@ -156,38 +159,53 @@ export function RoomLobbyView({
                 members={members}
                 currentUserId={currentUserId}
                 hostUserId={hostUserId}
+                selectionDisabled={
+                  isDisconnected || isStarting || isTransferring || isLeaving
+                }
+                onSelectMember={
+                  isHost && isLobby(phase) && onTransferHost
+                    ? (userId) => {
+                        transferTriggerRef.current =
+                          document.activeElement instanceof HTMLElement
+                            ? document.activeElement
+                            : null;
+                        setHostTargetId(userId);
+                      }
+                    : undefined
+                }
               />
-              {isHost && isLobby(phase) && onTransferHost ? (
-                <>
-                  <Button
-                    ref={transferTriggerRef}
-                    variant="outline"
-                    className="mt-4"
-                    disabled={
-                      isDisconnected ||
-                      isStarting ||
-                      isTransferring ||
-                      isLeaving ||
-                      members.length < 2
+              {isHost &&
+              isLobby(phase) &&
+              onTransferHost &&
+              hostTargetId !== null ? (
+                <HostTransferDialog
+                  open
+                  onOpenChange={(open) => {
+                    if (!open) setHostTargetId(null);
+                  }}
+                  target={
+                    members.find((member) => member.userId === hostTargetId) ??
+                    null
+                  }
+                  onConfirm={onTransferHost}
+                  pending={isTransferring}
+                  disconnected={isDisconnected}
+                  error={transferError}
+                  onClosed={() => {
+                    if (transferTriggerRef.current?.isConnected)
+                      transferTriggerRef.current.focus();
+                    else {
+                      const fallback =
+                        lobbyRef.current?.querySelector<HTMLButtonElement>(
+                          '[data-testid="room-members-overflow"]',
+                        ) ??
+                        lobbyRef.current?.querySelector<HTMLButtonElement>(
+                          '[data-testid="room-members"] button',
+                        );
+                      (fallback ?? lobbyRef.current)?.focus();
                     }
-                    onClick={() => setTransferDialogOpen(true)}
-                  >
-                    ホストを引き継ぐ
-                  </Button>
-                  {transferDialogOpen ? (
-                    <HostTransferDialog
-                      open
-                      onOpenChange={setTransferDialogOpen}
-                      members={members}
-                      currentUserId={currentUserId}
-                      onConfirm={onTransferHost}
-                      pending={isTransferring}
-                      disconnected={isDisconnected}
-                      error={transferError}
-                      onClosed={() => transferTriggerRef.current?.focus()}
-                    />
-                  ) : null}
-                </>
+                  }}
+                />
               ) : null}
             </CardContent>
             <CardFooter className="justify-center border-t border-border/60 pt-4">
@@ -212,21 +230,14 @@ export function RoomLobbyView({
                 </div>
                 <div className="space-y-1.5">
                   <CardTitle className="text-base">メンバーを招待</CardTitle>
-                  <CardDescription className="leading-relaxed">
-                    URL またはコードを共有して参加を促します。クリックでコピー。
-                  </CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col justify-center gap-5">
-                <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 px-3 py-3">
+                <div className="flex min-w-0 flex-col items-start gap-1.5">
                   <span className="text-xs text-muted-foreground">招待URL</span>
-                  <CopyInviteButton
-                    value={inviteUrl}
-                    itemLabel="招待URL"
-                    className="max-w-full"
-                  />
+                  <InviteUrlActions value={inviteUrl} />
                 </div>
-                <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 px-3 py-3">
+                <div className="flex min-w-0 flex-col items-start gap-1.5">
                   <span className="text-xs text-muted-foreground">
                     招待コード
                   </span>

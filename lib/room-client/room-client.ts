@@ -7,6 +7,7 @@
 // 退出・解散による close は再接続せず ended / disbanded を通知する。
 import {
   type ClientMessage,
+  needsHostRevision,
   parseServerMessage,
   type ServerMessage,
   WS_CLOSE_LEFT_ROOM,
@@ -69,6 +70,7 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
 
   let socket: WebSocket | null = null;
   let closedByUser = false;
+  let hostRevision: number | null = null;
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -93,6 +95,11 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
         );
         return;
       }
+      if (
+        (message.type === "snapshot" || message.type === "host:updated") &&
+        message.hostRevision !== undefined
+      )
+        hostRevision = Math.max(hostRevision ?? 0, message.hostRevision);
       options.onMessage(message);
     });
 
@@ -135,7 +142,13 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
         return false;
       }
       try {
-        socket.send(JSON.stringify(message));
+        const request =
+          needsHostRevision(message) &&
+          message.expectedHostRevision === undefined &&
+          hostRevision !== null
+            ? { ...message, expectedHostRevision: hostRevision }
+            : message;
+        socket.send(JSON.stringify(request));
         return true;
       } catch {
         return false;

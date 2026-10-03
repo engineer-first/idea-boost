@@ -12,22 +12,29 @@ const meta = {
     pending: false,
     disconnected: false,
     error: null,
-    currentUserId: "11111111-1111-4111-8111-111111111111",
-    members: [
-      {
-        userId: "22222222-2222-4222-8222-222222222222",
-        name: "次の進行役",
-        color: "blue",
-      },
-    ],
+    target: {
+      userId: "22222222-2222-4222-8222-222222222222",
+      name: "Hana Sato",
+      color: "blue",
+    },
   },
 } satisfies Meta<typeof HostTransferDialog>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const SelectMember: Story = {};
-export const Empty: Story = { args: { members: [] } };
+export const ConfirmMember: Story = {};
+export const Empty: Story = { args: { target: null } };
 export const Pending: Story = { args: { pending: true } };
 export const Disconnected: Story = { args: { disconnected: true } };
 export const Failed: Story = {
   args: { error: "相手が切断しました。接続中のメンバーを選び直してください。" },
+};
+
+export const LongName: Story = {
+  args: {
+    target: {
+      userId: "22222222-2222-4222-8222-222222222222",
+      name: "あいうえおかきくけこさしすせそたちつてとなにぬねの",
+      color: "blue",
+    },
+  },
 };
