@@ -243,3 +243,44 @@ test("390pxでも自動案内はfocusを奪わず、詳細を全文参照して�
     await page.close();
   }
 });
+
+test.each([
+  { name: "問い作成", story: "phase-2-step-1" },
+  { name: "アイデア作成", story: "phase-3-step-1" },
+])("390pxの$nameガイドは付箋操作を覆わず末尾まで読める", async ({ story }) => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, `room-roomboardlayout--${story}`);
+    await settled(page, "detail");
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    await detail.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const last = await detail.locator("dl > div").last().boundingBox();
+    const box = await detail.boundingBox();
+    expect(last).not.toBeNull();
+    expect(box).not.toBeNull();
+    expect((last?.y ?? 0) + (last?.height ?? 0)).toBeLessThanOrEqual(
+      (box?.y ?? 0) + (box?.height ?? 0),
+    );
+    const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+    expect(
+      await add.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return element.contains(
+          document.elementFromPoint(
+            rect.x + rect.width / 2,
+            rect.y + rect.height / 2,
+          ),
+        );
+      }),
+    ).toBe(true);
+  } finally {
+    await page.close();
+  }
+});
