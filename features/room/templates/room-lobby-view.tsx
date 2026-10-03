@@ -165,10 +165,17 @@ export function RoomLobbyView({
                 onSelectMember={
                   isHost && isLobby(phase) && onTransferHost
                     ? (userId) => {
-                        transferTriggerRef.current =
+                        const source =
                           document.activeElement instanceof HTMLElement
                             ? document.activeElement
                             : null;
+                        transferTriggerRef.current = source?.closest(
+                          '[data-testid="room-members-overflow-dialog"]',
+                        )
+                          ? (lobbyRef.current?.querySelector<HTMLButtonElement>(
+                              '[data-testid="room-members-overflow"]',
+                            ) ?? null)
+                          : source;
                         setHostTargetId(userId);
                       }
                     : undefined

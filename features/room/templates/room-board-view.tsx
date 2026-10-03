@@ -346,7 +346,6 @@ export function RoomBoardView({
     userId: string;
     revision: number;
   } | null>(null);
-  const transferTriggerRef = useRef<HTMLElement | null>(null);
   const [outcomeDismissed, setOutcomeDismissed] = useState(false);
   const [voteStickerDrag, setVoteStickerDrag] =
     useState<VoteStickerDrag | null>(null);
@@ -1003,10 +1002,6 @@ export function RoomBoardView({
           onSelectHostTarget={
             onTransferHost
               ? (userId) => {
-                  transferTriggerRef.current =
-                    document.activeElement instanceof HTMLElement
-                      ? document.activeElement
-                      : null;
                   setHostTarget({ userId, revision: hostRevision });
                 }
               : undefined
@@ -1223,14 +1218,13 @@ export function RoomBoardView({
             blocked={isNextPhasePending || isLeaving}
             error={transferError}
             onClosed={() => {
-              if (transferTriggerRef.current?.isConnected)
-                transferTriggerRef.current.focus();
-              else
-                boardRootRef.current
-                  ?.querySelector<HTMLButtonElement>(
-                    '[data-testid="board-control-hud"] button',
-                  )
-                  ?.focus();
+              // 選択行はPopoverの退出アニメーション中もDOMに残る。
+              // 行へ戻すと直後のunmountでfocusを失うため、常設入口に戻す。
+              boardRootRef.current
+                ?.querySelector<HTMLButtonElement>(
+                  "[data-host-transfer-origin]",
+                )
+                ?.focus();
             }}
           />
         ) : null}

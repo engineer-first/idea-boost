@@ -300,6 +300,7 @@ export function RoomBoardHeader({
                   variant="ghost"
                   className="h-10 gap-2 px-2 max-[900px]:w-[52px] max-[900px]:gap-0 max-[900px]:px-0"
                   aria-label={`参加者 ${members.length}人`}
+                  data-host-transfer-origin
                   title="参加者一覧を開く"
                 >
                   <span
