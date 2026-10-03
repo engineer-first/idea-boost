@@ -29,7 +29,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .disclosure {
+  .disclosure,
+  .disclosure[data-open="true"] {
     transition: none;
   }
 }
