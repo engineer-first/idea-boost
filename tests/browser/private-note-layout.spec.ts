@@ -104,13 +104,15 @@ for (const step of [2, 3]) {
       };
     });
     // コンテンツの直下が同じ高さの透明な上部欄で覆われない。
-    const target = await page.evaluate(
-      ({ x, y }) =>
-        document
-          .elementFromPoint(x, y)
-          ?.closest('[data-testid="board-context-column"]') !== null,
-      blank,
-    );
-    expect(target).toBe(false);
+    const target = await page.evaluate(({ x, y }) => {
+      const element = document.elementFromPoint(x, y);
+      return {
+        blocked: Boolean(
+          element?.closest('[data-testid="board-context-column"]'),
+        ),
+        board: Boolean(element?.closest('[data-testid="board-frame"]')),
+      };
+    }, blank);
+    expect(target).toEqual({ blocked: false, board: true });
   });
 }

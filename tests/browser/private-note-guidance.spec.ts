@@ -11,7 +11,10 @@ beforeAll(async () => {
   browser = await chromium.launch();
 });
 afterEach(async () => {
+  const video = page?.video();
+  const width = page?.viewportSize()?.width;
   await page?.close();
+  if (video) await video.saveAs(`${output}/${width}-drag-roundtrip.webm`);
 });
 afterAll(async () => {
   await browser?.close();
@@ -21,6 +24,9 @@ async function openStory(name: string, width: number, touch = false) {
   page = await browser.newPage({
     viewport: { width, height: 844 },
     hasTouch: touch,
+    ...(touch
+      ? { recordVideo: { dir: output, size: { width, height: 844 } } }
+      : {}),
   });
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardcanvas--private-guidance-${name}&viewMode=story`,
@@ -81,7 +87,7 @@ for (const width of [390, 1280]) {
       "自分で書いた下書き",
     );
     expect(
-      await page.getByRole("button", { name: "付箋", exact: true }).count(),
+      await page.getByRole("button", { name: "ボードに共有" }).count(),
     ).toBe(0);
     await page.screenshot({ path: `${output}/${width}-personal.png` });
   });
