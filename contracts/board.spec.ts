@@ -46,15 +46,19 @@ describe("idea map size", () => {
 });
 
 describe("note typography", () => {
-  it.each([
-    14, 18, 24,
-  ])("%ipxで改行を増やしても高さは1行ぶんを超えて急増しない", (fontSize) => {
-    for (let lines = 1; lines < 10; lines++) {
-      const previous = getNoteHeight(`${"行\n".repeat(lines - 1)}行`, fontSize);
-      const next = getNoteHeight(`${"行\n".repeat(lines)}行`, fontSize);
-      expect(next - previous).toBeLessThanOrEqual(Math.ceil(fontSize * 1.5));
-    }
-  });
+  it.each([14, 18, 24])(
+    "%ipxで改行を増やしても高さは1行ぶんを超えて急増しない",
+    (fontSize) => {
+      for (let lines = 1; lines < 10; lines++) {
+        const previous = getNoteHeight(
+          `${"行\n".repeat(lines - 1)}行`,
+          fontSize,
+        );
+        const next = getNoteHeight(`${"行\n".repeat(lines)}行`, fontSize);
+        expect(next - previous).toBeLessThanOrEqual(Math.ceil(fontSize * 1.5));
+      }
+    },
+  );
 
   it("文字サイズを12〜24pxの1px刻み、既定14pxとして共有する", () => {
     expect(NOTE_FONT_SIZE_RANGE).toEqual({ min: 12, max: 24, step: 1 });

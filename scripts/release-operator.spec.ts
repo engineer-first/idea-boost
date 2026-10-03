@@ -253,8 +253,9 @@ function promotionServer() {
     if (path === "/git/ref/heads/release")
       return { object: { sha: state.release } };
     if (path === "/git/trees") {
+      if (!data?.tree) throw new Error("tree data is required");
       state.treeContent = String(
-        (data?.tree as { content: string }[])[0].content,
+        (data.tree as { content: string }[])[0].content,
       );
       return { sha: "c".repeat(40) };
     }

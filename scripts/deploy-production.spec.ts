@@ -63,24 +63,22 @@ describe("ローカル手動デプロイ", () => {
       }),
     );
   });
-  it.each([
-    "deploy:migrate",
-    "deploy:api",
-    "deploy:app",
-    "health",
-  ])("%sの失敗では履歴を公開しない", async (failure) => {
-    const { deps } = runtime();
-    deps.run = vi.fn(async (command) => {
-      if (command === failure) throw new Error(failure);
-    });
-    if (failure === "health")
-      deps.health = vi.fn(async () => {
-        throw new Error(failure);
+  it.each(["deploy:migrate", "deploy:api", "deploy:app", "health"])(
+    "%sの失敗では履歴を公開しない",
+    async (failure) => {
+      const { deps } = runtime();
+      deps.run = vi.fn(async (command) => {
+        if (command === failure) throw new Error(failure);
       });
-    await expect(deployProduction(plan, deps)).rejects.toThrow(failure);
-    expect(deps.save).not.toHaveBeenCalled();
-    expect(deps.submit).not.toHaveBeenCalled();
-  });
+      if (failure === "health")
+        deps.health = vi.fn(async () => {
+          throw new Error(failure);
+        });
+      await expect(deployProduction(plan, deps)).rejects.toThrow(failure);
+      expect(deps.save).not.toHaveBeenCalled();
+      expect(deps.submit).not.toHaveBeenCalled();
+    },
+  );
   it("記録依頼だけ失敗してもreceiptを残し、デプロイを繰り返さない", async () => {
     const { deps } = runtime();
     deps.submit = vi.fn(async () => {

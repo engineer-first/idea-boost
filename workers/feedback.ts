@@ -129,7 +129,7 @@ const QuerySchema = z
   .strict()
   .refine((q) => q.from === undefined || q.to === undefined || q.from <= q.to);
 const CursorSchema = z
-  .object({ at: z.number().int().nonnegative(), id: z.string().uuid() })
+  .object({ at: z.number().int().nonnegative(), id: z.guid() })
   .strict();
 export async function listFeedback(
   request: Request,

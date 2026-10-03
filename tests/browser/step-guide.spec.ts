@@ -131,54 +131,57 @@ test("付箋への最初のクリックでガイドを閉じてその付箋を�
   }
 });
 
-test.each([
-  1280, 1024, 768,
-])("%ipxでも現在地を覆わず上端を保ち、縮小モーション設定では動かない", async (width) => {
-  const page = await browser.newPage({
-    viewport: { width, height: 720 },
-    reducedMotion: "reduce",
-  });
-  try {
-    await open(page, "room-roomboardview--guide-phase-2-step-1");
-    await settled(page, "detail");
-    await page.getByRole("button", { name: "決定した課題" }).click();
-    const shell = page.getByTestId("step-guide");
-    const detail = await shell.boundingBox();
-    expect(detail?.x).toBeGreaterThanOrEqual(0);
-    expect((detail?.x ?? 0) + (detail?.width ?? 0)).toBeLessThanOrEqual(width);
-    expect(
-      await shell.evaluate((e) => getComputedStyle(e).transitionDuration),
-    ).toBe("0s");
-    expect(
+test.each([1280, 1024, 768])(
+  "%ipxでも現在地を覆わず上端を保ち、縮小モーション設定では動かない",
+  async (width) => {
+    const page = await browser.newPage({
+      viewport: { width, height: 720 },
+      reducedMotion: "reduce",
+    });
+    try {
+      await open(page, "room-roomboardview--guide-phase-2-step-1");
+      await settled(page, "detail");
+      await page.getByRole("button", { name: "決定した課題" }).click();
+      const shell = page.getByTestId("step-guide");
+      const detail = await shell.boundingBox();
+      expect(detail?.x).toBeGreaterThanOrEqual(0);
+      expect((detail?.x ?? 0) + (detail?.width ?? 0)).toBeLessThanOrEqual(
+        width,
+      );
+      expect(
+        await shell.evaluate((e) => getComputedStyle(e).transitionDuration),
+      ).toBe("0s");
+      expect(
+        await page
+          .getByRole("region", { name: "ファシリテーションガイド" })
+          .evaluate((e) => getComputedStyle(e).transitionDuration),
+      ).toBe("0s");
+      const material = await page
+        .getByTestId("board-reference-issue")
+        .boundingBox();
+      expect(detail?.x).toBeGreaterThan(
+        (material?.x ?? 0) + (material?.width ?? 0),
+      );
       await page
         .getByRole("region", { name: "ファシリテーションガイド" })
-        .evaluate((e) => getComputedStyle(e).transitionDuration),
-    ).toBe("0s");
-    const material = await page
-      .getByTestId("board-reference-issue")
-      .boundingBox();
-    expect(detail?.x).toBeGreaterThan(
-      (material?.x ?? 0) + (material?.width ?? 0),
-    );
-    await page
-      .getByRole("region", { name: "ファシリテーションガイド" })
-      .press("Escape");
-    await settled(page, "compact");
-    const compact = await shell.boundingBox();
-    expect(compact?.y).toBe(detail?.y);
-    if (width >= 1024) {
-      expect((compact?.x ?? 0) + (compact?.width ?? 0) / 2).toBe(width / 2);
-    } else {
-      // 狭い幅では左の現在地の右へ配置し、展開しても左端を動かさない。
-      expect(compact?.x).toBe(detail?.x);
+        .press("Escape");
+      await settled(page, "compact");
+      const compact = await shell.boundingBox();
+      expect(compact?.y).toBe(detail?.y);
+      if (width >= 1024) {
+        expect((compact?.x ?? 0) + (compact?.width ?? 0) / 2).toBe(width / 2);
+      } else {
+        // 狭い幅では左の現在地の右へ配置し、展開しても左端を動かさない。
+        expect(compact?.x).toBe(detail?.x);
+      }
+      expect(
+        await page.getByTestId("board-reference-issue").boundingBox(),
+      ).toEqual(material);
+    } finally {
+      await page.close();
     }
-    expect(
-      await page.getByTestId("board-reference-issue").boundingBox(),
-    ).toEqual(material);
-  } finally {
-    await page.close();
-  }
-});
+  },
+);
 
 test("390pxでも自動案内はfocusを奪わず、詳細を全文参照して操作へ戻れる", async () => {
   const page = await browser.newPage({

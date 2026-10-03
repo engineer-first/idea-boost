@@ -98,24 +98,25 @@ it("盤面の取得失敗で古い本文を表示せず、同じ記録を再取�
     ).not.toBeInTheDocument(),
   );
 });
-it.each([
-  401, 403,
-])("履歴取得の認可拒否 %s で既存の詳細も隠す", async (status) => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string) => {
-      if (url.endsWith("/history")) return new Response(null, { status });
-      if (url.endsWith(outcome.roomId)) return Response.json(outcome);
-      return Response.json({ outcomes: [outcome], nextCursor: null });
-    }),
-  );
-  render(<SharedOutcomes />);
-  fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
-  await screen.findByRole("alert");
-  expect(
-    screen.queryByRole("heading", { name: "決定した3項目" }),
-  ).not.toBeInTheDocument();
-});
+it.each([401, 403])(
+  "履歴取得の認可拒否 %s で既存の詳細も隠す",
+  async (status) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/history")) return new Response(null, { status });
+        if (url.endsWith(outcome.roomId)) return Response.json(outcome);
+        return Response.json({ outcomes: [outcome], nextCursor: null });
+      }),
+    );
+    render(<SharedOutcomes />);
+    fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
+    await screen.findByRole("alert");
+    expect(
+      screen.queryByRole("heading", { name: "決定した3項目" }),
+    ).not.toBeInTheDocument();
+  },
+);
 
 it("旧ルームの盤面取得中に別ルームへ移っても更新操作が有効になる", async () => {
   const other = buildSharedOutcome({

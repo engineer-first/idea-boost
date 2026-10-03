@@ -47,26 +47,27 @@ describe("StickyNote", () => {
     });
   });
 
-  it.each(
-    NOTE_COLOR_PALETTE,
-  )("%s の採用フォーカス表示でも作者色の前景を保つ", (color) => {
-    render(
-      <StickyNote
-        noteId={`note-${color}`}
-        color={color}
-        isAdoptionFocused
-        testId="sticky-note"
-      >
-        本文
-      </StickyNote>,
-    );
+  it.each(NOTE_COLOR_PALETTE)(
+    "%s の採用フォーカス表示でも作者色の前景を保つ",
+    (color) => {
+      render(
+        <StickyNote
+          noteId={`note-${color}`}
+          color={color}
+          isAdoptionFocused
+          testId="sticky-note"
+        >
+          本文
+        </StickyNote>,
+      );
 
-    expect(screen.getByTestId("sticky-note")).toHaveStyle({
-      backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
-      color: NOTE_COLOR_STYLES[color].foregroundColor,
-      backgroundImage: expect.stringContaining("16 185 129"),
-    });
-  });
+      expect(screen.getByTestId("sticky-note")).toHaveStyle({
+        backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
+        color: NOTE_COLOR_STYLES[color].foregroundColor,
+        backgroundImage: expect.stringContaining("16 185 129"),
+      });
+    },
+  );
 
   it("isDecided の付箋を強調する", () => {
     render(
