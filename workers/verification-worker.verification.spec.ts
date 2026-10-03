@@ -290,20 +290,20 @@ describe("検証用の初期状態", () => {
       ).toBeGreaterThan(top);
     });
   });
-  it.each([
-    "3-2",
-    "3-3",
-  ])("%sの検証ルームはOwnerがマップの広さを変更できる状態で始まる", async (checkpoint) => {
-    const active = await create(checkpoint);
-    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
+  it.each(["3-2", "3-3"])(
+    "%sの検証ルームはOwnerがマップの広さを変更できる状態で始まる",
+    async (checkpoint) => {
+      const active = await create(checkpoint);
+      const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
 
-    await runInDurableObject(stub, (_instance, state) => {
-      expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
-        sizeLevel: 0,
-        initialized: true,
+      await runInDurableObject(stub, (_instance, state) => {
+        expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
+          sizeLevel: 0,
+          initialized: true,
+        });
       });
-    });
-  });
+    },
+  );
   it.each([
     "lobby",
     "1-1",
@@ -466,94 +466,98 @@ it("成果ケースは実保存を通り、失敗から同じ完了記録をア�
   );
 });
 
-it.each([
-  "before-initialize",
-  "initialize",
-  "prepare",
-  "activate",
-])("成果準備の%s失敗では失敗ルームを残さず、元の検証先を維持する", async (stage) => {
-  const previous = await create("1-2");
-  let failedId = "";
-  const namespace = {
-    idFromName: (name: string) => env.ROOM_DO.idFromName(name),
-    get: (id: DurableObjectId) => {
-      const stub = env.ROOM_DO.get(id) as unknown as {
-        initializeVerification(
-          checkpoint: string,
-          roomId: string,
-          name?: string,
-        ): Promise<void>;
-        prepareVerificationOutcome(scenario: string): Promise<void>;
-        discardVerificationRoom(): Promise<void>;
-      };
-      return {
-        async initializeVerification(
-          checkpoint: string,
-          roomId: string,
-          name?: string,
-        ) {
-          failedId = roomId;
-          if (stage === "before-initialize")
-            throw new Error("before initialization");
-          await stub.initializeVerification(checkpoint, roomId, name);
-          if (stage === "initialize") throw new Error("initialization failed");
-        },
-        async prepareVerificationOutcome(scenario: string) {
-          await stub.prepareVerificationOutcome(scenario);
-          if (stage === "prepare") throw new Error("preparation failed");
-        },
-        discardVerificationRoom: () => stub.discardVerificationRoom(),
-      };
-    },
-  } as unknown as typeof env.ROOM_DO;
-  const workspace = {
-    idFromName: () => "active",
-    get: () => ({
-      setActive: async () => {
-        throw new Error("activation failed");
+it.each(["before-initialize", "initialize", "prepare", "activate"])(
+  "成果準備の%s失敗では失敗ルームを残さず、元の検証先を維持する",
+  async (stage) => {
+    const previous = await create("1-2");
+    let failedId = "";
+    const namespace = {
+      idFromName: (name: string) => env.ROOM_DO.idFromName(name),
+      get: (id: DurableObjectId) => {
+        const stub = env.ROOM_DO.get(id) as unknown as {
+          initializeVerification(
+            checkpoint: string,
+            roomId: string,
+            name?: string,
+          ): Promise<void>;
+          prepareVerificationOutcome(scenario: string): Promise<void>;
+          discardVerificationRoom(): Promise<void>;
+        };
+        return {
+          async initializeVerification(
+            checkpoint: string,
+            roomId: string,
+            name?: string,
+          ) {
+            failedId = roomId;
+            if (stage === "before-initialize")
+              throw new Error("before initialization");
+            await stub.initializeVerification(checkpoint, roomId, name);
+            if (stage === "initialize")
+              throw new Error("initialization failed");
+          },
+          async prepareVerificationOutcome(scenario: string) {
+            await stub.prepareVerificationOutcome(scenario);
+            if (stage === "prepare") throw new Error("preparation failed");
+          },
+          discardVerificationRoom: () => stub.discardVerificationRoom(),
+        };
       },
-    }),
-  } as unknown as import("./verification-worker").VerificationWorkerEnv["VERIFICATION_WORKSPACE"];
-  const response = await verificationWorker.fetch(
-    new Request("http://localhost/api/verification/outcomes", {
-      method: "POST",
-      headers: await headers(),
-      body: JSON.stringify({ scenario: "failure" }),
-    }),
-    {
-      ...env,
-      ROOM_DO: namespace,
-      IDEA_BOOST_VERIFY: "true",
-      VERIFICATION_CONTROL_TOKEN: TOKEN,
-      ...(stage === "activate" ? { VERIFICATION_WORKSPACE: workspace } : {}),
-    },
-  );
-  expect(response.status).toBe(503);
-  expect(await response.json()).toEqual({
-    error: "検証状態の準備に失敗しました。",
-  });
-  expect(
-    await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
-      .bind(failedId)
-      .first(),
-  ).toBeNull();
-  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(failedId));
-  await runInDurableObject(stub, async (instance, state) => {
-    if (stage !== "before-initialize") {
-      await instance.alarm();
-      expect(await instance.getSharedOutcome()).toBeNull();
-    } else {
-      expect((await state.storage.list()).size).toBe(0);
-    }
-    expect(await state.storage.getAlarm()).toBeNull();
-  });
-  expect(
-    await env.DB.prepare("SELECT room_id FROM shared_outcomes WHERE room_id=?")
-      .bind(failedId)
-      .first(),
-  ).toBeNull();
-  const active = await SELF.fetch("http://localhost/api/verification/active", {
-    headers: await headers(),
-  });
-  expect(await active.json()).toEqual({ active: previous });
-});
+    } as unknown as typeof env.ROOM_DO;
+    const workspace = {
+      idFromName: () => "active",
+      get: () => ({
+        setActive: async () => {
+          throw new Error("activation failed");
+        },
+      }),
+    } as unknown as import("./verification-worker").VerificationWorkerEnv["VERIFICATION_WORKSPACE"];
+    const response = await verificationWorker.fetch(
+      new Request("http://localhost/api/verification/outcomes", {
+        method: "POST",
+        headers: await headers(),
+        body: JSON.stringify({ scenario: "failure" }),
+      }),
+      {
+        ...env,
+        ROOM_DO: namespace,
+        IDEA_BOOST_VERIFY: "true",
+        VERIFICATION_CONTROL_TOKEN: TOKEN,
+        ...(stage === "activate" ? { VERIFICATION_WORKSPACE: workspace } : {}),
+      },
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "検証状態の準備に失敗しました。",
+    });
+    expect(
+      await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
+        .bind(failedId)
+        .first(),
+    ).toBeNull();
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(failedId));
+    await runInDurableObject(stub, async (instance, state) => {
+      if (stage !== "before-initialize") {
+        await instance.alarm();
+        expect(await instance.getSharedOutcome()).toBeNull();
+      } else {
+        expect((await state.storage.list()).size).toBe(0);
+      }
+      expect(await state.storage.getAlarm()).toBeNull();
+    });
+    expect(
+      await env.DB.prepare(
+        "SELECT room_id FROM shared_outcomes WHERE room_id=?",
+      )
+        .bind(failedId)
+        .first(),
+    ).toBeNull();
+    const active = await SELF.fetch(
+      "http://localhost/api/verification/active",
+      {
+        headers: await headers(),
+      },
+    );
+    expect(await active.json()).toEqual({ active: previous });
+  },
+);

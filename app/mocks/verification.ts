@@ -1,4 +1,4 @@
-import { http } from "msw/core/http";
+import { http } from "msw/http";
 import { isResultStep, isVotingStep } from "@/contracts/phase";
 import {
   VERIFICATION_CHECKPOINTS,

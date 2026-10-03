@@ -107,25 +107,23 @@ afterEach(() => {
 });
 
 describe("Google callback失敗後の再試行先", () => {
-  it.each([
-    "token HTTP失敗",
-    "fetch reject",
-    "JSON読取失敗",
-    "id_token欠落",
-  ])("%sは同じcookieのnextへ戻し、検証やセッション確立をしない", async (failure) => {
-    if (failure === "token HTTP失敗")
-      mocks.fetch.mockResolvedValue(new Response(null, { status: 503 }));
-    if (failure === "fetch reject")
-      mocks.fetch.mockRejectedValue(new Error("network failed"));
-    if (failure === "JSON読取失敗")
-      mocks.fetch.mockResolvedValue(new Response("invalid JSON"));
-    if (failure === "id_token欠落")
-      mocks.fetch.mockResolvedValue(Response.json({}));
-    const response = await GET(request());
-    assertLogin(response);
-    expect(mocks.verify).not.toHaveBeenCalled();
-    expect(mocks.establish).not.toHaveBeenCalled();
-  });
+  it.each(["token HTTP失敗", "fetch reject", "JSON読取失敗", "id_token欠落"])(
+    "%sは同じcookieのnextへ戻し、検証やセッション確立をしない",
+    async (failure) => {
+      if (failure === "token HTTP失敗")
+        mocks.fetch.mockResolvedValue(new Response(null, { status: 503 }));
+      if (failure === "fetch reject")
+        mocks.fetch.mockRejectedValue(new Error("network failed"));
+      if (failure === "JSON読取失敗")
+        mocks.fetch.mockResolvedValue(new Response("invalid JSON"));
+      if (failure === "id_token欠落")
+        mocks.fetch.mockResolvedValue(Response.json({}));
+      const response = await GET(request());
+      assertLogin(response);
+      expect(mocks.verify).not.toHaveBeenCalled();
+      expect(mocks.establish).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     "署名検証失敗",
@@ -158,23 +156,23 @@ describe("Google callback失敗後の再試行先", () => {
     expect(mocks.establish).not.toHaveBeenCalled();
   });
 
-  it.each([
-    "失敗結果",
-    "throw",
-  ])("セッション確立の%sでも成功を偽らず再試行先に戻す", async (failure) => {
-    if (failure === "失敗結果")
-      mocks.establish.mockResolvedValue({
-        ok: false,
-        error: "ユーザー情報の同期に失敗しました。",
-      });
-    else mocks.establish.mockRejectedValue(new Error("session failed"));
-    const location = assertLogin(await GET(request()));
-    if (failure === "失敗結果")
-      expect(location.searchParams.get("error")).toBe(
-        "ユーザー情報の同期に失敗しました。",
-      );
-    expect(mocks.establish).toHaveBeenCalledTimes(1);
-  });
+  it.each(["失敗結果", "throw"])(
+    "セッション確立の%sでも成功を偽らず再試行先に戻す",
+    async (failure) => {
+      if (failure === "失敗結果")
+        mocks.establish.mockResolvedValue({
+          ok: false,
+          error: "ユーザー情報の同期に失敗しました。",
+        });
+      else mocks.establish.mockRejectedValue(new Error("session failed"));
+      const location = assertLogin(await GET(request()));
+      if (failure === "失敗結果")
+        expect(location.searchParams.get("error")).toBe(
+          "ユーザー情報の同期に失敗しました。",
+        );
+      expect(mocks.establish).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("有効stateの取消・code欠落はcookieを消費してnext付きloginへ戻り、交換もセッション確立もしない", async () => {
     const cancelled = request({ error: "access_denied" });
@@ -238,11 +236,14 @@ describe("未検証の戻り先を信用しない", () => {
     "/invite/ABC234?from=team%26other%3D1#confirm",
     "/invite/ABC234?next=https://evil.example#//evil.example",
     "/%2F%2Fevil.example",
-  ])("query/hash/encodeを持つ内部next %sを外部URLに変換せず保持する", async (next) => {
-    setCookie(next);
-    mocks.fetch.mockResolvedValue(new Response(null, { status: 503 }));
-    assertLogin(await GET(request()), next);
-  });
+  ])(
+    "query/hash/encodeを持つ内部next %sを外部URLに変換せず保持する",
+    async (next) => {
+      setCookie(next);
+      mocks.fetch.mockResolvedValue(new Response(null, { status: 503 }));
+      assertLogin(await GET(request()), next);
+    },
+  );
 
   it("一度消費したcookieを再利用せず、次回は戻り先も復元しない", async () => {
     mocks.fetch.mockResolvedValue(new Response(null, { status: 503 }));

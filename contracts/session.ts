@@ -5,7 +5,7 @@ import { z } from "zod";
 
 // セッショントークン (HS256 JWT) のペイロード。ブラウザの HttpOnly Cookie に入る。
 export const SessionPayloadSchema = z.object({
-  sub: z.string().uuid(),
+  sub: z.guid(),
   email: z.string().email(),
   name: z.string().optional(),
 });
@@ -24,7 +24,7 @@ export const LoginAssertionSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("dev"),
-    userId: z.string().uuid(),
+    userId: z.guid(),
     email: z.string().email(),
     name: z.string().optional(),
   }),

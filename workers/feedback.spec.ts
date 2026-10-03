@@ -363,25 +363,25 @@ it("再送は初回のサーバ受信時刻と30日期限を変えず、期限�
   ).toBe(409);
 });
 
-it.each([
-  0,
-  24 * 60 * 60 * 1000,
-])("緊急削除後は同じ受付IDの再送を拒否する（時計差%dms）", async (offset) => {
-  const { roomId } = await createRoomAs(owner);
-  const body = input({
-    id: createFeedbackId(Date.now() + offset),
-    body: "緊急削除する文章",
-  });
-  const path = `/api/rooms/${roomId}/feedback`;
-  expect((await call(path, owner, body)).status).toBe(200);
-  await env.DB.exec(await feedbackDeletionSql(body.id));
-  expect((await call(path, owner, body)).status).toBe(409);
-  expect(
-    await env.DB.prepare("SELECT id FROM feedback WHERE id=?")
-      .bind(body.id)
-      .first(),
-  ).toBeNull();
-});
+it.each([0, 24 * 60 * 60 * 1000])(
+  "緊急削除後は同じ受付IDの再送を拒否する（時計差%dms）",
+  async (offset) => {
+    const { roomId } = await createRoomAs(owner);
+    const body = input({
+      id: createFeedbackId(Date.now() + offset),
+      body: "緊急削除する文章",
+    });
+    const path = `/api/rooms/${roomId}/feedback`;
+    expect((await call(path, owner, body)).status).toBe(200);
+    await env.DB.exec(await feedbackDeletionSql(body.id));
+    expect((await call(path, owner, body)).status).toBe(409);
+    expect(
+      await env.DB.prepare("SELECT id FROM feedback WHERE id=?")
+        .bind(body.id)
+        .first(),
+    ).toBeNull();
+  },
+);
 
 it("削除と投稿が競合しても失効登録と本文削除の間に再保存できない", async () => {
   const { roomId } = await createRoomAs(owner);
@@ -468,30 +468,30 @@ it("未来24時間のIDも再受付窓の終端まで失効し、その後は失
   }
 });
 
-it.each([
-  "",
-  "何を基準に投票するかわからない",
-])("「わからない」を保存し、再送を重複させず種類で取得する（本文: %s）", async (text) => {
-  const { roomId } = await createRoomAs(owner);
-  const body = input({ kind: "unclear", body: text });
-  const path = `/api/rooms/${roomId}/feedback`;
-  expect((await call(path, owner, body)).status).toBe(200);
-  expect((await call(path, owner, body)).status).toBe(200);
-  await grant(outsider, "feedback:read");
-  const response = await call(
-    "/api/feedback?kind=unclear&target=1-3",
-    outsider,
-  );
-  expect(response.status).toBe(200);
-  const data = await response.json<{ items: Record<string, unknown>[] }>();
-  const items = data.items.filter((item) => item.id === body.id);
-  expect(items).toHaveLength(1);
-  expect(items[0]).toMatchObject({
-    roomId,
-    target: "1-3",
-    kind: "unclear",
-    body: text,
-    rating: null,
-  });
-  expect((await call("/api/feedback?kind=good", outsider)).status).toBe(200);
-});
+it.each(["", "何を基準に投票するかわからない"])(
+  "「わからない」を保存し、再送を重複させず種類で取得する（本文: %s）",
+  async (text) => {
+    const { roomId } = await createRoomAs(owner);
+    const body = input({ kind: "unclear", body: text });
+    const path = `/api/rooms/${roomId}/feedback`;
+    expect((await call(path, owner, body)).status).toBe(200);
+    expect((await call(path, owner, body)).status).toBe(200);
+    await grant(outsider, "feedback:read");
+    const response = await call(
+      "/api/feedback?kind=unclear&target=1-3",
+      outsider,
+    );
+    expect(response.status).toBe(200);
+    const data = await response.json<{ items: Record<string, unknown>[] }>();
+    const items = data.items.filter((item) => item.id === body.id);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      roomId,
+      target: "1-3",
+      kind: "unclear",
+      body: text,
+      rating: null,
+    });
+    expect((await call("/api/feedback?kind=good", outsider)).status).toBe(200);
+  },
+);

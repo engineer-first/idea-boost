@@ -181,25 +181,27 @@ describe("projectNoteForViewer", () => {
     );
   });
 
-  it.each([
-    buildPhaseStep(4),
-    buildPhaseStep(3, 2),
-    buildPhaseStep(4, 3),
-  ])("初回・再投票ステップ %j では集計を除去し本人票だけを保持する", (phase) => {
-    const source = note({
-      dotVotes: {
-        subjective: { count: 2, votedByMe: true, ownCount: 1 },
-        objective: { count: 4, votedByMe: false, ownCount: 0 },
-      },
-    });
+  it.each([buildPhaseStep(4), buildPhaseStep(3, 2), buildPhaseStep(4, 3)])(
+    "初回・再投票ステップ %j では集計を除去し本人票だけを保持する",
+    (phase) => {
+      const source = note({
+        dotVotes: {
+          subjective: { count: 2, votedByMe: true, ownCount: 1 },
+          objective: { count: 4, votedByMe: false, ownCount: 0 },
+        },
+      });
 
-    const projected = projectNoteForViewer({ viewerId: VIEWER, phase }, source);
+      const projected = projectNoteForViewer(
+        { viewerId: VIEWER, phase },
+        source,
+      );
 
-    expect(projected.dotVotes).toEqual({
-      subjective: { votedByMe: true, ownCount: 1 },
-      objective: { votedByMe: false, ownCount: 0 },
-    });
-    expect(source.dotVotes.subjective.count).toBe(2);
-    expect(source.dotVotes.objective.count).toBe(4);
-  });
+      expect(projected.dotVotes).toEqual({
+        subjective: { votedByMe: true, ownCount: 1 },
+        objective: { votedByMe: false, ownCount: 0 },
+      });
+      expect(source.dotVotes.subjective.count).toBe(2);
+      expect(source.dotVotes.objective.count).toBe(4);
+    },
+  );
 });

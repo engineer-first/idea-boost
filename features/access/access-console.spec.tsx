@@ -87,63 +87,63 @@ it("一覧取得失敗を空一覧と混同せず、再試行で取得し直す"
   expect(fetcher).toHaveBeenCalledTimes(2);
 });
 
-it.each([
-  "POST",
-  "DELETE",
-] as const)("%sの通信失敗は同じ操作を再試行し、処理中の二重操作を防ぐ", async (method) => {
-  const reader = { id: "1", name: "Reader", email: "reader@example.test" };
-  let attempts = 0;
-  let users = method === "POST" ? [] : [reader];
-  let complete: (() => void) | undefined;
-  const fetcher = vi.fn(
-    async (_path: RequestInfo | URL, init?: RequestInit) => {
-      if (!init?.method) return Response.json({ users });
-      attempts += 1;
-      if (attempts === 1) throw new TypeError("Failed to fetch");
-      await new Promise<void>((resolve) => {
-        complete = resolve;
-      });
-      users = method === "POST" ? [reader] : [];
-      return Response.json({ ok: true });
-    },
-  );
-  vi.stubGlobal("fetch", fetcher);
-  render(<AccessConsole />);
-  await waitFor(() =>
-    expect(screen.queryByRole("status")).not.toBeInTheDocument(),
-  );
-  const input = screen.getByRole("textbox", { name: "メールアドレス" });
-  if (method === "POST") {
-    fireEvent.change(input, { target: { value: reader.email } });
-    fireEvent.click(screen.getByRole("button", { name: "追加" }));
-  } else {
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: `${reader.email} の閲覧権限を取り消す`,
-      }),
+it.each(["POST", "DELETE"] as const)(
+  "%sの通信失敗は同じ操作を再試行し、処理中の二重操作を防ぐ",
+  async (method) => {
+    const reader = { id: "1", name: "Reader", email: "reader@example.test" };
+    let attempts = 0;
+    let users = method === "POST" ? [] : [reader];
+    let complete: (() => void) | undefined;
+    const fetcher = vi.fn(
+      async (_path: RequestInfo | URL, init?: RequestInit) => {
+        if (!init?.method) return Response.json({ users });
+        attempts += 1;
+        if (attempts === 1) throw new TypeError("Failed to fetch");
+        await new Promise<void>((resolve) => {
+          complete = resolve;
+        });
+        users = method === "POST" ? [reader] : [];
+        return Response.json({ ok: true });
+      },
     );
-  }
-  await screen.findByRole("alert");
-  expect(screen.getByRole("alert")).not.toHaveTextContent("Failed to fetch");
-  const retry = screen.getByRole("button", { name: "再試行" });
-  fireEvent.click(retry);
-  await waitFor(() => expect(attempts).toBe(2));
-  expect(input).toBeDisabled();
-  expect(screen.getByRole("button", { name: /追加/ })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: /追加/ }));
-  expect(attempts).toBe(2);
-  complete?.();
-  if (method === "POST") await screen.findByText("Reader");
-  else await screen.findByText("閲覧者はいません。");
-  expect(
-    fetcher.mock.calls
-      .filter(([, init]) => init?.method)
-      .map(([, init]) => [init?.method, JSON.parse(String(init?.body))]),
-  ).toEqual([
-    [method, { email: reader.email }],
-    [method, { email: reader.email }],
-  ]);
-});
+    vi.stubGlobal("fetch", fetcher);
+    render(<AccessConsole />);
+    await waitFor(() =>
+      expect(screen.queryByRole("status")).not.toBeInTheDocument(),
+    );
+    const input = screen.getByRole("textbox", { name: "メールアドレス" });
+    if (method === "POST") {
+      fireEvent.change(input, { target: { value: reader.email } });
+      fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    } else {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: `${reader.email} の閲覧権限を取り消す`,
+        }),
+      );
+    }
+    await screen.findByRole("alert");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Failed to fetch");
+    const retry = screen.getByRole("button", { name: "再試行" });
+    fireEvent.click(retry);
+    await waitFor(() => expect(attempts).toBe(2));
+    expect(input).toBeDisabled();
+    expect(screen.getByRole("button", { name: /追加/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /追加/ }));
+    expect(attempts).toBe(2);
+    complete?.();
+    if (method === "POST") await screen.findByText("Reader");
+    else await screen.findByText("閲覧者はいません。");
+    expect(
+      fetcher.mock.calls
+        .filter(([, init]) => init?.method)
+        .map(([, init]) => [init?.method, JSON.parse(String(init?.body))]),
+    ).toEqual([
+      [method, { email: reader.email }],
+      [method, { email: reader.email }],
+    ]);
+  },
+);
 
 it("権限変更後の一覧取得だけが失敗した場合は完了と未確認を区別し、GETだけを再試行する", async () => {
   const reader = { id: "1", name: "Reader", email: "reader@example.test" };
@@ -176,54 +176,58 @@ it.each([
   { status: 403, deniedAt: "GET" },
   { status: 401, deniedAt: "DELETE" },
   { status: 403, deniedAt: "DELETE" },
-])("成功一覧の後の$deniedAtが$statusなら一覧と変更操作を消し、再試行は権限の再確認だけを行う", async ({
-  status,
-  deniedAt,
-}) => {
-  const reader = { id: "1", name: "Reader", email: "reader@example.test" };
-  const fetcher = vi
-    .fn()
-    .mockResolvedValueOnce(Response.json({ users: [reader] }));
-  if (deniedAt === "GET")
-    fetcher.mockResolvedValueOnce(Response.json({ ok: true }));
-  fetcher
-    .mockResolvedValueOnce(Response.json({ error: "denied" }, { status }))
-    .mockResolvedValueOnce(Response.json({ users: [reader] }));
-  vi.stubGlobal("fetch", fetcher);
-  render(<AccessConsole />);
-  await screen.findByText("Reader");
-  if (deniedAt === "GET") {
-    fireEvent.change(screen.getByRole("textbox", { name: "メールアドレス" }), {
-      target: { value: "next@example.test" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "追加" }));
-  } else {
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: `${reader.email} の閲覧権限を取り消す`,
-      }),
+])(
+  "成功一覧の後の$deniedAtが$statusなら一覧と変更操作を消し、再試行は権限の再確認だけを行う",
+  async ({ status, deniedAt }) => {
+    const reader = { id: "1", name: "Reader", email: "reader@example.test" };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ users: [reader] }));
+    if (deniedAt === "GET")
+      fetcher.mockResolvedValueOnce(Response.json({ ok: true }));
+    fetcher
+      .mockResolvedValueOnce(Response.json({ error: "denied" }, { status }))
+      .mockResolvedValueOnce(Response.json({ users: [reader] }));
+    vi.stubGlobal("fetch", fetcher);
+    render(<AccessConsole />);
+    await screen.findByText("Reader");
+    if (deniedAt === "GET") {
+      fireEvent.change(
+        screen.getByRole("textbox", { name: "メールアドレス" }),
+        {
+          target: { value: "next@example.test" },
+        },
+      );
+      fireEvent.click(screen.getByRole("button", { name: "追加" }));
+    } else {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: `${reader.email} の閲覧権限を取り消す`,
+        }),
+      );
+    }
+    await screen.findByRole("alert");
+    expect(screen.queryByText("Reader")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "メールアドレス" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /閲覧権限を取り消す/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("閲覧者はいません。")).not.toBeInTheDocument();
+    if (status === 401)
+      expect(
+        screen.getByRole("link", { name: "ログインする" }),
+      ).toHaveAttribute("href", "/login?next=%2Fadmin%2Faccess");
+    const callsBeforeRetry = fetcher.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "再試行" }));
+    await screen.findByText("Reader");
+    expect(fetcher.mock.calls[callsBeforeRetry]?.[1]?.method).toBeUndefined();
+    expect(fetcher.mock.calls.filter(([, init]) => init?.method)).toHaveLength(
+      1,
     );
-  }
-  await screen.findByRole("alert");
-  expect(screen.queryByText("Reader")).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("textbox", { name: "メールアドレス" }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: /閲覧権限を取り消す/ }),
-  ).not.toBeInTheDocument();
-  expect(screen.queryByText("閲覧者はいません。")).not.toBeInTheDocument();
-  if (status === 401)
-    expect(screen.getByRole("link", { name: "ログインする" })).toHaveAttribute(
-      "href",
-      "/login?next=%2Fadmin%2Faccess",
-    );
-  const callsBeforeRetry = fetcher.mock.calls.length;
-  fireEvent.click(screen.getByRole("button", { name: "再試行" }));
-  await screen.findByText("Reader");
-  expect(fetcher.mock.calls[callsBeforeRetry]?.[1]?.method).toBeUndefined();
-  expect(fetcher.mock.calls.filter(([, init]) => init?.method)).toHaveLength(1);
-});
+  },
+);
 
 it("意見のセクションは意見の閲覧者を表示し、付与・取消・再取得のすべてで意見権限を指定する", async () => {
   const fetcher = vi.fn(async (_path: RequestInfo | URL, _init?: RequestInit) =>

@@ -41,24 +41,26 @@ it("再コピーを待つ間は前の成功を消し、コピーと保存の二�
   expect(screen.getByRole("status")).toHaveTextContent(/コピーしました/);
 });
 
-it.each([
-  "connected",
-  "authorized",
-] as const)("%s の失効後に復旧しても以前の保存・コピー結果を再表示しない", async (availability) => {
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText: vi.fn().mockResolvedValue(undefined) },
-  });
-  const props = { outcome: { issue: "課題", hmw: "問い", idea: "案" } };
-  const view = render(
-    <RoomOutcomeView {...props} {...{ [availability]: true }} />,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
-  await screen.findByText(/コピーしました/);
-  view.rerender(<RoomOutcomeView {...props} {...{ [availability]: false }} />);
-  view.rerender(<RoomOutcomeView {...props} {...{ [availability]: true }} />);
-  expect(screen.queryByRole("status")).not.toBeInTheDocument();
-});
+it.each(["connected", "authorized"] as const)(
+  "%s の失効後に復旧しても以前の保存・コピー結果を再表示しない",
+  async (availability) => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+    const props = { outcome: { issue: "課題", hmw: "問い", idea: "案" } };
+    const view = render(
+      <RoomOutcomeView {...props} {...{ [availability]: true }} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "全文をコピー" }));
+    await screen.findByText(/コピーしました/);
+    view.rerender(
+      <RoomOutcomeView {...props} {...{ [availability]: false }} />,
+    );
+    view.rerender(<RoomOutcomeView {...props} {...{ [availability]: true }} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  },
+);
 
 it("失効したコピーの応答を待たず再試行でき、旧応答は新しい操作に影響しない", async () => {
   const completes: Array<() => void> = [];
