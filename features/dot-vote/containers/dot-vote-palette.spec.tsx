@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { DotVotePalette } from "./dot-vote-palette";
+import { DotVotePalette, type DotVotePaletteProps } from "./dot-vote-palette";
 
 describe("DotVotePalette", () => {
   it("票種と残数を、指定された投票基準とともに表示する", () => {
@@ -24,11 +24,8 @@ describe("DotVotePalette", () => {
       name: "客観シール 残り2票",
     });
 
-    expect(
-      within(palette).getByText(
-        "シールを付箋へドラッグ、または選択して連続で貼り付け",
-      ),
-    ).toHaveClass("sr-only");
+    expect(within(palette).getByText("シールを選ぶ")).toBeVisible();
+    expect(within(palette).getByText("付箋へ貼る")).toBeVisible();
     expect(within(subjective).getByText("主観")).toBeVisible();
     expect(
       within(subjective).getByText("主観は「激しく共感する、取り組みたい」。"),
@@ -42,7 +39,7 @@ describe("DotVotePalette", () => {
     expect(
       within(palette).getByText("投票対象は現在のフェーズの個々の付箋です。"),
     ).toHaveClass("sr-only");
-    expect(palette).toHaveClass("h-12", "rounded-xl", "bg-white");
+
     const subjectiveImage = within(subjective).getByTestId(
       "dot-vote-sticker-image-subjective",
     );
@@ -227,5 +224,102 @@ describe("DotVotePalette", () => {
     expect(
       screen.getByRole("button", { name: "客観シール 残り2票" }),
     ).toHaveClass("ring-blue-700/75", "ring-offset-white");
+  });
+
+  it("送信中の0票を使い切りと断定せず、受理後に表示を切り替える", () => {
+    const props: DotVotePaletteProps = {
+      voteRemaining: { subjective: 0, objective: 0 },
+      pendingOperationCount: 4,
+      feedback: null,
+      disabled: false,
+      selectedKind: null,
+      onStickerSelect: vi.fn(),
+      onStickerDragStart: vi.fn(),
+    };
+    const { rerender } = render(<DotVotePalette {...props} />);
+    expect(screen.queryByText("使い切りました")).not.toBeInTheDocument();
+    expect(screen.getAllByText("確認待ち")).toHaveLength(2);
+    expect(screen.getByRole("status")).toHaveTextContent("送信中");
+    expect(screen.getByRole("status")).not.toHaveClass("sr-only");
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      fireEvent.pointerDown(button, { pointerId: 1 });
+    }
+    expect(props.onStickerSelect).not.toHaveBeenCalled();
+    expect(props.onStickerDragStart).not.toHaveBeenCalled();
+
+    rerender(
+      <DotVotePalette
+        {...props}
+        pendingOperationCount={0}
+        feedback={{ state: "confirmed", message: "投票を反映しました。" }}
+      />,
+    );
+    expect(screen.getAllByText("使い切りました")).toHaveLength(2);
+    expect(screen.queryByText("確認待ち")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "投票を反映しました。",
+    );
+    expect(
+      screen.getByText("貼った自分のシールは移動・取り消しできます。"),
+    ).toBeVisible();
+  });
+
+  it.each([
+    { state: "failed" as const, message: "投票を送信できませんでした。" },
+    { state: "confirmed" as const, message: "投票を1票取り消しました。" },
+  ])("$state 後は返された残票を再び選べる", (feedback) => {
+    const props: DotVotePaletteProps = {
+      voteRemaining: { subjective: 0, objective: 0 },
+      pendingOperationCount: 0,
+      feedback: null,
+      disabled: false,
+      selectedKind: null,
+      onStickerSelect: vi.fn(),
+      onStickerDragStart: vi.fn(),
+    };
+    const { rerender } = render(<DotVotePalette {...props} />);
+    expect(screen.getAllByText("使い切りました")).toHaveLength(2);
+    rerender(
+      <DotVotePalette
+        {...props}
+        voteRemaining={{ subjective: 0, objective: 1 }}
+        feedback={feedback}
+      />,
+    );
+    expect(screen.getAllByText("使い切りました")).toHaveLength(1);
+    const objective = screen.getByRole("button", {
+      name: "客観シール 残り1票",
+    });
+    expect(objective).toBeEnabled();
+    fireEvent.click(objective);
+    expect(props.onStickerSelect).toHaveBeenCalledWith(
+      "objective",
+      expect.anything(),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(feedback.message);
+    expect(screen.getByRole("status")).not.toHaveClass("sr-only");
+  });
+
+  it("通信切断中は古い成功表示や使い切りより接続待ちを示す", () => {
+    render(
+      <DotVotePalette
+        voteRemaining={{ subjective: 0, objective: 3 }}
+        pendingOperationCount={1}
+        feedback={{ state: "confirmed", message: "投票を反映しました。" }}
+        disabled
+        selectedKind={null}
+        onStickerSelect={vi.fn()}
+        onStickerDragStart={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("再接続");
+    expect(screen.getByRole("status")).not.toHaveTextContent(
+      "投票を反映しました。",
+    );
+    expect(screen.queryByText("使い切りました")).not.toBeInTheDocument();
+    for (const button of screen.getAllByRole("button"))
+      expect(button).toBeDisabled();
   });
 });

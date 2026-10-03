@@ -713,6 +713,60 @@ describe("useRoomNotes", () => {
     });
   });
 
+  it.each([
+    { action: "add", message: "投票を確定しました。" },
+    { action: "remove", message: "投票を1票取り消しました。" },
+    { action: "remove-sticker", message: "投票を1票取り消しました。" },
+    { action: "move", message: "シールを移動しました。" },
+  ] as const)("$action の受理後だけ操作に合った成功状態を示す", ({
+    action,
+    message,
+  }) => {
+    const { result } = setup();
+    const voted = buildNote({
+      id: NOTE_ID,
+      dotVotes: {
+        subjective: { votedByMe: false, ownCount: 0 },
+        objective: { votedByMe: true, ownCount: 1 },
+      },
+      dotVoteStickers: [{ id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 }],
+    });
+    act(() =>
+      result.current.applyMessage(
+        snapshotMessage([voted, buildNote({ id: TARGET_NOTE_ID })]),
+      ),
+    );
+    act(() => {
+      if (action === "add")
+        result.current.voteNote(TARGET_NOTE_ID, "objective");
+      else if (action === "remove")
+        result.current.removeNoteVote(NOTE_ID, "objective");
+      else if (action === "remove-sticker")
+        result.current.removeVoteSticker(STICKER_ID);
+      else result.current.moveVoteSticker(STICKER_ID, TARGET_NOTE_ID, 0.8, 0.9);
+    });
+    expect(result.current.pendingVoteOperations).toHaveLength(1);
+    expect(result.current.voteFeedback).toBeNull();
+    const note = result.current.notes.find(
+      ({ id }) =>
+        id ===
+        (action === "add" || action === "move" ? TARGET_NOTE_ID : NOTE_ID),
+    );
+    if (!note) throw new Error("操作後の付箋が見つかりません");
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note,
+        operationId: "33333333-3333-4333-8333-333333333333",
+      }),
+    );
+    expect(result.current.pendingVoteOperations).toEqual([]);
+    expect(result.current.voteFeedback).toEqual({
+      state: "confirmed",
+      message,
+    });
+  });
+
   it("投票の上限に達していたら反映も送信もしない", () => {
     const { result } = setup();
     // objective の上限は DOT_VOTE_LIMITS.objective（3）。上限まで消費済みの状態を作る。
