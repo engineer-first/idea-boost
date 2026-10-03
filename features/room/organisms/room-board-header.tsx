@@ -495,7 +495,7 @@ export function RoomBoardHeader({
                     <CopyInviteButton
                       value={inviteCode}
                       itemLabel="招待コード"
-                      className="mt-1 block max-w-full text-left"
+                      className="mt-1"
                     />
                   </div>
                 </div>

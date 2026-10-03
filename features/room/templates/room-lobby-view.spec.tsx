@@ -66,7 +66,11 @@ describe("RoomLobbyView", () => {
 
   it("接続が切れているときは再接続中の表示が出る", () => {
     renderView({ connectionStatus: "closed" });
-    expect(screen.getByRole("status")).toHaveTextContent("再接続");
+    expect(
+      screen
+        .getAllByRole("status")
+        .find((status) => status.textContent?.includes("接続が切れました")),
+    ).toHaveTextContent("再接続");
   });
 
   it("メンバー数を見出しに出す", () => {

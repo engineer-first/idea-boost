@@ -171,17 +171,14 @@ export function RoomLobbyView({
                 </div>
                 <div className="space-y-1.5">
                   <CardTitle className="text-base">メンバーを招待</CardTitle>
-                  <CardDescription className="leading-relaxed">
-                    URL またはコードを共有して参加を促します。クリックでコピー。
-                  </CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col justify-center gap-5">
-                <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 px-3 py-3">
+                <div className="flex min-w-0 flex-col items-start gap-1.5">
                   <span className="text-xs text-muted-foreground">招待URL</span>
                   <InviteUrlActions value={inviteUrl} />
                 </div>
-                <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/80 bg-muted/30 px-3 py-3">
+                <div className="flex min-w-0 flex-col items-start gap-1.5">
                   <span className="text-xs text-muted-foreground">
                     招待コード
                   </span>

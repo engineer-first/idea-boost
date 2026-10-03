@@ -56,8 +56,8 @@ export const Failed: Story = {
     await userEvent.click(
       await canvas.findByRole("button", { name: "招待URLを共有" }),
     );
-    await expect(await canvas.findByRole("status")).toHaveTextContent(
-      "共有できませんでした",
-    );
+    await expect(
+      canvas.getByText("共有できませんでした。URLをコピーして送ってください。"),
+    ).toBeInTheDocument();
   },
 };

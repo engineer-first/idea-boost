@@ -78,11 +78,11 @@ describe("RoomBoardHeader", () => {
       expect(within(invite).getByText("招待URL")).toHaveClass("block");
       expect(
         within(invite).getByRole("button", { name: "招待URLをコピー" }),
-      ).toHaveClass("block", "text-left");
+      ).toHaveClass("w-full", "text-left");
       expect(within(invite).getByText("招待コード")).toHaveClass("block");
       expect(
         within(invite).getByRole("button", { name: "招待コードをコピー" }),
-      ).toHaveClass("block", "text-left");
+      ).toHaveClass("w-full", "text-left");
     });
 
     it("非 host には招待情報を表示しない", () => {

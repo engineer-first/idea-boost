@@ -35,10 +35,14 @@ describe("InviteUrlActions", () => {
         screen.getByRole("button", { name: "招待URLを共有" }),
       ).toBeEnabled(),
     );
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "共有できませんでした。URLをコピーして送ってください。",
+      ),
+    ).not.toBeInTheDocument();
   });
 
-  it("非対応でもコピーと手動選択が使える", async () => {
+  it("非対応でもURL全体をコピーでき、手動コピー欄は表示しない", async () => {
     stubShare(undefined);
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -49,16 +53,12 @@ describe("InviteUrlActions", () => {
     expect(
       screen.queryByRole("button", { name: "招待URLを共有" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "招待URLをコピー" }));
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "招待URLをコピー" })),
+    );
     expect(writeText).toHaveBeenCalledWith(url);
-    fireEvent.click(screen.getByText("URLを手動でコピー"));
-    const input = screen.getByRole("textbox", {
-      name: "手動コピー用の招待URL",
-    });
-    expect(input).toHaveValue(url);
-    fireEvent.focus(input);
-    expect((input as HTMLInputElement).selectionEnd).toBe(url.length);
-    await screen.findByRole("button", { name: "コピーしました" });
+    expect(screen.queryByText("URLを手動でコピー")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
   it("キャンセルは中立で、再共有できる", async () => {
@@ -74,7 +74,11 @@ describe("InviteUrlActions", () => {
         screen.getByRole("button", { name: "招待URLを共有" }),
       ).toBeEnabled(),
     );
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "共有できませんでした。URLをコピーして送ってください。",
+      ),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "招待URLを共有" }));
     await waitFor(() => expect(share).toHaveBeenCalledTimes(2));
   });
@@ -87,15 +91,18 @@ describe("InviteUrlActions", () => {
     stubShare(vi.fn().mockRejectedValue(new DOMException("failure", name)));
     render(<InviteUrlActions value={url} />);
     fireEvent.click(screen.getByRole("button", { name: "招待URLを共有" }));
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "共有できませんでした",
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "招待URLを共有" }),
+      ).toHaveAttribute("data-share-state", "error"),
     );
+    expect(
+      screen.getByText("共有できませんでした。URLをコピーして送ってください。"),
+    ).toHaveClass("sr-only");
     expect(
       screen.getByRole("button", { name: "招待URLをコピー" }),
     ).toBeEnabled();
-    expect(
-      screen.getByRole("textbox", { name: "手動コピー用の招待URL" }),
-    ).toHaveValue(url);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByText("共有しました")).not.toBeInTheDocument();
   });
 
@@ -134,9 +141,33 @@ describe("InviteUrlActions", () => {
       <InviteUrlActions value="https://idea-flow.example/invite/NEW234" />,
     );
     await act(async () => reject(new Error("failure")));
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "共有できませんでした。URLをコピーして送ってください。",
+      ),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "招待URLをコピー" }),
     ).toHaveTextContent("NEW234");
+  });
+  it("共有の文言を固定し、失敗アイコンは2秒で戻す", async () => {
+    vi.useFakeTimers();
+    try {
+      stubShare(vi.fn().mockRejectedValue(new Error("failure")));
+      const { unmount } = render(<InviteUrlActions value={url} />);
+      const share = screen.getByRole("button", { name: "招待URLを共有" });
+      await act(async () => fireEvent.click(share));
+      expect(share).toHaveTextContent("共有");
+      expect(share).toHaveAttribute("data-share-state", "error");
+      act(() => vi.advanceTimersByTime(1999));
+      expect(share).toHaveAttribute("data-share-state", "error");
+      act(() => vi.advanceTimersByTime(1));
+      expect(share).toHaveAttribute("data-share-state", "idle");
+      await act(async () => fireEvent.click(share));
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
