@@ -193,6 +193,28 @@ test.each(
   ).toBe(0);
 });
 
+test("参加者をEnterで選んだ直後のEscape一回で閉じ、常設入口に戻る", async () => {
+  await openActive();
+  await membersTrigger().press("Enter");
+  await page
+    .getByRole("button", { name: targetName, exact: true })
+    .press("Enter");
+  await page.keyboard.press("Escape");
+  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+  await vi.waitFor(async () =>
+    expect(
+      await membersTrigger().evaluate(
+        (node) => node === document.activeElement,
+      ),
+    ).toBe(true),
+  );
+  expect(
+    await page
+      .getByRole("button", { name: "次のステップへ", exact: true })
+      .count(),
+  ).toBe(1);
+});
+
 test("実containerのホスト変更操作を動画に残す", async () => {
   await page.close();
   const context = await browser.newContext({

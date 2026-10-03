@@ -43,6 +43,13 @@ export function HostTransferDialog({
       }}
     >
       <AlertDialogContent
+        onKeyDown={(event) => {
+          if (event.key !== "Escape") return;
+          // 元の参加者Popoverが退出中でも、表示中の確認で取消を完結させる。
+          event.preventDefault();
+          event.stopPropagation();
+          if (!pending) onOpenChange(false);
+        }}
         onCloseAutoFocus={(event) => {
           if (onClosed) {
             event.preventDefault();
