@@ -1,6 +1,6 @@
 # エージェント指示の保守
 
-通常の実装では読む必要はない。指示・skill・hookを変更するときに使う。入口は[AGENTS.md](../../AGENTS.md)、作業別規範は[開発規約](conventions.md)、検証の選択は[テスト方針](testing.md)。採用理由と実走結果は[2026年9月の保守記録](../archive/agent-guidance-maintenance-2026-09.md)に残す。
+通常の実装では読む必要はない。指示・skill・hookを変更するときに使う。入口は[AGENTS.md](../../AGENTS.md)、作業別規範は[開発規約](conventions.md)、検証の選択は[テスト方針](testing.md)。採用理由と実走結果は[2026年9月以降の保守記録](../archive/agent-guidance-maintenance-2026-09.md)に残す。
 
 ## 保守する場所
 
