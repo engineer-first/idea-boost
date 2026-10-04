@@ -392,7 +392,7 @@ test.each([
       await page.screenshot({ path: `${output}/clear-${story}-${width}.png` });
       if (story === "host" || story === "sharing-host") {
         await detail
-          .getByText("進行役へ", { exact: true })
+          .getByText("ホストへ", { exact: true })
           .scrollIntoViewIfNeeded();
         await page.screenshot({
           path: `${output}/clear-${story}-timer-${width}.png`,

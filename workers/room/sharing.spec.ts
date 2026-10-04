@@ -18,7 +18,7 @@ import { resetTimerState } from "./timer";
 
 const host = {
   sub: "11111111-1111-4111-8111-111111111111",
-  name: "進行役",
+  name: "Ken Mori",
   email: "host@example.test",
 };
 const guest = {
@@ -78,7 +78,7 @@ describe("一人ずつの共有", () => {
     owner.close();
     member.close();
   });
-  it("共有へ入ると進行役を先頭に発表を予約し、予告中はまだ計時しない", async () => {
+  it("共有へ入るとホストを先頭に発表を予約し、予告中はまだ計時しない", async () => {
     const { owner, member, roomId } = await setup();
     owner.ws.send(
       JSON.stringify({
@@ -451,7 +451,7 @@ it("更新前から共有ステップにいるルームも接続時に順番を�
 it("発表者以外も自分の付箋を共有でき、交代では他者の下書きを公開しない", async () => {
   const { owner, member, roomId } = await setup();
   owner.ws.send(
-    JSON.stringify({ type: "note:create", content: "進行役だけの下書き" }),
+    JSON.stringify({ type: "note:create", content: "ホストだけの下書き" }),
   );
   await until(owner, "note:inserted");
   member.ws.send(
@@ -479,11 +479,11 @@ it("発表者以外も自分の付箋を共有でき、交代では他者の下�
   expect(snapshot).toMatchObject({
     notes: [expect.objectContaining({ id: noteId, visibility: "shared" })],
   });
-  expect(JSON.stringify(snapshot)).not.toContain("進行役だけの下書き");
+  expect(JSON.stringify(snapshot)).not.toContain("ホストだけの下書き");
   expect((await currentSnapshot(roomId)).notes).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        content: "進行役だけの下書き",
+        content: "ホストだけの下書き",
         visibility: "private",
       }),
     ]),

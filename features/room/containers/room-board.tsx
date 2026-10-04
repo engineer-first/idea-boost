@@ -12,7 +12,11 @@
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isResultStep, type RoomPhase } from "@/contracts/phase";
-import type { ServerMessage } from "@/contracts/room-protocol";
+import {
+  type ClientMessage,
+  needsHostRevision,
+  type ServerMessage,
+} from "@/contracts/room-protocol";
 import { submitFeedback, useFeedback } from "@/features/feedback";
 import { HMW_EXAMPLES } from "@/features/hmw";
 import {
@@ -28,6 +32,7 @@ import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
 import { useCandidateOperations } from "../logic/use-candidate-operations";
 import { useCursorPresence } from "../logic/use-cursor-presence";
+import { useHostTransfer } from "../logic/use-host-transfer";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
@@ -58,8 +63,8 @@ export function RoomBoard({
   inviteCode,
   inviteUrl,
   currentUserId,
-  isHost,
-  hostUserId,
+  isHost: initialIsHost,
+  hostUserId: initialHostUserId,
   initialMembers,
   initialPhase,
   signOutAction,
@@ -75,19 +80,43 @@ export function RoomBoard({
   const bulkNoticeIdsRef = useRef(new Map<string, string | number>());
 
   const roomState = useRoomState({ initialMembers, initialPhase });
+  const hostUserId = roomState.host.hostUserId ?? initialHostUserId;
+  const isHost = roomState.host.hostUserId
+    ? hostUserId === currentUserId
+    : (roomState.host.isHost ?? initialIsHost);
   const { isLeaving, isLeavingRef, leave } = useLeaveRoom({
     roomId,
     isHost,
     completed: roomState.outcomePublished,
+    hostRevision: roomState.host.hostRevision ?? 0,
   });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   // useRoomConnection は常に最新のハンドラへ配送するため、
   // ハンドラの再生成で再接続されることはない。
-  const { connectionStatus, send } = useRoomConnection({
+  const { connectionStatus, send: sendRaw } = useRoomConnection({
     roomId,
     onMessage: handleServerMessage,
     webSocketFactory,
     isLeavingRef,
+  });
+  // 確認画面・Undoが取得した世代を保持する。再描画前の古いcallbackを最新世代へ昇格しない。
+  const send = useCallback(
+    (message: ClientMessage) =>
+      sendRaw(
+        needsHostRevision(message) &&
+          message.expectedHostRevision === undefined &&
+          roomState.host.hostRevision !== null
+          ? { ...message, expectedHostRevision: roomState.host.hostRevision }
+          : message,
+      ),
+    [sendRaw, roomState.host.hostRevision],
+  );
+  const hostTransfer = useHostTransfer({
+    isHost,
+    hostRevision: roomState.host.hostRevision,
+    connected: connectionStatus === "open",
+    blocked: isNextPhasePending || isLeaving || roomState.outcomePublished,
+    send,
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
@@ -131,6 +160,15 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    if (hostTransfer.applyMessage(message)) return;
+    if (
+      message.type === "host:updated" &&
+      message.hostRevision > (roomState.host.hostRevision ?? -1)
+    ) {
+      setIsForceNextPhaseDialogOpen(false);
+      setIsNextPhasePending(false);
+      clearCandidateNotices();
+    }
     if (
       message.type === "snapshot" ||
       message.type === "outcome:published" ||
@@ -227,20 +265,27 @@ export function RoomBoard({
   }
 
   const handleNextPhase = useCallback(() => {
-    if (isNextPhasePending) return;
+    if (!isHost || hostTransfer.isPending() || isNextPhasePending) return;
     setIsNextPhasePending(true);
     send({
       type: "phase:next",
       expectedPhase: roomState.phase,
       expectedRevision: roomState.phaseRevision,
     });
-  }, [isNextPhasePending, send, roomState.phase, roomState.phaseRevision]);
+  }, [
+    isHost,
+    hostTransfer.isPending,
+    isNextPhasePending,
+    send,
+    roomState.phase,
+    roomState.phaseRevision,
+  ]);
 
   // 投票未完了ゲートの脱出ハッチ。ForceNextPhaseDialog の確認後に
   // force 付きで再送する（ホスト以外はサーバー側で拒否される）。
   const handleForceNextPhase = useCallback(() => {
     setIsForceNextPhaseDialogOpen(false);
-    if (isNextPhasePending) return;
+    if (!isHost || hostTransfer.isPending() || isNextPhasePending) return;
     setIsNextPhasePending(true);
     send({
       type: "phase:next",
@@ -248,7 +293,14 @@ export function RoomBoard({
       expectedPhase: roomState.phase,
       expectedRevision: roomState.phaseRevision,
     });
-  }, [isNextPhasePending, send, roomState.phase, roomState.phaseRevision]);
+  }, [
+    isHost,
+    hostTransfer.isPending,
+    isNextPhasePending,
+    send,
+    roomState.phase,
+    roomState.phaseRevision,
+  ]);
 
   const handleNoteDecide = useCallback(
     (noteId: string) => send({ type: "note:decide", noteId }),
@@ -270,7 +322,7 @@ export function RoomBoard({
 
   const handleLoopPhase = useCallback(
     (type: "phase:restart-writing" | "phase:revote") => {
-      if (isNextPhasePending) return;
+      if (!isHost || hostTransfer.isPending() || isNextPhasePending) return;
       setIsNextPhasePending(true);
       send({
         type,
@@ -278,7 +330,14 @@ export function RoomBoard({
         expectedRevision: roomState.phaseRevision,
       });
     },
-    [isNextPhasePending, send, roomState.phase, roomState.phaseRevision],
+    [
+      isHost,
+      hostTransfer.isPending,
+      isNextPhasePending,
+      send,
+      roomState.phase,
+      roomState.phaseRevision,
+    ],
   );
 
   const handleTimerStart = useCallback(
@@ -450,6 +509,14 @@ export function RoomBoard({
         timerServerOffsetMs={roomState.timerServerOffsetMs}
         timerUpdateVersion={roomState.timerUpdateVersion}
         isHost={isHost}
+        hostRevision={roomState.host.hostRevision ?? 0}
+        onTransferHost={
+          roomState.host.hostRevision === null
+            ? undefined
+            : hostTransfer.transfer
+        }
+        isTransferring={hostTransfer.pending}
+        transferError={hostTransfer.error}
         decision={roomState.decision}
         outcomePublished={roomState.outcomePublished}
         adoptionFocusNoteId={roomState.adoptionFocusNoteId}

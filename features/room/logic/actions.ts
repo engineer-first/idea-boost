@@ -6,6 +6,7 @@
 // 作成・参加はルーム外のフロー（features/room-lifecycle/actions.ts）。
 
 import { redirect } from "next/navigation";
+import { LeaveRoomRequestSchema } from "@/contracts/completed-rooms";
 import { isUuid } from "@/contracts/ids";
 import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
@@ -29,12 +30,18 @@ export async function leaveRoom(formData: FormData): Promise<void> {
   // 404（既に退出済み / 存在しない / 非メンバー / 解散済み）は成功相当でホームへ。
   // ホストの leave はサーバ側でルーム解散になる。
   // 5xx は呼び出し側でリカバリする。
+  const intent = formData.get("intent");
+  const revision = formData.get("expectedHostRevision");
+  const body = LeaveRoomRequestSchema.parse({
+    ...(intent ? { intent } : {}),
+    ...(revision !== null ? { expectedHostRevision: Number(revision) } : {}),
+  });
   const res = await apiFetch(`/api/rooms/${roomId}/leave`, {
     method: "POST",
-    ...(formData.get("intent") === "self"
+    ...(intent
       ? {
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ intent: "self" }),
+          body: JSON.stringify(body),
         }
       : {}),
   });

@@ -18,8 +18,8 @@ const guide = {
   modalExamples: ["一つ目の具体例", "二つ目の具体例"],
   example: "作業を進めるコツ",
   completion: "この工程を終える条件",
-  hostMessage: "進行役だけが確認する手順",
-  hostTimerGuide: "進行役だけのタイマー操作案内",
+  hostMessage: "ホストだけが確認する手順",
+  hostTimerGuide: "ホストだけのタイマー操作案内",
 } satisfies FacilitationGuideContent;
 const defaults: StepGuideProps = {
   guide,
@@ -263,10 +263,10 @@ describe("工程ガイド", () => {
     const { rerender, props } = setup({ initialState: "detail" });
     const hostMessage = guide.hostMessage;
     expect(screen.queryByText(guide.hostTimerGuide)).not.toBeInTheDocument();
-    expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
+    expect(screen.queryByText("ホストへ")).not.toBeInTheDocument();
     expect(screen.queryByText(hostMessage)).not.toBeInTheDocument();
     rerender(<StepGuide {...props} isHost />);
-    expect(screen.getByText("進行役へ")).toBeVisible();
+    expect(screen.getByText("ホストへ")).toBeVisible();
     expect(screen.getByText(guide.hostTimerGuide)).toBeVisible();
     expect(screen.getByText(hostMessage)).toBeVisible();
     rerender(<StepGuide {...props} isHost={false} />);
@@ -278,6 +278,6 @@ describe("工程ガイド", () => {
       isHost: true,
       initialState: "detail",
     });
-    expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
+    expect(screen.queryByText("ホストへ")).not.toBeInTheDocument();
   });
 });

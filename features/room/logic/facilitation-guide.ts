@@ -54,7 +54,7 @@ const FACILITATION_GUIDES: Record<
       message: "1枚につき1つ書こう。",
       hostMessage: "書き終えた人を確認して、次のステップへ進みます。",
       purpose: "まずは一人で考えます。共有するまで、自分だけに見えます。",
-      completion: "書き終えたら、進行役の案内を待ちます。",
+      completion: "書き終えたら、ホストの案内を待ちます。",
       modalIntro: "アイデア出しを始めよう！",
       modalTitle: "最近あった困ったことを付箋に書き出そう。",
       modalExamples: [

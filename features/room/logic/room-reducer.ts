@@ -106,6 +106,7 @@ export function applyMemberServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "host:updated":
     case "error":
       return members;
     default: {
@@ -155,6 +156,7 @@ export function applyVotingCompletionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "host:updated":
     case "error":
       return completedVoterIds;
     default: {
@@ -226,6 +228,7 @@ export function applyDecisionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "host:updated":
     case "error":
       return decision;
     default: {
@@ -311,6 +314,7 @@ export function applyPhaseServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "host:updated":
     case "error":
       return phase;
     default: {
@@ -327,4 +331,28 @@ export function applySharingServerMessage(
   if (message.type === "snapshot") return message.sharing ?? null;
   if (message.type === "sharing:updated") return message.sharing;
   return state;
+}
+
+export type HostClientState = {
+  hostUserId: string | null;
+  hostRevision: number | null;
+  isHost: boolean | null;
+};
+export function applyHostServerMessage(
+  state: HostClientState,
+  message: ServerMessage,
+): HostClientState {
+  if (message.type !== "snapshot" && message.type !== "host:updated")
+    return state;
+  if (
+    message.hostRevision !== undefined &&
+    state.hostRevision !== null &&
+    message.hostRevision < state.hostRevision
+  )
+    return state;
+  return {
+    hostUserId: message.hostUserId ?? state.hostUserId,
+    hostRevision: message.hostRevision ?? state.hostRevision,
+    isHost: message.type === "snapshot" ? message.isHost : null,
+  };
 }

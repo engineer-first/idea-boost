@@ -44,6 +44,12 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "ホストを引き継いでも他者の未共有付箋を見せない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "マップ外カーソルの共有でも他者のprivate付箋は見られない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
@@ -129,7 +135,7 @@ const TABLE: Array<{
     expected: false,
   },
   {
-    name: "共有の進行役でも他者のprivate付箋は見られない",
+    name: "共有のホストでも他者のprivate付箋は見られない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
     expected: false,

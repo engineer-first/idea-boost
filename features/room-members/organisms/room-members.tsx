@@ -16,6 +16,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { cn } from "@/lib/utils";
 import { MemberAvatar } from "../molecules/member-avatar";
+import { MemberSelection } from "../molecules/member-selection";
 
 // 横 4 × 縦 3。これを超えると +N になる。
 export const ROOM_MEMBERS_COLS = 4;
@@ -30,6 +31,8 @@ export type RoomMembersProps = {
   // 先頭から何個まで Avatar + 名前で描画するか。超過分は +N バッジ。
   // 既定は ROOM_MEMBERS_MAX_VISIBLE（12 = 4×3）。
   maxVisible?: number;
+  onSelectMember?: (userId: string) => void;
+  selectionDisabled?: boolean;
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
 };
@@ -39,6 +42,8 @@ export function RoomMembers({
   currentUserId,
   hostUserId,
   maxVisible = ROOM_MEMBERS_MAX_VISIBLE,
+  onSelectMember,
+  selectionDisabled = false,
   completedVoterIds = [],
 }: RoomMembersProps) {
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -68,32 +73,43 @@ export function RoomMembers({
               data-host={isHostMember ? "true" : undefined}
               className="flex min-w-0 flex-col items-center gap-1 text-center"
             >
-              <MemberAvatar
+              <MemberSelection
                 name={member.name}
-                color={member.color}
-                isMe={isMe}
-                isVotingComplete={completedVoterIds.includes(member.userId)}
-              />
-              <span className="flex min-w-0 flex-col items-center">
-                <span
-                  className={cn(
-                    "max-w-full truncate text-[11px] leading-tight",
-                    isMe
-                      ? "font-semibold text-foreground"
-                      : "text-foreground/80",
-                  )}
-                >
-                  {member.name}
-                </span>
-                {isHostMember ? (
+                className="flex w-full min-w-0 flex-col items-center gap-1 p-1 text-center"
+                disabled={selectionDisabled}
+                onSelect={
+                  !isMe && onSelectMember
+                    ? () => onSelectMember(member.userId)
+                    : undefined
+                }
+              >
+                <MemberAvatar
+                  name={member.name}
+                  color={member.color}
+                  isMe={isMe}
+                  isVotingComplete={completedVoterIds.includes(member.userId)}
+                />
+                <span className="flex min-w-0 flex-col items-center">
                   <span
-                    data-testid={`member-host-label-${member.userId}`}
-                    className="text-[10px] font-medium leading-tight text-muted-foreground"
+                    className={cn(
+                      "max-w-full truncate text-[11px] leading-tight",
+                      isMe
+                        ? "font-semibold text-foreground"
+                        : "text-foreground/80",
+                    )}
                   >
-                    ホスト
+                    {member.name}
                   </span>
-                ) : null}
-              </span>
+                  {isHostMember ? (
+                    <span
+                      data-testid={`member-host-label-${member.userId}`}
+                      className="text-[10px] font-medium leading-tight text-muted-foreground"
+                    >
+                      ホスト
+                    </span>
+                  ) : null}
+                </span>
+              </MemberSelection>
             </div>
           );
         })}
@@ -128,15 +144,37 @@ export function RoomMembers({
                 data-testid={`overflow-member-${member.userId}`}
                 className="flex min-w-0 items-center gap-2"
               >
-                <MemberAvatar
+                <MemberSelection
                   name={member.name}
-                  color={member.color}
-                  isMe={member.userId === currentUserId}
-                  isVotingComplete={completedVoterIds.includes(member.userId)}
-                />
-                <span className="truncate text-sm text-foreground">
-                  {member.name}
-                </span>
+                  className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
+                  disabled={selectionDisabled}
+                  onSelect={
+                    member.userId !== currentUserId && onSelectMember
+                      ? () => {
+                          setOverflowOpen(false);
+                          onSelectMember(member.userId);
+                        }
+                      : undefined
+                  }
+                >
+                  <MemberAvatar
+                    name={member.name}
+                    color={member.color}
+                    isMe={member.userId === currentUserId}
+                    isVotingComplete={completedVoterIds.includes(member.userId)}
+                  />
+                  <span className="truncate text-sm text-foreground">
+                    {member.name}
+                  </span>
+                  {member.userId === hostUserId ? (
+                    <span
+                      data-testid={`member-host-label-${member.userId}`}
+                      className="shrink-0 text-xs text-muted-foreground"
+                    >
+                      ホスト
+                    </span>
+                  ) : null}
+                </MemberSelection>
               </li>
             ))}
           </ul>

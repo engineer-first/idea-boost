@@ -2,7 +2,7 @@
 
 import { DoorOpen, Link2, Play, Users } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +23,7 @@ import {
   type RoomScreenConnectionStatus,
 } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
+import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 
 export type RoomLobbyViewProps = {
@@ -43,6 +44,9 @@ export type RoomLobbyViewProps = {
   // 退出。
   onLeave: () => void;
   isLeaving: boolean;
+  onTransferHost?: (targetUserId: string) => void;
+  isTransferring?: boolean;
+  transferError?: string | null;
 };
 
 export function RoomLobbyView({
@@ -58,13 +62,21 @@ export function RoomLobbyView({
   onStart,
   onLeave,
   isLeaving,
+  onTransferHost,
+  isTransferring = false,
+  transferError = null,
 }: RoomLobbyViewProps) {
   const isDisconnected = connectionStatus !== "open";
+  const lobbyRef = useRef<HTMLDivElement>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [hostTargetId, setHostTargetId] = useState<string | null>(null);
+  const transferTriggerRef = useRef<HTMLElement | null>(null);
   const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
 
   return (
     <div
+      ref={lobbyRef}
+      tabIndex={-1}
       className="relative flex h-full min-h-0 flex-1 flex-col items-center overflow-x-hidden overflow-y-auto p-4 sm:p-6"
       data-testid="room-lobby-view"
       data-phase={
@@ -147,7 +159,61 @@ export function RoomLobbyView({
                 members={members}
                 currentUserId={currentUserId}
                 hostUserId={hostUserId}
+                selectionDisabled={
+                  isDisconnected || isStarting || isTransferring || isLeaving
+                }
+                onSelectMember={
+                  isHost && isLobby(phase) && onTransferHost
+                    ? (userId) => {
+                        const source =
+                          document.activeElement instanceof HTMLElement
+                            ? document.activeElement
+                            : null;
+                        transferTriggerRef.current = source?.closest(
+                          '[data-testid="room-members-overflow-dialog"]',
+                        )
+                          ? (lobbyRef.current?.querySelector<HTMLButtonElement>(
+                              '[data-testid="room-members-overflow"]',
+                            ) ?? null)
+                          : source;
+                        setHostTargetId(userId);
+                      }
+                    : undefined
+                }
               />
+              {isHost &&
+              isLobby(phase) &&
+              onTransferHost &&
+              hostTargetId !== null ? (
+                <HostTransferDialog
+                  open
+                  onOpenChange={(open) => {
+                    if (!open) setHostTargetId(null);
+                  }}
+                  target={
+                    members.find((member) => member.userId === hostTargetId) ??
+                    null
+                  }
+                  onConfirm={onTransferHost}
+                  pending={isTransferring}
+                  disconnected={isDisconnected}
+                  error={transferError}
+                  onClosed={() => {
+                    if (transferTriggerRef.current?.isConnected)
+                      transferTriggerRef.current.focus();
+                    else {
+                      const fallback =
+                        lobbyRef.current?.querySelector<HTMLButtonElement>(
+                          '[data-testid="room-members-overflow"]',
+                        ) ??
+                        lobbyRef.current?.querySelector<HTMLButtonElement>(
+                          '[data-testid="room-members"] button',
+                        );
+                      (fallback ?? lobbyRef.current)?.focus();
+                    }
+                  }}
+                />
+              ) : null}
             </CardContent>
             <CardFooter className="justify-center border-t border-border/60 pt-4">
               <span
@@ -200,7 +266,7 @@ export function RoomLobbyView({
               <Button
                 type="button"
                 onClick={onStart}
-                disabled={isDisconnected || isStarting}
+                disabled={isDisconnected || isStarting || isTransferring}
                 data-testid="start-phase-button"
                 size="lg"
                 className="w-full"
@@ -239,7 +305,8 @@ export function RoomLobbyView({
       </div>
 
       <LeaveConfirmDialog
-        open={leaveDialogOpen}
+        key={hostUserId}
+        open={leaveDialogOpen && !isTransferring}
         onOpenChange={setLeaveDialogOpen}
         onConfirm={onLeave}
         isLeaving={isLeaving}

@@ -244,7 +244,7 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
         </dl>
         {isHost && (guide.hostMessage || guide.hostTimerGuide) && (
           <div className="mt-4 border-t border-border pt-3 text-xs leading-5">
-            <p className="font-semibold">進行役へ</p>
+            <p className="font-semibold">ホストへ</p>
             {guide.hostTimerGuide && (
               <p className="mt-2 text-muted-foreground">
                 <Clock3 aria-hidden="true" className="mr-1 inline size-4" />

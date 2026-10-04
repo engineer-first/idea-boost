@@ -108,6 +108,8 @@ const meta = {
     timer: { status: "idle" },
     timerServerOffsetMs: 0,
     isHost: true,
+    hostRevision: 0,
+    onTransferHost: fn(),
     decision: null,
     outcomePublished: false,
     connectionStatus: "open",
