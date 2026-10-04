@@ -6963,6 +6963,9 @@ describe("new move group privacy WS", () => {
       await connectDirectlyWithFirstMessage(name, C, USER_A);
     expect(visible.groups).toEqual([]);
     author.send(JSON.stringify({ type: "note:delete", noteId: N2 }));
+    expect(await nextJsonOfType(author, "note:deleted")).toMatchObject({
+      noteId: N2,
+    });
     // 1-1ではshared移動は不可。削除を反映した実工程遷移が最新版を通知する。
     await runInRoomDO(name, (_instance, state) =>
       expect(state.storage.sql.exec("SELECT * FROM groups").toArray()).toEqual(
