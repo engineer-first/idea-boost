@@ -177,3 +177,9 @@ Markdown のローカルリンク・アンカー、YAML、整形、lint、`git d
 目的・受け入れ条件・デモ確認内容を1件の PBI にまとめる合意に合わせ、共有スキルの正本に集約された `pbi-demogoal` を `pbi` に変更し、共有スクリプトとフォームの DemoGoal 別 Issue 作成を廃止した。既存 Issue・組織 Type は変更しない。親 PBI は後から整理でき、着手時だけ対象 Milestone を確認する規範を AGENTS と実装・PR の入口へ追加した。期限から sprint を推測せず、未確定なら実装を保留する。貢献度は完了済みを含む Milestone 内の作業を起点にし、バーンダウンには Spike・種類なしも含める。
 
 変更するスクリプトは先に Vitest の失敗を確認し、PBI 単独作成・デモ欄の任意化・本文保持・集計範囲の修正後に同じテストを通した。関連64ケースと Python 11ケース、lint、YAML、リンク・アンカー、symlink、Markdown 整形、差分を確認した。Node LTS の全unitは2267/2269件成功、sandbox による git index 書込・localhost listen の失敗2件は該当2ファイルを許可環境で再実行し12件成功。Node 26での実行は localStorage の環境差があり、LTSで確認し直した。skill の自動選択・エージェントによる Milestone 操作の実走や Issue の実作成は未検証。
+
+## 2026-10-04: 全open Issueのsprint割当
+
+- 未着手・全Typeを含むopen Issueを現在sprintへ移し、closedは最後の割当を保つ合意を、Issue運用と定期workflowへ反映した。Project/Appには依存せず、workflowのGITHUB\_TOKENだけでIssueを更新する。
+- Milestone説明の登録済み `idea-boost-sprint:v1` JSONを読み、JSTの明示期間を使う。空白日・未登録・重複・不正は保留する。履歴はGitHub標準のMilestone変更履歴に残す。
+- 外部書込なしのテストで全Type、繰越し、PR除外、closed保持、dry-run、期間境界・再読取競合・API失敗を検証した。実データは読み取りとdry-runだけで確認し、merge前のIssue割当は変更しない。

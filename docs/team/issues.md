@@ -28,14 +28,34 @@ PBI を作成する場合は [PBI スキル](../../.agents/skills/pbi/SKILL.md)�
 ## PBIとスプリント
 
 - 思いつきは小さな Issue で起票してよい。Task / Bug / Spike / 種類なしなどの作業 Issue は、原則最終的に PBI へ親子関係で紐付ける。親 PBI は起票・着手時の必須条件ではなく、開発中・完了後に整理してよい。Blank issue は起票方法であり、Issue Type ではない。
-- **作業に着手するときは、対象 sprint の Milestone が必須**。起票時は未割当でよい。エージェントは未設定なら会話・Milestone 説明などから確定した現在の sprint を調べ、対象を確認して割り当てる。期限・番号だけで推測せず、未確定なら実装を保留して理由を報告する。都度ユーザーへ質問しない。この確認は運用で行い、状態同期の自動化で強制しない。
-- sprint 内の Issue は完了済みも含めて Milestone から確認し、後で PBI へまとめられる。PBI が別 sprint・未割当でも、作業 Issue 自身の Milestone を集計の起点にする。
+- **作業に着手するときは、対象 sprint の Milestone が必須**。定期自動割当を待たず、エージェントは未設定なら Milestone 説明の確定期間を調べ、現在の sprint を割り当てる。期限・番号だけで推測せず、未確定なら実装を保留して理由を報告する。都度ユーザーへ質問しない。自動割当の前でも、この着手確認は運用で行う。
+- sprint 内の Issue は完了済みも含めて Milestone から確認し、後で PBI へまとめられる。open Issue は次の sprint へ移るため、過去の割当は GitHub の Milestone 変更履歴から確認する。PBI が別 sprint・未割当でも、作業 Issue 自身の Milestone を集計の起点にする。
 - 成果は開始時に大まかに決め、後から追加・変更してよい。作業の完了見込みと残り時間に余裕があれば追加でき、代わりに何かを外す確認は必須ではない。厳しいときだけ範囲・優先順位を再検討する。
 - PBI に目的と受け入れ条件・デモ確認内容をまとめ、DemoGoal 別 Issue の運用は廃止する。sprint 全体の成果は Milestone 説明に短く書き、PBI 本文を複製しない。重大な変更には理由を一言残す。
 
 1 sprint は暦の6日間ではなく、対象授業6回（開発5回＋第6回 review/demo）。授業日程の Day が空欄の発表日等は数えない。開始日・開発日・review/demo 日・次の開始日は、確定した授業日程に基づき Milestone 説明へ記録する。年を固定して繰り返さない。
 
 確認済みの例: [Sprint 7](https://github.com/engineer-first/idea-boost/milestone/7)は2026-10-05開始、開発は10/5・7・8・9・13、review/demoは10/14、次の開始は10/15。過去の Sprint 1〜6 は履歴として残す。今後の期間・成果・割当ては Milestone を確認する。
+
+## 現在sprintへの自動割当
+
+[Assign Current Sprint](../../.github/workflows/assign-current-sprint.yml)は毎時23分に、**未着手を含む全open Issue**を現在の sprint の Milestone へ割り当てる。Type・親・Project の Status を条件にせず、PBI・既存 DemoGoal・相談・要望・Feature・種類なしも対象にする。REST Issue API に混在する PR は除外する。
+
+既存割当が以前・将来の sprint や非sprint Milestone でも、現在の sprint へ付け替える。次の sprint でも open なら繰り越し、closed Issue は最後の Milestone を保持する。繰越しは GitHub 標準の Milestone 変更履歴に残し、コメントや別台帳は追加しない。割当は着手・完了の判断ではなく、実作業の状態は Status で区別する。
+
+現在の sprint は Milestone 説明内の次の JSON コメントで決める。既存の成果・授業日説明は残し、確定した日程を登録するときにコメントも更新する。下記の期間は Sprint 7 の例で、年度を固定して実行しない。
+
+```html
+<!-- idea-boost-sprint:v1
+{"schema_version":1,"sprint_number":7,"timezone":"Asia/Tokyo","start_date":"2026-10-05","end_date":"2026-10-14","development_dates":["2026-10-05","2026-10-07","2026-10-08","2026-10-09","2026-10-13"],"demo_date":"2026-10-14","next_start_date":"2026-10-15"}
+-->
+```
+
+判定に使うのは `schema_version: 1`・`timezone: Asia/Tokyo`・`start_date`・`end_date`。開始日のJST 00:00から終了日いっぱいまでを対象とし、`next_start_date` まで延長しない。期間の空白日・次sprint未登録・該当なし・期間不正・複数該当・対象Milestoneがclosedの場合は更新せず、Actions Summary に理由を残す。title・due date だけでは推測しない。
+
+手動実行は default branch の `workflow_dispatch` から行い、`dry_run` は既定で true。更新前に Milestone と Issue を再取得し、現在割当と同じ・closed化・PRの場合は保持する。API 失敗は実行失敗として報告する。最終読取と更新の間に起きる手動操作との競合は、GitHub API の制約上完全には排除できない。
+
+この workflow だけに `GITHUB_TOKEN` の `contents: read` と `issues: write` を指定する。既存 Project 用 App の権限変更・新しい PAT・secret は不要。default branch のコードだけを実行し、PR ブランチでは実行しない。定期実行は default branch へマージした後に有効になる。権限の根拠は [Issue更新API](https://docs.github.com/en/rest/issues/issues#update-an-issue)。
 
 ## Project 状態
 
@@ -119,12 +139,14 @@ Project の作業・状態を変えるときは、Issue本文と Milestone は�
 | ビュー                                                                       | 読む目的                                              |
 | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
 | [ホワイトボード](https://github.com/orgs/engineer-first/projects/3/views/2)  | 完了・見送りを除いた全体の状態                        |
-| [今回の作業](https://github.com/orgs/engineer-first/projects/3/views/3)      | 確定した sprint の作業・Draft item・関連 PR           |
+| [今回の作業](https://github.com/orgs/engineer-first/projects/3/views/3)      | 確定した sprint の全open Issue・Draft item・関連 PR   |
 | [PBI階層](https://github.com/orgs/engineer-first/projects/3/views/4)         | PBI の受け入れ条件と子 Issue の進捗（Show hierarchy） |
 | [自分の作業](https://github.com/orgs/engineer-first/projects/3/views/6)      | ログインした本人が担当する未完了の作業                |
 | [レビュー待ち](https://github.com/orgs/engineer-first/projects/3/views/7)    | Status がレビュー中の項目                             |
 | [PBI未紐づけ](https://github.com/orgs/engineer-first/projects/3/views/8)     | 完了済みも含めて、親のない作業を PBI へ整理する候補   |
-| [今回やったこと](https://github.com/orgs/engineer-first/projects/3/views/11) | 確定した sprint の Issue を完了済みも含めて確認       |
+| [今回やったこと](https://github.com/orgs/engineer-first/projects/3/views/11) | その sprint で完了した Issue と現在残っている Issue   |
+
+「今回の作業」は未着手のバックログも含むため、実作業は Status で区別する。「今回やったこと」はその sprint の完了分と現在の残件を読む。繰り越した open Issue は次の sprint へ移り、過去の全所属一覧にはならない。
 
 各ビューは `repo:engineer-first/idea-boost` を対象にする。自分の作業は `assignee:@me` で絞る。
 「今回の作業」は `milestone:"Sprint 7" is:open,draft,pr`、「今回やったこと」は `is:issue milestone:"Sprint 7"`。次の sprint が確定したらその Milestone 値へ更新する。期限から現在の sprint を推測せず、Iteration 用の `@current` は Milestone に使わない。
