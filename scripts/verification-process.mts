@@ -35,9 +35,12 @@ export async function waitForReady(
 
 // POSIXでは起動したdetachedプロセスのPIDがグループIDになる。
 // 親のexitだけでは子孫の終了を意味しないため、グループ自体を確認する。
-function isProcessGroupAlive(child: ChildProcess): boolean {
+function isProcessGroupAlive(
+  child: ChildProcess,
+  processGroups: boolean,
+): boolean {
   if (!child.pid) return false;
-  if (process.platform === "win32") return !hasExited(child);
+  if (process.platform === "win32" || !processGroups) return !hasExited(child);
   try {
     process.kill(-child.pid, 0);
     return true;
@@ -50,10 +53,14 @@ function isProcessGroupAlive(child: ChildProcess): boolean {
   }
 }
 
-function signalProcess(child: ChildProcess, signal: NodeJS.Signals): void {
+function signalProcess(
+  child: ChildProcess,
+  signal: NodeJS.Signals,
+  processGroups: boolean,
+): void {
   if (!child.pid) return;
   try {
-    if (process.platform === "win32") {
+    if (process.platform === "win32" || !processGroups) {
       if (!hasExited(child)) child.kill(signal);
     } else process.kill(-child.pid, signal);
   } catch (error) {
@@ -64,27 +71,31 @@ function signalProcess(child: ChildProcess, signal: NodeJS.Signals): void {
 async function waitForGroupExit(
   child: ChildProcess,
   timeoutMs: number,
+  processGroups: boolean,
 ): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
-  while (isProcessGroupAlive(child)) {
+  while (isProcessGroupAlive(child, processGroups)) {
     if (Date.now() >= deadline) return false;
     await delay(25);
   }
   return true;
 }
 
-export async function stopProcesses(children: ChildProcess[]): Promise<void> {
+export async function stopProcesses(
+  children: ChildProcess[],
+  processGroups = true,
+): Promise<void> {
   await Promise.all(
     children.map(async (child) => {
       if (!child.pid) return;
       const exited = hasExited(child)
         ? Promise.resolve()
         : new Promise<void>((resolve) => child.once("exit", () => resolve()));
-      signalProcess(child, "SIGTERM");
+      signalProcess(child, "SIGTERM", processGroups);
       // 親が先に終了しても、TERMを無視した子孫が残る間は猶予期限を維持する。
-      if (!(await waitForGroupExit(child, 3000))) {
-        signalProcess(child, "SIGKILL");
-        if (!(await waitForGroupExit(child, 1000)))
+      if (!(await waitForGroupExit(child, 3000, processGroups))) {
+        signalProcess(child, "SIGKILL", processGroups);
+        if (!(await waitForGroupExit(child, 1000, processGroups)))
           throw new Error("検証のプロセスグループを終了できませんでした。");
       }
       await exited;
