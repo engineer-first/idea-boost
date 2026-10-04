@@ -187,3 +187,44 @@ Markdown のローカルリンク・アンカー、YAML、整形、lint、`git d
 ## 2026-10-04: 自動割当に合わせて着手条件を整理
 
 全open Issueの定期割当に合わせ、AGENTS・実装／PR／PBI skill・作業Issueフォームから着手前のMilestone確認・設定・実装保留を削除した。反映待ち・期間外・現在sprint未確定でも作業を進められる。親PBIの後日整理は維持する。期間不明時に自動割当だけを保留するコードは変更していない。
+
+## 2026-10-04: 旧運用の説明を保守記録へ集約
+
+現行文書・skills・フォームから旧DemoGoalの説明と廃止注記を除き、PBIの目的・受け入れ条件・デモ確認内容だけで読めるようにした。ADRの共有スキル集約の理由は維持し、旧スキル名の経緯は本記録へ残す。
+
+Projectの「PBI未紐づけ」の実フィルター `repo:engineer-first/idea-boost is:issue -type:PBI,DemoGoal no:parent-issue` は変更していない。現行ガイドでは作業Issueと親の有無による絞込みを説明する。作成スクリプトの入力キー `demo_goals` はPBI本文のデモ確認内容を表すため維持し、既存Typeに関する自動割当・状態同期・バーンダウンの回帰テストも残す。
+
+### 確認した既存DemoGoal（2026-10-04、30件すべてclosed）
+
+既存Issue・組織Typeは変更しない。必要なPBIを再開する場合だけ、確認内容をそのPBI本文へまとめて旧Issueを参照する案とし、一括移行やcloseは行わない。
+
+- [#3](https://github.com/engineer-first/idea-boost/issues/3) DEMO-02 ログイン・ログアウト（Sprint 2）
+- [#4](https://github.com/engineer-first/idea-boost/issues/4) DE-02-02 Google認証後トップ画面へ遷移（Sprint 2）
+- [#5](https://github.com/engineer-first/idea-boost/issues/5) DE-02-03 ログイン状態がわかる（Sprint 2）
+- [#6](https://github.com/engineer-first/idea-boost/issues/6) DE-02-04 ログアウトできる（Sprint 2）
+- [#10](https://github.com/engineer-first/idea-boost/issues/10) DEMO-01 開発環境を統一する（Sprint 2）
+- [#11](https://github.com/engineer-first/idea-boost/issues/11) DE-01-02 READMEで環境構築手順と起動方法を確認できる（Sprint 2）
+- [#12](https://github.com/engineer-first/idea-boost/issues/12) DE-01-03 ランタイム言語のバージョン出力が統一されている（Sprint 2）
+- [#13](https://github.com/engineer-first/idea-boost/issues/13) DE-01-04 Pull RequestでLintとBuildのCI結果が表示される（Sprint 2）
+- [#17](https://github.com/engineer-first/idea-boost/issues/17) DEMO-03 付箋でアイデアを追加・編集する（Sprint 2）
+- [#45](https://github.com/engineer-first/idea-boost/issues/45) DEMO-04 ルームを作成し、招待URLを発行する（Sprint 3）
+- [#47](https://github.com/engineer-first/idea-boost/issues/47) DEMO-05 招待URLからルームに参加し、メンバーを確認する（Sprint 3）
+- [#49](https://github.com/engineer-first/idea-boost/issues/49) DEMO-06 フェーズ・ステップの進行を全員で同期する（Sprint 3）
+- [#51](https://github.com/engineer-first/idea-boost/issues/51) DEMO-07 個人の時間で課題を付箋に書く（Sprint 3）
+- [#53](https://github.com/engineer-first/idea-boost/issues/53) DEMO-08 課題をホワイトボードで共有し、グルーピングする（Sprint 3）
+- [#55](https://github.com/engineer-first/idea-boost/issues/55) DEMO-09 課題にドット投票し、取り組む課題を決定する（Sprint 4）
+- [#57](https://github.com/engineer-first/idea-boost/issues/57) DEMO-10 フェーズ1のステップ進行と操作のオンオフを制御する（Sprint 4）
+- [#59](https://github.com/engineer-first/idea-boost/issues/59) DEMO-11 決定した課題を持ち越して表示し、HMWを個人で書く（Sprint 4）
+- [#61](https://github.com/engineer-first/idea-boost/issues/61) DEMO-12 HMWを共有し、ステルス投票して決定する（Sprint 4）
+- [#63](https://github.com/engineer-first/idea-boost/issues/63) DEMO-13 決定したHMWを持ち越して表示し、アイデアを個人で書く（Sprint 4）
+- [#65](https://github.com/engineer-first/idea-boost/issues/65) DEMO-14 アイデアを価値×実現しやすさの2軸マップに配置する（Sprint 4）
+- [#67](https://github.com/engineer-first/idea-boost/issues/67) DEMO-15 アイデアを共有し、ステルス投票して決定する（Sprint 5）
+- [#127](https://github.com/engineer-first/idea-boost/issues/127) DEMO-16 各フェーズ・ステップのファシリテーションガイドを表示する（Sprint 5）
+- [#131](https://github.com/engineer-first/idea-boost/issues/131) DEMO-98 本番環境へデプロイし、招待URLでスプリントを実施できるようにする（Sprint 4）
+- [#133](https://github.com/engineer-first/idea-boost/issues/133) DEMO-99 ホワイトボードを全画面表示にし、操作をフローティングツールバーに集約する（Sprint 5）
+- [#243](https://github.com/engineer-first/idea-boost/issues/243) DEMO-17 作業領域を保ちながら初心者向けフェーズガイドを表示する（Sprint 6）
+- [#259](https://github.com/engineer-first/idea-boost/issues/259) DEMO-18 次にやることを理解し、見やすい画面で作業できる（Sprint 6）
+- [#261](https://github.com/engineer-first/idea-boost/issues/261) DEMO-19 一緒に作業している相手の操作位置が分かる（Sprint 6）
+- [#263](https://github.com/engineer-first/idea-boost/issues/263) DEMO-20 投票先と残り票数を把握しながら投票できる（Sprint 6）
+- [#265](https://github.com/engineer-first/idea-boost/issues/265) DEMO-21 サービス名をIdea Boostに統一して提供できる（Sprint 6）
+- [#268](https://github.com/engineer-first/idea-boost/issues/268) DEMO-22 今回の成果を伝え、レビューを受けられる（Sprint 6）

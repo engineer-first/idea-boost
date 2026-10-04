@@ -32,7 +32,7 @@ gh issue list --repo $OWNER/$REPO --milestone "<title>" --state all --limit 1000
   --json number,title,state,issueType,assignees
 ```
 
-この一覧を集計の起点にする。open Issueは次sprintへ繰り越すため、過去の一覧はそのsprintの完了分が中心になる。以前の所属が必要ならGitHubのMilestone変更履歴を確認し、現在の一覧を当時の全件とみなさない。Task / Bug / Spike / 種類なし等の作業 Issue を含め、PBI は目的・受け入れ条件・デモ確認内容の確認先として扱う。親 PBI は開発中・完了後に整理できるため、親なしや親が別 sprint・未割当の作業を除外しない。旧 DemoGoal は履歴参照に留め、別の成果として集計しない。
+この一覧を集計の起点にする。open Issueは次sprintへ繰り越すため、過去の一覧はそのsprintの完了分が中心になる。以前の所属が必要ならGitHubのMilestone変更履歴を確認し、現在の一覧を当時の全件とみなさない。Task / Bug / Spike / 種類なし等の作業 Issue を含め、PBI は目的・受け入れ条件・デモ確認内容の確認先として扱う。親 PBI は開発中・完了後に整理できるため、親なしや親が別 sprint・未割当の作業を除外しない。
 
 ### 3. 作業 Issue の親 PBI と対応 PR を確認する
 

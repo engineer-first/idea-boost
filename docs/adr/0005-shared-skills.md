@@ -7,7 +7,7 @@
 ## 背景
 
 共有スキルの実体が `.agents/skills/`・`.claude/skills/`・`.codex/skills/` に分散し、
-同名の `pbi-demogoal` に更新差分が生じていた。`write-pr` は `.agents` から `.claude` への
+同名のスキルに更新差分が生じていた。`write-pr` は `.agents` から `.claude` への
 symlink であり、編集場所も統一されていなかった。1か所の編集を両エージェントへ反映したい。
 
 ## 候補と決定

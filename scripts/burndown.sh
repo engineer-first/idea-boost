@@ -2,7 +2,7 @@
 # バーンダウン集計: スプリント(= GitHub Milestone)ごとの残り作業時間を表示する。
 #
 # 見積は issue に付いた `est:<N>h` ラベル(例: est:4h)。
-# 集計対象は Issue Type が Task / Bug / Spike / 種類なしの作業 Issue(PBI・旧DemoGoal・相談は除外)。
+# 集計対象は Issue Type が Task / Bug / Spike / 種類なしの作業 Issue。
 #
 # 使い方:
 #   scripts/burndown.sh              # 未完了タスクが残るスプリント + マイルストーンなしタスク
