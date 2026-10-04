@@ -104,7 +104,7 @@ export function IdeaValueFeasibilityMap({
 
       <div
         ref={planeRef}
-        className="pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-sky-50/90 shadow-sm"
+        className="isolate pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-sky-50/90 shadow-sm"
         data-canvas-background="true"
         data-coordinate-range="0-100"
         data-testid="idea-value-feasibility-map-plane"

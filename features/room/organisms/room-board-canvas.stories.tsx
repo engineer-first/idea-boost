@@ -911,6 +911,63 @@ export const IdeaMapMarginCursors: Story = {
   decorators: IDEA_MAP_VIEWPORT,
 };
 
+const CURSOR_LAYERING_NOTES = [
+  buildNote({
+    id: "cursor-back",
+    content: "奥の付箋",
+    x: 48,
+    y: 50,
+    stackOrder: 58,
+  }),
+  buildNote({
+    id: "cursor-front",
+    content: "手前の付箋",
+    x: 50,
+    y: 50,
+    stackOrder: 2_000_000_000,
+  }),
+];
+const LAYERING_CURSOR: RenderedRemoteCursorPresence = {
+  userId: "22222222-2222-4222-8222-222222222222",
+  name: "他の参加者",
+  color: "green",
+  x: 48,
+  y: 53,
+  draggingNoteId: null,
+  lastSeenAt: 0,
+  isIdle: false,
+};
+
+// 実際の付箋とカーソルを重ね、操作履歴と一時前面化による描画順を確認する。
+export const IdeaMapCursorAboveHighStackNotes: Story = {
+  args: {
+    ...fixedSizeMapArgs,
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+    notes: CURSOR_LAYERING_NOTES,
+    camera: IDEA_MAP_CAMERA,
+    remoteCursors: [LAYERING_CURSOR],
+  },
+  render: (args) => <ClickToFrontPreview args={args} />,
+  decorators: IDEA_MAP_VIEWPORT,
+};
+
+export const IdeaMapCursorAboveLocalDrag: Story = {
+  ...IdeaMapCursorAboveHighStackNotes,
+  args: {
+    ...IdeaMapCursorAboveHighStackNotes.args,
+    draggingNoteId: "cursor-back",
+  },
+};
+
+export const IdeaMapCursorAboveRemoteDrag: Story = {
+  ...IdeaMapCursorAboveHighStackNotes,
+  args: {
+    ...IdeaMapCursorAboveHighStackNotes.args,
+    remoteCursors: [{ ...LAYERING_CURSOR, draggingNoteId: "cursor-back" }],
+  },
+};
+
 const guidanceNotes = [
   buildNote({
     id: "guidance-first",
