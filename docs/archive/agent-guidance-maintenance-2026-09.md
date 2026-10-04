@@ -183,3 +183,7 @@ Markdown のローカルリンク・アンカー、YAML、整形、lint、`git d
 - 未着手・全Typeを含むopen Issueを現在sprintへ移し、closedは最後の割当を保つ合意を、Issue運用と定期workflowへ反映した。Project/Appには依存せず、workflowのGITHUB\_TOKENだけでIssueを更新する。
 - Milestone説明の登録済み `idea-boost-sprint:v1` JSONを読み、JSTの明示期間を使う。空白日・未登録・重複・不正は保留する。履歴はGitHub標準のMilestone変更履歴に残す。
 - 外部書込なしのテストで全Type、繰越し、PR除外、closed保持、dry-run、期間境界・再読取競合・API失敗を検証した。実データは読み取りとdry-runだけで確認し、merge前のIssue割当は変更しない。
+
+## 2026-10-04: 自動割当に合わせて着手条件を整理
+
+全open Issueの定期割当に合わせ、AGENTS・実装／PR／PBI skill・作業Issueフォームから着手前のMilestone確認・設定・実装保留を削除した。反映待ち・期間外・現在sprint未確定でも作業を進められる。親PBIの後日整理は維持する。期間不明時に自動割当だけを保留するコードは変更していない。

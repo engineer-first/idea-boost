@@ -18,24 +18,22 @@
 該当する行をすべて読む。リンク先の作業別ルールも本指示の一部とする。
 ルートから作業する場合も、下位の指示ファイルの自動読込には依存しない。
 
-| 作業                                                   | 読む資料                                                             |
-| ------------------------------------------------------ | -------------------------------------------------------------------- |
-| コードの追加・変更・移動                               | [コード配置と命名](docs/development/conventions.md#コード配置と命名) |
-| 振る舞い・UI 表現・テストの変更                        | [テスト方針](docs/development/testing.md)                            |
-| Next.js の実装                                         | `node_modules/next/dist/docs/` の関連ガイド                          |
-| UI・クライアント状態・stories・モック                  | [UI](docs/development/conventions.md#ui)                             |
-| API・Server Action・Route Handler・データアクセス      | [API](docs/development/conventions.md#api)                           |
-| 共有状態・WS・可視性・認可（クライアント側を含む）     | [共有状態と認可](docs/development/conventions.md#共有状態と認可)     |
-| D1 / RoomDO のスキーマ・migration                      | [Migration](docs/development/conventions.md#migration)               |
-| Issue の作成・編集・振り分け・調査・状態判断・実装着手 | [Issue 運用](docs/team/issues.md)                                    |
-| PR 作成・本文更新                                      | [write-pr](.agents/skills/write-pr/SKILL.md)                         |
-| 重要な設計判断の追加・変更                             | [ADR運用](docs/adr/README.md)                                        |
-| エージェント指示・ハーネスの保守                       | [保守記録](docs/development/agent-maintenance.md)                    |
+| 作業                                               | 読む資料                                                             |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| コードの追加・変更・移動                           | [コード配置と命名](docs/development/conventions.md#コード配置と命名) |
+| 振る舞い・UI 表現・テストの変更                    | [テスト方針](docs/development/testing.md)                            |
+| Next.js の実装                                     | `node_modules/next/dist/docs/` の関連ガイド                          |
+| UI・クライアント状態・stories・モック              | [UI](docs/development/conventions.md#ui)                             |
+| API・Server Action・Route Handler・データアクセス  | [API](docs/development/conventions.md#api)                           |
+| 共有状態・WS・可視性・認可（クライアント側を含む） | [共有状態と認可](docs/development/conventions.md#共有状態と認可)     |
+| D1 / RoomDO のスキーマ・migration                  | [Migration](docs/development/conventions.md#migration)               |
+| Issue の作成・編集・振り分け・調査・状態判断       | [Issue 運用](docs/team/issues.md)                                    |
+| PR 作成・本文更新                                  | [write-pr](.agents/skills/write-pr/SKILL.md)                         |
+| 重要な設計判断の追加・変更                         | [ADR運用](docs/adr/README.md)                                        |
+| エージェント指示・ハーネスの保守                   | [保守記録](docs/development/agent-maintenance.md)                    |
 
 ## 開発と検証
 
-- 実装着手前に、作業 Issue の対象 sprint の Milestone を確認する。未設定時は
-  [Issue 運用](docs/team/issues.md#pbiとスプリント)に従い、確定した現在の sprint を調べ、未確定なら実装を保留する。親 PBI は着手条件にしない。
 - 開発サーバーは標準で2時間後に停止する。起動・常駐・並行worktreeのポート指定は
   [開発サーバーの起動と停止](docs/development/dev-server-lifecycle.md)に従う。
   検証後は自分が起動した一時サーバーを期限を待たずに停止する。

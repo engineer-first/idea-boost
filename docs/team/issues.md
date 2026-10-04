@@ -28,7 +28,7 @@ PBI を作成する場合は [PBI スキル](../../.agents/skills/pbi/SKILL.md)�
 ## PBIとスプリント
 
 - 思いつきは小さな Issue で起票してよい。Task / Bug / Spike / 種類なしなどの作業 Issue は、原則最終的に PBI へ親子関係で紐付ける。親 PBI は起票・着手時の必須条件ではなく、開発中・完了後に整理してよい。Blank issue は起票方法であり、Issue Type ではない。
-- **作業に着手するときは、対象 sprint の Milestone が必須**。定期自動割当を待たず、エージェントは未設定なら Milestone 説明の確定期間を調べ、現在の sprint を割り当てる。期限・番号だけで推測せず、未確定なら実装を保留して理由を報告する。都度ユーザーへ質問しない。自動割当の前でも、この着手確認は運用で行う。
+- Milestone は定期自動割当に任せる。開発者・エージェントは着手前に確認・設定する必要はなく、反映待ち・対象期間外・現在sprint未確定でも作業を進めてよい。
 - sprint 内の Issue は完了済みも含めて Milestone から確認し、後で PBI へまとめられる。open Issue は次の sprint へ移るため、過去の割当は GitHub の Milestone 変更履歴から確認する。PBI が別 sprint・未割当でも、作業 Issue 自身の Milestone を集計の起点にする。
 - 成果は開始時に大まかに決め、後から追加・変更してよい。作業の完了見込みと残り時間に余裕があれば追加でき、代わりに何かを外す確認は必須ではない。厳しいときだけ範囲・優先順位を再検討する。
 - PBI に目的と受け入れ条件・デモ確認内容をまとめ、DemoGoal 別 Issue の運用は廃止する。sprint 全体の成果は Milestone 説明に短く書き、PBI 本文を複製しない。重大な変更には理由を一言残す。
@@ -153,7 +153,7 @@ Project の作業・状態を変えるときは、Issue本文と Milestone は�
 
 「PBI階層」は `is:issue type:PBI` で Show hierarchy を使う。「PBI未紐づけ」は `is:issue -type:PBI,DemoGoal no:parent-issue`。この条件は親がない根の Issue を拾うため、PBI 以外の親を持つ子を直接表示しない。根とその子 Issue を確認して PBI へ整理する（例: #394/#395 → #365、#455 → #418 は根の #365/#418 から確認する）。Bug・種類なしも対象で、open だけに絞らない。
 
-新規 Issue は通常の作成画面から作り、`未整理` を初期状態にする。絞り込んだ Project ビューから項目を作るとフィルター値が適用されるため、作成後の状態・担当者・Milestone を確認する。[GitHub のフィルター仕様](https://docs.github.com/en/issues/planning-and-tracking-with-projects/customizing-views-in-your-project/filtering-projects)
+新規 Issue は通常の作成画面から作り、`未整理` を初期状態にする。絞り込んだ Project ビューから項目を作るとフィルター値が適用されるため、作成後の状態・担当者を確認する。[GitHub のフィルター仕様](https://docs.github.com/en/issues/planning-and-tracking-with-projects/customizing-views-in-your-project/filtering-projects)
 
 ## 今後の改善
 

@@ -9,8 +9,6 @@ disable-model-invocation: true
 
 `$ARGUMENTS` で指定された変更内容の D1 migration を作成し、ローカル適用まで検証する。
 
-着手前に作業 Issue の対象 sprint の Milestone を確認する。未設定時は[Issue 運用](../../../docs/team/issues.md#pbiとスプリント)に従って確定した現在の sprint を調べ、未確定なら実装を保留する。親 PBI の未設定は着手を妨げない。
-
 ## 前提の確認（作業前）
 
 - この変更は本当に D1 に属するか。ルームの中の真実（メンバー・付箋）は RoomDO が
