@@ -1026,7 +1026,6 @@ export function RoomBoardView({
           isNextPhasePending={isNextPhasePending}
           isNextPhaseBlocked={isNextPhaseBlocked}
           initialGuideState={initialGuideState}
-          backgroundViewportRef={boardScrollerRef}
           hasFinalDecision={hasFinalDecision}
           outcomePublished={outcomePublished}
           onPublishOutcome={onPublishOutcome}
