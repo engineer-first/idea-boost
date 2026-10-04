@@ -69,30 +69,11 @@
 - serverのposition:nullは、最後の受理済み座標を返すだけ。初期座標の復元コマンドではない。[535-586](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L535-L586)。
 - したがってEscape/Ctrl+Zで「元位置へ完全復帰」を保証したい場合、before-image・操作ID・安全な逆操作が必要。ローカルpreview取消と既にserverへ保存した移動のUndoを混同しない。
 
-## 3. 応答性の規範と受け入れ条件案
+## 3. 測定で確かめること
 
-これは未実装の目標であり、測定済みの現状値ではない。
+応答性の契約と暫定数値は[CI-PERF-001 / AT-032](../product/canvas-interactions/details.md#ci-perf-001)に集約する。実測済みの値ではない。同一端末・browser・refresh-rate・viewport・zoom・seed・production相当buildで、#364前後と現行・候補を比較し、private枚数/tray開閉/shared枚数/map/単一・複数を分ける。
 
-### 軽量な構成
-
-1. pointerdownでは対象・pointer ID・起点・cameraを記録。4px閾値を維持し、不要な長押し待ちを加えない。
-2. 閾値を越えたら次の描画frameを目標に本人previewを追従。server ACK、publish、並べ替えanimation完了を表示開始条件にしない。
-3. latest pointerはrefに置き、表示更新は最大1回/frameへ合流。ローカルpreviewと共有配信のthrottleを分離。previewのtransform更新を優先し、静的な全board tree再renderを避ける。
-4. geometryはdirty時にreadをまとめる。cached tray/list boundsとitem midpointsで判定し、read→write→readの反復を避ける。1枚のrect read自体を一律禁止する必要はない。
-5. invalidationはviewport/window resize、visual viewport変化、pan/zoom、panel開閉・layout移動、tray scroll、note追加/削除/順序変更、本文/font/高さ変化。cache更新漏れでdrop領域が古くなることもバグとする。
-6. 自動scrollはscroll更新と計測をframe単位に分けるか、既知scroll差分でcached midpointを補正する。毎frameの全card再計測・全pair groupingを前提にしない。
-7. 未受理previewは「保存済み／共有済み」と表示しない。lock拒否はserver確定状態へ戻し、理由を短く提示。drop-publish前はprivate本文・previewを他者へ送らない。
-8. 競合/phase変更を軽量化のために省略しない。最終認可・永続化・履歴はRoomDOで検証。
-
-### 測定と合否
-
-- 同一browser/device/refresh-rate/viewport/zoom/seed・production相当buildで、#364 base/head、現行、変更候補を比較。private 0/少数/多数、shared 1/実運用上限、tray開/閉、board中央/境界、通常board/評価map、単一/複数を分ける。枚数と試行数は測定記録に残す。
-- pointerdown、threshold crossing、first presented translated frame、lock request/ACK、drop、server commit/ACKを区別する。p50/p95、frame gap、main-thread long task、style/layout/paint時間・強制layoutのcall stackを保存する。screenshot assertionだけを速度検査と呼ばない。
-- 第一目標: 有効な対象はthreshold crossingの次frameからpreviewが追従。明示的な追加待機やnetwork ACKがcritical pathにないこと。
-- 遅延ACK/拒否ACKを注入してもpreviewの開始時点が変わらず、拒否後の収束が正しいこと。ネットワーク遅延値はテスト条件であり製品の実測値ではない。
-- 連続move中に実装由来の50ms超main-thread taskを作らないことを候補gateとし、低性能端末・大量noteで確認。60Hzでは約16.7ms/frame、120Hzでは約8.3ms/frameの予算が異なるので、無条件の「16msならよい」にしない。
-- 基準値が取れるまでは「高速化済み」「回帰なし」と判定しない。許容p95差分・端末・最大note数を決めてから数値gateを固定する。
-- [Chrome teamのlayout/forced synchronous layoutの説明](https://web.dev/articles/avoid-large-complex-layouts-and-layout-thrashing)も、readをまとめてからwriteし、実traceでボトルネックを確認する方針を支持する。
+pointerdown→閾値超過と、閾値超過→初回描画、lock要求/ACK、drop、commit/ACKを別々に測る。p50/p95、frame gap、long task、style/layout/paintと強制layoutのcall stackを記録する。ACK遅延/拒否注入でもpreview開始と収束を確認する。60Hzと120Hzのframe予算は異なる。baselineなしに「高速化済み」「回帰なし」と判定しない。[Chromeのlayout解説](https://web.dev/articles/avoid-large-complex-layouts-and-layout-thrashing)はread→writeをまとめ、実traceで原因を確認する参考。
 
 ## 4. 現在のUndo相当と不足
 
@@ -115,48 +96,9 @@
 - [削除](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L733-L757)、[DB削除](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L510-L514)
 - [native editor/IME境界](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L993-L1016)
 
-## 5. 移動Undo v1の最小安全契約
+## 5. 移動Undoの設計先
 
-### 履歴単位・対象
-
-- 本人タブ/同room/同phase訪問に限定した成功確認済みの移動を履歴にする。drag=1 transaction、複数選択のmoveも1 transaction。pointermove packetごとに履歴を積まない。
-- no-op、未送信preview、拒否された操作は履歴なし。部分ACKを成功した複数移動として登録しない。
-- 履歴はoperation ID、actor/session、対象ID、開始/終了位置、位置revision、visibility revision、phase/権限世代、必要なgroup差分を持つ。RoomDOが履歴対象と現在状態を検証する。
-- 全note snapshotを保存→丸戻しせず、位置fieldと必要な副作用だけ逆操作。別人の本文/font/voteは保持する。updatedAtは投票/fontにも進むので位置競合判定の唯一根拠にしない。位置revisionにはABA（他者が動かして同じ座標へ戻す）も検知させる。
-- 他者の位置変更・削除・非公開化・lock競合・関連group変更なら、対象全体を拒否し説明。1回のキー入力で勝手に別の古い履歴へ飛ばない。
-- 成功したUndoでのみRedoへ移し、成功したRedoでのみUndoへ戻す。redo時も現在のrevision/認可を検証。別の新規local mutationでRedoを無効化。remoteは影響範囲の履歴だけを無効化する。
-
-### groupと重なり順
-
-- 1-3のmove終了はautoReorganizeし、2枚未満になったgroupを消し、分裂時に新IDを作り得る。[group再編成](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/grouping.ts#L104-L182)、[保存と削除配信](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/groups.ts#L45-L119)。
-- 位置だけ逆にしても消えた名前/ID/所属は復元できない。移動の副作用を同じserver transactionで安全に復元するか、その契約まで1-3のUndoを明示的に対象外にする。
-- 現行moveはstackOrderも進める。[324-352](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L324-L352)。v1位置Undoでは最新stackOrderを保持する案が最小。重なり順まで戻すならそれもtransaction/CAS対象として明示する。通常note:moveの逆送は自動前面化を再実行するため無条件流用しない。
-
-### 入力優先・見せ方
-
-- Ctrl/⌘+Z=移動Undo、Ctrl/⌘+Shift+Z=Redo。UIのtooltip/accessible nameで次の操作種別と枚数を表示。対象がない時は無効状態と理由を示す。
-- input/textarea/contenteditable、IME composition中はnative/editorのUndoへ完全に委ねる。native履歴が空でもcanvas Undoへfallthroughしない。
-- drag中のキーはdragの停止/preview解除を先に扱い、同じキーで過去履歴まで戻さない。現在serverへ保存済みの中間位置は、取消契約か最終確定位置に従って扱いを明記する。
-- 1要求pending中の連打を直列化/無効化。timeoutや未受信ACKを成功扱いしない。処理結果不明は同operation IDで照会・解決し、逆操作を重複させない。
-
-### phase・権限・寿命
-
-- Undo/Redoも現時点のphase・在籍・可視性・host世代・lock・採用確定/room完了を再検証。以前できたという事実は現在の許可ではない。
-- phase訪問が変わる、採用確定、room完了、再読込、切断後snapshot再同期でv1履歴を終了。host移譲でも他人の履歴は引き継がない。権限依存の履歴は旧host revisionを保持して無効化する。
-- connection未openでは送信しない。Undoの表示を戻しただけでserver成功を装わない。永続履歴・複数タブ横断・再接続後の履歴復旧は別設計。
-- 共有/非共有化をv1Undoへ含めない。既に他人が見た情報は非公開化しても「見なかったこと」に戻せない。公開後は作者・工程条件を満たすunpublishを明示的な別操作にする。
-- phase/採用/投票/host/共有/削除/本文/色/文字サイズ/private順序/mapサイズは初回の移動履歴から除外し、既存専用操作を保つ。「すべて元に戻せる」と広告しない。
-
-### 必須シナリオ
-
-1. 3枚の相対move→Undo1回で3枚の位置同時復帰→Redo1回で同時復帰。
-2. 1枚でも他者が後から位置変更/削除/lock→全transactionが0枚適用で拒否。
-3. 他者が本文だけ編集→移動Undoで本文は維持。
-4. 1-3でgroup消滅/分裂→名前/ID/所属含む安全な復帰、または0件拒否。
-5. drop ACK不明→再接続で位置確定、同一Undoを二重適用しない。
-6. IME中/native editor Ctrl+Z→boardは動かない。
-7. 採用確定/phase変更/host移譲直後に旧callback送信→serverでも拒否。
-8. publish前Escape→他者がprivate内容を一度も受信しない。publish後Undoはprivacy回復を装わない。
+[CI-HIST-001 / 002](../product/canvas-interactions/details.md#ci-hist-001)が履歴単位・現在権限・原子的逆操作・他者変更保護・pending照会・寿命の正本。特に1-3では位置だけ戻しても消えたgroup名/ID/所属を復元できない。[group再編成](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/grouping.ts#L104-L182)、[保存・削除配信](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/groups.ts#L45-L119)が根拠。現行moveの[stackOrder更新](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L324-L352)も、通常move逆送をそのままUndoに使えない理由となる。新仕様のUndoは最新stackOrderを保持する。
 
 ## 6. FigJam / Miroから参照できる範囲
 

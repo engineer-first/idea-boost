@@ -31,6 +31,6 @@
 
 FigJamは画像/GIFとMP4/MOV/WebMを扱う。GIFは1つ選択時に再生し、複数の常時自動再生は期待できない。埋込プレビューは対応サイト/公開状態に依存し、1人の再生が他者の画面へ同期されるとは限らない。[FigJam媒体](https://help.figma.com/hc/en-us/articles/1500004290881-Place-images-video-and-GIFs-in-FigJam)、[link preview](https://help.figma.com/hc/en-us/articles/4414079911575-Add-link-previews-in-FigJam)
 
-AI向けにはget\_figjamのXML/ID/座標・screenshotsが使えるが、動画の時間的理解や埋込記事本文の回収まで保証されない。規則ID、開始状態、入力、結果、取消、失敗、AT-IDをnative textで残し、動画には静止keyframeと代替テキストを添える。図とMarkdownのsource hashを合わせても意味の完全一致は機械証明できず、text/screenshotの読戻しが必要。[Figma MCP](https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/)、[accessible FigJam](https://help.figma.com/hc/en-us/articles/14477101678359-Create-accessible-FigJam-boards)
+AI向けにはget\_figjamのXML/ID/座標・screenshotsが使えるが、動画の時間的理解や埋込記事本文の回収まで保証されない。規則ID、開始状態、入力、結果、取消、失敗、AT-IDをnative textで残し、動画には静止keyframeと代替テキストを添える。図とMarkdownの意味的一致は文章・表示を確認する必要がある。[Figma MCP](https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/)、[accessible FigJam](https://help.figma.com/hc/en-us/articles/14477101678359-Create-accessible-FigJam-boards)
 
-媒体ごとの出所・確認日・実装画面/提案図/競合例の区分・代替説明・掲載状態は[manifest](../product/canvas-interactions/visual-map.json)に記録する。公式ヘルプのGIFであることは再配布ライセンスを意味しない。製品素材として再利用せず、出典リンクと限定的な参考表示を扱う。
+媒体ごとの出所・確認日・実装画面/提案図/競合例の区分・代替説明・掲載状態は[参考ギャラリー](../product/canvas-interactions/reference-gallery.md)に記録する。公式ヘルプのGIFであることは再配布ライセンスを意味しない。製品素材として再利用せず、出典リンクと限定的な参考表示を扱う。
