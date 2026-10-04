@@ -8,6 +8,7 @@ import {
 const baseArgs: JoinRoomSectionViewProps = {
   code: "",
   onCodeChange: fn(),
+  onCodeBlur: fn(),
   lookingUp: false,
   joining: false,
   dialogOpen: false,
@@ -42,6 +43,10 @@ export const Empty: Story = {
 
 export const IncompleteCode: Story = {
   args: { code: "AB12" },
+};
+
+export const InvalidCode: Story = {
+  args: { code: "AB12", codeError: "英数字6桁で入力してください。" },
 };
 
 export const ValidCode: Story = {
@@ -82,6 +87,14 @@ export const AllStates: Story = {
     const states: { label: string; props: JoinRoomSectionViewProps }[] = [
       { label: "Empty", props: { ...baseArgs, code: "" } },
       { label: "IncompleteCode", props: { ...baseArgs, code: "AB12" } },
+      {
+        label: "InvalidCode",
+        props: {
+          ...baseArgs,
+          code: "AB12",
+          codeError: "英数字6桁で入力してください。",
+        },
+      },
       { label: "ValidCode", props: { ...baseArgs, code: "AB12CD" } },
       {
         label: "LookingUp",

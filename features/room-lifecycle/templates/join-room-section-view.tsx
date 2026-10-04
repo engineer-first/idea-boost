@@ -20,12 +20,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { RoomEntryField } from "../molecules/room-entry-field";
 
 export type JoinRoomSectionViewProps = {
   code: string;
   onCodeChange: (code: string) => void;
+  onCodeBlur?: () => void;
+  codeError?: string;
   // lookup 中（「確認中…」）。
   lookingUp?: boolean;
   // join 確定処理中（「参加中…」）。
@@ -41,6 +42,8 @@ export type JoinRoomSectionViewProps = {
 export function JoinRoomSectionView({
   code,
   onCodeChange,
+  onCodeBlur,
+  codeError,
   lookingUp = false,
   joining = false,
   dialogOpen,
@@ -67,36 +70,33 @@ export function JoinRoomSectionView({
           </CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-end">
+      <CardContent className="mt-auto">
         <form
           onSubmit={onSubmit}
-          className="flex flex-col gap-4"
+          className="flex w-full flex-col gap-1"
           data-testid="join-room-form"
         >
-          <Field>
-            <FieldLabel htmlFor="code">招待コード</FieldLabel>
-            <Input
-              id="code"
-              name="code"
-              value={code}
-              onChange={(event) =>
-                onCodeChange(event.target.value.toUpperCase())
-              }
-              maxLength={6}
-              placeholder="AB12CD"
-              autoComplete="off"
-              required
-              spellCheck={false}
-              className="h-11 font-mono text-center text-base tracking-[0.35em] uppercase"
-            />
-            <FieldDescription>英数字 6 桁（大文字に自動変換）</FieldDescription>
-          </Field>
+          <RoomEntryField
+            id="code"
+            label="招待コード"
+            name="code"
+            value={code}
+            onChange={(event) => onCodeChange(event.target.value.toUpperCase())}
+            onBlur={onCodeBlur}
+            error={codeError}
+            maxLength={6}
+            placeholder="AB12CD"
+            autoComplete="off"
+            required
+            spellCheck={false}
+            className="font-mono text-center tracking-[0.35em] uppercase"
+          />
           <Button
             type="submit"
             variant="outline"
             size="lg"
             disabled={!isValidCode || lookingUp}
-            className="w-full"
+            className="h-11 w-full"
           >
             {lookingUp ? "確認中…" : "参加する"}
           </Button>

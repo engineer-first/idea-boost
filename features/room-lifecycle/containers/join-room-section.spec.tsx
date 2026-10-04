@@ -1,6 +1,6 @@
 // JoinRoomSection（ホーム「ルームに参加」セクション）の単体テスト。
 // 招待コードを入力 → lookup でホスト名解決 → 確認 Dialog → joinRoom → toast / 遷移。
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -78,6 +78,66 @@ describe("JoinRoomSection", () => {
         screen.getByRole("button", { name: "参加する" }),
       ).not.toBeDisabled();
     });
+  });
+
+  it("未入力の初期状態と空欄のblurではエラーを表示しない", async () => {
+    const user = userEvent.setup();
+    render(<JoinRoomSection />);
+    const input = screen.getByRole("textbox", { name: "招待コード" });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+    await user.click(input);
+    await user.tab();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("button", { name: "参加する" })).toBeDisabled();
+    expect(LOOKUP_INVITE).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "AB",
+    "AB!2CD",
+  ])("無効なコード %s はblur後に入力へ関連付けたエラーを表示し、編集で解除する", async (invalidCode) => {
+    const user = userEvent.setup();
+    render(<JoinRoomSection />);
+    const input = screen.getByRole("textbox", { name: "招待コード" });
+    const button = screen.getByRole("button", { name: "参加する" });
+    await user.type(input, invalidCode);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+    expect(button).toBeDisabled();
+    await user.tab();
+    const error = screen.getByRole("alert");
+    expect(error).toHaveTextContent(/英数字\s*6\s*桁/);
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(input).toHaveAccessibleDescription(/英数字\s*6\s*桁/);
+    expect(input.getAttribute("aria-describedby")?.split(/\s+/)).toContain(
+      error.id,
+    );
+    await user.click(input);
+    await user.keyboard("{Enter}");
+    // blurによる表示を確認してから、無効なフォーム送信の照会禁止を検査する。
+    fireEvent.submit(screen.getByTestId("join-room-form"));
+    expect(LOOKUP_INVITE).not.toHaveBeenCalled();
+    expect(JOIN_ROOM).not.toHaveBeenCalled();
+    await user.keyboard("{Backspace}");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+    expect(input).not.toHaveAccessibleDescription();
+    await user.tab();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    await user.clear(input);
+    await user.tab();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+    await user.type(input, "ab12cd");
+    await user.tab();
+    expect(input).toHaveValue("AB12CD");
+    expect(button).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute("aria-invalid", "true");
+    expect(input).not.toHaveAccessibleDescription();
+    expect(LOOKUP_INVITE).not.toHaveBeenCalled();
   });
 
   it("「参加する」クリックで lookup 後にホスト名付き Dialog が開く", async () => {
