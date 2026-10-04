@@ -5,12 +5,12 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { RoomEntryField } from "../molecules/room-entry-field";
 
 export type CreateRoomSectionViewProps = {
   // true の間は「作成中…」表示とボタン disabled。
@@ -38,9 +38,9 @@ export function CreateRoomSectionView({
           </CardDescription>
         </div>
       </CardHeader>
-      <CardFooter>
+      <CardContent className="mt-auto">
         <form
-          className="w-full space-y-4"
+          className="flex w-full flex-col gap-1"
           onSubmit={(event) => {
             event.preventDefault();
             onSubmit?.(
@@ -48,22 +48,18 @@ export function CreateRoomSectionView({
             );
           }}
         >
-          <div className="space-y-2">
-            <label htmlFor="room-name" className="text-sm font-medium">
-              ルーム名（任意）
-            </label>
-            <Input
-              id="room-name"
-              name="name"
-              maxLength={80}
-              disabled={pending}
-              placeholder="例：新しいサービスの相談"
-            />
-          </div>
+          <RoomEntryField
+            id="room-name"
+            label="ルーム名（任意）"
+            name="name"
+            maxLength={80}
+            disabled={pending}
+            placeholder="例：新しいサービスの相談"
+          />
           <Button
             type="submit"
             size="lg"
-            className="w-full"
+            className="h-11 w-full"
             disabled={pending}
             data-icon="inline-start"
           >
@@ -71,7 +67,7 @@ export function CreateRoomSectionView({
             {pending ? "作成中…" : "ルームを作成"}
           </Button>
         </form>
-      </CardFooter>
+      </CardContent>
     </Card>
   );
 }
