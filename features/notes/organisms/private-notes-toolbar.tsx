@@ -86,10 +86,11 @@ export function PrivateNotesToolbar({
     (note) => draftValue?.(note.id) !== undefined,
   );
   const handleAdd = useCallback(() => {
+    if (disabled || !canCreateNote) return;
     noteIdsBeforeAddRef.current = new Set(notes.map((note) => note.id));
     setIsExpanded(true);
     onAdd();
-  }, [notes, onAdd]);
+  }, [disabled, canCreateNote, notes, onAdd]);
 
   useEffect(() => {
     const noteIdsBeforeAdd = noteIdsBeforeAddRef.current;
@@ -226,6 +227,9 @@ export function PrivateNotesToolbar({
             if (e.key === "Escape") onSelect(null);
           }}
         >
+          <p className="mb-3 text-xs text-muted-foreground">
+            自分だけに見える付箋エリア
+          </p>
           <div
             ref={listRef}
             className="grid grid-cols-1 justify-items-center gap-3"
