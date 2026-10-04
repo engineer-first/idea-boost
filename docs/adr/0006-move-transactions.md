@@ -1,4 +1,4 @@
-# 0005: 共有付箋の移動をRoomDOのtransactionとして確定する
+# 0006: 共有付箋の移動をRoomDOのtransactionとして確定する
 
 - 状態：提案
 - 決定日：未確定

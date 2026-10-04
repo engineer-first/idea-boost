@@ -26,7 +26,7 @@ ADR（Architecture Decision Record）は、重要な設計を「どの前提・�
 | [0003](0003-feature-bands.md)             | feature内部を依存方向の5帯にする     | 採用（既存判断の整理） |
 | [0004](0004-custom-board.md)              | 付箋ボードを自前で実装する           | 採用（既存判断の整理） |
 
-提案中の判断：[0005: 共有付箋の移動transaction](0005-move-transactions.md)。
+提案中の判断：[0006: 共有付箋の移動transaction](0006-move-transactions.md)。
 
 成果投影・期限・再訪権のような既存の判断は、今後方式を見直すときのADR候補。すべての実装を後追いでADR化しない。
 

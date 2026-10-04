@@ -570,7 +570,7 @@
 - position/visibility版は専用SQL triggerで単調増加し、旧clientの更新とABAも検知する。group/map版は変更イベントとsnapshotで追随する。receiptは移動前後の位置・専用版、実際に変更したgroup ID/name/所属の前後、削除したgroupの非移動メンバーを含む全影響対象の専用版を持ち、本文/作者/票を持たない。receiptは24時間保持し、その後はIDの墓標だけをルーム削除まで残して古い要求をfail-closedにする。snapshot/batch/新move由来の旧group配信は同じ現在工程と全メンバー可視性で投影する。無関係な分類はreceiptへ含めず、不可視な分類を実際に変更する操作は位置を含めて全拒否する。非共有化/削除で残った旧分類は除去する（1-3の既存再編では元分類情報を保持する）。過去receiptも返信時に全影響対象の現在可視性を再検査し、1件でも不可視なら成功statusだけを返してreceipt全体を伏せる。成功を失敗に変えず、UIは古い逆操作情報も破棄する。
 - \#522の選択入口が渡す`selectedNoteIds`との統合は別Issueの依存であり、本実装はhook境界と100枚・長文混在の固定3枚集合storyを持つ。#525のUndo/Redo本体は未実装。実機・Mac/Windows・trackpad・日本語IME・人による操作確認、および性能の最終合否は未確認として残す。
 
-通信と永続化の判断は[ADR 0005](../../adr/0005-move-transactions.md)、性能の測定条件と制約は[2026-10-04の性能計測](../../archive/canvas-move-performance-2026-10-04.md)を参照する。
+通信と永続化の判断は[ADR 0006](../../adr/0006-move-transactions.md)、性能の測定条件と制約は[2026-10-04の性能計測](../../archive/canvas-move-performance-2026-10-04.md)を参照する。
 
 ## 7. 人とAIの読み方・資料の更新
 
