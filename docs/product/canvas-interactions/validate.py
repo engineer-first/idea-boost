@@ -79,6 +79,30 @@ def check_manifest(index, manifest, strict=False):
         raise ValueError('visual manifest has stale source hash')
 
 
+
+def check_media(manifest):
+    if manifest.get('mediaStatus') != 'verified':
+        raise ValueError('media placement/playback verification pending')
+    if not manifest.get('media'):
+        raise ValueError('no media evidence')
+    ids = set()
+    sections = {section['id'] for section in manifest['sections']}
+    for item in manifest['media']:
+        if item['id'] in ids:
+            raise ValueError('duplicate media id')
+        ids.add(item['id'])
+        if item['visualSection'] not in sections:
+            raise ValueError('unknown media section')
+        if item.get('placementStatus') != 'verified' or not item.get('displayVerified'):
+            raise ValueError(f"{item['id']}: media display not verified")
+        if not re.fullmatch(r'\d+:\d+', item.get('nodeId', '')):
+            raise ValueError(f"{item['id']}: missing actual media node")
+        if not item.get('altText') or not item.get('sourcePage'):
+            raise ValueError(f"{item['id']}: missing source/text alternative")
+        if item['type'] == 'official_reference_gif' and not item.get('playbackVerified'):
+            raise ValueError(f"{item['id']}: GIF playback not verified")
+
+
 def self_test(source, index, manifest):
     for bad in [source.replace('- **状態**:', '- **欠落**:', 1),
                 source + '\n' + RULE.search(source)[0],
@@ -105,6 +129,8 @@ def main():
     parser.add_argument('--write', action='store_true')
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--strict-visual', action='store_true')
+    parser.add_argument('--strict-media', action='store_true',
+                        help='Require verified media placement, display and GIF playback')
     parser.add_argument('--self-test', action='store_true')
     args = parser.parse_args()
     source = SOURCE.read_text(encoding='utf-8')
@@ -116,12 +142,16 @@ def main():
         raise ValueError('index stale: run --write; do not edit rules-index.json')
     manifest = json.loads(MANIFEST.read_text(encoding='utf-8'))
     check_manifest(index, manifest, args.strict_visual)
+    if args.strict_media:
+        check_media(manifest)
     if args.self_test:
         self_test(source, index, manifest)
     pending = [s['id'] for s in manifest['sections'] if s['status'] != 'verified' and s['ruleIds']]
     print(f"PASS {len(index['rules'])} rules / unique AT IDs / required fields / index hash / visual references")
     if pending:
         print('VISUAL PENDING ' + ', '.join(pending))
+    if args.strict_media:
+        print(f"PASS {len(manifest['media'])} media evidence records / nodes / captions / playback")
     print('This validates structure and provenance, not runtime behavior or semantic equivalence of diagrams.')
 
 

@@ -161,7 +161,7 @@
       "id": "VS-10",
       "nodeId": "18:218",
       "ruleIds": [],
-      "status": "media_pending",
+      "status": "verified",
       "ruleHashes": {},
       "url": "https://www.figma.com/board/bpWlMnyv0Z9pvq7mMeQ0dj?node-id=18-218"
     }
@@ -178,11 +178,18 @@
       "durationMs": 7560,
       "sha256": "b4bab9bf477cf5297a142ba7617be8562c30ef037f5ed386cc31a464bb3562e2",
       "altText": "Miroのツールバーで手のひらと選択を切り替える公式デモ。Idea Boostで実装した操作の動画ではない。",
-      "placementStatus": "pending",
-      "playbackVerified": false,
+      "placementStatus": "verified",
+      "playbackVerified": true,
       "rights": "Miro公式著作物。公開資料の出典参照であり、オープンな再配布ライセンスは確認していない。",
       "targetNodeId": "18:229",
-      "placeholderNodeId": "18:231"
+      "placeholderNodeId": "18:231",
+      "nodeId": "29:252",
+      "nodeType": "MEDIA",
+      "displayVerified": true,
+      "captionVerified": true,
+      "placeholderRemoved": true,
+      "playbackMethod": "Mac Chromeで1点ずつ選択し、異なる再生frameを目視確認",
+      "playbackScope": "確認した編集者アカウント。別viewerアカウントでは未検証。"
     },
     {
       "id": "IB-MEDIA-01",
@@ -198,10 +205,15 @@
       "height": 757,
       "sha256": "02148b8403fbfd979bfed04e620056da36c22a4de44a04b8438840fbb50adac5",
       "altText": "共有付箋6枚と左下の編集/移動/削除可否・文字サイズ・ズーム、右下のマイ付箋を表示。選択/手の明示切替はない。",
-      "placementStatus": "pending",
+      "placementStatus": "verified",
       "productionScreenshot": false,
       "targetNodeId": "18:221",
-      "placeholderNodeId": "18:223"
+      "placeholderNodeId": "18:223",
+      "nodeId": "29:250",
+      "nodeType": "RECTANGLE",
+      "displayVerified": true,
+      "captionVerified": true,
+      "placeholderRemoved": true
     },
     {
       "id": "IB-MEDIA-02",
@@ -217,10 +229,15 @@
       "height": 757,
       "sha256": "23814e8edee4ed65f23d2f625f763fd7d098394126be874cd43f7af0b5eb0632",
       "altText": "課題整理1-3、5枚のfixture付箋と分類枠。枠の表示は背景一括drag実装済みを意味しない。",
-      "placementStatus": "pending",
+      "placementStatus": "verified",
       "productionScreenshot": false,
       "targetNodeId": "18:225",
-      "placeholderNodeId": "18:227"
+      "placeholderNodeId": "18:227",
+      "nodeId": "29:251",
+      "nodeType": "RECTANGLE",
+      "displayVerified": true,
+      "captionVerified": true,
+      "placeholderRemoved": true
     },
     {
       "id": "M-MEDIA-02",
@@ -233,16 +250,24 @@
       "durationMs": 5900,
       "sha256": "6a591663ae9b09edd5763055d36c939131014860a8444b6fa08c45c539353441",
       "altText": "Miroのペンpaletteと赤い手描き線を示す公式デモ。Idea Boostの将来ペンを考える参考で、実装済み機能の動画ではない。",
-      "placementStatus": "pending",
-      "playbackVerified": false,
+      "placementStatus": "verified",
+      "playbackVerified": true,
       "rights": "Miro公式著作物。出典参照であり、オープンな再配布ライセンスは確認していない。",
       "targetNodeId": "18:233",
-      "placeholderNodeId": "18:235"
+      "placeholderNodeId": "18:235",
+      "nodeId": "29:253",
+      "nodeType": "MEDIA",
+      "displayVerified": true,
+      "captionVerified": true,
+      "placeholderRemoved": true,
+      "playbackMethod": "Mac Chromeで1点ずつ選択し、異なる再生frameを目視確認",
+      "playbackScope": "確認した編集者アカウント。別viewerアカウントでは未検証。",
+      "deselectPauseObservation": "選択解除後7秒間frame変化なしを観察"
     }
   ],
   "canonicalGitHubUrl": "https://github.com/engineer-first/idea-boost/blob/cf31608bb3a5394c1548f1033422ee0f75639dc1/docs/product/canvas-interactions.md",
   "textDiagramStatus": "verified",
-  "mediaStatus": "pending_placement_and_playback_verification",
+  "mediaStatus": "verified",
   "verification": {
     "checkedAt": "2026-10-04",
     "sourceCommit": "cf31608bb3a5394c1548f1033422ee0f75639dc1",
@@ -250,19 +275,31 @@
     "method": [
       "native text and XML readback",
       "rendered layout review",
-      "source URL and full SHA256 stamp readback"
+      "source URL and full SHA256 stamp readback",
+      "media node and rendered screenshot readback for four files",
+      "native captions, source links and placeholders checked",
+      "Mac Chrome single-GIF playback observation"
     ],
     "layoutOverflowCount": 0,
     "limitations": [
-      "media placement and playback not verified",
-      "diagram review is not runtime or user usability validation"
+      "実行時のアプリ動作・人による使いやすさの検証ではない",
+      "GIF再生は確認した編集者アカウントのみ。別viewerアカウントでは未検証",
+      "複数GIF選択時の停止は公式資料の記載のみで実操作未検証",
+      "MP4は配置していない"
     ],
     "sourceStampReadback": "Full SHA and fixed links re-read after Markdown-only formatting; all 32 rule hashes unchanged.",
-    "readbackSha256": "bcab0b673d7a8fe9c58797edcf9e59879843942640ab99257092d32523d04274"
+    "readbackSha256": "0e1ad4263c4fcdbdc7383c86898f68b54a9ccb6b64dd9d304eb55073efeb687e",
+    "pendingTextCount": 0
   },
   "formattingOnlyUpdate": {
     "previousSourceSha256": "fd34922205491c5480067e0c1d23e798ce87132052b87dd3853b90ea82493e4f",
     "changedRuleIds": [],
     "reason": "repository remark formatting of tables; behavior unchanged"
+  },
+  "access": {
+    "scope": "エンジニア1st内の閲覧に限定",
+    "savedSettingReadbackVerified": true,
+    "verifiedAt": "2026-10-04",
+    "independentViewerAccountTested": false
   }
 }
