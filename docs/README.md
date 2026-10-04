@@ -9,6 +9,7 @@
 | 何を作るか・誰のためか                       | [PRD](prd.md)                                                                                    |
 | ステップ・操作・ガイド・成果の振る舞い       | [進行仕様](product/sprint-flow.md)                                                               |
 | キャンバスの選択・入力・取消・Undoを確認する | [キャンバス操作仕様](product/canvas-interactions.md)                                             |
+| FigJam / Miroの画像・GIFで操作を比較したい   | [参考ギャラリー](product/canvas-interactions/reference-gallery.md)                               |
 | コードをどこに置くか                         | [開発規約](development/conventions.md)                                                           |
 | 何をどう検証するか                           | [テスト方針](development/testing.md)、[ローカル検証](development/local-verification.md)          |
 | 本番の閲覧権限を付けたい                     | [認証と権限付与](operations/access.md)                                                           |
