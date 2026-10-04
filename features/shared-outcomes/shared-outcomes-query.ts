@@ -19,6 +19,8 @@ export function outcomeParams(filters: SharedOutcomeFilters): URLSearchParams {
   if (filters.phase !== "all") params.set("phase", filters.phase);
   if (filters.saveStatus !== "all")
     params.set("saveStatus", filters.saveStatus);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
   return params;
 }
 export function outcomeHref(

@@ -23,7 +23,15 @@ export function SharedOutcomesFilters({
 }: SharedOutcomesFiltersProps) {
   const id = useId();
   const [query, setQuery] = useState(filters.q);
+  const [from, setFrom] = useState(filters.from);
+  const [to, setTo] = useState(filters.to);
+  const [dateError, setDateError] = useState<string | null>(null);
   useEffect(() => setQuery(filters.q), [filters.q]);
+  useEffect(() => {
+    setFrom(filters.from);
+    setTo(filters.to);
+    setDateError(null);
+  }, [filters.from, filters.to]);
   const active = outcomeParams(filters).size > 0;
   return (
     <search aria-label="共有成果を探す">
@@ -31,11 +39,17 @@ export function SharedOutcomesFilters({
         className="space-y-4 rounded-xl border bg-card p-4 sm:p-5"
         onSubmit={(event) => {
           event.preventDefault();
-          onSearch(
-            SharedOutcomeFiltersSchema.parse(
-              Object.fromEntries(new FormData(event.currentTarget)),
-            ),
+          const result = SharedOutcomeFiltersSchema.safeParse(
+            Object.fromEntries(new FormData(event.currentTarget)),
           );
+          if (!result.success) {
+            setDateError(
+              result.error.issues[0]?.message ?? "日付を確認してください。",
+            );
+            return;
+          }
+          setDateError(null);
+          onSearch(result.data);
         }}
       >
         <div className="flex items-end gap-2">
@@ -119,17 +133,96 @@ export function SharedOutcomesFilters({
             </select>
           </div>
         </div>
+        <fieldset className="min-w-0 space-y-3">
+          <legend className="text-sm font-medium">
+            最終利用日{" "}
+            <span className="font-normal text-muted-foreground">
+              （日本時間）
+            </span>
+          </legend>
+          <div className="grid grid-cols-2 gap-3 sm:max-w-lg">
+            <div className="min-w-0 space-y-2">
+              <label
+                htmlFor={`${id}-from`}
+                className="block text-sm font-medium"
+              >
+                開始日
+              </label>
+              <Input
+                id={`${id}-from`}
+                type="date"
+                name="from"
+                min="0001-01-01"
+                max="9999-12-31"
+                value={from}
+                onChange={(event) => {
+                  setFrom(event.currentTarget.value);
+                  setDateError(null);
+                }}
+                aria-describedby={`${id}-date-help`}
+                className="min-h-11 min-w-0 text-base sm:text-sm"
+              />
+            </div>
+            <div className="min-w-0 space-y-2">
+              <label htmlFor={`${id}-to`} className="block text-sm font-medium">
+                終了日
+              </label>
+              <Input
+                id={`${id}-to`}
+                type="date"
+                name="to"
+                min="0001-01-01"
+                max="9999-12-31"
+                value={to}
+                onChange={(event) => {
+                  setTo(event.currentTarget.value);
+                  setDateError(null);
+                }}
+                aria-invalid={dateError ? true : undefined}
+                aria-describedby={`${id}-date-help${dateError ? ` ${id}-date-error` : ""}`}
+                className="min-h-11 min-w-0 text-base sm:text-sm"
+              />
+            </div>
+          </div>
+          <p
+            id={`${id}-date-help`}
+            className="text-sm leading-relaxed text-muted-foreground"
+          >
+            両端の日付を含みます。片方だけでも指定できます。「検索」で適用します。
+          </p>
+          {dateError && (
+            <p
+              id={`${id}-date-error`}
+              role="alert"
+              className="text-sm text-destructive"
+            >
+              {dateError}
+            </p>
+          )}
+        </fieldset>
         {active && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
             <p className="text-sm text-muted-foreground">
               {filters.q ? `「${filters.q}」を検索中。` : ""}
               選択した条件で絞り込んでいます。
+              {(filters.from || filters.to) && (
+                <span className="block mt-1">
+                  最終利用日：{filters.from || "指定なし"} 〜{" "}
+                  {filters.to || "指定なし"}
+                </span>
+              )}
             </p>
             <Button
               type="button"
               variant="ghost"
               className="min-h-11"
-              onClick={() => onSearch(DEFAULT_OUTCOME_FILTERS)}
+              onClick={() => {
+                setQuery("");
+                setFrom("");
+                setTo("");
+                setDateError(null);
+                onSearch(DEFAULT_OUTCOME_FILTERS);
+              }}
             >
               <X aria-hidden />
               条件をクリア

@@ -38,6 +38,8 @@ test("PC・モバイルで長いルーム名と検索・絞り込みが画面内
         page.getByLabel("記録", { exact: true }),
         page.getByLabel("到達フェーズ"),
         page.getByLabel("保存状態"),
+        page.getByLabel("開始日"),
+        page.getByLabel("終了日"),
       ]) {
         const box = await control.boundingBox();
         expect(box?.x).toBeGreaterThanOrEqual(0);
@@ -160,6 +162,25 @@ describe.skipIf(!app)("専用dev:verifyの共有成果", () => {
         viewport: { width: 390, height: 844 },
       });
       await login(page);
+      const response = await page.request.get(
+        `${app}/api/shared-outcomes?q=新サービス&saveStatus=failed`,
+      );
+      const { outcomes } = await response.json();
+      const date = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Tokyo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(outcomes[0].lastUsedAt));
+      await page.getByLabel("開始日").fill("2000-01-01");
+      await page.getByLabel("終了日").fill("2000-01-01");
+      await page.getByRole("button", { name: "検索", exact: true }).click();
+      await page
+        .getByRole("heading", { name: "条件に一致する成果はありません" })
+        .waitFor();
+      expect(await page.locator("a[data-room-id]").count()).toBe(0);
+      await page.getByLabel("開始日").fill(date);
+      await page.getByLabel("終了日").fill(date);
       await page.getByRole("searchbox").fill("新サービス");
       await page.getByRole("button", { name: "検索", exact: true }).click();
       await page.getByLabel("保存状態").selectOption("failed");
@@ -176,6 +197,10 @@ describe.skipIf(!app)("専用dev:verifyの共有成果", () => {
       await page.getByRole("searchbox").waitFor();
       expect(await page.getByRole("searchbox").inputValue()).toBe("新サービス");
       expect(await page.getByLabel("保存状態").inputValue()).toBe("failed");
+      expect(await page.getByLabel("開始日").inputValue()).toBe(date);
+      expect(await page.getByLabel("終了日").inputValue()).toBe(date);
+      expect(new URL(page.url()).searchParams.get("from")).toBe(date);
+      expect(new URL(page.url()).searchParams.get("to")).toBe(date);
     } finally {
       await browser.close();
     }

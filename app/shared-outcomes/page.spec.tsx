@@ -16,7 +16,13 @@ it("ログイン後も共有された成果と検索条件へ戻れる", async (
   const roomId = "123e4567-e89b-42d3-a456-426614174000";
   await expect(
     SharedOutcomesPage({
-      searchParams: Promise.resolve({ roomId, q: "受付", status: "confirmed" }),
+      searchParams: Promise.resolve({
+        roomId,
+        q: "受付",
+        status: "confirmed",
+        from: "2026-09-01",
+        to: "2026-09-30",
+      }),
     }),
   ).rejects.toThrow();
   const next = new URL(
@@ -27,4 +33,6 @@ it("ログイン後も共有された成果と検索条件へ戻れる", async (
   expect(params.get("roomId")).toBe(roomId);
   expect(params.get("q")).toBe("受付");
   expect(params.get("status")).toBe("confirmed");
+  expect(params.get("from")).toBe("2026-09-01");
+  expect(params.get("to")).toBe("2026-09-30");
 });

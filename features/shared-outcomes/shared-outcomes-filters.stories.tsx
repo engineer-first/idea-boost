@@ -20,3 +20,12 @@ export const Filtered: Story = {
     },
   },
 };
+export const DateRange: Story = {
+  args: {
+    filters: {
+      ...DEFAULT_OUTCOME_FILTERS,
+      from: "2026-09-01",
+      to: "2026-09-30",
+    },
+  },
+};

@@ -65,10 +65,21 @@ export async function handleSharedOutcomes(
   );
   if (!parsed.success)
     return response({ error: "検索条件または取得位置が不正です。" }, 400);
-  const { q, status, phase, saveStatus, cursor } = parsed.data;
+  const { q, status, phase, saveStatus, from, to, cursor } = parsed.data;
   const term = q.normalize("NFKC").toLocaleLowerCase("ja-JP");
+  const fromTime = from
+    ? Date.parse(`${from}T00:00:00+09:00`)
+    : Number.NEGATIVE_INFINITY;
+  const untilTime = to
+    ? Date.parse(`${to}T00:00:00+09:00`) + 24 * 60 * 60 * 1000
+    : Number.POSITIVE_INFINITY;
   const filtered = Boolean(
-    term || status !== "all" || phase !== "all" || saveStatus !== "all",
+    term ||
+      status !== "all" ||
+      phase !== "all" ||
+      saveStatus !== "all" ||
+      from ||
+      to,
   );
   const [timestamp, afterRoomId] = (cursor ?? "0").split(":");
   const offset = afterRoomId ? 0 : Number(timestamp);
@@ -114,6 +125,8 @@ export async function handleSharedOutcomes(
     );
     for (const record of records) {
       if (!record) continue;
+      if (record.lastUsedAt < fromTime || record.lastUsedAt >= untilTime)
+        continue;
       if (
         term &&
         ![record.name ?? "", record.displayId, record.roomId].some((value) =>

@@ -35,7 +35,7 @@ it("検索と絞り込みを取得位置と一緒にWorkerへ渡す", async () =
   apiFetch.mockResolvedValue(Response.json({ outcomes: [], nextCursor: null }));
   await GET(
     new Request(
-      "https://app.test/api/shared-outcomes?q=受付&status=confirmed&phase=3&cursor=50&ignored=secret",
+      "https://app.test/api/shared-outcomes?q=受付&status=confirmed&phase=3&from=2026-09-01&to=2026-09-30&cursor=50&ignored=secret",
     ),
   );
   const path = apiFetch.mock.calls.at(-1)?.[0];
@@ -44,6 +44,8 @@ it("検索と絞り込みを取得位置と一緒にWorkerへ渡す", async () =
     q: "受付",
     status: "confirmed",
     phase: "3",
+    from: "2026-09-01",
+    to: "2026-09-30",
     cursor: "50",
   });
 });

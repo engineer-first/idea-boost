@@ -117,6 +117,11 @@ it.each([
   "status=unknown",
   "phase=4",
   "cursor=-1",
+  "from=2026-02-30",
+  "to=2026-13-01",
+  "from=2026-9-1",
+  "from=0000-01-01",
+  "from=2026-09-30&to=2026-09-01",
   `q=${"x".repeat(201)}`,
 ])("不正な検索条件 %s を拒否する", async (query) => {
   const result = await handleSharedOutcomes(
@@ -126,12 +131,71 @@ it.each([
   expect(result.status).toBe(400);
 });
 
-it("検索で最初の50候補に一致しなくても続きの成果を見つける", async () => {
+it("最終利用日を日本時間の両端を含む期間で絞り、片方だけの指定と検索を組み合わせる", async () => {
+  const start = Date.parse("2026-09-27T00:00:00+09:00");
+  const records = [-1, 0, 24 * 60 * 60 * 1000 - 1, 24 * 60 * 60 * 1000].map(
+    (offset) =>
+      buildSharedOutcome({
+        roomId: crypto.randomUUID(),
+        name: "日付で探すルーム",
+        lastUsedAt: start + offset,
+      }),
+  );
+  await env.DB.batch(
+    records.map((record) =>
+      env.DB.prepare(
+        "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?)",
+      ).bind(record.roomId, start - 1, record.expiresAt),
+    ),
+  );
+  const namespace = {
+    idFromName: (id: string) => id,
+    get: (id: string) => ({
+      ensureSharedOutcome: async () => {},
+      getSharedOutcome: async () =>
+        records.find((record) => record.roomId === id) ?? null,
+    }),
+  } as unknown as typeof env.ROOM_DO;
+  async function search(query: string) {
+    const result = await handleSharedOutcomes(
+      new Request(`https://api.test/api/shared-outcomes?${query}`),
+      { ...env, ROOM_DO: namespace },
+    );
+    return (
+      await result.json<{ outcomes: Array<{ roomId: string }> }>()
+    ).outcomes.map((record) => record.roomId);
+  }
+  expect(await search("q=日付&from=2026-09-27&to=2026-09-27")).toEqual([
+    records[2].roomId,
+    records[1].roomId,
+  ]);
+  expect(await search("from=2026-09-27")).toEqual([
+    records[3].roomId,
+    records[2].roomId,
+    records[1].roomId,
+  ]);
+  expect(await search("to=2026-09-27")).toEqual([
+    records[2].roomId,
+    records[1].roomId,
+    records[0].roomId,
+  ]);
+  expect(await search("from=2026-09-29")).toEqual([]);
+});
+
+it.each([
+  "q=探している",
+  "from=2026-09-27&to=2026-09-27",
+])("検索条件 %s が最初の50候補に一致しなくても続きの成果を見つける", async (query) => {
   const records = Array.from({ length: 51 }, (_, index) =>
     buildSharedOutcome({
       roomId: crypto.randomUUID(),
       name: index === 50 ? "探しているルーム" : "別ルーム",
-      lastUsedAt: Date.now() - index,
+      lastUsedAt:
+        Date.parse(
+          index === 50
+            ? "2026-09-27T12:00:00+09:00"
+            : "2026-09-28T12:00:00+09:00",
+        ) - index,
     }),
   );
   for (const record of records) {
@@ -150,7 +214,7 @@ it("検索で最初の50候補に一致しなくても続きの成果を見つ�
     }),
   } as unknown as typeof env.ROOM_DO;
   const response = await handleSharedOutcomes(
-    new Request("https://api.test/api/shared-outcomes?q=探している"),
+    new Request(`https://api.test/api/shared-outcomes?${query}`),
     { ...env, ROOM_DO: namespace },
   );
   expect(await response.json()).toMatchObject({
@@ -160,10 +224,11 @@ it("検索で最初の50候補に一致しなくても続きの成果を見つ�
 });
 
 it("検索中に期限切れの索引が削除されても次の候補を飛ばさない", async () => {
+  const now = Date.now();
   const records = Array.from({ length: 51 }, (_, index) =>
     buildSharedOutcome({
       roomId: crypto.randomUUID(),
-      lastUsedAt: Date.now() - index,
+      lastUsedAt: now - index,
       name: "期限後も探せる成果",
     }),
   );
@@ -200,10 +265,11 @@ it("検索中に期限切れの索引が削除されても次の候補を飛ば�
 });
 
 it("250候補で検索を区切り、返した取得位置からさらに探せる", async () => {
+  const now = Date.now();
   const records = Array.from({ length: 251 }, (_, index) =>
     buildSharedOutcome({
       roomId: crypto.randomUUID(),
-      lastUsedAt: Date.now() - index,
+      lastUsedAt: now - index,
       name: index === 250 ? "奥にある成果" : "別ルーム",
     }),
   );

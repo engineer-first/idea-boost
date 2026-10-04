@@ -173,3 +173,83 @@ it("追加取得時の認可拒否でも成果を隠し、権限エラーを表�
     screen.queryByRole("link", { name: /相談ルーム/ }),
   ).not.toBeInTheDocument();
 });
+
+it("最終利用日の期間を検索と組み合わせ、詳細・戻る・解除でも条件を扱える", async () => {
+  const fetchMock = setup();
+  await screen.findByRole("link", { name: /相談ルーム/ });
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "相談" },
+  });
+  fireEvent.change(screen.getByLabelText("開始日"), {
+    target: { value: "2026-09-01" },
+  });
+  fireEvent.change(screen.getByLabelText("終了日"), {
+    target: { value: "2026-09-30" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "検索" }));
+  await waitFor(() =>
+    expect(new URL(window.location.href).searchParams.get("to")).toBe(
+      "2026-09-30",
+    ),
+  );
+  const params = new URL(
+    fetchMock.mock.calls.at(-1)?.[0] ?? "",
+    "https://api.test",
+  ).searchParams;
+  expect(Object.fromEntries(params)).toEqual({
+    q: "相談",
+    from: "2026-09-01",
+    to: "2026-09-30",
+  });
+  fireEvent.click(screen.getByRole("link", { name: /相談ルーム/ }));
+  await screen.findByRole("heading", { name: "決定した3項目" });
+  expect(new URL(window.location.href).searchParams.get("from")).toBe(
+    "2026-09-01",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "成果一覧へ戻る" }));
+  await screen.findByLabelText("開始日");
+  expect(screen.getByLabelText("開始日")).toHaveValue("2026-09-01");
+  expect(screen.getByLabelText("終了日")).toHaveValue("2026-09-30");
+  fireEvent.click(screen.getByRole("button", { name: "条件をクリア" }));
+  await waitFor(() => expect(screen.getByLabelText("開始日")).toHaveValue(""));
+  expect(screen.getByLabelText("終了日")).toHaveValue("");
+  expect(new URL(window.location.href).search).toBe("");
+});
+
+it("逆転した期間は送信せず、修正すれば検索できる", async () => {
+  const fetchMock = setup();
+  await screen.findByRole("link", { name: /相談ルーム/ });
+  fireEvent.change(screen.getByLabelText("開始日"), {
+    target: { value: "2026-09-30" },
+  });
+  fireEvent.change(screen.getByLabelText("終了日"), {
+    target: { value: "2026-09-01" },
+  });
+  const form = screen.getByRole("searchbox").closest("form");
+  if (!form) throw new Error("検索フォームがない");
+  fireEvent.submit(form);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "終了日は開始日以降にしてください。",
+  );
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  fireEvent.change(screen.getByLabelText("終了日"), {
+    target: { value: "2026-09-30" },
+  });
+  fireEvent.submit(form);
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+it("条件の解除で、まだ適用していない日付の入力も消す", async () => {
+  setup();
+  await screen.findByRole("link", { name: /相談ルーム/ });
+  fireEvent.change(screen.getByLabelText("保存状態"), {
+    target: { value: "failed" },
+  });
+  await screen.findByRole("button", { name: "条件をクリア" });
+  fireEvent.change(screen.getByLabelText("開始日"), {
+    target: { value: "2026-09-01" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "条件をクリア" }));
+  await waitFor(() => expect(screen.getByLabelText("開始日")).toHaveValue(""));
+});

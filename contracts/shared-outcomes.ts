@@ -85,12 +85,29 @@ export type ProgressHistoryResponse = z.infer<
 >;
 export type ProgressHistoryRecord = z.infer<typeof ProgressHistoryRecordSchema>;
 
-export const SharedOutcomeFiltersSchema = z.object({
-  q: z.string().trim().max(200).default(""),
-  status: z.enum(["all", "partial", "confirmed"]).default("all"),
-  phase: z.enum(["all", "lobby", "1", "2", "3"]).default("all"),
-  saveStatus: z.enum(["all", "saved", "pending", "failed"]).default("all"),
-});
+const OutcomeDateSchema = z.string().refine((value) => {
+  if (value === "") return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000"))
+    return false;
+  const timestamp = Date.parse(`${value}T00:00:00Z`);
+  return (
+    Number.isFinite(timestamp) &&
+    new Date(timestamp).toISOString().slice(0, 10) === value
+  );
+}, "実在する日付を指定してください。");
+export const SharedOutcomeFiltersSchema = z
+  .object({
+    q: z.string().trim().max(200).default(""),
+    status: z.enum(["all", "partial", "confirmed"]).default("all"),
+    phase: z.enum(["all", "lobby", "1", "2", "3"]).default("all"),
+    saveStatus: z.enum(["all", "saved", "pending", "failed"]).default("all"),
+    from: OutcomeDateSchema.default(""),
+    to: OutcomeDateSchema.default(""),
+  })
+  .refine(({ from, to }) => !from || !to || from <= to, {
+    message: "終了日は開始日以降にしてください。",
+    path: ["to"],
+  });
 export const SharedOutcomeCursorSchema = z
   .string()
   .max(90)
@@ -103,7 +120,9 @@ export const SharedOutcomeCursorSchema = z
       (id === undefined || z.string().uuid().safeParse(id).success)
     );
   });
-export const SharedOutcomesQuerySchema = SharedOutcomeFiltersSchema.extend({
-  cursor: SharedOutcomeCursorSchema.optional(),
-});
+export const SharedOutcomesQuerySchema = SharedOutcomeFiltersSchema.and(
+  z.object({
+    cursor: SharedOutcomeCursorSchema.optional(),
+  }),
+);
 export type SharedOutcomeFilters = z.infer<typeof SharedOutcomeFiltersSchema>;

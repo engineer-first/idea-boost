@@ -118,7 +118,7 @@ export function SharedOutcomesView({
             <p className="max-w-prose text-sm leading-relaxed text-muted-foreground">
               {detailMode
                 ? "決定した内容と共有ボード、進行の記録を確認できます。"
-                : "ルームに残された成果を、名前・ID・進行状況から探せます。"}
+                : "ルームに残された成果を、名前・ID・進行状況・利用日から探せます。"}
             </p>
           </div>
           <Button
