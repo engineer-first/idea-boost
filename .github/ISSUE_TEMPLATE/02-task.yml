@@ -1,7 +1,10 @@
 name: Task
-description: 実装・調査以外の具体的な作業を記録する
+description: 実装などの具体的な作業を記録する
 type: Task
 body:
+  - type: markdown
+    attributes:
+      value: "思いつきの段階で起票できます。親 PBI は開発中・完了後に整理して構いません。着手時は対象 sprint の Milestone を設定してください。"
   - type: textarea
     id: purpose
     attributes:

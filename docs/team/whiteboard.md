@@ -10,7 +10,7 @@
 | GitHub Issues / Projects | Issue 内容、状態、担当者、PR との紐づき                  |
 | Markdown                 | 運用ルールと参照先                                       |
 
-Issue Type・フォーム・Project 状態の定義は[Issue と GitHub Project の運用](issues.md)を参照してください。PBI や DemoGoal の本文、受け入れ条件、技術メモは Issue に記録し、Markdown や付箋に複製しません。
+Issue Type・フォーム・Project 状態の定義は[Issue と GitHub Project の運用](issues.md)を参照してください。PBI の目的・受け入れ条件・デモ確認内容、技術メモは Issue に記録し、Markdown や付箋に複製しません。
 
 ## 付箋の書き方
 
@@ -18,7 +18,6 @@ Issue Type・フォーム・Project 状態の定義は[Issue と GitHub Project 
 
 ```text
 PBI-13 開発テーマ比較
-DEMO-13 開発テーマ比較
 #312 ログイン画面を作る
 ```
 
@@ -28,7 +27,9 @@ DEMO-13 開発テーマ比較
 
 ホワイトボード写真は原則としてリポジトリに保存しません。証跡が必要な場合だけ Google Drive などリポジトリ外に保存します。
 
-スプリント対象かどうかは GitHub Milestone で管理します。現在の期間と割当てはMilestoneを参照してください。
+授業中は物理ボードで相談・並び替えを行い、確定した変更だけ GitHub へ反映します。重大な成果・範囲の変更は理由を一言残します。
+
+sprint は対象授業6回（開発5回＋review/demo）で、期間・全体の成果・Issue の割当てを Milestone で管理します。詳細は[Issue 運用](issues.md#pbiとスプリント)を参照してください。
 
 ## 日常の参照先
 
@@ -36,4 +37,4 @@ DEMO-13 開発テーマ比較
 - [Milestones](https://github.com/engineer-first/idea-boost/milestones): スプリントの期間と対象
 - [Issue運用](issues.md): 種類・作成・自動化
 
-PBI・DemoGoal・Task・Bug・Spike・相談の内容はGitHub Issueを正本とし、本文や受け入れ条件をMarkdownと二重管理しない。
+PBI・Task・Bug・Spike・種類なし・相談の内容はGitHub Issueを正本とし、本文や受け入れ条件をMarkdownと二重管理しない。

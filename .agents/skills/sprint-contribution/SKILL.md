@@ -1,6 +1,6 @@
 ---
 name: sprint-contribution
-description: idea-flow-app のスプリント（GitHub milestone）ごとに、PBI 単位の貢献度管理シートを作成して GitHub Discussion にコメント投稿する。引数はスプリント名（milestone title、例 "Sprint 4"）と投稿先 Discussion の URL。末尾に --dry-run を付けると、実際には投稿せず Markdown ファイルの生成までで止める。
+description: idea-boost のスプリント（GitHub milestone）ごとに、PBI 単位の貢献度管理シートを作成して GitHub Discussion にコメント投稿する。引数はスプリント名（milestone title、例 "Sprint 4"）と投稿先 Discussion の URL。末尾に --dry-run を付けると、実際には投稿せず Markdown ファイルの生成までで止める。
 argument-hint: <milestone名> <Discussion URL> [--dry-run]
 disable-model-invocation: true
 ---
@@ -23,44 +23,27 @@ GitHub Discussion への投稿は外部から見える公開アクションな�
 gh api repos/$OWNER/$REPO/milestones --jq 'sort_by(.number)'
 ```
 
-milestone に開始日フィールドはないので、「対象 milestone の1つ前の milestone の `due_on`」を開始日とみなし、対象 milestone の `due_on` を終了日とする。
+期間は対象 Milestone の説明に記録された確定開始日と review/demo 日を使う。1 sprint は対象授業6回（開発5回＋review/demo）であり、前の期限や暦の6日から開始日を推測しない。未確定なら期間による PR 検索を保留して、その旨を報告する。
 
-### 2. milestone の issue 一覧を取得する
+### 2. 完了済みも含む milestone の issue 一覧を取得する
 
 ```bash
-gh issue list --repo $OWNER/$REPO --milestone "<title>" --state all --limit 100 \
+gh issue list --repo $OWNER/$REPO --milestone "<title>" --state all --limit 1000 \
   --json number,title,state,issueType,assignees
 ```
 
-`issueType` で PBI / DemoGoal / Task に分類する。PBI 番号の一覧をこの後の起点にする。
+この一覧を集計の起点にする。Task / Bug / Spike / 種類なし等の作業 Issue を含め、PBI は目的・受け入れ条件・デモ確認内容の確認先として扱う。親 PBI は開発中・完了後に整理できるため、親なしや親が別 sprint・未割当の作業を除外しない。旧 DemoGoal は履歴参照に留め、別の成果として集計しない。
 
-### 3. 各 PBI に紐づく Task issue と PR を特定する
+### 3. 作業 Issue の親 PBI と対応 PR を確認する
 
-PBI issue は直接 PR に `closes` されないことが多く、**PBI ← Task issue ← PR** という2段構造になっている（`closedByPullRequestsReferences` を直接使うと空になりがちなので使わない）。
-
-```bash
-.agents/skills/sprint-contribution/scripts/fetch_crossrefs.sh $OWNER $REPO <pbi番号...>
-```
-
-結果の `source` が `Issue` なら配下の Task issue、`PullRequest` ならそのまま実装 PR。Task issue が見つかったら、同じスクリプトをもう一段階かけて Task issue に紐づく PR を特定する:
+GitHub の親子関係を確認して PBI 単位にまとめる。本文中の番号やクロスリファレンスは候補であり、親子関係の確定情報として扱わない。親なしの作業は「PBI 未整理」の欄へ残し、完了済みも含めて後で整理できるようにする。集計だけを理由に Issue を移動・編集しない。
 
 ```bash
-.agents/skills/sprint-contribution/scripts/fetch_crossrefs.sh $OWNER $REPO <task番号...>
+.agents/skills/sprint-contribution/scripts/fetch_crossrefs.sh $OWNER $REPO <作業Issue番号...>
 ```
 
-PBI 番号が古い（issue 番号が一桁〜二桁など）と `gh issue list` のデフォルト limit に埋もれて Task issue 自体を見失うことがある。milestone に出てこない Task 番号を探すときは `--limit` を大きくして全 issue を取り直す:
-
-```bash
-gh issue list --repo $OWNER/$REPO --state all --limit 200 --json number,title,issueType,milestone
-```
-
-`fetch_crossrefs.sh` は本文中の `#番号` 参照や commit メッセージ経由の言及を拾うが、**PR タイトルにだけ issue 番号が入っていて本文に何の参照もない PR**（例: 「グルーピング機能実装 #86」）は拾えない。ある Task issue の実装 PR がどうしても見つからないときは、タイトル突合も試す:
-
-```bash
-gh pr list --repo $OWNER/$REPO --state merged --search "#<task番号> in:title"
-```
-
-まれに実装が PR を介さず develop へ直接コミットされていることもある（小さな修正・ドキュメント調整など）。Task issue や PBI の受け入れ条件が実装済み（issue は closed）なのに手順3・4で PR が1件も見つからない場合は、関連しそうなファイルパスの当たりをつけて `git log --oneline -- <path>` でたどり、該当コミットの author を直接確認する。
+作業 Issue から対応 PR を探し、closing reference・本文・diff で対応を確認する。PBI に直接対応する PR も確認する。PR タイトルにしか番号がない場合はタイトル検索も補助に使う。
+PR がない完了済みの作業は、必要なら `git log --oneline -- <path>` で直接コミットを調べる。成果確認や調査だけの作業に、実装 PR の存在を求めない。
 
 ### 4. 見つかった PR の author・diff 統計を取得する
 
@@ -98,25 +81,21 @@ git log --numstat --pretty=format:'COMMIT|%H|%an' <1st-parent>..<2nd-parent> -- 
 
 1つの PR が複数 PBI にまたがることもある（例: ルーム作成画面とメンバー確認画面を1つの PR でまとめて実装したケース）。その PR の diff をそのまま両方の PBI の分母に入れると二重計上になる。`gh pr view <num> --json files` でファイル一覧を見て PBI ごとに按分できないか試し、按分が難しいほど画面がまたがっている場合は「対応 PR」欄に同じ PR 番号を両方の PBI 行に書いた上で、貢献度は「その PR 全体としての貢献」として扱う（無理に % を分割しない）。
 
-### 7. PBI に直接紐づかない横断 Task を洗い出す
+### 7. 未整理の作業と期間内の未対応 PR を確認する
 
-横断 Task（CI整備・基盤移行・ドキュメント・リファクタなど）は milestone が設定されていないことが多いので、「milestone の issue 一覧のうち Task」だけでは見逃す。次の2系統を両方洗い出す:
-
-1. 手順2の milestone issue 一覧のうち `issueType` が Task で、手順3のクロスリファレンスに一度も出てこなかったもの
-2. スプリント期間内に develop へ merge された全 PR のうち、手順3・4で PBI/Task に紐づけられなかったもの:
+手順2の一覧から PBI に紐づいていない作業 Issue をすべて残す。Task だけに限定せず、Bug / Spike / 種類なしも同じように担当と成果を確認する。
+期間が確定している場合は、develop へ merge された PR の取りこぼしも調べる:
 
 ```bash
-gh pr list --repo $OWNER/$REPO --base develop --state merged \
+gh pr list --repo $OWNER/$REPO --base develop --state merged --limit 1000 \
   --search "merged:<開始日>..<終了日>" --json number,title,author,mergedAt
 ```
 
-（2の一覧は数十件になることがあるので、まず `--json number,title,author,mergedAt` の軽量フィールドだけ取得し、手順3・4で既に紐づけ済みの PR 番号を除外してから、残った PR だけ手順4のスクリプトで diff を取る。`--json body` まで含めて一括取得すると出力が肥大化してコンテキストを圧迫するので避ける。）
-
-いずれも手順3・4と同じ要領で担当者を特定する。
+既に計上した PR を除き、残りだけ diff を確認する。Milestone 未設定や対応 Issue 不明の PR は集計漏れ候補として明記し、期間内という理由だけで sprint へ自動割当しない。
 
 ### 8. Markdown を組み立てる
 
-以下の構成を必ず守る（過去2回の投稿と揃える）:
+以下の構成で、PBI 未整理の作業も見えるようにする:
 
 ```markdown
 ## 📊 Sprint N（開始日〜終了日）貢献度整理
@@ -131,10 +110,12 @@ gh pr list --repo $OWNER/$REPO --base develop --state merged \
 
 （未完了 PBI・破棄 PR の扱いなど特筆事項があれば ⚠️ で注記）
 
-### PBI に直接紐づかない横断Task
+### PBI 未整理の作業
 
-| Task | 内容 | 担当 |
-|---|---|---|
+| 作業 Issue | 種類 | 内容・成果 | 担当 |
+|---|---|---|---|
+
+（Milestone 未設定・対応 Issue 不明の PR があれば別途注記する）
 
 ### 全体所感
 

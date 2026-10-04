@@ -2,7 +2,7 @@
 # バーンダウン集計: スプリント(= GitHub Milestone)ごとの残り作業時間を表示する。
 #
 # 見積は issue に付いた `est:<N>h` ラベル(例: est:4h)。
-# 集計対象は Issue Type が Task / Bug の issue のみ(PBI / DemoGoal はカードなので除外)。
+# 集計対象は Issue Type が Task / Bug / Spike / 種類なしの作業 Issue(PBI・旧DemoGoal・相談は除外)。
 #
 # 使い方:
 #   scripts/burndown.sh              # 未完了タスクが残るスプリント + マイルストーンなしタスク
@@ -69,7 +69,7 @@ fi
 
 summary=$(jq --arg today "$(date +%F)" '
   def est: [.labels.nodes[].name | capture("^est:(?<h>[0-9.]+)h$").h | tonumber] | first // null;
-  def is_work: (.issueType.name // "") as $t | ($t == "Task" or $t == "Bug");
+  def is_work: (.issueType.name // "") as $t | ($t == "Task" or $t == "Bug" or $t == "Spike" or $t == "");
 
   def aggregate($tasks): {
     total_h:     ([$tasks[] | est // 0] | add // 0),

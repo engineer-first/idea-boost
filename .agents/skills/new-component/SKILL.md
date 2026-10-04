@@ -9,6 +9,8 @@ disable-model-invocation: true
 
 `$ARGUMENTS` で指定された名前の UI コンポーネントを、リポジトリ規約（AGENTS.md）に従って作成する。
 
+着手前に作業 Issue の対象 sprint の Milestone を確認する。未設定時は[Issue 運用](../../../docs/team/issues.md#pbiとスプリント)に従って確定した現在の sprint を調べ、未確定なら実装を保留する。親 PBI の未設定は着手を妨げない。
+
 ## 配置先の決定
 
 - ドメイン UI は `features/<feature>/` に置く。既存 feature のフラット / 5 箱構成に合わせ、5 箱の新規部品は `molecules/` を起点に、必要な依存に応じて上の帯へ置く。

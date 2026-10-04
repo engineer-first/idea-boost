@@ -13,18 +13,29 @@ Issue は GitHub の Issue Type で分類する。タイトル接頭辞やラベ
 | `Task`       | 実装など具体的な作業                                     |
 | `Bug`        | 不具合・想定外の挙動                                     |
 | `Spike`      | 不確実な点を調査して判断材料を得る作業                   |
-| `DemoGoal`   | PBI に紐づく、スプリントレビューで確認する成果           |
 
 Issue 作成時は `.github/ISSUE_TEMPLATE/` の Issue Forms または空の Issue を使う。フォームの必須欄は分類に必要な最小限に留め、背景・受け入れ条件・関連 Issue などは分かる範囲の任意記入とする。Issue Type はフォームから設定される。空の Issue は自由に記述し、Type は作成時または後から設定する。フォームに Project を埋め込まず、Project の自動追加を使う。
 
-ユーザー操作を伴う PBI・DemoGoal・Task では、既存の受け入れ条件・デモゴール・完了条件に、分かる範囲で「誰が、どの画面で何をすると、画面で何が起きるか」を1行で書く。操作のない作業に手順を求めない。画面名やボタン名が未確定なら仮の表現と明記し、確定した仕様として扱わない。
+ユーザー操作を伴う PBI・作業 Issue では、既存の受け入れ条件・デモゴール・完了条件に、分かる範囲で「誰が、どの画面で何をすると、画面で何が起きるか」を1行で書く。操作のない作業に手順を求めない。画面名やボタン名が未確定なら仮の表現と明記し、確定した仕様として扱わない。
 
 PBI では、入口から結果の画面までの流れや画面図が必要な場合、任意の「利用の流れ・画面イメージ」欄にまとめる。受け入れ条件には確認できる結果を残す。
-Issue の要件や不具合を理解するために必要な画面イメージは本文へ、後から得た再現画像・動画はコメントへ添付する。`gh issue create` / `gh issue edit` / `gh issue comment` の `--attach` を使い、画像・動画はリポジトリ外に保存する。本文の指定欄に置く場合は、`--body-file` に渡す本文のその欄へローカルファイルへの Markdown 参照を記載し、同じファイルを `--attach` に指定する。参照がない添付は本文末尾に追加される。投稿後は GitHub 上の表示を確認する。`pbi-demogoal` のスクリプトで作った Issue に添付するときは、既存本文を取得して追記を保持した本文ファイルを作り、`gh issue edit --body-file` と `--attach` を併用する。添付のために作成スクリプトを再実行しない。
+Issue の要件や不具合を理解するために必要な画面イメージは本文へ、後から得た再現画像・動画はコメントへ添付する。`gh issue create` / `gh issue edit` / `gh issue comment` の `--attach` を使い、画像・動画はリポジトリ外に保存する。本文の指定欄に置く場合は、`--body-file` に渡す本文のその欄へローカルファイルへの Markdown 参照を記載し、同じファイルを `--attach` に指定する。参照がない添付は本文末尾に追加される。投稿後は GitHub 上の表示を確認する。`pbi` のスクリプトで作った Issue に添付するときは、既存本文を取得して追記を保持した本文ファイルを作り、`gh issue edit --body-file` と `--attach` を併用する。添付のために作成スクリプトを再実行しない。
 
-組織には既存の `Feature` Type もあるが、idea-boost の標準運用では上表の6 Typeを使う。既存 Type は他リポジトリへの影響を避けるため変更・削除しない。Type の追加は組織全体で有効になるため、今後も他リポジトリへの影響を確認してから行う。
+組織には既存の `Feature` Type もあるが、idea-boost の標準運用では上表の5 Type と種類なしを使う。`DemoGoal` は新規作成せず、既存 Issue と組織 Type は履歴として残す。既存 Type は他リポジトリへの影響を避けるため変更・削除しない。Type の追加は組織全体で有効になるため、今後も他リポジトリへの影響を確認してから行う。
 
-PBI と DemoGoal をまとめて作る場合は [PBI DemoGoal スキル](../../.agents/skills/pbi-demogoal/SKILL.md)を使う。スクリプトが PBI ID を作成された Issue 番号から確定し（例: Issue #340 → `PBI-340`）、両 Issue を作成して Project に追加する。スプリントの割当ては作成後に GitHub Milestone で行う。
+PBI を作成する場合は [PBI スキル](../../.agents/skills/pbi/SKILL.md)も使える。目的・受け入れ条件・デモ確認内容を1件にまとめ、ID を作成された Issue 番号から確定する（例: #340 → `PBI-340`）。受け入れ条件でデモ確認も伝わるなら、同じ内容を別欄へ複製しない。
+
+## PBIとスプリント
+
+- 思いつきは小さな Issue で起票してよい。Task / Bug / Spike / 種類なしなどの作業 Issue は、原則最終的に PBI へ親子関係で紐付ける。親 PBI は起票・着手時の必須条件ではなく、開発中・完了後に整理してよい。Blank issue は起票方法であり、Issue Type ではない。
+- **作業に着手するときは、対象 sprint の Milestone が必須**。起票時は未割当でよい。エージェントは未設定なら会話・Milestone 説明などから確定した現在の sprint を調べ、対象を確認して割り当てる。期限・番号だけで推測せず、未確定なら実装を保留して理由を報告する。都度ユーザーへ質問しない。この確認は運用で行い、状態同期の自動化で強制しない。
+- sprint 内の Issue は完了済みも含めて Milestone から確認し、後で PBI へまとめられる。PBI が別 sprint・未割当でも、作業 Issue 自身の Milestone を集計の起点にする。
+- 成果は開始時に大まかに決め、後から追加・変更してよい。作業の完了見込みと残り時間に余裕があれば追加でき、代わりに何かを外す確認は必須ではない。厳しいときだけ範囲・優先順位を再検討する。
+- PBI に目的と受け入れ条件・デモ確認内容をまとめ、DemoGoal 別 Issue の運用は廃止する。sprint 全体の成果は Milestone 説明に短く書き、PBI 本文を複製しない。重大な変更には理由を一言残す。
+
+1 sprint は暦の6日間ではなく、対象授業6回（開発5回＋第6回 review/demo）。授業日程の Day が空欄の発表日等は数えない。開始日・開発日・review/demo 日・次の開始日は、確定した授業日程に基づき Milestone 説明へ記録する。年を固定して繰り返さない。
+
+確認済みの例: [Sprint 7](https://github.com/engineer-first/idea-boost/milestone/7)は2026-10-05開始、開発は10/5・7・8・9・13、review/demoは10/14、次の開始は10/15。過去の Sprint 1〜6 は履歴として残す。今後の期間・成果・割当ては Milestone を確認する。
 
 ## Project 状態
 
@@ -52,7 +63,7 @@ Project の組み込み単一選択フィールド名は GitHub の仕様上 `St
 | Issue の Status → 完了                                  | Issue をクローズ        | 人が成果を確認した後に操作。Project の標準 automation を使う                                    |
 
 他人への担当者割当て、割当て解除、Assign to Agent、Milestone・Priority・Type・Relationships の変更、ブランチ作成、通常 PR 作成、closing reference のないマージ、承認・変更要求だけでは状態を動かさない。
-PBI / DemoGoal の担当者は成果全体の責任者を表すため、アサインから開始とみなさない。Issue の close / reopen から状態を推測しない。
+PBI の担当者は成果全体の責任者を表すため、アサインから開始とみなさない。Issue の close / reopen から状態を推測しない。
 
 ## Pull Request とレビュー状態
 
@@ -105,22 +116,22 @@ Project の作業・状態を変えるときは、Issue本文と Milestone は�
 
 ## 日常のビュー
 
-| ビュー                                                                        | 読む目的                                 |
-| ----------------------------------------------------------------------------- | ---------------------------------------- |
-| [ホワイトボード](https://github.com/orgs/engineer-first/projects/3/views/2)   | 完了・見送りを除いた全体の状態           |
-| [タスク一覧](https://github.com/orgs/engineer-first/projects/3/views/3)       | Task / Bug / Spikeの作業                 |
-| [PBI・デモゴール](https://github.com/orgs/engineer-first/projects/3/views/4)  | 成果の受け入れ条件と子Issueの進捗        |
-| [未整理・壁打ち](https://github.com/orgs/engineer-first/projects/3/views/5)   | 背景・分類・優先度・完了条件を決める相談 |
-| [自分の作業](https://github.com/orgs/engineer-first/projects/3/views/6)       | ログインした本人が担当する未完了の作業   |
-| [レビュー待ち](https://github.com/orgs/engineer-first/projects/3/views/7)     | Statusがレビュー中の項目                 |
-| [スプリント未割当](https://github.com/orgs/engineer-first/projects/3/views/8) | 対象スプリントを決める項目               |
-| [完了・見送り](https://github.com/orgs/engineer-first/projects/3/views/9)     | 結果と過去の作業                         |
+| ビュー                                                                       | 読む目的                                              |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [ホワイトボード](https://github.com/orgs/engineer-first/projects/3/views/2)  | 完了・見送りを除いた全体の状態                        |
+| [今回の作業](https://github.com/orgs/engineer-first/projects/3/views/3)      | 確定した sprint の作業・Draft item・関連 PR           |
+| [PBI階層](https://github.com/orgs/engineer-first/projects/3/views/4)         | PBI の受け入れ条件と子 Issue の進捗（Show hierarchy） |
+| [自分の作業](https://github.com/orgs/engineer-first/projects/3/views/6)      | ログインした本人が担当する未完了の作業                |
+| [レビュー待ち](https://github.com/orgs/engineer-first/projects/3/views/7)    | Status がレビュー中の項目                             |
+| [PBI未紐づけ](https://github.com/orgs/engineer-first/projects/3/views/8)     | 完了済みも含めて、親のない作業を PBI へ整理する候補   |
+| [今回やったこと](https://github.com/orgs/engineer-first/projects/3/views/11) | 確定した sprint の Issue を完了済みも含めて確認       |
 
-各ビューはidea-boostだけを対象にし、状態・担当者・Milestone・親Issue・子Issue進捗・対応PR・更新日を表示する。自分の作業は`assignee:@me`で絞る。ビューの切り替えは既存Issueの状態や担当者を変えない。
+各ビューは `repo:engineer-first/idea-boost` を対象にする。自分の作業は `assignee:@me` で絞る。
+「今回の作業」は `milestone:"Sprint 7" is:open,draft,pr`、「今回やったこと」は `is:issue milestone:"Sprint 7"`。次の sprint が確定したらその Milestone 値へ更新する。期限から現在の sprint を推測せず、Iteration 用の `@current` は Milestone に使わない。
 
-スプリントはMilestoneで管理する。現在のMilestoneが確定したらその値で絞り、期限から現在のスプリントを推測しない。`@current`はIteration用で、Milestoneには使わない。
+「PBI階層」は `is:issue type:PBI` で Show hierarchy を使う。「PBI未紐づけ」は `is:issue -type:PBI,DemoGoal no:parent-issue`。この条件は親がない根の Issue を拾うため、PBI 以外の親を持つ子を直接表示しない。根とその子 Issue を確認して PBI へ整理する（例: #394/#395 → #365、#455 → #418 は根の #365/#418 から確認する）。Bug・種類なしも対象で、open だけに絞らない。
 
-新規Issueは通常の作成画面から作り、`未整理`を初期状態にする。絞り込んだProjectビューから項目を作ると、そのビューのフィルター値が適用されるため、作成後の状態・担当者・Milestoneを確認する。[GitHubのフィルター仕様](https://docs.github.com/en/issues/planning-and-tracking-with-projects/customizing-views-in-your-project/filtering-projects)
+新規 Issue は通常の作成画面から作り、`未整理` を初期状態にする。絞り込んだ Project ビューから項目を作るとフィルター値が適用されるため、作成後の状態・担当者・Milestone を確認する。[GitHub のフィルター仕様](https://docs.github.com/en/issues/planning-and-tracking-with-projects/customizing-views-in-your-project/filtering-projects)
 
 ## 今後の改善
 
