@@ -30,6 +30,73 @@ async function settled(page: Page, state: string): Promise<void> {
   });
 }
 
+test.each([
+  1440, 390,
+])("%ipxで投票の案内を読んでいる間は背景を固定し、閉じるとスクロールを再開する", async (width) => {
+  const page = await browser.newPage({
+    viewport: { width, height: 900 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardview--voting-guide-scroll-interaction");
+    await settled(page, "detail");
+    const canvas = page.getByTestId("board-canvas");
+    const transform = () =>
+      canvas.evaluate(async (element) => {
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+        return element.style.transform;
+      });
+    const before = await transform();
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    await detail.hover();
+    await page.mouse.wheel(0, 1600);
+    await vi.waitFor(async () =>
+      expect(
+        await detail.evaluate((element) => element.scrollTop),
+      ).toBeGreaterThan(0),
+    );
+    expect(await transform()).toBe(before);
+
+    // 案内の下にある背景で縦・横スクロールとトラックパッドのピンチを再現する。
+    await page.mouse.move(width / 2, 550);
+    await page.mouse.wheel(120, 240);
+    await page.waitForTimeout(200);
+    expect(await transform()).toBe(before);
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, -120);
+    await page.keyboard.up("Control");
+    await page.waitForTimeout(200);
+    expect(await transform()).toBe(before);
+    expect(
+      await page.getByTestId("step-guide").getAttribute("data-state"),
+    ).toBe("detail");
+
+    await page.keyboard.press("Escape");
+    await settled(page, "compact");
+    await page.mouse.wheel(120, 240);
+    await vi.waitFor(async () => expect(await transform()).not.toBe(before));
+
+    // 再び開いた後も固定し、外側クリックで閉じた場合もロックを解除する。
+    await page.getByRole("button", { name: "進め方", exact: true }).click();
+    await settled(page, "detail");
+    const reopened = await transform();
+    await page.mouse.move(width / 2, 550);
+    await page.mouse.wheel(0, 240);
+    await page.waitForTimeout(200);
+    expect(await transform()).toBe(reopened);
+    await page.mouse.click(width / 2, 550);
+    await settled(page, "compact");
+    await page.mouse.wheel(0, 240);
+    await vi.waitFor(async () => expect(await transform()).not.toBe(reopened));
+  } finally {
+    await page.close();
+  }
+});
+
 test("同じ枠の変形・キーボード・外側クリックと付箋追加を実ブラウザで確認する", async () => {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },

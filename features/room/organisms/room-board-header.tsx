@@ -2,7 +2,13 @@
 
 // ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
 import { Check, LogOut, MoreHorizontal } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -69,6 +75,7 @@ export type RoomBoardHeaderProps = {
   // 判定は view の責務で、ここでは受け取った状態で無効化するだけ。
   isNextPhaseBlocked: boolean;
   initialGuideState?: StepGuideState;
+  backgroundViewportRef?: RefObject<HTMLElement | null>;
   hasFinalDecision: boolean;
   outcomePublished: boolean;
   isLeaving: boolean;
@@ -115,6 +122,7 @@ export function RoomBoardHeader({
   isTransferring = false,
   isNextPhaseBlocked,
   initialGuideState,
+  backgroundViewportRef,
   hasFinalDecision,
   outcomePublished,
   isLeaving,
@@ -245,6 +253,7 @@ export function RoomBoardHeader({
                 isHost={isHost}
                 isReady={!isDisconnected}
                 initialState={initialGuideState}
+                backgroundViewportRef={backgroundViewportRef}
               />
             )
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, CircleHelp, Clock3 } from "lucide-react";
-import { useEffect, useId, useRef } from "react";
+import { type RefObject, useEffect, useId, useRef } from "react";
 import type { FacilitationGuideContent } from "../logic/facilitation-guide";
 import { type StepGuideState, useStepGuide } from "../logic/use-step-guide";
 import styles from "./step-guide.module.css";
@@ -13,9 +13,15 @@ export type StepGuideProps = {
   isHost: boolean;
   isReady: boolean;
   initialState?: StepGuideState;
+  backgroundViewportRef?: RefObject<HTMLElement | null>;
 };
 
-export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
+export function StepGuide({
+  guide,
+  isHost,
+  backgroundViewportRef,
+  ...options
+}: StepGuideProps) {
   const { state, setState, setHovered, setFocused } = useStepGuide(options);
   const root = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -39,6 +45,22 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
       trigger.current?.focus({ preventScroll: true });
     }
   }, [state]);
+
+  useEffect(() => {
+    const viewport = backgroundViewportRef?.current;
+    if (state !== "detail" || !viewport) return;
+    function blockBackgroundWheel(event: WheelEvent): void {
+      event.preventDefault();
+      // ページのスクロールだけでなく、キャンバスの移動・ズームも止める。
+      event.stopImmediatePropagation();
+    }
+    viewport.addEventListener("wheel", blockBackgroundWheel, {
+      capture: true,
+      passive: false,
+    });
+    return () =>
+      viewport.removeEventListener("wheel", blockBackgroundWheel, true);
+  }, [state, backgroundViewportRef]);
 
   useEffect(() => {
     if (state === "compact") return;
