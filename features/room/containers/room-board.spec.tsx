@@ -745,6 +745,31 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
+  it.each([
+    "private",
+    "shared",
+  ] as const)("%sの共有・戻すボタンを置かず、Enterやクリックで可視性を変えない", (visibility) => {
+    const { socket } = connectWithSnapshot([protocolNote({ visibility })], {
+      phase: buildPhaseStep(2),
+    });
+    openPrivateNotesToolbar();
+    expect(
+      screen.queryByRole("button", { name: "ボードに共有" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "マイ付箋へ戻す" }),
+    ).not.toBeInTheDocument();
+    const note = screen.getByRole("button", { name: "付箋" });
+    fireEvent.click(note);
+    fireEvent.keyDown(note, { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect(
+      socket.sent.some((message) =>
+        /"type":"note:(publish|unpublish)"/.test(message),
+      ),
+    ).toBe(false);
+  });
+
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
     const { socket } = connectWithSnapshot(
       [protocolNote({ visibility: "private", content: "個人付箋" })],

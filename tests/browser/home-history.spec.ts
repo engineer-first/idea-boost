@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { chromium, type Page } from "playwright";
+import { chromium, type Locator, type Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CompletedRoomSchema } from "../../contracts/completed-rooms";
 import { completedRoomFixture } from "../../contracts/completed-rooms.fixture";
@@ -20,9 +20,199 @@ const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/board-layout";
 const widths = [390, 1280];
 
-async function capture(page: Page, name: string): Promise<void> {
+type Bounds = { x: number; y: number; width: number; height: number };
+type CardLayout = {
+  card: Bounds;
+  header: Bounds;
+  form: Bounds;
+  input: Bounds;
+  button: Bounds;
+};
+type HomeLayout = {
+  create: CardLayout;
+  join: CardLayout;
+  entry: Bounds;
+};
+
+async function capture(
+  page: Page,
+  name: string,
+  layout?: HomeLayout,
+): Promise<void> {
   await mkdir(output, { recursive: true });
   await page.screenshot({ path: join(output, `${name}.png`) });
+  if (layout) {
+    await writeFile(
+      join(output, `${name}.json`),
+      JSON.stringify(layout, null, 2),
+    );
+  }
+}
+
+async function measureHomeLayout(page: Page): Promise<HomeLayout> {
+  return page.getByTestId("home-view").evaluate((home) => {
+    const bounds = (element: Element | null): Bounds => {
+      if (!element) throw new Error("ホームの計測対象が見つかりません。");
+      const rect = element.getBoundingClientRect();
+      let { x, y } = rect;
+      // focus/scrollIntoView による自然なスクロールと、レイアウトの移動を区別する。
+      for (
+        let parent = element.parentElement;
+        parent;
+        parent = parent.parentElement
+      ) {
+        x += parent.scrollLeft;
+        y += parent.scrollTop;
+      }
+      return { x, y, width: rect.width, height: rect.height };
+    };
+    const card = (testId: string): CardLayout => {
+      const element = home.querySelector(`[data-testid="${testId}"]`);
+      if (!element) throw new Error(`カード ${testId} が見つかりません。`);
+      return {
+        card: bounds(element),
+        header: bounds(element.querySelector('[data-slot="card-header"]')),
+        form: bounds(element.querySelector("form")),
+        input: bounds(element.querySelector("input")),
+        button: bounds(element.querySelector('button[type="submit"]')),
+      };
+    };
+    return {
+      create: card("home-create-room"),
+      join: card("home-join-room"),
+      entry: bounds(home.querySelector('a[href="/completed-rooms"]')),
+    };
+  });
+}
+
+function expectClose(actual: number, expected: number, label: string): void {
+  // サブピクセルの丸めだけを許容し、失敗時も後続状態の測定・画像を残す。
+  expect.soft(Math.abs(actual - expected), label).toBeLessThanOrEqual(1);
+}
+
+function expectAlignedCards(
+  layout: HomeLayout,
+  width: number,
+  state: string,
+): void {
+  const { create, join } = layout;
+  const context = `${width}px ${state}`;
+  expectClose(create.card.width, join.card.width, `${context}: カード幅`);
+  expectClose(create.card.height, join.card.height, `${context}: カード高さ`);
+  if (width >= 640) {
+    expectClose(create.card.y, join.card.y, `${context}: カード上端`);
+    expect
+      .soft(join.card.x, `${context}: 横並び`)
+      .toBeGreaterThanOrEqual(create.card.x + create.card.width);
+  } else {
+    expectClose(create.card.x, join.card.x, `${context}: カード左端`);
+    const gap = join.card.y - create.card.y - create.card.height;
+    expect.soft(gap, `${context}: 縦並び`).toBeGreaterThanOrEqual(0);
+    expect.soft(gap, `${context}: カード間の空白`).toBeLessThanOrEqual(24);
+  }
+  for (const target of ["input", "button"] as const) {
+    for (const dimension of ["width", "height"] as const) {
+      expectClose(
+        create[target][dimension],
+        join[target][dimension],
+        `${context}: ${target} ${dimension}`,
+      );
+    }
+    expectClose(
+      create[target].y - create.card.y,
+      join[target].y - join.card.y,
+      `${context}: ${target} のカード内の上端`,
+    );
+    if (width >= 640) {
+      expectClose(
+        create[target].y,
+        join[target].y,
+        `${context}: ${target} の上端`,
+      );
+    }
+  }
+  for (const [name, card] of Object.entries({ create, join })) {
+    const left = card.input.x - card.card.x;
+    const right =
+      card.card.x + card.card.width - card.input.x - card.input.width;
+    expectClose(left, right, `${context}: ${name} の左右内余白`);
+    expectClose(
+      left,
+      create.input.x - create.card.x,
+      `${context}: 左右カードの内余白`,
+    );
+    expectClose(
+      card.input.x,
+      card.button.x,
+      `${context}: ${name} のinput/button左端`,
+    );
+    expectClose(
+      card.input.width,
+      card.button.width,
+      `${context}: ${name} のinput/button幅`,
+    );
+    expect
+      .soft(
+        card.form.y - card.header.y - card.header.height,
+        `${context}: ${name} の見出しとフォーム間の空白`,
+      )
+      .toBeLessThanOrEqual(24);
+    const fieldGap = card.button.y - card.input.y - card.input.height;
+    expect
+      .soft(fieldGap, `${context}: ${name} のinput/button重なり`)
+      .toBeGreaterThanOrEqual(0);
+    // 2行の検証メッセージを確保しても、CTAの前を過剰に空けない。
+    expect
+      .soft(fieldGap, `${context}: ${name} のinput/button間の空白`)
+      .toBeLessThanOrEqual(64);
+    const bottom =
+      card.card.y + card.card.height - card.button.y - card.button.height;
+    expect
+      .soft(bottom, `${context}: ${name} のボタンのカード内への収まり`)
+      .toBeGreaterThanOrEqual(0);
+    expect
+      .soft(bottom, `${context}: ${name} のボタン下の空白`)
+      .toBeLessThanOrEqual(32);
+  }
+}
+
+function expectStableLayout(
+  initial: HomeLayout,
+  current: HomeLayout,
+  state: string,
+): void {
+  for (const card of ["create", "join"] as const) {
+    for (const target of ["card", "input", "button"] as const) {
+      for (const dimension of ["x", "y", "width", "height"] as const) {
+        expectClose(
+          current[card][target][dimension],
+          initial[card][target][dimension],
+          `${state}: ${card} ${target} ${dimension} が動かない`,
+        );
+      }
+    }
+  }
+  for (const dimension of ["x", "y", "width", "height"] as const) {
+    expectClose(
+      current.entry[dimension],
+      initial.entry[dimension],
+      `${state}: 履歴CTA ${dimension} が動かない`,
+    );
+  }
+}
+
+async function expectReachable(page: Page, target: Locator): Promise<void> {
+  await target.scrollIntoViewIfNeeded();
+  const bounds = await target.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds?.x).toBeGreaterThanOrEqual(0);
+  expect(bounds?.y).toBeGreaterThanOrEqual(0);
+  expect((bounds?.x ?? Infinity) + (bounds?.width ?? 0)).toBeLessThanOrEqual(
+    page.viewportSize()?.width ?? 0,
+  );
+  expect((bounds?.y ?? Infinity) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
+    page.viewportSize()?.height ?? 0,
+  );
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -38,9 +228,9 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 // Storybook の Next router はモック。実際の URL 遷移は下の実 Next/Worker で検証する。
-it.each(
-  widths,
-)("招待コードのblur検証と履歴入口のTab操作を%ipxで行える", async (width) => {
+it.each([
+  390, 640, 1280,
+])("左右カードの配置を保って招待コードのblur検証と履歴入口のTab操作を%ipxで行える", async (width) => {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width, height: 844 } });
@@ -54,6 +244,10 @@ it.each(
     );
     const name = page.getByRole("textbox", { name: "ルーム名（任意）" });
     const code = page.getByRole("textbox", { name: "招待コード" });
+    const create = page.getByRole("button", {
+      name: "ルームを作成",
+      exact: true,
+    });
     const join = page.getByRole("button", { name: "参加する", exact: true });
     const error = page.getByRole("alert");
     const entry = page.getByRole("link", { name: /過去の成果を見る/ });
@@ -77,8 +271,14 @@ it.each(
     expect(await code.getAttribute("aria-invalid")).not.toBe("true");
     expect(initialBorder).not.toBe(destructive);
     expect(await join.isDisabled()).toBe(true);
+    await page.evaluate(() => document.fonts.ready);
+    const initialLayout = await measureHomeLayout(page);
+    expectAlignedCards(initialLayout, width, "initial");
+    for (const target of [name, create, code, join, entry]) {
+      await expectReachable(page, target);
+    }
     await expectNoHorizontalOverflow(page);
-    await capture(page, `home-invite-${width}-initial`);
+    await capture(page, `home-invite-${width}-initial`, initialLayout);
 
     await code.focus();
     await page.keyboard.press("Tab");
@@ -104,24 +304,17 @@ it.each(
         code.evaluate((element) => getComputedStyle(element).borderColor),
       )
       .toBe(destructive);
-    await code.scrollIntoViewIfNeeded();
-    await entry.scrollIntoViewIfNeeded();
+    const errorLayout = await measureHomeLayout(page);
+    expectAlignedCards(errorLayout, width, "error");
+    expectStableLayout(initialLayout, errorLayout, `${width}px error`);
+    for (const target of [name, create, code, error, join, entry]) {
+      await expectReachable(page, target);
+    }
     const inputBounds = await code.boundingBox();
     const errorBounds = await error.boundingBox();
     const joinBounds = await join.boundingBox();
     expect(inputBounds).not.toBeNull();
     expect(errorBounds).not.toBeNull();
-    for (const bounds of [
-      inputBounds,
-      errorBounds,
-      joinBounds,
-      await entry.boundingBox(),
-    ]) {
-      expect(bounds?.y).toBeGreaterThanOrEqual(0);
-      expect((bounds?.y ?? 844) + (bounds?.height ?? 0)).toBeLessThanOrEqual(
-        844,
-      );
-    }
     expect(errorBounds?.y).toBeGreaterThanOrEqual(
       (inputBounds?.y ?? 0) + (inputBounds?.height ?? 0),
     );
@@ -129,7 +322,7 @@ it.each(
       (errorBounds?.y ?? 844) + (errorBounds?.height ?? 0),
     ).toBeLessThanOrEqual(joinBounds?.y ?? 0);
     await expectNoHorizontalOverflow(page);
-    await capture(page, `home-invite-${width}-error`);
+    await capture(page, `home-invite-${width}-error`, errorLayout);
 
     await code.focus();
     await page.keyboard.press("Backspace");
@@ -149,7 +342,13 @@ it.each(
       )
       .toBe(initialBorder);
     await expectNoHorizontalOverflow(page);
-    await capture(page, `home-invite-${width}-corrected`);
+    const correctedLayout = await measureHomeLayout(page);
+    expectAlignedCards(correctedLayout, width, "corrected");
+    expectStableLayout(initialLayout, correctedLayout, `${width}px corrected`);
+    for (const target of [name, create, code, join, entry]) {
+      await expectReachable(page, target);
+    }
+    await capture(page, `home-invite-${width}-corrected`, correctedLayout);
     await name.fill("授業の相談");
     expect(await entry.getAttribute("href")).toBe("/completed-rooms");
     expect(await entry.getAttribute("target")).not.toBe("_blank");
