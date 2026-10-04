@@ -11,7 +11,12 @@ import {
 import { runInRoomDO } from "../test-helpers";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
 import type { HandlerCtx } from "./handler-context";
-import { expireMoveOperations, moveHandlers } from "./move-operations";
+import {
+  expireMoveOperations,
+  moveHandlers,
+  releaseConnectionMoves,
+  syncMovePresence,
+} from "./move-operations";
 import { noteHandlers } from "./note-handlers";
 import { findNote, insertNote, toProtocolNote } from "./notes";
 import { savePhase } from "./phase";
@@ -107,7 +112,239 @@ function commit(ctx: HandlerCtx, operationId = OP) {
     delta: { x: 300, y: 0 },
   } as ClientMessage & { type: "note:move:commit" });
 }
+function peer(ctx: HandlerCtx, userId = B) {
+  const messages: Record<string, unknown>[] = [];
+  const socket = {
+    deserializeAttachment: () => ({ userId }),
+    readyState: 1,
+    send: (payload: string) => messages.push(JSON.parse(payload)),
+  } as unknown as WebSocket;
+  ctx.broadcaster = new RoomBroadcaster({
+    getWebSockets: () => [ctx.ws, socket],
+  });
+  return messages;
+}
 describe("move transaction", () => {
+  it("途中位置を全件peerへ配信し取消終了、確定位置は変更しない", () =>
+    setup("move-peer-preview", (ctx) => {
+      const messages = peer(ctx);
+      start(ctx);
+      moveHandlers["note:move:preview"](ctx, {
+        type: "note:move:preview",
+        operationId: OP,
+        delta: { x: 20, y: 30 },
+      });
+      expect(
+        messages.find((m) => m.type === "notes:move-preview"),
+      ).toMatchObject({
+        operationId: OP,
+        positions: [
+          { noteId: N1, x: 120, y: 130 },
+          { noteId: N2, x: 160, y: 130 },
+        ],
+      });
+      expect(findNote(ctx.sql, N1)?.x).toBe(100);
+      moveHandlers["note:move:cancel"](ctx, {
+        type: "note:move:cancel",
+        operationId: OP,
+      });
+      expect(messages.find((m) => m.type === "notes:move-ended")).toMatchObject(
+        { operationId: OP },
+      );
+    }));
+  it("開始後privateになった一件を含むpreviewを一切配信しない", () =>
+    setup("move-peer-private", (ctx) => {
+      const messages = peer(ctx);
+      start(ctx);
+      ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
+      moveHandlers["note:move:preview"](ctx, {
+        type: "note:move:preview",
+        operationId: OP,
+        delta: { x: 20, y: 0 },
+      });
+      expect(messages.filter((m) => m.type === "notes:move-preview")).toEqual(
+        [],
+      );
+      expect(JSON.stringify(messages)).not.toContain(N2);
+    }));
+  it.each([
+    "lease",
+    "connection",
+    "phase",
+    "member",
+    "lock",
+    "position",
+    "visibility",
+    "group",
+    "map",
+    "adoption",
+  ])("peer previewを%s失効で全件解除する", (reason) =>
+    setup(`move-peer-retire-${reason}`, (ctx) => {
+      const messages = peer(ctx);
+      start(ctx);
+      moveHandlers["note:move:preview"](ctx, {
+        type: "note:move:preview",
+        operationId: OP,
+        delta: { x: 20, y: 0 },
+      });
+      expect(
+        messages.filter((m) => m.type === "notes:move-preview"),
+      ).toHaveLength(1);
+      if (reason === "lease") expireMoveOperations(ctx.sql, Date.now() + 20000);
+      if (reason === "connection")
+        releaseConnectionMoves(
+          ctx.sql,
+          (ctx.ws.deserializeAttachment() as SocketAttachment)
+            .moveConnectionId ?? "",
+        );
+      if (reason === "phase")
+        savePhase(ctx.sql, { kind: "step", phase: 1, step: 4 });
+      if (reason === "member")
+        ctx.sql.exec("DELETE FROM members WHERE user_id=?1", A);
+      if (reason === "lock")
+        ctx.sql.exec("DELETE FROM note_move_locks WHERE note_id=?1", N2);
+      if (reason === "position")
+        ctx.sql.exec("UPDATE notes SET x=x+1 WHERE id=?1", N2);
+      if (reason === "visibility")
+        ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
+      if (reason === "group")
+        ctx.sql.exec(
+          "UPDATE room_state SET group_revision=group_revision+1 WHERE id=1",
+        );
+      if (reason === "map")
+        ctx.sql.exec(
+          "UPDATE room_state SET map_revision=map_revision+1 WHERE id=1",
+        );
+      if (reason === "adoption")
+        ctx.sql.exec(
+          "INSERT INTO decisions(phase,note_id,decided_by,decided_at) VALUES(1,?1,?2,?3)",
+          N1,
+          A,
+          new Date().toISOString(),
+        );
+      syncMovePresence(ctx.sql, ctx.broadcaster);
+      expect(messages.filter((m) => m.type === "notes:move-ended")).toEqual([
+        { type: "notes:move-ended", operationId: OP },
+      ]);
+      moveHandlers["note:move:preview"](ctx, {
+        type: "note:move:preview",
+        operationId: OP,
+        delta: { x: 40, y: 0 },
+      });
+      expect(
+        messages.filter((m) => m.type === "notes:move-preview"),
+      ).toHaveLength(1);
+    }));
+  it("確定batchが終了通知より先に届き途中本文・票・分類を送らない", () =>
+    setup("move-peer-commit-order", (ctx) => {
+      const messages = peer(ctx);
+      start(ctx);
+      moveHandlers["note:move:preview"](ctx, {
+        type: "note:move:preview",
+        operationId: OP,
+        delta: { x: 20, y: 0 },
+      });
+      const preview = messages.find((m) => m.type === "notes:move-preview");
+      expect(parseServerMessage(JSON.stringify(preview))).toEqual(preview);
+      expect(JSON.stringify(preview)).not.toMatch(
+        /content|dotVote|group|author|candidate/,
+      );
+      commit(ctx);
+      expect(messages.findIndex((m) => m.type === "notes:moved")).toBeLessThan(
+        messages.findIndex((m) => m.type === "notes:move-ended"),
+      );
+    }));
+  it("非member受信者へpreviewを配信しない", () =>
+    setup("move-peer-nonmember", (ctx) => {
+      const messages = peer(ctx, OP2);
+      start(ctx);
+      moveHandlers["note:move:preview"](ctx, {
+        type: "note:move:preview",
+        operationId: OP,
+        delta: { x: 20, y: 0 },
+      });
+      expect(messages.filter((m) => m.type === "notes:move-preview")).toEqual(
+        [],
+      );
+      moveHandlers["note:move:cancel"](ctx, {
+        type: "note:move:cancel",
+        operationId: OP,
+      });
+      expect(messages.filter((m) => m.type === "notes:move-ended")).toEqual([]);
+    }));
+  it("別接続のpreviewを拒否し所有者の移動を取り消さない", () =>
+    setup("move-peer-foreign-connection", (ctx, responses) => {
+      const messages = peer(ctx);
+      start(ctx);
+      const ws = {
+        deserializeAttachment: () => ({ userId: A, moveConnectionId: OP2 }),
+      } as unknown as WebSocket;
+      moveHandlers["note:move:preview"](
+        { ...ctx, ws },
+        { type: "note:move:preview", operationId: OP, delta: { x: 20, y: 0 } },
+      );
+      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      expect(messages.filter((m) => m.type === "notes:move-preview")).toEqual(
+        [],
+      );
+      expect(
+        ctx.sql
+          .exec(
+            "SELECT state FROM note_move_operations WHERE operation_id=?1",
+            OP,
+          )
+          .one().state,
+      ).toBe("active");
+    }));
+  it.each([
+    "single",
+    "map",
+    "same-user",
+  ])("%sでもdrag中全件を同期し版を保存しない", (mode) =>
+    setup(`move-peer-${mode}`, (ctx) => {
+      const messages = peer(ctx, mode === "same-user" ? A : B);
+      if (mode === "map") {
+        savePhase(ctx.sql, { kind: "step", phase: 3, step: 3 });
+        ctx.sql.exec(
+          "UPDATE notes SET phase=3,x=CASE WHEN id=?1 THEN 20 ELSE 60 END,y=30",
+          N1,
+        );
+      }
+      const revision = ctx.sql
+        .exec(
+          "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
+        )
+        .one();
+      const ids = mode === "single" ? [N1] : [N1, N2];
+      const before = ids.map((id) => findNote(ctx.sql, id));
+      moveHandlers["note:move:start"](ctx, {
+        type: "note:move:start",
+        operationId: OP,
+        expectedPhaseRevision: Number(revision.phase_revision),
+        expectedGroupRevision: Number(revision.group_revision),
+        expectedMapRevision: Number(revision.map_revision),
+        coordinateSpace: mode === "map" ? "map" : "canvas",
+        targets: before.map((note) => ({
+          noteId: note?.id ?? N1,
+          positionRevision: note?.position_revision ?? 0,
+          visibilityRevision: note?.visibility_revision ?? 0,
+        })),
+      });
+      moveHandlers["note:move:preview"](ctx, {
+        type: "note:move:preview",
+        operationId: OP,
+        delta: { x: 50, y: 10 },
+      });
+      const preview = messages.find((m) => m.type === "notes:move-preview");
+      expect(preview).toMatchObject({
+        positions: before.map((note) => ({
+          noteId: note?.id,
+          x: (note?.x ?? 0) + (mode === "map" ? 40 : 50),
+          y: (note?.y ?? 0) + 10,
+        })),
+      });
+      expect(ids.map((id) => findNote(ctx.sql, id))).toEqual(before);
+    }));
   it("start/preview/cancelで確定位置・group・版を変更しない", () =>
     setup("move-preview", (ctx, responses) => {
       start(ctx);

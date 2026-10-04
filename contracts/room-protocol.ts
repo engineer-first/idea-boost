@@ -791,9 +791,41 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       receipt: MoveReceiptSchema.optional(),
     })
     .strict(),
+  // 非永続の途中位置。本文・投票・分類を含めない。
+  z
+    .object({
+      type: z.literal("notes:move-preview"),
+      operationId: OptimisticOperationIdSchema,
+      userId: z.string().uuid(),
+      phaseRevision: z.number().int().nonnegative(),
+      sequence: z.number().int().positive(),
+      leaseMs: z.number().int().positive().max(15000),
+      positions: z
+        .array(
+          z
+            .object({
+              noteId: z.string().uuid(),
+              x: z.number().finite(),
+              y: z.number().finite(),
+              positionRevision: z.number().int().nonnegative(),
+              visibilityRevision: z.number().int().nonnegative(),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(256),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("notes:move-ended"),
+      operationId: OptimisticOperationIdSchema,
+    })
+    .strict(),
   z
     .object({
       type: z.literal("notes:moved"),
+      operationId: OptimisticOperationIdSchema.optional(),
       notes: z.array(NoteSchema),
       groups: z.array(GroupSchema),
       groupRevision: z.number().int().nonnegative(),

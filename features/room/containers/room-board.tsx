@@ -500,11 +500,13 @@ export function RoomBoard({
     if (connectionStatus === "open") return;
     drafts.setConnected(false);
     notes.cancelNoteDrag();
+    notes.clearPeerMoves();
     boardInteractions.cancelCurrentNoteDrag(true);
   }, [
     boardInteractions.cancelCurrentNoteDrag,
     connectionStatus,
     notes.cancelNoteDrag,
+    notes.clearPeerMoves,
     drafts.setConnected,
   ]);
 

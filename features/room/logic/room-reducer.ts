@@ -94,6 +94,8 @@ export function applyMemberServerMessage(
     case "note:content-status-result":
     case "phase:save-requested":
     case "notes:moved":
+    case "notes:move-preview":
+    case "notes:move-ended":
     case "note:move:result":
     case "note:drag:result":
     case "idea-map:state":
@@ -147,6 +149,8 @@ export function applyVotingCompletionServerMessage(
     case "note:content-status-result":
     case "phase:save-requested":
     case "notes:moved":
+    case "notes:move-preview":
+    case "notes:move-ended":
     case "note:move:result":
     case "note:drag:result":
     case "idea-map:state":
@@ -221,6 +225,8 @@ export function applyDecisionServerMessage(
     case "note:content-status-result":
     case "phase:save-requested":
     case "notes:moved":
+    case "notes:move-preview":
+    case "notes:move-ended":
     case "note:move:result":
     case "note:drag:result":
     case "idea-map:state":
@@ -309,6 +315,8 @@ export function applyPhaseServerMessage(
     case "note:content-status-result":
     case "phase:save-requested":
     case "notes:moved":
+    case "notes:move-preview":
+    case "notes:move-ended":
     case "note:move:result":
     case "note:drag:result":
     case "idea-map:state":

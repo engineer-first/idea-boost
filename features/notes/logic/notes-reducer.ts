@@ -81,6 +81,8 @@ export function applyServerMessage(
     case "note:content-saved":
     case "note:content-status-result":
     case "phase:save-requested":
+    case "notes:move-preview":
+    case "notes:move-ended":
     case "note:move:result":
     case "note:drag:result":
     case "idea-map:state":

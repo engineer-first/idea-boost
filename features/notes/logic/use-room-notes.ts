@@ -96,6 +96,7 @@ export type VoteFeedback = {
 
 export type UseRoomNotesResult = {
   notes: Note[];
+  clearPeerMoves: () => void;
   movePending: boolean;
   moveFeedback: MoveFeedback | null;
   lastMoveReceipt: MoveReceipt | null;
@@ -1026,6 +1027,7 @@ export function useRoomNotes({
 
   return {
     notes: transactionMove.notes,
+    clearPeerMoves: transactionMove.clearPeerMoves,
     movePending: transactionMove.pending,
     moveFeedback: transactionMove.feedback,
     lastMoveReceipt: transactionMove.receipt,

@@ -237,7 +237,7 @@
 - **入力**: 付箋主drag
 - **主体・工程**: moveShared可能な全参加者
 - **対象・前提**: 現在のshared付箋。候補外も同じ。別ユーザーlockがない
-- **結果**: MUST: 1gestureを未確定transactionとして扱う。押下位置とのoffsetを保ち本人previewを即時移動。許可されたshared対象のpeer previewは確定座標と分離して配信できるが、DB確定座標・group所属・Undo履歴はpointerup受理まで変更しない。drag中は候補整理overlayを隠す。本文・作者・票・候補状態は変更しない。phase3のmapでは既存0..100評価座標を使う。
+- **結果**: MUST: 1gestureを未確定transactionとして扱う。押下位置とのoffsetを保ち本人previewを即時移動。許可されたshared対象のpeer previewは確定座標と分離して配信し、DB確定座標・group所属・Undo履歴はpointerup受理まで変更しない。drag中は候補整理overlayを隠す。本文・作者・票・候補状態は変更しない。phase3のmapでは既存0..100評価座標を使う。
 - **取消**: pointerup送信前のEscapeはpreviewを破棄し、最新確定位置へ戻る。元位置から他者の確定更新がなければ開始位置と同じ。履歴は作らない。送信後はpendingとして結果照会し、成功後だけUndo可能。
 - **失敗**: lock/認可拒否は最新位置へ戻し理由を表示。禁止dragから採用を発火しない。
 - **同時操作**: 受理済み進行/採用/再投票が優先しpreviewを破棄。開始snapshotを最新状態へ書き戻さない。lock競合はCI-SYNC-002。
@@ -564,7 +564,7 @@
 
 - 新Workerはsnapshotの`moveProtocolVersion: 1`で対応を宣言する。新UIは対応Workerで共有移動を`note:move:start / preview / cancel / commit / status`へ切り替える。旧Workerでは単一の旧dragだけを互換利用し、複数移動を開始しない。旧clientのstreaming保存・private共有/戻しは移動transactionの保証対象外で、drop-only共有は#524に残る。
 - startはUUIDのoperation ID、phase訪問版、座標系、group/map版、固定対象全件のposition/visibility版を受ける。最大256枚、開始はuserごとに1分60件まで。非member・private・別phase・重複ID・新旧lock競合・専用版の不一致で全件拒否する。不可視な対象IDや本文は拒否理由に含めない。
-- 本人previewはstart ACKに依存せず、押下時offsetと集合deltaを保ってframeごと最大1回描画する。previewは確定位置・分類・版を保存せず、peer previewは配信しない。名前付きcursorの移動表示は全対象のlock・所有接続・工程・可視性・版を検証して配信し、取消/確定/lease期限/切断/除外で解除する。mapのlock表示も開始と終了に追随する。mapでは全集合のdeltaを0..100へclampする。表示は全付箋の中心に共通の線形有効域（平面幅から付箋幅、平面高から共通最大表示高を除いた域）を使い、端でも集合の相対距離を保つ。同じ域でpointer入力を逆変換する。長文は本文を保持したまま表示高を平面高の75%までに収め、長文1枚で短い付箋も移動不能にしない。通常canvasのdelta境界は有効位置の両端間である±2×座標上限とする。
+- 本人previewはstart ACKに依存せず、押下時offsetと集合deltaを保ってframeごと最大1回描画する。previewは確定位置・分類・版を保存せず、RoomDOが全対象の現在member・所有接続・工程・可視性・専用版・lockを検証した後、現在memberかつ全対象が可視な受信者へ途中座標だけを配信する。同一userの別タブも受信する。UIは確定notesとpeer overlayを別管理し、操作ID・単調通知番号・工程版・全対象版で古いpreviewと終了通知を拒否する。取消/拒否/lease期限/切断/除外/工程変更/採用で全対象を解除し、snapshotや受信側切断でも破棄する。lease表示は受信からの相対期間を単調時計で測る。確定batchを終了通知より先に配信し、確定前座標への一瞬の巻き戻りを防ぐ。新preview未対応の旧clientは確定位置だけを表示し、途中保存は追加しない。名前付きcursorの移動表示は全対象のlock・所有接続・工程・可視性・版を検証して配信し、取消/確定/lease期限/切断/除外で解除する。mapのlock表示も開始と終了に追随する。mapでは全集合のdeltaを0..100へclampする。表示は全付箋の中心に共通の線形有効域（平面幅から付箋幅、平面高から共通最大表示高を除いた域）を使い、端でも集合の相対距離を保つ。同じ域でpointer入力を逆変換する。長文は本文を保持したまま表示高を平面高の75%までに収め、長文1枚で短い付箋も移動不能にしない。通常canvasのdelta境界は有効位置の両端間である±2×座標上限とする。
 - pointerupだけがcommitを送る。RoomDOは現在のmember/工程/採用/可視性/専用版/lockを再検査し、位置・相対stack順・既存分類再編・成功receiptを1回のtransactionSyncで保存する。失敗時は全位置とgroupが戻り、確定後だけ受信者別の`notes:moved`を配信する。旧client向けに確定note/groupイベントも配る。
 - 確定送信前のEscape・window blur・pointercancel・所有capture喪失はgestureとpreviewを破棄し最新確定状態へ戻る。NoteCardからscrollerへの通常capture移管は取消と扱わない。閾値前の押下もEscape/blurで破棄する。送信後は結果照会だけを2秒間隔で続け、遅延start ACK・Escape・切断・送信後errorをcommit再送や成功/失敗の断定に使わない。error応答への即時再照会は行わない。再接続もドラッグを再開せず本人のoperation結果を照会する。閉鎖後もmember本人のread-only結果照会を受理し、期限後はexpired、操作削除後または非memberには内容を含まないunknownで終端にする。
 - position/visibility版は専用SQL triggerで単調増加し、旧clientの更新とABAも検知する。group/map版は変更イベントとsnapshotで追随する。receiptは移動前後の位置・専用版、実際に変更したgroup ID/name/所属の前後、削除したgroupの非移動メンバーを含む全影響対象の専用版を持ち、本文/作者/票を持たない。receiptは24時間保持し、その後はIDの墓標だけをルーム削除まで残して古い要求をfail-closedにする。snapshot/batch/新move由来の旧group配信は同じ現在工程と全メンバー可視性で投影する。無関係な分類はreceiptへ含めず、不可視な分類を実際に変更する操作は位置を含めて全拒否する。非共有化/削除で残った旧分類は除去する（1-3の既存再編では元分類情報を保持する）。過去receiptも返信時に全影響対象の現在可視性を再検査し、1件でも不可視なら成功statusだけを返してreceipt全体を伏せる。成功を失敗に変えず、UIは古い逆操作情報も破棄する。

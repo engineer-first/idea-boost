@@ -13,6 +13,8 @@ import type {
 } from "@/contracts/room-protocol";
 import { createThrottled } from "@/lib/throttle";
 
+import { usePeerNoteMoves } from "./use-peer-note-moves";
+
 type Operation = {
   id: string;
   anchorId: string;
@@ -41,6 +43,7 @@ export function useNoteMove({
   createId: () => string;
   updateNotes: (update: (notes: ProtocolNote[]) => ProtocolNote[]) => unknown;
 }) {
+  const peerMoves = usePeerNoteMoves(notes);
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const capability = useRef<Capability>({
@@ -226,6 +229,7 @@ export function useNoteMove({
   );
   const applyMessage = useCallback(
     (message: ServerMessage) => {
+      peerMoves.applyMessage(message);
       const activePreview = operationRef.current;
       if (
         activePreview?.status === "preview" &&
@@ -376,12 +380,12 @@ export function useNoteMove({
         });
       publish(null, true);
     },
-    [send, cancel, publish, updateNotes, previewSender],
+    [send, cancel, publish, updateNotes, previewSender, peerMoves.applyMessage],
   );
   const renderedNotes = useMemo(() => {
-    if (!operation) return notes;
+    if (!operation) return peerMoves.notes;
     const origins = new Map(operation.before.map((note) => [note.id, note]));
-    return notes.map((note) => {
+    return peerMoves.notes.map((note) => {
       const origin = origins.get(note.id);
       return origin
         ? {
@@ -391,7 +395,7 @@ export function useNoteMove({
           }
         : note;
     });
-  }, [notes, operation]);
+  }, [peerMoves.notes, operation]);
   const enabled = useCallback(() => capability.current.enabled, []);
   const owns = useCallback(
     (id?: string) =>
@@ -410,6 +414,7 @@ export function useNoteMove({
     enabled,
     owns,
     applyMessage,
+    clearPeerMoves: peerMoves.clear,
     start,
     move,
     end,

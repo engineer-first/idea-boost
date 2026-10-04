@@ -16,6 +16,7 @@ export type SocketAttachment = {
   userId: string;
   moveConnectionId?: string;
   activeMoveOperationId?: string;
+  movePreviewSequence?: number;
   hasCursor?: boolean;
   adoptionFocusNoteId?: string;
   // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
@@ -36,6 +37,7 @@ export class RoomBroadcaster {
 
   retireMovePresence(
     isActive: (attachment: SocketAttachment) => boolean,
+    isMember: (viewerId: string) => boolean,
   ): number {
     let retired = 0;
     for (const socket of this.connections.getWebSockets()) {
@@ -44,6 +46,7 @@ export class RoomBroadcaster {
       if (!attachment?.activeMoveOperationId || isActive(attachment)) continue;
       const { activeMoveOperationId: _operationId, ...next } = attachment;
       socket.serializeAttachment(next);
+      this.broadcastMoveEnded(_operationId, isMember);
       this.broadcastToAll({
         type: "cursor:drag-ended",
         userId: attachment.userId,
@@ -96,6 +99,46 @@ export class RoomBroadcaster {
         socket.deserializeAttachment() as SocketAttachment | null;
       if (attachment && canView(attachment.userId))
         this.trySend(socket, JSON.stringify(message));
+    }
+  }
+
+  // 終了には対象IDを含めない。非memberの旧接続へ新しい操作情報を送らない。
+  broadcastMoveEnded(
+    operationId: string,
+    isMember: (viewerId: string) => boolean,
+  ): void {
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment && isMember(attachment.userId))
+        this.trySend(
+          socket,
+          JSON.stringify({
+            type: "notes:move-ended",
+            operationId,
+          } satisfies ServerMessage),
+        );
+    }
+  }
+
+  broadcastMovePreview(
+    message: Extract<ServerMessage, { type: "notes:move-preview" }>,
+    subjects: ProtocolNote[],
+    isMember: (viewerId: string) => boolean,
+    except: WebSocket,
+  ): void {
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (socket === except || !attachment || !isMember(attachment.userId))
+        continue;
+      if (
+        !subjects.every((note) =>
+          visibleTo({ viewerId: attachment.userId }, note),
+        )
+      )
+        continue;
+      this.trySend(socket, JSON.stringify(message));
     }
   }
 

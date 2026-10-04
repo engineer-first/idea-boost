@@ -67,6 +67,262 @@ describe("useRoomNotes", () => {
     );
   }
 
+  it("peer全件previewは座標だけ表示し取消で最新確定へ戻す", () => {
+    const { result } = setup();
+    const notes = [
+      buildNote({
+        id: NOTE_ID,
+        x: 100,
+        y: 100,
+        positionRevision: 0,
+        visibilityRevision: 0,
+      }),
+      buildNote({
+        id: TARGET_NOTE_ID,
+        x: 200,
+        y: 100,
+        positionRevision: 0,
+        visibilityRevision: 0,
+      }),
+    ];
+    act(() => result.current.applyMessage(snapshotMessage(notes)));
+    act(() =>
+      result.current.applyMessage({
+        type: "notes:move-preview",
+        operationId: DRAG_ID,
+        userId: FONT_SIZE_OPERATION_ID,
+        phaseRevision: 0,
+        sequence: 1,
+        leaseMs: 15000,
+        positions: notes.map((n) => ({
+          noteId: n.id,
+          x: n.x + 30,
+          y: n.y,
+          positionRevision: 0,
+          visibilityRevision: 0,
+        })),
+      } as unknown as ServerMessage),
+    );
+    expect(result.current.notes.map((n) => n.x)).toEqual([130, 230]);
+    act(() =>
+      result.current.applyMessage({
+        type: "notes:move-ended",
+        operationId: DRAG_ID,
+      } as unknown as ServerMessage),
+    );
+    expect(result.current.notes.map((n) => n.x)).toEqual([100, 200]);
+  });
+  it("古いpeer previewと終了は新previewや新確定を巻き戻さず本文更新を保つ", () => {
+    const { result } = setup();
+    const note = buildNote({
+      id: NOTE_ID,
+      x: 100,
+      y: 100,
+      positionRevision: 0,
+      visibilityRevision: 0,
+    });
+    const preview = (
+      operationId: string,
+      sequence: number,
+      x: number,
+      positionRevision = 0,
+    ): ServerMessage => ({
+      type: "notes:move-preview",
+      operationId,
+      userId: FONT_SIZE_OPERATION_ID,
+      phaseRevision: 0,
+      sequence,
+      leaseMs: 15000,
+      positions: [
+        { noteId: NOTE_ID, x, y: 100, positionRevision, visibilityRevision: 0 },
+      ],
+    });
+    act(() => result.current.applyMessage(snapshotMessage([note])));
+    act(() => result.current.applyMessage(preview(DRAG_ID, 2, 140)));
+    act(() => result.current.applyMessage(preview(DRAG_ID, 1, 110)));
+    expect(result.current.notes[0].x).toBe(140);
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        note: { ...note, content: "new body", contentRevision: 1 },
+      }),
+    );
+    expect(result.current.notes[0]).toMatchObject({
+      x: 140,
+      content: "new body",
+    });
+    act(() => result.current.applyMessage(preview(STICKER_ID, 3, 160)));
+    act(() =>
+      result.current.applyMessage({
+        type: "notes:move-ended",
+        operationId: DRAG_ID,
+      }),
+    );
+    act(() => result.current.applyMessage(preview(DRAG_ID, 4, 120)));
+    expect(result.current.notes[0].x).toBe(160);
+    act(() =>
+      result.current.applyMessage({
+        type: "notes:moved",
+        operationId: STICKER_ID,
+        notes: [{ ...note, x: 180, positionRevision: 1, content: "new body" }],
+        groups: [],
+        groupRevision: 0,
+      }),
+    );
+    expect(result.current.notes[0].x).toBe(180);
+    act(() =>
+      result.current.applyMessage({
+        type: "notes:move-ended",
+        operationId: STICKER_ID,
+      }),
+    );
+    act(() => result.current.applyMessage(preview(STICKER_ID, 4, 160)));
+    act(() =>
+      result.current.applyMessage(preview(FONT_SIZE_OPERATION_ID, 5, 200)),
+    );
+    expect(result.current.notes[0]).toMatchObject({
+      x: 180,
+      content: "new body",
+    });
+  });
+  it.each([
+    "expiry",
+    "disconnect",
+    "snapshot",
+    "phase",
+    "member",
+    "adoption",
+  ])("peer overlayは%sで全件消える", (reason) => {
+    const { result } = setup();
+    const note = buildNote({
+      id: NOTE_ID,
+      x: 100,
+      y: 100,
+      positionRevision: 0,
+      visibilityRevision: 0,
+    });
+    act(() => result.current.applyMessage(snapshotMessage([note])));
+    act(() =>
+      result.current.applyMessage({
+        type: "notes:move-preview",
+        operationId: DRAG_ID,
+        userId: FONT_SIZE_OPERATION_ID,
+        phaseRevision: 0,
+        sequence: 1,
+        leaseMs: 15000,
+        positions: [
+          {
+            noteId: NOTE_ID,
+            x: 150,
+            y: 100,
+            positionRevision: 0,
+            visibilityRevision: 0,
+          },
+        ],
+      }),
+    );
+    expect(result.current.notes[0].x).toBe(150);
+    act(() => {
+      if (reason === "expiry") vi.advanceTimersByTime(15000);
+      if (reason === "disconnect") result.current.clearPeerMoves();
+      if (reason === "snapshot")
+        result.current.applyMessage(snapshotMessage([note]));
+      if (reason === "phase")
+        result.current.applyMessage({
+          type: "phase:updated",
+          phase: buildPhaseStep(1, 3),
+          phaseRevision: 1,
+        });
+      if (reason === "member")
+        result.current.applyMessage({
+          type: "member_left",
+          userId: FONT_SIZE_OPERATION_ID,
+        });
+      if (reason === "adoption")
+        result.current.applyMessage({
+          type: "decision:updated",
+          decision: {
+            phase: 1,
+            noteId: NOTE_ID,
+            decidedBy: FONT_SIZE_OPERATION_ID,
+          },
+        });
+    });
+    expect(result.current.notes[0].x).toBe(100);
+  });
+  it("peerの一対象がprivateまたは新版なら全件を表示しない", () => {
+    const { result } = setup();
+    const notes = [
+      buildNote({
+        id: NOTE_ID,
+        x: 100,
+        y: 100,
+        positionRevision: 0,
+        visibilityRevision: 0,
+      }),
+      buildNote({
+        id: TARGET_NOTE_ID,
+        visibility: "private",
+        positionRevision: 0,
+        visibilityRevision: 0,
+      }),
+    ];
+    act(() => result.current.applyMessage(snapshotMessage(notes)));
+    act(() =>
+      result.current.applyMessage({
+        type: "notes:move-preview",
+        operationId: DRAG_ID,
+        userId: FONT_SIZE_OPERATION_ID,
+        phaseRevision: 0,
+        sequence: 1,
+        leaseMs: 15000,
+        positions: notes.map((note) => ({
+          noteId: note.id,
+          x: 500,
+          y: 100,
+          positionRevision: 0,
+          visibilityRevision: 0,
+        })),
+      }),
+    );
+    expect(result.current.notes[0].x).toBe(100);
+  });
+  it("端末時計がsnapshot後に進んでもpeer移動は受信からのlease期間表示する", () => {
+    const { result } = setup();
+    const note = buildNote({
+      id: NOTE_ID,
+      x: 100,
+      y: 100,
+      positionRevision: 0,
+      visibilityRevision: 0,
+    });
+    const serverNow = Date.now();
+    act(() => result.current.applyMessage(snapshotMessage([note])));
+    vi.setSystemTime(serverNow + 60000);
+    act(() =>
+      result.current.applyMessage({
+        type: "notes:move-preview",
+        operationId: DRAG_ID,
+        userId: FONT_SIZE_OPERATION_ID,
+        phaseRevision: 0,
+        sequence: 1,
+        leaseUntil: serverNow + 15000,
+        leaseMs: 15000,
+        positions: [
+          {
+            noteId: NOTE_ID,
+            x: 150,
+            y: 100,
+            positionRevision: 0,
+            visibilityRevision: 0,
+          },
+        ],
+      } as unknown as ServerMessage),
+    );
+    expect(result.current.notes[0].x).toBe(150);
+    act(() => vi.advanceTimersByTime(15000));
+    expect(result.current.notes[0].x).toBe(100);
+  });
   it("snapshotを適用するたびにsnapshotVersionを進める", () => {
     const { result } = setup();
     expect(result.current.snapshotVersion).toBe(0);

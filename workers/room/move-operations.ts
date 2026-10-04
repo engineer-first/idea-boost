@@ -208,19 +208,22 @@ export function syncMovePresence(
   sql: SqlStorage,
   broadcaster: RoomBroadcaster,
 ): number {
-  const retired = broadcaster.retireMovePresence((attachment) => {
-    if (presenceOperation(sql, attachment)) return true;
-    const op = attachment.activeMoveOperationId
-      ? readOperation(sql, attachment.activeMoveOperationId)
-      : undefined;
-    if (op?.state === "active")
-      finish(sql, op.operation_id, {
-        type: "note:move:result",
-        operationId: op.operation_id,
-        status: "cancelled",
-      });
-    return false;
-  });
+  const retired = broadcaster.retireMovePresence(
+    (attachment) => {
+      if (presenceOperation(sql, attachment)) return true;
+      const op = attachment.activeMoveOperationId
+        ? readOperation(sql, attachment.activeMoveOperationId)
+        : undefined;
+      if (op?.state === "active")
+        finish(sql, op.operation_id, {
+          type: "note:move:result",
+          operationId: op.operation_id,
+          status: "cancelled",
+        });
+      return false;
+    },
+    (viewerId) => isMember(sql, viewerId),
+  );
   if (retired > 0) broadcastIdeaMapState(sql, broadcaster);
   return retired;
 }
@@ -393,7 +396,13 @@ function activeOperation(
   const locks = ctx.sql
     .exec("SELECT note_id FROM note_move_locks WHERE operation_id=?1", id)
     .toArray();
-  if (!rows || locks.length !== request.start.targets.length) {
+  if (
+    !rows ||
+    locks.length !== request.start.targets.length ||
+    !request.start.targets.every((target) =>
+      locks.some((lock) => lock.note_id === target.noteId),
+    )
+  ) {
     reject(ctx, id, undefined, true);
     return null;
   }
@@ -443,6 +452,13 @@ export const moveHandlers: MessageHandlers<
         return;
       }
       ctx.reply(resultFor(ctx, previous));
+      return;
+    }
+    // 一接続は一つの固定集合だけを所有する。attachmentの上書きで旧previewを孤立させない。
+    syncMovePresence(ctx.sql, ctx.broadcaster);
+    const attached = ctx.ws.deserializeAttachment() as SocketAttachment;
+    if (attached.activeMoveOperationId) {
+      reject(ctx, message.operationId);
       return;
     }
     const recent = Number(
@@ -502,13 +518,45 @@ export const moveHandlers: MessageHandlers<
     });
   },
   "note:move:preview": (ctx, message) => {
-    if (!activeOperation(ctx, message.operationId)) return;
+    const active = activeOperation(ctx, message.operationId);
+    if (!active) {
+      syncMovePresence(ctx.sql, ctx.broadcaster);
+      return;
+    }
     ctx.sql.exec(
       "UPDATE note_move_operations SET lease_until=?2 WHERE operation_id=?1",
       message.operationId,
       Date.now() + MOVE_LEASE_MS,
     );
-    // peer previewは任意。私的状態や確定note:updatedへ混ぜず、本人はローカルだけで描画する。
+    const attachment = ctx.ws.deserializeAttachment() as SocketAttachment;
+    const sequence = (attachment.movePreviewSequence ?? 0) + 1;
+    ctx.ws.serializeAttachment({
+      ...attachment,
+      movePreviewSequence: sequence,
+    } satisfies SocketAttachment);
+    const delta = clampDelta(
+      active.rows,
+      message.delta,
+      active.request.start.coordinateSpace === "map",
+    );
+    ctx.broadcaster.broadcastMovePreview(
+      {
+        type: "notes:move-preview",
+        operationId: message.operationId,
+        userId: ctx.userId,
+        phaseRevision: active.request.start.expectedPhaseRevision,
+        sequence,
+        leaseMs: MOVE_LEASE_MS,
+        positions: active.rows.map((row) => ({
+          ...position(row),
+          x: row.x + delta.x,
+          y: row.y + delta.y,
+        })),
+      },
+      active.rows.map((row) => toProtocolNote(ctx.sql, row, ctx.userId)),
+      (viewerId) => isMember(ctx.sql, viewerId),
+      ctx.ws,
+    );
   },
   "note:move:cancel": (ctx, message) => {
     expireMoveOperations(ctx.sql);
@@ -659,10 +707,11 @@ export const moveHandlers: MessageHandlers<
       );
       return;
     }
-    syncMovePresence(ctx.sql, ctx.broadcaster);
+    // 確定batchを終了通知より先に配信し、旧座標への一瞬の巻き戻りを防ぐ。
     // 確定後だけ配信。対象は全件shared検証済み。atomicなnote配列を一frameで畳み込む。
     ctx.broadcaster.broadcastMoveBatch((viewerId) => ({
       type: "notes:moved",
+      operationId: message.operationId,
       notes: rows.map((row) =>
         projectNoteForViewer(
           { viewerId, phase: getPhase(ctx.sql) },
@@ -672,6 +721,7 @@ export const moveHandlers: MessageHandlers<
       groups: listBoardGroups(ctx.sql, viewerId, getPhase(ctx.sql)),
       groupRevision: receipt.groupRevisionAfter,
     }));
+    syncMovePresence(ctx.sql, ctx.broadcaster);
     // 旧clientも確定座標を受信するがpreviewを確定保存と誤認しない。
     for (const row of rows) {
       const current = findNote(ctx.sql, row.id);

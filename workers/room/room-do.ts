@@ -673,9 +673,14 @@ export class RoomDO extends DurableObject {
       ws.deserializeAttachment() as SocketAttachment | null;
     if (previousAttachment?.moveConnectionId) {
       releaseConnectionMoves(this.sql, previousAttachment.moveConnectionId);
-      const retired = syncMovePresence(this.sql, this.broadcaster);
-      // closeしたソケットはgetWebSocketsから既に除外されることがある。
-      if (previousAttachment.activeMoveOperationId && retired === 0) {
+      syncMovePresence(this.sql, this.broadcaster);
+      // close対象は一覧から消えていることがある。他接続のretire件数によらず
+      // この操作自身を終了する。重複通知もoperation IDで安全に除去できる。
+      if (previousAttachment.activeMoveOperationId) {
+        this.broadcaster.broadcastMoveEnded(
+          previousAttachment.activeMoveOperationId,
+          (viewerId) => isMember(this.sql, viewerId),
+        );
         this.broadcaster.broadcastToAll({
           type: "cursor:drag-ended",
           userId: previousAttachment.userId,

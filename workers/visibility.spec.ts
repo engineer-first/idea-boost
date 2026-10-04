@@ -44,6 +44,18 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "peer途中移動も他者private付箋を可視にしない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "peer途中移動のshared対象は他参加者にも可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
+  {
     name: "メンバー除外後もホストに他者の未共有付箋を公開しない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

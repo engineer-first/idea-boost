@@ -4,7 +4,7 @@
 // Realtime 配信（新規メンバーの member_joined broadcast）は
 // room-protocol.spec.ts の E2E テスト（実 WS 接続）で検証する。
 import { env, runDurableObjectAlarm } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { IDEA_MAP_SIZE_LEVEL_RANGE } from "../../contracts/board";
 import { buildLobbyPhase, buildPhaseStep } from "../../contracts/phase.fixture";
 import {
@@ -6540,6 +6540,151 @@ describe("RoomDO タイマー終了", () => {
 });
 
 describe("new move presence WS lifecycle", () => {
+  it.each([
+    false,
+    true,
+  ])("close socket一覧除外と別operation同時失効でも両peer previewを即時解除する（同一user別タブ=%s）", async (sameUser) => {
+    const name = `new-move-close-omitted-concurrent-expiry-${sameUser}`;
+    const stub = roomStub(name);
+    const viewerId = "77777777-7777-4777-8777-777777777777";
+    const noteIds = [
+      "33333333-3333-4333-8333-333333333333",
+      "44444444-4444-4444-8444-444444444444",
+    ];
+    const operationIds = [
+      "55555555-5555-4555-8555-555555555555",
+      "66666666-6666-4666-8666-666666666666",
+    ];
+    await stub.upsertMember(USER_A, "Alpha");
+    await stub.upsertMember(USER_B, "Beta");
+    await stub.upsertMember(viewerId, "Viewer");
+    await runInRoomDO(name, (_instance, state) => {
+      savePhase(state.storage.sql, { kind: "step", phase: 3, step: 3 });
+      for (const [index, id] of noteIds.entries())
+        insertNote(state.storage.sql, {
+          id,
+          author_id: USER_A,
+          content: "test",
+          visibility: "shared",
+          color: "yellow",
+          font_size: 14,
+          x: 10 + index * 20,
+          y: 20,
+          stack_order: index,
+          phase: 3,
+          excluded: false,
+          created_at: "now",
+          updated_at: "now",
+        });
+    });
+    const { ws: closing, firstMessage: snapshot } =
+      await connectDirectlyWithFirstMessage(name, USER_A, USER_A);
+    const expiring = await connectDirectly(
+      name,
+      sameUser ? USER_A : USER_B,
+      USER_A,
+    );
+    const viewer = await connectDirectly(name, viewerId, USER_A);
+    try {
+      for (const [index, socket] of [closing, expiring].entries()) {
+        socket.send(
+          JSON.stringify({
+            type: "note:move:start",
+            operationId: operationIds[index],
+            expectedPhaseRevision: snapshot.phaseRevision,
+            expectedGroupRevision: snapshot.groupRevision,
+            expectedMapRevision: snapshot.mapRevision,
+            coordinateSpace: "map",
+            targets: [
+              {
+                noteId: noteIds[index],
+                positionRevision: 0,
+                visibilityRevision: 0,
+              },
+            ],
+          }),
+        );
+        expect(await nextJsonOfType(socket, "note:move:result")).toMatchObject({
+          status: "active",
+        });
+        socket.send(
+          JSON.stringify({
+            type: "note:move:preview",
+            operationId: operationIds[index],
+            delta: { x: 5, y: 0 },
+          }),
+        );
+        expect(
+          await nextJsonOfType(viewer, "notes:move-preview"),
+        ).toMatchObject({ operationId: operationIds[index] });
+      }
+      await runInRoomDO(name, async (instance, state) => {
+        const connections = state.getWebSockets();
+        const closedSocket = connections.find(
+          (socket) =>
+            (socket.deserializeAttachment() as SocketAttachment)
+              ?.activeMoveOperationId === operationIds[0],
+        );
+        if (!closedSocket) throw new Error("close対象の実WS接続がありません。");
+        // 実際のclose callbackで接続一覧から既に消える競合順序だけを固定する。
+        const socketList = vi
+          .spyOn(state, "getWebSockets")
+          .mockReturnValue(
+            connections.filter((socket) => socket !== closedSocket),
+          );
+        try {
+          expect(state.getWebSockets()).not.toContain(closedSocket);
+          state.storage.sql.exec(
+            "UPDATE note_move_operations SET lease_until=0 WHERE operation_id=?1",
+            operationIds[1],
+          );
+          await instance.webSocketClose(closedSocket, 1000, "test close", true);
+          expect(
+            state.storage.sql.exec("SELECT * FROM note_move_locks").toArray(),
+          ).toEqual([]);
+          expect(
+            state.storage.sql
+              .exec("SELECT x,y FROM notes ORDER BY stack_order")
+              .toArray(),
+          ).toEqual([
+            { x: 10, y: 20 },
+            { x: 30, y: 20 },
+          ]);
+        } finally {
+          socketList.mockRestore();
+        }
+      });
+      const received: Record<string, unknown>[] = [];
+      for (let index = 0; index < 12; index++) {
+        const message = await nextJsonWithin(viewer, 100);
+        if (!message) break;
+        received.push(message);
+      }
+      for (const operationId of operationIds)
+        expect(received).toContainEqual({
+          type: "notes:move-ended",
+          operationId,
+        });
+      expect(received).toContainEqual(
+        expect.objectContaining({ type: "cursor:drag-ended", userId: USER_A }),
+      );
+      if (!sameUser)
+        expect(received).toContainEqual(
+          expect.objectContaining({
+            type: "cursor:drag-ended",
+            userId: USER_B,
+          }),
+        );
+      expect(received).toContainEqual(
+        expect.objectContaining({ type: "idea-map:state", isDragging: false }),
+      );
+    } finally {
+      closing.close();
+      expiring.close();
+      viewer.close();
+    }
+  });
+
   it.each([
     "cancel",
     "commit",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CANVAS_COORDINATE_LIMIT } from "./board";
-import { parseClientMessage } from "./room-protocol";
+import { parseClientMessage, parseServerMessage } from "./room-protocol";
 
 const operationId = "55555555-5555-4555-8555-555555555555";
 const noteId = "33333333-3333-4333-8333-333333333333";
@@ -40,4 +40,59 @@ it("有効なcanvasの両端間deltaを受理し位置上限より大きな異�
       }),
     ),
   ).toBe(null);
+});
+
+it("peer途中位置境界は本文・票・分類を持たず、clientの権威字段を拒否する", () => {
+  const preview = {
+    type: "notes:move-preview",
+    operationId,
+    userId: operationId,
+    phaseRevision: 0,
+    sequence: 1,
+    leaseMs: 15000,
+    positions: [
+      { noteId, x: 200, y: 100, positionRevision: 0, visibilityRevision: 0 },
+    ],
+  };
+  expect(parseServerMessage(JSON.stringify(preview))).toEqual(preview);
+  expect(
+    parseServerMessage(JSON.stringify({ ...preview, content: "secret" })),
+  ).toBe(null);
+  expect(
+    parseServerMessage(
+      JSON.stringify({
+        ...preview,
+        positions: [{ ...preview.positions[0], dotVotes: {} }],
+      }),
+    ),
+  ).toBe(null);
+  expect(
+    parseClientMessage(
+      JSON.stringify({
+        type: "note:move:preview",
+        operationId,
+        delta: { x: 20, y: 0 },
+        authorId: operationId,
+      }),
+    ),
+  ).toBe(null);
+});
+
+it("peer previewはstartと同じ256枚まで受信できる", () => {
+  const preview = {
+    type: "notes:move-preview",
+    operationId,
+    userId: operationId,
+    phaseRevision: 0,
+    sequence: 1,
+    leaseMs: 15000,
+    positions: Array.from({ length: 256 }, (_, index) => ({
+      noteId: `00000000-0000-4000-8000-${index.toString().padStart(12, "0")}`,
+      x: 100,
+      y: 100,
+      positionRevision: 0,
+      visibilityRevision: 0,
+    })),
+  };
+  expect(parseServerMessage(JSON.stringify(preview))).toEqual(preview);
 });
