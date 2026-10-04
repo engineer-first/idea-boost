@@ -11,7 +11,11 @@ import {
   DRAG_BROADCAST_THROTTLE_MS,
 } from "@/contracts/board";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type { ProtocolNote, ServerMessage } from "@/contracts/room-protocol";
+import type {
+  MoveReceipt,
+  ProtocolNote,
+  ServerMessage,
+} from "@/contracts/room-protocol";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { useRoomNotes } from "./use-room-notes";
 
@@ -1093,4 +1097,175 @@ it("canvas両端の集合previewとcommit deltaを位置域へclampする", () =
     type: "note:move:commit",
     delta: { x: 2 * CANVAS_COORDINATE_LIMIT - 40, y: 0 },
   });
+});
+
+it("成功receiptが不可視で伏せられても成功済みのmoveを失敗表示しない", () => {
+  const send = vi.fn();
+  const { result } = renderHook(() =>
+    useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+  );
+  act(() =>
+    result.current.applyMessage({
+      ...snapshotMessage(),
+      moveProtocolVersion: 1,
+      groupRevision: 0,
+      mapRevision: 0,
+    } as ServerMessage),
+  );
+  act(() => result.current.startNoteDrag(NOTE_ID));
+  act(() => result.current.endNoteDrag(NOTE_ID, 150, 140));
+  act(() =>
+    result.current.applyMessage({
+      type: "note:move:result",
+      operationId: DRAG_ID,
+      status: "accepted",
+    }),
+  );
+  expect(result.current.movePending).toBe(false);
+  expect(result.current.moveFeedback).toBe(null);
+  expect(result.current.lastMoveReceipt).toBe(null);
+});
+
+function successfulMoveReceipt(operationId = DRAG_ID): MoveReceipt {
+  return {
+    operationId,
+    phaseRevision: 0,
+    coordinateSpace: "canvas",
+    changed: true,
+    before: [
+      {
+        noteId: NOTE_ID,
+        x: 100,
+        y: 120,
+        positionRevision: 0,
+        visibilityRevision: 0,
+      },
+    ],
+    after: [
+      {
+        noteId: NOTE_ID,
+        x: 150,
+        y: 140,
+        positionRevision: 1,
+        visibilityRevision: 0,
+      },
+    ],
+    groupsBefore: [],
+    groupsAfter: [],
+    groupRevisionBefore: 0,
+    groupRevisionAfter: 0,
+    mapRevision: 0,
+    affected: [{ noteId: NOTE_ID, positionRevision: 1, visibilityRevision: 0 }],
+  };
+}
+it("成功receiptを伏せた新操作が古い成功receiptを最後の逆操作情報として公開しない", () => {
+  const send = vi.fn();
+  const ids = [DRAG_ID, FONT_SIZE_OPERATION_ID];
+  const { result } = renderHook(() =>
+    useRoomNotes({ send, createNoteDragId: () => ids.shift() ?? DRAG_ID }),
+  );
+  act(() =>
+    result.current.applyMessage({
+      ...snapshotMessage(),
+      moveProtocolVersion: 1,
+      groupRevision: 0,
+      mapRevision: 0,
+    } as ServerMessage),
+  );
+  act(() => result.current.startNoteDrag(NOTE_ID));
+  act(() => result.current.endNoteDrag(NOTE_ID, 150, 140));
+  act(() =>
+    result.current.applyMessage({
+      type: "note:move:result",
+      operationId: DRAG_ID,
+      status: "accepted",
+      receipt: successfulMoveReceipt(),
+    }),
+  );
+  expect(result.current.lastMoveReceipt?.operationId).toBe(DRAG_ID);
+  act(() => result.current.startNoteDrag(NOTE_ID));
+  act(() => result.current.endNoteDrag(NOTE_ID, 180, 160));
+  act(() =>
+    result.current.applyMessage({
+      type: "note:move:result",
+      operationId: FONT_SIZE_OPERATION_ID,
+      status: "accepted",
+    }),
+  );
+  expect(result.current.lastMoveReceipt).toBe(null);
+  expect(result.current.moveFeedback).toBe(null);
+});
+it("旧serverで固定複数集合を開始せず新旧commitも送らない", () => {
+  const send = vi.fn();
+  const { result } = renderHook(() => useRoomNotes({ send }));
+  act(() =>
+    result.current.applyMessage(
+      snapshotMessage([
+        buildNote({ id: NOTE_ID }),
+        buildNote({ id: TARGET_NOTE_ID }),
+      ]),
+    ),
+  );
+  act(() =>
+    result.current.startNoteDrag(NOTE_ID, false, [NOTE_ID, TARGET_NOTE_ID]),
+  );
+  act(() => result.current.moveNote(NOTE_ID, 150, 140));
+  act(() => result.current.endNoteDrag(NOTE_ID, 150, 140));
+  expect(send).not.toHaveBeenCalled();
+  expect(result.current.draggingNoteId).toBe(null);
+  expect(result.current.notes[0].x).toBe(100);
+});
+it.each([
+  "position",
+  "visibility",
+  "phase",
+] as const)("遅延成功receiptで%s新版の盤面を戻さない", (kind) => {
+  const send = vi.fn();
+  const { result } = renderHook(() =>
+    useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+  );
+  act(() =>
+    result.current.applyMessage({
+      ...snapshotMessage(),
+      moveProtocolVersion: 1,
+      groupRevision: 0,
+      mapRevision: 0,
+    } as ServerMessage),
+  );
+  act(() => result.current.startNoteDrag(NOTE_ID));
+  act(() => result.current.endNoteDrag(NOTE_ID, 150, 140));
+  const latest = buildNote({
+    id: NOTE_ID,
+    x: 700,
+    y: 800,
+    positionRevision: kind === "position" ? 2 : 0,
+    visibilityRevision: kind === "visibility" ? 1 : 0,
+    visibility: kind === "visibility" ? "private" : "shared",
+  });
+  act(() =>
+    result.current.applyMessage({
+      ...snapshotMessage([latest]),
+      moveProtocolVersion: 1,
+      groupRevision: 0,
+      mapRevision: 0,
+      phaseRevision: kind === "phase" ? 1 : 0,
+      phase: kind === "phase" ? buildPhaseStep(2, 2) : buildPhaseStep(1),
+    } as ServerMessage),
+  );
+  act(() =>
+    result.current.applyMessage({
+      type: "note:move:result",
+      operationId: DRAG_ID,
+      status: "accepted",
+      receipt: successfulMoveReceipt(),
+    }),
+  );
+  expect(result.current.notes[0]).toMatchObject({
+    x: 700,
+    y: 800,
+    visibility: latest.visibility,
+    positionRevision: latest.positionRevision,
+    visibilityRevision: latest.visibilityRevision,
+  });
+  expect(result.current.movePending).toBe(false);
 });

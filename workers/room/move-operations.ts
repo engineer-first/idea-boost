@@ -12,13 +12,19 @@ import { projectNoteForViewer } from "../visibility";
 import type { RoomBroadcaster, SocketAttachment } from "./broadcast";
 import { isRoomClosed } from "./completed-rooms";
 import { getDecision } from "./decisions";
-import { listGroups, saveGroups } from "./groups";
+import {
+  canViewBoardGroup,
+  listBoardGroups,
+  listGroups,
+  saveGroups,
+} from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { isMember } from "./members";
 import {
   broadcastNoteUpdated,
   findNote,
+  isVisibleTo,
   listSharedNotes,
   type NoteRow,
   nextStackOrder,
@@ -229,7 +235,7 @@ function connectionId(ctx: HandlerCtx): string {
   } satisfies SocketAttachment);
   return id;
 }
-function resultFor(op: Operation): Result {
+function storedResult(op: Operation): Result {
   return op.result_json
     ? (JSON.parse(op.result_json) as Result)
     : {
@@ -238,6 +244,62 @@ function resultFor(op: Operation): Result {
         status: op.state,
       };
 }
+// 完全receiptの内容は保存時のまま。現在不可視な1件があれば全体を伏せる。
+// 成功を拒否へ変更せず、逆操作情報だけをfail-closedにする。
+function resultFor(ctx: HandlerCtx, op: Operation): Result {
+  const result = storedResult(op);
+  const receipt = result.receipt;
+  if (!receipt) return result;
+  const phase = getPhase(ctx.sql);
+  const ids = new Set(
+    [...receipt.before, ...receipt.after, ...receipt.affected].map(
+      (note) => note.noteId,
+    ),
+  );
+  for (const group of [...receipt.groupsBefore, ...receipt.groupsAfter])
+    for (const id of group.noteIds) ids.add(id);
+  const visible =
+    isMember(ctx.sql, ctx.userId) &&
+    phase.kind === "step" &&
+    [...ids].every((id) => {
+      const note = findNote(ctx.sql, id);
+      return (
+        note !== null &&
+        note.phase === phase.phase &&
+        isVisibleTo(note, ctx.userId)
+      );
+    }) &&
+    (phase.phase !== 2 ||
+      (receipt.groupsBefore.length === 0 && receipt.groupsAfter.length === 0));
+  return visible
+    ? result
+    : {
+        type: "note:move:result",
+        operationId: result.operationId,
+        status: result.status,
+      };
+}
+function changedGroups(
+  before: MoveReceipt["groupsBefore"],
+  after: MoveReceipt["groupsAfter"],
+): { before: MoveReceipt["groupsBefore"]; after: MoveReceipt["groupsAfter"] } {
+  const equivalent = (
+    a: MoveReceipt["groupsBefore"][number],
+    b: MoveReceipt["groupsBefore"][number],
+  ) =>
+    a.id === b.id &&
+    a.name === b.name &&
+    JSON.stringify(a.noteIds) === JSON.stringify(b.noteIds);
+  return {
+    before: before.filter(
+      (group) => !after.some((next) => equivalent(group, next)),
+    ),
+    after: after.filter(
+      (group) => !before.some((prev) => equivalent(prev, group)),
+    ),
+  };
+}
+
 function reject(
   ctx: HandlerCtx,
   operationId: string,
@@ -319,7 +381,7 @@ function activeOperation(
     return null;
   }
   if (op.state !== "active") {
-    ctx.reply(resultFor(op));
+    ctx.reply(resultFor(ctx, op));
     return null;
   }
   if (op.connection_id !== connectionId(ctx)) {
@@ -380,7 +442,7 @@ export const moveHandlers: MessageHandlers<
         reject(ctx, message.operationId);
         return;
       }
-      ctx.reply(resultFor(previous));
+      ctx.reply(resultFor(ctx, previous));
       return;
     }
     const recent = Number(
@@ -466,7 +528,9 @@ export const moveHandlers: MessageHandlers<
         status: "cancelled",
       });
     syncMovePresence(ctx.sql, ctx.broadcaster);
-    ctx.reply(resultFor(readOperation(ctx.sql, message.operationId) ?? op));
+    ctx.reply(
+      resultFor(ctx, readOperation(ctx.sql, message.operationId) ?? op),
+    );
   },
   "note:move:status": (ctx, message) => {
     expireMoveOperations(ctx.sql);
@@ -486,7 +550,7 @@ export const moveHandlers: MessageHandlers<
     syncMovePresence(ctx.sql, ctx.broadcaster);
     ctx.reply(
       op?.user_id === ctx.userId
-        ? resultFor(op)
+        ? resultFor(ctx, op)
         : {
             type: "note:move:result",
             operationId: message.operationId,
@@ -531,11 +595,27 @@ export const moveHandlers: MessageHandlers<
         const after = rows.map((row) =>
           position(findNote(ctx.sql, row.id) ?? row),
         );
-        const groupsAfter = listGroups(ctx.sql);
+        const changes = changedGroups(groupsBefore, listGroups(ctx.sql));
+        // 不可視な分類を副作用で変更する場合は位置も含めて全rollback。
+        if (
+          ![...changes.before, ...changes.after].every(
+            (group) =>
+              canViewBoardGroup(
+                ctx.sql,
+                ctx.userId,
+                group,
+                getPhase(ctx.sql),
+              ) &&
+              group.noteIds.every(
+                (id) => findNote(ctx.sql, id)?.visibility === "shared",
+              ),
+          )
+        )
+          throw new Error("invisible group side effect");
         const affectedIds = new Set([
           ...rows.map((row) => row.id),
-          ...groupsBefore.flatMap((group) => group.noteIds),
-          ...groupsAfter.flatMap((group) => group.noteIds),
+          ...changes.before.flatMap((group) => group.noteIds),
+          ...changes.after.flatMap((group) => group.noteIds),
         ]);
         const result: MoveReceipt = {
           operationId: message.operationId,
@@ -543,8 +623,8 @@ export const moveHandlers: MessageHandlers<
           coordinateSpace: request.start.coordinateSpace,
           before: request.before,
           after,
-          groupsBefore,
-          groupsAfter,
+          groupsBefore: changes.before,
+          groupsAfter: changes.after,
           groupRevisionBefore: request.start.expectedGroupRevision,
           groupRevisionAfter: moveRevisions(ctx.sql).groupRevision,
           mapRevision: request.start.expectedMapRevision,
@@ -589,7 +669,7 @@ export const moveHandlers: MessageHandlers<
           toProtocolNote(ctx.sql, findNote(ctx.sql, row.id) ?? row, viewerId),
         ),
       ),
-      groups: receipt.groupsAfter,
+      groups: listBoardGroups(ctx.sql, viewerId, getPhase(ctx.sql)),
       groupRevision: receipt.groupRevisionAfter,
     }));
     // 旧clientも確定座標を受信するがpreviewを確定保存と誤認しない。
@@ -600,26 +680,27 @@ export const moveHandlers: MessageHandlers<
     const afterIds = new Set(receipt.groupsAfter.map((g) => g.id));
     for (const group of receipt.groupsBefore)
       if (!afterIds.has(group.id))
-        ctx.broadcaster.broadcastToAll({
-          type: "group:deleted",
-          groupRevision: receipt.groupRevisionAfter,
-          groupId: group.id,
-        });
+        ctx.broadcaster.broadcastGroup(
+          {
+            type: "group:deleted",
+            groupRevision: receipt.groupRevisionAfter,
+            groupId: group.id,
+          },
+          (viewerId) =>
+            canViewBoardGroup(ctx.sql, viewerId, group, getPhase(ctx.sql)),
+        );
     for (const group of receipt.groupsAfter)
-      ctx.broadcaster.broadcast(
+      ctx.broadcaster.broadcastGroup(
         {
           type: "group:updated",
           group,
           groupRevision: receipt.groupRevisionAfter,
         },
-        toProtocolNote(ctx.sql, rows[0], ctx.userId),
+        (viewerId) =>
+          canViewBoardGroup(ctx.sql, viewerId, group, getPhase(ctx.sql)),
       );
-    ctx.reply({
-      type: "note:move:result",
-      operationId: message.operationId,
-      status: "accepted",
-      receipt,
-    });
+    const saved = readOperation(ctx.sql, message.operationId);
+    if (saved) ctx.reply(resultFor(ctx, saved));
     if (changed) ctx.onSharedDragEnd?.();
   },
 };

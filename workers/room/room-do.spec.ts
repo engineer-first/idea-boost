@@ -149,10 +149,21 @@ function nextJsonWithin(
   ws: WebSocket,
   timeoutMs = 500,
 ): Promise<Record<string, unknown> | undefined> {
-  return Promise.race([
-    nextJson(ws),
-    new Promise<undefined>((resolve) => setTimeout(resolve, timeoutMs)),
-  ]);
+  const queue = queueFor(ws);
+  const first = queue.messages.shift();
+  if (first) return Promise.resolve(first);
+  return new Promise((resolve) => {
+    const receive = (message: Record<string, unknown>) => {
+      clearTimeout(timer);
+      resolve(message);
+    };
+    const timer = setTimeout(() => {
+      const index = queue.waiters.indexOf(receive);
+      if (index >= 0) queue.waiters.splice(index, 1);
+      resolve(undefined);
+    }, timeoutMs);
+    queue.waiters.push(receive);
+  });
 }
 
 async function nextJsonMessages(
@@ -6631,5 +6642,367 @@ describe("new move presence WS lifecycle", () => {
     );
     peer.close();
     if (end !== "close" && end !== "member") owner.close();
+  });
+});
+
+describe("new move group privacy WS", () => {
+  const C = "77777777-7777-4777-8777-777777777777";
+  const N1 = "33333333-3333-4333-8333-333333333333";
+  const N2 = "44444444-4444-4444-8444-444444444444";
+  const G = "66666666-6666-4666-8666-666666666666";
+  const OP = "55555555-5555-4555-8555-555555555555";
+  async function prepare(name: string) {
+    const stub = roomStub(name);
+    await stub.upsertMember(USER_A, "Host");
+    await stub.upsertMember(USER_B, "Author");
+    await runInRoomDO(name, (_instance, state) => {
+      savePhase(state.storage.sql, { kind: "step", phase: 1, step: 3 });
+      for (const [id, author, x] of [
+        [N1, USER_A, 100],
+        [N2, USER_B, 140],
+      ] as const)
+        insertNote(state.storage.sql, {
+          id,
+          author_id: author,
+          content: "test",
+          visibility: "shared",
+          color: "yellow",
+          font_size: 14,
+          x,
+          y: 100,
+          stack_order: x,
+          phase: 1,
+          excluded: false,
+          created_at: "now",
+          updated_at: "now",
+        });
+    });
+    const { ws: owner, firstMessage: snapshot } =
+      await connectDirectlyWithFirstMessage(name, USER_A, USER_A);
+    const author = await connectDirectly(name, USER_B, USER_A);
+    owner.send(
+      JSON.stringify({
+        type: "group:create",
+        group: {
+          id: G,
+          name: "hidden group name",
+          noteIds: [N1, N2],
+          createdAt: "now",
+          updatedAt: "now",
+        },
+      }),
+    );
+    await nextJsonOfType(owner, "group:updated");
+    return { stub, owner, author, snapshot };
+  }
+  async function restartAndUnpublish(
+    owner: WebSocket,
+    author: WebSocket,
+    snapshot: Record<string, unknown>,
+  ) {
+    owner.send(
+      JSON.stringify({
+        type: "phase:restart-writing",
+        expectedPhase: { kind: "step", phase: 1, step: 3 },
+        expectedRevision: snapshot.phaseRevision,
+      }),
+    );
+    const writing = await nextJsonOfType(owner, "phase:updated");
+    owner.send(
+      JSON.stringify({
+        type: "phase:next",
+        expectedPhase: { kind: "step", phase: 1, step: 1 },
+        expectedRevision: writing.phaseRevision,
+      }),
+    );
+    await nextJsonOfType(owner, "phase:updated");
+    while (await nextJsonWithin(author, 10)) {
+      /* 先行group/phase配信を読み切る */
+    }
+    author.send(JSON.stringify({ type: "note:unpublish", noteId: N2 }));
+    expect(await nextJsonOfType(author, "note:inserted")).toMatchObject({
+      note: { id: N2, visibility: "private" },
+    });
+  }
+  async function move(
+    ws: WebSocket,
+    snapshot: Record<string, unknown>,
+    noteId = N1,
+  ) {
+    const note = (
+      snapshot.notes as {
+        id: string;
+        positionRevision?: number;
+        visibilityRevision?: number;
+      }[]
+    ).find((note) => note.id === noteId);
+    ws.send(
+      JSON.stringify({
+        type: "note:move:start",
+        operationId: OP,
+        expectedPhaseRevision: snapshot.phaseRevision,
+        expectedGroupRevision: snapshot.groupRevision,
+        expectedMapRevision: snapshot.mapRevision,
+        coordinateSpace: "canvas",
+        targets: [
+          {
+            noteId,
+            positionRevision: note?.positionRevision ?? 0,
+            visibilityRevision: note?.visibilityRevision ?? 0,
+          },
+        ],
+      }),
+    );
+    expect(await nextJsonOfType(ws, "note:move:result")).toMatchObject({
+      status: "active",
+    });
+    ws.send(
+      JSON.stringify({
+        type: "note:move:commit",
+        operationId: OP,
+        delta: { x: 600, y: 0 },
+      }),
+    );
+    const messages: Record<string, unknown>[] = [];
+    for (let i = 0; i < 12; i++) {
+      const message = await nextJson(ws);
+      messages.push(message);
+      if (message.type === "note:move:result") break;
+    }
+    expect(messages.at(-1)).toMatchObject({ status: "accepted" });
+    return messages;
+  }
+  it("restart→共有戻し後の新member move/statusでprivate groupのID/name/版を漏らさない", async () => {
+    const name = "move-private-stale-group";
+    const { stub, owner, author, snapshot } = await prepare(name);
+    await restartAndUnpublish(owner, author, snapshot);
+    await stub.upsertMember(C, "New member");
+    const { ws: mover, firstMessage: visible } =
+      await connectDirectlyWithFirstMessage(name, C, USER_A);
+    expect(visible.groups).toEqual([]);
+    const messages = await move(mover, visible);
+    expect(JSON.stringify(messages)).not.toContain(N2);
+    expect(JSON.stringify(messages)).not.toContain("hidden group name");
+    mover.send(JSON.stringify({ type: "note:move:status", operationId: OP }));
+    const result = await nextJsonOfType(mover, "note:move:result");
+    expect(JSON.stringify(result)).not.toContain(N2);
+    expect(JSON.stringify(result)).not.toContain("hidden group name");
+    expect(result).toMatchObject({
+      status: "accepted",
+      receipt: {
+        groupsBefore: [],
+        groupsAfter: [],
+        affected: [{ noteId: N1 }],
+      },
+    });
+    owner.close();
+    author.close();
+    mover.close();
+  });
+  it("旧保存状態のprivate group削除後、移動可能工程への遷移で安全に版を追随する", async () => {
+    const name = "move-hidden-group-revision-refresh";
+    const { stub, owner, author, snapshot } = await prepare(name);
+    await restartAndUnpublish(owner, author, snapshot);
+    // 旧serverが保存し得たgroupをupgrade済みDOに残す。private Bの存在をCに見せない。
+    await runInRoomDO(name, (_instance, state) =>
+      state.storage.sql.exec(
+        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,?2,?3,'now','now')",
+        G,
+        "hidden group name",
+        JSON.stringify([N1, N2]),
+      ),
+    );
+    await stub.setPhase({ kind: "step", phase: 1, step: 1 }, USER_A);
+    await stub.upsertMember(C, "Viewer");
+    const { ws: viewer, firstMessage: visible } =
+      await connectDirectlyWithFirstMessage(name, C, USER_A);
+    expect(visible.groups).toEqual([]);
+    author.send(JSON.stringify({ type: "note:delete", noteId: N2 }));
+    // 1-1ではshared移動は不可。削除を反映した実工程遷移が最新版を通知する。
+    await runInRoomDO(name, (_instance, state) =>
+      expect(state.storage.sql.exec("SELECT * FROM groups").toArray()).toEqual(
+        [],
+      ),
+    );
+    owner.send(
+      JSON.stringify({
+        type: "phase:next",
+        expectedPhase: { kind: "step", phase: 1, step: 1 },
+        expectedRevision: visible.phaseRevision,
+      }),
+    );
+    const next = await nextJsonOfType(viewer, "phase:updated");
+    expect(Number(next.groupRevision)).toBeGreaterThan(
+      Number(visible.groupRevision),
+    );
+    expect(JSON.stringify(next)).not.toContain(N2);
+    expect(JSON.stringify(next)).not.toContain("hidden group name");
+    expect(
+      (
+        await move(viewer, {
+          ...visible,
+          phaseRevision: next.phaseRevision,
+          groupRevision: next.groupRevision,
+        })
+      ).at(-1),
+    ).toMatchObject({ status: "accepted" });
+    owner.close();
+    author.close();
+    viewer.close();
+  });
+  it.each([
+    "note:unpublish",
+    "note:delete",
+  ] as const)("1-3の%sは工程gateで拒否され分類ID/名前/全所属を維持する", async (type) => {
+    const name = `move-group-name-preserved-${type}`;
+    const { owner, author } = await prepare(name);
+    const N3 = "88888888-8888-4888-8888-888888888888";
+    await runInRoomDO(name, (_instance, state) =>
+      insertNote(state.storage.sql, {
+        id: N3,
+        author_id: USER_A,
+        content: "third",
+        visibility: "shared",
+        color: "yellow",
+        font_size: 14,
+        x: 180,
+        y: 100,
+        stack_order: 180,
+        phase: 1,
+        excluded: false,
+        created_at: "now",
+        updated_at: "now",
+      }),
+    );
+    owner.send(
+      JSON.stringify({
+        type: "group:create",
+        group: {
+          id: G,
+          name: "分類名を保持",
+          noteIds: [N1, N2, N3],
+          createdAt: "now",
+          updatedAt: "now",
+        },
+      }),
+    );
+    expect(await nextJsonWithin(owner, 100)).toMatchObject({
+      type: "group:updated",
+    });
+    while (await nextJsonWithin(author, 10)) {
+      /* 先行group配信 */
+    }
+    author.send(JSON.stringify({ type, noteId: N2 }));
+    expect(await nextJsonOfType(author, "error")).toMatchObject({
+      code: "forbidden",
+    });
+    await runInRoomDO(name, (_instance, state) => {
+      const group = state.storage.sql
+        .exec("SELECT id,name,note_ids FROM groups WHERE id=?1", G)
+        .one();
+      expect(group).toMatchObject({
+        id: G,
+        name: "分類名を保持",
+        note_ids: JSON.stringify([N1, N2, N3]),
+      });
+    });
+    owner.close();
+    author.close();
+  });
+  it("phase2のsnapshotとbatchが旧phase1の分類を再投入しない", async () => {
+    const name = "move-phase2-group-projection";
+    const { stub, owner, author } = await prepare(name);
+    await stub.setPhase({ kind: "step", phase: 2, step: 2 }, USER_A);
+    const phase2Note = "88888888-8888-4888-8888-888888888888";
+    await runInRoomDO(name, (_instance, state) =>
+      insertNote(state.storage.sql, {
+        id: phase2Note,
+        author_id: USER_A,
+        content: "phase2",
+        visibility: "shared",
+        color: "yellow",
+        font_size: 14,
+        x: 100,
+        y: 100,
+        stack_order: 0,
+        phase: 2,
+        excluded: false,
+        created_at: "now",
+        updated_at: "now",
+      }),
+    );
+    await stub.upsertMember(C, "New member");
+    const { ws: mover, firstMessage: snapshot } =
+      await connectDirectlyWithFirstMessage(name, C, USER_A);
+    expect(snapshot.groups).toEqual([]);
+    const messages = await move(mover, snapshot, phase2Note);
+    expect(
+      messages.find((message) => message.type === "notes:moved"),
+    ).toMatchObject({ groups: [] });
+    expect(
+      messages.filter((message) => message.type === "group:updated"),
+    ).toHaveLength(0);
+    expect(messages.at(-1)).toMatchObject({
+      receipt: {
+        groupsBefore: [],
+        groupsAfter: [],
+        affected: [{ noteId: phase2Note }],
+      },
+    });
+    owner.close();
+    author.close();
+    mover.close();
+  });
+  it("publicな非対象groupメンバーが後日privateになった過去成功receiptを全体伏せる", async () => {
+    const name = "move-past-receipt-privacy";
+    const { stub, owner, author, snapshot } = await prepare(name);
+    await stub.upsertMember(C, "Mover");
+    const { ws: mover, firstMessage: visible } =
+      await connectDirectlyWithFirstMessage(name, C, USER_A);
+    const messages = await move(mover, visible);
+    expect(messages.at(-1)).toMatchObject({
+      receipt: {
+        groupsBefore: [{ id: G, noteIds: [N1, N2] }],
+        affected: expect.arrayContaining([
+          { noteId: N2, positionRevision: 0, visibilityRevision: 0 },
+        ]),
+      },
+    });
+    await restartAndUnpublish(owner, author, snapshot);
+    for (const type of [
+      "note:move:status",
+      "note:move:commit",
+      "note:move:start",
+    ] as const) {
+      const duplicate =
+        type === "note:move:start"
+          ? {
+              type,
+              operationId: OP,
+              expectedPhaseRevision: visible.phaseRevision,
+              expectedGroupRevision: visible.groupRevision,
+              expectedMapRevision: visible.mapRevision,
+              coordinateSpace: "canvas",
+              targets: [
+                { noteId: N1, positionRevision: 0, visibilityRevision: 0 },
+              ],
+            }
+          : {
+              type,
+              operationId: OP,
+              ...(type === "note:move:commit"
+                ? { delta: { x: 600, y: 0 } }
+                : {}),
+            };
+      mover.send(JSON.stringify(duplicate));
+      const result = await nextJsonOfType(mover, "note:move:result");
+      expect(result).toMatchObject({ status: "accepted" });
+      expect(result).not.toHaveProperty("receipt");
+      expect(JSON.stringify(result)).not.toContain(N2);
+      expect(JSON.stringify(result)).not.toContain("hidden group name");
+    }
+    owner.close();
+    author.close();
+    mover.close();
   });
 });

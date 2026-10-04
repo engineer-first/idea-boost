@@ -62,7 +62,7 @@ import {
 } from "./completed-rooms";
 import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
-import { groupHandlers, listVisibleGroups } from "./groups";
+import { groupHandlers, listBoardGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { hostHandlers } from "./host-transfer";
 import {
@@ -1079,10 +1079,7 @@ export class RoomDO extends DurableObject {
       sharing: getSharingState(this.sql),
       notes,
       // フェーズ2では既存のフェーズ1グループも表示しない。
-      groups:
-        phase.kind === "step" && phase.phase === 2
-          ? []
-          : listVisibleGroups(this.sql, userId),
+      groups: listBoardGroups(this.sql, userId, phase),
       members: listMembers(this.sql),
       phase,
       phaseRevision: getPhaseRevision(this.sql),

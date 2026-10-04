@@ -37,7 +37,10 @@ import {
   getCursorLabelOffset,
   type RenderedRemoteCursorPresence,
 } from "../logic/cursor-presence";
-import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
+import {
+  getIdeaMapNoteGeometry,
+  getIdeaValueFeasibilityMapNotePosition,
+} from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
@@ -356,6 +359,11 @@ export function RoomBoardCanvas({
       <NoteCard
         key={note.id}
         note={note}
+        maxDisplayHeight={
+          isIdeaValueFeasibilityMapVisible
+            ? mapNoteGeometry.noteHeightLimit
+            : undefined
+        }
         isOwnDrag={
           draggingNoteId === note.id || localDraggingNoteId === note.id
         }
@@ -417,11 +425,17 @@ export function RoomBoardCanvas({
     );
   }
 
+  const mapNoteGeometry = getIdeaMapNoteGeometry(
+    ideaMapSizeLevel,
+    notes.map((note) => getNoteHeight(note.content, note.fontSize)),
+  );
+
   function renderPositionedNote(note: Note) {
     const position = isIdeaValueFeasibilityMapVisible
       ? getIdeaValueFeasibilityMapNotePosition(
           { value: note.y, feasibility: note.x },
           getNoteHeight(note.content, note.fontSize),
+          mapNoteGeometry,
         )
       : { left: note.x, top: note.y };
     const isAdoptTarget =
@@ -517,6 +531,7 @@ export function RoomBoardCanvas({
         feasibility: dragGhost.x,
       },
       getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
+      mapNoteGeometry,
     );
 
     return (
@@ -524,7 +539,10 @@ export function RoomBoardCanvas({
         noteId={dragGhost.note.id}
         isLifted
         color={dragGhost.note.color}
-        height={getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize)}
+        height={Math.min(
+          mapNoteGeometry.noteHeightLimit,
+          getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
+        )}
         className="pointer-events-none absolute"
         style={{ ...position, zIndex: TEMPORARY_FRONT_Z_INDEX }}
       >

@@ -40,6 +40,7 @@ export type NoteCardProps = {
   isOwnDrag: boolean;
   isSelected: boolean;
   editingDisabled?: boolean;
+  maxDisplayHeight?: number;
   isDecided?: boolean;
   isAdoptionFocused?: boolean;
   // WebSocket未接続時（connecting/closed）に親から渡す。true の間は選択・
@@ -223,6 +224,7 @@ export function NoteCard({
   isOwnDrag,
   isSelected,
   editingDisabled = false,
+  maxDisplayHeight = Number.POSITIVE_INFINITY,
   isDecided = false,
   isAdoptionFocused = false,
   disabled = false,
@@ -958,7 +960,10 @@ export function NoteCard({
       isDecided={isDecided}
       isAdoptionFocused={isAdoptionFocused}
       color={note.color}
-      height={getNoteHeight(localContent, note.fontSize)}
+      height={Math.min(
+        maxDisplayHeight,
+        getNoteHeight(localContent, note.fontSize),
+      )}
       testId="note-card"
       data-editing={isEditing || undefined}
       data-vote-drop-target={

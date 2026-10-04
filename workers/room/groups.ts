@@ -4,9 +4,14 @@ import {
   type PersistentGroup,
   reorganizeGroups,
 } from "../../contracts/grouping";
+import type { RoomPhase } from "../../contracts/phase";
 import type { ProtocolGroup } from "../../contracts/room-protocol";
 import type { RoomBroadcaster } from "./broadcast";
-import { type MessageHandlers, replyForbidden } from "./handler-context";
+import {
+  type HandlerCtx,
+  type MessageHandlers,
+  replyForbidden,
+} from "./handler-context";
 import {
   findNote,
   hasOnlySharedNotes,
@@ -47,6 +52,56 @@ export function listVisibleGroups(
       return row !== null && isVisibleTo(row, viewerId);
     }),
   );
+}
+
+// snapshot/batch/旧groupイベントは同じ工程と全メンバー可視性を通す。
+export function canViewBoardGroup(
+  sql: SqlStorage,
+  viewerId: string,
+  group: ProtocolGroup,
+  phase: RoomPhase,
+): boolean {
+  return (
+    phase.kind === "step" &&
+    phase.phase !== 2 &&
+    group.noteIds.every((id) => {
+      const row = findNote(sql, id);
+      return (
+        row !== null && row.phase === phase.phase && isVisibleTo(row, viewerId)
+      );
+    })
+  );
+}
+export function listBoardGroups(
+  sql: SqlStorage,
+  viewerId: string,
+  phase: RoomPhase,
+): ProtocolGroup[] {
+  return listVisibleGroups(sql, viewerId).filter((group) =>
+    canViewBoardGroup(sql, viewerId, group, phase),
+  );
+}
+// 可視性変更/削除で旧分類の名前と所属を再公開しない。分類全体を除去する。
+// 呼出しはnoteの権限検査後、旧noteがまだ可視な時点で行う。
+export function removeNoteGroups(
+  ctx: HandlerCtx,
+  noteId: string,
+  phase: RoomPhase,
+): void {
+  const groups = listGroups(ctx.sql).filter((group) =>
+    group.noteIds.includes(noteId),
+  );
+  for (const group of groups) {
+    ctx.sql.exec("DELETE FROM groups WHERE id=?1", group.id);
+    ctx.broadcaster.broadcastGroup(
+      {
+        type: "group:deleted",
+        groupId: group.id,
+        groupRevision: getGroupRevision(ctx.sql),
+      },
+      (viewerId) => canViewBoardGroup(ctx.sql, viewerId, group, phase),
+    );
+  }
 }
 
 export function saveGroups(

@@ -14,7 +14,7 @@ import {
   hasUsedNoteDragId,
   recordUsedNoteDragId,
 } from "./drag-operations";
-import { autoReorganize } from "./groups";
+import { autoReorganize, removeNoteGroups } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
@@ -212,6 +212,7 @@ export const noteHandlers: MessageHandlers<
       toProtocolNote(ctx.sql, row, ctx.userId),
     );
     const updatedAt = new Date().toISOString();
+    if (!isPhaseStep(phase, 1, 3)) removeNoteGroups(ctx, message.noteId, phase);
     const reorderedPrivateNotes = unpublishNoteAtIndex(
       ctx.sql,
       message.noteId,
@@ -785,6 +786,8 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    if (!isPhaseStep(getPhase(ctx.sql), 1, 3))
+      removeNoteGroups(ctx, message.noteId, getPhase(ctx.sql));
     deleteNote(ctx.sql, message.noteId);
     deleteNoteVotes(ctx.sql, message.noteId);
     ctx.broadcaster.broadcast(

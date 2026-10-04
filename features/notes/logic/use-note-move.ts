@@ -364,6 +364,9 @@ export function useNoteMove({
             }),
           );
         if (saved.changed) setReceipt(saved);
+      } else if (message.status === "accepted") {
+        // 成功は保持するが不可視receiptの代わりに前の操作の逆操作情報を公開しない。
+        setReceipt(null);
       } else if (message.status !== "cancelled")
         setFeedback({
           operationId: current.id,

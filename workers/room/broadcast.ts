@@ -84,6 +84,21 @@ export class RoomBroadcaster {
     }
   }
 
+  broadcastGroup(
+    message: Extract<
+      ServerMessage,
+      { type: "group:updated" | "group:deleted" }
+    >,
+    canView: (viewerId: string) => boolean,
+  ): void {
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment && canView(attachment.userId))
+        this.trySend(socket, JSON.stringify(message));
+    }
+  }
+
   broadcastMoveBatch(
     buildMessage: (
       viewerId: string,

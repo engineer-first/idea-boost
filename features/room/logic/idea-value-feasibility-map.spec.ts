@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  getIdeaMapNoteGeometry,
+  getIdeaMapNotePointFromClientPosition,
   getIdeaValueFeasibilityMapDimensions,
   getIdeaValueFeasibilityMapNotePosition,
   getIdeaValueFeasibilityMapPointFromClientPosition,
@@ -23,8 +25,8 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     expect(
       getIdeaValueFeasibilityMapNotePosition({ feasibility: 100, value: 0 }),
     ).toEqual({
-      left: "clamp(0px, calc(100% - 100px), max(0px, calc(100% - 200px)))",
-      bottom: "clamp(0px, calc(0% - 75px), max(0px, calc(100% - 150px)))",
+      left: "1322px",
+      bottom: "0px",
     });
   });
 
@@ -48,8 +50,8 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     expect(
       getIdeaValueFeasibilityMapNotePosition({ feasibility: 1, value: 99 }),
     ).toEqual({
-      left: "clamp(0px, calc(1% - 100px), max(0px, calc(100% - 200px)))",
-      bottom: "clamp(0px, calc(99% - 75px), max(0px, calc(100% - 150px)))",
+      left: "13.22px",
+      bottom: "665.28px",
     });
   });
   it("長文付箋は実高を使って上下端からはみ出さない", () => {
@@ -59,8 +61,8 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
         600,
       ),
     ).toEqual({
-      left: "clamp(0px, calc(50% - 100px), max(0px, calc(100% - 200px)))",
-      bottom: "clamp(0px, calc(100% - 300px), max(0px, calc(100% - 600px)))",
+      left: "661px",
+      bottom: "222px",
     });
   });
   it("価値と実現可能性の0〜100を連続座標へ変換する", () => {
@@ -99,4 +101,56 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       getIdeaValueFeasibilityMapPosition({ value: -1, feasibility: 101 }),
     ).toEqual({ bottom: "0%", left: "100%" });
   });
+});
+
+it.each([
+  0.25, 1, 2,
+])("共通投影をzoom%s/サイズ変更/長文高さでも入力へ逆変換する", (zoom) => {
+  for (const level of [0, 3]) {
+    const geometry = getIdeaMapNoteGeometry(level, [150, 450]);
+    const bounds = {
+      left: 80,
+      top: 40,
+      right: 80 + geometry.width * zoom,
+      bottom: 40 + geometry.height * zoom,
+    };
+    for (const point of [
+      { feasibility: 0, value: 0 },
+      { feasibility: 5, value: 5 },
+      { feasibility: 95, value: 95 },
+      { feasibility: 100, value: 100 },
+    ]) {
+      for (const noteHeight of [150, 450]) {
+        const position = getIdeaValueFeasibilityMapNotePosition(
+          point,
+          noteHeight,
+          geometry,
+        );
+        const x = bounds.left + (Number.parseFloat(position.left) + 100) * zoom;
+        const y =
+          bounds.bottom -
+          (Number.parseFloat(position.bottom) + noteHeight / 2) * zoom;
+        const restored = getIdeaMapNotePointFromClientPosition(
+          x,
+          y,
+          bounds,
+          geometry,
+        );
+        expect(restored?.feasibility).toBeCloseTo(point.feasibility);
+        expect(restored?.value).toBeCloseTo(point.value);
+      }
+    }
+  }
+});
+it("極端長文があっても短い付箋の移動域を残し、有限な入力を受理する", () => {
+  const geometry = getIdeaMapNoteGeometry(0, [10000, 150]);
+  expect(geometry.maxNoteHeight).toBeLessThan(geometry.height);
+  expect(
+    getIdeaMapNotePointFromClientPosition(
+      300,
+      300,
+      { left: 0, top: 0, right: geometry.width, bottom: geometry.height },
+      geometry,
+    ),
+  ).not.toBe(null);
 });

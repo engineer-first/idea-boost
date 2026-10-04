@@ -23,3 +23,9 @@ peer previewは配信しない。旧clientの途中保存とprivate共有は互�
 ## 根拠
 
 [Issue #523](https://github.com/engineer-first/idea-boost/issues/523)、[親Issue #521](https://github.com/engineer-first/idea-boost/issues/521)、[操作仕様の移動transaction契約](../product/canvas-interactions/details.md#523の移動transaction契約)。選択入口は#522、drop-only共有は#524、Undo/Redo本体は#525の責務を維持する。
+
+## 可視性とmap表示の補足
+
+receiptには実際に変わった分類の完全な前後と、その全メンバーの検査版を記録する。無関係な分類を丸ごと保存・配信すると、工程を戻して非共有化した旧メンバーの存在や分類名を再公開しうる。不可視な副作用を単に切り捨てると安全な逆操作の検査対象が欠けるため、その操作は位置・分類ごと拒否する。snapshot、確定batch、新move由来の互換group配信は現在工程と全メンバーの可視性で同じ投影を使う。保存済みreceiptの返信時にも再検査し、不可視な対象があれば成功statusを保ったままreceipt全体を伏せる。UIは失敗と表示せず、前の操作のreceiptを逆操作情報として残さない。
+
+mapの個別CSS clampは0..100の共通deltaを端で異なる画面deltaへ変えるため、中心を共通の線形有効域に配置し同じ式でpointer入力を逆変換する。軸欄・gap・borderを除いた平面寸法と、全付箋の最大表示高を共有して使う。意味上の評価値0..100とサイズ変更時の保存値は保つ。長文の本文は保持し、表示高を平面高75%までに制限して正の移動域を残す。代償として長文表示と他の付箋の中心域が連動するため、高さ・mapサイズ変更時は表示を再投影する。

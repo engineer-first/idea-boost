@@ -9,6 +9,10 @@ export { IDEA_VALUE_FEASIBILITY_MAP_RANGE } from "@/contracts/board";
 
 export const IDEA_VALUE_FEASIBILITY_MAP_WIDTH = 1600;
 export const IDEA_VALUE_FEASIBILITY_MAP_HEIGHT = 900;
+// 平面外の軸欄64px、grid gap12px、平面border両端2px。
+export const IDEA_MAP_AXIS_SIZE = 64;
+export const IDEA_MAP_GRID_GAP = 12;
+const IDEA_MAP_PLANE_INSET = IDEA_MAP_AXIS_SIZE + IDEA_MAP_GRID_GAP + 2;
 
 export function getIdeaValueFeasibilityMapDimensions(level: number): {
   width: number;
@@ -78,15 +82,67 @@ export function getIdeaValueFeasibilityMapPosition({
 /**
  * 付箋をワールド座標へ配置する。拡縮は親のカメラ変換へまとめる。
  */
+export type IdeaMapNoteGeometry = {
+  width: number;
+  height: number;
+  maxNoteHeight: number;
+  noteHeightLimit: number;
+};
+export function getIdeaMapNoteGeometry(
+  level: number,
+  heights: readonly number[],
+): IdeaMapNoteGeometry {
+  const dimensions = getIdeaMapDimensions(level);
+  const width = dimensions.width - IDEA_MAP_PLANE_INSET;
+  const height = dimensions.height - IDEA_MAP_PLANE_INSET;
+  // 長文1枚で他の付箋を操作不能にしない。本文を保持し表示のみ75%までにする。
+  const noteHeightLimit = height * 0.75;
+  return {
+    width,
+    height,
+    noteHeightLimit,
+    maxNoteHeight: Math.min(noteHeightLimit, Math.max(NOTE_HEIGHT, ...heights)),
+  };
+}
 export function getIdeaValueFeasibilityMapNotePosition(
   point: IdeaValueFeasibilityPoint,
   noteHeight = NOTE_HEIGHT,
+  geometry: IdeaMapNoteGeometry = getIdeaMapNoteGeometry(0, [noteHeight]),
 ): IdeaValueFeasibilityMapPosition {
   const feasibility = clampIdeaValueFeasibilityMapCoordinate(point.feasibility);
   const value = clampIdeaValueFeasibilityMapCoordinate(point.value);
+  // 全noteの中心を同じ線形有効域へ置く。端で1枚だけclampの傾きが変わらない。
+  const width = Math.max(0, geometry.width - NOTE_WIDTH);
+  const height = Math.max(0, geometry.height - geometry.maxNoteHeight);
   return {
-    left: `clamp(0px, calc(${feasibility}% - ${NOTE_WIDTH / 2}px), max(0px, calc(100% - ${NOTE_WIDTH}px)))`,
-    bottom: `clamp(0px, calc(${value}% - ${noteHeight / 2}px), max(0px, calc(100% - ${noteHeight}px)))`,
+    left: `${(feasibility * width) / 100}px`,
+    bottom: `${(value * height) / 100 + (geometry.maxNoteHeight - Math.min(noteHeight, geometry.noteHeightLimit)) / 2}px`,
+  };
+}
+export function getIdeaMapNotePointFromClientPosition(
+  clientX: number,
+  clientY: number,
+  bounds: IdeaValueFeasibilityMapBounds,
+  geometry: IdeaMapNoteGeometry,
+): IdeaValueFeasibilityPoint | null {
+  const scaleX = (bounds.right - bounds.left) / geometry.width;
+  const scaleY = (bounds.bottom - bounds.top) / geometry.height;
+  const width = (geometry.width - NOTE_WIDTH) * scaleX;
+  const height = (geometry.height - geometry.maxNoteHeight) * scaleY;
+  if (
+    width <= 0 ||
+    height <= 0 ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height)
+  )
+    return null;
+  return {
+    feasibility:
+      ((clientX - bounds.left - (NOTE_WIDTH * scaleX) / 2) * 100) / width,
+    value:
+      ((bounds.bottom - clientY - (geometry.maxNoteHeight * scaleY) / 2) *
+        100) /
+      height,
   };
 }
 

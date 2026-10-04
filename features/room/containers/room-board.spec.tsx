@@ -2655,11 +2655,15 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 310,
     });
 
-    expectSent(socket, {
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: { x: 52.5, y: 47.5 },
-    });
+    const end = socket.sent
+      .map((raw) => JSON.parse(raw))
+      .find((message) => message.type === "note:drag:end");
+    // 400pxに縮尺されたplane内の共通中心域で110pxを移動する。
+    expect(end.noteId).toBe(NOTE_ID);
+    expect(end.position.x).toBeCloseTo(
+      25 + (110 / (400 * (1322 / 1522))) * 100,
+    );
+    expect(end.position.y).toBeCloseTo(75 - (110 / (400 * (672 / 822))) * 100);
     expect(canvas.style.transform).toBe(cameraBefore);
   });
 
@@ -2722,12 +2726,12 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 300,
     });
 
-    expect(socket.sent.map((message) => JSON.parse(message))).toContainEqual({
-      type: "note:publish",
-      noteId: NOTE_ID,
-      x: 50,
-      y: 50,
-    });
+    const publish = socket.sent
+      .map((message) => JSON.parse(message))
+      .find((message) => message.type === "note:publish");
+    expect(publish.noteId).toBe(NOTE_ID);
+    expect(publish.x).toBeCloseTo(50);
+    expect(publish.y).toBeCloseTo(50);
   });
 
   it.each([

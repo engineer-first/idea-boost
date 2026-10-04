@@ -5,7 +5,8 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { getNoteHeight } from "@/contracts/board";
 import {
   isPhaseStep,
   isPublishAllowedStep,
@@ -20,6 +21,7 @@ import {
 } from "./canvas-camera";
 import {
   clampIdeaValueFeasibilityMapCoordinate,
+  getIdeaMapNoteGeometry,
   getIdeaValueFeasibilityMapPointFromClientPosition,
 } from "./idea-value-feasibility-map";
 import { roomNotify } from "./room-notify";
@@ -158,18 +160,30 @@ export function useRoomBoardInteractions({
     ideaMapSizeInitialized,
   });
 
+  const mapNoteGeometry = useMemo(
+    () =>
+      getIdeaMapNoteGeometry(
+        ideaMapSizeLevel ?? 0,
+        notes.map((note) => getNoteHeight(note.content, note.fontSize)),
+      ),
+    [ideaMapSizeLevel, notes],
+  );
   const {
     ideaMapPlaneRef,
     isIdeaValueFeasibilityMappingStep,
     pointFromClient,
   } = useIdeaValueFeasibilityMapInput({
     phase,
+    geometry: mapNoteGeometry,
     fallbackPointFromClient: worldPointFromClient,
   });
   // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
   // 既存のボード権限に従い、投票・結果ステップでは共有付箋を操作させない。
   const canMoveSharedNotes =
-    !movePending && getBoardPermissions(phase, isDecided).canMoveNote;
+    !movePending &&
+    getBoardPermissions(phase, isDecided).canMoveNote &&
+    (!isIdeaValueFeasibilityMappingStep ||
+      mapNoteGeometry.height > mapNoteGeometry.maxNoteHeight);
   const isIdeaMapCursorSurface =
     phase.kind === "step" &&
     phase.phase === 3 &&

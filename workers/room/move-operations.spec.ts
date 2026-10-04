@@ -546,3 +546,62 @@ it("canvas両端の集合移動deltaを受理し全対象を端まで同じdelta
     expect(findNote(ctx.sql, N1)?.x).toBe(CANVAS_COORDINATE_LIMIT - 40);
     expect(findNote(ctx.sql, N2)?.x).toBe(CANVAS_COORDINATE_LIMIT);
   }));
+
+it("0deltaは不可視の無関係groupをreceiptに含めず安全な成功を記録する", () =>
+  setup("move-noop-hidden-group", (ctx, responses) => {
+    ctx.sql.exec(
+      "UPDATE notes SET visibility='private',author_id=?1 WHERE id=?2",
+      B,
+      N2,
+    );
+    ctx.sql.exec(
+      "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'secret classification',?2,'now','now')",
+      OP2,
+      JSON.stringify([N1, N2]),
+    );
+    start(ctx, OP, [N1]);
+    moveHandlers["note:move:commit"](ctx, {
+      type: "note:move:commit",
+      operationId: OP,
+      delta: { x: 0, y: 0 },
+    });
+    const result = responses.at(-1);
+    expect(result).toMatchObject({
+      status: "accepted",
+      receipt: {
+        changed: false,
+        groupsBefore: [],
+        groupsAfter: [],
+        affected: [{ noteId: N1 }],
+      },
+    });
+    expect(parseServerMessage(JSON.stringify(result))).toEqual(result);
+    expect(JSON.stringify(result)).not.toContain(N2);
+    expect(JSON.stringify(result)).not.toContain("secret classification");
+  }));
+it("不可視group副作用を除外した不完全receiptを作らず位置も分類も全拒否する", () =>
+  setup("move-hidden-group-effect-rejected", (ctx, responses) => {
+    ctx.sql.exec(
+      "UPDATE notes SET visibility='private',author_id=?1 WHERE id=?2",
+      B,
+      N2,
+    );
+    ctx.sql.exec(
+      "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'secret classification',?2,'now','now')",
+      OP2,
+      JSON.stringify([N1, N2]),
+    );
+    start(ctx, OP, [N1]);
+    moveHandlers["note:move:commit"](ctx, {
+      type: "note:move:commit",
+      operationId: OP,
+      delta: { x: 600, y: 0 },
+    });
+    expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+    expect(findNote(ctx.sql, N1)?.x).toBe(100);
+    expect(ctx.sql.exec("SELECT id FROM groups").toArray()).toEqual([
+      { id: OP2 },
+    ]);
+    expect(JSON.stringify(responses)).not.toContain(N2);
+    expect(JSON.stringify(responses)).not.toContain("secret classification");
+  }));
