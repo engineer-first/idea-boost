@@ -1030,3 +1030,167 @@ for (const gesture of ["pan", "note-drag"] as const) {
     });
   }
 }
+
+test.each([
+  { width: 1280, height: 720 },
+  { width: 390, height: 720 },
+  { width: 1280, height: 400 },
+])("$width×$heightで操作ヒント全文へ到達し、選択を維持してEscapeだけ閉じる", async (size) => {
+  await page.setViewportSize(size);
+  await page.reload();
+  await page.getByTestId("note-card").first().waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  for (const note of await page.getByTestId("note-card").all()) {
+    await note
+      .getByRole("button", { name: "付箋", exact: true })
+      .click({ modifiers: ["Shift"] });
+  }
+  await selectedCount(3);
+  const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });
+  await summary.click();
+  const panel = page.getByTestId("canvas-operation-help");
+  const bounds = await panel.boundingBox();
+  if (!bounds) throw new Error("操作ヒントが表示されていません");
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.y).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(size.width);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(size.height);
+  expect(
+    await panel.evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).fontSize),
+    ),
+  ).toBeGreaterThanOrEqual(14);
+  await panel.focus();
+  await page.mouse.move(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  const before = await transform();
+  await page.mouse.wheel(0, 800);
+  await expect
+    .poll(() => panel.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(0);
+  expect(await transform()).toBe(before);
+  const last = panel.getByText("では削除しません。", { exact: false });
+  await last.scrollIntoViewIfNeeded();
+  expect(
+    await last.evaluate((el) => {
+      const content = el.getBoundingClientRect();
+      const container = el.closest("section")?.getBoundingClientRect();
+      return (
+        !!container &&
+        content.top >= container.top &&
+        content.bottom <= container.bottom
+      );
+    }),
+  ).toBe(true);
+  // CTAの上でも本文を実際に操作できることを確認する。
+  await last.click();
+  expect(await panel.isVisible()).toBe(true);
+  await panel.focus();
+  await page.keyboard.press("Escape");
+  expect(await panel.isVisible()).toBe(false);
+  expect(await summary.evaluate((el) => el === document.activeElement)).toBe(
+    true,
+  );
+  await selectedCount(3);
+  const announcement = page
+    .getByTestId("canvas-zoom-hud")
+    .locator('[aria-live="polite"]')
+    .filter({ hasText: "選択した付箋：3枚" });
+  expect(await announcement.count()).toBe(1);
+  expect(
+    await announcement.evaluate((el) => el.getBoundingClientRect().width),
+  ).toBeLessThanOrEqual(1);
+});
+
+test("外側の付箋・ツール・wheel・panはヒントを閉じて同じ操作を実行する", async () => {
+  const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });
+  const panel = page.getByTestId("canvas-operation-help");
+  await summary.click();
+  await page
+    .getByTestId("note-card")
+    .first()
+    .getByRole("button", { name: "付箋", exact: true })
+    .click();
+  expect(await panel.isVisible()).toBe(false);
+  await selectedCount(1);
+  await summary.click();
+  const hand = page.getByRole("button", { name: "手のひらツール" });
+  await hand.click();
+  expect(await panel.isVisible()).toBe(false);
+  expect(await hand.getAttribute("aria-pressed")).toBe("true");
+  await summary.click();
+  const beforeWheel = await transform();
+  await page.mouse.move(1100, 400);
+  await page.mouse.wheel(0, 120);
+  await expect.poll(transform).not.toBe(beforeWheel);
+  expect(await panel.isVisible()).toBe(false);
+  await summary.click();
+  await panel.focus();
+  const beforePan = await transform();
+  await page.mouse.move(1100, 400);
+  await page.mouse.down();
+  await page.mouse.move(1160, 430, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(transform).not.toBe(beforePan);
+  expect(await panel.isVisible()).toBe(false);
+  expect(await summary.evaluate((el) => el === document.activeElement)).toBe(
+    false,
+  );
+});
+
+test("短高ヒントのArrow/Pageはnative読書に届き、HUDボタンのカメラ操作は維持する", async () => {
+  await page.setViewportSize({ width: 1280, height: 400 });
+  await page.reload();
+  await page.getByTestId("note-card").first().waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  for (const note of await page.getByTestId("note-card").all()) {
+    await note
+      .getByRole("button", { name: "付箋", exact: true })
+      .click({ modifiers: ["Shift"] });
+  }
+  await selectedCount(3);
+  const summary = page.getByLabel("キャンバス操作のヒント", { exact: true });
+  await summary.click();
+  const panel = page.getByTestId("canvas-operation-help");
+  const bounds = await panel.boundingBox();
+  if (!bounds) throw new Error("操作ヒントが表示されていません");
+  expect(bounds.y).toBeGreaterThanOrEqual(0);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(400);
+  const beforeCamera = await transform();
+  for (const key of ["PageDown", "PageUp", "ArrowDown", "ArrowUp"]) {
+    const down = key.endsWith("Down");
+    await panel.evaluate(
+      (el, initial) => {
+        el.scrollTop = initial;
+      },
+      down ? 0 : 200,
+    );
+    const beforeScroll = await panel.evaluate((el) => el.scrollTop);
+    await panel.focus();
+    await page.keyboard.press(key);
+    if (down)
+      await expect
+        .poll(() => panel.evaluate((el) => el.scrollTop))
+        .toBeGreaterThan(beforeScroll);
+    else
+      await expect
+        .poll(() => panel.evaluate((el) => el.scrollTop))
+        .toBeLessThan(beforeScroll);
+    expect(await transform()).toBe(beforeCamera);
+    expect(await panel.isVisible()).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  expect(await panel.isVisible()).toBe(false);
+  expect(await summary.evaluate((el) => el === document.activeElement)).toBe(
+    true,
+  );
+  await selectedCount(3);
+  await page.getByRole("button", { name: "キャンバスを縮小" }).focus();
+  for (const key of ["ArrowDown", "PageDown"]) {
+    const before = await transform();
+    await page.keyboard.press(key);
+    await expect.poll(transform).not.toBe(before);
+  }
+});

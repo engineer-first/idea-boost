@@ -568,7 +568,7 @@ export function RoomBoardCanvas({
     <div className="min-h-0 flex-1">
       <div className="relative h-full min-h-80" data-testid="board-frame">
         <div
-          className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
         >
@@ -611,18 +611,10 @@ export function RoomBoardCanvas({
               onZoomIn={onZoomIn}
               onFitToNotes={onFitToNotes}
             />
-            <span
-              aria-live="polite"
-              className="pointer-events-none rounded bg-background/95 text-xs text-muted-foreground"
-            >
-              {selectionIds.length > 0 ? (
-                <>
-                  <span className="sr-only">選択した付箋：</span>
-                  {selectionIds.length}枚
-                </>
-              ) : (
-                ""
-              )}
+            <span aria-live="polite" className="sr-only">
+              {selectionIds.length > 0
+                ? `選択した付箋：${selectionIds.length}枚`
+                : ""}
             </span>
           </div>
         </div>
