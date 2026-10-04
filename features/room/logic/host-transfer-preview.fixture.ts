@@ -139,6 +139,36 @@ export function createHostTransferPreview(
   }
   const factory: RoomSocketFactory = () => {
     const created = new PreviewSocket((message, active) => {
+      if (message.type === "member:remove") {
+        setTimeout(() => {
+          if (active.readyState !== 1) return;
+          if (mode === "timeout") {
+            mode = "success";
+            return;
+          }
+          if (mode === "refused") {
+            mode = "success";
+            active.message({
+              type: "error",
+              code: "forbidden",
+              operationId: message.operationId,
+              message:
+                "操作できませんでした。現在の参加者を確認してから操作し直してください。",
+            });
+            return;
+          }
+          members = members.filter(
+            (member) => member.userId !== message.targetUserId,
+          );
+          active.message({ type: "member_left", userId: message.targetUserId });
+          active.message({
+            type: "member:removed",
+            targetUserId: message.targetUserId,
+            operationId: message.operationId,
+          });
+        }, 100);
+        return;
+      }
       if (message.type !== "host:transfer") return;
       setTimeout(() => {
         if (active.readyState !== 1) return;

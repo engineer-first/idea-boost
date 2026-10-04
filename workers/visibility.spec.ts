@@ -44,6 +44,18 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "メンバー除外後もホストに他者の未共有付箋を公開しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "除外メンバーの共有付箋は他の参加者の盤面に残す",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
+  {
     name: "成果を残して退出した作者も再訪記録では本人のprivate付箋を見られない",
     viewerId: OUTCOME_VIEWER,
     note: note({ visibility: "private", authorId: AUTHOR }),

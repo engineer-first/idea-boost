@@ -34,6 +34,7 @@ import { useCandidateOperations } from "../logic/use-candidate-operations";
 import { useCursorPresence } from "../logic/use-cursor-presence";
 import { useHostTransfer } from "../logic/use-host-transfer";
 import { useLeaveRoom } from "../logic/use-leave-room";
+import { useMemberRemoval } from "../logic/use-member-removal";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomState } from "../logic/use-room-state";
@@ -123,6 +124,19 @@ export function RoomBoard({
     blocked: isNextPhasePending || isLeaving || roomState.outcomePublished,
     send,
   });
+  const memberRemoval = useMemberRemoval({
+    isHost,
+    currentUserId,
+    hostRevision: roomState.host.hostRevision,
+    connected: connectionStatus === "open",
+    blocked:
+      isNextPhasePending ||
+      hostTransfer.pending ||
+      isLeaving ||
+      roomState.outcomePublished,
+    members: roomState.members,
+    send,
+  });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
   const candidates = useCandidateOperations({
@@ -165,6 +179,7 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    if (memberRemoval.applyMessage(message)) return;
     if (hostTransfer.applyMessage(message)) return;
     if (
       message.type === "host:updated" &&
@@ -270,7 +285,13 @@ export function RoomBoard({
   }
 
   const handleNextPhase = useCallback(() => {
-    if (!isHost || hostTransfer.isPending() || isNextPhasePending) return;
+    if (
+      !isHost ||
+      hostTransfer.isPending() ||
+      memberRemoval.isPending() ||
+      isNextPhasePending
+    )
+      return;
     setIsNextPhasePending(true);
     send({
       type: "phase:next",
@@ -280,6 +301,7 @@ export function RoomBoard({
   }, [
     isHost,
     hostTransfer.isPending,
+    memberRemoval.isPending,
     isNextPhasePending,
     send,
     roomState.phase,
@@ -290,7 +312,13 @@ export function RoomBoard({
   // force 付きで再送する（ホスト以外はサーバー側で拒否される）。
   const handleForceNextPhase = useCallback(() => {
     setIsForceNextPhaseDialogOpen(false);
-    if (!isHost || hostTransfer.isPending() || isNextPhasePending) return;
+    if (
+      !isHost ||
+      hostTransfer.isPending() ||
+      memberRemoval.isPending() ||
+      isNextPhasePending
+    )
+      return;
     setIsNextPhasePending(true);
     send({
       type: "phase:next",
@@ -301,6 +329,7 @@ export function RoomBoard({
   }, [
     isHost,
     hostTransfer.isPending,
+    memberRemoval.isPending,
     isNextPhasePending,
     send,
     roomState.phase,
@@ -327,7 +356,13 @@ export function RoomBoard({
 
   const handleLoopPhase = useCallback(
     (type: "phase:restart-writing" | "phase:revote") => {
-      if (!isHost || hostTransfer.isPending() || isNextPhasePending) return;
+      if (
+        !isHost ||
+        hostTransfer.isPending() ||
+        memberRemoval.isPending() ||
+        isNextPhasePending
+      )
+        return;
       setIsNextPhasePending(true);
       send({
         type,
@@ -338,6 +373,7 @@ export function RoomBoard({
     [
       isHost,
       hostTransfer.isPending,
+      memberRemoval.isPending,
       isNextPhasePending,
       send,
       roomState.phase,
@@ -521,6 +557,7 @@ export function RoomBoard({
             : hostTransfer.transfer
         }
         isTransferring={hostTransfer.pending}
+        memberRemoval={memberRemoval}
         transferError={hostTransfer.error}
         decision={roomState.decision}
         outcomePublished={roomState.outcomePublished}

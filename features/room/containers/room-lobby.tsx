@@ -14,6 +14,7 @@ import type { ServerMessage } from "@/contracts/room-protocol";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import type { Member } from "../logic/room-reducer";
 import { useLeaveRoom } from "../logic/use-leave-room";
+import { useMemberRemoval } from "../logic/use-member-removal";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomState } from "../logic/use-room-state";
 import { RoomLobbyView } from "../templates/room-lobby-view";
@@ -86,6 +87,15 @@ export function RoomLobby({
     webSocketFactory,
     isLeavingRef,
   });
+  const memberRemoval = useMemberRemoval({
+    isHost,
+    currentUserId,
+    hostRevision: roomState.host.hostRevision,
+    connected: connectionStatus === "open",
+    blocked: isStarting || isTransferring || isLeaving,
+    members: roomState.members,
+    send,
+  });
   // 既にボード工程ならボードへ直行（SSR でも redirect しているが、state 初期値が
   // 古い場合のリカバリとしても機能する）。
   useEffect(() => {
@@ -103,6 +113,7 @@ export function RoomLobby({
   }
 
   function handleServerMessage(message: ServerMessage) {
+    if (memberRemoval.applyMessage(message)) return;
     if (
       message.type === "host:updated" ||
       message.type === "snapshot" ||
@@ -127,7 +138,7 @@ export function RoomLobby({
   }
 
   const handleStart = useCallback(() => {
-    if (!isHost || transferringRef.current) return;
+    if (!isHost || transferringRef.current || memberRemoval.isPending()) return;
     setIsStarting(true);
     send({
       type: "start_phase",
@@ -141,13 +152,20 @@ export function RoomLobby({
       startTimeoutRef.current = null;
       setIsStarting(false);
     }, 5000);
-  }, [isHost, send, clearStartTimeout, roomState.host.hostRevision]);
+  }, [
+    isHost,
+    send,
+    clearStartTimeout,
+    roomState.host.hostRevision,
+    memberRemoval.isPending,
+  ]);
 
   function handleTransfer(targetUserId: string) {
     if (
       !isHost ||
       isStarting ||
       transferringRef.current ||
+      memberRemoval.isPending() ||
       connectionStatus !== "open" ||
       roomState.host.hostRevision === null
     )
@@ -172,6 +190,7 @@ export function RoomLobby({
   return (
     <RoomLobbyView
       key={`${hostUserId}:${roomState.host.hostRevision ?? 0}`}
+      memberRemoval={memberRemoval}
       members={roomState.members}
       currentUserId={currentUserId}
       isHost={isHost}

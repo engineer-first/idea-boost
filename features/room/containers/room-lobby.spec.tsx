@@ -444,3 +444,49 @@ it("引き継ぎ確認をキャンセルすると起点ボタンへフォーカ�
   fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
   await vi.waitFor(() => expect(trigger).toHaveFocus());
 });
+
+describe("ホストによる参加者退出", () => {
+  it("選択と確認から世代付き操作を送り、二重操作を止めサーバー確定で一覧を更新する", () => {
+    const { socket } = renderStart({
+      initialMembers: [
+        { userId: HOST_ID, name: "Host", color: "yellow" },
+        { userId: MEMBER_ID, name: "Member", color: "blue" },
+      ],
+    });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: HOST_ID,
+        hostRevision: 0,
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Member" }));
+    fireEvent.click(screen.getByRole("button", { name: "ルームから外す…" }));
+    expect(socket.sent).toEqual([]);
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Member");
+    fireEvent.click(screen.getByRole("button", { name: "ルームから外す" }));
+    const operation = JSON.parse(socket.sent[0]);
+    expect(operation).toMatchObject({
+      type: "member:remove",
+      targetUserId: MEMBER_ID,
+      expectedHostRevision: 0,
+      operationId: expect.any(String),
+    });
+    expect(screen.getByRole("button", { name: "退出処理中…" })).toBeDisabled();
+    expect(screen.getByTestId("start-phase-button")).toBeDisabled();
+    act(() =>
+      socket.simulateServerMessage({ type: "member_left", userId: MEMBER_ID }),
+    );
+    act(() =>
+      socket.simulateServerMessage({
+        type: "member:removed",
+        targetUserId: MEMBER_ID,
+        operationId: operation.operationId,
+      }),
+    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId(`member-row-${MEMBER_ID}`),
+    ).not.toBeInTheDocument();
+  });
+});

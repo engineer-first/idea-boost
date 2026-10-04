@@ -63,9 +63,7 @@ function membersTrigger(sharing = false): Locator {
 async function selectTarget(sharing = false): Promise<void> {
   await membersTrigger(sharing).click();
   await page.getByRole("button", { name: targetName, exact: true }).click();
-  await page
-    .getByRole("alertdialog", { name: "このユーザーをホストにしますか？" })
-    .waitFor();
+  await page.getByRole("alertdialog", { name: "参加者の操作" }).waitFor();
 }
 async function serverEvent(
   kind: "aba" | "recipient-left" | "disconnect" | "reconnect",

@@ -310,6 +310,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "cursor:leave":
     case "adoption-focus:update":
     case "host:transfer":
+    case "member:remove":
     case "start_phase":
     case "phase:next":
     case "outcome:publish":
