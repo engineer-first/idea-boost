@@ -63,26 +63,17 @@
     "evidence": [
       {
         "path": "docs/README.md",
-        "lines": [
-          23,
-          32
-        ],
+        "lines": [23, 32],
         "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/README.md#L23-L32"
       },
       {
         "path": "docs/prd.md",
-        "lines": [
-          3,
-          5
-        ],
+        "lines": [3, 5],
         "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/prd.md#L3-L5"
       },
       {
         "path": "docs/architecture/overview.md",
-        "lines": [
-          20,
-          29
-        ],
+        "lines": [20, 29],
         "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/architecture/overview.md#L20-L29"
       },
       {
@@ -98,26 +89,17 @@
       "evidence": [
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            993,
-            1016
-          ],
+          "lines": [993, 1016],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L993-L1016"
         },
         {
           "path": "features/notes/molecules/note-group-card.tsx",
-          "lines": [
-            97,
-            113
-          ],
+          "lines": [97, 113],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-group-card.tsx#L97-L113"
         },
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            407,
-            410
-          ],
+          "lines": [407, 410],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L407-L410"
         }
       ]
@@ -129,18 +111,12 @@
       "evidence": [
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            716,
-            805
-          ],
+          "lines": [716, 805],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L716-L805"
         },
         {
           "path": "tests/browser/private-note-layout.spec.ts",
-          "lines": [
-            83,
-            118
-          ],
+          "lines": [83, 118],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/tests/browser/private-note-layout.spec.ts#L83-L118"
         }
       ]
@@ -152,18 +128,12 @@
       "evidence": [
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            320,
-            330
-          ],
+          "lines": [320, 330],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L320-L330"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            452,
-            507
-          ],
+          "lines": [452, 507],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L452-L507"
         }
       ]
@@ -175,10 +145,7 @@
       "evidence": [
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            302,
-            328
-          ],
+          "lines": [302, 328],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L302-L328"
         }
       ]
@@ -190,18 +157,12 @@
       "evidence": [
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            724,
-            743
-          ],
+          "lines": [724, 743],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L724-L743"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            714,
-            729
-          ],
+          "lines": [714, 729],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L714-L729"
         }
       ]
@@ -213,10 +174,7 @@
       "evidence": [
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            613,
-            679
-          ],
+          "lines": [613, 679],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L613-L679"
         }
       ]
@@ -228,26 +186,17 @@
       "evidence": [
         {
           "path": "features/notes/molecules/note-group-card.tsx",
-          "lines": [
-            80,
-            95
-          ],
+          "lines": [80, 95],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-group-card.tsx#L80-L95"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            303,
-            342
-          ],
+          "lines": [303, 342],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L303-L342"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            560,
-            580
-          ],
+          "lines": [560, 580],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L560-L580"
         }
       ]
@@ -265,36 +214,24 @@
       "evidence": [
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            330,
-            338
-          ],
+          "lines": [330, 338],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L330-L338"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            613,
-            633
-          ],
+          "lines": [613, 633],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L613-L633"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            742,
-            752
-          ],
+          "lines": [742, 752],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L742-L752"
         }
       ],
       "tests": [
         {
           "path": "features/notes/molecules/note-card.spec.tsx",
-          "lines": [
-            974,
-            1006
-          ],
+          "lines": [974, 1006],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.spec.tsx#L974-L1006"
         }
       ],
@@ -314,44 +251,29 @@
       "evidence": [
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            303,
-            342
-          ],
+          "lines": [303, 342],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L303-L342"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            560,
-            580
-          ],
+          "lines": [560, 580],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L560-L580"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            374,
-            430
-          ],
+          "lines": [374, 430],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L374-L430"
         },
         {
           "path": "features/notes/organisms/private-notes-toolbar.tsx",
-          "lines": [
-            220,
-            228
-          ],
+          "lines": [220, 228],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/organisms/private-notes-toolbar.tsx#L220-L228"
         }
       ],
       "tests": [
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            125,
-            125
-          ],
+          "lines": [125, 125],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L125"
         }
       ],
@@ -373,10 +295,7 @@
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            335,
-            335
-          ],
+          "lines": [335, 335],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L335"
         }
       ],
@@ -414,36 +333,24 @@
       "evidence": [
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            302,
-            356
-          ],
+          "lines": [302, 356],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L302-L356"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            303,
-            342
-          ],
+          "lines": [303, 342],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L303-L342"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            560,
-            580
-          ],
+          "lines": [560, 580],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L560-L580"
         }
       ],
       "tests": [
         {
           "path": "tests/browser/canvas-pan.spec.ts",
-          "lines": [
-            54,
-            126
-          ],
+          "lines": [54, 126],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/tests/browser/canvas-pan.spec.ts#L54-L126"
         }
       ],
@@ -462,52 +369,34 @@
       "evidence": [
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            64,
-            71
-          ],
+          "lines": [64, 71],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L64-L71"
         },
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            302,
-            328
-          ],
+          "lines": [302, 328],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L302-L328"
         },
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            407,
-            471
-          ],
+          "lines": [407, 471],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L407-L471"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            724,
-            729
-          ],
+          "lines": [724, 729],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L724-L729"
         }
       ],
       "tests": [
         {
           "path": "features/room/logic/use-canvas-camera.spec.tsx",
-          "lines": [
-            268,
-            290
-          ],
+          "lines": [268, 290],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.spec.tsx#L268-L290"
         },
         {
           "path": "features/notes/molecules/note-card.spec.tsx",
-          "lines": [
-            71,
-            85
-          ],
+          "lines": [71, 85],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.spec.tsx#L71-L85"
         }
       ],
@@ -526,10 +415,7 @@
       "evidence": [
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            358,
-            375
-          ],
+          "lines": [358, 375],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L358-L375"
         }
       ],
@@ -549,52 +435,34 @@
       "evidence": [
         {
           "path": "features/room/logic/canvas-camera.ts",
-          "lines": [
-            9,
-            13
-          ],
+          "lines": [9, 13],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/canvas-camera.ts#L9-L13"
         },
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            407,
-            445
-          ],
+          "lines": [407, 445],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L407-L445"
         },
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            519,
-            523
-          ],
+          "lines": [519, 523],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L519-L523"
         },
         {
           "path": "features/room/molecules/canvas-zoom-controls.tsx",
-          "lines": [
-            22,
-            70
-          ],
+          "lines": [22, 70],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/molecules/canvas-zoom-controls.tsx#L22-L70"
         }
       ],
       "tests": [
         {
           "path": "features/room/logic/use-canvas-camera.spec.tsx",
-          "lines": [
-            69,
-            125
-          ],
+          "lines": [69, 125],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.spec.tsx#L69-L125"
         },
         {
           "path": "features/room/logic/use-canvas-camera.spec.tsx",
-          "lines": [
-            292,
-            317
-          ],
+          "lines": [292, 317],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.spec.tsx#L292-L317"
         }
       ],
@@ -613,52 +481,34 @@
       "evidence": [
         {
           "path": "features/notes/organisms/private-notes-toolbar.tsx",
-          "lines": [
-            85,
-            114
-          ],
+          "lines": [85, 114],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/organisms/private-notes-toolbar.tsx#L85-L114"
         },
         {
           "path": "features/notes/organisms/private-notes-toolbar.tsx",
-          "lines": [
-            323,
-            329
-          ],
+          "lines": [323, 329],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/organisms/private-notes-toolbar.tsx#L323-L329"
         },
         {
           "path": "features/room/logic/board-permissions.ts",
-          "lines": [
-            55,
-            70
-          ],
+          "lines": [55, 70],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/board-permissions.ts#L55-L70"
         },
         {
           "path": "features/room/logic/board-permissions.ts",
-          "lines": [
-            142,
-            158
-          ],
+          "lines": [142, 158],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/board-permissions.ts#L142-L158"
         },
         {
           "path": "features/room/logic/board-permissions.ts",
-          "lines": [
-            213,
-            229
-          ],
+          "lines": [213, 229],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/board-permissions.ts#L213-L229"
         }
       ],
       "tests": [
         {
           "path": "tests/browser/private-note-guidance.spec.ts",
-          "lines": [
-            53,
-            100
-          ],
+          "lines": [53, 100],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/tests/browser/private-note-guidance.spec.ts#L53-L100"
         }
       ],
@@ -677,44 +527,29 @@
       "evidence": [
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            659,
-            679
-          ],
+          "lines": [659, 679],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L659-L679"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            697,
-            769
-          ],
+          "lines": [697, 769],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L697-L769"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            963,
-            1016
-          ],
+          "lines": [963, 1016],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L963-L1016"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            351,
-            395
-          ],
+          "lines": [351, 395],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L351-L395"
         }
       ],
       "tests": [
         {
           "path": "features/notes/molecules/note-card.spec.tsx",
-          "lines": [
-            1024,
-            1158
-          ],
+          "lines": [1024, 1158],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.spec.tsx#L1024-L1158"
         }
       ],
@@ -733,26 +568,17 @@
       "evidence": [
         {
           "path": "contracts/board.ts",
-          "lines": [
-            58,
-            88
-          ],
+          "lines": [58, 88],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/board.ts#L58-L88"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            728,
-            744
-          ],
+          "lines": [728, 744],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L728-L744"
         },
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            70,
-            70
-          ],
+          "lines": [70, 70],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L70"
         }
       ],
@@ -772,36 +598,24 @@
       "evidence": [
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            731,
-            739
-          ],
+          "lines": [731, 739],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L731-L739"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            361,
-            366
-          ],
+          "lines": [361, 366],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L361-L366"
         },
         {
           "path": "features/notes/organisms/private-notes-toolbar.tsx",
-          "lines": [
-            254,
-            271
-          ],
+          "lines": [254, 271],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/organisms/private-notes-toolbar.tsx#L254-L271"
         }
       ],
       "tests": [
         {
           "path": "features/notes/molecules/note-card.spec.tsx",
-          "lines": [
-            1160,
-            1190
-          ],
+          "lines": [1160, 1190],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.spec.tsx#L1160-L1190"
         }
       ],
@@ -821,60 +635,39 @@
       "evidence": [
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            635,
-            657
-          ],
+          "lines": [635, 657],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L635-L657"
         },
         {
           "path": "contracts/board.ts",
-          "lines": [
-            97,
-            103
-          ],
+          "lines": [97, 103],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/board.ts#L97-L103"
         },
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            452,
-            480
-          ],
+          "lines": [452, 480],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L452-L480"
         },
         {
           "path": "features/room/logic/board-permissions.ts",
-          "lines": [
-            309,
-            321
-          ],
+          "lines": [309, 321],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/board-permissions.ts#L309-L321"
         },
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            121,
-            129
-          ],
+          "lines": [121, 129],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L121-L129"
         }
       ],
       "tests": [
         {
           "path": "features/room/logic/use-board-drag.spec.tsx",
-          "lines": [
-            945,
-            1050
-          ],
+          "lines": [945, 1050],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.spec.tsx#L945-L1050"
         },
         {
           "path": "features/room/logic/use-board-drag.spec.tsx",
-          "lines": [
-            1170,
-            1181
-          ],
+          "lines": [1170, 1181],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.spec.tsx#L1170-L1181"
         }
       ],
@@ -893,36 +686,24 @@
       "evidence": [
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            619,
-            641
-          ],
+          "lines": [619, 641],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L619-L641"
         },
         {
           "path": "features/room/logic/use-room-board-interactions.ts",
-          "lines": [
-            177,
-            197
-          ],
+          "lines": [177, 197],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-room-board-interactions.ts#L177-L197"
         }
       ],
       "tests": [
         {
           "path": "tests/browser/private-note-guidance.spec.ts",
-          "lines": [
-            101,
-            151
-          ],
+          "lines": [101, 151],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/tests/browser/private-note-guidance.spec.ts#L101-L151"
         },
         {
           "path": "features/room/logic/use-board-drag.spec.tsx",
-          "lines": [
-            260,
-            284
-          ],
+          "lines": [260, 284],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.spec.tsx#L260-L284"
         }
       ],
@@ -941,36 +722,24 @@
       "evidence": [
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            552,
-            569
-          ],
+          "lines": [552, 569],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L552-L569"
         },
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            674,
-            732
-          ],
+          "lines": [674, 732],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L674-L732"
         }
       ],
       "tests": [
         {
           "path": "features/room/logic/use-board-drag.spec.tsx",
-          "lines": [
-            730,
-            854
-          ],
+          "lines": [730, 854],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.spec.tsx#L730-L854"
         },
         {
           "path": "features/room/logic/use-board-drag.spec.tsx",
-          "lines": [
-            925,
-            944
-          ],
+          "lines": [925, 944],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.spec.tsx#L925-L944"
         }
       ],
@@ -989,44 +758,29 @@
       "evidence": [
         {
           "path": "features/notes/organisms/private-notes-toolbar.tsx",
-          "lines": [
-            254,
-            264
-          ],
+          "lines": [254, 264],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/organisms/private-notes-toolbar.tsx#L254-L264"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            778,
-            805
-          ],
+          "lines": [778, 805],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L778-L805"
         },
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            334,
-            449
-          ],
+          "lines": [334, 449],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L334-L449"
         },
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            707,
-            739
-          ],
+          "lines": [707, 739],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L707-L739"
         }
       ],
       "tests": [
         {
           "path": "features/room/logic/use-board-drag.spec.tsx",
-          "lines": [
-            379,
-            435
-          ],
+          "lines": [379, 435],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.spec.tsx#L379-L435"
         }
       ],
@@ -1045,58 +799,37 @@
       "evidence": [
         {
           "path": "contracts/grouping.ts",
-          "lines": [
-            25,
-            101
-          ],
+          "lines": [25, 101],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/grouping.ts#L25-L101"
         },
         {
           "path": "contracts/grouping.ts",
-          "lines": [
-            104,
-            183
-          ],
+          "lines": [104, 183],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/grouping.ts#L104-L183"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            212,
-            214
-          ],
+          "lines": [212, 214],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L212-L214"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            80,
-            83
-          ],
+          "lines": [80, 83],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L80-L83"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            406,
-            416
-          ],
+          "lines": [406, 416],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L406-L416"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            491,
-            587
-          ],
+          "lines": [491, 587],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L491-L587"
         },
         {
           "path": "contracts/grouping.ts",
-          "lines": [
-            240,
-            293
-          ],
+          "lines": [240, 293],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/grouping.ts#L240-L293"
         }
       ],
@@ -1118,34 +851,22 @@
       "evidence": [
         {
           "path": "features/notes/molecules/note-group-card.tsx",
-          "lines": [
-            57,
-            70
-          ],
+          "lines": [57, 70],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-group-card.tsx#L57-L70"
         },
         {
           "path": "features/notes/molecules/note-group-card.tsx",
-          "lines": [
-            80,
-            130
-          ],
+          "lines": [80, 130],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-group-card.tsx#L80-L130"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            620,
-            637
-          ],
+          "lines": [620, 637],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L620-L637"
         },
         {
           "path": "features/notes/logic/use-note-groups.ts",
-          "lines": [
-            46,
-            74
-          ],
+          "lines": [46, 74],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-groups.ts#L46-L74"
         }
       ],
@@ -1168,28 +889,19 @@
         },
         {
           "path": "features/notes/molecules/note-group-card.tsx",
-          "lines": [
-            80,
-            95
-          ],
+          "lines": [80, 95],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-group-card.tsx#L80-L95"
         },
         {
           "path": "workers/room/group-drag.ts",
           "ref": "0ff7169394c5f0e29b4248b26be5b622fc9a6d64",
-          "lines": [
-            22,
-            49
-          ],
+          "lines": [22, 49],
           "url": "https://github.com/engineer-first/idea-boost/blob/0ff7169394c5f0e29b4248b26be5b622fc9a6d64/workers/room/group-drag.ts#L22-L49"
         },
         {
           "path": "contracts/grouping.ts",
           "ref": "0ff7169394c5f0e29b4248b26be5b622fc9a6d64",
-          "lines": [
-            28,
-            45
-          ],
+          "lines": [28, 45],
           "url": "https://github.com/engineer-first/idea-boost/blob/0ff7169394c5f0e29b4248b26be5b622fc9a6d64/contracts/grouping.ts#L28-L45"
         }
       ],
@@ -1211,26 +923,17 @@
       "evidence": [
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            432,
-            473
-          ],
+          "lines": [432, 473],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L432-L473"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            695,
-            713
-          ],
+          "lines": [695, 713],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L695-L713"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            773,
-            782
-          ],
+          "lines": [773, 782],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L773-L782"
         }
       ],
@@ -1250,36 +953,24 @@
       "evidence": [
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            645,
-            678
-          ],
+          "lines": [645, 678],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L645-L678"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            715,
-            757
-          ],
+          "lines": [715, 757],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L715-L757"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            714,
-            721
-          ],
+          "lines": [714, 721],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L714-L721"
         }
       ],
       "tests": [
         {
           "path": "features/notes/molecules/note-card.spec.tsx",
-          "lines": [
-            722,
-            816
-          ],
+          "lines": [722, 816],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.spec.tsx#L722-L816"
         }
       ],
@@ -1298,18 +989,12 @@
       "evidence": [
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            579,
-            601
-          ],
+          "lines": [579, 601],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L579-L601"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            645,
-            678
-          ],
+          "lines": [645, 678],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L645-L678"
         }
       ],
@@ -1329,18 +1014,12 @@
       "evidence": [
         {
           "path": "features/dot-vote/molecules/dot-vote-sticker.tsx",
-          "lines": [
-            159,
-            204
-          ],
+          "lines": [159, 204],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/dot-vote/molecules/dot-vote-sticker.tsx#L159-L204"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            645,
-            690
-          ],
+          "lines": [645, 690],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L645-L690"
         }
       ],
@@ -1349,9 +1028,7 @@
           "url": "https://github.com/engineer-first/idea-boost/issues/289"
         }
       ],
-      "caveats": [
-        "Votes are separate domain actions, not board Ctrl+Z Undo."
-      ]
+      "caveats": ["Votes are separate domain actions, not board Ctrl+Z Undo."]
     },
     {
       "id": "vote.read-result",
@@ -1364,26 +1041,17 @@
       "evidence": [
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            220,
-            224
-          ],
+          "lines": [220, 224],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L220-L224"
         },
         {
           "path": "features/dot-vote/molecules/dot-vote-sticker.tsx",
-          "lines": [
-            96,
-            143
-          ],
+          "lines": [96, 143],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/dot-vote/molecules/dot-vote-sticker.tsx#L96-L143"
         },
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            87,
-            93
-          ],
+          "lines": [87, 93],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L87-L93"
         }
       ],
@@ -1403,34 +1071,22 @@
       "evidence": [
         {
           "path": "features/room/logic/idea-value-feasibility-map.ts",
-          "lines": [
-            20,
-            37
-          ],
+          "lines": [20, 37],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/idea-value-feasibility-map.ts#L20-L37"
         },
         {
           "path": "features/room/logic/idea-value-feasibility-map.ts",
-          "lines": [
-            56,
-            112
-          ],
+          "lines": [56, 112],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/idea-value-feasibility-map.ts#L56-L112"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            228,
-            237
-          ],
+          "lines": [228, 237],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L228-L237"
         },
         {
           "path": "contracts/board.ts",
-          "lines": [
-            5,
-            7
-          ],
+          "lines": [5, 7],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/board.ts#L5-L7"
         }
       ],
@@ -1450,36 +1106,24 @@
       "evidence": [
         {
           "path": "contracts/board.ts",
-          "lines": [
-            9,
-            45
-          ],
+          "lines": [9, 45],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/board.ts#L9-L45"
         },
         {
           "path": "features/room/molecules/idea-map-size-controls.tsx",
-          "lines": [
-            32,
-            50
-          ],
+          "lines": [32, 50],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/molecules/idea-map-size-controls.tsx#L32-L50"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            756,
-            770
-          ],
+          "lines": [756, 770],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L756-L770"
         }
       ],
       "tests": [
         {
           "path": "features/room/logic/use-canvas-camera.spec.tsx",
-          "lines": [
-            213,
-            236
-          ],
+          "lines": [213, 236],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.spec.tsx#L213-L236"
         }
       ],
@@ -1498,52 +1142,34 @@
       "evidence": [
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            682,
-            712
-          ],
+          "lines": [682, 712],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L682-L712"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            772,
-            776
-          ],
+          "lines": [772, 776],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L772-L776"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            374,
-            387
-          ],
+          "lines": [374, 387],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L374-L387"
         },
         {
           "path": "features/room/logic/use-candidate-operations.ts",
-          "lines": [
-            97,
-            149
-          ],
+          "lines": [97, 149],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-candidate-operations.ts#L97-L149"
         },
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            123,
-            129
-          ],
+          "lines": [123, 129],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L123-L129"
         }
       ],
       "tests": [
         {
           "path": "features/notes/molecules/note-card.spec.tsx",
-          "lines": [
-            441,
-            511
-          ],
+          "lines": [441, 511],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.spec.tsx#L441-L511"
         }
       ],
@@ -1562,26 +1188,17 @@
       "evidence": [
         {
           "path": "features/room/logic/room-notify.ts",
-          "lines": [
-            45,
-            67
-          ],
+          "lines": [45, 67],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/room-notify.ts#L45-L67"
         },
         {
           "path": "features/room/logic/use-candidate-operations.ts",
-          "lines": [
-            97,
-            149
-          ],
+          "lines": [97, 149],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-candidate-operations.ts#L97-L149"
         },
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            129,
-            129
-          ],
+          "lines": [129, 129],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L129"
         }
       ],
@@ -1601,34 +1218,22 @@
       "evidence": [
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            259,
-            297
-          ],
+          "lines": [259, 297],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L259-L297"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            452,
-            507
-          ],
+          "lines": [452, 507],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L452-L507"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            421,
-            430
-          ],
+          "lines": [421, 430],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L421-L430"
         },
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            85,
-            88
-          ],
+          "lines": [85, 88],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L85-L88"
         }
       ],
@@ -1648,18 +1253,12 @@
       "evidence": [
         {
           "path": "features/room/logic/use-room-board-interactions.ts",
-          "lines": [
-            262,
-            348
-          ],
+          "lines": [262, 348],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-room-board-interactions.ts#L262-L348"
         },
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            94,
-            99
-          ],
+          "lines": [94, 99],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L94-L99"
         }
       ],
@@ -1715,34 +1314,22 @@
       "evidence": [
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            891,
-            905
-          ],
+          "lines": [891, 905],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L891-L905"
         },
         {
           "path": "features/notes/logic/use-room-notes.ts",
-          "lines": [
-            684,
-            694
-          ],
+          "lines": [684, 694],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-room-notes.ts#L684-L694"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            420,
-            438
-          ],
+          "lines": [420, 438],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L420-L438"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            432,
-            452
-          ],
+          "lines": [432, 452],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L432-L452"
         }
       ],
@@ -1762,42 +1349,27 @@
       "evidence": [
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            771,
-            817
-          ],
+          "lines": [771, 817],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L771-L817"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            421,
-            439
-          ],
+          "lines": [421, 439],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L421-L439"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            760,
-            782
-          ],
+          "lines": [760, 782],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L760-L782"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            1008,
-            1016
-          ],
+          "lines": [1008, 1016],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L1008-L1016"
         },
         {
           "path": "features/notes/molecules/note-group-card.tsx",
-          "lines": [
-            106,
-            113
-          ],
+          "lines": [106, 113],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-group-card.tsx#L106-L113"
         }
       ],
@@ -1817,44 +1389,29 @@
       "evidence": [
         {
           "path": "features/dot-vote/molecules/dot-vote-palette-view.tsx",
-          "lines": [
-            56,
-            75
-          ],
+          "lines": [56, 75],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/dot-vote/molecules/dot-vote-palette-view.tsx#L56-L75"
         },
         {
           "path": "features/dot-vote/molecules/dot-vote-palette-view.tsx",
-          "lines": [
-            112,
-            132
-          ],
+          "lines": [112, 132],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/dot-vote/molecules/dot-vote-palette-view.tsx#L112-L132"
         },
         {
           "path": "features/dot-vote/molecules/dot-vote-palette-view.tsx",
-          "lines": [
-            183,
-            188
-          ],
+          "lines": [183, 188],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/dot-vote/molecules/dot-vote-palette-view.tsx#L183-L188"
         },
         {
           "path": "features/notes/logic/use-room-notes.ts",
-          "lines": [
-            813,
-            843
-          ],
+          "lines": [813, 843],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-room-notes.ts#L813-L843"
         }
       ],
       "tests": [
         {
           "path": "tests/browser/vote-palette-feedback.spec.ts",
-          "lines": [
-            1,
-            35
-          ],
+          "lines": [1, 35],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/tests/browser/vote-palette-feedback.spec.ts#L1-L35"
         }
       ],
@@ -1873,28 +1430,19 @@
       "evidence": [
         {
           "path": "features/room/molecules/board-operation-matrix.tsx",
-          "lines": [
-            20,
-            72
-          ],
+          "lines": [20, 72],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/molecules/board-operation-matrix.tsx#L20-L72"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            721,
-            738
-          ],
+          "lines": [721, 738],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L721-L738"
         }
       ],
       "tests": [
         {
           "path": "features/room/molecules/board-operation-matrix.spec.tsx",
-          "lines": [
-            6,
-            44
-          ],
+          "lines": [6, 44],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/molecules/board-operation-matrix.spec.tsx#L6-L44"
         }
       ],
@@ -1920,11 +1468,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "1-2",
@@ -1942,11 +1486,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "1-3",
@@ -1964,11 +1504,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "1-4",
@@ -1986,11 +1522,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "1-5",
@@ -2008,11 +1540,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "2-1",
@@ -2030,11 +1558,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "2-2",
@@ -2052,11 +1576,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "2-3",
@@ -2074,11 +1594,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "2-4",
@@ -2096,11 +1612,7 @@
       "mapDisplay": false,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "3-1",
@@ -2118,11 +1630,7 @@
       "mapDisplay": "if_shared_notes_on_revisit",
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "3-2",
@@ -2140,11 +1648,7 @@
       "mapDisplay": true,
       "mapResize": "host_no_active_drag",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "3-3",
@@ -2162,11 +1666,7 @@
       "mapDisplay": true,
       "mapResize": "host_no_active_drag",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "3-4",
@@ -2184,11 +1684,7 @@
       "mapDisplay": true,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     },
     {
       "step": "3-5",
@@ -2206,11 +1702,7 @@
       "mapDisplay": true,
       "mapResize": "none",
       "cameraRead": "personal",
-      "sourceIds": [
-        "board-permissions",
-        "roomdo-phase-gate",
-        "sprint-flow"
-      ]
+      "sourceIds": ["board-permissions", "roomdo-phase-gate", "sprint-flow"]
     }
   ],
   "contradictions": [
@@ -2224,18 +1716,12 @@
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            731,
-            739
-          ],
+          "lines": [731, 739],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L731-L739"
         },
         {
           "path": "features/notes/molecules/note-card.spec.tsx",
-          "lines": [
-            1160,
-            1190
-          ],
+          "lines": [1160, 1190],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.spec.tsx#L1160-L1190"
         }
       ],
@@ -2248,26 +1734,17 @@
       "sources": [
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            71,
-            71
-          ],
+          "lines": [71, 71],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L71"
         },
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            105,
-            105
-          ],
+          "lines": [105, 105],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L105"
         },
         {
           "path": "CONTEXT.md",
-          "lines": [
-            5,
-            17
-          ],
+          "lines": [5, 17],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/CONTEXT.md#L5-L17"
         }
       ],
@@ -2280,18 +1757,12 @@
       "sources": [
         {
           "path": "features/room/logic/use-room-board-interactions.ts",
-          "lines": [
-            157,
-            159
-          ],
+          "lines": [157, 159],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-room-board-interactions.ts#L157-L159"
         },
         {
           "path": "features/room/logic/board-permissions.ts",
-          "lines": [
-            309,
-            321
-          ],
+          "lines": [309, 321],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/board-permissions.ts#L309-L321"
         }
       ],
@@ -2304,26 +1775,17 @@
       "sources": [
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            117,
-            121
-          ],
+          "lines": [117, 121],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L117-L121"
         },
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            619,
-            641
-          ],
+          "lines": [619, 641],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L619-L641"
         },
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            674,
-            732
-          ],
+          "lines": [674, 732],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L674-L732"
         }
       ],
@@ -2345,10 +1807,7 @@
         },
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            302,
-            328
-          ],
+          "lines": [302, 328],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L302-L328"
         }
       ],
@@ -2361,18 +1820,12 @@
       "sources": [
         {
           "path": "features/room/logic/use-canvas-camera.ts",
-          "lines": [
-            302,
-            375
-          ],
+          "lines": [302, 375],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-canvas-camera.ts#L302-L375"
         },
         {
           "path": "features/notes/molecules/note-card.tsx",
-          "lines": [
-            1151,
-            1153
-          ],
+          "lines": [1151, 1153],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-card.tsx#L1151-L1153"
         }
       ],
@@ -2385,26 +1838,17 @@
       "sources": [
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            69,
-            69
-          ],
+          "lines": [69, 69],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L69"
         },
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            619,
-            641
-          ],
+          "lines": [619, 641],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L619-L641"
         },
         {
           "path": "features/room/logic/use-board-drag.ts",
-          "lines": [
-            674,
-            732
-          ],
+          "lines": [674, 732],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-board-drag.ts#L674-L732"
         }
       ],
@@ -2431,18 +1875,12 @@
       "sources": [
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            421,
-            439
-          ],
+          "lines": [421, 439],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L421-L439"
         },
         {
           "path": "features/room/templates/room-board-view.tsx",
-          "lines": [
-            760,
-            782
-          ],
+          "lines": [760, 782],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/templates/room-board-view.tsx#L760-L782"
         }
       ],
@@ -2455,18 +1893,12 @@
       "sources": [
         {
           "path": "features/room/molecules/board-operation-matrix.tsx",
-          "lines": [
-            20,
-            72
-          ],
+          "lines": [20, 72],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/molecules/board-operation-matrix.tsx#L20-L72"
         },
         {
           "path": "features/room/organisms/room-board-canvas.tsx",
-          "lines": [
-            361,
-            371
-          ],
+          "lines": [361, 371],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/organisms/room-board-canvas.tsx#L361-L371"
         }
       ],
@@ -2479,18 +1911,12 @@
       "sources": [
         {
           "path": "docs/product/sprint-flow.md",
-          "lines": [
-            171,
-            174
-          ],
+          "lines": [171, 174],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/product/sprint-flow.md#L171-L174"
         },
         {
           "path": "docs/README.md",
-          "lines": [
-            3,
-            3
-          ],
+          "lines": [3, 3],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/docs/README.md#L3"
         }
       ],
@@ -2578,66 +2004,42 @@
       "sourceUrls": [
         {
           "path": "workers/room/room-do.ts",
-          "lines": [
-            479,
-            512
-          ],
+          "lines": [479, 512],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.ts#L479-L512"
         },
         {
           "path": "workers/room/room-do.ts",
-          "lines": [
-            684,
-            749
-          ],
+          "lines": [684, 749],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.ts#L684-L749"
         },
         {
           "path": "workers/room/notes.ts",
-          "lines": [
-            78,
-            114
-          ],
+          "lines": [78, 114],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L78-L114"
         },
         {
           "path": "workers/visibility.ts",
-          "lines": [
-            25,
-            36
-          ],
+          "lines": [25, 36],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/visibility.ts#L25-L36"
         },
         {
           "path": "contracts/room-protocol.ts",
-          "lines": [
-            5,
-            8
-          ],
+          "lines": [5, 8],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/room-protocol.ts#L5-L8"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            458,
-            547
-          ],
+          "lines": [458, 547],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L458-L547"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            853,
-            928
-          ],
+          "lines": [853, 928],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L853-L928"
         },
         {
           "path": "workers/room/iterative-workflow.spec.ts",
-          "lines": [
-            270,
-            303
-          ],
+          "lines": [270, 303],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/iterative-workflow.spec.ts#L270-L303"
         }
       ]
@@ -2674,66 +2076,42 @@
       "sourceUrls": [
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            277,
-            476
-          ],
+          "lines": [277, 476],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L277-L476"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            502,
-            527
-          ],
+          "lines": [502, 527],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L502-L527"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            86,
-            96
-          ],
+          "lines": [86, 96],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L86-L96"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            132,
-            229
-          ],
+          "lines": [132, 229],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L132-L229"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            733,
-            757
-          ],
+          "lines": [733, 757],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L733-L757"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            4650,
-            5199
-          ],
+          "lines": [4650, 5199],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L4650-L5199"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            5201,
-            5477
-          ],
+          "lines": [5201, 5477],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L5201-L5477"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            5919,
-            6353
-          ],
+          "lines": [5919, 6353],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L5919-L6353"
         }
       ]
@@ -2755,9 +2133,7 @@
         "features/notes/logic/use-note-autosave.spec.tsx:46-112"
       ],
       "documentation_status": "詳細仕様未記載。",
-      "documentation": [
-        "docs/product/sprint-flow.md:162-168"
-      ],
+      "documentation": ["docs/product/sprint-flow.md:162-168"],
       "spec_action": "共同編集をLWWや排他本文編集と誤記しない。先着CAS、保存契機、IME、ACK、conflict後の回収導線を記載。",
       "verification_scenarios": [
         "同一付箋2接続同時編集",
@@ -2768,66 +2144,42 @@
       "sourceUrls": [
         {
           "path": "features/notes/logic/use-note-autosave.ts",
-          "lines": [
-            17,
-            40
-          ],
+          "lines": [17, 40],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.ts#L17-L40"
         },
         {
           "path": "features/notes/logic/use-note-autosave.ts",
-          "lines": [
-            152,
-            225
-          ],
+          "lines": [152, 225],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.ts#L152-L225"
         },
         {
           "path": "features/notes/logic/use-note-autosave.ts",
-          "lines": [
-            228,
-            295
-          ],
+          "lines": [228, 295],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.ts#L228-L295"
         },
         {
           "path": "features/notes/logic/use-note-autosave.ts",
-          "lines": [
-            496,
-            502
-          ],
+          "lines": [496, 502],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.ts#L496-L502"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            231,
-            334
-          ],
+          "lines": [231, 334],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L231-L334"
         },
         {
           "path": "contracts/room-protocol.ts",
-          "lines": [
-            308,
-            319
-          ],
+          "lines": [308, 319],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/room-protocol.ts#L308-L319"
         },
         {
           "path": "workers/room/note-content.spec.ts",
-          "lines": [
-            30,
-            135
-          ],
+          "lines": [30, 135],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-content.spec.ts#L30-L135"
         },
         {
           "path": "features/notes/logic/use-note-autosave.spec.tsx",
-          "lines": [
-            46,
-            112
-          ],
+          "lines": [46, 112],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.spec.tsx#L46-L112"
         }
       ]
@@ -2850,9 +2202,7 @@
         "features/notes/molecules/note-draft-recovery.spec.tsx"
       ],
       "documentation_status": "詳細仕様未記載。サーバーprivate下書きの保存要件とは区別が必要。",
-      "documentation": [
-        "docs/product/sprint-flow.md:159"
-      ],
+      "documentation": ["docs/product/sprint-flow.md:159"],
       "spec_action": "端末間同期の下書き保存と誤記しない。タブsessionの未反映文章はサーバーprivate削除後も回収対象になり得る。自動merge/overwrite/全文undoなし。",
       "verification_scenarios": [
         "offline中編集→同版復帰",
@@ -2864,58 +2214,37 @@
       "sourceUrls": [
         {
           "path": "features/notes/logic/note-draft-storage.ts",
-          "lines": [
-            3,
-            72
-          ],
+          "lines": [3, 72],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/note-draft-storage.ts#L3-L72"
         },
         {
           "path": "features/notes/logic/use-note-autosave.ts",
-          "lines": [
-            77,
-            149
-          ],
+          "lines": [77, 149],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.ts#L77-L149"
         },
         {
           "path": "features/notes/logic/use-note-autosave.ts",
-          "lines": [
-            298,
-            445
-          ],
+          "lines": [298, 445],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.ts#L298-L445"
         },
         {
           "path": "features/notes/logic/use-note-autosave.ts",
-          "lines": [
-            488,
-            540
-          ],
+          "lines": [488, 540],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.ts#L488-L540"
         },
         {
           "path": "features/notes/molecules/note-draft-recovery.tsx",
-          "lines": [
-            15,
-            89
-          ],
+          "lines": [15, 89],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/molecules/note-draft-recovery.tsx#L15-L89"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            335,
-            360
-          ],
+          "lines": [335, 360],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L335-L360"
         },
         {
           "path": "features/notes/logic/use-note-autosave.spec.tsx",
-          "lines": [
-            113,
-            281
-          ],
+          "lines": [113, 281],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.spec.tsx#L113-L281"
         },
         {
@@ -2962,82 +2291,52 @@
       "sourceUrls": [
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            89,
-            205
-          ],
+          "lines": [89, 205],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L89-L205"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            575,
-            649
-          ],
+          "lines": [575, 649],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L575-L649"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            678,
-            769
-          ],
+          "lines": [678, 769],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L678-L769"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            775,
-            846
-          ],
+          "lines": [775, 846],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L775-L846"
         },
         {
           "path": "features/notes/logic/use-note-autosave.ts",
-          "lines": [
-            447,
-            470
-          ],
+          "lines": [447, 470],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-autosave.ts#L447-L470"
         },
         {
           "path": "workers/room/host-transfer.ts",
-          "lines": [
-            9,
-            20
-          ],
+          "lines": [9, 20],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/host-transfer.ts#L9-L20"
         },
         {
           "path": "workers/room/phase-transition.spec.ts",
-          "lines": [
-            13,
-            77
-          ],
+          "lines": [13, 77],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase-transition.spec.ts#L13-L77"
         },
         {
           "path": "workers/room/iterative-workflow.spec.ts",
-          "lines": [
-            444,
-            493
-          ],
+          "lines": [444, 493],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/iterative-workflow.spec.ts#L444-L493"
         },
         {
           "path": "workers/room/active-host-transfer.spec.ts",
-          "lines": [
-            214,
-            254
-          ],
+          "lines": [214, 254],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/active-host-transfer.spec.ts#L214-L254"
         },
         {
           "path": "workers/room/active-host-transfer.spec.ts",
-          "lines": [
-            346,
-            361
-          ],
+          "lines": [346, 361],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/active-host-transfer.spec.ts#L346-L361"
         }
       ]
@@ -3058,9 +2357,7 @@
         "features/notes/logic/use-room-notes.spec.tsx:156-232"
       ],
       "documentation_status": "主要契約は明記済み。",
-      "documentation": [
-        "docs/product/sprint-flow.md:95-99"
-      ],
+      "documentation": ["docs/product/sprint-flow.md:95-99"],
       "spec_action": "socket単位とuser単位の違い、拒否応答とsilent ignore、font-sizeがlock対象外の点を明記。",
       "verification_scenarios": [
         "2人同時drag開始",
@@ -3071,58 +2368,37 @@
       "sourceUrls": [
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            186,
-            203
-          ],
+          "lines": [186, 203],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L186-L203"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            231,
-            243
-          ],
+          "lines": [231, 243],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L231-L243"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            362,
-            398
-          ],
+          "lines": [362, 398],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L362-L398"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            441,
-            533
-          ],
+          "lines": [441, 533],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L441-L533"
         },
         {
           "path": "workers/room/broadcast.ts",
-          "lines": [
-            197,
-            239
-          ],
+          "lines": [197, 239],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/broadcast.ts#L197-L239"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            2325,
-            2406
-          ],
+          "lines": [2325, 2406],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L2325-L2406"
         },
         {
           "path": "features/notes/logic/use-room-notes.spec.tsx",
-          "lines": [
-            156,
-            232
-          ],
+          "lines": [156, 232],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-room-notes.spec.tsx#L156-L232"
         }
       ]
@@ -3148,9 +2424,7 @@
         "workers/room/room-do.spec.ts:4089-4187"
       ],
       "documentation_status": "doc主要契約は一致。古いテスト冒頭コメントは矛盾。",
-      "documentation": [
-        "docs/product/sprint-flow.md:98"
-      ],
+      "documentation": ["docs/product/sprint-flow.md:98"],
       "spec_action": "「中断=drag開始前へundo」としない。受理途中座標は確定済み。lock TTL/半開接続のUXは未仕様。",
       "verification_scenarios": [
         "drag move直後切断",
@@ -3161,98 +2435,62 @@
       "sourceUrls": [
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            491,
-            588
-          ],
+          "lines": [491, 588],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L491-L588"
         },
         {
           "path": "workers/room/notes.ts",
-          "lines": [
-            324,
-            353
-          ],
+          "lines": [324, 353],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L324-L353"
         },
         {
           "path": "workers/room/broadcast.ts",
-          "lines": [
-            13,
-            20
-          ],
+          "lines": [13, 20],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/broadcast.ts#L13-L20"
         },
         {
           "path": "workers/room/broadcast.ts",
-          "lines": [
-            231,
-            247
-          ],
+          "lines": [231, 247],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/broadcast.ts#L231-L247"
         },
         {
           "path": "workers/room/presence.ts",
-          "lines": [
-            67,
-            108
-          ],
+          "lines": [67, 108],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/presence.ts#L67-L108"
         },
         {
           "path": "workers/room/room-do.ts",
-          "lines": [
-            557,
-            613
-          ],
+          "lines": [557, 613],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.ts#L557-L613"
         },
         {
           "path": "features/notes/logic/use-room-notes.ts",
-          "lines": [
-            267,
-            297
-          ],
+          "lines": [267, 297],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-room-notes.ts#L267-L297"
         },
         {
           "path": "features/notes/logic/use-room-notes.ts",
-          "lines": [
-            510,
-            515
-          ],
+          "lines": [510, 515],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-room-notes.ts#L510-L515"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            2408,
-            2449
-          ],
+          "lines": [2408, 2449],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L2408-L2449"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            2582,
-            2643
-          ],
+          "lines": [2582, 2643],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L2582-L2643"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            2886,
-            2940
-          ],
+          "lines": [2886, 2940],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L2886-L2940"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            4089,
-            4187
-          ],
+          "lines": [4089, 4187],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L4089-L4187"
         }
       ]
@@ -3273,9 +2511,7 @@
         "workers/room-protocol.spec.ts:2451-2580"
       ],
       "documentation_status": "docの無条件表現と実装の有界性に差。",
-      "documentation": [
-        "docs/product/sprint-flow.md:98"
-      ],
+      "documentation": ["docs/product/sprint-flow.md:98"],
       "spec_action": "保証するreplay期間/保持数を明記するか、無条件保証が要求なら実装変更対象にする。",
       "verification_scenarios": [
         "257件超の同phaseドラッグ後に最古ID replay（コード上再受理可能、未実行）",
@@ -3285,58 +2521,37 @@
       "sourceUrls": [
         {
           "path": "workers/room/drag-operations.ts",
-          "lines": [
-            1,
-            71
-          ],
+          "lines": [1, 71],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/drag-operations.ts#L1-L71"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            441,
-            479
-          ],
+          "lines": [441, 479],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L441-L479"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            725,
-            736
-          ],
+          "lines": [725, 736],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L725-L736"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            814,
-            837
-          ],
+          "lines": [814, 837],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L814-L837"
         },
         {
           "path": "workers/room/drag-operations.spec.ts",
-          "lines": [
-            15,
-            72
-          ],
+          "lines": [15, 72],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/drag-operations.spec.ts#L15-L72"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            2257,
-            2284
-          ],
+          "lines": [2257, 2284],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L2257-L2284"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            2451,
-            2580
-          ],
+          "lines": [2451, 2580],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L2451-L2580"
         }
       ]
@@ -3353,9 +2568,7 @@
         "workers/room/idea-map.ts:18-60",
         "workers/room/idea-map.ts:67-100"
       ],
-      "existing_tests": [
-        "workers/room/room-do.spec.ts:2467-2643"
-      ],
+      "existing_tests": ["workers/room/room-do.spec.ts:2467-2643"],
       "documentation_status": "匿名集約情報を共有する例外がdocにない。",
       "documentation": [
         "docs/product/sprint-flow.md:99",
@@ -3370,58 +2583,37 @@
       "sourceUrls": [
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            193,
-            203
-          ],
+          "lines": [193, 203],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L193-L203"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            449,
-            488
-          ],
+          "lines": [449, 488],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L449-L488"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            500,
-            510
-          ],
+          "lines": [500, 510],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L500-L510"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            544,
-            554
-          ],
+          "lines": [544, 554],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L544-L554"
         },
         {
           "path": "workers/room/idea-map.ts",
-          "lines": [
-            18,
-            60
-          ],
+          "lines": [18, 60],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/idea-map.ts#L18-L60"
         },
         {
           "path": "workers/room/idea-map.ts",
-          "lines": [
-            67,
-            100
-          ],
+          "lines": [67, 100],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/idea-map.ts#L67-L100"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            2467,
-            2643
-          ],
+          "lines": [2467, 2643],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L2467-L2643"
         }
       ]
@@ -3458,50 +2650,32 @@
       "sourceUrls": [
         {
           "path": "lib/room-client/room-client.ts",
-          "lines": [
-            19,
-            37
-          ],
+          "lines": [19, 37],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/lib/room-client/room-client.ts#L19-L37"
         },
         {
           "path": "lib/room-client/room-client.ts",
-          "lines": [
-            77,
-            164
-          ],
+          "lines": [77, 164],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/lib/room-client/room-client.ts#L77-L164"
         },
         {
           "path": "workers/room/room-do.ts",
-          "lines": [
-            557,
-            565
-          ],
+          "lines": [557, 565],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.ts#L557-L565"
         },
         {
           "path": "workers/room/room-do.ts",
-          "lines": [
-            879,
-            937
-          ],
+          "lines": [879, 937],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.ts#L879-L937"
         },
         {
           "path": "features/notes/logic/notes-reducer.ts",
-          "lines": [
-            34,
-            38
-          ],
+          "lines": [34, 38],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/notes-reducer.ts#L34-L38"
         },
         {
           "path": "features/notes/logic/use-room-notes.ts",
-          "lines": [
-            499,
-            515
-          ],
+          "lines": [499, 515],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-room-notes.ts#L499-L515"
         },
         {
@@ -3510,10 +2684,7 @@
         },
         {
           "path": "features/notes/logic/use-room-notes.spec.tsx",
-          "lines": [
-            110,
-            116
-          ],
+          "lines": [110, 116],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-room-notes.spec.tsx#L110-L116"
         }
       ]
@@ -3549,58 +2720,37 @@
       "sourceUrls": [
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            387,
-            439
-          ],
+          "lines": [387, 439],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L387-L439"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            590,
-            731
-          ],
+          "lines": [590, 731],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L590-L731"
         },
         {
           "path": "workers/room/notes.ts",
-          "lines": [
-            372,
-            508
-          ],
+          "lines": [372, 508],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L372-L508"
         },
         {
           "path": "features/room/logic/use-candidate-operations.ts",
-          "lines": [
-            25,
-            267
-          ],
+          "lines": [25, 267],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-candidate-operations.ts#L25-L267"
         },
         {
           "path": "contracts/room-protocol.ts",
-          "lines": [
-            262,
-            597
-          ],
+          "lines": [262, 597],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/room-protocol.ts#L262-L597"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            1253,
-            1324
-          ],
+          "lines": [1253, 1324],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L1253-L1324"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            1914,
-            2120
-          ],
+          "lines": [1914, 2120],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L1914-L2120"
         },
         {
@@ -3626,9 +2776,7 @@
         "workers/room/iterative-workflow.spec.ts:406-443"
       ],
       "documentation_status": "明記済み。",
-      "documentation": [
-        "docs/product/sprint-flow.md:87-89"
-      ],
+      "documentation": ["docs/product/sprint-flow.md:87-89"],
       "spec_action": "切断者も在籍なら投票完了条件に入る点を補足。",
       "verification_scenarios": [
         "未投票者切断で通常進行拒否→force",
@@ -3639,66 +2787,42 @@
       "sourceUrls": [
         {
           "path": "workers/room/notes.ts",
-          "lines": [
-            396,
-            471
-          ],
+          "lines": [396, 471],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L396-L471"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            598,
-            648
-          ],
+          "lines": [598, 648],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L598-L648"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            663,
-            734
-          ],
+          "lines": [663, 734],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L663-L734"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            784,
-            835
-          ],
+          "lines": [784, 835],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L784-L835"
         },
         {
           "path": "workers/room/votes.ts",
-          "lines": [
-            242,
-            280
-          ],
+          "lines": [242, 280],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/votes.ts#L242-L280"
         },
         {
           "path": "workers/room/room-do.spec.ts",
-          "lines": [
-            2645,
-            2790
-          ],
+          "lines": [2645, 2790],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.spec.ts#L2645-L2790"
         },
         {
           "path": "workers/room/iterative-workflow.spec.ts",
-          "lines": [
-            190,
-            269
-          ],
+          "lines": [190, 269],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/iterative-workflow.spec.ts#L190-L269"
         },
         {
           "path": "workers/room/iterative-workflow.spec.ts",
-          "lines": [
-            406,
-            443
-          ],
+          "lines": [406, 443],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/iterative-workflow.spec.ts#L406-L443"
         }
       ]
@@ -3722,9 +2846,7 @@
         "workers/room-protocol.spec.ts:2806-2862"
       ],
       "documentation_status": "明記済み。ただし古いテスト名が全員配信と誤記。",
-      "documentation": [
-        "docs/product/sprint-flow.md:90-94"
-      ],
+      "documentation": ["docs/product/sprint-flow.md:90-94"],
       "spec_action": "集計非表示だけでなくevent非送信まで契約化。",
       "verification_scenarios": [
         "相手が1票使用しても相手にイベントなし",
@@ -3735,82 +2857,52 @@
       "sourceUrls": [
         {
           "path": "workers/room/notes.ts",
-          "lines": [
-            525,
-            626
-          ],
+          "lines": [525, 626],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L525-L626"
         },
         {
           "path": "workers/room/votes.ts",
-          "lines": [
-            77,
-            130
-          ],
+          "lines": [77, 130],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/votes.ts#L77-L130"
         },
         {
           "path": "workers/room/votes.ts",
-          "lines": [
-            269,
-            295
-          ],
+          "lines": [269, 295],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/votes.ts#L269-L295"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            65,
-            78
-          ],
+          "lines": [65, 78],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L65-L78"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            881,
-            1046
-          ],
+          "lines": [881, 1046],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L881-L1046"
         },
         {
           "path": "workers/visibility.ts",
-          "lines": [
-            43,
-            65
-          ],
+          "lines": [43, 65],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/visibility.ts#L43-L65"
         },
         {
           "path": "workers/room/presence.ts",
-          "lines": [
-            15,
-            41
-          ],
+          "lines": [15, 41],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/presence.ts#L15-L41"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            1329,
-            1690
-          ],
+          "lines": [1329, 1690],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L1329-L1690"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            1904,
-            2215
-          ],
+          "lines": [1904, 2215],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L1904-L2215"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            2806,
-            2862
-          ],
+          "lines": [2806, 2862],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L2806-L2862"
         }
       ]
@@ -3836,9 +2928,7 @@
         "contracts/grouping.spec.ts"
       ],
       "documentation_status": "工程・近接groupの概要のみ。",
-      "documentation": [
-        "docs/product/sprint-flow.md:160-161"
-      ],
+      "documentation": ["docs/product/sprint-flow.md:160-161"],
       "spec_action": "無名の表示clusterと永続named group、group名の競合時後着更新、グループ丸ごとの移動/undo可否を明記。 切断/leave時に途中保存座標と旧membershipが残る挙動を確認する。将来multi-selectで個別moveを連送すると中間状態ごとにgroupが分割/消滅し得るため、一括対象とatomicな再編成点を定義する。groupの送信失敗/サーバー拒否時の表示回収は静的に見つかった仕様・回復経路の不足（実行時不具合とは断定しない）。",
       "verification_scenarios": [
         "1-2近接ではgroup再編成なし",
@@ -3851,90 +2941,57 @@
       "sourceUrls": [
         {
           "path": "workers/room/groups.ts",
-          "lines": [
-            76,
-            198
-          ],
+          "lines": [76, 198],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/groups.ts#L76-L198"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            80,
-            83
-          ],
+          "lines": [80, 83],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L80-L83"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            415,
-            417
-          ],
+          "lines": [415, 417],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L415-L417"
         },
         {
           "path": "workers/room/note-handlers.ts",
-          "lines": [
-            586,
-            586
-          ],
+          "lines": [586, 586],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L586"
         },
         {
           "path": "contracts/grouping.ts",
-          "lines": [
-            25,
-            40
-          ],
+          "lines": [25, 40],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/grouping.ts#L25-L40"
         },
         {
           "path": "contracts/grouping.ts",
-          "lines": [
-            104,
-            182
-          ],
+          "lines": [104, 182],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/grouping.ts#L104-L182"
         },
         {
           "path": "contracts/room-protocol.ts",
-          "lines": [
-            163,
-            169
-          ],
+          "lines": [163, 169],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/room-protocol.ts#L163-L169"
         },
         {
           "path": "workers/room/presence.ts",
-          "lines": [
-            67,
-            108
-          ],
+          "lines": [67, 108],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/presence.ts#L67-L108"
         },
         {
           "path": "workers/room/room-do.ts",
-          "lines": [
-            557,
-            609
-          ],
+          "lines": [557, 609],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.ts#L557-L609"
         },
         {
           "path": "features/notes/logic/use-note-groups.ts",
-          "lines": [
-            24,
-            74
-          ],
+          "lines": [24, 74],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/logic/use-note-groups.ts#L24-L74"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            3085,
-            3306
-          ],
+          "lines": [3085, 3306],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L3085-L3306"
         },
         {
@@ -3976,82 +3033,52 @@
       "sourceUrls": [
         {
           "path": "contracts/board.ts",
-          "lines": [
-            1,
-            14
-          ],
+          "lines": [1, 14],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/board.ts#L1-L14"
         },
         {
           "path": "contracts/room-protocol.ts",
-          "lines": [
-            122,
-            149
-          ],
+          "lines": [122, 149],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/contracts/room-protocol.ts#L122-L149"
         },
         {
           "path": "workers/room/phase.ts",
-          "lines": [
-            478,
-            523
-          ],
+          "lines": [478, 523],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/phase.ts#L478-L523"
         },
         {
           "path": "workers/room/notes.ts",
-          "lines": [
-            117,
-            147
-          ],
+          "lines": [117, 147],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L117-L147"
         },
         {
           "path": "workers/room/notes.ts",
-          "lines": [
-            211,
-            241
-          ],
+          "lines": [211, 241],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L211-L241"
         },
         {
           "path": "workers/room/notes.ts",
-          "lines": [
-            324,
-            369
-          ],
+          "lines": [324, 369],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/notes.ts#L324-L369"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            993,
-            1077
-          ],
+          "lines": [993, 1077],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L993-L1077"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            1270,
-            1311
-          ],
+          "lines": [1270, 1311],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L1270-L1311"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            2647,
-            2804
-          ],
+          "lines": [2647, 2804],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L2647-L2804"
         },
         {
           "path": "workers/room-protocol.spec.ts",
-          "lines": [
-            3072,
-            3083
-          ],
+          "lines": [3072, 3083],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room-protocol.spec.ts#L3072-L3083"
         }
       ]
@@ -4088,66 +3115,42 @@
       "sourceUrls": [
         {
           "path": "workers/room/host-transfer.ts",
-          "lines": [
-            6,
-            48
-          ],
+          "lines": [6, 48],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/host-transfer.ts#L6-L48"
         },
         {
           "path": "workers/room/room-do.ts",
-          "lines": [
-            710,
-            732
-          ],
+          "lines": [710, 732],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.ts#L710-L732"
         },
         {
           "path": "workers/room/members.ts",
-          "lines": [
-            132,
-            173
-          ],
+          "lines": [132, 173],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/members.ts#L132-L173"
         },
         {
           "path": "workers/room/room-do.ts",
-          "lines": [
-            257,
-            291
-          ],
+          "lines": [257, 291],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/room-do.ts#L257-L291"
         },
         {
           "path": "lib/room-client/room-client.ts",
-          "lines": [
-            98,
-            103
-          ],
+          "lines": [98, 103],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/lib/room-client/room-client.ts#L98-L103"
         },
         {
           "path": "lib/room-client/room-client.ts",
-          "lines": [
-            144,
-            152
-          ],
+          "lines": [144, 152],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/lib/room-client/room-client.ts#L144-L152"
         },
         {
           "path": "workers/room/active-host-transfer.spec.ts",
-          "lines": [
-            132,
-            499
-          ],
+          "lines": [132, 499],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/active-host-transfer.spec.ts#L132-L499"
         },
         {
           "path": "workers/room/host-command-authorization.spec.ts",
-          "lines": [
-            218,
-            283
-          ],
+          "lines": [218, 283],
           "url": "https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/host-command-authorization.spec.ts#L218-L283"
         }
       ]
@@ -4170,10 +3173,7 @@
       "source": "docs/product/sprint-flow.md:171-174",
       "text": "WS message gate詳細はDiscussion #36で管理",
       "current_truth": "docs/README.mdはPRD/進行仕様を正本化し、実際の全14step gateはphase.ts。",
-      "evidence": [
-        "docs/README.md:1-7",
-        "workers/room/phase.ts:329-476"
-      ],
+      "evidence": ["docs/README.md:1-7", "workers/room/phase.ts:329-476"],
       "action": "Discussionを旧検討根拠として扱うか、正本の責務を再整理。Discussion本文は未読"
     },
     {
@@ -4192,9 +3192,7 @@
       "source": "contracts/room-protocol.ts:10-12",
       "text": "現在phase1 step1-5のみ",
       "current_truth": "3phase全14step実装済み",
-      "evidence": [
-        "workers/room/phase.ts:329-476"
-      ],
+      "evidence": ["workers/room/phase.ts:329-476"],
       "action": "旧コメント更新対象"
     },
     {
@@ -4202,9 +3200,7 @@
       "source": "workers/room/room-do.spec.ts:4651-4666",
       "text": "Step2-2以降deny-all",
       "current_truth": "当テストは2-2でnote:create拒否だけ検証。publish/edit/move等は許可。",
-      "evidence": [
-        "workers/room/phase.ts:384-425"
-      ],
+      "evidence": ["workers/room/phase.ts:384-425"],
       "action": "テスト名を過剰解釈しない、名称修正対象"
     },
     {

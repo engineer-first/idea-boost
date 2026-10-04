@@ -61,12 +61,7 @@
             "type": "string"
           },
           "status": {
-            "enum": [
-              "inherited",
-              "v1",
-              "future",
-              "pending"
-            ]
+            "enum": ["inherited", "v1", "future", "pending"]
           },
           "acceptanceId": {
             "type": "string",
