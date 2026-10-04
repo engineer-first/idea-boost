@@ -144,3 +144,30 @@ PRテンプレートを構成の正本とし、`write-pr`から図と本文の�
 対案の記録がない場合に設計判断全体が省かれたため、対案を作らず決定と採用理由を残す記述に修正した。
 修正後の既存PRの下書きでは、記録された決定と理由を残し、対案・個別の検証結果を補わないことを確認した。
 この試行はPR文の生成を対象とし、実PRへの投稿や架空ケースのアプリ検証は実施していない。
+
+## 2026-10-04: 共有スキルの正本を統一（Issue #528）
+
+共有スキル8件を `.agents/skills/` の実体へ集約し、`.claude/skills/` は各スキルへの
+相対 symlink にした。`.codex/skills/` の重複は削除した。公式の探索仕様を根拠にした
+方針は [ADR 0005](../adr/0005-shared-skills.md)、編集場所と追加時の手順は
+[保守文書](../development/agent-maintenance.md#共有スキルの正本)に記録した。
+
+`pbi-demogoal` は3版を読み合わせ、受け入れ条件とデモゴールの操作・画面結果を示す
+新しい指針を持つ `.agents` 版を残した。Codex 版の表示メタデータを正本に移し、
+旧版とのスクリプト共有の説明を更新した。description 内の `#3` が YAML コメントに
+ならないよう引用符を付けた。明示専用のスキルは両ランタイムのメタデータで条件を維持した。
+
+Codex CLI 0.160.0 の `app-server` の `skills/list` と Claude Code 2.1.288 の
+SDK 初期化応答で、対象8件が重複なく探索されることを確認した。Claude CLI の shim は
+native binary 未配置のため、インストール済みパッケージの `cli-wrapper.cjs` 経由で起動した。
+モデルへの問い合わせ、Issue 作成、リリース、Discussion 投稿は行っていない。
+
+移行前の SHA-256 と照合し、移動した指示・scripts・references・表示設定の保持、
+両経路からの同じ実体の解決、相対 symlink と実行権限を確認した。
+PBI/DemoGoal の `--dry-run` は両経路で同一の出力になり、既存の Python テスト10件を
+呼ぶ Vitest と fake API を使う release operator の13テストが成功した。
+Markdown のローカルリンク・アンカー、YAML、整形、lint、`git diff --check` も確認した。
+
+共通の `quick_validate.py` は3件で成功し、5件は Claude 固有の `argument-hint` /
+`disable-model-invocation` を許容しないため失敗した。これらは削除せず、YAML 解析と
+両ランタイムの探索で検証した。本文の自動選択のモデル実走とプロダクトの起動検証は未実施。

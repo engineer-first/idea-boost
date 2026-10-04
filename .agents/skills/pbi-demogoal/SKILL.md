@@ -1,6 +1,6 @@
 ---
 name: pbi-demogoal
-description: idea-boost の PBI issue と、それに紐づく DemoGoal issue のみを作成する。PBI と統合 DemoGoal を engineer-first/idea-boost と組織 Project #3 に正しい Issue Type・milestone・初期状態で追加したいときに使う。Task・Bug・Spike issue の作成には使わない。
+description: "idea-boost の PBI issue と、それに紐づく DemoGoal issue のみを作成する。PBI と統合 DemoGoal を engineer-first/idea-boost と組織 Project #3 に正しい Issue Type・milestone・初期状態で追加したいときに使う。Task・Bug・Spike issue の作成には使わない。"
 ---
 
 # PBI DemoGoal
@@ -103,7 +103,7 @@ Task・Bug・Spike issue の作成にはこのスキルを使わない。それ�
 
 ## スクリプト
 
-このスキルと Codex スキル（`.codex/skills/pbi-demogoal/`）は同じスクリプトを共有する。`--dry-run` は外部通信せず、未採番の ID は `PBI-00` / `DEMO-00` と仮表示する。実行時の採番後にタイトルを更新できなかった場合は、エラー内の作成済み Issue URL から改題する。スクリプト全体を再実行すると Issue が重複するため再実行しない。リポジトリのルートから実行する:
+Codex と Claude Code は、この正本と同じディレクトリの `scripts/` を参照する。`--dry-run` は外部通信せず、未採番の ID は `PBI-00` / `DEMO-00` と仮表示する。実行時の採番後にタイトルを更新できなかった場合は、エラー内の作成済み Issue URL から改題する。スクリプト全体を再実行すると Issue が重複するため再実行しない。リポジトリのルートから実行する:
 
 ```bash
 python3 .agents/skills/pbi-demogoal/scripts/create_planning_issues.py --dry-run /tmp/idea-flow-spec.json
