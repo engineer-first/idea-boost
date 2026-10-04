@@ -19,6 +19,7 @@
 | なぜこの設計を選んだか                     | [ADR](adr/README.md)                                                                              |
 | Issue・チームの仕事を進めたい              | [Issue運用](team/issues.md)、[ホワイトボード](team/whiteboard.md)                                 |
 | 指示・skill・hookを保守したい              | [エージェント指示の保守](development/agent-maintenance.md)                                        |
+| 開発サーバーの期限と常駐を選びたい         | [開発サーバーの起動と停止](development/dev-server-lifecycle.md)                                   |
 | 図や操作デモで理解したい                   | [公開HTMLの目次](site/index.html) / [GitHub Pages](https://engineer-first.github.io/idea-boost/)  |
 | 当時の検討を辿りたい                       | [過去資料](archive/README.md)                                                                     |
 

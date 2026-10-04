@@ -26,6 +26,8 @@ async function main(): Promise<void> {
     );
   }
   const children: ChildProcess[] = [];
+  // 管理起動では監視側のグループに所属し、親の強制終了時もまとめて清掃する。
+  const processGroups = process.env.IDEA_BOOST_DEV_MANAGED !== "1";
   const abort = new AbortController();
   const unregisterSignals = registerShutdownSignals(abort);
   let runtime: VerificationRuntime | undefined;
@@ -35,7 +37,7 @@ async function main(): Promise<void> {
       cwd: projectDir,
       env: runtime?.env,
       stdio: "inherit",
-      detached: process.platform !== "win32",
+      detached: process.platform !== "win32" && processGroups,
     });
     children.push(child);
     return child;
@@ -56,7 +58,7 @@ async function main(): Promise<void> {
       abort.signal.addEventListener(
         "abort",
         () => {
-          void stopProcesses([child]);
+          void stopProcesses([child], processGroups);
         },
         { once: true },
       );
@@ -105,7 +107,7 @@ async function main(): Promise<void> {
       }
     });
   } finally {
-    await stopProcesses(children);
+    await stopProcesses(children, processGroups);
     if (runtime) await rm(runtime.directory, { recursive: true, force: true });
     unregisterSignals();
   }

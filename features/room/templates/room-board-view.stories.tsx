@@ -709,6 +709,15 @@ export const CanvasPanInteraction: Story = {
   },
 };
 
+export const VotingGuideScrollInteraction: Story = {
+  ...CanvasPanInteraction,
+  args: {
+    phase: STEP_1_4,
+    notes: CANVAS_HUD_NOTES,
+    initialGuideState: "detail",
+  },
+};
+
 export const WithFeedback: Story = {
   render: function Render(args) {
     const feedback = useFeedback(

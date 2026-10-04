@@ -51,7 +51,7 @@ describe("共有成果閲覧", () => {
       .mockResolvedValueOnce(new Response(null, { status: 403 }));
     vi.stubGlobal("fetch", fetchMock);
     render(<SharedOutcomes />);
-    await screen.findByRole("button", { name: /相談ルーム/ });
+    await screen.findByRole("link", { name: /相談ルーム/ });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/shared-outcomes",
       expect.objectContaining({
@@ -61,7 +61,7 @@ describe("共有成果閲覧", () => {
     fireEvent.click(screen.getByRole("button", { name: "最新の状態を取得" }));
     await screen.findByRole("alert");
     expect(
-      screen.queryByRole("button", { name: /相談ルーム/ }),
+      screen.queryByRole("link", { name: /相談ルーム/ }),
     ).not.toBeInTheDocument();
   });
   it("一覧から詳細へ進み戻る操作でも新しく取得する", async () => {
@@ -76,7 +76,7 @@ describe("共有成果閲覧", () => {
       .mockResolvedValueOnce(Response.json({ outcomes: [], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);
     render(<SharedOutcomes />);
-    fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
+    fireEvent.click(await screen.findByRole("link", { name: /相談ルーム/ }));
     await screen.findByRole("heading", { name: "決定した3項目" });
     fireEvent.click(screen.getByRole("button", { name: "成果一覧へ戻る" }));
     await screen.findByText("保存期間内の成果はありません。");

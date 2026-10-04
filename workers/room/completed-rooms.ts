@@ -92,7 +92,9 @@ export function fixCompletion(
     };
   });
   const viewers = sql
-    .exec<{ user_id: string }>("SELECT user_id FROM members ORDER BY user_id")
+    .exec<{ user_id: string }>(
+      "SELECT user_id FROM members UNION SELECT user_id FROM retained_outcome_participants ORDER BY user_id",
+    )
     .toArray()
     .map((r) => r.user_id);
   const decisions = snapshot.decisions.map(({ phase, noteId, content }) => ({
@@ -110,6 +112,7 @@ export function fixCompletion(
     JSON.stringify(viewers),
     now + 1000,
   );
+  sql.exec("DELETE FROM retained_outcome_participants");
   sql.exec("DELETE FROM pending_phase_transition");
   sql.exec("DELETE FROM sharing_state");
   sql.exec(
@@ -125,6 +128,18 @@ export class CompletedRoomStorage {
   ) {}
   private get sql(): SqlStorage {
     return this.ctx.storage.sql;
+  }
+  // 退出と同じtransactionSyncで呼び、外部索引より先に取得権を失効させる。
+  revokeViewer(userId: string): void {
+    const row = readCompletion(this.sql);
+    if (!row?.viewers_json || row.deleted) return;
+    const viewers = JSON.parse(row.viewers_json) as string[];
+    if (!viewers.includes(userId)) return;
+    this.sql.exec(
+      "UPDATE completed_room SET viewers_json=?,retry_at=? WHERE id=1",
+      JSON.stringify(viewers.filter((viewer) => viewer !== userId)),
+      Date.now() + 1000,
+    );
   }
   private authorized(userId: string): CompletionRow | null {
     const row = readCompletion(this.sql);
@@ -249,16 +264,18 @@ export class CompletedRoomStorage {
     if (row.retry_at === null || !row.viewers_json) return;
     try {
       const viewers = JSON.parse(row.viewers_json) as string[];
-      if (viewers.length)
-        await this.db.batch(
-          viewers.map((userId) =>
-            this.db
-              .prepare(
-                "INSERT INTO completed_room_viewers(user_id,room_id,completed_at,expires_at) VALUES(?,?,?,?) ON CONFLICT(user_id,room_id) DO NOTHING",
-              )
-              .bind(userId, row.room_id, row.completed_at, row.expires_at),
-          ),
-        );
+      await this.db.batch([
+        this.db
+          .prepare("DELETE FROM completed_room_viewers WHERE room_id=?")
+          .bind(row.room_id),
+        ...viewers.map((userId) =>
+          this.db
+            .prepare(
+              "INSERT INTO completed_room_viewers(user_id,room_id,completed_at,expires_at) VALUES(?,?,?,?) ON CONFLICT(user_id,room_id) DO NOTHING",
+            )
+            .bind(userId, row.room_id, row.completed_at, row.expires_at),
+        ),
+      ]);
       await this.db
         .prepare(
           "UPDATE progress_history_snapshots SET expires_at=? WHERE room_id=?",
@@ -269,7 +286,11 @@ export class CompletedRoomStorage {
         await this.expire(row);
         return;
       }
-      this.sql.exec("UPDATE completed_room SET retry_at=NULL WHERE id=1");
+      // 外部I/O中の退出が更新した閲覧者を、古い投影の成功でackしない。
+      this.sql.exec(
+        "UPDATE completed_room SET retry_at=NULL WHERE id=1 AND viewers_json=? AND deleted=0",
+        row.viewers_json,
+      );
     } catch {
       this.sql.exec(
         "UPDATE completed_room SET retry_at=? WHERE id=1",
@@ -304,6 +325,7 @@ export class CompletedRoomStorage {
         for (const table of [
           "notes",
           "members",
+          "retained_outcome_participants",
           "groups",
           "decisions",
           "note_votes",

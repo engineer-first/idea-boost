@@ -245,13 +245,17 @@ async function handleLeaveRoom(
   );
   if (!body.success) return error(400, "リクエスト形式が不正です。");
   // 作成者IDはlegacy seedのみ。判定と更新を別RPCに分けず、DOで直列化する。
-  if (body.data.intent !== "self" && (await stub.isMember(session.sub)))
+  if (
+    (body.data.intent !== "self" || body.data.outcomeAccess === "retain") &&
+    (await stub.isMember(session.sub))
+  )
     await stub.ensureSharedOutcome(roomId, room.createdAt);
   const result = await stub.leaveOrDisband(
     session.sub,
     room.hostId,
     body.data.intent,
     body.data.expectedHostRevision,
+    body.data.outcomeAccess,
   );
   if (result === "not-member")
     return error(404, "ルームが見つかりませんでした。");
