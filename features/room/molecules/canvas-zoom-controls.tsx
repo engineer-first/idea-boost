@@ -31,7 +31,7 @@ export function CanvasZoomControls({
   onFitToNotes,
 }: CanvasZoomControlsProps) {
   return (
-    <TooltipProvider delayDuration={2000} skipDelayDuration={0}>
+    <TooltipProvider delayDuration={1000}>
       <fieldset
         className="board-hud pointer-events-auto flex items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-lg shadow-black/5"
         data-testid="canvas-zoom-controls"

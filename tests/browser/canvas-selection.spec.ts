@@ -63,7 +63,7 @@ async function selectedCount(count: number): Promise<void> {
 
 test.each([
   390, 1280,
-])("%ipxで各キャンバス操作のヒントをhoverの2秒後に画面内へ表示する", async (width) => {
+])("%ipxで各キャンバス操作のヒントをhoverの1秒後に画面内へ表示する", async (width) => {
   await page.setViewportSize({ width, height: 720 });
   await page.clock.install({ time: new Date("2030-01-01T00:00:00Z") });
   await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
@@ -80,7 +80,7 @@ test.each([
   ]) {
     const button = page.getByRole("button", { name, exact: true });
     await button.hover();
-    await page.clock.runFor(1999);
+    await page.clock.runFor(999);
     expect(await hint.count()).toBe(0);
     await page.clock.runFor(1);
     expect(await hint.count()).toBe(1);
@@ -92,7 +92,7 @@ test.each([
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
     await page.mouse.move(width / 2, 400, { steps: 4 });
-    await page.clock.runFor(300);
+    await page.clock.runFor(400);
     await hint.waitFor({ state: "hidden" });
   }
 });
@@ -110,6 +110,33 @@ test("キーボードでフォーカスしたヒントは待たずに表示し�
   await page.keyboard.press("Escape");
   await hint.waitFor({ state: "hidden" });
   expect(await hand.evaluate((el) => el === document.activeElement)).toBe(true);
+});
+
+test("手のひらのヒントから隣の選択ツールへ移ると待たずに切り替わる", async () => {
+  await page.clock.install({ time: new Date("2030-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
+  const hint = page.locator(
+    '[data-slot="tooltip-content"]:not([data-state="closed"])',
+  );
+  await page.getByRole("button", { name: "手のひらツール" }).hover();
+  await page.clock.runFor(1000);
+  await page.clock.runFor(32);
+  await hint.waitFor({ state: "visible" });
+  expect(await hint.textContent()).toContain("手のひら");
+
+  const select = await page
+    .getByRole("button", { name: "選択ツール" })
+    .boundingBox();
+  if (!select) throw new Error("選択ツールが表示されていません");
+  await page.mouse.move(
+    select.x + select.width / 2,
+    select.y + select.height / 2,
+    { steps: 4 },
+  );
+  expect(await hint.getAttribute("data-state")).toBe("instant-open");
+  await page.clock.runFor(32);
+  await hint.waitFor({ state: "visible" });
+  expect(await hint.textContent()).toContain("選択（背景でV）");
 });
 
 test("選択ツールは付箋上でも矢印になり、handから戻すと矢印へ戻る", async () => {
