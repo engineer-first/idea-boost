@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "1.0.0",
+  "boardUrl": "https://www.figma.com/board/bpWlMnyv0Z9pvq7mMeQ0dj",
+  "canonicalSource": "../canvas-interactions.md",
+  "sourceSha256": "fd34922205491c5480067e0c1d23e798ce87132052b87dd3853b90ea82493e4f",
+  "note": "Hashes are set only after native-text + screenshot readback. Matching hashes demonstrate reviewed version provenance, not automated visual semantics verification.",
+  "sections": [
+    {
+      "id": "VS-00",
+      "nodeId": "1:6",
+      "ruleIds": [],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-01",
+      "nodeId": "1:8",
+      "ruleIds": [
+        "CI-MODE-001",
+        "CI-PAN-001",
+        "CI-PHASE-001"
+      ],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-02",
+      "nodeId": "1:10",
+      "ruleIds": [
+        "CI-IN-001",
+        "CI-IN-002",
+        "CI-A11Y-001",
+        "CI-A11Y-003"
+      ],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-03",
+      "nodeId": "1:12",
+      "ruleIds": [
+        "CI-SEL-001",
+        "CI-SEL-002",
+        "CI-SEL-003",
+        "CI-MOVE-001",
+        "CI-MOVE-002",
+        "CI-GROUP-001"
+      ],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-04",
+      "nodeId": "1:14",
+      "ruleIds": [
+        "CI-SHARE-001",
+        "CI-SHARE-002",
+        "CI-SHARE-003"
+      ],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-05",
+      "nodeId": "1:16",
+      "ruleIds": [
+        "CI-PHASE-001",
+        "CI-PHASE-002",
+        "CI-PHASE-003",
+        "CI-PHASE-004",
+        "CI-NOTE-001",
+        "CI-NOTE-002",
+        "CI-NOTE-003",
+        "CI-MAP-001"
+      ],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-06",
+      "nodeId": "1:18",
+      "ruleIds": [
+        "CI-IN-003",
+        "CI-SYNC-001",
+        "CI-SYNC-002",
+        "CI-PAN-001",
+        "CI-PAN-002"
+      ],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-07",
+      "nodeId": "1:20",
+      "ruleIds": [],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-08",
+      "nodeId": "1:22",
+      "ruleIds": [
+        "CI-FUTURE-001",
+        "CI-A11Y-002"
+      ],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-09",
+      "nodeId": "11:225",
+      "ruleIds": [
+        "CI-PERF-001",
+        "CI-HIST-001",
+        "CI-HIST-002",
+        "CI-MOVE-001",
+        "CI-MOVE-002"
+      ],
+      "status": "draft",
+      "ruleHashes": {}
+    },
+    {
+      "id": "VS-10",
+      "nodeId": "18:218",
+      "ruleIds": [],
+      "status": "media_pending",
+      "ruleHashes": {}
+    }
+  ],
+  "media": [],
+  "canonicalGitHubUrl": "https://github.com/engineer-first/idea-boost/blob/codex/canvas-interaction-spec/docs/product/canvas-interactions.md",
+  "textDiagramStatus": "awaiting_final_readback",
+  "mediaStatus": "pending_access_and_placement_verification"
+}
