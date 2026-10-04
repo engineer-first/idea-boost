@@ -61,6 +61,51 @@ async function selectedCount(count: number): Promise<void> {
     .toBe(String(count));
 }
 
+test("選択ツールは付箋上でも矢印になり、handから戻すと矢印へ戻る", async () => {
+  const viewport = page.getByTestId("board-scroller");
+  const surfaces = page.locator("[data-canvas-note-surface='true']");
+  const cursors = async () => ({
+    background: await viewport.evaluate((el) => getComputedStyle(el).cursor),
+    notes: await surfaces.evaluateAll((els) =>
+      els.map((el) => getComputedStyle(el).cursor),
+    ),
+  });
+  expect(await surfaces.count()).toBe(3);
+  await surfaces.first().hover();
+  expect(await cursors()).toEqual({
+    background: "default",
+    notes: ["default", "default", "default"],
+  });
+  await page.getByRole("button", { name: "手のひらツール" }).click();
+  await surfaces.first().hover();
+  expect(await cursors()).toEqual({
+    background: "grab",
+    notes: ["grab", "grab", "grab"],
+  });
+  await page.getByRole("button", { name: "選択ツール" }).click();
+  await surfaces.first().hover();
+  expect(await cursors()).toEqual({
+    background: "default",
+    notes: ["default", "default", "default"],
+  });
+});
+
+test("選択ツールのマイ付箋も矢印カーソルを表示する", async () => {
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardview--canvas-input-private&viewMode=story`,
+  );
+  await page.getByRole("button", { name: "マイ付箋を開く" }).click();
+  const surface = page
+    .getByTestId("private-notes-toolbar")
+    .locator("[data-canvas-note-surface='true']")
+    .first();
+  await surface.waitFor();
+  await surface.hover();
+  expect(await surface.evaluate((el) => getComputedStyle(el).cursor)).toBe(
+    "default",
+  );
+});
+
 test("AT-006/008: group背景で3枚を囲みShiftで解除し、handは付箋を動かさない", async () => {
   const before = await transform();
   const stack = await page

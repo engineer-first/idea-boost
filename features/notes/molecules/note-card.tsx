@@ -1215,7 +1215,7 @@ export function NoteCard({
                   ? "cursor-grab"
                   : isOwnDrag
                     ? "cursor-grabbing"
-                    : "cursor-grab"
+                    : "cursor-default"
           }`}
         />
       )}
