@@ -1,5 +1,8 @@
 import { isUuid } from "../contracts/ids";
-import type { SharedOutcomeSummary } from "../contracts/shared-outcomes";
+import {
+  type SharedOutcomeSummary,
+  SharedOutcomesQuerySchema,
+} from "../contracts/shared-outcomes";
 import type { ApiWorkerEnv } from "./api-worker";
 
 function response(body: unknown, status = 200): Response {
@@ -57,44 +60,90 @@ export async function handleSharedOutcomes(
   }
   if (url.pathname !== "/api/shared-outcomes")
     return response({ error: "not found" }, 404);
-  const rawCursor = url.searchParams.get("cursor");
-  const offset = rawCursor === null ? 0 : Number(rawCursor);
-  if (!Number.isSafeInteger(offset) || offset < 0)
-    return response({ error: "取得位置が不正です。" }, 400);
-  // rooms の旧ルームも取り込み、成果索引の初回保存に失敗した場合も発見できる。
-  const candidates =
-    await env.DB.prepare(`SELECT room_id, MAX(last_used_at) AS last_used_at, MAX(created_at) AS created_at FROM (
+  const parsed = SharedOutcomesQuerySchema.safeParse(
+    Object.fromEntries(url.searchParams),
+  );
+  if (!parsed.success)
+    return response({ error: "検索条件または取得位置が不正です。" }, 400);
+  const { q, status, phase, saveStatus, cursor } = parsed.data;
+  const term = q.normalize("NFKC").toLocaleLowerCase("ja-JP");
+  const filtered = Boolean(
+    term || status !== "all" || phase !== "all" || saveStatus !== "all",
+  );
+  const [timestamp, afterRoomId] = (cursor ?? "0").split(":");
+  const offset = afterRoomId ? 0 : Number(timestamp);
+  let position: { time: number; id: string } | null = afterRoomId
+    ? { time: Number(timestamp), id: afterRoomId }
+    : null;
+  let scanned = 0;
+  let hasMore = false;
+  const outcomes: SharedOutcomeSummary[] = [];
+  // 索引の保存失敗や古い投影でも検索から漏らさないよう、条件はRoomDOの現在の記録に適用する。
+  // 一度に走査する候補は250件まで。続きはcursorで取得し、無制限のDO呼び出しを避ける。
+  do {
+    const size = Math.min(50 - outcomes.length, 250 - scanned);
+    const candidates =
+      await env.DB.prepare(`SELECT room_id, MAX(last_used_at) AS last_used_at, MAX(created_at) AS created_at FROM (
  SELECT room_id, last_used_at, NULL AS created_at FROM shared_outcomes
  UNION ALL SELECT id AS room_id, CAST(strftime('%s', created_at) AS INTEGER)*1000 AS last_used_at, created_at FROM rooms
- ) GROUP BY room_id ORDER BY last_used_at DESC, room_id LIMIT 51 OFFSET ?`)
-      .bind(offset)
-      .all<{
-        room_id: string;
-        last_used_at: number;
-        created_at: string | null;
-      }>();
-  const records = await Promise.all(
-    candidates.results.slice(0, 50).map(async (row) => {
-      const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(row.room_id));
-      if (row.created_at)
-        await stub.ensureSharedOutcome(
-          row.room_id,
-          Date.parse(`${row.created_at.replace(" ", "T")}Z`),
-        );
-      return stub.getSharedOutcome();
-    }),
-  );
-  const outcomes: SharedOutcomeSummary[] = [];
-  for (const record of records) {
-    if (!record) continue;
-    const { snapshot: _, ...summary } = record;
-    outcomes.push(summary);
-  }
+ ) GROUP BY room_id HAVING (? IS NULL OR MAX(last_used_at) < ? OR (MAX(last_used_at) = ? AND room_id > ?)) ORDER BY last_used_at DESC, room_id LIMIT ? OFFSET ?`)
+        .bind(
+          position?.time ?? null,
+          position?.time ?? null,
+          position?.time ?? null,
+          position?.id ?? null,
+          size + 1,
+          position ? 0 : offset,
+        )
+        .all<{
+          room_id: string;
+          last_used_at: number;
+          created_at: string | null;
+        }>();
+    const rows = candidates.results.slice(0, size);
+    const records = await Promise.all(
+      rows.map(async (row) => {
+        const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(row.room_id));
+        if (row.created_at)
+          await stub.ensureSharedOutcome(
+            row.room_id,
+            Date.parse(`${row.created_at.replace(" ", "T")}Z`),
+          );
+        return stub.getSharedOutcome();
+      }),
+    );
+    for (const record of records) {
+      if (!record) continue;
+      if (
+        term &&
+        ![record.name ?? "", record.displayId, record.roomId].some((value) =>
+          value.normalize("NFKC").toLocaleLowerCase("ja-JP").includes(term),
+        )
+      )
+        continue;
+      if (status !== "all" && record.status !== status) continue;
+      if (saveStatus !== "all" && record.saveStatus !== saveStatus) continue;
+      if (
+        phase !== "all" &&
+        (phase === "lobby"
+          ? record.phase.kind !== "lobby"
+          : record.phase.kind !== "step" ||
+            String(record.phase.phase) !== phase)
+      )
+        continue;
+      const { snapshot: _, ...summary } = record;
+      outcomes.push(summary);
+    }
+    scanned += rows.length;
+    const last = rows.at(-1);
+    if (last) position = { time: last.last_used_at, id: last.room_id };
+    hasMore = candidates.results.length > size;
+  } while (filtered && hasMore && scanned < 250 && outcomes.length < 50);
   outcomes.sort(
     (a, b) => b.lastUsedAt - a.lastUsedAt || a.roomId.localeCompare(b.roomId),
   );
   return response({
     outcomes,
-    nextCursor: candidates.results.length > 50 ? String(offset + 50) : null,
+    nextCursor: hasMore && position ? `${position.time}:${position.id}` : null,
   });
 }

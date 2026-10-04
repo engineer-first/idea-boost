@@ -84,3 +84,26 @@ export type ProgressHistoryResponse = z.infer<
   typeof ProgressHistoryResponseSchema
 >;
 export type ProgressHistoryRecord = z.infer<typeof ProgressHistoryRecordSchema>;
+
+export const SharedOutcomeFiltersSchema = z.object({
+  q: z.string().trim().max(200).default(""),
+  status: z.enum(["all", "partial", "confirmed"]).default("all"),
+  phase: z.enum(["all", "lobby", "1", "2", "3"]).default("all"),
+  saveStatus: z.enum(["all", "saved", "pending", "failed"]).default("all"),
+});
+export const SharedOutcomeCursorSchema = z
+  .string()
+  .max(90)
+  .refine((value) => {
+    const [position, id, extra] = value.split(":");
+    return (
+      /^\d+$/.test(position) &&
+      Number.isSafeInteger(Number(position)) &&
+      extra === undefined &&
+      (id === undefined || z.string().uuid().safeParse(id).success)
+    );
+  });
+export const SharedOutcomesQuerySchema = SharedOutcomeFiltersSchema.extend({
+  cursor: SharedOutcomeCursorSchema.optional(),
+});
+export type SharedOutcomeFilters = z.infer<typeof SharedOutcomeFiltersSchema>;

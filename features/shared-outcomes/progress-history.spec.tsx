@@ -9,7 +9,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import { buildSharedOutcome } from "@/contracts/shared-outcomes.fixture";
 import { SharedOutcomes } from "./shared-outcomes";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/shared-outcomes");
+});
 const outcome = buildSharedOutcome();
 const snapshot = outcome.snapshot;
 if (!snapshot) throw new Error("fixture snapshot required");
@@ -48,7 +51,7 @@ it("時系列を分割取得し、選択した盤面だけ取得して遅れた�
   });
   vi.stubGlobal("fetch", fetchMock);
   render(<SharedOutcomes />);
-  fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
+  fireEvent.click(await screen.findByRole("link", { name: /相談ルーム/ }));
   fireEvent.click(
     await screen.findByRole("button", { name: "次の記録を表示" }),
   );
@@ -87,7 +90,7 @@ it("盤面の取得失敗で古い本文を表示せず、同じ記録を再取�
     }),
   );
   render(<SharedOutcomes />);
-  fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
+  fireEvent.click(await screen.findByRole("link", { name: /相談ルーム/ }));
   fireEvent.click(await screen.findByRole("button", { name: /盤面を見る/ }));
   await screen.findByText(/盤面を取得できませんでした/);
   failed = false;
@@ -110,7 +113,7 @@ it.each([
     }),
   );
   render(<SharedOutcomes />);
-  fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
+  fireEvent.click(await screen.findByRole("link", { name: /相談ルーム/ }));
   await screen.findByRole("alert");
   expect(
     screen.queryByRole("heading", { name: "決定した3項目" }),
@@ -138,11 +141,11 @@ it("旧ルームの盤面取得中に別ルームへ移っても更新操作が�
     }),
   );
   render(<SharedOutcomes />);
-  fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
+  fireEvent.click(await screen.findByRole("link", { name: /相談ルーム/ }));
   fireEvent.click(await screen.findByRole("button", { name: /盤面を見る/ }));
   await screen.findByText("盤面を読み込んでいます…");
   fireEvent.click(screen.getByRole("button", { name: "成果一覧へ戻る" }));
-  fireEvent.click(await screen.findByRole("button", { name: /別ルーム/ }));
+  fireEvent.click(await screen.findByRole("link", { name: /別ルーム/ }));
   await screen.findByRole("button", { name: /盤面を見る/ });
   await waitFor(() =>
     expect(
@@ -170,7 +173,7 @@ it("履歴へ進み、全文を読んだ後に記録一覧へ戻って別の記�
     }),
   );
   render(<SharedOutcomes />);
-  fireEvent.click(await screen.findByRole("button", { name: /相談ルーム/ }));
+  fireEvent.click(await screen.findByRole("link", { name: /相談ルーム/ }));
   fireEvent.click(
     await screen.findByRole("button", { name: "進行の記録を見る" }),
   );

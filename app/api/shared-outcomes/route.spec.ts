@@ -30,3 +30,20 @@ describe("成果閲覧プロキシ", () => {
     ).toBe(403);
   });
 });
+
+it("検索と絞り込みを取得位置と一緒にWorkerへ渡す", async () => {
+  apiFetch.mockResolvedValue(Response.json({ outcomes: [], nextCursor: null }));
+  await GET(
+    new Request(
+      "https://app.test/api/shared-outcomes?q=受付&status=confirmed&phase=3&cursor=50&ignored=secret",
+    ),
+  );
+  const path = apiFetch.mock.calls.at(-1)?.[0];
+  const params = new URL(path, "https://api.test").searchParams;
+  expect(Object.fromEntries(params)).toEqual({
+    q: "受付",
+    status: "confirmed",
+    phase: "3",
+    cursor: "50",
+  });
+});
