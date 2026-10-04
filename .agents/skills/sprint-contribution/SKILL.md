@@ -1,6 +1,6 @@
 ---
 name: sprint-contribution
-description: idea-boost のスプリント（GitHub milestone）ごとに、PBI 単位の貢献度管理シートを作成して GitHub Discussion にコメント投稿する。引数はスプリント名（milestone title、例 "Sprint 4"）と投稿先 Discussion の URL。末尾に --dry-run を付けると、実際には投稿せず Markdown ファイルの生成までで止める。
+description: idea-boost のスプリント（GitHub milestone）ごとに、PBI 単位の貢献度管理シートを作成して GitHub Discussion にコメント投稿する。引数はスプリント名（milestone title）と投稿先 Discussion の URL。末尾に --dry-run を付けると、実際には投稿せず Markdown ファイルの生成までで止める。
 argument-hint: <milestone名> <Discussion URL> [--dry-run]
 disable-model-invocation: true
 ---
@@ -23,7 +23,7 @@ GitHub Discussion への投稿は外部から見える公開アクションな�
 gh api repos/$OWNER/$REPO/milestones --jq 'sort_by(.number)'
 ```
 
-期間は対象 Milestone の説明に記録された確定開始日と review/demo 日を使う。1 sprint は対象授業6回（開発5回＋review/demo）であり、前の期限や暦の6日から開始日を推測しない。未確定なら期間による PR 検索を保留して、その旨を報告する。
+日程は GitHub Milestone を正本とし、説明の `assignment_start_date` と最終日（`due_on`、review/demo日）を確認する。review/demo日は次期の割当開始日でもあるため、期間によるPR検索では前期の終了を含めず、次期と二重集計しない（[GitHubの期間検索](https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests#search-by-when-a-pull-request-was-merged)）。開始やdueが未確定なら期間検索だけを保留し、Milestone内のIssueから集計する。
 
 ### 2. 完了済みも含む milestone の issue 一覧を取得する
 
@@ -84,11 +84,11 @@ git log --numstat --pretty=format:'COMMIT|%H|%an' <1st-parent>..<2nd-parent> -- 
 ### 7. 未整理の作業と期間内の未対応 PR を確認する
 
 手順2の一覧から PBI に紐づいていない作業 Issue をすべて残す。Task だけに限定せず、Bug / Spike / 種類なしも同じように担当と成果を確認する。
-期間が確定している場合は、develop へ merge された PR の取りこぼしも調べる:
+期間が確定している場合は、割当開始とdue日のJST 00:00をUTCのISO8601へ換算して `START_UTC`・`END_UTC` に設定し、developへmergeされたPRの取りこぼしも調べる:
 
 ```bash
 gh pr list --repo $OWNER/$REPO --base develop --state merged --limit 1000 \
-  --search "merged:<開始日>..<終了日>" --json number,title,author,mergedAt
+  --search "merged:>=${START_UTC} merged:<${END_UTC}" --json number,title,author,mergedAt
 ```
 
 既に計上した PR を除き、残りだけ diff を確認する。Milestone 未設定や対応 Issue 不明の PR は集計漏れ候補として明記し、期間内という理由だけで sprint へ自動割当しない。
@@ -133,7 +133,3 @@ gh discussion comment <discussion番号> --repo $OWNER/$REPO --body-file <作成
 ```
 
 `--dry-run` が指定されている場合は投稿せず、作成した Markdown ファイルのパスと内容をユーザーに提示して終わる。
-
-## 過去の実行例
-
-Sprint 3（PBI-04〜09 が対象）と Sprint 2（PBI-01〜03 が対象）で実際にこの手順を踏んで投稿済み（Discussion #36 の既存コメント参照）。新しいスプリントで迷ったら、これらのコメントを読んで書きぶりの粒度を揃えるとよい。

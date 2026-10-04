@@ -228,3 +228,33 @@ Projectの「PBI未紐づけ」の実フィルター `repo:engineer-first/idea-b
 - [#263](https://github.com/engineer-first/idea-boost/issues/263) DEMO-20 投票先と残り票数を把握しながら投票できる（Sprint 6）
 - [#265](https://github.com/engineer-first/idea-boost/issues/265) DEMO-21 サービス名をIdea Boostに統一して提供できる（Sprint 6）
 - [#268](https://github.com/engineer-first/idea-boost/issues/268) DEMO-22 今回の成果を伝え、レビューを受けられる（Sprint 6）
+
+## 2026-10-04: 日程をMilestoneへ集約し、review/demo当日から次期へ割当
+
+現行文書の授業回数・空欄Day・固定日程例・過去sprint説明を以下へ移し、日程はGitHub Milestoneだけを正本とした。最終日のreview/demoとplanning当日から次期へIssueを割り当てる。新metadataは `idea-boost-sprint:v2` の `schema_version: 2`・`timezone: Asia/Tokyo`・`assignment_start_date` だけとし、割当終了はMilestoneのdue日のJST 00:00未満とする。明示登録した後続のdueが未確定なら捏造せず、後続未登録なら自動割当を保留する。実Milestoneの設定変更は本PRの作業で行わない。
+
+Issue #528はclosed、PR #531はmerge済み（`de31d2751f7bb0adea627c1e25501eaeb5abcf77`）で、最新developと本PRの祖先に含まれる。共有正本・Claude相対symlink・Codex重複なし・呼出条件を保持する。
+
+### 以前の日程説明
+
+1 sprint は暦の6日間ではなく、対象授業6回（開発5回＋第6回 review/demo）。授業日程の Day が空欄の発表日等は数えない。開始日・開発日・review/demo 日・次の開始日は、確定した授業日程に基づき Milestone 説明へ記録する。年を固定して繰り返さない。
+
+確認済みの例: [Sprint 7](https://github.com/engineer-first/idea-boost/milestone/7)は2026-10-05開始、開発は10/5・7・8・9・13、review/demoは10/14、次の開始は10/15。過去の Sprint 1〜6 は履歴として残す。今後の期間・成果・割当ては Milestone を確認する。
+
+現在の sprint は Milestone 説明内の次の JSON コメントで決める。既存の成果・授業日説明は残し、確定した日程を登録するときにコメントも更新する。下記の期間は Sprint 7 の例で、年度を固定して実行しない。
+
+```html
+<!-- idea-boost-sprint:v1
+{"schema_version":1,"sprint_number":7,"timezone":"Asia/Tokyo","start_date":"2026-10-05","end_date":"2026-10-14","development_dates":["2026-10-05","2026-10-07","2026-10-08","2026-10-09","2026-10-13"],"demo_date":"2026-10-14","next_start_date":"2026-10-15"}
+-->
+```
+
+判定に使うのは `schema_version: 1`・`timezone: Asia/Tokyo`・`start_date`・`end_date`。開始日のJST 00:00から終了日いっぱいまでを対象とし、`next_start_date` まで延長しない。期間の空白日・次sprint未登録・該当なし・期間不正・複数該当・対象Milestoneがclosedの場合は更新せず、Actions Summary に理由を残す。title・due date だけでは推測しない。
+
+## 過去の実行例
+
+Sprint 3（PBI-04〜09 が対象）と Sprint 2（PBI-01〜03 が対象）で実際にこの手順を踏んで投稿済み（Discussion #36 の既存コメント参照）。新しいスプリントで迷ったら、これらのコメントを読んで書きぶりの粒度を揃えるとよい。
+
+### 境界と探索の検証
+
+先に境界テストの失敗28件を確認し、新schema・dueのJST日付・review/demo日の切替・年越し・後続未登録・明示登録したdue未確定を含む43件が成功した。PBI・状態同期・バーンダウンも含む関連107件とPython 11件、lint・型検査を確認した。Claudeの正式CLIのSDK初期化では共有8件と `pbi` が各1件表示された。モデル呼出し・Issue作成なし、session保存なしで終了した。Codex app-serverの `skills/list` は応答を確認できず、新名の探索実確認は未確認とする。正本と相対symlink・表示metadata・呼出条件は保持している。

@@ -4,7 +4,7 @@ function resolveCurrentSprint(milestones, now) {
     const description = milestone.description ?? "";
     if (!description.includes("idea-boost-sprint:")) continue;
     const matches = [
-      ...description.matchAll(/<!--\s*idea-boost-sprint:v1\s*([\s\S]*?)-->/g),
+      ...description.matchAll(/<!--\s*idea-boost-sprint:v2\s*([\s\S]*?)-->/g),
     ];
     if (
       matches.length !== 1 ||
@@ -27,17 +27,31 @@ function resolveCurrentSprint(milestones, now) {
       );
     };
     if (
-      period?.schema_version !== 1 ||
+      period?.schema_version !== 2 ||
       period.timezone !== "Asia/Tokyo" ||
-      !isDate(period.start_date) ||
-      !isDate(period.end_date) ||
-      period.start_date > period.end_date
+      !isDate(period.assignment_start_date)
     ) {
       return { milestone: null, reason: "invalid-sprint-period" };
     }
-    const startAt = Date.parse(`${period.start_date}T00:00:00+09:00`);
-    const endAt =
-      Date.parse(`${period.end_date}T00:00:00+09:00`) + 24 * 60 * 60 * 1000;
+    const startAt = Date.parse(
+      `${period.assignment_start_date}T00:00:00+09:00`,
+    );
+    let endAt = Infinity;
+    if (milestone.due_on != null) {
+      const dueAt = Date.parse(milestone.due_on);
+      if (
+        typeof milestone.due_on !== "string" ||
+        !isDate(milestone.due_on.slice(0, 10)) ||
+        !Number.isFinite(dueAt)
+      )
+        return { milestone: null, reason: "invalid-sprint-period" };
+      const dueDate = new Date(dueAt + 9 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      endAt = Date.parse(`${dueDate}T00:00:00+09:00`);
+      if (startAt >= endAt)
+        return { milestone: null, reason: "invalid-sprint-period" };
+    }
     if (now.getTime() >= startAt && now.getTime() < endAt)
       current.push(milestone);
   }

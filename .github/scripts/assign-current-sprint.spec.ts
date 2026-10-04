@@ -6,13 +6,18 @@ import {
   resolveCurrentSprint,
 } from "./assign-current-sprint.js";
 
-const period = (start = "2026-10-05", end = "2026-10-14") =>
-  `既存の成果・授業日の説明\n<!-- idea-boost-sprint:v1\n${JSON.stringify({ schema_version: 1, timezone: "Asia/Tokyo", start_date: start, end_date: end })}\n-->`;
-const milestone = (number = 7) => ({
+const period = (start = "2026-10-05") =>
+  `成果の説明\n<!-- idea-boost-sprint:v2\n${JSON.stringify({ schema_version: 2, timezone: "Asia/Tokyo", assignment_start_date: start })}\n-->`;
+const milestone = (
+  number = 7,
+  start = "2026-10-05",
+  due: string | null = "2026-10-14T00:00:00Z",
+) => ({
   number,
   title: `Sprint ${number}`,
   state: "open",
-  description: period(),
+  description: period(start),
+  due_on: due,
 });
 const now = () => new Date("2026-10-08T03:00:00Z");
 interface Issue {
@@ -59,32 +64,53 @@ function fixture(issues = [issue()], milestones = [milestone()]) {
   };
 }
 
-describe("JSTの明示期間で現在sprintを決める", () => {
+describe("MilestoneのJST割当期間を使う", () => {
   it.each([
-    ["2026-10-04T14:59:59.999Z", false],
-    ["2026-10-04T15:00:00.000Z", true],
-    ["2026-10-14T14:59:59.999Z", true],
-    ["2026-10-14T15:00:00.000Z", false],
-  ])("期間境界 %s", (instant, found) => {
+    ["2026-10-04T14:59:59.999Z", null],
+    ["2026-10-04T15:00:00.000Z", 7],
+    ["2026-10-13T14:59:59.999Z", 7],
+    ["2026-10-13T15:00:00.000Z", 8],
+    ["2026-10-21T14:59:59.999Z", 8],
+    ["2026-10-21T15:00:00.000Z", 9],
+  ])("review/demo日の00:00から次へ切り替わる %s", (instant, expected) => {
+    const all = [
+      milestone(),
+      milestone(8, "2026-10-14", "2026-10-22T00:00:00Z"),
+      milestone(9, "2026-10-22", "2026-11-02T00:00:00Z"),
+    ];
     expect(
-      Boolean(resolveCurrentSprint([milestone()], new Date(instant)).milestone),
-    ).toBe(found);
+      resolveCurrentSprint(all, new Date(instant)).milestone?.number ?? null,
+    ).toBe(expected);
   });
-  it("titleやdueだけでは推測せず、既存の説明は維持する", () => {
+  it("titleや説明文だけでは推測しない", () => {
     expect(
       resolveCurrentSprint(
-        [
-          {
-            ...milestone(),
-            description: "2026-10-05〜2026-10-14（JST）",
-            due_on: "2026-10-14",
-          },
-        ],
+        [{ ...milestone(), description: "review/demoあり" }],
         now(),
       ).milestone,
     ).toBeNull();
   });
-  it("該当なし・closed・複数該当はskipする", () => {
+  it("due_onの変更を反映し、metadataに終了日を複製しない", () => {
+    const instant = new Date("2026-10-13T15:00:00Z");
+    expect(resolveCurrentSprint([milestone()], instant).milestone).toBeNull();
+    expect(
+      resolveCurrentSprint(
+        [milestone(7, "2026-10-05", "2026-10-15T00:00:00Z")],
+        instant,
+      ).milestone?.number,
+    ).toBe(7);
+  });
+  it("due_onはJSTの日付で解釈する", () => {
+    const m = milestone(7, "2026-10-05", "2026-10-13T15:00:00Z");
+    expect(
+      resolveCurrentSprint([m], new Date("2026-10-13T14:59:59Z")).milestone
+        ?.number,
+    ).toBe(7);
+    expect(
+      resolveCurrentSprint([m], new Date("2026-10-13T15:00:00Z")).milestone,
+    ).toBeNull();
+  });
+  it("該当なし・closed・重複はskipする", () => {
     expect(resolveCurrentSprint([], now()).reason).toBe("no-current-sprint");
     expect(
       resolveCurrentSprint([{ ...milestone(), state: "closed" }], now()).reason,
@@ -95,26 +121,46 @@ describe("JSTの明示期間で現在sprintを決める", () => {
   });
   it.each([
     period("2026-02-30"),
-    period("2026-10-15", "2026-10-14"),
     `${period()}\n${period()}`,
     period().replace("Asia/Tokyo", "UTC"),
-    "<!-- idea-boost-sprint:v1 {broken} -->",
-  ])("不正・逆転・重複メタデータを推測しない", (description) => {
+    "<!-- idea-boost-sprint:v2 {broken} -->",
+    "<!-- idea-boost-sprint:v1 {} -->",
+  ])("不正・重複・旧schemaを推測しない", (description) => {
     expect(
       resolveCurrentSprint([{ ...milestone(), description }], now()).reason,
     ).toBe("invalid-sprint-period");
   });
-  it("授業期間のgapや未登録の次sprintへ期間を延ばさない", () => {
-    const gap = {
-      ...milestone(),
-      description: period("2026-10-23", "2026-11-02"),
-    };
+  it.each([
+    "2026-02-30T00:00:00Z",
+    "invalid",
+    "2026-10-05T00:00:00Z",
+  ])("不正due・開始日以前のdueを使わない %s", (due) => {
     expect(
-      resolveCurrentSprint([gap], new Date("2026-11-03T03:00:00Z")).reason,
-    ).toBe("no-current-sprint");
+      resolveCurrentSprint([milestone(7, "2026-10-05", due)], now()).reason,
+    ).toBe("invalid-sprint-period");
+  });
+  it("後続未登録ならreview/demo日からskipし、次を捏造しない", () => {
     expect(
-      resolveCurrentSprint([gap], new Date("2026-11-04T03:00:00Z")).reason,
+      resolveCurrentSprint(
+        [milestone(14, "2026-12-11", "2027-01-08T00:00:00Z")],
+        new Date("2027-01-07T15:00:00Z"),
+      ).reason,
     ).toBe("no-current-sprint");
+  });
+  it("明示登録した後続はdue未確定でも使い、年を跨いで切り替える", () => {
+    const all = [
+      milestone(14, "2026-12-11", "2027-01-08T00:00:00Z"),
+      milestone(15, "2027-01-08", null),
+    ];
+    expect(
+      resolveCurrentSprint(all, new Date("2027-01-07T14:59:59Z")).milestone
+        ?.number,
+    ).toBe(14);
+    expect(
+      resolveCurrentSprint(all, new Date("2027-01-07T15:00:00Z")).milestone
+        ?.number,
+    ).toBe(15);
+    expect(all[1].due_on).toBeNull();
   });
 });
 
@@ -162,6 +208,19 @@ describe("全open Issueを現在sprintへ付け替える", () => {
       { number: 42, from: 7, to: 8 },
     ]);
     expect(input.github.rest.issues.update).toHaveBeenCalledTimes(1);
+  });
+  it("review/demo当日00:00から未完了を次期へ移し、closedは前期に残す", async () => {
+    const issues = [issue(42, 7), { ...issue(43, 7), state: "closed" }];
+    const input = fixture(issues, [
+      milestone(),
+      milestone(8, "2026-10-14", "2026-10-22T00:00:00Z"),
+    ]);
+    const result = await assignCurrentSprint({
+      ...input,
+      now: () => new Date("2026-10-13T15:00:00Z"),
+    });
+    expect(result.updated).toEqual([{ number: 42, from: 7, to: 8 }]);
+    expect(issues[1].milestone?.number).toBe(7);
   });
   it("dry-runは付替え予定だけ返し、外部書込しない", async () => {
     const input = fixture([issue(42, 6)]);
@@ -249,7 +308,7 @@ describe("全open Issueを現在sprintへ付け替える", () => {
       .fn()
       .mockReturnValueOnce(now())
       .mockReturnValueOnce(now())
-      .mockReturnValue(new Date("2026-10-14T15:00:00Z"));
+      .mockReturnValue(new Date("2026-10-13T15:00:00Z"));
     await assignCurrentSprint({ ...input, now: clock });
     expect(input.github.rest.issues.update).not.toHaveBeenCalled();
   });
