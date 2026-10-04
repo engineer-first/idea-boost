@@ -4,8 +4,17 @@ import { DOT_VOTE_CRITERIA, DOT_VOTE_GUIDANCE } from "@/features/dot-vote";
 export type FacilitationGuideContent = {
   durationMinutes: number;
   intro: string;
+  action?: string;
+  firstAction?: string;
+  visualExample?: {
+    caption: string;
+    items: readonly string[];
+    grouped?: boolean;
+    flow?: boolean;
+  };
   message: string;
   hostMessage: string | null;
+  hostTimerGuide?: string;
   purpose?: string;
   steps?: readonly string[];
   example?: string | null;
@@ -17,7 +26,6 @@ export type FacilitationGuideContent = {
 };
 
 const DEFAULT_DETAILS = {
-  purpose: "このステップで考えることを整理します。",
   example: null,
 } as const;
 
@@ -36,11 +44,16 @@ const FACILITATION_GUIDES: Record<
   1: {
     1: {
       durationMinutes: 5,
+      action: "困ったことを書く",
+      firstAction: "「付箋を追加」を押し、最近あった困ったことを1つ書く。",
+      visualExample: {
+        caption: "例：1枚に1つ",
+        items: ["朝、起きられない", "宿題を忘れる"],
+      },
       intro: "まずは、最近あった困ったことを付箋に。1枚に1つずつ書こう。",
       message: "1枚につき1つ書こう。",
-      hostMessage:
-        "右上からタイマーを設定しよう！\nタイマーが終了したら次のステップへ進もう。",
-      ...DEFAULT_DETAILS,
+      hostMessage: "書き終えた人を確認して、次のステップへ進みます。",
+      purpose: "まずは一人で考えます。共有するまで、自分だけに見えます。",
       completion: "書き終えたら、ホストの案内を待ちます。",
       modalIntro: "アイデア出しを始めよう！",
       modalTitle: "最近あった困ったことを付箋に書き出そう。",
@@ -51,41 +64,58 @@ const FACILITATION_GUIDES: Record<
     },
     2: {
       durationMinutes: 6,
-      intro: "右上の順番に沿って、付箋を説明しながらドラッグして共有しよう。",
-      message:
-        "右上の順番に沿って、自分の付箋を説明しながらドラッグして共有しよう。",
+      action: "一人ずつ話して共有する",
+      firstAction: "画面上の「発表中」の名前を確認する。",
+      visualExample: {
+        caption: "発表の流れ（例）",
+        items: ["1人目が話す", "次の人へ", "2人目が話す"],
+        flow: true,
+      },
+      intro: "画面上の名前を見て、一人ずつ付箋を説明して共有しよう。",
+      message: "画面上の順番に沿って、付箋を説明しながらボードへ動かそう。",
       hostMessage:
-        "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
-      ...DEFAULT_DETAILS,
+        "発表者本人に加え、ホストも画面上の「次の人へ」で交代できます。全員が話したら次へ進みます。",
+      purpose: "一人ずつ話して、全員の考えを聞きます。",
       completion: "全員の共有が終わったら、次のステップへ進みます。",
       modalTitle: "作成した付箋をメンバーに共有しよう！",
       modalPurpose: null,
       steps: [
-        "右上の発表者欄で、3回共通の順番を確認する",
-        "最初の順番の人がすべての付箋を一つずつ説明しながら共有する。",
-        "右上の順番に沿って、次の人が発表する",
+        "自分の番に、付箋を説明しながらボードへドラッグする",
+        "話し終えた本人が、画面上の「次の人へ」を押す",
+        "発表の順番は目安です。自分の番でなくても付箋を共有できます。",
       ],
     },
     3: {
       durationMinutes: 4,
+      action: "似た付箋を集める",
+      firstAction: "似ている付箋を2枚、近くに動かす。",
+      visualExample: {
+        caption: "例：「時間の管理」でまとめる",
+        items: ["宿題を忘れる", "予定を忘れる"],
+        grouped: true,
+      },
       intro: "似ている付箋を近づけよう。集まったグループに名前をつけよう。",
       message: "共有した付箋のうち、似ているものを近づけてグループに分けよう。",
       hostMessage: "グループ化が終わったら、次のステップへ進んでください。",
-      ...DEFAULT_DETAILS,
+      purpose:
+        "同じ困りごとを見つけ、次の投票で比べやすくします。似ていない付箋はそのままで大丈夫です。",
       completion: "グループ化が終わったら、次のステップへ進みます。",
       modalTitle: "似ている課題を集めて整理しよう！",
       modalPurpose: null,
       steps: [
-        "内容が似ている付箋を近くに移動する",
-        "付箋のグループに名前をつける",
+        "枠ができたら、枠の上の名前を押す",
+        "共通する内容を、短い名前にする",
       ],
     },
     4: {
       durationMinutes: 3,
+      action: "付箋を選んで投票する",
+      firstAction: "画面下のシールを選び、投票したい付箋を押す。",
+      visualExample: { caption: "使える票", items: ["主観 1票", "客観 3票"] },
       intro: "付箋に主観1票・客観3票を貼ろう。シールを押すと取り消せます。",
       message: DOT_VOTE_GUIDANCE.summary,
       hostMessage: "全員の投票が終わったら、次のステップへ進んでください。",
-      ...DEFAULT_DETAILS,
+      purpose: "自分が取り組みたい案と、ほかの人にも役立つ案を選びます。",
       completion: "全員の投票が終わったら、次のステップへ進みます。",
       modalTitle: "解決したい課題に投票しよう！",
       modalPurpose: null,
@@ -112,6 +142,13 @@ const FACILITATION_GUIDES: Record<
   2: {
     1: {
       durationMinutes: 3,
+      action: "課題を質問に変える",
+      firstAction: "決定した課題を読み、「付箋を追加」を押す。",
+      visualExample: {
+        caption: "課題から質問へ（例）",
+        items: ["学校に来られない", "どうすれば、来やすくなる？"],
+        flow: true,
+      },
       intro: "決めた課題を、もっとくわしく見てみよう！",
       message: "何をよくしたいのかがわかる質問を、付箋に書こう。",
       hostMessage: null,
@@ -133,26 +170,36 @@ const FACILITATION_GUIDES: Record<
     },
     2: {
       durationMinutes: 6,
+      action: "一人ずつ話して共有する",
+      firstAction: "画面上の「発表中」の名前を確認する。",
+      visualExample: {
+        caption: "発表の流れ（例）",
+        items: ["1人目が話す", "次の人へ", "2人目が話す"],
+        flow: true,
+      },
       intro: "決めた順番に、問いを1つずつ説明しながら共有しよう。",
-      message:
-        "右上の順番に沿って、自分の付箋を説明しながらドラッグして共有しよう。",
+      message: "画面上の順番に沿って、付箋を説明しながらボードへ動かそう。",
       hostMessage:
-        "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
-      ...DEFAULT_DETAILS,
+        "発表者本人に加え、ホストも画面上の「次の人へ」で交代できます。全員が話したら次へ進みます。",
+      purpose: "一人ずつ話して、全員の考えを聞きます。",
       completion: "全員の共有が終わったら、次のステップへ進みます。",
       modalTitle: "作成した問いをメンバーに共有しよう！",
       modalPurpose: null,
       steps: [
-        "最初の順番の人が、問いを1つずつ説明しながら共有する",
-        "右上の順番に沿って、次の人が発表する",
+        "自分の番に、問いを説明しながらボードへドラッグする",
+        "話し終えた本人が、画面上の「次の人へ」を押す",
+        "発表の順番は目安です。自分の番でなくても付箋を共有できます。",
       ],
     },
     3: {
       durationMinutes: 4,
+      action: "付箋を選んで投票する",
+      firstAction: "画面下のシールを選び、投票したい付箋を押す。",
+      visualExample: { caption: "使える票", items: ["主観 1票", "客観 3票"] },
       intro: "付箋に主観1票・客観3票を貼ろう。シールを押すと取り消せます。",
       message: DOT_VOTE_GUIDANCE.summary,
       hostMessage: "全員の投票が終わったら、次のステップへ進んでください。",
-      ...DEFAULT_DETAILS,
+      purpose: "自分が取り組みたい案と、ほかの人にも役立つ案を選びます。",
       completion: "全員の投票が終わったら、次のステップへ進みます。",
       modalTitle: "アイデアが広がりそうな問いに投票しよう！",
       modalPurpose: null,
@@ -200,28 +247,41 @@ const FACILITATION_GUIDES: Record<
     },
     2: {
       durationMinutes: 6,
-      intro:
-        "解決策を説明し、2軸マップへ仮置きしよう。発表中は手を止めて聞こう。",
+      action: "一人ずつ話して共有する",
+      firstAction: "画面上の「発表中」の名前を確認する。",
+      visualExample: {
+        caption: "発表の流れ（例）",
+        items: ["1人目が話す", "次の人へ", "2人目が話す"],
+        flow: true,
+      },
+      intro: "一人ずつ解決策を説明し、2軸マップへ仮置きしよう。",
       message:
-        "解決策をみんなに共有し、発表しながら2軸マップに置こう。ほかの人が発表している間は手を止めて聞こう。",
+        "一人ずつ解決策を説明し、価値と実現のしやすさを考えて2軸マップへ置こう。",
       hostMessage:
-        "右上で持ち時間を設定して開始し、話の区切りで「次の人へ」を押してください。一巡後に次のステップへ進みます。",
-      ...DEFAULT_DETAILS,
+        "発表者本人に加え、ホストも画面上の「次の人へ」で交代できます。全員が話したら次へ進みます。",
+      purpose: "一人ずつ話して、全員の考えを聞きます。",
       completion: "全員の共有が終わったら、次のステップへ進みます。",
       modalTitle: "解決策を共有してマップに置こう！",
       modalPurpose: null,
       steps: [
-        "右上の順番に沿って、解決策を1つずつ説明しながら共有する",
-        "価値と実現のしやすさを考えて、マップへ仮置きする",
+        "自分の番に、解決策を説明しながらマップへドラッグする",
+        "話し終えた本人が、画面上の「次の人へ」を押す",
+        "発表の順番は目安です。自分の番でなくても付箋を共有できます。",
       ],
     },
     3: {
       durationMinutes: 7,
+      action: "付箋を動かして比べる",
+      firstAction: "解決策を1枚選び、話し合いながらマップで動かす。",
+      visualExample: {
+        caption: "マップの読み方",
+        items: ["上ほど価値が高い", "右ほど実現しやすい"],
+      },
       intro: "付箋を動かして比べよう。上ほど価値が高く、右ほど実現しやすい。",
       message:
         "付箋を動かし、縦軸の「価値」と横軸の「実現可能性」で評価しよう。",
       hostMessage: "評価が終わったら、次のステップへ進んでください。",
-      ...DEFAULT_DETAILS,
+      purpose: "どの案に価値があり、実現できそうかを比べます。",
       completion: "全員が納得できる位置を決めたら、次のステップへ進みます。",
       modalTitle: "解決策を価値と実現のしやすさで比べよう！",
       modalPurpose: null,
@@ -233,10 +293,13 @@ const FACILITATION_GUIDES: Record<
     },
     4: {
       durationMinutes: 3,
+      action: "付箋を選んで投票する",
+      firstAction: "画面下のシールを選び、投票したい付箋を押す。",
+      visualExample: { caption: "使える票", items: ["主観 1票", "客観 3票"] },
       intro: "付箋に主観1票・客観3票を貼ろう。シールを押すと取り消せます。",
       message: DOT_VOTE_GUIDANCE.summary,
       hostMessage: "全員の投票が終わったら、次のステップへ進んでください。",
-      ...DEFAULT_DETAILS,
+      purpose: "自分が取り組みたい案と、ほかの人にも役立つ案を選びます。",
       completion: "全員の投票が終わったら、次のステップへ進みます。",
       modalTitle: "採用したい解決策に投票しよう！",
       modalPurpose: null,
@@ -272,5 +335,12 @@ export function getFacilitationGuide(
   phase: RoomPhase,
 ): FacilitationGuideContent | null {
   if (phase.kind === "lobby") return null;
-  return FACILITATION_GUIDES[phase.phase][phase.step];
+  const guide = FACILITATION_GUIDES[phase.phase][phase.step];
+  return {
+    ...guide,
+    hostTimerGuide:
+      phase.step === 2
+        ? "共有のタイマーは自動で始まります。画面上の時間表示で残り時間を確認できます。"
+        : "画面上の時間表示を押す → 分・秒を決める → 「開始」を押す。",
+  };
 }

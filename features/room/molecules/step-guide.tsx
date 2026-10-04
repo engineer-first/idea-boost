@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelp } from "lucide-react";
+import { ArrowDown, CircleHelp, Clock3 } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import type { FacilitationGuideContent } from "../logic/facilitation-guide";
 import { type StepGuideState, useStepGuide } from "../logic/use-step-guide";
@@ -23,6 +23,11 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
   const restoreFocus = useRef(false);
   const focusDetail = useRef(false);
   const id = useId();
+  function openDetail() {
+    focusDetail.current = true;
+    restoreFocus.current = false;
+    setState("detail");
+  }
 
   useEffect(() => {
     if (state === "detail" && focusDetail.current) {
@@ -93,12 +98,7 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
         aria-hidden={state !== "compact"}
         inert={state !== "compact"}
         className={`${styles.layer} ${styles.compact} text-primary focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring`}
-        onClick={() => {
-          focusDetail.current = true;
-          setState("detail");
-          // inert の解除後にフォーカスする。自動案内ではフォーカスを移さない。
-          restoreFocus.current = false;
-        }}
+        onClick={openDetail}
       >
         <CircleHelp aria-hidden="true" className="size-4" />
         進め方
@@ -113,6 +113,15 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
         className={`${styles.layer} ${styles.intro} text-sm leading-6 text-primary`}
       >
         <p>{guide.intro}</p>
+        <button
+          type="button"
+          aria-controls={`${id}-detail`}
+          aria-expanded={state === "detail"}
+          className={styles.introLink}
+          onClick={openDetail}
+        >
+          進め方を見る
+        </button>
       </div>
       <section
         ref={detail}
@@ -127,17 +136,67 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
         }
         className={`${styles.layer} ${styles.detail} focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring`}
       >
-        <p className="text-xs font-semibold text-primary">進め方</p>
-        <h2 id={`${id}-title`} className="mt-1 text-lg leading-7 font-semibold">
-          {guide.modalTitle ?? guide.message}
+        <h2 id={`${id}-title`} className="text-lg leading-7 font-semibold">
+          {guide.action ?? guide.modalTitle ?? guide.message}
         </h2>
-        <dl className="mt-4 space-y-4 text-sm leading-6">
+        <dl className="mt-2 space-y-4 text-sm leading-6">
           <div>
-            <dt className="text-xs font-semibold text-muted-foreground">
-              いまやること
+            <dt
+              className={
+                guide.firstAction
+                  ? "sr-only"
+                  : "text-xs font-semibold text-muted-foreground"
+              }
+            >
+              {guide.firstAction ? "まず" : "いまやること"}
             </dt>
-            <dd className="mt-1">{guide.message}</dd>
+            <dd className={guide.firstAction ? undefined : "mt-1"}>
+              {guide.firstAction ?? guide.message}
+            </dd>
           </div>
+          {guide.visualExample && (
+            <div>
+              <dt className="sr-only">操作の例</dt>
+              <dd>
+                <figure
+                  aria-labelledby={`${id}-example`}
+                  className={styles.example}
+                >
+                  <figcaption
+                    id={`${id}-example`}
+                    className="text-xs font-semibold"
+                  >
+                    {guide.visualExample.caption}
+                  </figcaption>
+                  <ol
+                    className={styles.exampleItems}
+                    data-grouped={guide.visualExample.grouped || undefined}
+                    data-flow={guide.visualExample.flow || undefined}
+                  >
+                    {guide.visualExample.items.map((item) => (
+                      <li key={item}>
+                        {guide.visualExample?.flow && (
+                          <ArrowDown
+                            aria-hidden="true"
+                            className={styles.flowArrow}
+                          />
+                        )}
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </figure>
+              </dd>
+            </div>
+          )}
+          {guide.purpose && (
+            <div>
+              <dt className="text-xs font-semibold text-muted-foreground">
+                何のため？
+              </dt>
+              <dd className="mt-1">{guide.purpose}</dd>
+            </div>
+          )}
           {guide.steps && (
             <div>
               <dt className="text-xs font-semibold text-muted-foreground">
@@ -154,7 +213,7 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
               </dd>
             </div>
           )}
-          {guide.modalExamples && (
+          {guide.modalExamples && !guide.visualExample && (
             <div className="rounded-lg bg-muted/50 p-3">
               <dt className="text-xs font-semibold text-muted-foreground">
                 たとえば
@@ -183,12 +242,20 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
             </div>
           )}
         </dl>
-        {isHost && guide.hostMessage && (
+        {isHost && (guide.hostMessage || guide.hostTimerGuide) && (
           <div className="mt-4 border-t border-border pt-3 text-xs leading-5">
             <p className="font-semibold">ホストへ</p>
-            <p className="mt-1 whitespace-pre-line text-muted-foreground">
-              {guide.hostMessage}
-            </p>
+            {guide.hostTimerGuide && (
+              <p className="mt-2 text-muted-foreground">
+                <Clock3 aria-hidden="true" className="mr-1 inline size-4" />
+                {guide.hostTimerGuide}
+              </p>
+            )}
+            {guide.hostMessage && (
+              <p className="mt-2 whitespace-pre-line text-muted-foreground">
+                {guide.hostMessage}
+              </p>
+            )}
           </div>
         )}
       </section>
