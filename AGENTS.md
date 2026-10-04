@@ -28,7 +28,7 @@
 | 共有状態・WS・可視性・認可（クライアント側を含む） | [共有状態と認可](docs/development/conventions.md#共有状態と認可)     |
 | D1 / RoomDO のスキーマ・migration                  | [Migration](docs/development/conventions.md#migration)               |
 | Issue の作成・編集・振り分け・調査・状態判断       | [Issue 運用](docs/team/issues.md)                                    |
-| PR 作成・本文更新                                  | [write-pr](.claude/skills/write-pr/SKILL.md)                         |
+| PR 作成・本文更新                                  | [write-pr](.agents/skills/write-pr/SKILL.md)                         |
 | 重要な設計判断の追加・変更                         | [ADR運用](docs/adr/README.md)                                        |
 | エージェント指示・ハーネスの保守                   | [保守記録](docs/development/agent-maintenance.md)                    |
 

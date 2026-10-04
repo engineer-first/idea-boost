@@ -39,13 +39,13 @@ gh issue list --repo $OWNER/$REPO --milestone "<title>" --state all --limit 100 
 PBI issue は直接 PR に `closes` されないことが多く、**PBI ← Task issue ← PR** という2段構造になっている（`closedByPullRequestsReferences` を直接使うと空になりがちなので使わない）。
 
 ```bash
-.claude/skills/sprint-contribution/scripts/fetch_crossrefs.sh $OWNER $REPO <pbi番号...>
+.agents/skills/sprint-contribution/scripts/fetch_crossrefs.sh $OWNER $REPO <pbi番号...>
 ```
 
 結果の `source` が `Issue` なら配下の Task issue、`PullRequest` ならそのまま実装 PR。Task issue が見つかったら、同じスクリプトをもう一段階かけて Task issue に紐づく PR を特定する:
 
 ```bash
-.claude/skills/sprint-contribution/scripts/fetch_crossrefs.sh $OWNER $REPO <task番号...>
+.agents/skills/sprint-contribution/scripts/fetch_crossrefs.sh $OWNER $REPO <task番号...>
 ```
 
 PBI 番号が古い（issue 番号が一桁〜二桁など）と `gh issue list` のデフォルト limit に埋もれて Task issue 自体を見失うことがある。milestone に出てこない Task 番号を探すときは `--limit` を大きくして全 issue を取り直す:
@@ -65,7 +65,7 @@ gh pr list --repo $OWNER/$REPO --state merged --search "#<task番号> in:title"
 ### 4. 見つかった PR の author・diff 統計を取得する
 
 ```bash
-.claude/skills/sprint-contribution/scripts/fetch_pr_stats.sh $OWNER/$REPO <pr番号...>
+.agents/skills/sprint-contribution/scripts/fetch_pr_stats.sh $OWNER/$REPO <pr番号...>
 ```
 
 このスクリプトは `package-lock.json` 等のロックファイルを除いた実質 diff（`*_excl_lock`）も一緒に返す。**按分計算には必ずこちらを使う**（生の行数だとロックファイル込みの差分で比率が歪む。実例は script 冒頭のコメント参照）。
