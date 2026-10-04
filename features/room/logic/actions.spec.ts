@@ -139,3 +139,30 @@ it("解散の意図とホスト改訂をAPIへ渡す", async () => {
     },
   );
 });
+
+it.each([
+  "retain",
+  "discard",
+])("退出の閲覧権 %s をAPIへ渡す", async (access) => {
+  apiFetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  const form = leaveFormData(VALID_ROOM_ID);
+  form.set("intent", "self");
+  form.set("outcomeAccess", access);
+  await callAndGetRedirect(() => leaveRoom(form));
+  expect(apiFetchMock).toHaveBeenCalledWith(
+    `/api/rooms/${VALID_ROOM_ID}/leave`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ outcomeAccess: access, intent: "self" }),
+    },
+  );
+});
+
+it("不正な閲覧権をAPIに送らない", async () => {
+  const form = leaveFormData(VALID_ROOM_ID);
+  form.set("intent", "self");
+  form.set("outcomeAccess", "unknown");
+  await expect(leaveRoom(form)).rejects.toThrow();
+  expect(apiFetchMock).not.toHaveBeenCalled();
+});

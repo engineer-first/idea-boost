@@ -2555,3 +2555,14 @@ it("ホスト変更で採用hoverを破棄するとき旧権限の解除要求�
   expect(oldFocus).not.toHaveBeenCalled();
   expect(newFocus).not.toHaveBeenCalled();
 });
+
+it("参加者が作業画面で選んだ成果の扱いを退出へ渡す", async () => {
+  const onLeave = vi.fn();
+  const user = userEvent.setup();
+  setup({ isHost: false, onLeave });
+  openRoomMenu();
+  await user.click(screen.getByRole("button", { name: "退出する" }));
+  await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
+  await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
+  expect(onLeave).toHaveBeenCalledWith("discard");
+});

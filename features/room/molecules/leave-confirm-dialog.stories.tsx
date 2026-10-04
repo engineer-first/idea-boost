@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent, within } from "storybook/test";
 import { LeaveConfirmDialog } from "./leave-confirm-dialog";
 
 const meta = {
@@ -43,4 +43,19 @@ export const Leaving: Story = {
     mode: "leave",
     isLeaving: true,
   },
+};
+
+export const Discard: Story = {
+  args: { mode: "leave" },
+  play: async ({ canvasElement }) => {
+    const dialog = within(canvasElement.ownerDocument.body);
+    await userEvent.click(
+      dialog.getByRole("radio", { name: "成果を残さず退出" }),
+    );
+  },
+};
+
+export const CompletedDiscard: Story = {
+  ...Discard,
+  args: { mode: "leave", completed: true },
 };

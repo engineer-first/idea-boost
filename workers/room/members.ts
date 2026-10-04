@@ -84,6 +84,9 @@ export function upsertMember(
     color,
   );
 
+  // 再参加後は在籍者として扱い、次の退出選択を新たに適用する。
+  sql.exec("DELETE FROM retained_outcome_participants WHERE user_id=?", userId);
+
   if (!existing || existing.name !== safeName) {
     broadcaster.broadcastToAllExcept(
       {

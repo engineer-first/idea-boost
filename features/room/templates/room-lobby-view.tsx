@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import { isLobby, type RoomPhase } from "@/contracts/phase";
 // スタート画面（メンバー一覧 + 開始ボタン）のプレゼンテーション層。
 // ホーム画面と同じ shadcn ベースのレイアウト言語（背景・ヘッダー・Card 分割）。
@@ -42,7 +43,7 @@ export type RoomLobbyViewProps = {
   isStarting: boolean;
   onStart: () => void;
   // 退出。
-  onLeave: () => void;
+  onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
   isLeaving: boolean;
   onTransferHost?: (targetUserId: string) => void;
   isTransferring?: boolean;

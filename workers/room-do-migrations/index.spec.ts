@@ -37,6 +37,7 @@ const ALL_TABLES = [
   "pending_phase_transition",
   "progress_history",
   "progress_history_outbox",
+  "retained_outcome_participants",
   "room_owner",
   "room_state",
   "schema_migrations",
