@@ -25,6 +25,8 @@ export type HandlerCtx = {
   // 結果ステップ遷移時に、接続を維持した各参加者へ受信者別の完全な状態を
   // 再送する。RoomDO が snapshot 構築を一元管理するためのコールバック。
   refreshSnapshots: () => void;
+  // メンバー除外と通常退出が同じ同期処理を共有する。
+  leaveMember?: (userId: string) => void;
 };
 
 // 各ドメインモジュールが担当メッセージのハンドラ表を export し、

@@ -106,6 +106,7 @@ export function applyMemberServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:removed":
     case "host:updated":
     case "error":
       return members;
@@ -156,6 +157,7 @@ export function applyVotingCompletionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:removed":
     case "host:updated":
     case "error":
       return completedVoterIds;
@@ -228,6 +230,7 @@ export function applyDecisionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:removed":
     case "host:updated":
     case "error":
       return decision;
@@ -314,6 +317,7 @@ export function applyPhaseServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:removed":
     case "host:updated":
     case "error":
       return phase;

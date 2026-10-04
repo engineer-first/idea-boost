@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,45 +10,29 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/dialog";
-import type { Member } from "../logic/room-reducer";
+import type { MemberRemovalControls } from "../logic/use-member-removal";
 
-export type HostTransferDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  target: Member | null;
-  onConfirm: (targetUserId: string) => void;
-  pending: boolean;
-  disconnected: boolean;
-  blocked?: boolean;
-  error: string | null;
+export type MemberRemoveDialogProps = Omit<MemberRemovalControls, "request"> & {
   onClosed?: () => void;
-  onRequestRemove?: () => void;
 };
 
-export function HostTransferDialog({
+export function MemberRemoveDialog({
   open,
-  onOpenChange,
   target,
-  onConfirm,
   pending,
-  disconnected,
-  blocked = false,
   error,
+  disconnected,
+  blocked,
+  onOpenChange,
+  onConfirm,
   onClosed,
-  onRequestRemove,
-}: HostTransferDialogProps) {
+}: MemberRemoveDialogProps) {
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(value) => {
-        if (!pending) onOpenChange(value);
-      }}
-    >
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent
         className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
-          // 元の参加者Popoverが退出中でも、表示中の確認で取消を完結させる。
           event.preventDefault();
           event.stopPropagation();
           if (!pending) onOpenChange(false);
@@ -63,24 +46,20 @@ export function HostTransferDialog({
       >
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {onRequestRemove
-              ? "参加者の操作"
-              : "このユーザーをホストにしますか？"}
+            この参加者をルームから外しますか？
           </AlertDialogTitle>
           {target ? (
             <p className="break-all text-base font-semibold">
               {target.name || "名前未設定"}
             </p>
           ) : null}
-          <AlertDialogDescription>
-            {onRequestRemove
-              ? "ホストにすると、開始・進行・解散の操作を渡します。作業内容はそのままです。"
-              : "開始・進行・解散の操作を渡します。作業内容はそのままです。"}
+          <AlertDialogDescription className="leading-relaxed">
+            この参加者の画面はホームに戻ります。付箋や投票は残り、招待リンク・コードから再参加できます。
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!target ? (
           <p role="status" className="text-sm text-muted-foreground">
-            このユーザーは退出しました。参加者を選び直してください。
+            この参加者は退出しました。参加者を選び直してください。
           </p>
         ) : null}
         {disconnected ? (
@@ -98,32 +77,19 @@ export function HostTransferDialog({
             {error}
           </p>
         ) : null}
-        {onRequestRemove ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 text-destructive"
-            disabled={!target || pending || disconnected || blocked}
-            onClick={onRequestRemove}
-          >
-            ルームから外す…
-          </Button>
-        ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>キャンセル</AlertDialogCancel>
+          <AlertDialogCancel className="min-h-11" disabled={pending}>
+            キャンセル
+          </AlertDialogCancel>
           <AlertDialogAction
-            className="h-auto min-h-11 whitespace-normal break-all"
+            className="min-h-11 bg-destructive text-white hover:bg-destructive/90"
             disabled={!target || pending || disconnected || blocked}
             onClick={(event) => {
               event.preventDefault();
-              if (target) onConfirm(target.userId);
+              onConfirm();
             }}
           >
-            {pending
-              ? "変更中…"
-              : target
-                ? `${target.name || "名前未設定"}さんをホストにする`
-                : "ホストにする"}
+            {pending ? "退出処理中…" : "ルームから外す"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

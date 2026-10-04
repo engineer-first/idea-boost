@@ -38,3 +38,4 @@ export const LongName: Story = {
     },
   },
 };
+export const MemberActions: Story = { args: { onRequestRemove: fn() } };

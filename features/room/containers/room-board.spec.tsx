@@ -2961,3 +2961,66 @@ describe("作業中のホスト交代", () => {
     ).toHaveLength(0);
   });
 });
+
+describe("ボードの参加者退出", () => {
+  it("参加者一覧から確認し、拒否後は同じ画面で再試行できる", () => {
+    const { socket } = connectWithSnapshot();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "snapshot",
+        notes: [],
+        members: [
+          { userId: USER_ID, name: "Yuki Tanaka", color: "yellow" },
+          { userId: OTHER_USER_ID, name: "Other", color: "blue" },
+        ],
+        phase: buildPhaseStep(1),
+        phaseRevision: 0,
+        isHost: true,
+        hostUserId: USER_ID,
+        hostRevision: 0,
+        decision: null,
+        outcomePublished: false,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /参加者/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Other" }));
+    fireEvent.click(screen.getByRole("button", { name: "ルームから外す…" }));
+    fireEvent.click(screen.getByRole("button", { name: "ルームから外す" }));
+    const operation = JSON.parse(socket.sent.at(-1) ?? "");
+    expect(operation).toMatchObject({
+      type: "member:remove",
+      targetUserId: OTHER_USER_ID,
+      expectedHostRevision: 0,
+    });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "error",
+        code: "forbidden",
+        message: "現在の参加者を選び直してください",
+        operationId: operation.operationId,
+      }),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("現在の参加者");
+    fireEvent.click(screen.getByRole("button", { name: "ルームから外す" }));
+    const retry = JSON.parse(socket.sent.at(-1) ?? "");
+    expect(retry.operationId).not.toBe(operation.operationId);
+    act(() =>
+      socket.simulateServerMessage({
+        type: "member_left",
+        userId: OTHER_USER_ID,
+      }),
+    );
+    act(() =>
+      socket.simulateServerMessage({
+        type: "member:removed",
+        targetUserId: OTHER_USER_ID,
+        operationId: retry.operationId,
+      }),
+    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+});

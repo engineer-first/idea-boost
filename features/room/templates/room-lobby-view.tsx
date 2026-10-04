@@ -23,8 +23,10 @@ import {
   type RoomScreenConnectionStatus,
 } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
+import type { MemberRemovalControls } from "../logic/use-member-removal";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
+import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 
 export type RoomLobbyViewProps = {
   members: Member[];
@@ -47,6 +49,7 @@ export type RoomLobbyViewProps = {
   onTransferHost?: (targetUserId: string) => void;
   isTransferring?: boolean;
   transferError?: string | null;
+  memberRemoval?: MemberRemovalControls;
 };
 
 export function RoomLobbyView({
@@ -63,9 +66,11 @@ export function RoomLobbyView({
   onLeave,
   isLeaving,
   onTransferHost,
-  isTransferring = false,
+  isTransferring: transferringHost = false,
   transferError = null,
+  memberRemoval,
 }: RoomLobbyViewProps) {
+  const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const isDisconnected = connectionStatus !== "open";
   const lobbyRef = useRef<HTMLDivElement>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
@@ -194,6 +199,14 @@ export function RoomLobbyView({
                     members.find((member) => member.userId === hostTargetId) ??
                     null
                   }
+                  onRequestRemove={
+                    memberRemoval
+                      ? () => {
+                          memberRemoval.request(hostTargetId);
+                          setHostTargetId(null);
+                        }
+                      : undefined
+                  }
                   onConfirm={onTransferHost}
                   pending={isTransferring}
                   disconnected={isDisconnected}
@@ -304,6 +317,16 @@ export function RoomLobbyView({
         </Card>
       </div>
 
+      {memberRemoval ? (
+        <MemberRemoveDialog
+          {...memberRemoval}
+          onClosed={() => {
+            if (transferTriggerRef.current?.isConnected)
+              transferTriggerRef.current.focus();
+            else lobbyRef.current?.focus();
+          }}
+        />
+      ) : null}
       <LeaveConfirmDialog
         key={hostUserId}
         open={leaveDialogOpen && !isTransferring}

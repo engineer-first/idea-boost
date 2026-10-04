@@ -44,10 +44,12 @@ import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import { roomNotify } from "../logic/room-notify";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
+import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
+import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
@@ -154,6 +156,7 @@ export type RoomBoardViewProps = {
   onTransferHost?: (targetUserId: string) => void;
   isTransferring?: boolean;
   transferError?: string | null;
+  memberRemoval?: MemberRemovalControls;
   decision: Decision | null;
   outcomePublished: boolean;
   adoptionFocusNoteId?: string | null;
@@ -270,8 +273,9 @@ export function RoomBoardView({
   isHost,
   hostRevision = 0,
   onTransferHost,
-  isTransferring = false,
+  isTransferring: transferringHost = false,
   transferError = null,
+  memberRemoval,
   decision,
   outcomePublished,
   adoptionFocusNoteId = null,
@@ -328,6 +332,7 @@ export function RoomBoardView({
   onTimerStop,
   initialGuideState,
 }: RoomBoardViewProps) {
+  const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const shouldExpandPrivateNotes =
@@ -1222,6 +1227,14 @@ export function RoomBoardView({
               members.find((member) => member.userId === hostTarget?.userId) ??
               null
             }
+            onRequestRemove={
+              memberRemoval && hostTarget
+                ? () => {
+                    memberRemoval.request(hostTarget.userId);
+                    setHostTarget(null);
+                  }
+                : undefined
+            }
             onConfirm={onTransferHost}
             pending={isTransferring}
             disconnected={isDisconnected}
@@ -1230,6 +1243,18 @@ export function RoomBoardView({
             onClosed={() => {
               // 選択行はPopoverの退出アニメーション中もDOMに残る。
               // 行へ戻すと直後のunmountでfocusを失うため、常設入口に戻す。
+              boardRootRef.current
+                ?.querySelector<HTMLButtonElement>(
+                  "[data-host-transfer-origin]",
+                )
+                ?.focus();
+            }}
+          />
+        ) : null}
+        {memberRemoval ? (
+          <MemberRemoveDialog
+            {...memberRemoval}
+            onClosed={() => {
               boardRootRef.current
                 ?.querySelector<HTMLButtonElement>(
                   "[data-host-transfer-origin]",

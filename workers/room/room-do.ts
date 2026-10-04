@@ -69,6 +69,7 @@ import {
   ideaMapHandlers,
   isIdeaMapVisiblePhase,
 } from "./idea-map";
+import { memberRemovalHandlers } from "./member-removal";
 import {
   ensureHost,
   findMember,
@@ -126,6 +127,7 @@ export const HOST_ID_HEADER = "X-Idea-Boost-Host-Id";
 // ここでキー漏れがコンパイルエラーになる（旧 switch の never 網羅性チェック相当）。
 const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...hostHandlers,
+  ...memberRemovalHandlers,
   ...adoptionFocusHandlers,
   ...noteHandlers,
   ...decisionHandlers,
@@ -140,6 +142,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
 function optimisticOperationIdOf(message: ClientMessage): string | undefined {
   switch (message.type) {
     case "host:transfer":
+    case "member:remove":
     case "note:exclude":
     case "note:restore":
     case "note:bulk-exclude":
@@ -291,27 +294,52 @@ export class RoomDO extends DurableObject {
     return "left";
   }
 
-  // 退出処理。
+  // 退出・ホストによる除外は同じ処理を使う。認可から会員削除までawaitしない。
   async leave(userId: string): Promise<void> {
-    if (!isMember(this.sql, userId)) {
-      return;
-    }
+    this.leaveMember(userId);
+  }
+
+  private leaveMember(userId: string): void {
+    if (!isMember(this.sql, userId)) return;
+    removeMember(this.sql, userId);
+    const retiredSharedNotes = new Set<string>();
+    let hadPresence = false;
     for (const socket of this.ctx.getWebSockets()) {
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
-      if (attachment?.userId === userId) {
-        try {
-          socket.close(WS_CLOSE_LEFT_ROOM, WS_CLOSE_LEFT_ROOM_REASON);
-        } catch {
-          // 既に閉じている等のエラーは握りつぶす
-        }
+      if (attachment?.userId !== userId) continue;
+      hadPresence ||= Boolean(attachment.hasCursor || attachment.activeDrag);
+      const active = this.broadcaster.retireActiveDrag(socket);
+      if (active) retiredSharedNotes.add(active.noteId);
+      // closeイベントの到着・同じIDの再参加を待たずに旧タブを無効にする。
+      socket.serializeAttachment(null);
+      try {
+        socket.close(WS_CLOSE_LEFT_ROOM, WS_CLOSE_LEFT_ROOM_REASON);
+      } catch {
+        // 既に閉じている接続も会員削除を妨げない。
       }
     }
-    removeMember(this.sql, userId);
     this.broadcaster.broadcastToAllExcept(
       { type: "member_left", userId },
       userId,
     );
+    for (const noteId of retiredSharedNotes) {
+      const row = findNote(this.sql, noteId);
+      if (row?.visibility === "shared")
+        broadcastNoteUpdated(this.sql, this.broadcaster, row);
+    }
+    if (hadPresence)
+      this.broadcaster.broadcastToAllExcept(
+        { type: "cursor:left", userId },
+        userId,
+      );
+    if (retiredSharedNotes.size > 0) {
+      this.ctx.waitUntil(this.preserveSharedOutcome());
+      if (isIdeaMapVisiblePhase(getPhase(this.sql)))
+        this.broadcaster.broadcastToAll(
+          buildIdeaMapServerState(this.sql, this.broadcaster),
+        );
+    }
   }
 
   // ルーム解散。参加・編集用の状態を消去し、期限内の成果と再試行だけ残す。
@@ -526,7 +554,7 @@ export class RoomDO extends DurableObject {
       return;
     }
     const attachment = ws.deserializeAttachment() as SocketAttachment | null;
-    if (!attachment) {
+    if (!attachment || ws.readyState !== WebSocket.OPEN) {
       ws.close(1011, "missing attachment");
       return;
     }
@@ -861,6 +889,7 @@ export class RoomDO extends DurableObject {
       operationId,
       broadcaster: this.broadcaster,
       refreshSnapshots: () => this.refreshSnapshots(),
+      leaveMember: (targetUserId) => this.leaveMember(targetUserId),
     };
   }
 

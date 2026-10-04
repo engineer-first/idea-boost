@@ -249,6 +249,7 @@ export class RoomBroadcaster {
 
   // 閉じかけのソケットで send が throw しても、他接続への配信を止めない。
   private trySend(ws: WebSocket, payload: string): void {
+    if (ws.readyState !== WebSocket.OPEN) return;
     try {
       ws.send(payload);
     } catch {
