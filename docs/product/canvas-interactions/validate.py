@@ -73,6 +73,8 @@ def check_manifest(index, manifest, strict=False):
     missing = set(lookup) - represented
     if missing:
         raise ValueError('unmapped rules: ' + ', '.join(sorted(missing)))
+    if strict and manifest.get('textDiagramStatus') != 'verified':
+        raise ValueError('visual source stamp verification pending')
     if strict and manifest.get('sourceSha256') != index['sourceSha256']:
         raise ValueError('visual manifest has stale source hash')
 

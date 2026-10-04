@@ -2,7 +2,7 @@
   "$schema": "./rules-index.schema.json",
   "schemaVersion": "1.0.0",
   "source": "../canvas-interactions.md",
-  "sourceSha256": "fd34922205491c5480067e0c1d23e798ce87132052b87dd3853b90ea82493e4f",
+  "sourceSha256": "351e2c4d2974b6f58d65744a51a074c9af6ca0122a4f55217d9b4efe7077ce41",
   "implementationBaseline": "ad244effde34662fbeedd83813aa3a0dbe7fd82a",
   "authority": "markdown",
   "rules": [

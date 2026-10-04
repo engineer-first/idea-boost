@@ -2,7 +2,7 @@
   "schemaVersion": "1.0.0",
   "boardUrl": "https://www.figma.com/board/bpWlMnyv0Z9pvq7mMeQ0dj",
   "canonicalSource": "../canvas-interactions.md",
-  "sourceSha256": "fd34922205491c5480067e0c1d23e798ce87132052b87dd3853b90ea82493e4f",
+  "sourceSha256": "351e2c4d2974b6f58d65744a51a074c9af6ca0122a4f55217d9b4efe7077ce41",
   "note": "Hashes are set only after native-text + screenshot readback. Matching hashes demonstrate reviewed version provenance, not automated visual semantics verification.",
   "sections": [
     {
@@ -180,7 +180,9 @@
       "altText": "Miroのツールバーで手のひらと選択を切り替える公式デモ。Idea Boostで実装した操作の動画ではない。",
       "placementStatus": "pending",
       "playbackVerified": false,
-      "rights": "Miro公式著作物。公開資料の出典参照であり、オープンな再配布ライセンスは確認していない。"
+      "rights": "Miro公式著作物。公開資料の出典参照であり、オープンな再配布ライセンスは確認していない。",
+      "targetNodeId": "18:229",
+      "placeholderNodeId": "18:231"
     },
     {
       "id": "IB-MEDIA-01",
@@ -197,7 +199,9 @@
       "sha256": "02148b8403fbfd979bfed04e620056da36c22a4de44a04b8438840fbb50adac5",
       "altText": "共有付箋6枚と左下の編集/移動/削除可否・文字サイズ・ズーム、右下のマイ付箋を表示。選択/手の明示切替はない。",
       "placementStatus": "pending",
-      "productionScreenshot": false
+      "productionScreenshot": false,
+      "targetNodeId": "18:221",
+      "placeholderNodeId": "18:223"
     },
     {
       "id": "IB-MEDIA-02",
@@ -214,11 +218,30 @@
       "sha256": "23814e8edee4ed65f23d2f625f763fd7d098394126be874cd43f7af0b5eb0632",
       "altText": "課題整理1-3、5枚のfixture付箋と分類枠。枠の表示は背景一括drag実装済みを意味しない。",
       "placementStatus": "pending",
-      "productionScreenshot": false
+      "productionScreenshot": false,
+      "targetNodeId": "18:225",
+      "placeholderNodeId": "18:227"
+    },
+    {
+      "id": "M-MEDIA-02",
+      "visualSection": "VS-10",
+      "type": "official_reference_gif",
+      "title": "Miro公式: ペンと描画ツール",
+      "sourcePage": "https://help.miro.com/hc/en-us/articles/360017730573-Pen",
+      "sourceMedia": "https://help.miro.com/hc/article_attachments/21017348235538",
+      "accessedAt": "2026-10-04",
+      "durationMs": 5900,
+      "sha256": "6a591663ae9b09edd5763055d36c939131014860a8444b6fa08c45c539353441",
+      "altText": "Miroのペンpaletteと赤い手描き線を示す公式デモ。Idea Boostの将来ペンを考える参考で、実装済み機能の動画ではない。",
+      "placementStatus": "pending",
+      "playbackVerified": false,
+      "rights": "Miro公式著作物。出典参照であり、オープンな再配布ライセンスは確認していない。",
+      "targetNodeId": "18:233",
+      "placeholderNodeId": "18:235"
     }
   ],
   "canonicalGitHubUrl": "https://github.com/engineer-first/idea-boost/blob/11ae01204fdee45d6a536b6615f05d053dc6bf10/docs/product/canvas-interactions.md",
-  "textDiagramStatus": "verified",
+  "textDiagramStatus": "awaiting_formatted_source_stamp",
   "mediaStatus": "pending_placement_and_playback_verification",
   "verification": {
     "checkedAt": "2026-10-04",
@@ -235,5 +258,10 @@
       "media placement and playback not verified",
       "diagram review is not runtime or user usability validation"
     ]
+  },
+  "formattingOnlyUpdate": {
+    "previousSourceSha256": "fd34922205491c5480067e0c1d23e798ce87132052b87dd3853b90ea82493e4f",
+    "changedRuleIds": [],
+    "reason": "repository remark formatting of tables; behavior unchanged"
   }
 }

@@ -2,9 +2,9 @@
 
 ## 結論
 
-1. #364後の「つかみ始めが遅い」という体験報告は重要。新仕様のリリース条件に応答性回帰検査を置く。ただし「private領域の計算が原因」とは、まだ実測で確定していない。
+1. \#364後の「つかみ始めが遅い」という体験報告は重要。新仕様のリリース条件に応答性回帰検査を置く。ただし「private領域の計算が原因」とは、まだ実測で確定していない。
 2. 現行共有付箋には、drag開始ACKまでローカル座標を動かさない経路が確実にある。この待ち方は#364以前から存在するため、#364が新設した回帰原因とは言えない。
-3. #364でprivate/returning previewの描画時DOM測定、FLIP、auto-scroll等の仕事が増えた。静的な調査候補は特定したが、どれが実ユーザーの遅延を支配するかはbrowser traceが必要。
+3. \#364でprivate/returning previewの描画時DOM測定、FLIP、auto-scroll等の仕事が増えた。静的な調査候補は特定したが、どれが実ユーザーの遅延を支配するかはbrowser traceが必要。
 4. private→sharedはdrop確定まで本人previewのみとする変更に賛成。移動表示を先に始め、認可・共有確定・履歴作成を別段階にする。
 5. Undoは移動から段階導入し、UI名も「移動を元に戻す／やり直す」とする。汎用snapshot復元は避ける。1-3では移動がgroup ID・名前・所属を変えるため、座標だけの逆送では正しいUndoにならない。
 
@@ -46,14 +46,14 @@
 
 ## 2. #364の増分と、断定してはいけないこと
 
-| 変更 | コード上の事実 | 性能に関する読み方 |
-| --- | --- | --- |
-| shared drag開始のcard rect測定 | 1回のgetBoundingClientRect追加 | stale layoutなら同期layoutが必要になる可能性。1回測ったことだけで重いとは断定不可 |
-| private/returning preview | pointer座標・offset・sizeをstateに保持、portal表示、render中toolbar/list矩形read | render/layoutの追加経路。browser traceの有力観察点 |
-| FLIP | private順序keyが変わった時だけlist全件readと160msのtransform animation | 160msのdrag開始待機ではない。毎pointermoveの再アニメーションを意図しておらず、順序不変ではeffect不発 |
-| auto-scroll | rAFでscrollTopを変更後、挿入indexのためcard矩形を再read | write→read経路が追加。レイアウト/スクロール起因コストは計測必要 |
-| drop pending表示 | unpublish応答前もboardから隠す、private順序・placeholderを楽観表示 | 応答待ちの再出現を防ぐ。失敗/再接続時の収束は性能と別に検証 |
-| private順序保存 | unpublishにprivateIndex追加、private noteのstackOrderを再採番 | サーバー仕事はdrop時。通常shared dragのつかみ始め原因には直結しない |
+| 変更                           | コード上の事実                                                                   | 性能に関する読み方                                                                                   |
+| ------------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| shared drag開始のcard rect測定 | 1回のgetBoundingClientRect追加                                                   | stale layoutなら同期layoutが必要になる可能性。1回測ったことだけで重いとは断定不可                    |
+| private/returning preview      | pointer座標・offset・sizeをstateに保持、portal表示、render中toolbar/list矩形read | render/layoutの追加経路。browser traceの有力観察点                                                   |
+| FLIP                           | private順序keyが変わった時だけlist全件readと160msのtransform animation           | 160msのdrag開始待機ではない。毎pointermoveの再アニメーションを意図しておらず、順序不変ではeffect不発 |
+| auto-scroll                    | rAFでscrollTopを変更後、挿入indexのためcard矩形を再read                          | write→read経路が追加。レイアウト/スクロール起因コストは計測必要                                      |
+| drop pending表示               | unpublish応答前もboardから隠す、private順序・placeholderを楽観表示               | 応答待ちの再出現を防ぐ。失敗/再接続時の収束は性能と別に検証                                          |
+| private順序保存                | unpublishにprivateIndex追加、private noteのstackOrderを再採番                    | サーバー仕事はdrop時。通常shared dragのつかみ始め原因には直結しない                                  |
 
 - [shared開始追加read](https://github.com/engineer-first/idea-boost/blob/729eea7769b49c68e74b580b28b6fbd80ac8d5cf/features/room/logic/use-board-drag.ts#L452-L480)
 - [FLIP](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/notes/organisms/private-notes-toolbar.tsx#L144-L194)
@@ -96,17 +96,18 @@
 
 ## 4. 現在のUndo相当と不足
 
-| 操作 | 現行 | 汎用Undoとしての扱い |
-| --- | --- | --- |
-| 候補外→復帰 | 既存の個別/一括復帰。成功通知後だけUndo。個別はexclusion operation ID、bulkは対象のoperation IDで後続除外を巻き戻さない | domain commandとして維持。移動履歴と混ぜない |
-| 採用取消 | 現在hostが結果工程でdecision:clear、対象note ID検証 | 正式な意思決定を取り消す明示操作。Ctrl+Zに黙って統合しない |
-| 投票取消/付替え | 本人sticker ID単位のadd/move/remove、quota/工程/所有権検証、楽観失敗補償 | 既存投票操作。汎用履歴や他人票の復元ではない |
-| 付箋削除 | note/appearance/bulk exclusion等を削除、vote削除、group再編成。復元用tombstone契約なし | delete Undoは新規設計が必要。作り直しは同一ID/関連状態の復元とは異なる |
-| 本文 | autosave/IME/競合回復あり。editor中のnative Undoとboard履歴は別 | v1移動履歴へ混ぜない |
-| private並べ替え | クライアントprivateOrder。sharedから戻す際だけprivateIndexがserverへ届く | 永続履歴としての前提がなく、v1から外す |
-| 移動 | drag IDとactive lockはあるが、汎用Undo/Redo stack/commandなし | 新規追加 |
+| 操作            | 現行                                                                                                                    | 汎用Undoとしての扱い                                                   |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 候補外→復帰     | 既存の個別/一括復帰。成功通知後だけUndo。個別はexclusion operation ID、bulkは対象のoperation IDで後続除外を巻き戻さない | domain commandとして維持。移動履歴と混ぜない                           |
+| 採用取消        | 現在hostが結果工程でdecision:clear、対象note ID検証                                                                     | 正式な意思決定を取り消す明示操作。Ctrl+Zに黙って統合しない             |
+| 投票取消/付替え | 本人sticker ID単位のadd/move/remove、quota/工程/所有権検証、楽観失敗補償                                                | 既存投票操作。汎用履歴や他人票の復元ではない                           |
+| 付箋削除        | note/appearance/bulk exclusion等を削除、vote削除、group再編成。復元用tombstone契約なし                                  | delete Undoは新規設計が必要。作り直しは同一ID/関連状態の復元とは異なる |
+| 本文            | autosave/IME/競合回復あり。editor中のnative Undoとboard履歴は別                                                         | v1移動履歴へ混ぜない                                                   |
+| private並べ替え | クライアントprivateOrder。sharedから戻す際だけprivateIndexがserverへ届く                                                | 永続履歴としての前提がなく、v1から外す                                 |
+| 移動            | drag IDとactive lockはあるが、汎用Undo/Redo stack/commandなし                                                           | 新規追加                                                               |
 
 ソース:
+
 - [candidate成功通知・同一operation検証](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-candidate-operations.ts#L97-L219)、[host復帰認可](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/note-handlers.ts#L622-L730)
 - [candidate履歴の寿命・host世代](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/containers/room-board.tsx#L102-L143)、[snapshot/phase/decisionで終了](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/features/room/logic/use-candidate-operations.ts#L157-L166)
 - [採用取消](https://github.com/engineer-first/idea-boost/blob/ad244effde34662fbeedd83813aa3a0dbe7fd82a/workers/room/decision-handlers.ts#L59-L83)
