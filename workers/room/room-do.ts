@@ -21,6 +21,7 @@ import type {
   CompletedBoardResponse,
   CompletedRoom,
   CompletedSceneKind,
+  LeaveOutcomeAccess,
 } from "../../contracts/completed-rooms";
 import {
   isPhaseStep,
@@ -261,6 +262,7 @@ export class RoomDO extends DurableObject {
     creatorSeed: string,
     intent?: "self" | "disband",
     expectedHostRevision?: number,
+    outcomeAccess?: LeaveOutcomeAccess,
   ): Promise<"left" | "disbanded" | "not-member" | "forbidden"> {
     if (userId === creatorSeed && !isRoomClosed(this.sql))
       ensureHost(this.sql, creatorSeed);
@@ -287,15 +289,38 @@ export class RoomDO extends DurableObject {
     }
     if (!isMember(this.sql, userId)) return "not-member";
     if (isHost && !this.isCompleted()) return "forbidden";
-    await this.leave(userId);
+    await this.leave(userId, outcomeAccess);
     return "left";
   }
 
   // 退出処理。
-  async leave(userId: string): Promise<void> {
+  async leave(
+    userId: string,
+    outcomeAccess?: LeaveOutcomeAccess,
+  ): Promise<void> {
     if (!isMember(this.sql, userId)) {
       return;
     }
+    this.ctx.storage.transactionSync(() => {
+      const completion = readCompletion(this.sql);
+      if (outcomeAccess === "discard") this.completed.revokeViewer(userId);
+      if (
+        !completion &&
+        outcomeAccess === "retain" &&
+        !isRoomClosed(this.sql) &&
+        (readOutcomeState(this.sql)?.expires_at ?? 0) > Date.now()
+      )
+        this.sql.exec(
+          "INSERT INTO retained_outcome_participants(user_id) VALUES(?) ON CONFLICT(user_id) DO NOTHING",
+          userId,
+        );
+      else
+        this.sql.exec(
+          "DELETE FROM retained_outcome_participants WHERE user_id=?",
+          userId,
+        );
+      removeMember(this.sql, userId);
+    });
     for (const socket of this.ctx.getWebSockets()) {
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
@@ -307,11 +332,12 @@ export class RoomDO extends DurableObject {
         }
       }
     }
-    removeMember(this.sql, userId);
     this.broadcaster.broadcastToAllExcept(
       { type: "member_left", userId },
       userId,
     );
+    await this.completed.flush();
+    await syncRoomAlarm(this.ctx.storage, this.sql);
   }
 
   // ルーム解散。参加・編集用の状態を消去し、期限内の成果と再試行だけ残す。
@@ -350,6 +376,7 @@ export class RoomDO extends DurableObject {
       for (const table of [
         "notes",
         "members",
+        "retained_outcome_participants",
         "groups",
         "decisions",
         "note_votes",

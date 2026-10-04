@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import { isLobby, type RoomPhase } from "@/contracts/phase";
 // スタート画面（メンバー一覧 + 開始ボタン）のプレゼンテーション層。
 // ホーム画面と同じ shadcn ベースのレイアウト言語（背景・ヘッダー・Card 分割）。
@@ -42,7 +43,7 @@ export type RoomLobbyViewProps = {
   isStarting: boolean;
   onStart: () => void;
   // 退出。
-  onLeave: () => void;
+  onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
   isLeaving: boolean;
   onTransferHost?: (targetUserId: string) => void;
   isTransferring?: boolean;
@@ -125,7 +126,7 @@ export function RoomLobbyView({
         </header>
 
         <p className="text-center text-sm text-muted-foreground">
-          途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了時の参加者は完了から30日間、成果と保存できた5つの場面を見返せます。
+          途中の共有盤面・公開済みの合計票・進行時刻と、完了した成果は自動保存されます。完了時に参加中の人と、成果を残して途中退出した人は、完了から30日間、成果と保存できた5つの場面を見返せます。
           <Link
             href="/privacy"
             target="_blank"

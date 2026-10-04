@@ -86,7 +86,10 @@ export const CompletedRoomsCursorSchema = z.object({
   completedAt: z.number().int().nonnegative(),
   roomId: z.string().uuid(),
 });
+export const LeaveOutcomeAccessSchema = z.enum(["retain", "discard"]);
+export type LeaveOutcomeAccess = z.infer<typeof LeaveOutcomeAccessSchema>;
 export const LeaveRoomRequestSchema = z.object({
+  outcomeAccess: LeaveOutcomeAccessSchema.optional(),
   intent: z.enum(["self", "disband"]).optional(),
   expectedHostRevision: z.number().int().nonnegative().optional(),
 });

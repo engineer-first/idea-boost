@@ -32,13 +32,15 @@ export async function leaveRoom(formData: FormData): Promise<void> {
   // 5xx は呼び出し側でリカバリする。
   const intent = formData.get("intent");
   const revision = formData.get("expectedHostRevision");
+  const outcomeAccess = formData.get("outcomeAccess");
   const body = LeaveRoomRequestSchema.parse({
     ...(intent ? { intent } : {}),
+    ...(outcomeAccess !== null ? { outcomeAccess } : {}),
     ...(revision !== null ? { expectedHostRevision: Number(revision) } : {}),
   });
   const res = await apiFetch(`/api/rooms/${roomId}/leave`, {
     method: "POST",
-    ...(intent
+    ...(intent || outcomeAccess !== null
       ? {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),

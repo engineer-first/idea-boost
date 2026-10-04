@@ -32,7 +32,7 @@ export function CompletedRoomsView({
         <header>
           <h1 className="text-3xl font-bold">以前のルーム</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            完了したときに参加していたルームを、完了から30日間見返せます。
+            完了時に参加していたルームと、成果を残して途中退出したルームを、完了から30日間見返せます。
           </p>
           <Button
             className="mt-4 min-h-11"
