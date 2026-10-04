@@ -98,34 +98,36 @@ export function HostTransferDialog({
             {error}
           </p>
         ) : null}
-        {onRequestRemove ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 text-destructive"
-            disabled={!target || pending || disconnected || blocked}
-            onClick={onRequestRemove}
-          >
-            ルームから外す…
-          </Button>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>キャンセル</AlertDialogCancel>
-          <AlertDialogAction
-            className="h-auto min-h-11 whitespace-normal break-all"
-            disabled={!target || pending || disconnected || blocked}
-            onClick={(event) => {
-              event.preventDefault();
-              if (target) onConfirm(target.userId);
-            }}
-          >
-            {pending
-              ? "変更中…"
-              : target
-                ? `${target.name || "名前未設定"}さんをホストにする`
-                : "ホストにする"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
+        <div className="grid gap-2">
+          {onRequestRemove ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 text-destructive"
+              disabled={!target || pending || disconnected || blocked}
+              onClick={onRequestRemove}
+            >
+              ルームから外す…
+            </Button>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>キャンセル</AlertDialogCancel>
+            <AlertDialogAction
+              className="h-auto min-h-11 whitespace-normal break-all"
+              disabled={!target || pending || disconnected || blocked}
+              onClick={(event) => {
+                event.preventDefault();
+                if (target) onConfirm(target.userId);
+              }}
+            >
+              {pending
+                ? "変更中…"
+                : target
+                  ? `${target.name || "名前未設定"}さんをホストにする`
+                  : "ホストにする"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );
