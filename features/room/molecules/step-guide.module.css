@@ -51,16 +51,25 @@
   font-weight: 600;
   white-space: nowrap;
 }
+.intro,
+.detail {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  scrollbar-width: none;
+}
+.intro::-webkit-scrollbar,
+.detail::-webkit-scrollbar {
+  display: none;
+}
 .intro {
   padding: 18px 20px;
-  overflow: auto;
 }
 .detail {
   padding: 20px 24px;
-  overflow-y: auto;
   overscroll-behavior: contain;
 }
-/* 縦スクロールバーの幅も引いた、実際に使える内側の幅に合わせる。 */
+/* 本文と例を枠の内側の幅に合わせ、横スクロールを生まないようにする。 */
 .intro > *,
 .detail > * {
   width: 100%;
