@@ -79,6 +79,15 @@ export type RoomBoardInteractions = {
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onToolChange?: (tool: "select" | "hand") => void;
+  onGestureBlockedChange?: (blocked: boolean) => void;
+  hasPan?: () => boolean;
+  cancelPan?: () => void;
+  consumePanClick?: () => boolean;
+  onSharedNotesDragIntent?: (
+    noteIds: readonly string[],
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -131,6 +140,11 @@ export function useRoomBoardInteractions({
     zoomIn,
     zoomOut,
     resetZoom,
+    setInteractionTool,
+    setGestureBlocked,
+    hasPan,
+    cancelPan,
+    consumePanClick,
     handlePointerDown: onCanvasPointerDown,
     handlePointerMove: onCanvasPointerMove,
     handlePointerEnd: onCanvasPointerEnd,
@@ -373,6 +387,11 @@ export function useRoomBoardInteractions({
     onCanvasPointerDown,
     onCanvasPointerMove,
     onCanvasPointerEnd,
+    onToolChange: setInteractionTool,
+    onGestureBlockedChange: setGestureBlocked,
+    hasPan,
+    cancelPan,
+    consumePanClick,
     onZoomIn: zoomIn,
     onZoomOut: zoomOut,
     onResetZoom: resetZoom,

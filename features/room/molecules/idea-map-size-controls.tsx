@@ -62,10 +62,10 @@ export function IdeaMapSizeControls({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-auto gap-1 px-2 py-1 text-foreground"
+            className="h-auto gap-1 px-2 py-1 text-foreground max-[639px]:px-1"
             aria-label="マップの広さについて"
           >
-            <span className="flex flex-col items-start gap-0.5">
+            <span className="flex flex-col items-start gap-0.5 max-[639px]:sr-only">
               <span className="text-xs font-semibold">マップの広さ</span>
               <span className="text-[10px] font-normal text-muted-foreground">
                 全員に反映

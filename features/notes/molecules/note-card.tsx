@@ -6,13 +6,8 @@ import { Check, ListMinus, ListPlus } from "lucide-react";
 // 本文はすべてpropsで受け取り、変化はコールバックpropsで親へ通知するだけの
 // コンポーネントにする。状態の保持・永続化・リアルタイム配信は呼び出し側の責務。
 //
-// インタラクションは tldraw の Note shape（SelectTool/PointingShape）を踏襲:
-//   - pointerdown で選択し、閾値(DRAG_THRESHOLD_PX)を超えて動かすとドラッグ
-//   - 「pointerdown 時点で選択済みだった」付箋への移動なしクリック、または
-//     選択中の印字可能キーで編集開始
-//   - 選択中（非編集）は Backspace / Delete で削除、Enter でも編集開始
-// 選択状態(isSelected)は「同時に1枚だけ」という付箋間の関心事なので親が持ち、
-// 編集状態(isEditing)はこの付箋に閉じた関心事なのでローカルに持つ。
+// 選択集合は親、本文編集は付箋が所有する。clickはpointerupで確定し、
+// drag・Shift・工程コマンドと単一対象の編集を分ける。
 import {
   useCallback,
   useEffect,
@@ -40,6 +35,8 @@ export type NoteCardProps = {
   isOwnDrag: boolean;
   isSelected: boolean;
   editingDisabled?: boolean;
+  interactionTool?: "select" | "hand";
+  isMultiSelected?: boolean;
   isDecided?: boolean;
   isAdoptionFocused?: boolean;
   // WebSocket未接続時（connecting/closed）に親から渡す。true の間は選択・
@@ -53,7 +50,10 @@ export type NoteCardProps = {
   canExcludeNote?: boolean;
   canRestoreNote?: boolean;
   candidatePending?: boolean;
-  onSelect: (noteId: string) => void;
+  onSelect: (
+    noteId: string,
+    intent?: { shiftKey?: boolean; bringToFront?: boolean },
+  ) => void;
   onDragStart: (
     noteId: string,
     event: React.PointerEvent<HTMLButtonElement>,
@@ -99,6 +99,7 @@ type PointerOrigin = {
   // 編集開始の合図にする。
   wasSelected: boolean;
   didDrag: boolean;
+  shiftKey: boolean;
 };
 
 type CandidateActionPlacement = "top" | "bottom";
@@ -222,6 +223,8 @@ export function NoteCard({
   isOwnDrag,
   isSelected,
   editingDisabled = false,
+  interactionTool = "select",
+  isMultiSelected = false,
   isDecided = false,
   isAdoptionFocused = false,
   disabled = false,
@@ -255,6 +258,7 @@ export function NoteCard({
   const [isFocusActionVisible, setIsFocusActionVisible] = useState(false);
   const [candidateOverlayLayout, setCandidateOverlayLayout] =
     useState<CandidateOverlayLayout | null>(null);
+  const wasEditingRef = useRef(false);
   const pointerOriginRef = useRef<PointerOrigin | null>(null);
   const noteRef = useRef<HTMLDivElement>(null);
   const surfaceRef = useRef<HTMLButtonElement>(null);
@@ -268,7 +272,8 @@ export function NoteCard({
   const pointerShowTimeoutRef = useRef<number | null>(null);
   const pointerHideTimeoutRef = useRef<number | null>(null);
   const focusHideTimeoutRef = useRef<number | null>(null);
-  const canCandidateAction = note.excluded ? canRestoreNote : canExcludeNote;
+  const canCandidateAction =
+    !isMultiSelected && (note.excluded ? canRestoreNote : canExcludeNote);
   const candidateActionLabel = note.excluded ? "候補に戻す" : "候補から外す";
   const candidateActionText = note.excluded ? "戻す" : "除外";
   const isCandidateActionVisible =
@@ -457,10 +462,10 @@ export function NoteCard({
 
   // 選択が外れたら編集モードも終了する（選択は編集の前提状態）。
   useEffect(() => {
-    if (!isSelected) {
+    if (!isSelected || isMultiSelected) {
       setIsEditing(false);
     }
-  }, [isSelected]);
+  }, [isSelected, isMultiSelected]);
 
   // 結果ステップへ切り替わりeditingDisabledになったら、編集中でも
   // 未送信の下書きを送らずに編集を強制終了する（disabledと同じ二重の安全策）。
@@ -559,6 +564,8 @@ export function NoteCard({
   useEffect(() => {
     if (
       autoFocusEditor &&
+      !isMultiSelected &&
+      interactionTool === "select" &&
       isSelected &&
       canEditNote &&
       !editingDisabled &&
@@ -569,6 +576,8 @@ export function NoteCard({
     }
   }, [
     autoFocusEditor,
+    interactionTool,
+    isMultiSelected,
     canEditNote,
     disabled,
     editingDisabled,
@@ -588,6 +597,8 @@ export function NoteCard({
     )
     .map(({ kind }) => kind);
   const selectedStampKind =
+    interactionTool === "select" &&
+    !isMultiSelected &&
     vote.displayMode === "voting" &&
     vote.canVote &&
     vote.selectedKind !== null &&
@@ -605,18 +616,52 @@ export function NoteCard({
         const caret = textarea.value.length;
         textarea.setSelectionRange(caret, caret);
       }
-    } else if (isSelected) {
+    } else if (wasEditingRef.current) {
       surfaceRef.current?.focus({ preventScroll: true });
     }
-  }, [isEditing, isSelected]);
+    wasEditingRef.current = isEditing;
+  }, [isEditing]);
+
+  useEffect(() => {
+    const cancelPress = () => {
+      pointerOriginRef.current = null;
+    };
+    const cancelOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.isComposing || event.keyCode === 229)
+        return;
+      const press = pointerOriginRef.current;
+      cancelPress();
+      // privateの閾値前pressはtoolbarの選択解除より先に1段だけ取消す。
+      if (
+        press &&
+        note.visibility === "private" &&
+        event.target === surfaceRef.current
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (surfaceRef.current?.hasPointerCapture?.(press.pointerId))
+          surfaceRef.current.releasePointerCapture(press.pointerId);
+      }
+    };
+    window.addEventListener("blur", cancelPress);
+    window.addEventListener("keydown", cancelOnEscape, true);
+    return () => {
+      window.removeEventListener("blur", cancelPress);
+      window.removeEventListener("keydown", cancelOnEscape, true);
+    };
+  }, [note.visibility]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
-    if (disabled) {
+    if (
+      disabled ||
+      event.defaultPrevented ||
+      interactionTool === "hand" ||
+      event.button !== 0 ||
+      pointerOriginRef.current
+    )
       return;
-    }
     if (selectedStampKind !== null) {
       event.preventDefault();
-      pointerOriginRef.current = null;
       return;
     }
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -624,58 +669,62 @@ export function NoteCard({
       pointerId: event.pointerId,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      wasSelected: isSelected,
+      wasSelected: isSelected && !isMultiSelected,
       didDrag: false,
+      shiftKey: event.shiftKey,
     };
-    if (!isSelected) {
-      onSelect(note.id);
-    }
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLButtonElement>) {
     const origin = pointerOriginRef.current;
-    if (!origin) {
+    if (!origin || origin.pointerId !== event.pointerId || origin.didDrag)
       return;
-    }
-    if (!origin.didDrag) {
-      const distance = Math.hypot(
-        event.clientX - origin.startClientX,
-        event.clientY - origin.startClientY,
-      );
-      if (distance < DRAG_THRESHOLD_PX) {
-        return;
-      }
-      if (!canMoveNote) {
-        return;
-      }
-      origin.didDrag = true;
-      // キャプチャをリリースし、ドラッグ処理を親に移管する
-      event.currentTarget.releasePointerCapture?.(event.pointerId);
-      onDragStart(note.id, event);
-      pointerOriginRef.current = null;
-    }
+    const distance = Math.hypot(
+      event.clientX - origin.startClientX,
+      event.clientY - origin.startClientY,
+    );
+    if (distance < DRAG_THRESHOLD_PX) return;
+    // 移動が禁止でもdrag相当の動きをclick/editへ配送しない。
+    origin.didDrag = true;
+    if (!canMoveNote) return;
+    if (!isSelected) onSelect(note.id, { bringToFront: false });
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    onDragStart(note.id, event);
+    pointerOriginRef.current = null;
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
     const origin = pointerOriginRef.current;
+    if (!origin || origin.pointerId !== event.pointerId) return;
     pointerOriginRef.current = null;
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    // 内容を読みやすくするタップ状態は権限と分離する。復帰操作を使えない
-    // 参加者にも、候補外付箋の本文を確認する権利がある。
+    if (origin.didDrag || disabled || interactionTool === "hand") return;
+    event.currentTarget.focus({ preventScroll: true });
+    onSelect(note.id, {
+      shiftKey: origin.shiftKey,
+      bringToFront: !origin.shiftKey,
+    });
     if (
-      origin &&
       event.pointerType === "touch" &&
       (note.excluded || canCandidateAction)
     ) {
       showTouchAction();
     }
-    if (!origin) {
-      return;
-    }
-    if (origin.wasSelected && canEditNote && !editingDisabled) {
+    if (
+      origin.wasSelected &&
+      !origin.shiftKey &&
+      canEditNote &&
+      !editingDisabled
+    ) {
       setIsEditing(true);
+    }
+  }
+
+  function cancelPointer(event: React.PointerEvent<HTMLButtonElement>) {
+    if (pointerOriginRef.current?.pointerId === event.pointerId) {
+      pointerOriginRef.current = null;
     }
   }
 
@@ -685,7 +734,7 @@ export function NoteCard({
     releaseTouchAction();
     setIsPointerActionVisible(false);
     releasePointerAction();
-    if (disabled || candidatePending) return;
+    if (disabled || candidatePending || isMultiSelected) return;
     onSelect(note.id);
     if (note.excluded) {
       if (canRestoreNote) onRestore?.(note.id);
@@ -695,78 +744,72 @@ export function NoteCard({
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
-    if (disabled) {
+    if (
+      disabled ||
+      event.defaultPrevented ||
+      event.nativeEvent.isComposing ||
+      event.keyCode === 229
+    )
       return;
-    }
-
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (event.key === "Tab" && !event.shiftKey && canCandidateAction) {
       event.preventDefault();
       candidateActionRef.current?.focus();
       return;
     }
-
     if (event.shiftKey && event.key === "F10") {
+      if (!canCandidateAction) return;
       event.preventDefault();
-      if (canCandidateAction) setIsActionMenuOpen(true);
+      event.stopPropagation();
+      setIsActionMenuOpen(true);
       return;
     }
-
+    if (interactionTool === "hand") {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect(note.id);
+      }
+      return;
+    }
     if (
       selectedStampKind !== null &&
       (event.key === "Enter" || event.key === " ")
     ) {
       event.preventDefault();
       event.stopPropagation();
-      vote.onVote(note.id, selectedStampKind);
+      if (!event.repeat) vote.onVote(note.id, selectedStampKind);
       return;
     }
-
-    // Space は選択中もキャンバスのパンに使う。編集開始や末尾への空白追加を
-    // 行わず、window のカメラ用 keydown へ伝える（投票のSpaceは上で処理）。
-    if (event.code === "Space" || event.key === " ") {
-      event.preventDefault();
-      return;
-    }
-
-    if (event.key === "Backspace" || event.key === "Delete") {
-      event.preventDefault();
-      event.stopPropagation();
-
-      if (canDeleteNote) {
-        onDelete(note.id);
-      }
-
-      return;
-    }
-
-    if (event.key === "Enter" && (!canEditNote || editingDisabled)) {
-      event.preventDefault();
+    // 付箋のSpaceは一時パン。native controls/editorとは分ける。
+    if (event.code === "Space" || event.key === " ") return;
+    if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+    if (isMultiSelected) return;
+    const targetsNote =
+      event.key === "Enter" ||
+      event.key === "Delete" ||
+      isPrintableCharacterKey(event);
+    if (!targetsNote) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isSelected) {
       onSelect(note.id);
       return;
     }
-
-    if (event.key === "Enter" && canEditNote && !editingDisabled) {
-      event.preventDefault();
-      setIsEditing(true);
+    if (event.key === "Delete") {
+      if (canDeleteNote && note.visibility === "private") onDelete(note.id);
       return;
     }
-
-    if (
-      isSelected &&
-      canEditNote &&
-      !editingDisabled &&
-      isPrintableCharacterKey(event)
-    ) {
+    if (!canEditNote || editingDisabled) return;
+    if (isPrintableCharacterKey(event)) {
       const character = event.key;
-      event.preventDefault();
-      event.stopPropagation();
       setLocalContent((content) =>
         content.length < NOTE_CONTENT_MAX_LENGTH
           ? `${content}${character}`
           : content,
       );
-      setIsEditing(true);
     }
+    setIsEditing(true);
   }
 
   function handleContextMenu(event: React.MouseEvent<HTMLButtonElement>) {
@@ -896,8 +939,10 @@ export function NoteCard({
                   width: CANDIDATE_MENU_WIDTH_PX,
                 }}
                 onKeyDown={(event) => {
-                  if (event.key !== "Escape") return;
+                  if (event.key !== "Escape" || event.nativeEvent.isComposing)
+                    return;
                   event.preventDefault();
+                  event.stopPropagation();
                   setIsActionMenuOpen(false);
                   surfaceRef.current?.focus({ preventScroll: true });
                 }}
@@ -1006,7 +1051,14 @@ export function NoteCard({
             onContentChange(note.id, event.target.value);
         }}
         onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+          if (
+            compositionActiveRef.current ||
+            event.nativeEvent.isComposing ||
+            event.keyCode === 229
+          ) {
+            event.stopPropagation();
+            return;
+          }
           if (event.key === "Escape") {
             event.stopPropagation();
             // Escape はキャンセルではなく「編集の完了」（tldraw 踏襲）。
@@ -1127,6 +1179,7 @@ export function NoteCard({
         // 自然にtextarea側へ渡る。
         <button
           ref={surfaceRef}
+          data-canvas-note-surface="true"
           type="button"
           aria-label={
             selectedStampKind === null
@@ -1135,12 +1188,15 @@ export function NoteCard({
                 : "付箋"
               : `付箋（${selectedStampKind === "subjective" ? "主観" : "客観"}シールを貼る）`
           }
+          aria-pressed={isSelected}
           aria-disabled={disabled || undefined}
           aria-haspopup={canCandidateAction ? "menu" : undefined}
           aria-expanded={canCandidateAction ? isActionMenuOpen : undefined}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerCancel={cancelPointer}
+          onLostPointerCapture={cancelPointer}
           onPointerEnter={schedulePointerActionShow}
           onPointerLeave={schedulePointerActionHide}
           onFocus={() => {
@@ -1155,9 +1211,11 @@ export function NoteCard({
               ? "cursor-not-allowed"
               : selectedStampKind !== null
                 ? "cursor-none"
-                : isOwnDrag
-                  ? "cursor-grabbing"
-                  : "cursor-grab"
+                : interactionTool === "hand"
+                  ? "cursor-grab"
+                  : isOwnDrag
+                    ? "cursor-grabbing"
+                    : "cursor-grab"
           }`}
         />
       )}

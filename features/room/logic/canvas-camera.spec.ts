@@ -96,7 +96,7 @@ describe("canvas-camera", () => {
     expect(getCanvasGridStep(4)).toBeLessThan(40);
   });
 
-  it("空白の左ドラッグでカメラを1:1にパンする", () => {
+  it("手のひらの空白dragでカメラを1:1にパンする", () => {
     const viewport = createViewport();
     const raf = vi
       .spyOn(window, "requestAnimationFrame")
@@ -108,6 +108,7 @@ describe("canvas-camera", () => {
       useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
     );
     const start = result.current.camera;
+    act(() => result.current.setInteractionTool("hand"));
 
     act(() => {
       result.current.handlePointerDown(pointerEvent(viewport));
