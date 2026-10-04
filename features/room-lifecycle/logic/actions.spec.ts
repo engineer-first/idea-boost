@@ -26,7 +26,12 @@ vi.mock("@/lib/session/current-user", () => ({
 }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
 
-import { createRoom, joinRoom, lookupInviteRoom } from "./actions";
+import {
+  createRoom,
+  joinRoom,
+  lookupInviteRoom,
+  returnToRoom,
+} from "./actions";
 
 // 実物の redirect() は例外を投げて以降の処理を打ち切る。同じ制御フローを再現する。
 class RedirectSignal extends Error {
@@ -242,5 +247,63 @@ describe("joinRoom", () => {
         "ルームに参加できませんでした。しばらくしてから再度お試しください。",
     });
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("元のルームの確認", () => {
+  const roomId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  it("未認証と不正IDではAPIへ送らない", async () => {
+    getCurrentUserMock.mockResolvedValue(null);
+    expect(await callAndGetRedirect(() => returnToRoom(roomId))).toBe("/login");
+    expect(apiFetchMock).not.toHaveBeenCalled();
+    getCurrentUserMock.mockResolvedValue({
+      sub: "123e4567-e89b-12d3-a456-426614174000",
+    });
+    expect(await returnToRoom("../invalid")).toEqual({
+      kind: "unavailable_room",
+    });
+    expect(apiFetchMock).not.toHaveBeenCalled();
+  });
+  it.each([
+    [{ kind: "lobby" }, `/rooms/${roomId}/start`],
+    [{ kind: "step", phase: 1, step: 3 }, `/rooms/${roomId}`],
+  ])("現在の工程から作業画面を選ぶ %j", async (phase, href) => {
+    apiFetchMock
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(
+        Response.json({
+          roomId,
+          inviteCode: "ABC123",
+          isHost: true,
+          hostUserId: "123e4567-e89b-12d3-a456-426614174000",
+          phase,
+        }),
+      );
+    expect(await returnToRoom(roomId)).toEqual({ kind: "ready", href });
+  });
+  it("閲覧認可済み成果を優先する", async () => {
+    const { completedRoomFixture } = await import(
+      "@/contracts/completed-rooms.fixture"
+    );
+    apiFetchMock.mockResolvedValueOnce(
+      Response.json(completedRoomFixture({ roomId })),
+    );
+    expect(await returnToRoom(roomId)).toEqual({
+      kind: "ready",
+      href: `/completed-rooms/${roomId}`,
+    });
+    expect(apiFetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("不存在・非メンバーと一時障害を分ける", async () => {
+    apiFetchMock
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(new Response(null, { status: 404 }));
+    expect(await returnToRoom(roomId)).toEqual({ kind: "unavailable_room" });
+    apiFetchMock.mockResolvedValueOnce(new Response(null, { status: 503 }));
+    expect(await returnToRoom(roomId)).toEqual({ kind: "retry" });
+    apiFetchMock.mockRejectedValueOnce(new TypeError("offline"));
+    expect(await returnToRoom(roomId)).toEqual({ kind: "retry" });
+    apiFetchMock.mockResolvedValueOnce(Response.json({ roomId }));
+    expect(await returnToRoom(roomId)).toEqual({ kind: "retry" });
   });
 });

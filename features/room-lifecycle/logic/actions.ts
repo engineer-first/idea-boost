@@ -13,11 +13,16 @@ import {
   CreateRoomInputSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
+  type ReturnToRoomResult,
+  RoomInfoResponseSchema,
 } from "@/contracts/api";
+import { CompletedRoomSchema } from "@/contracts/completed-rooms";
+import { isUuid } from "@/contracts/ids";
 import {
   isValidInviteCode,
   normalizeInviteCode,
 } from "@/contracts/invite-code";
+import { isLobby } from "@/contracts/phase";
 import { apiFetch, lookupRoomByInviteCode } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 
@@ -173,4 +178,46 @@ export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {
   // 参加したらボードではなくスタート画面へ遷移する。
   // 遷移と「ルームに参加しました」toast は呼び出し側クライアントが行う。
   return { ok: true, roomId: parsed.data.roomId };
+}
+
+export async function returnToRoom(
+  roomId: string,
+): Promise<ReturnToRoomResult> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!isUuid(roomId)) return { kind: "unavailable_room" };
+  try {
+    // 途中退出でも成果の閲覧権が残る場合があるため、在籍より先に確認する。
+    const completed = await apiFetch(`/api/completed-rooms/${roomId}`, {
+      cache: "no-store",
+    });
+    if (completed.ok) {
+      const parsed = CompletedRoomSchema.safeParse(
+        await completed.json().catch(() => null),
+      );
+      return parsed.success && parsed.data.roomId === roomId
+        ? { kind: "ready", href: `/completed-rooms/${roomId}` }
+        : { kind: "retry" };
+    }
+    if (completed.status === 401 || completed.status === 403)
+      return { kind: "unavailable_room" };
+    if (completed.status !== 404) return { kind: "retry" };
+    const response = await apiFetch(`/api/rooms/${roomId}`, {
+      cache: "no-store",
+    });
+    if ([401, 403, 404].includes(response.status))
+      return { kind: "unavailable_room" };
+    if (!response.ok) return { kind: "retry" };
+    const parsed = RoomInfoResponseSchema.safeParse(
+      await response.json().catch(() => null),
+    );
+    if (!parsed.success || parsed.data.roomId !== roomId)
+      return { kind: "retry" };
+    return {
+      kind: "ready",
+      href: `/rooms/${roomId}${isLobby(parsed.data.phase) ? "/start" : ""}`,
+    };
+  } catch {
+    return { kind: "retry" };
+  }
 }

@@ -158,3 +158,7 @@ export const AllInteractionStates: Story = {
     );
   },
 };
+
+export const DelayedConnection: Story = {
+  args: { connectionStatus: "closed", connectionDelayed: true },
+};

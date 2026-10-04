@@ -6,11 +6,12 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { notify } from "@/lib/notify";
+import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import { joinRoom, lookupInviteRoom } from "../logic/actions";
 import { lifecycleNotify } from "../logic/lifecycle-notify";
 import { JoinRoomSectionView } from "../templates/join-room-section-view";
 
-export function JoinRoomSection() {
+export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [showCodeError, setShowCodeError] = useState(false);
@@ -55,6 +56,7 @@ export function JoinRoomSection() {
         notify.error(result.error);
         return;
       }
+      if (currentUserId) rememberLastRoom(currentUserId, result.roomId);
       lifecycleNotify.joinedAsGuest();
       setDialogOpen(false);
       router.push(`/rooms/${result.roomId}/start`);

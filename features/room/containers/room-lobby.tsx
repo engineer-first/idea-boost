@@ -80,8 +80,9 @@ export function RoomLobby({
     hostRevision: roomState.host.hostRevision ?? 0,
   });
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
-  const { connectionStatus, send } = useRoomConnection({
+  const { connectionStatus, connectionDelayed, send } = useRoomConnection({
     roomId,
+    currentUserId,
     onMessage: handleServerMessage,
     webSocketFactory,
     isLeavingRef,
@@ -198,6 +199,7 @@ export function RoomLobby({
       inviteCode={inviteCode}
       inviteUrl={inviteUrl}
       connectionStatus={connectionStatus}
+      connectionDelayed={connectionDelayed}
       isStarting={isStarting}
       onTransferHost={
         roomState.host.hostRevision === null ? undefined : handleTransfer

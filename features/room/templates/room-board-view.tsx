@@ -164,6 +164,7 @@ export type RoomBoardViewProps = {
   // WebSocket 接続の表示用状態。値の生成は room-board（コンテナ）の責務で、
   // ここでは受け取った状態を表示するだけ（このコンポーネントはデータ層に依存しない）。
   connectionStatus: RoomScreenConnectionStatus;
+  connectionDelayed?: boolean;
   draggingNoteId: string | null;
   members: Member[];
   currentUserId: string;
@@ -281,6 +282,7 @@ export function RoomBoardView({
   outcomePublished,
   adoptionFocusNoteId = null,
   connectionStatus,
+  connectionDelayed = false,
   draggingNoteId,
   members,
   currentUserId,
@@ -1025,6 +1027,7 @@ export function RoomBoardView({
           isTransferring={isTransferring}
           isDisconnected={isDisconnected}
           connectionStatus={connectionStatus}
+          connectionDelayed={connectionDelayed}
           members={members}
           currentUserId={currentUserId}
           hostUserId={hostUserId}

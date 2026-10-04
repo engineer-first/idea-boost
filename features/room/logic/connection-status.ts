@@ -8,12 +8,3 @@ export type RoomScreenConnectionStatus = Exclude<
   RoomConnectionStatus,
   "ended" | "disbanded"
 >;
-
-export const CONNECTION_STATUS_LABELS: Record<
-  RoomScreenConnectionStatus,
-  string | null
-> = {
-  connecting: "接続中…",
-  open: null,
-  closed: "接続が切れました。再接続します…",
-};

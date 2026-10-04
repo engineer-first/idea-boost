@@ -45,6 +45,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
 
   return (
     <InviteCodeDialog
+      currentUserId={user.sub}
       inviteCode={lookup.room.inviteCode}
       hostName={lookup.room.hostName}
     />

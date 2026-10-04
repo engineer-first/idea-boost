@@ -26,14 +26,22 @@ vi.mock("../logic/lifecycle-notify", () => ({
   lifecycleNotify: { joinedAsGuest: notifyMocks.joinedAsGuest },
 }));
 
+import { readLastRoom } from "@/lib/room-client/last-room-storage";
 import { InviteCodeDialog } from "./invite-code-dialog";
 
 function renderDialog() {
-  return render(<InviteCodeDialog inviteCode="ABC234" hostName="田中太郎" />);
+  return render(
+    <InviteCodeDialog
+      currentUserId="11111111-1111-4111-8111-111111111111"
+      inviteCode="ABC234"
+      hostName="田中太郎"
+    />,
+  );
 }
 
 describe("InviteCodeDialog", () => {
   beforeEach(() => {
+    localStorage.clear();
     PUSH.mockReset();
     JOIN_ROOM.mockReset();
     notifyMocks.joinedAsGuest.mockReset();
@@ -58,6 +66,9 @@ describe("InviteCodeDialog", () => {
     renderDialog();
     await user.click(screen.getByTestId("invite-join-action"));
     await waitFor(() => {
+      expect(readLastRoom("11111111-1111-4111-8111-111111111111")).toBe(
+        "123e4567-e89b-42d3-a456-426614174000",
+      );
       expect(notifyMocks.joinedAsGuest).toHaveBeenCalledTimes(1);
       expect(PUSH).toHaveBeenCalledWith(
         "/rooms/123e4567-e89b-42d3-a456-426614174000/start",

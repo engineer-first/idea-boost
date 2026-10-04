@@ -94,8 +94,13 @@ export function RoomBoard({
   // onMessage にはホイスティングされる関数宣言（下記）を渡す。
   // useRoomConnection は常に最新のハンドラへ配送するため、
   // ハンドラの再生成で再接続されることはない。
-  const { connectionStatus, send: sendRaw } = useRoomConnection({
+  const {
+    connectionStatus,
+    connectionDelayed,
+    send: sendRaw,
+  } = useRoomConnection({
     roomId,
+    currentUserId,
     onMessage: handleServerMessage,
     webSocketFactory,
     isLeavingRef,
@@ -558,6 +563,7 @@ export function RoomBoard({
         outcomePublished={roomState.outcomePublished}
         adoptionFocusNoteId={roomState.adoptionFocusNoteId}
         connectionStatus={connectionStatus}
+        connectionDelayed={connectionDelayed}
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
         currentUserId={currentUserId}

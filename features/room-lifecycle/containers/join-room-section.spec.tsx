@@ -27,6 +27,7 @@ vi.mock("../logic/lifecycle-notify", () => ({
   lifecycleNotify: { joinedAsGuest: notifyMocks.joinedAsGuest },
 }));
 
+import { readLastRoom } from "@/lib/room-client/last-room-storage";
 import { JoinRoomSection } from "./join-room-section";
 
 async function openConfirmDialog(user: ReturnType<typeof userEvent.setup>) {
@@ -35,7 +36,9 @@ async function openConfirmDialog(user: ReturnType<typeof userEvent.setup>) {
     hostName: "田中太郎",
     inviteCode: "AB12CD",
   });
-  render(<JoinRoomSection />);
+  render(
+    <JoinRoomSection currentUserId="11111111-1111-4111-8111-111111111111" />,
+  );
   await user.type(screen.getByLabelText("招待コード"), "AB12CD");
   await user.click(screen.getByRole("button", { name: "参加する" }));
   await waitFor(() => {
@@ -45,6 +48,7 @@ async function openConfirmDialog(user: ReturnType<typeof userEvent.setup>) {
 
 describe("JoinRoomSection", () => {
   beforeEach(() => {
+    localStorage.clear();
     PUSH.mockReset();
     JOIN_ROOM.mockReset();
     LOOKUP_INVITE.mockReset();
@@ -176,6 +180,9 @@ describe("JoinRoomSection", () => {
     });
     await user.click(screen.getByTestId("join-confirm-action"));
     await waitFor(() => {
+      expect(readLastRoom("11111111-1111-4111-8111-111111111111")).toBe(
+        "123e4567-e89b-42d3-a456-426614174000",
+      );
       expect(notifyMocks.joinedAsGuest).toHaveBeenCalledTimes(1);
       expect(PUSH).toHaveBeenCalledWith(
         "/rooms/123e4567-e89b-42d3-a456-426614174000/start",

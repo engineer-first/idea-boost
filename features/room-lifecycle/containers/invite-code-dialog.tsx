@@ -8,16 +8,19 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { notify } from "@/lib/notify";
+import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import { joinRoom } from "../logic/actions";
 import { lifecycleNotify } from "../logic/lifecycle-notify";
 import { InviteCodeDialogView } from "../templates/invite-code-dialog-view";
 
 export type InviteCodeDialogProps = {
+  currentUserId?: string;
   inviteCode: string;
   hostName: string;
 };
 
 export function InviteCodeDialog({
+  currentUserId,
   inviteCode,
   hostName,
 }: InviteCodeDialogProps) {
@@ -42,6 +45,7 @@ export function InviteCodeDialog({
         notify.error(result.error);
         return;
       }
+      if (currentUserId) rememberLastRoom(currentUserId, result.roomId);
       lifecycleNotify.joinedAsGuest();
       // open を false にすると useEffect が /home へ飛ばすため、成功時は開いたまま遷移する。
       router.push(`/rooms/${result.roomId}/start`);

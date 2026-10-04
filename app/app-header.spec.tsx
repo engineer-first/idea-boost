@@ -1,5 +1,5 @@
 // 共通ヘッダーのプレゼンテーション層テスト。
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigationMocks = vi.hoisted(() => ({ pathname: "/home" }));
@@ -13,6 +13,10 @@ vi.mock("@/features/auth", () => ({
 }));
 
 import { AppHeader } from "@/app/app-header";
+import {
+  readLastRoom,
+  rememberLastRoom,
+} from "@/lib/room-client/last-room-storage";
 
 describe("AppHeader", () => {
   beforeEach(() => {
@@ -69,4 +73,17 @@ describe("AppHeader", () => {
 
     expect(screen.getByTestId("app-header")).toBeInTheDocument();
   });
+});
+
+it("ログアウト送信時にブラウザの候補を消す", () => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  rememberLastRoom(userId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+  navigationMocks.pathname = "/home";
+  render(<AppHeader userName="田中" />);
+  const form = screen
+    .getByRole("button", { name: "ログアウト" })
+    .closest("form");
+  if (!form) throw new Error("ログアウトフォームがありません");
+  fireEvent.submit(form);
+  expect(readLastRoom(userId)).toBeNull();
 });
