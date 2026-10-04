@@ -16,7 +16,7 @@
 }
 .guide[data-state="intro"] {
   width: var(--guide-width);
-  height: 100px;
+  height: 132px;
   border-radius: 20px;
 }
 .guide[data-state="detail"] {
@@ -60,11 +60,10 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.intro > * {
-  width: calc(var(--guide-width) - 42px);
-}
+/* 縦スクロールバーの幅も引いた、実際に使える内側の幅に合わせる。 */
+.intro > *,
 .detail > * {
-  width: calc(var(--guide-width) - 50px);
+  width: 100%;
 }
 .guide[data-state="compact"] .compact,
 .guide[data-state="intro"] .intro,
@@ -95,6 +94,9 @@
   }
 }
 @media (max-width: 639px) {
+  .detail {
+    padding: 12px 24px;
+  }
   .guide {
     --guide-width: calc(100vw - 24px);
     position: relative;
@@ -123,4 +125,66 @@
   .guide[data-state] .layer {
     transition: none;
   }
+}
+
+.introLink {
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.introLink:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.example {
+  padding: 12px;
+  background: var(--muted);
+  border-radius: 8px;
+}
+.exampleItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0;
+  list-style: none;
+}
+.exampleItems li {
+  flex: 1 1 80px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.exampleItems[data-grouped] {
+  padding: 10px;
+  border: 2px dashed var(--primary);
+  border-radius: 8px;
+}
+
+.exampleItems[data-flow] {
+  flex-direction: column;
+}
+.exampleItems[data-flow] li {
+  display: flex;
+  flex: initial;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+.flowArrow {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.exampleItems li:first-child .flowArrow {
+  visibility: hidden;
 }

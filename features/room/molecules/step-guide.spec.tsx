@@ -7,6 +7,10 @@ import { StepGuide, type StepGuideProps } from "./step-guide";
 // 文言のカタログではなく、渡された内容と表示条件の接続を検証する。
 const guide = {
   durationMinutes: 3,
+  action: "付箋を書く",
+  firstAction: "左の追加ボタンを押す",
+  purpose: "考えを一つずつ見えるようにします。",
+  visualExample: { caption: "操作の例", items: ["書く", "共有する"] },
   intro: "この工程の最初の一歩",
   modalTitle: "この工程の詳しい案内",
   message: "参加者がいま取り組む作業",
@@ -15,6 +19,7 @@ const guide = {
   example: "作業を進めるコツ",
   completion: "この工程を終える条件",
   hostMessage: "進行役だけが確認する手順",
+  hostTimerGuide: "進行役だけのタイマー操作案内",
 } satisfies FacilitationGuideContent;
 const defaults: StepGuideProps = {
   guide,
@@ -52,6 +57,27 @@ afterEach(() => {
 });
 
 describe("工程ガイド", () => {
+  it("畳んだ入口は進め方だけを示し、現在の作業を併記しない", () => {
+    setup({ initialState: "compact" });
+    const trigger = screen.getByRole("button", { name: "進め方" });
+    expect(trigger).toHaveTextContent(/^進め方$/);
+    expect(trigger).not.toHaveAccessibleDescription();
+  });
+  it("初回の短い案内から直接詳細を開けて、最初の操作と目的・例を読める", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "進め方を見る" }));
+    const detail = screen.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    expect(detail).toHaveFocus();
+    expect(within(detail).getByText(guide.firstAction)).toBeVisible();
+    expect(within(detail).getByText(guide.purpose)).toBeVisible();
+    expect(
+      within(detail).getByRole("figure", { name: guide.visualExample.caption }),
+    ).toBeVisible();
+    fireEvent.keyDown(detail, { key: "Escape" });
+    expect(screen.getByRole("button", { name: "進め方" })).toHaveFocus();
+  });
   it("初回案内はフォーカスを奪わず、5秒後に同じ枠のボタンへ畳む", () => {
     vi.useFakeTimers();
     setup();
@@ -194,22 +220,23 @@ describe("工程ガイド", () => {
     const detail = within(
       screen.getByRole("region", { name: "ファシリテーションガイド" }),
     );
-    expect(
-      detail.getByRole("heading", { name: guide.modalTitle }),
-    ).toBeVisible();
-    expect(detail.getByText(guide.message)).toBeVisible();
-    for (const text of [
-      ...guide.steps,
-      ...guide.modalExamples,
-      guide.example,
-      guide.completion,
-    ]) {
+    expect(detail.getByRole("heading", { name: guide.action })).toBeVisible();
+    expect(detail.getByText(guide.firstAction)).toBeVisible();
+    for (const text of [...guide.steps, guide.example, guide.completion]) {
       expect(detail.getByText(text)).toBeVisible();
     }
   });
+  it("図のない工程では従来の具体例を表示する", () => {
+    setup({
+      guide: { ...guide, visualExample: undefined },
+      initialState: "detail",
+    });
+    for (const example of guide.modalExamples)
+      expect(screen.getByText(example)).toBeVisible();
+  });
   it("専用見出しがない場合は作業内容を詳細の見出しにする", () => {
     setup({
-      guide: { ...guide, modalTitle: undefined },
+      guide: { ...guide, action: undefined, modalTitle: undefined },
       initialState: "detail",
     });
     expect(screen.getByRole("heading", { name: guide.message })).toBeVisible();
@@ -235,17 +262,19 @@ describe("工程ガイド", () => {
   it("ホストの補足はホストだけに表示する", () => {
     const { rerender, props } = setup({ initialState: "detail" });
     const hostMessage = guide.hostMessage;
+    expect(screen.queryByText(guide.hostTimerGuide)).not.toBeInTheDocument();
     expect(screen.queryByText("進行役へ")).not.toBeInTheDocument();
     expect(screen.queryByText(hostMessage)).not.toBeInTheDocument();
     rerender(<StepGuide {...props} isHost />);
     expect(screen.getByText("進行役へ")).toBeVisible();
+    expect(screen.getByText(guide.hostTimerGuide)).toBeVisible();
     expect(screen.getByText(hostMessage)).toBeVisible();
     rerender(<StepGuide {...props} isHost={false} />);
     expect(screen.queryByText(hostMessage)).not.toBeInTheDocument();
   });
   it("ホスト向けの補足がない工程では空の補足欄を出さない", () => {
     setup({
-      guide: { ...guide, hostMessage: null },
+      guide: { ...guide, hostMessage: null, hostTimerGuide: undefined },
       isHost: true,
       initialState: "detail",
     });
