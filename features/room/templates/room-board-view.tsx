@@ -17,6 +17,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { DRAG_THRESHOLD_PX } from "@/contracts/board";
+import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import type { PersistentGroup } from "@/contracts/grouping";
 import {
   isPhaseStep,
@@ -221,7 +222,7 @@ export type RoomBoardViewProps = {
   onRestartWriting?: () => void;
   onRevote?: () => void;
   // 退出。
-  onLeave: () => void;
+  onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
   isLeaving: boolean;
   // 次フェーズへ。ホストのみ UI 表示。

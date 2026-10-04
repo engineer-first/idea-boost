@@ -1,6 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ServerMessage } from "../../contracts/room-protocol";
+import worker from "../api-worker";
 import {
   connectRoomAs,
   createRoomAs,
@@ -87,7 +88,126 @@ async function removeAccepted(
   });
 }
 
+async function request(path: string, user = B) {
+  return worker.fetch(
+    new Request(`https://api.test/api/${path}`, {
+      headers: { Cookie: await sessionCookieFor(user) },
+    }),
+    env,
+  );
+}
+
+async function publishOutcome(roomId: string) {
+  await runInRoomDO(roomId, async (room, state) => {
+    await room.setPhase({ kind: "step", phase: 3, step: 5 }, A.sub);
+    for (const phase of [1, 2, 3])
+      state.storage.sql.exec(
+        "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,?)",
+        phase,
+        crypto.randomUUID(),
+        `決定${phase}`,
+        A.sub,
+        new Date().toISOString(),
+      );
+    await (
+      room as unknown as {
+        preserveSharedOutcome(
+          confirmed: boolean,
+          now: number,
+          participant: boolean,
+        ): Promise<void>;
+      }
+    ).preserveSharedOutcome(true, Date.now(), true);
+    await room.alarm();
+  });
+}
+
+async function expectNoOutcomeAccess(roomId: string) {
+  const list = (await (await request("completed-rooms")).json()) as {
+    rooms: Array<{ roomId: string }>;
+  };
+  expect(list.rooms.some((room) => room.roomId === roomId)).toBe(false);
+  expect((await request(`completed-rooms/${roomId}`)).status).toBe(404);
+  expect(
+    (await request(`completed-rooms/${roomId}/scenes/problem-grouping`)).status,
+  ).toBe(404);
+}
+
 describe("ホストによるメンバー除外", () => {
+  it("除外は成果を残さない退出として一覧・成果・経緯を拒否し、他者の保持退出の権利は残す", async () => {
+    const { roomId, a, b, stub } = await setup();
+    await stub.leave(C.sub, "retain");
+    await receive(a, "member_left");
+    await receive(b, "member_left");
+    await removeAccepted(a);
+    expect((await request(`rooms/${roomId}`)).status).toBe(404);
+    await publishOutcome(roomId);
+    await expectNoOutcomeAccess(roomId);
+    // 遅れた索引が本人を一覧候補に含めても、RoomDOの閲覧権で拒否する。
+    await env.DB.prepare(
+      "INSERT INTO completed_room_viewers(user_id,room_id,completed_at,expires_at) VALUES(?,?,?,?) ON CONFLICT(user_id,room_id) DO NOTHING",
+    )
+      .bind(B.sub, roomId, Date.now(), Date.now() + 86400000)
+      .run();
+    await expectNoOutcomeAccess(roomId);
+    for (const viewer of [A, C]) {
+      expect((await request(`completed-rooms/${roomId}`, viewer)).status).toBe(
+        200,
+      );
+      expect(
+        (
+          await request(
+            `completed-rooms/${roomId}/scenes/problem-grouping`,
+            viewer,
+          )
+        ).status,
+      ).toBe(200);
+    }
+  });
+
+  it("除外は残存する成果保持権も削除し、完了時に閲覧権を復活させない", async () => {
+    const { roomId, a } = await setup();
+    // 通常の再参加は保持行を消すが、残存行もdiscard退出と同じく失効させる。
+    await runInRoomDO(roomId, (_room, state) =>
+      state.storage.sql.exec(
+        "INSERT INTO retained_outcome_participants(user_id) VALUES(?)",
+        B.sub,
+      ),
+    );
+    await removeAccepted(a);
+    await publishOutcome(roomId);
+    await expectNoOutcomeAccess(roomId);
+  });
+
+  it("成果を残して退出した人も再参加後に除外されたら成果を閲覧できない", async () => {
+    const { roomId, inviteCode, a, stub } = await setup();
+    await stub.leave(B.sub, "retain");
+    await receive(a, "member_left");
+    await joinRoomAs(B, inviteCode);
+    await receive(a, "member_joined");
+    await removeAccepted(a);
+    await publishOutcome(roomId);
+    await expectNoOutcomeAccess(roomId);
+  });
+
+  it("除外後も再参加でき、再参加した本人の保持退出なら成果を閲覧できる", async () => {
+    const { roomId, inviteCode, a, stub } = await setup();
+    await removeAccepted(a);
+    await joinRoomAs(B, inviteCode);
+    await receive(a, "member_joined");
+    await stub.leave(B.sub, "retain");
+    await receive(a, "member_left");
+    await publishOutcome(roomId);
+    expect((await request(`completed-rooms/${roomId}`)).status).toBe(200);
+    expect(
+      (await request(`completed-rooms/${roomId}/scenes/problem-grouping`))
+        .status,
+    ).toBe(200);
+    expect(await (await request("completed-rooms")).json()).toMatchObject({
+      rooms: expect.arrayContaining([expect.objectContaining({ roomId })]),
+    });
+  });
+
   it("非ホストは他者を外せず操作ID付きで拒否する", async () => {
     const { a, b, stub } = await setup();
     const operationId = remove(b, C.sub);

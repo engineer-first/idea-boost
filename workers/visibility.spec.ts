@@ -56,6 +56,12 @@ const TABLE: Array<{
     expected: true,
   },
   {
+    name: "成果を残して退出した作者も再訪記録では本人のprivate付箋を見られない",
+    viewerId: OUTCOME_VIEWER,
+    note: note({ visibility: "private", authorId: AUTHOR }),
+    expected: false,
+  },
+  {
     name: "ホストを引き継いでも他者の未共有付箋を見せない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

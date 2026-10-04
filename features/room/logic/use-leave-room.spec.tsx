@@ -161,3 +161,17 @@ it("ホストの解散と参加者の退出は明示的な意図と現在改訂�
   expect(memberForm.get("intent")).toBe("self");
   expect(memberForm.get("expectedHostRevision")).toBe("2");
 });
+
+it.each([
+  "retain",
+  "discard",
+] as const)("本人退出は選択した閲覧権 %s を渡す", (access) => {
+  LEAVE_ROOM.mockReset();
+  LEAVE_ROOM.mockImplementation(() => new Promise(() => {}));
+  const { result } = renderHook(() =>
+    useLeaveRoom({ roomId: ROOM_ID, isHost: false }),
+  );
+  act(() => result.current.leave(access));
+  const form = LEAVE_ROOM.mock.calls[0]?.[0] as FormData;
+  expect(form.get("outcomeAccess")).toBe(access);
+});

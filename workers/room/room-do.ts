@@ -21,6 +21,7 @@ import type {
   CompletedBoardResponse,
   CompletedRoom,
   CompletedSceneKind,
+  LeaveOutcomeAccess,
 } from "../../contracts/completed-rooms";
 import {
   isPhaseStep,
@@ -264,6 +265,7 @@ export class RoomDO extends DurableObject {
     creatorSeed: string,
     intent?: "self" | "disband",
     expectedHostRevision?: number,
+    outcomeAccess?: LeaveOutcomeAccess,
   ): Promise<"left" | "disbanded" | "not-member" | "forbidden"> {
     if (userId === creatorSeed && !isRoomClosed(this.sql))
       ensureHost(this.sql, creatorSeed);
@@ -290,18 +292,49 @@ export class RoomDO extends DurableObject {
     }
     if (!isMember(this.sql, userId)) return "not-member";
     if (isHost && !this.isCompleted()) return "forbidden";
-    await this.leave(userId);
+    await this.leave(userId, outcomeAccess);
     return "left";
   }
 
-  // 退出・ホストによる除外は同じ処理を使う。認可から会員削除までawaitしない。
-  async leave(userId: string): Promise<void> {
-    this.leaveMember(userId);
+  // REST退出もWS除外も、閲覧権の更新と会員削除をawait前に完了する。
+  async leave(
+    userId: string,
+    outcomeAccess?: LeaveOutcomeAccess,
+  ): Promise<void> {
+    this.leaveMember(userId, outcomeAccess);
+    await this.flushLeave();
   }
 
-  private leaveMember(userId: string): void {
+  private async flushLeave(): Promise<void> {
+    await this.completed.flush();
+    await syncRoomAlarm(this.ctx.storage, this.sql);
+  }
+
+  private leaveMember(
+    userId: string,
+    outcomeAccess?: LeaveOutcomeAccess,
+  ): void {
     if (!isMember(this.sql, userId)) return;
-    removeMember(this.sql, userId);
+    this.ctx.storage.transactionSync(() => {
+      const completion = readCompletion(this.sql);
+      if (outcomeAccess === "discard") this.completed.revokeViewer(userId);
+      if (
+        !completion &&
+        outcomeAccess === "retain" &&
+        !isRoomClosed(this.sql) &&
+        (readOutcomeState(this.sql)?.expires_at ?? 0) > Date.now()
+      )
+        this.sql.exec(
+          "INSERT INTO retained_outcome_participants(user_id) VALUES(?) ON CONFLICT(user_id) DO NOTHING",
+          userId,
+        );
+      else
+        this.sql.exec(
+          "DELETE FROM retained_outcome_participants WHERE user_id=?",
+          userId,
+        );
+      removeMember(this.sql, userId);
+    });
     const retiredSharedNotes = new Set<string>();
     let hadPresence = false;
     for (const socket of this.ctx.getWebSockets()) {
@@ -378,6 +411,7 @@ export class RoomDO extends DurableObject {
       for (const table of [
         "notes",
         "members",
+        "retained_outcome_participants",
         "groups",
         "decisions",
         "note_votes",
@@ -889,7 +923,10 @@ export class RoomDO extends DurableObject {
       operationId,
       broadcaster: this.broadcaster,
       refreshSnapshots: () => this.refreshSnapshots(),
-      leaveMember: (targetUserId) => this.leaveMember(targetUserId),
+      leaveMember: (targetUserId) => {
+        this.leaveMember(targetUserId, "discard");
+        this.ctx.waitUntil(this.flushLeave());
+      },
     };
   }
 

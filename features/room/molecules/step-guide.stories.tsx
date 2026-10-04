@@ -70,3 +70,17 @@ export const Comparing: Story = {
 export const SharingHost: Story = {
   args: { ...Sharing.args, isHost: true },
 };
+
+// 連続した英数字も切り捨てず折り返して読めることを確認する。
+export const LongText: Story = {
+  args: {
+    guide: {
+      ...guide,
+      action: "スクロールと長い語句の表示例",
+      firstAction: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".repeat(4),
+      steps: ["案内は上下にスクロールして全文を読めます。".repeat(12)],
+      completion: "末尾の案内まで読めます。",
+    },
+    initialState: "detail",
+  },
+};

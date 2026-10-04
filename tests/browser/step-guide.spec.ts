@@ -30,6 +30,128 @@ async function settled(page: Page, state: string): Promise<void> {
   });
 }
 
+test.each([
+  1440, 390,
+])("%ipxで案内内は縦だけスクロールでき、開いたまま背景の移動・ズームもできる", async (width) => {
+  const page = await browser.newPage({
+    viewport: { width, height: 900 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardview--voting-guide-scroll-interaction");
+    await settled(page, "detail");
+    const canvas = page.getByTestId("board-canvas");
+    const transform = () =>
+      canvas.evaluate(async (element) => {
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+        return element.style.transform;
+      });
+    const before = await transform();
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    await detail.hover();
+    await page.mouse.wheel(120, 1600);
+    await vi.waitFor(async () =>
+      expect(
+        await detail.evaluate((element) => element.scrollTop),
+      ).toBeGreaterThan(0),
+    );
+    await vi.waitFor(async () =>
+      expect(
+        await detail.evaluate(
+          (element) =>
+            element.scrollHeight - element.clientHeight - element.scrollTop,
+        ),
+      ).toBeLessThanOrEqual(1),
+    );
+    expect(await detail.evaluate((element) => element.scrollLeft)).toBe(0);
+    expect(await transform()).toBe(before);
+
+    await page.mouse.move(width / 2, 550);
+    await page.mouse.wheel(120, 240);
+    await vi.waitFor(async () => expect(await transform()).not.toBe(before));
+    const afterPan = await transform();
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, -120);
+    await page.keyboard.up("Control");
+    await vi.waitFor(async () => expect(await transform()).not.toBe(afterPan));
+    expect(
+      await page.getByTestId("step-guide").getAttribute("data-state"),
+    ).toBe("detail");
+    await page.keyboard.press("Escape");
+    await settled(page, "compact");
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
+  390, 768, 901, 1180, 1440,
+])("%ipxで常時表示のスクロールバーを隠し、長い語句も横に移動せず全文を読める", async (width) => {
+  const classicBrowser = await chromium.launch({
+    ignoreDefaultArgs: ["--hide-scrollbars"],
+  });
+  const page = await classicBrowser.newPage({
+    viewport: { width, height: 900 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-stepguide--long-text");
+    await settled(page, "detail");
+    // OSがスクロールバーを常時表示する環境を、幅を持つネイティブバーで再現する。
+    await page.addStyleTag({
+      content: "*::-webkit-scrollbar { width: 14px; height: 14px; }",
+    });
+    const detail = page.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    expect(
+      await detail.evaluate((element) => {
+        if (!(element instanceof HTMLElement))
+          throw new Error("ガイドがHTML要素ではありません");
+        return element.offsetWidth - element.clientWidth;
+      }),
+    ).toBe(0);
+    expect(await detail.evaluate((element) => element.scrollWidth)).toBe(
+      await detail.evaluate((element) => element.clientWidth),
+    );
+    await detail.hover();
+    await page.mouse.wheel(800, 400);
+    await vi.waitFor(async () =>
+      expect(
+        await detail.evaluate((element) => element.scrollTop),
+      ).toBeGreaterThan(0),
+    );
+    expect(await detail.evaluate((element) => element.scrollLeft)).toBe(0);
+    await detail.press("End");
+    await vi.waitFor(async () =>
+      expect(
+        await detail.evaluate(
+          (element) =>
+            element.scrollTop + element.clientHeight >=
+            element.scrollHeight - 1,
+        ),
+      ).toBe(true),
+    );
+    const last = detail.locator("dl > div").last();
+    const lastBox = await last.boundingBox();
+    const bounds = await detail.boundingBox();
+    expect(lastBox).not.toBeNull();
+    expect(bounds).not.toBeNull();
+    expect((lastBox?.x ?? 0) + (lastBox?.width ?? 0)).toBeLessThanOrEqual(
+      (bounds?.x ?? 0) + (bounds?.width ?? 0),
+    );
+    expect((lastBox?.y ?? 0) + (lastBox?.height ?? 0)).toBeLessThanOrEqual(
+      (bounds?.y ?? 0) + (bounds?.height ?? 0),
+    );
+  } finally {
+    await classicBrowser.close();
+  }
+});
+
 test("同じ枠の変形・キーボード・外側クリックと付箋追加を実ブラウザで確認する", async () => {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
@@ -349,8 +471,8 @@ test.each([
 
 test.each([
   390, 1180, 1280,
-])("%ipxで幅を取るスクロールバーでも例が読め、横にはみ出さない", async (width) => {
-  // headlessの既定 --hide-scrollbars を外し、実際に幅を取るスクロールバーを検証する。
+])("%ipxでスクロールバーを常時表示する環境でも各工程の案内が横にはみ出さない", async (width) => {
+  // headlessの非表示設定を外し、OSの常時表示に相当する幅を指定して検証する。
   const classicBrowser = await chromium.launch({
     ignoreDefaultArgs: ["--hide-scrollbars"],
   });
@@ -371,6 +493,9 @@ test.each([
     ]) {
       await open(page, `room-stepguide--${story}`);
       await settled(page, "detail");
+      await page.addStyleTag({
+        content: "*::-webkit-scrollbar { width: 14px; height: 14px; }",
+      });
       const detail = page.getByRole("region", {
         name: "ファシリテーションガイド",
       });
