@@ -1434,3 +1434,36 @@ describe("開始前ホスト移譲の契約", () => {
     expect(parseServerMessage(JSON.stringify(update))).toEqual(update);
   });
 });
+
+describe("メンバー除外の契約", () => {
+  const request = {
+    type: "member:remove",
+    targetUserId: USER_B,
+    expectedHostRevision: 0,
+    operationId: USER_A,
+  };
+  it("対象とホスト世代と操作IDを必須で受け入れる", () => {
+    expect(parseClientMessage(JSON.stringify(request))).toEqual(request);
+  });
+  it.each([
+    { targetUserId: "bad" },
+    { expectedHostRevision: undefined },
+    { expectedHostRevision: -1 },
+    { operationId: undefined },
+    { operationId: "bad" },
+    { actorId: USER_A },
+    { roomId: USER_A },
+  ])("不正な入力と認証主体の偽装を拒否する %j", (change) => {
+    expect(
+      parseClientMessage(JSON.stringify({ ...request, ...change })),
+    ).toBeNull();
+  });
+  it("送信者専用の完了応答で操作を対応付ける", () => {
+    const ack = {
+      type: "member:removed",
+      targetUserId: USER_B,
+      operationId: USER_A,
+    };
+    expect(parseServerMessage(JSON.stringify(ack))).toEqual(ack);
+  });
+});

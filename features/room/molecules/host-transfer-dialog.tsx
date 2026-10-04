@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ export type HostTransferDialogProps = {
   blocked?: boolean;
   error: string | null;
   onClosed?: () => void;
+  onRequestRemove?: () => void;
 };
 
 export function HostTransferDialog({
@@ -34,7 +36,25 @@ export function HostTransferDialog({
   blocked = false,
   error,
   onClosed,
+  onRequestRemove,
 }: HostTransferDialogProps) {
+  const hostAction = (
+    <AlertDialogAction
+      className="h-auto min-h-11 whitespace-normal break-all"
+      disabled={!target || pending || disconnected || blocked}
+      onClick={(event) => {
+        event.preventDefault();
+        if (target) onConfirm(target.userId);
+      }}
+    >
+      {pending
+        ? "変更中…"
+        : target
+          ? `${target.name || "名前未設定"}さんをホストにする`
+          : "ホストにする"}
+    </AlertDialogAction>
+  );
+
   return (
     <AlertDialog
       open={open}
@@ -43,6 +63,7 @@ export function HostTransferDialog({
       }}
     >
       <AlertDialogContent
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto"
         onKeyDown={(event) => {
           if (event.key !== "Escape") return;
           // 元の参加者Popoverが退出中でも、表示中の確認で取消を完結させる。
@@ -58,14 +79,20 @@ export function HostTransferDialog({
         }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>このユーザーをホストにしますか？</AlertDialogTitle>
+          <AlertDialogTitle>
+            {onRequestRemove
+              ? "参加者の操作"
+              : "このユーザーをホストにしますか？"}
+          </AlertDialogTitle>
           {target ? (
             <p className="break-all text-base font-semibold">
               {target.name || "名前未設定"}
             </p>
           ) : null}
           <AlertDialogDescription>
-            開始・進行・解散の操作を渡します。作業内容はそのままです。
+            {onRequestRemove
+              ? "ホストにすると、開始・進行・解散の操作を渡します。作業内容はそのままです。"
+              : "開始・進行・解散の操作を渡します。作業内容はそのままです。"}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!target ? (
@@ -88,23 +115,34 @@ export function HostTransferDialog({
             {error}
           </p>
         ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>キャンセル</AlertDialogCancel>
-          <AlertDialogAction
-            className="h-auto min-h-11 whitespace-normal break-all"
-            disabled={!target || pending || disconnected || blocked}
-            onClick={(event) => {
-              event.preventDefault();
-              if (target) onConfirm(target.userId);
-            }}
-          >
-            {pending
-              ? "変更中…"
-              : target
-                ? `${target.name || "名前未設定"}さんをホストにする`
-                : "ホストにする"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
+        <div className="grid gap-3">
+          {onRequestRemove ? (
+            <>
+              {hostAction}
+              <AlertDialogFooter className="flex-row items-center justify-between sm:justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-11 text-destructive"
+                  disabled={!target || pending || disconnected || blocked}
+                  onClick={onRequestRemove}
+                >
+                  ルームから外す…
+                </Button>
+                <AlertDialogCancel className="min-h-11" disabled={pending}>
+                  キャンセル
+                </AlertDialogCancel>
+              </AlertDialogFooter>
+            </>
+          ) : (
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pending}>
+                キャンセル
+              </AlertDialogCancel>
+              {hostAction}
+            </AlertDialogFooter>
+          )}
+        </div>
       </AlertDialogContent>
     </AlertDialog>
   );

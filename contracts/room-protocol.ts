@@ -483,6 +483,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       expectedHostRevision: z.number().int().nonnegative(),
     })
     .strict(),
+  z
+    .object({
+      type: z.literal("member:remove"),
+      targetUserId: HostUserIdSchema,
+      expectedHostRevision: z.number().int().nonnegative(),
+      operationId: OptimisticOperationIdSchema,
+    })
+    .strict(),
   // 課題整理の次ステップへ。ホストのみ。
   // force は全フェーズの投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
   // ホストが進行できる）。ホスト判定が先に評価されるため、非ホストが
@@ -542,6 +550,7 @@ export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 export const HOST_REVISION_MESSAGE_TYPES = [
   "start_phase",
   "host:transfer",
+  "member:remove",
   "sharing:start",
   "sharing:advance",
   "note:exclude",
@@ -595,6 +604,13 @@ export type PendingPhaseTransition = z.infer<
 >;
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("member:removed"),
+      targetUserId: HostUserIdSchema,
+      operationId: OptimisticOperationIdSchema,
+    })
+    .strict(),
   z.object({
     type: z.literal("host:updated"),
     operationId: OptimisticOperationIdSchema.optional(),

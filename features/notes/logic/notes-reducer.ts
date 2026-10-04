@@ -92,6 +92,7 @@ export function applyServerMessage(
     case "cursor:drag-ended":
     case "cursor:left":
     case "member_vote_status":
+    case "member:removed":
     case "host:updated":
     case "error": {
       // ノート以外の状態は別リデューサが担当する（room-reducer.ts）。
