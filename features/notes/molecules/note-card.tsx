@@ -57,6 +57,7 @@ export type NoteCardProps = {
   onDragStart: (
     noteId: string,
     event: React.PointerEvent<HTMLButtonElement>,
+    origin?: { clientX: number; clientY: number },
   ) => void;
   onContentChange: (noteId: string, content: string) => void;
   draftValue?: string;
@@ -610,6 +611,25 @@ export function NoteCard({
     }
   }, [isEditing, isSelected]);
 
+  const discardPointerOrigin = useCallback(() => {
+    const origin = pointerOriginRef.current;
+    pointerOriginRef.current = null;
+    if (origin && surfaceRef.current?.hasPointerCapture?.(origin.pointerId))
+      surfaceRef.current.releasePointerCapture(origin.pointerId);
+  }, []);
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") discardPointerOrigin();
+    };
+    window.addEventListener("keydown", keydown);
+    window.addEventListener("blur", discardPointerOrigin);
+    return () => {
+      window.removeEventListener("keydown", keydown);
+      window.removeEventListener("blur", discardPointerOrigin);
+      discardPointerOrigin();
+    };
+  }, [discardPointerOrigin]);
+
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     if (disabled) {
       return;
@@ -651,7 +671,10 @@ export function NoteCard({
       origin.didDrag = true;
       // キャプチャをリリースし、ドラッグ処理を親に移管する
       event.currentTarget.releasePointerCapture?.(event.pointerId);
-      onDragStart(note.id, event);
+      onDragStart(note.id, event, {
+        clientX: origin.startClientX,
+        clientY: origin.startClientY,
+      });
       pointerOriginRef.current = null;
     }
   }
@@ -1141,6 +1164,10 @@ export function NoteCard({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerCancel={discardPointerOrigin}
+          onLostPointerCapture={() => {
+            pointerOriginRef.current = null;
+          }}
           onPointerEnter={schedulePointerActionShow}
           onPointerLeave={schedulePointerActionHide}
           onFocus={() => {

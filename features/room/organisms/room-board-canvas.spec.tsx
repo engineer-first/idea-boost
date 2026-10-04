@@ -1047,7 +1047,10 @@ describe("RoomBoardCanvas", () => {
       clientX: 210,
       clientY: 210,
     });
-    expect(onNoteDragStart).toHaveBeenCalledWith(id, expect.anything());
+    expect(onNoteDragStart).toHaveBeenCalledWith(id, expect.anything(), {
+      clientX: 200,
+      clientY: 200,
+    });
   });
 
   it("2軸マップの端でもドラッグゴーストを平面内に完全表示する", () => {

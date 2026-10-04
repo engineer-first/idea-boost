@@ -1179,3 +1179,40 @@ it("候補外も共有付箋としてドラッグを開始する", () => {
   );
   expect(args.onNoteDragStart).toHaveBeenCalledWith("excluded");
 });
+
+describe("move集合の入口", () => {
+  it("選択集合を固定して渡し共有境界を跨がない", () => {
+    const { args, result } = setup({
+      selectedNoteIds: ["shared-1", "shared-2"],
+      notes: [
+        buildNote({ id: "shared-1", authorId: ME, x: 100, y: 100 }),
+        buildNote({ id: "shared-2", authorId: ME, x: 160, y: 100 }),
+      ],
+    });
+    act(() =>
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 120, 130),
+      ),
+    );
+    expect(args.onNoteDragStart).toHaveBeenCalledWith("shared-1", false, [
+      "shared-1",
+      "shared-2",
+    ]);
+    act(() => result.current.handlePointerMove(pointerEvent(1, 400, 560)));
+    act(() => result.current.handlePointerEnd(pointerEvent(1, 400, 560)));
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+  });
+  it("押下起点offsetを閾値開始後にも維持する", () => {
+    const { args, result } = setup();
+    act(() =>
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 150, 130),
+        { clientX: 120, clientY: 130 },
+      ),
+    );
+    act(() => result.current.handlePointerMove(pointerEvent(1, 150, 130)));
+    expect(args.onNoteDragMove).toHaveBeenCalledWith("shared-1", 130, 100);
+  });
+});

@@ -20,6 +20,8 @@ export type NoteRow = {
   author_id: string;
   content: string;
   content_revision?: number;
+  position_revision?: number;
+  visibility_revision?: number;
   visibility: "private" | "shared";
   color: NoteColor;
   font_size: number;
@@ -52,10 +54,13 @@ export function findNote(sql: SqlStorage, noteId: string): NoteRow | null {
   const rows = sql
     .exec(
       `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size,
-              COALESCE(v.content_revision, 0) AS content_revision
+              COALESCE(v.content_revision, 0) AS content_revision,
+              COALESCE(m.position_revision, 0) AS position_revision,
+              COALESCE(m.visibility_revision, 0) AS visibility_revision
        FROM notes n
        LEFT JOIN note_appearances a ON a.note_id = n.id
        LEFT JOIN note_content_versions v ON v.note_id = n.id
+       LEFT JOIN note_move_versions m ON m.note_id = n.id
        WHERE n.id = ?1`,
       noteId,
       NOTE_DEFAULT_FONT_SIZE,
@@ -124,10 +129,13 @@ export function listNotes(
       ? sql
           .exec(
             `SELECT n.*, COALESCE(a.font_size, ?1) AS font_size,
-                    COALESCE(v.content_revision, 0) AS content_revision
+                    COALESCE(v.content_revision, 0) AS content_revision,
+              COALESCE(m.position_revision, 0) AS position_revision,
+              COALESCE(m.visibility_revision, 0) AS visibility_revision
              FROM notes n
              LEFT JOIN note_appearances a ON a.note_id = n.id
              LEFT JOIN note_content_versions v ON v.note_id = n.id
+       LEFT JOIN note_move_versions m ON m.note_id = n.id
              ORDER BY n.stack_order, n.created_at, n.id`,
             NOTE_DEFAULT_FONT_SIZE,
           )
@@ -135,10 +143,13 @@ export function listNotes(
       : sql
           .exec(
             `SELECT n.*, COALESCE(a.font_size, ?2) AS font_size,
-                    COALESCE(v.content_revision, 0) AS content_revision
+                    COALESCE(v.content_revision, 0) AS content_revision,
+              COALESCE(m.position_revision, 0) AS position_revision,
+              COALESCE(m.visibility_revision, 0) AS visibility_revision
              FROM notes n
              LEFT JOIN note_appearances a ON a.note_id = n.id
              LEFT JOIN note_content_versions v ON v.note_id = n.id
+       LEFT JOIN note_move_versions m ON m.note_id = n.id
              WHERE n.phase = ?1
              ORDER BY n.stack_order, n.created_at, n.id`,
             phase,
@@ -254,10 +265,13 @@ export function unpublishNoteAtIndex(
   const privateNotes = sql
     .exec(
       `SELECT n.*, COALESCE(a.font_size, ?4) AS font_size,
-              COALESCE(v.content_revision, 0) AS content_revision
+              COALESCE(v.content_revision, 0) AS content_revision,
+              COALESCE(m.position_revision, 0) AS position_revision,
+              COALESCE(m.visibility_revision, 0) AS visibility_revision
        FROM notes n
        LEFT JOIN note_appearances a ON a.note_id = n.id
        LEFT JOIN note_content_versions v ON v.note_id = n.id
+       LEFT JOIN note_move_versions m ON m.note_id = n.id
        WHERE n.author_id = ?1 AND n.phase = ?2 AND n.visibility = 'private'
          AND n.id <> ?3
        ORDER BY n.stack_order, n.created_at, n.id`,
@@ -528,11 +542,19 @@ export function toProtocolNote(
   viewerId: string,
 ): ProtocolNote {
   const phase = getPhase(sql);
+  const moveVersion = sql
+    .exec(
+      "SELECT position_revision,visibility_revision FROM note_move_versions WHERE note_id=?1",
+      row.id,
+    )
+    .toArray()[0];
   return {
     id: row.id,
     authorId: row.author_id,
     content: row.content,
     contentRevision: row.content_revision ?? 0,
+    positionRevision: Number(moveVersion?.position_revision ?? 0),
+    visibilityRevision: Number(moveVersion?.visibility_revision ?? 0),
     visibility: row.visibility,
     color: row.color,
     fontSize: row.font_size,

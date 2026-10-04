@@ -1098,6 +1098,7 @@ export function RoomBoardView({
           onCanvasPointerDown={handleCanvasPointerDown}
           onCanvasPointerMove={handleCanvasPointerMove}
           onCanvasPointerEnd={handleCanvasPointerEnd}
+          onNotePointerCaptureLost={interactions.onPointerCaptureLost}
           onPresencePointerMove={handlePresencePointerMove}
           onPresencePointerLeave={handlePresencePointerLeave}
           onZoomIn={zoomIn}

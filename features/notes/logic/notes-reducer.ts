@@ -37,6 +37,11 @@ export function applyServerMessage(
       return message.notes;
     }
 
+    case "notes:moved": {
+      const updates = new Map(message.notes.map((note) => [note.id, note]));
+      return notes.map((note) => updates.get(note.id) ?? note);
+    }
+
     case "note:inserted": {
       const exists = notes.some((n) => n.id === message.note.id);
       if (!exists) {
@@ -76,6 +81,7 @@ export function applyServerMessage(
     case "note:content-saved":
     case "note:content-status-result":
     case "phase:save-requested":
+    case "note:move:result":
     case "note:drag:result":
     case "idea-map:state":
     case "member_joined":

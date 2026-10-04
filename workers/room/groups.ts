@@ -29,6 +29,13 @@ export function listGroups(sql: SqlStorage): ProtocolGroup[] {
   }));
 }
 
+export function getGroupRevision(sql: SqlStorage): number {
+  return Number(
+    sql.exec("SELECT group_revision FROM room_state WHERE id=1").one()
+      .group_revision,
+  );
+}
+
 // 構成する付箋がすべて viewer に可視なグループだけを返す。snapshot 構築に使う。
 export function listVisibleGroups(
   sql: SqlStorage,
@@ -42,10 +49,20 @@ export function listVisibleGroups(
   );
 }
 
-function saveGroups(
+export function saveGroups(
   storage: DurableObjectStorage,
   groups: PersistentGroup[],
 ): void {
+  const current = listGroups(storage.sql);
+  if (
+    JSON.stringify(
+      current.map((g) => ({ id: g.id, name: g.name, noteIds: g.noteIds })),
+    ) ===
+    JSON.stringify(
+      groups.map((g) => ({ id: g.id, name: g.name, noteIds: g.noteIds })),
+    )
+  )
+    return;
   storage.transactionSync(() => {
     // 削除前に元のグループの作成日時をメモリ上に退避する
     const existingRows = storage.sql
@@ -92,6 +109,7 @@ export function autoReorganize(
     if (!nextIds.has(prevGroup.id)) {
       broadcaster.broadcastToAll({
         type: "group:deleted",
+        groupRevision: getGroupRevision(sql),
         groupId: prevGroup.id,
       });
     }
@@ -111,7 +129,11 @@ export function autoReorganize(
           updatedAt: new Date().toISOString(),
         };
         broadcaster.broadcast(
-          { type: "group:updated", group },
+          {
+            type: "group:updated",
+            group,
+            groupRevision: getGroupRevision(sql),
+          },
           toProtocolNote(sql, noteRow, NULL_VIEWER_ID),
         );
       }
@@ -143,7 +165,11 @@ export const groupHandlers: MessageHandlers<
     const noteRow = findNote(ctx.sql, g.noteIds[0]);
     if (noteRow) {
       ctx.broadcaster.broadcast(
-        { type: "group:updated", group: g },
+        {
+          type: "group:updated",
+          group: g,
+          groupRevision: getGroupRevision(ctx.sql),
+        },
         toProtocolNote(ctx.sql, noteRow, ctx.userId),
       );
     }
@@ -190,7 +216,11 @@ export const groupHandlers: MessageHandlers<
     const noteRow = findNote(ctx.sql, noteIds[0]);
     if (noteRow) {
       ctx.broadcaster.broadcast(
-        { type: "group:updated", group },
+        {
+          type: "group:updated",
+          group,
+          groupRevision: getGroupRevision(ctx.sql),
+        },
         toProtocolNote(ctx.sql, noteRow, ctx.userId),
       );
     }

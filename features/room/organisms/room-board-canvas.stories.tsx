@@ -3,23 +3,33 @@ import {
   type ComponentProps,
   type ComponentType,
   createRef,
+  useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
 import { expect, fireEvent, fn, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type {
+  ClientMessage,
+  MoveReceipt,
+  ProtocolNote,
+  ServerMessage,
+} from "@/contracts/room-protocol";
 import {
   buildDecision,
   buildNote,
   buildNotes,
 } from "@/contracts/room-protocol.fixture";
+import { useRoomNotes } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import { useCanvasCamera } from "../logic/use-canvas-camera";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardCanvas } from "./room-board-canvas";
+import { buildMovePerformanceNotes } from "./room-board-canvas.fixture";
 
-type RoomBoardCanvasStoryProps = Omit<
+type RoomBoardCanvasStoryProps = { ackDelayMs?: number } & Omit<
   ComponentProps<typeof RoomBoardCanvas>,
   "boardScrollerRef" | "ideaMapPlaneRef" | "privateToolbarRef"
 >;
@@ -1046,4 +1056,185 @@ export const PrivateGuidanceVoting: Story = {
 export const PrivateGuidanceSharingHost: Story = {
   ...PrivateGuidanceSharing,
   args: { ...PrivateGuidanceSharing.args, isHost: true },
+};
+
+// 通信ACKを500ms遅らせた本番hookの操作用fixture。実DOの保証はWorkerテストで検証する。
+function TransactionMovePreview({ args }: { args: RoomBoardCanvasStoryProps }) {
+  const ackDelay = useRef(args.ackDelayMs ?? 500);
+  ackDelay.current = args.ackDelayMs ?? 500;
+  const receiver = useRef<(message: ServerMessage) => void>(() => {});
+  const serverNotes = useRef(args.notes);
+  const requests = useRef(
+    new Map<
+      string,
+      {
+        start: Extract<ClientMessage, { type: "note:move:start" }>;
+        before: ProtocolNote[];
+      }
+    >(),
+  );
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const send = useCallback((message: ClientMessage) => {
+    if (message.type === "note:move:start") {
+      requests.current.set(message.operationId, {
+        start: message,
+        before: serverNotes.current.filter((n) =>
+          message.targets.some((t) => t.noteId === n.id),
+        ),
+      });
+      timers.current.push(
+        setTimeout(
+          () =>
+            receiver.current({
+              type: "note:move:result",
+              operationId: message.operationId,
+              status: "active",
+            }),
+          ackDelay.current,
+        ),
+      );
+    }
+    if (message.type === "note:move:cancel") {
+      requests.current.delete(message.operationId);
+      receiver.current({
+        type: "note:move:result",
+        operationId: message.operationId,
+        status: "cancelled",
+      });
+    }
+    if (message.type !== "note:move:commit") return;
+    const request = requests.current.get(message.operationId);
+    if (!request) return;
+    requests.current.delete(message.operationId);
+    const after = request.before.map((n) => ({
+      noteId: n.id,
+      x: n.x + message.delta.x,
+      y: n.y + message.delta.y,
+      positionRevision: (n.positionRevision ?? 0) + 1,
+      visibilityRevision: n.visibilityRevision ?? 0,
+    }));
+    serverNotes.current = serverNotes.current.map((note) => {
+      const p = after.find((p) => p.noteId === note.id);
+      return p ? { ...note, ...p } : note;
+    });
+    const receipt: MoveReceipt = {
+      operationId: message.operationId,
+      phaseRevision: request.start.expectedPhaseRevision,
+      coordinateSpace: request.start.coordinateSpace,
+      before: request.before.map((n) => ({
+        noteId: n.id,
+        x: n.x,
+        y: n.y,
+        positionRevision: n.positionRevision ?? 0,
+        visibilityRevision: n.visibilityRevision ?? 0,
+      })),
+      after,
+      groupsBefore: [],
+      groupsAfter: [],
+      groupRevisionBefore: 0,
+      groupRevisionAfter: 0,
+      mapRevision: 0,
+      affected: after.map((p) => ({
+        noteId: p.noteId,
+        positionRevision: p.positionRevision,
+        visibilityRevision: p.visibilityRevision,
+      })),
+      changed: message.delta.x !== 0 || message.delta.y !== 0,
+    };
+    receiver.current({
+      type: "notes:moved",
+      notes: serverNotes.current.filter((n) =>
+        after.some((p) => p.noteId === n.id),
+      ),
+      groups: [],
+      groupRevision: 0,
+    });
+    receiver.current({
+      type: "note:move:result",
+      operationId: message.operationId,
+      status: "accepted",
+      receipt,
+    });
+  }, []);
+  const roomNotes = useRoomNotes({ send });
+  receiver.current = roomNotes.applyMessage;
+  useEffect(() => {
+    receiver.current({
+      type: "snapshot",
+      notes: args.notes,
+      phase: args.phase,
+      phaseRevision: 1,
+      moveProtocolVersion: 1,
+      groupRevision: 0,
+      mapRevision: 0,
+      members: [],
+      isHost: true,
+      decision: null,
+      carryovers: [],
+      completedVoterIds: [],
+      timer: { status: "idle" },
+      serverNow: Date.now(),
+    });
+    return () => {
+      for (const timer of timers.current) clearTimeout(timer);
+    };
+  }, [args.notes, args.phase]);
+  const selectedIds = args.notes.slice(0, 3).map((note) => note.id);
+  const interactions = useRoomBoardInteractions({
+    notes: roomNotes.notes,
+    privateNotes: [],
+    currentUserId: "11111111-1111-4111-8111-111111111111",
+    draggingNoteId: roomNotes.draggingNoteId,
+    selectedNoteIds: selectedIds,
+    movePending: roomNotes.movePending,
+    onPendingMoveInterrupt: roomNotes.cancelNoteDrag,
+    phase: args.phase,
+    onNoteDragStart: roomNotes.startNoteDrag,
+    onNoteDragMove: roomNotes.moveNote,
+    onNoteDragEnd: roomNotes.endNoteDrag,
+    onNoteDragCancel: roomNotes.cancelNoteDrag,
+    onPrivateNotePublish: () => {},
+    onPrivateNoteUnpublish: () => {},
+    onCursorMove: () => {},
+    onCursorLeave: () => {},
+  });
+  return (
+    <div
+      ref={interactions.boardRootRef}
+      className="relative flex h-full w-full"
+      onPointerMove={interactions.onPointerMove}
+      onPointerUp={interactions.onPointerEnd}
+      onPointerCancel={interactions.onPointerCancel}
+    >
+      <RoomBoardCanvas
+        {...args}
+        {...interactions}
+        onNotePointerCaptureLost={interactions.onPointerCaptureLost}
+        notes={roomNotes.notes}
+        selectedNoteId={selectedIds[0] ?? null}
+        draggingNoteId={roomNotes.draggingNoteId}
+        onNoteDragStart={interactions.onNoteDragStart}
+      />
+    </div>
+  );
+}
+export const TransactionMove100Notes: Story = {
+  name: "移動transaction / 100枚・先頭3枚固定集合・ACK500ms",
+  args: {
+    ackDelayMs: 500,
+    notes: buildMovePerformanceNotes("canvas"),
+    phase: STEP_1_2,
+    permissions: getBoardPermissions(STEP_1_2),
+  },
+  render: (args) => <TransactionMovePreview args={args} />,
+};
+export const TransactionMove100MapNotes: Story = {
+  name: "移動transaction / map100枚・先頭3枚固定集合・ACK500ms",
+  args: {
+    ackDelayMs: 500,
+    notes: buildMovePerformanceNotes("map"),
+    phase: STEP_3_2,
+    permissions: getBoardPermissions(STEP_3_2),
+  },
+  render: (args) => <TransactionMovePreview args={args} />,
 };

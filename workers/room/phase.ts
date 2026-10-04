@@ -283,6 +283,9 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:unpublish":
     case "note:update-content":
     case "note:update-font-size":
+    case "note:move:start":
+    case "note:move:preview":
+    case "note:move:commit":
     case "note:move":
     case "note:bring-to-front":
     case "note:drag:start":
@@ -306,6 +309,8 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "idea-map:resize":
       return true;
     case "cursor:update":
+    case "note:move:status":
+    case "note:move:cancel":
     case "note:content-status":
     case "cursor:leave":
     case "adoption-focus:update":
@@ -507,6 +512,17 @@ export function getBoardMutationForbiddenMessage(
   message: ClientMessage,
 ): string | null {
   if (!isBoardMutation(message)) return null;
+  if (
+    message.type === "note:move:start" ||
+    message.type === "note:move:preview" ||
+    message.type === "note:move:commit"
+  )
+    return getBoardMutationForbiddenMessage(phase, {
+      type: "note:move",
+      noteId: "",
+      x: 0,
+      y: 0,
+    });
   if (isLobby(phase)) return "ボード開始前はボードを変更できません。";
   if (
     isIdeaValueFeasibilityMappingStep(phase) &&
@@ -568,6 +584,14 @@ export const phaseHandlers: MessageHandlers<
     });
     ctx.broadcaster.broadcastToAll({
       type: "phase:updated",
+      groupRevision: Number(
+        ctx.sql.exec("SELECT group_revision FROM room_state WHERE id=1").one()
+          .group_revision,
+      ),
+      mapRevision: Number(
+        ctx.sql.exec("SELECT map_revision FROM room_state WHERE id=1").one()
+          .map_revision,
+      ),
       phase: firstStep,
       phaseRevision: getPhaseRevision(ctx.sql),
     });
@@ -765,6 +789,14 @@ export const phaseHandlers: MessageHandlers<
     }
     ctx.broadcaster.broadcastToAll({
       type: "phase:updated",
+      groupRevision: Number(
+        ctx.sql.exec("SELECT group_revision FROM room_state WHERE id=1").one()
+          .group_revision,
+      ),
+      mapRevision: Number(
+        ctx.sql.exec("SELECT map_revision FROM room_state WHERE id=1").one()
+          .map_revision,
+      ),
       phase: next,
       phaseRevision: getPhaseRevision(ctx.sql),
     });
@@ -841,6 +873,14 @@ async function restartPhase(
   ctx.refreshSnapshots();
   ctx.broadcaster.broadcastToAll({
     type: "phase:updated",
+    groupRevision: Number(
+      ctx.sql.exec("SELECT group_revision FROM room_state WHERE id=1").one()
+        .group_revision,
+    ),
+    mapRevision: Number(
+      ctx.sql.exec("SELECT map_revision FROM room_state WHERE id=1").one()
+        .map_revision,
+    ),
     phase: next,
     phaseRevision: getPhaseRevision(ctx.sql),
   });

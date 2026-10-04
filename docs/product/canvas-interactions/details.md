@@ -1,6 +1,6 @@
 # キャンバス操作仕様 v1 — 実装用詳細
 
-> 状態: 設計仕様。PCの選択/手のひらモデルとdrop確定共有はユーザー承認済み。規則の細部はその方針に基づくv1設計案で、実装・人による操作検証は未完了。本PRはアプリの実装・リリースを意味しない。
+> 状態: v1仕様。PCの選択/手のひらモデルとdrop確定共有はユーザー承認済み。#523の移動transaction実装範囲は6節を参照する。仕様全体の実装・人による操作検証・リリースは未完了。
 > 調査基準: develop `ad244effde34662fbeedd83813aa3a0dbe7fd82a`、2026-10-04。PR #506・#508 はマージ済み、#491 は未マージでクローズ。
 
 ## 1. 目的・正本・読み方
@@ -387,10 +387,10 @@
 - **入力**: move/share/return/edit/vote/candidate/adopt
 - **主体・工程**: RoomDOが現在のmember/host/phase/visibility/lockを検証
 - **対象・前提**: 要求対象の最新server状態
-- **結果**: UIのdisabledだけに頼らない。選択やtoolは認可根拠にしない。既存ドラッグlockを使用し他者lockを奪わない。現行single-dragに期限/heartbeatはなく、end・leave・WSclose・工程/採用で解放する。複数移動は全対象が取れる時だけ開始。private内容は可視性投影を経る。
-- **取消**: lock喪失は共通取消。half-open接続の回復上限は現行未定義で、v1実装時の通信検証に残す。
+- **結果**: UIのdisabledだけに頼らない。選択やtoolは認可根拠にしない。他者lockを奪わない。新moveは全対象のSQLite lockを原子的に取得し、旧single-dragのattachment lockとも相互に競合検査する。新moveは2秒heartbeat・15秒lease、旧dragも15秒leaseとalarmによるpeer表示解放を持つ。end・leave・WSclose・工程/採用でも解放する。複数移動は全対象が取れる時だけ開始。private内容は可視性投影を経る。
+- **取消**: lock喪失は共通取消。half-open接続は最後に受理したheartbeatから15秒でlockを失効し、alarmで旧dragのpeer表示も解放する。通信停止中のclientが自動でcommitを送り直してはいけない。
 - **失敗**: 拒否理由は本人が行動できる短文で表示。permission/通信失敗時はオフラインmutationをためて後で勝手に再送しない。
-- **同時操作**: server受理順が権威。v1の確定move要求はgesture ID、phase世代、位置/group期待版、全対象と確定座標を検証し、再送は同じ結果を照会できること。preview/start/cancel/commitを境界schemaで区別する。既存single streaming保存はv1のtransaction保証を満たさずbackend改修が必要。
+- **同時操作**: server受理順が権威。v1の確定move要求はgesture ID、phase世代、位置/group期待版、全対象と確定座標を検証し、再送は同じ結果を照会できること。preview/start/cancel/commitを境界schemaで区別する。新move protocolでtransactionを保証し、互換経路に残る旧single streaming保存は保証対象外とする。
 - **検証**: AT-022: Aが1枚drag中にBがそれを含む3枚drag→Bは0枚開始。切断後もprivacy境界を越えない。
 
 <a id="ci-a11y-001"></a>
@@ -559,6 +559,18 @@
 6. 各実装Issueの完了条件として人による操作確認を行い、空白dragの意図、Select/Handの認知、複数移動、共有の境界理解を確認する。自動テストや図の作成をユーザビリティ検証と呼ばない。
 
 作成/削除のUndoは次段階で、復活時のprivate可視性・本文・group/票の参照・同じIDの再利用防止を設計する。色/文字サイズ・private並べ替えも独立拡張。共有は他人の閲覧を取り消せないため「共有は元に戻せません。自分の付箋をマイ付箋へ戻す操作はできます（共有Step2のみ）」と説明する。
+
+### #523の移動transaction契約
+
+- 新Workerはsnapshotの`moveProtocolVersion: 1`で対応を宣言する。新UIは対応Workerで共有移動を`note:move:start / preview / cancel / commit / status`へ切り替える。旧Workerでは単一の旧dragだけを互換利用し、複数移動を開始しない。旧clientのstreaming保存・private共有/戻しは移動transactionの保証対象外で、drop-only共有は#524に残る。
+- startはUUIDのoperation ID、phase訪問版、座標系、group/map版、固定対象全件のposition/visibility版を受ける。最大256枚、開始はuserごとに1分60件まで。非member・private・別phase・重複ID・新旧lock競合・専用版の不一致で全件拒否する。不可視な対象IDや本文は拒否理由に含めない。
+- 本人previewはstart ACKに依存せず、押下時offsetと集合deltaを保ってframeごと最大1回描画する。previewは確定位置・分類・版を保存せず、peer previewは配信しない。名前付きcursorの移動表示は全対象のlock・所有接続・工程・可視性・版を検証して配信し、取消/確定/lease期限/切断/除外で解除する。mapのlock表示も開始と終了に追随する。mapでは全集合のdeltaを0..100へclampし、通常canvasのdelta境界は有効位置の両端間である±2×座標上限とする。
+- pointerupだけがcommitを送る。RoomDOは現在のmember/工程/採用/可視性/専用版/lockを再検査し、位置・相対stack順・既存分類再編・成功receiptを1回のtransactionSyncで保存する。失敗時は全位置とgroupが戻り、確定後だけ受信者別の`notes:moved`を配信する。旧client向けに確定note/groupイベントも配る。
+- 確定送信前のEscape・window blur・pointercancel・所有capture喪失はgestureとpreviewを破棄し最新確定状態へ戻る。NoteCardからscrollerへの通常capture移管は取消と扱わない。閾値前の押下もEscape/blurで破棄する。送信後は結果照会だけを2秒間隔で続け、遅延start ACK・Escape・切断・送信後errorをcommit再送や成功/失敗の断定に使わない。error応答への即時再照会は行わない。再接続もドラッグを再開せず本人のoperation結果を照会する。閉鎖後もmember本人のread-only結果照会を受理し、期限後はexpired、操作削除後または非memberには内容を含まないunknownで終端にする。
+- position/visibility版は専用SQL triggerで単調増加し、旧clientの更新とABAも検知する。group/map版は変更イベントとsnapshotで追随する。receiptは移動前後の位置・専用版、group ID/name/所属の前後、非対象groupメンバーを含む影響対象の専用版を持ち、本文/作者/票を持たない。receiptは24時間保持し、その後はIDの墓標だけをルーム削除まで残して古い要求をfail-closedにする。
+- \#522の選択入口が渡す`selectedNoteIds`との統合は別Issueの依存であり、本実装はhook境界と100枚・長文混在の固定3枚集合storyを持つ。#525のUndo/Redo本体は未実装。実機・Mac/Windows・trackpad・日本語IME・人による操作確認、および性能の最終合否は未確認として残す。
+
+通信と永続化の判断は[ADR 0005](../../adr/0005-move-transactions.md)、性能の測定条件と制約は[2026-10-04の性能計測](../../archive/canvas-move-performance-2026-10-04.md)を参照する。
 
 ## 7. 人とAIの読み方・資料の更新
 

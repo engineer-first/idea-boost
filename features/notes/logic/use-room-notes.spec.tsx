@@ -6,7 +6,10 @@
 // - ドラッグ中の座標はスロットルして送る
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DRAG_BROADCAST_THROTTLE_MS } from "@/contracts/board";
+import {
+  CANVAS_COORDINATE_LIMIT,
+  DRAG_BROADCAST_THROTTLE_MS,
+} from "@/contracts/board";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { ProtocolNote, ServerMessage } from "@/contracts/room-protocol";
 import { buildNote } from "@/contracts/room-protocol.fixture";
@@ -889,5 +892,205 @@ describe("useRoomNotes", () => {
       type: "note:unpublish",
       noteId: NOTE_ID,
     });
+  });
+});
+
+describe("transaction move", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+  it("start ACKより前に3枚を同じdeltaでpreviewしmap端でも距離を保つ", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    const snapshot = snapshotMessage([
+      buildNote({ id: NOTE_ID, x: 80, y: 30 }),
+      buildNote({ id: TARGET_NOTE_ID, x: 90, y: 50 }),
+      buildNote({ id: STICKER_ID, x: 95, y: 60 }),
+    ]);
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot,
+        phase: { kind: "step", phase: 3, step: 3 },
+        moveProtocolVersion: 1,
+        groupRevision: 0,
+        mapRevision: 0,
+      } as ServerMessage),
+    );
+    act(() =>
+      result.current.startNoteDrag(NOTE_ID, false, [
+        NOTE_ID,
+        TARGET_NOTE_ID,
+        STICKER_ID,
+      ]),
+    );
+    act(() => result.current.moveNote(NOTE_ID, 100, 50));
+    act(() => vi.advanceTimersByTime(20));
+    expect(result.current.notes.map((n) => [n.x, n.y])).toEqual([
+      [85, 50],
+      [95, 70],
+      [100, 80],
+    ]);
+    expect(
+      send.mock.calls.some(([message]) => message.type === "note:move:commit"),
+    ).toBe(false);
+    act(() => result.current.endNoteDrag(NOTE_ID, 100, 50));
+    expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: DRAG_ID,
+      delta: { x: 5, y: 20 },
+    });
+  });
+  it("cancelで最新確定位置へ戻り遅延start ACKでcommitしない", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage(),
+        moveProtocolVersion: 1,
+        groupRevision: 0,
+        mapRevision: 0,
+      } as ServerMessage),
+    );
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    act(() => result.current.moveNote(NOTE_ID, 150, 140));
+    act(() => result.current.cancelNoteDrag());
+    act(() =>
+      result.current.applyMessage({
+        type: "note:move:result",
+        operationId: DRAG_ID,
+        status: "active",
+      } as ServerMessage),
+    );
+    expect(result.current.notes[0].x).toBe(100);
+    expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:cancel",
+    });
+  });
+});
+
+describe("commit結果不明の回復", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+  it("pointerup後の遅延start ACKとerrorでcommitを再送せず照会を継続する", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage(),
+        moveProtocolVersion: 1,
+        groupRevision: 0,
+        mapRevision: 0,
+      } as ServerMessage),
+    );
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    act(() => result.current.endNoteDrag(NOTE_ID, 150, 140));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:move:result",
+        operationId: DRAG_ID,
+        status: "active",
+      }),
+    );
+    expect(
+      send.mock.calls.filter(
+        ([message]) => message.type === "note:move:commit",
+      ),
+    ).toHaveLength(1);
+    send.mockClear();
+    for (let i = 0; i < 10; i++)
+      act(() =>
+        result.current.applyMessage({
+          type: "error",
+          code: "invalid-message",
+          operationId: DRAG_ID,
+          message: "応答失敗",
+        }),
+      );
+    expect(result.current.movePending).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(2000));
+    expect(send.mock.calls).toHaveLength(1);
+    expect(send.mock.calls[0][0]).toMatchObject({ type: "note:move:status" });
+    act(() =>
+      result.current.applyMessage({
+        type: "note:move:result",
+        operationId: DRAG_ID,
+        status: "unknown",
+      }),
+    );
+    expect(result.current.movePending).toBe(false);
+  });
+  it("map版変更でpreviewを全取消し次の操作の期待版を更新する", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage(),
+        phase: { kind: "step", phase: 3, step: 3 },
+        moveProtocolVersion: 1,
+        groupRevision: 0,
+        mapRevision: 1,
+      } as ServerMessage),
+    );
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    act(() =>
+      result.current.applyMessage({
+        type: "idea-map:state",
+        mapRevision: 2,
+        sizeLevel: 2,
+        initialized: true,
+        isDragging: false,
+      }),
+    );
+    expect(result.current.draggingNoteId).toBe(null);
+    expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:cancel",
+    });
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:start",
+      expectedMapRevision: 2,
+    });
+  });
+});
+
+it("canvas両端の集合previewとcommit deltaを位置域へclampする", () => {
+  const send = vi.fn();
+  const { result } = renderHook(() =>
+    useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+  );
+  act(() =>
+    result.current.applyMessage({
+      ...snapshotMessage([
+        buildNote({ id: NOTE_ID, x: -CANVAS_COORDINATE_LIMIT, y: 100 }),
+        buildNote({
+          id: TARGET_NOTE_ID,
+          x: -CANVAS_COORDINATE_LIMIT + 40,
+          y: 100,
+        }),
+      ]),
+      moveProtocolVersion: 1,
+      groupRevision: 0,
+      mapRevision: 0,
+    } as ServerMessage),
+  );
+  act(() =>
+    result.current.startNoteDrag(NOTE_ID, false, [NOTE_ID, TARGET_NOTE_ID]),
+  );
+  act(() => result.current.endNoteDrag(NOTE_ID, CANVAS_COORDINATE_LIMIT, 100));
+  expect(result.current.notes.map((n) => n.x)).toEqual([
+    CANVAS_COORDINATE_LIMIT - 40,
+    CANVAS_COORDINATE_LIMIT,
+  ]);
+  expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
+    type: "note:move:commit",
+    delta: { x: 2 * CANVAS_COORDINATE_LIMIT - 40, y: 0 },
   });
 });

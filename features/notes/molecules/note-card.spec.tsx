@@ -1224,7 +1224,10 @@ describe("NoteCard", () => {
         clientX: 80,
         clientY: 70,
       });
-      expect(onDragStart).toHaveBeenCalledWith("note-1", expect.any(Object));
+      expect(onDragStart).toHaveBeenCalledWith("note-1", expect.any(Object), {
+        clientX: 50,
+        clientY: 50,
+      });
     });
 
     it("閾値内の移動はクリック扱いでドラッグイベントを発火しない", () => {

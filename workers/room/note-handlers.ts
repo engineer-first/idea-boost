@@ -22,6 +22,7 @@ import {
 } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { getMemberColor, isHostUser } from "./members";
+import { hasMoveLock } from "./move-operations";
 import {
   bringNoteToFront,
   broadcastNoteInserted,
@@ -187,6 +188,10 @@ export const noteHandlers: MessageHandlers<
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (row.author_id !== ctx.userId || row.visibility !== "shared") {
+      replyForbidden(ctx);
+      return;
+    }
+    if (hasMoveLock(ctx.sql, message.noteId)) {
       replyForbidden(ctx);
       return;
     }
@@ -391,6 +396,10 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    if (hasMoveLock(ctx.sql, message.noteId)) {
+      replyForbidden(ctx);
+      return;
+    }
     const owner = ctx.broadcaster.findActiveDrag(message.noteId);
     if (owner) {
       replyForbidden(ctx);
@@ -424,7 +433,8 @@ export const noteHandlers: MessageHandlers<
       row.visibility !== "shared" ||
       row.excluded ||
       !canEdit(row, ctx.userId) ||
-      ctx.broadcaster.findActiveDrag(message.noteId)
+      ctx.broadcaster.findActiveDrag(message.noteId) ||
+      hasMoveLock(ctx.sql, message.noteId)
     ) {
       replyForbidden(ctx);
       return;
@@ -464,18 +474,29 @@ export const noteHandlers: MessageHandlers<
           (!current &&
             !hasUsedNoteDragId(ctx.sql, ctx.userId, message.dragId) &&
             !hasReachedNoteDragStartRateLimit(ctx.sql, ctx.userId))) &&
+        !hasMoveLock(ctx.sql, message.noteId) &&
         (!competing ||
           (competing.socket === ctx.ws && competing.dragId === message.dragId)),
     );
     if (accepted) {
       recordUsedNoteDragId(ctx.sql, ctx.userId, message.dragId);
+      ctx.sql.exec(
+        "INSERT OR REPLACE INTO legacy_note_drag_leases(user_id,drag_id,lease_until) VALUES (?1,?2,?3)",
+        ctx.userId,
+        message.dragId,
+        Date.now() + 15_000,
+      );
       const attachment =
         (ctx.ws.deserializeAttachment() as SocketAttachment | null) ?? {
           userId: ctx.userId,
         };
       ctx.ws.serializeAttachment({
         ...attachment,
-        activeDrag: { noteId: message.noteId, dragId: message.dragId },
+        activeDrag: {
+          noteId: message.noteId,
+          dragId: message.dragId,
+          leaseUntil: Date.now() + 15_000,
+        },
       } satisfies SocketAttachment);
     }
     ctx.reply({
@@ -497,6 +518,20 @@ export const noteHandlers: MessageHandlers<
     ) {
       return;
     }
+    ctx.sql.exec(
+      "UPDATE legacy_note_drag_leases SET lease_until=?3 WHERE user_id=?1 AND drag_id=?2",
+      ctx.userId,
+      message.dragId,
+      Date.now() + 15_000,
+    );
+    ctx.ws.serializeAttachment({
+      ...active.attachment,
+      activeDrag: {
+        noteId: active.noteId,
+        dragId: active.dragId,
+        leaseUntil: Date.now() + 15_000,
+      },
+    } satisfies SocketAttachment);
     const row = findNote(ctx.sql, message.noteId);
     const phase = getPhase(ctx.sql);
     if (
@@ -541,6 +576,11 @@ export const noteHandlers: MessageHandlers<
     ) {
       return;
     }
+    ctx.sql.exec(
+      "DELETE FROM legacy_note_drag_leases WHERE user_id=?1 AND drag_id=?2",
+      ctx.userId,
+      message.dragId,
+    );
     const row = findNote(ctx.sql, message.noteId);
     const phase = getPhase(ctx.sql);
     ctx.broadcaster.retireActiveDrag(ctx.ws);

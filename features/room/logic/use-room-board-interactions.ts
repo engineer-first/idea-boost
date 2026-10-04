@@ -5,7 +5,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   isPhaseStep,
   isPublishAllowedStep,
@@ -30,6 +30,9 @@ import { useIdeaValueFeasibilityMapInput } from "./use-idea-value-feasibility-ma
 export type UseRoomBoardInteractionsArgs = {
   getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
   notes: Note[];
+  selectedNoteIds?: readonly string[];
+  movePending?: boolean;
+  onPendingMoveInterrupt?: () => void;
   privateNotes: Note[];
   currentUserId: string;
   draggingNoteId: string | null;
@@ -37,7 +40,11 @@ export type UseRoomBoardInteractionsArgs = {
   isDecided?: boolean;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
-  onNoteDragStart: (noteId: string, privateMapLock?: boolean) => void;
+  onNoteDragStart: (
+    noteId: string,
+    privateMapLock?: boolean,
+    selectedNoteIds?: readonly string[],
+  ) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
@@ -86,12 +93,14 @@ export type RoomBoardInteractions = {
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onPointerCaptureLost?: (event: ReactPointerEvent<HTMLDivElement>) => void;
   cancelCurrentNoteDrag: (includePrivate?: boolean) => void;
   onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onNoteDragStart: (
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
+    origin?: { clientX: number; clientY: number },
   ) => void;
   onPrivateNoteDragStart: (
     noteId: string,
@@ -102,6 +111,9 @@ export type RoomBoardInteractions = {
 export function useRoomBoardInteractions({
   getFitInsets,
   notes,
+  selectedNoteIds,
+  movePending = false,
+  onPendingMoveInterrupt,
   privateNotes,
   currentUserId,
   draggingNoteId,
@@ -156,7 +168,8 @@ export function useRoomBoardInteractions({
   });
   // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
   // 既存のボード権限に従い、投票・結果ステップでは共有付箋を操作させない。
-  const canMoveSharedNotes = getBoardPermissions(phase, isDecided).canMoveNote;
+  const canMoveSharedNotes =
+    !movePending && getBoardPermissions(phase, isDecided).canMoveNote;
   const isIdeaMapCursorSurface =
     phase.kind === "step" &&
     phase.phase === 3 &&
@@ -176,6 +189,7 @@ export function useRoomBoardInteractions({
     isPointerInPrivateDropArea,
   } = useBoardDrag({
     notes,
+    selectedNoteIds,
     privateNotes,
     currentUserId,
     boardScrollerRef,
@@ -196,6 +210,28 @@ export function useRoomBoardInteractions({
     onPrivateNotePublish,
     onPrivateNoteUnpublish,
   });
+
+  useEffect(() => {
+    const interrupt = () => {
+      cancelCurrentNoteDrag(true);
+      if (movePending) onPendingMoveInterrupt?.();
+      onCursorLeave();
+    };
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") interrupt();
+    };
+    window.addEventListener("keydown", keydown);
+    window.addEventListener("blur", interrupt);
+    return () => {
+      window.removeEventListener("keydown", keydown);
+      window.removeEventListener("blur", interrupt);
+    };
+  }, [
+    cancelCurrentNoteDrag,
+    movePending,
+    onPendingMoveInterrupt,
+    onCursorLeave,
+  ]);
 
   const dragGhost =
     drag?.status === "shared" && !notes.some((note) => note.id === drag.note.id)
@@ -380,6 +416,12 @@ export function useRoomBoardInteractions({
     onPointerMove: handlePointerMove,
     onPointerEnd: handleBoardPointerEnd,
     onPointerCancel: handlePointerCancel,
+    onPointerCaptureLost: (event) => {
+      // NoteCardからscrollerへの通常移管はchildのlostcaptureがbubbleする。
+      if (event.target !== event.currentTarget) return;
+      handlePointerCancel(event);
+      onCursorLeave();
+    },
     cancelCurrentNoteDrag,
     onPresencePointerMove: handlePresencePointerMove,
     onPresencePointerLeave: handlePresencePointerLeave,

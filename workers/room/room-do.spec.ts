@@ -17,6 +17,8 @@ import {
   runInRoomDO,
 } from "../test-helpers";
 import type { SocketAttachment } from "./broadcast";
+import { insertNote } from "./notes";
+import { savePhase } from "./phase";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
@@ -2236,11 +2238,15 @@ describe("RoomDO phase:next", () => {
     await Promise.all([
       expect(nextJson(host)).resolves.toEqual({
         type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(2, 3),
       }),
       expect(nextJson(member)).resolves.toEqual({
         type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(2, 3),
       }),
@@ -2343,11 +2349,15 @@ describe("RoomDO phase:next", () => {
     await Promise.all([
       expect(nextJson(host)).resolves.toEqual({
         type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(2, 3),
       }),
       expect(nextJson(member)).resolves.toEqual({
         type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(2, 3),
       }),
@@ -2681,6 +2691,8 @@ describe("RoomDO phase:next", () => {
       });
       expect(messages[2]).toEqual({
         type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(resultStep, phase),
       });
@@ -2734,6 +2746,8 @@ describe("RoomDO phase:next", () => {
       expect.objectContaining({ type: "snapshot", phase: buildPhaseStep(5) }),
       {
         type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(5),
       },
@@ -2773,6 +2787,8 @@ describe("RoomDO phase:next", () => {
       expect.objectContaining({ type: "snapshot", phase: buildPhaseStep(5) }),
       {
         type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(5),
       },
@@ -2819,6 +2835,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(2),
     });
@@ -2849,6 +2867,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(3),
     });
@@ -2926,6 +2946,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(5),
     });
@@ -2966,6 +2988,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(owner)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phase: result,
     });
     expect(await nextJson(member)).toMatchObject({
@@ -2974,6 +2998,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(member)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phase: result,
     });
     const returned = await connectDirectlyWithFirstMessage(
@@ -3132,6 +3158,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(5),
     });
@@ -3222,6 +3250,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(2, 2),
     });
@@ -3237,6 +3267,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(3, 2),
     });
@@ -3338,6 +3370,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(3, 2),
     });
@@ -3379,6 +3413,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(4, 2),
     });
@@ -3401,6 +3437,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(1, 3),
     });
@@ -3435,6 +3473,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJsonWithin(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(2, 3),
     });
@@ -3461,6 +3501,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(3, 3),
     });
@@ -3487,6 +3529,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(4, 3),
     });
@@ -3527,6 +3571,8 @@ describe("RoomDO phase:next", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(5, 3),
     });
@@ -4675,6 +4721,8 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
 
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(1),
     });
@@ -5465,6 +5513,8 @@ describe("RoomDO lobby のボード凍結", () => {
     ws.send(JSON.stringify({ type: "start_phase" }));
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(1),
     });
@@ -5582,6 +5632,8 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(4, 2),
     });
@@ -5689,6 +5741,8 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(1, 2),
     });
@@ -5864,6 +5918,8 @@ describe("RoomDO 同フェーズ内のマイ付箋の保持", () => {
     ]);
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(3),
     });
@@ -6469,5 +6525,111 @@ describe("RoomDO タイマー終了", () => {
       durationMs: 60_000,
     });
     ws.close();
+  });
+});
+
+describe("new move presence WS lifecycle", () => {
+  it.each([
+    "cancel",
+    "commit",
+    "expiry",
+    "close",
+    "phase",
+    "member",
+  ])("%sでpeerの移動表示とmap lock表示を解除する", async (end) => {
+    const name = `new-move-presence-${end}`;
+    const stub = roomStub(name);
+    await stub.upsertMember(USER_A, "Alpha");
+    await stub.upsertMember(USER_B, "Beta");
+    const noteId = "33333333-3333-4333-8333-333333333333";
+    const operationId = "55555555-5555-4555-8555-555555555555";
+    await runInRoomDO(name, (_instance, state) => {
+      savePhase(state.storage.sql, { kind: "step", phase: 3, step: 3 });
+      insertNote(state.storage.sql, {
+        id: noteId,
+        author_id: USER_A,
+        content: "test",
+        visibility: "shared",
+        color: "yellow",
+        font_size: 14,
+        x: 10,
+        y: 20,
+        stack_order: 0,
+        phase: 3,
+        excluded: false,
+        created_at: "now",
+        updated_at: "now",
+      });
+    });
+    const { ws: owner, firstMessage: snapshot } =
+      await connectDirectlyWithFirstMessage(name, USER_A, USER_A);
+    const peer = await connectDirectly(name, USER_B, USER_A);
+    owner.send(
+      JSON.stringify({
+        type: "note:move:start",
+        operationId,
+        expectedPhaseRevision: snapshot.phaseRevision,
+        expectedGroupRevision: snapshot.groupRevision,
+        expectedMapRevision: snapshot.mapRevision,
+        coordinateSpace: "map",
+        targets: [{ noteId, positionRevision: 0, visibilityRevision: 0 }],
+      }),
+    );
+    expect(await nextJsonOfType(owner, "note:move:result")).toMatchObject({
+      status: "active",
+    });
+    expect(await nextJsonOfType(peer, "idea-map:state")).toMatchObject({
+      isDragging: true,
+    });
+    owner.send(
+      JSON.stringify({
+        type: "cursor:update",
+        x: 10,
+        y: 20,
+        draggingNoteId: noteId,
+      }),
+    );
+    expect(await nextJsonOfType(peer, "cursor:updated")).toMatchObject({
+      cursor: { draggingNoteId: noteId },
+    });
+    if (end === "cancel" || end === "commit")
+      owner.send(
+        JSON.stringify({
+          type: `note:move:${end}`,
+          operationId,
+          ...(end === "commit" ? { delta: { x: 5, y: 5 } } : {}),
+        }),
+      );
+    else if (end === "close") owner.close();
+    else if (end === "member") await stub.leave(USER_A);
+    else
+      await runInRoomDO(name, async (instance, state) => {
+        if (end === "expiry")
+          state.storage.sql.exec(
+            "UPDATE note_move_operations SET lease_until=0",
+          );
+        else savePhase(state.storage.sql, { kind: "step", phase: 3, step: 4 });
+        await instance.alarm();
+      });
+    const received: Record<string, unknown>[] = [];
+    for (let i = 0; i < 12; i++) {
+      const message = await nextJsonWithin(peer);
+      if (!message) break;
+      received.push(message);
+      if (message.type === "idea-map:state" && message.isDragging === false)
+        break;
+    }
+    expect(
+      received.some(
+        (message) =>
+          message.type === "cursor:drag-ended" ||
+          message.type === "cursor:left",
+      ),
+    ).toBe(true);
+    expect(received).toContainEqual(
+      expect.objectContaining({ type: "idea-map:state", isDragging: false }),
+    );
+    peer.close();
+    if (end !== "close" && end !== "member") owner.close();
   });
 });

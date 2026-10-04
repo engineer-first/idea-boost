@@ -14,10 +14,12 @@ import { visibleTo } from "../visibility";
 // ハイバネーション復帰後も deserializeAttachment で取り出せる。
 export type SocketAttachment = {
   userId: string;
+  moveConnectionId?: string;
+  activeMoveOperationId?: string;
   hasCursor?: boolean;
   adoptionFocusNoteId?: string;
   // ハイバネーション後も排他ドラッグ権を復元できるよう接続へ保存する。
-  activeDrag?: { noteId: string; dragId: string };
+  activeDrag?: { noteId: string; dragId: string; leaseUntil?: number };
 };
 
 export type ActiveDragOwner = {
@@ -31,6 +33,25 @@ export class RoomBroadcaster {
   constructor(
     private readonly connections: Pick<DurableObjectState, "getWebSockets">,
   ) {}
+
+  retireMovePresence(
+    isActive: (attachment: SocketAttachment) => boolean,
+  ): number {
+    let retired = 0;
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (!attachment?.activeMoveOperationId || isActive(attachment)) continue;
+      const { activeMoveOperationId: _operationId, ...next } = attachment;
+      socket.serializeAttachment(next);
+      this.broadcastToAll({
+        type: "cursor:drag-ended",
+        userId: attachment.userId,
+      });
+      retired++;
+    }
+    return retired;
+  }
 
   isConnected(userId: string): boolean {
     return this.connections
@@ -59,6 +80,26 @@ export class RoomBroadcaster {
       if (!attachment) continue;
       const message = buildMessage(attachment.userId);
       if (!visibleTo({ viewerId: attachment.userId }, message.note)) continue;
+      this.trySend(socket, JSON.stringify(message));
+    }
+  }
+
+  broadcastMoveBatch(
+    buildMessage: (
+      viewerId: string,
+    ) => Extract<ServerMessage, { type: "notes:moved" }>,
+  ): void {
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      if (!attachment) continue;
+      const message = buildMessage(attachment.userId);
+      if (
+        !message.notes.every((note) =>
+          visibleTo({ viewerId: attachment.userId }, note),
+        )
+      )
+        continue;
       this.trySend(socket, JSON.stringify(message));
     }
   }
@@ -198,7 +239,11 @@ export class RoomBroadcaster {
     for (const socket of this.connections.getWebSockets()) {
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
-      if (attachment?.activeDrag?.noteId !== noteId) continue;
+      if (
+        attachment?.activeDrag?.noteId !== noteId ||
+        !this.activeDragFor(socket)
+      )
+        continue;
       return {
         socket,
         attachment,
@@ -213,6 +258,13 @@ export class RoomBroadcaster {
     const attachment =
       socket.deserializeAttachment() as SocketAttachment | null;
     if (!attachment?.activeDrag) return null;
+    if (attachment.activeDrag.leaseUntil === undefined) {
+      attachment.activeDrag.leaseUntil = Date.now() + 15_000;
+      socket.serializeAttachment(attachment);
+    }
+    if (attachment.activeDrag.leaseUntil <= Date.now()) {
+      return null;
+    }
     return {
       socket,
       attachment,
@@ -220,11 +272,35 @@ export class RoomBroadcaster {
     };
   }
 
+  expireActiveDrags(now = Date.now()): ActiveDragOwner[] {
+    const expired: ActiveDragOwner[] = [];
+    for (const socket of this.connections.getWebSockets()) {
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      const active = attachment?.activeDrag;
+      if (
+        !attachment ||
+        !active ||
+        active.leaseUntil === undefined ||
+        active.leaseUntil > now
+      )
+        continue;
+      expired.push({
+        socket,
+        attachment,
+        noteId: active.noteId,
+        dragId: active.dragId,
+      });
+      socket.serializeAttachment({ ...attachment, activeDrag: undefined });
+    }
+    return expired;
+  }
+
   hasActiveDrag(): boolean {
     return this.connections.getWebSockets().some((socket) => {
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
-      return Boolean(attachment?.activeDrag);
+      return Boolean(attachment?.activeDrag && this.activeDragFor(socket));
     });
   }
 

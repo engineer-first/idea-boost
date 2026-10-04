@@ -6,6 +6,18 @@ export async function syncRoomAlarm(
   sql: SqlStorage,
 ): Promise<void> {
   const deadlines: number[] = [];
+  const legacyDragLease = sql
+    .exec("SELECT MIN(lease_until) AS deadline FROM legacy_note_drag_leases")
+    .toArray()[0];
+  if (typeof legacyDragLease?.deadline === "number")
+    deadlines.push(legacyDragLease.deadline);
+  const moveLease = sql
+    .exec(
+      "SELECT MIN(lease_until) AS deadline FROM note_move_operations WHERE state='active'",
+    )
+    .toArray()[0];
+  if (typeof moveLease?.deadline === "number")
+    deadlines.push(moveLease.deadline);
   const outcome = sql
     .exec(
       "SELECT expires_at, retry_at, (pending_json IS NOT NULL OR saved_json IS NOT NULL) AS has_content FROM shared_outcome_state WHERE id = 1",
