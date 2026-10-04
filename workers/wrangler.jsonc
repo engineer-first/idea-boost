@@ -7,6 +7,7 @@
   "account_id": "b50fc9e60dea7830912d07e616822266",
   "triggers": { "crons": ["0 * * * *"] },
   "main": "api-worker.ts",
+  "dev": { "port": 8787 },
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {

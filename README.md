@@ -55,6 +55,11 @@ npm run dev
 
 ブラウザで <http://localhost:3000> を開いて動作を確認できます。
 
+`dev`・`dev:api`・`dev:verify`は起動から2時間で停止します。継続利用には
+`dev:persistent`・`dev:api:persistent`・`dev:verify:persistent`を使います。
+どちらも終了は `Ctrl+C`。期限変更と並行worktreeのポート指定は
+[開発サーバーの起動と停止](docs/development/dev-server-lifecycle.md)を参照してください。
+
 `.env.example` と `workers/.dev.vars.example` の `SESSION_SECRET` は、コピーした
 まま誤って利用されることを防ぐため、意図的に認証処理で拒否されます。生成した
 値は Git にコミットせず、必ず両方のファイルで同じ値を使用してください。
