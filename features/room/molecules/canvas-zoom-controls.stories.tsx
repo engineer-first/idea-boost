@@ -22,3 +22,11 @@ export const Default: Story = {};
 export const Zoomed: Story = {
   args: { zoom: 2.5 },
 };
+
+export const Tools: Story = {
+  args: { interactionTool: "select", onToolChange: fn() },
+};
+
+export const DisabledTools: Story = {
+  args: { ...Tools.args, toolDisabled: true },
+};

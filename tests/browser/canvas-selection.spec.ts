@@ -61,6 +61,57 @@ async function selectedCount(count: number): Promise<void> {
     .toBe(String(count));
 }
 
+test.each([
+  390, 1280,
+])("%ipxで各キャンバス操作のヒントをhoverの2秒後に画面内へ表示する", async (width) => {
+  await page.setViewportSize({ width, height: 720 });
+  await page.clock.install({ time: new Date("2030-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
+  const hint = page.locator(
+    '[data-slot="tooltip-content"]:not([data-state="closed"])',
+  );
+  for (const name of [
+    "選択ツール",
+    "手のひらツール",
+    "キャンバスを縮小",
+    "ズームを100%に戻す",
+    "キャンバスを拡大",
+    "付箋全体を表示",
+  ]) {
+    const button = page.getByRole("button", { name, exact: true });
+    await button.hover();
+    await page.clock.runFor(1999);
+    expect(await hint.count()).toBe(0);
+    await page.clock.runFor(1);
+    expect(await hint.count()).toBe(1);
+    await page.clock.runFor(32);
+    await hint.waitFor({ state: "visible" });
+    expect(await hint.textContent()).toContain(name.replace("ツール", ""));
+    const bounds = await hint.boundingBox();
+    if (!bounds) throw new Error("ヒントが表示されていません");
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    await page.mouse.move(width / 2, 400, { steps: 4 });
+    await page.clock.runFor(300);
+    await hint.waitFor({ state: "hidden" });
+  }
+});
+
+test("キーボードでフォーカスしたヒントは待たずに表示し、Escapeで閉じる", async () => {
+  const hand = page.getByRole("button", { name: "手のひらツール" });
+  await page.getByRole("button", { name: "選択ツール" }).focus();
+  await page.keyboard.press("Tab");
+  expect(await hand.evaluate((el) => el === document.activeElement)).toBe(true);
+  const hint = page.locator(
+    '[data-slot="tooltip-content"]:not([data-state="closed"])',
+  );
+  await hint.waitFor({ state: "visible" });
+  expect(await hint.textContent()).toContain("Space＋ドラッグ");
+  await page.keyboard.press("Escape");
+  await hint.waitFor({ state: "hidden" });
+  expect(await hand.evaluate((el) => el === document.activeElement)).toBe(true);
+});
+
 test("選択ツールは付箋上でも矢印になり、handから戻すと矢印へ戻る", async () => {
   const viewport = page.getByTestId("board-scroller");
   const surfaces = page.locator("[data-canvas-note-surface='true']");
