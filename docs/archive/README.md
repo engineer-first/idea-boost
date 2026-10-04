@@ -7,6 +7,8 @@
 | [feature構成の比較・検証](feature-design-2026-07.md)    | 候補の比較、実証した境界検査の穴、緩和と受容した費用 | [ADR 0002](../adr/0002-feature-boundaries.md)・[ADR 0003](../adr/0003-feature-bands.md) |
 | [指示の保守記録](agent-guidance-maintenance-2026-09.md) | 採用根拠と当時のagent実走結果                        | [現在の保守手順](../development/agent-maintenance.md)                                   |
 
+[共有付箋の移動の性能比較（2026-10-04）](canvas-move-performance-2026-10-04.md)は、#523の探索baseline・測定条件・traceを残す。現行の契約は[操作仕様](../product/canvas-interactions/details.md)を参照する。
+
 スプリント期間はMilestone、一度限りのProject移行はGit履歴を参照する。Issue自動化の未実装候補は[Issue #393](https://github.com/engineer-first/idea-boost/issues/393)へ移した。完了済みの運用作業や進捗の複製をarchiveへ増やさない。
 
 公開HTMLの判断資料は冒頭と[目次](../site/index.html)で過去資料と表示する。
