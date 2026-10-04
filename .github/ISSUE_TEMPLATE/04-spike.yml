@@ -2,6 +2,9 @@ name: Spike
 description: 不確実な点を調査し、判断材料を得る
 type: Spike
 body:
+  - type: markdown
+    attributes:
+      value: "思いつきの段階で起票できます。親 PBI は開発中・完了後に整理して構いません。Milestone は定期自動割当に任せ、未設定でも作業を進められます。"
   - type: textarea
     id: question
     attributes:

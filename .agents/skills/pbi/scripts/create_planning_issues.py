@@ -57,29 +57,6 @@ def issue_title(item):
     return f"{item['id']} {item['title']}"
 
 
-def demo_issue_id(pbi):
-    if not re.fullmatch(r"PBI-\d{2,}", pbi["id"]):
-        raise ValueError("pbi.id must use PBI-XX format")
-    return f"DEMO-{pbi['id'].removeprefix('PBI-')}"
-
-
-def demo_issue_title(pbi):
-    return f"{demo_issue_id(pbi)} {pbi['title']}"
-
-
-def pbi_body(pbi):
-    return "\n\n".join(
-        [
-            "## ユーザーストーリー",
-            pbi["story"],
-            "## 受け入れ条件",
-            bullet_list(pbi.get("acceptance")),
-            "## メモ",
-            bullet_list(pbi.get("memo")),
-        ]
-    )
-
-
 def demo_section(index, demo):
     parts = [
         f"### {index}. {demo['title']}",
@@ -93,22 +70,29 @@ def demo_section(index, demo):
     return "\n\n".join(parts)
 
 
-def demo_body(spec, pbi_number, pbi_title):
+def pbi_body(spec):
     pbi = spec["pbi"]
-    overview = spec.get("demo_overview") or f"{issue_title(pbi)} として、以下の状態をスプリントレビューでデモする。"
-    parts = ["## デモゴール", overview]
-    for index, demo in enumerate(spec["demo_goals"], start=1):
-        parts.append(demo_section(index, demo))
-    not_doing = spec.get("not_doing")
-    if not_doing:
-        parts.extend(["## やらないこと", bullet_list(not_doing)])
-    parts.extend(["## 関連PBI", f"- #{pbi_number} {pbi_title}"])
+    parts = [
+        "## ユーザーストーリー",
+        pbi["story"],
+        "## 受け入れ条件",
+        bullet_list(pbi.get("acceptance")),
+    ]
+    if spec.get("demo_overview") or spec.get("demo_goals"):
+        parts.append("## デモ確認内容")
+        if spec.get("demo_overview"):
+            parts.append(spec["demo_overview"])
+        for index, demo in enumerate(spec.get("demo_goals", []), start=1):
+            parts.append(demo_section(index, demo))
+    if spec.get("not_doing"):
+        parts.extend(["## やらないこと", bullet_list(spec["not_doing"])])
+    parts.extend(["## メモ", bullet_list(pbi.get("memo"))])
     return "\n\n".join(parts)
 
 
 def validate_spec(spec):
     require_object(spec, "spec")
-    for key in ["repo", "project_owner", "project_number", "pbi", "demo_goals"]:
+    for key in ["repo", "project_owner", "project_number", "pbi"]:
         if key not in spec:
             raise ValueError(f"Missing required field: {key}")
     require_string(spec["repo"], "repo")
@@ -130,9 +114,9 @@ def validate_spec(spec):
 
     require_list(spec.get("not_doing"), "not_doing")
 
-    if not isinstance(spec["demo_goals"], list) or not spec["demo_goals"]:
-        raise ValueError("demo_goals must be a non-empty list")
-    for index, demo in enumerate(spec["demo_goals"]):
+    if not isinstance(spec.get("demo_goals", []), list):
+        raise ValueError("demo_goals must be a list")
+    for index, demo in enumerate(spec.get("demo_goals", [])):
         require_object(demo, f"demo_goals[{index}]")
         for key in ["title", "goal"]:
             if key not in demo:
@@ -262,7 +246,7 @@ def create_pbi_issue(spec):
     """Issue 作成後に ID を確定し、改題の失敗時は復旧先を知らせる。"""
     pbi = spec["pbi"]
     initial_title = issue_title(pbi) if pbi.get("id") else pbi["title"]
-    created = create_issue(spec["repo"], initial_title, pbi_body(pbi), "PBI", spec.get("milestone"))
+    created = create_issue(spec["repo"], initial_title, pbi_body(spec), "PBI", spec.get("milestone"))
     assign_pbi_id(spec, created["number"])
     if initial_title != issue_title(pbi):
         try:
@@ -300,19 +284,15 @@ def set_project_status(item_id, project_id_value, status_field_id, status_option
 def render_dry_run(spec):
     """未採番なら仮 ID で表示し、元の spec と GitHub を変更しない。"""
     if not spec["pbi"].get("id"):
-        print("PBI-00 / DEMO-00 は仮表示です。ID は作成された Issue 番号で確定します。")
+        print("PBI-00 は仮表示です。ID は作成された Issue 番号で確定します。")
         spec = {**spec, "pbi": {**spec["pbi"], "id": "PBI-00"}}
     pbi = spec["pbi"]
-    demo_title = demo_issue_title(pbi)
     print(f"# {issue_title(pbi)}")
-    print(pbi_body(pbi))
-    print("\n" + "=" * 72)
-    print(f"# {demo_title}")
-    print(demo_body(spec, "PBI_ISSUE_NUMBER", issue_title(pbi)))
+    print(pbi_body(spec))
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create idea-boost PBI and consolidated DemoGoal issues.")
+    parser = argparse.ArgumentParser(description="Create one idea-boost PBI with acceptance and demo checks.")
     parser.add_argument("spec", type=Path, help="Path to a JSON planning spec")
     parser.add_argument("--dry-run", action="store_true", help="Render issue bodies without creating issues")
     args = parser.parse_args()
@@ -324,11 +304,8 @@ def main():
         render_dry_run(spec)
         return
 
-    repo = spec["repo"]
     owner = spec["project_owner"]
     project_number = spec["project_number"]
-    milestone = spec.get("milestone")
-    pbi = spec["pbi"]
     pid = project_id(project_number, owner)
     fields = project_fields(project_number, owner)
     status_field_name, status_field_id = status_field(fields)
@@ -338,18 +315,7 @@ def main():
     pbi_item_id = add_to_project(project_number, owner, pbi_created["url"], pbi_created["number"])
     set_project_status(pbi_item_id, pid, status_field_id, initial_status)
 
-    demo_created = create_issue(
-        repo,
-        demo_issue_title(pbi),
-        demo_body(spec, pbi_created["number"], issue_title(pbi)),
-        "DemoGoal",
-        milestone,
-    )
-    demo_item_id = add_to_project(project_number, owner, demo_created["url"], demo_created["number"])
-    set_project_status(demo_item_id, pid, status_field_id, initial_status)
-
-    for item in [{"kind": "PBI", **pbi_created}, {"kind": "DemoGoal", **demo_created}]:
-        print(f"{item['kind']} #{item['number']}: {item['url']}")
+    print(f"PBI #{pbi_created['number']}: {pbi_created['url']}")
 
 
 if __name__ == "__main__":

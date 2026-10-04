@@ -10,7 +10,7 @@ it("PBI 作成の採番・部分失敗・初期状態を外部通信なしで検
         "unittest",
         "discover",
         "-s",
-        ".agents/skills/pbi-demogoal/scripts",
+        ".agents/skills/pbi/scripts",
         "-p",
         "test_*.py",
       ],
