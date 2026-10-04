@@ -69,10 +69,7 @@ export function SharingPresenter({
         className="w-80 max-h-[calc(100dvh-2rem)] overflow-y-auto"
         aria-label="共有する順番"
       >
-        <p className="text-sm font-semibold">共有する順番</p>
-        <p className="mb-3 mt-1 text-xs text-muted-foreground">
-          課題・問い・アイデアを同じ順番で共有します。
-        </p>
+        <p className="mb-3 text-sm font-semibold">共有する順番</p>
         <ol className="max-h-72 space-y-3 overflow-y-auto">
           {sharing.order.map((member, index) => (
             <li key={member.userId} className="flex items-center gap-2 text-xs">

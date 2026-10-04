@@ -1,4 +1,4 @@
-import { type Browser, chromium, type Page } from "playwright";
+import { type Browser, chromium, type Locator, type Page } from "playwright";
 import {
   afterAll,
   afterEach,
@@ -123,22 +123,42 @@ test.each([
         ? page.getByText(label, { exact: true })
         : page.getByRole("button", { name: label });
   await target.waitFor();
-  const readColors = () =>
-    target.evaluate((element) =>
-      [element, ...element.querySelectorAll("*")].map((node) => {
-        const style = getComputedStyle(node);
-        return {
-          background: style.backgroundColor,
-          color: style.color,
-          border: style.borderTopColor,
-        };
-      }),
+  const checkColors = async (surfaces: Locator): Promise<void> => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.evaluate(() =>
+      document.documentElement.classList.remove("dark"),
     );
-  const light = await readColors();
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect.poll(readColors).toEqual(light);
-  await page.evaluate(() => document.documentElement.classList.add("dark"));
-  await expect.poll(readColors).toEqual(light);
+    const readColors = () =>
+      surfaces.evaluateAll((elements) =>
+        elements.flatMap((element) =>
+          [element, ...element.querySelectorAll("*")].map((node) => {
+            const style = getComputedStyle(node);
+            return {
+              background: style.backgroundColor,
+              color: style.color,
+              border: style.borderTopColor,
+            };
+          }),
+        ),
+      );
+    const light = await readColors();
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect.poll(readColors).toEqual(light);
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await expect.poll(readColors).toEqual(light);
+  };
+  await checkColors(target);
+  if (label === "発表者と全体の順番を確認") {
+    await target.click();
+    const orderPanel = page.getByRole("dialog", { name: "共有する順番" });
+    await orderPanel.waitFor();
+    await target.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      );
+    });
+    await checkColors(target.or(orderPanel));
+  }
 });
 
 test("候補外の付箋は破線と影なしで状態を示す", async () => {
