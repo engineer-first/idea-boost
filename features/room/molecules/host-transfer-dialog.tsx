@@ -38,6 +38,23 @@ export function HostTransferDialog({
   onClosed,
   onRequestRemove,
 }: HostTransferDialogProps) {
+  const hostAction = (
+    <AlertDialogAction
+      className="h-auto min-h-11 whitespace-normal break-all"
+      disabled={!target || pending || disconnected || blocked}
+      onClick={(event) => {
+        event.preventDefault();
+        if (target) onConfirm(target.userId);
+      }}
+    >
+      {pending
+        ? "変更中…"
+        : target
+          ? `${target.name || "名前未設定"}さんをホストにする`
+          : "ホストにする"}
+    </AlertDialogAction>
+  );
+
   return (
     <AlertDialog
       open={open}
@@ -98,35 +115,33 @@ export function HostTransferDialog({
             {error}
           </p>
         ) : null}
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           {onRequestRemove ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-11 text-destructive"
-              disabled={!target || pending || disconnected || blocked}
-              onClick={onRequestRemove}
-            >
-              ルームから外す…
-            </Button>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>キャンセル</AlertDialogCancel>
-            <AlertDialogAction
-              className="h-auto min-h-11 whitespace-normal break-all"
-              disabled={!target || pending || disconnected || blocked}
-              onClick={(event) => {
-                event.preventDefault();
-                if (target) onConfirm(target.userId);
-              }}
-            >
-              {pending
-                ? "変更中…"
-                : target
-                  ? `${target.name || "名前未設定"}さんをホストにする`
-                  : "ホストにする"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+            <>
+              {hostAction}
+              <AlertDialogFooter className="flex-row items-center justify-between sm:justify-between">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="min-h-11 text-destructive"
+                  disabled={!target || pending || disconnected || blocked}
+                  onClick={onRequestRemove}
+                >
+                  ルームから外す…
+                </Button>
+                <AlertDialogCancel className="min-h-11" disabled={pending}>
+                  キャンセル
+                </AlertDialogCancel>
+              </AlertDialogFooter>
+            </>
+          ) : (
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pending}>
+                キャンセル
+              </AlertDialogCancel>
+              {hostAction}
+            </AlertDialogFooter>
+          )}
         </div>
       </AlertDialogContent>
     </AlertDialog>

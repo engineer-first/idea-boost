@@ -39,3 +39,18 @@ export const LongName: Story = {
   },
 };
 export const MemberActions: Story = { args: { onRequestRemove: fn() } };
+export const MemberActionsPending: Story = {
+  args: { onRequestRemove: fn(), pending: true },
+};
+export const MemberActionsDisconnected: Story = {
+  args: { onRequestRemove: fn(), disconnected: true },
+};
+export const MemberActionsBlocked: Story = {
+  args: { onRequestRemove: fn(), blocked: true },
+};
+export const MemberActionsFailed: Story = {
+  args: { ...Failed.args, onRequestRemove: fn() },
+};
+export const MemberActionsLongName: Story = {
+  args: { ...LongName.args, onRequestRemove: fn() },
+};
