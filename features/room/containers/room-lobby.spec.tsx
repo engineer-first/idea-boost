@@ -131,7 +131,22 @@ function renderStart(
   const socket = FakeWebSocket.instances.at(-1);
   if (!socket) throw new Error("WebSocket が生成されていない");
   if (options.open !== false) {
-    act(() => socket.simulateOpen());
+    act(() => {
+      socket.simulateOpen();
+      socket.simulateServerMessage({
+        type: "snapshot",
+        phaseRevision: 0,
+        notes: [],
+        members: options.initialMembers ?? [],
+        phase: options.initialPhase ?? buildLobbyPhase(),
+        isHost: options.isHost ?? true,
+        decision: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      });
+    });
   }
   return { view, socket };
 }

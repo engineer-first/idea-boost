@@ -4,5 +4,7 @@
 export { CreateRoomSection } from "./containers/create-room-section";
 export { InviteCodeDialog } from "./containers/invite-code-dialog";
 export { JoinRoomSection } from "./containers/join-room-section";
+export { ReturnRoomSection } from "./containers/return-room-section";
 export { CreateRoomSectionView } from "./templates/create-room-section-view";
 export { JoinRoomSectionView } from "./templates/join-room-section-view";
+export { ReturnRoomSectionView } from "./templates/return-room-section-view";

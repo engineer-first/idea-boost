@@ -7,6 +7,7 @@
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/features/auth";
+import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 
 export type AppHeaderProps = {
   // 表示名（メールは出さない）。空ならユーザー名は描画しない。
@@ -40,7 +41,7 @@ export function AppHeader({ userName }: AppHeaderProps) {
             {userName}
           </p>
         ) : null}
-        <form action={signOut}>
+        <form action={signOut} onSubmit={() => clearLastRoom()}>
           <Button type="submit" variant="outline" size="sm">
             ログアウト
           </Button>

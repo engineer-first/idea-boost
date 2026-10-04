@@ -6,11 +6,16 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { notify } from "@/lib/notify";
+import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import { createRoom } from "../logic/actions";
 import { lifecycleNotify } from "../logic/lifecycle-notify";
 import { CreateRoomSectionView } from "../templates/create-room-section-view";
 
-export function CreateRoomSection() {
+export function CreateRoomSection({
+  currentUserId,
+}: {
+  currentUserId?: string;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -21,6 +26,7 @@ export function CreateRoomSection() {
         notify.error(result.error);
         return;
       }
+      if (currentUserId) rememberLastRoom(currentUserId, result.roomId);
       lifecycleNotify.roomCreated();
       router.push(`/rooms/${result.roomId}/start`);
     });

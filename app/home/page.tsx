@@ -53,7 +53,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <HomeView error={params.error} />
+      <HomeView error={params.error} currentUserId={user.sub} />
     </main>
   );
 }

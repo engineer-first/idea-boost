@@ -1990,11 +1990,11 @@ describe("接続状態 → 画面反映", () => {
   it("接続確立前は接続中の表示になる（loading）", () => {
     renderBoard({ open: false });
 
-    expect(screen.getByRole("status")).toHaveTextContent("接続中");
+    expect(screen.getByRole("status")).toHaveTextContent("再接続");
   });
 
   it("接続が確立するとインジケータが消える（success）", () => {
-    renderBoard();
+    connectWithSnapshot();
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });

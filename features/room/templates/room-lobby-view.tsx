@@ -19,13 +19,11 @@ import { isLobby, type RoomPhase } from "@/contracts/phase";
 // WebSocket 接続やプロトコル送信は room-lobby.tsx（コンテナ）の責務。
 import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
 import { RoomMembers } from "@/features/room-members";
-import {
-  CONNECTION_STATUS_LABELS,
-  type RoomScreenConnectionStatus,
-} from "../logic/connection-status";
+import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
+import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 
 export type RoomLobbyViewProps = {
   members: Member[];
@@ -38,6 +36,7 @@ export type RoomLobbyViewProps = {
   inviteUrl: string;
   // 接続状態は Container 側で生成し、ここでは表示するだけ。
   connectionStatus: RoomScreenConnectionStatus;
+  connectionDelayed?: boolean;
   // 開始ボタンが処理中のとき true（多重押下防止）。Container が setTimeout などで
   // 制御する想定。
   isStarting: boolean;
@@ -59,6 +58,7 @@ export function RoomLobbyView({
   inviteCode,
   inviteUrl,
   connectionStatus,
+  connectionDelayed = false,
   isStarting,
   onStart,
   onLeave,
@@ -72,7 +72,6 @@ export function RoomLobbyView({
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [hostTargetId, setHostTargetId] = useState<string | null>(null);
   const transferTriggerRef = useRef<HTMLElement | null>(null);
-  const connectionLabel = CONNECTION_STATUS_LABELS[connectionStatus];
 
   return (
     <div
@@ -111,18 +110,11 @@ export function RoomLobbyView({
                 : "ホストがセッションを開始するまで、この画面でお待ちください。"}
             </p>
           </div>
-          {connectionLabel ? (
-            <p
-              role="status"
-              className={`text-sm ${
-                connectionStatus === "closed"
-                  ? "text-destructive"
-                  : "text-muted-foreground"
-              }`}
-            >
-              {connectionLabel}
-            </p>
-          ) : null}
+          <RoomConnectionNotice
+            status={connectionStatus}
+            delayed={connectionDelayed}
+            className="text-sm text-muted-foreground"
+          />
         </header>
 
         <p className="text-center text-sm text-muted-foreground">

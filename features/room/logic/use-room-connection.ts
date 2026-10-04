@@ -9,6 +9,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CompletedRoomSchema } from "@/contracts/completed-rooms";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import {
+  clearLastRoom,
+  rememberLastRoom,
+} from "@/lib/room-client/last-room-storage";
+import {
   createRoomClient,
   type RoomClient,
   type RoomSocketFactory,
@@ -21,6 +25,7 @@ const COMPLETION_REQUEST_TIMEOUT_MS = 10_000;
 
 export type UseRoomConnectionOptions = {
   roomId: string;
+  currentUserId?: string;
   onMessage: (message: ServerMessage) => void;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
@@ -30,11 +35,13 @@ export type UseRoomConnectionOptions = {
 
 export type UseRoomConnectionResult = {
   connectionStatus: RoomScreenConnectionStatus;
+  connectionDelayed: boolean;
   send: (message: ClientMessage) => boolean;
 };
 
 export function useRoomConnection({
   roomId,
+  currentUserId,
   onMessage,
   webSocketFactory,
   isLeavingRef,
@@ -43,6 +50,8 @@ export function useRoomConnection({
   // createRoomClient が生成直後に "connecting" を通知するので初期値と一致する。
   const [connectionStatus, setConnectionStatus] =
     useState<RoomScreenConnectionStatus>("connecting");
+  const [connectionDelayed, setConnectionDelayed] = useState(false);
+  const synchronizedRef = useRef(false);
   const clientRef = useRef<RoomClient | null>(null);
   // ハンドラの差し替えを再接続にしないため、常に最新の onMessage を参照する。
   const onMessageRef = useRef(onMessage);
@@ -51,6 +60,20 @@ export function useRoomConnection({
   });
 
   useEffect(() => {
+    synchronizedRef.current = false;
+    setConnectionStatus("connecting");
+    setConnectionDelayed(false);
+    let delayedTimer: ReturnType<typeof setTimeout> | null = null;
+    function stopDelay(): void {
+      if (delayedTimer !== null) clearTimeout(delayedTimer);
+      delayedTimer = null;
+      setConnectionDelayed(false);
+    }
+    function startDelay(): void {
+      if (delayedTimer !== null) return;
+      delayedTimer = setTimeout(() => setConnectionDelayed(true), 10_000);
+    }
+    startDelay();
     let completionRequest: {
       controller: AbortController;
       timeout: ReturnType<typeof setTimeout>;
@@ -86,6 +109,7 @@ export function useRoomConnection({
           isLeavingRef?.current
         )
           return;
+        stopDelay();
         client.close();
         router.replace(`/completed-rooms/${encodeURIComponent(roomId)}`);
       } catch {
@@ -97,7 +121,19 @@ export function useRoomConnection({
     }
     const client = createRoomClient({
       url: roomWebSocketUrl(roomId),
-      onMessage: (message) => onMessageRef.current(message),
+      onMessage: (message) => {
+        onMessageRef.current(message);
+        if (message.type === "snapshot") {
+          synchronizedRef.current = true;
+          stopDelay();
+          setConnectionStatus("open");
+          if (
+            currentUserId &&
+            message.members.some((member) => member.userId === currentUserId)
+          )
+            rememberLastRoom(currentUserId, roomId);
+        }
+      },
       onStatusChange: (status) => {
         if (status === "open" || status === "ended" || status === "disbanded")
           cancelCompletionRequest();
@@ -105,6 +141,9 @@ export function useRoomConnection({
         if (status === "closed") void recoverCompletedRoom();
         // 退出・解散による意図的切断: 再接続せずホームへ戻す。
         if (status === "ended" || status === "disbanded") {
+          synchronizedRef.current = false;
+          stopDelay();
+          clearLastRoom(roomId);
           // 他メンバーが解散されたときだけここで理由を出す。
           // 自分の操作による通知は useLeaveRoom 成功時に出す（二重 toast 防止）。
           if (status === "disbanded" && !isLeavingRef?.current) {
@@ -113,21 +152,29 @@ export function useRoomConnection({
           router.replace("/home");
           return;
         }
-        setConnectionStatus(status);
+        synchronizedRef.current = false;
+        startDelay();
+        setConnectionStatus(status === "open" ? "connecting" : status);
       },
       webSocketFactory,
     });
     clientRef.current = client;
     return () => {
       cancelCompletionRequest();
+      if (delayedTimer !== null) clearTimeout(delayedTimer);
+      synchronizedRef.current = false;
       clientRef.current = null;
       client.close();
     };
-  }, [roomId, webSocketFactory, router, isLeavingRef]);
+  }, [roomId, currentUserId, webSocketFactory, router, isLeavingRef]);
 
   const send = useCallback((message: ClientMessage) => {
-    return clientRef.current?.send(message) ?? false;
+    return (
+      // 保存確認は読み取りのみ。snapshot適用中の既存本文回復でも必要。
+      (synchronizedRef.current || message.type === "note:content-status") &&
+      (clientRef.current?.send(message) ?? false)
+    );
   }, []);
 
-  return { connectionStatus, send };
+  return { connectionStatus, connectionDelayed, send };
 }

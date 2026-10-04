@@ -23,6 +23,7 @@ vi.mock("../logic/lifecycle-notify", () => ({
   lifecycleNotify: { roomCreated: notifyMocks.roomCreated },
 }));
 
+import { readLastRoom } from "@/lib/room-client/last-room-storage";
 import { CreateRoomSection } from "./create-room-section";
 
 describe("CreateRoomSection", () => {
@@ -46,9 +47,14 @@ describe("CreateRoomSection", () => {
       ok: true,
       roomId: "123e4567-e89b-42d3-a456-426614174000",
     });
-    render(<CreateRoomSection />);
+    render(
+      <CreateRoomSection currentUserId="11111111-1111-4111-8111-111111111111" />,
+    );
     await user.click(screen.getByRole("button", { name: "ルームを作成" }));
     await waitFor(() => {
+      expect(readLastRoom("11111111-1111-4111-8111-111111111111")).toBe(
+        "123e4567-e89b-42d3-a456-426614174000",
+      );
       expect(notifyMocks.roomCreated).toHaveBeenCalledTimes(1);
       expect(PUSH).toHaveBeenCalledWith(
         "/rooms/123e4567-e89b-42d3-a456-426614174000/start",

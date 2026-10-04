@@ -28,6 +28,8 @@ vi.mock("./room-notify", () => ({
 import { completedRoomFixture } from "@/contracts/completed-rooms.fixture";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type { ServerMessage } from "@/contracts/room-protocol";
+import { ServerMessageSchema } from "@/contracts/room-protocol";
+import { readLastRoom } from "@/lib/room-client/last-room-storage";
 import { useRoomConnection } from "./use-room-connection";
 
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -120,7 +122,7 @@ describe("useRoomConnection", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it("生成直後は connecting、open イベントで open になる", () => {
+  it("ソケットopenでは同期中を維持し、snapshot適用後に操作可能になる", () => {
     const { result } = renderHook(() =>
       useRoomConnection({
         roomId: ROOM_ID,
@@ -131,6 +133,9 @@ describe("useRoomConnection", () => {
 
     expect(result.current.connectionStatus).toBe("connecting");
     act(() => lastSocket().simulateOpen());
+    expect(result.current.connectionStatus).toBe("connecting");
+    expect(result.current.send({ type: "note:create" })).toBe(false);
+    act(() => lastSocket().simulateServerMessage(snapshot()));
     expect(result.current.connectionStatus).toBe("open");
   });
 
@@ -177,6 +182,7 @@ describe("useRoomConnection", () => {
     );
 
     act(() => lastSocket().simulateOpen());
+    act(() => lastSocket().simulateServerMessage(snapshot()));
     act(() => result.current.send({ type: "note:create" }));
     expect(lastSocket().sent).toContain(
       JSON.stringify({ type: "note:create" }),
@@ -416,4 +422,130 @@ describe("切断後の完了ルーム復帰", () => {
       `/completed-rooms/${ROOM_ID}`,
     );
   });
+});
+
+function snapshot() {
+  return ServerMessageSchema.parse({
+    type: "snapshot",
+    phaseRevision: 0,
+    notes: [],
+    members: [],
+    phase: { kind: "lobby" },
+    isHost: true,
+    timer: { status: "idle" },
+    serverNow: 1,
+    decision: null,
+    carryovers: [],
+    completedVoterIds: [],
+  });
+}
+describe("切断時間", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+  it("再試行とsocket openで時間をリセットせず、snapshotまで10秒の案内を維持する", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 404 })),
+    );
+    const { result, unmount } = renderHook(() =>
+      useRoomConnection({
+        roomId: ROOM_ID,
+        onMessage: vi.fn(),
+        webSocketFactory: factory,
+      }),
+    );
+    act(() => {
+      lastSocket().simulateOpen();
+      lastSocket().simulateServerMessage(snapshot());
+    });
+    await act(async () => lastSocket().simulateUnexpectedClose());
+    await act(async () => vi.advanceTimersByTimeAsync(9000));
+    act(() => lastSocket().simulateOpen());
+    expect(result.current.connectionStatus).not.toBe("open");
+    expect(result.current.connectionDelayed).toBe(false);
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(result.current.connectionDelayed).toBe(true);
+    act(() =>
+      lastSocket().simulateServerMessage({
+        type: "phase:updated",
+        phaseRevision: 1,
+        phase: buildPhaseStep(2),
+      }),
+    );
+    expect(result.current.connectionDelayed).toBe(true);
+    act(() => lastSocket().simulateServerMessage(snapshot()));
+    expect(result.current.connectionStatus).toBe("open");
+    expect(result.current.connectionDelayed).toBe(false);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+it("認可済みsnapshotで本人が在籍すると候補を更新し、通常切断で残して退出で消す", async () => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  localStorage.clear();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(null, { status: 404 })),
+  );
+  const { unmount } = renderHook(() =>
+    useRoomConnection({
+      roomId: ROOM_ID,
+      currentUserId: userId,
+      onMessage: vi.fn(),
+      webSocketFactory: factory,
+    }),
+  );
+  act(() => {
+    lastSocket().simulateOpen();
+    lastSocket().simulateServerMessage(snapshot());
+  });
+  expect(readLastRoom(userId)).toBeNull();
+  act(() =>
+    lastSocket().simulateServerMessage({
+      ...snapshot(),
+      members: [{ userId, name: "本人", color: "yellow" }],
+    }),
+  );
+  expect(readLastRoom(userId)).toBe(ROOM_ID);
+  await act(async () => lastSocket().simulateUnexpectedClose());
+  expect(readLastRoom(userId)).toBe(ROOM_ID);
+  act(() => lastSocket().simulateLeftRoomClose());
+  expect(readLastRoom(userId)).toBeNull();
+  unmount();
+  vi.unstubAllGlobals();
+});
+
+it("snapshot適用中の本文保存確認は送信でき、共有の更新は適用後まで止める", () => {
+  const operationId = "33333333-3333-4333-8333-333333333333";
+  let sendDuringSnapshot:
+    | ((
+        message: Parameters<ReturnType<typeof useRoomConnection>["send"]>[0],
+      ) => boolean)
+    | undefined;
+  const onMessage = vi.fn((message: ServerMessage) => {
+    if (message.type !== "snapshot") return;
+    expect(sendDuringSnapshot?.({ type: "note:create" })).toBe(false);
+    expect(
+      sendDuringSnapshot?.({ type: "note:content-status", operationId }),
+    ).toBe(true);
+  });
+  const { result } = renderHook(() =>
+    useRoomConnection({
+      roomId: ROOM_ID,
+      onMessage,
+      webSocketFactory: factory,
+    }),
+  );
+  sendDuringSnapshot = result.current.send;
+  act(() => {
+    lastSocket().simulateOpen();
+    lastSocket().simulateServerMessage(snapshot());
+  });
+  expect(lastSocket().sent).toContain(
+    JSON.stringify({ type: "note:content-status", operationId }),
+  );
 });

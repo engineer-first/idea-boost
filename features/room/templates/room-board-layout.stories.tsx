@@ -298,3 +298,9 @@ export const UndoNotification: Story = {
     );
   },
 };
+
+export const DelayedConnection: Story = {
+  ...Reconnecting,
+  name: "接続不調が10秒継続",
+  args: { ...Reconnecting.args, connectionDelayed: true },
+};

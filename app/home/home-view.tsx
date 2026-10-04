@@ -6,14 +6,19 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { CreateRoomSection, JoinRoomSection } from "@/features/room-lifecycle";
+import {
+  CreateRoomSection,
+  JoinRoomSection,
+  ReturnRoomSection,
+} from "@/features/room-lifecycle";
 import { HomeErrorAlert } from "./home-error-alert";
 
 export type HomeViewProps = {
   error?: string;
+  currentUserId?: string;
 };
 
-export function HomeView({ error }: HomeViewProps) {
+export function HomeView({ error, currentUserId }: HomeViewProps) {
   return (
     <div
       className="relative flex h-full min-h-0 flex-1 items-start justify-center overflow-y-auto p-4 sm:p-6"
@@ -41,9 +46,13 @@ export function HomeView({ error }: HomeViewProps) {
 
         {error ? <HomeErrorAlert message={error} /> : null}
 
+        {currentUserId ? (
+          <ReturnRoomSection currentUserId={currentUserId} />
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2 sm:items-stretch">
-          <CreateRoomSection />
-          <JoinRoomSection />
+          <CreateRoomSection currentUserId={currentUserId} />
+          <JoinRoomSection currentUserId={currentUserId} />
         </div>
         <nav
           aria-label="過去の成果"

@@ -7,6 +7,7 @@
 import { useCallback, useRef, useState, useTransition } from "react";
 import type { LeaveOutcomeAccess } from "@/contracts/completed-rooms";
 import { notify } from "@/lib/notify";
+import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import { leaveRoom } from "./actions";
 import { roomNotify } from "./room-notify";
 
@@ -59,6 +60,7 @@ export function useLeaveRoom(options: {
           await leaveRoom(formData);
         } catch (error) {
           if (isNextRedirectError(error)) {
+            clearLastRoom(roomId);
             // 自分の操作成功をトーストで伝える（ホーム遷移後も Toaster は root にある）。
             if (isHost && !completed) {
               roomNotify.roomDisbandedBySelf();

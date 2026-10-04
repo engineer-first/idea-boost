@@ -1448,7 +1448,7 @@ describe("RoomBoardView", () => {
     it("接続確立中は接続中の表示を出す（loading）", () => {
       setup({ connectionStatus: "connecting" });
 
-      expect(screen.getByRole("status")).toHaveTextContent("接続中");
+      expect(screen.getByRole("status")).toHaveTextContent("再接続");
     });
 
     it("切断中は再接続中の表示を出す（error）", () => {

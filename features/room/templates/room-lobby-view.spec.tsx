@@ -69,7 +69,7 @@ describe("RoomLobbyView", () => {
     expect(
       screen
         .getAllByRole("status")
-        .find((status) => status.textContent?.includes("接続が切れました")),
+        .find((status) => status.textContent?.includes("再接続")),
     ).toHaveTextContent("再接続");
   });
 

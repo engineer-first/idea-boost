@@ -97,7 +97,8 @@
 @media (max-width: 900px) {
   .guide {
     --guide-width: min(426px, calc(100vw - 342px));
-    top: 156px;
+    /* 操作欄の折り返しと接続案内の実寸を避け、待ち方を読めるようにする。 */
+    top: max(156px, var(--board-connection-guide-top, 0px));
     left: 330px;
     transform: none;
   }

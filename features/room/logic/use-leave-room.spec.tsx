@@ -27,6 +27,10 @@ vi.mock("./room-notify", () => ({
   },
 }));
 
+import {
+  readLastRoom,
+  rememberLastRoom,
+} from "@/lib/room-client/last-room-storage";
 import { useLeaveRoom } from "./use-leave-room";
 
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -174,4 +178,15 @@ it.each([
   act(() => result.current.leave(access));
   const form = LEAVE_ROOM.mock.calls[0]?.[0] as FormData;
   expect(form.get("outcomeAccess")).toBe(access);
+});
+
+it("退出成功時には候補を消す", async () => {
+  const userId = "11111111-1111-4111-8111-111111111111";
+  rememberLastRoom(userId, ROOM_ID);
+  LEAVE_ROOM.mockRejectedValueOnce(nextRedirectError());
+  const { result } = renderHook(() =>
+    useLeaveRoom({ roomId: ROOM_ID, isHost: false }),
+  );
+  act(() => result.current.leave());
+  await waitFor(() => expect(readLastRoom(userId)).toBeNull());
 });

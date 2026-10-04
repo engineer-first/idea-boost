@@ -4,6 +4,10 @@ import {
   CreateRoomSectionView,
   JoinRoomSectionView,
 } from "@/features/room-lifecycle";
+import {
+  clearLastRoom,
+  rememberLastRoom,
+} from "@/lib/room-client/last-room-storage";
 import { HomeErrorAlert } from "./home-error-alert";
 import { HomeView } from "./home-view";
 
@@ -96,4 +100,15 @@ export const AllStates: Story = {
       ))}
     </div>
   ),
+};
+
+export const WithReturnRoom: Story = {
+  args: { currentUserId: "11111111-1111-4111-8111-111111111111" },
+  beforeEach: () => {
+    rememberLastRoom(
+      "11111111-1111-4111-8111-111111111111",
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+    return () => clearLastRoom();
+  },
 };
