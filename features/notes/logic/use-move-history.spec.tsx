@@ -469,3 +469,36 @@ it("相関error後も保存済みaccepted receiptなら正しくUndo成功にす
   expect(result.current.pending).toBe(false);
   expect(result.current.redoState.disabled).toBe(false);
 });
+
+it("相関した本文保存のunknownは履歴を残し、確定acceptedだけで境界にする", () => {
+  const { result, accept } = setup();
+  accept(receipt("move", 0, 1));
+  act(() =>
+    result.current.observeOutgoing({
+      type: "note:update-content",
+      noteId: "note",
+      content: "本文",
+      operationId: "content",
+      expectedContentRevision: 0,
+      expectedPhaseRevision: 1,
+    }),
+  );
+  act(() =>
+    result.current.applyMessage({
+      type: "note:content-status-result",
+      operationId: "content",
+      status: "unknown",
+    }),
+  );
+  expect(result.current.undoState.disabled).toBe(false);
+  act(() =>
+    result.current.applyMessage({
+      type: "note:content-status-result",
+      operationId: "content",
+      status: "accepted",
+      noteId: "note",
+      contentRevision: 1,
+    }),
+  );
+  expect(result.current.undoState.disabled).toBe(true);
+});

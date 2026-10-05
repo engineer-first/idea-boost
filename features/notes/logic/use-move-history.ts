@@ -122,8 +122,8 @@ export function useMoveHistory({
           message.operationId === request.operationId
         )
           return (
-            message.type !== "note:content-status-result" ||
-            message.status === "accepted"
+            !("status" in message) ||
+            ["accepted", "committed"].includes(message.status)
           );
         if (request.type === "note:create")
           return (
@@ -174,6 +174,15 @@ export function useMoveHistory({
         );
         clear();
         boundaryRequests.current = remaining;
+      }
+      if (
+        "status" in message &&
+        ["rejected", "expired"].includes(message.status) &&
+        "operationId" in message
+      ) {
+        boundaryRequests.current = boundaryRequests.current.filter(
+          (r) => !("operationId" in r && r.operationId === message.operationId),
+        );
       }
       if (message.type === "error" && !message.operationId)
         boundaryRequests.current = boundaryRequests.current.filter(
