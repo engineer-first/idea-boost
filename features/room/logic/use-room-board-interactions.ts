@@ -149,6 +149,7 @@ export function useRoomBoardInteractions({
 
   const {
     camera,
+    preserveCamera,
     gridStyle,
     isPanning,
     worldPointFromClient,
@@ -321,8 +322,11 @@ export function useRoomBoardInteractions({
 
   const toolbarNotes = renderedPrivateNotes.filter(
     (note) =>
-      !(note.id === drag?.note.id && drag.status === "shared") &&
-      note.id !== draggingNoteId,
+      !(
+        note.id === drag?.note.id &&
+        (drag.status === "shared" ||
+          (drag.status === "private" && drag.privateDropIndex === null))
+      ) && note.id !== draggingNoteId,
   );
 
   const presencePointFromPointer = (
@@ -465,6 +469,11 @@ export function useRoomBoardInteractions({
       if (id) handleSharedNoteDragStart(id, event, origin, ids);
     },
     onNoteDragStart: handleSharedNoteDragStart,
-    onPrivateNoteDragStart: handlePrivateDragStart,
+    onPrivateNoteDragStart: (noteId, event) => {
+      // マイ付箋はviewport外にあるためcameraのpointerdownを通らない。
+      // 最初のdrop後の自動fitで本人の指定位置と視野を動かさない。
+      preserveCamera();
+      handlePrivateDragStart(noteId, event);
+    },
   };
 }

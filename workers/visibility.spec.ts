@@ -44,6 +44,25 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "AT-014 未確定の共有previewは他者に不可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "AT-014 有効drop確定後にsharedが他者へ可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
+  {
+    name: "AT-015 戻し先hoverだけではsharedを他者から消さない",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
+
+  {
     name: "peer途中移動も他者private付箋を可視にしない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

@@ -105,6 +105,7 @@ import {
 } from "./phase";
 import { presenceHandlers } from "./presence";
 import { ProgressHistoryStorage } from "./progress-history";
+import { replyShareStatus } from "./share-operations";
 import { SharedOutcomeStorage } from "./shared-outcome-storage";
 import { captureSharedOutcome, readOutcomeState } from "./shared-outcomes";
 import {
@@ -140,6 +141,14 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...adoptionFocusHandlers,
   ...noteHandlers,
   ...moveHandlers,
+  "note:share:status": (ctx, message) => {
+    if (!replyShareStatus(ctx, message.operationId))
+      ctx.reply({
+        type: "note:share:result",
+        operationId: message.operationId,
+        status: "unknown",
+      });
+  },
   ...decisionHandlers,
   ...groupHandlers,
   ...ideaMapHandlers,
@@ -169,6 +178,9 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
     case "note:move:preview":
     case "note:move:cancel":
     case "note:move:commit":
+    case "note:publish":
+    case "note:unpublish":
+    case "note:share:status":
     case "note:move:status":
     case "note:update-content":
       return message.operationId;
@@ -460,6 +472,7 @@ export class RoomDO extends DurableObject {
         "legacy_note_drag_leases",
         "note_move_locks",
         "note_move_operations",
+        "note_share_operations",
         "member_color_assignments",
         "pending_phase_transition",
         "sharing_state",
@@ -623,7 +636,8 @@ export class RoomDO extends DurableObject {
     const parsedMessage = parseClientMessage(raw);
     if (
       !(await this.processExpiredTransition()) &&
-      parsedMessage?.type !== "note:move:status"
+      parsedMessage?.type !== "note:move:status" &&
+      parsedMessage?.type !== "note:share:status"
     ) {
       this.broadcaster.sendTo(ws, {
         type: "error",
@@ -845,6 +859,14 @@ export class RoomDO extends DurableObject {
         });
         return;
       }
+      if (message.type === "note:share:status") {
+        this.broadcaster.sendTo(ws, {
+          type: "note:share:result",
+          operationId: message.operationId,
+          status: "unknown",
+        });
+        return;
+      }
       if (message.type === "note:move:status") {
         // 除外・期限削除後も結果不明を終端にする。存在/所有/内容は一切返さない。
         this.broadcaster.sendTo(ws, {
@@ -866,6 +888,16 @@ export class RoomDO extends DurableObject {
       attachment.userId,
       optimisticOperationIdOf(message),
     );
+    if (message.type === "note:share:status") {
+      clientMessageHandlers["note:share:status"](ctx, message);
+      return;
+    }
+    if (
+      (message.type === "note:publish" || message.type === "note:unpublish") &&
+      message.operationId &&
+      replyShareStatus(ctx, message.operationId)
+    )
+      return;
     if (message.type === "note:move:status") {
       moveHandlers["note:move:status"](ctx, message);
       syncMovePresence(this.sql, this.broadcaster);
@@ -1097,6 +1129,7 @@ export class RoomDO extends DurableObject {
     this.broadcaster.sendTo(ws, {
       type: "snapshot",
       moveProtocolVersion: 1,
+      shareProtocolVersion: 1,
       ...moveRevisions(this.sql),
       sharing: getSharingState(this.sql),
       notes,

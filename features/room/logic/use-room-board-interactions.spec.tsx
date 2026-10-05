@@ -72,6 +72,56 @@ function setup({
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
+  it("空のボードへ最初のマイ付箋をdropした後も本人のカメラを保つ", () => {
+    const note = buildNote({ id: "private-first", visibility: "private" });
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 390, 600);
+    const toolbar = document.createElement("div");
+    toolbar.getBoundingClientRect = () => new DOMRect(140, 250, 240, 320);
+    const { result, rerender } = renderHook(
+      ({ notes }: { notes: (typeof note)[] }) => {
+        const interactions = useRoomBoardInteractions({
+          notes,
+          privateNotes: notes.length === 0 ? [note] : [],
+          currentUserId: note.authorId,
+          draggingNoteId: null,
+          phase: buildPhaseStep(2),
+          onNoteDragStart: vi.fn(),
+          onNoteDragMove: vi.fn(),
+          onNoteDragEnd: vi.fn(),
+          onNoteDragCancel: vi.fn(),
+          onPrivateNotePublish: vi.fn(),
+          onPrivateNoteUnpublish: vi.fn(),
+          onCursorMove: vi.fn(),
+          onCursorLeave: vi.fn(),
+        });
+        interactions.boardScrollerRef.current = viewport;
+        interactions.privateToolbarRef.current = toolbar;
+        return interactions;
+      },
+      { initialProps: { notes: [] as (typeof note)[] } },
+    );
+    const camera = result.current.camera;
+    act(() =>
+      result.current.onPrivateNoteDragStart(note.id, {
+        pointerId: 1,
+        clientX: 180,
+        clientY: 300,
+        currentTarget: document.createElement("button"),
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+    act(() =>
+      result.current.onPointerEnd({
+        pointerId: 1,
+        clientX: 60,
+        clientY: 100,
+        target: viewport,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    rerender({ notes: [{ ...note, visibility: "shared", x: 700, y: 300 }] });
+    expect(result.current.camera).toEqual(camera);
+  });
+
   it("共有drag中も余白の実カーソル座標と操作対象を送る", () => {
     const { result, onCursorMove, viewport } = setup({
       phase: buildPhaseStep(3, 3),
@@ -221,7 +271,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(result.current.camera.zoom).toBeCloseTo(672 / 1760);
   });
 
-  it("3-2では公開可能なprivate付箋のpointerdownから先にdrag lockを要求する", () => {
+  it("3-2のprivate previewはpointerdownで他者配信されるlockを要求しない", () => {
     const { result, onNoteDragStart } = setup({
       phase: buildPhaseStep(2, 3),
       withPrivateNote: true,
@@ -245,7 +295,7 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLButtonElement>),
     );
 
-    expect(onNoteDragStart).toHaveBeenCalledWith("private-1", true);
+    expect(onNoteDragStart).not.toHaveBeenCalled();
   });
 
   it("入力欄と touch の位置は送信せず、キャンバス退出を通知する", () => {

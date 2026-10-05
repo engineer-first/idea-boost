@@ -452,6 +452,69 @@ it("共有成功note:insertedだけで移動履歴を区切る", () => {
   });
   expect(result.current.undoState.disabled).toBe(true);
 });
+it.each([
+  "note:publish",
+  "note:unpublish",
+] as const)("%sは共有結果の確定成功でだけ移動履歴を区切る", (type) => {
+  const { result, accept } = setup();
+  accept(receipt("move", 0, 1));
+  act(() => {
+    result.current.observeOutgoing({
+      type,
+      operationId: "share",
+      noteId: "other",
+      x: 10,
+      y: 20,
+    });
+    result.current.applyMessage({
+      type: "note:share:result",
+      operationId: "share",
+      status: "unknown",
+    });
+  });
+  expect(result.current.undoState.disabled).toBe(false);
+  act(() =>
+    result.current.applyMessage({
+      type: "note:share:result",
+      operationId: "another-operation",
+      status: "committed",
+    }),
+  );
+  expect(result.current.undoState.disabled).toBe(false);
+  act(() =>
+    result.current.applyMessage({
+      type: "note:share:result",
+      operationId: "share",
+      status: "committed",
+    }),
+  );
+  expect(result.current.undoState.disabled).toBe(true);
+});
+it.each([
+  "rejected",
+  "expired",
+] as const)("共有結果%sの後は遅延成功でも移動履歴を区切らない", (status) => {
+  const { result, accept } = setup();
+  accept(receipt("move", 0, 1));
+  act(() => {
+    result.current.observeOutgoing({
+      type: "note:unpublish",
+      operationId: "share",
+      noteId: "other",
+    });
+    result.current.applyMessage({
+      type: "note:share:result",
+      operationId: "share",
+      status,
+    });
+    result.current.applyMessage({
+      type: "note:share:result",
+      operationId: "share",
+      status: "committed",
+    });
+  });
+  expect(result.current.undoState.disabled).toBe(false);
+});
 it("相関errorだけでは終端にせずstatus unknownで不存在を確認する", () => {
   const { result, accept } = setup();
   accept(receipt("old", 0, 1));

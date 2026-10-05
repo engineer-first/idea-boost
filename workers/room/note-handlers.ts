@@ -49,6 +49,7 @@ import {
   updateNoteFontSize,
 } from "./notes";
 import { getPhase, getPhaseRevision, isPersonalWritingStep } from "./phase";
+import { commitShare } from "./share-operations";
 import {
   addUserNoteVote,
   addVoteSticker,
@@ -159,6 +160,13 @@ export const noteHandlers: MessageHandlers<
   },
 
   "note:publish": (ctx, message) => {
+    if (message.operationId) {
+      commitShare(ctx, message, (nextCtx, clean) => {
+        if (clean.type === "note:publish")
+          noteHandlers["note:publish"](nextCtx, clean);
+      });
+      return;
+    }
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (row.author_id !== ctx.userId || row.visibility !== "private") {
@@ -185,6 +193,13 @@ export const noteHandlers: MessageHandlers<
   },
 
   "note:unpublish": (ctx, message) => {
+    if (message.operationId) {
+      commitShare(ctx, message, (nextCtx, clean) => {
+        if (clean.type === "note:unpublish")
+          noteHandlers["note:unpublish"](nextCtx, clean);
+      });
+      return;
+    }
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (row.author_id !== ctx.userId || row.visibility !== "shared") {

@@ -190,6 +190,13 @@ export function PrivateNotesToolbar({
       if (!noteId) continue;
       const top = element.getBoundingClientRect().top;
       nextTops.set(noteId, top);
+    }
+    // geometryを全件readしてからanimationを開始し、各行のread/write反復を避ける。
+    for (const element of elements) {
+      const noteId = element.dataset.noteId;
+      if (!noteId) continue;
+      const top = nextTops.get(noteId);
+      if (top === undefined) continue;
       const previousTop = previousNoteTopsRef.current.get(noteId);
       const delta = previousTop === undefined ? 0 : previousTop - top;
       if (!reduceMotion && delta !== 0) {

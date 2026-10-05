@@ -306,9 +306,10 @@ export function RoomBoardHeader({
           </div>
         </div>
 
+        {/* 狭幅の完了表示は操作行の外へ置く。結果でも同じ縦余白を保ち、現在地表示を動かさない。 */}
         <div
           ref={controlsAreaRef}
-          className="pointer-events-none flex min-w-0 flex-col items-end gap-2 max-[900px]:max-w-[426px] max-[639px]:order-first max-[639px]:w-full"
+          className={`pointer-events-none flex min-w-0 flex-col items-end gap-2 max-[900px]:max-w-[426px] max-[639px]:order-first max-[639px]:w-full ${isCurrentVotingStep || isResultStep(phase) ? "max-[900px]:pb-6" : ""}`}
         >
           <fieldset
             className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"
@@ -316,26 +317,22 @@ export function RoomBoardHeader({
             data-testid="board-control-hud"
             data-board-fit-edge="top"
           >
-            {isCurrentVotingStep || isResultStep(phase) ? (
+            {showVotingCompletion ? (
               <span
-                className="shrink-0 max-[900px]:order-last max-[900px]:pl-2"
-                data-testid={
-                  showVotingCompletion ? "vote-completion-indicator" : undefined
-                }
+                className="shrink-0 max-[900px]:absolute max-[900px]:right-0 max-[900px]:top-full max-[900px]:mt-1 max-[900px]:rounded-md max-[900px]:bg-background max-[900px]:px-2"
+                data-testid="vote-completion-indicator"
               >
                 <span
                   aria-hidden="true"
-                  className={`${showVotingCompletion ? "" : "invisible "}inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none`}
+                  className="inline-flex max-w-20 items-center gap-1 overflow-hidden whitespace-nowrap text-xs font-semibold text-emerald-700 opacity-100 transition-[max-width,opacity] duration-[120ms] starting:max-w-0 starting:opacity-0 motion-reduce:transition-none"
                   data-testid="vote-completion-label"
                 >
                   <Check className="size-3.5 shrink-0" />
                   全員OK
                 </span>
-                {showVotingCompletion && (
-                  <span className="sr-only" role="status" aria-live="polite">
-                    全員の投票が完了しました
-                  </span>
-                )}
+                <span className="sr-only" role="status" aria-live="polite">
+                  全員の投票が完了しました
+                </span>
               </span>
             ) : null}
             {activeSharing ? (

@@ -96,8 +96,12 @@ test.each([
     expect(await hint.count()).toBe(0);
     await page.clock.runFor(1);
     await expect.poll(() => hint.count()).toBe(1);
-    await page.clock.runFor(32);
-    await hint.waitFor({ state: "visible" });
+    await expect
+      .poll(async () => {
+        await page.clock.runFor(16);
+        return hint.isVisible();
+      })
+      .toBe(true);
     expect(await hint.textContent()).toContain(name.replace("ツール", ""));
     const bounds = await hint.boundingBox();
     if (!bounds) throw new Error("ヒントが表示されていません");
@@ -132,8 +136,13 @@ test("手のひらのヒントから隣の選択ツールへ移ると待たず�
   await page.getByRole("button", { name: "手のひらツール" }).hover();
   await page.clock.runFor(1000);
   await expect.poll(() => hint.getAttribute("data-state")).toBe("delayed-open");
-  await page.clock.runFor(32);
-  await hint.waitFor({ state: "visible" });
+  // Popperの配置RAFはReactのcommit後に登録される。停止時計でも描画を進める。
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(16);
+      return hint.isVisible();
+    })
+    .toBe(true);
   expect(await hint.textContent()).toContain("手のひら");
 
   const select = await page
@@ -147,8 +156,13 @@ test("手のひらのヒントから隣の選択ツールへ移ると待たず�
   );
   // 時刻を進めずReactのcommitだけを待ち、隣の表示待ちが無いことを確かめる。
   await expect.poll(() => hint.getAttribute("data-state")).toBe("instant-open");
-  await page.clock.runFor(32);
-  await hint.waitFor({ state: "visible" });
+  // Popperの配置RAFはReactのcommit後に登録される。停止時計でも描画を進める。
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(16);
+      return hint.isVisible();
+    })
+    .toBe(true);
   expect(await hint.textContent()).toContain("選択（背景でV）");
 });
 

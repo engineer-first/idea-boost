@@ -36,6 +36,7 @@ const ALL_TABLES = [
   "note_move_locks",
   "note_move_operations",
   "note_move_versions",
+  "note_share_operations",
   "note_vote_stickers",
   "note_votes",
   "notes",

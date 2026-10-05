@@ -310,6 +310,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "idea-map:resize":
       return true;
     case "cursor:update":
+    case "note:share:status":
     case "note:move:status":
     case "note:move:cancel":
     case "note:content-status":
