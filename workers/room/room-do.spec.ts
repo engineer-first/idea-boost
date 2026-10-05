@@ -6838,6 +6838,7 @@ describe("new move group privacy WS", () => {
       }),
     );
     await nextJsonOfType(owner, "group:updated");
+    await nextJsonOfType(author, "group:updated");
     return { stub, owner, author, snapshot };
   }
   async function restartAndUnpublish(
@@ -7100,12 +7101,12 @@ describe("new move group privacy WS", () => {
         },
       }),
     );
-    expect(await nextJsonWithin(owner, 100)).toMatchObject({
-      type: "group:updated",
+    expect(await nextJsonOfType(owner, "group:updated")).toMatchObject({
+      group: { id: G, name: "分類名を保持", noteIds: [N1, N2, N3] },
     });
-    while (await nextJsonWithin(author, 10)) {
-      /* 先行group配信 */
-    }
+    expect(await nextJsonOfType(author, "group:updated")).toMatchObject({
+      group: { id: G, name: "分類名を保持", noteIds: [N1, N2, N3] },
+    });
     author.send(JSON.stringify({ type, noteId: N2 }));
     expect(await nextJsonOfType(author, "error")).toMatchObject({
       code: "forbidden",
