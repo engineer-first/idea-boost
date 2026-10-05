@@ -104,6 +104,9 @@ export function useNoteShare({
         pendingRef.current.delete(message.operationId);
         setPending(pendingRef.current.size > 0);
         if (message.status === "committed") {
+          setFeedback((current) =>
+            current?.operationId === message.operationId ? null : current,
+          );
           setReceipt(message.receipt ?? null);
         } else
           setFeedback({
@@ -117,7 +120,8 @@ export function useNoteShare({
         message.operationId &&
         pendingRef.current.has(message.operationId)
       ) {
-        query();
+        // errorへの即時再照会はerror→statusの応答ループになり得る。
+        // 再送せず、2秒timerまたは再接続snapshotで結果を確認する。
         setFeedback({
           operationId: message.operationId,
           message: message.message,

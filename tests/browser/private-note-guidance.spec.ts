@@ -131,9 +131,14 @@ for (const width of [390, 1280]) {
     const shared = page.getByTestId("board-note-guidance-first");
     await shared.waitFor();
     await page.screenshot({ path: `${output}/${width}-shared-by-drag.png` });
-    const back = await shared
-      .getByRole("button", { name: "付箋", exact: true })
-      .boundingBox();
+    const sharedSurface = shared.getByRole("button", {
+      name: "付箋",
+      exact: true,
+    });
+    // 表示だけでなくhit可能性も確認して、戻しのドラッグを始める。
+    // カメラがdrop後に付箋をパネル裏へ移す回帰もここで検出する。
+    await sharedSurface.hover();
+    const back = await sharedSurface.boundingBox();
     const target = await toolbar.boundingBox();
     if (!back || !target) throw new Error("戻すドラッグ元・先がありません");
     await page.mouse.move(back.x + 40, back.y + 40);

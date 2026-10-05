@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
 import { buildNote } from "@/contracts/room-protocol.fixture";
 import { useNoteShare } from "./use-note-share";
@@ -29,6 +29,7 @@ function setup(visibility: "private" | "shared" = "private") {
   return { ...hook, send, notes };
 }
 describe("共有の結果解決", () => {
+  afterEach(() => vi.useRealTimers());
   it("一件の操作ID/専用版で送信し、ACK喪失は再snapshotから照会、再dropで二重送信しない", () => {
     const { result, send } = setup();
     act(() =>
@@ -107,7 +108,8 @@ describe("共有の結果解決", () => {
     expect(result.current.receipt).toBeNull();
     expect(result.current.pending).toBe(false);
   });
-  it("曖昧なerrorだけでpendingを終了せず照会して結果を解決する", () => {
+  it("errorへの再照会は2秒間隔に抑え、照会errorでも応答ループを作らない", () => {
+    vi.useFakeTimers();
     const { result, send } = setup();
     act(() =>
       result.current.commit({ type: "note:publish", noteId: ID, x: 30, y: 40 }),
@@ -121,10 +123,23 @@ describe("共有の結果解決", () => {
       }),
     );
     expect(result.current.pending).toBe(true);
+    expect(send).toHaveBeenCalledTimes(1);
+    act(() => vi.advanceTimersByTime(2_000));
     expect(send).toHaveBeenLastCalledWith({
       type: "note:share:status",
       operationId: OP,
     });
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        operationId: OP,
+        code: "invalid-message",
+        message: "結果照会にも失敗しました",
+      }),
+    );
+    expect(send).toHaveBeenCalledTimes(2);
+    act(() => vi.advanceTimersByTime(2_000));
+    expect(send).toHaveBeenCalledTimes(3);
     act(() =>
       result.current.applyMessage({
         type: "note:share:result",
@@ -133,6 +148,29 @@ describe("共有の結果解決", () => {
       }),
     );
     expect(result.current.pending).toBe(false);
+  });
+  it("曖昧なerrorの後に成功を確認したら失敗通知を解除する", () => {
+    const { result } = setup();
+    act(() =>
+      result.current.commit({ type: "note:publish", noteId: ID, x: 30, y: 40 }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        operationId: OP,
+        code: "invalid-message",
+        message: "通信の結果が不明です",
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "note:share:result",
+        operationId: OP,
+        status: "committed",
+      }),
+    );
+    expect(result.current.pending).toBe(false);
+    expect(result.current.feedback).toBeNull();
   });
   it("戻しのACK待ちは本人だけのprivate投影とし、拒否で最新shared位置をそのまま表示する", () => {
     const { result, notes } = setup("shared");

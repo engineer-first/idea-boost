@@ -147,6 +147,7 @@ export function useRoomBoardInteractions({
 
   const {
     camera,
+    preserveCamera,
     gridStyle,
     isPanning,
     worldPointFromClient,
@@ -462,6 +463,11 @@ export function useRoomBoardInteractions({
     onPresencePointerMove: handlePresencePointerMove,
     onPresencePointerLeave: handlePresencePointerLeave,
     onNoteDragStart: handleSharedNoteDragStart,
-    onPrivateNoteDragStart: handlePrivateDragStart,
+    onPrivateNoteDragStart: (noteId, event) => {
+      // マイ付箋はviewport外にあるためcameraのpointerdownを通らない。
+      // 最初のdrop後の自動fitで本人の指定位置と視野を動かさない。
+      preserveCamera();
+      handlePrivateDragStart(noteId, event);
+    },
   };
 }
