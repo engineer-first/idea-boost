@@ -103,3 +103,18 @@ it("peer previewはstartと同じ256枚まで受信できる", () => {
   };
   expect(parseServerMessage(JSON.stringify(preview))).toEqual(preview);
 });
+
+it("inverse accepts only a receipt ID and expected versions, rejecting client-owned coordinates or author", () => {
+  const message = {
+    type: "note:move:inverse",
+    operationId,
+    sourceOperationId: noteId,
+    expectedTargets: [{ noteId, positionRevision: 1, visibilityRevision: 0 }],
+    expectedGroupRevision: 0,
+  };
+  expect(parseClientMessage(JSON.stringify(message))).toEqual(message);
+  for (const extra of [{ authorId: operationId }, { before: [] }, { x: 100 }])
+    expect(
+      parseClientMessage(JSON.stringify({ ...message, ...extra })),
+    ).toBeNull();
+});

@@ -57,6 +57,7 @@ import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
+import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
@@ -139,6 +140,7 @@ export function getBoardFitInsets(viewport: HTMLDivElement): CanvasFitInsets {
 
 export type RoomBoardViewProps = {
   feedback?: FeedbackControls;
+  moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
   confirmedNotes?: Note[];
   pendingCandidateNoteIds?: string[];
@@ -260,6 +262,7 @@ type VoteStampPointer = {
 
 export function RoomBoardView({
   feedback,
+  moveHistory,
   notes,
   confirmedNotes = notes,
   pendingCandidateNoteIds = [],
@@ -1473,6 +1476,32 @@ export function RoomBoardView({
         onKeyDownCapture={(event) => {
           const target = event.target;
           if (
+            moveHistory &&
+            target instanceof HTMLElement &&
+            (event.ctrlKey || event.metaKey) &&
+            !event.altKey &&
+            event.key.toLowerCase() === "z" &&
+            !event.nativeEvent.isComposing &&
+            event.keyCode !== 229 &&
+            !event.repeat &&
+            !target.closest(
+              'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="dialog"], [role="alertdialog"], dialog',
+            ) &&
+            !document.querySelector(
+              '[role="dialog"], [role="alertdialog"], dialog[open]',
+            ) &&
+            !hasActiveCanvasGesture()
+          ) {
+            const action = event.shiftKey ? moveHistory.redo : moveHistory.undo;
+            if (!moveHistory.pending && !action.disabled) {
+              event.preventDefault();
+              event.stopPropagation();
+              if (event.shiftKey) moveHistory.onRedo();
+              else moveHistory.onUndo();
+            }
+            return;
+          }
+          if (
             !(target instanceof HTMLElement) ||
             (target.dataset.canvasNoteSurface !== "true" &&
               target.dataset.adoptTarget !== "true") ||
@@ -1603,6 +1632,7 @@ export function RoomBoardView({
           </p>
         ) : null}
         <RoomBoardCanvas
+          moveHistory={moveHistory}
           notes={renderedNotes}
           groups={groups}
           phase={phase}
@@ -1686,7 +1716,12 @@ export function RoomBoardView({
             const ids = selection.selectionRef.current;
             if (ids.length > 1 && ids.includes(noteId)) {
               if (interactions.onSharedNotesDragIntent)
-                interactions.onSharedNotesDragIntent([...ids], event);
+                interactions.onSharedNotesDragIntent(
+                  [...ids],
+                  event,
+                  origin,
+                  noteId,
+                );
               else roomNotify.multipleNoteMoveUnavailable();
               return;
             }

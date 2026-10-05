@@ -52,6 +52,10 @@ import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
+import {
+  MoveHistoryControls,
+  type MoveHistoryControlsProps,
+} from "../molecules/move-history-controls";
 import { NoteFontSizeControls } from "../molecules/note-font-size-controls";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
@@ -60,6 +64,7 @@ const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
 export type RoomBoardCanvasProps = {
+  moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
   groups: PersistentGroup[];
   phase: RoomPhase;
@@ -157,6 +162,7 @@ export type RoomBoardCanvasProps = {
 };
 
 export function RoomBoardCanvas({
+  moveHistory,
   notes,
   groups,
   phase,
@@ -593,6 +599,7 @@ export function RoomBoardCanvas({
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
         >
+          {moveHistory ? <MoveHistoryControls {...moveHistory} /> : null}
           <div className="flex items-center gap-2">
             <div
               data-testid="board-operation-matrix"

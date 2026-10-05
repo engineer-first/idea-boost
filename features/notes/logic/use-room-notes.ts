@@ -1029,9 +1029,14 @@ export function useRoomNotes({
       if (!result.accepted) return;
       notesRef.current = result.notes;
       setNotes(result.notes);
-      send({ type: "note:vote-reset", noteId, kind });
+      send({
+        type: "note:vote-reset",
+        noteId,
+        kind,
+        operationId: createVoteOperationId(),
+      });
     },
-    [send],
+    [send, createVoteOperationId],
   );
 
   return {

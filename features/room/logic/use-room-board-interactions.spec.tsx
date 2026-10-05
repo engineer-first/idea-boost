@@ -580,3 +580,24 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(result.current.isNoteDragging).toBe(true);
   });
 });
+it("AT-030: viewの複数選択drag入口を固定集合付き移動へ接続する", () => {
+  const { result, onNoteDragStart } = setup({ withSharedDrag: true });
+  act(() =>
+    result.current.onSharedNotesDragIntent?.(
+      ["shared-1", "shared-2", "shared-3"],
+      {
+        pointerId: 12,
+        clientX: 100,
+        clientY: 100,
+        currentTarget: {
+          getBoundingClientRect: () => new DOMRect(100, 100, 200, 150),
+        },
+      } as unknown as PointerEvent<HTMLButtonElement>,
+    ),
+  );
+  expect(onNoteDragStart).toHaveBeenCalledWith("shared-1", false, [
+    "shared-1",
+    "shared-2",
+    "shared-3",
+  ]);
+});

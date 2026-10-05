@@ -10,6 +10,7 @@ import {
 } from "../../contracts/room-protocol";
 import { runInRoomDO } from "../test-helpers";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
+import { listGroups, saveGroups } from "./groups";
 import type { HandlerCtx } from "./handler-context";
 import {
   expireMoveOperations,
@@ -227,7 +228,9 @@ describe("move transaction", () => {
         ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
       if (reason === "group")
         ctx.sql.exec(
-          "UPDATE room_state SET group_revision=group_revision+1 WHERE id=1",
+          "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'peer group',?2,'now','now')",
+          OP2,
+          JSON.stringify([N1, N2]),
         );
       if (reason === "map")
         ctx.sql.exec(
@@ -859,4 +862,306 @@ it("不可視group副作用を除外した不完全receiptを作らず位置も�
     ]);
     expect(JSON.stringify(responses)).not.toContain(N2);
     expect(JSON.stringify(responses)).not.toContain("secret classification");
+  }));
+
+function inverse(
+  ctx: HandlerCtx,
+  responses: ServerMessage[],
+  sourceOperationId = OP,
+  operationId = OP2,
+) {
+  const result = responses.findLast(
+    (r) => r.type === "note:move:result" && r.operationId === sourceOperationId,
+  );
+  if (result?.type !== "note:move:result" || !result.receipt)
+    throw new Error("missing receipt");
+  const raw = {
+    type: "note:move:inverse",
+    operationId,
+    sourceOperationId,
+    expectedTargets: result.receipt.affected,
+    expectedGroupRevision: result.receipt.groupRevisionAfter,
+  };
+  const message = parseClientMessage(JSON.stringify(raw));
+  expect(message, "inverse boundary").not.toBeNull();
+  if (message?.type === "note:move:inverse")
+    moveHandlers["note:move:inverse"](ctx, message);
+}
+describe("atomic inverse", () => {
+  it.each([
+    "peer",
+    "aba",
+    "private",
+    "delete",
+    "lock",
+    "member",
+    "phase",
+    "group",
+    "map",
+    "adoption",
+    "owner",
+  ])("%s changes reject every target", (reason) =>
+    setup(`inverse-reject-${reason}`, (ctx, responses) => {
+      start(ctx);
+      commit(ctx);
+      if (reason === "peer")
+        ctx.sql.exec("UPDATE notes SET x=x+1 WHERE id=?1", N2);
+      if (reason === "aba") {
+        ctx.sql.exec("UPDATE notes SET x=x+1 WHERE id=?1", N2);
+        ctx.sql.exec("UPDATE notes SET x=x-1 WHERE id=?1", N2);
+      }
+      if (reason === "private")
+        ctx.sql.exec(
+          "UPDATE notes SET visibility='private',author_id=?1 WHERE id=?2",
+          B,
+          N2,
+        );
+      if (reason === "delete")
+        ctx.sql.exec("DELETE FROM notes WHERE id=?1", N2);
+      if (reason === "lock")
+        ctx.sql.exec(
+          "INSERT INTO note_move_locks(note_id,operation_id) VALUES (?1,?2)",
+          N2,
+          OP,
+        );
+      if (reason === "member")
+        ctx.sql.exec("DELETE FROM members WHERE user_id=?1", A);
+      if (reason === "phase")
+        savePhase(ctx.sql, { kind: "step", phase: 1, step: 4 });
+      if (reason === "group")
+        ctx.sql.exec(
+          "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'peer group',?2,'now','now')",
+          OP2,
+          JSON.stringify([N1, N2]),
+        );
+      if (reason === "map")
+        ctx.sql.exec(
+          "UPDATE room_state SET map_revision=map_revision+1 WHERE id=1",
+        );
+      if (reason === "adoption")
+        ctx.sql.exec(
+          "INSERT INTO decisions(phase,note_id,decided_by,decided_at) VALUES(1,?1,?2,'now')",
+          N1,
+          A,
+        );
+      const before = [findNote(ctx.sql, N1), findNote(ctx.sql, N2)];
+      inverse(
+        reason === "owner" ? { ...ctx, userId: B } : ctx,
+        responses,
+        OP,
+        "77777777-7777-4777-8777-777777777777",
+      );
+      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      expect([findNote(ctx.sql, N1), findNote(ctx.sql, N2)]).toEqual(before);
+      expect(JSON.stringify(responses.at(-1))).not.toContain(N2);
+    }));
+  it("restores positions atomically and preserves latest stack/content; retry and status are idempotent", () =>
+    setup("inverse-success", (ctx, responses) => {
+      start(ctx);
+      commit(ctx);
+      ctx.sql.exec(
+        "UPDATE notes SET content='peer content',stack_order=900 WHERE id=?1",
+        N1,
+      );
+      ctx.sql.exec(
+        "UPDATE note_appearances SET font_size=20 WHERE note_id=?1",
+        N1,
+      );
+      inverse(ctx, responses);
+      expect(responses.at(-1)).toMatchObject({
+        status: "accepted",
+        receipt: { changed: true },
+      });
+      expect(findNote(ctx.sql, N1)).toMatchObject({
+        x: 100,
+        content: "peer content",
+        font_size: 20,
+        stack_order: 900,
+        position_revision: 2,
+      });
+      expect(findNote(ctx.sql, N2)?.x).toBe(140);
+      inverse(ctx, responses);
+      expect(findNote(ctx.sql, N1)?.position_revision).toBe(2);
+      moveHandlers["note:move:status"](ctx, {
+        type: "note:move:status",
+        operationId: OP2,
+      });
+      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+      inverse(ctx, responses, OP2, "77777777-7777-4777-8777-777777777777");
+      expect(findNote(ctx.sql, N1)?.x).toBe(400);
+    }));
+});
+it("unrelated group edits do not invalidate inverse; group ABA on affected IDs does", () =>
+  setup("inverse-related-groups", (ctx, responses) => {
+    start(ctx);
+    commit(ctx);
+    ctx.sql.exec(
+      "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'unrelated',?2,'now','now')",
+      "88888888-8888-4888-8888-888888888888",
+      JSON.stringify([A, B]),
+    );
+    inverse(ctx, responses);
+    expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+  }));
+it("restores vanished group ID/name/membership and guards affected outsider lock", () =>
+  setup("inverse-group-restore", (ctx, responses) => {
+    ctx.sql.exec(
+      "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'original group',?2,'now','now')",
+      OP2,
+      JSON.stringify([N1, N2]),
+    );
+    start(ctx, OP, [N1]);
+    moveHandlers["note:move:commit"](ctx, {
+      type: "note:move:commit",
+      operationId: OP,
+      delta: { x: 600, y: 0 },
+    });
+    expect(
+      ctx.sql.exec("SELECT id FROM groups WHERE id=?1", OP2).toArray(),
+    ).toEqual([]);
+    inverse(ctx, responses, OP, "77777777-7777-4777-8777-777777777777");
+    expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+    expect(
+      ctx.sql.exec("SELECT name,note_ids FROM groups WHERE id=?1", OP2).one(),
+    ).toMatchObject({
+      name: "original group",
+      note_ids: JSON.stringify([N1, N2]),
+    });
+  }));
+it("two consecutive moves undo and redo twice with server-proven rebased revisions", () =>
+  setup("inverse-sequence", (ctx, responses) => {
+    start(ctx);
+    commit(ctx);
+    const row = ctx.sql
+      .exec(
+        "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
+      )
+      .one();
+    moveHandlers["note:move:start"](ctx, {
+      type: "note:move:start",
+      operationId: OP2,
+      coordinateSpace: "canvas",
+      expectedPhaseRevision: Number(row.phase_revision),
+      expectedGroupRevision: Number(row.group_revision),
+      expectedMapRevision: Number(row.map_revision),
+      targets: [N1, N2].map((noteId) => {
+        const n = findNote(ctx.sql, noteId);
+        return {
+          noteId,
+          positionRevision: n?.position_revision ?? 0,
+          visibilityRevision: n?.visibility_revision ?? 0,
+        };
+      }),
+    });
+    commit(ctx, OP2);
+    const invert = (sourceOperationId: string, operationId: string) => {
+      const source = responses.findLast(
+        (r) =>
+          r.type === "note:move:result" && r.operationId === sourceOperationId,
+      );
+      if (source?.type !== "note:move:result" || !source.receipt)
+        throw new Error("missing");
+      moveHandlers["note:move:inverse"](ctx, {
+        type: "note:move:inverse",
+        operationId,
+        sourceOperationId,
+        expectedGroupRevision: Number(
+          ctx.sql.exec("SELECT group_revision FROM room_state WHERE id=1").one()
+            .group_revision,
+        ),
+        expectedTargets: source.receipt.affected.map((target) => {
+          const n = findNote(ctx.sql, target.noteId);
+          return {
+            noteId: target.noteId,
+            positionRevision: n?.position_revision ?? 0,
+            visibilityRevision: n?.visibility_revision ?? 0,
+          };
+        }),
+      });
+      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+    };
+    const undo2 = "77777777-7777-4777-8777-777777777777",
+      undo1 = "88888888-8888-4888-8888-888888888888";
+    invert(OP2, undo2);
+    expect(findNote(ctx.sql, N1)?.x).toBe(400);
+    invert(OP, undo1);
+    expect(findNote(ctx.sql, N1)?.x).toBe(100);
+    invert(undo1, "99999999-9999-4999-8999-999999999999");
+    expect(findNote(ctx.sql, N1)?.x).toBe(400);
+    invert(undo2, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    expect(findNote(ctx.sql, N1)?.x).toBe(700);
+  }));
+it.each([
+  "aba",
+  "outsider-lock",
+  "forged-position",
+])("related %s rejects atomic inverse", (reason) =>
+  setup(`inverse-extra-${reason}`, (ctx, responses) => {
+    ctx.sql.exec(
+      "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'original',?2,'now','now')",
+      OP2,
+      JSON.stringify([N1, N2]),
+    );
+    start(ctx, OP, [N1]);
+    moveHandlers["note:move:commit"](ctx, {
+      type: "note:move:commit",
+      operationId: OP,
+      delta: { x: 600, y: 0 },
+    });
+    if (reason === "aba") {
+      ctx.sql.exec(
+        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'peer',?2,'now','now')",
+        OP2,
+        JSON.stringify([N1, N2]),
+      );
+      ctx.sql.exec("DELETE FROM groups WHERE id=?1", OP2);
+    }
+    if (reason === "outsider-lock")
+      ctx.sql.exec(
+        "INSERT INTO note_move_locks(note_id,operation_id) VALUES (?1,?2)",
+        N2,
+        OP,
+      );
+    const before = [findNote(ctx.sql, N1), findNote(ctx.sql, N2)];
+    if (reason === "forged-position") {
+      ctx.sql.exec("UPDATE notes SET x=x+1 WHERE id=?1", N1);
+      ctx.sql.exec("UPDATE notes SET x=x-1 WHERE id=?1", N1);
+      const result = responses.at(-1);
+      if (result?.type !== "note:move:result" || !result.receipt)
+        throw new Error("missing");
+      moveHandlers["note:move:inverse"](ctx, {
+        type: "note:move:inverse",
+        operationId: "77777777-7777-4777-8777-777777777777",
+        sourceOperationId: OP,
+        expectedGroupRevision: result.receipt.groupRevisionAfter,
+        expectedTargets: result.receipt.affected.map((t) => ({
+          ...t,
+          positionRevision: findNote(ctx.sql, t.noteId)?.position_revision ?? 0,
+        })),
+      });
+    } else inverse(ctx, responses, OP, "77777777-7777-4777-8777-777777777777");
+    expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+    expect(findNote(ctx.sql, N1)?.x).toBe(before[0]?.x);
+    expect(findNote(ctx.sql, N2)).toEqual(before[1]);
+  }));
+
+it("unrelated regrouping preserves the related group revision", () =>
+  setup("inverse-group-diff", (ctx, responses) => {
+    ctx.sql.exec(
+      "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'original',?2,'now','now')",
+      OP2,
+      JSON.stringify([N1, N2]),
+    );
+    start(ctx);
+    commit(ctx);
+    saveGroups(ctx.storage, [
+      ...listGroups(ctx.sql),
+      {
+        id: "88888888-8888-4888-8888-888888888888",
+        name: "unrelated",
+        noteIds: [A, B],
+      },
+    ]);
+    inverse(ctx, responses);
+    expect(responses.at(-1)).toMatchObject({ status: "accepted" });
   }));

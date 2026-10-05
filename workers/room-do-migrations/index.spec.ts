@@ -24,6 +24,7 @@ const ALL_MIGRATION_IDS = ROOM_DO_MIGRATIONS.map((m) => m.id);
 const ALL_TABLES = [
   "completed_room",
   "decisions",
+  "group_history_versions",
   "groups",
   "legacy_note_drag_leases",
   "member_color_assignments",

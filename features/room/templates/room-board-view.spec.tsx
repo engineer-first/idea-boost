@@ -2689,6 +2689,8 @@ describe("キャンバス入力の統合", () => {
     expect(interactions.onSharedNotesDragIntent).toHaveBeenCalledWith(
       notes.map(({ id }) => id),
       expect.anything(),
+      { clientX: 110, clientY: 110 },
+      notes[0].id,
     );
     expect(interactions.onNoteDragStart).not.toHaveBeenCalled();
     expect(viewport).toHaveAttribute("data-selection-count", "3");
@@ -3401,5 +3403,72 @@ describe("CI-PHASE002: 採用semantic activationとgesture所有", () => {
     fireEvent.click(target, { detail: 0 });
     expect(props.onNoteDecide).toHaveBeenCalledTimes(1);
     expect(props.onNoteDecide).toHaveBeenCalledWith("note-2");
+  });
+});
+
+describe("移動履歴の入口", () => {
+  function history(pending = false) {
+    return {
+      undo: {
+        label: "2枚の移動（note-a, note-b）",
+        reason: null,
+        disabled: false,
+      },
+      redo: { label: "1枚の移動（note-c）", reason: null, disabled: false },
+      pending,
+      onUndo: vi.fn(),
+      onRedo: vi.fn(),
+    };
+  }
+  it("ボタンとキャンバスのCtrl/Cmd+Zが履歴操作へ接続する", () => {
+    const moveHistory = history();
+    setup({ moveHistory });
+    fireEvent.click(screen.getByRole("button", { name: "移動を元に戻す" }));
+    fireEvent.click(screen.getByRole("button", { name: "移動をやり直す" }));
+    const canvas = screen.getByTestId("board-scroller");
+    fireEvent.keyDown(canvas, { key: "z", ctrlKey: true });
+    fireEvent.keyDown(canvas, { key: "Z", metaKey: true, shiftKey: true });
+    expect(moveHistory.onUndo).toHaveBeenCalledTimes(2);
+    expect(moveHistory.onRedo).toHaveBeenCalledTimes(2);
+  });
+  it("送信中はボタンとショートカットの多重操作を止める", () => {
+    const moveHistory = history(true);
+    setup({ moveHistory });
+    expect(
+      screen.getByRole("button", { name: "移動を元に戻す" }),
+    ).toBeDisabled();
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+      key: "z",
+      ctrlKey: true,
+    });
+    expect(moveHistory.onUndo).not.toHaveBeenCalled();
+  });
+  it.each([
+    "input",
+    "textarea",
+    "select",
+    "editable",
+    "dialog",
+    "IME",
+    "repeat",
+  ])("%sのnative操作を奪わない", (kind) => {
+    const moveHistory = history();
+    setup({ moveHistory });
+    const canvas = screen.getByTestId("board-scroller");
+    const element = document.createElement(
+      ["input", "textarea", "select"].includes(kind) ? kind : "div",
+    );
+    if (kind === "editable") element.setAttribute("contenteditable", "true");
+    if (kind === "dialog") element.setAttribute("role", "dialog");
+    canvas.append(element);
+    expect(
+      fireEvent.keyDown(element, {
+        key: "z",
+        ctrlKey: true,
+        isComposing: kind === "IME",
+        repeat: kind === "repeat",
+      }),
+    ).toBe(true);
+    expect(moveHistory.onUndo).not.toHaveBeenCalled();
   });
 });

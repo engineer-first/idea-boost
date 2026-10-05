@@ -164,6 +164,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
     case "note:vote-sticker:add":
     case "note:vote-sticker:move":
     case "note:vote-sticker:remove":
+    case "note:move:inverse":
     case "note:move:start":
     case "note:move:preview":
     case "note:move:cancel":
@@ -952,7 +953,8 @@ export class RoomDO extends DurableObject {
       isBoardMutation(message) &&
       !message.type.startsWith("note:drag:") &&
       (!message.type.startsWith("note:move:") ||
-        message.type === "note:move:commit");
+        message.type === "note:move:commit" ||
+        message.type === "note:move:inverse");
     const phaseBefore = getPhaseRevision(this.sql);
     const before = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))

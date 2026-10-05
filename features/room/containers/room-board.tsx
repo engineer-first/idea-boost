@@ -21,6 +21,7 @@ import { submitFeedback, useFeedback } from "@/features/feedback";
 import { HMW_EXAMPLES } from "@/features/hmw";
 import {
   NoteDraftRecovery,
+  useMoveHistory,
   useNoteAutosave,
   useNoteGroups,
   useRoomNotes,
@@ -106,15 +107,21 @@ export function RoomBoard({
     isLeavingRef,
   });
   // 確認画面・Undoが取得した世代を保持する。再描画前の古いcallbackを最新世代へ昇格しない。
+  const historyObserverRef = useRef<((message: ClientMessage) => void) | null>(
+    null,
+  );
   const send = useCallback(
-    (message: ClientMessage) =>
-      sendRaw(
+    (message: ClientMessage) => {
+      const sent = sendRaw(
         needsHostRevision(message) &&
           message.expectedHostRevision === undefined &&
           roomState.host.hostRevision !== null
           ? { ...message, expectedHostRevision: roomState.host.hostRevision }
           : message,
-      ),
+      );
+      if (sent !== false) historyObserverRef.current?.(message);
+      return sent;
+    },
     [sendRaw, roomState.host.hostRevision],
   );
   const hostTransfer = useHostTransfer({
@@ -139,6 +146,22 @@ export function RoomBoard({
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
+  const moveHistory = useMoveHistory({
+    send,
+    notes: notes.notes,
+    currentUserId,
+    connected: connectionStatus === "open",
+    blocked:
+      notes.movePending ||
+      notes.draggingNoteId !== null ||
+      hostTransfer.pending ||
+      memberRemoval.pending ||
+      isNextPhasePending ||
+      isLeaving ||
+      roomState.outcomePublished ||
+      roomState.decision !== null,
+  });
+  historyObserverRef.current = moveHistory.observeOutgoing;
   useEffect(() => {
     if (notes.moveFeedback) notify.error(notes.moveFeedback.message);
   }, [notes.moveFeedback]);
@@ -182,6 +205,7 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    moveHistory.applyMessage(message);
     if (memberRemoval.applyMessage(message)) return;
     if (hostTransfer.applyMessage(message)) return;
     if (
@@ -475,7 +499,7 @@ export function RoomBoard({
     (note) => note.visibility === "private",
   );
   const boardInteractions = useRoomBoardInteractions({
-    movePending: notes.movePending,
+    movePending: notes.movePending || moveHistory.pending,
     onPendingMoveInterrupt: notes.cancelNoteDrag,
     getFitInsets: getBoardFitInsets,
     notes: boardNotes,
@@ -501,12 +525,14 @@ export function RoomBoard({
     drafts.setConnected(false);
     notes.cancelNoteDrag();
     notes.clearPeerMoves();
+    moveHistory.clear("接続が切れたため、移動履歴を終了しました。");
     boardInteractions.cancelCurrentNoteDrag(true);
   }, [
     boardInteractions.cancelCurrentNoteDrag,
     connectionStatus,
     notes.cancelNoteDrag,
     notes.clearPeerMoves,
+    moveHistory.clear,
     drafts.setConnected,
   ]);
 
@@ -518,6 +544,13 @@ export function RoomBoard({
         onConfirm={handleForceNextPhase}
       />
       <RoomBoardView
+        moveHistory={{
+          undo: moveHistory.undoState,
+          redo: moveHistory.redoState,
+          pending: moveHistory.pending,
+          onUndo: moveHistory.undo,
+          onRedo: moveHistory.redo,
+        }}
         feedback={feedback}
         notes={boardNotes}
         confirmedNotes={notes.notes.filter(

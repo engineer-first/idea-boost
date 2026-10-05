@@ -47,7 +47,16 @@ type Operation = {
   lease_until: number;
   result_json: string | null;
 };
-type StoredRequest = { start: Start; before: MoveReceipt["before"] };
+type HistoryExpected = {
+  targets: MoveReceipt["affected"];
+  groupRevision: number;
+  groups: Record<string, number>;
+};
+type StoredRequest = {
+  start: Start;
+  before: MoveReceipt["before"];
+  historyExpected?: HistoryExpected;
+};
 export const MOVE_LEASE_MS = 15_000;
 export const MOVE_RECEIPT_RETENTION_MS = 24 * 60 * 60 * 1000;
 
@@ -303,6 +312,104 @@ function changedGroups(
   };
 }
 
+// クライアントの期待版は証明にならない。本人の成功した操作だけで、
+// DBが所有する履歴の期待版を追随させる。peer変更を跨いだ版は追随しない。
+function advanceHistory(
+  ctx: HandlerCtx,
+  before: MoveReceipt["affected"],
+  receipt: MoveReceipt,
+  groupsBefore: Record<string, number>,
+): void {
+  for (const row of ctx.sql
+    .exec(
+      "SELECT operation_id,request_json FROM note_move_operations WHERE user_id=?1 AND state='accepted'",
+      ctx.userId,
+    )
+    .toArray()) {
+    const request = JSON.parse(String(row.request_json)) as {
+      historyExpected?: HistoryExpected;
+    };
+    const expected = request.historyExpected;
+    if (!expected) continue;
+    for (const target of expected.targets) {
+      const previous = before.find((item) => item.noteId === target.noteId);
+      const next = receipt.affected.find(
+        (item) => item.noteId === target.noteId,
+      );
+      if (
+        previous &&
+        next &&
+        target.positionRevision === previous.positionRevision &&
+        target.visibilityRevision === previous.visibilityRevision
+      ) {
+        target.positionRevision = next.positionRevision;
+        target.visibilityRevision = next.visibilityRevision;
+      }
+    }
+    const nextGroups = groupVersions(ctx.sql);
+    if (
+      Object.entries(expected.groups).every(
+        ([id, revision]) => (groupsBefore[id] ?? 0) === revision,
+      )
+    ) {
+      for (const id of Object.keys(expected.groups))
+        expected.groups[id] = nextGroups[id] ?? 0;
+      for (const group of listGroups(ctx.sql))
+        if (
+          group.noteIds.some((id) =>
+            expected.targets.some((target) => target.noteId === id),
+          )
+        )
+          expected.groups[group.id] = nextGroups[group.id] ?? 0;
+      expected.groupRevision = receipt.groupRevisionAfter;
+    }
+    ctx.sql.exec(
+      "UPDATE note_move_operations SET request_json=?2 WHERE operation_id=?1",
+      String(row.operation_id),
+      JSON.stringify(request),
+    );
+  }
+}
+function groupVersions(sql: SqlStorage): Record<string, number> {
+  return Object.fromEntries(
+    sql
+      .exec("SELECT group_id,revision FROM group_history_versions")
+      .toArray()
+      .map((row) => [String(row.group_id), Number(row.revision)]),
+  );
+}
+function expectedFrom(sql: SqlStorage, receipt: MoveReceipt): HistoryExpected {
+  const revisions = groupVersions(sql);
+  const relevant = [...listGroups(sql), ...receipt.groupsBefore].filter(
+    (group) =>
+      group.noteIds.some((id) =>
+        receipt.affected.some((target) => target.noteId === id),
+      ),
+  );
+  return {
+    targets: receipt.affected,
+    groupRevision: receipt.groupRevisionAfter,
+    groups: Object.fromEntries(
+      relevant.map((group) => [group.id, revisions[group.id] ?? 0]),
+    ),
+  };
+}
+function requiredNote(sql: SqlStorage, id: string): NoteRow {
+  const row = findNote(sql, id);
+  if (!row) throw new Error("missing history target");
+  return row;
+}
+function groupMatches(
+  a: MoveReceipt["groupsBefore"][number],
+  b: MoveReceipt["groupsBefore"][number],
+): boolean {
+  return (
+    a.id === b.id &&
+    a.name === b.name &&
+    JSON.stringify(a.noteIds) === JSON.stringify(b.noteIds)
+  );
+}
+
 function reject(
   ctx: HandlerCtx,
   operationId: string,
@@ -432,7 +539,281 @@ export const moveHandlers: MessageHandlers<
   | "note:move:cancel"
   | "note:move:commit"
   | "note:move:status"
+  | "note:move:inverse"
 > = {
+  "note:move:inverse": (ctx, message) => {
+    expireMoveOperations(ctx.sql);
+    const previous = readOperation(ctx.sql, message.operationId);
+    if (previous) {
+      const saved = JSON.parse(previous.request_json) as {
+        inverse?: typeof message;
+      };
+      if (
+        previous.user_id !== ctx.userId ||
+        JSON.stringify(saved.inverse) !== JSON.stringify(message)
+      )
+        reject(ctx, message.operationId);
+      else ctx.reply(resultFor(ctx, previous));
+      return;
+    }
+    const source = readOperation(ctx.sql, message.sourceOperationId);
+    const sourceReceipt =
+      source?.state === "accepted" ? storedResult(source).receipt : undefined;
+    const sourceRequest = source
+      ? (JSON.parse(source.request_json) as {
+          historyExpected?: HistoryExpected;
+        })
+      : null;
+    const expected = sourceRequest?.historyExpected;
+    const phase = getPhase(ctx.sql);
+    const revisions = moveRevisions(ctx.sql);
+    const denied = () => {
+      // 拒否も保存し、結果照会で同じ要求の終端を返す。本文/対象は返信しない。
+      ctx.sql.exec(
+        "INSERT INTO note_move_operations(operation_id,user_id,connection_id,request_json,state,lease_until,created_at) VALUES (?1,?2,?3,?4,'rejected',0,?5)",
+        message.operationId,
+        ctx.userId,
+        connectionId(ctx),
+        JSON.stringify({ inverse: message }),
+        Date.now(),
+      );
+      finish(ctx.sql, message.operationId, {
+        type: "note:move:result",
+        operationId: message.operationId,
+        status: "rejected",
+        reason: "ほかの人の変更があるため、この移動は戻せません",
+      });
+      const saved = readOperation(ctx.sql, message.operationId);
+      if (saved) ctx.reply(resultFor(ctx, saved));
+    };
+    const recent = Number(
+      ctx.sql
+        .exec(
+          "SELECT COUNT(*) AS count FROM note_move_operations WHERE user_id=?1 AND created_at>?2",
+          ctx.userId,
+          Date.now() - 60_000,
+        )
+        .one().count,
+    );
+    const sameTargets =
+      expected &&
+      message.expectedTargets.length === expected.targets.length &&
+      new Set(message.expectedTargets.map((t) => t.noteId)).size ===
+        expected.targets.length &&
+      expected.targets.every((target) =>
+        message.expectedTargets.some(
+          (item) =>
+            item.noteId === target.noteId &&
+            item.positionRevision === target.positionRevision &&
+            item.visibilityRevision === target.visibilityRevision,
+        ),
+      );
+    if (
+      recent >= 60 ||
+      !sourceReceipt?.changed ||
+      source?.user_id !== ctx.userId ||
+      source.connection_id !== connectionId(ctx) ||
+      !expected ||
+      !sameTargets ||
+      !permitted(ctx) ||
+      phase.kind !== "step" ||
+      sourceReceipt.phaseRevision !== getPhaseRevision(ctx.sql) ||
+      sourceReceipt.mapRevision !== revisions.mapRevision ||
+      sourceReceipt.coordinateSpace !==
+        (phase.phase === 3 ? "map" : "canvas") ||
+      !Object.entries(expected.groups).every(
+        ([id, revision]) => (groupVersions(ctx.sql)[id] ?? 0) === revision,
+      ) ||
+      listGroups(ctx.sql).some(
+        (group) =>
+          group.noteIds.some((id) =>
+            expected.targets.some((target) => target.noteId === id),
+          ) && !(group.id in expected.groups),
+      )
+    ) {
+      denied();
+      return;
+    }
+    const affected = expected.targets.map((target) =>
+      findNote(ctx.sql, target.noteId),
+    );
+    if (
+      affected.some(
+        (row, index) =>
+          row?.visibility !== "shared" ||
+          row.phase !== phase.phase ||
+          (row.position_revision ?? 0) !==
+            expected.targets[index].positionRevision ||
+          (row.visibility_revision ?? 0) !==
+            expected.targets[index].visibilityRevision ||
+          hasMoveLock(ctx.sql, row.id) ||
+          ctx.broadcaster.findActiveDrag(row.id),
+      )
+    ) {
+      denied();
+      return;
+    }
+    if (
+      !sourceReceipt.after.every((target) => {
+        const row = findNote(ctx.sql, target.noteId);
+        return row && row.x === target.x && row.y === target.y;
+      })
+    ) {
+      denied();
+      return;
+    }
+    const currentGroups = listGroups(ctx.sql);
+    if (
+      !sourceReceipt.groupsAfter.every((group) =>
+        currentGroups.some((current) => groupMatches(group, current)),
+      ) ||
+      sourceReceipt.groupsBefore.some(
+        (group) =>
+          !sourceReceipt.groupsAfter.some((g) => g.id === group.id) &&
+          currentGroups.some((g) => g.id === group.id),
+      )
+    ) {
+      denied();
+      return;
+    }
+    let receipt: MoveReceipt;
+    try {
+      receipt = ctx.storage.transactionSync(() => {
+        // 全影響対象のlockは同transactionで取得し、rollbackなら1枚も復帰しない。
+        ctx.sql.exec(
+          "INSERT INTO note_move_operations(operation_id,user_id,connection_id,request_json,state,lease_until,created_at) VALUES (?1,?2,?3,?4,'active',?5,?6)",
+          message.operationId,
+          ctx.userId,
+          connectionId(ctx),
+          JSON.stringify({ inverse: message }),
+          Date.now() + MOVE_LEASE_MS,
+          Date.now(),
+        );
+        for (const target of expected.targets)
+          ctx.sql.exec(
+            "INSERT INTO note_move_locks(note_id,operation_id) VALUES (?1,?2)",
+            target.noteId,
+            message.operationId,
+          );
+        const before = sourceReceipt.after.map((target) =>
+          position(requiredNote(ctx.sql, target.noteId)),
+        );
+        const affectedBefore = affected.map((row) =>
+          position(requiredNote(ctx.sql, row?.id ?? "")),
+        );
+        const groupVersionsBefore = groupVersions(ctx.sql);
+        for (const target of sourceReceipt.before)
+          ctx.sql.exec(
+            "UPDATE notes SET x=?2,y=?3,updated_at=?4 WHERE id=?1",
+            target.noteId,
+            target.x,
+            target.y,
+            new Date().toISOString(),
+          );
+        for (const group of sourceReceipt.groupsAfter)
+          ctx.sql.exec("DELETE FROM groups WHERE id=?1", group.id);
+        for (const group of sourceReceipt.groupsBefore)
+          ctx.sql.exec(
+            "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,?2,?3,?4,?5)",
+            group.id,
+            group.name,
+            JSON.stringify(group.noteIds),
+            group.createdAt,
+            new Date().toISOString(),
+          );
+        const result: MoveReceipt = {
+          operationId: message.operationId,
+          phaseRevision: sourceReceipt.phaseRevision,
+          coordinateSpace: sourceReceipt.coordinateSpace,
+          before,
+          after: sourceReceipt.before.map((target) =>
+            position(requiredNote(ctx.sql, target.noteId)),
+          ),
+          groupsBefore: sourceReceipt.groupsAfter,
+          groupsAfter: listGroups(ctx.sql).filter((group) =>
+            sourceReceipt.groupsBefore.some((g) => g.id === group.id),
+          ),
+          groupRevisionBefore: revisions.groupRevision,
+          groupRevisionAfter: moveRevisions(ctx.sql).groupRevision,
+          mapRevision: sourceReceipt.mapRevision,
+          affected: expected.targets.map((target) => {
+            const row = requiredNote(ctx.sql, target.noteId);
+            return {
+              noteId: row.id,
+              positionRevision: row.position_revision ?? 0,
+              visibilityRevision: row.visibility_revision ?? 0,
+            };
+          }),
+          changed: true,
+        };
+        advanceHistory(ctx, affectedBefore, result, groupVersionsBefore);
+        ctx.sql.exec(
+          "UPDATE note_move_operations SET request_json=?2 WHERE operation_id=?1",
+          message.operationId,
+          JSON.stringify({
+            inverse: message,
+            historyExpected: expectedFrom(ctx.sql, result),
+          }),
+        );
+        finish(ctx.sql, message.operationId, {
+          type: "note:move:result",
+          operationId: message.operationId,
+          status: "accepted",
+          receipt: result,
+        });
+        return result;
+      });
+    } catch {
+      denied();
+      return;
+    }
+    ctx.broadcaster.broadcastMoveBatch((viewerId) => ({
+      type: "notes:moved",
+      operationId: message.operationId,
+      notes: receipt.after.map((target) =>
+        projectNoteForViewer(
+          { viewerId, phase: getPhase(ctx.sql) },
+          toProtocolNote(
+            ctx.sql,
+            requiredNote(ctx.sql, target.noteId),
+            viewerId,
+          ),
+        ),
+      ),
+      groups: listBoardGroups(ctx.sql, viewerId, getPhase(ctx.sql)),
+      groupRevision: receipt.groupRevisionAfter,
+    }));
+    for (const target of receipt.after)
+      broadcastNoteUpdated(
+        ctx.sql,
+        ctx.broadcaster,
+        requiredNote(ctx.sql, target.noteId),
+      );
+    for (const group of receipt.groupsBefore)
+      if (!receipt.groupsAfter.some((next) => next.id === group.id))
+        ctx.broadcaster.broadcastGroup(
+          {
+            type: "group:deleted",
+            groupId: group.id,
+            groupRevision: receipt.groupRevisionAfter,
+          },
+          (viewerId) =>
+            canViewBoardGroup(ctx.sql, viewerId, group, getPhase(ctx.sql)),
+        );
+    for (const group of receipt.groupsAfter)
+      ctx.broadcaster.broadcastGroup(
+        {
+          type: "group:updated",
+          group,
+          groupRevision: receipt.groupRevisionAfter,
+        },
+        (viewerId) =>
+          canViewBoardGroup(ctx.sql, viewerId, group, getPhase(ctx.sql)),
+      );
+    const saved = readOperation(ctx.sql, message.operationId);
+    if (saved) ctx.reply(resultFor(ctx, saved));
+    ctx.onSharedDragEnd?.();
+  },
   "note:move:start": (ctx, message) => {
     expireMoveOperations(ctx.sql);
     const previous = readOperation(ctx.sql, message.operationId);
@@ -617,6 +998,16 @@ export const moveHandlers: MessageHandlers<
     );
     const changed = delta.x !== 0 || delta.y !== 0;
     const groupsBefore = listGroups(ctx.sql);
+    const groupVersionsBefore = groupVersions(ctx.sql);
+    const allBefore = new Map(
+      ctx.sql
+        .exec("SELECT id FROM notes")
+        .toArray()
+        .map((row) => [
+          String(row.id),
+          position(requiredNote(ctx.sql, String(row.id))),
+        ]),
+    );
     let receipt: MoveReceipt;
     try {
       receipt = ctx.storage.transactionSync(() => {
@@ -690,6 +1081,22 @@ export const moveHandlers: MessageHandlers<
           }),
           changed,
         };
+        if (changed)
+          advanceHistory(
+            ctx,
+            result.affected.flatMap((target) => {
+              const previous = allBefore.get(target.noteId);
+              return previous ? [previous] : [];
+            }),
+            result,
+            groupVersionsBefore,
+          );
+        request.historyExpected = expectedFrom(ctx.sql, result);
+        ctx.sql.exec(
+          "UPDATE note_move_operations SET request_json=?2 WHERE operation_id=?1",
+          message.operationId,
+          JSON.stringify(request),
+        );
         finish(ctx.sql, message.operationId, {
           type: "note:move:result",
           operationId: message.operationId,

@@ -462,6 +462,7 @@ export function useBoardDrag({
       noteId: string,
       event: ReactPointerEvent<HTMLButtonElement>,
       origin?: { clientX: number; clientY: number },
+      requestedIds?: readonly string[],
     ) => {
       // 2本目の指で操作対象を上書きすると、最初の操作権を解放できなくなる。
       if (dragRef.current || !canMoveSharedNotes) return;
@@ -474,9 +475,8 @@ export function useBoardDrag({
         origin?.clientY ?? event.clientY,
       );
       const rect = event.currentTarget?.getBoundingClientRect?.();
-      const targetIds = selectedNoteIds?.includes(noteId)
-        ? [...selectedNoteIds]
-        : [noteId];
+      const selected = requestedIds ?? selectedNoteIds;
+      const targetIds = selected?.includes(noteId) ? [...selected] : [noteId];
       updateDrag({
         note,
         targetIds,
@@ -494,7 +494,7 @@ export function useBoardDrag({
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
-      if (selectedNoteIds) onNoteDragStart(noteId, false, targetIds);
+      if (selected) onNoteDragStart(noteId, false, targetIds);
       else onNoteDragStart(noteId);
     },
     [
