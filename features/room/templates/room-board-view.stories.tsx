@@ -1134,3 +1134,14 @@ export const MoveHistoryPending: Story = {
     },
   },
 };
+
+export const MoveHistorySharing: Story = {
+  args: {
+    ...Step1_2_Sharing.args,
+    ...MoveHistoryPending.args,
+    phase: STEP_1_2,
+  },
+};
+export const MoveHistoryMap: Story = {
+  args: { ...MoveHistoryAvailable.args, phase: buildPhaseStep(3, 3) },
+};

@@ -403,3 +403,103 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
     }
   }, 90_000);
 });
+
+describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
+  test("375pxの高い/低い画面で履歴・工程操作・マイ付箋・map操作が重ならず届く", async () => {
+    const browser = await chromium.launch();
+    try {
+      const actor = await browser.newPage({
+        viewport: { width: 375, height: 812 },
+      });
+      const peer = await browser.newPage();
+      await login(actor, "owner@example.test");
+      await login(peer, "member@example.test");
+      for (const checkpoint of ["1-1", "1-2", "3-3"]) {
+        const created = await actor.request.post(
+          `${app}/api/verification/rooms`,
+          { data: { checkpoint }, headers: { origin: app ?? "" } },
+        );
+        expect(
+          created.ok(),
+          `${created.status()}: ${await created.text()}`,
+        ).toBe(true);
+        const room = (await created.json()) as { roomId: string };
+        await actor.goto(`${app}/rooms/${room.roomId}`);
+        await actor.getByTestId("board-canvas").waitFor();
+        await actor.evaluate(() => document.fonts.ready);
+        for (const height of [812, 667]) {
+          await actor.setViewportSize({ width: 375, height });
+          await expect
+            .poll(async () =>
+              actor.evaluate(() => {
+                const selectors = [
+                  '[data-testid="board-tools-hud"]',
+                  '[data-testid="phase-loop-hud"]',
+                  '[data-testid="idea-map-size-controls-hud"]',
+                  '[data-testid="private-notes-toolbar"]',
+                ];
+                const boxes = selectors.flatMap((selector) => {
+                  const element = document.querySelector(selector);
+                  if (!element?.checkVisibility()) return [];
+                  const box = element.getBoundingClientRect();
+                  return box.width && box.height ? [{ selector, box }] : [];
+                });
+                for (let i = 0; i < boxes.length; i++)
+                  for (let j = i + 1; j < boxes.length; j++) {
+                    const a = boxes[i].box;
+                    const b = boxes[j].box;
+                    if (
+                      Math.min(a.right, b.right) > Math.max(a.left, b.left) &&
+                      Math.min(a.bottom, b.bottom) > Math.max(a.top, b.top)
+                    )
+                      return `${boxes[i].selector} / ${boxes[j].selector}`;
+                  }
+                return null;
+              }),
+            )
+            .toBeNull();
+          const controls = actor
+            .getByTestId("phase-loop-hud")
+            .getByRole("button");
+          for (const button of await controls.all())
+            if ((await button.isVisible()) && (await button.isEnabled()))
+              await button.click({ trial: true });
+          const privateButtons = actor
+            .getByTestId("private-notes-toolbar")
+            .getByRole("button");
+          for (const button of await privateButtons.all())
+            if ((await button.isVisible()) && (await button.isEnabled()))
+              await button.click({ trial: true, timeout: 2000 });
+          if (checkpoint === "1-2" && height === 667) {
+            const expand = actor.getByRole("button", {
+              name: "マイ付箋を開く",
+              exact: true,
+            });
+            await expand.click();
+            const close = actor.getByRole("button", {
+              name: "マイ付箋を閉じる",
+              exact: true,
+            });
+            await close.click({ trial: true });
+            const add = actor.getByRole("button", {
+              name: "付箋を追加",
+              exact: true,
+            });
+            if (await add.isEnabled()) await add.click({ trial: true });
+            if (evidence)
+              await actor.screenshot({
+                path: `${evidence}/mobile-expanded-667.png`,
+              });
+            await close.click();
+          }
+          if (evidence)
+            await actor.screenshot({
+              path: `${evidence}/mobile-${checkpoint}-${height}.png`,
+            });
+        }
+      }
+    } finally {
+      await browser.close();
+    }
+  }, 90_000);
+});

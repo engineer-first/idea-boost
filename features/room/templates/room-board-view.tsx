@@ -1195,6 +1195,52 @@ export function RoomBoardView({
     onPrivateNoteDragStart: handlePrivateDragStart,
   } = interactions;
 
+  const hasMoveHistory = moveHistory !== undefined;
+  // mobileはHUDの実高を使って積む。fit用の占有領域・desktopの配置はそのまま保つ。
+  useEffect(() => {
+    const root = boardRootRef.current;
+    if (!root || !hasMoveHistory) return;
+    const surfaces = [
+      ["board-tools-hud", "--board-tools-height"],
+      ["phase-loop-hud", "--board-phase-hud-height"],
+      ["idea-map-size-controls-hud", "--board-map-hud-height"],
+      ["vote-palette-hud", "--board-vote-hud-height"],
+      ["private-notes-toolbar", "--board-private-toolbar-height"],
+    ] as const;
+    const update = () => {
+      for (const [testId, property] of surfaces) {
+        if (
+          testId === "idea-map-size-controls-hud" &&
+          (phase.kind !== "step" || phase.phase !== 3)
+        ) {
+          root.style.setProperty(property, "0px");
+          continue;
+        }
+        const element = root.querySelector<HTMLElement>(
+          `[data-testid="${testId}"]`,
+        );
+        root.style.setProperty(
+          property,
+          `${element?.getBoundingClientRect().height ?? 0}px`,
+        );
+      }
+    };
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    for (const [testId] of surfaces) {
+      const element = root.querySelector<HTMLElement>(
+        `[data-testid="${testId}"]`,
+      );
+      if (element) observer?.observe(element);
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [boardRootRef, hasMoveHistory, phase]);
+
   // 通知はボードの外の portal に描画される。実際の占有高だけ HUD に渡し、
   // 通知の寿命・Undo・camera・共有状態は変えない。
   useEffect(() => {
@@ -1348,9 +1394,18 @@ export function RoomBoardView({
           {
             // トレイの操作欄を含む総高を、上部パネルの予約にも使う。
             // 低い画面では上部に16.5remを残し、各一覧内でスクロールする。
-            "--board-private-dock-bottom": `calc(${isHost && phase.kind === "step" && phase.step === 2 ? "11.5rem" : "7.5rem"} + var(--board-notification-inset, 0px))`,
-            "--board-private-dock-height":
-              "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))",
+            "--board-mobile-controls-bottom":
+              "calc(0.75rem + var(--board-notification-inset, 0px) + var(--board-tools-height, 0px) + 0.5rem)",
+            "--board-mobile-header-bottom":
+              "calc(var(--board-private-dock-bottom) + var(--board-private-toolbar-height, 0px) + 0.75rem)",
+            "--board-mobile-phase-bottom":
+              "calc(var(--board-mobile-controls-bottom) + var(--board-map-hud-height, 0px) + var(--board-vote-hud-height, 0px) + 0.5rem)",
+            "--board-private-dock-bottom": hasMoveHistory
+              ? "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)"
+              : `calc(${isHost && phase.kind === "step" && phase.step === 2 ? "11.5rem" : "7.5rem"} + var(--board-notification-inset, 0px))`,
+            "--board-private-dock-height": hasMoveHistory
+              ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))"
+              : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))",
           } as CSSProperties
         }
         className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
@@ -1548,6 +1603,7 @@ export function RoomBoardView({
         onPointerLeave={() => setVoteStampPointer(null)}
       >
         <RoomBoardHeader
+          hasMoveHistory={hasMoveHistory}
           onOpenFeedback={
             feedback
               ? () =>
@@ -1754,7 +1810,7 @@ export function RoomBoardView({
 
         {isVotingStep(phase) ? (
           <div
-            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center max-[639px]:bottom-[7.5rem] max-[639px]:justify-center"
+            className={`pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center max-[639px]:justify-center ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-controls-bottom)]" : "max-[639px]:bottom-[7.5rem]"}`}
             data-testid="vote-palette-hud"
             data-board-fit-edge="bottom"
           >
@@ -1772,7 +1828,7 @@ export function RoomBoardView({
         ) : null}
 
         <div
-          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[7.5rem]"
+          className={`pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-phase-bottom)]" : "max-[639px]:bottom-[7.5rem]"}`}
           data-testid="phase-loop-hud"
           data-board-fit-edge="bottom"
         >
