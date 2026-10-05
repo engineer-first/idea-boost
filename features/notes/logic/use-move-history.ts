@@ -115,16 +115,27 @@ export function useMoveHistory({
         clear("工程や接続が変わったため、移動履歴を終了しました。");
       const boundary = boundaryRequests.current.find((request) => {
         if (message.type === "error") return false;
-        if (
-          "operationId" in request &&
-          request.operationId &&
-          "operationId" in message &&
-          message.operationId === request.operationId
-        )
+        if ("operationId" in request && request.operationId) {
+          // 相関ID付きの要求をlegacy通知で解決しない。別接続の更新や
+          // 確定結果より先に届くechoは、その要求の成功を証明しない。
+          if (
+            !("operationId" in message) ||
+            message.operationId !== request.operationId
+          )
+            return false;
+          if (
+            request.type === "note:publish" ||
+            request.type === "note:unpublish"
+          )
+            return (
+              message.type === "note:share:result" &&
+              message.status === "committed"
+            );
           return (
             !("status" in message) ||
             ["accepted", "committed"].includes(message.status)
           );
+        }
         if (request.type === "note:create")
           return (
             message.type === "note:inserted" &&

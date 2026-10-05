@@ -491,6 +491,43 @@ it.each([
   expect(result.current.undoState.disabled).toBe(true);
 });
 it.each([
+  "note:publish",
+  "note:unpublish",
+] as const)("%sの操作ID付き要求は付箋通知で確定と誤認しない", (type) => {
+  const { result, accept } = setup();
+  accept(receipt("move", 0, 1));
+  act(() =>
+    result.current.observeOutgoing({
+      type,
+      operationId: "share",
+      noteId: "other",
+      x: 10,
+      y: 20,
+    }),
+  );
+  for (const operationId of [undefined, "other-share", "share"]) {
+    act(() =>
+      result.current.applyMessage({
+        type: "note:updated",
+        operationId,
+        note: buildNote({
+          id: "other",
+          visibility: type === "note:publish" ? "shared" : "private",
+        }),
+      }),
+    );
+    expect(result.current.undoState.disabled).toBe(false);
+  }
+  act(() =>
+    result.current.applyMessage({
+      type: "note:share:result",
+      operationId: "share",
+      status: "committed",
+    }),
+  );
+  expect(result.current.undoState.disabled).toBe(true);
+});
+it.each([
   "rejected",
   "expired",
 ] as const)("共有結果%sの後は遅延成功でも移動履歴を区切らない", (status) => {
