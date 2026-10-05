@@ -15,11 +15,11 @@ import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { useNoteAutosave } from "../logic/use-note-autosave";
 import { PrivateNotesToolbar } from "./private-notes-toolbar";
 
-function setup(disabled = false) {
+function setup(disabled = false, selectedNoteId: string | null = null) {
   const props = {
     notes: [buildNote({ visibility: "private", content: "非公開の考え" })],
     disabled,
-    selectedNoteId: null,
+    selectedNoteId,
     canCreateNote: true,
     canDeleteNote: true,
     canMoveNote: true,
@@ -237,12 +237,12 @@ describe("PrivateNotesToolbar", () => {
   });
 
   it("個人付箋を表示し、追加と削除を操作できる", () => {
-    const props = setup();
+    const props = setup(false, "note-1");
     expect(screen.getByDisplayValue("非公開の考え")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
 
     const surface = screen.getByRole("button", { name: "付箋" });
-    fireEvent.keyDown(surface, { key: "Backspace" });
+    fireEvent.keyDown(surface, { key: "Delete" });
 
     expect(props.onAdd).toHaveBeenCalledOnce();
     expect(props.onDelete).toHaveBeenCalledWith("note-1");
@@ -836,4 +836,37 @@ describe("PrivateNotesToolbar", () => {
 
     expect(onDelete).not.toHaveBeenCalled();
   });
+});
+
+it("AT-011: 選択中のprivate削除完了後は追加入口へfocusを戻す", () => {
+  const props = {
+    notes: [buildNote({ visibility: "private" })],
+    disabled: false,
+    selectedNoteId: "note-1",
+    canCreateNote: true,
+    canDeleteNote: true,
+    canMoveNote: true,
+    canEditNote: true,
+    onSelect: vi.fn(),
+    onAdd: vi.fn(),
+    onContentChange: vi.fn(),
+    onDelete: vi.fn(),
+    onDragStart: vi.fn(),
+  };
+  const view = render(<PrivateNotesToolbar {...props} />);
+  const surface = screen.getByRole("button", { name: "付箋" });
+  surface.focus();
+  fireEvent.keyDown(surface, { key: "Delete" });
+  view.rerender(
+    <PrivateNotesToolbar {...props} notes={[]} selectedNoteId={null} />,
+  );
+  expect(screen.getByRole("button", { name: "付箋を追加" })).toHaveFocus();
+});
+it("AT-023: private一覧のIME Escapeでは選択を解除しない", () => {
+  const props = setup(false, "note-1");
+  fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
+    key: "Escape",
+    isComposing: true,
+  });
+  expect(props.onSelect).not.toHaveBeenCalled();
 });

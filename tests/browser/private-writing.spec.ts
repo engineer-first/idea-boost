@@ -40,6 +40,10 @@ for (const width of [390, 1440]) {
     await oldNote
       .getByRole("button", { name: "付箋", exact: true })
       .press("Enter");
+    expect(await oldNote.getAttribute("data-selected")).toBe("true");
+    await oldNote
+      .getByRole("button", { name: "付箋", exact: true })
+      .press("Enter");
     const editor = oldNote.locator("textarea");
     await editor.fill("入力中の下書き");
     const scrollBefore = await page

@@ -8,13 +8,17 @@ import {
   buildCarryover,
   buildDecision,
   buildMembers,
+  buildNote,
   buildNotes,
 } from "@/contracts/room-protocol.fixture";
 import { useFeedback } from "@/features/feedback";
 import { useBoardHelp } from "../logic/use-board-help";
 import { useCanvasCamera } from "../logic/use-canvas-camera";
-import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
-import { RoomBoardView } from "./room-board-view";
+import {
+  type RoomBoardInteractions,
+  useRoomBoardInteractions,
+} from "../logic/use-room-board-interactions";
+import { getBoardFitInsets, RoomBoardView } from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const STEP_1_1 = buildPhaseStep(1);
@@ -696,6 +700,11 @@ export const CanvasPanInteraction: Story = {
           camera: camera.camera,
           gridStyle: camera.gridStyle,
           isPanning: camera.isPanning,
+          onToolChange: camera.setInteractionTool,
+          onGestureBlockedChange: camera.setGestureBlocked,
+          hasPan: camera.hasPan,
+          cancelPan: camera.cancelPan,
+          consumePanClick: camera.consumePanClick,
           onCanvasPointerDown: camera.handlePointerDown,
           onCanvasPointerMove: camera.handlePointerMove,
           onCanvasPointerEnd: camera.handlePointerEnd,
@@ -838,4 +847,250 @@ export const ExcludedVoteAttempt: Story = {
       canvas.getByRole("button", { name: "客観シール 残り3票" }),
     ).toBeVisible();
   },
+};
+
+export const CanvasInputInteraction: Story = {
+  args: {
+    phase: STEP_1_3,
+    notes: CANVAS_HUD_NOTES.slice(0, 3),
+    initialGuideState: "compact",
+  },
+  render: function Render(args) {
+    const [notes, setNotes] = useState(args.notes);
+    const [adoptionCount, setAdoptionCount] = useState(0);
+    const [privateNotes, setPrivateNotes] = useState(
+      args.interactions.privateNotes,
+    );
+    const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+    const interactions = useRoomBoardInteractions({
+      notes,
+      privateNotes,
+      currentUserId: args.currentUserId,
+      draggingNoteId,
+      phase: args.phase,
+      isDecided: args.decision !== null,
+      ideaMapSizeLevel: args.ideaMapSizeLevel,
+      ideaMapSizeInitialized: args.ideaMapSizeInitialized,
+      getFitInsets: getBoardFitInsets,
+      onNoteDragStart: (id) => setDraggingNoteId(id),
+      onNoteDragMove: () => undefined,
+      onNoteDragEnd: (id, x, y) => {
+        setNotes((current) =>
+          current.map((note) => (note.id === id ? { ...note, x, y } : note)),
+        );
+        setDraggingNoteId(null);
+      },
+      onNoteDragCancel: () => setDraggingNoteId(null),
+      onPrivateNotePublish: (id, x, y) => {
+        const note = privateNotes.find((item) => item.id === id);
+        if (!note) return;
+        setPrivateNotes((current) => current.filter((item) => item.id !== id));
+        setNotes((current) => [
+          ...current,
+          { ...note, visibility: "shared", x, y },
+        ]);
+      },
+      onPrivateNoteUnpublish: (id) => {
+        const note = notes.find((item) => item.id === id);
+        if (!note) return;
+        setNotes((current) => current.filter((item) => item.id !== id));
+        setPrivateNotes((current) => [
+          ...current,
+          { ...note, visibility: "private" },
+        ]);
+      },
+      onCursorMove: () => undefined,
+      onCursorLeave: () => undefined,
+    });
+    const help = useBoardHelp(args.phase);
+    return (
+      <>
+        <RoomBoardView
+          {...args}
+          notes={notes}
+          interactions={interactions}
+          help={help}
+          draggingNoteId={draggingNoteId}
+          onNoteDecide={(noteId) => {
+            args.onNoteDecide(noteId);
+            setAdoptionCount((count) => count + 1);
+          }}
+          onNoteVote={(noteId, kind, x, y) => {
+            args.onNoteVote(noteId, kind, x, y);
+            const id = crypto.randomUUID();
+            setNotes((current) =>
+              current.map((note) => {
+                if (note.id !== noteId) return note;
+                const votes = note.dotVotes[kind];
+                return {
+                  ...note,
+                  dotVoteStickers: [
+                    ...note.dotVoteStickers,
+                    { id, kind, x, y },
+                  ],
+                  dotVotes: {
+                    ...note.dotVotes,
+                    [kind]: {
+                      ...votes,
+                      count: (votes.count ?? 0) + 1,
+                      ownCount: votes.ownCount + 1,
+                      votedByMe: true,
+                    },
+                  },
+                };
+              }),
+            );
+          }}
+          onNoteVoteStickerMove={(id, noteId, x, y) => {
+            args.onNoteVoteStickerMove(id, noteId, x, y);
+            setNotes((current) => {
+              const sticker = current
+                .flatMap((note) => note.dotVoteStickers)
+                .find((item) => item.id === id);
+              if (!sticker) return current;
+              return current.map((note) => {
+                const hadSticker = note.dotVoteStickers.some(
+                  (item) => item.id === id,
+                );
+                const receivesSticker = note.id === noteId;
+                if (!hadSticker && !receivesSticker) return note;
+                const delta = Number(receivesSticker) - Number(hadSticker);
+                const votes = note.dotVotes[sticker.kind];
+                const ownCount = votes.ownCount + delta;
+                return {
+                  ...note,
+                  dotVoteStickers: [
+                    ...note.dotVoteStickers.filter((item) => item.id !== id),
+                    ...(receivesSticker ? [{ ...sticker, x, y }] : []),
+                  ],
+                  dotVotes: {
+                    ...note.dotVotes,
+                    [sticker.kind]: {
+                      ...votes,
+                      count: (votes.count ?? 0) + delta,
+                      ownCount,
+                      votedByMe: ownCount > 0,
+                    },
+                  },
+                };
+              });
+            });
+          }}
+          onNoteVoteStickerRemove={(id) => {
+            args.onNoteVoteStickerRemove(id);
+            setNotes((current) =>
+              current.map((note) => {
+                const removed = note.dotVoteStickers.find(
+                  (sticker) => sticker.id === id,
+                );
+                if (!removed) return note;
+                const votes = note.dotVotes[removed.kind];
+                const ownCount = Math.max(0, votes.ownCount - 1);
+                return {
+                  ...note,
+                  dotVoteStickers: note.dotVoteStickers.filter(
+                    (sticker) => sticker.id !== id,
+                  ),
+                  dotVotes: {
+                    ...note.dotVotes,
+                    [removed.kind]: {
+                      ...votes,
+                      count: Math.max(0, (votes.count ?? 0) - 1),
+                      ownCount,
+                      votedByMe: ownCount > 0,
+                    },
+                  },
+                };
+              }),
+            );
+          }}
+          onNoteContentChange={(id, content) =>
+            setNotes((current) =>
+              current.map((note) =>
+                note.id === id ? { ...note, content } : note,
+              ),
+            )
+          }
+          onNoteFontSizeChange={(id, fontSize) =>
+            setNotes((current) =>
+              current.map((note) =>
+                note.id === id ? { ...note, fontSize } : note,
+              ),
+            )
+          }
+          onNoteBringToFront={(id) =>
+            setNotes((current) =>
+              current.map((note) =>
+                note.id === id
+                  ? {
+                      ...note,
+                      stackOrder:
+                        Math.max(...current.map((item) => item.stackOrder)) + 1,
+                    }
+                  : note,
+              ),
+            )
+          }
+        />
+        <output hidden data-testid="canvas-input-adoption-count">
+          {adoptionCount}
+        </output>
+      </>
+    );
+  },
+};
+
+export const CanvasInputSharing: Story = {
+  ...CanvasInputInteraction,
+  args: { ...CanvasInputInteraction.args, phase: STEP_1_2 },
+};
+
+export const CanvasInputPrivate: Story = {
+  ...CanvasInputSharing,
+  args: {
+    ...CanvasInputSharing.args,
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [
+        buildNote({
+          id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+          authorId: ME,
+          visibility: "private",
+          content: "取消確認用のマイ付箋",
+        }),
+      ],
+    },
+  },
+};
+
+export const CanvasInputVoting: Story = {
+  ...CanvasInputInteraction,
+  args: {
+    ...CanvasInputInteraction.args,
+    phase: STEP_1_4,
+    notes: CANVAS_HUD_NOTES.slice(0, 3).map((note, index) =>
+      index === 0
+        ? {
+            ...note,
+            dotVoteStickers: [
+              {
+                id: "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa",
+                kind: "objective",
+                x: 0.2,
+                y: 0.3,
+              },
+            ],
+            dotVotes: {
+              subjective: { count: 0, ownCount: 0, votedByMe: false },
+              objective: { count: 1, ownCount: 1, votedByMe: true },
+            },
+          }
+        : note,
+    ),
+  },
+};
+
+export const CanvasInputAdoption: Story = {
+  ...CanvasInputInteraction,
+  args: { ...CanvasInputInteraction.args, phase: STEP_1_5, isHost: true },
 };

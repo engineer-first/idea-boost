@@ -1,6 +1,7 @@
 ---
 name: release
 description: Idea Boost の本番リリースを、差分の確認・説明の編集・公開・記録回復まで進める。ユーザーが $release または $release ... と明示した場合だけ使用する。
+disable-model-invocation: true
 ---
 
 # Idea Boost release

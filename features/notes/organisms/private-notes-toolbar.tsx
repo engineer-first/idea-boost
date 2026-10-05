@@ -76,6 +76,12 @@ export function PrivateNotesToolbar({
   const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
   const noteIdsBeforeAddRef = useRef<Set<string> | null>(null);
   const lastAddRequestRef = useRef(0);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const pendingDeleteFocusRef = useRef<{
+    id: string;
+    index: number;
+    surface: Element | null;
+  } | null>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const previousNoteTopsRef = useRef(new Map<string, number>());
@@ -140,6 +146,27 @@ export function PrivateNotesToolbar({
     lastAddRequestRef.current = addRequest;
     handleAdd();
   }, [addRequest, handleAdd]);
+
+  useLayoutEffect(() => {
+    const pending = pendingDeleteFocusRef.current;
+    if (!pending || notes.some((note) => note.id === pending.id)) return;
+    pendingDeleteFocusRef.current = null;
+    if (
+      document.activeElement !== document.body &&
+      document.activeElement !== pending.surface
+    )
+      return;
+    const next = notes[Math.min(pending.index, notes.length - 1)];
+    const card = next
+      ? Array.from(
+          listRef.current?.querySelectorAll<HTMLElement>("[data-note-id]") ??
+            [],
+        ).find((element) => element.dataset.noteId === next.id)
+      : undefined;
+    const target =
+      card?.querySelector<HTMLButtonElement>("button") ?? addButtonRef.current;
+    target?.focus({ preventScroll: true });
+  }, [notes]);
 
   useLayoutEffect(() => {
     const elementsById = new Map<string, HTMLElement>();
@@ -224,7 +251,16 @@ export function PrivateNotesToolbar({
             }
           }}
           onKeyDown={(e) => {
-            if (e.key === "Escape") onSelect(null);
+            if (
+              e.defaultPrevented ||
+              e.nativeEvent.isComposing ||
+              e.keyCode === 229
+            )
+              return;
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              onSelect(null);
+            }
           }}
         >
           <p className="mb-3 text-xs text-muted-foreground">
@@ -268,7 +304,14 @@ export function PrivateNotesToolbar({
                   onDraftChange={onDraftChange}
                   onDraftCompositionStart={onDraftCompositionStart}
                   onDraftCompositionEnd={onDraftCompositionEnd}
-                  onDelete={onDelete}
+                  onDelete={(id) => {
+                    pendingDeleteFocusRef.current = {
+                      id,
+                      index: notes.findIndex((note) => note.id === id),
+                      surface: document.activeElement,
+                    };
+                    onDelete(id);
+                  }}
                   // 付箋の x/y はホワイトボード上の座標なので、一覧内では常に原点に置く。
                   style={{ left: 0, top: 0 }}
                   vote={{
@@ -324,6 +367,7 @@ export function PrivateNotesToolbar({
               type="button"
               size="icon-sm"
               disabled={disabled || !canCreateNote}
+              ref={addButtonRef}
               aria-label="付箋を追加"
               onClick={handleAdd}
             >

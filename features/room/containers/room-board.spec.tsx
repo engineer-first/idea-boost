@@ -325,6 +325,7 @@ function dropPaletteSticker(kind: "subjective" | "objective"): void {
     clientY: 24,
   });
   fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+    buttons: 1,
     pointerId: 8,
     clientX: 280,
     clientY: 80,
@@ -1188,11 +1189,13 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 110,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 120,
       clientY: 120,
     });
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 220,
       clientY: 240,
@@ -1271,13 +1274,23 @@ describe("サーバーメッセージ → 画面反映", () => {
     const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600, clientY: 20 });
-    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 605, clientY: 25 });
+    fireEvent.pointerMove(handle, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 605,
+      clientY: 25,
+    });
     expect(
       within(toolbar).queryByTestId("private-note-placeholder"),
     ).toBeInTheDocument();
     const root = screen.getByTestId("room-board-view-root");
     expect(root).toHaveClass("cursor-grabbing");
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 120, clientY: 140 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 120,
+      clientY: 140,
+    });
     expect(within(toolbar).queryByRole("button", { name: "付箋" })).toBeNull();
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
     expect(root).not.toHaveClass("cursor-grabbing");
@@ -1307,9 +1320,19 @@ describe("サーバーメッセージ → 画面反映", () => {
     const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600, clientY: 20 });
-    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 605, clientY: 25 });
+    fireEvent.pointerMove(handle, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 605,
+      clientY: 25,
+    });
     const root = screen.getByTestId("room-board-view-root");
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 100, clientY: 120 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 100,
+      clientY: 120,
+    });
 
     act(() =>
       socket.simulateServerMessage({
@@ -1318,7 +1341,12 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
 
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 180, clientY: 200 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 180,
+      clientY: 200,
+    });
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 200, clientY: 220 });
 
     expectSent(socket, {
@@ -1352,9 +1380,19 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 700, clientY: 100 });
-    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 705, clientY: 105 });
+    fireEvent.pointerMove(handle, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 705,
+      clientY: 105,
+    });
     const root = screen.getByTestId("room-board-view-root");
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 120, clientY: 140 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 120,
+      clientY: 140,
+    });
 
     act(() =>
       socket.simulateServerMessage({
@@ -1363,7 +1401,12 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
 
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 650, clientY: 120 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 650,
+      clientY: 120,
+    });
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 650, clientY: 120 });
 
     expect(socket.sent).toContain(
@@ -1400,11 +1443,21 @@ describe("サーバーメッセージ → 画面反映", () => {
     // 1) ツールバーからドラッグ開始
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 700, clientY: 100 });
-    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 705, clientY: 105 });
+    fireEvent.pointerMove(handle, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 705,
+      clientY: 105,
+    });
 
     // 2) ボードへ入る → publish
     const root = screen.getByTestId("room-board-view-root");
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 120, clientY: 140 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 120,
+      clientY: 140,
+    });
 
     // サーバー応答: shared として追加
     act(() =>
@@ -1415,10 +1468,20 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
 
     // 3) ツールバーへ戻す → ドロップ前なのでプレビューだけ
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 650, clientY: 120 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 650,
+      clientY: 120,
+    });
 
     // 4) 再びボードへ入る → 共有状態のままドラッグを再開
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 200, clientY: 200 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 200,
+      clientY: 200,
+    });
 
     // 5) ボード上でドロップ
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 200, clientY: 200 });
@@ -1456,9 +1519,19 @@ describe("サーバーメッセージ → 画面反映", () => {
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600, clientY: 20 });
-    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 605, clientY: 25 });
+    fireEvent.pointerMove(handle, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 605,
+      clientY: 25,
+    });
     fireEvent.pointerCancel(root, { pointerId: 1, clientX: 600, clientY: 20 });
-    fireEvent.pointerMove(root, { pointerId: 1, clientX: 100, clientY: 120 });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 100,
+      clientY: 120,
+    });
 
     expect(socket.sent).not.toContainEqual(
       expect.stringContaining('"type":"note:publish"'),
@@ -1485,12 +1558,14 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 110,
       clientY: 110,
     });
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 620,
       clientY: 120,
@@ -1527,11 +1602,13 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 110,
       clientY: 110,
     });
     fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+      buttons: 1,
       pointerId: 1,
       clientX: 620,
       clientY: 120,
@@ -1605,12 +1682,14 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 110,
       clientY: 110,
     });
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 750,
       clientY,
@@ -1680,6 +1759,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(firstSurface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 110,
       clientY: 110,
@@ -1690,6 +1770,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 120,
     });
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 650,
       clientY: 120,
@@ -1728,6 +1809,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(secondSurface, {
+      buttons: 1,
       pointerId: 2,
       clientX: 360,
       clientY: 110,
@@ -1786,12 +1868,14 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 110,
       clientY: 110,
     });
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 750,
       clientY: 250,
@@ -1847,12 +1931,14 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 110,
       clientY: 110,
     });
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 620,
       clientY: 120,
@@ -1879,12 +1965,14 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 120,
     });
     fireEvent.pointerMove(privateSurface, {
+      buttons: 1,
       pointerId: 2,
       clientX: 705,
       clientY: 125,
     });
     expect(screen.getByTestId("private-note-drag-preview")).toBeInTheDocument();
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 2,
       clientX: 150,
       clientY: 150,
@@ -1931,6 +2019,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 110,
       clientY: 110,
@@ -1938,6 +2027,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(toolbar).not.toHaveAttribute("data-return-drop-target");
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 620,
       clientY: 120,
@@ -2204,6 +2294,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       clientY: 145,
     });
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 21,
       clientX: 320,
       clientY: 700,
@@ -2294,6 +2385,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 12,
       clientX: 450,
       clientY: 175,
@@ -2395,6 +2487,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 7,
       clientX: 110,
       clientY: 110,
@@ -2550,6 +2643,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     const plane = screen.getByTestId("idea-value-feasibility-map-plane");
     const world = screen.getByTestId("board-canvas");
     expect(world).toContainElement(plane);
+    fireEvent.click(screen.getByRole("button", { name: "手のひらツール" }));
     fireEvent.pointerDown(plane, {
       button: 0,
       pointerId: 7,
@@ -2569,7 +2663,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     await waitFor(() => expect(world.style.transform).toContain("scale(1.25)"));
     const surface = within(plane).getByRole("button", { name: "付箋" });
-    fireEvent.keyDown(window, { code: "Space" });
+    fireEvent.keyDown(surface, { code: "Space", key: " " });
     fireEvent.pointerDown(surface, {
       button: 0,
       pointerId: 8,
@@ -2639,12 +2733,14 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 200,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 210,
       clientY: 210,
     });
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 310,
       clientY: 310,
@@ -2715,12 +2811,14 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 20,
     });
     fireEvent.pointerMove(handle, {
+      buttons: 1,
       pointerId: 1,
       clientX: 605,
       clientY: 25,
     });
     const root = screen.getByTestId("room-board-view-root");
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 1,
       clientX: 300,
       clientY: 300,
@@ -2754,6 +2852,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 200,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 210,
       clientY: 210,
@@ -3052,6 +3151,7 @@ describe("transaction interruption DOM", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 7,
       clientX: 110,
       clientY: 110,
@@ -3074,6 +3174,13 @@ describe("transaction interruption DOM", () => {
       moveProtocolVersion: 1,
     });
     const scroller = screen.getByTestId("board-scroller");
+    let capturedPointerId: number | null = null;
+    scroller.setPointerCapture = vi.fn((pointerId: number) => {
+      capturedPointerId = pointerId;
+    });
+    scroller.hasPointerCapture = vi.fn(
+      (pointerId: number) => capturedPointerId === pointerId,
+    );
     const surface = within(screen.getByTestId("board-canvas")).getByRole(
       "button",
       { name: "付箋" },
@@ -3084,6 +3191,7 @@ describe("transaction interruption DOM", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 7,
       clientX: 110,
       clientY: 110,
@@ -3120,6 +3228,7 @@ describe("pointer origin interruption DOM", () => {
     if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
     else fireEvent.blur(window);
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 7,
       clientX: 130,
       clientY: 130,
@@ -3152,6 +3261,7 @@ describe("pending interruption DOM", () => {
       clientY: 100,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 7,
       clientX: 110,
       clientY: 110,

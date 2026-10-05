@@ -382,6 +382,7 @@ describe("NoteCard", () => {
       pointerType: "touch",
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       clientX: 30,
       clientY: 30,
       pointerId: 11,
@@ -807,6 +808,7 @@ describe("NoteCard", () => {
         clientY: 10,
       });
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 50,
         clientY: 10,
@@ -978,7 +980,7 @@ describe("NoteCard", () => {
       expect(getCard()).toHaveClass("isolate");
     });
 
-    it("未選択の付箋はpointerdownでonSelectを呼ぶ", () => {
+    it("未選択の付箋はclick確定でonSelectを呼ぶ", () => {
       const onSelect = vi.fn();
       setup({ onSelect });
 
@@ -988,7 +990,12 @@ describe("NoteCard", () => {
         clientY: 0,
       });
 
-      expect(onSelect).toHaveBeenCalledWith("note-1");
+      expect(onSelect).not.toHaveBeenCalled();
+      fireEvent.pointerUp(getNoteSurface(), { pointerId: 1 });
+      expect(onSelect).toHaveBeenCalledWith("note-1", {
+        shiftKey: false,
+        bringToFront: true,
+      });
     });
 
     it("選択状態はdata-selected属性で見た目に反映される", () => {
@@ -1158,18 +1165,22 @@ describe("NoteCard", () => {
   });
 
   describe("キーボード削除", () => {
-    it("選択中（非編集）にBackspaceでonDeleteを呼ぶ", () => {
+    it("AT-011: editor外のBackspaceでは付箋を削除しない", () => {
       const onDelete = vi.fn();
       setup({ isSelected: true, onDelete });
 
       fireEvent.keyDown(getNoteSurface(), { key: "Backspace" });
 
-      expect(onDelete).toHaveBeenCalledWith("note-1");
+      expect(onDelete).not.toHaveBeenCalled();
     });
 
     it("選択中（非編集）にDeleteでonDeleteを呼ぶ", () => {
       const onDelete = vi.fn();
-      setup({ isSelected: true, onDelete });
+      setup({
+        isSelected: true,
+        onDelete,
+        note: buildNote({ visibility: "private" }),
+      });
 
       fireEvent.keyDown(getNoteSurface(), { key: "Delete" });
 
@@ -1203,6 +1214,43 @@ describe("NoteCard", () => {
   });
 
   describe("ドラッグ", () => {
+    it.each([
+      { clientX: 52, buttons: 0 },
+      { clientX: 80, buttons: 0 },
+      { clientX: 80, buttons: 2 },
+    ])("主ボタンを失ったx=$clientX・buttons=$buttonsの移動は選択・編集・ドラッグを開始せず、次のクリックを受け付ける", ({
+      clientX,
+      buttons,
+    }) => {
+      const { props } = setup({ isSelected: true });
+      const surface = getNoteSurface();
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 50,
+        clientY: 50,
+      });
+      fireEvent.pointerMove(surface, {
+        pointerId: 1,
+        buttons,
+        clientX,
+        clientY: 50,
+      });
+      fireEvent.pointerUp(surface, {
+        pointerId: 1,
+        clientX,
+        clientY: 50,
+      });
+
+      expect(props.onDragStart).not.toHaveBeenCalled();
+      expect(props.onSelect).not.toHaveBeenCalled();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+
+      clickNote();
+      expect(props.onSelect).toHaveBeenCalledOnce();
+      expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
+    });
+
     it("閾値を超えるポインター移動でonDragStartを呼ぶ", () => {
       const onDragStart = vi.fn();
       setup({
@@ -1220,6 +1268,7 @@ describe("NoteCard", () => {
       expect(onDragStart).not.toHaveBeenCalled();
 
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 80,
         clientY: 70,
@@ -1241,6 +1290,7 @@ describe("NoteCard", () => {
         clientY: 50,
       });
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 52,
         clientY: 51,
@@ -1260,6 +1310,7 @@ describe("NoteCard", () => {
         clientY: 50,
       });
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 80,
         clientY: 70,
@@ -1274,6 +1325,7 @@ describe("NoteCard", () => {
       setup({ onDragStart });
 
       fireEvent.pointerMove(getNoteSurface(), {
+        buttons: 1,
         pointerId: 1,
         clientX: 999,
         clientY: 999,
@@ -1316,6 +1368,7 @@ describe("NoteCard", () => {
         clientY: 50,
       });
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 80,
         clientY: 70,
@@ -1425,4 +1478,157 @@ it("候補ボタンを押した付箋を先に選択する", () => {
   const { props } = setup({ canExcludeNote: true, onExclude: vi.fn() });
   fireEvent.click(screen.getByRole("button", { name: "候補から外す" }));
   expect(props.onSelect).toHaveBeenCalledWith(props.note.id);
+});
+
+describe("#522 focus・pointerの境界", () => {
+  it.each([
+    "Escape",
+    "blur",
+  ])("閾値前の%sでpointer captureを解放し移動を再開しない", (reason) => {
+    const { props } = setup({ isSelected: true });
+    const surface = getNoteSurface();
+    surface.hasPointerCapture = vi.fn(() => true);
+    surface.releasePointerCapture = vi.fn();
+    fireEvent.pointerDown(surface, {
+      pointerId: 91,
+      buttons: 1,
+      clientX: 50,
+      clientY: 60,
+    });
+    if (reason === "Escape") fireEvent.keyDown(surface, { key: "Escape" });
+    else fireEvent.blur(window);
+    expect(surface.releasePointerCapture).toHaveBeenCalledWith(91);
+    fireEvent.pointerMove(surface, {
+      pointerId: 91,
+      buttons: 1,
+      clientX: 80,
+      clientY: 90,
+    });
+    expect(props.onDragStart).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Enter",
+    "h",
+    "Delete",
+  ])("AT-005: 未選択focusで%sは対象化だけを行う", (key) => {
+    const { props } = setup();
+    fireEvent.keyDown(getNoteSurface(), { key });
+    expect(props.onSelect).toHaveBeenCalledWith("note-1");
+    expect(props.onDelete).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+  });
+  it("AT-023: IME変換中のEnterは本文編集を開始しない", () => {
+    setup({ isSelected: true });
+    fireEvent.keyDown(getNoteSurface(), { key: "Enter", isComposing: true });
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+  });
+  it("AT-002: handの付箋Enterは対象化のみ、再clickでも編集しない", () => {
+    const { props } = setup({
+      isSelected: true,
+      ...{ interactionTool: "hand" as const },
+    });
+    fireEvent.keyDown(getNoteSurface(), { key: "Enter" });
+    clickNote();
+    expect(props.onSelect).toHaveBeenCalledWith("note-1");
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+  });
+  it("AT-006: Shiftはpointerupでtoggleを通知し再click編集しない", () => {
+    const { props } = setup({ isSelected: true });
+    fireEvent.pointerDown(getNoteSurface(), { pointerId: 1, shiftKey: true });
+    expect(props.onSelect).not.toHaveBeenCalled();
+    fireEvent.pointerUp(getNoteSurface(), { pointerId: 1 });
+    expect(props.onSelect).toHaveBeenCalledWith("note-1", {
+      shiftKey: true,
+      bringToFront: false,
+    });
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+  });
+  it("AT-007: 複数選択中は本文・Delete・候補操作を発火しない", () => {
+    const { props } = setup({
+      isSelected: true,
+      canExcludeNote: true,
+      ...{ isMultiSelected: true },
+    });
+    fireEvent.keyDown(getNoteSurface(), { key: "h" });
+    fireEvent.keyDown(getNoteSurface(), { key: "Delete" });
+    expect(props.onDelete).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    expect(
+      screen.queryByRole("button", { name: "候補から外す" }),
+    ).not.toBeInTheDocument();
+  });
+  it("AT-003: 禁止dragを編集clickへ落とさない", () => {
+    setup({ isSelected: true, canMoveNote: false });
+    fireEvent.pointerDown(getNoteSurface(), {
+      pointerId: 1,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerMove(getNoteSurface(), {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 80,
+      clientY: 10,
+    });
+    fireEvent.pointerUp(getNoteSurface(), {
+      pointerId: 1,
+      clientX: 80,
+      clientY: 10,
+    });
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+  });
+  it("AT-002: 別pointerのmove/upは押下を奪わない", () => {
+    const { props } = setup({ isSelected: true });
+    fireEvent.pointerDown(getNoteSurface(), {
+      pointerId: 1,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerMove(getNoteSurface(), {
+      buttons: 1,
+      pointerId: 2,
+      clientX: 80,
+      clientY: 10,
+    });
+    fireEvent.pointerUp(getNoteSurface(), { pointerId: 2 });
+    expect(props.onDragStart).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    fireEvent.pointerUp(getNoteSurface(), { pointerId: 1 });
+    expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
+  });
+  it("AT-004: pointercancelの後のupでは編集しない", () => {
+    setup({ isSelected: true });
+    fireEvent.pointerDown(getNoteSurface(), { pointerId: 1 });
+    fireEvent.pointerCancel(getNoteSurface(), { pointerId: 1 });
+    fireEvent.pointerUp(getNoteSurface(), { pointerId: 1 });
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+  });
+  it("AT-011: Deleteのrepeatで次の対象を連続削除しない", () => {
+    const { props } = setup({ isSelected: true });
+    fireEvent.keyDown(getNoteSurface(), { key: "Delete", repeat: true });
+    expect(props.onDelete).not.toHaveBeenCalled();
+  });
+});
+
+it("AT-002: window blur後に古いpointerupで編集を始めない", () => {
+  setup({ isSelected: true });
+  fireEvent.pointerDown(getNoteSurface(), { pointerId: 1 });
+  fireEvent.blur(window);
+  fireEvent.pointerUp(getNoteSurface(), { pointerId: 1 });
+  expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+});
+it("AT-011: 共有付箋はDeleteで削除権限を増やさない", () => {
+  const { props } = setup({ isSelected: true });
+  fireEvent.keyDown(getNoteSurface(), { key: "Delete" });
+  expect(props.onDelete).not.toHaveBeenCalled();
+});
+
+it("AT-004: composition中のEscapeはisComposing通知なしでも本文編集を終えない", () => {
+  setup({ isSelected: true });
+  clickNote();
+  const editor = screen.getByRole("textbox");
+  fireEvent.compositionStart(editor);
+  fireEvent.keyDown(editor, { key: "Escape" });
+  expect(editor).not.toHaveAttribute("readonly");
 });

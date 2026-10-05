@@ -149,6 +149,29 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
   return { ...renderResult, props: resolvedProps };
 }
 
+it("選択ツールからの単一移動は押下座標を移動hookへ渡す", () => {
+  const { props } = setup({ phase: buildPhaseStep(2) });
+  const surface = getNoteSurface(screen.getAllByTestId("note-card")[0]);
+  fireEvent.pointerDown(surface, {
+    pointerId: 91,
+    button: 0,
+    buttons: 1,
+    clientX: 50,
+    clientY: 60,
+  });
+  fireEvent.pointerMove(surface, {
+    pointerId: 91,
+    buttons: 1,
+    clientX: 80,
+    clientY: 90,
+  });
+  expect(props.interactions.onNoteDragStart).toHaveBeenCalledExactlyOnceWith(
+    props.notes[0].id,
+    expect.objectContaining({ clientX: 80, clientY: 90 }),
+    { clientX: 50, clientY: 60 },
+  );
+});
+
 function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
 }
@@ -171,7 +194,7 @@ describe("採用する付箋の選択モード", () => {
 
     fireEvent.pointerEnter(start());
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-1");
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), { key: "Escape" });
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith(null);
 
     fireEvent.focus(start());
@@ -222,7 +245,7 @@ describe("採用する付箋の選択モード", () => {
       ).not.toBeInTheDocument();
 
     start();
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), { key: "Escape" });
     expectSelectionModeClosed();
 
     start();
@@ -248,7 +271,11 @@ describe("採用する付箋の選択モード", () => {
       onNoteDecide,
     });
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    fireEvent.pointerUp(screen.getByTestId("board-canvas"));
+    fireEvent.pointerUp(screen.getByTestId("board-canvas"), {
+      pointerId: 1,
+      clientX: 20,
+      clientY: 20,
+    });
     expect(onNoteDecide).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", { name: /採用する付箋:/ }),
@@ -477,6 +504,7 @@ describe("RoomBoardView", () => {
     const root = screen.getByTestId("room-board-view-root");
 
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 3,
       pointerType: "mouse",
       clientX: 240,
@@ -929,6 +957,7 @@ describe("RoomBoardView", () => {
       { pointerId: 9, clientX: 320, clientY: 24 },
     );
     fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+      buttons: 1,
       pointerId: 9,
       clientX: 280,
       clientY: 80,
@@ -972,6 +1001,7 @@ describe("RoomBoardView", () => {
       { pointerId: 9, clientX: 320, clientY: 24 },
     );
     fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+      buttons: 1,
       pointerId: 9,
       clientX: 280,
       clientY: 80,
@@ -1126,7 +1156,7 @@ describe("RoomBoardView", () => {
     expect(paletteSticker).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(paletteSticker, { clientX: 280, clientY: 24 });
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), { key: "Escape" });
     expect(paletteSticker).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -1143,6 +1173,7 @@ describe("RoomBoardView", () => {
       { pointerId: 9, clientX: 320, clientY: 24 },
     );
     fireEvent.pointerMove(screen.getByTestId("room-board-view-root"), {
+      buttons: 1,
       pointerId: 9,
       clientX: 150,
       clientY: 175,
@@ -1213,6 +1244,7 @@ describe("RoomBoardView", () => {
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 12,
       clientX: 450,
       clientY: 175,
@@ -1292,6 +1324,7 @@ describe("RoomBoardView", () => {
       { pointerId: 12, clientX: 140, clientY: 145 },
     );
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 12,
       clientX: 450,
       clientY: 175,
@@ -1353,6 +1386,7 @@ describe("RoomBoardView", () => {
       clientY: 145,
     });
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 13,
       clientX: 320,
       clientY: 700,
@@ -1409,6 +1443,7 @@ describe("RoomBoardView", () => {
       clientY: 145,
     });
     fireEvent.pointerMove(root, {
+      buttons: 1,
       pointerId: 14,
       clientX: 320,
       clientY: 700,
@@ -1559,8 +1594,17 @@ describe("RoomBoardView", () => {
 
       fireEvent.pointerDown(screen.getByTestId("board-canvas"), {
         pointerId: 1,
+        button: 0,
+        pointerType: "mouse",
+        isPrimary: true,
+        clientX: 20,
+        clientY: 20,
       });
-      fireEvent.pointerUp(screen.getByTestId("board-canvas"));
+      fireEvent.pointerUp(screen.getByTestId("board-canvas"), {
+        pointerId: 1,
+        clientX: 20,
+        clientY: 20,
+      });
       expect(first).not.toHaveAttribute("data-selected");
     });
 
@@ -2565,4 +2609,797 @@ it("参加者が作業画面で選んだ成果の扱いを退出へ渡す", asyn
   await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
   await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
   expect(onLeave).toHaveBeenCalledWith("discard");
+});
+
+// AT-001/004/006/007: 本人選択は共有・本文・工程コマンドと分離する。
+describe("キャンバス入力の統合", () => {
+  function prepare() {
+    const notes = buildNotes(3);
+    const interactions = buildInteractions(notes, []);
+    interactions.onSharedNotesDragIntent = vi.fn();
+    const result = setup({ notes, interactions, phase: buildPhaseStep(3) });
+    const viewport = screen.getByTestId("board-scroller");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    const cards = screen.getAllByTestId("note-card");
+    cards.forEach((card, index) => {
+      card.getBoundingClientRect = () =>
+        new DOMRect(100 + index * 100, 100, 80, 80);
+    });
+    return { ...result, viewport, cards, interactions, notes };
+  }
+  function rectangle(viewport: HTMLElement) {
+    fireEvent.pointerDown(viewport, {
+      pointerId: 31,
+      pointerType: "mouse",
+      isPrimary: true,
+      button: 0,
+      buttons: 1,
+      clientX: 90,
+      clientY: 90,
+    });
+    fireEvent.pointerMove(viewport, {
+      pointerId: 31,
+      buttons: 1,
+      clientX: 380,
+      clientY: 180,
+    });
+    fireEvent.pointerUp(viewport, {
+      pointerId: 31,
+      clientX: 380,
+      clientY: 180,
+    });
+  }
+  it("3枚の矩形選択・Shift解除で集合と表示を揃え、矩形は前面化しない", () => {
+    const { viewport, cards, props } = prepare();
+    rectangle(viewport);
+    expect(viewport).toHaveAttribute("data-selection-count", "3");
+    expect(cards.every((card) => card.dataset.selected === "true")).toBe(true);
+    expect(props.onNoteBringToFront).not.toHaveBeenCalled();
+    const surface = getNoteSurface(cards[1]);
+    fireEvent.pointerDown(surface, {
+      pointerId: 32,
+      button: 0,
+      shiftKey: true,
+    });
+    fireEvent.pointerUp(surface, { pointerId: 32, shiftKey: true });
+    expect(viewport).toHaveAttribute("data-selection-count", "2");
+    expect(cards[1]).not.toHaveAttribute("data-selected");
+  });
+  it("複数選択dragは全対象intentだけを渡し、文字・Deleteを先頭の付箋へ適用しない", () => {
+    const { viewport, cards, interactions, notes, props } = prepare();
+    rectangle(viewport);
+    const surface = getNoteSurface(cards[0]);
+    fireEvent.keyDown(surface, { key: "Delete" });
+    fireEvent.keyDown(surface, { key: "h" });
+    expect(props.onNoteDelete).not.toHaveBeenCalled();
+    expect(cards[0]).not.toHaveAttribute("data-editing");
+    fireEvent.pointerDown(surface, {
+      pointerId: 32,
+      button: 0,
+      buttons: 1,
+      clientX: 110,
+      clientY: 110,
+    });
+    fireEvent.pointerMove(surface, {
+      pointerId: 32,
+      buttons: 1,
+      clientX: 125,
+      clientY: 110,
+    });
+    expect(interactions.onSharedNotesDragIntent).toHaveBeenCalledWith(
+      notes.map(({ id }) => id),
+      expect.anything(),
+    );
+    expect(interactions.onNoteDragStart).not.toHaveBeenCalled();
+    expect(viewport).toHaveAttribute("data-selection-count", "3");
+  });
+  it("矩形のEscapeは選択を元に戻す1段だけで、次のEscapeで選択解除、その次でhandへ戻る", () => {
+    const { viewport, cards } = prepare();
+    clickNote(cards[2]);
+    fireEvent.pointerDown(viewport, {
+      pointerId: 31,
+      pointerType: "mouse",
+      isPrimary: true,
+      button: 0,
+      buttons: 1,
+      clientX: 90,
+      clientY: 90,
+    });
+    fireEvent.pointerMove(viewport, {
+      pointerId: 31,
+      buttons: 1,
+      clientX: 380,
+      clientY: 180,
+    });
+    fireEvent.keyDown(viewport, { key: "Escape" });
+    expect(viewport).toHaveAttribute("data-selection-count", "1");
+    expect(cards[2]).toHaveAttribute("data-selected", "true");
+    fireEvent.pointerUp(viewport, {
+      pointerId: 31,
+      clientX: 380,
+      clientY: 180,
+    });
+    fireEvent.keyDown(viewport, { key: "Escape" });
+    expect(viewport).toHaveAttribute("data-selection-count", "0");
+    fireEvent.keyDown(viewport, { key: "h" });
+    expect(
+      screen.getByRole("button", { name: "手のひらツール" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(viewport, { key: "Escape" });
+    expect(screen.getByRole("button", { name: "選択ツール" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+  it("手のひらは工程変更後も保持し、付箋Enterでは投票・編集しない", () => {
+    const { viewport, cards, rerender, props } = prepare();
+    fireEvent.keyDown(viewport, { key: "h" });
+    fireEvent.keyDown(getNoteSurface(cards[0]), { key: "Enter" });
+    expect(cards[0]).toHaveAttribute("data-selected", "true");
+    expect(cards[0]).not.toHaveAttribute("data-editing");
+    expect(props.onNoteVote).not.toHaveBeenCalled();
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(4)} />);
+    expect(
+      screen.getByRole("button", { name: "手のひらツール" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(viewport).toHaveAttribute("data-selection-count", "0");
+  });
+});
+
+describe("投票pointer所有と取消", () => {
+  it("貼ったシールdragをEscapeで取消し、同じup/clickを配送しても元票を取り消さない", () => {
+    const stickerId = "33333333-3333-4333-8333-333333333333";
+    const note = buildNote({
+      dotVoteStickers: [{ id: stickerId, kind: "objective", x: 0.2, y: 0.3 }],
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 1, votedByMe: true, ownCount: 1 },
+      },
+    });
+    const { props } = setup({ phase: buildPhaseStep(4), notes: [note] });
+    const sticker = screen.getByRole("button", {
+      name: "客観シール 1票を1票取り消す",
+    });
+    fireEvent.pointerDown(sticker, {
+      pointerId: 41,
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(sticker, {
+      pointerId: 41,
+      buttons: 1,
+      clientX: 150,
+      clientY: 100,
+    });
+    fireEvent.keyDown(sticker, { key: "Escape" });
+    fireEvent.pointerUp(sticker, { pointerId: 41, clientX: 150, clientY: 100 });
+    fireEvent.click(sticker);
+    expect(props.onNoteVoteStickerMove).not.toHaveBeenCalled();
+    expect(props.onNoteVoteStickerRemove).not.toHaveBeenCalled();
+    expect(props.onNoteVoteRemove).not.toHaveBeenCalled();
+    expect(sticker).toBeInTheDocument();
+  });
+  it("パレットからのdragを別pointerで奪えず、重複upは1回だけ投票する", () => {
+    const { props } = setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
+    const note = screen.getByTestId("note-card");
+    note.getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+    const elementFromPoint = vi
+      .spyOn(document, "elementFromPoint")
+      .mockReturnValue(note);
+    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    fireEvent.pointerDown(palette, {
+      pointerId: 41,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    });
+    fireEvent.pointerDown(palette, {
+      pointerId: 42,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    fireEvent.pointerMove(root, {
+      pointerId: 41,
+      buttons: 1,
+      clientX: 150,
+      clientY: 175,
+    });
+    fireEvent.pointerUp(root, { pointerId: 42, clientX: 150, clientY: 175 });
+    expect(props.onNoteVote).not.toHaveBeenCalled();
+    fireEvent.pointerUp(root, { pointerId: 41, clientX: 150, clientY: 175 });
+    fireEvent.pointerUp(root, { pointerId: 41, clientX: 150, clientY: 175 });
+    expect(props.onNoteVote).toHaveBeenCalledTimes(1);
+    expect(props.onNoteVote).toHaveBeenCalledWith(
+      "note-1",
+      "objective",
+      0.25,
+      0.5,
+    );
+    elementFromPoint.mockRestore();
+  });
+});
+
+describe("AT-004: 所有gestureの取消経路", () => {
+  it.each([
+    "body",
+    "toolbar",
+  ])("private placeholder後の%s focusでもEscapeはdragだけを取消す", (focusTarget) => {
+    const note = buildNote({
+      id: "private-owned",
+      authorId: ME,
+      visibility: "private",
+    });
+    const interactions = buildInteractions([], [note]);
+    const { props, rerender } = setup({
+      notes: [],
+      interactions,
+      phase: buildPhaseStep(2),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+    const card = screen.getByTestId("note-card");
+    clickNote(card);
+    getNoteSurface(card).focus();
+    interactions.isNoteDragging = true;
+    interactions.privateDropPlaceholder = { noteId: note.id };
+    rerender(<TestBoardView {...props} interactions={interactions} />);
+    expect(document.activeElement).toBe(document.body);
+    const toolbar = screen.getByTestId("private-notes-scroll");
+    if (focusTarget === "toolbar") {
+      toolbar.tabIndex = -1;
+      toolbar.focus();
+    }
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key: "Escape",
+    });
+    expect(interactions.cancelCurrentNoteDrag).toHaveBeenCalledTimes(1);
+    expect(interactions.cancelCurrentNoteDrag).toHaveBeenCalledWith(true);
+    interactions.isNoteDragging = false;
+    interactions.privateDropPlaceholder = undefined;
+    rerender(<TestBoardView {...props} interactions={interactions} />);
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
+      "data-selected",
+      "true",
+    );
+    expect(interactions.privateNotes).toEqual([note]);
+  });
+  it.each([
+    "palette",
+    "sticker",
+  ])("%sの所有capture喪失は票を保持して取消し、古いup/clickは無効", (source) => {
+    const note = buildNote({
+      dotVoteStickers: [
+        {
+          id: "33333333-3333-4333-8333-333333333333",
+          kind: "objective",
+          x: 0.2,
+          y: 0.3,
+        },
+      ],
+      dotVotes: {
+        subjective: { count: 0, votedByMe: false, ownCount: 0 },
+        objective: { count: 1, votedByMe: true, ownCount: 1 },
+      },
+    });
+    const { props } = setup({ phase: buildPhaseStep(4), notes: [note] });
+    const owner = screen.getByRole("button", {
+      name:
+        source === "palette"
+          ? "客観シール 残り2票"
+          : "客観シール 1票を1票取り消す",
+    });
+    const root = screen.getByTestId("room-board-view-root");
+    const hand = screen.getByRole("button", { name: "手のひらツール" });
+    const card = screen.getByTestId("note-card");
+    card.getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+    const hit = vi.fn(() => card);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: hit,
+    });
+    fireEvent.pointerDown(owner, {
+      pointerId: 51,
+      button: 0,
+      buttons: 1,
+      clientX: 20,
+      clientY: 20,
+    });
+    fireEvent.pointerMove(owner, {
+      pointerId: 51,
+      buttons: 1,
+      clientX: 150,
+      clientY: 150,
+    });
+    expect(hand).toBeDisabled();
+    fireEvent.lostPointerCapture(owner, { pointerId: 52 });
+    expect(hand).toBeDisabled();
+    fireEvent.lostPointerCapture(owner, { pointerId: 51 });
+    expect(hand).not.toBeDisabled();
+    fireEvent.pointerUp(root, { pointerId: 51, clientX: 150, clientY: 150 });
+    fireEvent.click(owner, { detail: 1 });
+    fireEvent.click(owner, { detail: 1 });
+    expect(
+      screen.getByRole("button", { name: "客観シール 残り2票" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(getNoteSurface(card), { detail: 1 });
+    expect(props.onNoteVote).not.toHaveBeenCalled();
+    expect(props.onNoteVoteStickerMove).not.toHaveBeenCalled();
+    expect(props.onNoteVoteStickerRemove).not.toHaveBeenCalled();
+    expect(props.onNoteVoteRemove).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
+    ).toBeInTheDocument();
+    const palette = screen.getByRole("button", { name: "客観シール 残り2票" });
+    fireEvent.pointerDown(palette, { pointerId: 53, button: 0, buttons: 1 });
+    fireEvent.pointerUp(palette, { pointerId: 53 });
+    fireEvent.click(palette);
+    expect(palette).toHaveAttribute("aria-pressed", "true");
+    hit.mockReset();
+  });
+});
+
+it.each([
+  "external",
+  "details",
+])("AT-004: 所有drag中でも%sのEscapeを奪わない", (surface) => {
+  const interactions = buildInteractions([], []);
+  interactions.isNoteDragging = true;
+  setup({ notes: [], interactions });
+  const external = document.createElement("button");
+  document.body.append(external);
+  const details = screen
+    .getByLabelText("キャンバス操作のヒント")
+    .closest("details");
+  if (!details) throw new Error("操作ヒントdetailsが必要");
+  details.open = true;
+  const summary = details.querySelector("summary");
+  if (!summary) throw new Error("操作ヒントsummaryが必要");
+  const target = surface === "external" ? external : summary;
+  target.focus();
+  vi.mocked(interactions.cancelCurrentNoteDrag).mockClear();
+  fireEvent.keyDown(target, { key: "Escape" });
+  expect(interactions.cancelCurrentNoteDrag).not.toHaveBeenCalled();
+  if (surface === "details") expect(details.open).toBe(false);
+  external.remove();
+});
+
+it("AT-004: privateの閾値前pressをEscapeで取消した後move/upしてもdrag/editしない", () => {
+  const note = buildNote({
+    id: "private-pressed",
+    authorId: ME,
+    visibility: "private",
+  });
+  const interactions = buildInteractions([], [note]);
+  setup({ notes: [], interactions, phase: buildPhaseStep(2) });
+  fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+  const card = screen.getByTestId("note-card");
+  clickNote(card);
+  const surface = getNoteSurface(card);
+  surface.focus();
+  fireEvent.pointerDown(surface, {
+    pointerId: 61,
+    button: 0,
+    buttons: 1,
+    clientX: 20,
+    clientY: 20,
+  });
+  fireEvent.keyDown(surface, { key: "Escape" });
+  expect(card).toHaveAttribute("data-selected", "true");
+  fireEvent.pointerMove(surface, {
+    pointerId: 61,
+    buttons: 1,
+    clientX: 60,
+    clientY: 50,
+  });
+  fireEvent.pointerUp(surface, { pointerId: 61, clientX: 60, clientY: 50 });
+  expect(interactions.onPrivateNoteDragStart).not.toHaveBeenCalled();
+  expect(card).not.toHaveAttribute("data-editing");
+  fireEvent.click(screen.getByTestId("private-notes-scroll"), { detail: 1 });
+  expect(card).toHaveAttribute("data-selected", "true");
+});
+
+describe("AT-002: private pressedの単一pointer所有", () => {
+  function pressPrivate() {
+    const note = buildNote({
+      id: "private-owner",
+      authorId: ME,
+      visibility: "private",
+    });
+    const interactions = buildInteractions([], [note]);
+    interactions.onGestureBlockedChange = vi.fn();
+    const result = setup({ notes: [], interactions, phase: buildPhaseStep(2) });
+    fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+    const surface = getNoteSurface(screen.getByTestId("note-card"));
+    surface.focus();
+    fireEvent.pointerDown(surface, {
+      pointerId: 71,
+      pointerType: "touch",
+      button: 0,
+      buttons: 1,
+      clientX: 20,
+      clientY: 20,
+    });
+    return {
+      ...result,
+      interactions,
+      surface,
+      hand: screen.getByRole("button", { name: "手のひらツール" }),
+    };
+  }
+  it("閾値前private pressはtool切替とcameraをロックし第二canvas touchを受理しない", () => {
+    const { interactions, hand } = pressPrivate();
+    expect(hand).toBeDisabled();
+    expect(interactions.onGestureBlockedChange).toHaveBeenLastCalledWith(true);
+    fireEvent.pointerDown(screen.getByTestId("board-scroller"), {
+      pointerId: 72,
+      pointerType: "touch",
+      button: 0,
+      buttons: 1,
+      clientX: 500,
+      clientY: 300,
+    });
+    expect(interactions.onCanvasPointerDown).not.toHaveBeenCalled();
+    fireEvent.click(hand);
+    expect(hand).toHaveAttribute("aria-pressed", "false");
+  });
+  it.each([
+    "up",
+    "cancel",
+    "lost",
+    "Escape",
+    "blur",
+    "phase",
+  ])("%sでprivate所有を解放し取消後の古いmove/upでdragを再開しない", (ending) => {
+    const { interactions, hand, surface, props, rerender } = pressPrivate();
+    expect(hand).toBeDisabled();
+    if (ending === "up") fireEvent.pointerUp(surface, { pointerId: 71 });
+    else if (ending === "cancel")
+      fireEvent.pointerCancel(surface, { pointerId: 71 });
+    else if (ending === "lost") {
+      fireEvent.lostPointerCapture(surface, { pointerId: 72 });
+      expect(hand).toBeDisabled();
+      fireEvent.lostPointerCapture(surface, { pointerId: 71 });
+    } else if (ending === "Escape")
+      fireEvent.keyDown(surface, { key: "Escape" });
+    else if (ending === "blur") fireEvent(window, new Event("blur"));
+    else rerender(<TestBoardView {...props} phase={buildPhaseStep(3)} />);
+    expect(hand).not.toBeDisabled();
+    fireEvent.pointerMove(surface, {
+      pointerId: 71,
+      buttons: 1,
+      clientX: 60,
+      clientY: 50,
+    });
+    fireEvent.pointerUp(surface, { pointerId: 71, clientX: 60, clientY: 50 });
+    expect(interactions.onPrivateNoteDragStart).not.toHaveBeenCalled();
+  });
+});
+
+it("AT-002: private press取消後の新native HUD press/upは古pointer抑止を引き継がない", () => {
+  const note = buildNote({
+    id: "private-native",
+    authorId: ME,
+    visibility: "private",
+  });
+  const interactions = buildInteractions([], [note]);
+  setup({ notes: [], interactions, phase: buildPhaseStep(2) });
+  fireEvent.click(screen.getByRole("button", { name: "マイ付箋を開く" }));
+  const surface = getNoteSurface(screen.getByTestId("note-card"));
+  surface.focus();
+  fireEvent.pointerDown(surface, { pointerId: 1, button: 0, buttons: 1 });
+  fireEvent.keyDown(surface, { key: "Escape" });
+  const zoom = screen.getByRole("button", { name: "キャンバスを縮小" });
+  fireEvent.pointerDown(zoom, { pointerId: 1, button: 0, buttons: 1 });
+  expect(fireEvent.pointerUp(zoom, { pointerId: 1, cancelable: true })).toBe(
+    true,
+  );
+  fireEvent.click(zoom, { detail: 1 });
+  expect(interactions.onZoomOut).toHaveBeenCalledTimes(1);
+});
+
+describe("AT-002: 第一note所有中の第二palette入力", () => {
+  it.each([
+    "first",
+    "second",
+  ])("%sを先にreleaseしても棄却paletteのcapture/ghost/投票/旧clickは0", (releaseFirst) => {
+    const { props } = setup({ phase: buildPhaseStep(4), notes: buildNotes(3) });
+    const cards = screen.getAllByTestId("note-card");
+    const surface = getNoteSurface(cards[0]);
+    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const capture = vi.fn();
+    palette.setPointerCapture = capture;
+    cards[2].getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => cards[2]),
+    });
+    fireEvent.pointerDown(surface, {
+      pointerId: 101,
+      pointerType: "touch",
+      button: 0,
+      buttons: 1,
+      clientX: 10,
+      clientY: 10,
+    });
+    fireEvent.pointerDown(palette, {
+      pointerId: 102,
+      pointerType: "touch",
+      button: 0,
+      buttons: 1,
+      clientX: 20,
+      clientY: 20,
+    });
+    expect(capture).not.toHaveBeenCalled();
+    const root = screen.getByTestId("room-board-view-root");
+    fireEvent.pointerMove(root, {
+      pointerId: 102,
+      buttons: 1,
+      clientX: 200,
+      clientY: 175,
+    });
+    expect(root.querySelector("[data-state='preview']")).toBeNull();
+    const firstUp = () =>
+      fireEvent.pointerUp(surface, {
+        pointerId: 101,
+        clientX: 10,
+        clientY: 10,
+      });
+    const secondUp = () =>
+      fireEvent.pointerUp(cards[2], {
+        pointerId: 102,
+        clientX: 200,
+        clientY: 175,
+      });
+    if (releaseFirst === "first") {
+      firstUp();
+      secondUp();
+    } else {
+      secondUp();
+      expect(
+        screen.getByRole("button", { name: "手のひらツール" }),
+      ).toBeDisabled();
+      firstUp();
+    }
+    fireEvent.click(palette, { detail: 1 });
+    fireEvent.click(palette, { detail: 1 });
+    expect(palette).toHaveAttribute("aria-pressed", "false");
+    expect(cards[0]).toHaveAttribute("data-selected", "true");
+    expect(props.onNoteVote).not.toHaveBeenCalled();
+    expect(props.onNoteVoteStickerMove).not.toHaveBeenCalled();
+    expect(props.onNoteVoteStickerRemove).not.toHaveBeenCalled();
+    fireEvent.pointerDown(palette, { pointerId: 103, button: 0, buttons: 1 });
+    fireEvent.pointerUp(palette, { pointerId: 103 });
+    fireEvent.click(palette, { detail: 1 });
+    expect(palette).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(palette, { detail: 0 });
+    expect(palette).toHaveAttribute("aria-pressed", "false");
+  });
+  it("第一press中はnative palette armingも配送せず、通常HUDのヒント操作は受理する", () => {
+    setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
+    const surface = getNoteSurface(screen.getByTestId("note-card"));
+    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    fireEvent.pointerDown(surface, { pointerId: 101, button: 0, buttons: 1 });
+    fireEvent.click(palette, { detail: 0 });
+    expect(palette).toHaveAttribute("aria-pressed", "false");
+    const summary = screen.getByLabelText("キャンバス操作のヒント");
+    expect(fireEvent.click(summary, { detail: 0 })).toBe(true);
+    fireEvent.pointerUp(surface, { pointerId: 101 });
+    fireEvent.click(palette, { detail: 0 });
+    expect(palette).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+it("AT-023: hand toolでも本人シールnative keyboard clickは1回取消す", () => {
+  const note = buildNote({
+    dotVoteStickers: [
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        kind: "objective",
+        x: 0.2,
+        y: 0.3,
+      },
+    ],
+    dotVotes: {
+      subjective: { count: 0, votedByMe: false, ownCount: 0 },
+      objective: { count: 1, votedByMe: true, ownCount: 1 },
+    },
+  });
+  const { props } = setup({ phase: buildPhaseStep(4), notes: [note] });
+  fireEvent.click(screen.getByRole("button", { name: "手のひらツール" }), {
+    detail: 0,
+  });
+  const sticker = screen.getByRole("button", {
+    name: "客観シール 1票を1票取り消す",
+  });
+  fireEvent.click(sticker, { detail: 0 });
+  expect(props.onNoteVoteStickerRemove).toHaveBeenCalledTimes(1);
+  expect(props.onNoteVoteStickerRemove).toHaveBeenCalledWith(
+    note.dotVoteStickers[0].id,
+  );
+});
+
+it("AT-002: 棄却palette内spanのimplicit touch captureも失効する", () => {
+  setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
+  const surface = getNoteSurface(screen.getByTestId("note-card"));
+  const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+  const child = palette.querySelector("span");
+  if (!child) throw new Error("palette内spanが必要");
+  child.hasPointerCapture = vi.fn(() => true);
+  child.releasePointerCapture = vi.fn();
+  fireEvent.pointerDown(surface, { pointerId: 201, button: 0, buttons: 1 });
+  fireEvent.pointerDown(child, {
+    pointerId: 202,
+    pointerType: "touch",
+    button: 0,
+    buttons: 1,
+  });
+  expect(child.releasePointerCapture).toHaveBeenCalledWith(202);
+});
+
+describe("CI-IN002: active gesture中のnote custom semantic key", () => {
+  it.each([
+    "Enter",
+    " ",
+  ])("active sticker drag中の%sはvoteを配送せず、owner dropと終了後keyは有効", (key) => {
+    const notes = buildNotes(3);
+    notes[0] = {
+      ...notes[0],
+      dotVoteStickers: [
+        {
+          id: "33333333-3333-4333-8333-333333333333",
+          kind: "objective",
+          x: 0.2,
+          y: 0.3,
+        },
+      ],
+      dotVotes: {
+        subjective: { count: 0, ownCount: 0, votedByMe: false },
+        objective: { count: 1, ownCount: 1, votedByMe: true },
+      },
+    };
+    const { props } = setup({ phase: buildPhaseStep(4), notes });
+    fireEvent.click(
+      screen.getByRole("button", { name: "客観シール 残り2票" }),
+      { detail: 0 },
+    );
+    const cards = screen.getAllByTestId("note-card");
+    cards[2].getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => cards[2],
+    });
+    const owner = screen.getByRole("button", {
+      name: "客観シール 1票を1票取り消す",
+    });
+    fireEvent.pointerDown(owner, {
+      pointerId: 301,
+      buttons: 1,
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    });
+    fireEvent.pointerMove(owner, {
+      pointerId: 301,
+      buttons: 1,
+      clientX: 200,
+      clientY: 175,
+    });
+    const surface = within(cards[2]).getByRole("button", { name: /付箋/ });
+    expect(
+      fireEvent.keyDown(surface, { key: "Enter", isComposing: true }),
+    ).toBe(true);
+    expect(fireEvent.keyDown(surface, { key: "Tab" })).toBe(true);
+    expect(fireEvent.keyDown(owner, { key: " ", code: "Space" })).toBe(true);
+    fireEvent.keyDown(surface, { key });
+    expect(props.onNoteVote).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "手のひらツール" }),
+    ).toBeDisabled();
+    fireEvent.pointerUp(owner, { pointerId: 301, clientX: 200, clientY: 175 });
+    expect(props.onNoteVoteStickerMove).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(surface, { key });
+    expect(props.onNoteVote).toHaveBeenCalledTimes(1);
+  });
+});
+
+it.each([
+  { key: "f", ctrlKey: true },
+  { key: "c", metaKey: true },
+  { key: " ", altKey: true },
+  { key: "F10" },
+  { key: "Enter", ctrlKey: true },
+  { key: " ", ctrlKey: true },
+  { key: "Enter", metaKey: true },
+  { key: " ", metaKey: true },
+])("CI-IN002 native shortcut $key $ctrlKey $metaKey $altKeyはactiveでもdefaultと票を保持", (input) => {
+  const { props } = setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
+  fireEvent.click(screen.getByRole("button", { name: "客観シール 残り3票" }), {
+    detail: 0,
+  });
+  props.interactions.isNoteDragging = true;
+  screen.getByTestId("note-card").getBoundingClientRect = () =>
+    new DOMRect(0, 0, 200, 150);
+  const surface = within(screen.getByTestId("note-card")).getByRole("button", {
+    name: /付箋/,
+  });
+  expect(fireEvent.keyDown(surface, input)).toBe(true);
+  if (input.key === "Enter" || input.key === " ")
+    fireEvent.click(surface, { detail: 0 });
+  expect(props.onNoteVote).not.toHaveBeenCalled();
+  expect(screen.getByTestId("note-card")).not.toHaveAttribute("data-editing");
+});
+
+it("CI-IN002 owner終了後の古いmodified Space clickは取消し新keydownは受理", () => {
+  const { props } = setup({ phase: buildPhaseStep(4), notes: buildNotes(1) });
+  const card = screen.getByTestId("note-card");
+  card.getBoundingClientRect = () => new DOMRect(0, 0, 200, 150);
+  fireEvent.click(screen.getByRole("button", { name: "客観シール 残り3票" }), {
+    detail: 0,
+  });
+  const surface = within(card).getByRole("button", { name: /付箋/ });
+  props.interactions.isNoteDragging = true;
+  expect(
+    fireEvent.keyDown(surface, { key: " ", code: "Space", ctrlKey: true }),
+  ).toBe(true);
+  props.interactions.isNoteDragging = false;
+  expect(
+    fireEvent.keyDown(surface, {
+      key: " ",
+      code: "Space",
+      ctrlKey: true,
+      repeat: true,
+    }),
+  ).toBe(true);
+  fireEvent.keyUp(surface, { key: " ", code: "Space", ctrlKey: true });
+  fireEvent.click(surface, { detail: 0 });
+  expect(props.onNoteVote).not.toHaveBeenCalled();
+  fireEvent.keyDown(surface, { key: "Enter" });
+  expect(props.onNoteVote).toHaveBeenCalledTimes(1);
+});
+
+describe("CI-PHASE002: 採用semantic activationとgesture所有", () => {
+  it.each([
+    ["pan", "Enter"],
+    ["pan", " "],
+    ["note-drag", "Enter"],
+    ["note-drag", " "],
+  ])("%s中の%s採用は待ちとownerを保ち、旧up/repeatは0・freshは1", (owner, key) => {
+    const { props } = setup({
+      phase: buildPhaseStep(5),
+      isHost: true,
+      notes: buildNotes(3),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
+    const target = screen.getByRole("button", { name: "採用する付箋: 付箋 2" });
+    let active = true;
+    props.interactions.hasPan = () => owner === "pan" && active;
+    props.interactions.isNoteDragging = owner === "note-drag";
+    expect(fireEvent.keyDown(target, { key: "f", ctrlKey: true })).toBe(true);
+    expect(fireEvent.keyDown(target, { key: "Enter", isComposing: true })).toBe(
+      true,
+    );
+    expect(fireEvent.keyDown(target, { key: "Tab" })).toBe(true);
+    fireEvent.keyDown(target, { key });
+    fireEvent.click(target, { detail: 0 });
+    expect(props.onNoteDecide).not.toHaveBeenCalled();
+    expect(target).toBeInTheDocument();
+    expect(
+      props.interactions.hasPan?.() || props.interactions.isNoteDragging,
+    ).toBe(true);
+    expect(fireEvent.keyDown(target, { key: " ", ctrlKey: true })).toBe(true);
+    active = false;
+    props.interactions.isNoteDragging = false;
+    expect(
+      fireEvent.keyDown(target, { key: " ", ctrlKey: true, repeat: true }),
+    ).toBe(true);
+    fireEvent.keyUp(target, { key: " ", ctrlKey: true });
+    fireEvent.click(target, { detail: 0 });
+    expect(props.onNoteDecide).not.toHaveBeenCalled();
+    fireEvent.keyDown(target, { key });
+    fireEvent.click(target, { detail: 0 });
+    expect(props.onNoteDecide).toHaveBeenCalledTimes(1);
+    expect(props.onNoteDecide).toHaveBeenCalledWith("note-2");
+  });
 });

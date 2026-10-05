@@ -63,6 +63,8 @@ for (const viewport of [
     await note.scrollIntoViewIfNeeded();
     await note.focus();
     await page.keyboard.press("Enter");
+    expect(await note.getAttribute("aria-pressed")).toBe("true");
+    await page.keyboard.press("Enter");
     const editor = toolbar.getByRole("textbox").first();
     expect(await editor.getAttribute("readonly")).toBeNull();
     await page.keyboard.press("Escape");

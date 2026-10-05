@@ -23,6 +23,7 @@ beforeEach(async () => {
   );
   await page.getByTestId("board-control-hud").waitFor();
   await page.evaluate(() => document.fonts.ready);
+  await page.getByRole("button", { name: "手のひらツール" }).click();
 });
 afterEach(async () => {
   await page.close();
@@ -99,6 +100,12 @@ test("pointerupが別のUIに消費されてもボタンを離すとパンを終
   await page.getByRole("button", { name: "参加者 3人" }).click();
   await page.mouse.move(700, 610);
   expect(await canvasTransform()).toBe(afterRelease);
+  // cameraだけでなく入力所有者も解放し、次のgestureを受け取れる。
+  await page.mouse.move(600, 500);
+  await page.mouse.down();
+  await page.mouse.move(660, 550, { steps: 4 });
+  await page.mouse.up();
+  expect(await canvasTransform()).not.toBe(afterRelease);
 });
 
 test("押下中にpointer captureを失ってもパン状態を残さない", async () => {

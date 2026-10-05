@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -45,6 +46,11 @@ import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
 import { roomNotify } from "../logic/room-notify";
 import type { Decision, Member } from "../logic/room-reducer";
 import type { BoardHelpControls } from "../logic/use-board-help";
+import {
+  type CanvasSelectionOptions,
+  type CanvasTool,
+  useCanvasSelection,
+} from "../logic/use-canvas-selection";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { StepGuideState } from "../logic/use-step-guide";
@@ -236,6 +242,7 @@ export type RoomBoardViewProps = {
 };
 
 type VoteStickerDrag = {
+  owner?: HTMLButtonElement;
   stickerId: string | null;
   kind: DotVoteKind;
   pointerId: number;
@@ -340,7 +347,39 @@ export function RoomBoardView({
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const shouldExpandPrivateNotes =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const selection = useCanvasSelection({
+    viewportRef: interactions.boardScrollerRef,
+    notes: [...notes, ...interactions.privateNotes],
+  });
+  const selectedNoteIds = selection.selectedNoteIds;
+  const selectedNoteId =
+    selectedNoteIds.length === 1 ? selectedNoteIds[0] : null;
+  const setSelectedNoteId = selection.selectNote;
+  const [interactionTool, setInteractionTool] = useState<CanvasTool>("select");
+  const [rootPointerPressed, setRootPointerPressed] = useState(false);
+  const rootPressRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    didDrag: boolean;
+    canvas: boolean;
+    owner: HTMLElement;
+  } | null>(null);
+  const cancelledRootPointerRef = useRef<number | null>(null);
+  const rejectedVotePointersRef = useRef(new Set<number>());
+  const rejectedVoteClickOwnersRef = useRef(new Set<HTMLElement>());
+  const suppressCanvasClickRef = useRef(false);
+  const cancelRootPress = useCallback((): boolean => {
+    const press = rootPressRef.current;
+    if (!press) return false;
+    rootPressRef.current = null;
+    cancelledRootPointerRef.current = press.pointerId;
+    setRootPointerPressed(false);
+    suppressCanvasClickRef.current = true;
+    if (press.owner.hasPointerCapture?.(press.pointerId))
+      press.owner.releasePointerCapture(press.pointerId);
+    return true;
+  }, []);
   const [isAdoptRequested, setIsAdoptMode] = useState(false);
   const [adoptHostRevision, setAdoptHostRevision] = useState(hostRevision);
   const isAdoptMode = isAdoptRequested && adoptHostRevision === hostRevision;
@@ -361,6 +400,7 @@ export function RoomBoardView({
   const [isVoteStickerReturnDropTarget, setIsVoteStickerReturnDropTarget] =
     useState(false);
   const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
+  const cancelledCanvasKeyClicksRef = useRef(new Set<HTMLElement>());
   const sharedAdoptionFocusRef = useRef<string | null>(null);
   const adoptionHostRevisionRef = useRef(hostRevision);
   const adoptionFocusCallbackRef = useRef(notifyAdoptionFocusChange);
@@ -375,6 +415,23 @@ export function RoomBoardView({
   const [isMounted, setIsMounted] = useState(false);
   const permissions = getBoardPermissions(phase, decision !== null);
 
+  const cancelVoteDrag = useCallback((): boolean => {
+    const current = voteStickerDragRef.current;
+    if (!current) return false;
+    voteStickerDragRef.current = null;
+    setVoteStickerDrag(null);
+    setIsVoteStickerReturnDropTarget(false);
+    if (rootPressRef.current?.pointerId === current.pointerId) {
+      rootPressRef.current = null;
+      setRootPointerPressed(false);
+    }
+    suppressCanvasClickRef.current = true;
+    if (current.stickerId === null) suppressPaletteSelectRef.current = true;
+    if (current.owner?.hasPointerCapture?.(current.pointerId))
+      current.owner.releasePointerCapture(current.pointerId);
+    return true;
+  }, []);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -383,17 +440,44 @@ export function RoomBoardView({
     if (previousPhaseKey.current === phaseKey) return;
     previousPhaseKey.current = phaseKey;
     setIsAdoptMode(false);
+    cancelRootPress();
+    selection.cancel();
+    interactions.cancelCurrentNoteDrag(true);
+    interactions.cancelPan?.();
+    cancelVoteDrag();
     setSelectedNoteId(null);
     if (shouldExpandPrivateNotes)
       setExpandPrivateNotesRequest((request) => request + 1);
-  }, [phaseKey, shouldExpandPrivateNotes]);
+  }, [
+    phaseKey,
+    cancelRootPress,
+    shouldExpandPrivateNotes,
+    selection.cancel,
+    interactions.cancelCurrentNoteDrag,
+    interactions.cancelPan,
+    cancelVoteDrag,
+    setSelectedNoteId,
+  ]);
 
   useEffect(() => {
     if (previousRevision.current === phaseRevision) return;
     previousRevision.current = phaseRevision;
     setIsAdoptMode(false);
+    cancelRootPress();
+    selection.cancel();
+    interactions.cancelCurrentNoteDrag(true);
+    interactions.cancelPan?.();
+    cancelVoteDrag();
     setSelectedNoteId(null);
-  }, [phaseRevision]);
+  }, [
+    phaseRevision,
+    cancelRootPress,
+    selection.cancel,
+    interactions.cancelCurrentNoteDrag,
+    interactions.cancelPan,
+    cancelVoteDrag,
+    setSelectedNoteId,
+  ]);
 
   useEffect(() => {
     if (connectionStatus === "open" && isHost && decision === null) return;
@@ -401,8 +485,24 @@ export function RoomBoardView({
   }, [connectionStatus, decision, isHost]);
 
   useEffect(() => {
-    if (connectionStatus !== "open" || isAdoptMode) setSelectedNoteId(null);
-  }, [connectionStatus, isAdoptMode]);
+    if (connectionStatus !== "open") {
+      selection.cancel();
+      interactions.cancelCurrentNoteDrag(true);
+      interactions.cancelPan?.();
+      cancelVoteDrag();
+      cancelRootPress();
+      setSelectedNoteId(null);
+    } else if (isAdoptMode) setSelectedNoteId(null);
+  }, [
+    connectionStatus,
+    isAdoptMode,
+    cancelRootPress,
+    selection.cancel,
+    interactions.cancelCurrentNoteDrag,
+    interactions.cancelPan,
+    cancelVoteDrag,
+    setSelectedNoteId,
+  ]);
 
   useEffect(() => {
     adoptionFocusCallbackRef.current = notifyAdoptionFocusChange;
@@ -427,15 +527,133 @@ export function RoomBoardView({
   );
 
   useEffect(() => {
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
+    interactions.onToolChange?.(interactionTool);
+    interactions.onGestureBlockedChange?.(
+      selection.hasGesture() ||
+        interactions.isNoteDragging ||
+        voteStickerDrag !== null ||
+        rootPointerPressed,
+    );
+  });
+
+  function changeTool(tool: CanvasTool): void {
+    if (
+      rootPressRef.current !== null ||
+      selection.hasGesture() ||
+      interactions.hasPan?.() ||
+      interactions.isNoteDragging ||
+      voteStickerDragRef.current ||
+      interactions.boardScrollerRef.current?.querySelector(
+        "[data-editing='true']",
+      ) ||
+      document.querySelector("[role='dialog'], [role='menu']")
+    )
+      return;
+    setInteractionTool(tool);
+    interactions.onToolChange?.(tool);
+  }
+
+  useEffect(() => {
+    // private placeholderでsurfaceが外れてbodyへfocusが移る場合も、
+    // 所有中gestureの取消をtoolbarの選択解除より先に1段だけ扱う。
+    function cancelOwnedGesture(event: KeyboardEvent): void {
+      if (event.key !== "Escape" || event.isComposing || event.keyCode === 229)
+        return;
+      const target = event.target;
+      if (
+        !(target instanceof HTMLElement) ||
+        target.closest(
+          "input, textarea, select, [contenteditable='true'], [role='dialog'], [role='menu']",
+        )
+      )
+        return;
+      const root = interactions.boardRootRef.current;
+      if (target !== document.body && !root?.contains(target)) return;
+      if (target.closest("details[open]")) return;
+      if (event.defaultPrevented) {
+        if (rootPressRef.current?.owner === target) cancelRootPress();
+        return;
+      }
+      if (selection.cancel()) {
+        // 開始前の選択を復元する。
+      } else if (interactions.isNoteDragging) {
+        interactions.cancelCurrentNoteDrag(true);
+      } else if (interactions.hasPan?.()) {
+        interactions.cancelPan?.();
+      } else if (!cancelVoteDrag() && !cancelRootPress()) return;
+      cancelRootPress();
+      suppressCanvasClickRef.current = true;
       event.preventDefault();
-      setIsAdoptMode(false);
-      setSelectedNoteId(null);
+      event.stopPropagation();
+      if (!interactions.boardRootRef.current?.contains(target))
+        interactions.boardScrollerRef.current?.focus({ preventScroll: true });
     }
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, []);
+    function handleKey(event: KeyboardEvent): void {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229)
+        return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (
+        target.closest(
+          "input, textarea, select, [contenteditable='true'], [role='dialog'], [role='menu']",
+        )
+      )
+        return;
+      const root = interactions.boardRootRef.current;
+      if (!root?.contains(target)) return;
+      if (event.key === "Escape") {
+        if (selectedVoteKind !== null) {
+          setSelectedVoteKind(null);
+          setVoteStampPointer(null);
+          event.preventDefault();
+          return;
+        }
+        if (isAdoptMode) {
+          setIsAdoptMode(false);
+          event.preventDefault();
+          return;
+        }
+        if (rootPressRef.current) {
+          cancelRootPress();
+          suppressCanvasClickRef.current = true;
+          event.preventDefault();
+          return;
+        }
+        if (selection.selectionRef.current.length > 0) {
+          selection.selectNote(null);
+          event.preventDefault();
+          return;
+        }
+        if (interactionTool === "hand") {
+          changeTool("select");
+          event.preventDefault();
+        }
+        return;
+      }
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const viewport = interactions.boardScrollerRef.current;
+      if (target !== viewport && target.dataset.canvasBackground !== "true")
+        return;
+      if (event.key.toLowerCase() === "h" || event.key.toLowerCase() === "v") {
+        changeTool(event.key.toLowerCase() === "h" ? "hand" : "select");
+        event.preventDefault();
+      }
+    }
+    function blur(): void {
+      selection.cancel();
+      interactions.cancelCurrentNoteDrag(true);
+      cancelVoteDrag();
+      cancelRootPress();
+    }
+    window.addEventListener("keydown", cancelOwnedGesture, true);
+    window.addEventListener("keydown", handleKey);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", cancelOwnedGesture, true);
+      window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("blur", blur);
+    };
+  });
 
   useEffect(() => {
     if (isVotingStep(phase)) return;
@@ -517,9 +735,21 @@ export function RoomBoardView({
       : (notes.find((note) => note.id === decision.noteId)?.content ??
         "確定した内容");
 
+  function hasActiveCanvasGesture(): boolean {
+    return Boolean(
+      rootPressRef.current?.didDrag ||
+        voteStickerDragRef.current?.didDrag ||
+        selection.hasGesture() ||
+        interactions.isNoteDragging ||
+        interactions.isPanning ||
+        interactions.hasPan?.(),
+    );
+  }
+
   function handleAdoptNote(noteId: string) {
     if (
       !isAdoptMode ||
+      hasActiveCanvasGesture() ||
       isCandidatePending ||
       !confirmedNotes.some((note) => note.id === noteId && !note.excluded)
     )
@@ -561,16 +791,56 @@ export function RoomBoardView({
     );
   }
 
+  function votePointerConflicts(
+    pointerId: number,
+    owner: HTMLElement,
+  ): boolean {
+    const press = rootPressRef.current;
+    const vote = voteStickerDragRef.current;
+    return !!(
+      (press && (press.pointerId !== pointerId || press.owner !== owner)) ||
+      (vote && (vote.pointerId !== pointerId || vote.owner !== owner)) ||
+      interactions.isNoteDragging ||
+      selection.hasGesture() ||
+      interactions.hasPan?.()
+    );
+  }
+
+  function rejectVotePointer(pointerId: number, owner: HTMLElement): void {
+    rejectedVotePointersRef.current.add(pointerId);
+    rejectedVoteClickOwnersRef.current.add(owner);
+    // touchの暗黙captureも、棄却したgestureの所有として残さない。
+    if (owner.hasPointerCapture?.(pointerId))
+      owner.releasePointerCapture(pointerId);
+  }
+
   function handlePaletteStickerDragStart(
     kind: DotVoteKind,
     event: ReactPointerEvent<HTMLButtonElement>,
   ) {
-    if (isDisconnected || !isVotingStep(phase) || voteRemaining[kind] <= 0) {
+    if (votePointerConflicts(event.pointerId, event.currentTarget)) {
+      rejectVotePointer(event.pointerId, event.currentTarget);
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
+    if (
+      isDisconnected ||
+      !isVotingStep(phase) ||
+      voteRemaining[kind] <= 0 ||
+      voteStickerDragRef.current ||
+      interactions.isNoteDragging ||
+      selection.hasGesture() ||
+      interactions.hasPan?.()
+    ) {
+      return;
+    }
+    suppressPaletteSelectRef.current = false;
+    suppressCanvasClickRef.current = false;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const next: VoteStickerDrag = {
+      owner: event.currentTarget,
       stickerId: null,
       kind,
       pointerId: event.pointerId,
@@ -589,12 +859,27 @@ export function RoomBoardView({
     kind: DotVoteKind,
     event: ReactPointerEvent<HTMLButtonElement>,
   ) {
-    if (isDisconnected || !isVotingStep(phase)) {
+    if (votePointerConflicts(event.pointerId, event.currentTarget)) {
+      rejectVotePointer(event.pointerId, event.currentTarget);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (
+      isDisconnected ||
+      !isVotingStep(phase) ||
+      interactionTool === "hand" ||
+      voteStickerDragRef.current ||
+      interactions.isNoteDragging ||
+      selection.hasGesture() ||
+      interactions.hasPan?.()
+    ) {
       return;
     }
     event.stopPropagation();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const next: VoteStickerDrag = {
+      owner: event.currentTarget,
       stickerId,
       kind,
       pointerId: event.pointerId,
@@ -609,6 +894,27 @@ export function RoomBoardView({
   }
 
   function handleRootPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const pressed = rootPressRef.current;
+    if (event.buttons === 0 && pressed?.pointerId === event.pointerId) {
+      cancelRootPress();
+      if (isNoteDragging) interactions.cancelCurrentNoteDrag(true);
+    }
+    if (
+      event.buttons === 0 &&
+      voteStickerDragRef.current?.pointerId === event.pointerId
+    ) {
+      cancelVoteDrag();
+      return;
+    }
+    if (
+      pressed?.pointerId === event.pointerId &&
+      Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) >=
+        DRAG_THRESHOLD_PX
+    ) {
+      pressed.didDrag = true;
+      suppressCanvasClickRef.current = true;
+    }
+    if (selection.hasGesture() || interactions.hasPan?.()) return;
     if (selectedVoteKind !== null && event.pointerType !== "touch") {
       setVoteStampPointer({
         clientX: event.clientX,
@@ -644,6 +950,7 @@ export function RoomBoardView({
       setVoteStickerDrag(next);
       return;
     }
+    if (current) return;
     handlePointerMove(event);
     if (isNoteDragging) {
       handlePresencePointerMove(event);
@@ -653,6 +960,11 @@ export function RoomBoardView({
   function handleRootPointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
     const current = voteStickerDragRef.current;
     if (current?.pointerId === event.pointerId) {
+      voteStickerDragRef.current = null;
+      setVoteStickerDrag(null);
+      setIsVoteStickerReturnDropTarget(false);
+      if (current.owner?.hasPointerCapture?.(event.pointerId))
+        current.owner.releasePointerCapture(event.pointerId);
       if (current.didDrag && !isDisconnected && isVotingStep(phase)) {
         event.preventDefault();
         const stickerId = current.stickerId;
@@ -704,14 +1016,23 @@ export function RoomBoardView({
     kind: DotVoteKind,
     event: ReactMouseEvent<HTMLButtonElement>,
   ) {
-    if (suppressPaletteSelectRef.current) {
-      suppressPaletteSelectRef.current = false;
-      return;
-    }
-    if (isDisconnected || !isVotingStep(phase) || voteRemaining[kind] <= 0) {
+    if (rootPressRef.current) return;
+    if (suppressPaletteSelectRef.current && event.detail !== 0) return;
+    // detail=0はEnter/Spaceによるnative activation。取消済みpointerとは分ける。
+    if (event.detail === 0) suppressPaletteSelectRef.current = false;
+    if (
+      isDisconnected ||
+      !isVotingStep(phase) ||
+      voteRemaining[kind] <= 0 ||
+      voteStickerDragRef.current ||
+      interactions.isNoteDragging ||
+      selection.hasGesture() ||
+      interactions.hasPan?.()
+    ) {
       return;
     }
     const nextKind = selectedVoteKind === kind ? null : kind;
+    if (nextKind !== null) selection.selectNote(null);
     setSelectedVoteKind(nextKind);
     setVoteStampPointer(
       nextKind === null
@@ -721,6 +1042,70 @@ export function RoomBoardView({
   }
 
   function handleRootClickCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    const element = event.target instanceof Element ? event.target : null;
+    const targetElement =
+      element?.closest<HTMLElement>("button") ??
+      (element instanceof HTMLElement ? element : null);
+    const voteButton = targetElement?.closest(
+      "[data-vote-palette], [data-vote-sticker-id]",
+    );
+    const pointerId =
+      "pointerId" in event.nativeEvent &&
+      typeof event.nativeEvent.pointerId === "number"
+        ? event.nativeEvent.pointerId
+        : null;
+    const rejectedPointerClick =
+      event.detail !== 0 &&
+      ((pointerId !== null && rejectedVotePointersRef.current.has(pointerId)) ||
+        (targetElement &&
+          rejectedVoteClickOwnersRef.current.has(targetElement)));
+    const competingVoteClick =
+      voteButton &&
+      (rootPressRef.current ||
+        voteStickerDragRef.current ||
+        interactions.isNoteDragging ||
+        selection.hasGesture() ||
+        interactions.hasPan?.());
+    const competingCanvasClick =
+      (targetElement?.dataset.canvasNoteSurface === "true" ||
+        targetElement?.dataset.adoptTarget === "true") &&
+      hasActiveCanvasGesture();
+    const cancelledCanvasKeyClick =
+      event.detail === 0 &&
+      targetElement &&
+      cancelledCanvasKeyClicksRef.current.has(targetElement);
+    if (
+      rejectedPointerClick ||
+      competingVoteClick ||
+      competingCanvasClick ||
+      cancelledCanvasKeyClick
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    const inCanvas =
+      targetElement &&
+      (boardScrollerRef.current?.contains(targetElement) ||
+        privateToolbarRef.current?.contains(targetElement)) &&
+      !targetElement.closest(
+        "input, textarea, select, [contenteditable='true'], [data-board-native-control]",
+      );
+    const suppressedPan = interactions.consumePanClick?.() ?? false;
+    const nativeCanvasActivation =
+      event.detail === 0 &&
+      targetElement?.closest("button, summary") &&
+      targetElement.dataset.canvasNoteSurface !== "true";
+    if (
+      inCanvas &&
+      ((interactionTool === "hand" && !nativeCanvasActivation) ||
+        (event.detail !== 0 &&
+          (suppressCanvasClickRef.current || suppressedPan)))
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (
       selectedVoteKind === null ||
       isDisconnected ||
@@ -767,9 +1152,7 @@ export function RoomBoardView({
 
   function handleRootPointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
     if (voteStickerDragRef.current?.pointerId === event.pointerId) {
-      voteStickerDragRef.current = null;
-      setVoteStickerDrag(null);
-      setIsVoteStickerReturnDropTarget(false);
+      cancelVoteDrag();
       return;
     }
     if (isNoteDragging) {
@@ -777,17 +1160,6 @@ export function RoomBoardView({
     }
     handlePointerCancel(event);
   }
-
-  useEffect(() => {
-    if (selectedVoteKind === null) return;
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setSelectedVoteKind(null);
-      setVoteStampPointer(null);
-    }
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [selectedVoteKind]);
 
   const {
     boardRootRef,
@@ -896,13 +1268,19 @@ export function RoomBoardView({
     };
   }, [boardRootRef]);
 
-  const handleNoteSelect = (noteId: string | null) => {
-    if (isAdoptMode) return;
-    setSelectedNoteId(noteId);
+  const handleNoteSelect = (
+    noteId: string | null,
+    options: CanvasSelectionOptions = {},
+  ) => {
+    if (isAdoptMode && interactionTool === "select") return;
+    setSelectedNoteId(noteId, options);
     const isSharedNote =
       noteId !== null &&
       confirmedNotes.some(({ id, excluded }) => id === noteId && !excluded);
     if (
+      options.bringToFront === true &&
+      !options.shiftKey &&
+      interactionTool === "select" &&
       noteId !== null &&
       isSharedNote &&
       permissions.canMoveNote &&
@@ -981,10 +1359,163 @@ export function RoomBoardView({
                 ? "cursor-crosshair"
                 : ""
         }`}
+        onPointerDownCapture={(event) => {
+          const element = event.target instanceof Element ? event.target : null;
+          const target =
+            element?.closest<HTMLElement>("button") ??
+            (element instanceof HTMLElement ? element : null);
+          const voteButton = target?.closest(
+            "[data-vote-palette], [data-vote-sticker-id]",
+          );
+          if (target && voteButton) {
+            if (votePointerConflicts(event.pointerId, target)) {
+              rejectVotePointer(event.pointerId, target);
+              if (
+                element !== target &&
+                element?.hasPointerCapture?.(event.pointerId)
+              )
+                element.releasePointerCapture(event.pointerId);
+              event.preventDefault();
+              event.stopPropagation();
+              return;
+            }
+            rejectedVotePointersRef.current.delete(event.pointerId);
+            rejectedVoteClickOwnersRef.current.delete(target);
+          }
+          if (
+            !rootPressRef.current &&
+            cancelledRootPointerRef.current === event.pointerId
+          )
+            cancelledRootPointerRef.current = null;
+          const privateSurface =
+            target?.dataset.canvasNoteSurface === "true" &&
+            !!target.closest("[data-testid='private-notes-toolbar']");
+          // 名前入力・本文editor・HUDのnative操作はgesture所有にしない。
+          if (
+            target?.closest(
+              "input, textarea, select, [contenteditable='true'], [data-board-native-control]",
+            ) ||
+            (target?.closest("button, summary") &&
+              !boardScrollerRef.current?.contains(target) &&
+              !privateSurface)
+          ) {
+            rejectedVotePointersRef.current.delete(event.pointerId);
+            suppressCanvasClickRef.current = false;
+            return;
+          }
+          if (
+            rootPressRef.current ||
+            voteStickerDragRef.current ||
+            selection.hasGesture() ||
+            interactions.hasPan?.() ||
+            interactions.isNoteDragging
+          ) {
+            event.stopPropagation();
+            return;
+          }
+          rejectedVotePointersRef.current.delete(event.pointerId);
+          suppressCanvasClickRef.current = false;
+          suppressPaletteSelectRef.current = false;
+          const canvas =
+            event.target instanceof HTMLElement &&
+            !!boardScrollerRef.current?.contains(event.target) &&
+            !event.target.closest(
+              "input, textarea, select, [contenteditable='true'], [data-board-native-control]",
+            );
+          if (cancelledRootPointerRef.current === event.pointerId)
+            cancelledRootPointerRef.current = null;
+          setRootPointerPressed(canvas || privateSurface);
+          if (!canvas && !privateSurface) {
+            rootPressRef.current = null;
+            return;
+          }
+          rootPressRef.current = {
+            canvas,
+            owner: target ?? event.currentTarget,
+            pointerId: event.pointerId,
+            x: event.clientX,
+            y: event.clientY,
+            didDrag: false,
+          };
+        }}
+        onPointerMoveCapture={(event) => {
+          if (
+            cancelledRootPointerRef.current === event.pointerId ||
+            rejectedVotePointersRef.current.has(event.pointerId)
+          )
+            event.stopPropagation();
+        }}
+        onPointerUpCapture={(event) => {
+          if (
+            cancelledRootPointerRef.current === event.pointerId ||
+            rejectedVotePointersRef.current.has(event.pointerId)
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+        onLostPointerCaptureCapture={(event) => {
+          const drag = voteStickerDragRef.current;
+          if (
+            drag?.pointerId === event.pointerId &&
+            drag.owner === event.target
+          )
+            cancelVoteDrag();
+          const press = rootPressRef.current;
+          if (
+            press?.pointerId === event.pointerId &&
+            press.owner === event.target &&
+            !boardScrollerRef.current?.hasPointerCapture?.(event.pointerId)
+          )
+            cancelRootPress();
+        }}
         onClickCapture={handleRootClickCapture}
+        onKeyDownCapture={(event) => {
+          const target = event.target;
+          if (
+            !(target instanceof HTMLElement) ||
+            (target.dataset.canvasNoteSurface !== "true" &&
+              target.dataset.adoptTarget !== "true") ||
+            event.nativeEvent.isComposing ||
+            event.keyCode === 229 ||
+            event.key === "Escape" ||
+            event.key === "Tab"
+          )
+            return;
+          const activeGesture = hasActiveCanvasGesture();
+          if (event.key === "Enter" || event.key === " ") {
+            if (activeGesture) cancelledCanvasKeyClicksRef.current.add(target);
+            else if (!event.repeat)
+              cancelledCanvasKeyClicksRef.current.delete(target);
+          }
+          if (event.ctrlKey || event.metaKey || event.altKey) return;
+          const customSemanticKey =
+            event.key === "Enter" ||
+            event.key === " " ||
+            (target.dataset.canvasNoteSurface === "true" &&
+              (event.key === "Delete" ||
+                event.key === "Backspace" ||
+                (event.shiftKey && event.key === "F10") ||
+                event.code === "Space" ||
+                event.key.length === 1));
+          if (activeGesture && customSemanticKey) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
         onPointerMove={handleRootPointerMove}
-        onPointerUp={handleRootPointerEnd}
-        onPointerCancel={handleRootPointerCancel}
+        onPointerUp={(event) => {
+          if (rootPressRef.current?.pointerId === event.pointerId) {
+            rootPressRef.current = null;
+            setRootPointerPressed(false);
+          }
+          handleRootPointerEnd(event);
+        }}
+        onPointerCancel={(event) => {
+          if (rootPressRef.current?.pointerId === event.pointerId)
+            cancelRootPress();
+          handleRootPointerCancel(event);
+        }}
         onPointerLeave={() => setVoteStampPointer(null)}
       >
         <RoomBoardHeader
@@ -1063,6 +1594,14 @@ export function RoomBoardView({
           />
         </RoomBoardHeader>
 
+        {isAdoptMode && interactionTool === "hand" ? (
+          <p
+            role="status"
+            className="pointer-events-none absolute bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-lg bg-background px-3 py-2 text-sm shadow"
+          >
+            採用するには「選択」に戻してください
+          </p>
+        ) : null}
         <RoomBoardCanvas
           notes={renderedNotes}
           groups={groups}
@@ -1074,6 +1613,17 @@ export function RoomBoardView({
           privateNotes={toolbarNotes}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           selectedNoteId={selectedNoteId}
+          selectedNoteIds={selectedNoteIds}
+          interactionTool={interactionTool}
+          onToolChange={changeTool}
+          toolDisabled={
+            rootPointerPressed ||
+            selection.hasGesture() ||
+            isNoteDragging ||
+            isPanning ||
+            voteStickerDrag !== null
+          }
+          marquee={selection.marquee}
           pendingCandidateNoteIds={pendingCandidateNoteIds}
           draggingNoteId={draggingNoteId}
           localDraggingNoteId={interactions.localDraggingNoteId}
@@ -1095,9 +1645,31 @@ export function RoomBoardView({
           camera={camera}
           gridStyle={gridStyle}
           isPanning={isPanning}
-          onCanvasPointerDown={handleCanvasPointerDown}
-          onCanvasPointerMove={handleCanvasPointerMove}
-          onCanvasPointerEnd={handleCanvasPointerEnd}
+          onCanvasPointerDown={(event) => {
+            handleCanvasPointerDown(event);
+            if (
+              !interactions.hasPan?.() &&
+              !isNoteDragging &&
+              voteStickerDragRef.current === null &&
+              interactionTool === "select" &&
+              selectedVoteKind === null &&
+              !isAdoptMode
+            )
+              if (selection.onPointerDown(event))
+                interactions.onGestureBlockedChange?.(true);
+          }}
+          onCanvasPointerMove={(event) => {
+            if (!selection.onPointerMove(event)) handleCanvasPointerMove(event);
+          }}
+          onCanvasPointerEnd={(event) => {
+            if (
+              event.type === "pointercancel" ||
+              event.type === "lostpointercapture"
+            ) {
+              if (selection.hasPointer(event.pointerId)) selection.cancel();
+            } else selection.onPointerEnd(event);
+            handleCanvasPointerEnd(event);
+          }}
           onNotePointerCaptureLost={interactions.onPointerCaptureLost}
           onPresencePointerMove={handlePresencePointerMove}
           onPresencePointerLeave={handlePresencePointerLeave}
@@ -1110,7 +1682,16 @@ export function RoomBoardView({
               roomNotify.canvasFitUnavailable();
           }}
           onSelect={handleNoteSelect}
-          onNoteDragStart={handleSharedNoteDragStart}
+          onNoteDragStart={(noteId, event, origin) => {
+            const ids = selection.selectionRef.current;
+            if (ids.length > 1 && ids.includes(noteId)) {
+              if (interactions.onSharedNotesDragIntent)
+                interactions.onSharedNotesDragIntent([...ids], event);
+              else roomNotify.multipleNoteMoveUnavailable();
+              return;
+            }
+            handleSharedNoteDragStart(noteId, event, origin);
+          }}
           onNoteContentChange={onNoteContentChange}
           draftValue={draftValue}
           onDraftChange={onDraftChange}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PBI"
+  short_description: "目的・受け入れ条件・デモ確認内容を1件のPBIにまとめる"
+  default_prompt: "Use $pbi to create one PBI with acceptance and demo checks for idea-boost."

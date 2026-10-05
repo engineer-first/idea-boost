@@ -6,6 +6,13 @@
 import { toast } from "sonner";
 
 export const roomNotify = {
+  multipleNoteMoveUnavailable(): void {
+    toast("複数の付箋の移動は準備中です。1枚ずつ選択して動かしてください。", {
+      id: "multiple-note-move-unavailable",
+      duration: 4000,
+      closeButton: true,
+    });
+  },
   cannotVoteExcludedNote(): void {
     toast.error(
       "候補外の付箋には投票できません。残りの票は減っていません。候補の付箋にシールを貼ってください。",

@@ -109,7 +109,7 @@ export const MaximumLengthAt24px: Story = {
   },
 };
 
-// 選択状態: 青い枠が付き、Backspace/Deleteで削除・再クリックまたは文字入力で編集に入る。
+// 単一選択。privateのDelete、再click・Enter・文字入力は対象権限に従う。
 export const Selected: Story = {
   args: {
     isSelected: true,
@@ -607,4 +607,11 @@ export const SelectedExcludedForParticipant: Story = {
     canExcludeNote: false,
     canRestoreNote: false,
   },
+};
+
+export const MultiSelected: Story = {
+  args: { isSelected: true, isMultiSelected: true, canExcludeNote: true },
+};
+export const Hand: Story = {
+  args: { isSelected: true, interactionTool: "hand" },
 };

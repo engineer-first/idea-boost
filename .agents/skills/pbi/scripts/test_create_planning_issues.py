@@ -1,4 +1,6 @@
 import json
+import io
+from contextlib import redirect_stdout
 import tempfile
 from pathlib import Path
 import unittest
@@ -54,30 +56,44 @@ class PlanningIssueSpecTests(unittest.TestCase):
         self.assertEqual(spec["pbi"]["id"], "PBI-12")
         run.assert_not_called()
 
-    def test_main_uses_the_assigned_id_for_the_demo_and_initializes_both_items(self):
+    def test_planning_can_start_with_only_a_pbi_story(self):
+        spec = self.spec()
+        del spec["demo_goals"]
+        planning.validate_spec(spec)
+        with patch.object(planning, "run") as run, redirect_stdout(io.StringIO()) as output:
+            planning.render_dry_run(spec)
+        run.assert_not_called()
+        self.assertIn("利用者として価値を得たい", output.getvalue())
+
+    def test_main_creates_one_pbi_with_demo_checks_and_initializes_one_item(self):
+        spec = self.spec()
+        spec["milestone"] = "対象スプリント"
+        spec["pbi"]["acceptance"] = ["受け入れ条件を保持する"]
+        spec["demo_overview"] = "デモの見せ方を保持する"
+        spec["demo_goals"][0]["risks"] = ["注意点を保持する"]
+        spec["demo_goals"][0]["checks"] = ["確認観点を保持する"]
+        spec["not_doing"] = ["対象外を保持する"]
         fields = [{"id": "status-id", "name": "Status", "options": [{"id": "untriaged-id", "name": "未整理"}]}]
         with tempfile.TemporaryDirectory() as directory:
             spec_path = Path(directory) / "spec.json"
-            spec_path.write_text(json.dumps(self.spec()), encoding="utf-8")
+            spec_path.write_text(json.dumps(spec), encoding="utf-8")
             with patch("sys.argv", ["create_planning_issues.py", str(spec_path)]), \
                  patch.object(planning, "project_id", return_value="project-id"), \
                  patch.object(planning, "project_fields", return_value=fields), \
-                 patch.object(planning, "create_issue", side_effect=[
-                     {"number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340"},
-                     {"number": 341, "url": "https://github.com/engineer-first/idea-boost/issues/341"},
-                 ]) as create, \
-                 patch.object(planning, "add_to_project", side_effect=["pbi-item", "demo-item"]), \
+                 patch.object(planning, "create_issue", return_value={
+                     "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",
+                 }) as create, \
+                 patch.object(planning, "add_to_project", return_value="pbi-item") as add, \
                  patch.object(planning, "set_project_status") as set_status, \
                  patch.object(planning, "run"), patch("builtins.print"):
                 planning.main()
-        demo = create.call_args_list[1].args
-        self.assertEqual(demo[1], "DEMO-340 タイトル")
-        self.assertIn("#340 PBI-340 タイトル", demo[2])
-        self.assertEqual(demo[3], "DemoGoal")
-        self.assertEqual([call.args for call in set_status.call_args_list], [
-            ("pbi-item", "project-id", "status-id", "untriaged-id"),
-            ("demo-item", "project-id", "status-id", "untriaged-id"),
-        ])
+        create.assert_called_once()
+        created = create.call_args.args
+        self.assertEqual(created[3:], ("PBI", "対象スプリント"))
+        for content in ["利用者として価値を得たい", "受け入れ条件を保持する", "デモの見せ方を保持する", "画面で結果を確認できる", "注意点を保持する", "確認観点を保持する", "対象外を保持する"]:
+            self.assertIn(content, created[2])
+        add.assert_called_once_with(3, "engineer-first", "https://github.com/engineer-first/idea-boost/issues/340", 340)
+        set_status.assert_called_once_with("pbi-item", "project-id", "status-id", "untriaged-id")
 
 
 class ProjectStatusTests(unittest.TestCase):

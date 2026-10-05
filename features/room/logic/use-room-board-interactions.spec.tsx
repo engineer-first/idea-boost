@@ -160,7 +160,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     const { result, onCursorMove, viewport } = setup();
     act(() => {
       result.current.onCanvasPointerDown({
-        button: 0,
+        button: 1,
         clientX: 100,
         clientY: 100,
         currentTarget: viewport,
@@ -173,6 +173,9 @@ describe("useRoomBoardInteractions cursor input", () => {
         clientX: 150,
         clientY: 120,
         currentTarget: viewport,
+        pointerId: 1,
+      } as unknown as PointerEvent<HTMLDivElement>);
+      result.current.onCanvasPointerEnd({
         pointerId: 1,
       } as unknown as PointerEvent<HTMLDivElement>);
       result.current.onZoomIn();

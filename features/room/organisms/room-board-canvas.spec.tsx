@@ -1043,6 +1043,7 @@ describe("RoomBoardCanvas", () => {
       clientY: 200,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 210,
       clientY: 210,
@@ -1093,12 +1094,13 @@ describe("RoomBoardCanvas", () => {
       permissions: getBoardPermissions(buildPhaseStep(1)),
       privateNotes: [buildNote({ id: "note-1", visibility: "private" })],
       onPrivateNoteDelete,
+      selectedNoteId: "note-1",
     });
 
     const toolbar = openPrivateNotesToolbar();
     const surface = within(toolbar).getByRole("button", { name: "付箋" });
 
-    fireEvent.keyDown(surface, { key: "Backspace" });
+    fireEvent.keyDown(surface, { key: "Delete" });
 
     expect(onPrivateNoteDelete).toHaveBeenCalledWith("note-1");
   });
@@ -1266,7 +1268,12 @@ it("極端長文mapカードを平面より小さく表示し、短い付箋も�
     screen.getByTestId("idea-value-feasibility-map-note-short"),
   ).getByRole("button", { name: "付箋" });
   fireEvent.pointerDown(surface, { pointerId: 1, clientX: 200, clientY: 200 });
-  fireEvent.pointerMove(surface, { pointerId: 1, clientX: 210, clientY: 210 });
+  fireEvent.pointerMove(surface, {
+    buttons: 1,
+    pointerId: 1,
+    clientX: 210,
+    clientY: 210,
+  });
   expect(onNoteDragStart).toHaveBeenCalledWith("short", expect.anything(), {
     clientX: 200,
     clientY: 200,

@@ -1,0 +1,48 @@
+name: Assign Current Sprint
+
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '付け替え予定だけを確認する'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: issue-sprint-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  assign:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/github-script@v7
+        env:
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+        with:
+          script: |
+            const { assignCurrentSprint } = require('./.github/scripts/assign-current-sprint.js');
+            const dryRun = process.env.DRY_RUN !== 'false';
+            const result = await assignCurrentSprint({ github, ...context.repo, dryRun, log: core.info });
+            core.info(JSON.stringify(result));
+            await core.summary
+              .addHeading(dryRun ? 'Sprint assignment (dry-run)' : 'Sprint assignment')
+              .addRaw(`Current milestone: ${result.milestone ?? 'none'}; reason: ${result.reason ?? 'completed'}\n`)
+              .addTable([
+                [{ data: 'Issue', header: true }, { data: 'From', header: true }, { data: 'To', header: true }],
+                ...result.planned.map(change => [String(change.number), String(change.from ?? 'none'), String(change.to)]),
+              ])
+              .write();
