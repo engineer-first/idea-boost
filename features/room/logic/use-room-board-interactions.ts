@@ -319,8 +319,11 @@ export function useRoomBoardInteractions({
 
   const toolbarNotes = renderedPrivateNotes.filter(
     (note) =>
-      !(note.id === drag?.note.id && drag.status === "shared") &&
-      note.id !== draggingNoteId,
+      !(
+        note.id === drag?.note.id &&
+        (drag.status === "shared" ||
+          (drag.status === "private" && drag.privateDropIndex === null))
+      ) && note.id !== draggingNoteId,
   );
 
   const presencePointFromPointer = (

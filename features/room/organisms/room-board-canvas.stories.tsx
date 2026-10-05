@@ -1017,7 +1017,7 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
           note.id === id ? { ...note, visibility: "shared", x, y } : note,
         ),
       );
-      setDraggingNoteId(id);
+      setDraggingNoteId(null);
     },
     onPrivateNoteUnpublish: (id) => {
       setNotes((current) =>
@@ -1294,4 +1294,20 @@ export const TransactionMove100MapNotes: Story = {
     permissions: getBoardPermissions(STEP_3_2),
   },
   render: (args) => <TransactionMovePreview args={args} />,
+};
+
+// 共有前の本人preview。shared一覧・他者配信はまだ増えず、元付箋はprivateのまま。
+export const PrivateSharePreview: Story = {
+  ...PrivateGuidanceSharing,
+  args: {
+    ...PrivateGuidanceSharing.args,
+    dragPreview: {
+      note: guidanceNotes[0],
+      left: 360,
+      top: 160,
+      width: 200,
+      height: 144,
+    },
+  },
+  render: (args) => <RoomBoardCanvasWithLocalRefs {...args} />,
 };

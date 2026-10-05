@@ -20,6 +20,7 @@ import {
   type MoveReceipt,
   NoteFontSizeSchema,
   type ServerMessage,
+  type ShareReceipt,
 } from "@/contracts/room-protocol";
 import { createThrottled } from "@/lib/throttle";
 import {
@@ -35,6 +36,7 @@ import {
   voteNoteLocally,
 } from "./notes-reducer";
 import { type MoveFeedback, useNoteMove } from "./use-note-move";
+import { useNoteShare } from "./use-note-share";
 
 type NoteDragPayload = {
   noteId: string;
@@ -100,6 +102,8 @@ export type UseRoomNotesResult = {
   movePending: boolean;
   moveFeedback: MoveFeedback | null;
   lastMoveReceipt: MoveReceipt | null;
+  lastShareReceipt: ShareReceipt | null;
+  sharePending: boolean;
   // 接続後のサーバー状態を適用した回数。初期データとの照合が必要な処理で使う。
   snapshotVersion: number;
   draggingNoteId: string | null;
@@ -230,6 +234,11 @@ export function useRoomNotes({
     return next;
   }, []);
 
+  const transactionShare = useNoteShare({
+    notes,
+    send,
+    createId: createNoteDragId,
+  });
   const transactionMove = useNoteMove({
     notes,
     send,
@@ -284,6 +293,7 @@ export function useRoomNotes({
   const applyMessage = useCallback(
     (message: ServerMessage) => {
       transactionMove.applyMessage(message);
+      transactionShare.applyMessage(message);
       if (message.type === "snapshot")
         confirmedPositionsRef.current = new Map(
           message.notes.map((note) => [note.id, { x: note.x, y: note.y }]),
@@ -614,6 +624,7 @@ export function useRoomNotes({
       updatePendingNoteFront,
       updatePendingVoteOperations,
       transactionMove.applyMessage,
+      transactionShare.applyMessage,
     ],
   );
 
@@ -630,9 +641,9 @@ export function useRoomNotes({
 
   const publishNote = useCallback(
     (noteId: string, x: number, y: number) => {
-      send({ type: "note:publish", noteId, x, y });
+      transactionShare.commit({ type: "note:publish", noteId, x, y });
     },
-    [send],
+    [transactionShare.commit],
   );
 
   const unpublishNote = useCallback(
@@ -659,14 +670,14 @@ export function useRoomNotes({
       if (pendingNoteFrontRef.current?.noteId === noteId) {
         updatePendingNoteFront(null);
       }
-      send(
+      transactionShare.commit(
         privateIndex === undefined
           ? { type: "note:unpublish", noteId }
           : { type: "note:unpublish", noteId, privateIndex },
       );
     },
     [
-      send,
+      transactionShare.commit,
       updatePendingNoteDrop,
       updatePendingNoteFront,
       transactionMove.owns,
@@ -680,6 +691,7 @@ export function useRoomNotes({
       privateMapLock = false,
       selectedNoteIds?: readonly string[],
     ) => {
+      if (transactionShare.owns(noteId)) return;
       const candidate = notesRef.current.find((note) => note.id === noteId);
       if (
         (transactionMove.enabled() || (selectedNoteIds?.length ?? 0) > 1) &&
@@ -725,6 +737,7 @@ export function useRoomNotes({
       updatePendingNoteDrop,
       transactionMove.enabled,
       transactionMove.start,
+      transactionShare.owns,
     ],
   );
 
@@ -1035,10 +1048,12 @@ export function useRoomNotes({
   );
 
   return {
-    notes: transactionMove.notes,
+    notes: transactionShare.renderNotes(transactionMove.notes),
     clearPeerMoves: transactionMove.clearPeerMoves,
-    movePending: transactionMove.pending,
-    moveFeedback: transactionMove.feedback,
+    movePending: transactionMove.pending || transactionShare.pending,
+    sharePending: transactionShare.pending,
+    lastShareReceipt: transactionShare.receipt,
+    moveFeedback: transactionShare.feedback ?? transactionMove.feedback,
     lastMoveReceipt: transactionMove.receipt,
     snapshotVersion,
     draggingNoteId: transactionMove.draggingNoteId ?? draggingNoteId,

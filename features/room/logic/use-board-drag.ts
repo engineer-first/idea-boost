@@ -1,7 +1,7 @@
 "use client";
 
 // マイ付箋ツールバーとボードをまたぐドラッグの状態機械。
-// private（ツールバー内）→ shared（ボードに入った瞬間 publish）→
+// private（本人だけのpreview。有効pointerupでpublish）→ shared →
 // returning（自分の共有付箋をツールバーへ戻す = unpublish 待ち）を管理する。
 // RoomDO の応答を待たずに表示を確定させるため、renderedNotes /
 // renderedPrivateNotes として「表示用に畳み込んだ」配列を返す。
@@ -23,6 +23,10 @@ const PRIVATE_LIST_AUTO_SCROLL_EDGE_PX = 56;
 const PRIVATE_LIST_AUTO_SCROLL_OUTSIDE_EDGE_PX = 80;
 const PRIVATE_LIST_AUTO_SCROLL_EDGE_SPEED_PX_PER_FRAME = 8;
 const PRIVATE_LIST_AUTO_SCROLL_MAX_PX_PER_FRAME = 16;
+
+function isPrivatePanelExpanded(toolbar: HTMLDivElement | null): boolean {
+  return toolbar !== null && toolbar.dataset?.expanded !== "false";
+}
 
 function getPrivateListOutsideEdgeSpeed(distance: number): number {
   const progress = Math.min(
@@ -183,9 +187,6 @@ export function useBoardDrag({
 }: UseBoardDragArgs) {
   const [drag, setDrag] = useState<BoardDrag | null>(null);
   const [privateOrder, setPrivateOrder] = useState<string[]>([]);
-  const [pendingReturnedNotes, setPendingReturnedNotes] = useState<
-    Record<string, Note>
-  >({});
   // pointermove は React の再レンダーより速く連続発火するため、最新状態は
   // ref で参照する（state はレンダー反映用）。
   const dragRef = useRef<BoardDrag | null>(null);
@@ -225,31 +226,20 @@ export function useBoardDrag({
 
   useEffect(() => stopPrivateListAutoScroll, [stopPrivateListAutoScroll]);
 
-  // 非公開へ戻す操作は RoomDO の応答で確定する。ドラッグ中だけでなく、
-  // unpublish の応答待ちもボード側から隠し、ドロップ直後の再表示を防ぐ。
+  // 戻し先hoverは本人previewだけ。送信後のpending投影はuseNoteShareが結果まで所有する。
   const renderedNotes =
-    drag?.status === "returning" || Object.keys(pendingReturnedNotes).length > 0
-      ? notes.filter(
-          (note) =>
-            note.id !== (drag?.status === "returning" ? drag.note.id : null) &&
-            !pendingReturnedNotes[note.id],
-        )
+    drag?.status === "returning"
+      ? notes.filter((note) => note.id !== drag.note.id)
       : notes;
-  const privateNotesWithPending = [
-    ...orderedPrivateNotes,
-    ...Object.values(pendingReturnedNotes).filter(
-      (pending) => !privateNotes.some((note) => note.id === pending.id),
-    ),
-  ];
   const privateNotesWithReturning =
     drag?.status === "returning" &&
     drag.privateDropIndex !== null &&
-    !privateNotesWithPending.some((note) => note.id === drag.note.id)
+    !orderedPrivateNotes.some((note) => note.id === drag.note.id)
       ? [
           { ...drag.note, visibility: "private" as const },
-          ...privateNotesWithPending,
+          ...orderedPrivateNotes,
         ]
-      : privateNotesWithPending;
+      : orderedPrivateNotes;
   let renderedPrivateNotes = applyPrivateOrder(
     privateNotesWithReturning,
     privateOrder,
@@ -265,20 +255,9 @@ export function useBoardDrag({
     );
   }
 
-  useEffect(() => {
-    setPendingReturnedNotes((pending) => {
-      const confirmedIds = new Set(privateNotes.map((note) => note.id));
-      const next = Object.fromEntries(
-        Object.entries(pending).filter(([noteId]) => !confirmedIds.has(noteId)),
-      );
-      return Object.keys(next).length === Object.keys(pending).length
-        ? pending
-        : next;
-    });
-  }, [privateNotes]);
-
   const isPointerInPrivateDropArea = useCallback(
     (clientX: number, clientY: number) => {
+      if (!isPrivatePanelExpanded(privateToolbarRef.current)) return false;
       const rect = privateToolbarRef.current?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return false;
       const current = dragRef.current;
@@ -315,6 +294,13 @@ export function useBoardDrag({
     (clientX: number, clientY: number) => {
       const scroller = boardScrollerRef.current;
       if (!scroller) return null;
+      const hit = document.elementFromPoint?.(clientX, clientY);
+      if (
+        hit?.closest(
+          "[data-board-fit-edge], [data-cursor-private='true'], [role='dialog'], [data-canvas-help]",
+        )
+      )
+        return null;
       const rect = scroller.getBoundingClientRect();
       if (
         clientX < rect.left ||
@@ -340,11 +326,16 @@ export function useBoardDrag({
           ).filter((element) => element.dataset.noteId !== draggingNoteId)
         : [];
       if (noteElements.length > 0) {
-        const index = noteElements.findIndex((element) => {
-          const rect = element.getBoundingClientRect();
-          return clientY < rect.top + rect.height / 2;
-        });
-        return index === -1 ? noteElements.length : index;
+        // 縦一覧はDOM順で単調。全件geometry readを避け、中点の二分探索で挿入先を求める。
+        let low = 0;
+        let high = noteElements.length;
+        while (low < high) {
+          const middle = Math.floor((low + high) / 2);
+          const rect = noteElements[middle].getBoundingClientRect();
+          if (clientY < rect.top + rect.height / 2) high = middle;
+          else low = middle + 1;
+        }
+        return low;
       }
 
       const rect = toolbar?.getBoundingClientRect();
@@ -510,7 +501,8 @@ export function useBoardDrag({
 
   const handlePrivateDragStart = useCallback(
     (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
-      if (dragRef.current) return;
+      if (dragRef.current || !isPrivatePanelExpanded(privateToolbarRef.current))
+        return;
       // RoomDO の応答前でも、楽観表示中の付箋をそのまま掴み直せるようにする。
       const note = renderedPrivateNotes.find((n) => n.id === noteId);
       if (!note || note.excluded) return;
@@ -542,18 +534,8 @@ export function useBoardDrag({
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
-      if (lockPrivateMapDrag && canPublish) {
-        onNoteDragStart(noteId, true);
-      }
     },
-    [
-      renderedPrivateNotes,
-      boardScrollerRef,
-      canPublish,
-      lockPrivateMapDrag,
-      onNoteDragStart,
-      updateDrag,
-    ],
+    [renderedPrivateNotes, boardScrollerRef, privateToolbarRef, updateDrag],
   );
 
   const handlePointerMove = useCallback(
@@ -570,7 +552,8 @@ export function useBoardDrag({
       if (isPointerInPrivateDropArea(event.clientX, event.clientY)) {
         if (
           current.status === "shared" &&
-          current.note.authorId === currentUserId
+          current.note.authorId === currentUserId &&
+          canPublish
         ) {
           // ドック上は挿入先の候補にすぎないため、pointer-up まで非公開化しない。
           // 3-2 の private map lock は pointer-up で非公開化した後に解除する。
@@ -620,7 +603,7 @@ export function useBoardDrag({
           // この領域で pointer-up しても誤って非公開化しない。
           updateDrag({ ...currentAtPointer, privateDropIndex: null });
         } else if (current.status === "private") {
-          updateDrag(currentAtPointer);
+          updateDrag({ ...currentAtPointer, privateDropIndex: null });
         }
         return;
       }
@@ -635,27 +618,21 @@ export function useBoardDrag({
         onNoteDragStart(current.note.id);
       }
       if (current.status === "private") {
-        if (!canPublish) {
-          if (!hasNotifiedBlockedRef.current) {
-            onPublishBlocked?.();
-            hasNotifiedBlockedRef.current = true;
-          }
-          updateDrag({
-            ...currentAtPointer,
-            status: "shared",
-            ...nextPosition,
-          });
-          return;
+        if (!canPublish && !hasNotifiedBlockedRef.current) {
+          onPublishBlocked?.();
+          hasNotifiedBlockedRef.current = true;
         }
-        // ボードに入った瞬間に共有化する。以後の座標は既存のdrag配信を使う。
-        onPrivateNotePublish(current.note.id, nextPosition.x, nextPosition.y);
-        onNoteDragStart(current.note.id);
-      } else if (current.status !== "returning" && !canPublish) {
+        updateDrag({
+          ...currentAtPointer,
+          ...nextPosition,
+          privateDropIndex: null,
+        });
+        return;
+      }
+      if (current.status !== "returning" && !canPublish) {
         updateDrag({ ...currentAtPointer, status: "shared", ...nextPosition });
         return;
       }
-      // publish と同じ WebSocket 接続で送るため、publish のあとに届く drag は
-      // RoomDO 側でも公開後の付箋として処理される。
       onNoteDragMove(current.note.id, nextPosition.x, nextPosition.y);
       updateDrag({
         ...currentAtPointer,
@@ -681,7 +658,6 @@ export function useBoardDrag({
       onNoteDragMove,
       onNoteDragCancel,
       onNoteDragStart,
-      onPrivateNotePublish,
       onPublishBlocked,
       lockPrivateMapDrag,
       preservePrivateGrabOffset,
@@ -693,8 +669,37 @@ export function useBoardDrag({
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const current = dragRef.current;
       if (!current || current.pointerId !== event.pointerId) return;
+      if (
+        (current.status === "private" || current.status === "returning") &&
+        !isPrivatePanelExpanded(privateToolbarRef.current)
+      ) {
+        stopPrivateListAutoScroll();
+        if (current.status === "returning" && lockPrivateMapDrag)
+          onNoteDragCancel(current.note.id);
+        updateDrag(null);
+        boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
+        return;
+      }
       stopPrivateListAutoScroll();
       hasNotifiedBlockedRef.current = false;
+      if (
+        current.status === "private" &&
+        !isPointerInPrivateDropArea(event.clientX, event.clientY)
+      ) {
+        const point = boardPositionFromPointer(event.clientX, event.clientY);
+        if (canPublish && point && privateToolbarRef.current) {
+          const position = getPositionFromPointer({
+            pointerPosition: point,
+            drag: current,
+            preservePrivateGrabOffset,
+            clampCoordinate,
+          });
+          onPrivateNotePublish(current.note.id, position.x, position.y);
+        }
+        updateDrag(null);
+        boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
+        return;
+      }
       const isReturningDropTarget =
         current.status === "returning" &&
         isPointerInPrivateDropArea(event.clientX, event.clientY);
@@ -748,17 +753,7 @@ export function useBoardDrag({
             } else {
               onPrivateNoteUnpublish(current.note.id, privateDropIndex);
             }
-            setPendingReturnedNotes((pending) => ({
-              ...pending,
-              [current.note.id]: {
-                ...current.note,
-                visibility: "private" as const,
-              },
-            }));
           }
-        }
-        if (lockPrivateMapDrag && current.status === "private") {
-          onNoteDragCancel(current.note.id);
         }
       }
       if (lockPrivateMapDrag && current.status === "returning") {
@@ -775,6 +770,8 @@ export function useBoardDrag({
       isPointerInPrivateDropArea,
       onNoteDragEnd,
       onPrivateNoteUnpublish,
+      onPrivateNotePublish,
+      privateToolbarRef,
       orderedPrivateNotes,
       privateDropIndexFromPointer,
       onNoteDragCancel,
@@ -794,8 +791,7 @@ export function useBoardDrag({
       hasNotifiedBlockedRef.current = false;
       if (
         current.status === "shared" ||
-        (lockPrivateMapDrag &&
-          (current.status === "private" || current.status === "returning"))
+        (lockPrivateMapDrag && current.status === "returning")
       ) {
         onNoteDragCancel(current.note.id);
       }
@@ -821,7 +817,10 @@ export function useBoardDrag({
       )
         return;
       hasNotifiedBlockedRef.current = false;
-      if (current.status === "shared" || lockPrivateMapDrag)
+      if (
+        current.status === "shared" ||
+        (lockPrivateMapDrag && current.status === "returning")
+      )
         onNoteDragCancel(current.note.id);
       updateDrag(null);
       boardScrollerRef.current?.releasePointerCapture?.(current.pointerId);
@@ -834,6 +833,26 @@ export function useBoardDrag({
       updateDrag,
     ],
   );
+
+  const hasPrivatePreview =
+    drag?.status === "private" || drag?.status === "returning";
+  useEffect(() => {
+    if (!hasPrivatePreview) return;
+    const toolbar = privateToolbarRef.current;
+    const checkPanel = () => {
+      if (!isPrivatePanelExpanded(privateToolbarRef.current))
+        cancelCurrentNoteDrag(true);
+    };
+    checkPanel();
+    if (!(toolbar instanceof Element)) return;
+    // パネルの開閉はtoolbar内部stateでDOM/refを保つため、親の再renderを待たず閉鎖を検知する。
+    const observer = new MutationObserver(checkPanel);
+    observer.observe(toolbar, {
+      attributes: true,
+      attributeFilter: ["data-expanded"],
+    });
+    return () => observer.disconnect();
+  }, [hasPrivatePreview, privateToolbarRef, cancelCurrentNoteDrag]);
 
   const isCurrentDragPointer = useCallback((pointerId: number) => {
     const current = dragRef.current;

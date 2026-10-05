@@ -1,6 +1,6 @@
 # キャンバス操作仕様 v1 — 実装用詳細
 
-> 状態: v1操作契約。PCの選択/手のひらモデルとdrop確定共有はユーザー承認済み。#522で入力・選択の実装を追加した。#523の移動transaction実装範囲は6節を参照する。共有境界（#524）、移動Undo/Redo（#525）、仕様全体の実装・人による実操作・実機検証は未完了。リリース済みを意味しない。
+> 状態: v1操作契約。PCの選択/手のひらモデルとdrop確定共有はユーザー承認済み。#522で入力・選択の実装を追加した。#523の移動transaction実装範囲は6節を参照する。共有境界（#524）のdrop確定・結果照会を追加した。移動Undo/Redo（#525）、人による実操作・実機検証は未完了。リリース済みを意味しない。
 > 調査基準: develop `ad244effde34662fbeedd83813aa3a0dbe7fd82a`、2026-10-04。PR #506・#508 はマージ済み、#491 は未マージでクローズ。
 
 ## 1. 目的・正本・読み方
@@ -271,6 +271,9 @@
 - **取消**: publish要求送信前のEscape/無効dropはprivateを保つ。送信後のEscapeは既に受理した共有を取り消さない。結果を照会し、非共有へ戻すならCI-SHARE-002の別操作。
 - **失敗**: 拒否はprivateに残し再試行可能。曖昧な応答は再接続snapshotで可視性を確認し、重複作成しない。
 - **同時操作**: 工程変更/切断/ロック失効時はpublishせず最新状態を確認。本文/枚数/previewを他者へ先行配信しない。
+- **実装契約**: snapshotの`shareProtocolVersion: 1`で操作ID・工程版・付箋位置版・可視性版付きpublish/unpublishを使用する。pointerdownからpointermoveまではprivateのdrag要求を送信せず、3-2の先行map lockも取得しない。パネルDOM/refが残る閉鎖も`data-expanded=false`を観測して未送信previewを即取消し、同tickのdropも拒否する。旧サーバーに対してはdropのpublish/unpublishのみを互換送信する（結果照会は使用しない）。
+- **結果解決**: RoomDOは可視性・位置/順序変更と作者専用receiptを同じSQLite transactionで保存し、commit後にvisibleTo経由で配信する。同じ操作IDは再実行せず保存結果を返す。`note:share:status`は2秒間隔・再接続snapshot・送信後の工程変更で照会し、errorだけで成功/失敗を決めない。作者以外にはunknown、工程外/削除後には状態だけ返す。24時間経過後はexpiredとしてreceiptを返さない。
+- **履歴境界**: `note:share:result`のcommitted receiptは本文を含めずbefore/afterの可視性・位置・専用版・操作ID・工程版（戻しでは挿入index）を提供する。UI hookの`lastShareReceipt`で#525へ渡す。共有のUndoはこの変更に含めない。
 - **検証**: AT-014: 有効/無効drop・境界往復・Escape・切断を二者接続で検証し、他者への初回配信時点を確認。
 
 <a id="ci-share-002"></a>
@@ -286,6 +289,7 @@
 - **取消**: drop前に領域外へ戻せばshared dragへ。Escapeはunpublishしない。
 - **失敗**: 他者付箋/他工程/複数選択は戻せない。失敗は最新sharedへ戻し、並行の位置変更を巻き戻さない。
 - **同時操作**: unpublish応答待ちで二重に戻す/再公開しない。最新snapshotで結果を解決。
+- **表示と順序**: returning中と応答待ちは本人だけが戻し先をpreviewし、拒否/結果不明解決では最新のserver値へ戻す。作者の縦一覧で挿入indexを求めるgeometry readはDOM順の二分探索で行い、auto-scroll後も最新の中点で再計算する。privateの並べ替えはローカル表示順のみを保持する。FLIPは全行のtopを先にまとめて読み、その後にanimationを書き込む2passとする。
 - **検証**: AT-015: 作者だけが戻せる。hover→外へ戻すだけなら他者表示は消えない。
 
 <a id="ci-share-003"></a>
@@ -562,7 +566,7 @@
 
 ### #523の移動transaction契約
 
-- 新Workerはsnapshotの`moveProtocolVersion: 1`で対応を宣言する。新UIは対応Workerで共有移動を`note:move:start / preview / cancel / commit / status`へ切り替える。旧Workerでは単一の旧dragだけを互換利用し、複数移動を開始しない。旧clientのstreaming保存・private共有/戻しは移動transactionの保証対象外で、drop-only共有は#524に残る。
+- 新Workerはsnapshotの`moveProtocolVersion: 1`で対応を宣言する。新UIは対応Workerで共有移動を`note:move:start / preview / cancel / commit / status`へ切り替える。旧Workerでは単一の旧dragだけを互換利用し、複数移動を開始しない。旧clientのstreaming保存・private共有/戻しは移動transactionの保証対象外で、drop-only共有は次節の#524契約を参照する。
 - startはUUIDのoperation ID、phase訪問版、座標系、group/map版、固定対象全件のposition/visibility版を受ける。最大256枚、開始はuserごとに1分60件まで。非member・private・別phase・重複ID・新旧lock競合・専用版の不一致で全件拒否する。不可視な対象IDや本文は拒否理由に含めない。
 - 本人previewはstart ACKに依存せず、押下時offsetと集合deltaを保ってframeごと最大1回描画する。previewは確定位置・分類・版を保存せず、RoomDOが全対象の現在member・所有接続・工程・可視性・専用版・lockを検証した後、現在memberかつ全対象が可視な受信者へ途中座標だけを配信する。同一userの別タブも受信する。UIは確定notesとpeer overlayを別管理し、操作ID・単調通知番号・工程版・全対象版で古いpreviewと終了通知を拒否する。取消/拒否/lease期限/切断/除外/工程変更/採用で全対象を解除し、snapshotや受信側切断でも破棄する。lease表示は受信からの相対期間を単調時計で測る。確定batchを終了通知より先に配信し、確定前座標への一瞬の巻き戻りを防ぐ。新preview未対応の旧clientは確定位置だけを表示し、途中保存は追加しない。名前付きcursorの移動表示は全対象のlock・所有接続・工程・可視性・版を検証して配信し、取消/確定/lease期限/切断/除外で解除する。mapのlock表示も開始と終了に追随する。mapでは全集合のdeltaを0..100へclampする。表示は全付箋の中心に共通の線形有効域（平面幅から付箋幅、平面高から共通最大表示高を除いた域）を使い、端でも集合の相対距離を保つ。同じ域でpointer入力を逆変換する。長文は本文を保持したまま表示高を平面高の75%までに収め、長文1枚で短い付箋も移動不能にしない。通常canvasのdelta境界は有効位置の両端間である±2×座標上限とする。
 - pointerupだけがcommitを送る。RoomDOは現在のmember/工程/採用/可視性/専用版/lockを再検査し、位置・相対stack順・既存分類再編・成功receiptを1回のtransactionSyncで保存する。失敗時は全位置とgroupが戻り、確定後だけ受信者別の`notes:moved`を配信する。旧client向けに確定note/groupイベントも配る。
@@ -571,6 +575,12 @@
 - \#522の選択入口が渡す`selectedNoteIds`との統合は別Issueの依存であり、本実装はhook境界と100枚・長文混在の固定3枚集合storyを持つ。#525のUndo/Redo本体は未実装。実機・Mac/Windows・trackpad・日本語IME・人による操作確認、および性能の最終合否は未確認として残す。
 
 通信と永続化の判断は[ADR 0006](../../adr/0006-move-transactions.md)、性能の測定条件と制約は[2026-10-04の性能計測](../../archive/canvas-move-performance-2026-10-04.md)を参照する。
+
+### #524の共有確定と確認範囲
+
+共有/戻しの操作IDと専用版は#523と同じ検査方式を使い、終端結果は共有専用表へ保存する。moveのstart/lock/previewをprivate公開前に送らず、本文・枚数・移動対象を他者へ先行配信しない。パネル閉鎖は`data-expanded`の変化で未送信private/returning previewを終了し、同じタイミングのpointerupも拒否する。FLIPは全対象のgeometryをまとめて読んでからanimationを開始する。
+
+AT-014/015/016/021/022はhook・Workerと実RoomDOの二者browser検証で、有効/無効drop、境界往復、Escape、パネル閉鎖、戻し、再読込、他者への初回配信を確認した。成功ACKを捨てた照会と実WebSocket再接続も確認した（切断通知のfault injectionには合成closeイベントを併用）。[性能比較と測定条件](../../archive/canvas-share-performance-2026-10-05.md)を参照する。人による操作確認は依頼者がPR後に実施予定、#525本体との統合・実機性能の合否は未確認である。
 
 ## 7. 人とAIの読み方・資料の更新
 

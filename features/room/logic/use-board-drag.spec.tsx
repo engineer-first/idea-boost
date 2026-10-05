@@ -127,6 +127,81 @@ function setup(overrides: Partial<Parameters<typeof useBoardDrag>[0]> = {}) {
 
 describe("useBoardDrag", () => {
   it.each([
+    "private",
+    "returning",
+  ])("AT-016: %s preview中のpanel閉鎖は残るDOM/refでも取消する", async (kind) => {
+    const toolbar = document.createElement("div");
+    toolbar.dataset.expanded = "true";
+    toolbar.getBoundingClientRect = () =>
+      ({
+        left: 200,
+        top: 540,
+        right: 600,
+        bottom: 590,
+        width: 400,
+        height: 50,
+      }) as DOMRect;
+    const { result, args } = setup({ privateToolbarRef: { current: toolbar } });
+    act(() => {
+      if (kind === "private")
+        result.current.handlePrivateDragStart(
+          "private-1",
+          pointerEvent(1, 400, 560),
+        );
+      else {
+        result.current.handleSharedNoteDragStart(
+          "shared-1",
+          pointerEvent(1, 100, 100),
+        );
+        result.current.handlePointerMove(pointerEvent(1, 400, 560));
+      }
+    });
+    await act(async () => {
+      toolbar.dataset.expanded = "false";
+      await Promise.resolve();
+    });
+    expect(result.current.drag).toBeNull();
+    act(() =>
+      result.current.handlePointerEnd(
+        pointerEvent(
+          1,
+          kind === "private" ? 300 : 400,
+          kind === "private" ? 200 : 560,
+        ),
+      ),
+    );
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+    expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+    expect(result.current.isPointerInPrivateDropArea(400, 560)).toBe(false);
+  });
+
+  it("panel閉鎖と同じtickのpointerupでも公開しない", () => {
+    const toolbar = document.createElement("div");
+    toolbar.dataset.expanded = "true";
+    toolbar.getBoundingClientRect = () =>
+      ({
+        left: 200,
+        top: 540,
+        right: 600,
+        bottom: 590,
+        width: 400,
+        height: 50,
+      }) as DOMRect;
+    const { result, args } = setup({ privateToolbarRef: { current: toolbar } });
+    act(() =>
+      result.current.handlePrivateDragStart(
+        "private-1",
+        pointerEvent(1, 400, 560),
+      ),
+    );
+    act(() => {
+      toolbar.dataset.expanded = "false";
+      result.current.handlePointerEnd(pointerEvent(1, 300, 200));
+    });
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+  });
+
+  it.each([
     ["shared", "shared"],
     ["shared", "private"],
     ["private", "shared"],
@@ -178,16 +253,25 @@ describe("useBoardDrag", () => {
       result.current.handlePointerMove(pointerEvent(7, 300, 200));
       result.current.handlePointerEnd(pointerEvent(7, 300, 200));
     });
-    expect(args.onNoteDragMove).toHaveBeenLastCalledWith(
-      firstId,
-      expect.any(Number),
-      expect.any(Number),
-    );
-    expect(args.onNoteDragEnd).toHaveBeenLastCalledWith(
-      firstId,
-      expect.any(Number),
-      expect.any(Number),
-    );
+    if (firstKind === "shared") {
+      expect(args.onNoteDragMove).toHaveBeenLastCalledWith(
+        firstId,
+        expect.any(Number),
+        expect.any(Number),
+      );
+      expect(args.onNoteDragEnd).toHaveBeenLastCalledWith(
+        firstId,
+        expect.any(Number),
+        expect.any(Number),
+      );
+    } else {
+      expect(args.onPrivateNotePublish).toHaveBeenCalledWith(
+        firstId,
+        expect.any(Number),
+        expect.any(Number),
+      );
+      expect(args.onNoteDragMove).not.toHaveBeenCalled();
+    }
     expect(
       args.boardScrollerRef.current?.releasePointerCapture,
     ).toHaveBeenLastCalledWith(7);
@@ -257,7 +341,53 @@ describe("useBoardDrag", () => {
     expect(args.boardRootRef.current?.setPointerCapture).not.toHaveBeenCalled();
   });
 
-  it("マイ付箋をボードへ運ぶと publish → drag 配信の順で共有化する", () => {
+  it("AT-014: private preview は境界を跨いでも送信せず有効pointerupだけ公開する", () => {
+    const { args, result } = setup();
+    act(() =>
+      result.current.handlePrivateDragStart(
+        "private-1",
+        pointerEvent(1, 400, 560),
+      ),
+    );
+    act(() => result.current.handlePointerMove(pointerEvent(1, 300, 200)));
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+    expect(args.onNoteDragStart).not.toHaveBeenCalled();
+    expect(args.onNoteDragMove).not.toHaveBeenCalled();
+    expect(result.current.drag?.x).toBe(300);
+    act(() => result.current.handlePointerEnd(pointerEvent(1, 310, 210)));
+    expect(args.onPrivateNotePublish).toHaveBeenCalledWith(
+      "private-1",
+      310,
+      210,
+    );
+  });
+
+  it.each([
+    "cancel",
+    "outside",
+    "roundtrip",
+  ])("AT-015: %s はprivateを公開しない", (kind) => {
+    const { args, result } = setup();
+    act(() =>
+      result.current.handlePrivateDragStart(
+        "private-1",
+        pointerEvent(1, 400, 560),
+      ),
+    );
+    act(() => result.current.handlePointerMove(pointerEvent(1, 300, 200)));
+    act(() => {
+      if (kind === "cancel")
+        result.current.handlePointerCancel(pointerEvent(1, 300, 200));
+      else
+        result.current.handlePointerEnd(
+          pointerEvent(1, kind === "outside" ? 900 : 400, 560),
+        );
+    });
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+    expect(args.onNoteDragMove).not.toHaveBeenCalled();
+  });
+
+  it("マイ付箋の有効dropはpublish一件で確定しdrag配信しない", () => {
     const { args, result } = setup();
 
     act(() => {
@@ -272,17 +402,19 @@ describe("useBoardDrag", () => {
       result.current.handlePointerMove(pointerEvent(1, 300, 200));
     });
 
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+    act(() => result.current.handlePointerEnd(pointerEvent(1, 300, 200)));
     expect(args.onPrivateNotePublish).toHaveBeenCalledWith(
       "private-1",
       300,
       200,
     );
-    expect(args.onNoteDragStart).toHaveBeenCalledWith("private-1");
-    expect(args.onNoteDragMove).toHaveBeenCalledWith("private-1", 300, 200);
-    expect(result.current.drag?.status).toBe("shared");
+    expect(args.onNoteDragStart).not.toHaveBeenCalled();
+    expect(args.onNoteDragMove).not.toHaveBeenCalled();
+    expect(result.current.drag).toBeNull();
   });
 
-  it("canPublish private drag はpointerdown時にlockを取りdock内pointerupで解除する", () => {
+  it("private map preview はpointerdownからdock内pointerupまで送信しない", () => {
     const { args, result } = setup({ lockPrivateMapDrag: true });
 
     act(() => {
@@ -291,16 +423,16 @@ describe("useBoardDrag", () => {
         pointerEvent(12, 400, 560),
       );
     });
-    expect(args.onNoteDragStart).toHaveBeenCalledWith("private-1", true);
+    expect(args.onNoteDragStart).not.toHaveBeenCalled();
 
     act(() => {
       result.current.handlePointerEnd(pointerEvent(12, 400, 560));
     });
-    expect(args.onNoteDragCancel).toHaveBeenCalledWith("private-1");
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
     expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
   });
 
-  it("private map drag のpointercancelでRoomDO lockを解除する", () => {
+  it("private map preview のpointercancelは送信せず終了する", () => {
     const { args, result } = setup({ lockPrivateMapDrag: true });
 
     act(() => {
@@ -311,8 +443,8 @@ describe("useBoardDrag", () => {
       result.current.handlePointerCancel(pointerEvent(13, 700, 200));
     });
 
-    expect(args.onNoteDragStart).toHaveBeenCalledWith("private-1", true);
-    expect(args.onNoteDragCancel).toHaveBeenCalledWith("private-1");
+    expect(args.onNoteDragStart).not.toHaveBeenCalled();
+    expect(args.onNoteDragCancel).not.toHaveBeenCalled();
     expect(result.current.drag).toBeNull();
   });
 
@@ -373,7 +505,7 @@ describe("useBoardDrag", () => {
     });
 
     expect(args.onPrivateNotePublish).toHaveBeenCalledWith("private-1", 50, 50);
-    expect(args.onNoteDragEnd).toHaveBeenCalledWith("private-1", 50, 50);
+    expect(args.onNoteDragEnd).not.toHaveBeenCalled();
   });
 
   it("マイ付箋エリア内でドラッグした付箋の並び順を変更する", () => {
@@ -749,7 +881,7 @@ describe("useBoardDrag", () => {
     expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1", 0);
     expect(
       result.current.renderedNotes.some((note) => note.id === "shared-1"),
-    ).toBe(false);
+    ).toBe(true);
 
     // RoomDO の確定後も、ボードから消えたままマイ付箋に表示される。
     args.notes = [];
@@ -849,10 +981,10 @@ describe("useBoardDrag", () => {
       result.current.handlePointerEnd(pointerEvent(1, 580, 589));
     });
 
+    expect(args.onPrivateNoteUnpublish).toHaveBeenCalledWith("shared-1", 2);
     expect(result.current.renderedPrivateNotes.map((note) => note.id)).toEqual([
       "private-1",
       "private-2",
-      "shared-1",
     ]);
 
     args.privateNotes = [
@@ -1141,6 +1273,8 @@ describe("useBoardDrag", () => {
 
     act(() => result.current.handlePrivateDragStart("private-1", event));
     act(() => result.current.handlePointerMove(pointerEvent(1, 400, 300)));
+    expect(args.onPrivateNotePublish).not.toHaveBeenCalled();
+    act(() => result.current.handlePointerEnd(pointerEvent(1, 400, 300)));
 
     expect(args.onPrivateNotePublish).toHaveBeenCalledWith(
       "private-1",

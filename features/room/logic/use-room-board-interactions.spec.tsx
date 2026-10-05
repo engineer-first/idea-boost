@@ -221,7 +221,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(result.current.camera.zoom).toBeCloseTo(672 / 1760);
   });
 
-  it("3-2では公開可能なprivate付箋のpointerdownから先にdrag lockを要求する", () => {
+  it("3-2のprivate previewはpointerdownで他者配信されるlockを要求しない", () => {
     const { result, onNoteDragStart } = setup({
       phase: buildPhaseStep(2, 3),
       withPrivateNote: true,
@@ -245,7 +245,7 @@ describe("useRoomBoardInteractions cursor input", () => {
       } as unknown as PointerEvent<HTMLButtonElement>),
     );
 
-    expect(onNoteDragStart).toHaveBeenCalledWith("private-1", true);
+    expect(onNoteDragStart).not.toHaveBeenCalled();
   });
 
   it("入力欄と touch の位置は送信せず、キャンバス退出を通知する", () => {
