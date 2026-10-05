@@ -208,6 +208,25 @@ export const VotingCompleteHud: Story = {
   },
 };
 
+// 少人数・参加者視点・停止中タイマーでも完了表示が操作を動かさない。
+export const VotingNonHostPaused: Story = {
+  args: {
+    phase: STEP_1_4,
+    isHost: false,
+    members: VOTING_MEMBERS,
+    timer: buildPausedTimer(),
+  },
+};
+export const VotingCompleteNonHostPaused: Story = {
+  args: {
+    ...VotingNonHostPaused.args,
+    completedVoterIds: VOTING_MEMBERS.map(({ userId }) => userId),
+  },
+};
+export const VoteResultNonHostPaused: Story = {
+  args: { ...VotingNonHostPaused.args, phase: STEP_1_5 },
+};
+
 const SHARING_MEMBERS = buildMembers(3, ME);
 export const PresentingMember: Story = {
   args: {

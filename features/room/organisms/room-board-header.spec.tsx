@@ -398,7 +398,7 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("狭い幅では操作類の後へ置き、120msの幅・透明度変化を抑制できる", () => {
+    it("120msの完了表示アニメーションを抑制できる", () => {
       const members = buildMembers(2, ME);
       setup({
         phase: buildPhaseStep(4),
@@ -407,9 +407,6 @@ describe("RoomBoardHeader", () => {
         completedVoterIds: members.map(({ userId }) => userId),
       });
 
-      expect(screen.getByTestId("vote-completion-indicator")).toHaveClass(
-        "max-[900px]:order-last",
-      );
       expect(screen.getByTestId("vote-completion-label")).toHaveClass(
         "transition-[max-width,opacity]",
         "duration-[120ms]",
