@@ -65,6 +65,37 @@ function setup() {
   return { ...hook, send, accept };
 }
 describe("移動履歴", () => {
+  it.each([
+    "undo",
+    "redo",
+  ] as const)("%sの未送信が確定したらpendingを解除し同じ履歴を再試行できる", (direction) => {
+    const { result, send, accept } = setup();
+    accept(receipt("move", 0, 1));
+    if (direction === "redo") {
+      act(() => result.current.undo());
+      act(() =>
+        result.current.applyMessage({
+          type: "note:move:result",
+          operationId: "inverse",
+          status: "accepted",
+          receipt: receipt("inverse", 1, 2),
+        }),
+      );
+    }
+    send.mockClear();
+    send.mockReturnValueOnce(false);
+    act(() => result.current[direction]());
+    const unsent = send.mock.calls[0][0];
+    expect(result.current.pending).toBe(false);
+    expect(result.current[`${direction}State`].disabled).toBe(false);
+    act(() => result.current[direction]());
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1][0]).toMatchObject({
+      sourceOperationId: unsent.sourceOperationId,
+      expectedTargets: unsent.expectedTargets,
+    });
+    expect(result.current.pending).toBe(true);
+  });
   it("本人の成功移動だけを記録し、pending連打と拒否時の別履歴実行を防ぐ", () => {
     const { result, send, accept } = setup();
     accept(receipt("first", 0, 1));

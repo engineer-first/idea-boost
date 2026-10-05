@@ -379,13 +379,19 @@ export function useMoveHistory({
         generation: generation.current,
       };
       refresh();
-      send({
+      const sent = send({
         type: "note:move:inverse",
         operationId: id,
         sourceOperationId: entry.source.operationId,
         expectedTargets: entry.expected,
         expectedGroupRevision: entry.groupRevision,
       });
+      // falseは未送信が確定している。unknownの結果照会とは異なり、
+      // サーバーに存在しない操作を待ち続けず同じ履歴を再試行できる。
+      if (sent === false) {
+        pending.current = null;
+        refresh();
+      }
     },
     [createId, send, refresh],
   );
