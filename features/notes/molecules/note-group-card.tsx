@@ -79,6 +79,7 @@ export function NoteGroupCard({
   return (
     <div
       data-testid="note-group-card"
+      data-canvas-background="true"
       className="pointer-events-none absolute rounded-lg border-2 border-dashed border-[hsl(var(--group-hue),65%,42%)] bg-[hsla(var(--group-hue),65%,55%,0.07)] transition-all duration-200 ease-out"
       style={{
         left: group.x,
@@ -92,6 +93,7 @@ export function NoteGroupCard({
       {name !== "" && (
         <div
           data-testid="group-name-container"
+          data-board-native-control="true"
           className="pointer-events-auto absolute bottom-full left-3 w-48 max-w-[calc(100%-1.5rem)]"
         >
           {isEditing ? (
@@ -104,9 +106,12 @@ export function NoteGroupCard({
               onChange={(e) => setLocalName(e.target.value)}
               onBlur={handleSubmit}
               onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                 if (e.key === "Enter") {
                   handleSubmit();
                 } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
                   setIsEditing(false);
                   setLocalName(name);
                 }

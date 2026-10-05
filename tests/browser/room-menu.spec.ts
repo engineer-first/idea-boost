@@ -42,6 +42,7 @@ test("外側クリックでルームメニューが閉じ、再表示・Escape�
     await menu.waitFor();
     await trigger.click();
     await expect.poll(() => menu.isVisible()).toBe(false);
+    await page.getByRole("button", { name: "手のひらツール" }).click();
     const canvas = page.getByTestId("board-canvas");
     const transform = await canvas.evaluate((el) => el.style.transform);
     await page.mouse.move(600, 620);

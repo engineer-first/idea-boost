@@ -28,9 +28,9 @@ export function BoardOperationMatrix({
   permissions,
 }: BoardOperationMatrixProps) {
   return (
-    <div className="board-hud rounded-lg border bg-background px-3 py-1 shadow-sm">
+    <div className="board-hud rounded-lg border bg-background px-3 py-1 shadow-sm max-[639px]:px-2">
       <TooltipProvider>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 max-[639px]:gap-1">
           {OPERATIONS.map((operation) => {
             const enabled = permissions[operation.key];
             const Icon = operation.icon;

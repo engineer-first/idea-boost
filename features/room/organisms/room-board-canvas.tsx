@@ -10,7 +10,7 @@ import type {
 } from "react";
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { getNoteHeight } from "@/contracts/board";
+import { DRAG_THRESHOLD_PX, getNoteHeight } from "@/contracts/board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
@@ -39,6 +39,11 @@ import {
 } from "../logic/cursor-presence";
 import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
+import type {
+  CanvasMarquee,
+  CanvasSelectionOptions,
+  CanvasTool,
+} from "../logic/use-canvas-selection";
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
@@ -59,6 +64,11 @@ export type RoomBoardCanvasProps = {
   isHost: boolean;
   privateNotes: Note[];
   selectedNoteId: string | null;
+  selectedNoteIds?: string[];
+  interactionTool?: CanvasTool;
+  toolDisabled?: boolean;
+  marquee?: CanvasMarquee | null;
+  onToolChange?: (tool: CanvasTool) => void;
   pendingCandidateNoteIds?: string[];
   draggingNoteId: string | null;
   localDraggingNoteId?: string | null;
@@ -101,7 +111,7 @@ export type RoomBoardCanvasProps = {
   onZoomOut: () => void;
   onResetZoom: () => void;
   onFitToNotes: () => void;
-  onSelect: (noteId: string | null) => void;
+  onSelect: (noteId: string | null, options?: CanvasSelectionOptions) => void;
   onNoteDragStart: (
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
@@ -149,6 +159,11 @@ export function RoomBoardCanvas({
   isHost,
   privateNotes,
   selectedNoteId,
+  selectedNoteIds,
+  interactionTool = "select",
+  toolDisabled = false,
+  marquee = null,
+  onToolChange = () => undefined,
   pendingCandidateNoteIds = [],
   draggingNoteId,
   localDraggingNoteId = null,
@@ -209,6 +224,9 @@ export function RoomBoardCanvas({
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
+  const selectionIds =
+    selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
+  const isMultiSelected = selectionIds.length > 1;
   const renderGroups = isAtOrAfterGroupingStep(phase)
     ? calculateRenderGroups(notes, groups)
     : [];
@@ -318,13 +336,6 @@ export function RoomBoardCanvas({
   }
 
   function handleViewportPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (
-      isAdoptMode &&
-      event.target instanceof Element &&
-      event.target.closest("[data-adopt-target]")
-    ) {
-      return;
-    }
     handleBoardPointerDown(event);
     onCanvasPointerDown(event);
   }
@@ -334,7 +345,7 @@ export function RoomBoardCanvas({
     if (
       background &&
       Math.hypot(event.clientX - background.x, event.clientY - background.y) >=
-        4
+        DRAG_THRESHOLD_PX
     )
       background.moved = true;
     onCanvasPointerMove(event);
@@ -356,7 +367,9 @@ export function RoomBoardCanvas({
         isOwnDrag={
           draggingNoteId === note.id || localDraggingNoteId === note.id
         }
-        isSelected={selectedNoteId === note.id}
+        isSelected={selectionIds.includes(note.id)}
+        isMultiSelected={isMultiSelected}
+        interactionTool={interactionTool}
         editingDisabled={isResultStep(phase)}
         canDeleteNote={
           permissions.canDeleteNote &&
@@ -372,10 +385,20 @@ export function RoomBoardCanvas({
         }
         canMoveNote={permissions.canMoveNote}
         canExcludeNote={
-          isHost && !isAdoptMode && permissions.canExcludeNote && !note.excluded
+          isHost &&
+          !isAdoptMode &&
+          !isMultiSelected &&
+          interactionTool === "select" &&
+          permissions.canExcludeNote &&
+          !note.excluded
         }
         canRestoreNote={
-          isHost && !isAdoptMode && permissions.canRestoreNote && note.excluded
+          isHost &&
+          !isAdoptMode &&
+          !isMultiSelected &&
+          interactionTool === "select" &&
+          permissions.canRestoreNote &&
+          note.excluded
         }
         candidatePending={pendingCandidateNoteIds.includes(note.id)}
         isDecided={decision?.noteId === note.id}
@@ -423,6 +446,7 @@ export function RoomBoardCanvas({
       : { left: note.x, top: note.y };
     const isAdoptTarget =
       isAdoptMode &&
+      interactionTool === "select" &&
       isHost &&
       !isDisconnected &&
       isResultStep(phase) &&
@@ -485,7 +509,8 @@ export function RoomBoardCanvas({
                 !drag ||
                 drag.pointerId !== event.pointerId ||
                 drag.didDrag ||
-                Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 4
+                Math.hypot(event.clientX - drag.x, event.clientY - drag.y) <
+                  DRAG_THRESHOLD_PX
               )
                 return;
               drag.didDrag = true;
@@ -543,6 +568,57 @@ export function RoomBoardCanvas({
     <div className="min-h-0 flex-1">
       <div className="relative h-full min-h-80" data-testid="board-frame">
         <div
+          className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          data-testid="board-tools-hud"
+          data-board-fit-edge="bottom"
+        >
+          <div className="flex items-center gap-2">
+            <div
+              data-testid="board-operation-matrix"
+              className="pointer-events-auto"
+            >
+              <BoardOperationMatrix permissions={permissions} />
+            </div>
+            {permissions.canEditNote ? (
+              <NoteFontSizeControls
+                fontSize={selectedNote?.fontSize ?? null}
+                disabled={
+                  isDisconnected ||
+                  selectedNote === undefined ||
+                  selectedNote.excluded ||
+                  (phase.kind === "step" &&
+                    phase.step === 1 &&
+                    selectedNote.visibility === "shared")
+                }
+                onChange={(fontSize) => {
+                  if (selectedNote)
+                    onNoteFontSizeChange(selectedNote.id, fontSize);
+                }}
+              />
+            ) : null}
+          </div>
+          <div
+            data-testid="canvas-zoom-hud"
+            className="flex items-center gap-2"
+          >
+            <CanvasZoomControls
+              interactionTool={interactionTool}
+              onToolChange={onToolChange}
+              toolDisabled={toolDisabled}
+              zoom={camera.zoom}
+              onZoomOut={onZoomOut}
+              onResetZoom={onResetZoom}
+              onZoomIn={onZoomIn}
+              onFitToNotes={onFitToNotes}
+            />
+            <span aria-live="polite" className="sr-only">
+              {selectionIds.length > 0
+                ? `選択した付箋：${selectionIds.length}枚`
+                : ""}
+            </span>
+          </div>
+        </div>
+        <div
           ref={boardScrollerRef}
           // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
           className={`relative h-full overflow-clip bg-muted/20 [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
@@ -552,9 +628,17 @@ export function RoomBoardCanvas({
                 ? "cursor-none"
                 : isPanning
                   ? "cursor-grabbing"
-                  : "cursor-grab"
+                  : interactionTool === "hand"
+                    ? "cursor-grab"
+                    : "cursor-default"
           }`}
           data-testid="board-scroller"
+          data-interaction-tool={interactionTool}
+          tabIndex={-1}
+          role="application"
+          aria-label="共有キャンバス"
+          aria-description="背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動"
+          data-selection-count={selectionIds.length}
           data-adopt-mode={isAdoptMode || undefined}
           style={gridStyle}
           onPointerDownCapture={handleViewportPointerDown}
@@ -562,6 +646,8 @@ export function RoomBoardCanvas({
             finishAdoptionPointer(event);
             const background = backgroundPointerRef.current;
             if (
+              interactionTool === "select" &&
+              selectedNoteIds === undefined &&
               background &&
               !background.moved &&
               (event.target === event.currentTarget ||
@@ -581,6 +667,20 @@ export function RoomBoardCanvas({
           onLostPointerCapture={onCanvasPointerEnd}
           onPointerLeave={onPresencePointerLeave}
         >
+          <button
+            type="button"
+            aria-label="共有キャンバスの背景"
+            data-canvas-background="true"
+            className="absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-700"
+          />
+          {marquee ? (
+            <div
+              data-testid="canvas-marquee"
+              aria-hidden="true"
+              className="pointer-events-none absolute z-30 border border-blue-600 bg-blue-500/10"
+              style={marquee}
+            />
+          ) : null}
           <div
             data-testid="board-canvas"
             data-canvas-background="true"
@@ -713,49 +813,9 @@ export function RoomBoardCanvas({
               document.body,
             )
           : null}
-        <div
-          className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
-          data-testid="board-tools-hud"
-          data-board-fit-edge="bottom"
-        >
-          <div className="flex items-center gap-2">
-            <div
-              data-testid="board-operation-matrix"
-              className="pointer-events-auto"
-            >
-              <BoardOperationMatrix permissions={permissions} />
-            </div>
-            {permissions.canEditNote ? (
-              <NoteFontSizeControls
-                fontSize={selectedNote?.fontSize ?? null}
-                disabled={
-                  isDisconnected ||
-                  selectedNote === undefined ||
-                  selectedNote.excluded ||
-                  (phase.kind === "step" &&
-                    phase.step === 1 &&
-                    selectedNote.visibility === "shared")
-                }
-                onChange={(fontSize) => {
-                  if (selectedNote)
-                    onNoteFontSizeChange(selectedNote.id, fontSize);
-                }}
-              />
-            ) : null}
-          </div>
-          <div data-testid="canvas-zoom-hud">
-            <CanvasZoomControls
-              zoom={camera.zoom}
-              onZoomOut={onZoomOut}
-              onResetZoom={onResetZoom}
-              onZoomIn={onZoomIn}
-              onFitToNotes={onFitToNotes}
-            />
-          </div>
-        </div>
         {isIdeaMapSizeControlsVisible ? (
           <div
-            className="pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-[calc(0.75rem+var(--board-notification-inset,0px))] max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
+            className="pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-[calc(4.5rem+var(--board-notification-inset,0px))] max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
             data-testid="idea-map-size-controls-hud"
             data-board-fit-edge="bottom"
           >

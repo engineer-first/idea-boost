@@ -16,6 +16,7 @@ describe("useCanvasCamera", () => {
       button: 0,
       buttons: 1,
       pointerId: 1,
+      pointerType: "touch",
       clientX: 10,
       clientY: 20,
       preventDefault: vi.fn(),
@@ -51,6 +52,7 @@ describe("useCanvasCamera", () => {
       button: 0,
       buttons: 1,
       pointerId: 1,
+      pointerType: "touch",
       clientX: 10,
       clientY: 20,
       preventDefault: vi.fn(),
@@ -146,6 +148,7 @@ describe("useCanvasCamera", () => {
     const note = document.createElement("div");
     note.dataset.testid = "note-card";
     const surface = document.createElement("button");
+    surface.dataset.canvasNoteSurface = "true";
     note.append(surface);
     const { result, rerender } = renderHook(
       ({ notes }) =>
@@ -314,4 +317,223 @@ it("HUD変更は本人視野を変えず、明示fitと初期fitだけ最新inse
   top = 600;
   act(() => expect(result.current.fitToNotes()).toBe(false));
   expect(result.current.camera).toEqual(fitted);
+});
+
+it("Shift縦wheelは水平だけを移動する", () => {
+  const viewport = document.createElement("div");
+  const { result } = renderHook(() =>
+    useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+  );
+  const before = result.current.cameraRef.current;
+  act(() =>
+    result.current.handleWheel(
+      new WheelEvent("wheel", { deltaY: 80, shiftKey: true }),
+    ),
+  );
+  expect(result.current.cameraRef.current.x).toBe(before.x - 80);
+  expect(result.current.cameraRef.current.y).toBe(before.y);
+});
+
+it("selectのmouse空白押下はカメラを移動しない", () => {
+  const viewport = document.createElement("div");
+  const { result } = renderHook(() =>
+    useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+  );
+  act(() =>
+    result.current.handlePointerDown({
+      target: viewport,
+      currentTarget: viewport,
+      button: 0,
+      pointerType: "mouse",
+      pointerId: 1,
+      clientX: 0,
+      clientY: 0,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as PointerEvent<HTMLDivElement>),
+  );
+  expect(result.current.isPanning).toBe(false);
+});
+
+it("取得済みpanは別pointerの押下・upで奪われず、handの付箋上パンだけが動く", () => {
+  const viewport = document.createElement("div");
+  const card = document.createElement("div");
+  card.dataset.testid = "note-card";
+  const surface = document.createElement("button");
+  surface.dataset.canvasNoteSurface = "true";
+  card.append(surface);
+  viewport.append(card);
+  const viewportRef = { current: viewport };
+  const { result } = renderHook(() =>
+    useCanvasCamera({ viewportRef, notes: [] }),
+  );
+  const event = {
+    target: surface,
+    currentTarget: viewport,
+    button: 0,
+    buttons: 1,
+    pointerId: 1,
+    clientX: 10,
+    clientY: 10,
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+  } as unknown as PointerEvent<HTMLDivElement>;
+  act(() => result.current.setInteractionTool("hand"));
+  act(() => result.current.handlePointerDown(event));
+  act(() =>
+    result.current.handlePointerDown({ ...event, pointerId: 2, clientX: 100 }),
+  );
+  act(() => result.current.handlePointerEnd({ ...event, pointerId: 2 }));
+  act(() => result.current.handlePointerMove({ ...event, clientX: 50 }));
+  expect(result.current.cameraRef.current.x).toBe(40);
+  expect(result.current.isPanning).toBe(true);
+});
+
+it("native button Spaceはパン保持にせず、付箋Spaceは一時パンとして処理する", () => {
+  const viewport = document.createElement("div");
+  const card = document.createElement("div");
+  card.dataset.testid = "note-card";
+  const surface = document.createElement("button");
+  surface.dataset.canvasNoteSurface = "true";
+  card.append(surface);
+  viewport.append(card);
+  const native = document.createElement("button");
+  viewport.append(native);
+  document.body.append(viewport);
+  const viewportRef = { current: viewport };
+  const { result, unmount } = renderHook(() =>
+    useCanvasCamera({ viewportRef, notes: [] }),
+  );
+  const event = {
+    target: surface,
+    currentTarget: viewport,
+    button: 0,
+    buttons: 1,
+    pointerId: 1,
+    clientX: 10,
+    clientY: 10,
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+  } as unknown as PointerEvent<HTMLDivElement>;
+  try {
+    act(() =>
+      native.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: " ",
+          code: "Space",
+          bubbles: true,
+        }),
+      ),
+    );
+    act(() => result.current.handlePointerDown(event));
+    expect(result.current.isPanning).toBe(false);
+    act(() =>
+      surface.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: " ",
+          code: "Space",
+          bubbles: true,
+        }),
+      ),
+    );
+    act(() => result.current.handlePointerDown(event));
+    expect(result.current.isPanning).toBe(true);
+    act(() =>
+      window.dispatchEvent(
+        new KeyboardEvent("keyup", { key: " ", code: "Space" }),
+      ),
+    );
+    expect(result.current.isPanning).toBe(false);
+  } finally {
+    unmount();
+    viewport.remove();
+  }
+});
+
+it("Shift二軸wheelもY不変で、gesture所有中はwheelとzoomを処理しない", () => {
+  const viewport = document.createElement("div");
+  const viewportRef = { current: viewport };
+  const { result } = renderHook(() =>
+    useCanvasCamera({ viewportRef, notes: [] }),
+  );
+  const original = result.current.cameraRef.current;
+  act(() =>
+    result.current.handleWheel(
+      new WheelEvent("wheel", { deltaX: 30, deltaY: 80, shiftKey: true }),
+    ),
+  );
+  expect(result.current.cameraRef.current).toEqual({
+    ...original,
+    x: original.x - 30,
+  });
+  const before = result.current.cameraRef.current;
+  act(() => result.current.setGestureBlocked(true));
+  const wheel = new WheelEvent("wheel", { deltaY: 80, cancelable: true });
+  act(() => result.current.handleWheel(wheel));
+  act(() => result.current.zoomIn());
+  expect(result.current.cameraRef.current).toEqual(before);
+  expect(wheel.defaultPrevented).toBe(false);
+});
+
+it("空白で選択操作を始めた後の他者追加はカメラを自動fitしない", () => {
+  const viewport = document.createElement("div");
+  viewport.getBoundingClientRect = () => new DOMRect(0, 0, 500, 400);
+  const viewportRef = { current: viewport };
+  const { result, rerender } = renderHook(
+    ({ notes }) => useCanvasCamera({ viewportRef, notes }),
+    { initialProps: { notes: [] as ReturnType<typeof buildNotes> } },
+  );
+  const before = result.current.camera;
+  act(() =>
+    result.current.handlePointerDown({
+      target: viewport,
+      currentTarget: viewport,
+      button: 0,
+      pointerType: "mouse",
+      pointerId: 1,
+      clientX: 10,
+      clientY: 10,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+    } as unknown as PointerEvent<HTMLDivElement>),
+  );
+  rerender({ notes: buildNotes(1) });
+  expect(result.current.camera).toEqual(before);
+});
+
+it("note内nativeシールbuttonのSpaceはdefaultを防がずパン保持にしない", () => {
+  const viewport = document.createElement("div");
+  const card = document.createElement("div");
+  card.dataset.testid = "note-card";
+  const sticker = document.createElement("button");
+  card.append(sticker);
+  viewport.append(card);
+  document.body.append(viewport);
+  const { result, unmount } = renderHook(() =>
+    useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+  );
+  const key = new KeyboardEvent("keydown", {
+    key: " ",
+    code: "Space",
+    bubbles: true,
+    cancelable: true,
+  });
+  act(() => sticker.dispatchEvent(key));
+  expect(key.defaultPrevented).toBe(false);
+  const down = {
+    target: viewport,
+    currentTarget: viewport,
+    pointerId: 81,
+    pointerType: "mouse",
+    button: 0,
+    buttons: 1,
+    clientX: 0,
+    clientY: 0,
+    preventDefault: vi.fn(),
+    stopPropagation: vi.fn(),
+  } as unknown as PointerEvent<HTMLDivElement>;
+  act(() => result.current.handlePointerDown(down));
+  expect(result.current.isPanning).toBe(false);
+  unmount();
+  viewport.remove();
 });

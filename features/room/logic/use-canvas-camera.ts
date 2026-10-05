@@ -191,6 +191,9 @@ export function useCanvasCamera({
   const ideaMapSizeLevelRef = useRef(ideaMapSizeLevel);
   ideaMapSizeLevelRef.current = ideaMapSizeLevel;
   const spacePressedRef = useRef(false);
+  const toolRef = useRef<"select" | "hand">("select");
+  const gestureBlockedRef = useRef(false);
+  const suppressClickRef = useRef(false);
 
   useEffect(() => {
     notesRef.current = notes;
@@ -249,7 +252,7 @@ export function useCanvasCamera({
   const fitToNotes = useCallback(
     (insets?: CanvasFitInsets): boolean => {
       const element = viewportRef.current;
-      if (!element) return false;
+      if (!element || gestureBlockedRef.current || panRef.current) return false;
       const size = viewportSize(element);
       if (!size) return false;
       const safeInsets = insets ?? getFitInsetsRef.current?.(element);
@@ -275,11 +278,15 @@ export function useCanvasCamera({
   const zoomTo = useCallback(
     (requestedZoom: number, point?: CanvasPoint) => {
       const element = viewportRef.current;
-      if (!element) return;
+      if (!element || gestureBlockedRef.current || panRef.current) return;
       const size = viewportSize(element);
+      const insets = getFitInsetsRef.current?.(element);
       const anchor = point ?? {
-        x: (size?.width ?? 0) / 2,
-        y: (size?.height ?? 0) / 2,
+        x:
+          ((insets?.left ?? 0) + (size?.width ?? 0) - (insets?.right ?? 0)) / 2,
+        y:
+          ((insets?.top ?? 0) + (size?.height ?? 0) - (insets?.bottom ?? 0)) /
+          2,
       };
       scheduleCamera(
         zoomAtScreenPoint(cameraRef.current, requestedZoom, anchor),
@@ -302,6 +309,14 @@ export function useCanvasCamera({
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
+      if (!panRef.current) suppressClickRef.current = false;
+      if (
+        panRef.current ||
+        gestureBlockedRef.current ||
+        isEditableTarget(target) ||
+        target.closest("[data-board-native-control]")
+      )
+        return;
       if (target.closest("[data-testid='note-card']")) {
         // 最初の個人付箋をボードへ出す操作中に初期フィットが重なると、
         // ドロップ位置が飛んで見えるため、この時点で初期フィットを終える。
@@ -310,9 +325,15 @@ export function useCanvasCamera({
       const isBackground =
         event.target === event.currentTarget ||
         target.dataset.canvasBackground === "true";
+      if (isBackground && (event.button === 0 || event.button === 1))
+        hasFitRef.current = true;
       const shouldPan =
         event.button === 1 ||
-        (event.button === 0 && (spacePressedRef.current || isBackground));
+        (event.button === 0 &&
+          (spacePressedRef.current ||
+            toolRef.current === "hand" ||
+            (isBackground &&
+              (event.pointerType === "touch" || event.pointerType === "pen"))));
       if (!shouldPan) return;
       event.preventDefault();
       // captureフェーズで付箋への伝播を止め、パンと付箋ドラッグの同時開始を防ぐ。
@@ -324,6 +345,7 @@ export function useCanvasCamera({
         startClientY: event.clientY,
         startCamera: cameraRef.current,
       };
+      suppressClickRef.current = true;
       setIsPanning(true);
     },
     [],
@@ -357,6 +379,31 @@ export function useCanvasCamera({
 
   const handleWheel = useCallback(
     (event: WheelEvent) => {
+      if (
+        gestureBlockedRef.current ||
+        panRef.current ||
+        isEditableTarget(event.target)
+      )
+        return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-board-native-control]")
+      )
+        return;
+      for (
+        let inner = event.target instanceof HTMLElement ? event.target : null;
+        inner && inner !== viewportRef.current;
+        inner = inner.parentElement
+      ) {
+        const style = getComputedStyle(inner);
+        if (
+          (/auto|scroll/.test(style.overflowY || style.overflow) &&
+            inner.scrollHeight > inner.clientHeight) ||
+          (/auto|scroll/.test(style.overflowX || style.overflow) &&
+            inner.scrollWidth > inner.clientWidth)
+        )
+          return;
+      }
       event.preventDefault();
       const point = getViewportPoint(event.clientX, event.clientY);
       if (!point) return;
@@ -369,10 +416,10 @@ export function useCanvasCamera({
       scheduleCamera({
         ...cameraRef.current,
         x: cameraRef.current.x - deltaX,
-        y: cameraRef.current.y - event.deltaY,
+        y: cameraRef.current.y - (event.shiftKey ? 0 : event.deltaY),
       });
     },
-    [getViewportPoint, scheduleCamera, zoomTo],
+    [getViewportPoint, scheduleCamera, zoomTo, viewportRef],
   );
 
   useEffect(() => {
@@ -406,14 +453,31 @@ export function useCanvasCamera({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isEditableTarget(event.target)) return;
-      if (event.code === "Space") {
+      if (
+        event.isComposing ||
+        event.keyCode === 229 ||
+        isEditableTarget(event.target) ||
+        gestureBlockedRef.current
+      )
+        return;
+      const target = event.target;
+      const viewport = viewportRef.current;
+      const isCanvasTarget =
+        target instanceof HTMLElement &&
+        viewport?.contains(target) &&
+        (target === viewport ||
+          target.dataset.canvasBackground === "true" ||
+          target.dataset.canvasNoteSurface === "true");
+      if (event.defaultPrevented && !(event.code === "Space" && isCanvasTarget))
+        return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.code === "Space" && isCanvasTarget) {
+        event.preventDefault();
         spacePressedRef.current = true;
         return;
       }
       // このボードの表示操作にフォーカスした場合だけ読書用のキー操作を受ける。
       // 付箋・投票・メニュー・入力欄のキー操作を横取りしない。
-      const viewport = viewportRef.current;
       if (
         !viewport ||
         !(event.target instanceof HTMLElement) ||
@@ -445,7 +509,10 @@ export function useCanvasCamera({
       });
     };
     const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "Space") spacePressedRef.current = false;
+      if (event.code === "Space") {
+        spacePressedRef.current = false;
+        endPan();
+      }
     };
     const handleWindowBlur = () => {
       spacePressedRef.current = false;
@@ -526,5 +593,18 @@ export function useCanvasCamera({
     handlePointerEnd,
     handlePointerCancel: handlePointerEnd,
     handleWheel,
+    setInteractionTool: (tool: "select" | "hand") => {
+      toolRef.current = tool;
+    },
+    setGestureBlocked: (blocked: boolean) => {
+      gestureBlockedRef.current = blocked;
+    },
+    hasPan: () => panRef.current !== null,
+    cancelPan: endPan,
+    consumePanClick: () => {
+      const suppressed = suppressClickRef.current;
+      suppressClickRef.current = false;
+      return suppressed;
+    },
   };
 }

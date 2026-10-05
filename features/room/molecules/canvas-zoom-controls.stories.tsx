@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { fn, userEvent } from "storybook/test";
 import { CanvasZoomControls } from "./canvas-zoom-controls";
 
 const meta = {
@@ -21,4 +21,24 @@ export const Default: Story = {};
 
 export const Zoomed: Story = {
   args: { zoom: 2.5 },
+};
+
+export const Tools: Story = {
+  args: { interactionTool: "select", onToolChange: fn() },
+};
+
+export const DisabledTools: Story = {
+  args: { ...Tools.args, toolDisabled: true },
+};
+
+export const HelpOpen: Story = {
+  args: Tools.args,
+  render: (args) => (
+    <div className="flex min-h-[calc(100dvh-2rem)] items-end p-3">
+      <CanvasZoomControls {...args} />
+    </div>
+  ),
+  play: async ({ canvas }) => {
+    await userEvent.click(canvas.getByLabelText("キャンバス操作のヒント"));
+  },
 };
