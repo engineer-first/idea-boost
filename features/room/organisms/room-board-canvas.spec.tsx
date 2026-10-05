@@ -1043,6 +1043,7 @@ describe("RoomBoardCanvas", () => {
       clientY: 200,
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       pointerId: 1,
       clientX: 210,
       clientY: 210,

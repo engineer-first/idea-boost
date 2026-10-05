@@ -382,6 +382,7 @@ describe("NoteCard", () => {
       pointerType: "touch",
     });
     fireEvent.pointerMove(surface, {
+      buttons: 1,
       clientX: 30,
       clientY: 30,
       pointerId: 11,
@@ -807,6 +808,7 @@ describe("NoteCard", () => {
         clientY: 10,
       });
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 50,
         clientY: 10,
@@ -1212,6 +1214,43 @@ describe("NoteCard", () => {
   });
 
   describe("ドラッグ", () => {
+    it.each([
+      { clientX: 52, buttons: 0 },
+      { clientX: 80, buttons: 0 },
+      { clientX: 80, buttons: 2 },
+    ])("主ボタンを失ったx=$clientX・buttons=$buttonsの移動は選択・編集・ドラッグを開始せず、次のクリックを受け付ける", ({
+      clientX,
+      buttons,
+    }) => {
+      const { props } = setup({ isSelected: true });
+      const surface = getNoteSurface();
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 50,
+        clientY: 50,
+      });
+      fireEvent.pointerMove(surface, {
+        pointerId: 1,
+        buttons,
+        clientX,
+        clientY: 50,
+      });
+      fireEvent.pointerUp(surface, {
+        pointerId: 1,
+        clientX,
+        clientY: 50,
+      });
+
+      expect(props.onDragStart).not.toHaveBeenCalled();
+      expect(props.onSelect).not.toHaveBeenCalled();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+
+      clickNote();
+      expect(props.onSelect).toHaveBeenCalledOnce();
+      expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
+    });
+
     it("閾値を超えるポインター移動でonDragStartを呼ぶ", () => {
       const onDragStart = vi.fn();
       setup({
@@ -1229,6 +1268,7 @@ describe("NoteCard", () => {
       expect(onDragStart).not.toHaveBeenCalled();
 
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 80,
         clientY: 70,
@@ -1247,6 +1287,7 @@ describe("NoteCard", () => {
         clientY: 50,
       });
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 52,
         clientY: 51,
@@ -1266,6 +1307,7 @@ describe("NoteCard", () => {
         clientY: 50,
       });
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 80,
         clientY: 70,
@@ -1280,6 +1322,7 @@ describe("NoteCard", () => {
       setup({ onDragStart });
 
       fireEvent.pointerMove(getNoteSurface(), {
+        buttons: 1,
         pointerId: 1,
         clientX: 999,
         clientY: 999,
@@ -1322,6 +1365,7 @@ describe("NoteCard", () => {
         clientY: 50,
       });
       fireEvent.pointerMove(surface, {
+        buttons: 1,
         pointerId: 1,
         clientX: 80,
         clientY: 70,
@@ -1493,6 +1537,7 @@ describe("#522 focus・pointerの境界", () => {
       clientY: 10,
     });
     fireEvent.pointerMove(getNoteSurface(), {
+      buttons: 1,
       pointerId: 1,
       clientX: 80,
       clientY: 10,
@@ -1512,6 +1557,7 @@ describe("#522 focus・pointerの境界", () => {
       clientY: 10,
     });
     fireEvent.pointerMove(getNoteSurface(), {
+      buttons: 1,
       pointerId: 2,
       clientX: 80,
       clientY: 10,

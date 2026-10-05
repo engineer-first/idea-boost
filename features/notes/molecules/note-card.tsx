@@ -677,8 +677,14 @@ export function NoteCard({
 
   function handlePointerMove(event: React.PointerEvent<HTMLButtonElement>) {
     const origin = pointerOriginRef.current;
-    if (!origin || origin.pointerId !== event.pointerId || origin.didDrag)
+    if (!origin || origin.pointerId !== event.pointerId) return;
+    if ((event.buttons & 1) === 0) {
+      pointerOriginRef.current = null;
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId))
+        event.currentTarget.releasePointerCapture(event.pointerId);
       return;
+    }
+    if (origin.didDrag) return;
     const distance = Math.hypot(
       event.clientX - origin.startClientX,
       event.clientY - origin.startClientY,
