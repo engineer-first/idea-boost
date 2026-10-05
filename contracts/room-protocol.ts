@@ -846,6 +846,13 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     groupRevision: z.number().int().nonnegative().optional(),
     groupId: z.string().uuid(),
   }),
+  // 分類内容が不可視でも、共有の競合検査版は現在memberへ同期する。
+  z
+    .object({
+      type: z.literal("group:revision"),
+      groupRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
   z.object({
     type: z.literal("member_joined"),
     member: MemberSchema,

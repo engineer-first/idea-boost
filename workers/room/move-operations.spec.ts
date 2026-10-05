@@ -125,6 +125,24 @@ function peer(ctx: HandlerCtx, userId = B) {
   return messages;
 }
 describe("move transaction", () => {
+  it("非memberの旧接続へ不可視分類の版通知を配信しない", () =>
+    setup("move-group-revision-nonmember", (ctx) => {
+      const messages = peer(ctx, OP2);
+      savePhase(ctx.sql, { kind: "step", phase: 1, step: 2 });
+      ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
+      ctx.sql.exec(
+        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'secret',?2,'now','now')",
+        OP,
+        JSON.stringify([N1, N2]),
+      );
+      noteHandlers["note:unpublish"](ctx, {
+        type: "note:unpublish",
+        noteId: N1,
+      });
+      expect(messages.some((m) => m.type === "group:revision")).toBe(false);
+      expect(JSON.stringify(messages)).not.toContain("secret");
+      expect(JSON.stringify(messages)).not.toContain(N2);
+    }));
   it("途中位置を全件peerへ配信し取消終了、確定位置は変更しない", () =>
     setup("move-peer-preview", (ctx) => {
       const messages = peer(ctx);

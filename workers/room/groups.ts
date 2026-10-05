@@ -12,6 +12,7 @@ import {
   type MessageHandlers,
   replyForbidden,
 } from "./handler-context";
+import { isMember } from "./members";
 import {
   findNote,
   hasOnlySharedNotes,
@@ -102,6 +103,11 @@ export function removeNoteGroups(
       (viewerId) => canViewBoardGroup(ctx.sql, viewerId, group, phase),
     );
   }
+  if (groups.length > 0)
+    ctx.broadcaster.broadcastGroup(
+      { type: "group:revision", groupRevision: getGroupRevision(ctx.sql) },
+      (viewerId) => isMember(ctx.sql, viewerId),
+    );
 }
 
 export function saveGroups(

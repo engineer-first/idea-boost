@@ -642,6 +642,9 @@ export function useRoomNotes({
       preserveDragUntilPointerEnd = false,
     ) => {
       sendDragRef.current?.cancel();
+      // 3-2の戻しは旧dragをpointerupまで保持するが、新moveのlockは
+      // 非共有化の前に解除する。同じ接続のcancel→unpublishの順序を保つ。
+      if (transactionMove.owns(noteId)) transactionMove.cancel(noteId);
       if (
         !preserveDragUntilPointerEnd ||
         noteDragOperationRef.current?.noteId !== noteId
@@ -662,7 +665,13 @@ export function useRoomNotes({
           : { type: "note:unpublish", noteId, privateIndex },
       );
     },
-    [send, updatePendingNoteDrop, updatePendingNoteFront],
+    [
+      send,
+      updatePendingNoteDrop,
+      updatePendingNoteFront,
+      transactionMove.owns,
+      transactionMove.cancel,
+    ],
   );
 
   const startNoteDrag = useCallback(

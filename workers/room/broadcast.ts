@@ -90,7 +90,7 @@ export class RoomBroadcaster {
   broadcastGroup(
     message: Extract<
       ServerMessage,
-      { type: "group:updated" | "group:deleted" }
+      { type: "group:updated" | "group:deleted" | "group:revision" }
     >,
     canView: (viewerId: string) => boolean,
   ): void {

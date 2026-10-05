@@ -238,7 +238,8 @@ export function useNoteMove({
           message.mapRevision !== undefined &&
           message.mapRevision !== capability.current.mapRevision) ||
           ((message.type === "group:updated" ||
-            message.type === "group:deleted") &&
+            message.type === "group:deleted" ||
+            message.type === "group:revision") &&
             message.groupRevision !== undefined &&
             message.groupRevision !== capability.current.groupRevision))
       ) {
@@ -270,6 +271,7 @@ export function useNoteMove({
       if (
         (message.type === "group:updated" ||
           message.type === "group:deleted" ||
+          message.type === "group:revision" ||
           message.type === "phase:updated") &&
         message.groupRevision !== undefined
       )

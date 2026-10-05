@@ -59,6 +59,90 @@ async function drag(
 // 既存auth-entryと同じ専用dev:verify指定時に、別認証contextで実RoomDOへ接続する。
 // 各caseは新規ルームだけを操作し、通常DBを使わない。
 describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
+  test("3-2の共有付箋をマイ付箋へ戻し、再読込後も非共有を保つ", async () => {
+    const browser = await chromium.launch();
+    try {
+      const actor = await browser.newPage({
+        viewport: { width: 1280, height: 720 },
+      });
+      const peer = await browser.newPage({
+        viewport: { width: 1280, height: 720 },
+      });
+      actor.setDefaultTimeout(5_000);
+      peer.setDefaultTimeout(5_000);
+      await login(actor, "owner@example.test");
+      await login(peer, "member@example.test");
+      await Promise.all([
+        actor.waitForResponse(
+          (response) =>
+            response.url().endsWith("/api/verification/rooms") &&
+            response.request().method() === "POST",
+        ),
+        actor.getByRole("button", { name: /^3-2 / }).click(),
+      ]);
+      const fixed = actor.getByRole("link", {
+        name: "このルームを固定して開く（追従なし）",
+      });
+      await fixed.waitFor();
+      const href = await fixed.getAttribute("href");
+      if (!href) throw new Error("検証ルームURLがありません。");
+      const sent: { type: string }[] = [];
+      actor.on("websocket", (socket) =>
+        socket.on("framesent", ({ payload }) => {
+          const message = JSON.parse(String(payload)) as { type: string };
+          sent.push(message);
+        }),
+      );
+      for (const page of [actor, peer]) {
+        await page.goto(`${app}${href}`);
+        await page.getByTestId("board-canvas").waitFor();
+        await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
+      }
+      const note = actor
+        .getByTestId("board-canvas")
+        .getByTestId("note-card")
+        .filter({ hasText: "学びたいことプロフィール" });
+      const id = await note.getAttribute("data-note-id");
+      expect(id).toBeTruthy();
+      const peerNote = peer.locator(`[data-note-id="${id}"]`);
+      await peerNote.waitFor();
+      await drag(actor, note);
+      await expect
+        .poll(() => sent.some((message) => message.type === "note:move:start"))
+        .toBe(true);
+      const toolbar = actor.getByTestId("private-notes-toolbar");
+      const target = await bounds(toolbar);
+      await actor.mouse.move(
+        target.x + target.width / 2,
+        target.y + target.height / 2,
+        { steps: 8 },
+      );
+      await actor.mouse.up();
+      await expect.poll(() => peerNote.count()).toBe(0);
+      const types = sent.map((message) => message.type);
+      expect(types.indexOf("note:move:cancel")).toBeGreaterThan(-1);
+      expect(types.indexOf("note:move:cancel")).toBeLessThan(
+        types.indexOf("note:unpublish"),
+      );
+      expect(types).not.toContain("note:move:commit");
+      await actor.reload();
+      await actor.getByTestId("board-canvas").waitFor();
+      await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
+      await expect
+        .poll(() =>
+          actor
+            .getByTestId("private-notes-toolbar")
+            .locator(`[data-note-id="${id}"]`)
+            .count(),
+        )
+        .toBe(1);
+      await peer.reload();
+      await peer.getByTestId("board-canvas").waitFor();
+      expect(await peerNote.count()).toBe(0);
+    } finally {
+      await browser.close();
+    }
+  });
   test.each([
     "1-2",
     "1-3",

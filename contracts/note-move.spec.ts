@@ -5,6 +5,13 @@ import { parseClientMessage, parseServerMessage } from "./room-protocol";
 const operationId = "55555555-5555-4555-8555-555555555555";
 const noteId = "33333333-3333-4333-8333-333333333333";
 describe("move transaction boundary", () => {
+  it("分類の版だけの通知を受理し、非公開分類の内容は拒否する", () => {
+    const message = { type: "group:revision", groupRevision: 3 };
+    expect(parseServerMessage(JSON.stringify(message))).toEqual(message);
+    expect(
+      parseServerMessage(JSON.stringify({ ...message, groupId: noteId })),
+    ).toBeNull();
+  });
   it("保存しないstart/preview/cancelとcommit/結果照会を別メッセージとして受理する", () => {
     for (const message of [
       {

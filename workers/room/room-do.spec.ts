@@ -6998,6 +6998,72 @@ describe("new move group privacy WS", () => {
     author.close();
     viewer.close();
   });
+  it("旧保存状態のprivate group削除後、同じ移動可能工程で内容を漏らさず版を追随する", async () => {
+    const name = "move-hidden-group-revision-live";
+    const N3 = "88888888-8888-4888-8888-888888888888";
+    const { stub, owner, author, snapshot } = await prepare(name);
+    await restartAndUnpublish(owner, author, snapshot);
+    // 旧serverが保存し得た混在groupを残す。N2を戻してもprivate N3をCに見せない。
+    await runInRoomDO(name, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE notes SET visibility='shared' WHERE id=?1",
+        N2,
+      );
+      insertNote(state.storage.sql, {
+        id: N3,
+        author_id: USER_A,
+        content: "private",
+        visibility: "private",
+        color: "yellow",
+        font_size: 14,
+        x: 0,
+        y: 0,
+        stack_order: 0,
+        phase: 1,
+        excluded: false,
+        created_at: "now",
+        updated_at: "now",
+      });
+      state.storage.sql.exec(
+        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,?2,?3,'now','now')",
+        G,
+        "hidden group name",
+        JSON.stringify([N2, N3]),
+      );
+    });
+    await stub.upsertMember(C, "Viewer");
+    const { ws: viewer, firstMessage: visible } =
+      await connectDirectlyWithFirstMessage(name, C, USER_A);
+    expect(visible.groups).toEqual([]);
+    author.send(JSON.stringify({ type: "note:unpublish", noteId: N2 }));
+    expect(await nextJsonOfType(author, "note:inserted")).toMatchObject({
+      note: { id: N2, visibility: "private" },
+    });
+    expect(await nextJsonOfType(viewer, "note:deleted")).toMatchObject({
+      noteId: N2,
+    });
+    const revised = await nextJsonWithin(viewer, 100);
+    expect(revised).toEqual({
+      type: "group:revision",
+      groupRevision: Number(visible.groupRevision) + 1,
+    });
+    await runInRoomDO(name, (_instance, state) =>
+      expect(state.storage.sql.exec("SELECT * FROM groups").toArray()).toEqual(
+        [],
+      ),
+    );
+    expect(
+      (
+        await move(viewer, {
+          ...visible,
+          groupRevision: revised?.groupRevision,
+        })
+      ).at(-1),
+    ).toMatchObject({ status: "accepted" });
+    owner.close();
+    author.close();
+    viewer.close();
+  });
   it.each([
     "note:unpublish",
     "note:delete",

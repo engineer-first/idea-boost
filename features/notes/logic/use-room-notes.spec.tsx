@@ -1158,6 +1158,55 @@ describe("useRoomNotes", () => {
 describe("transaction move", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
+  it("3-2の共有付箋を戻すときは移動を取消してから非共有化する", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage(),
+        phase: { kind: "step", phase: 3, step: 2 },
+        moveProtocolVersion: 1,
+      } as ServerMessage),
+    );
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    act(() => result.current.moveNote(NOTE_ID, 80, 70));
+    send.mockClear();
+    act(() => result.current.unpublishNote(NOTE_ID, 4, true));
+    expect(send.mock.calls.map(([message]) => message)).toEqual([
+      { type: "note:move:cancel", operationId: DRAG_ID },
+      { type: "note:unpublish", noteId: NOTE_ID, privateIndex: 4 },
+    ]);
+    expect(result.current.draggingNoteId).toBeNull();
+    act(() => vi.advanceTimersByTime(2_000));
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+  it("分類の内容を含まない版通知でpreviewを取消し次の移動を最新の版で開始する", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() => useRoomNotes({ send }));
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage(),
+        moveProtocolVersion: 1,
+        groupRevision: 2,
+      } as ServerMessage),
+    );
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    act(() => result.current.moveNote(NOTE_ID, 130, 100));
+    act(() =>
+      result.current.applyMessage({
+        type: "group:revision",
+        groupRevision: 3,
+      }),
+    );
+    expect(result.current.draggingNoteId).toBeNull();
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:start",
+      expectedGroupRevision: 3,
+    });
+  });
   it("start ACKより前に3枚を同じdeltaでpreviewしmap端でも距離を保つ", () => {
     const send = vi.fn();
     const { result } = renderHook(() =>
