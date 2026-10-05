@@ -9,6 +9,8 @@
 
 [共有付箋の移動の性能比較（2026-10-04）](canvas-move-performance-2026-10-04.md)は、#523の探索baseline・測定条件・traceを残す。現行の契約は[操作仕様](../product/canvas-interactions/details.md)を参照する。
 
+[共有・戻しの性能比較（2026-10-05）](canvas-share-performance-2026-10-05.md)は、#524の固定条件・欠測・traceを残す。
+
 スプリント期間はMilestone、一度限りのProject移行はGit履歴を参照する。Issue自動化の未実装候補は[Issue #393](https://github.com/engineer-first/idea-boost/issues/393)へ移した。完了済みの運用作業や進捗の複製をarchiveへ増やさない。
 
 公開HTMLの判断資料は冒頭と[目次](../site/index.html)で過去資料と表示する。

@@ -580,6 +580,9 @@ export function useCanvasCamera({
   return {
     camera,
     cameraRef,
+    preserveCamera: () => {
+      hasFitRef.current = true;
+    },
     isPanning,
     gridStyle,
     worldPointFromClient,

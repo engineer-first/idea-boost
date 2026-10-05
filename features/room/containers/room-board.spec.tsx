@@ -1256,7 +1256,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     ).toHaveStyle({ zIndex: "10" });
   });
 
-  it("個人付箋をボードへドラッグすると侵入時に公開し、ドロップで位置を確定する", () => {
+  it("個人付箋をボードへドラッグすると侵入時はpreviewだけ、有効dropの位置で公開する", () => {
     const privateNote = protocolNote({
       visibility: "private",
       content: "公開前のメモ",
@@ -1272,6 +1272,9 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
 
     const toolbar = openPrivateNotesToolbar();
+    Object.defineProperty(toolbar, "getBoundingClientRect", {
+      value: () => ({ left: 600, top: 0, right: 900, bottom: 600 }),
+    });
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(handle, { pointerId: 1, clientX: 600, clientY: 20 });
     fireEvent.pointerMove(handle, {
@@ -1296,16 +1299,16 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(root).not.toHaveClass("cursor-grabbing");
 
     expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:publish", noteId: NOTE_ID, x: 120, y: 140 }),
+      JSON.stringify({ type: "note:publish", noteId: NOTE_ID, x: 140, y: 160 }),
     );
-    expectSent(socket, {
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: { x: 140, y: 160 },
-    });
+    expect(
+      socket.sent.some(
+        (message) => JSON.parse(message).type === "note:drag:end",
+      ),
+    ).toBe(false);
   });
 
-  it("共有応答でマイ付箋が消えても、同じポインター操作で移動・ドロップできる", () => {
+  it("マイ付箋previewの位置はACKを待たず更新し、pointerup一件で確定する", () => {
     const privateNote = protocolNote({ visibility: "private" });
     const { socket } = connectWithSnapshot([privateNote], {
       phase: buildPhaseStep(2, 1),
@@ -1334,12 +1337,11 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 120,
     });
 
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:inserted",
-        note: protocolNote({ visibility: "shared", x: 100, y: 120 }),
-      }),
-    );
+    expect(
+      socket.sent.some(
+        (message) => JSON.parse(message).type === "note:publish",
+      ),
+    ).toBe(false);
 
     fireEvent.pointerMove(root, {
       buttons: 1,
@@ -1350,19 +1352,19 @@ describe("サーバーメッセージ → 画面反映", () => {
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 200, clientY: 220 });
 
     expectSent(socket, {
-      type: "note:drag:move",
+      type: "note:publish",
       noteId: NOTE_ID,
-      x: 100,
-      y: 120,
+      x: 200,
+      y: 220,
     });
-    expectSent(socket, {
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: { x: 200, y: 220 },
-    });
+    expect(
+      socket.sent.some(
+        (message) => JSON.parse(message).type === "note:drag:end",
+      ),
+    ).toBe(false);
   });
 
-  it("マイ付箋からボードへ公開した同じポインター操作で、マイ付箋へ戻せる", () => {
+  it("マイ付箋からボードを跨いでマイ付箋へ戻しても公開しない", () => {
     const privateNote = protocolNote({ visibility: "private" });
     const { socket } = connectWithSnapshot([privateNote], {
       phase: buildPhaseStep(2, 1),
@@ -1394,13 +1396,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 140,
     });
 
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:inserted",
-        note: protocolNote({ visibility: "shared", x: 120, y: 140 }),
-      }),
-    );
-
     fireEvent.pointerMove(root, {
       buttons: 1,
       pointerId: 1,
@@ -1409,19 +1404,16 @@ describe("サーバーメッセージ → 画面反映", () => {
     });
     fireEvent.pointerUp(root, { pointerId: 1, clientX: 650, clientY: 120 });
 
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "note:publish", noteId: NOTE_ID, x: 120, y: 140 }),
-    );
-    expectSent(socket, {
-      type: "note:unpublish",
-      noteId: NOTE_ID,
-      privateIndex: 0,
-    });
-    expectSent(socket, {
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: null,
-    });
+    expect(
+      socket.sent.some((message) =>
+        ["note:publish", "note:unpublish", "note:drag:end"].includes(
+          JSON.parse(message).type,
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      within(toolbar).getByRole("button", { name: "付箋" }),
+    ).toBeInTheDocument();
   });
 
   it("マイ付箋からボード→マイ付箋→再びボードへ、一回のドラッグで往復できる", () => {
@@ -1459,13 +1451,11 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 140,
     });
 
-    // サーバー応答: shared として追加
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:inserted",
-        note: protocolNote({ visibility: "shared", x: 120, y: 140 }),
-      }),
-    );
+    expect(
+      socket.sent.some(
+        (message) => JSON.parse(message).type === "note:publish",
+      ),
+    ).toBe(false);
 
     // 3) ツールバーへ戻す → ドロップ前なのでプレビューだけ
     fireEvent.pointerMove(root, {
@@ -1499,9 +1489,10 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(unpublishMessages).toHaveLength(0);
 
     expectSent(socket, {
-      type: "note:drag:end",
+      type: "note:publish",
       noteId: NOTE_ID,
-      position: { x: 200, y: 200 },
+      x: 200,
+      y: 200,
     });
   });
 
@@ -1705,6 +1696,12 @@ describe("サーバーメッセージ → 画面反映", () => {
       noteId: NOTE_ID,
       privateIndex: expected.indexOf(NOTE_ID),
     });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:inserted",
+        note: protocolNote({ id: NOTE_ID, visibility: "private" }),
+      }),
+    );
     expect(privateNoteIds(toolbar)).toEqual(expected);
   });
 
@@ -1889,6 +1886,13 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() =>
       FakeWebSocket.instances.at(-1)?.simulateServerMessage({
         type: "note:inserted",
+        note: protocolNote({ id: NOTE_ID, visibility: "private" }),
+      }),
+    );
+
+    act(() =>
+      FakeWebSocket.instances.at(-1)?.simulateServerMessage({
+        type: "note:inserted",
         note: protocolNote({
           id: NEW_PRIVATE_NOTE_ID,
           content: "新しいマイ付箋",
@@ -1950,7 +1954,13 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 120,
     });
 
-    // 2) 応答待ちの楽観表示中でも、別のドラッグでボードへ持っていける
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:inserted",
+        note: protocolNote({ visibility: "private" }),
+      }),
+    );
+    // 2) 確定応答後の別ドラッグでボードへ持っていける
     const returnedPrivateNote = within(toolbar)
       .getAllByTestId("note-card")
       .find((card) => card.getAttribute("data-note-id") === NOTE_ID);
@@ -1978,14 +1988,6 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 150,
     });
 
-    // サーバー応答: shared として追加
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:inserted",
-        note: protocolNote({ visibility: "shared", x: 150, y: 150 }),
-      }),
-    );
-
     // 3) ドロップして確定する
     fireEvent.pointerUp(root, { pointerId: 2, clientX: 160, clientY: 160 });
 
@@ -1996,9 +1998,10 @@ describe("サーバーメッセージ → 画面反映", () => {
     expectSent(socket, { type: "note:publish", noteId: NOTE_ID });
 
     expectSent(socket, {
-      type: "note:drag:end",
+      type: "note:publish",
       noteId: NOTE_ID,
-      position: { x: 160, y: 160 },
+      x: 160,
+      y: 160,
     });
   });
 
@@ -2823,6 +2826,13 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientX: 300,
       clientY: 300,
     });
+
+    expect(
+      socket.sent.some(
+        (message) => JSON.parse(message).type === "note:publish",
+      ),
+    ).toBe(false);
+    fireEvent.pointerUp(root, { pointerId: 1, clientX: 300, clientY: 300 });
 
     const publish = socket.sent
       .map((message) => JSON.parse(message))

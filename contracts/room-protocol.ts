@@ -342,16 +342,34 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。")
       .optional(),
   }),
-  z.object({
-    type: z.literal("note:publish"),
-    noteId: z.string().uuid(),
-    ...NotePositionSchema,
-  }),
-  z.object({
-    type: z.literal("note:unpublish"),
-    noteId: z.string().uuid(),
-    privateIndex: z.number().int().nonnegative().optional(),
-  }),
+  z
+    .object({
+      type: z.literal("note:publish"),
+      noteId: z.string().uuid(),
+      ...NotePositionSchema,
+      operationId: OptimisticOperationIdSchema.optional(),
+      expectedPhaseRevision: z.number().int().nonnegative().optional(),
+      expectedPositionRevision: z.number().int().nonnegative().optional(),
+      expectedVisibilityRevision: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:unpublish"),
+      noteId: z.string().uuid(),
+      privateIndex: z.number().int().nonnegative().optional(),
+      operationId: OptimisticOperationIdSchema.optional(),
+      expectedPhaseRevision: z.number().int().nonnegative().optional(),
+      expectedPositionRevision: z.number().int().nonnegative().optional(),
+      expectedVisibilityRevision: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:share:status"),
+      operationId: OptimisticOperationIdSchema,
+    })
+    .strict(),
   z
     .object({
       type: z.literal("note:update-content"),
@@ -687,7 +705,36 @@ export type PendingPhaseTransition = z.infer<
   typeof PendingPhaseTransitionSchema
 >;
 
+export const ShareReceiptSchema = z.object({
+  operationId: OptimisticOperationIdSchema,
+  noteId: z.string().uuid(),
+  phaseRevision: z.number().int().nonnegative(),
+  before: z.object({
+    visibility: z.enum(["private", "shared"]),
+    ...NotePositionSchema,
+    positionRevision: z.number().int().nonnegative(),
+    visibilityRevision: z.number().int().nonnegative(),
+  }),
+  after: z.object({
+    visibility: z.enum(["private", "shared"]),
+    ...NotePositionSchema,
+    positionRevision: z.number().int().nonnegative(),
+    visibilityRevision: z.number().int().nonnegative(),
+  }),
+  privateIndex: z.number().int().nonnegative().optional(),
+});
+export type ShareReceipt = z.infer<typeof ShareReceiptSchema>;
+
 export const ServerMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("note:share:result"),
+      operationId: OptimisticOperationIdSchema,
+      status: z.enum(["committed", "rejected", "unknown", "expired"]),
+      reason: z.string().optional(),
+      receipt: ShareReceiptSchema.optional(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("member:removed"),
@@ -710,6 +757,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("snapshot"),
     moveProtocolVersion: z.literal(1).optional(),
+    shareProtocolVersion: z.literal(1).optional(),
     groupRevision: z.number().int().nonnegative().optional(),
     mapRevision: z.number().int().nonnegative().optional(),
     sharing: SharingStateSchema.nullable().optional(),

@@ -89,23 +89,32 @@ describe("PrivateNotesToolbar", () => {
     const [firstCard, secondCard] = screen.getAllByTestId("note-card");
     if (!firstCard || !secondCard) throw new Error("付箋がありません");
 
+    const geometryEvents: string[] = [];
     const topById: Record<string, number> = { first: 0, second: 0 };
     const rectAt = (top: number) => new DOMRect(0, top, 192, 144);
-    vi.spyOn(firstCard, "getBoundingClientRect").mockImplementation(() =>
-      rectAt(topById.first ?? 0),
-    );
-    vi.spyOn(secondCard, "getBoundingClientRect").mockImplementation(() =>
-      rectAt(topById.second ?? 0),
-    );
+    vi.spyOn(firstCard, "getBoundingClientRect").mockImplementation(() => {
+      geometryEvents.push("read");
+      return rectAt(topById.first ?? 0);
+    });
+    vi.spyOn(secondCard, "getBoundingClientRect").mockImplementation(() => {
+      geometryEvents.push("read");
+      return rectAt(topById.second ?? 0);
+    });
     const firstAnimation = { cancel: vi.fn() } as unknown as Animation;
-    const firstAnimate = vi.fn(() => firstAnimation);
+    const firstAnimate = vi.fn(() => {
+      geometryEvents.push("write");
+      return firstAnimation;
+    });
     Object.defineProperty(firstCard, "animate", {
       configurable: true,
       value: firstAnimate,
     });
     Object.defineProperty(secondCard, "animate", {
       configurable: true,
-      value: vi.fn(() => ({ cancel: vi.fn() }) as unknown as Animation),
+      value: vi.fn(() => {
+        geometryEvents.push("write");
+        return { cancel: vi.fn() } as unknown as Animation;
+      }),
     });
 
     topById.first = 144;
@@ -124,11 +133,13 @@ describe("PrivateNotesToolbar", () => {
     );
     expect(firstAnimate).toHaveBeenCalledOnce();
 
+    geometryEvents.length = 0;
     topById.first = 0;
     topById.second = 144;
     view.rerender(<PrivateNotesToolbar {...props} />);
 
     expect(firstAnimation.cancel).toHaveBeenCalledOnce();
+    expect(geometryEvents).toEqual(["read", "read", "write", "write"]);
   });
 
   it("ドラッグ中の付箋を挿入位置のプレースホルダーへ置き換える", () => {
