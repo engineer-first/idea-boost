@@ -835,6 +835,16 @@ export class RoomDO extends DurableObject {
     message: ClientMessage,
   ): Promise<void> {
     if (!isMember(this.sql, attachment.userId)) {
+      if (message.type === "note:move:inverse") {
+        // 失効した接続の新しい逆操作は専用の終端を返す。履歴の存在・内容は返さない。
+        this.broadcaster.sendTo(ws, {
+          type: "note:move:result",
+          operationId: message.operationId,
+          status: "rejected",
+          reason: "ルームに参加していません。",
+        });
+        return;
+      }
       if (message.type === "note:move:status") {
         // 除外・期限削除後も結果不明を終端にする。存在/所有/内容は一切返さない。
         this.broadcaster.sendTo(ws, {
@@ -861,7 +871,12 @@ export class RoomDO extends DurableObject {
       syncMovePresence(this.sql, this.broadcaster);
       return;
     }
-    if (isRoomClosed(this.sql) && message.type !== "outcome:publish") {
+    // inverseは専用ハンドラで現在認可を検査し、拒否も照会可能な結果として保存する。
+    if (
+      isRoomClosed(this.sql) &&
+      message.type !== "outcome:publish" &&
+      message.type !== "note:move:inverse"
+    ) {
       ctx.reply({
         type: "error",
         code: "forbidden",
@@ -901,7 +916,7 @@ export class RoomDO extends DurableObject {
       message.type !== "decision:clear"
         ? "採用確定後はボードを変更できません。"
         : getBoardMutationForbiddenMessage(phase, message);
-    if (forbiddenMessage) {
+    if (forbiddenMessage && message.type !== "note:move:inverse") {
       ctx.reply({
         type: "error",
         code: "forbidden",

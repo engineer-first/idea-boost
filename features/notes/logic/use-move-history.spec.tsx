@@ -382,3 +382,90 @@ it("再接続や対象外成功境界後に遅延move receiptで履歴を復活�
   );
   expect(result.current.undoState.disabled).toBe(true);
 });
+it("工程/再接続境界は結果不明inverseを履歴から外し新しい履歴を妨げない", () => {
+  const { result, accept, send } = setup();
+  accept(receipt("old", 0, 1));
+  act(() => result.current.undo());
+  act(() => result.current.clear());
+  expect(result.current.pending).toBe(false);
+  accept(receipt("new", 1, 2));
+  expect(result.current.undoState.disabled).toBe(false);
+  const late = receipt("inverse", 1, 3);
+  late.after[0].x = 0;
+  act(() =>
+    result.current.applyMessage({
+      type: "note:move:result",
+      operationId: "inverse",
+      status: "accepted",
+      receipt: late,
+    }),
+  );
+  expect(result.current.redoState.disabled).toBe(true);
+  act(() => result.current.undo());
+  expect(send.mock.calls[1][0]).toMatchObject({ sourceOperationId: "new" });
+});
+it("共有成功note:insertedだけで移動履歴を区切る", () => {
+  const { result, accept } = setup();
+  accept(receipt("move", 0, 1));
+  act(() => {
+    result.current.observeOutgoing({
+      type: "note:publish",
+      noteId: "private",
+      x: 10,
+      y: 20,
+    });
+    result.current.applyMessage({
+      type: "note:inserted",
+      note: buildNote({ id: "private", visibility: "shared" }),
+    });
+  });
+  expect(result.current.undoState.disabled).toBe(true);
+});
+it("相関errorだけでは終端にせずstatus unknownで不存在を確認する", () => {
+  const { result, accept } = setup();
+  accept(receipt("old", 0, 1));
+  act(() => result.current.undo());
+  act(() =>
+    result.current.applyMessage({
+      type: "error",
+      code: "forbidden",
+      operationId: "inverse",
+      message: "受理前拒否",
+    }),
+  );
+  expect(result.current.pending).toBe(true);
+  act(() =>
+    result.current.applyMessage({
+      type: "note:move:result",
+      operationId: "inverse",
+      status: "unknown",
+    }),
+  );
+  expect(result.current.pending).toBe(false);
+  expect(result.current.undoState.reason).toBe("受理前拒否");
+});
+it("相関error後も保存済みaccepted receiptなら正しくUndo成功にする", () => {
+  const { result, accept } = setup();
+  accept(receipt("old", 0, 1));
+  act(() => result.current.undo());
+  act(() =>
+    result.current.applyMessage({
+      type: "error",
+      code: "forbidden",
+      operationId: "inverse",
+      message: "再要求の拒否",
+    }),
+  );
+  const saved = receipt("inverse", 1, 2);
+  saved.after[0].x = 0;
+  act(() =>
+    result.current.applyMessage({
+      type: "note:move:result",
+      operationId: "inverse",
+      status: "accepted",
+      receipt: saved,
+    }),
+  );
+  expect(result.current.pending).toBe(false);
+  expect(result.current.redoState.disabled).toBe(false);
+});

@@ -7220,3 +7220,108 @@ describe("new move group privacy WS", () => {
     mover.close();
   });
 });
+
+describe("inverse rejection facade result", () => {
+  it.each([
+    "phase",
+    "adoption",
+    "closed",
+    "member",
+  ])("%s gate returns a terminal inverse result without leaking history", (reason) =>
+    runInRoomDO(`inverse-facade-${reason}`, async (instance, state) => {
+      const sql = state.storage.sql;
+      sql.exec("INSERT INTO members(user_id) VALUES (?1)", USER_A);
+      savePhase(sql, {
+        kind: "step",
+        phase: 1,
+        step: reason === "phase" ? 1 : 3,
+      });
+      if (reason === "closed")
+        sql.exec("UPDATE room_state SET outcome_published=1 WHERE id=1");
+      if (reason === "member")
+        sql.exec("DELETE FROM members WHERE user_id=?1", USER_A);
+      if (reason === "adoption") {
+        const noteId = "33333333-3333-4333-8333-333333333333";
+        insertNote(sql, {
+          id: noteId,
+          author_id: USER_A,
+          content: "secret",
+          visibility: "shared",
+          color: "yellow",
+          font_size: 14,
+          x: 10,
+          y: 10,
+          stack_order: 0,
+          phase: 1,
+          excluded: false,
+          created_at: "now",
+          updated_at: "now",
+        });
+        sql.exec(
+          "INSERT INTO decisions(phase,note_id,decided_by,decided_at) VALUES(1,?1,?2,'now')",
+          noteId,
+          USER_A,
+        );
+      }
+      let attachment: SocketAttachment = { userId: USER_A };
+      const messages: Record<string, unknown>[] = [];
+      const ws = {
+        readyState: 1,
+        deserializeAttachment: () => attachment,
+        serializeAttachment: (next: SocketAttachment) => {
+          attachment = next;
+        },
+        send: (raw: string) => messages.push(JSON.parse(raw)),
+      } as unknown as WebSocket;
+      const operationId = "55555555-5555-4555-8555-555555555555";
+      const inverse = {
+        type: "note:move:inverse",
+        operationId,
+        sourceOperationId: "66666666-6666-4666-8666-666666666666",
+        expectedTargets: [
+          {
+            noteId: "33333333-3333-4333-8333-333333333333",
+            positionRevision: 0,
+            visibilityRevision: 0,
+          },
+        ],
+        expectedGroupRevision: 0,
+      };
+      await instance.webSocketMessage(ws, JSON.stringify(inverse));
+      expect(messages.at(-1)).toMatchObject({
+        type: "note:move:result",
+        operationId,
+        status: "rejected",
+      });
+      expect(JSON.stringify(messages.at(-1))).not.toContain(
+        inverse.expectedTargets[0].noteId,
+      );
+      await instance.webSocketMessage(
+        ws,
+        JSON.stringify({ type: "note:move:status", operationId }),
+      );
+      expect(messages.at(-1)).toMatchObject({
+        type: "note:move:result",
+        operationId,
+        status: reason === "member" ? "unknown" : "rejected",
+      });
+      if (reason !== "member") {
+        // 確定済み結果を現在の拒否へ書き換えない（receiptは可視性で伏せ得る）。
+        sql.exec(
+          "UPDATE note_move_operations SET state='accepted',result_json=?2 WHERE operation_id=?1",
+          operationId,
+          JSON.stringify({
+            type: "note:move:result",
+            operationId,
+            status: "accepted",
+          }),
+        );
+        await instance.webSocketMessage(ws, JSON.stringify(inverse));
+        expect(messages.at(-1)).toMatchObject({
+          type: "note:move:result",
+          operationId,
+          status: "accepted",
+        });
+      }
+    }));
+});

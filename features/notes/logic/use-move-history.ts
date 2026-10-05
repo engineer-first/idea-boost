@@ -50,6 +50,7 @@ export function useMoveHistory({
     index: number;
     direction: "undo" | "redo";
     generation: number;
+    errorReason?: string;
   } | null>(null);
   const generation = useRef(0);
   const reason = useRef(emptyReason);
@@ -59,6 +60,9 @@ export function useMoveHistory({
   const refresh = useCallback(() => render((n) => n + 1), []);
   const clear = useCallback(
     (message = "移動以外の操作が確定したため、移動履歴を終了しました。") => {
+      // 履歴終了は送信済み逆操作の取消を意味しない。現在状態はsnapshot/batchで同期し、
+      // 遅延結果で旧cursorを復活させず、旧pendingで新しい訪問を塞がない。
+      pending.current = null;
       entries.current = [];
       ownMoves.current.clear();
       boundaryRequests.current = [];
@@ -135,7 +139,8 @@ export function useMoveHistory({
           request.type === "note:unpublish"
         )
           return (
-            message.type === "note:updated" &&
+            (message.type === "note:updated" ||
+              message.type === "note:inserted") &&
             message.note.id === request.noteId &&
             message.note.visibility ===
               (request.type === "note:publish" ? "shared" : "private")
@@ -239,10 +244,25 @@ export function useMoveHistory({
             entry.reason = conflictReason;
         refresh();
       }
+      if (
+        message.type === "error" &&
+        pending.current &&
+        pending.current.id === message.operationId
+      ) {
+        // ACK喪失後の再要求の拒否でもありうるため、error単独では成功/拒否を決めない。
+        // 同じIDの保存済み結果を照会し、unknownとの組合せだけを不存在の終端にする。
+        pending.current.errorReason = message.message;
+        send({ type: "note:move:status", operationId: pending.current.id });
+        return;
+      }
       if (message.type !== "note:move:result") return;
       const active = pending.current;
       if (active?.id === message.operationId) {
-        if (message.status === "active" || message.status === "unknown") return;
+        if (
+          message.status === "active" ||
+          (message.status === "unknown" && !active.errorReason)
+        )
+          return;
         pending.current = null;
         const entry = entries.current[active.index];
         if (
@@ -271,7 +291,7 @@ export function useMoveHistory({
               other.groupRevision = saved.groupRevisionAfter;
           }
         } else if (entry && active.generation === generation.current)
-          entry.reason = message.reason ?? conflictReason;
+          entry.reason = message.reason ?? active.errorReason ?? conflictReason;
         refresh();
         return;
       }
@@ -307,7 +327,7 @@ export function useMoveHistory({
       }
       refresh();
     },
-    [clear, refresh, currentUserId],
+    [clear, refresh, currentUserId, send],
   );
   const state = (direction: "undo" | "redo"): MoveHistoryActionState => {
     const entry =
