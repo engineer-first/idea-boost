@@ -52,10 +52,7 @@ import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
-import {
-  MoveHistoryControls,
-  type MoveHistoryControlsProps,
-} from "../molecules/move-history-controls";
+import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { NoteFontSizeControls } from "../molecules/note-font-size-controls";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
@@ -599,7 +596,6 @@ export function RoomBoardCanvas({
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
         >
-          {moveHistory ? <MoveHistoryControls {...moveHistory} /> : null}
           <div className="flex items-center gap-2">
             <div
               data-testid="board-operation-matrix"
@@ -627,9 +623,10 @@ export function RoomBoardCanvas({
           </div>
           <div
             data-testid="canvas-zoom-hud"
-            className="flex items-center gap-2"
+            className="flex max-w-full items-center gap-2"
           >
             <CanvasZoomControls
+              moveHistory={moveHistory}
               interactionTool={interactionTool}
               onToolChange={onToolChange}
               toolDisabled={toolDisabled}

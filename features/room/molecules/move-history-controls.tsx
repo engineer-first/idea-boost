@@ -3,6 +3,12 @@
 import { Redo2, Undo2 } from "lucide-react";
 import { useId } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export type MoveHistoryAction = {
   label: string;
@@ -27,69 +33,72 @@ export function MoveHistoryControls({
 }: MoveHistoryControlsProps) {
   const id = useId();
   return (
-    <fieldset
-      className="pointer-events-auto flex flex-col gap-1 rounded-xl border bg-background p-1.5"
-      aria-label="付箋の移動履歴"
-      aria-busy={pending}
-    >
-      <p className="sr-only">
-        本人の付箋移動だけを元に戻します。本文編集中は通常の文字入力の取り消しです。
-      </p>
-      <div className="flex gap-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pending || undo.disabled}
-          onClick={onUndo}
-          aria-label="移動を元に戻す"
-          aria-describedby={`${id}-undo`}
-          title={`${undo.label}。${undo.reason ?? ""} Ctrl / Cmd + Z`}
-        >
-          <Undo2 className="size-4" aria-hidden="true" />
-          移動を元に戻す
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pending || redo.disabled}
-          onClick={onRedo}
-          aria-label="移動をやり直す"
-          aria-describedby={`${id}-redo`}
-          title={`${redo.label}。${redo.reason ?? ""} Ctrl / Cmd + Shift + Z`}
-        >
-          <Redo2 className="size-4" aria-hidden="true" />
-          移動をやり直す
-        </Button>
-      </div>
-      <span id={`${id}-undo`} className="sr-only">
-        {undo.label}。{undo.reason}。Ctrl / Cmd + Z
-      </span>
-      <span id={`${id}-redo`} className="sr-only">
-        {redo.label}。{redo.reason}。Ctrl / Cmd + Shift + Z
-      </span>
-      <p className="px-1 text-xs text-muted-foreground">
-        Ctrl / Cmd + Z・Shiftでやり直す
-      </p>
-      {pending ? (
-        <span role="status" className="px-1 text-xs text-muted-foreground">
-          移動を反映しています…
+    <TooltipProvider delayDuration={1000}>
+      <fieldset
+        className="pointer-events-auto flex min-w-0 shrink-0 items-center gap-1"
+        aria-label="付箋の移動履歴"
+        aria-busy={pending}
+      >
+        <p className="sr-only">
+          本人の付箋移動だけを元に戻します。本文編集中は通常の文字入力の取り消しです。
+        </p>
+        {(
+          [
+            {
+              action: undo,
+              name: "移動を元に戻す",
+              shortcut: "Ctrl / Cmd + Z",
+              onClick: onUndo,
+              Icon: Undo2,
+              direction: "undo",
+            },
+            {
+              action: redo,
+              name: "移動をやり直す",
+              shortcut: "Ctrl / Cmd + Shift + Z",
+              onClick: onRedo,
+              Icon: Redo2,
+              direction: "redo",
+            },
+          ] as const
+        ).map(({ action, name, shortcut, onClick, Icon, direction }) => {
+          const disabled = pending || action.disabled;
+          const description = `${name}（${shortcut}）。${action.label}。${pending ? "移動を反映しています…" : (action.reason ?? "")}`;
+          return (
+            <Tooltip key={direction}>
+              <TooltipTrigger asChild>
+                <fieldset
+                  tabIndex={disabled ? 0 : undefined}
+                  aria-label={disabled ? name : undefined}
+                  aria-describedby={disabled ? `${id}-${direction}` : undefined}
+                  className="inline-flex min-w-0 rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    disabled={disabled}
+                    onClick={onClick}
+                    aria-label={name}
+                    aria-describedby={`${id}-${direction}`}
+                  >
+                    <Icon aria-hidden="true" />
+                  </Button>
+                </fieldset>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-64">
+                {description}
+              </TooltipContent>
+              <span id={`${id}-${direction}`} className="sr-only">
+                {description}
+              </span>
+            </Tooltip>
+          );
+        })}
+        <span role="status" className="sr-only">
+          {pending ? "移動を反映しています…" : ""}
         </span>
-      ) : null}
-      {!pending && undo.disabled && undo.reason ? (
-        <span className="max-w-64 px-1 text-xs text-muted-foreground">
-          {undo.reason}
-        </span>
-      ) : null}
-      {!pending &&
-      redo.disabled &&
-      redo.reason &&
-      redo.reason !== undo.reason ? (
-        <span className="max-w-64 px-1 text-xs text-muted-foreground">
-          {redo.reason}
-        </span>
-      ) : null}
-    </fieldset>
+      </fieldset>
+    </TooltipProvider>
   );
 }

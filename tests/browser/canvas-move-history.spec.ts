@@ -405,7 +405,7 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
 });
 
 describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
-  test("375pxの高い/低い画面で履歴・工程操作・マイ付箋・map操作が重ならず届く", async () => {
+  test("320/375pxの画面で履歴・工程操作・マイ付箋・map操作が重ならず届く", async () => {
     const browser = await chromium.launch();
     try {
       const actor = await browser.newPage({
@@ -427,8 +427,16 @@ describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
         await actor.goto(`${app}/rooms/${room.roomId}`);
         await actor.getByTestId("board-canvas").waitFor();
         await actor.evaluate(() => document.fonts.ready);
-        for (const height of [812, 667]) {
-          await actor.setViewportSize({ width: 375, height });
+        // Next.js開発用インジケータが左下の本番ツールバーを覆うため検証から除く。
+        await actor.addStyleTag({
+          content: "nextjs-portal { display: none; }",
+        });
+        for (const [width, height] of [
+          [375, 812],
+          [375, 667],
+          [320, 667],
+        ]) {
+          await actor.setViewportSize({ width, height });
           await expect
             .poll(async () =>
               actor.evaluate(() => {
@@ -458,6 +466,26 @@ describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
               }),
             )
             .toBeNull();
+          const toolbar = actor.getByTestId("canvas-zoom-controls");
+          expect(
+            await toolbar
+              .getByRole("button", { name: "移動を元に戻す" })
+              .count(),
+          ).toBe(1);
+          expect(
+            await toolbar
+              .getByRole("button", { name: "移動をやり直す" })
+              .count(),
+          ).toBe(1);
+          for (const button of await toolbar.getByRole("button").all()) {
+            const box = await button.boundingBox();
+            expect(box).not.toBeNull();
+            if (!box) throw new Error("ツールバーの操作が見えません");
+            expect(box.x).toBeGreaterThanOrEqual(0);
+            expect(box.x + box.width).toBeLessThanOrEqual(width);
+            expect(box.y + box.height).toBeLessThanOrEqual(height);
+            if (await button.isEnabled()) await button.click({ trial: true });
+          }
           const controls = actor
             .getByTestId("phase-loop-hud")
             .getByRole("button");
@@ -470,7 +498,7 @@ describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
           for (const button of await privateButtons.all())
             if ((await button.isVisible()) && (await button.isEnabled()))
               await button.click({ trial: true, timeout: 2000 });
-          if (checkpoint === "1-2" && height === 667) {
+          if (checkpoint === "1-2" && height === 667 && width === 375) {
             const expand = actor.getByRole("button", {
               name: "マイ付箋を開く",
               exact: true,
@@ -494,7 +522,7 @@ describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
           }
           if (evidence)
             await actor.screenshot({
-              path: `${evidence}/mobile-${checkpoint}-${height}.png`,
+              path: `${evidence}/mobile-${checkpoint}-${width}-${height}.png`,
             });
         }
       }

@@ -10,7 +10,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+import {
+  MoveHistoryControls,
+  type MoveHistoryControlsProps,
+} from "./move-history-controls";
+
 export type CanvasZoomControlsProps = {
+  moveHistory?: MoveHistoryControlsProps;
   interactionTool?: "select" | "hand";
   onToolChange?: (tool: "select" | "hand") => void;
   toolDisabled?: boolean;
@@ -22,6 +28,7 @@ export type CanvasZoomControlsProps = {
 };
 
 export function CanvasZoomControls({
+  moveHistory,
   interactionTool = "select",
   onToolChange,
   toolDisabled = false,
@@ -56,10 +63,10 @@ export function CanvasZoomControls({
   return (
     <TooltipProvider delayDuration={1000}>
       <fieldset
-        className="board-hud pointer-events-auto relative flex items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-lg shadow-black/5"
+        className="board-hud pointer-events-auto relative flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-border bg-background p-1 shadow-lg shadow-black/5"
         data-testid="canvas-zoom-controls"
         aria-label="キャンバス表示操作"
-        aria-description="方向キーで視野を移動、PageUp・PageDownで上下に読む。自分だけの表示です"
+        aria-description="方向キーで視野を移動、PageUp・PageDownで上下に読む。視野とズームの変更は自分だけの表示です"
       >
         {onToolChange ? (
           <>
@@ -100,209 +107,220 @@ export function CanvasZoomControls({
             <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
           </>
         ) : null}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              disabled={toolDisabled}
-              aria-label="キャンバスを縮小"
-              onClick={onZoomOut}
-            >
-              <Minus aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            キャンバスを縮小（自分だけの表示）
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="min-w-14 tabular-nums"
-              disabled={toolDisabled}
-              aria-label="ズームを100%に戻す"
-              onClick={onResetZoom}
-            >
-              {Math.round(zoom * 100)}%
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            ズームを100%に戻す（自分だけの表示）
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              disabled={toolDisabled}
-              aria-label="キャンバスを拡大"
-              onClick={onZoomIn}
-            >
-              <Plus aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            キャンバスを拡大（自分だけの表示）
-          </TooltipContent>
-        </Tooltip>
-        <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              disabled={toolDisabled}
-              aria-label="付箋全体を表示"
-              onClick={onFitToNotes}
-            >
-              <Maximize2 aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            付箋全体を表示（自分だけの表示）
-          </TooltipContent>
-        </Tooltip>
-        <details
-          ref={helpRef}
-          data-canvas-help="true"
-          onKeyDown={(event) => {
-            if (
-              event.key !== "Escape" ||
-              event.nativeEvent.isComposing ||
-              !event.currentTarget.open
-            )
-              return;
-            event.preventDefault();
-            event.stopPropagation();
-            event.currentTarget.open = false;
-            event.currentTarget.querySelector("summary")?.focus();
-          }}
-        >
-          <summary
-            aria-label="キャンバス操作のヒント"
-            className="flex size-7 cursor-pointer list-none items-center justify-center rounded text-sm font-bold hover:bg-muted focus-visible:outline-2"
-          >
-            ?
-          </summary>
-          <section
-            aria-label="キャンバス操作のヒント内容"
-            data-testid="canvas-operation-help"
+        {moveHistory ? (
+          <>
+            <MoveHistoryControls {...moveHistory} />
+            <span
+              aria-hidden="true"
+              className="mx-0.5 h-5 w-px bg-border max-[399px]:hidden"
+            />
+          </>
+        ) : null}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={toolDisabled}
+                aria-label="キャンバスを縮小"
+                onClick={onZoomOut}
+              >
+                <Minus aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              キャンバスを縮小（自分だけの表示）
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="min-w-14 tabular-nums"
+                disabled={toolDisabled}
+                aria-label="ズームを100%に戻す"
+                onClick={onResetZoom}
+              >
+                {Math.round(zoom * 100)}%
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              ズームを100%に戻す（自分だけの表示）
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={toolDisabled}
+                aria-label="キャンバスを拡大"
+                onClick={onZoomIn}
+              >
+                <Plus aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              キャンバスを拡大（自分だけの表示）
+            </TooltipContent>
+          </Tooltip>
+          <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={toolDisabled}
+                aria-label="付箋全体を表示"
+                onClick={onFitToNotes}
+              >
+                <Maximize2 aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              付箋全体を表示（自分だけの表示）
+            </TooltipContent>
+          </Tooltip>
+          <details
+            ref={helpRef}
+            data-canvas-help="true"
             onKeyDown={(event) => {
               if (
-                !event.nativeEvent.isComposing &&
-                event.nativeEvent.keyCode !== 229 &&
-                !event.ctrlKey &&
-                !event.metaKey &&
-                !event.altKey &&
-                [
-                  "ArrowDown",
-                  "ArrowUp",
-                  "ArrowLeft",
-                  "ArrowRight",
-                  "PageDown",
-                  "PageUp",
-                ].includes(event.key)
-              ) {
-                // 既定の本文スクロールを保ち、祖先HUDのカメラ操作だけへ渡さない。
-                event.stopPropagation();
-              }
+                event.key !== "Escape" ||
+                event.nativeEvent.isComposing ||
+                !event.currentTarget.open
+              )
+                return;
+              event.preventDefault();
+              event.stopPropagation();
+              event.currentTarget.open = false;
+              event.currentTarget.querySelector("summary")?.focus();
             }}
-            // biome-ignore lint/a11y/noNoninteractiveTabindex: スクロールするヒントをキーボードで読み、Escapeを内側で処理するため。
-            tabIndex={0}
-            className="absolute bottom-full left-0 z-50 mb-2 max-h-[calc(100dvh-13rem)] w-[min(23rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-border bg-background p-4 text-sm leading-6 shadow-lg focus-visible:outline-2"
           >
-            <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-              <h2 className="text-base font-semibold">操作ヒント</h2>
-              <span className="shrink-0 text-muted-foreground">
-                <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                  Escape
-                </kbd>
-                で閉じる
-              </span>
-            </div>
-            <dl className="space-y-4">
-              <div>
-                <dt className="font-semibold">付箋を選ぶ</dt>
-                <dd className="mt-1 space-y-1">
-                  <p>選択ツールで空白を囲むと、複数選択。</p>
-                  <p>
-                    <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                      Shift
-                    </kbd>{" "}
-                    ＋ クリックで追加・解除。
-                  </p>
-                </dd>
-              </div>
-              <div>
-                <dt className="font-semibold">画面を動かす</dt>
-                <dd className="mt-1 space-y-1">
-                  <p>
-                    背景で{" "}
-                    <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                      V
-                    </kbd>{" "}
-                    は選択、
-                    <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                      H
-                    </kbd>{" "}
-                    は手のひら。
-                  </p>
-                  <p>
-                    <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                      Space
-                    </kbd>{" "}
-                    を押しながらドラッグで画面移動。
-                  </p>
-                </dd>
-              </div>
-              <div>
-                <dt className="font-semibold">付箋を編集する</dt>
-                <dd className="mt-1">
-                  編集できる付箋を選び、もう一度クリックまたは{" "}
-                  <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                    Enter
-                  </kbd>{" "}
-                  で編集。
-                </dd>
-              </div>
-              <div>
-                <dt className="font-semibold">操作を終了する</dt>
-                <dd className="mt-1">
+            <summary
+              aria-label="キャンバス操作のヒント"
+              className="flex size-7 cursor-pointer list-none items-center justify-center rounded text-sm font-bold hover:bg-muted focus-visible:outline-2"
+            >
+              ?
+            </summary>
+            <section
+              aria-label="キャンバス操作のヒント内容"
+              data-testid="canvas-operation-help"
+              onKeyDown={(event) => {
+                if (
+                  !event.nativeEvent.isComposing &&
+                  event.nativeEvent.keyCode !== 229 &&
+                  !event.ctrlKey &&
+                  !event.metaKey &&
+                  !event.altKey &&
+                  [
+                    "ArrowDown",
+                    "ArrowUp",
+                    "ArrowLeft",
+                    "ArrowRight",
+                    "PageDown",
+                    "PageUp",
+                  ].includes(event.key)
+                ) {
+                  // 既定の本文スクロールを保ち、祖先HUDのカメラ操作だけへ渡さない。
+                  event.stopPropagation();
+                }
+              }}
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: スクロールするヒントをキーボードで読み、Escapeを内側で処理するため。
+              tabIndex={0}
+              className="absolute bottom-full left-0 z-50 mb-2 max-h-[calc(100dvh-13rem)] w-[min(23rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-border bg-background p-4 text-sm leading-6 shadow-lg focus-visible:outline-2"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+                <h2 className="text-base font-semibold">操作ヒント</h2>
+                <span className="shrink-0 text-muted-foreground">
                   <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
                     Escape
-                  </kbd>{" "}
-                  で編集・操作・選択の順に、1段ずつ終了。
-                </dd>
+                  </kbd>
+                  で閉じる
+                </span>
               </div>
-              <div>
-                <dt className="font-semibold">マイ付箋を削除する</dt>
-                <dd className="mt-1 space-y-1">
-                  <p>
-                    個人作業中は、選択した付箋を{" "}
+              <dl className="space-y-4">
+                <div>
+                  <dt className="font-semibold">付箋を選ぶ</dt>
+                  <dd className="mt-1 space-y-1">
+                    <p>選択ツールで空白を囲むと、複数選択。</p>
+                    <p>
+                      <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        Shift
+                      </kbd>{" "}
+                      ＋ クリックで追加・解除。
+                    </p>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold">画面を動かす</dt>
+                  <dd className="mt-1 space-y-1">
+                    <p>
+                      背景で{" "}
+                      <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        V
+                      </kbd>{" "}
+                      は選択、
+                      <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        H
+                      </kbd>{" "}
+                      は手のひら。
+                    </p>
+                    <p>
+                      <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        Space
+                      </kbd>{" "}
+                      を押しながらドラッグで画面移動。
+                    </p>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold">付箋を編集する</dt>
+                  <dd className="mt-1">
+                    編集できる付箋を選び、もう一度クリックまたは{" "}
                     <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                      Delete
+                      Enter
                     </kbd>{" "}
-                    で削除。
-                  </p>
-                  <p className="text-muted-foreground">
+                    で編集。
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold">操作を終了する</dt>
+                  <dd className="mt-1">
                     <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                      Backspace
+                      Escape
                     </kbd>{" "}
-                    では削除しません。
-                  </p>
-                </dd>
-              </div>
-            </dl>
-          </section>
-        </details>
+                    で編集・操作・選択の順に、1段ずつ終了。
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold">マイ付箋を削除する</dt>
+                  <dd className="mt-1 space-y-1">
+                    <p>
+                      個人作業中は、選択した付箋を{" "}
+                      <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        Delete
+                      </kbd>{" "}
+                      で削除。
+                    </p>
+                    <p className="text-muted-foreground">
+                      <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                        Backspace
+                      </kbd>{" "}
+                      では削除しません。
+                    </p>
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          </details>
+        </div>
       </fieldset>
     </TooltipProvider>
   );
