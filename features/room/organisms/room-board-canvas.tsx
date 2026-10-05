@@ -37,7 +37,10 @@ import {
   getCursorLabelOffset,
   type RenderedRemoteCursorPresence,
 } from "../logic/cursor-presence";
-import { getIdeaValueFeasibilityMapNotePosition } from "../logic/idea-value-feasibility-map";
+import {
+  getIdeaMapNoteGeometry,
+  getIdeaValueFeasibilityMapNotePosition,
+} from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
 import type {
   CanvasMarquee,
@@ -105,6 +108,7 @@ export type RoomBoardCanvasProps = {
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasPointerEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onNotePointerCaptureLost?: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPresencePointerLeave: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onZoomIn: () => void;
@@ -115,6 +119,7 @@ export type RoomBoardCanvasProps = {
   onNoteDragStart: (
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
+    origin?: { clientX: number; clientY: number },
   ) => void;
   onNoteContentChange: (noteId: string, content: string) => void;
   draftValue?: (noteId: string) => string | undefined;
@@ -189,6 +194,7 @@ export function RoomBoardCanvas({
   onCanvasPointerDown,
   onCanvasPointerMove,
   onCanvasPointerEnd,
+  onNotePointerCaptureLost,
   onPresencePointerMove,
   onPresencePointerLeave,
   onZoomIn,
@@ -364,6 +370,11 @@ export function RoomBoardCanvas({
       <NoteCard
         key={note.id}
         note={note}
+        maxDisplayHeight={
+          isIdeaValueFeasibilityMapVisible
+            ? mapNoteGeometry.noteHeightLimit
+            : undefined
+        }
         isOwnDrag={
           draggingNoteId === note.id || localDraggingNoteId === note.id
         }
@@ -437,11 +448,17 @@ export function RoomBoardCanvas({
     );
   }
 
+  const mapNoteGeometry = getIdeaMapNoteGeometry(
+    ideaMapSizeLevel,
+    notes.map((note) => getNoteHeight(note.content, note.fontSize)),
+  );
+
   function renderPositionedNote(note: Note) {
     const position = isIdeaValueFeasibilityMapVisible
       ? getIdeaValueFeasibilityMapNotePosition(
           { value: note.y, feasibility: note.x },
           getNoteHeight(note.content, note.fontSize),
+          mapNoteGeometry,
         )
       : { left: note.x, top: note.y };
     const isAdoptTarget =
@@ -539,6 +556,7 @@ export function RoomBoardCanvas({
         feasibility: dragGhost.x,
       },
       getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
+      mapNoteGeometry,
     );
 
     return (
@@ -546,7 +564,10 @@ export function RoomBoardCanvas({
         noteId={dragGhost.note.id}
         isLifted
         color={dragGhost.note.color}
-        height={getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize)}
+        height={Math.min(
+          mapNoteGeometry.noteHeightLimit,
+          getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
+        )}
         className="pointer-events-none absolute"
         style={{ ...position, zIndex: TEMPORARY_FRONT_Z_INDEX }}
       >
@@ -664,7 +685,10 @@ export function RoomBoardCanvas({
             backgroundPointerRef.current = null;
             onCanvasPointerEnd(event);
           }}
-          onLostPointerCapture={onCanvasPointerEnd}
+          onLostPointerCapture={(event) => {
+            onCanvasPointerEnd(event);
+            onNotePointerCaptureLost?.(event);
+          }}
           onPointerLeave={onPresencePointerLeave}
         >
           <button

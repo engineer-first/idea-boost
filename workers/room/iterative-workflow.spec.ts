@@ -686,6 +686,8 @@ it.each([
   for (const socket of [room.a, room.b]) {
     expect(await until(socket, "phase:updated")).toEqual({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phase: middle,
       phaseRevision: 3,
     });
@@ -695,6 +697,8 @@ it.each([
   for (const socket of [room.a, room.b]) {
     expect(await until(socket, "phase:updated")).toEqual({
       type: "phase:updated",
+      groupRevision: expect.any(Number),
+      mapRevision: expect.any(Number),
       phase: final,
       phaseRevision: 4,
     });

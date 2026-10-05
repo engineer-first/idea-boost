@@ -35,6 +35,7 @@ export type NoteCardProps = {
   isOwnDrag: boolean;
   isSelected: boolean;
   editingDisabled?: boolean;
+  maxDisplayHeight?: number;
   interactionTool?: "select" | "hand";
   isMultiSelected?: boolean;
   isDecided?: boolean;
@@ -57,6 +58,7 @@ export type NoteCardProps = {
   onDragStart: (
     noteId: string,
     event: React.PointerEvent<HTMLButtonElement>,
+    origin?: { clientX: number; clientY: number },
   ) => void;
   onContentChange: (noteId: string, content: string) => void;
   draftValue?: string;
@@ -223,6 +225,7 @@ export function NoteCard({
   isOwnDrag,
   isSelected,
   editingDisabled = false,
+  maxDisplayHeight = Number.POSITIVE_INFINITY,
   interactionTool = "select",
   isMultiSelected = false,
   isDecided = false,
@@ -622,15 +625,18 @@ export function NoteCard({
     wasEditingRef.current = isEditing;
   }, [isEditing]);
 
+  const discardPointerOrigin = useCallback(() => {
+    const origin = pointerOriginRef.current;
+    pointerOriginRef.current = null;
+    if (origin && surfaceRef.current?.hasPointerCapture?.(origin.pointerId))
+      surfaceRef.current.releasePointerCapture(origin.pointerId);
+  }, []);
   useEffect(() => {
-    const cancelPress = () => {
-      pointerOriginRef.current = null;
-    };
     const cancelOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.isComposing || event.keyCode === 229)
         return;
       const press = pointerOriginRef.current;
-      cancelPress();
+      discardPointerOrigin();
       // privateの閾値前pressはtoolbarの選択解除より先に1段だけ取消す。
       if (
         press &&
@@ -639,17 +645,16 @@ export function NoteCard({
       ) {
         event.preventDefault();
         event.stopPropagation();
-        if (surfaceRef.current?.hasPointerCapture?.(press.pointerId))
-          surfaceRef.current.releasePointerCapture(press.pointerId);
       }
     };
-    window.addEventListener("blur", cancelPress);
+    window.addEventListener("blur", discardPointerOrigin);
     window.addEventListener("keydown", cancelOnEscape, true);
     return () => {
-      window.removeEventListener("blur", cancelPress);
+      window.removeEventListener("blur", discardPointerOrigin);
       window.removeEventListener("keydown", cancelOnEscape, true);
+      discardPointerOrigin();
     };
-  }, [note.visibility]);
+  }, [discardPointerOrigin, note.visibility]);
 
   function handlePointerDown(event: React.PointerEvent<HTMLButtonElement>) {
     if (
@@ -695,7 +700,10 @@ export function NoteCard({
     if (!canMoveNote) return;
     if (!isSelected) onSelect(note.id, { bringToFront: false });
     event.currentTarget.releasePointerCapture?.(event.pointerId);
-    onDragStart(note.id, event);
+    onDragStart(note.id, event, {
+      clientX: origin.startClientX,
+      clientY: origin.startClientY,
+    });
     pointerOriginRef.current = null;
   }
 
@@ -986,7 +994,10 @@ export function NoteCard({
       isDecided={isDecided}
       isAdoptionFocused={isAdoptionFocused}
       color={note.color}
-      height={getNoteHeight(localContent, note.fontSize)}
+      height={Math.min(
+        maxDisplayHeight,
+        getNoteHeight(localContent, note.fontSize),
+      )}
       testId="note-card"
       data-editing={isEditing || undefined}
       data-vote-drop-target={

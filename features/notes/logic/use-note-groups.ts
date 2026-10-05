@@ -22,6 +22,10 @@ export function useNoteGroups({
   const [groups, setGroups] = useState<PersistentGroup[]>([]);
 
   const applyMessage = useCallback((message: ServerMessage) => {
+    if (message.type === "notes:moved") {
+      setGroups(message.groups);
+      return;
+    }
     if (message.type === "snapshot") {
       setGroups(message.groups || []);
       return;

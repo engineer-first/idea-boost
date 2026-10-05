@@ -17,6 +17,7 @@ import {
   type ClientMessage,
   type DotVoteKind,
   type DotVoteSticker,
+  type MoveReceipt,
   NoteFontSizeSchema,
   type ServerMessage,
 } from "@/contracts/room-protocol";
@@ -33,6 +34,7 @@ import {
   restoreVoteStickerLocally,
   voteNoteLocally,
 } from "./notes-reducer";
+import { type MoveFeedback, useNoteMove } from "./use-note-move";
 
 type NoteDragPayload = {
   noteId: string;
@@ -94,6 +96,10 @@ export type VoteFeedback = {
 
 export type UseRoomNotesResult = {
   notes: Note[];
+  clearPeerMoves: () => void;
+  movePending: boolean;
+  moveFeedback: MoveFeedback | null;
+  lastMoveReceipt: MoveReceipt | null;
   // 接続後のサーバー状態を適用した回数。初期データとの照合が必要な処理で使う。
   snapshotVersion: number;
   draggingNoteId: string | null;
@@ -111,7 +117,11 @@ export type UseRoomNotesResult = {
     privateIndex?: number,
     preserveDragUntilPointerEnd?: boolean,
   ) => void;
-  startNoteDrag: (noteId: string, privateMapLock?: boolean) => void;
+  startNoteDrag: (
+    noteId: string,
+    privateMapLock?: boolean,
+    selectedNoteIds?: readonly string[],
+  ) => void;
   bringNoteToFront: (noteId: string) => void;
   // ドラッグ中: 即時ローカル反映 + note:drag をスロットル送信。
   moveNote: (noteId: string, x: number, y: number) => void;
@@ -220,6 +230,13 @@ export function useRoomNotes({
     return next;
   }, []);
 
+  const transactionMove = useNoteMove({
+    notes,
+    send,
+    createId: createNoteDragId,
+    updateNotes,
+  });
+
   const updatePendingVoteOperations = useCallback(
     (update: (current: PendingVoteOperation[]) => PendingVoteOperation[]) => {
       const next = update(pendingVoteOperationsRef.current);
@@ -266,6 +283,7 @@ export function useRoomNotes({
 
   const applyMessage = useCallback(
     (message: ServerMessage) => {
+      transactionMove.applyMessage(message);
       if (message.type === "snapshot")
         confirmedPositionsRef.current = new Map(
           message.notes.map((note) => [note.id, { x: note.x, y: note.y }]),
@@ -595,6 +613,7 @@ export function useRoomNotes({
       updatePendingNoteDrop,
       updatePendingNoteFront,
       updatePendingVoteOperations,
+      transactionMove.applyMessage,
     ],
   );
 
@@ -623,6 +642,9 @@ export function useRoomNotes({
       preserveDragUntilPointerEnd = false,
     ) => {
       sendDragRef.current?.cancel();
+      // 3-2の戻しは旧dragをpointerupまで保持するが、新moveのlockは
+      // 非共有化の前に解除する。同じ接続のcancel→unpublishの順序を保つ。
+      if (transactionMove.owns(noteId)) transactionMove.cancel(noteId);
       if (
         !preserveDragUntilPointerEnd ||
         noteDragOperationRef.current?.noteId !== noteId
@@ -643,11 +665,30 @@ export function useRoomNotes({
           : { type: "note:unpublish", noteId, privateIndex },
       );
     },
-    [send, updatePendingNoteDrop, updatePendingNoteFront],
+    [
+      send,
+      updatePendingNoteDrop,
+      updatePendingNoteFront,
+      transactionMove.owns,
+      transactionMove.cancel,
+    ],
   );
 
   const startNoteDrag = useCallback(
-    (noteId: string, privateMapLock = false) => {
+    (
+      noteId: string,
+      privateMapLock = false,
+      selectedNoteIds?: readonly string[],
+    ) => {
+      const candidate = notesRef.current.find((note) => note.id === noteId);
+      if (
+        (transactionMove.enabled() || (selectedNoteIds?.length ?? 0) > 1) &&
+        !privateMapLock &&
+        candidate?.visibility === "shared"
+      ) {
+        transactionMove.start(noteId, selectedNoteIds);
+        return;
+      }
       const current = noteDragOperationRef.current;
       if (current) {
         if (
@@ -678,7 +719,13 @@ export function useRoomNotes({
       };
       send({ type: "note:drag:start", noteId, dragId });
     },
-    [createNoteDragId, send, updatePendingNoteDrop],
+    [
+      createNoteDragId,
+      send,
+      updatePendingNoteDrop,
+      transactionMove.enabled,
+      transactionMove.start,
+    ],
   );
 
   const bringNoteToFront = useCallback(
@@ -696,6 +743,10 @@ export function useRoomNotes({
 
   const moveNote = useCallback(
     (noteId: string, x: number, y: number) => {
+      if (transactionMove.owns(noteId)) {
+        transactionMove.move(noteId, x, y);
+        return;
+      }
       const operation = noteDragOperationRef.current;
       if (!operation || operation.noteId !== noteId) return;
       operation.latestPosition = { x, y };
@@ -703,11 +754,15 @@ export function useRoomNotes({
       updateNotes((current) => moveNoteLocally(current, noteId, x, y));
       sendDragRef.current?.({ noteId, dragId: operation.dragId, x, y });
     },
-    [updateNotes],
+    [updateNotes, transactionMove.owns, transactionMove.move],
   );
 
   const endNoteDrag = useCallback(
     (noteId: string, x: number, y: number) => {
+      if (transactionMove.owns(noteId)) {
+        transactionMove.end(noteId, x, y);
+        return;
+      }
       const operation = noteDragOperationRef.current;
       if (!operation || operation.noteId !== noteId) return;
       if (operation.status === "pending") {
@@ -728,11 +783,21 @@ export function useRoomNotes({
       });
       noteDragOperationRef.current = null;
     },
-    [recordPendingNoteDrop, updateNotes, send],
+    [
+      recordPendingNoteDrop,
+      updateNotes,
+      send,
+      transactionMove.end,
+      transactionMove.owns,
+    ],
   );
 
   const cancelNoteDrag = useCallback(
     (noteId?: string) => {
+      if (transactionMove.owns(noteId)) {
+        transactionMove.cancel(noteId);
+        return;
+      }
       const operation = noteDragOperationRef.current;
       if (!operation || (noteId !== undefined && operation.noteId !== noteId)) {
         return;
@@ -756,7 +821,7 @@ export function useRoomNotes({
       draggingNoteIdRef.current = null;
       setDraggingNoteId(null);
     },
-    [send, updateNotes],
+    [send, updateNotes, transactionMove.owns, transactionMove.cancel],
   );
 
   const excludeNote = useCallback(
@@ -970,10 +1035,15 @@ export function useRoomNotes({
   );
 
   return {
-    notes,
+    notes: transactionMove.notes,
+    clearPeerMoves: transactionMove.clearPeerMoves,
+    movePending: transactionMove.pending,
+    moveFeedback: transactionMove.feedback,
+    lastMoveReceipt: transactionMove.receipt,
     snapshotVersion,
-    draggingNoteId,
+    draggingNoteId: transactionMove.draggingNoteId ?? draggingNoteId,
     frontNoteId:
+      transactionMove.frontNoteId ??
       draggingNoteId ??
       pendingNoteDrop?.noteId ??
       pendingNoteFront?.noteId ??

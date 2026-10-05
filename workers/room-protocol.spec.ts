@@ -1168,8 +1168,19 @@ describe("note:unpublish", () => {
     await arrangeStep(owner, 2);
     send(owner, { type: "note:unpublish", noteId: firstNoteId });
     await expectType(owner, "note:deleted");
+    expect(await expectType(owner, "group:deleted")).toMatchObject({
+      groupId: "55555555-5555-4555-8555-555555555555",
+      groupRevision: expect.any(Number),
+    });
+    const revision = await expectType(owner, "group:revision");
+    expect(revision.groupRevision).toEqual(expect.any(Number));
     await expectType(owner, "note:inserted");
     await expectType(member, "note:deleted");
+    expect(await expectType(member, "group:deleted")).toMatchObject({
+      groupId: "55555555-5555-4555-8555-555555555555",
+      groupRevision: expect.any(Number),
+    });
+    expect(await expectType(member, "group:revision")).toEqual(revision);
 
     member.close();
     const reconnected = await connectRoomAs(MEMBER, roomId);

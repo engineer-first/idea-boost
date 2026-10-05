@@ -1048,7 +1048,10 @@ describe("RoomBoardCanvas", () => {
       clientX: 210,
       clientY: 210,
     });
-    expect(onNoteDragStart).toHaveBeenCalledWith(id, expect.anything());
+    expect(onNoteDragStart).toHaveBeenCalledWith(id, expect.anything(), {
+      clientX: 200,
+      clientY: 200,
+    });
   });
 
   it("2軸マップの端でもドラッグゴーストを平面内に完全表示する", () => {
@@ -1243,4 +1246,36 @@ it.each([
     clientY: 100,
   });
   expect(props.onNoteDragStart).not.toHaveBeenCalled();
+});
+
+it("極端長文mapカードを平面より小さく表示し、短い付箋も操作できる", () => {
+  const phase = buildPhaseStep(2, 3);
+  const onNoteDragStart = vi.fn();
+  setup({
+    phase,
+    permissions: getBoardPermissions(phase),
+    notes: [
+      buildNote({ id: "long", content: "長文\n".repeat(1000) }),
+      buildNote({ id: "short" }),
+    ],
+    onNoteDragStart,
+  });
+  const card = within(
+    screen.getByTestId("idea-value-feasibility-map-note-long"),
+  ).getByTestId("note-card");
+  expect(Number.parseFloat(card.style.height)).toBeLessThan(822);
+  const surface = within(
+    screen.getByTestId("idea-value-feasibility-map-note-short"),
+  ).getByRole("button", { name: "付箋" });
+  fireEvent.pointerDown(surface, { pointerId: 1, clientX: 200, clientY: 200 });
+  fireEvent.pointerMove(surface, {
+    buttons: 1,
+    pointerId: 1,
+    clientX: 210,
+    clientY: 210,
+  });
+  expect(onNoteDragStart).toHaveBeenCalledWith("short", expect.anything(), {
+    clientX: 200,
+    clientY: 200,
+  });
 });

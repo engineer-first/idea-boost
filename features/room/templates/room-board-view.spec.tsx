@@ -149,6 +149,29 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
   return { ...renderResult, props: resolvedProps };
 }
 
+it("選択ツールからの単一移動は押下座標を移動hookへ渡す", () => {
+  const { props } = setup({ phase: buildPhaseStep(2) });
+  const surface = getNoteSurface(screen.getAllByTestId("note-card")[0]);
+  fireEvent.pointerDown(surface, {
+    pointerId: 91,
+    button: 0,
+    buttons: 1,
+    clientX: 50,
+    clientY: 60,
+  });
+  fireEvent.pointerMove(surface, {
+    pointerId: 91,
+    buttons: 1,
+    clientX: 80,
+    clientY: 90,
+  });
+  expect(props.interactions.onNoteDragStart).toHaveBeenCalledExactlyOnceWith(
+    props.notes[0].id,
+    expect.objectContaining({ clientX: 80, clientY: 90 }),
+    { clientX: 50, clientY: 60 },
+  );
+});
+
 function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
 }

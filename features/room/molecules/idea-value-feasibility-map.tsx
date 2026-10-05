@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode, Ref } from "react";
 import { IDEA_MAP_BASE_DIMENSIONS } from "@/contracts/board";
 import {
   getIdeaValueFeasibilityMapDimensions,
+  IDEA_MAP_AXIS_SIZE,
+  IDEA_MAP_GRID_GAP,
   IDEA_VALUE_FEASIBILITY_MAP_LABELS,
 } from "../logic/idea-value-feasibility-map";
 
@@ -16,7 +18,7 @@ const AXIS_LABEL_BASE_FONT_SIZE = 48;
 const AXIS_LABEL_MIN_FONT_SIZE = 42;
 const AXIS_LABEL_MAX_FONT_SIZE = 87;
 const AXIS_LABEL_X_OFFSET_TOP = 24;
-const AXIS_LABEL_X_ROW_BASE_HEIGHT = 64;
+const AXIS_LABEL_X_ROW_BASE_HEIGHT = IDEA_MAP_AXIS_SIZE;
 
 // アイデア整理用の連続的な2軸平面。将来の子要素を absolute 配置できるよう、
 // 平面そのものを relative に保つ。子要素は0〜100の連続座標で配置する。
@@ -68,6 +70,8 @@ export function IdeaValueFeasibilityMap({
         height: sectionHeight,
         left: `calc(50% - ${IDEA_MAP_BASE_DIMENSIONS.width / 2}px)`,
         bottom: `calc(50% - ${IDEA_MAP_BASE_DIMENSIONS.height / 2}px - ${axisLabelXRowExpansion}px)`,
+        gridTemplateColumns: `${IDEA_MAP_AXIS_SIZE}px minmax(0, 1fr)`,
+        gap: IDEA_MAP_GRID_GAP,
         gridTemplateRows: `minmax(0, 1fr) ${axisLabelXRowHeight}px`,
       }}
     >
@@ -100,7 +104,7 @@ export function IdeaValueFeasibilityMap({
 
       <div
         ref={planeRef}
-        className="pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-sky-50/90 shadow-sm"
+        className="isolate pointer-events-auto relative col-start-2 row-start-1 min-h-0 min-w-0 overflow-hidden rounded-xl border border-border bg-sky-50/90 shadow-sm"
         data-canvas-background="true"
         data-coordinate-range="0-100"
         data-testid="idea-value-feasibility-map-plane"

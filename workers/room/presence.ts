@@ -6,6 +6,11 @@ import type { SocketAttachment } from "./broadcast";
 import type { MessageHandlers } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { findMember } from "./members";
+import {
+  canShareMovePresence,
+  releaseConnectionMoves,
+  syncMovePresence,
+} from "./move-operations";
 import { broadcastNoteUpdated, canEdit, findNote } from "./notes";
 import { getBoardMutationForbiddenMessage, getPhase } from "./phase";
 
@@ -25,11 +30,12 @@ export const presenceHandlers: MessageHandlers<
         phase.kind !== "step" ||
         row.phase !== phase.phase ||
         !canEdit(row, ctx.userId) ||
-        active?.noteId !== message.draggingNoteId ||
+        (!canShareMovePresence(ctx, message.draggingNoteId) &&
+          active?.noteId !== message.draggingNoteId) ||
         getBoardMutationForbiddenMessage(phase, {
           type: "note:drag:move",
           noteId: message.draggingNoteId,
-          dragId: active.dragId,
+          dragId: active?.dragId ?? "",
           // フェーズの操作可否は付箋の位置で判定する。
           // 余白を含むcursor位置を付箋の評価位置として検証しない。
           x: row.x,
@@ -69,9 +75,18 @@ export const presenceHandlers: MessageHandlers<
       ctx.ws.deserializeAttachment() as SocketAttachment | null;
     if (
       !previousAttachment ||
-      (!previousAttachment.hasCursor && !previousAttachment.activeDrag)
+      (!previousAttachment.hasCursor &&
+        !previousAttachment.activeDrag &&
+        !previousAttachment.activeMoveOperationId)
     ) {
       return;
+    }
+    if (
+      previousAttachment.moveConnectionId &&
+      previousAttachment.activeMoveOperationId
+    ) {
+      releaseConnectionMoves(ctx.sql, previousAttachment.moveConnectionId);
+      syncMovePresence(ctx.sql, ctx.broadcaster);
     }
     const active = ctx.broadcaster.retireActiveDrag(ctx.ws);
     const attachment =

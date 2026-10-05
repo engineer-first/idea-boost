@@ -220,6 +220,7 @@ function connectWithSnapshot(
     ideaMapSizeLevel?: number;
     ideaMapSizeInitialized?: boolean;
     ideaMapDragging?: boolean;
+    moveProtocolVersion?: 1;
   },
 ) {
   const { view, socket } = renderBoard({ isHost: options?.isHost ?? true });
@@ -227,6 +228,7 @@ function connectWithSnapshot(
   act(() =>
     socket.simulateServerMessage({
       type: "snapshot",
+      moveProtocolVersion: options?.moveProtocolVersion,
       phaseRevision: 0,
       notes,
       members: [],
@@ -2749,11 +2751,15 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 310,
     });
 
-    expectSent(socket, {
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: { x: 50, y: 50 },
-    });
+    const end = socket.sent
+      .map((raw) => JSON.parse(raw))
+      .find((message) => message.type === "note:drag:end");
+    // 400pxに縮尺されたplane内の共通中心域で110pxを移動する。
+    expect(end.noteId).toBe(NOTE_ID);
+    expect(end.position.x).toBeCloseTo(
+      25 + (110 / (400 * (1322 / 1522))) * 100,
+    );
+    expect(end.position.y).toBeCloseTo(75 - (110 / (400 * (672 / 822))) * 100);
     expect(canvas.style.transform).toBe(cameraBefore);
   });
 
@@ -2818,12 +2824,12 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       clientY: 300,
     });
 
-    expect(socket.sent.map((message) => JSON.parse(message))).toContainEqual({
-      type: "note:publish",
-      noteId: NOTE_ID,
-      x: 50,
-      y: 50,
-    });
+    const publish = socket.sent
+      .map((message) => JSON.parse(message))
+      .find((message) => message.type === "note:publish");
+    expect(publish.noteId).toBe(NOTE_ID);
+    expect(publish.x).toBeCloseTo(50);
+    expect(publish.y).toBeCloseTo(50);
   });
 
   it.each([
@@ -3121,5 +3127,161 @@ describe("ボードの参加者退出", () => {
       }),
     );
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("transaction interruption DOM", () => {
+  it.each([
+    "Escape",
+    "blur",
+    "lostpointercapture",
+  ])("%sでpreviewを取消し復帰pointerupでcommitしない", (reason) => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2, 1),
+      moveProtocolVersion: 1,
+    });
+    const scroller = screen.getByTestId("board-scroller");
+    const surface = within(screen.getByTestId("board-canvas")).getByRole(
+      "button",
+      { name: "付箋" },
+    );
+    fireEvent.pointerDown(surface, {
+      pointerId: 7,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, {
+      buttons: 1,
+      pointerId: 7,
+      clientX: 110,
+      clientY: 110,
+    });
+    expectSent(socket, { type: "note:move:start" });
+    if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
+    else if (reason === "blur") fireEvent.blur(window);
+    else fireEvent.lostPointerCapture(scroller, { pointerId: 7 });
+    fireEvent.pointerUp(scroller, { pointerId: 7, clientX: 150, clientY: 150 });
+    expectSent(socket, { type: "note:move:cancel" });
+    expect(
+      socket.sent
+        .map((v) => JSON.parse(v))
+        .filter((m) => m.type === "note:move:commit"),
+    ).toHaveLength(0);
+  });
+  it("NoteCardからscrollerへのcapture移管ではpreviewを取消さない", () => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2, 1),
+      moveProtocolVersion: 1,
+    });
+    const scroller = screen.getByTestId("board-scroller");
+    let capturedPointerId: number | null = null;
+    scroller.setPointerCapture = vi.fn((pointerId: number) => {
+      capturedPointerId = pointerId;
+    });
+    scroller.hasPointerCapture = vi.fn(
+      (pointerId: number) => capturedPointerId === pointerId,
+    );
+    const surface = within(screen.getByTestId("board-canvas")).getByRole(
+      "button",
+      { name: "付箋" },
+    );
+    fireEvent.pointerDown(surface, {
+      pointerId: 7,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, {
+      buttons: 1,
+      pointerId: 7,
+      clientX: 110,
+      clientY: 110,
+    });
+    fireEvent.lostPointerCapture(surface, { pointerId: 7 });
+    fireEvent.pointerUp(scroller, { pointerId: 7, clientX: 150, clientY: 150 });
+    expectSent(socket, { type: "note:move:commit" });
+    expect(
+      socket.sent
+        .map((v) => JSON.parse(v))
+        .filter((m) => m.type === "note:move:cancel"),
+    ).toHaveLength(0);
+  });
+});
+
+describe("pointer origin interruption DOM", () => {
+  it.each([
+    "Escape",
+    "blur",
+  ])("閾値前の%sでgestureを破棄し復帰move/upで開始しない", (reason) => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2, 1),
+      moveProtocolVersion: 1,
+    });
+    const surface = within(screen.getByTestId("board-canvas")).getByRole(
+      "button",
+      { name: "付箋" },
+    );
+    fireEvent.pointerDown(surface, {
+      pointerId: 7,
+      clientX: 100,
+      clientY: 100,
+    });
+    if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
+    else fireEvent.blur(window);
+    fireEvent.pointerMove(surface, {
+      buttons: 1,
+      pointerId: 7,
+      clientX: 130,
+      clientY: 130,
+    });
+    fireEvent.pointerUp(surface, { pointerId: 7, clientX: 150, clientY: 150 });
+    expect(
+      socket.sent
+        .map((v) => JSON.parse(v))
+        .filter((m) => m.type.startsWith("note:move:")),
+    ).toHaveLength(0);
+  });
+});
+
+describe("pending interruption DOM", () => {
+  it.each([
+    "Escape",
+    "blur",
+  ])("送信後の%sでは取消成功扱いせず照会だけ送る", (reason) => {
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2, 1),
+      moveProtocolVersion: 1,
+    });
+    const surface = within(screen.getByTestId("board-canvas")).getByRole(
+      "button",
+      { name: "付箋" },
+    );
+    fireEvent.pointerDown(surface, {
+      pointerId: 7,
+      clientX: 100,
+      clientY: 100,
+    });
+    fireEvent.pointerMove(surface, {
+      buttons: 1,
+      pointerId: 7,
+      clientX: 110,
+      clientY: 110,
+    });
+    fireEvent.pointerUp(screen.getByTestId("board-scroller"), {
+      pointerId: 7,
+      clientX: 150,
+      clientY: 150,
+    });
+    if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
+    else fireEvent.blur(window);
+    const messages = socket.sent.map((v) => JSON.parse(v));
+    expect(messages.filter((m) => m.type === "note:move:commit")).toHaveLength(
+      1,
+    );
+    expect(messages.filter((m) => m.type === "note:move:cancel")).toHaveLength(
+      0,
+    );
+    expect(messages.filter((m) => m.type === "note:move:status")).toHaveLength(
+      1,
+    );
   });
 });

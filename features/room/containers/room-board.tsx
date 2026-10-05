@@ -139,6 +139,9 @@ export function RoomBoard({
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
   const notes = useRoomNotes({ send });
+  useEffect(() => {
+    if (notes.moveFeedback) notify.error(notes.moveFeedback.message);
+  }, [notes.moveFeedback]);
   const candidates = useCandidateOperations({
     notes: notes.notes,
     connected: connectionStatus === "open",
@@ -472,6 +475,8 @@ export function RoomBoard({
     (note) => note.visibility === "private",
   );
   const boardInteractions = useRoomBoardInteractions({
+    movePending: notes.movePending,
+    onPendingMoveInterrupt: notes.cancelNoteDrag,
     getFitInsets: getBoardFitInsets,
     notes: boardNotes,
     isDecided: roomState.decision !== null,
@@ -495,11 +500,13 @@ export function RoomBoard({
     if (connectionStatus === "open") return;
     drafts.setConnected(false);
     notes.cancelNoteDrag();
+    notes.clearPeerMoves();
     boardInteractions.cancelCurrentNoteDrag(true);
   }, [
     boardInteractions.cancelCurrentNoteDrag,
     connectionStatus,
     notes.cancelNoteDrag,
+    notes.clearPeerMoves,
     drafts.setConnected,
   ]);
 

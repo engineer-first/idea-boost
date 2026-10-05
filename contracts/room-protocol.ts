@@ -136,6 +136,8 @@ export const NoteSchema = z.object({
   authorId: z.string().uuid(),
   content: z.string(),
   contentRevision: z.number().int().nonnegative(),
+  positionRevision: z.number().int().nonnegative().optional(),
+  visibilityRevision: z.number().int().nonnegative().optional(),
   visibility: z.enum(["private", "shared"]),
   color: NoteColorSchema,
   // 旧 Worker / 保存データにフィールドがなくても従来相当の14pxで復元する。
@@ -169,6 +171,51 @@ export const GroupSchema = z.object({
 });
 
 export type ProtocolGroup = z.infer<typeof GroupSchema>;
+
+// 確定座標とpreviewは別の境界。deltaだけを受け、固定集合の相対位置を保つ。
+const MoveDeltaCoordinateSchema = z
+  .number()
+  .finite()
+  .min(-2 * CANVAS_COORDINATE_LIMIT)
+  .max(2 * CANVAS_COORDINATE_LIMIT);
+export const MoveDeltaSchema = z
+  .object({ x: MoveDeltaCoordinateSchema, y: MoveDeltaCoordinateSchema })
+  .strict();
+export const MoveTargetSchema = z
+  .object({
+    noteId: z.string().uuid(),
+    positionRevision: z.number().int().nonnegative(),
+    visibilityRevision: z.number().int().nonnegative(),
+  })
+  .strict();
+export const MoveReceiptSchema = z.object({
+  operationId: OptimisticOperationIdSchema,
+  phaseRevision: z.number().int().nonnegative(),
+  coordinateSpace: z.enum(["canvas", "map"]),
+  before: z.array(
+    z.object({
+      ...MoveTargetSchema.shape,
+      x: CanvasCoordinateSchema,
+      y: CanvasCoordinateSchema,
+    }),
+  ),
+  after: z.array(
+    z.object({
+      ...MoveTargetSchema.shape,
+      x: CanvasCoordinateSchema,
+      y: CanvasCoordinateSchema,
+    }),
+  ),
+  groupsBefore: z.array(GroupSchema),
+  groupsAfter: z.array(GroupSchema),
+  groupRevisionBefore: z.number().int().nonnegative(),
+  groupRevisionAfter: z.number().int().nonnegative(),
+  mapRevision: z.number().int().nonnegative(),
+  // group副作用で位置を変えない付箋も逆操作の検査対象となる。
+  affected: z.array(MoveTargetSchema),
+  changed: z.boolean(),
+});
+export type MoveReceipt = z.infer<typeof MoveReceiptSchema>;
 
 export const TIMER_MAX_DURATION_MS = 5_999_000;
 const TimerMillisecondsSchema = z.number().int().finite().min(0);
@@ -329,6 +376,43 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       noteId: z.string().uuid(),
       fontSize: NoteFontSizeSchema,
       operationId: OptimisticOperationIdSchema.optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:move:start"),
+      operationId: OptimisticOperationIdSchema,
+      expectedPhaseRevision: z.number().int().nonnegative(),
+      expectedGroupRevision: z.number().int().nonnegative(),
+      expectedMapRevision: z.number().int().nonnegative(),
+      coordinateSpace: z.enum(["canvas", "map"]),
+      targets: z.array(MoveTargetSchema).min(1).max(256),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:move:preview"),
+      operationId: OptimisticOperationIdSchema,
+      delta: MoveDeltaSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:move:commit"),
+      operationId: OptimisticOperationIdSchema,
+      delta: MoveDeltaSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:move:cancel"),
+      operationId: OptimisticOperationIdSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("note:move:status"),
+      operationId: OptimisticOperationIdSchema,
     })
     .strict(),
   z.object({
@@ -625,6 +709,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("snapshot"),
+    moveProtocolVersion: z.literal(1).optional(),
+    groupRevision: z.number().int().nonnegative().optional(),
+    mapRevision: z.number().int().nonnegative().optional(),
     sharing: SharingStateSchema.nullable().optional(),
     notes: z.array(NoteSchema),
     groups: z.array(GroupSchema).optional(),
@@ -688,6 +775,62 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     operationId: BulkExclusionOperationIdSchema,
     count: z.number().int().nonnegative(),
   }),
+  z
+    .object({
+      type: z.literal("note:move:result"),
+      operationId: OptimisticOperationIdSchema,
+      status: z.enum([
+        "active",
+        "accepted",
+        "rejected",
+        "cancelled",
+        "expired",
+        "unknown",
+      ]),
+      reason: z.string().optional(),
+      receipt: MoveReceiptSchema.optional(),
+    })
+    .strict(),
+  // 非永続の途中位置。本文・投票・分類を含めない。
+  z
+    .object({
+      type: z.literal("notes:move-preview"),
+      operationId: OptimisticOperationIdSchema,
+      userId: z.string().uuid(),
+      phaseRevision: z.number().int().nonnegative(),
+      sequence: z.number().int().positive(),
+      leaseMs: z.number().int().positive().max(15000),
+      positions: z
+        .array(
+          z
+            .object({
+              noteId: z.string().uuid(),
+              x: z.number().finite(),
+              y: z.number().finite(),
+              positionRevision: z.number().int().nonnegative(),
+              visibilityRevision: z.number().int().nonnegative(),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(256),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("notes:move-ended"),
+      operationId: OptimisticOperationIdSchema,
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("notes:moved"),
+      operationId: OptimisticOperationIdSchema.optional(),
+      notes: z.array(NoteSchema),
+      groups: z.array(GroupSchema),
+      groupRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
   z.object({
     type: z.literal("note:drag:result"),
     dragId: NoteDragIdSchema,
@@ -695,12 +838,21 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("group:updated"),
+    groupRevision: z.number().int().nonnegative().optional(),
     group: GroupSchema,
   }),
   z.object({
     type: z.literal("group:deleted"),
+    groupRevision: z.number().int().nonnegative().optional(),
     groupId: z.string().uuid(),
   }),
+  // 分類内容が不可視でも、共有の競合検査版は現在memberへ同期する。
+  z
+    .object({
+      type: z.literal("group:revision"),
+      groupRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
   z.object({
     type: z.literal("member_joined"),
     member: MemberSchema,
@@ -725,6 +877,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   // start_phase 成功時（ロビー離脱）にも phase:next 成功時にも使う。
   z.object({
     type: z.literal("phase:updated"),
+    groupRevision: z.number().int().nonnegative().optional(),
+    mapRevision: z.number().int().nonnegative().optional(),
     phase: RoomPhaseSchema,
     phaseRevision: z.number().int().nonnegative().default(0),
   }),
@@ -749,6 +903,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("idea-map:state"),
+      mapRevision: z.number().int().nonnegative().optional(),
       sizeLevel: IdeaMapSizeLevelSchema,
       initialized: z.boolean(),
       isDragging: z.boolean(),

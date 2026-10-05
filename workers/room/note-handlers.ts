@@ -14,7 +14,7 @@ import {
   hasUsedNoteDragId,
   recordUsedNoteDragId,
 } from "./drag-operations";
-import { autoReorganize } from "./groups";
+import { autoReorganize, removeNoteGroups } from "./groups";
 import {
   type HandlerCtx,
   type MessageHandlers,
@@ -22,6 +22,7 @@ import {
 } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
 import { getMemberColor, isHostUser } from "./members";
+import { hasMoveLock } from "./move-operations";
 import {
   bringNoteToFront,
   broadcastNoteInserted,
@@ -190,6 +191,10 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    if (hasMoveLock(ctx.sql, message.noteId)) {
+      replyForbidden(ctx);
+      return;
+    }
     const owner = ctx.broadcaster.findActiveDrag(message.noteId);
     if (owner && owner.socket !== ctx.ws) {
       replyForbidden(ctx);
@@ -207,6 +212,7 @@ export const noteHandlers: MessageHandlers<
       toProtocolNote(ctx.sql, row, ctx.userId),
     );
     const updatedAt = new Date().toISOString();
+    if (!isPhaseStep(phase, 1, 3)) removeNoteGroups(ctx, message.noteId, phase);
     const reorderedPrivateNotes = unpublishNoteAtIndex(
       ctx.sql,
       message.noteId,
@@ -391,6 +397,10 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    if (hasMoveLock(ctx.sql, message.noteId)) {
+      replyForbidden(ctx);
+      return;
+    }
     const owner = ctx.broadcaster.findActiveDrag(message.noteId);
     if (owner) {
       replyForbidden(ctx);
@@ -424,7 +434,8 @@ export const noteHandlers: MessageHandlers<
       row.visibility !== "shared" ||
       row.excluded ||
       !canEdit(row, ctx.userId) ||
-      ctx.broadcaster.findActiveDrag(message.noteId)
+      ctx.broadcaster.findActiveDrag(message.noteId) ||
+      hasMoveLock(ctx.sql, message.noteId)
     ) {
       replyForbidden(ctx);
       return;
@@ -464,18 +475,29 @@ export const noteHandlers: MessageHandlers<
           (!current &&
             !hasUsedNoteDragId(ctx.sql, ctx.userId, message.dragId) &&
             !hasReachedNoteDragStartRateLimit(ctx.sql, ctx.userId))) &&
+        !hasMoveLock(ctx.sql, message.noteId) &&
         (!competing ||
           (competing.socket === ctx.ws && competing.dragId === message.dragId)),
     );
     if (accepted) {
       recordUsedNoteDragId(ctx.sql, ctx.userId, message.dragId);
+      ctx.sql.exec(
+        "INSERT OR REPLACE INTO legacy_note_drag_leases(user_id,drag_id,lease_until) VALUES (?1,?2,?3)",
+        ctx.userId,
+        message.dragId,
+        Date.now() + 15_000,
+      );
       const attachment =
         (ctx.ws.deserializeAttachment() as SocketAttachment | null) ?? {
           userId: ctx.userId,
         };
       ctx.ws.serializeAttachment({
         ...attachment,
-        activeDrag: { noteId: message.noteId, dragId: message.dragId },
+        activeDrag: {
+          noteId: message.noteId,
+          dragId: message.dragId,
+          leaseUntil: Date.now() + 15_000,
+        },
       } satisfies SocketAttachment);
     }
     ctx.reply({
@@ -497,6 +519,20 @@ export const noteHandlers: MessageHandlers<
     ) {
       return;
     }
+    ctx.sql.exec(
+      "UPDATE legacy_note_drag_leases SET lease_until=?3 WHERE user_id=?1 AND drag_id=?2",
+      ctx.userId,
+      message.dragId,
+      Date.now() + 15_000,
+    );
+    ctx.ws.serializeAttachment({
+      ...active.attachment,
+      activeDrag: {
+        noteId: active.noteId,
+        dragId: active.dragId,
+        leaseUntil: Date.now() + 15_000,
+      },
+    } satisfies SocketAttachment);
     const row = findNote(ctx.sql, message.noteId);
     const phase = getPhase(ctx.sql);
     if (
@@ -541,6 +577,11 @@ export const noteHandlers: MessageHandlers<
     ) {
       return;
     }
+    ctx.sql.exec(
+      "DELETE FROM legacy_note_drag_leases WHERE user_id=?1 AND drag_id=?2",
+      ctx.userId,
+      message.dragId,
+    );
     const row = findNote(ctx.sql, message.noteId);
     const phase = getPhase(ctx.sql);
     ctx.broadcaster.retireActiveDrag(ctx.ws);
@@ -745,6 +786,8 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    if (!isPhaseStep(getPhase(ctx.sql), 1, 3))
+      removeNoteGroups(ctx, message.noteId, getPhase(ctx.sql));
     deleteNote(ctx.sql, message.noteId);
     deleteNoteVotes(ctx.sql, message.noteId);
     ctx.broadcaster.broadcast(

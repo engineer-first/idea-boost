@@ -42,6 +42,7 @@ function getPrivateListOutsideEdgeSpeed(distance: number): number {
  */
 export type BoardDrag = {
   note: Note;
+  targetIds?: readonly string[];
   pointerId: number;
   status: "private" | "shared" | "returning";
   privateDropIndex: number | null;
@@ -62,6 +63,7 @@ export type BoardDrag = {
  */
 export type UseBoardDragArgs = {
   notes: Note[];
+  selectedNoteIds?: readonly string[];
   privateNotes: Note[];
   currentUserId: string;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
@@ -81,7 +83,11 @@ export type UseBoardDragArgs = {
   canMoveSharedNotes?: boolean;
   canPublish?: boolean;
   onPublishBlocked?: () => void;
-  onNoteDragStart: (noteId: string, privateMapLock?: boolean) => void;
+  onNoteDragStart: (
+    noteId: string,
+    privateMapLock?: boolean,
+    selectedNoteIds?: readonly string[],
+  ) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
   onNoteDragEnd: (noteId: string, x: number, y: number) => void;
   onNoteDragCancel: (noteId: string) => void;
@@ -156,6 +162,7 @@ function getPositionFromPointer({
 
 export function useBoardDrag({
   notes,
+  selectedNoteIds,
   privateNotes,
   currentUserId,
   boardScrollerRef,
@@ -275,6 +282,7 @@ export function useBoardDrag({
       const rect = privateToolbarRef.current?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return false;
       const current = dragRef.current;
+      if ((current?.targetIds?.length ?? 0) > 1) return false;
       const isInsideToolbar =
         clientX >= rect.left &&
         clientX <= rect.right &&
@@ -450,7 +458,11 @@ export function useBoardDrag({
   };
 
   const handleSharedNoteDragStart = useCallback(
-    (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
+    (
+      noteId: string,
+      event: ReactPointerEvent<HTMLButtonElement>,
+      origin?: { clientX: number; clientY: number },
+    ) => {
       // 2本目の指で操作対象を上書きすると、最初の操作権を解放できなくなる。
       if (dragRef.current || !canMoveSharedNotes) return;
       const note = notes.find((n) => n.id === noteId);
@@ -458,12 +470,16 @@ export function useBoardDrag({
       hasNotifiedBlockedRef.current = false;
       boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const pointerPosition = boardPositionFromPointer(
-        event.clientX,
-        event.clientY,
+        origin?.clientX ?? event.clientX,
+        origin?.clientY ?? event.clientY,
       );
       const rect = event.currentTarget?.getBoundingClientRect?.();
+      const targetIds = selectedNoteIds?.includes(noteId)
+        ? [...selectedNoteIds]
+        : [noteId];
       updateDrag({
         note,
+        targetIds,
         pointerId: event.pointerId,
         status: "shared",
         privateDropIndex: null,
@@ -478,11 +494,13 @@ export function useBoardDrag({
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
-      onNoteDragStart(noteId);
+      if (selectedNoteIds) onNoteDragStart(noteId, false, targetIds);
+      else onNoteDragStart(noteId);
     },
     [
       boardPositionFromPointer,
       notes,
+      selectedNoteIds,
       boardScrollerRef,
       canMoveSharedNotes,
       onNoteDragStart,
@@ -684,8 +702,8 @@ export function useBoardDrag({
         if (lockPrivateMapDrag) {
           onNoteDragCancel(current.note.id);
         }
-        boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
         updateDrag(null);
+        boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
         return;
       }
       if (current.status === "shared") {
@@ -746,8 +764,8 @@ export function useBoardDrag({
       if (lockPrivateMapDrag && current.status === "returning") {
         onNoteDragCancel(current.note.id);
       }
-      boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
       updateDrag(null);
+      boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
     },
     [
       boardPositionFromPointer,
@@ -781,8 +799,8 @@ export function useBoardDrag({
       ) {
         onNoteDragCancel(current.note.id);
       }
-      boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
       updateDrag(null);
+      boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
     },
     [
       boardScrollerRef,
@@ -805,8 +823,8 @@ export function useBoardDrag({
       hasNotifiedBlockedRef.current = false;
       if (current.status === "shared" || lockPrivateMapDrag)
         onNoteDragCancel(current.note.id);
-      boardScrollerRef.current?.releasePointerCapture?.(current.pointerId);
       updateDrag(null);
+      boardScrollerRef.current?.releasePointerCapture?.(current.pointerId);
     },
     [
       boardScrollerRef,

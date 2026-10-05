@@ -1273,7 +1273,10 @@ describe("NoteCard", () => {
         clientX: 80,
         clientY: 70,
       });
-      expect(onDragStart).toHaveBeenCalledWith("note-1", expect.any(Object));
+      expect(onDragStart).toHaveBeenCalledWith("note-1", expect.any(Object), {
+        clientX: 50,
+        clientY: 50,
+      });
     });
 
     it("閾値内の移動はクリック扱いでドラッグイベントを発火しない", () => {
@@ -1478,6 +1481,32 @@ it("候補ボタンを押した付箋を先に選択する", () => {
 });
 
 describe("#522 focus・pointerの境界", () => {
+  it.each([
+    "Escape",
+    "blur",
+  ])("閾値前の%sでpointer captureを解放し移動を再開しない", (reason) => {
+    const { props } = setup({ isSelected: true });
+    const surface = getNoteSurface();
+    surface.hasPointerCapture = vi.fn(() => true);
+    surface.releasePointerCapture = vi.fn();
+    fireEvent.pointerDown(surface, {
+      pointerId: 91,
+      buttons: 1,
+      clientX: 50,
+      clientY: 60,
+    });
+    if (reason === "Escape") fireEvent.keyDown(surface, { key: "Escape" });
+    else fireEvent.blur(window);
+    expect(surface.releasePointerCapture).toHaveBeenCalledWith(91);
+    fireEvent.pointerMove(surface, {
+      pointerId: 91,
+      buttons: 1,
+      clientX: 80,
+      clientY: 90,
+    });
+    expect(props.onDragStart).not.toHaveBeenCalled();
+  });
+
   it.each([
     "Enter",
     "h",

@@ -62,10 +62,11 @@ import {
 } from "./completed-rooms";
 import { decisionHandlers } from "./decision-handlers";
 import { getCarryovers, getDecision } from "./decisions";
-import { groupHandlers, listVisibleGroups } from "./groups";
+import { groupHandlers, listBoardGroups } from "./groups";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { hostHandlers } from "./host-transfer";
 import {
+  broadcastIdeaMapState,
   buildIdeaMapServerState,
   ideaMapHandlers,
   isIdeaMapVisiblePhase,
@@ -83,6 +84,13 @@ import {
   type UpsertMemberResult,
   upsertMember,
 } from "./members";
+import {
+  expireMoveOperations,
+  moveHandlers,
+  moveRevisions,
+  releaseConnectionMoves,
+  syncMovePresence,
+} from "./move-operations";
 import { noteHandlers } from "./note-handlers";
 import { broadcastNoteUpdated, findNote, listNotes } from "./notes";
 import {
@@ -131,6 +139,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...memberRemovalHandlers,
   ...adoptionFocusHandlers,
   ...noteHandlers,
+  ...moveHandlers,
   ...decisionHandlers,
   ...groupHandlers,
   ...ideaMapHandlers,
@@ -155,6 +164,11 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
     case "note:vote-sticker:add":
     case "note:vote-sticker:move":
     case "note:vote-sticker:remove":
+    case "note:move:start":
+    case "note:move:preview":
+    case "note:move:cancel":
+    case "note:move:commit":
+    case "note:move:status":
     case "note:update-content":
       return message.operationId;
     default:
@@ -190,6 +204,29 @@ export class RoomDO extends DurableObject {
         ROOM_DO_MIGRATIONS,
         LEGACY_ROOM_DO_MIGRATION_IDS,
       );
+      // 段階デプロイ前から生きる旧attachmentにも、最初の復帰時に有限leaseを与える。
+      for (const socket of this.ctx.getWebSockets()) {
+        const attachment =
+          socket.deserializeAttachment() as SocketAttachment | null;
+        if (!attachment?.activeDrag) continue;
+        const leaseUntil =
+          attachment.activeDrag.leaseUntil ?? Date.now() + 15_000;
+        socket.serializeAttachment({
+          ...attachment,
+          activeDrag: { ...attachment.activeDrag, leaseUntil },
+        } satisfies SocketAttachment);
+        this.sql.exec(
+          "INSERT OR REPLACE INTO legacy_note_drag_leases(user_id,drag_id,lease_until) VALUES (?1,?2,?3)",
+          attachment.userId,
+          attachment.activeDrag.dragId,
+          leaseUntil,
+        );
+      }
+      if (
+        this.sql.exec("SELECT 1 FROM legacy_note_drag_leases LIMIT 1").toArray()
+          .length > 0
+      )
+        await syncRoomAlarm(this.ctx.storage, this.sql);
     });
   }
 
@@ -335,6 +372,7 @@ export class RoomDO extends DurableObject {
         );
       removeMember(this.sql, userId);
     });
+    syncMovePresence(this.sql, this.broadcaster);
     const retiredSharedNotes = new Set<string>();
     let hadPresence = false;
     for (const socket of this.ctx.getWebSockets()) {
@@ -418,6 +456,9 @@ export class RoomDO extends DurableObject {
         "note_vote_stickers",
         "note_content_receipts",
         "used_note_drag_ids",
+        "legacy_note_drag_leases",
+        "note_move_locks",
+        "note_move_operations",
         "member_color_assignments",
         "pending_phase_transition",
         "sharing_state",
@@ -578,7 +619,11 @@ export class RoomDO extends DurableObject {
     ws: WebSocket,
     raw: ArrayBuffer | string,
   ): Promise<void> {
-    if (!(await this.processExpiredTransition())) {
+    const parsedMessage = parseClientMessage(raw);
+    if (
+      !(await this.processExpiredTransition()) &&
+      parsedMessage?.type !== "note:move:status"
+    ) {
       this.broadcaster.sendTo(ws, {
         type: "error",
         code: "invalid-message",
@@ -593,7 +638,7 @@ export class RoomDO extends DurableObject {
       return;
     }
 
-    const message = parseClientMessage(raw);
+    const message = parsedMessage;
     if (!message) {
       this.broadcaster.sendTo(ws, {
         type: "error",
@@ -626,6 +671,31 @@ export class RoomDO extends DurableObject {
     // 付箋の移動者表示は切断時に消す。
     const previousAttachment =
       ws.deserializeAttachment() as SocketAttachment | null;
+    if (previousAttachment?.moveConnectionId) {
+      releaseConnectionMoves(this.sql, previousAttachment.moveConnectionId);
+      syncMovePresence(this.sql, this.broadcaster);
+      // close対象は一覧から消えていることがある。他接続のretire件数によらず
+      // この操作自身を終了する。重複通知もoperation IDで安全に除去できる。
+      if (previousAttachment.activeMoveOperationId) {
+        this.broadcaster.broadcastMoveEnded(
+          previousAttachment.activeMoveOperationId,
+          (viewerId) => isMember(this.sql, viewerId),
+        );
+        this.broadcaster.broadcastToAll({
+          type: "cursor:drag-ended",
+          userId: previousAttachment.userId,
+        });
+        broadcastIdeaMapState(this.sql, this.broadcaster);
+      }
+    }
+    if (previousAttachment?.activeDrag)
+      this.sql.exec(
+        "DELETE FROM legacy_note_drag_leases WHERE user_id=?1 AND drag_id=?2",
+        previousAttachment.userId,
+        previousAttachment.activeDrag.dragId,
+      );
+    if (previousAttachment?.moveConnectionId || previousAttachment?.activeDrag)
+      await syncRoomAlarm(this.ctx.storage, this.sql);
     if (this.broadcaster.retireAdoptionFocus(ws)) {
       this.broadcaster.broadcastToAll({
         type: "adoption-focus:updated",
@@ -675,6 +745,21 @@ export class RoomDO extends DurableObject {
   }
 
   override async alarm(): Promise<void> {
+    expireMoveOperations(this.sql);
+    syncMovePresence(this.sql, this.broadcaster);
+    const expiredDrags = this.broadcaster.expireActiveDrags();
+    this.sql.exec(
+      "DELETE FROM legacy_note_drag_leases WHERE lease_until<=?1",
+      Date.now(),
+    );
+    for (const drag of expiredDrags)
+      this.broadcaster.broadcastToAll({
+        type: "cursor:drag-ended",
+        userId: drag.attachment.userId,
+      });
+    if (expiredDrags.length > 0)
+      broadcastIdeaMapState(this.sql, this.broadcaster);
+
     if (!(await this.processExpiredTransition())) return;
     if (isRoomClosed(this.sql)) {
       // 導入前の完了では fixCompletion を通っていないため、残った進行予約も止める。
@@ -749,6 +834,15 @@ export class RoomDO extends DurableObject {
     message: ClientMessage,
   ): Promise<void> {
     if (!isMember(this.sql, attachment.userId)) {
+      if (message.type === "note:move:status") {
+        // 除外・期限削除後も結果不明を終端にする。存在/所有/内容は一切返さない。
+        this.broadcaster.sendTo(ws, {
+          type: "note:move:result",
+          operationId: message.operationId,
+          status: "unknown",
+        });
+        return;
+      }
       this.broadcaster.sendTo(ws, {
         type: "error",
         code: "forbidden",
@@ -761,6 +855,11 @@ export class RoomDO extends DurableObject {
       attachment.userId,
       optimisticOperationIdOf(message),
     );
+    if (message.type === "note:move:status") {
+      moveHandlers["note:move:status"](ctx, message);
+      syncMovePresence(this.sql, this.broadcaster);
+      return;
+    }
     if (isRoomClosed(this.sql) && message.type !== "outcome:publish") {
       ctx.reply({
         type: "error",
@@ -842,6 +941,7 @@ export class RoomDO extends DurableObject {
         });
         return;
       }
+      syncMovePresence(this.sql, this.broadcaster);
       this.broadcaster.broadcastToAll({
         type: "outcome:published",
         published: true,
@@ -849,7 +949,10 @@ export class RoomDO extends DurableObject {
       return;
     }
     const affectsOutcome =
-      isBoardMutation(message) && !message.type.startsWith("note:drag:");
+      isBoardMutation(message) &&
+      !message.type.startsWith("note:drag:") &&
+      (!message.type.startsWith("note:move:") ||
+        message.type === "note:move:commit");
     const phaseBefore = getPhaseRevision(this.sql);
     const before = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
@@ -873,6 +976,13 @@ export class RoomDO extends DurableObject {
       sharedDragEnded = true;
     };
     await handler(ctx, message);
+    if (isBoardMutation(message) || message.type === "member:remove")
+      syncMovePresence(this.sql, this.broadcaster);
+    if (
+      message.type.startsWith("note:move:") ||
+      message.type.startsWith("note:drag:")
+    )
+      await syncRoomAlarm(this.ctx.storage, this.sql);
     const after = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
       : null;
@@ -969,13 +1079,12 @@ export class RoomDO extends DurableObject {
 
     this.broadcaster.sendTo(ws, {
       type: "snapshot",
+      moveProtocolVersion: 1,
+      ...moveRevisions(this.sql),
       sharing: getSharingState(this.sql),
       notes,
       // フェーズ2では既存のフェーズ1グループも表示しない。
-      groups:
-        phase.kind === "step" && phase.phase === 2
-          ? []
-          : listVisibleGroups(this.sql, userId),
+      groups: listBoardGroups(this.sql, userId, phase),
       members: listMembers(this.sql),
       phase,
       phaseRevision: getPhaseRevision(this.sql),

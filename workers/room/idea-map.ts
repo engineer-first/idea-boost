@@ -8,6 +8,7 @@ import type {
 import type { RoomBroadcaster } from "./broadcast";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
 import { isHostUser } from "./members";
+import { hasMoveLock } from "./move-operations";
 import { getPhase } from "./phase";
 
 export type IdeaMapSizeState = {
@@ -48,8 +49,14 @@ export function buildIdeaMapServerState(
   const size = getIdeaMapSizeState(sql);
   return {
     type: "idea-map:state",
+    mapRevision: Number(
+      sql.exec("SELECT map_revision FROM room_state WHERE id=1").one()
+        .map_revision,
+    ),
     ...size,
-    isDragging: isIdeaMapVisiblePhase(phase) && broadcaster.hasActiveDrag(),
+    isDragging:
+      isIdeaMapVisiblePhase(phase) &&
+      (broadcaster.hasActiveDrag() || hasMoveLock(sql)),
   };
 }
 
@@ -78,7 +85,7 @@ export const ideaMapHandlers: MessageHandlers<"idea-map:resize"> = {
       replyForbidden(ctx, "2軸マップの広さを変更できるのはホストだけです。");
       return;
     }
-    if (ctx.broadcaster.hasActiveDrag()) {
+    if (ctx.broadcaster.hasActiveDrag() || hasMoveLock(ctx.sql)) {
       replyForbidden(
         ctx,
         "付箋のドラッグ中は2軸マップの広さを変更できません。",

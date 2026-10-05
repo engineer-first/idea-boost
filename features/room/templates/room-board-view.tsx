@@ -1670,6 +1670,7 @@ export function RoomBoardView({
             } else selection.onPointerEnd(event);
             handleCanvasPointerEnd(event);
           }}
+          onNotePointerCaptureLost={interactions.onPointerCaptureLost}
           onPresencePointerMove={handlePresencePointerMove}
           onPresencePointerLeave={handlePresencePointerLeave}
           onZoomIn={zoomIn}
@@ -1681,7 +1682,7 @@ export function RoomBoardView({
               roomNotify.canvasFitUnavailable();
           }}
           onSelect={handleNoteSelect}
-          onNoteDragStart={(noteId, event) => {
+          onNoteDragStart={(noteId, event, origin) => {
             const ids = selection.selectionRef.current;
             if (ids.length > 1 && ids.includes(noteId)) {
               if (interactions.onSharedNotesDragIntent)
@@ -1689,7 +1690,7 @@ export function RoomBoardView({
               else roomNotify.multipleNoteMoveUnavailable();
               return;
             }
-            handleSharedNoteDragStart(noteId, event);
+            handleSharedNoteDragStart(noteId, event, origin);
           }}
           onNoteContentChange={onNoteContentChange}
           draftValue={draftValue}
