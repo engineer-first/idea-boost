@@ -61,12 +61,24 @@ async function selectedCount(count: number): Promise<void> {
     .toBe(String(count));
 }
 
+async function openClockedCanvas(width = 1280): Promise<void> {
+  await page.close();
+  page = await browser.newPage({ viewport: { width, height: 720 } });
+  // 読み込み済みアプリのtimer/RAFと混在させず、時計を先に導入する。
+  await page.clock.install({ time: new Date("2030-01-01T00:00:00Z") });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardview--canvas-input-interaction&viewMode=story`,
+  );
+  await page.getByTestId("note-card").first().waitFor();
+  await page.evaluate(() => document.fonts.ready);
+  await transform();
+  await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
+}
+
 test.each([
   390, 1280,
 ])("%ipxで各キャンバス操作のヒントをhoverの1秒後に画面内へ表示する", async (width) => {
-  await page.setViewportSize({ width, height: 720 });
-  await page.clock.install({ time: new Date("2030-01-01T00:00:00Z") });
-  await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
+  await openClockedCanvas(width);
   const hint = page.locator(
     '[data-slot="tooltip-content"]:not([data-state="closed"])',
   );
@@ -83,7 +95,7 @@ test.each([
     await page.clock.runFor(999);
     expect(await hint.count()).toBe(0);
     await page.clock.runFor(1);
-    expect(await hint.count()).toBe(1);
+    await expect.poll(() => hint.count()).toBe(1);
     await page.clock.runFor(32);
     await hint.waitFor({ state: "visible" });
     expect(await hint.textContent()).toContain(name.replace("ツール", ""));
@@ -113,13 +125,13 @@ test("キーボードでフォーカスしたヒントは待たずに表示し�
 });
 
 test("手のひらのヒントから隣の選択ツールへ移ると待たずに切り替わる", async () => {
-  await page.clock.install({ time: new Date("2030-01-01T00:00:00Z") });
-  await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
+  await openClockedCanvas();
   const hint = page.locator(
     '[data-slot="tooltip-content"]:not([data-state="closed"])',
   );
   await page.getByRole("button", { name: "手のひらツール" }).hover();
   await page.clock.runFor(1000);
+  await expect.poll(() => hint.getAttribute("data-state")).toBe("delayed-open");
   await page.clock.runFor(32);
   await hint.waitFor({ state: "visible" });
   expect(await hint.textContent()).toContain("手のひら");
@@ -133,7 +145,8 @@ test("手のひらのヒントから隣の選択ツールへ移ると待たず�
     select.y + select.height / 2,
     { steps: 4 },
   );
-  expect(await hint.getAttribute("data-state")).toBe("instant-open");
+  // 時刻を進めずReactのcommitだけを待ち、隣の表示待ちが無いことを確かめる。
+  await expect.poll(() => hint.getAttribute("data-state")).toBe("instant-open");
   await page.clock.runFor(32);
   await hint.waitFor({ state: "visible" });
   expect(await hint.textContent()).toContain("選択（背景でV）");
@@ -1162,22 +1175,38 @@ test("短高ヒントのArrow/Pageはnative読書に届き、HUDボタンのカ�
   for (const key of ["PageDown", "PageUp", "ArrowDown", "ArrowUp"]) {
     const down = key.endsWith("Down");
     await panel.evaluate(
-      (el, initial) => {
-        el.scrollTop = initial;
+      async (el, initial) => {
+        if (el.scrollTop === initial) return;
+        const resetCompleted = new Promise<void>((resolve) => {
+          el.addEventListener("scrollend", () => resolve(), { once: true });
+        });
+        el.scrollTo({ top: initial, behavior: "instant" });
+        // 位置の再設定によるscrollendを、次のキーの完了と混同しない。
+        await resetCompleted;
       },
       down ? 0 : 200,
     );
     const beforeScroll = await panel.evaluate((el) => el.scrollTop);
     await panel.focus();
+    // キーを送る前にlistenerの登録完了を待つ。
+    await panel.evaluate((el) => {
+      el.dataset.scrollCompleted = "false";
+      el.addEventListener(
+        "scrollend",
+        () => {
+          el.dataset.scrollCompleted = "true";
+        },
+        { once: true },
+      );
+    });
     await page.keyboard.press(key);
-    if (down)
-      await expect
-        .poll(() => panel.evaluate((el) => el.scrollTop))
-        .toBeGreaterThan(beforeScroll);
-    else
-      await expect
-        .poll(() => panel.evaluate((el) => el.scrollTop))
-        .toBeLessThan(beforeScroll);
+    // 前キーのnative smooth scrollが完了してから次の読書位置へ戻す。
+    await expect
+      .poll(() => panel.getAttribute("data-scroll-completed"))
+      .toBe("true");
+    const afterScroll = await panel.evaluate((el) => el.scrollTop);
+    if (down) expect(afterScroll).toBeGreaterThan(beforeScroll);
+    else expect(afterScroll).toBeLessThan(beforeScroll);
     expect(await transform()).toBe(beforeCamera);
     expect(await panel.isVisible()).toBe(true);
   }
