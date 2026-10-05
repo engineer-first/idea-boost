@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { IdeaValueFeasibilityMap } from "./idea-value-feasibility-map";
 
 describe("IdeaValueFeasibilityMap", () => {
-  it("価値と実現可能性の連続スケールを表示する", () => {
+  it("価値と実現のしやすさの連続スケールを表示する", () => {
     render(<IdeaValueFeasibilityMap />);
 
     const map = screen.getByRole("region", {
-      name: "価値と実現可能性の2軸マップ",
+      name: "価値と実現のしやすさの2軸マップ",
     });
 
     expect(map).toBeInTheDocument();
@@ -33,12 +33,12 @@ describe("IdeaValueFeasibilityMap", () => {
       name: "価値: 低から高",
     });
     const feasibilityScale = screen.getByRole("group", {
-      name: "実現可能性: 低から高",
+      name: "実現のしやすさ: 低から高",
     });
 
     expect(valueScale).toHaveTextContent(/^高[\s\S]*価値[\s\S]*低$/);
     expect(feasibilityScale).toHaveTextContent(
-      /^低[\s\S]*実現可能性[\s\S]*高$/,
+      /^低[\s\S]*実現のしやすさ[\s\S]*高$/,
     );
     expect(
       screen.getByTestId("idea-value-feasibility-map-y-scale-bar"),

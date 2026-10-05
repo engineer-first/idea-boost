@@ -920,7 +920,7 @@ describe("RoomBoardCanvas", () => {
 
   // 補助パネルの表示・開閉は use-board-help / board-help-panel と
   // RoomBoardView の統合テストで検証する。Canvas はボード描画に専念する。
-  it("Step3-1では価値×実現可能性の2軸マップを表示しない", () => {
+  it("Step3-1では価値×実現のしやすさの2軸マップを表示しない", () => {
     const phase = buildPhaseStep(1, 3);
 
     setup({
@@ -930,7 +930,7 @@ describe("RoomBoardCanvas", () => {
     });
 
     expect(
-      screen.queryByRole("region", { name: "価値と実現可能性の2軸マップ" }),
+      screen.queryByRole("region", { name: "価値と実現のしやすさの2軸マップ" }),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("board-scroller")).toHaveClass(
       "[container-type:size]",
@@ -942,14 +942,14 @@ describe("RoomBoardCanvas", () => {
 
   it.each([
     2, 3, 4, 5,
-  ])("Step3-%iでも価値×実現可能性の2軸マップを表示する", (step) => {
+  ])("Step3-%iでも価値×実現のしやすさの2軸マップを表示する", (step) => {
     const phase = buildPhaseStep(step, 3);
 
     setup({ phase, permissions: getBoardPermissions(phase) });
 
     expect(
       screen.getByRole("region", {
-        name: "価値と実現可能性の2軸マップ",
+        name: "価値と実現のしやすさの2軸マップ",
       }),
     ).toBeInTheDocument();
   });
@@ -1082,7 +1082,7 @@ describe("RoomBoardCanvas", () => {
     setup({ phase, permissions: getBoardPermissions(phase) });
 
     expect(
-      screen.queryByRole("region", { name: "価値と実現可能性の2軸マップ" }),
+      screen.queryByRole("region", { name: "価値と実現のしやすさの2軸マップ" }),
     ).not.toBeInTheDocument();
   });
 

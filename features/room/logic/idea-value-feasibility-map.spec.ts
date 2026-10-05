@@ -65,7 +65,7 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       bottom: "222px",
     });
   });
-  it("価値と実現可能性の0〜100を連続座標へ変換する", () => {
+  it("価値と実現のしやすさの0〜100を連続座標へ変換する", () => {
     expect(
       getIdeaValueFeasibilityMapPosition({ value: 0, feasibility: 0 }),
     ).toEqual({ bottom: "0%", left: "0%" });
@@ -77,7 +77,7 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     ).toEqual({ bottom: "100%", left: "100%" });
   });
 
-  it("マップ平面上のポインター位置を価値・実現可能性の0〜100へ変換する", () => {
+  it("マップ平面上のポインター位置を価値・実現のしやすさの0〜100へ変換する", () => {
     expect(
       getIdeaValueFeasibilityMapPointFromClientPosition(300, 300, {
         left: 100,
