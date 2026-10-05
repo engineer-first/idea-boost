@@ -787,6 +787,25 @@ export const InteractiveIdeaMapReading: Story = {
   },
 };
 
+// 本番のカメラでパン・ズームし、長い軸名を大小のマップで確認する。
+export const SmallMapAxisReading: Story = {
+  name: "価値 × 実現のしやすさ / 小さいマップの軸を読む",
+  args: {
+    ...fixedSizeMapArgs,
+    ideaMapSizeLevel: 0,
+  },
+  render: (args) => <NoteReadingPreview args={args} />,
+};
+
+export const LargeMapAxisReading: Story = {
+  ...SmallMapAxisReading,
+  name: "価値 × 実現のしやすさ / 大きいマップの軸を読む",
+  args: {
+    ...SmallMapAxisReading.args,
+    ideaMapSizeLevel: 15,
+  },
+};
+
 // 本番で採用領域(旧z-50)を付箋が覆った状態。順序は枚数ではなく操作履歴で増える。
 function adoptionLayeringNotes(isMap: boolean) {
   return [

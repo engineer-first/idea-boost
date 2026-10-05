@@ -21,17 +21,17 @@ export function getIdeaValueFeasibilityMapDimensions(level: number): {
   return getIdeaMapDimensions(level);
 }
 
-// アイデアを価値と実現可能性で位置付ける2軸マップの固定表示内容。
+// アイデアを価値と実現のしやすさで位置付ける2軸マップの固定表示内容。
 // 文言をコンポーネントから分離し、ガイドやラベルの変更箇所を一つに保つ。
 export const IDEA_VALUE_FEASIBILITY_MAP_LABELS = {
-  ariaLabel: "価値と実現可能性の2軸マップ",
+  ariaLabel: "価値と実現のしやすさの2軸マップ",
   title: "解決策の位置付け",
   value: "価値",
-  feasibility: "実現可能性",
+  feasibility: "実現のしやすさ",
   low: "低",
   high: "高",
   valueScaleAriaLabel: "価値: 低から高",
-  feasibilityScaleAriaLabel: "実現可能性: 低から高",
+  feasibilityScaleAriaLabel: "実現のしやすさ: 低から高",
 } as const;
 
 export const IDEA_MAP_SIZE_HELP = {
@@ -147,7 +147,7 @@ export function getIdeaMapNotePointFromClientPosition(
 }
 
 // マップ平面のクライアント座標を、永続化・配信に使う連続座標へ変換する。
-// x は実現可能性（左=0、右=100）、y は価値（下=0、上=100）として反転する。
+// x は実現のしやすさ（左=0、右=100）、y は価値（下=0、上=100）として反転する。
 export function getIdeaValueFeasibilityMapPointFromClientPosition(
   clientX: number,
   clientY: number,
