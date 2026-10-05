@@ -29,6 +29,7 @@ describe("CanvasZoomControls", () => {
       moveHistory,
     };
     const view = render(<CanvasZoomControls {...props} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     const undo = screen.getByRole("button", { name: "移動を元に戻す" });
     const redo = screen.getByRole("button", { name: "移動をやり直す" });
     fireEvent.click(undo);
@@ -43,6 +44,7 @@ describe("CanvasZoomControls", () => {
     );
     expect(undo).toBeDisabled();
     expect(redo).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("移動を反映");
     fireEvent.click(undo);
     fireEvent.click(redo);
     expect(moveHistory.onUndo).toHaveBeenCalledTimes(1);

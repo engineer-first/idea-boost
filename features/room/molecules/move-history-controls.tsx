@@ -95,9 +95,11 @@ export function MoveHistoryControls({
             </Tooltip>
           );
         })}
-        <span role="status" className="sr-only">
-          {pending ? "移動を反映しています…" : ""}
-        </span>
+        {pending ? (
+          <span role="status" className="sr-only">
+            移動を反映しています…
+          </span>
+        ) : null}
       </fieldset>
     </TooltipProvider>
   );
