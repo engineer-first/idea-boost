@@ -899,6 +899,46 @@ describe("useBoardDrag", () => {
     ).toContain("shared-1");
   });
 
+  it.each([
+    '<div role="dialog"><button>確認</button></div>',
+    "<div data-canvas-help><button>ヘルプ</button></div>",
+    "<div data-board-fit-edge><button>全体表示</button></div>",
+  ])("戻し候補に重なった操作面へのdropは非共有化しない: %s", (markup) => {
+    const { args, result } = setup({ lockPrivateMapDrag: true });
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 400, 560));
+    });
+    expect(result.current.drag?.status).toBe("returning");
+
+    const overlay = document.createElement("div");
+    overlay.innerHTML = markup;
+    const descriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "elementFromPoint",
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => overlay.querySelector("button"),
+    });
+    try {
+      act(() => result.current.handlePointerEnd(pointerEvent(1, 400, 560)));
+      expect(args.onPrivateNoteUnpublish).not.toHaveBeenCalled();
+      expect(args.onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+      expect(result.current.drag).toBeNull();
+      expect(result.current.renderedNotes.map((note) => note.id)).toContain(
+        "shared-1",
+      );
+    } finally {
+      if (descriptor)
+        Object.defineProperty(document, "elementFromPoint", descriptor);
+      else Reflect.deleteProperty(document, "elementFromPoint");
+    }
+  });
+
   it("マイ付箋エリアの外で離した returning は非公開へ戻さない", () => {
     const { args, result } = setup();
 

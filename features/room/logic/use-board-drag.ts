@@ -258,6 +258,15 @@ export function useBoardDrag({
   const isPointerInPrivateDropArea = useCallback(
     (clientX: number, clientY: number) => {
       if (!isPrivatePanelExpanded(privateToolbarRef.current)) return false;
+      // 矩形内でも、最前面の別操作へdropした場合は戻しを確定しない。
+      const hit = document.elementFromPoint?.(clientX, clientY);
+      const hud = hit?.closest("[data-board-fit-edge]");
+      const toolbar = privateToolbarRef.current;
+      if (
+        hit?.closest("[role='dialog'], [data-canvas-help]") ||
+        (hud && !(toolbar instanceof Element && hud.contains(toolbar)))
+      )
+        return false;
       const rect = privateToolbarRef.current?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return false;
       const current = dragRef.current;

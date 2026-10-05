@@ -143,11 +143,36 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
       await actor.mouse.up();
       expect(unpublishCount()).toBe(0);
       expect(await peerCard.count()).toBe(1);
+      // 戻し候補の上へ別操作面が出た場合も、背面のパネルへdropしない。
+      await startDrag(actor, boardCard);
+      const returnPoint = { x: tray.x + tray.width / 2, y: tray.y + 150 };
+      await actor.mouse.move(returnPoint.x, returnPoint.y, { steps: 8 });
+      await actor.evaluate(({ x, y }) => {
+        const overlay = document.createElement("div");
+        overlay.id = "share-drop-test-overlay";
+        overlay.setAttribute("role", "dialog");
+        overlay.style.cssText = `position:fixed;left:${x - 40}px;top:${y - 40}px;width:80px;height:80px;z-index:2147483647;background:white`;
+        document.body.append(overlay);
+      }, returnPoint);
+      expect(
+        await actor.evaluate(
+          ({ x, y }) => document.elementFromPoint(x, y)?.getAttribute("role"),
+          returnPoint,
+        ),
+      ).toBe("dialog");
+      await actor.mouse.up();
+      await actor.evaluate(() =>
+        document.getElementById("share-drop-test-overlay")?.remove(),
+      );
+      expect(unpublishCount()).toBe(0);
+      expect(await peerCard.count()).toBe(1);
+      await boardCard.waitFor();
       await startDrag(actor, boardCard);
       await actor.mouse.move(tray.x + tray.width / 2, tray.y + 150, {
         steps: 8,
       });
       await actor.mouse.up();
+      await expect.poll(unpublishCount, { timeout: 5_000 }).toBe(1);
       await expect.poll(() => peerCard.count(), { timeout: 5_000 }).toBe(0);
       expect(unpublishCount()).toBe(1);
       await expect
