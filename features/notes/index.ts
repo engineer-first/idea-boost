@@ -4,6 +4,7 @@
 // などは feature 内に閉じる。
 
 export type { Note } from "./logic/notes-reducer";
+export { useMoveHistory } from "./logic/use-move-history";
 export { useNoteAutosave } from "./logic/use-note-autosave";
 export { useNoteGroups } from "./logic/use-note-groups";
 export {

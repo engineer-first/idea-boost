@@ -429,6 +429,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     .strict(),
   z
     .object({
+      type: z.literal("note:move:inverse"),
+      operationId: OptimisticOperationIdSchema,
+      sourceOperationId: OptimisticOperationIdSchema,
+      expectedTargets: z.array(MoveTargetSchema).min(1).max(1024),
+      expectedGroupRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("note:move:status"),
       operationId: OptimisticOperationIdSchema,
     })

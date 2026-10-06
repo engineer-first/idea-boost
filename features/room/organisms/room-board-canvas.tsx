@@ -52,6 +52,7 @@ import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
+import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { NoteFontSizeControls } from "../molecules/note-font-size-controls";
 import { RemoteCursor } from "../molecules/remote-cursor";
 
@@ -60,6 +61,7 @@ const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
 export type RoomBoardCanvasProps = {
+  moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
   groups: PersistentGroup[];
   phase: RoomPhase;
@@ -157,6 +159,7 @@ export type RoomBoardCanvasProps = {
 };
 
 export function RoomBoardCanvas({
+  moveHistory,
   notes,
   groups,
   phase,
@@ -620,9 +623,10 @@ export function RoomBoardCanvas({
           </div>
           <div
             data-testid="canvas-zoom-hud"
-            className="flex items-center gap-2"
+            className="flex max-w-full items-center gap-2"
           >
             <CanvasZoomControls
+              moveHistory={moveHistory}
               interactionTool={interactionTool}
               onToolChange={onToolChange}
               toolDisabled={toolDisabled}
@@ -839,7 +843,7 @@ export function RoomBoardCanvas({
           : null}
         {isIdeaMapSizeControlsVisible ? (
           <div
-            className="pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:bottom-[calc(4.5rem+var(--board-notification-inset,0px))] max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0"
+            className={`pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0 ${moveHistory ? "max-[639px]:bottom-[var(--board-mobile-controls-bottom)]" : "max-[639px]:bottom-[calc(4.5rem+var(--board-notification-inset,0px))]"}`}
             data-testid="idea-map-size-controls-hud"
             data-board-fit-edge="bottom"
           >
@@ -855,7 +859,7 @@ export function RoomBoardCanvas({
         ) : null}
         {permissions.showPrivateToolbar ? (
           <div
-            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(11.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(7.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]"}`}
+            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(11.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(7.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]"}`}
             data-testid="private-notes-dock"
             data-board-fit-edge="bottom"
           >

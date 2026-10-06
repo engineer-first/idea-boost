@@ -96,6 +96,8 @@ export type RoomBoardInteractions = {
   onSharedNotesDragIntent?: (
     noteIds: readonly string[],
     event: ReactPointerEvent<HTMLButtonElement>,
+    origin?: { clientX: number; clientY: number },
+    anchorId?: string,
   ) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -462,6 +464,10 @@ export function useRoomBoardInteractions({
     cancelCurrentNoteDrag,
     onPresencePointerMove: handlePresencePointerMove,
     onPresencePointerLeave: handlePresencePointerLeave,
+    onSharedNotesDragIntent: (ids, event, origin, anchorId) => {
+      const id = anchorId ?? ids[0];
+      if (id) handleSharedNoteDragStart(id, event, origin, ids);
+    },
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: (noteId, event) => {
       // マイ付箋はviewport外にあるためcameraのpointerdownを通らない。

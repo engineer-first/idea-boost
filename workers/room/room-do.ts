@@ -173,6 +173,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
     case "note:vote-sticker:add":
     case "note:vote-sticker:move":
     case "note:vote-sticker:remove":
+    case "note:move:inverse":
     case "note:move:start":
     case "note:move:preview":
     case "note:move:cancel":
@@ -848,6 +849,16 @@ export class RoomDO extends DurableObject {
     message: ClientMessage,
   ): Promise<void> {
     if (!isMember(this.sql, attachment.userId)) {
+      if (message.type === "note:move:inverse") {
+        // 失効した接続の新しい逆操作は専用の終端を返す。履歴の存在・内容は返さない。
+        this.broadcaster.sendTo(ws, {
+          type: "note:move:result",
+          operationId: message.operationId,
+          status: "rejected",
+          reason: "ルームに参加していません。",
+        });
+        return;
+      }
       if (message.type === "note:share:status") {
         this.broadcaster.sendTo(ws, {
           type: "note:share:result",
@@ -892,7 +903,12 @@ export class RoomDO extends DurableObject {
       syncMovePresence(this.sql, this.broadcaster);
       return;
     }
-    if (isRoomClosed(this.sql) && message.type !== "outcome:publish") {
+    // inverseは専用ハンドラで現在認可を検査し、拒否も照会可能な結果として保存する。
+    if (
+      isRoomClosed(this.sql) &&
+      message.type !== "outcome:publish" &&
+      message.type !== "note:move:inverse"
+    ) {
       ctx.reply({
         type: "error",
         code: "forbidden",
@@ -932,7 +948,7 @@ export class RoomDO extends DurableObject {
       message.type !== "decision:clear"
         ? "採用確定後はボードを変更できません。"
         : getBoardMutationForbiddenMessage(phase, message);
-    if (forbiddenMessage) {
+    if (forbiddenMessage && message.type !== "note:move:inverse") {
       ctx.reply({
         type: "error",
         code: "forbidden",
@@ -984,7 +1000,8 @@ export class RoomDO extends DurableObject {
       isBoardMutation(message) &&
       !message.type.startsWith("note:drag:") &&
       (!message.type.startsWith("note:move:") ||
-        message.type === "note:move:commit");
+        message.type === "note:move:commit" ||
+        message.type === "note:move:inverse");
     const phaseBefore = getPhaseRevision(this.sql);
     const before = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))

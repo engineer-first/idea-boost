@@ -125,26 +125,27 @@ export function saveGroups(
   )
     return;
   storage.transactionSync(() => {
-    // 削除前に元のグループの作成日時をメモリ上に退避する
-    const existingRows = storage.sql
-      .exec("SELECT id, created_at FROM groups")
-      .toArray();
-    const createdAtById = new Map<string, string>(
-      existingRows.map((row) => [row.id as string, row.created_at as string]),
-    );
-
-    storage.sql.exec("DELETE FROM groups");
+    // 無関係な分類を再insertしない。履歴の関連group版を実際の差分だけで進める。
+    const nextIds = new Set(groups.map((group) => group.id));
+    for (const group of current)
+      if (!nextIds.has(group.id))
+        storage.sql.exec("DELETE FROM groups WHERE id=?1", group.id);
     const now = new Date().toISOString();
-    for (const g of groups) {
-      const createdAt = createdAtById.get(g.id) ?? now;
-
+    for (const group of groups) {
+      const previous = current.find((item) => item.id === group.id);
+      if (
+        previous &&
+        previous.name === group.name &&
+        JSON.stringify(previous.noteIds) === JSON.stringify(group.noteIds)
+      )
+        continue;
       storage.sql.exec(
-        `INSERT INTO groups (id, name, note_ids, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)`,
-        g.id,
-        g.name,
-        JSON.stringify(g.noteIds),
-        createdAt,
+        `INSERT INTO groups (id,name,note_ids,created_at,updated_at) VALUES (?1,?2,?3,?4,?5)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name,note_ids=excluded.note_ids,updated_at=excluded.updated_at`,
+        group.id,
+        group.name,
+        JSON.stringify(group.noteIds),
+        previous?.createdAt ?? now,
         now,
       );
     }

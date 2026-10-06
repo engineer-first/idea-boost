@@ -11,6 +11,78 @@ import { useCanvasCamera } from "../logic/use-canvas-camera";
 import { CanvasZoomControls } from "./canvas-zoom-controls";
 
 describe("CanvasZoomControls", () => {
+  it("統合した移動履歴のクリックを通知し、反映中は両操作を止める", () => {
+    const moveHistory = {
+      undo: { label: "2枚の付箋の移動", reason: null, disabled: false },
+      redo: { label: "2枚の付箋の移動", reason: null, disabled: false },
+      pending: false,
+      onUndo: vi.fn(),
+      onRedo: vi.fn(),
+    };
+    const props = {
+      zoom: 1,
+      onToolChange: vi.fn(),
+      onZoomOut: vi.fn(),
+      onResetZoom: vi.fn(),
+      onZoomIn: vi.fn(),
+      onFitToNotes: vi.fn(),
+      moveHistory,
+    };
+    const view = render(<CanvasZoomControls {...props} />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    const undo = screen.getByRole("button", { name: "移動を元に戻す" });
+    const redo = screen.getByRole("button", { name: "移動をやり直す" });
+    fireEvent.click(undo);
+    fireEvent.click(redo);
+    expect(moveHistory.onUndo).toHaveBeenCalledTimes(1);
+    expect(moveHistory.onRedo).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <CanvasZoomControls
+        {...props}
+        moveHistory={{ ...moveHistory, pending: true }}
+      />,
+    );
+    expect(undo).toBeDisabled();
+    expect(redo).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("移動を反映");
+    fireEvent.click(undo);
+    fireEvent.click(redo);
+    expect(moveHistory.onUndo).toHaveBeenCalledTimes(1);
+    expect(moveHistory.onRedo).toHaveBeenCalledTimes(1);
+  });
+
+  it("無効な移動履歴もフォーカスで理由とショートカットを読める", () => {
+    const reason = "ほかの人の変更があるため、この移動は戻せません。";
+    const props = {
+      zoom: 1,
+      onZoomOut: vi.fn(),
+      onResetZoom: vi.fn(),
+      onZoomIn: vi.fn(),
+      onFitToNotes: vi.fn(),
+      moveHistory: {
+        undo: { label: "2枚の付箋の移動", reason, disabled: true },
+        redo: {
+          label: "やり直せる移動はありません",
+          reason: null,
+          disabled: true,
+        },
+        pending: false,
+        onUndo: vi.fn(),
+        onRedo: vi.fn(),
+      },
+    };
+    render(<CanvasZoomControls {...props} />);
+    const undo = screen.getByRole("button", { name: "移動を元に戻す" });
+    expect(undo).toBeDisabled();
+    const trigger = undo.parentElement;
+    if (!trigger)
+      throw new Error("無効時にもフォーカスできるtooltip triggerが必要");
+    act(() => trigger.focus());
+    expect(screen.getByRole("tooltip")).toHaveTextContent(reason);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Ctrl / Cmd + Z");
+    expect(props.moveHistory.onUndo).not.toHaveBeenCalled();
+  });
+
   it("手のひらのヒントはhoverの1秒後に表示し、離れた場合は表示しない", () => {
     vi.useFakeTimers();
     try {

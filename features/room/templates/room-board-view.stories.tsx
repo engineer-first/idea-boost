@@ -1094,3 +1094,54 @@ export const CanvasInputAdoption: Story = {
   ...CanvasInputInteraction,
   args: { ...CanvasInputInteraction.args, phase: STEP_1_5, isHost: true },
 };
+
+export const MoveHistoryAvailable: Story = {
+  args: {
+    moveHistory: {
+      undo: {
+        label: "2枚の付箋の移動（note-a, note-b）",
+        reason: null,
+        disabled: false,
+      },
+      redo: {
+        label: "やり直せる移動はありません",
+        reason: "やり直せる移動はありません",
+        disabled: true,
+      },
+      pending: false,
+      onUndo: fn(),
+      onRedo: fn(),
+    },
+  },
+};
+export const MoveHistoryPending: Story = {
+  args: {
+    ...MoveHistoryAvailable.args,
+    moveHistory: {
+      undo: {
+        label: "2枚の付箋の移動（note-a, note-b）",
+        reason: null,
+        disabled: false,
+      },
+      redo: {
+        label: "やり直せる移動はありません",
+        reason: "やり直せる移動はありません",
+        disabled: true,
+      },
+      pending: true,
+      onUndo: fn(),
+      onRedo: fn(),
+    },
+  },
+};
+
+export const MoveHistorySharing: Story = {
+  args: {
+    ...Step1_2_Sharing.args,
+    ...MoveHistoryPending.args,
+    phase: STEP_1_2,
+  },
+};
+export const MoveHistoryMap: Story = {
+  args: { ...MoveHistoryAvailable.args, phase: buildPhaseStep(3, 3) },
+};

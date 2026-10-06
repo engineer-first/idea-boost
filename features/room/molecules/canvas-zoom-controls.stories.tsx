@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { fn, userEvent } from "storybook/test";
 import { CanvasZoomControls } from "./canvas-zoom-controls";
+import type { MoveHistoryControlsProps } from "./move-history-controls";
 
 const meta = {
   title: "Room/CanvasZoomControls",
@@ -40,5 +41,34 @@ export const HelpOpen: Story = {
   ),
   play: async ({ canvas }) => {
     await userEvent.click(canvas.getByLabelText("キャンバス操作のヒント"));
+  },
+};
+
+const moveHistory: MoveHistoryControlsProps = {
+  undo: { label: "2枚の付箋の移動", reason: null, disabled: false },
+  redo: {
+    label: "やり直せる移動はありません",
+    reason: "やり直せる移動はありません",
+    disabled: true,
+  },
+  pending: false,
+  onUndo: fn(),
+  onRedo: fn(),
+};
+export const MoveHistory: Story = { args: { ...Tools.args, moveHistory } };
+export const MoveHistoryPending: Story = {
+  args: { ...Tools.args, moveHistory: { ...moveHistory, pending: true } },
+};
+export const MoveHistoryConflict: Story = {
+  args: {
+    ...Tools.args,
+    moveHistory: {
+      ...moveHistory,
+      undo: {
+        label: "2枚の付箋の移動",
+        reason: "ほかの人の変更があるため、この移動は戻せません。",
+        disabled: true,
+      },
+    },
   },
 };

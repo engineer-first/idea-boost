@@ -283,6 +283,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "note:unpublish":
     case "note:update-content":
     case "note:update-font-size":
+    case "note:move:inverse":
     case "note:move:start":
     case "note:move:preview":
     case "note:move:commit":
@@ -514,6 +515,7 @@ export function getBoardMutationForbiddenMessage(
 ): string | null {
   if (!isBoardMutation(message)) return null;
   if (
+    message.type === "note:move:inverse" ||
     message.type === "note:move:start" ||
     message.type === "note:move:preview" ||
     message.type === "note:move:commit"
