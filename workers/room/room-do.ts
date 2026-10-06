@@ -269,17 +269,56 @@ export class RoomDO extends DurableObject {
     hostName: string | undefined,
     outcomeIdentity?: { roomId: string; name?: string },
   ): Promise<void> {
-    if (isRoomClosed(this.sql)) throw new Error("終了したルームです。");
-    await this.upsertMember(hostId, hostName);
-    // room_owner は api-worker が D1 rooms.host_id から渡した値だけで初期化する。
-    // 以後も WS 接続・解散時は、同じ D1 の値で未設定の旧ルームだけを補完する。
-    ensureHost(this.sql, hostId);
-    savePhase(this.sql, { kind: "lobby" });
-    if (outcomeIdentity)
-      await this.initializeSharedOutcome(
-        outcomeIdentity.roomId,
-        outcomeIdentity.name,
-      );
+    if (
+      isRoomClosed(this.sql) ||
+      (readOutcomeState(this.sql)?.expires_at ?? Infinity) <= Date.now()
+    )
+      throw new Error("終了したルームです。");
+    const marker = this.sql
+      .exec<{ host_id: string }>(
+        "SELECT host_id FROM room_creation_marker WHERE id=1",
+      )
+      .toArray()[0];
+    if (marker && marker.host_id !== hostId)
+      throw new Error("作成者が一致しません。");
+    if (!marker) {
+      this.ctx.storage.transactionSync(() => {
+        upsertMember(this.sql, this.broadcaster, hostId, hostName);
+        ensureHost(this.sql, hostId);
+        savePhase(this.sql, { kind: "lobby" });
+        if (outcomeIdentity)
+          this.outcomes.initializeSharedOutcomeState(
+            outcomeIdentity.roomId,
+            outcomeIdentity.name,
+          );
+        this.sql.exec(
+          "INSERT INTO room_creation_marker(id,host_id) VALUES(1,?)",
+          hostId,
+        );
+      });
+    }
+    // ローカル初期化だけが成立条件。外部投影の失敗はoutboxで回復する。
+    // 既存の工程・ホスト・参加者・保存期限を再送で書き換えない。
+    await this.ctx.storage.sync();
+    if (outcomeIdentity) {
+      await syncRoomAlarm(this.ctx.storage, this.sql);
+      await this.outcomes.flushSharedOutcome();
+    }
+  }
+
+  // 作成回復用RPC。既知の終了は通信障害と区別して返す。
+  async resumeRoomCreation(
+    hostId: string,
+    hostName: string | undefined,
+    identity: { roomId: string; name?: string },
+  ): Promise<"ready" | "closed"> {
+    if (
+      isRoomClosed(this.sql) ||
+      (readOutcomeState(this.sql)?.expires_at ?? Infinity) <= Date.now()
+    )
+      return "closed";
+    await this.initializeNewRoom(hostId, hostName, identity);
+    return "ready";
   }
 
   isCompleted(): boolean {
@@ -451,7 +490,23 @@ export class RoomDO extends DurableObject {
     }
     const outcome = readOutcomeState(this.sql);
     if (!outcome) {
+      const marker = this.sql
+        .exec<{ host_id: string }>(
+          "SELECT host_id FROM room_creation_marker WHERE id=1",
+        )
+        .toArray()[0];
       await this.ctx.storage.deleteAll();
+      if (marker) {
+        migrateRoomStorage(
+          this.ctx.storage,
+          ROOM_DO_MIGRATIONS,
+          LEGACY_ROOM_DO_MIGRATION_IDS,
+        );
+        this.sql.exec(
+          "INSERT INTO room_creation_marker(id,host_id) VALUES(1,?)",
+          marker.host_id,
+        );
+      }
       return true;
     }
     // 保全済みデータと outbox は解散後も維持し、自動再試行を継続する。

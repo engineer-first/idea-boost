@@ -8,9 +8,7 @@ export const SyncUserResponseSchema = z.object({
   userId: z.string().uuid(),
 });
 
-// ルーム作成直後のレスポンス。最小限の形を維持し、進行状態などの派生情報は
-// ルーム情報取得 (/api/rooms/[id]) 側にだけ載せる（作成直後は lobby 確定で
-// 十分なので追加しない）。
+// 作成・再送の結果。現在の進行状態は既存のルーム情報取得で確認する。
 export const RoomSummarySchema = z.object({
   roomId: z.string().uuid(),
   inviteCode: z.string(),
@@ -19,6 +17,7 @@ export const RoomSummarySchema = z.object({
 export const CreateRoomResponseSchema = RoomSummarySchema;
 
 export const CreateRoomInputSchema = z.object({
+  requestId: z.string().uuid(),
   name: z.string().trim().max(80).optional(),
 });
 

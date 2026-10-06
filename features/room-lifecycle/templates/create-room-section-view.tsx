@@ -16,11 +16,21 @@ export type CreateRoomSectionViewProps = {
   // true の間は「作成中…」表示とボタン disabled。
   pending?: boolean;
   onSubmit?: (name: string) => void;
+  recovering?: boolean;
+  intentName?: string;
+  message?: string;
+  storageError?: boolean;
+  onNewIntent?: () => void;
 };
 
 export function CreateRoomSectionView({
   pending = false,
   onSubmit,
+  recovering = false,
+  intentName,
+  message,
+  storageError = false,
+  onNewIntent,
 }: CreateRoomSectionViewProps) {
   return (
     <Card
@@ -53,20 +63,46 @@ export function CreateRoomSectionView({
             label="ルーム名（任意）"
             name="name"
             maxLength={80}
-            disabled={pending}
+            disabled={pending || recovering || storageError}
+            defaultValue={intentName}
+            key={intentName ?? "new"}
             placeholder="例：新しいサービスの相談"
           />
           <Button
             type="submit"
             size="lg"
             className="h-11 w-full"
-            disabled={pending}
+            disabled={pending || storageError}
             data-icon="inline-start"
           >
             <Plus data-icon="inline-start" aria-hidden />
-            {pending ? "作成中…" : "ルームを作成"}
+            {pending
+              ? "作成中…"
+              : recovering
+                ? "同じ作成を確認・再試行"
+                : "ルームを作成"}
           </Button>
         </form>
+        {message && (
+          <p role="status" className="mt-3 text-sm leading-relaxed">
+            {message}
+          </p>
+        )}
+        {recovering && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              別のルームを作成すると、前回のルームが作成済みの場合は両方が残ります。
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={onNewIntent}
+            >
+              別のルームを新しく作成
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

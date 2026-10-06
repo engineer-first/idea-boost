@@ -446,7 +446,7 @@ describe("RoomDO 進行状態", () => {
 });
 
 describe("RoomDO 解散", () => {
-  it("disband はストレージを完全に空にする（schema_migrations 含む）", async () => {
+  it("disband は参加状態を消去し作成墓標を残す", async () => {
     const roomId = "room-disband-empty";
     const stub = roomStub(roomId);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -463,7 +463,17 @@ describe("RoomDO 解散", () => {
         )
         .toArray()
         .map((row) => String(row.name));
-      expect(tables).toEqual([]);
+      expect(tables).toContain("room_creation_marker");
+      expect(
+        state.storage.sql.exec("SELECT host_id FROM room_creation_marker").one()
+          .host_id,
+      ).toBe(USER_A);
+      expect(
+        state.storage.sql.exec("SELECT user_id FROM members").toArray(),
+      ).toEqual([]);
+      expect(state.storage.sql.exec("SELECT id FROM notes").toArray()).toEqual(
+        [],
+      );
     });
   });
 });

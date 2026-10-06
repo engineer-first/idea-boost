@@ -37,6 +37,17 @@ export class SharedOutcomeStorage {
     createdAt = Date.now(),
   ): Promise<void> {
     if (readOutcomeState(this.sql)) return;
+    this.initializeSharedOutcomeState(roomId, name, createdAt);
+    await this.preserveSharedOutcome(false, createdAt);
+    await this.flushSharedOutcome();
+  }
+
+  initializeSharedOutcomeState(
+    roomId: string,
+    name?: string,
+    createdAt = Date.now(),
+  ): void {
+    if (readOutcomeState(this.sql)) return;
     const displayId = crypto
       .randomUUID()
       .replaceAll("-", "")
@@ -55,9 +66,13 @@ export class SharedOutcomeStorage {
         createdAt + SHARED_OUTCOME_RETENTION_MS,
         JSON.stringify(getPhase(this.sql)),
       );
+      const snapshot = captureSharedOutcome(this.sql, createdAt);
+      this.sql.exec(
+        "UPDATE shared_outcome_state SET pending_json=?, save_status='pending', retry_at=? WHERE id=1",
+        JSON.stringify(snapshot),
+        createdAt + 1000,
+      );
     });
-    await this.preserveSharedOutcome(false, createdAt);
-    await this.flushSharedOutcome();
   }
 
   async preserveSharedOutcome(

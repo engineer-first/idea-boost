@@ -33,9 +33,14 @@ import {
   findRoomByCode,
   findRoomById,
   findUserNameById,
-  insertRoom,
   upsertUserFromAssertion,
 } from "./lib/db";
+import {
+  CreationConflict,
+  CreationGone,
+  completeRoomCreation,
+  reserveRoomCreation,
+} from "./lib/room-creation";
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
 import { HOST_ID_HEADER, RoomDO, USER_ID_HEADER } from "./room/room-do";
@@ -122,14 +127,32 @@ async function handleCreateRoom(
     email: session.email,
     name: session.name,
   });
-  const room = await insertRoom(env.DB, session.sub);
-  // 作成者をホスト登録し、フェーズを lobby（開始前）に初期化する。
-  await roomStub(env, room.roomId).initializeNewRoom(
-    session.sub,
-    session.name,
-    { roomId: room.roomId, name: body.data.name },
-  );
-  return json({ roomId: room.roomId, inviteCode: room.inviteCode });
+  try {
+    const creation = await reserveRoomCreation(
+      env.DB,
+      session.sub,
+      body.data.requestId,
+      body.data.name,
+    );
+    await completeRoomCreation(env.DB, creation, async () => {
+      const result = await roomStub(env, creation.room_id).resumeRoomCreation(
+        session.sub,
+        session.name,
+        { roomId: creation.room_id, name: creation.name },
+      );
+      if (result === "closed") throw new CreationGone();
+    });
+    return json({ roomId: creation.room_id, inviteCode: creation.invite_code });
+  } catch (cause) {
+    if (cause instanceof CreationConflict)
+      return error(409, "同じ作成要求の入力を変更できません。");
+    if (cause instanceof CreationGone)
+      return error(410, "この作成要求のルームは終了または削除されています。");
+    return error(
+      503,
+      "作成結果を確認できません。同じ要求で再試行してください。",
+    );
+  }
 }
 
 // POST /api/rooms/join — 招待コードで参加（冪等）。

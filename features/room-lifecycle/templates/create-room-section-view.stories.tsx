@@ -53,3 +53,19 @@ export const AllStates: Story = {
     );
   },
 };
+
+export const Unknown: Story = {
+  args: {
+    recovering: true,
+    intentName: "サービスの相談",
+    message: "作成結果を確認できません。同じ作成を確認・再試行してください。",
+    onNewIntent: fn(),
+  },
+};
+export const StorageError: Story = {
+  args: {
+    storageError: true,
+    message:
+      "作成要求の記録を読み取れません。ブラウザの保存設定を確認して再読み込みしてください。",
+  },
+};

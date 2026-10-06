@@ -75,10 +75,12 @@ afterEach(() => {
 });
 
 describe("createRoom", () => {
-  it("未認証なら /login へリダイレクトする", async () => {
+  it("未認証なら作成を拒否して同じ要求の再試行を案内する", async () => {
     getCurrentUserMock.mockResolvedValue(null);
 
-    expect(await callAndGetRedirect(() => createRoom())).toBe("/login");
+    expect(
+      await createRoom({ requestId: "11111111-1111-4111-8111-111111111111" }),
+    ).toMatchObject({ ok: false, outcome: "rejected" });
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
 
@@ -90,7 +92,9 @@ describe("createRoom", () => {
       }),
     );
 
-    await expect(createRoom()).resolves.toEqual({
+    await expect(
+      createRoom({ requestId: "11111111-1111-4111-8111-111111111111" }),
+    ).resolves.toEqual({
       ok: true,
       roomId: "123e4567-e89b-42d3-a456-426614174000",
     });
@@ -104,22 +108,38 @@ describe("createRoom", () => {
         inviteCode: "ABC123",
       }),
     );
-    await createRoom("  相談ルーム  ");
+    await createRoom({
+      requestId: "11111111-1111-4111-8111-111111111111",
+      name: "  相談ルーム  ",
+    });
     expect(apiFetchMock).toHaveBeenCalledWith(
       "/api/rooms",
-      expect.objectContaining({ body: JSON.stringify({ name: "相談ルーム" }) }),
+      expect.objectContaining({
+        body: JSON.stringify({
+          requestId: "11111111-1111-4111-8111-111111111111",
+          name: "相談ルーム",
+        }),
+      }),
     );
     apiFetchMock.mockClear();
-    expect(await createRoom("あ".repeat(81))).toMatchObject({ ok: false });
+    expect(
+      await createRoom({
+        requestId: "11111111-1111-4111-8111-111111111111",
+        name: "あ".repeat(81),
+      }),
+    ).toMatchObject({ ok: false });
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
 
   it("API が非 2xx なら ok: false を返す", async () => {
     apiFetchMock.mockResolvedValue(new Response("error", { status: 500 }));
 
-    await expect(createRoom()).resolves.toEqual({
+    await expect(
+      createRoom({ requestId: "11111111-1111-4111-8111-111111111111" }),
+    ).resolves.toEqual({
       ok: false,
-      error: "ルームを作成できませんでした。",
+      outcome: "unknown",
+      error: "作成結果を確認できません。同じ作成を確認・再試行してください。",
     });
     expect(redirectMock).not.toHaveBeenCalled();
   });
@@ -127,9 +147,12 @@ describe("createRoom", () => {
   it("API が 2xx でも不正 JSON なら ok: false を返す", async () => {
     apiFetchMock.mockResolvedValue(new Response("<html>gateway error</html>"));
 
-    await expect(createRoom()).resolves.toEqual({
+    await expect(
+      createRoom({ requestId: "11111111-1111-4111-8111-111111111111" }),
+    ).resolves.toEqual({
       ok: false,
-      error: "ルームを作成できませんでした。",
+      outcome: "unknown",
+      error: "作成結果を確認できません。同じ作成を確認・再試行してください。",
     });
     expect(redirectMock).not.toHaveBeenCalled();
   });

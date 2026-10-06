@@ -1,6 +1,7 @@
 // api-worker の REST 境界スキーマの単体テスト。
 import { describe, expect, it } from "vitest";
 import {
+  CreateRoomInputSchema,
   CreateRoomResponseSchema,
   JoinRoomResponseSchema,
   RoomInfoResponseSchema,
@@ -179,5 +180,13 @@ describe("RoomLookupResponseSchema", () => {
         hostName: "Host",
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("作成要求ID", () => {
+  it("要求IDなしの作成を拒否する", () => {
+    expect(CreateRoomInputSchema.safeParse({ name: "test" }).success).toBe(
+      false,
+    );
   });
 });

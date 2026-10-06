@@ -30,6 +30,8 @@ export async function handleSharedOutcomes(
     const [, roomId, recordId] = historyMatch;
     if (!isUuid(roomId) || (recordId && !isUuid(recordId)))
       return response({ error: "記録が見つかりません。" }, 404);
+    if (await isCreationPending(env.DB, roomId))
+      return response({ error: "記録が見つかりません。" }, 404);
     const rawCursor = url.searchParams.get("cursor");
     const cursor = rawCursor === null ? 0 : Number(rawCursor);
     if (!Number.isSafeInteger(cursor) || cursor < 0)
@@ -48,6 +50,8 @@ export async function handleSharedOutcomes(
   const match = url.pathname.match(/^\/api\/shared-outcomes\/([^/]+)$/);
   if (match) {
     if (!isUuid(match[1]))
+      return response({ error: "成果が見つかりません。" }, 404);
+    if (await isCreationPending(env.DB, match[1]))
       return response({ error: "成果が見つかりません。" }, 404);
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(match[1]));
     const record = await stub.getSharedOutcome();
@@ -97,7 +101,7 @@ export async function handleSharedOutcomes(
       await env.DB.prepare(`SELECT room_id, MAX(last_used_at) AS last_used_at, MAX(created_at) AS created_at FROM (
  SELECT room_id, last_used_at, NULL AS created_at FROM shared_outcomes
  UNION ALL SELECT id AS room_id, CAST(strftime('%s', created_at) AS INTEGER)*1000 AS last_used_at, created_at FROM rooms
- ) GROUP BY room_id HAVING (? IS NULL OR MAX(last_used_at) < ? OR (MAX(last_used_at) = ? AND room_id > ?)) ORDER BY last_used_at DESC, room_id LIMIT ? OFFSET ?`)
+ ) AS candidates WHERE NOT EXISTS (SELECT 1 FROM room_creation_requests WHERE room_id=candidates.room_id AND status='pending') GROUP BY room_id HAVING (? IS NULL OR MAX(last_used_at) < ? OR (MAX(last_used_at) = ? AND room_id > ?)) ORDER BY last_used_at DESC, room_id LIMIT ? OFFSET ?`)
         .bind(
           position?.time ?? null,
           position?.time ?? null,
@@ -159,4 +163,18 @@ export async function handleSharedOutcomes(
     outcomes,
     nextCursor: hasMore && position ? `${position.time}:${position.id}` : null,
   });
+}
+
+async function isCreationPending(
+  db: D1Database,
+  roomId: string,
+): Promise<boolean> {
+  return Boolean(
+    await db
+      .prepare(
+        "SELECT 1 FROM room_creation_requests WHERE room_id=? AND status='pending'",
+      )
+      .bind(roomId)
+      .first(),
+  );
 }

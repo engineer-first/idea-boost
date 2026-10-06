@@ -44,7 +44,11 @@ async function createRoomAs(
 ): Promise<{ roomId: string; inviteCode: string }> {
   const res = await SELF.fetch("https://api.test/api/rooms", {
     method: "POST",
-    headers: { Cookie: await sessionCookie(user) },
+    headers: {
+      Cookie: await sessionCookie(user),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ requestId: crypto.randomUUID() }),
   });
   expect(res.status).toBe(200);
   return res.json();
@@ -924,4 +928,31 @@ it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メ�
   );
   oldAgain.socket.close();
   currentAgain.socket.close();
+});
+
+describe("作成要求の再送", () => {
+  it("同IDの入力衝突を拒否する", async () => {
+    const requestId = crypto.randomUUID();
+    const send = (name: string) =>
+      SELF.fetch("https://api.test/api/rooms", {
+        method: "POST",
+        headers: { Cookie: cookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, name }),
+      });
+    const cookie = await sessionCookie(OWNER);
+    expect((await send("first")).status).toBe(200);
+    expect((await send("second")).status).toBe(409);
+  });
+  it("同時送信が同じルームに収束する", async () => {
+    const requestId = crypto.randomUUID();
+    const cookie = await sessionCookie(OWNER);
+    const send = () =>
+      SELF.fetch("https://api.test/api/rooms", {
+        method: "POST",
+        headers: { Cookie: cookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, name: "first" }),
+      });
+    const responses = await Promise.all([send(), send()]);
+    expect(await responses[0].json()).toEqual(await responses[1].json());
+  });
 });
