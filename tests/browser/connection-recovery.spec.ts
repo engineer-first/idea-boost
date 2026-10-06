@@ -25,6 +25,69 @@ afterAll(async () => {
 });
 
 for (const width of [390, 1440]) {
+  for (const terminal of [
+    { story: "auth-required", label: "ログインする", href: "/login" },
+    { story: "unavailable", label: "ホームへ戻る", href: "/home" },
+  ]) {
+    test(`停止後も文章をコピーでき、${terminal.label}へ到達できる (${width}px)`, async () => {
+      await page.setViewportSize({ width, height: 900 });
+      await page
+        .context()
+        .grantPermissions(["clipboard-read", "clipboard-write"]);
+      await page.goto(
+        `${origin}/iframe.html?id=room-roomboardlayout--${terminal.story}-with-draft&viewMode=story`,
+      );
+      const entry = page.getByRole("link", { name: terminal.label });
+      await entry.waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      if (width >= 640) {
+        const notice = await page
+          .getByTestId("board-connection-status")
+          .boundingBox();
+        const notes = await page
+          .getByTestId("private-notes-toolbar")
+          .boundingBox();
+        expect(
+          notes?.y,
+          "停止案内がマイ付箋一覧を覆わない",
+        ).toBeGreaterThanOrEqual(
+          (notice?.y ?? Infinity) + (notice?.height ?? 0),
+        );
+      }
+      await page.getByRole("button", { name: "確認・コピー" }).click();
+      const draft = page.getByRole("textbox", { name: "未反映の文章 1" });
+      const text = await draft.inputValue();
+      await page.getByRole("button", { name: "コピー", exact: true }).click();
+      await page.getByRole("status", { name: "コピー結果" }).waitFor();
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+        text,
+      );
+      await page.getByRole("button", { name: "閉じる", exact: true }).click();
+      await page.getByRole("button", { name: "確認・コピー" }).click();
+      expect(await draft.inputValue()).toBe(text);
+      await entry.scrollIntoViewIfNeeded();
+      await entry.focus();
+      expect(
+        await entry.evaluate((element) => document.activeElement === element),
+      ).toBe(true);
+      expect(
+        await entry.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          const target = document.elementFromPoint(
+            box.x + box.width / 2,
+            box.y + box.height / 2,
+          );
+          return target !== null && element.contains(target);
+        }),
+      ).toBe(true);
+      expect(await entry.getAttribute("href")).toBe(terminal.href);
+      await entry.press("Enter");
+      await page.waitForURL(`**${terminal.href}`);
+    });
+  }
+}
+
+for (const width of [390, 1440]) {
   test(`長文をコピーし、復旧UIを閉じて再表示できる (${width}px)`, async () => {
     await page.setViewportSize({ width, height: 844 });
     await page

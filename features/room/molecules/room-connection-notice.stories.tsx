@@ -18,3 +18,6 @@ export const Synchronizing: Story = {
   args: { status: "connecting", delayed: true },
 };
 export const Connected: Story = { args: { status: "open" } };
+
+export const AuthRequired: Story = { args: { status: "auth-required" } };
+export const Unavailable: Story = { args: { status: "unavailable" } };
