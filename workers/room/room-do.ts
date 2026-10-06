@@ -488,29 +488,16 @@ export class RoomDO extends DurableObject {
         // 既に閉じている等のエラーは握りつぶす
       }
     }
-    const outcome = readOutcomeState(this.sql);
-    if (!outcome) {
-      const marker = this.sql
-        .exec<{ host_id: string }>(
-          "SELECT host_id FROM room_creation_marker WHERE id=1",
-        )
-        .toArray()[0];
-      await this.ctx.storage.deleteAll();
-      if (marker) {
-        migrateRoomStorage(
-          this.ctx.storage,
-          ROOM_DO_MIGRATIONS,
-          LEGACY_ROOM_DO_MIGRATION_IDS,
-        );
-        this.sql.exec(
-          "INSERT INTO room_creation_marker(id,host_id) VALUES(1,?)",
-          marker.host_id,
-        );
-      }
-      return true;
-    }
     // 保全済みデータと outbox は解散後も維持し、自動再試行を継続する。
     this.ctx.storage.transactionSync(() => {
+      // 成果未初期化でも、閉鎖と参加状態の消去を同時に永続化する。
+      const host = getHostState(this.sql).hostUserId;
+      if (host)
+        this.sql.exec(
+          "INSERT OR IGNORE INTO room_creation_marker(id,host_id,closed) VALUES(1,?,1)",
+          host,
+        );
+      this.sql.exec("UPDATE room_creation_marker SET closed=1 WHERE id=1");
       this.sql.exec(
         "UPDATE shared_outcome_identity SET disbanded = 1 WHERE id = 1",
       );
