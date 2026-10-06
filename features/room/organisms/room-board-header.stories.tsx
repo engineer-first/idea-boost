@@ -136,6 +136,7 @@ export const VoteTotaled: Story = {
 
 export const OutcomePublished: Story = {
   args: {
+    onEditSelf: fn(),
     phase: STEP_3_5,
     hasFinalDecision: true,
     outcomePublished: true,

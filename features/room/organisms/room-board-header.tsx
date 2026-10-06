@@ -432,7 +432,9 @@ export function RoomBoardHeader({
                       >
                         <MemberSelection
                           name={
-                            member.userId === currentUserId && onEditSelf
+                            member.userId === currentUserId &&
+                            onEditSelf &&
+                            !outcomePublished
                               ? `${member.name}：呼び名を変更`
                               : member.name
                           }
@@ -466,7 +468,9 @@ export function RoomBoardHeader({
                           <span className="min-w-0 flex-1 truncate text-sm">
                             {member.name}
                           </span>
-                          {member.userId === currentUserId && onEditSelf ? (
+                          {member.userId === currentUserId &&
+                          onEditSelf &&
+                          !outcomePublished ? (
                             <Pencil
                               className="size-3 shrink-0 text-muted-foreground"
                               aria-hidden

@@ -14,6 +14,7 @@ import type {
 import { roomNotify } from "./room-notify";
 import {
   applyAdoptionFocusServerMessage,
+  applyAuthorNamesServerMessage,
   applyCarryoverServerMessage,
   applyDecisionServerMessage,
   applyHostServerMessage,
@@ -37,6 +38,7 @@ export type UseRoomStateResult = {
   host: HostClientState;
   sharing: SharingState | null;
   members: Member[];
+  authorNames: ReadonlyMap<string, string>;
   phase: RoomPhase;
   phaseRevision: number;
   decision: Decision | null;
@@ -63,6 +65,9 @@ export function useRoomState(options: {
   });
   const [sharing, setSharing] = useState<SharingState | null>(null);
   const [members, setMembers] = useState<Member[]>(options.initialMembers);
+  const [authorNames, setAuthorNames] = useState<ReadonlyMap<string, string>>(
+    () => new Map(options.initialMembers.map((m) => [m.userId, m.name])),
+  );
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
   const [phaseRevision, setPhaseRevision] = useState(0);
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -103,6 +108,9 @@ export function useRoomState(options: {
       const nextMembers = applyMemberServerMessage(membersRef.current, message);
       membersRef.current = nextMembers;
       setMembers(nextMembers);
+      setAuthorNames((current) =>
+        applyAuthorNamesServerMessage(current, message),
+      );
       setHost((current) => applyHostServerMessage(current, message));
       setSharing((current) => applySharingServerMessage(current, message));
       setPhase((current) => applyPhaseServerMessage(current, message));
@@ -131,6 +139,7 @@ export function useRoomState(options: {
     host,
     sharing,
     members,
+    authorNames,
     phase,
     phaseRevision,
     decision,

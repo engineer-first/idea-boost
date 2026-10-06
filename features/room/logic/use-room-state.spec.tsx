@@ -294,3 +294,55 @@ it("サーバーの進行revisionを保持してループの競合判定に使�
   );
   expect(result.current.phaseRevision).toBe(9);
 });
+
+it("初期・参加・改名の作者名を退出後も保持し、再参加で最新名に更新する", () => {
+  const [member] = buildMembers(1);
+  const { result } = renderHook(() =>
+    useRoomState({
+      initialMembers: [member],
+      initialPhase: buildPhaseStep(2),
+    }),
+  );
+  expect(result.current.authorNames.get(member.userId)).toBe(member.name);
+  act(() => {
+    result.current.applyMessage({
+      type: "member:renamed",
+      member: { ...member, name: "新しい呼び名" },
+      operationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+    result.current.applyMessage({ type: "member_left", userId: member.userId });
+  });
+  expect(result.current.members).toEqual([]);
+  expect(result.current.authorNames.get(member.userId)).toBe("新しい呼び名");
+  act(() =>
+    result.current.applyMessage({
+      type: "member_joined",
+      member: { ...member, name: "再参加の呼び名" },
+    }),
+  );
+  expect(result.current.authorNames.get(member.userId)).toBe("再参加の呼び名");
+});
+
+it("再接続snapshotに退出者がいなくても受信済み作者名を保持する", () => {
+  const { result } = renderHook(() =>
+    useRoomState({ initialMembers: [], initialPhase: buildPhaseStep(2) }),
+  );
+  const [member] = buildMembers(1);
+  const snapshot = {
+    type: "snapshot" as const,
+    phaseRevision: 0,
+    notes: [],
+    members: [member],
+    completedVoterIds: [],
+    phase: buildPhaseStep(2),
+    isHost: false,
+    decision: null,
+    carryovers: [],
+    timer: { status: "idle" as const },
+    serverNow: 500,
+  };
+  act(() => result.current.applyMessage(snapshot));
+  act(() => result.current.applyMessage({ ...snapshot, members: [] }));
+  expect(result.current.members).toEqual([]);
+  expect(result.current.authorNames.get(member.userId)).toBe(member.name);
+});

@@ -3472,3 +3472,21 @@ describe("移動履歴の入口", () => {
     expect(moveHistory.onUndo).not.toHaveBeenCalled();
   });
 });
+
+it("退出した作者の共有付箋に保持した呼び名を表示し、在籍中は最新名を優先する", () => {
+  const [author] = buildMembers(1);
+  const note = buildNote({ authorId: author.userId, visibility: "shared" });
+  const { props, rerender } = setup({
+    notes: [note],
+    members: [],
+    authorNames: new Map([[author.userId, "退出前の呼び名"]]),
+  });
+  expect(screen.getByTitle("作者: 退出前の呼び名")).toBeInTheDocument();
+  rerender(
+    <TestBoardView
+      {...props}
+      members={[{ ...author, name: "現在の呼び名" }]}
+    />,
+  );
+  expect(screen.getByTitle("作者: 現在の呼び名")).toBeInTheDocument();
+});
