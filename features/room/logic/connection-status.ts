@@ -4,7 +4,7 @@
 // ホーム遷移へ変換するため、view には届かない。
 import type { RoomConnectionStatus } from "@/lib/room-client/room-client";
 
-export type RoomScreenConnectionStatus = Exclude<
-  RoomConnectionStatus,
-  "ended" | "disbanded"
->;
+export type RoomScreenConnectionStatus =
+  | Exclude<RoomConnectionStatus, "ended" | "disbanded">
+  | "auth-required"
+  | "unavailable";

@@ -40,7 +40,10 @@ export async function apiFetch(
     headers.set("Cookie", `${SESSION_COOKIE_NAME}=${sessionToken}`);
   }
 
-  const signal = init?.signal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
+  const timeout = AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
+  const signal = init?.signal
+    ? AbortSignal.any([init.signal, timeout])
+    : timeout;
 
   const baseUrl = process.env.API_WORKER_URL;
   if (baseUrl) {

@@ -29,6 +29,13 @@ class FakeWebSocket {
     this.listeners.set(type, list);
   }
 
+  removeEventListener(type: string, listener: Listener): void {
+    this.listeners.set(
+      type,
+      (this.listeners.get(type) ?? []).filter((item) => item !== listener),
+    );
+  }
+
   send(data: string): void {
     this.sent.push(data);
   }
@@ -84,10 +91,12 @@ const factory = (url: string) => new FakeWebSocket(url) as unknown as WebSocket;
 beforeEach(() => {
   FakeWebSocket.instances = [];
   vi.useFakeTimers();
+  vi.spyOn(Math, "random").mockReturnValue(1);
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("createRoomClient", () => {
@@ -402,4 +411,91 @@ describe("ホストの世代を送信境界で固定する", () => {
     });
     client.close();
   });
+});
+
+it("jitterを注入でき、指数待ち時間の半分から上限までに分散する", () => {
+  const client = createRoomClient({
+    url: "ws://test",
+    onMessage: () => {},
+    webSocketFactory: factory,
+    random: () => 0,
+  });
+  latestSocket().simulateUnexpectedClose();
+  vi.advanceTimersByTime(499);
+  expect(FakeWebSocket.instances).toHaveLength(1);
+  vi.advanceTimersByTime(1);
+  expect(FakeWebSocket.instances).toHaveLength(2);
+  client.close();
+});
+it("offline中の接続とtimerを止め、onlineで一度だけ再開しcloseでlistenerを解除する", () => {
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  const client = createRoomClient({
+    url: "ws://test",
+    onMessage: () => {},
+    webSocketFactory: factory,
+  });
+  expect(FakeWebSocket.instances).toHaveLength(0);
+  vi.advanceTimersByTime(60000);
+  expect(FakeWebSocket.instances).toHaveLength(0);
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+  window.dispatchEvent(new Event("online"));
+  window.dispatchEvent(new Event("online"));
+  expect(FakeWebSocket.instances).toHaveLength(1);
+  client.close();
+  window.dispatchEvent(new Event("online"));
+  expect(FakeWebSocket.instances).toHaveLength(1);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each([
+  0, 1,
+])("jitter %sの連続失敗でも待ち時間は8秒以内に収まる", (random) => {
+  const client = createRoomClient({
+    url: "ws://test",
+    onMessage: () => {},
+    webSocketFactory: factory,
+    random: () => random,
+  });
+  for (const ceiling of [1000, 2000, 4000, 8000, 8000, 8000]) {
+    const count = FakeWebSocket.instances.length;
+    latestSocket().simulateUnexpectedClose();
+    const delay = ceiling * (0.5 + random * 0.5);
+    vi.advanceTimersByTime(delay - 1);
+    expect(FakeWebSocket.instances).toHaveLength(count);
+    vi.advanceTimersByTime(1);
+    expect(FakeWebSocket.instances).toHaveLength(count + 1);
+  }
+  client.close();
+  expect(vi.getTimerCount()).toBe(0);
+});
+it("offlineで既存socketを閉じ、古いopen/message/closeは配送せずonlineで新接続だけを使う", () => {
+  const messages = vi.fn();
+  const statuses = vi.fn();
+  const client = createRoomClient({
+    url: "ws://test",
+    onMessage: messages,
+    onStatusChange: statuses,
+    webSocketFactory: factory,
+  });
+  const stale = latestSocket();
+  stale.simulateOpen();
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  window.dispatchEvent(new Event("offline"));
+  expect(stale.readyState).toBe(3);
+  const count = statuses.mock.calls.length;
+  stale.simulateOpen();
+  stale.simulateUnexpectedClose();
+  stale.simulateMessage(
+    JSON.stringify({
+      type: "note:deleted",
+      noteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    }),
+  );
+  expect(statuses).toHaveBeenCalledTimes(count);
+  expect(messages).not.toHaveBeenCalled();
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+  window.dispatchEvent(new Event("online"));
+  expect(FakeWebSocket.instances).toHaveLength(2);
+  client.close();
+  expect(vi.getTimerCount()).toBe(0);
 });

@@ -99,6 +99,13 @@ class FakeWebSocket {
     this.listeners.set(type, list);
   }
 
+  removeEventListener(type: string, listener: Listener): void {
+    this.listeners.set(
+      type,
+      (this.listeners.get(type) ?? []).filter((item) => item !== listener),
+    );
+  }
+
   send(data: string): void {
     this.sent.push(data);
     const message = JSON.parse(data) as {
@@ -3294,4 +3301,36 @@ describe("pending interruption DOM", () => {
       1,
     );
   });
+});
+
+it.each([
+  401, 404,
+])("再接続の終端%sで入力中の本文を消さず回収欄へ渡す", async (status) => {
+  sessionStorage.clear();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(null, { status })),
+  );
+  const { socket, view } = connectWithSnapshot([protocolNote()], {
+    phase: buildPhaseStep(2),
+  });
+  fireEvent.change(screen.getByDisplayValue("最初の付箋"), {
+    target: { value: "保存前に切れた文章" },
+  });
+  await act(async () => socket.simulateUnexpectedClose());
+  expect(
+    screen.getByRole("link", {
+      name: status === 401 ? "ログインする" : "ホームへ戻る",
+    }),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
+  expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
+    "保存前に切れた文章",
+  );
+  expect(socket.sent.map((s) => JSON.parse(s))).not.toContainEqual(
+    expect.objectContaining({ type: "note:update-content" }),
+  );
+  view.unmount();
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
 });

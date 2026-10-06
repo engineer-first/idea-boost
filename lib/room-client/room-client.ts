@@ -18,7 +18,7 @@ import {
 
 const WEBSOCKET_OPEN = 1;
 
-// 1s → 2s → 4s → 8s、以降は 8s ごと。
+// 指数バックオフの上限。各試行を上限の50〜100%に分散する。
 const DEFAULT_RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000];
 
 export type RoomSocketFactory = (url: string) => WebSocket;
@@ -42,6 +42,7 @@ export type RoomClientOptions = {
   onStatusChange?: (status: RoomConnectionStatus) => void;
   webSocketFactory?: RoomSocketFactory;
   reconnectDelaysMs?: number[];
+  random?: () => number;
 };
 
 export type RoomClient = {
@@ -74,18 +75,54 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
   let reconnectAttempt = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+  let detachSocket: (() => void) | null = null;
+  const online = (): boolean =>
+    typeof navigator === "undefined" || navigator.onLine;
+  function clearReconnect(): void {
+    if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  function disposeSocket(): void {
+    detachSocket?.();
+    detachSocket = null;
+    const previous = socket;
+    socket = null;
+    previous?.close();
+  }
+  function stop(): void {
+    closedByUser = true;
+    clearReconnect();
+    if (typeof window !== "undefined") {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    }
+    disposeSocket();
+  }
+  function handleOffline(): void {
+    if (closedByUser) return;
+    clearReconnect();
+    disposeSocket();
+    options.onStatusChange?.("closed");
+  }
+  function handleOnline(): void {
+    if (closedByUser || !online() || (socket && socket.readyState < 2)) return;
+    clearReconnect();
+    connect();
+  }
   function connect(): void {
+    if (closedByUser || !online()) return;
+    disposeSocket();
     const ws = factory(options.url);
     socket = ws;
     options.onStatusChange?.("connecting");
 
-    ws.addEventListener("open", () => {
+    const onOpen = (): void => {
       if (closedByUser || socket !== ws) return;
       reconnectAttempt = 0;
       options.onStatusChange?.("open");
-    });
+    };
 
-    ws.addEventListener("message", (event) => {
+    const onMessage = (event: MessageEvent): void => {
       if (closedByUser || socket !== ws) return;
       const message = parseServerMessage(event.data);
       if (!message) {
@@ -101,31 +138,43 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
       )
         hostRevision = Math.max(hostRevision ?? 0, message.hostRevision);
       options.onMessage(message);
-    });
+    };
 
-    ws.addEventListener("close", (event) => {
+    const onClose = (event: CloseEvent): void => {
       if (closedByUser || socket !== ws) {
         return;
       }
       // 解散: 再接続せず disbanded（UI が理由を出してホームへ）
       if (isDisbandedClose(event)) {
-        closedByUser = true;
+        stop();
         options.onStatusChange?.("disbanded");
         return;
       }
       // 個人退出: 再接続せず ended
       if (isLeftRoomClose(event)) {
-        closedByUser = true;
+        stop();
         options.onStatusChange?.("ended");
         return;
       }
       options.onStatusChange?.("closed");
       scheduleReconnect();
-    });
+    };
+    ws.addEventListener("open", onOpen);
+    ws.addEventListener("message", onMessage);
+    ws.addEventListener("close", onClose);
+    detachSocket = () => {
+      ws.removeEventListener("open", onOpen);
+      ws.removeEventListener("message", onMessage);
+      ws.removeEventListener("close", onClose);
+    };
   }
 
   function scheduleReconnect(): void {
-    const delay = delays[Math.min(reconnectAttempt, delays.length - 1)] ?? 1000;
+    if (closedByUser || !online() || reconnectTimer !== null) return;
+    const ceiling =
+      delays[Math.min(reconnectAttempt, delays.length - 1)] ?? 1000;
+    const random = Math.min(1, Math.max(0, (options.random ?? Math.random)()));
+    const delay = Math.round(ceiling * (0.5 + random * 0.5));
     reconnectAttempt += 1;
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null;
@@ -133,7 +182,12 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
     }, delay);
   }
 
-  connect();
+  if (typeof window !== "undefined") {
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+  }
+  if (online()) connect();
+  else options.onStatusChange?.("closed");
 
   return {
     send(message: ClientMessage): boolean {
@@ -155,12 +209,7 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
       }
     },
     close(): void {
-      closedByUser = true;
-      if (reconnectTimer !== null) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-      }
-      socket?.close();
+      stop();
     },
   };
 }

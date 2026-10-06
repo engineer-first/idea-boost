@@ -523,6 +523,11 @@ export function RoomBoard({
   useEffect(() => {
     if (connectionStatus === "open") return;
     drafts.setConnected(false);
+    if (
+      connectionStatus === "auth-required" ||
+      connectionStatus === "unavailable"
+    )
+      drafts.recoverDisconnected();
     notes.cancelNoteDrag();
     notes.clearPeerMoves();
     moveHistory.clear("接続が切れたため、移動履歴を終了しました。");
@@ -534,6 +539,7 @@ export function RoomBoard({
     notes.clearPeerMoves,
     moveHistory.clear,
     drafts.setConnected,
+    drafts.recoverDisconnected,
   ]);
 
   return (

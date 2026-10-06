@@ -43,6 +43,22 @@ describe("useNoteAutosave", () => {
   const setup = () =>
     renderHook(() => useNoteAutosave({ roomId: "room", userId, send }));
 
+  it("再接続を打ち切っても未送信の本文を回収でき、再送timerを残さない", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "端末に残す本文"));
+    act(() => result.current.recoverDisconnected());
+    expect(result.current.recoveries).toEqual([
+      expect.objectContaining({ noteId, text: "端末に残す本文" }),
+    ]);
+    act(() => vi.advanceTimersByTime(30000));
+    expect(send).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    expect(
+      sessionStorage.getItem(`idea-boost:note-drafts:v1:${userId}:room`),
+    ).toContain("端末に残す本文");
+  });
+
   it("停止999msでは送らず1000msで1回だけ送り、ACKで下書きを整理する", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshot()));

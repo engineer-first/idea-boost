@@ -493,6 +493,11 @@ export function useNoteAutosave(options: {
       statusTimersRef.current.clear();
     }
   }, []);
+  const recoverDisconnected = useCallback(() => {
+    setConnected(false);
+    for (const draft of draftsRef.current.values())
+      markRecovery(draft, "not-editable");
+  }, [markRecovery, setConnected]);
   const blur = useCallback(
     (noteId: string, text: string) => {
       change(noteId, text);
@@ -532,6 +537,7 @@ export function useNoteAutosave(options: {
     compositionEnd,
     applyMessage,
     setConnected,
+    recoverDisconnected,
     draftValue: (noteId: string) => {
       const draft = draftsRef.current.get(noteId);
       return draft && !draft.recoveryReason ? draft.text : undefined;

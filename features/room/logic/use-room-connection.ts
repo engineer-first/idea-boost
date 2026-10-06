@@ -63,6 +63,12 @@ export function useRoomConnection({
     synchronizedRef.current = false;
     setConnectionStatus("connecting");
     setConnectionDelayed(false);
+    let active = true;
+    // snapshotで同期を確定するたびに照会世代を進める。socket openだけでは
+    // 復旧していないため、切断中に始めた照会をまだ有効として扱う。
+    let generation = 0;
+    let terminal = false;
+    let client: RoomClient | undefined;
     let delayedTimer: ReturnType<typeof setTimeout> | null = null;
     function stopDelay(): void {
       if (delayedTimer !== null) clearTimeout(delayedTimer);
@@ -85,13 +91,38 @@ export function useRoomConnection({
       completionRequest = null;
     }
     async function recoverCompletedRoom(): Promise<void> {
-      if (completionRequest || isLeavingRef?.current) return;
+      if (
+        completionRequest ||
+        terminal ||
+        !active ||
+        isLeavingRef?.current ||
+        !navigator.onLine
+      )
+        return;
+      const requestGeneration = generation;
       const request = new AbortController();
       const timeout = setTimeout(
         cancelCompletionRequest,
         COMPLETION_REQUEST_TIMEOUT_MS,
       );
       completionRequest = { controller: request, timeout };
+      const current = (): boolean =>
+        active &&
+        !terminal &&
+        !request.signal.aborted &&
+        generation === requestGeneration &&
+        !isLeavingRef?.current;
+      function finish(status: "auth-required" | "unavailable"): void {
+        if (!current()) return;
+        terminal = true;
+        generation += 1;
+        synchronizedRef.current = false;
+        stopDelay();
+        cancelCompletionRequest();
+        client?.close();
+        setConnectionStatus(status);
+        if (status === "unavailable") clearLastRoom(roomId);
+      }
       try {
         const response = await fetch(
           `/api/completed-rooms/${encodeURIComponent(roomId)}`,
@@ -100,17 +131,36 @@ export function useRoomConnection({
             signal: request.signal,
           },
         );
+        if (!current()) return;
+        if (response.status === 401) {
+          finish("auth-required");
+          return;
+        }
+        if (response.status === 404) {
+          const roomResponse = await fetch(
+            `/api/rooms/${encodeURIComponent(roomId)}`,
+            { cache: "no-store", signal: request.signal },
+          );
+          if (!current()) return;
+          if (roomResponse.status === 401) finish("auth-required");
+          else if (roomResponse.status === 404) finish("unavailable");
+          return;
+        }
         if (!response.ok) return;
         const completed = CompletedRoomSchema.safeParse(await response.json());
         if (
-          request.signal.aborted ||
+          !current() ||
           !completed.success ||
           completed.data.roomId !== roomId ||
           isLeavingRef?.current
         )
           return;
         stopDelay();
-        client.close();
+        terminal = true;
+        generation += 1;
+        synchronizedRef.current = false;
+        cancelCompletionRequest();
+        client?.close();
         router.replace(`/completed-rooms/${encodeURIComponent(roomId)}`);
       } catch {
         // オフラインや一時障害では通常のWS再接続を続け、次の失敗時に再確認する。
@@ -119,9 +169,14 @@ export function useRoomConnection({
         if (completionRequest?.controller === request) completionRequest = null;
       }
     }
-    const client = createRoomClient({
+    client = createRoomClient({
       url: roomWebSocketUrl(roomId),
       onMessage: (message) => {
+        if (!active || terminal) return;
+        if (message.type === "snapshot") {
+          generation += 1;
+          cancelCompletionRequest();
+        }
         onMessageRef.current(message);
         if (message.type === "snapshot") {
           synchronizedRef.current = true;
@@ -135,8 +190,12 @@ export function useRoomConnection({
         }
       },
       onStatusChange: (status) => {
-        if (status === "open" || status === "ended" || status === "disbanded")
+        if (!active || terminal) return;
+        if (status === "ended" || status === "disbanded") {
+          terminal = true;
+          generation += 1;
           cancelCompletionRequest();
+        }
         // 完了時に切断中だった在籍者にも、通知の受信に依存しない復帰経路を持つ。
         if (status === "closed") void recoverCompletedRoom();
         // 退出・解散による意図的切断: 再接続せずホームへ戻す。
@@ -159,7 +218,15 @@ export function useRoomConnection({
       webSocketFactory,
     });
     clientRef.current = client;
+    const handleOffline = (): void => {
+      generation += 1;
+      cancelCompletionRequest();
+    };
+    window.addEventListener("offline", handleOffline);
     return () => {
+      active = false;
+      generation += 1;
+      window.removeEventListener("offline", handleOffline);
       cancelCompletionRequest();
       if (delayedTimer !== null) clearTimeout(delayedTimer);
       synchronizedRef.current = false;

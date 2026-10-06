@@ -9,6 +9,7 @@ import {
   buildNotes,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
+import { NoteDraftRecovery } from "@/features/notes";
 import { roomNotify } from "../logic/room-notify";
 import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView } from "./room-board-view";
@@ -303,4 +304,35 @@ export const DelayedConnection: Story = {
   ...Reconnecting,
   name: "接続不調が10秒継続",
   args: { ...Reconnecting.args, connectionDelayed: true },
+};
+
+export const AuthRequired: Story = {
+  ...DelayedConnection,
+  args: { ...DelayedConnection.args, connectionStatus: "auth-required" },
+};
+export const Unavailable: Story = {
+  ...DelayedConnection,
+  args: { ...DelayedConnection.args, connectionStatus: "unavailable" },
+};
+const RECOVERY_ITEMS = [
+  {
+    noteId: "recovered-note",
+    text: "接続が戻らなくても、書きかけの文章を消さずに持ち帰れます。",
+    reason: "現在は編集できません。",
+  },
+];
+export const AuthRequiredWithDraft: Story = {
+  ...AuthRequired,
+  decorators: [
+    (Story) => (
+      <>
+        <Story />
+        <NoteDraftRecovery items={RECOVERY_ITEMS} />
+      </>
+    ),
+  ],
+};
+export const UnavailableWithDraft: Story = {
+  ...Unavailable,
+  decorators: AuthRequiredWithDraft.decorators,
 };

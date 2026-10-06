@@ -34,6 +34,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe("apiFetch", () => {
@@ -53,13 +54,25 @@ describe("apiFetch", () => {
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("呼び出し側が signal を渡した場合はそちらを優先する", async () => {
+  it.each([
+    "caller",
+    "timeout",
+  ] as const)("signal指定時も%sによってWorker呼び出しを中止する", async (source) => {
     const controller = new AbortController();
+    const timeout = new AbortController();
+    const timeoutMock = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(timeout.signal);
 
     await apiFetch("/api/rooms", { signal: controller.signal });
 
     const init = fetchMock.mock.calls[0]?.[1];
-    expect(init?.signal).toBe(controller.signal);
+    expect(init?.signal?.aborted).toBe(false);
+    const reason = new Error(source);
+    (source === "caller" ? controller : timeout).abort(reason);
+    expect(init?.signal?.aborted).toBe(true);
+    expect(init?.signal?.reason).toBe(reason);
+    expect(timeoutMock).toHaveBeenCalledWith(10_000);
   });
 });
 

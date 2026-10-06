@@ -37,7 +37,7 @@ function HostTransferPreview({ mode }: { mode: HostPreviewMode }) {
 const meta = {
   title: "Room/HostTransferFlow",
   component: HostTransferPreview,
-  parameters: { layout: "fullscreen" },
+  parameters: { layout: "fullscreen", activeRoomConnection: true },
   args: { mode: "success" },
 } satisfies Meta<typeof HostTransferPreview>;
 export default meta;
