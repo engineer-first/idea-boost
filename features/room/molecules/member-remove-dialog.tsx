@@ -10,6 +10,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/dialog";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { MemberAvatar, NOTE_COLOR_NAMES } from "@/features/room-members";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 
 export type MemberRemoveDialogProps = Omit<MemberRemovalControls, "request"> & {
@@ -49,9 +51,19 @@ export function MemberRemoveDialog({
             この参加者をルームから外しますか？
           </AlertDialogTitle>
           {target ? (
-            <p className="break-all text-base font-semibold">
-              {target.name || "名前未設定"}
-            </p>
+            <div className="flex min-w-0 items-center gap-3">
+              <TooltipProvider>
+                <MemberAvatar name={target.name} color={target.color} />
+              </TooltipProvider>
+              <div className="min-w-0">
+                <p className="break-all text-base font-semibold">
+                  {target.name || "名前未設定"}
+                </p>
+                <p className="break-all text-xs text-muted-foreground">
+                  識別色: {NOTE_COLOR_NAMES[target.color]}
+                </p>
+              </div>
+            </div>
           ) : null}
           <AlertDialogDescription className="leading-relaxed">
             この参加者の画面はホームに戻ります。付箋や投票は残り、招待リンク・コードから再参加できます。

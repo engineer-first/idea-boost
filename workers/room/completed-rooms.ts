@@ -336,6 +336,7 @@ export class CompletedRoomStorage {
           "note_bulk_exclusions",
           "used_note_drag_ids",
           "member_color_assignments",
+          "member_display_names",
           "pending_phase_transition",
           "sharing_state",
           "progress_history_outbox",

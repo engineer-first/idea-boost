@@ -28,6 +28,7 @@ const ALL_TABLES = [
   "groups",
   "legacy_note_drag_leases",
   "member_color_assignments",
+  "member_display_names",
   "members",
   "note_appearances",
   "note_bulk_exclusions",

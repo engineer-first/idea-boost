@@ -68,6 +68,10 @@ export function applyMemberServerMessage(
         color: m.color,
       }));
     }
+    case "member:renamed":
+      return members.map((m) =>
+        m.userId === message.member.userId ? message.member : m,
+      );
     case "member_joined": {
       const exists = members.some((m) => m.userId === message.member.userId);
       if (exists) {
@@ -169,6 +173,7 @@ export function applyVotingCompletionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:renamed":
     case "member:removed":
     case "host:updated":
     case "error":
@@ -248,6 +253,7 @@ export function applyDecisionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:renamed":
     case "member:removed":
     case "host:updated":
     case "error":
@@ -341,6 +347,7 @@ export function applyPhaseServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:renamed":
     case "member:removed":
     case "host:updated":
     case "error":
@@ -358,6 +365,13 @@ export function applySharingServerMessage(
 ): SharingState | null {
   if (message.type === "snapshot") return message.sharing ?? null;
   if (message.type === "sharing:updated") return message.sharing;
+  if (message.type === "member:renamed" && state)
+    return {
+      ...state,
+      order: state.order.map((m) =>
+        m.userId === message.member.userId ? message.member : m,
+      ),
+    };
   return state;
 }
 

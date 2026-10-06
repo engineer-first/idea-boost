@@ -139,6 +139,43 @@ export function createHostTransferPreview(
   }
   const factory: RoomSocketFactory = () => {
     const created = new PreviewSocket((message, active) => {
+      if (message.type === "member:rename") {
+        setTimeout(() => {
+          if (active.readyState !== 1) return;
+          if (mode === "timeout") {
+            mode = "success";
+            return;
+          }
+          if (mode === "refused") {
+            mode = "success";
+            active.message({
+              type: "error",
+              code: "forbidden",
+              operationId: message.operationId,
+              message: "呼び名を保存できませんでした。もう一度お試しください。",
+            });
+            return;
+          }
+          const member = members.find(
+            (m) => m.userId === (options.currentUserId ?? PREVIEW_HOST),
+          );
+          if (!member) return;
+          const updated = { ...member, name: message.name };
+          members = members.map((m) =>
+            m.userId === updated.userId ? updated : m,
+          );
+          if (mode === "reconnect") {
+            active.disconnect();
+            return;
+          }
+          active.message({
+            type: "member:renamed",
+            member: updated,
+            operationId: message.operationId,
+          });
+        }, 100);
+        return;
+      }
       if (message.type === "member:remove") {
         setTimeout(() => {
           if (active.readyState !== 1) return;

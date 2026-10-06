@@ -1279,3 +1279,20 @@ it("極端長文mapカードを平面より小さく表示し、短い付箋も�
     clientY: 200,
   });
 });
+
+it("現在の作者名を共有付箋とマイ付箋へ渡し、呼び名更新だけで表示を変える", () => {
+  const note = buildNote({
+    id: "author-note",
+    authorId: "writer",
+    content: "本文は変えない",
+  });
+  const { props, rerender } = setup({
+    notes: [note],
+    privateNotes: [{ ...note, id: "private-author", visibility: "private" }],
+    authorName: () => "元の呼び名",
+  });
+  expect(screen.getAllByTitle("作者: 元の呼び名")).toHaveLength(2);
+  rerender(<RoomBoardCanvas {...props} authorName={() => "現在の呼び名"} />);
+  expect(screen.getAllByTitle("作者: 現在の呼び名")).toHaveLength(2);
+  expect(screen.getAllByText(note.content).length).toBeGreaterThan(0);
+});

@@ -490,3 +490,42 @@ describe("ホストによる参加者退出", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+it("本人表示から改名し、サーバー確定まで旧名を維持して全員の現在名を畳み込む", () => {
+  const member = {
+    userId: HOST_ID,
+    name: "元の名前",
+    color: "yellow" as const,
+  };
+  const { socket } = renderStart({ initialMembers: [member] });
+  fireEvent.click(
+    screen.getByRole("button", { name: "元の名前：呼び名を変更" }),
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "呼び名" }), {
+    target: { value: "新しい呼び名" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "保存する" }));
+  expect(screen.getByTestId(`member-row-${HOST_ID}`)).toHaveTextContent(
+    "元の名前",
+  );
+  expect(screen.getByTestId(`member-row-${HOST_ID}`)).not.toHaveTextContent(
+    "新しい呼び名",
+  );
+  const message = JSON.parse(socket.sent.at(-1) ?? "{}");
+  expect(message).toMatchObject({
+    type: "member:rename",
+    name: "新しい呼び名",
+  });
+  expect(message).not.toHaveProperty("userId");
+  act(() =>
+    socket.simulateServerMessage({
+      type: "member:renamed",
+      member: { ...member, name: message.name },
+      operationId: message.operationId,
+    }),
+  );
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "新しい呼び名：呼び名を変更" }),
+  ).toBeInTheDocument();
+});

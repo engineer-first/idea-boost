@@ -173,6 +173,7 @@ export class SharedOutcomeStorage {
             .bind(current.room_id)
             .run();
           this.sql.exec("DELETE FROM retained_outcome_participants");
+          this.sql.exec("DELETE FROM member_display_names");
           this.sql.exec(
             "UPDATE shared_outcome_identity SET room_name = NULL WHERE id = 1",
           );

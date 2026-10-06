@@ -111,3 +111,27 @@ export const NOTE_COLOR_STYLES: Record<
     avatarClassName: AVATAR_BORDER_CLASS_NAME,
   },
 };
+
+// 表示色を文字でも識別し、同じ呼び名や色の見分けにくさを補う。
+export const NOTE_COLOR_NAMES: Record<NoteColor, string> = {
+  yellow: "黄色",
+  green: "緑色",
+  blue: "青色",
+  pink: "ピンク",
+  orange: "オレンジ",
+  purple: "紫色",
+  red: "赤色",
+  lime: "黄緑",
+  teal: "青緑",
+  cyan: "水色",
+  indigo: "藍色",
+  violet: "すみれ色",
+  fuchsia: "赤紫",
+  rose: "ローズ",
+  amber: "琥珀色",
+  emerald: "エメラルド",
+  sky: "空色",
+  slate: "藤色",
+  stone: "茶色",
+  zinc: "オリーブ",
+};

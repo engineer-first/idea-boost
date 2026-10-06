@@ -145,3 +145,28 @@ describe("cursor presence policy", () => {
     expect(isRemoteCursorIdle({ lastSeenAt: 1_000 }, 4_000)).toBe(true);
   });
 });
+
+it("静止中のカーソルも同じuserIdの改名で表示だけ更新する", () => {
+  const cursor = {
+    userId: "other",
+    name: "以前",
+    color: "yellow" as const,
+    x: 10,
+    y: 20,
+    draggingNoteId: null,
+    lastSeenAt: 100,
+  };
+  expect(
+    applyCursorPresenceMessage(
+      [cursor],
+      {
+        type: "member:renamed",
+        member: { userId: cursor.userId, name: "現在", color: cursor.color },
+        operationId: "op",
+      },
+      "self",
+      { kind: "step", phase: 1, step: 3 },
+      200,
+    ),
+  ).toEqual([{ ...cursor, name: "現在" }]);
+});

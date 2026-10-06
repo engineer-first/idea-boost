@@ -61,6 +61,7 @@ const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
 export type RoomBoardCanvasProps = {
+  authorName?: (authorId: string) => string | undefined;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
   groups: PersistentGroup[];
@@ -230,6 +231,7 @@ export function RoomBoardCanvas({
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
   remoteCursors,
+  authorName,
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
 }: RoomBoardCanvasProps) {
@@ -373,6 +375,7 @@ export function RoomBoardCanvas({
       <NoteCard
         key={note.id}
         note={note}
+        authorName={authorName?.(note.authorId)}
         maxDisplayHeight={
           isIdeaValueFeasibilityMapVisible
             ? mapNoteGeometry.noteHeightLimit
@@ -864,6 +867,7 @@ export function RoomBoardCanvas({
             data-board-fit-edge="bottom"
           >
             <PrivateNotesToolbar
+              authorName={authorName}
               notes={privateNotes}
               disabled={isDisconnected}
               canDeleteNote={permissions.canDeleteNote}

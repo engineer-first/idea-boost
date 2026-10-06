@@ -1,3 +1,4 @@
+import { memberNameHandlers } from "./member-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
 // エントリポイント（RPC / WebSocket）と横断ガード（phase ゲート）だけを持ち、
 // ドメインロジックは workers/room/ の各モジュールに委譲する:
@@ -138,6 +139,7 @@ export const HOST_ID_HEADER = "X-Idea-Boost-Host-Id";
 const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...hostHandlers,
   ...memberRemovalHandlers,
+  ...memberNameHandlers,
   ...adoptionFocusHandlers,
   ...noteHandlers,
   ...moveHandlers,
@@ -162,6 +164,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
   switch (message.type) {
     case "host:transfer":
     case "member:remove":
+    case "member:rename":
     case "note:exclude":
     case "note:restore":
     case "note:bulk-exclude":
@@ -474,6 +477,7 @@ export class RoomDO extends DurableObject {
         "note_move_operations",
         "note_share_operations",
         "member_color_assignments",
+        "member_display_names",
         "pending_phase_transition",
         "sharing_state",
       ]) {

@@ -8,6 +8,7 @@ import { getNoteShadow } from "../logic/note-shadow";
 export type StickyNoteProps = {
   ref?: React.Ref<HTMLDivElement>;
   noteId: string;
+  authorName?: string;
   isLifted?: boolean;
   isSelected?: boolean;
   isDecided?: boolean;
@@ -27,6 +28,7 @@ export type StickyNoteProps = {
 export function StickyNote({
   ref,
   noteId,
+  authorName,
   isLifted = false,
   isSelected = false,
   isDecided = false,
@@ -47,6 +49,7 @@ export function StickyNote({
       data-slot="sticky-note"
       data-testid={testId}
       data-note-id={noteId}
+      title={authorName ? `作者: ${authorName}` : undefined}
       data-selected={isSelected || undefined}
       data-decided={isDecided || undefined}
       data-adoption-focused={isAdoptionFocused || undefined}

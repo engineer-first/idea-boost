@@ -9,12 +9,17 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { ProtocolMember, SharingState } from "@/contracts/room-protocol";
-import { MemberAvatar, MemberSelection } from "@/features/room-members";
+import {
+  MemberAvatar,
+  MemberSelection,
+  NOTE_COLOR_NAMES,
+} from "@/features/room-members";
 
 export type SharingPresenterProps = {
   sharing: SharingState;
   hostUserId: string;
   currentUserId?: string;
+  onEditSelf?: () => void;
   onSelectHostTarget?: (userId: string) => void;
   selectionDisabled?: boolean;
   members?: ProtocolMember[];
@@ -25,6 +30,7 @@ export function SharingPresenter({
   hostUserId,
   currentUserId,
   onSelectHostTarget,
+  onEditSelf,
   selectionDisabled = false,
   members = sharing.order,
 }: SharingPresenterProps) {
@@ -77,18 +83,27 @@ export function SharingPresenter({
           {sharing.order.map((member, index) => (
             <li key={member.userId} className="flex items-center gap-2 text-xs">
               <MemberSelection
-                name={member.name}
+                name={
+                  member.userId === currentUserId && onEditSelf
+                    ? `${member.name}：呼び名を変更`
+                    : member.name
+                }
                 className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
                 disabled={selectionDisabled}
                 onSelect={
-                  onSelectHostTarget &&
-                  member.userId !== currentUserId &&
-                  members.some((entry) => entry.userId === member.userId)
+                  member.userId === currentUserId && onEditSelf
                     ? () => {
                         setOpen(false);
-                        onSelectHostTarget(member.userId);
+                        onEditSelf();
                       }
-                    : undefined
+                    : onSelectHostTarget &&
+                        member.userId !== currentUserId &&
+                        members.some((entry) => entry.userId === member.userId)
+                      ? () => {
+                          setOpen(false);
+                          onSelectHostTarget(member.userId);
+                        }
+                      : undefined
                 }
               >
                 <MemberAvatar
@@ -98,6 +113,11 @@ export function SharingPresenter({
                 />
                 <span className="min-w-0 flex-1 break-words">
                   {index + 1}. {member.name}
+                  {members.filter((m) => m.name === member.name).length > 1 ? (
+                    <span className="block text-muted-foreground">
+                      {NOTE_COLOR_NAMES[member.color]}
+                    </span>
+                  ) : null}
                   {member.userId === hostUserId && (
                     <span className="block text-muted-foreground">ホスト</span>
                   )}
@@ -121,16 +141,25 @@ export function SharingPresenter({
             {otherMembers.map((member) => (
               <MemberSelection
                 key={member.userId}
-                name={member.name}
+                name={
+                  member.userId === currentUserId && onEditSelf
+                    ? `${member.name}：呼び名を変更`
+                    : member.name
+                }
                 className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
                 disabled={selectionDisabled}
                 onSelect={
-                  onSelectHostTarget && member.userId !== currentUserId
+                  member.userId === currentUserId && onEditSelf
                     ? () => {
                         setOpen(false);
-                        onSelectHostTarget(member.userId);
+                        onEditSelf();
                       }
-                    : undefined
+                    : onSelectHostTarget && member.userId !== currentUserId
+                      ? () => {
+                          setOpen(false);
+                          onSelectHostTarget(member.userId);
+                        }
+                      : undefined
                 }
               >
                 <MemberAvatar
