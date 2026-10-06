@@ -125,12 +125,12 @@ export async function insertRoom(
       await db.batch([
         db
           .prepare(
-            "INSERT INTO rooms (id, invite_code, host_id) VALUES (?1, ?2, ?3)",
+            "INSERT INTO rooms (id, invite_code, host_id,creation_visibility) VALUES (?1, ?2, ?3,'legacy')",
           )
           .bind(roomId, inviteCode, hostId),
         db
           .prepare(
-            "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?)",
+            "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
           )
           .bind(roomId, now, now + SHARED_OUTCOME_RETENTION_MS),
       ]);
@@ -151,7 +151,7 @@ export async function findRoomByCode(
 ): Promise<RoomRecord | null> {
   const row = await db
     .prepare(
-      "SELECT id, invite_code, host_id FROM rooms WHERE invite_code = ?1 AND NOT EXISTS (SELECT 1 FROM room_creation_requests WHERE room_id=rooms.id AND status='pending')",
+      "SELECT id, invite_code, host_id FROM rooms WHERE invite_code = ?1 AND creation_visibility IN ('published','legacy')",
     )
     .bind(inviteCode)
     .first<{ id: string; invite_code: string; host_id: string }>();
@@ -165,7 +165,7 @@ export async function findRoomById(
 ): Promise<RoomRecord | null> {
   const row = await db
     .prepare(
-      "SELECT id, invite_code, host_id, created_at FROM rooms WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM room_creation_requests WHERE room_id=rooms.id AND status='pending')",
+      "SELECT id, invite_code, host_id, created_at FROM rooms WHERE id = ?1 AND creation_visibility IN ('published','legacy')",
     )
     .bind(roomId)
     .first<{

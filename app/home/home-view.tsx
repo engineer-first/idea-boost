@@ -50,10 +50,13 @@ export function HomeView({ error, currentUserId }: HomeViewProps) {
           <ReturnRoomSection currentUserId={currentUserId} />
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 sm:items-stretch">
+        <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
           <CreateRoomSection currentUserId={currentUserId} />
           <JoinRoomSection currentUserId={currentUserId} />
         </div>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          作成の再試行は24時間以内です。控えはこのブラウザで復元します。保存を消した場合や別の端末では、同じ作成を見つけられないことがあります。
+        </p>
         <nav
           aria-label="過去の成果"
           className="flex justify-end border-t border-border/60 pt-2"

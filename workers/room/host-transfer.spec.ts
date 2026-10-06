@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { initializeTestRoom } from "../test-helpers";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const A = "11111111-1111-4111-8111-111111111111";
@@ -14,7 +15,7 @@ function next(ws: WebSocket): Promise<Record<string, unknown>> {
 }
 async function setup() {
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(crypto.randomUUID()));
-  await stub.initializeNewRoom(A, "作成者");
+  await initializeTestRoom(stub, A, "作成者");
   await stub.upsertMember(B, "Hana Sato");
   await stub.upsertMember(C, "一般参加者");
   async function connect(user: string) {

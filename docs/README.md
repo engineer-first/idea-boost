@@ -24,6 +24,8 @@
 | 図や操作デモで理解したい                   | [公開HTMLの目次](site/index.html) / [GitHub Pages](https://engineer-first.github.io/idea-boost/)  |
 | 当時の検討を辿りたい                       | [過去資料](archive/README.md)                                                                     |
 
+ルーム作成の受付・回復・移行・GCは[運用仕様](operations/room-creation.md)を参照。
+
 ## 作る・統合する・残す基準
 
 - 新しい文書は、既存文書では答えられない問いがあるときに作る。先に読者・問い・更新する契機を決める。

@@ -23,6 +23,15 @@ import {
   normalizeInviteCode,
 } from "@/contracts/invite-code";
 import { isLobby } from "@/contracts/phase";
+import {
+  CreationFailureSchema,
+  type CreationIssued,
+  CreationIssuedSchema,
+  CreationPrincipalSchema,
+  type CreationStatus,
+  CreationStatusInputSchema,
+  CreationStatusSchema,
+} from "@/contracts/room-creation";
 import { apiFetch, lookupRoomByInviteCode } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 
@@ -40,7 +49,12 @@ const JoinRoomInputSchema = z.object({
 // 消えるため使わない）
 export type CreateRoomResult =
   | { ok: true; roomId: string }
-  | { ok: false; error: string; outcome: "unknown" | "rejected" };
+  | {
+      ok: false;
+      error: string;
+      outcome: "unknown" | "rejected";
+      reason?: string;
+    };
 
 export type JoinRoomResult =
   | { ok: true; roomId: string }
@@ -103,21 +117,32 @@ export async function createRoom(
       outcome: "rejected",
       error: "作成要求IDと80文字以内のルーム名が必要です。",
     };
+  if (parsedInput.data.expectedPrincipal !== user.sub)
+    return {
+      ok: false,
+      outcome: "rejected",
+      reason: "actor_mismatch",
+      error: "アカウントが変わりました。ログイン状態を確認してください。",
+    };
   try {
     const res = await apiFetch("/api/rooms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsedInput.data),
     });
-    if ([400, 401, 403, 409, 410].includes(res.status))
+    if ([400, 401, 403, 409, 410].includes(res.status)) {
+      const failure = CreationFailureSchema.safeParse(
+        await res.json().catch(() => null),
+      );
       return {
         ok: false,
         outcome: "rejected",
-        error:
-          res.status === 410
-            ? "この作成要求のルームは終了または削除されています。別のルームを作成できます。"
-            : "作成要求を受け付けられませんでした。ログイン状態と入力を確認してください。",
+        reason: failure.success ? failure.data.reason : "invalid_request",
+        error: failure.success
+          ? failure.data.error
+          : "作成要求を受け付けられませんでした。ログイン状態と入力を確認してください。",
       };
+    }
     const parsed = res.ok
       ? CreateRoomResponseSchema.safeParse(await res.json().catch(() => null))
       : null;
@@ -129,6 +154,70 @@ export async function createRoom(
     ok: false,
     outcome: "unknown",
     error: "作成結果を確認できません。同じ作成を確認・再試行してください。",
+  };
+}
+
+type CreationActionFailure = { ok: false; error: string; reason?: string };
+export async function issueRoomCreation(
+  expectedPrincipal: string,
+): Promise<{ ok: true; issued: CreationIssued } | CreationActionFailure> {
+  const parsed = CreationPrincipalSchema.safeParse({ expectedPrincipal });
+  const user = await getCurrentUser();
+  if (!user || !parsed.success)
+    return { ok: false, error: "ログイン状態を確認してください。" };
+  if (user.sub !== expectedPrincipal)
+    return {
+      ok: false,
+      error: "アカウントが変わりました。",
+      reason: "actor_mismatch",
+    };
+  try {
+    const response = await apiFetch("/api/room-creations/issue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsed.data),
+    });
+    const raw = await response.json().catch(() => null);
+    const issued = response.ok ? CreationIssuedSchema.safeParse(raw) : null;
+    if (issued?.success) return { ok: true, issued: issued.data };
+    const failure = CreationFailureSchema.safeParse(raw);
+    if (failure.success) return { ok: false, ...failure.data };
+  } catch {}
+  return {
+    ok: false,
+    error: "作成の準備を確認できません。もう一度お試しください。",
+  };
+}
+export async function queryRoomCreation(
+  expectedPrincipal: string,
+  requestId: string,
+): Promise<{ ok: true; status: CreationStatus } | CreationActionFailure> {
+  const parsed = CreationStatusInputSchema.safeParse({
+    expectedPrincipal,
+    requestId,
+  });
+  const user = await getCurrentUser();
+  if (!user || !parsed.success)
+    return { ok: false, error: "ログイン状態と控えを確認してください。" };
+  if (user.sub !== expectedPrincipal)
+    return {
+      ok: false,
+      error: "アカウントが変わりました。",
+      reason: "actor_mismatch",
+    };
+  try {
+    const response = await apiFetch(
+      `/api/room-creations/${parsed.data.requestId}?expectedPrincipal=${encodeURIComponent(expectedPrincipal)}`,
+    );
+    const raw = await response.json().catch(() => null);
+    const status = response.ok ? CreationStatusSchema.safeParse(raw) : null;
+    if (status?.success) return { ok: true, status: status.data };
+    const failure = CreationFailureSchema.safeParse(raw);
+    if (failure.success) return { ok: false, ...failure.data };
+  } catch {}
+  return {
+    ok: false,
+    error: "結果を確認できません。控えを残して後で再度確認してください。",
   };
 }
 

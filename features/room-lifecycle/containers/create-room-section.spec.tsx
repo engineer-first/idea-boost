@@ -1,185 +1,299 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { issueCreationId } from "@/contracts/room-creation";
+import type { RoomCreationIntent } from "../logic/room-creation-storage";
 
-const PUSH = vi.fn();
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: PUSH }),
+const m = vi.hoisted(() => ({
+  push: vi.fn(),
+  create: vi.fn(),
+  issue: vi.fn(),
+  query: vi.fn(),
+  returnTo: vi.fn(),
+  save: vi.fn(),
+  read: vi.fn(),
+  submitted: vi.fn(),
+  receipt: vi.fn(),
+  selected: vi.fn(),
+  update: vi.fn(),
+  list: vi.fn(),
+  clear: vi.fn(),
 }));
-
-const CREATE_ROOM = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
 vi.mock("../logic/actions", () => ({
-  createRoom: (...args: unknown[]) => CREATE_ROOM(...args),
-  returnToRoom: async (roomId: string) => ({
-    kind: "ready",
-    href: `/rooms/${roomId}/start`,
-  }),
+  createRoom: m.create,
+  issueRoomCreation: m.issue,
+  queryRoomCreation: m.query,
+  returnToRoom: m.returnTo,
 }));
-
-const notifyMocks = vi.hoisted(() => ({
-  roomCreated: vi.fn(),
-  error: vi.fn(),
+vi.mock("../logic/room-creation-storage", () => ({
+  readRoomCreationIntent: m.read,
+  saveRoomCreationIntent: m.save,
+  markRoomCreationSubmitted: m.submitted,
+  saveRoomCreationResult: m.receipt,
+  isRoomCreationSelected: m.selected,
+  updateRoomCreationIntent: m.update,
+  listRoomCreationIntents: m.list,
+  clearRoomCreationIntent: m.clear,
+  selectRoomCreationIntent: vi.fn(),
+  subscribeRoomCreations: () => () => {},
+  notifyRoomCreations: vi.fn(),
 }));
-vi.mock("@/lib/notify", () => ({
-  notify: { error: notifyMocks.error },
-}));
+vi.mock("@/lib/notify", () => ({ notify: { error: vi.fn() } }));
 vi.mock("../logic/lifecycle-notify", () => ({
-  lifecycleNotify: { roomCreated: notifyMocks.roomCreated },
+  lifecycleNotify: { roomCreated: vi.fn() },
 }));
 
-import { readLastRoom } from "@/lib/room-client/last-room-storage";
-import { saveRoomCreationIntent } from "../logic/room-creation-storage";
 import { CreateRoomSection } from "./create-room-section";
 
-describe("CreateRoomSection", () => {
-  beforeEach(() => {
-    sessionStorage.clear();
-    PUSH.mockReset();
-    CREATE_ROOM.mockReset();
-    notifyMocks.roomCreated.mockReset();
-    notifyMocks.error.mockReset();
+const USER = "11111111-1111-4111-8111-111111111111",
+  OTHER = "22222222-2222-4222-8222-222222222222",
+  ROOM = "33333333-3333-4333-8333-333333333333";
+function intent(): RoomCreationIntent {
+  return {
+    ...issueCreationId(),
+    expectedPrincipal: USER,
+    name: "saved",
+    generation: "generation",
+    state: "submitted",
+  };
+}
+async function click(label = "ルームを作成") {
+  const button = await screen.findByRole("button", { name: label });
+  await waitFor(() => expect(button).not.toBeDisabled());
+  await userEvent.click(button);
+}
+beforeEach(() => {
+  vi.resetAllMocks();
+  m.read.mockResolvedValue(null);
+  m.list.mockResolvedValue([]);
+  m.issue.mockResolvedValue({ ok: true, issued: issueCreationId() });
+  m.query.mockResolvedValue({
+    ok: true,
+    status: { kind: "unknown", acceptance: "open" },
   });
-
-  it("「ルームを作成」ボタンを描画する", () => {
-    render(<CreateRoomSection />);
-    expect(
-      screen.getByRole("button", { name: "ルームを作成" }),
-    ).toBeInTheDocument();
-  });
-
-  it("作成成功時は toast して start へ遷移する", async () => {
-    const user = userEvent.setup();
-    CREATE_ROOM.mockResolvedValueOnce({
-      ok: true,
-      roomId: "123e4567-e89b-42d3-a456-426614174000",
+  m.save.mockImplementation(async (_u, v) => v);
+  m.submitted.mockImplementation(async (_u, v) => ({
+    ...v,
+    state: "submitted",
+  }));
+  m.receipt.mockImplementation(async (_u, v, roomId) => ({
+    ...v,
+    state: "known",
+    roomId,
+    name: "",
+  }));
+  m.update.mockImplementation(async (_u, v, c) => ({ ...v, ...c }));
+  m.selected.mockResolvedValue(true);
+  m.create.mockResolvedValue({ ok: true, roomId: ROOM });
+  m.returnTo.mockResolvedValue({ kind: "ready", href: `/rooms/${ROOM}/start` });
+});
+describe("作成控えからの回復", () => {
+  it("発行→保存commit→submitted commit→create→receipt commit→遷移", async () => {
+    const order: string[] = [];
+    m.save.mockImplementation(async (_u, v) => {
+      order.push("saved");
+      return v;
     });
-    render(
-      <CreateRoomSection currentUserId="11111111-1111-4111-8111-111111111111" />,
-    );
-    await user.click(screen.getByRole("button", { name: "ルームを作成" }));
-    await waitFor(() => {
-      expect(readLastRoom("11111111-1111-4111-8111-111111111111")).toBe(
-        "123e4567-e89b-42d3-a456-426614174000",
-      );
-      expect(notifyMocks.roomCreated).toHaveBeenCalledTimes(1);
-      expect(PUSH).toHaveBeenCalledWith(
-        "/rooms/123e4567-e89b-42d3-a456-426614174000/start",
-      );
+    m.submitted.mockImplementation(async (_u, v) => {
+      order.push("submitted");
+      return v;
     });
-  });
-
-  it("任意のルーム名を作成処理へ渡す", async () => {
-    const user = userEvent.setup();
-    CREATE_ROOM.mockResolvedValueOnce({ ok: true, roomId: "room" });
-    render(<CreateRoomSection />);
-    await user.type(
-      screen.getByRole("textbox", { name: "ルーム名（任意）" }),
-      "新しいサービスの相談",
-    );
-    await user.click(screen.getByRole("button", { name: "ルームを作成" }));
+    m.create.mockImplementation(async () => {
+      order.push("create");
+      return { ok: true, roomId: ROOM };
+    });
+    m.receipt.mockImplementation(async (_u, v, roomId) => {
+      order.push("receipt");
+      return { ...v, roomId, state: "known" };
+    });
+    m.push.mockImplementation(() => order.push("push"));
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click();
     await waitFor(() =>
-      expect(CREATE_ROOM).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: "新しいサービスの相談",
-          requestId: expect.any(String),
-        }),
-      ),
+      expect(order).toEqual([
+        "saved",
+        "submitted",
+        "create",
+        "receipt",
+        "push",
+      ]),
+    );
+    expect(m.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedPrincipal: USER,
+        requestId: expect.any(String),
+      }),
     );
   });
-
-  it("作成失敗時は error toast を出し遷移しない", async () => {
-    const user = userEvent.setup();
-    CREATE_ROOM.mockResolvedValueOnce({
-      ok: false,
-      error: "ルームを作成できませんでした。",
-    });
-    render(<CreateRoomSection />);
-    await user.click(screen.getByRole("button", { name: "ルームを作成" }));
-    await waitFor(() => {
-      expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームを作成できませんでした。",
-      );
-    });
-    expect(PUSH).not.toHaveBeenCalled();
-    expect(notifyMocks.roomCreated).not.toHaveBeenCalled();
-  });
-  it("応答喪失後の再試行は同じ要求IDを使う", async () => {
-    const user = userEvent.setup();
-    CREATE_ROOM.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce({
-      ok: true,
-      roomId: "room",
-    });
-    render(
-      <CreateRoomSection currentUserId="11111111-1111-4111-8111-111111111111" />,
-    );
-    await user.click(screen.getByRole("button", { name: "ルームを作成" }));
-    await user.click(
-      await screen.findByRole("button", { name: "同じ作成を確認・再試行" }),
-    );
-    await waitFor(() => expect(CREATE_ROOM).toHaveBeenCalledTimes(2));
-    expect(CREATE_ROOM.mock.calls[1]).toEqual(CREATE_ROOM.mock.calls[0]);
-    expect(CREATE_ROOM.mock.calls[0][0].requestId).toMatch(/^[0-9a-f-]{36}$/);
-  });
-  it("再読み込みした作成要求を復元して入力を固定し同IDを送る", async () => {
-    const user = userEvent.setup();
-    const userId = "11111111-1111-4111-8111-111111111111";
-    const saved = {
-      requestId: "22222222-2222-4222-8222-222222222222",
-      name: "saved",
-    };
-    saveRoomCreationIntent(userId, saved);
-    CREATE_ROOM.mockResolvedValue({
+  it("送信結果不明を復元し同IDで再試行、名前を固定", async () => {
+    const saved = intent();
+    m.read.mockResolvedValue(saved);
+    m.create.mockResolvedValue({
       ok: false,
       outcome: "unknown",
       error: "unknown",
     });
-    render(<CreateRoomSection currentUserId={userId} />);
-    const input = screen.getByRole("textbox", { name: "ルーム名（任意）" });
-    expect(input).toHaveValue("saved");
-    expect(input).toBeDisabled();
-    await user.click(
-      screen.getByRole("button", { name: "同じ作成を確認・再試行" }),
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click("前回の作成を確認");
+    expect(screen.getByRole("textbox")).toHaveValue("saved");
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    await waitFor(() =>
+      expect(m.create).toHaveBeenCalledWith({
+        requestId: saved.requestId,
+        expectedPrincipal: USER,
+        name: "saved",
+      }),
     );
-    await waitFor(() => expect(CREATE_ROOM).toHaveBeenCalledWith(saved));
+    expect(m.issue).not.toHaveBeenCalled();
   });
-
-  it("拒否後もIDを維持し、明示的な別作成だけ新IDを使う", async () => {
-    const user = userEvent.setup();
-    CREATE_ROOM.mockResolvedValue({
-      ok: false,
-      outcome: "rejected",
-      error: "removed",
+  it("期限後はPOSTせずunknownを失敗と断言しない", async () => {
+    m.read.mockResolvedValue(intent());
+    m.query.mockResolvedValue({
+      ok: true,
+      status: { kind: "unknown", acceptance: "expired" },
     });
-    render(<CreateRoomSection />);
-    await user.click(screen.getByRole("button", { name: "ルームを作成" }));
-    await user.click(
-      await screen.findByRole("button", { name: "同じ作成を確認・再試行" }),
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click("前回の作成を確認");
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("作成された可能性"),
     );
-    await waitFor(() => expect(CREATE_ROOM).toHaveBeenCalledTimes(2));
-    expect(CREATE_ROOM.mock.calls[1]).toEqual(CREATE_ROOM.mock.calls[0]);
-    await user.click(
-      screen.getByRole("button", { name: "別のルームを新しく作成" }),
-    );
-    await user.click(screen.getByRole("button", { name: "ルームを作成" }));
-    await waitFor(() => expect(CREATE_ROOM).toHaveBeenCalledTimes(3));
-    expect(CREATE_ROOM.mock.calls[2][0].requestId).not.toBe(
-      CREATE_ROOM.mock.calls[0][0].requestId,
-    );
+    expect(m.create).not.toHaveBeenCalled();
   });
-
-  it("保存失敗時にはAPIへ送らず保存設定の確認を案内する", async () => {
-    const user = userEvent.setup();
-    const spy = vi
-      .spyOn(Storage.prototype, "setItem")
-      .mockImplementationOnce(() => {
-        throw new Error("denied");
-      });
-    render(
-      <CreateRoomSection currentUserId="11111111-1111-4111-8111-111111111111" />,
-    );
-    await user.click(screen.getByRole("button", { name: "ルームを作成" }));
-    expect(CREATE_ROOM).not.toHaveBeenCalled();
-    expect(screen.getByRole("status")).toHaveTextContent("保存できません");
-    spy.mockRestore();
+  it("known receiptなら期限と無関係に通常再訪しPOSTしない", async () => {
+    m.read.mockResolvedValue({ ...intent(), state: "known", roomId: ROOM });
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click("作成済みのルームを開く");
+    await waitFor(() => expect(m.push).toHaveBeenCalled());
+    expect(m.create).not.toHaveBeenCalled();
+    expect(m.query).not.toHaveBeenCalled();
   });
+  it("遷移失敗でも成功receiptが残り新規発行に戻らない", async () => {
+    m.push.mockImplementation(() => {
+      throw new Error("navigation failed");
+    });
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click();
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("作成済み"),
+    );
+    await click("作成済みのルームを開く");
+    expect(m.create).toHaveBeenCalledTimes(1);
+    expect(m.issue).toHaveBeenCalledTimes(1);
+    expect(m.clear).not.toHaveBeenCalled();
+  });
+  it("保存commit失敗ではcreateしない", async () => {
+    m.save.mockRejectedValue(new Error("abort"));
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click();
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("保存"),
+    );
+    expect(m.create).not.toHaveBeenCalled();
+  });
+  it("別tabの勝者を黙って送らない", async () => {
+    m.save.mockResolvedValue(intent());
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click();
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("別タブ"),
+    );
+    expect(m.create).not.toHaveBeenCalled();
+  });
+  it("Aの遅い成功はBの画面を遷移・保存しない", async () => {
+    let resolve!: (v: unknown) => void;
+    m.create.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    const view = render(<CreateRoomSection currentUserId={USER} />);
+    await click();
+    await waitFor(() => expect(m.create).toHaveBeenCalled());
+    view.rerender(<CreateRoomSection currentUserId={OTHER} />);
+    resolve({ ok: true, roomId: ROOM });
+    await waitFor(() => expect(m.receipt).toHaveBeenCalled());
+    expect(m.push).not.toHaveBeenCalled();
+    expect(m.receipt.mock.calls[0][0]).toBe(USER);
+  });
+  it("selectedが変わった古い応答は現在UIへ反映・遷移しない", async () => {
+    let resolve!: (v: unknown) => void;
+    m.create.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click();
+    await waitFor(() => expect(m.create).toHaveBeenCalled());
+    m.selected.mockResolvedValue(false);
+    resolve({ ok: true, roomId: ROOM });
+    await waitFor(() => expect(m.receipt).toHaveBeenCalled());
+    expect(m.push).not.toHaveBeenCalled();
+  });
+});
+it("別作成のlist読込中にactorが変わっても旧actorの控えを表示しない", async () => {
+  const saved = intent();
+  m.read.mockResolvedValueOnce(saved).mockResolvedValue(null);
+  let release!: (v: RoomCreationIntent[]) => void;
+  const barrier = new Promise<RoomCreationIntent[]>((r) => {
+    release = r;
+  });
+  m.list
+    .mockResolvedValueOnce([])
+    .mockReturnValueOnce(barrier)
+    .mockResolvedValue([]);
+  const view = render(<CreateRoomSection currentUserId={USER} />);
+  await click("別のルームを新しく作成");
+  await waitFor(() => expect(m.list).toHaveBeenCalledTimes(2));
+  view.rerender(<CreateRoomSection currentUserId={OTHER} />);
+  await waitFor(() => expect(m.list).toHaveBeenCalledTimes(3));
+  release([saved]);
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "ルームを作成" }),
+    ).not.toBeDisabled(),
+  );
+  expect(
+    screen.queryByRole("button", { name: "結果を確認: saved" }),
+  ).not.toBeInTheDocument();
+});
+it("actor不一致の保存中に選択が変わっても旧応答でボタンを永久停止しない", async () => {
+  m.read.mockResolvedValue(intent());
+  m.create.mockResolvedValue({
+    ok: false,
+    outcome: "rejected",
+    reason: "actor_mismatch",
+    error: "actor changed",
+  });
+  let release!: (v: RoomCreationIntent) => void;
+  m.update.mockReturnValue(
+    new Promise<RoomCreationIntent>((r) => {
+      release = r;
+    }),
+  );
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click("前回の作成を確認");
+  await waitFor(() => expect(m.update).toHaveBeenCalled());
+  m.selected.mockResolvedValue(false);
+  release({ ...intent(), state: "actor_mismatch" });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "前回の作成を確認" }),
+    ).not.toBeDisabled(),
+  );
+});
+it("同じ利用者で再ログインしたactor mismatch控えは同IDで回復できる", async () => {
+  m.read.mockResolvedValue({ ...intent(), state: "actor_mismatch" });
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click("前回の作成を確認");
+  await waitFor(() => expect(m.push).toHaveBeenCalled());
+  expect(m.issue).not.toHaveBeenCalled();
+});
+it("input conflict控えの確認はstatusだけで、恒久拒否POSTを繰り返さない", async () => {
+  m.read.mockResolvedValue({ ...intent(), state: "conflict" });
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click("前回の作成を確認");
+  await waitFor(() => expect(m.query).toHaveBeenCalled());
+  expect(m.create).not.toHaveBeenCalled();
 });

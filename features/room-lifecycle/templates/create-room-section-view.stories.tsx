@@ -69,3 +69,46 @@ export const StorageError: Story = {
       "作成要求の記録を読み取れません。ブラウザの保存設定を確認して再読み込みしてください。",
   },
 };
+
+export const Prepared: Story = {
+  args: {
+    recovering: true,
+    recoveryState: "prepared",
+    intentName: "午後チーム",
+    issuedAt: 1791279000000,
+    onNewIntent: fn(),
+  },
+};
+export const Known: Story = {
+  args: { recovering: true, recoveryState: "known", onNewIntent: fn() },
+};
+export const Expired: Story = {
+  args: {
+    recovering: true,
+    recoveryState: "expired",
+    message:
+      "作成を再試行できる24時間が過ぎました。既に作成された可能性があるため、結果の確認は続けられます。",
+    onNewIntent: fn(),
+  },
+};
+export const ActorMismatch: Story = {
+  args: {
+    recovering: true,
+    recoveryState: "actor_mismatch",
+    intentName: "午前チーム",
+    message: "アカウントが変わりました。ログイン状態を確認してください。",
+    onNewIntent: fn(),
+  },
+};
+export const SeparateIntent: Story = {
+  args: {
+    savedIntents: [
+      {
+        requestId: "11111111-1111-4111-8111-111111111111",
+        name: "午前チーム",
+        state: "submitted",
+      },
+    ],
+    onSelectIntent: fn(),
+  },
+};

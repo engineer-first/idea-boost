@@ -79,7 +79,10 @@ describe("createRoom", () => {
     getCurrentUserMock.mockResolvedValue(null);
 
     expect(
-      await createRoom({ requestId: "11111111-1111-4111-8111-111111111111" }),
+      await createRoom({
+        requestId: "11111111-1111-4111-8111-111111111111",
+        expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+      }),
     ).toMatchObject({ ok: false, outcome: "rejected" });
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
@@ -93,7 +96,10 @@ describe("createRoom", () => {
     );
 
     await expect(
-      createRoom({ requestId: "11111111-1111-4111-8111-111111111111" }),
+      createRoom({
+        requestId: "11111111-1111-4111-8111-111111111111",
+        expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+      }),
     ).resolves.toEqual({
       ok: true,
       roomId: "123e4567-e89b-42d3-a456-426614174000",
@@ -110,6 +116,7 @@ describe("createRoom", () => {
     );
     await createRoom({
       requestId: "11111111-1111-4111-8111-111111111111",
+      expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
       name: "  相談ルーム  ",
     });
     expect(apiFetchMock).toHaveBeenCalledWith(
@@ -117,6 +124,7 @@ describe("createRoom", () => {
       expect.objectContaining({
         body: JSON.stringify({
           requestId: "11111111-1111-4111-8111-111111111111",
+          expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
           name: "相談ルーム",
         }),
       }),
@@ -125,6 +133,7 @@ describe("createRoom", () => {
     expect(
       await createRoom({
         requestId: "11111111-1111-4111-8111-111111111111",
+        expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
         name: "あ".repeat(81),
       }),
     ).toMatchObject({ ok: false });
@@ -135,7 +144,10 @@ describe("createRoom", () => {
     apiFetchMock.mockResolvedValue(new Response("error", { status: 500 }));
 
     await expect(
-      createRoom({ requestId: "11111111-1111-4111-8111-111111111111" }),
+      createRoom({
+        requestId: "11111111-1111-4111-8111-111111111111",
+        expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+      }),
     ).resolves.toEqual({
       ok: false,
       outcome: "unknown",
@@ -148,7 +160,10 @@ describe("createRoom", () => {
     apiFetchMock.mockResolvedValue(new Response("<html>gateway error</html>"));
 
     await expect(
-      createRoom({ requestId: "11111111-1111-4111-8111-111111111111" }),
+      createRoom({
+        requestId: "11111111-1111-4111-8111-111111111111",
+        expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+      }),
     ).resolves.toEqual({
       ok: false,
       outcome: "unknown",

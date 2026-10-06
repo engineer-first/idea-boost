@@ -10,6 +10,11 @@ it("一覧を並行取得し、応答順によらず索引順を保ち、閲覧�
   const now = Date.now();
   for (const [index, id] of ids.entries()) {
     await env.DB.prepare(
+      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
+    )
+      .bind(id, now, now + 86400000)
+      .run();
+    await env.DB.prepare(
       "INSERT INTO completed_room_viewers(user_id,room_id,completed_at,expires_at) VALUES(?,?,?,?)",
     )
       .bind(userId, id, now - index, now + 86400000)
@@ -48,4 +53,33 @@ it("一覧を並行取得し、応答順によらず索引順を保ち、閲覧�
   const body = await (await response).json<CompletedRoomsResponse>();
   expect(body.rooms.map((room) => room.roomId)).toEqual([ids[0], ids[2]]);
   expect(body.nextCursor).toBeNull();
+});
+it("明示legacyの成果索引欠落でもviewer本人の完了一覧に残る", async () => {
+  const { ensureUser, insertRoom } = await import("./lib/db");
+  const user = crypto.randomUUID();
+  await ensureUser(env.DB, { id: user, email: `${user}@test.invalid` });
+  const room = await insertRoom(env.DB, user);
+  await env.DB.prepare("DELETE FROM shared_outcomes WHERE room_id=?")
+    .bind(room.roomId)
+    .run();
+  await env.DB.prepare(
+    "INSERT INTO completed_room_viewers(user_id,room_id,completed_at,expires_at) VALUES(?,?,?,?)",
+  )
+    .bind(user, room.roomId, Date.now(), Date.now() + 86400000)
+    .run();
+  const namespace = {
+    idFromName: (id: string) => id,
+    get: () => ({
+      getCompletedRoom: async () =>
+        completedRoomFixture({ roomId: room.roomId }),
+    }),
+  } as unknown as typeof env.ROOM_DO;
+  const response = await handleCompletedRooms(
+    new Request("https://api.test/api/completed-rooms"),
+    { ...env, ROOM_DO: namespace },
+    user,
+  );
+  expect(
+    (await response.json<CompletedRoomsResponse>()).rooms.map((r) => r.roomId),
+  ).toContain(room.roomId);
 });

@@ -2,6 +2,10 @@
 // api-worker（サーバー側）の両方が参照するコントラクト層。
 import { z } from "zod";
 import { RoomPhaseSchema } from "./phase";
+import {
+  CreationRequestIdSchema,
+  ROOM_CREATION_NAME_MAX,
+} from "./room-creation";
 import { NoteColorSchema } from "./room-protocol";
 
 export const SyncUserResponseSchema = z.object({
@@ -16,10 +20,13 @@ export const RoomSummarySchema = z.object({
 
 export const CreateRoomResponseSchema = RoomSummarySchema;
 
-export const CreateRoomInputSchema = z.object({
-  requestId: z.string().uuid(),
-  name: z.string().trim().max(80).optional(),
-});
+export const CreateRoomInputSchema = z
+  .object({
+    requestId: CreationRequestIdSchema,
+    expectedPrincipal: z.string().uuid(),
+    name: z.string().trim().max(ROOM_CREATION_NAME_MAX).optional(),
+  })
+  .strict();
 
 export const JoinRoomResponseSchema = z.object({
   roomId: z.string().uuid(),

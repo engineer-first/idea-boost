@@ -2,6 +2,7 @@ import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { PERMISSIONS } from "../contracts/access";
 import { isResultStep } from "../contracts/phase";
+import { issueCreationId } from "../contracts/room-creation";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import {
   VERIFICATION_CHECKPOINTS,
@@ -146,7 +147,10 @@ describe("検証環境の拒否境界", () => {
     const normal = await SELF.fetch("http://localhost/api/rooms", {
       method: "POST",
       headers: { ...(await headers()), "Content-Type": "application/json" },
-      body: JSON.stringify({ requestId: crypto.randomUUID() }),
+      body: JSON.stringify({
+        requestId: issueCreationId().requestId,
+        expectedPrincipal: DEV_USERS[0].id,
+      }),
     });
     const room = await normal.json<{ roomId: string }>();
     expect(

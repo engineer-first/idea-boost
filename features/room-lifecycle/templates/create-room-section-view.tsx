@@ -21,6 +21,11 @@ export type CreateRoomSectionViewProps = {
   message?: string;
   storageError?: boolean;
   onNewIntent?: () => void;
+  onDiscard?: () => void;
+  recoveryState?: string;
+  issuedAt?: number;
+  savedIntents?: { requestId: string; name: string; state: string }[];
+  onSelectIntent?: (requestId: string) => void;
 };
 
 export function CreateRoomSectionView({
@@ -31,10 +36,15 @@ export function CreateRoomSectionView({
   message,
   storageError = false,
   onNewIntent,
+  onDiscard,
+  recoveryState,
+  issuedAt,
+  savedIntents = [],
+  onSelectIntent,
 }: CreateRoomSectionViewProps) {
   return (
     <Card
-      className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
+      className="flex flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
       data-testid="home-create-room"
     >
       <CardHeader className="gap-3">
@@ -79,10 +89,26 @@ export function CreateRoomSectionView({
             {pending
               ? "作成中…"
               : recovering
-                ? "同じ作成を確認・再試行"
+                ? recoveryState === "known"
+                  ? "作成済みのルームを開く"
+                  : "前回の作成を確認"
                 : "ルームを作成"}
           </Button>
         </form>
+        {recovering && issuedAt !== undefined && issuedAt > 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            控えの作成日時: {new Date(issuedAt).toLocaleString("ja-JP")}
+          </p>
+        )}
+        {recovering && !message && (
+          <p className="mt-2 text-sm">
+            {recoveryState === "known"
+              ? "ルームは作成済みです。"
+              : recoveryState === "prepared"
+                ? "送信前の控えがあります。"
+                : "前回の作成結果を確認できます。"}
+          </p>
+        )}
         {message && (
           <p role="status" className="mt-3 text-sm leading-relaxed">
             {message}
@@ -102,6 +128,46 @@ export function CreateRoomSectionView({
               別のルームを新しく作成
             </Button>
           </div>
+        )}
+        {savedIntents.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              このブラウザのほかの控え
+            </p>
+            {savedIntents.map((saved) => (
+              <Button
+                key={saved.requestId}
+                type="button"
+                variant="outline"
+                className="h-auto min-h-11 w-full whitespace-normal break-words"
+                disabled={pending}
+                onClick={() => onSelectIntent?.(saved.requestId)}
+              >
+                {saved.state === "known" ? "作成済み" : "結果を確認"}:{" "}
+                {saved.name || "名前なし"}
+              </Button>
+            ))}
+          </div>
+        )}
+        {storageError && onDiscard && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2"
+            onClick={onDiscard}
+          >
+            控えを明示的に破棄
+          </Button>
+        )}
+        {storageError && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2"
+            onClick={() => window.location.reload()}
+          >
+            再読み込みして控えを確認
+          </Button>
         )}
       </CardContent>
     </Card>
