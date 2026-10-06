@@ -32,7 +32,7 @@ describe("作成受付IDの契約", () => {
     ).toBe(false);
   });
   it("発行応答のID時刻/期限の不一致を拒否", () => {
-    const issued = issueCreationId();
+    const issued = issueCreationId(0x000000007000);
     expect(
       CreationIssuedSchema.safeParse({
         ...issued,
@@ -45,6 +45,7 @@ describe("作成受付IDの契約", () => {
         issuedAt: issued.issuedAt + 1,
       }).success,
     ).toBe(false);
-    expect(creationIssuedAt(issued.requestId.replace("-7", "-4"))).toBeNull();
+    const v4Id = `${issued.requestId.slice(0, 14)}4${issued.requestId.slice(15)}`;
+    expect(creationIssuedAt(v4Id)).toBeNull();
   });
 });
