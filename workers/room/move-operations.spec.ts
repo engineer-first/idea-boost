@@ -10,7 +10,7 @@ import {
 } from "../../contracts/room-protocol";
 import { runInRoomDO } from "../test-helpers";
 import { RoomBroadcaster, type SocketAttachment } from "./broadcast";
-import { listGroups, saveGroups } from "./groups";
+import { groupHandlers, listGroups, saveGroups } from "./groups";
 import type { HandlerCtx } from "./handler-context";
 import {
   expireMoveOperations,
@@ -888,6 +888,40 @@ function inverse(
     moveHandlers["note:move:inverse"](ctx, message);
 }
 describe("atomic inverse", () => {
+  it("他者の分類作成後に無関係な移動をしても元の移動のinverseを全拒否する", () =>
+    setup("inverse-peer-group-unrelated-move", (ctx, responses) => {
+      const n3 = "77777777-7777-4777-8777-777777777777";
+      const note = findNote(ctx.sql, N1);
+      if (!note) throw new Error("missing note");
+      insertNote(ctx.sql, { ...note, id: n3, x: 2000 });
+      start(ctx);
+      commit(ctx);
+      groupHandlers["group:create"](
+        { ...ctx, userId: B },
+        {
+          type: "group:create",
+          group: {
+            id: "88888888-8888-4888-8888-888888888888",
+            name: "他者の分類",
+            noteIds: [N1, N2],
+            createdAt: "2026-10-06T00:00:00.000Z",
+            updatedAt: "2026-10-06T00:00:00.000Z",
+          },
+        },
+      );
+      const groups = listGroups(ctx.sql);
+      start(ctx, OP2, [n3]);
+      commit(ctx, OP2);
+      expect(responses.at(-1)).toMatchObject({
+        status: "accepted",
+        receipt: { changed: true, groupsBefore: [], groupsAfter: [] },
+      });
+      const before = [findNote(ctx.sql, N1), findNote(ctx.sql, N2)];
+      inverse(ctx, responses, OP, "99999999-9999-4999-8999-999999999999");
+      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      expect([findNote(ctx.sql, N1), findNote(ctx.sql, N2)]).toEqual(before);
+      expect(listGroups(ctx.sql)).toEqual(groups);
+    }));
   it.each([
     "peer",
     "aba",

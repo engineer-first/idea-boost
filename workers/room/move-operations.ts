@@ -320,10 +320,15 @@ function advanceHistory(
   receipt: MoveReceipt,
   groupsBefore: Record<string, number>,
 ): void {
+  const nextGroups = groupVersions(ctx.sql);
+  const changedCurrentGroups = listGroups(ctx.sql).filter(
+    (group) => (groupsBefore[group.id] ?? 0) !== (nextGroups[group.id] ?? 0),
+  );
   for (const row of ctx.sql
     .exec(
-      "SELECT operation_id,request_json FROM note_move_operations WHERE user_id=?1 AND state='accepted'",
+      "SELECT operation_id,request_json FROM note_move_operations WHERE user_id=?1 AND connection_id=?2 AND state='accepted'",
       ctx.userId,
+      connectionId(ctx),
     )
     .toArray()) {
     const request = JSON.parse(String(row.request_json)) as {
@@ -346,7 +351,6 @@ function advanceHistory(
         target.visibilityRevision = next.visibilityRevision;
       }
     }
-    const nextGroups = groupVersions(ctx.sql);
     if (
       Object.entries(expected.groups).every(
         ([id, revision]) => (groupsBefore[id] ?? 0) === revision,
@@ -354,7 +358,7 @@ function advanceHistory(
     ) {
       for (const id of Object.keys(expected.groups))
         expected.groups[id] = nextGroups[id] ?? 0;
-      for (const group of listGroups(ctx.sql))
+      for (const group of changedCurrentGroups)
         if (
           group.noteIds.some((id) =>
             expected.targets.some((target) => target.noteId === id),
@@ -363,11 +367,13 @@ function advanceHistory(
           expected.groups[group.id] = nextGroups[group.id] ?? 0;
       expected.groupRevision = receipt.groupRevisionAfter;
     }
-    ctx.sql.exec(
-      "UPDATE note_move_operations SET request_json=?2 WHERE operation_id=?1",
-      String(row.operation_id),
-      JSON.stringify(request),
-    );
+    const nextRequest = JSON.stringify(request);
+    if (nextRequest !== row.request_json)
+      ctx.sql.exec(
+        "UPDATE note_move_operations SET request_json=?2 WHERE operation_id=?1",
+        String(row.operation_id),
+        nextRequest,
+      );
   }
 }
 function groupVersions(sql: SqlStorage): Record<string, number> {
@@ -567,6 +573,7 @@ export const moveHandlers: MessageHandlers<
     const expected = sourceRequest?.historyExpected;
     const phase = getPhase(ctx.sql);
     const revisions = moveRevisions(ctx.sql);
+    const currentGroupVersions = groupVersions(ctx.sql);
     const denied = () => {
       // 拒否も保存し、結果照会で同じ要求の終端を返す。本文/対象は返信しない。
       ctx.sql.exec(
@@ -622,7 +629,7 @@ export const moveHandlers: MessageHandlers<
       sourceReceipt.coordinateSpace !==
         (phase.phase === 3 ? "map" : "canvas") ||
       !Object.entries(expected.groups).every(
-        ([id, revision]) => (groupVersions(ctx.sql)[id] ?? 0) === revision,
+        ([id, revision]) => (currentGroupVersions[id] ?? 0) === revision,
       ) ||
       listGroups(ctx.sql).some(
         (group) =>
@@ -999,15 +1006,7 @@ export const moveHandlers: MessageHandlers<
     const changed = delta.x !== 0 || delta.y !== 0;
     const groupsBefore = listGroups(ctx.sql);
     const groupVersionsBefore = groupVersions(ctx.sql);
-    const allBefore = new Map(
-      ctx.sql
-        .exec("SELECT id FROM notes")
-        .toArray()
-        .map((row) => [
-          String(row.id),
-          position(requiredNote(ctx.sql, String(row.id))),
-        ]),
-    );
+    const movedBefore = new Map(rows.map((row) => [row.id, position(row)]));
     let receipt: MoveReceipt;
     try {
       receipt = ctx.storage.transactionSync(() => {
@@ -1084,10 +1083,13 @@ export const moveHandlers: MessageHandlers<
         if (changed)
           advanceHistory(
             ctx,
-            result.affected.flatMap((target) => {
-              const previous = allBefore.get(target.noteId);
-              return previous ? [previous] : [];
-            }),
+            // 分類の再編成では付箋の版は変わらない。移動対象以外は
+            // 差分で確定した影響対象だけ読み、移動前と同じ版を使う。
+            result.affected.map(
+              (target) =>
+                movedBefore.get(target.noteId) ??
+                position(requiredNote(ctx.sql, target.noteId)),
+            ),
             result,
             groupVersionsBefore,
           );
