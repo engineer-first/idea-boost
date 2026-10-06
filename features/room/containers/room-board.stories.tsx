@@ -93,7 +93,11 @@ function ActiveHostTransferPreview({
 const meta = {
   title: "Room/ActiveHostTransferFlow",
   component: ActiveHostTransferPreview,
-  parameters: { layout: "fullscreen", chromatic: { viewports: [390, 1280] } },
+  parameters: {
+    layout: "fullscreen",
+    chromatic: { viewports: [390, 1280] },
+    activeRoomConnection: true,
+  },
   args: {
     mode: "success",
     phase: ACTIVE_PHASE,

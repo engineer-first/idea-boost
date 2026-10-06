@@ -85,6 +85,12 @@ class PreviewSocket {
   addEventListener(type: string, listener: (event: PreviewEvent) => void) {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
   }
+  removeEventListener(type: string, listener: (event: PreviewEvent) => void) {
+    this.listeners.set(
+      type,
+      (this.listeners.get(type) ?? []).filter((item) => item !== listener),
+    );
+  }
   emit(type: string, event: PreviewEvent) {
     for (const listener of this.listeners.get(type) ?? []) listener(event);
   }

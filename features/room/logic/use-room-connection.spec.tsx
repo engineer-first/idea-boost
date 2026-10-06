@@ -32,6 +32,8 @@ import { ServerMessageSchema } from "@/contracts/room-protocol";
 import { readLastRoom } from "@/lib/room-client/last-room-storage";
 import { useRoomConnection } from "./use-room-connection";
 
+afterEach(() => vi.restoreAllMocks());
+
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 type Listener = (event: {
@@ -696,7 +698,6 @@ describe("再接続の終端判定と世代", () => {
     act(() => window.dispatchEvent(new Event("online")));
     expect(FakeWebSocket.instances).toHaveLength(1);
     unmount();
-    vi.restoreAllMocks();
   });
 });
 
@@ -814,7 +815,6 @@ it("offlineになると実行中の照会を中止し、online後の新snapshot�
   expect(result.current.connectionStatus).toBe("open");
   unmount();
   expect(vi.getTimerCount()).toBe(0);
-  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
