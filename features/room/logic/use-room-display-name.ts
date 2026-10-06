@@ -70,11 +70,19 @@ export function useRoomDisplayName({
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    triggerRef.current = active?.closest("[data-radix-popper-content-wrapper]")
+    // 一覧ダイアログ内の本人ボタンは編集開始時に取り除かれるため、
+    // 閉じた後も残る一覧の展開ボタンへ戻す。
+    triggerRef.current = active?.closest(
+      '[data-testid="room-members-overflow-dialog"]',
+    )
       ? document.querySelector<HTMLElement>(
-          '[data-host-transfer-origin][data-state="open"], [data-testid="room-menu-trigger"][data-state="open"]',
+          '[data-testid="room-members-overflow"]',
         )
-      : active;
+      : active?.closest("[data-radix-popper-content-wrapper]")
+        ? document.querySelector<HTMLElement>(
+            '[data-host-transfer-origin][data-state="open"], [data-testid="room-menu-trigger"][data-state="open"]',
+          )
+        : active;
     setDraft(member?.name ?? "");
     setError(null);
     setOpen(true);

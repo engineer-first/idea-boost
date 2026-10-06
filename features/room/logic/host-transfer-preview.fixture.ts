@@ -18,6 +18,17 @@ export const PREVIEW_MEMBERS: ProtocolMember[] = [
   { userId: PREVIEW_HOST, name: "Yuki Tanaka", color: "yellow" },
   { userId: PREVIEW_TARGET, name: "Hana Sato", color: "blue" },
 ];
+export const OVERFLOW_PREVIEW_MEMBERS: ProtocolMember[] = [
+  ...Array.from(
+    { length: 12 },
+    (_, index): ProtocolMember => ({
+      userId: `aaaaaaaa-aaaa-4aaa-8aaa-${String(index).padStart(12, "0")}`,
+      name: `参加者${index + 1}`,
+      color: "blue",
+    }),
+  ),
+  PREVIEW_MEMBERS[0],
+];
 export const ACTIVE_PREVIEW_MEMBERS: ProtocolMember[] = [
   { userId: PREVIEW_HOST, name: "Yuki Tanaka", color: "yellow" },
   { userId: PREVIEW_TARGET, name: "Hana Sato", color: "blue" },

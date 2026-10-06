@@ -2,6 +2,45 @@ import { chromium } from "playwright";
 import { beforeAll, expect, test, vi } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
+test.each([
+  390, 1280,
+])("%i px: 一覧に隠れた本人の編集を取消・保存した後に展開ボタンへ戻る", async (width) => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    await page.goto(
+      `${origin}/iframe.html?id=room-hosttransferflow--overflow-self&viewMode=story`,
+    );
+    const overflow = page.getByRole("button", { name: "他 2 名" });
+    for (const save of [false, true]) {
+      await overflow.press("Enter");
+      const trigger = page.getByRole("button", {
+        name: "Yuki Tanaka：呼び名を変更",
+      });
+      await trigger.press("Enter");
+      const dialog = page.getByRole("dialog", { name: "このルームでの呼び名" });
+      await dialog.waitFor();
+      const input = page.getByRole("textbox", { name: "呼び名" });
+      await vi.waitFor(async () =>
+        expect(await input.evaluate((e) => e === document.activeElement)).toBe(
+          true,
+        ),
+      );
+      if (save) {
+        await input.fill("一覧の本人");
+        await input.press("Enter");
+      } else await page.keyboard.press("Escape");
+      await dialog.waitFor({ state: "hidden" });
+      await vi.waitFor(async () =>
+        expect(
+          await overflow.evaluate((e) => e === document.activeElement),
+        ).toBe(true),
+      );
+    }
+  } finally {
+    await browser.close();
+  }
+});
 beforeAll(async () => {
   await vi.waitFor(
     async () => {

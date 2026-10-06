@@ -1,7 +1,13 @@
 // RoomLobby（コンテナ）の統合テスト。
 // フェイク WebSocket を注入し、start_phase 送信と phase:updated 受信の
 // 両方向の配線を検証する。
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // useRouter の戻り値は毎レンダー同じ参照にする（effect の再実行ループ防止）。
@@ -44,6 +50,27 @@ import { RoomLobby } from "./room-lobby";
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const HOST_ID = "11111111-1111-4111-8111-111111111111";
 const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
+
+it("一覧に隠れた本人の編集を取消した後は、一覧の展開ボタンへフォーカスを戻す", async () => {
+  const initialMembers: ProtocolMember[] = Array.from(
+    { length: 13 },
+    (_, i) => ({
+      userId:
+        i === 12
+          ? HOST_ID
+          : `aaaaaaaa-aaaa-4aaa-8aaa-${String(i).padStart(12, "0")}`,
+      name: i === 12 ? "本人" : `参加者${i}`,
+      color: "yellow",
+    }),
+  );
+  renderStart({ initialMembers });
+  const overflow = screen.getByRole("button", { name: "他 2 名" });
+  fireEvent.click(overflow);
+  fireEvent.click(screen.getByRole("button", { name: "本人：呼び名を変更" }));
+  expect(screen.getByRole("textbox", { name: "呼び名" })).toHaveValue("本人");
+  fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+  await waitFor(() => expect(overflow).toHaveFocus());
+});
 
 type Listener = (event: {
   data?: unknown;
