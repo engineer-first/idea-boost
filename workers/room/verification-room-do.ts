@@ -104,6 +104,8 @@ export class VerificationRoomDO extends RoomDO {
         for (let phase = 1; phase <= target.phase; phase++)
           await this.ctx.storage.put(`verification-prepared-${phase}`, true);
       if (roomId) await this.initializeSharedOutcome(roomId, roomName);
+      await this.preserveSharedOutcome();
+      await this.flushSharedOutcome();
     });
   }
 
