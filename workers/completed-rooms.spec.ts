@@ -908,3 +908,40 @@ it("旧完了ルームもホスト本人が退出でき、未完了ホスト・�
       .first(),
   ).not.toBeNull();
 });
+
+it("完了期限を過ぎた退出の清掃でもルーム内の呼び名を消去する", async () => {
+  const room = await complete((_instance, state) => {
+    state.storage.sql.exec(
+      "INSERT INTO member_display_names(user_id,name) VALUES(?,?)",
+      host.sub,
+      "ルームの呼び名",
+    );
+    state.storage.sql.exec(
+      "UPDATE members SET name=? WHERE user_id=?",
+      "ルームの呼び名",
+      host.sub,
+    );
+  });
+  await runInRoomDO(room.roomId, (_instance, state) => {
+    state.storage.sql.exec(
+      "UPDATE completed_room SET expires_at=?",
+      Date.now() - 1,
+    );
+  });
+  // leave→completed.flushは共有成果の清掃を経ずに完了期限を清掃する。
+  await env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId)).leave(
+    guest.sub,
+    "discard",
+  );
+  await runInRoomDO(room.roomId, (_instance, state) => {
+    expect(
+      state.storage.sql
+        .exec("SELECT deleted FROM completed_room WHERE id=1")
+        .one().deleted,
+    ).toBe(1);
+    expect(
+      state.storage.sql.exec("SELECT * FROM member_display_names").toArray(),
+    ).toEqual([]);
+  });
+  room.socket.close();
+});

@@ -537,3 +537,18 @@ describe("applyCarryoverServerMessage", () => {
     ).toEqual([carryover]);
   });
 });
+
+// 改名はuserIdで現在表示だけへ畳み込み、順番・色・投票識別を保つ。
+it("同じ呼び名でも別の参加者として保持し現在の発表者名へ反映する", () => {
+  const first = { userId: "a", name: "同じ呼び名", color: "yellow" as const };
+  const second = { userId: "b", name: "以前", color: "green" as const };
+  const message = {
+    type: "member:renamed" as const,
+    member: { ...second, name: first.name },
+    operationId: "operation",
+  };
+  expect(applyMemberServerMessage([first, second], message)).toEqual([
+    first,
+    message.member,
+  ]);
+});

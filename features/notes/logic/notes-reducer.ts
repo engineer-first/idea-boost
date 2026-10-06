@@ -102,6 +102,7 @@ export function applyServerMessage(
     case "cursor:drag-ended":
     case "cursor:left":
     case "member_vote_status":
+    case "member:renamed":
     case "member:removed":
     case "host:updated":
     case "error": {

@@ -16,6 +16,7 @@ import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
 
 export type PrivateNotesToolbarProps = {
+  authorName?: (authorId: string) => string | undefined;
   notes: Note[];
   disabled: boolean;
   editingDisabled?: boolean;
@@ -47,6 +48,7 @@ export type PrivateNotesToolbarProps = {
 
 export function PrivateNotesToolbar({
   notes,
+  authorName,
   disabled,
   editingDisabled = false,
   className,
@@ -295,6 +297,7 @@ export function PrivateNotesToolbar({
                 />
               ) : (
                 <NoteCard
+                  authorName={authorName?.(note.authorId)}
                   key={note.id}
                   note={note}
                   isOwnDrag={false}

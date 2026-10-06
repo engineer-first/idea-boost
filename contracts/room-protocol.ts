@@ -306,7 +306,25 @@ export const NoteDragIdSchema = z.string().uuid();
 // クライアント → サーバー
 // ---------------------------------------------------------------
 
+// ルーム内の呼び名は前後空白を除いて40 UTF-16コード単位まで。
+export const ROOM_DISPLAY_NAME_MAX_LENGTH = 40;
+export const RoomDisplayNameSchema = z
+  .string()
+  .trim()
+  .min(1, "呼び名を入力してください。")
+  .max(
+    ROOM_DISPLAY_NAME_MAX_LENGTH,
+    `呼び名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`,
+  );
+
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("member:rename"),
+      name: RoomDisplayNameSchema,
+      operationId: z.string().uuid(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("sharing:start"),
@@ -908,6 +926,13 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     .object({
       type: z.literal("group:revision"),
       groupRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("member:renamed"),
+      member: MemberSchema,
+      operationId: z.string().uuid(),
     })
     .strict(),
   z.object({

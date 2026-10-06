@@ -58,6 +58,12 @@ export function applyCursorPresenceMessage(
   if (message.type === "cursor:left" || message.type === "member_left") {
     return cursors.filter((cursor) => cursor.userId !== message.userId);
   }
+  if (message.type === "member:renamed")
+    return cursors.map((cursor) =>
+      cursor.userId === message.member.userId
+        ? { ...cursor, name: message.member.name }
+        : cursor,
+    );
   if (message.type !== "cursor:updated") return cursors;
   if (
     message.cursor.userId === currentUserId ||

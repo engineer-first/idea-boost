@@ -16,6 +16,7 @@ import type { Member } from "../logic/room-reducer";
 import { useLeaveRoom } from "../logic/use-leave-room";
 import { useMemberRemoval } from "../logic/use-member-removal";
 import { useRoomConnection } from "../logic/use-room-connection";
+import { useRoomDisplayName } from "../logic/use-room-display-name";
 import { useRoomState } from "../logic/use-room-state";
 import { RoomLobbyView } from "../templates/room-lobby-view";
 
@@ -87,6 +88,13 @@ export function RoomLobby({
     webSocketFactory,
     isLeavingRef,
   });
+  const displayName = useRoomDisplayName({
+    currentUserId,
+    members: roomState.members,
+    connected: connectionStatus === "open",
+    blocked: isStarting || isLeaving || isTransferring,
+    send,
+  });
   const memberRemoval = useMemberRemoval({
     isHost,
     currentUserId,
@@ -113,6 +121,7 @@ export function RoomLobby({
   }
 
   function handleServerMessage(message: ServerMessage) {
+    if (displayName.applyMessage(message)) return;
     if (memberRemoval.applyMessage(message)) return;
     if (
       message.type === "host:updated" ||
@@ -190,6 +199,7 @@ export function RoomLobby({
   return (
     <RoomLobbyView
       key={`${hostUserId}:${roomState.host.hostRevision ?? 0}`}
+      displayName={displayName}
       memberRemoval={memberRemoval}
       members={roomState.members}
       currentUserId={currentUserId}

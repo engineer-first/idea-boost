@@ -2,7 +2,7 @@
 
 // ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
 
-import { Check, LogOut, MoreHorizontal } from "lucide-react";
+import { Check, LogOut, MoreHorizontal, Pencil } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,11 @@ import {
 } from "@/contracts/phase";
 import type { SharingState, TimerState } from "@/contracts/room-protocol";
 import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
-import { MemberAvatar, MemberSelection } from "@/features/room-members";
+import {
+  MemberAvatar,
+  MemberSelection,
+  NOTE_COLOR_NAMES,
+} from "@/features/room-members";
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
@@ -65,6 +69,7 @@ export type RoomBoardHeaderProps = {
   completedVoterIds?: ReadonlyArray<string>;
   isNextPhasePending: boolean;
   hostRevision?: number;
+  onEditSelf?: () => void;
   onSelectHostTarget?: (userId: string) => void;
   isTransferring?: boolean;
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
@@ -116,6 +121,7 @@ export function RoomBoardHeader({
   isNextPhasePending,
   hostRevision = 0,
   onSelectHostTarget,
+  onEditSelf,
   isTransferring = false,
   isNextPhaseBlocked,
   initialGuideState,
@@ -337,6 +343,7 @@ export function RoomBoardHeader({
             ) : null}
             {activeSharing ? (
               <SharingPresenter
+                onEditSelf={outcomePublished ? undefined : onEditSelf}
                 sharing={activeSharing}
                 hostUserId={hostUserId}
                 currentUserId={currentUserId}
@@ -424,16 +431,29 @@ export function RoomBoardHeader({
                         className="flex min-w-0 items-center gap-2"
                       >
                         <MemberSelection
-                          name={member.name}
+                          name={
+                            member.userId === currentUserId &&
+                            onEditSelf &&
+                            !outcomePublished
+                              ? `${member.name}：呼び名を変更`
+                              : member.name
+                          }
                           className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
                           disabled={hostSelectionDisabled}
                           onSelect={
-                            canSelectHost && member.userId !== currentUserId
+                            member.userId === currentUserId &&
+                            onEditSelf &&
+                            !outcomePublished
                               ? () => {
                                   setMembersOpen(false);
-                                  onSelectHostTarget?.(member.userId);
+                                  onEditSelf();
                                 }
-                              : undefined
+                              : canSelectHost && member.userId !== currentUserId
+                                ? () => {
+                                    setMembersOpen(false);
+                                    onSelectHostTarget?.(member.userId);
+                                  }
+                                : undefined
                           }
                         >
                           <MemberAvatar
@@ -448,6 +468,20 @@ export function RoomBoardHeader({
                           <span className="min-w-0 flex-1 truncate text-sm">
                             {member.name}
                           </span>
+                          {member.userId === currentUserId &&
+                          onEditSelf &&
+                          !outcomePublished ? (
+                            <Pencil
+                              className="size-3 shrink-0 text-muted-foreground"
+                              aria-hidden
+                            />
+                          ) : null}
+                          {members.filter((m) => m.name === member.name)
+                            .length > 1 ? (
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {NOTE_COLOR_NAMES[member.color]}
+                            </span>
+                          ) : null}
                           {member.userId === hostUserId ? (
                             <span
                               className="text-xs text-muted-foreground"
@@ -666,6 +700,7 @@ export function RoomBoardHeader({
                   className="h-10 w-8 shrink-0 p-0"
                   aria-label="ルームメニューを開く"
                   ref={roomMenuTriggerRef}
+                  data-testid="room-menu-trigger"
                 >
                   <MoreHorizontal aria-hidden="true" />
                 </Button>
@@ -676,7 +711,23 @@ export function RoomBoardHeader({
                 aria-label="ルームメニュー"
               >
                 {currentMember ? (
-                  <div className="mb-3 flex min-w-0 items-center gap-2 border-b border-border pb-3">
+                  <MemberSelection
+                    name={
+                      onEditSelf
+                        ? `${currentMember.name}：呼び名を変更`
+                        : currentMember.name
+                    }
+                    onSelect={
+                      !outcomePublished && onEditSelf
+                        ? () => {
+                            setRoomMenuOpen(false);
+                            onEditSelf();
+                          }
+                        : undefined
+                    }
+                    disabled={isDisconnected || isLeaving}
+                    className="mb-3 flex w-full min-w-0 items-center gap-2 border-b border-border pb-3 text-left"
+                  >
                     <MemberAvatar
                       name={currentMember.name}
                       color={currentMember.color}
@@ -686,12 +737,18 @@ export function RoomBoardHeader({
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                       {currentMember.name}
                     </span>
+                    {onEditSelf && !outcomePublished ? (
+                      <Pencil
+                        className="size-3 shrink-0 text-muted-foreground"
+                        aria-hidden
+                      />
+                    ) : null}
                     {isHost ? (
                       <span className="text-xs text-muted-foreground">
                         ホスト
                       </span>
                     ) : null}
-                  </div>
+                  </MemberSelection>
                 ) : null}
 
                 <div className="flex flex-col gap-1">

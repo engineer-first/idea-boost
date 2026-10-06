@@ -5,6 +5,7 @@
 // 自分は ring で識別（「（あなた）」文言は付けない）。ホストは名前下にラベル。
 // 13 人以上は先頭 12 人 + +N（クリックで隠れメンバー Dialog）。
 // データ層に一切依存せず、members / currentUserId / hostUserId を props で受け取るだけ。
+import { Pencil } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -15,6 +16,7 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { cn } from "@/lib/utils";
+import { NOTE_COLOR_NAMES } from "../logic/note-color";
 import { MemberAvatar } from "../molecules/member-avatar";
 import { MemberSelection } from "../molecules/member-selection";
 
@@ -31,6 +33,7 @@ export type RoomMembersProps = {
   // 先頭から何個まで Avatar + 名前で描画するか。超過分は +N バッジ。
   // 既定は ROOM_MEMBERS_MAX_VISIBLE（12 = 4×3）。
   maxVisible?: number;
+  onEditSelf?: () => void;
   onSelectMember?: (userId: string) => void;
   selectionDisabled?: boolean;
   // 全票を使い切ったメンバーの userId。投票先は含まない。
@@ -43,6 +46,7 @@ export function RoomMembers({
   hostUserId,
   maxVisible = ROOM_MEMBERS_MAX_VISIBLE,
   onSelectMember,
+  onEditSelf,
   selectionDisabled = false,
   completedVoterIds = [],
 }: RoomMembersProps) {
@@ -74,13 +78,19 @@ export function RoomMembers({
               className="flex min-w-0 flex-col items-center gap-1 text-center"
             >
               <MemberSelection
-                name={member.name}
+                name={
+                  isMe && onEditSelf
+                    ? `${member.name}：呼び名を変更`
+                    : member.name
+                }
                 className="flex w-full min-w-0 flex-col items-center gap-1 p-1 text-center"
                 disabled={selectionDisabled}
                 onSelect={
-                  !isMe && onSelectMember
-                    ? () => onSelectMember(member.userId)
-                    : undefined
+                  isMe && onEditSelf
+                    ? onEditSelf
+                    : !isMe && onSelectMember
+                      ? () => onSelectMember(member.userId)
+                      : undefined
                 }
               >
                 <MemberAvatar
@@ -99,7 +109,18 @@ export function RoomMembers({
                     )}
                   >
                     {member.name}
+                    {isMe && onEditSelf ? (
+                      <Pencil
+                        className="ml-1 inline size-3 text-muted-foreground"
+                        aria-hidden
+                      />
+                    ) : null}
                   </span>
+                  {members.filter((m) => m.name === member.name).length > 1 ? (
+                    <span className="text-xs text-muted-foreground">
+                      {NOTE_COLOR_NAMES[member.color]}
+                    </span>
+                  ) : null}
                   {isHostMember ? (
                     <span
                       data-testid={`member-host-label-${member.userId}`}
@@ -145,16 +166,25 @@ export function RoomMembers({
                 className="flex min-w-0 items-center gap-2"
               >
                 <MemberSelection
-                  name={member.name}
+                  name={
+                    member.userId === currentUserId && onEditSelf
+                      ? `${member.name}：呼び名を変更`
+                      : member.name
+                  }
                   className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
                   disabled={selectionDisabled}
                   onSelect={
-                    member.userId !== currentUserId && onSelectMember
+                    member.userId === currentUserId && onEditSelf
                       ? () => {
                           setOverflowOpen(false);
-                          onSelectMember(member.userId);
+                          onEditSelf();
                         }
-                      : undefined
+                      : member.userId !== currentUserId && onSelectMember
+                        ? () => {
+                            setOverflowOpen(false);
+                            onSelectMember(member.userId);
+                          }
+                        : undefined
                   }
                 >
                   <MemberAvatar
@@ -166,6 +196,11 @@ export function RoomMembers({
                   <span className="truncate text-sm text-foreground">
                     {member.name}
                   </span>
+                  {members.filter((m) => m.name === member.name).length > 1 ? (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {NOTE_COLOR_NAMES[member.color]}
+                    </span>
+                  ) : null}
                   {member.userId === hostUserId ? (
                     <span
                       data-testid={`member-host-label-${member.userId}`}

@@ -3,13 +3,24 @@ import { useEffect, useMemo } from "react";
 import {
   createHostTransferPreview,
   type HostPreviewMode,
+  OVERFLOW_PREVIEW_MEMBERS,
   PREVIEW_HOST,
   PREVIEW_MEMBERS,
 } from "../logic/host-transfer-preview.fixture";
 import { RoomLobby } from "./room-lobby";
 
-function HostTransferPreview({ mode }: { mode: HostPreviewMode }) {
-  const server = useMemo(() => createHostTransferPreview(mode), [mode]);
+function HostTransferPreview({
+  mode,
+  overflow = false,
+}: {
+  mode: HostPreviewMode;
+  overflow?: boolean;
+}) {
+  const members = overflow ? OVERFLOW_PREVIEW_MEMBERS : PREVIEW_MEMBERS;
+  const server = useMemo(
+    () => createHostTransferPreview(mode, { members }),
+    [mode, members],
+  );
   useEffect(() => {
     const listener = (event: Event) => {
       const kind = (event as CustomEvent<unknown>).detail;
@@ -28,7 +39,7 @@ function HostTransferPreview({ mode }: { mode: HostPreviewMode }) {
         isHost
         hostUserId={PREVIEW_HOST}
         initialPhase={{ kind: "lobby" }}
-        initialMembers={PREVIEW_MEMBERS}
+        initialMembers={members}
         webSocketFactory={server.factory}
       />
     </div>
@@ -45,3 +56,4 @@ type Story = StoryObj<typeof meta>;
 export const Success: Story = {};
 export const Refused: Story = { args: { mode: "refused" } };
 export const Reconnect: Story = { args: { mode: "reconnect" } };
+export const OverflowSelf: Story = { args: { overflow: true } };

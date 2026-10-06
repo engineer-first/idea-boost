@@ -1467,3 +1467,21 @@ describe("メンバー除外の契約", () => {
     expect(parseServerMessage(JSON.stringify(ack))).toEqual(ack);
   });
 });
+
+describe("呼び名の変更境界", () => {
+  it("他人のIDを含む形を受理せず、空白・上限超過を拒否し、40文字を受理する", () => {
+    const message = {
+      type: "member:rename",
+      name: "あ".repeat(40),
+      operationId: "11111111-1111-4111-8111-111111111111",
+    };
+    expect(ClientMessageSchema.safeParse(message).success).toBe(true);
+    for (const invalid of [
+      { ...message, targetUserId: message.operationId },
+      { ...message, userId: message.operationId },
+      { ...message, name: "　 " },
+      { ...message, name: "あ".repeat(41) },
+    ])
+      expect(ClientMessageSchema.safeParse(invalid).success).toBe(false);
+  });
+});

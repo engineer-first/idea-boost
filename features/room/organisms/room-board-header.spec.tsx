@@ -873,3 +873,21 @@ describe("作業中のホスト変更", () => {
     expect(screen.getByRole("button", { name: "Taro Yamada" })).toBeDisabled();
   });
 });
+
+it("成果公開後は本人の編集案内と鉛筆を消し、編集を実行しない", () => {
+  const onEditSelf = vi.fn();
+  const props = setupProps({ onEditSelf });
+  const { rerender } = render(<RoomBoardHeader {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+  const row = screen.getByTestId(`member-row-${ME}`);
+  expect(
+    within(row).getByRole("button", { name: /呼び名を変更/ }),
+  ).toBeInTheDocument();
+  expect(row.querySelector("svg.lucide-pencil")).not.toBeNull();
+
+  rerender(<RoomBoardHeader {...props} outcomePublished />);
+  expect(within(row).queryByRole("button")).not.toBeInTheDocument();
+  expect(row.querySelector("svg.lucide-pencil")).toBeNull();
+  fireEvent.click(row);
+  expect(onEditSelf).not.toHaveBeenCalled();
+});

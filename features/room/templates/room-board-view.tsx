@@ -53,12 +53,14 @@ import {
 } from "../logic/use-canvas-selection";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
+import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
+import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
@@ -166,6 +168,7 @@ export type RoomBoardViewProps = {
   isTransferring?: boolean;
   transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
+  displayName?: RoomDisplayNameControls;
   decision: Decision | null;
   outcomePublished: boolean;
   adoptionFocusNoteId?: string | null;
@@ -175,6 +178,7 @@ export type RoomBoardViewProps = {
   connectionDelayed?: boolean;
   draggingNoteId: string | null;
   members: Member[];
+  authorNames?: ReadonlyMap<string, string>;
   currentUserId: string;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
@@ -288,6 +292,7 @@ export function RoomBoardView({
   isTransferring: transferringHost = false,
   transferError = null,
   memberRemoval,
+  displayName,
   decision,
   outcomePublished,
   adoptionFocusNoteId = null,
@@ -295,6 +300,7 @@ export function RoomBoardView({
   connectionDelayed = false,
   draggingNoteId,
   members,
+  authorNames,
   currentUserId,
   hostUserId,
   completedVoterIds = [],
@@ -1603,6 +1609,7 @@ export function RoomBoardView({
         onPointerLeave={() => setVoteStampPointer(null)}
       >
         <RoomBoardHeader
+          onEditSelf={displayName?.request}
           hasMoveHistory={hasMoveHistory}
           onOpenFeedback={
             feedback
@@ -1688,6 +1695,10 @@ export function RoomBoardView({
           </p>
         ) : null}
         <RoomBoardCanvas
+          authorName={(authorId) =>
+            members.find((m) => m.userId === authorId)?.name ??
+            authorNames?.get(authorId)
+          }
           moveHistory={moveHistory}
           notes={renderedNotes}
           groups={groups}
@@ -1928,6 +1939,7 @@ export function RoomBoardView({
             }}
           />
         ) : null}
+        {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
         {memberRemoval ? (
           <MemberRemoveDialog
             {...memberRemoval}

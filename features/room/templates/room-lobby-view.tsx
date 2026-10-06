@@ -22,11 +22,12 @@ import { RoomMembers } from "@/features/room-members";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
+import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
-
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
+import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 
 export type RoomLobbyViewProps = {
   members: Member[];
@@ -51,6 +52,7 @@ export type RoomLobbyViewProps = {
   isTransferring?: boolean;
   transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
+  displayName?: RoomDisplayNameControls;
 };
 
 export function RoomLobbyView({
@@ -71,6 +73,7 @@ export function RoomLobbyView({
   isTransferring: transferringHost = false,
   transferError = null,
   memberRemoval,
+  displayName,
 }: RoomLobbyViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const isDisconnected = connectionStatus !== "open";
@@ -155,6 +158,7 @@ export function RoomLobbyView({
             </CardHeader>
             <CardContent className="flex flex-1 flex-col items-center justify-start pt-0">
               <RoomMembers
+                onEditSelf={displayName?.request}
                 members={members}
                 currentUserId={currentUserId}
                 hostUserId={hostUserId}
@@ -311,6 +315,7 @@ export function RoomLobbyView({
         </Card>
       </div>
 
+      {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
       {memberRemoval ? (
         <MemberRemoveDialog
           {...memberRemoval}

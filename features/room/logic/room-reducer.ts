@@ -68,6 +68,10 @@ export function applyMemberServerMessage(
         color: m.color,
       }));
     }
+    case "member:renamed":
+      return members.map((m) =>
+        m.userId === message.member.userId ? message.member : m,
+      );
     case "member_joined": {
       const exists = members.some((m) => m.userId === message.member.userId);
       if (exists) {
@@ -123,6 +127,24 @@ export function applyMemberServerMessage(
   }
 }
 
+// 受信済みの作者名を表示用に保持する。参加者一覧とは分け、退出や
+// 再接続で消さず、サーバーから受け取った最新名だけで更新する。
+export function applyAuthorNamesServerMessage(
+  names: ReadonlyMap<string, string>,
+  message: ServerMessage,
+): ReadonlyMap<string, string> {
+  const members =
+    message.type === "snapshot"
+      ? message.members
+      : message.type === "member_joined" || message.type === "member:renamed"
+        ? [message.member]
+        : [];
+  if (members.length === 0) return names;
+  const next = new Map(names);
+  for (const member of members) next.set(member.userId, member.name);
+  return next;
+}
+
 // 投票完了状態は userId の集合だけをサーバーから畳み込む。投票先や票種別の
 // 残数はこの state に存在しないため、投票中の秘匿境界を越えない。
 export function applyVotingCompletionServerMessage(
@@ -169,6 +191,7 @@ export function applyVotingCompletionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:renamed":
     case "member:removed":
     case "host:updated":
     case "error":
@@ -248,6 +271,7 @@ export function applyDecisionServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:renamed":
     case "member:removed":
     case "host:updated":
     case "error":
@@ -341,6 +365,7 @@ export function applyPhaseServerMessage(
     case "cursor:updated":
     case "cursor:drag-ended":
     case "cursor:left":
+    case "member:renamed":
     case "member:removed":
     case "host:updated":
     case "error":
@@ -358,6 +383,13 @@ export function applySharingServerMessage(
 ): SharingState | null {
   if (message.type === "snapshot") return message.sharing ?? null;
   if (message.type === "sharing:updated") return message.sharing;
+  if (message.type === "member:renamed" && state)
+    return {
+      ...state,
+      order: state.order.map((m) =>
+        m.userId === message.member.userId ? message.member : m,
+      ),
+    };
   return state;
 }
 

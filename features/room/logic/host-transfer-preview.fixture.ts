@@ -18,6 +18,17 @@ export const PREVIEW_MEMBERS: ProtocolMember[] = [
   { userId: PREVIEW_HOST, name: "Yuki Tanaka", color: "yellow" },
   { userId: PREVIEW_TARGET, name: "Hana Sato", color: "blue" },
 ];
+export const OVERFLOW_PREVIEW_MEMBERS: ProtocolMember[] = [
+  ...Array.from(
+    { length: 12 },
+    (_, index): ProtocolMember => ({
+      userId: `aaaaaaaa-aaaa-4aaa-8aaa-${String(index).padStart(12, "0")}`,
+      name: `参加者${index + 1}`,
+      color: "blue",
+    }),
+  ),
+  PREVIEW_MEMBERS[0],
+];
 export const ACTIVE_PREVIEW_MEMBERS: ProtocolMember[] = [
   { userId: PREVIEW_HOST, name: "Yuki Tanaka", color: "yellow" },
   { userId: PREVIEW_TARGET, name: "Hana Sato", color: "blue" },
@@ -145,6 +156,43 @@ export function createHostTransferPreview(
   }
   const factory: RoomSocketFactory = () => {
     const created = new PreviewSocket((message, active) => {
+      if (message.type === "member:rename") {
+        setTimeout(() => {
+          if (active.readyState !== 1) return;
+          if (mode === "timeout") {
+            mode = "success";
+            return;
+          }
+          if (mode === "refused") {
+            mode = "success";
+            active.message({
+              type: "error",
+              code: "forbidden",
+              operationId: message.operationId,
+              message: "呼び名を保存できませんでした。もう一度お試しください。",
+            });
+            return;
+          }
+          const member = members.find(
+            (m) => m.userId === (options.currentUserId ?? PREVIEW_HOST),
+          );
+          if (!member) return;
+          const updated = { ...member, name: message.name };
+          members = members.map((m) =>
+            m.userId === updated.userId ? updated : m,
+          );
+          if (mode === "reconnect") {
+            active.disconnect();
+            return;
+          }
+          active.message({
+            type: "member:renamed",
+            member: updated,
+            operationId: message.operationId,
+          });
+        }, 100);
+        return;
+      }
       if (message.type === "member:remove") {
         setTimeout(() => {
           if (active.readyState !== 1) return;

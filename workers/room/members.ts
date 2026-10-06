@@ -28,7 +28,7 @@ export type UpsertMemberResult =
   | { ok: false; reason: "room-full" | "room-closed" };
 
 // 参加処理。name は表示用（メンバー一覧で使う）。
-// 冪等: 既存メンバーなら name だけを最新に同期して終わる。
+// 冪等: 本人が設定した呼び名は認証由来名で上書きしない。
 // 進行中のルームでも新規メンバーの参加は可能（途中参加OK）。
 //
 // 新規メンバーの場合のみ、既存メンバー全員の WS に member_joined を
@@ -40,7 +40,10 @@ export function upsertMember(
   userId: string,
   name: string | undefined,
 ): UpsertMemberResult {
-  const safeName = name ?? "";
+  const override = sql
+    .exec("SELECT name FROM member_display_names WHERE user_id=?1", userId)
+    .toArray()[0] as { name: string } | undefined;
+  const safeName = override?.name ?? name ?? "";
   const existing = sql
     .exec("SELECT name FROM members WHERE user_id = ?1", userId)
     .toArray()[0] as { name: string } | undefined;
