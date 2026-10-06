@@ -145,7 +145,8 @@ describe("検証環境の拒否境界", () => {
     }
     const normal = await SELF.fetch("http://localhost/api/rooms", {
       method: "POST",
-      headers: await headers(),
+      headers: { ...(await headers()), "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId: crypto.randomUUID() }),
     });
     const room = await normal.json<{ roomId: string }>();
     expect(

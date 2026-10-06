@@ -309,3 +309,80 @@ it("250候補で検索を区切り、返した取得位置からさらに探せ�
     nextCursor: null,
   });
 });
+
+it("pendingの成果索引は一覧から除外しDOの旧ルーム補完を呼ばない", async () => {
+  const { ensureUser } = await import("./lib/db");
+  const { reserveRoomCreation } = await import("./lib/room-creation");
+  const userId = crypto.randomUUID();
+  await ensureUser(env.DB, { id: userId, email: `${userId}@test.invalid` });
+  const creation = await reserveRoomCreation(
+    env.DB,
+    userId,
+    crypto.randomUUID(),
+    "名前を保持",
+  );
+  const called: string[] = [];
+  const namespace = {
+    idFromName: (id: string) => id,
+    get: (id: string) => {
+      called.push(id);
+      return {
+        ensureSharedOutcome: async () => {},
+        getSharedOutcome: async () => null,
+      };
+    },
+  } as unknown as typeof env.ROOM_DO;
+  await handleSharedOutcomes(
+    new Request("https://api.test/api/shared-outcomes"),
+    { ...env, ROOM_DO: namespace },
+  );
+  expect(called).not.toContain(creation.room_id);
+});
+
+it("DO初期化後ready保存前も成果詳細と進行履歴へ到達できない", async () => {
+  const { ensureUser } = await import("./lib/db");
+  const { reserveRoomCreation } = await import("./lib/room-creation");
+  const userId = crypto.randomUUID();
+  await ensureUser(env.DB, { id: userId, email: `${userId}@test.invalid` });
+  const creation = await reserveRoomCreation(
+    env.DB,
+    userId,
+    crypto.randomUUID(),
+    "名前を保持",
+  );
+  await env.ROOM_DO.get(
+    env.ROOM_DO.idFromName(creation.room_id),
+  ).initializeNewRoom(userId, "Host", {
+    roomId: creation.room_id,
+    name: creation.name,
+  });
+  for (const suffix of ["", "/history", `/history/${crypto.randomUUID()}`]) {
+    const response = await handleSharedOutcomes(
+      new Request(
+        `https://api.test/api/shared-outcomes/${creation.room_id}${suffix}`,
+      ),
+      env,
+    );
+    expect(response.status).toBe(404);
+  }
+  const before = await env.ROOM_DO.get(
+    env.ROOM_DO.idFromName(creation.room_id),
+  ).getSharedOutcome();
+  const { completeRoomCreation } = await import("./lib/room-creation");
+  await completeRoomCreation(env.DB, creation, () =>
+    env.ROOM_DO.get(env.ROOM_DO.idFromName(creation.room_id)).initializeNewRoom(
+      userId,
+      "Host",
+      { roomId: creation.room_id, name: creation.name },
+    ),
+  );
+  const visible = await handleSharedOutcomes(
+    new Request(`https://api.test/api/shared-outcomes/${creation.room_id}`),
+    env,
+  );
+  expect(visible.status).toBe(200);
+  expect(await visible.json()).toMatchObject({
+    name: "名前を保持",
+    expiresAt: before?.expiresAt,
+  });
+});

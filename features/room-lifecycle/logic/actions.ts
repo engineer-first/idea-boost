@@ -35,12 +35,12 @@ const JoinRoomInputSchema = z.object({
     }),
 });
 
-// 作成/参加成功時はクライアントで toast → start へ遷移する。
+// 作成/参加成功時はクライアントで toast と遷移を行う。作成再送の復帰先は現在の状態から確認する。
 // （Server Action の redirect 後に toast する方式は、遷移でクライアント状態が
 // 消えるため使わない）
 export type CreateRoomResult =
   | { ok: true; roomId: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; outcome: "unknown" | "rejected" };
 
 export type JoinRoomResult =
   | { ok: true; roomId: string }
@@ -86,33 +86,50 @@ export async function lookupInviteRoom(
   };
 }
 
-export async function createRoom(name?: string): Promise<CreateRoomResult> {
+export async function createRoom(
+  input: z.infer<typeof CreateRoomInputSchema>,
+): Promise<CreateRoomResult> {
   const user = await getCurrentUser();
-
-  if (!user) {
-    redirect("/login");
+  if (!user)
+    return {
+      ok: false,
+      outcome: "rejected",
+      error: "ログインしてから同じ作成を再試行してください。",
+    };
+  const parsedInput = CreateRoomInputSchema.safeParse(input);
+  if (!parsedInput.success)
+    return {
+      ok: false,
+      outcome: "rejected",
+      error: "作成要求IDと80文字以内のルーム名が必要です。",
+    };
+  try {
+    const res = await apiFetch("/api/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsedInput.data),
+    });
+    if ([400, 401, 403, 409, 410].includes(res.status))
+      return {
+        ok: false,
+        outcome: "rejected",
+        error:
+          res.status === 410
+            ? "この作成要求のルームは終了または削除されています。別のルームを作成できます。"
+            : "作成要求を受け付けられませんでした。ログイン状態と入力を確認してください。",
+      };
+    const parsed = res.ok
+      ? CreateRoomResponseSchema.safeParse(await res.json().catch(() => null))
+      : null;
+    if (parsed?.success) return { ok: true, roomId: parsed.data.roomId };
+  } catch {
+    // 送信後の通信失敗では成功・失敗を決めない。
   }
-
-  const input = CreateRoomInputSchema.safeParse({ name });
-  if (!input.success)
-    return { ok: false, error: "ルーム名は80文字以内で入力してください。" };
-  const res = await apiFetch("/api/rooms", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input.data),
-  });
-  // 2xx でもボディが不正 JSON（プロキシの HTML エラーページ等）のことがある。
-  const parsed = res.ok
-    ? CreateRoomResponseSchema.safeParse(await res.json().catch(() => null))
-    : null;
-
-  if (!parsed?.success) {
-    return { ok: false, error: "ルームを作成できませんでした。" };
-  }
-
-  // 作成直後は lobby 状態なので、ボードではなくスタート画面へ遷移する。
-  // 遷移と「ルームを作成しました」toast は呼び出し側クライアントが行う。
-  return { ok: true, roomId: parsed.data.roomId };
+  return {
+    ok: false,
+    outcome: "unknown",
+    error: "作成結果を確認できません。同じ作成を確認・再試行してください。",
+  };
 }
 
 export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {

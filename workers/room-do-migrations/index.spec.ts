@@ -44,6 +44,7 @@ const ALL_TABLES = [
   "progress_history",
   "progress_history_outbox",
   "retained_outcome_participants",
+  "room_creation_marker",
   "room_owner",
   "room_state",
   "schema_migrations",

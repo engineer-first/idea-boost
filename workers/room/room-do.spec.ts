@@ -446,7 +446,30 @@ describe("RoomDO 進行状態", () => {
 });
 
 describe("RoomDO 解散", () => {
-  it("disband はストレージを完全に空にする（schema_migrations 含む）", async () => {
+  it.each([
+    true,
+    false,
+  ])("成果未初期化の解散後も作成再送と参加を拒否する（マーカー=%s）", async (hasMarker) => {
+    const roomId = `room-disband-creation-retry-${hasMarker}`;
+    const stub = roomStub(roomId);
+    await stub.initializeNewRoom(USER_A, "Host");
+    if (!hasMarker)
+      await runInRoomDO(roomId, (_instance, state) => {
+        state.storage.sql.exec("DELETE FROM room_creation_marker");
+      });
+    await stub.disband();
+
+    expect(await stub.resumeRoomCreation(USER_A, "Host", { roomId })).toBe(
+      "closed",
+    );
+    expect(await stub.isJoinable()).toBe(false);
+    expect(await stub.upsertMember(USER_B, "Member")).toEqual({
+      ok: false,
+      reason: "room-closed",
+    });
+  });
+
+  it("disband は参加状態を消去し作成墓標を残す", async () => {
     const roomId = "room-disband-empty";
     const stub = roomStub(roomId);
     await stub.initializeNewRoom(USER_A, "Host");
@@ -455,7 +478,7 @@ describe("RoomDO 解散", () => {
 
     await stub.disband();
 
-    // deleteAll 後はテーブル自体が消える。listMembers RPC は使わず storage を直接見る。
+    // 閉鎖マーカーを残し、参加用の状態だけを消去する。
     await runInRoomDO(roomId, (_instance, state) => {
       const tables = state.storage.sql
         .exec(
@@ -463,7 +486,17 @@ describe("RoomDO 解散", () => {
         )
         .toArray()
         .map((row) => String(row.name));
-      expect(tables).toEqual([]);
+      expect(tables).toContain("room_creation_marker");
+      expect(
+        state.storage.sql.exec("SELECT host_id FROM room_creation_marker").one()
+          .host_id,
+      ).toBe(USER_A);
+      expect(
+        state.storage.sql.exec("SELECT user_id FROM members").toArray(),
+      ).toEqual([]);
+      expect(state.storage.sql.exec("SELECT id FROM notes").toArray()).toEqual(
+        [],
+      );
     });
   });
 });

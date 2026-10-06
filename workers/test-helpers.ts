@@ -53,7 +53,11 @@ export async function createRoomAs(
 ): Promise<{ roomId: string; inviteCode: string }> {
   const res = await SELF.fetch("https://api.test/api/rooms", {
     method: "POST",
-    headers: { Cookie: await sessionCookieFor(user) },
+    headers: {
+      Cookie: await sessionCookieFor(user),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ requestId: crypto.randomUUID() }),
   });
   expect(res.status).toBe(200);
   return res.json();

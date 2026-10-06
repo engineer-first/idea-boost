@@ -151,7 +151,7 @@ export async function findRoomByCode(
 ): Promise<RoomRecord | null> {
   const row = await db
     .prepare(
-      "SELECT id, invite_code, host_id FROM rooms WHERE invite_code = ?1",
+      "SELECT id, invite_code, host_id FROM rooms WHERE invite_code = ?1 AND NOT EXISTS (SELECT 1 FROM room_creation_requests WHERE room_id=rooms.id AND status='pending')",
     )
     .bind(inviteCode)
     .first<{ id: string; invite_code: string; host_id: string }>();
@@ -165,7 +165,7 @@ export async function findRoomById(
 ): Promise<RoomRecord | null> {
   const row = await db
     .prepare(
-      "SELECT id, invite_code, host_id, created_at FROM rooms WHERE id = ?1",
+      "SELECT id, invite_code, host_id, created_at FROM rooms WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM room_creation_requests WHERE room_id=rooms.id AND status='pending')",
     )
     .bind(roomId)
     .first<{
