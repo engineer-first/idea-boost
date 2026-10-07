@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   query: vi.fn(),
   receipt: vi.fn(),
+  refresh: () => {},
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push }) }));
 vi.mock("../logic/actions", () => ({
@@ -28,7 +29,10 @@ vi.mock("../logic/room-creation-storage", () => ({
   listRoomCreationIntents: mocks.list,
   readRoomCreationIntent: mocks.read,
   saveRoomCreationResult: mocks.receipt,
-  subscribeRoomCreations: () => () => {},
+  subscribeRoomCreations: (onChange: () => void) => {
+    mocks.refresh = onChange;
+    return () => {};
+  },
   notifyRoomCreations: vi.fn(),
 }));
 
@@ -254,4 +258,36 @@ it("以前のルームへの移動失敗は同じ候補を残し、再試行で�
   expect(
     screen.getByRole("button", { name: /以前のルームを開く/ }),
   ).toBeEnabled();
+});
+
+it("以前のルームを開く途中の保存通知は自動補完で移動を取り消さない", async () => {
+  const record = {
+    expectedPrincipal: userId,
+    requestId: "request",
+    roomId,
+    state: "known",
+    issuedAt: 1,
+    name: "",
+  };
+  mocks.list.mockResolvedValue([record]);
+  let release!: (value: unknown) => void;
+  mocks.confirm.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  render(<ReturnRoomSection currentUserId={userId} />);
+  await screen.findByText("以前のルーム");
+  fireEvent.click(screen.getByText("以前のルーム"));
+  fireEvent.click(screen.getByRole("button", { name: /以前のルームを開く/ }));
+  await waitFor(() => expect(mocks.confirm).toHaveBeenCalledTimes(1));
+  // localStorageがない状態で、IndexedDBの成功receiptが通知される。
+  mocks.read.mockResolvedValue(record);
+  await act(async () => mocks.refresh());
+  await act(async () =>
+    release({ kind: "ready", href: `/rooms/${roomId}/start` }),
+  );
+  expect(mocks.push).toHaveBeenCalledWith(`/rooms/${roomId}/start`);
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
 });

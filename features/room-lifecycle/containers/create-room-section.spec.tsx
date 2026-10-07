@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { issueCreationId } from "@/contracts/room-creation";
@@ -18,6 +18,7 @@ const m = vi.hoisted(() => ({
   update: vi.fn(),
   list: vi.fn(),
   clear: vi.fn(),
+  refresh: () => {},
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
 vi.mock("../logic/actions", () => ({
@@ -36,7 +37,10 @@ vi.mock("../logic/room-creation-storage", () => ({
   listRoomCreationIntents: m.list,
   clearRoomCreationIntent: m.clear,
   selectRoomCreationIntent: vi.fn(),
-  subscribeRoomCreations: () => () => {},
+  subscribeRoomCreations: (onChange: () => void) => {
+    m.refresh = onChange;
+    return () => {};
+  },
   notifyRoomCreations: vi.fn(),
 }));
 vi.mock("@/lib/notify", () => ({ notify: { error: vi.fn() } }));
@@ -431,4 +435,33 @@ it("送信時に期限を過ぎた場合も名前を消し新規作成を主操�
   expect(
     screen.getByRole("button", { name: "新しいルームを作成" }),
   ).toBeEnabled();
+});
+
+it("選択切替後の古い再訪エラーは現在の新規作成を回復画面へ戻さない", async () => {
+  const previous = { ...intent(), state: "known" as const, roomId: ROOM };
+  m.read.mockResolvedValue(previous);
+  let reject!: (reason: Error) => void;
+  m.returnTo.mockReturnValueOnce(
+    new Promise((_resolve, fail) => {
+      reject = fail;
+    }),
+  );
+  render(<CreateRoomSection currentUserId={USER} />);
+  // 新規作成が成功し、移動先の確認を待っている間に別タブが選択を変える。
+  await click();
+  await waitFor(() => expect(m.returnTo).toHaveBeenCalled());
+  const replacement = { ...intent(), state: "known" as const, roomId: ROOM };
+  m.read.mockResolvedValue(replacement);
+  m.selected.mockResolvedValue(false);
+  await act(async () => m.refresh());
+  await act(async () => reject(new Error("old request failed")));
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "新しいルームを作成" }),
+    ).toBeEnabled(),
+  );
+  expect(
+    screen.queryByRole("button", { name: "もう一度試す" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("textbox")).toBeEnabled();
 });

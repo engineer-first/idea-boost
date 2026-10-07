@@ -83,7 +83,13 @@ export function ReturnRoomSection({
         if (!current(expectedTurn) || readTurn !== recordRead) return;
         setRecords(list);
         // 直前の参加先を古い作成情報で上書きしない。保存先が失われた場合だけ補完。
-        if (!lastRoom && active?.roomId && active.roomId !== fallbackRoom) {
+        // ユーザーが開き始めた履歴を自動補完で取り消さない。
+        if (
+          !pending.current &&
+          !lastRoom &&
+          active?.roomId &&
+          active.roomId !== fallbackRoom
+        ) {
           fallbackRoom = active.roomId;
           const nextTurn = ++generation.current;
           setCandidate({ userId: currentUserId, roomId: active.roomId });

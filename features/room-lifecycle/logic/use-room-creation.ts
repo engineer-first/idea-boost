@@ -338,7 +338,15 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         // 同タブのServer Actionによる自動確認で、開始した移動を取り消さない。
         notifyRoomCreations(false);
       } catch {
-        if (sameActor()) {
+        // 失敗した応答も、別タブが選び直した現在の操作へ反映しない。
+        const stillSelected =
+          !next ||
+          (await isRoomCreationSelected(
+            principal,
+            next.requestId,
+            next.generation,
+          ).catch(() => true));
+        if (sameActor() && stillSelected) {
           if (next?.roomId) {
             setIntent(next);
             setRetryDestination(true);
