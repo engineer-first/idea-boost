@@ -10,6 +10,7 @@ import {
   buildMembers,
   buildNote,
   buildNotes,
+  buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { useFeedback } from "@/features/feedback";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -1127,7 +1128,11 @@ export const CanvasInputInteraction: Story = {
 
 export const CanvasInputSharing: Story = {
   ...CanvasInputInteraction,
-  args: { ...CanvasInputInteraction.args, phase: STEP_1_2 },
+  args: {
+    ...CanvasInputInteraction.args,
+    phase: STEP_1_2,
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+  },
 };
 
 export const CanvasInputPrivate: Story = {
