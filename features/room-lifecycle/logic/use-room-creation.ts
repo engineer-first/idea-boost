@@ -187,6 +187,11 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     submitting.current = true;
     startTransition(async () => {
       let next = !resume && startsNew ? null : currentIntent;
+      let storageFailed = false;
+      const storageFailure = (error: unknown): never => {
+        storageFailed = true;
+        throw error;
+      };
       try {
         if (!next) {
           const issued = await issueRoomCreation(principal);
@@ -206,7 +211,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             principal,
             candidate,
             currentIntent?.requestId ?? null,
-          );
+          ).catch(storageFailure);
           if (!sameActor()) return;
           setIntent(next);
           setNewIntent(false);
@@ -226,7 +231,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             principal,
             next.requestId,
             next.generation,
-          )) &&
+          ).catch(storageFailure)) &&
           sameActor();
         if (!(await selected())) return;
         let roomId = next.roomId;
@@ -249,7 +254,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             next = await updateRoomCreationIntent(principal, next, {
               state: query.status.kind === "closed" ? "closed" : "expired",
               name: "",
-            });
+            }).catch(storageFailure);
             if (!(await selected())) return;
             setIntent(next);
             setMessage(
@@ -264,7 +269,9 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             );
             return;
           } else {
-            next = await markRoomCreationSubmitted(principal, next);
+            next = await markRoomCreationSubmitted(principal, next).catch(
+              storageFailure,
+            );
             if (!(await selected())) return;
             setIntent(next);
             // 保存中に別タブが成功receiptを確定した場合は作成を再送しない。
@@ -309,14 +316,16 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
                   ...(["expired", "closed"].includes(result.reason)
                     ? { name: "" }
                     : {}),
-                });
+                }).catch(storageFailure);
                 if (!(await selected())) return;
                 setIntent(next);
               }
               return;
             }
           }
-          next = await saveRoomCreationResult(principal, next, roomId);
+          next = await saveRoomCreationResult(principal, next, roomId).catch(
+            storageFailure,
+          );
         }
         if (!(await selected())) return;
         setIntent(next);
@@ -355,7 +364,9 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
           setMessage(
             next?.roomId
               ? "ルームを開けませんでした。もう一度お試しください。"
-              : "作成を続けられません。ブラウザの保存設定を確認してもう一度お試しください。",
+              : storageFailed
+                ? "作成を続けられません。ブラウザの保存設定を確認してもう一度お試しください。"
+                : "ルームの作成を完了できませんでした。通信状態を確認して、もう一度お試しください。",
           );
         }
       } finally {

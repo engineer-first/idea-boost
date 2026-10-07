@@ -216,6 +216,55 @@ describe("作成控えからの回復", () => {
     );
     expect(m.create).not.toHaveBeenCalled();
   });
+  it.each([
+    "issue",
+    "query",
+    "create",
+  ] as const)("%sの通信例外では保存設定へ誘導せず再試行できる", async (operation) => {
+    m[operation].mockRejectedValueOnce(new TypeError("offline"));
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click();
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toHaveTextContent("もう一度");
+      expect(screen.getByRole("status")).not.toHaveTextContent("保存設定");
+    });
+    expect(m.push).not.toHaveBeenCalled();
+    const requestId = m.save.mock.calls[0]?.[1].requestId;
+    await click(
+      operation === "issue"
+        ? "新しいルームを作成"
+        : operation === "query"
+          ? "作成を続ける"
+          : "もう一度試す",
+    );
+    await waitFor(() => expect(m.push).toHaveBeenCalled());
+    if (requestId) {
+      expect(m.create.mock.lastCall?.[0].requestId).toBe(requestId);
+      expect(m.issue).toHaveBeenCalledTimes(1);
+    }
+  });
+  it.each([
+    "save",
+    "selected",
+    "submitted",
+    "update",
+    "receipt",
+  ] as const)("%sの保存例外では保存設定の案内を表示する", async (operation) => {
+    if (operation === "update") {
+      m.query.mockResolvedValue({
+        ok: true,
+        status: { kind: "unknown", acceptance: "expired" },
+      });
+    }
+    m[operation].mockRejectedValueOnce(new Error("storage abort"));
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click();
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("保存設定"),
+    );
+    expect(m.push).not.toHaveBeenCalled();
+    if (operation !== "receipt") expect(m.create).not.toHaveBeenCalled();
+  });
   it("別tabの勝者を黙って送らない", async () => {
     m.save.mockResolvedValue(intent());
     render(<CreateRoomSection currentUserId={USER} />);
