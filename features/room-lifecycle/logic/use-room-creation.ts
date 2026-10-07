@@ -11,17 +11,14 @@ import {
 } from "./actions";
 import { lifecycleNotify } from "./lifecycle-notify";
 import {
-  clearRoomCreationIntent,
   discardRoomCreationRecords,
   isRoomCreationSelected,
-  listRoomCreationIntents,
   markRoomCreationSubmitted,
   notifyRoomCreations,
   type RoomCreationIntent,
   readRoomCreationIntent,
   saveRoomCreationIntent,
   saveRoomCreationResult,
-  selectRoomCreationIntent,
   subscribeRoomCreations,
   updateRoomCreationIntent,
 } from "./room-creation-storage";
@@ -32,19 +29,19 @@ export type RoomCreationControls = {
   intentName?: string;
   recovering: boolean;
   recoveryState?: string;
-  issuedAt?: number;
   message?: string;
   storageError: boolean;
   onNewIntent: () => void;
   onDiscard: () => void;
-  savedIntents: { requestId: string; name: string; state: string }[];
-  onSelectIntent: (requestId: string) => void;
+  requiresNewConfirmation: boolean;
+  onRecover: () => void;
 };
 export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [intent, setIntent] = useState<RoomCreationIntent | null>(null);
-  const [records, setRecords] = useState<RoomCreationIntent[]>([]);
+  const [newIntent, setNewIntent] = useState(false);
+  const [retryDestination, setRetryDestination] = useState(false);
   const [message, setMessage] = useState<string>();
   const [initialized, setInitialized] = useState(false);
   const [loadedPrincipal, setLoadedPrincipal] = useState<string>();
@@ -58,6 +55,8 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     generation.current++;
     setInitialized(false);
     setMessage(undefined);
+    setNewIntent(false);
+    setRetryDestination(false);
     let readGeneration = 0;
     async function refresh() {
       const readTurn = ++readGeneration,
@@ -70,8 +69,68 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         return;
       }
       try {
-        const saved = await readRoomCreationIntent(currentUserId);
-        const list = await listRoomCreationIntents(currentUserId);
+        let saved = await readRoomCreationIntent(currentUserId);
+        let changed = false;
+        if (
+          !live ||
+          readTurn !== readGeneration ||
+          currentGeneration !== generation.current
+        )
+          return;
+        // ホーム表示で行うのは本人の読み取りだけ。作成を自動再送しない。
+        if (
+          saved &&
+          !saved.roomId &&
+          saved.state !== "closed" &&
+          !submitting.current
+        ) {
+          const result = await queryRoomCreation(
+            currentUserId,
+            saved.requestId,
+          ).catch(() => null);
+          if (
+            !live ||
+            readTurn !== readGeneration ||
+            currentGeneration !== generation.current
+          )
+            return;
+          if (
+            await isRoomCreationSelected(
+              currentUserId,
+              saved.requestId,
+              saved.generation,
+            )
+          ) {
+            if (
+              !live ||
+              readTurn !== readGeneration ||
+              currentGeneration !== generation.current
+            )
+              return;
+            if (result?.ok && result.status.kind === "ready") {
+              saved = await saveRoomCreationResult(
+                currentUserId,
+                saved,
+                result.status.roomId,
+              );
+              changed = true;
+            } else if (
+              result?.ok &&
+              (result.status.kind === "closed" ||
+                result.status.acceptance === "expired")
+            ) {
+              const state =
+                result.status.kind === "closed" ? "closed" : "expired";
+              if (saved.state !== state) {
+                saved = await updateRoomCreationIntent(currentUserId, saved, {
+                  state,
+                  name: "",
+                });
+                changed = true;
+              }
+            }
+          }
+        }
         if (
           !live ||
           readTurn !== readGeneration ||
@@ -79,8 +138,8 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         )
           return;
         setIntent(saved);
-        setRecords(list);
         setStorageError(false);
+        if (changed) notifyRoomCreations();
       } catch {
         if (
           live &&
@@ -89,7 +148,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         ) {
           setStorageError(true);
           setMessage(
-            "控えを読み取れません。別タブを閉じ、保存設定を確認して再読み込みしてください。",
+            "このブラウザで作成を続けられません。別タブを閉じ、保存設定を確認して再読み込みしてください。",
           );
         }
       }
@@ -97,9 +156,10 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         live &&
         readTurn === readGeneration &&
         currentGeneration === generation.current
-      )
+      ) {
         setLoadedPrincipal(currentUserId);
-      setInitialized(true);
+        setInitialized(true);
+      }
     }
     void refresh();
     const unsubscribe = subscribeRoomCreations(() => void refresh());
@@ -111,7 +171,14 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   }, [currentUserId]);
   const currentIntent =
     intent?.expectedPrincipal === currentUserId ? intent : null;
-  function handleSubmit(name: string) {
+  const startsNew =
+    newIntent ||
+    (!retryDestination &&
+      (currentIntent?.state === "known" ||
+        currentIntent?.state === "expired" ||
+        currentIntent?.state === "closed"));
+  const recovering = Boolean(currentIntent) && !startsNew;
+  function handleSubmit(name: string, resume = false) {
     if (submitting.current || storageError || !currentUserId) return;
     const principal = currentUserId,
       turn = generation.current;
@@ -119,7 +186,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
       actor.current === principal && generation.current === turn;
     submitting.current = true;
     startTransition(async () => {
-      let next = currentIntent;
+      let next = !resume && startsNew ? null : currentIntent;
       try {
         if (!next) {
           const issued = await issueRoomCreation(principal);
@@ -135,13 +202,19 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             state: "prepared",
             generation: crypto.randomUUID(),
           };
-          next = await saveRoomCreationIntent(principal, candidate);
+          next = await saveRoomCreationIntent(
+            principal,
+            candidate,
+            currentIntent?.requestId ?? null,
+          );
           if (!sameActor()) return;
           setIntent(next);
+          setNewIntent(false);
+          setRetryDestination(false);
           notifyRoomCreations();
           if (next.requestId !== candidate.requestId) {
             setMessage(
-              "別タブの作成の控えがあります。前回を確認するか、別のルームを選んでください。",
+              "別タブでルームの作成が進んでいます。その操作を続けるか、新しいルームを作成してください。",
             );
             return;
           }
@@ -161,7 +234,11 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
           const query = await queryRoomCreation(principal, next.requestId);
           if (!(await selected())) return;
           if (!query.ok) {
-            setMessage(query.error);
+            setMessage(
+              query.reason === "actor_mismatch"
+                ? "アカウントが変わりました。ログイン状態を確認してください。"
+                : "ルームを開けませんでした。もう一度お試しください。",
+            );
             return;
           }
           if (query.status.kind === "ready") roomId = query.status.roomId;
@@ -177,18 +254,19 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             setIntent(next);
             setMessage(
               query.status.kind === "closed"
-                ? "このルームは終了または削除されています。"
-                : "作成を再試行できる24時間が過ぎました。既に作成された可能性があるため、結果の確認は続けられます。",
+                ? "前のルームには戻れません。新しいルームを作成できます。"
+                : "前のルームを開けませんでした。新しいルームを作成するか、もう一度探してください。",
             );
             return;
           } else if (next.state === "conflict") {
             setMessage(
-              "この控えの入力を受け付けられません。結果だけを確認するか、別のルームを選んでください。",
+              "入力内容を確認できません。前のルームを探すか、新しいルームを作成してください。",
             );
             return;
           } else {
             next = await markRoomCreationSubmitted(principal, next);
             if (!(await selected())) return;
+            setIntent(next);
             const result = await createRoom({
               expectedPrincipal: principal,
               requestId: next.requestId,
@@ -198,17 +276,36 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             if (result.ok) roomId = result.roomId;
             else {
               if (!(await selected())) return;
-              setMessage(result.error);
-              notify.error(result.error);
+              const error =
+                result.outcome === "unknown"
+                  ? "ルームへの移動を完了できませんでした。もう一度お試しください。"
+                  : result.reason === "expired"
+                    ? "前のルームを開けませんでした。新しいルームを作成するか、もう一度探してください。"
+                    : result.reason === "closed"
+                      ? "前のルームには戻れません。新しいルームを作成できます。"
+                      : result.reason === "update_required"
+                        ? "画面を再読み込みしてから、もう一度お試しください。"
+                        : result.reason === "input_conflict"
+                          ? "入力内容を確認できません。前のルームを探すか、新しいルームを作成してください。"
+                          : result.error;
+              setMessage(error);
+              notify.error(error);
               if (
                 result.reason === "actor_mismatch" ||
-                result.reason === "input_conflict"
+                result.reason === "input_conflict" ||
+                result.reason === "expired" ||
+                result.reason === "closed"
               ) {
                 next = await updateRoomCreationIntent(principal, next, {
                   state:
                     result.reason === "actor_mismatch"
                       ? "actor_mismatch"
-                      : "conflict",
+                      : result.reason === "input_conflict"
+                        ? "conflict"
+                        : result.reason,
+                  ...(["expired", "closed"].includes(result.reason)
+                    ? { name: "" }
+                    : {}),
                 });
                 if (!(await selected())) return;
                 setIntent(next);
@@ -224,79 +321,50 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         const destination = await returnToRoom(roomId);
         if (!(await selected())) return;
         if (destination.kind !== "ready") {
+          setRetryDestination(true);
           setMessage(
             destination.kind === "unavailable_room"
               ? "作成済みのルームは現在利用できません。"
-              : "作成済みです。移動先を確認できないため、後でルームを開いてください。",
+              : "ルームを開けませんでした。もう一度お試しください。",
           );
           return;
         }
+        setRetryDestination(false);
         lifecycleNotify.roomCreated();
         router.push(destination.href);
+        // 同タブのServer Actionによる自動確認で、開始した移動を取り消さない。
+        notifyRoomCreations(false);
       } catch {
-        if (sameActor())
+        if (sameActor()) {
+          if (next?.roomId) {
+            setIntent(next);
+            setRetryDestination(true);
+            notifyRoomCreations();
+          }
           setMessage(
             next?.roomId
-              ? "作成済みの控えを残しています。もう一度ルームを開いてください。"
-              : "控えの保存・結果を確認できません。保存設定を確認して再試行してください。",
+              ? "ルームを開けませんでした。もう一度お試しください。"
+              : "作成を続けられません。ブラウザの保存設定を確認してもう一度お試しください。",
           );
+        }
       } finally {
         submitting.current = false;
       }
     });
   }
   function handleNewIntent() {
-    if (!currentUserId) return;
-    const principal = currentUserId,
-      turn = ++generation.current;
-    const current = () =>
-      actor.current === principal && generation.current === turn;
-    startTransition(async () => {
-      try {
-        await clearRoomCreationIntent(principal, currentIntent?.requestId);
-        if (!current()) return;
-        const list = await listRoomCreationIntents(principal);
-        if (!current()) return;
-        setIntent(null);
-        setMessage(undefined);
-        setRecords(list);
-        notifyRoomCreations();
-      } catch {
-        if (current()) {
-          setStorageError(true);
-          setMessage("控えの選択を保存できません。");
-        }
-      }
-    });
-  }
-  function handleSelect(requestId: string) {
-    if (!currentUserId) return;
-    const principal = currentUserId,
-      turn = ++generation.current;
-    const current = () =>
-      actor.current === principal && generation.current === turn;
-    startTransition(async () => {
-      try {
-        await selectRoomCreationIntent(principal, requestId);
-        if (!current()) return;
-        const selected = await readRoomCreationIntent(principal);
-        if (!current()) return;
-        setIntent(selected);
-        setMessage(undefined);
-        notifyRoomCreations();
-      } catch {
-        if (current()) {
-          setStorageError(true);
-          setMessage("控えを読み取れません。");
-        }
-      }
-    });
+    if (!currentUserId || submitting.current) return;
+    generation.current++;
+    // 保存済みの選択は実際の作成まで維持する。確認のキャンセルで失わない。
+    setNewIntent(true);
+    setRetryDestination(false);
+    setMessage(undefined);
   }
   function handleDiscard() {
     if (
       !currentUserId ||
       !window.confirm(
-        "控えを破棄すると、作成済みのルームを見つけられなくなる可能性があります。次に別のルームを作ると両方が残ることがあります。破棄しますか？",
+        "このブラウザの保存をリセットすると、前のルームを見つけられなくなる可能性があります。次に新しいルームを作ると両方が残ることがあります。リセットしますか？",
       )
     )
       return;
@@ -309,13 +377,14 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         await discardRoomCreationRecords(principal);
         if (!current()) return;
         setIntent(null);
-        setRecords([]);
+        setNewIntent(false);
+        setRetryDestination(false);
         setMessage(undefined);
         setStorageError(false);
       } catch {
         if (current())
           setMessage(
-            "控えを破棄できません。保存設定を確認して再読み込みしてください。",
+            "保存をリセットできません。保存設定を確認して再読み込みしてください。",
           );
       }
     });
@@ -323,21 +392,21 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   return {
     pending: pending || !initialized || loadedPrincipal !== currentUserId,
     onSubmit: handleSubmit,
-    intentName: currentIntent?.name,
-    recovering: Boolean(currentIntent),
+    intentName: recovering ? currentIntent?.name : undefined,
+    recovering,
     recoveryState: currentIntent?.state,
-    issuedAt: currentIntent?.issuedAt,
     message: loadedPrincipal === currentUserId ? message : undefined,
     storageError,
     onNewIntent: handleNewIntent,
     onDiscard: handleDiscard,
-    savedIntents: records
-      .filter(
-        (r) =>
-          r.expectedPrincipal === currentUserId &&
-          r.requestId !== currentIntent?.requestId,
-      )
-      .map((r) => ({ requestId: r.requestId, name: r.name, state: r.state })),
-    onSelectIntent: handleSelect,
+    requiresNewConfirmation:
+      startsNew &&
+      Boolean(
+        currentIntent &&
+          !currentIntent.roomId &&
+          currentIntent.state !== "prepared" &&
+          currentIntent.state !== "closed",
+      ),
+    onRecover: () => handleSubmit("", true),
   };
 }

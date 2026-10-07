@@ -54,9 +54,6 @@ export function HomeView({ error, currentUserId }: HomeViewProps) {
           <CreateRoomSection currentUserId={currentUserId} />
           <JoinRoomSection currentUserId={currentUserId} />
         </div>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          作成の再試行は24時間以内です。控えはこのブラウザで復元します。保存を消した場合や別の端末では、同じ作成を見つけられないことがあります。
-        </p>
         <nav
           aria-label="過去の成果"
           className="flex justify-end border-t border-border/60 pt-2"

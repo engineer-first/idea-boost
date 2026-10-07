@@ -6,6 +6,11 @@ import {
 
 export const ROOM_CREATION_STORAGE_PREFIX = "idea-boost:room-creation:";
 export const ROOM_CREATION_DB = "idea-boost-room-creations";
+let tabSource: string | undefined;
+function currentTabSource(): string {
+  tabSource ??= crypto.randomUUID();
+  return tabSource;
+}
 const IntentSchema = z.object({
   expectedPrincipal: z.string().uuid(),
   requestId: CreationRequestIdSchema,
@@ -296,17 +301,24 @@ export function subscribeRoomCreations(onChange: () => void): () => void {
     typeof BroadcastChannel !== "undefined"
       ? new BroadcastChannel(ROOM_CREATION_DB)
       : null;
-  if (channel) channel.onmessage = onChange;
+  if (channel)
+    channel.onmessage = (event) => {
+      // 通知用channelは別instanceなので、同じタブにもmessageが届く。
+      if (event.data?.source !== currentTabSource()) onChange();
+    };
   window.addEventListener("focus", onChange);
+  window.addEventListener(ROOM_CREATION_DB, onChange);
   return () => {
     channel?.close();
     window.removeEventListener("focus", onChange);
+    window.removeEventListener(ROOM_CREATION_DB, onChange);
   };
 }
-export function notifyRoomCreations(): void {
+export function notifyRoomCreations(includeCurrentTab = true): void {
+  if (includeCurrentTab) window.dispatchEvent(new Event(ROOM_CREATION_DB));
   if (typeof BroadcastChannel !== "undefined") {
     const c = new BroadcastChannel(ROOM_CREATION_DB);
-    c.postMessage("changed");
+    c.postMessage({ source: currentTabSource() });
     c.close();
   }
 }

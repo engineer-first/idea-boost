@@ -41,7 +41,9 @@ it("候補IDを発行しても保存transactionのcommit失敗ならcreateを送
   render(
     <CreateRoomSection currentUserId="11111111-1111-4111-8111-111111111111" />,
   );
-  const button = await screen.findByRole("button", { name: "ルームを作成" });
+  const button = await screen.findByRole("button", {
+    name: "新しいルームを作成",
+  });
   await waitFor(() => expect(button).not.toBeDisabled());
   await userEvent.click(button);
   await waitFor(() => expect(mocks.issue).toHaveBeenCalled());

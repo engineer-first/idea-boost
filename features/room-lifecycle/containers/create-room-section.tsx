@@ -7,5 +7,5 @@ export function CreateRoomSection({
   currentUserId?: string;
 }) {
   const controls = useRoomCreation(currentUserId);
-  return <CreateRoomSectionView {...controls} />;
+  return <CreateRoomSectionView key={currentUserId} {...controls} />;
 }

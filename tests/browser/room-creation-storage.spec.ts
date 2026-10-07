@@ -249,3 +249,32 @@ it("壊れた控えの明示破棄後だけ新たな控えを作れる", async (
   ).toBe(v.requestId);
   await p.close();
 });
+
+it("同じタブの作成成功通知も再訪の入口へ届ける", async () => {
+  const page = await tab();
+  const count = await page.evaluate(() => {
+    let calls = 0;
+    const stop = window.creationStore.subscribeRoomCreations(() => {
+      calls++;
+    });
+    window.creationStore.notifyRoomCreations();
+    stop();
+    return calls;
+  });
+  expect(count).toBe(1);
+});
+
+it("移動中の通知は同じタブのBroadcastChannelからも確認を再開しない", async () => {
+  const page = await tab();
+  const count = await page.evaluate(async () => {
+    let calls = 0;
+    const stop = window.creationStore.subscribeRoomCreations(() => {
+      calls++;
+    });
+    window.creationStore.notifyRoomCreations(false);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    stop();
+    return calls;
+  });
+  expect(count).toBe(0);
+});

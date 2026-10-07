@@ -43,7 +43,7 @@ describe("HomeView", () => {
     renderView();
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "ルームを作成" }),
+        screen.getByRole("button", { name: "新しいルームを作成" }),
       ).toBeEnabled(),
     );
     expect(screen.getByRole("textbox", { name: "招待コード" })).toBeEnabled();

@@ -245,7 +245,7 @@ it.each([
     const name = page.getByRole("textbox", { name: "ルーム名（任意）" });
     const code = page.getByRole("textbox", { name: "招待コード" });
     const create = page.getByRole("button", {
-      name: "ルームを作成",
+      name: "新しいルームを作成",
       exact: true,
     });
     const join = page.getByRole("button", { name: "参加する", exact: true });
@@ -584,6 +584,54 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         );
         await rm(runtime.directory, { recursive: true, force: true });
       }
+    }
+  });
+
+  it("成功後の新規作成と以前のルームへの移動は、自動確認の応答で取り消されない", async () => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 1280, height: 844 },
+      });
+      await page.goto(`${app}/login?next=%2Fhome`);
+      await page.getByLabel("メールアドレス").fill("owner@example.test");
+      await page.getByLabel("パスワード").fill("password");
+      await page
+        .getByRole("button", { name: "開発用ユーザーでログイン" })
+        .click();
+      await page.waitForURL(`${app}/home`);
+      await page
+        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .fill("前の会");
+      await page
+        .getByRole("button", { name: "新しいルームを作成", exact: true })
+        .click();
+      await page.waitForURL(/\/rooms\/[^/]+\/start/);
+      const first = page.url();
+      await page.goto(`${app}/home`);
+      await page
+        .getByRole("button", { name: "前のルームに戻る", exact: true })
+        .waitFor();
+      await page
+        .getByRole("textbox", { name: "ルーム名（任意）" })
+        .fill("次の会");
+      await page
+        .getByRole("button", { name: "新しいルームを作成", exact: true })
+        .click();
+      await page.waitForURL(/\/rooms\/[^/]+\/start/);
+      expect(page.url()).not.toBe(first);
+      await page.goto(`${app}/home`);
+      await page
+        .getByRole("button", { name: "前のルームに戻る", exact: true })
+        .waitFor();
+      await page.getByText("以前のルーム", { exact: true }).click();
+      await page
+        .getByRole("button", { name: /以前のルームを開く/ })
+        .first()
+        .click();
+      await page.waitForURL(first, { timeout: 5000 });
+    } finally {
+      await browser.close();
     }
   });
 
