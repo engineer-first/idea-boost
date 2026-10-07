@@ -12,6 +12,8 @@ import {
   isPublishAllowedStep,
   type RoomPhase,
 } from "@/contracts/phase";
+import type { SharingState } from "@/contracts/room-protocol";
+import { canPublishNoteInTurn } from "@/contracts/sharing";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "./board-permissions";
 import {
@@ -39,6 +41,7 @@ export type UseRoomBoardInteractionsArgs = {
   currentUserId: string;
   draggingNoteId: string | null;
   phase: RoomPhase;
+  sharing?: SharingState | null;
   isDecided?: boolean;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
@@ -131,6 +134,7 @@ export function useRoomBoardInteractions({
   currentUserId,
   draggingNoteId,
   phase,
+  sharing = null,
   isDecided = false,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = true,
@@ -201,6 +205,7 @@ export function useRoomBoardInteractions({
     getBoardPermissions(phase, isDecided).canMoveNote &&
     (!isIdeaValueFeasibilityMappingStep ||
       mapNoteGeometry.height > mapNoteGeometry.maxNoteHeight);
+  const canPublish = canPublishNoteInTurn(phase, sharing, currentUserId);
   const isIdeaMapCursorSurface =
     phase.kind === "step" &&
     phase.phase === 3 &&
@@ -231,7 +236,8 @@ export function useRoomBoardInteractions({
       ? clampIdeaValueFeasibilityMapCoordinate
       : undefined,
     canMoveSharedNotes,
-    canPublish: isPublishAllowedStep(phase),
+    canPublish,
+    canReturnToPrivate: isPublishAllowedStep(phase),
     lockPrivateMapDrag: isPhaseStep(phase, 3, 2) && isPublishAllowedStep(phase),
     onPublishBlocked: roomNotify.cannotPublishNote,
     onNoteDragStart,
@@ -470,6 +476,7 @@ export function useRoomBoardInteractions({
     },
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: (noteId, event) => {
+      if (!canPublish) return;
       // マイ付箋はviewport外にあるためcameraのpointerdownを通らない。
       // 最初のdrop後の自動fitで本人の指定位置と視野を動かさない。
       preserveCamera();

@@ -32,6 +32,7 @@ import {
   type DotVoteKind,
   type TimerState,
 } from "@/contracts/room-protocol";
+import { canPublishNoteInTurn } from "@/contracts/sharing";
 import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
 import {
   type FeedbackControls,
@@ -1772,6 +1773,11 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
+          canPublishPrivateNote={canPublishNoteInTurn(
+            phase,
+            sharing,
+            currentUserId,
+          )}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           privateNoteAddRef={privateNoteAddRef}
           noteCreationPending={noteCreationPending}

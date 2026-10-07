@@ -9,6 +9,33 @@ import {
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
 import type { RoomDO } from "./room/room-do";
+import {
+  getSharingState,
+  resetSharingForPhase,
+  saveSharingState,
+} from "./room/sharing-state";
+
+// 共有以外の契約を検証するシナリオ用に、既存の発表順で指定者の発表中を用意する。
+// 発表の開始・交代そのものは sharing.spec.ts の実WS操作で検証する。
+export async function arrangeSharingPresenter(
+  roomId: string,
+  userId: string,
+): Promise<void> {
+  await runInRoomDO(roomId, (room, state) => {
+    resetSharingForPhase(state.storage.sql, room.getPhase());
+    const sharing = getSharingState(state.storage.sql);
+    const currentIndex =
+      sharing?.order.findIndex((member) => member.userId === userId) ?? -1;
+    if (!sharing || currentIndex < 0)
+      throw new Error("発表順にテスト対象の参加者がいません。");
+    saveSharingState(state.storage.sql, {
+      ...sharing,
+      status: "active",
+      currentIndex,
+      startsAt: null,
+    });
+  });
+}
 
 export type TestUser = {
   sub: string;

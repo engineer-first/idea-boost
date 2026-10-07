@@ -538,6 +538,7 @@ export function RoomBoard({
     draggingNoteId: notes.draggingNoteId,
     phase: roomState.phase,
     ideaMapSizeLevel: roomState.ideaMap.sizeLevel,
+    sharing: roomState.sharing,
     ideaMapSizeInitialized: roomState.ideaMap.initialized,
     onNoteDragStart: notes.startNoteDrag,
     onNoteDragMove: notes.moveNote,

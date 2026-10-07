@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PHASE_STEP_COUNTS, type RoomPhase } from "../../contracts/phase";
 import type { ServerMessage } from "../../contracts/room-protocol";
 import {
+  arrangeSharingPresenter,
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
@@ -427,6 +428,7 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
       noteIds.push((await receive(a, "note:inserted")).note.id);
     }
     await stub.setPhase({ kind: "step", phase: 1, step: 2 }, A.sub);
+    await arrangeSharingPresenter(roomId, A.sub);
     for (const noteId of noteIds) {
       send(a, { type: "note:publish", noteId, x: 30, y: 40 });
       await receive(a, "note:inserted");

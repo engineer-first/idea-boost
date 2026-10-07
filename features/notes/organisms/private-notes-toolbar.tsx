@@ -34,6 +34,7 @@ export type PrivateNotesToolbarProps = {
   canCreateNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
+  sharingHint?: string;
   defaultExpanded?: boolean;
   expandRequest?: number;
   addRequest?: number;
@@ -68,6 +69,7 @@ export function PrivateNotesToolbar({
   canCreateNote,
   canDeleteNote,
   canMoveNote,
+  sharingHint,
   canEditNote,
   defaultExpanded = true,
   expandRequest = 0,
@@ -384,6 +386,11 @@ export function PrivateNotesToolbar({
               （付箋追加ショートカットキー：
               <br />
               Macは⌘＋Enter、Windows等はCtrl＋Enter）
+            </p>
+          ) : null}
+          {sharingHint ? (
+            <p role="status" className="mb-3 text-xs text-muted-foreground">
+              {sharingHint}
             </p>
           ) : null}
           <div

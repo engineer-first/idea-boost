@@ -1,0 +1,41 @@
+import { describe, expect, it } from "vitest";
+import { buildPhaseStep } from "./phase.fixture";
+import { buildSharingState } from "./room-protocol.fixture";
+import { canPublishNoteInTurn } from "./sharing";
+
+describe("発表中の付箋共有許可", () => {
+  const userId = "presenter";
+  const active = buildSharingState({
+    status: "active",
+    currentIndex: 0,
+    startsAt: null,
+    order: [{ userId, name: "発表者", color: "yellow" }],
+  });
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%iの共有中は発表者本人だけ公開できる", (phase) => {
+    expect(canPublishNoteInTurn(buildPhaseStep(2, phase), active, userId)).toBe(
+      true,
+    );
+    expect(
+      canPublishNoteInTurn(buildPhaseStep(2, phase), active, "listener"),
+    ).toBe(false);
+  });
+  it.each([
+    null,
+    { ...active, status: "ready" as const, currentIndex: null },
+    { ...active, status: "inactive" as const, currentIndex: null },
+    { ...active, status: "complete" as const, currentIndex: null },
+    { ...active, startsAt: Date.now() + 2000 },
+    { ...active, currentIndex: 10 },
+  ])("発表中以外では公開しない（%j）", (sharing) => {
+    expect(canPublishNoteInTurn(buildPhaseStep(2), sharing, userId)).toBe(
+      false,
+    );
+  });
+  it.each([1, 3, 4, 5])("共有以外のstep%iでは公開しない", (step) => {
+    expect(canPublishNoteInTurn(buildPhaseStep(step), active, userId)).toBe(
+      false,
+    );
+  });
+});

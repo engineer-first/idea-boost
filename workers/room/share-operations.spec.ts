@@ -12,6 +12,7 @@ import { findNote, insertNote } from "./notes";
 import { savePhase } from "./phase";
 import type { RoomDO } from "./room-do";
 import { commitShare, replyShareStatus } from "./share-operations";
+import { saveSharingState } from "./sharing-state";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -34,6 +35,15 @@ async function setup(
       B,
     );
     savePhase(state.storage.sql, { kind: "step", phase: 1, step: 3 });
+    saveSharingState(state.storage.sql, {
+      revision: crypto.randomUUID(),
+      order: [{ userId: A, name: "作者", color: "yellow" }],
+      status: "active",
+      currentIndex: 0,
+      results: [],
+      durationMs: 180000,
+      startsAt: null,
+    });
     for (const [id, x] of [
       [N1, 100],
       [N2, 140],

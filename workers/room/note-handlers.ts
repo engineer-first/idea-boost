@@ -11,6 +11,7 @@ import {
   isPhaseStep,
   isVotingStep,
 } from "../../contracts/phase";
+import { canPublishNoteInTurn } from "../../contracts/sharing";
 import type { SocketAttachment } from "./broadcast";
 import { getDecision } from "./decisions";
 import {
@@ -54,6 +55,7 @@ import {
 } from "./notes";
 import { getPhase, getPhaseRevision } from "./phase";
 import { commitShare } from "./share-operations";
+import { getSharingState } from "./sharing-state";
 import {
   addUserNoteVote,
   addVoteSticker,
@@ -175,6 +177,20 @@ export const noteHandlers: MessageHandlers<
     if (!row) return;
     if (row.author_id !== ctx.userId || row.visibility !== "private") {
       replyForbidden(ctx);
+      return;
+    }
+    if (
+      !canPublishNoteInTurn(
+        getPhase(ctx.sql),
+        getSharingState(ctx.sql),
+        ctx.userId,
+      )
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "付箋を共有できるのは自分の発表中だけです。",
+      });
       return;
     }
     const updatedAt = new Date().toISOString();

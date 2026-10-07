@@ -953,6 +953,7 @@ export const CanvasInputInteraction: Story = {
       draggingNoteId,
       phase: args.phase,
       isDecided: args.decision !== null,
+      sharing: args.sharing,
       ideaMapSizeLevel: args.ideaMapSizeLevel,
       ideaMapSizeInitialized: args.ideaMapSizeInitialized,
       getFitInsets: getBoardFitInsets,

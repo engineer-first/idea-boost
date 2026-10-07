@@ -3,7 +3,10 @@ import type { PointerEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { RoomPhase } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import { buildNote } from "@/contracts/room-protocol.fixture";
+import {
+  buildNote,
+  buildSharingState,
+} from "@/contracts/room-protocol.fixture";
 import { useRoomBoardInteractions } from "./use-room-board-interactions";
 
 function setup({
@@ -86,6 +89,11 @@ describe("useRoomBoardInteractions cursor input", () => {
           currentUserId: note.authorId,
           draggingNoteId: null,
           phase: buildPhaseStep(2),
+          sharing: buildSharingState({
+            status: "active",
+            currentIndex: 0,
+            order: [{ userId: note.authorId, name: "作者", color: note.color }],
+          }),
           onNoteDragStart: vi.fn(),
           onNoteDragMove: vi.fn(),
           onNoteDragEnd: vi.fn(),
