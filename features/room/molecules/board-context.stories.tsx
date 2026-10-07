@@ -37,7 +37,7 @@ export const IssueExpanded: Story = {
 export const HmwExpanded: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "決定したHMW" }),
+      within(canvasElement).getByRole("button", { name: "決定した問い" }),
     );
   },
 };

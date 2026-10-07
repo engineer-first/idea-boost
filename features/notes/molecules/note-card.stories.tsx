@@ -201,12 +201,9 @@ export const ExcludedForHost: Story = {
     await userEvent.unhover(surface);
     surface.focus();
     await waitFor(() => expect(restore).toBeVisible());
-    surface.blur();
-    fireEvent.pointerDown(surface, { pointerId: 7, pointerType: "touch" });
-    fireEvent.pointerUp(surface, { pointerId: 7, pointerType: "touch" });
-    await waitFor(() => expect(restore).toBeVisible());
+    // 実タッチはbrowserテストで検証する。storyではfocus時の読みやすさを確認。
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
-    await expect(canvas.queryByText("候補外")).not.toBeInTheDocument();
+    await expect(canvas.getByText("候補外", { exact: true })).toBeVisible();
   },
 };
 
@@ -335,11 +332,10 @@ export const ExcludedForParticipant: Story = {
     const card = canvas.getByTestId("note-card");
     const surface = canvas.getByRole("button", { name: "候補外の付箋" });
 
-    fireEvent.pointerDown(surface, { pointerId: 8, pointerType: "touch" });
-    fireEvent.pointerUp(surface, { pointerId: 8, pointerType: "touch" });
+    surface.focus();
 
     await waitFor(() => expect(getComputedStyle(card).opacity).toBe("0.9"));
-    await expect(canvas.queryByText("候補外")).not.toBeInTheDocument();
+    await expect(canvas.getByText("候補外", { exact: true })).toBeVisible();
     await expect(
       page.queryByRole("button", { name: "候補に戻す" }),
     ).not.toBeInTheDocument();
@@ -466,7 +462,9 @@ export const ResultWithCandidateAction: Story = {
     await userEvent.hover(canvas.getByRole("button", { name: "付箋" }));
     await waitFor(() =>
       expect(
-        canvas.getByRole("button", { name: "候補から外す" }),
+        within(canvasElement.ownerDocument.body).getByRole("button", {
+          name: "候補から外す",
+        }),
       ).toBeVisible(),
     );
   },
@@ -502,7 +500,11 @@ export const ResultExcludedForHost: Story = {
     const canvas = within(canvasElement);
     await userEvent.hover(canvas.getByRole("button", { name: "候補外の付箋" }));
     await waitFor(() =>
-      expect(canvas.getByRole("button", { name: "候補に戻す" })).toBeVisible(),
+      expect(
+        within(canvasElement.ownerDocument.body).getByRole("button", {
+          name: "候補に戻す",
+        }),
+      ).toBeVisible(),
     );
   },
 };
