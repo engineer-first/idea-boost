@@ -267,11 +267,14 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             next = await markRoomCreationSubmitted(principal, next);
             if (!(await selected())) return;
             setIntent(next);
-            const result = await createRoom({
-              expectedPrincipal: principal,
-              requestId: next.requestId,
-              name: next.name,
-            });
+            // 保存中に別タブが成功receiptを確定した場合は作成を再送しない。
+            const result = next.roomId
+              ? { ok: true as const, roomId: next.roomId }
+              : await createRoom({
+                  expectedPrincipal: principal,
+                  requestId: next.requestId,
+                  name: next.name,
+                });
             // 結果receiptは自分のrecordだけ更新。遷移と現在UIは選択照合後。
             if (result.ok) roomId = result.roomId;
             else {

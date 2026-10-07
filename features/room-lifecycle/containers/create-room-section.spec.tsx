@@ -162,6 +162,31 @@ describe("作成控えからの回復", () => {
     );
     expect(m.create).not.toHaveBeenCalled();
   });
+  it("送信前の保存で別タブの成功receiptを得たらPOSTせず同じルームへ進む", async () => {
+    const saved = intent();
+    m.read.mockResolvedValue(saved);
+    m.submitted.mockResolvedValue({
+      ...saved,
+      state: "known",
+      roomId: ROOM,
+      name: "",
+    });
+    // 再送すると元の名前と衝突する。成功済みなら通常再訪だけで進む。
+    m.create.mockResolvedValue({
+      ok: false,
+      outcome: "rejected",
+      reason: "input_conflict",
+      error: "同じ作成要求の入力を変更できません。",
+    });
+    render(<CreateRoomSection currentUserId={USER} />);
+    await click("もう一度試す");
+    await waitFor(() =>
+      expect(m.push).toHaveBeenCalledWith(`/rooms/${ROOM}/start`),
+    );
+    expect(m.returnTo).toHaveBeenCalledWith(ROOM);
+    expect(m.create).not.toHaveBeenCalled();
+    expect(m.issue).not.toHaveBeenCalled();
+  });
   it("遷移失敗でも成功receiptが残り新規発行に戻らない", async () => {
     m.push.mockImplementation(() => {
       throw new Error("navigation failed");
