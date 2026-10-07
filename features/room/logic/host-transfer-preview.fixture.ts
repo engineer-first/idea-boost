@@ -73,6 +73,7 @@ export type HostPreviewServerEvent =
   | "disconnect"
   | "reconnect";
 export type HostTransferPreviewOptions = {
+  connectionDelayMs?: number;
   phase?: RoomPhase;
   members?: ProtocolMember[];
   notes?: ProtocolNote[];
@@ -251,7 +252,7 @@ export function createHostTransferPreview(
       }, 100);
     });
     socket = created;
-    setTimeout(() => open(created), 0);
+    setTimeout(() => open(created), options.connectionDelayMs ?? 0);
     return created as unknown as WebSocket;
   };
   return {

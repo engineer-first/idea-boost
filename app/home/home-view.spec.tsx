@@ -1,9 +1,15 @@
 // ホーム template の単体テスト。
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock("@/features/room-lifecycle/logic/room-creation-storage", () => ({
+  readRoomCreationIntent: vi.fn().mockResolvedValue(null),
+  listRoomCreationIntents: vi.fn().mockResolvedValue([]),
+  subscribeRoomCreations: () => () => {},
 }));
 
 // CreateRoomSection / JoinRoomSection の Server Actions は描画だけでは
@@ -22,15 +28,24 @@ afterEach(() => vi.unstubAllGlobals());
 function renderView(
   overrides: Partial<React.ComponentProps<typeof HomeView>> = {},
 ) {
-  return render(<HomeView {...overrides} />);
+  return render(
+    <HomeView
+      currentUserId="11111111-1111-4111-8111-111111111111"
+      {...overrides}
+    />,
+  );
 }
 
 describe("HomeView", () => {
   // 作成・参加処理の成功/失敗は room-lifecycle の container spec で検証する。
   // ここではホームから両方の操作を始められることを守る。
-  it("ルーム作成と招待コードによる参加の入口を同時に提供する", () => {
+  it("ルーム作成と招待コードによる参加の入口を同時に提供する", async () => {
     renderView();
-    expect(screen.getByRole("button", { name: "ルームを作成" })).toBeEnabled();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "新しいルームを作成" }),
+      ).toBeEnabled(),
+    );
     expect(screen.getByRole("textbox", { name: "招待コード" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "参加する" })).toBeDisabled();
   });

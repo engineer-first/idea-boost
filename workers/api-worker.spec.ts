@@ -6,6 +6,7 @@
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { buildLobbyPhase } from "../contracts/phase.fixture";
+import { issueCreationId } from "../contracts/room-creation";
 import { NOTE_COLOR_PALETTE } from "../contracts/room-protocol";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
@@ -48,7 +49,10 @@ async function createRoomAs(
       Cookie: await sessionCookie(user),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ requestId: crypto.randomUUID() }),
+    body: JSON.stringify({
+      requestId: issueCreationId().requestId,
+      expectedPrincipal: user.sub,
+    }),
   });
   expect(res.status).toBe(200);
   return res.json();
@@ -932,25 +936,29 @@ it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メ�
 
 describe("作成要求の再送", () => {
   it("同IDの入力衝突を拒否する", async () => {
-    const requestId = crypto.randomUUID();
+    const requestId = issueCreationId().requestId;
     const send = (name: string) =>
       SELF.fetch("https://api.test/api/rooms", {
         method: "POST",
         headers: { Cookie: cookie, "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, name }),
+        body: JSON.stringify({ requestId, name, expectedPrincipal: OWNER.sub }),
       });
     const cookie = await sessionCookie(OWNER);
     expect((await send("first")).status).toBe(200);
     expect((await send("second")).status).toBe(409);
   });
   it("同時送信が同じルームに収束する", async () => {
-    const requestId = crypto.randomUUID();
+    const requestId = issueCreationId().requestId;
     const cookie = await sessionCookie(OWNER);
     const send = () =>
       SELF.fetch("https://api.test/api/rooms", {
         method: "POST",
         headers: { Cookie: cookie, "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, name: "first" }),
+        body: JSON.stringify({
+          requestId,
+          name: "first",
+          expectedPrincipal: OWNER.sub,
+        }),
       });
     const responses = await Promise.all([send(), send()]);
     expect(await responses[0].json()).toEqual(await responses[1].json());

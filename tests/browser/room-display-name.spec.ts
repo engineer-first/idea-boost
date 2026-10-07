@@ -3,13 +3,19 @@ import { beforeAll, expect, test, vi } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 test.each([
-  390, 1280,
-])("%i px: 一覧に隠れた本人の編集を取消・保存した後に展開ボタンへ戻る", async (width) => {
+  { width: 390, connectionDelayMs: 0 },
+  { width: 1280, connectionDelayMs: 0 },
+  { width: 390, connectionDelayMs: 1500 },
+  { width: 1280, connectionDelayMs: 1500 },
+])("$width px / 接続遅延 $connectionDelayMs ms: 一覧に隠れた本人の編集を取消・保存した後に展開ボタンへ戻る", async ({
+  width,
+  connectionDelayMs,
+}) => {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     await page.goto(
-      `${origin}/iframe.html?id=room-hosttransferflow--overflow-self&viewMode=story`,
+      `${origin}/iframe.html?id=room-hosttransferflow--overflow-self&viewMode=story&args=connectionDelayMs:${connectionDelayMs}`,
     );
     const overflow = page.getByRole("button", { name: "他 2 名" });
     for (const save of [false, true]) {
@@ -17,9 +23,18 @@ test.each([
       const trigger = page.getByRole("button", {
         name: "Yuki Tanaka：呼び名を変更",
       });
+      // press は disabled の解除を待たないため、接続・同期後に操作する。
+      await trigger.waitFor();
+      await vi.waitFor(async () =>
+        expect(await trigger.isEnabled()).toBe(true),
+      );
       await trigger.press("Enter");
       const dialog = page.getByRole("dialog", { name: "このルームでの呼び名" });
       await dialog.waitFor();
+      // 閉じるアニメーション中の一覧も Escape を受け取るため、解除後に編集する。
+      await page.getByTestId("room-members-overflow-dialog").waitFor({
+        state: "detached",
+      });
       const input = page.getByRole("textbox", { name: "呼び名" });
       await vi.waitFor(async () =>
         expect(await input.evaluate((e) => e === document.activeElement)).toBe(

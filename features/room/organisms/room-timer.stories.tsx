@@ -104,7 +104,9 @@ export const EndedHostReconfigure: Story = {
   args: { ...EndedHost.args, defaultPanelOpen: true },
   play: async ({ canvasElement }) => {
     await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "設定し直す" }),
+      await within(canvasElement.ownerDocument.body).findByRole("button", {
+        name: "設定し直す",
+      }),
     );
   },
 };

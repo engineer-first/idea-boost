@@ -361,15 +361,19 @@ export const ExcludedCandidate: Story = {
     await expect(excludedStyle.zIndex).toBe("0");
     await expect(getComputedStyle(active).zIndex).toBe("10");
     const excludedText = within(excluded).getByRole("textbox");
-    await expect(
-      Number.parseFloat(getComputedStyle(excludedText).paddingTop),
-    ).toBeGreaterThanOrEqual(40);
+    // 候補外のラベルは本文内に置かず、通常付箋と同じ余白で本文を保つ。
+    await expect(excludedText).toHaveValue(args.notes[0].content);
+    await expect(getComputedStyle(excludedText).paddingTop).toBe(
+      getComputedStyle(within(active).getByRole("textbox")).paddingTop,
+    );
 
     const activeSurface = within(active).getByRole("button", { name: "付箋" });
     fireEvent.contextMenu(activeSurface);
     await expect(args.onNoteExclude).not.toHaveBeenCalled();
     await expect(
-      within(active).getByRole("menuitem", { name: "候補から外す" }),
+      within(canvasElement.ownerDocument.body).getByRole("menuitem", {
+        name: "候補から外す",
+      }),
     ).toBeVisible();
   },
 };

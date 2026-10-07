@@ -56,7 +56,7 @@ export function JoinRoomSectionView({
 
   return (
     <Card
-      className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
+      className="flex flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
       data-testid="home-join-room"
     >
       <CardHeader className="gap-3">

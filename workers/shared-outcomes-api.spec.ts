@@ -1,8 +1,9 @@
 import { env } from "cloudflare:test";
 import { expect, it, vi } from "vitest";
+import { issueCreationId } from "../contracts/room-creation";
 import { buildSharedOutcome } from "../contracts/shared-outcomes.fixture";
 import { handleSharedOutcomes } from "./shared-outcomes-api";
-import { createRoomAs } from "./test-helpers";
+import { createRoomAs, initializeTestRoom } from "./test-helpers";
 
 it("一覧の各ルームは並行取得し、各ルーム内は初期化の後に読み取る", async () => {
   const owner = {
@@ -77,7 +78,7 @@ it("名前・表示用ID・内部IDと記録・到達点の条件を組み合わ
   ];
   for (const record of records) {
     await env.DB.prepare(
-      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?)",
+      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
     )
       .bind(record.roomId, record.lastUsedAt, record.expiresAt)
       .run();
@@ -144,7 +145,7 @@ it("最終利用日を日本時間の両端を含む期間で絞り、片方だ�
   await env.DB.batch(
     records.map((record) =>
       env.DB.prepare(
-        "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?)",
+        "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
       ).bind(record.roomId, start - 1, record.expiresAt),
     ),
   );
@@ -200,7 +201,7 @@ it.each([
   );
   for (const record of records) {
     await env.DB.prepare(
-      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?)",
+      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
     )
       .bind(record.roomId, record.lastUsedAt, record.expiresAt)
       .run();
@@ -234,7 +235,7 @@ it("検索中に期限切れの索引が削除されても次の候補を飛ば�
   );
   for (const record of records)
     await env.DB.prepare(
-      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?)",
+      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
     )
       .bind(record.roomId, record.lastUsedAt, record.expiresAt)
       .run();
@@ -276,7 +277,7 @@ it("250候補で検索を区切り、返した取得位置からさらに探せ�
   await env.DB.batch(
     records.map((record) =>
       env.DB.prepare(
-        "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at) VALUES(?,?,?)",
+        "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
       ).bind(record.roomId, record.lastUsedAt, record.expiresAt),
     ),
   );
@@ -318,7 +319,7 @@ it("pendingの成果索引は一覧から除外しDOの旧ルーム補完を呼�
   const creation = await reserveRoomCreation(
     env.DB,
     userId,
-    crypto.randomUUID(),
+    issueCreationId().requestId,
     "名前を保持",
   );
   const called: string[] = [];
@@ -347,15 +348,18 @@ it("DO初期化後ready保存前も成果詳細と進行履歴へ到達できな
   const creation = await reserveRoomCreation(
     env.DB,
     userId,
-    crypto.randomUUID(),
+    issueCreationId().requestId,
     "名前を保持",
   );
-  await env.ROOM_DO.get(
-    env.ROOM_DO.idFromName(creation.room_id),
-  ).initializeNewRoom(userId, "Host", {
-    roomId: creation.room_id,
-    name: creation.name,
-  });
+  await initializeTestRoom(
+    env.ROOM_DO.get(env.ROOM_DO.idFromName(creation.room_id)),
+    userId,
+    "Host",
+    {
+      roomId: creation.room_id,
+      name: creation.name,
+    },
+  );
   for (const suffix of ["", "/history", `/history/${crypto.randomUUID()}`]) {
     const response = await handleSharedOutcomes(
       new Request(
@@ -370,7 +374,8 @@ it("DO初期化後ready保存前も成果詳細と進行履歴へ到達できな
   ).getSharedOutcome();
   const { completeRoomCreation } = await import("./lib/room-creation");
   await completeRoomCreation(env.DB, creation, () =>
-    env.ROOM_DO.get(env.ROOM_DO.idFromName(creation.room_id)).initializeNewRoom(
+    initializeTestRoom(
+      env.ROOM_DO.get(env.ROOM_DO.idFromName(creation.room_id)),
       userId,
       "Host",
       { roomId: creation.room_id, name: creation.name },

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
-import { userEvent, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
@@ -92,9 +92,15 @@ export const ReferenceAndNotes: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
+      canvas.getByRole("button", { name: "マイ付箋を閉じる" }),
+    );
+    await userEvent.click(
       canvas.getByRole("button", { name: "マイ付箋を開く" }),
     );
-    await userEvent.click(canvas.getByRole("tab", { name: "発想を広げる" }));
+    await expect(canvas.getByTestId("board-help-panel")).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "マイ付箋を閉じる" }),
+    ).toHaveAttribute("aria-expanded", "true");
   },
 };
 export const Focused: Story = {

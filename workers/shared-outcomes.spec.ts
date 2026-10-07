@@ -2,7 +2,12 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { PERMISSIONS } from "../contracts/access";
 import worker from "./api-worker";
-import { createRoomAs, runInRoomDO, sessionCookieFor } from "./test-helpers";
+import {
+  createRoomAs,
+  initializeTestRoom,
+  runInRoomDO,
+  sessionCookieFor,
+} from "./test-helpers";
 
 const owner = {
   sub: "11111111-1111-4111-8111-111111111111",
@@ -210,7 +215,7 @@ it("ルーム作成と同時に本文なしの索引を作り、初回保存失�
     subject.writeSharedOutcomeProjection = async () => {
       throw new Error("first projection failed");
     };
-    await instance.initializeNewRoom(owner.sub, owner.name, {
+    await initializeTestRoom(instance, owner.sub, owner.name, {
       roomId: room.roomId,
     });
     await instance.disband();
@@ -403,7 +408,7 @@ it("期限後の削除失敗は閲覧停止を維持し、再試行間隔を守�
     expect(await instance.getSharedOutcome()).toBeNull();
   });
   await env.DB.prepare(
-    "CREATE TABLE shared_outcomes(room_id TEXT PRIMARY KEY,last_used_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,snapshot_json TEXT)",
+    "CREATE TABLE shared_outcomes(room_id TEXT PRIMARY KEY,last_used_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,snapshot_json TEXT,creation_visibility TEXT NOT NULL DEFAULT 'hidden')",
   ).run();
   await runInRoomDO(room.roomId, async (instance, state) => {
     await instance.alarm();

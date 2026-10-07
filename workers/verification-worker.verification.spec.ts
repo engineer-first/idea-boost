@@ -2,6 +2,7 @@ import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { PERMISSIONS } from "../contracts/access";
 import { isResultStep } from "../contracts/phase";
+import { issueCreationId } from "../contracts/room-creation";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import {
   VERIFICATION_CHECKPOINTS,
@@ -146,7 +147,10 @@ describe("検証環境の拒否境界", () => {
     const normal = await SELF.fetch("http://localhost/api/rooms", {
       method: "POST",
       headers: { ...(await headers()), "Content-Type": "application/json" },
-      body: JSON.stringify({ requestId: crypto.randomUUID() }),
+      body: JSON.stringify({
+        requestId: issueCreationId().requestId,
+        expectedPrincipal: DEV_USERS[0].id,
+      }),
     });
     const room = await normal.json<{ roomId: string }>();
     expect(
@@ -390,6 +394,27 @@ describe("検証用の初期状態", () => {
       ).status,
     ).toBe(200);
   });
+});
+
+it("チェックポイント投入直後の成果とD1投影に工程・付箋・グループ・投票を保存する", async () => {
+  const active = await create("1-5");
+  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
+  const record = await stub.getSharedOutcome();
+  expect(record?.saveStatus).toBe("saved");
+  expect(record?.snapshot?.phase).toEqual({ kind: "step", phase: 1, step: 5 });
+  expect(record?.snapshot?.notes).toHaveLength(12);
+  expect(record?.snapshot?.groups).toHaveLength(2);
+  expect(
+    record?.snapshot?.notes.some((note) => (note.votes?.subjective ?? 0) > 0),
+  ).toBe(true);
+  const projection = await env.DB.prepare(
+    "SELECT snapshot_json FROM shared_outcomes WHERE room_id=?",
+  )
+    .bind(active.roomId)
+    .first<{ snapshot_json: string }>();
+  expect(JSON.parse(projection?.snapshot_json ?? "null")).toEqual(
+    record?.snapshot,
+  );
 });
 
 describe("成果の検証入口", () => {

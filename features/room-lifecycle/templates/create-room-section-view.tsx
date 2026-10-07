@@ -1,7 +1,7 @@
-// ホーム「ルームを作成」の表示専用（NoteCard と同様、見た目は props で固定）。
-// 副作用（Server Action / 遷移）は CreateRoomSection コンテナ側。
+"use client";
 
 import { Plus } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,10 +10,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/dialog";
 import { RoomEntryField } from "../molecules/room-entry-field";
 
 export type CreateRoomSectionViewProps = {
-  // true の間は「作成中…」表示とボタン disabled。
   pending?: boolean;
   onSubmit?: (name: string) => void;
   recovering?: boolean;
@@ -21,8 +30,13 @@ export type CreateRoomSectionViewProps = {
   message?: string;
   storageError?: boolean;
   onNewIntent?: () => void;
+  onDiscard?: () => void;
+  recoveryState?: string;
+  requiresNewConfirmation?: boolean;
+  onRecover?: () => void;
 };
 
+// 選択・通信はcontainer、作成直前の確認と入力はview内の一時的なUI状態。
 export function CreateRoomSectionView({
   pending = false,
   onSubmit,
@@ -31,10 +45,15 @@ export function CreateRoomSectionView({
   message,
   storageError = false,
   onNewIntent,
+  onDiscard,
+  recoveryState,
+  requiresNewConfirmation = false,
+  onRecover,
 }: CreateRoomSectionViewProps) {
+  const [confirmationName, setConfirmationName] = useState<string | null>(null);
   return (
     <Card
-      className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
+      className="flex flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
       data-testid="home-create-room"
     >
       <CardHeader className="gap-3">
@@ -44,7 +63,7 @@ export function CreateRoomSectionView({
         <div className="space-y-1.5">
           <CardTitle className="text-base">ルームを作成</CardTitle>
           <CardDescription className="leading-relaxed">
-            ホストとして新しいセッションを開き、メンバーを招待します。
+            ホストとして新しいルームを開き、メンバーを招待します。
           </CardDescription>
         </div>
       </CardHeader>
@@ -53,9 +72,11 @@ export function CreateRoomSectionView({
           className="flex w-full flex-col gap-1"
           onSubmit={(event) => {
             event.preventDefault();
-            onSubmit?.(
-              String(new FormData(event.currentTarget).get("name") ?? ""),
+            const name = String(
+              new FormData(event.currentTarget).get("name") ?? "",
             );
+            if (requiresNewConfirmation) setConfirmationName(name);
+            else onSubmit?.(name);
           }}
         >
           <RoomEntryField
@@ -77,32 +98,97 @@ export function CreateRoomSectionView({
           >
             <Plus data-icon="inline-start" aria-hidden />
             {pending
-              ? "作成中…"
+              ? "準備中…"
               : recovering
-                ? "同じ作成を確認・再試行"
-                : "ルームを作成"}
+                ? recoveryState === "prepared"
+                  ? "作成を続ける"
+                  : "もう一度試す"
+                : "新しいルームを作成"}
           </Button>
         </form>
+        {recovering && !message && (
+          <p className="mt-3 text-sm leading-relaxed">
+            {recoveryState === "prepared"
+              ? "準備したルームの作成を続けられます。"
+              : "ルームへの移動が途中で止まっています。もう一度お試しください。"}
+          </p>
+        )}
         {message && (
           <p role="status" className="mt-3 text-sm leading-relaxed">
             {message}
           </p>
         )}
-        {recovering && (
-          <div className="mt-3 space-y-2">
-            <p className="text-xs text-muted-foreground">
-              別のルームを作成すると、前回のルームが作成済みの場合は両方が残ります。
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={onNewIntent}
-            >
-              別のルームを新しく作成
-            </Button>
-          </div>
+        {recovering && onNewIntent && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 min-h-11"
+            disabled={pending}
+            onClick={onNewIntent}
+          >
+            新しいルームを作成
+          </Button>
         )}
+        {!recovering && requiresNewConfirmation && onRecover && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 min-h-11"
+            disabled={pending}
+            onClick={onRecover}
+          >
+            前のルームを探す
+          </Button>
+        )}
+        {storageError && onDiscard && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2 min-h-11"
+            onClick={onDiscard}
+          >
+            このブラウザの保存をリセット
+          </Button>
+        )}
+        {storageError && (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2 min-h-11"
+            onClick={() => window.location.reload()}
+          >
+            再読み込みする
+          </Button>
+        )}
+        <AlertDialog
+          open={confirmationName !== null}
+          onOpenChange={(open) => {
+            if (!open) setConfirmationName(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>新しいルームを作成しますか？</AlertDialogTitle>
+              <AlertDialogDescription>
+                前のルームが作成されている場合は、両方のルームが残ります。前のルームの参加状態やデータは変わりません。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>キャンセル</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (confirmationName === null || pending || storageError)
+                    return;
+                  const name = confirmationName;
+                  setConfirmationName(null);
+                  onSubmit?.(name);
+                }}
+              >
+                新しいルームを作成する
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );

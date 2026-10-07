@@ -5,6 +5,7 @@ import {
 } from "../contracts/completed-rooms";
 import { isUuid } from "../contracts/ids";
 import type { ApiWorkerEnv } from "./api-worker";
+import { isCreationPublished } from "./lib/room-creation";
 export function completedJson(body: unknown, status = 200): Response {
   return Response.json(body, {
     status,
@@ -33,7 +34,7 @@ export async function handleCompletedRooms(
       }
     }
     const rows = await env.DB.prepare(
-      `SELECT room_id,completed_at FROM completed_room_viewers WHERE user_id=? AND expires_at>? ${cursor ? "AND (completed_at<? OR (completed_at=? AND room_id<?))" : ""} ORDER BY completed_at DESC,room_id DESC LIMIT 21`,
+      `SELECT room_id,completed_at FROM completed_room_viewers WHERE user_id=? AND expires_at>? AND (EXISTS(SELECT 1 FROM shared_outcomes s WHERE s.room_id=completed_room_viewers.room_id AND s.creation_visibility IN ('published','legacy')) OR EXISTS(SELECT 1 FROM rooms r WHERE r.id=completed_room_viewers.room_id AND r.creation_visibility='legacy')) ${cursor ? "AND (completed_at<? OR (completed_at=? AND room_id<?))" : ""} ORDER BY completed_at DESC,room_id DESC LIMIT 21`,
     )
       .bind(
         userId,
@@ -79,7 +80,12 @@ export async function handleCompletedRooms(
   const match = url.pathname.match(
     /^\/api\/completed-rooms\/([^/]+)(?:\/scenes\/([^/]+))?$/,
   );
-  if (!match || !isUuid(match[1])) return notFound();
+  if (
+    !match ||
+    !isUuid(match[1]) ||
+    !(await isCreationPublished(env.DB, match[1]))
+  )
+    return notFound();
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(match[1]));
   if (match[2]) {
     const kind = CompletedSceneKindSchema.safeParse(match[2]);

@@ -57,7 +57,10 @@ export async function createRoomAs(
       Cookie: await sessionCookieFor(user),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ requestId: crypto.randomUUID() }),
+    body: JSON.stringify({
+      requestId: issueCreationId().requestId,
+      expectedPrincipal: user.sub,
+    }),
   });
   expect(res.status).toBe(200);
   return res.json();
@@ -177,3 +180,28 @@ export function currentPhaseExpectation(
     ),
   }));
 }
+
+// 新protocolのfixture。旧RPCの否定系はこのhelperを通さない。
+export async function initializeTestRoom(
+  room: Pick<RoomDO, "initializeCreation">,
+  hostId: string,
+  hostName?: string,
+  identity?: { roomId: string; name?: string },
+): Promise<void> {
+  const issued = TEST_CREATION_ISSUED;
+  const decision = await room.initializeCreation(
+    {
+      creator: hostId,
+      roomId: identity?.roomId ?? "00000000-0000-4000-8000-000000000001",
+      requestId: issued.requestId,
+      expiresAt: issued.expiresAt,
+    },
+    hostName,
+    identity?.name,
+  );
+  if (decision !== "ready") throw new Error("終了したルームです。");
+}
+
+import { issueCreationId } from "../contracts/room-creation";
+
+const TEST_CREATION_ISSUED = issueCreationId();

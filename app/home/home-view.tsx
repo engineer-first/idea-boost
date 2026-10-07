@@ -50,7 +50,7 @@ export function HomeView({ error, currentUserId }: HomeViewProps) {
           <ReturnRoomSection currentUserId={currentUserId} />
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 sm:items-stretch">
+        <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
           <CreateRoomSection currentUserId={currentUserId} />
           <JoinRoomSection currentUserId={currentUserId} />
         </div>

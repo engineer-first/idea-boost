@@ -15,6 +15,11 @@ import {
   normalizeInviteCode,
 } from "../contracts/invite-code";
 import {
+  CreationPrincipalSchema,
+  CreationStatusInputSchema,
+  issueCreationId,
+} from "../contracts/room-creation";
+import {
   LoginAssertionSchema,
   type SessionPayload,
   TOKEN_AUDIENCE,
@@ -37,10 +42,15 @@ import {
 } from "./lib/db";
 import {
   CreationConflict,
+  CreationExpired,
   CreationGone,
+  CreationUpdateRequired,
   completeRoomCreation,
+  creationIdentity,
+  getCreationStatus,
   reserveRoomCreation,
 } from "./lib/room-creation";
+import { cleanupRoomCreations } from "./lib/room-creation-cleanup";
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
 import { HOST_ID_HEADER, RoomDO, USER_ID_HEADER } from "./room/room-do";
@@ -122,6 +132,14 @@ async function handleCreateRoom(
   );
   if (!body.success)
     return error(400, "ルーム名は80文字以内で入力してください。");
+  if (body.data.expectedPrincipal !== session.sub)
+    return json(
+      {
+        error: "アカウントが変わりました。ログイン状態を確認してください。",
+        reason: "actor_mismatch",
+      },
+      403,
+    );
   await ensureUser(env.DB, {
     id: session.sub,
     email: session.email,
@@ -135,19 +153,47 @@ async function handleCreateRoom(
       body.data.name,
     );
     await completeRoomCreation(env.DB, creation, async () => {
-      const result = await roomStub(env, creation.room_id).resumeRoomCreation(
-        session.sub,
+      const result = await roomStub(env, creation.room_id).initializeCreation(
+        creationIdentity(creation),
         session.name,
-        { roomId: creation.room_id, name: creation.name },
+        creation.name,
       );
       if (result === "closed") throw new CreationGone();
     });
     return json({ roomId: creation.room_id, inviteCode: creation.invite_code });
   } catch (cause) {
     if (cause instanceof CreationConflict)
-      return error(409, "同じ作成要求の入力を変更できません。");
+      return json(
+        {
+          error: "同じ作成要求の入力を変更できません。",
+          reason: "input_conflict",
+        },
+        409,
+      );
+    if (cause instanceof CreationExpired)
+      return json(
+        {
+          error: "作成受付の期限が過ぎました。結果を確認してください。",
+          reason: "expired",
+        },
+        410,
+      );
+    if (cause instanceof CreationUpdateRequired)
+      return json(
+        {
+          error: "画面を再読み込みしてください。旧要求は新規作成できません。",
+          reason: "update_required",
+        },
+        400,
+      );
     if (cause instanceof CreationGone)
-      return error(410, "この作成要求のルームは終了または削除されています。");
+      return json(
+        {
+          error: "この作成要求のルームは終了または削除されています。",
+          reason: "closed",
+        },
+        410,
+      );
     return error(
       503,
       "作成結果を確認できません。同じ要求で再試行してください。",
@@ -497,6 +543,47 @@ export function createApiWorker(
         if (response) return response;
       }
 
+      if (method === "POST" && pathname === "/api/room-creations/issue") {
+        const body = CreationPrincipalSchema.safeParse(
+          await readJsonBody(request),
+        );
+        if (!body.success) return error(400, "入力形式が不正です。");
+        if (body.data.expectedPrincipal !== session.sub)
+          return json(
+            { error: "アカウントが変わりました。", reason: "actor_mismatch" },
+            403,
+          );
+        return json(issueCreationId());
+      }
+      const creationMatch = pathname.match(/^\/api\/room-creations\/([^/]+)$/);
+      if (method === "GET" && creationMatch) {
+        const body = CreationStatusInputSchema.safeParse({
+          requestId: creationMatch[1],
+          expectedPrincipal: url.searchParams.get("expectedPrincipal"),
+        });
+        if (!body.success) return error(400, "入力形式が不正です。");
+        if (body.data.expectedPrincipal !== session.sub)
+          return json(
+            { error: "アカウントが変わりました。", reason: "actor_mismatch" },
+            403,
+          );
+        try {
+          return json(
+            await getCreationStatus(env.DB, session.sub, body.data.requestId),
+          );
+        } catch (cause) {
+          return json(
+            {
+              error: "結果を確認できません。",
+              reason:
+                cause instanceof CreationConflict
+                  ? "input_conflict"
+                  : "unknown",
+            },
+            cause instanceof CreationConflict ? 409 : 503,
+          );
+        }
+      }
       if (method === "POST" && pathname === "/api/rooms") {
         return handleCreateRoom(request, env, session);
       }
@@ -553,6 +640,7 @@ export function createApiWorker(
       env: ApiWorkerEnv,
     ): Promise<void> {
       await deleteExpiredFeedback(env.DB);
+      await cleanupRoomCreations(env);
     },
   } satisfies ExportedHandler<ApiWorkerEnv>;
 }

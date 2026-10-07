@@ -1,3 +1,10 @@
+import {
+  type CreationIdentity,
+  type CreationInspection,
+  creationIssuedAt,
+  ROOM_CREATION_FUTURE_MS,
+  ROOM_CREATION_WINDOW_MS,
+} from "../../contracts/room-creation";
 import { memberNameHandlers } from "./member-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
 // エントリポイント（RPC / WebSocket）と横断ガード（phase ゲート）だけを持ち、
@@ -13,7 +20,8 @@ import { memberNameHandlers } from "./member-name";
 //   受け取る情報は broadcastToAll という別経路で送る
 //
 // D1 の rooms 行は「招待コード → ルーム解決」のためのディレクトリにすぎない。
-// 単一スレッドで直列化されるため、フェーズ遷移や同時編集のレースは構造的に起きない。
+// 同期transactionで状態遷移を原子的に決める。await後は別イベントが進み得るため、
+// 外部I/O後の投影やackではidentity・現在状態を再照合する。
 // ハイバネーションでインメモリ状態は消える（次のイベントで constructor が再実行
 // される）ため、状態は毎回 SQL から導出し、各モジュールにキャッシュを持たせない。
 
@@ -266,62 +274,154 @@ export class RoomDO extends DurableObject {
     return result;
   }
 
-  // 新規ルーム作成直後にロビー状態へ。
+  // 旧callerは初回初期化できない。既存markerの照合だけに縮退。
   async initializeNewRoom(
     hostId: string,
-    hostName: string | undefined,
-    outcomeIdentity?: { roomId: string; name?: string },
+    _hostName: string | undefined,
+    _identity?: { roomId: string; name?: string },
   ): Promise<void> {
-    if (
-      isRoomClosed(this.sql) ||
-      (readOutcomeState(this.sql)?.expires_at ?? Infinity) <= Date.now()
-    )
-      throw new Error("終了したルームです。");
     const marker = this.sql
       .exec<{ host_id: string }>(
         "SELECT host_id FROM room_creation_marker WHERE id=1",
       )
       .toArray()[0];
-    if (marker && marker.host_id !== hostId)
-      throw new Error("作成者が一致しません。");
-    if (!marker) {
-      this.ctx.storage.transactionSync(() => {
-        upsertMember(this.sql, this.broadcaster, hostId, hostName);
-        ensureHost(this.sql, hostId);
-        savePhase(this.sql, { kind: "lobby" });
-        if (outcomeIdentity)
-          this.outcomes.initializeSharedOutcomeState(
-            outcomeIdentity.roomId,
-            outcomeIdentity.name,
-          );
-        this.sql.exec(
-          "INSERT INTO room_creation_marker(id,host_id) VALUES(1,?)",
-          hostId,
-        );
-      });
-    }
-    // ローカル初期化だけが成立条件。外部投影の失敗はoutboxで回復する。
-    // 既存の工程・ホスト・参加者・保存期限を再送で書き換えない。
-    await this.ctx.storage.sync();
-    if (outcomeIdentity) {
-      await syncRoomAlarm(this.ctx.storage, this.sql);
-      await this.outcomes.flushSharedOutcome();
-    }
+    if (
+      !marker ||
+      marker.host_id !== hostId ||
+      isRoomClosed(this.sql) ||
+      (readOutcomeState(this.sql)?.expires_at ?? Infinity) <= Date.now()
+    )
+      throw new Error("終了したルーム、または旧作成プロトコルです。");
   }
-
-  // 作成回復用RPC。既知の終了は通信障害と区別して返す。
   async resumeRoomCreation(
     hostId: string,
     hostName: string | undefined,
     identity: { roomId: string; name?: string },
   ): Promise<"ready" | "closed"> {
-    if (
-      isRoomClosed(this.sql) ||
-      (readOutcomeState(this.sql)?.expires_at ?? Infinity) <= Date.now()
-    )
+    try {
+      await this.initializeNewRoom(hostId, hostName, identity);
+      return "ready";
+    } catch {
       return "closed";
-    await this.initializeNewRoom(hostId, hostName, identity);
-    return "ready";
+    }
+  }
+
+  private decideCreation(
+    identity: CreationIdentity,
+    closeOnly: boolean,
+    hostName?: string,
+    name?: string,
+  ): CreationInspection {
+    return this.ctx.storage.transactionSync(() => {
+      const issued = creationIssuedAt(identity.requestId);
+      if (
+        issued !== null &&
+        ((!identity.legacy &&
+          identity.expiresAt !== issued + ROOM_CREATION_WINDOW_MS) ||
+          (!identity.legacy && issued > Date.now() + ROOM_CREATION_FUTURE_MS))
+      )
+        throw new Error("作成期限が不正です。");
+      const marker = this.sql
+        .exec<{
+          host_id: string;
+          request_id: string | null;
+          room_id: string | null;
+          expires_at: number | null;
+          closed: number;
+        }>("SELECT * FROM room_creation_marker WHERE id=1")
+        .toArray()[0];
+      if (marker) {
+        if (
+          marker.host_id !== identity.creator ||
+          (marker.request_id !== null &&
+            (marker.request_id !== identity.requestId ||
+              marker.room_id !== identity.roomId ||
+              marker.expires_at !== identity.expiresAt))
+        )
+          throw new Error("作成identityが一致しません。");
+        if (
+          marker.closed === 1 ||
+          isRoomClosed(this.sql) ||
+          (readOutcomeState(this.sql)?.expires_at ?? Infinity) <= Date.now()
+        )
+          return "closed";
+        // 旧markerは既存初期化の事実のみ引き継ぐ。状態は書き直さない。
+        if (marker.request_id === null)
+          this.sql.exec(
+            "UPDATE room_creation_marker SET request_id=?,room_id=?,expires_at=? WHERE id=1",
+            identity.requestId,
+            identity.roomId,
+            identity.expiresAt,
+          );
+        return "ready";
+      }
+      // 旧ルームのstateありmarkerなしを空ルームと解釈しない。
+      if (
+        this.sql.exec("SELECT 1 FROM members LIMIT 1").toArray().length ||
+        readOutcomeState(this.sql) ||
+        getHostState(this.sql).hostUserId !== null ||
+        getHostState(this.sql).hostRevision > 0 ||
+        Number(
+          this.sql
+            .exec("SELECT phase_revision FROM room_state WHERE id=1")
+            .one().phase_revision,
+        ) > 0 ||
+        this.sql.exec("SELECT 1 FROM notes LIMIT 1").toArray().length > 0 ||
+        isRoomClosed(this.sql)
+      )
+        throw new Error("既存ルームは再初期化できません。");
+      if (Date.now() >= identity.expiresAt) {
+        this.sql.exec(
+          "INSERT INTO room_creation_marker(id,host_id,closed,request_id,room_id,expires_at) VALUES(1,?,1,?,?,?)",
+          identity.creator,
+          identity.requestId,
+          identity.roomId,
+          identity.expiresAt,
+        );
+        return "closed";
+      }
+      if (closeOnly) return "pending";
+      const member = upsertMember(
+        this.sql,
+        this.broadcaster,
+        identity.creator,
+        hostName,
+      );
+      if (!member.ok) throw new Error("作成者を登録できません。");
+      ensureHost(this.sql, identity.creator);
+      savePhase(this.sql, { kind: "lobby" });
+      this.outcomes.initializeSharedOutcomeState(identity.roomId, name);
+      this.sql.exec(
+        "INSERT INTO room_creation_marker(id,host_id,request_id,room_id,expires_at) VALUES(1,?,?,?,?)",
+        identity.creator,
+        identity.requestId,
+        identity.roomId,
+        identity.expiresAt,
+      );
+      if (Date.now() >= identity.expiresAt)
+        throw new Error("作成受付の期限が過ぎました。");
+      return "ready";
+    });
+  }
+  async initializeCreation(
+    identity: CreationIdentity,
+    hostName?: string,
+    name?: string,
+  ): Promise<CreationInspection> {
+    const result = this.decideCreation(identity, false, hostName, name);
+    await this.ctx.storage.sync();
+    if (result === "ready") {
+      await syncRoomAlarm(this.ctx.storage, this.sql);
+      await this.outcomes.flushSharedOutcome();
+    }
+    return result;
+  }
+  async inspectOrCloseExpiredCreation(
+    identity: CreationIdentity,
+  ): Promise<CreationInspection> {
+    const result = this.decideCreation(identity, true);
+    await this.ctx.storage.sync();
+    return result;
   }
 
   isCompleted(): boolean {

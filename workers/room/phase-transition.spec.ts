@@ -5,7 +5,11 @@ import {
   parseServerMessage,
   type ServerMessage,
 } from "../../contracts/room-protocol";
-import { currentPhaseExpectation, runInRoomDO } from "../test-helpers";
+import {
+  currentPhaseExpectation,
+  initializeTestRoom,
+  runInRoomDO,
+} from "../test-helpers";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const hostId = "11111111-1111-4111-8111-111111111111";
@@ -14,7 +18,7 @@ describe("本文保存を待つ進行", () => {
   it("編集可能ステップからは最大2秒の猶予を永続化し、期限までphaseを変えない", async () => {
     const name = "phase-save-window";
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(name));
-    await stub.initializeNewRoom(hostId, "Host");
+    await initializeTestRoom(stub, hostId, "Host");
     await stub.setPhase(buildPhaseStep(1), hostId);
     const response = await stub.fetch("https://do/ws", {
       headers: {

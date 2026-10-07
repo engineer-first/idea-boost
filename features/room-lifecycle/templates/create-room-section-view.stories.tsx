@@ -58,7 +58,7 @@ export const Unknown: Story = {
   args: {
     recovering: true,
     intentName: "サービスの相談",
-    message: "作成結果を確認できません。同じ作成を確認・再試行してください。",
+    message: "ルームへの移動を完了できませんでした。もう一度お試しください。",
     onNewIntent: fn(),
   },
 };
@@ -66,6 +66,50 @@ export const StorageError: Story = {
   args: {
     storageError: true,
     message:
-      "作成要求の記録を読み取れません。ブラウザの保存設定を確認して再読み込みしてください。",
+      "このブラウザで作成を続けられません。保存設定を確認して再読み込みしてください。",
+  },
+};
+
+export const Prepared: Story = {
+  args: {
+    recovering: true,
+    recoveryState: "prepared",
+    intentName: "午後チーム",
+    onNewIntent: fn(),
+  },
+};
+export const Known: Story = {
+  args: { recovering: false, recoveryState: "known" },
+};
+export const Expired: Story = {
+  args: {
+    recovering: false,
+    requiresNewConfirmation: true,
+    onRecover: fn(),
+    recoveryState: "expired",
+    message:
+      "前のルームを開けませんでした。新しいルームを作成するか、もう一度探してください。",
+    onNewIntent: fn(),
+  },
+};
+export const ActorMismatch: Story = {
+  args: {
+    recovering: true,
+    recoveryState: "actor_mismatch",
+    intentName: "午前チーム",
+    message: "アカウントが変わりました。ログイン状態を確認してください。",
+    onNewIntent: fn(),
+  },
+};
+export const SeparateIntent: Story = {
+  args: { requiresNewConfirmation: true, onRecover: fn() },
+};
+
+export const ConfirmNew: Story = {
+  args: { requiresNewConfirmation: true, onRecover: fn() },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      canvas.getByRole("button", { name: "新しいルームを作成" }),
+    );
   },
 };

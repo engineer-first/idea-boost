@@ -301,3 +301,41 @@ test("タッチ端末では最後にタップした付箋だけ候補操作を�
     await secondAction.evaluate((element) => getComputedStyle(element).opacity),
   ).toBe("1");
 });
+
+test.each([
+  "host",
+  "participant",
+])("候補外の付箋は%sの実タッチで本文を読みやすくし、復帰操作はホストだけに出す", async (role) => {
+  await page.close();
+  page = await browser.newPage({
+    hasTouch: true,
+    viewport: { width: 480, height: 640 },
+  });
+  await openStory(`notes-notecard--excluded-for-${role}`);
+  await page.waitForFunction(
+    () =>
+      (
+        window as unknown as {
+          __STORYBOOK_PREVIEW__: { currentRender?: { phase: string } };
+        }
+      ).__STORYBOOK_PREVIEW__.currentRender?.phase === "finished",
+  );
+  const surface = page.getByRole("button", { name: "候補外の付箋" });
+  const card = page.getByTestId("note-card");
+  await surface.evaluate((element) => element.blur());
+  await expect
+    .poll(() => card.evaluate((element) => getComputedStyle(element).opacity))
+    .toBe("0.45");
+  await surface.tap();
+  await expect
+    .poll(() => card.evaluate((element) => getComputedStyle(element).opacity))
+    .toBe("0.9");
+  const restore = page.getByRole("button", { name: "候補に戻す" });
+  if (role === "host") {
+    await expect
+      .poll(() =>
+        restore.evaluate((element) => getComputedStyle(element).opacity),
+      )
+      .toBe("1");
+  } else expect(await restore.count()).toBe(0);
+});

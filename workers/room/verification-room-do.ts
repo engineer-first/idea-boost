@@ -3,6 +3,7 @@ import {
   NOTE_DEFAULT_FONT_SIZE,
 } from "../../contracts/board";
 import { isResultStep, isVotingStep } from "../../contracts/phase";
+import { issueCreationId } from "../../contracts/room-creation";
 import { DOT_VOTE_LIMITS } from "../../contracts/room-protocol";
 import type { SharedOutcomeSnapshot } from "../../contracts/shared-outcomes";
 import {
@@ -42,7 +43,17 @@ export class VerificationRoomDO extends RoomDO {
       if (this.listMembers().length || (await this.ctx.storage.get(META_KEY)))
         throw new Error("既存ルームには投入できません。");
       const owner = DEV_USERS[0];
-      await this.initializeNewRoom(owner.id, owner.name);
+      const issued = issueCreationId();
+      await this.initializeCreation(
+        {
+          creator: owner.id,
+          roomId: roomId ?? crypto.randomUUID(),
+          requestId: issued.requestId,
+          expiresAt: issued.expiresAt,
+        },
+        owner.name,
+        roomName,
+      );
       for (const user of DEV_USERS.slice(1))
         await this.upsertMember(user.id, user.name);
       const target = VERIFICATION_CHECKPOINTS.find(
@@ -93,6 +104,8 @@ export class VerificationRoomDO extends RoomDO {
         for (let phase = 1; phase <= target.phase; phase++)
           await this.ctx.storage.put(`verification-prepared-${phase}`, true);
       if (roomId) await this.initializeSharedOutcome(roomId, roomName);
+      await this.preserveSharedOutcome();
+      await this.flushSharedOutcome();
     });
   }
 

@@ -15,7 +15,7 @@ const meta = {
   title: "Home/HomeView",
   component: HomeView,
   parameters: { layout: "fullscreen" },
-  args: {},
+  args: { currentUserId: "11111111-1111-4111-8111-111111111111" },
   decorators: [
     (Story) => (
       <div style={{ height: "100vh" }}>
@@ -59,6 +59,7 @@ export const AllStates: Story = {
       {(
         [
           ["Default", undefined],
+          ["Recovering", undefined],
           ["WithCreateError", "ルームを作成できませんでした。"],
           ["WithJoinError", "ルームが見つかりませんでした。"],
           ["WithInvalidCodeError", "招待コードは英数字6桁で入力してください。"],
@@ -82,7 +83,14 @@ export const AllStates: Story = {
                 </header>
                 {error ? <HomeErrorAlert message={error} /> : null}
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <CreateRoomSectionView pending={false} onSubmit={fn()} />
+                  <CreateRoomSectionView
+                    pending={false}
+                    onSubmit={fn()}
+                    recovering={label === "Recovering"}
+                    intentName={
+                      label === "Recovering" ? "サービスの相談" : undefined
+                    }
+                  />
                   <JoinRoomSectionView
                     code=""
                     onCodeChange={fn()}

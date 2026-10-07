@@ -61,9 +61,13 @@ async function selectedCount(count: number): Promise<void> {
     .toBe(String(count));
 }
 
-async function openClockedCanvas(width = 1280): Promise<void> {
+async function openClockedCanvas(width = 1280, cpuRate = 1): Promise<void> {
   await page.close();
   page = await browser.newPage({ viewport: { width, height: 720 } });
+  if (cpuRate > 1) {
+    const session = await page.context().newCDPSession(page);
+    await session.send("Emulation.setCPUThrottlingRate", { rate: cpuRate });
+  }
   // 読み込み済みアプリのtimer/RAFと混在させず、時計を先に導入する。
   await page.clock.install({ time: new Date("2030-01-01T00:00:00Z") });
   await page.goto(
@@ -128,8 +132,10 @@ test("キーボードでフォーカスしたヒントは待たずに表示し�
   expect(await hand.evaluate((el) => el === document.activeElement)).toBe(true);
 });
 
-test("手のひらのヒントから隣の選択ツールへ移ると待たずに切り替わる", async () => {
-  await openClockedCanvas();
+test.each([
+  1, 8,
+])("CPU減速%ixでも手のひらのヒントから隣の選択ツールへ待たずに切り替わる", async (cpuRate) => {
+  await openClockedCanvas(1280, cpuRate);
   const hint = page.locator(
     '[data-slot="tooltip-content"]:not([data-state="closed"])',
   );
@@ -145,17 +151,32 @@ test("手のひらのヒントから隣の選択ツールへ移ると待たず�
     .toBe(true);
   expect(await hint.textContent()).toContain("手のひら");
 
+  const hand = await page
+    .getByRole("button", { name: "手のひらツール" })
+    .boundingBox();
   const select = await page
     .getByRole("button", { name: "選択ツール" })
     .boundingBox();
-  if (!select) throw new Error("選択ツールが表示されていません");
-  await page.mouse.move(
-    select.x + select.width / 2,
-    select.y + select.height / 2,
-    { steps: 4 },
-  );
-  // 時刻を進めずReactのcommitだけを待ち、隣の表示待ちが無いことを確かめる。
-  await expect.poll(() => hint.getAttribute("data-state")).toBe("instant-open");
+  if (!hand || !select)
+    throw new Error("キャンバスのツールが表示されていません");
+  // 停止時計のまま連続イベントを送ると、Radixのhover猶予領域の更新より先に
+  // 移動が終わる。実際の移動と同じく各ステップで描画を進める（合計64ms）。
+  for (let step = 1; step <= 4; step++) {
+    await page.mouse.move(
+      hand.x + hand.width / 2 + ((select.x - hand.x) * step) / 4,
+      hand.y + hand.height / 2 + ((select.y - hand.y) * step) / 4,
+    );
+    await page.clock.runFor(16);
+  }
+  // 1秒の表示待ちを省いた状態を検査する。常に存在するtriggerを読み、
+  // ヒント未表示時にlocatorの自動待機でpollが止まることも避ける。
+  await expect
+    .poll(() =>
+      page
+        .getByRole("button", { name: "選択ツール" })
+        .getAttribute("data-state"),
+    )
+    .toBe("instant-open");
   // Popperの配置RAFはReactのcommit後に登録される。停止時計でも描画を進める。
   await expect
     .poll(async () => {

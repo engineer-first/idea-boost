@@ -156,13 +156,14 @@ export class SharedOutcomeStorage {
     const db = this.db;
     await db
       .prepare(
-        "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,snapshot_json) VALUES(?,?,?,?) ON CONFLICT(room_id) DO UPDATE SET last_used_at=excluded.last_used_at, expires_at=excluded.expires_at, snapshot_json=COALESCE(excluded.snapshot_json, shared_outcomes.snapshot_json)",
+        "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,snapshot_json,creation_visibility) VALUES(?,?,?,?,CASE WHEN EXISTS(SELECT 1 FROM rooms WHERE id=? AND creation_visibility='legacy') THEN 'legacy' ELSE 'hidden' END) ON CONFLICT(room_id) DO UPDATE SET last_used_at=excluded.last_used_at, expires_at=excluded.expires_at, snapshot_json=COALESCE(excluded.snapshot_json, shared_outcomes.snapshot_json)",
       )
       .bind(
         row.room_id,
         row.last_used_at,
         row.expires_at,
         snapshot ? JSON.stringify(snapshot) : null,
+        row.room_id,
       )
       .run();
   }

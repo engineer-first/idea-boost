@@ -12,14 +12,16 @@ import { RoomLobby } from "./room-lobby";
 function HostTransferPreview({
   mode,
   overflow = false,
+  connectionDelayMs = 0,
 }: {
   mode: HostPreviewMode;
   overflow?: boolean;
+  connectionDelayMs?: number;
 }) {
   const members = overflow ? OVERFLOW_PREVIEW_MEMBERS : PREVIEW_MEMBERS;
   const server = useMemo(
-    () => createHostTransferPreview(mode, { members }),
-    [mode, members],
+    () => createHostTransferPreview(mode, { members, connectionDelayMs }),
+    [mode, members, connectionDelayMs],
   );
   useEffect(() => {
     const listener = (event: Event) => {

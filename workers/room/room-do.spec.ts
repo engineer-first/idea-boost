@@ -13,6 +13,7 @@ import {
 } from "../../contracts/room-protocol";
 import {
   currentPhaseExpectation,
+  initializeTestRoom,
   listMemberIds,
   runInRoomDO,
 } from "../test-helpers";
@@ -364,13 +365,13 @@ describe("RoomDO 進行状態", () => {
   it("getPhase の新規ルーム既定は lobby", async () => {
     // マイグレーション v2 の既定は phase1。新規ルームは initializeNewRoom で lobby にする。
     const stub = roomStub("room-phase-default");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     expect(await stub.getPhase()).toEqual(LOBBY);
   });
 
   it("setPhase は phase を更新する（ホスト本人のみ）", async () => {
     const stub = roomStub("room-phase-set");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1), USER_A);
     expect(await stub.getPhase()).toEqual(buildPhaseStep(1));
   });
@@ -380,7 +381,7 @@ describe("RoomDO 進行状態", () => {
     buildPhaseStep(5, 3),
   ])("フェーズ2・3の保存済み進行状態を復元する: %o", async (phase) => {
     const stub = roomStub(`room-phase-roundtrip-${phase.phase}-${phase.step}`);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(phase, USER_A);
 
     expect(await stub.getPhase()).toEqual(phase);
@@ -390,7 +391,7 @@ describe("RoomDO 進行状態", () => {
     // setPhase は async 関数で throw するため、rejects で受ける。
     // runInDurableObject 経由にすれば unhandled rejection として漏れない。
     await runInRoomDO("room-phase-guard", async (instance) => {
-      await instance.initializeNewRoom(USER_A, "Host");
+      await initializeTestRoom(instance, USER_A, "Host");
       await expect(
         instance.setPhase(buildPhaseStep(1), USER_B),
       ).rejects.toThrow("進行状態を変更する権限がありません。");
@@ -408,7 +409,7 @@ describe("RoomDO 進行状態", () => {
   ])("保存済みの有効な phase=%s を %o として復元する", async (raw, expected) => {
     const roomId = `room-phase-decode-${raw}`;
     const stub = roomStub(roomId);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await runInRoomDO(roomId, (_instance, state) => {
       state.storage.sql.exec(
         "UPDATE room_state SET phase = ?1 WHERE id = 1",
@@ -433,7 +434,7 @@ describe("RoomDO 進行状態", () => {
   ])("保存済みの無効な phase=%s を %o として復元する", async (raw, expected) => {
     const roomId = `room-phase-decode-${raw}`;
     const stub = roomStub(roomId);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await runInRoomDO(roomId, (_instance, state) => {
       state.storage.sql.exec(
         "UPDATE room_state SET phase = ?1 WHERE id = 1",
@@ -452,7 +453,7 @@ describe("RoomDO 解散", () => {
   ])("成果未初期化の解散後も作成再送と参加を拒否する（マーカー=%s）", async (hasMarker) => {
     const roomId = `room-disband-creation-retry-${hasMarker}`;
     const stub = roomStub(roomId);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     if (!hasMarker)
       await runInRoomDO(roomId, (_instance, state) => {
         state.storage.sql.exec("DELETE FROM room_creation_marker");
@@ -472,7 +473,7 @@ describe("RoomDO 解散", () => {
   it("disband は参加状態を消去し作成墓標を残す", async () => {
     const roomId = "room-disband-empty";
     const stub = roomStub(roomId);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     expect(await listMemberIds(roomId)).toEqual([USER_A, USER_B]);
 
@@ -552,7 +553,7 @@ describe("RoomDO WebSocket の深層防御", () => {
   it("非ホストは自分を HOST_ID_HEADER に指定しても start_phase できない", async () => {
     const roomId = "room-guard-forged-host-start";
     const stub = roomStub(roomId);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
 
     const ws = await connectDirectly(roomId, USER_B, USER_B);
@@ -569,7 +570,7 @@ describe("RoomDO WebSocket の深層防御", () => {
   it("非ホストは自分を HOST_ID_HEADER に指定しても phase:next できない", async () => {
     const roomId = "room-guard-forged-host-next";
     const stub = roomStub(roomId);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
@@ -597,7 +598,7 @@ describe("RoomDO snapshot", () => {
   it("host は snapshot で isHost=true になる", async () => {
     const stub = roomStub("room-snapshot-host");
 
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
 
     const res = await stub.fetch("https://do/ws", {
       headers: {
@@ -632,7 +633,7 @@ describe("RoomDO snapshot", () => {
   it("member は snapshot で isHost=false になる", async () => {
     const stub = roomStub("room-snapshot-member");
 
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
 
     const res = await stub.fetch("https://do/ws", {
@@ -674,7 +675,7 @@ describe("RoomDO adoption-focus:update", () => {
     } = {},
   ) {
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(options.phase ?? buildPhaseStep(5), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -922,7 +923,7 @@ describe("RoomDO note:decide の認可", () => {
   it("非ホストは共有付箋を決定できず forbidden で拒否される", async () => {
     const roomName = "room-decide-non-host";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertNote(roomName, SHARED_NOTE_ID, "shared");
@@ -940,7 +941,7 @@ describe("RoomDO note:decide の認可", () => {
   it("未参加ユーザーは note:decide を送る WebSocket 接続自体を拒否される", async () => {
     const roomName = "room-decide-non-member";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
 
     const response = await stub.fetch("https://do/ws", {
@@ -957,7 +958,7 @@ describe("RoomDO note:decide の認可", () => {
   it("非公開付箋はホストでも決定できず forbidden で拒否される", async () => {
     const roomName = "room-decide-private-note";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertNote(roomName, PRIVATE_NOTE_ID, "private");
 
@@ -996,7 +997,7 @@ describe("RoomDO note:decide", () => {
   it("ホストは Step 1-5 で共有付箋を決定できる", async () => {
     const roomName = "room-decide-host";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(roomName, FIRST_NOTE_ID);
 
@@ -1038,7 +1039,7 @@ describe("RoomDO note:decide", () => {
   it("決定時は送信者と非ホストを含む接続中の全員へ配信する", async () => {
     const roomName = "room-decide-broadcast";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(roomName, FIRST_NOTE_ID);
@@ -1066,7 +1067,7 @@ describe("RoomDO note:decide", () => {
   it("同じフェーズで再確定を拒否し最初の決定を保持する", async () => {
     const roomName = "room-decide-replace";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(roomName, FIRST_NOTE_ID);
     await insertSharedNote(roomName, SECOND_NOTE_ID);
@@ -1092,7 +1093,7 @@ describe("RoomDO note:decide", () => {
   it("Step 1-4 では note:decide を board-mutation-forbidden で拒否する", async () => {
     const roomName = "room-decide-step-4-forbidden";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(4), USER_A);
     await insertSharedNote(roomName, FIRST_NOTE_ID);
 
@@ -1110,7 +1111,7 @@ describe("RoomDO note:decide", () => {
   it("ホストの取消を全員へ配信し決定を削除する", async () => {
     const roomName = "room-decision-clear-host";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(roomName, FIRST_NOTE_ID);
@@ -1151,7 +1152,7 @@ describe("RoomDO note:decide", () => {
   it("非ホストは決定を解除できない", async () => {
     const roomName = "room-decision-clear-non-host";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(roomName, FIRST_NOTE_ID);
@@ -1190,7 +1191,7 @@ describe("RoomDO note:decide", () => {
   it("非メンバーのソケットからの取消を拒否し決定を保持する", async () => {
     const roomName = "room-decision-clear-non-member";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(roomName, FIRST_NOTE_ID);
     const host = await connectDirectly(roomName, USER_A, USER_A);
@@ -1220,7 +1221,7 @@ describe("RoomDO note:decide", () => {
   it("結果ステップ以外では決定を解除できない", async () => {
     const roomName = "room-decision-clear-wrong-step";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(4), USER_A);
 
     const host = await connectDirectly(roomName, USER_A, USER_A);
@@ -1246,7 +1247,7 @@ describe("RoomDO 候補外付箋", () => {
     excluded = false,
   ): Promise<void> {
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(phase, USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -2169,7 +2170,7 @@ describe("RoomDO phase:next", () => {
   it("3-1から3-2への初回遷移でフェーズ3の個人付箋総数からサイズを決め、他者には本文を送らない", async () => {
     const roomName = "room-idea-map-initial-size-from-private-notes";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1, 3), USER_A);
 
@@ -2236,7 +2237,7 @@ describe("RoomDO phase:next", () => {
   it("保存済みの広さを再接続・途中参加のsnapshotへ復元し、個人付箋情報を含めない", async () => {
     const roomName = "room-idea-map-snapshot-reconnect-and-join";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -2349,7 +2350,7 @@ describe("RoomDO phase:next", () => {
     const roomName = "room-idea-map-publish-unpublish-keeps-size";
     const noteId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -2462,7 +2463,7 @@ describe("RoomDO phase:next", () => {
   it("3-2では非ホストの直接resizeを拒否し、保存済みの広さを維持する", async () => {
     const roomName = "room-idea-map-resize-non-host";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(2, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -2493,7 +2494,7 @@ describe("RoomDO phase:next", () => {
   ])("3-%sではホストの直接resizeを拒否し、保存済みの広さを維持する", async (step) => {
     const roomName = `room-idea-map-resize-step-${step}`;
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(step, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       state.storage.sql.exec(
@@ -2523,7 +2524,7 @@ describe("RoomDO phase:next", () => {
     const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const dragId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(2, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -2595,7 +2596,7 @@ describe("RoomDO phase:next", () => {
     const noteId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     const dragId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(2, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -2658,7 +2659,7 @@ describe("RoomDO phase:next", () => {
     step: 3 | 4,
   ): Promise<void> {
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(step, phase), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -2852,7 +2853,7 @@ describe("RoomDO phase:next", () => {
   it("成功した通常のステップ移行で実行中タイマーを idle に戻して配信する", async () => {
     const roomName = "room-phase-next-resets-running-timer";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -2891,7 +2892,7 @@ describe("RoomDO phase:next", () => {
   it("snapshot を再配信するステップ移行では idle 化したタイマーを含める", async () => {
     const roomName = "room-phase-next-snapshot-has-idle-timer";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -2922,7 +2923,7 @@ describe("RoomDO phase:next", () => {
 
   it("全参加者の主観・客観投票が完了するまで Step 1-4 を終了できない", async () => {
     const stub = roomStub("room-phase-voting-incomplete");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(4), USER_A);
 
@@ -2971,7 +2972,7 @@ describe("RoomDO phase:next", () => {
   it("未投票メンバーが残っていても、ホストは force で Step 1-5 へ進められる", async () => {
     const roomName = "room-phase-force-next";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(4), USER_A);
 
@@ -3004,7 +3005,7 @@ describe("RoomDO phase:next", () => {
     const stub = roomStub(roomName);
     const voting = buildPhaseStep(4, 3);
     const result = buildPhaseStep(5, 3);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(voting, USER_A);
     const owner = await connectDirectly(roomName, USER_A, USER_A);
@@ -3069,7 +3070,7 @@ describe("RoomDO phase:next", () => {
   it("ホスト以外は force を付けても phase を進められない", async () => {
     const roomName = "room-phase-force-non-host";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(4), USER_A);
     const endsAt = Date.now() + 60_000;
@@ -3105,7 +3106,7 @@ describe("RoomDO phase:next", () => {
   it("課題が未決定の Step 1-5 では phase:next を拒否し、フェーズを進めない", async () => {
     const roomName = "room-phase-step5-no-decision";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -3133,7 +3134,7 @@ describe("RoomDO phase:next", () => {
   it("lobby では force を付けても phase:next できない", async () => {
     const roomName = "room-phase-force-lobby";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(
@@ -3155,7 +3156,7 @@ describe("RoomDO phase:next", () => {
   it("全員の投票が完了していれば force なしで Step 1-5 へ進める", async () => {
     const roomName = "room-phase-voting-complete";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(4), USER_A);
     // 全員が主観1票・客観3票をちょうど使い切った状態を直接作る。
@@ -3215,7 +3216,7 @@ describe("RoomDO phase:next", () => {
     const phase1NoteId = "11111111-1111-4111-8111-111111111111";
     const phase2NoteId = "22222222-2222-4222-8222-222222222222";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(4), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -3381,7 +3382,7 @@ describe("RoomDO phase:next", () => {
     const roomName = "room-phase2-main-transition";
     const noteId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2, 2), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -3498,7 +3499,7 @@ describe("RoomDO phase:next", () => {
   it("フェーズ3を共有・2軸配置・投票・集計確認まで順に進められる", async () => {
     const roomName = "room-phase3-provisional-flow";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1, 3), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -3636,7 +3637,7 @@ describe("RoomDO phase:next", () => {
   it("成果公開は採用決定後のホストだけが行い、全員へ反映し再訪は読取APIへ切り替える", async () => {
     const roomName = "room-publish-outcome-after-decision";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host", { roomId: roomName });
+    await initializeTestRoom(stub, USER_A, "Host", { roomId: roomName });
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(5, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -3716,7 +3717,7 @@ describe("RoomDO phase:next", () => {
     ] as const) {
       const roomName = `room-publish-outcome-${name}`;
       const stub = roomStub(roomName);
-      await stub.initializeNewRoom(USER_A, "Host");
+      await initializeTestRoom(stub, USER_A, "Host");
       await stub.setPhase(phase, USER_A);
       if (hasDecision) {
         await runInRoomDO(roomName, (_instance, state) => {
@@ -3741,7 +3742,7 @@ describe("RoomDO phase:next", () => {
   it("Step 3-2 は複数参加者へ共有付箋を配信し、近接してもグループ化せず投票を拒否する", async () => {
     const roomName = "room-phase3-share-and-operation-gates";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1, 3), USER_A);
 
@@ -3830,7 +3831,7 @@ describe("RoomDO phase:next", () => {
       "66666666-6666-4666-8666-666666666666",
     ];
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(step, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -3883,7 +3884,7 @@ describe("RoomDO phase:next", () => {
       "44444444-4444-4444-8444-444444444444",
     ];
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(3, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -3967,7 +3968,7 @@ describe("RoomDO phase:next", () => {
   }) => {
     const roomName = `room-phase3-map-range-${step}-${message.type}`;
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(step, 3), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -3985,7 +3986,7 @@ describe("RoomDO phase:next", () => {
   ])("フェーズ3 Step3-%iでは直接送られた配置移動を拒否する", async (step) => {
     const roomName = `room-phase3-map-move-forbidden-${step}`;
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(step, 3), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -4011,7 +4012,7 @@ describe("RoomDO phase:next", () => {
     const roomName = "room-phase3-map-realtime";
     const noteId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(2, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -4110,7 +4111,7 @@ describe("RoomDO phase:next", () => {
     const retiredDragId = "48484848-4848-4484-8484-484848484848";
     const freshDragId = "49494949-4949-4494-8494-494949494949";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -4181,7 +4182,7 @@ describe("RoomDO phase:next", () => {
     const noteId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     const dragId = "77777777-7777-4777-8777-777777777777";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(2), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -4279,7 +4280,7 @@ describe("RoomDO phase:next", () => {
   it("host は phase を進められる", async () => {
     const stub = roomStub("room-phase-host");
 
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     // Step 1-1 のまま phase:next → Step 1-2
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
@@ -4327,7 +4328,7 @@ describe("RoomDO phase:next", () => {
   it("member は phase を進められない", async () => {
     const stub = roomStub("room-phase-member");
 
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
@@ -4372,7 +4373,7 @@ describe("RoomDO phase:next", () => {
   it("phase 更新は全クライアントへ配信される", async () => {
     const stub = roomStub("room-phase-broadcast");
 
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
@@ -4449,7 +4450,7 @@ describe("RoomDO timer:* の認可", () => {
   ])("非ホストの $type は forbidden で状態を変更できない", async (command) => {
     const roomId = `room-timer-member-${command.type}`;
     const stub = roomStub(roomId);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
 
     const res = await stub.fetch("https://do/ws", {
@@ -4481,7 +4482,7 @@ describe("RoomDO timer:* の認可", () => {
 
   it("D1由来 hostId が本人でも RoomDO の所有者でなければ操作できない", async () => {
     const stub = roomStub("room-timer-forged-host-header");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     const res = await stub.fetch("https://do/ws", {
       headers: {
@@ -4509,7 +4510,7 @@ describe("RoomDO timer:* の認可", () => {
 
   it("ホストでも現在状態に合わない操作は権限エラーと異なる文言で拒否する", async () => {
     const stub = roomStub("room-timer-invalid-state");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
@@ -4550,7 +4551,7 @@ describe("RoomDO timer:* の認可", () => {
 
   it("実行中の延長を 99:59 にクランプし、一時停止中は延長できない", async () => {
     const stub = roomStub("room-timer-extend-limit");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
@@ -4622,7 +4623,7 @@ describe("RoomDO timer:* の認可", () => {
 
   it("idle への stop は状態変化も配信も行わない", async () => {
     const stub = roomStub("room-timer-stop-idle");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
@@ -4649,7 +4650,7 @@ describe("RoomDO timer:* の認可", () => {
   it("ホスト操作を状態変化時だけ配信し、終了後は ended を snapshot で復元する", async () => {
     const roomId = "room-timer-host-lifecycle";
     const stub = roomStub(roomId);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
 
     const res = await stub.fetch("https://do/ws", {
       headers: {
@@ -4741,7 +4742,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
   it("Step 2-2 以降のフェーズ2ステップでは変更系メッセージをdeny-allで拒否する", async () => {
     const roomName = "room-phase-2-deny-all";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2, 2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -4758,7 +4759,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
   it("Step 1-1 では note:vote を付箋の存在確認より前に forbidden で拒否する", async () => {
     const roomName = "room-step-1-1-vote-forbidden";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "start_phase" }));
@@ -4969,7 +4970,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
   }) => {
     const roomName = `room-step-gate-${step}-${operation}`;
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(step), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -5067,7 +5068,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
   ])("Step 1-5 では変更操作 $type を拒否する", async (message) => {
     const roomName = `room-step-5-${message.type}`;
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -5084,7 +5085,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
   it("Step 1-2 では note:update-content を許可し、共有中の誤字を修正できる", async () => {
     const roomName = "room-step-1-2-update-content-allowed";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -5118,7 +5119,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
   it("非公開の文字サイズを保護し、公開後も保持して共同編集を同期する", async () => {
     const roomName = "room-note-font-size-authorized";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
@@ -5227,7 +5228,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
   it("挿入位置付きunpublishで並び替える付箋の文字サイズを保つ", async () => {
     const roomName = "room-note-unpublish-order-preserves-font-size";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1), USER_A);
     const author = await connectDirectly(roomName, USER_A, USER_A);
 
@@ -5293,7 +5294,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
 describe("RoomDO Step 1-5 のボード凍結", () => {
   it("Step 1-5 では非公開付箋を公開できない", async () => {
     const stub = roomStub("room-phase4-publish-freeze");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     // lobby のままでは付箋を作れないため、ボード工程に進めてから凍結を検証する。
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
@@ -5345,7 +5346,7 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
 
   it("Step 1-5 では共有付箋を非公開に戻せない", async () => {
     const stub = roomStub("room-phase4-unpublish-freeze");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
     const res = await stub.fetch("https://do/ws", {
@@ -5399,7 +5400,7 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
 
   it("Step 1-5 では WebSocket からの付箋本文更新を拒否し、付箋内容を維持する", async () => {
     const stub = roomStub("room-phase4-freeze");
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
     const res = await stub.fetch("https://do/ws", {
@@ -5455,7 +5456,7 @@ describe("RoomDO lobby のボード凍結", () => {
   it("lobby では note:create が拒否され、付箋は作成されない", async () => {
     const roomName = "room-lobby-create-freeze";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "note:create" }));
@@ -5476,7 +5477,7 @@ describe("RoomDO lobby のボード凍結", () => {
   it("lobby では note:vote が付箋の存在確認より前に境界で拒否される", async () => {
     const roomName = "room-lobby-vote-freeze";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(
@@ -5499,7 +5500,7 @@ describe("RoomDO lobby のボード凍結", () => {
   it("lobby では group:create が拒否され、グループは作成されない", async () => {
     const roomName = "room-lobby-group-freeze";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
 
     // 共有付箋の検証（hasOnlySharedNotes）を通過する状態を直接作り、
     // 境界ガードがなければ group:create が成功してしまうことを保証する。
@@ -5551,7 +5552,7 @@ describe("RoomDO lobby のボード凍結", () => {
   it("start_phase で Step 1-1 に進むと note:create が通る（凍結は lobby 限定）", async () => {
     const roomName = "room-lobby-unfreeze";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "start_phase" }));
@@ -5576,7 +5577,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
   it("Step 2-3 では投票が許可される", async () => {
     const roomName = "room-phase2-vote-gate";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(3, 2), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -5605,7 +5606,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
   it("Step 2-4 ではホストの問い決定が許可される", async () => {
     const roomName = "room-phase2-decide-gate";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(4, 2), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -5631,7 +5632,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
   it("Step 2-4 では非ホストの問い決定を forbidden で拒否する", async () => {
     const roomName = "room-phase2-decide-non-host";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(4, 2), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -5658,7 +5659,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
   it("未投票メンバーが残っていても、ホストは force で Step 2-4 へ進められる", async () => {
     const roomName = "room-phase2-voting-incomplete-force";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(3, 2), USER_A);
 
@@ -5688,7 +5689,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
   it("Step 2-3ではホスト以外が force を付けても進められない", async () => {
     const roomName = "room-phase2-force-non-host";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(3, 2), USER_A);
 
@@ -5751,7 +5752,7 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
   it("課題決定済みの Step 1-5 から phase:next で Step 2-1 へ進み、snapshot で持ち越しを配信する", async () => {
     const roomName = "room-carryover-transition";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(
       roomName,
@@ -5797,7 +5798,7 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
   it("Step 2-1 の再接続 snapshot は前フェーズの決定を持ち越し、現在フェーズの decision は null になる", async () => {
     const roomName = "room-carryover-reconnect";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(roomName, DECIDED_NOTE_ID, "決定した課題");
     await decideAndAdvance(roomName);
@@ -5831,7 +5832,7 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
   it("決定後に元の付箋が削除されても、持ち越しは決定時点の内容を保持する", async () => {
     const roomName = "room-carryover-note-deleted";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
     await insertSharedNote(roomName, DECIDED_NOTE_ID, "決定時点の内容");
     await decideAndAdvance(roomName);
@@ -5929,7 +5930,7 @@ describe("RoomDO 同フェーズ内のマイ付箋の保持", () => {
   it("Step 1-2 から 1-3 へ進むと、未共有下書きと既存票を同フェーズ内に保持する", async () => {
     const roomName = "room-discard-private-notes-leaving-sharing-step";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2), USER_A);
     await insertNote(roomName, SHARED_NOTE_ID, "shared", "共有した課題");
     await insertNote(
@@ -5977,7 +5978,7 @@ describe("RoomDO 同フェーズ内のマイ付箋の保持", () => {
   it("Step 1-1 から 1-2 へ進む時点ではマイ付箋を破棄しない", async () => {
     const roomName = "room-keep-private-notes-entering-sharing-step";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1), USER_A);
     await insertNote(
       roomName,
@@ -6019,7 +6020,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("Step 2-1 では content 付き note:create で自分専用付箋を作成できる", async () => {
     const roomName = "room-step2-1-create";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -6048,7 +6049,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("Step 2-1 では他者の問いの付箋が snapshot に含まれず、note:vote も forbidden になる", async () => {
     const roomName = "room-step2-1-others-hidden";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
@@ -6095,7 +6096,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("Step 2-1 では note:publish が forbidden になる（共有は Step 2-2 のスコープ）", async () => {
     const roomName = "room-step2-1-publish-forbidden";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -6120,7 +6121,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("note:create の content が上限超過なら invalid-message で拒否される", async () => {
     const roomName = "room-step2-1-content-too-long";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -6160,7 +6161,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("Step 2-1 では非 author による共有付箋への note:update-content が forbidden になる", async () => {
     const roomName = "room-step2-1-shared-update-non-author";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
     await insertSharedNoteByA(roomName, "フェーズ1の記録");
@@ -6193,7 +6194,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("Step 2-1 では author 自身も共有付箋の note:update-content / note:delete ができない", async () => {
     const roomName = "room-step2-1-shared-author-frozen";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
     await insertSharedNoteByA(roomName, "フェーズ1の記録");
 
@@ -6230,7 +6231,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("Step 2-1 では自分の private 付箋の編集・削除はできる", async () => {
     const roomName = "room-step2-1-private-editable";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -6264,7 +6265,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("Step 2-2 では publish した問いが全員に共有され、近接してもグループ化されない", async () => {
     const roomName = "room-step2-2-share-hmw";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
@@ -6303,7 +6304,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it("Step 2-2 では投票、Step 2-3 では付箋作成・移動を forbidden にする", async () => {
     const roomName = "room-step2-operation-gates";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2, 2), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -6345,7 +6346,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     const oldNoteId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
     const hmwNoteId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2, 2), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -6392,7 +6393,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     const roomName = "room-step2-old-note-vote-forbidden";
     const oldNoteId = "ffffffff-ffff-4fff-8fff-fffffffffff0";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(3, 2), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
@@ -6426,7 +6427,7 @@ describe("RoomDO Step 3-1 の境界ゲート", () => {
   it("Step 3-1 では note:create で自分専用付箋を作成できる", async () => {
     const roomName = "room-step3-1-create";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1, 3), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -6455,7 +6456,7 @@ describe("RoomDO Step 3-1 の境界ゲート", () => {
   it("Step 3-1 では note:publish が forbidden になる", async () => {
     const roomName = "room-step3-1-publish-forbidden";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1, 3), USER_A);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
@@ -6481,7 +6482,7 @@ describe("RoomDO タイマー終了", () => {
   it("ホストの一時停止中の終了は ended を全員へ配信し、非ホストは操作できない", async () => {
     const roomName = "room-timer-ended-and-host-only";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(1), USER_A);
 
@@ -6543,7 +6544,7 @@ describe("RoomDO タイマー終了", () => {
   it("時間切れの alarm はタイマーだけを ended にして全員へ配信する", async () => {
     const roomName = "room-timer-alarm-expiration";
     const stub = roomStub(roomName);
-    await stub.initializeNewRoom(USER_A, "Host");
+    await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(1), USER_A);
     const ws = await connectDirectly(roomName, USER_A, USER_A);
 

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
-import { runInRoomDO } from "../test-helpers";
+import { initializeTestRoom, runInRoomDO } from "../test-helpers";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const hostId = "11111111-1111-4111-8111-111111111111";
@@ -31,7 +31,7 @@ describe("本文の確定", () => {
   it("保存確認用の記録に過去の付箋本文を残さない", async () => {
     const roomName = "note-content-receipt-privacy";
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
-    await stub.initializeNewRoom(hostId, "Host");
+    await initializeTestRoom(stub, hostId, "Host");
     await stub.setPhase(buildPhaseStep(1), hostId);
     await runInRoomDO(roomName, (_room, state) => {
       const now = new Date().toISOString();
@@ -87,7 +87,7 @@ describe("本文の確定", () => {
   it("同じ本文revisionからの2接続の保存は先着1件だけが確定する", async () => {
     const roomName = "note-content-cas-two-sockets";
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
-    await stub.initializeNewRoom(hostId, "Host");
+    await initializeTestRoom(stub, hostId, "Host");
     await stub.setPhase(buildPhaseStep(1), hostId);
     await runInRoomDO(roomName, (_room, state) => {
       const now = new Date().toISOString();

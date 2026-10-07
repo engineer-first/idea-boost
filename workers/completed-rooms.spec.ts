@@ -4,6 +4,7 @@ import worker from "./api-worker";
 import {
   connectRoomAs,
   createRoomAs,
+  initializeTestRoom,
   joinRoomAs,
   runInRoomDO,
   sessionCookieFor,
@@ -514,7 +515,9 @@ it("削除失敗中も期限拒否を保ち、再試行で属性・本文・索�
         state.storage.sql.exec(`SELECT * FROM ${table}`).toArray(),
       ).toEqual([]);
     await expect(
-      instance.initializeNewRoom(host.sub, host.name, { roomId: room.roomId }),
+      initializeTestRoom(instance, host.sub, host.name, {
+        roomId: room.roomId,
+      }),
     ).rejects.toThrow();
     expect(await state.storage.getAlarm()).toBeNull();
   });
@@ -593,12 +596,19 @@ it("同一完了時刻の索引もルームIDで安定して分割し、認可�
   }
   const now = Date.now();
   // 前ページには非閲覧者の索引だけを置き、空ページでも続きへ到達する。
-  for (let i = 0; i < 20; i++)
+  for (let i = 0; i < 20; i++) {
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      "INSERT INTO shared_outcomes(room_id,last_used_at,expires_at,creation_visibility) VALUES(?,?,?,'legacy')",
+    )
+      .bind(id, now, now + 86400000)
+      .run();
     await env.DB.prepare(
       "INSERT INTO completed_room_viewers(user_id,room_id,completed_at,expires_at) VALUES(?,?,?,?)",
     )
-      .bind(cursorUser.sub, crypto.randomUUID(), now + 1000, now + 86400000)
+      .bind(cursorUser.sub, id, now + 1000, now + 86400000)
       .run();
+  }
   await env.DB.prepare(
     "UPDATE completed_room_viewers SET completed_at=? WHERE room_id IN (?,?)",
   )

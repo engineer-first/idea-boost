@@ -1,6 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
+import { issueCreationId } from "../../contracts/room-creation";
 import { savePhase } from "../room/phase";
 import { runInRoomDO, sessionCookieFor } from "../test-helpers";
 import { ensureUser } from "./db";
@@ -22,7 +23,7 @@ const OUTSIDER = {
   email: "other@example.test",
   name: "Other",
 };
-async function reserve(name = "test", requestId = crypto.randomUUID()) {
+async function reserve(name = "test", requestId = issueCreationId().requestId) {
   await ensureUser(env.DB, { id: USER.sub, email: USER.email });
   return reserveRoomCreation(env.DB, USER.sub, requestId, name);
 }
@@ -33,16 +34,24 @@ async function post(requestId: string, name: string, user = USER) {
       Cookie: await sessionCookieFor(user),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ requestId, name }),
+    body: JSON.stringify({ requestId, name, expectedPrincipal: user.sub }),
   });
 }
-function initialize(creation: Awaited<ReturnType<typeof reserve>>) {
-  return env.ROOM_DO.get(
-    env.ROOM_DO.idFromName(creation.room_id),
-  ).initializeNewRoom(USER.sub, USER.name, {
-    roomId: creation.room_id,
-    name: creation.name,
-  });
+function initialize(c: Awaited<ReturnType<typeof reserve>>) {
+  return env.ROOM_DO.get(env.ROOM_DO.idFromName(c.room_id))
+    .initializeCreation(
+      {
+        creator: c.user_id,
+        roomId: c.room_id,
+        requestId: c.request_id,
+        expiresAt: c.expires_at,
+      },
+      USER.name,
+      c.name,
+    )
+    .then((result) => {
+      if (result !== "ready") throw new Error("終了したルームです。");
+    });
 }
 
 describe("作成要求の障害回復", () => {
@@ -147,7 +156,7 @@ describe("作成要求の障害回復", () => {
     const second = await reserveRoomCreation(
       env.DB,
       USER.sub,
-      crypto.randomUUID(),
+      issueCreationId().requestId,
       "test",
       () => (++calls === 1 ? first.invite_code : "ABC234"),
     );
@@ -218,10 +227,16 @@ describe("作成要求の障害回復", () => {
     });
     await runInRoomDO(creation.room_id, async (instance) => {
       await expect(
-        instance.initializeNewRoom(USER.sub, USER.name, {
-          roomId: creation.room_id,
-          name: creation.name,
-        }),
+        instance.initializeCreation(
+          {
+            creator: USER.sub,
+            roomId: creation.room_id,
+            requestId: creation.request_id,
+            expiresAt: creation.expires_at,
+          },
+          USER.name,
+          creation.name,
+        ),
       ).rejects.toThrow("marker failure");
     });
     await runInRoomDO(creation.room_id, (_instance, state) => {
@@ -293,11 +308,17 @@ describe("作成要求の障害回復", () => {
     }));
     await runInRoomDO(creation.room_id, async (instance) => {
       await expect(
-        instance.initializeNewRoom(USER.sub, USER.name, {
-          roomId: creation.room_id,
-          name: creation.name,
-        }),
-      ).rejects.toThrow("終了したルーム");
+        instance.initializeCreation(
+          {
+            creator: USER.sub,
+            roomId: creation.room_id,
+            requestId: creation.request_id,
+            expiresAt: creation.expires_at,
+          },
+          USER.name,
+          creation.name,
+        ),
+      ).resolves.toBe("closed");
     });
     const after = await runInRoomDO(creation.room_id, (_instance, state) => ({
       phase: state.storage.sql.exec("SELECT * FROM room_state").one(),
