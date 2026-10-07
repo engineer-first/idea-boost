@@ -1015,6 +1015,9 @@ const guidanceNotes = [
 function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState([...args.notes, ...args.privateNotes]);
+  const [receipt, setReceipt] = useState<
+    { operationId: string; noteId: string } | undefined
+  >();
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const moveNote = (id: string, x: number, y: number) =>
@@ -1077,17 +1080,22 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
         draggingNoteId={draggingNoteId}
         selectedNoteId={selectedNoteId}
         onSelect={setSelectedNoteId}
-        onAddPrivateNote={() =>
+        noteCreationReceipt={receipt}
+        onAddPrivateNote={() => {
+          const operationId = crypto.randomUUID();
+          const noteId = crypto.randomUUID();
           setNotes((current) => [
             ...current,
             buildNote({
-              id: `created-${current.length}`,
+              id: noteId,
               authorId: "guidance-user",
               visibility: "private",
               content: "",
             }),
-          ])
-        }
+          ]);
+          setReceipt({ operationId, noteId });
+          return operationId;
+        }}
         draftValue={(id) => drafts[id]}
         onDraftChange={(id, content) =>
           setDrafts((current) => ({ ...current, [id]: content }))
@@ -1236,7 +1244,14 @@ function TransactionMovePreview({ args }: { args: RoomBoardCanvasStoryProps }) {
       receipt,
     });
   }, []);
-  const roomNotes = useRoomNotes({ send });
+  const sendRoomNotes = useCallback(
+    (message: ClientMessage): boolean => {
+      send(message);
+      return true;
+    },
+    [send],
+  );
+  const roomNotes = useRoomNotes({ send: sendRoomNotes });
   receiver.current = roomNotes.applyMessage;
   useEffect(() => {
     receiver.current({

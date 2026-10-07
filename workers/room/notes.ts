@@ -593,6 +593,7 @@ export function broadcastNoteInserted(
   sql: SqlStorage,
   broadcaster: RoomBroadcaster,
   row: NoteRow,
+  operationId?: string,
 ): void {
   const phase = getPhase(sql);
   broadcaster.broadcastNote((viewerId) => ({
@@ -601,6 +602,7 @@ export function broadcastNoteInserted(
       { viewerId, phase },
       toProtocolNote(sql, row, viewerId),
     ),
+    ...(operationId === undefined ? {} : { operationId }),
   }));
 }
 

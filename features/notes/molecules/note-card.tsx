@@ -614,18 +614,22 @@ export function NoteCard({
   // 状態に応じてフォーカスを移す。サーフェスにフォーカスがないと
   // Backspace削除などのキー操作を受け取れない。
   useEffect(() => {
-    if (isEditing) {
+    if (isEditing && isSelected) {
       const textarea = textareaRef.current;
       if (textarea) {
         textarea.focus({ preventScroll: true });
         const caret = textarea.value.length;
         textarea.setSelectionRange(caret, caret);
       }
-    } else if (wasEditingRef.current) {
+    } else if (
+      wasEditingRef.current &&
+      isSelected &&
+      document.activeElement === textareaRef.current
+    ) {
       surfaceRef.current?.focus({ preventScroll: true });
     }
     wasEditingRef.current = isEditing;
-  }, [isEditing]);
+  }, [isEditing, isSelected]);
 
   const discardPointerOrigin = useCallback(() => {
     const origin = pointerOriginRef.current;

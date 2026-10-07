@@ -194,7 +194,10 @@ export type RoomBoardViewProps = {
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
-  onAddPrivateNote: () => void;
+  onAddPrivateNote: () => string | null;
+  noteCreationPending?: boolean;
+  noteCreationReceipt?: { operationId: string; noteId: string };
+  noteCreationSupported?: boolean;
   // Step 2-1 でテンプレート・具体例を起点に付箋を作る。
   onHmwTemplateSelect: (content: string) => void;
   onIdeaHintSelect: (content: string) => void;
@@ -312,6 +315,9 @@ export function RoomBoardView({
   hmwDecidedIssue,
   decidedHmw,
   onAddPrivateNote,
+  noteCreationPending = false,
+  noteCreationReceipt,
+  noteCreationSupported = true,
   onHmwTemplateSelect,
   onIdeaHintSelect,
   onPrivateNoteContentChange,
@@ -393,6 +399,8 @@ export function RoomBoardView({
   const [adoptHostRevision, setAdoptHostRevision] = useState(hostRevision);
   const isAdoptMode = isAdoptRequested && adoptHostRevision === hostRevision;
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
+  const privateNoteAddRef = useRef<(() => void) | null>(null);
+  const composingRef = useRef(false);
   const [leaveDialogRevision, setLeaveDialogRevision] = useState<number | null>(
     null,
   );
@@ -1534,8 +1542,64 @@ export function RoomBoardView({
             cancelRootPress();
         }}
         onClickCapture={handleRootClickCapture}
+        onCompositionStartCapture={() => {
+          composingRef.current = true;
+        }}
+        onCompositionEndCapture={() => {
+          composingRef.current = false;
+        }}
         onKeyDownCapture={(event) => {
           const target = event.target;
+          const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+          if (
+            event.key === "Enter" &&
+            (isMac
+              ? event.metaKey && !event.ctrlKey
+              : event.ctrlKey && !event.metaKey) &&
+            !event.altKey &&
+            !event.shiftKey &&
+            !event.defaultPrevented &&
+            !event.nativeEvent.isComposing &&
+            event.keyCode !== 229 &&
+            !composingRef.current &&
+            target instanceof HTMLElement
+          ) {
+            const inPrivateToolbar =
+              target.closest('[data-testid="private-notes-toolbar"]') !== null;
+            const isPrivateSurface =
+              inPrivateToolbar && target.dataset.canvasNoteSurface === "true";
+            const isPrivateEditor =
+              inPrivateToolbar &&
+              target instanceof HTMLTextAreaElement &&
+              !target.readOnly;
+            const isBackground =
+              target === interactions.boardScrollerRef.current ||
+              target.dataset.canvasBackground === "true";
+            if (
+              (isBackground || isPrivateSurface || isPrivateEditor) &&
+              !target.closest(
+                '[data-board-native-control], [role="menu"], [role="dialog"]',
+              )
+            ) {
+              // 追加できない間も、同じキーでsurfaceのclickや本文の改行を合成しない。
+              event.preventDefault();
+              event.stopPropagation();
+              if (
+                !event.repeat &&
+                !isDisconnected &&
+                shouldExpandPrivateNotes &&
+                permissions.canCreateNote &&
+                noteCreationSupported &&
+                !noteCreationPending &&
+                !hasActiveCanvasGesture() &&
+                !document.querySelector(
+                  '[role="dialog"], [role="alertdialog"], [role="menu"], dialog[open], details[open]',
+                )
+              )
+                privateNoteAddRef.current?.();
+              return;
+            }
+          }
           if (
             moveHistory &&
             target instanceof HTMLElement &&
@@ -1709,6 +1773,11 @@ export function RoomBoardView({
           isHost={isHost}
           privateNotes={toolbarNotes}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
+          privateNoteAddRef={privateNoteAddRef}
+          noteCreationPending={noteCreationPending}
+          noteCreationReceipt={noteCreationReceipt}
+          noteCreationSupported={noteCreationSupported}
+          noteCreationFocusContext={`${phaseKey}:${phaseRevision ?? ""}`}
           selectedNoteId={selectedNoteId}
           selectedNoteIds={selectedNoteIds}
           interactionTool={interactionTool}

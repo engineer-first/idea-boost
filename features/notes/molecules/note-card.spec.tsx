@@ -53,6 +53,21 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("本文から別の操作へfocusを移した後に、編集終了で付箋へfocusを戻さない", () => {
+    setup({ isSelected: true });
+    fireEvent.keyDown(getNoteSurface(), { key: "Enter" });
+    expect(screen.getByRole("textbox")).toHaveFocus();
+    const other = document.createElement("button");
+    document.body.append(other);
+    try {
+      act(() => other.focus());
+      expect(other).toHaveFocus();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    } finally {
+      other.remove();
+    }
+  });
+
   it("DOM移動でblurが届かなくても別付箋へのfocusで古い一時表示を残さない", () => {
     const { props, view } = setup({ isSelected: true, canExcludeNote: true });
     const action = screen.getByRole("button", { name: "候補から外す" });

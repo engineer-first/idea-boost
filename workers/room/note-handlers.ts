@@ -156,7 +156,7 @@ export const noteHandlers: MessageHandlers<
       excluded: false,
     };
     insertNote(ctx.sql, note);
-    broadcastNoteInserted(ctx.sql, ctx.broadcaster, note);
+    broadcastNoteInserted(ctx.sql, ctx.broadcaster, note, message.operationId);
   },
 
   "note:publish": (ctx, message) => {

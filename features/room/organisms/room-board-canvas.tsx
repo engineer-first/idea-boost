@@ -147,7 +147,11 @@ export type RoomBoardCanvasProps = {
   onAdoptNote: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
-  onAddPrivateNote: () => void;
+  onAddPrivateNote: () => string | null;
+  noteCreationPending?: boolean;
+  noteCreationReceipt?: { operationId: string; noteId: string };
+  noteCreationSupported?: boolean;
+  noteCreationFocusContext?: string;
   onPrivateNoteContentChange: (noteId: string, content: string) => void;
   onPrivateNoteDelete: (noteId: string) => void;
   onPrivateNoteDragStart: (
@@ -157,6 +161,7 @@ export type RoomBoardCanvasProps = {
   remoteCursors: RenderedRemoteCursorPresence[];
   expandPrivateNotesRequest?: number;
   addPrivateNoteRequest?: number;
+  privateNoteAddRef?: RefObject<(() => void) | null>;
 };
 
 export function RoomBoardCanvas({
@@ -227,6 +232,10 @@ export function RoomBoardCanvas({
   onGroupCreate,
   onGroupUpdateName,
   onAddPrivateNote,
+  noteCreationPending = false,
+  noteCreationReceipt,
+  noteCreationSupported = true,
+  noteCreationFocusContext,
   onPrivateNoteContentChange,
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
@@ -234,6 +243,7 @@ export function RoomBoardCanvas({
   authorName,
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
+  privateNoteAddRef,
 }: RoomBoardCanvasProps) {
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
@@ -871,7 +881,10 @@ export function RoomBoardCanvas({
               notes={privateNotes}
               disabled={isDisconnected}
               canDeleteNote={permissions.canDeleteNote}
-              canCreateNote={permissions.canCreateNote}
+              canCreateNote={permissions.canCreateNote && noteCreationSupported}
+              noteCreationPending={noteCreationPending}
+              noteCreationReceipt={noteCreationReceipt}
+              noteCreationFocusContext={noteCreationFocusContext}
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               editingDisabled={isResultStep(phase)}
@@ -880,6 +893,7 @@ export function RoomBoardCanvas({
               }
               expandRequest={expandPrivateNotesRequest}
               addRequest={addPrivateNoteRequest}
+              addActionRef={privateNoteAddRef}
               className="pointer-events-auto max-h-full"
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}

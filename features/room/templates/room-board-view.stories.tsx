@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
@@ -197,6 +197,90 @@ export const WithNotes: Story = {};
 export const Empty: Story = {
   args: {
     notes: [],
+  },
+};
+
+export const PrivateNoteAdditionDelayed: Story = {
+  args: {
+    phase: STEP_1_1,
+    notes: [],
+    initialGuideState: "compact",
+  },
+  render: function Render(args) {
+    const [privateNotes, setPrivateNotes] = useState([
+      buildNote({
+        id: "private-writing",
+        authorId: ME,
+        visibility: "private",
+        content: "最初の下書き",
+      }),
+    ]);
+    const [pendingOperationId, setPendingOperationId] = useState<string | null>(
+      null,
+    );
+    const [receipt, setReceipt] = useState<
+      { operationId: string; noteId: string } | undefined
+    >();
+    const pendingRef = useRef<string | null>(null);
+    useEffect(() => {
+      if (!pendingOperationId) return;
+      const timer = window.setTimeout(() => {
+        const noteId = crypto.randomUUID();
+        setPrivateNotes((current) => [
+          ...current,
+          buildNote({
+            id: noteId,
+            authorId: ME,
+            visibility: "private",
+            content: "",
+          }),
+        ]);
+        setReceipt({ operationId: pendingOperationId, noteId });
+        pendingRef.current = null;
+        setPendingOperationId(null);
+      }, 1800);
+      return () => window.clearTimeout(timer);
+    }, [pendingOperationId]);
+    const interactions = useRoomBoardInteractions({
+      notes: [],
+      privateNotes,
+      currentUserId: ME,
+      draggingNoteId: null,
+      phase: args.phase,
+      getFitInsets: getBoardFitInsets,
+      onNoteDragStart: () => undefined,
+      onNoteDragMove: () => undefined,
+      onNoteDragEnd: () => undefined,
+      onNoteDragCancel: () => undefined,
+      onPrivateNotePublish: () => undefined,
+      onPrivateNoteUnpublish: () => undefined,
+      onCursorMove: () => undefined,
+      onCursorLeave: () => undefined,
+    });
+    const help = useBoardHelp(args.phase);
+    return (
+      <RoomBoardView
+        {...args}
+        interactions={interactions}
+        help={help}
+        noteCreationPending={pendingOperationId !== null}
+        noteCreationReceipt={receipt}
+        onAddPrivateNote={() => {
+          if (pendingRef.current) return null;
+          const operationId = crypto.randomUUID();
+          pendingRef.current = operationId;
+          setPendingOperationId(operationId);
+          return operationId;
+        }}
+        onPrivateNoteContentChange={(id, content) =>
+          setPrivateNotes((current) =>
+            current.map((note) =>
+              note.id === id ? { ...note, content } : note,
+            ),
+          )
+        }
+      />
+    );
   },
 };
 

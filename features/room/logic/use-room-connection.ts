@@ -37,6 +37,7 @@ export type UseRoomConnectionResult = {
   connectionStatus: RoomScreenConnectionStatus;
   connectionDelayed: boolean;
   send: (message: ClientMessage) => boolean;
+  resynchronize: () => void;
 };
 
 export function useRoomConnection({
@@ -51,6 +52,7 @@ export function useRoomConnection({
   const [connectionStatus, setConnectionStatus] =
     useState<RoomScreenConnectionStatus>("connecting");
   const [connectionDelayed, setConnectionDelayed] = useState(false);
+  const [synchronizationRequest, setSynchronizationRequest] = useState(0);
   const synchronizedRef = useRef(false);
   const clientRef = useRef<RoomClient | null>(null);
   // ハンドラの差し替えを再接続にしないため、常に最新の onMessage を参照する。
@@ -66,7 +68,7 @@ export function useRoomConnection({
     let active = true;
     // snapshotで同期を確定するたびに照会世代を進める。socket openだけでは
     // 復旧していないため、切断中に始めた照会をまだ有効として扱う。
-    let generation = 0;
+    let generation = synchronizationRequest;
     let terminal = false;
     let client: RoomClient | undefined;
     let delayedTimer: ReturnType<typeof setTimeout> | null = null;
@@ -233,7 +235,22 @@ export function useRoomConnection({
       clientRef.current = null;
       client.close();
     };
-  }, [roomId, currentUserId, webSocketFactory, router, isLeavingRef]);
+  }, [
+    roomId,
+    currentUserId,
+    webSocketFactory,
+    router,
+    isLeavingRef,
+    synchronizationRequest,
+  ]);
+
+  const resynchronize = useCallback((): void => {
+    if (!synchronizedRef.current || isLeavingRef?.current) return;
+    synchronizedRef.current = false;
+    clientRef.current?.close();
+    setConnectionStatus("connecting");
+    setSynchronizationRequest((request) => request + 1);
+  }, [isLeavingRef]);
 
   const send = useCallback((message: ClientMessage) => {
     return (
@@ -243,5 +260,5 @@ export function useRoomConnection({
     );
   }, []);
 
-  return { connectionStatus, connectionDelayed, send };
+  return { connectionStatus, connectionDelayed, send, resynchronize };
 }

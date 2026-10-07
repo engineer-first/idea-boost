@@ -198,6 +198,34 @@ describe("useRoomConnection", () => {
     );
   });
 
+  it("結果不明時の再同期は接続を作り直し、作成要求を再送しない", () => {
+    const onMessage = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomConnection({
+        roomId: ROOM_ID,
+        onMessage,
+        webSocketFactory: factory,
+      }),
+    );
+    const originalSocket = lastSocket();
+    act(() => originalSocket.simulateOpen());
+    act(() => originalSocket.simulateServerMessage(snapshot()));
+    act(() => result.current.send({ type: "note:create" }));
+    act(() => result.current.resynchronize());
+    const synchronizedSocket = lastSocket();
+    expect(synchronizedSocket).not.toBe(originalSocket);
+    expect(originalSocket.readyState).toBe(3);
+    expect(result.current.connectionStatus).toBe("connecting");
+    expect(result.current.send({ type: "note:create" })).toBe(false);
+    act(() => synchronizedSocket.simulateOpen());
+    expect(synchronizedSocket.sent).toHaveLength(0);
+    act(() => synchronizedSocket.simulateServerMessage(snapshot()));
+    expect(result.current.connectionStatus).toBe("open");
+    onMessage.mockClear();
+    act(() => originalSocket.simulateServerMessage(snapshot()));
+    expect(onMessage).not.toHaveBeenCalled();
+  });
+
   it("解散クローズでは roomDisbanded を通知してホームへ戻す", () => {
     renderHook(() =>
       useRoomConnection({
