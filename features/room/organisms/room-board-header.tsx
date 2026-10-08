@@ -42,7 +42,7 @@ import { RoomTimer } from "./room-timer";
 export type RoomBoardHeaderProps = {
   children?: ReactNode;
   hasMoveHistory?: boolean;
-  onOpenFeedback?: () => void;
+  onOpenFeedback?: (returnFocusTo: HTMLButtonElement | null) => void;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
   inviteCode: string;

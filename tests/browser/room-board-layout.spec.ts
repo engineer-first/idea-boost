@@ -650,8 +650,15 @@ test.each([
   await openStory("room-roomboardlayout--phase-3-step-1");
   const hud = page.getByTestId("board-context-hud");
   await hud.waitFor();
-  const step = hud.getByText("アイデアを書き出す（個人）", { exact: true });
+  const location = hud.getByRole("button", { name: /現在地/ });
+  expect(await location.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(
+    true,
+  );
+  await location.click();
+  const step = hud.getByTestId("board-current-step");
+  expect(await step.innerText()).toContain("アイデアを書き出す（個人）");
   expect(await step.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
+  await location.click();
   expect(await hud.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
   const timer = await page.getByTestId("room-timer").boundingBox();
   expect({ width: timer?.width, height: timer?.height }).toEqual({
@@ -730,7 +737,7 @@ test.each([
     await page.keyboard.press("Escape");
     expect(
       await hud
-        .locator("#board-current-step")
+        .getByTestId("board-location-trigger")
         .evaluate((e) => e.scrollWidth <= e.clientWidth),
       step,
     ).toBe(true);
@@ -801,8 +808,10 @@ test.each([
   const canvas = await page.getByTestId("board-canvas").boundingBox();
   const initial = await hud.boundingBox();
   expect(initial?.height).toBeLessThanOrEqual(230);
-  expect(await page.getByTestId("board-phase-progress").isVisible()).toBe(true);
-  expect(await page.getByTestId("board-current-step").isVisible()).toBe(true);
+  expect(await page.getByTestId("board-location-trigger").isVisible()).toBe(
+    true,
+  );
+  expect(await page.getByTestId("board-current-step").count()).toBe(0);
   expect(await page.getByTestId("board-progress-rail").isVisible()).toBe(true);
 
   const issueTrigger = page.getByRole("button", { name: "決定した課題" });

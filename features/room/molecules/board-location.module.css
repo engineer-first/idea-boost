@@ -1,0 +1,160 @@
+.slot {
+  position: relative;
+  height: 44px;
+}
+.card {
+  min-width: 0;
+  pointer-events: auto;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.05);
+}
+.card[data-state="overview"],
+.card[data-state="steps"] {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 100px);
+}
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 15px;
+}
+.trigger:hover {
+  background: var(--muted);
+}
+.trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -4px;
+}
+.dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.dots > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.dots > span[data-reached="true"] {
+  background: var(--foreground);
+}
+.dots > span[data-current="true"] {
+  outline: 1px solid var(--foreground);
+  outline-offset: 2px;
+}
+.detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+.body {
+  padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.phases {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.phases > li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.phases > li[aria-current="step"] > span {
+  font-weight: 600;
+  color: var(--foreground);
+  background: var(--muted);
+  border-radius: 6px;
+}
+.phases > li > span {
+  padding: 6px 4px;
+}
+.stepScroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px 12px;
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.steps > li {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 8px;
+  font-size: 14px;
+  line-height: 22px;
+  border-radius: 8px;
+}
+.steps > li[aria-current="step"] {
+  background: var(--muted);
+  font-weight: 600;
+}
+.stepMarker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 12px;
+}
+.steps > li[aria-current="step"] .stepMarker {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+.currentLabel {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--border);
+}
+@media (width < 640px) {
+  .card[data-state="overview"],
+  .card[data-state="steps"] {
+    position: fixed;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    width: min(360px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    box-shadow: 0 12px 36px rgb(0 0 0 / 0.18);
+  }
+  .trigger {
+    gap: 8px;
+  }
+}

@@ -1613,11 +1613,12 @@ export function RoomBoardView({
           hasMoveHistory={hasMoveHistory}
           onOpenFeedback={
             feedback
-              ? () =>
+              ? (returnFocusTo) =>
                   feedback.open(
                     phase.kind === "step"
                       ? `${phase.phase}-${phase.step}`
                       : "unknown",
+                    returnFocusTo,
                   )
               : undefined
           }

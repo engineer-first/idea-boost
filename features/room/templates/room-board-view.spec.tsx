@@ -529,7 +529,7 @@ describe("RoomBoardView", () => {
   });
 
   describe("ファシリテーションガイド", () => {
-    it("詳細を畳んでも現在の作業名を残し、再び同じ場所で開く", () => {
+    it("進め方を畳んでも現在地入口が残り、概要で作業名を確認できる", () => {
       setup();
       expect(screen.getByTestId("step-guide")).toHaveAttribute(
         "data-state",
@@ -540,6 +540,7 @@ describe("RoomBoardView", () => {
         "data-state",
         "compact",
       );
+      fireEvent.click(screen.getByRole("button", { name: /現在地/ }));
       expect(screen.getByTestId("board-current-step")).toHaveTextContent(
         "自分の課題（個人）",
       );

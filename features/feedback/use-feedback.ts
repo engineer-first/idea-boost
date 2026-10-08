@@ -123,7 +123,6 @@ export function useFeedback(
         setDraft({ ...empty(), target });
         setReceipt(null);
         setError(null);
-        hasDraft.current = true;
       }
       opened.current = true;
       setOpen(true);
@@ -137,6 +136,7 @@ export function useFeedback(
   }
   function change(patch: Partial<FeedbackDraft>): void {
     if (inFlight.current) return;
+    hasDraft.current = true;
     setDraft((value) => ({
       ...value,
       ...patch,

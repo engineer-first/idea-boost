@@ -244,3 +244,20 @@ it.each([
     rating: null,
   });
 });
+
+it("何も入力せず閉じた場合は、次に開く現在ステップを対象にする", () => {
+  const hook = renderHook(() => useFeedback(roomId, vi.fn<SubmitFeedback>()));
+  act(() => hook.result.current.open("1-1"));
+  act(() => hook.result.current.close());
+  act(() => hook.result.current.open("2-1"));
+  expect(hook.result.current.draft.target).toBe("2-1");
+});
+
+it("対象だけを選び直した未送信入力も次の工程で上書きしない", () => {
+  const hook = renderHook(() => useFeedback(roomId, vi.fn<SubmitFeedback>()));
+  act(() => hook.result.current.open("1-1"));
+  act(() => hook.result.current.change({ target: "app" }));
+  act(() => hook.result.current.close());
+  act(() => hook.result.current.open("2-1"));
+  expect(hook.result.current.draft.target).toBe("app");
+});
