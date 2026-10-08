@@ -10,6 +10,7 @@ import {
   buildMembers,
   buildNote,
   buildNotes,
+  buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { useFeedback } from "@/features/feedback";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -225,6 +226,21 @@ export const PhaseOneWritingDemo: Story = {
   args: {
     phase: buildPhaseStep(1, 1),
     notes: [],
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
+export const PhaseOneSharingDemo: Story = {
+  name: "フェーズ1-2 共有デモ（デスクトップ）",
+  args: {
+    phase: buildPhaseStep(2, 1),
+    notes: [],
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
     initialGuideState: "compact",
     interactions: {
       ...INTERACTIONS,

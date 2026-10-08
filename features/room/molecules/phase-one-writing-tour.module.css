@@ -13,6 +13,9 @@
   border-radius: 6px;
   background: #fef08a;
   box-shadow: 0 8px 20px rgb(15 23 42 / 18%);
+  transition:
+    left 650ms ease,
+    top 650ms ease;
 }
 
 .demoNote textarea {

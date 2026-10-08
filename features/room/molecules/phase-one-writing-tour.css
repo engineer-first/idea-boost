@@ -50,3 +50,7 @@
   outline: 3px solid color-mix(in oklch, var(--ring), transparent 50%);
   outline-offset: 0;
 }
+
+.phase-one-writing-tour-moving .phase-one-writing-tour-popover {
+  visibility: hidden;
+}

@@ -46,4 +46,28 @@ describe("PhaseOneWritingTour", () => {
     ).not.toBeInTheDocument();
     expect(driverMock).not.toHaveBeenCalled();
   });
+
+  it("フェーズ1-2では共有キャンバスへの移動を案内する", () => {
+    render(
+      <>
+        <button type="button" aria-label="付箋を追加" />
+        <div data-testid="private-notes-toolbar" />
+        <button type="button" aria-label="発表者と全体の順番を確認" />
+        <div role="application" aria-label="共有キャンバス" />
+        <PhaseOneWritingTour phase={buildPhaseStep(2, 1)} />
+      </>,
+    );
+
+    const config = driverMock.mock.calls[0]?.[0];
+    expect(config.steps[0].popover.description).toBe(
+      "ここに自分の名前が表示されたら、付箋を共有して発表しましょう。",
+    );
+    expect(config.steps[1].popover.description).toBe(
+      "付箋をボードにドラッグして共有します。",
+    );
+    expect(config.steps[2].popover.description).toBe(
+      "ここにドラッグするとメンバーに共有されます。",
+    );
+    expect(config.steps[2].popover.side).toBe("right");
+  });
 });
