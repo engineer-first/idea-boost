@@ -294,6 +294,18 @@ function discardEmptySharedNotes(sql: SqlStorage, phase: number): boolean {
   return true;
 }
 
+function discardEmptyPrivateNotes(sql: SqlStorage, phase: number): void {
+  const rows = sql
+    .exec(
+      "SELECT id, content FROM notes WHERE phase = ?1 AND visibility = 'private'",
+      phase,
+    )
+    .toArray() as Array<{ id: string; content: string }>;
+  for (const { id, content } of rows) {
+    if (content.trim() === "") deleteNote(sql, id);
+  }
+}
+
 // 個人執筆ステップ（各フェーズの Step 1: 課題 / 問い / アイデアを個人で書く）
 // かどうか。これらのステップでは変更してよいのは自分の private 付箋だけで、
 // 前フェーズから残る共有付箋は記録として凍結する。共有ステップの
@@ -750,6 +762,16 @@ export const phaseHandlers: MessageHandlers<
         ctx.sql,
         current.phase,
       );
+      if (
+        current.kind === "step" &&
+        current.phase === 3 &&
+        current.step === 1 &&
+        next.kind === "step" &&
+        next.phase === 3 &&
+        next.step === 2
+      ) {
+        discardEmptyPrivateNotes(ctx.sql, current.phase);
+      }
       if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);
       }

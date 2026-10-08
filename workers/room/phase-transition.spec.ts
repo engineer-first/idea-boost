@@ -226,6 +226,106 @@ describe("本文保存を待つ進行", () => {
     memberSocket.close();
   });
 
+  it("アイデアの個人作業から共有へ進むとき空白のマイ付箋だけを削除する", async () => {
+    const host = {
+      sub: hostId,
+      name: "Host",
+      email: "host@example.test",
+    };
+    const member = {
+      sub: memberId,
+      name: "Member",
+      email: "member@example.test",
+    };
+    const { roomId, inviteCode } = await createRoomAs(host);
+    await joinRoomAs(member, inviteCode);
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
+    await stub.setPhase(buildPhaseStep(1, 3), hostId);
+
+    const noteIds = {
+      ownerEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1",
+      ownerContent: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
+      memberEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd3",
+      memberContent: "dddddddd-dddd-4ddd-8ddd-ddddddddddd4",
+    };
+    await runInRoomDO(roomId, (_room, state) => {
+      for (const [id, authorId, content] of [
+        [noteIds.ownerEmpty, hostId, " \t\u3000\n "],
+        [noteIds.ownerContent, hostId, "アイデア案"],
+        [noteIds.memberEmpty, memberId, "\u3000\n"],
+        [noteIds.memberContent, memberId, "別のアイデア案"],
+      ] as const) {
+        state.storage.sql.exec(
+          `INSERT INTO notes
+             (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at)
+           VALUES (?1, ?2, ?3, 'private', 'yellow', 40, 50, 3, ?4, ?4)`,
+          id,
+          authorId,
+          content,
+          new Date().toISOString(),
+        );
+      }
+    });
+
+    const ownerSocket = await connectRoomAs(host, roomId);
+    const memberSocket = await connectRoomAs(member, roomId);
+    expect((await ownerSocket.next()).type).toBe("snapshot");
+    expect((await memberSocket.next()).type).toBe("snapshot");
+    ownerSocket.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomId)),
+      }),
+    );
+    await Promise.all([
+      untilType(ownerSocket, "phase:save-requested"),
+      untilType(memberSocket, "phase:save-requested"),
+    ]);
+
+    await runInRoomDO(roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+        Date.now() - 1,
+      );
+      await instance.alarm();
+    });
+    const [ownerSnapshot, memberSnapshot] = await Promise.all([
+      untilType(ownerSocket, "snapshot"),
+      untilType(memberSocket, "snapshot"),
+    ]);
+    await Promise.all([
+      untilType(ownerSocket, "phase:updated"),
+      untilType(memberSocket, "phase:updated"),
+    ]);
+    expect(ownerSnapshot.type).toBe("snapshot");
+    expect(memberSnapshot.type).toBe("snapshot");
+    if (ownerSnapshot.type !== "snapshot" || memberSnapshot.type !== "snapshot")
+      throw new Error("進行後のsnapshotが見つかりません");
+
+    expect(ownerSnapshot.phase).toEqual(buildPhaseStep(2, 3));
+    expect(memberSnapshot.phase).toEqual(buildPhaseStep(2, 3));
+    expect(
+      ownerSnapshot.notes.some((note) => note.id === noteIds.ownerEmpty),
+    ).toBe(false);
+    expect(
+      memberSnapshot.notes.some((note) => note.id === noteIds.memberEmpty),
+    ).toBe(false);
+    expect(ownerSnapshot.notes).toContainEqual(
+      expect.objectContaining({
+        id: noteIds.ownerContent,
+        content: "アイデア案",
+      }),
+    );
+    expect(memberSnapshot.notes).toContainEqual(
+      expect.objectContaining({
+        id: noteIds.memberContent,
+        content: "別のアイデア案",
+      }),
+    );
+    ownerSocket.close();
+    memberSocket.close();
+  });
+
   it("進行が成立しない場合や前の工程へ戻る場合は共有付箋を削除しない", async () => {
     const host = {
       sub: hostId,

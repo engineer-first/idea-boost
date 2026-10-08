@@ -63,6 +63,10 @@ export function NextPhaseConfirmDialog({
                   ? "投票を終了し、今回の結果を全員に表示します。"
                   : "本文のある共有付箋と下書きは残ります。"}
             このフェーズの空白だけの共有付箋は削除します。
+            {phase.kind === "step" &&
+              phase.phase === 3 &&
+              phase.step === 1 &&
+              " アイデアを書き出すステップの空白だけのマイ付箋も削除します。"}
             タイマーは停止します。
           </AlertDialogDescription>
         </AlertDialogHeader>

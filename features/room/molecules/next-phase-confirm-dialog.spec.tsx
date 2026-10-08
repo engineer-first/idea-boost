@@ -48,6 +48,16 @@ describe("NextPhaseConfirmDialog", () => {
     );
   });
 
+  it("アイデアの個人作業から進むときは空白のマイ付箋も削除すると説明する", () => {
+    setup({ phase: buildPhaseStep(1, 3) });
+
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "アイデアを書き出すステップの空白だけのマイ付箋も削除します。",
+    );
+  });
+
   it("「移行する」で onConfirm を呼ぶ（確認前には呼ばない）", () => {
     const { onConfirm } = setup();
 
