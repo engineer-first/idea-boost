@@ -50,6 +50,9 @@ export function BoardLocation({ phase, onOpenFeedback }: BoardLocationProps) {
   );
   const card = useRef<HTMLFieldSetElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const lastFocused = useRef<{ element: HTMLElement; phaseKey: string } | null>(
+    null,
+  );
   const overviewAction = useRef<HTMLButtonElement>(null);
   const backAction = useRef<HTMLButtonElement>(null);
   const nextFocus = useRef<"overview" | "steps" | null>(null);
@@ -61,6 +64,19 @@ export function BoardLocation({ phase, onOpenFeedback }: BoardLocationProps) {
     changeState("compact");
     if (restoreFocus) trigger.current?.focus({ preventScroll: true });
   }
+  useEffect(() => {
+    const focused = lastFocused.current;
+    // サーバーの工程変更で読んでいた要素が消えたときだけ入口へ戻す。
+    // 別の付箋や操作へ移っている本人のフォーカスは奪わない。
+    if (
+      focused &&
+      focused.phaseKey !== phaseKey &&
+      !focused.element.isConnected &&
+      document.activeElement === document.body
+    ) {
+      trigger.current?.focus({ preventScroll: true });
+    }
+  }, [phaseKey]);
   useEffect(() => {
     if (nextFocus.current === "steps" && state === "steps")
       backAction.current?.focus({ preventScroll: true });
@@ -104,6 +120,11 @@ export function BoardLocation({ phase, onOpenFeedback }: BoardLocationProps) {
         ref={card}
         className={`${styles.card} board-hud`}
         data-state={state}
+        data-location-open={state !== "compact"}
+        onFocusCapture={(event) => {
+          if (event.target instanceof HTMLElement)
+            lastFocused.current = { element: event.target, phaseKey };
+        }}
         data-testid="board-location-card"
         onBlur={(event) => {
           if (

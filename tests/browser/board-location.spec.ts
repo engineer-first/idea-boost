@@ -55,11 +55,16 @@ async function reachable(target: Locator): Promise<void> {
   expect(
     await target.evaluate((element) => {
       const rect = element.getBoundingClientRect();
-      return element.contains(
-        document.elementFromPoint(
-          rect.x + rect.width / 2,
-          rect.y + rect.height / 2,
-        ),
+      const x = rect.x + rect.width / 2;
+      const y = rect.y + rect.height / 2;
+      return [
+        [x, y],
+        [rect.left + 4, y],
+        [rect.right - 4, y],
+        [x, rect.top + 4],
+        [x, rect.bottom - 4],
+      ].every(([px, py]) =>
+        element.contains(document.elementFromPoint(px, py)),
       );
     }),
   ).toBe(true);
@@ -240,4 +245,16 @@ test.each([
   expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(
     true,
   );
+});
+
+// 高さが小さいときも、下部HUDが中央の現在地カードの操作を覆わない。
+test("320×320でも中央の概要と一覧の操作を下部HUDが遮らない", async () => {
+  await page.setViewportSize({ width: 320, height: 320 });
+  await open("room-roomboardlayout--phase-3-step-3");
+  await page.getByRole("button", { name: /現在地/ }).click();
+  await reachable(page.getByRole("button", { name: "全手順を見る" }));
+  await page.getByRole("button", { name: "全手順を見る" }).click();
+  await reachable(page.getByRole("button", { name: "概要に戻る" }));
+  await reachable(page.getByRole("button", { name: "閉じる", exact: true }));
+  await page.getByRole("button", { name: "閉じる", exact: true }).click();
 });

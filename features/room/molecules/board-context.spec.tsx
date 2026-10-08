@@ -190,3 +190,18 @@ describe("現在地と補足情報", () => {
     expect(screen.getByText("解決したい課題")).toBeVisible();
   });
 });
+
+it("手順内をキーボードで読んでいる間の工程変更では常設入口にフォーカスを戻す", () => {
+  const props = {
+    phase: buildPhaseStep(1, 2),
+    hmwDecidedIssue: null,
+    decidedHmw: null,
+  };
+  const { rerender } = render(<BoardContext {...props} />);
+  const trigger = screen.getByRole("button", { name: /現在地/ });
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole("button", { name: "全手順を見る" }));
+  screen.getByRole("tab", { name: /問い/ }).focus();
+  rerender(<BoardContext {...props} phase={buildPhaseStep(2, 2)} />);
+  expect(trigger).toHaveFocus();
+});
