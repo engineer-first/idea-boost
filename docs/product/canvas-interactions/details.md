@@ -10,7 +10,7 @@
 - 要求の正本は [PRD](../../prd.md)。工程・可視性・役割・機能可否の正本は [進行仕様](../sprint-flow.md)。この文書は入力、選択、移動、モードの詳細を定める。
 - `MUST` / `MUST NOT` はv1の必須契約、`SHOULD` は理由を記録した例外を許す推奨。設計メモ・比較調査は説明であり権限を増やさない。
 - 規則ID `CI-領域-連番` は永久識別子。改訂しても同じ責務なら維持し、廃止IDは再利用しない。検証IDは `AT-連番`、FigJamの区画は `VS-連番`。
-- 実装済みの範囲は6節の「#523の移動transaction契約」、末尾の「#522の実装範囲」、[CI-NOTE-003（#538）](#ci-note-003)で明示する。記載されていないv1規則を実装済みと読まない。`inherited` は既存要件の継承、`v1` はこの操作モデルの設計、`future` は実装対象外。
+- 実装済みの範囲は6節の「#523の移動transaction契約」、末尾の「#522の実装範囲」、[CI-NOTE-004（#538）](#ci-note-004)で明示する。記載されていないv1規則を実装済みと読まない。`inherited` は既存要件の継承、`v1` はこの操作モデルの設計、`future` は実装対象外。
 - 競合したら、プライバシー・役割・工程の制約を緩めず停止して差分を報告する。FigJamやIssueで正本を上書きしない。要求変更はPRD/進行仕様と当該規則を同じPRで更新する。
 - [FigJam Visual Spec](https://www.figma.com/board/bpWlMnyv0Z9pvq7mMeQ0dj) はこの文書の説明図。仕様の独立した正本にしない。
 
@@ -87,7 +87,7 @@
 - **入力**: pointer/key/wheel
 - **主体・工程**: 全参加者、すべての表示工程
 - **対象・前提**: イベントの対象と既存ジェスチャー所有者を判定
-- **結果**: MUST: ①モーダル/入力/IME/ネイティブcontrol ②進行で失効した状態の取消 ③取得済みpointerの所有者 ④明示的な一時パン ⑤hand ⑥select時の投票印/採用待ち ⑦付箋/文脈操作 ⑧空白の選択。1入力を複数の動作へ送らない。実際に処理する時だけpreventDefaultする。本人private本文の追加ショートカットだけは[CI-NOTE-003](#ci-note-003)の明示例外とする。
+- **結果**: MUST: ①モーダル/入力/IME/ネイティブcontrol ②進行で失効した状態の取消 ③取得済みpointerの所有者 ④明示的な一時パン ⑤hand ⑥select時の投票印/採用待ち ⑦付箋/文脈操作 ⑧空白の選択。1入力を複数の動作へ送らない。実際に処理する時だけpreventDefaultする。本人private本文の追加ショートカットだけは[CI-NOTE-004](#ci-note-004)の明示例外とする。
 - **取消**: 所有者を解放した同一pointerupを別のclick/採用へ再配送しない。
 - **失敗**: UI重なりや無効対象は下の付箋へclick-throughしない。
 - **同時操作**: 別pointerは既存ドラッグを奪わない。gesture所有中のV/H・tool切替は受け付けず、予約もしない。
@@ -204,7 +204,7 @@
 
 - **区分**: inherited
 - **状態**: selectで本人private作業、またはfocusと単一選択が一致しedit可能
-- **入力**: 既存作成入口、[追加ショートカット](#ci-note-003)、選択済みclick、Enter、印字文字
+- **入力**: 既存作成入口、[追加ショートカット](#ci-note-004)、選択済みclick、Enter、印字文字
 - **主体・工程**: 既存createPrivate/edit能力のみ
 - **対象・前提**: 1枚。本文editorがfocusを持つ時は通常の文字編集
 - **結果**: 作成はprivate領域のみ。最初clickは選択、次click/Enter/印字文字で本文編集。印字文字は既存本文末尾へ1文字だけ入れる。V/Hも付箋focusなら文字入力でありツール変更しない。2000文字、全文が見える可変高、色/文字サイズの既存要件を維持。
@@ -228,9 +228,9 @@
 - **同時操作**: 進行で権限失効した削除を再送しない。
 - **検証**: AT-011: private付箋を選択しBackspace→残る。Delete→権限があればその1枚のみ。
 
-<a id="ci-note-003"></a>
+<a id="ci-note-004"></a>
 
-### CI-NOTE-003 マイ付箋を連続して書くための追加
+### CI-NOTE-004 マイ付箋を連続して書くための追加
 
 - **区分**: v1（#538）
 - **状態**: 接続・同期済み、作成権限あり、作成結果の確認待ちでない
@@ -418,10 +418,10 @@
 
 - **区分**: v1
 - **状態**: キーボードfocus
-- **入力**: Tab/Shift+Tab/Enter/Space/矢印/V/H/Delete、[マイ付箋の追加ショートカット](#ci-note-003)
+- **入力**: Tab/Shift+Tab/Enter/Space/矢印/V/H/Delete、[マイ付箋の追加ショートカット](#ci-note-004)
 - **主体・工程**: 全参加者
 - **対象・前提**: native controls、editor、単一note、背景で意味を分離
-- **結果**: Tab順は既存HUD→ツール→ボード/対象→パネルの論理順を保ち、focusを見える形で示す。V/Hは背景focusのみ、修飾Ctrl/Meta/AltやIME時は無効。input/textarea/select/contenteditableではboard shortcutsを使わない。ただし本人private本文での追加だけはCI-NOTE-003の明示例外とする。native buttonのSpace/Enterをpanへ奪わない。noteのSpaceはselectかつ投票印armedなら投票、handなら印が残っていてもpan準備。handのnote Enterは読取対象化のみで投票/採用/編集しない。文字から編集するのはselectかつ単一選択=focus時だけ。
+- **結果**: Tab順は既存HUD→ツール→ボード/対象→パネルの論理順を保ち、focusを見える形で示す。V/Hは背景focusのみ、修飾Ctrl/Meta/AltやIME時は無効。input/textarea/select/contenteditableではboard shortcutsを使わない。ただし本人private本文での追加だけはCI-NOTE-004の明示例外とする。native buttonのSpace/Enterをpanへ奪わない。noteのSpaceはselectかつ投票印armedなら投票、handなら印が残っていてもpan準備。handのnote Enterは読取対象化のみで投票/採用/編集しない。文字から編集するのはselectかつ単一選択=focus時だけ。
 - **取消**: menu/dialog終了は起点へfocus復帰。自動ガイド/他者更新はfocusを奪わない。
 - **失敗**: 読めないicon-onlyの状態、hover専用の必須操作を作らない。
 - **同時操作**: 選択IDとDOM focusを分け、Tab移動だけで共有状態を変えない。
