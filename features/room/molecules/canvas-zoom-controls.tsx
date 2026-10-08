@@ -247,6 +247,15 @@ export function CanvasZoomControls({
               </div>
               <dl className="space-y-4">
                 <div>
+                  <dt className="font-semibold">マイ付箋を追加する</dt>
+                  <dd className="mt-1 space-y-1">
+                    <p>Macは⌘＋Enter、Windows等はCtrl＋Enter。</p>
+                    <p>
+                      個人作業（1-1・2-1・3-1）で、背景・マイ付箋・本文入力中に1枚追加します。本文のEnterは改行です。
+                    </p>
+                  </dd>
+                </div>
+                <div>
                   <dt className="font-semibold">付箋を選ぶ</dt>
                   <dd className="mt-1 space-y-1">
                     <p>選択ツールで空白を囲むと、複数選択。</p>

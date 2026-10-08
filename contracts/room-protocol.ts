@@ -40,7 +40,7 @@ export const DOT_VOTE_LIMITS = {
 export const DotVoteKindSchema = z.enum(["subjective", "objective"]);
 export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 
-// 楽観表示した操作と、RoomDO から返る確定・拒否応答を対応付けるID。
+// クライアント操作と、RoomDO から返る確定・拒否応答を対応付けるID。
 // 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
 export const OptimisticOperationIdSchema = z.string().uuid();
 export const VoteOperationIdSchema = OptimisticOperationIdSchema;
@@ -351,15 +351,17 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("cursor:leave") }),
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
-  // プロトコルに作成応答の相関 ID がないため、「作成してから内容を送る」
-  // 2 段階ではなく作成時に内容を渡せる形にしている。
-  z.object({
-    type: z.literal("note:create"),
-    content: z
-      .string()
-      .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。")
-      .optional(),
-  }),
+  // 手動作成は operationId で成功・拒否を照合し、他タブの作成と区別する。
+  z
+    .object({
+      type: z.literal("note:create"),
+      content: z
+        .string()
+        .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。")
+        .optional(),
+      operationId: OptimisticOperationIdSchema.optional(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("note:publish"),
@@ -785,6 +787,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("snapshot"),
     moveProtocolVersion: z.literal(1).optional(),
     shareProtocolVersion: z.literal(1).optional(),
+    noteCreateProtocolVersion: z.literal(1).optional(),
     groupRevision: z.number().int().nonnegative().optional(),
     mapRevision: z.number().int().nonnegative().optional(),
     sharing: SharingStateSchema.nullable().optional(),
@@ -813,7 +816,11 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     timer: TimerStateSchema,
     serverNow: TimerMillisecondsSchema,
   }),
-  z.object({ type: z.literal("note:inserted"), note: NoteSchema }),
+  z.object({
+    type: z.literal("note:inserted"),
+    note: NoteSchema,
+    operationId: OptimisticOperationIdSchema.optional(),
+  }),
   z
     .object({
       type: z.literal("note:content-saved"),

@@ -173,6 +173,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
     case "host:transfer":
     case "member:remove":
     case "member:rename":
+    case "note:create":
     case "note:exclude":
     case "note:restore":
     case "note:bulk-exclude":
@@ -1026,6 +1027,9 @@ export class RoomDO extends DurableObject {
         type: "error",
         code: "forbidden",
         message: "ルームに参加していません。",
+        ...(optimisticOperationIdOf(message) === undefined
+          ? {}
+          : { operationId: optimisticOperationIdOf(message) }),
       });
       return;
     }
@@ -1276,6 +1280,7 @@ export class RoomDO extends DurableObject {
       type: "snapshot",
       moveProtocolVersion: 1,
       shareProtocolVersion: 1,
+      noteCreateProtocolVersion: 1,
       ...moveRevisions(this.sql),
       sharing: getSharingState(this.sql),
       notes,

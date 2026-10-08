@@ -44,6 +44,18 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "AT-538 連続作成したprivate付箋を他の参加者へ配信しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "AT-538 連続作成したprivate付箋を作者の別タブにも配信する",
+    viewerId: AUTHOR,
+    note: note({ visibility: "private" }),
+    expected: true,
+  },
+  {
     name: "AT-014 未確定の共有previewは他者に不可視",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

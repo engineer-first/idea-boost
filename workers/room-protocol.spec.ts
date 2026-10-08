@@ -707,6 +707,149 @@ async function getInviteCode(
 }
 
 describe("note:create", () => {
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%sの個人作業工程では操作ID付きで空のprivate付箋を1枚作成する", async (phase) => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    await runInRoomDO(roomId, (instance) =>
+      instance.setPhase(buildPhaseStep(1, phase), OWNER.sub),
+    );
+    const operationId = crypto.randomUUID();
+    send(owner, { type: "note:create", operationId });
+    expect(await expectType(owner, "note:inserted")).toMatchObject({
+      operationId,
+      note: { content: "", authorId: OWNER.sub, visibility: "private" },
+    });
+    owner.close();
+    member.close();
+  });
+
+  it("ロビーの作成を操作ID付きで拒否する", async () => {
+    const { owner, member } = await setupRoom();
+    const operationId = crypto.randomUUID();
+    send(owner, { type: "note:create", operationId });
+    expect(await expectType(owner, "error")).toMatchObject({
+      code: "forbidden",
+      operationId,
+    });
+    owner.close();
+    member.close();
+  });
+
+  it("個人作業工程外の作成を操作ID付きで拒否し、付箋を保存しない", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    await arrangeStep(owner, 2);
+    const operationId = crypto.randomUUID();
+
+    send(owner, { type: "note:create", operationId });
+    const rejected = await expectType(owner, "error");
+    expect(rejected).toMatchObject({ code: "forbidden", operationId });
+
+    const reconnected = await connectRoomAs(OWNER, roomId);
+    expect((await expectType(reconnected, "snapshot")).notes).toEqual([]);
+    reconnected.close();
+    owner.close();
+    member.close();
+  });
+
+  it.each([
+    "authorId",
+    "roomId",
+  ])("作成要求に %s を混入しても作成せず、接続は維持する", async (field) => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    send(owner, {
+      type: "note:create",
+      operationId: crypto.randomUUID(),
+      [field]: MEMBER.sub,
+    });
+    const rejected = await owner.next();
+    expect(rejected).toMatchObject({ type: "error", code: "invalid-message" });
+
+    const reconnected = await connectRoomAs(OWNER, roomId);
+    expect((await expectType(reconnected, "snapshot")).notes).toEqual([]);
+    send(owner, { type: "note:create" });
+    expect((await expectType(owner, "note:inserted")).note.authorId).toBe(
+      OWNER.sub,
+    );
+    reconnected.close();
+    owner.close();
+    member.close();
+  });
+
+  it("未認証・非メンバーは作成要求の送信経路へ接続できない", async () => {
+    const { roomId } = await createRoomAs(OWNER);
+    const unauthenticated = await SELF.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      { headers: { Upgrade: "websocket" } },
+    );
+    expect(unauthenticated.status).toBe(401);
+    const nonMember = await SELF.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Cookie: await sessionCookieFor(MEMBER),
+        },
+      },
+    );
+    expect(nonMember.status).toBe(404);
+  });
+
+  it("メンバーシップが失効した接続の作成は操作ID付きで拒否する", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    await runInRoomDO(roomId, (_instance, state) => {
+      state.storage.sql.exec(
+        "DELETE FROM members WHERE user_id = ?1",
+        MEMBER.sub,
+      );
+    });
+    const operationId = crypto.randomUUID();
+    send(member, { type: "note:create", operationId });
+    expect(await expectType(member, "error")).toMatchObject({
+      code: "forbidden",
+      operationId,
+    });
+    const reconnected = await connectRoomAs(OWNER, roomId);
+    expect((await expectType(reconnected, "snapshot")).notes).toEqual([]);
+    reconnected.close();
+    owner.close();
+    member.close();
+  });
+
+  it("作成者の複数タブへ操作IDを返し、別タブの作成と区別し他者へ配信しない", async () => {
+    const { roomId, owner, member } = await setupStartedRoom();
+    const secondTab = await connectRoomAs(OWNER, roomId);
+    const snapshot = await expectType(secondTab, "snapshot");
+    expect(snapshot).toHaveProperty("noteCreateProtocolVersion", 1);
+    const firstOperationId = crypto.randomUUID();
+    const secondOperationId = crypto.randomUUID();
+
+    send(secondTab, {
+      type: "note:create",
+      operationId: firstOperationId,
+      content: "別タブの付箋",
+    });
+    const first = await expectType(owner, "note:inserted");
+    expect(first).toHaveProperty("operationId", firstOperationId);
+    expect(await expectType(secondTab, "note:inserted")).toEqual(first);
+    send(owner, { type: "note:create", operationId: secondOperationId });
+    const second = await expectType(owner, "note:inserted");
+    expect(second).toHaveProperty("operationId", secondOperationId);
+    expect(second.note.id).not.toBe(first.note.id);
+    expect(second.note.content).toBe("");
+    expect(await expectType(secondTab, "note:inserted")).toEqual(second);
+
+    // member のキューに作成イベントが届いていれば、ここでは error を受け取れない。
+    send(member, { type: "note:delete", noteId: first.note.id });
+    expect((await expectType(member, "error")).code).toBe("forbidden");
+    const reconnected = await connectRoomAs(MEMBER, roomId);
+    expect((await expectType(reconnected, "snapshot")).notes).toEqual([]);
+    reconnected.close();
+    secondTab.close();
+    owner.close();
+    member.close();
+  });
+
   it("作成者だけにprivate付箋を配信し、公開後に全メンバーへ配信する", async () => {
     const { roomId, owner, member } = await setupStartedRoom();
 

@@ -96,6 +96,13 @@ export type VoteFeedback = {
   message: string;
 };
 
+type NoteCreation = {
+  operationId: string;
+  status: "pending" | "unknown";
+};
+
+const NOTE_CREATION_RESPONSE_TIMEOUT_MS = 10_000;
+
 export type UseRoomNotesResult = {
   notes: Note[];
   clearPeerMoves: () => void;
@@ -115,6 +122,11 @@ export type UseRoomNotesResult = {
   // 新規付箋は個人ツールバーへだけ挿入される。ID生成と永続化はRoomDOに一本化する。
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
   addNote: (content?: string) => void;
+  requestAddNote: () => string | null;
+  noteCreationPending: boolean;
+  noteCreationSupported: boolean;
+  noteCreationReceipt: { operationId: string; noteId: string } | null;
+  noteCreationFailure: { operationId: string; message: string } | null;
   publishNote: (noteId: string, x: number, y: number) => void;
   unpublishNote: (
     noteId: string,
@@ -155,12 +167,20 @@ export type UseRoomNotesResult = {
 
 export function useRoomNotes({
   send,
+  connected = true,
+  canCreateNote = true,
+  createNoteOperationId = () => crypto.randomUUID(),
+  onNoteCreationUnknown,
   createVoteOperationId = () => crypto.randomUUID(),
   createFontSizeOperationId = () => crypto.randomUUID(),
   createVoteStickerId = () => crypto.randomUUID(),
   createNoteDragId = () => crypto.randomUUID(),
 }: {
-  send: (message: ClientMessage) => void;
+  send: (message: ClientMessage) => boolean;
+  connected?: boolean;
+  canCreateNote?: boolean;
+  createNoteOperationId?: () => string;
+  onNoteCreationUnknown?: () => void;
   createVoteOperationId?: () => string;
   createFontSizeOperationId?: () => string;
   createVoteStickerId?: () => string;
@@ -169,6 +189,25 @@ export function useRoomNotes({
   // 付箋の初期状態は空。確定状態の真実はサーバー（RoomDO）側にあり、
   // 接続直後に送られてくる snapshot で復元される。
   const [notes, setNotes] = useState<Note[]>([]);
+  const [noteCreationPending, setNoteCreationPending] = useState(false);
+  const [noteCreationSupported, setNoteCreationSupported] = useState(false);
+  const [noteCreationReceipt, setNoteCreationReceipt] = useState<{
+    operationId: string;
+    noteId: string;
+  } | null>(null);
+  const [noteCreationFailure, setNoteCreationFailure] = useState<{
+    operationId: string;
+    message: string;
+  } | null>(null);
+  const noteCreationRef = useRef<NoteCreation | null>(null);
+  const noteCreationSupportedRef = useRef(false);
+  const noteCreationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const noteCreationContextRef = useRef({ connected, canCreateNote });
+  noteCreationContextRef.current = { connected, canCreateNote };
+  const unknownCreationCallbackRef = useRef(onNoteCreationUnknown);
+  unknownCreationCallbackRef.current = onNoteCreationUnknown;
   const [snapshotVersion, setSnapshotVersion] = useState(0);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const [pendingNoteDrop, setPendingNoteDrop] =
@@ -193,6 +232,35 @@ export function useRoomNotes({
   const sendDragRef = useRef<ReturnType<
     typeof createThrottled<[NoteDragPayload]>
   > | null>(null);
+
+  const clearNoteCreationTimer = useCallback((): void => {
+    if (noteCreationTimerRef.current !== null)
+      clearTimeout(noteCreationTimerRef.current);
+    noteCreationTimerRef.current = null;
+  }, []);
+
+  const finishNoteCreation = useCallback((): void => {
+    clearNoteCreationTimer();
+    noteCreationRef.current = null;
+    setNoteCreationPending(false);
+  }, [clearNoteCreationTimer]);
+
+  useEffect(() => {
+    if (connected) return;
+    clearNoteCreationTimer();
+    noteCreationSupportedRef.current = false;
+    setNoteCreationSupported(false);
+    setNoteCreationReceipt(null);
+    if (noteCreationRef.current) noteCreationRef.current.status = "unknown";
+  }, [connected, clearNoteCreationTimer]);
+
+  useEffect(
+    () => () => {
+      clearNoteCreationTimer();
+      noteCreationRef.current = null;
+    },
+    [clearNoteCreationTimer],
+  );
 
   useEffect(() => {
     notesRef.current = notes;
@@ -292,6 +360,41 @@ export function useRoomNotes({
 
   const applyMessage = useCallback(
     (message: ServerMessage) => {
+      if (message.type === "snapshot") {
+        const supported = message.noteCreateProtocolVersion === 1;
+        noteCreationSupportedRef.current = supported;
+        setNoteCreationSupported(supported);
+        // 結果不明だった要求は最新のサーバー状態だけで復帰する。再送もfocusも行わない。
+        if (noteCreationRef.current?.status === "unknown") {
+          finishNoteCreation();
+          setNoteCreationReceipt(null);
+        }
+      }
+      const creation = noteCreationRef.current;
+      if (
+        creation &&
+        (message.type === "note:inserted" || message.type === "error") &&
+        message.operationId === creation.operationId
+      ) {
+        if (message.type === "note:inserted") {
+          const context = noteCreationContextRef.current;
+          if (
+            creation.status === "pending" &&
+            context.connected &&
+            context.canCreateNote
+          )
+            setNoteCreationReceipt({
+              operationId: creation.operationId,
+              noteId: message.note.id,
+            });
+        } else {
+          setNoteCreationFailure({
+            operationId: creation.operationId,
+            message: message.message,
+          });
+        }
+        finishNoteCreation();
+      }
       transactionMove.applyMessage(message);
       transactionShare.applyMessage(message);
       if (message.type === "snapshot")
@@ -625,6 +728,7 @@ export function useRoomNotes({
       updatePendingVoteOperations,
       transactionMove.applyMessage,
       transactionShare.applyMessage,
+      finishNoteCreation,
     ],
   );
 
@@ -638,6 +742,39 @@ export function useRoomNotes({
     },
     [send],
   );
+
+  const requestAddNote = useCallback((): string | null => {
+    const context = noteCreationContextRef.current;
+    if (
+      !context.connected ||
+      !context.canCreateNote ||
+      !noteCreationSupportedRef.current ||
+      noteCreationRef.current !== null
+    )
+      return null;
+    const operationId = createNoteOperationId();
+    noteCreationRef.current = { operationId, status: "pending" };
+    setNoteCreationPending(true);
+    setNoteCreationReceipt(null);
+    setNoteCreationFailure(null);
+    if (send({ type: "note:create", operationId }) === false) {
+      finishNoteCreation();
+      setNoteCreationFailure({
+        operationId,
+        message: "接続を確認できなかったため、付箋を追加できませんでした。",
+      });
+      return null;
+    }
+    noteCreationTimerRef.current = setTimeout(() => {
+      const creation = noteCreationRef.current;
+      if (!creation || creation.operationId !== operationId) return;
+      creation.status = "unknown";
+      setNoteCreationReceipt(null);
+      // 操作は再送せず、接続を更新してsnapshotだけを確認する。
+      unknownCreationCallbackRef.current?.();
+    }, NOTE_CREATION_RESPONSE_TIMEOUT_MS);
+    return operationId;
+  }, [createNoteOperationId, finishNoteCreation, send]);
 
   const publishNote = useCallback(
     (noteId: string, x: number, y: number) => {
@@ -1070,6 +1207,11 @@ export function useRoomNotes({
       null,
     applyMessage,
     addNote,
+    requestAddNote,
+    noteCreationPending,
+    noteCreationSupported,
+    noteCreationReceipt,
+    noteCreationFailure,
     publishNote,
     unpublishNote,
     startNoteDrag,

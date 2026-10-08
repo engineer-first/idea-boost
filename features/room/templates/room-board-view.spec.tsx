@@ -176,6 +176,256 @@ function openRoomMenu() {
   fireEvent.click(screen.getByRole("button", { name: "ルームメニューを開く" }));
 }
 
+describe("マイ付箋の追加ショートカット", () => {
+  it.each([
+    1, 2, 3,
+  ] as const)("%d-1だけで案内を表示し、共有フェーズへ進むと付箋記入欄を残して案内を隠す", (phase) => {
+    const privateNote = buildNote({
+      id: "private",
+      authorId: ME,
+      visibility: "private",
+    });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(1, phase),
+      notes: [],
+      interactions: buildInteractions([], [privateNote]),
+    });
+    const toolbar = within(screen.getByTestId("private-notes-toolbar"));
+    expect(toolbar.getByText(/付箋追加ショートカットキー/)).toBeVisible();
+
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, phase)} />);
+    expect(toolbar.getByRole("textbox")).toBeVisible();
+    expect(
+      toolbar.queryByText(/付箋追加ショートカットキー/),
+    ).not.toBeInTheDocument();
+
+    rerender(<TestBoardView {...props} />);
+    expect(toolbar.getByText(/付箋追加ショートカットキー/)).toBeVisible();
+  });
+
+  it("追加キーと同じ処理内で本文入力を再開したら、応答後も元の本文のフォーカスを維持する", () => {
+    const oldNote = buildNote({
+      id: "old-private",
+      authorId: ME,
+      visibility: "private",
+      content: "指示前の本文",
+    });
+    const newNote = buildNote({
+      id: "new-private",
+      authorId: ME,
+      visibility: "private",
+      content: "",
+    });
+    const onAddPrivateNote = vi.fn(() => "create-1");
+    const { props, rerender } = setup({
+      notes: [],
+      interactions: buildInteractions([], [oldNote]),
+      onAddPrivateNote,
+    });
+    const surface = screen.getByRole("button", { name: "付箋" });
+    fireEvent.keyDown(surface, { key: "Enter" });
+    fireEvent.keyDown(surface, { key: "Enter" });
+    const editor = screen.getByRole("textbox");
+    expect(editor).not.toHaveAttribute("readonly");
+    expect(editor).toHaveFocus();
+    act(() => {
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      fireEvent.change(editor, { target: { value: "指示後も入力を続ける" } });
+    });
+    expect(onAddPrivateNote).toHaveBeenCalledOnce();
+    rerender(
+      <TestBoardView
+        {...props}
+        interactions={{
+          ...props.interactions,
+          privateNotes: [oldNote, newNote],
+        }}
+        noteCreationReceipt={{ operationId: "create-1", noteId: newNote.id }}
+      />,
+    );
+    expect(editor).toHaveFocus();
+    expect(editor).toHaveValue("指示後も入力を続ける");
+    expect(screen.getAllByRole("textbox")[1]).toHaveAttribute("readonly");
+  });
+  it.each([
+    { noteCreationPending: true },
+    { noteCreationSupported: false },
+    { connectionStatus: "closed" as const },
+    { phase: buildPhaseStep(2) },
+  ])("追加不可ではマイ付箋表面の修飾Enterの既定操作も抑止する: %j", (overrides) => {
+    const privateNote = buildNote({
+      id: "private",
+      authorId: ME,
+      visibility: "private",
+    });
+    const { props } = setup({
+      ...overrides,
+      notes: [],
+      interactions: buildInteractions([], [privateNote]),
+    });
+    const expand = screen.queryByRole("button", { name: "マイ付箋を開く" });
+    if (expand) fireEvent.click(expand);
+    const event = new KeyboardEvent("keydown", {
+      key: "Enter",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    fireEvent(screen.getByRole("button", { name: "付箋" }), event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+  });
+  it.each([
+    1, 2, 3,
+  ] as const)("個人作業%d-1では本人のマイ付箋表面から追加できる", (phase) => {
+    const privateNote = buildNote({
+      id: "private",
+      authorId: ME,
+      visibility: "private",
+    });
+    const { props } = setup({
+      phase: buildPhaseStep(1, phase),
+      notes: [],
+      interactions: buildInteractions([], [privateNote]),
+    });
+    fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { key: "Enter" },
+    { key: "Enter", ctrlKey: true, shiftKey: true },
+    { key: "Enter", ctrlKey: true, altKey: true },
+    { key: "Enter", ctrlKey: true, repeat: true },
+    { key: "Enter", ctrlKey: true, isComposing: true },
+    { key: "Enter", ctrlKey: true, keyCode: 229 },
+    { key: "Enter", metaKey: true },
+    { key: "Enter", ctrlKey: true, metaKey: true },
+  ])("修飾・IME・リピートの除外条件では追加しない: %j", (event) => {
+    const { props } = setup();
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), event);
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+  });
+
+  it("Macは⌘＋Enterを使い、Ctrl＋Enterでは追加しない", () => {
+    const platform = vi
+      .spyOn(window.navigator, "platform", "get")
+      .mockReturnValue("MacIntel");
+    const { props } = setup();
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+      key: "Enter",
+      metaKey: true,
+    });
+    expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+    platform.mockRestore();
+  });
+
+  it.each([
+    { phase: buildPhaseStep(2) },
+    { connectionStatus: "closed" as const },
+    { noteCreationSupported: false },
+  ])("工程・接続・対応状態が作成不可なら追加しない: %j", (overrides) => {
+    const { props } = setup(overrides);
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "付箋を追加" })).toBeDisabled();
+  });
+
+  it("本文のIME中はKeyboardEventが未確定でも追加せず、変換終了後は追加できる", () => {
+    const privateNote = buildNote({
+      id: "private",
+      authorId: ME,
+      visibility: "private",
+    });
+    const { props } = setup({
+      notes: [],
+      interactions: buildInteractions([], [privateNote]),
+    });
+    const surface = screen.getByRole("button", { name: "付箋" });
+    fireEvent.keyDown(surface, { key: "Enter" });
+    fireEvent.keyDown(surface, { key: "Enter" });
+    const editor = screen.getByRole("textbox");
+    expect(editor).not.toHaveAttribute("readonly");
+    expect(editor).toHaveFocus();
+    fireEvent.compositionStart(editor);
+    fireEvent.keyDown(editor, { key: "Enter", ctrlKey: true });
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(editor);
+    fireEvent.keyDown(editor, { key: "Enter", ctrlKey: true });
+    expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+  });
+
+  it("共有付箋・通常ボタン・開いたメニューからは追加しない", () => {
+    const { props } = setup();
+    fireEvent.keyDown(getNoteSurface(screen.getAllByTestId("note-card")[0]), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    fireEvent.keyDown(screen.getByRole("button", { name: "付箋を追加" }), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    openRoomMenu();
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "isNoteDragging",
+    "isPanning",
+  ] as const)("%s中は背景から追加しない", (state) => {
+    const interactions = buildInteractions([], []);
+    interactions[state] = true;
+    const { props } = setup({ notes: [], interactions });
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+  });
+  it("背景でCtrl＋Enterを押すと共通の追加入口へ1件だけ渡す", () => {
+    const { props } = setup();
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+  });
+
+  it("作成待ちでは＋を無効にし、キー入力も予約しない", () => {
+    const { props, rerender } = setup({ noteCreationPending: true });
+    const add = screen.getByRole("button", { name: "付箋を追加" });
+    expect(add).toBeDisabled();
+    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+      key: "Enter",
+      ctrlKey: true,
+    });
+    rerender(<TestBoardView {...props} noteCreationPending={false} />);
+    expect(props.onAddPrivateNote).not.toHaveBeenCalled();
+  });
+});
+
 describe("採用する付箋の選択モード", () => {
   it("hover・focus を共有し、Escape・キャンセル・確定・切断で解除を通知する", () => {
     const onAdoptionFocusChange = vi.fn();

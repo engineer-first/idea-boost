@@ -24,10 +24,11 @@ const DRAG_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const FONT_SIZE_OPERATION_ID = "55555555-5555-4555-8555-555555555555";
+const CREATE_OPERATION_ID = "66666666-6666-4666-8666-666666666666";
 
 function snapshotMessage(
   notes: ProtocolNote[] = [buildNote({ id: NOTE_ID })],
-): ServerMessage {
+): Extract<ServerMessage, { type: "snapshot" }> {
   return {
     type: "snapshot",
     phaseRevision: 0,
@@ -66,6 +67,153 @@ describe("useRoomNotes", () => {
       }),
     );
   }
+
+  describe("明示的なマイ付箋追加", () => {
+    function setupCreation(connected = true) {
+      const sendCreation = vi.fn(() => true);
+      const resynchronize = vi.fn();
+      const hook = renderHook(
+        ({ connected: currentConnected }) =>
+          useRoomNotes({
+            send: sendCreation,
+            connected: currentConnected,
+            canCreateNote: true,
+            createNoteOperationId: () => CREATE_OPERATION_ID,
+            onNoteCreationUnknown: resynchronize,
+          }),
+        { initialProps: { connected } },
+      );
+      act(() =>
+        hook.result.current.applyMessage({
+          ...snapshotMessage([]),
+          noteCreateProtocolVersion: 1,
+        }),
+      );
+      return { ...hook, sendCreation, resynchronize };
+    }
+
+    it("1枚の作成応答を待つ間は重複を送らず、別操作の挿入では待機を解除しない", () => {
+      const { result, sendCreation } = setupCreation();
+      act(() => {
+        expect(result.current.requestAddNote()).toBe(CREATE_OPERATION_ID);
+        expect(result.current.requestAddNote()).toBeNull();
+      });
+      expect(sendCreation).toHaveBeenCalledExactlyOnceWith({
+        type: "note:create",
+        operationId: CREATE_OPERATION_ID,
+      });
+      expect(result.current.notes).toHaveLength(0);
+      expect(result.current.noteCreationPending).toBe(true);
+      act(() =>
+        result.current.applyMessage({
+          type: "note:inserted",
+          note: buildNote({ id: TARGET_NOTE_ID, visibility: "private" }),
+        }),
+      );
+      expect(result.current.noteCreationPending).toBe(true);
+      expect(result.current.noteCreationReceipt).toBeNull();
+      act(() =>
+        result.current.applyMessage({
+          type: "note:inserted",
+          operationId: CREATE_OPERATION_ID,
+          note: buildNote({ id: NOTE_ID, visibility: "private" }),
+        }),
+      );
+      expect(result.current.noteCreationPending).toBe(false);
+      expect(result.current.noteCreationReceipt).toEqual({
+        operationId: CREATE_OPERATION_ID,
+        noteId: NOTE_ID,
+      });
+      act(() => result.current.requestAddNote());
+      expect(sendCreation).toHaveBeenCalledTimes(2);
+    });
+
+    it("別操作の拒否は作成失敗と扱わず、相関した拒否だけ待機を解除する", () => {
+      const { result } = setupCreation();
+      act(() => result.current.requestAddNote());
+      act(() =>
+        result.current.applyMessage({
+          type: "error",
+          code: "forbidden",
+          message: "本文を編集できません。",
+          operationId: FONT_SIZE_OPERATION_ID,
+        }),
+      );
+      expect(result.current.noteCreationPending).toBe(true);
+      act(() =>
+        result.current.applyMessage({
+          type: "error",
+          code: "forbidden",
+          message: "この工程では付箋を追加できません。",
+          operationId: CREATE_OPERATION_ID,
+        }),
+      );
+      expect(result.current.noteCreationPending).toBe(false);
+      expect(result.current.noteCreationReceipt).toBeNull();
+      expect(result.current.notes).toHaveLength(0);
+    });
+
+    it("送信できなかった追加は待機せず、仮の付箋も表示しない", () => {
+      const { result, sendCreation } = setupCreation();
+      sendCreation.mockReturnValue(false);
+      act(() => expect(result.current.requestAddNote()).toBeNull());
+      expect(result.current.noteCreationPending).toBe(false);
+      expect(result.current.notes).toHaveLength(0);
+    });
+
+    it("応答が消失したら再同期だけ要求し、snapshot確認までは作成を重ねない", () => {
+      const { result, sendCreation, resynchronize } = setupCreation();
+      act(() => result.current.requestAddNote());
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(resynchronize).toHaveBeenCalledTimes(1);
+      expect(result.current.noteCreationPending).toBe(true);
+      act(() => expect(result.current.requestAddNote()).toBeNull());
+      expect(sendCreation).toHaveBeenCalledTimes(1);
+      act(() =>
+        result.current.applyMessage({
+          ...snapshotMessage([buildNote({ id: NOTE_ID })]),
+          noteCreateProtocolVersion: 1,
+        }),
+      );
+      expect(result.current.noteCreationPending).toBe(false);
+      expect(result.current.noteCreationReceipt).toBeNull();
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(sendCreation).toHaveBeenCalledTimes(1);
+    });
+
+    it("作成中に切断しても再送せず、復帰後の古い成功応答はfocus対象にしない", () => {
+      const { result, rerender, sendCreation } = setupCreation();
+      act(() => result.current.requestAddNote());
+      rerender({ connected: false });
+      act(() => expect(result.current.requestAddNote()).toBeNull());
+      expect(result.current.noteCreationPending).toBe(true);
+      rerender({ connected: true });
+      act(() =>
+        result.current.applyMessage({
+          ...snapshotMessage([buildNote({ id: NOTE_ID })]),
+          noteCreateProtocolVersion: 1,
+        }),
+      );
+      act(() =>
+        result.current.applyMessage({
+          type: "note:inserted",
+          operationId: CREATE_OPERATION_ID,
+          note: buildNote({ id: NOTE_ID }),
+        }),
+      );
+      expect(result.current.noteCreationPending).toBe(false);
+      expect(result.current.noteCreationReceipt).toBeNull();
+      expect(sendCreation).toHaveBeenCalledTimes(1);
+    });
+
+    it("相関応答に未対応のsnapshotからは明示追加を送らない", () => {
+      const { result, sendCreation } = setupCreation();
+      act(() => result.current.applyMessage(snapshotMessage([])));
+      act(() => expect(result.current.requestAddNote()).toBeNull());
+      expect(sendCreation).not.toHaveBeenCalled();
+      expect(result.current.noteCreationSupported).toBe(false);
+    });
+  });
 
   it("peer全件previewは座標だけ表示し取消で最新確定へ戻す", () => {
     const { result } = setup();
