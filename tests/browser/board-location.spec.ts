@@ -255,6 +255,35 @@ test("キーボードで3フェーズを直接閲覧し、上の入口とEscape�
   expect(await trigger.getAttribute("aria-expanded")).toBe("false");
 });
 
+test("手順一覧にキーボードフォーカスが見え、短い画面でも末尾までスクロールできる", async () => {
+  await page.setViewportSize({ width: 320, height: 320 });
+  await open("room-roomboardlayout--phase-3-step-3");
+  const trigger = page.getByRole("button", { name: /現在地/ });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  const panel = page.getByRole("tabpanel");
+  expect(await panel.evaluate((el) => el === document.activeElement)).toBe(
+    true,
+  );
+  const outline = await panel.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
+  });
+  expect(outline.style).toBe("solid");
+  expect(outline.width).toBeGreaterThanOrEqual(2);
+  await page.keyboard.press("End");
+  await expect
+    .poll(() => panel.evaluate((el) => el.scrollTop))
+    .toBeGreaterThan(0);
+  await reachable(panel.getByRole("listitem").last());
+  await page.keyboard.press("Escape");
+  expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(
+    true,
+  );
+});
+
 test.each([
   [1280, 720],
   [320, 568],

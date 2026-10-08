@@ -109,6 +109,11 @@
   overscroll-behavior: contain;
   padding: 8px 12px 12px;
 }
+.stepScroll:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -3px;
+  border-radius: 8px;
+}
 .steps {
   display: flex;
   flex-direction: column;

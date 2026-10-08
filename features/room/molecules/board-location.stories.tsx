@@ -37,6 +37,13 @@ export const LongStepName: Story = {
   ...Expanded,
   args: { phase: buildPhaseStep(3, 3) },
 };
+export const KeyboardScrollFocus: Story = {
+  play: async (context) => {
+    await Expanded.play?.(context);
+    await userEvent.tab();
+    await userEvent.tab();
+  },
+};
 export const Waiting: Story = { args: { phase: { kind: "lobby" } } };
 
 export const CompletedSteps: Story = {
