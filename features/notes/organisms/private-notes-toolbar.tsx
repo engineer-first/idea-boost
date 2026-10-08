@@ -371,8 +371,11 @@ export function PrivateNotesToolbar({
             }
           }}
         >
-          <p className="mb-3 text-xs text-muted-foreground">
+          <p className="mb-1 text-xs text-muted-foreground">
             自分だけに見える付箋エリア
+          </p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            （Macは⌘＋Enter、Windows等はCtrl＋Enter）
           </p>
           <div
             ref={listRef}
