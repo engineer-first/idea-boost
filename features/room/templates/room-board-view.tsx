@@ -60,6 +60,7 @@ import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
+import { PhaseOneWritingTour } from "../molecules/phase-one-writing-tour";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
@@ -188,6 +189,7 @@ export type RoomBoardViewProps = {
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
   initialGuideState?: StepGuideState;
+  showPhaseOneWritingTour?: boolean;
   remoteCursors: RenderedRemoteCursorPresence[];
   signOutAction?: () => Promise<void>;
   // ボード上に掲示する、フェーズ1から持ち越された決定課題の本文。
@@ -350,6 +352,7 @@ export function RoomBoardView({
   onTimerExtend,
   onTimerStop,
   initialGuideState,
+  showPhaseOneWritingTour = false,
 }: RoomBoardViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const phaseKey =
@@ -1964,6 +1967,7 @@ export function RoomBoardView({
         />
       </div>
       {feedback ? <FeedbackPanel feedback={feedback} /> : null}
+      {showPhaseOneWritingTour ? <PhaseOneWritingTour phase={phase} /> : null}
     </>
   );
 }

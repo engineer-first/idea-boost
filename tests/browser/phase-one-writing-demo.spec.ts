@@ -27,6 +27,7 @@ test("フェーズ1-1のデモは付箋追加と入力の2ステップだけを�
   expect(await body.getByRole("button", { name: "付箋を追加" }).count()).toBe(
     1,
   );
+  await body.getByRole("button", { name: "次へ" }).click();
 
   await expect
     .poll(
@@ -39,10 +40,15 @@ test("フェーズ1-1のデモは付箋追加と入力の2ステップだけを�
       },
     )
     .toBe(1);
-  expect(await body.getByTestId("note-card").count()).toBe(1);
-  expect(await body.getByRole("textbox").inputValue()).toBe(
-    "会議で発言するタイミングがわからない",
+  expect(await body.locator('[data-tour="phase-one-demo-note"]').count()).toBe(
+    1,
   );
+  expect(
+    await body.getByRole("textbox", { name: "デモの付箋" }).inputValue(),
+  ).toBe("会議で発言するタイミングがわからない");
+
+  await body.getByRole("button", { name: "終了" }).click();
+  expect(await body.getByTestId("phase-one-writing-tour").count()).toBe(0);
 
   expect(
     await body.getByText("保存ボタンは不要です。", { exact: true }).count(),

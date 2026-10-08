@@ -1,0 +1,50 @@
+.layer {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100002;
+}
+
+.cursor {
+  position: fixed;
+  width: 18px;
+  height: 18px;
+  border: 2px solid white;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 80%);
+  box-shadow: 0 0 0 5px rgb(255 255 255 / 25%);
+  transform: translate(-50%, -50%);
+  transition: opacity 180ms ease;
+}
+
+.hidden {
+  opacity: 0;
+}
+
+.demoNote {
+  position: fixed;
+  width: 192px;
+  min-height: 136px;
+  padding: 12px;
+  border-radius: 6px;
+  background: #fef08a;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 18%);
+}
+
+.demoNote textarea {
+  width: 100%;
+  min-height: 110px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #172033;
+  font: inherit;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor {
+    transition: none;
+  }
+}
