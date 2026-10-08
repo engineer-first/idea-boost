@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useRef, useState } from "react";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
+import { useEffect, useRef, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
@@ -18,7 +20,11 @@ import {
   type RoomBoardInteractions,
   useRoomBoardInteractions,
 } from "../logic/use-room-board-interactions";
-import { getBoardFitInsets, RoomBoardView } from "./room-board-view";
+import {
+  getBoardFitInsets,
+  RoomBoardView,
+  type RoomBoardViewProps,
+} from "./room-board-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const STEP_1_1 = buildPhaseStep(1);
@@ -52,6 +58,9 @@ const CANVAS_HUD_NOTES = buildNotes(6).map((note, index) => ({
   x: CANVAS_HUD_POSITIONS[index]?.[0] ?? note.x,
   y: CANVAS_HUD_POSITIONS[index]?.[1] ?? note.y,
 }));
+
+const DEMO_NOTE_ID = "phase-one-writing-demo-note";
+const DEMO_NOTE_CONTENT = "会議で発言するタイミングがわからない";
 const INTERACTIONS: RoomBoardInteractions = {
   boardRootRef: { current: null },
   boardScrollerRef: { current: null },
@@ -177,6 +186,115 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+function PhaseOneWritingDemoPreview({
+  args,
+}: {
+  args: NonNullable<Story["args"]>;
+}) {
+  const baseInteractions = args.interactions ?? INTERACTIONS;
+  const boardArgs = args as RoomBoardViewProps;
+  const [privateNotes, setPrivateNotes] = useState(
+    () => baseInteractions.privateNotes,
+  );
+  const driverRef = useRef<ReturnType<typeof driver> | null>(null);
+  const timeoutRefs = useRef<number[]>([]);
+
+  useEffect(() => {
+    const tour = driver({
+      animate: true,
+      duration: 450,
+      overlayOpacity: 0.72,
+      allowClose: false,
+      allowKeyboardControl: false,
+      overlayClickBehavior: "none",
+      showButtons: [],
+      steps: [
+        {
+          element: '[aria-label="付箋を追加"]',
+          popover: {
+            description: "このボタンで付箋を追加します。",
+            side: "left",
+            showButtons: [],
+          },
+          onHighlighted: (_element, _step, options) => {
+            if (options.index !== 0) return;
+            timeoutRefs.current.push(
+              window.setTimeout(() => {
+                document
+                  .querySelector<HTMLButtonElement>('[aria-label="付箋を追加"]')
+                  ?.click();
+                tour.moveNext();
+              }, 1_100),
+            );
+          },
+        },
+        {
+          element:
+            '[data-testid="private-notes-toolbar"] textarea:not([readonly])',
+          waitForElement: 5_000,
+          popover: {
+            description: "最近困ったことを書き出しましょう。",
+            side: "left",
+            showButtons: [],
+          },
+          onHighlighted: (_element, _step, options) => {
+            if (options.index !== 1) return;
+            const textarea = document.querySelector<HTMLTextAreaElement>(
+              '[data-testid="private-notes-toolbar"] textarea:not([readonly])',
+            );
+            if (!textarea) return;
+            const setter = Object.getOwnPropertyDescriptor(
+              HTMLTextAreaElement.prototype,
+              "value",
+            )?.set;
+            setter?.call(textarea, DEMO_NOTE_CONTENT);
+            textarea.dispatchEvent(new Event("input", { bubbles: true }));
+            timeoutRefs.current.push(
+              window.setTimeout(() => tour.destroy(), 1_300),
+            );
+          },
+        },
+      ],
+    });
+    driverRef.current = tour;
+    tour.drive();
+
+    return () => {
+      for (const timeout of timeoutRefs.current) window.clearTimeout(timeout);
+      timeoutRefs.current = [];
+      tour.destroy();
+      driverRef.current = null;
+    };
+  }, []);
+
+  const interactions = {
+    ...baseInteractions,
+    privateNotes,
+  };
+
+  return (
+    <RoomBoardView
+      {...boardArgs}
+      interactions={interactions}
+      onAddPrivateNote={() =>
+        setPrivateNotes([
+          buildNote({
+            id: DEMO_NOTE_ID,
+            authorId: ME,
+            visibility: "private",
+            content: "",
+          }),
+        ])
+      }
+      onPrivateNoteContentChange={(id, content) =>
+        setPrivateNotes((current) =>
+          current.map((note) => (note.id === id ? { ...note, content } : note)),
+        )
+      }
+    />
+  );
+}
+
 function guideStory(phase: 1 | 2 | 3, step: number): Story {
   return {
     name: `フェーズ${phase} Step ${step}`,
@@ -217,6 +335,20 @@ export const Phase1FirstStepIntro: Story = {
     notes: [],
     initialGuideState: "intro",
   },
+};
+
+export const PhaseOneWritingDemo: Story = {
+  name: "フェーズ1-1 自動デモ（デスクトップ）",
+  args: {
+    phase: buildPhaseStep(1, 1),
+    notes: [],
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+  },
+  render: (args) => <PhaseOneWritingDemoPreview args={args} />,
 };
 
 export const Phase1SecondStepIntro: Story = {
