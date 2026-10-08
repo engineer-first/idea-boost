@@ -180,6 +180,14 @@ export function RoomBoardHeader({
         "--board-connection-notice-bottom",
         `${dockTop}px`,
       );
+      const location = header.querySelector<HTMLElement>(
+        '[data-testid="board-location-card"]',
+      );
+      if (location)
+        header.style.setProperty(
+          "--board-location-top",
+          `${location.getBoundingClientRect().top}px`,
+        );
     }
     updateGuideTop();
     const observer =
@@ -192,6 +200,7 @@ export function RoomBoardHeader({
       observer?.disconnect();
       window.removeEventListener("resize", updateGuideTop);
       header.style.removeProperty("--board-connection-guide-top");
+      header.style.removeProperty("--board-location-top");
       board?.style.removeProperty("--board-connection-notice-bottom");
     };
   }, [connectionStatus]);

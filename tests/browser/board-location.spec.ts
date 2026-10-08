@@ -285,6 +285,56 @@ test("手順一覧にキーボードフォーカスが見え、短い画面で�
 });
 
 test.each([
+  [1280, 720, "auth-required"],
+  [390, 844, "auth-required"],
+  [320, 568, "reconnecting"],
+  [320, 568, "delayed-connection"],
+  [320, 568, "auth-required"],
+  [320, 568, "unavailable"],
+  [320, 568, "auth-required-with-move-history"],
+] as const)("%i×%iの%sでも接続案内とマイ付箋を保って現在地と全手順へ到達できる", async (width, height, state) => {
+  await page.setViewportSize({ width, height });
+  await open(`room-roomboardlayout--${state}`);
+  const trigger = page.getByRole("button", { name: /現在地/ });
+  const notice = page.getByTestId("board-connection-status");
+  const notes = page.getByTestId("private-notes-toolbar");
+  const scroll = page.getByTestId("private-notes-scroll");
+  await scroll.evaluate((el) => {
+    el.scrollTop = 80;
+  });
+  const scrollTop = await scroll.evaluate((el) => el.scrollTop);
+  const before = await Promise.all([notice.boundingBox(), notes.boundingBox()]);
+  await page.screenshot({
+    path: `test-results/board-layout/location-${state}-${width}-compact.png`,
+  });
+  await reachable(trigger);
+  await trigger.click();
+  const card = await page.getByTestId("board-location-card").boundingBox();
+  expect(card?.y).toBeGreaterThanOrEqual(0);
+  expect((card?.y ?? 0) + (card?.height ?? 0)).toBeLessThanOrEqual(height);
+  for (const tab of await page
+    .getByTestId("board-location-card")
+    .getByRole("tab")
+    .all())
+    await reachable(tab);
+  const list = page.getByRole("list", { name: "このフェーズの全手順" });
+  for (const row of await list.locator("li").all()) await reachable(row);
+  await reachable(trigger);
+  expect(
+    await Promise.all([notice.boundingBox(), notes.boundingBox()]),
+  ).toEqual(before);
+  await page.screenshot({
+    path: `test-results/board-layout/location-${state}-${width}-expanded.png`,
+  });
+  await page.keyboard.press("Escape");
+  await reachable(trigger);
+  await reachable(page.getByRole("button", { name: "マイ付箋を閉じる" }));
+  expect(await scroll.evaluate((el) => el.scrollTop)).toBe(scrollTop);
+  const link = notice.getByRole("link");
+  if (await link.count()) await reachable(link);
+});
+
+test.each([
   [1280, 720],
   [320, 568],
 ])("%i×%iでフィードバックの対象・未送信入力・復帰先を保持する", async (width, height) => {

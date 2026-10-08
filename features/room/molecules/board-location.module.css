@@ -18,7 +18,7 @@
   z-index: 60;
   display: flex;
   flex-direction: column;
-  max-height: calc(100dvh - 100px);
+  max-height: calc(100dvh - var(--board-location-top, 88px) - 12px);
 }
 .trigger {
   display: flex;
@@ -153,8 +153,8 @@
 }
 @media (width < 640px) {
   .card[data-state="expanded"] {
-    /* 操作行が2段でも、詳細を画面下端より内側に収める。 */
-    max-height: calc(100dvh - 136px);
+    /* 単体表示の既定値。ボードでは操作行と接続案内の実寸を使う。 */
+    max-height: calc(100dvh - var(--board-location-top, 124px) - 12px);
   }
   .trigger {
     gap: 8px;

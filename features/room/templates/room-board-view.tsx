@@ -1399,7 +1399,7 @@ export function RoomBoardView({
         style={
           {
             // トレイの操作欄を含む総高を、上部パネルの予約にも使う。
-            // 低い画面では上部に16.5remを残し、各一覧内でスクロールする。
+            // 接続案内が長いときも、その下の現在地1行と余白を残す。
             "--board-mobile-controls-bottom":
               "calc(0.75rem + var(--board-notification-inset, 0px) + var(--board-tools-height, 0px) + 0.5rem)",
             "--board-mobile-header-bottom":
@@ -1409,9 +1409,13 @@ export function RoomBoardView({
             "--board-private-dock-bottom": hasMoveHistory
               ? "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)"
               : `calc(${isHost && phase.kind === "step" && phase.step === 2 ? "11.5rem" : "7.5rem"} + var(--board-notification-inset, 0px))`,
+            "--board-private-dock-top":
+              "max(16.5rem, calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
             "--board-private-dock-height": hasMoveHistory
-              ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))"
-              : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))",
+              ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))"
+              : connectionStatus === "open"
+                ? "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))"
+                : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)), max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))",
           } as CSSProperties
         }
         className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
