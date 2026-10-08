@@ -375,7 +375,9 @@ export function PrivateNotesToolbar({
             自分だけに見える付箋エリア
           </p>
           <p className="mb-3 text-xs text-muted-foreground">
-            （Macは⌘＋Enter、Windows等はCtrl＋Enter）
+            （付箋追加ショートカットキー：
+            <br />
+            Macは⌘＋Enter、Windows等はCtrl＋Enter）
           </p>
           <div
             ref={listRef}
