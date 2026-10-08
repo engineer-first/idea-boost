@@ -3,6 +3,7 @@ import {
   getRoomPhaseLabel,
   isAtOrAfterGroupingStep,
   isLobby,
+  isPersonalWritingStep,
   isPhaseStep,
   isResultStep,
   isVotingStep,
@@ -40,6 +41,18 @@ describe("RoomPhaseSchema", () => {
 });
 
 describe("RoomPhase の判定ヘルパー", () => {
+  it.each([
+    [buildLobbyPhase(), false],
+    [buildPhaseStep(1, 1), true],
+    [buildPhaseStep(1, 2), true],
+    [buildPhaseStep(1, 3), true],
+    [buildPhaseStep(2, 1), false],
+    [buildPhaseStep(2, 2), false],
+    [buildPhaseStep(2, 3), false],
+  ] as const)("個人執筆ステップかを返す", (phase, expected) => {
+    expect(isPersonalWritingStep(phase)).toBe(expected);
+  });
+
   it.each([
     {
       phase: buildLobbyPhase(),

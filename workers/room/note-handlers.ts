@@ -6,7 +6,11 @@ import {
   NOTE_SPAWN_X_MIN,
   NOTE_SPAWN_Y_MIN,
 } from "../../contracts/board";
-import { isPhaseStep, isVotingStep } from "../../contracts/phase";
+import {
+  isPersonalWritingStep,
+  isPhaseStep,
+  isVotingStep,
+} from "../../contracts/phase";
 import type { SocketAttachment } from "./broadcast";
 import { getDecision } from "./decisions";
 import {
@@ -48,7 +52,7 @@ import {
   unpublishNoteAtIndex,
   updateNoteFontSize,
 } from "./notes";
-import { getPhase, getPhaseRevision, isPersonalWritingStep } from "./phase";
+import { getPhase, getPhaseRevision } from "./phase";
 import { commitShare } from "./share-operations";
 import {
   addUserNoteVote,

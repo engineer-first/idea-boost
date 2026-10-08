@@ -174,13 +174,11 @@ export function listSharedNotes(sql: SqlStorage, phase = 1): ProtocolNote[] {
 export function hasCandidateNotes(sql: SqlStorage, phase: number): boolean {
   const rows = sql
     .exec(
-      `SELECT 1 AS found FROM notes
-       WHERE phase = ?1 AND visibility = 'shared' AND excluded = 0
-       LIMIT 1`,
+      "SELECT content FROM notes WHERE phase = ?1 AND visibility = 'shared' AND excluded = 0",
       phase,
     )
-    .toArray();
-  return rows.length > 0;
+    .toArray() as Array<{ content: string }>;
+  return rows.some(({ content }) => content.trim() !== "");
 }
 
 export function hasOnlySharedNotes(

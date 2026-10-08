@@ -6,6 +6,7 @@ import {
 import {
   getRoomPhaseLabel,
   isLobby,
+  isPersonalWritingStep,
   isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
@@ -26,6 +27,7 @@ import {
 } from "./handler-context";
 import { getHostState, isCurrentHost, isHostUser, isMember } from "./members";
 import {
+  deleteNote,
   excludeNotesForBulkOperation,
   hasCandidateNotes,
   listAutomaticExclusionCandidates,
@@ -34,7 +36,7 @@ import {
 import { recordProgressTransition } from "./progress-history";
 import { resetSharingForPhase } from "./sharing-state";
 import { resetTimerState } from "./timer";
-import { haveAllMembersCompletedVoting } from "./votes";
+import { deleteNoteVotes, haveAllMembersCompletedVoting } from "./votes";
 
 export function getPhase(sql: SqlStorage): RoomPhase {
   const rows = sql.exec("SELECT phase FROM room_state WHERE id = 1").toArray();
@@ -264,14 +266,45 @@ export function discardPrivateNotes(sql: SqlStorage): void {
   sql.exec("DELETE FROM notes WHERE visibility = 'private'");
 }
 
-// 個人執筆ステップ（各フェーズの Step 1: 課題 / 問い / アイデアを個人で書く）
-// かどうか。これらのステップでは変更してよいのは自分の private 付箋だけで、
-// 前フェーズから残る共有付箋は記録として凍結する。共有ステップの
-// 「共有付箋は全員で修正できる」認可（note-handlers の canEdit）が
-// 個人執筆ステップへ漏れ込まないよう、ハンドラ側がこの述語で visibility を
-// 追加検証する。
-export function isPersonalWritingStep(phase: RoomPhase): boolean {
-  return !isLobby(phase) && phase.step === 1;
+function discardEmptySharedNotes(sql: SqlStorage, phase: number): boolean {
+  const rows = sql
+    .exec(
+      "SELECT id, content FROM notes WHERE phase = ?1 AND visibility = 'shared'",
+      phase,
+    )
+    .toArray() as Array<{ id: string; content: string }>;
+  const noteIds = new Set(
+    rows.filter(({ content }) => content.trim() === "").map(({ id }) => id),
+  );
+  if (noteIds.size === 0) return false;
+
+  const groups = sql
+    .exec("SELECT id, note_ids FROM groups")
+    .toArray() as Array<{ id: string; note_ids: string }>;
+  for (const group of groups) {
+    const groupNoteIds = JSON.parse(group.note_ids) as string[];
+    if (groupNoteIds.some((noteId) => noteIds.has(noteId))) {
+      sql.exec("DELETE FROM groups WHERE id = ?1", group.id);
+    }
+  }
+
+  for (const noteId of noteIds) {
+    deleteNoteVotes(sql, noteId);
+    deleteNote(sql, noteId);
+  }
+  return true;
+}
+
+function discardEmptyPrivateNotes(sql: SqlStorage, phase: number): void {
+  const rows = sql
+    .exec(
+      "SELECT id, content FROM notes WHERE phase = ?1 AND visibility = 'private'",
+      phase,
+    )
+    .toArray() as Array<{ id: string; content: string }>;
+  for (const { id, content } of rows) {
+    if (content.trim() === "") deleteNote(sql, id);
+  }
 }
 
 // WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
@@ -702,6 +735,7 @@ export const phaseHandlers: MessageHandlers<
     let automaticExclusion:
       | { operationId: string; targets: NoteRow[] }
       | undefined;
+    let discardedEmptySharedNotes = false;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
     let committed = false;
@@ -715,6 +749,19 @@ export const phaseHandlers: MessageHandlers<
         return;
       }
       recordProgressTransition(ctx.sql, current, next, "next");
+      discardedEmptySharedNotes = discardEmptySharedNotes(
+        ctx.sql,
+        current.phase,
+      );
+      if (
+        current.kind === "step" &&
+        isPersonalWritingStep(current) &&
+        next.kind === "step" &&
+        next.phase === current.phase &&
+        next.step === 2
+      ) {
+        discardEmptyPrivateNotes(ctx.sql, current.phase);
+      }
       if (crossesPhaseBoundary) {
         discardPrivateNotes(ctx.sql);
       }
@@ -774,7 +821,7 @@ export const phaseHandlers: MessageHandlers<
     // 越えるときも、持ち越し（carryovers）を含む最新 snapshot を再送してから
     // phase:updated を配る。マイ付箋を破棄したときも、破棄をクライアントへ
     // 伝える経路は snapshot の再送しかない（note:deleted は配信しない）。
-    if (refreshesSnapshot) {
+    if (refreshesSnapshot || discardedEmptySharedNotes) {
       ctx.refreshSnapshots();
     } else if (timerWasReset) {
       ctx.broadcaster.broadcastToAll({

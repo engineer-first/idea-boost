@@ -168,7 +168,10 @@ async function createNote(room: {
   member: RoomSocket;
 }): Promise<string> {
   await arrangeStep(room.owner, 1);
-  send(room.owner, { type: "note:create" });
+  send(room.owner, {
+    type: "note:create",
+    content: "テスト用の共有付箋",
+  });
   const drafted = await expectType(room.owner, "note:inserted");
   expect(drafted.note.visibility).toBe("private");
   await arrangeStep(room.owner, 2);
