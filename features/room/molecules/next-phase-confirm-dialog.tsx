@@ -61,7 +61,8 @@ export function NextPhaseConfirmDialog({
                 ? "決定内容を引き継ぎ、このフェーズの未共有の下書きを破棄します。前のフェーズへは戻れません。"
                 : isVotingStep(phase)
                   ? "投票を終了し、今回の結果を全員に表示します。"
-                  : "共有済み付箋と下書きは残ります。"}
+                  : "本文のある共有付箋と下書きは残ります。"}
+            このフェーズの空白だけの共有付箋は削除します。
             タイマーは停止します。
           </AlertDialogDescription>
         </AlertDialogHeader>

@@ -33,13 +33,19 @@ describe("NextPhaseConfirmDialog", () => {
     ).toBeDisabled();
   });
 
-  it("押下で確認ダイアログを開き、現在ステップのラベルを含む説明を出す", () => {
+  it("確認ダイアログで現在ステップと、空白の共有付箋だけを削除する範囲を説明する", () => {
     setup({ phase: buildPhaseStep(2) });
 
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
     expect(screen.getByText("次のステップへ進みますか？")).toBeInTheDocument();
     expect(screen.getByRole("alertdialog")).toHaveTextContent("1-2 課題共有");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "このフェーズの空白だけの共有付箋は削除します。",
+    );
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "本文のある共有付箋と下書きは残ります。",
+    );
   });
 
   it("「移行する」で onConfirm を呼ぶ（確認前には呼ばない）", () => {
