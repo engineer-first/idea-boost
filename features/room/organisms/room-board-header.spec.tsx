@@ -179,18 +179,21 @@ describe("RoomBoardHeader", () => {
     [buildPhaseStep(3, 1), 1, "課題整理", 5],
     [buildPhaseStep(2, 2), 2, "問いの整理", 4],
     [buildPhaseStep(4, 3), 3, "アイデア決定", 5],
-  ] as const)("概要で3フェーズを確認でき、閉じた表示に進捗を残す", (phase, currentPhaseNumber, currentPhaseLabel, stepCount) => {
+  ] as const)("開くと3フェーズの手順タブを確認でき、閉じた表示に進捗を残す", (phase, currentPhaseNumber, currentPhaseLabel, stepCount) => {
     setup({ phase });
 
     fireEvent.click(screen.getByRole("button", { name: /現在地/ }));
     const phaseProgress = screen.getByTestId("board-phase-progress");
-    expect(phaseProgress).toHaveAttribute(
-      "aria-label",
-      "アイデア出しのフェーズ進行",
-    );
-    expect(within(phaseProgress).getByText("① 課題")).toBeVisible();
-    expect(within(phaseProgress).getByText("② 問い")).toBeVisible();
-    expect(within(phaseProgress).getByText("③ アイデア")).toBeVisible();
+    expect(phaseProgress).toHaveAttribute("aria-label", "3つのフェーズの手順");
+    expect(
+      within(phaseProgress).getByRole("tab", { name: /課題/ }),
+    ).toBeVisible();
+    expect(
+      within(phaseProgress).getByRole("tab", { name: /問い/ }),
+    ).toBeVisible();
+    expect(
+      within(phaseProgress).getByRole("tab", { name: /アイデア/ }),
+    ).toBeVisible();
     const currentPhase = within(phaseProgress).getByTestId(
       `board-phase-${currentPhaseNumber}`,
     );
@@ -904,4 +907,19 @@ it("成果公開後は本人の編集案内と鉛筆を消し、編集を実行�
   expect(row.querySelector("svg.lucide-pencil")).toBeNull();
   fireEvent.click(row);
   expect(onEditSelf).not.toHaveBeenCalled();
+});
+
+it("右上のルームメニューからフィードバックを開き、常設入口へ復帰先を渡す", () => {
+  const onOpenFeedback = vi.fn();
+  setup({ onOpenFeedback });
+  expect(
+    screen.queryByRole("button", { name: "フィードバック" }),
+  ).not.toBeInTheDocument();
+  const trigger = screen.getByRole("button", { name: "ルームメニューを開く" });
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
+  expect(onOpenFeedback).toHaveBeenCalledWith(trigger);
+  expect(
+    screen.queryByRole("dialog", { name: "ルームメニュー" }),
+  ).not.toBeInTheDocument();
 });

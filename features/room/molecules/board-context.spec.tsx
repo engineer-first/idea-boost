@@ -6,13 +6,12 @@ import { BoardContext } from "./board-context";
 describe("現在地と補足情報", () => {
   it.each([
     1, 2, 3,
-  ] as const)("フェーズ%iの閉じた表示は番号と点だけで、概要で正式作業名を確認できる", (phase) => {
+  ] as const)("フェーズ%iの閉じた表示は番号と点だけで、1回開くと3フェーズと正式作業名を確認できる", (phase) => {
     render(
       <BoardContext
         phase={buildPhaseStep(2, phase)}
         hmwDecidedIssue={null}
         decidedHmw={null}
-        onOpenFeedback={vi.fn()}
       />,
     );
     const trigger = screen.getByRole("button", { name: /現在地/ });
@@ -28,7 +27,19 @@ describe("現在地と補足情報", () => {
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("board-current-step")).toBeVisible();
-    expect(screen.getByRole("button", { name: "全手順を見る" })).toBeVisible();
+    expect(screen.getAllByRole("tab")).toHaveLength(3);
+    expect(
+      screen.getByRole("list", { name: "このフェーズの全手順" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "全手順を見る" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "概要に戻る" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "閉じる" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/ゴール：/)).not.toBeInTheDocument();
   });
 
@@ -42,7 +53,6 @@ describe("現在地と補足情報", () => {
     );
     const trigger = screen.getByRole("button", { name: /現在地/ });
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole("button", { name: "全手順を見る" }));
     expect(screen.getByRole("tab", { name: /問い/ })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -61,16 +71,17 @@ describe("現在地と補足情報", () => {
       screen.getByRole("list", { name: "このフェーズの全手順" }).children,
     ).toHaveLength(5);
     expect(trigger).toHaveTextContent("問いの整理");
-    fireEvent.click(screen.getByRole("button", { name: "概要に戻る" }));
-    expect(screen.getByTestId("board-current-step")).toHaveTextContent(
-      "問い共有",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "全手順を見る" }));
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(trigger);
     expect(screen.getByRole("tab", { name: /問い/ })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    fireEvent.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.getByTestId("board-current-step")).toHaveTextContent(
+      "問い共有",
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
     expect(trigger).toHaveFocus();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
@@ -91,14 +102,13 @@ describe("現在地と補足情報", () => {
     );
     const trigger = screen.getByRole("button", { name: /現在地/ });
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole("button", { name: "全手順を見る" }));
     const note = screen.getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(note);
     fireEvent.click(note);
     expect(onNote).toHaveBeenCalledOnce();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(trigger);
-    screen.getByRole("button", { name: "全手順を見る" }).focus();
+    screen.getByRole("tab", { name: /アイデア/ }).focus();
     fireEvent.keyDown(document.activeElement ?? document.body, {
       key: "Escape",
     });
@@ -125,23 +135,6 @@ describe("現在地と補足情報", () => {
     expect(trigger).toHaveTextContent("2/4");
     expect(screen.queryByTestId("board-current-step")).not.toBeInTheDocument();
     rerender(<BoardContext {...props} />);
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
-  });
-
-  it("概要からフィードバックを開くと畳まれ、常設入口へ復帰先を渡す", () => {
-    const onOpenFeedback = vi.fn();
-    render(
-      <BoardContext
-        phase={buildPhaseStep(1, 2)}
-        hmwDecidedIssue={null}
-        decidedHmw={null}
-        onOpenFeedback={onOpenFeedback}
-      />,
-    );
-    const trigger = screen.getByRole("button", { name: /現在地/ });
-    fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole("button", { name: "フィードバック" }));
-    expect(onOpenFeedback).toHaveBeenCalledWith(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
@@ -200,7 +193,6 @@ it("手順内をキーボードで読んでいる間の工程変更では常設�
   const { rerender } = render(<BoardContext {...props} />);
   const trigger = screen.getByRole("button", { name: /現在地/ });
   fireEvent.click(trigger);
-  fireEvent.click(screen.getByRole("button", { name: "全手順を見る" }));
   screen.getByRole("tab", { name: /問い/ }).focus();
   rerender(<BoardContext {...props} phase={buildPhaseStep(2, 2)} />);
   expect(trigger).toHaveFocus();

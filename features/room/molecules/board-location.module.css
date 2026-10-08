@@ -12,8 +12,7 @@
   color: var(--foreground);
   box-shadow: 0 8px 20px rgb(0 0 0 / 0.05);
 }
-.card[data-state="overview"],
-.card[data-state="steps"] {
+.card[data-state="expanded"] {
   position: absolute;
   inset: 0 auto auto 0;
   z-index: 60;
@@ -29,6 +28,7 @@
   min-height: 42px;
   padding: 8px 12px;
   cursor: pointer;
+  flex-shrink: 0;
   border-radius: 15px;
 }
 .trigger:hover {
@@ -61,35 +61,47 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-top: 1px solid var(--border);
-}
-.body {
-  padding: 16px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 .phases {
   display: flex;
+  width: auto;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  height: auto;
+  margin: 4px 12px 8px;
+  padding: 0;
 }
-.phases > li {
+.phaseTab {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  height: auto;
+  padding: 6px 2px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.phaseTab:hover,
+.phaseTab[aria-selected="true"] {
+  color: var(--foreground);
+}
+.phaseNumber {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex: 1;
-  color: var(--muted-foreground);
-  white-space: nowrap;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 10px;
 }
-.phases > li[aria-current="step"] > span {
-  font-weight: 600;
-  color: var(--foreground);
-  background: var(--muted);
-  border-radius: 6px;
-}
-.phases > li > span {
-  padding: 6px 4px;
+.phaseNumber[data-current="true"] {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: var(--background);
 }
 .stepScroll {
   min-height: 0;
@@ -112,7 +124,6 @@
   border-radius: 8px;
 }
 .steps > li[aria-current="step"] {
-  background: var(--muted);
   font-weight: 600;
 }
 .stepMarker {
@@ -135,18 +146,8 @@
   font-size: 11px;
   white-space: nowrap;
 }
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 4px;
-  padding: 4px 8px;
-  border-top: 1px solid var(--border);
-}
 @media (width < 640px) {
-  .card[data-state="overview"],
-  .card[data-state="steps"] {
+  .card[data-state="expanded"] {
     position: fixed;
     inset: 50% auto auto 50%;
     transform: translate(-50%, -50%);

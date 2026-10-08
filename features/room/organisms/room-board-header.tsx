@@ -2,7 +2,13 @@
 
 // ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
 
-import { Check, LogOut, MoreHorizontal, Pencil } from "lucide-react";
+import {
+  Check,
+  LogOut,
+  MessageSquare,
+  MoreHorizontal,
+  Pencil,
+} from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -213,6 +219,7 @@ export function RoomBoardHeader({
     isDisconnected || isNextPhasePending || isTransferring || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const roomMenuContentRef = useRef<HTMLDivElement>(null);
+  const feedbackOpening = useRef(false);
   useEffect(() => {
     if (!roomMenuOpen) return;
     const handleOutsidePointerDown = (event: PointerEvent) => {
@@ -282,7 +289,6 @@ export function RoomBoardHeader({
         >
           <div className="w-full min-w-0 shrink-0">
             <BoardContext
-              onOpenFeedback={onOpenFeedback}
               phase={phase}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
@@ -709,6 +715,11 @@ export function RoomBoardHeader({
                 ref={roomMenuContentRef}
                 className="w-80"
                 aria-label="ルームメニュー"
+                onCloseAutoFocus={(event) => {
+                  if (!feedbackOpening.current) return;
+                  event.preventDefault();
+                  feedbackOpening.current = false;
+                }}
               >
                 {currentMember ? (
                   <MemberSelection
@@ -752,6 +763,21 @@ export function RoomBoardHeader({
                 ) : null}
 
                 <div className="flex flex-col gap-1">
+                  {onOpenFeedback ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="min-h-11 justify-start"
+                      onClick={() => {
+                        feedbackOpening.current = true;
+                        setRoomMenuOpen(false);
+                        onOpenFeedback(roomMenuTriggerRef.current);
+                      }}
+                    >
+                      <MessageSquare aria-hidden="true" className="size-4" />
+                      フィードバック
+                    </Button>
+                  ) : null}
                   {isHost && canManageCandidates ? (
                     <BulkCandidateExclusion
                       key={hostRevision}

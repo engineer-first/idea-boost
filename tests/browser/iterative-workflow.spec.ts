@@ -113,16 +113,20 @@ for (const { phase, count } of phases) {
             .getAttribute("aria-current"),
         ).toBe("step");
         expect(
-          await page.getByTestId("board-phase-progress").locator("li").count(),
+          await page
+            .getByTestId("board-phase-progress")
+            .getByRole("tab")
+            .count(),
         ).toBe(3);
         expect(
-          await page.getByRole("button", { name: "全手順を見る" }).isVisible(),
-        ).toBe(true);
+          await page.getByRole("button", { name: "全手順を見る" }).count(),
+        ).toBe(0);
         expect(
           await page
             .getByRole("list", { name: "このフェーズの全手順" })
+            .locator("li")
             .count(),
-        ).toBe(0);
+        ).toBe(count);
         expect(await context.innerText()).not.toContain("次の作業");
         await location.click();
 

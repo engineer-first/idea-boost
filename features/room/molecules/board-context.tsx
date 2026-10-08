@@ -10,14 +10,12 @@ export type BoardContextProps = {
   phase: RoomPhase;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
-  onOpenFeedback?: (returnFocusTo: HTMLButtonElement | null) => void;
 };
 
 export function BoardContext({
   phase,
   hmwDecidedIssue,
   decidedHmw,
-  onOpenFeedback,
 }: BoardContextProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
@@ -62,7 +60,7 @@ export function BoardContext({
       data-testid="board-context-hud"
       className="pointer-events-none min-w-0 shrink-0"
     >
-      <BoardLocation phase={phase} onOpenFeedback={onOpenFeedback} />
+      <BoardLocation phase={phase} />
       {disclosures.length > 0 ? (
         <div className="board-hud pointer-events-auto overflow-hidden rounded-b-2xl border-x border-b border-border bg-background shadow-lg shadow-black/5">
           {disclosures.map((disclosure) => {
