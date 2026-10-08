@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, Check, ChevronDown } from "lucide-react";
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -222,6 +222,11 @@ export function BoardLocation({ phase }: BoardLocationProps) {
                           phase.kind === "step" &&
                           phase.phase === number &&
                           phase.step === Number(step);
+                        const completed =
+                          phase.kind === "step" &&
+                          (number < phase.phase ||
+                            (number === phase.phase &&
+                              Number(step) < phase.step));
                         return (
                           <li
                             key={step}
@@ -230,12 +235,25 @@ export function BoardLocation({ phase }: BoardLocationProps) {
                               current ? "board-current-step" : undefined
                             }
                           >
-                            <span
-                              aria-hidden="true"
-                              className={styles.stepMarker}
-                            >
-                              {step}
-                            </span>
+                            {completed ? (
+                              <span
+                                role="img"
+                                aria-label="完了"
+                                className={styles.stepMarker}
+                              >
+                                <Check
+                                  aria-hidden="true"
+                                  className="size-3.5"
+                                />
+                              </span>
+                            ) : (
+                              <span
+                                aria-hidden="true"
+                                className={styles.stepMarker}
+                              >
+                                {step}
+                              </span>
+                            )}
                             <span className="min-w-0 flex-1 break-words">
                               {label.replace(/^\d+-\d+\s*/, "")}
                             </span>

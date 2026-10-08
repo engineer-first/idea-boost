@@ -38,3 +38,17 @@ export const LongStepName: Story = {
   args: { phase: buildPhaseStep(3, 3) },
 };
 export const Waiting: Story = { args: { phase: { kind: "lobby" } } };
+
+export const CompletedSteps: Story = {
+  ...Expanded,
+  args: { phase: buildPhaseStep(2, 2) },
+};
+export const CompletedPhase: Story = {
+  args: { phase: buildPhaseStep(2, 2) },
+  play: async (context) => {
+    await Expanded.play?.(context);
+    await userEvent.click(
+      within(context.canvasElement).getByRole("tab", { name: /課題/ }),
+    );
+  },
+};

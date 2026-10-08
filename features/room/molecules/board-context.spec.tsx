@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { BoardContext } from "./board-context";
@@ -196,4 +196,34 @@ it("手順内をキーボードで読んでいる間の工程変更では常設�
   screen.getByRole("tab", { name: /問い/ }).focus();
   rerender(<BoardContext {...props} phase={buildPhaseStep(2, 2)} />);
   expect(trigger).toHaveFocus();
+});
+
+it("現在より前の手順だけに完了マークを付け、別フェーズを見ても進行を変えない", () => {
+  render(
+    <BoardContext
+      phase={buildPhaseStep(2, 2)}
+      hmwDecidedIssue={null}
+      decidedHmw={null}
+    />,
+  );
+  const trigger = screen.getByRole("button", { name: /現在地/ });
+  fireEvent.click(trigger);
+  const steps = () =>
+    within(screen.getByRole("list", { name: "このフェーズの全手順" }));
+  expect(steps().getAllByRole("img", { name: "完了" })).toHaveLength(1);
+  expect(
+    steps().getByRole("img", { name: "完了" }).closest("li"),
+  ).toHaveTextContent("課題に対する問い（個人）");
+  expect(
+    within(screen.getByTestId("board-current-step")).queryByRole("img", {
+      name: "完了",
+    }),
+  ).not.toBeInTheDocument();
+  fireEvent.mouseDown(screen.getByRole("tab", { name: /課題/ }), { button: 0 });
+  expect(steps().getAllByRole("img", { name: "完了" })).toHaveLength(5);
+  fireEvent.mouseDown(screen.getByRole("tab", { name: /アイデア/ }), {
+    button: 0,
+  });
+  expect(steps().queryAllByRole("img", { name: "完了" })).toHaveLength(0);
+  expect(trigger).toHaveTextContent("問いの整理・2/4");
 });
