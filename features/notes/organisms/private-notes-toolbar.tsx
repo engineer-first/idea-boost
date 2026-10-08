@@ -371,14 +371,21 @@ export function PrivateNotesToolbar({
             }
           }}
         >
-          <p className="mb-1 text-xs text-muted-foreground">
+          <p
+            className={cn(
+              "text-xs text-muted-foreground",
+              canCreateNote ? "mb-1" : "mb-3",
+            )}
+          >
             自分だけに見える付箋エリア
           </p>
-          <p className="mb-3 text-xs text-muted-foreground">
-            （付箋追加ショートカットキー：
-            <br />
-            Macは⌘＋Enter、Windows等はCtrl＋Enter）
-          </p>
+          {canCreateNote ? (
+            <p className="mb-3 text-xs text-muted-foreground">
+              （付箋追加ショートカットキー：
+              <br />
+              Macは⌘＋Enter、Windows等はCtrl＋Enter）
+            </p>
+          ) : null}
           <div
             ref={listRef}
             className="grid grid-cols-1 justify-items-center gap-3"

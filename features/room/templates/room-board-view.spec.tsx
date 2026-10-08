@@ -177,6 +177,32 @@ function openRoomMenu() {
 }
 
 describe("マイ付箋の追加ショートカット", () => {
+  it.each([
+    1, 2, 3,
+  ] as const)("%d-1だけで案内を表示し、共有フェーズへ進むと付箋記入欄を残して案内を隠す", (phase) => {
+    const privateNote = buildNote({
+      id: "private",
+      authorId: ME,
+      visibility: "private",
+    });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(1, phase),
+      notes: [],
+      interactions: buildInteractions([], [privateNote]),
+    });
+    const toolbar = within(screen.getByTestId("private-notes-toolbar"));
+    expect(toolbar.getByText(/付箋追加ショートカットキー/)).toBeVisible();
+
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, phase)} />);
+    expect(toolbar.getByRole("textbox")).toBeVisible();
+    expect(
+      toolbar.queryByText(/付箋追加ショートカットキー/),
+    ).not.toBeInTheDocument();
+
+    rerender(<TestBoardView {...props} />);
+    expect(toolbar.getByText(/付箋追加ショートカットキー/)).toBeVisible();
+  });
+
   it("追加キーと同じ処理内で本文入力を再開したら、応答後も元の本文のフォーカスを維持する", () => {
     const oldNote = buildNote({
       id: "old-private",
