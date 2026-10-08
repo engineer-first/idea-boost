@@ -33,6 +33,7 @@ describe("PhaseOneWritingTour", () => {
     );
     expect(config.steps[0].popover.showButtons).toEqual(["next"]);
     expect(config.steps[1].popover.showButtons).toEqual(["next"]);
+    expect(config.steps[0].disableActiveInteraction).toBe(true);
     expect(config.nextBtnText).toBe("次へ");
     expect(config.doneBtnText).toBe("終了");
   });

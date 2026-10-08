@@ -19,7 +19,6 @@ export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
   const [stage, setStage] = useState<TourStage>("add");
   const [content, setContent] = useState("");
   const [notePosition, setNotePosition] = useState({ left: 24, top: 180 });
-  const [cursorPosition, setCursorPosition] = useState({ left: 24, top: 180 });
   const driverRef = useRef<Driver | null>(null);
   const timersRef = useRef<number[]>([]);
 
@@ -33,12 +32,6 @@ export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
       '[aria-label="付箋を追加"]',
     );
     if (!addButton) return;
-
-    const buttonBox = addButton.getBoundingClientRect();
-    setCursorPosition({
-      left: buttonBox.left + buttonBox.width / 2,
-      top: buttonBox.top + buttonBox.height / 2,
-    });
 
     const tour = driver({
       animate: true,
@@ -59,6 +52,7 @@ export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
       steps: [
         {
           element: '[aria-label="付箋を追加"]',
+          disableActiveInteraction: true,
           popover: {
             description: "このボタンで付箋を追加します。",
             side: "left",
@@ -105,6 +99,19 @@ export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
         ? null
         : new ResizeObserver(refresh);
     if (toolbar) resizeObserver?.observe(toolbar);
+    const boardRoot = document.querySelector<HTMLElement>(
+      '[data-testid="room-board-view-root"]',
+    );
+    const layoutObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(refresh);
+    if (boardRoot) {
+      layoutObserver?.observe(boardRoot, {
+        attributes: true,
+        attributeFilter: ["style", "class"],
+      });
+    }
     const refreshFrame = window.requestAnimationFrame(refresh);
 
     function typeDemoText() {
@@ -129,6 +136,7 @@ export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
       window.removeEventListener("resize", refresh);
       window.removeEventListener("scroll", refresh, true);
       resizeObserver?.disconnect();
+      layoutObserver?.disconnect();
       tour.destroy();
       driverRef.current = null;
     };
@@ -143,10 +151,6 @@ export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
       className={styles.layer}
       aria-hidden="true"
     >
-      <span
-        className={`${styles.cursor} ${stage === "write" ? styles.hidden : ""}`}
-        style={{ left: cursorPosition.left, top: cursorPosition.top }}
-      />
       {stage === "write" ? (
         <div
           className={styles.demoNote}
