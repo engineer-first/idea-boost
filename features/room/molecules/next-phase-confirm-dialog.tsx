@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
+  isPersonalWritingStep,
   isResultStep,
   isVotingStep,
   type RoomPhase,
@@ -64,9 +65,8 @@ export function NextPhaseConfirmDialog({
                   : "本文のある共有付箋と下書きは残ります。"}
             このフェーズの空白だけの共有付箋は削除します。
             {phase.kind === "step" &&
-              phase.phase === 3 &&
-              phase.step === 1 &&
-              " アイデアを書き出すステップの空白だけのマイ付箋も削除します。"}
+              isPersonalWritingStep(phase) &&
+              " 個人で書き出すステップの空白だけのマイ付箋も削除します。"}
             タイマーは停止します。
           </AlertDialogDescription>
         </AlertDialogHeader>

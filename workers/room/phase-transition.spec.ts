@@ -226,7 +226,13 @@ describe("本文保存を待つ進行", () => {
     memberSocket.close();
   });
 
-  it("アイデアの個人作業から共有へ進むとき空白のマイ付箋だけを削除する", async () => {
+  it.each([
+    { phase: 1, name: "課題" },
+    { phase: 2, name: "問い" },
+    { phase: 3, name: "アイデア" },
+  ] as const)("$nameの個人作業から共有へ進むとき空白のマイ付箋だけを削除する", async ({
+    phase,
+  }) => {
     const host = {
       sub: hostId,
       name: "Host",
@@ -240,7 +246,7 @@ describe("本文保存を待つ進行", () => {
     const { roomId, inviteCode } = await createRoomAs(host);
     await joinRoomAs(member, inviteCode);
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
-    await stub.setPhase(buildPhaseStep(1, 3), hostId);
+    await stub.setPhase(buildPhaseStep(1, phase), hostId);
 
     const noteIds = {
       ownerEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1",
@@ -258,10 +264,11 @@ describe("本文保存を待つ進行", () => {
         state.storage.sql.exec(
           `INSERT INTO notes
              (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at)
-           VALUES (?1, ?2, ?3, 'private', 'yellow', 40, 50, 3, ?4, ?4)`,
+           VALUES (?1, ?2, ?3, 'private', 'yellow', 40, 50, ?4, ?5, ?5)`,
           id,
           authorId,
           content,
+          phase,
           new Date().toISOString(),
         );
       }
@@ -302,8 +309,8 @@ describe("本文保存を待つ進行", () => {
     if (ownerSnapshot.type !== "snapshot" || memberSnapshot.type !== "snapshot")
       throw new Error("進行後のsnapshotが見つかりません");
 
-    expect(ownerSnapshot.phase).toEqual(buildPhaseStep(2, 3));
-    expect(memberSnapshot.phase).toEqual(buildPhaseStep(2, 3));
+    expect(ownerSnapshot.phase).toEqual(buildPhaseStep(2, phase));
+    expect(memberSnapshot.phase).toEqual(buildPhaseStep(2, phase));
     expect(
       ownerSnapshot.notes.some((note) => note.id === noteIds.ownerEmpty),
     ).toBe(false);

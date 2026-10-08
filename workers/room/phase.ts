@@ -6,6 +6,7 @@ import {
 import {
   getRoomPhaseLabel,
   isLobby,
+  isPersonalWritingStep,
   isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
@@ -304,16 +305,6 @@ function discardEmptyPrivateNotes(sql: SqlStorage, phase: number): void {
   for (const { id, content } of rows) {
     if (content.trim() === "") deleteNote(sql, id);
   }
-}
-
-// 個人執筆ステップ（各フェーズの Step 1: 課題 / 問い / アイデアを個人で書く）
-// かどうか。これらのステップでは変更してよいのは自分の private 付箋だけで、
-// 前フェーズから残る共有付箋は記録として凍結する。共有ステップの
-// 「共有付箋は全員で修正できる」認可（note-handlers の canEdit）が
-// 個人執筆ステップへ漏れ込まないよう、ハンドラ側がこの述語で visibility を
-// 追加検証する。
-export function isPersonalWritingStep(phase: RoomPhase): boolean {
-  return !isLobby(phase) && phase.step === 1;
 }
 
 // WebSocket を直接送られても状態が変わらないよう、変更系メッセージを
@@ -764,10 +755,9 @@ export const phaseHandlers: MessageHandlers<
       );
       if (
         current.kind === "step" &&
-        current.phase === 3 &&
-        current.step === 1 &&
+        isPersonalWritingStep(current) &&
         next.kind === "step" &&
-        next.phase === 3 &&
+        next.phase === current.phase &&
         next.step === 2
       ) {
         discardEmptyPrivateNotes(ctx.sql, current.phase);

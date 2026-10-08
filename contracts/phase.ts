@@ -74,6 +74,12 @@ export function isLobby(
   return phase.kind === "lobby";
 }
 
+// 各フェーズのStep 1。個人執筆中は共有付箋を記録として凍結し、本人の
+// private 付箋だけを変更できるよう、Worker の認可と進行処理で共有する。
+export function isPersonalWritingStep(phase: RoomPhase): boolean {
+  return phase.kind === "step" && phase.step === 1;
+}
+
 export function isPhaseStep(
   phase: RoomPhase,
   expectedPhase: number,
