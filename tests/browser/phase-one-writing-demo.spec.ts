@@ -54,3 +54,44 @@ test("フェーズ1-1のデモは付箋追加と入力の2ステップだけを�
     await body.getByText("保存ボタンは不要です。", { exact: true }).count(),
   ).toBe(0);
 });
+
+test("フェーズ1-4のデモは投票と取消を4ステップで案内する", async () => {
+  page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardview--phase-one-voting-demo&viewMode=story`,
+  );
+
+  const body = page.locator("body");
+  await expect(
+    body.getByText(
+      "主観は1票。激しく共感する、取り組みたい付箋に貼りましょう。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText(
+      "客観は3票。自分以外の人にも価値がありそうな付箋に貼りましょう。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText(
+      "シールを付箋にドラッグして投票します。投票中は、自分のシールだけが見えます。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    body.locator('[data-testid="phase-one-voting-demo-note"]'),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText(
+      "貼った自分のシールは、押すと取り消せます。パレットへ戻しても取り消せます。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "終了" }).click();
+  expect(await body.getByTestId("phase-one-writing-tour").count()).toBe(0);
+});

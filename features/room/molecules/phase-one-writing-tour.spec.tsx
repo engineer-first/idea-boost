@@ -70,4 +70,51 @@ describe("PhaseOneWritingTour", () => {
     );
     expect(config.steps[2].popover.side).toBe("right");
   });
+
+  it("フェーズ1-3では付箋の接近、枠、命名を案内する", () => {
+    render(<PhaseOneWritingTour phase={buildPhaseStep(3, 1)} />);
+
+    const config = driverMock.mock.calls[0]?.[0];
+    expect(config.steps[0].popover.description).toBe(
+      "似ている付箋を近づけて、まとめましょう。",
+    );
+    expect(config.steps[1].popover.description).toBe(
+      "近づけると、グループの枠ができます。",
+    );
+    expect(config.steps[2].popover.description).toBe(
+      "グループ名を押して、まとまりに名前を付けましょう。",
+    );
+  });
+
+  it("フェーズ1-4ではシールの選択、投票、取消を案内する", () => {
+    render(
+      <>
+        <section data-vote-palette="true" aria-label="投票パレット">
+          <button type="button" aria-label="主観シール 残り1票" />
+          <button type="button" aria-label="客観シール 残り3票" />
+        </section>
+        <PhaseOneWritingTour phase={buildPhaseStep(4, 1)} />
+      </>,
+    );
+
+    expect(screen.getByTestId("phase-one-writing-tour")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("phase-one-voting-demo-note"),
+    ).toBeInTheDocument();
+    expect(driverMock).toHaveBeenCalledOnce();
+    const config = driverMock.mock.calls[0]?.[0];
+    expect(config.steps).toHaveLength(4);
+    expect(config.steps[0].popover.description).toBe(
+      "主観は1票。激しく共感する、取り組みたい付箋に貼りましょう。",
+    );
+    expect(config.steps[1].popover.description).toBe(
+      "客観は3票。自分以外の人にも価値がありそうな付箋に貼りましょう。",
+    );
+    expect(config.steps[2].popover.description).toBe(
+      "シールを付箋にドラッグして投票します。投票中は、自分のシールだけが見えます。",
+    );
+    expect(config.steps[3].popover.description).toBe(
+      "貼った自分のシールは、押すと取り消せます。パレットへ戻しても取り消せます。",
+    );
+  });
 });

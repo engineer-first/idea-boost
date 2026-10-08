@@ -250,6 +250,34 @@ export const PhaseOneSharingDemo: Story = {
   },
 };
 
+export const PhaseOneGroupingDemo: Story = {
+  name: "フェーズ1-3 グループ化デモ（デスクトップ）",
+  args: {
+    phase: buildPhaseStep(3, 1),
+    notes: [],
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
+export const PhaseOneVotingDemo: Story = {
+  name: "フェーズ1-4 投票デモ（デスクトップ）",
+  args: {
+    phase: buildPhaseStep(4, 1),
+    notes: buildNotes(3),
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
 export const Phase1SecondStepIntro: Story = {
   name: "フェーズ1 Step 2の付箋共有",
   args: {
