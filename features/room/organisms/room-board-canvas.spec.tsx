@@ -94,6 +94,32 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("自分の発表順を待っている間もマイ付箋をドラッグできる", () => {
+    const onPrivateNoteDragStart = vi.fn();
+    setup({
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
+      privateNotes: [buildNote({ id: "private-1", visibility: "private" })],
+      canPublishPrivateNote: false,
+      onPrivateNoteDragStart,
+    });
+
+    const toolbar = screen.getByTestId("private-notes-toolbar");
+    fireEvent.click(
+      within(toolbar).getByRole("button", { name: "マイ付箋を開く" }),
+    );
+    const note = within(toolbar).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(note, { pointerId: 1, clientX: 20, clientY: 20 });
+    fireEvent.pointerMove(note, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 40,
+      clientY: 40,
+    });
+
+    expect(onPrivateNoteDragStart).toHaveBeenCalledOnce();
+  });
+
   it("ドラッグ権利の応答前もドラッグ中の候補操作を隠し、終了後に選択表示へ戻す", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),

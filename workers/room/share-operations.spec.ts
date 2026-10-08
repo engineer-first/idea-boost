@@ -255,6 +255,54 @@ describe("share commit", () => {
       noteHandlers["note:unpublish"](ctx, { ...message, operationId: OP2 });
       expect(responses.at(-1)).toMatchObject({ status: "rejected" });
     }));
+  it("他の参加者の発表中は作者でも付箋をマイ付箋へ戻せない", () =>
+    setup("share-return-rejects-out-of-turn", (ctx, responses) => {
+      const messages = peer(ctx);
+      savePhase(ctx.sql, { kind: "step", phase: 1, step: 2 });
+      saveSharingState(ctx.sql, {
+        revision: crypto.randomUUID(),
+        order: [
+          { userId: A, name: "作者", color: "yellow" },
+          { userId: B, name: "発表者", color: "green" },
+        ],
+        status: "active",
+        currentIndex: 1,
+        results: [],
+        durationMs: 180000,
+        startsAt: null,
+      });
+      const row = ctx.sql
+        .exec("SELECT phase_revision FROM room_state WHERE id=1")
+        .one();
+      noteHandlers["note:unpublish"](ctx, {
+        type: "note:unpublish",
+        operationId: OP,
+        noteId: N1,
+        privateIndex: 0,
+        expectedPhaseRevision: Number(row.phase_revision),
+        expectedPositionRevision: 0,
+        expectedVisibilityRevision: 0,
+      });
+
+      expect(responses.at(-1)).toMatchObject({
+        type: "note:share:result",
+        status: "rejected",
+      });
+      expect(findNote(ctx.sql, N1)?.visibility).toBe("shared");
+      expect(messages.some((item) => item.type === "note:deleted")).toBe(false);
+
+      noteHandlers["note:unpublish"](ctx, {
+        type: "note:unpublish",
+        noteId: N1,
+        privateIndex: 0,
+      });
+      expect(responses.at(-1)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      expect(findNote(ctx.sql, N1)?.visibility).toBe("shared");
+      expect(messages.some((item) => item.type === "note:deleted")).toBe(false);
+    }));
   it("他接続の移動lockがあるshared付箋は0件戻し、他者表示を消さない", () =>
     setup("share-return-lock", (ctx, responses) => {
       const messages = peer(ctx);

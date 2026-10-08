@@ -49,6 +49,7 @@ export type BoardDrag = {
   targetIds?: readonly string[];
   pointerId: number;
   status: "private" | "shared" | "returning";
+  canPublishAtStart?: boolean;
   privateDropIndex: number | null;
   x: number;
   y: number;
@@ -531,6 +532,7 @@ export function useBoardDrag({
         note,
         pointerId: event.pointerId,
         status: "private",
+        canPublishAtStart: canPublish,
         privateDropIndex: renderedPrivateNotes.findIndex(
           (candidate) => candidate.id === noteId,
         ),
@@ -546,7 +548,13 @@ export function useBoardDrag({
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
     },
-    [renderedPrivateNotes, boardScrollerRef, privateToolbarRef, updateDrag],
+    [
+      renderedPrivateNotes,
+      boardScrollerRef,
+      privateToolbarRef,
+      updateDrag,
+      canPublish,
+    ],
   );
 
   const handlePointerMove = useCallback(
@@ -850,7 +858,11 @@ export function useBoardDrag({
   const hasPrivatePreview =
     drag?.status === "private" || drag?.status === "returning";
   useEffect(() => {
-    if (!canPublish && dragRef.current?.status === "private")
+    if (
+      !canPublish &&
+      dragRef.current?.status === "private" &&
+      dragRef.current.canPublishAtStart
+    )
       cancelCurrentNoteDrag(true);
   }, [canPublish, cancelCurrentNoteDrag]);
   useEffect(() => {

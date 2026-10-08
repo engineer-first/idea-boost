@@ -352,11 +352,6 @@ it.each([
       (payload) => JSON.parse(payload).type === "note:publish",
     );
   dragPrivate();
-  fireEvent.pointerUp(within(toolbar).getByRole("button", { name: "付箋" }), {
-    pointerId: 1,
-    clientX: 140,
-    clientY: 160,
-  });
   fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
   expect(publishes()).toHaveLength(0);
 

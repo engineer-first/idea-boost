@@ -13,7 +13,10 @@ import {
   type RoomPhase,
 } from "@/contracts/phase";
 import type { SharingState } from "@/contracts/room-protocol";
-import { canPublishNoteInTurn } from "@/contracts/sharing";
+import {
+  canPublishNoteInTurn,
+  canReturnNoteToPrivateInTurn,
+} from "@/contracts/sharing";
 import type { Note } from "@/features/notes";
 import { getBoardPermissions } from "./board-permissions";
 import {
@@ -206,6 +209,9 @@ export function useRoomBoardInteractions({
     (!isIdeaValueFeasibilityMappingStep ||
       mapNoteGeometry.height > mapNoteGeometry.maxNoteHeight);
   const canPublish = canPublishNoteInTurn(phase, sharing, currentUserId);
+  const canReturnToPrivate =
+    isPublishAllowedStep(phase) &&
+    canReturnNoteToPrivateInTurn(phase, sharing, currentUserId);
   const isIdeaMapCursorSurface =
     phase.kind === "step" &&
     phase.phase === 3 &&
@@ -237,7 +243,7 @@ export function useRoomBoardInteractions({
       : undefined,
     canMoveSharedNotes,
     canPublish,
-    canReturnToPrivate: isPublishAllowedStep(phase),
+    canReturnToPrivate,
     lockPrivateMapDrag: isPhaseStep(phase, 3, 2) && isPublishAllowedStep(phase),
     onPublishBlocked: roomNotify.cannotPublishNote,
     onNoteDragStart,
@@ -435,7 +441,8 @@ export function useRoomBoardInteractions({
     dragPreview,
     isReturnDropTarget:
       (drag?.status === "shared" || drag?.status === "returning") &&
-      drag.note.authorId === currentUserId,
+      drag.note.authorId === currentUserId &&
+      canReturnToPrivate,
     privateDropPlaceholder:
       (drag?.status === "private" || drag?.status === "returning") &&
       drag.privateDropIndex !== null
@@ -476,7 +483,6 @@ export function useRoomBoardInteractions({
     },
     onNoteDragStart: handleSharedNoteDragStart,
     onPrivateNoteDragStart: (noteId, event) => {
-      if (!canPublish) return;
       // マイ付箋はviewport外にあるためcameraのpointerdownを通らない。
       // 最初のdrop後の自動fitで本人の指定位置と視野を動かさない。
       preserveCamera();

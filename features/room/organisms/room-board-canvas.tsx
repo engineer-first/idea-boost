@@ -888,7 +888,7 @@ export function RoomBoardCanvas({
               noteCreationReceipt={noteCreationReceipt}
               noteCreationFocusContext={noteCreationFocusContext}
               canEditNote={permissions.canEditNote}
-              canMoveNote={permissions.canMoveNote && canPublishPrivateNote}
+              canMoveNote={permissions.canMoveNote}
               sharingHint={
                 phase.kind === "step" && phase.step === 2
                   ? canPublishPrivateNote
