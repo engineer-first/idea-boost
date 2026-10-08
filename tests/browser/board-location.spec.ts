@@ -71,6 +71,57 @@ async function reachable(target: Locator): Promise<void> {
 }
 
 test.each([
+  [542, 618],
+  [390, 844],
+  [320, 568],
+])("%i×%iでも現在地の位置と幅を保って直下に手順を開く", async (width, height) => {
+  await page.setViewportSize({ width, height });
+  await open("room-roomboardlayout--phase-2-step-1");
+  const trigger = page.getByRole("button", { name: /現在地/ });
+  const card = page.getByTestId("board-location-card");
+  const before = await trigger.boundingBox();
+  await trigger.click();
+  expect(await trigger.boundingBox()).toEqual(before);
+  const expanded = await card.boundingBox();
+  expect(expanded).not.toBeNull();
+  expect(expanded?.y).toBe((before?.y ?? 0) - 1);
+  expect(expanded?.height).toBeGreaterThan(before?.height ?? 0);
+  await page.getByRole("tab", { name: /アイデア/ }).click();
+  await reachable(
+    page
+      .getByRole("list", { name: "このフェーズの全手順" })
+      .locator("li")
+      .last(),
+  );
+  expect(await trigger.boundingBox()).toEqual(before);
+  await trigger.click();
+  expect(await trigger.boundingBox()).toEqual(before);
+});
+
+test("画面を狭めても現在地は横に広がらず、開いた詳細も同じ幅を保つ", async () => {
+  await open("room-roomboardlayout--phase-2-step-2");
+  const card = page.getByTestId("board-location-card");
+  const trigger = page.getByRole("button", { name: /現在地/ });
+  let previousWidth = Number.POSITIVE_INFINITY;
+  for (const width of [
+    1280, 1200, 1199, 901, 900, 640, 639, 637, 542, 390, 330, 320,
+  ]) {
+    await page.setViewportSize({ width, height: 618 });
+    const compact = await card.boundingBox();
+    expect(compact).not.toBeNull();
+    expect(compact?.width).toBeLessThanOrEqual(previousWidth);
+    previousWidth = compact?.width ?? 0;
+    await reachable(trigger);
+    const before = await trigger.boundingBox();
+    await trigger.click();
+    expect(await trigger.boundingBox()).toEqual(before);
+    expect((await card.boundingBox())?.width).toBe(previousWidth);
+    await reachable(page.getByTestId("board-current-step"));
+    await trigger.click();
+  }
+});
+
+test.each([
   [1280, 720],
   [390, 844],
   [320, 568],
@@ -97,14 +148,13 @@ test.each([
   expect(await page.getByTestId("board-current-step").innerText()).toContain(
     "価値×実現のしやすさで評価",
   );
-  if (width >= 640)
-    expect(
-      await Promise.all([
-        reference.boundingBox(),
-        guide.boundingBox(),
-        canvas.boundingBox(),
-      ]),
-    ).toEqual(boxes);
+  expect(
+    await Promise.all([
+      reference.boundingBox(),
+      guide.boundingBox(),
+      canvas.boundingBox(),
+    ]),
+  ).toEqual(boxes);
   expect(
     await page
       .getByRole("tab", { name: /アイデア/ })
@@ -254,7 +304,7 @@ test.each([
 });
 
 // 高さが小さいときも、展開中のタブと上の閉じる入口を下部HUDが覆わない。
-test("320×320でも中央の手順と上の開閉操作へ到達できる", async () => {
+test("320×320でも現在地の直下の手順と上の開閉操作へ到達できる", async () => {
   await page.setViewportSize({ width: 320, height: 320 });
   await open("room-roomboardlayout--phase-3-step-3");
   const trigger = page.getByRole("button", { name: /現在地/ });

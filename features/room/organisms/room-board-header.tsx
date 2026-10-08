@@ -283,11 +283,11 @@ export function RoomBoardHeader({
         className={`pointer-events-none absolute inset-x-3 top-3 bottom-[calc(7.5rem+var(--board-notification-inset,0px))] z-40 has-[[data-location-open=true]]:z-[60] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(16rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(11rem+var(--board-notification-inset,0px))]"}`}
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[901px]:max-[1199px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[900px]:max-[1200px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
           data-testid="board-context-column"
           data-board-fit-edge="top"
         >
-          <div className="w-full min-w-0 shrink-0">
+          <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px]">
             <BoardContext
               phase={phase}
               hmwDecidedIssue={hmwDecidedIssue}

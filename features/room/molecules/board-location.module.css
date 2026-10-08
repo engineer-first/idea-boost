@@ -148,12 +148,8 @@
 }
 @media (width < 640px) {
   .card[data-state="expanded"] {
-    position: fixed;
-    inset: 50% auto auto 50%;
-    transform: translate(-50%, -50%);
-    width: min(360px, calc(100vw - 24px));
-    max-height: calc(100dvh - 24px);
-    box-shadow: 0 12px 36px rgb(0 0 0 / 0.18);
+    /* 操作行が2段でも、詳細を画面下端より内側に収める。 */
+    max-height: calc(100dvh - 136px);
   }
   .trigger {
     gap: 8px;
