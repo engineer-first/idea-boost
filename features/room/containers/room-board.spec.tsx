@@ -3475,7 +3475,11 @@ it.each([
   sessionStorage.clear();
 });
 
-it("認証期限の専用closeで共有操作を止め、入力文を確認・コピーできる", async () => {
+it.each([
+  "blur",
+  "compositionEnd",
+  "change",
+] as const)("認証期限の専用close後の%sで回収文を失わず確認・コピーできる", async (lateEvent) => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
@@ -3497,7 +3501,11 @@ it("認証期限の専用closeで共有操作を止め、入力文を確認・�
   expect(fetch).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "次のステップへ" })).toBeDisabled();
   // 回収UIへフォーカスを移すと、盤面に残ったtextareaの遅延blurが届く。
-  fireEvent.blur(screen.getByDisplayValue("最初の付箋"));
+  const staleEditor = screen.getByDisplayValue("最初の付箋");
+  if (lateEvent === "blur") fireEvent.blur(staleEditor);
+  else if (lateEvent === "compositionEnd")
+    fireEvent.compositionEnd(staleEditor);
+  else fireEvent.change(staleEditor, { target: { value: "遅延した古い本文" } });
   fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
   expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
     "期限切れでも残す入力文",

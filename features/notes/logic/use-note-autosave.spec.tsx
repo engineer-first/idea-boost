@@ -119,6 +119,93 @@ describe("useNoteAutosave", () => {
     second.unmount();
   });
 
+  it.each([
+    "accepted",
+    "unknown",
+  ] as const)("再認証後の照会待ちと%sの処理中は結果不明の文章を回収欄に残す", (outcome) => {
+    const first = setup();
+    act(() => first.result.current.applyMessage(snapshot()));
+    act(() => first.result.current.change(noteId, "照会中もコピーする文章"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() => first.result.current.recoverDisconnected());
+    first.unmount();
+    send.mockClear();
+    const second = setup();
+    act(() =>
+      second.result.current.applyMessage({
+        ...snapshot(),
+        notes: outcome === "accepted" ? [] : [note],
+      }),
+    );
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "note:content-status",
+      operationId: request.operationId,
+    });
+    expect(second.result.current.recoveries).toEqual([
+      expect.objectContaining({ text: "照会中もコピーする文章" }),
+    ]);
+    act(() => vi.advanceTimersByTime(3000));
+    expect(second.result.current.recoveries).toHaveLength(1);
+    act(() =>
+      second.result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: outcome,
+        ...(outcome === "accepted" ? { noteId, contentRevision: 1 } : {}),
+      }),
+    );
+    if (outcome === "unknown") {
+      expect(send).toHaveBeenLastCalledWith(request);
+      expect(second.result.current.recoveries).toHaveLength(1);
+      act(() =>
+        second.result.current.applyMessage({
+          type: "note:content-saved",
+          operationId: request.operationId,
+          noteId,
+          contentRevision: 1,
+        }),
+      );
+    }
+    expect(second.result.current.recoveries).toEqual([]);
+    second.unmount();
+  });
+
+  it("再認証後にAの保存結果が確定したら、回収した後続入力Bを次の版で保存する", async () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "A"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() => result.current.change(noteId, "B"));
+    act(() => result.current.recoverDisconnected());
+    send.mockClear();
+    act(() => result.current.applyMessage(snapshot(1)));
+    expect(result.current.recoveries[0]?.text).toBe("B");
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-status-result",
+        status: "accepted",
+        operationId: request.operationId,
+        noteId,
+        contentRevision: 1,
+      }),
+    );
+    await act(async () => {});
+    expect(result.current.recoveries).toEqual([]);
+    expect(send).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: "B",
+        expectedContentRevision: 1,
+      }),
+    );
+  });
+
   it("停止999msでは送らず1000msで1回だけ送り、ACKで下書きを整理する", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshot()));

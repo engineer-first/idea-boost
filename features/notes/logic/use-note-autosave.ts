@@ -303,6 +303,10 @@ export function useNoteAutosave(options: {
       const sent = draft.inFlight;
       clearStatusTimer(noteId);
       draft.inFlight = null;
+      if (draft.recoveryReason === "result-unknown")
+        draft.recoveryReason = draft.composing
+          ? "interrupted-composition"
+          : null;
       draft.baseContent = sent.content;
       draft.baseRevision = contentRevision;
       const current = serverRef.current.notes.get(noteId);
@@ -342,10 +346,12 @@ export function useNoteAutosave(options: {
           message.pendingPhaseTransition !== null &&
           message.pendingPhaseTransition !== undefined;
         for (const draft of draftsRef.current.values()) {
-          if (
-            draft.recoveryReason === "send-failed" ||
-            draft.recoveryReason === "result-unknown"
-          ) {
+          // snapshotだけでは保存結果は分からない。照会中も文章を回収できるよう残す。
+          if (draft.recoveryReason === "result-unknown" && draft.inFlight) {
+            sendStatus(draft);
+            continue;
+          }
+          if (draft.recoveryReason === "send-failed") {
             draft.recoveryReason = null;
             persist();
           }
@@ -420,6 +426,8 @@ export function useNoteAutosave(options: {
         if (draft.inFlight.expectedPhaseRevision !== server.phaseRevision) {
           clearStatusTimer(draft.noteId);
           draft.inFlight = null;
+          if (draft.recoveryReason === "result-unknown")
+            draft.recoveryReason = null;
           persist();
           schedule(draft.noteId, true);
           return;
