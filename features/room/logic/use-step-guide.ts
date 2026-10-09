@@ -25,7 +25,6 @@ export function useStepGuide({
   const [visible, setVisible] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const seen = useRef(new Set<string>());
   const activePhase = useRef<string | null>(null);
   const remaining = useRef(5000);
   const firstState = useRef(initialState);
@@ -41,9 +40,7 @@ export function useStepGuide({
   useEffect(() => {
     if (activePhase.current === phaseKey || !isReady || !visible) return;
     const storageKey = `step-guide:${sessionKey}:${phaseKey}`;
-    let visited = seen.current.has(phaseKey);
     try {
-      visited ||= sessionStorage.getItem(storageKey) === "seen";
       sessionStorage.setItem(storageKey, "seen");
     } catch {
       // ストレージを使えない環境でも、表示中のルームでは再案内しない。
@@ -51,13 +48,10 @@ export function useStepGuide({
     setState(
       activePhase.current === null && firstState.current !== undefined
         ? firstState.current
-        : visited
-          ? "compact"
-          : "intro",
+        : "compact",
     );
     setFocused(false);
     activePhase.current = phaseKey;
-    seen.current.add(phaseKey);
     remaining.current = 5000;
   }, [phaseKey, sessionKey, isReady, visible]);
 

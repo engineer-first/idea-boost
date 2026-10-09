@@ -649,6 +649,7 @@ export function RoomBoard({
         isNextPhasePending={isNextPhasePending}
         signOutAction={signOutAction}
         interactions={boardInteractions}
+        showPhaseOneWritingTour
         help={help}
         remoteCursors={cursorPresence.remoteCursors}
         pendingVoteOperations={notes.pendingVoteOperations}

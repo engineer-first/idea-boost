@@ -1,0 +1,56 @@
+.phase-one-writing-tour-popover {
+  min-width: 250px;
+  max-width: 300px;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 4px 12px rgb(15 23 42 / 12%);
+}
+
+.phase-one-writing-tour-popover .driver-popover-description {
+  margin: 0;
+  color: var(--card-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.phase-one-writing-tour-popover .driver-popover-footer {
+  margin-top: 0.75rem;
+}
+
+.phase-one-writing-tour-popover .driver-popover-footer-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  cursor: pointer;
+  padding: 0 0.625rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1;
+  transition:
+    background-color 150ms ease,
+    outline 150ms ease;
+}
+
+.phase-one-writing-tour-popover .driver-popover-footer-btn:hover {
+  background: color-mix(in oklch, var(--primary), transparent 20%);
+}
+
+.phase-one-writing-tour-popover .driver-popover-footer-btn:focus-visible {
+  border-color: var(--ring);
+  outline: 3px solid color-mix(in oklch, var(--ring), transparent 50%);
+  outline-offset: 0;
+}
+
+.phase-one-writing-tour-moving .phase-one-writing-tour-popover {
+  visibility: hidden;
+}

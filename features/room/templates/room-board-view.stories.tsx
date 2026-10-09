@@ -10,6 +10,7 @@ import {
   buildMembers,
   buildNote,
   buildNotes,
+  buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { useFeedback } from "@/features/feedback";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -52,6 +53,7 @@ const CANVAS_HUD_NOTES = buildNotes(6).map((note, index) => ({
   x: CANVAS_HUD_POSITIONS[index]?.[0] ?? note.x,
   y: CANVAS_HUD_POSITIONS[index]?.[1] ?? note.y,
 }));
+
 const INTERACTIONS: RoomBoardInteractions = {
   boardRootRef: { current: null },
   boardScrollerRef: { current: null },
@@ -300,6 +302,99 @@ export const Phase1FirstStepIntro: Story = {
     phase: buildPhaseStep(1, 1),
     notes: [],
     initialGuideState: "intro",
+  },
+};
+
+export const PhaseOneWritingDemo: Story = {
+  name: "フェーズ1-1 自動デモ（デスクトップ）",
+  args: {
+    phase: buildPhaseStep(1, 1),
+    notes: [],
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
+export const PhaseOneSharingDemo: Story = {
+  name: "フェーズ1-2 共有デモ（デスクトップ）",
+  args: {
+    phase: buildPhaseStep(2, 1),
+    notes: [],
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
+export const PhaseOneGroupingDemo: Story = {
+  name: "フェーズ1-3 グループ化デモ（デスクトップ）",
+  args: {
+    phase: buildPhaseStep(3, 1),
+    notes: [],
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
+export const PhaseOneVotingDemo: Story = {
+  name: "フェーズ1-4 投票デモ（デスクトップ）",
+  args: {
+    phase: buildPhaseStep(4, 1),
+    notes: buildNotes(3),
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
+export const PhaseOneDecisionDemo: Story = {
+  name: "フェーズ1-5 課題決定デモ（ホスト）",
+  args: {
+    phase: STEP_1_5,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: {
+          count: index === 0 ? 2 : 0,
+          votedByMe: false,
+          ownCount: 0,
+        },
+        objective: {
+          count: index === 0 ? 4 : index + 1,
+          votedByMe: false,
+          ownCount: 0,
+        },
+      },
+    })),
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
+export const PhaseOneDecisionParticipantDemo: Story = {
+  name: "フェーズ1-5 課題決定デモ（参加者）",
+  args: {
+    ...PhaseOneDecisionDemo.args,
+    isHost: false,
   },
 };
 

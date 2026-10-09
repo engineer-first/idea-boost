@@ -798,10 +798,16 @@ describe("RoomBoardView", () => {
         screen.getByRole("region", { name: "ファシリテーションガイド" }),
       ).toBeVisible();
     });
-    it("初めての工程では短い案内に切り替え、戻った工程は畳む", () => {
+    it("工程を切り替えても自動案内せず、戻った工程は畳む", () => {
       const { props, rerender } = setup();
       rerender(<TestBoardView {...props} phase={buildPhaseStep(2)} />);
-      expect(screen.getByRole("status", { name: "最初の一歩" })).toBeVisible();
+      expect(
+        screen.queryByRole("status", { name: "最初の一歩" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByTestId("step-guide")).toHaveAttribute(
+        "data-state",
+        "compact",
+      );
       rerender(<TestBoardView {...props} />);
       expect(screen.getByTestId("step-guide")).toHaveAttribute(
         "data-state",
@@ -3183,7 +3189,9 @@ describe("AT-004: 所有gestureの取消経路", () => {
     expect(
       screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
     ).toBeInTheDocument();
-    const palette = screen.getByRole("button", { name: "客観シール 残り2票" });
+    const palette = screen.getByRole("button", {
+      name: "客観シール 残り2票",
+    });
     fireEvent.pointerDown(palette, { pointerId: 53, button: 0, buttons: 1 });
     fireEvent.pointerUp(palette, { pointerId: 53 });
     fireEvent.click(palette);
@@ -3356,10 +3364,15 @@ describe("AT-002: 第一note所有中の第二palette入力", () => {
     "first",
     "second",
   ])("%sを先にreleaseしても棄却paletteのcapture/ghost/投票/旧clickは0", (releaseFirst) => {
-    const { props } = setup({ phase: buildPhaseStep(4), notes: buildNotes(3) });
+    const { props } = setup({
+      phase: buildPhaseStep(4),
+      notes: buildNotes(3),
+    });
     const cards = screen.getAllByTestId("note-card");
     const surface = getNoteSurface(cards[0]);
-    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const palette = screen.getByRole("button", {
+      name: "客観シール 残り3票",
+    });
     const capture = vi.fn();
     palette.setPointerCapture = capture;
     cards[2].getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
@@ -3549,7 +3562,11 @@ describe("CI-IN002: active gesture中のnote custom semantic key", () => {
     expect(
       screen.getByRole("button", { name: "手のひらツール" }),
     ).toBeDisabled();
-    fireEvent.pointerUp(owner, { pointerId: 301, clientX: 200, clientY: 175 });
+    fireEvent.pointerUp(owner, {
+      pointerId: 301,
+      clientX: 200,
+      clientY: 175,
+    });
     expect(props.onNoteVoteStickerMove).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(surface, { key });
     expect(props.onNoteVote).toHaveBeenCalledTimes(1);
@@ -3624,7 +3641,9 @@ describe("CI-PHASE002: 採用semantic activationとgesture所有", () => {
       notes: buildNotes(3),
     });
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    const target = screen.getByRole("button", { name: "採用する付箋: 付箋 2" });
+    const target = screen.getByRole("button", {
+      name: "採用する付箋: 付箋 2",
+    });
     let active = true;
     props.interactions.hasPan = () => owner === "pan" && active;
     props.interactions.isNoteDragging = owner === "note-drag";
