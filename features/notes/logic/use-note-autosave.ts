@@ -342,7 +342,10 @@ export function useNoteAutosave(options: {
           message.pendingPhaseTransition !== null &&
           message.pendingPhaseTransition !== undefined;
         for (const draft of draftsRef.current.values()) {
-          if (draft.recoveryReason === "send-failed") {
+          if (
+            draft.recoveryReason === "send-failed" ||
+            draft.recoveryReason === "result-unknown"
+          ) {
             draft.recoveryReason = null;
             persist();
           }
@@ -496,7 +499,7 @@ export function useNoteAutosave(options: {
   const recoverDisconnected = useCallback(() => {
     setConnected(false);
     for (const draft of draftsRef.current.values())
-      markRecovery(draft, "not-editable");
+      markRecovery(draft, draft.inFlight ? "result-unknown" : "not-editable");
   }, [markRecovery, setConnected]);
   const blur = useCallback(
     (noteId: string, text: string) => {
@@ -513,15 +516,17 @@ export function useNoteAutosave(options: {
       reason:
         draft.recoveryReason === "conflict"
           ? "他の編集と競合しました。"
-          : draft.recoveryReason === "send-failed"
-            ? "送信できませんでした。接続が戻ると安全を確認して再送します。"
-            : draft.recoveryReason === "missing"
-              ? "付箋が見つかりません。"
-              : draft.recoveryReason === "interrupted-composition"
-                ? "変換中に中断されました。"
-                : draft.recoveryReason === "not-editable"
-                  ? "現在は編集できません。"
-                  : "このタブの再読込に備えて保存できません。",
+          : draft.recoveryReason === "result-unknown"
+            ? "保存結果を確認できていません。再認証後に結果を確認します。"
+            : draft.recoveryReason === "send-failed"
+              ? "送信できませんでした。接続が戻ると安全を確認して再送します。"
+              : draft.recoveryReason === "missing"
+                ? "付箋が見つかりません。"
+                : draft.recoveryReason === "interrupted-composition"
+                  ? "変換中に中断されました。"
+                  : draft.recoveryReason === "not-editable"
+                    ? "現在は編集できません。"
+                    : "このタブの再読込に備えて保存できません。",
     }));
   if (storageFailure && recoveries.length === 0)
     recoveries.push({

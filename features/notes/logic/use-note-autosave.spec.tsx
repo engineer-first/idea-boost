@@ -59,6 +59,66 @@ describe("useNoteAutosave", () => {
     ).toContain("端末に残す本文");
   });
 
+  it.each([
+    "accepted",
+    "unknown",
+    "conflict",
+  ] as const)("期限切れでACK不明の保存を同じ本人の再認証後に照会し%sを安全に扱う", async (outcome) => {
+    const first = setup();
+    act(() => first.result.current.applyMessage(snapshot()));
+    act(() => first.result.current.change(noteId, "結果不明の本文"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() => first.result.current.recoverDisconnected());
+    expect(first.result.current.recoveries[0]?.text).toBe("結果不明の本文");
+    expect(first.result.current.recoveries[0]?.reason).toContain("結果");
+    act(() => vi.advanceTimersByTime(30000));
+    expect(send).toHaveBeenCalledTimes(1);
+    first.unmount();
+    send.mockClear();
+    const second = setup();
+    expect(send).not.toHaveBeenCalled();
+    act(() =>
+      second.result.current.applyMessage(
+        snapshot(outcome === "unknown" ? 0 : 1),
+      ),
+    );
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "note:content-status",
+      operationId: request.operationId,
+    });
+    act(() =>
+      second.result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: outcome === "accepted" ? "accepted" : "unknown",
+        ...(outcome === "accepted" ? { noteId, contentRevision: 1 } : {}),
+      }),
+    );
+    await act(async () => {});
+    if (outcome === "unknown") {
+      expect(send).toHaveBeenLastCalledWith(request);
+    } else {
+      expect(send).toHaveBeenCalledTimes(1);
+      if (outcome === "accepted") {
+        expect(second.result.current.recoveries).toEqual([]);
+        expect(
+          sessionStorage.getItem(`idea-boost:note-drafts:v1:${userId}:room`),
+        ).toBeNull();
+      } else {
+        expect(second.result.current.recoveries).toEqual([
+          expect.objectContaining({
+            text: "結果不明の本文",
+            reason: "他の編集と競合しました。",
+          }),
+        ]);
+      }
+    }
+    second.unmount();
+  });
+
   it("停止999msでは送らず1000msで1回だけ送り、ACKで下書きを整理する", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshot()));

@@ -1060,6 +1060,12 @@ export function NoteCard({
           }
         }}
         onBlur={(event) => {
+          // 共有操作停止後のblurは、回収済みの入力を盤面の表示値で上書きしない。
+          // 入力はonChangeで下書き層へ渡してある。
+          if (disabled) {
+            setIsEditing(false);
+            return;
+          }
           if (compositionActiveRef.current) {
             blurDuringCompositionRef.current = true;
             onDraftChange?.(note.id, event.target.value);
@@ -1069,10 +1075,8 @@ export function NoteCard({
           if (editingDisabled || !canEditNote || note.excluded) {
             return;
           }
-          // 下書き管理がある画面では切断時も最新入力を渡す。送信可否は上位が決める。
           if (onDraftChange) onDraftChange(note.id, event.target.value);
-          if (!disabled || onDraftChange)
-            onContentChange(note.id, event.target.value);
+          onContentChange(note.id, event.target.value);
         }}
         onKeyDown={(event) => {
           if (

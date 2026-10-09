@@ -39,6 +39,9 @@ describe("本文保存を待つ進行", () => {
     const response = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: hostId,
         [HOST_ID_HEADER]: hostId,
       },

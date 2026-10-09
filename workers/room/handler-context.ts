@@ -20,6 +20,9 @@ export type HandlerCtx = {
   // 深いハンドラでも失敗応答とクライアント表示を確実に対応付けられる。
   operationId?: string;
   broadcaster: RoomBroadcaster;
+  // クライアント要求の非同期待機後・確定前に期限と在籍を再検査する。
+  // 既に確定済みの予約を実行するalarm等の内部contextには設定しない。
+  authorizeMutation?: () => boolean;
   // 受理した共有付箋のドラッグ終了を、成果の保全へ接続する。
   onSharedDragEnd?: () => void;
   // 結果ステップ遷移時に、接続を維持した各参加者へ受信者別の完全な状態を
@@ -54,4 +57,34 @@ export function replyForbidden(ctx: HandlerCtx): void {
     code: "forbidden",
     message: "この操作を行う権限がありません。",
   });
+}
+
+class UnauthorizedMutationTransaction extends Error {}
+
+// SQLとalarmの原子性を保ち、非同期待機中の失効は未確定の変更をrollbackする。
+// closeの一時所有権cleanupはrollback対象へ混ぜず、transactionの外で行う。
+export async function runAuthorizedMutationTransaction(
+  ctx: HandlerCtx,
+  mutate: () => Promise<boolean>,
+): Promise<boolean> {
+  let unauthorized = false;
+  try {
+    return await ctx.storage.transaction(async () => {
+      if (ctx.authorizeMutation?.() === false) {
+        unauthorized = true;
+        return false;
+      }
+      const committed = await mutate();
+      if (committed && ctx.authorizeMutation?.() === false) {
+        unauthorized = true;
+        throw new UnauthorizedMutationTransaction();
+      }
+      return committed;
+    });
+  } catch (error) {
+    if (!(error instanceof UnauthorizedMutationTransaction)) throw error;
+    return false;
+  } finally {
+    if (unauthorized) ctx.broadcaster.authorize(ctx.ws);
+  }
 }

@@ -140,6 +140,11 @@ class FakeWebSocket {
     this.emit("close", { code: 4000, reason: "left the room" });
   }
 
+  simulateAuthRequiredClose(): void {
+    this.readyState = 3;
+    this.emit("close", { code: 4002, reason: "authentication required" });
+  }
+
   simulateDisbandedClose(): void {
     this.readyState = 3;
     this.emit("close", { code: 4001, reason: "room disbanded" });
@@ -3468,4 +3473,45 @@ it.each([
   view.unmount();
   vi.unstubAllGlobals();
   sessionStorage.clear();
+});
+
+it("認証期限の専用closeで共有操作を止め、入力文を確認・コピーできる", async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  vi.stubGlobal("fetch", vi.fn());
+  const { socket, view } = connectWithSnapshot([protocolNote()], {
+    phase: buildPhaseStep(2),
+  });
+  fireEvent.change(screen.getByDisplayValue("最初の付箋"), {
+    target: { value: "期限切れでも残す入力文" },
+  });
+  await act(async () => socket.simulateAuthRequiredClose());
+  expect(screen.getByRole("link", { name: "ログインする" })).toHaveAttribute(
+    "href",
+    "/login",
+  );
+  expect(navigationMocks.replace).not.toHaveBeenCalled();
+  expect(fetch).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "次のステップへ" })).toBeDisabled();
+  // 回収UIへフォーカスを移すと、盤面に残ったtextareaの遅延blurが届く。
+  fireEvent.blur(screen.getByDisplayValue("最初の付箋"));
+  fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
+  expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
+    "期限切れでも残す入力文",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "コピー" }));
+  await waitFor(() =>
+    expect(writeText).toHaveBeenCalledWith("期限切れでも残す入力文"),
+  );
+  expect(socket.sent.map((s) => JSON.parse(s))).not.toContainEqual(
+    expect.objectContaining({ type: "note:update-content" }),
+  );
+  expect(
+    sessionStorage.getItem(`idea-boost:note-drafts:v1:${USER_ID}:${ROOM_ID}`),
+  ).toContain("期限切れでも残す入力文");
+  view.unmount();
+  vi.unstubAllGlobals();
 });

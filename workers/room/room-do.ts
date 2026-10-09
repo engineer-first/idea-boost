@@ -5,6 +5,7 @@ import {
   ROOM_CREATION_FUTURE_MS,
   ROOM_CREATION_WINDOW_MS,
 } from "../../contracts/room-creation";
+import { SessionExpiresAtSchema } from "../../contracts/session";
 import { memberNameHandlers } from "./member-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
 // エントリポイント（RPC / WebSocket）と横断ガード（phase ゲート）だけを持ち、
@@ -43,6 +44,8 @@ import {
   type ProtocolMember,
   parseClientMessage,
   type TimerState,
+  WS_CLOSE_AUTH_REQUIRED,
+  WS_CLOSE_AUTH_REQUIRED_REASON,
   WS_CLOSE_LEFT_ROOM,
   WS_CLOSE_LEFT_ROOM_REASON,
   WS_CLOSE_ROOM_DISBANDED,
@@ -132,6 +135,7 @@ import { listCompletedVoterIds } from "./votes";
 
 // api-worker がセッション検証済みのユーザーIDを DO へ引き継ぐヘッダー。
 // DO は外部から直接到達できないため、これは常に api-worker が設定する。
+export const SESSION_EXPIRES_AT_HEADER = "X-Idea-Boost-Session-Expires-At";
 export const USER_ID_HEADER = "X-Idea-Boost-User-Id";
 
 // ルーム作成者のユーザーID。api-worker が D1 rooms.host_id を解決してセットする。
@@ -209,7 +213,16 @@ export class RoomDO extends DurableObject {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.broadcaster = new RoomBroadcaster(ctx);
+    this.broadcaster = new RoomBroadcaster(ctx, (socket) => {
+      this.ctx.waitUntil(
+        this.webSocketClose(
+          socket,
+          WS_CLOSE_AUTH_REQUIRED,
+          WS_CLOSE_AUTH_REQUIRED_REASON,
+          true,
+        ),
+      );
+    });
     this.history = new ProgressHistoryStorage(
       ctx,
       env.DB,
@@ -745,6 +758,12 @@ export class RoomDO extends DurableObject {
       return new Response("expected websocket", { status: 426 });
     }
 
+    const expiryHeader = request.headers.get(SESSION_EXPIRES_AT_HEADER);
+    const expiry = SessionExpiresAtSchema.safeParse(
+      expiryHeader && /^\d+$/.test(expiryHeader) ? Number(expiryHeader) : null,
+    );
+    if (!expiry.success || expiry.data <= Math.floor(Date.now() / 1000))
+      return new Response("authentication required", { status: 401 });
     if (!(await this.processExpiredTransition()))
       return new Response("保存期限後の削除を再試行しています。", {
         status: 503,
@@ -764,11 +783,17 @@ export class RoomDO extends DurableObject {
     // 接続者本人ではなくこの値で、旧ルームの room_owner だけを補完する。
     ensureHost(this.sql, hostId);
 
+    // awaitを含む引継ぎの間に期限をまたいだ接続も受理しない。
+    if (expiry.data <= Math.floor(Date.now() / 1000))
+      return new Response("authentication required", { status: 401 });
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
     this.ctx.acceptWebSocket(server);
-    const attachment: SocketAttachment = { userId };
+    const attachment: SocketAttachment = {
+      userId,
+      sessionExpiresAt: expiry.data,
+    };
     server.serializeAttachment(attachment);
 
     this.sendSnapshot(server, userId);
@@ -780,6 +805,7 @@ export class RoomDO extends DurableObject {
     ws: WebSocket,
     raw: ArrayBuffer | string,
   ): Promise<void> {
+    if (!this.broadcaster.authorize(ws)) return;
     const parsedMessage = parseClientMessage(raw);
     if (
       !(await this.processExpiredTransition()) &&
@@ -800,6 +826,7 @@ export class RoomDO extends DurableObject {
       return;
     }
 
+    if (!this.broadcaster.authorize(ws)) return;
     const message = parsedMessage;
     if (!message) {
       this.broadcaster.sendTo(ws, {
@@ -833,6 +860,19 @@ export class RoomDO extends DurableObject {
     // 付箋の移動者表示は切断時に消す。
     const previousAttachment =
       ws.deserializeAttachment() as SocketAttachment | null;
+    // closeイベントの再到達より前に接続単位の所有権を外す。
+    // 同じ本人の新接続には触れず、二重cleanupも共有状態を消さない。
+    if (!previousAttachment) return;
+    const {
+      moveConnectionId: _connectionId,
+      activeMoveOperationId: _operationId,
+      movePreviewSequence: _sequence,
+      hasCursor: _cursor,
+      activeDrag: _drag,
+      adoptionFocusNoteId: _focus,
+      ...identity
+    } = previousAttachment;
+    ws.serializeAttachment(identity);
     if (previousAttachment?.moveConnectionId) {
       releaseConnectionMoves(this.sql, previousAttachment.moveConnectionId);
       syncMovePresence(this.sql, this.broadcaster);
@@ -843,10 +883,13 @@ export class RoomDO extends DurableObject {
           previousAttachment.activeMoveOperationId,
           (viewerId) => isMember(this.sql, viewerId),
         );
-        this.broadcaster.broadcastToAll({
-          type: "cursor:drag-ended",
-          userId: previousAttachment.userId,
-        });
+        if (
+          !this.broadcaster.hasOtherDragForUser(previousAttachment.userId, ws)
+        )
+          this.broadcaster.broadcastToAll({
+            type: "cursor:drag-ended",
+            userId: previousAttachment.userId,
+          });
         broadcastIdeaMapState(this.sql, this.broadcaster);
       }
     }
@@ -856,23 +899,18 @@ export class RoomDO extends DurableObject {
         previousAttachment.userId,
         previousAttachment.activeDrag.dragId,
       );
-    if (previousAttachment?.moveConnectionId || previousAttachment?.activeDrag)
-      await syncRoomAlarm(this.ctx.storage, this.sql);
-    if (this.broadcaster.retireAdoptionFocus(ws)) {
+
+    if (previousAttachment.adoptionFocusNoteId) {
       this.broadcaster.broadcastToAll({
         type: "adoption-focus:updated",
-        noteId: null,
+        noteId: this.broadcaster.currentAdoptionFocusNoteId(),
       });
     }
+    if (previousAttachment?.moveConnectionId || previousAttachment?.activeDrag)
+      this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
     if (previousAttachment?.hasCursor || previousAttachment?.activeDrag) {
-      const active = this.broadcaster.retireActiveDrag(ws);
-      const attachment =
-        (ws.deserializeAttachment() as SocketAttachment | null) ??
-        previousAttachment;
-      ws.serializeAttachment({
-        ...attachment,
-        hasCursor: false,
-      } satisfies SocketAttachment);
+      const active = previousAttachment.activeDrag;
+      const attachment = previousAttachment;
       if (active) {
         const row = findNote(this.sql, active.noteId);
         if (row?.visibility === "shared") {
@@ -887,7 +925,10 @@ export class RoomDO extends DurableObject {
         }
       }
       if (this.broadcaster.hasOtherPresenceForUser(attachment.userId, ws)) {
-        if (active) {
+        if (
+          active &&
+          !this.broadcaster.hasOtherDragForUser(attachment.userId, ws)
+        ) {
           this.broadcaster.broadcastToAllExcept(
             { type: "cursor:drag-ended", userId: attachment.userId },
             attachment.userId,
@@ -915,10 +956,16 @@ export class RoomDO extends DurableObject {
       Date.now(),
     );
     for (const drag of expiredDrags)
-      this.broadcaster.broadcastToAll({
-        type: "cursor:drag-ended",
-        userId: drag.attachment.userId,
-      });
+      if (
+        !this.broadcaster.hasOtherDragForUser(
+          drag.attachment.userId,
+          drag.socket,
+        )
+      )
+        this.broadcaster.broadcastToAll({
+          type: "cursor:drag-ended",
+          userId: drag.attachment.userId,
+        });
     if (expiredDrags.length > 0)
       broadcastIdeaMapState(this.sql, this.broadcaster);
 
@@ -964,7 +1011,11 @@ export class RoomDO extends DurableObject {
     const ctx = this.createHandlerCtx({} as WebSocket, "");
     const before = getPhaseRevision(this.sql);
     try {
-      await completeExpiredPhaseTransition({ ...ctx, reply: () => {} });
+      await completeExpiredPhaseTransition({
+        ...ctx,
+        authorizeMutation: undefined,
+        reply: () => {},
+      });
     } catch {
       this.sql.exec("DELETE FROM pending_phase_transition WHERE id=1");
       this.broadcaster.broadcastToAll({
@@ -1231,6 +1282,8 @@ export class RoomDO extends DurableObject {
         ),
       operationId,
       broadcaster: this.broadcaster,
+      authorizeMutation: () =>
+        this.broadcaster.isAuthorized(ws) && isMember(this.sql, userId),
       refreshSnapshots: () => this.refreshSnapshots(),
       leaveMember: (targetUserId) => {
         this.leaveMember(targetUserId, "discard");

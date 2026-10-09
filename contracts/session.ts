@@ -10,6 +10,13 @@ export const SessionPayloadSchema = z.object({
   name: z.string().optional(),
 });
 
+// 検証済みJWTだけが持つ期限。発行時の本人情報とは分離する。
+export const SessionExpiresAtSchema = z.number().int().positive().safe();
+export const VerifiedSessionSchema = SessionPayloadSchema.extend({
+  exp: SessionExpiresAtSchema,
+});
+export type VerifiedSession = z.infer<typeof VerifiedSessionSchema>;
+
 export type SessionPayload = z.infer<typeof SessionPayloadSchema>;
 
 // ログイン確定時に Next から api-worker へ渡す本人性の主張。
