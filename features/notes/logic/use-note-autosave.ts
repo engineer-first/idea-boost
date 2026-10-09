@@ -427,8 +427,11 @@ export function useNoteAutosave(options: {
           clearStatusTimer(draft.noteId);
           draft.inFlight = null;
           if (draft.recoveryReason === "result-unknown")
-            draft.recoveryReason = null;
+            draft.recoveryReason = draft.composing
+              ? "interrupted-composition"
+              : null;
           persist();
+          repaint();
           schedule(draft.noteId, true);
           return;
         }

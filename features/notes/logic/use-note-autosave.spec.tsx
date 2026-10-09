@@ -206,6 +206,49 @@ describe("useNoteAutosave", () => {
     );
   });
 
+  it("変換中に失効し工程の版が変わった保存結果が不明でも文章を回収欄に残す", async () => {
+    const first = setup();
+    act(() => first.result.current.applyMessage(snapshot()));
+    act(() => first.result.current.change(noteId, "送信した文章"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() => first.result.current.compositionStart(noteId));
+    act(() => first.result.current.change(noteId, "変換中に残した文章"));
+    act(() => first.result.current.recoverDisconnected());
+    first.unmount();
+    send.mockClear();
+    const second = setup();
+    act(() =>
+      second.result.current.applyMessage({ ...snapshot(), phaseRevision: 3 }),
+    );
+    act(() =>
+      second.result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: "unknown",
+      }),
+    );
+    await act(async () => {});
+    second.rerender();
+    expect(second.result.current.recoveries).toEqual([
+      expect.objectContaining({
+        text: "変換中に残した文章",
+        reason: "変換中に中断されました。",
+      }),
+    ]);
+    act(() => vi.advanceTimersByTime(30000));
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "note:content-status",
+      operationId: request.operationId,
+    });
+    expect(
+      sessionStorage.getItem(`idea-boost:note-drafts:v1:${userId}:room`),
+    ).toContain("変換中に残した文章");
+    second.unmount();
+  });
+
   it("停止999msでは送らず1000msで1回だけ送り、ACKで下書きを整理する", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshot()));
