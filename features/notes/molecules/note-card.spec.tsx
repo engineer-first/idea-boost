@@ -1647,3 +1647,33 @@ it("AT-004: composition中のEscapeはisComposing通知なしでも本文編集�
   fireEvent.keyDown(editor, { key: "Escape" });
   expect(editor).not.toHaveAttribute("readonly");
 });
+
+it("IMEのblur後に予約した保存は、実行前に共有操作が停止したら下書きを変更しない", () => {
+  vi.useFakeTimers();
+  try {
+    const onDraftChange = vi.fn();
+    const onDraftCompositionEnd = vi.fn();
+    const { props, view } = setup({
+      isSelected: true,
+      onDraftChange,
+      onDraftCompositionEnd,
+    });
+    clickNote();
+    const editor = screen.getByRole("textbox");
+    fireEvent.compositionStart(editor);
+    fireEvent.change(editor, { target: { value: "回収する変換入力" } });
+    fireEvent.blur(editor);
+    fireEvent.compositionEnd(editor);
+    expect(onDraftCompositionEnd).toHaveBeenCalledWith(
+      "note-1",
+      "回収する変換入力",
+    );
+    onDraftChange.mockClear();
+    view.rerender(<NoteCard {...props} disabled />);
+    act(() => vi.runAllTimers());
+    expect(onDraftChange).not.toHaveBeenCalled();
+    expect(props.onContentChange).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});

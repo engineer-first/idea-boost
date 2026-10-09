@@ -1041,3 +1041,7 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
     return null;
   }
 }
+
+// 認証期限切れは退出・解散と別の終端。
+export const WS_CLOSE_AUTH_REQUIRED = 4002;
+export const WS_CLOSE_AUTH_REQUIRED_REASON = "authentication required";

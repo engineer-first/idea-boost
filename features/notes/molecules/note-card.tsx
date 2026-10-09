@@ -272,6 +272,19 @@ export function NoteCard({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const compositionActiveRef = useRef(false);
   const blurDuringCompositionRef = useRef(false);
+  const compositionSaveTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  useEffect(() => {
+    // 操作停止とunmountで、IMEのblur後に予約した保存も取り消す。
+    const cancel = () => {
+      if (compositionSaveTimeoutRef.current !== null)
+        clearTimeout(compositionSaveTimeoutRef.current);
+      compositionSaveTimeoutRef.current = null;
+    };
+    if (disabled) cancel();
+    return cancel;
+  }, [disabled]);
   const pointerOwnerDocumentRef = useRef<Document | null>(null);
   const touchOwnerDocumentRef = useRef<Document | null>(null);
   const pointerShowTimeoutRef = useRef<number | null>(null);
@@ -1038,20 +1051,27 @@ export function NoteCard({
         maxLength={NOTE_CONTENT_MAX_LENGTH}
         tabIndex={isEditing ? 0 : -1}
         onChange={(event) => {
+          if (disabled) return;
           setLocalContent(event.target.value);
           onDraftChange?.(note.id, event.target.value);
         }}
         onCompositionStart={() => {
+          if (disabled) return;
           compositionActiveRef.current = true;
           onDraftCompositionStart?.(note.id);
         }}
         onCompositionEnd={(event) => {
           compositionActiveRef.current = false;
+          if (disabled) {
+            blurDuringCompositionRef.current = false;
+            return;
+          }
           const composedText = event.currentTarget.value;
           onDraftCompositionEnd?.(note.id, composedText);
           if (blurDuringCompositionRef.current) {
             blurDuringCompositionRef.current = false;
-            setTimeout(() => {
+            compositionSaveTimeoutRef.current = setTimeout(() => {
+              compositionSaveTimeoutRef.current = null;
               const finalText = textareaRef.current?.value ?? composedText;
               onDraftChange?.(note.id, finalText);
               onContentChange(note.id, finalText);
@@ -1060,6 +1080,12 @@ export function NoteCard({
           }
         }}
         onBlur={(event) => {
+          // 共有操作停止後のblurは、回収済みの入力を盤面の表示値で上書きしない。
+          // 入力はonChangeで下書き層へ渡してある。
+          if (disabled) {
+            setIsEditing(false);
+            return;
+          }
           if (compositionActiveRef.current) {
             blurDuringCompositionRef.current = true;
             onDraftChange?.(note.id, event.target.value);
@@ -1069,10 +1095,8 @@ export function NoteCard({
           if (editingDisabled || !canEditNote || note.excluded) {
             return;
           }
-          // 下書き管理がある画面では切断時も最新入力を渡す。送信可否は上位が決める。
           if (onDraftChange) onDraftChange(note.id, event.target.value);
-          if (!disabled || onDraftChange)
-            onContentChange(note.id, event.target.value);
+          onContentChange(note.id, event.target.value);
         }}
         onKeyDown={(event) => {
           if (

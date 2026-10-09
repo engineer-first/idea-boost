@@ -63,7 +63,10 @@ async function setup(
         created_at: "2026-10-04T00:00:00.000Z",
         updated_at: "2026-10-04T00:00:00.000Z",
       });
-    let attachment: SocketAttachment = { userId: A };
+    let attachment: SocketAttachment = {
+      userId: A,
+      sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+    };
     const ws = {
       deserializeAttachment: () => attachment,
       serializeAttachment: (next: SocketAttachment) => {
@@ -108,7 +111,10 @@ function start(ctx: HandlerCtx, operationId = OP, ids = [N1, N2]) {
 function peer(ctx: HandlerCtx, userId = B) {
   const messages: Record<string, unknown>[] = [];
   const socket = {
-    deserializeAttachment: () => ({ userId }),
+    deserializeAttachment: () => ({
+      userId,
+      sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+    }),
     readyState: 1,
     send: (payload: string) => messages.push(JSON.parse(payload)),
   } as unknown as WebSocket;

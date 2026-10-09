@@ -52,3 +52,15 @@ export const BoardToolbarReachability: Story = {
     </>
   ),
 };
+
+export const SaveResultUnknown: Story = {
+  args: {
+    items: [
+      {
+        noteId: "保存確認中の付箋",
+        text: "保存を送信しましたが、認証期限が切れて結果を確認できていない文章です。",
+        reason: "保存結果を確認できていません。再認証後に結果を確認します。",
+      },
+    ],
+  },
+};

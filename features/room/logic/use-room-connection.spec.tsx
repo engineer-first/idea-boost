@@ -84,6 +84,11 @@ class FakeWebSocket {
     this.emit("close", { code: 1006 });
   }
 
+  simulateAuthRequiredClose(): void {
+    this.readyState = 3;
+    this.emit("close", { code: 4002, reason: "authentication required" });
+  }
+
   simulateDisbandedClose(): void {
     this.readyState = 3;
     this.emit("close", { code: 4001, reason: "room disbanded" });
@@ -597,6 +602,43 @@ describe("再接続の終端判定と世代", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+  it("認証期限closeは遅延照会を無効化し、再送・自動遷移を止める", async () => {
+    let resolve!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((done) => {
+            resolve = done;
+          }),
+      ),
+    );
+    const { result, unmount } = renderHook(() =>
+      useRoomConnection({
+        roomId: ROOM_ID,
+        onMessage: vi.fn(),
+        webSocketFactory: factory,
+      }),
+    );
+    act(() => {
+      lastSocket().simulateOpen();
+      lastSocket().simulateServerMessage(snapshot());
+      lastSocket().simulateUnexpectedClose();
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    act(() => lastSocket().simulateAuthRequiredClose());
+    expect(result.current.connectionStatus).toBe("auth-required");
+    expect(result.current.send({ type: "note:create" })).toBe(false);
+    await act(async () =>
+      resolve(Response.json(completedRoomFixture({ roomId: ROOM_ID }))),
+    );
+    await act(async () => vi.advanceTimersByTimeAsync(30000));
+    expect(result.current.connectionStatus).toBe("auth-required");
+    expect(navigationMocks.replace).not.toHaveBeenCalled();
+    expect(FakeWebSocket.instances).toHaveLength(2);
+    expect(vi.getTimerCount()).toBe(0);
+    unmount();
   });
   it.each([
     401, 404,

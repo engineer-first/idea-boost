@@ -3,9 +3,9 @@
 // トークンの署名・検証ロジック自体は lib/session/token.ts を共有する。
 import {
   SESSION_COOKIE_NAME,
-  type SessionPayload,
-  SessionPayloadSchema,
   TOKEN_AUDIENCE,
+  type VerifiedSession,
+  VerifiedSessionSchema,
 } from "../../contracts/session";
 import { verifyToken } from "../../lib/session/token";
 
@@ -27,13 +27,13 @@ export function getCookieValue(
 export async function getSessionFromRequest(
   request: Request,
   secret: string,
-): Promise<SessionPayload | null> {
+): Promise<VerifiedSession | null> {
   const token = getCookieValue(
     request.headers.get("Cookie"),
     SESSION_COOKIE_NAME,
   );
   if (!token) return null;
-  return verifyToken(token, SessionPayloadSchema, {
+  return verifyToken(token, VerifiedSessionSchema, {
     secret,
     audience: TOKEN_AUDIENCE.session,
   });

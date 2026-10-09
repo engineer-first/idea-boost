@@ -8,12 +8,18 @@ import type {
   ProtocolNote,
   ServerMessage,
 } from "../../contracts/room-protocol";
+import {
+  WS_CLOSE_AUTH_REQUIRED,
+  WS_CLOSE_AUTH_REQUIRED_REASON,
+} from "../../contracts/room-protocol";
+import { SessionExpiresAtSchema } from "../../contracts/session";
 import { visibleTo } from "../visibility";
 
 // WS 接続ごとに serializeAttachment で永続化する状態。
 // ハイバネーション復帰後も deserializeAttachment で取り出せる。
 export type SocketAttachment = {
   userId: string;
+  sessionExpiresAt?: number;
   moveConnectionId?: string;
   activeMoveOperationId?: string;
   movePreviewSequence?: number;
@@ -33,7 +39,28 @@ export type ActiveDragOwner = {
 export class RoomBroadcaster {
   constructor(
     private readonly connections: Pick<DurableObjectState, "getWebSockets">,
+    private readonly onExpired?: (socket: WebSocket) => void,
   ) {}
+
+  // transactionの確定前検査は副作用を起こさず、rollback後にauthorizeで閉じる。
+  isAuthorized(socket: WebSocket): boolean {
+    if (socket.readyState !== WebSocket.OPEN) return false;
+    const attachment =
+      socket.deserializeAttachment() as SocketAttachment | null;
+    const expiry = SessionExpiresAtSchema.safeParse(
+      attachment?.sessionExpiresAt,
+    );
+    return expiry.success && expiry.data > Math.floor(Date.now() / 1000);
+  }
+
+  // HTTPのJWT判定と同じ秒単位で、等値も拒否する。旧attachmentも拒否する。
+  authorize(socket: WebSocket): boolean {
+    if (socket.readyState !== WebSocket.OPEN) return false;
+    if (this.isAuthorized(socket)) return true;
+    socket.close(WS_CLOSE_AUTH_REQUIRED, WS_CLOSE_AUTH_REQUIRED_REASON);
+    this.onExpired?.(socket);
+    return false;
+  }
 
   retireMovePresence(
     isActive: (attachment: SocketAttachment) => boolean,
@@ -47,10 +74,11 @@ export class RoomBroadcaster {
       const { activeMoveOperationId: _operationId, ...next } = attachment;
       socket.serializeAttachment(next);
       this.broadcastMoveEnded(_operationId, isMember);
-      this.broadcastToAll({
-        type: "cursor:drag-ended",
-        userId: attachment.userId,
-      });
+      if (!this.hasOtherDragForUser(attachment.userId, socket))
+        this.broadcastToAll({
+          type: "cursor:drag-ended",
+          userId: attachment.userId,
+        });
       retired++;
     }
     return retired;
@@ -61,7 +89,7 @@ export class RoomBroadcaster {
       .getWebSockets()
       .some(
         (socket) =>
-          socket.readyState === WebSocket.OPEN &&
+          this.authorize(socket) &&
           (socket.deserializeAttachment() as SocketAttachment | null)
             ?.userId === userId,
       );
@@ -217,6 +245,7 @@ export class RoomBroadcaster {
 
   currentAdoptionFocusNoteId(): string | null {
     for (const socket of this.connections.getWebSockets()) {
+      if (!this.authorize(socket)) continue;
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
       if (attachment?.adoptionFocusNoteId) {
@@ -280,6 +309,7 @@ export class RoomBroadcaster {
 
   hasOtherPresenceForUser(userId: string, except: WebSocket): boolean {
     for (const socket of this.connections.getWebSockets()) {
+      if (!this.authorize(socket)) continue;
       if (socket === except) continue;
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
@@ -293,8 +323,22 @@ export class RoomBroadcaster {
     return false;
   }
 
+  // cursorは本人単位で表示するため、別の有効接続のdragを旧接続の終了で消さない。
+  hasOtherDragForUser(userId: string, except: WebSocket): boolean {
+    return this.connections.getWebSockets().some((socket) => {
+      if (socket === except || !this.authorize(socket)) return false;
+      const attachment =
+        socket.deserializeAttachment() as SocketAttachment | null;
+      return (
+        attachment?.userId === userId &&
+        Boolean(attachment.activeMoveOperationId || this.activeDragFor(socket))
+      );
+    });
+  }
+
   findActiveDrag(noteId: string): ActiveDragOwner | null {
     for (const socket of this.connections.getWebSockets()) {
+      if (!this.authorize(socket)) continue;
       const attachment =
         socket.deserializeAttachment() as SocketAttachment | null;
       if (
@@ -313,6 +357,7 @@ export class RoomBroadcaster {
   }
 
   activeDragFor(socket: WebSocket): ActiveDragOwner | null {
+    if (!this.authorize(socket)) return null;
     const attachment =
       socket.deserializeAttachment() as SocketAttachment | null;
     if (!attachment?.activeDrag) return null;
@@ -383,7 +428,7 @@ export class RoomBroadcaster {
 
   // 閉じかけのソケットで send が throw しても、他接続への配信を止めない。
   private trySend(ws: WebSocket, payload: string): void {
-    if (ws.readyState !== WebSocket.OPEN) return;
+    if (!this.authorize(ws)) return;
     try {
       ws.send(payload);
     } catch {

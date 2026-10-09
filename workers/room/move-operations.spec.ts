@@ -64,7 +64,10 @@ async function setup(
         created_at: "2026-10-04T00:00:00.000Z",
         updated_at: "2026-10-04T00:00:00.000Z",
       });
-    let attachment: SocketAttachment = { userId: A };
+    let attachment: SocketAttachment = {
+      userId: A,
+      sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+    };
     const ws = {
       deserializeAttachment: () => attachment,
       serializeAttachment: (next: SocketAttachment) => {
@@ -116,7 +119,10 @@ function commit(ctx: HandlerCtx, operationId = OP) {
 function peer(ctx: HandlerCtx, userId = B) {
   const messages: Record<string, unknown>[] = [];
   const socket = {
-    deserializeAttachment: () => ({ userId }),
+    deserializeAttachment: () => ({
+      userId,
+      sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+    }),
     readyState: 1,
     send: (payload: string) => messages.push(JSON.parse(payload)),
   } as unknown as WebSocket;
@@ -500,7 +506,10 @@ describe("atomic move projection", () => {
       );
       const payloads: string[] = [];
       const peer = {
-        deserializeAttachment: () => ({ userId: B }),
+        deserializeAttachment: () => ({
+          userId: B,
+          sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+        }),
         readyState: 1,
         send: (payload: string) => payloads.push(payload),
       } as unknown as WebSocket;
@@ -616,6 +625,7 @@ describe("移動の失効と互換lock", () => {
     setup("move-legacy-expire", (ctx, responses) => {
       ctx.ws.serializeAttachment({
         userId: A,
+        sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
         activeDrag: { noteId: N1, dragId: OP2, leaseUntil: Date.now() - 1 },
       } satisfies SocketAttachment);
       start(ctx);
@@ -667,10 +677,16 @@ describe("move recovery entry", () => {
       });
       await instance.webSocketMessage(ctx.ws, query);
       expect(sent.at(-1)).toEqual(accepted);
-      ctx.ws.serializeAttachment({ userId: B });
+      ctx.ws.serializeAttachment({
+        userId: B,
+        sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+      });
       await instance.webSocketMessage(ctx.ws, query);
       expect(sent.at(-1)).toMatchObject({ status: "unknown" });
-      ctx.ws.serializeAttachment({ userId: A });
+      ctx.ws.serializeAttachment({
+        userId: A,
+        sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+      });
       ctx.sql.exec("UPDATE note_move_operations SET created_at=0");
       await instance.webSocketMessage(ctx.ws, query);
       expect(sent.at(-1)).toEqual({
@@ -693,7 +709,10 @@ describe("move recovery entry", () => {
       const sent: ServerMessage[] = [];
       const peer = {
         readyState: 1,
-        deserializeAttachment: () => ({ userId: B }),
+        deserializeAttachment: () => ({
+          userId: B,
+          sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+        }),
         send: (data: string) => sent.push(JSON.parse(data) as ServerMessage),
       } as unknown as WebSocket;
       ctx.broadcaster = new RoomBroadcaster({

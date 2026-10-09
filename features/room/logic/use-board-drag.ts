@@ -857,13 +857,15 @@ export function useBoardDrag({
   const hasPrivatePreview =
     drag?.status === "private" || drag?.status === "returning";
   useEffect(() => {
+    const current = dragRef.current;
     if (
-      !canPublish &&
-      dragRef.current?.status === "private" &&
-      dragRef.current.canPublishAtStart
+      (!canPublish &&
+        current?.status === "private" &&
+        current.canPublishAtStart) ||
+      (!canReturnToPrivate && current?.status === "returning")
     )
       cancelCurrentNoteDrag(true);
-  }, [canPublish, cancelCurrentNoteDrag]);
+  }, [canPublish, canReturnToPrivate, cancelCurrentNoteDrag]);
   useEffect(() => {
     if (!hasPrivatePreview) return;
     const toolbar = privateToolbarRef.current;

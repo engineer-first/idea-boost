@@ -22,6 +22,9 @@ async function setup() {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: user,
         [HOST_ID_HEADER]: A,
       },

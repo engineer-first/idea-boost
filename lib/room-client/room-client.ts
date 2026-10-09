@@ -10,6 +10,8 @@ import {
   needsHostRevision,
   parseServerMessage,
   type ServerMessage,
+  WS_CLOSE_AUTH_REQUIRED,
+  WS_CLOSE_AUTH_REQUIRED_REASON,
   WS_CLOSE_LEFT_ROOM,
   WS_CLOSE_LEFT_ROOM_REASON,
   WS_CLOSE_ROOM_DISBANDED,
@@ -26,10 +28,12 @@ export type RoomSocketFactory = (url: string) => WebSocket;
 // UI が接続状態を表示するための状態。
 // - connecting / open: 通常
 // - closed: 予期しない切断（再接続待ち）
+// - auth-required: 認証期限切れ（再接続しない・同じタブで下書きを保護）
 // - ended: 個人の退出など（再接続しない・ホームへ）
 // - disbanded: ホストがルームを解散（再接続しない・理由通知してホームへ）
 // close() によるクライアント主導の終了では通知しない。
 export type RoomConnectionStatus =
+  | "auth-required"
   | "connecting"
   | "open"
   | "closed"
@@ -142,6 +146,14 @@ export function createRoomClient(options: RoomClientOptions): RoomClient {
 
     const onClose = (event: CloseEvent): void => {
       if (closedByUser || socket !== ws) {
+        return;
+      }
+      if (
+        event.code === WS_CLOSE_AUTH_REQUIRED ||
+        event.reason === WS_CLOSE_AUTH_REQUIRED_REASON
+      ) {
+        stop();
+        options.onStatusChange?.("auth-required");
         return;
       }
       // 解散: 再接続せず disbanded（UI が理由を出してホームへ）

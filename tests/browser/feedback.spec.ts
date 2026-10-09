@@ -317,6 +317,7 @@ test("ボード左上の入口から現行ステップを選んだ入力欄に�
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--with-feedback&viewMode=story`,
   );
+  await page.getByRole("button", { name: "ルームメニューを開く" }).click();
   await page
     .getByRole("button", { name: "フィードバック", exact: true })
     .click();

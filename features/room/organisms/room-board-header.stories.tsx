@@ -44,6 +44,7 @@ const meta = {
     hasFinalDecision: false,
     outcomePublished: false,
     onPublishOutcome: fn(),
+    onOpenFeedback: fn(),
     signOutAction: fn(),
     isLeaving: false,
 

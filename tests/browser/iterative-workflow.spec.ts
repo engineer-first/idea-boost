@@ -91,37 +91,44 @@ for (const { phase, count } of phases) {
         const isResult = step === count;
         const context = page.getByTestId("board-context-hud");
         await expectReadable(context);
-        await expect
-          .poll(() => page.getByTestId("board-current-step").isVisible())
-          .toBe(true);
-        await expect
-          .poll(() => page.getByTestId("board-phase-progress").isVisible())
-          .toBe(true);
+        const location = page.getByRole("button", { name: /現在地/ });
+        expect(await location.isVisible()).toBe(true);
+        expect(await location.getAttribute("aria-expanded")).toBe("false");
         const progress = page.getByTestId("board-progress-rail");
         expect(await progress.getAttribute("aria-valuenow")).toBe(String(step));
         expect(await progress.getAttribute("aria-valuemax")).toBe(
           String(count),
         );
+        expect(await page.getByTestId("board-current-step").count()).toBe(0);
         expect(
           await page.getByRole("button", { name: "ゴールと進行" }).count(),
         ).toBe(0);
-        expect(
-          await page.getByRole("button", { name: "全手順を見る" }).count(),
-        ).toBe(0);
+        await location.click();
+        expect(await page.getByTestId("board-current-step").isVisible()).toBe(
+          true,
+        );
         expect(
           await page
             .getByTestId(`board-phase-${phase}`)
             .getAttribute("aria-current"),
         ).toBe("step");
         expect(
-          await page.getByTestId("board-phase-progress").locator("li").count(),
+          await page
+            .getByTestId("board-phase-progress")
+            .getByRole("tab")
+            .count(),
         ).toBe(3);
+        expect(
+          await page.getByRole("button", { name: "全手順を見る" }).count(),
+        ).toBe(0);
         expect(
           await page
             .getByRole("list", { name: "このフェーズの全手順" })
+            .locator("li")
             .count(),
-        ).toBe(0);
+        ).toBe(count);
         expect(await context.innerText()).not.toContain("次の作業");
+        await location.click();
 
         const canRestart =
           step === 2 || ((phase === 1 || phase === 3) && step === 3);

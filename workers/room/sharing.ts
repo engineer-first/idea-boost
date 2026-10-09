@@ -1,6 +1,10 @@
 import type { SharingState } from "../../contracts/room-protocol";
 import { syncRoomAlarm } from "./alarms";
-import type { HandlerCtx, MessageHandlers } from "./handler-context";
+import {
+  type HandlerCtx,
+  type MessageHandlers,
+  runAuthorizedMutationTransaction,
+} from "./handler-context";
 import { isHostUser, isMember } from "./members";
 import { getPhase } from "./phase";
 import { getSharingState, saveSharingState } from "./sharing-state";
@@ -67,12 +71,13 @@ async function commitTurn(ctx: HandlerCtx, state: SharingState): Promise<void> {
   state.startsAt = state.currentIndex === null ? null : Date.now() + 2000;
   // SQLite-backed DOではSQLとアラームを同じtransactionに含められる。
   // 予約失敗時にも発表者だけが進まないよう、通知はコミット後に限定する。
-  await ctx.storage.transaction(async () => {
+  const committed = await runAuthorizedMutationTransaction(ctx, async () => {
     saveSharingState(ctx.sql, state);
     saveTimerState(ctx.sql, { status: "idle" });
     await syncRoomAlarm(ctx.storage, ctx.sql);
+    return true;
   });
-  broadcastSharing(ctx);
+  if (committed) broadcastSharing(ctx);
 }
 
 export const sharingHandlers: MessageHandlers<
