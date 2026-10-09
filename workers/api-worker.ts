@@ -21,8 +21,8 @@ import {
 } from "../contracts/room-creation";
 import {
   LoginAssertionSchema,
-  type SessionPayload,
   TOKEN_AUDIENCE,
+  type VerifiedSession,
 } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
 import { handleCompletedRooms } from "./completed-rooms-api";
@@ -53,7 +53,12 @@ import {
 import { cleanupRoomCreations } from "./lib/room-creation-cleanup";
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
-import { HOST_ID_HEADER, RoomDO, USER_ID_HEADER } from "./room/room-do";
+import {
+  HOST_ID_HEADER,
+  RoomDO,
+  SESSION_EXPIRES_AT_HEADER,
+  USER_ID_HEADER,
+} from "./room/room-do";
 import { handleSharedOutcomes } from "./shared-outcomes-api";
 
 export { RoomDO };
@@ -125,7 +130,7 @@ async function handleAuthSync(
 async function handleCreateRoom(
   request: Request,
   env: ApiWorkerEnv,
-  session: SessionPayload,
+  session: VerifiedSession,
 ): Promise<Response> {
   const body = CreateRoomInputSchema.safeParse(
     (await readJsonBody(request)) ?? {},
@@ -205,7 +210,7 @@ async function handleCreateRoom(
 async function handleJoinRoom(
   request: Request,
   env: ApiWorkerEnv,
-  session: SessionPayload,
+  session: VerifiedSession,
 ): Promise<Response> {
   const body = JoinRequestSchema.safeParse(await readJsonBody(request));
   if (!body.success) {
@@ -241,7 +246,7 @@ async function handleJoinRoom(
 // メンバー限定（非メンバーは 404）。hostUserId はメンバー一覧でホスト表示に使う。
 async function handleGetRoom(
   env: ApiWorkerEnv,
-  session: SessionPayload,
+  session: VerifiedSession,
   roomId: string,
 ): Promise<Response> {
   const room = await findRoomById(env.DB, roomId);
@@ -272,7 +277,7 @@ async function handleGetRoom(
 // member_joined / snapshot.members で行う。
 async function handleListMembers(
   env: ApiWorkerEnv,
-  session: SessionPayload,
+  session: VerifiedSession,
   roomId: string,
 ): Promise<Response> {
   const room = await findRoomById(env.DB, roomId);
@@ -300,7 +305,7 @@ async function handleListMembers(
 async function handleLeaveRoom(
   request: Request,
   env: ApiWorkerEnv,
-  session: SessionPayload,
+  session: VerifiedSession,
   roomId: string,
 ): Promise<Response> {
   const room = await findRoomById(env.DB, roomId);
@@ -344,7 +349,7 @@ async function handleLeaveRoom(
 async function handleLookupRoom(
   request: Request,
   env: ApiWorkerEnv,
-  _session: SessionPayload,
+  _session: VerifiedSession,
 ): Promise<Response> {
   const url = new URL(request.url);
   const code = normalizeInviteCode(url.searchParams.get("code") ?? "");
@@ -372,7 +377,7 @@ async function handleLookupRoom(
 async function handleRoomWebSocket(
   request: Request,
   env: ApiWorkerEnv,
-  session: SessionPayload,
+  session: VerifiedSession,
   roomId: string,
 ): Promise<Response> {
   if (request.headers.get("Upgrade") !== "websocket") {
@@ -393,6 +398,7 @@ async function handleRoomWebSocket(
   await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);
+  headers.set(SESSION_EXPIRES_AT_HEADER, String(session.exp));
   headers.set(HOST_ID_HEADER, room.hostId);
   return stub.fetch(request.url, { headers });
 }
@@ -400,7 +406,7 @@ async function handleRoomWebSocket(
 export type AuthenticatedRoute = (
   request: Request,
   env: ApiWorkerEnv,
-  session: SessionPayload,
+  session: VerifiedSession,
 ) => Promise<Response | null>;
 
 export type ApiWorkerHandler = {

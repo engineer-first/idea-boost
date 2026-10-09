@@ -193,6 +193,15 @@ export function useRoomConnection({
       },
       onStatusChange: (status) => {
         if (!active || terminal) return;
+        if (status === "auth-required") {
+          terminal = true;
+          generation += 1;
+          cancelCompletionRequest();
+          synchronizedRef.current = false;
+          stopDelay();
+          setConnectionStatus("auth-required");
+          return;
+        }
         if (status === "ended" || status === "disbanded") {
           terminal = true;
           generation += 1;

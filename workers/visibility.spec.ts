@@ -270,3 +270,94 @@ describe("projectNoteForViewer", () => {
     expect(source.dotVotes.objective.count).toBe(4);
   });
 });
+
+import { vi } from "vitest";
+// 可視性が許可されても認証期限切れの受信者へは本文を送らない。
+import { RoomBroadcaster } from "./room/broadcast";
+
+it.each([
+  "direct",
+  "note",
+  "group",
+  "move-ended",
+  "move-preview",
+  "move-batch",
+  "user",
+  "broadcast",
+  "all",
+  "except",
+])("期限切れの%s配信を拒否し有効接続へ継続する", (route) => {
+  const now = Math.floor(Date.now() / 1000);
+  const socket = (exp: number) => ({
+    readyState: WebSocket.OPEN,
+    deserializeAttachment: () => ({ userId: AUTHOR, sessionExpiresAt: exp }),
+    send: vi.fn(),
+    close: vi.fn(),
+  });
+  const expired = socket(now);
+  const valid = socket(now + 60);
+  const broadcaster = new RoomBroadcaster({
+    getWebSockets: () => [expired, valid] as unknown as WebSocket[],
+  });
+  const subject = note();
+  const update = { type: "note:updated" as const, note: subject };
+  const peer = {} as WebSocket;
+  switch (route) {
+    case "direct":
+      broadcaster.sendTo(expired as unknown as WebSocket, update);
+      broadcaster.sendTo(valid as unknown as WebSocket, update);
+      break;
+    case "note":
+      broadcaster.broadcastNote(() => update);
+      break;
+    case "group":
+      broadcaster.broadcastGroup(
+        { type: "group:deleted", groupId: "group", groupRevision: 1 },
+        () => true,
+      );
+      break;
+    case "move-ended":
+      broadcaster.broadcastMoveEnded("op", () => true);
+      break;
+    case "move-preview":
+      broadcaster.broadcastMovePreview(
+        {
+          type: "notes:move-preview",
+          userId: AUTHOR,
+          operationId: "op",
+          phaseRevision: 1,
+          sequence: 1,
+          leaseMs: 1000,
+          positions: [],
+        },
+        [subject],
+        () => true,
+        peer,
+      );
+      break;
+    case "move-batch":
+      broadcaster.broadcastMoveBatch(() => ({
+        type: "notes:moved",
+        notes: [subject],
+        groups: [],
+        groupRevision: 0,
+        mapRevision: 0,
+      }));
+      break;
+    case "user":
+      broadcaster.broadcastNoteToUser(AUTHOR, () => update);
+      break;
+    case "broadcast":
+      broadcaster.broadcast(update, subject);
+      break;
+    case "all":
+      broadcaster.broadcastToAll(update);
+      break;
+    case "except":
+      broadcaster.broadcastToAllExcept(update, VIEWER);
+      break;
+  }
+  expect(expired.send).not.toHaveBeenCalled();
+  expect(expired.close).toHaveBeenCalledWith(4002, "authentication required");
+  expect(valid.send).toHaveBeenCalledOnce();
+});

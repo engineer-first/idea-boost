@@ -256,6 +256,12 @@ export const noteHandlers: MessageHandlers<
   "note:update-content": async (ctx, message) => {
     // WebCrypto は非同期なので、権限とフェーズの検査は計算が終わった後に行う。
     const digest = await contentDigest(message.content);
+    // 受信時に有効でも、digestの待機中に期限切れ・キックが起き得る。
+    if (
+      !ctx.broadcaster.authorize(ctx.ws) ||
+      ctx.authorizeMutation?.() === false
+    )
+      return;
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (

@@ -24,6 +24,7 @@ export const NoteDraftSchema = z.object({
       "missing",
       "interrupted-composition",
       "send-failed",
+      "result-unknown",
     ])
     .nullable(),
 });

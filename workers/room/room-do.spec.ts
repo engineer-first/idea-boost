@@ -79,6 +79,9 @@ async function connectDirectlyWithFirstMessage(
   const res = await roomStub(roomName).fetch("https://do/ws", {
     headers: {
       Upgrade: "websocket",
+      "X-Idea-Boost-Session-Expires-At": String(
+        Math.floor(Date.now() / 1000) + 600,
+      ),
       [USER_ID_HEADER]: userId,
       [HOST_ID_HEADER]: hostId,
     },
@@ -510,7 +513,12 @@ describe("RoomDO WebSocket の深層防御", () => {
 
   it("ユーザーIDヘッダーなしの upgrade は 403（api-worker を経由しない到達）", async () => {
     const res = await roomStub("room-guard").fetch("https://do/ws", {
-      headers: { Upgrade: "websocket" },
+      headers: {
+        Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
+      },
     });
     expect(res.status).toBe(403);
   });
@@ -519,7 +527,13 @@ describe("RoomDO WebSocket の深層防御", () => {
     const stub = roomStub("room-guard-no-host");
     await stub.upsertMember(USER_A, "Alpha");
     const res = await stub.fetch("https://do/ws", {
-      headers: { Upgrade: "websocket", [USER_ID_HEADER]: USER_A },
+      headers: {
+        Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
+        [USER_ID_HEADER]: USER_A,
+      },
     });
     expect(res.status).toBe(403);
   });
@@ -528,6 +542,9 @@ describe("RoomDO WebSocket の深層防御", () => {
     const res = await roomStub("room-guard").fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -541,6 +558,9 @@ describe("RoomDO WebSocket の深層防御", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -603,6 +623,9 @@ describe("RoomDO snapshot", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -639,6 +662,9 @@ describe("RoomDO snapshot", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -720,6 +746,9 @@ describe("RoomDO adoption-focus:update", () => {
     const reconnect = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -947,6 +976,9 @@ describe("RoomDO note:decide の認可", () => {
     const response = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -1017,6 +1049,9 @@ describe("RoomDO note:decide", () => {
     const reconnect = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -1583,6 +1618,9 @@ describe("RoomDO 候補外付箋", () => {
     const reconnect = await roomStub(roomName).fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -2930,6 +2968,9 @@ describe("RoomDO phase:next", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -3701,6 +3742,9 @@ describe("RoomDO phase:next", () => {
     const reconnected = await stub.fetch("https://room.test/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4287,6 +4331,9 @@ describe("RoomDO phase:next", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4335,6 +4382,9 @@ describe("RoomDO phase:next", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4380,6 +4430,9 @@ describe("RoomDO phase:next", () => {
     const hostRes = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4388,6 +4441,9 @@ describe("RoomDO phase:next", () => {
     const memberRes = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4456,6 +4512,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4487,6 +4546,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_B,
       },
@@ -4514,6 +4576,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4555,6 +4620,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4627,6 +4695,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4655,6 +4726,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4715,6 +4789,9 @@ describe("RoomDO timer:* の認可", () => {
     const reconnect = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5301,6 +5378,9 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5352,6 +5432,9 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5406,6 +5489,9 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5808,6 +5894,9 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
     const reconnect = await roomStub(roomName).fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5848,6 +5937,9 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
     const reconnect = await roomStub(roomName).fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -6065,6 +6157,9 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     const reconnect = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -6374,6 +6469,9 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     const response = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -7298,7 +7396,10 @@ describe("inverse rejection facade result", () => {
           USER_A,
         );
       }
-      let attachment: SocketAttachment = { userId: USER_A };
+      let attachment: SocketAttachment = {
+        userId: USER_A,
+        sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+      };
       const messages: Record<string, unknown>[] = [];
       const ws = {
         readyState: 1,
