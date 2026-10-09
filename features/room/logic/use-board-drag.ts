@@ -568,12 +568,15 @@ export function useBoardDrag({
         clientY: event.clientY,
       };
 
-      if (isPointerInPrivateDropArea(event.clientX, event.clientY)) {
-        if (
-          current.status === "shared" &&
-          current.note.authorId === currentUserId &&
-          canReturnToPrivate
-        ) {
+      const canReturnSharedNote =
+        current.status === "shared" &&
+        current.note.authorId === currentUserId &&
+        canReturnToPrivate;
+      if (
+        isPointerInPrivateDropArea(event.clientX, event.clientY) &&
+        (current.status !== "shared" || canReturnSharedNote)
+      ) {
+        if (canReturnSharedNote) {
           // ドック上は挿入先の候補にすぎないため、pointer-up まで非公開化しない。
           // 3-2 の private map lock は pointer-up で非公開化した後に解除する。
           if (!lockPrivateMapDrag) {
@@ -646,10 +649,6 @@ export function useBoardDrag({
           ...nextPosition,
           privateDropIndex: null,
         });
-        return;
-      }
-      if (current.status !== "returning" && !canReturnToPrivate) {
-        updateDrag({ ...currentAtPointer, status: "shared", ...nextPosition });
         return;
       }
       onNoteDragMove(current.note.id, nextPosition.x, nextPosition.y);

@@ -33,6 +33,7 @@ function setup({
   const onCursorLeave = vi.fn();
   const onNoteDragCancel = vi.fn();
   const onNoteDragStart = vi.fn();
+  const onNoteDragMove = vi.fn();
   const onPrivateNoteUnpublish = vi.fn();
   const notes = withSharedDrag
     ? [
@@ -59,7 +60,7 @@ function setup({
       ideaMapSizeLevel,
       ideaMapSizeInitialized,
       onNoteDragStart,
-      onNoteDragMove: vi.fn(),
+      onNoteDragMove,
       onNoteDragEnd: vi.fn(),
       onNoteDragCancel,
       onPrivateNotePublish: vi.fn(),
@@ -81,6 +82,7 @@ function setup({
     onCursorLeave,
     onNoteDragCancel,
     onNoteDragStart,
+    onNoteDragMove,
     onPrivateNoteUnpublish,
     viewport,
     toolbar,
@@ -389,13 +391,13 @@ describe("useRoomBoardInteractions cursor input", () => {
     ]);
   });
 
-  it("他の参加者の発表中は自分の共有付箋をマイ付箋へ戻せない", () => {
+  it("他の参加者の発表中も共有付箋を動かせるが、マイ付箋へは戻せない", () => {
     const note = buildNote({
       id: "shared-1",
       authorId: "11111111-1111-4111-8111-111111111111",
       visibility: "shared",
     });
-    const { result, onPrivateNoteUnpublish, toolbar } = setup({
+    const { result, onNoteDragMove, onPrivateNoteUnpublish, toolbar } = setup({
       phase: buildPhaseStep(2),
       withSharedDrag: true,
       sharing: buildSharingState({
@@ -426,11 +428,24 @@ describe("useRoomBoardInteractions cursor input", () => {
     act(() =>
       result.current.onPointerMove({
         pointerId: 32,
-        clientX: 650,
+        clientX: 450,
         clientY: 280,
       } as unknown as PointerEvent<HTMLDivElement>),
     );
     expect(result.current.isReturnDropTarget).toBe(false);
+    expect(onNoteDragMove).toHaveBeenCalledWith(
+      note.id,
+      expect.any(Number),
+      expect.any(Number),
+    );
+    act(() =>
+      result.current.onPointerMove({
+        pointerId: 32,
+        clientX: 650,
+        clientY: 280,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    expect(onNoteDragMove).toHaveBeenCalledTimes(2);
     act(() =>
       result.current.onPointerEnd({
         pointerId: 32,
