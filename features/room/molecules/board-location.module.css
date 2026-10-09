@@ -1,0 +1,162 @@
+.slot {
+  position: relative;
+  height: 44px;
+}
+.card {
+  min-width: 0;
+  pointer-events: auto;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.05);
+}
+.card[data-state="expanded"] {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - var(--board-location-top, 88px) - 12px);
+}
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 15px;
+}
+.trigger:hover {
+  background: var(--muted);
+}
+.trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -4px;
+}
+.dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.dots > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.dots > span[data-reached="true"] {
+  background: var(--foreground);
+}
+.dots > span[data-current="true"] {
+  outline: 1px solid var(--foreground);
+  outline-offset: 2px;
+}
+.detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.phases {
+  display: flex;
+  width: auto;
+  align-items: center;
+  gap: 4px;
+  height: auto;
+  margin: 4px 12px 8px;
+  padding: 0;
+}
+.phaseTab {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  height: auto;
+  padding: 6px 2px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.phaseTab:hover,
+.phaseTab[aria-selected="true"] {
+  color: var(--foreground);
+}
+.phaseNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 10px;
+}
+.phaseNumber[data-current="true"] {
+  background: var(--foreground);
+  border-color: var(--foreground);
+  color: var(--background);
+}
+.stepScroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 12px 12px;
+}
+.stepScroll:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -3px;
+  border-radius: 8px;
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.steps > li {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 8px;
+  font-size: 14px;
+  line-height: 22px;
+  border-radius: 8px;
+}
+.steps > li[aria-current="step"] {
+  font-weight: 600;
+}
+.stepMarker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 12px;
+}
+.steps > li[aria-current="step"] .stepMarker {
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+.currentLabel {
+  font-size: 11px;
+  white-space: nowrap;
+}
+@media (width < 640px) {
+  .card[data-state="expanded"] {
+    /* 単体表示の既定値。ボードでは操作行と接続案内の実寸を使う。 */
+    max-height: calc(100dvh - var(--board-location-top, 124px) - 12px);
+  }
+  .trigger {
+    gap: 8px;
+  }
+}

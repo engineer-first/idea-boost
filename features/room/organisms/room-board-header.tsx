@@ -2,7 +2,13 @@
 
 // ボード画面の進行レール・ファシリテーションガイドと操作 HUD。
 
-import { Check, LogOut, MoreHorizontal, Pencil } from "lucide-react";
+import {
+  Check,
+  LogOut,
+  MessageSquare,
+  MoreHorizontal,
+  Pencil,
+} from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +48,7 @@ import { RoomTimer } from "./room-timer";
 export type RoomBoardHeaderProps = {
   children?: ReactNode;
   hasMoveHistory?: boolean;
-  onOpenFeedback?: () => void;
+  onOpenFeedback?: (returnFocusTo: HTMLButtonElement | null) => void;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
   inviteCode: string;
@@ -174,6 +180,14 @@ export function RoomBoardHeader({
         "--board-connection-notice-bottom",
         `${dockTop}px`,
       );
+      const location = header.querySelector<HTMLElement>(
+        '[data-testid="board-location-card"]',
+      );
+      if (location)
+        header.style.setProperty(
+          "--board-location-top",
+          `${location.getBoundingClientRect().top}px`,
+        );
     }
     updateGuideTop();
     const observer =
@@ -186,6 +200,7 @@ export function RoomBoardHeader({
       observer?.disconnect();
       window.removeEventListener("resize", updateGuideTop);
       header.style.removeProperty("--board-connection-guide-top");
+      header.style.removeProperty("--board-location-top");
       board?.style.removeProperty("--board-connection-notice-bottom");
     };
   }, [connectionStatus]);
@@ -213,6 +228,7 @@ export function RoomBoardHeader({
     isDisconnected || isNextPhasePending || isTransferring || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const roomMenuContentRef = useRef<HTMLDivElement>(null);
+  const feedbackOpening = useRef(false);
   useEffect(() => {
     if (!roomMenuOpen) return;
     const handleOutsidePointerDown = (event: PointerEvent) => {
@@ -273,16 +289,15 @@ export function RoomBoardHeader({
     <TooltipProvider delayDuration={300}>
       <div
         data-testid="board-header-row"
-        className={`pointer-events-none absolute inset-x-3 top-3 bottom-[calc(7.5rem+var(--board-notification-inset,0px))] z-40 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(16rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(11rem+var(--board-notification-inset,0px))]"}`}
+        className={`pointer-events-none absolute inset-x-3 top-3 bottom-[calc(7.5rem+var(--board-notification-inset,0px))] z-40 has-[[data-location-open=true]]:z-[60] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(16rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(11rem+var(--board-notification-inset,0px))]"}`}
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[901px]:max-[1199px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[900px]:max-[1200px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
           data-testid="board-context-column"
           data-board-fit-edge="top"
         >
-          <div className="w-full min-w-0 shrink-0">
+          <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px]">
             <BoardContext
-              onOpenFeedback={onOpenFeedback}
               phase={phase}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
@@ -709,6 +724,11 @@ export function RoomBoardHeader({
                 ref={roomMenuContentRef}
                 className="w-80"
                 aria-label="ルームメニュー"
+                onCloseAutoFocus={(event) => {
+                  if (!feedbackOpening.current) return;
+                  event.preventDefault();
+                  feedbackOpening.current = false;
+                }}
               >
                 {currentMember ? (
                   <MemberSelection
@@ -752,6 +772,21 @@ export function RoomBoardHeader({
                 ) : null}
 
                 <div className="flex flex-col gap-1">
+                  {onOpenFeedback ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="min-h-11 justify-start"
+                      onClick={() => {
+                        feedbackOpening.current = true;
+                        setRoomMenuOpen(false);
+                        onOpenFeedback(roomMenuTriggerRef.current);
+                      }}
+                    >
+                      <MessageSquare aria-hidden="true" className="size-4" />
+                      フィードバック
+                    </Button>
+                  ) : null}
                   {isHost && canManageCandidates ? (
                     <BulkCandidateExclusion
                       key={hostRevision}

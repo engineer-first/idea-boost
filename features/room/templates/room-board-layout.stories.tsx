@@ -13,7 +13,7 @@ import { NoteDraftRecovery } from "@/features/notes";
 import { roomNotify } from "../logic/room-notify";
 import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView } from "./room-board-view";
-import boardMeta from "./room-board-view.stories";
+import boardMeta, { MoveHistoryAvailable } from "./room-board-view.stories";
 
 const LONG_ISSUE =
   "チームで何を作るか決めるとき、発言が得意な人の意見だけで進んでしまい、初めて参加する学生が自分の困りごとや案を出せない。全員が自分の考えを伝え、互いの案を比べられるようにしたい。";
@@ -319,6 +319,20 @@ export const AuthRequired: Story = {
 export const Unavailable: Story = {
   ...DelayedConnection,
   args: { ...DelayedConnection.args, connectionStatus: "unavailable" },
+};
+export const AuthRequiredLocationExpanded: Story = {
+  ...AuthRequired,
+  args: { ...AuthRequired.args, initialGuideState: "compact" },
+  parameters: { chromatic: { viewports: [320, 390, 1280] } },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: /現在地/ }),
+    );
+  },
+};
+export const AuthRequiredWithMoveHistory: Story = {
+  ...AuthRequired,
+  args: { ...AuthRequired.args, ...MoveHistoryAvailable.args },
 };
 const RECOVERY_ITEMS = [
   {
