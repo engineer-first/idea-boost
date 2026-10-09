@@ -9,10 +9,19 @@ import "./phase-one-writing-tour.css";
 import styles from "./phase-one-writing-tour.module.css";
 
 const DEMO_CONTENT = "会議で発言するタイミングがわからない";
+const VOTE_DEMO_SECOND_CONTENT = "会議で一部の人だけが話してしまう";
 const GROUP_DEMO_CONTENT = "会議で一部の人だけが話してしまう";
+const GROUP_DEMO_THIRD_CONTENT = "会議で意見があっても言い出せない";
 const GROUP_DEMO_NAME = "会議での発言";
 const DEMO_NOTE_WIDTH = 192;
 const DEMO_NOTE_HEIGHT = 136;
+
+const DEMO_VOTES = [
+  { id: "subjective-left", kind: "subjective", note: "left", right: 16 },
+  { id: "objective-right", kind: "objective", note: "right", right: 16 },
+  { id: "objective-left", kind: "objective", note: "left", right: 52 },
+  { id: "objective-right-second", kind: "objective", note: "right", right: 52 },
+] as const;
 
 type TourStage =
   | "add"
@@ -351,10 +360,10 @@ export function PhaseOneWritingTour({
 }
 
 function PhaseOneGroupingTour() {
-  const [stage, setStage] = useState<"source" | "frame" | "name" | "done">(
+  const [stage, setStage] = useState<"source" | "frame" | "name-edit" | "done">(
     "source",
   );
-  const [groupName, setGroupName] = useState("");
+  const [groupName, setGroupName] = useState("グループ");
   const timersRef = useRef<number[]>([]);
 
   useEffect(() => {
@@ -392,7 +401,12 @@ function PhaseOneGroupingTour() {
                   const note = document.querySelector<HTMLElement>(
                     '[data-tour="phase-one-group-moving-note"]',
                   );
+                  let completed = false;
+                  let fallbackTimer = 0;
                   const finish = () => {
+                    if (completed) return;
+                    completed = true;
+                    window.clearTimeout(fallbackTimer);
                     document.body.classList.remove(
                       "phase-one-writing-tour-moving",
                     );
@@ -401,7 +415,8 @@ function PhaseOneGroupingTour() {
                   note?.addEventListener("transitionend", finish, {
                     once: true,
                   });
-                  timersRef.current.push(window.setTimeout(finish, 750));
+                  fallbackTimer = window.setTimeout(finish, 750);
+                  timersRef.current.push(fallbackTimer);
                 });
               });
             },
@@ -415,7 +430,7 @@ function PhaseOneGroupingTour() {
             side: "left",
             showButtons: ["next"],
             onNextClick: () => {
-              setStage("name");
+              setStage("name-edit");
               requestAnimationFrame(() => {
                 tour.moveNext();
                 typeGroupName();
@@ -424,10 +439,10 @@ function PhaseOneGroupingTour() {
           },
         },
         {
-          element: '[data-tour="phase-one-group-name"]',
+          element: '[data-tour="phase-one-group-name-input"]',
           waitForElement: 3_000,
           popover: {
-            description: "グループ名を押して、まとまりに名前を付けましょう。",
+            description: "グループ名を入力して、まとまりに名前を付けましょう。",
             side: "left",
             showButtons: ["next"],
           },
@@ -438,6 +453,7 @@ function PhaseOneGroupingTour() {
 
     function typeGroupName() {
       let index = 0;
+      setGroupName("");
       const timer = window.setInterval(() => {
         index += 1;
         setGroupName(GROUP_DEMO_NAME.slice(0, index));
@@ -461,6 +477,7 @@ function PhaseOneGroupingTour() {
   if (stage === "done" || !isDesktop) return null;
 
   const grouped = stage !== "source";
+  const isNameEditing = stage === "name-edit";
   return (
     <div
       data-testid="phase-one-writing-tour"
@@ -471,16 +488,38 @@ function PhaseOneGroupingTour() {
         className={`${styles.groupDemo} ${grouped ? styles.grouped : ""}`}
         data-tour={grouped ? "phase-one-group-frame" : "phase-one-group-demo"}
       >
-        <div className={styles.groupNote}>{DEMO_CONTENT}</div>
+        <div className={styles.groupNote} data-testid="phase-one-group-note">
+          {DEMO_CONTENT}
+        </div>
         <div
           className={styles.groupNote}
           data-tour="phase-one-group-moving-note"
+          data-testid="phase-one-group-note"
         >
           {GROUP_DEMO_CONTENT}
         </div>
+        <div className={styles.groupNote} data-testid="phase-one-group-note">
+          {GROUP_DEMO_THIRD_CONTENT}
+        </div>
+        {grouped ? (
+          <div
+            className={styles.groupOutline}
+            data-testid="phase-one-group-outline"
+          />
+        ) : null}
         {grouped ? (
           <div className={styles.groupHeader} data-tour="phase-one-group-name">
-            {groupName || "グループ"}
+            {isNameEditing ? (
+              <input
+                type="text"
+                readOnly
+                value={groupName}
+                aria-label="グループ名を入力"
+                data-tour="phase-one-group-name-input"
+              />
+            ) : (
+              groupName
+            )}
           </div>
         ) : null}
       </div>
@@ -490,8 +529,13 @@ function PhaseOneGroupingTour() {
 
 function PhaseOneVotingTour() {
   const [stage, setStage] = useState<
-    "subjective" | "objective" | "target" | "remove" | "done"
+    "subjective" | "objective" | "target" | "done"
   >("subjective");
+  const [visibleVoteCount, setVisibleVoteCount] = useState(0);
+  const [arrivedVoteIds, setArrivedVoteIds] = useState<string[]>([]);
+  const [sourceOffsets, setSourceOffsets] = useState<
+    Record<string, { x: number; y: number }>
+  >({});
   const timersRef = useRef<number[]>([]);
 
   useEffect(() => {
@@ -537,40 +581,16 @@ function PhaseOneVotingTour() {
             side: "top",
             showButtons: ["next"],
             onNextClick: () => {
-              setStage("target");
-              document.body.classList.add("phase-one-writing-tour-moving");
-              const finish = () => {
-                document.body.classList.remove("phase-one-writing-tour-moving");
-                tour.moveNext();
-              };
-              window.requestAnimationFrame(() => {
-                window.requestAnimationFrame(() => {
-                  timersRef.current.push(window.setTimeout(finish, 750));
-                });
-              });
+              startVoteAnimation();
             },
           },
         },
         {
-          element: '[data-testid="phase-one-voting-demo-note"]',
+          element: "body",
           waitForElement: 3_000,
           popover: {
             description:
-              "シールを付箋にドラッグして投票します。投票中は、自分のシールだけが見えます。",
-            side: "left",
-            showButtons: ["next"],
-            onNextClick: () => {
-              setStage("remove");
-              window.requestAnimationFrame(() => tour.moveNext());
-            },
-          },
-        },
-        {
-          element: '[data-tour="phase-one-voting-demo-sticker"]',
-          waitForElement: 3_000,
-          popover: {
-            description:
-              "貼った自分のシールは、押すと取り消せます。パレットへ戻しても取り消せます。",
+              "2枚の付箋へシールをドラッグして投票します。投票中は、自分のシールだけが見えます。",
             side: "left",
             showButtons: ["next"],
           },
@@ -578,6 +598,56 @@ function PhaseOneVotingTour() {
       ] as DriveStep[],
     });
     tour.drive();
+
+    function startVoteAnimation() {
+      setSourceOffsets(getSourceOffsets());
+      setStage("target");
+      setVisibleVoteCount(DEMO_VOTES.length);
+      setArrivedVoteIds([]);
+      document.body.classList.add("phase-one-writing-tour-moving");
+
+      for (const [voteIndex, vote] of DEMO_VOTES.entries()) {
+        const timer = window.setTimeout(
+          () => {
+            setArrivedVoteIds((current) => [...current, vote.id]);
+          },
+          40 + voteIndex * 120,
+        );
+        timersRef.current.push(timer);
+      }
+
+      const finishTimer = window.setTimeout(() => {
+        document.body.classList.remove("phase-one-writing-tour-moving");
+        tour.setConfig({ animate: false });
+        tour.moveNext();
+      }, 950);
+      timersRef.current.push(finishTimer);
+    }
+
+    function getSourceOffsets() {
+      const offsets: Record<string, { x: number; y: number }> = {};
+      for (const vote of DEMO_VOTES) {
+        const paletteButton = document.querySelector<HTMLElement>(
+          `[data-vote-palette="true"] button[aria-label^="${vote.kind === "subjective" ? "主観" : "客観"}シール"]`,
+        );
+        const note = document.querySelector<HTMLElement>(
+          `[data-vote-note="${vote.note}"]`,
+        );
+        if (!paletteButton || !note) {
+          offsets[vote.id] = { x: 0, y: 0 };
+          continue;
+        }
+        const paletteBox = paletteButton.getBoundingClientRect();
+        const noteBox = note.getBoundingClientRect();
+        const targetX = noteBox.width - vote.right - 14;
+        const targetY = noteBox.height - 30;
+        offsets[vote.id] = {
+          x: paletteBox.left + paletteBox.width / 2 - noteBox.left - targetX,
+          y: paletteBox.top + paletteBox.height / 2 - noteBox.top - targetY,
+        };
+      }
+      return offsets;
+    }
 
     return () => {
       for (const timer of timersRef.current) {
@@ -593,7 +663,6 @@ function PhaseOneVotingTour() {
   const isDesktop = typeof window === "undefined" || window.innerWidth >= 768;
   if (stage === "done" || !isDesktop) return null;
 
-  const stickerArrived = stage === "target" || stage === "remove";
   return (
     <div
       data-testid="phase-one-writing-tour"
@@ -601,18 +670,66 @@ function PhaseOneVotingTour() {
       aria-hidden="true"
     >
       <div
-        className={styles.voteDemoNote}
+        className={styles.voteDemoBoard}
         data-testid="phase-one-voting-demo-note"
       >
-        {DEMO_CONTENT}
-        <span
-          className={`${styles.voteDemoSticker} ${
-            stickerArrived ? styles.voteDemoStickerArrived : ""
-          }`}
-          data-tour="phase-one-voting-demo-sticker"
-        >
-          <DotVoteSticker kind="subjective" count={1} state="preview" />
-        </span>
+        <div className={styles.voteDemoNote} data-vote-note="left">
+          {DEMO_CONTENT}
+          {DEMO_VOTES.filter((vote) => vote.note === "left")
+            .slice(0, visibleVoteCount)
+            .map((vote) => (
+              <span
+                key={vote.id}
+                className={`${styles.voteDemoSticker} ${
+                  arrivedVoteIds.includes(vote.id)
+                    ? styles.voteDemoStickerArrived
+                    : ""
+                }`}
+                data-tour={
+                  vote.id === "subjective-left"
+                    ? "phase-one-voting-demo-sticker"
+                    : undefined
+                }
+                data-testid="phase-one-voting-demo-sticker"
+                data-vote-demo-kind={vote.kind}
+                data-vote-demo-note={vote.note}
+                style={{
+                  right: vote.right,
+                  bottom: 16,
+                  ["--source-x" as string]: `${sourceOffsets[vote.id]?.x ?? 0}px`,
+                  ["--source-y" as string]: `${sourceOffsets[vote.id]?.y ?? 0}px`,
+                }}
+              >
+                <DotVoteSticker kind={vote.kind} count={1} state="confirmed" />
+              </span>
+            ))}
+        </div>
+        <div className={styles.voteDemoNote} data-vote-note="right">
+          {VOTE_DEMO_SECOND_CONTENT}
+          {DEMO_VOTES.filter((vote) => vote.note === "right")
+            .slice(0, visibleVoteCount)
+            .map((vote) => (
+              <span
+                key={vote.id}
+                className={`${styles.voteDemoSticker} ${
+                  arrivedVoteIds.includes(vote.id)
+                    ? styles.voteDemoStickerArrived
+                    : ""
+                }`}
+                data-testid="phase-one-voting-demo-sticker"
+                data-vote-demo-kind={vote.kind}
+                data-vote-demo-note={vote.note}
+                style={{
+                  right: vote.right,
+                  bottom: 16,
+                  ["--source-x" as string]: `${sourceOffsets[vote.id]?.x ?? 0}px`,
+                  ["--source-y" as string]: `${sourceOffsets[vote.id]?.y ?? 0}px`,
+                }}
+              >
+                <DotVoteSticker kind={vote.kind} count={1} state="confirmed" />
+              </span>
+            ))}
+        </div>
       </div>
     </div>
   );
@@ -677,20 +794,6 @@ function PhaseOneDecisionTour({ isHost }: { isHost: boolean }) {
           showButtons: ["next"],
         },
       },
-      {
-        element: () =>
-          findButtonByText(
-            '[data-testid="board-control-hud"]',
-            "次のステップへ",
-          ),
-        waitForElement: 3_000,
-        popover: {
-          description:
-            "課題を確定したら、ここから問いを考えるフェーズへ進みます。",
-          side: "bottom",
-          showButtons: ["next"],
-        },
-      },
     ];
     const participantSteps: DriveStep[] = [
       {
@@ -731,7 +834,7 @@ function PhaseOneDecisionTour({ isHost }: { isHost: boolean }) {
       },
     ];
     const tour = driver({
-      animate: true,
+      animate: false,
       duration: 450,
       stagePadding: 0,
       stageRadius: 8,

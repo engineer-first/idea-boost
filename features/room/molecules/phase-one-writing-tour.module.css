@@ -34,19 +34,23 @@
   position: fixed;
   top: 50%;
   left: 50%;
-  width: 456px;
-  height: 220px;
+  width: 680px;
+  height: 460px;
   transform: translate(-50%, -50%);
+  background: #fff;
+  transition:
+    width 450ms ease,
+    height 450ms ease;
 }
 
 .groupDemo.grouped {
-  border: 2px dashed rgb(59 130 246 / 65%);
-  border-radius: 12px;
-  background: rgb(59 130 246 / 6%);
+  width: 540px;
+  height: 430px;
 }
 
 .groupNote {
   position: absolute;
+  z-index: 1;
   top: 52px;
   left: 0;
   width: 192px;
@@ -63,22 +67,56 @@
 }
 
 .groupNote + .groupNote {
-  left: 252px;
+  left: 300px;
 }
 
-.grouped .groupNote {
-  top: 64px;
-  left: 42px;
+.groupNote:nth-child(1) {
+  top: 100px;
+  left: 30px;
 }
 
-.grouped .groupNote + .groupNote {
-  top: 82px;
-  left: 132px;
+.groupNote:nth-child(2) {
+  top: 100px;
+  left: 458px;
+}
+
+.groupNote:nth-child(3) {
+  top: 300px;
+  left: 245px;
+}
+
+.grouped .groupNote:nth-child(1) {
+  top: 54px;
+  left: 24px;
+}
+
+.grouped .groupNote:nth-child(2) {
+  top: 54px;
+  left: 264px;
+}
+
+.grouped .groupNote:nth-child(3) {
+  top: 220px;
+  left: 144px;
+}
+
+.groupOutline {
+  position: absolute;
+  z-index: 0;
+  top: 38px;
+  left: 8px;
+  width: 464px;
+  height: 350px;
+  border: 2px dashed rgb(59 130 246 / 65%);
+  border-radius: 12px;
+  background: rgb(59 130 246 / 6%);
+  pointer-events: none;
 }
 
 .groupHeader {
   position: absolute;
-  top: 12px;
+  z-index: 2;
+  top: 8px;
   left: 16px;
   min-width: 120px;
   border-radius: 8px;
@@ -90,13 +128,32 @@
   box-shadow: 0 2px 8px rgb(15 23 42 / 10%);
 }
 
-.voteDemoNote {
+.groupHeader input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.voteDemoBoard {
   position: fixed;
   top: 50%;
   left: 50%;
-  width: 320px;
-  min-height: 180px;
+  width: 660px;
+  height: 250px;
   transform: translate(-50%, -50%);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.voteDemoNote {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  width: 280px;
+  min-height: 180px;
   border-radius: 6px;
   background: #fef08a;
   box-shadow: 0 8px 20px rgb(15 23 42 / 18%);
@@ -106,12 +163,15 @@
   line-height: 1.5;
 }
 
+.voteDemoNote + .voteDemoNote {
+  left: 380px;
+}
+
 .voteDemoSticker {
   position: absolute;
-  top: 16px;
-  left: 16px;
-  transition: transform 650ms ease;
-  transform: translate(-210px, 150px);
+  z-index: 1;
+  transition: transform 450ms ease;
+  transform: translate(var(--source-x), var(--source-y));
 }
 
 .voteDemoStickerArrived {

@@ -55,7 +55,7 @@ test("フェーズ1-1のデモは付箋追加と入力の2ステップだけを�
   ).toBe(0);
 });
 
-test("フェーズ1-4のデモは投票と取消を4ステップで案内する", async () => {
+test("フェーズ1-4のデモはシールの選択と投票を3ステップで案内する", async () => {
   page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--phase-one-voting-demo&viewMode=story`,
@@ -78,20 +78,81 @@ test("フェーズ1-4のデモは投票と取消を4ステップで案内する"
   await body.getByRole("button", { name: "次へ" }).click();
   await expect(
     body.getByText(
-      "シールを付箋にドラッグして投票します。投票中は、自分のシールだけが見えます。",
+      "2枚の付箋へシールをドラッグして投票します。投票中は、自分のシールだけが見えます。",
       { exact: true },
     ),
   ).toBeVisible();
   await expect(
     body.locator('[data-testid="phase-one-voting-demo-note"]'),
   ).toBeVisible();
+  expect(await body.getByTestId("phase-one-voting-demo-sticker").count()).toBe(
+    4,
+  );
+  expect(await body.locator('[data-vote-demo-kind="subjective"]').count()).toBe(
+    1,
+  );
+  expect(await body.locator('[data-vote-demo-kind="objective"]').count()).toBe(
+    3,
+  );
+  await body.getByRole("button", { name: "終了" }).click();
+  expect(await body.getByTestId("phase-one-writing-tour").count()).toBe(0);
+});
+
+test("フェーズ1-3のデモは3枚の付箋を重ねずにまとめ、名前を入力する", async () => {
+  page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardview--phase-one-grouping-demo&viewMode=story`,
+  );
+
+  const body = page.locator("body");
+  const notes = body.getByTestId("phase-one-group-note");
+  expect(await notes.count()).toBe(3);
+  const demoArea = body.locator('[data-tour="phase-one-group-demo"]');
+  expect(
+    await demoArea.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    ),
+  ).toBe("rgb(255, 255, 255)");
   await body.getByRole("button", { name: "次へ" }).click();
   await expect(
-    body.getByText(
-      "貼った自分のシールは、押すと取り消せます。パレットへ戻しても取り消せます。",
-      { exact: true },
-    ),
+    body.getByText("近づけると、グループの枠ができます。", { exact: true }),
   ).toBeVisible();
+  expect(await body.getByTestId("phase-one-group-outline").count()).toBe(1);
+
+  const boxes = await notes.evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        left: box.left,
+        top: box.top,
+        right: box.right,
+        bottom: box.bottom,
+      };
+    }),
+  );
+  for (let index = 0; index < boxes.length; index += 1) {
+    for (
+      let otherIndex = index + 1;
+      otherIndex < boxes.length;
+      otherIndex += 1
+    ) {
+      const first = boxes[index];
+      const second = boxes[otherIndex];
+      expect(
+        first.right <= second.left ||
+          second.right <= first.left ||
+          first.bottom <= second.top ||
+          second.bottom <= first.top,
+      ).toBe(true);
+    }
+  }
+
+  await body.getByRole("button", { name: "次へ" }).click();
+  const nameInput = body.locator('[data-tour="phase-one-group-name-input"]');
+  await expect(nameInput).toBeVisible();
+  await expect
+    .poll(() => nameInput.inputValue(), { timeout: 8_000 })
+    .toBe("会議での発言");
   await body.getByRole("button", { name: "終了" }).click();
   expect(await body.getByTestId("phase-one-writing-tour").count()).toBe(0);
 });
@@ -126,13 +187,6 @@ test("フェーズ1-5のホストデモは課題の確定と進行を案内す�
   await expect(
     body.getByText(
       "確定した課題は全員に表示されます。次へ進む前なら、取り消して選び直せます。",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await body.getByRole("button", { name: "次へ" }).click();
-  await expect(
-    body.getByText(
-      "課題を確定したら、ここから問いを考えるフェーズへ進みます。",
       { exact: true },
     ),
   ).toBeVisible();

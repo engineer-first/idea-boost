@@ -64,7 +64,7 @@ describe("工程ガイド", () => {
     expect(trigger).not.toHaveAccessibleDescription();
   });
   it("初回の短い案内から直接詳細を開けて、最初の操作と目的・例を読める", () => {
-    setup();
+    setup({ initialState: "intro" });
     fireEvent.click(screen.getByRole("button", { name: "進め方を見る" }));
     const detail = screen.getByRole("region", {
       name: "ファシリテーションガイド",
@@ -80,7 +80,7 @@ describe("工程ガイド", () => {
   });
   it("初回案内はフォーカスを奪わず、5秒後に同じ枠のボタンへ畳む", () => {
     vi.useFakeTimers();
-    setup();
+    setup({ initialState: "intro" });
     const shell = frame();
     expect(screen.getByRole("status", { name: "最初の一歩" })).toBeVisible();
     expect(shell).not.toContainElement(document.activeElement as HTMLElement);
@@ -97,7 +97,7 @@ describe("工程ガイド", () => {
   });
   it("hover中は残り時間を止め、外れた後は残りだけを数える", () => {
     vi.useFakeTimers();
-    setup();
+    setup({ initialState: "intro" });
     tick(2000);
     fireEvent.pointerEnter(frame());
     tick(10000);
@@ -110,7 +110,7 @@ describe("工程ガイド", () => {
   });
   it("ガイド内のfocus中は畳まない", () => {
     vi.useFakeTimers();
-    setup();
+    setup({ initialState: "intro" });
     tick(2000);
     act(() => screen.getByRole("status", { name: "最初の一歩" }).focus());
     tick(10000);
@@ -120,7 +120,10 @@ describe("工程ガイド", () => {
   });
   it("非表示と読込中には表示時間を消費しない", () => {
     vi.useFakeTimers();
-    const { rerender, props } = setup({ isReady: false });
+    const { rerender, props } = setup({
+      isReady: false,
+      initialState: "intro",
+    });
     tick(10000);
     rerender(<StepGuide {...props} isReady />);
     tick(2000);
@@ -181,37 +184,37 @@ describe("工程ガイド", () => {
     expect(screen.getByRole("button", { name: "付箋を追加" })).toHaveFocus();
     expect(frame()).toHaveAttribute("data-state", "compact");
   });
-  it("初めての工程だけ案内し、戻る・再マウントでは畳んで始める", () => {
+  it("工程を切り替えても自動表示せず、戻る・再マウントでは畳んで始める", () => {
     const { rerender, unmount, props } = setup();
     outsideClick();
     rerender(<StepGuide {...props} phaseKey="1-2" />);
-    expect(frame()).toHaveAttribute("data-state", "intro");
+    expect(frame()).toHaveAttribute("data-state", "compact");
     rerender(<StepGuide {...props} />);
     expect(frame()).toHaveAttribute("data-state", "compact");
     unmount();
     setup();
     expect(frame()).toHaveAttribute("data-state", "compact");
   });
-  it("同じ工程の再描画で詳細をリセットせず、次工程では新しい短い案内にする", () => {
+  it("同じ工程の再描画で詳細をリセットせず、次工程では畳んで始める", () => {
     const { rerender, props } = setup({ initialState: "compact" });
     fireEvent.click(screen.getByRole("button", { name: "進め方" }));
     rerender(<StepGuide {...props} isHost />);
     expect(frame()).toHaveAttribute("data-state", "detail");
     rerender(<StepGuide {...props} phaseKey="1-2" />);
-    expect(frame()).toHaveAttribute("data-state", "intro");
+    expect(frame()).toHaveAttribute("data-state", "compact");
   });
   it("他参加者・他ルームの初回案内と開閉には影響しない", () => {
-    const { unmount } = setup();
+    const { unmount } = setup({ initialState: "intro" });
     outsideClick();
     unmount();
-    const other = setup({ sessionKey: "room:other" });
+    const other = setup({ sessionKey: "room:other", initialState: "intro" });
     expect(frame()).toHaveAttribute("data-state", "intro");
     other.unmount();
-    setup({ sessionKey: "other-room:me" });
+    setup({ sessionKey: "other-room:me", initialState: "intro" });
     expect(frame()).toHaveAttribute("data-state", "intro");
   });
   it("渡された導入を表示し、詳細から作業・手順・例・完了条件を読める", () => {
-    setup();
+    setup({ initialState: "intro" });
     expect(
       screen.getByRole("status", { name: "最初の一歩" }),
     ).toHaveTextContent(guide.intro);
@@ -241,14 +244,10 @@ describe("工程ガイド", () => {
     });
     expect(screen.getByRole("heading", { name: guide.message })).toBeVisible();
   });
-  it("案内の途中で次工程へ進んでも、次の案内は5秒表示する", () => {
+  it("案内の途中で次工程へ進むと、次の案内は自動表示しない", () => {
     vi.useFakeTimers();
     const { props, rerender } = setup();
-    tick(4000);
     rerender(<StepGuide {...props} phaseKey="1-2" />);
-    tick(4999);
-    expect(frame()).toHaveAttribute("data-state", "intro");
-    tick(1);
     expect(frame()).toHaveAttribute("data-state", "compact");
   });
   it("詳細を読んでいる途中の工程変更でも、次の短い案内は自動で畳む", () => {
