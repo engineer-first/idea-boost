@@ -95,3 +95,77 @@ test("フェーズ1-4のデモは投票と取消を4ステップで案内する"
   await body.getByRole("button", { name: "終了" }).click();
   expect(await body.getByTestId("phase-one-writing-tour").count()).toBe(0);
 });
+
+test("フェーズ1-5のホストデモは課題の確定と進行を案内する", async () => {
+  page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardview--phase-one-decision-demo&viewMode=story`,
+  );
+
+  const body = page.locator("body");
+  await expect(
+    body.getByText(
+      "みんなの投票結果を参考に、取り組む課題を1つ話し合いましょう。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText(
+      "課題が決まったら、このボタンで採用する付箋の選択を始めます。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText("取り組む課題の付箋をクリックすると、確定します。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText(
+      "確定した課題は全員に表示されます。次へ進む前なら、取り消して選び直せます。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText(
+      "課題を確定したら、ここから問いを考えるフェーズへ進みます。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "終了" }).click();
+  expect(await body.getByTestId("phase-one-writing-tour").count()).toBe(0);
+});
+
+test("フェーズ1-5の参加者デモはホストの確定を案内する", async () => {
+  page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardview--phase-one-decision-participant-demo&viewMode=story`,
+  );
+
+  const body = page.locator("body");
+  await expect(
+    body.getByText(
+      "投票結果を参考に、取り組む課題をみんなで話し合いましょう。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText("話し合って決めた課題は、ホストが確定します。", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "次へ" }).click();
+  await expect(
+    body.getByText(
+      "確定した課題はここに表示されます。次は、この課題から問いを考えます。",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await body.getByRole("button", { name: "終了" }).click();
+  expect(await body.getByTestId("phase-one-writing-tour").count()).toBe(0);
+});

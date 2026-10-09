@@ -1967,7 +1967,9 @@ export function RoomBoardView({
         />
       </div>
       {feedback ? <FeedbackPanel feedback={feedback} /> : null}
-      {showPhaseOneWritingTour ? <PhaseOneWritingTour phase={phase} /> : null}
+      {showPhaseOneWritingTour ? (
+        <PhaseOneWritingTour phase={phase} isHost={isHost} />
+      ) : null}
     </>
   );
 }

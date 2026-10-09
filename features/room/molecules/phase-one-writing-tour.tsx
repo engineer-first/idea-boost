@@ -24,9 +24,13 @@ type TourStage =
 
 type PhaseOneWritingTourProps = {
   phase: RoomPhase;
+  isHost?: boolean;
 };
 
-export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
+export function PhaseOneWritingTour({
+  phase,
+  isHost = true,
+}: PhaseOneWritingTourProps) {
   const [stage, setStage] = useState<TourStage>("add");
   const [content, setContent] = useState("");
   const [notePosition, setNotePosition] = useState({ left: 24, top: 180 });
@@ -41,6 +45,8 @@ export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
     phase.kind === "step" && phase.phase === 1 && phase.step === 3;
   const isVotingStep =
     phase.kind === "step" && phase.phase === 1 && phase.step === 4;
+  const isDecisionStep =
+    phase.kind === "step" && phase.phase === 1 && phase.step === 5;
 
   useEffect(() => {
     if ((!isFirstStep && !isSharingStep) || window.innerWidth < 768) return;
@@ -310,6 +316,7 @@ export function PhaseOneWritingTour({ phase }: PhaseOneWritingTourProps) {
 
   if (isGroupingStep) return <PhaseOneGroupingTour />;
   if (isVotingStep) return <PhaseOneVotingTour />;
+  if (isDecisionStep) return <PhaseOneDecisionTour isHost={isHost} />;
 
   const isDesktop = typeof window === "undefined" || window.innerWidth >= 768;
   if ((!isFirstStep && !isSharingStep) || stage === "done" || !isDesktop)
@@ -609,4 +616,201 @@ function PhaseOneVotingTour() {
       </div>
     </div>
   );
+}
+
+function PhaseOneDecisionTour({ isHost }: { isHost: boolean }) {
+  const [stage, setStage] = useState<
+    "result" | "selecting" | "confirmed" | "host" | "done"
+  >(isHost ? "result" : "result");
+
+  useEffect(() => {
+    if (window.innerWidth < 768) return;
+
+    const hostSteps: DriveStep[] = [
+      {
+        element: '[data-testid="phase-one-decision-demo-note"]',
+        popover: {
+          description:
+            "みんなの投票結果を参考に、取り組む課題を1つ話し合いましょう。",
+          side: "left",
+          showButtons: ["next"],
+        },
+      },
+      {
+        element: () =>
+          findButtonByText(
+            '[data-testid="phase-loop-hud"]',
+            "採用する付箋を選ぶ",
+          ),
+        waitForElement: 3_000,
+        popover: {
+          description:
+            "課題が決まったら、このボタンで採用する付箋の選択を始めます。",
+          side: "top",
+          showButtons: ["next"],
+          onNextClick: () => {
+            setStage("selecting");
+            window.requestAnimationFrame(() => tour.moveNext());
+          },
+        },
+      },
+      {
+        element: '[data-tour="phase-one-decision-demo-selected"]',
+        waitForElement: 3_000,
+        popover: {
+          description: "取り組む課題の付箋をクリックすると、確定します。",
+          side: "left",
+          showButtons: ["next"],
+          onNextClick: () => {
+            setStage("confirmed");
+            window.requestAnimationFrame(() => tour.moveNext());
+          },
+        },
+      },
+      {
+        element: '[data-tour="phase-one-decision-demo-confirmed"]',
+        waitForElement: 3_000,
+        popover: {
+          description:
+            "確定した課題は全員に表示されます。次へ進む前なら、取り消して選び直せます。",
+          side: "top",
+          showButtons: ["next"],
+        },
+      },
+      {
+        element: () =>
+          findButtonByText(
+            '[data-testid="board-control-hud"]',
+            "次のステップへ",
+          ),
+        waitForElement: 3_000,
+        popover: {
+          description:
+            "課題を確定したら、ここから問いを考えるフェーズへ進みます。",
+          side: "bottom",
+          showButtons: ["next"],
+        },
+      },
+    ];
+    const participantSteps: DriveStep[] = [
+      {
+        element: '[data-testid="phase-one-decision-demo-note"]',
+        popover: {
+          description:
+            "投票結果を参考に、取り組む課題をみんなで話し合いましょう。",
+          side: "left",
+          showButtons: ["next"],
+          onNextClick: () => {
+            setStage("host");
+            window.requestAnimationFrame(() => tour.moveNext());
+          },
+        },
+      },
+      {
+        element: '[data-tour="phase-one-decision-demo-host"]',
+        waitForElement: 3_000,
+        popover: {
+          description: "話し合って決めた課題は、ホストが確定します。",
+          side: "top",
+          showButtons: ["next"],
+          onNextClick: () => {
+            setStage("confirmed");
+            window.requestAnimationFrame(() => tour.moveNext());
+          },
+        },
+      },
+      {
+        element: '[data-tour="phase-one-decision-demo-confirmed"]',
+        waitForElement: 3_000,
+        popover: {
+          description:
+            "確定した課題はここに表示されます。次は、この課題から問いを考えます。",
+          side: "top",
+          showButtons: ["next"],
+        },
+      },
+    ];
+    const tour = driver({
+      animate: true,
+      duration: 450,
+      stagePadding: 0,
+      stageRadius: 8,
+      overlayOpacity: 0.72,
+      allowClose: false,
+      allowKeyboardControl: false,
+      overlayClickBehavior: "none",
+      popoverClass: "phase-one-writing-tour-popover",
+      nextBtnText: "次へ",
+      doneBtnText: "終了",
+      onDoneClick: () => {
+        tour.destroy();
+        setStage("done");
+      },
+      steps: (isHost ? hostSteps : participantSteps) as DriveStep[],
+    });
+    tour.drive();
+
+    return () => tour.destroy();
+  }, [isHost]);
+
+  const isDesktop = typeof window === "undefined" || window.innerWidth >= 768;
+  if (stage === "done" || !isDesktop) return null;
+
+  const isSelected = stage === "selecting" || stage === "confirmed";
+  const isConfirmed = stage === "confirmed";
+  return (
+    <div
+      data-testid="phase-one-writing-tour"
+      className={styles.layer}
+      aria-hidden="true"
+    >
+      <div
+        className={`${styles.decisionDemoNote} ${
+          isSelected ? styles.decisionDemoNoteSelected : ""
+        }`}
+        data-testid="phase-one-decision-demo-note"
+        data-tour={isSelected ? "phase-one-decision-demo-selected" : undefined}
+      >
+        <p>{DEMO_CONTENT}</p>
+        <div className={styles.decisionDemoResults}>
+          <DotVoteSticker kind="subjective" count={2} state="result" />
+          <DotVoteSticker kind="objective" count={4} state="result" />
+        </div>
+        {isConfirmed ? (
+          <span
+            className={styles.decisionDemoCheck}
+            role="status"
+            aria-label="取り組む課題に決定済み"
+          >
+            ✓
+          </span>
+        ) : null}
+      </div>
+      {!isHost && stage === "host" ? (
+        <div
+          className={styles.decisionDemoHost}
+          data-tour="phase-one-decision-demo-host"
+        >
+          ホストが課題を確定します
+        </div>
+      ) : null}
+      {isConfirmed ? (
+        <div
+          className={styles.decisionDemoConfirmed}
+          data-tour="phase-one-decision-demo-confirmed"
+        >
+          <span>付箋を1件確定済み</span>
+          <strong>{DEMO_CONTENT}</strong>
+          {isHost ? <button type="button">確定を取り消す</button> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function findButtonByText(containerSelector: string, text: string): Element {
+  const button = Array.from(
+    document.querySelectorAll<HTMLButtonElement>(`${containerSelector} button`),
+  ).find((candidate) => candidate.textContent?.includes(text));
+  return button ?? document.body;
 }

@@ -117,4 +117,57 @@ describe("PhaseOneWritingTour", () => {
       "貼った自分のシールは、押すと取り消せます。パレットへ戻しても取り消せます。",
     );
   });
+
+  it("フェーズ1-5のホストには結果、採用、確定、進行を案内する", () => {
+    render(
+      <>
+        <div data-testid="phase-loop-hud">
+          <button type="button">採用する付箋を選ぶ</button>
+        </div>
+        <button type="button">次のステップへ</button>
+        <PhaseOneWritingTour phase={buildPhaseStep(5, 1)} isHost />
+      </>,
+    );
+
+    expect(screen.getByTestId("phase-one-writing-tour")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("phase-one-decision-demo-note"),
+    ).toBeInTheDocument();
+    const config = driverMock.mock.calls[0]?.[0];
+    expect(config.steps).toHaveLength(5);
+    expect(config.steps[0].popover.description).toBe(
+      "みんなの投票結果を参考に、取り組む課題を1つ話し合いましょう。",
+    );
+    expect(config.steps[1].popover.description).toBe(
+      "課題が決まったら、このボタンで採用する付箋の選択を始めます。",
+    );
+    expect(config.steps[2].popover.description).toBe(
+      "取り組む課題の付箋をクリックすると、確定します。",
+    );
+    expect(config.steps[3].popover.description).toBe(
+      "確定した課題は全員に表示されます。次へ進む前なら、取り消して選び直せます。",
+    );
+    expect(config.steps[4].popover.description).toBe(
+      "課題を確定したら、ここから問いを考えるフェーズへ進みます。",
+    );
+  });
+
+  it("フェーズ1-5の参加者には結果と確定内容だけを案内する", () => {
+    render(<PhaseOneWritingTour phase={buildPhaseStep(5, 1)} isHost={false} />);
+
+    expect(
+      screen.getByTestId("phase-one-decision-demo-note"),
+    ).toBeInTheDocument();
+    const config = driverMock.mock.calls[0]?.[0];
+    expect(config.steps).toHaveLength(3);
+    expect(config.steps[0].popover.description).toBe(
+      "投票結果を参考に、取り組む課題をみんなで話し合いましょう。",
+    );
+    expect(config.steps[1].popover.description).toBe(
+      "話し合って決めた課題は、ホストが確定します。",
+    );
+    expect(config.steps[2].popover.description).toBe(
+      "確定した課題はここに表示されます。次は、この課題から問いを考えます。",
+    );
+  });
 });

@@ -278,6 +278,42 @@ export const PhaseOneVotingDemo: Story = {
   },
 };
 
+export const PhaseOneDecisionDemo: Story = {
+  name: "フェーズ1-5 課題決定デモ（ホスト）",
+  args: {
+    phase: STEP_1_5,
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: {
+          count: index === 0 ? 2 : 0,
+          votedByMe: false,
+          ownCount: 0,
+        },
+        objective: {
+          count: index === 0 ? 4 : index + 1,
+          votedByMe: false,
+          ownCount: 0,
+        },
+      },
+    })),
+    initialGuideState: "compact",
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: [],
+    },
+    showPhaseOneWritingTour: true,
+  },
+};
+
+export const PhaseOneDecisionParticipantDemo: Story = {
+  name: "フェーズ1-5 課題決定デモ（参加者）",
+  args: {
+    ...PhaseOneDecisionDemo.args,
+    isHost: false,
+  },
+};
+
 export const Phase1SecondStepIntro: Story = {
   name: "フェーズ1 Step 2の付箋共有",
   args: {
