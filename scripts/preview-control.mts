@@ -51,6 +51,8 @@ function required(name: string): string {
   return value;
 }
 function cli(args: string[]): string {
+  required("CLOUDFLARE_API_TOKEN");
+  required("CLOUDFLARE_ACCOUNT_ID");
   const nameIndex = args.indexOf("--name");
   const target =
     nameIndex >= 0

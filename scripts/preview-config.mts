@@ -56,7 +56,37 @@ const apiSchema = z.object({
     )
     .length(1),
 });
+function assertKnownKeys(value: unknown, template: unknown): void {
+  if (Array.isArray(value) && Array.isArray(template)) {
+    for (const item of value) assertKnownKeys(item, template[0]);
+  } else if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof template === "object" &&
+    template !== null
+  ) {
+    for (const [key, item] of Object.entries(value)) {
+      if (!Object.hasOwn(template, key))
+        throw new Error(`Preview構成に未許可の項目 ${key} を追加できません。`);
+      assertKnownKeys(item, (template as Record<string, unknown>)[key]);
+    }
+  }
+}
 export function assertPreviewConfig(value: unknown, kind: "app" | "api"): void {
+  // 許可した構成以外のbindingやoverrideをCLIへ渡さない。
+  const template = JSON.parse(
+    readFileSync(
+      new URL(
+        kind === "app"
+          ? "wrangler.preview.jsonc"
+          : "workers/wrangler.preview.jsonc",
+        root,
+      ),
+      "utf8",
+    ),
+  );
+  if (kind === "api") template.vars.PREVIEW_API_COMMIT = "";
+  assertKnownKeys(value, template);
   if (kind === "app") appSchema.parse(value);
   else {
     const config = apiSchema.parse(value);

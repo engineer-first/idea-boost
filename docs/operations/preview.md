@@ -50,18 +50,18 @@ Policy Testerの一括試験は起動しましたが、画面で判定結果を�
 5. 疎通確認用Access Service Tokenを作り、同じPreview applicationにService Auth policyを追加します。Service Tokenだけでは本人メールのJWTにならないため、Appは通常画面・API・WSを許可しません。疎通はさらに独立したprobe tokenを`/api/health`だけで検証します。これはGoogle利用者のログインとは別です。Appは独立したprobe tokenを正しいhealth経路だけで受け、共通APIのD1とRoomDOへ到達できることを確認します。
 6. 以下のGitHub Secrets/variablesを登録します。秘密値はGit、図、操作台帳、PR本文へ書きません。Secretファイルは公開処理が権限0600で一時生成し、終了時に削除します。
 
-| GitHubの設定名                                              | 設定種別・用途                                                                                         | Cloudflareへの設定先                                    |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| `PREVIEW_CLOUDFLARE_API_TOKEN`                              | 任意Secret。PreviewのWorkers ScriptsとD1操作用。未設定時は既存`CLOUDFLARE_API_TOKEN`を権限拡張せず継続 | CIだけで使用                                            |
-| `CLOUDFLARE_ACCOUNT_ID`                                     | 既存Secret。対象Accountの選択                                                                          | CIだけで使用                                            |
-| `PREVIEW_D1_ID`                                             | Variable。本番と異なるPreview D1 ID                                                                    | 共通APIの生成済み構成                                   |
-| `PREVIEW_SESSION_SECRET`                                    | Secret。本番と別の十分にランダムな32バイト以上の秘密                                                   | 各App Previewと共通APIの`SESSION_SECRET`                |
-| `PREVIEW_ALLOWED_EMAILS`                                    | Secret。メンバーの確認済みメールをカンマ区切り                                                         | 各App Previewと共通API。Access policyにも同じ一覧を設定 |
-| `PREVIEW_ACCESS_ISSUER`                                     | Variable。`https://<team>.cloudflareaccess.com`                                                        | 各App Preview・共通API                                  |
-| `PREVIEW_ACCESS_AUD`                                        | Variable。Access applicationのAUD                                                                      | 各App Preview・共通API                                  |
-| `PREVIEW_PROBE_TOKEN`                                       | Secret。ランダムな32文字以上のhealth専用秘密                                                           | 各App Previewと共通API                                  |
-| `PREVIEW_ACCESS_CLIENT_ID` / `PREVIEW_ACCESS_CLIENT_SECRET` | Secrets。health用Access Service Token                                                                  | CIのHTTP probeだけで使用                                |
-| `PREVIEW_ENABLED`                                           | Variable。上記設定と契約確認後に`true`                                                                 | workflowの有効化。Worker側の同名flagは専用構成に固定    |
+| GitHubの設定名                                              | 設定種別・用途                                                                        | Cloudflareへの設定先                                    |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `PREVIEW_CLOUDFLARE_API_TOKEN`                              | 必須Secret。PreviewのWorkers ScriptsとD1操作用。未設定時は停止し、本番Tokenを使わない | CIだけで使用                                            |
+| `CLOUDFLARE_ACCOUNT_ID`                                     | 既存Secret。対象Accountの選択                                                         | CIだけで使用                                            |
+| `PREVIEW_D1_ID`                                             | Variable。本番と異なるPreview D1 ID                                                   | 共通APIの生成済み構成                                   |
+| `PREVIEW_SESSION_SECRET`                                    | Secret。本番と別の十分にランダムな32バイト以上の秘密                                  | 各App Previewと共通APIの`SESSION_SECRET`                |
+| `PREVIEW_ALLOWED_EMAILS`                                    | Secret。メンバーの確認済みメールをカンマ区切り                                        | 各App Previewと共通API。Access policyにも同じ一覧を設定 |
+| `PREVIEW_ACCESS_ISSUER`                                     | Variable。`https://<team>.cloudflareaccess.com`                                       | 各App Preview・共通API                                  |
+| `PREVIEW_ACCESS_AUD`                                        | Variable。Access applicationのAUD                                                     | 各App Preview・共通API                                  |
+| `PREVIEW_PROBE_TOKEN`                                       | Secret。ランダムな32文字以上のhealth専用秘密                                          | 各App Previewと共通API                                  |
+| `PREVIEW_ACCESS_CLIENT_ID` / `PREVIEW_ACCESS_CLIENT_SECRET` | Secrets。health用Access Service Token                                                 | CIのHTTP probeだけで使用                                |
+| `PREVIEW_ENABLED`                                           | Variable。上記設定と契約確認後に`true`                                                | workflowの有効化。Worker側の同名flagは専用構成に固定    |
 
 APIは[専用構成](../../workers/wrangler.preview.jsonc)、Appは[専用構成](../../wrangler.preview.jsonc)を使います。Workers PreviewsにはWrangler 4.135以上が必要で、今回4.149を使用します。OpenNext 1.20.1で`npm run build:preview`を検証します。Previews Baseから本番設定やSecretを継承せず、毎回信頼済みdevelopの構成とPreview用Secretだけを指定します。
 
