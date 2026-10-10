@@ -25,9 +25,13 @@ PRのAPI・RoomDO・migration・通信契約の変更は、このPreviewに反�
 
 ## 2026-10-10の設定状況
 
-Preview専用D1の作成と既存9migrationの適用、GitHubのD1 ID variableとPreview専用Secret3つの登録を実施しました。Workersの既存契約を確認し、契約変更はしていません。Zero Trustは未利用で、Freeプランの新規選択画面まで確認しましたが、プランは選択していません。
+Preview専用D1の作成と既存9migrationの適用、GitHubのD1 ID variableとPreview専用Secret3つの登録を実施しました。Workersの既存契約は変更していません。Zero Trustは、必要な新規登録と最終条件へのユーザー承認を受けて登録を完了し、管理画面へ到達しました。実Team表示は改名していません。契約詳細・実Team domain・Account識別子はチーム限定記録へ残します。
 
-Accessの利用開始、Google IdP、URL保護、疎通用Service Tokenは未設定です。`PREVIEW_ENABLED`は有効にしておらず、App/APIの公開も実施していません。共通APIはこのPRをdevelopへ取り込み、CIが成功してから公開します。本番の設定・Secret・デプロイは変更していません。詳細と実行結果は[台帳](../../out/preview-setup-log.md)を参照します。
+Google IdPのClient ID／Client Secretは未入力です。既存Google projectでPreview専用OAuth clientの作成フォームを準備しましたが、作成ボタンは未押下で認証情報は未発行です。確定・入力はユーザー本人へ引き継ぎます。hostname-based AccessのURL保護・許可policyと疎通用Service Tokenも未完了です。途中の準備を設定成功として扱いません。`PREVIEW_ENABLED`は有効にしておらず、App/APIの公開も実施していません。共通APIはこのPRをdevelopへ取り込み、CIが成功してから公開します。本番の設定・Secret・デプロイは変更していません。詳細と実行結果は[台帳](../../out/preview-setup-log.md)を参照します。
+
+### Google連携で本人が続けること
+
+準備済みフォームはWeb用のPreview専用clientです。originに `https://<team>.cloudflareaccess.com`、redirectに同domainの `/cdn-cgi/access/callback` を使います。既存client変更、新project作成、API有効化、課金変更は行っていません。ユーザー本人が新clientの作成を確定し、発行されたClient ID／Client SecretをCloudflareのGoogle IdP欄へ入力します。値はGit・PR・台帳へ書かず、実Google project名・ID・Team domainも公開記録へ載せません。
 
 ## 初期設定
 
