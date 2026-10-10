@@ -110,6 +110,22 @@ describe("RoomAdmissionGate", () => {
     );
     await screen.findByRole("button", { name: "Googleでログインして続ける" });
     expect(screen.queryByText("ルーム本文")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "ホームへ戻る" }));
   });
+});
+
+it("認証待ちはルームの背景を残し、接続する子はマウントしない", () => {
+  const connected = vi.fn();
+  function ConnectedRoom() {
+    connected();
+    return <p>接続済みの盤面</p>;
+  }
+  render(
+    <RoomAdmissionGate roomId={roomId} fallback={<p>ルームの枠</p>}>
+      <ConnectedRoom />
+    </RoomAdmissionGate>,
+  );
+  expect(screen.getByText("ルームの枠")).toBeInTheDocument();
+  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  expect(connected).not.toHaveBeenCalled();
 });

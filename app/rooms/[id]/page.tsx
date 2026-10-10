@@ -8,7 +8,7 @@ import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { signOut } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
-import { RoomBoard } from "@/features/room";
+import { RoomBoard, RoomEntryPreview } from "@/features/room";
 import { RoomAdmissionGate } from "@/features/room-lifecycle";
 import {
   isVerificationEnabled,
@@ -129,6 +129,17 @@ export default async function RoomPage({
       <RoomAdmissionGate
         key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
         roomId={id}
+        fallback={
+          <RoomEntryPreview
+            phase={parsed.data.phase}
+            members={initialMembers}
+            currentUserId={user.sub}
+            hostUserId={parsed.data.hostUserId}
+            isHost={parsed.data.isHost}
+            inviteCode={parsed.data.inviteCode}
+            inviteUrl={inviteUrl}
+          />
+        }
         entryToken={query?.entry}
         allowFreshEntry={enough}
       >

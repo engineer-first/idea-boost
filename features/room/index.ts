@@ -6,3 +6,5 @@ export { RoomBoard } from "./containers/room-board";
 export { RoomLobby } from "./containers/room-lobby";
 
 export { RoomOutcomeView } from "./molecules/room-outcome-view";
+
+export { RoomEntryPreview } from "./templates/room-entry-preview";

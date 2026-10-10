@@ -7,14 +7,25 @@ import { RoomReauthenticationView } from "../templates/room-reauthentication-vie
 export function RoomReauthentication({
   operation,
   onBack,
+  onClosed,
 }: {
   operation: RoomEntryOperation;
   onBack?: () => void;
+  onClosed?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>();
   return (
     <RoomReauthenticationView
+      continuation={
+        operation.kind === "create"
+          ? `ログイン後、${operation.input.name ? `「${operation.input.name}」の` : ""}ルーム作成を続けます。入力した内容は引き継がれます。`
+          : operation.kind === "join"
+            ? `ログイン後、招待コード ${operation.inviteCode} のルームへの参加を続けます。`
+            : "ログイン後、このルームへの移動を続けます。"
+      }
+      backLabel={onBack ? "戻る" : "ホームへ戻る"}
+      onClosed={onClosed}
       pending={pending}
       message={message}
       onBack={

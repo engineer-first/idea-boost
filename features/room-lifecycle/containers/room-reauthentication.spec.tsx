@@ -10,6 +10,7 @@ describe("RoomReauthentication", () => {
   it("Googleへ自動移動せず本人の操作で元の参加操作を渡す", async () => {
     const operation = { kind: "join" as const, inviteCode: "AB12CD" };
     render(<RoomReauthentication operation={operation} onBack={vi.fn()} />);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
     expect(start).not.toHaveBeenCalled();
     fireEvent.click(
       screen.getByRole("button", { name: "Googleでログインして続ける" }),

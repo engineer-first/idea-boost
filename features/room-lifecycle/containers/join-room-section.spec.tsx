@@ -204,6 +204,13 @@ describe("JoinRoomSection", () => {
     expect(
       await screen.findByRole("button", { name: "Googleでログインして続ける" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("home-join-room")).toBeInTheDocument();
+    expect(screen.getByLabelText("招待コード")).toHaveValue("AB12CD");
+    expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "戻る" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("招待コード")).toHaveFocus();
+    expect(screen.getByLabelText("招待コード")).toHaveValue("AB12CD");
     expect(PUSH).not.toHaveBeenCalled();
   });
 

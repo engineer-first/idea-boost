@@ -23,6 +23,7 @@ vi.mock("@/features/room-lifecycle", () => ({
   RoomAdmissionGate: () => <span>入室前の認証確認</span>,
 }));
 vi.mock("@/features/room", () => ({
+  RoomEntryPreview: () => <span>ルームの背景</span>,
   RoomBoard: () => <span>通常のボード</span>,
 }));
 vi.mock("next/navigation", () => ({

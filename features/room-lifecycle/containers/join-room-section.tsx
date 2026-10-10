@@ -83,26 +83,31 @@ export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
     });
   }
 
-  if (reauth)
-    return (
-      <RoomReauthentication
-        operation={{ kind: "join", inviteCode: code }}
-        onBack={() => setReauth(false)}
-      />
-    );
   return (
-    <JoinRoomSectionView
-      code={code}
-      onCodeChange={handleCodeChange}
-      onCodeBlur={() => setShowCodeError(code.length > 0 && !isValidCode)}
-      codeError={codeError}
-      lookingUp={lookingUp}
-      joining={joining}
-      dialogOpen={dialogOpen}
-      onDialogOpenChange={setDialogOpen}
-      hostName={hostName}
-      onSubmit={handleSubmit}
-      onConfirm={handleConfirm}
-    />
+    <>
+      <JoinRoomSectionView
+        code={code}
+        onCodeChange={handleCodeChange}
+        onCodeBlur={() => setShowCodeError(code.length > 0 && !isValidCode)}
+        codeError={codeError}
+        lookingUp={lookingUp}
+        joining={joining}
+        dialogOpen={dialogOpen && !reauth}
+        onDialogOpenChange={setDialogOpen}
+        hostName={hostName}
+        onSubmit={handleSubmit}
+        onConfirm={handleConfirm}
+      />
+      {reauth && (
+        <RoomReauthentication
+          operation={{ kind: "join", inviteCode: code }}
+          onClosed={() => document.getElementById("code")?.focus()}
+          onBack={() => {
+            setReauth(false);
+            setDialogOpen(false);
+          }}
+        />
+      )}
+    </>
   );
 }

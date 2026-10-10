@@ -15,6 +15,7 @@ export type RoomAdmissionGateProps = {
   entryToken?: string;
   entryTabId?: string;
   children: ReactNode;
+  fallback?: ReactNode;
   freshAdmission?: string;
   allowFreshEntry?: boolean;
 };
@@ -25,6 +26,7 @@ export function RoomAdmissionGate({
   entryToken,
   entryTabId,
   children,
+  fallback,
   freshAdmission,
   allowFreshEntry = false,
 }: RoomAdmissionGateProps) {
@@ -72,13 +74,24 @@ export function RoomAdmissionGate({
 
   if (!result && entryToken) {
     return (
-      <p role="status" className="p-6 text-center">
-        ルームを確認しています…
-      </p>
+      <>
+        {fallback}
+        <p
+          role="status"
+          className="fixed inset-x-4 top-1/2 mx-auto max-w-md rounded-xl bg-background p-6 text-center shadow-lg"
+        >
+          ルームを確認しています…
+        </p>
+      </>
     );
   }
   if (!result?.ok) {
-    return <RoomReauthentication operation={{ kind: "return", roomId }} />;
+    return (
+      <>
+        {fallback}
+        <RoomReauthentication operation={{ kind: "return", roomId }} />
+      </>
+    );
   }
   return (
     <RoomAdmissionContext.Provider value={result.admission}>

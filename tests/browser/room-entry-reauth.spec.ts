@@ -16,7 +16,6 @@ test("再ログイン案内は狭い画面と200%相当の幅でもキーボー�
       });
       const back = page.getByRole("button", { name: "戻る" });
       await proceed.waitFor();
-      await page.keyboard.press("Tab");
       await expect
         .poll(() =>
           proceed.evaluate((element) => element === document.activeElement),
@@ -28,6 +27,10 @@ test("再ログイン案内は狭い画面と200%相当の幅でもキーボー�
           back.evaluate((element) => element === document.activeElement),
         )
         .toBe(true);
+      await page.keyboard.press("Tab");
+      expect(
+        await proceed.evaluate((element) => element === document.activeElement),
+      ).toBe(true);
       await back.scrollIntoViewIfNeeded();
       const bounds = await back.boundingBox();
       expect(bounds?.y).toBeGreaterThanOrEqual(0);
@@ -74,6 +77,45 @@ test("Googleへの準備中は二重操作を防ぎ、保存障害ではコピ�
         .getByRole("button", { name: "Googleでログインして続ける" })
         .isEnabled(),
     ).toBe(true);
+  } finally {
+    await browser.close();
+  }
+});
+
+test("ルームの認証案内は背景を残し、接続を開始せず、背景へフォーカスを逃がさない", async () => {
+  const browser = await chromium.launch();
+  try {
+    for (const surface of ["board", "lobby"]) {
+      const page = await browser.newPage({
+        viewport: { width: 375, height: 667 },
+      });
+      const roomConnections: string[] = [];
+      page.on("websocket", (socket) => {
+        if (socket.url().includes("/api/rooms/"))
+          roomConnections.push(socket.url());
+      });
+      await page.goto(
+        `${storybook}/iframe.html?id=home-roomentryreauthentication--${surface}&viewMode=story`,
+      );
+      const dialog = page.getByRole("alertdialog");
+      await dialog.waitFor();
+      expect(await page.getByTestId("room-entry-preview").isVisible()).toBe(
+        true,
+      );
+      expect(
+        await page.getByTestId("room-entry-preview").getAttribute("inert"),
+      ).not.toBeNull();
+      for (let i = 0; i < 4; i++) {
+        await page.keyboard.press("Tab");
+        expect(
+          await dialog.evaluate((element) =>
+            element.contains(document.activeElement),
+          ),
+        ).toBe(true);
+      }
+      expect(roomConnections).toEqual([]);
+      await page.close();
+    }
   } finally {
     await browser.close();
   }

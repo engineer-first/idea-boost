@@ -20,6 +20,7 @@ const m = vi.hoisted(() => ({
   clear: vi.fn(),
   refresh: () => {},
 }));
+vi.mock("@/features/auth", () => ({ startRoomReauthentication: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
 vi.mock("../logic/actions", () => ({
   createRoom: m.create,
@@ -513,4 +514,24 @@ it("選択切替後の古い再訪エラーは現在の新規作成を回復画�
     screen.queryByRole("button", { name: "もう一度試す" }),
   ).not.toBeInTheDocument();
   expect(screen.getByRole("textbox")).toBeEnabled();
+});
+
+it("再ログイン中も作成カードとルーム名を保持し、戻ると入力を再開できる", async () => {
+  m.create.mockResolvedValue({ ok: false, reason: "reauth_required" });
+  render(<CreateRoomSection currentUserId={USER} />);
+  const input = await screen.findByLabelText("ルーム名（任意）");
+  await waitFor(() => expect(input).toBeEnabled());
+  await userEvent.type(input, "新サービスの相談");
+  await click();
+  await screen.findByRole("button", { name: "Googleでログインして続ける" });
+  expect(screen.getByTestId("home-create-room")).toBeInTheDocument();
+  expect(screen.getByLabelText("ルーム名（任意）")).toHaveValue(
+    "新サービスの相談",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "戻る" }));
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("ルーム名（任意）")).toHaveValue(
+    "新サービスの相談",
+  );
+  expect(m.push).not.toHaveBeenCalled();
 });

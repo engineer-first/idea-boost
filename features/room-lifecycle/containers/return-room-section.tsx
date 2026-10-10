@@ -223,29 +223,30 @@ export function ReturnRoomSection({
       (!roomId || record.roomId !== roomId),
   );
   if (!roomId && !previous.length) return null;
-  if (reauthRoom)
-    return (
-      <RoomReauthentication
-        operation={{ kind: "return", roomId: reauthRoom }}
-        onBack={() => setReauthRoom(undefined)}
-      />
-    );
   return (
-    <ReturnRoomSectionView
-      status={status}
-      hasCandidate={Boolean(roomId)}
-      onConfirm={() => {
-        void open();
-      }}
-      historyMessage={historyMessage}
-      previousRooms={previous.map((record) => ({
-        id: record.requestId,
-        label: `${record.roomId ? "以前のルームを開く" : "以前のルームを探す"}${record.name ? `：${record.name}` : record.issuedAt > 0 ? `（${new Date(record.issuedAt).toLocaleString("ja-JP")}）` : ""}`,
-      }))}
-      onOpenPrevious={(id) => {
-        const record = previous.find((record) => record.requestId === id);
-        if (record) void open(record);
-      }}
-    />
+    <>
+      <ReturnRoomSectionView
+        status={status}
+        hasCandidate={Boolean(roomId)}
+        onConfirm={() => {
+          void open();
+        }}
+        historyMessage={historyMessage}
+        previousRooms={previous.map((record) => ({
+          id: record.requestId,
+          label: `${record.roomId ? "以前のルームを開く" : "以前のルームを探す"}${record.name ? `：${record.name}` : record.issuedAt > 0 ? `（${new Date(record.issuedAt).toLocaleString("ja-JP")}）` : ""}`,
+        }))}
+        onOpenPrevious={(id) => {
+          const record = previous.find((record) => record.requestId === id);
+          if (record) void open(record);
+        }}
+      />
+      {reauthRoom && (
+        <RoomReauthentication
+          operation={{ kind: "return", roomId: reauthRoom }}
+          onBack={() => setReauthRoom(undefined)}
+        />
+      )}
+    </>
   );
 }

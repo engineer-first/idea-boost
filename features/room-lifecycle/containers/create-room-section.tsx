@@ -8,12 +8,15 @@ export function CreateRoomSection({
   currentUserId?: string;
 }) {
   const controls = useRoomCreation(currentUserId);
-  if (controls.reauthentication)
-    return (
-      <RoomReauthentication
-        operation={controls.reauthentication}
-        onBack={controls.onCancelReauthentication}
-      />
-    );
-  return <CreateRoomSectionView key={currentUserId} {...controls} />;
+  return (
+    <>
+      <CreateRoomSectionView key={currentUserId} {...controls} />
+      {controls.reauthentication && (
+        <RoomReauthentication
+          operation={controls.reauthentication}
+          onBack={controls.onCancelReauthentication}
+        />
+      )}
+    </>
+  );
 }
