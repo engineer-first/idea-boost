@@ -44,6 +44,7 @@ type ScheduledFrame =
 type UseCanvasCameraArgs = {
   viewportRef: RefObject<HTMLDivElement | null>;
   notes: Note[];
+  isViewportEnabled?: boolean;
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
   fitViewport?: boolean;
   getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
@@ -167,6 +168,7 @@ function fitIdeaMapCamera(
 export function useCanvasCamera({
   viewportRef,
   notes,
+  isViewportEnabled = true,
   fitViewport = false,
   getFitInsets,
   ideaMapSizeLevel = 0,
@@ -423,7 +425,12 @@ export function useCanvasCamera({
   );
 
   useEffect(() => {
-    if (!fitViewport || !ideaMapSizeInitialized || hasFitIdeaMapRef.current) {
+    if (
+      !isViewportEnabled ||
+      !fitViewport ||
+      !ideaMapSizeInitialized ||
+      hasFitIdeaMapRef.current
+    ) {
       return;
     }
     const element = viewportRef.current;
@@ -440,16 +447,23 @@ export function useCanvasCamera({
         hasFitIdeaMapRef.current = true;
       }
     }
-  }, [fitViewport, ideaMapSizeInitialized, setCameraImmediately, viewportRef]);
+  }, [
+    fitViewport,
+    ideaMapSizeInitialized,
+    isViewportEnabled,
+    setCameraImmediately,
+    viewportRef,
+  ]);
 
   useEffect(() => {
+    if (!isViewportEnabled) return;
     const element = viewportRef.current;
     if (!element) return;
     element.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       element.removeEventListener("wheel", handleWheel);
     };
-  }, [handleWheel, viewportRef]);
+  }, [handleWheel, isViewportEnabled, viewportRef]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -538,7 +552,7 @@ export function useCanvasCamera({
   }, [endPan, scheduleCamera, viewportRef]);
 
   useEffect(() => {
-    if (fitViewport) return;
+    if (!isViewportEnabled || fitViewport) return;
     const element = viewportRef.current;
     if (!element) return;
     const size = viewportSize(element);
@@ -561,7 +575,13 @@ export function useCanvasCamera({
       setCameraImmediately(getDefaultCanvasCamera(size));
       hasDefaultedRef.current = true;
     }
-  }, [fitViewport, notes, setCameraImmediately, viewportRef]);
+  }, [
+    fitViewport,
+    isViewportEnabled,
+    notes,
+    setCameraImmediately,
+    viewportRef,
+  ]);
 
   const gridStyle = useMemo(() => {
     const step = getCanvasGridStep(camera.zoom);

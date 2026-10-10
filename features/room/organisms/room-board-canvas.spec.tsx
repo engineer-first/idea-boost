@@ -16,10 +16,10 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
   const props = {
     notes: buildNotes(2),
     groups: [],
-    phase: buildPhaseStep(1),
+    phase: buildPhaseStep(2),
     decision: null,
     isHost: false,
-    permissions: getBoardPermissions(buildPhaseStep(1)),
+    permissions: getBoardPermissions(buildPhaseStep(2)),
     privateNotes: [],
     selectedNoteId: null,
     draggingNoteId: null,
@@ -161,7 +161,11 @@ describe("RoomBoardCanvas", () => {
   });
 
   it("未選択・切断中・候補外では文字サイズ操作を無効にする", () => {
-    const { props, rerender } = setup();
+    const phase = buildPhaseStep(2);
+    const { props, rerender } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+    });
     expect(
       screen.getByRole("button", { name: "付箋の文字を大きく" }),
     ).toBeDisabled();
@@ -535,7 +539,7 @@ describe("RoomBoardCanvas", () => {
   });
 
   it("付箋操作マトリクスを表示する", () => {
-    const phase = buildPhaseStep(1);
+    const phase = buildPhaseStep(2);
 
     setup({
       phase,
@@ -546,8 +550,8 @@ describe("RoomBoardCanvas", () => {
   });
 
   it("ステップ変更後も操作可否表示が最新の権限に追従する", () => {
-    const firstStep = buildPhaseStep(1);
-    const secondStep = buildPhaseStep(2);
+    const firstStep = buildPhaseStep(2, 2);
+    const secondStep = buildPhaseStep(3, 2);
     const { props, rerender } = setup({
       phase: firstStep,
       permissions: getBoardPermissions(firstStep),
@@ -557,10 +561,10 @@ describe("RoomBoardCanvas", () => {
       screen.getByRole("img", { name: "付箋の編集：可能" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "付箋の移動：不可" }),
+      screen.getByRole("img", { name: "付箋の移動：可能" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "付箋の削除：可能" }),
+      screen.getByRole("img", { name: "付箋の削除：不可" }),
     ).toBeInTheDocument();
 
     rerender(
@@ -572,16 +576,16 @@ describe("RoomBoardCanvas", () => {
     );
 
     expect(
-      screen.getByRole("img", { name: "付箋の編集：可能" }),
+      screen.getByRole("img", { name: "付箋の編集：不可" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "付箋の移動：可能" }),
+      screen.getByRole("img", { name: "付箋の移動：不可" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "付箋の削除：不可" }),
     ).toBeInTheDocument();
   });
-  it("個人入力・共有・整理・投票に移行しても案内を残し、マイ付箋欄と操作可否だけを更新する", () => {
+  it("個人入力では操作案内を隠し、共有・整理・投票では最新の操作可否を表示する", () => {
     const { props, rerender } = setup();
     for (const step of [1, 2, 3, 4]) {
       const phase = buildPhaseStep(step);
@@ -593,6 +597,11 @@ describe("RoomBoardCanvas", () => {
       expect(screen.queryByTestId("private-notes-toolbar") !== null).toBe(
         permissions.showPrivateToolbar,
       );
+      if (step === 1) {
+        expect(screen.getByTestId("board-operation-matrix")).not.toBeVisible();
+        continue;
+      }
+      expect(screen.getByTestId("board-operation-matrix")).toBeVisible();
       for (const [label, enabled] of [
         ["編集", permissions.canEditNote],
         ["移動", permissions.canMoveNote],
@@ -807,7 +816,7 @@ describe("RoomBoardCanvas", () => {
   it.each(
     NOTE_COLOR_PALETTE,
   )("%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う", (color) => {
-    const normalPhase = buildPhaseStep(1);
+    const normalPhase = buildPhaseStep(2);
     const mapPhase = buildPhaseStep(2, 3);
     const ghost = buildNote({
       id: `ghost-${color}`,
@@ -946,7 +955,12 @@ describe("RoomBoardCanvas", () => {
 
   it("マイ付箋ツールバーの「付箋を追加」で onAddPrivateNote を呼ぶ", () => {
     const onAddPrivateNote = vi.fn();
-    setup({ onAddPrivateNote });
+    const phase = buildPhaseStep(1);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      onAddPrivateNote,
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
 
@@ -954,7 +968,12 @@ describe("RoomBoardCanvas", () => {
   });
 
   it("未接続中（error）は付箋の操作が無効化される", () => {
-    setup({ isDisconnected: true });
+    const phase = buildPhaseStep(1);
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isDisconnected: true,
+    });
 
     expect(screen.getByRole("button", { name: "付箋を追加" })).toBeDisabled();
   });
@@ -983,12 +1002,10 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.queryByRole("region", { name: "価値と実現のしやすさの2軸マップ" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByTestId("board-scroller")).toHaveClass(
-      "[container-type:size]",
+    expect(screen.getByTestId("board-scroller").parentElement).toHaveAttribute(
+      "hidden",
     );
-    expect(screen.getByTestId("board-canvas")).not.toHaveClass(
-      "[container-type:size]",
-    );
+    expect(screen.getByTestId("board-canvas")).not.toBeVisible();
   });
 
   it.each([
@@ -1183,22 +1200,57 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
   });
 
-  it("Step1-1ではマイ付箋ツールバーを表示する", () => {
-    setup({
-      phase: buildPhaseStep(1),
-      permissions: getBoardPermissions(buildPhaseStep(1)),
+  it.each([
+    { label: "Step1-1", phase: buildPhaseStep(1, 1) },
+    { label: "Step2-1", phase: buildPhaseStep(1, 2) },
+    { label: "Step3-1", phase: buildPhaseStep(1, 3) },
+  ])("$labelでは共有キャンバスを隠し、既存付箋の入力グリッドを表示する", ({
+    phase,
+  }) => {
+    const { props, rerender } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      privateNotes: [
+        buildNote({
+          id: "private-note",
+          visibility: "private",
+          content: "個人の考え",
+        }),
+      ],
     });
 
-    expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
-  });
+    const workspace = screen.getByTestId("private-notes-workspace");
+    const note = within(workspace).getByTestId("note-card");
+    const editor = within(note).getByPlaceholderText("メモを入力...");
+    const addButton = within(workspace).getByRole("button", {
+      name: "付箋を追加",
+    });
 
-  it("Step3-1ではマイ付箋ツールバーを表示する", () => {
-    const phase = buildPhaseStep(1, 3);
+    expect(screen.getByTestId("board-scroller").parentElement).toHaveAttribute(
+      "hidden",
+    );
+    expect(screen.getByTestId("board-canvas")).not.toBeVisible();
+    expect(screen.getByTestId("board-tools-hud")).not.toBeVisible();
+    expect(screen.getByTestId("board-operation-matrix")).not.toBeVisible();
+    expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
+    expect(note).toHaveStyle({ width: "200px", height: "150px" });
+    expect(editor).toHaveStyle({ fontSize: "14px", lineHeight: "21px" });
+    expect(addButton).toBeEnabled();
+    expect(addButton).toHaveStyle({ width: "200px", height: "150px" });
 
-    setup({ phase, permissions: getBoardPermissions(phase) });
+    fireEvent.click(addButton);
+    expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
 
-    expect(screen.getByTestId("private-notes-dock")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "付箋を追加" })).toBeEnabled();
+    const sharingPhase = buildPhaseStep(2, phase.phase);
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        phase={sharingPhase}
+        permissions={getBoardPermissions(sharingPhase)}
+      />,
+    );
+    expect(screen.getByTestId("board-tools-hud")).toBeVisible();
+    expect(screen.getByTestId("board-operation-matrix")).toBeVisible();
   });
 
   it("Step1-3ではマイ付箋ツールバーを表示しない", () => {
@@ -1208,6 +1260,9 @@ describe("RoomBoardCanvas", () => {
     });
 
     expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("private-notes-workspace"),
+    ).not.toBeInTheDocument();
   });
   it("Step1-4では各付箋をシールのドロップ先として表示する", () => {
     setup({

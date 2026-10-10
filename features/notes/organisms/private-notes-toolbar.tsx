@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, LockKeyhole, Plus } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -16,7 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getNoteHeight } from "@/contracts/board";
+import { getNoteHeight, NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
@@ -35,6 +35,7 @@ export type PrivateNotesToolbarProps = {
   canDeleteNote: boolean;
   canMoveNote: boolean;
   sharingHint?: string;
+  presentation?: "dock" | "workspace";
   defaultExpanded?: boolean;
   expandRequest?: number;
   addRequest?: number;
@@ -70,6 +71,7 @@ export function PrivateNotesToolbar({
   canDeleteNote,
   canMoveNote,
   sharingHint,
+  presentation = "dock",
   canEditNote,
   defaultExpanded = true,
   expandRequest = 0,
@@ -89,6 +91,7 @@ export function PrivateNotesToolbar({
   onDelete,
   onDragStart,
 }: PrivateNotesToolbarProps) {
+  const isWorkspace = presentation === "workspace";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [autoFocusNoteId, setAutoFocusNoteId] = useState<string | null>(null);
   const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
@@ -334,23 +337,31 @@ export function PrivateNotesToolbar({
     <Card
       ref={toolbarRef}
       className={cn(
-        "flex w-[min(15rem,calc(100vw-1.5rem))] max-w-full flex-col overflow-hidden transition-[box-shadow,background-color] duration-150",
+        "flex max-w-full flex-col overflow-hidden transition-[box-shadow,background-color] duration-150",
         isReturnDropTarget && "bg-primary/5 ring-2 ring-primary/40",
-        isExpanded ? "h-[min(48rem,calc(100vh-6rem))]" : "h-14",
+        isWorkspace
+          ? "h-full w-full max-w-7xl rounded-none border-0 bg-transparent shadow-none"
+          : isExpanded
+            ? "h-[min(48rem,calc(100vh-6rem))] w-[min(15rem,calc(100vw-1.5rem))]"
+            : "h-14 w-fit",
         className,
       )}
       data-testid="private-notes-toolbar"
+      data-presentation={presentation}
       data-expanded={String(isExpanded)}
       data-return-drop-target={isReturnDropTarget || undefined}
     >
       <CardContent
-        hidden={!isExpanded}
+        hidden={!isWorkspace && !isExpanded}
         className="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
       >
         <section
           ref={scrollContainerRef}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3"
-          aria-label="マイ付箋一覧"
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+            isWorkspace ? "p-3 md:p-5" : "p-3",
+          )}
+          aria-label={isWorkspace ? "個人付箋の入力" : "マイ付箋一覧"}
           data-testid="private-notes-scroll"
           onClick={(e) => {
             const target = e.target as HTMLElement;
@@ -371,36 +382,45 @@ export function PrivateNotesToolbar({
             }
           }}
         >
-          <p
-            className={cn(
-              "text-xs text-muted-foreground",
-              canCreateNote ? "mb-1" : "mb-3",
-            )}
-          >
-            自分だけに見える付箋エリア
-          </p>
-          {canCreateNote ? (
-            <p className="mb-3 text-xs text-muted-foreground">
-              （付箋追加ショートカットキー：
-              <br />
-              Macは⌘＋Enter、Windows等はCtrl＋Enter）
+          {isWorkspace ? (
+            <p className="mx-auto mb-6 flex max-w-5xl items-center gap-2 text-sm text-muted-foreground">
+              <LockKeyhole aria-hidden="true" className="size-4 shrink-0" />
+              この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
             </p>
-          ) : null}
-          {sharingHint ? (
+          ) : (
+            <>
+              <p
+                className={cn(
+                  "text-xs text-muted-foreground",
+                  canCreateNote ? "mb-1" : "mb-3",
+                )}
+              >
+                自分だけに見える付箋エリア
+              </p>
+              {canCreateNote ? (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  （付箋追加ショートカットキー：
+                  <br />
+                  Macは⌘＋Enter、Windows等はCtrl＋Enter）
+                </p>
+              ) : null}
+            </>
+          )}
+          {!isWorkspace && sharingHint ? (
             <p role="status" className="mb-3 text-xs text-muted-foreground">
               {sharingHint}
             </p>
           ) : null}
           <div
             ref={listRef}
-            className="grid grid-cols-1 justify-items-center gap-3"
+            className={cn(
+              "grid",
+              isWorkspace
+                ? "grid-cols-[repeat(auto-fill,200px)] justify-center gap-6 pb-8"
+                : "grid-cols-1 justify-items-center gap-3",
+            )}
             data-testid="private-notes-list"
           >
-            {notes.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                個人付箋はまだありません
-              </p>
-            ) : null}
             {notes.map((note) =>
               dropPlaceholder?.noteId === note.id ? (
                 <div
@@ -453,67 +473,87 @@ export function PrivateNotesToolbar({
                   onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
                   className={cn(
                     "relative",
+                    isWorkspace && "w-[200px]",
                     newlyAddedNoteId === note.id &&
                       "animate-in fade-in slide-in-from-bottom-2 duration-200",
                   )}
                 />
               ),
             )}
+            {isWorkspace ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={disabled || !canCreateNote || noteCreationPending}
+                ref={addButtonRef}
+                aria-label="付箋を追加"
+                onClick={handleAdd}
+                className="flex h-[150px] w-[200px] flex-col items-center justify-center gap-3 rounded-md border-2 border-primary/50 border-dashed bg-muted/50 font-medium text-foreground hover:border-primary/75 hover:bg-muted active:bg-muted/80"
+                style={{ width: NOTE_WIDTH, height: NOTE_HEIGHT }}
+              >
+                <Plus aria-hidden="true" className="size-6" />
+                <span>付箋を追加</span>
+              </Button>
+            ) : null}
           </div>
         </section>
       </CardContent>
-      <CardFooter
-        className={cn(
-          "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
-          isExpanded && "border-t border-border",
-        )}
-      >
-        <div
-          className="flex w-full items-center justify-between gap-2"
-          data-testid="private-notes-controls"
+      {!isWorkspace ? (
+        <CardFooter
+          className={cn(
+            "relative z-20 flex h-14 shrink-0 items-center bg-card p-3",
+            isExpanded && "border-t border-border",
+          )}
         >
-          <div className="min-w-0">
-            <CardTitle className="whitespace-nowrap text-sm">
-              マイ付箋
-            </CardTitle>
+          <div
+            className="flex w-full items-center justify-between gap-2"
+            data-testid="private-notes-controls"
+          >
+            <div className="min-w-0">
+              <CardTitle className="whitespace-nowrap text-sm">
+                マイ付箋
+              </CardTitle>
+            </div>
+            <div className="flex w-fit shrink-0 items-center gap-2">
+              <TooltipProvider delayDuration={500}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      disabled={
+                        disabled || !canCreateNote || noteCreationPending
+                      }
+                      ref={addButtonRef}
+                      aria-label="付箋を追加"
+                      onClick={handleAdd}
+                    >
+                      <Plus aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    付箋を追加（Macは⌘＋Enter、Windows等はCtrl＋Enter）
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-expanded={isExpanded}
+                aria-label={`マイ付箋を${isExpanded ? "閉じる" : "開く"}`}
+                onClick={() => setIsExpanded((expanded) => !expanded)}
+              >
+                {isExpanded ? (
+                  <ChevronDown aria-hidden="true" />
+                ) : (
+                  <ChevronUp aria-hidden="true" />
+                )}
+              </Button>
+            </div>
           </div>
-          <div className="flex w-fit shrink-0 items-center gap-2">
-            <TooltipProvider delayDuration={500}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    disabled={disabled || !canCreateNote || noteCreationPending}
-                    ref={addButtonRef}
-                    aria-label="付箋を追加"
-                    onClick={handleAdd}
-                  >
-                    <Plus aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  付箋を追加（Macは⌘＋Enter、Windows等はCtrl＋Enter）
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-expanded={isExpanded}
-              aria-label={`マイ付箋を${isExpanded ? "閉じる" : "開く"}`}
-              onClick={() => setIsExpanded((expanded) => !expanded)}
-            >
-              {isExpanded ? (
-                <ChevronDown aria-hidden="true" />
-              ) : (
-                <ChevronUp aria-hidden="true" />
-              )}
-            </Button>
-          </div>
-        </div>
-      </CardFooter>
+        </CardFooter>
+      ) : null}
     </Card>
   );
 }

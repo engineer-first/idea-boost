@@ -1180,7 +1180,7 @@ describe("NoteCard", () => {
   });
 
   describe("キーボード削除", () => {
-    it("AT-011: editor外のBackspaceでは付箋を削除しない", () => {
+    it("AT-011: 共有付箋はBackspaceでは削除しない", () => {
       const onDelete = vi.fn();
       setup({ isSelected: true, onDelete });
 
@@ -1189,7 +1189,10 @@ describe("NoteCard", () => {
       expect(onDelete).not.toHaveBeenCalled();
     });
 
-    it("選択中（非編集）にDeleteでonDeleteを呼ぶ", () => {
+    it.each([
+      "Delete",
+      "Backspace",
+    ])("選択中（非編集）の個人付箋で%sを押すとonDeleteを呼ぶ", (key) => {
       const onDelete = vi.fn();
       setup({
         isSelected: true,
@@ -1197,7 +1200,7 @@ describe("NoteCard", () => {
         note: buildNote({ visibility: "private" }),
       });
 
-      fireEvent.keyDown(getNoteSurface(), { key: "Delete" });
+      fireEvent.keyDown(getNoteSurface(), { key });
 
       expect(onDelete).toHaveBeenCalledWith("note-1");
     });
@@ -1209,6 +1212,7 @@ describe("NoteCard", () => {
         isSelected: true,
         canDeleteNote: false,
         onDelete,
+        note: buildNote({ visibility: "private" }),
       });
 
       fireEvent.keyDown(getNoteSurface(), { key: "Backspace" });
@@ -1217,12 +1221,19 @@ describe("NoteCard", () => {
       expect(onDelete).not.toHaveBeenCalled();
     });
 
-    it("編集中のBackspaceは文字削除でありonDeleteを呼ばない", () => {
+    it.each([
+      "Delete",
+      "Backspace",
+    ])("編集中の%sは文字削除でありonDeleteを呼ばない", (key) => {
       const onDelete = vi.fn();
-      setup({ isSelected: true, onDelete });
+      setup({
+        isSelected: true,
+        onDelete,
+        note: buildNote({ visibility: "private" }),
+      });
 
       clickNote();
-      fireEvent.keyDown(screen.getByRole("textbox"), { key: "Backspace" });
+      fireEvent.keyDown(screen.getByRole("textbox"), { key });
 
       expect(onDelete).not.toHaveBeenCalled();
     });
@@ -1403,7 +1414,12 @@ describe("NoteCard", () => {
 
     it("disabled中は選択済みでもBackspace/DeleteでonDeleteを呼ばない", () => {
       const onDelete = vi.fn();
-      setup({ disabled: true, isSelected: true, onDelete });
+      setup({
+        disabled: true,
+        isSelected: true,
+        onDelete,
+        note: buildNote({ visibility: "private" }),
+      });
 
       fireEvent.keyDown(getNoteSurface(), { key: "Backspace" });
       fireEvent.keyDown(getNoteSurface(), { key: "Delete" });
@@ -1526,8 +1542,9 @@ describe("#522 focus・pointerの境界", () => {
     "Enter",
     "h",
     "Delete",
+    "Backspace",
   ])("AT-005: 未選択focusで%sは対象化だけを行う", (key) => {
-    const { props } = setup();
+    const { props } = setup({ note: buildNote({ visibility: "private" }) });
     fireEvent.keyDown(getNoteSurface(), { key });
     expect(props.onSelect).toHaveBeenCalledWith("note-1");
     expect(props.onDelete).not.toHaveBeenCalled();
@@ -1619,9 +1636,15 @@ describe("#522 focus・pointerの境界", () => {
     fireEvent.pointerUp(getNoteSurface(), { pointerId: 1 });
     expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
   });
-  it("AT-011: Deleteのrepeatで次の対象を連続削除しない", () => {
-    const { props } = setup({ isSelected: true });
-    fireEvent.keyDown(getNoteSurface(), { key: "Delete", repeat: true });
+  it.each([
+    "Delete",
+    "Backspace",
+  ])("AT-011: %sのrepeatで次の対象を連続削除しない", (key) => {
+    const { props } = setup({
+      isSelected: true,
+      note: buildNote({ visibility: "private" }),
+    });
+    fireEvent.keyDown(getNoteSurface(), { key, repeat: true });
     expect(props.onDelete).not.toHaveBeenCalled();
   });
 });

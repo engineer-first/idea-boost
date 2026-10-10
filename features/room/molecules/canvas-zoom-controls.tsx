@@ -316,13 +316,14 @@ export function CanvasZoomControls({
                       <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
                         Delete
                       </kbd>{" "}
-                      で削除。
-                    </p>
-                    <p className="text-muted-foreground">
+                      または{" "}
                       <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
                         Backspace
                       </kbd>{" "}
-                      では削除しません。
+                      で削除。
+                    </p>
+                    <p className="text-muted-foreground">
+                      編集中は本文の文字を削除します。
                     </p>
                   </dd>
                 </div>

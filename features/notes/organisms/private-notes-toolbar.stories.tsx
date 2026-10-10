@@ -67,6 +67,24 @@ export const Empty: Story = {
   args: { notes: [] },
 };
 
+export const WritingWorkspace: Story = {
+  args: { presentation: "workspace" },
+  render: (args) => (
+    <div className="h-[720px] w-full">
+      <PrivateNotesToolbar {...args} />
+    </div>
+  ),
+};
+
+export const EmptyWritingWorkspace: Story = {
+  args: { presentation: "workspace", notes: [] },
+  render: (args) => (
+    <div className="h-[720px] w-full">
+      <PrivateNotesToolbar {...args} />
+    </div>
+  ),
+};
+
 export const Single: Story = {
   args: { notes: [singleNote] },
 };

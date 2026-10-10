@@ -219,14 +219,14 @@
 
 - **区分**: v1
 - **状態**: 単一選択とfocusが一致・editor外
-- **入力**: Delete、明示削除操作（Mac前方削除はFn+Delete）
+- **入力**: Delete、Backspace（MacのDeleteキー単体）、明示削除操作
 - **主体・工程**: 既存delete能力のみ
 - **対象・前提**: 自分のprivate付箋1枚。共有済みの削除権限を新設しない
-- **結果**: Deleteは許可対象のみ削除。Backspaceはeditor外で付箋丸ごと削除に使わない。editor内のDelete/Backspaceは文字編集。削除済み対象へのfocusは近接付箋/作成入口へ戻す。
+- **結果**: Delete/Backspaceは選択中かつfocusが一致する許可対象のprivate付箋のみ削除。editor内のDelete/Backspaceは文字編集。削除済み対象へのfocusは近接付箋/作成入口へ戻す。
 - **取消**: 取消やUndoの新機能はこの仕様で追加しない。既存確認/復元契約に従う。
 - **失敗**: 拒否時は付箋を残し理由を示す。押し続けで隣の付箋を連続削除しない。
 - **同時操作**: 進行で権限失効した削除を再送しない。
-- **検証**: AT-011: private付箋を選択しBackspace→残る。Delete→権限があればその1枚のみ。
+- **検証**: AT-011: private付箋を選択しDelete/Backspace→権限があればその1枚のみ削除。編集中・未選択・切断中・権限なしでは削除しない。
 
 <a id="ci-note-004"></a>
 
@@ -511,7 +511,7 @@
 - **入力**: shortcuts help、矢印、一般的な編集chord
 - **主体・工程**: 全参加者
 - **対象・前提**: board shortcutとOS/browser/native editorを分ける
-- **結果**: ヘルプにV/Hは背景focus、Space temporary pan、Enter編集/工程対象、Escape一段取消、Delete前方削除、Shift+click追加解除を明記。既存camera HUD focusの矢印/PageUp/PageDownはpan。矢印note nudge・Ctrl/Meta+A全選択・copy/paste複製・P penは新設しない。Ctrl/Meta+Zの移動UndoはCI-HIST-001に従う。native editorの選択/Undo/コピー/貼付はそのまま。
+- **結果**: ヘルプにV/Hは背景focus、Space temporary pan、Enter編集/工程対象、Escape一段取消、Delete/Backspaceで選択したマイ付箋を削除、Shift+click追加解除を明記。既存camera HUD focusの矢印/PageUp/PageDownはpan。矢印note nudge・Ctrl/Meta+A全選択・copy/paste複製・P penは新設しない。Ctrl/Meta+Zの移動UndoはCI-HIST-001に従う。native editorの選択/Undo/コピー/貼付はそのまま。
 - **取消**: ショートカットヘルプ閉鎖は起点focusへ。
 - **失敗**: IME/native shortcutを上書きせず、適用外では何も変更しない。
 - **同時操作**: focusを持たない別タブのkeyは操作に使わない。
