@@ -27,11 +27,17 @@ PRのAPI・RoomDO・migration・通信契約の変更は、このPreviewに反�
 
 Preview専用D1の作成と既存9migrationの適用、GitHubのD1 ID variableとPreview専用Secret3つの登録を実施しました。Workersの既存契約は変更していません。Zero Trustは、必要な新規登録と最終条件へのユーザー承認を受けて登録を完了し、管理画面へ到達しました。実Team表示は改名していません。契約詳細・実Team domain・Account識別子はチーム限定記録へ残します。
 
-Google IdPのClient ID／Client Secretは未入力です。既存Google projectでPreview専用OAuth clientの作成フォームを準備しましたが、作成ボタンは未押下で認証情報は未発行です。確定・入力はユーザー本人へ引き継ぎます。hostname-based AccessのURL保護・許可policyと疎通用Service Tokenも未完了です。途中の準備を設定成功として扱いません。`PREVIEW_ENABLED`は有効にしておらず、App/APIの公開も実施していません。共通APIはこのPRをdevelopへ取り込み、CIが成功してから公開します。本番の設定・Secret・デプロイは変更していません。詳細と実行結果は[台帳](../../out/preview-setup-log.md)を参照します。
+Google IdPは保存・接続テストに成功し、Google限定・指定2名のAllow policyを持つhostname-based Access applicationを作成しました。同じapplicationへhealth専用Token1つのService Auth policyを設定し、Access issuer／aud variablesとService Token用SecretsをGitHubへ登録済みです。別画面からの再読込でHttpOnly=true／App Launcher=falseと、利用者Allow・CI Service Authの両policyを確認済みです。Google認証情報の本人操作待ちは解消しました。
 
-### Google連携で本人が続けること
+`PREVIEW_ENABLED`は未設定で、API／App／RoomDOは未公開です。共通APIはこのPRをdevelopへ取り込み、CIが成功してから公開します。CI用Cloudflare tokenの実権限、実health、通常／固定URL、PreviewでのGoogle本人ログイン・実WS・2人操作は未検証です。本番・他Workers・Account Protect Allは変更していません。IdPの接続テスト成功を、Previewアプリの利用成功として扱いません。詳細と実行結果は[台帳](../../out/preview-setup-log.md)を参照します。
 
-準備済みフォームはWeb用のPreview専用clientです。originに `https://<team>.cloudflareaccess.com`、redirectに同domainの `/cdn-cgi/access/callback` を使います。既存client変更、新project作成、API有効化、課金変更は行っていません。ユーザー本人が新clientの作成を確定し、発行されたClient ID／Client SecretをCloudflareのGoogle IdP欄へ入力します。値はGit・PR・台帳へ書かず、実Google project名・ID・Team domainも公開記録へ載せません。
+### Google連携・Access設定の確認内容
+
+Google IdP一覧で保存を確認し、TestのGoogle通常ログインからYour connection works!を確認しました。取得した本人name／emailとClient Secretは公開記録へ載せず、Client Secretの変更・再発行は行っていません。新project作成・API有効化・既存client変更・課金変更も行っていません。
+
+利用者policyは指定2名のEmailsだけをIncludeし、Login MethodはGoogle必須です。AppもAccept all IdPs Off／Googleのみ、instant auth On、WARP auth Off、session24h。CIのService Authはhealth専用Token1つだけをIncludeし、AnyToken／Everyoneは使いません。Token期限は1yearです。Secret入り一時ファイルは直後に削除し、Token ID・実Team domain・Account識別子・契約詳細は公開記録へ残しません。
+
+Policy Testerの一括試験は起動しましたが、画面で判定結果を確認できていません。成功確認はGoogle IdP Testと設定保存・再読込までであり、Previewの実認証やhealth・WSは別途検証します。
 
 ## 初期設定
 
