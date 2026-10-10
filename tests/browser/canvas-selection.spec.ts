@@ -299,9 +299,24 @@ test("AT-004/009: 矩形中はwheel・Hを処理せずEscapeは開始前選択�
     .click();
   await selectedCount(1);
   const before = await transform();
-  await page.mouse.move(900, 500);
+  // fit 後の付箋位置に依存せず、キャンバスの空白から矩形を開始する。
+  const start = await page.getByTestId("board-scroller").evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    for (let y = box.bottom - 200; y > box.top + 80; y -= 40) {
+      for (let x = box.right - 300; x > box.left + 400; x -= 40) {
+        const hit = document.elementFromPoint(x, y);
+        if (
+          hit instanceof HTMLElement &&
+          hit.dataset.canvasBackground === "true"
+        )
+          return { x, y };
+      }
+    }
+    throw new Error("矩形選択を開始できる空白がありません");
+  });
+  await page.mouse.move(start.x, start.y);
   await page.mouse.down();
-  await page.mouse.move(600, 250, { steps: 5 });
+  await page.mouse.move(start.x - 100, start.y - 100, { steps: 5 });
   await page.getByTestId("canvas-marquee").waitFor();
   await page.keyboard.press("h");
   await page.mouse.wheel(0, 100);
