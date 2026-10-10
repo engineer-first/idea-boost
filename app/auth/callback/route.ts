@@ -8,6 +8,13 @@ import { cookies } from "next/headers";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  ROOM_ENTRY_AUDIENCE,
+  ROOM_OAUTH_RESUME_COOKIE,
+  ROOM_REAUTH_TTL_SECONDS,
+  ROOM_RESUME_COOKIE,
+  RoomOAuthResumeSchema,
+} from "@/contracts/room-entry";
+import {
   getLoginPath,
   isEmailVerified,
   sanitizeNextPath,
@@ -17,9 +24,11 @@ import {
   getBaseUrl,
   getGoogleClientId,
   getGoogleClientSecret,
+  getSessionSecret,
   isGoogleAuthConfigured,
 } from "@/lib/session/env";
 import { establishSession } from "@/lib/session/establish";
+import { signToken, verifyToken } from "@/lib/session/token";
 
 const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_JWKS = createRemoteJWKSet(
@@ -81,8 +90,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     cookieStore.get(OAUTH_STATE_COOKIE)?.value,
   );
   cookieStore.delete(OAUTH_STATE_COOKIE);
+  const resumeToken = cookieStore.get(ROOM_OAUTH_RESUME_COOKIE)?.value;
+  cookieStore.delete(ROOM_OAUTH_RESUME_COOKIE);
+  const resume = resumeToken
+    ? await verifyToken(resumeToken, RoomOAuthResumeSchema, {
+        secret: getSessionSecret(),
+        audience: ROOM_ENTRY_AUDIENCE.oauth,
+      })
+    : null;
 
-  if (!state || !oauthState || state !== oauthState.state) {
+  if (
+    !state ||
+    !oauthState ||
+    state !== oauthState.state ||
+    (resumeToken &&
+      (!resume || resume.state !== state || resume.nonce !== oauthState.nonce))
+  ) {
     return redirectToLogin(origin, "ログインをやり直してください。");
   }
 
@@ -155,6 +178,37 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     if (!result.ok) {
       return redirectToLogin(origin, result.error, next);
+    }
+    if (resume) {
+      if (result.user.sub !== resume.principal) {
+        return NextResponse.redirect(
+          new URL("/auth/resume?error=account_changed", origin),
+        );
+      }
+      const remaining = Math.min(
+        ROOM_REAUTH_TTL_SECONDS,
+        resume.exp - Math.floor(Date.now() / 1000),
+      );
+      if (remaining <= 0)
+        return NextResponse.redirect(
+          new URL("/auth/resume?error=unavailable", origin),
+        );
+      const token = await signToken(
+        { ...resume, ticketId: crypto.randomUUID() },
+        {
+          secret: getSessionSecret(),
+          audience: ROOM_ENTRY_AUDIENCE.resume,
+          expiresInSeconds: remaining,
+        },
+      );
+      cookieStore.set(ROOM_RESUME_COOKIE, token, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: remaining,
+      });
+      return NextResponse.redirect(new URL("/auth/resume", origin));
     }
   } catch {
     // 通信・JSON読取・セッション確立の例外でも認証成功には進めない。

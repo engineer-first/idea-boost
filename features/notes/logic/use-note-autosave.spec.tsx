@@ -464,6 +464,53 @@ describe("useNoteAutosave", () => {
     ]);
   });
 
+  it("保存領域が使えなくても認証中断前に未反映本文を回収できる", () => {
+    const storageWrite = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("Storage unavailable", "QuotaExceededError");
+      });
+    try {
+      const { result } = setup();
+      act(() => result.current.applyMessage(snapshot()));
+      act(() =>
+        result.current.change(noteId, "Googleへ進む前にコピーする本文"),
+      );
+      act(() => result.current.recoverDisconnected());
+      expect(result.current.recoveries).toEqual([
+        expect.objectContaining({
+          noteId,
+          text: "Googleへ進む前にコピーする本文",
+        }),
+      ]);
+      act(() => vi.advanceTimersByTime(30000));
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      storageWrite.mockRestore();
+    }
+  });
+
+  it("別アカウントで再表示しても前の本人の未反映本文を表示・再送しない", () => {
+    const first = setup();
+    act(() => first.result.current.applyMessage(snapshot()));
+    act(() => first.result.current.change(noteId, "前の本人だけの本文"));
+    act(() => first.result.current.recoverDisconnected());
+    first.unmount();
+    send.mockClear();
+    const otherUserId = "22222222-2222-4222-8222-222222222222";
+    const other = renderHook(() =>
+      useNoteAutosave({ roomId: "room", userId: otherUserId, send }),
+    );
+    act(() => other.result.current.applyMessage(snapshot()));
+    expect(other.result.current.recoveries).toEqual([]);
+    expect(other.result.current.draftValue(noteId)).toBeUndefined();
+    act(() => vi.advanceTimersByTime(30000));
+    expect(send).not.toHaveBeenCalled();
+    expect(
+      sessionStorage.getItem(`idea-boost:note-drafts:v1:${userId}:room`),
+    ).toContain("前の本人だけの本文");
+  });
+
   it("保存済みの回収文があっても再読込時にhydration差分を作らない", async () => {
     sessionStorage.setItem(
       `idea-boost:note-drafts:v1:${userId}:room`,

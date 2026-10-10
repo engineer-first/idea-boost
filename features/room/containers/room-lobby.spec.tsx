@@ -11,6 +11,11 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // useRouter の戻り値は毎レンダー同じ参照にする（effect の再実行ループ防止）。
+const bindEntry = vi.hoisted(() => vi.fn());
+vi.mock("@/features/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/auth")>()),
+  bindRoomEntryContinuation: bindEntry,
+}));
 const navigationMocks = vi.hoisted(() => {
   const replace = vi.fn();
   return { replace, router: { replace } };
@@ -143,6 +148,7 @@ function renderStart(
     initialMembers?: ProtocolMember[];
     initialPhase?: RoomPhase;
     boardHref?: string;
+    entryAdmission?: string;
   } = {},
 ) {
   FakeWebSocket.instances = [];
@@ -160,6 +166,7 @@ function renderStart(
       initialMembers={options.initialMembers ?? []}
       webSocketFactory={factory}
       boardHref={options.boardHref}
+      entryAdmission={options.entryAdmission}
     />,
   );
   const socket = FakeWebSocket.instances.at(-1);
@@ -562,4 +569,24 @@ it("本人表示から改名し、サーバー確定まで旧名を維持して�
   expect(
     screen.getByRole("button", { name: "新しい呼び名：呼び名を変更" }),
   ).toBeInTheDocument();
+});
+
+it.each([
+  "rejected",
+  "unavailable",
+])("盤面遷移の認証引継ぎが%sなら通常の入室入口で判断をやり直す", async (outcome) => {
+  if (outcome === "rejected")
+    bindEntry.mockRejectedValueOnce(new Error("offline"));
+  else bindEntry.mockResolvedValueOnce(null);
+  const { socket } = renderStart({ entryAdmission: "signed-admission" });
+  act(() =>
+    socket.simulateServerMessage({
+      type: "phase:updated",
+      phaseRevision: 1,
+      phase: buildPhaseStep(1),
+    }),
+  );
+  await waitFor(() =>
+    expect(navigationMocks.replace).toHaveBeenCalledWith(`/rooms/${ROOM_ID}`),
+  );
 });

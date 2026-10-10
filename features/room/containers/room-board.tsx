@@ -580,6 +580,7 @@ export function RoomBoard({
         onConfirm={handleForceNextPhase}
       />
       <RoomBoardView
+        loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
           undo: moveHistory.undoState,
           redo: moveHistory.redoState,

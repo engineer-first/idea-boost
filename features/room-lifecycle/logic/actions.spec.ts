@@ -25,6 +25,10 @@ vi.mock("@/lib/session/current-user", () => ({
   getCurrentUser: getCurrentUserMock,
 }));
 vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+vi.mock("@/lib/session/room-entry", async (original) => ({
+  ...(await original<typeof import("@/lib/session/room-entry")>()),
+  issueRoomEntry: vi.fn().mockResolvedValue("entry-admission"),
+}));
 
 import {
   createRoom,
@@ -67,6 +71,7 @@ beforeEach(() => {
   getCurrentUserMock.mockResolvedValue({
     sub: "123e4567-e89b-12d3-a456-426614174000",
     email: "dev@example.com",
+    exp: Math.floor(Date.now() / 1000) + 604800,
   });
 });
 
@@ -103,6 +108,7 @@ describe("createRoom", () => {
     ).resolves.toEqual({
       ok: true,
       roomId: "123e4567-e89b-42d3-a456-426614174000",
+      entryToken: "entry-admission",
     });
     expect(redirectMock).not.toHaveBeenCalled();
   });
@@ -234,6 +240,7 @@ describe("joinRoom", () => {
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: true,
       roomId: "123e4567-e89b-42d3-a456-426614174000",
+      entryToken: "entry-admission",
     });
     expect(redirectMock).not.toHaveBeenCalled();
   });
@@ -317,7 +324,7 @@ describe("元のルームの確認", () => {
           phase,
         }),
       );
-    expect(await returnToRoom(roomId)).toEqual({ kind: "ready", href });
+    expect(await returnToRoom(roomId)).toMatchObject({ kind: "ready", href });
   });
   it("閲覧認可済み成果を優先する", async () => {
     const { completedRoomFixture } = await import(
@@ -343,5 +350,34 @@ describe("元のルームの確認", () => {
     expect(await returnToRoom(roomId)).toEqual({ kind: "retry" });
     apiFetchMock.mockResolvedValueOnce(Response.json({ roomId }));
     expect(await returnToRoom(roomId)).toEqual({ kind: "retry" });
+  });
+});
+
+describe("入室前の認証準備", () => {
+  it("残り5時間未満の作成をWorkerへ送らない", async () => {
+    getCurrentUserMock.mockResolvedValue({
+      sub: "123e4567-e89b-12d3-a456-426614174000",
+      email: "dev@example.com",
+      exp: Math.floor(Date.now() / 1000) + 17999,
+    });
+    expect(
+      await createRoom({
+        requestId: "11111111-1111-4111-8111-111111111111",
+        expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+      }),
+    ).toMatchObject({ ok: false, reason: "reauth_required" });
+    expect(apiFetchMock).not.toHaveBeenCalled();
+  });
+  it("残り5時間未満の参加をWorkerへ送らない", async () => {
+    getCurrentUserMock.mockResolvedValue({
+      sub: "123e4567-e89b-12d3-a456-426614174000",
+      email: "dev@example.com",
+      exp: Math.floor(Date.now() / 1000) + 17999,
+    });
+    expect(await joinRoom(joinFormData("ABC234"))).toMatchObject({
+      ok: false,
+      reason: "reauth_required",
+    });
+    expect(apiFetchMock).not.toHaveBeenCalled();
   });
 });

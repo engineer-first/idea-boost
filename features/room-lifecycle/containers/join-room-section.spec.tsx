@@ -192,6 +192,21 @@ describe("JoinRoomSection", () => {
     expect(formData?.get("code")).toBe("AB12CD");
   });
 
+  it("認証の残り時間不足なら参加先を保持して再ログイン案内を出す", async () => {
+    const user = userEvent.setup();
+    await openConfirmDialog(user);
+    JOIN_ROOM.mockResolvedValueOnce({
+      ok: false,
+      reason: "reauth_required",
+      error: "ログインし直してください",
+    });
+    await user.click(screen.getByTestId("join-confirm-action"));
+    expect(
+      await screen.findByRole("button", { name: "Googleでログインして続ける" }),
+    ).toBeInTheDocument();
+    expect(PUSH).not.toHaveBeenCalled();
+  });
+
   it("参加失敗時は error toast を出し遷移しない", async () => {
     const user = userEvent.setup();
     await openConfirmDialog(user);

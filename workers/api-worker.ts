@@ -20,6 +20,13 @@ import {
   issueCreationId,
 } from "../contracts/room-creation";
 import {
+  ConsumeRoomTicketRequestSchema,
+  ROOM_ENTRY_AUDIENCE,
+  RoomAdmissionSchema,
+  RoomEntryTicketSchema,
+  RoomOAuthResumeSchema,
+} from "../contracts/room-entry";
+import {
   LoginAssertionSchema,
   TOKEN_AUDIENCE,
   type VerifiedSession,
@@ -447,6 +454,56 @@ export function createApiWorker(
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return error(401, "ログインが必要です。");
+      }
+
+      if (method === "POST" && pathname === "/api/auth/consume-ticket") {
+        const input = ConsumeRoomTicketRequestSchema.safeParse(
+          await readJsonBody(request),
+        );
+        if (!input.success) return error(400, "再開情報が不正です。");
+        const resume = await verifyToken(
+          input.data.ticket,
+          RoomOAuthResumeSchema,
+          {
+            secret: env.SESSION_SECRET,
+            audience: ROOM_ENTRY_AUDIENCE.resume,
+          },
+        );
+        const entry = resume
+          ? null
+          : await verifyToken(input.data.ticket, RoomEntryTicketSchema, {
+              secret: env.SESSION_SECRET,
+              audience: ROOM_ENTRY_AUDIENCE.entry,
+            });
+        const admission =
+          resume || entry
+            ? null
+            : await verifyToken(input.data.ticket, RoomAdmissionSchema, {
+                secret: env.SESSION_SECRET,
+                audience: ROOM_ENTRY_AUDIENCE.admission,
+              });
+        const ticket = resume ?? entry ?? admission;
+        if (
+          !ticket ||
+          ticket.principal !== session.sub ||
+          ((entry || admission) &&
+            (entry ?? admission)?.sessionExp !== session.exp)
+        ) {
+          return error(403, "再開情報を確認できません。");
+        }
+        await env.DB.prepare(
+          "DELETE FROM consumed_room_tickets WHERE expires_at <= ?",
+        )
+          .bind(Math.floor(Date.now() / 1000))
+          .run();
+        const inserted = await env.DB.prepare(
+          "INSERT INTO consumed_room_tickets(ticket_id, expires_at) VALUES (?, ?) ON CONFLICT(ticket_id) DO NOTHING",
+        )
+          .bind(ticket.ticketId, ticket.exp)
+          .run();
+        if (inserted.meta.changes !== 1)
+          return error(409, "再開情報は使用済みです。");
+        return json({ ok: true });
       }
 
       const feedbackMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/feedback$/);

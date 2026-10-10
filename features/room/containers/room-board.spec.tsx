@@ -3603,7 +3603,7 @@ it.each([
   await act(async () => socket.simulateAuthRequiredClose());
   expect(screen.getByRole("link", { name: "ログインする" })).toHaveAttribute(
     "href",
-    "/login",
+    `/login?next=${encodeURIComponent(`/rooms/${ROOM_ID}`)}`,
   );
   expect(navigationMocks.replace).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();

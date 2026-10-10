@@ -180,6 +180,7 @@ export type RoomBoardViewProps = {
   draggingNoteId: string | null;
   members: Member[];
   authorNames?: ReadonlyMap<string, string>;
+  loginReturnHref?: string;
   currentUserId: string;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
@@ -307,6 +308,7 @@ export function RoomBoardView({
   draggingNoteId,
   members,
   authorNames,
+  loginReturnHref,
   currentUserId,
   hostUserId,
   completedVoterIds = [],
@@ -1684,6 +1686,7 @@ export function RoomBoardView({
         onPointerLeave={() => setVoteStampPointer(null)}
       >
         <RoomBoardHeader
+          loginReturnHref={loginReturnHref}
           onEditSelf={displayName?.request}
           hasMoveHistory={hasMoveHistory}
           onOpenFeedback={

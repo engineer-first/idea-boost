@@ -8,6 +8,7 @@ import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomLobby } from "@/features/room";
+import { RoomAdmissionGate } from "@/features/room-lifecycle";
 import {
   isVerificationEnabled,
   VerificationFollower,
@@ -15,12 +16,13 @@ import {
 import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { getBaseUrl } from "@/lib/session/env";
+import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
 
 export const dynamic = "force-dynamic";
 
 type StartPageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ verify?: string }>;
+  searchParams?: Promise<{ verify?: string; entry?: string; tab?: string }>;
 };
 
 export default async function StartPage({
@@ -28,9 +30,12 @@ export default async function StartPage({
   searchParams,
 }: StartPageProps) {
   const { id } = await params;
-  const follow =
-    isVerificationEnabled() && (await searchParams)?.verify === "follow";
-  const suffix = follow ? "?verify=follow" : "";
+  const query = await searchParams;
+  const follow = isVerificationEnabled() && query?.verify === "follow";
+  const targetQuery = new URLSearchParams();
+  if (follow) targetQuery.set("verify", "follow");
+  if (query?.entry) targetQuery.set("entry", query.entry);
+  const suffix = targetQuery.size ? `?${targetQuery}` : "";
 
   if (!isUuid(id)) {
     notFound();
@@ -77,13 +82,18 @@ export default async function StartPage({
 
   // 作成/参加直後の toast はホーム / 招待 URL 側クライアントが成功時に出し、
   // その後 router.push でこのスタート画面へ遷移する。
-  return (
+  const enough = hasRoomEntryTime(user);
+  const admission = enough
+    ? await issueRoomEntry(id, user, "board")
+    : undefined;
+  const content = (
     <main className="flex h-full min-h-0 flex-1 flex-col gap-6 overflow-hidden p-4">
       {follow && <VerificationFollower roomId={id} />}
       <div className="min-h-0 flex-1 overflow-hidden">
         <RoomLobby
           key={parsed.data.roomId}
           roomId={parsed.data.roomId}
+          entryAdmission={admission}
           boardHref={follow ? `/rooms/${id}${suffix}` : undefined}
           inviteCode={parsed.data.inviteCode}
           inviteUrl={inviteUrl}
@@ -96,4 +106,20 @@ export default async function StartPage({
       </div>
     </main>
   );
+
+  if (!enough || query?.entry) {
+    return (
+      <RoomAdmissionGate
+        key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
+        roomId={id}
+        stage="lobby"
+        entryToken={query?.entry}
+        allowFreshEntry={enough}
+        freshAdmission={admission}
+      >
+        {content}
+      </RoomAdmissionGate>
+    );
+  }
+  return content;
 }

@@ -1,18 +1,21 @@
 "use client";
 
-// ホーム「ルームに参加」セクション（organism / コンテナ）。
-// 見た目は JoinRoomSectionView、フォームの副作用は JoinRoomForm 相当のロジックを内包。
-// JoinRoomForm は単体でも使えるため、ここでは View + コンテナの配線に寄せる。
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import { joinRoom, lookupInviteRoom } from "../logic/actions";
+import { entryDestination } from "../logic/entry-destination";
 import { lifecycleNotify } from "../logic/lifecycle-notify";
 import { JoinRoomSectionView } from "../templates/join-room-section-view";
+// ホーム「ルームに参加」セクション（organism / コンテナ）。
+// 見た目は JoinRoomSectionView、フォームの副作用は JoinRoomForm 相当のロジックを内包。
+// JoinRoomForm は単体でも使えるため、ここでは View + コンテナの配線に寄せる。
+import { RoomReauthentication } from "./room-reauthentication";
 
 export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
   const router = useRouter();
+  const [reauth, setReauth] = useState(false);
   const [code, setCode] = useState("");
   const [showCodeError, setShowCodeError] = useState(false);
   const [hostName, setHostName] = useState("");
@@ -53,16 +56,40 @@ export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
       formData.append("code", code);
       const result = await joinRoom(formData);
       if (!result.ok) {
+        if (result.reason === "reauth_required") {
+          setReauth(true);
+          return;
+        }
         notify.error(result.error);
+        return;
+      }
+      let href: string;
+      try {
+        href = await entryDestination(
+          `/rooms/${result.roomId}/start`,
+          result.roomId,
+          result.entryToken,
+        );
+      } catch {
+        notify.error(
+          "ルームへの移動を確認できませんでした。もう一度お試しください。",
+        );
         return;
       }
       if (currentUserId) rememberLastRoom(currentUserId, result.roomId);
       lifecycleNotify.joinedAsGuest();
       setDialogOpen(false);
-      router.push(`/rooms/${result.roomId}/start`);
+      router.push(href);
     });
   }
 
+  if (reauth)
+    return (
+      <RoomReauthentication
+        operation={{ kind: "join", inviteCode: code }}
+        onBack={() => setReauth(false)}
+      />
+    );
   return (
     <JoinRoomSectionView
       code={code}

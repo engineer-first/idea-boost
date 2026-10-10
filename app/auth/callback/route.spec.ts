@@ -15,8 +15,10 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
-    get: () =>
-      mocks.cookie === undefined ? undefined : { value: mocks.cookie },
+    get: (name: string) =>
+      name !== "idea_boost_oauth" || mocks.cookie === undefined
+        ? undefined
+        : { value: mocks.cookie },
     delete: mocks.deleteCookie,
     set: mocks.setCookie,
   }),
@@ -78,7 +80,7 @@ function assertLogin(
   expect([...location.searchParams.keys()].sort()).toEqual(
     expectedNext === null ? ["error"] : ["error", "next"],
   );
-  expect(mocks.deleteCookie).toHaveBeenCalledExactlyOnceWith(cookieName);
+  expect(mocks.deleteCookie).toHaveBeenCalledWith(cookieName);
   return location;
 }
 
@@ -253,7 +255,9 @@ describe("未検証の戻り先を信用しない", () => {
     expect(second.pathname).toBe("/login");
     expect(second.searchParams.get("next")).toBeNull();
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
-    expect(mocks.deleteCookie).toHaveBeenCalledTimes(2);
+    expect(
+      mocks.deleteCookie.mock.calls.filter(([name]) => name === cookieName),
+    ).toHaveLength(2);
     expect(mocks.establish).not.toHaveBeenCalled();
   });
 });
@@ -264,7 +268,7 @@ it("成功は従来の検証設定と入力形で一度だけセッションを�
   expect(response.headers.get("location")).toBe(
     `http://localhost:19500${safeCookieNext}`,
   );
-  expect(mocks.deleteCookie).toHaveBeenCalledExactlyOnceWith(cookieName);
+  expect(mocks.deleteCookie).toHaveBeenCalledWith(cookieName);
   expect(mocks.verify).toHaveBeenCalledExactlyOnceWith(
     "test-id-token",
     mocks.jwks,

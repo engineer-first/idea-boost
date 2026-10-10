@@ -9,6 +9,7 @@ import type { ProtocolMember } from "@/contracts/room-protocol";
 import { signOut } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomBoard } from "@/features/room";
+import { RoomAdmissionGate } from "@/features/room-lifecycle";
 import {
   isVerificationEnabled,
   VerificationFollower,
@@ -16,12 +17,13 @@ import {
 import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { getBaseUrl } from "@/lib/session/env";
+import { hasRoomEntryTime } from "@/lib/session/room-entry";
 
 export const dynamic = "force-dynamic";
 
 type RoomPageProps = {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ verify?: string }>;
+  searchParams?: Promise<{ verify?: string; entry?: string; tab?: string }>;
 };
 
 export default async function RoomPage({
@@ -29,9 +31,12 @@ export default async function RoomPage({
   searchParams,
 }: RoomPageProps) {
   const { id } = await params;
-  const follow =
-    isVerificationEnabled() && (await searchParams)?.verify === "follow";
-  const suffix = follow ? "?verify=follow" : "";
+  const query = await searchParams;
+  const follow = isVerificationEnabled() && query?.verify === "follow";
+  const targetQuery = new URLSearchParams();
+  if (follow) targetQuery.set("verify", "follow");
+  if (query?.entry) targetQuery.set("entry", query.entry);
+  const suffix = targetQuery.size ? `?${targetQuery}` : "";
 
   if (!isUuid(id)) {
     notFound();
@@ -98,7 +103,7 @@ export default async function RoomPage({
   // key={roomId} で、クライアント遷移（/rooms/A → /rooms/B）時に RoomBoard を
   // 強制的に再マウントする。これがないと notes state（や draggingNoteId）が
   // 旧ルームの値を保持し、新ルームの snapshot が届くまで旧データが表示される。
-  return (
+  const content = (
     <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       {follow && <VerificationFollower roomId={id} />}
       <div className="min-h-0 flex-1 overflow-hidden">
@@ -117,4 +122,19 @@ export default async function RoomPage({
       </div>
     </main>
   );
+
+  const enough = hasRoomEntryTime(user);
+  if (!enough || query?.entry) {
+    return (
+      <RoomAdmissionGate
+        key={`${user.sub}:${user.exp}:${id}:${query?.entry ?? "fresh"}`}
+        roomId={id}
+        entryToken={query?.entry}
+        allowFreshEntry={enough}
+      >
+        {content}
+      </RoomAdmissionGate>
+    );
+  }
+  return content;
 }

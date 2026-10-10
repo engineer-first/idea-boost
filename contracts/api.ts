@@ -67,8 +67,13 @@ export const RoomLookupResponseSchema = z.object({
 
 // 復帰確認の結果だけを返す。認可済み情報や盤面は既存APIに留める。
 export const ReturnToRoomResultSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("ready"), href: z.string() }),
+  z.object({
+    kind: z.literal("ready"),
+    href: z.string(),
+    entryToken: z.string().optional(),
+  }),
   z.object({ kind: z.literal("unavailable_room") }),
   z.object({ kind: z.literal("retry") }),
+  z.object({ kind: z.literal("reauth_required") }),
 ]);
 export type ReturnToRoomResult = z.infer<typeof ReturnToRoomResultSchema>;

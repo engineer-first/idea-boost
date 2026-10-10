@@ -34,6 +34,7 @@ import {
 } from "@/contracts/room-creation";
 import { apiFetch, lookupRoomByInviteCode } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
+import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
 
 const JoinRoomInputSchema = z.object({
   code: z
@@ -48,7 +49,7 @@ const JoinRoomInputSchema = z.object({
 // （Server Action の redirect 後に toast する方式は、遷移でクライアント状態が
 // 消えるため使わない）
 export type CreateRoomResult =
-  | { ok: true; roomId: string }
+  | { ok: true; roomId: string; entryToken?: string }
   | {
       ok: false;
       error: string;
@@ -57,13 +58,13 @@ export type CreateRoomResult =
     };
 
 export type JoinRoomResult =
-  | { ok: true; roomId: string }
-  | { ok: false; error: string };
+  | { ok: true; roomId: string; entryToken?: string }
+  | { ok: false; error: string; reason?: string };
 
 // 参加確認 Dialog 用。ホスト名を先に解決し、存在しないコードは Dialog を開かない。
 export type LookupInviteResult =
   | { ok: true; hostName: string; inviteCode: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; reason?: string };
 
 export async function lookupInviteRoom(
   code: string,
@@ -124,6 +125,13 @@ export async function createRoom(
       reason: "actor_mismatch",
       error: "アカウントが変わりました。ログイン状態を確認してください。",
     };
+  if (!hasRoomEntryTime(user))
+    return {
+      ok: false,
+      outcome: "rejected",
+      reason: "reauth_required",
+      error: "ログインし直して続けてください。",
+    };
   try {
     const res = await apiFetch("/api/rooms", {
       method: "POST",
@@ -146,7 +154,12 @@ export async function createRoom(
     const parsed = res.ok
       ? CreateRoomResponseSchema.safeParse(await res.json().catch(() => null))
       : null;
-    if (parsed?.success) return { ok: true, roomId: parsed.data.roomId };
+    if (parsed?.success)
+      return {
+        ok: true,
+        roomId: parsed.data.roomId,
+        entryToken: await issueRoomEntry(parsed.data.roomId, user, "lobby"),
+      };
   } catch {
     // 送信後の通信失敗では成功・失敗を決めない。
   }
@@ -239,6 +252,12 @@ export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {
     redirect("/login");
   }
 
+  if (!hasRoomEntryTime(user))
+    return {
+      ok: false,
+      reason: "reauth_required",
+      error: "ログインし直して続けてください。",
+    };
   let res: Response;
   try {
     res = await apiFetch("/api/rooms/join", {
@@ -283,7 +302,11 @@ export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {
 
   // 参加したらボードではなくスタート画面へ遷移する。
   // 遷移と「ルームに参加しました」toast は呼び出し側クライアントが行う。
-  return { ok: true, roomId: parsed.data.roomId };
+  return {
+    ok: true,
+    roomId: parsed.data.roomId,
+    entryToken: await issueRoomEntry(parsed.data.roomId, user, "lobby"),
+  };
 }
 
 export async function returnToRoom(
@@ -319,9 +342,16 @@ export async function returnToRoom(
     );
     if (!parsed.success || parsed.data.roomId !== roomId)
       return { kind: "retry" };
+    if (!hasRoomEntryTime(user)) return { kind: "reauth_required" };
+    const entryToken = await issueRoomEntry(
+      roomId,
+      user,
+      isLobby(parsed.data.phase) ? "lobby" : "board",
+    );
     return {
       kind: "ready",
       href: `/rooms/${roomId}${isLobby(parsed.data.phase) ? "/start" : ""}`,
+      entryToken,
     };
   } catch {
     return { kind: "retry" };
