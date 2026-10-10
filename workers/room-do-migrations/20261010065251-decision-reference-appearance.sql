@@ -1,5 +1,6 @@
 -- 採用本文は既存のコピーを保持し、外観と集計だけを元付箋から復元する。
 -- 元付箋がない場合の NULL は、復元できない値を推測しないための印。
+-- 契約の値域外の色も NULL とし、本文や他の復元可能な値は保持する。
 ALTER TABLE decisions ADD COLUMN note_color TEXT;
 ALTER TABLE decisions ADD COLUMN note_font_size INTEGER
   CHECK (note_font_size IS NULL OR (typeof(note_font_size) = 'integer' AND note_font_size BETWEEN 12 AND 24));
@@ -9,7 +10,19 @@ ALTER TABLE decisions ADD COLUMN objective_votes INTEGER
   CHECK (objective_votes IS NULL OR (typeof(objective_votes) = 'integer' AND objective_votes >= 0));
 
 UPDATE decisions
-SET note_color = (SELECT color FROM notes WHERE id = decisions.note_id),
+SET note_color = (
+      SELECT CASE
+        WHEN color IN (
+          'yellow', 'green', 'blue', 'pink', 'orange',
+          'purple', 'red', 'lime', 'teal', 'cyan',
+          'indigo', 'violet', 'fuchsia', 'rose', 'amber',
+          'emerald', 'sky', 'slate', 'stone', 'zinc'
+        ) THEN color
+        ELSE NULL
+      END
+      FROM notes
+      WHERE id = decisions.note_id
+    ),
     note_font_size = (
       SELECT COALESCE(a.font_size, 14) FROM notes n
       LEFT JOIN note_appearances a ON a.note_id = n.id

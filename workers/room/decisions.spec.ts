@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  CarryoverSchema,
+  NOTE_COLOR_PALETTE,
+} from "../../contracts/room-protocol";
+import {
   LEGACY_ROOM_DO_MIGRATION_IDS,
   migrateRoomStorage,
   ROOM_DO_MIGRATIONS,
@@ -33,11 +37,50 @@ function seed(sql: SqlStorage): void {
 }
 
 describe("決定付箋の参照データ", () => {
+  it.each([
+    ...NOTE_COLOR_PALETTE,
+    "black",
+    "",
+    "PINK",
+  ])("旧データの色 %j は許可された色だけ復元し、本文・文字サイズ・票数を保持する", async (color) => {
+    await runInRoomDO(`decision-legacy-color-${color}`, (_room, state) => {
+      dropAllTables(state.storage);
+      const prior = ROOM_DO_MIGRATIONS.filter(
+        (migration) => migration.id < "20261010065251",
+      );
+      migrateRoomStorage(state.storage, prior, LEGACY_ROOM_DO_MIGRATION_IDS);
+      const sql = state.storage.sql;
+      seed(sql);
+      sql.exec("UPDATE notes SET color = ?1 WHERE id = ?2", color, NOTE);
+      sql.exec(
+        "INSERT INTO decisions (phase, note_id, decided_by, decided_at, note_content) VALUES (1, ?1, ?2, 'now', '既存の採用本文')",
+        NOTE,
+        USER,
+      );
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      const carryover = getCarryovers(sql, 2)[0];
+      expect(carryover).toEqual({
+        phase: 1,
+        noteId: NOTE,
+        content: "既存の採用本文",
+        color: NOTE_COLOR_PALETTE.some((allowed) => allowed === color)
+          ? color
+          : null,
+        fontSize: 20,
+        dotVotes: { subjective: 1, objective: 2 },
+      });
+      expect(CarryoverSchema.safeParse(carryover).success).toBe(true);
+    });
+  });
   it("既存ルームの外観と票を復元し、採用本文と欠損時の null を保持する", async () => {
     await runInRoomDO("decision-legacy-backfill", (_room, state) => {
       dropAllTables(state.storage);
       const prior = ROOM_DO_MIGRATIONS.filter(
-        (migration) => migration.id < "20261010065250",
+        (migration) => migration.id < "20261010065251",
       );
       migrateRoomStorage(state.storage, prior, LEGACY_ROOM_DO_MIGRATION_IDS);
       const sql = state.storage.sql;
