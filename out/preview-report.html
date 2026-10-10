@@ -71,14 +71,14 @@
   <header>
     <h1>PR Preview の準備状況</h1>
     <p class="lede">認証・本番との分離・14ステップのサンプルをローカルで実装し、テスト・型・lint・ビルドに成功しました。Preview専用D1とGitHub設定を用意しました。Accessに必要なZero Trustの新規登録は、既存契約内の許可を超えるため確認待ちです。</p>
-    <p class="meta">Idea Boost <a href="https://github.com/engineer-first/idea-boost/issues/362">#362</a> ／ 記録時点：2026-10-10 16:21 JST ／ 作業ブランチ <code>codex/pr-preview</code></p>
+    <p class="meta">Idea Boost <a href="https://github.com/engineer-first/idea-boost/issues/362">#362</a> ／ 記録時点：2026-10-10 16:41 JST ／ 作業ブランチ <code>codex/pr-preview</code> ／ <a href="https://github.com/engineer-first/idea-boost/pull/583">Draft PR #583</a></p>
     <nav aria-label="報告の目次">
       <a href="#architecture">構成図</a><a href="#configuration">Cloudflare設定</a><a href="#verification">検証と未確認事項</a><a href="#access-next">停止理由</a><a href="#release">PRとrelease</a><a href="preview-setup-log.md">操作台帳</a>
     </nav>
   </header>
 
   <div class="status-summary" aria-label="全体の状態">
-    <div><strong class="verified">Preview検証：24件成功</strong><p>unit 2710件＋追加5件を個別成功。Worker 913件、verification 32件、直前版の型・lint・buildも成功。最終追加分を再確認中。</p></div>
+    <div><strong class="verified">Preview検証：24件成功</strong><p>unit 2710件＋追加5件を個別成功。Worker 913件、verification 32件、最終追加分を含む型・lint・buildも成功。</p></div>
     <div><strong class="pending">D1・GitHub設定：完了</strong><p>D1の既存9migrationも適用済み。Zero Trust新規登録とAccess・公開は未完了。</p></div>
     <div><strong>本番：今回の変更なし</strong><p>新しいPreviewは本番から分離。本番releaseは別の公開操作です。</p></div>
   </div>
@@ -111,7 +111,7 @@
         <tr><td>Google認証 / Access</td><td>署名、issuer、audience、期限、許可メールをAppで検証。APIも本人と許可を確認。</td><td><span class="status pending">未設定</span><br>許可メール2名は確定。Zero Trust新規登録の確認待ち</td></tr>
         <tr><td>Secret / Cookie</td><td>Preview専用 <code>SESSION_SECRET</code> と <code>__Host-idea_boost_preview_session</code>。本番Cookieを無視。</td><td><span class="status verified">GitHub登録済み</span><br>専用Secret3つ。Workerへの反映は未実施。値は保存しない</td></tr>
         <tr><td>別の公開入口</td><td>App：<code>workers_dev: false</code> / <code>preview_urls: true</code>。全Preview URLをgatewayで認証。API：両方falseでBindingから呼ぶ。</td><td><span class="status local">ローカル設定のみ</span></td></tr>
-        <tr><td>CI / health</td><td>通常pull_request CIでbuild・artifact保存。workflow_runは成果物取得だけ。別runnerとcache無効化、最新CI成功の再検査で隔離。操作JSONログはUTC日時・対象・状態のみで、生の秘密出力は保存しない。</td><td><span class="status pending">Actions未検証</span><br>PREVIEW_ENABLED未設定で自動公開無効。既存CI tokenの実権限は未照合</td></tr>
+        <tr><td>CI / health</td><td>通常pull_request CIでbuild・artifact保存。workflow_runは成果物取得だけ。別runnerとcache無効化、最新CI成功の再検査で隔離。操作JSONログはUTC日時・対象・状態のみで、生の秘密出力は保存しない。</td><td><span class="status pending">自動公開は未検証</span><br>PREVIEW_ENABLED未設定で自動公開無効。既存CI tokenの実権限は未照合</td></tr>
       </tbody>
     </table>
     </div>
@@ -136,14 +136,15 @@
         <p class="note">Preview24件、verification32件、Worker913件成功。unit2710件全体と、追加CI1件／UI2件／signout2件の個別成功を区別。auth／Preview UI対象53件も成功。ローカルテストの結果であり、Cloudflare公開や実Googleログインの成功を表すものではありません。</p>
       </div>
       <div>
-        <h3>実環境で残る確認</h3>
+        <p class="note">GitHub上の画面資料4枚は表示確認済み。Storybook公開は成功しました。ChromaticのUI Testsはプラン更新の案内により保留のため、画面差分検査は未実施です。<a href="https://github.com/engineer-first/idea-boost/pull/583#issuecomment-6095200985">確認資料</a></p>
+    <h3>実環境で残る確認</h3>
         <ul class="plain-list">
           <li>Zero Trust登録の確認後、hostname-based Access・Worker Secret・公開を完了し、通常／固定URL、Google本人ログイン、health、実WSを確認。</li>
           <li>別の人の2ブラウザで参加・付箋・投票・進行、複数PRの並行利用、close／reopen、別URL入口の保護を確認。</li>
         </ul>
       </div>
     </div>
-    <p class="note">App Worker bundleのdry-runも成功（8.7MB／gzip1.8MB）。追加CI1件／UI2件／signout2件も個別成功しました。最終追加分の型・buildは再確認中です。</p>
+    <p class="note">App Worker bundleのdry-runも成功（8.7MB／gzip1.8MB）。追加CI1件／UI2件／signout2件も個別成功しました。最終追加分を含む型・lint・Preview buildも成功しました。</p>
     <p class="note">rootは既存ignored資料の型・lint問題があるため、今回の差分を隔離して検証しました。初回ビルドの外向きnode_modules symlinkによるTurbopack拒否は、隔離側のnpm ciで解消済みです。</p>
     <p class="note">Wranglerは4.107.0から4.149.0へ更新済み。Workers Previewsに必要な4.135.0以上を満たします。OpenNextは1.20.1を継続しています。</p>
   </section>

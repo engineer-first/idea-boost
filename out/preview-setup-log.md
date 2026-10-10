@@ -2,7 +2,7 @@
 
 対象：[Issue #362](https://github.com/engineer-first/idea-boost/issues/362)。実環境の権限・Secret・契約の担当範囲は [#360](https://github.com/engineer-first/idea-boost/issues/360)。この台帳は今回の調査・操作の証拠であり、現行手順の正本は `docs/operations/preview.md` に置く。
 
-記録更新：2026-10-10 07:21:55 UTC（16:21:55 JST）。過去の操作で時刻を採取していないものは日付のみを記載する。
+記録更新：2026-10-10 07:41:39 UTC（16:41:39 JST）。過去の操作で時刻を採取していないものは日付のみを記載する。
 
 ## 現在の到達点
 
@@ -136,7 +136,7 @@ Worker単位の `preview_worker` はWS非対応なので採用しない。hostna
 
 Worker IDは不要なので、親Workerの事前deployも不要。先にAccessを設定でき、Preview CLIが初回の親Workerを自動作成する。Account全体のProtect Allは使わない。health用ServiceAuthは同じapplicationへ追加し、gatewayのprobe tokenは `/api/health` 限定。通常API／WSではsub・emailを持つGoogle JWTを要求し、service identityだけでは本人ログインできない。
 
-ログアウトは `/cdn-cgi/access/logout` へ移動する実装。実環境でのSSO終了は未検証。型・buildは直前版で成功しており、この最終追加分の再確認は主担当で進行中。
+ログアウトは `/cdn-cgi/access/logout` へ移動する実装。実環境でのSSO終了は未検証。最終追加分を含む型・lint・Preview buildが隔離worktreeで成功。
 
 ## PRの後にreleaseが必要か
 
@@ -165,3 +165,7 @@ python3 out/generate-preview-diagram.py --skill-dir /Users/junhat6/ghq/github.co
 ```
 
 Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. Source: <https://github.com/cloudflare/cloudflare-docs/tree/0017e51a284d1be4341ada9f9005850a7b47dc7b/src/icons>. Icons embedded without modification.
+
+## PR作成と資料の公開
+
+2026-10-10に[Draft PR #583](https://github.com/engineer-first/idea-boost/pull/583)をbase developで作成。[画面と構成図の確認資料](https://github.com/engineer-first/idea-boost/pull/583#issuecomment-6095200985)に4枚を添付し、GitHubの実ブラウザで全画像の描画を確認した。Secret値は添付していない。Storybook公開は成功。ChromaticのUI Testsはプラン更新が必要との表示により保留であり、画面差分検査は未実施。契約は変更していない。
