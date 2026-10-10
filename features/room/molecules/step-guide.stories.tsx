@@ -84,3 +84,31 @@ export const LongText: Story = {
     initialState: "detail",
   },
 };
+
+export const GroupingBoundary: Story = {
+  args: {
+    ...Grouping.args,
+    initialState: "compact",
+    timer: { status: "ended", durationMs: 240000 },
+    sessionKey: "group-boundary:me",
+  },
+};
+export const ComparingBoundary: Story = {
+  args: {
+    ...Comparing.args,
+    initialState: "compact",
+    timer: { status: "ended", durationMs: 420000 },
+    sessionKey: "compare-boundary:me",
+  },
+};
+export const BoundaryDetail: Story = {
+  args: {
+    ...GroupingBoundary.args,
+    initialState: "detail",
+    isHost: true,
+    sessionKey: "boundary-detail:me",
+  },
+};
+export const DisconnectedBoundary: Story = {
+  args: { ...GroupingBoundary.args, isReady: false },
+};

@@ -42,6 +42,9 @@ export function buildCarryover(overrides: Partial<Carryover> = {}): Carryover {
     phase: 1,
     noteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     content: "宿題を後回しにしてしまう",
+    color: "yellow",
+    fontSize: 14,
+    dotVotes: { subjective: 0, objective: 0 },
     ...overrides,
   };
 }

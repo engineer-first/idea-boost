@@ -57,6 +57,26 @@ afterEach(() => {
 });
 
 describe("工程ガイド", () => {
+  it.each([
+    undefined,
+    "intro",
+  ] as const)("639px以下では初めての工程も説明を閉じ、入口から開ける（初期状態: %s）", (initialState) => {
+    vi.spyOn(window, "innerWidth", "get").mockReturnValue(639);
+    const { props, rerender } = setup({ initialState });
+    expect(
+      screen.queryByRole("status", { name: "最初の一歩" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toHaveFocus();
+    rerender(<StepGuide {...props} phaseKey="1-2" />);
+    expect(screen.getByRole("button", { name: "進め方" })).toBeVisible();
+    expect(
+      screen.queryByRole("status", { name: "最初の一歩" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("畳んだ入口は進め方だけを示し、現在の作業を併記しない", () => {
     setup({ initialState: "compact" });
     const trigger = screen.getByRole("button", { name: "進め方" });
@@ -280,4 +300,133 @@ describe("工程ガイド", () => {
     });
     expect(screen.queryByText("ホストへ")).not.toBeInTheDocument();
   });
+});
+
+describe("整理の区切り案内", () => {
+  it("終了で5秒案内し、再配信では繰り返さず、再開始後には再度案内する", () => {
+    vi.useFakeTimers();
+    const props = {
+      ...defaults,
+      phaseKey: "1-3",
+      initialState: "compact" as const,
+      timer: {
+        status: "running" as const,
+        endsAt: Date.now() + 240000,
+        durationMs: 240000,
+      },
+    };
+    const view = render(<StepGuide {...props} />);
+    view.rerender(
+      <StepGuide {...props} timer={{ status: "ended", durationMs: 240000 }} />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "区切りです。単独もOK → 投票へ",
+    );
+    tick(5000);
+    expect(frame()).toHaveAttribute("data-state", "compact");
+    view.rerender(
+      <StepGuide {...props} timer={{ status: "ended", durationMs: 240000 }} />,
+    );
+    expect(frame()).toHaveAttribute("data-state", "compact");
+    view.rerender(<StepGuide {...props} />);
+    view.rerender(
+      <StepGuide {...props} timer={{ status: "ended", durationMs: 240000 }} />,
+    );
+    expect(frame()).toHaveAttribute("data-state", "intro");
+  });
+  it("詳細の終了時に開閉とフォーカスを保ち、切断時は区切りを示さない", () => {
+    const props = {
+      ...defaults,
+      phaseKey: "3-3",
+      initialState: "detail" as const,
+    };
+    const view = render(<StepGuide {...props} />);
+    const detail = screen.getByRole("region", {
+      name: "ファシリテーションガイド",
+    });
+    detail.focus();
+    view.rerender(
+      <StepGuide {...props} timer={{ status: "ended", durationMs: 420000 }} />,
+    );
+    expect(detail).toHaveFocus();
+    expect(frame()).toHaveAttribute("data-state", "detail");
+    expect(within(detail).getByText(/区切りです/)).toBeVisible();
+    view.rerender(
+      <StepGuide
+        {...props}
+        isReady={false}
+        timer={{ status: "ended", durationMs: 420000 }}
+      />,
+    );
+    expect(within(detail).queryByText(/区切りです/)).toBeNull();
+  });
+});
+
+it("終了案内はホバーとフォーカス中に畳まず、再開始・工程変更・切断復帰で古い案内を繰り返さない", () => {
+  vi.useFakeTimers();
+  const props = {
+    ...defaults,
+    phaseKey: "1-3",
+    initialState: "compact" as const,
+    timer: { status: "ended" as const, durationMs: 240000 },
+  };
+  const view = render(<StepGuide {...props} />);
+  fireEvent.pointerEnter(frame());
+  tick(7000);
+  expect(frame()).toHaveAttribute("data-state", "intro");
+  fireEvent.pointerLeave(frame());
+  fireEvent.focus(screen.getByRole("status"));
+  tick(7000);
+  expect(frame()).toHaveAttribute("data-state", "intro");
+  fireEvent.blur(screen.getByRole("status"));
+  tick(5000);
+  view.rerender(<StepGuide {...props} isReady={false} />);
+  view.rerender(<StepGuide {...props} />);
+  expect(frame()).toHaveAttribute("data-state", "compact");
+  view.rerender(
+    <StepGuide
+      {...props}
+      timer={{
+        status: "running",
+        durationMs: 240000,
+        endsAt: Date.now() + 240000,
+      }}
+    />,
+  );
+  expect(screen.queryByRole("status")).toBeNull();
+  view.rerender(<StepGuide {...props} phaseKey="1-4" />);
+  expect(screen.getByRole("status")).not.toHaveTextContent("区切りです");
+  view.unmount();
+  const reconnected = render(<StepGuide {...props} />);
+  tick(5000);
+  reconnected.unmount();
+  render(<StepGuide {...props} />);
+  expect(frame()).toHaveAttribute("data-state", "compact");
+});
+it("初回案内中の終了にも5秒の区切り案内を新しく確保する", () => {
+  vi.useFakeTimers();
+  const props = { ...defaults, phaseKey: "1-3" };
+  const view = render(<StepGuide {...props} />);
+  tick(4000);
+  view.rerender(
+    <StepGuide {...props} timer={{ status: "ended", durationMs: 240000 }} />,
+  );
+  tick(4999);
+  expect(frame()).toHaveAttribute("data-state", "intro");
+  tick(1);
+  expect(frame()).toHaveAttribute("data-state", "compact");
+});
+it("区切り表示中に切断すると復帰しても同じ短い案内を再表示しない", () => {
+  const props = {
+    ...defaults,
+    phaseKey: "1-3",
+    initialState: "compact" as const,
+    timer: { status: "ended" as const, durationMs: 240000 },
+  };
+  const view = render(<StepGuide {...props} />);
+  expect(frame()).toHaveAttribute("data-state", "intro");
+  view.rerender(<StepGuide {...props} isReady={false} />);
+  expect(frame()).toHaveAttribute("data-state", "compact");
+  view.rerender(<StepGuide {...props} />);
+  expect(frame()).toHaveAttribute("data-state", "compact");
 });

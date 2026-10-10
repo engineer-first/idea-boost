@@ -95,10 +95,10 @@ for (const { phase, count } of phases) {
         expect(await location.isVisible()).toBe(true);
         expect(await location.getAttribute("aria-expanded")).toBe("false");
         const progress = page.getByTestId("board-progress-rail");
-        expect(await progress.getAttribute("aria-valuenow")).toBe(String(step));
-        expect(await progress.getAttribute("aria-valuemax")).toBe(
-          String(count),
+        expect(await progress.getAttribute("aria-valuenow")).toBe(
+          String(step + (phase === 1 ? 0 : phase === 2 ? 5 : 9)),
         );
+        expect(await progress.getAttribute("aria-valuemax")).toBe("14");
         expect(await page.getByTestId("board-current-step").count()).toBe(0);
         expect(
           await page.getByRole("button", { name: "ゴールと進行" }).count(),
@@ -192,6 +192,8 @@ test("決定内容をキーボードで開閉し、フォーカスを保つ", as
     exact: true,
   });
   await toggle.focus();
+  await page.keyboard.press("Enter");
+  expect(await toggle.getAttribute("aria-expanded")).toBe("false");
   await page.keyboard.press("Enter");
   expect(await toggle.getAttribute("aria-expanded")).toBe("true");
   await expect
@@ -434,7 +436,13 @@ test("390px template展開後のprivate本文がdock内で通常pointerとEnter�
   await page.setViewportSize({ width: 390, height: 844 });
   await openStory("room-roomboardview--hmw-writing-step");
   const toolbar = page.getByTestId("private-notes-toolbar");
-  await page.mouse.move(258, 627);
+  const scroll = page.getByTestId("private-notes-scroll");
+  const scrollBox = await scroll.boundingBox();
+  if (!scrollBox) throw new Error("マイ付箋のスクロール領域がありません");
+  await page.mouse.move(
+    scrollBox.x + scrollBox.width / 2,
+    scrollBox.y + scrollBox.height / 2,
+  );
   await page.mouse.wheel(0, 500);
   await page.waitForFunction(() => {
     const scroll = document.querySelector<HTMLElement>(

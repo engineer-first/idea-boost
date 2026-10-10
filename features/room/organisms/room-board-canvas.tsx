@@ -612,12 +612,6 @@ export function RoomBoardCanvas({
           data-board-fit-edge="bottom"
         >
           <div className="flex items-center gap-2">
-            <div
-              data-testid="board-operation-matrix"
-              className="pointer-events-auto"
-            >
-              <BoardOperationMatrix permissions={permissions} />
-            </div>
             {permissions.canEditNote ? (
               <NoteFontSizeControls
                 fontSize={selectedNote?.fontSize ?? null}
@@ -858,7 +852,7 @@ export function RoomBoardCanvas({
           : null}
         {isIdeaMapSizeControlsVisible ? (
           <div
-            className={`pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0 ${moveHistory ? "max-[639px]:bottom-[var(--board-mobile-controls-bottom)]" : "max-[639px]:bottom-[calc(4.5rem+var(--board-notification-inset,0px))]"}`}
+            className={`pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0 max-[639px]:bottom-[var(--board-mobile-controls-bottom,calc(11rem+var(--board-notification-inset,0px)))]`}
             data-testid="idea-map-size-controls-hud"
             data-board-fit-edge="bottom"
           >
@@ -872,9 +866,16 @@ export function RoomBoardCanvas({
             />
           </div>
         ) : null}
+        <div
+          className="pointer-events-auto absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 max-[639px]:bottom-[var(--board-operation-bottom,calc(4.5rem+var(--board-notification-inset,0px)))]"
+          data-testid="board-operation-matrix"
+          data-board-fit-edge="bottom"
+        >
+          <BoardOperationMatrix permissions={permissions} />
+        </div>
         {permissions.showPrivateToolbar ? (
           <div
-            className={`pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(11.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(7.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]"}`}
+            className={`pointer-events-none absolute right-3 bottom-[calc(5.25rem+var(--board-notification-inset,0px))] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(11.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(7.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]"}`}
             data-testid="private-notes-dock"
             data-board-fit-edge="bottom"
           >

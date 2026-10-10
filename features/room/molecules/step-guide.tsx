@@ -2,6 +2,7 @@
 
 import { ArrowDown, CircleHelp, Clock3 } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
+import type { TimerState } from "@/contracts/room-protocol";
 import type { FacilitationGuideContent } from "../logic/facilitation-guide";
 import { type StepGuideState, useStepGuide } from "../logic/use-step-guide";
 import styles from "./step-guide.module.css";
@@ -13,10 +14,16 @@ export type StepGuideProps = {
   isHost: boolean;
   isReady: boolean;
   initialState?: StepGuideState;
+  timer?: TimerState;
 };
 
 export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
-  const { state, setState, setHovered, setFocused } = useStepGuide(options);
+  const { state, isBoundary, setState, setHovered, setFocused } =
+    useStepGuide(options);
+  const boundaryText =
+    options.phaseKey === "1-3"
+      ? "区切りです。単独もOK → 投票へ"
+      : "区切りです。大きな異論がなければ → 投票へ";
   const root = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const detail = useRef<HTMLElement>(null);
@@ -105,14 +112,14 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
       </button>
       <div
         role="status"
-        aria-label="最初の一歩"
+        aria-label={isBoundary ? "区切りの案内" : "最初の一歩"}
         aria-atomic="true"
         tabIndex={state === "intro" ? 0 : -1}
         inert={state !== "intro"}
         aria-hidden={state !== "intro"}
         className={`${styles.layer} ${styles.intro} text-sm leading-6 text-primary`}
       >
-        <p>{guide.intro}</p>
+        <p>{isBoundary ? boundaryText : guide.intro}</p>
         <button
           type="button"
           aria-controls={`${id}-detail`}
@@ -238,7 +245,14 @@ export function StepGuide({ guide, isHost, ...options }: StepGuideProps) {
               <dt className="text-xs font-semibold text-muted-foreground">
                 次へ進む目安
               </dt>
-              <dd className="mt-1">{guide.completion}</dd>
+              <dd className="mt-1">
+                {isBoundary && (
+                  <p role="status" className="font-semibold">
+                    {boundaryText}
+                  </p>
+                )}
+                {guide.completion}
+              </dd>
             </div>
           )}
         </dl>

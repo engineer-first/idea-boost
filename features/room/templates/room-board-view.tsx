@@ -26,7 +26,7 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { SharingState } from "@/contracts/room-protocol";
+import type { Carryover, SharingState } from "@/contracts/room-protocol";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
@@ -180,6 +180,7 @@ export type RoomBoardViewProps = {
   draggingNoteId: string | null;
   members: Member[];
   authorNames?: ReadonlyMap<string, string>;
+  loginReturnHref?: string;
   currentUserId: string;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
@@ -195,6 +196,8 @@ export type RoomBoardViewProps = {
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
+  issueReference?: Carryover | null;
+  hmwReference?: Carryover | null;
   onAddPrivateNote: () => string | null;
   noteCreationPending?: boolean;
   noteCreationReceipt?: { operationId: string; noteId: string };
@@ -305,6 +308,7 @@ export function RoomBoardView({
   draggingNoteId,
   members,
   authorNames,
+  loginReturnHref,
   currentUserId,
   hostUserId,
   completedVoterIds = [],
@@ -315,6 +319,8 @@ export function RoomBoardView({
   signOutAction,
   hmwDecidedIssue,
   decidedHmw,
+  issueReference,
+  hmwReference,
   onAddPrivateNote,
   noteCreationPending = false,
   noteCreationReceipt,
@@ -1214,9 +1220,10 @@ export function RoomBoardView({
   // mobileはHUDの実高を使って積む。fit用の占有領域・desktopの配置はそのまま保つ。
   useEffect(() => {
     const root = boardRootRef.current;
-    if (!root || !hasMoveHistory) return;
+    if (!root) return;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
+      ["board-operation-matrix", "--board-operation-height"],
       ["phase-loop-hud", "--board-phase-hud-height"],
       ["idea-map-size-controls-hud", "--board-map-hud-height"],
       ["vote-palette-hud", "--board-vote-hud-height"],
@@ -1254,7 +1261,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, hasMoveHistory, phase]);
+  }, [boardRootRef, phase]);
 
   // 通知はボードの外の portal に描画される。実際の占有高だけ HUD に渡し、
   // 通知の寿命・Undo・camera・共有状態は変えない。
@@ -1409,15 +1416,16 @@ export function RoomBoardView({
           {
             // トレイの操作欄を含む総高を、上部パネルの予約にも使う。
             // 接続案内が長いときも、その下の現在地1行と余白を残す。
+            "--board-operation-bottom":
+              "calc(0.75rem + var(--board-notification-inset, 0px) + var(--board-tools-height, 48px) + 0.5rem)",
             "--board-mobile-controls-bottom":
-              "calc(0.75rem + var(--board-notification-inset, 0px) + var(--board-tools-height, 0px) + 0.5rem)",
+              "calc(var(--board-operation-bottom) + var(--board-operation-height, 62px) + 0.5rem)",
             "--board-mobile-header-bottom":
               "calc(var(--board-private-dock-bottom) + var(--board-private-toolbar-height, 0px) + 0.75rem)",
             "--board-mobile-phase-bottom":
               "calc(var(--board-mobile-controls-bottom) + var(--board-map-hud-height, 0px) + var(--board-vote-hud-height, 0px) + 0.5rem)",
-            "--board-private-dock-bottom": hasMoveHistory
-              ? "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)"
-              : `calc(${isHost && phase.kind === "step" && phase.step === 2 ? "11.5rem" : "7.5rem"} + var(--board-notification-inset, 0px))`,
+            "--board-private-dock-bottom":
+              "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)",
             "--board-private-dock-top":
               "max(16.5rem, calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
             "--board-private-dock-height": hasMoveHistory
@@ -1678,6 +1686,7 @@ export function RoomBoardView({
         onPointerLeave={() => setVoteStampPointer(null)}
       >
         <RoomBoardHeader
+          loginReturnHref={loginReturnHref}
           onEditSelf={displayName?.request}
           hasMoveHistory={hasMoveHistory}
           onOpenFeedback={
@@ -1693,6 +1702,8 @@ export function RoomBoardView({
           }
           hmwDecidedIssue={hmwDecidedIssue}
           decidedHmw={decidedHmw}
+          issueReference={issueReference}
+          hmwReference={hmwReference}
           inviteCode={inviteCode}
           inviteUrl={inviteUrl}
           phase={phase}
@@ -1901,7 +1912,7 @@ export function RoomBoardView({
 
         {isVotingStep(phase) ? (
           <div
-            className={`pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center max-[639px]:justify-center ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-controls-bottom)]" : "max-[639px]:bottom-[7.5rem]"}`}
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center min-[640px]:max-[1023px]:bottom-[calc(5.25rem+var(--board-notification-inset,0px))] max-[639px]:justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)]"
             data-testid="vote-palette-hud"
             data-board-fit-edge="bottom"
           >
@@ -1919,7 +1930,7 @@ export function RoomBoardView({
         ) : null}
 
         <div
-          className={`pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-phase-bottom)]" : "max-[639px]:bottom-[7.5rem]"}`}
+          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
           data-testid="phase-loop-hud"
           data-board-fit-edge="bottom"
         >

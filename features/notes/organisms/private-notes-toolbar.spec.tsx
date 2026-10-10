@@ -323,7 +323,7 @@ describe("PrivateNotesToolbar", () => {
     ).toEqual(["before", "returning", "after"]);
   });
 
-  it("初期状態は開いて表示し、必要なときに小さなドックへ閉じる", () => {
+  it("初期状態は開いて表示し、閉じると一覧を隠して操作欄を残す", () => {
     const onAdd = vi.fn(() => "create-1");
     render(
       <PrivateNotesToolbar
@@ -376,7 +376,6 @@ describe("PrivateNotesToolbar", () => {
     fireEvent.click(closeButton);
 
     expect(toolbar).toHaveAttribute("data-expanded", "false");
-    expect(toolbar).toHaveClass("h-14", "w-fit");
     expect(
       screen.queryByRole("button", { name: "付箋" }),
     ).not.toBeInTheDocument();

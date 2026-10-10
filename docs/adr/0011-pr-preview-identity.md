@@ -1,4 +1,4 @@
-# 0010: PR PreviewをAccess本人ログインと共通APIで動かす
+# 0011: PR PreviewをAccess本人ログインと共通APIで動かす
 
 - 状態: 提案
 - 決定日: 未確定（PRレビューで判断する）
@@ -16,6 +16,8 @@ PRごとにAppだけをWorkers Previewsへ公開し、CI成功したdevelopの�
 Cloudflare AccessのGoogle限定applicationとメール許可一覧で本人ログインを受ける。Appの全入口（静的assetsとWebSocketを含む）でJWTのRS256署名・issuer・audience・期限を検証し、署名済みの短命な本人主張でAPIへユーザーを登録する。既存のGoogle本人主張を使い、Access subjectを`access:<subject>`としてPreview専用D1の本人へ対応付ける。Access applicationへGoogle以外のIdPを加えないことを初期設定の前提にする。
 
 本番と別の秘密でPreviewセッションを署名する。ブラウザにはhost限定の`__Host-idea_boost_preview_session`を持たせ、内部のNext/APIへ検証済み本人のCookieだけを渡す。APIはメール許可一覧を再検査し、ルーム所属・ホスト・付箋可視性は既存のアプリ認可を継承する。セッション期限はAccess JWTの期限以下とし、WebSocketもその期限で閉じる。
+
+Previewの入室準備は、期限が残る署名検証済みセッションで許可する。本番の残り5時間以上という入室条件は維持する。Previewの最大1時間のセッションは、短い操作確認に使い、5時間の会議や翌日の再開を保証しない。入室ticketの本人・ルーム・セッション期限・タブ・一回消費の確認は両環境で維持する。
 
 ## 比較した方式
 

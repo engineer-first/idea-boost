@@ -27,7 +27,7 @@ ADR（Architecture Decision Record）は、重要な設計を「どの前提・�
 | [0004](0004-custom-board.md)              | 付箋ボードを自前で実装する                   | 採用（既存判断の整理） |
 | [0005](0005-shared-skills.md)             | 共有スキルの正本を .agents/skills に統一する | 採用                   |
 
-提案中の判断：[0010: PR Previewの本人認証と共通API](0010-pr-preview-identity.md)、[0006: 共有付箋の移動transaction](0006-move-transactions.md)、[0007: ルーム作成要求の保持](0007-room-creation-retries.md)、[0008: 作成受付と回復情報の寿命](0008-room-creation-expiry.md)、[0009: WebSocketのセッション期限](0009-websocket-session-expiry.md)。
+提案中の判断：[0011: PR Previewの本人認証と共通API](0011-pr-preview-identity.md)、[0006: 共有付箋の移動transaction](0006-move-transactions.md)、[0007: ルーム作成要求の保持](0007-room-creation-retries.md)、[0008: 作成受付と回復情報の寿命](0008-room-creation-expiry.md)、[0009: WebSocketのセッション期限](0009-websocket-session-expiry.md)、[0010: 入室前の認証準備](0010-room-entry-authentication.md)。
 
 成果投影・期限・再訪権のような既存の判断は、今後方式を見直すときのADR候補。すべての実装を後追いでADR化しない。
 

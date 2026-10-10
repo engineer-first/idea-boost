@@ -1,9 +1,26 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import { useBoardHelp } from "./use-board-help";
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("useBoardHelp", () => {
+  it("639px以下は初回もヒントを閉じ、利用者が開いた状態は更新で保つ", () => {
+    vi.spyOn(window, "innerWidth", "get").mockReturnValue(639);
+    const phase = buildPhaseStep(1, 3);
+    const { result, rerender } = renderHook(
+      ({ phase }) => useBoardHelp(phase),
+      {
+        initialProps: { phase },
+      },
+    );
+    expect(result.current.isOpen).toBe(false);
+    act(() => result.current.onOpenChange(true));
+    rerender({ phase: { ...phase } });
+    expect(result.current.isOpen).toBe(true);
+  });
+
   it.each([
     [1, 1, null, false],
     [1, 2, null, false],

@@ -2929,8 +2929,8 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
-  it("snapshot を再配信するステップ移行では idle 化したタイマーを含める", async () => {
-    const roomName = "room-phase-next-snapshot-has-idle-timer";
+  it("整理へ移行するsnapshotには新しく始めた4分のタイマーを含める", async () => {
+    const roomName = "room-phase-next-snapshot-has-grouping-timer";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2), USER_A);
@@ -2945,10 +2945,15 @@ describe("RoomDO phase:next", () => {
         ...(await currentPhaseExpectation(roomName)),
       }),
     );
-    expect(await nextJson(ws)).toMatchObject({
+    const snapshot = await nextJson(ws);
+    expect(snapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(3),
-      timer: { status: "idle" },
+      timer: {
+        status: "running",
+        durationMs: 240_000,
+        endsAt: expect.any(Number),
+      },
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
@@ -2957,7 +2962,8 @@ describe("RoomDO phase:next", () => {
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(3),
     });
-    expect(await stub.getTimerState()).toEqual({ status: "idle" });
+    if (snapshot.type !== "snapshot") throw new Error("snapshotを期待");
+    expect(await stub.getTimerState()).toEqual(snapshot.timer);
     ws.close();
   });
 
@@ -5857,6 +5863,26 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
       "宿題を後回しにしてしまう",
     );
 
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE notes SET color = 'pink' WHERE id = ?1",
+        DECIDED_NOTE_ID,
+      );
+      state.storage.sql.exec(
+        "INSERT INTO note_appearances (note_id, font_size) VALUES (?1, 20)",
+        DECIDED_NOTE_ID,
+      );
+      for (const kind of ["subjective", "objective", "objective"]) {
+        state.storage.sql.exec(
+          "INSERT INTO note_vote_stickers (id, note_id, user_id, kind, x, y, created_at) VALUES (?1, ?2, ?3, ?4, 0.5, 0.5, 'now')",
+          crypto.randomUUID(),
+          DECIDED_NOTE_ID,
+          USER_A,
+          kind,
+        );
+      }
+    });
+
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "note:decide", noteId: DECIDED_NOTE_ID }));
     await nextJson(ws); // decision:updated
@@ -5870,7 +5896,8 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
 
     // 遷移時は接続中の全員に snapshot を再送してから phase:updated を配る
     // （投票→結果ステップ遷移と同じ順序）。
-    expect(await nextJson(ws)).toMatchObject({
+    const snapshot = await nextJson(ws);
+    expect(snapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(1, 2),
       carryovers: [
@@ -5881,6 +5908,16 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
         },
       ],
     });
+    expect(snapshot.carryovers).toEqual([
+      {
+        phase: 1,
+        noteId: DECIDED_NOTE_ID,
+        content: "宿題を後回しにしてしまう",
+        color: "pink",
+        fontSize: 20,
+        dotVotes: { subjective: 1, objective: 2 },
+      },
+    ]);
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
       groupRevision: expect.any(Number),
@@ -5889,6 +5926,39 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
       phase: buildPhaseStep(1, 2),
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(1, 2));
+    ws.close();
+  });
+
+  it("参照元の過去付箋はホスト・作者にも移動・削除・投票・再採用させない", async () => {
+    const roomName = "room-carryover-read-only";
+    const stub = roomStub(roomName);
+    await initializeTestRoom(stub, USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, DECIDED_NOTE_ID, "参照本文");
+    await decideAndAdvance(roomName);
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    for (const operation of [
+      { type: "note:move", x: 80, y: 90 },
+      { type: "note:delete" },
+      { type: "note:vote", kind: "subjective" },
+      { type: "note:decide" },
+    ]) {
+      ws.send(JSON.stringify({ ...operation, noteId: DECIDED_NOTE_ID }));
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+    }
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql
+          .exec(
+            "SELECT content, x, y FROM notes WHERE id = ?1",
+            DECIDED_NOTE_ID,
+          )
+          .one(),
+      ),
+    ).toMatchObject({ content: "参照本文", x: 0, y: 0 });
     ws.close();
   });
 

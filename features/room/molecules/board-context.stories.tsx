@@ -17,6 +17,17 @@ const meta = {
   ],
   args: {
     phase,
+    issueReference: buildCarryover({
+      color: "pink",
+      fontSize: 18,
+      dotVotes: { subjective: 3, objective: 2 },
+    }),
+    hmwReference: buildCarryover({
+      phase: 2,
+      color: "blue",
+      fontSize: 16,
+      dotVotes: { subjective: 4, objective: 1 },
+    }),
     hmwDecidedIssue: buildCarryover().content,
     decidedHmw: buildCarryover({
       phase: 2,
@@ -34,13 +45,7 @@ export const IssueExpanded: Story = {
     );
   },
 };
-export const HmwExpanded: Story = {
-  play: async ({ canvasElement }) => {
-    await userEvent.click(
-      within(canvasElement).getByRole("button", { name: "決定した問い" }),
-    );
-  },
-};
+export const HmwExpanded: Story = {};
 export const NoDecisions: Story = {
   args: { hmwDecidedIssue: null, decidedHmw: null },
 };
@@ -55,4 +60,11 @@ export const AfterWriting: Story = {
   args: {
     phase: buildPhaseStep(2, 3),
   },
+};
+
+export const MissingSource: Story = {
+  args: { issueReference: null, hmwReference: null },
+};
+export const LongQuestion: Story = {
+  args: { decidedHmw: "問いを読み返しながら考える。".repeat(150) },
 };

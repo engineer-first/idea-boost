@@ -41,6 +41,15 @@ for (const viewport of [
         dock?.y ?? 0,
       );
     }
+    if (viewport.width < 640) {
+      const reference = page.getByRole("button", { name: "決定した問い" });
+      expect(await reference.isVisible()).toBe(true);
+      await page.getByRole("button", { name: "考えるヒントを開く" }).click();
+      expect(await reference.isVisible()).toBe(false);
+      expect(
+        await page.getByTestId("board-reference-hmw-content").isVisible(),
+      ).toBe(false);
+    }
     const help = page.locator("#board-help-content");
     expect(
       await help.evaluate((element) => element.clientHeight),
@@ -53,6 +62,11 @@ for (const viewport of [
     await page.keyboard.press("Enter");
     expect(await write.getAttribute("aria-selected")).toBe("true");
     await page.getByRole("button", { name: "考えるヒントを閉じる" }).click();
+    if (viewport.width < 640) {
+      expect(
+        await page.getByRole("button", { name: "決定した問い" }).isVisible(),
+      ).toBe(true);
+    }
     await page.getByRole("button", { name: "考えるヒントを開く" }).click();
     expect(
       await help.evaluate((element) => element.clientHeight),
