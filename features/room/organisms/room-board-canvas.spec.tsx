@@ -585,7 +585,7 @@ describe("RoomBoardCanvas", () => {
       screen.getByRole("img", { name: "付箋の削除：不可" }),
     ).toBeInTheDocument();
   });
-  it("個人入力・共有・整理・投票に移行しても案内を残し、マイ付箋欄と操作可否だけを更新する", () => {
+  it("個人入力では操作案内を隠し、共有・整理・投票では最新の操作可否を表示する", () => {
     const { props, rerender } = setup();
     for (const step of [1, 2, 3, 4]) {
       const phase = buildPhaseStep(step);
@@ -597,6 +597,11 @@ describe("RoomBoardCanvas", () => {
       expect(screen.queryByTestId("private-notes-toolbar") !== null).toBe(
         permissions.showPrivateToolbar,
       );
+      if (step === 1) {
+        expect(screen.getByTestId("board-operation-matrix")).not.toBeVisible();
+        continue;
+      }
+      expect(screen.getByTestId("board-operation-matrix")).toBeVisible();
       for (const [label, enabled] of [
         ["編集", permissions.canEditNote],
         ["移動", permissions.canMoveNote],
@@ -1202,7 +1207,7 @@ describe("RoomBoardCanvas", () => {
   ])("$labelでは共有キャンバスを隠し、既存付箋の入力グリッドを表示する", ({
     phase,
   }) => {
-    const { props } = setup({
+    const { props, rerender } = setup({
       phase,
       permissions: getBoardPermissions(phase),
       privateNotes: [
@@ -1225,8 +1230,8 @@ describe("RoomBoardCanvas", () => {
       "hidden",
     );
     expect(screen.getByTestId("board-canvas")).not.toBeVisible();
-    expect(screen.getByTestId("board-tools-hud")).toBeInTheDocument();
-    expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
+    expect(screen.getByTestId("board-tools-hud")).not.toBeVisible();
+    expect(screen.getByTestId("board-operation-matrix")).not.toBeVisible();
     expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
     expect(note).toHaveStyle({ width: "200px", height: "150px" });
     expect(editor).toHaveStyle({ fontSize: "14px", lineHeight: "21px" });
@@ -1235,6 +1240,17 @@ describe("RoomBoardCanvas", () => {
 
     fireEvent.click(addButton);
     expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+
+    const sharingPhase = buildPhaseStep(2, phase.phase);
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        phase={sharingPhase}
+        permissions={getBoardPermissions(sharingPhase)}
+      />,
+    );
+    expect(screen.getByTestId("board-tools-hud")).toBeVisible();
+    expect(screen.getByTestId("board-operation-matrix")).toBeVisible();
   });
 
   it("Step1-3ではマイ付箋ツールバーを表示しない", () => {

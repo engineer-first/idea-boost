@@ -615,6 +615,7 @@ export function RoomBoardCanvas({
           className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
           data-board-fit-edge="bottom"
+          hidden={isPersonalNoteEntryPhase}
         >
           <div className="flex items-center gap-2">
             {permissions.canEditNote ? (
@@ -877,6 +878,7 @@ export function RoomBoardCanvas({
           className="pointer-events-auto absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 max-[639px]:bottom-[var(--board-operation-bottom,calc(4.5rem+var(--board-notification-inset,0px)))]"
           data-testid="board-operation-matrix"
           data-board-fit-edge="bottom"
+          hidden={isPersonalNoteEntryPhase}
         >
           <BoardOperationMatrix permissions={permissions} />
         </div>
