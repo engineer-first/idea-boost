@@ -12,6 +12,7 @@ import {
   TIMER_MAX_DURATION_MS,
 } from "../../contracts/room-protocol";
 import {
+  arrangeSharingPresenter,
   currentPhaseExpectation,
   initializeTestRoom,
   listMemberIds,
@@ -2453,6 +2454,7 @@ describe("RoomDO phase:next", () => {
 
     const memberPublished = nextJson(member);
     const hostPublished = nextJson(host);
+    await arrangeSharingPresenter(roomName, USER_B);
     member.send(
       JSON.stringify({
         type: "note:publish",
@@ -3565,6 +3567,8 @@ describe("RoomDO phase:next", () => {
       phase: buildPhaseStep(2, 3),
     });
 
+    await arrangeSharingPresenter(roomName, USER_A);
+
     ws.send(
       JSON.stringify({
         type: "note:publish",
@@ -3810,6 +3814,10 @@ describe("RoomDO phase:next", () => {
       x: number,
       y: number,
     ): Promise<void> => {
+      await arrangeSharingPresenter(
+        roomName,
+        ws === authorWs ? USER_A : USER_B,
+      );
       const authorMessage = nextJson(authorWs);
       const memberMessage = nextJson(memberWs);
       ws.send(JSON.stringify({ type: "note:publish", noteId, x, y }));
@@ -5171,6 +5179,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     const noteId = inserted.note.id;
 
     await stub.setPhase(buildPhaseStep(2), USER_A);
+    await arrangeSharingPresenter(roomName, USER_A);
     ws.send(JSON.stringify({ type: "note:publish", noteId, x: 100, y: 100 }));
     await nextJson(ws);
 
@@ -5246,6 +5255,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     ).toBe(24);
 
     await stub.setPhase(buildPhaseStep(2), USER_A);
+    await arrangeSharingPresenter(roomName, USER_A);
     const publishedForAuthor = nextJson(author);
     const publishedForOther = nextJson(other);
     author.send(
@@ -5327,6 +5337,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     });
 
     await stub.setPhase(buildPhaseStep(2), USER_A);
+    await arrangeSharingPresenter(roomName, USER_A);
     const published = nextJson(author);
     author.send(
       JSON.stringify({
@@ -6370,6 +6381,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
 
     await stub.setPhase(buildPhaseStep(2, 2), USER_A);
     const memberWs = await connectDirectly(roomName, USER_B, USER_A);
+    await arrangeSharingPresenter(roomName, USER_A);
     authorWs.send(
       JSON.stringify({
         type: "note:publish",
@@ -6994,6 +7006,10 @@ describe("new move group privacy WS", () => {
       }),
     );
     await nextJsonOfType(owner, "phase:updated");
+    const roomName = roomNameBySocket.get(owner);
+    if (!roomName) throw new Error("テスト用ルームがありません。");
+    // 返却後のgroup可視性を調べるため、返却する作者の発表中を用意する。
+    await arrangeSharingPresenter(roomName, USER_B);
     while (await nextJsonWithin(author, 10)) {
       /* 先行group/phase配信を読み切る */
     }

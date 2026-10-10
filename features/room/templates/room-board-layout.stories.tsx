@@ -226,6 +226,24 @@ export const SharingActive: Story = {
     }),
   },
 };
+export const MySharingTurn: Story = {
+  ...SharingActive,
+  name: "自分の発表中・共有可能",
+  args: {
+    ...SharingActive.args,
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "マイ付箋を開く" }),
+    );
+  },
+};
+export const WaitingForSharingTurn: Story = {
+  ...SharingActive,
+  name: "ほかの人の発表中・共有待ち",
+  play: MySharingTurn.play,
+};
 export const SharingTransition: Story = {
   ...SharingReady,
   args: {

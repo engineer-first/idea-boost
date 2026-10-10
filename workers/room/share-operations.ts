@@ -3,6 +3,7 @@ import type {
   ServerMessage,
   ShareReceipt,
 } from "../../contracts/room-protocol";
+import { canPublishNoteInTurn } from "../../contracts/sharing";
 import type { RoomBroadcaster } from "./broadcast";
 import { isRoomClosed } from "./completed-rooms";
 import { getDecision } from "./decisions";
@@ -15,6 +16,7 @@ import {
   getPhase,
   getPhaseRevision,
 } from "./phase";
+import { getSharingState } from "./sharing-state";
 
 type ShareMessage = Extract<
   ClientMessage,
@@ -106,6 +108,8 @@ export function commitShare(
     !isRoomClosed(ctx.sql) &&
     phase.kind === "step" &&
     phase.step === 2 &&
+    (message.type !== "note:publish" ||
+      canPublishNoteInTurn(phase, getSharingState(ctx.sql), ctx.userId)) &&
     !getDecision(ctx.sql, phase.phase) &&
     !getBoardMutationForbiddenMessage(phase, message) &&
     row &&

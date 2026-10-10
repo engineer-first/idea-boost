@@ -3,13 +3,19 @@ import type { PointerEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { RoomPhase } from "@/contracts/phase";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import { buildNote } from "@/contracts/room-protocol.fixture";
+import type { SharingState } from "@/contracts/room-protocol";
+import {
+  buildNote,
+  buildSharingState,
+} from "@/contracts/room-protocol.fixture";
 import { useRoomBoardInteractions } from "./use-room-board-interactions";
 
 function setup({
   phase = buildPhaseStep(2),
   withSharedDrag = false,
   withPrivateNote = false,
+  privateNotes,
+  sharing,
   draggingNoteId = null,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = true,
@@ -17,6 +23,8 @@ function setup({
   phase?: RoomPhase;
   withSharedDrag?: boolean;
   withPrivateNote?: boolean;
+  privateNotes?: ReturnType<typeof buildNote>[];
+  sharing?: SharingState | null;
   draggingNoteId?: string | null;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
@@ -25,6 +33,7 @@ function setup({
   const onCursorLeave = vi.fn();
   const onNoteDragCancel = vi.fn();
   const onNoteDragStart = vi.fn();
+  const onNoteDragMove = vi.fn();
   const onPrivateNoteUnpublish = vi.fn();
   const notes = withSharedDrag
     ? [
@@ -36,38 +45,50 @@ function setup({
         }),
       ]
     : [];
-  const { result } = renderHook(() =>
-    useRoomBoardInteractions({
-      notes,
-      privateNotes: withPrivateNote
-        ? [buildNote({ id: "private-1", visibility: "private" })]
-        : [],
-      currentUserId: "11111111-1111-4111-8111-111111111111",
-      draggingNoteId,
-      phase,
-      ideaMapSizeLevel,
-      ideaMapSizeInitialized,
-      onNoteDragStart,
-      onNoteDragMove: vi.fn(),
-      onNoteDragEnd: vi.fn(),
-      onNoteDragCancel,
-      onPrivateNotePublish: vi.fn(),
-      onPrivateNoteUnpublish,
-      onCursorMove,
-      onCursorLeave,
-    }),
+  const { result, rerender } = renderHook(
+    ({ sharing }: { sharing?: SharingState | null }) =>
+      useRoomBoardInteractions({
+        notes,
+        privateNotes: withPrivateNote
+          ? (privateNotes ?? [
+              buildNote({ id: "private-1", visibility: "private" }),
+            ])
+          : (privateNotes ?? []),
+        currentUserId: "11111111-1111-4111-8111-111111111111",
+        draggingNoteId,
+        phase,
+        sharing,
+        ideaMapSizeLevel,
+        ideaMapSizeInitialized,
+        onNoteDragStart,
+        onNoteDragMove,
+        onNoteDragEnd: vi.fn(),
+        onNoteDragCancel,
+        onPrivateNotePublish: vi.fn(),
+        onPrivateNoteUnpublish,
+        onCursorMove,
+        onCursorLeave,
+      }),
+    { initialProps: { sharing } },
   );
   const viewport = document.createElement("div");
   viewport.getBoundingClientRect = () => new DOMRect(10, 20, 800, 600);
   result.current.boardScrollerRef.current = viewport;
+  const toolbar = document.createElement("div");
+  toolbar.dataset.expanded = "true";
+  toolbar.getBoundingClientRect = () => new DOMRect(600, 100, 200, 500);
+  result.current.privateToolbarRef.current = toolbar;
   return {
     result,
+    rerender,
     onCursorMove,
     onCursorLeave,
     onNoteDragCancel,
     onNoteDragStart,
+    onNoteDragMove,
     onPrivateNoteUnpublish,
     viewport,
+    toolbar,
   };
 }
 
@@ -86,6 +107,11 @@ describe("useRoomBoardInteractions cursor input", () => {
           currentUserId: note.authorId,
           draggingNoteId: null,
           phase: buildPhaseStep(2),
+          sharing: buildSharingState({
+            status: "active",
+            currentIndex: 0,
+            order: [{ userId: note.authorId, name: "作者", color: note.color }],
+          }),
           onNoteDragStart: vi.fn(),
           onNoteDragMove: vi.fn(),
           onNoteDragEnd: vi.fn(),
@@ -296,6 +322,213 @@ describe("useRoomBoardInteractions cursor input", () => {
     );
 
     expect(onNoteDragStart).not.toHaveBeenCalled();
+  });
+
+  it("自分の発表順を待つ間もマイ付箋一覧内で並べ替えられる", () => {
+    const first = buildNote({
+      id: "private-a",
+      visibility: "private",
+      stackOrder: 0,
+    });
+    const second = buildNote({
+      id: "private-b",
+      visibility: "private",
+      stackOrder: 1,
+    });
+    const { result, toolbar } = setup({
+      phase: buildPhaseStep(2),
+      withPrivateNote: true,
+      privateNotes: [first, second],
+      sharing: buildSharingState({
+        status: "active",
+        currentIndex: 1,
+        order: [
+          {
+            userId: "11111111-1111-4111-8111-111111111111",
+            name: "本人",
+            color: "yellow",
+          },
+          {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "発表者",
+            color: "green",
+          },
+        ],
+      }),
+    });
+    const otherCard = document.createElement("div");
+    otherCard.dataset.testid = "note-card";
+    otherCard.dataset.noteId = second.id;
+    otherCard.getBoundingClientRect = () => new DOMRect(600, 200, 180, 100);
+    toolbar.append(otherCard);
+
+    act(() =>
+      result.current.onPrivateNoteDragStart(first.id, {
+        pointerId: 31,
+        clientX: 650,
+        clientY: 150,
+        currentTarget: {
+          getBoundingClientRect: () => new DOMRect(600, 100, 180, 140),
+        },
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+    act(() =>
+      result.current.onPointerMove({
+        pointerId: 31,
+        clientX: 650,
+        clientY: 280,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    act(() =>
+      result.current.onPointerEnd({
+        pointerId: 31,
+        clientX: 650,
+        clientY: 280,
+        target: toolbar,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+
+    expect(result.current.privateNotes.map((note) => note.id)).toEqual([
+      second.id,
+      first.id,
+    ]);
+  });
+
+  it("他の参加者の発表中も共有付箋を動かせるが、マイ付箋へは戻せない", () => {
+    const note = buildNote({
+      id: "shared-1",
+      authorId: "11111111-1111-4111-8111-111111111111",
+      visibility: "shared",
+    });
+    const { result, onNoteDragMove, onPrivateNoteUnpublish, toolbar } = setup({
+      phase: buildPhaseStep(2),
+      withSharedDrag: true,
+      sharing: buildSharingState({
+        status: "active",
+        currentIndex: 1,
+        order: [
+          { userId: note.authorId, name: "本人", color: "yellow" },
+          {
+            userId: "22222222-2222-4222-8222-222222222222",
+            name: "発表者",
+            color: "green",
+          },
+        ],
+      }),
+    });
+    toolbar.getBoundingClientRect = () => new DOMRect(600, 100, 200, 500);
+
+    act(() =>
+      result.current.onNoteDragStart(note.id, {
+        pointerId: 32,
+        clientX: 40,
+        clientY: 50,
+        currentTarget: {
+          getBoundingClientRect: () => new DOMRect(20, 20, 180, 140),
+        },
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+    act(() =>
+      result.current.onPointerMove({
+        pointerId: 32,
+        clientX: 450,
+        clientY: 280,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    expect(result.current.isReturnDropTarget).toBe(false);
+    expect(onNoteDragMove).toHaveBeenCalledWith(
+      note.id,
+      expect.any(Number),
+      expect.any(Number),
+    );
+    act(() =>
+      result.current.onPointerMove({
+        pointerId: 32,
+        clientX: 650,
+        clientY: 280,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    expect(onNoteDragMove).toHaveBeenCalledTimes(2);
+    act(() =>
+      result.current.onPointerEnd({
+        pointerId: 32,
+        clientX: 650,
+        clientY: 280,
+        target: toolbar,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+
+    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%iで返却先をpreview中に発表者が交代したら返却を取り消す", (phase) => {
+    const sharing = buildSharingState({
+      status: "active",
+      currentIndex: 0,
+      order: [
+        {
+          userId: "11111111-1111-4111-8111-111111111111",
+          name: "本人",
+          color: "yellow",
+        },
+        {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "次の人",
+          color: "green",
+        },
+      ],
+    });
+    const {
+      result,
+      rerender,
+      toolbar,
+      onPrivateNoteUnpublish,
+      onNoteDragCancel,
+    } = setup({
+      phase: buildPhaseStep(2, phase),
+      withSharedDrag: true,
+      sharing,
+    });
+    act(() =>
+      result.current.onNoteDragStart("shared-1", {
+        pointerId: 33,
+        clientX: 40,
+        clientY: 50,
+        currentTarget: document.createElement("button"),
+      } as unknown as PointerEvent<HTMLButtonElement>),
+    );
+    act(() =>
+      result.current.onPointerMove({
+        pointerId: 33,
+        clientX: 650,
+        clientY: 280,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    expect(result.current.notes).toHaveLength(0);
+    expect(result.current.privateNotes.map((note) => note.id)).toContain(
+      "shared-1",
+    );
+    onNoteDragCancel.mockClear();
+
+    rerender({
+      sharing: { ...sharing, currentIndex: 1, revision: crypto.randomUUID() },
+    });
+
+    expect(result.current.notes.map((note) => note.id)).toContain("shared-1");
+    expect(result.current.privateNotes).toHaveLength(0);
+    expect(result.current.dragPreview).toBeNull();
+    if (phase === 3) expect(onNoteDragCancel).toHaveBeenCalledWith("shared-1");
+    act(() =>
+      result.current.onPointerEnd({
+        pointerId: 33,
+        clientX: 650,
+        clientY: 280,
+        target: toolbar,
+      } as unknown as PointerEvent<HTMLDivElement>),
+    );
+    expect(onPrivateNoteUnpublish).not.toHaveBeenCalled();
   });
 
   it("入力欄と touch の位置は送信せず、キャンバス退出を通知する", () => {

@@ -123,11 +123,11 @@ describe("getFacilitationGuide", () => {
 
 it.each([
   1, 2, 3,
-] as const)("フェーズ%iの共有は本人・ホストの交代と自由な共有を案内する", (phase) => {
+] as const)("フェーズ%iの共有は本人・ホストの交代と自分の番だけの共有を案内する", (phase) => {
   const guide = getFacilitationGuide(buildPhaseStep(2, phase));
   expect(guide?.firstAction).toContain("画面上");
   expect(guide?.steps?.join(" ")).toContain("本人");
-  expect(guide?.steps?.join(" ")).toContain("自分の番でなくても");
+  expect(guide?.steps?.join(" ")).toContain("自分の番だけ");
   expect(guide?.hostTimerGuide).toContain("自動で始まります");
   expect(guide?.hostMessage).toContain("ホストも");
   expect(guide?.hostMessage).toContain("次の人へ");

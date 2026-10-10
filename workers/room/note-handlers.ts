@@ -11,6 +11,10 @@ import {
   isPhaseStep,
   isVotingStep,
 } from "../../contracts/phase";
+import {
+  canPublishNoteInTurn,
+  canReturnNoteToPrivateInTurn,
+} from "../../contracts/sharing";
 import type { SocketAttachment } from "./broadcast";
 import { getDecision } from "./decisions";
 import {
@@ -54,6 +58,7 @@ import {
 } from "./notes";
 import { getPhase, getPhaseRevision } from "./phase";
 import { commitShare } from "./share-operations";
+import { getSharingState } from "./sharing-state";
 import {
   addUserNoteVote,
   addVoteSticker,
@@ -177,6 +182,20 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    if (
+      !canPublishNoteInTurn(
+        getPhase(ctx.sql),
+        getSharingState(ctx.sql),
+        ctx.userId,
+      )
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "付箋を共有できるのは自分の発表中だけです。",
+      });
+      return;
+    }
     const updatedAt = new Date().toISOString();
     const stackOrder = publishNote(
       ctx.sql,
@@ -210,6 +229,17 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
+    const phase = getPhase(ctx.sql);
+    if (
+      !canReturnNoteToPrivateInTurn(phase, getSharingState(ctx.sql), ctx.userId)
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "付箋を戻せるのは自分の発表中だけです。",
+      });
+      return;
+    }
     if (hasMoveLock(ctx.sql, message.noteId)) {
       replyForbidden(ctx);
       return;
@@ -219,7 +249,6 @@ export const noteHandlers: MessageHandlers<
       replyForbidden(ctx);
       return;
     }
-    const phase = getPhase(ctx.sql);
     // 3-2 ではドックへ戻す pointerup/cancel まで匿名 map lock を維持する。
     // 他フェーズでは従来どおり unpublish と同時にドラッグを終了する。
     if (owner?.socket === ctx.ws && !isIdeaMapVisiblePhase(phase)) {

@@ -23,6 +23,7 @@ import {
 } from "../contracts/room-protocol";
 import { NOTE_DRAG_START_RATE_LIMIT_PER_MINUTE } from "./room/drag-operations";
 import {
+  arrangeSharingPresenter,
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
@@ -115,6 +116,7 @@ async function arrangeStep(socket: RoomSocket, step: number): Promise<void> {
   await runInRoomDO(roomId, (instance) =>
     instance.setPhase(buildPhaseStep(step), OWNER.sub),
   );
+  if (step === 2) await arrangeSharingPresenter(roomId, OWNER.sub);
 }
 
 function storedHostId(roomId: string): Promise<string | null> {
@@ -320,6 +322,7 @@ describe("メンバー色と付箋色", () => {
     await runInRoomDO(roomId, (instance) =>
       instance.setPhase(buildPhaseStep(2), OWNER.sub),
     );
+    await arrangeSharingPresenter(roomId, MEMBER.sub);
     send(member, {
       type: "note:publish",
       noteId: created.note.id,

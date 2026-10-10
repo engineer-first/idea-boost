@@ -448,18 +448,49 @@ it("更新前から共有ステップにいるルームも接続時に順番を�
   member.close();
 });
 
-it("発表者以外も自分の付箋を共有でき、交代では他者の下書きを公開しない", async () => {
-  const { owner, member, roomId } = await setup();
+it.each([
+  [1, false],
+  [2, false],
+  [3, false],
+  [1, true],
+  [2, true],
+  [3, true],
+] as const)("フェーズ%iの発表者だけが共有でき、交代・再接続でも同期する（receipt=%s）", async (phase, receipt) => {
+  const { owner, member, roomId, stub } = await setup();
+  await stub.setPhase({ kind: "step", phase, step: 1 }, host.sub);
   owner.ws.send(
     JSON.stringify({ type: "note:create", content: "ホストだけの下書き" }),
   );
-  await until(owner, "note:inserted");
+  const hostInserted = await until(owner, "note:inserted");
+  const hostNoteId = (hostInserted.note as { id: string }).id;
   member.ws.send(
     JSON.stringify({ type: "note:create", content: "参加者の説明" }),
   );
   const inserted = await until(member, "note:inserted");
   const noteId = (inserted.note as { id: string }).id;
   const ready = await prepareLegacySharing(owner, roomId);
+  const publish = async (socket: RoomSocket, id: string) => {
+    const snapshot = await currentSnapshot(roomId);
+    socket.ws.send(
+      JSON.stringify({
+        type: "note:publish",
+        noteId: id,
+        x: 30,
+        y: 40,
+        ...(receipt
+          ? {
+              operationId: crypto.randomUUID(),
+              expectedPhaseRevision: snapshot.phaseRevision,
+              expectedPositionRevision: 0,
+              expectedVisibilityRevision: 0,
+            }
+          : {}),
+      }),
+    );
+    return until(socket, receipt ? "note:share:result" : "error");
+  };
+  const rejected = receipt ? { status: "rejected" } : { code: "forbidden" };
+  expect(await publish(member, noteId)).toMatchObject(rejected);
   owner.ws.send(
     JSON.stringify({
       type: "sharing:start",
@@ -468,15 +499,51 @@ it("発表者以外も自分の付箋を共有でき、交代では他者の下�
     }),
   );
   await sharingMessage(owner);
-  member.ws.send(
-    JSON.stringify({ type: "note:publish", noteId, x: 100, y: 100 }),
+  expect(await publish(owner, hostNoteId)).toMatchObject(rejected);
+  await makeTurnDue(roomId);
+  await sharingMessage(owner);
+  expect(await publish(member, noteId)).toMatchObject(rejected);
+  const running = await currentSnapshot(roomId);
+  owner.ws.send(
+    JSON.stringify({
+      type: "sharing:advance",
+      revision: running.sharing.revision,
+      outcome: "done",
+    }),
   );
-  expect(await until(member, "note:inserted")).toMatchObject({
-    note: { id: noteId, visibility: "shared" },
-  });
+  await sharingMessage(owner);
+  await makeTurnDue(roomId);
+  await sharingMessage(owner);
+  expect(await publish(owner, hostNoteId)).toMatchObject(rejected);
+  const memberTurn = await currentSnapshot(roomId);
+  expect(memberTurn.sharing).toMatchObject({ currentIndex: 1, startsAt: null });
+  member.ws.send(
+    JSON.stringify({
+      type: "note:publish",
+      noteId,
+      x: 30,
+      y: 40,
+      ...(receipt
+        ? {
+            operationId: crypto.randomUUID(),
+            expectedPhaseRevision: memberTurn.phaseRevision,
+            expectedPositionRevision: 0,
+            expectedVisibilityRevision: 0,
+          }
+        : {}),
+    }),
+  );
+  expect(
+    await until(member, receipt ? "note:share:result" : "note:inserted"),
+  ).toMatchObject(
+    receipt
+      ? { status: "committed" }
+      : { note: { id: noteId, visibility: "shared" } },
+  );
   const reconnect = await connectRoomAs(guest, roomId);
   const snapshot = await reconnect.next();
   expect(snapshot).toMatchObject({
+    sharing: { status: "active", currentIndex: 1, startsAt: null },
     notes: [expect.objectContaining({ id: noteId, visibility: "shared" })],
   });
   expect(JSON.stringify(snapshot)).not.toContain("ホストだけの下書き");

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ServerMessage } from "../../contracts/room-protocol";
 import worker from "../api-worker";
 import {
+  arrangeSharingPresenter,
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
@@ -330,6 +331,7 @@ describe("ホストによるメンバー除外", () => {
     send(b, { type: "note:create", content: "再参加しても残る付箋" });
     const { note } = await receive(b, "note:inserted");
     await stub.setPhase({ kind: "step", phase: 1, step: 2 }, A.sub);
+    await arrangeSharingPresenter(roomId, B.sub);
     send(b, { type: "note:publish", noteId: note.id, x: 30, y: 40 });
     await receive(a, "note:inserted");
     await receive(b, "note:inserted");
@@ -428,6 +430,7 @@ describe("ホストによるメンバー除外", () => {
     send(b, { type: "note:create", content: "移動途中の付箋" });
     const { note } = await receive(b, "note:inserted");
     await stub.setPhase({ kind: "step", phase: 1, step: 2 }, A.sub);
+    await arrangeSharingPresenter(roomId, B.sub);
     send(b, { type: "note:publish", noteId: note.id, x: 30, y: 40 });
     await receive(a, "note:inserted");
     await receive(b, "note:inserted");

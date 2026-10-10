@@ -60,8 +60,13 @@ import type {
   Carryover,
   Decision,
   ProtocolNote,
+  SharingState,
 } from "@/contracts/room-protocol";
-import { buildCarryover, buildGroup } from "@/contracts/room-protocol.fixture";
+import {
+  buildCarryover,
+  buildGroup,
+  buildSharingState,
+} from "@/contracts/room-protocol.fixture";
 import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
 import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
 import { RoomBoard } from "./room-board";
@@ -74,6 +79,10 @@ const TARGET_NOTE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const STICKER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const THIRD_PRIVATE_NOTE_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const NEW_PRIVATE_NOTE_ID = "11111111-2222-4222-8222-111111111111";
+const sharingOrder = [
+  { userId: USER_ID, name: "ホスト", color: "yellow" as const },
+  { userId: OTHER_USER_ID, name: "参加者", color: "green" as const },
+];
 const nativeElementFromPoint = document.elementFromPoint;
 
 type Listener = (event: {
@@ -234,6 +243,7 @@ function connectWithSnapshot(
     ideaMapDragging?: boolean;
     moveProtocolVersion?: 1;
     noteCreateProtocolVersion?: 1 | null;
+    sharing?: SharingState | null;
   },
 ) {
   const { view, socket } = renderBoard({ isHost: options?.isHost ?? true });
@@ -248,6 +258,17 @@ function connectWithSnapshot(
       notes,
       members: [],
       phase: options?.phase ?? buildPhaseStep(1),
+      sharing:
+        options?.sharing !== undefined
+          ? options.sharing
+          : options?.phase?.kind === "step" && options.phase.step === 2
+            ? buildSharingState({
+                order: sharingOrder,
+                status: "active",
+                currentIndex: 0,
+                durationMs: 360000,
+              })
+            : null,
       isHost: options?.isHost ?? true,
       decision: options?.decision ?? null,
       outcomePublished: options?.outcomePublished ?? false,
@@ -274,6 +295,93 @@ function openPrivateNotesToolbar() {
   if (openButton) fireEvent.click(openButton);
   return toolbar;
 }
+
+it.each([
+  1, 2, 3,
+] as const)("フェーズ%iで共有許可が発表順に追従し、交代中のドラッグは公開しない", (phase) => {
+  const sharing = buildSharingState({
+    order: sharingOrder,
+    status: "active",
+    currentIndex: 1,
+    results: ["done"],
+  });
+  const { socket } = connectWithSnapshot(
+    [protocolNote({ visibility: "private" })],
+    {
+      phase: buildPhaseStep(2, phase),
+      sharing,
+    },
+  );
+  const toolbar = openPrivateNotesToolbar();
+  const root = screen.getByTestId("room-board-view-root");
+  const scroller = screen.getByTestId("board-canvas").parentElement;
+  if (!scroller) throw new Error("ボードスクローラーがありません");
+  Object.defineProperty(scroller, "getBoundingClientRect", {
+    value: () => new DOMRect(0, 0, 500, 400),
+  });
+  if (phase === 3) {
+    const plane = screen.getByTestId("idea-value-feasibility-map-plane");
+    Object.defineProperty(plane, "getBoundingClientRect", {
+      value: () => new DOMRect(0, 0, 500, 400),
+    });
+  }
+  mockPrivateToolbarLayout(toolbar);
+  function dragPrivate() {
+    const handle = within(toolbar).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 650, clientY: 120 });
+    fireEvent.pointerMove(handle, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 655,
+      clientY: 125,
+    });
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 140,
+      clientY: 160,
+    });
+  }
+  function receive(next: SharingState) {
+    act(() =>
+      socket.simulateServerMessage({
+        type: "sharing:updated",
+        sharing: next,
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+  }
+  const publishes = () =>
+    socket.sent.filter(
+      (payload) => JSON.parse(payload).type === "note:publish",
+    );
+  dragPrivate();
+  fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
+  expect(publishes()).toHaveLength(0);
+
+  const myTurn = {
+    ...sharing,
+    currentIndex: 0,
+    results: [],
+    revision: crypto.randomUUID(),
+  };
+  receive(myTurn);
+  expect(toolbar).toHaveTextContent("あなたの番です");
+  dragPrivate();
+  expect(screen.getByTestId("private-note-drag-preview")).toBeInTheDocument();
+  receive({ ...sharing, revision: crypto.randomUUID() });
+  expect(
+    screen.queryByTestId("private-note-drag-preview"),
+  ).not.toBeInTheDocument();
+  fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
+  expect(publishes()).toHaveLength(0);
+
+  receive(myTurn);
+  dragPrivate();
+  fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
+  expect(publishes()).toHaveLength(1);
+});
 
 function mockPrivateToolbarLayout(toolbar: HTMLElement): void {
   Object.defineProperty(toolbar, "getBoundingClientRect", {
@@ -3499,7 +3607,7 @@ it.each([
   );
   expect(navigationMocks.replace).not.toHaveBeenCalled();
   expect(fetch).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "次のステップへ" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
   // 回収UIへフォーカスを移すと、盤面に残ったtextareaの遅延blurが届く。
   const staleEditor = screen.getByDisplayValue("最初の付箋");
   if (lateEvent === "blur") fireEvent.blur(staleEditor);
