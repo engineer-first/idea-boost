@@ -66,7 +66,9 @@ export function BoardContext({
     >
       <BoardLocation phase={phase} />
       {disclosures.length > 0 ? (
-        <div className="board-hud pointer-events-auto w-[200px] space-y-2 pt-2">
+        <div
+          className={`${styles.references} board-hud pointer-events-auto w-[200px] space-y-2 pt-2`}
+        >
           {disclosures.map((disclosure) => {
             const isOpen = openDisclosureId === disclosure.id;
             const triggerId = `${id}-${disclosure.id}-trigger`;

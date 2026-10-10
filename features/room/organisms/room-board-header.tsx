@@ -196,9 +196,10 @@ export function RoomBoardHeader({
           "--board-location-top",
           `${location.getBoundingClientRect().top}px`,
         );
+        // 一覧はスロットの上に展開するため、周辺配置には常設部分の高さだけを使う。
         header.style.setProperty(
           "--board-location-height",
-          `${location.getBoundingClientRect().height}px`,
+          `${location.parentElement?.getBoundingClientRect().height ?? 80}px`,
         );
       }
     }
@@ -211,7 +212,7 @@ export function RoomBoardHeader({
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
-    if (location) observer?.observe(location);
+    if (location?.parentElement) observer?.observe(location.parentElement);
     window.addEventListener("resize", updateGuideTop);
     return () => {
       observer?.disconnect();

@@ -40,3 +40,14 @@
     max-height: 150px;
   }
 }
+
+@media (max-width: 639px) {
+  /* 全幅のガイド・ヒントは参照付箋の上に開く。閉じると参照へ戻れる。 */
+  [data-testid="board-context-column"]:has(
+      [data-testid="step-guide"][data-state="detail"],
+      [data-testid="board-help-panel"][data-open="true"]
+    )
+    :is(.references, .references *) {
+    visibility: hidden;
+  }
+}

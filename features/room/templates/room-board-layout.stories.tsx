@@ -399,6 +399,7 @@ export const LongReference: Story = {
   ...step(3, 1),
   args: {
     ...step(3, 1).args,
+    initialGuideState: "compact",
     decidedHmw: "問いの全文を読みながら考える。".repeat(134).slice(0, 2000),
     hmwReference: buildCarryover({
       phase: 2,

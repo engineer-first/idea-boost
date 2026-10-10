@@ -1155,7 +1155,7 @@ async function expectHudTargets(): Promise<void> {
       const box = e.getBoundingClientRect();
       if (
         e.closest('[inert],[aria-hidden="true"]') ||
-        !e.checkVisibility() ||
+        !e.checkVisibility({ visibilityProperty: true }) ||
         !box.width ||
         !box.height
       )

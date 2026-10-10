@@ -194,7 +194,9 @@ test.each([
     page.getByRole("button", { name: "次のステップへ", exact: true }),
   );
   await open("room-roomboardlayout--phase-3-step-1");
-  const hint = page.getByRole("button", { name: "考えるヒントを閉じる" });
+  const hint = page.getByRole("button", {
+    name: width < 640 ? "考えるヒントを開く" : "考えるヒントを閉じる",
+  });
   await reachable(hint);
   const notes = page.getByRole("button", { name: "マイ付箋を閉じる" });
   await reachable(notes);
