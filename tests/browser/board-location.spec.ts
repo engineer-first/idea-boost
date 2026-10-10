@@ -227,7 +227,13 @@ test.each([
   });
   await page.getByRole("tab", { name: /問い/ }).click();
   expect(await list.locator("li").count()).toBe(4);
-  expect(await trigger.innerText()).toContain("アイデア決定・3/5");
+  expect(await trigger.innerText()).toContain("③アイデア");
+  expect(await trigger.getByTestId("board-location-step").innerText()).toBe(
+    "2軸評価",
+  );
+  expect(
+    await trigger.getByRole("progressbar").getAttribute("aria-valuenow"),
+  ).toBe("12");
   await trigger.click();
   await trigger.click();
   expect(
@@ -292,7 +298,13 @@ test("キーボードで3フェーズを直接閲覧し、上の入口とEscape�
   expect(
     await page.getByRole("tab", { name: /問い/ }).getAttribute("aria-current"),
   ).toBe("step");
-  expect(await trigger.innerText()).toContain("問いの整理・1/4");
+  expect(await trigger.innerText()).toContain("②問い");
+  expect(await trigger.getByTestId("board-location-step").innerText()).toBe(
+    "個人",
+  );
+  expect(
+    await trigger.getByRole("progressbar").getAttribute("aria-valuenow"),
+  ).toBe("6");
   await page.keyboard.press("Escape");
   expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(
     true,
