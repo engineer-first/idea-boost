@@ -13,6 +13,7 @@
 | コードをどこに置くか                       | [開発規約](development/conventions.md)                                                            |
 | 何をどう検証するか                         | [テスト方針](development/testing.md)、[ローカル検証](development/local-verification.md)           |
 | 本番の閲覧権限を付けたい                   | [認証と権限付与](operations/access.md)                                                            |
+| PRの変更版をローカル起動なしで試したい     | [PR Preview](operations/preview.md)                                                               |
 | 本番を公開・復旧したい                     | [リリース運用](operations/release.md)                                                             |
 | 成果・意見の保存や削除を確認したい         | [共有成果](operations/shared-outcomes.md)、[意見](operations/feedback.md)                         |
 | 現在の構成とデータ責務を知りたい           | [構成概要](architecture/overview.md)                                                              |

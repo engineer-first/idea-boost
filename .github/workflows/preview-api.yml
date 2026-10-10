@@ -1,0 +1,61 @@
+name: Shared Preview API
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: idea-boost-preview-lifecycle
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  deploy:
+    if: >-
+      vars.PREVIEW_ENABLED == 'true' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop') ||
+       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'develop' && github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@v3
+        with:
+          install: true
+          cache: true
+      - run: npm ci
+      - name: Verify latest develop and its successful CI before migration
+        run: |
+          node --input-type=module <<'JS'
+          import { execFileSync } from 'node:child_process';
+          const api = path => JSON.parse(execFileSync('gh', ['api', `repos/engineer-first/idea-boost/${path}`], { encoding: 'utf8' }));
+          const sha = process.env.TARGET_SHA;
+          if (api('git/ref/heads/develop').object.sha !== sha) throw new Error('古いdevelopをPreview APIへ公開できません');
+          const runs = api(`actions/runs?head_sha=${sha}&event=push&per_page=100`).workflow_runs;
+          const ci = runs.find(run => run.name === 'CI');
+          if (!ci || ci.conclusion !== 'success') throw new Error('developのCI成功が必要です');
+          JS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Apply Preview D1 migrations and deploy shared API
+        run: node scripts/preview-control.mts api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.PREVIEW_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIEW_D1_ID: ${{ vars.PREVIEW_D1_ID }}
+          PREVIEW_API_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+          SESSION_SECRET: ${{ secrets.PREVIEW_SESSION_SECRET }}
+          PREVIEW_PROBE_TOKEN: ${{ secrets.PREVIEW_PROBE_TOKEN }}
+          PREVIEW_ALLOWED_EMAILS: ${{ secrets.PREVIEW_ALLOWED_EMAILS }}
+          PREVIEW_ACCESS_ISSUER: ${{ vars.PREVIEW_ACCESS_ISSUER }}
+          PREVIEW_ACCESS_AUD: ${{ vars.PREVIEW_ACCESS_AUD }}

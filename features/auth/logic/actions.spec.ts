@@ -1,10 +1,11 @@
 // @vitest-environment node
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   enabled: true,
   establish: vi.fn(),
   redirect: vi.fn(),
+  clearSession: vi.fn(async () => {}),
 }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/session/env", () => ({
@@ -14,7 +15,12 @@ vi.mock("@/lib/session/establish", () => ({
   establishSession: mocks.establish,
 }));
 
-import { signInWithDevPassword } from "./actions";
+vi.mock("@/lib/session/cookie", () => ({
+  clearSessionCookie: mocks.clearSession,
+  OAUTH_STATE_COOKIE: "test-oauth-state",
+}));
+
+import { signInWithDevPassword, signOut } from "./actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,4 +76,17 @@ it.each([
   expect(mocks.establish).toHaveBeenCalledWith(
     expect.objectContaining({ kind: "dev", email: "member@example.test" }),
   );
+});
+
+afterEach(() => vi.unstubAllEnvs());
+it("PreviewのログアウトではAccessのログインも終了する", async () => {
+  vi.stubEnv("PREVIEW_ENABLED", "true");
+  await expect(signOut()).rejects.toThrow("redirect:/cdn-cgi/access/logout");
+  expect(mocks.clearSession).toHaveBeenCalled();
+});
+
+it("本番のログアウトは既存のログイン画面へ戻る", async () => {
+  vi.stubEnv("PREVIEW_ENABLED", undefined);
+  await expect(signOut()).rejects.toThrow("redirect:/login");
+  expect(mocks.clearSession).toHaveBeenCalled();
 });

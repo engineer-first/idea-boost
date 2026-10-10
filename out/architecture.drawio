@@ -1,0 +1,193 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" version="24.7.17">
+  <diagram id="current-config" name="開始時：本番リポジトリ設定">
+    <mxGraphModel grid="1" gridSize="10" page="0" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="cf" value="Cloudflare Network" vertex="1" parent="1" style="rounded=0;html=0;fillColor=#ffffff;strokeColor=#f6821f;strokeWidth=2;verticalAlign=top;align=left;spacing=20;fontSize=16;whiteSpace=wrap;">
+          <mxGeometry x="300" y="170" width="1180" height="650" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" value="利用者のブラウザ" vertex="1" parent="1" style="rounded=1;html=0;fillColor=#f4f7fb;strokeColor=#455a64;strokeWidth=1.5;fontSize=14;whiteSpace=wrap;spacing=12;">
+          <mxGeometry x="40" y="405" width="190" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="google" value="Google&#10;本人ログイン" vertex="1" parent="1" style="rounded=1;html=0;fillColor=#f4f7fb;strokeColor=#455a64;strokeWidth=1.5;fontSize=14;whiteSpace=wrap;spacing=12;">
+          <mxGeometry x="410" y="20" width="180" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="app" value="Workers&#10;idea-flow-app&#10;Next.js / OpenNext" vertex="1" parent="cf" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2049%22%3E%3Cpath%20d%3D%22m18.63%2037.418-9.645-12.9%209.592-12.533-1.852-2.527L5.917%2023.595l-.015%201.808%2010.86%2014.542z%22%2F%3E%3Cpath%20d%3D%22M21.997%206.503h-3.712l13.387%2018.3-13.072%2017.7h3.735L35.4%2024.81z%22%2F%3E%3Cpath%20d%3D%22M29.175%206.503h-3.758l13.598%2018.082-13.598%2017.918h3.765l12.908-17.01v-1.808z%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="190" y="240" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="api" value="Workers&#10;idea-flow-api&#10;認可・ルーム入口" vertex="1" parent="cf" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2049%22%3E%3Cpath%20d%3D%22m18.63%2037.418-9.645-12.9%209.592-12.533-1.852-2.527L5.917%2023.595l-.015%201.808%2010.86%2014.542z%22%2F%3E%3Cpath%20d%3D%22M21.997%206.503h-3.712l13.387%2018.3-13.072%2017.7h3.735L35.4%2024.81z%22%2F%3E%3Cpath%20d%3D%22M29.175%206.503h-3.758l13.598%2018.082-13.598%2017.918h3.765l12.908-17.01v-1.808z%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="530" y="240" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="D1&#10;idea-flow-lobby&#10;横断検索・権限・投影" vertex="1" parent="cf" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2265%22%20height%3D%2264%22%20viewBox%3D%220%200%2065%2064%22%3E%3Cpath%20d%3D%22m23.6%2022.2%203.03%201.75v3.5L23.6%2029.2l-3.03-1.75v-3.5zM20.06%2049l3.54-3.54L27.14%2049l-3.54%203.54zm3.54-14.7c.593%200%201.17.176%201.67.506.493.33.878.798%201.1%201.35a3%203%200%200%201-.65%203.27c-.42.42-.954.705-1.54.821a3%203%200%200%201-1.73-.171%203.04%203.04%200%200%201-1.35-1.1%203%203%200%200%201-.506-1.67c0-.796.316-1.56.879-2.12a3%203%200%200%201%202.12-.879zM10.3%2011.2l6.42-4.89%201.21-.37h29l1.19.39%206.61%204.89.82%201.61v38L55%2052.21l-4.83%205.11-1.46.63h-31.7l-1.37-.54-5.48-5.11-.64-1.47v-38zm3.21%2025.4%204.47%204.94h.056v4h-1.83l-2.7-3v7.39l4.26%204h30l3.7-3.91V42.3l-3.67%203.24h-18.6v-4h17.2l5.19-4.61v-7.44l-3.67%203.25h-18.7v-4h17.2l5.19-4.6v-6.92l-3.67%203.26h-31.6l-2.74-2.8v6.12l4.47%204.94h.056v4h-1.83l-2.7-3zm32.7-26.7h-27.6l-4.07%203.11%203.4%203.48h28.4l4-3.56z%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="880" y="150" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="room" value="Durable Objects&#10;RoomDO&#10;ルームごとの共有状態" vertex="1" parent="cf" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cpath%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20d%3D%22M32.214%206h-.202a26%2026%200%201%200%20.327%2052q.266%200%20.527-.014A26%2026%200%200%200%2058.012%2032%2026%2026%200%200%200%2032.865%206.014a10%2010%200%200%200-.65-.013m-9.503%206.063A22%2022%200%200%200%2010.104%2030h7.804q.068-1.79.252-3.51l3.998.24A46%2046%200%200%200%2021.91%2030H30V10.519c-1.784.81-3.475%202.582-4.9%205.41q-.139.278-.274.567l-3.873-1.145q.276-.627.575-1.221c.363-.72.757-1.412%201.182-2.067M30%2034h-8.09c.226%205.584%201.392%2010.5%203.19%2014.071%201.425%202.829%203.116%204.6%204.9%205.41zm-7.29%2017.937a22%2022%200%200%201-1.182-2.067c-2.131-4.233-3.393-9.795-3.62-15.87h-7.806A22%2022%200%200%200%2022.71%2051.937m19.554-.472A22%2022%200%200%200%2053.921%2034h-7.15a51%2051%200%200%201-.26%203.589l-3.998-.24q.185-1.627.255-3.349H34v19.742c2.032-.641%203.973-2.486%205.577-5.671q.129-.255.252-.517l3.874%201.145q-.267.6-.553%201.171a23%2023%200%200%201-.885%201.595M42.768%2030H34V10.258c2.032.641%203.973%202.486%205.577%205.671%201.799%203.572%202.965%208.487%203.191%2014.071m4.003%200c-.227-6.075-1.49-11.637-3.621-15.87a22%2022%200%200%200-.885-1.595A22%2022%200%200%201%2053.921%2030z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="880" y="390" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="browser-app" value="HTTPS&#10;ideaboost.dev" edge="1" parent="1" source="browser" target="app" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="app-google" value="Google OIDC" edge="1" parent="1" source="app" target="google" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=0.5;exitY=0;entryX=0.5;entryY=1;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-5" as="offset" />
+            <Array as="points">
+              <mxPoint x="522" y="135" />
+              <mxPoint x="500" y="135" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="app-api" value="/api/*・WebSocket転送&#10;Service Binding: API_WORKER" edge="1" parent="1" source="app" target="api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="api-db" value="SQL / DB binding: DB" edge="1" parent="1" source="api" target="db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="1040" y="442" />
+              <mxPoint x="1040" y="352" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="api-room" value="ROOM_DO namespace binding" edge="1" parent="1" source="api" target="room" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="1040" y="442" />
+              <mxPoint x="1040" y="592" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="room-db" value="保全後の非同期投影" edge="1" parent="1" source="room" target="db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=1;entryY=0.5;dashed=1;strokeColor=#77828c;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-5" as="offset" />
+            <Array as="points">
+              <mxPoint x="1380" y="592" />
+              <mxPoint x="1380" y="352" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="preview-plan" name="準備中：Preview専用構成・未公開">
+    <mxGraphModel grid="1" gridSize="10" page="0" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="cf" value="Cloudflare Network" vertex="1" parent="1" style="rounded=0;html=0;fillColor=#ffffff;strokeColor=#f6821f;strokeWidth=2;verticalAlign=top;align=left;spacing=20;fontSize=16;whiteSpace=wrap;">
+          <mxGeometry x="280" y="185" width="1370" height="850" as="geometry" />
+        </mxCell>
+        <mxCell id="apps" value="PRごと：App Workers Preview" vertex="1" parent="cf" style="rounded=0;html=0;fillColor=#f1f6ff;strokeColor=#6494c8;strokeWidth=2;verticalAlign=top;align=left;spacing=20;fontSize=16;whiteSpace=wrap;">
+          <mxGeometry x="285" y="75" width="360" height="585" as="geometry" />
+        </mxCell>
+        <mxCell id="shared" value="Preview全体で共有：本番とは別リソース" vertex="1" parent="cf" style="rounded=0;html=0;fillColor=#f0faf5;strokeColor=#65a27e;strokeWidth=2;verticalAlign=top;align=left;spacing=20;fontSize=16;whiteSpace=wrap;">
+          <mxGeometry x="715" y="75" width="615" height="585" as="geometry" />
+        </mxCell>
+        <mxCell id="browser" value="許可したメンバー&#10;ブラウザ" vertex="1" parent="1" style="rounded=1;html=0;fillColor=#f4f7fb;strokeColor=#455a64;strokeWidth=1.5;fontSize=14;whiteSpace=wrap;spacing=12;">
+          <mxGeometry x="30" y="515" width="190" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="google" value="Google&#10;本人ログイン" vertex="1" parent="1" style="rounded=1;html=0;fillColor=#f4f7fb;strokeColor=#455a64;strokeWidth=1.5;fontSize=14;whiteSpace=wrap;spacing=12;">
+          <mxGeometry x="315" y="20" width="180" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="access" value="Access&#10;Google・メール許可" vertex="1" parent="cf" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M9.2%202.698a5.3%205.3%200%200%200-5.04%203.657l-.035.11H5.1l.022-.052a4.375%204.375%200%201%201%20.308%203.835l-.05-.088H4.358l.06.123q.138.297.317.575A5.303%205.303%200%201%200%209.2%202.698%22%2F%3E%3Cpath%20d%3D%22M9.448%207.272%207.59%205.415l-.617.617%201.08%201.083H0l.52.872h8.63zm-.013%203.941-.618-.618%201.08-1.082H1.425l-.518-.875h10.088l.298.717z%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="105" y="340" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="app-a" value="Workers Preview&#10;PR A の App&#10;Access JWTを検証" vertex="1" parent="apps" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2049%22%3E%3Cpath%20d%3D%22m18.63%2037.418-9.645-12.9%209.592-12.533-1.852-2.527L5.917%2023.595l-.015%201.808%2010.86%2014.542z%22%2F%3E%3Cpath%20d%3D%22M21.997%206.503h-3.712l13.387%2018.3-13.072%2017.7h3.735L35.4%2024.81z%22%2F%3E%3Cpath%20d%3D%22M29.175%206.503h-3.758l13.598%2018.082-13.598%2017.918h3.765l12.908-17.01v-1.808z%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="145" y="115" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="app-b" value="Workers Preview&#10;PR B の App&#10;Access JWTを検証" vertex="1" parent="apps" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2049%22%3E%3Cpath%20d%3D%22m18.63%2037.418-9.645-12.9%209.592-12.533-1.852-2.527L5.917%2023.595l-.015%201.808%2010.86%2014.542z%22%2F%3E%3Cpath%20d%3D%22M21.997%206.503h-3.712l13.387%2018.3-13.072%2017.7h3.735L35.4%2024.81z%22%2F%3E%3Cpath%20d%3D%22M29.175%206.503h-3.758l13.598%2018.082-13.598%2017.918h3.765l12.908-17.01v-1.808z%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="145" y="355" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="api" value="Workers&#10;idea-boost-preview-api&#10;品質確認済みdevelop" vertex="1" parent="shared" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2049%22%3E%3Cpath%20d%3D%22m18.63%2037.418-9.645-12.9%209.592-12.533-1.852-2.527L5.917%2023.595l-.015%201.808%2010.86%2014.542z%22%2F%3E%3Cpath%20d%3D%22M21.997%206.503h-3.712l13.387%2018.3-13.072%2017.7h3.735L35.4%2024.81z%22%2F%3E%3Cpath%20d%3D%22M29.175%206.503h-3.758l13.598%2018.082-13.598%2017.918h3.765l12.908-17.01v-1.808z%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="100" y="235" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="D1&#10;idea-boost-preview-lobby&#10;本番D1と分離" vertex="1" parent="shared" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2265%22%20height%3D%2264%22%20viewBox%3D%220%200%2065%2064%22%3E%3Cpath%20d%3D%22m23.6%2022.2%203.03%201.75v3.5L23.6%2029.2l-3.03-1.75v-3.5zM20.06%2049l3.54-3.54L27.14%2049l-3.54%203.54zm3.54-14.7c.593%200%201.17.176%201.67.506.493.33.878.798%201.1%201.35a3%203%200%200%201-.65%203.27c-.42.42-.954.705-1.54.821a3%203%200%200%201-1.73-.171%203.04%203.04%200%200%201-1.35-1.1%203%203%200%200%201-.506-1.67c0-.796.316-1.56.879-2.12a3%203%200%200%201%202.12-.879zM10.3%2011.2l6.42-4.89%201.21-.37h29l1.19.39%206.61%204.89.82%201.61v38L55%2052.21l-4.83%205.11-1.46.63h-31.7l-1.37-.54-5.48-5.11-.64-1.47v-38zm3.21%2025.4%204.47%204.94h.056v4h-1.83l-2.7-3v7.39l4.26%204h30l3.7-3.91V42.3l-3.67%203.24h-18.6v-4h17.2l5.19-4.61v-7.44l-3.67%203.25h-18.7v-4h17.2l5.19-4.6v-6.92l-3.67%203.26h-31.6l-2.74-2.8v6.12l4.47%204.94h.056v4h-1.83l-2.7-3zm32.7-26.7h-27.6l-4.07%203.11%203.4%203.48h28.4l4-3.56z%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="415" y="125" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="rooms" value="PreviewRoomDO namespace" vertex="1" parent="shared" style="rounded=0;html=0;fillColor=#ffffff;strokeColor=#65a27e;strokeWidth=2;verticalAlign=top;align=left;spacing=20;fontSize=16;whiteSpace=wrap;">
+          <mxGeometry x="325" y="345" width="265" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="room" value="Durable Objects&#10;ルームごとの共有状態" vertex="1" parent="rooms" style="verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;shape=image;imageAspect=1;aspect=fixed;image=data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2264%22%20height%3D%2264%22%20viewBox%3D%220%200%2064%2064%22%3E%3Cpath%20fill%3D%22currentColor%22%20fill-rule%3D%22evenodd%22%20d%3D%22M32.214%206h-.202a26%2026%200%201%200%20.327%2052q.266%200%20.527-.014A26%2026%200%200%200%2058.012%2032%2026%2026%200%200%200%2032.865%206.014a10%2010%200%200%200-.65-.013m-9.503%206.063A22%2022%200%200%200%2010.104%2030h7.804q.068-1.79.252-3.51l3.998.24A46%2046%200%200%200%2021.91%2030H30V10.519c-1.784.81-3.475%202.582-4.9%205.41q-.139.278-.274.567l-3.873-1.145q.276-.627.575-1.221c.363-.72.757-1.412%201.182-2.067M30%2034h-8.09c.226%205.584%201.392%2010.5%203.19%2014.071%201.425%202.829%203.116%204.6%204.9%205.41zm-7.29%2017.937a22%2022%200%200%201-1.182-2.067c-2.131-4.233-3.393-9.795-3.62-15.87h-7.806A22%2022%200%200%200%2022.71%2051.937m19.554-.472A22%2022%200%200%200%2053.921%2034h-7.15a51%2051%200%200%201-.26%203.589l-3.998-.24q.185-1.627.255-3.349H34v19.742c2.032-.641%203.973-2.486%205.577-5.671q.129-.255.252-.517l3.874%201.145q-.267.6-.553%201.171a23%2023%200%200%201-.885%201.595M42.768%2030H34V10.258c2.032.641%203.973%202.486%205.577%205.671%201.799%203.572%202.965%208.487%203.191%2014.071m4.003%200c-.227-6.075-1.49-11.637-3.621-15.87a22%2022%200%200%200-.885-1.595A22%2022%200%200%201%2053.921%2030z%22%20clip-rule%3D%22evenodd%22%2F%3E%3C%2Fsvg%3E;">
+          <mxGeometry x="100" y="60" width="64" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="prod" value="本番 App / API / D1 / RoomDO&#10;接続しない別リソース" vertex="1" parent="cf" style="rounded=1;html=0;fillColor=#f5f5f5;strokeColor=#737373;strokeWidth=1.5;fontSize=14;whiteSpace=wrap;spacing=12;">
+          <mxGeometry x="670" y="690" width="410" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="browser-access" value="HTTPS&#10;Preview URL" edge="1" parent="1" source="browser" target="access" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="access-google" value="Google認証" edge="1" parent="1" source="access" target="google" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=0.5;exitY=0;entryX=0.5;entryY=1;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-5" as="offset" />
+            <Array as="points">
+              <mxPoint x="417" y="140" />
+              <mxPoint x="405" y="140" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="access-a" value="許可済み本人&#10;Access JWT" edge="1" parent="1" source="access" target="app-a" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="510" y="557" />
+              <mxPoint x="510" y="407" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="access-b" value="許可済み本人&#10;Access JWT" edge="1" parent="1" source="access" target="app-b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="510" y="557" />
+              <mxPoint x="510" y="647" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="app-a-api" value="/api/*・WSを転送&#10;API_WORKER binding" edge="1" parent="1" source="app-a" target="api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="935" y="407" />
+              <mxPoint x="935" y="527" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="app-b-api" value="/api/*・WSを転送&#10;API_WORKER binding" edge="1" parent="1" source="app-b" target="api" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="935" y="647" />
+              <mxPoint x="935" y="527" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="api-db" value="SQL / DB binding: DB" edge="1" parent="1" source="api" target="db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="1270" y="527" />
+              <mxPoint x="1270" y="417" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="api-room" value="ROOM_DO namespace binding" edge="1" parent="1" source="api" target="room" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" x="0.5" as="geometry">
+            <mxPoint x="0" y="-12" as="offset" />
+            <Array as="points">
+              <mxPoint x="1270" y="527" />
+              <mxPoint x="1270" y="697" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

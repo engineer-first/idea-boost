@@ -15,7 +15,8 @@ import {
 } from "@/features/verification";
 import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
-import { getBaseUrl } from "@/lib/session/env";
+
+import { getRequestBaseUrl } from "@/lib/session/request-base-url";
 import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
 
 export const dynamic = "force-dynamic";
@@ -78,7 +79,10 @@ export default async function StartPage({
     initialMembers = [];
   }
 
-  const inviteUrl = buildInviteUrl(getBaseUrl(), parsed.data.inviteCode);
+  const inviteUrl = buildInviteUrl(
+    await getRequestBaseUrl(),
+    parsed.data.inviteCode,
+  );
 
   // 作成/参加直後の toast はホーム / 招待 URL 側クライアントが成功時に出し、
   // その後 router.push でこのスタート画面へ遷移する。
