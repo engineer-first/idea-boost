@@ -366,7 +366,10 @@ describe("PrivateNotesToolbar", () => {
     );
   });
 
-  it("新しい付箋を末尾へ表示して滑らかにスクロールし、追加直後から本文を入力できる", () => {
+  it.each([
+    "dock",
+    "workspace",
+  ] as const)("%sでは新しい付箋を末尾へ表示して追加直後から本文を入力できる", (presentation) => {
     const oldNote = buildNote({
       id: "old-note",
       visibility: "private",
@@ -400,12 +403,15 @@ describe("PrivateNotesToolbar", () => {
       onDelete: vi.fn(),
       onDragStart: vi.fn(),
     };
-    const view = render(<PrivateNotesToolbar {...props} />);
+    const view = render(
+      <PrivateNotesToolbar {...props} presentation={presentation} />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
     view.rerender(
       <PrivateNotesToolbar
         {...props}
+        presentation={presentation}
         notes={[oldNote, newNote]}
         selectedNoteId="new-note"
       />,
@@ -534,7 +540,10 @@ describe("PrivateNotesToolbar", () => {
     expect(screen.getAllByRole("textbox")[1]).toHaveFocus();
   });
 
-  it("本文入力から対応するサーバーACKまで保存確認待ちを表示する", () => {
+  it.each([
+    "dock",
+    "workspace",
+  ] as const)("%s: 保存状態の表記を出さず、対応するサーバーACKまで下書きを保持する", (presentation) => {
     sessionStorage.clear();
     vi.useFakeTimers();
     try {
@@ -564,6 +573,7 @@ describe("PrivateNotesToolbar", () => {
         }),
       );
       const props = {
+        presentation,
         notes: [note],
         disabled: false,
         selectedNoteId: "save-note",
@@ -596,7 +606,8 @@ describe("PrivateNotesToolbar", () => {
           draftValue={hook.result.current.draftValue}
         />,
       );
-      expect(screen.getByRole("status")).toHaveTextContent("保存確認待ち");
+      expect(screen.queryByText("保存確認待ち")).not.toBeInTheDocument();
+      expect(hook.result.current.draftValue(note.id)).toBe("受理を待つ本文");
       expect(send).not.toHaveBeenCalled();
       act(() => vi.advanceTimersByTime(1000));
       const request = send.mock.calls[0]?.[0];
@@ -623,7 +634,7 @@ describe("PrivateNotesToolbar", () => {
           draftValue={hook.result.current.draftValue}
         />,
       );
-      expect(screen.getByRole("status")).toHaveTextContent("保存確認待ち");
+      expect(hook.result.current.draftValue(note.id)).toBe("受理を待つ本文");
       act(() => vi.advanceTimersByTime(3000));
       expect(send).toHaveBeenLastCalledWith({
         type: "note:content-status",
@@ -644,7 +655,7 @@ describe("PrivateNotesToolbar", () => {
           draftValue={hook.result.current.draftValue}
         />,
       );
-      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(hook.result.current.draftValue(note.id)).toBeUndefined();
     } finally {
       vi.useRealTimers();
       sessionStorage.clear();

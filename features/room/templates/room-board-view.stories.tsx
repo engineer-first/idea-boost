@@ -581,6 +581,31 @@ export const Step1_1_PersonalWriting: Story = {
       })),
     },
   },
+  render: function Render(args) {
+    const [privateNotes, setPrivateNotes] = useState(
+      args.interactions.privateNotes,
+    );
+    return (
+      <RoomBoardView
+        {...args}
+        interactions={{ ...args.interactions, privateNotes }}
+        onPrivateNoteContentChange={(id, content) => {
+          args.onPrivateNoteContentChange(id, content);
+          setPrivateNotes((current) =>
+            current.map((note) =>
+              note.id === id ? { ...note, content } : note,
+            ),
+          );
+        }}
+        onPrivateNoteDelete={(id) => {
+          args.onPrivateNoteDelete(id);
+          setPrivateNotes((current) =>
+            current.filter((note) => note.id !== id),
+          );
+        }}
+      />
+    );
+  },
 };
 
 export const Step1_2_Sharing: Story = {

@@ -91,7 +91,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     notes: buildNotes(2),
     inviteCode: "AB12CD",
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
-    phase: buildPhaseStep(1),
+    phase: buildPhaseStep(2),
     decision: null,
     outcomePublished: false,
     adoptionFocusNoteId: null,
@@ -423,6 +423,7 @@ describe("上中央の統合ガイド", () => {
   it("初回の案内はモーダルにせず、作業をそのまま始められる", () => {
     const { props } = setup({
       initialGuideState: "intro",
+      phase: buildPhaseStep(1),
       notes: [],
       help: {
         kind: null,
@@ -497,6 +498,48 @@ function clickNote(card: HTMLElement) {
 }
 
 describe("RoomBoardView", () => {
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%sの個人入力画面で選択した付箋をMacのDeleteキー単体で削除できる", (phaseNumber) => {
+    const privateNote = buildNote({
+      id: "private-note",
+      visibility: "private",
+      content: "削除する付箋",
+    });
+    const { props } = setup({
+      phase: buildPhaseStep(1, phaseNumber),
+      notes: [],
+      interactions: buildInteractions([], [privateNote]),
+    });
+    const card = screen.getByTestId("note-card");
+
+    clickNote(card);
+    const surface = getNoteSurface(card);
+    expect(surface).toHaveFocus();
+    fireEvent.keyDown(surface, { key: "Backspace" });
+
+    expect(props.onPrivateNoteDelete).toHaveBeenCalledWith(privateNote.id);
+    expect(props.onNoteDelete).not.toHaveBeenCalled();
+  });
+
+  it("個人執筆中も既存HUDを同じ画面に残し、共有キャンバスだけを隠す", () => {
+    setup({
+      phase: buildPhaseStep(1),
+      isHost: true,
+      timer: { status: "paused", remainingMs: 30_000, durationMs: 60_000 },
+    });
+
+    expect(screen.getByTestId("board-header-row")).toBeInTheDocument();
+    expect(screen.getByTestId("step-guide")).toBeInTheDocument();
+    expect(screen.getByTestId("board-control-hud")).toBeInTheDocument();
+    expect(screen.getByTestId("room-timer")).toHaveTextContent("00:30");
+    expect(screen.getByTestId("phase-loop-hud")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "次のステップへ" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("board-scroller")).not.toBeInTheDocument();
+  });
+
   it("外側が pointer capture 中でもドラッグと通常 presence を同じ座標で更新し、cancel を分離する", () => {
     const interactions = buildInteractions(buildNotes(1), []);
     interactions.isNoteDragging = true;
@@ -530,7 +573,7 @@ describe("RoomBoardView", () => {
 
   describe("ファシリテーションガイド", () => {
     it("詳細を畳んでも現在の作業名を残し、再び同じ場所で開く", () => {
-      setup();
+      setup({ phase: buildPhaseStep(1) });
       expect(screen.getByTestId("step-guide")).toHaveAttribute(
         "data-state",
         "detail",
@@ -549,7 +592,7 @@ describe("RoomBoardView", () => {
       ).toBeVisible();
     });
     it("初めての工程では短い案内に切り替え、戻った工程は畳む", () => {
-      const { props, rerender } = setup();
+      const { props, rerender } = setup({ phase: buildPhaseStep(1) });
       rerender(<TestBoardView {...props} phase={buildPhaseStep(2)} />);
       expect(screen.getByRole("status", { name: "最初の一歩" })).toBeVisible();
       rerender(<TestBoardView {...props} />);
@@ -849,7 +892,10 @@ describe("RoomBoardView", () => {
 
   it("ツールバーの付箋追加ボタンでonAddPrivateNoteを呼ぶ", () => {
     const onAddPrivateNote = vi.fn();
-    setup({ onAddPrivateNote });
+    setup({
+      phase: buildPhaseStep(1),
+      onAddPrivateNote,
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
 
@@ -1513,7 +1559,7 @@ describe("RoomBoardView", () => {
     });
 
     it("openの間はツールバーの「付箋を追加」ボタンが有効", () => {
-      setup({ connectionStatus: "open" });
+      setup({ phase: buildPhaseStep(1), connectionStatus: "open" });
 
       expect(
         screen.getByRole("button", { name: "付箋を追加" }),
@@ -1808,17 +1854,28 @@ describe("RoomBoardView", () => {
   });
 
   describe("ステップごとの付箋編集制御", () => {
-    it("個人中の共有済み付箋は閲覧のみ", () => {
+    it("個人執筆中は共有済み付箋を隠し、個人付箋の入力を表示する", () => {
+      const sharedNote = buildNote({
+        id: "shared-note",
+        content: "共有済みの付箋",
+        visibility: "shared",
+      });
+      const privateNote = buildNote({
+        id: "private-note",
+        content: "自分だけの付箋",
+        visibility: "private",
+      });
       setup({
         phase: buildPhaseStep(1),
+        notes: [sharedNote],
+        interactions: buildInteractions([sharedNote], [privateNote]),
       });
 
-      const [first] = screen.getAllByTestId("note-card");
-
-      clickNote(first);
-      clickNote(first);
-
-      expect(within(first).getByRole("textbox")).toHaveAttribute("readonly");
+      expect(
+        screen.queryByDisplayValue("共有済みの付箋"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByDisplayValue("自分だけの付箋")).toBeInTheDocument();
+      expect(screen.queryByTestId("board-scroller")).not.toBeInTheDocument();
     });
 
     it("Step2では付箋編集できる", () => {

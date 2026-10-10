@@ -801,10 +801,11 @@ export function NoteCard({
     if (event.code === "Space" || event.key === " ") return;
     if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
     if (isMultiSelected) return;
-    const targetsNote =
-      event.key === "Enter" ||
+    const isDeleteKey =
       event.key === "Delete" ||
-      isPrintableCharacterKey(event);
+      (event.key === "Backspace" && note.visibility === "private");
+    const targetsNote =
+      event.key === "Enter" || isDeleteKey || isPrintableCharacterKey(event);
     if (!targetsNote) return;
     event.preventDefault();
     event.stopPropagation();
@@ -812,7 +813,7 @@ export function NoteCard({
       onSelect(note.id);
       return;
     }
-    if (event.key === "Delete") {
+    if (isDeleteKey) {
       if (canDeleteNote && note.visibility === "private") onDelete(note.id);
       return;
     }
