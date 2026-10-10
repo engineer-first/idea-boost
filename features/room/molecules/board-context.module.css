@@ -34,3 +34,9 @@
     transition: none;
   }
 }
+
+@media (max-width: 639px) {
+  .referenceNote {
+    max-height: 150px;
+  }
+}

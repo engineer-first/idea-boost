@@ -50,8 +50,10 @@ export function useStepGuide({
     }
     setState(
       activePhase.current === null && firstState.current !== undefined
-        ? firstState.current
-        : visited
+        ? firstState.current === "intro" && window.innerWidth <= 639
+          ? "compact"
+          : firstState.current
+        : visited || window.innerWidth <= 639
           ? "compact"
           : "intro",
     );

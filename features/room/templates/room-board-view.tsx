@@ -26,7 +26,7 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { SharingState } from "@/contracts/room-protocol";
+import type { Carryover, SharingState } from "@/contracts/room-protocol";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
@@ -195,6 +195,8 @@ export type RoomBoardViewProps = {
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
+  issueReference?: Carryover | null;
+  hmwReference?: Carryover | null;
   onAddPrivateNote: () => string | null;
   noteCreationPending?: boolean;
   noteCreationReceipt?: { operationId: string; noteId: string };
@@ -315,6 +317,8 @@ export function RoomBoardView({
   signOutAction,
   hmwDecidedIssue,
   decidedHmw,
+  issueReference,
+  hmwReference,
   onAddPrivateNote,
   noteCreationPending = false,
   noteCreationReceipt,
@@ -1693,6 +1697,8 @@ export function RoomBoardView({
           }
           hmwDecidedIssue={hmwDecidedIssue}
           decidedHmw={decidedHmw}
+          issueReference={issueReference}
+          hmwReference={hmwReference}
           inviteCode={inviteCode}
           inviteUrl={inviteUrl}
           phase={phase}

@@ -4,6 +4,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
+  buildCarryover,
   buildDecision,
   buildMembers,
   buildNotes,
@@ -56,6 +57,25 @@ function step(phase: 1 | 2 | 3, value: number): Story {
       phase: buildPhaseStep(value, phase),
       notes: value === 1 ? [] : buildNotes(3),
       hmwDecidedIssue: phase >= 2 ? LONG_ISSUE : null,
+      issueReference:
+        phase >= 2
+          ? buildCarryover({
+              content: LONG_ISSUE,
+              color: "pink",
+              fontSize: 18,
+              dotVotes: { subjective: 3, objective: 2 },
+            })
+          : null,
+      hmwReference:
+        phase === 3
+          ? buildCarryover({
+              phase: 2,
+              content: LONG_QUESTION,
+              color: "blue",
+              fontSize: 16,
+              dotVotes: { subjective: 4, objective: 1 },
+            })
+          : null,
       decidedHmw: phase === 3 ? LONG_QUESTION : null,
       members: buildMembers(12, boardMeta.args.currentUserId),
       interactions: {
@@ -373,4 +393,18 @@ export const AuthRequiredWithDraft: Story = {
 export const UnavailableWithDraft: Story = {
   ...Unavailable,
   decorators: AuthRequiredWithDraft.decorators,
+};
+
+export const LongReference: Story = {
+  ...step(3, 1),
+  args: {
+    ...step(3, 1).args,
+    decidedHmw: "問いの全文を読みながら考える。".repeat(134).slice(0, 2000),
+    hmwReference: buildCarryover({
+      phase: 2,
+      fontSize: 20,
+      color: "green",
+      dotVotes: { subjective: 8, objective: 6 },
+    }),
+  },
 };

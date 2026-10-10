@@ -286,13 +286,30 @@ export type Decision = z.infer<typeof DecisionSchema>;
 // content は決定時点のコピーで、元付箋の後からの編集・削除に影響されない。
 // フェーズ2の「決定した課題」表示が最初の利用者で、フェーズ3の決定した問い
 // 表示でも同じ形を再利用する。
-export const CarryoverSchema = z.object({
-  phase: z.number().int().min(1).max(3),
-  noteId: z.string().uuid(),
-  // サーバーが note.content（入力時に上限検証済み）をコピーする値だが、
-  // コントラクト単体でも他スキーマと同じ上限で有界にしておく。
-  content: z.string().max(NOTE_CONTENT_MAX_LENGTH),
-});
+export const CarryoverSchema = z
+  .object({
+    phase: z.number().int().min(1).max(3),
+    noteId: z.string().uuid(),
+    // サーバーが note.content（入力時に上限検証済み）をコピーする値だが、
+    // コントラクト単体でも他スキーマと同じ上限で有界にしておく。
+    content: z.string().max(NOTE_CONTENT_MAX_LENGTH),
+    color: NoteColorSchema.nullable(),
+    fontSize: z
+      .number()
+      .int()
+      .min(NOTE_FONT_SIZE_RANGE.min)
+      .max(NOTE_FONT_SIZE_RANGE.max)
+      .nullable(),
+    // 集計だけを共有し、個人の投票先・シールや投票者は含めない。
+    dotVotes: z
+      .object({
+        subjective: z.number().int().nonnegative(),
+        objective: z.number().int().nonnegative(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
 export type Carryover = z.infer<typeof CarryoverSchema>;
 
 const NotePositionSchema = {

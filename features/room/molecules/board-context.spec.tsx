@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import { buildCarryover } from "@/contracts/room-protocol.fixture";
 import { BoardContext } from "./board-context";
 
 describe("現在地と補足情報", () => {
@@ -124,7 +125,7 @@ describe("現在地と補足情報", () => {
     };
     const { rerender } = render(<BoardContext {...props} />);
     const reference = screen.getByRole("button", { name: "決定した課題" });
-    fireEvent.click(reference);
+    expect(reference).toHaveAttribute("aria-expanded", "true");
     const trigger = screen.getByRole("button", { name: /現在地/ });
     fireEvent.click(trigger);
     fireEvent.click(trigger);
@@ -152,7 +153,7 @@ describe("現在地と補足情報", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
-  it("決定内容も初期は閉じ、同時に開く補足は1項目だけ", () => {
+  it("フェーズ3では問いから開き、参照は一度に1項目だけ", () => {
     render(
       <BoardContext
         phase={buildPhaseStep(1, 3)}
@@ -163,13 +164,13 @@ describe("現在地と補足情報", () => {
 
     const hmw = screen.getByRole("button", { name: "決定した問い" });
     const issue = screen.getByRole("button", { name: "決定した課題" });
-    expect(hmw).toHaveAttribute("aria-expanded", "false");
+    expect(hmw).toHaveAttribute("aria-expanded", "true");
     expect(issue).toHaveAttribute("aria-expanded", "false");
-    expect(
-      screen.queryByText("どうすれば解決できるだろうか？"),
-    ).not.toBeVisible();
+    expect(screen.queryByText("どうすれば解決できるだろうか？")).toBeVisible();
     expect(screen.queryByText("解決したい課題")).not.toBeVisible();
 
+    fireEvent.click(hmw);
+    expect(hmw).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(hmw);
     expect(hmw).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("どうすれば解決できるだろうか？")).toBeVisible();
@@ -226,4 +227,63 @@ it("現在より前の手順だけに完了マークを付け、別フェーズ�
   });
   expect(steps().queryAllByRole("img", { name: "完了" })).toHaveLength(0);
   expect(trigger).toHaveTextContent("問いの整理・2/4");
+});
+
+it("閉じた参照を同一フェーズのステップ・データ更新で開かず、フェーズ入場で初期化する", () => {
+  const props = {
+    phase: buildPhaseStep(1, 2),
+    hmwDecidedIssue: "課題本文",
+    decidedHmw: null,
+  };
+  const { rerender } = render(<BoardContext {...props} />);
+  const issue = screen.getByRole("button", { name: "決定した課題" });
+  expect(issue).toHaveAttribute("aria-expanded", "true");
+  fireEvent.click(issue);
+  rerender(
+    <BoardContext
+      {...props}
+      phase={buildPhaseStep(2, 2)}
+      hmwDecidedIssue="更新本文"
+    />,
+  );
+  expect(issue).toHaveAttribute("aria-expanded", "false");
+  rerender(
+    <BoardContext
+      {...props}
+      phase={buildPhaseStep(1, 3)}
+      decidedHmw="問い本文"
+    />,
+  );
+  expect(screen.getByRole("button", { name: "決定した問い" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  expect(issue).toHaveAttribute("aria-expanded", "false");
+});
+
+it("採用時の本文・文字サイズと集計票を表示し、参照から編集や投票を提供しない", () => {
+  const reference = buildCarryover({
+    content: "採用時の本文",
+    color: "pink",
+    fontSize: 20,
+    dotVotes: { subjective: 7, objective: 3 },
+  });
+  render(
+    <BoardContext
+      phase={buildPhaseStep(1, 2)}
+      hmwDecidedIssue={reference.content}
+      decidedHmw={null}
+      issueReference={reference}
+    />,
+  );
+  const body = screen.getByRole("region", { name: "決定した課題の本文" });
+  expect(body).toHaveTextContent(reference.content);
+  expect(body).toHaveStyle({ fontSize: "20px" });
+  expect(screen.getByRole("img", { name: /主観.*7票/ })).toBeVisible();
+  expect(screen.getByRole("img", { name: /客観.*3票/ })).toBeVisible();
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  expect(screen.getAllByRole("button")).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
+  expect(body).not.toBeVisible();
+  expect(body).toHaveAttribute("tabindex", "-1");
 });
