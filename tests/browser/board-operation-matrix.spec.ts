@@ -44,6 +44,9 @@ for (const viewport of [
     ).toBeGreaterThan(0);
     await page.getByRole("button", { name: "マイ付箋を閉じる" }).click();
     expect(await toolbar.getAttribute("data-expanded")).toBe("false");
+    const collapsed = await toolbar.boundingBox();
+    expect(collapsed?.width).toBe(bounds.width);
+    expect(collapsed?.x).toBe(bounds.x);
     expect(await matrix.boundingBox()).toEqual(before);
     await page.getByRole("button", { name: "マイ付箋を開く" }).click();
     expect(await toolbar.getAttribute("data-expanded")).toBe("true");
