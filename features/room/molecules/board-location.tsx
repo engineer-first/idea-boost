@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -9,6 +9,7 @@ import {
   type RoomPhase,
 } from "@/contracts/phase";
 import {
+  getPhaseLabel,
   getPhaseProgressState,
   getPhaseTitle,
   PHASE_NUMBERS,
@@ -16,7 +17,17 @@ import {
 } from "../logic/phase-labels";
 import styles from "./board-location.module.css";
 
-const PROGRESS_STEPS = [1, 2, 3, 4, 5] as const;
+const FLOW_STEPS = PHASE_NUMBERS.flatMap((phase) =>
+  Array.from({ length: PHASE_STEP_COUNTS[phase] }, (_, index) => ({
+    phase,
+    step: index + 1,
+  })),
+);
+const STEP_NAMES = {
+  1: ["個人", "共有", "整理", "投票", "決定"],
+  2: ["個人", "共有", "投票", "決定"],
+  3: ["個人", "共有", "2軸評価", "投票", "決定"],
+} as const;
 const PHASE_MARKERS = { 1: "①", 2: "②", 3: "③" } as const;
 const PHASE_NAMES = { 1: "課題", 2: "問い", 3: "アイデア" } as const;
 
@@ -84,7 +95,14 @@ export function BoardLocation({ phase }: BoardLocationProps) {
   }, [state, phaseKey]);
 
   const title = getPhaseTitle(phase);
-  const stepCount = phase.kind === "step" ? PHASE_STEP_COUNTS[phase.phase] : 0;
+  const currentPosition =
+    phase.kind === "step"
+      ? FLOW_STEPS.findIndex(
+          (item) => item.phase === phase.phase && item.step === phase.step,
+        ) + 1
+      : 0;
+  const stepLabel =
+    phase.kind === "step" ? STEP_NAMES[phase.phase][phase.step - 1] : "";
   return (
     <div className={styles.slot}>
       <fieldset
@@ -109,7 +127,7 @@ export function BoardLocation({ phase }: BoardLocationProps) {
         <button
           ref={trigger}
           type="button"
-          aria-label={`現在地：${phase.kind === "step" ? `${title}・${phase.step}/${stepCount}` : title}`}
+          aria-label={`現在地：${phase.kind === "step" ? `${PHASE_MARKERS[phase.phase]} ${title}・${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}` : title}。全体の流れを${state === "compact" ? "開く" : "閉じる"}`}
           aria-expanded={state !== "compact"}
           aria-controls={`${id}-detail`}
           data-testid="board-location-trigger"
@@ -123,35 +141,57 @@ export function BoardLocation({ phase }: BoardLocationProps) {
             setRequest({ phaseKey, state: "expanded" });
           }}
         >
-          <span className="min-w-0 flex-1 text-left text-sm font-semibold whitespace-nowrap">
-            {phase.kind === "step"
-              ? `${PHASE_MARKERS[phase.phase]} ${title}・${phase.step}/${stepCount}`
-              : title}
+          <span className={styles.currentAction}>
+            {phase.kind === "step" ? (
+              <>
+                <span className={styles.currentPhase}>
+                  {PHASE_MARKERS[phase.phase]}
+                  {PHASE_NAMES[phase.phase]}
+                </span>
+                <span aria-hidden="true" className="text-muted-foreground">
+                  ｜
+                </span>
+                <span
+                  className={styles.currentStep}
+                  data-testid="board-location-step"
+                >
+                  {stepLabel}
+                </span>
+              </>
+            ) : (
+              <span className={styles.currentPhase}>{title}</span>
+            )}
           </span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 12 12"
+            className={styles.disclosure}
+            data-expanded={state !== "compact"}
+          >
+            <path d="M2 4h8L6 8z" fill="currentColor" />
+          </svg>
           {phase.kind === "step" ? (
             <span
               role="progressbar"
-              aria-label={`${title}の進行状況`}
+              aria-label="全工程の現在地"
               aria-valuemin={0}
-              aria-valuemax={stepCount}
-              aria-valuenow={phase.step}
-              className={styles.dots}
+              aria-valuemax={FLOW_STEPS.length}
+              aria-valuenow={currentPosition}
+              aria-valuetext={`全${FLOW_STEPS.length}工程の${currentPosition}番目。${getPhaseLabel(phase).replace(/^\d+-\d+\s*/, "")}`}
+              className={styles.progressRail}
               data-testid="board-progress-rail"
             >
-              {PROGRESS_STEPS.slice(0, stepCount).map((step) => (
+              {FLOW_STEPS.map((item, index) => (
                 <span
-                  key={step}
+                  key={`${item.phase}-${item.step}`}
                   aria-hidden="true"
-                  data-reached={step <= phase.step}
-                  data-current={step === phase.step}
+                  data-phase-start={item.phase !== 1 && item.step === 1}
+                  data-reached={index < currentPosition}
+                  data-current={index + 1 === currentPosition}
                 />
               ))}
             </span>
           ) : null}
-          <ChevronDown
-            aria-hidden="true"
-            className={`size-4 shrink-0 text-muted-foreground ${state !== "compact" ? "rotate-180" : ""}`}
-          />
         </button>
         {state !== "compact" ? (
           <section

@@ -95,10 +95,10 @@ for (const { phase, count } of phases) {
         expect(await location.isVisible()).toBe(true);
         expect(await location.getAttribute("aria-expanded")).toBe("false");
         const progress = page.getByTestId("board-progress-rail");
-        expect(await progress.getAttribute("aria-valuenow")).toBe(String(step));
-        expect(await progress.getAttribute("aria-valuemax")).toBe(
-          String(count),
+        expect(await progress.getAttribute("aria-valuenow")).toBe(
+          String(step + (phase === 1 ? 0 : phase === 2 ? 5 : 9)),
         );
+        expect(await progress.getAttribute("aria-valuemax")).toBe("14");
         expect(await page.getByTestId("board-current-step").count()).toBe(0);
         expect(
           await page.getByRole("button", { name: "ゴールと進行" }).count(),

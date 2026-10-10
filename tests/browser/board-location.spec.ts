@@ -71,6 +71,56 @@ async function reachable(target: Locator): Promise<void> {
 }
 
 test.each([
+  [1280, 720],
+  [390, 844],
+  [320, 568],
+])("%i×%iで全14工程の棒・現在位置・高さ44pxを保つ", async (width, height) => {
+  await page.setViewportSize({ width, height });
+  let position = 0;
+  for (const [phase, count] of [
+    [1, 5],
+    [2, 4],
+    [3, 5],
+  ]) {
+    for (let step = 1; step <= count; step++) {
+      position++;
+      await open(`room-roomboardlayout--phase-${phase}-step-${step}`);
+      const card = page.getByTestId("board-location-card");
+      expect((await card.boundingBox())?.height).toBe(44);
+      const trigger = page.getByTestId("board-location-trigger");
+      const rail = trigger.getByRole("progressbar", { name: "全工程の現在地" });
+      expect(await rail.getAttribute("aria-valuenow")).toBe(String(position));
+      expect(await rail.getAttribute("aria-valuemax")).toBe("14");
+      const bars = rail.locator(":scope > span");
+      expect(await bars.count()).toBe(14);
+      expect(await bars.nth(position - 1).getAttribute("data-current")).toBe(
+        "true",
+      );
+      const boxes = await bars.evaluateAll((elements) =>
+        elements.map((element) => {
+          const r = element.getBoundingClientRect();
+          return { width: r.width, left: r.left, right: r.right };
+        }),
+      );
+      const widths = boxes.map((box) => box.width);
+      expect(Math.min(...widths)).toBeGreaterThan(0);
+      expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(0.1);
+      const cardBox = await card.boundingBox();
+      expect(boxes[0].left).toBeGreaterThanOrEqual(cardBox?.x ?? 0);
+      expect(boxes[13].right).toBeLessThanOrEqual(
+        (cardBox?.x ?? 0) + (cardBox?.width ?? 0),
+      );
+      const textBox = await trigger
+        .getByTestId("board-location-step")
+        .boundingBox();
+      expect((await rail.boundingBox())?.y).toBeGreaterThanOrEqual(
+        (textBox?.y ?? 0) + (textBox?.height ?? 0),
+      );
+    }
+  }
+});
+
+test.each([
   [542, 618],
   [390, 844],
   [320, 568],
@@ -177,7 +227,13 @@ test.each([
   });
   await page.getByRole("tab", { name: /問い/ }).click();
   expect(await list.locator("li").count()).toBe(4);
-  expect(await trigger.innerText()).toContain("アイデア決定・3/5");
+  expect(await trigger.innerText()).toContain("③アイデア");
+  expect(await trigger.getByTestId("board-location-step").innerText()).toBe(
+    "2軸評価",
+  );
+  expect(
+    await trigger.getByRole("progressbar").getAttribute("aria-valuenow"),
+  ).toBe("12");
   await trigger.click();
   await trigger.click();
   expect(
@@ -242,7 +298,13 @@ test("キーボードで3フェーズを直接閲覧し、上の入口とEscape�
   expect(
     await page.getByRole("tab", { name: /問い/ }).getAttribute("aria-current"),
   ).toBe("step");
-  expect(await trigger.innerText()).toContain("問いの整理・1/4");
+  expect(await trigger.innerText()).toContain("②問い");
+  expect(await trigger.getByTestId("board-location-step").innerText()).toBe(
+    "個人",
+  );
+  expect(
+    await trigger.getByRole("progressbar").getAttribute("aria-valuenow"),
+  ).toBe("6");
   await page.keyboard.press("Escape");
   expect(await trigger.evaluate((el) => el === document.activeElement)).toBe(
     true,
