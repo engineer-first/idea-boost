@@ -36,7 +36,7 @@ import {
 } from "./notes";
 import { recordProgressTransition } from "./progress-history";
 import { resetSharingForPhase } from "./sharing-state";
-import { resetTimerState } from "./timer";
+import { getTimerState, resetTimerState, saveTimerState } from "./timer";
 import { deleteNoteVotes, haveAllMembersCompletedVoting } from "./votes";
 
 export function getPhase(sql: SqlStorage): RoomPhase {
@@ -809,6 +809,19 @@ export const phaseHandlers: MessageHandlers<
         clearUsedNoteDragIds(ctx.sql);
       }
       timerWasReset = resetTimerState(ctx.sql);
+      if (
+        next.kind === "step" &&
+        next.step === 3 &&
+        (next.phase === 1 || next.phase === 3)
+      ) {
+        const durationMs = next.phase === 1 ? 240_000 : 420_000;
+        saveTimerState(ctx.sql, {
+          status: "running",
+          durationMs,
+          endsAt: Date.now() + durationMs,
+        });
+        timerWasReset = true;
+      }
       await syncRoomAlarm(ctx.storage, ctx.sql);
       return true;
     });
@@ -830,7 +843,7 @@ export const phaseHandlers: MessageHandlers<
     } else if (timerWasReset) {
       ctx.broadcaster.broadcastToAll({
         type: "timer:updated",
-        timer: { status: "idle" },
+        timer: getTimerState(ctx.sql),
         serverNow: Date.now(),
       });
     }

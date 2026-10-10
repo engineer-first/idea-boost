@@ -8,12 +8,14 @@ import { BoardLocation } from "./board-location";
 
 export type BoardContextProps = {
   phase: RoomPhase;
+  outcomePublished?: boolean;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
 };
 
 export function BoardContext({
   phase,
+  outcomePublished,
   hmwDecidedIssue,
   decidedHmw,
 }: BoardContextProps) {
@@ -60,7 +62,7 @@ export function BoardContext({
       data-testid="board-context-hud"
       className="pointer-events-none min-w-0 shrink-0"
     >
-      <BoardLocation phase={phase} />
+      <BoardLocation phase={phase} outcomePublished={outcomePublished} />
       {disclosures.length > 0 ? (
         <div className="board-hud pointer-events-auto overflow-hidden rounded-b-2xl border-x border-b border-border bg-background shadow-lg shadow-black/5">
           {disclosures.map((disclosure) => {

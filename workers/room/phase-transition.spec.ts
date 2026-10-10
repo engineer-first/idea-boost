@@ -436,3 +436,109 @@ describe("本文保存を待つ進行", () => {
     ownerSocket.close();
   });
 });
+
+describe("整理・評価の自動タイマー", () => {
+  it.each([
+    [1, 240000],
+    [3, 420000],
+  ] as const)("phase %iの共有から進む確定時だけ開始する", async (phase, durationMs) => {
+    const host = { sub: hostId, name: "Host", email: "host@example.test" };
+    const { roomId } = await createRoomAs(host);
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
+    await stub.setPhase(buildPhaseStep(2, phase), hostId);
+    const socket = await connectRoomAs(host, roomId);
+    await socket.next();
+    const expectation = await currentPhaseExpectation(roomId);
+    socket.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...expectation,
+        expectedRevision: expectation.expectedRevision + 1,
+      }),
+    );
+    await untilType(socket, "error");
+    const rejected = await connectRoomAs(host, roomId);
+    expect(await rejected.next()).toMatchObject({
+      phase: buildPhaseStep(2, phase),
+      timer: { status: "idle" },
+    });
+    rejected.close();
+    socket.ws.send(JSON.stringify({ type: "phase:next", ...expectation }));
+    await untilType(socket, "phase:save-requested");
+    await runInRoomDO(roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+        Date.now() - 1,
+      );
+      await instance.alarm();
+    });
+    const snapshot = await untilType(socket, "snapshot");
+    expect(snapshot).toMatchObject({
+      phase: buildPhaseStep(3, phase),
+      timer: { status: "running", durationMs, endsAt: expect.any(Number) },
+    });
+    socket.ws.send(JSON.stringify({ type: "phase:next", ...expectation }));
+    await untilType(socket, "phase:updated");
+    await untilType(socket, "error");
+    const stillRunning = await connectRoomAs(host, roomId);
+    expect(await stillRunning.next()).toMatchObject({
+      timer: snapshot.type === "snapshot" ? snapshot.timer : undefined,
+    });
+    stillRunning.close();
+    socket.close();
+    const reconnected = await connectRoomAs(host, roomId);
+    expect(await reconnected.next()).toMatchObject({
+      timer: snapshot.type === "snapshot" ? snapshot.timer : undefined,
+    });
+    reconnected.ws.send(
+      JSON.stringify({
+        type: "phase:restart-writing",
+        ...(await currentPhaseExpectation(roomId)),
+      }),
+    );
+    await untilType(reconnected, "phase:updated");
+    reconnected.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomId)),
+      }),
+    );
+    await untilType(reconnected, "phase:save-requested");
+    await runInRoomDO(roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+        Date.now() - 1,
+      );
+      await instance.alarm();
+    });
+    await untilType(reconnected, "phase:updated");
+    reconnected.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomId)),
+      }),
+    );
+    await untilType(reconnected, "phase:save-requested");
+    await runInRoomDO(roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
+        Date.now() - 1,
+      );
+      await instance.alarm();
+    });
+    const reentered = await untilType(reconnected, "snapshot");
+    expect(reentered).toMatchObject({
+      phase: buildPhaseStep(3, phase),
+      timer: { status: "running", durationMs },
+    });
+    if (
+      reentered.type === "snapshot" &&
+      reentered.timer.status === "running" &&
+      snapshot.type === "snapshot" &&
+      snapshot.timer.status === "running"
+    ) {
+      expect(reentered.timer.endsAt).toBeGreaterThan(snapshot.timer.endsAt);
+    }
+    reconnected.close();
+  });
+});

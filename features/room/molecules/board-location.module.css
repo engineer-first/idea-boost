@@ -196,3 +196,12 @@
   font-size: 12px;
   font-weight: 500;
 }
+
+.next {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}

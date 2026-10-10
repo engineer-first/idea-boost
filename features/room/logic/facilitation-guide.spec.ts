@@ -97,11 +97,11 @@ describe("getFacilitationGuide", () => {
   });
 
   it.each([
-    [buildPhaseStep(2), "全員の共有"],
+    [buildPhaseStep(2), "発表順が一巡"],
     [buildPhaseStep(4), "全員の投票"],
     [buildPhaseStep(5), "ホストが採用する付箋を確定"],
-    [buildPhaseStep(3, 3), "全員が納得できる位置"],
-    [buildPhaseStep(5, 3), "成果を確認"],
+    [buildPhaseStep(3, 3), "大きな異論"],
+    [buildPhaseStep(5, 3), "全員に成果を表示"],
   ] as const)("%oの詳細には実際の次へ進む目安を含める", (phase, criterion) => {
     expect(getFacilitationGuide(phase)?.completion).toContain(criterion);
   });
