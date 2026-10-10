@@ -606,7 +606,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "現在地：課題整理・2/5" }),
+      screen.getByRole("button", { name: /現在地：① 課題整理・課題共有/ }),
     ).toBeInTheDocument();
     expect(within(controls).getByTestId("room-timer")).toBeVisible();
     expect(within(controls).getByTestId("room-timer")).toHaveTextContent(

@@ -5,8 +5,49 @@ import { BoardContext } from "./board-context";
 
 describe("現在地と補足情報", () => {
   it.each([
+    [1, 1, 1],
+    [1, 2, 2],
+    [1, 3, 3],
+    [1, 4, 4],
+    [1, 5, 5],
+    [2, 1, 6],
+    [2, 2, 7],
+    [2, 3, 8],
+    [2, 4, 9],
+    [3, 1, 10],
+    [3, 2, 11],
+    [3, 3, 12],
+    [3, 4, 13],
+    [3, 5, 14],
+  ] as const)("工程%i-%iを全14工程の%i番目として表示する", (phase, step, position) => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(step, phase)}
+        hmwDecidedIssue={null}
+        decidedHmw={null}
+      />,
+    );
+    const trigger = screen.getByRole("button", { name: /現在地/ });
+    const rail = within(trigger).getByRole("progressbar", {
+      name: "全工程の現在地",
+    });
+    expect(rail).toHaveAttribute("aria-valuemax", "14");
+    expect(rail).toHaveAttribute("aria-valuenow", String(position));
+    expect(rail.children).toHaveLength(14);
+    expect(rail.querySelectorAll('[data-current="true"]')).toHaveLength(1);
+    expect(rail.children[position - 1]).toHaveAttribute("data-current", "true");
+    expect(trigger).not.toHaveTextContent(/\d+\/\d+/);
+    fireEvent.click(rail);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("board-current-step")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+  });
+
+  it.each([
     1, 2, 3,
-  ] as const)("フェーズ%iの閉じた表示は番号と点だけで、1回開くと3フェーズと正式作業名を確認できる", (phase) => {
+  ] as const)("フェーズ%iの閉じた表示は作業名と全14工程で、1回開くと3フェーズと正式作業名を確認できる", (phase) => {
     render(
       <BoardContext
         phase={buildPhaseStep(2, phase)}
@@ -18,7 +59,7 @@ describe("現在地と補足情報", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("progressbar")).toHaveAttribute(
       "aria-valuemax",
-      phase === 2 ? "4" : "5",
+      "14",
     );
     expect(screen.queryByTestId("board-current-step")).not.toBeInTheDocument();
     expect(
@@ -70,7 +111,7 @@ describe("現在地と補足情報", () => {
     expect(
       screen.getByRole("list", { name: "このフェーズの全手順" }).children,
     ).toHaveLength(5);
-    expect(trigger).toHaveTextContent("問いの整理");
+    expect(trigger).toHaveTextContent("②問い");
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(trigger);
@@ -132,7 +173,7 @@ describe("現在地と補足情報", () => {
     fireEvent.click(trigger);
     rerender(<BoardContext {...props} phase={buildPhaseStep(2, 2)} />);
     expect(trigger).toHaveAttribute("aria-expanded", "false");
-    expect(trigger).toHaveTextContent("2/4");
+    expect(trigger).toHaveTextContent("共有");
     expect(screen.queryByTestId("board-current-step")).not.toBeInTheDocument();
     rerender(<BoardContext {...props} />);
     expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -225,5 +266,5 @@ it("現在より前の手順だけに完了マークを付け、別フェーズ�
     button: 0,
   });
   expect(steps().queryAllByRole("img", { name: "完了" })).toHaveLength(0);
-  expect(trigger).toHaveTextContent("問いの整理・2/4");
+  expect(trigger).toHaveTextContent("②問い｜共有");
 });

@@ -149,11 +149,11 @@ describe("RoomBoardHeader", () => {
     );
     expect(screen.getByTestId("board-context-hud")).not.toHaveClass("absolute");
     expect(screen.getByRole("button", { name: /現在地/ })).toHaveTextContent(
-      "課題整理・2/5",
+      "①課題｜共有",
     );
     expect(screen.queryByText("2/5")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("progressbar", { name: "課題整理の進行状況" }),
+      screen.getByRole("progressbar", { name: "全工程の現在地" }),
     ).toHaveAttribute("aria-valuenow", "2");
   });
 
@@ -176,10 +176,10 @@ describe("RoomBoardHeader", () => {
   });
 
   it.each([
-    [buildPhaseStep(3, 1), 1, "課題整理", 5],
-    [buildPhaseStep(2, 2), 2, "問いの整理", 4],
-    [buildPhaseStep(4, 3), 3, "アイデア決定", 5],
-  ] as const)("開くと3フェーズの手順タブを確認でき、閉じた表示に進捗を残す", (phase, currentPhaseNumber, currentPhaseLabel, stepCount) => {
+    [buildPhaseStep(3, 1), 1, "課題"],
+    [buildPhaseStep(2, 2), 2, "問い"],
+    [buildPhaseStep(4, 3), 3, "アイデア"],
+  ] as const)("開くと3フェーズの手順タブを確認でき、閉じた表示に進捗を残す", (phase, currentPhaseNumber, currentPhaseLabel) => {
     setup({ phase });
 
     fireEvent.click(screen.getByRole("button", { name: /現在地/ }));
@@ -203,7 +203,7 @@ describe("RoomBoardHeader", () => {
     );
 
     const progressRail = screen.getByTestId("board-progress-rail");
-    expect(progressRail).toHaveAttribute("aria-valuemax", `${stepCount}`);
+    expect(progressRail).toHaveAttribute("aria-valuemax", "14");
     expect(screen.getByTestId("board-current-step")).toBeVisible();
   });
 
@@ -295,13 +295,13 @@ describe("RoomBoardHeader", () => {
     const context = screen.getByTestId("board-context-hud");
     expect(
       within(context).getByRole("button", { name: /現在地/ }),
-    ).toHaveTextContent("課題整理・1/5");
+    ).toHaveTextContent("①課題｜個人");
     expect(
       within(context).queryByText("自分の課題（個人）"),
     ).not.toBeInTheDocument();
     expect(within(context).queryByText("1/5")).not.toBeInTheDocument();
     const progress = within(context).getByRole("progressbar", {
-      name: "課題整理の進行状況",
+      name: "全工程の現在地",
     });
     expect(progress).toBeVisible();
     expect(progress).toHaveAttribute("aria-valuenow", "1");
@@ -317,7 +317,7 @@ describe("RoomBoardHeader", () => {
     );
     expect(
       within(context).getByRole("button", { name: /現在地/ }),
-    ).toHaveTextContent("問いの整理・1/4");
+    ).toHaveTextContent("②問い｜個人");
     fireEvent.click(within(context).getByRole("button", { name: /現在地/ }));
     expect(within(context).getByTestId("board-phase-1")).toHaveAttribute(
       "data-phase-state",
