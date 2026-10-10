@@ -21,7 +21,7 @@
 | 各ルーム    | RoomDOが共有状態を保持  | ルームごとに独立                              |
 | 本番        | 既存release経路         | 上記とは別Worker・D1・RoomDO・Secret          |
 
-PRのAPI・RoomDO・migration・通信契約の変更は、このPreviewに反映しません。App/APIの互換性を確認する場所であり、PR版バックエンドの検証はWorkerテストやローカル環境を使います。構成図は[編集可能なdraw.io](../../out/architecture.drawio)、当日の設定・操作・検証記録は[台帳](../../out/preview-setup-log.md)、視覚的な説明は[HTML報告](../../out/preview-report.html)を参照します。
+PRのAPI・RoomDO・migration・通信契約の変更は、このPreviewに反映しません。App/APIの互換性を確認する場所であり、PR版バックエンドの検証はWorkerテストやローカル環境を使います。構成図は[編集可能なdraw.io](../../out/architecture.drawio)、当日の設定・操作・検証記録は[台帳](../../out/preview-setup-log.md)、視覚的な説明は[用語辞典付きのHTML報告](../site/pr-preview/index.html)を参照します。
 
 ## 2026-10-10の設定状況
 

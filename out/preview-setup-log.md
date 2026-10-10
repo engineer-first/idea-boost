@@ -178,7 +178,7 @@ Worker IDは不要なので、親Workerの事前deployも不要。先にAccess�
 ## 図と検証
 
 - [編集可能な構成図](architecture.drawio)：開始時の本番リポジトリ設定／準備中・未公開のPreview構成の2ページ。
-- [HTML報告](preview-report.html)：実環境の状態・ローカル検証・未確認事項・releaseとの関係をまとめた報告。図はXMLを埋込み、公式draw\.io viewerで描画する。図の表示にはインターネット接続が必要。
+- [用語辞典付きのHTML報告](../docs/site/pr-preview/index.html)：実環境の状態・ローカル検証・未確認事項・releaseとの関係をまとめた報告。公開ページの図はdraw\.ioの描画結果をSVGに保存し、ページと同じディレクトリに置く。外部スクリプトなしで表示できる。
 - 図とHTMLのPNGはPR添付用に `/tmp/idea-boost-preview-media/` へ保存し、Gitには含めない。公式viewerの実描画スクリーンショットで、PNGに編集XMLは埋めていない。
 - [再生成スクリプト](generate-preview-diagram.py)：Python標準ライブラリでXMLを作り、指定スキルでアイコン埋込みとXML検証を実行する。
 - Cloudflare Networkはサービスの論理境界であり、全データの配置地域や全edgeでの実行を保証する表現ではない。
@@ -186,7 +186,7 @@ Worker IDは不要なので、親Workerの事前deployも不要。先にAccess�
 - アイコン10個を埋込み、XML検証に成功した（2ページ、38セル）。ID・参照・geometry・未展開マーカーを検査した。サービスの意味や実際の認証・疎通を保証する検証ではない。
 - 生成スクリプトは `python3 -m py_compile` に成功した。
 - draw\.io Desktopは既定macOSパス／PATHに見つからないため、DesktopによるPNG出力は未実施。代わりに公式viewerの実描画を確認し、desktop／mobileと図2ページを画像で検査した。
-- HTML報告の独立仕上げレビューは `ship`、重大指摘なし。紙色・墨・オレンジ・日本語sansを既存Cloudflare解説から継承し、既存のvisual systemやdocs/siteは変更していない。
+- 初回HTML報告は独立した仕上げ確認を通過。紙色・墨・オレンジ・日本語sansを既存Cloudflare解説から継承した。当時はdocs/siteを変更しておらず、後の用語辞典追加で公開ページと目次リンクを追加した。
 - HTML報告はJavaScriptエラー0件、1280px／390pxでページ全体の横はみ出しなし。機械的なデザイン検査はborder-rightの余白警告3件を表示した。実際の該当summary欄に左右24pxのpaddingがあり、画像で文字の圧迫は見られなかった。
 
 再生成：
@@ -200,3 +200,9 @@ Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. Source: <https://github.com/clou
 ## PR作成と資料の公開
 
 2026-10-10に[Draft PR #583](https://github.com/engineer-first/idea-boost/pull/583)をbase developで作成。[画面と構成図の確認資料](https://github.com/engineer-first/idea-boost/pull/583#issuecomment-6095200985)に4枚を添付し、GitHubの実ブラウザで全画像の描画を確認した。Secret値は添付していない。Storybook公開は成功。ChromaticのUI Testsはプラン更新が必要との表示により保留であり、画面差分検査は未実施。契約は変更していない。
+
+## 用語辞典とGitHub Pagesの公開準備
+
+用語を知らない読み手向けに報告を整理し、冒頭に用語辞典を追加。報告の本体を `docs/site/pr-preview/index.html` へ移し、旧 `out/preview-report.html` は案内・転送の入口として残した。図は公式viewerの描画結果を自己完結するSVGへ出力し、外部の読み込みを不要にした。公開先は `https://engineer-first.github.io/idea-boost/pr-preview/`。PRがdevelopへマージされると文書サイトの公開workflowが動く。今回の準備ではCloudflareの設定やアプリ公開を変更していない。
+
+追加した辞書は42項目。初見の読み手による文章確認が合格し、HTML・検査JSON・図の確認用コピーをリポジトリ外で保存した。文書リンクの回帰検証60件が成功。実ブラウザでライト／ダーク表示、390pxでのページ全体の横はみ出しなし、辞書の開閉、構成図2枚の表示を確認した。目次は今回のリンクだけをstageし、開始時から存在した別ページ用の未コミット変更は残した。

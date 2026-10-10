@@ -1,0 +1,224 @@
+<!doctype html>
+<!-- 読者: Idea Boostの準備報告を読む、Cloudflare・認証・自動公開の用語をまだ知らないチームメンバー。説明なしで使ってよい語: Google、GitHub、PR、HTML、URL、ログイン、画面、ルーム、付箋、本番と一般語。辞書の見出しは説明する対象の用語名。 -->
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="description" content="Cloudflareの用語辞典から読める、PR Previewの構成・設定記録・公開前に残る確認。"><title>PR Preview の準備状況 · Idea Boost #362</title><style>
+    :root { --paper:#faf9f7; --ink:#26221e; --muted:#655d53; --line:#ded8cf; --accent:#995006; --green:#245d40; --green-bg:#edf5ef; --amber:#735006; --amber-bg:#fff4d7; --blue:#345777; --blue-bg:#edf1f5; --white:#fff; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; background:var(--paper); }
+    body { margin:0; color:var(--ink); font:16px/1.8 "Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif; -webkit-font-smoothing:antialiased; }
+    ::selection { background:#f7d5ab; color:#26221e; }
+    a { color:var(--accent); text-underline-offset:4px; text-decoration-thickness:1px; }
+    a:hover { text-decoration-thickness:2px; }
+    :focus-visible { outline:3px solid var(--blue); outline-offset:4px; }
+    code { font:0.88em/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; overflow-wrap:anywhere; background:#f1ece5; border-radius:3px; padding:2px 4px; }
+    .page { max-width:1240px; margin:auto; padding:44px 36px 72px; }
+    header { border-bottom:1px solid var(--line); padding-bottom:28px; }
+    h1 { margin:0 0 12px; font-size:clamp(27px,3.5vw,42px); line-height:1.45; font-weight:700; letter-spacing:-0.02em; }
+    h2 { font-size:24px; line-height:1.5; margin:0 0 16px; }
+    h3 { font-size:18px; line-height:1.6; margin:28px 0 10px; }
+    p { margin:0 0 14px; }
+    .lede { max-width:72ch; font-size:18px; }
+    .meta { color:var(--muted); font-size:13px; margin-top:20px; }
+    nav { display:flex; gap:10px 24px; flex-wrap:wrap; margin-top:18px; font-size:14px; }
+    section { margin-top:42px; }
+    .status-summary { display:grid; grid-template-columns:1fr 1fr 1fr; gap:0; border-bottom:1px solid var(--line); padding:22px 0; }
+    .status-summary div { padding:0 24px; border-right:1px solid var(--line); }
+    .status-summary div:first-child { padding-left:0; }
+    .status-summary div:last-child { border-right:0; }
+    .status-summary strong { display:block; margin-bottom:5px; font-size:18px; }
+    .status-summary p { font-size:14px; color:var(--muted); margin:0; }
+    .verified { color:var(--green); }
+    .pending { color:var(--amber); }
+    .status { display:inline-block; font-size:12px; padding:2px 8px; white-space:nowrap; border-radius:4px; font-weight:700; }
+    .status.verified { background:var(--green-bg); }
+    .status.pending { background:var(--amber-bg); }
+    .status.local { background:var(--blue-bg); color:var(--blue); }
+    .table-scroll { overflow:auto; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { text-align:left; font-size:13px; color:var(--muted); border-bottom:2px solid var(--line); padding:10px 14px; }
+    td { vertical-align:top; padding:15px 14px; border-bottom:1px solid var(--line); }
+    th:first-child,td:first-child { padding-left:0; }
+    th:last-child,td:last-child { padding-right:0; }
+    .note { color:var(--muted); font-size:13px; max-width:80ch; }
+    .viewer-frame { background:var(--white); border:1px solid var(--line); padding:14px 18px; overflow:auto; }
+    .mxgraph { width:100%; min-height:480px; }
+    .viewer-notice { font-size:13px; color:var(--muted); }
+    .viewer-error { display:none; }
+    .viewer-error.shown { display:block; color:var(--amber); }
+    .diagram-caption { display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:10px; font-size:13px; color:var(--muted); }
+    .split { display:grid; grid-template-columns:1.1fr 1fr; gap:48px; align-items:start; }
+    .plain-list { padding-left:22px; margin:0; }
+    .plain-list li { margin:0 0 10px; }
+    .release-path { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:16px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); font-size:14px; }
+    .release-path span { padding:4px 0; }
+    .release-path .arrow { color:var(--muted); }
+    details { border-top:1px solid var(--line); padding:16px 0; }
+    summary { cursor:pointer; font-size:16px; font-weight:600; }
+    details p { margin-top:12px; }
+    footer { border-top:1px solid var(--line); margin-top:48px; padding-top:20px; font-size:12px; color:var(--muted); }
+    @media(max-width:760px) { .page { padding:28px 20px 48px; } .status-summary { grid-template-columns:1fr; gap:18px; } .status-summary div { padding:0; border:0; } .split { grid-template-columns:1fr; gap:26px; } section { margin-top:34px; } h2 { font-size:22px; } .mxgraph { min-height:310px; } .viewer-frame { padding:8px; } table { min-width:610px; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+    @media print { .page { padding:0; } nav,.viewer-notice { display:none; } section { break-inside:avoid; } a { color:var(--ink); } }
+
+    :root { --code-bg:#f1ece5; }
+    code { background:var(--code-bg); }
+    @media(prefers-color-scheme:dark) { :root:not([data-theme="light"]) { --paper:#181714; --ink:#f1ece4; --muted:#bfb6a9; --line:#484139; --accent:#ffb36b; --green:#99d6ad; --green-bg:#1d3528; --amber:#f5ca7b; --amber-bg:#3c2e14; --blue:#a9cbed; --blue-bg:#263745; --white:#fff; --code-bg:#302b24; } }
+    :root[data-theme="dark"] { --paper:#181714; --ink:#f1ece4; --muted:#bfb6a9; --line:#484139; --accent:#ffb36b; --green:#99d6ad; --green-bg:#1d3528; --amber:#f5ca7b; --amber-bg:#3c2e14; --blue:#a9cbed; --blue-bg:#263745; --white:#fff; --code-bg:#302b24; }
+    :root[data-theme="light"] { --paper:#faf9f7; --ink:#26221e; --muted:#655d53; --line:#ded8cf; --accent:#995006; --green:#245d40; --green-bg:#edf5ef; --amber:#735006; --amber-bg:#fff4d7; --blue:#345777; --blue-bg:#edf1f5; --white:#fff; --code-bg:#f1ece5; }
+    .dictionary { scroll-margin-top:24px; }
+    .dictionary-intro { max-width:75ch; color:var(--muted); }
+    blockquote { border-left:3px solid var(--line); margin:18px 0; padding-left:18px; }
+    .terms { display:grid; grid-template-columns:1fr 1fr; gap:0 36px; margin:18px 0 0; }
+    .terms > div { padding:14px 0; border-top:1px solid var(--line); min-width:0; }
+    .terms dt { font-weight:700; font-size:17px; line-height:1.6; margin-bottom:5px; overflow-wrap:anywhere; }
+    .terms dd { margin:0; font-size:15px; }
+    .term-group { padding:18px 0; }
+    .term-group summary { line-height:1.7; }
+    .term-group summary span { color:var(--muted); font-size:13px; font-weight:400; margin-left:10px; }
+    .diagram-scroll { background:#fff; border:1px solid var(--line); overflow:auto; padding:12px; }
+    .diagram-scroll img { display:block; width:100%; min-width:1000px; height:auto; }
+    .back-link { font-size:14px; margin-bottom:18px; }
+    .evidence { margin-top:24px; }
+    .facts { max-width:85ch; }
+    @media(max-width:760px) { .terms { grid-template-columns:1fr; } .term-group summary span { display:block; margin-left:18px; } }
+    @media print { details { display:block; } .terms { grid-template-columns:1fr 1fr; } .diagram-scroll img { min-width:0; } }
+</style></head><body><main class="page">
+  <header>
+    <p class="back-link"><a href="../index.html">← 文書一覧</a></p>
+    <h1>PR Preview の準備状況</h1>
+    <p class="lede">PRで変更した画面を、本番とは別のURLで試せるように準備しています。Googleログインの設定とデータの保存先は用意しました。画面の公開と、2人での操作確認はこれからです。</p>
+    <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 設定を確認した時点：2026-10-10 18:26（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/583">PR #583</a></p>
+    <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#state">準備状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
+  </header>
+  <section class="dictionary" id="dictionary" aria-labelledby="dictionary-title"><h2 id="dictionary-title">この報告を読むための用語辞典</h2><p class="dictionary-intro">まず「何を用意しているか」を読むための言葉です。ログインや公開の用語は、下のまとまりを開くと読めます。説明は、このPreviewでの使い方に合わせています。</p>
+<details class="term-group" open><summary>まず押さえる言葉<span>12項目</span></summary><dl class="terms">
+<div><dt>Preview</dt><dd>本番と分けて、PRで変更した画面を試す場所です。今回の画面はまだ公開していません。</dd></div>
+<div><dt>Cloudflare / Cloudflare Network</dt><dd>このアプリの処理を動かし、データを保存し、見てよい人を確認するサービスの提供元です。図のCloudflare Networkの枠は、Cloudflareのサービスをまとめた範囲を示します。</dd></div>
+<div><dt>ブラウザ / サーバー / HTTPS / ポート</dt><dd>ブラウザはChromeなどの画面を開くアプリ、サーバーは依頼を受けて処理する側です。HTTPSは通信の内容を他人に読まれにくくする方式、ポートは接続先の受付番号です。</dd></div>
+<div><dt>コード / データの型</dt><dd>コードはプログラムに行わせる仕事を書いたものです。データの型は文字・数値などのデータの種類と形です。</dd></div>
+<div><dt>認証 / 認可</dt><dd>認証はログインした人が誰かを確かめること、認可はその人にどの操作を許すかを決めることです。</dd></div>
+<div><dt>GitHub Pages / HTML / SVG</dt><dd>GitHub PagesはGitHubから文書のページを公開する機能です。HTMLはページの文章や構造を記した形式、SVGは線や文字などの形を記録する画像形式です。</dd></div>
+<div><dt>Workers / Worker</dt><dd>Cloudflare上でプログラムを動かす仕組みです。Workerはそこで動くプログラム1つを指します。</dd></div>
+<div><dt>App / API</dt><dd>Appは画面を表示する側です。APIは画面からの依頼を受け、ルームやデータを扱う側です。今回は別々のWorkerで動かします。</dd></div>
+<div><dt>D1 / DB / データベース</dt><dd>データベースはデータを分類して保存し、後から取り出す場所です。DBはその略で、D1はCloudflareのデータベースです。今回は利用者やルームの入口情報を保存します。</dd></div>
+<div><dt>Durable Objects / RoomDO</dt><dd>ルームごとの処理と保存場所を持つ仕組みです。RoomDOはこのアプリで使う処理の名前で、進行や共有付箋を管理します。</dd></div>
+<div><dt>Service Binding / binding</dt><dd>Workerから、別のWorkerや保存先を使うための接続設定です。今回はAppからAPIを呼ぶ接続にも使います。</dd></div>
+<div><dt>WebSocket / WS</dt><dd>画面とサーバーの接続を保ち、変更をすぐ送り合う通信です。共同編集の付箋や進行を更新するために使います。</dd></div>
+</dl></details>
+<details class="term-group"><summary>ログインと、見てよい人を決める言葉<span>16項目</span></summary><dl class="terms">
+<div><dt>ログイン / アカウント / ログアウト</dt><dd>アカウントは、サービスで使う本人の登録情報です。ログインはその本人として利用を始めること、ログアウトはログイン状態を解除する操作です。</dd></div>
+<div><dt>Zero Trust / Access</dt><dd>Zero TrustはCloudflareが安全に使うための機能をまとめたものの名前です。今回は、その中のAccessで、指定したGoogleアカウントだけにPreviewの閲覧を許可します。</dd></div>
+<div><dt>IdP / OAuth / OIDC</dt><dd>IdPはログインした人を確認する提供元で、今回はGoogleです。OAuthはサービス間で利用を許可する仕組み、OIDCはその仕組みを使って本人情報を伝える方式です。</dd></div>
+<div><dt>Policy Tester</dt><dd>Accessの許可判定を管理画面で試す道具です。今回は起動しましたが、結果の表示は確認できていません。</dd></div>
+<div><dt>Client ID / Client Secret</dt><dd>GoogleとCloudflareをつなぐときの、アプリの識別番号と秘密の鍵です。Secretの値は図・PR・この報告には載せません。</dd></div>
+<div><dt>JWT / token / 署名</dt><dd>署名は、発行元だけが作れる確認用の情報です。JWTは本人情報や有効期限などに署名を付けたデータで、途中で書き換えられていないかを調べられます。tokenは認証などに使うデータの呼び名です。</dd></div>
+<div><dt>issuer / audience / AUD</dt><dd>issuerはJWTを発行したサービス、audienceは受け取り先のアプリです。AUDはそのアプリの識別値です。別の発行元や別アプリ向けのJWTを受け入れないために照合します。</dd></div>
+<div><dt>Cookie / session / HttpOnly / Secure</dt><dd>Cookieはブラウザが保存して送るデータ、sessionはログインを保つための状態です。HttpOnlyは画面内のプログラムからCookieを読めなくする指定、SecureはHTTPS通信でだけ送る指定です。</dd></div>
+<div><dt>policy / Allow / Include / Require / On・Off</dt><dd>policyは「誰を許可するか」の条件です。Allowは許可、Includeは対象に含める条件、Requireは必須の条件です。On・Offは有効・無効を表します。今回は指定した2人のメールアドレスと、Googleでのログインを条件にしています。</dd></div>
+<div><dt>Service Auth / Service Token</dt><dd>人がログインする代わりに、決めたプログラム用の認証情報を確認する設定です。今回は自動検査が公開後のhealth確認に使います。</dd></div>
+<div><dt>API token / probe token</dt><dd>API tokenはCloudflareの作成・更新などの管理操作に使う認証情報です。probe tokenは、このアプリでhealth経路だけに使う別の鍵です。用途の違う鍵を分けています。</dd></div>
+<div><dt>Secret / variable / flag</dt><dd>Secretは秘密として保存する設定値、variableはそれ以外の設定値です。flagは機能の有効・無効を切り替える設定です。自動公開のflagはまだ有効にしていません。</dd></div>
+<div><dt>hostname / Origin / host限定</dt><dd>hostnameはURLのサーバー名の部分です。Originは通信方式・サーバー名・ポートの組み合わせです。Cookieのhost限定は、別のPRのサーバーへログイン情報を送らないための指定です。</dd></div>
+<div><dt>namespace / resource</dt><dd>namespaceは処理や保存先を分ける区分、resourceはWorkerやデータベースなどの用意する対象です。本番とPreviewで別の区分・対象を使います。</dd></div>
+<div><dt>host / owner / member / private</dt><dd>ルームのhostは進行する人、ownerは作成者、memberは参加者を表します。privateは本人だけに見える未共有付箋のことです。URLのhostとは別の意味で使います。</dd></div>
+<div><dt>SSO / WARP / App Launcher</dt><dd>SSOは1回のログインを複数のサービスで使う仕組みです。WARPはCloudflareの端末用接続アプリ、App Launcherは利用可能なアプリの一覧です。今回はWARPログインとLauncher表示を使いません。</dd></div>
+</dl></details>
+<details class="term-group"><summary>自動検査と公開の言葉<span>14項目</span></summary><dl class="terms">
+<div><dt>Issue / Draft PR</dt><dd>Issueは相談や作業を記録するGitHubのページです。Draft PRはまだ確認や準備が残る、下書き状態のPRです。</dd></div>
+<div><dt>CI / GitHub Actions / workflow / runner</dt><dd>CIは変更のたびにテストなどを自動実行することです。GitHub Actionsはその実行サービス、workflowは作業手順、runnerは作業を実行する環境です。</dd></div>
+<div><dt>build / bundle / artifact / cache</dt><dd>buildは公開用にプログラムをまとめる作業、bundleはまとめたプログラムです。artifactは実行後に保存した成果物、cacheは次の実行で再利用する保存データです。</dd></div>
+<div><dt>commit / SHA / run / attempt</dt><dd>commitはコードを保存した版、SHAはその版の識別値です。runは自動処理の1回の実行、attemptは同じrunで何回目の実行かを表します。</dd></div>
+<div><dt>ブランチ / develop / merge / release</dt><dd>ブランチはコードを別々に更新できる作業先です。developは開発変更を集めるブランチ、mergeはPRの変更を取り込むことです。releaseは本番へ公開する段階を指します。このリポジトリには同名の本番公開用ブランチもあります。</dd></div>
+<div><dt>deploy / デプロイ</dt><dd>用意したプログラムをCloudflareなどへ反映することです。この報告では、本番への反映とPreviewへの反映を分けて扱います。</dd></div>
+<div><dt>health / probe / 疎通確認</dt><dd>healthは保存先を含めてアプリが応答できるかを確認する経路です。probeはその経路へ確認の通信を送ること、疎通確認は通信が届き、期待した応答が返るかを調べることです。</dd></div>
+<div><dt>migration / SQL</dt><dd>migrationはデータの保存形式を作成・変更する手順、SQLはデータベースを操作する言葉です。今回は既存のmigration 9件をPreview用D1へ適用しました。</dd></div>
+<div><dt>unit / Workerテスト / Vitest</dt><dd>unitは小さな処理単位を調べるテストです。WorkerテストはCloudflareに近い実行環境でWorkerを調べます。Vitestは今回使うテスト実行ツールです。</dd></div>
+<div><dt>typecheck / lint / dry-run</dt><dd>typecheckはデータの型が合っているか、lintはコードのルール違反がないかを調べます。dry-runは実環境へ反映せず、公開用の準備処理を試すことです。</dd></div>
+<div><dt>Storybook / Chromatic / UI Tests</dt><dd>Storybookは画面の部品を単独で試す場所、Chromaticはその画面の公開や比較を行うサービスです。UI Testsは画面を比較する検査の表示名です。</dd></div>
+<div><dt>リポジトリ / fork / close / reopen</dt><dd>リポジトリはコードの保存場所で、forkは別の保存場所へコードを複製することです。closeはPRを閉じること、reopenは開き直すことです。今回の自動公開は同じリポジトリ内のPRを対象にします。</dd></div>
+<div><dt>通常URL / 固定版URL / 部分wildcard</dt><dd>通常URLはPRの最新成功版、固定版URLは1回の公開版を開くURLです。部分wildcardは名前の一部を「どの文字列でもよい」とする指定で、複数のPreview URLをまとめて保護します。</dd></div>
+<div><dt>Next.js / OpenNext / Wrangler / draw.io</dt><dd>Next.jsは画面を作る仕組み、OpenNextはそのアプリをCloudflare向けにまとめるための道具、WranglerはCloudflareの設定や公開を行う道具です。draw.ioは構成図を編集する道具です。</dd></div>
+</dl></details>
+</section>
+  <section id="state" aria-labelledby="state-title">
+    <h2 id="state-title">設定は用意できました。画面の公開はこれからです</h2>
+    <div class="status-summary" aria-label="全体の状態">
+      <div><strong class="verified">ログイン・保存先：設定済み</strong><p>Googleとの接続テストは成功。指定2名のAccess許可と、Preview専用D1の準備を完了しました。</p></div>
+      <div><strong class="pending">Previewの画面：未公開</strong><p>API・App・RoomDOはまだ公開していません。公開後のログイン・共同編集は未確認です。</p></div>
+      <div><strong>本番への反映：変更なし</strong><p>本番の設定や公開は変更していません。この文書サイトの公開と、アプリの公開も別の作業です。</p></div>
+    </div>
+  </section>
+  <section id="architecture" aria-labelledby="architecture-title">
+    <h2 id="architecture-title">PRごとに画面を分け、Previewの保存先を共有する</h2>
+    <p class="facts">PRごとに変わるのはAppです。API・D1・RoomDOはPreview全体で共有し、本番とは別にします。同じルームのURLを渡すと、もう1人も自分のGoogleアカウントで参加する構成です。</p>
+    <p class="note">D1とAccessは設定済みです。図のApp・API・RoomDOへの接続は、公開後に確認します。狭い画面では図の中だけ横へ動かせます。</p>
+    <div class="diagram-scroll" tabindex="0" role="region" aria-label="Preview構成図、横スクロールできます"><img src="preview-architecture.svg" alt="許可したGoogle利用者がAccessを通ってPRごとのAppへ入り、本番と別の共通API・D1・RoomDOを使う構成図"></div>
+    <p class="diagram-caption"><a href="preview-architecture.svg">図だけを開いて拡大</a><a href="https://github.com/engineer-first/idea-boost/blob/develop/out/architecture.drawio">編集できるdraw.io図</a></p>
+    <details><summary>作業開始時の本番構成も見る</summary><p>本番ではAppからAPIを呼び、D1とRoomDOでデータを扱います。今回のPreviewはこの保存先に接続しません。</p><div class="diagram-scroll" tabindex="0" role="region" aria-label="開始時の本番構成図、横スクロールできます"><img src="production-architecture.svg" loading="lazy" alt="作業開始時の本番App・API・D1・RoomDOの構成図"></div></details>
+    <p class="note">Cloudflare Networkの枠は、Cloudflareのサービスをまとめた範囲を示します。図はページと一緒に保存してあり、外部サイトの読み込みなしで表示できます。図を編集するときはdraw.ioの編集元を修正し、公開用のSVGも書き出し直します。</p>
+  </section>
+  <section id="configuration" aria-labelledby="configuration-title">
+    <h2 id="configuration-title">CloudflareとGitHubで設定したこと</h2>
+    <p class="facts">本番から分けるため、保存先・秘密の鍵・ログインの許可をPreview用に用意しました。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/operations/preview.md">設定手順の正本</a>と<a href="https://github.com/engineer-first/idea-boost/blob/develop/out/preview-setup-log.md">日時付きの操作台帳</a>に詳しい記録があります。</p>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="設定状況の表、横スクロールできます"><table><thead><tr><th scope="col">対象</th><th scope="col">何をしたか</th><th scope="col">残ること</th></tr></thead><tbody>
+      <tr><td>Google / Access</td><td><span class="status verified">設定済み</span><br>Zero Trustへ登録し、Googleとの接続テストに成功しました。指定した2人のメールアドレスだけを許可し、Googleログインを必須にしました。</td><td>公開したPreview画面で、2人ともログインできることを確認します。</td></tr>
+      <tr><td>D1</td><td><span class="status verified">作成済み</span><br>Preview用D1を新規作成し、既存のmigration 9件を適用しました。読取確認では利用者の登録は0件でした。</td><td>API公開後に、実際の読み書きを確認します。</td></tr>
+      <tr><td>App / API / RoomDO</td><td><span class="status local">コードを用意済み</span><br>PRごとのApp、本番と別のAPI、Preview用RoomDOを使う設定を追加しました。</td><td>PRをdevelopへ取り込み、CI成功後に公開します。</td></tr>
+      <tr><td>Secret / Cookie</td><td><span class="status verified">設定済み</span><br>Preview用のSecrets5つをGitHubへ登録しました。AccessのCookieはHttpOnlyを有効にし、App Launcherの表示を外しました。</td><td>公開時にWorkerへSecretを反映します。アプリ側のCookie分離も公開後に確認します。</td></tr>
+      <tr><td>CI / health</td><td><span class="status verified">認証設定済み</span><br>health用Service Token1つだけを許可するService Authを追加しました。期限は1年です。Accessのissuer・AUDもGitHubへ登録しました。</td><td>CI用Cloudflare API tokenの実権限と、公開後のhealth応答を確認します。</td></tr>
+      <tr><td>自動公開のflag</td><td><span class="status pending">未有効化</span><br><code>PREVIEW_ENABLED</code>は未設定です。準備途中の画面を自動で公開する状態にはしていません。</td><td>Worker公開と動作確認の準備が整ってから有効にします。</td></tr>
+    </tbody></table></div>
+    <p class="note">Secret値、実メール、アカウントやTokenの識別値、契約の詳細はこの報告に載せていません。Secret入りの一時ファイルは登録後に削除しました。本番・他のWorkers・アカウント全体のAccess設定は変更していません。</p>
+    <details class="evidence"><summary>担当者向け：設定画面の表示と設定名の引用</summary><blockquote>
+      <p>利用者用policyは<code>Preview reviewers Google</code>です。指定2名のEmailsをIncludeし、Login MethodはGoogleをRequireしています。AppはGoogleのみ、instant auth On、WARP auth Off、session 24hです。保存後の再読込でも確認しました。</p>
+      <p>CI用policyは<code>Preview CI health</code>です。Service Authで<code>idea-boost-preview-ci-health</code>だけをIncludeします。アプリのprobe tokenは<code>/api/health</code>に限定し、通常画面・API・WSには使えない実装です。</p>
+      <p>対象hostnameは<code>*-idea-boost-preview-app.&lt;account-subdomain&gt;.workers.dev</code>の1件です。通常URLと固定版URLを保護する設定です。Worker単位のAccessはWebSocketに対応しないため使っていません。</p>
+      <p>GitHubに登録した名前は<code>PREVIEW_D1_ID</code>、<code>PREVIEW_ACCESS_ISSUER</code>、<code>PREVIEW_ACCESS_AUD</code>、<code>PREVIEW_SESSION_SECRET</code>、<code>PREVIEW_ALLOWED_EMAILS</code>、<code>PREVIEW_PROBE_TOKEN</code>、<code>PREVIEW_ACCESS_CLIENT_ID</code>、<code>PREVIEW_ACCESS_CLIENT_SECRET</code>です。値は記載しません。</p>
+      <p>Appは<code>workers_dev: false</code>・<code>preview_urls: true</code>、APIは両方falseの設定です。Appの画面素材もWorkerを通り、APIはAppからのService Bindingで呼びます。実際の公開と別入口の保護はまだ検証していません。</p>
+    </blockquote></details>
+  </section>
+  <section id="verification" aria-labelledby="verification-title">
+    <h2 id="verification-title">確認できたことと、公開後に確認すること</h2>
+    <div class="split"><div><h3>確認済み</h3><ul class="plain-list">
+      <li>Google IdPの接続テストで本人情報を取得し、成功表示を確認しました。</li>
+      <li>Googleでログインした指定の2人を許可する設定と、CI用の認証設定を、保存後に読み直しました。CookieのHttpOnly設定も確認しました。</li>
+      <li>自動テストで、不正なJWT、許可外のメール、本番Cookieの流用、別OriginのWebSocket接続を拒否することを確認しました。</li>
+      <li>14ステップのルーム準備を確認しました。共同編集のテストでは、作成者の未共有付箋12枚は本人だけに届き、参加者には0枚でした。参加者が作った1枚は再入室後も残りました。</li>
+      <li>Storybookで14ステップの選択と、失敗後の再試行を確認しました。パソコンとスマートフォンの幅でページ全体の横はみ出しはありませんでした。</li>
+    </ul></div><div><h3>公開後に確認すること</h3><ul class="plain-list">
+      <li>通常URL・固定版URLから本人としてログインし、保存先を含めたhealthとWebSocketを確認します。</li>
+      <li>2人がそれぞれのGoogleアカウントで、招待・付箋の追加と共有・投票・進行を操作します。</li>
+      <li>2件のPRを並行して使い、PRの終了・開き直しで対象のAppだけが終了・再作成されることを確認します。</li>
+      <li>ログアウトでAccessのログインも終了し、ほかのURLから保護を迂回できないことを確認します。</li>
+    </ul></div></div>
+    <p class="note">Google IdPの接続成功は、Previewアプリでのログイン成功とは別です。Policy Testerは起動しましたが、判定結果の表示を確認できていないため成功には数えていません。</p>
+    <details class="evidence"><summary>担当者向け：検証記録と確認資料</summary><blockquote>
+      <p><a href="https://github.com/engineer-first/idea-boost/actions/runs/38035326172">実装版のCI</a>は全5ジョブ成功しました。unit 2,703件、Worker 913件、Preview 24件、ローカル検証Worker 32件が成功。ブラウザは455件成功・15件skipでした。型・lint・build・Service Bindingの確認も成功しています。</p>
+      <p>別に行ったローカル検証では、unit 2,710件全体と追加5件の個別実行が成功しました。CIとは実行対象が異なるため、件数を分けて記録しています。今回の差分を入れた作業場所で型・lint・Preview buildを確認し、検査設定は緩めていません。</p>
+      <p>App Worker bundleのdry-runは8.7MB・gzip 1.8MBで成功しました。Wranglerは4.149.0、OpenNextは1.20.1を使います。</p>
+      <p>Storybook公開は成功しました。ChromaticのUI Testsはプラン更新の案内で保留になっており、画面差分の検査は未実施です。<a href="https://github.com/engineer-first/idea-boost/pull/583#issuecomment-6095200985">画面・構成図・確認結果の資料</a>で確認できます。</p>
+    </blockquote></details>
+    <p class="note">Google側は外部の利用者向けで、テスト中の設定です。今回の要求は本人確認・メール・プロフィールの基本情報だけで、<a href="https://support.google.com/cloud/answer/15549945?hl=en">Google公式仕様の例外</a>に当たります。テストユーザー登録や一般公開への切り替えは行っていません。</p>
+  </section>
+  <section id="release" aria-labelledby="release-title">
+    <h2 id="release-title">この報告の公開と、アプリの本番releaseは別です</h2>
+    <p><strong>Previewを使うために、本番releaseへ載せる必要はありません。</strong>PRをdevelopへ取り込んだ後、Preview専用の経路でAPIとAppを公開します。本番にも変更を反映するときは、別途通常のreleaseを行います。</p>
+    <p>このHTMLはGitHub Pages用の文書です。文書サイト用HTMLの変更をdevelopへ取り込むと、文書サイトの公開が自動実行されます。文書が読めるようになっても、Previewアプリが公開済みになったとは限りません。</p>
+    <p class="note">本番公開では、公開する候補を確認し、アプリの公開とhealth確認に成功してから履歴に記録します。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/operations/release.md">リリース運用の正本</a>に従います。</p>
+  </section>
+  <footer><p>詳しい操作記録：<a href="https://github.com/engineer-first/idea-boost/blob/develop/out/preview-setup-log.md">設定・操作台帳</a> ／ 設定の手順：<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/operations/preview.md">PR Previewの運用</a> ／ 図の編集元：<a href="https://github.com/engineer-first/idea-boost/blob/develop/out/architecture.drawio">draw.ioファイル</a></p>
+    <p>用語の照合元：<a href="https://developers.cloudflare.com/workers/">Workers</a>、<a href="https://developers.cloudflare.com/d1/">D1</a>、<a href="https://developers.cloudflare.com/durable-objects/">Durable Objects</a>、<a href="https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/">Service Binding</a>、<a href="https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/">Access JWT</a>。今回の使い方は、PRの設定・実装・操作台帳と照合しています。</p>
+    <p>図のアイコンの提供元と利用条件を記録しています。</p><blockquote><p>Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. <a href="https://github.com/cloudflare/cloudflare-docs/tree/0017e51a284d1be4341ada9f9005850a7b47dc7b/src/icons">Source</a>. Icons embedded without modification. 構成図はdraw.ioの描画結果をSVGで保存しています。</p></blockquote>
+  </footer>
+</main><script data-preview-links>
+(() => {
+  // PRプレビューの文書はdevelopに未反映なので、同じコミットを参照する。
+  if (!['rawcdn.githack.com', 'raw.githack.com'].includes(location.hostname)) return;
+  const preview = location.pathname.match(/^\/engineer-first\/idea-boost\/([a-f0-9]{40})\/docs\/site\//);
+  if (!preview) return;
+  const source = /^(https:\/\/github\.com\/engineer-first\/idea-boost\/(?:blob|tree)\/)develop\//;
+  for (const link of document.querySelectorAll('a[href]')) {
+    const href = link.getAttribute('href');
+    if (href && source.test(href)) link.setAttribute('href', href.replace(source, `$1${preview[1]}/`));
+  }
+})();
+</script></body></html>
