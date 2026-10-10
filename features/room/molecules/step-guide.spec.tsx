@@ -57,6 +57,26 @@ afterEach(() => {
 });
 
 describe("工程ガイド", () => {
+  it.each([
+    undefined,
+    "intro",
+  ] as const)("639px以下では初めての工程も説明を閉じ、入口から開ける（初期状態: %s）", (initialState) => {
+    vi.spyOn(window, "innerWidth", "get").mockReturnValue(639);
+    const { props, rerender } = setup({ initialState });
+    expect(
+      screen.queryByRole("status", { name: "最初の一歩" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+    expect(
+      screen.getByRole("region", { name: "ファシリテーションガイド" }),
+    ).toHaveFocus();
+    rerender(<StepGuide {...props} phaseKey="1-2" />);
+    expect(screen.getByRole("button", { name: "進め方" })).toBeVisible();
+    expect(
+      screen.queryByRole("status", { name: "最初の一歩" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("畳んだ入口は進め方だけを示し、現在の作業を併記しない", () => {
     setup({ initialState: "compact" });
     const trigger = screen.getByRole("button", { name: "進め方" });

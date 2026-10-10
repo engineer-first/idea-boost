@@ -6,6 +6,8 @@ import type {
   Carryover,
   Decision as ProtocolDecision,
 } from "../../contracts/room-protocol";
+import { findNote } from "./notes";
+import { countNoteVotes } from "./votes";
 
 export type Decision = ProtocolDecision;
 
@@ -19,6 +21,10 @@ type CarryoverRow = {
   phase: number;
   note_id: string;
   note_content: string;
+  note_color: Carryover["color"];
+  note_font_size: number | null;
+  subjective_votes: number | null;
+  objective_votes: number | null;
 };
 
 export function getDecision(sql: SqlStorage, phase: number): Decision | null {
@@ -46,7 +52,7 @@ export function getCarryovers(
 ): Carryover[] {
   const rows = sql
     .exec(
-      `SELECT phase, note_id, note_content
+      `SELECT phase, note_id, note_content, note_color, note_font_size, subjective_votes, objective_votes
        FROM decisions
        WHERE phase < ?1
        ORDER BY phase`,
@@ -58,6 +64,12 @@ export function getCarryovers(
     phase: row.phase,
     noteId: row.note_id,
     content: row.note_content,
+    color: row.note_color,
+    fontSize: row.note_font_size,
+    dotVotes:
+      row.subjective_votes === null || row.objective_votes === null
+        ? null
+        : { subjective: row.subjective_votes, objective: row.objective_votes },
   }));
 }
 
@@ -68,15 +80,20 @@ export function setDecision(
   decidedBy: string,
   noteContent: string,
 ): void {
+  const note = findNote(sql, noteId);
   sql.exec(
     `INSERT OR REPLACE INTO decisions
-       (phase, note_id, decided_by, decided_at, note_content)
-     VALUES (?1, ?2, ?3, ?4, ?5)`,
+       (phase, note_id, decided_by, decided_at, note_content, note_color, note_font_size, subjective_votes, objective_votes)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
     phase,
     noteId,
     decidedBy,
     new Date().toISOString(),
     noteContent,
+    note?.color ?? null,
+    note?.font_size ?? null,
+    note ? countNoteVotes(sql, noteId, "subjective") : null,
+    note ? countNoteVotes(sql, noteId, "objective") : null,
   );
 }
 

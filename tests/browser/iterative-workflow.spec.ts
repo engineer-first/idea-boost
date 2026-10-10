@@ -193,6 +193,8 @@ test("決定内容をキーボードで開閉し、フォーカスを保つ", as
   });
   await toggle.focus();
   await page.keyboard.press("Enter");
+  expect(await toggle.getAttribute("aria-expanded")).toBe("false");
+  await page.keyboard.press("Enter");
   expect(await toggle.getAttribute("aria-expanded")).toBe("true");
   await expect
     .poll(() => page.getByTestId("board-reference-hmw-content").isVisible())

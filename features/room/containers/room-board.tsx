@@ -597,6 +597,16 @@ export function RoomBoard({
         groups={noteGroups.groups}
         hmwDecidedIssue={hmwDecidedIssue}
         decidedHmw={decidedHmw}
+        issueReference={
+          currentPhase === 2 || currentPhase === 3
+            ? (roomState.carryovers.find((item) => item.phase === 1) ?? null)
+            : null
+        }
+        hmwReference={
+          currentPhase === 3
+            ? (roomState.carryovers.find((item) => item.phase === 2) ?? null)
+            : null
+        }
         inviteCode={inviteCode}
         inviteUrl={inviteUrl}
         phase={roomState.phase}

@@ -1,8 +1,12 @@
 "use client";
 
 import { Check, ChevronDown } from "lucide-react";
-import { type ReactNode, useId, useState } from "react";
+import { useId, useState } from "react";
+import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
 import type { RoomPhase } from "@/contracts/phase";
+import type { Carryover } from "@/contracts/room-protocol";
+import { DotVoteSticker } from "@/features/dot-vote";
+import { StickyNote } from "@/features/notes";
 import styles from "./board-context.module.css";
 import { BoardLocation } from "./board-location";
 
@@ -11,6 +15,8 @@ export type BoardContextProps = {
   outcomePublished?: boolean;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
+  issueReference?: Carryover | null;
+  hmwReference?: Carryover | null;
 };
 
 export function BoardContext({
@@ -18,44 +24,42 @@ export function BoardContext({
   outcomePublished,
   hmwDecidedIssue,
   decidedHmw,
+  issueReference,
+  hmwReference,
 }: BoardContextProps) {
-  const phaseKey =
-    phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
+  const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
+  const initialId =
+    phase.kind === "step"
+      ? phase.phase === 3
+        ? "hmw"
+        : phase.phase === 2
+          ? "issue"
+          : null
+      : null;
   const [openState, setOpenState] = useState<{
     phaseKey: string;
     id: string | null;
-  }>({ phaseKey, id: null });
-  const openDisclosureId =
-    openState.phaseKey === phaseKey ? openState.id : null;
-  const id = useId();
-
-  const disclosures: {
-    id: string;
-    label: string;
-    content: ReactNode;
-  }[] = [];
-
-  const decisions = [
-    { id: "hmw", label: "決定した問い", content: decidedHmw },
-    { id: "issue", label: "決定した課題", content: hmwDecidedIssue },
-  ].filter((item) => item.content !== null);
-
-  for (const decision of decisions) {
-    disclosures.push({
-      id: decision.id,
-      label: decision.label,
-      content: (
-        <div
-          data-testid={`board-reference-${decision.id}-content`}
-          className="max-h-24 overflow-y-auto overscroll-contain px-4 py-2"
-        >
-          <p className="whitespace-pre-wrap break-words text-sm leading-5">
-            {decision.content}
-          </p>
-        </div>
-      ),
-    });
+  }>({ phaseKey, id: initialId });
+  if (openState.phaseKey !== phaseKey) {
+    setOpenState({ phaseKey, id: initialId });
   }
+  const openDisclosureId =
+    openState.phaseKey === phaseKey ? openState.id : initialId;
+  const id = useId();
+  const disclosures = [
+    {
+      id: "hmw",
+      label: "決定した問い",
+      content: decidedHmw,
+      reference: hmwReference,
+    },
+    {
+      id: "issue",
+      label: "決定した課題",
+      content: hmwDecidedIssue,
+      reference: issueReference,
+    },
+  ].filter((item) => item.content !== null);
 
   return (
     <header
@@ -64,7 +68,9 @@ export function BoardContext({
     >
       <BoardLocation phase={phase} outcomePublished={outcomePublished} />
       {disclosures.length > 0 ? (
-        <div className="board-hud pointer-events-auto overflow-hidden rounded-b-2xl border-x border-b border-border bg-background shadow-lg shadow-black/5">
+        <div
+          className={`${styles.references} board-hud pointer-events-auto w-[200px] space-y-2 pt-2`}
+        >
           {disclosures.map((disclosure) => {
             const isOpen = openDisclosureId === disclosure.id;
             const triggerId = `${id}-${disclosure.id}-trigger`;
@@ -73,7 +79,7 @@ export function BoardContext({
             return (
               <section
                 key={disclosure.id}
-                className="border-t border-border"
+                className="w-[200px]"
                 data-testid={
                   disclosure.id === "hmw" || disclosure.id === "issue"
                     ? `board-reference-${disclosure.id}`
@@ -86,7 +92,7 @@ export function BoardContext({
                   type="button"
                   aria-expanded={isOpen}
                   aria-controls={contentId}
-                  className="flex min-h-8 w-full cursor-pointer items-center gap-1.5 px-4 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-2 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                   onClick={() =>
                     setOpenState({
                       phaseKey,
@@ -115,8 +121,68 @@ export function BoardContext({
                   data-open={isOpen}
                   className={styles.disclosure}
                 >
-                  <div className={styles.disclosureInner}>
-                    {disclosure.content}
+                  <div className={`${styles.disclosureInner} p-2 -mx-2`}>
+                    <StickyNote
+                      noteId={
+                        disclosure.reference?.noteId ??
+                        `reference-${disclosure.id}`
+                      }
+                      color={disclosure.reference?.color ?? null}
+                      isDecided
+                      height={Math.min(
+                        240,
+                        getNoteHeight(
+                          disclosure.content ?? "",
+                          disclosure.reference?.fontSize ??
+                            NOTE_DEFAULT_FONT_SIZE,
+                        ),
+                      )}
+                      className={styles.referenceNote}
+                    >
+                      <section
+                        data-testid={`board-reference-${disclosure.id}-content`}
+                        tabIndex={isOpen ? 0 : -1}
+                        aria-label={`${disclosure.label}の本文`}
+                        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        style={{
+                          fontSize:
+                            disclosure.reference?.fontSize ??
+                            NOTE_DEFAULT_FONT_SIZE,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <p className="whitespace-pre-wrap break-words">
+                          {disclosure.content}
+                        </p>
+                      </section>
+                      <div className="flex h-10 shrink-0 items-center gap-2 px-2 pb-2">
+                        {disclosure.reference?.dotVotes ? (
+                          <>
+                            <DotVoteSticker
+                              kind="subjective"
+                              state="result"
+                              count={disclosure.reference.dotVotes.subjective}
+                            />
+                            <DotVoteSticker
+                              kind="objective"
+                              state="result"
+                              count={disclosure.reference.dotVotes.objective}
+                            />
+                          </>
+                        ) : null}
+                        <span
+                          role="status"
+                          aria-label="採用済み"
+                          className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
+                        >
+                          <Check
+                            aria-hidden="true"
+                            className="size-5"
+                            strokeWidth={3}
+                          />
+                        </span>
+                      </div>
+                    </StickyNote>
                   </div>
                 </section>
               </section>

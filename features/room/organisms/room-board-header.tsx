@@ -23,7 +23,11 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { SharingState, TimerState } from "@/contracts/room-protocol";
+import type {
+  Carryover,
+  SharingState,
+  TimerState,
+} from "@/contracts/room-protocol";
 import { CopyInviteButton, InviteUrlActions } from "@/features/invite";
 import {
   MemberAvatar,
@@ -51,6 +55,8 @@ export type RoomBoardHeaderProps = {
   onOpenFeedback?: (returnFocusTo: HTMLButtonElement | null) => void;
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
+  issueReference?: Carryover | null;
+  hmwReference?: Carryover | null;
   inviteCode: string;
   inviteUrl: string;
   phase: RoomPhase;
@@ -103,6 +109,8 @@ export function RoomBoardHeader({
   onOpenFeedback,
   hmwDecidedIssue,
   decidedHmw,
+  issueReference,
+  hmwReference,
   inviteCode,
   inviteUrl,
   phase,
@@ -183,11 +191,17 @@ export function RoomBoardHeader({
       const location = header.querySelector<HTMLElement>(
         '[data-testid="board-location-card"]',
       );
-      if (location)
+      if (location) {
         header.style.setProperty(
           "--board-location-top",
           `${location.getBoundingClientRect().top}px`,
         );
+        // 一覧はスロットの上に展開するため、周辺配置には常設部分の高さだけを使う。
+        header.style.setProperty(
+          "--board-location-height",
+          `${location.parentElement?.getBoundingClientRect().height ?? 80}px`,
+        );
+      }
     }
     updateGuideTop();
     const observer =
@@ -195,12 +209,17 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateGuideTop);
     observer?.observe(area);
+    const location = header.querySelector<HTMLElement>(
+      '[data-testid="board-location-card"]',
+    );
+    if (location?.parentElement) observer?.observe(location.parentElement);
     window.addEventListener("resize", updateGuideTop);
     return () => {
       observer?.disconnect();
       window.removeEventListener("resize", updateGuideTop);
       header.style.removeProperty("--board-connection-guide-top");
       header.style.removeProperty("--board-location-top");
+      header.style.removeProperty("--board-location-height");
       board?.style.removeProperty("--board-connection-notice-bottom");
     };
   }, [connectionStatus]);
@@ -292,16 +311,18 @@ export function RoomBoardHeader({
         className={`pointer-events-none absolute inset-x-3 top-3 bottom-[calc(7.5rem+var(--board-notification-inset,0px))] z-40 max-[639px]:z-[41] has-[[data-location-open=true]]:z-[60] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[calc(16rem+var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[calc(11rem+var(--board-notification-inset,0px))]"}`}
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[900px]:max-[1200px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
+          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[900px]:max-[1200px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:relative max-[639px]:grid max-[639px]:grid-cols-[200px_minmax(0,1fr)] max-[639px]:grid-rows-[calc(var(--board-location-height,80px)+50px)_auto] max-[639px]:items-start max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
           data-testid="board-context-column"
           data-board-fit-edge="top"
         >
-          <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px]">
+          <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px] max-[639px]:col-start-1 max-[639px]:row-start-1 max-[639px]:row-span-2 max-[639px]:w-[min(306px,calc(100vw-24px))]">
             <BoardContext
               phase={phase}
               outcomePublished={outcomePublished}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
+              issueReference={issueReference}
+              hmwReference={hmwReference}
             />
           </div>
           {transitioning && presenter ? (
@@ -324,7 +345,7 @@ export function RoomBoardHeader({
               />
             )
           )}
-          <div className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9">
+          <div className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:col-start-2 max-[639px]:row-start-2 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9">
             {children}
           </div>
         </div>

@@ -729,6 +729,7 @@ export const HmwWritingStep: Story = {
     phase: STEP_2_1,
     notes: [],
     hmwDecidedIssue: buildCarryover().content,
+    issueReference: buildCarryover(),
     interactions: {
       ...INTERACTIONS,
       privateNotes: buildNotes(2).map((note) => ({
@@ -742,6 +743,17 @@ export const HmwWritingStep: Story = {
 export const IdeaWritingWithCarryovers: Story = {
   args: {
     phase: buildPhaseStep(1, 3),
+    issueReference: buildCarryover({
+      color: "pink",
+      fontSize: 18,
+      dotVotes: { subjective: 5, objective: 2 },
+    }),
+    hmwReference: buildCarryover({
+      phase: 2,
+      color: "blue",
+      fontSize: 16,
+      dotVotes: { subjective: 3, objective: 4 },
+    }),
     hmwDecidedIssue: buildCarryover({
       phase: 1,
       content: "ユーザーが作業を後回しにしてしまう",

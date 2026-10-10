@@ -33,7 +33,11 @@ export function useBoardHelp(phase: RoomPhase): BoardHelpControls {
     if (activePhase.current !== phaseKey)
       visited.current.add(activePhase.current);
     activePhase.current = phaseKey;
-    setDisplay({ phaseKey, isOpen: initiallyOpen, tab: "write" });
+    setDisplay({
+      phaseKey,
+      isOpen: initiallyOpen && window.innerWidth > 639,
+      tab: "write",
+    });
   }, [phaseKey, initiallyOpen]);
   const current =
     display.phaseKey === phaseKey

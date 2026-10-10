@@ -306,24 +306,22 @@ test.each([
   }
 });
 
-test("390pxでも自動案内はfocusを奪わず、詳細を全文参照して操作へ戻れる", async () => {
+test("390pxでは初回も説明を閉じ、入口から詳細を全文参照して操作へ戻れる", async () => {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 },
     reducedMotion: "reduce",
   });
   try {
     await open(page, "room-roomboardview--phase-1-first-step-intro");
-    await settled(page, "intro");
+    await settled(page, "compact");
     const shell = page.getByTestId("step-guide");
     expect(
       await shell.evaluate((e) => e.contains(document.activeElement)),
     ).toBe(false);
-    expect((await shell.boundingBox())?.width).toBeGreaterThanOrEqual(280);
-    await vi.waitFor(
-      async () =>
-        expect(await shell.getAttribute("data-state")).toBe("compact"),
-      { timeout: 7000 },
+    expect(await page.getByRole("status", { name: "最初の一歩" }).count()).toBe(
+      0,
     );
+    expect((await shell.boundingBox())?.width).toBeLessThanOrEqual(126);
     await page.getByRole("button", { name: "進め方", exact: true }).click();
     await settled(page, "detail");
     const detail = page.getByRole("region", {
@@ -414,7 +412,10 @@ test.each([
   try {
     await open(page, "room-roomboardview--phase-1-first-step-intro");
     await page
-      .getByRole("button", { name: "進め方を見る", exact: true })
+      .getByRole("button", {
+        name: width <= 639 ? "進め方" : "進め方を見る",
+        exact: true,
+      })
       .click();
     await settled(page, "detail");
     const detail = page.getByRole("region", {
@@ -446,7 +447,12 @@ test.each([
     const trigger = page.getByRole("button", { name: "進め方", exact: true });
     expect((await trigger.textContent())?.trim()).toBe("進め方");
     const compactBounds = await page.getByTestId("step-guide").boundingBox();
-    expect(compactBounds?.width).toBe(126);
+    if (width <= 639) {
+      expect(compactBounds?.width).toBeLessThanOrEqual(126);
+      expect(compactBounds?.width).toBeGreaterThanOrEqual(44);
+    } else {
+      expect(compactBounds?.width).toBe(126);
+    }
     expect(compactBounds?.height).toBe(42);
     await page.screenshot({ path: `${output}/simple-compact-${width}.png` });
     expect(await trigger.evaluate((e) => e === document.activeElement)).toBe(

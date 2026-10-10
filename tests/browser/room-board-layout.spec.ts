@@ -332,7 +332,6 @@ for (const theme of ["light", "dark"]) {
 
 test("2-1は例付箋をマイ付箋に表示し、考えるヒントを表示しない", async () => {
   await openStory("room-roomboardlayout--phase-2-step-1");
-  await page.getByRole("button", { name: "決定した課題" }).click();
   await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-issue-content").isVisible(),
@@ -802,13 +801,13 @@ test.each([
 
 test.each([
   1280, 768,
-])("%ipxでHUDを約220pxに畳み、決定内容を開いてもキャンバスを固定する", async (width) => {
+])("%ipxでHUDに初期参照を表示し、決定内容を開いてもキャンバスを固定する", async (width) => {
   await page.setViewportSize({ width, height: 720 });
   await openStory("room-roomboardlayout--phase-3-step-1");
   const hud = page.getByTestId("board-context-hud");
   const canvas = await page.getByTestId("board-canvas").boundingBox();
   const initial = await hud.boundingBox();
-  expect(initial?.height).toBeLessThanOrEqual(230);
+  expect(initial?.height).toBeLessThanOrEqual(390);
   expect(await page.getByTestId("board-location-trigger").isVisible()).toBe(
     true,
   );
@@ -854,21 +853,21 @@ test.each([
   await expectLayout();
 });
 
-test("決定内容を参照したまま発想支援を3項目以上読める", async () => {
+test("決定内容を参照したまま発想支援の3項目目へ到達できる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
-  await page.getByRole("button", { name: "決定した問い" }).click();
   await page.keyboard.press("Escape");
   expect(
     await page.getByTestId("board-reference-hmw-content").isVisible(),
   ).toBe(true);
   await page.getByRole("tab", { name: "発想を広げる", exact: true }).click();
-  const panel = await page.getByTestId("board-help-panel").boundingBox();
+  await page.getByRole("button", { name: /ほかの問いを見る/ }).click();
   const content = await page.locator("#board-help-content").boundingBox();
-  expect((content?.height ?? 0) / (panel?.height ?? 1)).toBeGreaterThanOrEqual(
-    0.68,
-  );
+  await page
+    .locator("#board-help-content li:visible")
+    .nth(2)
+    .scrollIntoViewIfNeeded();
   const third = await page
-    .locator("#board-help-content li")
+    .locator("#board-help-content li:visible")
     .nth(2)
     .boundingBox();
   expect((third?.y ?? 0) + (third?.height ?? 0)).toBeLessThanOrEqual(
@@ -901,10 +900,9 @@ test.each([
   const notes = await page.getByTestId("private-notes-toolbar").boundingBox();
   const hmw = page.getByRole("button", { name: "決定した問い" });
   const issue = page.getByRole("button", { name: "決定した課題" });
-  expect(await hmw.getAttribute("aria-expanded")).toBe("false");
+  expect(await hmw.getAttribute("aria-expanded")).toBe("true");
   expect(await issue.getAttribute("aria-expanded")).toBe("false");
 
-  await hmw.click();
   await expect.poll(() => hmw.getAttribute("aria-expanded")).toBe("true");
   const hmwContent = page.getByTestId("board-reference-hmw-content");
   expect(await hmwContent.isVisible()).toBe(true);
@@ -1038,13 +1036,11 @@ test.each([
     const content = page.getByTestId(`board-reference-${reference}-content`);
     await decision.waitFor();
     expect(await guide.isVisible()).toBe(true);
-    expect(await content.isHidden()).toBe(true);
+    expect(await content.isVisible()).toBe(true);
     const trigger = page.getByRole("button", {
       name: reference === "hmw" ? "決定した問い" : "決定した課題",
       exact: true,
     });
-    await trigger.click();
-    await page.getByRole("button", { name: "進め方", exact: true }).click();
     expect(await guide.isVisible()).toBe(true);
     expect(await content.isVisible()).toBe(true);
     expect(await trigger.getAttribute("aria-expanded")).toBe("true");
@@ -1169,7 +1165,7 @@ async function expectHudTargets(): Promise<void> {
       const box = e.getBoundingClientRect();
       if (
         e.closest('[inert],[aria-hidden="true"]') ||
-        !e.checkVisibility() ||
+        !e.checkVisibility({ visibilityProperty: true }) ||
         !box.width ||
         !box.height
       )
@@ -1289,3 +1285,45 @@ test.each([
       await expectHudTargets();
     }
 }, 60_000);
+
+test.each([
+  1280, 768, 390, 320,
+])("%ipxで長い参照本文の全文と集計に到達でき、閉じた本文へフォーカスしない", async (width) => {
+  await page.setViewportSize({ width, height: 900 });
+  await openStory("room-roomboardlayout--long-reference");
+  const trigger = page.getByRole("button", {
+    name: "決定した問い",
+    exact: true,
+  });
+  const body = page.getByTestId("board-reference-hmw-content");
+  const note = body.locator("..");
+  expect((await body.locator("p").innerText()).length).toBe(2000);
+  expect(await trigger.getAttribute("aria-expanded")).toBe("true");
+  const bounds = await note.boundingBox();
+  expect(bounds?.width).toBe(200);
+  expect(bounds?.height).toBeLessThanOrEqual(width <= 639 ? 150 : 240);
+  await body.focus();
+  await page.keyboard.press("End");
+  await body.evaluate((e) => {
+    e.scrollTop = e.scrollHeight;
+  });
+  const paragraph = await body.locator("p").boundingBox();
+  const bodyBounds = await body.boundingBox();
+  expect((paragraph?.y ?? 0) + (paragraph?.height ?? 0)).toBeLessThanOrEqual(
+    (bodyBounds?.y ?? 0) + (bodyBounds?.height ?? 0),
+  );
+  expect(await note.getByRole("img", { name: /主観.*8票/ }).isVisible()).toBe(
+    true,
+  );
+  expect(await note.getByRole("status", { name: "採用済み" }).isVisible()).toBe(
+    true,
+  );
+  await trigger.focus();
+  await trigger.press("Enter");
+  await expect.poll(() => body.isVisible()).toBe(false);
+  expect(await body.getAttribute("tabindex")).toBe("-1");
+  await page.keyboard.press("Tab");
+  expect(await body.evaluate((e) => e === document.activeElement)).toBe(false);
+  await trigger.press("Space");
+  await expect.poll(() => body.isVisible()).toBe(true);
+});

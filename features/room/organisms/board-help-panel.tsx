@@ -30,7 +30,7 @@ export function BoardHelpPanel({
       aria-label="考えるヒント"
       data-testid="board-help-panel"
       data-open={isOpen}
-      className="pointer-events-none flex min-h-0 w-80 max-w-full flex-1 items-start"
+      className={`pointer-events-none flex min-h-0 w-80 max-w-full flex-1 items-start max-[639px]:w-full ${isOpen ? "max-[639px]:absolute max-[639px]:left-0 max-[639px]:top-[calc(var(--board-location-height,80px)+3.5rem)] max-[639px]:z-40 max-[639px]:h-[140px]" : ""}`}
       onKeyDown={(event) => {
         if (event.key !== "Escape" || !isOpen) return;
         event.stopPropagation();
@@ -46,24 +46,25 @@ export function BoardHelpPanel({
         <Button
           type="button"
           variant="ghost"
-          className="h-9 w-full shrink-0 justify-between rounded-none bg-background px-4 hover:bg-background aria-expanded:bg-background"
+          className="h-9 w-full shrink-0 justify-between max-[639px]:h-[42px] max-[639px]:px-2 rounded-none bg-background px-4 hover:bg-background aria-expanded:bg-background"
           data-help-toggle
           aria-label={`考えるヒントを${isOpen ? "閉じる" : "開く"}`}
           aria-expanded={isOpen}
           aria-controls="board-help-content"
           onClick={() => onOpenChange(!isOpen)}
         >
-          <span className="flex items-center gap-2 text-sm font-semibold">
+          <span className="flex items-center gap-2 text-sm font-semibold max-[639px]:gap-1 max-[639px]:text-xs">
             <Lightbulb
               aria-hidden="true"
               className="size-4 text-muted-foreground"
             />
-            考えるヒント
+            <span className="max-[639px]:hidden">考えるヒント</span>
+            <span className="hidden max-[639px]:inline">ヒント</span>
           </span>
           {isOpen ? (
-            <ChevronUp aria-hidden="true" />
+            <ChevronUp aria-hidden="true" className="max-[639px]:hidden" />
           ) : (
-            <ChevronDown aria-hidden="true" />
+            <ChevronDown aria-hidden="true" className="max-[639px]:hidden" />
           )}
         </Button>
         <div
