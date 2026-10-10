@@ -40,6 +40,7 @@
   gap: 6px;
   min-width: 0;
   min-height: 20px;
+  line-height: 20px;
 }
 .trigger:hover {
   background: var(--muted);
@@ -174,7 +175,7 @@
     max-height: calc(100dvh - var(--board-location-top, 124px) - 12px);
   }
   .trigger {
-    gap: 8px;
+    column-gap: 8px;
   }
 }
 
