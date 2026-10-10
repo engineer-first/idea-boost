@@ -65,3 +65,26 @@ it("デプロイ中にPRが閉じられたら削除し、利用可能コメン�
     expect.objectContaining({ state: "ready" }),
   );
 });
+it("固定版URLがない公開は利用可能にしない", async () => {
+  const r = runtime();
+  r.deploy = vi.fn(async () => ({ url: "https://pr-12.preview.test" }));
+  await expect(
+    reconcilePreview({ number: 12, sha, state: "success" }, r),
+  ).rejects.toThrow("Preview");
+  expect(r.comment).toHaveBeenLastCalledWith(
+    12,
+    expect.objectContaining({ state: "failed" }),
+  );
+});
+it("公開中に閉じたPRは削除後に公開終了を記録する", async () => {
+  const r = runtime();
+  r.current = vi
+    .fn()
+    .mockResolvedValueOnce({ open: true, sameRepository: true, sha })
+    .mockResolvedValue({ open: false, sameRepository: true, sha });
+  await reconcilePreview({ number: 12, sha, state: "success" }, r);
+  expect(r.comment).toHaveBeenLastCalledWith(
+    12,
+    expect.objectContaining({ state: "closed", appCommit: sha }),
+  );
+});

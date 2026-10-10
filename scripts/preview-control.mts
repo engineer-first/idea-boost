@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { isCurrentSuccessfulCi } from "./preview-ci.mts";
+import { isCurrentSuccessfulCi, reopenedPreviewCi } from "./preview-ci.mts";
 import {
   assertPreviewConfig,
   previewApiConfig,
@@ -281,6 +281,16 @@ async function plan(): Promise<void> {
       gh(`pulls/${prSchema.parse(event.pull_request).number}`),
     );
     if (pr.head.repo?.full_name !== repository) return;
+    if (pr.state === "open" && event.action === "reopened") {
+      const ci = reopenedPreviewCi(event.action, currentCi(pr.head.sha));
+      if (ci) {
+        appendFileSync(
+          required("GITHUB_OUTPUT"),
+          `publish=true\nnumber=${pr.number}\nsha=${pr.head.sha}\nci_run_id=${ci.id}\nci_attempt=${ci.attempt}\n`,
+        );
+        return;
+      }
+    }
     await reconcilePreview(
       {
         number: pr.number,

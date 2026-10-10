@@ -51,11 +51,18 @@ export async function reconcilePreview(
   await runtime.comment(input.number, { ...base, state: "pending" });
   try {
     const deployment = await runtime.deploy(input.number, input.sha);
+    if (!deployment.deploymentUrl)
+      throw new Error("固定版URLを確認できません。");
     const health = await runtime.probe(deployment.url);
-    if (deployment.deploymentUrl) await runtime.probe(deployment.deploymentUrl);
+    await runtime.probe(deployment.deploymentUrl);
     const latest = await runtime.current(input.number);
     if (!latest.open) {
       await runtime.remove(input.number);
+      await runtime.comment(input.number, {
+        state: "closed",
+        appCommit: latest.sha,
+        updatedAt: runtime.now(),
+      });
       return;
     }
     if (!latest.sameRepository || latest.sha !== input.sha) return;
