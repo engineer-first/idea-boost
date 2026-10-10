@@ -550,6 +550,16 @@ export const Step1Writing: Story = {
   },
 };
 
+// 開閉前後で右下の案内が動かないことを比較する。
+export const Step1WritingCollapsed: Story = {
+  ...Step1Writing,
+  play: async ({ canvasElement }) => {
+    await fireEvent.click(
+      within(canvasElement).getByRole("button", { name: "マイ付箋を閉じる" }),
+    );
+  },
+};
+
 // Step1-2: 共有・移動
 export const Step1Sharing: Story = {
   args: {

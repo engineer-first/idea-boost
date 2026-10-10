@@ -434,7 +434,13 @@ test("390px template展開後のprivate本文がdock内で通常pointerとEnter�
   await page.setViewportSize({ width: 390, height: 844 });
   await openStory("room-roomboardview--hmw-writing-step");
   const toolbar = page.getByTestId("private-notes-toolbar");
-  await page.mouse.move(258, 627);
+  const scroll = page.getByTestId("private-notes-scroll");
+  const scrollBox = await scroll.boundingBox();
+  if (!scrollBox) throw new Error("マイ付箋のスクロール領域がありません");
+  await page.mouse.move(
+    scrollBox.x + scrollBox.width / 2,
+    scrollBox.y + scrollBox.height / 2,
+  );
   await page.mouse.wheel(0, 500);
   await page.waitForFunction(() => {
     const scroll = document.querySelector<HTMLElement>(

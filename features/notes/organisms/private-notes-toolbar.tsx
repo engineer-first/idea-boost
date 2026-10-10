@@ -334,11 +334,9 @@ export function PrivateNotesToolbar({
     <Card
       ref={toolbarRef}
       className={cn(
-        "flex overflow-hidden transition-[box-shadow,background-color] duration-150",
+        "flex w-[min(15rem,calc(100vw-1.5rem))] max-w-full flex-col overflow-hidden transition-[box-shadow,background-color] duration-150",
         isReturnDropTarget && "bg-primary/5 ring-2 ring-primary/40",
-        isExpanded
-          ? "h-[min(48rem,calc(100vh-6rem))] w-[min(15rem,calc(100vw-1.5rem))] flex-col"
-          : "h-14 w-fit max-w-full flex-col",
+        isExpanded ? "h-[min(48rem,calc(100vh-6rem))]" : "h-14",
         className,
       )}
       data-testid="private-notes-toolbar"
@@ -471,10 +469,7 @@ export function PrivateNotesToolbar({
         )}
       >
         <div
-          className={cn(
-            "flex items-center gap-2",
-            isExpanded ? "w-full justify-between" : "w-fit justify-start",
-          )}
+          className="flex w-full items-center justify-between gap-2"
           data-testid="private-notes-controls"
         >
           <div className="min-w-0">
