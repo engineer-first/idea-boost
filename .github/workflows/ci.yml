@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches: [develop]
 
 permissions:
   contents: read
@@ -60,7 +62,7 @@ jobs:
       # マージ済み .sql の内容変更・削除・リネームは適用済み DO と新規 DO の
       # スキーマ分岐になる（テストは常に新規 DO なので目視でしか気づけない）。
       - name: Check merged RoomDO migrations are immutable
-        run: npm run check:room-do-migrations:immutable -- "${{ github.event.pull_request.base.sha }}"
+        run: npm run check:room-do-migrations:immutable -- "${{ github.event.pull_request.base.sha || github.event.before }}"
 
       # マイグレーションから組み立てた実スキーマに対する構造ルールの機械検査
       # （FK インデックス貼り忘れ・テーブル肥大化など）。ルールは .tbls/*.yml。
@@ -88,6 +90,9 @@ jobs:
 
       - name: Run worker tests (Durable Objects / D1)
         run: npm run test:workers
+
+      - name: Run Preview authentication and sample worker tests
+        run: npm run test:preview
 
       - name: Run local verification worker tests
         run: npm run test:verification
@@ -141,6 +146,29 @@ jobs:
         run: npm run build:cf
         env:
           CI: true
+
+      # PRコードはpull_requestの隔離された権限/cache scopeでのみ実行する。
+      # workflow_run側はこのrun/attemptのartifactを取得して公開するだけ。
+      - name: Prepare PR Preview App bundle
+        if: github.event_name == 'pull_request'
+        run: npx opennextjs-cloudflare build --config wrangler.preview.jsonc --skipNextBuild
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request'
+        with:
+          name: preview-app-${{ github.event.pull_request.head.sha }}-attempt-${{ github.run_attempt }}
+          include-hidden-files: true
+          retention-days: 3
+          path: |
+            .open-next/
+            workers/preview-app-worker.ts
+            workers/preview-gateway.ts
+            workers/lib/session.ts
+            workers/lib/preview-policy.ts
+            lib/session/token.ts
+            lib/session/secret.ts
+            contracts/
 
   smoke:
     # build がビルド成功しか見ていないのに対し、ここは preview:cf 相当の

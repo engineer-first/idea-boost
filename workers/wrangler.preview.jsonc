@@ -1,0 +1,23 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "idea-boost-preview-api",
+  "main": "preview-worker.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": { "PREVIEW_ENABLED": "true" },
+  "triggers": { "crons": ["0 * * * *"] },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOM_DO", "class_name": "PreviewRoomDO" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PreviewRoomDO"] }],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "idea-boost-preview-lobby",
+      "database_id": "PREVIEW_D1_ID_REQUIRED",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

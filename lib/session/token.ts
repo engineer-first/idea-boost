@@ -12,6 +12,8 @@ export type SignTokenOptions = {
   secret: string;
   audience: string;
   expiresInSeconds: number;
+  // 外部のログイン証明より長いセッションを発行しないための絶対上限。
+  expiresAtSeconds?: number;
 };
 
 export type VerifyTokenOptions = {
@@ -33,7 +35,12 @@ export async function signToken(
     .setIssuer(ISSUER)
     .setAudience(options.audience)
     .setIssuedAt(now)
-    .setExpirationTime(now + options.expiresInSeconds)
+    .setExpirationTime(
+      Math.min(
+        now + options.expiresInSeconds,
+        options.expiresAtSeconds ?? Number.POSITIVE_INFINITY,
+      ),
+    )
     .sign(secretKey(options.secret));
 }
 

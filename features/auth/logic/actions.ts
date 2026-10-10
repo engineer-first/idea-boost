@@ -99,5 +99,9 @@ export async function signInWithGoogle(next: string): Promise<void> {
 
 export async function signOut(): Promise<void> {
   await clearSessionCookie();
-  redirect("/login");
+  redirect(
+    process.env.PREVIEW_ENABLED === "true"
+      ? "/cdn-cgi/access/logout"
+      : "/login",
+  );
 }
