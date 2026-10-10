@@ -2,7 +2,7 @@
 
 対象：[Issue #362](https://github.com/engineer-first/idea-boost/issues/362)。実環境の権限・Secret・契約の担当範囲は [#360](https://github.com/engineer-first/idea-boost/issues/360)。この台帳は今回の調査・操作の証拠であり、現行手順の正本は `docs/operations/preview.md` に置く。
 
-記録更新：2026-10-10 09:26:29 UTC（18:26:29 JST）。過去の操作で時刻を採取していないものは日付のみを記載する。
+記録更新：2026-10-10 10:24:56 UTC（19:24:56 JST）。過去の操作で時刻を採取していないものは日付のみを記載する。
 
 ## 現在の到達点
 
@@ -206,3 +206,11 @@ Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. Source: <https://github.com/clou
 用語を知らない読み手向けに報告を整理し、冒頭に用語辞典を追加。報告の本体を `docs/site/pr-preview/index.html` へ移し、旧 `out/preview-report.html` は案内・転送の入口として残した。図は公式viewerの描画結果を自己完結するSVGへ出力し、外部の読み込みを不要にした。公開先は `https://engineer-first.github.io/idea-boost/pr-preview/`。PRがdevelopへマージされると文書サイトの公開workflowが動く。今回の準備ではCloudflareの設定やアプリ公開を変更していない。
 
 追加した辞書は42項目。初見の読み手による文章確認が合格し、HTML・検査JSON・図の確認用コピーをリポジトリ外で保存した。文書リンクの回帰検証60件が成功。実ブラウザでライト／ダーク表示、390pxでのページ全体の横はみ出しなし、辞書の開閉、構成図2枚の表示を確認した。目次は今回のリンクだけをstageし、開始時から存在した別ページ用の未コミット変更は残した。
+
+## developとの統合確認
+
+2026-10-10 10:21:57 UTC（19:21:57 JST）、新しい入室条件とPreviewの期限の不整合をテストで再現し、2件の失敗を確認した。Previewだけ、期限が残る署名検証済みセッションで入室を許可するよう修正した。本番は残り5時間以上の条件を維持。期限ちょうど・期限切れ・未認証・フラグ無効の拒否と、入室ticket関連を含む46件が成功した。別エージェントによる認可レビューでも、本人・ルーム・セッション期限・タブ・一回消費・所属・ホスト・非公開付箋の確認を保つことを確認した。実Previewの操作確認は未実施。
+
+競合した3文書・ソースを解消し、Previewの設計判断をADR 0011へ改番した。PRはマージ可能になり、CIと文書プレビューのworkflowが再開した。Cloudflareの設定・本番公開・PRのマージは実施していない。
+
+統合後の隔離worktreeではunit 2,792件、通常Worker 950件、Preview 24件、ローカル検証Worker 32件が成功。型・lint・依存境界・機能の配置・Markdown整形・migration番号と適用済みRoomDO migrationの不変性検査も成功。文書リンク検査は既存の未追跡ページも含むローカル対象60件が成功した。

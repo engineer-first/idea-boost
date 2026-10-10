@@ -93,7 +93,7 @@
 <details class="term-group" open><summary>まず押さえる言葉<span>12項目</span></summary><dl class="terms">
 <div><dt>Preview</dt><dd>本番と分けて、PRで変更した画面を試す場所です。今回の画面はまだ公開していません。</dd></div>
 <div><dt>Cloudflare / Cloudflare Network</dt><dd>このアプリの処理を動かし、データを保存し、見てよい人を確認するサービスの提供元です。図のCloudflare Networkの枠は、Cloudflareのサービスをまとめた範囲を示します。</dd></div>
-<div><dt>ブラウザ / サーバー / HTTPS / ポート</dt><dd>ブラウザはChromeなどの画面を開くアプリ、サーバーは依頼を受けて処理する側です。HTTPSは通信の内容を他人に読まれにくくする方式、ポートは接続先の受付番号です。</dd></div>
+<div><dt>ブラウザ / サーバー / HTTPS / ポート</dt><dd>ブラウザは画面を開くアプリ、サーバーは依頼を受けて処理する側です。HTTPSは通信の内容を他人に読まれにくくする方式、ポートは接続先の受付番号です。</dd></div>
 <div><dt>コード / データの型</dt><dd>コードはプログラムに行わせる仕事を書いたものです。データの型は文字・数値などのデータの種類と形です。</dd></div>
 <div><dt>認証 / 認可</dt><dd>認証はログインした人が誰かを確かめること、認可はその人にどの操作を許すかを決めることです。</dd></div>
 <div><dt>GitHub Pages / HTML / SVG</dt><dd>GitHub PagesはGitHubから文書のページを公開する機能です。HTMLはページの文章や構造を記した形式、SVGは線や文字などの形を記録する画像形式です。</dd></div>
@@ -150,6 +150,7 @@
   <section id="architecture" aria-labelledby="architecture-title">
     <h2 id="architecture-title">PRごとに画面を分け、Previewの保存先を共有する</h2>
     <p class="facts">PRごとに変わるのはAppです。API・D1・RoomDOはPreview全体で共有し、本番とは別にします。同じルームのURLを渡すと、もう1人も自分のGoogleアカウントで参加する構成です。</p>
+    <p>Previewは短い操作確認に使います。アプリのログイン状態は最大1時間続きます。入室時には、その期限が切れていないことを確認します。5時間の会議や翌日の再開は保証しません。</p>
     <p class="note">D1とAccessは設定済みです。図のApp・API・RoomDOへの接続は、公開後に確認します。狭い画面では図の中だけ横へ動かせます。</p>
     <div class="diagram-scroll" tabindex="0" role="region" aria-label="Preview構成図、横スクロールできます"><img src="preview-architecture.svg" alt="許可したGoogle利用者がAccessを通ってPRごとのAppへ入り、本番と別の共通API・D1・RoomDOを使う構成図"></div>
     <p class="diagram-caption"><a href="preview-architecture.svg">図だけを開いて拡大</a><a href="https://github.com/engineer-first/idea-boost/blob/develop/out/architecture.drawio">編集できるdraw.io図</a></p>
@@ -163,11 +164,11 @@
       <tr><td>Google / Access</td><td><span class="status verified">設定済み</span><br>Zero Trustへ登録し、Googleとの接続テストに成功しました。指定した2人のメールアドレスだけを許可し、Googleログインを必須にしました。</td><td>公開したPreview画面で、2人ともログインできることを確認します。</td></tr>
       <tr><td>D1</td><td><span class="status verified">作成済み</span><br>Preview用D1を新規作成し、既存のmigration 9件を適用しました。読取確認では利用者の登録は0件でした。</td><td>API公開後に、実際の読み書きを確認します。</td></tr>
       <tr><td>App / API / RoomDO</td><td><span class="status local">コードを用意済み</span><br>PRごとのApp、本番と別のAPI、Preview用RoomDOを使う設定を追加しました。</td><td>PRをdevelopへ取り込み、CI成功後に公開します。</td></tr>
-      <tr><td>Secret / Cookie</td><td><span class="status verified">設定済み</span><br>Preview用のSecrets5つをGitHubへ登録しました。AccessのCookieはHttpOnlyを有効にし、App Launcherの表示を外しました。</td><td>公開時にWorkerへSecretを反映します。アプリ側のCookie分離も公開後に確認します。</td></tr>
+      <tr><td>Secret / Cookie</td><td><span class="status verified">設定済み</span><br>Preview用のSecretを5つ、GitHubへ登録しました。AccessのCookieはHttpOnlyを有効にし、App Launcherの表示を外しました。</td><td>公開時にWorkerへSecretを反映します。アプリ側のCookie分離も公開後に確認します。</td></tr>
       <tr><td>CI / health</td><td><span class="status verified">認証設定済み</span><br>health用Service Token1つだけを許可するService Authを追加しました。期限は1年です。Accessのissuer・AUDもGitHubへ登録しました。</td><td>CI用Cloudflare API tokenの実権限と、公開後のhealth応答を確認します。</td></tr>
       <tr><td>自動公開のflag</td><td><span class="status pending">未有効化</span><br><code>PREVIEW_ENABLED</code>は未設定です。準備途中の画面を自動で公開する状態にはしていません。</td><td>Worker公開と動作確認の準備が整ってから有効にします。</td></tr>
     </tbody></table></div>
-    <p class="note">Secret値、実メール、アカウントやTokenの識別値、契約の詳細はこの報告に載せていません。Secret入りの一時ファイルは登録後に削除しました。本番・他のWorkers・アカウント全体のAccess設定は変更していません。</p>
+    <p class="note">Secretの値、実際のメールアドレス、アカウントやtokenの識別値、契約の詳細は、この報告に載せていません。Secret入りの一時ファイルは登録後に削除しました。本番・他のWorkers・アカウント全体のAccess設定は変更していません。</p>
     <details class="evidence"><summary>担当者向け：設定画面の表示と設定名の引用</summary><blockquote>
       <p>利用者用policyは<code>Preview reviewers Google</code>です。指定2名のEmailsをIncludeし、Login MethodはGoogleをRequireしています。AppはGoogleのみ、instant auth On、WARP auth Off、session 24hです。保存後の再読込でも確認しました。</p>
       <p>CI用policyは<code>Preview CI health</code>です。Service Authで<code>idea-boost-preview-ci-health</code>だけをIncludeします。アプリのprobe tokenは<code>/api/health</code>に限定し、通常画面・API・WSには使えない実装です。</p>
@@ -207,7 +208,7 @@
   </section>
   <footer><p>詳しい操作記録：<a href="https://github.com/engineer-first/idea-boost/blob/develop/out/preview-setup-log.md">設定・操作台帳</a> ／ 設定の手順：<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/operations/preview.md">PR Previewの運用</a> ／ 図の編集元：<a href="https://github.com/engineer-first/idea-boost/blob/develop/out/architecture.drawio">draw.ioファイル</a></p>
     <p>用語の照合元：<a href="https://developers.cloudflare.com/workers/">Workers</a>、<a href="https://developers.cloudflare.com/d1/">D1</a>、<a href="https://developers.cloudflare.com/durable-objects/">Durable Objects</a>、<a href="https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/">Service Binding</a>、<a href="https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/">Access JWT</a>。今回の使い方は、PRの設定・実装・操作台帳と照合しています。</p>
-    <p>図のアイコンの提供元と利用条件を記録しています。</p><blockquote><p>Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. <a href="https://github.com/cloudflare/cloudflare-docs/tree/0017e51a284d1be4341ada9f9005850a7b47dc7b/src/icons">Source</a>. Icons embedded without modification. 構成図はdraw.ioの描画結果をSVGで保存しています。</p></blockquote>
+    <p>図のアイコンは、提供元の表示などを条件に使用できます。提供元と利用条件を以下に記録しています。</p><blockquote><p>Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. <a href="https://github.com/cloudflare/cloudflare-docs/tree/0017e51a284d1be4341ada9f9005850a7b47dc7b/src/icons">Source</a>. Icons embedded without modification. 構成図はdraw.ioの描画結果をSVGで保存しています。</p></blockquote>
   </footer>
 </main><script data-preview-links>
 (() => {
