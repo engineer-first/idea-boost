@@ -74,7 +74,7 @@ export function RoomOperationResume({
               href: `/rooms/${roomId}/start`,
               entryToken: admission,
             }
-          : await returnToRoom(roomId);
+          : await returnToRoom(roomId, principal);
         if (destination.kind !== "ready") {
           setMessage(
             "ルームを開けませんでした。ホームからもう一度お試しください。",
@@ -86,7 +86,7 @@ export function RoomOperationResume({
       } else if (operation.kind === "join") {
         const form = new FormData();
         form.set("code", operation.inviteCode);
-        const result = await joinRoom(form);
+        const result = await joinRoom(form, principal);
         if (!result.ok) {
           setMessage(result.error);
           return;
@@ -96,7 +96,7 @@ export function RoomOperationResume({
         href = `/rooms/${roomId}/start`;
       } else {
         roomId = operation.roomId;
-        const result = await returnToRoom(roomId);
+        const result = await returnToRoom(roomId, principal);
         if (result.kind !== "ready") {
           setMessage("このルームには戻れません。ホームから確認してください。");
           return;

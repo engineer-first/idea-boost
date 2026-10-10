@@ -73,6 +73,29 @@ it("同じ本人の作成再開は元requestIdを照会し、成功済みなら�
     "33333333-3333-4333-8333-333333333333",
   );
   expect(mocks.create).not.toHaveBeenCalled();
+  expect(mocks.returnRoom).toHaveBeenCalledWith(roomId, principal);
+});
+it.each([
+  "join",
+  "return",
+] as const)("%sの再開でも操作直前に元本人を照合する", async (kind) => {
+  const principal = "11111111-1111-4111-8111-111111111111";
+  const roomId = "22222222-2222-4222-8222-222222222222";
+  mocks.consume.mockResolvedValue({
+    ok: true,
+    principal,
+    operation:
+      kind === "join" ? { kind, inviteCode: "ABC234" } : { kind, roomId },
+  });
+  mocks.join.mockResolvedValue({ ok: false, error: "本人が変わりました" });
+  mocks.returnRoom.mockResolvedValue({ kind: "unavailable_room" });
+  render(<RoomOperationResume />);
+  await waitFor(() => {
+    if (kind === "join")
+      expect(mocks.join).toHaveBeenCalledWith(expect.any(FormData), principal);
+    else expect(mocks.returnRoom).toHaveBeenCalledWith(roomId, principal);
+  });
+  expect(mocks.replace).not.toHaveBeenCalled();
 });
 it("操作を確認できない場合に自動参加しない", async () => {
   mocks.consume.mockResolvedValue({ ok: false, reason: "unavailable" });

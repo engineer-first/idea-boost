@@ -234,7 +234,10 @@ export async function queryRoomCreation(
   };
 }
 
-export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {
+export async function joinRoom(
+  formData: FormData,
+  expectedPrincipal?: string,
+): Promise<JoinRoomResult> {
   const parsedInput = JoinRoomInputSchema.safeParse({
     code: String(formData.get("code") ?? ""),
   });
@@ -252,6 +255,12 @@ export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {
     redirect("/login");
   }
 
+  if (expectedPrincipal !== undefined && expectedPrincipal !== user.sub)
+    return {
+      ok: false,
+      reason: "actor_mismatch",
+      error: "アカウントが変わりました。元のアカウントでログインしてください。",
+    };
   if (!hasRoomEntryTime(user))
     return {
       ok: false,
@@ -311,9 +320,12 @@ export async function joinRoom(formData: FormData): Promise<JoinRoomResult> {
 
 export async function returnToRoom(
   roomId: string,
+  expectedPrincipal?: string,
 ): Promise<ReturnToRoomResult> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (expectedPrincipal !== undefined && expectedPrincipal !== user.sub)
+    return { kind: "unavailable_room" };
   if (!isUuid(roomId)) return { kind: "unavailable_room" };
   try {
     // 途中退出でも成果の閲覧権が残る場合があるため、在籍より先に確認する。
