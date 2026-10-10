@@ -55,6 +55,7 @@ async function expectLayout(): Promise<void> {
         '[data-testid="board-help-panel"] > div',
         '[data-testid="private-notes-toolbar"]',
         '[data-testid="board-tools-hud"]',
+        '[data-testid="board-operation-matrix"]',
         '[data-testid="vote-palette-hud"] > *',
       ].join(","),
     )
@@ -1124,6 +1125,15 @@ test.each([
   await page.getByRole("button", { name: "除外通知を再現" }).click();
   await page.getByText(/投票完了により0票の付箋1件/).waitFor();
   await page.waitForTimeout(400);
+  const matrix = await page.getByTestId("board-operation-matrix").boundingBox();
+  const toast = await page
+    .locator('[data-sonner-toast][data-visible="true"]')
+    .first()
+    .boundingBox();
+  expect(matrix).not.toBeNull();
+  expect(toast).not.toBeNull();
+  if (!matrix || !toast) throw new Error("案内または通知がありません");
+  expect(matrix.y + matrix.height).toBeLessThanOrEqual(toast.y);
   await page.screenshot({ path: `${output}/u03-toast-${width}.png` });
   await page
     .getByRole("button", { name: "付箋を追加", exact: true })

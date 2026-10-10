@@ -581,6 +581,31 @@ describe("RoomBoardCanvas", () => {
       screen.getByRole("img", { name: "付箋の削除：不可" }),
     ).toBeInTheDocument();
   });
+  it("個人入力・共有・整理・投票に移行しても案内を残し、マイ付箋欄と操作可否だけを更新する", () => {
+    const { props, rerender } = setup();
+    for (const step of [1, 2, 3, 4]) {
+      const phase = buildPhaseStep(step);
+      const permissions = getBoardPermissions(phase);
+      rerender(
+        <RoomBoardCanvas {...props} phase={phase} permissions={permissions} />,
+      );
+      expect(screen.getAllByTestId("board-operation-matrix")).toHaveLength(1);
+      expect(screen.queryByTestId("private-notes-toolbar") !== null).toBe(
+        permissions.showPrivateToolbar,
+      );
+      for (const [label, enabled] of [
+        ["編集", permissions.canEditNote],
+        ["移動", permissions.canMoveNote],
+        ["削除", permissions.canDeleteNote],
+      ] as const) {
+        expect(
+          screen.getByRole("img", {
+            name: `付箋の${label}：${enabled ? "可能" : "不可"}`,
+          }),
+        ).toBeInTheDocument();
+      }
+    }
+  });
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
 
