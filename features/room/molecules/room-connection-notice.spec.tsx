@@ -11,3 +11,16 @@ it.each([
   expect(screen.queryByText(/自動で再接続/)).not.toBeInTheDocument();
   expect(screen.getByRole("status")).toHaveTextContent(/コピー/);
 });
+
+it("期限切れのログイン案内は元ルームへ戻るURLを保つ", () => {
+  render(
+    <RoomConnectionNotice
+      status="auth-required"
+      returnHref="/rooms/11111111-1111-4111-8111-111111111111"
+    />,
+  );
+  expect(screen.getByRole("link", { name: "ログインする" })).toHaveAttribute(
+    "href",
+    "/login?next=%2Frooms%2F11111111-1111-4111-8111-111111111111",
+  );
+});

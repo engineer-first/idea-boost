@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import type { RoomEntryOperation } from "@/contracts/room-entry";
 import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import {
@@ -9,6 +10,7 @@ import {
   queryRoomCreation,
   returnToRoom,
 } from "./actions";
+import { entryDestination } from "./entry-destination";
 import { lifecycleNotify } from "./lifecycle-notify";
 import {
   discardRoomCreationRecords,
@@ -24,6 +26,8 @@ import {
 } from "./room-creation-storage";
 
 export type RoomCreationControls = {
+  reauthentication?: RoomEntryOperation;
+  onCancelReauthentication: () => void;
   pending: boolean;
   onSubmit: (name: string) => void;
   intentName?: string;
@@ -38,6 +42,8 @@ export type RoomCreationControls = {
 };
 export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   const router = useRouter();
+  const [reauthentication, setReauthentication] =
+    useState<RoomEntryOperation>();
   const [pending, startTransition] = useTransition();
   const [intent, setIntent] = useState<RoomCreationIntent | null>(null);
   const [newIntent, setNewIntent] = useState(false);
@@ -54,6 +60,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     let live = true;
     generation.current++;
     setInitialized(false);
+    setReauthentication(undefined);
     setMessage(undefined);
     setNewIntent(false);
     setRetryDestination(false);
@@ -235,6 +242,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
           sameActor();
         if (!(await selected())) return;
         let roomId = next.roomId;
+        let entryAdmission: string | undefined;
         if (!roomId) {
           const query = await queryRoomCreation(principal, next.requestId);
           if (!(await selected())) return;
@@ -283,9 +291,23 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
                   name: next.name,
                 });
             // 結果receiptは自分のrecordだけ更新。遷移と現在UIは選択照合後。
-            if (result.ok) roomId = result.roomId;
-            else {
+            if (result.ok) {
+              roomId = result.roomId;
+              entryAdmission =
+                "entryToken" in result ? result.entryToken : undefined;
+            } else {
               if (!(await selected())) return;
+              if (result.reason === "reauth_required") {
+                setReauthentication({
+                  kind: "create",
+                  input: {
+                    expectedPrincipal: principal,
+                    requestId: next.requestId,
+                    name: next.name,
+                  },
+                });
+                return;
+              }
               const error =
                 result.outcome === "unknown"
                   ? "ルームへの移動を完了できませんでした。もう一度お試しください。"
@@ -330,8 +352,18 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         if (!(await selected())) return;
         setIntent(next);
         rememberLastRoom(principal, roomId);
-        const destination = await returnToRoom(roomId);
+        const destination = entryAdmission
+          ? {
+              kind: "ready" as const,
+              href: `/rooms/${roomId}/start`,
+              entryToken: entryAdmission,
+            }
+          : await returnToRoom(roomId);
         if (!(await selected())) return;
+        if (destination.kind === "reauth_required") {
+          setReauthentication({ kind: "return", roomId });
+          return;
+        }
         if (destination.kind !== "ready") {
           setRetryDestination(true);
           setMessage(
@@ -343,7 +375,13 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         }
         setRetryDestination(false);
         lifecycleNotify.roomCreated();
-        router.push(destination.href);
+        router.push(
+          await entryDestination(
+            destination.href,
+            roomId,
+            destination.entryToken,
+          ),
+        );
         // 同タブのServer Actionによる自動確認で、開始した移動を取り消さない。
         notifyRoomCreations(false);
       } catch {
@@ -412,6 +450,8 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     });
   }
   return {
+    reauthentication,
+    onCancelReauthentication: () => setReauthentication(undefined),
     pending: pending || !initialized || loadedPrincipal !== currentUserId,
     onSubmit: handleSubmit,
     intentName: recovering ? currentIntent?.name : undefined,

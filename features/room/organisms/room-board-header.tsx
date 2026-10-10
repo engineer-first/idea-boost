@@ -57,6 +57,7 @@ export type RoomBoardHeaderProps = {
   decidedHmw: string | null;
   issueReference?: Carryover | null;
   hmwReference?: Carryover | null;
+  loginReturnHref?: string;
   inviteCode: string;
   inviteUrl: string;
   phase: RoomPhase;
@@ -111,6 +112,7 @@ export function RoomBoardHeader({
   decidedHmw,
   issueReference,
   hmwReference,
+  loginReturnHref,
   inviteCode,
   inviteUrl,
   phase,
@@ -866,6 +868,7 @@ export function RoomBoardHeader({
             </Popover>
           </fieldset>
           <RoomConnectionNotice
+            returnHref={loginReturnHref}
             status={connectionStatus}
             delayed={connectionDelayed}
             testId="board-connection-status"

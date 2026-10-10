@@ -9,4 +9,11 @@ export {
 } from "./logic/actions";
 export { isEmailVerified } from "./logic/google-claims";
 export { getLoginPath, sanitizeNextPath } from "./logic/redirects";
+export { RoomAdmissionContext } from "./logic/room-admission-context";
+export {
+  bindRoomEntryContinuation,
+  consumeRoomEntry,
+  consumeRoomResume,
+  startRoomReauthentication,
+} from "./logic/room-reauthentication";
 export { LoginCard } from "./molecules/login-card";
