@@ -29,12 +29,23 @@ const STEP_NAMES = {
   3: ["個人", "共有", "2軸評価", "投票", "決定"],
 } as const;
 const PHASE_MARKERS = { 1: "①", 2: "②", 3: "③" } as const;
+const NEXT_LABELS = {
+  1: ["共有", "整理", "投票", "決定", "問い"],
+  2: ["共有", "投票", "決定", "アイデア"],
+  3: ["共有", "評価", "投票", "決定", "成果"],
+} as const;
 const PHASE_NAMES = { 1: "課題", 2: "問い", 3: "アイデア" } as const;
 
 type LocationState = "compact" | "expanded";
-export type BoardLocationProps = { phase: RoomPhase };
+export type BoardLocationProps = {
+  phase: RoomPhase;
+  outcomePublished?: boolean;
+};
 
-export function BoardLocation({ phase }: BoardLocationProps) {
+export function BoardLocation({
+  phase,
+  outcomePublished = false,
+}: BoardLocationProps) {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const [request, setRequest] = useState<{
@@ -160,6 +171,11 @@ export function BoardLocation({ phase }: BoardLocationProps) {
               </>
             ) : (
               <span className={styles.currentPhase}>{title}</span>
+            )}
+            {phase.kind === "step" && !outcomePublished && (
+              <span className={styles.next}>
+                次：{NEXT_LABELS[phase.phase][phase.step - 1]}
+              </span>
             )}
           </span>
           <svg

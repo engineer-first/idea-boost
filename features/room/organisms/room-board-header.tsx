@@ -299,6 +299,7 @@ export function RoomBoardHeader({
           <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px]">
             <BoardContext
               phase={phase}
+              outcomePublished={outcomePublished}
               hmwDecidedIssue={hmwDecidedIssue}
               decidedHmw={decidedHmw}
             />
@@ -318,6 +319,7 @@ export function RoomBoardHeader({
                 guide={guide}
                 isHost={isHost}
                 isReady={!isDisconnected}
+                timer={timer}
                 initialState={initialGuideState}
               />
             )

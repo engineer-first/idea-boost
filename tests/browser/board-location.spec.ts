@@ -460,3 +460,59 @@ test("320×320でも現在地の直下の手順と上の開閉操作へ到達で
   await reachable(trigger);
   await trigger.click();
 });
+
+const nextLabels = [
+  ["共有", "整理", "投票", "決定", "問い"],
+  ["共有", "投票", "決定", "アイデア"],
+  ["共有", "評価", "投票", "決定", "成果"],
+];
+test.each([
+  [320, 568],
+  [390, 844],
+  [1280, 720],
+])("%i×%iで14工程の現在地と次が44pxの同じ行に収まる", async (width, height) => {
+  await page.setViewportSize({ width, height });
+  for (const [index, labels] of nextLabels.entries()) {
+    for (const [step, label] of labels.entries()) {
+      await open(`room-roomboardlayout--phase-${index + 1}-step-${step + 1}`);
+      const trigger = page.getByTestId("board-location-trigger");
+      await expect(
+        trigger.getByText(`次：${label}`, { exact: true }).isVisible(),
+      ).resolves.toBe(true);
+      const measurements = await trigger.evaluate((element) => {
+        const action = element.firstElementChild;
+        const children = [...(action?.children ?? []), element.children[1]].map(
+          (child) => child.getBoundingClientRect(),
+        );
+        const rail = element.querySelector('[role="progressbar"]');
+        const railRect = rail?.getBoundingClientRect();
+        return {
+          height: element.parentElement?.getBoundingClientRect().height,
+          railCount: rail?.children.length,
+          railTop: railRect?.top,
+          rects: children.map((r) => ({
+            left: r.left,
+            right: r.right,
+            top: r.top,
+            bottom: r.bottom,
+          })),
+          overflow: element.scrollWidth > element.clientWidth,
+        };
+      });
+      expect(measurements.height).toBe(44);
+      expect(measurements.railCount).toBe(14);
+      expect(measurements.railTop).toBeGreaterThanOrEqual(
+        Math.max(...measurements.rects.map((rect) => rect.bottom)),
+      );
+      expect(measurements.overflow).toBe(false);
+      for (let i = 1; i < measurements.rects.length; i++) {
+        expect(measurements.rects[i].left).toBeGreaterThanOrEqual(
+          measurements.rects[i - 1].right,
+        );
+        expect(measurements.rects[i].top).toBeLessThan(
+          measurements.rects[0].bottom,
+        );
+      }
+    }
+  }
+});

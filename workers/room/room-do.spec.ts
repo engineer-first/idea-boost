@@ -2929,8 +2929,8 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
-  it("snapshot を再配信するステップ移行では idle 化したタイマーを含める", async () => {
-    const roomName = "room-phase-next-snapshot-has-idle-timer";
+  it("整理へ移行するsnapshotには新しく始めた4分のタイマーを含める", async () => {
+    const roomName = "room-phase-next-snapshot-has-grouping-timer";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2), USER_A);
@@ -2945,10 +2945,15 @@ describe("RoomDO phase:next", () => {
         ...(await currentPhaseExpectation(roomName)),
       }),
     );
-    expect(await nextJson(ws)).toMatchObject({
+    const snapshot = await nextJson(ws);
+    expect(snapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(3),
-      timer: { status: "idle" },
+      timer: {
+        status: "running",
+        durationMs: 240_000,
+        endsAt: expect.any(Number),
+      },
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
@@ -2957,7 +2962,8 @@ describe("RoomDO phase:next", () => {
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(3),
     });
-    expect(await stub.getTimerState()).toEqual({ status: "idle" });
+    if (snapshot.type !== "snapshot") throw new Error("snapshotを期待");
+    expect(await stub.getTimerState()).toEqual(snapshot.timer);
     ws.close();
   });
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import type { TimerState } from "@/contracts/room-protocol";
+
 export type StepGuideState = "intro" | "compact" | "detail";
 
 /** 共有状態には含めない、参加者・ルーム・タブごとの案内の記録。 */
@@ -10,13 +12,16 @@ export function useStepGuide({
   sessionKey,
   isReady,
   initialState,
+  timer,
 }: {
   phaseKey: string;
   sessionKey: string;
   isReady: boolean;
   initialState?: StepGuideState;
+  timer?: TimerState;
 }): {
   state: StepGuideState;
+  isBoundary: boolean;
   setState: (state: StepGuideState) => void;
   setHovered: (hovered: boolean) => void;
   setFocused: (focused: boolean) => void;
@@ -27,8 +32,18 @@ export function useStepGuide({
   const [focused, setFocused] = useState(false);
   const seen = useRef(new Set<string>());
   const activePhase = useRef<string | null>(null);
+  const activeSession = useRef(sessionKey);
   const remaining = useRef(5000);
+  const resetCountdown = useRef(false);
   const firstState = useRef(initialState);
+  const [boundaryPhase, setBoundaryPhase] = useState<string | null>(null);
+  const endedSeen = useRef(new Set<string>());
+  const boundaryEligible = phaseKey === "1-3" || phaseKey === "3-3";
+  const isBoundary =
+    isReady &&
+    boundaryEligible &&
+    timer?.status === "ended" &&
+    boundaryPhase === phaseKey;
 
   useEffect(() => {
     const updateVisibility = () => setVisible(!document.hidden);
@@ -39,6 +54,13 @@ export function useStepGuide({
   }, []);
 
   useEffect(() => {
+    if (activeSession.current !== sessionKey) {
+      activeSession.current = sessionKey;
+      activePhase.current = null;
+      seen.current.clear();
+      endedSeen.current.clear();
+      setBoundaryPhase(null);
+    }
     if (activePhase.current === phaseKey || !isReady || !visible) return;
     const storageKey = `step-guide:${sessionKey}:${phaseKey}`;
     let visited = seen.current.has(phaseKey);
@@ -62,6 +84,49 @@ export function useStepGuide({
   }, [phaseKey, sessionKey, isReady, visible]);
 
   useEffect(() => {
+    if (!isReady && boundaryPhase !== null) {
+      setState((current) => (current === "intro" ? "compact" : current));
+    }
+    if (!boundaryEligible || timer?.status !== "ended") {
+      if (boundaryPhase !== null) {
+        setBoundaryPhase(null);
+        if (boundaryPhase === phaseKey)
+          setState((current) => (current === "intro" ? "compact" : current));
+      }
+      if (timer?.status === "running" || timer?.status === "paused") {
+        endedSeen.current.delete(phaseKey);
+        try {
+          sessionStorage.removeItem(
+            `step-guide-boundary:${sessionKey}:${phaseKey}`,
+          );
+        } catch {}
+      }
+      return;
+    }
+    if (!isReady || !visible || activePhase.current !== phaseKey) return;
+    setBoundaryPhase(phaseKey);
+    const key = `step-guide-boundary:${sessionKey}:${phaseKey}`;
+    let visited = endedSeen.current.has(phaseKey);
+    try {
+      visited ||= sessionStorage.getItem(key) === "seen";
+      sessionStorage.setItem(key, "seen");
+    } catch {}
+    endedSeen.current.add(phaseKey);
+    if (!visited) {
+      resetCountdown.current = true;
+      setState((current) => (current === "detail" ? current : "intro"));
+    }
+  }, [
+    phaseKey,
+    sessionKey,
+    timer?.status,
+    isReady,
+    visible,
+    boundaryEligible,
+    boundaryPhase,
+  ]);
+
+  useEffect(() => {
     if (
       activePhase.current !== phaseKey ||
       state !== "intro" ||
@@ -71,6 +136,10 @@ export function useStepGuide({
       focused
     )
       return;
+    if (resetCountdown.current && boundaryPhase !== null) {
+      remaining.current = 5000;
+      resetCountdown.current = false;
+    }
     const started = Date.now();
     const timer = window.setTimeout(
       () => setState("compact"),
@@ -83,7 +152,16 @@ export function useStepGuide({
         remaining.current - (Date.now() - started),
       );
     };
-  }, [state, phaseKey, isReady, visible, hovered, focused]);
+  }, [state, phaseKey, isReady, visible, hovered, focused, boundaryPhase]);
 
-  return { state, setState, setHovered, setFocused };
+  return {
+    state:
+      !isReady && state === "intro" && boundaryPhase !== null
+        ? "compact"
+        : state,
+    isBoundary,
+    setState,
+    setHovered,
+    setFocused,
+  };
 }

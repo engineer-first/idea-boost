@@ -225,6 +225,30 @@ describe("現在地と補足情報", () => {
   });
 });
 
+it("全14工程の現在地と次の予告を保ち、閲覧タブでは変えず、成果公開後は予告を消す", () => {
+  const props = {
+    phase: buildPhaseStep(2, 2),
+    hmwDecidedIssue: null,
+    decidedHmw: null,
+  };
+  const view = render(<BoardContext {...props} />);
+  const trigger = screen.getByRole("button", { name: /現在地/ });
+  expect(trigger).toHaveTextContent("②問い｜共有");
+  expect(within(trigger).getByText("次：投票")).toBeVisible();
+  expect(screen.getByRole("progressbar")).toHaveAttribute(
+    "aria-valuemax",
+    "14",
+  );
+  fireEvent.click(trigger);
+  fireEvent.mouseDown(screen.getByRole("tab", { name: /アイデア/ }), {
+    button: 0,
+  });
+  expect(trigger).toHaveTextContent("②問い｜共有");
+  expect(within(trigger).getByText("次：投票")).toBeVisible();
+  view.rerender(<BoardContext {...props} outcomePublished />);
+  expect(within(trigger).queryByText(/次：/)).toBeNull();
+});
+
 it("手順内をキーボードで読んでいる間の工程変更では常設入口にフォーカスを戻す", () => {
   const props = {
     phase: buildPhaseStep(1, 2),
