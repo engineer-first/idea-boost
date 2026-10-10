@@ -48,7 +48,7 @@ description: このリポジトリの PR を作成・更新するときに使う
 ## PR に反映する
 
 - 下書きの依頼なら本文を提示する。PR の作成・更新を依頼されている場合は、その範囲で反映する。Issue の新規作成はこのスキルに含めない。
-- 新規 PR は既定で Draft として作成する。ユーザーが「Ready for review の状態で作って」「Draft ではなく通常の PR として作って」など、レビュー可能な状態での作成を明示した場合だけ通常の PR にする。「PR までお願い」「PR を作って」だけでは Draft とする。人の確認前に CodeRabbit のトークンを消費するのを避けるため、作成後も明示的な依頼なしに Draft を解除しない。既存 PR の本文更新では Draft / Ready for review の状態を保持する。
+- 新規 PR は既定で Draft として作成する。ユーザーが「Ready for review の状態で作って」「Draft ではなく通常の PR として作って」など、レビュー可能な状態での作成を明示した場合だけ通常の PR にする。「PR までお願い」「PR を作って」だけでは Draft とする。作成後も明示的な依頼なしに Draft を解除しない。既存 PR の本文更新では Draft / Ready for review の状態を保持する。
 - Issue に直接対応し、マージでその Issue 全体を完了する PR は、その Issue だけを参照するブランチ名（例: `feature/293-description`）を使う。`.github/workflows/pr-issue-link.yml` が `Closes #293` と機械判定用マーカーを追加し、`develop` へのマージで Issue のクローズと Project の `完了` を連動させる。調査途中や分割実装など、マージだけでは Issue 全体を完了しない PR は番号付きブランチを使わず、本文で `Refs #番号` を明示する。
 - 既存本文を更新する直前に最新の本文を取得し、人が追記した内容、`<!-- issue-ref:... -->` と対応するリンク、Bot が管理する節を保持して編集する。作成時に保存した本文で全体を上書きしない。
 - CLI を使う場合、複数行の本文は一時 Markdown ファイルに書き、`gh pr create` / `gh pr edit` の `--body-file` で渡す。新規作成では既定で `gh pr create --draft --body-file <本文ファイル>` を使い、通常の PR を明示された場合だけ `--draft` を付けない。
