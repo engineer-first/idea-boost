@@ -5,6 +5,45 @@ import { buildNotes } from "@/contracts/room-protocol.fixture";
 import { useCanvasCamera } from "./use-canvas-camera";
 
 describe("useCanvasCamera", () => {
+  it("非表示の間はviewport操作を登録せず、再表示時にwheel操作を有効にする", () => {
+    const viewport = document.createElement("div");
+    viewport.hidden = true;
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
+    const viewportRef = { current: viewport };
+    const { result, rerender } = renderHook(
+      ({ isViewportEnabled }) =>
+        useCanvasCamera({ viewportRef, notes: [], isViewportEnabled }),
+      { initialProps: { isViewportEnabled: false } },
+    );
+
+    const hiddenCamera = result.current.cameraRef.current;
+    act(() =>
+      viewport.dispatchEvent(
+        new WheelEvent("wheel", {
+          deltaY: 80,
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    );
+    expect(result.current.cameraRef.current).toEqual(hiddenCamera);
+
+    viewport.hidden = false;
+    rerender({ isViewportEnabled: true });
+    const visibleCamera = result.current.cameraRef.current;
+    act(() =>
+      viewport.dispatchEvent(
+        new WheelEvent("wheel", {
+          deltaY: 80,
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    );
+
+    expect(result.current.cameraRef.current.y).toBe(visibleCamera.y - 80);
+  });
+
   it("pointerupが届かなくてもボタンを離した移動でパンを終了する", () => {
     const viewport = document.createElement("div");
     const { result } = renderHook(() =>

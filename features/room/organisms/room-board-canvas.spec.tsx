@@ -946,8 +946,10 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.queryByRole("region", { name: "価値と実現のしやすさの2軸マップ" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByTestId("board-scroller")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("board-canvas")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-scroller").parentElement).toHaveAttribute(
+      "hidden",
+    );
+    expect(screen.getByTestId("board-canvas")).not.toBeVisible();
   });
 
   it.each([
@@ -1168,8 +1170,13 @@ describe("RoomBoardCanvas", () => {
       name: "付箋を追加",
     });
 
-    expect(screen.queryByTestId("board-scroller")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("board-tools-hud")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-scroller").parentElement).toHaveAttribute(
+      "hidden",
+    );
+    expect(screen.getByTestId("board-canvas")).not.toBeVisible();
+    expect(screen.getByTestId("board-tools-hud").parentElement).toHaveAttribute(
+      "hidden",
+    );
     expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
     expect(note).toHaveStyle({ width: "200px", height: "150px" });
     expect(editor).toHaveStyle({ fontSize: "14px", lineHeight: "21px" });

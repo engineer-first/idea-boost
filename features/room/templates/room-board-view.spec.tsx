@@ -537,7 +537,9 @@ describe("RoomBoardView", () => {
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("board-scroller")).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-scroller").parentElement).toHaveAttribute(
+      "hidden",
+    );
   });
 
   it("外側が pointer capture 中でもドラッグと通常 presence を同じ座標で更新し、cancel を分離する", () => {
@@ -1871,11 +1873,11 @@ describe("RoomBoardView", () => {
         interactions: buildInteractions([sharedNote], [privateNote]),
       });
 
-      expect(
-        screen.queryByDisplayValue("共有済みの付箋"),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByDisplayValue("共有済みの付箋")).not.toBeVisible();
       expect(screen.getByDisplayValue("自分だけの付箋")).toBeInTheDocument();
-      expect(screen.queryByTestId("board-scroller")).not.toBeInTheDocument();
+      expect(
+        screen.getByTestId("board-scroller").parentElement,
+      ).toHaveAttribute("hidden");
     });
 
     it("Step2では付箋編集できる", () => {

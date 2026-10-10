@@ -167,6 +167,11 @@ export function useRoomBoardInteractions({
     handlePointerEnd: onCanvasPointerEnd,
   } = useCanvasCamera({
     viewportRef: boardScrollerRef,
+    isViewportEnabled: !(
+      phase.kind === "step" &&
+      phase.step === 1 &&
+      phase.phase <= 3
+    ),
     getFitInsets,
     notes,
     fitViewport:

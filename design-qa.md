@@ -4,10 +4,7 @@ final result: passed
 
 ## 比較対象
 
-- source visual truth path: `/Users/hasimotorion/.codex/generated_images/01a11ef9-4997-78a2-b845-06093327181c/exec-1d3f5a3b-3bfd-47ca-8bcc-7b488a8ddeb4.png`
-- implementation screenshot path: `/Users/hasimotorion/.codex/visualizations/2026/10/09/01a11ef9-4997-78a2-b845-06093327181c/issue-539-desktop.png`
-- full-view comparison evidence: `/Users/hasimotorion/.codex/visualizations/2026/10/09/01a11ef9-4997-78a2-b845-06093327181c/issue-539-comparison.png`
-- focused region comparison evidence: `/Users/hasimotorion/.codex/visualizations/2026/10/09/01a11ef9-4997-78a2-b845-06093327181c/issue-539-note-comparison.png`
+- implementation screenshot: [PR上の画面資料](https://github.com/engineer-first/idea-boost/pull/585#issuecomment-6096707012)。Storybookのサンプルデータで撮影。
 - viewport: デスクトップ。キャプチャ全体は3024×1722px、ブラウザーの操作欄を除いたアプリ領域は2752×1562px。CSS viewportとブラウザー倍率は未取得。
 - source dimensions: 1487×1058px。生成画像のためCSS寸法・deviceScaleFactorは存在しない。
 - density normalization: 全体比較は両方を幅1000pxに比例縮小して横に配置。付箋の比較はそれぞれの領域を幅400pxに比例縮小。ピクセル単位の一致は評価対象にしていない。
