@@ -170,3 +170,24 @@ it("静止中のカーソルも同じuserIdの改名で表示だけ更新する"
     ),
   ).toEqual([{ ...cursor, name: "現在" }]);
 });
+
+it("旧接続の操作単位cleanupを受信しても新接続のdrag表示を維持する", () => {
+  const cursor: RemoteCursorPresence = {
+    ...update().cursor,
+    draggingNoteId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    lastSeenAt: 1000,
+  };
+  const cleanup: ServerMessage[] = [
+    {
+      type: "notes:move-ended",
+      operationId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    },
+    { type: "adoption-focus:updated", noteId: null },
+  ];
+  const after = cleanup.reduce(
+    (cursors, message) =>
+      applyCursorPresenceMessage(cursors, message, ME, buildPhaseStep(2), 2000),
+    [cursor],
+  );
+  expect(after).toEqual([cursor]);
+});

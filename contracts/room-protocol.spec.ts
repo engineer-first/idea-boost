@@ -23,7 +23,7 @@ import {
   ServerMessageSchema,
   TimerStateSchema,
 } from "./room-protocol";
-import { buildDecision } from "./room-protocol.fixture";
+import { buildDecision, buildNote } from "./room-protocol.fixture";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
@@ -287,6 +287,53 @@ describe("NoteSchema", () => {
 });
 
 describe("ServerMessageSchema", () => {
+  it("note:inserted は作成操作IDを保持し、旧応答と不正なIDを区別する", () => {
+    const note = buildNote({ id: USER_B, authorId: USER_A });
+    expect(
+      ServerMessageSchema.parse({
+        type: "note:inserted",
+        note,
+        operationId: USER_A,
+      }),
+    ).toEqual({ type: "note:inserted", note, operationId: USER_A });
+    expect(ServerMessageSchema.parse({ type: "note:inserted", note })).toEqual({
+      type: "note:inserted",
+      note,
+    });
+    expect(
+      ServerMessageSchema.safeParse({
+        type: "note:inserted",
+        note,
+        operationId: "not-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("snapshot は作成相関対応を宣言でき、省略された旧Workerも受け入れる", () => {
+    const snapshot = {
+      type: "snapshot",
+      notes: [],
+      members: [],
+      phase: LOBBY,
+      isHost: false,
+      decision: null,
+      carryovers: [],
+      completedVoterIds: [],
+      timer: { status: "idle" },
+      serverNow: 1_700_000_000_000,
+    };
+    expect(ServerMessageSchema.safeParse(snapshot).success).toBe(true);
+    expect(
+      ServerMessageSchema.parse({ ...snapshot, noteCreateProtocolVersion: 1 }),
+    ).toHaveProperty("noteCreateProtocolVersion", 1);
+    expect(
+      ServerMessageSchema.safeParse({
+        ...snapshot,
+        noteCreateProtocolVersion: 2,
+      }).success,
+    ).toBe(false);
+  });
+
   it("2軸マップの段階と匿名のドラッグ状態だけを受け入れる", () => {
     const snapshot = ServerMessageSchema.parse({
       type: "snapshot",
@@ -703,6 +750,32 @@ describe("ServerMessageSchema", () => {
 });
 
 describe("ClientMessageSchema", () => {
+  it("note:create は本文と省略可能な作成操作IDを受け入れる", () => {
+    expect(ClientMessageSchema.parse({ type: "note:create" })).toEqual({
+      type: "note:create",
+    });
+    expect(
+      ClientMessageSchema.parse({
+        type: "note:create",
+        content: "",
+        operationId: USER_A,
+      }),
+    ).toEqual({ type: "note:create", content: "", operationId: USER_A });
+  });
+
+  it("note:create は不正な操作IDと作者・ルームIDを拒否する", () => {
+    for (const extra of [
+      { operationId: "not-uuid" },
+      { authorId: USER_B },
+      { roomId: USER_B },
+    ]) {
+      expect(
+        ClientMessageSchema.safeParse({ type: "note:create", ...extra })
+          .success,
+      ).toBe(false);
+    }
+  });
+
   it("note:update-font-size は付箋ID・12〜24pxの整数・操作IDだけを受け入れる", () => {
     const noteId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
     const operationId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";

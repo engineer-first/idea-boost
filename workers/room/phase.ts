@@ -24,6 +24,7 @@ import {
   type HandlerCtx,
   type MessageHandlers,
   replyForbidden,
+  runAuthorizedMutationTransaction,
 } from "./handler-context";
 import { getHostState, isCurrentHost, isHostUser, isMember } from "./members";
 import {
@@ -35,7 +36,7 @@ import {
 } from "./notes";
 import { recordProgressTransition } from "./progress-history";
 import { resetSharingForPhase } from "./sharing-state";
-import { resetTimerState } from "./timer";
+import { getTimerState, resetTimerState, saveTimerState } from "./timer";
 import { deleteNoteVotes, haveAllMembersCompletedVoting } from "./votes";
 
 export function getPhase(sql: SqlStorage): RoomPhase {
@@ -119,15 +120,14 @@ async function deferEditableTransition(
   }
   const deadlineAt = Date.now() + 2_000;
   const transitionId = crypto.randomUUID();
-  let reserved = false;
-  await ctx.storage.transaction(async () => {
+  const reserved = await runAuthorizedMutationTransaction(ctx, async () => {
     if (
       !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
       isRoomClosed(ctx.sql) ||
       !matchesExpectedPhase(ctx, message)
     ) {
       replyForbidden(ctx);
-      return;
+      return false;
     }
     ctx.sql.exec(
       "INSERT INTO pending_phase_transition (id, transition_id, requested_by, action, expected_phase, expected_revision, force, deadline_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -140,7 +140,7 @@ async function deferEditableTransition(
       deadlineAt,
     );
     await syncRoomAlarm(ctx.storage, ctx.sql);
-    reserved = true;
+    return true;
   });
   if (!reserved) return true;
   ctx.broadcaster.broadcastToAll({
@@ -173,7 +173,12 @@ export async function completeExpiredPhaseTransition(
   }
   // host:transferはこの予約がある間拒否されるため、予約中にホスト世代は変わらない。
   // 通常WSと同じ世代ガードを通し、新ホストが作った予約も正しく実行する。
-  const deferredCtx = { ...ctx, userId: row.requested_by, reply: () => {} };
+  const deferredCtx = {
+    ...ctx,
+    userId: row.requested_by,
+    authorizeMutation: undefined,
+    reply: () => {},
+  };
   if (row.action === "next") {
     await phaseHandlers["phase:next"](deferredCtx, {
       type: "phase:next",
@@ -738,15 +743,14 @@ export const phaseHandlers: MessageHandlers<
     let discardedEmptySharedNotes = false;
     // 付箋の掃除・遷移・タイマー停止を同じストレージトランザクションで
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
-    let committed = false;
-    await ctx.storage.transaction(async () => {
+    const committed = await runAuthorizedMutationTransaction(ctx, async () => {
       if (
         !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
         isRoomClosed(ctx.sql) ||
         !matchesExpectedPhase(ctx, message)
       ) {
         replyForbidden(ctx);
-        return;
+        return false;
       }
       recordProgressTransition(ctx.sql, current, next, "next");
       discardedEmptySharedNotes = discardEmptySharedNotes(
@@ -805,8 +809,21 @@ export const phaseHandlers: MessageHandlers<
         clearUsedNoteDragIds(ctx.sql);
       }
       timerWasReset = resetTimerState(ctx.sql);
+      if (
+        next.kind === "step" &&
+        next.step === 3 &&
+        (next.phase === 1 || next.phase === 3)
+      ) {
+        const durationMs = next.phase === 1 ? 240_000 : 420_000;
+        saveTimerState(ctx.sql, {
+          status: "running",
+          durationMs,
+          endsAt: Date.now() + durationMs,
+        });
+        timerWasReset = true;
+      }
       await syncRoomAlarm(ctx.storage, ctx.sql);
-      committed = true;
+      return true;
     });
     if (!committed) return;
     ctx.broadcaster.retireAllActiveDrags();
@@ -826,7 +843,7 @@ export const phaseHandlers: MessageHandlers<
     } else if (timerWasReset) {
       ctx.broadcaster.broadcastToAll({
         type: "timer:updated",
-        timer: { status: "idle" },
+        timer: getTimerState(ctx.sql),
         serverNow: Date.now(),
       });
     }
@@ -895,7 +912,8 @@ async function restartPhase(
     replyForbidden(ctx);
     return;
   }
-  ctx.storage.transactionSync(() => {
+  const committed = ctx.storage.transactionSync(() => {
+    if (ctx.authorizeMutation?.() === false) return false;
     recordProgressTransition(
       ctx.sql,
       current,
@@ -916,7 +934,12 @@ async function restartPhase(
     ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
     resetSharingForPhase(ctx.sql, next);
     resetTimerState(ctx.sql);
+    return true;
   });
+  if (!committed) {
+    ctx.broadcaster.authorize(ctx.ws);
+    return;
+  }
   ctx.broadcaster.retireAllActiveDrags();
   ctx.broadcaster.retireAllAdoptionFocus();
   // 共有の交代待機中はtimerがidleでも開始予約がある。

@@ -53,6 +53,21 @@ function clickNote(clientX = 10, clientY = 10) {
 }
 
 describe("NoteCard", () => {
+  it("本文から別の操作へfocusを移した後に、編集終了で付箋へfocusを戻さない", () => {
+    setup({ isSelected: true });
+    fireEvent.keyDown(getNoteSurface(), { key: "Enter" });
+    expect(screen.getByRole("textbox")).toHaveFocus();
+    const other = document.createElement("button");
+    document.body.append(other);
+    try {
+      act(() => other.focus());
+      expect(other).toHaveFocus();
+      expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+    } finally {
+      other.remove();
+    }
+  });
+
   it("DOM移動でblurが届かなくても別付箋へのfocusで古い一時表示を残さない", () => {
     const { props, view } = setup({ isSelected: true, canExcludeNote: true });
     const action = screen.getByRole("button", { name: "候補から外す" });
@@ -1654,4 +1669,34 @@ it("AT-004: composition中のEscapeはisComposing通知なしでも本文編集�
   fireEvent.compositionStart(editor);
   fireEvent.keyDown(editor, { key: "Escape" });
   expect(editor).not.toHaveAttribute("readonly");
+});
+
+it("IMEのblur後に予約した保存は、実行前に共有操作が停止したら下書きを変更しない", () => {
+  vi.useFakeTimers();
+  try {
+    const onDraftChange = vi.fn();
+    const onDraftCompositionEnd = vi.fn();
+    const { props, view } = setup({
+      isSelected: true,
+      onDraftChange,
+      onDraftCompositionEnd,
+    });
+    clickNote();
+    const editor = screen.getByRole("textbox");
+    fireEvent.compositionStart(editor);
+    fireEvent.change(editor, { target: { value: "回収する変換入力" } });
+    fireEvent.blur(editor);
+    fireEvent.compositionEnd(editor);
+    expect(onDraftCompositionEnd).toHaveBeenCalledWith(
+      "note-1",
+      "回収する変換入力",
+    );
+    onDraftChange.mockClear();
+    view.rerender(<NoteCard {...props} disabled />);
+    act(() => vi.runAllTimers());
+    expect(onDraftChange).not.toHaveBeenCalled();
+    expect(props.onContentChange).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
 });

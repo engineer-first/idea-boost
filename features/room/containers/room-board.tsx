@@ -28,6 +28,7 @@ import {
 } from "@/features/notes";
 import { notify } from "@/lib/notify";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
+import { getBoardPermissions } from "../logic/board-permissions";
 import { roomNotify } from "../logic/room-notify";
 import type { Member } from "../logic/room-reducer";
 import { useBoardHelp } from "../logic/use-board-help";
@@ -100,6 +101,7 @@ export function RoomBoard({
     connectionStatus,
     connectionDelayed,
     send: sendRaw,
+    resynchronize,
   } = useRoomConnection({
     roomId,
     currentUserId,
@@ -153,7 +155,25 @@ export function RoomBoard({
     send,
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
-  const notes = useRoomNotes({ send });
+  const handleUnknownNoteCreation = useCallback((): void => {
+    notify.error("付箋を追加できたか確認できません。接続を確認しています。");
+    resynchronize();
+  }, [resynchronize]);
+  const notes = useRoomNotes({
+    send,
+    connected: connectionStatus === "open",
+    canCreateNote:
+      getBoardPermissions(roomState.phase, roomState.decision !== null)
+        .canCreateNote &&
+      !isNextPhasePending &&
+      !isLeaving &&
+      !roomState.outcomePublished,
+    onNoteCreationUnknown: handleUnknownNoteCreation,
+  });
+  useEffect(() => {
+    if (notes.noteCreationFailure)
+      notify.error(notes.noteCreationFailure.message);
+  }, [notes.noteCreationFailure]);
   const moveHistory = useMoveHistory({
     send,
     notes: notes.notes,
@@ -446,7 +466,7 @@ export function RoomBoard({
   // addNote(content?) を直接配線するとイベントオブジェクトが content に
   // 流れ込む。引数なし版とテンプレート版を別コールバックに分けて形で塞ぐ。
   const { addNote } = notes;
-  const handleAddPrivateNote = useCallback(() => addNote(), [addNote]);
+  const handleAddPrivateNote = notes.requestAddNote;
   const handleHmwTemplateSelect = useCallback(
     (content: string) => addNote(content),
     [addNote],
@@ -518,6 +538,7 @@ export function RoomBoard({
     draggingNoteId: notes.draggingNoteId,
     phase: roomState.phase,
     ideaMapSizeLevel: roomState.ideaMap.sizeLevel,
+    sharing: roomState.sharing,
     ideaMapSizeInitialized: roomState.ideaMap.initialized,
     onNoteDragStart: notes.startNoteDrag,
     onNoteDragMove: notes.moveNote,
@@ -559,6 +580,7 @@ export function RoomBoard({
         onConfirm={handleForceNextPhase}
       />
       <RoomBoardView
+        loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
           undo: moveHistory.undoState,
           redo: moveHistory.redoState,
@@ -576,6 +598,16 @@ export function RoomBoard({
         groups={noteGroups.groups}
         hmwDecidedIssue={hmwDecidedIssue}
         decidedHmw={decidedHmw}
+        issueReference={
+          currentPhase === 2 || currentPhase === 3
+            ? (roomState.carryovers.find((item) => item.phase === 1) ?? null)
+            : null
+        }
+        hmwReference={
+          currentPhase === 3
+            ? (roomState.carryovers.find((item) => item.phase === 2) ?? null)
+            : null
+        }
         inviteCode={inviteCode}
         inviteUrl={inviteUrl}
         phase={roomState.phase}
@@ -634,6 +666,9 @@ export function RoomBoard({
         pendingVoteOperations={notes.pendingVoteOperations}
         voteFeedback={notes.voteFeedback}
         onAddPrivateNote={handleAddPrivateNote}
+        noteCreationPending={notes.noteCreationPending}
+        noteCreationSupported={notes.noteCreationSupported}
+        noteCreationReceipt={notes.noteCreationReceipt ?? undefined}
         onHmwTemplateSelect={handleHmwTemplateSelect}
         onIdeaHintSelect={handleIdeaHintSelect}
         onPrivateNoteContentChange={drafts.blur}

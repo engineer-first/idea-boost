@@ -26,12 +26,13 @@ import {
   isVotingStep,
   type RoomPhase,
 } from "@/contracts/phase";
-import type { SharingState } from "@/contracts/room-protocol";
+import type { Carryover, SharingState } from "@/contracts/room-protocol";
 import {
   DOT_VOTE_LIMITS,
   type DotVoteKind,
   type TimerState,
 } from "@/contracts/room-protocol";
+import { canPublishNoteInTurn } from "@/contracts/sharing";
 import { DotVotePalette, DotVoteSticker } from "@/features/dot-vote";
 import {
   type FeedbackControls,
@@ -179,6 +180,7 @@ export type RoomBoardViewProps = {
   draggingNoteId: string | null;
   members: Member[];
   authorNames?: ReadonlyMap<string, string>;
+  loginReturnHref?: string;
   currentUserId: string;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
@@ -194,7 +196,12 @@ export type RoomBoardViewProps = {
   // 解決（carryovers からの取り出し）はコンテナの責務。null なら非表示。
   hmwDecidedIssue: string | null;
   decidedHmw: string | null;
-  onAddPrivateNote: () => void;
+  issueReference?: Carryover | null;
+  hmwReference?: Carryover | null;
+  onAddPrivateNote: () => string | null;
+  noteCreationPending?: boolean;
+  noteCreationReceipt?: { operationId: string; noteId: string };
+  noteCreationSupported?: boolean;
   // Step 2-1 でテンプレート・具体例を起点に付箋を作る。
   onHmwTemplateSelect: (content: string) => void;
   onIdeaHintSelect: (content: string) => void;
@@ -301,6 +308,7 @@ export function RoomBoardView({
   draggingNoteId,
   members,
   authorNames,
+  loginReturnHref,
   currentUserId,
   hostUserId,
   completedVoterIds = [],
@@ -311,7 +319,12 @@ export function RoomBoardView({
   signOutAction,
   hmwDecidedIssue,
   decidedHmw,
+  issueReference,
+  hmwReference,
   onAddPrivateNote,
+  noteCreationPending = false,
+  noteCreationReceipt,
+  noteCreationSupported = true,
   onHmwTemplateSelect,
   onIdeaHintSelect,
   onPrivateNoteContentChange,
@@ -393,6 +406,8 @@ export function RoomBoardView({
   const [adoptHostRevision, setAdoptHostRevision] = useState(hostRevision);
   const isAdoptMode = isAdoptRequested && adoptHostRevision === hostRevision;
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
+  const privateNoteAddRef = useRef<(() => void) | null>(null);
+  const composingRef = useRef(false);
   const [leaveDialogRevision, setLeaveDialogRevision] = useState<number | null>(
     null,
   );
@@ -1205,9 +1220,10 @@ export function RoomBoardView({
   // mobileはHUDの実高を使って積む。fit用の占有領域・desktopの配置はそのまま保つ。
   useEffect(() => {
     const root = boardRootRef.current;
-    if (!root || !hasMoveHistory) return;
+    if (!root) return;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
+      ["board-operation-matrix", "--board-operation-height"],
       ["phase-loop-hud", "--board-phase-hud-height"],
       ["idea-map-size-controls-hud", "--board-map-hud-height"],
       ["vote-palette-hud", "--board-vote-hud-height"],
@@ -1245,7 +1261,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, hasMoveHistory, phase]);
+  }, [boardRootRef, phase]);
 
   // 通知はボードの外の portal に描画される。実際の占有高だけ HUD に渡し、
   // 通知の寿命・Undo・camera・共有状態は変えない。
@@ -1399,19 +1415,24 @@ export function RoomBoardView({
         style={
           {
             // トレイの操作欄を含む総高を、上部パネルの予約にも使う。
-            // 低い画面では上部に16.5remを残し、各一覧内でスクロールする。
+            // 接続案内が長いときも、その下の現在地1行と余白を残す。
+            "--board-operation-bottom":
+              "calc(0.75rem + var(--board-notification-inset, 0px) + var(--board-tools-height, 48px) + 0.5rem)",
             "--board-mobile-controls-bottom":
-              "calc(0.75rem + var(--board-notification-inset, 0px) + var(--board-tools-height, 0px) + 0.5rem)",
+              "calc(var(--board-operation-bottom) + var(--board-operation-height, 62px) + 0.5rem)",
             "--board-mobile-header-bottom":
               "calc(var(--board-private-dock-bottom) + var(--board-private-toolbar-height, 0px) + 0.75rem)",
             "--board-mobile-phase-bottom":
               "calc(var(--board-mobile-controls-bottom) + var(--board-map-hud-height, 0px) + var(--board-vote-hud-height, 0px) + 0.5rem)",
-            "--board-private-dock-bottom": hasMoveHistory
-              ? "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)"
-              : `calc(${isHost && phase.kind === "step" && phase.step === 2 ? "11.5rem" : "7.5rem"} + var(--board-notification-inset, 0px))`,
+            "--board-private-dock-bottom":
+              "calc(var(--board-mobile-phase-bottom) + var(--board-phase-hud-height, 0px) + 0.5rem)",
+            "--board-private-dock-top":
+              "max(16.5rem, calc(var(--board-connection-notice-bottom, 0px) + 3.5rem))",
             "--board-private-dock-height": hasMoveHistory
-              ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))"
-              : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))",
+              ? "min(20rem, max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))"
+              : connectionStatus === "open"
+                ? "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)))"
+                : "min(20rem, max(10rem, calc(100dvh - var(--board-private-dock-bottom) - 16.5rem)), max(0px, calc(100dvh - var(--board-private-dock-bottom) - var(--board-private-dock-top))))",
           } as CSSProperties
         }
         className={`group/board relative flex h-full min-h-0 flex-col overflow-hidden ${
@@ -1534,8 +1555,64 @@ export function RoomBoardView({
             cancelRootPress();
         }}
         onClickCapture={handleRootClickCapture}
+        onCompositionStartCapture={() => {
+          composingRef.current = true;
+        }}
+        onCompositionEndCapture={() => {
+          composingRef.current = false;
+        }}
         onKeyDownCapture={(event) => {
           const target = event.target;
+          const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+          if (
+            event.key === "Enter" &&
+            (isMac
+              ? event.metaKey && !event.ctrlKey
+              : event.ctrlKey && !event.metaKey) &&
+            !event.altKey &&
+            !event.shiftKey &&
+            !event.defaultPrevented &&
+            !event.nativeEvent.isComposing &&
+            event.keyCode !== 229 &&
+            !composingRef.current &&
+            target instanceof HTMLElement
+          ) {
+            const inPrivateToolbar =
+              target.closest('[data-testid="private-notes-toolbar"]') !== null;
+            const isPrivateSurface =
+              inPrivateToolbar && target.dataset.canvasNoteSurface === "true";
+            const isPrivateEditor =
+              inPrivateToolbar &&
+              target instanceof HTMLTextAreaElement &&
+              !target.readOnly;
+            const isBackground =
+              target === interactions.boardScrollerRef.current ||
+              target.dataset.canvasBackground === "true";
+            if (
+              (isBackground || isPrivateSurface || isPrivateEditor) &&
+              !target.closest(
+                '[data-board-native-control], [role="menu"], [role="dialog"]',
+              )
+            ) {
+              // 追加できない間も、同じキーでsurfaceのclickや本文の改行を合成しない。
+              event.preventDefault();
+              event.stopPropagation();
+              if (
+                !event.repeat &&
+                !isDisconnected &&
+                shouldExpandPrivateNotes &&
+                permissions.canCreateNote &&
+                noteCreationSupported &&
+                !noteCreationPending &&
+                !hasActiveCanvasGesture() &&
+                !document.querySelector(
+                  '[role="dialog"], [role="alertdialog"], [role="menu"], dialog[open], details[open]',
+                )
+              )
+                privateNoteAddRef.current?.();
+              return;
+            }
+          }
           if (
             moveHistory &&
             target instanceof HTMLElement &&
@@ -1609,20 +1686,24 @@ export function RoomBoardView({
         onPointerLeave={() => setVoteStampPointer(null)}
       >
         <RoomBoardHeader
+          loginReturnHref={loginReturnHref}
           onEditSelf={displayName?.request}
           hasMoveHistory={hasMoveHistory}
           onOpenFeedback={
             feedback
-              ? () =>
+              ? (returnFocusTo) =>
                   feedback.open(
                     phase.kind === "step"
                       ? `${phase.phase}-${phase.step}`
                       : "unknown",
+                    returnFocusTo,
                   )
               : undefined
           }
           hmwDecidedIssue={hmwDecidedIssue}
           decidedHmw={decidedHmw}
+          issueReference={issueReference}
+          hmwReference={hmwReference}
           inviteCode={inviteCode}
           inviteUrl={inviteUrl}
           phase={phase}
@@ -1708,7 +1789,17 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
+          canPublishPrivateNote={canPublishNoteInTurn(
+            phase,
+            sharing,
+            currentUserId,
+          )}
           expandPrivateNotesRequest={expandPrivateNotesRequest}
+          privateNoteAddRef={privateNoteAddRef}
+          noteCreationPending={noteCreationPending}
+          noteCreationReceipt={noteCreationReceipt}
+          noteCreationSupported={noteCreationSupported}
+          noteCreationFocusContext={`${phaseKey}:${phaseRevision ?? ""}`}
           selectedNoteId={selectedNoteId}
           selectedNoteIds={selectedNoteIds}
           interactionTool={interactionTool}
@@ -1821,7 +1912,7 @@ export function RoomBoardView({
 
         {isVotingStep(phase) ? (
           <div
-            className={`pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center max-[639px]:justify-center ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-controls-bottom)]" : "max-[639px]:bottom-[7.5rem]"}`}
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-end lg:justify-center min-[640px]:max-[1023px]:bottom-[calc(5.25rem+var(--board-notification-inset,0px))] max-[639px]:justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)]"
             data-testid="vote-palette-hud"
             data-board-fit-edge="bottom"
           >
@@ -1839,7 +1930,7 @@ export function RoomBoardView({
         ) : null}
 
         <div
-          className={`pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-phase-bottom)]" : "max-[639px]:bottom-[7.5rem]"}`}
+          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
           data-testid="phase-loop-hud"
           data-board-fit-edge="bottom"
         >

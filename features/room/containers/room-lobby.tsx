@@ -1,5 +1,9 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { isLobby, type RoomPhase } from "@/contracts/phase";
+import type { ServerMessage } from "@/contracts/room-protocol";
 // スタート画面（ロビー）のコンテナ。関心ごとの hook を束ねて view に渡す。
 //   - WebSocket 接続と切断時の遷移: use-room-connection
 //   - members / phase の適用と入退出通知: use-room-state
@@ -7,10 +11,15 @@
 // このファイルに残るのは「ホスト判定付きの start_phase 送信」と
 // 「phase が lobby を離れたらボードへ遷移する」というロビー固有の配線だけ。
 // ノートは扱わない。
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { isLobby, type RoomPhase } from "@/contracts/phase";
-import type { ServerMessage } from "@/contracts/room-protocol";
+import {
+  bindRoomEntryContinuation,
+  RoomAdmissionContext,
+} from "@/features/auth";
+import { notify } from "@/lib/notify";
+import {
+  getRoomEntryTabId,
+  rememberPendingRoomEntry,
+} from "@/lib/room-client/entry-tab-storage";
 import type { RoomSocketFactory } from "@/lib/room-client/room-client";
 import type { Member } from "../logic/room-reducer";
 import { useLeaveRoom } from "../logic/use-leave-room";
@@ -24,6 +33,7 @@ export type RoomLobbyProps = {
   roomId: string;
   // 呼び出し元が指定したボードへの遷移先。未指定なら通常のルームURL。
   boardHref?: string;
+  entryAdmission?: string;
   inviteCode: string;
   inviteUrl: string;
   currentUserId: string;
@@ -39,6 +49,7 @@ export type RoomLobbyProps = {
 export function RoomLobby({
   roomId,
   boardHref,
+  entryAdmission,
   inviteCode,
   inviteUrl,
   currentUserId,
@@ -49,6 +60,12 @@ export function RoomLobby({
   webSocketFactory,
 }: RoomLobbyProps) {
   const router = useRouter();
+  const inheritedAdmission = useContext(RoomAdmissionContext);
+  const admission = entryAdmission ?? inheritedAdmission;
+  const boardEntryRequest = useRef<{
+    admission: string;
+    request: Promise<string | null>;
+  } | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isTransferring, setIsTransferring] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
@@ -107,10 +124,48 @@ export function RoomLobby({
   // 既にボード工程ならボードへ直行（SSR でも redirect しているが、state 初期値が
   // 古い場合のリカバリとしても機能する）。
   useEffect(() => {
+    let active = true;
     if (!isLobby(roomState.phase)) {
-      router.replace(boardHref ?? `/rooms/${roomId}`);
+      const href = boardHref ?? `/rooms/${roomId}`;
+      if (!admission) {
+        router.replace(href);
+        return;
+      }
+      const continuationAdmission = admission;
+      if (boardEntryRequest.current?.admission !== continuationAdmission) {
+        boardEntryRequest.current = {
+          admission: continuationAdmission,
+          request: bindRoomEntryContinuation(
+            continuationAdmission,
+            roomId,
+            getRoomEntryTabId(),
+          ),
+        };
+      }
+      void boardEntryRequest.current.request
+        .then((token) => {
+          if (!active) return;
+          if (token) {
+            rememberPendingRoomEntry(token);
+            router.replace(
+              `${href}${href.includes("?") ? "&" : "?"}entry=${encodeURIComponent(token)}`,
+            );
+          } else {
+            notify.error("入室を確認し直しています。");
+            router.replace(href);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            notify.error("入室を確認し直しています。");
+            router.replace(href);
+          }
+        });
     }
-  }, [roomState.phase, roomId, boardHref, router]);
+    return () => {
+      active = false;
+    };
+  }, [roomState.phase, roomId, boardHref, admission, router]);
 
   function finishTransfer(error: string | null = null) {
     transferringRef.current = false;
@@ -198,6 +253,7 @@ export function RoomLobby({
 
   return (
     <RoomLobbyView
+      loginReturnHref={`/rooms/${roomId}`}
       key={`${hostUserId}:${roomState.host.hostRevision ?? 0}`}
       displayName={displayName}
       memberRemoval={memberRemoval}

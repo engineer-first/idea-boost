@@ -131,13 +131,16 @@ for (const width of [390, 1280]) {
       await page.screenshot({ path: `${output}/after-phase-2-1-${width}.png` });
       await open(page, "room-roomboardlayout--phase-3-step-1");
       const help = page.getByTestId("board-help-panel");
-      await help.waitFor();
       await page
         .getByRole("region", { name: "ファシリテーションガイド" })
         .press("Escape");
+      await help.waitFor();
       await page.screenshot({
         path: `${output}/after-phase-3-1-initial-${width}.png`,
       });
+      if (width < 640) {
+        await help.getByRole("button", { name: "考えるヒントを開く" }).click();
+      }
       const template = help.getByRole("button", {
         name: "もっと簡単に",
         exact: true,

@@ -10,6 +10,12 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getNoteHeight, NOTE_HEIGHT, NOTE_WIDTH } from "@/contracts/board";
 import { cn } from "@/lib/utils";
 import type { Note } from "../logic/notes-reducer";
@@ -28,13 +34,18 @@ export type PrivateNotesToolbarProps = {
   canCreateNote: boolean;
   canDeleteNote: boolean;
   canMoveNote: boolean;
+  sharingHint?: string;
   presentation?: "dock" | "workspace";
   defaultExpanded?: boolean;
   expandRequest?: number;
   addRequest?: number;
+  addActionRef?: React.RefObject<(() => void) | null>;
+  noteCreationPending?: boolean;
+  noteCreationReceipt?: { operationId: string; noteId: string };
+  noteCreationFocusContext?: string;
   dropPlaceholder?: { noteId: string };
   onSelect: (noteId: string | null) => void;
-  onAdd: () => void;
+  onAdd: () => string | null;
   onContentChange: (noteId: string, content: string) => void;
   draftValue?: (noteId: string) => string | undefined;
   onDraftChange?: (noteId: string, content: string) => void;
@@ -59,11 +70,16 @@ export function PrivateNotesToolbar({
   canCreateNote,
   canDeleteNote,
   canMoveNote,
-  canEditNote,
+  sharingHint,
   presentation = "dock",
+  canEditNote,
   defaultExpanded = true,
   expandRequest = 0,
   addRequest = 0,
+  addActionRef,
+  noteCreationPending = false,
+  noteCreationReceipt,
+  noteCreationFocusContext,
   dropPlaceholder,
   onSelect,
   onAdd,
@@ -79,7 +95,12 @@ export function PrivateNotesToolbar({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [autoFocusNoteId, setAutoFocusNoteId] = useState<string | null>(null);
   const [newlyAddedNoteId, setNewlyAddedNoteId] = useState<string | null>(null);
-  const noteIdsBeforeAddRef = useRef<Set<string> | null>(null);
+  const pendingCreationFocusRef = useRef<{
+    operationId: string;
+    generation: number;
+    context: string | undefined;
+  } | null>(null);
+  const interactionGenerationRef = useRef(0);
   const lastAddRequestRef = useRef(0);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const pendingDeleteFocusRef = useRef<{
@@ -93,32 +114,116 @@ export function PrivateNotesToolbar({
   const noteAnimationsRef = useRef(new Map<HTMLElement, Animation>());
   const noteOrderKey = JSON.stringify(notes.map((note) => note.id));
   const handleAdd = useCallback(() => {
-    if (disabled || !canCreateNote) return;
-    noteIdsBeforeAddRef.current = new Set(notes.map((note) => note.id));
+    if (disabled || !canCreateNote || noteCreationPending) return;
+    const editor = document.activeElement;
+    if (
+      editor instanceof HTMLTextAreaElement &&
+      !editor.readOnly &&
+      scrollContainerRef.current?.contains(editor)
+    ) {
+      const noteId =
+        editor.closest<HTMLElement>("[data-note-id]")?.dataset.noteId;
+      if (noteId) onContentChange(noteId, editor.value);
+    }
+    const operationId = onAdd();
+    if (!operationId) return;
+    pendingCreationFocusRef.current = {
+      operationId,
+      generation: interactionGenerationRef.current,
+      context: noteCreationFocusContext,
+    };
     setIsExpanded(true);
-    onAdd();
-  }, [disabled, canCreateNote, notes, onAdd]);
+  }, [
+    disabled,
+    canCreateNote,
+    noteCreationPending,
+    noteCreationFocusContext,
+    onAdd,
+    onContentChange,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!addActionRef) return;
+    addActionRef.current = handleAdd;
+    return () => {
+      if (addActionRef.current === handleAdd) addActionRef.current = null;
+    };
+  }, [addActionRef, handleAdd]);
 
   useEffect(() => {
-    const noteIdsBeforeAdd = noteIdsBeforeAddRef.current;
-    if (!noteIdsBeforeAdd) return;
+    const invalidateFocus = (event?: Event) => {
+      if (
+        event instanceof FocusEvent &&
+        event.type === "focusout" &&
+        event.target === addButtonRef.current &&
+        addButtonRef.current?.disabled &&
+        event.relatedTarget === null
+      ) {
+        // 作成待ちで＋を無効化した結果のblurは、本人が別の操作へ移った合図にしない。
+        return;
+      }
+      interactionGenerationRef.current += 1;
+    };
+    const invalidateForKey = (event: KeyboardEvent) => {
+      if (event.key === "Tab" || event.key === "Escape") invalidateFocus();
+    };
+    const events = [
+      "input",
+      "change",
+      "compositionstart",
+      "focusin",
+      "focusout",
+      "pointerdown",
+    ] as const;
+    for (const name of events)
+      document.addEventListener(name, invalidateFocus, true);
+    document.addEventListener("keydown", invalidateForKey, true);
+    window.addEventListener("blur", invalidateFocus);
+    return () => {
+      for (const name of events)
+        document.removeEventListener(name, invalidateFocus, true);
+      document.removeEventListener("keydown", invalidateForKey, true);
+      window.removeEventListener("blur", invalidateFocus);
+    };
+  }, []);
 
-    const insertedNote = notes.find((note) => !noteIdsBeforeAdd.has(note.id));
+  useEffect(() => {
+    const pending = pendingCreationFocusRef.current;
+    if (!pending || pending.operationId !== noteCreationReceipt?.operationId)
+      return;
+    const insertedNote = notes.find(
+      (note) => note.id === noteCreationReceipt.noteId,
+    );
     if (!insertedNote) return;
-
-    noteIdsBeforeAddRef.current = null;
-    // 追加応答を待つ間に別の下書きへ戻った場合は、その入力を優先する。
-    const activeEditor = document.activeElement;
+    pendingCreationFocusRef.current = null;
     if (
-      activeEditor instanceof HTMLTextAreaElement &&
-      !activeEditor.readOnly &&
-      scrollContainerRef.current?.contains(activeEditor)
+      pending.generation !== interactionGenerationRef.current ||
+      pending.context !== noteCreationFocusContext ||
+      disabled ||
+      !canCreateNote ||
+      editingDisabled ||
+      document.querySelector(
+        '[role="dialog"], [role="alertdialog"], [role="menu"], dialog[open], details[open]',
+      )
     )
       return;
     setAutoFocusNoteId(insertedNote.id);
     setNewlyAddedNoteId(insertedNote.id);
     onSelect(insertedNote.id);
-  }, [notes, onSelect]);
+  }, [
+    notes,
+    noteCreationReceipt,
+    noteCreationFocusContext,
+    disabled,
+    canCreateNote,
+    editingDisabled,
+    onSelect,
+  ]);
+
+  useEffect(() => {
+    if (disabled || !canCreateNote || editingDisabled)
+      pendingCreationFocusRef.current = null;
+  }, [disabled, canCreateNote, editingDisabled]);
 
   useEffect(() => {
     if (!newlyAddedNoteId) return;
@@ -232,13 +337,13 @@ export function PrivateNotesToolbar({
     <Card
       ref={toolbarRef}
       className={cn(
-        "flex overflow-hidden transition-[box-shadow,background-color] duration-150",
+        "flex max-w-full flex-col overflow-hidden transition-[box-shadow,background-color] duration-150",
         isReturnDropTarget && "bg-primary/5 ring-2 ring-primary/40",
         isWorkspace
-          ? "h-full w-full max-w-7xl flex-col rounded-none border-0 bg-transparent shadow-none"
+          ? "h-full w-full max-w-7xl rounded-none border-0 bg-transparent shadow-none"
           : isExpanded
-            ? "h-[min(48rem,calc(100vh-6rem))] w-[min(15rem,calc(100vw-1.5rem))] flex-col"
-            : "h-14 w-fit max-w-full flex-col",
+            ? "h-[min(48rem,calc(100vh-6rem))] w-[min(15rem,calc(100vw-1.5rem))]"
+            : "h-14 w-fit",
         className,
       )}
       data-testid="private-notes-toolbar"
@@ -283,10 +388,29 @@ export function PrivateNotesToolbar({
               この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
             </p>
           ) : (
-            <p className="mb-3 text-xs text-muted-foreground">
-              自分だけに見える付箋エリア
-            </p>
+            <>
+              <p
+                className={cn(
+                  "text-xs text-muted-foreground",
+                  canCreateNote ? "mb-1" : "mb-3",
+                )}
+              >
+                自分だけに見える付箋エリア
+              </p>
+              {canCreateNote ? (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  （付箋追加ショートカットキー：
+                  <br />
+                  Macは⌘＋Enter、Windows等はCtrl＋Enter）
+                </p>
+              ) : null}
+            </>
           )}
+          {!isWorkspace && sharingHint ? (
+            <p role="status" className="mb-3 text-xs text-muted-foreground">
+              {sharingHint}
+            </p>
+          ) : null}
           <div
             ref={listRef}
             className={cn(
@@ -297,7 +421,7 @@ export function PrivateNotesToolbar({
             )}
             data-testid="private-notes-list"
           >
-            {!isWorkspace && notes.length === 0 ? (
+            {notes.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 個人付箋はまだありません
               </p>
@@ -354,6 +478,7 @@ export function PrivateNotesToolbar({
                   onAutoFocusEditorComplete={() => setAutoFocusNoteId(null)}
                   className={cn(
                     "relative",
+                    isWorkspace && "w-[200px]",
                     newlyAddedNoteId === note.id &&
                       "animate-in fade-in slide-in-from-bottom-2 duration-200",
                   )}
@@ -364,7 +489,7 @@ export function PrivateNotesToolbar({
               <Button
                 type="button"
                 variant="outline"
-                disabled={disabled || !canCreateNote}
+                disabled={disabled || !canCreateNote || noteCreationPending}
                 ref={addButtonRef}
                 aria-label="付箋を追加"
                 onClick={handleAdd}
@@ -386,10 +511,7 @@ export function PrivateNotesToolbar({
           )}
         >
           <div
-            className={cn(
-              "flex items-center gap-2",
-              isExpanded ? "w-full justify-between" : "w-fit justify-start",
-            )}
+            className="flex w-full items-center justify-between gap-2"
             data-testid="private-notes-controls"
           >
             <div className="min-w-0">
@@ -398,16 +520,27 @@ export function PrivateNotesToolbar({
               </CardTitle>
             </div>
             <div className="flex w-fit shrink-0 items-center gap-2">
-              <Button
-                type="button"
-                size="icon-sm"
-                disabled={disabled || !canCreateNote}
-                ref={addButtonRef}
-                aria-label="付箋を追加"
-                onClick={handleAdd}
-              >
-                <Plus aria-hidden="true" />
-              </Button>
+              <TooltipProvider delayDuration={500}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon-sm"
+                      disabled={
+                        disabled || !canCreateNote || noteCreationPending
+                      }
+                      ref={addButtonRef}
+                      aria-label="付箋を追加"
+                      onClick={handleAdd}
+                    >
+                      <Plus aria-hidden="true" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    付箋を追加（Macは⌘＋Enter、Windows等はCtrl＋Enter）
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Button
                 type="button"
                 variant="ghost"

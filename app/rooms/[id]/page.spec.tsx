@@ -1,7 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ api: vi.fn(), enabled: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  api: vi.fn(),
+  enabled: vi.fn(),
+  enough: vi.fn(),
+}));
 vi.mock("@/features/verification", () => ({
   isVerificationEnabled: mocks.enabled,
   VerificationFollower: () => <span data-testid="follower" />,
@@ -11,7 +15,15 @@ vi.mock("@/lib/session/current-user", () => ({
   getCurrentUser: async () => ({ sub: "11111111-1111-4111-8111-111111111111" }),
 }));
 vi.mock("@/features/auth", () => ({ signOut: vi.fn() }));
+vi.mock("@/lib/session/room-entry", () => ({
+  hasRoomEntryTime: mocks.enough,
+  issueRoomEntry: vi.fn().mockResolvedValue("admission"),
+}));
+vi.mock("@/features/room-lifecycle", () => ({
+  RoomAdmissionGate: () => <span>入室前の認証確認</span>,
+}));
 vi.mock("@/features/room", () => ({
+  RoomEntryPreview: () => <span>ルームの背景</span>,
   RoomBoard: () => <span>通常のボード</span>,
 }));
 vi.mock("next/navigation", () => ({
@@ -28,6 +40,7 @@ import RoomPage from "./page";
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 beforeEach(() => {
   mocks.api.mockClear();
+  mocks.enough.mockReturnValue(true);
   mocks.enabled.mockReturnValue(true);
   mocks.api.mockImplementation(async (path: string) =>
     path.startsWith("/api/completed-rooms/")
@@ -85,4 +98,21 @@ it("完了状態の確認が通信失敗したら再取得できる画面へ進�
   await expect(RoomPage({ params: Promise.resolve({ id }) })).rejects.toThrow(
     "redirect",
   );
+});
+
+it("残り時間が不足した新しい直リンクは共有画面をマウントしない", async () => {
+  mocks.enough.mockReturnValue(false);
+  render(await RoomPage({ params: Promise.resolve({ id }) }));
+  expect(screen.getByText("入室前の認証確認")).toBeInTheDocument();
+  expect(screen.queryByText("通常のボード")).not.toBeInTheDocument();
+});
+it("URLのentry指定だけで同じ入室として扱わずタブと一回消費を確認する", async () => {
+  render(
+    await RoomPage({
+      params: Promise.resolve({ id }),
+      searchParams: Promise.resolve({ entry: "untrusted", tab: "untrusted" }),
+    }),
+  );
+  expect(screen.getByText("入室前の認証確認")).toBeInTheDocument();
+  expect(screen.queryByText("通常のボード")).not.toBeInTheDocument();
 });

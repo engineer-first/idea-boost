@@ -94,6 +94,32 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("自分の発表順を待っている間もマイ付箋をドラッグできる", () => {
+    const onPrivateNoteDragStart = vi.fn();
+    setup({
+      phase: buildPhaseStep(2),
+      permissions: getBoardPermissions(buildPhaseStep(2)),
+      privateNotes: [buildNote({ id: "private-1", visibility: "private" })],
+      canPublishPrivateNote: false,
+      onPrivateNoteDragStart,
+    });
+
+    const toolbar = screen.getByTestId("private-notes-toolbar");
+    fireEvent.click(
+      within(toolbar).getByRole("button", { name: "マイ付箋を開く" }),
+    );
+    const note = within(toolbar).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(note, { pointerId: 1, clientX: 20, clientY: 20 });
+    fireEvent.pointerMove(note, {
+      buttons: 1,
+      pointerId: 1,
+      clientX: 40,
+      clientY: 40,
+    });
+
+    expect(onPrivateNoteDragStart).toHaveBeenCalledOnce();
+  });
+
   it("ドラッグ権利の応答前もドラッグ中の候補操作を隠し、終了後に選択表示へ戻す", () => {
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
@@ -558,6 +584,31 @@ describe("RoomBoardCanvas", () => {
     expect(
       screen.getByRole("img", { name: "付箋の削除：不可" }),
     ).toBeInTheDocument();
+  });
+  it("個人入力・共有・整理・投票に移行しても案内を残し、マイ付箋欄と操作可否だけを更新する", () => {
+    const { props, rerender } = setup();
+    for (const step of [1, 2, 3, 4]) {
+      const phase = buildPhaseStep(step);
+      const permissions = getBoardPermissions(phase);
+      rerender(
+        <RoomBoardCanvas {...props} phase={phase} permissions={permissions} />,
+      );
+      expect(screen.getAllByTestId("board-operation-matrix")).toHaveLength(1);
+      expect(screen.queryByTestId("private-notes-toolbar") !== null).toBe(
+        permissions.showPrivateToolbar,
+      );
+      for (const [label, enabled] of [
+        ["編集", permissions.canEditNote],
+        ["移動", permissions.canMoveNote],
+        ["削除", permissions.canDeleteNote],
+      ] as const) {
+        expect(
+          screen.getByRole("img", {
+            name: `付箋の${label}：${enabled ? "可能" : "不可"}`,
+          }),
+        ).toBeInTheDocument();
+      }
+    }
   });
   it("付箋を配置する（success）", () => {
     setup({ notes: buildNotes(3) });
@@ -1174,9 +1225,8 @@ describe("RoomBoardCanvas", () => {
       "hidden",
     );
     expect(screen.getByTestId("board-canvas")).not.toBeVisible();
-    expect(screen.getByTestId("board-tools-hud").parentElement).toHaveAttribute(
-      "hidden",
-    );
+    expect(screen.getByTestId("board-tools-hud")).toBeInTheDocument();
+    expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
     expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
     expect(note).toHaveStyle({ width: "200px", height: "150px" });
     expect(editor).toHaveStyle({ fontSize: "14px", lineHeight: "21px" });

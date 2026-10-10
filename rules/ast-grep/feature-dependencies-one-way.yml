@@ -2,12 +2,13 @@
 #
 # 許可されている feature 間エッジ（これが全て）:
 #   room → notes / dot-vote / vote-totaling / room-members / invite / hmw
-#          / idea-support
+#          / idea-support / auth
+#   room-lifecycle → auth（再認証と入室継続）
 #   notes → dot-vote / room-members
 #   shared-outcomes → room-members（保存済みの付箋色の表示）
 #
 # それ以外の feature（dot-vote / vote-totaling / room-members / invite /
-# room-lifecycle / auth / hmw / idea-support）は他の feature を import
+# auth / hmw / idea-support）は他の feature を import
 # しない「葉」。
 # 新しいエッジが必要になったら、循環にならないことを確認した上で
 # このルールを更新する（= 依存の追加をレビュー可能な明示的変更にする）。
@@ -27,7 +28,6 @@ files:
   - features/vote-totaling/**
   - features/room-members/**
   - features/invite/**
-  - features/room-lifecycle/**
   - features/auth/**
   - features/hmw/**
   - features/idea-support/**
@@ -52,7 +52,6 @@ files:
   - features/vote-totaling/**
   - features/room-members/**
   - features/invite/**
-  - features/room-lifecycle/**
   - features/auth/**
   - features/hmw/**
   - features/idea-support/**
@@ -70,20 +69,20 @@ rule:
     regex: "[.@]/features/"
 ---
 # room が依存してよいのは notes / dot-vote / vote-totaling / room-members /
-# invite / hmw / idea-support / feedback のみ。
-# room-lifecycle・auth への依存（および自 feature への alias import）は禁止。
+# invite / hmw / idea-support / feedback / auth のみ。
+# room-lifecycle への依存（および自 feature への alias import）は禁止。
 id: room-feature-allowed-edges
 language: typescript
 severity: error
 files:
   - features/room/**
-message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support・feedback のみ
+message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support・feedback・auth のみ
 note: |
   room → room-lifecycle を許すと、room-lifecycle が room の状態（reducer 等）を
   使った時点で循環する。ルーム内で必要なロジックは features/room に置く。
   自 feature 内は相対 import（"./xxx"）を使う。
   denylist（room・room-lifecycle・auth のみ拒否）だと将来の未登録 feature
-  への依存が素通りするため、許可済み 8 feature 以外を拒否する allowlist で書く。
+  への依存が素通りするため、許可済み 9 feature 以外を拒否する allowlist で書く。
 rule:
   any:
     - kind: import_statement
@@ -93,20 +92,20 @@ rule:
     all:
       - regex: "[.@]/features/"
       - not:
-          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback)[\"'/]"
+          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback|auth)[\"'/]"
 ---
 id: room-feature-allowed-edges-tsx
 language: tsx
 severity: error
 files:
   - features/room/**
-message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support・feedback のみ
+message: room から import できる feature は notes・dot-vote・vote-totaling・room-members・invite・hmw・idea-support・feedback・auth のみ
 note: |
   room → room-lifecycle を許すと、room-lifecycle が room の状態（reducer 等）を
   使った時点で循環する。ルーム内で必要なロジックは features/room に置く。
   自 feature 内は相対 import（"./xxx"）を使う。
   denylist（room・room-lifecycle・auth のみ拒否）だと将来の未登録 feature
-  への依存が素通りするため、許可済み 8 feature 以外を拒否する allowlist で書く。
+  への依存が素通りするため、許可済み 9 feature 以外を拒否する allowlist で書く。
 rule:
   any:
     - kind: import_statement
@@ -116,7 +115,7 @@ rule:
     all:
       - regex: "[.@]/features/"
       - not:
-          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback)[\"'/]"
+          regex: "[.@]/features/(notes|dot-vote|vote-totaling|room-members|invite|hmw|idea-support|feedback|auth)[\"'/]"
 ---
 # notes が依存してよいのは dot-vote / room-members のみ。
 # room への依存は禁止（room → notes のエッジと循環する）。
@@ -424,3 +423,43 @@ rule:
         has:
           field: source
           regex: '^"@/features/(room|room-members|feedback)"$'
+
+---
+# 入室フローはauthの再認証・継続情報だけを使う。authから戻る依存は作らない。
+id: room-lifecycle-feature-allowed-edges
+language: typescript
+severity: error
+files:
+  - features/room-lifecycle/**
+message: room-lifecycle は auth の公開境界だけを共有する
+rule:
+  all:
+    - any:
+        - kind: import_statement
+        - kind: export_statement
+    - has:
+        field: source
+        regex: "[.@]/+features/+"
+    - not:
+        has:
+          field: source
+          regex: '^"@/features/auth"$'
+---
+id: room-lifecycle-feature-allowed-edges-tsx
+language: tsx
+severity: error
+files:
+  - features/room-lifecycle/**
+message: room-lifecycle は auth の公開境界だけを共有する
+rule:
+  all:
+    - any:
+        - kind: import_statement
+        - kind: export_statement
+    - has:
+        field: source
+        regex: "[.@]/+features/+"
+    - not:
+        has:
+          field: source
+          regex: '^"@/features/auth"$'

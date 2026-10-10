@@ -4,6 +4,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
+  buildCarryover,
   buildDecision,
   buildMembers,
   buildNotes,
@@ -13,7 +14,7 @@ import { NoteDraftRecovery } from "@/features/notes";
 import { roomNotify } from "../logic/room-notify";
 import { useBoardHelp } from "../logic/use-board-help";
 import { RoomBoardView } from "./room-board-view";
-import boardMeta from "./room-board-view.stories";
+import boardMeta, { MoveHistoryAvailable } from "./room-board-view.stories";
 
 const LONG_ISSUE =
   "チームで何を作るか決めるとき、発言が得意な人の意見だけで進んでしまい、初めて参加する学生が自分の困りごとや案を出せない。全員が自分の考えを伝え、互いの案を比べられるようにしたい。";
@@ -56,6 +57,25 @@ function step(phase: 1 | 2 | 3, value: number): Story {
       phase: buildPhaseStep(value, phase),
       notes: value === 1 ? [] : buildNotes(3),
       hmwDecidedIssue: phase >= 2 ? LONG_ISSUE : null,
+      issueReference:
+        phase >= 2
+          ? buildCarryover({
+              content: LONG_ISSUE,
+              color: "pink",
+              fontSize: 18,
+              dotVotes: { subjective: 3, objective: 2 },
+            })
+          : null,
+      hmwReference:
+        phase === 3
+          ? buildCarryover({
+              phase: 2,
+              content: LONG_QUESTION,
+              color: "blue",
+              fontSize: 16,
+              dotVotes: { subjective: 4, objective: 1 },
+            })
+          : null,
       decidedHmw: phase === 3 ? LONG_QUESTION : null,
       members: buildMembers(12, boardMeta.args.currentUserId),
       interactions: {
@@ -226,6 +246,24 @@ export const SharingActive: Story = {
     }),
   },
 };
+export const MySharingTurn: Story = {
+  ...SharingActive,
+  name: "自分の発表中・共有可能",
+  args: {
+    ...SharingActive.args,
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+  },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "マイ付箋を開く" }),
+    );
+  },
+};
+export const WaitingForSharingTurn: Story = {
+  ...SharingActive,
+  name: "ほかの人の発表中・共有待ち",
+  play: MySharingTurn.play,
+};
 export const SharingTransition: Story = {
   ...SharingReady,
   args: {
@@ -320,6 +358,20 @@ export const Unavailable: Story = {
   ...DelayedConnection,
   args: { ...DelayedConnection.args, connectionStatus: "unavailable" },
 };
+export const AuthRequiredLocationExpanded: Story = {
+  ...AuthRequired,
+  args: { ...AuthRequired.args, initialGuideState: "compact" },
+  parameters: { chromatic: { viewports: [320, 390, 1280] } },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: /現在地/ }),
+    );
+  },
+};
+export const AuthRequiredWithMoveHistory: Story = {
+  ...AuthRequired,
+  args: { ...AuthRequired.args, ...MoveHistoryAvailable.args },
+};
 const RECOVERY_ITEMS = [
   {
     noteId: "recovered-note",
@@ -341,4 +393,19 @@ export const AuthRequiredWithDraft: Story = {
 export const UnavailableWithDraft: Story = {
   ...Unavailable,
   decorators: AuthRequiredWithDraft.decorators,
+};
+
+export const LongReference: Story = {
+  ...step(3, 1),
+  args: {
+    ...step(3, 1).args,
+    initialGuideState: "compact",
+    decidedHmw: "問いの全文を読みながら考える。".repeat(134).slice(0, 2000),
+    hmwReference: buildCarryover({
+      phase: 2,
+      fontSize: 20,
+      color: "green",
+      dotVotes: { subjective: 8, objective: 6 },
+    }),
+  },
 };

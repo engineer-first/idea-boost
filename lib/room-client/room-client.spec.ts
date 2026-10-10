@@ -60,6 +60,11 @@ class FakeWebSocket {
     this.emit("close", { code: 1006 });
   }
 
+  simulateAuthRequiredClose(): void {
+    this.readyState = 3;
+    this.emit("close", { code: 4002, reason: "authentication required" });
+  }
+
   simulateLeftRoomClose(): void {
     this.readyState = 3;
     this.emit("close", { code: 4000, reason: "left the room" });
@@ -498,4 +503,26 @@ it("offlineで既存socketを閉じ、古いopen/message/closeは配送せずonl
   expect(FakeWebSocket.instances).toHaveLength(2);
   client.close();
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it("認証期限のcloseは再接続・送信を止め、auth-requiredを通知する", () => {
+  vi.useFakeTimers();
+  const status = vi.fn();
+  const client = createRoomClient({
+    url: "ws://test",
+    onMessage: vi.fn(),
+    onStatusChange: status,
+    webSocketFactory: (url) => new FakeWebSocket(url) as unknown as WebSocket,
+  });
+  const ws = FakeWebSocket.instances.at(-1);
+  if (!ws) throw new Error("socket missing");
+  ws.simulateOpen();
+  ws.simulateAuthRequiredClose();
+  expect(status).toHaveBeenLastCalledWith("auth-required");
+  expect(client.send({ type: "cursor:leave" })).toBe(false);
+  const count = FakeWebSocket.instances.length;
+  vi.runAllTimers();
+  expect(FakeWebSocket.instances).toHaveLength(count);
+  client.close();
+  vi.useRealTimers();
 });

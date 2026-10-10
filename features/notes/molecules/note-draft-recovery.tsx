@@ -22,7 +22,7 @@ export function NoteDraftRecovery({
         role="status"
         className={expanded ? "text-sm font-semibold" : "text-xs font-semibold"}
       >
-        {expanded ? "反映できなかった文章があります" : "未反映の文章"}
+        {expanded ? "反映を確認できていない文章があります" : "未反映の文章"}
       </p>
       <button
         type="button"

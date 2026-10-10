@@ -5,14 +5,14 @@
 import { cookies } from "next/headers";
 import {
   SESSION_COOKIE_NAME,
-  type SessionPayload,
-  SessionPayloadSchema,
   TOKEN_AUDIENCE,
+  type VerifiedSession,
+  VerifiedSessionSchema,
 } from "@/contracts/session";
 import { getSessionSecret, isAuthConfigured } from "@/lib/session/env";
 import { verifyToken } from "@/lib/session/token";
 
-export async function getCurrentUser(): Promise<SessionPayload | null> {
+export async function getCurrentUser(): Promise<VerifiedSession | null> {
   if (!isAuthConfigured()) {
     return null;
   }
@@ -23,7 +23,7 @@ export async function getCurrentUser(): Promise<SessionPayload | null> {
     return null;
   }
 
-  return verifyToken(token, SessionPayloadSchema, {
+  return verifyToken(token, VerifiedSessionSchema, {
     secret: getSessionSecret(),
     audience: TOKEN_AUDIENCE.session,
   });

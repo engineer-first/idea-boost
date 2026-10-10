@@ -2,6 +2,8 @@
 // establishSession はログインフローの中核。api-worker への同期がネットワーク
 // 障害や不正 JSON で失敗しても、未処理例外で落とさず ok:false の一貫した
 // エラーに畳むこと（呼び出し側の Server Action がエラー表示へ倒せる形）を検証する。
+
+import { decodeJwt } from "jose";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LoginAssertion } from "@/contracts/session";
 
@@ -50,6 +52,15 @@ describe("establishSession", () => {
 
     expect(result.ok).toBe(true);
     expect(setSessionCookieMock).toHaveBeenCalledOnce();
+  });
+
+  it("新しいセッションは発行から固定7日", async () => {
+    apiFetchMock.mockResolvedValue(Response.json({ userId: ASSERTION.userId }));
+    await establishSession(ASSERTION);
+    const token = setSessionCookieMock.mock.calls[0]?.[0];
+    expect(token).toBeTruthy();
+    const claims = decodeJwt(token ?? "");
+    expect((claims.exp ?? 0) - (claims.iat ?? 0)).toBe(7 * 24 * 60 * 60);
   });
 
   it("apiFetch が例外を投げても ok:false に畳む（ネットワーク障害）", async () => {

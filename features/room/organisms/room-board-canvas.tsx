@@ -1,7 +1,7 @@
 "use client";
 
 // ボード面。カメラで移動・拡大縮小する世界レイヤーに共有付箋・グループ枠・
-// ドラッグ中のゴーストを描き、個人入力中は中央に付箋ワークスペースを表示する。
+// ドラッグ中のゴーストを描き、下端にマイ付箋ドックを重ねる。
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
 import type {
   CSSProperties,
@@ -69,6 +69,7 @@ export type RoomBoardCanvasProps = {
   decision: Decision | null;
   isHost: boolean;
   privateNotes: Note[];
+  canPublishPrivateNote?: boolean;
   selectedNoteId: string | null;
   selectedNoteIds?: string[];
   interactionTool?: CanvasTool;
@@ -147,7 +148,11 @@ export type RoomBoardCanvasProps = {
   onAdoptNote: (noteId: string) => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
-  onAddPrivateNote: () => void;
+  onAddPrivateNote: () => string | null;
+  noteCreationPending?: boolean;
+  noteCreationReceipt?: { operationId: string; noteId: string };
+  noteCreationSupported?: boolean;
+  noteCreationFocusContext?: string;
   onPrivateNoteContentChange: (noteId: string, content: string) => void;
   onPrivateNoteDelete: (noteId: string) => void;
   onPrivateNoteDragStart: (
@@ -157,6 +162,7 @@ export type RoomBoardCanvasProps = {
   remoteCursors: RenderedRemoteCursorPresence[];
   expandPrivateNotesRequest?: number;
   addPrivateNoteRequest?: number;
+  privateNoteAddRef?: RefObject<(() => void) | null>;
 };
 
 export function RoomBoardCanvas({
@@ -167,6 +173,7 @@ export function RoomBoardCanvas({
   decision,
   isHost,
   privateNotes,
+  canPublishPrivateNote = false,
   selectedNoteId,
   selectedNoteIds,
   interactionTool = "select",
@@ -227,6 +234,10 @@ export function RoomBoardCanvas({
   onGroupCreate,
   onGroupUpdateName,
   onAddPrivateNote,
+  noteCreationPending = false,
+  noteCreationReceipt,
+  noteCreationSupported = true,
+  noteCreationFocusContext,
   onPrivateNoteContentChange,
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
@@ -234,6 +245,7 @@ export function RoomBoardCanvas({
   authorName,
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
+  privateNoteAddRef,
 }: RoomBoardCanvasProps) {
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
@@ -267,15 +279,8 @@ export function RoomBoardCanvas({
   const isPersonalNoteEntryPhase =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const privateNotesContainerClassName = isPersonalNoteEntryPhase
-    ? "absolute inset-x-0 top-48 bottom-24 max-[900px]:top-56 max-[639px]:top-64 max-[639px]:bottom-32 z-30 flex min-h-0 justify-center px-3 py-2"
-    : [
-        "pointer-events-none absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)]",
-        moveHistory
-          ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]"
-          : isHost && phase.kind === "step" && phase.step === 2
-            ? "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(11.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]"
-            : "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(7.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]",
-      ].join(" ");
+    ? "absolute inset-x-0 top-48 bottom-24 z-30 flex min-h-0 justify-center px-3 py-2 max-[900px]:top-56 max-[639px]:top-64 max-[639px]:bottom-32"
+    : `pointer-events-none absolute right-3 bottom-[calc(5.25rem+var(--board-notification-inset,0px))] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(11.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-16rem-var(--board-notification-inset,0px))]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,calc(7.5rem+var(--board-notification-inset,0px)))] max-[639px]:max-h-[calc(100%-12rem-var(--board-notification-inset,0px))]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
   const selectedNote = [...notes, ...privateNotes].find(
@@ -606,59 +611,53 @@ export function RoomBoardCanvas({
   return (
     <div className="min-h-0 flex-1">
       <div className="relative h-full min-h-80" data-testid="board-frame">
-        <div className="absolute inset-0" hidden={isPersonalNoteEntryPhase}>
-          <div
-            className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
-            data-testid="board-tools-hud"
-            data-board-fit-edge="bottom"
-          >
-            <div className="flex items-center gap-2">
-              <div
-                data-testid="board-operation-matrix"
-                className="pointer-events-auto"
-              >
-                <BoardOperationMatrix permissions={permissions} />
-              </div>
-              {permissions.canEditNote ? (
-                <NoteFontSizeControls
-                  fontSize={selectedNote?.fontSize ?? null}
-                  disabled={
-                    isDisconnected ||
-                    selectedNote === undefined ||
-                    selectedNote.excluded ||
-                    (phase.kind === "step" &&
-                      phase.step === 1 &&
-                      selectedNote.visibility === "shared")
-                  }
-                  onChange={(fontSize) => {
-                    if (selectedNote)
-                      onNoteFontSizeChange(selectedNote.id, fontSize);
-                  }}
-                />
-              ) : null}
-            </div>
-            <div
-              data-testid="canvas-zoom-hud"
-              className="flex max-w-full items-center gap-2"
-            >
-              <CanvasZoomControls
-                moveHistory={moveHistory}
-                interactionTool={interactionTool}
-                onToolChange={onToolChange}
-                toolDisabled={toolDisabled}
-                zoom={camera.zoom}
-                onZoomOut={onZoomOut}
-                onResetZoom={onResetZoom}
-                onZoomIn={onZoomIn}
-                onFitToNotes={onFitToNotes}
+        <div
+          className="pointer-events-none absolute bottom-[calc(0.75rem+var(--board-notification-inset,0px))] left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
+          data-testid="board-tools-hud"
+          data-board-fit-edge="bottom"
+        >
+          <div className="flex items-center gap-2">
+            {permissions.canEditNote ? (
+              <NoteFontSizeControls
+                fontSize={selectedNote?.fontSize ?? null}
+                disabled={
+                  isDisconnected ||
+                  selectedNote === undefined ||
+                  selectedNote.excluded ||
+                  (phase.kind === "step" &&
+                    phase.step === 1 &&
+                    selectedNote.visibility === "shared")
+                }
+                onChange={(fontSize) => {
+                  if (selectedNote)
+                    onNoteFontSizeChange(selectedNote.id, fontSize);
+                }}
               />
-              <span aria-live="polite" className="sr-only">
-                {selectionIds.length > 0
-                  ? `選択した付箋：${selectionIds.length}枚`
-                  : ""}
-              </span>
-            </div>
+            ) : null}
           </div>
+          <div
+            data-testid="canvas-zoom-hud"
+            className="flex max-w-full items-center gap-2"
+          >
+            <CanvasZoomControls
+              moveHistory={moveHistory}
+              interactionTool={interactionTool}
+              onToolChange={onToolChange}
+              toolDisabled={toolDisabled}
+              zoom={camera.zoom}
+              onZoomOut={onZoomOut}
+              onResetZoom={onResetZoom}
+              onZoomIn={onZoomIn}
+              onFitToNotes={onFitToNotes}
+            />
+            <span aria-live="polite" className="sr-only">
+              {selectionIds.length > 0
+                ? `選択した付箋：${selectionIds.length}枚`
+                : ""}
+            </span>
+          </div>
+        </div>
+        <div className="absolute inset-0" hidden={isPersonalNoteEntryPhase}>
           <div
             ref={boardScrollerRef}
             // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
@@ -860,7 +859,7 @@ export function RoomBoardCanvas({
           : null}
         {isIdeaMapSizeControlsVisible ? (
           <div
-            className={`pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0 ${moveHistory ? "max-[639px]:bottom-[var(--board-mobile-controls-bottom)]" : "max-[639px]:bottom-[calc(4.5rem+var(--board-notification-inset,0px))]"}`}
+            className={`pointer-events-auto absolute bottom-[calc(4.5rem+var(--board-notification-inset,0px))] left-1/2 z-40 -translate-x-1/2 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0 max-[639px]:bottom-[var(--board-mobile-controls-bottom,calc(11rem+var(--board-notification-inset,0px)))]`}
             data-testid="idea-map-size-controls-hud"
             data-board-fit-edge="bottom"
           >
@@ -874,6 +873,13 @@ export function RoomBoardCanvas({
             />
           </div>
         ) : null}
+        <div
+          className="pointer-events-auto absolute right-3 bottom-[calc(0.75rem+var(--board-notification-inset,0px))] z-40 max-[639px]:bottom-[var(--board-operation-bottom,calc(4.5rem+var(--board-notification-inset,0px)))]"
+          data-testid="board-operation-matrix"
+          data-board-fit-edge="bottom"
+        >
+          <BoardOperationMatrix permissions={permissions} />
+        </div>
         {permissions.showPrivateToolbar ? (
           <div
             className={privateNotesContainerClassName}
@@ -891,9 +897,19 @@ export function RoomBoardCanvas({
               notes={privateNotes}
               disabled={isDisconnected}
               canDeleteNote={permissions.canDeleteNote}
-              canCreateNote={permissions.canCreateNote}
+              canCreateNote={permissions.canCreateNote && noteCreationSupported}
+              noteCreationPending={noteCreationPending}
+              noteCreationReceipt={noteCreationReceipt}
+              noteCreationFocusContext={noteCreationFocusContext}
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
+              sharingHint={
+                phase.kind === "step" && phase.step === 2
+                  ? canPublishPrivateNote
+                    ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+                    : "付箋の共有は、自分の番になるまでお待ちください。"
+                  : undefined
+              }
               presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
               editingDisabled={isResultStep(phase)}
               defaultExpanded={
@@ -901,6 +917,7 @@ export function RoomBoardCanvas({
               }
               expandRequest={expandPrivateNotesRequest}
               addRequest={addPrivateNoteRequest}
+              addActionRef={privateNoteAddRef}
               className={
                 isPersonalNoteEntryPhase
                   ? "pointer-events-auto h-full w-full"

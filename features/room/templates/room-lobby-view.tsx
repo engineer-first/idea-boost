@@ -36,6 +36,7 @@ export type RoomLobbyViewProps = {
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
   phase: RoomPhase;
+  loginReturnHref?: string;
   inviteCode: string;
   inviteUrl: string;
   // 接続状態は Container 側で生成し、ここでは表示するだけ。
@@ -61,6 +62,7 @@ export function RoomLobbyView({
   isHost,
   hostUserId,
   phase,
+  loginReturnHref,
   inviteCode,
   inviteUrl,
   connectionStatus,
@@ -120,6 +122,7 @@ export function RoomLobbyView({
             </p>
           </div>
           <RoomConnectionNotice
+            returnHref={loginReturnHref}
             status={connectionStatus}
             delayed={connectionDelayed}
             className="text-sm text-muted-foreground"

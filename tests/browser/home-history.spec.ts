@@ -607,7 +607,8 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
-      const first = page.url();
+      // 入室ごとの一回tokenは異なるので、戻り先のルームをURL pathで照合する。
+      const first = new URL(page.url());
       await page.goto(`${app}/home`);
       await page
         .getByRole("button", { name: "前のルームに戻る", exact: true })
@@ -619,7 +620,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
-      expect(page.url()).not.toBe(first);
+      expect(new URL(page.url()).pathname).not.toBe(first.pathname);
       await page.goto(`${app}/home`);
       await page
         .getByRole("button", { name: "前のルームに戻る", exact: true })
@@ -629,7 +630,10 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: /以前のルームを開く/ })
         .first()
         .click();
-      await page.waitForURL(first, { timeout: 5000 });
+      await page.waitForURL(
+        (url) => url.origin === first.origin && url.pathname === first.pathname,
+        { timeout: 5000 },
+      );
     } finally {
       await browser.close();
     }

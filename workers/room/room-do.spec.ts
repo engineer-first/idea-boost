@@ -12,6 +12,7 @@ import {
   TIMER_MAX_DURATION_MS,
 } from "../../contracts/room-protocol";
 import {
+  arrangeSharingPresenter,
   currentPhaseExpectation,
   initializeTestRoom,
   listMemberIds,
@@ -79,6 +80,9 @@ async function connectDirectlyWithFirstMessage(
   const res = await roomStub(roomName).fetch("https://do/ws", {
     headers: {
       Upgrade: "websocket",
+      "X-Idea-Boost-Session-Expires-At": String(
+        Math.floor(Date.now() / 1000) + 600,
+      ),
       [USER_ID_HEADER]: userId,
       [HOST_ID_HEADER]: hostId,
     },
@@ -510,7 +514,12 @@ describe("RoomDO WebSocket の深層防御", () => {
 
   it("ユーザーIDヘッダーなしの upgrade は 403（api-worker を経由しない到達）", async () => {
     const res = await roomStub("room-guard").fetch("https://do/ws", {
-      headers: { Upgrade: "websocket" },
+      headers: {
+        Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
+      },
     });
     expect(res.status).toBe(403);
   });
@@ -519,7 +528,13 @@ describe("RoomDO WebSocket の深層防御", () => {
     const stub = roomStub("room-guard-no-host");
     await stub.upsertMember(USER_A, "Alpha");
     const res = await stub.fetch("https://do/ws", {
-      headers: { Upgrade: "websocket", [USER_ID_HEADER]: USER_A },
+      headers: {
+        Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
+        [USER_ID_HEADER]: USER_A,
+      },
     });
     expect(res.status).toBe(403);
   });
@@ -528,6 +543,9 @@ describe("RoomDO WebSocket の深層防御", () => {
     const res = await roomStub("room-guard").fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -541,6 +559,9 @@ describe("RoomDO WebSocket の深層防御", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -603,6 +624,9 @@ describe("RoomDO snapshot", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -639,6 +663,9 @@ describe("RoomDO snapshot", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -720,6 +747,9 @@ describe("RoomDO adoption-focus:update", () => {
     const reconnect = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -947,6 +977,9 @@ describe("RoomDO note:decide の認可", () => {
     const response = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -1017,6 +1050,9 @@ describe("RoomDO note:decide", () => {
     const reconnect = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -1583,6 +1619,9 @@ describe("RoomDO 候補外付箋", () => {
     const reconnect = await roomStub(roomName).fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -2415,6 +2454,7 @@ describe("RoomDO phase:next", () => {
 
     const memberPublished = nextJson(member);
     const hostPublished = nextJson(host);
+    await arrangeSharingPresenter(roomName, USER_B);
     member.send(
       JSON.stringify({
         type: "note:publish",
@@ -2889,8 +2929,8 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
-  it("snapshot を再配信するステップ移行では idle 化したタイマーを含める", async () => {
-    const roomName = "room-phase-next-snapshot-has-idle-timer";
+  it("整理へ移行するsnapshotには新しく始めた4分のタイマーを含める", async () => {
+    const roomName = "room-phase-next-snapshot-has-grouping-timer";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(2), USER_A);
@@ -2905,10 +2945,15 @@ describe("RoomDO phase:next", () => {
         ...(await currentPhaseExpectation(roomName)),
       }),
     );
-    expect(await nextJson(ws)).toMatchObject({
+    const snapshot = await nextJson(ws);
+    expect(snapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(3),
-      timer: { status: "idle" },
+      timer: {
+        status: "running",
+        durationMs: 240_000,
+        endsAt: expect.any(Number),
+      },
     });
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
@@ -2917,7 +2962,8 @@ describe("RoomDO phase:next", () => {
       phaseRevision: expect.any(Number),
       phase: buildPhaseStep(3),
     });
-    expect(await stub.getTimerState()).toEqual({ status: "idle" });
+    if (snapshot.type !== "snapshot") throw new Error("snapshotを期待");
+    expect(await stub.getTimerState()).toEqual(snapshot.timer);
     ws.close();
   });
 
@@ -2930,6 +2976,9 @@ describe("RoomDO phase:next", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -3524,6 +3573,8 @@ describe("RoomDO phase:next", () => {
       phase: buildPhaseStep(2, 3),
     });
 
+    await arrangeSharingPresenter(roomName, USER_A);
+
     ws.send(
       JSON.stringify({
         type: "note:publish",
@@ -3701,6 +3752,9 @@ describe("RoomDO phase:next", () => {
     const reconnected = await stub.fetch("https://room.test/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -3766,6 +3820,10 @@ describe("RoomDO phase:next", () => {
       x: number,
       y: number,
     ): Promise<void> => {
+      await arrangeSharingPresenter(
+        roomName,
+        ws === authorWs ? USER_A : USER_B,
+      );
       const authorMessage = nextJson(authorWs);
       const memberMessage = nextJson(memberWs);
       ws.send(JSON.stringify({ type: "note:publish", noteId, x, y }));
@@ -4287,6 +4345,9 @@ describe("RoomDO phase:next", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4335,6 +4396,9 @@ describe("RoomDO phase:next", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4380,6 +4444,9 @@ describe("RoomDO phase:next", () => {
     const hostRes = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4388,6 +4455,9 @@ describe("RoomDO phase:next", () => {
     const memberRes = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4456,6 +4526,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4487,6 +4560,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_B,
         [HOST_ID_HEADER]: USER_B,
       },
@@ -4514,6 +4590,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4555,6 +4634,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4627,6 +4709,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4655,6 +4740,9 @@ describe("RoomDO timer:* の認可", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -4715,6 +4803,9 @@ describe("RoomDO timer:* の認可", () => {
     const reconnect = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5094,6 +5185,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     const noteId = inserted.note.id;
 
     await stub.setPhase(buildPhaseStep(2), USER_A);
+    await arrangeSharingPresenter(roomName, USER_A);
     ws.send(JSON.stringify({ type: "note:publish", noteId, x: 100, y: 100 }));
     await nextJson(ws);
 
@@ -5169,6 +5261,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     ).toBe(24);
 
     await stub.setPhase(buildPhaseStep(2), USER_A);
+    await arrangeSharingPresenter(roomName, USER_A);
     const publishedForAuthor = nextJson(author);
     const publishedForOther = nextJson(other);
     author.send(
@@ -5250,6 +5343,7 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     });
 
     await stub.setPhase(buildPhaseStep(2), USER_A);
+    await arrangeSharingPresenter(roomName, USER_A);
     const published = nextJson(author);
     author.send(
       JSON.stringify({
@@ -5301,6 +5395,9 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5352,6 +5449,9 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5406,6 +5506,9 @@ describe("RoomDO Step 1-5 のボード凍結", () => {
     const res = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5760,6 +5863,26 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
       "宿題を後回しにしてしまう",
     );
 
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE notes SET color = 'pink' WHERE id = ?1",
+        DECIDED_NOTE_ID,
+      );
+      state.storage.sql.exec(
+        "INSERT INTO note_appearances (note_id, font_size) VALUES (?1, 20)",
+        DECIDED_NOTE_ID,
+      );
+      for (const kind of ["subjective", "objective", "objective"]) {
+        state.storage.sql.exec(
+          "INSERT INTO note_vote_stickers (id, note_id, user_id, kind, x, y, created_at) VALUES (?1, ?2, ?3, ?4, 0.5, 0.5, 'now')",
+          crypto.randomUUID(),
+          DECIDED_NOTE_ID,
+          USER_A,
+          kind,
+        );
+      }
+    });
+
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "note:decide", noteId: DECIDED_NOTE_ID }));
     await nextJson(ws); // decision:updated
@@ -5773,7 +5896,8 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
 
     // 遷移時は接続中の全員に snapshot を再送してから phase:updated を配る
     // （投票→結果ステップ遷移と同じ順序）。
-    expect(await nextJson(ws)).toMatchObject({
+    const snapshot = await nextJson(ws);
+    expect(snapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(1, 2),
       carryovers: [
@@ -5784,6 +5908,16 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
         },
       ],
     });
+    expect(snapshot.carryovers).toEqual([
+      {
+        phase: 1,
+        noteId: DECIDED_NOTE_ID,
+        content: "宿題を後回しにしてしまう",
+        color: "pink",
+        fontSize: 20,
+        dotVotes: { subjective: 1, objective: 2 },
+      },
+    ]);
     expect(await nextJson(ws)).toMatchObject({
       type: "phase:updated",
       groupRevision: expect.any(Number),
@@ -5792,6 +5926,39 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
       phase: buildPhaseStep(1, 2),
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(1, 2));
+    ws.close();
+  });
+
+  it("参照元の過去付箋はホスト・作者にも移動・削除・投票・再採用させない", async () => {
+    const roomName = "room-carryover-read-only";
+    const stub = roomStub(roomName);
+    await initializeTestRoom(stub, USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(5), USER_A);
+    await insertSharedNote(roomName, DECIDED_NOTE_ID, "参照本文");
+    await decideAndAdvance(roomName);
+    const ws = await connectDirectly(roomName, USER_A, USER_A);
+    for (const operation of [
+      { type: "note:move", x: 80, y: 90 },
+      { type: "note:delete" },
+      { type: "note:vote", kind: "subjective" },
+      { type: "note:decide" },
+    ]) {
+      ws.send(JSON.stringify({ ...operation, noteId: DECIDED_NOTE_ID }));
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+    }
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql
+          .exec(
+            "SELECT content, x, y FROM notes WHERE id = ?1",
+            DECIDED_NOTE_ID,
+          )
+          .one(),
+      ),
+    ).toMatchObject({ content: "参照本文", x: 0, y: 0 });
     ws.close();
   });
 
@@ -5808,6 +5975,9 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
     const reconnect = await roomStub(roomName).fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -5848,6 +6018,9 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
     const reconnect = await roomStub(roomName).fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -6065,6 +6238,9 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     const reconnect = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -6275,6 +6451,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
 
     await stub.setPhase(buildPhaseStep(2, 2), USER_A);
     const memberWs = await connectDirectly(roomName, USER_B, USER_A);
+    await arrangeSharingPresenter(roomName, USER_A);
     authorWs.send(
       JSON.stringify({
         type: "note:publish",
@@ -6374,6 +6551,9 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     const response = await stub.fetch("https://do/ws", {
       headers: {
         Upgrade: "websocket",
+        "X-Idea-Boost-Session-Expires-At": String(
+          Math.floor(Date.now() / 1000) + 600,
+        ),
         [USER_ID_HEADER]: USER_A,
         [HOST_ID_HEADER]: USER_A,
       },
@@ -6896,6 +7076,10 @@ describe("new move group privacy WS", () => {
       }),
     );
     await nextJsonOfType(owner, "phase:updated");
+    const roomName = roomNameBySocket.get(owner);
+    if (!roomName) throw new Error("テスト用ルームがありません。");
+    // 返却後のgroup可視性を調べるため、返却する作者の発表中を用意する。
+    await arrangeSharingPresenter(roomName, USER_B);
     while (await nextJsonWithin(author, 10)) {
       /* 先行group/phase配信を読み切る */
     }
@@ -7298,7 +7482,10 @@ describe("inverse rejection facade result", () => {
           USER_A,
         );
       }
-      let attachment: SocketAttachment = { userId: USER_A };
+      let attachment: SocketAttachment = {
+        userId: USER_A,
+        sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+      };
       const messages: Record<string, unknown>[] = [];
       const ws = {
         readyState: 1,

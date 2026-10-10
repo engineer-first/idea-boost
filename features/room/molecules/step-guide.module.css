@@ -110,16 +110,33 @@
   .guide {
     --guide-width: calc(100vw - 24px);
     position: relative;
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    max-width: 126px;
+    min-width: 0;
+    margin-top: calc(var(--board-location-height, 80px) + 8px);
     top: auto;
     left: auto;
     flex-shrink: 0;
     transform: none;
   }
+  .compact {
+    gap: 4px;
+    font-size: 12px;
+  }
   .guide[data-state="detail"] {
-    height: min(180px, 22dvh);
+    position: absolute;
+    grid-column: 1 / -1;
+    left: 0;
+    top: calc(var(--board-location-height, 80px) + 8px);
+    width: var(--guide-width);
+    max-width: none;
+    margin-top: 0;
+    height: min(240px, 32dvh);
   }
   .guide:has(.detail[data-no-footer="true"])[data-state="detail"] {
-    height: min(180px, 22dvh);
+    height: min(240px, 32dvh);
   }
   [data-testid="room-board-view-root"]:has([data-expanded="true"])
     .guide[data-state="detail"] {
@@ -127,7 +144,7 @@
   }
   [data-testid="room-board-view-root"]:has([data-expanded="true"])
     .guide:has(.detail[data-no-footer="true"])[data-state="detail"] {
-    height: min(180px, 22dvh);
+    height: min(240px, 32dvh);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -197,4 +214,12 @@
 }
 .exampleItems li:first-child .flowArrow {
   visibility: hidden;
+}
+
+@media (max-width: 639px) {
+  /* 全幅の詳細を開く間は、その下のヒント入口を操作対象にしない。 */
+  [data-testid="board-context-column"]:has(.guide[data-state="detail"])
+    [data-testid="board-help-panel"] {
+    visibility: hidden;
+  }
 }

@@ -40,7 +40,7 @@ export const DOT_VOTE_LIMITS = {
 export const DotVoteKindSchema = z.enum(["subjective", "objective"]);
 export type DotVoteKind = z.infer<typeof DotVoteKindSchema>;
 
-// 楽観表示した操作と、RoomDO から返る確定・拒否応答を対応付けるID。
+// クライアント操作と、RoomDO から返る確定・拒否応答を対応付けるID。
 // 旧クライアントとの段階的な入れ替えを許すため、ワイヤ上では省略も受け入れる。
 export const OptimisticOperationIdSchema = z.string().uuid();
 export const VoteOperationIdSchema = OptimisticOperationIdSchema;
@@ -286,13 +286,30 @@ export type Decision = z.infer<typeof DecisionSchema>;
 // content は決定時点のコピーで、元付箋の後からの編集・削除に影響されない。
 // フェーズ2の「決定した課題」表示が最初の利用者で、フェーズ3の決定した問い
 // 表示でも同じ形を再利用する。
-export const CarryoverSchema = z.object({
-  phase: z.number().int().min(1).max(3),
-  noteId: z.string().uuid(),
-  // サーバーが note.content（入力時に上限検証済み）をコピーする値だが、
-  // コントラクト単体でも他スキーマと同じ上限で有界にしておく。
-  content: z.string().max(NOTE_CONTENT_MAX_LENGTH),
-});
+export const CarryoverSchema = z
+  .object({
+    phase: z.number().int().min(1).max(3),
+    noteId: z.string().uuid(),
+    // サーバーが note.content（入力時に上限検証済み）をコピーする値だが、
+    // コントラクト単体でも他スキーマと同じ上限で有界にしておく。
+    content: z.string().max(NOTE_CONTENT_MAX_LENGTH),
+    color: NoteColorSchema.nullable(),
+    fontSize: z
+      .number()
+      .int()
+      .min(NOTE_FONT_SIZE_RANGE.min)
+      .max(NOTE_FONT_SIZE_RANGE.max)
+      .nullable(),
+    // 集計だけを共有し、個人の投票先・シールや投票者は含めない。
+    dotVotes: z
+      .object({
+        subjective: z.number().int().nonnegative(),
+        objective: z.number().int().nonnegative(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
 export type Carryover = z.infer<typeof CarryoverSchema>;
 
 const NotePositionSchema = {
@@ -351,15 +368,17 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("cursor:leave") }),
   // content はテンプレート・具体例を起点にしたプリフィル付き作成用。
-  // プロトコルに作成応答の相関 ID がないため、「作成してから内容を送る」
-  // 2 段階ではなく作成時に内容を渡せる形にしている。
-  z.object({
-    type: z.literal("note:create"),
-    content: z
-      .string()
-      .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。")
-      .optional(),
-  }),
+  // 手動作成は operationId で成功・拒否を照合し、他タブの作成と区別する。
+  z
+    .object({
+      type: z.literal("note:create"),
+      content: z
+        .string()
+        .max(NOTE_CONTENT_MAX_LENGTH, "本文は2000文字以内で入力してください。")
+        .optional(),
+      operationId: OptimisticOperationIdSchema.optional(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("note:publish"),
@@ -785,6 +804,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("snapshot"),
     moveProtocolVersion: z.literal(1).optional(),
     shareProtocolVersion: z.literal(1).optional(),
+    noteCreateProtocolVersion: z.literal(1).optional(),
     groupRevision: z.number().int().nonnegative().optional(),
     mapRevision: z.number().int().nonnegative().optional(),
     sharing: SharingStateSchema.nullable().optional(),
@@ -813,7 +833,11 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     timer: TimerStateSchema,
     serverNow: TimerMillisecondsSchema,
   }),
-  z.object({ type: z.literal("note:inserted"), note: NoteSchema }),
+  z.object({
+    type: z.literal("note:inserted"),
+    note: NoteSchema,
+    operationId: OptimisticOperationIdSchema.optional(),
+  }),
   z
     .object({
       type: z.literal("note:content-saved"),
@@ -1034,3 +1058,7 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
     return null;
   }
 }
+
+// 認証期限切れは退出・解散と別の終端。
+export const WS_CLOSE_AUTH_REQUIRED = 4002;
+export const WS_CLOSE_AUTH_REQUIRED_REASON = "authentication required";

@@ -55,6 +55,10 @@ type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {};
 
+export const SharingStep: Story = {
+  args: { canCreateNote: false, canDeleteNote: false },
+};
+
 export const Collapsed: Story = {
   args: { defaultExpanded: false },
 };
@@ -122,10 +126,17 @@ function DelayedAdditionExample(args: PrivateNotesToolbarProps) {
   const [notes, setNotes] = useState([singleNote]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [receipt, setReceipt] = useState<
+    { operationId: string; noteId: string } | undefined
+  >();
   useEffect(() => {
     if (!adding) return;
     const timer = window.setTimeout(() => {
       setNotes((current) => [...current, delayedNewNote]);
+      setReceipt({
+        operationId: "delayed-addition",
+        noteId: delayedNewNote.id,
+      });
       setAdding(false);
     }, 1800);
     return () => window.clearTimeout(timer);
@@ -135,10 +146,14 @@ function DelayedAdditionExample(args: PrivateNotesToolbarProps) {
       {...args}
       notes={notes}
       selectedNoteId={selectedNoteId}
-      canCreateNote={
-        !adding && !notes.some((note) => note.id === delayedNewNote.id)
-      }
-      onAdd={() => setAdding(true)}
+      noteCreationPending={adding}
+      noteCreationReceipt={receipt}
+      onAdd={() => {
+        if (adding || notes.some((note) => note.id === delayedNewNote.id))
+          return null;
+        setAdding(true);
+        return "delayed-addition";
+      }}
       onSelect={setSelectedNoteId}
       onContentChange={(id, content) =>
         setNotes((current) =>
@@ -163,7 +178,7 @@ export const DelayedAddition: Story = {
 
 export const LongText: Story = { args: { notes: [longNote, ...manyNotes] } };
 
-export const SaveConfirmationPending: Story = {
+export const DraftAwaitingConfirmation: Story = {
   args: {
     notes: [singleNote],
     draftValue: () => "入力した本文。サーバー受理の確認はまだです。",

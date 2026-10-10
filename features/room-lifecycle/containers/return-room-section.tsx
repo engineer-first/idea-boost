@@ -9,6 +9,7 @@ import {
   rememberLastRoom,
 } from "@/lib/room-client/last-room-storage";
 import { queryRoomCreation, returnToRoom } from "../logic/actions";
+import { entryDestination } from "../logic/entry-destination";
 import {
   listRoomCreationIntents,
   notifyRoomCreations,
@@ -21,6 +22,7 @@ import {
   ReturnRoomSectionView,
   type ReturnRoomStatus,
 } from "../templates/return-room-section-view";
+import { RoomReauthentication } from "./room-reauthentication";
 
 export function ReturnRoomSection({
   currentUserId,
@@ -28,6 +30,7 @@ export function ReturnRoomSection({
   currentUserId: string;
 }) {
   const router = useRouter();
+  const [reauthRoom, setReauthRoom] = useState<string>();
   const [candidate, setCandidate] = useState<{
     userId: string;
     roomId: string | null;
@@ -65,6 +68,7 @@ export function ReturnRoomSection({
               ? "completed"
               : "active",
           );
+        else if (result.kind === "reauth_required") setStatus("active");
         else if (result.kind === "unavailable_room") {
           clearLastRoom(roomId);
           setStatus("unavailable");
@@ -171,11 +175,18 @@ export function ReturnRoomSection({
       if (!roomId) return;
       const result = await returnToRoom(roomId);
       if (!current()) return;
+      if (result.kind === "reauth_required") {
+        setReauthRoom(roomId);
+        setStatus(previousStatus);
+        return;
+      }
       if (result.kind === "ready") {
         setStatus(
           result.href.startsWith("/completed-rooms/") ? "completed" : "active",
         );
-        router.push(result.href);
+        router.push(
+          await entryDestination(result.href, roomId, result.entryToken),
+        );
         rememberLastRoom(principal, roomId);
         // 移動中の同タブには新しいServer Actionを起こさず、別タブだけに通知。
         notifyRoomCreations(false);
@@ -213,21 +224,29 @@ export function ReturnRoomSection({
   );
   if (!roomId && !previous.length) return null;
   return (
-    <ReturnRoomSectionView
-      status={status}
-      hasCandidate={Boolean(roomId)}
-      onConfirm={() => {
-        void open();
-      }}
-      historyMessage={historyMessage}
-      previousRooms={previous.map((record) => ({
-        id: record.requestId,
-        label: `${record.roomId ? "以前のルームを開く" : "以前のルームを探す"}${record.name ? `：${record.name}` : record.issuedAt > 0 ? `（${new Date(record.issuedAt).toLocaleString("ja-JP")}）` : ""}`,
-      }))}
-      onOpenPrevious={(id) => {
-        const record = previous.find((record) => record.requestId === id);
-        if (record) void open(record);
-      }}
-    />
+    <>
+      <ReturnRoomSectionView
+        status={status}
+        hasCandidate={Boolean(roomId)}
+        onConfirm={() => {
+          void open();
+        }}
+        historyMessage={historyMessage}
+        previousRooms={previous.map((record) => ({
+          id: record.requestId,
+          label: `${record.roomId ? "以前のルームを開く" : "以前のルームを探す"}${record.name ? `：${record.name}` : record.issuedAt > 0 ? `（${new Date(record.issuedAt).toLocaleString("ja-JP")}）` : ""}`,
+        }))}
+        onOpenPrevious={(id) => {
+          const record = previous.find((record) => record.requestId === id);
+          if (record) void open(record);
+        }}
+      />
+      {reauthRoom && (
+        <RoomReauthentication
+          operation={{ kind: "return", roomId: reauthRoom }}
+          onBack={() => setReauthRoom(undefined)}
+        />
+      )}
+    </>
   );
 }

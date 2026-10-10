@@ -49,6 +49,7 @@ export type BoardDrag = {
   targetIds?: readonly string[];
   pointerId: number;
   status: "private" | "shared" | "returning";
+  canPublishAtStart?: boolean;
   privateDropIndex: number | null;
   x: number;
   y: number;
@@ -86,6 +87,7 @@ export type UseBoardDragArgs = {
   // フェーズごとの既存付箋の移動権限を指定する。
   canMoveSharedNotes?: boolean;
   canPublish?: boolean;
+  canReturnToPrivate?: boolean;
   onPublishBlocked?: () => void;
   onNoteDragStart: (
     noteId: string,
@@ -176,6 +178,7 @@ export function useBoardDrag({
   clampCoordinate = clampCanvasCoordinate,
   canMoveSharedNotes = true,
   canPublish = true,
+  canReturnToPrivate = canPublish,
   onPublishBlocked,
   onNoteDragStart,
   onNoteDragMove,
@@ -529,6 +532,7 @@ export function useBoardDrag({
         note,
         pointerId: event.pointerId,
         status: "private",
+        canPublishAtStart: canPublish,
         privateDropIndex: renderedPrivateNotes.findIndex(
           (candidate) => candidate.id === noteId,
         ),
@@ -544,7 +548,13 @@ export function useBoardDrag({
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
     },
-    [renderedPrivateNotes, boardScrollerRef, privateToolbarRef, updateDrag],
+    [
+      renderedPrivateNotes,
+      boardScrollerRef,
+      privateToolbarRef,
+      updateDrag,
+      canPublish,
+    ],
   );
 
   const handlePointerMove = useCallback(
@@ -558,15 +568,18 @@ export function useBoardDrag({
         clientY: event.clientY,
       };
 
-      if (isPointerInPrivateDropArea(event.clientX, event.clientY)) {
-        if (
-          current.status === "shared" &&
-          current.note.authorId === currentUserId &&
-          canPublish
-        ) {
+      const canReturnSharedNote =
+        current.status === "shared" &&
+        current.note.authorId === currentUserId &&
+        canReturnToPrivate;
+      if (
+        isPointerInPrivateDropArea(event.clientX, event.clientY) &&
+        (current.status !== "shared" || canReturnSharedNote)
+      ) {
+        if (canReturnSharedNote) {
           // ドック上は挿入先の候補にすぎないため、pointer-up まで非公開化しない。
           // 3-2 の private map lock は pointer-up で非公開化した後に解除する。
-          if (!lockPrivateMapDrag || !canPublish) {
+          if (!lockPrivateMapDrag) {
             onNoteDragCancel(current.note.id);
           }
           updateDrag({
@@ -638,10 +651,6 @@ export function useBoardDrag({
         });
         return;
       }
-      if (current.status !== "returning" && !canPublish) {
-        updateDrag({ ...currentAtPointer, status: "shared", ...nextPosition });
-        return;
-      }
       onNoteDragMove(current.note.id, nextPosition.x, nextPosition.y);
       updateDrag({
         ...currentAtPointer,
@@ -657,6 +666,7 @@ export function useBoardDrag({
     [
       boardPositionFromPointer,
       canPublish,
+      canReturnToPrivate,
       canMoveSharedNotes,
       clampCoordinate,
       currentUserId,
@@ -757,7 +767,7 @@ export function useBoardDrag({
             ).map((note) => note.id),
           );
           if (current.status === "returning") {
-            if (lockPrivateMapDrag && canPublish) {
+            if (lockPrivateMapDrag && canReturnToPrivate) {
               onPrivateNoteUnpublish(current.note.id, privateDropIndex, true);
             } else {
               onPrivateNoteUnpublish(current.note.id, privateDropIndex);
@@ -786,6 +796,7 @@ export function useBoardDrag({
       onNoteDragCancel,
       lockPrivateMapDrag,
       canPublish,
+      canReturnToPrivate,
       preservePrivateGrabOffset,
       stopPrivateListAutoScroll,
       updateDrag,
@@ -845,6 +856,16 @@ export function useBoardDrag({
 
   const hasPrivatePreview =
     drag?.status === "private" || drag?.status === "returning";
+  useEffect(() => {
+    const current = dragRef.current;
+    if (
+      (!canPublish &&
+        current?.status === "private" &&
+        current.canPublishAtStart) ||
+      (!canReturnToPrivate && current?.status === "returning")
+    )
+      cancelCurrentNoteDrag(true);
+  }, [canPublish, canReturnToPrivate, cancelCurrentNoteDrag]);
   useEffect(() => {
     if (!hasPrivatePreview) return;
     const toolbar = privateToolbarRef.current;

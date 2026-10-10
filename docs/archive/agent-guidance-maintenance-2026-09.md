@@ -258,3 +258,9 @@ Sprint 3（PBI-04〜09 が対象）と Sprint 2（PBI-01〜03 が対象）で実
 ### 境界と探索の検証
 
 先に境界テストの失敗28件を確認し、新schema・dueのJST日付・review/demo日の切替・年越し・後続未登録・明示登録したdue未確定を含む43件が成功した。PBI・状態同期・バーンダウンも含む関連107件とPython 11件、lint・型検査を確認した。Claudeの正式CLIのSDK初期化では共有8件と `pbi` が各1件表示された。モデル呼出し・Issue作成なし、session保存なしで終了した。Codex app-serverの `skills/list` は応答を確認できず、新名の探索実確認は未確認とする。正本と相対symlink・表示metadata・呼出条件は保持している。
+
+## 2026-10-10: write-pr の新規 PR を既定で Draft にする
+
+Issue #579 に合わせ、人の確認前に CodeRabbit のトークンを消費するのを避けるため、通常の PR 作成依頼は Draft とし、Ready for review での作成をユーザーが明示した場合だけ通常の PR にする。作成後の無断の Draft 解除を避け、既存 PR の本文更新では状態を保持する。CLI の作成例に `--draft` を加え、反映後の確認対象にも PR の状態を含めた。
+
+「PR までお願い」「PR を作って」は Draft、明示的な Ready for review・通常 PR の依頼は通常 PR、既存本文の更新は状態保持となることを文面で読み合わせた。変更文書の Markdown 整形、相対リンク、Claude の共有スキル symlink、`git diff --check` を検証した。今回の PR 作成にも変更後の手順を適用し、GitHub 上の `isDraft` を確認する。通常 PR の作成と既存 PR の更新は文面確認のみとし、検証目的の公開操作は行わない。

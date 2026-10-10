@@ -36,6 +36,152 @@ function setup(disabled = false, selectedNoteId: string | null = null) {
 }
 
 describe("PrivateNotesToolbar", () => {
+  it("作成待ちで＋が無効になったときのブラウザの自動blurは新規本文への移動を取り消さない", () => {
+    const oldNote = buildNote({ id: "old", visibility: "private" });
+    const newNote = buildNote({
+      id: "new",
+      visibility: "private",
+      content: "",
+    });
+    const props = {
+      notes: [oldNote],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canEditNote: true,
+      canDeleteNote: true,
+      canMoveNote: false,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(() => "create-1"),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+    const add = screen.getByRole("button", { name: "付箋を追加" });
+    act(() => add.focus());
+    fireEvent.click(add);
+    view.rerender(<PrivateNotesToolbar {...props} noteCreationPending />);
+    // Chromiumはfocused buttonがdisabledになるとrelatedTargetなしでfocusoutする。
+    fireEvent.focusOut(add, { relatedTarget: null });
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={[oldNote, newNote]}
+        selectedNoteId="new"
+        noteCreationReceipt={{ operationId: "create-1", noteId: "new" }}
+      />,
+    );
+    expect(props.onSelect).toHaveBeenCalledWith("new");
+    expect(screen.getAllByRole("textbox")[1]).toHaveFocus();
+  });
+  it("本文から追加を指示しただけなら保存確認を待たず対応する新規本文へ移る", () => {
+    const oldNote = buildNote({
+      id: "old",
+      visibility: "private",
+      content: "旧本文",
+    });
+    const newNote = buildNote({
+      id: "new",
+      visibility: "private",
+      content: "",
+    });
+    const props = {
+      notes: [oldNote],
+      disabled: false,
+      selectedNoteId: "old",
+      canCreateNote: true,
+      canEditNote: true,
+      canDeleteNote: true,
+      canMoveNote: false,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(() => "create-1"),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+    fireEvent.keyDown(screen.getByRole("button", { name: "付箋" }), {
+      key: "Enter",
+    });
+    const editor = screen.getByRole("textbox");
+    fireEvent.change(editor, { target: { value: "最新の入力" } });
+    view.rerender(<PrivateNotesToolbar {...props} addRequest={1} />);
+    expect(props.onContentChange).toHaveBeenCalledWith("old", "最新の入力");
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        addRequest={1}
+        notes={[oldNote, newNote]}
+        selectedNoteId="new"
+        noteCreationReceipt={{ operationId: "create-1", noteId: "new" }}
+      />,
+    );
+    expect(screen.getAllByRole("textbox")[1]).toHaveFocus();
+  });
+
+  it("別の作成結果や一覧の差分だけでは選択とフォーカスを移さない", () => {
+    const props = {
+      notes: [buildNote({ id: "old", visibility: "private" })],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canEditNote: true,
+      canDeleteNote: true,
+      canMoveNote: false,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(() => "create-1"),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(<PrivateNotesToolbar {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        notes={[
+          ...props.notes,
+          buildNote({ id: "other", visibility: "private" }),
+        ]}
+        noteCreationPending
+        noteCreationReceipt={{ operationId: "other-create", noteId: "other" }}
+      />,
+    );
+    expect(props.onSelect).not.toHaveBeenCalledWith("other");
+    expect(screen.getAllByRole("textbox")[1]).toHaveAttribute("readonly");
+  });
+
+  it("作成待ちに工程の文脈が変わったら、対応する応答でも入力を奪わない", () => {
+    const props = {
+      notes: [],
+      disabled: false,
+      selectedNoteId: null,
+      canCreateNote: true,
+      canEditNote: true,
+      canDeleteNote: true,
+      canMoveNote: false,
+      onSelect: vi.fn(),
+      onAdd: vi.fn(() => "create-1"),
+      onContentChange: vi.fn(),
+      onDelete: vi.fn(),
+      onDragStart: vi.fn(),
+    };
+    const view = render(
+      <PrivateNotesToolbar {...props} noteCreationFocusContext="1-1:1" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+    view.rerender(
+      <PrivateNotesToolbar
+        {...props}
+        noteCreationFocusContext="2-1:2"
+        notes={[buildNote({ id: "new", visibility: "private" })]}
+        noteCreationReceipt={{ operationId: "create-1", noteId: "new" }}
+      />,
+    );
+    expect(props.onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox")).toHaveAttribute("readonly");
+  });
   it("一覧内ではボード上の座標を使わず、付箋を縦一列に配置する", () => {
     render(
       <PrivateNotesToolbar
@@ -177,8 +323,8 @@ describe("PrivateNotesToolbar", () => {
     ).toEqual(["before", "returning", "after"]);
   });
 
-  it("初期状態は開いて表示し、必要なときに小さなドックへ閉じる", () => {
-    const onAdd = vi.fn();
+  it("初期状態は開いて表示し、閉じると一覧を隠して操作欄を残す", () => {
+    const onAdd = vi.fn(() => "create-1");
     render(
       <PrivateNotesToolbar
         notes={[buildNote({ visibility: "private" })]}
@@ -230,7 +376,6 @@ describe("PrivateNotesToolbar", () => {
     fireEvent.click(closeButton);
 
     expect(toolbar).toHaveAttribute("data-expanded", "false");
-    expect(toolbar).toHaveClass("h-14", "w-fit");
     expect(
       screen.queryByRole("button", { name: "付箋" }),
     ).not.toBeInTheDocument();
@@ -366,10 +511,7 @@ describe("PrivateNotesToolbar", () => {
     );
   });
 
-  it.each([
-    "dock",
-    "workspace",
-  ] as const)("%sでは新しい付箋を末尾へ表示して追加直後から本文を入力できる", (presentation) => {
+  it("新しい付箋を末尾へ表示して滑らかにスクロールし、追加直後から本文を入力できる", () => {
     const oldNote = buildNote({
       id: "old-note",
       visibility: "private",
@@ -382,7 +524,7 @@ describe("PrivateNotesToolbar", () => {
       content: "",
       createdAt: "2026-07-03T00:01:00.000Z",
     });
-    const onAdd = vi.fn();
+    const onAdd = vi.fn(() => "create-1");
     const onSelect = vi.fn();
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
@@ -403,17 +545,15 @@ describe("PrivateNotesToolbar", () => {
       onDelete: vi.fn(),
       onDragStart: vi.fn(),
     };
-    const view = render(
-      <PrivateNotesToolbar {...props} presentation={presentation} />,
-    );
+    const view = render(<PrivateNotesToolbar {...props} />);
 
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
     view.rerender(
       <PrivateNotesToolbar
         {...props}
-        presentation={presentation}
         notes={[oldNote, newNote]}
         selectedNoteId="new-note"
+        noteCreationReceipt={{ operationId: "create-1", noteId: "new-note" }}
       />,
     );
 
@@ -461,7 +601,7 @@ describe("PrivateNotesToolbar", () => {
       canMoveNote: true,
       canEditNote: true,
       onSelect: vi.fn(),
-      onAdd: vi.fn(),
+      onAdd: vi.fn(() => "create-1"),
       onContentChange: vi.fn(),
       onDelete: vi.fn(),
       onDragStart: vi.fn(),
@@ -474,6 +614,11 @@ describe("PrivateNotesToolbar", () => {
         <PrivateNotesToolbar
           {...props}
           notes={notes}
+          noteCreationReceipt={
+            notes.some((note) => note.id === "new-note")
+              ? { operationId: "create-1", noteId: "new-note" }
+              : undefined
+          }
           selectedNoteId={selectedNoteId}
           onSelect={(id) => {
             props.onSelect(id);
@@ -517,7 +662,7 @@ describe("PrivateNotesToolbar", () => {
       canMoveNote: true,
       canEditNote: true,
       onSelect: vi.fn(),
-      onAdd: vi.fn(),
+      onAdd: vi.fn(() => "create-1"),
       onContentChange: vi.fn(),
       onDelete: vi.fn(),
       onDragStart: vi.fn(),
@@ -534,16 +679,14 @@ describe("PrivateNotesToolbar", () => {
         addRequest={1}
         notes={[oldNote, newNote]}
         selectedNoteId="new-note"
+        noteCreationReceipt={{ operationId: "create-1", noteId: "new-note" }}
       />,
     );
 
     expect(screen.getAllByRole("textbox")[1]).toHaveFocus();
   });
 
-  it.each([
-    "dock",
-    "workspace",
-  ] as const)("%s: 保存状態の表記を出さず、対応するサーバーACKまで下書きを保持する", (presentation) => {
+  it("保存確認表示を出さず、対応するACKまで最新本文の下書きを保持する", () => {
     sessionStorage.clear();
     vi.useFakeTimers();
     try {
@@ -573,7 +716,6 @@ describe("PrivateNotesToolbar", () => {
         }),
       );
       const props = {
-        presentation,
         notes: [note],
         disabled: false,
         selectedNoteId: "save-note",
@@ -606,7 +748,7 @@ describe("PrivateNotesToolbar", () => {
           draftValue={hook.result.current.draftValue}
         />,
       );
-      expect(screen.queryByText("保存確認待ち")).not.toBeInTheDocument();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
       expect(hook.result.current.draftValue(note.id)).toBe("受理を待つ本文");
       expect(send).not.toHaveBeenCalled();
       act(() => vi.advanceTimersByTime(1000));
@@ -634,6 +776,7 @@ describe("PrivateNotesToolbar", () => {
           draftValue={hook.result.current.draftValue}
         />,
       );
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
       expect(hook.result.current.draftValue(note.id)).toBe("受理を待つ本文");
       act(() => vi.advanceTimersByTime(3000));
       expect(send).toHaveBeenLastCalledWith({
@@ -655,7 +798,7 @@ describe("PrivateNotesToolbar", () => {
           draftValue={hook.result.current.draftValue}
         />,
       );
-      expect(hook.result.current.draftValue(note.id)).toBeUndefined();
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
     } finally {
       vi.useRealTimers();
       sessionStorage.clear();

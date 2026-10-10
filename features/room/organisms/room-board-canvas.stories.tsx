@@ -15,12 +15,16 @@ import type {
   MoveReceipt,
   ProtocolNote,
   ServerMessage,
+  SharingState,
 } from "@/contracts/room-protocol";
 import {
   buildDecision,
+  buildMembers,
   buildNote,
   buildNotes,
+  buildSharingState,
 } from "@/contracts/room-protocol.fixture";
+import { canPublishNoteInTurn } from "@/contracts/sharing";
 import { useRoomNotes } from "@/features/notes";
 import { getBoardPermissions } from "../logic/board-permissions";
 import type { RenderedRemoteCursorPresence } from "../logic/cursor-presence";
@@ -29,7 +33,10 @@ import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { RoomBoardCanvas } from "./room-board-canvas";
 import { buildMovePerformanceNotes } from "./room-board-canvas.fixture";
 
-type RoomBoardCanvasStoryProps = { ackDelayMs?: number } & Omit<
+type RoomBoardCanvasStoryProps = {
+  ackDelayMs?: number;
+  sharing?: SharingState | null;
+} & Omit<
   ComponentProps<typeof RoomBoardCanvas>,
   "boardScrollerRef" | "ideaMapPlaneRef" | "privateToolbarRef"
 >;
@@ -40,6 +47,12 @@ const STEP_1_3 = buildPhaseStep(3);
 const STEP_1_4 = buildPhaseStep(4);
 const STEP_1_5 = buildPhaseStep(5);
 const STEP_3_2 = buildPhaseStep(2, 3);
+const GUIDANCE_USER = "11111111-1111-4111-8111-111111111111";
+const GUIDANCE_SHARING = buildSharingState({
+  order: buildMembers(3, GUIDANCE_USER),
+  status: "active",
+  currentIndex: 0,
+});
 const REMOTE_CURSORS: RenderedRemoteCursorPresence[] = [
   {
     userId: "22222222-2222-4222-8222-222222222222",
@@ -537,6 +550,16 @@ export const Step1Writing: Story = {
   },
 };
 
+// 開閉前後で右下の案内が動かないことを比較する。
+export const Step1WritingCollapsed: Story = {
+  ...Step1Writing,
+  play: async ({ canvasElement }) => {
+    await fireEvent.click(
+      within(canvasElement).getByRole("button", { name: "マイ付箋を閉じる" }),
+    );
+  },
+};
+
 // Step1-2: 共有・移動
 export const Step1Sharing: Story = {
   args: {
@@ -994,7 +1017,7 @@ export const IdeaMapCursorAboveRemoteDrag: Story = {
 const guidanceNotes = [
   buildNote({
     id: "guidance-first",
-    authorId: "guidance-user",
+    authorId: GUIDANCE_USER,
     visibility: "private",
     content: "みんなが困っていること",
     x: 50,
@@ -1002,7 +1025,7 @@ const guidanceNotes = [
   }),
   buildNote({
     id: "guidance-second",
-    authorId: "guidance-user",
+    authorId: GUIDANCE_USER,
     visibility: "private",
     content: "もう一つの考え",
     x: 270,
@@ -1013,8 +1036,12 @@ const guidanceNotes = [
 // 本番のドラッグ処理に、保存と共有状態のローカル更新を接続した操作用の例。
 // 実通信と非公開境界は container / Worker のテストで検証する。
 function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
+  const { sharing, ...canvasArgs } = args;
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState([...args.notes, ...args.privateNotes]);
+  const [receipt, setReceipt] = useState<
+    { operationId: string; noteId: string } | undefined
+  >();
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const moveNote = (id: string, x: number, y: number) =>
@@ -1024,9 +1051,10 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
   const interactions = useRoomBoardInteractions({
     notes: notes.filter((note) => note.visibility === "shared"),
     privateNotes: notes.filter((note) => note.visibility === "private"),
-    currentUserId: "guidance-user",
+    currentUserId: GUIDANCE_USER,
     draggingNoteId,
     phase: args.phase,
+    sharing,
     onNoteDragStart: setDraggingNoteId,
     onNoteDragMove: moveNote,
     onNoteDragEnd: (id, x, y) => {
@@ -1072,22 +1100,32 @@ function PrivateNoteGuidanceExample(args: RoomBoardCanvasStoryProps) {
       onPointerCancel={interactions.onPointerCancel}
     >
       <RoomBoardCanvas
-        {...args}
+        {...canvasArgs}
         {...interactions}
+        canPublishPrivateNote={canPublishNoteInTurn(
+          args.phase,
+          sharing,
+          GUIDANCE_USER,
+        )}
         draggingNoteId={draggingNoteId}
         selectedNoteId={selectedNoteId}
         onSelect={setSelectedNoteId}
-        onAddPrivateNote={() =>
+        noteCreationReceipt={receipt}
+        onAddPrivateNote={() => {
+          const operationId = crypto.randomUUID();
+          const noteId = crypto.randomUUID();
           setNotes((current) => [
             ...current,
             buildNote({
-              id: `created-${current.length}`,
-              authorId: "guidance-user",
+              id: noteId,
+              authorId: GUIDANCE_USER,
               visibility: "private",
               content: "",
             }),
-          ])
-        }
+          ]);
+          setReceipt({ operationId, noteId });
+          return operationId;
+        }}
         draftValue={(id) => drafts[id]}
         onDraftChange={(id, content) =>
           setDrafts((current) => ({ ...current, [id]: content }))
@@ -1113,6 +1151,7 @@ export const PrivateGuidanceSharing: Story = {
     ...PrivateGuidanceMultiple.args,
     phase: STEP_1_2,
     permissions: getBoardPermissions(STEP_1_2),
+    sharing: GUIDANCE_SHARING,
     expandPrivateNotesRequest: 1,
   },
 };
@@ -1236,7 +1275,14 @@ function TransactionMovePreview({ args }: { args: RoomBoardCanvasStoryProps }) {
       receipt,
     });
   }, []);
-  const roomNotes = useRoomNotes({ send });
+  const sendRoomNotes = useCallback(
+    (message: ClientMessage): boolean => {
+      send(message);
+      return true;
+    },
+    [send],
+  );
+  const roomNotes = useRoomNotes({ send: sendRoomNotes });
   receiver.current = roomNotes.applyMessage;
   useEffect(() => {
     receiver.current({

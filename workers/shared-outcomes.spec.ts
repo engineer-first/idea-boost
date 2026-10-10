@@ -334,9 +334,6 @@ it("共有操作のない個人入力や成果閲覧は保持期限を延ばさ�
     JSON.stringify({
       type: "note:create",
       content: "個人用",
-      visibility: "private",
-      x: 10,
-      y: 10,
     }),
   );
   const result = await socket.next();

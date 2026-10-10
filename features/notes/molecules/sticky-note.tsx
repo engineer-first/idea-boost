@@ -13,7 +13,7 @@ export type StickyNoteProps = {
   isSelected?: boolean;
   isDecided?: boolean;
   isAdoptionFocused?: boolean;
-  color?: NoteColor;
+  color?: NoteColor | null;
   children: React.ReactNode;
   height?: number;
   className?: string;
@@ -77,8 +77,14 @@ export function StickyNote({
             ? "linear-gradient(rgb(16 185 129 / 0.12), rgb(16 185 129 / 0.12))"
             : undefined,
         ...style,
-        backgroundColor: NOTE_COLOR_STYLES[color].backgroundColor,
-        color: NOTE_COLOR_STYLES[color].foregroundColor,
+        backgroundColor:
+          color === null
+            ? "var(--background)"
+            : NOTE_COLOR_STYLES[color].backgroundColor,
+        color:
+          color === null
+            ? "var(--foreground)"
+            : NOTE_COLOR_STYLES[color].foregroundColor,
       }}
     >
       {children}

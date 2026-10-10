@@ -4,12 +4,14 @@ export type RoomConnectionNoticeProps = {
   delayed?: boolean;
   className?: string;
   testId?: string;
+  returnHref?: string;
 };
 export function RoomConnectionNotice({
   status,
   delayed = false,
   className,
   testId,
+  returnHref,
 }: RoomConnectionNoticeProps) {
   if (status === "open") return null;
   return (
@@ -33,7 +35,13 @@ export function RoomConnectionNotice({
           </p>
           <a
             className="mt-2 inline-flex min-h-11 items-center underline underline-offset-4"
-            href={status === "auth-required" ? "/login" : "/home"}
+            href={
+              status === "auth-required"
+                ? returnHref
+                  ? `/login?next=${encodeURIComponent(returnHref)}`
+                  : "/login"
+                : "/home"
+            }
           >
             {status === "auth-required" ? "ログインする" : "ホームへ戻る"}
           </a>

@@ -145,11 +145,13 @@ it("cronは期限切れ未初期化をDOで閉鎖してから整理する", asyn
   const { createApiWorker } = await import("../api-worker");
   await ensureUser(env.DB, { id: owner.sub, email: owner.email });
   const c = await reserveRoomCreation(env.DB, owner.sub, v7(), "private name");
-  const expiredId = v7(Date.now() - 86400000 - 600000);
+  // UUID v7 の発行時刻と期限は、同じ基準時刻から作る。
+  const expiresAt = Date.now() - 600000;
+  const expiredId = v7(expiresAt - 86400000);
   await env.DB.batch([
     env.DB.prepare(
       "UPDATE room_creation_control SET request_id=?,expires_at=? WHERE room_id=?",
-    ).bind(expiredId, Date.now() - 600000, c.room_id),
+    ).bind(expiredId, expiresAt, c.room_id),
     env.DB.prepare(
       "UPDATE room_creation_requests SET request_id=? WHERE room_id=?",
     ).bind(expiredId, c.room_id),
