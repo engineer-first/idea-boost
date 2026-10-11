@@ -6,13 +6,16 @@ it("Previewリセット確認用のD1とRoomDOのスキーマを作れる", asyn
   const d1 = await env.DB.prepare(
     "PRAGMA table_info(preview_reset_verification)",
   ).all<{ name: string }>();
-  expect(d1.results.map((column) => column.name)).toEqual(["marker"]);
+  expect(d1.results.map((column) => column.name)).toEqual([
+    "marker",
+    "revision",
+  ]);
   await runInRoomDO("preview-reset-test", (_instance, state) => {
     expect(
       state.storage.sql
         .exec("PRAGMA table_info(preview_reset_verification)")
         .toArray()
         .map((column) => column.name),
-    ).toEqual(["marker"]);
+    ).toEqual(["marker", "revision"]);
   });
 });
