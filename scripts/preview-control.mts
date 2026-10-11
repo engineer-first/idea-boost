@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { unstable_readConfig } from "wrangler";
 import { z } from "zod";
@@ -313,51 +314,70 @@ const runtime: PreviewRuntime = {
         }),
       );
     };
-    log({ state: "started" });
-    let reason = "transport";
-    let httpStatus: number | undefined;
-    let cloudflareCode: number | undefined;
-    try {
-      const response = await fetch(`${url}/api/health`, {
-        redirect: "error",
-        headers: {
-          "User-Agent": "idea-boost-preview-probe/1.0",
-          Accept: "application/json",
-          "X-Preview-Probe-Token": previewProbeToken(
-            required("PREVIEW_PROBE_TOKEN"),
-            number,
-          ),
-          "CF-Access-Client-Id": required("PREVIEW_ACCESS_CLIENT_ID"),
-          "CF-Access-Client-Secret": required("PREVIEW_ACCESS_CLIENT_SECRET"),
-        },
-        signal: AbortSignal.timeout(15000),
-      });
-      httpStatus = response.status;
-      reason = "http";
-      if (!response.ok) {
-        if (
-          response.headers.get("Content-Type")?.split(";")[0] === "text/plain"
-        ) {
-          const code = /^error code: (\d{4})\s*$/.exec(await response.text());
-          if (code) cloudflareCode = Number(code[1]);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      log({ state: "started", attempt });
+      let reason = "transport";
+      let httpStatus: number | undefined;
+      let cloudflareCode: number | undefined;
+      try {
+        const response = await fetch(`${url}/api/health`, {
+          redirect: "error",
+          headers: {
+            "User-Agent": "idea-boost-preview-probe/1.0",
+            Accept: "application/json",
+            "X-Preview-Probe-Token": previewProbeToken(
+              required("PREVIEW_PROBE_TOKEN"),
+              number,
+            ),
+            "CF-Access-Client-Id": required("PREVIEW_ACCESS_CLIENT_ID"),
+            "CF-Access-Client-Secret": required("PREVIEW_ACCESS_CLIENT_SECRET"),
+          },
+          signal: AbortSignal.timeout(15000),
+        });
+        httpStatus = response.status;
+        reason = "http";
+        if (!response.ok) {
+          if (
+            response.headers.get("Content-Type")?.split(";")[0] === "text/plain"
+          ) {
+            const code = /^error code: (\d{4})\s*$/.exec(await response.text());
+            if (code) cloudflareCode = Number(code[1]);
+          }
+          throw new Error("health failed");
         }
-        throw new Error("health failed");
+        reason = "response";
+        const health = z
+          .object({
+            ok: z.literal(true),
+            environment: z.literal("preview"),
+            apiCommit: shaSchema,
+          })
+          .parse(await response.json());
+        log({ state: "succeeded", attempt, httpStatus });
+        return health;
+      } catch {
+        // 本文・Location・認証ヘッダー・生エラーは出力しない。
+        const retry =
+          attempt < 3 &&
+          (reason === "transport" ||
+            (reason === "http" &&
+              httpStatus !== undefined &&
+              httpStatus >= 500));
+        log({
+          state: retry ? "retrying" : "failed",
+          attempt,
+          reason,
+          httpStatus,
+          cloudflareCode,
+        });
+        if (retry) {
+          await sleep(attempt * 1000);
+          continue;
+        }
+        throw new Error("Previewのhealth確認に失敗しました。");
       }
-      reason = "response";
-      const health = z
-        .object({
-          ok: z.literal(true),
-          environment: z.literal("preview"),
-          apiCommit: shaSchema,
-        })
-        .parse(await response.json());
-      log({ state: "succeeded", httpStatus });
-      return health;
-    } catch {
-      // 本文・Location・認証ヘッダー・生エラーは出力しない。
-      log({ state: "failed", reason, httpStatus, cloudflareCode });
-      throw new Error("Previewのhealth確認に失敗しました。");
     }
+    throw new Error("Previewのhealth確認に失敗しました。");
   },
 };
 function currentCi(sha: string) {

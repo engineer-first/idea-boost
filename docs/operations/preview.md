@@ -128,6 +128,10 @@ CIのhealthは`idea-boost-preview-probe/1.0`をUser-Agentに指定します。�
 
 healthのJSONログは通常URLを`normal`、固定版URLを`fixed`と記録します。失敗理由は`http`（HTTP拒否）、`transport`（通信・redirect・timeoutなど）、`response`（応答の形が不正）です。HTTP statusと、本文が`error code: 4桁の番号`に一致する場合の番号だけを記録します。認証ヘッダー、Cookie、Location、生の応答・例外をログへ追加しません。
 
+HTTP 5xxまたは通信失敗の場合は、1秒、2秒の間隔を空けて、最初の確認を含め最大3回まで接続を確認します。ログの`attempt`で回数を、`retrying`で再試行することを記録します。認証拒否を含むHTTP 4xxや不正な応答は再試行せず失敗とします。回復しても、通常URL・固定版URLの両方でAPIの版がPRの版と一致するまで成功リンクは表示しません。
+
+2026年10月11日の[PR #622の公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38126758120)では、初回はアップロード後の通常URLへの接続確認がHTTP 500で失敗しました。同じコードで公開処理を再実行すると、通常URL・固定版URLの両方が成功しました。最初の500の原因は特定していません。この事例を受けて、自動の再試行を追加しました。
+
 2026-10-11の実設定と手動操作は[台帳](../../out/preview-setup-log.md#2026-10-11マージ後の初回公開と実操作)、Tokenの2027年3月31日までの期限と更新画像は[PRコメント](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105281887)を参照してください。
 
 ## releaseとの関係
