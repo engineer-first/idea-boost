@@ -6,7 +6,8 @@ import { z } from "zod";
 const root = new URL("../", import.meta.url);
 const appSchema = z.object({
   name: z.literal("idea-boost-preview-app"),
-  main: z.literal("workers/preview-app-worker.ts"),
+  main: z.literal(".preview-bundle/worker.js"),
+  no_bundle: z.literal(true),
   workers_dev: z.literal(false),
   preview_urls: z.literal(true),
   assets: z.object({
@@ -15,16 +16,42 @@ const appSchema = z.object({
     run_worker_first: z.literal(true),
   }),
   previews: z.object({
-    vars: z.object({ PREVIEW_ENABLED: z.literal("true") }),
-    services: z
+    vars: z.object({
+      PREVIEW_ENABLED: z.literal("true"),
+      PREVIEW_PR_NUMBER: z.string().regex(/^[1-9]\d*$/),
+      PREVIEW_API_COMMIT: z.string().regex(/^[a-f0-9]{40}$/),
+    }),
+    durable_objects: z.object({
+      bindings: z
+        .array(
+          z.object({
+            name: z.literal("ROOM_DO"),
+            class_name: z.literal("PreviewRoomDO"),
+          }),
+        )
+        .length(1),
+    }),
+    d1_databases: z
       .array(
         z.object({
-          binding: z.literal("API_WORKER"),
-          service: z.literal("idea-boost-preview-api"),
+          binding: z.literal("DB"),
+          database_name: z
+            .string()
+            .regex(/^idea-boost-preview-pr-[1-9]\d*-lobby$/),
+          database_id: z.string().uuid(),
+          migrations_dir: z.literal("workers/migrations"),
         }),
       )
       .length(1),
   }),
+  migrations: z
+    .array(
+      z.object({
+        tag: z.literal("v1"),
+        new_sqlite_classes: z.tuple([z.literal("PreviewRoomDO")]),
+      }),
+    )
+    .length(1),
 });
 const apiSchema = z.object({
   name: z.literal("idea-boost-preview-api"),
@@ -87,8 +114,15 @@ export function assertPreviewConfig(value: unknown, kind: "app" | "api"): void {
   );
   if (kind === "api") template.vars.PREVIEW_API_COMMIT = "";
   assertKnownKeys(value, template);
-  if (kind === "app") appSchema.parse(value);
-  else {
+  if (kind === "app") {
+    const config = appSchema.parse(value);
+    if (
+      config.previews.d1_databases[0].database_name !==
+      previewDatabaseName(Number(config.previews.vars.PREVIEW_PR_NUMBER))
+    )
+      throw new Error("別PRのD1には接続できません。");
+    assertPreviewDatabaseId(config.previews.d1_databases[0].database_id);
+  } else {
     const config = apiSchema.parse(value);
     const production = unstable_readConfig({
       config: fileURLToPath(new URL("workers/wrangler.jsonc", root)),
@@ -110,10 +144,48 @@ export function assertPreviewConfig(value: unknown, kind: "app" | "api"): void {
   )
     throw new Error("Preview構成に公開経路やbuild.commandを追加できません。");
 }
-export function previewAppConfig() {
-  return JSON.parse(
+export function previewDatabaseName(number: number): string {
+  z.number().int().positive().max(1_000_000_000).parse(number);
+  return `idea-boost-preview-pr-${number}-lobby`;
+}
+export function assertPreviewDatabaseId(databaseId: string): void {
+  z.string().uuid().parse(databaseId);
+  const production = unstable_readConfig({
+    config: fileURLToPath(new URL("workers/wrangler.jsonc", root)),
+  });
+  if (
+    production.d1_databases.some(
+      (db: { database_id?: string }) => db.database_id === databaseId,
+    )
+  )
+    throw new Error("本番D1には接続できません。");
+}
+export type PreviewPrConfigInput = {
+  number: number;
+  databaseId: string;
+  sha: string;
+};
+export function previewAppConfig(input: PreviewPrConfigInput) {
+  const value = JSON.parse(
     readFileSync(new URL("wrangler.preview.jsonc", root), "utf8"),
-  ) as z.infer<typeof appSchema> & Record<string, unknown>;
+  );
+  value.main = ".preview-bundle/worker.js";
+  value.previews.vars.PREVIEW_PR_NUMBER = String(input.number);
+  value.previews.vars.PREVIEW_API_COMMIT = input.sha;
+  value.previews.d1_databases[0].database_name = previewDatabaseName(
+    input.number,
+  );
+  value.previews.d1_databases[0].database_id = input.databaseId;
+  assertPreviewConfig(value, "app");
+  return value as z.infer<typeof appSchema> & Record<string, unknown>;
+}
+export function previewMigrationConfig(input: PreviewPrConfigInput) {
+  const config = previewAppConfig(input);
+  return {
+    name: config.name,
+    compatibility_date: "2026-06-01",
+    d1_databases: config.previews.d1_databases,
+  };
 }
 export function previewApiConfig(databaseId: string, sha: string) {
   const value = JSON.parse(

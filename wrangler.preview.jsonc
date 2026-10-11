@@ -2,19 +2,33 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "idea-boost-preview-app",
   "main": "workers/preview-app-worker.ts",
+  "no_bundle": true,
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": true,
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PreviewRoomDO"] }],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
     "run_worker_first": true
   },
   "previews": {
-    "vars": { "PREVIEW_ENABLED": "true" },
-    "services": [
-      { "binding": "API_WORKER", "service": "idea-boost-preview-api" }
+    "vars": {
+      "PREVIEW_ENABLED": "true",
+      "PREVIEW_PR_NUMBER": "PR_NUMBER_REQUIRED",
+      "PREVIEW_API_COMMIT": "PR_COMMIT_REQUIRED"
+    },
+    "durable_objects": {
+      "bindings": [{ "name": "ROOM_DO", "class_name": "PreviewRoomDO" }]
+    },
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "PR_DATABASE_NAME_REQUIRED",
+        "database_id": "PR_DATABASE_ID_REQUIRED",
+        "migrations_dir": "workers/migrations"
+      }
     ]
   }
 }

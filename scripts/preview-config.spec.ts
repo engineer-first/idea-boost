@@ -6,6 +6,32 @@ import {
   previewAppConfig,
 } from "./preview-config.mts";
 
+it("PR版APIを同じPreview内で動かし、PR専用D1と独立RoomDOへ接続する", () => {
+  const input = {
+    number: 587,
+    databaseId: "11111111-1111-4111-8111-111111111111",
+    sha: "a".repeat(40),
+  };
+  // 現在のApp-only構成は入力を使わず、共通APIへ接続してしまう。
+  const config = previewAppConfig(input);
+  expect(config.previews).not.toHaveProperty("services");
+  expect(config.previews.vars.PREVIEW_API_COMMIT).toBe(input.sha);
+  expect(config.previews.d1_databases).toEqual([
+    expect.objectContaining({
+      binding: "DB",
+      database_id: input.databaseId,
+      database_name: "idea-boost-preview-pr-587-lobby",
+    }),
+  ]);
+  expect(config.previews.durable_objects.bindings).toEqual([
+    { name: "ROOM_DO", class_name: "PreviewRoomDO" },
+  ]);
+  expect(config.migrations).toEqual([
+    { tag: "v1", new_sqlite_classes: ["PreviewRoomDO"] },
+  ]);
+  assertPreviewConfig(config, "app");
+});
+
 it("本番のWorker・D1・DOへの接続や別公開入口を拒否する", () => {
   const api = previewApiConfig(
     "11111111-1111-4111-8111-111111111111",
@@ -32,7 +58,11 @@ it("本番のWorker・D1・DOへの接続や別公開入口を拒否する", () 
     },
   ])
     expect(() => assertPreviewConfig(bad, "api")).toThrow();
-  const app = previewAppConfig();
+  const app = previewAppConfig({
+    number: 12,
+    databaseId: "11111111-1111-4111-8111-111111111111",
+    sha: "a".repeat(40),
+  });
   expect(app.preview_urls).toBe(true);
   assertPreviewConfig(app, "app");
   expect(() =>
@@ -63,7 +93,11 @@ it("追加binding・外部DO namespace・環境別overrideを拒否する", () =
     "11111111-1111-4111-8111-111111111111",
     "a".repeat(40),
   );
-  const app = previewAppConfig();
+  const app = previewAppConfig({
+    number: 12,
+    databaseId: "11111111-1111-4111-8111-111111111111",
+    sha: "a".repeat(40),
+  });
   for (const bad of [
     { ...api, services: [{ binding: "PRODUCTION", service: "idea-flow-api" }] },
     {

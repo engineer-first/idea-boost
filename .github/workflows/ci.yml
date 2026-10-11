@@ -149,11 +149,15 @@ jobs:
 
       # PRコードはpull_requestの隔離された権限/cache scopeでのみ実行する。
       # workflow_run側はこのrun/attemptのartifactを取得して公開するだけ。
-      - name: Prepare PR Preview App bundle
+      - name: Prepare PR Preview App and API bundle
         if: github.event_name == 'pull_request'
-        run: npx opennextjs-cloudflare build --config wrangler.preview.jsonc --skipNextBuild
+        run: |
+          npx opennextjs-cloudflare build --config wrangler.preview.jsonc --skipNextBuild
+          node scripts/preview-bundle.mts
+          node scripts/preview-smoke.mts
         env:
           CI: true
+          PREVIEW_APP_SHA: ${{ github.event.pull_request.head.sha }}
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'pull_request'
         with:
@@ -161,14 +165,9 @@ jobs:
           include-hidden-files: true
           retention-days: 3
           path: |
-            .open-next/
-            workers/preview-app-worker.ts
-            workers/preview-gateway.ts
-            workers/lib/session.ts
-            workers/lib/preview-policy.ts
-            lib/session/token.ts
-            lib/session/secret.ts
-            contracts/
+            .preview-bundle/
+            .open-next/assets/
+            workers/migrations/
 
   smoke:
     # build がビルド成功しか見ていないのに対し、ここは preview:cf 相当の
