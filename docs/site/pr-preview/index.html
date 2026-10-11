@@ -143,7 +143,7 @@
 </section>
   <section id="review" aria-labelledby="review-title">
     <h2 id="review-title">これまでの会話を引き継がずに全体をレビューし、問題を修正しました</h2>
-    <p>これまでの会話を渡さずに、全体・公開処理・認証の3つの観点から、Previewのコード・仕様・設計を確認しました。修正後のコードと、2つのブラウザで操作する自動テストも、別のセッションで再確認しました。<a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">指摘・対応・画像の記録</a>をPRに残しています。</p>
+    <p>これまでの会話を渡さずに、全体・公開処理・認証の3つの観点から、Previewのコード・仕様・設計を確認しました。修正後のコードと、2つのブラウザで操作する自動テストも、会話を引き継がずに再レビューしました。<a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">指摘・対応・画像の記録</a>をPRに残しています。</p>
     <div class="table-scroll" tabindex="0" role="region" aria-label="独立レビューで修正したこと、横スクロールできます"><table><thead><tr><th scope="col">見つかった問題</th><th scope="col">変更後の動作</th></tr></thead><tbody>
       <tr><td>公開コードと、案内のcommitや比較するSQLがずれることがある</td><td>PRのcommitから画面・APIを作り、そのcommitのSQLと公開するSQLが一致することを確認します。</td></tr>
       <tr><td>古い通知が、成功済みの案内を更新中へ戻す</td><td>現在のPR・CI・公開記録を照合し、古い通知で最新の成功案内を書き換えません。</td></tr>
