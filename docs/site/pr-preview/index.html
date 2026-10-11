@@ -85,7 +85,7 @@
   <header>
     <p class="back-link"><a href="../index.html">← 文書一覧</a></p>
     <h1>PR Preview の公開と操作の確認結果</h1>
-    <p class="lede">PRの画面・API・ルームの保存処理を、本番とは別のURLで試せるようにしました。別々の新しいセッションで、コード・仕様・設計をレビューし、見つかった問題を修正しました。公開した#587と#621では、それぞれの変更と保存済み付箋が残ることを確認しました。2人がそれぞれのGoogleアカウントで共同操作できるかは、まだ確認していません。</p>
+    <p class="lede">PRの画面・API・ルームの保存処理を、本番とは別のURLで試せるようにしました。これまでの会話を引き継がずに、コード・仕様・設計をレビューし、見つかった問題を修正しました。公開した#587と#621では、それぞれの変更が反映され、保存済み付箋も残ることを確認しました。2人がそれぞれのGoogleアカウントで共同操作できるかは、まだ確認していません。</p>
     <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 今回の確認日：2026-10-12（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/628">独立レビューの修正PR #628</a> ／ <a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">画像付きのレビュー・検証結果</a></p>
     <p class="note">この報告は確認した時点の記録です。PRの現在の公開状態は<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152">PR #587の「PR Preview」コメント</a>で確認してください。「このPRの最新公開版を開く」からGoogleでログインできます。</p>
     <p class="note">レビューの入口は「このPRの最新公開版を開く」の1つです。8回公開しても、同じPRの保存先を8組作ることはありません。通常のコード更新ではデータを残し、migrationを変更したときは、そのPRのルーム・付箋・呼び名をリセットして作り直します。PRを閉じて開き直したときや、保存先の片方だけ残ったときも、新しく作り直します。PRをマージまたは閉じると、環境とデータは削除されます。</p>
@@ -142,8 +142,8 @@
 </dl></details>
 </section>
   <section id="review" aria-labelledby="review-title">
-    <h2 id="review-title">新しいセッションで全体をレビューし、問題を修正しました</h2>
-    <p>これまでの会話を渡さずに、全体・公開処理・認証の3つの観点から、Previewのコード・仕様・設計を確認しました。修正後のコードと、2ブラウザで操作する自動テストも、別のセッションで再確認しました。<a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">指摘・対応・画像の記録</a>をPRに残しています。</p>
+    <h2 id="review-title">これまでの会話を引き継がずに全体をレビューし、問題を修正しました</h2>
+    <p>これまでの会話を渡さずに、全体・公開処理・認証の3つの観点から、Previewのコード・仕様・設計を確認しました。修正後のコードと、2つのブラウザで操作する自動テストも、別のセッションで再確認しました。<a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">指摘・対応・画像の記録</a>をPRに残しています。</p>
     <div class="table-scroll" tabindex="0" role="region" aria-label="独立レビューで修正したこと、横スクロールできます"><table><thead><tr><th scope="col">見つかった問題</th><th scope="col">変更後の動作</th></tr></thead><tbody>
       <tr><td>公開コードと、案内のcommitや比較するSQLがずれることがある</td><td>PRのcommitから画面・APIを作り、そのcommitのSQLと公開するSQLが一致することを確認します。</td></tr>
       <tr><td>古い通知が、成功済みの案内を更新中へ戻す</td><td>現在のPR・CI・公開記録を照合し、古い通知で最新の成功案内を書き換えません。</td></tr>
@@ -152,7 +152,7 @@
       <tr><td>疎通を確認している間にCIが変わっても、古い処理を成功と表示する</td><td>公開・疎通・成功案内の直前に現在のPRとCIを確認し、対象が変われば中止します。</td></tr>
       <tr><td>採用済みの設計が、文書の入口では提案中になっている</td><td>現在の設計と、初版の共通API方式の記録を分けて案内します。</td></tr>
     </tbody></table></div>
-    <p>Googleアカウントを使った確認は、1人で行いました。2ブラウザで作成者と参加者が共同操作する自動テストは成功しましたが、テスト用のログイン情報で実行しています。友人本人のGoogleログイン・参加・付箋の共有・投票・進行は、Issue #362を完了にする前に確認します。</p>
+    <p>Googleアカウントを使った確認は、1人で行いました。2つのブラウザで作成者と参加者が共同操作する自動テストは成功しましたが、テスト用のログイン情報で実行しています。友人本人のGoogleログイン・参加・付箋の共有・投票・進行は、Issue #362を完了にする前に確認します。</p>
   </section>
   <section id="full-stack" aria-labelledby="full-stack-title"><h2 id="full-stack-title">PRのAPI変更も公開先で確認できました</h2>
     <p>PR #587のAppは公開できましたが、APIはdevelop版のため、戻り先の情報が画面に届かず、「直前のステップに戻る」ボタンが表示されませんでした。接続確認の成功は、この機能の確認成功を意味しません。<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6106092717">初版の画面と原因の記録</a>をPRへ残しました。</p>
@@ -200,7 +200,7 @@
       <tr><td>Google / Access</td><td><span class="status verified">設定済み</span><br>Zero Trustへ登録し、Googleとの接続テストに成功しました。指定した2人のメールアドレスだけを許可し、Googleログインを必須にしました。</td><td>1人でのログインは成功しました。もう1人も自分のGoogleアカウントでログインできるか確認します。</td></tr>
       <tr><td>D1</td><td><span class="status verified">作成済み</span><br>Preview用D1を作成し、初回公開までにmigration 10件を適用しました。</td><td>ルームの作成・再入室で、実際の読み書きを確認しました。</td></tr>
       <tr><td>App / API / RoomDO</td><td><span class="status verified">実操作済み</span><br>PR #587のAppと、品質確認済みdevelopの共通APIを、Preview用RoomDO・D1へ接続しました。</td><td>通常・固定URLの自動確認が成功しました。初版では、PR版のAPI・RoomDOの変更は反映されませんでした。</td></tr>
-      <tr><td>Secret / Cookie</td><td><span class="status verified">設定済み</span><br>Preview用のSecretを6つ、GitHubへ登録しました。AccessのCookieはHttpOnlyを有効にし、App Launcherの表示を外しました。</td><td>公開時にWorkerへSecretを反映しました。値を変える場合は、共通APIとAppの両方へ反映します。</td></tr>
+      <tr><td>Secret / Cookie</td><td><span class="status verified">設定済み</span><br>Preview用のSecretを6つ、GitHubへ登録しました。AccessのCookieはHttpOnlyを有効にし、App Launcherの表示を外しました。</td><td>公開時にWorkerへSecretを反映しました。初版では、値を変える際に共通APIとAppの両方へ反映していました。現在の反映先はPRごとのWorkerです。</td></tr>
       <tr><td>CI / health</td><td><span class="status verified">認証設定済み</span><br>health用Service Token1つだけを許可するService Authを追加しました。期限は1年です。Accessのissuer・AUDもGitHubへ登録しました。</td><td>公開を行うAPI tokenは2027年3月31日までです。通常・固定URLのhealthは成功しました。</td></tr>
       <tr><td>自動公開のflag</td><td><span class="status verified">有効</span><br><code>PREVIEW_ENABLED=true</code>を確認しました。</td><td>PR #587の公開コメントは「疎通確認済み」です。今後の更新でも、この表示とPRの版が一致するか確認します。</td></tr>
     </tbody></table></div>
