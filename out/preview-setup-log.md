@@ -253,3 +253,25 @@ Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. Source: <https://github.com/clou
 診断用Previewを削除し、Cloudflare GETの404/10025で不存在を確認した。#588終了処理も`pr-588`だけを削除し、04:47:20.973 UTCにCLI成功。GETで`pr-588`不存在、`pr-587`は存在することを確認した。親Worker・共通API・D1・RoomDO・本番は削除していない。
 
 追加修正は進捗メッセージを除いてJSONを読み、従来のURL検証を維持する。余計な末尾文字・URL欠落などは拒否し、接続確認へ進まない。生のCLI出力や秘密をログへ出さない。公開処理全体の実成功は、この修正をdevelopへ取り込んで再実行してから判断する。
+
+## 2026-10-11：最新APIでの自動確認成功
+
+ユーザー承認を受け、PR #589のCI全5検査成功を確認してReadyへ変更し、05:05:51 UTCにマージした。developは`808960ba839b584d886c19be3c70ea8a6902b2a9`。
+
+| 対象・UTC時刻                   | 結果・証拠                                                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #587 App公開attempt 7、05:08:07 | [公開run 38109895072](https://github.com/engineer-first/idea-boost/actions/runs/38109895072) success。通常・固定URL healthは各200、観測API版は当時のee3855 |
+| 最新develop CI、05:13:55        | [run 38113689064](https://github.com/engineer-first/idea-boost/actions/runs/38113689064) 全5検査成功                                                       |
+| 最新共通API、05:14:52           | [run 38114119779](https://github.com/engineer-first/idea-boost/actions/runs/38114119779) success。API版は808960                                            |
+| #587 App公開attempt 8、05:17:46 | 同じ公開runを全job再実行しsuccess。実operator808960、App dc659f、観測API808960                                                                             |
+| 通常URL health、05:17:43.436    | succeeded、HTTP 200                                                                                                                                        |
+| 固定版URL health、05:17:44.111  | succeeded、HTTP 200                                                                                                                                        |
+| Bot状態、05:17:44.615           | [コメント](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152)を自動で「疎通確認済み」へ更新。通常・固定リンクあり              |
+
+App commitは`dc659f3652a4edb26f7a41566bd0c78c63b24f67`でPR headと一致。最新APIのhealth確認commitは`808960ba839b584d886c19be3c70ea8a6902b2a9`。Botの成功表示を手動で変更した操作ではない。
+
+実画面では、同じApp版とAPI ee3855の時点に通常・固定URLのGoogleログインを確認した。ログアウトでAccessの成功表示に到達し、Googleの本人アカウントで再認証後、既存ルームの架空共有付箋を再表示。ログイン情報を送らない通常URLへの接続は302。PR疎通済み・ログアウト・再入室の画像を撮影した。API808960更新後の撮り直しは、ブラウザ操作機能の接続エラーで未実施。Chrome再起動後も接続が戻らず、追加の全14ステップ実操作は行っていない。
+
+PR #589終了run 38113688509は05:07:03 UTCに失敗し、対象`pr-589`の削除CLIも失敗した。公開前にPRが閉じられていたが、CLI失敗の原因は生ログから判定していない。別途、認証済みCloudflare GETで`pr-589`が404/10025、`pr-587`が存在することを確認した。対象#589のPreviewが残っているとは扱わないが、終了workflow成功とは記録しない。この条件の終了処理・開き直しは確認が残る。
+
+別Googleユーザーとの共同操作と、未共有付箋の本人間の可視性確認は未実施。PR #587の独自API・RoomDO・migration・戻る処理は共通APIの対象外。これらを確認済みとは扱わない。本番release・契約・既存のGoogle許可一覧は変更していない。
