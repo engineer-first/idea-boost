@@ -88,6 +88,7 @@
     <p class="lede">PRの画面・API・ルームの保存処理を、本番とは別のURLで試せるようにしました。PR #587の通常URLと新しい固定版URLで、Googleログイン、前進、直前のステップへの戻り、付箋の保存を確認しました。2人がそれぞれのGoogleアカウントで共同操作できるかは、まだ確認していません。</p>
     <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 確認した時点：2026-10-11 18:58（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/583">初版の実装PR #583</a> ／ <a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495">最新の画像付き確認結果</a></p>
     <p class="note">この報告は確認した時点の記録です。PRの現在の公開状態は<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152">PR #587の「PR Preview」コメント</a>で確認してください。「このPRの最新公開版を開く」からGoogleでログインできます。</p>
+    <p class="note">レビューの入口は「このPRの最新公開版を開く」の1つです。8回公開しても、同じPRの保存先を8組作ることはありません。通常のコード更新ではデータを残し、migrationを変更したときは、そのPRのルーム・付箋・呼び名をリセットして作り直します。保存先の片方だけ残った場合も、復旧のために作り直します。PRをマージまたは閉じた後も、環境とデータは削除されます。</p>
     <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#full-stack">PR全体の反映</a><a href="#pr-isolation">PRごとの確認</a><a href="#state">確認状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
   </header>
   <section class="dictionary" id="dictionary" aria-labelledby="dictionary-title"><h2 id="dictionary-title">この報告を読むための用語辞典</h2><p class="dictionary-intro">まず「何を用意しているか」を読むための言葉です。ログインや公開の用語は、下のまとまりを開くと読めます。説明は、このPreviewでの使い方に合わせています。</p>
@@ -197,7 +198,7 @@
       <p>CI用policyは<code>Preview CI health</code>です。Service Authで<code>idea-boost-preview-ci-health</code>だけをIncludeします。アプリのprobe tokenは<code>/api/health</code>に限定し、通常画面・API・WSには使えない実装です。</p>
       <p>対象hostnameは<code>*-idea-boost-preview-app.&lt;account-subdomain&gt;.workers.dev</code>の1件です。通常URLと固定版URLを保護する設定です。Worker単位のAccessはWebSocketに対応しないため使っていません。</p>
       <p>GitHubに登録した名前は<code>PREVIEW_D1_ID</code>、<code>PREVIEW_ACCESS_ISSUER</code>、<code>PREVIEW_ACCESS_AUD</code>、<code>PREVIEW_SESSION_SECRET</code>、<code>PREVIEW_ALLOWED_EMAILS</code>、<code>PREVIEW_PROBE_TOKEN</code>、<code>PREVIEW_ACCESS_CLIENT_ID</code>、<code>PREVIEW_ACCESS_CLIENT_SECRET</code>、<code>PREVIEW_CLOUDFLARE_API_TOKEN</code>、<code>PREVIEW_ENABLED</code>です。値は記載しません。</p>
-      <p>Appは<code>workers_dev: false</code>・<code>preview_urls: true</code>、APIは両方falseの設定です。Appの画面素材もWorkerを通り、APIはAppからのService Bindingで呼びます。通常URLと固定版URLでGoogleログインできました。すべての別入口の保護まで検証した結果ではありません。</p>
+      <p>Appは<code>workers_dev: false</code>・<code>preview_urls: true</code>、APIは両方falseの設定です。Appの画面素材もWorkerを通ります。初版はAppから共通APIへService Bindingで接続しました。現在はAppとAPIを同じWorkerにまとめています。通常URLと固定版URLでGoogleログインできました。すべての別入口の保護まで検証した結果ではありません。</p>
     </blockquote></details>
   </section>
   <section id="verification" aria-labelledby="verification-title">
@@ -209,10 +210,10 @@
       <li>Google IdPの接続テストで本人情報を取得し、成功表示を確認しました。</li>
       <li>Googleでログインした指定の2人を許可する設定と、CI用の認証設定を、保存後に読み直しました。CookieのHttpOnly設定も確認しました。</li>
       <li>自動テストで、不正なJWT、許可外のメール、本番Cookieの流用、別OriginのWebSocket接続を拒否することを確認しました。</li>
-      <li>自動テストで14ステップのルーム準備を確認しました。共同編集のテストでは、作成者の未共有付箋12枚は本人だけに届き、参加者には0枚でした。参加者が作った1枚は再入室後も残りました。</li>
+      <li>公開PR #621の全14ステップで、それぞれ異なる新しいルームを作り、選んだステップとサンプルの表示を確認しました。13ステップは実際のWebSocket接続と、届いた状態も確認済みです。共同編集の自動テストでは、作成者の未共有付箋12枚は本人だけに届き、参加者には0枚でした。参加者が作った1枚は再入室後も残りました。</li>
       <li>Storybookで14ステップの選択と、失敗後の再試行を確認しました。パソコンとスマートフォンの幅でページ全体の横はみ出しはありませんでした。</li>
     </ul></div><div><h3>残る確認</h3><ul class="plain-list">
-      <li>全14ステップそれぞれの公開画面を実際に操作します。今回は個人作業・課題共有・投票の画面で確認しました。</li>
+      <li>異なるGoogleアカウントを使う2名で、公開Previewの共同操作を確認します。全14ステップを選んで新しいルームが開くことは確認済みです。</li>
       <li>2人がそれぞれのGoogleアカウントで、招待・付箋の追加と共有・投票・進行を操作します。</li>
       <li>PRを開き直したときの保存先の作り直しを確認します。#622のマージ後は、対象のPreviewと専用D1の削除が成功しました。</li>
       <li>すべての別入口の保護を確認します。ログアウト・Google再認証・再入室と、ログイン情報のないアクセスが転送されることは確認しました。</li>

@@ -1,10 +1,15 @@
 // @vitest-environment node
 import { expect, it } from "vitest";
+import { unstable_readConfig } from "wrangler";
 import {
   assertPreviewConfig,
   previewApiConfig,
   previewAppConfig,
 } from "./preview-config.mts";
+
+const productionDatabaseId = unstable_readConfig({
+  config: "workers/wrangler.jsonc",
+}).d1_databases[0].database_id;
 
 it("PR版APIを同じPreview内で動かし、PR専用D1と独立RoomDOへ接続する", () => {
   const input = {
@@ -12,7 +17,6 @@ it("PR版APIを同じPreview内で動かし、PR専用D1と独立RoomDOへ接続
     databaseId: "11111111-1111-4111-8111-111111111111",
     sha: "a".repeat(40),
   };
-  // 現在のApp-only構成は入力を使わず、共通APIへ接続してしまう。
   const config = previewAppConfig(input);
   expect(config.previews).not.toHaveProperty("services");
   expect(config.previews.vars.PREVIEW_API_COMMIT).toBe(input.sha);
@@ -46,7 +50,7 @@ it("本番のWorker・D1・DOへの接続や別公開入口を拒否する", () 
       d1_databases: [
         {
           ...api.d1_databases[0],
-          database_id: "8e57430c-fd84-4b6d-b9b3-62b4c74ee6dd",
+          database_id: productionDatabaseId,
         },
       ],
     },
@@ -113,7 +117,7 @@ it("追加binding・外部DO namespace・環境別overrideを拒否する", () =
       d1_databases: [
         {
           ...api.d1_databases[0],
-          preview_database_id: "8e57430c-fd84-4b6d-b9b3-62b4c74ee6dd",
+          preview_database_id: productionDatabaseId,
         },
       ],
     },
@@ -129,7 +133,7 @@ it("追加binding・外部DO namespace・環境別overrideを拒否する", () =
         d1_databases: [
           {
             binding: "DB",
-            database_id: "8e57430c-fd84-4b6d-b9b3-62b4c74ee6dd",
+            database_id: productionDatabaseId,
           },
         ],
       },

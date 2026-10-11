@@ -13,18 +13,27 @@ import { fileURLToPath } from "node:url";
 import { unstable_readConfig } from "wrangler";
 import { z } from "zod";
 import { assertPreviewArtifact } from "./preview-bundle.mts";
-import { isCurrentSuccessfulCi, reopenedPreviewCi } from "./preview-ci.mts";
+import {
+  isCurrentSuccessfulCi,
+  type PreviewCiRun,
+  selectPreviewArtifact,
+} from "./preview-ci.mts";
 import {
   assertPreviewConfig,
   previewApiConfig,
   previewAppConfig,
   previewMigrationConfig,
 } from "./preview-config.mts";
+import { previewGenerationState } from "./preview-generation.mts";
 import {
   type PreviewRuntime,
   previewComment,
   reconcilePreview,
 } from "./preview-lifecycle.mts";
+import {
+  previewMigrationHash,
+  previewSchemaMessage,
+} from "./preview-migrations.mts";
 import { createPreviewResources } from "./preview-resources.mts";
 import { previewProbeToken, previewSessionSecret } from "./preview-secrets.mts";
 
@@ -163,6 +172,43 @@ function withSecrets<T>(
   }
 }
 const marker = "<!-- idea-boost-workers-preview -->";
+function generationState(number: number): {
+  generation: number;
+  createdAt?: string;
+} {
+  const events: unknown[] = [];
+  for (let page = 1; ; page++) {
+    const batch = z
+      .array(z.unknown())
+      .parse(gh(`issues/${number}/events?per_page=100&page=${page}`));
+    events.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return previewGenerationState(events);
+}
+function generation(number: number): number {
+  return generationState(number).generation;
+}
+function comments(
+  number: number,
+): Array<{ id: number; body: string; user: { login: string } }> {
+  const result: Array<{ id: number; body: string; user: { login: string } }> =
+    [];
+  for (let page = 1; ; page++) {
+    const batch = z
+      .array(
+        z.object({
+          id: z.number(),
+          body: z.string(),
+          user: z.object({ login: z.string() }),
+        }),
+      )
+      .parse(gh(`issues/${number}/comments?per_page=100&page=${page}`));
+    result.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return result;
+}
 const runtime: PreviewRuntime = {
   current: async (number) => {
     const pr = prSchema.parse(gh(`pulls/${number}`));
@@ -170,36 +216,35 @@ const runtime: PreviewRuntime = {
       open: pr.state === "open",
       sameRepository: pr.head.repo?.full_name === repository,
       sha: pr.head.sha,
+      generation: generation(number),
     };
+  },
+  canPublish: async (sha) => {
+    const latest = currentCi(sha);
+    return (
+      !!latest &&
+      isCurrentSuccessfulCi(latest, {
+        id: Number(required("PREVIEW_CI_RUN_ID")),
+        attempt: Number(required("PREVIEW_CI_ATTEMPT")),
+      })
+    );
   },
   now: () => new Date().toISOString(),
   comment: async (number, report) => {
     const runId = process.env.GITHUB_RUN_ID;
     const body = previewComment({
       ...report,
+      ...(report.state === "ready"
+        ? {
+            ciRunId: Number(required("PREVIEW_CI_RUN_ID")),
+            ciAttempt: Number(required("PREVIEW_CI_ATTEMPT")),
+          }
+        : {}),
       logUrl: runId
         ? `https://github.com/${repository}/actions/runs/${runId}`
         : undefined,
     });
-    const comments: Array<{
-      id: number;
-      body: string;
-      user: { login: string };
-    }> = [];
-    for (let page = 1; ; page++) {
-      const batch = z
-        .array(
-          z.object({
-            id: z.number(),
-            body: z.string(),
-            user: z.object({ login: z.string() }),
-          }),
-        )
-        .parse(gh(`issues/${number}/comments?per_page=100&page=${page}`));
-      comments.push(...batch);
-      if (batch.length < 100) break;
-    }
-    const existing = comments.find(
+    const existing = comments(number).find(
       (c) => c.user.login === "github-actions[bot]" && c.body.includes(marker),
     );
     if (existing)
@@ -224,9 +269,36 @@ const runtime: PreviewRuntime = {
       Number(required("PREVIEW_CI_ATTEMPT")),
     );
     const candidate = resolve(required("PREVIEW_CANDIDATE_DIR"));
-    // 旧App-only artifactやsymlinkを、リソース作成・秘密の設定より前に拒否する。
-    assertPreviewArtifact(candidate, sha);
-    const database = await resources().prepare(number);
+    const schemaForCommit = async (commit: string): Promise<string> =>
+      previewMigrationHash(
+        gh(`git/trees/${shaSchema.parse(commit)}?recursive=1`),
+      );
+    const schemaHash = await schemaForCommit(sha);
+    // 旧形式・symlink・実SQLの不一致を、リソース作成・秘密の設定より前に拒否する。
+    assertPreviewArtifact(candidate, sha, schemaHash);
+    const reopen = generationState(number);
+    const expectedGeneration = reopen.generation;
+    const stillCurrent = async (): Promise<boolean> => {
+      assertCurrentCi(
+        sha,
+        Number(required("PREVIEW_CI_RUN_ID")),
+        Number(required("PREVIEW_CI_ATTEMPT")),
+      );
+      const current = await runtime.current(number);
+      return (
+        current.open &&
+        current.sameRepository &&
+        current.sha === sha &&
+        current.generation === expectedGeneration
+      );
+    };
+    const database = await resources().prepare(number, {
+      hash: schemaHash,
+      generation: expectedGeneration,
+      generationStartedAt: reopen.createdAt,
+      legacyHash: schemaForCommit,
+      stillCurrent,
+    });
     const input = { number, databaseId: database.uuid, sha };
     const config = previewAppConfig(input);
     assertPreviewConfig(config, "app");
@@ -242,6 +314,10 @@ const runtime: PreviewRuntime = {
         migrationFile,
         JSON.stringify(previewMigrationConfig(input)),
       );
+      if (!(await stillCurrent()))
+        throw new Error(
+          "PRの状態または版が変わったためmigrationを中止しました。",
+        );
       cli(
         [
           "d1",
@@ -259,6 +335,8 @@ const runtime: PreviewRuntime = {
         Number(required("PREVIEW_CI_RUN_ID")),
         Number(required("PREVIEW_CI_ATTEMPT")),
       );
+      if (!(await stillCurrent()))
+        throw new Error("PRが開き直されたため公開を中止しました。");
       const output = withSecrets(
         (secretFile) =>
           cli([
@@ -269,6 +347,8 @@ const runtime: PreviewRuntime = {
             `pr-${number}`,
             "--tag",
             sha,
+            "--message",
+            previewSchemaMessage(schemaHash, expectedGeneration),
             "--ignore-base-config",
             "--secrets-file",
             secretFile,
@@ -403,28 +483,101 @@ function assertCurrentCi(sha: string, id: number, attempt: number): void {
       "現在のCI成功を確認できません。古いrun/attemptを公開しません。",
     );
 }
+function planPublication(pr: z.infer<typeof prSchema>, ci: PreviewCiRun): void {
+  const expected = {
+    sha: pr.head.sha,
+    runId: ci.id,
+    attempt: ci.run_attempt,
+    generation: generation(pr.number),
+  };
+  const ready = comments(pr.number).some((comment) => {
+    if (
+      comment.user.login !== "github-actions[bot]" ||
+      !comment.body.includes(marker) ||
+      !comment.body.includes("状態：疎通確認済み")
+    )
+      return false;
+    const match = /<!-- preview-publication:(\{[^\n]+\}) -->/.exec(
+      comment.body,
+    );
+    if (!match) return false;
+    try {
+      const source = z
+        .object({
+          sha: shaSchema,
+          runId: z.number(),
+          attempt: z.number(),
+          generation: z.number(),
+        })
+        .parse(JSON.parse(match[1]));
+      return (
+        source.sha === expected.sha &&
+        source.runId === expected.runId &&
+        source.attempt === expected.attempt &&
+        source.generation === expected.generation
+      );
+    } catch {
+      return false;
+    }
+  });
+  if (ready) return;
+  const artifacts: Array<{ id: number; name: string; expired: boolean }> = [];
+  for (let page = 1; ; page++) {
+    const batch = z
+      .object({
+        artifacts: z.array(
+          z.object({
+            id: z.number().int().positive(),
+            name: z.string(),
+            expired: z.boolean(),
+          }),
+        ),
+      })
+      .parse(
+        gh(`actions/runs/${ci.id}/artifacts?per_page=100&page=${page}`),
+      ).artifacts;
+    artifacts.push(...batch);
+    if (batch.length < 100) break;
+  }
+  const artifact = selectPreviewArtifact(
+    artifacts,
+    pr.head.sha,
+    ci.run_attempt,
+  );
+  appendFileSync(
+    required("GITHUB_OUTPUT"),
+    `publish=true\nnumber=${pr.number}\nsha=${pr.head.sha}\nci_run_id=${ci.id}\nci_attempt=${ci.run_attempt}\nartifact_id=${artifact.id}\n`,
+  );
+}
 async function plan(): Promise<void> {
   const event = JSON.parse(readFileSync(required("GITHUB_EVENT_PATH"), "utf8"));
   if (event.pull_request) {
-    const pr = prSchema.parse(
-      gh(`pulls/${prSchema.parse(event.pull_request).number}`),
-    );
+    const eventPr = prSchema.parse(event.pull_request);
+    const pr = prSchema.parse(gh(`pulls/${eventPr.number}`));
     if (pr.head.repo?.full_name !== repository) return;
-    if (pr.state === "open" && event.action === "reopened") {
-      const ci = reopenedPreviewCi(event.action, currentCi(pr.head.sha));
-      if (ci) {
-        appendFileSync(
-          required("GITHUB_OUTPUT"),
-          `publish=true\nnumber=${pr.number}\nsha=${pr.head.sha}\nci_run_id=${ci.id}\nci_attempt=${ci.attempt}\n`,
-        );
-        return;
-      }
+    if (
+      pr.state === "open" &&
+      (event.action === "closed" || eventPr.head.sha !== pr.head.sha)
+    )
+      return;
+    const ci = pr.state === "open" ? currentCi(pr.head.sha) : undefined;
+    if (
+      ci &&
+      isCurrentSuccessfulCi(ci, { id: ci.id, attempt: ci.run_attempt })
+    ) {
+      planPublication(pr, ci);
+      return;
     }
     await reconcilePreview(
       {
         number: pr.number,
         sha: pr.head.sha,
-        state: pr.state === "closed" ? "closed" : "pending",
+        state:
+          pr.state === "closed"
+            ? "closed"
+            : ci?.conclusion
+              ? "failed"
+              : "pending",
       },
       runtime,
     );
@@ -466,10 +619,7 @@ async function plan(): Promise<void> {
     );
     return;
   }
-  appendFileSync(
-    required("GITHUB_OUTPUT"),
-    `publish=true\nnumber=${pr.number}\nsha=${pr.head.sha}\nci_run_id=${run.id}\nci_attempt=${run.run_attempt}\n`,
-  );
+  planPublication(pr, latest);
 }
 async function publish(): Promise<void> {
   const number = z.coerce
