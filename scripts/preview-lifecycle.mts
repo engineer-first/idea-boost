@@ -19,7 +19,10 @@ export type PreviewRuntime = {
     sha: string,
   ) => Promise<{ url: string; deploymentUrl?: string }>;
   remove: (number: number) => Promise<void>;
-  probe: (url: string) => Promise<{ ok: true; apiCommit: string }>;
+  probe: (
+    url: string,
+    number: number,
+  ) => Promise<{ ok: true; apiCommit: string }>;
   comment: (number: number, report: PreviewReport) => Promise<void>;
   now: () => string;
 };
@@ -53,8 +56,13 @@ export async function reconcilePreview(
     const deployment = await runtime.deploy(input.number, input.sha);
     if (!deployment.deploymentUrl)
       throw new Error("固定版URLを確認できません。");
-    const health = await runtime.probe(deployment.url);
-    await runtime.probe(deployment.deploymentUrl);
+    const health = await runtime.probe(deployment.url, input.number);
+    const fixedHealth = await runtime.probe(
+      deployment.deploymentUrl,
+      input.number,
+    );
+    if (health.apiCommit !== input.sha || fixedHealth.apiCommit !== input.sha)
+      throw new Error("PR版AppとAPIの版が一致しません。");
     const latest = await runtime.current(input.number);
     if (!latest.open) {
       await runtime.remove(input.number);
@@ -109,16 +117,17 @@ export function previewComment(report: PreviewReport): string {
         ]
       : []),
     `App commit：\`${report.appCommit}\``,
-    `疎通確認時の共通API commit：\`${report.apiCommit ?? "未確認"}\``,
+    `PR版API commit：\`${report.apiCommit ?? "未確認"}\``,
     `更新日時：${report.updatedAt}`,
     ...(report.logUrl ? [`[公開・終了処理のログ](${report.logUrl})`] : []),
     "",
     "ログイン：許可一覧のGoogleアカウント（Cloudflare Access）。作成者がホストです。ボードの招待URLから同じPRのルームへ参加できます。",
-    "確認範囲：PR版App、全14ステップの新しいサンプル入りルーム、付箋・投票・通常進行。参加者のマイ付箋は空から始まります。",
+    "確認範囲：PR版App・API・RoomDO・D1 migration・通信契約。全14ステップの新しいサンプル入りルームで操作できます。参加者のマイ付箋は空から始まります。",
     ...(report.state === "ready" && report.url
-      ? [`[現在の共通API版を確認](${report.url}/api/health)`]
+      ? [`[現在のPR版APIを確認](${report.url}/api/health)`]
       : []),
-    "確認できない範囲：PR版API・RoomDO・D1 migration・通信契約。共通APIはCI確認済みdevelopです。",
+    "保存先：D1とRoomDOはPRごとに分離します。旧共通Previewのルームは引き継がないため、ステップ選択から新しいルームを作ってください。",
+    "戻る操作など進行履歴を使う機能は、ステップを直接開いた後に実際に進めてから確認してください。固定URLも保存先は同じPR内で共有するため、過去のデータ状態まで固定するものではありません。",
     "認証やGoogle設定、別メンバーでの操作確認はhealth成功だけでは保証しません。設定・保持・失敗時手順は docs/operations/preview.md を参照してください。",
   ].join("\n");
 }

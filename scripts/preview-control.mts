@@ -9,18 +9,23 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { unstable_readConfig } from "wrangler";
 import { z } from "zod";
+import { assertPreviewArtifact } from "./preview-bundle.mts";
 import { isCurrentSuccessfulCi, reopenedPreviewCi } from "./preview-ci.mts";
 import {
   assertPreviewConfig,
   previewApiConfig,
   previewAppConfig,
+  previewMigrationConfig,
 } from "./preview-config.mts";
 import {
   type PreviewRuntime,
   previewComment,
   reconcilePreview,
 } from "./preview-lifecycle.mts";
+import { createPreviewResources } from "./preview-resources.mts";
+import { previewProbeToken, previewSessionSecret } from "./preview-secrets.mts";
 
 const repository = "engineer-first/idea-boost";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -50,16 +55,17 @@ function required(name: string): string {
   if (!value) throw new Error(`Preview設定 ${name} が必要です。`);
   return value;
 }
-function cli(args: string[]): string {
+function cli(args: string[], targetOverride?: string): string {
   required("CLOUDFLARE_API_TOKEN");
   required("CLOUDFLARE_ACCOUNT_ID");
   const nameIndex = args.indexOf("--name");
   const target =
-    nameIndex >= 0
+    targetOverride ??
+    (nameIndex >= 0
       ? `idea-boost-preview-app/${args[nameIndex + 1]}`
       : args[0] === "d1"
         ? "idea-boost-preview-lobby"
-        : "idea-boost-preview-api";
+        : "idea-boost-preview-api");
   const operation =
     args[0] === "preview" && args[1] === "delete" ? "preview delete" : args[0];
   console.log(
@@ -100,7 +106,26 @@ function cli(args: string[]): string {
     );
   }
 }
-function withSecrets<T>(operation: (file: string) => T): T {
+function resources() {
+  const production = unstable_readConfig({
+    config: resolve(root, "workers/wrangler.jsonc"),
+  });
+  return createPreviewResources({
+    accountId: required("CLOUDFLARE_ACCOUNT_ID"),
+    token: required("CLOUDFLARE_API_TOKEN"),
+    protectedDatabaseIds: [
+      ...production.d1_databases.map(
+        (db: { database_id?: string }) => db.database_id ?? "",
+      ),
+      required("PREVIEW_SHARED_D1_ID"),
+    ],
+  });
+}
+function withSecrets<T>(
+  operation: (file: string) => T,
+  number?: number,
+  databaseId?: string,
+): T {
   const dir = mkdtempSync(resolve(tmpdir(), "idea-boost-preview-"));
   const file = resolve(dir, "secrets.json");
   try {
@@ -118,6 +143,18 @@ function withSecrets<T>(operation: (file: string) => T): T {
       values.PREVIEW_PROBE_TOKEN.length < 32
     )
       throw new Error("Previewの秘密は32文字以上が必要です。");
+    if (number !== undefined) {
+      if (!databaseId) throw new Error("PR専用D1を確認できません。");
+      values.SESSION_SECRET = previewSessionSecret(
+        values.SESSION_SECRET,
+        number,
+        databaseId,
+      );
+      values.PREVIEW_PROBE_TOKEN = previewProbeToken(
+        values.PREVIEW_PROBE_TOKEN,
+        number,
+      );
+    }
     writeFileSync(file, JSON.stringify(values), { mode: 0o600 });
     return operation(file);
   } finally {
@@ -186,71 +223,141 @@ const runtime: PreviewRuntime = {
       Number(required("PREVIEW_CI_ATTEMPT")),
     );
     const candidate = resolve(required("PREVIEW_CANDIDATE_DIR"));
-    const config = previewAppConfig();
+    // 旧App-only artifactやsymlinkを、リソース作成・秘密の設定より前に拒否する。
+    assertPreviewArtifact(candidate, sha);
+    const database = await resources().prepare(number);
+    const input = { number, databaseId: database.uuid, sha };
+    const config = previewAppConfig(input);
     assertPreviewConfig(config, "app");
     // 信頼済みdevelopの構成だけを使い、PRのbuild.command/接続先を取り込まない。
     const file = resolve(candidate, "wrangler.preview.generated.jsonc");
+    const migrationFile = resolve(
+      candidate,
+      "wrangler.preview-migrations.generated.jsonc",
+    );
     writeFileSync(file, JSON.stringify(config));
     try {
-      const output = withSecrets((secretFile) =>
-        cli([
-          "preview",
-          "--config",
-          file,
-          "--name",
-          `pr-${number}`,
-          "--tag",
-          sha,
-          "--ignore-base-config",
-          "--secrets-file",
-          secretFile,
-          "--json",
-        ]),
+      writeFileSync(
+        migrationFile,
+        JSON.stringify(previewMigrationConfig(input)),
       );
+      cli(
+        [
+          "d1",
+          "migrations",
+          "apply",
+          "DB",
+          "--remote",
+          "--config",
+          migrationFile,
+        ],
+        database.name,
+      );
+      assertCurrentCi(
+        sha,
+        Number(required("PREVIEW_CI_RUN_ID")),
+        Number(required("PREVIEW_CI_ATTEMPT")),
+      );
+      const output = withSecrets(
+        (secretFile) =>
+          cli([
+            "preview",
+            "--config",
+            file,
+            "--name",
+            `pr-${number}`,
+            "--tag",
+            sha,
+            "--ignore-base-config",
+            "--secrets-file",
+            secretFile,
+            "--json",
+          ]),
+        number,
+        database.uuid,
+      );
+      // Wrangler --jsonにもassetsの進捗が先行する。末尾の応答は全体を検証する。
+      const jsonStart = output.search(/^\{\s*"preview"\s*:/m);
+      if (jsonStart < 0)
+        throw new Error("WranglerのPreview応答を確認できません。");
       const result = z
         .object({
           preview: z.object({ urls: z.array(z.string().url()).min(1) }),
           deployment: z.object({ urls: z.array(z.string().url()) }).optional(),
         })
-        .parse(JSON.parse(output));
+        .parse(JSON.parse(output.slice(jsonStart)));
       return {
         url: result.preview.urls[0].replace(/\/$/, ""),
         deploymentUrl: result.deployment?.urls[0]?.replace(/\/$/, ""),
       };
     } finally {
       rmSync(file, { force: true });
+      rmSync(migrationFile, { force: true });
     }
   },
   remove: async (number) => {
-    cli([
-      "preview",
-      "delete",
-      "--config",
-      resolve(root, "wrangler.preview.jsonc"),
-      "--name",
-      `pr-${number}`,
-      "--skip-confirmation",
-      "--json",
-    ]);
-  },
-  probe: async (url) => {
-    const response = await fetch(`${url}/api/health`, {
-      redirect: "error",
-      headers: {
-        "X-Preview-Probe-Token": required("PREVIEW_PROBE_TOKEN"),
-        "CF-Access-Client-Id": required("PREVIEW_ACCESS_CLIENT_ID"),
-        "CF-Access-Client-Secret": required("PREVIEW_ACCESS_CLIENT_SECRET"),
-      },
-      signal: AbortSignal.timeout(15000),
+    await resources().remove(number, async () => {
+      const current = await runtime.current(number);
+      return current.sameRepository && !current.open;
     });
-    if (!response.ok) throw new Error("health failed");
-    return z
-      .object({
-        ok: z.literal(true),
-        environment: z.literal("preview"),
-        apiCommit: shaSchema,
-      })
-      .parse(await response.json());
+  },
+  probe: async (url, number) => {
+    const target = new URL(url).hostname.startsWith("pr-") ? "normal" : "fixed";
+    const log = (fields: Record<string, string | number | undefined>): void => {
+      console.log(
+        JSON.stringify({
+          time: new Date().toISOString(),
+          operation: "health",
+          target,
+          ...fields,
+        }),
+      );
+    };
+    log({ state: "started" });
+    let reason = "transport";
+    let httpStatus: number | undefined;
+    let cloudflareCode: number | undefined;
+    try {
+      const response = await fetch(`${url}/api/health`, {
+        redirect: "error",
+        headers: {
+          "User-Agent": "idea-boost-preview-probe/1.0",
+          Accept: "application/json",
+          "X-Preview-Probe-Token": previewProbeToken(
+            required("PREVIEW_PROBE_TOKEN"),
+            number,
+          ),
+          "CF-Access-Client-Id": required("PREVIEW_ACCESS_CLIENT_ID"),
+          "CF-Access-Client-Secret": required("PREVIEW_ACCESS_CLIENT_SECRET"),
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+      httpStatus = response.status;
+      reason = "http";
+      if (!response.ok) {
+        if (
+          response.headers.get("Content-Type")?.split(";")[0] === "text/plain"
+        ) {
+          const code = /^error code: (\d{4})\s*$/.exec(await response.text());
+          if (code) cloudflareCode = Number(code[1]);
+        }
+        throw new Error("health failed");
+      }
+      reason = "response";
+      const health = z
+        .object({
+          ok: z.literal(true),
+          environment: z.literal("preview"),
+          apiCommit: shaSchema,
+        })
+        .parse(await response.json());
+      log({ state: "succeeded", httpStatus });
+      return health;
+    } catch {
+      // 本文・Location・認証ヘッダー・生エラーは出力しない。
+      log({ state: "failed", reason, httpStatus, cloudflareCode });
+      throw new Error("Previewのhealth確認に失敗しました。");
+    }
   },
 };
 function currentCi(sha: string) {

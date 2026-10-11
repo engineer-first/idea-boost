@@ -2,7 +2,30 @@
 
 [Issue #362](https://github.com/engineer-first/idea-boost/issues/362)の実装と初期設定の手順です。**コードの追加と、Cloudflareの実設定・利用確認は別です。** 初期設定と別メンバーのGoogleログイン確認が済むまで、Issueの完了・Preview公開済みとは扱いません。担当者・権限・契約の整備は[#360](https://github.com/engineer-first/idea-boost/issues/360)で行います。
 
-## レビューする
+## PR全体を反映する方式への移行
+
+2026-10-11、利用者は画面・API・ルームの保存処理もPR版で確認できるPreviewへ方針を変更しました。PR #587の「直前のステップに戻る」は、共通APIに処理がないため初版では確認できませんでした。[画像付きの原因記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6106092717)を参照してください。
+
+新方式ではAppとAPIを同じWorkerへまとめ、PR専用D1と、そのPreview内のRoomDOへ接続します。PRのD1 migrationもそのD1だけに適用します。現在の公開先が新方式へ切り替わったことは、ローカルの検証成功だけでは判断しません。
+
+- 通常・固定URLの両方で、API commitがPRのApp commitと一致した場合だけ「疎通確認済み」と表示します。
+- PR終了時は該当Preview・そのRoomDOの保存先・PR専用D1を削除します。閉じたPRの検証データは残りません。再公開では同じPRのD1を再利用し、開き直しでは新しいD1を作ります。
+- 旧共通API・D1・RoomDOは削除しません。新方式の通常URLから旧ルームへは入れないため、ステップ選択から新しいルームを作ってください。
+- 固定URLも同じPRの保存先を使います。プログラムの版を固定しても、保存データや適用済みmigrationは過去の状態には戻りません。
+- セッション鍵はPRとD1ごと、probe鍵はPRごとにCI内で導出します。元の鍵はWorkerへ渡しません。GitHubの既存のSecret名は引き続き使います。
+- 許可一覧・Google限定Access・JWT検証・Cookie・Origin・ルームの認可は既存方式を引き継ぎます。
+
+### マージ後の移行・確認
+
+1. この基盤変更をdevelopへマージし、CI成功を確認します。公開処理は信頼済みdevelopから実行されます。
+2. 検証対象のPRへ最新developを取り込み、CIを実行します。旧App-only artifactは使えません。新しいCIではApp/APIをまとめて生成し、テスト用の認証で実Worker実行エンジンのsmokeも確認します。
+3. PRの「PR Preview」コメントが「疎通確認済み」になり、App/API両方が対象PRの版と一致することを確認します。古い固定URLではなく、このコメントにある新しいリンクを開きます。
+4. 本人のGoogleアカウントで新しいサンプルルームを作ります。PR #587では一度「次のステップへ」で進み、メニューの「直前のステップに戻る」を実行して、ステップと付箋が戻ることを確認します。
+5. 別のGoogleアカウントでの共同操作、別PRとの分離、閉じる・開き直す操作を確認し、日時・版・結果を台帳へ残します。
+
+設定・検証の正本は[後継ADR](../adr/0012-pr-preview-full-stack.md)、[設定台帳](../../out/preview-setup-log.md)です。以下の初版の記録は、共通API方式の設定履歴として残します。
+
+## 初版をレビューする
 
 1. PRの「PR Preview」コメントが「疎通確認済み」であることと、App commitが現在のPRに一致することを確認します。
 2. リンクを開き、許可したGoogleアカウントでCloudflare Accessにログインします。「確認するステップを選ぶ」で1-1〜3-5から選びます。
@@ -12,7 +35,7 @@
 
 選び直すと別のルームが作られます。他PRや他ブラウザの検証先は切り替わりません。今回の初版に、役割切り替え・全体リセット・障害サンプル・翌日の再開保証はありません。Previewのアプリセッションは最大1時間で、入室時に期限が残っていることを確認します。本番の入室条件（残り5時間以上）は維持します。
 
-## どのコード・データを使うか
+## 初版で使うコード・データ
 
 | 対象        | 更新するコード          | 接続先                                        |
 | ----------- | ----------------------- | --------------------------------------------- |
@@ -39,7 +62,15 @@ Google IdP一覧で保存を確認し、TestのGoogle通常ログインからYou
 
 Policy Testerの一括試験は起動しましたが、画面で判定結果を確認できていません。成功確認はGoogle IdP Testと設定保存・再読込までであり、Previewの実認証やhealth・WSは別途検証します。
 
-## 初期設定
+## 2026-10-11の公開後確認
+
+PR #588をユーザーがマージし、追加の応答解析修正PR #589はCI成功後のユーザー承認に従ってエージェントがマージしました。最新develop `808960ba` のCI全5検査と共通API公開が成功し、PR #587のApp `dc659f36` から通常・固定URLで最新API・保存先を確認しました。両healthは200、[自動コメント](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152)に「疎通確認済み」とリンクが表示されています。
+
+Googleログイン、付箋の保存・再入室・同じアカウントの2タブ間の同期・共有・投票、ログアウト・Google再認証・再入室は実画面で確認しました。実操作はAPI更新前に確認しました。最新API更新後の実操作と画面撮り直しはブラウザ接続の問題で未実施です。別Googleユーザーの共同操作、PR #587の戻る処理は未確認です。
+
+PR #588終了と診断用Previewの削除は成功しました。#589の終了workflowは失敗していますが、対象Previewが404/10025で存在しないことを確認しました。未公開のPR終了・開き直しの確認は残します。詳細は[台帳](../../out/preview-setup-log.md#2026-10-11最新apiでの自動確認成功)へ記録しました。
+
+## 初版の初期設定
 
 **今回の実Cloudflare操作は台帳で確認してください。以下の手順の記載は実施済みの証拠ではありません。** 既存契約、必要な権限、費用と上限、許可メールを担当者が確認してから設定します。本番Tokenの権限を広げたり、本番Secretをコピーしたりしません。
 
@@ -77,11 +108,23 @@ APIは[専用構成](../../workers/wrangler.preview.jsonc)、Appは[専用構成
 
 初回は、許可/許可外Googleアカウント、JWT偽造・期限切れ・設定欠落、通常/固定/別入口、未所属ルーム・ホスト操作、別OriginのWSを確認します。別のGoogleユーザー2ブラウザで、ステップ選択→招待→付箋→投票→通常進行まで操作した記録を残します。自動テストだけで、この初回利用確認を済ませたとは扱いません。
 
-## 保持・費用・失敗時
+## 初版の保持・費用・失敗時
 
 PR終了ではレビュー中のルーム・ユーザー・招待コードを残します。成果と進行記録には既存の30日保持と期限処理を継承します。Preview全体のユーザー・ルーム入口の整理周期と担当、契約・費用・利用上限は#360のチーム限定運用情報で決め、実確認の有無を台帳へ記録します。料金や上限は[Workers](https://developers.cloudflare.com/workers/platform/pricing/)、[D1](https://developers.cloudflare.com/d1/platform/pricing/)、[Zero Trust](https://www.cloudflare.com/zero-trust/plans/)の現行仕様とAccountの契約を照合します。
 
 失敗時はPRコメントのログURLとActionsの失敗ステップを確認します。UTC日時・操作・対象・開始／成功／失敗をJSONで記録し、Secretを含み得る生のCLI出力は表示しません。SecretやCookieを含み得る生ログはPRへ転載しません。設定を直し、対象SHAのCIまたはPreview workflowを再実行します。API更新失敗では現在の成功版を確認し、PR版のAPIを手動で上書きしません。Secret・allowlist変更は共通APIと使用中の各Appへ反映し、旧版deploymentの公開継続も確認します。全体D1削除や本番へのfallbackで復旧しません。
+
+### アップロード成功後、healthの開始ログが出ない場合
+
+Wrangler 4.149.0は`--json`指定でも、画面素材の進捗メッセージをJSONの前へ出力します。公開処理はJSON本体を切り出してから、通常・固定URLの形を検証します。末尾に余計な文字がある場合や、URLが欠ける場合は失敗とします。生のCLI出力は秘密を含み得るため、ログやPRへ転載しません。
+
+### 自動確認が1010で拒否される場合
+
+CIのhealthは`idea-boost-preview-probe/1.0`をUser-Agentに指定します。既定のクライアント名がCloudflareに拒否される場合があるためです。Access・probe tokenの照合とredirect拒否は維持します。
+
+healthのJSONログは通常URLを`normal`、固定版URLを`fixed`と記録します。失敗理由は`http`（HTTP拒否）、`transport`（通信・redirect・timeoutなど）、`response`（応答の形が不正）です。HTTP statusと、本文が`error code: 4桁の番号`に一致する場合の番号だけを記録します。認証ヘッダー、Cookie、Location、生の応答・例外をログへ追加しません。
+
+2026-10-11の実設定と手動操作は[台帳](../../out/preview-setup-log.md#2026-10-11マージ後の初回公開と実操作)、Tokenの2027年3月31日までの期限と更新画像は[PRコメント](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105281887)を参照してください。
 
 ## releaseとの関係
 

@@ -2,9 +2,9 @@
 
 対象：[Issue #362](https://github.com/engineer-first/idea-boost/issues/362)。実環境の権限・Secret・契約の担当範囲は [#360](https://github.com/engineer-first/idea-boost/issues/360)。この台帳は今回の調査・操作の証拠であり、現行手順の正本は `docs/operations/preview.md` に置く。
 
-記録更新：2026-10-10 10:24:56 UTC（19:24:56 JST）。過去の操作で時刻を採取していないものは日付のみを記載する。
+記録更新：2026-10-11。2026-10-10までの操作は当日の記録として保持する。過去の操作で時刻を採取していないものは日付のみを記載する。
 
-## 現在の到達点
+## 2026-10-10時点の到達点
 
 | 対象                        | 状態     | 確認できたこと                                                                |
 | --------------------------- | -------- | ----------------------------------------------------------------------------- |
@@ -54,7 +54,7 @@
 | 27  | 2026-10-10（時刻未採取）                      | CIの信頼境界を最終変更                              | 通常の `pull_request` CIでPR buildとartifact保存を行い、`workflow_run` は成果物取得だけに変更。未信頼buildによるdefault branch scopeのcache汚染を避ける                                                                                                                                                           | なし・workflow実行は未確認                     |
 | 28  | 2026-10-10（時刻未採取）                      | Preview D1へ既存migrationを適用                     | developの既存9migration（0001〜0009）をPreview D1へremote適用成功。SQL差分はなく、新スキーマ追加や本番への適用は行っていない                                                                                                                                                                                      | Preview D1への既存migration適用                |
 | 29  | 2026-10-10（時刻未採取）                      | 自動公開の有効化状態を確認                          | GitHubはD1 ID variableとSecret3つの登録まで。`PREVIEW_ENABLED` は未設定のため自動公開を無効のまま維持                                                                                                                                                                                                             | GitHub登録のみ・Worker公開なし                 |
-| 30  | 2026-10-10（時刻未採取）                      | CI tokenの暫定経路を実装                            | 当時のworkflowは既存CIの `CLOUDFLARE_API_TOKEN` をfallbackとして再利用（レビューで撤廃済み）。権限拡張なし、新token発行なし。所有形態・実CI権限は未照合                                                                                                                                                                                       | なし・ローカルworkflowのみ                     |
+| 30  | 2026-10-10（時刻未採取）                      | CI tokenの暫定経路を実装                            | 当時のworkflowは既存CIの `CLOUDFLARE_API_TOKEN` をfallbackとして再利用（レビューで撤廃済み）。権限拡張なし、新token発行なし。所有形態・実CI権限は未照合                                                                                                                                                           | なし・ローカルworkflowのみ                     |
 | 31  | 2026-10-10（時刻未採取）                      | Cloudflare Workers契約を管理画面で確認              | Workersの既存契約を確認。契約変更なし。対象Accountの契約名・実料金はチーム限定記録へ分離                                                                                                                                                                                                                          | なし・読取のみ                                 |
 | 32  | 2026-10-10（時刻未採取）                      | Zero Trust導入状態とplan画面を確認                  | Zero Trustは未利用。Get started → Choose a planでFreeを含む製品plan一覧を表示。どのplanもSelectしていない                                                                                                                                                                                                         | なし・未登録                                   |
 | 33  | 2026-10-10（時刻未採取）                      | Access設定前で停止                                  | 新規Zero Trust登録が必要で、ユーザー許可の「既存契約内」を超えるため登録前に停止。Google IdP／Service Token／Access policyは作成0件                                                                                                                                                                               | なし・新規契約・Access変更なし                 |
@@ -214,3 +214,92 @@ Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. Source: <https://github.com/clou
 競合した3文書・ソースを解消し、Previewの設計判断をADR 0011へ改番した。PRはマージ可能になり、CIと文書プレビューのworkflowが再開した。Cloudflareの設定・本番公開・PRのマージは実施していない。
 
 統合後の隔離worktreeではunit 2,792件、通常Worker 950件、Preview 24件、ローカル検証Worker 32件が成功。型・lint・依存境界・機能の配置・Markdown整形・migration番号と適用済みRoomDO migrationの不変性検査も成功。文書リンク検査は既存の未追跡ページも含むローカル対象60件が成功した。
+
+## 2026-10-11：マージ後の初回公開と実操作
+
+実行担当は親エージェント、読み取り・記録担当は認可確認のサブエージェント。管理先は現在の共同管理アカウントで続ける旨をユーザーから受領した。公開記録には個人のメールアドレス、Account・Tokenの識別子、秘密値を含めない。
+
+| 操作・対象                      | 結果・証拠                                                                                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Preview親Worker 2件の作成       | APIとAppを本番と別名で初期登録。全アクセスへ503を返す仮スクリプトで、公開先・binding・Secretは未設定。CLIログ更新時刻はAPI 02:24:53 UTC、App 02:25:11 UTC                                                                             |
+| CI管理Tokenの発行・登録         | 選択したPreview 2 WorkerのEditorと、Account全体のD1 Write・Account Settings Read。D1権限は本番D1にも及ぶため、CIの固定構成と本番D1 ID拒否で接続先を保護。期限は2027-03-31 23:59:59 JST。専用GitHub Secretへ登録し、一時ファイルを削除 |
+| 自動公開のflag                  | `PREVIEW_ENABLED=true`を再読取。今回の担当者が切り替えた操作ではない                                                                                                                                                                  |
+| Shared Preview API初回更新      | [run 38108476998](https://github.com/engineer-first/idea-boost/actions/runs/38108476998)成功。CI成功済みdevelop `efddbfaf8a158b7419fce1602b9c9cd12bab2fd9`を使用。Preview D1の10件目migrationとPreviewRoomDOを反映                    |
+| App親WorkerのURL設定            | bootstrapの`preview_urls=false`ではURL配列が空だった。App親Workerだけを503仮スクリプトで更新し`preview_urls=true`へ変更。`workers_dev=false`を維持。通常・固定URLが生成された                                                         |
+| PR #587 App公開                 | [run 38109895072](https://github.com/engineer-first/idea-boost/actions/runs/38109895072)でCLI upload成功後に自動確認が失敗。Botは「更新失敗」のまま。手動で成功表示へ変更していない                                                   |
+| 既存CIサービスのClient ID再登録 | 有効・対象policyへの選択を確認したがLast Seenは未使用表示。現在のClient IDを同名GitHub Secretへ再登録。旧Secretは読めないため、誤登録だったとは断定しない                                                                             |
+| CIサービスのClient Secret更新   | 同じサービスを1時間の旧Secret有効期間付きでrotate。GitHubの専用Secretへ登録し、一時値を削除。Google連携のClient Secret・本番の鍵・許可policyは変更していない                                                                          |
+| 1010拒否の比較                  | 新しいCI認証情報で直接HTTP確認。Python既定User-Agentでは403・Cloudflare code 1010。`idea-boost-preview-probe/1.0`とJSONのAccept指定ではgatewayのJSON応答へ到達。probe tokenは送らず401となり、保存先を含むhealth成功の検証ではない    |
+| 更新手順の画像                  | [PR #587のコメント](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105281887)へ4枚添付し、GitHubで全画像表示を確認                                                                                               |
+
+### 実画面の確認範囲
+
+最初のAppで、指定した本人のGoogleログインが通常・固定URLとも成功。1-1のprivateサンプル12枚から検証用の架空付箋を追加・保存し、別タブでの再入室後も保持した。本文編集が同じアカウントの2タブ間でリロードなしに同期した。通常進行で1-2へ進み、検証用付箋を共有キャンバスへ移した。
+
+最新deploymentの明示tag `dc659f3652a4edb26f7a41566bd0c78c63b24f67`も確認し、同じルームへ再入室して共有付箋を再表示した。commit\_sha注釈は信頼済みoperatorのdevelopを指すため、PR版はtagで識別する。最新Appで14ステップの選択画面と、1-4のサンプル12枚・主観1票の保存も確認した。API tailにルームGET成功を観測した。
+
+別のGoogleユーザーとの2人操作、本人だけの付箋の非配信、全14ステップの実操作、ログアウト・PR終了の実処理は未確認。共通APIはdevelop版なので、PR #587の新rollback処理・RoomDO migrationはこのPreviewに入らない。新しい「直前のステップへ戻る」操作は検証済みとしない。本番公開や契約変更は実施していない。
+
+今回の修正はHTTP確認に処理名を明示し、通常/固定URLごとのstatus・失敗種別・形式が一致するCloudflare番号だけを記録する。1010拒否は直接HTTPの比較で確認したもので、従来CIの汎用エラーだけから原因を確定したとは扱わない。修正をdevelopへ取り込み、現在のCI成功版の公開処理を再実行して、実health成功を確認する必要がある。
+
+## 2026-10-11：#588マージ後の再確認と公開応答の解析
+
+[PR #588](https://github.com/engineer-first/idea-boost/pull/588)をユーザーが04:46:41 UTCにマージ。developは`ee3855b3478beb42b7de3c0d3c5469fbf4ad2264`。[develop CI](https://github.com/engineer-first/idea-boost/actions/runs/38112659169)の5検査と[Pages公開](https://github.com/engineer-first/idea-boost/actions/runs/38112659145)が成功。Pages上で更新した報告と辞書42項目の表示を確認した。
+
+[PR #587 App公開](https://github.com/engineer-first/idea-boost/actions/runs/38109895072)のattempt 6は04:48:47 UTCに失敗。checkoutの実operatorは新develop `ee3855b`で、CLI uploadは成功したが、追加したhealth startedログは出ていない。旧runのheadSha `efddbfaf`は原イベントの値であり、旧operatorを実行した証拠ではない。接続確認へ進む前に失敗していた。
+
+本番と別のApp親Worker内に、一時的な`setup-diagnostics` Previewを用意した。すべての要求を503で拒否するプログラム、ダミーの画面素材1件、架空の認証設定で実CLIを確認。画面素材なしではJSONのみ、画面素材ありでは`Building list of assets`などの進捗がJSONの前に出た。後者を従来のJSON.parseへ渡すと失敗し、JSON本体を切り出した修正では通常・固定URLの両方を検証できた。CI用Secretの値を診断用に取得した操作ではない。
+
+診断用Previewを削除し、Cloudflare GETの404/10025で不存在を確認した。#588終了処理も`pr-588`だけを削除し、04:47:20.973 UTCにCLI成功。GETで`pr-588`不存在、`pr-587`は存在することを確認した。親Worker・共通API・D1・RoomDO・本番は削除していない。
+
+追加修正は進捗メッセージを除いてJSONを読み、従来のURL検証を維持する。余計な末尾文字・URL欠落などは拒否し、接続確認へ進まない。生のCLI出力や秘密をログへ出さない。公開処理全体の実成功は、この修正をdevelopへ取り込んで再実行してから判断する。
+
+## 2026-10-11：最新APIでの自動確認成功
+
+ユーザー承認を受け、PR #589のCI全5検査成功を確認してReadyへ変更し、05:05:51 UTCにマージした。developは`808960ba839b584d886c19be3c70ea8a6902b2a9`。
+
+| 対象・UTC時刻                   | 結果・証拠                                                                                                                                                 |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #587 App公開attempt 7、05:08:07 | [公開run 38109895072](https://github.com/engineer-first/idea-boost/actions/runs/38109895072) success。通常・固定URL healthは各200、観測API版は当時のee3855 |
+| 最新develop CI、05:13:55        | [run 38113689064](https://github.com/engineer-first/idea-boost/actions/runs/38113689064) 全5検査成功                                                       |
+| 最新共通API、05:14:52           | [run 38114119779](https://github.com/engineer-first/idea-boost/actions/runs/38114119779) success。API版は808960                                            |
+| #587 App公開attempt 8、05:17:46 | 同じ公開runを全job再実行しsuccess。実operator808960、App dc659f、観測API808960                                                                             |
+| 通常URL health、05:17:43.436    | succeeded、HTTP 200                                                                                                                                        |
+| 固定版URL health、05:17:44.111  | succeeded、HTTP 200                                                                                                                                        |
+| Bot状態、05:17:44.615           | [コメント](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152)を自動で「疎通確認済み」へ更新。通常・固定リンクあり              |
+
+App commitは`dc659f3652a4edb26f7a41566bd0c78c63b24f67`でPR headと一致。最新APIのhealth確認commitは`808960ba839b584d886c19be3c70ea8a6902b2a9`。Botの成功表示を手動で変更した操作ではない。
+
+実画面では、同じApp版とAPI ee3855の時点に通常・固定URLのGoogleログインを確認した。ログアウトでAccessの成功表示に到達し、Googleの本人アカウントで再認証後、既存ルームの架空共有付箋を再表示。ログイン情報を送らない通常URLへの接続は302。PR疎通済み・ログアウト・再入室の画像を撮影した。API808960更新後の撮り直しは、ブラウザ操作機能の接続エラーで未実施。Chrome再起動後も接続が戻らず、追加の全14ステップ実操作は行っていない。
+
+PR #589終了run 38113688509は05:07:03 UTCに失敗し、対象`pr-589`の削除CLIも失敗した。公開前にPRが閉じられていたが、CLI失敗の原因は生ログから判定していない。別途、認証済みCloudflare GETで`pr-589`が404/10025、`pr-587`が存在することを確認した。対象#589のPreviewが残っているとは扱わないが、終了workflow成功とは記録しない。この条件の終了処理・開き直しは確認が残る。
+
+別Googleユーザーとの共同操作と、未共有付箋の本人間の可視性確認は未実施。PR #587の独自API・RoomDO・migration・戻る処理は共通APIの対象外。これらを確認済みとは扱わない。本番release・契約・既存のGoogle許可一覧は変更していない。
+
+## 2026-10-11：PR全体を反映する方式への変更
+
+利用者がPR #587で戻るボタンを確認できない画像と通常・固定版のルームURLを提示しました。AppはPR版dc659f36ですが、共通APIはdevelop版808960baで、戻り先を返す処理がありません。画面側は戻り先がない場合にボタンを隠します。さらにPR版APIでも、直接ステップを開いただけでは戻る記録がなく、通常の前進後に初めて戻る操作を確認できます。[画像付きの原因記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6106092717)を投稿しました。
+
+利用者は「はい、PR全体を反映するPreviewにしたい」と回答しました。App/APIを同じPreviewへ同梱し、D1とRoomDOをPRごとに分ける方式を実装しています。元のセッション鍵はCIだけに保持し、PRとD1の識別値から導出した鍵をWorkerへ渡します。管理用Token、Google IdP、許可一覧の実設定は変更していません。
+
+コード変更前に、Appが共通APIへ接続する構成1件と、通常・固定URLのAPI版がPRと違っても利用可能になる2件の失敗を確認しました。修正後は同じ検査を含む11件が成功。artifact親symlinkを通してしまう1件の失敗も確認し、修正後に拒否する検査が成功しました。関連7ファイル26件、Preview Worker27件、型と依存境界の検査が成功しています。
+
+OpenNext buildとWrangler公式dry-runでApp/API同梱bundleを生成しました。実際のbundleをMiniflareで動かし、D1/DOを含むhealth200、未認証拒否、サンプル作成、他PRから404、Next画面表示を確認しました。認証はテスト用IdPで、本物のGoogle認証ではありません。
+
+新方式のCloudflare作成・migration適用・公開・削除は、この記録時点で未実施です。新しいPRの作成・マージ・対象PRのCI更新後に、公開ログ、App/APIの版、Google本人操作、戻る操作、別メンバーの共同操作、終了・開き直しを記録します。ローカル成功を実環境の成功とは扱いません。
+
+### PR #587と新基盤を組み合わせたローカル実操作
+
+新基盤のコミット87d89ffbにPR #587のdc659f36を、独立した検証用worktree内だけで組み合わせました。PR #587のリモートブランチやdevelopへは反映していません。RoomDO migration40件を含めてOpenNext buildと公式Wrangler dry-runが成功しました。PR #587のphase-rollback Workerテスト11件も成功しています。
+
+Orcaブラウザで、実際のbundleをMiniflare上で操作しました。認証はテストIdPで、ローカルHTTPを検証専用の入口でHTTPS相当のリクエストへ変換しています。この入口は/tmpの一時コードだけに置き、本番や公開用コードのURL・Origin検査は変えていません。
+
+1-1のサンプルルームを直接作った直後は戻るボタンがありません。通常の「次のステップへ」から1-2へ進むと、メニューに「直前のステップに戻る」が表示されました。2段階の確認後に1-1へ戻り、サンプル付箋12枚と本文が保持されました。再読み込みでも1-1と12枚を確認しました。メニュー・確認画面・復元後の画像を撮影しています。
+
+自分が起動した一時サーバーは停止し、8505ポートの待ち受け消滅を確認しました。図は編集可能なdraw\.io二頁37cellsを検証し、文書用の独立SVGはPNGへ変換して目視確認しました。draw\.io Desktopがないため、draw\.io自体の画像出力は確認していません。
+
+### 最終検査
+
+全体unitは209ファイル2,820件が成功しました。最初の実行では、公開処理の旧形式のテスト用データで5件失敗し、並行負荷時のToken拒否試験1件が5秒を超えました。テスト用データを新しい公開形式とPR別のprobe鍵へ更新し、公開8件・隔離3件の個別実行後、全体を再実行して成功しました。検査設定やtimeoutは変更していません。App・Worker・scriptsの型検査、全体lint819ファイル、文書リンク48件も成功しました。
+
+公開用に生成したbundleは検証後に/tmpへ移動しました。最初の全体lintは生成manifestの整形だけで失敗しましたが、生成物を作業ツリーから移動した後に成功しました。検査設定は変更していません。用語辞典付きHTMLをOrcaで表示し、移行先SVGの読み込みとページ全体の横はみ出しがないことを確認しました。
