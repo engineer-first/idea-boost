@@ -83,6 +83,10 @@ PR終了ではレビュー中のルーム・ユーザー・招待コードを残
 
 失敗時はPRコメントのログURLとActionsの失敗ステップを確認します。UTC日時・操作・対象・開始／成功／失敗をJSONで記録し、Secretを含み得る生のCLI出力は表示しません。SecretやCookieを含み得る生ログはPRへ転載しません。設定を直し、対象SHAのCIまたはPreview workflowを再実行します。API更新失敗では現在の成功版を確認し、PR版のAPIを手動で上書きしません。Secret・allowlist変更は共通APIと使用中の各Appへ反映し、旧版deploymentの公開継続も確認します。全体D1削除や本番へのfallbackで復旧しません。
 
+### アップロード成功後、healthの開始ログが出ない場合
+
+Wrangler 4.149.0は`--json`指定でも、画面素材の進捗メッセージをJSONの前へ出力します。公開処理はJSON本体を切り出してから、通常・固定URLの形を検証します。末尾に余計な文字がある場合や、URLが欠ける場合は失敗とします。生のCLI出力は秘密を含み得るため、ログやPRへ転載しません。
+
 ### 自動確認が1010で拒否される場合
 
 CIのhealthは`idea-boost-preview-probe/1.0`をUser-Agentに指定します。既定のクライアント名がCloudflareに拒否される場合があるためです。Access・probe tokenの照合とredirect拒否は維持します。

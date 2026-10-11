@@ -8,6 +8,10 @@ const command = vi.hoisted(() => vi.fn());
 vi.mock("node:child_process", () => ({ execFileSync: command }));
 vi.mock("wrangler", () => ({ unstable_readConfig: vi.fn() }));
 const sha = "a".repeat(40);
+const deployment = {
+  preview: { urls: ["https://pr-587.example.workers.dev"] },
+  deployment: { urls: ["https://fixed.example.workers.dev"] },
+};
 let candidate: string;
 let argv: string[];
 
@@ -34,11 +38,7 @@ beforeEach(() => {
   }))
     vi.stubEnv(key, value);
   command.mockImplementation((binary: string, args: string[]) => {
-    if (binary !== "gh")
-      return JSON.stringify({
-        preview: { urls: ["https://pr-587.example.workers.dev"] },
-        deployment: { urls: ["https://fixed.example.workers.dev"] },
-      });
+    if (binary !== "gh") return JSON.stringify(deployment);
     const path = args[1];
     if (path.includes("/pulls/"))
       return JSON.stringify({
@@ -61,6 +61,44 @@ beforeEach(() => {
     return path.includes("?") ? "[]" : "{}";
   });
   vi.spyOn(console, "log").mockImplementation(() => {});
+});
+
+it("画面素材の進捗メッセージに続くJSONを読み、通常版・固定版を確認できる", async () => {
+  const original = command.getMockImplementation();
+  command.mockImplementation((binary, args, options) => {
+    if (binary === "gh") return original?.(binary, args, options);
+    return `🌀 Building list of assets...\n✨ Read 1 file from the assets directory\n🌀 Starting asset upload...\n+ /index.html\nUploaded 1 of 1 assets\n${JSON.stringify(deployment, null, 2)}\n`;
+  });
+  const fetcher = vi.fn(async () =>
+    Response.json({
+      ok: true,
+      environment: "preview",
+      apiCommit: sha,
+    }),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).resolves.toBeDefined();
+  expect(fetcher).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  "progress fake-client-secret\nnot-json",
+  `progress fake-client-secret\n${JSON.stringify(deployment)}\ntrailing junk`,
+  'progress fake-client-secret\n{"preview":{"urls":[]},"deployment":{"urls":[]}}',
+])("公開結果が不正なら、接続確認へ進まず秘密を含む出力も記録しない: %s", async (output) => {
+  const original = command.getMockImplementation();
+  command.mockImplementation((binary, args, options) =>
+    binary === "gh" ? original?.(binary, args, options) : output,
+  );
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).not.toHaveBeenCalled();
+  const logs = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => line)
+    .join("\n");
+  expect(logs).not.toContain("fake-client-secret");
 });
 
 afterEach(() => {
