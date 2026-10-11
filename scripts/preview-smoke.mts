@@ -6,14 +6,12 @@ import { readD1Migrations } from "@cloudflare/vitest-pool-workers";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createFetchMock, Miniflare } from "miniflare";
 import { previewProbeToken, previewSessionSecret } from "./preview-secrets.mts";
-import {
-  type PreviewBrowserSmokeInput,
-  smokePreviewBrowserCollaboration,
-} from "./preview-smoke-browser.mts";
+import type { PreviewBrowserSmokeInput } from "./preview-smoke-browser.mts";
 
 export type PreviewSmokeOptions = {
   // ローカルのテストIdPによる2本人。実Googleアカウント2名の確認とは別。
   browser?: boolean;
+  screenshotDirectory?: string;
   runBrowserScenario?: (input: PreviewBrowserSmokeInput) => Promise<void>;
 };
 
@@ -165,9 +163,14 @@ export async function smokePreviewBundle(
       0,
     );
     if (options.browser) {
-      await (options.runBrowserScenario ?? smokePreviewBrowserCollaboration)({
+      const runBrowserScenario =
+        options.runBrowserScenario ??
+        (await import("./preview-smoke-browser.mts"))
+          .smokePreviewBrowserCollaboration;
+      await runBrowserScenario({
         origin,
         accessTokens: [accessTokens[0], accessTokens[1]],
+        screenshotDirectory: options.screenshotDirectory,
       });
     }
     console.log(
@@ -199,4 +202,5 @@ export async function smokePreviewBundle(
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
   await smokePreviewBundle(process.cwd(), {
     browser: process.argv.includes("--browser"),
+    screenshotDirectory: process.env.PREVIEW_BROWSER_SCREENSHOT_DIR,
   });

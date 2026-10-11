@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { decodeJwt } from "jose";
 import { chromium, type Locator, type Page } from "playwright";
@@ -7,9 +9,10 @@ export type PreviewBrowserSmokeInput = {
   origin: string;
   // この実行だけで生成した架空本人のAccess JWT。実本人のCookieを読み出さない。
   accessTokens: readonly [string, string];
+  screenshotDirectory?: string;
 };
 
-type Trace = { sent: string[]; received: string[] };
+type Trace = { sent: string[]; received: string[]; connections: string[][] };
 type Frame = {
   type: string;
   phase?: { kind: string; phase: number; step: number };
@@ -20,6 +23,16 @@ type Frame = {
     content: string;
   }>;
 };
+function completed(check: string): void {
+  console.log(
+    JSON.stringify({
+      test: "compiled-preview-browser-collaboration",
+      state: "checkpoint",
+      check,
+      authentication: "local test IdP; not real Google accounts",
+    }),
+  );
+}
 async function poll(
   check: () => Promise<boolean> | boolean,
   label: string,
@@ -32,13 +45,17 @@ async function poll(
   throw new Error(`Previewの2本人UI検証に失敗: ${label}`);
 }
 function traceSockets(page: Page): Trace {
-  const trace: Trace = { sent: [], received: [] };
+  const trace: Trace = { sent: [], received: [], connections: [] };
   page.on("websocket", (socket) => {
     if (!socket.url().includes("/api/rooms/")) return;
+    const received: string[] = [];
+    trace.connections.push(received);
     socket.on("framesent", ({ payload }) => trace.sent.push(String(payload)));
-    socket.on("framereceived", ({ payload }) =>
-      trace.received.push(String(payload)),
-    );
+    socket.on("framereceived", ({ payload }) => {
+      const message = String(payload);
+      trace.received.push(message);
+      received.push(message);
+    });
   });
   return trace;
 }
@@ -120,6 +137,14 @@ async function advancePhase(
     .click();
   await Promise.all(traces.map((trace) => waitForPhase(trace, step)));
 }
+async function waitForRoom(page: Page, roomUrl: string): Promise<void> {
+  const expected = new URL(roomUrl);
+  // 通常の招待参加は署名付き入室ticketをqueryに付けてstart経由で入る。
+  await page.waitForURL(
+    (url) =>
+      url.origin === expected.origin && url.pathname === expected.pathname,
+  );
+}
 
 // localhostのHTTPSだけを使う。テストIdPのJWTをサーバーが検証し、通常の
 // Preview session Cookieを発行した後は、本物のApp/API/RoomDOをUIから操作する。
@@ -132,6 +157,15 @@ export async function smokePreviewBrowserCollaboration(
   assert.ok(["127.0.0.1", "localhost", "[::1]"].includes(url.hostname));
   const browser = await chromium.launch();
   try {
+    const screenshots: string[] = [];
+    const capture = async (page: Page, name: string): Promise<void> => {
+      if (!input.screenshotDirectory) return;
+      await mkdir(input.screenshotDirectory, { recursive: true });
+      const path = resolve(input.screenshotDirectory, `${name}.png`);
+      // ページ本体だけを保存し、ticket付きアドレスバーやCookieは撮らない。
+      await page.screenshot({ path, animations: "disabled" });
+      screenshots.push(path);
+    };
     const contexts = await Promise.all(
       input.accessTokens.map(async (token) => {
         const context = await browser.newContext({
@@ -206,7 +240,7 @@ export async function smokePreviewBrowserCollaboration(
     await owner.keyboard.press("Escape");
     await member.goto(inviteUrl);
     await member.getByRole("button", { name: "参加する", exact: true }).click();
-    await member.waitForURL(roomUrl);
+    await waitForRoom(member, roomUrl);
     await member.getByTestId("board-canvas").waitFor();
     await poll(() => snapshots(memberTrace).length > 0, "参加者のWS snapshot");
     assert.equal(
@@ -221,6 +255,7 @@ export async function smokePreviewBrowserCollaboration(
         .count(),
       0,
     );
+    await capture(member, "participant-empty-drafts");
 
     const ownerNoteId = ownerSnapshot.notes?.[0].id;
     assert.ok(ownerNoteId);
@@ -244,6 +279,12 @@ export async function smokePreviewBrowserCollaboration(
         memberTrace.sent.some((raw) => raw.includes(memberPrivateText)),
       "2本人の編集要求を実WSで送る",
     );
+    await poll(
+      () =>
+        ownerTrace.received.some((raw) => raw.includes(ownerPrivateText)) &&
+        memberTrace.received.some((raw) => raw.includes(memberPrivateText)),
+      "2本人の編集内容をサーバーが受理する",
+    );
     await member.reload();
     await member.getByTestId("board-canvas").waitFor();
     await poll(
@@ -263,6 +304,9 @@ export async function smokePreviewBrowserCollaboration(
     assert.ok(
       !ownerTrace.received.some((raw) => raw.includes(memberPrivateText)),
       "参加者の私有本文を作成者へ配信してはいけません。",
+    );
+    completed(
+      "separate sessions; invite/join; empty drafts; private add/edit; reentry",
     );
 
     await advancePhase(owner, [ownerTrace, memberTrace], 2);
@@ -297,7 +341,9 @@ export async function smokePreviewBrowserCollaboration(
     await member.getByRole("button", { name: "次の人へ", exact: true }).click();
 
     await advancePhase(owner, [ownerTrace, memberTrace], 3);
+    await capture(owner, "owner-shared-notes");
     await advancePhase(owner, [ownerTrace, memberTrace], 4);
+    completed("two participants shared notes; phase 1-2 to 1-4 synchronized");
     for (const page of [owner, member]) {
       const target = page
         .getByTestId("board-canvas")
@@ -306,16 +352,30 @@ export async function smokePreviewBrowserCollaboration(
         ["主観", 1],
         ["客観", 3],
       ] as const) {
-        for (let remaining = count; remaining > 0; remaining--) {
-          await page
-            .getByRole("button", {
-              name: `${kind}シール 残り${remaining}票`,
-              exact: true,
-            })
-            .click();
-          await target
-            .getByRole("button", { name: /^付箋/ })
-            .click({ position: { x: 50 + remaining * 12, y: 55 } });
+        for (let remaining: number = count; remaining > 0; remaining--) {
+          const palette = page.getByRole("button", {
+            name: `${kind}シール 残り${remaining}票`,
+            exact: true,
+          });
+          // 選択した種類は連続で貼れる。同じ選択中ボタンを押すと解除する。
+          if ((await palette.getAttribute("aria-pressed")) !== "true")
+            await palette.click();
+          const surface = target.getByRole("button", {
+            name: `付箋（${kind}シールを貼る）`,
+            exact: true,
+          });
+          await surface.waitFor();
+          const box = await surface.boundingBox();
+          assert.ok(box, "投票する付箋の表示位置が必要です。");
+          // 先に貼ったシールと重ならない4箇所を、実カードの寸法から選ぶ。
+          const right = kind === "客観" && remaining !== 2;
+          const bottom = kind === "客観" && remaining !== 3;
+          await surface.click({
+            position: {
+              x: box.width * (right ? 0.75 : 0.25),
+              y: box.height * (bottom ? 0.75 : 0.25),
+            },
+          });
           await poll(
             () =>
               page
@@ -325,7 +385,7 @@ export async function smokePreviewBrowserCollaboration(
                 })
                 .count()
                 .then((count) => count === 1),
-            "投票の受理と残票",
+            `${kind}投票の受理と残票${remaining - 1}`,
           );
         }
       }
@@ -340,15 +400,30 @@ export async function smokePreviewBrowserCollaboration(
         raw.includes('"type":"note:vote-sticker:add"'),
       ),
     );
+    await poll(
+      () =>
+        member
+          .getByRole("region", { name: "投票パレット" })
+          .getByText("使い切りました", { exact: true })
+          .count()
+          .then((count) => count === 2),
+      "参加者の主観・客観投票をサーバーが受理する",
+    );
+    await capture(member, "participant-voted");
     await advancePhase(owner, [ownerTrace, memberTrace], 5);
+    completed("two voters submitted votes; result phase synchronized");
     await member.goto(`${input.origin}/preview`);
+    const reentryConnection = memberTrace.connections.length;
     await member.goto(inviteUrl);
     await member.getByRole("button", { name: "参加する", exact: true }).click();
-    await member.waitForURL(roomUrl);
+    await waitForRoom(member, roomUrl);
     await member.getByTestId("board-canvas").waitFor();
     await poll(
       () =>
-        snapshots(memberTrace).some(
+        snapshots({
+          ...memberTrace,
+          received: memberTrace.connections.slice(reentryConnection).flat(),
+        }).some(
           (frame) =>
             frame.phase?.step === 5 &&
             frame.notes?.some(
@@ -358,12 +433,30 @@ export async function smokePreviewBrowserCollaboration(
         ),
       "再参加後も共有済み本文と進行を保持する",
     );
+    const reenteredNote = member
+      .getByTestId("board-canvas")
+      .locator(`[data-note-id="${memberNoteId}"]`);
+    await poll(async () => {
+      if ((await reenteredNote.count()) !== 1) return false;
+      return (
+        (await reenteredNote.locator("textarea").inputValue()) ===
+        memberPrivateText
+      );
+    }, "再参加後の画面に本人の共有本文が残る");
+    await Promise.all(
+      [owner, member].map((page) =>
+        page.getByRole("button", { name: /現在地：.*課題決定/ }).waitFor(),
+      ),
+    );
+    await capture(owner, "result-owner-synchronized");
+    await capture(member, "result-participant-synchronized");
     console.log(
       JSON.stringify({
         test: "compiled-preview-browser-collaboration",
         state: "succeeded",
         browserContexts: 2,
         authentication: "local RS256 test IdP; not two real Google accounts",
+        screenshots,
         checks: [
           "App issued separate HttpOnly sessions",
           "invite/join",

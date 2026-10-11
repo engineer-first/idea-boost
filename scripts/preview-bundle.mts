@@ -242,7 +242,7 @@ export async function buildPreviewBundle(
   const worker = readFileSync(resolve(directory, "worker.js"));
   writeFileSync(
     resolve(directory, "manifest.json"),
-    JSON.stringify({ format: 3, sha, workerSha256: hash(worker), schemaHash }),
+    `${JSON.stringify({ format: 3, sha, workerSha256: hash(worker), schemaHash }, null, 2)}\n`,
   );
 }
 if (

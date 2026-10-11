@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 // 同じheadでも close→reopen は別の保存先として扱う。イベントの到着順を使わない。
-export function previewGeneration(events: unknown[]): number {
+export function previewGenerationState(events: unknown[]): {
+  generation: number;
+  createdAt?: string;
+} {
   const reopened = z
     .array(
       z.object({
@@ -16,5 +19,11 @@ export function previewGeneration(events: unknown[]): number {
     (a, b) =>
       Date.parse(b.created_at) - Date.parse(a.created_at) || b.id - a.id,
   );
-  return reopened[0]?.id ?? 0;
+  return {
+    generation: reopened[0]?.id ?? 0,
+    createdAt: reopened[0]?.created_at,
+  };
+}
+export function previewGeneration(events: unknown[]): number {
+  return previewGenerationState(events).generation;
 }

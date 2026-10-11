@@ -257,15 +257,106 @@ it("削除イベントより先にPRを開き直しても同じSQLの古い保�
   };
   fetcher
     .mockResolvedValueOnce(success([database]))
-    .mockResolvedValueOnce(latest())
+    .mockResolvedValueOnce(
+      success({
+        created_on: "2026-10-11T00:00:00Z",
+        annotations: {
+          "workers/message": `idea-boost-preview-schema:v1:${"a".repeat(64)}`,
+        },
+      }),
+    )
     .mockResolvedValueOnce(success({}))
     .mockResolvedValueOnce(success(null))
     .mockResolvedValueOnce(success([database]))
     .mockResolvedValueOnce(success(null))
     .mockResolvedValueOnce(success(recreated));
-  const policy = { ...schema(), generation: 123 };
+  const policy = {
+    ...schema(),
+    generation: 123,
+    generationStartedAt: "2026-10-11T01:00:00Z",
+  };
   expect(await resources.prepare(587, policy)).toEqual(recreated);
   expect(
     fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE"),
   ).toHaveLength(2);
+});
+
+it("旧形式でも最新reopen後に公開した同じSQLのデータは通常更新で消さない", async () => {
+  const { fetcher, resources } = setup();
+  fetcher.mockResolvedValueOnce(success([database])).mockResolvedValueOnce(
+    success({
+      created_on: "2026-10-11T02:00:00Z",
+      annotations: {
+        "workers/message": `idea-boost-preview-schema:v1:${"a".repeat(64)}`,
+      },
+    }),
+  );
+  const policy = {
+    ...schema(),
+    generation: 123,
+    generationStartedAt: "2026-10-11T01:00:00Z",
+  };
+  expect(await resources.prepare(587, policy)).toEqual(database);
+  expect(
+    fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+  ).toHaveLength(0);
+});
+it("Cloudflareの日時がUTC offset付きでも同じSQLの保存先を維持する", async () => {
+  const { fetcher, resources } = setup();
+  fetcher.mockResolvedValueOnce(success([database])).mockResolvedValueOnce(
+    success({
+      created_on: "2026-10-11T02:00:00+00:00",
+      annotations: {
+        "workers/message": `idea-boost-preview-schema:v1:${"a".repeat(64)}`,
+      },
+    }),
+  );
+  expect(
+    await resources.prepare(587, {
+      ...schema(),
+      generation: 123,
+      generationStartedAt: "2026-10-11T01:00:00Z",
+    }),
+  ).toEqual(database);
+  expect(
+    fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+  ).toHaveLength(0);
+});
+
+it("旧形式のreopen履歴を日時で確認できない場合は削除せず停止する", async () => {
+  const { fetcher, resources } = setup();
+  fetcher
+    .mockResolvedValueOnce(success([database]))
+    .mockResolvedValueOnce(latest());
+  await expect(
+    resources.prepare(587, {
+      ...schema(),
+      generation: 123,
+      generationStartedAt: "2026-10-11T01:00:00Z",
+    }),
+  ).rejects.toThrow("世代");
+  expect(
+    fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+  ).toHaveLength(0);
+});
+it("秒精度のreopenと同じ秒の旧公開は順序を決めつけず削除しない", async () => {
+  const { fetcher, resources } = setup();
+  fetcher.mockResolvedValueOnce(success([database])).mockResolvedValueOnce(
+    success({
+      created_on: "2026-10-11T01:00:00.500Z",
+      annotations: {
+        "workers/message": `idea-boost-preview-schema:v1:${"a".repeat(64)}`,
+      },
+    }),
+  );
+  await expect(
+    resources.prepare(587, {
+      ...schema(),
+      generation: 123,
+      generationStartedAt: "2026-10-11T01:00:00Z",
+    }),
+  ).rejects.toThrow("世代");
+  expect(
+    fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+  ).toHaveLength(0);
 });

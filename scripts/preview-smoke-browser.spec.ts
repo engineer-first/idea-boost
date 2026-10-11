@@ -9,7 +9,10 @@ import { smokePreviewBundle } from "./preview-smoke.mts";
 it.skipIf(process.env.PREVIEW_BROWSER_SMOKE !== "true")(
   "ローカルのRS256テストIdPの別2本人が実bundle/UI/WSで参加・共有・投票・再入室できる",
   async () => {
-    await smokePreviewBundle(resolve(process.cwd()), { browser: true });
+    await smokePreviewBundle(resolve(process.cwd()), {
+      browser: true,
+      screenshotDirectory: process.env.PREVIEW_BROWSER_SCREENSHOT_DIR,
+    });
   },
   120_000,
 );

@@ -24,7 +24,7 @@ import {
   previewAppConfig,
   previewMigrationConfig,
 } from "./preview-config.mts";
-import { previewGeneration } from "./preview-generation.mts";
+import { previewGenerationState } from "./preview-generation.mts";
 import {
   type PreviewRuntime,
   previewComment,
@@ -172,7 +172,10 @@ function withSecrets<T>(
   }
 }
 const marker = "<!-- idea-boost-workers-preview -->";
-function generation(number: number): number {
+function generationState(number: number): {
+  generation: number;
+  createdAt?: string;
+} {
   const events: unknown[] = [];
   for (let page = 1; ; page++) {
     const batch = z
@@ -181,7 +184,10 @@ function generation(number: number): number {
     events.push(...batch);
     if (batch.length < 100) break;
   }
-  return previewGeneration(events);
+  return previewGenerationState(events);
+}
+function generation(number: number): number {
+  return generationState(number).generation;
 }
 function comments(
   number: number,
@@ -270,7 +276,8 @@ const runtime: PreviewRuntime = {
     const schemaHash = await schemaForCommit(sha);
     // 旧形式・symlink・実SQLの不一致を、リソース作成・秘密の設定より前に拒否する。
     assertPreviewArtifact(candidate, sha, schemaHash);
-    const expectedGeneration = generation(number);
+    const reopen = generationState(number);
+    const expectedGeneration = reopen.generation;
     const stillCurrent = async (): Promise<boolean> => {
       assertCurrentCi(
         sha,
@@ -288,6 +295,7 @@ const runtime: PreviewRuntime = {
     const database = await resources().prepare(number, {
       hash: schemaHash,
       generation: expectedGeneration,
+      generationStartedAt: reopen.createdAt,
       legacyHash: schemaForCommit,
       stillCurrent,
     });
