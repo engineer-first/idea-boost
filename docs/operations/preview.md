@@ -1,24 +1,28 @@
 # PRのWorkers Previewを使う・設定する
 
-[Issue #362](https://github.com/engineer-first/idea-boost/issues/362)の実装と初期設定の手順です。**コードの追加と、Cloudflareの実設定・利用確認は別です。** 初期設定と別メンバーのGoogleログイン確認が済むまで、Issueの完了・Preview公開済みとは扱いません。担当者・権限・契約の整備は[#360](https://github.com/engineer-first/idea-boost/issues/360)で行います。
+[Issue #362](https://github.com/engineer-first/idea-boost/issues/362)の実装と初期設定の手順です。**コードの追加と、Cloudflareの実設定・利用確認は別です。** 公開済みかは実行結果で確認し、別メンバーのGoogleログインと共同操作まで確認してIssueの完了を判断します。担当者・権限・契約の整備は[#360](https://github.com/engineer-first/idea-boost/issues/360)で行います。
 
-## PR全体を反映する方式への移行
+## PR全体を反映する現在の方式
 
-2026-10-11、利用者は画面・API・ルームの保存処理もPR版で確認できるPreviewへ方針を変更しました。PR #587の「直前のステップに戻る」は、共通APIに処理がないため初版では確認できませんでした。[画像付きの原因記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6106092717)を参照してください。
+2026-10-11、利用者は画面・API・ルームの保存処理までPR版で確認する方針を選びました。PR #587の「直前のステップに戻る」は、共通APIに処理がないため初版では確認できませんでした。[画像付きの原因記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6106092717)を参照してください。
 
-新方式ではAppとAPIを同じWorkerへまとめ、PR専用D1と、そのPreview内のRoomDOへ接続します。PRのD1 migrationもそのD1だけに適用します。現在の公開先が新方式へ切り替わったことは、ローカルの検証成功だけでは判断しません。
+新方式ではAppとAPIを同じWorkerへまとめ、PR専用D1と、そのPreview内のRoomDOへ接続します。PRのD1 migrationもそのD1だけに適用します。公開先が新方式へ切り替わったことは、手元のパソコンでの検証成功だけでは判断しません。
 
-- 通常・固定URLの両方で、API commitがPRのApp commitと一致した場合だけ「疎通確認済み」と表示します。
+- AppからAPI・保存先への接続確認が成功し、通常URLと固定URLの両方でAPI commitがPRのApp commitと一致した場合だけ「疎通確認済み」と表示します。
 - PR終了時は該当Preview・そのRoomDOの保存先・PR専用D1を削除します。閉じたPRの検証データは残りません。再公開では同じPRのD1を再利用し、開き直しでは新しいD1を作ります。
 - 旧共通API・D1・RoomDOは削除しません。新方式の通常URLから旧ルームへは入れないため、ステップ選択から新しいルームを作ってください。
 - 固定URLも同じPRの保存先を使います。プログラムの版を固定しても、保存データや適用済みmigrationは過去の状態には戻りません。
-- セッション鍵はPRとD1ごと、probe鍵はPRごとにCI内で導出します。元の鍵はWorkerへ渡しません。GitHubの既存のSecret名は引き続き使います。
-- 許可一覧・Google限定Access・JWT検証・Cookie・Origin・ルームの認可は既存方式を引き継ぎます。
+- セッション鍵はPRとD1ごと、probe鍵はPRごとにCI内で元の鍵を使って作ります。元の鍵はWorkerへ渡しません。GitHubの既存のSecret名は引き続き使います。
+- 許可一覧・Google限定Access・JWT検証・Cookie・Origin・ルームで誰にどの操作を許すかの判定は、既存方式を引き継ぎます。
 
 ### マージ後の移行・確認
 
-1. この基盤変更をdevelopへマージし、CI成功を確認します。公開処理は信頼済みdevelopから実行されます。
-2. 検証対象のPRへ最新developを取り込み、CIを実行します。旧App-only artifactは使えません。新しいCIではApp/APIをまとめて生成し、テスト用の認証で実Worker実行エンジンのsmokeも確認します。
+初回の基盤移行はPR #591で実施済みです。PR #587へ取り込み、App/API b75edf4dを公開しました。通常URLと新しい固定URLの両方で、本人のGoogleアカウントによるログインと前進・戻る操作を確認しました。[公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38124268809)と[画像付きの実操作記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027)を参照してください。再読み込み後も付箋12枚と編集した本文が残りました。同じGoogleアカウントの2タブ間で進行も同期しました。別アカウントでの共同操作、別PRが互いに影響しないこと、保存先の削除と再作成は引き続き確認します。
+
+今後のPRでは、CI成功後に自動コメントが更新されます。そのコメントの新しいリンクから確認してください。以下の1〜2は、基盤の初回移行時に使った手順です。
+
+1. この基盤変更をdevelopへマージし、CI成功を確認します。公開処理は信頼済みのdevelopから実行されます。
+2. 検証対象のPRへ最新developを取り込み、CIを実行します。旧App-only artifactは使えません。新しいCIではApp/APIをまとめて生成し、テスト用の認証を使ってWorkerを実際に動かすsmokeも実行します。
 3. PRの「PR Preview」コメントが「疎通確認済み」になり、App/API両方が対象PRの版と一致することを確認します。古い固定URLではなく、このコメントにある新しいリンクを開きます。
 4. 本人のGoogleアカウントで新しいサンプルルームを作ります。PR #587では一度「次のステップへ」で進み、メニューの「直前のステップに戻る」を実行して、ステップと付箋が戻ることを確認します。
 5. 別のGoogleアカウントでの共同操作、別PRとの分離、閉じる・開き直す操作を確認し、日時・版・結果を台帳へ残します。
@@ -94,7 +98,7 @@ PR #588終了と診断用Previewの削除は成功しました。#589の終了wo
 | `PREVIEW_ACCESS_CLIENT_ID` / `PREVIEW_ACCESS_CLIENT_SECRET` | Secrets。health用Access Service Token                                                 | CIのHTTP probeだけで使用                                |
 | `PREVIEW_ENABLED`                                           | Variable。上記設定と契約確認後に`true`                                                | workflowの有効化。Worker側の同名flagは専用構成に固定    |
 
-APIは[専用構成](../../workers/wrangler.preview.jsonc)、Appは[専用構成](../../wrangler.preview.jsonc)を使います。Workers PreviewsにはWrangler 4.135以上が必要で、今回4.149を使用します。OpenNext 1.20.1で`npm run build:preview`を検証します。Previews Baseから本番設定やSecretを継承せず、毎回信頼済みdevelopの構成とPreview用Secretだけを指定します。
+APIは[専用構成](../../workers/wrangler.preview.jsonc)、Appは[専用構成](../../wrangler.preview.jsonc)を使います。Workers PreviewsにはWrangler 4.135以上が必要で、今回4.149を使用します。OpenNext 1.20.1で`npm run build:preview`を検証します。Previews Baseから本番設定やSecretを継承せず、毎回信頼済みのdevelopの構成とPreview用Secretだけを指定します。
 
 ## 更新・終了と確認
 
