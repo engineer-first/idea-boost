@@ -9,7 +9,11 @@ import {
   runInRoomDO,
 } from "../test-helpers";
 import { captureRollbackCheckpoint } from "./phase-rollback";
-import { resetSharingForPhase } from "./sharing-state";
+import {
+  getSharingState,
+  resetSharingForPhase,
+  saveSharingState,
+} from "./sharing-state";
 
 const host = {
   sub: "11111111-1111-4111-8111-111111111111",
@@ -375,7 +379,10 @@ describe("復元の競合と連続進行", () => {
   });
 });
 describe("復元後の会員情報と本文保存の世代", () => {
-  it("現在の表示名と新規参加者を発表順へ保つ", async () => {
+  it.each([
+    "active",
+    "complete",
+  ] as const)("発表が%sでも現在の表示名と新規参加者を発表順へ保つ", async (status) => {
     const { roomId, stub, a, b } = await setup();
     await seed(roomId);
     await stub.setPhase({ kind: "step", phase: 1, step: 2 }, host.sub);
@@ -386,6 +393,18 @@ describe("復元後の会員情報と本文保存の世代", () => {
         true,
       ),
     );
+    await runInRoomDO(roomId, (_room, state) => {
+      const sql = state.storage.sql;
+      const sharing = getSharingState(sql);
+      if (!sharing) throw new Error("共有状態がありません");
+      sharing.status = status;
+      sharing.startsAt = null;
+      if (status === "complete") {
+        sharing.currentIndex = null;
+        sharing.results = sharing.order.map(() => "done");
+      }
+      saveSharingState(sql, sharing);
+    });
     a.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -418,12 +437,31 @@ describe("復元後の会員情報と本文保存の世代", () => {
     const [snapshot] = await rollback(roomId, a, b);
     expect(snapshot).toMatchObject({
       sharing: {
+        status: status === "complete" ? "ready" : "active",
         order: expect.arrayContaining([
           expect.objectContaining({ userId: member.sub, name: "新しい名前" }),
           expect.objectContaining({ userId: newcomer, name: "途中参加" }),
         ]),
       },
     });
+    if (status === "complete") {
+      if (snapshot.type !== "snapshot" || !snapshot.sharing)
+        throw new Error("復元した共有状態がありません");
+      a.ws.send(
+        JSON.stringify({
+          type: "sharing:start",
+          revision: snapshot.sharing.revision,
+          durationMs: 60000,
+        }),
+      );
+      expect(await until(a, "sharing:updated")).toMatchObject({
+        sharing: {
+          status: "active",
+          currentIndex: 2,
+          order: snapshot.sharing.order,
+        },
+      });
+    }
   });
   it("戻す前の保存receiptをacceptedにせず旧ID再送で本文を戻さない", async () => {
     const { roomId, a, b } = await setup();

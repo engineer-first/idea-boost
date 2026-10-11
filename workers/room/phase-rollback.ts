@@ -160,7 +160,13 @@ export const rollbackHandlers: MessageHandlers<"phase:rollback"> = {
       saveTimerState(ctx.sql, snapshot.timer);
       ctx.sql.exec("DELETE FROM sharing_state");
       const currentMembers = listMembers(ctx.sql);
-      if (snapshot.sharing)
+      if (snapshot.sharing) {
+        const newMembers = currentMembers.filter(
+          (current) =>
+            !snapshot.sharing?.order.some(
+              (saved) => saved.userId === current.userId,
+            ),
+        );
         saveSharingState(ctx.sql, {
           ...snapshot.sharing,
           order: [
@@ -170,16 +176,17 @@ export const rollbackHandlers: MessageHandlers<"phase:rollback"> = {
                   (current) => current.userId === saved.userId,
                 ) ?? saved,
             ),
-            ...currentMembers.filter(
-              (current) =>
-                !snapshot.sharing?.order.some(
-                  (saved) => saved.userId === current.userId,
-                ),
-            ),
+            ...newMembers,
           ],
+          // 一巡後の途中参加は通常参加と同じく、ホストの明示開始を待つ。
+          status:
+            snapshot.sharing.status === "complete" && newMembers.length > 0
+              ? "ready"
+              : snapshot.sharing.status,
           revision: crypto.randomUUID(),
           startsAt: null,
         });
+      }
       ctx.sql.exec("DELETE FROM legacy_note_drag_leases");
       ctx.sql.exec(
         "DELETE FROM phase_rollback_checkpoints WHERE sequence=?",
