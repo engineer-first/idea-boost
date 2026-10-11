@@ -25,6 +25,10 @@ import {
   previewComment,
   reconcilePreview,
 } from "./preview-lifecycle.mts";
+import {
+  previewMigrationHash,
+  previewSchemaMessagePrefix,
+} from "./preview-migrations.mts";
 import { createPreviewResources } from "./preview-resources.mts";
 import { previewProbeToken, previewSessionSecret } from "./preview-secrets.mts";
 
@@ -226,7 +230,25 @@ const runtime: PreviewRuntime = {
     const candidate = resolve(required("PREVIEW_CANDIDATE_DIR"));
     // 旧App-only artifactやsymlinkを、リソース作成・秘密の設定より前に拒否する。
     assertPreviewArtifact(candidate, sha);
-    const database = await resources().prepare(number);
+    const schemaForCommit = async (commit: string): Promise<string> =>
+      previewMigrationHash(
+        gh(`git/trees/${shaSchema.parse(commit)}?recursive=1`),
+      );
+    const schemaHash = await schemaForCommit(sha);
+    const stillCurrent = async (): Promise<boolean> => {
+      assertCurrentCi(
+        sha,
+        Number(required("PREVIEW_CI_RUN_ID")),
+        Number(required("PREVIEW_CI_ATTEMPT")),
+      );
+      const current = await runtime.current(number);
+      return current.open && current.sameRepository && current.sha === sha;
+    };
+    const database = await resources().prepare(number, {
+      hash: schemaHash,
+      legacyHash: schemaForCommit,
+      stillCurrent,
+    });
     const input = { number, databaseId: database.uuid, sha };
     const config = previewAppConfig(input);
     assertPreviewConfig(config, "app");
@@ -242,6 +264,10 @@ const runtime: PreviewRuntime = {
         migrationFile,
         JSON.stringify(previewMigrationConfig(input)),
       );
+      if (!(await stillCurrent()))
+        throw new Error(
+          "PRの状態または版が変わったためmigrationを中止しました。",
+        );
       cli(
         [
           "d1",
@@ -269,6 +295,8 @@ const runtime: PreviewRuntime = {
             `pr-${number}`,
             "--tag",
             sha,
+            "--message",
+            `${previewSchemaMessagePrefix}${schemaHash}`,
             "--ignore-base-config",
             "--secrets-file",
             secretFile,

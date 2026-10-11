@@ -115,6 +115,7 @@ export function previewComment(report: PreviewReport): string {
         ]
       : []),
     "Previewは、PRの新しいコードがCIと公開後の接続確認に成功すると更新されます。PRをマージまたは閉じると、環境と保存データは削除されます。",
+    "migrationを変更すると、そのPRのルームや付箋はリセットされます。",
     "",
     "<details>",
     "<summary>公開情報・確認範囲</summary>",

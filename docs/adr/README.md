@@ -19,13 +19,14 @@ ADR（Architecture Decision Record）は、重要な設計を「どの前提・�
 
 ## 採用済みの判断
 
-| ADR                                       | 判断                                         | 状態                   |
-| ----------------------------------------- | -------------------------------------------- | ---------------------- |
-| [0001](0001-cloudflare-room-authority.md) | Cloudflare構成とRoomDOの共有状態権威         | 採用（既存判断の整理） |
-| [0002](0002-feature-boundaries.md)        | 機能単位の分割と公開境界                     | 採用（既存判断の整理） |
-| [0003](0003-feature-bands.md)             | feature内部を依存方向の5帯にする             | 採用（既存判断の整理） |
-| [0004](0004-custom-board.md)              | 付箋ボードを自前で実装する                   | 採用（既存判断の整理） |
-| [0005](0005-shared-skills.md)             | 共有スキルの正本を .agents/skills に統一する | 採用                   |
+| ADR                                        | 判断                                          | 状態                   |
+| ------------------------------------------ | --------------------------------------------- | ---------------------- |
+| [0001](0001-cloudflare-room-authority.md)  | Cloudflare構成とRoomDOの共有状態権威          | 採用（既存判断の整理） |
+| [0002](0002-feature-boundaries.md)         | 機能単位の分割と公開境界                      | 採用（既存判断の整理） |
+| [0003](0003-feature-bands.md)              | feature内部を依存方向の5帯にする              | 採用（既存判断の整理） |
+| [0004](0004-custom-board.md)               | 付箋ボードを自前で実装する                    | 採用（既存判断の整理） |
+| [0005](0005-shared-skills.md)              | 共有スキルの正本を .agents/skills に統一する  | 採用                   |
+| [0013](0013-pr-preview-migration-reset.md) | PR Previewはmigration変更時に保存先を作り直す | 採用                   |
 
 提案中の判断：[0012: PR全体と保存先の分離](0012-pr-preview-full-stack.md)、[0011: PR Previewの本人認証と共通API](0011-pr-preview-identity.md)、[0006: 共有付箋の移動transaction](0006-move-transactions.md)、[0007: ルーム作成要求の保持](0007-room-creation-retries.md)、[0008: 作成受付と回復情報の寿命](0008-room-creation-expiry.md)、[0009: WebSocketのセッション期限](0009-websocket-session-expiry.md)、[0010: 入室前の認証準備](0010-room-entry-authentication.md)。
 
