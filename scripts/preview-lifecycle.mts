@@ -109,13 +109,16 @@ export function previewComment(report: PreviewReport): string {
     "",
     ...(report.state === "ready" && report.url
       ? [
-          `[ステップを選んで開く](${report.url}/preview)`,
-          ...(report.deploymentUrl
-            ? [`[固定されたデプロイ版](${report.deploymentUrl}/preview)`]
-            : []),
+          `[このPRの最新公開版を開く](${report.url}/preview)`,
           "",
+          "許可されたGoogleアカウントでログインし、確認したいステップを選ぶと、サンプル入りの新しいルームが開きます。",
         ]
       : []),
+    "Previewは、PRの新しいコードがCIと公開後の接続確認に成功すると更新されます。PRをマージまたは閉じると、環境と保存データは削除されます。",
+    "",
+    "<details>",
+    "<summary>公開情報・確認範囲</summary>",
+    "",
     `App commit：\`${report.appCommit}\``,
     `PR版API commit：\`${report.apiCommit ?? "未確認"}\``,
     `更新日時：${report.updatedAt}`,
@@ -127,7 +130,9 @@ export function previewComment(report: PreviewReport): string {
       ? [`[現在のPR版APIを確認](${report.url}/api/health)`]
       : []),
     "保存先：D1とRoomDOはPRごとに分離します。旧共通Previewのルームは引き継がないため、ステップ選択から新しいルームを作ってください。",
-    "戻る操作など進行履歴を使う機能は、ステップを直接開いた後に実際に進めてから確認してください。固定URLも保存先は同じPR内で共有するため、過去のデータ状態まで固定するものではありません。",
-    "認証やGoogle設定、別メンバーでの操作確認はhealth成功だけでは保証しません。設定・保持・失敗時手順は docs/operations/preview.md を参照してください。",
+    "戻る操作など進行履歴を使う機能は、ステップを直接開いた後に実際に進めてから確認してください。",
+    "healthが成功しても、認証やGoogleの設定が正しいことや、別のメンバーが正常に操作できることまでは確認できません。設定方法、データの保存期間、失敗したときの対応手順は docs/operations/preview.md を参照してください。",
+    "",
+    "</details>",
   ].join("\n");
 }

@@ -237,7 +237,7 @@ it.each([
     args[1]?.endsWith("issues/587/comments"),
   );
   expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
-    "[ステップを選んで開く]",
+    "/preview)",
   );
 });
 
@@ -271,7 +271,7 @@ it("通信回復後もAPIの版がPRと違えば成功リンクを出さない",
     args[1]?.endsWith("issues/587/comments"),
   );
   expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
-    "[ステップを選んで開く]",
+    "/preview)",
   );
 });
 
@@ -305,7 +305,7 @@ it("HTTP拒否はstatusとCloudflareの番号を残し、成功リンクを出�
   );
   const body = JSON.parse(comments.at(-1)?.[2].input).body;
   expect(body).toContain("更新失敗");
-  expect(body).not.toContain("[ステップを選んで開く]");
+  expect(body).not.toContain("/preview)");
 });
 
 it.each([
