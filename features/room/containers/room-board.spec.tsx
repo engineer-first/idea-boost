@@ -3631,3 +3631,129 @@ it.each([
   view.unmount();
   vi.unstubAllGlobals();
 });
+
+describe("直前のステップへの復元", () => {
+  it("2段階の確認後だけ現在の世代を付けて送信し、送信中は重複操作を止める", () => {
+    const { socket } = connectWithSnapshot([], {
+      isHost: true,
+      phase: buildPhaseStep(1, 2),
+    });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(1, 2),
+        phaseRevision: 7,
+        rollbackTarget: buildPhaseStep(5, 1),
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "直前のステップに戻る" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "1-5へ戻る" }));
+    expect(
+      socket.sent
+        .map((s) => JSON.parse(s))
+        .some((m) => m.type === "phase:rollback"),
+    ).toBe(false);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "1-5へ戻る" }));
+    fireEvent.click(screen.getByRole("button", { name: "1-5へ戻る" }));
+    expectSent(socket, {
+      type: "phase:rollback",
+      expectedPhase: buildPhaseStep(1, 2),
+      expectedRevision: 7,
+      expectedHostRevision: 0,
+    });
+    expect(
+      screen.queryByRole("button", { name: "直前のステップに戻る" }),
+    ).not.toBeInTheDocument();
+  });
+  it("世代の変化で古い最終確認を閉じる", () => {
+    const { socket } = connectWithSnapshot([], {
+      isHost: true,
+      phase: buildPhaseStep(1, 2),
+    });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(1, 2),
+        phaseRevision: 7,
+        rollbackTarget: buildPhaseStep(5, 1),
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "ルームメニューを開く" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "直前のステップに戻る" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "1-5へ戻る" }));
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(1, 2),
+        phaseRevision: 8,
+        rollbackTarget: buildPhaseStep(5, 1),
+      }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "1-5へ戻る" }),
+    ).not.toBeInTheDocument();
+    expect(
+      socket.sent
+        .map((s) => JSON.parse(s))
+        .some((m) => m.type === "phase:rollback"),
+    ).toBe(false);
+  });
+});
+
+it("他のホストが戻した後、参加者の古いIME確定・blurで復元済み本文を上書きしない", async () => {
+  sessionStorage.clear();
+  const { socket } = connectWithSnapshot(
+    [protocolNote({ visibility: "private", content: "復元前の本文" })],
+    { isHost: false, phase: buildPhaseStep(2) },
+  );
+  openPrivateNotesToolbar();
+  const surface = screen.getByRole("button", { name: "付箋" });
+  fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+  fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+  fireEvent.keyDown(surface, { key: "Enter" });
+  const staleEditor = screen.getByDisplayValue("復元前の本文");
+  fireEvent.compositionStart(staleEditor);
+  fireEvent.change(staleEditor, { target: { value: "取り消された変換途中" } });
+  act(() =>
+    socket.simulateServerMessage({
+      type: "snapshot",
+      notes: [protocolNote({ visibility: "private", content: "復元した本文" })],
+      members: [],
+      phase: buildPhaseStep(1),
+      phaseRevision: 4,
+      rollbackRevision: 4,
+      isHost: false,
+      decision: null,
+      carryovers: [],
+      completedVoterIds: [],
+      timer: { status: "idle" },
+      serverNow: Date.now(),
+    }),
+  );
+  expect(screen.getByDisplayValue("復元した本文")).toBeVisible();
+  // ネイティブIMEが破棄前の入力要素へ遅れて確定値を届けても送信しない。
+  fireEvent.compositionEnd(staleEditor, {
+    target: { value: "取り消された確定本文" },
+  });
+  fireEvent.blur(staleEditor);
+  await act(async () => {});
+  expect(socket.sent.map((s) => JSON.parse(s))).not.toContainEqual(
+    expect.objectContaining({
+      type: "note:update-content",
+      content: "取り消された確定本文",
+    }),
+  );
+  expect(screen.getByDisplayValue("復元した本文")).toBeVisible();
+  expect(
+    sessionStorage.getItem(`idea-boost:note-drafts:v1:${USER_ID}:${ROOM_ID}`),
+  ).toBeNull();
+});

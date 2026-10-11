@@ -41,6 +41,8 @@ export type UseRoomStateResult = {
   authorNames: ReadonlyMap<string, string>;
   phase: RoomPhase;
   phaseRevision: number;
+  rollbackTarget: RoomPhase | null;
+  rollbackRevision: number;
   decision: Decision | null;
   outcomePublished: boolean;
   ideaMap: IdeaMapClientState;
@@ -70,6 +72,8 @@ export function useRoomState(options: {
   );
   const [phase, setPhase] = useState<RoomPhase>(options.initialPhase);
   const [phaseRevision, setPhaseRevision] = useState(0);
+  const [rollbackRevision, setRollbackRevision] = useState(0);
+  const [rollbackTarget, setRollbackTarget] = useState<RoomPhase | null>(null);
   const [decision, setDecision] = useState<Decision | null>(null);
   const [outcomePublished, setOutcomePublished] = useState(false);
   const [ideaMap, setIdeaMap] = useState<IdeaMapClientState>(
@@ -114,8 +118,16 @@ export function useRoomState(options: {
       setHost((current) => applyHostServerMessage(current, message));
       setSharing((current) => applySharingServerMessage(current, message));
       setPhase((current) => applyPhaseServerMessage(current, message));
-      if (message.type === "snapshot" || message.type === "phase:updated")
+      if (message.type === "snapshot" || message.type === "phase:updated") {
         setPhaseRevision(message.phaseRevision ?? 0);
+        setRollbackTarget(message.rollbackTarget ?? null);
+        if (
+          message.type === "snapshot" ||
+          message.rollbackRevision !== undefined
+        )
+          setRollbackRevision(message.rollbackRevision ?? 0);
+      }
+      if (message.type === "outcome:published") setRollbackTarget(null);
       setDecision((current) => applyDecisionServerMessage(current, message));
       setOutcomePublished((current) =>
         applyOutcomePublishedServerMessage(current, message),
@@ -142,6 +154,8 @@ export function useRoomState(options: {
     authorNames,
     phase,
     phaseRevision,
+    rollbackTarget,
+    rollbackRevision,
     decision,
     outcomePublished,
     ideaMap,

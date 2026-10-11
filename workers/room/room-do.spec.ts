@@ -480,8 +480,22 @@ describe("RoomDO 解散", () => {
     await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
     expect(await listMemberIds(roomId)).toEqual([USER_A, USER_B]);
+    await runInRoomDO(roomId, (_instance, state) =>
+      state.storage.sql.exec(
+        "INSERT INTO phase_rollback_checkpoints(phase_json,snapshot_json) VALUES(?,?)",
+        JSON.stringify({ kind: "step", phase: 1, step: 1 }),
+        JSON.stringify({ privateContent: "下書きコピー" }),
+      ),
+    );
 
     await stub.disband();
+    expect(
+      await runInRoomDO(roomId, (_instance, state) =>
+        state.storage.sql
+          .exec("SELECT * FROM phase_rollback_checkpoints")
+          .toArray(),
+      ),
+    ).toEqual([]);
 
     // 閉鎖マーカーを残し、参加用の状態だけを消去する。
     await runInRoomDO(roomId, (_instance, state) => {
@@ -2326,6 +2340,7 @@ describe("RoomDO phase:next", () => {
         mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(2, 3),
+        rollbackTarget: buildPhaseStep(1, 3),
       }),
       expect(nextJson(member)).resolves.toEqual({
         type: "phase:updated",
@@ -2333,6 +2348,7 @@ describe("RoomDO phase:next", () => {
         mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(2, 3),
+        rollbackTarget: buildPhaseStep(1, 3),
       }),
     ]);
 
@@ -2437,6 +2453,7 @@ describe("RoomDO phase:next", () => {
         mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(2, 3),
+        rollbackTarget: buildPhaseStep(1, 3),
       }),
       expect(nextJson(member)).resolves.toEqual({
         type: "phase:updated",
@@ -2444,6 +2461,7 @@ describe("RoomDO phase:next", () => {
         mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(2, 3),
+        rollbackTarget: buildPhaseStep(1, 3),
       }),
     ]);
 
@@ -2780,6 +2798,7 @@ describe("RoomDO phase:next", () => {
         mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(resultStep, phase),
+        rollbackTarget: buildPhaseStep(votingStep, phase),
       });
     }
 
@@ -2835,6 +2854,7 @@ describe("RoomDO phase:next", () => {
         mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(5),
+        rollbackTarget: buildPhaseStep(4),
       },
     ]);
     expect(
@@ -2876,6 +2896,7 @@ describe("RoomDO phase:next", () => {
         mapRevision: expect.any(Number),
         phaseRevision: expect.any(Number),
         phase: buildPhaseStep(5),
+        rollbackTarget: buildPhaseStep(4),
       },
     ]);
     expect(

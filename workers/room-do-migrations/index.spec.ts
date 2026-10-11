@@ -42,6 +42,7 @@ const ALL_TABLES = [
   "note_votes",
   "notes",
   "pending_phase_transition",
+  "phase_rollback_checkpoints",
   "progress_history",
   "progress_history_outbox",
   "retained_outcome_participants",

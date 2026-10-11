@@ -79,3 +79,12 @@ describe("NextPhaseConfirmDialog", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 });
+
+it.each([
+  3, 5,
+])("step%sの進行確認は緊急復元を不可能と説明せず、下書きの扱いを伝える", (step) => {
+  setup({ phase: buildPhaseStep(step, 1) });
+  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+  expect(screen.getByRole("alertdialog")).not.toHaveTextContent("戻れません");
+  expect(screen.getByRole("alertdialog")).toHaveTextContent(/下書き.*破棄/);
+});

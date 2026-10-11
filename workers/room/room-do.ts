@@ -115,6 +115,7 @@ import {
   phaseHandlers,
   savePhase,
 } from "./phase";
+import { getRollbackTarget, rollbackHandlers } from "./phase-rollback";
 import { presenceHandlers } from "./presence";
 import { ProgressHistoryStorage } from "./progress-history";
 import { replyShareStatus } from "./share-operations";
@@ -167,6 +168,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...groupHandlers,
   ...ideaMapHandlers,
   ...phaseHandlers,
+  ...rollbackHandlers,
   ...timerHandlers,
   ...sharingHandlers,
   ...presenceHandlers,
@@ -636,6 +638,7 @@ export class RoomDO extends DurableObject {
         "member_display_names",
         "pending_phase_transition",
         "sharing_state",
+        "phase_rollback_checkpoints",
       ]) {
         const exists = this.sql
           .exec(
@@ -1343,6 +1346,12 @@ export class RoomDO extends DurableObject {
       phase,
       phaseRevision: getPhaseRevision(this.sql),
       pendingPhaseTransition: getPendingPhaseTransition(this.sql),
+      rollbackTarget: getRollbackTarget(this.sql),
+      rollbackRevision: Number(
+        this.sql
+          .exec("SELECT rollback_revision FROM room_state WHERE id=1")
+          .one().rollback_revision,
+      ),
       isHost: isHostUser(this.sql, userId),
       ...getHostState(this.sql),
       ideaMapSizeLevel: ideaMapState.sizeLevel,

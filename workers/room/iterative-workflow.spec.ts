@@ -690,6 +690,7 @@ it.each([
       mapRevision: expect.any(Number),
       phase: middle,
       phaseRevision: 3,
+      rollbackTarget: type === "phase:next" ? current : null,
     });
   }
   if (type !== "phase:revote")
@@ -701,6 +702,7 @@ it.each([
       mapRevision: expect.any(Number),
       phase: final,
       phaseRevision: 4,
+      rollbackTarget: middle,
     });
   }
   const reconnect = await connectRoomAs(host, room.roomId);

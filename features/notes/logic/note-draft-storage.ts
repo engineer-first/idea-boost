@@ -12,6 +12,7 @@ export const NoteDraftSchema = z.object({
   noteId: z.string(),
   baseContent: z.string(),
   baseRevision: z.number().int().nonnegative(),
+  phaseRevision: z.number().int().nonnegative().optional(),
   text: z.string(),
   committedText: z.string(),
   generation: z.number().int().nonnegative(),
