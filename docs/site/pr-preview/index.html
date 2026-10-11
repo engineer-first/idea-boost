@@ -88,7 +88,7 @@
     <p class="lede">PRの画面・API・ルームの保存処理を、本番とは別のURLで試せるようにしました。これまでの会話を引き継がずに、コード・仕様・設計をレビューし、見つかった問題を修正しました。公開した#587と#621では、それぞれの変更が反映され、保存済み付箋も残ることを確認しました。2人がそれぞれのGoogleアカウントで共同操作できるかは、まだ確認していません。</p>
     <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 今回の確認日：2026-10-12（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/628">独立レビューの修正PR #628</a> ／ <a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">画像付きのレビュー・検証結果</a></p>
     <p class="note">この報告は確認した時点の記録です。PRの現在の公開状態は<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152">PR #587の「PR Preview」コメント</a>で確認してください。「このPRの最新公開版を開く」からGoogleでログインできます。</p>
-    <p class="note">レビューの入口は「このPRの最新公開版を開く」の1つです。8回公開しても、同じPRの保存先を8組作ることはありません。通常のコード更新ではデータを残し、migrationを変更したときは、そのPRのルーム・付箋・呼び名をリセットして作り直します。PRを閉じて開き直したときや、保存先の片方だけ残ったときも、新しく作り直します。PRをマージまたは閉じると、環境とデータは削除されます。</p>
+    <p class="note">レビューには「このPRの最新公開版を開く」を使います。8回公開しても、同じPRの保存先を8組作ることはありません。通常のコード更新ではデータを残し、migrationを変更したときは、そのPRのルーム・付箋・呼び名をリセットして作り直します。PRを閉じて開き直したときや、保存先の片方だけ残ったときも、新しく作り直します。PRをマージまたは閉じると、環境とデータは削除されます。</p>
     <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#review">独立レビュー</a><a href="#full-stack">PR全体の反映</a><a href="#pr-isolation">PRごとの確認</a><a href="#state">確認状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
   </header>
   <section class="dictionary" id="dictionary" aria-labelledby="dictionary-title"><h2 id="dictionary-title">この報告を読むための用語辞典</h2><p class="dictionary-intro">まず「何を用意しているか」を読むための言葉です。ログインや公開の用語は、下のまとまりを開くと読めます。説明は、このPreviewでの使い方に合わせています。</p>
@@ -216,9 +216,9 @@
     </blockquote></details>
   </section>
   <section id="verification" aria-labelledby="verification-title">
-    <h2 id="verification-title">今回の公開確認と、初版の記録</h2><p class="facts">今回のPR #587では、画面とAPIが同じ版で公開され、通常URLと新しい固定版URLの両方で戻る操作と保存を確認しました。<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027">最新の画像付き結果</a>を参照してください。以下は初版で確認した内容と、引き続き残る確認です。</p>
+    <h2 id="verification-title">今回の公開確認と、初版の記録</h2><p class="facts">今回のPR #587では、画面とAPIが同じ版で公開され、通常URLと新しい固定版URLの両方で戻る操作と保存を確認しました。<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027">最新の画像付き結果</a>を参照してください。以下は、初版から今回までに確認した内容と、引き続き残る確認です。</p>
     <div class="split"><div><h3>確認済み</h3><ul class="plain-list">
-      <li>PR #587の自動公開と、通常URL・固定版URLから最新の共通APIへのhealth確認が成功しました。Appの版はPRの最新の版と一致しています。</li>
+      <li>初版では、PR #587の自動公開と、通常URL・固定版URLから共通APIへのhealth確認が成功しました。Appの版は、その時点のPRの版と一致していました。</li>
       <li>ログアウト成功の表示、Googleでの再認証、同じルームの保存済み付箋が再表示されることを確認しました。</li>
       <li>公開した画面でGoogleログイン、個人作業のサンプル12枚、付箋の追加・保存・再入室を確認しました。同じアカウントの2タブ間での同期、課題共有への進行、共有と投票も確認しました。</li>
       <li>Google IdPの接続テストで本人情報を取得し、成功表示を確認しました。</li>
