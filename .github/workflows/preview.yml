@@ -1,0 +1,103 @@
+name: PR Workers Preview
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [requested, in_progress, completed]
+  pull_request_target:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+
+concurrency:
+  group: idea-boost-preview-lifecycle
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  plan:
+    if: >-
+      vars.PREVIEW_ENABLED == 'true' &&
+      (github.event_name == 'pull_request_target' || github.event.workflow_run.event == 'pull_request') &&
+      (github.event.pull_request.head.repo.full_name == github.repository ||
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      number: ${{ steps.plan.outputs.number }}
+      sha: ${{ steps.plan.outputs.sha }}
+      ci_run_id: ${{ steps.plan.outputs.ci_run_id }}
+      ci_attempt: ${{ steps.plan.outputs.ci_attempt }}
+    steps:
+      # pull_request_targetでは信頼済みdefault branch以外のコードを一切実行しない。
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: jdx/mise-action@v3
+        with: { install: true, cache: false }
+      - run: npm ci
+      - name: Plan current PR or end closed Preview
+        id: plan
+        run: node scripts/preview-control.mts plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.PREVIEW_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  publish:
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: ops
+          persist-credentials: false
+      - uses: jdx/mise-action@v3
+        with:
+          working_directory: ops
+          install: true
+          cache: false
+      - name: Install trusted operator dependencies
+        working-directory: ops
+        run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: preview-app-${{ needs.plan.outputs.sha }}-attempt-${{ needs.plan.outputs.ci_attempt }}
+          run-id: ${{ needs.plan.outputs.ci_run_id }}
+          github-token: ${{ github.token }}
+          path: candidate
+      # artifactからnpm scripts/構成を実行しない。bundle解決にはtrusted依存だけを使う。
+      - run: ln -s "$PWD/ops/node_modules" candidate/node_modules
+      - name: Publish only current PR App and check binding
+        run: node ops/scripts/preview-control.mts publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_PR_NUMBER: ${{ needs.plan.outputs.number }}
+          PREVIEW_APP_SHA: ${{ needs.plan.outputs.sha }}
+          PREVIEW_CI_RUN_ID: ${{ needs.plan.outputs.ci_run_id }}
+          PREVIEW_CI_ATTEMPT: ${{ needs.plan.outputs.ci_attempt }}
+          PREVIEW_CANDIDATE_DIR: ${{ github.workspace }}/candidate
+          CLOUDFLARE_API_TOKEN: ${{ secrets.PREVIEW_CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SESSION_SECRET: ${{ secrets.PREVIEW_SESSION_SECRET }}
+          PREVIEW_PROBE_TOKEN: ${{ secrets.PREVIEW_PROBE_TOKEN }}
+          PREVIEW_ALLOWED_EMAILS: ${{ secrets.PREVIEW_ALLOWED_EMAILS }}
+          PREVIEW_ACCESS_ISSUER: ${{ vars.PREVIEW_ACCESS_ISSUER }}
+          PREVIEW_ACCESS_AUD: ${{ vars.PREVIEW_ACCESS_AUD }}
+          PREVIEW_ACCESS_CLIENT_ID: ${{ secrets.PREVIEW_ACCESS_CLIENT_ID }}
+          PREVIEW_ACCESS_CLIENT_SECRET: ${{ secrets.PREVIEW_ACCESS_CLIENT_SECRET }}
+
+      - name: Record unsuccessful publication for the current CI attempt
+        if: failure()
+        run: node ops/scripts/preview-control.mts failed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_PR_NUMBER: ${{ needs.plan.outputs.number }}
+          PREVIEW_APP_SHA: ${{ needs.plan.outputs.sha }}
+          PREVIEW_CI_RUN_ID: ${{ needs.plan.outputs.ci_run_id }}
+          PREVIEW_CI_ATTEMPT: ${{ needs.plan.outputs.ci_attempt }}

@@ -16,7 +16,8 @@ import {
 } from "@/features/verification";
 import { apiFetch } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
-import { getBaseUrl } from "@/lib/session/env";
+
+import { getRequestBaseUrl } from "@/lib/session/request-base-url";
 import { hasRoomEntryTime } from "@/lib/session/room-entry";
 
 export const dynamic = "force-dynamic";
@@ -97,8 +98,11 @@ export default async function RoomPage({
     initialMembers = [];
   }
 
-  // 招待URL の origin は設定値（NEXT_PUBLIC_SITE_URL、本番では必須）から作る。
-  const inviteUrl = buildInviteUrl(getBaseUrl(), parsed.data.inviteCode);
+  // 本番は設定値、Previewはgatewayが確認したPRのoriginから招待URLを作る。
+  const inviteUrl = buildInviteUrl(
+    await getRequestBaseUrl(),
+    parsed.data.inviteCode,
+  );
 
   // key={roomId} で、クライアント遷移（/rooms/A → /rooms/B）時に RoomBoard を
   // 強制的に再マウントする。これがないと notes state（や draggingNoteId）が

@@ -19,6 +19,10 @@ export function hasRoomEntryTime(
   user: VerifiedSession | null,
   now = Math.floor(Date.now() / 1000),
 ): boolean {
+  // PreviewはAccessが各リクエストで本人を検証し、最大1時間のセッションを渡す。
+  if (process.env.PREVIEW_ENABLED === "true") {
+    return user !== null && user.exp > now;
+  }
   return user !== null && user.exp - now >= ROOM_ENTRY_MIN_SECONDS;
 }
 export async function issueRoomEntry(

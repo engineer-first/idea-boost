@@ -56,7 +56,10 @@
     "access:grant": "node --no-warnings scripts/access.mts grant",
     "access:revoke": "node --no-warnings scripts/access.mts revoke",
     "access:list": "node --no-warnings scripts/access.mts list",
-    "feedback:delete": "node --no-warnings scripts/feedback.mts delete"
+    "feedback:delete": "node --no-warnings scripts/feedback.mts delete",
+    "pretest:preview": "npm run gen:room-do-migrations",
+    "test:preview": "vitest run --config vitest.preview.config.mts",
+    "build:preview": "opennextjs-cloudflare build --config wrangler.preview.jsonc"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -104,7 +107,7 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.9",
-    "wrangler": "^4.107.0",
+    "wrangler": "^4.149.0",
     "yaml": "^2.9.1"
   },
   "msw": {
