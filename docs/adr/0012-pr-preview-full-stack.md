@@ -10,17 +10,17 @@
 
 ## 背景
 
-PR #587の画面は公開できましたが、APIがdevelop版のため、戻り先の情報が届かず「直前のステップに戻る」が表示されませんでした。初版では、APIを変更するPRの動作を確認できず、利用者が期待する確認を満たせません。2026-10-11、利用者は画面・API・ルームの保存処理を含むPR全体をマージ前に確認する方針へ変更しました。
+PR #587の画面は公開できましたが、APIがdevelop版のため、戻り先の情報が届かず「直前のステップに戻る」が表示されませんでした。初版では、APIを変更するPRの動作を確認できず、利用者が期待する動作確認を行えません。2026-10-11、利用者は画面・API・ルームの保存処理を含むPR全体をマージ前に確認する方針へ変更しました。
 
 ## 決定案
 
 PRのAppとAPIを同じWorkers Previewへまとめます。App内からAPIを呼ぶ場合も、同じプログラム内のAPI処理へ接続します。CloudflareのService Bindingは別Workerの対応するPreviewへ接続できないため、PRごとの別API Previewへの接続には使いません。
 
-D1はPRごとに用意し、PRのmigrationをそのD1だけに適用します。同じWorkerからexportしたPreview用のRoomDOクラスを使い、CloudflareがPreviewごとに分けるnamespaceへ接続します。異なるPRと本番の保存先を共有しません。
+D1はPRごとに用意し、PRのmigrationをそのD1だけに適用します。同じWorkerからexportしたPreview用のRoomDOを使い、CloudflareがPreviewごとに分けるnamespaceへ接続します。異なるPRと本番の保存先を共有しません。
 
 セッション鍵はCIの元の鍵・PR番号・D1の識別値から導出します。Workerへ元の鍵を渡さず、他PRのセッションを再利用できなくします。PRを開き直してD1を作り直した場合も鍵を変えます。疎通確認の鍵もPRごとに導出します。本人のGoogleアカウントでのログイン、許可一覧、Accessの保護対象は、0011の方式を引き継ぎます。
 
-PRコードのbuildとWorker bundle生成はSecretのないCIで実行します。公開runnerは固定した構成、検査済みbundle、PRのSQL migrationだけを使い、PRのプログラム・実行命令・設定を実行しません。通常URLと固定URLの両方で、APIの版がPRの版と一致した場合だけ「疎通確認済み」とします。
+PRコードのbuildとWorker bundle生成はSecretのないCIで実行します。公開runnerは固定した構成、検査済みbundle、PRのSQL migrationだけを使い、PRのプログラム・実行命令・設定を実行しません。通常URLは最新の公開版へ更新され、固定URLは特定の公開版を開きます。通常URLと固定URLの両方で、APIの版がPRの版と一致した場合だけ「疎通確認済み」とします。
 
 ## 代償と移行
 
