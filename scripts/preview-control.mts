@@ -207,12 +207,16 @@ const runtime: PreviewRuntime = {
           "--json",
         ]),
       );
+      // Wrangler --jsonにもassetsの進捗が先行する。末尾の応答は全体を検証する。
+      const jsonStart = output.search(/^\{\s*"preview"\s*:/m);
+      if (jsonStart < 0)
+        throw new Error("WranglerのPreview応答を確認できません。");
       const result = z
         .object({
           preview: z.object({ urls: z.array(z.string().url()).min(1) }),
           deployment: z.object({ urls: z.array(z.string().url()) }).optional(),
         })
-        .parse(JSON.parse(output));
+        .parse(JSON.parse(output.slice(jsonStart)));
       return {
         url: result.preview.urls[0].replace(/\/$/, ""),
         deploymentUrl: result.deployment?.urls[0]?.replace(/\/$/, ""),

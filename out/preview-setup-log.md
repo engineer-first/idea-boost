@@ -241,3 +241,15 @@ Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. Source: <https://github.com/clou
 別のGoogleユーザーとの2人操作、本人だけの付箋の非配信、全14ステップの実操作、ログアウト・PR終了の実処理は未確認。共通APIはdevelop版なので、PR #587の新rollback処理・RoomDO migrationはこのPreviewに入らない。新しい「直前のステップへ戻る」操作は検証済みとしない。本番公開や契約変更は実施していない。
 
 今回の修正はHTTP確認に処理名を明示し、通常/固定URLごとのstatus・失敗種別・形式が一致するCloudflare番号だけを記録する。1010拒否は直接HTTPの比較で確認したもので、従来CIの汎用エラーだけから原因を確定したとは扱わない。修正をdevelopへ取り込み、現在のCI成功版の公開処理を再実行して、実health成功を確認する必要がある。
+
+## 2026-10-11：#588マージ後の再確認と公開応答の解析
+
+[PR #588](https://github.com/engineer-first/idea-boost/pull/588)をユーザーが04:46:41 UTCにマージ。developは`ee3855b3478beb42b7de3c0d3c5469fbf4ad2264`。[develop CI](https://github.com/engineer-first/idea-boost/actions/runs/38112659169)の5検査と[Pages公開](https://github.com/engineer-first/idea-boost/actions/runs/38112659145)が成功。Pages上で更新した報告と辞書42項目の表示を確認した。
+
+[PR #587 App公開](https://github.com/engineer-first/idea-boost/actions/runs/38109895072)のattempt 6は04:48:47 UTCに失敗。checkoutの実operatorは新develop `ee3855b`で、CLI uploadは成功したが、追加したhealth startedログは出ていない。旧runのheadSha `efddbfaf`は原イベントの値であり、旧operatorを実行した証拠ではない。接続確認へ進む前に失敗していた。
+
+本番と別のApp親Worker内に、一時的な`setup-diagnostics` Previewを用意した。すべての要求を503で拒否するプログラム、ダミーの画面素材1件、架空の認証設定で実CLIを確認。画面素材なしではJSONのみ、画面素材ありでは`Building list of assets`などの進捗がJSONの前に出た。後者を従来のJSON.parseへ渡すと失敗し、JSON本体を切り出した修正では通常・固定URLの両方を検証できた。CI用Secretの値を診断用に取得した操作ではない。
+
+診断用Previewを削除し、Cloudflare GETの404/10025で不存在を確認した。#588終了処理も`pr-588`だけを削除し、04:47:20.973 UTCにCLI成功。GETで`pr-588`不存在、`pr-587`は存在することを確認した。親Worker・共通API・D1・RoomDO・本番は削除していない。
+
+追加修正は進捗メッセージを除いてJSONを読み、従来のURL検証を維持する。余計な末尾文字・URL欠落などは拒否し、接続確認へ進まない。生のCLI出力や秘密をログへ出さない。公開処理全体の実成功は、この修正をdevelopへ取り込んで再実行してから判断する。
