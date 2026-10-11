@@ -61,16 +61,12 @@ export function PhaseRollbackDialog({
         <AlertDialogHeader className="place-items-start text-left">
           <AlertDialogTitle>
             {finalConfirmation
-              ? "全員の作業を戻しますか？"
+              ? "この操作は取り消せません。"
               : "直前のステップに戻る"}
           </AlertDialogTitle>
           <AlertDialogDescription className="leading-relaxed">
             {finalConfirmation ? (
-              <>
-                この操作は取り消せません。
-                <br />
-                本当に実行しますか？
-              </>
+              "本当に実行しますか？"
             ) : (
               <>
                 次のステップへ進む直前の状態に、全員を戻します。
@@ -86,16 +82,14 @@ export function PhaseRollbackDialog({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-sm">
-          {!finalConfirmation && (
-            <>
-              <dt className="text-muted-foreground">現在</dt>
-              <dd className="text-muted-foreground">{getPhaseLabel(phase)}</dd>
-            </>
-          )}
-          <dt className="text-muted-foreground">戻り先</dt>
-          <dd className="font-semibold">{getPhaseLabel(target)}</dd>
-        </dl>
+        {!finalConfirmation && (
+          <div className="rounded-xl bg-muted p-4">
+            <p className="mb-1 text-xs leading-relaxed text-muted-foreground">
+              {getPhaseLabel(phase)} から
+            </p>
+            <p className="font-semibold">{getPhaseLabel(target)} へ戻る</p>
+          </div>
+        )}
         <AlertDialogFooter className="mx-0 mb-0 mt-2 rounded-none border-0 bg-transparent p-0">
           <AlertDialogCancel className="min-h-11" ref={cancelRef}>
             キャンセル
