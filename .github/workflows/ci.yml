@@ -131,6 +131,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Previewに表示するheadのコードをbuildし、merge treeへ読み替えない。
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # 後続ステップに git push/fetch はないため、トークンを workspace に残さない
           persist-credentials: false
 
@@ -141,6 +143,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Verify PR head source before building
+        if: github.event_name == 'pull_request'
+        run: node scripts/preview-bundle.mts check-source
+        env:
+          PREVIEW_APP_SHA: ${{ github.event.pull_request.head.sha }}
 
       - name: Build (OpenNext / Cloudflare)
         run: npm run build:cf
@@ -168,6 +176,7 @@ jobs:
             .preview-bundle/
             .open-next/assets/
             workers/migrations/
+            workers/room-do-migrations/*.sql
 
   smoke:
     # build がビルド成功しか見ていないのに対し、ここは preview:cf 相当の

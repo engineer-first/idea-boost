@@ -8,7 +8,7 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--skill-dir', type=Path, required=True)
 skill=parser.parse_args().skill_dir
 p=rootdir/'out/architecture.drawio'; tree=E.parse(p); root=tree.getroot()
-d=root.findall('diagram')[1]; d.set('name','移行先：PR全体のPreview・実公開は未確認'); d.clear();d.set('id','preview-plan');d.set('name','移行先：PR全体のPreview・実公開は未確認')
+d=root.findall('diagram')[1]; d.set('name','公開済み：PR全体のPreview・1人の操作を確認'); d.clear();d.set('id','preview-plan');d.set('name','公開済み：PR全体のPreview・1人の操作を確認')
 g=E.SubElement(d,'mxGraphModel',grid='1',gridSize='10',page='0'); cells=E.SubElement(g,'root');E.SubElement(cells,'mxCell',id='0');E.SubElement(cells,'mxCell',id='1',parent='0')
 svg=['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1740 820" role="img"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#40556a"/></marker></defs><rect width="1740" height="820" fill="white"/>']
 font='font-family="system-ui, -apple-system, Hiragino Sans, sans-serif" fill="#23303d"'

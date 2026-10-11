@@ -3,9 +3,11 @@ import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const command = vi.hoisted(() => vi.fn());
+vi.mock("node:timers/promises", () => ({ setTimeout: vi.fn(async () => {}) }));
 vi.mock("node:child_process", () => ({ execFileSync: command }));
 vi.mock("wrangler", () => ({
   unstable_readConfig: () => ({ d1_databases: [] }),
@@ -19,6 +21,7 @@ vi.mock("./preview-resources.mts", () => ({
   }),
 }));
 
+import { previewArtifactMigrationHash } from "./preview-bundle.mts";
 import { previewProbeToken } from "./preview-secrets.mts";
 
 const sha = "a".repeat(40);
@@ -31,21 +34,32 @@ let argv: string[];
 
 beforeEach(() => {
   vi.resetModules();
+  vi.mocked(sleep).mockClear();
   candidate = mkdtempSync(join(tmpdir(), "preview-control-test-"));
   for (const directory of [
     ".preview-bundle",
     ".open-next/assets",
     "workers/migrations",
+    "workers/room-do-migrations",
   ])
     mkdirSync(join(candidate, directory), { recursive: true });
   const worker = "export default {fetch(){return new Response('test')}}";
   writeFileSync(join(candidate, ".preview-bundle/worker.js"), worker);
   writeFileSync(
+    join(candidate, "workers/migrations/0001_test.sql"),
+    "SELECT 1;",
+  );
+  writeFileSync(
+    join(candidate, "workers/room-do-migrations/20261011000000-test.sql"),
+    "SELECT 2;",
+  );
+  writeFileSync(
     join(candidate, ".preview-bundle/manifest.json"),
     JSON.stringify({
-      format: 2,
+      format: 3,
       sha,
       workerSha256: createHash("sha256").update(worker).digest("hex"),
+      schemaHash: previewArtifactMigrationHash(candidate),
     }),
   );
   writeFileSync(
@@ -75,6 +89,24 @@ beforeEach(() => {
   command.mockImplementation((binary: string, args: string[]) => {
     if (binary !== "gh") return JSON.stringify(deployment);
     const path = args[1];
+    if (path.includes("git/trees/"))
+      return JSON.stringify({
+        truncated: false,
+        tree: [
+          {
+            path: "workers/migrations/0001_test.sql",
+            type: "blob",
+            mode: "100644",
+            sha: createHash("sha1").update("blob 9\0SELECT 1;").digest("hex"),
+          },
+          {
+            path: "workers/room-do-migrations/20261011000000-test.sql",
+            type: "blob",
+            mode: "100644",
+            sha: createHash("sha1").update("blob 9\0SELECT 2;").digest("hex"),
+          },
+        ],
+      });
     if (path.includes("/pulls/"))
       return JSON.stringify({
         number: 587,
@@ -170,6 +202,108 @@ it("CIのhealthを名乗るHTTPリクエストで通常版・固定版を確認�
   expect(JSON.parse(comments.at(-1)?.[2].input).body).toContain("疎通確認済み");
 });
 
+it("公開直後の500から回復したら通常版・固定版の確認後に成功を報告する", async () => {
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(new Response("temporary failure", { status: 500 }))
+    .mockImplementation(async () =>
+      Response.json({ ok: true, environment: "preview", apiCommit: sha }),
+    );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).resolves.toBeDefined();
+  expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+    "https://pr-587.example.workers.dev/api/health",
+    "https://pr-587.example.workers.dev/api/health",
+    "https://fixed.example.workers.dev/api/health",
+  ]);
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).toContain("疎通確認済み");
+  expect(sleep).toHaveBeenCalledExactlyOnceWith(1000);
+  const logs = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => JSON.parse(line));
+  expect(logs).toContainEqual(
+    expect.objectContaining({
+      operation: "health",
+      target: "normal",
+      state: "retrying",
+      attempt: 1,
+      httpStatus: 500,
+    }),
+  );
+});
+
+it.each([
+  "transport",
+  "http",
+])("%s失敗が続く場合は3回で停止し、成功リンクを出さない", async (reason) => {
+  const fetcher = vi.fn(async () => {
+    if (reason === "transport") throw new Error("fake-client-secret");
+    return new Response("fake-client-secret", { status: 503 });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual([
+    1000, 2000,
+  ]);
+  const output = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => line)
+    .join("\n");
+  expect(output).not.toContain("fake-client-secret");
+  expect(output.split("\n").map((line) => JSON.parse(line))).toContainEqual(
+    expect.objectContaining({
+      operation: "health",
+      state: "failed",
+      attempt: 3,
+      reason,
+    }),
+  );
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
+    "/preview)",
+  );
+});
+
+it.each([
+  401, 403, 200,
+])("認証拒否・不正応答は再試行しない: HTTP %i", async (status) => {
+  const fetcher = vi.fn(
+    async () => new Response("fake-client-secret", { status }),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(sleep).not.toHaveBeenCalled();
+});
+
+it("通信回復後もAPIの版がPRと違えば成功リンクを出さない", async () => {
+  const fetcher = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("temporary failure"))
+    .mockImplementation(async () =>
+      Response.json({
+        ok: true,
+        environment: "preview",
+        apiCommit: "b".repeat(40),
+      }),
+    );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
+    "/preview)",
+  );
+});
+
 it("HTTP拒否はstatusとCloudflareの番号を残し、成功リンクを出さない", async () => {
   vi.stubGlobal(
     "fetch",
@@ -200,7 +334,7 @@ it("HTTP拒否はstatusとCloudflareの番号を残し、成功リンクを出�
   );
   const body = JSON.parse(comments.at(-1)?.[2].input).body;
   expect(body).toContain("更新失敗");
-  expect(body).not.toContain("[ステップを選んで開く]");
+  expect(body).not.toContain("/preview)");
 });
 
 it.each([

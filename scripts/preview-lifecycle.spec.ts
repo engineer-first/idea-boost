@@ -1,11 +1,55 @@
 // @vitest-environment node
 import { expect, it, vi } from "vitest";
-import { type PreviewRuntime, reconcilePreview } from "./preview-lifecycle.mts";
+import {
+  type PreviewRuntime,
+  previewComment,
+  reconcilePreview,
+} from "./preview-lifecycle.mts";
 
 const sha = "a".repeat(40);
+
+it("レビューの入口は最新公開版の1つだけにし、固定版URLは表示しない", () => {
+  const body = previewComment({
+    state: "ready",
+    appCommit: sha,
+    apiCommit: sha,
+    updatedAt: "2026-10-11T00:00:00.000Z",
+    url: "https://pr-12.preview.test",
+    deploymentUrl: "https://fixed.preview.test",
+  });
+  const links = [
+    ...body.matchAll(/\[[^\]]+\]\((https:\/\/[^)]+\/preview)\)/g),
+  ].map((match) => match[1]);
+  expect(links).toEqual(["https://pr-12.preview.test/preview"]);
+  expect(body).not.toContain("https://fixed.preview.test");
+  expect(body).toContain(sha);
+  expect(body).toContain("<details>");
+});
+
+it.each([
+  "pending",
+  "failed",
+  "closed",
+] as const)("%sでは前の版のURLを最新の入口として表示しない", (state) => {
+  const body = previewComment({
+    state,
+    appCommit: sha,
+    updatedAt: "2026-10-11T00:00:00.000Z",
+    url: "https://pr-12.preview.test",
+    deploymentUrl: "https://fixed.preview.test",
+  });
+  expect(body).not.toContain("https://pr-12.preview.test");
+  expect(body).not.toContain("https://fixed.preview.test");
+});
 function runtime(): PreviewRuntime {
   return {
-    current: vi.fn(async () => ({ open: true, sameRepository: true, sha })),
+    current: vi.fn(async () => ({
+      open: true,
+      sameRepository: true,
+      sha,
+      generation: 0,
+    })),
+    canPublish: vi.fn(async () => true),
     deploy: vi.fn(async () => ({
       url: "https://pr-12.preview.test",
       deploymentUrl: "https://v1-pr-12.preview.test",
@@ -18,8 +62,8 @@ function runtime(): PreviewRuntime {
 }
 it("古いcommit・forkではデプロイやSecret付きprobeを実行しない", async () => {
   for (const current of [
-    { open: true, sameRepository: true, sha: "c".repeat(40) },
-    { open: true, sameRepository: false, sha },
+    { open: true, sameRepository: true, sha: "c".repeat(40), generation: 0 },
+    { open: true, sameRepository: false, sha, generation: 0 },
   ]) {
     const r = runtime();
     r.current = vi.fn(async () => current);
@@ -48,7 +92,12 @@ it("閉じたPRは対象Appだけ削除し、成功は疎通後にAPIcommitと�
     12,
     expect.objectContaining({ state: "ready", apiCommit: sha }),
   );
-  r.current = vi.fn(async () => ({ open: false, sameRepository: true, sha }));
+  r.current = vi.fn(async () => ({
+    open: false,
+    sameRepository: true,
+    sha,
+    generation: 0,
+  }));
   await reconcilePreview({ number: 12, sha, state: "closed" }, r);
   expect(r.remove).toHaveBeenCalledWith(12);
 });
@@ -79,8 +128,18 @@ it("デプロイ中にPRが閉じられたら削除し、利用可能コメン�
   const r = runtime();
   r.current = vi
     .fn()
-    .mockResolvedValueOnce({ open: true, sameRepository: true, sha })
-    .mockResolvedValue({ open: false, sameRepository: true, sha });
+    .mockResolvedValueOnce({
+      open: true,
+      sameRepository: true,
+      sha,
+      generation: 0,
+    })
+    .mockResolvedValue({
+      open: false,
+      sameRepository: true,
+      sha,
+      generation: 0,
+    });
   await reconcilePreview({ number: 12, sha, state: "success" }, r);
   expect(r.remove).toHaveBeenCalledWith(12);
   expect(r.comment).not.toHaveBeenCalledWith(
@@ -103,11 +162,53 @@ it("公開中に閉じたPRは削除後に公開終了を記録する", async ()
   const r = runtime();
   r.current = vi
     .fn()
-    .mockResolvedValueOnce({ open: true, sameRepository: true, sha })
-    .mockResolvedValue({ open: false, sameRepository: true, sha });
+    .mockResolvedValueOnce({
+      open: true,
+      sameRepository: true,
+      sha,
+      generation: 0,
+    })
+    .mockResolvedValue({
+      open: false,
+      sameRepository: true,
+      sha,
+      generation: 0,
+    });
   await reconcilePreview({ number: 12, sha, state: "success" }, r);
   expect(r.comment).toHaveBeenLastCalledWith(
     12,
     expect.objectContaining({ state: "closed", appCommit: sha }),
+  );
+});
+
+it("接続確認中にCIが再実行されたら成功済みの入口を出さない", async () => {
+  const r = runtime();
+  let eligible = true;
+  Object.assign(r, { canPublish: vi.fn(async () => eligible) });
+  r.probe = vi.fn(async () => {
+    eligible = false;
+    return { ok: true, apiCommit: sha };
+  });
+  await reconcilePreview({ number: 12, sha, state: "success" }, r);
+  expect(r.comment).not.toHaveBeenCalledWith(
+    12,
+    expect.objectContaining({ state: "ready" }),
+  );
+});
+
+it("旧CIの接続確認が失敗しても新しいCIの状態を失敗へ書き換えない", async () => {
+  const r = runtime();
+  let eligible = true;
+  Object.assign(r, { canPublish: vi.fn(async () => eligible) });
+  r.probe = vi.fn(async () => {
+    eligible = false;
+    throw new Error("old health failure");
+  });
+  await expect(
+    reconcilePreview({ number: 12, sha, state: "success" }, r),
+  ).rejects.toThrow("Preview");
+  expect(r.comment).not.toHaveBeenCalledWith(
+    12,
+    expect.objectContaining({ state: "failed" }),
   );
 });

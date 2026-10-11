@@ -75,7 +75,7 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram id="preview-plan" name="移行先：PR全体のPreview・実公開は未確認">
+  <diagram id="preview-plan" name="公開済み：PR全体のPreview・1人の操作を確認">
     <mxGraphModel grid="1" gridSize="10" page="0">
       <root>
         <mxCell id="0" />

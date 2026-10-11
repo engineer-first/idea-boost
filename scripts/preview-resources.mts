@@ -1,8 +1,26 @@
 import { z } from "zod";
 import { previewDatabaseName } from "./preview-config.mts";
+import {
+  previewSchemaMessagePrefix,
+  readPreviewSchemaMessage,
+} from "./preview-migrations.mts";
 
 const databaseSchema = z.object({ uuid: z.string().uuid(), name: z.string() });
 export type PreviewDatabase = z.infer<typeof databaseSchema>;
+export type PreviewSchemaPolicy = {
+  hash: string;
+  generation: number;
+  generationStartedAt?: string;
+  legacyHash: (commit: string) => Promise<string>;
+  stillCurrent: () => Promise<boolean>;
+};
+export type PreviewResourceManager = {
+  prepare: (
+    number: number,
+    schema: PreviewSchemaPolicy,
+  ) => Promise<PreviewDatabase>;
+  remove: (number: number, stillValid: () => Promise<boolean>) => Promise<void>;
+};
 export type PreviewResourceAudit = {
   time: string;
   operation: string;
@@ -15,7 +33,7 @@ export function createPreviewResources(options: {
   protectedDatabaseIds: readonly string[];
   fetcher?: typeof fetch;
   audit?: (entry: PreviewResourceAudit) => void;
-}) {
+}): PreviewResourceManager {
   if (!options.accountId || !options.token)
     throw new Error("Cloudflare設定が必要です。");
   const fetcher = options.fetcher ?? fetch;
@@ -91,19 +109,118 @@ export function createPreviewResources(options: {
     if (matches.length > 1) throw new Error("PR専用D1を一意に確認できません。");
     return matches[0] ? checked(matches[0], number) : undefined;
   }
-  return {
-    async prepare(number: number): Promise<PreviewDatabase> {
-      const existing = await find(number);
-      if (existing) return existing;
+  const manager: PreviewResourceManager = {
+    async prepare(number, schema) {
+      z.string()
+        .regex(/^[a-f0-9]{64}$/)
+        .parse(schema.hash);
+      let existing = await find(number);
+      const latest = await operation(
+        `/workers/workers/idea-boost-preview-app/previews/pr-${number}/deployments/latest`,
+        "GET",
+        `idea-boost-preview-app/pr-${number}/schema`,
+        undefined,
+        true,
+      );
+      let previousHash: string | undefined;
+      let previousGeneration: number | undefined;
+      z.number().int().nonnegative().safe().parse(schema.generation);
+      if (latest !== null) {
+        const deployment = z
+          .object({
+            annotations: z.record(z.string(), z.unknown()),
+            created_on: z.string().datetime({ offset: true }).optional(),
+          })
+          .parse(latest);
+        const annotations = deployment.annotations;
+        const message = annotations["workers/message"];
+        if (
+          typeof message === "string" &&
+          message.startsWith(previewSchemaMessagePrefix)
+        ) {
+          const previous = readPreviewSchemaMessage(message);
+          previousHash = previous.hash;
+          if (message.includes(":reopen:"))
+            previousGeneration = previous.generation;
+        } else {
+          const commit = z
+            .string()
+            .regex(/^[a-f0-9]{40}$/)
+            .parse(annotations["workers/tag"]);
+          previousHash = z
+            .string()
+            .regex(/^[a-f0-9]{64}$/)
+            .parse(await schema.legacyHash(commit));
+        }
+        if (previousGeneration === undefined) {
+          if (schema.generation === 0) previousGeneration = 0;
+          else {
+            if (!deployment.created_on || !schema.generationStartedAt)
+              throw new Error(
+                "旧Previewの世代を確認できません。削除せず停止します。",
+              );
+            const published = Math.floor(
+              Date.parse(deployment.created_on) / 1000,
+            );
+            const reopened = Math.floor(
+              Date.parse(
+                z.string().datetime().parse(schema.generationStartedAt),
+              ) / 1000,
+            );
+            if (published === reopened)
+              throw new Error(
+                "旧Previewの公開とreopenの世代を区別できません。削除せず停止します。",
+              );
+            previousGeneration = published > reopened ? schema.generation : 0;
+          }
+        }
+      }
+      const reset =
+        (latest !== null || existing !== undefined) &&
+        (!existing ||
+          !previousHash ||
+          previousHash !== schema.hash ||
+          previousGeneration !== schema.generation);
+      if (!(await schema.stillCurrent()))
+        throw new Error("PRの状態または版が変わったため公開を中止しました。");
+      if (reset) {
+        audit({
+          time: new Date().toISOString(),
+          operation: "schema reset",
+          target: `pr-${number}`,
+          state: "started",
+        });
+        await manager.remove(number, schema.stillCurrent);
+        existing = undefined;
+      }
+      if (existing) {
+        audit({
+          time: new Date().toISOString(),
+          operation: "schema reuse",
+          target: `pr-${number}`,
+          state: "succeeded",
+        });
+        return existing;
+      }
+      if (!(await schema.stillCurrent()))
+        throw new Error("PRの状態または版が変わったためD1作成を中止しました。");
       const name = previewDatabaseName(number);
-      return checked(
+      const created = checked(
         await operation("/d1/database", "POST", name, { name }),
         number,
       );
+      if (reset)
+        audit({
+          time: new Date().toISOString(),
+          operation: "schema reset",
+          target: `pr-${number}`,
+          state: "succeeded",
+        });
+      return created;
     },
     async remove(
       number: number,
-      stillClosed: () => Promise<boolean>,
+      stillValid: () => Promise<boolean>,
     ): Promise<void> {
       const name = `pr-${number}`;
       previewDatabaseName(number);
@@ -115,8 +232,8 @@ export function createPreviewResources(options: {
         undefined,
         true,
       );
-      if (!(await stillClosed()))
-        throw new Error("PRが開き直されたため削除を中止しました。");
+      if (!(await stillValid()))
+        throw new Error("PRの状態または版が変わったため削除を中止しました。");
       if (existing !== null)
         await operation(
           path,
@@ -125,12 +242,14 @@ export function createPreviewResources(options: {
           undefined,
           true,
         );
-      if (!(await stillClosed()))
-        throw new Error("PRが開き直されたためD1削除を中止しました。");
+      if (!(await stillValid()))
+        throw new Error("PRの状態または版が変わったためD1削除を中止しました。");
       const database = await find(number);
       if (database) {
-        if (!(await stillClosed()))
-          throw new Error("PRが開き直されたためD1削除を中止しました。");
+        if (!(await stillValid()))
+          throw new Error(
+            "PRの状態または版が変わったためD1削除を中止しました。",
+          );
         await operation(
           `/d1/database/${database.uuid}`,
           "DELETE",
@@ -141,4 +260,5 @@ export function createPreviewResources(options: {
       }
     },
   };
+  return manager;
 }
