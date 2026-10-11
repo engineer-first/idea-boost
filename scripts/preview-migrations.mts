@@ -2,6 +2,31 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 export const previewSchemaMessagePrefix = "idea-boost-preview-schema:v1:";
+export function previewSchemaMessage(hash: string, generation: number): string {
+  z.string()
+    .regex(/^[a-f0-9]{64}$/)
+    .parse(hash);
+  z.number().int().nonnegative().safe().parse(generation);
+  return `${previewSchemaMessagePrefix}${hash}:reopen:${generation}`;
+}
+export function readPreviewSchemaMessage(message: string): {
+  hash: string;
+  generation: number;
+} {
+  const match = new RegExp(
+    `^${previewSchemaMessagePrefix}([a-f0-9]{64})(?::reopen:(\\d+))?$`,
+  ).exec(message);
+  if (!match) throw new Error("Previewのschema記録を確認できません。");
+  return {
+    hash: match[1],
+    generation: z
+      .number()
+      .int()
+      .nonnegative()
+      .safe()
+      .parse(Number(match[2] ?? 0)),
+  };
+}
 export function previewMigrationHash(value: unknown): string {
   const tree = z
     .object({

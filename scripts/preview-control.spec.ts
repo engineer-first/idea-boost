@@ -21,6 +21,7 @@ vi.mock("./preview-resources.mts", () => ({
   }),
 }));
 
+import { previewArtifactMigrationHash } from "./preview-bundle.mts";
 import { previewProbeToken } from "./preview-secrets.mts";
 
 const sha = "a".repeat(40);
@@ -39,16 +40,26 @@ beforeEach(() => {
     ".preview-bundle",
     ".open-next/assets",
     "workers/migrations",
+    "workers/room-do-migrations",
   ])
     mkdirSync(join(candidate, directory), { recursive: true });
   const worker = "export default {fetch(){return new Response('test')}}";
   writeFileSync(join(candidate, ".preview-bundle/worker.js"), worker);
   writeFileSync(
+    join(candidate, "workers/migrations/0001_test.sql"),
+    "SELECT 1;",
+  );
+  writeFileSync(
+    join(candidate, "workers/room-do-migrations/20261011000000-test.sql"),
+    "SELECT 2;",
+  );
+  writeFileSync(
     join(candidate, ".preview-bundle/manifest.json"),
     JSON.stringify({
-      format: 2,
+      format: 3,
       sha,
       workerSha256: createHash("sha256").update(worker).digest("hex"),
+      schemaHash: previewArtifactMigrationHash(candidate),
     }),
   );
   writeFileSync(
@@ -86,13 +97,13 @@ beforeEach(() => {
             path: "workers/migrations/0001_test.sql",
             type: "blob",
             mode: "100644",
-            sha: "c".repeat(40),
+            sha: createHash("sha1").update("blob 9\0SELECT 1;").digest("hex"),
           },
           {
             path: "workers/room-do-migrations/20261011000000-test.sql",
             type: "blob",
             mode: "100644",
-            sha: "d".repeat(40),
+            sha: createHash("sha1").update("blob 9\0SELECT 2;").digest("hex"),
           },
         ],
       });

@@ -198,7 +198,7 @@
       <p>CI用policyは<code>Preview CI health</code>です。Service Authで<code>idea-boost-preview-ci-health</code>だけをIncludeします。アプリのprobe tokenは<code>/api/health</code>に限定し、通常画面・API・WSには使えない実装です。</p>
       <p>対象hostnameは<code>*-idea-boost-preview-app.&lt;account-subdomain&gt;.workers.dev</code>の1件です。通常URLと固定版URLを保護する設定です。Worker単位のAccessはWebSocketに対応しないため使っていません。</p>
       <p>GitHubに登録した名前は<code>PREVIEW_D1_ID</code>、<code>PREVIEW_ACCESS_ISSUER</code>、<code>PREVIEW_ACCESS_AUD</code>、<code>PREVIEW_SESSION_SECRET</code>、<code>PREVIEW_ALLOWED_EMAILS</code>、<code>PREVIEW_PROBE_TOKEN</code>、<code>PREVIEW_ACCESS_CLIENT_ID</code>、<code>PREVIEW_ACCESS_CLIENT_SECRET</code>、<code>PREVIEW_CLOUDFLARE_API_TOKEN</code>、<code>PREVIEW_ENABLED</code>です。値は記載しません。</p>
-      <p>Appは<code>workers_dev: false</code>・<code>preview_urls: true</code>、APIは両方falseの設定です。Appの画面素材もWorkerを通り、APIはAppからのService Bindingで呼びます。通常URLと固定版URLでGoogleログインできました。すべての別入口の保護まで検証した結果ではありません。</p>
+      <p>Appは<code>workers_dev: false</code>・<code>preview_urls: true</code>、APIは両方falseの設定です。Appの画面素材もWorkerを通ります。初版はAppから共通APIへService Bindingで接続しました。現在はAppとAPIを同じWorkerにまとめています。通常URLと固定版URLでGoogleログインできました。すべての別入口の保護まで検証した結果ではありません。</p>
     </blockquote></details>
   </section>
   <section id="verification" aria-labelledby="verification-title">
@@ -210,10 +210,10 @@
       <li>Google IdPの接続テストで本人情報を取得し、成功表示を確認しました。</li>
       <li>Googleでログインした指定の2人を許可する設定と、CI用の認証設定を、保存後に読み直しました。CookieのHttpOnly設定も確認しました。</li>
       <li>自動テストで、不正なJWT、許可外のメール、本番Cookieの流用、別OriginのWebSocket接続を拒否することを確認しました。</li>
-      <li>自動テストで14ステップのルーム準備を確認しました。共同編集のテストでは、作成者の未共有付箋12枚は本人だけに届き、参加者には0枚でした。参加者が作った1枚は再入室後も残りました。</li>
+      <li>公開PR #621の全14ステップで、それぞれ異なる新しいルームを作り、選んだステップとサンプルの表示を確認しました。13ステップは実際のWebSocket接続と、届いた状態も確認済みです。共同編集の自動テストでは、作成者の未共有付箋12枚は本人だけに届き、参加者には0枚でした。参加者が作った1枚は再入室後も残りました。</li>
       <li>Storybookで14ステップの選択と、失敗後の再試行を確認しました。パソコンとスマートフォンの幅でページ全体の横はみ出しはありませんでした。</li>
     </ul></div><div><h3>残る確認</h3><ul class="plain-list">
-      <li>全14ステップそれぞれの公開画面を実際に操作します。今回は個人作業・課題共有・投票の画面で確認しました。</li>
+      <li>異なるGoogleアカウントを使う2名で、公開Previewの共同操作を確認します。全14ステップを選んで新しいルームが開くことは確認済みです。</li>
       <li>2人がそれぞれのGoogleアカウントで、招待・付箋の追加と共有・投票・進行を操作します。</li>
       <li>PRを開き直したときの保存先の作り直しを確認します。#622のマージ後は、対象のPreviewと専用D1の削除が成功しました。</li>
       <li>すべての別入口の保護を確認します。ログアウト・Google再認証・再入室と、ログイン情報のないアクセスが転送されることは確認しました。</li>
