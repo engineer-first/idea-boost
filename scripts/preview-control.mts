@@ -172,6 +172,10 @@ function withSecrets<T>(
   }
 }
 const marker = "<!-- idea-boost-workers-preview -->";
+const healthRetryDelays = [1000, 2000, 5000, 10000, 20000, 30000, 60000];
+let healthPublication:
+  | { sha: string; stillCurrent: () => Promise<boolean> }
+  | undefined;
 function generationState(number: number): {
   generation: number;
   createdAt?: string;
@@ -367,6 +371,7 @@ const runtime: PreviewRuntime = {
           deployment: z.object({ urls: z.array(z.string().url()) }).optional(),
         })
         .parse(JSON.parse(output.slice(jsonStart)));
+      healthPublication = { sha, stillCurrent };
       return {
         url: result.preview.urls[0].replace(/\/$/, ""),
         deploymentUrl: result.deployment?.urls[0]?.replace(/\/$/, ""),
@@ -383,6 +388,7 @@ const runtime: PreviewRuntime = {
     });
   },
   probe: async (url, number) => {
+    const publication = healthPublication;
     const target = new URL(url).hostname.startsWith("pr-") ? "normal" : "fixed";
     const log = (fields: Record<string, string | number | undefined>): void => {
       console.log(
@@ -390,15 +396,29 @@ const runtime: PreviewRuntime = {
           time: new Date().toISOString(),
           operation: "health",
           target,
+          expectedSHA: publication?.sha,
           ...fields,
         }),
       );
     };
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    const assertCurrentPublication = async (attempt: number): Promise<void> => {
+      try {
+        if (publication && (await publication.stillCurrent())) return;
+      } catch {
+        // PR/CIを再照合できない場合も、古い対象への接続確認を続けない。
+      }
+      log({ state: "failed", attempt, reason: "source" });
+      throw new Error(
+        "Previewの公開元を確認できないためhealth確認を中止しました。",
+      );
+    };
+    for (let attempt = 1; attempt <= healthRetryDelays.length + 1; attempt++) {
+      await assertCurrentPublication(attempt);
       log({ state: "started", attempt });
       let reason = "transport";
       let httpStatus: number | undefined;
       let cloudflareCode: number | undefined;
+      let apiCommit: string | undefined;
       try {
         const response = await fetch(`${url}/api/health`, {
           redirect: "error",
@@ -433,25 +453,34 @@ const runtime: PreviewRuntime = {
             apiCommit: shaSchema,
           })
           .parse(await response.json());
-        log({ state: "succeeded", attempt, httpStatus });
+        apiCommit = health.apiCommit;
+        if (apiCommit !== publication?.sha) {
+          reason = "version";
+          throw new Error("PR版AppとAPIの版が一致しません。");
+        }
+        log({ state: "succeeded", attempt, httpStatus, apiCommit });
         return health;
       } catch {
         // 本文・Location・認証ヘッダー・生エラーは出力しない。
         const retry =
-          attempt < 3 &&
-          (reason === "transport" ||
-            (reason === "http" &&
-              httpStatus !== undefined &&
-              httpStatus >= 500));
+          (reason === "transport" && attempt < 3) ||
+          (reason === "http" &&
+            httpStatus !== undefined &&
+            httpStatus >= 500 &&
+            httpStatus < 600 &&
+            attempt <= healthRetryDelays.length) ||
+          (reason === "version" && attempt <= healthRetryDelays.length);
+        if (retry) await assertCurrentPublication(attempt);
         log({
           state: retry ? "retrying" : "failed",
           attempt,
           reason,
           httpStatus,
           cloudflareCode,
+          apiCommit,
         });
         if (retry) {
-          await sleep(attempt * 1000);
+          await sleep(healthRetryDelays[attempt - 1]);
           continue;
         }
         throw new Error("Previewのhealth確認に失敗しました。");

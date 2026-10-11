@@ -200,6 +200,17 @@ it("CIのhealthを名乗るHTTPリクエストで通常版・固定版を確認�
     args[1]?.endsWith("issues/587/comments"),
   );
   expect(JSON.parse(comments.at(-1)?.[2].input).body).toContain("疎通確認済み");
+  const logs = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => JSON.parse(line));
+  expect(logs).toContainEqual(
+    expect.objectContaining({
+      operation: "health",
+      state: "succeeded",
+      apiCommit: sha,
+      expectedSHA: sha,
+    }),
+  );
 });
 
 it("公開直後の500から回復したら通常版・固定版の確認後に成功を報告する", async () => {
@@ -236,19 +247,108 @@ it("公開直後の500から回復したら通常版・固定版の確認後に�
 });
 
 it.each([
-  "transport",
-  "http",
-])("%s失敗が続く場合は3回で停止し、成功リンクを出さない", async (reason) => {
+  "normal",
+  "fixed",
+])("%s版が7回の5xx後に回復しても、両URLの版を確認してから成功を報告する", async (target) => {
+  const normal = "https://pr-587.example.workers.dev/api/health";
+  const fixed = "https://fixed.example.workers.dev/api/health";
+  let failures = 0;
+  const fetcher = vi.fn(async (url: string) => {
+    if (url === (target === "normal" ? normal : fixed) && failures < 7) {
+      failures++;
+      return new Response("temporary failure", { status: 500 });
+    }
+    return Response.json({ ok: true, environment: "preview", apiCommit: sha });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).resolves.toBeDefined();
+  expect(fetcher.mock.calls.map(([url]) => url)).toEqual(
+    target === "normal"
+      ? [...Array(8).fill(normal), fixed]
+      : [normal, ...Array(8).fill(fixed)],
+  );
+  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual([
+    1000, 2000, 5000, 10000, 20000, 30000, 60000,
+  ]);
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).toContain("疎通確認済み");
+});
+
+it.each([
+  "normal",
+  "fixed",
+])("%s版のhealthが旧commitを7回返しても、8回目の期待版と両URLを確認してから成功を報告する", async (target) => {
+  const normal = "https://pr-587.example.workers.dev/api/health";
+  const fixed = "https://fixed.example.workers.dev/api/health";
+  const oldSha = "b".repeat(40);
+  let outdated = 0;
+  const fetcher = vi.fn(async (url: string) => {
+    const old = url === (target === "normal" ? normal : fixed) && outdated < 7;
+    if (old) outdated++;
+    return Response.json({
+      ok: true,
+      environment: "preview",
+      apiCommit: old ? oldSha : sha,
+    });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).resolves.toBeDefined();
+  expect(fetcher.mock.calls.map(([url]) => url)).toEqual(
+    target === "normal"
+      ? [...Array(8).fill(normal), fixed]
+      : [normal, ...Array(8).fill(fixed)],
+  );
+  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual([
+    1000, 2000, 5000, 10000, 20000, 30000, 60000,
+  ]);
+  const logs = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => JSON.parse(line));
+  expect(logs.filter((entry) => entry.reason === "version")).toEqual(
+    Array.from({ length: 7 }, (_, index) =>
+      expect.objectContaining({
+        operation: "health",
+        target,
+        state: "retrying",
+        attempt: index + 1,
+        reason: "version",
+        httpStatus: 200,
+        apiCommit: oldSha,
+        expectedSHA: sha,
+      }),
+    ),
+  );
+  expect(logs).not.toContainEqual(
+    expect.objectContaining({ state: "succeeded", apiCommit: oldSha }),
+  );
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).toContain("疎通確認済み");
+});
+
+it.each([
+  { reason: "transport", attempts: 3, delays: [1000, 2000] },
+  {
+    reason: "http",
+    attempts: 8,
+    delays: [1000, 2000, 5000, 10000, 20000, 30000, 60000],
+  },
+])("$reason失敗が続く場合は$attempts回で停止し、成功リンクを出さない", async ({
+  reason,
+  attempts,
+  delays,
+}) => {
   const fetcher = vi.fn(async () => {
     if (reason === "transport") throw new Error("fake-client-secret");
     return new Response("fake-client-secret", { status: 503 });
   });
   vi.stubGlobal("fetch", fetcher);
   await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
-  expect(fetcher).toHaveBeenCalledTimes(3);
-  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual([
-    1000, 2000,
-  ]);
+  expect(fetcher).toHaveBeenCalledTimes(attempts);
+  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual(delays);
   const output = vi
     .mocked(console.log)
     .mock.calls.map(([line]) => line)
@@ -258,7 +358,7 @@ it.each([
     expect.objectContaining({
       operation: "health",
       state: "failed",
-      attempt: 3,
+      attempt: attempts,
       reason,
     }),
   );
@@ -270,8 +370,114 @@ it.each([
   );
 });
 
+it("5xxの待機を延長しても、3回目以降の通信失敗は再試行しない", async () => {
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(new Response("temporary failure", { status: 500 }))
+    .mockResolvedValueOnce(new Response("temporary failure", { status: 502 }))
+    .mockResolvedValueOnce(new Response("temporary failure", { status: 503 }))
+    .mockRejectedValue(new Error("fake-client-secret"));
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(4);
+  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual([
+    1000, 2000, 5000,
+  ]);
+});
+
+it.each(
+  [
+    "PR終了",
+    "head変更",
+    "別repo",
+    "開き直し",
+    "CI run変更",
+    "CI attempt変更",
+    "CI再実行中",
+  ].flatMap((change) =>
+    ["5xx", "旧commit"].map((response) => ({ change, response })),
+  ),
+)("$responseの直後に$changeとなったら、待機も再接続もせず成功リンクを出さない", async ({
+  change,
+  response,
+}) => {
+  let changed = false;
+  const original = command.getMockImplementation();
+  command.mockImplementation((binary, args, options) => {
+    if (changed && binary === "gh") {
+      const path = args[1];
+      if (path.includes("/pulls/")) {
+        const pr = JSON.parse(original?.(binary, args, options));
+        if (change === "PR終了") pr.state = "closed";
+        if (change === "head変更") pr.head.sha = "b".repeat(40);
+        if (change === "別repo") pr.head.repo.full_name = "other/repository";
+        return JSON.stringify(pr);
+      }
+      if (path.includes("issues/587/events") && change === "開き直し")
+        return JSON.stringify([
+          { id: 789, event: "reopened", created_at: "2026-10-12T00:00:00Z" },
+        ]);
+      if (path.includes("actions/runs")) {
+        const runs = JSON.parse(original?.(binary, args, options));
+        const ci = runs.workflow_runs[0];
+        if (change === "CI run変更") ci.id = 124;
+        if (change === "CI attempt変更") ci.run_attempt = 2;
+        if (change === "CI再実行中") {
+          ci.status = "in_progress";
+          ci.conclusion = null;
+        }
+        return JSON.stringify(runs);
+      }
+    }
+    return original?.(binary, args, options);
+  });
+  const fetcher = vi.fn(async () => {
+    changed = true;
+    return response === "5xx"
+      ? new Response("temporary failure", { status: 500 })
+      : Response.json({
+          ok: true,
+          environment: "preview",
+          apiCommit: "b".repeat(40),
+        });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(sleep).not.toHaveBeenCalled();
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
+    "/preview)",
+  );
+});
+
+it("5xxの待機中にheadが変わったら、待機後の再接続を中止する", async () => {
+  let changed = false;
+  const original = command.getMockImplementation();
+  command.mockImplementation((binary, args, options) => {
+    if (changed && binary === "gh" && args[1].includes("/pulls/")) {
+      const pr = JSON.parse(original?.(binary, args, options));
+      pr.head.sha = "b".repeat(40);
+      return JSON.stringify(pr);
+    }
+    return original?.(binary, args, options);
+  });
+  vi.mocked(sleep).mockImplementationOnce(async () => {
+    changed = true;
+  });
+  const fetcher = vi.fn(
+    async () => new Response("temporary failure", { status: 500 }),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(sleep).toHaveBeenCalledExactlyOnceWith(1000);
+});
+
 it.each([
-  401, 403, 200,
+  400, 401, 403, 404, 429, 200,
 ])("認証拒否・不正応答は再試行しない: HTTP %i", async (status) => {
   const fetcher = vi.fn(
     async () => new Response("fake-client-secret", { status }),
@@ -295,12 +501,82 @@ it("通信回復後もAPIの版がPRと違えば成功リンクを出さない",
     );
   vi.stubGlobal("fetch", fetcher);
   await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
-  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(fetcher).toHaveBeenCalledTimes(8);
+  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual([
+    1000, 2000, 5000, 10000, 20000, 30000, 60000,
+  ]);
   const comments = command.mock.calls.filter(([, args]) =>
     args[1]?.endsWith("issues/587/comments"),
   );
   expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
     "/preview)",
+  );
+});
+
+it("200でもAPIの版が8回とも違えば失敗し、固定版の確認も成功リンクも出さない", async () => {
+  const oldSha = "b".repeat(40);
+  const fetcher = vi.fn(async (_url: string) =>
+    Response.json({
+      ok: true,
+      environment: "preview",
+      apiCommit: oldSha,
+    }),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher.mock.calls.map(([url]) => url)).toEqual(
+    Array(8).fill("https://pr-587.example.workers.dev/api/health"),
+  );
+  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual([
+    1000, 2000, 5000, 10000, 20000, 30000, 60000,
+  ]);
+  const logs = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => JSON.parse(line));
+  expect(logs).toContainEqual(
+    expect.objectContaining({
+      operation: "health",
+      state: "failed",
+      attempt: 8,
+      reason: "version",
+      httpStatus: 200,
+      apiCommit: oldSha,
+      expectedSHA: sha,
+    }),
+  );
+  expect(logs).not.toContainEqual(
+    expect.objectContaining({ state: "succeeded", apiCommit: oldSha }),
+  );
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
+    "/preview)",
+  );
+});
+
+it.each([
+  { ok: false, environment: "preview", apiCommit: sha },
+  { ok: true, environment: "production", apiCommit: sha },
+  { ok: true, environment: "preview", apiCommit: "fake-client-secret" },
+  { ok: true, environment: "preview" },
+])("health JSONの形が不正なら、版の回復を待たず秘密も記録しない: %j", async (health) => {
+  const fetcher = vi.fn(async () => Response.json(health));
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(sleep).not.toHaveBeenCalled();
+  const output = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => line)
+    .join("\n");
+  expect(output).not.toContain("fake-client-secret");
+  expect(output.split("\n").map((line) => JSON.parse(line))).toContainEqual(
+    expect.objectContaining({
+      operation: "health",
+      state: "failed",
+      reason: "response",
+    }),
   );
 });
 

@@ -85,11 +85,11 @@
   <header>
     <p class="back-link"><a href="../index.html">← 文書一覧</a></p>
     <h1>PR Preview の公開と操作の確認結果</h1>
-    <p class="lede">PRの画面・API・ルームの保存処理を、本番とは別のURLで試せるようにしました。PR #587の通常URLと新しい固定版URLで、Googleログイン、前進、直前のステップへの戻り、付箋の保存を確認しました。2人がそれぞれのGoogleアカウントで共同操作できるかは、まだ確認していません。</p>
-    <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 確認した時点：2026-10-11 18:58（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/583">初版の実装PR #583</a> ／ <a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495">最新の画像付き確認結果</a></p>
+    <p class="lede">PRの画面・API・ルームの保存処理を、本番とは別のURLで試せるようにしました。別々の新しいセッションで、コード・仕様・設計をレビューし、見つかった問題を修正しました。公開した#587と#621では、それぞれの変更と保存済み付箋が残ることを確認しました。2人がそれぞれのGoogleアカウントで共同操作できるかは、まだ確認していません。</p>
+    <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 今回の確認日：2026-10-12（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/628">独立レビューの修正PR #628</a> ／ <a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">画像付きのレビュー・検証結果</a></p>
     <p class="note">この報告は確認した時点の記録です。PRの現在の公開状態は<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152">PR #587の「PR Preview」コメント</a>で確認してください。「このPRの最新公開版を開く」からGoogleでログインできます。</p>
-    <p class="note">レビューの入口は「このPRの最新公開版を開く」の1つです。8回公開しても、同じPRの保存先を8組作ることはありません。通常のコード更新ではデータを残し、migrationを変更したときは、そのPRのルーム・付箋・呼び名をリセットして作り直します。保存先の片方だけ残った場合も、復旧のために作り直します。PRをマージまたは閉じた後も、環境とデータは削除されます。</p>
-    <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#full-stack">PR全体の反映</a><a href="#pr-isolation">PRごとの確認</a><a href="#state">確認状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
+    <p class="note">レビューの入口は「このPRの最新公開版を開く」の1つです。8回公開しても、同じPRの保存先を8組作ることはありません。通常のコード更新ではデータを残し、migrationを変更したときは、そのPRのルーム・付箋・呼び名をリセットして作り直します。PRを閉じて開き直したときや、保存先の片方だけ残ったときも、新しく作り直します。PRをマージまたは閉じると、環境とデータは削除されます。</p>
+    <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#review">独立レビュー</a><a href="#full-stack">PR全体の反映</a><a href="#pr-isolation">PRごとの確認</a><a href="#state">確認状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
   </header>
   <section class="dictionary" id="dictionary" aria-labelledby="dictionary-title"><h2 id="dictionary-title">この報告を読むための用語辞典</h2><p class="dictionary-intro">まず「何を用意しているか」を読むための言葉です。ログインや公開の用語は、下のまとまりを開くと読めます。説明は、このPreviewでの使い方に合わせています。</p>
 <details class="term-group" open><summary>まず押さえる言葉<span>12項目</span></summary><dl class="terms">
@@ -141,6 +141,19 @@
 <div><dt>Next.js / OpenNext / Wrangler / draw.io</dt><dd>Next.jsは画面を作る仕組み、OpenNextはそのアプリをCloudflare向けにまとめるための道具、WranglerはCloudflareの設定や公開を行う道具です。draw.ioは構成図を編集する道具です。</dd></div>
 </dl></details>
 </section>
+  <section id="review" aria-labelledby="review-title">
+    <h2 id="review-title">新しいセッションで全体をレビューし、問題を修正しました</h2>
+    <p>これまでの会話を渡さずに、全体・公開処理・認証の3つの観点から、Previewのコード・仕様・設計を確認しました。修正後のコードと、2ブラウザで操作する自動テストも、別のセッションで再確認しました。<a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">指摘・対応・画像の記録</a>をPRに残しています。</p>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="独立レビューで修正したこと、横スクロールできます"><table><thead><tr><th scope="col">見つかった問題</th><th scope="col">変更後の動作</th></tr></thead><tbody>
+      <tr><td>公開コードと、案内のcommitや比較するSQLがずれることがある</td><td>PRのcommitから画面・APIを作り、そのcommitのSQLと公開するSQLが一致することを確認します。</td></tr>
+      <tr><td>古い通知が、成功済みの案内を更新中へ戻す</td><td>現在のPR・CI・公開記録を照合し、古い通知で最新の成功案内を書き換えません。</td></tr>
+      <tr><td>CIで失敗した処理だけを再実行すると、公開用のファイルが見つからない</td><td>同じCI・同じcommitの確認済みファイルを選び、最新のCI成功後に公開できます。</td></tr>
+      <tr><td>閉じてすぐ再開すると、前の保存先が残る</td><td>開き直した履歴を記録し、同じSQLでも保存先を作り直します。</td></tr>
+      <tr><td>疎通を確認している間にCIが変わっても、古い処理を成功と表示する</td><td>公開・疎通・成功案内の直前に現在のPRとCIを確認し、対象が変われば中止します。</td></tr>
+      <tr><td>採用済みの設計が、文書の入口では提案中になっている</td><td>現在の設計と、初版の共通API方式の記録を分けて案内します。</td></tr>
+    </tbody></table></div>
+    <p>Googleアカウントを使った確認は、1人で行いました。2ブラウザで作成者と参加者が共同操作する自動テストは成功しましたが、テスト用のログイン情報で実行しています。友人本人のGoogleログイン・参加・付箋の共有・投票・進行は、Issue #362を完了にする前に確認します。</p>
+  </section>
   <section id="full-stack" aria-labelledby="full-stack-title"><h2 id="full-stack-title">PRのAPI変更も公開先で確認できました</h2>
     <p>PR #587のAppは公開できましたが、APIはdevelop版のため、戻り先の情報が画面に届かず、「直前のステップに戻る」ボタンが表示されませんでした。接続確認の成功は、この機能の確認成功を意味しません。<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6106092717">初版の画面と原因の記録</a>をPRへ残しました。</p>
     <p>2026-10-11、利用者は画面・API・ルームの保存処理までPR版で確認する方針を選びました。現在はAPIをAppと同じPreviewへまとめ、保存先とセッションの鍵をPRごとに分けます。PRごとの鍵を作るための元の鍵は、公開処理だけが持ち、Workerへ渡しません。</p>
@@ -159,7 +172,8 @@
       <tr><td>相手PRのルームを自分のPRのURLで開く</td><td>見つからないことを示す404の画面になりました。</td><td>見つからないことを示す404の画面になりました。</td></tr>
     </tbody></table></div>
     <p>#621では、初回の呼び名は空欄でした。「入力せずに進む」で「参加者＋番号」を使えました。ルームとホームの両方から名前を変更し、通常URLと固定版URLで、再読み込み後も名前と付箋を確認しました。</p>
-    <p><a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495">3枚の画像付き確認結果</a>と、<a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107199469">#621の最新の公開リンク</a>をPRに残しました。両PRはマージせずに確認しています。別のGoogleアカウントとの共同操作、古いルームを定期的に更新する処理、保存済みの成果・履歴の名前が変わらないことは未確認です。</p>
+    <p>2026-10-12にPR #628の修正を取り込んだ後も、この表の付箋と機能の違いを確認しました。AppとAPIのcommitは、#587では<code>0d81c00a</code>、#621では<code>9ba89a24</code>です。どちらもPRのcommitと一致し、相手PRのルームは双方向に404になりました。</p>
+    <p><a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6110893665">更新後の画像付き確認結果</a>と、<a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107199469">#621の最新の公開リンク</a>をPRに残しました。両PRはマージせずに確認しています。別のGoogleアカウントとの共同操作、古いルームを定期的に更新する処理、保存済みの成果・履歴の名前が変わらないことは未確認です。</p>
   </section>
   <section id="state" aria-labelledby="state-title">
     <h2 id="state-title">PR全体を反映する方式で、公開と1人の操作確認が成功しました</h2>
@@ -211,12 +225,12 @@
       <li>Googleでログインした指定の2人を許可する設定と、CI用の認証設定を、保存後に読み直しました。CookieのHttpOnly設定も確認しました。</li>
       <li>自動テストで、不正なJWT、許可外のメール、本番Cookieの流用、別OriginのWebSocket接続を拒否することを確認しました。</li>
       <li>公開PR #621の全14ステップで、それぞれ異なる新しいルームを作り、選んだステップとサンプルの表示を確認しました。13ステップは実際のWebSocket接続と、届いた状態も確認済みです。共同編集の自動テストでは、作成者の未共有付箋12枚は本人だけに届き、参加者には0枚でした。参加者が作った1枚は再入室後も残りました。</li>
+      <li>検証用のPR #626を閉じてすぐ開き直し、同じcommit・同じSQLでも保存先が作り直されることを確認しました。以前のルームは画面とAPIの両方で404になり、新しいルームはサンプル12枚で開きました。以前に保存した文章は含まれません。</li>
       <li>Storybookで14ステップの選択と、失敗後の再試行を確認しました。パソコンとスマートフォンの幅でページ全体の横はみ出しはありませんでした。</li>
     </ul></div><div><h3>残る確認</h3><ul class="plain-list">
       <li>異なるGoogleアカウントを使う2名で、公開Previewの共同操作を確認します。全14ステップを選んで新しいルームが開くことは確認済みです。</li>
       <li>2人がそれぞれのGoogleアカウントで、招待・付箋の追加と共有・投票・進行を操作します。</li>
-      <li>PRを開き直したときの保存先の作り直しを確認します。#622のマージ後は、対象のPreviewと専用D1の削除が成功しました。</li>
-      <li>すべての別入口の保護を確認します。ログアウト・Google再認証・再入室と、ログイン情報のないアクセスが転送されることは確認しました。</li>
+      <li>許可外のGoogleアカウントでの本人操作は未確認です。自動テストでは許可外・期限切れ・偽造したログイン情報を拒否しました。公開先では、ログイン情報のない通常URL・内部確認用URL・API・WebSocketへの接続が拒否されることを確認しました。</li>
     </ul></div></div>
     <p class="note">初版は共通APIを使っていたため、PR #587の戻る処理を確認できませんでした。現在はPR版APIへ切り替え、本人のGoogleログインと戻る操作を公開画面で確認しました。初版の画像と今回の画像は、確認した版と日時を分けて記録しています。</p>
     <p class="note">Google IdPの接続成功は、Previewアプリでのログイン成功とは別です。Policy Testerは起動しましたが、判定結果の表示を確認できていないため成功には数えていません。</p>
