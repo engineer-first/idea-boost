@@ -4,6 +4,7 @@
 - 決定日: 未確定（PRレビューで判断する）
 - 記録日: 2026-10-10
 - 対象: [PBI #362](https://github.com/engineer-first/idea-boost/issues/362)
+- 後継案: [0012: PR全体と保存先の分離](0012-pr-preview-full-stack.md)（2026-10-11の要求変更）。以下は初版で共通APIを選んだ記録。
 
 ## 背景
 
