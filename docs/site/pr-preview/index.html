@@ -197,7 +197,7 @@
       <li>PR終了と開き直しを確認します。#588は対象Appだけが終了しました。#589の終了処理は失敗していますが、対象Previewが存在しないことを確認しました。</li>
       <li>すべての別入口の保護を確認します。ログアウト・Google再認証・再入室と、ログイン情報のないアクセスが転送されることは確認しました。</li>
     </ul></div></div>
-    <p class="note">最新API更新後の画面の撮り直しは、ブラウザ操作機能の接続エラーで実施できていません。更新後の自動healthは成功しています。PR #587の新しい「直前のステップへ戻る」処理は共通APIに含まれないため、このPreviewでは確認できません。</p>
+    <p class="note">画面での実操作はAPI更新前に確認しました。最新APIへの自動healthは成功していますが、更新後の実操作と画面の撮り直しは、検証用ブラウザの接続エラーで実施できていません。PR #587の新しい「直前のステップへ戻る」処理は共通APIに含まれないため、このPreviewでは確認できません。</p>
     <p class="note">Google IdPの接続成功は、Previewアプリでのログイン成功とは別です。Policy Testerは起動しましたが、判定結果の表示を確認できていないため成功には数えていません。</p>
     <details class="evidence"><summary>担当者向け：検証記録と確認資料</summary><blockquote>
       <p><a href="https://github.com/engineer-first/idea-boost/actions/runs/38109895072">App公開のattempt 8</a>は2026-10-11 05:17 UTCに成功。通常・固定healthはHTTP 200。App commitは<code>dc659f3652a4edb26f7a41566bd0c78c63b24f67</code>、health確認API commitは<code>808960ba839b584d886c19be3c70ea8a6902b2a9</code>です。<a href="https://github.com/engineer-first/idea-boost/actions/runs/38114119779">最新API公開</a>も成功しています。</p>
