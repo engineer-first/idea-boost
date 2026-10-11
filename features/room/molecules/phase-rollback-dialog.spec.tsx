@@ -17,9 +17,9 @@ describe("PhaseRollbackDialog", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "直前のステップに戻る" }),
     );
-    expect(
-      screen.getByText(/それ以降に全員が操作したものを取り消します/),
-    ).toBeVisible();
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "それ以降に全員が操作したものを取り消します",
+    );
     fireEvent.click(screen.getByRole("button", { name: "1-5へ戻る" }));
     expect(onConfirm).not.toHaveBeenCalled();
     expect(screen.getByText(/この操作は取り消せません/)).toBeVisible();

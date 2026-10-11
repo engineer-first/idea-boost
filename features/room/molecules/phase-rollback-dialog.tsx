@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Undo2 } from "lucide-react";
+import { Undo2 } from "lucide-react";
 import { useRef, useState } from "react";
 import {
   AlertDialog,
@@ -58,35 +58,45 @@ export function PhaseRollbackDialog({
         data-phase-rollback-dialog
         className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-md"
       >
-        <AlertDialogHeader className="items-start text-left">
+        <AlertDialogHeader className="place-items-start text-left">
           <AlertDialogTitle>
             {finalConfirmation
               ? "全員の作業を戻しますか？"
               : "直前のステップに戻る"}
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            {finalConfirmation
-              ? "この操作は取り消せません。本当に実行しますか？"
-              : "次のステップへ進む直前の状態に、全員を戻します。それ以降に全員が操作したものを取り消します。"}
+          <AlertDialogDescription className="leading-relaxed">
+            {finalConfirmation ? (
+              <>
+                この操作は取り消せません。
+                <br />
+                本当に実行しますか？
+              </>
+            ) : (
+              <>
+                次のステップへ進む直前の状態に、全員を戻します。
+                <br />
+                それ以降に全員が操作したものを
+                <span className="whitespace-nowrap">
+                  <strong className="font-semibold text-foreground">
+                    取り消します
+                  </strong>
+                  。
+                </span>
+              </>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {finalConfirmation ? (
-          <p className="text-sm font-medium">戻り先：{getPhaseLabel(target)}</p>
-        ) : (
-          <div className="flex items-center gap-3 rounded-xl bg-muted p-4">
-            <ArrowLeft
-              className="size-5 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <p className="mb-1 text-xs text-muted-foreground">
-                {getPhaseLabel(phase)} から
-              </p>
-              <p className="font-semibold">{getPhaseLabel(target)} へ戻る</p>
-            </div>
-          </div>
-        )}
-        <AlertDialogFooter>
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2 text-sm">
+          {!finalConfirmation && (
+            <>
+              <dt className="text-muted-foreground">現在</dt>
+              <dd className="text-muted-foreground">{getPhaseLabel(phase)}</dd>
+            </>
+          )}
+          <dt className="text-muted-foreground">戻り先</dt>
+          <dd className="font-semibold">{getPhaseLabel(target)}</dd>
+        </dl>
+        <AlertDialogFooter className="mx-0 mb-0 mt-2 rounded-none border-0 bg-transparent p-0">
           <AlertDialogCancel className="min-h-11" ref={cancelRef}>
             キャンセル
           </AlertDialogCancel>
