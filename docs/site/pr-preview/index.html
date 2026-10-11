@@ -86,9 +86,9 @@
     <p class="back-link"><a href="../index.html">← 文書一覧</a></p>
     <h1>PR Preview の公開と操作の確認結果</h1>
     <p class="lede">PRの画面・API・ルームの保存処理を、本番とは別のURLで試せるようにしました。PR #587の通常URLと新しい固定版URLで、Googleログイン、前進、直前のステップへの戻り、付箋の保存を確認しました。2人がそれぞれのGoogleアカウントで共同操作できるかは、まだ確認していません。</p>
-    <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 確認した時点：2026-10-11 17:31（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/583">初版の実装PR #583</a> ／ <a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027">最新の画像付き確認結果</a></p>
+    <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 確認した時点：2026-10-11 18:58（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/583">初版の実装PR #583</a> ／ <a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495">最新の画像付き確認結果</a></p>
     <p class="note">この報告は確認した時点の記録です。PRの現在の公開状態は<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152">PR #587の「PR Preview」コメント</a>で確認してください。「ステップを選んで開く」からGoogleでログインできます。</p>
-    <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#full-stack">PR全体の反映</a><a href="#state">確認状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
+    <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#full-stack">PR全体の反映</a><a href="#pr-isolation">PRごとの確認</a><a href="#state">確認状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
   </header>
   <section class="dictionary" id="dictionary" aria-labelledby="dictionary-title"><h2 id="dictionary-title">この報告を読むための用語辞典</h2><p class="dictionary-intro">まず「何を用意しているか」を読むための言葉です。ログインや公開の用語は、下のまとまりを開くと読めます。説明は、このPreviewでの使い方に合わせています。</p>
 <details class="term-group" open><summary>まず押さえる言葉<span>12項目</span></summary><dl class="terms">
@@ -148,10 +148,22 @@
     <p><a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027">公開画面の画像付き確認結果</a>をPR #587へ残しました。通常URLと新しい固定版URLの両方で、1-1から1-2へ進み、確認画面から1-1へ戻れました。付箋12枚と、前進前に編集・保存した本文は、再読み込み後も残りました。同じGoogleアカウントの2タブ間で進行の同期も確認しました。</p>
     <details class="evidence"><summary>担当者向け：新方式の公開記録</summary><p>PR #591をdevelopへ取り込み、PR #587にも最新のdevelopを取り込みました。AppとAPIの版は両方とも<code>b75edf4d</code>です。<a href="https://github.com/engineer-first/idea-boost/actions/runs/38124268809">公開処理</a>は2026-10-11 17:18（日本時間）に成功しました。PR専用D1の作成、migration適用、RoomDOを含む公開、通常URLと新しい固定版URLのhealthが成功しています。Google連携・許可一覧・管理tokenの期限と権限・契約は変更していません。</p></details>
   </section>
+  <section id="pr-isolation" aria-labelledby="pr-isolation-title">
+    <h2 id="pr-isolation-title">#587と#621で、それぞれの変更と保存内容を確認しました</h2>
+    <p>同じGoogleアカウントで2つのPRを開きました。共通の土台に、それぞれのPRの変更が反映されています。両方で1-1から1-2へ実際に進めて、機能の違いを確認しました。</p>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="PRごとの機能と保存内容の比較、横スクロールできます"><table><thead><tr><th scope="col">確認したこと</th><th scope="col">PR #587</th><th scope="col">PR #621</th></tr></thead><tbody>
+      <tr><td>直前のステップに戻るボタン</td><td>表示されます。戻る操作も確認済みです。</td><td>表示されません。#587の変更は入っていません。</td></tr>
+      <tr><td>#621で呼び名を変えた後</td><td>名前は変わりませんでした。</td><td>既存の2ルームと、その後の新規ルームに反映されました。</td></tr>
+      <tr><td>保存した付箋</td><td>「Preview確認：前進前に保存した付箋」が残りました。</td><td>「621だけに保存した付箋」が残りました。</td></tr>
+      <tr><td>相手PRのルームを自分のPRのURLで開く</td><td>見つからないことを示す404の画面になりました。</td><td>見つからないことを示す404の画面になりました。</td></tr>
+    </tbody></table></div>
+    <p>#621では、初回の呼び名は空欄でした。「入力せずに進む」で「参加者＋番号」を使えました。ルームとホームの両方から名前を変更し、通常URLと固定版URLで、再読み込み後も名前と付箋を確認しました。</p>
+    <p><a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495">3枚の画像付き確認結果</a>と、<a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107199469">#621の最新の公開リンク</a>をPRに残しました。両PRはマージせずに確認しています。別のGoogleアカウントとの共同操作、古いルームを定期的に更新する処理、保存済みの成果・履歴の名前が変わらないことは未確認です。</p>
+  </section>
   <section id="state" aria-labelledby="state-title">
     <h2 id="state-title">PR全体を反映する方式で、公開と1人の操作確認が成功しました</h2>
     <div class="status-summary" aria-label="全体の状態">
-      <div><strong class="verified">ログイン・保存先：設定済み</strong><p>指定2名のAccess許可を使い、本人のGoogleログインを確認しました。PR #587専用のD1とRoomDOへ接続しています。</p></div>
+      <div><strong class="verified">ログイン・保存先：設定済み</strong><p>指定2名のAccess許可を使い、本人のGoogleログインを確認しました。PR #587と#621は、それぞれ専用のD1とRoomDOへ接続しています。</p></div>
       <div><strong class="verified">画面・API：同じPR版で確認済み</strong><p>PR #587のAppとAPIは同じ版です。通常URLと新しい固定版URLで、前進・戻る・保存を実際に操作しました。</p></div>
       <div><strong>本番への反映：変更なし</strong><p>本番の設定や公開は変更していません。この文書サイトの公開と、アプリの公開も別の作業です。</p></div>
     </div>
@@ -202,7 +214,7 @@
     </ul></div><div><h3>残る確認</h3><ul class="plain-list">
       <li>全14ステップそれぞれの公開画面を実際に操作します。今回は個人作業・課題共有・投票の画面で確認しました。</li>
       <li>2人がそれぞれのGoogleアカウントで、招待・付箋の追加と共有・投票・進行を操作します。</li>
-      <li>PR終了と開き直しを確認します。#588は対象Appだけが終了しました。#589の終了処理は失敗していますが、対象Previewが存在しないことを確認しました。</li>
+      <li>PRを開き直したときの保存先の作り直しを確認します。#622のマージ後は、対象のPreviewと専用D1の削除が成功しました。</li>
       <li>すべての別入口の保護を確認します。ログアウト・Google再認証・再入室と、ログイン情報のないアクセスが転送されることは確認しました。</li>
     </ul></div></div>
     <p class="note">初版は共通APIを使っていたため、PR #587の戻る処理を確認できませんでした。現在はPR版APIへ切り替え、本人のGoogleログインと戻る操作を公開画面で確認しました。初版の画像と今回の画像は、確認した版と日時を分けて記録しています。</p>

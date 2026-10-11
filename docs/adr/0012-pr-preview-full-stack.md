@@ -34,4 +34,8 @@ PRごとのD1作成・migration・削除が必要になります。PR終了時�
 
 ## 実公開での確認
 
-利用者の承認に従ってPR #591をdevelopへマージし、PR #587へ取り込みました。PR #587のApp/APIはb75edf4dで公開され、通常URLと固定URLの接続確認が成功しました。本人のGoogleアカウントで前進・戻る・再読み込み後の保存を確認しました。別のGoogleアカウントとの共同操作、別PRが互いに影響しないこと、保存先を削除して作り直す際の動作は未確認です。[画像付き確認記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027)、[公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38124268809)を参照してください。
+利用者の承認に従ってPR #591をdevelopへマージし、PR #587へ取り込みました。PR #587のApp/APIはb75edf4dで公開され、通常URLと固定URLの接続確認が成功しました。本人のGoogleアカウントで前進・戻る・再読み込み後の保存を確認しました。別のGoogleアカウントとの共同操作と、PRを開き直して保存先を作り直す際の動作は未確認です。[画像付き確認記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027)、[公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38124268809)を参照してください。
+
+PR #621もApp/API 9d3d1eb0で公開し、同じGoogleアカウントでPR #587と比較しました。戻るボタンは#587だけに表示され、#621で変更した呼び名は#621内の既存2ルームと新規ルームへ反映されました。PRごとに編集した付箋が残り、相手PRのルームを開くと両方向とも404になりました。通常URL・固定版URLで#621の呼び名と編集した付箋を再読み込み後も確認しました。[画像付き比較記録](https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495)を参照してください。
+
+PR #622のマージ後は、対象PreviewとPR専用D1の削除が成功しました。[終了処理](https://github.com/engineer-first/idea-boost/actions/runs/38128051763)を参照してください。
