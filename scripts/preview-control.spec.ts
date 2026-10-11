@@ -78,6 +78,24 @@ beforeEach(() => {
   command.mockImplementation((binary: string, args: string[]) => {
     if (binary !== "gh") return JSON.stringify(deployment);
     const path = args[1];
+    if (path.includes("git/trees/"))
+      return JSON.stringify({
+        truncated: false,
+        tree: [
+          {
+            path: "workers/migrations/0001_test.sql",
+            type: "blob",
+            mode: "100644",
+            sha: "c".repeat(40),
+          },
+          {
+            path: "workers/room-do-migrations/20261011000000-test.sql",
+            type: "blob",
+            mode: "100644",
+            sha: "d".repeat(40),
+          },
+        ],
+      });
     if (path.includes("/pulls/"))
       return JSON.stringify({
         number: 587,
