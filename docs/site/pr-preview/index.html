@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- 読者: Idea Boostの準備報告を読む、Cloudflare・認証・自動公開の用語をまだ知らないチームメンバー。説明なしで使ってよい語: Google、GitHub、PR、HTML、URL、ログイン、画面、ルーム、付箋、本番と一般語。辞書の見出しは説明する対象の用語名。 -->
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="description" content="Cloudflareの用語辞典から読める、PR Previewの構成・設定記録・公開前に残る確認。"><title>PR Preview の準備状況 · Idea Boost #362</title><style>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="description" content="Cloudflareの用語辞典から読める、PR Previewの構成・設定記録・公開前に残る確認。"><title>PR Preview の確認状況と、PR全体を反映する移行 · Idea Boost #362</title><style>
     :root { --paper:#faf9f7; --ink:#26221e; --muted:#655d53; --line:#ded8cf; --accent:#995006; --green:#245d40; --green-bg:#edf5ef; --amber:#735006; --amber-bg:#fff4d7; --blue:#345777; --blue-bg:#edf1f5; --white:#fff; }
     * { box-sizing:border-box; }
     html { scroll-behavior:smooth; background:var(--paper); }
@@ -84,24 +84,25 @@
 </style></head><body><main class="page">
   <header>
     <p class="back-link"><a href="../index.html">← 文書一覧</a></p>
-    <h1>PR Preview の準備状況</h1>
-    <p class="lede">PRで変更した画面を、本番とは別のURLで試せるように準備しています。画面を公開し、1人がGoogleでログインし、付箋の保存・同期・共有・投票ができることを確認しました。公開後の自動確認は失敗しており、2人での操作確認も残っています。</p>
-    <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 設定を確認した日：2026-10-11（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/583">PR #583</a></p>
-    <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#state">準備状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
+    <h1>PR Preview の確認状況と、PR全体を反映する移行</h1>
+    <p class="lede">PRで変更した画面を、本番とは別のURLで試せるように準備しています。画面を公開し、1人がGoogleでログインし、付箋の保存・同期・共有・投票ができることを確認しました。通常URLと固定版URLの自動確認も成功しました。2人での操作確認は残っています。</p>
+    <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 確認した時点：2026-10-11 16:05（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/583">PR #583</a></p>
+    <p class="note">この報告は確認した時点の記録です。PRの現在の公開状態は<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152">PR #587の「PR Preview」コメント</a>で確認してください。「ステップを選んで開く」からGoogleでログインできます。</p>
+    <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#full-stack">PR全体の反映</a><a href="#state">確認状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
   </header>
   <section class="dictionary" id="dictionary" aria-labelledby="dictionary-title"><h2 id="dictionary-title">この報告を読むための用語辞典</h2><p class="dictionary-intro">まず「何を用意しているか」を読むための言葉です。ログインや公開の用語は、下のまとまりを開くと読めます。説明は、このPreviewでの使い方に合わせています。</p>
 <details class="term-group" open><summary>まず押さえる言葉<span>12項目</span></summary><dl class="terms">
-<div><dt>Preview</dt><dd>本番と分けて、PRで変更した画面を試す場所です。画面での操作は確認しましたが、公開後の自動確認はまだ成功していません。</dd></div>
+<div><dt>Preview</dt><dd>本番と分けて、PRの変更を試す場所です。初版は画面だけPR版でした。APIや保存処理の変更も試せる方式へ移行します。2人での共同操作は未確認です。</dd></div>
 <div><dt>Cloudflare / Cloudflare Network</dt><dd>このアプリの処理を動かし、データを保存し、見てよい人を確認するサービスの提供元です。図のCloudflare Networkの枠は、Cloudflareのサービスをまとめた範囲を示します。</dd></div>
-<div><dt>ブラウザ / サーバー / HTTPS / ポート</dt><dd>ブラウザは画面を開くアプリ、サーバーは依頼を受けて処理する側です。HTTPSは通信の内容を他人に読まれにくくする方式、ポートは接続先の受付番号です。</dd></div>
+<div><dt>ブラウザ / タブ / サーバー / HTTPS / ポート</dt><dd>ブラウザは画面を開くアプリです。タブは、その中で別々に開く画面を指します。サーバーは依頼を受けて処理する側です。HTTPSは通信の内容を他人に読まれにくくする方式、ポートは接続先の受付番号です。</dd></div>
 <div><dt>コード / データの型</dt><dd>コードはプログラムに行わせる仕事を書いたものです。データの型は文字・数値などのデータの種類と形です。</dd></div>
 <div><dt>認証 / 認可</dt><dd>認証はログインした人が誰かを確かめること、認可はその人にどの操作を許すかを決めることです。</dd></div>
 <div><dt>GitHub Pages / HTML / SVG</dt><dd>GitHub PagesはGitHubから文書のページを公開する機能です。HTMLはページの文章や構造を記した形式、SVGは線や文字などの形を記録する画像形式です。</dd></div>
 <div><dt>Workers / Worker</dt><dd>Cloudflare上でプログラムを動かす仕組みです。Workerはそこで動くプログラム1つを指します。</dd></div>
-<div><dt>App / API</dt><dd>Appは画面を表示する側です。APIは画面からの依頼を受け、ルームやデータを扱う側です。今回は別々のWorkerで動かします。</dd></div>
+<div><dt>App / API</dt><dd>Appは画面を表示する側です。APIは画面からの依頼を受け、ルームやデータを扱う側です。初版は別々のWorkerでした。移行先では画面とAPIを同じWorkerへまとめ、PRの両方の変更を反映します。</dd></div>
 <div><dt>D1 / DB / データベース</dt><dd>データベースはデータを分類して保存し、後から取り出す場所です。DBはその略で、D1はCloudflareのデータベースです。今回は利用者やルームの入口情報を保存します。</dd></div>
 <div><dt>Durable Objects / RoomDO</dt><dd>ルームごとの処理と保存場所を持つ仕組みです。RoomDOはこのアプリで使う処理の名前で、進行や共有付箋を管理します。</dd></div>
-<div><dt>Service Binding / binding</dt><dd>Workerから、別のWorkerや保存先を使うための接続設定です。今回はAppからAPIを呼ぶ接続にも使います。</dd></div>
+<div><dt>Service Binding / binding</dt><dd>Workerから、別のWorkerや保存先を使うための接続設定です。初版はAppから共通APIを呼ぶ接続にも使いました。移行先では同じWorker内のAPIを呼び、D1とRoomDOへの接続をPRごとに分けます。</dd></div>
 <div><dt>WebSocket / WS</dt><dd>画面とサーバーの接続を保ち、変更をすぐ送り合う通信です。共同編集の付箋や進行を更新するために使います。</dd></div>
 </dl></details>
 <details class="term-group"><summary>ログインと、見てよい人を決める言葉<span>16項目</span></summary><dl class="terms">
@@ -118,7 +119,7 @@
 <div><dt>API token / probe token</dt><dd>API tokenはCloudflareの作成・更新などの管理操作に使う認証情報です。probe tokenは、このアプリでhealth経路だけに使う別の鍵です。用途の違う鍵を分けています。</dd></div>
 <div><dt>Secret / variable / flag</dt><dd>Secretは秘密として保存する設定値、variableはそれ以外の設定値です。flagは機能の有効・無効を切り替える設定です。自動公開のflagは有効にしました。</dd></div>
 <div><dt>hostname / Origin / host限定</dt><dd>hostnameはURLのサーバー名の部分です。Originは通信方式・サーバー名・ポートの組み合わせです。Cookieのhost限定は、別のPRのサーバーへログイン情報を送らないための指定です。</dd></div>
-<div><dt>namespace / resource</dt><dd>namespaceは処理や保存先を分ける区分、resourceはWorkerやデータベースなどの用意する対象です。本番とPreviewで別の区分・対象を使います。</dd></div>
+<div><dt>namespace / resource</dt><dd>namespaceは処理や保存先を分ける区分、resourceは、Workerやデータベースなど、用意するものを指します。本番とPreviewで別の区分・対象を使います。</dd></div>
 <div><dt>host / owner / member / private</dt><dd>ルームのhostは進行する人、ownerは作成者、memberは参加者を表します。privateは本人だけに見える未共有付箋のことです。URLのhostとは別の意味で使います。</dd></div>
 <div><dt>SSO / WARP / App Launcher</dt><dd>SSOは1回のログインを複数のサービスで使う仕組みです。WARPはCloudflareの端末用接続アプリ、App Launcherは利用可能なアプリの一覧です。今回はWARPログインとLauncher表示を使いません。</dd></div>
 </dl></details>
@@ -139,40 +140,47 @@
 <div><dt>Next.js / OpenNext / Wrangler / draw.io</dt><dd>Next.jsは画面を作る仕組み、OpenNextはそのアプリをCloudflare向けにまとめるための道具、WranglerはCloudflareの設定や公開を行う道具です。draw.ioは構成図を編集する道具です。</dd></div>
 </dl></details>
 </section>
+  <section id="full-stack" aria-labelledby="full-stack-title"><h2 id="full-stack-title">PRのAPI変更も試せるPreviewへ移行します</h2>
+    <p>PR #587のAppは公開できましたが、APIはdevelop版のため、戻り先の情報が画面に届かず、「直前のステップに戻る」ボタンが表示されませんでした。接続確認の成功は、この機能の確認成功を意味しません。<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6106092717">ご提示の画像と原因の記録</a>をPRへ残しました。</p>
+    <p>2026-10-11、利用者は画面・API・ルームの保存処理までPR版で確認する方針を選びました。移行先ではAPIをAppと同じPreviewへまとめ、保存先とセッションの鍵をPRごとに分けます。PRごとの鍵を作るための元の鍵は、公開処理だけが持ち、Workerへ渡しません。</p>
+    <p><strong>公開用にまとめたアプリを、手元のパソコンで動かして確認しました。新方式のCloudflare公開と本物のGoogle認証は未確認です。</strong>PRを閉じるとそのPRの検証データを削除し、開き直しでは新しい保存先を作ります。旧共通Previewの保存先は保持しますが、移行後はステップ選択から新しいルームを作ってください。</p>
+    <p>戻る操作を試す場合は、直接ステップを開いた後に一度「次のステップへ」で進めます。進める前には戻るための記録がなく、ボタンも出ません。</p>
+    <p>PR #587と新基盤を組み合わせ、手元のパソコンで動かしました。この環境では、1-1から1-2へ進むと戻るボタンが表示され、確認後に1-1へ戻りました。サンプル付箋12枚は再読み込み後も残りました。本物のGoogle認証やCloudflare公開先での確認とは分けて記録しています。</p>
+  </section>
   <section id="state" aria-labelledby="state-title">
-    <h2 id="state-title">画面で操作できました。自動確認と2人での確認が残っています</h2>
+    <h2 id="state-title">初版の操作・接続確認は成功。PR全体を反映する方式は準備中です</h2>
     <div class="status-summary" aria-label="全体の状態">
       <div><strong class="verified">ログイン・保存先：設定済み</strong><p>Googleとの接続テストは成功。指定2名のAccess許可と、Preview専用D1の準備を完了しました。</p></div>
-      <div><strong class="pending">Previewの画面：自動確認が失敗</strong><p>API・App・RoomDOを公開し、1人で操作できました。自動確認が成功したとはまだ判断していません。</p></div>
+      <div><strong class="verified">初版の画面：自動確認が成功</strong><p>PR #587の通常URLと固定版URLから、最新の共通API・保存先へ接続できました。1人での実操作も確認しました。</p></div>
       <div><strong>本番への反映：変更なし</strong><p>本番の設定や公開は変更していません。この文書サイトの公開と、アプリの公開も別の作業です。</p></div>
     </div>
   </section>
   <section id="architecture" aria-labelledby="architecture-title">
-    <h2 id="architecture-title">PRごとに画面を分け、Previewの保存先を共有する</h2>
-    <p class="facts">PRごとに変わるのはAppです。API・D1・RoomDOはPreview全体で共有し、本番とは別にします。同じルームのURLを渡すと、もう1人も自分のGoogleアカウントで参加する構成です。</p>
+    <h2 id="architecture-title">画面・API・保存先をPRごとに分ける方式へ移行する</h2>
+    <p class="facts">移行先では、AppとAPIを同じWorkerへまとめ、そのPRの版で動かします。D1とRoomDOの保存先もPRごとに分けます。PR #587の戻る処理をマージ前に確認したい、という要望に合わせた変更です。新方式の実環境公開はまだ確認していません。</p>
     <p>Previewは短い操作確認に使います。アプリのログイン状態は最大1時間続きます。入室時には、その期限が切れていないことを確認します。5時間の会議や翌日の再開は保証しません。</p>
-    <p class="note">図のApp・API・RoomDOへの接続は、1人での実操作で確認しました。自動確認と、別のGoogleアカウントとの共同操作は残っています。狭い画面では図の中だけ横へ動かせます。</p>
-    <div class="diagram-scroll" tabindex="0" role="region" aria-label="Preview構成図、横スクロールできます"><img src="preview-architecture.svg" alt="許可したGoogle利用者がAccessを通ってPRごとのAppへ入り、本番と別の共通API・D1・RoomDOを使う構成図"></div>
+    <p class="note">図は移行先の構成です。新方式は手元のパソコンで動かした環境で確認しました。Cloudflareへの公開、本物のGoogleログイン、別のGoogleアカウントとの共同操作は残っています。狭い画面では図の中だけ横へ動かせます。</p>
+    <div class="diagram-scroll" tabindex="0" role="region" aria-label="Preview構成図、横スクロールできます"><img src="preview-architecture.svg" alt="許可したGoogle利用者がAccessを通ってPRごとのAppとAPIへ入り、それぞれ専用D1とRoomDOを使う移行先の構成図"></div>
     <p class="diagram-caption"><a href="preview-architecture.svg">図だけを開いて拡大</a><a href="https://github.com/engineer-first/idea-boost/blob/develop/out/architecture.drawio">編集できるdraw.io図</a></p>
     <details><summary>作業開始時の本番構成も見る</summary><p>本番ではAppからAPIを呼び、D1とRoomDOでデータを扱います。今回のPreviewはこの保存先に接続しません。</p><div class="diagram-scroll" tabindex="0" role="region" aria-label="開始時の本番構成図、横スクロールできます"><img src="production-architecture.svg" loading="lazy" alt="作業開始時の本番App・API・D1・RoomDOの構成図"></div></details>
-    <p class="note">Cloudflare Networkの枠は、Cloudflareのサービスをまとめた範囲を示します。図はページと一緒に保存してあり、外部サイトの読み込みなしで表示できます。図を編集するときはdraw.ioの編集元を修正し、公開用のSVGも書き出し直します。</p>
+    <p class="note">Cloudflare Networkの枠は、Cloudflareのサービスをまとめた範囲を示します。図はページと一緒に保存してあり、外部サイトの読み込みなしで表示できます。draw.ioの編集元と、報告用のSVGは別のファイルです。変更時は両方を更新します。</p>
   </section>
   <section id="configuration" aria-labelledby="configuration-title">
-    <h2 id="configuration-title">CloudflareとGitHubで設定したこと</h2>
+    <h2 id="configuration-title">初版でCloudflareとGitHubに設定したこと</h2>
     <p class="facts">本番から分けるため、保存先・秘密の鍵・ログインの許可をPreview用に用意しました。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/operations/preview.md">設定手順の正本</a>と<a href="https://github.com/engineer-first/idea-boost/blob/develop/out/preview-setup-log.md">日時付きの操作台帳</a>に詳しい記録があります。</p>
-    <div class="table-scroll" tabindex="0" role="region" aria-label="設定状況の表、横スクロールできます"><table><thead><tr><th scope="col">対象</th><th scope="col">何をしたか</th><th scope="col">残ること</th></tr></thead><tbody>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="設定状況の表、横スクロールできます"><table><thead><tr><th scope="col">対象</th><th scope="col">何をしたか</th><th scope="col">確認結果と残る確認</th></tr></thead><tbody>
       <tr><td>Google / Access</td><td><span class="status verified">設定済み</span><br>Zero Trustへ登録し、Googleとの接続テストに成功しました。指定した2人のメールアドレスだけを許可し、Googleログインを必須にしました。</td><td>1人でのログインは成功しました。もう1人も自分のGoogleアカウントでログインできるか確認します。</td></tr>
       <tr><td>D1</td><td><span class="status verified">作成済み</span><br>Preview用D1を作成し、初回公開までにmigration 10件を適用しました。</td><td>ルームの作成・再入室で、実際の読み書きを確認しました。</td></tr>
-      <tr><td>App / API / RoomDO</td><td><span class="status verified">実操作済み</span><br>PR #587のAppと、品質確認済みdevelopの共通APIを、Preview用RoomDO・D1へ接続しました。</td><td>自動確認の失敗を調べています。PR版のAPI・RoomDOの変更は、このPreviewには入りません。</td></tr>
+      <tr><td>App / API / RoomDO</td><td><span class="status verified">実操作済み</span><br>PR #587のAppと、品質確認済みdevelopの共通APIを、Preview用RoomDO・D1へ接続しました。</td><td>通常・固定URLの自動確認が成功しました。PR版のAPI・RoomDOの変更は、このPreviewには入りません。</td></tr>
       <tr><td>Secret / Cookie</td><td><span class="status verified">設定済み</span><br>Preview用のSecretを6つ、GitHubへ登録しました。AccessのCookieはHttpOnlyを有効にし、App Launcherの表示を外しました。</td><td>公開時にWorkerへSecretを反映しました。値を変える場合は、共通APIとAppの両方へ反映します。</td></tr>
-      <tr><td>CI / health</td><td><span class="status verified">認証設定済み</span><br>health用Service Token1つだけを許可するService Authを追加しました。期限は1年です。Accessのissuer・AUDもGitHubへ登録しました。</td><td>公開を行うAPI tokenは2027年3月31日までです。healthの自動確認は失敗しています。</td></tr>
-      <tr><td>自動公開のflag</td><td><span class="status verified">有効</span><br><code>PREVIEW_ENABLED=true</code>を確認しました。</td><td>PRの公開コメントが「疎通確認済み」になってから、最新の成功版として使います。</td></tr>
+      <tr><td>CI / health</td><td><span class="status verified">認証設定済み</span><br>health用Service Token1つだけを許可するService Authを追加しました。期限は1年です。Accessのissuer・AUDもGitHubへ登録しました。</td><td>公開を行うAPI tokenは2027年3月31日までです。通常・固定URLのhealthは成功しました。</td></tr>
+      <tr><td>自動公開のflag</td><td><span class="status verified">有効</span><br><code>PREVIEW_ENABLED=true</code>を確認しました。</td><td>PR #587の公開コメントは「疎通確認済み」です。今後の更新でも、この表示とPRの版が一致するか確認します。</td></tr>
     </tbody></table></div>
     <p><a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105281887">Tokenの期限と、画像付きの更新手順</a>をPRに残しました。期限だけを延ばす場合と、鍵の値を作り直す場合を分けて説明しています。</p>
     <p>公開用の鍵で編集できるWorkerは、Preview用の2つです。D1への書き込み権限は管理アカウント全体に及びます。CIでは接続先をPreview用に固定し、本番D1への接続を拒否します。</p>
     <p class="note">Secretの値、実際のメールアドレス、アカウントやtokenの識別値、契約の詳細は、この報告に載せていません。Secret入りの一時ファイルは登録後に削除しました。本番・他のWorkers・アカウント全体のAccess設定は変更していません。</p>
     <details class="evidence"><summary>担当者向け：設定画面の表示と設定名の引用</summary><blockquote>
-      <p>利用者用policyは<code>Preview reviewers Google</code>です。指定2名のEmailsをIncludeし、Login MethodはGoogleをRequireしています。AppはGoogleのみ、instant auth On、WARP auth Off、session 24hです。保存後の再読込でも確認しました。</p>
+      <p>利用者用policyは<code>Preview reviewers Google</code>です。指定2名のメールアドレスを許可し、ログイン方法はGoogleを必須にしています。AppはGoogleのみ、Googleログインへ直接進む設定を有効化、WARP auth Off、session 24hです。保存後の再読込でも確認しました。</p>
       <p>CI用policyは<code>Preview CI health</code>です。Service Authで<code>idea-boost-preview-ci-health</code>だけをIncludeします。アプリのprobe tokenは<code>/api/health</code>に限定し、通常画面・API・WSには使えない実装です。</p>
       <p>対象hostnameは<code>*-idea-boost-preview-app.&lt;account-subdomain&gt;.workers.dev</code>の1件です。通常URLと固定版URLを保護する設定です。Worker単位のAccessはWebSocketに対応しないため使っていません。</p>
       <p>GitHubに登録した名前は<code>PREVIEW_D1_ID</code>、<code>PREVIEW_ACCESS_ISSUER</code>、<code>PREVIEW_ACCESS_AUD</code>、<code>PREVIEW_SESSION_SECRET</code>、<code>PREVIEW_ALLOWED_EMAILS</code>、<code>PREVIEW_PROBE_TOKEN</code>、<code>PREVIEW_ACCESS_CLIENT_ID</code>、<code>PREVIEW_ACCESS_CLIENT_SECRET</code>、<code>PREVIEW_CLOUDFLARE_API_TOKEN</code>、<code>PREVIEW_ENABLED</code>です。値は記載しません。</p>
@@ -182,23 +190,27 @@
   <section id="verification" aria-labelledby="verification-title">
     <h2 id="verification-title">確認できたことと、残る確認</h2>
     <div class="split"><div><h3>確認済み</h3><ul class="plain-list">
-      <li>公開した画面でGoogleログイン、1-1のサンプル12枚、付箋の追加・保存・再入室、同じアカウントの2タブ間の同期、1-2への進行と共有、1-4の投票を確認しました。</li>
+      <li>PR #587の自動公開と、通常URL・固定版URLから最新の共通APIへのhealth確認が成功しました。Appの版はPRの最新の版と一致しています。</li>
+      <li>ログアウト成功の表示、Googleでの再認証、同じルームの保存済み付箋が再表示されることを確認しました。</li>
+      <li>公開した画面でGoogleログイン、個人作業のサンプル12枚、付箋の追加・保存・再入室を確認しました。同じアカウントの2タブ間での同期、課題共有への進行、共有と投票も確認しました。</li>
       <li>Google IdPの接続テストで本人情報を取得し、成功表示を確認しました。</li>
       <li>Googleでログインした指定の2人を許可する設定と、CI用の認証設定を、保存後に読み直しました。CookieのHttpOnly設定も確認しました。</li>
       <li>自動テストで、不正なJWT、許可外のメール、本番Cookieの流用、別OriginのWebSocket接続を拒否することを確認しました。</li>
-      <li>14ステップのルーム準備を確認しました。共同編集のテストでは、作成者の未共有付箋12枚は本人だけに届き、参加者には0枚でした。参加者が作った1枚は再入室後も残りました。</li>
+      <li>自動テストで14ステップのルーム準備を確認しました。共同編集のテストでは、作成者の未共有付箋12枚は本人だけに届き、参加者には0枚でした。参加者が作った1枚は再入室後も残りました。</li>
       <li>Storybookで14ステップの選択と、失敗後の再試行を確認しました。パソコンとスマートフォンの幅でページ全体の横はみ出しはありませんでした。</li>
     </ul></div><div><h3>残る確認</h3><ul class="plain-list">
-      <li>通常URLと固定版URLのhealth自動確認を成功させます。Googleログインと同じアカウントの2タブ間のWebSocket同期は確認済みです。</li>
+      <li>全14ステップそれぞれの公開画面を実際に操作します。今回は個人作業・課題共有・投票の画面で確認しました。</li>
       <li>2人がそれぞれのGoogleアカウントで、招待・付箋の追加と共有・投票・進行を操作します。</li>
-      <li>2件のPRを並行して使い、PRの終了・開き直しで対象のAppだけが終了・再作成されることを確認します。</li>
-      <li>ログアウトでAccessのログインも終了し、ほかのURLから保護を迂回できないことを確認します。</li>
+      <li>PR終了と開き直しを確認します。#588は対象Appだけが終了しました。#589の終了処理は失敗していますが、対象Previewが存在しないことを確認しました。</li>
+      <li>すべての別入口の保護を確認します。ログアウト・Google再認証・再入室と、ログイン情報のないアクセスが転送されることは確認しました。</li>
     </ul></div></div>
+    <p class="note">画面での実操作はAPI更新前に確認しました。最新APIへの自動healthは成功していますが、更新後の実操作と画面の撮り直しは、検証用ブラウザの接続エラーで実施できていません。PR #587の新しい「直前のステップへ戻る」処理は共通APIに含まれないため、このPreviewでは確認できません。</p>
     <p class="note">Google IdPの接続成功は、Previewアプリでのログイン成功とは別です。Policy Testerは起動しましたが、判定結果の表示を確認できていないため成功には数えていません。</p>
     <details class="evidence"><summary>担当者向け：検証記録と確認資料</summary><blockquote>
-      <p><a href="https://github.com/engineer-first/idea-boost/actions/runs/38035326172">実装版のCI</a>は全5ジョブ成功しました。unit 2,703件、Worker 913件、Preview 24件、ローカル検証Worker 32件が成功。ブラウザは455件成功・15件skipでした。型・lint・build・Service Bindingの確認も成功しています。</p>
-      <p>別に行ったローカル検証では、unit 2,710件全体と追加5件の個別実行が成功しました。CIとは実行対象が異なるため、件数を分けて記録しています。今回の差分を入れた作業場所で型・lint・Preview buildを確認し、検査設定は緩めていません。</p>
-      <p>App Worker bundleのdry-runは8.7MB・gzip 1.8MBで成功しました。Wranglerは4.149.0、OpenNextは1.20.1を使います。</p>
+      <p><a href="https://github.com/engineer-first/idea-boost/actions/runs/38109895072">App公開のattempt 8</a>は2026-10-11 14:17（日本時間）に成功。通常・固定healthは通信成功の応答。App commitは<code>dc659f3652a4edb26f7a41566bd0c78c63b24f67</code>、health確認API commitは<code>808960ba839b584d886c19be3c70ea8a6902b2a9</code>です。<a href="https://github.com/engineer-first/idea-boost/actions/runs/38114119779">最新API公開</a>も成功しています。</p>
+      <p><a href="https://github.com/engineer-first/idea-boost/actions/runs/38035326172">実装版のCI</a>は自動検査の5つの作業がすべて成功しました。unit 2,703件、Worker 913件、Preview 24件、手元のパソコンで動かす検証用Workerのテスト32件が成功。ブラウザは455件成功・15件実行を省略でした。型・lint・build・Service Bindingの確認も成功しています。</p>
+      <p>別に行った手元のパソコンでの検証では、unit 2,710件全体と追加5件の個別実行が成功しました。CIとは実行対象が異なるため、件数を分けて記録しています。今回の差分を入れた作業場所で型・lint・Preview buildを確認し、検査設定は緩めていません。</p>
+      <p>App Worker bundleのdry-runは8.7MB・圧縮後 1.8MBで成功しました。Wranglerは4.149.0、OpenNextは1.20.1を使います。</p>
       <p>Storybook公開は成功しました。ChromaticのUI Testsはプラン更新の案内で保留になっており、画面差分の検査は未実施です。<a href="https://github.com/engineer-first/idea-boost/pull/583#issuecomment-6095200985">画面・構成図・確認結果の資料</a>で確認できます。</p>
     </blockquote></details>
     <p class="note">Google側は外部の利用者向けで、テスト中の設定です。今回の要求は本人確認・メール・プロフィールの基本情報だけで、<a href="https://support.google.com/cloud/answer/15549945?hl=en">Google公式仕様の例外</a>に当たります。テストユーザー登録や一般公開への切り替えは行っていません。</p>
@@ -211,7 +223,7 @@
   </section>
   <footer><p>詳しい操作記録：<a href="https://github.com/engineer-first/idea-boost/blob/develop/out/preview-setup-log.md">設定・操作台帳</a> ／ 設定の手順：<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/operations/preview.md">PR Previewの運用</a> ／ 図の編集元：<a href="https://github.com/engineer-first/idea-boost/blob/develop/out/architecture.drawio">draw.ioファイル</a></p>
     <p>用語の照合元：<a href="https://developers.cloudflare.com/workers/">Workers</a>、<a href="https://developers.cloudflare.com/d1/">D1</a>、<a href="https://developers.cloudflare.com/durable-objects/">Durable Objects</a>、<a href="https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/">Service Binding</a>、<a href="https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/">Access JWT</a>。今回の使い方は、PRの設定・実装・操作台帳と照合しています。</p>
-    <p>図のアイコンは、提供元の表示などを条件に使用できます。提供元と利用条件を以下に記録しています。</p><blockquote><p>Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. <a href="https://github.com/cloudflare/cloudflare-docs/tree/0017e51a284d1be4341ada9f9005850a7b47dc7b/src/icons">Source</a>. Icons embedded without modification. 構成図はdraw.ioの描画結果をSVGで保存しています。</p></blockquote>
+    <p>図のアイコンは、提供元の表示などを条件に使用できます。提供元と利用条件を以下に記録しています。</p><blockquote><p>Icons: Cloudflare Docs (Cloudflare), CC BY 4.0. <a href="https://github.com/cloudflare/cloudflare-docs/tree/0017e51a284d1be4341ada9f9005850a7b47dc7b/src/icons">Source</a>. Icons embedded without modification. 移行先のSVGは報告用に別途作成しました。編集できるdraw.ioも同じ構成へ更新しています。</p></blockquote>
   </footer>
 </main><script data-preview-links>
 (() => {

@@ -1,12 +1,26 @@
 // @vitest-environment node
-import { mkdtempSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const command = vi.hoisted(() => vi.fn());
 vi.mock("node:child_process", () => ({ execFileSync: command }));
-vi.mock("wrangler", () => ({ unstable_readConfig: vi.fn() }));
+vi.mock("wrangler", () => ({
+  unstable_readConfig: () => ({ d1_databases: [] }),
+}));
+vi.mock("./preview-resources.mts", () => ({
+  createPreviewResources: () => ({
+    prepare: async () => ({
+      uuid: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      name: "idea-boost-preview-pr-587-lobby",
+    }),
+  }),
+}));
+
+import { previewProbeToken } from "./preview-secrets.mts";
+
 const sha = "a".repeat(40);
 const deployment = {
   preview: { urls: ["https://pr-587.example.workers.dev"] },
@@ -18,6 +32,26 @@ let argv: string[];
 beforeEach(() => {
   vi.resetModules();
   candidate = mkdtempSync(join(tmpdir(), "preview-control-test-"));
+  for (const directory of [
+    ".preview-bundle",
+    ".open-next/assets",
+    "workers/migrations",
+  ])
+    mkdirSync(join(candidate, directory), { recursive: true });
+  const worker = "export default {fetch(){return new Response('test')}}";
+  writeFileSync(join(candidate, ".preview-bundle/worker.js"), worker);
+  writeFileSync(
+    join(candidate, ".preview-bundle/manifest.json"),
+    JSON.stringify({
+      format: 2,
+      sha,
+      workerSha256: createHash("sha256").update(worker).digest("hex"),
+    }),
+  );
+  writeFileSync(
+    join(candidate, "workers/migrations/0001_test.sql"),
+    "SELECT 1;",
+  );
   argv = process.argv;
   process.argv = ["node", "preview-control.mts", "publish"];
   for (const [key, value] of Object.entries({
@@ -28,6 +62,7 @@ beforeEach(() => {
     PREVIEW_CANDIDATE_DIR: candidate,
     CLOUDFLARE_API_TOKEN: "fake-management-secret",
     CLOUDFLARE_ACCOUNT_ID: "fake-account",
+    PREVIEW_SHARED_D1_ID: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     SESSION_SECRET: "s".repeat(32),
     PREVIEW_PROBE_TOKEN: "p".repeat(32),
     PREVIEW_ALLOWED_EMAILS: "reviewer@example.com",
@@ -117,7 +152,9 @@ it("CIのhealthを名乗るHTTPリクエストで通常版・固定版を確認�
       return new Response("error code: 1010", { status: 403 });
     expect(headers.get("CF-Access-Client-Id")).toBe("fake-client.access");
     expect(headers.get("CF-Access-Client-Secret")).toBe("fake-client-secret");
-    expect(headers.get("X-Preview-Probe-Token")).toBe("p".repeat(32));
+    expect(headers.get("X-Preview-Probe-Token")).toBe(
+      previewProbeToken("p".repeat(32), 587),
+    );
     expect(init.redirect).toBe("error");
     return Response.json({ ok: true, environment: "preview", apiCommit: sha });
   });

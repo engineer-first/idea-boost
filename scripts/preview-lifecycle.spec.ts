@@ -11,7 +11,7 @@ function runtime(): PreviewRuntime {
       deploymentUrl: "https://v1-pr-12.preview.test",
     })),
     remove: vi.fn(async () => {}),
-    probe: vi.fn(async () => ({ ok: true, apiCommit: "b".repeat(40) })),
+    probe: vi.fn(async () => ({ ok: true, apiCommit: sha })),
     comment: vi.fn(async () => {}),
     now: () => "2026-10-10T00:00:00.000Z",
   };
@@ -46,11 +46,34 @@ it("閉じたPRは対象Appだけ削除し、成功は疎通後にAPIcommitと�
   await reconcilePreview({ number: 12, sha, state: "success" }, r);
   expect(r.comment).toHaveBeenLastCalledWith(
     12,
-    expect.objectContaining({ state: "ready", apiCommit: "b".repeat(40) }),
+    expect.objectContaining({ state: "ready", apiCommit: sha }),
   );
   r.current = vi.fn(async () => ({ open: false, sameRepository: true, sha }));
   await reconcilePreview({ number: 12, sha, state: "closed" }, r);
   expect(r.remove).toHaveBeenCalledWith(12);
+});
+
+it.each([
+  "normal",
+  "fixed",
+])("%s URLのAPIがPRと違う版なら疎通済みでも利用可能にしない", async (mismatch) => {
+  const r = runtime();
+  r.probe = vi.fn(async (url) => ({
+    ok: true,
+    apiCommit:
+      url.includes("v1-") === (mismatch === "fixed") ? "b".repeat(40) : sha,
+  }));
+  await expect(
+    reconcilePreview({ number: 12, sha, state: "success" }, r),
+  ).rejects.toThrow("Preview");
+  expect(r.comment).not.toHaveBeenCalledWith(
+    12,
+    expect.objectContaining({ state: "ready" }),
+  );
+  expect(r.comment).toHaveBeenLastCalledWith(
+    12,
+    expect.objectContaining({ state: "failed" }),
+  );
 });
 it("デプロイ中にPRが閉じられたら削除し、利用可能コメントを出さない", async () => {
   const r = runtime();

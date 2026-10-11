@@ -47,6 +47,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.PREVIEW_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIEW_SHARED_D1_ID: ${{ vars.PREVIEW_D1_ID }}
   publish:
     needs: plan
     if: needs.plan.outputs.publish == 'true'
@@ -71,9 +72,8 @@ jobs:
           run-id: ${{ needs.plan.outputs.ci_run_id }}
           github-token: ${{ github.token }}
           path: candidate
-      # artifactからnpm scripts/構成を実行しない。bundle解決にはtrusted依存だけを使う。
-      - run: ln -s "$PWD/ops/node_modules" candidate/node_modules
-      - name: Publish only current PR App and check binding
+      # PRのApp/APIはSecretなしCIでbundle済み。公開runnerではPRコードや構成を実行しない。
+      - name: Publish current PR App/API with isolated storage
         run: node ops/scripts/preview-control.mts publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,6 +84,7 @@ jobs:
           PREVIEW_CANDIDATE_DIR: ${{ github.workspace }}/candidate
           CLOUDFLARE_API_TOKEN: ${{ secrets.PREVIEW_CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIEW_SHARED_D1_ID: ${{ vars.PREVIEW_D1_ID }}
           SESSION_SECRET: ${{ secrets.PREVIEW_SESSION_SECRET }}
           PREVIEW_PROBE_TOKEN: ${{ secrets.PREVIEW_PROBE_TOKEN }}
           PREVIEW_ALLOWED_EMAILS: ${{ secrets.PREVIEW_ALLOWED_EMAILS }}

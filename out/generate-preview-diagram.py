@@ -1,111 +1,58 @@
-#!/usr/bin/env python3
-"""Generate editable diagrams; embed/validate with the supplied Cloudflare skill."""
-import argparse
-import html
-import json
 from pathlib import Path
-import re
-import subprocess
-import sys
-import xml.etree.ElementTree as ET
-
-
-def page(document, identifier, name):
-    diagram = ET.SubElement(document, "diagram", id=identifier, name=name)
-    model = ET.SubElement(diagram, "mxGraphModel", grid="1", gridSize="10", page="0", background="#ffffff")
-    root = ET.SubElement(model, "root")
-    ET.SubElement(root, "mxCell", id="0")
-    ET.SubElement(root, "mxCell", id="1", parent="0")
-    return root
-
-
-def node(root, identifier, label, x, y, width, height, parent="1", icon=None, boundary=False, fill="#ffffff", stroke="#455a64"):
-    if boundary:
-        style = f"rounded=0;html=0;fillColor={fill};strokeColor={stroke};strokeWidth=2;verticalAlign=top;align=left;spacing=20;fontSize=16;whiteSpace=wrap;"
-    elif icon:
-        style = f"cfIcon={icon};verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=200;html=0;fontSize=14;whiteSpace=wrap;fontColor=#23303d;"
-    else:
-        style = f"rounded=1;html=0;fillColor={fill};strokeColor={stroke};strokeWidth=1.5;fontSize=14;whiteSpace=wrap;spacing=12;"
-    cell = ET.SubElement(root, "mxCell", id=identifier, value=label, vertex="1", parent=parent, style=style)
-    ET.SubElement(cell, "mxGeometry", x=str(x), y=str(y), width=str(width), height=str(height), **{"as": "geometry"})
-
-
-def edge(root, identifier, source, target, label, points=None, dashed=False, exits="exitX=1;exitY=0.5;entryX=0;entryY=0.5;", label_position="0", offset_y=-12):
-    style = "edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#455a64;strokeWidth=1.5;fontSize=13;labelBackgroundColor=none;align=center;verticalAlign=bottom;exitPerimeter=0;entryPerimeter=0;"
-    style += exits
-    if dashed:
-        style += "dashed=1;strokeColor=#77828c;"
-    cell = ET.SubElement(root, "mxCell", id=identifier, value=label, edge="1", parent="1", source=source, target=target, style=style)
-    geometry = ET.SubElement(cell, "mxGeometry", relative="1", x=str(label_position), **{"as": "geometry"})
-    ET.SubElement(geometry, "mxPoint", x="0", y=str(offset_y), **{"as": "offset"})
-    if points:
-        array = ET.SubElement(geometry, "Array", **{"as": "points"})
-        for x, y in points:
-            ET.SubElement(array, "mxPoint", x=str(x), y=str(y))
-
-
-def build():
-    document = ET.Element("mxfile", host="app.diagrams.net", version="24.7.17")
-    current = page(document, "current-config", "開始時：本番リポジトリ設定")
-    node(current, "cf", "Cloudflare Network", 300, 170, 1180, 650, boundary=True, stroke="#f6821f")
-    node(current, "browser", "利用者のブラウザ", 40, 405, 190, 80, fill="#f4f7fb")
-    node(current, "google", "Google\n本人ログイン", 410, 20, 180, 90, fill="#f4f7fb")
-    node(current, "app", "Workers\nidea-flow-app\nNext.js / OpenNext", 190, 240, 64, 64, parent="cf", icon="workers")
-    node(current, "api", "Workers\nidea-flow-api\n認可・ルーム入口", 530, 240, 64, 64, parent="cf", icon="workers")
-    node(current, "db", "D1\nidea-flow-lobby\n横断検索・権限・投影", 880, 150, 64, 64, parent="cf", icon="d1")
-    node(current, "room", "Durable Objects\nRoomDO\nルームごとの共有状態", 880, 390, 64, 64, parent="cf", icon="durable-objects")
-    edge(current, "browser-app", "browser", "app", "HTTPS\nideaboost.dev")
-    edge(current, "app-google", "app", "google", "Google OIDC", points=[(522, 135), (500, 135)], exits="exitX=0.5;exitY=0;entryX=0.5;entryY=1;", offset_y=-5)
-    edge(current, "app-api", "app", "api", "/api/*・WebSocket転送\nService Binding: API_WORKER")
-    edge(current, "api-db", "api", "db", "SQL / DB binding: DB", points=[(1040, 442), (1040, 352)])
-    edge(current, "api-room", "api", "room", "ROOM_DO namespace binding", points=[(1040, 442), (1040, 592)])
-    edge(current, "room-db", "room", "db", "保全後の非同期投影", points=[(1380, 592), (1380, 352)], dashed=True, exits="exitX=1;exitY=0.5;entryX=1;entryY=0.5;", offset_y=-5)
-
-    planned = page(document, "preview-plan", "準備中：Preview専用構成・未公開")
-    node(planned, "cf", "Cloudflare Network", 280, 185, 1370, 850, boundary=True, stroke="#f6821f")
-    node(planned, "apps", "PRごと：App Workers Preview", 285, 75, 360, 585, parent="cf", boundary=True, fill="#f1f6ff", stroke="#6494c8")
-    node(planned, "shared", "Preview全体で共有：本番とは別リソース", 715, 75, 615, 585, parent="cf", boundary=True, fill="#f0faf5", stroke="#65a27e")
-    node(planned, "browser", "許可したメンバー\nブラウザ", 30, 515, 190, 90, fill="#f4f7fb")
-    node(planned, "google", "Google\n本人ログイン", 315, 20, 180, 90, fill="#f4f7fb")
-    node(planned, "access", "Access\nGoogle・メール許可", 105, 340, 64, 64, parent="cf", icon="access")
-    node(planned, "app-a", "Workers Preview\nPR A の App\nAccess JWTを検証", 145, 115, 64, 64, parent="apps", icon="workers")
-    node(planned, "app-b", "Workers Preview\nPR B の App\nAccess JWTを検証", 145, 355, 64, 64, parent="apps", icon="workers")
-    node(planned, "api", "Workers\nidea-boost-preview-api\n品質確認済みdevelop", 100, 235, 64, 64, parent="shared", icon="workers")
-    node(planned, "db", "D1\nidea-boost-preview-lobby\n本番D1と分離", 415, 125, 64, 64, parent="shared", icon="d1")
-    node(planned, "rooms", "PreviewRoomDO namespace", 325, 345, 265, 200, parent="shared", boundary=True, fill="#ffffff", stroke="#65a27e")
-    node(planned, "room", "Durable Objects\nルームごとの共有状態", 100, 60, 64, 64, parent="rooms", icon="durable-objects")
-    node(planned, "prod", "本番 App / API / D1 / RoomDO\n接続しない別リソース", 670, 690, 410, 100, parent="cf", fill="#f5f5f5", stroke="#737373")
-    edge(planned, "browser-access", "browser", "access", "HTTPS\nPreview URL")
-    edge(planned, "access-google", "access", "google", "Google認証", points=[(417, 140), (405, 140)], exits="exitX=0.5;exitY=0;entryX=0.5;entryY=1;", offset_y=-5)
-    edge(planned, "access-a", "access", "app-a", "許可済み本人\nAccess JWT", points=[(510, 557), (510, 407)])
-    edge(planned, "access-b", "access", "app-b", "許可済み本人\nAccess JWT", points=[(510, 557), (510, 647)])
-    edge(planned, "app-a-api", "app-a", "api", "/api/*・WSを転送\nAPI_WORKER binding", points=[(935, 407), (935, 527)])
-    edge(planned, "app-b-api", "app-b", "api", "/api/*・WSを転送\nAPI_WORKER binding", points=[(935, 647), (935, 527)])
-    edge(planned, "api-db", "api", "db", "SQL / DB binding: DB", points=[(1270, 527), (1270, 417)])
-    edge(planned, "api-room", "api", "room", "ROOM_DO namespace binding", points=[(1270, 527), (1270, 697)], label_position="0.5")
-    return document
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--skill-dir", type=Path, required=True, help="Directory containing cloudflare-drawio-diagram/SKILL.md")
-    args = parser.parse_args()
-    output = Path(__file__).resolve().parent / "architecture.drawio"
-    document = build()
-    ET.indent(document, space="  ")
-    ET.ElementTree(document).write(output, encoding="utf-8", xml_declaration=True)
-    helper = args.skill_dir / "scripts" / "drawio.py"
-    for command in ("embed", "validate"):
-        subprocess.run([sys.executable, str(helper), command, str(output)], check=True)
-    report = output.parent / "preview-report.html"
-    if report.exists():
-        configuration = {"xml": output.read_text(), "page": 1, "toolbar": "pages lightbox", "toolbar-nohide": True, "auto-fit": True, "max-height": 730, "center": True, "border": 16, "dark-mode": "light", "editable": False, "check-visible-state": False}
-        markup = report.read_text()
-        attribute = 'data-mxgraph="' + html.escape(json.dumps(configuration, ensure_ascii=False), quote=True) + '"'
-        markup = re.sub(r'data-mxgraph="[^"]*"', lambda match: attribute, markup, count=1)
-        report.write_text(markup)
-    print(output)
-
-
-if __name__ == "__main__":
-    main()
+import xml.etree.ElementTree as E
+from urllib.parse import quote
+from html import escape
+rootdir=Path(__file__).resolve().parents[1]
+import argparse
+parser=argparse.ArgumentParser()
+parser.add_argument('--skill-dir', type=Path, required=True)
+skill=parser.parse_args().skill_dir
+p=rootdir/'out/architecture.drawio'; tree=E.parse(p); root=tree.getroot()
+d=root.findall('diagram')[1]; d.set('name','移行先：PR全体のPreview・実公開は未確認'); d.clear();d.set('id','preview-plan');d.set('name','移行先：PR全体のPreview・実公開は未確認')
+g=E.SubElement(d,'mxGraphModel',grid='1',gridSize='10',page='0'); cells=E.SubElement(g,'root');E.SubElement(cells,'mxCell',id='0');E.SubElement(cells,'mxCell',id='1',parent='0')
+svg=['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1740 820" role="img"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10Z" fill="#40556a"/></marker></defs><rect width="1740" height="820" fill="white"/>']
+font='font-family="system-ui, -apple-system, Hiragino Sans, sans-serif" fill="#23303d"'
+def text(x,y,label,size=14,anchor='middle'):
+ for i,line in enumerate(label.split('\n')): svg.append(f'<text x="{x}" y="{y+i*(size+6)}" font-size="{size}" text-anchor="{anchor}" {font}>{escape(line)}</text>')
+def node(id,label,x,y,w,h,icon=None,container=False,fill='white'):
+ style='rounded=0;html=0;whiteSpace=wrap;fontSize=14;'
+ if icon:
+  style+=f'cfIcon={icon};verticalLabelPosition=bottom;verticalAlign=top;align=center;labelWidth=230;'
+ else: style+=f'fillColor={fill};strokeColor=#8da3b8;strokeWidth=2;'
+ if container: style+='verticalAlign=top;align=left;spacing=16;'
+ c=E.SubElement(cells,'mxCell',id=id,value=label,vertex='1',parent='1',style=style)
+ E.SubElement(c,'mxGeometry',x=str(x),y=str(y),width=str(w),height=str(h),attrib={'as':'geometry'})
+ if icon:
+  data=(skill/'assets/icons'/f'{icon}.svg').read_text()
+  svg.append(f'<image x="{x}" y="{y}" width="{w}" height="{h}" href="data:image/svg+xml,{quote(data,safe="")}"/>')
+  text(x+w/2,y+h+22,label)
+ else:
+  svg.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{fill}" stroke="#8da3b8" stroke-width="2"/>')
+  text(x+18 if container else x+w/2,y+30 if container else y+h/2-5,label,16 if container else 14,'start' if container else 'middle')
+def edge(id,src,tgt,label,points,tx,ty):
+ c=E.SubElement(cells,'mxCell',id=id,value=label,edge='1',parent='1',source=src,target=tgt,style='edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;strokeColor=#40556a;strokeWidth=1.5;fontSize=12;')
+ geo=E.SubElement(c,'mxGeometry',relative='1',attrib={'as':'geometry'});arr=E.SubElement(geo,'Array',attrib={'as':'points'})
+ for x,y in points[1:-1]:E.SubElement(arr,'mxPoint',x=str(x),y=str(y))
+ svg.append('<polyline points="'+' '.join(f'{x},{y}' for x,y in points)+'" fill="none" stroke="#40556a" stroke-width="2" marker-end="url(#arrow)"/>')
+ text(tx,ty,label,12)
+node('cf','Cloudflare Network',250,150,1450,650,container=True)
+node('pr-a','PR A：画面・API・保存先を分離',625,255,475,480,container=True,fill='#f1f6ff')
+node('pr-b','PR B：画面・API・保存先を分離',1150,255,500,480,container=True,fill='#f0faf5')
+node('browser','許可したメンバー\nブラウザ',20,430,185,80)
+node('google','Google\n本人ログイン',320,15,170,80)
+node('access','Access\nGoogle・メール許可',355,435,64,64,icon='access')
+for k,offset in [('a',0),('b',535)]:
+ node('app-'+k,f'Workers Preview\nPR {k.upper()} / App + API',700+offset,420,64,64,icon='workers')
+ node('db-'+k,f'D1\nPR {k.upper()} 専用',935+offset,320,64,64,icon='d1')
+ node('room-'+k,f'Durable Objects\nPR {k.upper()} 専用 / PreviewRoomDO',935+offset,565,64,64,icon='durable-objects')
+ edge('api-db-'+k,'app-'+k,'db-'+k,'SQL / DB binding: DB',[(764+offset,452),(850+offset,452),(850+offset,352),(935+offset,352)],840+offset,332)
+ edge('api-room-'+k,'app-'+k,'room-'+k,'ROOM_DO namespace binding',[(764+offset,452),(850+offset,452),(850+offset,597),(935+offset,597)],850+offset,575)
+edge('browser-access','browser','access','HTTPS',[(205,467),(355,467)],225,444)
+text(303,444,'Preview URL',12)
+edge('access-google','access','google','Google認証',[(419,467),(535,467),(535,55),(490,55)],535,130)
+edge('access-a','access','app-a','Access JWT\n本人確認',[(419,467),(570,467),(570,452),(700,452)],591,405)
+edge('access-b','access','app-b','Access JWT / 本人確認',[(419,467),(555,467),(555,220),(1125,220),(1125,452),(1235,452)],930,208)
+svg.append('</svg>')
+tree.write(p,encoding='utf-8',xml_declaration=True)
+(rootdir/'docs/site/pr-preview/preview-architecture.svg').write_text(''.join(svg))
+print('Updated editable draw.io page and separate report SVG; actual draw.io render unavailable')
