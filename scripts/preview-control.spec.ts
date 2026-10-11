@@ -3,9 +3,11 @@ import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const command = vi.hoisted(() => vi.fn());
+vi.mock("node:timers/promises", () => ({ setTimeout: vi.fn(async () => {}) }));
 vi.mock("node:child_process", () => ({ execFileSync: command }));
 vi.mock("wrangler", () => ({
   unstable_readConfig: () => ({ d1_databases: [] }),
@@ -31,6 +33,7 @@ let argv: string[];
 
 beforeEach(() => {
   vi.resetModules();
+  vi.mocked(sleep).mockClear();
   candidate = mkdtempSync(join(tmpdir(), "preview-control-test-"));
   for (const directory of [
     ".preview-bundle",
@@ -168,6 +171,108 @@ it("CIのhealthを名乗るHTTPリクエストで通常版・固定版を確認�
     args[1]?.endsWith("issues/587/comments"),
   );
   expect(JSON.parse(comments.at(-1)?.[2].input).body).toContain("疎通確認済み");
+});
+
+it("公開直後の500から回復したら通常版・固定版の確認後に成功を報告する", async () => {
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(new Response("temporary failure", { status: 500 }))
+    .mockImplementation(async () =>
+      Response.json({ ok: true, environment: "preview", apiCommit: sha }),
+    );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).resolves.toBeDefined();
+  expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
+    "https://pr-587.example.workers.dev/api/health",
+    "https://pr-587.example.workers.dev/api/health",
+    "https://fixed.example.workers.dev/api/health",
+  ]);
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).toContain("疎通確認済み");
+  expect(sleep).toHaveBeenCalledExactlyOnceWith(1000);
+  const logs = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => JSON.parse(line));
+  expect(logs).toContainEqual(
+    expect.objectContaining({
+      operation: "health",
+      target: "normal",
+      state: "retrying",
+      attempt: 1,
+      httpStatus: 500,
+    }),
+  );
+});
+
+it.each([
+  "transport",
+  "http",
+])("%s失敗が続く場合は3回で停止し、成功リンクを出さない", async (reason) => {
+  const fetcher = vi.fn(async () => {
+    if (reason === "transport") throw new Error("fake-client-secret");
+    return new Response("fake-client-secret", { status: 503 });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(vi.mocked(sleep).mock.calls.map(([delay]) => delay)).toEqual([
+    1000, 2000,
+  ]);
+  const output = vi
+    .mocked(console.log)
+    .mock.calls.map(([line]) => line)
+    .join("\n");
+  expect(output).not.toContain("fake-client-secret");
+  expect(output.split("\n").map((line) => JSON.parse(line))).toContainEqual(
+    expect.objectContaining({
+      operation: "health",
+      state: "failed",
+      attempt: 3,
+      reason,
+    }),
+  );
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
+    "[ステップを選んで開く]",
+  );
+});
+
+it.each([
+  401, 403, 200,
+])("認証拒否・不正応答は再試行しない: HTTP %i", async (status) => {
+  const fetcher = vi.fn(
+    async () => new Response("fake-client-secret", { status }),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(sleep).not.toHaveBeenCalled();
+});
+
+it("通信回復後もAPIの版がPRと違えば成功リンクを出さない", async () => {
+  const fetcher = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("temporary failure"))
+    .mockImplementation(async () =>
+      Response.json({
+        ok: true,
+        environment: "preview",
+        apiCommit: "b".repeat(40),
+      }),
+    );
+  vi.stubGlobal("fetch", fetcher);
+  await expect(import("./preview-control.mts")).rejects.toThrow("疎通確認");
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  const comments = command.mock.calls.filter(([, args]) =>
+    args[1]?.endsWith("issues/587/comments"),
+  );
+  expect(JSON.parse(comments.at(-1)?.[2].input).body).not.toContain(
+    "[ステップを選んで開く]",
+  );
 });
 
 it("HTTP拒否はstatusとCloudflareの番号を残し、成功リンクを出さない", async () => {
