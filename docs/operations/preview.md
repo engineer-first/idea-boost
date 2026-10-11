@@ -17,7 +17,9 @@
 
 ### マージ後の移行・確認
 
-初回の基盤移行はPR #591で実施済みです。PR #587へ取り込み、App/API b75edf4dを公開しました。通常URLと新しい固定URLの両方で、本人のGoogleアカウントによるログインと前進・戻る操作を確認しました。[公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38124268809)と[画像付きの実操作記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027)を参照してください。再読み込み後も付箋12枚と編集した本文が残りました。同じGoogleアカウントの2タブ間で進行も同期しました。別アカウントでの共同操作、別PRが互いに影響しないこと、保存先の削除と再作成は引き続き確認します。
+初回の基盤移行はPR #591で実施済みです。PR #587へ取り込み、App/API b75edf4dを公開しました。通常URLと新しい固定URLの両方で、本人のGoogleアカウントによるログインと前進・戻る操作を確認しました。[公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38124268809)と[画像付きの実操作記録](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6107148027)を参照してください。再読み込み後も付箋12枚と編集した本文が残りました。同じGoogleアカウントの2タブ間で進行も同期しました。別アカウントでの共同操作と、PRを開き直した際の保存先の再作成は引き続き確認します。
+
+PR #621もApp/API 9d3d1eb0で公開し、[PR #587との画像付き比較記録](https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107797495)を残しました。PRごとの機能の違い、#621内での呼び名の共通保存、編集した付箋が混ざらないことを確認しました。相手PRのルームを開くと両方向とも404になりました。#621は通常URLと固定版URLの両方で、再読み込み後の呼び名と付箋を確認済みです。PR #622のマージ後の[終了処理](https://github.com/engineer-first/idea-boost/actions/runs/38128051763)では、対象Previewと専用D1の削除が成功しました。
 
 今後のPRでは、CI成功後に自動コメントが更新されます。そのコメントの新しいリンクから確認してください。以下の1〜2は、基盤の初回移行時に使った手順です。
 
