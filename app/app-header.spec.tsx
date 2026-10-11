@@ -8,7 +8,8 @@ vi.mock("next/navigation", () => ({
   usePathname: () => navigationMocks.pathname,
 }));
 
-vi.mock("@/features/auth", () => ({
+vi.mock("@/features/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/auth")>()),
   signOut: vi.fn(),
 }));
 
@@ -86,4 +87,20 @@ it("ログアウト送信時にブラウザの候補を消す", () => {
   if (!form) throw new Error("ログアウトフォームがありません");
   fireEvent.submit(form);
   expect(readLastRoom(userId)).toBeNull();
+});
+it("控えめなユーザーメニューから呼び名の変更を開ける", async () => {
+  navigationMocks.pathname = "/home";
+  render(
+    <AppHeader
+      userName="はな"
+      currentUserId="11111111-1111-4111-8111-111111111111"
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "ユーザーメニュー" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+  expect(
+    await screen.findByRole("button", { name: "呼び名を変更" }),
+  ).toBeInTheDocument();
 });

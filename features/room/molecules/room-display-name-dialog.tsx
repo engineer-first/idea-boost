@@ -38,9 +38,9 @@ export function RoomDisplayNameDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>このルームでの呼び名</DialogTitle>
+          <DialogTitle>呼び名を変更</DialogTitle>
           <DialogDescription>
-            このルームの参加者に表示されます。Googleアカウントの名前は変わりません。
+            今いるルームと、これから入るルームに反映されます。Googleアカウントの名前は変わりません。
           </DialogDescription>
         </DialogHeader>
         <form
@@ -58,7 +58,7 @@ export function RoomDisplayNameDialog({
               id={id}
               value={controls.draft}
               onChange={(event) => controls.onDraftChange(event.target.value)}
-              disabled={controls.pending}
+              disabled={controls.pending || controls.loading}
               aria-invalid={!!controls.error}
               aria-describedby={`${id}-hint${controls.error ? ` ${id}-error` : ""}`}
               autoComplete="off"
@@ -69,16 +69,30 @@ export function RoomDisplayNameDialog({
               }}
             />
             <p id={`${id}-hint`} className="text-sm text-muted-foreground">
-              {ROOM_DISPLAY_NAME_MAX_LENGTH}文字まで。前後の空白は除かれます。
+              {ROOM_DISPLAY_NAME_MAX_LENGTH}
+              文字まで。保存済みの成果・履歴の名前は変わりません。
             </p>
             {controls.error ? (
-              <p
-                id={`${id}-error`}
-                role="alert"
-                className="text-sm text-destructive"
-              >
-                {controls.error}
-              </p>
+              <div>
+                <p
+                  id={`${id}-error`}
+                  role="alert"
+                  className="text-sm text-destructive"
+                >
+                  {controls.error}
+                </p>
+                {controls.onRetry ? (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto px-0 text-sm"
+                    disabled={controls.pending || controls.loading}
+                    onClick={() => void controls.onRetry?.()}
+                  >
+                    保存済みの呼び名を確認
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
             {controls.disabled ? (
               <p role="status" className="text-sm text-muted-foreground">
@@ -99,7 +113,9 @@ export function RoomDisplayNameDialog({
             <Button
               type="submit"
               className="min-h-11"
-              disabled={controls.pending || controls.disabled}
+              disabled={
+                controls.pending || controls.loading || controls.disabled
+              }
             >
               {controls.pending ? "保存中…" : "保存する"}
             </Button>

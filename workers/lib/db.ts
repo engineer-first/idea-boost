@@ -12,12 +12,12 @@ export type RoomRecord = {
   createdAt?: number;
 };
 
-export async function findUserNameById(
+export async function findUserDisplayNameById(
   db: D1Database,
   userId: string,
 ): Promise<string | null> {
   const row = await db
-    .prepare("SELECT name FROM users WHERE id = ?1")
+    .prepare("SELECT display_name AS name FROM users WHERE id = ?1")
     .bind(userId)
     .first<{ name: string | null }>();
   return row?.name ?? null;

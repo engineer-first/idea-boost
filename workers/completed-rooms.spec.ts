@@ -927,7 +927,7 @@ it("完了期限を過ぎた退出の清掃でもルーム内の呼び名を消�
       JSON.stringify({ privateContent: "下書きコピー" }),
     );
     state.storage.sql.exec(
-      "INSERT INTO member_display_names(user_id,name) VALUES(?,?)",
+      "INSERT INTO member_display_names(user_id,name) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name",
       host.sub,
       "ルームの呼び名",
     );

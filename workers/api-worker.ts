@@ -9,6 +9,10 @@ import {
 } from "../contracts/access";
 import { CreateRoomInputSchema } from "../contracts/api";
 import { LeaveRoomRequestSchema } from "../contracts/completed-rooms";
+import {
+  defaultDisplayName,
+  SetDisplayNameInputSchema,
+} from "../contracts/display-name";
 import { isUuid } from "../contracts/ids";
 import {
   isValidInviteCode,
@@ -44,9 +48,13 @@ import {
   ensureUser,
   findRoomByCode,
   findRoomById,
-  findUserNameById,
+  findUserDisplayNameById,
   upsertUserFromAssertion,
 } from "./lib/db";
+import {
+  backfillDisplayNameDirectory,
+  indexRoomDisplayNames,
+} from "./lib/display-name-directory";
 import {
   CreationConflict,
   CreationExpired,
@@ -167,11 +175,13 @@ async function handleCreateRoom(
     await completeRoomCreation(env.DB, creation, async () => {
       const result = await roomStub(env, creation.room_id).initializeCreation(
         creationIdentity(creation),
-        session.name,
+        (await findUserDisplayNameById(env.DB, session.sub)) ??
+          defaultDisplayName(session.sub),
         creation.name,
       );
       if (result === "closed") throw new CreationGone();
     });
+    await syncMemberAccountName(env, creation.room_id, session.sub);
     return json({ roomId: creation.room_id, inviteCode: creation.invite_code });
   } catch (cause) {
     if (cause instanceof CreationConflict)
@@ -213,6 +223,26 @@ async function handleCreateRoom(
   }
 }
 
+async function syncMemberAccountName(
+  env: ApiWorkerEnv,
+  roomId: string,
+  userId: string,
+): Promise<void> {
+  await indexRoomDisplayNames(env, roomId);
+  const profile = await env.DB.prepare(
+    "SELECT display_name AS name, display_name_revision AS revision FROM users WHERE id=?",
+  )
+    .bind(userId)
+    .first<{ name: string | null; revision: number }>();
+  // 旧ルームで本人が選んだ名前は、共通名を設定するまで保つ。
+  if (profile?.name)
+    await roomStub(env, roomId).syncAccountDisplayName(
+      userId,
+      profile.name,
+      profile.revision,
+    );
+}
+
 // POST /api/rooms/join — 招待コードで参加（冪等）。
 async function handleJoinRoom(
   request: Request,
@@ -234,8 +264,17 @@ async function handleJoinRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  await ensureUser(env.DB, {
+    id: session.sub,
+    email: session.email,
+    name: session.name,
+  });
   const stub = roomStub(env, room.roomId);
-  const joined = await stub.upsertMember(session.sub, session.name);
+  const joined = await stub.upsertMember(
+    session.sub,
+    (await findUserDisplayNameById(env.DB, session.sub)) ??
+      defaultDisplayName(session.sub),
+  );
   if (!joined.ok) {
     return error(
       409,
@@ -244,6 +283,7 @@ async function handleJoinRoom(
         : "このルームは20人までです。",
     );
   }
+  await syncMemberAccountName(env, room.roomId, session.sub);
   return json({ roomId: room.roomId });
 }
 
@@ -267,6 +307,7 @@ async function handleGetRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  await indexRoomDisplayNames(env, roomId);
   const phase = await stub.getPhase();
   const host = await stub.getCurrentHost(room.hostId);
   if (!host.hostUserId) return error(409, "ホスト情報を取得できませんでした。");
@@ -298,6 +339,7 @@ async function handleListMembers(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  await indexRoomDisplayNames(env, roomId);
   const members = await stub.listMembers();
   return json({ members });
 }
@@ -369,7 +411,7 @@ async function handleLookupRoom(
   }
   if (!(await roomStub(env, room.roomId).isJoinable()))
     return error(404, "ルームが見つかりませんでした。");
-  const hostName = await findUserNameById(env.DB, room.hostId);
+  const hostName = await findUserDisplayNameById(env.DB, room.hostId);
   return json({
     roomId: room.roomId,
     inviteCode: room.inviteCode,
@@ -402,6 +444,12 @@ async function handleRoomWebSocket(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  await ensureUser(env.DB, {
+    id: session.sub,
+    email: session.email,
+    name: session.name,
+  });
+  await indexRoomDisplayNames(env, roomId);
   await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);
@@ -454,6 +502,66 @@ export function createApiWorker(
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return error(401, "ログインが必要です。");
+      }
+
+      if (pathname === "/api/me/display-name") {
+        if (method === "GET")
+          return json({
+            name: await findUserDisplayNameById(env.DB, session.sub),
+          });
+        if (method === "PUT") {
+          const input = SetDisplayNameInputSchema.safeParse(
+            await readJsonBody(request),
+          );
+          if (!input.success)
+            return error(400, "呼び名は1〜40文字で入力してください。");
+          if (input.data.expectedPrincipal !== session.sub)
+            return error(
+              403,
+              "アカウントが変わりました。再読み込みしてから設定してください。",
+            );
+          await ensureUser(env.DB, {
+            id: session.sub,
+            email: session.email,
+            name: session.name,
+          });
+          const profile = await env.DB.prepare(
+            "UPDATE users SET display_name=?, display_name_revision=display_name_revision+1 WHERE id=? RETURNING display_name_revision AS revision",
+          )
+            .bind(input.data.name, session.sub)
+            .first<{ revision: number }>();
+          if (!profile)
+            return error(503, "保存できませんでした。もう一度お試しください。");
+          // D1はディレクトリ。在籍・改名可否は各RoomDOが判定し、本人の現在名だけを更新する。
+          const rooms = await env.DB.prepare(
+            "SELECT rooms.id FROM rooms JOIN user_display_name_rooms ON rooms.id=room_id WHERE user_id=? AND creation_visibility IN ('published','legacy')",
+          )
+            .bind(session.sub)
+            .all<{ id: string }>();
+          let failed = false;
+          for (let start = 0; start < rooms.results.length; start += 8) {
+            const results = await Promise.allSettled(
+              rooms.results
+                .slice(start, start + 8)
+                .map((room) =>
+                  roomStub(env, room.id).syncAccountDisplayName(
+                    session.sub,
+                    input.data.name,
+                    profile.revision,
+                  ),
+                ),
+            );
+            if (results.some((result) => result.status === "rejected"))
+              failed = true;
+          }
+          if (failed)
+            return error(
+              503,
+              "呼び名は保存しましたが、一部のルームに反映できませんでした。もう一度保存してください。",
+            );
+          return json({ name: input.data.name });
+        }
+        return error(405, "この操作は利用できません。");
       }
 
       if (method === "POST" && pathname === "/api/auth/consume-ticket") {
@@ -704,6 +812,7 @@ export function createApiWorker(
     ): Promise<void> {
       await deleteExpiredFeedback(env.DB);
       await cleanupRoomCreations(env);
+      await backfillDisplayNameDirectory(env);
     },
   } satisfies ExportedHandler<ApiWorkerEnv>;
 }

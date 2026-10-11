@@ -21,17 +21,32 @@ const B = {
   name: "Hana Sato",
 };
 const sockets: RoomSocket[] = [];
+const users = new WeakMap<RoomSocket, typeof A>();
+async function setName(user: typeof A, name: string) {
+  return SELF.fetch("https://api.test/api/me/display-name", {
+    method: "PUT",
+    headers: {
+      Cookie: await sessionCookieFor(user),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, expectedPrincipal: user.sub }),
+  });
+}
 afterEach(() => {
   for (const socket of sockets.splice(0)) socket.close();
 });
 async function setup() {
+  await setName(A, A.name);
+  await setName(B, B.name);
   const { roomId, inviteCode } = await createRoomAs(A);
   await joinRoomAs(B, inviteCode);
   const a = await connectRoomAs(A, roomId);
   sockets.push(a);
+  users.set(a, A);
   await a.next();
   const b = await connectRoomAs(B, roomId);
   sockets.push(b);
+  users.set(b, B);
   await b.next();
   return {
     roomId,
@@ -41,12 +56,16 @@ async function setup() {
     stub: env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)),
   };
 }
-function rename(socket: RoomSocket, name: string, extra = {}) {
+function oldRename(socket: RoomSocket, name: string, extra = {}) {
   const operationId = crypto.randomUUID();
   socket.ws.send(
     JSON.stringify({ type: "member:rename", name, operationId, ...extra }),
   );
   return operationId;
+}
+async function rename(socket: RoomSocket, name: string) {
+  const response = await setName(users.get(socket) ?? A, name);
+  expect(response.status).toBe(200);
 }
 async function memberNames(roomId: string) {
   return runInRoomDO(roomId, (_room, state) =>
@@ -88,7 +107,7 @@ describe("ルーム内の呼び名", () => {
         ),
       ),
     }));
-    rename(a, "現在の呼び名");
+    await rename(a, "現在の呼び名");
     expect(await a.next()).toMatchObject({ type: "member:renamed" });
     await b.next();
     const after = await runInRoomDO(roomId, (_room, state) => ({
@@ -124,7 +143,7 @@ describe("ルーム内の呼び名", () => {
   it("ルームの削除と期限切れで呼び名の上書きも削除する", async () => {
     for (const expiry of [false, true]) {
       const { roomId, a, stub } = await setup();
-      rename(a, "期限付き");
+      await rename(a, "期限付き");
       expect(await a.next()).toMatchObject({ type: "member:renamed" });
       if (expiry)
         await runInRoomDO(roomId, async (room, state) => {
@@ -154,7 +173,7 @@ describe("ルーム内の呼び名", () => {
       ["　 ", {}],
       ["あ".repeat(41), {}],
     ] as const) {
-      rename(a, name, extra);
+      oldRename(a, name, extra);
       expect(await a.next()).toMatchObject({
         type: "error",
         code: "invalid-message",
@@ -170,7 +189,7 @@ describe("ルーム内の呼び名", () => {
         "UPDATE room_state SET outcome_published=1 WHERE id=1",
       ),
     );
-    const operationId = rename(a, "変更禁止");
+    const operationId = oldRename(a, "変更禁止");
     expect(await a.next()).toMatchObject({
       type: "error",
       code: "forbidden",
@@ -211,18 +230,18 @@ describe("ルーム内の呼び名", () => {
       ).status,
     ).toBe(401);
   });
-  it("本人の変更を全端末へ返し、再接続・認証名による再参加・退出後の再参加でも保持し別室に持ち越さない", async () => {
+  it("本人の変更を全端末へ返し、再接続・認証名による再参加・退出後の再参加でも保持して別室にも引き継ぐ", async () => {
     const { roomId, inviteCode, a, b, stub } = await setup();
     const a2 = await connectRoomAs(A, roomId);
     sockets.push(a2);
     await a2.next();
     const before = await memberNames(roomId);
-    const operationId = rename(a, "  はな  ");
+    await rename(a, "  はな  ");
     for (const socket of [a, a2, b])
       expect(await socket.next()).toMatchObject({
         type: "member:renamed",
         member: { userId: A.sub, name: "はな", color: before[0].color },
-        operationId,
+        operationId: expect.any(String),
       });
     await joinRoomAs({ ...A, name: "新しいGoogle名" }, inviteCode);
     expect((await memberNames(roomId))[0].name).toBe("はな");
@@ -245,7 +264,8 @@ describe("ルーム内の呼び名", () => {
     const b2 = await connectRoomAs(B, roomId);
     sockets.push(b2);
     await b2.next();
-    rename(b2, "はな");
+    users.set(b2, B);
+    await rename(b2, "はな");
     for (const socket of [a, a2, reconnect, b2])
       expect(await socket.next()).toMatchObject({
         type: "member:renamed",
@@ -261,7 +281,7 @@ describe("ルーム内の呼び名", () => {
       color: before[1].color,
     });
     const other = await createRoomAs(B);
-    expect((await memberNames(other.roomId))[0].name).toBe(B.name);
+    expect((await memberNames(other.roomId))[0].name).toBe("はな");
     expect(
       (
         await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {

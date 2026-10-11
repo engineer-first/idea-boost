@@ -4,6 +4,7 @@
 // （未適用IDのみ適用・原子性・fail-closed）は ./apply.spec.ts を参照。
 import { describe, expect, it } from "vitest";
 import { NOTE_DEFAULT_FONT_SIZE } from "../../contracts/board";
+import { defaultDisplayName } from "../../contracts/display-name";
 import { findNote } from "../room/notes";
 import { runInRoomDO } from "../test-helpers";
 import {
@@ -27,6 +28,7 @@ const ALL_TABLES = [
   "group_history_versions",
   "groups",
   "legacy_note_drag_leases",
+  "member_account_name_revisions",
   "member_color_assignments",
   "member_display_names",
   "members",
@@ -466,7 +468,9 @@ describe("ROOM_DO_MIGRATIONS", () => {
       const rows = state.storage.sql
         .exec("SELECT user_id, name, color FROM members")
         .toArray();
-      expect(rows).toEqual([{ user_id: USER_A, name: "", color: "yellow" }]);
+      expect(rows).toEqual([
+        { user_id: USER_A, name: defaultDisplayName(USER_A), color: "yellow" },
+      ]);
       expect(
         state.storage.sql
           .exec("SELECT user_id, color FROM member_color_assignments")

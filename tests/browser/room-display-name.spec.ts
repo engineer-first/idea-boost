@@ -29,7 +29,7 @@ test.each([
         expect(await trigger.isEnabled()).toBe(true),
       );
       await trigger.press("Enter");
-      const dialog = page.getByRole("dialog", { name: "このルームでの呼び名" });
+      const dialog = page.getByRole("dialog", { name: "呼び名を変更" });
       await dialog.waitFor();
       // 閉じるアニメーション中の一覧も Escape を受け取るため、解除後に編集する。
       await page.getByTestId("room-members-overflow-dialog").waitFor({
@@ -82,7 +82,7 @@ test.each([
     await trigger.waitFor();
     await vi.waitFor(async () => expect(await trigger.isEnabled()).toBe(true));
     await trigger.press("Enter");
-    const dialog = page.getByRole("dialog", { name: "このルームでの呼び名" });
+    const dialog = page.getByRole("dialog", { name: "呼び名を変更" });
     await dialog.waitFor();
     const box = await dialog.boundingBox();
     expect(box?.x).toBeGreaterThanOrEqual(0);

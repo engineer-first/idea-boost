@@ -339,6 +339,7 @@ export class CompletedRoomStorage {
           "used_note_drag_ids",
           "member_color_assignments",
           "member_display_names",
+          "member_account_name_revisions",
           "pending_phase_transition",
           "sharing_state",
           "phase_rollback_checkpoints",

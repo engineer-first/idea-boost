@@ -1,3 +1,8 @@
+vi.mock("@/features/auth/logic/display-name-actions", () => ({
+  loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
+  saveDisplayName: vi.fn(),
+}));
+
 // JoinRoomSection（ホーム「ルームに参加」セクション）の単体テスト。
 // 招待コードを入力 → lookup でホスト名解決 → 確認 Dialog → joinRoom → toast / 遷移。
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";

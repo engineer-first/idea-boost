@@ -15,6 +15,7 @@ import {
   NOTE_SPAWN_X_MIN,
   NOTE_SPAWN_Y_MIN,
 } from "../contracts/board";
+import { defaultDisplayName } from "../contracts/display-name";
 import { buildLobbyPhase, buildPhaseStep } from "../contracts/phase.fixture";
 import {
   NOTE_COLOR_PALETTE,
@@ -198,7 +199,7 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
     expect(snapshot.members).toEqual([
       {
         userId: OWNER.sub,
-        name: OWNER.name,
+        name: defaultDisplayName(OWNER.sub),
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     ]);
@@ -239,12 +240,12 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
     expect(snapshot.members).toEqual([
       {
         userId: OWNER.sub,
-        name: OWNER.name,
+        name: defaultDisplayName(OWNER.sub),
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
       {
         userId: MEMBER.sub,
-        name: MEMBER.name,
+        name: defaultDisplayName(MEMBER.sub),
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     ]);
@@ -375,7 +376,7 @@ describe("member_joined（Realtime 反映）", () => {
       type: "member_joined",
       member: {
         userId: newcomer.sub,
-        name: newcomer.name,
+        name: defaultDisplayName(newcomer.sub),
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     });
@@ -383,7 +384,7 @@ describe("member_joined（Realtime 反映）", () => {
       type: "member_joined",
       member: {
         userId: newcomer.sub,
-        name: newcomer.name,
+        name: defaultDisplayName(newcomer.sub),
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     });
@@ -412,17 +413,17 @@ describe("member_joined（Realtime 反映）", () => {
     expect(newcomerSnapshot.members).toEqual([
       {
         userId: OWNER.sub,
-        name: OWNER.name,
+        name: defaultDisplayName(OWNER.sub),
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
       {
         userId: MEMBER.sub,
-        name: MEMBER.name,
+        name: defaultDisplayName(MEMBER.sub),
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
       {
         userId: newcomer.sub,
-        name: newcomer.name,
+        name: defaultDisplayName(newcomer.sub),
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     ]);
@@ -432,25 +433,20 @@ describe("member_joined（Realtime 反映）", () => {
     member.close();
   });
 
-  it("既存メンバーが表示名を変更して再 join すると他クライアントへ member_joined が届く", async () => {
+  it("Googleプロフィール名だけが変わっても再参加で公開名を変えず、通知へ混入しない", async () => {
     const { roomId, owner, member } = await setupRoom();
-    const renamedMember = { ...MEMBER, name: "Renamed Member" };
-
+    const renamedMember = { ...MEMBER, name: "Renamed Google Name" };
     await joinRoomAs(renamedMember, await getInviteCode(roomId, OWNER));
     const received = await Promise.race([
       owner.next(),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
     ]);
-
-    expect(received).toEqual({
-      type: "member_joined",
-      member: {
-        userId: MEMBER.sub,
-        name: renamedMember.name,
-        color: expect.stringMatching(NOTE_COLOR_PATTERN),
-      },
-    });
-
+    expect(received).toBeNull();
+    const reconnect = await connectRoomAs(renamedMember, roomId);
+    expect(JSON.stringify(await reconnect.next())).not.toContain(
+      renamedMember.name,
+    );
+    reconnect.close();
     owner.close();
     member.close();
   });
@@ -470,7 +466,7 @@ describe("member_joined（Realtime 反映）", () => {
 
     expect(received.member).toEqual({
       userId: newcomer.sub,
-      name: newcomer.name,
+      name: defaultDisplayName(newcomer.sub),
       color: expect.stringMatching(NOTE_COLOR_PATTERN),
     });
 
@@ -552,7 +548,7 @@ describe("member_left（退出の Realtime 反映）", () => {
     const reJoined = await expectType(owner, "member_joined");
     expect(reJoined.member).toEqual({
       userId: MEMBER.sub,
-      name: MEMBER.name,
+      name: defaultDisplayName(MEMBER.sub),
       color: colorBeforeLeave,
     });
     owner.close();
@@ -2942,7 +2938,7 @@ describe("cursor presence（名前付きの一時同期）", () => {
     );
     expect(received.cursor).toEqual({
       userId: OWNER.sub,
-      name: OWNER.name,
+      name: defaultDisplayName(OWNER.sub),
       color: expect.stringMatching(NOTE_COLOR_PATTERN),
       x: 320,
       y: 240,

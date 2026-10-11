@@ -84,6 +84,7 @@ function ActiveHostTransferPreview({
         initialPhase={phase}
         initialMembers={ACTIVE_PREVIEW_MEMBERS}
         webSocketFactory={server.factory}
+        saveDisplayNameAction={server.saveDisplayName}
       />
       <Toaster />
     </div>

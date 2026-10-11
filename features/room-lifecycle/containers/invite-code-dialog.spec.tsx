@@ -1,3 +1,8 @@
+vi.mock("@/features/auth/logic/display-name-actions", () => ({
+  loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
+  saveDisplayName: vi.fn(),
+}));
+
 // InviteCodeDialog（コンテナ）の配線テスト。表示は
 // templates/invite-code-dialog-view に分離済みで、ここでは joinRoom・
 // 遷移・toast・キャンセル時の /home 復帰の配線を検証する。
