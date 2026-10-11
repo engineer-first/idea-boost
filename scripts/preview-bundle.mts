@@ -40,12 +40,7 @@ function migrationHash(root: string, artifact: boolean): string {
     if (!parent.isDirectory())
       throw new Error("Previewのmigrationディレクトリが不正です。");
     return readdirSync(path).flatMap((entry) => {
-      if (
-        !artifact &&
-        directory === "workers/room-do-migrations" &&
-        entry === "index.ts"
-      )
-        return [];
+      if (!artifact && !entry.endsWith(".sql")) return [];
       const file = resolve(path, entry);
       const stat = lstatSync(file);
       if (stat.isSymbolicLink())

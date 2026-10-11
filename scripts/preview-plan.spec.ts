@@ -87,3 +87,13 @@ it("failed jobsだけの再実行が成功したら同じrunの成功buildのart
   expect(result.output).toContain("ci_attempt=2");
   expect(result.output).toContain("artifact_id=101");
 });
+
+it("artifact IDで取得しても公開runnerが読むcandidate直下へ展開する", () => {
+  const workflow = readFileSync(".github/workflows/preview.yml", "utf8");
+  const download = workflow
+    .split("- uses: actions/download-artifact@v4")[1]
+    ?.split("# PRのApp/API")[0];
+  // v4はname指定なしではartifact名のsubdirectoryへ展開する。
+  expect(download).toContain("artifact-ids:");
+  expect(download).toContain("merge-multiple: true");
+});
