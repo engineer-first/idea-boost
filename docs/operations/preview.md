@@ -1,3 +1,5 @@
+<!-- 読者: Previewを使い、設定を保守する開発者。説明なしで使ってよい語: 一般語、PR、Preview、Cloudflare、GitHub、Google、App、API、Worker、D1、RoomDO、CI、build、artifact、SQL、migration、commit、head、SHA、run、attempt、Secret、Token、Cookie、JWT、Access、WebSocket、URL、develop、release、namespace、probe、Service Binding、Allow policy、Service Auth、variables、runner、fallback、marker、HTTP、JSON、User-Agent、Origin、IdP、Account、Account ID、UUID、hostname、wildcard、Static Assets、JWT、HttpOnly、App Launcher、WARP、Team、Client Secret、API commit、Wrangler、OpenNext、max、queue、Chromium、BrowserContext、RS256。 -->
+
 # PRのWorkers Previewを使う・設定する
 
 [Issue #362](https://github.com/engineer-first/idea-boost/issues/362)の実装と初期設定の手順です。**コードの追加と、Cloudflareの実設定・利用確認は別です。** 公開済みかは実行結果で確認し、別メンバーのGoogleログインと共同操作まで確認してIssueの完了を判断します。担当者・権限・契約の整備は[#360](https://github.com/engineer-first/idea-boost/issues/360)で行います。
@@ -22,7 +24,7 @@
 
 適用済みSQLを同じファイル名・IDのまま書き換えても、通常のmigration適用では再実行されません。Previewは上記の作り直しで、新しいSQLを最初から適用します。本番のmigrationや、マージ済みSQLを変更しない開発規約には影響しません。
 
-公開処理では、GitHubに保存された対象コミットからD1とRoomDOのSQL一覧と内容を取得し、直前の公開版と比較します。SQLが同じならデータを残し、変わったら作り直します。直前の公開版の照合情報を確認できない場合は、削除せず停止します。旧方式で公開した版についても、そのコミットのSQLを取得して新しい版と比較するため、移行だけを理由にリセットしません。公開処理が途中で失敗し、片方の保存先だけが残った場合は、両方を作り直します。
+公開処理では、GitHubに保存された対象コミットからD1とRoomDOのSQL一覧と内容を取得し、build済みartifact内の実SQLがその版と一致することを確かめてから、直前の公開版と比較します。SQLが同じならデータを残し、変わったら作り直します。直前の公開版の照合情報を確認できない場合は、削除せず停止します。旧方式で公開した版についても、そのコミットのSQLを取得して新しい版と比較するため、移行だけを理由にリセットしません。公開処理が途中で失敗し、片方の保存先だけが残った場合は、両方を作り直します。
 
 削除の直前にはPRが開いていること、コミットとCIの成功状態が変わっていないことを再確認します。Actionsには `schema reuse` または `schema reset` と、対象PRの作成・削除の結果を記録します。Account ID・DBのUUID・認証情報・生の応答は記録しません。判断と復旧上の注意は[ADR 0013](../adr/0013-pr-preview-migration-reset.md)を参照してください。
 
@@ -43,6 +45,67 @@ PR #621もApp/API 9d3d1eb0で公開し、[PR #587との画像付き比較記録]
 5. 別のGoogleアカウントでの共同操作、別PRとの分離、閉じる・開き直す操作を確認し、日時・版・結果を台帳へ残します。
 
 設定・検証の正本は[後継ADR](../adr/0012-pr-preview-full-stack.md)、[設定台帳](../../out/preview-setup-log.md)です。以下の初版の記録は、共通API方式の設定履歴として残します。
+
+## 現在の公開・更新・終了手順
+
+PRのPreviewは、レビュー担当者がローカル起動せず、そのPRの変更を確認するための環境です。
+
+1. PRコメントの「このPRの最新公開版を開く」を開き、許可されたGoogleアカウント本人としてログインします。
+2. 確認したいステップを選ぶと、そのステップのサンプル入り新ルームを作ります。作成者がホストです。
+3. 「招待」のURLをメンバーへ渡します。メンバーもGoogle本人として参加し、空のマイ付箋へ追加・入力・共有します。
+4. 新しいcommitをpushすると、CI成功と公開後の接続確認を経て、同じPR用URLが更新されます。同じSQLならデータを残します。
+5. PRを閉じるかマージすると、そのPreview・RoomDO・専用D1を削除します。開き直したPRでは新しい保存先を作ります。
+
+同じcommitで閉じて開き直しても、GitHubのreopen履歴を使って以前の公開と区別します。削除イベントの処理前に開き直された場合も、旧データと旧セッション鍵を引き継ぎません。遅れて届いた更新イベントは現在のPRとCIを参照し、成功済みの案内を更新中へ戻しません。同じCIの成功通知が複数届いた場合も、確認済みの公開を繰り返しません。
+
+### CIのコードとartifact
+
+buildはPRのheadを取得します。developとの仮のmerge結果をPRのheadとして表示しません。Workerの内容、D1とRoomDOのSQL、生成したRoomDO用SQLが対象commitと一致することを、秘密を持たないCI内で検査します。公開runnerでも、artifactのWorkerとSQLを検査してからリソースを操作します。
+
+forkのPRは自動公開しません。Secretを使う公開runnerでは、信頼済みdefault branchのoperatorだけを実行し、PRのプログラム・build命令・構成は実行しません。
+
+CIの失敗したジョブだけを再実行した場合、成功済みのbuildは再実行されないことがあります。その場合は、同じCI run・同じheadで生成された、現在のattempt以前の直近artifactを使います。期限切れ・別head・別run・未来のattemptは使いません。artifactの保存期限は3日です。取得できなければCIの全ジョブを再実行してください。
+
+公開と削除は同じキューで直列化します。リソース操作前と、通常URL・固定URLの接続確認後に、PRの状態・head・reopen履歴・CIのrunとattemptを再確認します。再実行中のCIを以前の成功として案内しません。CIや接続確認が失敗した場合はリンクを表示せず、同じBotコメントに状態とログへのリンクを残します。
+
+### 今使うGitHub設定
+
+設定場所はリポジトリの **Settings → Secrets and variables → Actions** です。値を公開PR・図・ログへ転載しません。
+
+| 設定名                                                      | 種別      | 用途                                                       |
+| ----------------------------------------------------------- | --------- | ---------------------------------------------------------- |
+| `PREVIEW_ENABLED`                                           | Variable  | `true`で自動公開を有効にする                               |
+| `PREVIEW_D1_ID`                                             | Variable  | 旧共通Preview D1の保護。新しいPRの接続先には使わない       |
+| `PREVIEW_ACCESS_ISSUER` / `PREVIEW_ACCESS_AUD`              | Variables | Google連携したPreview用Access applicationを検証する        |
+| `PREVIEW_CLOUDFLARE_API_TOKEN`                              | Secret    | PreviewのWorkerとD1を操作する。Workerへ渡さない            |
+| `CLOUDFLARE_ACCOUNT_ID`                                     | Secret    | 既存の共同管理先Accountを選ぶ                              |
+| `PREVIEW_SESSION_SECRET`                                    | Secret    | PRとD1ごとのセッション鍵を作る。元の鍵はWorkerへ渡さない   |
+| `PREVIEW_PROBE_TOKEN`                                       | Secret    | PRごとのhealth用鍵を作る                                   |
+| `PREVIEW_ALLOWED_EMAILS`                                    | Secret    | 本人ログインを許すメール一覧。AccessのAllow policyと揃える |
+| `PREVIEW_ACCESS_CLIENT_ID` / `PREVIEW_ACCESS_CLIENT_SECRET` | Secrets   | CIのhealthだけに使うAccess Service Token                   |
+
+旧共通APIは既存ルームのために保持し、専用workflowでdevelopの成功版を更新します。新方式のPRからは接続しません。旧共通D1・本番D1・他PRは、対象PRのリセットや終了処理で削除しません。
+
+### 保持・費用・復旧
+
+保存先は開いているPRごとに1つずつです。commitの数だけD1を増やしません。固定URLの公開履歴も同じPRのD1とRoomDOを共有します。SQL変更、PRの終了・開き直しでデータが消えます。長期の保存場所として使いません。
+
+契約・費用・使用量の確認と管理者交代は[#360](https://github.com/engineer-first/idea-boost/issues/360)の担当範囲です。[Workers料金](https://developers.cloudflare.com/workers/platform/pricing/)、[D1料金](https://developers.cloudflare.com/d1/platform/pricing/)、[Zero Trustプラン](https://www.cloudflare.com/zero-trust/plans/)と管理先の契約を照合します。今回、既存の契約は変更していません。
+
+更新に失敗したらPRコメントからActionsを開き、失敗ステップと日時・対象PR・結果を確認します。設定を修正し、CIまたは失敗したPreview workflowを再実行します。artifact期限切れではCI全体を再実行します。削除の途中で片方の保存先だけが残った場合は、次の公開で両方を作り直します。消したデータは戻せません。本番や他PRへ接続して復旧しません。
+
+healthのHTTP 5xx・通信失敗は、1秒・2秒の間隔で最大3回確認します。HTTP 4xx、不正な応答、版の不一致は成功にしません。Token、Cookie、Location、生のCLI応答はログへ出しません。接続確認に失敗しても実画面が後で回復する場合がありますが、原因を確認せず成功へ書き換えません。
+
+CI用Tokenの期限は2027年3月31日です。期限が切れると新しい公開・更新・削除が失敗します。公開済みWorkerが期限当日に自動停止する設定ではありません。更新する場所と画像は[PR #587の手順](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105281887)を参照してください。
+
+## これまでの実環境確認
+
+[PR #627の画像と操作ログ](https://github.com/engineer-first/idea-boost/pull/627#issuecomment-6109478541)で、同じSQLの再公開では付箋が残り、SQL編集時には旧ルームが404、新しいサンプルが作れることを確認しました。[検証用PR #626の終了記録](https://github.com/engineer-first/idea-boost/pull/626#issuecomment-6109490122)でPreviewと専用D1の削除も確認しました。別PRの保存データは残りました。
+
+PR #587と#621では、[PRごとの機能・保存データの違い](https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6109281672)と、[戻るボタンの動作](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6109282058)を確認しました。本人のGoogleログインは成功しています。同じGoogleアカウントの2タブの同期は、別Googleユーザー2名の確認として扱いません。別本人の公開Previewでの共同操作は、Issue #362で残る確認として追跡します。
+
+<details>
+<summary>初版の共通API方式の設定・操作履歴（現在の操作手順ではありません）</summary>
 
 ## 初版をレビューする
 
@@ -148,6 +211,8 @@ HTTP 5xxまたは通信失敗の場合は、1秒、2秒の間隔を空けて、�
 2026年10月11日の[PR #622の公開処理](https://github.com/engineer-first/idea-boost/actions/runs/38126758120)では、初回はアップロード後の通常URLへの接続確認がHTTP 500で失敗しました。同じコードで公開処理を再実行すると、通常URL・固定版URLの両方が成功しました。最初の500の原因は特定していません。この事例を受けて、自動の再試行を追加しました。
 
 2026-10-11の実設定と手動操作は[台帳](../../out/preview-setup-log.md#2026-10-11マージ後の初回公開と実操作)、Tokenの2027年3月31日までの期限と更新画像は[PRコメント](https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105281887)を参照してください。
+
+</details>
 
 ## releaseとの関係
 

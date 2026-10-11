@@ -31,6 +31,7 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
       ci_run_id: ${{ steps.plan.outputs.ci_run_id }}
       ci_attempt: ${{ steps.plan.outputs.ci_attempt }}
+      artifact_id: ${{ steps.plan.outputs.artifact_id }}
     steps:
       # pull_request_targetでは信頼済みdefault branch以外のコードを一切実行しない。
       - uses: actions/checkout@v4
@@ -68,7 +69,7 @@ jobs:
         run: npm ci
       - uses: actions/download-artifact@v4
         with:
-          name: preview-app-${{ needs.plan.outputs.sha }}-attempt-${{ needs.plan.outputs.ci_attempt }}
+          artifact-ids: ${{ needs.plan.outputs.artifact_id }}
           run-id: ${{ needs.plan.outputs.ci_run_id }}
           github-token: ${{ github.token }}
           path: candidate

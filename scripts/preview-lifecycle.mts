@@ -2,6 +2,7 @@ export type PreviewSource = {
   open: boolean;
   sameRepository: boolean;
   sha: string;
+  generation: number;
 };
 export type PreviewReport = {
   state: "pending" | "ready" | "failed" | "closed";
@@ -11,9 +12,13 @@ export type PreviewReport = {
   deploymentUrl?: string;
   apiCommit?: string;
   logUrl?: string;
+  ciRunId?: number;
+  ciAttempt?: number;
+  generation?: number;
 };
 export type PreviewRuntime = {
   current: (number: number) => Promise<PreviewSource>;
+  canPublish: (sha: string) => Promise<boolean>;
   deploy: (
     number: number,
     sha: string,
@@ -51,11 +56,13 @@ export async function reconcilePreview(
     await runtime.comment(input.number, { ...base, state: input.state });
     return;
   }
+  if (!(await runtime.canPublish(input.sha))) return;
   await runtime.comment(input.number, { ...base, state: "pending" });
   try {
     const deployment = await runtime.deploy(input.number, input.sha);
     if (!deployment.deploymentUrl)
       throw new Error("固定版URLを確認できません。");
+    if (!(await runtime.canPublish(input.sha))) return;
     const health = await runtime.probe(deployment.url, input.number);
     const fixedHealth = await runtime.probe(
       deployment.deploymentUrl,
@@ -73,17 +80,30 @@ export async function reconcilePreview(
       });
       return;
     }
-    if (!latest.sameRepository || latest.sha !== input.sha) return;
+    if (
+      !latest.sameRepository ||
+      latest.sha !== input.sha ||
+      latest.generation !== current.generation ||
+      !(await runtime.canPublish(input.sha))
+    )
+      return;
     await runtime.comment(input.number, {
       ...base,
       ...deployment,
       state: "ready",
       apiCommit: health.apiCommit,
+      generation: current.generation,
       updatedAt: runtime.now(),
     });
   } catch {
     const latest = await runtime.current(input.number);
-    if (latest.open && latest.sha === input.sha)
+    if (
+      latest.open &&
+      latest.sameRepository &&
+      latest.sha === input.sha &&
+      latest.generation === current.generation &&
+      (await runtime.canPublish(input.sha))
+    )
       await runtime.comment(input.number, {
         ...base,
         state: "failed",
@@ -104,6 +124,14 @@ export function previewComment(report: PreviewReport): string {
   }[report.state];
   return [
     "<!-- idea-boost-workers-preview -->",
+    ...(report.state === "ready" &&
+    report.ciRunId &&
+    report.ciAttempt &&
+    report.generation !== undefined
+      ? [
+          `<!-- preview-publication:${JSON.stringify({ sha: report.appCommit, runId: report.ciRunId, attempt: report.ciAttempt, generation: report.generation })} -->`,
+        ]
+      : []),
     "### PR Preview",
     `状態：${status}`,
     "",

@@ -20,6 +20,7 @@ function setup() {
 const success = (result: unknown) => Response.json({ success: true, result });
 const schema = () => ({
   hash: "a".repeat(64),
+  generation: 0,
   legacyHash: vi.fn(async () => "a".repeat(64)),
   stillCurrent: vi.fn(async () => true),
 });
@@ -124,6 +125,7 @@ it("migrationの内容が変わったら同じPRのPreviewとD1を作り直す",
     .mockResolvedValueOnce(success(recreated));
   const prepared = await resources.prepare(587, {
     hash: "b".repeat(64),
+    generation: 0,
     legacyHash: vi.fn(),
     stillCurrent: async () => true,
   });
@@ -245,4 +247,25 @@ it("初回公開は保存先を新規作成し、削除しない", async () => {
   expect(
     fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE"),
   ).toHaveLength(0);
+});
+
+it("削除イベントより先にPRを開き直しても同じSQLの古い保存先を作り直す", async () => {
+  const { fetcher, resources } = setup();
+  const recreated = {
+    ...database,
+    uuid: "33333333-3333-4333-8333-333333333333",
+  };
+  fetcher
+    .mockResolvedValueOnce(success([database]))
+    .mockResolvedValueOnce(latest())
+    .mockResolvedValueOnce(success({}))
+    .mockResolvedValueOnce(success(null))
+    .mockResolvedValueOnce(success([database]))
+    .mockResolvedValueOnce(success(null))
+    .mockResolvedValueOnce(success(recreated));
+  const policy = { ...schema(), generation: 123 };
+  expect(await resources.prepare(587, policy)).toEqual(recreated);
+  expect(
+    fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE"),
+  ).toHaveLength(2);
 });

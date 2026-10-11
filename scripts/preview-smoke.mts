@@ -6,6 +6,16 @@ import { readD1Migrations } from "@cloudflare/vitest-pool-workers";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createFetchMock, Miniflare } from "miniflare";
 import { previewProbeToken, previewSessionSecret } from "./preview-secrets.mts";
+import {
+  type PreviewBrowserSmokeInput,
+  smokePreviewBrowserCollaboration,
+} from "./preview-smoke-browser.mts";
+
+export type PreviewSmokeOptions = {
+  // ローカルのテストIdPによる2本人。実Googleアカウント2名の確認とは別。
+  browser?: boolean;
+  runBrowserScenario?: (input: PreviewBrowserSmokeInput) => Promise<void>;
+};
 
 function workerFetcher(value: unknown): {
   fetch: (url: string, init?: RequestInit) => Promise<Response>;
@@ -21,7 +31,10 @@ function workerFetcher(value: unknown): {
 }
 
 // 公開するbundleを実際のworkerdで動かす。認証はテスト用IdPで、本物のGoogleログインとは別。
-export async function smokePreviewBundle(root: string): Promise<void> {
+export async function smokePreviewBundle(
+  root: string,
+  options: PreviewSmokeOptions = {},
+): Promise<void> {
   const sha = JSON.parse(
     readFileSync(resolve(root, ".preview-bundle/manifest.json"), "utf8"),
   ).sha as string;
@@ -44,14 +57,23 @@ export async function smokePreviewBundle(root: string): Promise<void> {
       ],
     })
     .persist();
-  const access = await new SignJWT({ email: "allowed@example.test" })
-    .setSubject("smoke-test-user")
-    .setProtectedHeader({ alg: "RS256", kid: "smoke-test-key" })
-    .setIssuer(issuer)
-    .setAudience("preview-smoke")
-    .setIssuedAt()
-    .setExpirationTime("1h")
-    .sign(privateKey);
+  const identities = [
+    { email: "allowed@example.test", sub: "smoke-test-owner" },
+    { email: "member@example.test", sub: "smoke-test-member" },
+  ] as const;
+  const accessTokens = await Promise.all(
+    identities.map(({ email, sub }) =>
+      new SignJWT({ email })
+        .setSubject(sub)
+        .setProtectedHeader({ alg: "RS256", kid: "smoke-test-key" })
+        .setIssuer(issuer)
+        .setAudience("preview-smoke")
+        .setIssuedAt()
+        .setExpirationTime("1h")
+        .sign(privateKey),
+    ),
+  );
+  const [access] = accessTokens;
   const workers = [12, 13].map((number) => ({
     name: `preview-pr-${number}`,
     modules: [
@@ -79,7 +101,7 @@ export async function smokePreviewBundle(root: string): Promise<void> {
       PREVIEW_ENABLED: "true",
       PREVIEW_ACCESS_ISSUER: issuer,
       PREVIEW_ACCESS_AUD: "preview-smoke",
-      PREVIEW_ALLOWED_EMAILS: "allowed@example.test",
+      PREVIEW_ALLOWED_EMAILS: identities.map(({ email }) => email).join(","),
       SESSION_SECRET: previewSessionSecret(
         master,
         number,
@@ -89,7 +111,10 @@ export async function smokePreviewBundle(root: string): Promise<void> {
       PREVIEW_API_COMMIT: sha,
     },
   }));
-  const mf = new Miniflare({ workers });
+  const mf = new Miniflare({ workers, https: options.browser === true });
+  // 一時サーバーは標準2時間で停止。通常はfinallyで検証直後に停止する。
+  const deadline = setTimeout(() => void mf.dispose(), 7_200_000);
+  deadline.unref();
   try {
     const migrations = await readD1Migrations(
       resolve(root, "workers/migrations"),
@@ -139,6 +164,12 @@ export async function smokePreviewBundle(root: string): Promise<void> {
       )?.count,
       0,
     );
+    if (options.browser) {
+      await (options.runBrowserScenario ?? smokePreviewBrowserCollaboration)({
+        origin,
+        accessTokens: [accessTokens[0], accessTokens[1]],
+      });
+    }
     console.log(
       JSON.stringify({
         test: "compiled-preview-smoke",
@@ -149,14 +180,23 @@ export async function smokePreviewBundle(root: string): Promise<void> {
           "sample room created",
           "other PR cannot access",
           "Next page rendered",
+          ...(options.browser
+            ? ["two test identities; real UI/WebSocket"]
+            : []),
         ],
-        authentication: "test IdP; not real Google",
+        authentication: "local test IdP; not two real Google accounts",
       }),
     );
   } finally {
-    await mf.dispose();
-    await mock.close();
+    clearTimeout(deadline);
+    try {
+      await mf.dispose();
+    } finally {
+      await mock.close();
+    }
   }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  await smokePreviewBundle(process.cwd());
+  await smokePreviewBundle(process.cwd(), {
+    browser: process.argv.includes("--browser"),
+  });

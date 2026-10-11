@@ -1,11 +1,15 @@
 import { z } from "zod";
 import { previewDatabaseName } from "./preview-config.mts";
-import { previewSchemaMessagePrefix } from "./preview-migrations.mts";
+import {
+  previewSchemaMessagePrefix,
+  readPreviewSchemaMessage,
+} from "./preview-migrations.mts";
 
 const databaseSchema = z.object({ uuid: z.string().uuid(), name: z.string() });
 export type PreviewDatabase = z.infer<typeof databaseSchema>;
 export type PreviewSchemaPolicy = {
   hash: string;
+  generation: number;
   legacyHash: (commit: string) => Promise<string>;
   stillCurrent: () => Promise<boolean>;
 };
@@ -118,6 +122,8 @@ export function createPreviewResources(options: {
         true,
       );
       let previousHash: string | undefined;
+      let previousGeneration = 0;
+      z.number().int().nonnegative().safe().parse(schema.generation);
       if (latest !== null) {
         const annotations = z
           .object({ annotations: z.record(z.string(), z.unknown()) })
@@ -127,10 +133,9 @@ export function createPreviewResources(options: {
           typeof message === "string" &&
           message.startsWith(previewSchemaMessagePrefix)
         ) {
-          previousHash = z
-            .string()
-            .regex(/^[a-f0-9]{64}$/)
-            .parse(message.slice(previewSchemaMessagePrefix.length));
+          const previous = readPreviewSchemaMessage(message);
+          previousHash = previous.hash;
+          previousGeneration = previous.generation;
         } else {
           const commit = z
             .string()
@@ -144,7 +149,10 @@ export function createPreviewResources(options: {
       }
       const reset =
         (latest !== null || existing !== undefined) &&
-        (!existing || !previousHash || previousHash !== schema.hash);
+        (!existing ||
+          !previousHash ||
+          previousHash !== schema.hash ||
+          previousGeneration !== schema.generation);
       if (!(await schema.stillCurrent()))
         throw new Error("PRの状態または版が変わったため公開を中止しました。");
       if (reset) {
