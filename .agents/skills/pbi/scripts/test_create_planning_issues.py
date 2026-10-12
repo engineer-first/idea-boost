@@ -47,13 +47,32 @@ class PlanningIssueSpecTests(unittest.TestCase):
         self.assertEqual(spec["pbi"]["id"], "PBI-CANVAS-04")
         run.assert_not_called()
 
-    def test_auto_numbering_requires_a_known_genre_before_any_creation(self):
-        for genre in [None, "", "OTHER"]:
+    def test_auto_numbering_requires_a_valid_genre_before_any_creation(self):
+        for genre in [None, "", "guide", "NEW GENRE", "01"]:
             with self.subTest(genre=genre):
                 spec = self.spec()
                 spec["pbi"]["genre"] = genre
                 with self.assertRaisesRegex(ValueError, "genre"):
                     planning.validate_spec(spec)
+
+    def test_additional_genre_can_be_created_and_numbered(self):
+        spec = self.spec()
+        spec["pbi"]["genre"] = "ACCESS"
+        planning.validate_spec(spec)
+        with patch.object(planning, "create_issue", return_value={
+            "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",
+        }), patch.object(planning, "run") as run:
+            planning.create_pbi_issue(spec)
+        self.assertEqual(spec["pbi"]["id"], "PBI-ACCESS-340")
+        self.assertEqual(run.call_args.args[0][-1], "PBI-ACCESS-340 タイトル")
+
+    def test_explicit_additional_genre_code_is_preserved(self):
+        spec = self.spec()
+        spec["pbi"]["id"] = "PBI-ACCESS-07"
+        del spec["pbi"]["genre"]
+        planning.validate_spec(spec)
+        planning.assign_pbi_id(spec, 340)
+        self.assertEqual(spec["pbi"]["id"], "PBI-ACCESS-07")
 
     def test_explicit_code_and_genre_cannot_disagree(self):
         spec = self.spec()

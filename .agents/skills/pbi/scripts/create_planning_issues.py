@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PBI_GENRES = ("GUIDE", "CANVAS", "FIELD", "GROWTH", "AI", "OPS")
+PBI_GENRE_PATTERN = r"[A-Z][A-Z0-9]*"
 
 
 def run(cmd, *, input_text=None):
@@ -107,16 +107,18 @@ def validate_spec(spec):
             raise ValueError(f"pbi.{key} is required")
         require_string(pbi[key], f"pbi.{key}")
     genre = pbi.get("genre")
-    if genre is not None and genre not in PBI_GENRES:
-        raise ValueError("pbi.genre must be one of " + ", ".join(PBI_GENRES))
+    if genre is not None and (
+        not isinstance(genre, str) or not re.fullmatch(PBI_GENRE_PATTERN, genre)
+    ):
+        raise ValueError("pbi.genre must start with an uppercase letter and use uppercase letters/digits")
     if pbi.get("id") is not None:
         pbi_id = require_string(pbi["id"], "pbi.id")
-        match = re.fullmatch(r"PBI-(" + "|".join(PBI_GENRES) + r")-\d{2,}", pbi_id)
+        match = re.fullmatch(r"PBI-(" + PBI_GENRE_PATTERN + r")-\d{2,}", pbi_id)
         if not match and not re.fullmatch(r"PBI-\d{2,}", pbi_id):
             raise ValueError("pbi.id must use PBI-GENRE-XX format (legacy PBI-XX is preserved)")
         if match and genre is not None and match[1] != genre:
             raise ValueError("pbi.genre must match the genre in pbi.id")
-    elif genre not in PBI_GENRES:
+    elif genre is None:
         raise ValueError("pbi.genre is required when pbi.id is omitted")
     require_list(pbi.get("acceptance"), "pbi.acceptance")
     require_list(pbi.get("memo"), "pbi.memo")
