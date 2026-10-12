@@ -21,7 +21,7 @@ test.each([
     for (const save of [false, true]) {
       await overflow.press("Enter");
       const trigger = page.getByRole("button", {
-        name: "Yuki Tanaka：呼び名を変更",
+        name: "Yuki Tanaka：表示名を変更",
       });
       // press は disabled の解除を待たないため、接続・同期後に操作する。
       await trigger.waitFor();
@@ -29,13 +29,13 @@ test.each([
         expect(await trigger.isEnabled()).toBe(true),
       );
       await trigger.press("Enter");
-      const dialog = page.getByRole("dialog", { name: "呼び名を変更" });
+      const dialog = page.getByRole("dialog", { name: "表示名を変更" });
       await dialog.waitFor();
       // 閉じるアニメーション中の一覧も Escape を受け取るため、解除後に編集する。
       await page.getByTestId("room-members-overflow-dialog").waitFor({
         state: "detached",
       });
-      const input = page.getByRole("textbox", { name: "呼び名" });
+      const input = page.getByRole("textbox", { name: "表示名" });
       await vi.waitFor(async () =>
         expect(await input.evaluate((e) => e === document.activeElement)).toBe(
           true,
@@ -77,12 +77,12 @@ test.each([
       `${origin}/iframe.html?id=room-hosttransferflow--success&viewMode=story`,
     );
     const trigger = page.getByRole("button", {
-      name: "Yuki Tanaka：呼び名を変更",
+      name: "Yuki Tanaka：表示名を変更",
     });
     await trigger.waitFor();
     await vi.waitFor(async () => expect(await trigger.isEnabled()).toBe(true));
     await trigger.press("Enter");
-    const dialog = page.getByRole("dialog", { name: "呼び名を変更" });
+    const dialog = page.getByRole("dialog", { name: "表示名を変更" });
     await dialog.waitFor();
     const box = await dialog.boundingBox();
     expect(box?.x).toBeGreaterThanOrEqual(0);
@@ -100,18 +100,18 @@ test.each([
       ),
     );
     await trigger.press("Enter");
-    const input = page.getByRole("textbox", { name: "呼び名" });
+    const input = page.getByRole("textbox", { name: "表示名" });
     await input.fill("　 ");
     await input.press("Enter");
     await page.getByRole("alert").waitFor();
-    await input.fill("あ".repeat(41));
+    await input.fill("あ".repeat(16));
     await input.press("Enter");
-    expect(await page.getByRole("alert").innerText()).toContain("40");
+    expect(await page.getByRole("alert").innerText()).toContain("15");
     await input.fill("Hana Sato");
     await input.press("Enter");
     await dialog.waitFor({ state: "hidden" });
     await page
-      .getByRole("button", { name: "Hana Sato：呼び名を変更" })
+      .getByRole("button", { name: "Hana Sato：表示名を変更" })
       .waitFor();
     await page.getByRole("button", { name: "Hana Sato", exact: true }).click();
     const confirm = page.getByRole("alertdialog");

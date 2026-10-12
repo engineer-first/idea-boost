@@ -488,7 +488,7 @@ export function RoomBoardHeader({
                             member.userId === currentUserId &&
                             onEditSelf &&
                             !outcomePublished
-                              ? `${member.name}：呼び名を変更`
+                              ? `${member.name}：表示名を変更`
                               : member.name
                           }
                           className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
@@ -772,7 +772,7 @@ export function RoomBoardHeader({
                   <MemberSelection
                     name={
                       onEditSelf
-                        ? `${currentMember.name}：呼び名を変更`
+                        ? `${currentMember.name}：表示名を変更`
                         : currentMember.name
                     }
                     onSelect={

@@ -514,7 +514,7 @@ export function createApiWorker(
             await readJsonBody(request),
           );
           if (!input.success)
-            return error(400, "呼び名は1〜40文字で入力してください。");
+            return error(400, "表示名は1〜15文字で入力してください。");
           if (input.data.expectedPrincipal !== session.sub)
             return error(
               403,
@@ -557,7 +557,7 @@ export function createApiWorker(
           if (failed)
             return error(
               503,
-              "呼び名は保存しましたが、一部のルームに反映できませんでした。もう一度保存してください。",
+              "表示名は保存しましたが、一部のルームに反映できませんでした。もう一度保存してください。",
             );
           return json({ name: input.data.name });
         }

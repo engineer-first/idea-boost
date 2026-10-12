@@ -227,7 +227,7 @@ export function createHostTransferPreview(
         mode = "success";
         return {
           ok: false,
-          error: "呼び名を保存できませんでした。もう一度保存してください。",
+          error: "表示名を保存できませんでした。もう一度保存してください。",
         };
       }
       const member = members.find((m) => m.userId === input.expectedPrincipal);

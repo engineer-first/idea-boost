@@ -75,7 +75,7 @@ async function join(code: string, user = B) {
     body: JSON.stringify({ code }),
   });
 }
-describe("アカウントの呼び名とGoogle名の非公開", () => {
+describe("アカウントの表示名とGoogle名の非公開", () => {
   it("未認証は本人設定を読めず、変更できない", async () => {
     for (const method of ["GET", "PUT"]) {
       const response = await SELF.fetch(
@@ -83,14 +83,14 @@ describe("アカウントの呼び名とGoogle名の非公開", () => {
         {
           method,
           ...(method === "PUT"
-            ? { body: JSON.stringify({ name: "呼び名" }) }
+            ? { body: JSON.stringify({ name: "表示名" }) }
             : {}),
         },
       );
       expect(response.status).toBe(401);
     }
   });
-  it("他人の指定と不正入力を拒否し、保存済みの呼び名を失わない", async () => {
+  it("他人の指定と不正入力を拒否し、保存済みの表示名を失わない", async () => {
     expect(
       (await profile(A, { name: "はな", expectedPrincipal: A.sub })).status,
     ).toBe(200);
@@ -99,7 +99,7 @@ describe("アカウントの呼び名とGoogle名の非公開", () => {
       { name: "別人", expectedPrincipal: A.sub, userId: B.sub },
       { name: "", expectedPrincipal: A.sub },
       { name: "　 ", expectedPrincipal: A.sub },
-      { name: "あ".repeat(41), expectedPrincipal: A.sub },
+      { name: "あ".repeat(16), expectedPrincipal: A.sub },
     ]) {
       expect((await profile(A, input)).status).toBeGreaterThanOrEqual(400);
       expect(await (await profile()).json()).toEqual({ name: "はな" });
@@ -147,7 +147,7 @@ describe("アカウントの呼び名とGoogle名の非公開", () => {
     expect(response.status).toBe(200);
     expect(await response.text()).not.toContain(A.name);
   });
-  it("認証プロフィールの再同期で本人の呼び名を上書きしない", async () => {
+  it("認証プロフィールの再同期で本人の表示名を上書きしない", async () => {
     expect(
       (await profile(A, { name: "  はな  ", expectedPrincipal: A.sub })).status,
     ).toBe(200);
@@ -172,7 +172,7 @@ describe("アカウントの呼び名とGoogle名の非公開", () => {
     expect(sync.status).toBe(200);
     expect(await (await profile()).json()).toEqual({ name: "はな" });
   });
-  it("呼び名が別ルームと参加通知に引き継がれ、全体変更は在籍中のルームと招待にも届く", async () => {
+  it("表示名が別ルームと参加通知に引き継がれ、全体変更は在籍中のルームと招待にも届く", async () => {
     await profile(A, { name: "たろう", expectedPrincipal: A.sub });
     await profile(B, { name: "はな", expectedPrincipal: B.sub });
     const first = await (await create()).json<{
@@ -218,7 +218,7 @@ describe("アカウントの呼び名とGoogle名の非公開", () => {
   });
 });
 
-describe("共通呼び名の配信先と移行", () => {
+describe("共通表示名の配信先と移行", () => {
   it("新旧の更新が逆順に届いても戻さず、非メンバー・完了済みルームを改名しない", async () => {
     const room = await (await create()).json<{
       roomId: string;
@@ -500,16 +500,16 @@ it("共通名が未設定の旧利用者の再参加で、本人が選んだ旧�
     state.storage.sql.exec(
       "INSERT INTO member_display_names(user_id,name) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name",
       A.sub,
-      "選んだ旧呼び名",
+      "選んだ旧表示名",
     );
     state.storage.sql.exec(
       "UPDATE members SET name=? WHERE user_id=?",
-      "選んだ旧呼び名",
+      "選んだ旧表示名",
       A.sub,
     );
   });
   expect((await join(own.inviteCode, A)).status).toBe(200);
   expect(
     await env.ROOM_DO.get(env.ROOM_DO.idFromName(own.roomId)).listMembers(),
-  ).toMatchObject([{ name: "選んだ旧呼び名" }]);
+  ).toMatchObject([{ name: "選んだ旧表示名" }]);
 });

@@ -20,11 +20,11 @@ function controls(): DisplayNameControls {
     onRetry: vi.fn(),
   };
 }
-describe("任意の呼び名入力", () => {
+describe("任意の表示名入力", () => {
   it("スキップ・保存・取消を接続し、Google名の初期値を使わない", () => {
     const c = controls();
     render(<DisplayNameDialog controls={c} />);
-    expect(screen.getByRole("textbox", { name: "呼び名（任意）" })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: "表示名（任意）" })).toHaveValue(
       "",
     );
     fireEvent.click(screen.getByRole("button", { name: "入力せずに進む" }));

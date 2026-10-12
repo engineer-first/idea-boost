@@ -74,7 +74,7 @@ async function memberNames(roomId: string) {
       .toArray(),
   );
 }
-describe("ルーム内の呼び名", () => {
+describe("ルーム内の表示名", () => {
   it("現在の発表順だけ更新し、付箋・票・作者・色と保全済み成果や履歴は再編集しない", async () => {
     const { roomId, a, b, stub } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
@@ -107,7 +107,7 @@ describe("ルーム内の呼び名", () => {
         ),
       ),
     }));
-    await rename(a, "現在の呼び名");
+    await rename(a, "現在の表示名");
     expect(await a.next()).toMatchObject({ type: "member:renamed" });
     await b.next();
     const after = await runInRoomDO(roomId, (_room, state) => ({
@@ -134,13 +134,13 @@ describe("ルーム内の呼び名", () => {
         ...before.sharing,
         order: before.sharing.order.map((member: { userId: string }) =>
           member.userId === A.sub
-            ? { ...member, name: "現在の呼び名" }
+            ? { ...member, name: "現在の表示名" }
             : member,
         ),
       },
     });
   });
-  it("ルームの削除と期限切れで呼び名の上書きも削除する", async () => {
+  it("ルームの削除と期限切れで表示名の上書きも削除する", async () => {
     for (const expiry of [false, true]) {
       const { roomId, a, stub } = await setup();
       await rename(a, "期限付き");
@@ -171,7 +171,7 @@ describe("ルーム内の呼び名", () => {
       ["別人", { targetUserId: B.sub }],
       ["", {}],
       ["　 ", {}],
-      ["あ".repeat(41), {}],
+      ["あ".repeat(16), {}],
     ] as const) {
       oldRename(a, name, extra);
       expect(await a.next()).toMatchObject({

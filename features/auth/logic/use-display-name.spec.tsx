@@ -16,7 +16,7 @@ beforeEach(() => {
   actions.load.mockResolvedValue({ ok: true, name: null });
   actions.save.mockResolvedValue({ ok: true, name: "はな" });
 });
-describe("任意の共通呼び名", () => {
+describe("任意の共通表示名", () => {
   it("未設定はGoogle名を入力せずに確認を開き、スキップで元の操作を続けられる", async () => {
     const next = vi.fn();
     const { result } = renderHook(() =>

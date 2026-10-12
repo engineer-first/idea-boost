@@ -43,3 +43,7 @@ export const Failed: Story = {
     },
   },
 };
+
+export const AtLimit: Story = {
+  args: { controls: { ...meta.args.controls, draft: "あ".repeat(15) } },
+};

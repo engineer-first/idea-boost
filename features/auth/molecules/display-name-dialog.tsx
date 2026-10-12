@@ -49,10 +49,10 @@ export function DisplayNameDialog({
       >
         <DialogHeader>
           <DialogTitle>
-            {controls.optional ? "ルームで使う呼び名" : "呼び名を変更"}
+            {controls.optional ? "表示名を設定" : "表示名を変更"}
           </DialogTitle>
           <DialogDescription>
-            今いるルームと、これから入るルームに反映されます。Googleアカウントの名前は変わりません。
+            このアプリで使う表示名を変更します。
           </DialogDescription>
         </DialogHeader>
         <form
@@ -64,7 +64,7 @@ export function DisplayNameDialog({
         >
           <div className="grid gap-2">
             <label htmlFor={id} className="text-sm font-medium">
-              呼び名{controls.optional ? "（任意）" : ""}
+              表示名{controls.optional ? "（任意）" : ""}
             </label>
             <Input
               ref={inputRef}
@@ -82,14 +82,14 @@ export function DisplayNameDialog({
               }}
             />
             <p id={`${id}-hint`} className="text-sm text-muted-foreground">
-              {ROOM_DISPLAY_NAME_MAX_LENGTH}文字まで。
+              {ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内。
               {controls.optional
-                ? "入力しない場合は「参加者＋番号」で表示されます。"
-                : "保存済みの成果・履歴の名前は変わりません。"}
+                ? "未入力の場合は、自動で表示名が付きます。"
+                : ""}
             </p>
             {controls.loading ? (
               <p role="status" className="text-sm text-muted-foreground">
-                保存済みの呼び名を確認しています…
+                保存済みの表示名を確認しています…
               </p>
             ) : null}
             {controls.error ? (
@@ -108,7 +108,7 @@ export function DisplayNameDialog({
                   disabled={controls.pending || controls.loading}
                   onClick={() => void controls.onRetry()}
                 >
-                  保存済みの呼び名を確認
+                  保存済みの表示名を確認
                 </Button>
               </div>
             ) : null}

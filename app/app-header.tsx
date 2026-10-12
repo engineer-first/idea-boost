@@ -77,7 +77,7 @@ export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
                 void displayName.request();
               }}
             >
-              呼び名を変更
+              表示名を変更
             </Button>
           </PopoverContent>
         </Popover>

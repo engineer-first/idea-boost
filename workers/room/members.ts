@@ -28,7 +28,7 @@ export type UpsertMemberResult =
   | { ok: false; reason: "room-full" | "room-closed" };
 
 // 参加処理。name は表示用（メンバー一覧で使う）。
-// 冪等: 本人が設定した呼び名は認証由来名で上書きしない。
+// 冪等: 本人が設定した表示名は認証由来名で上書きしない。
 // 進行中のルームでも新規メンバーの参加は可能（途中参加OK）。
 //
 // 新規メンバーの場合のみ、既存メンバー全員の WS に member_joined を

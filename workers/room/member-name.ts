@@ -1,4 +1,4 @@
-// 共通の呼び名はAPIで本人確認・保存した後、在籍者の現在名へ反映する。
+// 共通の表示名はAPIで本人確認・保存した後、在籍者の現在名へ反映する。
 import type { MessageHandlers } from "./handler-context";
 import { findMember } from "./members";
 import { getSharingState, saveSharingState } from "./sharing-state";
@@ -8,7 +8,7 @@ export const memberNameHandlers: MessageHandlers<"member:rename"> = {
     ctx.broadcaster.sendTo(ctx.ws, {
       type: "error",
       code: "invalid-message",
-      message: "呼び名の変更方法が変わりました。画面を再読み込みしてください。",
+      message: "表示名の変更方法が変わりました。画面を再読み込みしてください。",
       operationId: message.operationId,
     });
   },

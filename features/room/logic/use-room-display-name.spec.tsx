@@ -26,10 +26,10 @@ function setup(
   act(() => hook.result.current.request());
   return { ...hook, save, send };
 }
-describe("ルームからの共通呼び名変更", () => {
+describe("ルームからの共通表示名変更", () => {
   it("空白・上限超過を保存せず、取消でも保存済み名を保つ", async () => {
     const { result, save, send } = setup();
-    for (const name of ["　 ", "あ".repeat(41)]) {
+    for (const name of ["　 ", "あ".repeat(16)]) {
       act(() => result.current.onDraftChange(name));
       await act(async () => result.current.onConfirm());
       expect(result.current.error).toBeTruthy();

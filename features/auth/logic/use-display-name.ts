@@ -92,7 +92,7 @@ export function useDisplayName({
     }
     const result = await loadDisplayName(actor).catch(() => ({
       ok: false as const,
-      error: "呼び名を取得できませんでした。再試行してください。",
+      error: "表示名を取得できませんでした。再試行してください。",
     }));
     if (generation !== turn.current || principal.current !== actor) return;
     busy.current = false;

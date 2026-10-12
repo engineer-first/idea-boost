@@ -38,9 +38,9 @@ export function RoomDisplayNameDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>呼び名を変更</DialogTitle>
+          <DialogTitle>表示名を変更</DialogTitle>
           <DialogDescription>
-            今いるルームと、これから入るルームに反映されます。Googleアカウントの名前は変わりません。
+            このアプリで使う表示名を変更します。
           </DialogDescription>
         </DialogHeader>
         <form
@@ -52,7 +52,7 @@ export function RoomDisplayNameDialog({
         >
           <div className="grid gap-2">
             <label htmlFor={id} className="text-sm font-medium">
-              呼び名
+              表示名
             </label>
             <Input
               id={id}
@@ -70,7 +70,7 @@ export function RoomDisplayNameDialog({
             />
             <p id={`${id}-hint`} className="text-sm text-muted-foreground">
               {ROOM_DISPLAY_NAME_MAX_LENGTH}
-              文字まで。保存済みの成果・履歴の名前は変わりません。
+              文字以内。
             </p>
             {controls.error ? (
               <div>
@@ -89,7 +89,7 @@ export function RoomDisplayNameDialog({
                     disabled={controls.pending || controls.loading}
                     onClick={() => void controls.onRetry?.()}
                   >
-                    保存済みの呼び名を確認
+                    保存済みの表示名を確認
                   </Button>
                 ) : null}
               </div>

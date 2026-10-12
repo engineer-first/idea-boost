@@ -33,7 +33,7 @@ export async function loadDisplayName(
   } catch {}
   return {
     ok: false,
-    error: "呼び名を取得できませんでした。通信を確認して再試行してください。",
+    error: "表示名を取得できませんでした。通信を確認して再試行してください。",
   };
 }
 export async function saveDisplayName(

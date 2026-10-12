@@ -71,8 +71,8 @@ it("一覧に隠れた本人の編集を取消した後は、一覧の展開ボ�
   renderStart({ initialMembers });
   const overflow = screen.getByRole("button", { name: "他 2 名" });
   fireEvent.click(overflow);
-  fireEvent.click(screen.getByRole("button", { name: "本人：呼び名を変更" }));
-  expect(screen.getByRole("textbox", { name: "呼び名" })).toHaveValue("本人");
+  fireEvent.click(screen.getByRole("button", { name: "本人：表示名を変更" }));
+  expect(screen.getByRole("textbox", { name: "表示名" })).toHaveValue("本人");
   fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
   await waitFor(() => expect(overflow).toHaveFocus());
 });
@@ -552,10 +552,10 @@ it("本人表示から共通の改名APIを呼び、共有通知で全員の現�
     saveDisplayNameAction,
   });
   fireEvent.click(
-    screen.getByRole("button", { name: "元の名前：呼び名を変更" }),
+    screen.getByRole("button", { name: "元の名前：表示名を変更" }),
   );
-  fireEvent.change(screen.getByRole("textbox", { name: "呼び名" }), {
-    target: { value: "新しい呼び名" },
+  fireEvent.change(screen.getByRole("textbox", { name: "表示名" }), {
+    target: { value: "新しい表示名" },
   });
   fireEvent.click(screen.getByRole("button", { name: "保存する" }));
   expect(screen.getByTestId(`member-row-${HOST_ID}`)).toHaveTextContent(
@@ -563,19 +563,19 @@ it("本人表示から共通の改名APIを呼び、共有通知で全員の現�
   );
   expect(saveDisplayNameAction).toHaveBeenCalledWith({
     expectedPrincipal: HOST_ID,
-    name: "新しい呼び名",
+    name: "新しい表示名",
   });
   act(() =>
     socket.simulateServerMessage({
       type: "member:renamed",
-      member: { ...member, name: "新しい呼び名" },
+      member: { ...member, name: "新しい表示名" },
       operationId: crypto.randomUUID(),
     }),
   );
-  await act(async () => finish({ ok: true, name: "新しい呼び名" }));
+  await act(async () => finish({ ok: true, name: "新しい表示名" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: "新しい呼び名：呼び名を変更" }),
+    screen.getByRole("button", { name: "新しい表示名：表示名を変更" }),
   ).toBeInTheDocument();
 });
 

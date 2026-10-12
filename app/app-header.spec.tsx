@@ -88,7 +88,7 @@ it("ログアウト送信時にブラウザの候補を消す", () => {
   fireEvent.submit(form);
   expect(readLastRoom(userId)).toBeNull();
 });
-it("控えめなユーザーメニューから呼び名の変更を開ける", async () => {
+it("控えめなユーザーメニューから表示名の変更を開ける", async () => {
   navigationMocks.pathname = "/home";
   render(
     <AppHeader
@@ -101,6 +101,6 @@ it("控えめなユーザーメニューから呼び名の変更を開ける", a
     ctrlKey: false,
   });
   expect(
-    await screen.findByRole("button", { name: "呼び名を変更" }),
+    await screen.findByRole("button", { name: "表示名を変更" }),
   ).toBeInTheDocument();
 });

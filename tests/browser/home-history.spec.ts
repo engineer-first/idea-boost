@@ -607,12 +607,12 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
       const displayNameDialog = page.getByRole("dialog", {
-        name: "ルームで使う呼び名",
+        name: "ルームで使う表示名",
       });
       await displayNameDialog.waitFor();
       expect(
         await displayNameDialog
-          .getByRole("textbox", { name: "呼び名（任意）" })
+          .getByRole("textbox", { name: "表示名（任意）" })
           .inputValue(),
       ).toBe("");
       await displayNameDialog

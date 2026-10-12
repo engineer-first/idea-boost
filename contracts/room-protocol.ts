@@ -323,15 +323,15 @@ export const NoteDragIdSchema = z.string().uuid();
 // クライアント → サーバー
 // ---------------------------------------------------------------
 
-// ルーム内の呼び名は前後空白を除いて40 UTF-16コード単位まで。
-export const ROOM_DISPLAY_NAME_MAX_LENGTH = 40;
+// 表示名の入力は前後空白を除いて15 UTF-16コード単位まで。
+export const ROOM_DISPLAY_NAME_MAX_LENGTH = 15;
 export const RoomDisplayNameSchema = z
   .string()
   .trim()
-  .min(1, "呼び名を入力してください。")
+  .min(1, "表示名を入力してください。")
   .max(
     ROOM_DISPLAY_NAME_MAX_LENGTH,
-    `呼び名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`,
+    `表示名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`,
   );
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [

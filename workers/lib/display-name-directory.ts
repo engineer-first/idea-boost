@@ -50,5 +50,5 @@ export async function backfillDisplayNameDirectory(
     }
   }
   if (failures.length)
-    throw new AggregateError(failures, "呼び名索引の同期に失敗しました。");
+    throw new AggregateError(failures, "表示名索引の同期に失敗しました。");
 }
