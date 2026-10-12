@@ -52,10 +52,6 @@ import {
   upsertUserFromAssertion,
 } from "./lib/db";
 import {
-  backfillDisplayNameDirectory,
-  indexRoomDisplayNames,
-} from "./lib/display-name-directory";
-import {
   CreationConflict,
   CreationExpired,
   CreationGone,
@@ -228,7 +224,6 @@ async function syncMemberAccountName(
   roomId: string,
   userId: string,
 ): Promise<void> {
-  await indexRoomDisplayNames(env, roomId);
   const profile = await env.DB.prepare(
     "SELECT display_name AS name, display_name_revision AS revision FROM users WHERE id=?",
   )
@@ -307,7 +302,6 @@ async function handleGetRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
 
-  await indexRoomDisplayNames(env, roomId);
   const phase = await stub.getPhase();
   const host = await stub.getCurrentHost(room.hostId);
   if (!host.hostUserId) return error(409, "ホスト情報を取得できませんでした。");
@@ -339,7 +333,6 @@ async function handleListMembers(
     return error(404, "ルームが見つかりませんでした。");
   }
 
-  await indexRoomDisplayNames(env, roomId);
   const members = await stub.listMembers();
   return json({ members });
 }
@@ -409,9 +402,14 @@ async function handleLookupRoom(
   if (!room) {
     return error(404, "ルームが見つかりませんでした。");
   }
-  if (!(await roomStub(env, room.roomId).isJoinable()))
+  const stub = roomStub(env, room.roomId);
+  if (!(await stub.isJoinable()))
     return error(404, "ルームが見つかりませんでした。");
-  const hostName = await findUserDisplayNameById(env.DB, room.hostId);
+  const creator = (await stub.listMembers()).find(
+    (member) => member.userId === room.hostId,
+  );
+  const hostName =
+    creator?.name ?? (await findUserDisplayNameById(env.DB, room.hostId));
   return json({
     roomId: room.roomId,
     inviteCode: room.inviteCode,
@@ -444,12 +442,6 @@ async function handleRoomWebSocket(
     return error(404, "ルームが見つかりませんでした。");
   }
 
-  await ensureUser(env.DB, {
-    id: session.sub,
-    email: session.email,
-    name: session.name,
-  });
-  await indexRoomDisplayNames(env, roomId);
   await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);
@@ -522,6 +514,16 @@ export function createApiWorker(
               403,
               "アカウントが変わりました。再読み込みしてから設定してください。",
             );
+          // 対象は操作中のルームだけ。在籍の権威はRoomDOが持つ。
+          const target = input.data.roomId
+            ? await findRoomById(env.DB, input.data.roomId)
+            : null;
+          const stub = target ? roomStub(env, target.roomId) : null;
+          if (
+            input.data.roomId &&
+            (!stub || !(await stub.isMember(session.sub)))
+          )
+            return error(404, "ルームが見つかりませんでした。");
           await ensureUser(env.DB, {
             id: session.sub,
             email: session.email,
@@ -534,33 +536,25 @@ export function createApiWorker(
             .first<{ revision: number }>();
           if (!profile)
             return error(503, "保存できませんでした。もう一度お試しください。");
-          // D1はディレクトリ。在籍・改名可否は各RoomDOが判定し、本人の現在名だけを更新する。
-          const rooms = await env.DB.prepare(
-            "SELECT rooms.id FROM rooms JOIN user_display_name_rooms ON rooms.id=room_id WHERE user_id=? AND creation_visibility IN ('published','legacy')",
-          )
-            .bind(session.sub)
-            .all<{ id: string }>();
-          let failed = false;
-          for (let start = 0; start < rooms.results.length; start += 8) {
-            const results = await Promise.allSettled(
-              rooms.results
-                .slice(start, start + 8)
-                .map((room) =>
-                  roomStub(env, room.id).syncAccountDisplayName(
-                    session.sub,
-                    input.data.name,
-                    profile.revision,
-                  ),
-                ),
-            );
-            if (results.some((result) => result.status === "rejected"))
-              failed = true;
+          if (stub) {
+            try {
+              const applied = await stub.syncAccountDisplayName(
+                session.sub,
+                input.data.name,
+                profile.revision,
+              );
+              if (!applied)
+                return error(
+                  409,
+                  "表示名は保存しましたが、このルームには反映できません。再読み込みしてください。",
+                );
+            } catch {
+              return error(
+                503,
+                "表示名は保存しましたが、このルームに反映できませんでした。もう一度保存してください。",
+              );
+            }
           }
-          if (failed)
-            return error(
-              503,
-              "表示名は保存しましたが、一部のルームに反映できませんでした。もう一度保存してください。",
-            );
           return json({ name: input.data.name });
         }
         return error(405, "この操作は利用できません。");
@@ -814,7 +808,6 @@ export function createApiWorker(
     ): Promise<void> {
       await deleteExpiredFeedback(env.DB);
       await cleanupRoomCreations(env);
-      await backfillDisplayNameDirectory(env);
     },
   } satisfies ExportedHandler<ApiWorkerEnv>;
 }

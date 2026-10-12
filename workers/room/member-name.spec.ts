@@ -22,14 +22,19 @@ const B = {
 };
 const sockets: RoomSocket[] = [];
 const users = new WeakMap<RoomSocket, typeof A>();
-async function setName(user: typeof A, name: string) {
+const rooms = new WeakMap<RoomSocket, string>();
+async function setName(user: typeof A, name: string, roomId?: string) {
   return SELF.fetch("https://api.test/api/me/display-name", {
     method: "PUT",
     headers: {
       Cookie: await sessionCookieFor(user),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name, expectedPrincipal: user.sub }),
+    body: JSON.stringify({
+      name,
+      expectedPrincipal: user.sub,
+      ...(roomId ? { roomId } : {}),
+    }),
   });
 }
 afterEach(() => {
@@ -43,10 +48,12 @@ async function setup() {
   const a = await connectRoomAs(A, roomId);
   sockets.push(a);
   users.set(a, A);
+  rooms.set(a, roomId);
   await a.next();
   const b = await connectRoomAs(B, roomId);
   sockets.push(b);
   users.set(b, B);
+  rooms.set(b, roomId);
   await b.next();
   return {
     roomId,
@@ -64,7 +71,11 @@ function oldRename(socket: RoomSocket, name: string, extra = {}) {
   return operationId;
 }
 async function rename(socket: RoomSocket, name: string) {
-  const response = await setName(users.get(socket) ?? A, name);
+  const response = await setName(
+    users.get(socket) ?? A,
+    name,
+    rooms.get(socket),
+  );
   expect(response.status).toBe(200);
 }
 async function memberNames(roomId: string) {
@@ -265,6 +276,7 @@ describe("ルーム内の表示名", () => {
     sockets.push(b2);
     await b2.next();
     users.set(b2, B);
+    rooms.set(b2, roomId);
     await rename(b2, "はな");
     for (const socket of [a, a2, reconnect, b2])
       expect(await socket.next()).toMatchObject({

@@ -141,6 +141,7 @@ export function RoomBoard({
     send,
   });
   const displayName = useRoomDisplayName({
+    roomId,
     save: saveDisplayNameAction,
     currentUserId,
     members: roomState.members,

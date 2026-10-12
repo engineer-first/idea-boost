@@ -5,10 +5,6 @@ import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
 import { createApiWorker } from "./api-worker";
 import {
-  backfillDisplayNameDirectory,
-  indexRoomDisplayNames,
-} from "./lib/display-name-directory";
-import {
   LEGACY_ROOM_DO_MIGRATION_IDS,
   migrateRoomStorage,
   ROOM_DO_MIGRATIONS,
@@ -170,7 +166,7 @@ describe("Google名を初期値にする共通の表示名", () => {
     expect(sync.status).toBe(200);
     expect(await (await profile()).json()).toEqual({ name: "はな" });
   });
-  it("表示名が別ルームと参加通知に引き継がれ、全体変更は在籍中のルームと招待にも届く", async () => {
+  it("表示名が別ルームと参加通知に引き継がれ、変更したルームの招待にも届く", async () => {
     await profile(A, { name: "たろう", expectedPrincipal: A.sub });
     await profile(B, { name: "はな", expectedPrincipal: B.sub });
     const first = await (await create()).json<{
@@ -191,11 +187,20 @@ describe("Google名を初期値にする共通の表示名", () => {
     });
     // 同名でもID・色によって本人を区別する。
     expect(
-      (await profile(A, { name: "はな", expectedPrincipal: A.sub })).status,
+      (
+        await profile(A, {
+          name: "はな",
+          expectedPrincipal: A.sub,
+          roomId: first.roomId,
+        })
+      ).status,
     ).toBe(200);
     expect(await a.next()).toMatchObject({
       type: "member:renamed",
-      member: { userId: A.sub, name: "はな" },
+      member: {
+        userId: A.sub,
+        name: "はな",
+      },
     });
     for (const room of [first, second]) {
       const members = await SELF.fetch(
@@ -204,7 +209,10 @@ describe("Google名を初期値にする共通の表示名", () => {
       );
       expect(await members.json()).toMatchObject({
         members: expect.arrayContaining([
-          expect.objectContaining({ userId: A.sub, name: "はな" }),
+          expect.objectContaining({
+            userId: A.sub,
+            name: room.roomId === first.roomId ? "はな" : "たろう",
+          }),
         ]),
       });
     }
@@ -239,57 +247,12 @@ describe("共通表示名の配信先と移行", () => {
     );
     expect(await stub.listMembers()).toMatchObject([{ name: "新しい名" }]);
   });
-  it("本人の候補ルームだけへ通知し、古い索引で他人のルームを書き換えない", async () => {
-    const own = await (await create()).json<{ roomId: string }>();
-    const unrelated = await (await create(B)).json<{ roomId: string }>();
-    const called: string[] = [];
-    const api = createApiWorker();
-    const namespace = {
-      idFromName: (name: string) => env.ROOM_DO.idFromName(name),
-      get: (id: DurableObjectId) => {
-        called.push(id.toString());
-        return env.ROOM_DO.get(id);
-      },
-    } as unknown as typeof env.ROOM_DO;
-    const request = () =>
-      new Request("https://api.test/api/me/display-name", {
-        method: "PUT",
-        headers: { Cookie: "", "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedPrincipal: A.sub, name: "はな" }),
-      });
-    const first = request();
-    first.headers.set("Cookie", await sessionCookieFor(A));
-    expect(
-      (await api.fetch(first, { ...env, ROOM_DO: namespace })).status,
-    ).toBe(200);
-    expect(called).toEqual([env.ROOM_DO.idFromName(own.roomId).toString()]);
-    await env.DB.prepare(
-      "INSERT INTO user_display_name_rooms(user_id,room_id) VALUES(?,?)",
-    )
-      .bind(A.sub, unrelated.roomId)
-      .run();
-    const second = request();
-    second.headers.set("Cookie", await sessionCookieFor(A));
-    expect(
-      (await api.fetch(second, { ...env, ROOM_DO: namespace })).status,
-    ).toBe(200);
-    const members = await env.ROOM_DO.get(
-      env.ROOM_DO.idFromName(unrelated.roomId),
-    ).listMembers();
-    expect(members).toMatchObject([{ userId: B.sub, name: B.name }]);
-    expect(
-      await env.DB.prepare(
-        "SELECT 1 FROM user_display_name_rooms WHERE user_id=? AND room_id=?",
-      )
-        .bind(A.sub, unrelated.roomId)
-        .first(),
-    ).not.toBeNull();
-  });
-  it("ルーム反映が失敗しても共通名を保ち、再保存で未反映先へ追いつく", async () => {
+  it("対象ルームの反映が失敗しても共通名を保ち、再保存で追いつく", async () => {
     const room = await (await create()).json<{ roomId: string }>();
     const namespace = {
       idFromName: (name: string) => env.ROOM_DO.idFromName(name),
       get: () => ({
+        isMember: async () => true,
         syncAccountDisplayName: async () => {
           throw new Error("一時障害");
         },
@@ -302,14 +265,24 @@ describe("共通表示名の配信先と移行", () => {
           Cookie: await sessionCookieFor(A),
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ expectedPrincipal: A.sub, name: "変更後" }),
+        body: JSON.stringify({
+          expectedPrincipal: A.sub,
+          name: "変更後",
+          roomId: room.roomId,
+        }),
       }),
       { ...env, ROOM_DO: namespace },
     );
     expect(response.status).toBe(503);
     expect(await (await profile()).json()).toEqual({ name: "変更後" });
     expect(
-      (await profile(A, { expectedPrincipal: A.sub, name: "変更後" })).status,
+      (
+        await profile(A, {
+          expectedPrincipal: A.sub,
+          name: "変更後",
+          roomId: room.roomId,
+        })
+      ).status,
     ).toBe(200);
     expect(
       await env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId)).listMembers(),
@@ -363,124 +336,6 @@ describe("共通表示名の配信先と移行", () => {
       ).toContain(A.name);
     });
   });
-});
-
-it("非メンバーの退出要求で索引化・共通名同期を誘発できない", async () => {
-  const own = await (await create()).json<{ roomId: string }>();
-  await env.DB.prepare("DELETE FROM display_name_indexed_rooms WHERE room_id=?")
-    .bind(own.roomId)
-    .run();
-  await env.DB.prepare("DELETE FROM user_display_name_rooms WHERE room_id=?")
-    .bind(own.roomId)
-    .run();
-  await env.DB.prepare(
-    "UPDATE users SET display_name='未反映の共通名',display_name_revision=1 WHERE id=?",
-  )
-    .bind(A.sub)
-    .run();
-  const response = await SELF.fetch(
-    `https://api.test/api/rooms/${own.roomId}/leave`,
-    {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookieFor(B),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ intent: "self", outcomeAccess: "retain" }),
-    },
-  );
-  expect(response.status).toBe(404);
-  expect(
-    await env.DB.prepare(
-      "SELECT 1 FROM display_name_indexed_rooms WHERE room_id=?",
-    )
-      .bind(own.roomId)
-      .first(),
-  ).toBeNull();
-  expect(
-    await env.ROOM_DO.get(env.ROOM_DO.idFromName(own.roomId)).listMembers(),
-  ).toMatchObject([{ name: A.name }]);
-});
-
-it("既存ルームのバックフィルは途中失敗を完了にせず、次の実行で同期し直す", async () => {
-  await profile(A, { name: "はな", expectedPrincipal: A.sub });
-  const own = await (await create()).json<{ roomId: string }>();
-  await env.DB.prepare("DELETE FROM display_name_indexed_rooms WHERE room_id=?")
-    .bind(own.roomId)
-    .run();
-  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(own.roomId));
-  const namespace = {
-    idFromName: (name: string) => env.ROOM_DO.idFromName(name),
-    get: () => ({
-      listMembers: () => stub.listMembers(),
-      syncAccountDisplayName: async () => {
-        throw new Error("一時障害");
-      },
-    }),
-  } as unknown as typeof env.ROOM_DO;
-  await expect(
-    indexRoomDisplayNames({ ...env, ROOM_DO: namespace }, own.roomId),
-  ).rejects.toThrow("一時障害");
-  expect(
-    await env.DB.prepare(
-      "SELECT 1 FROM display_name_indexed_rooms WHERE room_id=?",
-    )
-      .bind(own.roomId)
-      .first(),
-  ).toBeNull();
-  await backfillDisplayNameDirectory(env);
-  expect(
-    await env.DB.prepare(
-      "SELECT 1 FROM display_name_indexed_rooms WHERE room_id=?",
-    )
-      .bind(own.roomId)
-      .first(),
-  ).not.toBeNull();
-  expect(await stub.listMembers()).toMatchObject([{ name: "はな" }]);
-});
-
-it("バックフィルで1ルームが失敗しても後続の健全なルームを同期する", async () => {
-  await profile(A, { name: "はな", expectedPrincipal: A.sub });
-  const first = await (await create()).json<{ roomId: string }>();
-  const second = await (await create()).json<{ roomId: string }>();
-  const [bad, healthy] = [first.roomId, second.roomId].sort();
-  await env.DB.prepare(
-    "DELETE FROM display_name_indexed_rooms WHERE room_id IN (?,?)",
-  )
-    .bind(bad, healthy)
-    .run();
-  const badId = env.ROOM_DO.idFromName(bad).toString();
-  const namespace = {
-    idFromName: (name: string) => env.ROOM_DO.idFromName(name),
-    get: (id: DurableObjectId) => {
-      const stub = env.ROOM_DO.get(id);
-      return id.toString() === badId
-        ? {
-            listMembers: () => stub.listMembers(),
-            syncAccountDisplayName: async () => {
-              throw new Error("一時障害");
-            },
-          }
-        : stub;
-    },
-  } as unknown as typeof env.ROOM_DO;
-  await expect(
-    backfillDisplayNameDirectory({ ...env, ROOM_DO: namespace }),
-  ).rejects.toThrow();
-  expect(
-    await env.DB.prepare(
-      "SELECT 1 FROM display_name_indexed_rooms WHERE room_id=?",
-    )
-      .bind(healthy)
-      .first(),
-  ).not.toBeNull();
-  expect(
-    await env.DB.prepare(
-      "SELECT 1 FROM display_name_indexed_rooms WHERE room_id=?",
-    )
-      .bind(bad)
-      .first(),
-  ).toBeNull();
 });
 
 it("共通名が未設定の旧利用者の再参加で、本人が選んだ旧ルーム名を失わない", async () => {

@@ -409,23 +409,27 @@ describe("member_joined（Realtime 反映）", () => {
     const newSocket = await connectRoomAs(newcomer, roomId);
     // 自分の snapshot.members には自分が含まれる
     const newcomerSnapshot = await expectType(newSocket, "snapshot");
-    expect(newcomerSnapshot.members).toEqual([
-      {
-        userId: OWNER.sub,
-        name: OWNER.name,
-        color: expect.stringMatching(NOTE_COLOR_PATTERN),
-      },
-      {
-        userId: MEMBER.sub,
-        name: MEMBER.name,
-        color: expect.stringMatching(NOTE_COLOR_PATTERN),
-      },
-      {
-        userId: newcomer.sub,
-        name: newcomer.name,
-        color: expect.stringMatching(NOTE_COLOR_PATTERN),
-      },
-    ]);
+    // 同じミリ秒の参加はID順になるため、ここでは全員が含まれることを検証する。
+    expect(newcomerSnapshot.members).toHaveLength(3);
+    expect(newcomerSnapshot.members).toEqual(
+      expect.arrayContaining([
+        {
+          userId: OWNER.sub,
+          name: OWNER.name,
+          color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        },
+        {
+          userId: MEMBER.sub,
+          name: MEMBER.name,
+          color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        },
+        {
+          userId: newcomer.sub,
+          name: newcomer.name,
+          color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        },
+      ]),
+    );
 
     newSocket.close();
     owner.close();
@@ -447,6 +451,7 @@ describe("member_joined（Realtime 反映）", () => {
       },
       body: JSON.stringify({
         expectedPrincipal: memberUser.sub,
+        roomId,
         name: "保存した表示名",
       }),
     });

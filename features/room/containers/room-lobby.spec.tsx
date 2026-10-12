@@ -562,6 +562,7 @@ it("本人表示から共通の改名APIを呼び、共有通知で全員の現�
     "元の名前",
   );
   expect(saveDisplayNameAction).toHaveBeenCalledWith({
+    roomId: ROOM_ID,
     expectedPrincipal: HOST_ID,
     name: "新しい表示名",
   });

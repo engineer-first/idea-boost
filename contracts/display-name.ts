@@ -11,6 +11,8 @@ export const SetDisplayNameInputSchema = z
   .object({
     expectedPrincipal: z.string().uuid(),
     name: RoomDisplayNameSchema,
+    // ルーム内から変更した場合だけ、その在籍先にも反映する。
+    roomId: z.string().uuid().optional(),
   })
   .strict();
 export type SetDisplayNameInput = z.infer<typeof SetDisplayNameInputSchema>;

@@ -14,6 +14,7 @@ function setup(
   const hook = renderHook(
     ({ connected }) =>
       useRoomDisplayName({
+        roomId: "33333333-3333-4333-8333-333333333333",
         currentUserId: USER,
         members,
         connected,
@@ -61,6 +62,7 @@ describe("ルームからの共通表示名変更", () => {
     await act(async () => result.current.onConfirm());
     expect(result.current.open).toBe(false);
     expect(save).toHaveBeenLastCalledWith({
+      roomId: "33333333-3333-4333-8333-333333333333",
       expectedPrincipal: USER,
       name: "新しい名",
     });

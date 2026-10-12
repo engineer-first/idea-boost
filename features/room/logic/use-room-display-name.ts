@@ -24,6 +24,7 @@ export type RoomDisplayNameControls = {
   loading?: boolean;
 };
 type Options = {
+  roomId: string;
   currentUserId: string;
   members: ProtocolMember[];
   connected: boolean;
@@ -32,6 +33,7 @@ type Options = {
   save?: (input: SetDisplayNameInput) => Promise<DisplayNameResult>;
 };
 export function useRoomDisplayName({
+  roomId,
   currentUserId,
   members,
   connected,
@@ -41,6 +43,7 @@ export function useRoomDisplayName({
   applyMessage: (message: ServerMessage) => boolean;
 } {
   const controls = useDisplayName({
+    roomId,
     currentUserId,
     initialName:
       members.find((member) => member.userId === currentUserId)?.name ?? "",

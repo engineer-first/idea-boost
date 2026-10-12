@@ -34,3 +34,20 @@ it("Googleプロフィール名は入力上限と独立して50文字でも初�
   const name = "あ".repeat(50);
   expect(DisplayNameResponseSchema.parse({ name })).toEqual({ name });
 });
+
+it("表示名の保存に任意の対象ルームを指定でき、不正なIDは拒否する", () => {
+  expect(
+    SetDisplayNameInputSchema.safeParse({
+      expectedPrincipal: principal,
+      name: "はな",
+      roomId: principal,
+    }).success,
+  ).toBe(true);
+  expect(
+    SetDisplayNameInputSchema.safeParse({
+      expectedPrincipal: principal,
+      name: "はな",
+      roomId: "bad-id",
+    }).success,
+  ).toBe(false);
+});

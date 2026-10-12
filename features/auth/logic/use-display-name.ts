@@ -22,10 +22,12 @@ export type DisplayNameControls = {
 };
 export function useDisplayName({
   currentUserId,
+  roomId,
   initialName,
   save = saveDisplayName,
 }: {
   currentUserId?: string;
+  roomId?: string;
   initialName?: string;
   save?: (input: SetDisplayNameInput) => Promise<DisplayNameResult>;
 }): DisplayNameControls {
@@ -107,6 +109,7 @@ export function useDisplayName({
     const result = await save({
       expectedPrincipal: actor,
       name: parsed.data,
+      ...(roomId ? { roomId } : {}),
     }).catch(() => ({
       ok: false as const,
       error: "保存結果を確認できませんでした。もう一度保存してください。",
