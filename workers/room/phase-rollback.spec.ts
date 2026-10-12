@@ -44,15 +44,74 @@ async function setup() {
 }
 describe("直前ステップへの復元", () => {
   it("非ホストの復元要求を拒否する", async () => {
-    const { roomId, b } = await setup();
+    const { roomId, stub, a, b } = await setup();
+    const id = await seed(roomId);
+    await next(roomId, a, b);
+    const expected = await currentPhaseExpectation(roomId);
     b.ws.send(
       JSON.stringify({
         type: "phase:rollback",
         expectedHostRevision: 0,
-        ...(await currentPhaseExpectation(roomId)),
+        ...expected,
       }),
     );
     expect(await b.next()).toMatchObject({ type: "error", code: "forbidden" });
+    expect(await stub.getPhase()).toEqual(expected.expectedPhase);
+    // 拒否が復元履歴を消費せず、正規のホストは同じ履歴へ戻れる。
+    const [snapshot] = await rollback(roomId, a, b);
+    expect(snapshot).toMatchObject({
+      phase: { kind: "step", phase: 1, step: 3 },
+      notes: [expect.objectContaining({ id })],
+    });
+  });
+  it("通常進行の保存待ち中は、履歴があっても復元要求を拒否する", async () => {
+    const { roomId, stub, a, b } = await setup();
+    await stub.setPhase({ kind: "step", phase: 1, step: 1 }, host.sub);
+    a.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomId)),
+      }),
+    );
+    await Promise.all([
+      until(a, "phase:save-requested"),
+      until(b, "phase:save-requested"),
+    ]);
+    await runInRoomDO(roomId, async (room, state) => {
+      state.storage.sql.exec(
+        "UPDATE pending_phase_transition SET deadline_at=?",
+        Date.now() - 1,
+      );
+      await room.alarm();
+    });
+    await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
+    const expected = await currentPhaseExpectation(roomId);
+    a.ws.send(JSON.stringify({ type: "phase:next", ...expected }));
+    await Promise.all([
+      until(a, "phase:save-requested"),
+      until(b, "phase:save-requested"),
+    ]);
+    a.ws.send(
+      JSON.stringify({
+        type: "phase:rollback",
+        expectedHostRevision: 0,
+        ...expected,
+      }),
+    );
+    expect(await a.next()).toMatchObject({ type: "error", code: "forbidden" });
+    expect(await stub.getPhase()).toEqual(expected.expectedPhase);
+    await runInRoomDO(roomId, (_room, state) => {
+      expect(
+        state.storage.sql
+          .exec("SELECT * FROM pending_phase_transition")
+          .toArray(),
+      ).toHaveLength(1);
+      expect(
+        state.storage.sql
+          .exec("SELECT * FROM phase_rollback_checkpoints")
+          .toArray(),
+      ).toHaveLength(1);
+    });
   });
   it("履歴がないホストの要求も拒否する", async () => {
     const { roomId, a } = await setup();
