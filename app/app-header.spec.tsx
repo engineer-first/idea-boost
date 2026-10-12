@@ -104,3 +104,51 @@ it("控えめなユーザーメニューから表示名の変更を開ける", a
     await screen.findByRole("button", { name: "表示名を変更" }),
   ).toBeInTheDocument();
 });
+
+it.each([
+  "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/start",
+  "/invite/ABC123",
+])("%s では名前とログアウトを保ち、共通の改名入口を出さない", (pathname) => {
+  navigationMocks.pathname = pathname;
+  render(
+    <AppHeader
+      userName="はな"
+      currentUserId="11111111-1111-4111-8111-111111111111"
+    />,
+  );
+  expect(screen.getByTestId("app-header-user-name")).toHaveTextContent("はな");
+  expect(
+    screen.getByRole("button", { name: "ログアウト" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "ユーザーメニュー" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("dialog", { name: "表示名を変更" }),
+  ).not.toBeInTheDocument();
+});
+
+it("メニューを開いてから別画面へ移動し、ホームへ戻っても自動で開かない", async () => {
+  navigationMocks.pathname = "/home";
+  const props = {
+    userName: "はな",
+    currentUserId: "11111111-1111-4111-8111-111111111111",
+  };
+  const { rerender } = render(<AppHeader {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: "ユーザーメニュー" }));
+  await screen.findByRole("button", { name: "表示名を変更" });
+  navigationMocks.pathname =
+    "/rooms/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/start";
+  rerender(<AppHeader {...props} />);
+  expect(
+    screen.queryByRole("button", { name: "ユーザーメニュー" }),
+  ).not.toBeInTheDocument();
+  navigationMocks.pathname = "/home";
+  rerender(<AppHeader {...props} />);
+  expect(
+    screen.getByRole("button", { name: "ユーザーメニュー" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "表示名を変更" }),
+  ).not.toBeInTheDocument();
+});

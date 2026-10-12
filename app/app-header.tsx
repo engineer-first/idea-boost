@@ -6,7 +6,7 @@
 
 import { ChevronDown, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -24,9 +24,15 @@ export type AppHeaderProps = {
 
 export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
   const pathname = usePathname();
-  const displayName = useDisplayName({ currentUserId });
+  const isHome = pathname === "/home";
+  const displayName = useDisplayName({
+    currentUserId: isHome ? currentUserId : undefined,
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const menuTrigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!isHome) setMenuOpen(false);
+  }, [isHome]);
 
   // スプリント開始後のボードだけは、進行レールへ統合してキャンバスを広く保つ。
   // `/start` のロビーなど、前後の画面では共通ヘッダーを維持する。
@@ -44,43 +50,52 @@ export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
         Idea Boost
       </p>
       <div className="flex min-w-0 items-center gap-3">
-        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              ref={menuTrigger}
-              variant="ghost"
-              aria-label="ユーザーメニュー"
-              className="min-h-11 min-w-11 max-w-48 gap-1.5 px-2"
-            >
-              {userName ? (
-                <span
-                  className="truncate text-sm text-muted-foreground"
-                  data-testid="app-header-user-name"
-                >
-                  {userName}
-                </span>
-              ) : (
-                <UserRound className="size-4" aria-hidden />
-              )}
-              <ChevronDown
-                className="size-3.5 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-48 p-1">
-            <Button
-              variant="ghost"
-              className="min-h-11 w-full justify-start"
-              onClick={() => {
-                setMenuOpen(false);
-                void displayName.request();
-              }}
-            >
-              表示名を変更
-            </Button>
-          </PopoverContent>
-        </Popover>
+        {isHome ? (
+          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                ref={menuTrigger}
+                variant="ghost"
+                aria-label="ユーザーメニュー"
+                className="min-h-11 min-w-11 max-w-48 gap-1.5 px-2"
+              >
+                {userName ? (
+                  <span
+                    className="truncate text-sm text-muted-foreground"
+                    data-testid="app-header-user-name"
+                  >
+                    {userName}
+                  </span>
+                ) : (
+                  <UserRound className="size-4" aria-hidden />
+                )}
+                <ChevronDown
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                  aria-hidden
+                />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-48 p-1">
+              <Button
+                variant="ghost"
+                className="min-h-11 w-full justify-start"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void displayName.request();
+                }}
+              >
+                表示名を変更
+              </Button>
+            </PopoverContent>
+          </Popover>
+        ) : userName ? (
+          <span
+            className="max-w-48 truncate text-sm text-muted-foreground"
+            data-testid="app-header-user-name"
+          >
+            {userName}
+          </span>
+        ) : null}
 
         <form action={signOut} onSubmit={() => clearLastRoom()}>
           <Button type="submit" variant="outline" size="sm">
@@ -88,10 +103,12 @@ export function AppHeader({ userName, currentUserId }: AppHeaderProps) {
           </Button>
         </form>
       </div>
-      <DisplayNameDialog
-        controls={displayName}
-        onClosed={() => menuTrigger.current?.focus()}
-      />
+      {isHome && (
+        <DisplayNameDialog
+          controls={displayName}
+          onClosed={() => menuTrigger.current?.focus()}
+        />
+      )}
     </header>
   );
 }
