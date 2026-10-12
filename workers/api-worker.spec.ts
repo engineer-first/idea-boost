@@ -5,7 +5,6 @@
 // - join は冪等（複数回呼んでもメンバーは重複しない）
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { defaultDisplayName } from "../contracts/display-name";
 import { buildLobbyPhase } from "../contracts/phase.fixture";
 import { issueCreationId } from "../contracts/room-creation";
 import { NOTE_COLOR_PALETTE } from "../contracts/room-protocol";
@@ -151,12 +150,12 @@ describe("メンバー一覧（GET /api/rooms/:id/members）", () => {
       members: [
         {
           userId: OWNER.sub,
-          name: defaultDisplayName(OWNER.sub),
+          name: OWNER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
         },
         {
           userId: MEMBER.sub,
-          name: defaultDisplayName(MEMBER.sub),
+          name: MEMBER.name,
           color: expect.stringMatching(NOTE_COLOR_PATTERN),
         },
       ],
@@ -340,7 +339,7 @@ describe("ユーザー同期（ログイン時の upsert）", () => {
       kind: "dev",
       userId: OWNER.sub,
       email: OWNER.email,
-      name: defaultDisplayName(OWNER.sub),
+      name: OWNER.name,
     });
 
     for (let i = 0; i < 2; i++) {

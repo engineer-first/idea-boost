@@ -1,9 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import {
-  defaultDisplayName,
-  type SetDisplayNameInput,
-} from "@/contracts/display-name";
+import type { SetDisplayNameInput } from "@/contracts/display-name";
 import { RoomDisplayNameSchema } from "@/contracts/room-protocol";
 import {
   type DisplayNameResult,
@@ -17,13 +14,10 @@ export type DisplayNameControls = {
   pending: boolean;
   loading: boolean;
   error: string | null;
-  optional: boolean;
   request: () => Promise<void>;
-  beforeEntry: (next: () => void) => Promise<void>;
   onDraftChange: (value: string) => void;
   onConfirm: () => Promise<void>;
   onOpenChange: (open: boolean) => void;
-  onSkip: () => void;
   onRetry: () => Promise<void>;
 };
 export function useDisplayName({
@@ -39,10 +33,8 @@ export function useDisplayName({
     [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false),
     [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null),
-    [optional, setOptional] = useState(false);
-  const nextRef = useRef<(() => void) | null>(null),
-    busy = useRef(false),
+  const [error, setError] = useState<string | null>(null);
+  const busy = useRef(false),
     turn = useRef(0);
   const saving = useRef(false);
   const principal = useRef(currentUserId);
@@ -52,7 +44,6 @@ export function useDisplayName({
     turn.current++;
     busy.current = false;
     saving.current = false;
-    nextRef.current = null;
     setOpen(false);
     setDraft("");
     setError(null);
@@ -65,31 +56,26 @@ export function useDisplayName({
     },
     [],
   );
-  async function load(next: (() => void) | null, reload = false) {
+  async function load(reload = false) {
     if (busy.current) return;
     if (!currentUserId) {
       setOpen(true);
       setError("再読み込みしてログイン状態を確認してください。");
       return;
     }
-    if (!next && initialName !== undefined && !reload) {
+    if (initialName !== undefined && !reload) {
       setDraft(initialName);
       setError(null);
-      setOptional(false);
       setOpen(true);
       return;
     }
     const actor = currentUserId,
       generation = ++turn.current;
     busy.current = true;
-    nextRef.current = next;
-    setOptional(!!next);
     setError(null);
     setLoading(true);
-    if (!next) {
-      if (!reload) setDraft("");
-      setOpen(true);
-    }
+    if (!reload) setDraft("");
+    setOpen(true);
     const result = await loadDisplayName(actor).catch(() => ({
       ok: false as const,
       error: "表示名を取得できませんでした。再試行してください。",
@@ -100,11 +86,6 @@ export function useDisplayName({
     if (!result.ok) {
       setOpen(true);
       setError(result.error);
-      return;
-    }
-    if (next && result.name !== null) {
-      nextRef.current = null;
-      next();
       return;
     }
     setDraft(result.name ?? "");
@@ -139,9 +120,6 @@ export function useDisplayName({
       return;
     }
     setOpen(false);
-    const next = nextRef.current;
-    nextRef.current = null;
-    next?.();
   }
   return {
     open,
@@ -149,11 +127,9 @@ export function useDisplayName({
     pending,
     loading,
     error,
-    optional,
-    request: () => load(null),
-    beforeEntry: (next) => load(next),
+    request: () => load(),
     onConfirm: () => saveCandidate(draft),
-    onRetry: () => load(nextRef.current, true),
+    onRetry: () => load(true),
     onDraftChange: (value) => {
       setDraft(value);
       setError(null);
@@ -165,13 +141,8 @@ export function useDisplayName({
       setLoading(false);
       setOpen(value);
       if (!value) {
-        nextRef.current = null;
         setError(null);
       }
-    },
-    onSkip: () => {
-      if (busy.current || !optional || !currentUserId) return;
-      void saveCandidate(defaultDisplayName(currentUserId));
     },
   };
 }

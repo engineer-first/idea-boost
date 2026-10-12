@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { DisplayNameDialog, useDisplayName } from "@/features/auth";
 import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import { joinRoom, lookupInviteRoom } from "../logic/actions";
@@ -16,7 +15,6 @@ import { RoomReauthentication } from "./room-reauthentication";
 
 export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
   const router = useRouter();
-  const displayName = useDisplayName({ currentUserId });
   const [reauth, setReauth] = useState(false);
   const [code, setCode] = useState("");
   const [showCodeError, setShowCodeError] = useState(false);
@@ -93,14 +91,13 @@ export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
         onCodeBlur={() => setShowCodeError(code.length > 0 && !isValidCode)}
         codeError={codeError}
         lookingUp={lookingUp}
-        joining={joining || displayName.loading}
-        dialogOpen={dialogOpen && !reauth && !displayName.open}
+        joining={joining}
+        dialogOpen={dialogOpen && !reauth}
         onDialogOpenChange={setDialogOpen}
         hostName={hostName}
         onSubmit={handleSubmit}
-        onConfirm={() => void displayName.beforeEntry(joinConfirmed)}
+        onConfirm={joinConfirmed}
       />
-      <DisplayNameDialog controls={displayName} />
       {reauth && (
         <RoomReauthentication
           operation={{ kind: "join", inviteCode: code }}

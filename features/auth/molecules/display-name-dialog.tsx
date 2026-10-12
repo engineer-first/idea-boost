@@ -48,9 +48,7 @@ export function DisplayNameDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>
-            {controls.optional ? "表示名を設定" : "表示名を変更"}
-          </DialogTitle>
+          <DialogTitle>表示名を変更</DialogTitle>
           <DialogDescription>
             このアプリで使う表示名を変更します。
           </DialogDescription>
@@ -64,7 +62,7 @@ export function DisplayNameDialog({
         >
           <div className="grid gap-2">
             <label htmlFor={id} className="text-sm font-medium">
-              表示名{controls.optional ? "（任意）" : ""}
+              表示名
             </label>
             <Input
               ref={inputRef}
@@ -83,9 +81,6 @@ export function DisplayNameDialog({
             />
             <p id={`${id}-hint`} className="text-sm text-muted-foreground">
               {ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内。
-              {controls.optional
-                ? "未入力の場合は、自動で表示名が付きます。"
-                : ""}
             </p>
             {controls.loading ? (
               <p role="status" className="text-sm text-muted-foreground">
@@ -128,27 +123,12 @@ export function DisplayNameDialog({
             >
               キャンセル
             </Button>
-            {controls.optional ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="min-h-11"
-                disabled={controls.pending || controls.loading}
-                onClick={controls.onSkip}
-              >
-                入力せずに進む
-              </Button>
-            ) : null}
             <Button
               type="submit"
               className="min-h-11"
               disabled={controls.pending || controls.loading || disabled}
             >
-              {controls.pending
-                ? "保存中…"
-                : controls.optional
-                  ? "保存して進む"
-                  : "保存する"}
+              {controls.pending ? "保存中…" : "保存する"}
             </Button>
           </div>
         </form>

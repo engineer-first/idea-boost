@@ -12,13 +12,10 @@ const meta = {
       pending: false,
       loading: false,
       error: null,
-      optional: false,
       request: fn(),
-      beforeEntry: fn(),
       onDraftChange: fn(),
       onConfirm: fn(),
       onOpenChange: fn(),
-      onSkip: fn(),
       onRetry: fn(),
     },
   },
@@ -26,8 +23,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Saved: Story = {};
-export const Optional: Story = {
-  args: { controls: { ...meta.args.controls, draft: "", optional: true } },
+export const GoogleProfile: Story = {
+  args: { controls: { ...meta.args.controls, draft: "山田 太郎" } },
 };
 export const Loading: Story = {
   args: { controls: { ...meta.args.controls, draft: "", loading: true } },

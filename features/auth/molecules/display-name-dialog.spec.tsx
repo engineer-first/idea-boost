@@ -6,30 +6,25 @@ import { DisplayNameDialog } from "./display-name-dialog";
 function controls(): DisplayNameControls {
   return {
     open: true,
-    draft: "",
+    draft: "Googleの名前",
     pending: false,
     loading: false,
-    optional: true,
     error: null,
     request: vi.fn(),
-    beforeEntry: vi.fn(),
     onDraftChange: vi.fn(),
     onConfirm: vi.fn(),
     onOpenChange: vi.fn(),
-    onSkip: vi.fn(),
     onRetry: vi.fn(),
   };
 }
-describe("任意の表示名入力", () => {
-  it("スキップ・保存・取消を接続し、Google名の初期値を使わない", () => {
+describe("本人が開く表示名の変更", () => {
+  it("現在のGoogle名を表示して保存・取消を接続する", () => {
     const c = controls();
     render(<DisplayNameDialog controls={c} />);
-    expect(screen.getByRole("textbox", { name: "表示名（任意）" })).toHaveValue(
-      "",
+    expect(screen.getByRole("textbox", { name: "表示名" })).toHaveValue(
+      "Googleの名前",
     );
-    fireEvent.click(screen.getByRole("button", { name: "入力せずに進む" }));
-    expect(c.onSkip).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: "保存して進む" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
     expect(c.onConfirm).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
     expect(c.onOpenChange).toHaveBeenCalledWith(false);
@@ -40,9 +35,6 @@ describe("任意の表示名入力", () => {
       <DisplayNameDialog controls={{ ...c, pending: true, draft: "はな" }} />,
     );
     expect(screen.getByRole("button", { name: "保存中…" })).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "入力せずに進む" }),
-    ).toBeDisabled();
     rerender(
       <DisplayNameDialog
         controls={{
@@ -54,7 +46,7 @@ describe("任意の表示名入力", () => {
     );
     expect(screen.getByRole("textbox")).toHaveValue("はな");
     expect(screen.getByRole("alert")).toHaveTextContent("通信");
-    fireEvent.click(screen.getByRole("button", { name: "保存して進む" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存する" }));
     expect(c.onConfirm).toHaveBeenCalledOnce();
   });
 });

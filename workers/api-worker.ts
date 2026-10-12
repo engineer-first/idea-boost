@@ -507,7 +507,9 @@ export function createApiWorker(
       if (pathname === "/api/me/display-name") {
         if (method === "GET")
           return json({
-            name: await findUserDisplayNameById(env.DB, session.sub),
+            name:
+              (await findUserDisplayNameById(env.DB, session.sub)) ??
+              (session.name?.trim() || null),
           });
         if (method === "PUT") {
           const input = SetDisplayNameInputSchema.safeParse(

@@ -2,10 +2,9 @@ import { z } from "zod";
 import { RoomDisplayNameSchema } from "./room-protocol";
 
 // 認証プロフィール名とは独立した、本人が選んだ表示名。
-const LEGACY_DISPLAY_NAME_MAX_LENGTH = 40;
 export const DisplayNameResponseSchema = z.object({
-  // 旧上限で保存した表示名は、編集するまでそのまま読める。
-  name: z.string().trim().min(1).max(LEGACY_DISPLAY_NAME_MAX_LENGTH).nullable(),
+  // Googleの初期名と旧保存値は、新規入力の15文字上限と独立して読める。
+  name: z.string().trim().min(1).nullable(),
 });
 export type DisplayNameResponse = z.infer<typeof DisplayNameResponseSchema>;
 export const SetDisplayNameInputSchema = z

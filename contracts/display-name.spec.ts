@@ -29,3 +29,8 @@ describe("表示名の入力と既存データの読取", () => {
     });
   });
 });
+
+it("Googleプロフィール名は入力上限と独立して50文字でも初期表示として読める", () => {
+  const name = "あ".repeat(50);
+  expect(DisplayNameResponseSchema.parse({ name })).toEqual({ name });
+});

@@ -1,3 +1,5 @@
+import { loadDisplayName } from "@/features/auth/logic/display-name-actions";
+
 vi.mock("@/features/auth/logic/display-name-actions", () => ({
   loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
   saveDisplayName: vi.fn(),
@@ -116,4 +118,16 @@ describe("InviteCodeDialog", () => {
       configurable: true,
     });
   });
+});
+
+it("共通表示名が未設定でも表示名の設定を要求せず招待に参加する", async () => {
+  vi.mocked(loadDisplayName).mockResolvedValueOnce({ ok: true, name: null });
+  JOIN_ROOM.mockResolvedValueOnce({
+    ok: true,
+    roomId: "123e4567-e89b-42d3-a456-426614174000",
+  });
+  renderDialog();
+  await userEvent.click(screen.getByTestId("invite-join-action"));
+  await waitFor(() => expect(JOIN_ROOM).toHaveBeenCalledOnce());
+  expect(loadDisplayName).not.toHaveBeenCalled();
 });

@@ -1,6 +1,5 @@
 import { env, SELF } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { defaultDisplayName } from "../contracts/display-name";
 import { issueCreationId } from "../contracts/room-creation";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
@@ -75,7 +74,7 @@ async function join(code: string, user = B) {
     body: JSON.stringify({ code }),
   });
 }
-describe("アカウントの表示名とGoogle名の非公開", () => {
+describe("Google名を初期値にする共通の表示名", () => {
   it("未認証は本人設定を読めず、変更できない", async () => {
     for (const method of ["GET", "PUT"]) {
       const response = await SELF.fetch(
@@ -104,48 +103,47 @@ describe("アカウントの表示名とGoogle名の非公開", () => {
       expect((await profile(A, input)).status).toBeGreaterThanOrEqual(400);
       expect(await (await profile()).json()).toEqual({ name: "はな" });
     }
-    expect(await (await profile(B)).json()).toEqual({ name: null });
+    expect(await (await profile(B)).json()).toEqual({ name: B.name });
   });
-  it("未設定の作成・参加の応答と共有状態へGoogle名を流さない", async () => {
+  it("表示名を変更していなければGoogle名で作成・参加し、招待にもGoogle名を使う", async () => {
     const response = await create();
-    expect(await response.clone().text()).not.toContain(A.name);
-    if (response.ok) {
-      const room = await response.json<{
-        roomId: string;
-        inviteCode: string;
-      }>();
-      const a = await connectRoomAs(A, room.roomId);
-      sockets.push(a);
-      expect(JSON.stringify(await a.next())).not.toContain(A.name);
-      const joined = await join(room.inviteCode);
-      expect(await joined.clone().text()).not.toContain(B.name);
-      if (joined.ok)
-        expect(JSON.stringify(await a.next())).not.toContain(B.name);
-    } else {
-      expect(response.status).toBe(409);
-    }
-  });
-  it("未設定の既存作成者の招待応答にもGoogle名を出さない", async () => {
-    // 既存利用者のD1ディレクトリとRoomDOの名前が認証名だったケース。
-    await env.DB.prepare("INSERT INTO users(id,email,name) VALUES(?,?,?)")
-      .bind(A.sub, A.email, A.name)
-      .run();
-    const roomId = crypto.randomUUID();
-    await env.DB.prepare(
-      "INSERT INTO rooms(id,invite_code,host_id,creation_visibility) VALUES(?,?,?,'legacy')",
-    )
-      .bind(roomId, "ABC234", A.sub)
-      .run();
-    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
-    await stub.upsertMember(A.sub, A.name);
-    const response = await SELF.fetch(
-      "https://api.test/api/rooms/lookup?code=ABC234",
-      {
-        headers: { Cookie: await sessionCookieFor(B) },
-      },
-    );
     expect(response.status).toBe(200);
-    expect(await response.text()).not.toContain(A.name);
+    const room = await response.json<{ roomId: string; inviteCode: string }>();
+    const a = await connectRoomAs(A, room.roomId);
+    sockets.push(a);
+    expect(await a.next()).toMatchObject({
+      type: "snapshot",
+      members: [expect.objectContaining({ userId: A.sub, name: A.name })],
+    });
+    expect(await (await profile()).json()).toEqual({ name: A.name });
+    expect((await join(room.inviteCode)).status).toBe(200);
+    expect(await a.next()).toMatchObject({
+      type: "member_joined",
+      member: { userId: B.sub, name: B.name },
+    });
+    const lookup = await SELF.fetch(
+      `https://api.test/api/rooms/lookup?code=${room.inviteCode}`,
+      { headers: { Cookie: await sessionCookieFor(B) } },
+    );
+    expect(await lookup.json()).toMatchObject({ hostName: A.name });
+  });
+  it("本人が変更した表示名を参加・招待・共有通知で使い、Google名に戻さない", async () => {
+    await profile(A, { name: "たろう", expectedPrincipal: A.sub });
+    await profile(B, { name: "はな", expectedPrincipal: B.sub });
+    const room = await (await create()).json<{
+      roomId: string;
+      inviteCode: string;
+    }>();
+    const a = await connectRoomAs(A, room.roomId);
+    sockets.push(a);
+    expect(JSON.stringify(await a.next())).not.toContain(A.name);
+    await join(room.inviteCode);
+    expect(JSON.stringify(await a.next())).not.toContain(B.name);
+    const lookup = await SELF.fetch(
+      `https://api.test/api/rooms/lookup?code=${room.inviteCode}`,
+      { headers: { Cookie: await sessionCookieFor(B) } },
+    );
+    expect(await lookup.json()).toMatchObject({ hostName: "たろう" });
   });
   it("認証プロフィールの再同期で本人の表示名を上書きしない", async () => {
     expect(
@@ -278,9 +276,7 @@ describe("共通表示名の配信先と移行", () => {
     const members = await env.ROOM_DO.get(
       env.ROOM_DO.idFromName(unrelated.roomId),
     ).listMembers();
-    expect(members).toMatchObject([
-      { userId: B.sub, name: defaultDisplayName(B.sub) },
-    ]);
+    expect(members).toMatchObject([{ userId: B.sub, name: B.name }]);
     expect(
       await env.DB.prepare(
         "SELECT 1 FROM user_display_name_rooms WHERE user_id=? AND room_id=?",
@@ -319,12 +315,12 @@ describe("共通表示名の配信先と移行", () => {
       await env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId)).listMembers(),
     ).toMatchObject([{ name: "変更後" }]);
   });
-  it("旧ルームの未選択Google名を参加者・共有順から除き、本人が選んだ旧名は保つ", async () => {
+  it("既存ルームのGoogle名と本人が選んだ表示名を移行時に保つ", async () => {
     await runInRoomDO(crypto.randomUUID(), (_room, state) => {
       dropAllTables(state.storage);
       migrateRoomStorage(
         state.storage,
-        ROOM_DO_MIGRATIONS.filter((m) => m.id < "20261011080328"),
+        ROOM_DO_MIGRATIONS.filter((m) => m.id < "20261012021752"),
         LEGACY_ROOM_DO_MIGRATION_IDS,
       );
       state.storage.sql.exec(
@@ -357,14 +353,14 @@ describe("共通表示名の配信先と移行", () => {
       const members = state.storage.sql
         .exec("SELECT user_id,name FROM members")
         .toArray();
-      expect(JSON.stringify(members)).not.toContain(A.name);
+      expect(JSON.stringify(members)).toContain(A.name);
       expect(JSON.stringify(members)).toContain("本人が選んだ名");
       expect(
         String(
           state.storage.sql.exec("SELECT state_json FROM sharing_state").one()
             .state_json,
         ),
-      ).not.toContain(A.name);
+      ).toContain(A.name);
     });
   });
 });
@@ -403,7 +399,7 @@ it("非メンバーの退出要求で索引化・共通名同期を誘発でき�
   ).toBeNull();
   expect(
     await env.ROOM_DO.get(env.ROOM_DO.idFromName(own.roomId)).listMembers(),
-  ).toMatchObject([{ name: defaultDisplayName(A.sub) }]);
+  ).toMatchObject([{ name: A.name }]);
 });
 
 it("既存ルームのバックフィルは途中失敗を完了にせず、次の実行で同期し直す", async () => {

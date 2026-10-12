@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { DisplayNameDialog, useDisplayName } from "@/features/auth";
 import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import { joinRoom } from "../logic/actions";
@@ -28,7 +27,6 @@ export function InviteCodeDialog({
   hostName,
 }: InviteCodeDialogProps) {
   const router = useRouter();
-  const displayName = useDisplayName({ currentUserId });
   const [reauth, setReauth] = useState(false);
   const [open, setOpen] = useState(true);
   const [pending, startTransition] = useTransition();
@@ -81,16 +79,13 @@ export function InviteCodeDialog({
       />
     );
   return (
-    <>
-      <InviteCodeDialogView
-        inviteCode={inviteCode}
-        hostName={hostName}
-        open={open && !displayName.open}
-        pending={pending || displayName.loading}
-        onOpenChange={setOpen}
-        onConfirm={() => void displayName.beforeEntry(joinConfirmed)}
-      />
-      <DisplayNameDialog controls={displayName} />
-    </>
+    <InviteCodeDialogView
+      inviteCode={inviteCode}
+      hostName={hostName}
+      open={open}
+      pending={pending}
+      onOpenChange={setOpen}
+      onConfirm={joinConfirmed}
+    />
   );
 }

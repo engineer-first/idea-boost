@@ -15,7 +15,6 @@ import {
   NOTE_SPAWN_X_MIN,
   NOTE_SPAWN_Y_MIN,
 } from "../contracts/board";
-import { defaultDisplayName } from "../contracts/display-name";
 import { buildLobbyPhase, buildPhaseStep } from "../contracts/phase.fixture";
 import {
   NOTE_COLOR_PALETTE,
@@ -50,19 +49,19 @@ const LOBBY = buildLobbyPhase();
 const roomIdBySocket = new WeakMap<RoomSocket, string>();
 
 // 2ユーザーが同じルームに接続した状態を作る（snapshot 受信済み）。
-async function setupRoom(): Promise<{
+async function setupRoom(memberUser: TestUser = MEMBER): Promise<{
   roomId: string;
   owner: RoomSocket;
   member: RoomSocket;
 }> {
   const { roomId, inviteCode } = await createRoomAs(OWNER);
-  await joinRoomAs(MEMBER, inviteCode);
+  await joinRoomAs(memberUser, inviteCode);
 
   const owner = await connectRoomAs(OWNER, roomId);
   const ownerSnapshot = await owner.next();
   expect(ownerSnapshot.type).toBe("snapshot");
 
-  const member = await connectRoomAs(MEMBER, roomId);
+  const member = await connectRoomAs(memberUser, roomId);
   const memberSnapshot = await member.next();
   expect(memberSnapshot.type).toBe("snapshot");
 
@@ -199,7 +198,7 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
     expect(snapshot.members).toEqual([
       {
         userId: OWNER.sub,
-        name: defaultDisplayName(OWNER.sub),
+        name: OWNER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     ]);
@@ -240,12 +239,12 @@ describe("snapshot（接続・再接続の復帰パス）", () => {
     expect(snapshot.members).toEqual([
       {
         userId: OWNER.sub,
-        name: defaultDisplayName(OWNER.sub),
+        name: OWNER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
       {
         userId: MEMBER.sub,
-        name: defaultDisplayName(MEMBER.sub),
+        name: MEMBER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     ]);
@@ -363,8 +362,8 @@ describe("member_joined（Realtime 反映）", () => {
     const { roomId, owner, member } = await setupRoom();
 
     const newcomer: TestUser = {
-      sub: "33333333-3333-4333-8333-333333333333",
-      email: "newcomer@example.test",
+      sub: crypto.randomUUID(),
+      email: `${crypto.randomUUID()}@example.test`,
       name: "Newcomer",
     };
     await joinRoomAs(newcomer, await getInviteCode(roomId, OWNER));
@@ -376,7 +375,7 @@ describe("member_joined（Realtime 反映）", () => {
       type: "member_joined",
       member: {
         userId: newcomer.sub,
-        name: defaultDisplayName(newcomer.sub),
+        name: newcomer.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     });
@@ -384,7 +383,7 @@ describe("member_joined（Realtime 反映）", () => {
       type: "member_joined",
       member: {
         userId: newcomer.sub,
-        name: defaultDisplayName(newcomer.sub),
+        name: newcomer.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     });
@@ -400,8 +399,8 @@ describe("member_joined（Realtime 反映）", () => {
     const { roomId, owner, member } = await setupRoom();
 
     const newcomer: TestUser = {
-      sub: "33333333-3333-4333-8333-333333333333",
-      email: "newcomer@example.test",
+      sub: crypto.randomUUID(),
+      email: `${crypto.randomUUID()}@example.test`,
       name: "Newcomer",
     };
     await joinRoomAs(newcomer, await getInviteCode(roomId, OWNER));
@@ -413,17 +412,17 @@ describe("member_joined（Realtime 反映）", () => {
     expect(newcomerSnapshot.members).toEqual([
       {
         userId: OWNER.sub,
-        name: defaultDisplayName(OWNER.sub),
+        name: OWNER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
       {
         userId: MEMBER.sub,
-        name: defaultDisplayName(MEMBER.sub),
+        name: MEMBER.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
       {
         userId: newcomer.sub,
-        name: defaultDisplayName(newcomer.sub),
+        name: newcomer.name,
         color: expect.stringMatching(NOTE_COLOR_PATTERN),
       },
     ]);
@@ -433,9 +432,28 @@ describe("member_joined（Realtime 反映）", () => {
     member.close();
   });
 
-  it("Googleプロフィール名だけが変わっても再参加で公開名を変えず、通知へ混入しない", async () => {
-    const { roomId, owner, member } = await setupRoom();
-    const renamedMember = { ...MEMBER, name: "Renamed Google Name" };
+  it("変更済みの表示名は認証名による再参加で戻らず、通知へ混入しない", async () => {
+    const memberUser = {
+      ...MEMBER,
+      sub: crypto.randomUUID(),
+      email: `${crypto.randomUUID()}@example.test`,
+    };
+    const { roomId, owner, member } = await setupRoom(memberUser);
+    const saved = await SELF.fetch("https://api.test/api/me/display-name", {
+      method: "PUT",
+      headers: {
+        Cookie: await sessionCookieFor(memberUser),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        expectedPrincipal: memberUser.sub,
+        name: "保存した表示名",
+      }),
+    });
+    expect(saved.status).toBe(200);
+    await expectType(owner, "member:renamed");
+    await expectType(member, "member:renamed");
+    const renamedMember = { ...memberUser, name: "Renamed Google Name" };
     await joinRoomAs(renamedMember, await getInviteCode(roomId, OWNER));
     const received = await Promise.race([
       owner.next(),
@@ -454,8 +472,8 @@ describe("member_joined（Realtime 反映）", () => {
   it("既存メンバーが同じ表示名で再 join しても member_joined は届かない", async () => {
     const { roomId, owner, member } = await setupRoom();
     const newcomer: TestUser = {
-      sub: "33333333-3333-4333-8333-333333333333",
-      email: "newcomer@example.test",
+      sub: crypto.randomUUID(),
+      email: `${crypto.randomUUID()}@example.test`,
       name: "Newcomer",
     };
     const inviteCode = await getInviteCode(roomId, OWNER);
@@ -466,7 +484,7 @@ describe("member_joined（Realtime 反映）", () => {
 
     expect(received.member).toEqual({
       userId: newcomer.sub,
-      name: defaultDisplayName(newcomer.sub),
+      name: newcomer.name,
       color: expect.stringMatching(NOTE_COLOR_PATTERN),
     });
 
@@ -548,7 +566,7 @@ describe("member_left（退出の Realtime 反映）", () => {
     const reJoined = await expectType(owner, "member_joined");
     expect(reJoined.member).toEqual({
       userId: MEMBER.sub,
-      name: defaultDisplayName(MEMBER.sub),
+      name: MEMBER.name,
       color: colorBeforeLeave,
     });
     owner.close();
@@ -2938,7 +2956,7 @@ describe("cursor presence（名前付きの一時同期）", () => {
     );
     expect(received.cursor).toEqual({
       userId: OWNER.sub,
-      name: defaultDisplayName(OWNER.sub),
+      name: OWNER.name,
       color: expect.stringMatching(NOTE_COLOR_PATTERN),
       x: 320,
       y: 240,

@@ -1,3 +1,5 @@
+import { loadDisplayName } from "@/features/auth/logic/display-name-actions";
+
 vi.mock("@/features/auth/logic/display-name-actions", () => ({
   loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
   saveDisplayName: vi.fn(),
@@ -542,4 +544,15 @@ it("再ログイン中も作成カードとルーム名を保持し、戻ると�
     "新サービスの相談",
   );
   expect(m.push).not.toHaveBeenCalled();
+});
+
+it("共通表示名が未設定でも設定ダイアログを出さず、作成を続ける", async () => {
+  vi.mocked(loadDisplayName).mockResolvedValueOnce({ ok: true, name: null });
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click();
+  await waitFor(() => expect(m.create).toHaveBeenCalledOnce());
+  expect(
+    screen.queryByRole("dialog", { name: "表示名を設定" }),
+  ).not.toBeInTheDocument();
+  expect(loadDisplayName).not.toHaveBeenCalled();
 });

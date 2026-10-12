@@ -1,6 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defaultDisplayName } from "@/contracts/display-name";
 
 const actions = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
 vi.mock("./display-name-actions", () => ({
@@ -13,25 +12,20 @@ import { useDisplayName } from "./use-display-name";
 const USER = "11111111-1111-4111-8111-111111111111";
 beforeEach(() => {
   vi.resetAllMocks();
-  actions.load.mockResolvedValue({ ok: true, name: null });
+  actions.load.mockResolvedValue({ ok: true, name: "Googleの名前" });
   actions.save.mockResolvedValue({ ok: true, name: "はな" });
 });
 describe("任意の共通表示名", () => {
-  it("未設定はGoogle名を入力せずに確認を開き、スキップで元の操作を続けられる", async () => {
-    const next = vi.fn();
+  it("自動では開かず、本人が変更を開いた時に現在のGoogle名を初期入力する", async () => {
     const { result } = renderHook(() =>
       useDisplayName({ currentUserId: USER }),
     );
-    await act(async () => result.current.beforeEntry(next));
+    expect(result.current.open).toBe(false);
+    expect(actions.load).not.toHaveBeenCalled();
+    await act(async () => result.current.request());
     expect(result.current.open).toBe(true);
-    expect(result.current.draft).toBe("");
-    expect(next).not.toHaveBeenCalled();
-    await act(async () => result.current.onSkip());
-    expect(next).toHaveBeenCalledOnce();
-    expect(actions.save).toHaveBeenCalledWith({
-      expectedPrincipal: USER,
-      name: defaultDisplayName(USER),
-    });
+    expect(result.current.draft).toBe("Googleの名前");
+    expect(actions.save).not.toHaveBeenCalled();
   });
   it("取消・不正入力・保存失敗では現在名を失わず、入力を残して再試行できる", async () => {
     actions.load.mockResolvedValue({ ok: true, name: "保存済み" });
@@ -61,18 +55,17 @@ describe("任意の共通表示名", () => {
       name: "はな",
     });
   });
-  it("保存中は重複操作・取消を防ぎ、成功してから元の作成・参加へ進む", async () => {
+  it("保存中は重複操作・取消を防ぎ、保存成功してから閉じる", async () => {
     let finish!: (value: { ok: true; name: string }) => void;
     actions.save.mockReturnValue(
       new Promise((resolve) => {
         finish = resolve;
       }),
     );
-    const next = vi.fn();
     const { result } = renderHook(() =>
       useDisplayName({ currentUserId: USER }),
     );
-    await act(async () => result.current.beforeEntry(next));
+    await act(async () => result.current.request());
     act(() => result.current.onDraftChange("はな"));
     let save!: Promise<void>;
     act(() => {
@@ -81,16 +74,14 @@ describe("任意の共通表示名", () => {
     act(() => {
       void result.current.onConfirm();
       result.current.onOpenChange(false);
-      result.current.onSkip();
     });
     expect(actions.save).toHaveBeenCalledOnce();
     expect(result.current.open).toBe(true);
-    expect(next).not.toHaveBeenCalled();
     await act(async () => {
       finish({ ok: true, name: "はな" });
       await save;
     });
-    expect(next).toHaveBeenCalledOnce();
+    expect(result.current.open).toBe(false);
   });
   it("アカウントが変わったら前の入力と遅れて届いた応答を引き継がない", async () => {
     let finish!: (value: { ok: true; name: string }) => void;
