@@ -1,4 +1,4 @@
-import { loadDisplayName } from "@/features/auth/logic/display-name-actions";
+import { loadDisplayName } from "@/features/auth";
 
 vi.mock("@/features/auth/logic/display-name-actions", () => ({
   loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
