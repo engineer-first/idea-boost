@@ -1,12 +1,15 @@
-name: PBI
+name: PBIを作る
 description: 目的・受け入れ条件・デモ確認内容を1件にまとめる
 type: PBI
 body:
+  - type: markdown
+    attributes:
+      value: "タイトルは「PBI-ジャンル-番号 主題」。既存コードは保持し、主題は何ができるかを具体的に書いてください。ジャンル・採番は [Issue運用](https://github.com/engineer-first/idea-boost/blob/develop/docs/team/issues.md) を参照してください。"
   - type: textarea
     id: story
     attributes:
       label: ユーザーストーリー
-      description: 誰が、何をしたいか、なぜ必要かを書いてください。
+      description: 本文冒頭に、誰が・何をしたいか・なぜ必要かを書いてください。確認した背景と仮案を区別します。
       placeholder: "利用者として、…したい。なぜなら、…だからだ。"
     validations:
       required: true
@@ -14,7 +17,7 @@ body:
     id: acceptance
     attributes:
       label: 受け入れ条件・デモ確認内容
-      description: ユーザーが確認できる条件とレビューで見せたい成果を、分かる範囲で書いてください。後から追加・変更できます。操作がある場合は、誰が・どの画面で・何をすると・何が起きるかを1行で書くと、使い方が伝わります。名称が未確定なら仮と明記してください。
+      description: 目的に対応する確認可能な結果を書いてください。操作は「誰が・どの画面で・何をすると・何が見えるか」、未確定の名称は仮と明記します。受け入れ条件でデモ確認も伝わるなら重複は不要です。
       placeholder: "例: 参加者が個人ワークステップで自分の付箋を共有スペースへドラッグすると、ほかの参加者の画面にも表示される。"
     validations:
       required: false
@@ -30,5 +33,7 @@ body:
     id: notes
     attributes:
       label: 補足
+      description: 関連する相談・Task・Issue・PR、対象外、判断理由、残る未確認を必要な分だけ残してください。実績と今後の要望を区別します。
+      placeholder: "根拠：#番号で確認した変更／仮案：確認したい背景／未確認：残る受け入れ条件"
     validations:
       required: false

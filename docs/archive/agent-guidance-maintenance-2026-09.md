@@ -264,3 +264,15 @@ Sprint 3（PBI-04〜09 が対象）と Sprint 2（PBI-01〜03 が対象）で実
 Issue #579 に合わせ、人の確認前に CodeRabbit のトークンを消費するのを避けるため、通常の PR 作成依頼は Draft とし、Ready for review での作成をユーザーが明示した場合だけ通常の PR にする。作成後の無断の Draft 解除を避け、既存 PR の本文更新では状態を保持する。CLI の作成例に `--draft` を加え、反映後の確認対象にも PR の状態を含めた。
 
 「PR までお願い」「PR を作って」は Draft、明示的な Ready for review・通常 PR の依頼は通常 PR、既存本文の更新は状態保持となることを文面で読み合わせた。変更文書の Markdown 整形、相対リンク、Claude の共有スキル symlink、`git diff --check` を検証した。今回の PR 作成にも変更後の手順を適用し、GitHub 上の `isDraft` を確認する。通常 PR の作成と既存 PR の更新は文面確認のみとし、検証目的の公開操作は行わない。
+
+## PBIの共同検討とチーム共有（2026-10-12）
+
+- 同ディレクトリの[使い方](../../.agents/skills/pbi/README.md)に、4入口の自然な依頼例、渡す資料、草案→レビュー→修正→依頼後反映を追加。モード番号や専用の文言は求めず、AIが入口を短く示し、混在資料は部分ごとに扱う。
+- 既存の[pbiスキル](../../.agents/skills/pbi/SKILL.md)を、実績の後追い整理・新しい希望・上位の相談の分割・未完も含むTaskの束ね直しに対応させた。入口で根拠を変え、目的・粒度・背景・受け入れ条件・本人のレビューへ共通に進む。4件程度または全案をまとめて提示し、全体数・残る判断・終点を先に示す。
+- スキルは考える手順、[PBIフォーム](../../.github/ISSUE_TEMPLATE/01-pbi.yml)は書き残す型、AGENTSは入口とした。既存のYAML Formのdescription / placeholderと、送信されないmarkdown案内を使う。私的な共同検討ページ・会話ログは転載せず、事実と仮案、既存価値と今回の改善、合意と完了の違いを判断規範へ一般化した。
+- 共通実体と既存Claude用symlinkを維持。[Codex](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)、[OpenCode](https://opencode.ai/docs/skills/)、[Claude Code](https://code.claude.com/docs/en/skills#choose-where-skills-load)の公式仕様を確認し、新しいコピーや設定は増やしていない。
+- 自動採番はジャンルとIssue番号を組み合わせ、並行作成の競合回避を維持。明示した既存コードは保持する。旧形式も明示入力の互換性を保ち、ジャンル未指定・コード形式不正・IDとジャンルの不一致は作成前に拒否する。6ジャンルは基本とし、目的が直接合わない場合は理由を示して追加できる。JSON入力の変更点は[作成spec](../../.agents/skills/pbi/references/creation-spec.md)へ示した。
+- 既存Pythonテストで変更前の失敗を確認した後、実装し17件成功。基本6ジャンルと追加ジャンルのCLI dry-runで仮IDと入力不変を確認した。実際のIssue作成・変更は検証に使っていない。
+- skill-creatorのquick\_validate、YAML FormとUIメタデータの構文・既存必須欄の維持、両経路の文書/付属ファイル参照、Markdown再整形の差分ゼロ、git diff --checkを確認。OpenCode 1.18.34のdebug skillでpbiが1件、正本から読み込まれることを確認した。
+- Codex 0.162.0のdebug prompt-inputとClaude Code 2.1.295の通常モードの/skillsで、pbiが一覧に1件現れることを追加確認。独立レビューで全差分と公式読込仕様を照合した。
+- フォーム名はGitHub公式の3文字を超える[表示条件](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository#creating-issue-forms)へ合わせて「PBIを作る」に変更し、正式TypeはPBIを保持。GitHub上の変更後フォーム描画はdefault branchへ反映前のため未確認。形式・一覧検証は、モデルが実際の相談で良い判断をすることを保証しない。

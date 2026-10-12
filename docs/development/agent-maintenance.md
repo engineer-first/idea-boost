@@ -19,6 +19,8 @@
 新規追加時も実体と symlink をセットで用意する。
 
 `.codex/skills/` に実体や互換リンクは置かない。Codex は `.agents/skills/` から読む。
+OpenCodeも `.agents/skills/` を直接探索するため、`.opencode/skills/` にコピーを追加しない
+（[公式の探索場所](https://opencode.ai/docs/skills/#place-files)）。
 明示呼び出し専用の条件は Claude Code の `disable-model-invocation: true` と
 Codex の `agents/openai.yaml` の `policy.allow_implicit_invocation: false` で保つ。
 ツール固有の hooks・設定は従来の場所で管理し、`akapen` などのユーザースキルと
