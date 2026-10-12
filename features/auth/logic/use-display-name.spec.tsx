@@ -16,6 +16,46 @@ beforeEach(() => {
   actions.save.mockResolvedValue({ ok: true, name: "はな" });
 });
 describe("任意の共通表示名", () => {
+  it("対象ルームが変わったら入力と保存中の状態を破棄し、前の応答で新しい編集を閉じない", async () => {
+    let finish!: (value: { ok: true; name: string }) => void;
+    actions.save.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const firstRoom = "33333333-3333-4333-8333-333333333333";
+    const secondRoom = "44444444-4444-4444-8444-444444444444";
+    const { result, rerender } = renderHook(
+      ({ roomId }) =>
+        useDisplayName({ currentUserId: USER, roomId, initialName: "現在名" }),
+      { initialProps: { roomId: firstRoom } },
+    );
+    await act(async () => result.current.request());
+    act(() => result.current.onDraftChange("前のルームの入力"));
+    let save!: Promise<void>;
+    act(() => {
+      save = result.current.onConfirm();
+    });
+    expect(result.current.pending).toBe(true);
+    rerender({ roomId: secondRoom });
+    expect(result.current.open).toBe(false);
+    expect(result.current.pending).toBe(false);
+    expect(result.current.draft).toBe("");
+    await act(async () => result.current.request());
+    act(() => result.current.onDraftChange("新しいルームの入力"));
+    await act(async () => {
+      finish({ ok: true, name: "前のルームの入力" });
+      await save;
+    });
+    expect(result.current.open).toBe(true);
+    expect(result.current.draft).toBe("新しいルームの入力");
+    await act(async () => result.current.onConfirm());
+    expect(actions.save).toHaveBeenLastCalledWith({
+      expectedPrincipal: USER,
+      roomId: secondRoom,
+      name: "新しいルームの入力",
+    });
+  });
   it("自動では開かず、本人が変更を開いた時に現在のGoogle名を初期入力する", async () => {
     const { result } = renderHook(() =>
       useDisplayName({ currentUserId: USER }),

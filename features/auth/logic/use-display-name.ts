@@ -40,9 +40,12 @@ export function useDisplayName({
     turn = useRef(0);
   const saving = useRef(false);
   const principal = useRef(currentUserId);
+  const targetRoom = useRef(roomId);
   principal.current = currentUserId;
+  targetRoom.current = roomId;
   useEffect(() => {
     principal.current = currentUserId;
+    targetRoom.current = roomId;
     turn.current++;
     busy.current = false;
     saving.current = false;
@@ -51,7 +54,7 @@ export function useDisplayName({
     setError(null);
     setLoading(false);
     setPending(false);
-  }, [currentUserId]);
+  }, [currentUserId, roomId]);
   useEffect(
     () => () => {
       turn.current++;
@@ -82,7 +85,12 @@ export function useDisplayName({
       ok: false as const,
       error: "表示名を取得できませんでした。再試行してください。",
     }));
-    if (generation !== turn.current || principal.current !== actor) return;
+    if (
+      generation !== turn.current ||
+      principal.current !== actor ||
+      targetRoom.current !== roomId
+    )
+      return;
     busy.current = false;
     setLoading(false);
     if (!result.ok) {
@@ -114,7 +122,12 @@ export function useDisplayName({
       ok: false as const,
       error: "保存結果を確認できませんでした。もう一度保存してください。",
     }));
-    if (generation !== turn.current || principal.current !== actor) return;
+    if (
+      generation !== turn.current ||
+      principal.current !== actor ||
+      targetRoom.current !== roomId
+    )
+      return;
     busy.current = false;
     setPending(false);
     saving.current = false;
