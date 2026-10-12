@@ -267,6 +267,7 @@ Issue #579 に合わせ、人の確認前に CodeRabbit のトークンを消費
 
 ## PBIの共同検討とチーム共有（2026-10-12）
 
+- 同ディレクトリの[使い方](../../.agents/skills/pbi/README.md)に、4入口の自然な依頼例、渡す資料、草案→レビュー→修正→依頼後反映を追加。モード番号や専用の文言は求めず、AIが入口を短く示し、混在資料は部分ごとに扱う。
 - 既存の[pbiスキル](../../.agents/skills/pbi/SKILL.md)を、実績の後追い整理・新しい希望・上位の相談の分割・未完も含むTaskの束ね直しに対応させた。入口で根拠を変え、目的・粒度・背景・受け入れ条件・本人のレビューへ共通に進む。4件程度または全案をまとめて提示し、全体数・残る判断・終点を先に示す。
 - スキルは考える手順、[PBIフォーム](../../.github/ISSUE_TEMPLATE/01-pbi.yml)は書き残す型、AGENTSは入口とした。既存のYAML Formのdescription / placeholderと、送信されないmarkdown案内を使う。私的な共同検討ページ・会話ログは転載せず、事実と仮案、既存価値と今回の改善、合意と完了の違いを判断規範へ一般化した。
 - 共通実体と既存Claude用symlinkを維持。[Codex](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)、[OpenCode](https://opencode.ai/docs/skills/)、[Claude Code](https://code.claude.com/docs/en/skills#choose-where-skills-load)の公式仕様を確認し、新しいコピーや設定は増やしていない。

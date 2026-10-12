@@ -23,7 +23,7 @@ Issue の要件や不具合を理解するために必要な画面イメージ�
 
 Issue Type の追加・変更・削除は組織全体に影響するため、他リポジトリへの影響を確認してから行う。
 
-PBIの壁打ち・実績整理・作成・修正は[PBIスキル](../../.agents/skills/pbi/SKILL.md)、書き残す型は[PBIフォーム](../../.github/ISSUE_TEMPLATE/01-pbi.yml)を使う。相談・要望と採用したPBIを区別し、文章の検討とGitHubへの反映を分ける。
+PBIの壁打ち・実績整理・作成・修正は[PBIスキル](../../.agents/skills/pbi/SKILL.md)、書き残す型は[PBIフォーム](../../.github/ISSUE_TEMPLATE/01-pbi.yml)を使う。[依頼例と渡す資料](../../.agents/skills/pbi/README.md)も参照できる。相談・要望と採用したPBIを区別し、文章の検討とGitHubへの反映を分ける。
 
 PBIタイトルは `PBI-ジャンル-番号 主題`。ジャンルは `GUIDE / CANVAS / FIELD / GROWTH / AI / OPS`。主題で「何ができるか」を具体的に伝え、主語を必須にしない。既存コードは保持する。新規作成スクリプトではジャンルを指定し、ID未指定ならIssue番号から採番する（例：#340 → `PBI-CANVAS-340`）。既存のジャンル内採番を使う場合は重複を確認した `pbi.id` を明示する。
 
