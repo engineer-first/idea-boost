@@ -190,6 +190,7 @@ export type RoomBoardViewProps = {
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
   isNextPhasePending: boolean;
+  isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
   initialGuideState?: StepGuideState;
@@ -319,6 +320,7 @@ export function RoomBoardView({
   hostUserId,
   completedVoterIds = [],
   isNextPhasePending,
+  isSavingBeforeShare = false,
   interactions,
   help,
   remoteCursors,
@@ -1787,6 +1789,7 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
+          isSavingBeforeShare={isSavingBeforeShare}
           canPublishPrivateNote={canPublishNoteInTurn(
             phase,
             sharing,

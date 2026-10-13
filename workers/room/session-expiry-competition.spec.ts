@@ -246,7 +246,7 @@ it.each([
   "restart",
 ])("%sの非同期確定前に期限を越えた進行要求を予約・確定しない", async (action) => {
   const { roomId } = await createRoomAs(owner);
-  const initial = buildPhaseStep(action === "reservation" ? 1 : 3);
+  const initial = buildPhaseStep(action === "sharing" ? 2 : 3);
   await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).setPhase(
     initial,
     owner.sub,
@@ -308,11 +308,11 @@ it.each([
 });
 
 it.each([
-  "reservation",
+  "sharing",
   "next",
 ])("%sのtransaction内alarm待機中に期限を越えた未確定進行をrollbackする", async (action) => {
   const { roomId } = await createRoomAs(owner);
-  const initial = buildPhaseStep(action === "reservation" ? 1 : 3);
+  const initial = buildPhaseStep(action === "sharing" ? 2 : 3);
   await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).setPhase(
     initial,
     owner.sub,
@@ -365,7 +365,7 @@ it.each([
   connection.close();
 });
 
-it("期限前に確定済みの進行予約は元接続が失効してもalarmで実行する", async () => {
+it("期限前に即時確定済みの進行は元接続の失効とalarmで二重進行しない", async () => {
   const { roomId } = await createRoomAs(owner);
   const initial = buildPhaseStep(1);
   await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).setPhase(
@@ -397,10 +397,8 @@ it("期限前に確定済みの進行予約は元接続が失効してもalarm�
           expectedRevision: revision,
         }),
       );
-      const pending = state.storage.sql
-        .exec("SELECT deadline_at FROM pending_phase_transition")
-        .one();
-      vi.setSystemTime(Number(pending.deadline_at));
+      expect(instance.getPhase()).toEqual(buildPhaseStep(2));
+      vi.setSystemTime(now + 2000);
       await instance.alarm();
       expect(instance.getPhase()).toEqual(buildPhaseStep(2));
       expect(

@@ -8,12 +8,7 @@ import {
   runAuthorizedMutationTransaction,
 } from "./handler-context";
 import { isCurrentHost, listMembers } from "./members";
-import {
-  getPendingPhaseTransition,
-  getPhase,
-  getPhaseRevision,
-  savePhase,
-} from "./phase";
+import { getPhase, getPhaseRevision, savePhase } from "./phase";
 import { recordProgressTransition } from "./progress-history";
 import { getSharingState, saveSharingState } from "./sharing-state";
 import { getTimerState, saveTimerState } from "./timer";
@@ -108,7 +103,6 @@ export const rollbackHandlers: MessageHandlers<"phase:rollback"> = {
       if (
         !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
         isRoomClosed(ctx.sql) ||
-        getPendingPhaseTransition(ctx.sql) ||
         getPhaseRevision(ctx.sql) !== message.expectedRevision ||
         JSON.stringify(getPhase(ctx.sql)) !==
           JSON.stringify(message.expectedPhase)

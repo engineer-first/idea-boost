@@ -43,6 +43,466 @@ describe("useNoteAutosave", () => {
   const setup = () =>
     renderHook(() => useNoteAutosave({ roomId: "room", userId, send }));
 
+  it("個人→共有で未送信本文を待機せず現在の工程の版で保存する", async () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "移行直前の本文"));
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    await act(async () => {});
+    expect(send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: "移行直前の本文",
+        expectedPhaseRevision: 3,
+      }),
+    );
+  });
+
+  it("個人→共有後に古い保存の拒否が届いても受理照会後に新しい要求で継続する", async () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "5秒後にも保存する本文"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: "forbidden",
+        operationId: request.operationId,
+        message: "古い工程",
+      }),
+    );
+    expect(result.current.recoveries).toEqual([]);
+    act(() => vi.advanceTimersByTime(5000));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: "unknown",
+      }),
+    );
+    await act(async () => {});
+    expect(send).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: request.content,
+        expectedPhaseRevision: 3,
+        operationId: expect.not.stringMatching(request.operationId),
+      }),
+    );
+  });
+
+  it.each([
+    "phase",
+    "snapshot",
+  ] as const)("別段階の編集工程への%sでは古い本文を再送しない", async (delivery) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "以前の課題の本文"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() =>
+      result.current.applyMessage(
+        delivery === "phase"
+          ? {
+              type: "phase:updated",
+              phase: buildPhaseStep(1, 2),
+              phaseRevision: 8,
+            }
+          : { ...snapshot(), phase: buildPhaseStep(1, 2), phaseRevision: 8 },
+      ),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: "unknown",
+      }),
+    );
+    await act(async () => {});
+    act(() => vi.advanceTimersByTime(10000));
+    expect(
+      send.mock.calls.filter(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("非編集工程で受理済みAのACKを受けても未送信Bの書込を予約しない", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "A"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() => result.current.change(noteId, "B"));
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(3),
+        phaseRevision: 4,
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-saved",
+        operationId: request.operationId,
+        noteId,
+        contentRevision: 1,
+      }),
+    );
+    act(() => vi.advanceTimersByTime(30000));
+    expect(result.current.recoveries).toEqual([
+      expect.objectContaining({ text: "B", reason: "現在は編集できません。" }),
+    ]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("個人→共有で受理済み照会なら本文を二重保存しない", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "受理済み本文"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    expect(send).toHaveBeenLastCalledWith({
+      type: "note:content-status",
+      operationId: request.operationId,
+    });
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: "accepted",
+        noteId,
+        contentRevision: 1,
+      }),
+    );
+    act(() => vi.advanceTimersByTime(10000));
+    expect(
+      send.mock.calls.filter(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toHaveLength(1);
+    expect(result.current.draftValue(noteId)).toBeUndefined();
+    expect(result.current.recoveries).toEqual([]);
+  });
+
+  it("個人→共有の日本語変換を勝手に確定せず、本人の確定後に最新の版で保存する", () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.compositionStart(noteId));
+    act(() => result.current.change(noteId, "にほん"));
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    act(() => vi.advanceTimersByTime(10000));
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.draftValue(noteId)).toBe("にほん");
+    act(() => result.current.compositionEnd(noteId, "日本"));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: "日本",
+        expectedPhaseRevision: 3,
+      }),
+    );
+  });
+
+  it.each([
+    "conflict",
+    "deleted",
+    "shared",
+  ] as const)("個人→共有で%sの保存は照会後も再送しない", async (change) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "端末の本文"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    act(() =>
+      result.current.applyMessage(
+        change === "deleted"
+          ? { type: "note:deleted", noteId }
+          : {
+              type: "note:updated",
+              note: {
+                ...note,
+                ...(change === "conflict"
+                  ? { content: "別タブの本文", contentRevision: 1 }
+                  : { visibility: "shared" as const }),
+              },
+            },
+      ),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: "unknown",
+      }),
+    );
+    await act(async () => {});
+    act(() => vi.advanceTimersByTime(10000));
+    expect(
+      send.mock.calls.filter(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toHaveLength(1);
+    expect(result.current.recoveries[0]?.text).toBe("端末の本文");
+  });
+
+  it("5秒切断して共有へ進んでも同段階の未送信本文はsnapshot後に保存する", async () => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "切断中の本文"));
+    act(() => result.current.setConnected(false));
+    act(() => vi.advanceTimersByTime(5000));
+    expect(send).not.toHaveBeenCalled();
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot(),
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    await act(async () => {});
+    expect(send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: "切断中の本文",
+        expectedPhaseRevision: 3,
+      }),
+    );
+  });
+
+  it("共有前保存はAのACKで後続Bを共有せず、最新BのACK後に一度だけ実行する", async () => {
+    const { result } = setup();
+    const sharedSnapshot = { ...snapshot(), phase: buildPhaseStep(2) };
+    act(() => result.current.applyMessage(sharedSnapshot));
+    act(() => result.current.change(noteId, "A"));
+    act(() => vi.advanceTimersByTime(1000));
+    const first = send.mock.calls[0]?.[0];
+    if (first?.type !== "note:update-content") throw new Error("save missing");
+    const publish = vi.fn();
+    act(() => result.current.saveBeforeShare(noteId, publish));
+    act(() => result.current.saveBeforeShare(noteId, publish));
+    act(() => result.current.change(noteId, "B"));
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-saved",
+        operationId: first.operationId,
+        noteId,
+        contentRevision: 1,
+      }),
+    );
+    expect(publish).not.toHaveBeenCalled();
+    await act(async () => {});
+    const last = send.mock.calls.at(-1)?.[0];
+    if (last?.type !== "note:update-content") throw new Error("B save missing");
+    expect(last.content).toBe("B");
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-saved",
+        operationId: last.operationId,
+        noteId,
+        contentRevision: 2,
+      }),
+    );
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(result.current.sharingSavePending).toBe(false);
+  });
+
+  it.each([
+    "phase",
+    "error",
+    "deleted",
+    "composing",
+    "disconnect",
+    "conflict",
+  ] as const)("共有前の保存待ち中に%sなら遅いACKでも共有しない", (stop) => {
+    const { result } = setup();
+    act(() =>
+      result.current.applyMessage({ ...snapshot(), phase: buildPhaseStep(2) }),
+    );
+    act(() => result.current.change(noteId, "共有する前の本文"));
+    const publish = vi.fn();
+    act(() => result.current.saveBeforeShare(noteId, publish));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    expect(result.current.sharingSavePending).toBe(true);
+    act(() => {
+      if (stop === "phase")
+        result.current.applyMessage({
+          type: "phase:updated",
+          phase: buildPhaseStep(3),
+          phaseRevision: 3,
+        });
+      if (stop === "error")
+        result.current.applyMessage({
+          type: "error",
+          code: "content-conflict",
+          operationId: request.operationId,
+          message: "他の編集",
+        });
+      if (stop === "deleted")
+        result.current.applyMessage({ type: "note:deleted", noteId });
+      if (stop === "composing") result.current.compositionStart(noteId);
+      if (stop === "disconnect") result.current.setConnected(false);
+      if (stop === "conflict")
+        result.current.applyMessage({
+          type: "note:updated",
+          note: {
+            ...note,
+            content: "別タブで更新した本文",
+            contentRevision: 2,
+          },
+        });
+    });
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-saved",
+        operationId: request.operationId,
+        noteId,
+        contentRevision: 1,
+      }),
+    );
+    expect(publish).not.toHaveBeenCalled();
+    expect(result.current.sharingSavePending).toBe(false);
+  });
+
+  it.each([
+    false,
+    true,
+  ])("再読込後も元の個人工程を覚え、同段階共有だけで保存を継続する（送信済み:%s）", async (sent) => {
+    const first = setup();
+    act(() => first.result.current.applyMessage(snapshot()));
+    act(() => first.result.current.change(noteId, "再読込した本文"));
+    if (sent) act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    first.unmount();
+    send.mockClear();
+    const second = setup();
+    act(() =>
+      second.result.current.applyMessage({
+        ...snapshot(),
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    if (request?.type === "note:update-content") {
+      expect(send).toHaveBeenCalledExactlyOnceWith({
+        type: "note:content-status",
+        operationId: request.operationId,
+      });
+      act(() =>
+        second.result.current.applyMessage({
+          type: "note:content-status-result",
+          operationId: request.operationId,
+          status: "unknown",
+        }),
+      );
+    }
+    await act(async () => {});
+    expect(send).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: "再読込した本文",
+        expectedPhaseRevision: 3,
+      }),
+    );
+    expect(second.result.current.recoveries).toEqual([]);
+    second.unmount();
+  });
+
+  it.each([
+    false,
+    true,
+  ])("非編集工程で未受理保存を止め、同じ共有工程のsnapshotでも復活しない（送信済み:%s）", async (sent) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "打ち切る本文"));
+    if (sent) act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(3),
+        phaseRevision: 4,
+      }),
+    );
+    if (request?.type === "note:update-content")
+      act(() =>
+        result.current.applyMessage({
+          type: "note:content-status-result",
+          operationId: request.operationId,
+          status: "unknown",
+        }),
+      );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot(),
+        phase: buildPhaseStep(2),
+        phaseRevision: 5,
+      }),
+    );
+    if (request?.type === "note:update-content")
+      act(() =>
+        result.current.applyMessage({
+          type: "note:content-status-result",
+          operationId: request.operationId,
+          status: "unknown",
+        }),
+      );
+    await act(async () => {});
+    act(() => vi.advanceTimersByTime(10000));
+    expect(
+      send.mock.calls.filter(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toHaveLength(sent ? 1 : 0);
+  });
+
   it.each([
     false,
     true,

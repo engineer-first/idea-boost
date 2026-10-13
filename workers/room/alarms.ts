@@ -72,11 +72,6 @@ export async function syncRoomAlarm(
       );
   }
 
-  const pending = sql
-    .exec("SELECT deadline_at FROM pending_phase_transition WHERE id = 1")
-    .toArray()[0];
-  if (typeof pending?.deadline_at === "number")
-    deadlines.push(pending.deadline_at);
   const sharing = getSharingState(sql);
   if (sharing?.startsAt !== null && sharing?.startsAt !== undefined)
     deadlines.push(sharing.startsAt);

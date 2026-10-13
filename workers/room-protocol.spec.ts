@@ -139,27 +139,7 @@ async function expectType<T extends ServerMessage["type"]>(
   ) {
     message = await socket.next();
   }
-  if (
-    message.type === "phase:save-requested" &&
-    type !== "phase:save-requested"
-  ) {
-    const roomId = roomIdBySocket.get(socket);
-    if (!roomId) throw new Error("テスト用ルームIDが見つかりません。");
-    await runInRoomDO(roomId, async (instance, state) => {
-      state.storage.sql.exec(
-        "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
-        Date.now() - 1,
-      );
-      await instance.alarm();
-    });
-    message = await socket.next();
-    while (
-      message.type === "note:content-saved" &&
-      type !== "note:content-saved"
-    ) {
-      message = await socket.next();
-    }
-  }
+
   expect(message.type).toBe(type);
   return message as Extract<ServerMessage, { type: T }>;
 }

@@ -6,7 +6,6 @@ import {
 import {
   getRoomPhaseLabel,
   isLobby,
-  isPersonalWritingStep,
   isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
@@ -26,7 +25,7 @@ import {
   replyForbidden,
   runAuthorizedMutationTransaction,
 } from "./handler-context";
-import { getHostState, isCurrentHost, isHostUser, isMember } from "./members";
+import { getHostState, isCurrentHost } from "./members";
 import {
   deleteNote,
   excludeNotesForBulkOperation,
@@ -64,146 +63,17 @@ export function getPhaseRevision(sql: SqlStorage): number {
   );
 }
 
-type PendingTransitionRow = {
-  transition_id: string;
-  requested_by: string;
-  action: "next" | "restart-writing";
-  expected_phase: string;
-  expected_revision: number;
-  force: number;
-  deadline_at: number;
-};
-
-function getPendingRow(sql: SqlStorage): PendingTransitionRow | null {
-  return (
-    (sql
-      .exec("SELECT * FROM pending_phase_transition WHERE id = 1")
-      .toArray()[0] as PendingTransitionRow | undefined) ?? null
-  );
-}
-
-export function getPendingPhaseTransition(sql: SqlStorage) {
-  const row = getPendingRow(sql);
-  if (!row) return null;
-  return {
-    transitionId: row.transition_id,
-    expectedPhase: RoomPhaseSchema.parse(JSON.parse(row.expected_phase)),
-    expectedRevision: row.expected_revision,
-    deadlineAt: row.deadline_at,
-    serverNow: Date.now(),
-  };
-}
-
-async function deferEditableTransition(
-  ctx: HandlerCtx,
-  action: PendingTransitionRow["action"],
-  message: {
-    expectedPhase: RoomPhase;
-    expectedRevision: number;
-    force?: boolean;
-    expectedHostRevision?: number;
-  },
-): Promise<boolean> {
-  const current = getPhase(ctx.sql);
-  if (current.kind !== "step" || current.step > 2) return false;
-  const pending = getPendingRow(ctx.sql);
-  if (pending) {
-    if (
-      pending.action === action &&
-      pending.requested_by === ctx.userId &&
-      pending.expected_revision === message.expectedRevision &&
-      pending.expected_phase === JSON.stringify(message.expectedPhase) &&
-      Boolean(pending.force) === Boolean(message.force)
-    ) {
-      if (pending.deadline_at <= Date.now()) return false;
-      const existing = getPendingPhaseTransition(ctx.sql);
-      if (existing) ctx.reply({ type: "phase:save-requested", ...existing });
-      return true;
-    }
-    replyForbidden(ctx);
-    return true;
-  }
-  const deadlineAt = Date.now() + 2_000;
-  const transitionId = crypto.randomUUID();
-  const reserved = await runAuthorizedMutationTransaction(ctx, async () => {
-    if (
-      !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
-      isRoomClosed(ctx.sql) ||
-      !matchesExpectedPhase(ctx, message)
-    ) {
-      replyForbidden(ctx);
-      return false;
-    }
-    ctx.sql.exec(
-      "INSERT INTO pending_phase_transition (id, transition_id, requested_by, action, expected_phase, expected_revision, force, deadline_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-      transitionId,
-      ctx.userId,
-      action,
-      JSON.stringify(message.expectedPhase),
-      message.expectedRevision,
-      message.force ? 1 : 0,
-      deadlineAt,
-    );
-    await syncRoomAlarm(ctx.storage, ctx.sql);
-    return true;
-  });
-  if (!reserved) return true;
-  ctx.broadcaster.broadcastToAll({
-    type: "phase:save-requested",
-    transitionId,
-    expectedPhase: message.expectedPhase,
-    expectedRevision: message.expectedRevision,
-    deadlineAt,
-    serverNow: Date.now(),
-  });
-  return true;
+// 旧デプロイで保存待ちを予約したルームにも待機や二重進行を復活させない。
+// snapshot の互換フィールドは維持するが、新規予約は作らない。
+export function getPendingPhaseTransition(_sql: SqlStorage): null {
+  return null;
 }
 
 export async function completeExpiredPhaseTransition(
   ctx: HandlerCtx,
 ): Promise<void> {
-  const row = getPendingRow(ctx.sql);
-  if (!row || row.deadline_at > Date.now()) return;
-  const expectedPhase = RoomPhaseSchema.parse(JSON.parse(row.expected_phase));
-  if (
-    !isMember(ctx.sql, row.requested_by) ||
-    !isHostUser(ctx.sql, row.requested_by) ||
-    JSON.stringify(getPhase(ctx.sql)) !== row.expected_phase ||
-    getPhaseRevision(ctx.sql) !== row.expected_revision
-  ) {
-    ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
-    await syncRoomAlarm(ctx.storage, ctx.sql);
-    ctx.refreshSnapshots();
-    return;
-  }
-  // host:transferはこの予約がある間拒否されるため、予約中にホスト世代は変わらない。
-  // 通常WSと同じ世代ガードを通し、新ホストが作った予約も正しく実行する。
-  const deferredCtx = {
-    ...ctx,
-    userId: row.requested_by,
-    authorizeMutation: undefined,
-    reply: () => {},
-  };
-  if (row.action === "next") {
-    await phaseHandlers["phase:next"](deferredCtx, {
-      type: "phase:next",
-      expectedPhase,
-      expectedRevision: row.expected_revision,
-      expectedHostRevision: getHostState(ctx.sql).hostRevision,
-      force: Boolean(row.force),
-    });
-  } else {
-    await phaseHandlers["phase:restart-writing"](deferredCtx, {
-      type: "phase:restart-writing",
-      expectedPhase,
-      expectedRevision: row.expected_revision,
-      expectedHostRevision: getHostState(ctx.sql).hostRevision,
-    });
-  }
-  if (getPendingRow(ctx.sql)?.transition_id === row.transition_id) {
-    ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
-    await syncRoomAlarm(ctx.storage, ctx.sql);
-  }
+  ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
+  await syncRoomAlarm(ctx.storage, ctx.sql);
 }
 
 function matchesExpectedPhase(
@@ -720,7 +590,6 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
-    if (await deferEditableTransition(ctx, "next", message)) return;
     const entersVotingStep = !isVotingStep(current) && isVotingStep(next);
     const initializesIdeaMapSize =
       current.kind === "step" &&
@@ -767,10 +636,10 @@ export const phaseHandlers: MessageHandlers<
       );
       if (
         current.kind === "step" &&
-        isPersonalWritingStep(current) &&
+        current.step === 2 &&
         next.kind === "step" &&
         next.phase === current.phase &&
-        next.step === 2
+        next.step > 2
       ) {
         discardEmptyPrivateNotes(ctx.sql, current.phase);
       }
@@ -782,12 +651,14 @@ export const phaseHandlers: MessageHandlers<
           .exec("SELECT idea_map_size_initialized FROM room_state WHERE id = 1")
           .toArray()[0] as { idea_map_size_initialized: number } | undefined;
         if (initializedRow?.idea_map_size_initialized !== 1) {
-          const countRow = ctx.sql
+          // 空付箋は共有後の保存のため保持するが、初期マップの枚数には含めない。
+          const count = ctx.sql
             .exec(
-              "SELECT COUNT(*) AS count FROM notes WHERE phase = 3 AND visibility = 'private'",
+              "SELECT content FROM notes WHERE phase = 3 AND visibility = 'private'",
             )
-            .toArray()[0] as { count: number } | undefined;
-          const sizeLevel = getInitialIdeaMapSizeLevel(countRow?.count ?? 0);
+            .toArray()
+            .filter(({ content }) => String(content).trim() !== "").length;
+          const sizeLevel = getInitialIdeaMapSizeLevel(count);
           ctx.sql.exec(
             "UPDATE room_state SET idea_map_size_level = ?1, idea_map_size_initialized = 1 WHERE id = 1",
             sizeLevel,
@@ -908,11 +779,6 @@ async function restartPhase(
     ...current,
     step: revote ? VOTING_STEP_BY_PHASE[current.phase] : 1,
   };
-  if (
-    !revote &&
-    (await deferEditableTransition(ctx, "restart-writing", message))
-  )
-    return;
   if (
     !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
     isRoomClosed(ctx.sql) ||
