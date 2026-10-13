@@ -22,6 +22,7 @@ import type { Note } from "../logic/notes-reducer";
 import { NoteCard } from "../molecules/note-card";
 
 export type PrivateNotesToolbarProps = {
+  rollbackRevision?: number;
   authorName?: (authorId: string) => string | undefined;
   notes: Note[];
   disabled: boolean;
@@ -59,6 +60,7 @@ export type PrivateNotesToolbarProps = {
 };
 
 export function PrivateNotesToolbar({
+  rollbackRevision = 0,
   notes,
   authorName,
   disabled,
@@ -437,7 +439,7 @@ export function PrivateNotesToolbar({
               ) : (
                 <NoteCard
                   authorName={authorName?.(note.authorId)}
-                  key={note.id}
+                  key={`${note.id}:${rollbackRevision}`}
                   note={note}
                   isOwnDrag={false}
                   isSelected={selectedNoteId === note.id}

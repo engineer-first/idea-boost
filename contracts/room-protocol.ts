@@ -650,6 +650,14 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     expectedRevision: z.number().int().nonnegative(),
     force: z.boolean().optional(),
   }),
+  z
+    .object({
+      type: z.literal("phase:rollback"),
+      expectedHostRevision: z.number().int().nonnegative(),
+      expectedPhase: RoomPhaseSchema,
+      expectedRevision: z.number().int().nonnegative(),
+    })
+    .strict(),
   z.object({
     type: z.literal("phase:restart-writing"),
     expectedHostRevision: z.number().int().nonnegative().optional(),
@@ -710,6 +718,7 @@ export const HOST_REVISION_MESSAGE_TYPES = [
   "decision:clear",
   "adoption-focus:update",
   "phase:next",
+  "phase:rollback",
   "phase:restart-writing",
   "phase:revote",
   "idea-map:resize",
@@ -813,6 +822,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     members: z.array(MemberSchema),
     phase: RoomPhaseSchema,
     phaseRevision: z.number().int().nonnegative().default(0),
+    rollbackTarget: RoomPhaseSchema.nullable().optional(),
+    rollbackRevision: z.number().int().nonnegative().optional(),
     pendingPhaseTransition: PendingPhaseTransitionSchema.nullable().optional(),
     isHost: z.boolean(),
     hostUserId: HostUserIdSchema.nullable().optional(),
@@ -987,6 +998,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     mapRevision: z.number().int().nonnegative().optional(),
     phase: RoomPhaseSchema,
     phaseRevision: z.number().int().nonnegative().default(0),
+    rollbackTarget: RoomPhaseSchema.nullable().optional(),
+    rollbackRevision: z.number().int().nonnegative().optional(),
   }),
   z
     .object({

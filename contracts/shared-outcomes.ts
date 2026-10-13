@@ -66,7 +66,9 @@ export const ProgressHistoryEntrySchema = z.object({
   sequence: z.number().int().positive(),
   phase: RoomPhaseSchema,
   nextPhase: RoomPhaseSchema.nullable(),
-  action: z.enum(["next", "restart-writing", "revote", "complete"]).nullable(),
+  action: z
+    .enum(["next", "restart-writing", "revote", "rollback", "complete"])
+    .nullable(),
   enteredAt: z.number().nullable(),
   exitedAt: z.number().nullable(),
   saveStatus: z.enum(["saved", "pending", "failed", "missing", "open"]),

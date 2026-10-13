@@ -317,6 +317,19 @@ export const noteHandlers: MessageHandlers<
         }
       | undefined;
     if (prior) {
+      const rollbackRevision = Number(
+        ctx.sql
+          .exec("SELECT rollback_revision FROM room_state WHERE id=1")
+          .one().rollback_revision,
+      );
+      if (prior.expected_phase_revision < rollbackRevision) {
+        ctx.reply({
+          type: "error",
+          code: "content-conflict",
+          message: "ステップを戻したため、この保存は取り消されています。",
+        });
+        return;
+      }
       if (
         prior.user_id === ctx.userId &&
         prior.note_id === message.noteId &&
@@ -395,7 +408,7 @@ export const noteHandlers: MessageHandlers<
   "note:content-status": (ctx, message) => {
     const receipt = ctx.sql
       .exec(
-        "SELECT note_id, content_revision FROM note_content_receipts WHERE operation_id = ?1 AND user_id = ?2",
+        "SELECT note_id, content_revision FROM note_content_receipts WHERE operation_id = ?1 AND user_id = ?2 AND expected_phase_revision >= (SELECT rollback_revision FROM room_state WHERE id=1)",
         message.operationId,
         ctx.userId,
       )

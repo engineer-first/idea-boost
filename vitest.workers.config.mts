@@ -27,7 +27,10 @@ export default defineConfig({
   ],
   test: {
     include: ["workers/**/*.spec.ts"],
-    exclude: ["workers/**/*.verification.spec.ts"],
+    exclude: [
+      "workers/**/*.verification.spec.ts",
+      "workers/**/*.preview.spec.ts",
+    ],
     setupFiles: ["./workers/test-setup.ts"],
   },
 });

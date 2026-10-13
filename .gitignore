@@ -86,3 +86,4 @@ __pycache__/
 
 # 手動本番公開の成功receipt（記録再送用、秘密を含めない）
 /.release-history/
+.preview-bundle/

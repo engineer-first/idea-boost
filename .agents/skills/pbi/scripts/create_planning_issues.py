@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+PBI_GENRE_PATTERN = r"[A-Z][A-Z0-9]*"
+
 
 def run(cmd, *, input_text=None):
     result = subprocess.run(
@@ -73,7 +75,6 @@ def demo_section(index, demo):
 def pbi_body(spec):
     pbi = spec["pbi"]
     parts = [
-        "## ユーザーストーリー",
         pbi["story"],
         "## 受け入れ条件",
         bullet_list(pbi.get("acceptance")),
@@ -105,10 +106,20 @@ def validate_spec(spec):
         if key not in pbi:
             raise ValueError(f"pbi.{key} is required")
         require_string(pbi[key], f"pbi.{key}")
+    genre = pbi.get("genre")
+    if genre is not None and (
+        not isinstance(genre, str) or not re.fullmatch(PBI_GENRE_PATTERN, genre)
+    ):
+        raise ValueError("pbi.genre must start with an uppercase letter and use uppercase letters/digits")
     if pbi.get("id") is not None:
         pbi_id = require_string(pbi["id"], "pbi.id")
-        if not re.fullmatch(r"PBI-\d{2,}", pbi_id):
-            raise ValueError("pbi.id must use PBI-XX format")
+        match = re.fullmatch(r"PBI-(" + PBI_GENRE_PATTERN + r")-\d{2,}", pbi_id)
+        if not match and not re.fullmatch(r"PBI-\d{2,}", pbi_id):
+            raise ValueError("pbi.id must use PBI-GENRE-XX format (legacy PBI-XX is preserved)")
+        if match and genre is not None and match[1] != genre:
+            raise ValueError("pbi.genre must match the genre in pbi.id")
+    elif genre is None:
+        raise ValueError("pbi.genre is required when pbi.id is omitted")
     require_list(pbi.get("acceptance"), "pbi.acceptance")
     require_list(pbi.get("memo"), "pbi.memo")
 
@@ -238,7 +249,7 @@ def assign_pbi_id(spec, issue_number):
     """GitHub が採番した Issue 番号を使い、自動採番同士の競合をなくす。"""
     pbi = spec["pbi"]
     if not pbi.get("id"):
-        pbi["id"] = f"PBI-{issue_number:02d}"
+        pbi["id"] = f"PBI-{pbi['genre']}-{issue_number:02d}"
     return pbi["id"]
 
 
@@ -284,8 +295,9 @@ def set_project_status(item_id, project_id_value, status_field_id, status_option
 def render_dry_run(spec):
     """未採番なら仮 ID で表示し、元の spec と GitHub を変更しない。"""
     if not spec["pbi"].get("id"):
-        print("PBI-00 は仮表示です。ID は作成された Issue 番号で確定します。")
-        spec = {**spec, "pbi": {**spec["pbi"], "id": "PBI-00"}}
+        preview_id = f"PBI-{spec['pbi']['genre']}-00"
+        print(f"{preview_id} は仮表示です。ID は作成された Issue 番号で確定します。")
+        spec = {**spec, "pbi": {**spec["pbi"], "id": preview_id}}
     pbi = spec["pbi"]
     print(f"# {issue_title(pbi)}")
     print(pbi_body(spec))

@@ -15,7 +15,7 @@ class PlanningIssueSpecTests(unittest.TestCase):
             "repo": "engineer-first/idea-boost",
             "project_owner": "engineer-first",
             "project_number": 3,
-            "pbi": {"title": "タイトル", "story": "利用者として価値を得たい。"},
+            "pbi": {"genre": "CANVAS", "title": "タイトル", "story": "利用者として価値を得たい。"},
             "demo_goals": [{"title": "確認する", "goal": "画面で結果を確認できる。"}],
         }
 
@@ -30,9 +30,59 @@ class PlanningIssueSpecTests(unittest.TestCase):
         ]) as create, patch.object(planning, "run") as run:
             for spec in specs:
                 planning.create_pbi_issue(spec)
-        self.assertEqual([spec["pbi"]["id"] for spec in specs], ["PBI-340", "PBI-341"])
+        self.assertEqual([spec["pbi"]["id"] for spec in specs], ["PBI-CANVAS-340", "PBI-CANVAS-341"])
         self.assertEqual([call.args[1] for call in create.call_args_list], ["タイトル", "タイトル"])
-        self.assertEqual([call.args[0][-1] for call in run.call_args_list], ["PBI-340 タイトル", "PBI-341 タイトル"])
+        self.assertEqual([call.args[0][-1] for call in run.call_args_list], ["PBI-CANVAS-340 タイトル", "PBI-CANVAS-341 タイトル"])
+
+    def test_explicit_genre_code_is_kept_during_creation(self):
+        spec = self.spec()
+        spec["pbi"]["id"] = "PBI-CANVAS-04"
+        del spec["pbi"]["genre"]
+        planning.validate_spec(spec)
+        with patch.object(planning, "create_issue", return_value={
+            "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",
+        }) as create, patch.object(planning, "run") as run:
+            planning.create_pbi_issue(spec)
+        self.assertEqual(create.call_args.args[1], "PBI-CANVAS-04 タイトル")
+        self.assertEqual(spec["pbi"]["id"], "PBI-CANVAS-04")
+        run.assert_not_called()
+
+    def test_auto_numbering_requires_a_valid_genre_before_any_creation(self):
+        for genre in [None, "", "guide", "NEW GENRE", "01"]:
+            with self.subTest(genre=genre):
+                spec = self.spec()
+                spec["pbi"]["genre"] = genre
+                with self.assertRaisesRegex(ValueError, "genre"):
+                    planning.validate_spec(spec)
+
+    def test_additional_genre_can_be_created_and_numbered(self):
+        spec = self.spec()
+        spec["pbi"]["genre"] = "ACCESS"
+        planning.validate_spec(spec)
+        with patch.object(planning, "create_issue", return_value={
+            "number": 340, "url": "https://github.com/engineer-first/idea-boost/issues/340",
+        }), patch.object(planning, "run") as run:
+            planning.create_pbi_issue(spec)
+        self.assertEqual(spec["pbi"]["id"], "PBI-ACCESS-340")
+        self.assertEqual(run.call_args.args[0][-1], "PBI-ACCESS-340 タイトル")
+
+    def test_explicit_additional_genre_code_is_preserved(self):
+        spec = self.spec()
+        spec["pbi"]["id"] = "PBI-ACCESS-07"
+        del spec["pbi"]["genre"]
+        planning.validate_spec(spec)
+        planning.assign_pbi_id(spec, 340)
+        self.assertEqual(spec["pbi"]["id"], "PBI-ACCESS-07")
+
+    def test_explicit_code_and_genre_cannot_disagree(self):
+        spec = self.spec()
+        spec["pbi"]["id"] = "PBI-GUIDE-01"
+        with self.assertRaisesRegex(ValueError, "genre"):
+            planning.validate_spec(spec)
+
+    def test_story_is_the_first_body_content(self):
+        spec = self.spec()
+        self.assertTrue(planning.pbi_body(spec).startswith(spec["pbi"]["story"]))
 
     def test_title_update_failure_reports_the_created_issue_for_recovery(self):
         with patch.object(planning, "create_issue", return_value={
@@ -43,10 +93,11 @@ class PlanningIssueSpecTests(unittest.TestCase):
 
     def test_dry_run_needs_no_github_access_and_does_not_assign_a_real_id(self):
         spec = self.spec()
-        with patch.object(planning, "run") as run, patch("builtins.print"):
+        with patch.object(planning, "run") as run, redirect_stdout(io.StringIO()) as output:
             planning.render_dry_run(spec)
         run.assert_not_called()
         self.assertNotIn("id", spec["pbi"])
+        self.assertIn("PBI-CANVAS-00 タイトル", output.getvalue())
 
     def test_preserves_an_explicit_legacy_pbi_id(self):
         spec = self.spec()
