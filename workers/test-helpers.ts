@@ -56,9 +56,7 @@ export function runInRoomDO<T>(
   return runInDurableObject(stub, fn);
 }
 
-export async function startTimerForTest(
-  roomId: string,
-): Promise<void> {
+export async function startTimerForTest(roomId: string): Promise<void> {
   await runInRoomDO(roomId, async (_instance, state) => {
     const durationMs = TIMER_MAX_DURATION_MS;
     const now = Date.now();
