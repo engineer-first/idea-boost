@@ -11,9 +11,15 @@
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
   "durable_objects": {
-    "bindings": [{ "name": "ROOM_DO", "class_name": "RoomDO" }]
+    "bindings": [
+      { "name": "ROOM_DO", "class_name": "RoomDO" },
+      { "name": "ACCOUNT_DO", "class_name": "AccountDO" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RoomDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["AccountDO"] }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

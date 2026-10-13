@@ -138,13 +138,14 @@ describe("任意の意見", () => {
   });
   it("別ルームに受付IDを流用できず、解散後も既存投稿は残るが新規投稿は拒否する", async () => {
     const first = await createRoomAs(owner);
-    const second = await createRoomAs(owner);
+    const second = await createRoomAs(outsider);
     const body = input();
     expect(
       (await call(`/api/rooms/${first.roomId}/feedback`, owner, body)).status,
     ).toBe(200);
     expect(
-      (await call(`/api/rooms/${second.roomId}/feedback`, owner, body)).status,
+      (await call(`/api/rooms/${second.roomId}/feedback`, outsider, body))
+        .status,
     ).toBe(409);
     expect(
       (await call(`/api/rooms/${first.roomId}/leave`, owner, {})).status,

@@ -4,6 +4,26 @@ import { unstable_readConfig } from "wrangler";
 import { z } from "zod";
 
 const root = new URL("../", import.meta.url);
+const previewBindingsSchema = z.tuple([
+  z.object({
+    name: z.literal("ROOM_DO"),
+    class_name: z.literal("PreviewRoomDO"),
+  }),
+  z.object({
+    name: z.literal("ACCOUNT_DO"),
+    class_name: z.literal("PreviewAccountDO"),
+  }),
+]);
+const previewMigrationsSchema = z.tuple([
+  z.object({
+    tag: z.literal("v1"),
+    new_sqlite_classes: z.tuple([z.literal("PreviewRoomDO")]),
+  }),
+  z.object({
+    tag: z.literal("v2"),
+    new_sqlite_classes: z.tuple([z.literal("PreviewAccountDO")]),
+  }),
+]);
 const appSchema = z.object({
   name: z.literal("idea-boost-preview-app"),
   main: z.literal(".preview-bundle/worker.js"),
@@ -22,14 +42,7 @@ const appSchema = z.object({
       PREVIEW_API_COMMIT: z.string().regex(/^[a-f0-9]{40}$/),
     }),
     durable_objects: z.object({
-      bindings: z
-        .array(
-          z.object({
-            name: z.literal("ROOM_DO"),
-            class_name: z.literal("PreviewRoomDO"),
-          }),
-        )
-        .length(1),
+      bindings: previewBindingsSchema,
     }),
     d1_databases: z
       .array(
@@ -44,14 +57,7 @@ const appSchema = z.object({
       )
       .length(1),
   }),
-  migrations: z
-    .array(
-      z.object({
-        tag: z.literal("v1"),
-        new_sqlite_classes: z.tuple([z.literal("PreviewRoomDO")]),
-      }),
-    )
-    .length(1),
+  migrations: previewMigrationsSchema,
 });
 const apiSchema = z.object({
   name: z.literal("idea-boost-preview-api"),
@@ -63,14 +69,7 @@ const apiSchema = z.object({
     PREVIEW_API_COMMIT: z.string().regex(/^[a-f0-9]{40}$/),
   }),
   durable_objects: z.object({
-    bindings: z
-      .array(
-        z.object({
-          name: z.literal("ROOM_DO"),
-          class_name: z.literal("PreviewRoomDO"),
-        }),
-      )
-      .length(1),
+    bindings: previewBindingsSchema,
   }),
   d1_databases: z
     .array(

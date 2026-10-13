@@ -29,9 +29,11 @@ it("PR版APIを同じPreview内で動かし、PR専用D1と独立RoomDOへ接続
   ]);
   expect(config.previews.durable_objects.bindings).toEqual([
     { name: "ROOM_DO", class_name: "PreviewRoomDO" },
+    { name: "ACCOUNT_DO", class_name: "PreviewAccountDO" },
   ]);
   expect(config.migrations).toEqual([
     { tag: "v1", new_sqlite_classes: ["PreviewRoomDO"] },
+    { tag: "v2", new_sqlite_classes: ["PreviewAccountDO"] },
   ]);
   assertPreviewConfig(config, "app");
 });
@@ -150,4 +152,38 @@ it("追加binding・外部DO namespace・環境別overrideを拒否する", () =
     },
   ])
     expect(() => assertPreviewConfig(bad, "app")).toThrow();
+});
+
+it("アカウント単位のDOを省略したり本番へ差し替えたPreview構成を拒否する", () => {
+  const app = previewAppConfig({
+    number: 12,
+    databaseId: "11111111-1111-4111-8111-111111111111",
+    sha: "a".repeat(40),
+  });
+  for (const bindings of [
+    [app.previews.durable_objects.bindings[0]],
+    [
+      app.previews.durable_objects.bindings[0],
+      { name: "ACCOUNT_DO", class_name: "AccountDO" },
+    ],
+    [
+      app.previews.durable_objects.bindings[0],
+      {
+        ...app.previews.durable_objects.bindings[1],
+        script_name: "idea-flow-api",
+      },
+    ],
+  ])
+    expect(() =>
+      assertPreviewConfig(
+        {
+          ...app,
+          previews: { ...app.previews, durable_objects: { bindings } },
+        },
+        "app",
+      ),
+    ).toThrow();
+  expect(() =>
+    assertPreviewConfig({ ...app, migrations: [app.migrations[0]] }, "app"),
+  ).toThrow();
 });

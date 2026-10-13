@@ -9,9 +9,15 @@
   "vars": { "PREVIEW_ENABLED": "true" },
   "triggers": { "crons": ["0 * * * *"] },
   "durable_objects": {
-    "bindings": [{ "name": "ROOM_DO", "class_name": "PreviewRoomDO" }]
+    "bindings": [
+      { "name": "ROOM_DO", "class_name": "PreviewRoomDO" },
+      { "name": "ACCOUNT_DO", "class_name": "PreviewAccountDO" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PreviewRoomDO"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["PreviewRoomDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["PreviewAccountDO"] }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

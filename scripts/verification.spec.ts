@@ -60,6 +60,7 @@ describe("検証起動の隔離", () => {
     expect(config.main).toBe(join(path, "workers/verification-worker.ts"));
     expect(config.durable_objects.bindings).toEqual([
       { name: "ROOM_DO", class_name: "VerificationRoomDO" },
+      { name: "ACCOUNT_DO", class_name: "VerificationAccountDO" },
       { name: "VERIFICATION_WORKSPACE", class_name: "VerificationWorkspace" },
     ]);
     expect(config.d1_databases[0].database_id).toBe(

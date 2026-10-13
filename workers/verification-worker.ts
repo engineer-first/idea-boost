@@ -10,6 +10,7 @@ import { deleteRoom, ensureUser, findRoomById, insertRoom } from "./lib/db";
 import { VerificationRoomDO } from "./room/verification-room-do";
 import { VerificationWorkspace } from "./verification-workspace";
 
+export { AccountDO as VerificationAccountDO } from "./account/account-do";
 export { VerificationRoomDO, VerificationWorkspace };
 export type VerificationWorkerEnv = ApiWorkerEnv & {
   IDEA_BOOST_VERIFY?: string;
@@ -110,6 +111,11 @@ const api = createApiWorker(async (request, baseEnv, session) => {
         inviteCode: room.inviteCode,
         checkpoint: parsed.data.checkpoint,
       };
+      const previous = await workspace.getActive();
+      if (previous && previous.roomId !== active.roomId)
+        await namespace
+          .get(namespace.idFromName(previous.roomId))
+          .archiveVerification();
       await workspace.setActive(active);
       return Response.json(active);
     } catch {

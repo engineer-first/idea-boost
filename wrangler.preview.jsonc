@@ -7,7 +7,10 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": true,
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PreviewRoomDO"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["PreviewRoomDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["PreviewAccountDO"] }
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS",
@@ -20,7 +23,10 @@
       "PREVIEW_API_COMMIT": "PR_COMMIT_REQUIRED"
     },
     "durable_objects": {
-      "bindings": [{ "name": "ROOM_DO", "class_name": "PreviewRoomDO" }]
+      "bindings": [
+        { "name": "ROOM_DO", "class_name": "PreviewRoomDO" },
+        { "name": "ACCOUNT_DO", "class_name": "PreviewAccountDO" }
+      ]
     },
     "d1_databases": [
       {
