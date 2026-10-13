@@ -85,7 +85,7 @@ export function SharingPresenter({
               <MemberSelection
                 name={
                   member.userId === currentUserId && onEditSelf
-                    ? `${member.name}：呼び名を変更`
+                    ? `${member.name}：表示名を変更`
                     : member.name
                 }
                 className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"
@@ -143,7 +143,7 @@ export function SharingPresenter({
                 key={member.userId}
                 name={
                   member.userId === currentUserId && onEditSelf
-                    ? `${member.name}：呼び名を変更`
+                    ? `${member.name}：表示名を変更`
                     : member.name
                 }
                 className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"

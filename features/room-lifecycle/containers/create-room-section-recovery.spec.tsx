@@ -1,3 +1,8 @@
+vi.mock("@/features/auth/logic/display-name-actions", () => ({
+  loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
+  saveDisplayName: vi.fn(),
+}));
+
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";

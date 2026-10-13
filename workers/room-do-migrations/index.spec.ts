@@ -27,6 +27,7 @@ const ALL_TABLES = [
   "group_history_versions",
   "groups",
   "legacy_note_drag_leases",
+  "member_account_name_revisions",
   "member_color_assignments",
   "member_display_names",
   "members",

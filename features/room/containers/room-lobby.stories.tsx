@@ -43,6 +43,7 @@ function HostTransferPreview({
         initialPhase={{ kind: "lobby" }}
         initialMembers={members}
         webSocketFactory={server.factory}
+        saveDisplayNameAction={server.saveDisplayName}
       />
     </div>
   );

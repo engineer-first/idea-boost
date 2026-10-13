@@ -1,3 +1,10 @@
+import { loadDisplayName } from "@/features/auth";
+
+vi.mock("@/features/auth/logic/display-name-actions", () => ({
+  loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
+  saveDisplayName: vi.fn(),
+}));
+
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,7 +27,10 @@ const m = vi.hoisted(() => ({
   clear: vi.fn(),
   refresh: () => {},
 }));
-vi.mock("@/features/auth", () => ({ startRoomReauthentication: vi.fn() }));
+vi.mock("@/features/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/auth")>()),
+  startRoomReauthentication: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
 vi.mock("../logic/actions", () => ({
   createRoom: m.create,
@@ -534,4 +544,15 @@ it("再ログイン中も作成カードとルーム名を保持し、戻ると�
     "新サービスの相談",
   );
   expect(m.push).not.toHaveBeenCalled();
+});
+
+it("共通表示名が未設定でも設定ダイアログを出さず、作成を続ける", async () => {
+  vi.mocked(loadDisplayName).mockResolvedValueOnce({ ok: true, name: null });
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click();
+  await waitFor(() => expect(m.create).toHaveBeenCalledOnce());
+  expect(
+    screen.queryByRole("dialog", { name: "表示名を設定" }),
+  ).not.toBeInTheDocument();
+  expect(loadDisplayName).not.toHaveBeenCalled();
 });

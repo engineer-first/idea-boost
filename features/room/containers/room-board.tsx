@@ -11,12 +11,14 @@
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { SetDisplayNameInput } from "@/contracts/display-name";
 import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import {
   type ClientMessage,
   needsHostRevision,
   type ServerMessage,
 } from "@/contracts/room-protocol";
+import type { DisplayNameResult } from "@/features/auth";
 import { submitFeedback, useFeedback } from "@/features/feedback";
 import { HMW_EXAMPLES } from "@/features/hmw";
 import {
@@ -59,6 +61,9 @@ export type RoomBoardProps = {
   signOutAction?: () => Promise<void>;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
+  saveDisplayNameAction?: (
+    input: SetDisplayNameInput,
+  ) => Promise<DisplayNameResult>;
   // テストでボード操作を単体検証するときは案内モーダルを無効化する。
 };
 
@@ -73,6 +78,7 @@ export function RoomBoard({
   initialPhase,
   signOutAction,
   webSocketFactory,
+  saveDisplayNameAction,
 }: RoomBoardProps) {
   const feedback = useFeedback(roomId, submitFeedback);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
@@ -135,6 +141,8 @@ export function RoomBoard({
     send,
   });
   const displayName = useRoomDisplayName({
+    roomId,
+    save: saveDisplayNameAction,
     currentUserId,
     members: roomState.members,
     connected: connectionStatus === "open",

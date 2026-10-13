@@ -2,8 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import type { SetDisplayNameInput } from "@/contracts/display-name";
 import { isLobby, type RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
+import type { DisplayNameResult } from "@/features/auth";
 // スタート画面（ロビー）のコンテナ。関心ごとの hook を束ねて view に渡す。
 //   - WebSocket 接続と切断時の遷移: use-room-connection
 //   - members / phase の適用と入退出通知: use-room-state
@@ -44,6 +46,9 @@ export type RoomLobbyProps = {
   initialMembers: Member[];
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
+  saveDisplayNameAction?: (
+    input: SetDisplayNameInput,
+  ) => Promise<DisplayNameResult>;
 };
 
 export function RoomLobby({
@@ -58,6 +63,7 @@ export function RoomLobby({
   initialPhase,
   initialMembers,
   webSocketFactory,
+  saveDisplayNameAction,
 }: RoomLobbyProps) {
   const router = useRouter();
   const inheritedAdmission = useContext(RoomAdmissionContext);
@@ -106,6 +112,8 @@ export function RoomLobby({
     isLeavingRef,
   });
   const displayName = useRoomDisplayName({
+    roomId,
+    save: saveDisplayNameAction,
     currentUserId,
     members: roomState.members,
     connected: connectionStatus === "open",

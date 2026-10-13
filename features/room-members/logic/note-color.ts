@@ -112,7 +112,7 @@ export const NOTE_COLOR_STYLES: Record<
   },
 };
 
-// 表示色を文字でも識別し、同じ呼び名や色の見分けにくさを補う。
+// 表示色を文字でも識別し、同じ表示名や色の見分けにくさを補う。
 export const NOTE_COLOR_NAMES: Record<NoteColor, string> = {
   yellow: "黄色",
   green: "緑色",

@@ -80,7 +80,7 @@ export function RoomMembers({
               <MemberSelection
                 name={
                   isMe && onEditSelf
-                    ? `${member.name}：呼び名を変更`
+                    ? `${member.name}：表示名を変更`
                     : member.name
                 }
                 className="flex w-full min-w-0 flex-col items-center gap-1 p-1 text-center"
@@ -168,7 +168,7 @@ export function RoomMembers({
                 <MemberSelection
                   name={
                     member.userId === currentUserId && onEditSelf
-                      ? `${member.name}：呼び名を変更`
+                      ? `${member.name}：表示名を変更`
                       : member.name
                   }
                   className="flex min-h-11 w-full min-w-0 items-center gap-2 p-1"

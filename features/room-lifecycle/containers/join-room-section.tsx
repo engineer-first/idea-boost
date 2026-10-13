@@ -49,12 +49,12 @@ export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
     });
   }
 
-  function handleConfirm() {
+  function joinConfirmed() {
     if (!isValidCode) return;
     startJoin(async () => {
       const formData = new FormData();
       formData.append("code", code);
-      const result = await joinRoom(formData);
+      const result = await joinRoom(formData, currentUserId);
       if (!result.ok) {
         if (result.reason === "reauth_required") {
           setReauth(true);
@@ -96,7 +96,7 @@ export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
         onDialogOpenChange={setDialogOpen}
         hostName={hostName}
         onSubmit={handleSubmit}
-        onConfirm={handleConfirm}
+        onConfirm={joinConfirmed}
       />
       {reauth && (
         <RoomReauthentication

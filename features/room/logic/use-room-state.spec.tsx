@@ -307,20 +307,20 @@ it("初期・参加・改名の作者名を退出後も保持し、再参加で�
   act(() => {
     result.current.applyMessage({
       type: "member:renamed",
-      member: { ...member, name: "新しい呼び名" },
+      member: { ...member, name: "新しい表示名" },
       operationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     });
     result.current.applyMessage({ type: "member_left", userId: member.userId });
   });
   expect(result.current.members).toEqual([]);
-  expect(result.current.authorNames.get(member.userId)).toBe("新しい呼び名");
+  expect(result.current.authorNames.get(member.userId)).toBe("新しい表示名");
   act(() =>
     result.current.applyMessage({
       type: "member_joined",
-      member: { ...member, name: "再参加の呼び名" },
+      member: { ...member, name: "再参加の表示名" },
     }),
   );
-  expect(result.current.authorNames.get(member.userId)).toBe("再参加の呼び名");
+  expect(result.current.authorNames.get(member.userId)).toBe("再参加の表示名");
 });
 
 it("再接続snapshotに退出者がいなくても受信済み作者名を保持する", () => {
