@@ -5,8 +5,8 @@ import {
   type MessageHandlers,
   runAuthorizedMutationTransaction,
 } from "./handler-context";
-import { isHostUser, isMember } from "./members";
-import { getPhase } from "./phase";
+import { getHostState, isHostUser, isMember } from "./members";
+import { getPhase, getPhaseRevision, phaseHandlers } from "./phase";
 import { getSharingState, saveSharingState } from "./sharing-state";
 import { getTimerState, saveTimerState } from "./timer";
 
@@ -80,6 +80,21 @@ async function commitTurn(ctx: HandlerCtx, state: SharingState): Promise<void> {
   if (committed) broadcastSharing(ctx);
 }
 
+async function advanceAfterFinalPresenter(
+  ctx: HandlerCtx,
+  state: SharingState,
+): Promise<void> {
+  if (state.status !== "complete") return;
+  const phase = getPhase(ctx.sql);
+  if (phase.kind !== "step" || phase.step !== 2) return;
+  await phaseHandlers["phase:next"](ctx, {
+    type: "phase:next",
+    expectedPhase: phase,
+    expectedRevision: getPhaseRevision(ctx.sql),
+    expectedHostRevision: getHostState(ctx.sql).hostRevision,
+  });
+}
+
 export const sharingHandlers: MessageHandlers<
   "sharing:start" | "sharing:advance"
 > = {
@@ -98,6 +113,7 @@ export const sharingHandlers: MessageHandlers<
     if (state?.status !== "active") return;
     state.results.push(message.outcome);
     await commitTurn(ctx, state);
+    await advanceAfterFinalPresenter(ctx, state);
   },
 };
 

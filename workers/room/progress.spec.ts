@@ -5,9 +5,9 @@ import { hasStrictMajority, isManualProgressStep } from "./progress";
 describe("phase progress", () => {
   it.each([
     [1, 1, true],
-    [1, 2, false],
+    [1, 2, true],
     [2, 3, true],
-    [2, 4, false],
+    [2, 4, true],
     [3, 5, true],
     [0, 0, false],
   ])("%i/%i は過半数=%s", (ready, connected, expected) => {

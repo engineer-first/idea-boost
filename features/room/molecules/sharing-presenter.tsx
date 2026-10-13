@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight, Minus } from "lucide-react";
 import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,9 @@ export function SharingPresenter({
   const descriptionId = useId();
   const [open, setOpen] = useState(false);
   const current = sharing.order[sharing.currentIndex ?? sharing.results.length];
+  const isActive = sharing.status === "active";
+  const currentStatusLabel =
+    sharing.startsAt !== null ? "まもなく発表" : "発表中";
   const otherMembers = members.filter(
     (member) => !sharing.order.some((entry) => entry.userId === member.userId),
   );
@@ -50,23 +54,66 @@ export function SharingPresenter({
           aria-describedby={descriptionId}
           className="h-11 w-[250px] min-w-0 shrink-0 gap-2 rounded-xl border-blue-200 bg-blue-50 px-2 text-left hover:bg-blue-100 max-[900px]:min-w-[220px] max-[900px]:flex-1"
         >
-          {current && (
-            <MemberAvatar name={current.name} color={current.color} size={28} />
-          )}
-          <span id={descriptionId} className="min-w-0 flex-1">
-            <span className="block truncate text-xs font-semibold">
-              {sharing.status === "complete"
-                ? "一巡しました"
-                : sharing.status === "ready"
-                  ? "一人ずつ共有します"
-                  : `${sharing.startsAt !== null ? "まもなく発表" : "発表中"}：${current?.name ?? ""}`}
-            </span>
+          <span
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+            data-testid="sharing-order"
+          >
+            {sharing.order.map((member, index) => {
+              const result = sharing.results[index];
+              const isCurrent = isActive && index === sharing.currentIndex;
+              return (
+                <span
+                  key={member.userId}
+                  className="flex shrink-0 items-center gap-1"
+                >
+                  {index > 0 ? (
+                    <ArrowRight
+                      aria-hidden="true"
+                      className="size-3 shrink-0 text-blue-400"
+                    />
+                  ) : null}
+                  <span
+                    className="relative flex shrink-0 items-center"
+                    data-current={isCurrent ? "true" : undefined}
+                    data-sharing-result={result ?? undefined}
+                  >
+                    <MemberAvatar
+                      name={member.name}
+                      color={member.color}
+                      size={isCurrent ? 30 : 26}
+                      isVotingComplete={result === "done"}
+                      completionLabel="発表済み"
+                    />
+                    {result === "passed" ? (
+                      <span
+                        className="absolute -bottom-1 -right-1 inline-flex size-3.5 items-center justify-center rounded-full border border-background bg-slate-600 text-white"
+                        role="img"
+                        aria-label="パス"
+                      >
+                        <Minus aria-hidden="true" className="size-2.5" />
+                      </span>
+                    ) : null}
+                  </span>
+                  {isCurrent ? (
+                    <span className="min-w-0 max-w-28 text-left leading-tight">
+                      <span className="block text-[10px] font-bold text-blue-700">
+                        {currentStatusLabel}
+                      </span>
+                      <span className="block truncate text-xs font-semibold text-blue-950">
+                        {member.name}
+                      </span>
+                    </span>
+                  ) : null}
+                </span>
+              );
+            })}
           </span>
-          <span className="shrink-0 text-right text-xs tabular-nums">
-            {sharing.currentIndex === null
-              ? sharing.results.length
-              : sharing.currentIndex + 1}
-            /{sharing.order.length}
+          <span id={descriptionId} className="sr-only">
+            {sharing.status === "complete"
+              ? "共有完了"
+              : sharing.status === "ready"
+                ? "一人ずつ共有します"
+                : `${currentStatusLabel}：${current?.name ?? ""}`}
           </span>
         </Button>
       </PopoverTrigger>

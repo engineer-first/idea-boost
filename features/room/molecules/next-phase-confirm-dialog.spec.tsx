@@ -33,6 +33,23 @@ describe("NextPhaseConfirmDialog", () => {
     ).toBeDisabled();
   });
 
+  it("未完了メンバーがいる場合は確認内容を短く表示する", () => {
+    setup({ notReadyNames: ["Owner"] });
+
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+
+    const dialog = screen.getByRole("alertdialog");
+    expect(
+      screen.getByText("完了していないメンバーがいます"),
+    ).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(
+      "全員の完了を待たずに、次のステップへ進みますか？",
+    );
+    expect(dialog).toHaveTextContent("Owner");
+    expect(screen.getByRole("img", { name: "Owner" })).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent("本文のある共有付箋");
+  });
+
   it("確認ダイアログで現在ステップと、空白の共有付箋だけを削除する範囲を説明する", () => {
     setup({ phase: buildPhaseStep(2) });
 
@@ -60,13 +77,13 @@ describe("NextPhaseConfirmDialog", () => {
     );
   });
 
-  it("「移行する」で onConfirm を呼ぶ（確認前には呼ばない）", () => {
+  it("「次へ進む」で onConfirm を呼ぶ（確認前には呼ばない）", () => {
     const { onConfirm } = setup();
 
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
     expect(onConfirm).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
+    fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 

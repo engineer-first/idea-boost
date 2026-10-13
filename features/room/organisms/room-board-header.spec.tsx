@@ -343,8 +343,39 @@ describe("RoomBoardHeader", () => {
   it("投票完了者のアバターにチェックを表示する", () => {
     const members = buildMembers(2, ME);
     setup({
+      phase: buildPhaseStep(4),
       members,
       completedVoterIds: [members[0]?.userId ?? ""],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
+
+    expect(
+      within(
+        screen.getByTestId(`member-row-${members[0]?.userId}`),
+      ).getByTestId("member-voting-complete"),
+    ).toBeVisible();
+    expect(
+      within(
+        screen.getByTestId(`member-row-${members[1]?.userId}`),
+      ).queryByTestId("member-voting-complete"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("完了フラグを立てた参加者のアバターにチェックを表示する", () => {
+    const members = buildMembers(2, ME);
+    setup({
+      phase: buildPhaseStep(1),
+      members,
+      progress: {
+        phaseRevision: 1,
+        progressRevision: 2,
+        connectedUserIds: members.map(({ userId }) => userId),
+        readyUserIds: [members[0]?.userId ?? ""],
+        notReadyUserIds: [members[1]?.userId ?? ""],
+        canAdvance: false,
+        allReady: false,
+      },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
@@ -539,7 +570,7 @@ describe("RoomBoardHeader", () => {
       setup({ isHost: true, onNextPhase });
 
       fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-      fireEvent.click(screen.getByRole("button", { name: "移行する" }));
+      fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
 
       expect(onNextPhase).toHaveBeenCalledTimes(1);
     });
@@ -727,7 +758,7 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
       })}
     />,
   );
-  expect(screen.getByText("一巡しました")).toBeVisible();
+  expect(screen.getByText("共有完了")).toBeVisible();
   expect(screen.getByRole("button", { name: "次のステップへ" })).toBeEnabled();
   expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   expect(

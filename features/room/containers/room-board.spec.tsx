@@ -328,7 +328,11 @@ it.each([
   mockPrivateToolbarLayout(toolbar);
   function dragPrivate() {
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
-    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 650, clientY: 120 });
+    fireEvent.pointerDown(handle, {
+      pointerId: 1,
+      clientX: 650,
+      clientY: 120,
+    });
     fireEvent.pointerMove(handle, {
       buttons: 1,
       pointerId: 1,
@@ -2771,7 +2775,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
+    fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
 
     expect(socket.sent).toContain(
       JSON.stringify({
@@ -3245,7 +3249,7 @@ describe("作業中のホスト交代", () => {
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
+    fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
     expectSent(socket, { type: "phase:next", expectedHostRevision: 1 });
   });
   it("古い解散確認は往復移譲後に残らない", () => {
@@ -3426,7 +3430,11 @@ describe("transaction interruption DOM", () => {
     if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
     else if (reason === "blur") fireEvent.blur(window);
     else fireEvent.lostPointerCapture(scroller, { pointerId: 7 });
-    fireEvent.pointerUp(scroller, { pointerId: 7, clientX: 150, clientY: 150 });
+    fireEvent.pointerUp(scroller, {
+      pointerId: 7,
+      clientX: 150,
+      clientY: 150,
+    });
     expectSent(socket, { type: "note:move:cancel" });
     expect(
       socket.sent
@@ -3499,7 +3507,11 @@ describe("pointer origin interruption DOM", () => {
       clientX: 130,
       clientY: 130,
     });
-    fireEvent.pointerUp(surface, { pointerId: 7, clientX: 150, clientY: 150 });
+    fireEvent.pointerUp(surface, {
+      pointerId: 7,
+      clientX: 150,
+      clientY: 150,
+    });
     expect(
       socket.sent
         .map((v) => JSON.parse(v))

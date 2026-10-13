@@ -12,7 +12,7 @@ export function hasStrictMajority(
   readyCount: number,
   connectedCount: number,
 ): boolean {
-  return connectedCount > 0 && readyCount > connectedCount / 2;
+  return connectedCount > 0 && readyCount >= connectedCount / 2;
 }
 
 export function isManualProgressStep(phase: Phase): boolean {

@@ -251,6 +251,10 @@ export function RoomBoardHeader({
       ? activeSharing.order[activeSharing.currentIndex]
       : null;
   const canAdvanceSharing = isHost || presenter?.userId === currentUserId;
+  const isLastPresenter =
+    activeSharing?.status === "active" &&
+    activeSharing.currentIndex !== null &&
+    activeSharing.currentIndex === activeSharing.order.length - 1;
   const [configuredDuration, setConfiguredDuration] = useState<{
     revision: string;
     durationMs: number;
@@ -302,10 +306,19 @@ export function RoomBoardHeader({
   const notReadyNames = members
     .filter((member) => progress.notReadyUserIds.includes(member.userId))
     .map((member) => member.name);
+  const notReadyMembers = members.filter((member) =>
+    progress.notReadyUserIds.includes(member.userId),
+  );
   const requireProgressConfirmation =
     (isManualProgressStep || isCurrentVotingStep) && !progress.allReady;
   const showVotingCompletion =
     isCurrentVotingStep && progress.allReady && !isDisconnected;
+  const completedMemberIds = isCurrentVotingStep
+    ? completedVoterIds
+    : isManualProgressStep
+      ? progress.readyUserIds
+      : [];
+  const completionLabel = isCurrentVotingStep ? "投票完了" : "作業完了";
   const timerSoundControls = useRoomTimerSounds({
     timer,
     serverOffsetMs: timerServerOffsetMs,
@@ -469,9 +482,10 @@ export function RoomBoardHeader({
                             color={member.color}
                             size={28}
                             isMe={member.userId === currentUserId}
-                            isVotingComplete={completedVoterIds.includes(
+                            isVotingComplete={completedMemberIds.includes(
                               member.userId,
                             )}
+                            completionLabel={completionLabel}
                           />
                         </span>
                       ))}
@@ -545,9 +559,10 @@ export function RoomBoardHeader({
                             color={member.color}
                             size={32}
                             isMe={member.userId === currentUserId}
-                            isVotingComplete={completedVoterIds.includes(
+                            isVotingComplete={completedMemberIds.includes(
                               member.userId,
                             )}
+                            completionLabel={completionLabel}
                           />
                           <span className="min-w-0 flex-1 truncate text-sm">
                             {member.name}
@@ -660,7 +675,7 @@ export function RoomBoardHeader({
                     disabled={isDisconnected || transitioning || isTransferring}
                     onClick={() => onSharingAdvance?.("done")}
                   >
-                    次の人へ
+                    {isLastPresenter ? "次のステップへ" : "次の人へ"}
                   </Button>
                 </>
               )
@@ -758,6 +773,7 @@ export function RoomBoardHeader({
                   }
                   requireConfirmation={requireProgressConfirmation}
                   notReadyNames={notReadyNames}
+                  notReadyMembers={notReadyMembers}
                   onConfirm={() =>
                     onNextPhase(
                       progress.allReady ? undefined : progress.progressRevision,
@@ -779,6 +795,7 @@ export function RoomBoardHeader({
                 }
                 requireConfirmation={requireProgressConfirmation}
                 notReadyNames={notReadyNames}
+                notReadyMembers={notReadyMembers}
                 onConfirm={() =>
                   onNextPhase(
                     progress.allReady ? undefined : progress.progressRevision,
@@ -901,6 +918,7 @@ export function RoomBoardHeader({
                         isTransferring
                       }
                       onConfirm={onNextPhase}
+                      notReadyMembers={notReadyMembers}
                     />
                   ) : null}
                   <Button
