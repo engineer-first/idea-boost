@@ -2217,7 +2217,7 @@ describe("接続状態 → 画面反映", () => {
     renderBoard({ open: false });
 
     expect(screen.getByTestId("board-connection-status")).toHaveTextContent(
-      "再接続",
+      "接続しています",
     );
   });
 

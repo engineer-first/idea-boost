@@ -78,7 +78,11 @@ export function RoomAdmissionGate({
         {fallback}
         <p
           role="status"
-          className="fixed inset-x-4 top-1/2 mx-auto max-w-md rounded-xl bg-background p-6 text-center shadow-lg"
+          className={
+            stage === "lobby"
+              ? "sr-only"
+              : "fixed inset-x-4 top-1/2 z-50 mx-auto max-w-md rounded-xl bg-background p-6 text-center shadow-lg"
+          }
         >
           ルームを確認しています…
         </p>

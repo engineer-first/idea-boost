@@ -46,6 +46,17 @@ export function RoomConnectionNotice({
             {status === "auth-required" ? "ログインする" : "ホームへ戻る"}
           </a>
         </>
+      ) : status === "connecting" ? (
+        delayed ? (
+          <>
+            <p className="font-semibold">接続に時間がかかっています</p>
+            <p className="mt-1 leading-relaxed">
+              この画面を開いたままお待ちください。
+            </p>
+          </>
+        ) : (
+          <p>ルームに接続しています…</p>
+        )
       ) : delayed ? (
         <>
           <p className="font-semibold">接続が戻っていません</p>

@@ -5,11 +5,18 @@ vi.mock("@/features/auth/logic/display-name-actions", () => ({
   saveDisplayName: vi.fn(),
 }));
 
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { issueCreationId } from "@/contracts/room-creation";
 import type { RoomCreationIntent } from "../logic/room-creation-storage";
+import { useRoomCreation } from "../logic/use-room-creation";
 
 const m = vi.hoisted(() => ({
   push: vi.fn(),
@@ -555,4 +562,50 @@ it("共通表示名が未設定でも設定ダイアログを出さず、作成�
     screen.queryByRole("dialog", { name: "表示名を設定" }),
   ).not.toBeInTheDocument();
   expect(loadDisplayName).not.toHaveBeenCalled();
+});
+
+it("通常の作成中は回復案内を出さず、成功後も移動まで名前と準備中を保持する", async () => {
+  let resolveCreate!: (value: { ok: true; roomId: string }) => void;
+  m.create.mockReturnValue(
+    new Promise((resolve) => {
+      resolveCreate = resolve;
+    }),
+  );
+  render(<CreateRoomSection currentUserId={USER} />);
+  await waitFor(() => expect(screen.getByRole("textbox")).toBeEnabled());
+  await userEvent.type(screen.getByRole("textbox"), "新サービスの相談");
+  await click();
+  await waitFor(() => expect(m.create).toHaveBeenCalledOnce());
+  expect(
+    screen.queryByText(/準備したルーム|移動が途中/),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "新しいルームを作成" }),
+  ).not.toBeInTheDocument();
+  await act(async () => resolveCreate({ ok: true, roomId: ROOM }));
+  await waitFor(() => expect(m.push).toHaveBeenCalledOnce());
+  expect(screen.getByRole("textbox")).toHaveValue("新サービスの相談");
+  expect(screen.getByRole("button", { name: "準備中…" })).toBeDisabled();
+});
+
+it("移動が完了しない場合は保存済みの同じルームへ再試行できる", async () => {
+  const { result } = renderHook(() => useRoomCreation(USER));
+  await waitFor(() => expect(result.current.pending).toBe(false));
+  vi.useFakeTimers();
+  try {
+    await act(async () => result.current.onSubmit("相談"));
+    expect(m.push).toHaveBeenCalledOnce();
+    expect(result.current.pending).toBe(true);
+    act(() => result.current.onSubmit("別のルーム"));
+    expect(m.issue).toHaveBeenCalledOnce();
+    act(() => vi.advanceTimersByTime(15_000));
+    expect(result.current.pending).toBe(false);
+    expect(result.current.recovering).toBe(true);
+    await act(async () => result.current.onSubmit(""));
+    expect(m.create).toHaveBeenCalledOnce();
+    expect(m.issue).toHaveBeenCalledOnce();
+    expect(m.push).toHaveBeenCalledTimes(2);
+  } finally {
+    vi.useRealTimers();
+  }
 });

@@ -404,7 +404,7 @@ export function PrivateNotesToolbar({
               {sharingHint}
             </p>
           ) : null}
-          {canCreateNote ? (
+          {canCreateNote || isWorkspace ? (
             <p
               className={cn(
                 "text-xs text-muted-foreground",
