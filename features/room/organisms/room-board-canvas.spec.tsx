@@ -24,6 +24,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     selectedNoteId: null,
     draggingNoteId: null,
     isDisconnected: false,
+    boardInteractionBlocked: false,
     voteRemaining: { subjective: 5, objective: 10 },
     selectedVoteKind: null,
     pendingVoteOperations: [],
@@ -94,6 +95,57 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("タイマー停止中も選択した付箋の文字サイズを変更できる", () => {
+    const phase = buildPhaseStep(2);
+    const onNoteFontSizeChange = vi.fn();
+
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      boardInteractionBlocked: true,
+      notes: [
+        buildNote({
+          id: "font-note",
+          fontSize: 14,
+          visibility: "shared",
+        }),
+      ],
+      selectedNoteId: "font-note",
+      onNoteFontSizeChange,
+    });
+
+    const increaseButton = screen.getByRole("button", {
+      name: "付箋の文字を大きく",
+    });
+
+    expect(increaseButton).toBeEnabled();
+
+    fireEvent.click(increaseButton);
+
+    expect(onNoteFontSizeChange).toHaveBeenCalledWith("font-note", 15);
+  });
+  it("タイマー停止中は付箋の採用対象を表示しない", () => {
+    const phase = buildPhaseStep(5);
+
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      boardInteractionBlocked: true,
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({
+          id: "note-1",
+          content: "採用候補",
+          visibility: "shared",
+        }),
+      ],
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /採用する.+:/ }),
+    ).not.toBeInTheDocument();
+  });
   it("自分の発表順を待っている間もマイ付箋をドラッグできる", () => {
     const onPrivateNoteDragStart = vi.fn();
     setup({

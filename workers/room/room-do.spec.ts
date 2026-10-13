@@ -22,6 +22,7 @@ import type { SocketAttachment } from "./broadcast";
 import { insertNote } from "./notes";
 import { savePhase } from "./phase";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
+import { saveTimerState } from "./timer";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
@@ -6691,6 +6692,206 @@ describe("RoomDO Step 3-1 の境界ゲート", () => {
 });
 
 describe("RoomDO タイマー終了", () => {
+  describe("RoomDO ボード操作のタイマーゲート", () => {
+    it.each([
+      "idle",
+      "paused",
+      "ended",
+    ] as const)("タイマーが %s のとき note:create を拒否する", async (status) => {
+      const roomName = `room-board-timer-gate-${status}`;
+      const stub = roomStub(roomName);
+
+      await initializeTestRoom(stub, USER_A, "Host");
+
+      // note:create がフェーズ上は許可される状態にしておく。
+      // タイマーによる拒否を独立して検証するため。
+      await stub.setPhase(buildPhaseStep(1, 2), USER_A);
+
+      if (status === "paused" || status === "ended") {
+        await runInRoomDO(roomName, (_instance, state) => {
+          saveTimerState(
+            state.storage.sql,
+            status === "paused"
+              ? {
+                  status: "paused",
+                  remainingMs: 60_000,
+                  durationMs: 60_000,
+                }
+              : {
+                  status: "ended",
+                  durationMs: 60_000,
+                },
+          );
+        });
+      }
+
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+
+      ws.send(
+        JSON.stringify({
+          type: "note:create",
+          content: "タイマー停止中に作成してはいけない付箋",
+        }),
+      );
+
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+        message: "タイマーが動作していないため、ボードを操作できません。",
+      });
+
+      const noteCount = await runInRoomDO(roomName, (_instance, state) =>
+        Number(
+          state.storage.sql
+            .exec(
+              "SELECT COUNT(*) AS count FROM notes WHERE author_id = ?1",
+              USER_A,
+            )
+            .one().count,
+        ),
+      );
+
+      expect(noteCount).toBe(0);
+
+      ws.close();
+    });
+
+    it("タイマー実行中はフェーズで許可された note:create を受け付ける", async () => {
+      const roomName = "room-board-timer-gate-running";
+      const stub = roomStub(roomName);
+
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(1, 2), USER_A);
+
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+
+      ws.send(
+        JSON.stringify({
+          type: "timer:start",
+          durationMs: 60_000,
+        }),
+      );
+
+      expect(await nextJson(ws)).toMatchObject({
+        type: "timer:updated",
+        timer: { status: "running" },
+      });
+
+      ws.send(
+        JSON.stringify({
+          type: "note:create",
+          content: "タイマー開始後の付箋",
+        }),
+      );
+
+      expect(await nextJson(ws)).toMatchObject({
+        type: "note:inserted",
+        note: {
+          content: "タイマー開始後の付箋",
+          visibility: "private",
+        },
+      });
+
+      ws.close();
+    });
+
+    it("タイマー停止中でも note:update-font-size はタイマーゲートで拒否しない", async () => {
+      const roomName = "room-board-timer-gate-font-size";
+      const stub = roomStub(roomName);
+
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(1), USER_A);
+
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+
+      // 存在しない付箋を指定することで、タイマーゲートを通過し、
+      // 通常の付箋検証まで到達したことを確認する。
+      ws.send(
+        JSON.stringify({
+          type: "note:update-font-size",
+          noteId: "99999999-9999-4999-8999-999999999999",
+          fontSize: 15,
+        }),
+      );
+
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "not-found",
+        message: "付箋が見つかりませんでした。",
+      });
+
+      ws.close();
+    });
+
+    it("タイマー停止中でも Idea Map のサイズ変更は許可する", async () => {
+      const roomName = "room-board-timer-gate-map-resize";
+      const stub = roomStub(roomName);
+
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(2, 3), USER_A);
+
+      await runInRoomDO(roomName, (_instance, state) => {
+        state.storage.sql.exec(
+          `UPDATE room_state
+         SET idea_map_size_initialized = 1,
+             idea_map_size_level = 0
+         WHERE id = 1`,
+        );
+      });
+
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+
+      // タイマーは idle のまま。
+      ws.send(
+        JSON.stringify({
+          type: "idea-map:resize",
+          sizeLevel: 1,
+        }),
+      );
+
+      expect(await nextJsonOfType(ws, "idea-map:state")).toMatchObject({
+        type: "idea-map:state",
+        sizeLevel: 1,
+        initialized: true,
+      });
+
+      ws.close();
+    });
+
+    it("タイマー停止中は note:move:inverse も拒否する", async () => {
+      const roomName = "room-board-timer-gate-move-inverse";
+      const stub = roomStub(roomName);
+
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(1, 2), USER_A);
+
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+
+      ws.send(
+        JSON.stringify({
+          type: "note:move:inverse",
+          operationId: crypto.randomUUID(),
+          sourceOperationId: crypto.randomUUID(),
+          expectedTargets: [
+            {
+              noteId: "99999999-9999-4999-8999-999999999999",
+              positionRevision: 0,
+              visibilityRevision: 0,
+            },
+          ],
+          expectedGroupRevision: 0,
+        }),
+      );
+
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+        message: "タイマーが動作していないため、ボードを操作できません。",
+      });
+
+      ws.close();
+    });
+  });
   it("ホストの一時停止中の終了は ended を全員へ配信し、非ホストは操作できない", async () => {
     const roomName = "room-timer-ended-and-host-only";
     const stub = roomStub(roomName);

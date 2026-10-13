@@ -445,6 +445,7 @@ export function RoomBoardView({
   const previousPhase = useRef({ phase, phaseRevision, rollbackRevision });
   const [isMounted, setIsMounted] = useState(false);
   const permissions = getBoardPermissions(phase, decision !== null);
+  const boardInteractionBlocked = timer.status !== "running";
 
   const cancelVoteDrag = useCallback((): boolean => {
     const current = voteStickerDragRef.current;
@@ -462,6 +463,17 @@ export function RoomBoardView({
       current.owner.releasePointerCapture(current.pointerId);
     return true;
   }, []);
+
+  useEffect(() => {
+    if (!boardInteractionBlocked) return;
+
+    // ドラッグ中のシールとポインターキャプチャを解除する。
+    cancelVoteDrag();
+
+    // パレットで選択中のシールも解除する。
+    setSelectedVoteKind(null);
+    setVoteStampPointer(null);
+  }, [boardInteractionBlocked, cancelVoteDrag]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -528,6 +540,12 @@ export function RoomBoardView({
     cancelVoteDrag,
     setSelectedNoteId,
   ]);
+
+  useEffect(() => {
+    if (boardInteractionBlocked) {
+      setIsAdoptMode(false);
+    }
+  }, [boardInteractionBlocked]);
 
   useEffect(() => {
     if (connectionStatus === "open" && isHost && decision === null) return;
@@ -798,6 +816,7 @@ export function RoomBoardView({
 
   function handleAdoptNote(noteId: string) {
     if (
+      boardInteractionBlocked ||
       !isAdoptMode ||
       hasActiveCanvasGesture() ||
       isCandidatePending ||
@@ -944,6 +963,11 @@ export function RoomBoardView({
   }
 
   function handleRootPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (boardInteractionBlocked && voteStickerDragRef.current) {
+      cancelVoteDrag();
+      return;
+    }
+
     const pressed = rootPressRef.current;
     if (event.buttons === 0 && pressed?.pointerId === event.pointerId) {
       cancelRootPress();
@@ -1015,7 +1039,12 @@ export function RoomBoardView({
       setIsVoteStickerReturnDropTarget(false);
       if (current.owner?.hasPointerCapture?.(event.pointerId))
         current.owner.releasePointerCapture(event.pointerId);
-      if (current.didDrag && !isDisconnected && isVotingStep(phase)) {
+      if (
+        current.didDrag &&
+        !isDisconnected &&
+        !boardInteractionBlocked &&
+        isVotingStep(phase)
+      ) {
         event.preventDefault();
         const stickerId = current.stickerId;
         const isReturnDrop =
@@ -1072,6 +1101,7 @@ export function RoomBoardView({
     if (event.detail === 0) suppressPaletteSelectRef.current = false;
     if (
       isDisconnected ||
+      boardInteractionBlocked ||
       !isVotingStep(phase) ||
       voteRemaining[kind] <= 0 ||
       voteStickerDragRef.current ||
@@ -1159,6 +1189,7 @@ export function RoomBoardView({
     if (
       selectedVoteKind === null ||
       isDisconnected ||
+      boardInteractionBlocked ||
       !isVotingStep(phase) ||
       voteRemaining[selectedVoteKind] <= 0
     ) {
@@ -1365,7 +1396,8 @@ export function RoomBoardView({
       isSharedNote &&
       permissions.canMoveNote &&
       !pendingCandidateNoteIds.includes(noteId) &&
-      !isDisconnected
+      !isDisconnected &&
+      !boardInteractionBlocked
     ) {
       onNoteBringToFront(noteId);
     }
@@ -1772,7 +1804,7 @@ export function RoomBoardView({
         >
           <BoardHelpPanel
             {...help}
-            disabled={isDisconnected}
+            disabled={isDisconnected || boardInteractionBlocked}
             onHmwTemplateSelect={(content) => {
               onHmwTemplateSelect(content);
               setExpandPrivateNotesRequest((request) => request + 1);
@@ -1783,7 +1815,33 @@ export function RoomBoardView({
             }}
           />
         </RoomBoardHeader>
+        {boardInteractionBlocked &&
+        phase.kind === "step" &&
+        !isDisconnected &&
+        decision === null ? (
+          <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="timer-work-hint"
+              className="w-full max-w-md rounded-xl border border-border/40 bg-background/10 px-6 py-5 text-center shadow-xl backdrop-blur-[2px]"
+            >
+              <p className="text-lg font-semibold">
+                {timer.status === "paused"
+                  ? "タイマーが一時停止中です"
+                  : timer.status === "ended"
+                    ? "タイマーが終了しました"
+                    : "タイマーが開始されていません"}
+              </p>
 
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {timer.status === "paused"
+                  ? "タイマーを再開すると、ボードで作業できます。"
+                  : "タイマーを設定して開始すると、ボードで作業できます。"}
+              </p>
+            </div>
+          </div>
+        ) : null}
         {isAdoptMode && interactionTool === "hand" ? (
           <p
             role="status"
@@ -1808,11 +1866,10 @@ export function RoomBoardView({
           isHost={isHost}
           privateNotes={toolbarNotes}
           isSavingBeforeShare={isSavingBeforeShare}
-          canPublishPrivateNote={canPublishNoteInTurn(
-            phase,
-            sharing,
-            currentUserId,
-          )}
+          canPublishPrivateNote={
+            !boardInteractionBlocked &&
+            canPublishNoteInTurn(phase, sharing, currentUserId)
+          }
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           privateNoteAddRef={privateNoteAddRef}
           noteCreationPending={noteCreationPending}
@@ -1835,6 +1892,7 @@ export function RoomBoardView({
           draggingNoteId={draggingNoteId}
           localDraggingNoteId={interactions.localDraggingNoteId}
           isDisconnected={isDisconnected}
+          boardInteractionBlocked={boardInteractionBlocked}
           ideaMapSizeLevel={ideaMapSizeLevel}
           ideaMapSizeInitialized={ideaMapSizeInitialized}
           ideaMapIsDragging={ideaMapIsDragging || isNoteDragging}
@@ -1939,7 +1997,7 @@ export function RoomBoardView({
               voteRemaining={voteRemaining}
               pendingOperationCount={pendingVoteOperations.length}
               feedback={voteFeedback}
-              disabled={isDisconnected}
+              disabled={isDisconnected || boardInteractionBlocked}
               selectedKind={selectedVoteKind}
               isReturnDropTarget={isVoteStickerReturnDropTarget}
               onStickerSelect={handlePaletteStickerSelect}
@@ -1966,6 +2024,7 @@ export function RoomBoardView({
               isCandidatePending ||
               isTransferring
             }
+            selectionDisabled={boardInteractionBlocked}
             onRestartWriting={onRestartWriting}
             onRevote={onRevote}
             onStartSelection={() => {

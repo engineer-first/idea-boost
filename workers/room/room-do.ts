@@ -1169,6 +1169,20 @@ export class RoomDO extends DurableObject {
       });
       return;
     }
+    const timerBlocked =
+      isBoardMutation(message) &&
+      message.type !== "note:update-font-size" &&
+      message.type !== "idea-map:resize" &&
+      getTimerState(this.sql).status !== "running";
+
+    if (timerBlocked) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "タイマーが動作していないため、ボードを操作できません。",
+      });
+      return;
+    }
     const phase = getPhase(this.sql);
     const forbiddenMessage =
       phase.kind === "step" &&

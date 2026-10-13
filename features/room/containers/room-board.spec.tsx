@@ -903,6 +903,37 @@ describe("サーバーメッセージ → 画面反映", () => {
     ).toBe(false);
   });
 
+  it("HMWのサンプル付箋はタイマー開始まで自動作成しない", () => {
+    const { socket } = connectWithSnapshot([], {
+      phase: buildPhaseStep(1, 2),
+    });
+
+    const sentMessages = () =>
+      socket.sent.map((payload) => JSON.parse(payload) as { type?: string });
+
+    // 初期スナップショットのタイマーは idle。
+    expect(
+      sentMessages().some((message) => message.type === "note:create"),
+    ).toBe(false);
+
+    act(() => {
+      socket.simulateServerMessage({
+        type: "timer:updated",
+        timer: {
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        },
+        serverNow: Date.now(),
+      });
+    });
+
+    // タイマー開始後は HMW のサンプル作成が実行される。
+    expect(
+      sentMessages().some((message) => message.type === "note:create"),
+    ).toBe(true);
+  });
+
   it("移動可能ステップでも個人付箋の選択では最前面への永続移動を送信しない", () => {
     const { socket } = connectWithSnapshot(
       [protocolNote({ visibility: "private", content: "個人付箋" })],
