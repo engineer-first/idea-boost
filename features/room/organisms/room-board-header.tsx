@@ -300,6 +300,8 @@ export function RoomBoardHeader({
     },
   });
   const guide = getFacilitationGuide(phase);
+  const isPhaseThreePrivateNoteEntry =
+    phase.kind === "step" && phase.phase === 3 && phase.step === 1;
   const isFinalStep = isPhaseStep(phase, 3, 5);
   const currentMember = members.find(
     (member) => member.userId === currentUserId,
@@ -354,7 +356,11 @@ export function RoomBoardHeader({
               />
             )
           )}
-          <div className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:col-start-2 max-[639px]:row-start-2 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9">
+          <div
+            className={`pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:col-start-2 max-[639px]:row-start-2 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9 ${
+              isPhaseThreePrivateNoteEntry ? "min-[640px]:max-h-[120px]" : ""
+            }`}
+          >
             {children}
           </div>
         </div>

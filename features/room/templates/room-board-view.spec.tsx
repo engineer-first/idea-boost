@@ -825,7 +825,7 @@ describe("RoomBoardView", () => {
     expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
   });
 
-  it("個人入力の上端はデスクトップのサイドパネル全高ではなく、ガイドの現在位置に追従する", () => {
+  it("個人入力の上端はガイドの初回位置を保つ", () => {
     let guideBottom = 360;
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
       function (this: HTMLElement) {
@@ -840,7 +840,7 @@ describe("RoomBoardView", () => {
             return new DOMRect(900, 110, 300, 56);
           default:
             if (this.closest('[data-testid="board-help-panel"]'))
-              return new DOMRect(0, 250, 320, 500);
+              return new DOMRect(0, 250, 320, 80);
             return new DOMRect(0, 0, 0, 0);
         }
       },
@@ -874,7 +874,7 @@ describe("RoomBoardView", () => {
     guideBottom = 400;
     fireEvent(window, new Event("resize"));
     expect(root.style.getPropertyValue("--board-private-workspace-top")).toBe(
-      "316px",
+      "276px",
     );
   });
 
