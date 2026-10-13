@@ -246,7 +246,9 @@ test("Shift・Alt・キーリピート・別OSの修飾キーは追加せず、�
   const add = page.getByRole("button", { name: "付箋を追加", exact: true });
   await add.focus();
   await page.keyboard.press("Control+Enter");
-  await expect.poll(() => cards.count()).toBe(initialCount + 1);
+  await expect
+    .poll(() => cards.count(), { timeout: 5000 })
+    .toBe(initialCount + 1);
   expect(
     await page
       .getByTestId("private-notes-toolbar")

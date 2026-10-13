@@ -1230,11 +1230,12 @@ export function RoomBoardView({
     const workspaceTopSurfaces = [
       "board-context-hud",
       "board-control-hud",
-      "step-guide",
       "board-connection-status",
+      "board-help-panel",
     ] as const;
     const isPersonalNoteEntryPhase =
       phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
+    let stepGuideBottomInFrame: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1266,11 +1267,22 @@ export function RoomBoardView({
         );
         if (frame) {
           const frameTop = frame.getBoundingClientRect().top;
-          let top = 0;
-          for (const testId of workspaceTopSurfaces) {
-            const element = root.querySelector<HTMLElement>(
-              `[data-testid="${testId}"]`,
+          if (stepGuideBottomInFrame === null) {
+            const stepGuide = root.querySelector<HTMLElement>(
+              '[data-testid="step-guide"]',
             );
+            stepGuideBottomInFrame =
+              stepGuide && stepGuide.getClientRects().length > 0
+                ? stepGuide.getBoundingClientRect().bottom - frameTop
+                : 0;
+          }
+          let top = stepGuideBottomInFrame;
+          for (const testId of workspaceTopSurfaces) {
+            const selector =
+              testId === "board-help-panel"
+                ? '[data-testid="board-help-panel"] > div'
+                : `[data-testid="${testId}"]`;
+            const element = root.querySelector<HTMLElement>(selector);
             if (
               !element ||
               element.getClientRects().length === 0 ||
@@ -1284,7 +1296,7 @@ export function RoomBoardView({
           }
           root.style.setProperty(
             "--board-private-workspace-top",
-            `${Math.max(320, Math.ceil(top + 16))}px`,
+            `${Math.max(192, Math.ceil(top + 16))}px`,
           );
         }
       }
