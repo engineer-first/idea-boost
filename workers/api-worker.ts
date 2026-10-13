@@ -177,7 +177,10 @@ async function handleCreateRoom(
       );
       if (result === "closed") throw new CreationGone();
     });
-    await syncMemberAccountName(env, creation.room_id, session.sub);
+    // 初期登録は完了済み。補助同期の障害で作成成功を失敗へ変えない。
+    await syncMemberAccountName(env, creation.room_id, session.sub).catch(
+      () => {},
+    );
     return json({ roomId: creation.room_id, inviteCode: creation.invite_code });
   } catch (cause) {
     if (cause instanceof CreationConflict)
@@ -278,7 +281,8 @@ async function handleJoinRoom(
         : "このルームは20人までです。",
     );
   }
-  await syncMemberAccountName(env, room.roomId, session.sub);
+  // 在籍登録は完了済み。補助同期の障害で参加成功を失敗へ変えない。
+  await syncMemberAccountName(env, room.roomId, session.sub).catch(() => {});
   return json({ roomId: room.roomId });
 }
 

@@ -54,7 +54,7 @@ export async function saveDisplayName(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed.data),
     });
-    const body: unknown = await response.json();
+    const body: unknown = await response.json().catch(() => null);
     const result = response.ok
       ? DisplayNameResponseSchema.safeParse(body)
       : null;

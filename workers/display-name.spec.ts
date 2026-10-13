@@ -1,5 +1,5 @@
 import { env, SELF } from "cloudflare:test";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { issueCreationId } from "../contracts/room-creation";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
@@ -225,6 +225,64 @@ describe("Google名を初期値にする共通の表示名", () => {
 });
 
 describe("共通表示名の配信先と移行", () => {
+  it.each([
+    "create",
+    "join",
+  ] as const)("%sが完了した後の補助同期が失敗しても成功を返し、保存名で在籍する", async (operation) => {
+    await profile(A, { name: "保存した名", expectedPrincipal: A.sub });
+    const existing =
+      operation === "join"
+        ? await (await create(B)).json<{ roomId: string; inviteCode: string }>()
+        : null;
+    const sync = vi.fn(async () => {
+      throw new Error("補助同期の一時障害");
+    });
+    const namespace = {
+      idFromName: (name: string) => env.ROOM_DO.idFromName(name),
+      get: (id: DurableObjectId) => {
+        const stub = env.ROOM_DO.get(id);
+        return {
+          initializeCreation: (
+            ...args: Parameters<typeof stub.initializeCreation>
+          ) => stub.initializeCreation(...args),
+          upsertMember: (...args: Parameters<typeof stub.upsertMember>) =>
+            stub.upsertMember(...args),
+          syncAccountDisplayName: sync,
+        };
+      },
+    } as unknown as typeof env.ROOM_DO;
+    const response = await createApiWorker().fetch(
+      new Request(
+        `https://api.test/api/rooms${operation === "join" ? "/join" : ""}`,
+        {
+          method: "POST",
+          headers: {
+            Cookie: await sessionCookieFor(A),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(
+            existing
+              ? { code: existing.inviteCode }
+              : {
+                  requestId: issueCreationId().requestId,
+                  expectedPrincipal: A.sub,
+                },
+          ),
+        },
+      ),
+      { ...env, ROOM_DO: namespace },
+    );
+    expect(sync).toHaveBeenCalledOnce();
+    expect(response.status).toBe(200);
+    const room = await response.json<{ roomId: string }>();
+    expect(
+      await env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId)).listMembers(),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: A.sub, name: "保存した名" }),
+      ]),
+    );
+  });
   it("新旧の更新が逆順に届いても戻さず、非メンバー・完了済みルームを改名しない", async () => {
     const room = await (await create()).json<{
       roomId: string;

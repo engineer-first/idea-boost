@@ -41,8 +41,6 @@ export function useDisplayName({
   const saving = useRef(false);
   const principal = useRef(currentUserId);
   const targetRoom = useRef(roomId);
-  principal.current = currentUserId;
-  targetRoom.current = roomId;
   useEffect(() => {
     principal.current = currentUserId;
     targetRoom.current = roomId;
