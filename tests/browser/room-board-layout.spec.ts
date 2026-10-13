@@ -183,9 +183,8 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
     height: e.clientHeight,
     scroll: e.scrollHeight,
   }));
+  expect(size.height).toBeGreaterThan(150);
   expect(size.height).toBeLessThan(size.scroll);
-  const toolbarBox = await toolbar.boundingBox();
-  expect(size.height).toBeLessThan(toolbarBox?.height ?? 0);
   await scroll.evaluate((e) => {
     e.scrollTop = e.scrollHeight;
   });

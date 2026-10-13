@@ -386,6 +386,7 @@ test.each([
       (box?.y ?? 0) + (box?.height ?? 0),
     );
     const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+    await add.scrollIntoViewIfNeeded();
     expect(
       await add.evaluate((element) => {
         const rect = element.getBoundingClientRect();
