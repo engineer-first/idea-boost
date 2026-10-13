@@ -1235,7 +1235,6 @@ export function RoomBoardView({
     ] as const;
     const isPersonalNoteEntryPhase =
       phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
-    let stepGuideBottomInFrame: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1267,17 +1266,16 @@ export function RoomBoardView({
         );
         if (frame) {
           const frameTop = frame.getBoundingClientRect().top;
-          if (stepGuideBottomInFrame === null) {
-            const stepGuide = root.querySelector<HTMLElement>(
-              '[data-testid="step-guide"]',
-            );
-            stepGuideBottomInFrame =
-              stepGuide && stepGuide.getClientRects().length > 0
-                ? stepGuide.getBoundingClientRect().bottom - frameTop
-                : 0;
-          }
-          let top = stepGuideBottomInFrame;
+          const stepGuide = root.querySelector<HTMLElement>(
+            '[data-testid="step-guide"]',
+          );
+          let top =
+            stepGuide && stepGuide.getClientRects().length > 0
+              ? stepGuide.getBoundingClientRect().bottom - frameTop
+              : 0;
           for (const testId of workspaceTopSurfaces) {
+            if (testId === "board-help-panel" && window.innerWidth > 639)
+              continue;
             const selector =
               testId === "board-help-panel"
                 ? '[data-testid="board-help-panel"] > div'
@@ -1315,6 +1313,10 @@ export function RoomBoardView({
       );
       if (element) observer?.observe(element);
     }
+    const stepGuide = root.querySelector<HTMLElement>(
+      '[data-testid="step-guide"]',
+    );
+    if (stepGuide) observer?.observe(stepGuide);
     update();
     window.addEventListener("resize", update);
     return () => {

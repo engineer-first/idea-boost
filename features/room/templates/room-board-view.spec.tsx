@@ -825,6 +825,59 @@ describe("RoomBoardView", () => {
     expect(screen.getByTestId("board-operation-matrix")).toBeInTheDocument();
   });
 
+  it("個人入力の上端はデスクトップのサイドパネル全高ではなく、ガイドの現在位置に追従する", () => {
+    let guideBottom = 360;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        switch (this.dataset.testid) {
+          case "board-frame":
+            return new DOMRect(0, 100, 1280, 700);
+          case "step-guide":
+            return new DOMRect(0, 180, 300, guideBottom - 180);
+          case "board-context-hud":
+            return new DOMRect(0, 110, 200, 90);
+          case "board-control-hud":
+            return new DOMRect(900, 110, 300, 56);
+          default:
+            if (this.closest('[data-testid="board-help-panel"]'))
+              return new DOMRect(0, 250, 320, 500);
+            return new DOMRect(0, 0, 0, 0);
+        }
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(
+      function (this: HTMLElement) {
+        return this.dataset.testid === "step-guide" ||
+          this.dataset.testid === "board-context-hud" ||
+          this.dataset.testid === "board-control-hud" ||
+          this.closest('[data-testid="board-help-panel"]')
+          ? ([this.getBoundingClientRect()] as unknown as DOMRectList)
+          : ([] as unknown as DOMRectList);
+      },
+    );
+    setup({
+      phase: buildPhaseStep(1, 3),
+      help: {
+        kind: "idea",
+        isOpen: true,
+        tab: "write",
+        onOpenChange: vi.fn(),
+        onTabChange: vi.fn(),
+      },
+    });
+
+    const root = screen.getByTestId("room-board-view-root");
+    expect(root.style.getPropertyValue("--board-private-workspace-top")).toBe(
+      "276px",
+    );
+
+    guideBottom = 400;
+    fireEvent(window, new Event("resize"));
+    expect(root.style.getPropertyValue("--board-private-workspace-top")).toBe(
+      "316px",
+    );
+  });
+
   it("外側が pointer capture 中でもドラッグと通常 presence を同じ座標で更新し、cancel を分離する", () => {
     const interactions = buildInteractions(buildNotes(1), []);
     interactions.isNoteDragging = true;

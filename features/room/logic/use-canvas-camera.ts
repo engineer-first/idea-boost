@@ -496,7 +496,10 @@ export function useCanvasCamera({
         !viewport ||
         !(event.target instanceof HTMLElement) ||
         !event.target.closest("[data-testid='canvas-zoom-controls']") ||
-        !viewport.parentElement?.contains(event.target) ||
+        !(
+          viewport.closest<HTMLElement>("[data-testid='board-frame']") ??
+          viewport.parentElement
+        )?.contains(event.target) ||
         event.ctrlKey ||
         event.metaKey ||
         event.altKey

@@ -111,11 +111,14 @@ describe("useCanvasCamera", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
     const frame = document.createElement("div");
+    frame.dataset.testid = "board-frame";
+    const canvasLayer = document.createElement("div");
     const controls = document.createElement("fieldset");
     controls.dataset.testid = "canvas-zoom-controls";
     const button = document.createElement("button");
     controls.append(button);
-    frame.append(viewport, controls);
+    canvasLayer.append(viewport);
+    frame.append(canvasLayer, controls);
     document.body.append(frame);
     const input = document.createElement("textarea");
     viewport.append(input);
