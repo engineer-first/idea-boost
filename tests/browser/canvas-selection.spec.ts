@@ -1134,7 +1134,9 @@ test.each([
     .poll(() => panel.evaluate((el) => el.scrollTop))
     .toBeGreaterThan(0);
   expect(await transform()).toBe(before);
-  const last = panel.getByText("では削除しません。", { exact: false });
+  const last = panel.getByText("編集中は本文の文字を削除します。", {
+    exact: true,
+  });
   await last.scrollIntoViewIfNeeded();
   expect(
     await last.evaluate((el) => {

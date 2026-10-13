@@ -368,6 +368,7 @@ describe("PrivateNotesToolbar", () => {
       screen.queryByText("自分だけに表示されています"),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "付箋" })).toBeInTheDocument();
+    expect(screen.getByText(/付箋追加ショートカットキー/)).toBeVisible();
 
     const closeButton = screen.getByRole("button", {
       name: "マイ付箋を閉じる",

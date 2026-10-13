@@ -2136,9 +2136,10 @@ describe("サーバーメッセージ → 画面反映", () => {
   });
 
   it("他メンバーの付箋をマイ付箋領域へドラッグしても非公開に戻せない", () => {
-    const { socket } = connectWithSnapshot([
-      protocolNote({ authorId: OTHER_USER_ID }),
-    ]);
+    const { socket } = connectWithSnapshot(
+      [protocolNote({ authorId: OTHER_USER_ID })],
+      { phase: buildPhaseStep(2, 1) },
+    );
     const toolbar = openPrivateNotesToolbar();
     Object.defineProperty(toolbar, "getBoundingClientRect", {
       value: () => ({ left: 600, top: 0, right: 900, bottom: 600 }),
