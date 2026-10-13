@@ -179,7 +179,7 @@ function openRoomMenu() {
 describe("マイ付箋の追加ショートカット", () => {
   it.each([
     1, 2, 3,
-  ] as const)("%d-1だけで案内を表示し、共有フェーズへ進むと付箋記入欄を残して案内を隠す", (phase) => {
+  ] as const)("%d-1で追加ショートカットを表示し、共有フェーズでは隠す", (phase) => {
     const privateNote = buildNote({
       id: "private",
       authorId: ME,
@@ -194,9 +194,15 @@ describe("マイ付箋の追加ショートカット", () => {
     expect(
       toolbar.getByText(/この付箋はあなたにだけ表示されています/),
     ).toBeVisible();
+    expect(toolbar.getByText(/付箋追加ショートカットキー/)).toHaveTextContent(
+      /Macは⌘＋Enter、Windows等はCtrl＋Enter/,
+    );
     expect(screen.getByTestId("private-notes-workspace")).toBeInTheDocument();
 
     rerender(<TestBoardView {...props} phase={buildPhaseStep(2, phase)} />);
+    expect(
+      screen.queryByText(/付箋追加ショートカットキー/),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByTestId("private-notes-workspace"),
     ).not.toBeInTheDocument();

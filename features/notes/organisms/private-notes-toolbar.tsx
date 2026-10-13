@@ -388,27 +388,30 @@ export function PrivateNotesToolbar({
               この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。
             </p>
           ) : (
-            <>
-              <p
-                className={cn(
-                  "text-xs text-muted-foreground",
-                  canCreateNote ? "mb-1" : "mb-3",
-                )}
-              >
-                自分だけに見える付箋エリア
-              </p>
-              {canCreateNote ? (
-                <p className="mb-3 text-xs text-muted-foreground">
-                  （付箋追加ショートカットキー：
-                  <br />
-                  Macは⌘＋Enter、Windows等はCtrl＋Enter）
-                </p>
-              ) : null}
-            </>
+            <p
+              className={cn(
+                "text-xs text-muted-foreground",
+                canCreateNote ? "mb-1" : "mb-3",
+              )}
+            >
+              自分だけに見える付箋エリア
+            </p>
           )}
           {!isWorkspace && sharingHint ? (
             <p role="status" className="mb-3 text-xs text-muted-foreground">
               {sharingHint}
+            </p>
+          ) : null}
+          {canCreateNote ? (
+            <p
+              className={cn(
+                "text-xs text-muted-foreground",
+                isWorkspace ? "mx-auto mb-6 max-w-5xl text-center" : "mb-3",
+              )}
+            >
+              （付箋追加ショートカットキー：
+              {isWorkspace ? " " : <br />}
+              Macは⌘＋Enter、Windows等はCtrl＋Enter）
             </p>
           ) : null}
           <div
