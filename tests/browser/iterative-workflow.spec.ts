@@ -358,7 +358,7 @@ test.each([
 
 test.each(
   phases,
-)("フェーズ$phaseで最初の投票へ進む確認に戻れない範囲と下書きを示す", async ({
+)("フェーズ$phaseで最初の投票へ進む確認に終了する範囲と下書きを示す", async ({
   phase,
   count,
 }) => {
@@ -371,7 +371,7 @@ test.each(
   });
   await dialog.waitFor();
   expect(await page.getByRole("alertdialog").count()).toBe(1);
-  expect(await dialog.innerText()).toContain("個人作業・共有には戻れません");
+  expect(await dialog.innerText()).toContain("個人作業・共有を終了します");
   expect(await dialog.innerText()).toContain("未共有の下書き");
   await expectReadable(dialog);
   await expectReachable(
@@ -402,7 +402,7 @@ test("課題の確定後は取消と次フェーズ進行ができ、進行前�
   const dialog = page.getByRole("alertdialog");
   await dialog.waitFor();
   expect(await dialog.innerText()).toContain("未共有の下書きを破棄");
-  expect(await dialog.innerText()).toContain("前のフェーズへは戻れません");
+  expect(await dialog.innerText()).toContain("決定内容を引き継ぎ");
   await expectReadable(dialog);
 });
 

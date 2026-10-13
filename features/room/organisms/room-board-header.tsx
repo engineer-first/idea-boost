@@ -43,6 +43,7 @@ import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
 import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
+import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { SharingAnnouncement } from "../molecules/sharing-announcement";
 import { SharingPresenter } from "../molecules/sharing-presenter";
@@ -62,6 +63,8 @@ export type RoomBoardHeaderProps = {
   inviteUrl: string;
   phase: RoomPhase;
   phaseRevision?: number;
+  rollbackTarget?: RoomPhase | null;
+  onRollbackPhase?: () => void;
   bulkExclusionTargetCount?: number;
   canManageCandidates?: boolean;
   onBulkCandidateExclude?: () => void;
@@ -117,6 +120,8 @@ export function RoomBoardHeader({
   inviteUrl,
   phase,
   phaseRevision = 0,
+  rollbackTarget = null,
+  onRollbackPhase,
   bulkExclusionTargetCount = 0,
   canManageCandidates = false,
   onBulkCandidateExclude = () => undefined,
@@ -257,7 +262,9 @@ export function RoomBoardHeader({
       if (
         !(target instanceof Node) ||
         roomMenuTriggerRef.current?.contains(target) ||
-        roomMenuContentRef.current?.contains(target)
+        roomMenuContentRef.current?.contains(target) ||
+        (target instanceof Element &&
+          target.closest("[data-phase-rollback-dialog]"))
       )
         return;
       // ボードのパン開始はpointerdownの伝播を止めるため、その前に判定する。
@@ -811,6 +818,19 @@ export function RoomBoardHeader({
                       <MessageSquare aria-hidden="true" className="size-4" />
                       フィードバック
                     </Button>
+                  ) : null}
+                  {isHost &&
+                  rollbackTarget &&
+                  onRollbackPhase &&
+                  !isNextPhasePending &&
+                  !outcomePublished ? (
+                    <PhaseRollbackDialog
+                      key={`${phaseRevision}:${hostRevision}:${isDisconnected}:${JSON.stringify(rollbackTarget)}`}
+                      phase={phase}
+                      target={rollbackTarget}
+                      disabled={isDisconnected || isTransferring || isLeaving}
+                      onConfirm={onRollbackPhase}
+                    />
                   ) : null}
                   {isHost && canManageCandidates ? (
                     <BulkCandidateExclusion

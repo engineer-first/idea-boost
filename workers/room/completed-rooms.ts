@@ -341,6 +341,7 @@ export class CompletedRoomStorage {
           "member_display_names",
           "pending_phase_transition",
           "sharing_state",
+          "phase_rollback_checkpoints",
           "progress_history_outbox",
           "progress_history",
         ])

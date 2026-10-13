@@ -43,6 +43,107 @@ describe("useNoteAutosave", () => {
   const setup = () =>
     renderHook(() => useNoteAutosave({ roomId: "room", userId, send }));
 
+  it.each([
+    false,
+    true,
+  ])("復元snapshotで未送信/送信中の本文を自動再送せず、古い成功通知も無視する（送信済み:%s）", async (inFlight) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "戻る操作で取り消す本文"));
+    if (inFlight) act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    send.mockClear();
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot(),
+        phaseRevision: 4,
+        rollbackRevision: 4,
+      }),
+    );
+    if (request?.type === "note:update-content") {
+      act(() =>
+        result.current.applyMessage({
+          type: "note:content-saved",
+          operationId: request.operationId,
+          noteId,
+          contentRevision: 1,
+        }),
+      );
+      act(() =>
+        result.current.applyMessage({
+          type: "note:content-status-result",
+          operationId: request.operationId,
+          status: "accepted",
+          noteId,
+          contentRevision: 1,
+        }),
+      );
+    }
+    await act(async () => {});
+    act(() => vi.advanceTimersByTime(30000));
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.draftValue(noteId)).toBeUndefined();
+    expect(result.current.recoveries).toEqual([]);
+    expect(
+      sessionStorage.getItem(`idea-boost:note-drafts:v1:${userId}:room`),
+    ).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => result.current.change(noteId, "復元後に書いた文章"));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: "復元後に書いた文章",
+        expectedPhaseRevision: 4,
+      }),
+    );
+  });
+
+  it.each([
+    false,
+    true,
+  ])("切断・再読込した古い本文を復元後に照会せず、新しく編集した本文は通常保存する（送信済み:%s）", async (inFlight) => {
+    const first = setup();
+    act(() => first.result.current.applyMessage(snapshot()));
+    act(() => first.result.current.change(noteId, "古い送信"));
+    if (inFlight) act(() => vi.advanceTimersByTime(1000));
+    act(() => first.result.current.recoverDisconnected());
+    first.unmount();
+    send.mockClear();
+    const second = setup();
+    act(() =>
+      second.result.current.applyMessage({
+        ...snapshot(),
+        phaseRevision: 4,
+        rollbackRevision: 4,
+      }),
+    );
+    await act(async () => {});
+    expect(send).not.toHaveBeenCalled();
+    expect(second.result.current.draftValue(noteId)).toBeUndefined();
+    expect(
+      sessionStorage.getItem(`idea-boost:note-drafts:v1:${userId}:room`),
+    ).toBeNull();
+    second.unmount();
+    const third = setup();
+    act(() =>
+      third.result.current.applyMessage({
+        ...snapshot(),
+        phaseRevision: 4,
+        rollbackRevision: 4,
+      }),
+    );
+    act(() => third.result.current.change(noteId, "戻した後の新しい本文"));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(send).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: "戻した後の新しい本文",
+        expectedPhaseRevision: 4,
+      }),
+    );
+  });
+
   it("再接続を打ち切っても未送信の本文を回収でき、再送timerを残さない", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshot()));

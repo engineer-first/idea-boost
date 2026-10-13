@@ -236,6 +236,7 @@ export function useNoteAutosave(options: {
           noteId,
           baseContent: note.content,
           baseRevision: note.contentRevision,
+          phaseRevision: serverRef.current.phaseRevision,
           text: note.content,
           committedText: note.content,
           generation: 0,
@@ -266,6 +267,7 @@ export function useNoteAutosave(options: {
           noteId,
           baseContent: note.content,
           baseRevision: note.contentRevision,
+          phaseRevision: serverRef.current.phaseRevision,
           text: note.content,
           committedText: note.content,
           generation: 0,
@@ -333,10 +335,29 @@ export function useNoteAutosave(options: {
     [clearStatusTimer, markRecovery, persist, repaint, schedule],
   );
 
+  const stopRolledBackDrafts = useCallback(
+    (rollbackRevision: number | undefined) => {
+      if (rollbackRevision === undefined || rollbackRevision === 0) return;
+      for (const draft of draftsRef.current.values()) {
+        const draftPhaseRevision =
+          draft.phaseRevision ?? draft.inFlight?.expectedPhaseRevision ?? 0;
+        if (draftPhaseRevision >= rollbackRevision) continue;
+        // 戻す操作で取り消された端末の編集も破棄する。
+        // 遅れて届く成功通知はinFlight不一致となり、復元済み本文に反映しない。
+        clearTimer(draft.noteId);
+        clearStatusTimer(draft.noteId);
+        draftsRef.current.delete(draft.noteId);
+      }
+      persist();
+    },
+    [clearTimer, clearStatusTimer, persist],
+  );
+
   const applyMessage = useCallback(
     (message: ServerMessage) => {
       const server = serverRef.current;
       if (message.type === "snapshot") {
+        stopRolledBackDrafts(message.rollbackRevision);
         server.ready = true;
         server.connected = true;
         server.phase = message.phase;
@@ -465,6 +486,7 @@ export function useNoteAutosave(options: {
         return;
       }
       if (message.type === "phase:updated") {
+        stopRolledBackDrafts(message.rollbackRevision);
         server.phase = message.phase;
         server.phaseRevision = message.phaseRevision;
         server.pending = false;
@@ -496,6 +518,7 @@ export function useNoteAutosave(options: {
       requestStatus,
       schedule,
       sendStatus,
+      stopRolledBackDrafts,
     ],
   );
 

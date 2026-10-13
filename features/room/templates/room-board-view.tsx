@@ -153,6 +153,9 @@ export type RoomBoardViewProps = {
   inviteUrl: string;
   phase: RoomPhase;
   phaseRevision?: number;
+  rollbackTarget?: RoomPhase | null;
+  rollbackRevision?: number;
+  onRollbackPhase?: () => void;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
   ideaMapIsDragging?: boolean;
@@ -283,6 +286,9 @@ export function RoomBoardView({
   inviteUrl,
   phase,
   phaseRevision = 0,
+  rollbackTarget = null,
+  rollbackRevision = 0,
+  onRollbackPhase,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = false,
   ideaMapIsDragging = false,
@@ -1708,6 +1714,8 @@ export function RoomBoardView({
           inviteUrl={inviteUrl}
           phase={phase}
           phaseRevision={phaseRevision}
+          rollbackTarget={rollbackTarget}
+          onRollbackPhase={onRollbackPhase}
           bulkExclusionTargetCount={bulkExclusionTargetCount}
           canManageCandidates={
             isResultStep(phase) && decision === null && !isCandidatePending
@@ -1776,6 +1784,7 @@ export function RoomBoardView({
           </p>
         ) : null}
         <RoomBoardCanvas
+          rollbackRevision={rollbackRevision}
           authorName={(authorId) =>
             members.find((m) => m.userId === authorId)?.name ??
             authorNames?.get(authorId)

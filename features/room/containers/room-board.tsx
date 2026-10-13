@@ -364,6 +364,41 @@ export function RoomBoard({
     roomState.phaseRevision,
   ]);
 
+  const handleRollbackPhase = useCallback(() => {
+    if (
+      !isHost ||
+      !roomState.rollbackTarget ||
+      roomState.outcomePublished ||
+      connectionStatus !== "open" ||
+      hostTransfer.isPending() ||
+      memberRemoval.isPending() ||
+      isNextPhasePending ||
+      isLeaving
+    )
+      return;
+    setIsNextPhasePending(true);
+    const sent = send({
+      type: "phase:rollback",
+      expectedPhase: roomState.phase,
+      expectedRevision: roomState.phaseRevision,
+      expectedHostRevision: roomState.host.hostRevision ?? 0,
+    });
+    if (sent === false) setIsNextPhasePending(false);
+  }, [
+    isHost,
+    roomState.rollbackTarget,
+    roomState.outcomePublished,
+    connectionStatus,
+    hostTransfer.isPending,
+    memberRemoval.isPending,
+    isNextPhasePending,
+    isLeaving,
+    send,
+    roomState.phase,
+    roomState.phaseRevision,
+    roomState.host.hostRevision,
+  ]);
+
   // 投票未完了ゲートの脱出ハッチ。ForceNextPhaseDialog の確認後に
   // force 付きで再送する（ホスト以外はサーバー側で拒否される）。
   const handleForceNextPhase = useCallback(() => {
@@ -612,6 +647,9 @@ export function RoomBoard({
         inviteUrl={inviteUrl}
         phase={roomState.phase}
         phaseRevision={roomState.phaseRevision}
+        rollbackTarget={roomState.rollbackTarget}
+        rollbackRevision={roomState.rollbackRevision}
+        onRollbackPhase={handleRollbackPhase}
         ideaMapSizeLevel={roomState.ideaMap.sizeLevel}
         ideaMapSizeInitialized={roomState.ideaMap.initialized}
         ideaMapIsDragging={roomState.ideaMap.isDragging}

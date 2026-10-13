@@ -923,3 +923,29 @@ it("右上のルームメニューからフィードバックを開き、常設�
     screen.queryByRole("dialog", { name: "ルームメニュー" }),
   ).not.toBeInTheDocument();
 });
+
+it("ホストに復元可能な戻り先がある時だけ戻る操作を提供する", () => {
+  const props = setupProps({ isHost: true });
+  const { rerender } = render(
+    <RoomBoardHeader
+      {...props}
+      rollbackTarget={buildPhaseStep(1, 1)}
+      onRollbackPhase={vi.fn()}
+    />,
+  );
+  openRoomMenu();
+  expect(
+    screen.getByRole("button", { name: "直前のステップに戻る" }),
+  ).toBeVisible();
+  rerender(
+    <RoomBoardHeader
+      {...props}
+      isHost={false}
+      rollbackTarget={buildPhaseStep(1, 1)}
+      onRollbackPhase={vi.fn()}
+    />,
+  );
+  expect(
+    screen.queryByRole("button", { name: "直前のステップに戻る" }),
+  ).not.toBeInTheDocument();
+});

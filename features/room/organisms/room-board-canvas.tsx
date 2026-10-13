@@ -61,6 +61,7 @@ const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
 export type RoomBoardCanvasProps = {
+  rollbackRevision?: number;
   authorName?: (authorId: string) => string | undefined;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
@@ -166,6 +167,7 @@ export type RoomBoardCanvasProps = {
 };
 
 export function RoomBoardCanvas({
+  rollbackRevision = 0,
   moveHistory,
   notes,
   groups,
@@ -385,7 +387,7 @@ export function RoomBoardCanvas({
   function renderNoteCard(note: Note) {
     return (
       <NoteCard
-        key={note.id}
+        key={`${note.id}:${rollbackRevision}`}
         note={note}
         authorName={authorName?.(note.authorId)}
         maxDisplayHeight={
@@ -880,6 +882,7 @@ export function RoomBoardCanvas({
             data-board-fit-edge="bottom"
           >
             <PrivateNotesToolbar
+              rollbackRevision={rollbackRevision}
               authorName={authorName}
               notes={privateNotes}
               disabled={isDisconnected}

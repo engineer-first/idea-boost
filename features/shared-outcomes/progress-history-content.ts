@@ -16,6 +16,7 @@ export const HISTORY_STATUS_EXPLANATIONS = {
 } as const;
 export const HISTORY_ACTION_LABELS = {
   next: "通常移行",
+  rollback: "直前のステップに戻る",
   "restart-writing": "書き足し",
   revote: "再投票",
   complete: "成果公開",

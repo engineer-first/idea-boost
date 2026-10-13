@@ -34,6 +34,11 @@ import {
   listAutomaticExclusionCandidates,
   type NoteRow,
 } from "./notes";
+import {
+  captureRollbackCheckpoint,
+  clearRollbackHistory,
+  getRollbackTarget,
+} from "./phase-rollback";
 import { recordProgressTransition } from "./progress-history";
 import { resetSharingForPhase } from "./sharing-state";
 import { getTimerState, resetTimerState, saveTimerState } from "./timer";
@@ -358,6 +363,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "member:remove":
     case "member:rename":
     case "start_phase":
+    case "phase:rollback":
     case "phase:next":
     case "outcome:publish":
     case "phase:restart-writing":
@@ -636,6 +642,7 @@ export const phaseHandlers: MessageHandlers<
       ),
       phase: firstStep,
       phaseRevision: getPhaseRevision(ctx.sql),
+      rollbackTarget: getRollbackTarget(ctx.sql),
     });
   },
 
@@ -752,6 +759,7 @@ export const phaseHandlers: MessageHandlers<
         replyForbidden(ctx);
         return false;
       }
+      captureRollbackCheckpoint(ctx.sql, current);
       recordProgressTransition(ctx.sql, current, next, "next");
       discardedEmptySharedNotes = discardEmptySharedNotes(
         ctx.sql,
@@ -867,6 +875,7 @@ export const phaseHandlers: MessageHandlers<
       ),
       phase: next,
       phaseRevision: getPhaseRevision(ctx.sql),
+      rollbackTarget: getRollbackTarget(ctx.sql),
     });
   },
   "phase:restart-writing": (ctx, message) => restartPhase(ctx, message, false),
@@ -914,6 +923,7 @@ async function restartPhase(
   }
   const committed = ctx.storage.transactionSync(() => {
     if (ctx.authorizeMutation?.() === false) return false;
+    clearRollbackHistory(ctx.sql);
     recordProgressTransition(
       ctx.sql,
       current,
@@ -957,5 +967,6 @@ async function restartPhase(
     ),
     phase: next,
     phaseRevision: getPhaseRevision(ctx.sql),
+    rollbackTarget: getRollbackTarget(ctx.sql),
   });
 }
