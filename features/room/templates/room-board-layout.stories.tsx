@@ -218,6 +218,19 @@ export const TimerOpen: Story = {
   },
 };
 
+export const TimerPaused: Story = {
+  ...step(3, 1),
+  name: "タイマー一時停止中",
+  args: {
+    ...step(3, 1).args,
+    timer: {
+      status: "paused",
+      remainingMs: 138_000,
+      durationMs: 180_000,
+    },
+  },
+};
+
 export const Connecting: Story = {
   ...step(3, 1),
   name: "接続確立中",

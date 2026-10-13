@@ -811,7 +811,11 @@ export const IdeaMapInteraction: Story = {
 };
 
 export const CanvasPanInteraction: Story = {
-  args: { phase: STEP_1_2, notes: CANVAS_HUD_NOTES },
+  args: {
+    phase: STEP_1_2,
+    notes: CANVAS_HUD_NOTES,
+    timer: { status: "idle" },
+  },
   render: function Render(args) {
     const boardScrollerRef = useRef<HTMLDivElement>(null);
     const camera = useCanvasCamera({

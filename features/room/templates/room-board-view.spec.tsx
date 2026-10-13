@@ -1115,7 +1115,13 @@ describe("RoomBoardView", () => {
 
   it("ホストのタイマー開始操作を onTimerStart へ渡す", () => {
     const onTimerStart = vi.fn();
-    setup({ isHost: true, onTimerStart });
+
+    setup({
+      isHost: true,
+      timer: { status: "idle" },
+      onTimerStart,
+    });
+
     fireEvent.click(screen.getByTestId("room-timer"));
     fireEvent.change(screen.getByLabelText("タイマー時間（分）"), {
       target: { value: "1" },
@@ -1124,6 +1130,7 @@ describe("RoomBoardView", () => {
       target: { value: "30" },
     });
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
+
     expect(onTimerStart).toHaveBeenCalledWith(90_000);
   });
 

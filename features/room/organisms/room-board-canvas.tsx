@@ -784,18 +784,18 @@ export function RoomBoardCanvas({
                   }
                 };
 
-              return (
-                <NoteGroupCard
-                  key={rg.id}
-                  group={rg}
-                  name={rg.name}
-                  canGroupNote={
-                    !boardInteractionBlocked && permissions.canGroupNote
-                  }
-                  onUpdateName={handleUpdateName}
-                />
-              );
-            })}
+                return (
+                  <NoteGroupCard
+                    key={rg.id}
+                    group={rg}
+                    name={rg.name}
+                    canGroupNote={
+                      !boardInteractionBlocked && permissions.canGroupNote
+                    }
+                    onUpdateName={handleUpdateName}
+                  />
+                );
+              })}
 
               {!isIdeaValueFeasibilityMapVisible
                 ? orderedNotes.map(renderPositionedNote)

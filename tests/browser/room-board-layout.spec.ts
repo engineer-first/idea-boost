@@ -960,7 +960,7 @@ test.each([
   1280, 1024, 768,
 ])("幅 %i の操作バーで招待とタイマーを開閉でき、寸法と主要操作を保つ", async (width) => {
   await page.setViewportSize({ width, height: 720 });
-  await openStory("room-roomboardlayout--phase-3-step-1");
+  await openStory("room-roomboardlayout--timer-paused");
   const controls = page.getByRole("group", { name: "ルームの操作" });
   await controls.waitFor();
   const initialBox = await controls.boundingBox();
