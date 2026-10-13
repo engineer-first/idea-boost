@@ -471,7 +471,12 @@ export function useNoteAutosave(options: {
           // snapshotだけでは保存結果は分からない。照会中も文章を回収できるよう残す。
           if (draft.inFlight) {
             clearTimer(draft.noteId);
-            if (!canContinueDraft(draft, server, options.userId))
+            // 再読込で中断した変換は、送信済みAの結果とは別に回収する。
+            // Aだけ照会し、未確定の後続文字を自動で確定・送信しない。
+            if (
+              draft.composing ||
+              !canContinueDraft(draft, server, options.userId)
+            )
               markRecovery(
                 draft,
                 draft.composing ? "interrupted-composition" : "not-editable",

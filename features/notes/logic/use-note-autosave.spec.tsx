@@ -685,6 +685,88 @@ describe("useNoteAutosave", () => {
     );
   });
 
+  it.each([
+    [1, "accepted"],
+    [1, "unknown"],
+    [1, "late-ack"],
+    [2, "accepted"],
+    [2, "unknown"],
+    [2, "late-ack"],
+  ] as const)("通常再読込で送信中AとIME未確定Bを分け、step%sの%s後もBを回収できる", async (step, outcome) => {
+    const first = setup();
+    act(() => first.result.current.applyMessage(snapshot()));
+    act(() => first.result.current.change(noteId, "確定済みA"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() => first.result.current.compositionStart(noteId));
+    act(() => first.result.current.change(noteId, "変換中のB"));
+    // 通常の再読込。認証失効・切断回収の特別な経路は呼ばない。
+    first.unmount();
+    send.mockClear();
+    const second = setup();
+    act(() =>
+      second.result.current.applyMessage({
+        ...snapshot(outcome === "accepted" ? 1 : 0),
+        phase: buildPhaseStep(step),
+        phaseRevision: step === 1 ? 2 : 3,
+        notes: [
+          {
+            ...note,
+            ...(outcome === "accepted"
+              ? { content: request.content, contentRevision: 1 }
+              : {}),
+          },
+        ],
+      }),
+    );
+    expect(second.result.current.recoveries).toEqual([
+      expect.objectContaining({
+        noteId,
+        text: "変換中のB",
+        reason: "変換中に中断されました。",
+      }),
+    ]);
+    expect(send).toHaveBeenCalledExactlyOnceWith({
+      type: "note:content-status",
+      operationId: request.operationId,
+    });
+    act(() =>
+      second.result.current.applyMessage(
+        outcome === "late-ack"
+          ? {
+              type: "note:content-saved",
+              operationId: request.operationId,
+              noteId,
+              contentRevision: 1,
+            }
+          : {
+              type: "note:content-status-result",
+              operationId: request.operationId,
+              status: outcome,
+              ...(outcome === "accepted" ? { noteId, contentRevision: 1 } : {}),
+            },
+      ),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(6000);
+    });
+    expect(
+      send.mock.calls.some(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toBe(false);
+    expect(second.result.current.recoveries).toEqual([
+      expect.objectContaining({ noteId, text: "変換中のB" }),
+    ]);
+    const stored = sessionStorage.getItem(
+      `idea-boost:note-drafts:v1:${userId}:room`,
+    );
+    expect(stored).toContain("変換中のB");
+    expect(stored).toContain("interrupted-composition");
+  });
+
   it("再接続を打ち切っても未送信の本文を回収でき、再送timerを残さない", () => {
     const { result } = setup();
     act(() => result.current.applyMessage(snapshot()));
