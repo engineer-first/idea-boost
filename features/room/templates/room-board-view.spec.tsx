@@ -2490,7 +2490,7 @@ it("同じ決定ステップのsnapshot更新では結果一覧を再表示し�
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
-function notificationFixture(): { toaster: HTMLElement; toast: HTMLElement } {
+function notificationFixture(): HTMLElement {
   const toaster = document.createElement("ol");
   toaster.setAttribute("data-sonner-toaster", "true");
   toaster.style.bottom = "32px";
@@ -2504,79 +2504,21 @@ function notificationFixture(): { toaster: HTMLElement; toast: HTMLElement } {
     toast.setAttribute(name, value);
   toaster.append(toast);
   document.body.append(toaster);
-  return { toaster, toast };
+  return toaster;
 }
 
-describe("通知の寸法観測", () => {
-  it("寸法観測APIがない環境でもボードと通知の余白を表示する", async () => {
-    vi.stubGlobal("ResizeObserver", undefined);
-    const { toaster, toast } = notificationFixture();
-    let toastHeight = 80;
-    Object.defineProperty(toast, "offsetHeight", { get: () => toastHeight });
+describe("通知の重なり", () => {
+  it("通知が表示されてもボードの配置を変える余白を追加しない", () => {
+    const toaster = notificationFixture();
     try {
       setup();
       const board = screen.getByTestId("room-board-view-root");
       expect(board.style.getPropertyValue("--board-notification-inset")).toBe(
-        "128px",
+        "",
       );
-      toaster.style.bottom = "48px";
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-      expect(board.style.getPropertyValue("--board-notification-inset")).toBe(
-        "144px",
-      );
-      toastHeight = 100;
-      fireEvent(window, new Event("resize"));
-      expect(board.style.getPropertyValue("--board-notification-inset")).toBe(
-        "164px",
-      );
-    } finally {
-      toaster.remove();
-    }
-  });
-
-  it("付箋や補助パネルのDOM更新では通知のlayoutを再計測しない", async () => {
-    const { toaster } = notificationFixture();
-    const computed = vi.spyOn(window, "getComputedStyle");
-    try {
-      setup({ hmwDecidedIssue: "採用した課題" });
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-      computed.mockClear();
-      fireEvent.click(screen.getByRole("button", { name: "決定した課題" }));
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
       expect(
-        computed.mock.calls.filter(([element]) => element === toaster),
-      ).toHaveLength(0);
-    } finally {
-      computed.mockRestore();
-      toaster.remove();
-    }
-  });
-  it("通知を削除したら寸法観測を解除する", async () => {
-    const observe = vi.fn(),
-      unobserve = vi.fn();
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe = observe;
-        unobserve = unobserve;
-        disconnect(): void {}
-      },
-    );
-    const { toaster, toast } = notificationFixture();
-    try {
-      setup();
-      expect(observe).toHaveBeenCalledWith(toast);
-      toast.remove();
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      });
-      expect(unobserve).toHaveBeenCalledWith(toast);
+        board.style.getPropertyValue("--board-operation-bottom"),
+      ).not.toContain("--board-notification-inset");
     } finally {
       toaster.remove();
     }
