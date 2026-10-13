@@ -339,6 +339,12 @@ export const UndoNotification: Story = {
   },
 };
 
+export const UndoNotificationShared: Story = {
+  ...UndoNotification,
+  name: "共有中の自動除外通知",
+  args: { ...step(2, 2).args, initialGuideState: "compact" },
+};
+
 export const DelayedConnection: Story = {
   ...Reconnecting,
   name: "接続不調が10秒継続",

@@ -1122,13 +1122,13 @@ test("U03: 390pxでガイド全文と現在の操作が画面内に収まる", a
 
 test.each([
   1280, 390,
-])("U03: %ipxでUndo通知を残したまま付箋を追加できる", async (width) => {
+])("U03: %ipxでUndo通知はボードの配置を変えず前面に重なる", async (width) => {
   await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
   await openStory("room-roomboardlayout--undo-notification");
+  const matrix = page.getByTestId("board-operation-matrix");
   await page.getByRole("button", { name: "除外通知を再現" }).click();
   await page.getByText(/投票完了により0票の付箋1件/).waitFor();
   await page.waitForTimeout(400);
-  const matrix = page.getByTestId("board-operation-matrix");
   const toast = await page
     .locator('[data-sonner-toast][data-visible="true"]')
     .first()
@@ -1136,7 +1136,9 @@ test.each([
   expect(await matrix.isVisible()).toBe(false);
   expect(toast).not.toBeNull();
   if (!toast) throw new Error("Undo通知がありません");
-  await page.screenshot({ path: `${output}/u03-toast-${width}.png` });
+  await page.screenshot({
+    path: `${output}/u03-toast-private-${width}.png`,
+  });
   const add = page.getByRole("button", { name: "付箋を追加", exact: true });
   await add.scrollIntoViewIfNeeded();
   expect(
@@ -1162,6 +1164,53 @@ test.each([
   expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
     true,
   );
+});
+
+test.each([
+  1280, 390,
+])("U03: %ipxでUndo通知はボードの配置を変えず前面に重なる", async (width) => {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+  await openStory("room-roomboardlayout--undo-notification-shared");
+  const matrix = page.getByTestId("board-operation-matrix");
+  const before = await matrix.boundingBox();
+  expect(before).not.toBeNull();
+  await page.getByRole("button", { name: "除外通知を再現" }).click();
+  await page.getByText(/投票完了により0票の付箋1件/).waitFor();
+  await page.waitForTimeout(400);
+  const after = await matrix.boundingBox();
+  const toast = await page
+    .locator('[data-sonner-toast][data-visible="true"]')
+    .first()
+    .boundingBox();
+  expect(after).not.toBeNull();
+  expect(toast).not.toBeNull();
+  if (!before || !after || !toast)
+    throw new Error("案内または通知がありません");
+  expect(after.x).toBeCloseTo(before.x, 0);
+  expect(after.y).toBeCloseTo(before.y, 0);
+  expect(after.width).toBeCloseTo(before.width, 0);
+  expect(after.height).toBeCloseTo(before.height, 0);
+  const overlapLeft = Math.max(after.x, toast.x);
+  const overlapRight = Math.min(after.x + after.width, toast.x + toast.width);
+  const overlapTop = Math.max(after.y, toast.y);
+  const overlapBottom = Math.min(
+    after.y + after.height,
+    toast.y + toast.height,
+  );
+  expect(overlapRight).toBeGreaterThan(overlapLeft);
+  expect(overlapBottom).toBeGreaterThan(overlapTop);
+  const toastIsOnTop = await page.evaluate(
+    ({ x, y }) =>
+      Boolean(document.elementFromPoint(x, y)?.closest("[data-sonner-toast]")),
+    {
+      x: overlapLeft + (overlapRight - overlapLeft) / 2,
+      y: overlapTop + (overlapBottom - overlapTop) / 2,
+    },
+  );
+  expect(toastIsOnTop).toBe(true);
+  await page.screenshot({
+    path: `${output}/u03-toast-shared-${width}.png`,
+  });
 });
 
 // 空のpointer-events-none wrapperではなく、clip内に見える実操作対象を調べる。
