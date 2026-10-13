@@ -82,7 +82,11 @@ function step(phase: 1 | 2 | 3, value: number): Story {
         ...boardMeta.args.interactions,
         privateNotes: PRIVATE_NOTES,
       },
-      timer: { status: "paused", remainingMs: 138_000, durationMs: 180_000 },
+      timer: {
+        status: "running",
+        endsAt: Date.now() + 138_000,
+        durationMs: 180_000,
+      },
       initialGuideState: "detail",
     },
   };

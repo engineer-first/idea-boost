@@ -554,6 +554,7 @@ export function RoomBoard({
     notes.notes,
     notes.snapshotVersion,
     roomState.phase,
+    roomState.timer.status,
   ]);
 
   // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。

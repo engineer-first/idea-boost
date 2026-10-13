@@ -95,7 +95,11 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     decision: null,
     outcomePublished: false,
     adoptionFocusNoteId: null,
-    timer: { status: "idle" } as const,
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 60_000,
+      durationMs: 60_000,
+    } as const,
     timerServerOffsetMs: 0,
     isHost: false,
     isNextPhasePending: false,

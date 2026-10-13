@@ -61,6 +61,7 @@ import type {
   Decision,
   ProtocolNote,
   SharingState,
+  TimerState,
 } from "@/contracts/room-protocol";
 import {
   buildCarryover,
@@ -232,6 +233,7 @@ function connectWithSnapshot(
   notes: ProtocolNote[] = [],
   options?: {
     phase?: RoomPhase;
+    timer?: TimerState;
     isHost?: boolean;
     carryovers?: Carryover[];
     groups?: PersistentGroup[];
@@ -276,7 +278,11 @@ function connectWithSnapshot(
       carryovers: options?.carryovers ?? [],
       completedVoterIds: [],
       groups: options?.groups,
-      timer: { status: "idle" },
+      timer: options?.timer ?? {
+        status: "running",
+        endsAt: Date.now() + 60_000,
+        durationMs: 60_000,
+      },
       serverNow: Date.now(),
       ideaMapSizeLevel: options?.ideaMapSizeLevel,
       ideaMapSizeInitialized: options?.ideaMapSizeInitialized,
@@ -347,7 +353,11 @@ it.each([
       socket.simulateServerMessage({
         type: "sharing:updated",
         sharing: next,
-        timer: { status: "idle" },
+        timer: {
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        },
         serverNow: Date.now(),
       }),
     );
@@ -564,7 +574,9 @@ describe("サーバーメッセージ → 画面反映", () => {
   });
 
   it("snapshot のタイマーを表示し、ホスト操作を timer:* として送る", () => {
-    const { socket } = connectWithSnapshot([]);
+    const { socket } = connectWithSnapshot([], {
+      timer: { status: "idle" },
+    });
 
     fireEvent.click(screen.getByTestId("room-timer"));
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
@@ -588,6 +600,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     const { socket } = connectWithSnapshot([], {
       isHost: false,
       phase: buildPhaseStep(1),
+      timer: { status: "idle" },
     });
 
     const controls = screen.getByRole("group", { name: "ルームの操作" });
@@ -906,6 +919,7 @@ describe("サーバーメッセージ → 画面反映", () => {
   it("HMWのサンプル付箋はタイマー開始まで自動作成しない", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(1, 2),
+      timer: { status: "idle" },
     });
 
     const sentMessages = () =>
@@ -3434,7 +3448,11 @@ describe("候補Undoの結果工程内の寿命", () => {
         type: "phase:updated",
         phase: buildPhaseStep(4),
         phaseRevision: 1,
-        timer: { status: "idle" },
+        timer: {
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        },
       }),
     );
     if (typeof undo !== "function") throw new Error("Undoがありません");

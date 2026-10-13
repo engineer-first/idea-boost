@@ -110,7 +110,11 @@ const meta = {
     inviteCode: "AB12CD",
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: STEP_1_1,
-    timer: { status: "idle" },
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 60_000,
+      durationMs: 60_000,
+    },
     timerServerOffsetMs: 0,
     isHost: true,
     hostRevision: 0,

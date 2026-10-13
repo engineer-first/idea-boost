@@ -1824,7 +1824,7 @@ export function RoomBoardView({
               role="status"
               aria-live="polite"
               data-testid="timer-work-hint"
-              className="w-full max-w-md rounded-xl border border-border/40 bg-background/10 px-6 py-5 text-center shadow-xl backdrop-blur-[2px]"
+              className="w-full max-w-md rounded-xl border border-border/40 bg-background/75 px-6 py-5 text-center shadow-xl backdrop-blur-[2px]"
             >
               <p className="text-lg font-semibold">
                 {timer.status === "paused"
