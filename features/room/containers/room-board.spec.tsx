@@ -3966,3 +3966,147 @@ it("他のホストが戻した後、参加者の古いIME確定・blurで復元
     sessionStorage.getItem(`idea-boost:note-drafts:v1:${USER_ID}:${ROOM_ID}`),
   ).toBeNull();
 });
+
+it.each([
+  1, 2, 3,
+] as const)("同段階%iの個人→共有snapshotと工程更新でも本人のIME入力要素と編集を維持する", async (phase) => {
+  const original = protocolNote({
+    visibility: "private",
+    content: "個人工程の本文",
+  });
+  const { socket } = connectWithSnapshot([original], {
+    isHost: false,
+    phase: buildPhaseStep(1, phase),
+  });
+  const toolbar = openPrivateNotesToolbar();
+  const surface = within(toolbar).getByRole("button", { name: "付箋" });
+  fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+  fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+  fireEvent.keyDown(surface, { key: "Enter" });
+  const editor = screen.getByDisplayValue("個人工程の本文");
+  expect(editor).not.toHaveAttribute("readonly");
+  fireEvent.compositionStart(editor);
+  fireEvent.change(editor, { target: { value: "かんじへんかん" } });
+  act(() => {
+    socket.simulateServerMessage({
+      type: "snapshot",
+      notes: [original],
+      members: [],
+      phase: buildPhaseStep(2, phase),
+      phaseRevision: 1,
+      isHost: false,
+      decision: null,
+      carryovers: [],
+      completedVoterIds: [],
+      timer: { status: "idle" },
+      serverNow: Date.now(),
+    });
+  });
+  expect(editor).not.toHaveAttribute("readonly");
+  act(() => {
+    socket.simulateServerMessage({
+      type: "phase:updated",
+      phase: buildPhaseStep(2, phase),
+      phaseRevision: 1,
+    });
+  });
+  expect(screen.getByDisplayValue("かんじへんかん")).toBe(editor);
+  expect(editor).not.toHaveAttribute("readonly");
+  expect(editor).toHaveFocus();
+  expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+    expect.objectContaining({ type: "note:update-content" }),
+  );
+  fireEvent.compositionEnd(editor, { target: { value: "漢字変換" } });
+  fireEvent.blur(editor);
+  await act(async () => {});
+  const saves = socket.sent
+    .map((raw) => JSON.parse(raw))
+    .filter((message) => message.type === "note:update-content");
+  expect(saves).toHaveLength(1);
+  expect(saves[0]).toMatchObject({
+    content: "漢字変換",
+    expectedPhaseRevision: 1,
+  });
+  act(() => {
+    socket.simulateServerMessage({
+      type: "note:updated",
+      note: { ...original, content: "漢字変換", contentRevision: 1 },
+    });
+    socket.simulateServerMessage({
+      type: "note:content-saved",
+      operationId: saves[0].operationId,
+      noteId: NOTE_ID,
+      contentRevision: 1,
+    });
+  });
+  expect(screen.getByDisplayValue("漢字変換")).toBeVisible();
+  expect(
+    sessionStorage.getItem(`idea-boost:note-drafts:v1:${USER_ID}:${ROOM_ID}`),
+  ).toBeNull();
+});
+
+it.each([
+  "別段階",
+  "非編集",
+  "復元",
+  "削除",
+  "共有済み",
+] as const)("IME入力中でも%sでは個人→共有の編集継続を許可せず古い確定を送らない", async (stop) => {
+  const original = protocolNote({
+    visibility: "private",
+    content: "停止前の本文",
+  });
+  const { socket } = connectWithSnapshot([original], {
+    isHost: false,
+    phase: buildPhaseStep(1),
+  });
+  const surface = within(openPrivateNotesToolbar()).getByRole("button", {
+    name: "付箋",
+  });
+  fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+  fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+  fireEvent.keyDown(surface, { key: "Enter" });
+  const editor = screen.getByDisplayValue("停止前の本文");
+  fireEvent.compositionStart(editor);
+  fireEvent.change(editor, { target: { value: "取り消す変換" } });
+  const phase =
+    stop === "別段階"
+      ? buildPhaseStep(2, 2)
+      : stop === "非編集"
+        ? buildPhaseStep(3)
+        : buildPhaseStep(2);
+  act(() =>
+    socket.simulateServerMessage({
+      type: "snapshot",
+      notes:
+        stop === "削除"
+          ? []
+          : [
+              {
+                ...original,
+                ...(stop === "共有済み" ? { visibility: "shared" } : {}),
+              },
+            ],
+      members: [],
+      phase,
+      phaseRevision: 1,
+      ...(stop === "復元" ? { rollbackRevision: 1 } : {}),
+      isHost: false,
+      decision: null,
+      carryovers: [],
+      completedVoterIds: [],
+      timer: { status: "idle" },
+      serverNow: Date.now(),
+    }),
+  );
+  expect(editor.isConnected && !editor.hasAttribute("readonly")).toBe(false);
+  fireEvent.compositionEnd(editor, { target: { value: "取り消された確定値" } });
+  fireEvent.blur(editor);
+  await act(async () => {});
+  expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+    expect.objectContaining({
+      type: "note:update-content",
+      content: "取り消された確定値",
+    }),
+  );
+});

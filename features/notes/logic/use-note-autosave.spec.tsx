@@ -302,6 +302,13 @@ describe("useNoteAutosave", () => {
     act(() => result.current.change(noteId, "にほん"));
     act(() =>
       result.current.applyMessage({
+        ...snapshot(),
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
         type: "phase:updated",
         phase: buildPhaseStep(2),
         phaseRevision: 3,
@@ -319,6 +326,75 @@ describe("useNoteAutosave", () => {
         expectedPhaseRevision: 3,
       }),
     );
+  });
+
+  it.each([
+    "accepted",
+    "unknown",
+    "late-ack",
+  ] as const)("liveIMEのsnapshot→phase更新では送信済みAの%s後も本人確定Bを保存できる", async (outcome) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "保存中A"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() => result.current.compositionStart(noteId));
+    act(() => result.current.change(noteId, "へんかんちゅうB"));
+    send.mockClear();
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot(),
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    expect(result.current.draftValue(noteId)).toBe("へんかんちゅうB");
+    expect(result.current.recoveries).toEqual([]);
+    act(() =>
+      result.current.applyMessage(
+        outcome === "late-ack"
+          ? {
+              type: "note:content-saved",
+              operationId: request.operationId,
+              noteId,
+              contentRevision: 1,
+            }
+          : {
+              type: "note:content-status-result",
+              operationId: request.operationId,
+              status: outcome,
+              ...(outcome === "accepted" ? { noteId, contentRevision: 1 } : {}),
+            },
+      ),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(
+      send.mock.calls.some(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toBe(false);
+    act(() => result.current.compositionEnd(noteId, "変換確定B"));
+    act(() => vi.advanceTimersByTime(1000));
+    const saves = send.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message.type === "note:update-content");
+    expect(saves).toHaveLength(1);
+    expect(saves[0]).toMatchObject({
+      content: "変換確定B",
+      expectedPhaseRevision: 3,
+      expectedContentRevision: outcome === "unknown" ? 0 : 1,
+    });
   });
 
   it.each([
@@ -431,6 +507,66 @@ describe("useNoteAutosave", () => {
     );
     expect(publish).toHaveBeenCalledTimes(1);
     expect(result.current.sharingSavePending).toBe(false);
+  });
+
+  it.each([
+    [false, "non-editable"],
+    [true, "non-editable"],
+    [false, "rollback"],
+    [true, "rollback"],
+    [false, "missing"],
+    [true, "missing"],
+    [false, "other-author"],
+    [true, "other-author"],
+    [false, "stage"],
+    [true, "stage"],
+  ] as const)("activeIMEでもsnapshotが%s送信済み/%sなら遅い確定イベントで本文を再開しない", async (inFlight, stop) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    if (inFlight) {
+      act(() => result.current.change(noteId, "保存中A"));
+      act(() => vi.advanceTimersByTime(1000));
+    }
+    act(() => result.current.compositionStart(noteId));
+    act(() => result.current.change(noteId, "入力中の旧B"));
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot(),
+        phase:
+          stop === "rollback"
+            ? buildPhaseStep(1)
+            : stop === "stage"
+              ? buildPhaseStep(2, 2)
+              : stop === "non-editable"
+                ? buildPhaseStep(3)
+                : buildPhaseStep(2),
+        phaseRevision: 4,
+        ...(stop === "rollback" ? { rollbackRevision: 4 } : {}),
+        notes:
+          stop === "missing"
+            ? []
+            : [
+                {
+                  ...note,
+                  ...(stop === "other-author"
+                    ? { authorId: "22222222-2222-4222-8222-222222222222" }
+                    : {}),
+                },
+              ],
+      }),
+    );
+    send.mockClear();
+    act(() => result.current.compositionEnd(noteId, "遅い確定イベントの旧B"));
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(
+      send.mock.calls.some(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toBe(false);
+    if (stop === "rollback")
+      expect(result.current.draftValue(noteId)).toBeUndefined();
   });
 
   it.each([

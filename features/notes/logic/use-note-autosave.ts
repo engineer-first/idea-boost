@@ -67,6 +67,8 @@ export function useNoteAutosave(options: {
 }) {
   const key = noteDraftStorageKey(options.roomId, options.userId);
   const draftsRef = useRef<Map<string, NoteDraft>>(new Map());
+  // このmountで続いている変換だけを追跡する。再読込したcomposing値は中断扱い。
+  const activeCompositionsRef = useRef(new Set<string>());
   const shareWaitersRef = useRef(
     new Map<string, { phaseRevision: number; onSaved: () => void }>(),
   );
@@ -90,6 +92,7 @@ export function useNoteAutosave(options: {
       timersRef.current.clear();
       statusTimersRef.current.clear();
       shareWaitersRef.current.clear();
+      activeCompositionsRef.current.clear();
     },
     [],
   );
@@ -99,6 +102,7 @@ export function useNoteAutosave(options: {
 
   const repaint = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
+    activeCompositionsRef.current.clear();
     const loaded = loadNoteDrafts(key);
     draftsRef.current = new Map(
       loaded.drafts.map((draft) => [draft.noteId, draft]),
@@ -131,6 +135,7 @@ export function useNoteAutosave(options: {
       clearTimer(draft.noteId);
       clearStatusTimer(draft.noteId);
       shareWaitersRef.current.delete(draft.noteId);
+      activeCompositionsRef.current.delete(draft.noteId);
       draft.recoveryReason = reason;
       draftsRef.current.set(draft.noteId, draft);
       persist();
@@ -362,6 +367,7 @@ export function useNoteAutosave(options: {
         draftsRef.current.set(noteId, draft);
       }
       if (shareWaitersRef.current.delete(noteId)) repaint();
+      activeCompositionsRef.current.add(noteId);
       draft.composing = true;
       clearTimer(noteId);
       persist();
@@ -370,6 +376,9 @@ export function useNoteAutosave(options: {
   );
   const compositionEnd = useCallback(
     (noteId: string, text: string) => {
+      const wasActive = activeCompositionsRef.current.delete(noteId);
+      // 復元で破棄した変換の遅いイベントから、旧本文の下書きを作り直さない。
+      if (!wasActive && !draftsRef.current.has(noteId)) return;
       change(noteId, text);
       const draft = draftsRef.current.get(noteId);
       if (!draft) return;
@@ -444,6 +453,7 @@ export function useNoteAutosave(options: {
         clearTimer(draft.noteId);
         clearStatusTimer(draft.noteId);
         draftsRef.current.delete(draft.noteId);
+        activeCompositionsRef.current.delete(draft.noteId);
       }
       persist();
     },
@@ -474,7 +484,8 @@ export function useNoteAutosave(options: {
             // 再読込で中断した変換は、送信済みAの結果とは別に回収する。
             // Aだけ照会し、未確定の後続文字を自動で確定・送信しない。
             if (
-              draft.composing ||
+              (draft.composing &&
+                !activeCompositionsRef.current.has(draft.noteId)) ||
               !canContinueDraft(draft, server, options.userId)
             )
               markRecovery(
@@ -486,9 +497,13 @@ export function useNoteAutosave(options: {
           }
           if (draft.recoveryReason) continue;
           if (draft.composing) {
-            markRecovery(draft, "interrupted-composition");
+            if (
+              !activeCompositionsRef.current.has(draft.noteId) ||
+              !canContinueDraft(draft, server, options.userId)
+            )
+              markRecovery(draft, "interrupted-composition");
+            continue;
           }
-          if (draft.composing) continue;
           const note = server.notes.get(draft.noteId);
           if (!note) {
             markRecovery(draft, "missing");
