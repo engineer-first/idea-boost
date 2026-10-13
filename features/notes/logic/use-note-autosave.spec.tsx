@@ -82,9 +82,9 @@ describe("useNoteAutosave", () => {
     act(() =>
       result.current.applyMessage({
         type: "error",
-        code: "forbidden",
+        code: "content-conflict",
         operationId: request.operationId,
-        message: "古い工程",
+        message: "付箋の本文が先に更新されました。",
       }),
     );
     expect(result.current.recoveries).toEqual([]);
@@ -105,6 +105,87 @@ describe("useNoteAutosave", () => {
         operationId: expect.not.stringMatching(request.operationId),
       }),
     );
+  });
+
+  it.each([
+    "content-version",
+    "forbidden",
+    "other-author",
+    "shared",
+    "stage",
+    "not-editable",
+    "rollback",
+    "completed",
+    "missing",
+    "same-phase-revision",
+  ] as const)("古い保存拒否でも%sなら照会・書き込みの再送を継続しない", async (reason) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "端末に残る本文"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot(reason === "content-version" ? 1 : 0),
+        phase:
+          reason === "stage"
+            ? buildPhaseStep(2, 2)
+            : reason === "not-editable"
+              ? buildPhaseStep(3)
+              : reason === "completed"
+                ? buildPhaseStep(5, 3)
+                : reason === "same-phase-revision"
+                  ? buildPhaseStep(1)
+                  : buildPhaseStep(2),
+        phaseRevision: reason === "same-phase-revision" ? 2 : 3,
+        ...(reason === "rollback" ? { rollbackRevision: 3 } : {}),
+        ...(reason === "completed" ? { outcomePublished: true } : {}),
+        notes:
+          reason === "missing"
+            ? []
+            : [
+                {
+                  ...note,
+                  contentRevision: reason === "content-version" ? 1 : 0,
+                  ...(reason === "other-author"
+                    ? { authorId: "22222222-2222-4222-8222-222222222222" }
+                    : {}),
+                  ...(reason === "shared"
+                    ? { visibility: "shared" as const }
+                    : {}),
+                },
+              ],
+      }),
+    );
+    send.mockClear();
+    act(() =>
+      result.current.applyMessage({
+        type: "error",
+        code: reason === "forbidden" ? "forbidden" : "content-conflict",
+        operationId: request.operationId,
+        message: "保存できません",
+      }),
+    );
+    expect(send).not.toHaveBeenCalled();
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: "unknown",
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(6000);
+    });
+    expect(
+      send.mock.calls.some(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toBe(false);
+    if (reason !== "rollback")
+      expect(result.current.recoveries).toHaveLength(1);
   });
 
   it.each([

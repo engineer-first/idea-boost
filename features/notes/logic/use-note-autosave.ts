@@ -577,11 +577,19 @@ export function useNoteAutosave(options: {
         const draft = [...draftsRef.current.values()].find(
           (item) => item.inFlight?.operationId === message.operationId,
         );
+        // Workerは工程版と本文版の不一致を同じcontent-conflictで拒否する。
+        // 本人の個人→共有で本文版が同じなら、受理記録を先に照会する。
+        // forbiddenは認可の拒否なので、この継続経路へ入れない。
         if (
           draft &&
-          message.code === "forbidden" &&
+          message.code === "content-conflict" &&
           draft.inFlight &&
-          draft.inFlight.expectedPhaseRevision !== server.phaseRevision &&
+          draft.inFlight.expectedPhaseRevision < server.phaseRevision &&
+          draft.phase?.kind === "step" &&
+          draft.phase.step === 1 &&
+          server.phase.kind === "step" &&
+          server.phase.step === 2 &&
+          draft.phase.phase === server.phase.phase &&
           canContinueDraft(draft, server, options.userId) &&
           server.notes.get(draft.noteId)?.contentRevision ===
             draft.baseRevision &&
