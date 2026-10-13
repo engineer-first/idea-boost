@@ -398,6 +398,70 @@ describe("useNoteAutosave", () => {
   });
 
   it.each([
+    ["send-failed", "accepted"],
+    ["send-failed", "unknown"],
+    ["result-unknown", "accepted"],
+    ["result-unknown", "unknown"],
+  ] as const)("同mountのliveIMEは一時的な%sから%s照会を経ても本人確定後だけ保存する", async (failure, outcome) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "送信済みA"));
+    act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    if (request?.type !== "note:update-content")
+      throw new Error("save missing");
+    act(() => result.current.compositionStart(noteId));
+    act(() => result.current.change(noteId, "一時切断中の未確定B"));
+    send.mockClear();
+    if (failure === "send-failed") {
+      send.mockImplementationOnce(() => false);
+      act(() =>
+        result.current.applyMessage({
+          ...snapshot(),
+          phase: buildPhaseStep(2),
+          phaseRevision: 3,
+        }),
+      );
+      act(() => result.current.setConnected(false));
+    } else act(() => result.current.recoverDisconnected());
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot(),
+        phase: buildPhaseStep(2),
+        phaseRevision: 3,
+      }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        type: "note:content-status-result",
+        operationId: request.operationId,
+        status: outcome,
+        ...(outcome === "accepted" ? { noteId, contentRevision: 1 } : {}),
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(
+      send.mock.calls.some(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toBe(false);
+    expect(result.current.draftValue(noteId)).toBe("一時切断中の未確定B");
+    act(() => result.current.compositionEnd(noteId, "本人が確定したB"));
+    act(() => result.current.blur(noteId, "本人が確定したB"));
+    const saves = send.mock.calls
+      .map(([message]) => message)
+      .filter((message) => message.type === "note:update-content");
+    expect(saves).toHaveLength(1);
+    expect(saves[0]).toMatchObject({
+      content: "本人が確定したB",
+      expectedPhaseRevision: 3,
+      expectedContentRevision: outcome === "accepted" ? 1 : 0,
+    });
+  });
+
+  it.each([
     "conflict",
     "deleted",
     "shared",

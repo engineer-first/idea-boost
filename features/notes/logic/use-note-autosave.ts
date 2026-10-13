@@ -135,7 +135,8 @@ export function useNoteAutosave(options: {
       clearTimer(draft.noteId);
       clearStatusTimer(draft.noteId);
       shareWaitersRef.current.delete(draft.noteId);
-      activeCompositionsRef.current.delete(draft.noteId);
+      if (reason !== "send-failed" && reason !== "result-unknown")
+        activeCompositionsRef.current.delete(draft.noteId);
       draft.recoveryReason = reason;
       draftsRef.current.set(draft.noteId, draft);
       persist();
@@ -400,9 +401,10 @@ export function useNoteAutosave(options: {
       clearStatusTimer(noteId);
       draft.inFlight = null;
       if (draft.recoveryReason === "result-unknown")
-        draft.recoveryReason = draft.composing
-          ? "interrupted-composition"
-          : null;
+        draft.recoveryReason =
+          draft.composing && !activeCompositionsRef.current.has(draft.noteId)
+            ? "interrupted-composition"
+            : null;
       draft.baseContent = sent.content;
       draft.baseRevision = contentRevision;
       const current = serverRef.current.notes.get(noteId);
@@ -573,9 +575,11 @@ export function useNoteAutosave(options: {
           clearStatusTimer(draft.noteId);
           draft.inFlight = null;
           if (draft.recoveryReason === "result-unknown")
-            draft.recoveryReason = draft.composing
-              ? "interrupted-composition"
-              : null;
+            draft.recoveryReason =
+              draft.composing &&
+              !activeCompositionsRef.current.has(draft.noteId)
+                ? "interrupted-composition"
+                : null;
           persist();
           repaint();
           schedule(draft.noteId, true);
