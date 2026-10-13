@@ -439,9 +439,7 @@ export function RoomBoardCanvas({
         candidatePending={pendingCandidateNoteIds.includes(note.id)}
         isDecided={decision?.noteId === note.id}
         isAdoptionFocused={
-          !isHost &&
-          adoptionFocusNoteId === note.id &&
-          decision?.noteId !== note.id
+          adoptionFocusNoteId === note.id && decision?.noteId !== note.id
         }
         disabled={isDisconnected}
         onSelect={onSelect}
@@ -489,7 +487,6 @@ export function RoomBoardCanvas({
     const isAdoptTarget =
       isAdoptMode &&
       interactionTool === "select" &&
-      isHost &&
       !isDisconnected &&
       isResultStep(phase) &&
       note.visibility === "shared" &&

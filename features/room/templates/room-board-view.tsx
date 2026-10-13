@@ -189,6 +189,8 @@ export type RoomBoardViewProps = {
   hostUserId: string;
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
+  progress?: import("../logic/room-reducer").PhaseProgressState;
+  onToggleReady?: (ready: boolean) => void;
   isNextPhasePending: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
@@ -249,7 +251,7 @@ export type RoomBoardViewProps = {
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
   isLeaving: boolean;
   // 次フェーズへ。ホストのみ UI 表示。
-  onNextPhase: () => void;
+  onNextPhase: (confirmedProgressRevision?: number) => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -318,6 +320,16 @@ export function RoomBoardView({
   currentUserId,
   hostUserId,
   completedVoterIds = [],
+  progress = {
+    phaseRevision: 0,
+    progressRevision: 0,
+    connectedUserIds: [],
+    readyUserIds: [],
+    notReadyUserIds: [],
+    canAdvance: false,
+    allReady: false,
+  },
+  onToggleReady,
   isNextPhasePending,
   interactions,
   help,
@@ -510,9 +522,9 @@ export function RoomBoardView({
   ]);
 
   useEffect(() => {
-    if (connectionStatus === "open" && isHost && decision === null) return;
+    if (connectionStatus === "open" && decision === null) return;
     setIsAdoptMode(false);
-  }, [connectionStatus, decision, isHost]);
+  }, [connectionStatus, decision]);
 
   useEffect(() => {
     if (connectionStatus !== "open") {
@@ -1728,6 +1740,8 @@ export function RoomBoardView({
           currentUserId={currentUserId}
           hostUserId={hostUserId}
           completedVoterIds={completedVoterIds}
+          progress={progress}
+          onToggleReady={onToggleReady}
           isNextPhasePending={isNextPhasePending}
           isNextPhaseBlocked={isNextPhaseBlocked}
           initialGuideState={initialGuideState}

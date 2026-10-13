@@ -9,6 +9,7 @@
 
 import type { RoomPhase } from "@/contracts/phase";
 import type {
+  PhaseProgress,
   Carryover as ProtocolCarryover,
   Decision as ProtocolDecision,
   ProtocolMember,
@@ -18,6 +19,28 @@ import type {
 } from "@/contracts/room-protocol";
 
 export type Member = ProtocolMember;
+export type PhaseProgressState = PhaseProgress;
+
+export const INITIAL_PHASE_PROGRESS: PhaseProgressState = {
+  phaseRevision: 0,
+  progressRevision: 0,
+  connectedUserIds: [],
+  readyUserIds: [],
+  notReadyUserIds: [],
+  canAdvance: false,
+  allReady: false,
+};
+
+export function applyPhaseProgressServerMessage(
+  state: PhaseProgressState,
+  message: ServerMessage,
+): PhaseProgressState {
+  if (message.type === "snapshot") return message.progress ?? state;
+  if (message.type === "phase:progress") return message.progress;
+  if (message.type === "phase:updated")
+    return { ...INITIAL_PHASE_PROGRESS, phaseRevision: message.phaseRevision };
+  return state;
+}
 export type Decision = ProtocolDecision;
 export type Carryover = ProtocolCarryover;
 
@@ -89,6 +112,7 @@ export function applyMemberServerMessage(
       return members.filter((m) => m.userId !== message.userId);
     }
     case "member_vote_status":
+    case "phase:progress":
     case "note:inserted":
     case "note:updated":
     case "note:deleted":
@@ -193,6 +217,7 @@ export function applyVotingCompletionServerMessage(
     case "cursor:left":
     case "member:renamed":
     case "member:removed":
+    case "phase:progress":
     case "host:updated":
     case "error":
       return completedVoterIds;
@@ -273,6 +298,7 @@ export function applyDecisionServerMessage(
     case "cursor:left":
     case "member:renamed":
     case "member:removed":
+    case "phase:progress":
     case "host:updated":
     case "error":
       return decision;
@@ -367,6 +393,7 @@ export function applyPhaseServerMessage(
     case "cursor:left":
     case "member:renamed":
     case "member:removed":
+    case "phase:progress":
     case "host:updated":
     case "error":
       return phase;

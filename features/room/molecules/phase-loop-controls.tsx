@@ -57,6 +57,7 @@ export function PhaseLoopControls({
       <AdoptNoteControl
         phaseNumber={phase.phase}
         isHost={isHost}
+        canSelect={isHost}
         isSelecting={false}
         decisionContent={decisionContent}
         disabled={disabled}
@@ -65,17 +66,7 @@ export function PhaseLoopControls({
         onClearDecision={isResult ? onClearDecision : undefined}
       />
     );
-  if (!isHost)
-    return isResult ? (
-      <p
-        role="status"
-        className="pointer-events-auto max-w-lg rounded-xl border bg-background px-4 py-3 text-sm shadow-sm"
-      >
-        {candidateCount === 0
-          ? "候補がありません。ホストが付箋を候補に戻すまでお待ちください。"
-          : "候補を動かして話し合いましょう。採用はホストが確定します。"}
-      </p>
-    ) : null;
+  if (!isHost && !isResult) return null;
   return (
     <div className="flex max-w-full flex-col items-center gap-2">
       {isResult && candidateCount === 0 ? (
@@ -87,7 +78,7 @@ export function PhaseLoopControls({
         </p>
       ) : null}
       <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-border bg-background p-2 shadow-lg shadow-black/5">
-        {!isSelecting ? (
+        {isHost && !isSelecting ? (
           <AlertDialog
             open={dialog !== null}
             onOpenChange={(open) =>
@@ -133,7 +124,8 @@ export function PhaseLoopControls({
         {isResult ? (
           <AdoptNoteControl
             phaseNumber={phase.phase}
-            isHost
+            isHost={isHost}
+            canSelect={isResult}
             isSelecting={isSelecting}
             decisionContent={null}
             disabled={disabled || candidateCount === 0}

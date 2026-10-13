@@ -49,6 +49,22 @@ export type BulkExclusionOperationId = z.infer<
   typeof BulkExclusionOperationIdSchema
 >;
 
+export const PhaseProgressSchema = z.object({
+  phaseRevision: z.number().int().nonnegative(),
+  progressRevision: z.number().int().nonnegative(),
+  connectedUserIds: z.array(z.string().uuid()),
+  readyUserIds: z.array(z.string().uuid()),
+  notReadyUserIds: z.array(z.string().uuid()),
+  canAdvance: z.boolean(),
+  allReady: z.boolean(),
+});
+export type PhaseProgress = z.infer<typeof PhaseProgressSchema>;
+
+export const PhaseProgressMessageSchema = z.object({
+  type: z.literal("phase:progress"),
+  progress: PhaseProgressSchema,
+});
+
 // シールは付箋内の相対座標で保存する。画面のズームや付箋サイズが変わっても
 // 同じ位置に復元でき、クライアントがボード座標を推測する必要もない。
 export const VoteStickerCoordinateSchema = z.number().finite().min(0).max(1);
@@ -649,6 +665,13 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     expectedPhase: RoomPhaseSchema,
     expectedRevision: z.number().int().nonnegative(),
     force: z.boolean().optional(),
+    confirmedProgressRevision: z.number().int().nonnegative().optional(),
+  }),
+  z.object({
+    type: z.literal("phase:ready"),
+    expectedPhase: RoomPhaseSchema,
+    expectedRevision: z.number().int().nonnegative(),
+    ready: z.boolean(),
   }),
   z
     .object({
@@ -713,11 +736,7 @@ export const HOST_REVISION_MESSAGE_TYPES = [
   "note:restore",
   "note:bulk-exclude",
   "note:bulk-restore",
-  "note:decide",
-  "outcome:publish",
   "decision:clear",
-  "adoption-focus:update",
-  "phase:next",
   "phase:rollback",
   "phase:restart-writing",
   "phase:revote",
@@ -755,6 +774,12 @@ export const PendingPhaseTransitionSchema = z.object({
   expectedRevision: z.number().int().nonnegative(),
   deadlineAt: TimerMillisecondsSchema,
   serverNow: TimerMillisecondsSchema,
+  confirmedProgressRevision: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .optional(),
 });
 export type PendingPhaseTransition = z.infer<
   typeof PendingPhaseTransitionSchema
@@ -841,6 +866,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     // 投票中に全票を使い切ったメンバーの userId だけを共有する。
     // 投票先・票種別ごとの残数・カーソル位置は含めない。
     completedVoterIds: z.array(z.string().uuid()),
+    progress: PhaseProgressSchema.optional(),
     timer: TimerStateSchema,
     serverNow: TimerMillisecondsSchema,
   }),
@@ -857,6 +883,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       contentRevision: z.number().int().nonnegative(),
     })
     .strict(),
+  PhaseProgressMessageSchema,
   z
     .object({
       type: z.literal("note:content-status-result"),
@@ -1042,6 +1069,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       "forbidden",
       "not-found",
       "voting-incomplete",
+      "phase-not-ready",
+      "phase-confirmation-required",
+      "phase-confirmation-stale",
       "content-conflict",
     ]),
     message: z.string(),

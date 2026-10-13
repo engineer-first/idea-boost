@@ -27,27 +27,34 @@ export type NextPhaseConfirmDialogProps = {
   phase: RoomPhase;
   disabled: boolean;
   onConfirm: () => void;
+  requireConfirmation?: boolean;
+  notReadyNames?: ReadonlyArray<string>;
 };
 
 export function NextPhaseConfirmDialog({
   phase,
   disabled,
   onConfirm,
+  requireConfirmation = true,
+  notReadyNames = [],
 }: NextPhaseConfirmDialogProps) {
   const beginsVoting =
     phase.kind === "step" &&
     phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1;
+  const trigger = (
+    <Button
+      type="button"
+      className="h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs"
+      disabled={disabled}
+      onClick={requireConfirmation ? undefined : onConfirm}
+    >
+      次のステップへ
+    </Button>
+  );
+  if (!requireConfirmation) return trigger;
   return (
     <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button
-          type="button"
-          className="h-10 px-4 max-[900px]:px-2 max-[900px]:text-xs"
-          disabled={disabled}
-        >
-          次のステップへ
-        </Button>
-      </AlertDialogTrigger>
+      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
 
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -56,6 +63,9 @@ export function NextPhaseConfirmDialog({
           <AlertDialogDescription>
             {getPhaseLabel(phase)}
             から次のステップへ進みます。
+            {notReadyNames.length > 0
+              ? `まだ完了を押していない人: ${notReadyNames.join("、")}。`
+              : ""}
             {beginsVoting
               ? "投票へ進むと、このフェーズの個人作業・共有を終了します。未共有の下書きは残りますが、次フェーズへ進むとき（最終フェーズは採用時）に破棄されます。共有し忘れた付箋があれば、キャンセルして個人作業・共有へ戻ってください。"
               : isResultStep(phase)

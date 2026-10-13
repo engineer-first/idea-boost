@@ -277,7 +277,7 @@ describe("RoomBoardCanvas", () => {
     buildPhaseStep(5),
     buildPhaseStep(4, 2),
     buildPhaseStep(5, 3),
-  ])("%j の採用選択中も切断・参加者・非共有の候補には採用領域を出さない", (phase) => {
+  ])("%j の採用選択中も切断・非共有の候補には採用領域を出さない", (phase) => {
     const { props, rerender } = setup({
       phase,
       permissions: getBoardPermissions(phase),
@@ -292,7 +292,7 @@ describe("RoomBoardCanvas", () => {
     rerender(<RoomBoardCanvas {...props} notes={notes} isDisconnected />);
     expect(targets()).toHaveLength(0);
     rerender(<RoomBoardCanvas {...props} notes={notes} isHost={false} />);
-    expect(targets()).toHaveLength(0);
+    expect(targets()).toHaveLength(2);
     rerender(<RoomBoardCanvas {...props} notes={notes} />);
     expect(targets()).toHaveLength(2);
   });
@@ -396,7 +396,7 @@ describe("RoomBoardCanvas", () => {
     expect(onAdoptionFocusChange).toHaveBeenLastCalledWith("note-2");
   });
 
-  it("参加者だけに共有採用フォーカスを描画し、ホスト自身には重ねない", () => {
+  it("採用フォーカスを全参加者へ描画する", () => {
     const note = buildNote({ id: "note-1", visibility: "shared" });
     const { props, rerender } = setup({
       phase: buildPhaseStep(5),
@@ -412,8 +412,9 @@ describe("RoomBoardCanvas", () => {
     rerender(
       <RoomBoardCanvas {...props} isHost adoptionFocusNoteId="note-1" />,
     );
-    expect(screen.getByTestId("note-card")).not.toHaveAttribute(
+    expect(screen.getByTestId("note-card")).toHaveAttribute(
       "data-adoption-focused",
+      "true",
     );
   });
 

@@ -311,6 +311,10 @@ export function RoomBoard({
         setIsForceNextPhaseDialogOpen(true);
         return;
       }
+      if (message.code === "phase-confirmation-required") {
+        setIsNextPhasePending(false);
+        return;
+      }
       console.warn(`ルーム操作エラー (${message.code}): ${message.message}`);
       notify.error(message.message);
       setIsNextPhasePending(false);
@@ -340,29 +344,53 @@ export function RoomBoard({
     cursorPresence.applyMessage(message, receivedAt);
   }
 
-  const handleNextPhase = useCallback(() => {
-    if (
-      !isHost ||
-      hostTransfer.isPending() ||
-      memberRemoval.isPending() ||
-      isNextPhasePending
-    )
-      return;
-    setIsNextPhasePending(true);
-    send({
-      type: "phase:next",
-      expectedPhase: roomState.phase,
-      expectedRevision: roomState.phaseRevision,
-    });
-  }, [
-    isHost,
-    hostTransfer.isPending,
-    memberRemoval.isPending,
-    isNextPhasePending,
-    send,
-    roomState.phase,
-    roomState.phaseRevision,
-  ]);
+  const handleNextPhase = useCallback(
+    (confirmedProgressRevision?: number) => {
+      if (
+        connectionStatus !== "open" ||
+        hostTransfer.isPending() ||
+        memberRemoval.isPending() ||
+        isNextPhasePending
+      )
+        return;
+      setIsNextPhasePending(true);
+      const sent = send({
+        type: "phase:next",
+        expectedPhase: roomState.phase,
+        expectedRevision: roomState.phaseRevision,
+        confirmedProgressRevision,
+      });
+      if (sent === false) setIsNextPhasePending(false);
+    },
+    [
+      connectionStatus,
+      hostTransfer.isPending,
+      memberRemoval.isPending,
+      isNextPhasePending,
+      send,
+      roomState.phase,
+      roomState.phaseRevision,
+    ],
+  );
+
+  const handleToggleReady = useCallback(
+    (ready: boolean) => {
+      if (connectionStatus !== "open" || roomState.outcomePublished) return;
+      send({
+        type: "phase:ready",
+        expectedPhase: roomState.phase,
+        expectedRevision: roomState.phaseRevision,
+        ready,
+      });
+    },
+    [
+      connectionStatus,
+      roomState.outcomePublished,
+      roomState.phase,
+      roomState.phaseRevision,
+      send,
+    ],
+  );
 
   const handleRollbackPhase = useCallback(() => {
     if (
@@ -416,6 +444,7 @@ export function RoomBoard({
       force: true,
       expectedPhase: roomState.phase,
       expectedRevision: roomState.phaseRevision,
+      expectedHostRevision: roomState.host.hostRevision ?? undefined,
     });
   }, [
     isHost,
@@ -425,6 +454,7 @@ export function RoomBoard({
     send,
     roomState.phase,
     roomState.phaseRevision,
+    roomState.host.hostRevision,
   ]);
 
   const handleNoteDecide = useCallback(
@@ -439,10 +469,9 @@ export function RoomBoard({
 
   const handleAdoptionFocusChange = useCallback(
     (noteId: string | null) => {
-      if (!isHost) return;
       send({ type: "adoption-focus:update", noteId });
     },
-    [isHost, send],
+    [send],
   );
 
   const handleLoopPhase = useCallback(
@@ -696,6 +725,8 @@ export function RoomBoard({
         currentUserId={currentUserId}
         hostUserId={hostUserId}
         completedVoterIds={roomState.completedVoterIds}
+        progress={roomState.progress}
+        onToggleReady={handleToggleReady}
         isNextPhasePending={isNextPhasePending}
         signOutAction={signOutAction}
         interactions={boardInteractions}

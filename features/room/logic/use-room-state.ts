@@ -21,6 +21,7 @@ import {
   applyIdeaMapServerMessage,
   applyMemberServerMessage,
   applyOutcomePublishedServerMessage,
+  applyPhaseProgressServerMessage,
   applyPhaseServerMessage,
   applySharingServerMessage,
   applyTimerServerMessage,
@@ -30,7 +31,9 @@ import {
   type HostClientState,
   type IdeaMapClientState,
   INITIAL_IDEA_MAP_STATE,
+  INITIAL_PHASE_PROGRESS,
   type Member,
+  type PhaseProgressState,
   type TimerClientState,
 } from "./room-reducer";
 
@@ -52,6 +55,7 @@ export type UseRoomStateResult = {
   timerServerOffsetMs: number;
   timerUpdateVersion: number;
   completedVoterIds: string[];
+  progress: PhaseProgressState;
   applyMessage: (message: ServerMessage, receivedAt?: number) => void;
 };
 
@@ -84,6 +88,9 @@ export function useRoomState(options: {
   );
   const [carryovers, setCarryovers] = useState<Carryover[]>([]);
   const [completedVoterIds, setCompletedVoterIds] = useState<string[]>([]);
+  const [progress, setProgress] = useState<PhaseProgressState>(
+    INITIAL_PHASE_PROGRESS,
+  );
   const [timerState, setTimerState] = useState<TimerClientState>({
     timer: { status: "idle" },
     serverOffsetMs: 0,
@@ -140,6 +147,9 @@ export function useRoomState(options: {
       setCompletedVoterIds((current) =>
         applyVotingCompletionServerMessage(current, message),
       );
+      setProgress((current) =>
+        applyPhaseProgressServerMessage(current, message),
+      );
       setTimerState((current) =>
         applyTimerServerMessage(current, message, receivedAt),
       );
@@ -165,6 +175,7 @@ export function useRoomState(options: {
     timerServerOffsetMs: timerState.serverOffsetMs,
     timerUpdateVersion: timerState.timerUpdateVersion,
     completedVoterIds,
+    progress,
     applyMessage,
   };
 }

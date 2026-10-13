@@ -39,10 +39,17 @@ import {
   clearRollbackHistory,
   getRollbackTarget,
 } from "./phase-rollback";
+import {
+  broadcastProgress,
+  bumpProgressRevision,
+  clearProgressReady,
+  getProgressState,
+  isManualProgressStep,
+} from "./progress";
 import { recordProgressTransition } from "./progress-history";
-import { resetSharingForPhase } from "./sharing-state";
+import { getSharingState, resetSharingForPhase } from "./sharing-state";
 import { getTimerState, resetTimerState, saveTimerState } from "./timer";
-import { deleteNoteVotes, haveAllMembersCompletedVoting } from "./votes";
+import { deleteNoteVotes, hasCompletedVoting } from "./votes";
 
 export function getPhase(sql: SqlStorage): RoomPhase {
   const rows = sql.exec("SELECT phase FROM room_state WHERE id = 1").toArray();
@@ -55,6 +62,7 @@ export function savePhase(sql: SqlStorage, phase: RoomPhase): void {
     "UPDATE room_state SET phase = ?1, phase_revision = phase_revision + 1 WHERE id = 1",
     encodePhase(phase),
   );
+  clearProgressReady(sql);
 }
 
 export function getPhaseRevision(sql: SqlStorage): number {
@@ -72,7 +80,29 @@ type PendingTransitionRow = {
   expected_revision: number;
   force: number;
   deadline_at: number;
+  confirmed_progress_revision: number | null;
 };
+
+function canProceedWithProgress(
+  ctx: HandlerCtx,
+  current: RoomPhase,
+  message: Extract<ClientMessage, { type: "phase:next" }>,
+): boolean {
+  if (message.force === true)
+    return isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision);
+  if (!isManualProgressStep(current) && !isVotingStep(current)) return true;
+  const progress = getProgressState(
+    ctx.sql,
+    ctx.broadcaster,
+    current,
+    getPhaseRevision(ctx.sql),
+  );
+  return (
+    progress.canAdvance &&
+    (progress.allReady ||
+      message.confirmedProgressRevision === progress.progressRevision)
+  );
+}
 
 function getPendingRow(sql: SqlStorage): PendingTransitionRow | null {
   return (
@@ -102,6 +132,7 @@ async function deferEditableTransition(
     expectedRevision: number;
     force?: boolean;
     expectedHostRevision?: number;
+    confirmedProgressRevision?: number;
   },
 ): Promise<boolean> {
   const current = getPhase(ctx.sql);
@@ -113,7 +144,9 @@ async function deferEditableTransition(
       pending.requested_by === ctx.userId &&
       pending.expected_revision === message.expectedRevision &&
       pending.expected_phase === JSON.stringify(message.expectedPhase) &&
-      Boolean(pending.force) === Boolean(message.force)
+      Boolean(pending.force) === Boolean(message.force) &&
+      pending.confirmed_progress_revision ===
+        (message.confirmedProgressRevision ?? null)
     ) {
       if (pending.deadline_at <= Date.now()) return false;
       const existing = getPendingPhaseTransition(ctx.sql);
@@ -127,7 +160,10 @@ async function deferEditableTransition(
   const transitionId = crypto.randomUUID();
   const reserved = await runAuthorizedMutationTransaction(ctx, async () => {
     if (
-      !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
+      !canProceedWithProgress(ctx, current, {
+        type: "phase:next",
+        ...message,
+      }) ||
       isRoomClosed(ctx.sql) ||
       !matchesExpectedPhase(ctx, message)
     ) {
@@ -135,7 +171,7 @@ async function deferEditableTransition(
       return false;
     }
     ctx.sql.exec(
-      "INSERT INTO pending_phase_transition (id, transition_id, requested_by, action, expected_phase, expected_revision, force, deadline_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+      "INSERT INTO pending_phase_transition (id, transition_id, requested_by, action, expected_phase, expected_revision, force, deadline_at, confirmed_progress_revision) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
       transitionId,
       ctx.userId,
       action,
@@ -143,6 +179,7 @@ async function deferEditableTransition(
       message.expectedRevision,
       message.force ? 1 : 0,
       deadlineAt,
+      message.confirmedProgressRevision ?? null,
     );
     await syncRoomAlarm(ctx.storage, ctx.sql);
     return true;
@@ -155,6 +192,7 @@ async function deferEditableTransition(
     expectedRevision: message.expectedRevision,
     deadlineAt,
     serverNow: Date.now(),
+    confirmedProgressRevision: message.confirmedProgressRevision ?? null,
   });
   return true;
 }
@@ -167,7 +205,8 @@ export async function completeExpiredPhaseTransition(
   const expectedPhase = RoomPhaseSchema.parse(JSON.parse(row.expected_phase));
   if (
     !isMember(ctx.sql, row.requested_by) ||
-    !isHostUser(ctx.sql, row.requested_by) ||
+    (row.action === "restart-writing" &&
+      !isHostUser(ctx.sql, row.requested_by)) ||
     JSON.stringify(getPhase(ctx.sql)) !== row.expected_phase ||
     getPhaseRevision(ctx.sql) !== row.expected_revision
   ) {
@@ -191,6 +230,7 @@ export async function completeExpiredPhaseTransition(
       expectedRevision: row.expected_revision,
       expectedHostRevision: getHostState(ctx.sql).hostRevision,
       force: Boolean(row.force),
+      confirmedProgressRevision: row.confirmed_progress_revision ?? undefined,
     });
   } else {
     await phaseHandlers["phase:restart-writing"](deferredCtx, {
@@ -365,6 +405,7 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "start_phase":
     case "phase:rollback":
     case "phase:next":
+    case "phase:ready":
     case "outcome:publish":
     case "phase:restart-writing":
     case "phase:revote":
@@ -595,7 +636,11 @@ export function getBoardMutationForbiddenMessage(
 // D1 由来の hostId ヘッダーを認可ソースに加えない（旧ルームのバックフィル
 // シードにすぎない。room-do.ts の HOST_ID_HEADER 参照）。
 export const phaseHandlers: MessageHandlers<
-  "start_phase" | "phase:next" | "phase:restart-writing" | "phase:revote"
+  | "start_phase"
+  | "phase:next"
+  | "phase:ready"
+  | "phase:restart-writing"
+  | "phase:revote"
 > = {
   // ロビー → Step 1-1（ボード開始）。ホストのみ。
   start_phase: (ctx, message) => {
@@ -646,9 +691,56 @@ export const phaseHandlers: MessageHandlers<
     });
   },
 
-  // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
+  "phase:ready": (ctx, message) => {
+    const current = getPhase(ctx.sql);
+    const revision = getPhaseRevision(ctx.sql);
+    if (
+      !isManualProgressStep(current) ||
+      JSON.stringify(current) !== JSON.stringify(message.expectedPhase) ||
+      revision !== message.expectedRevision
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    if (
+      message.ready &&
+      isVotingStep(current) &&
+      current.kind === "step" &&
+      !hasCompletedVoting(ctx.sql, ctx.userId, current.phase)
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "投票をすべて受理してから完了してください。",
+      });
+      return;
+    }
+    ctx.storage.transactionSync(() => {
+      if (message.ready) {
+        ctx.sql.exec(
+          "INSERT INTO phase_progress_ready (phase_revision, user_id, ready, updated_at) VALUES (?1, ?2, 1, ?3) ON CONFLICT(phase_revision, user_id) DO UPDATE SET ready=1, updated_at=excluded.updated_at",
+          revision,
+          ctx.userId,
+          Date.now(),
+        );
+      } else {
+        ctx.sql.exec(
+          "DELETE FROM phase_progress_ready WHERE phase_revision = ?1 AND user_id = ?2",
+          revision,
+          ctx.userId,
+        );
+      }
+      bumpProgressRevision(ctx.sql);
+    });
+    broadcastProgress(ctx.sql, ctx.broadcaster, current, revision);
+  },
+
+  // 現在のステップ → 次のステップ。通常進行は参加者全員、force はホストのみ。
   "phase:next": async (ctx, message) => {
-    if (!isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision)) {
+    if (
+      message.force === true &&
+      !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision)
+    ) {
       ctx.reply({
         type: "error",
         code: "forbidden",
@@ -669,6 +761,60 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
+    const sharing =
+      current.kind === "step" && current.step === 2
+        ? getSharingState(ctx.sql)
+        : null;
+    if (sharing && sharing.status !== "complete" && message.force !== true) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "発表順が一巡するまで次へ進めません。",
+      });
+      return;
+    }
+    const progress = getProgressState(
+      ctx.sql,
+      ctx.broadcaster,
+      current,
+      getPhaseRevision(ctx.sql),
+    );
+    if (
+      (isManualProgressStep(current) || isVotingStep(current)) &&
+      !message.force
+    ) {
+      if (!progress.canAdvance) {
+        ctx.reply({
+          type: "error",
+          code: "phase-not-ready",
+          message: "参加者の過半数が完了するまで進めません。",
+        });
+        broadcastProgress(
+          ctx.sql,
+          ctx.broadcaster,
+          current,
+          getPhaseRevision(ctx.sql),
+        );
+        return;
+      }
+      if (
+        !progress.allReady &&
+        message.confirmedProgressRevision !== progress.progressRevision
+      ) {
+        ctx.reply({
+          type: "error",
+          code: "phase-confirmation-required",
+          message: "完了していない参加者を確認してください。",
+        });
+        broadcastProgress(
+          ctx.sql,
+          ctx.broadcaster,
+          current,
+          getPhaseRevision(ctx.sql),
+        );
+        return;
+      }
+    }
     if (isResultStep(current) && !hasCandidateNotes(ctx.sql, current.phase)) {
       ctx.reply({
         type: "error",
@@ -680,21 +826,7 @@ export const phaseHandlers: MessageHandlers<
     // force は全フェーズの投票ステップで使える脱出ハッチ。離脱者などが
     // 投票を完了できなくても、ホストは結果ステップへ進められる。
     const completedVoting =
-      !isVotingStep(current) ||
-      haveAllMembersCompletedVoting(ctx.sql, current.phase);
-    const canForceIncompleteVoting = message.force === true;
-    if (
-      isVotingStep(current) &&
-      !completedVoting &&
-      !canForceIncompleteVoting
-    ) {
-      ctx.reply({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      });
-      return;
-    }
+      isVotingStep(current) && progress.allReady && message.force !== true;
     const next = nextRoomPhase(current);
     if (isVotingStep(next) && !hasCandidateNotes(ctx.sql, current.phase)) {
       replyForbidden(ctx);
@@ -752,7 +884,7 @@ export const phaseHandlers: MessageHandlers<
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
     const committed = await runAuthorizedMutationTransaction(ctx, async () => {
       if (
-        !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
+        !canProceedWithProgress(ctx, current, message) ||
         isRoomClosed(ctx.sql) ||
         !matchesExpectedPhase(ctx, message)
       ) {

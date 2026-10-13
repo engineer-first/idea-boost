@@ -3,17 +3,11 @@
 import { isResultStep } from "../../contracts/phase";
 import { getDecision } from "./decisions";
 import { type MessageHandlers, replyForbidden } from "./handler-context";
-import { isHostUser } from "./members";
 import { requireNoteInCurrentPhase } from "./notes";
 import { getPhase } from "./phase";
 
 export const adoptionFocusHandlers: MessageHandlers<"adoption-focus:update"> = {
   "adoption-focus:update": (ctx, message) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
-
     // null は遅れて届いても安全な解除操作なので、ステップに関係なく受理する。
     if (message.noteId === null) {
       if (ctx.broadcaster.setAdoptionFocus(ctx.ws, null)) {

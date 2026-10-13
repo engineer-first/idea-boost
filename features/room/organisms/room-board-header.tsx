@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
+  isPersonalWritingStep,
   isPhaseStep,
   isResultStep,
   isVotingStep,
@@ -37,7 +38,7 @@ import {
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
-import type { Member } from "../logic/room-reducer";
+import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
@@ -83,6 +84,8 @@ export type RoomBoardHeaderProps = {
   currentUserId: string;
   hostUserId: string;
   completedVoterIds?: ReadonlyArray<string>;
+  progress?: PhaseProgressState;
+  onToggleReady?: (ready: boolean) => void;
   isNextPhasePending: boolean;
   hostRevision?: number;
   onEditSelf?: () => void;
@@ -99,7 +102,7 @@ export type RoomBoardHeaderProps = {
   onShowOutcome?: () => void;
   onPublishOutcome: () => void;
   onLeaveClick: () => void;
-  onNextPhase: () => void;
+  onNextPhase: (confirmedProgressRevision?: number) => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -139,6 +142,16 @@ export function RoomBoardHeader({
   currentUserId,
   hostUserId,
   completedVoterIds = [],
+  progress = {
+    phaseRevision: 0,
+    progressRevision: 0,
+    connectedUserIds: [],
+    readyUserIds: [],
+    notReadyUserIds: [],
+    canAdvance: false,
+    allReady: false,
+  },
+  onToggleReady,
   isNextPhasePending,
   hostRevision = 0,
   onSelectHostTarget,
@@ -280,12 +293,19 @@ export function RoomBoardHeader({
       );
   }, [roomMenuOpen]);
   const isCurrentVotingStep = isVotingStep(phase);
-  const completedVoterIdSet = new Set(completedVoterIds);
-  const haveAllMembersCompletedVoting =
-    isCurrentVotingStep &&
-    members.length > 0 &&
-    members.every(({ userId }) => completedVoterIdSet.has(userId));
-  const showVotingCompletion = haveAllMembersCompletedVoting && !isDisconnected;
+  const isManualProgressStep =
+    isPersonalWritingStep(phase) ||
+    (phase.kind === "step" &&
+      ((phase.phase === 1 && phase.step === 3) ||
+        (phase.phase === 3 && phase.step === 3)));
+  const isCurrentUserReady = progress.readyUserIds.includes(currentUserId);
+  const notReadyNames = members
+    .filter((member) => progress.notReadyUserIds.includes(member.userId))
+    .map((member) => member.name);
+  const requireProgressConfirmation =
+    (isManualProgressStep || isCurrentVotingStep) && !progress.allReady;
+  const showVotingCompletion =
+    isCurrentVotingStep && progress.allReady && !isDisconnected;
   const timerSoundControls = useRoomTimerSounds({
     timer,
     serverOffsetMs: timerServerOffsetMs,
@@ -295,7 +315,7 @@ export function RoomBoardHeader({
         isCurrentVotingStep && phase.kind === "step"
           ? `phase-${phase.phase}`
           : null,
-      isComplete: haveAllMembersCompletedVoting,
+      isComplete: isCurrentVotingStep && progress.allReady,
       isDisconnected,
     },
   });
@@ -376,7 +396,18 @@ export function RoomBoardHeader({
             data-testid="board-control-hud"
             data-board-fit-edge="top"
           >
-            {showVotingCompletion ? (
+            {isManualProgressStep && onToggleReady ? (
+              <Button
+                type="button"
+                variant={isCurrentUserReady ? "secondary" : "outline"}
+                className="h-10 shrink-0 px-3"
+                disabled={isDisconnected || isNextPhasePending}
+                aria-pressed={isCurrentUserReady}
+                onClick={() => onToggleReady(!isCurrentUserReady)}
+              >
+                {isCurrentUserReady ? "完了を取り消す" : "完了"}
+              </Button>
+            ) : showVotingCompletion ? (
               <span
                 className="shrink-0 max-[900px]:absolute max-[900px]:right-0 max-[900px]:top-full max-[900px]:mt-1 max-[900px]:rounded-md max-[900px]:bg-background max-[900px]:px-2"
                 data-testid="vote-completion-indicator"
@@ -682,42 +713,40 @@ export function RoomBoardHeader({
 
             {isResultStep(phase) ? (
               isFinalStep ? (
-                isHost || outcomePublished ? (
-                  <div className="grid shrink-0 items-center justify-items-end">
-                    <span
-                      aria-hidden="true"
-                      className="invisible col-start-1 row-start-1 inline-flex h-10 items-center rounded-lg border border-transparent px-4 text-sm font-medium whitespace-nowrap max-[900px]:px-2 max-[900px]:text-xs"
-                    >
-                      次のステップへ
-                    </span>
-                    <div className="col-start-1 row-start-1">
-                      {hasFinalDecision ? (
-                        outcomePublished ? (
-                          <Button
-                            type="button"
-                            className="h-10 shrink-0 px-3"
-                            onClick={onShowOutcome}
-                          >
-                            成果を見る
-                          </Button>
-                        ) : isHost ? (
-                          <Button
-                            type="button"
-                            size="icon"
-                            className="size-10 shrink-0"
-                            aria-label="完了して成果を表示"
-                            title="完了して成果を表示"
-                            disabled={isDisconnected || isTransferring}
-                            onClick={onPublishOutcome}
-                          >
-                            <Check aria-hidden="true" className="size-5" />
-                          </Button>
-                        ) : null
-                      ) : null}
-                    </div>
+                <div className="grid shrink-0 items-center justify-items-end">
+                  <span
+                    aria-hidden="true"
+                    className="invisible col-start-1 row-start-1 inline-flex h-10 items-center rounded-lg border border-transparent px-4 text-sm font-medium whitespace-nowrap max-[900px]:px-2 max-[900px]:text-xs"
+                  >
+                    次のステップへ
+                  </span>
+                  <div className="col-start-1 row-start-1">
+                    {hasFinalDecision ? (
+                      outcomePublished ? (
+                        <Button
+                          type="button"
+                          className="h-10 shrink-0 px-3"
+                          onClick={onShowOutcome}
+                        >
+                          成果を見る
+                        </Button>
+                      ) : !outcomePublished ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          className="size-10 shrink-0"
+                          aria-label="完了して成果を表示"
+                          title="完了して成果を表示"
+                          disabled={isDisconnected || isTransferring}
+                          onClick={onPublishOutcome}
+                        >
+                          <Check aria-hidden="true" className="size-5" />
+                        </Button>
+                      ) : null
+                    ) : null}
                   </div>
-                ) : null
-              ) : isHost ? (
+                </div>
+              ) : !isFinalStep ? (
                 <NextPhaseConfirmDialog
                   key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
                   phase={phase}
@@ -727,11 +756,16 @@ export function RoomBoardHeader({
                     isNextPhaseBlocked ||
                     isTransferring
                   }
-                  onConfirm={onNextPhase}
+                  requireConfirmation={requireProgressConfirmation}
+                  notReadyNames={notReadyNames}
+                  onConfirm={() =>
+                    onNextPhase(
+                      progress.allReady ? undefined : progress.progressRevision,
+                    )
+                  }
                 />
               ) : null
-            ) : isHost &&
-              (!activeSharing || activeSharing.status === "complete") ? (
+            ) : !activeSharing || activeSharing.status === "complete" ? (
               <NextPhaseConfirmDialog
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
                 phase={phase}
@@ -739,9 +773,17 @@ export function RoomBoardHeader({
                   isDisconnected ||
                   isNextPhasePending ||
                   isNextPhaseBlocked ||
+                  ((isManualProgressStep || isCurrentVotingStep) &&
+                    !progress.canAdvance) ||
                   isTransferring
                 }
-                onConfirm={onNextPhase}
+                requireConfirmation={requireProgressConfirmation}
+                notReadyNames={notReadyNames}
+                onConfirm={() =>
+                  onNextPhase(
+                    progress.allReady ? undefined : progress.progressRevision,
+                  )
+                }
               />
             ) : null}
 

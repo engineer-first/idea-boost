@@ -10,11 +10,6 @@ export const decisionHandlers: MessageHandlers<
   "note:decide" | "decision:clear" | "outcome:publish"
 > = {
   "note:decide": (ctx, message) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
-
     const note = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!note) return;
     if (note.visibility !== "shared" || note.excluded) {
@@ -83,10 +78,6 @@ export const decisionHandlers: MessageHandlers<
     });
   },
   "outcome:publish": (ctx) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
     const phase = getPhase(ctx.sql);
     if (!isPhaseStep(phase, 3, 5) || !getDecision(ctx.sql, 3)) {
       replyForbidden(ctx);

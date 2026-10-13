@@ -117,6 +117,12 @@ import {
 } from "./phase";
 import { getRollbackTarget, rollbackHandlers } from "./phase-rollback";
 import { presenceHandlers } from "./presence";
+import {
+  broadcastProgress,
+  bumpProgressRevision,
+  getProgressState,
+  isManualProgressStep,
+} from "./progress";
 import { ProgressHistoryStorage } from "./progress-history";
 import { replyShareStatus } from "./share-operations";
 import { SharedOutcomeStorage } from "./shared-outcome-storage";
@@ -800,6 +806,16 @@ export class RoomDO extends DurableObject {
     server.serializeAttachment(attachment);
 
     this.sendSnapshot(server, userId);
+    if (
+      this.sql.exec("SELECT 1 FROM phase_progress_ready LIMIT 1").toArray()
+        .length > 0
+    )
+      broadcastProgress(
+        this.sql,
+        this.broadcaster,
+        getPhase(this.sql),
+        getPhaseRevision(this.sql),
+      );
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -944,6 +960,16 @@ export class RoomDO extends DurableObject {
         attachment.userId,
       );
     }
+    if (
+      this.sql.exec("SELECT 1 FROM phase_progress_ready LIMIT 1").toArray()
+        .length > 0
+    )
+      broadcastProgress(
+        this.sql,
+        this.broadcaster,
+        getPhase(this.sql),
+        getPhaseRevision(this.sql),
+      );
   }
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
@@ -1170,7 +1196,6 @@ export class RoomDO extends DurableObject {
     // 完了の成功通知より先に、同じ瞬間の盤面と再試行情報を永続化する。
     if (
       message.type === "outcome:publish" &&
-      isHostUser(this.sql, attachment.userId) &&
       isPhaseStep(phase, 3, 5) &&
       getDecision(this.sql, 3)
     ) {
@@ -1229,6 +1254,46 @@ export class RoomDO extends DurableObject {
       sharedDragEnded = true;
     };
     await handler(ctx, message);
+    const clearsReady =
+      !rejected &&
+      (message.type === "note:create" ||
+        message.type === "note:delete" ||
+        message.type === "note:update-content" ||
+        message.type === "note:update-font-size" ||
+        message.type.startsWith("note:vote"));
+    if (clearsReady) {
+      const currentProgressPhase = getPhase(this.sql);
+      const currentProgressRevision = getPhaseRevision(this.sql);
+      if (
+        isManualProgressStep(currentProgressPhase) &&
+        this.sql.exec(
+          "DELETE FROM phase_progress_ready WHERE phase_revision = ?1 AND user_id = ?2",
+          currentProgressRevision,
+          attachment.userId,
+        ).rowsWritten > 0
+      ) {
+        bumpProgressRevision(this.sql);
+        broadcastProgress(
+          this.sql,
+          this.broadcaster,
+          currentProgressPhase,
+          currentProgressRevision,
+        );
+      }
+    }
+    if (!rejected && message.type.startsWith("note:vote")) {
+      const currentProgressPhase = getPhase(this.sql);
+      if (
+        currentProgressPhase.kind === "step" &&
+        isVotingStep(currentProgressPhase)
+      )
+        broadcastProgress(
+          this.sql,
+          this.broadcaster,
+          currentProgressPhase,
+          getPhaseRevision(this.sql),
+        );
+    }
     if (isBoardMutation(message) || message.type === "member:remove")
       syncMovePresence(this.sql, this.broadcaster);
     if (
@@ -1370,6 +1435,12 @@ export class RoomDO extends DurableObject {
         phase.kind === "step" && isVotingStep(phase)
           ? listCompletedVoterIds(this.sql, phase.phase)
           : [],
+      progress: getProgressState(
+        this.sql,
+        this.broadcaster,
+        phase,
+        getPhaseRevision(this.sql),
+      ),
       timer: getTimerState(this.sql),
       serverNow: Date.now(),
     });

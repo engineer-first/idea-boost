@@ -95,6 +95,17 @@ export class RoomBroadcaster {
       );
   }
 
+  connectedUserIds(isMember: (userId: string) => boolean): string[] {
+    const userIds = new Set<string>();
+    for (const socket of this.connections.getWebSockets()) {
+      if (!this.isAuthorized(socket)) continue;
+      const userId = (socket.deserializeAttachment() as SocketAttachment | null)
+        ?.userId;
+      if (userId && isMember(userId)) userIds.add(userId);
+    }
+    return [...userIds].sort();
+  }
+
   sendTo(ws: WebSocket, message: ServerMessage): void {
     this.trySend(ws, JSON.stringify(message));
   }

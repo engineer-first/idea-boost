@@ -651,6 +651,21 @@ describe("ServerMessageSchema", () => {
     });
   });
 
+  it("phase:ready は本人の完了状態だけを受け入れる", () => {
+    const parsed = ClientMessageSchema.parse({
+      type: "phase:ready",
+      expectedPhase: { kind: "step", phase: 1, step: 1 },
+      expectedRevision: 4,
+      ready: true,
+    });
+    expect(parsed).toEqual({
+      type: "phase:ready",
+      expectedPhase: { kind: "step", phase: 1, step: 1 },
+      expectedRevision: 4,
+      ready: true,
+    });
+  });
+
   it("phase:next は force フラグを受け入れ、パース結果に保持する", () => {
     expect(
       ClientMessageSchema.parse({
