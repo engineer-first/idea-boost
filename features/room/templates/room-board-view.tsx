@@ -1278,6 +1278,11 @@ export function RoomBoardView({
           }
           let top = stepGuideBottomInFrame;
           for (const testId of workspaceTopSurfaces) {
+            if (
+              window.innerWidth >= 640 &&
+              (testId === "board-context-hud" || testId === "board-help-panel")
+            )
+              continue;
             const selector =
               testId === "board-help-panel"
                 ? '[data-testid="board-help-panel"] > div'

@@ -183,9 +183,8 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
     height: e.clientHeight,
     scroll: e.scrollHeight,
   }));
+  expect(size.height).toBeGreaterThan(150);
   expect(size.height).toBeLessThan(size.scroll);
-  const toolbarBox = await toolbar.boundingBox();
-  expect(size.height).toBeLessThan(toolbarBox?.height ?? 0);
   await scroll.evaluate((e) => {
     e.scrollTop = e.scrollHeight;
   });
@@ -684,9 +683,16 @@ test.each([
       .getByTestId("private-notes-toolbar")
       .getAttribute("data-presentation"),
   ).toBe("workspace");
+  const toolbarBox = await page
+    .getByTestId("private-notes-toolbar")
+    .boundingBox();
+  const contextBox = await hud.boundingBox();
+  expect(toolbarBox?.x).toBeGreaterThanOrEqual(
+    (contextBox?.x ?? 0) + (contextBox?.width ?? 0) + 8,
+  );
   expect(
-    (await page.getByTestId("private-notes-toolbar").boundingBox())?.width,
-  ).toBe(width - 24);
+    (toolbarBox?.x ?? Infinity) + (toolbarBox?.width ?? 0),
+  ).toBeLessThanOrEqual(width);
   await expectLayout();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     width,
