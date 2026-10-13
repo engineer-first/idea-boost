@@ -3,19 +3,19 @@ import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { expect } from "vitest";
 import type { RoomPhase } from "../contracts/phase";
 import {
-  TIMER_MAX_DURATION_MS,
   parseServerMessage,
   type ServerMessage,
+  TIMER_MAX_DURATION_MS,
 } from "../contracts/room-protocol";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
+import { syncRoomAlarm } from "./room/alarms";
 import type { RoomDO } from "./room/room-do";
 import {
   getSharingState,
   resetSharingForPhase,
   saveSharingState,
 } from "./room/sharing-state";
-import { syncRoomAlarm } from "./room/alarms";
 import { saveTimerState } from "./room/timer";
 
 // 共有以外の契約を検証するシナリオ用に、既存の発表順で指定者の発表中を用意する。
