@@ -59,7 +59,9 @@ function server() {
 describe("releaseオペレーター", () => {
   it("開始は読取だけで比較元・候補・関連PR・差分を集める", async () => {
     const { api } = server();
-    const result = await inspectRelease(api);
+    const load = vi.fn();
+    const result = await inspectRelease(api, new Date(), load);
+    expect(load).not.toHaveBeenCalled();
     expect(result.status).toBe("ready");
     expect(result.candidate).toBe(sha);
     expect(result.previousCommit).toBe(BASELINE_COMMIT);
@@ -438,4 +440,28 @@ it("同じ候補の新しいPromoteが成功したら古い失敗runを復旧理
     return base(method, path, data);
   };
   expect((await inspectRelease(api)).savedPlan?.promotionRun).toBeUndefined();
+});
+
+it("300ファイル以上でもGitの全差分を使い、取得失敗時は公開しない", async () => {
+  const { api: base } = server();
+  const files = Array.from({ length: 301 }, (_, i) => ({
+    filename: `file-${i}.ts`,
+    status: "modified",
+    patch: `patch-${i}`,
+  }));
+  const api: GitHubApi = async (method, path, data) => {
+    const result = await base(method, path, data);
+    return path.startsWith("/compare/")
+      ? { ...(result as object), files: files.slice(0, 300) }
+      : result;
+  };
+  const load = vi.fn().mockResolvedValue(files);
+  const result = await inspectRelease(api, new Date(), load);
+  expect(result.files).toEqual(files);
+  expect(result.prs[0].number).toBe(370);
+  expect(load).toHaveBeenCalledWith(BASELINE_COMMIT, sha);
+  load.mockRejectedValue(new Error("git fetch failed"));
+  await expect(inspectRelease(api, new Date(), load)).rejects.toThrow(
+    "git fetch failed",
+  );
 });

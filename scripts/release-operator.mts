@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import type { PromotionApi } from "./promote-release.mts";
+import { gitReleaseDiff, type ReleaseDiffLoader } from "./release-diff.mts";
 import {
   BASELINE_COMMIT,
   BASELINE_TIME,
@@ -115,6 +116,7 @@ async function savedPromotion(
 export async function inspectRelease(
   api: GitHubApi,
   now = new Date(),
+  loadDiff: ReleaseDiffLoader = gitReleaseDiff,
 ): Promise<ReleaseSnapshot> {
   const history = await releases(api);
   if (history.some((item) => item.draft || item.prerelease))
@@ -204,11 +206,11 @@ export async function inspectRelease(
         `/compare/${snapshot.previousCommit}...${candidate}?per_page=100`,
       ),
     );
-  // Compareのファイル一覧は300件まで。欠けた差分を完全なものとして要約しない。
-  if (comparison.files.length >= 300)
-    throw new Error(
-      "差分が300ファイル以上です。詳細運用で公開範囲を確認してください。",
-    );
+  // Compareの300件上限に達したら、固定commit間の全差分へ切り替える。
+  const files =
+    comparison.files.length >= 300
+      ? z.array(File).parse(await loadDiff(snapshot.previousCommit, candidate))
+      : comparison.files;
   const commits = [...comparison.commits];
   for (let page = 2; commits.length < comparison.total_commits; page++) {
     const batch = z
@@ -245,7 +247,7 @@ export async function inspectRelease(
   return {
     ...snapshot,
     prs: [...prs.values()].sort((a, b) => a.number - b.number),
-    files: comparison.files,
+    files,
     commits: commits.map((item) => ({
       sha: item.sha,
       message: item.commit.message,
