@@ -31,6 +31,7 @@ import {
   type RoomSocket,
   runInRoomDO,
   sessionCookieFor,
+  startTimerForTest,
   type TestUser,
 } from "./test-helpers";
 
@@ -83,6 +84,9 @@ async function setupStartedRoom(): Promise<{
   send(room.owner, { type: "start_phase" });
   await expectType(room.owner, "phase:updated");
   await expectType(room.member, "phase:updated");
+
+  // ボード操作の契約テストは作業中の状態から開始する。
+  await startTimerForTest(room.roomId);
   return room;
 }
 
@@ -284,6 +288,7 @@ describe("メンバー色と付箋色", () => {
     await runInRoomDO(roomId, (instance) =>
       instance.setPhase(buildPhaseStep(1), OWNER.sub),
     );
+    await startTimerForTest(roomId);
 
     const member = await connectRoomAs(MEMBER, roomId);
     const memberSnapshot = await expectType(member, "snapshot");

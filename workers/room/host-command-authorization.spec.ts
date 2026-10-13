@@ -151,6 +151,20 @@ async function setup(test: Case) {
         "UPDATE sharing_state SET state_json=json_set(state_json,'$.startsAt',NULL) WHERE id=1",
       );
     }
+    if (
+      test.type.startsWith("note:") ||
+      [
+        "decision:clear",
+        "outcome:publish",
+        "adoption-focus:update",
+      ].includes(test.type)
+    ) {
+      saveTimerState(sql, {
+        status: "running",
+        endsAt: Date.now() + 60_000,
+        durationMs: 60_000,
+      });
+    }
   });
   const snapshot = await connectRoomAs(A, roomId);
   sockets.push(snapshot);

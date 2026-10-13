@@ -16,7 +16,7 @@ import {
   resetSharingForPhase,
   saveSharingState,
 } from "./room/sharing-state";
-import { saveTimerState } from "./room/timer";
+import { getTimerState, saveTimerState } from "./room/timer";
 
 // 共有以外の契約を検証するシナリオ用に、既存の発表順で指定者の発表中を用意する。
 // 発表の開始・交代そのものは sharing.spec.ts の実WS操作で検証する。
@@ -58,16 +58,17 @@ export function runInRoomDO<T>(
 
 export async function startTimerForTest(roomId: string): Promise<void> {
   await runInRoomDO(roomId, async (_instance, state) => {
-    const durationMs = TIMER_MAX_DURATION_MS;
-    const now = Date.now();
+    const sql = state.storage.sql;
+    if (getTimerState(sql).status !== "running") {
+      const durationMs = TIMER_MAX_DURATION_MS;
+      saveTimerState(sql, {
+        status: "running",
+        endsAt: Date.now() + durationMs,
+        durationMs,
+      });
+    }
 
-    saveTimerState(state.storage.sql, {
-      status: "running",
-      endsAt: now + durationMs,
-      durationMs,
-    });
-
-    await syncRoomAlarm(state.storage, state.storage.sql);
+    await syncRoomAlarm(state.storage, sql);
   });
 }
 

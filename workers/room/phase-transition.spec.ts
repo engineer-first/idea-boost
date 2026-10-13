@@ -13,6 +13,7 @@ import {
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
+  startTimerForTest,
 } from "../test-helpers";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
@@ -141,6 +142,7 @@ describe("本文保存を待たない進行", () => {
     await joinRoomAs(member, inviteCode);
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
     await stub.setPhase(buildPhaseStep(2), hostId);
+    await startTimerForTest(roomId);
 
     const noteIds = {
       ascii: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",

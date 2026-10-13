@@ -7,6 +7,7 @@ import {
   type RoomSocket,
   runInRoomDO,
   sessionCookieFor,
+  startTimerForTest,
 } from "../test-helpers";
 import { resetSharingForPhase } from "./sharing-state";
 
@@ -89,6 +90,7 @@ describe("ルーム内の表示名", () => {
   it("現在の発表順だけ更新し、付箋・票・作者・色と保全済み成果や履歴は再編集しない", async () => {
     const { roomId, a, b, stub } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    await startTimerForTest(roomId);
     a.ws.send(JSON.stringify({ type: "note:create", content: "本文を保つ" }));
     const created = await a.next();
     expect(created.type).toBe("note:inserted");
