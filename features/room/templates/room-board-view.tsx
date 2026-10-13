@@ -1227,6 +1227,14 @@ export function RoomBoardView({
   useEffect(() => {
     const root = boardRootRef.current;
     if (!root) return;
+    const workspaceTopSurfaces = [
+      "board-context-hud",
+      "board-control-hud",
+      "step-guide",
+      "board-connection-status",
+    ] as const;
+    const isPersonalNoteEntryPhase =
+      phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1252,10 +1260,44 @@ export function RoomBoardView({
           `${element?.getBoundingClientRect().height ?? 0}px`,
         );
       }
+      if (isPersonalNoteEntryPhase) {
+        const frame = root.querySelector<HTMLElement>(
+          '[data-testid="board-frame"]',
+        );
+        if (frame) {
+          const frameTop = frame.getBoundingClientRect().top;
+          let top = 0;
+          for (const testId of workspaceTopSurfaces) {
+            const element = root.querySelector<HTMLElement>(
+              `[data-testid="${testId}"]`,
+            );
+            if (
+              !element ||
+              element.getClientRects().length === 0 ||
+              getComputedStyle(element).visibility === "hidden"
+            )
+              continue;
+            top = Math.max(
+              top,
+              element.getBoundingClientRect().bottom - frameTop,
+            );
+          }
+          root.style.setProperty(
+            "--board-private-workspace-top",
+            `${Math.max(320, Math.ceil(top + 16))}px`,
+          );
+        }
+      }
     };
     const observer =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
     for (const [testId] of surfaces) {
+      const element = root.querySelector<HTMLElement>(
+        `[data-testid="${testId}"]`,
+      );
+      if (element) observer?.observe(element);
+    }
+    for (const testId of workspaceTopSurfaces) {
       const element = root.querySelector<HTMLElement>(
         `[data-testid="${testId}"]`,
       );
@@ -1585,6 +1627,9 @@ export function RoomBoardView({
           ) {
             const inPrivateToolbar =
               target.closest('[data-testid="private-notes-toolbar"]') !== null;
+            const isPrivateWorkspace =
+              inPrivateToolbar &&
+              privateToolbarRef.current?.dataset.presentation === "workspace";
             const isPrivateSurface =
               inPrivateToolbar && target.dataset.canvasNoteSurface === "true";
             const isPrivateEditor =
@@ -1595,7 +1640,10 @@ export function RoomBoardView({
               target === interactions.boardScrollerRef.current ||
               target.dataset.canvasBackground === "true";
             if (
-              (isBackground || isPrivateSurface || isPrivateEditor) &&
+              (isBackground ||
+                isPrivateSurface ||
+                isPrivateEditor ||
+                isPrivateWorkspace) &&
               !target.closest(
                 '[data-board-native-control], [role="menu"], [role="dialog"]',
               )

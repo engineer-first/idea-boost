@@ -312,6 +312,22 @@ describe("マイ付箋の追加ショートカット", () => {
     expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
   });
 
+  it("空の個人付箋ワークスペースでは追加ボタンにフォーカスしてCtrl+Enterで追加できる", () => {
+    const onAddPrivateNote = vi.fn(() => "create-1");
+    const { props } = setup({
+      phase: buildPhaseStep(1),
+      notes: [],
+      interactions: buildInteractions([], []),
+      onAddPrivateNote,
+    });
+    const add = screen.getByRole("button", { name: "付箋を追加" });
+    add.focus();
+
+    fireEvent.keyDown(add, { key: "Enter", ctrlKey: true });
+
+    expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+  });
+
   it.each([
     { key: "Enter" },
     { key: "Enter", ctrlKey: true, shiftKey: true },
@@ -331,13 +347,18 @@ describe("マイ付箋の追加ショートカット", () => {
     const platform = vi
       .spyOn(window.navigator, "platform", "get")
       .mockReturnValue("MacIntel");
-    const { props } = setup({ phase: buildPhaseStep(1) });
-    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+    const { props } = setup({
+      phase: buildPhaseStep(1),
+      notes: [],
+      interactions: buildInteractions([], []),
+    });
+    const add = screen.getByRole("button", { name: "付箋を追加" });
+    fireEvent.keyDown(add, {
       key: "Enter",
       ctrlKey: true,
     });
     expect(props.onAddPrivateNote).not.toHaveBeenCalled();
-    fireEvent.keyDown(screen.getByTestId("board-scroller"), {
+    fireEvent.keyDown(add, {
       key: "Enter",
       metaKey: true,
     });

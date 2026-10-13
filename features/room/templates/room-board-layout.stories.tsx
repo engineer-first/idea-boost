@@ -111,16 +111,11 @@ export const ReferenceAndNotes: Story = {
   name: "支援とマイ付箋を同時表示",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "マイ付箋を閉じる" }),
-    );
-    await userEvent.click(
-      canvas.getByRole("button", { name: "マイ付箋を開く" }),
+    await expect(canvas.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-presentation",
+      "workspace",
     );
     await expect(canvas.getByTestId("board-help-panel")).toBeVisible();
-    await expect(
-      canvas.getByRole("button", { name: "マイ付箋を閉じる" }),
-    ).toHaveAttribute("aria-expanded", "true");
   },
 };
 export const Focused: Story = {

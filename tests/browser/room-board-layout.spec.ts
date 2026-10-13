@@ -174,16 +174,18 @@ test.each(
 
 test("左右の開閉は独立し、多数の付箋とヒントは内部スクロールで末尾に到達できる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
-  const canvas = page.getByTestId("board-canvas");
-  const before = await canvas.boundingBox();
+  expect(await page.getByTestId("board-scroller").isVisible()).toBe(false);
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  expect(await toolbar.getAttribute("data-presentation")).toBe("workspace");
+  const beforeToolbar = await toolbar.boundingBox();
   const scroll = page.getByTestId("private-notes-scroll");
   const size = await scroll.evaluate((e) => ({
     height: e.clientHeight,
     scroll: e.scrollHeight,
   }));
   expect(size.height).toBeLessThan(size.scroll);
-  const toolbar = await page.getByTestId("private-notes-toolbar").boundingBox();
-  expect(size.height).toBeLessThan(toolbar?.height ?? 0);
+  const toolbarBox = await toolbar.boundingBox();
+  expect(size.height).toBeLessThan(toolbarBox?.height ?? 0);
   await scroll.evaluate((e) => {
     e.scrollTop = e.scrollHeight;
   });
@@ -214,7 +216,7 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
       .getByTestId("private-notes-toolbar")
       .getAttribute("data-expanded"),
   ).toBe("true");
-  expect(await canvas.boundingBox()).toEqual(before);
+  expect(await toolbar.boundingBox()).toEqual(beforeToolbar);
   expect(
     await page.evaluate(
       () =>
@@ -678,8 +680,13 @@ test.each([
       .getAttribute("data-expanded"),
   ).toBe("true");
   expect(
+    await page
+      .getByTestId("private-notes-toolbar")
+      .getAttribute("data-presentation"),
+  ).toBe("workspace");
+  expect(
     (await page.getByTestId("private-notes-toolbar").boundingBox())?.width,
-  ).toBe(240);
+  ).toBe(width - 24);
   await expectLayout();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     width,
@@ -1121,19 +1128,29 @@ test.each([
   await page.getByRole("button", { name: "除外通知を再現" }).click();
   await page.getByText(/投票完了により0票の付箋1件/).waitFor();
   await page.waitForTimeout(400);
-  const matrix = await page.getByTestId("board-operation-matrix").boundingBox();
+  const matrix = page.getByTestId("board-operation-matrix");
   const toast = await page
     .locator('[data-sonner-toast][data-visible="true"]')
     .first()
     .boundingBox();
-  expect(matrix).not.toBeNull();
+  expect(await matrix.isVisible()).toBe(false);
   expect(toast).not.toBeNull();
-  if (!matrix || !toast) throw new Error("案内または通知がありません");
-  expect(matrix.y + matrix.height).toBeLessThanOrEqual(toast.y);
+  if (!toast) throw new Error("Undo通知がありません");
   await page.screenshot({ path: `${output}/u03-toast-${width}.png` });
-  await page
-    .getByRole("button", { name: "付箋を追加", exact: true })
-    .click({ timeout: 2500 });
+  const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+  await add.scrollIntoViewIfNeeded();
+  expect(
+    await add.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return element.contains(
+        document.elementFromPoint(
+          bounds.x + bounds.width / 2,
+          bounds.y + bounds.height / 2,
+        ),
+      );
+    }),
+  ).toBe(true);
+  await add.click({ timeout: 2500 });
   expect(
     await page
       .getByTestId("private-notes-toolbar")

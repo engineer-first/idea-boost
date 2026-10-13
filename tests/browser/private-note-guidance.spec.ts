@@ -54,24 +54,18 @@ for (const width of [390, 1280]) {
     await openStory("empty", width);
     expect(await page.getByTestId("note-card").count()).toBe(0);
     const add = page.getByRole("button", { name: "付箋を追加" });
-    const privateAreaLabel = page.getByText("自分だけに見える付箋エリア", {
-      exact: true,
-    });
-    expect(await privateAreaLabel.isVisible()).toBe(true);
+    const privacyMessage = page.getByText(
+      "この付箋はあなたにだけ表示されています。他の参加者にはまだ見えません。",
+      { exact: true },
+    );
+    expect(await privacyMessage.isVisible()).toBe(true);
     expect(
-      await privateAreaLabel.evaluate(
+      await privacyMessage.evaluate(
         (element) => element.scrollWidth <= element.clientWidth,
       ),
     ).toBe(true);
     await expectInsideViewport('[aria-label="付箋を追加"]');
     await add.focus();
-    await page.keyboard.press("Tab");
-    expect(
-      await page
-        .getByRole("button", { name: "マイ付箋を閉じる" })
-        .evaluate((element) => element === document.activeElement),
-    ).toBe(true);
-    await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Enter");
     await expect.poll(() => page.getByTestId("note-card").count()).toBe(1);
     await expect
