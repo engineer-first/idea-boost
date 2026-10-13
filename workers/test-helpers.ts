@@ -3,6 +3,7 @@ import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { expect } from "vitest";
 import type { RoomPhase } from "../contracts/phase";
 import {
+  TIMER_MAX_DURATION_MS,
   parseServerMessage,
   type ServerMessage,
 } from "../contracts/room-protocol";
@@ -14,6 +15,8 @@ import {
   resetSharingForPhase,
   saveSharingState,
 } from "./room/sharing-state";
+import { syncRoomAlarm } from "./room/alarms";
+import { saveTimerState } from "./room/timer";
 
 // 共有以外の契約を検証するシナリオ用に、既存の発表順で指定者の発表中を用意する。
 // 発表の開始・交代そのものは sharing.spec.ts の実WS操作で検証する。
@@ -51,6 +54,23 @@ export function runInRoomDO<T>(
 ): Promise<T> {
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
   return runInDurableObject(stub, fn);
+}
+
+export async function startTimerForTest(
+  roomId: string,
+): Promise<void> {
+  await runInRoomDO(roomId, async (_instance, state) => {
+    const durationMs = TIMER_MAX_DURATION_MS;
+    const now = Date.now();
+
+    saveTimerState(state.storage.sql, {
+      status: "running",
+      endsAt: now + durationMs,
+      durationMs,
+    });
+
+    await syncRoomAlarm(state.storage, state.storage.sql);
+  });
 }
 
 // members テーブルを参加順（joined_at 昇順）で直接読む。

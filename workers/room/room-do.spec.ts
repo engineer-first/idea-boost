@@ -17,6 +17,7 @@ import {
   initializeTestRoom,
   listMemberIds,
   runInRoomDO,
+  startTimerForTest,
 } from "../test-helpers";
 import type { SocketAttachment } from "./broadcast";
 import { insertNote } from "./notes";
@@ -840,6 +841,8 @@ describe("RoomDO adoption-focus:update", () => {
   it("確定時に共有フォーカスを先に解除する", async () => {
     const roomName = "room-adoption-focus-decision-clear";
     await prepare(roomName);
+    // 付箋の採用確定を実行できるようにタイマーを開始状態にする
+    await startTimerForTest(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     const hostFocused = nextJson(host);
@@ -899,6 +902,7 @@ describe("RoomDO adoption-focus:update", () => {
   it("フォーカス中の付箋が候補外になると共有フォーカスを解除する", async () => {
     const roomName = "room-adoption-focus-excluded-clear";
     await prepare(roomName);
+    await startTimerForTest(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     const hostFocused = nextJson(host);
@@ -5194,6 +5198,9 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
     await stub.setPhase(buildPhaseStep(5), USER_A);
+
+    // 先にタイマーを動作中にして、フェーズの拒否判定を検証する
+    await startTimerForTest(roomName);
 
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify(message));
