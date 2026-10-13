@@ -59,6 +59,7 @@ import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type {
   Carryover,
   Decision,
+  PhaseProgress,
   ProtocolNote,
   SharingState,
 } from "@/contracts/room-protocol";
@@ -244,6 +245,8 @@ function connectWithSnapshot(
     moveProtocolVersion?: 1;
     noteCreateProtocolVersion?: 1 | null;
     sharing?: SharingState | null;
+    members?: Array<{ userId: string; name: string; color: "yellow" | "blue" }>;
+    progress?: PhaseProgress;
   },
 ) {
   const { view, socket } = renderBoard({ isHost: options?.isHost ?? true });
@@ -256,7 +259,7 @@ function connectWithSnapshot(
         options?.noteCreateProtocolVersion === null ? undefined : 1,
       phaseRevision: 0,
       notes,
-      members: [],
+      members: options?.members ?? [],
       phase: options?.phase ?? buildPhaseStep(1),
       sharing:
         options?.sharing !== undefined
@@ -275,6 +278,7 @@ function connectWithSnapshot(
       adoptionFocusNoteId: options?.adoptionFocusNoteId ?? null,
       carryovers: options?.carryovers ?? [],
       completedVoterIds: [],
+      progress: options?.progress,
       groups: options?.groups,
       timer: { status: "idle" },
       serverNow: Date.now(),
@@ -2761,11 +2765,26 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const { socket } = connectWithSnapshot([], {
       isHost: true,
       phase: buildPhaseStep(1),
+      members: [
+        { userId: USER_ID, name: "Yuki Tanaka", color: "yellow" },
+        { userId: OTHER_USER_ID, name: "Hana Sato", color: "blue" },
+      ],
+      progress: {
+        phaseRevision: 1,
+        progressRevision: 2,
+        connectedUserIds: [USER_ID, OTHER_USER_ID],
+        readyUserIds: [USER_ID],
+        notReadyUserIds: [OTHER_USER_ID],
+        canAdvance: true,
+        allReady: false,
+      },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
-    expect(screen.getByText("次のステップへ進みますか？")).toBeInTheDocument();
+    expect(
+      screen.getByText("完了していないメンバーがいます"),
+    ).toBeInTheDocument();
 
     expect(socket.sent).not.toContain(
       JSON.stringify({
@@ -2782,6 +2801,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
         type: "phase:next",
         expectedPhase: buildPhaseStep(1),
         expectedRevision: 0,
+        confirmedProgressRevision: 2,
       }),
     );
   });
@@ -3230,6 +3250,15 @@ describe("作業中のホスト交代", () => {
         outcomePublished: false,
         carryovers: [],
         completedVoterIds: [],
+        progress: {
+          phaseRevision: 1,
+          progressRevision: 2,
+          connectedUserIds: [USER_ID, OTHER_USER_ID],
+          readyUserIds: [USER_ID],
+          notReadyUserIds: [OTHER_USER_ID],
+          canAdvance: true,
+          allReady: false,
+        },
         timer: { status: "idle" },
         serverNow: Date.now(),
       }),
@@ -3240,7 +3269,7 @@ describe("作業中のホスト交代", () => {
     const { socket } = connectTransferBoard(OTHER_USER_ID);
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     act(() =>
       socket.simulateServerMessage({
         type: "host:updated",
@@ -3250,7 +3279,10 @@ describe("作業中のホスト交代", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
     fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
-    expectSent(socket, { type: "phase:next", expectedHostRevision: 1 });
+    expectSent(socket, {
+      type: "phase:next",
+      confirmedProgressRevision: 2,
+    });
   });
   it("古い解散確認は往復移譲後に残らない", () => {
     const { socket } = connectTransferBoard();
@@ -3309,7 +3341,7 @@ describe("作業中のホスト交代", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
   });
   it("同じ描画前の往復移譲で古い確認を破棄し、盤面を維持する", () => {
     const { socket } = connectTransferBoard();

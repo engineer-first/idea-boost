@@ -244,6 +244,14 @@ export class RoomBroadcaster {
     }
   }
 
+  broadcastToAllExceptSocket(message: ServerMessage, except: WebSocket): void {
+    const payload = JSON.stringify(message);
+    for (const socket of this.connections.getWebSockets()) {
+      if (socket === except) continue;
+      this.trySend(socket, payload);
+    }
+  }
+
   broadcastToAllExcept(message: ServerMessage, exceptUserId: string): void {
     const payload = JSON.stringify(message);
     for (const socket of this.connections.getWebSockets()) {

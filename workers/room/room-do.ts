@@ -122,6 +122,7 @@ import {
   bumpProgressRevision,
   getProgressState,
   isManualProgressStep,
+  syncProgressConnectedUsers,
 } from "./progress";
 import { ProgressHistoryStorage } from "./progress-history";
 import { replyShareStatus } from "./share-operations";
@@ -549,6 +550,10 @@ export class RoomDO extends DurableObject {
         );
       removeMember(this.sql, userId);
     });
+    const progressConnectionsChanged = syncProgressConnectedUsers(
+      this.sql,
+      this.broadcaster,
+    );
     syncMovePresence(this.sql, this.broadcaster);
     const retiredSharedNotes = new Set<string>();
     let hadPresence = false;
@@ -571,6 +576,13 @@ export class RoomDO extends DurableObject {
       { type: "member_left", userId },
       userId,
     );
+    if (progressConnectionsChanged)
+      broadcastProgress(
+        this.sql,
+        this.broadcaster,
+        getPhase(this.sql),
+        getPhaseRevision(this.sql),
+      );
     for (const noteId of retiredSharedNotes) {
       const row = findNote(this.sql, noteId);
       if (row?.visibility === "shared")
@@ -805,16 +817,23 @@ export class RoomDO extends DurableObject {
     };
     server.serializeAttachment(attachment);
 
+    const progressConnectionsChanged = syncProgressConnectedUsers(
+      this.sql,
+      this.broadcaster,
+    );
     this.sendSnapshot(server, userId);
-    if (
-      this.sql.exec("SELECT 1 FROM phase_progress_ready LIMIT 1").toArray()
-        .length > 0
-    )
-      broadcastProgress(
-        this.sql,
-        this.broadcaster,
-        getPhase(this.sql),
-        getPhaseRevision(this.sql),
+    if (progressConnectionsChanged)
+      this.broadcaster.broadcastToAllExceptSocket(
+        {
+          type: "phase:progress",
+          progress: getProgressState(
+            this.sql,
+            this.broadcaster,
+            getPhase(this.sql),
+            getPhaseRevision(this.sql),
+          ),
+        },
+        server,
       );
 
     return new Response(null, { status: 101, webSocket: client });
@@ -925,6 +944,10 @@ export class RoomDO extends DurableObject {
         noteId: this.broadcaster.currentAdoptionFocusNoteId(),
       });
     }
+    const progressConnectionsChanged = syncProgressConnectedUsers(
+      this.sql,
+      this.broadcaster,
+    );
     if (previousAttachment?.moveConnectionId || previousAttachment?.activeDrag)
       this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
     if (previousAttachment?.hasCursor || previousAttachment?.activeDrag) {
@@ -960,10 +983,7 @@ export class RoomDO extends DurableObject {
         attachment.userId,
       );
     }
-    if (
-      this.sql.exec("SELECT 1 FROM phase_progress_ready LIMIT 1").toArray()
-        .length > 0
-    )
+    if (progressConnectionsChanged)
       broadcastProgress(
         this.sql,
         this.broadcaster,

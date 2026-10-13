@@ -78,6 +78,35 @@ export function bumpProgressRevision(sql: SqlStorage): void {
   );
 }
 
+export function syncProgressConnectedUsers(
+  sql: SqlStorage,
+  broadcaster: RoomBroadcaster,
+): boolean {
+  const connectedUserIds = broadcaster.connectedUserIds((userId) =>
+    isMember(sql, userId),
+  );
+  const row = sql
+    .exec("SELECT progress_connected_user_ids FROM room_state WHERE id = 1")
+    .one() as { progress_connected_user_ids: string };
+  let previous: string[];
+  try {
+    const parsed: unknown = JSON.parse(row.progress_connected_user_ids);
+    previous =
+      Array.isArray(parsed) && parsed.every((id) => typeof id === "string")
+        ? parsed
+        : [];
+  } catch {
+    previous = [];
+  }
+  if (JSON.stringify(previous) === JSON.stringify(connectedUserIds))
+    return false;
+  sql.exec(
+    "UPDATE room_state SET progress_connected_user_ids = ?1, progress_revision = progress_revision + 1 WHERE id = 1",
+    JSON.stringify(connectedUserIds),
+  );
+  return true;
+}
+
 export function clearProgressReady(sql: SqlStorage): void {
   sql.exec("DELETE FROM phase_progress_ready");
   bumpProgressRevision(sql);

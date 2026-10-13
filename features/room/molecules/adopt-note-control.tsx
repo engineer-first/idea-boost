@@ -59,7 +59,7 @@ export function AdoptNoteControl({
             {decisionContent}
           </p>
         </div>
-        {isHost && onClearDecision ? (
+        {onClearDecision ? (
           <Button
             type="button"
             variant="outline"

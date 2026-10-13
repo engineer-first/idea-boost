@@ -313,6 +313,7 @@ export function RoomBoard({
       }
       if (message.code === "phase-confirmation-required") {
         setIsNextPhasePending(false);
+        notify.error(message.message);
         return;
       }
       console.warn(`ルーム操作エラー (${message.code}): ${message.message}`);
@@ -463,9 +464,9 @@ export function RoomBoard({
   );
 
   const handleDecisionClear = useCallback(() => {
-    if (!isHost || !roomState.decision || roomState.outcomePublished) return;
+    if (!roomState.decision || roomState.outcomePublished) return;
     send({ type: "decision:clear", noteId: roomState.decision.noteId });
-  }, [isHost, roomState.decision, roomState.outcomePublished, send]);
+  }, [roomState.decision, roomState.outcomePublished, send]);
 
   const handleAdoptionFocusChange = useCallback(
     (noteId: string | null) => {

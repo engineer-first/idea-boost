@@ -20,7 +20,6 @@ const commands = [
     "note:exclude",
     "note:restore",
     "note:decide",
-    "decision:clear",
     "adoption-focus:update",
   ].map((type) => ({ type, noteId: id })),
   { type: "note:bulk-exclude" },

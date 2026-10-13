@@ -98,10 +98,10 @@ describe("getFacilitationGuide", () => {
 
   it.each([
     [buildPhaseStep(2), "発表順が一巡"],
-    [buildPhaseStep(4), "全員の投票"],
-    [buildPhaseStep(5), "ホストが採用する付箋を確定"],
-    [buildPhaseStep(3, 3), "大きな異論"],
-    [buildPhaseStep(5, 3), "全員に成果を表示"],
+    [buildPhaseStep(4), "使い切ると完了"],
+    [buildPhaseStep(5), "参加者の誰かが候補を提示"],
+    [buildPhaseStep(3, 3), "過半数"],
+    [buildPhaseStep(5, 3), "参加者の誰でも"],
   ] as const)("%oの詳細には実際の次へ進む目安を含める", (phase, criterion) => {
     expect(getFacilitationGuide(phase)?.completion).toContain(criterion);
   });
@@ -123,13 +123,13 @@ describe("getFacilitationGuide", () => {
 
 it.each([
   1, 2, 3,
-] as const)("フェーズ%iの共有は本人・ホストの交代と自分の番だけの共有を案内する", (phase) => {
+] as const)("フェーズ%iの共有は本人の交代と自分の番だけの共有を案内する", (phase) => {
   const guide = getFacilitationGuide(buildPhaseStep(2, phase));
   expect(guide?.firstAction).toContain("画面上");
   expect(guide?.steps?.join(" ")).toContain("本人");
   expect(guide?.steps?.join(" ")).toContain("自分の番だけ");
   expect(guide?.hostTimerGuide).toContain("自動で始まります");
-  expect(guide?.hostMessage).toContain("ホストも");
+  expect(guide?.hostMessage).toContain("発表者本人");
   expect(guide?.hostMessage).toContain("次の人へ");
   expect(guide?.steps?.join(" ")).not.toContain("話し合って決める");
 });

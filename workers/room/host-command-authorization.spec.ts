@@ -77,7 +77,6 @@ const cases: Case[] = [
   { type: "note:bulk-exclude", phase: result, success: "note:updated" },
   { type: "note:bulk-restore", phase: result, success: "note:updated" },
   { type: "note:decide", phase: result, success: "decision:updated" },
-  { type: "decision:clear", phase: result, success: "decision:updated" },
   {
     type: "outcome:publish",
     phase: { kind: "step", phase: 3, step: 5 },
@@ -126,8 +125,6 @@ async function setup(test: Case) {
         OPERATION,
       );
     }
-    if (test.type === "decision:clear")
-      setDecision(sql, 1, NOTE, A.sub, "採用候補");
     if (test.type === "outcome:publish")
       for (const phase of [1, 2, 3])
         setDecision(sql, phase, NOTE, A.sub, "採用候補");
@@ -177,7 +174,6 @@ async function setup(test: Case) {
       "note:exclude",
       "note:restore",
       "note:decide",
-      "decision:clear",
       "adoption-focus:update",
     ].includes(test.type)
   )
@@ -244,11 +240,17 @@ describe("全ホスト操作の現在権限とABA拒否", () => {
     await handoff(a, b, B.sub, 0);
     expect(await state()).toEqual(before);
     a.ws.send(JSON.stringify({ ...message, expectedHostRevision: 1 }));
-    expect(await a.next()).toMatchObject({ type: "error", code: "forbidden" });
+    expect(await a.next()).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
     await handoff(b, a, A.sub, 1);
     expect(await state()).toEqual(before);
     a.ws.send(JSON.stringify({ ...message, expectedHostRevision: 0 }));
-    expect(await a.next()).toMatchObject({ type: "error", code: "forbidden" });
+    expect(await a.next()).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
     a.ws.send(JSON.stringify({ ...message, expectedHostRevision: 2 }));
     expect(await a.next()).toMatchObject({ type: test.success });
     expect(await b.next()).toMatchObject({ type: test.success });

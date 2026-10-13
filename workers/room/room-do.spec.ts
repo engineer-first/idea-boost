@@ -125,6 +125,10 @@ function queueFor(ws: WebSocket): MessageQueue {
       return;
     }
     if (message.type === "note:content-saved") return;
+    if (message.type === "phase:progress") {
+      queue.messages.push(message);
+      return;
+    }
     const waiter = queue.waiters.shift();
     if (waiter) waiter(message);
     else queue.messages.push(message);
@@ -134,6 +138,7 @@ function queueFor(ws: WebSocket): MessageQueue {
 function nextJson(ws: WebSocket): Promise<Record<string, unknown>> {
   const queue = queueFor(ws);
   const first = queue.messages.shift();
+  if (first?.type === "phase:progress") return nextJson(ws);
   return first
     ? Promise.resolve(first)
     : new Promise((resolve) => queue.waiters.push(resolve));
@@ -156,9 +161,14 @@ function nextJsonWithin(
 ): Promise<Record<string, unknown> | undefined> {
   const queue = queueFor(ws);
   const first = queue.messages.shift();
+  if (first?.type === "phase:progress") return nextJsonWithin(ws, timeoutMs);
   if (first) return Promise.resolve(first);
   return new Promise((resolve) => {
     const receive = (message: Record<string, unknown>) => {
+      if (message.type === "phase:progress") {
+        queue.waiters.push(receive);
+        return;
+      }
       clearTimeout(timer);
       resolve(message);
     };
@@ -1199,7 +1209,7 @@ describe("RoomDO note:decide", () => {
     member.close();
   });
 
-  it("非ホストは決定を解除できない", async () => {
+  it("非ホストも決定を解除できる", async () => {
     const roomName = "room-decision-clear-non-host";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -1223,8 +1233,8 @@ describe("RoomDO note:decide", () => {
     );
 
     expect(await nextJson(member)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "decision:updated",
+      decision: null,
     });
     expect(
       await runInRoomDO(
@@ -1234,7 +1244,7 @@ describe("RoomDO note:decide", () => {
             .exec("SELECT COUNT(*) AS count FROM decisions WHERE phase = 1")
             .one().count as number,
       ),
-    ).toBe(1);
+    ).toBe(0);
     member.close();
   });
 
@@ -6901,7 +6911,10 @@ describe("new move presence WS lifecycle", () => {
           operationId,
         });
       expect(received).toContainEqual(
-        expect.objectContaining({ type: "cursor:drag-ended", userId: USER_A }),
+        expect.objectContaining({
+          type: "cursor:drag-ended",
+          userId: USER_A,
+        }),
       );
       if (!sameUser)
         expect(received).toContainEqual(
@@ -6911,7 +6924,10 @@ describe("new move presence WS lifecycle", () => {
           }),
         );
       expect(received).toContainEqual(
-        expect.objectContaining({ type: "idea-map:state", isDragging: false }),
+        expect.objectContaining({
+          type: "idea-map:state",
+          isDragging: false,
+        }),
       );
     } finally {
       closing.close();

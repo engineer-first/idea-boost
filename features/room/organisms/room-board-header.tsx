@@ -23,6 +23,7 @@ import {
   isResultStep,
   isVotingStep,
   type RoomPhase,
+  VOTING_STEP_BY_PHASE,
 } from "@/contracts/phase";
 import type {
   Carryover,
@@ -310,9 +311,16 @@ export function RoomBoardHeader({
     progress.notReadyUserIds.includes(member.userId),
   );
   const requireProgressConfirmation =
-    (isManualProgressStep || isCurrentVotingStep) && !progress.allReady;
+    ((isManualProgressStep || isCurrentVotingStep) && !progress.allReady) ||
+    (phase.kind === "step" &&
+      phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1) ||
+    isResultStep(phase);
   const showVotingCompletion =
-    isCurrentVotingStep && progress.allReady && !isDisconnected;
+    isCurrentVotingStep &&
+    members.length > 0 &&
+    progress.connectedUserIds.length > 0 &&
+    progress.allReady &&
+    !isDisconnected;
   const completedMemberIds = isCurrentVotingStep
     ? completedVoterIds
     : isManualProgressStep

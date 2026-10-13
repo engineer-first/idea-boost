@@ -2,7 +2,7 @@
 import { isPhaseStep, isResultStep } from "../../contracts/phase";
 import { clearDecision, getDecision, setDecision } from "./decisions";
 import { type MessageHandlers, replyForbidden } from "./handler-context";
-import { isHostUser } from "./members";
+import { isMember } from "./members";
 import { requireNoteInCurrentPhase } from "./notes";
 import { discardPrivateNotes, getPhase } from "./phase";
 
@@ -54,7 +54,7 @@ export const decisionHandlers: MessageHandlers<
   "decision:clear": (ctx, message) => {
     const phase = getPhase(ctx.sql);
     if (
-      !isHostUser(ctx.sql, ctx.userId) ||
+      !isMember(ctx.sql, ctx.userId) ||
       phase.kind !== "step" ||
       !isResultStep(phase)
     ) {

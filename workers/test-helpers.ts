@@ -146,10 +146,18 @@ export async function connectRoomAs(
 
   return {
     ws,
-    next() {
-      const queued = queue.shift();
-      if (queued) return Promise.resolve(queued);
-      return new Promise((resolve) => waiters.push(resolve));
+    async next() {
+      for (;;) {
+        const queued = queue.shift();
+        if (queued) {
+          if (queued.type === "phase:progress") continue;
+          return queued;
+        }
+        const message = await new Promise<ServerMessage>((resolve) =>
+          waiters.push(resolve),
+        );
+        if (message.type !== "phase:progress") return message;
+      }
     },
     close() {
       ws.close();

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Minus } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,11 +36,19 @@ export function SharingPresenter({
   members = sharing.order,
 }: SharingPresenterProps) {
   const descriptionId = useId();
+  const orderRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const current = sharing.order[sharing.currentIndex ?? sharing.results.length];
   const isActive = sharing.status === "active";
   const currentStatusLabel =
     sharing.startsAt !== null ? "まもなく発表" : "発表中";
+  const currentPresenterId = current?.userId;
+  useEffect(() => {
+    const currentElement = orderRef.current?.querySelector<HTMLElement>(
+      `[data-user-id="${currentPresenterId}"]`,
+    );
+    currentElement?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [currentPresenterId]);
   const otherMembers = members.filter(
     (member) => !sharing.order.some((entry) => entry.userId === member.userId),
   );
@@ -57,6 +65,7 @@ export function SharingPresenter({
           <span
             className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
             data-testid="sharing-order"
+            ref={orderRef}
           >
             {sharing.order.map((member, index) => {
               const result = sharing.results[index];
@@ -75,6 +84,7 @@ export function SharingPresenter({
                   <span
                     className="relative flex shrink-0 items-center"
                     data-current={isCurrent ? "true" : undefined}
+                    data-user-id={member.userId}
                     data-sharing-result={result ?? undefined}
                   >
                     <MemberAvatar

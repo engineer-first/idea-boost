@@ -736,7 +736,6 @@ export const HOST_REVISION_MESSAGE_TYPES = [
   "note:restore",
   "note:bulk-exclude",
   "note:bulk-restore",
-  "decision:clear",
   "phase:rollback",
   "phase:restart-writing",
   "phase:revote",

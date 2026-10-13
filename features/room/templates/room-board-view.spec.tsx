@@ -578,7 +578,7 @@ describe("採用する付箋の選択モード", () => {
     ).toBeDisabled();
   });
 
-  it("決定済みの内容を全員に示し、ホストだけが取り消せる", () => {
+  it("決定済みの内容を全員に示し、参加者全員が取り消せる", () => {
     const notes = [buildNote({ id: "note-1", content: "決定した課題" })];
     const decision = buildDecision({ noteId: "note-1" });
     const { rerender, props } = setup({
@@ -593,9 +593,8 @@ describe("採用する付箋の選択モード", () => {
 
     rerender(<TestBoardView {...props} isHost={false} />);
     expect(screen.getAllByText("決定した課題")).toHaveLength(2);
-    expect(
-      screen.queryByRole("button", { name: "確定を取り消す" }),
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    expect(props.onDecisionClear).toHaveBeenCalledTimes(2);
   });
 });
 
