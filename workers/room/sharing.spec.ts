@@ -12,7 +12,7 @@ import {
 import { syncRoomAlarm } from "./alarms";
 import { RoomBroadcaster } from "./broadcast";
 import { getPhase, phaseHandlers, savePhase } from "./phase";
-import { sharingHandlers } from "./sharing";
+import { broadcastSharing, sharingHandlers } from "./sharing";
 import { resetSharingForPhase } from "./sharing-state";
 import { resetTimerState } from "./timer";
 
@@ -102,6 +102,57 @@ describe("一人ずつの共有", () => {
     owner.close();
     member.close();
     reconnect.close();
+  });
+
+  it("最後の発表者以外は共有完了を送信できない", async () => {
+    const { owner, roomId } = await setup();
+    await runInRoomDO(roomId, async (_, state) => {
+      const sharingPhase = { kind: "step" as const, phase: 1, step: 2 };
+      await state.storage.transaction(async () => {
+        savePhase(state.storage.sql, sharingPhase);
+        resetSharingForPhase(state.storage.sql, sharingPhase);
+        resetTimerState(state.storage.sql);
+        await syncRoomAlarm(state.storage, state.storage.sql);
+      });
+      broadcastSharing({
+        sql: state.storage.sql,
+        broadcaster: new RoomBroadcaster(state),
+      });
+    });
+    const ready = (await sharingMessage(owner)).sharing;
+    owner.ws.send(
+      JSON.stringify({
+        type: "sharing:start",
+        revision: ready.revision,
+        durationMs: 30000,
+      }),
+    );
+    await sharingMessage(owner);
+    await makeTurnDue(roomId);
+    const firstTurn = (await sharingMessage(owner)).sharing;
+    owner.ws.send(
+      JSON.stringify({
+        type: "sharing:advance",
+        revision: firstTurn.revision,
+        outcome: "done",
+      }),
+    );
+    await sharingMessage(owner);
+    await makeTurnDue(roomId);
+    const finalTurn = (await sharingMessage(owner)).sharing;
+
+    owner.ws.send(
+      JSON.stringify({
+        type: "sharing:advance",
+        revision: finalTurn.revision,
+        outcome: "done",
+      }),
+    );
+    expect(await until(owner, "error")).toMatchObject({
+      type: "error",
+      code: "forbidden",
+    });
+    owner.close();
   });
 });
 
@@ -516,7 +567,10 @@ it.each([
   await sharingMessage(owner);
   expect(await publish(owner, hostNoteId)).toMatchObject(rejected);
   const memberTurn = await currentSnapshot(roomId);
-  expect(memberTurn.sharing).toMatchObject({ currentIndex: 1, startsAt: null });
+  expect(memberTurn.sharing).toMatchObject({
+    currentIndex: 1,
+    startsAt: null,
+  });
   member.ws.send(
     JSON.stringify({
       type: "note:publish",
@@ -813,6 +867,8 @@ it("発表者本人は完了だけを進められ、同期・再接続・古い�
     throw new Error("交代状態が返っていない");
   expect((await sharingMessage(owner)).sharing).toEqual(observed.sharing);
   expect((await currentSnapshot(roomId)).sharing).toEqual(observed.sharing);
+  owner.ws.send(JSON.stringify(request));
+  expect(await until(owner, "error")).toMatchObject({ code: "forbidden" });
   member.ws.send(JSON.stringify(request));
   expect(await until(member, "error")).toMatchObject({ code: "forbidden" });
   expect((await currentSnapshot(roomId)).sharing).toEqual(observed.sharing);

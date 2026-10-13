@@ -773,6 +773,18 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
+    if (
+      sharing?.status === "complete" &&
+      message.force !== true &&
+      sharing.order.at(-1)?.userId !== ctx.userId
+    ) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "最後の発表者だけが共有を終了できます。",
+      });
+      return;
+    }
     const progress = getProgressState(
       ctx.sql,
       ctx.broadcaster,

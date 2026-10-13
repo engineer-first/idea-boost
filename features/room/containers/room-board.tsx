@@ -744,6 +744,7 @@ export function RoomBoard({
         onPrivateNoteContentChange={drafts.blur}
         onPrivateNoteDelete={notes.deleteNote}
         onNextPhase={handleNextPhase}
+        onForceNextPhase={handleForceNextPhase}
         onTimerStart={handleTimerStart}
         onTimerPause={handleTimerPause}
         onTimerResume={handleTimerResume}

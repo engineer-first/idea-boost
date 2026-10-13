@@ -252,6 +252,7 @@ export type RoomBoardViewProps = {
   isLeaving: boolean;
   // 次フェーズへ。ホストのみ UI 表示。
   onNextPhase: (confirmedProgressRevision?: number) => void;
+  onForceNextPhase?: () => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -375,6 +376,7 @@ export function RoomBoardView({
   onLeave,
   isLeaving,
   onNextPhase,
+  onForceNextPhase,
   onTimerStart,
   onTimerPause,
   onTimerResume,
@@ -1753,6 +1755,7 @@ export function RoomBoardView({
           isLeaving={isLeaving}
           onLeaveClick={() => setLeaveDialogOpen(true)}
           onNextPhase={onNextPhase}
+          onForceNextPhase={onForceNextPhase}
           onTimerStart={onTimerStart}
           onTimerPause={onTimerPause}
           onTimerResume={onTimerResume}

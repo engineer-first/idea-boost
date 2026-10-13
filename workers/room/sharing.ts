@@ -105,6 +105,23 @@ export const sharingHandlers: MessageHandlers<
     await commitTurn(ctx, state);
   },
   "sharing:advance": async (ctx, message) => {
+    const current = getSharingState(ctx.sql);
+    const currentIndex = current?.currentIndex;
+    const isFinalTurn =
+      current?.status === "active" &&
+      currentIndex !== null &&
+      currentIndex !== undefined &&
+      currentIndex === current.order.length - 1;
+    const isCurrentPresenter =
+      isFinalTurn && current?.order[currentIndex]?.userId === ctx.userId;
+    if (isFinalTurn && !isCurrentPresenter) {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "最後の発表者だけが共有を完了できます。",
+      });
+      return;
+    }
     const state = controllableState(
       ctx,
       message.revision,

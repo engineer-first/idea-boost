@@ -777,17 +777,18 @@ it("別画面で共有が開始されたらその持ち時間で交代を表示�
 });
 
 it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示しない", () => {
+  const sharing = buildSharingState({
+    status: "complete",
+    results: ["done", "passed", "done"],
+  });
   render(
     <RoomBoardHeader
       {...setupProps({
-        isHost: true,
+        currentUserId: sharing.order.at(-1)?.userId ?? ME,
         phase: buildPhaseStep(2),
         initialGuideState: "compact",
       })}
-      sharing={buildSharingState({
-        status: "complete",
-        results: ["done", "passed", "done"],
-      })}
+      sharing={sharing}
     />,
   );
   expect(screen.getByText("共有完了")).toBeVisible();
@@ -795,6 +796,18 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
   expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "次の人へ" }),
+  ).not.toBeInTheDocument();
+});
+it("共有完了後も最後の発表者以外には通常の次ステップ操作を表示しない", () => {
+  const sharing = buildSharingState({
+    status: "complete",
+    results: ["done", "passed", "done"],
+  });
+  setup({ sharing, phase: buildPhaseStep(2) });
+
+  expect(screen.queryByTestId("sharing-advance")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "次のステップへ" }),
   ).not.toBeInTheDocument();
 });
 it("発表者以外の参加者は発表者を確認できるが進行操作を持たない", () => {
@@ -892,6 +905,26 @@ it("発表者本人は次の人へを操作でき、開始・パス・次ステ�
   expect(
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();
+});
+
+it("最後の発表中はホストにも通常の次ステップ操作を表示しない", () => {
+  const onForceNextPhase = vi.fn();
+  setup({
+    isHost: true,
+    phase: buildPhaseStep(2),
+    sharing: buildSharingState({ status: "active", currentIndex: 2 }),
+    onForceNextPhase,
+  });
+
+  expect(screen.queryByTestId("sharing-advance")).not.toBeInTheDocument();
+
+  openRoomMenu();
+  expect(
+    screen.getByRole("button", { name: "次のステップへ" }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+  fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
+  expect(onForceNextPhase).toHaveBeenCalledTimes(1);
 });
 
 it("招待PopoverからURLのみを共有する", async () => {

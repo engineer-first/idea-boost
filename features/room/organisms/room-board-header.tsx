@@ -104,6 +104,7 @@ export type RoomBoardHeaderProps = {
   onPublishOutcome: () => void;
   onLeaveClick: () => void;
   onNextPhase: (confirmedProgressRevision?: number) => void;
+  onForceNextPhase?: () => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -168,6 +169,7 @@ export function RoomBoardHeader({
   onPublishOutcome,
   onLeaveClick,
   onNextPhase,
+  onForceNextPhase,
   onTimerStart,
   onTimerPause,
   onTimerResume,
@@ -251,11 +253,15 @@ export function RoomBoardHeader({
     activeSharing?.currentIndex != null
       ? activeSharing.order[activeSharing.currentIndex]
       : null;
-  const canAdvanceSharing = isHost || presenter?.userId === currentUserId;
+  const canStartSharing = isHost;
+  const canAdvanceSharing = presenter?.userId === currentUserId;
   const isLastPresenter =
     activeSharing?.status === "active" &&
     activeSharing.currentIndex !== null &&
     activeSharing.currentIndex === activeSharing.order.length - 1;
+  const canCompleteSharing =
+    activeSharing?.status === "complete" &&
+    activeSharing.order.at(-1)?.userId === currentUserId;
   const [configuredDuration, setConfiguredDuration] = useState<{
     revision: string;
     durationMs: number;
@@ -652,8 +658,10 @@ export function RoomBoardHeader({
               </div>
             )}
             {activeSharing &&
-            canAdvanceSharing &&
-            activeSharing.status !== "complete" ? (
+            activeSharing.status !== "complete" &&
+            (activeSharing.status === "ready"
+              ? canStartSharing
+              : canAdvanceSharing) ? (
               activeSharing.status === "ready" ? (
                 isHost ? (
                   <Button
@@ -680,6 +688,7 @@ export function RoomBoardHeader({
                   ) : null}
                   <Button
                     className="h-10 shrink-0 px-3"
+                    data-testid="sharing-advance"
                     disabled={isDisconnected || transitioning || isTransferring}
                     onClick={() => onSharingAdvance?.("done")}
                   >
@@ -789,7 +798,8 @@ export function RoomBoardHeader({
                   }
                 />
               ) : null
-            ) : !activeSharing || activeSharing.status === "complete" ? (
+            ) : !activeSharing ||
+              (activeSharing.status === "complete" && canCompleteSharing) ? (
               <NextPhaseConfirmDialog
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
                 phase={phase}
@@ -925,7 +935,7 @@ export function RoomBoardHeader({
                         isNextPhaseBlocked ||
                         isTransferring
                       }
-                      onConfirm={onNextPhase}
+                      onConfirm={onForceNextPhase ?? onNextPhase}
                       notReadyMembers={notReadyMembers}
                     />
                   ) : null}
