@@ -3415,6 +3415,34 @@ describe("候補Undoの結果工程内の寿命", () => {
 });
 
 describe("作業中のホスト交代", () => {
+  it.each([
+    true,
+    false,
+  ])("1-1でホスト交代後の通知でもマイ付箋を表示し続ける（旧ホスト=%s）", (isHost) => {
+    const note = protocolNote({
+      visibility: "private",
+      content: "交代しても残る下書き",
+    });
+    const { socket } = connectWithSnapshot([note], { isHost });
+    const toolbar = openPrivateNotesToolbar();
+    expect(within(toolbar).getByDisplayValue(note.content)).toBeInTheDocument();
+    act(() =>
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: isHost ? OTHER_USER_ID : USER_ID,
+        hostRevision: 1,
+      }),
+    );
+    act(() =>
+      socket.simulateServerMessage({
+        type: "timer:updated",
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+    expect(within(toolbar).getByDisplayValue(note.content)).toBeInTheDocument();
+  });
+
   function connectTransferBoard(hostUserId = USER_ID) {
     const result = connectWithSnapshot();
     act(() =>
