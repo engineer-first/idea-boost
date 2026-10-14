@@ -1230,7 +1230,7 @@ export function RoomBoardView({
     const workspaceTopSurfaces = [
       "board-context-hud",
       "board-control-hud",
-      "board-connection-status",
+      "board-connection-slot",
       "board-help-panel",
     ] as const;
     const isPersonalNoteEntryPhase =

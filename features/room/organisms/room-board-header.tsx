@@ -893,13 +893,26 @@ export function RoomBoardHeader({
               </PopoverContent>
             </Popover>
           </fieldset>
-          <RoomConnectionNotice
-            returnHref={loginReturnHref}
-            status={connectionStatus}
-            delayed={connectionDelayed}
-            testId="board-connection-status"
-            className="board-hud pointer-events-auto w-max max-w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-muted-foreground max-[639px]:w-full"
-          />
+          {/* 通常の接続案内1行を予約し、同期完了で個人入力を動かさない。 */}
+          {connectionStatus !== "open" ||
+          (phase.kind === "step" && phase.step === 1) ? (
+            <div
+              data-testid="board-connection-slot"
+              className={
+                phase.kind === "step" && phase.step === 1
+                  ? "min-h-[38px] sm:min-h-0"
+                  : undefined
+              }
+            >
+              <RoomConnectionNotice
+                returnHref={loginReturnHref}
+                status={connectionStatus}
+                delayed={connectionDelayed}
+                testId="board-connection-status"
+                className="board-hud pointer-events-auto w-max max-w-full rounded-xl border border-border bg-background px-4 py-2 text-sm text-muted-foreground max-[639px]:w-full"
+              />
+            </div>
+          ) : null}
         </div>
       </div>
     </TooltipProvider>

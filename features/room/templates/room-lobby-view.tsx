@@ -121,12 +121,14 @@ export function RoomLobbyView({
                 : "ホストがセッションを開始するまで、この画面でお待ちください。"}
             </p>
           </div>
-          <RoomConnectionNotice
-            returnHref={loginReturnHref}
-            status={connectionStatus}
-            delayed={connectionDelayed}
-            className="text-sm text-muted-foreground"
-          />
+          <div className="min-h-5">
+            <RoomConnectionNotice
+              returnHref={loginReturnHref}
+              status={connectionStatus}
+              delayed={connectionDelayed}
+              className="relative z-20 mx-auto w-fit rounded-lg bg-background px-3 text-sm text-muted-foreground"
+            />
+          </div>
         </header>
 
         <p className="text-center text-sm text-muted-foreground">

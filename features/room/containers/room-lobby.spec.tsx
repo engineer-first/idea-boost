@@ -599,3 +599,41 @@ it.each([
     expect(navigationMocks.replace).toHaveBeenCalledWith(`/rooms/${ROOM_ID}`),
   );
 });
+
+it("開始成功後は移動が完了するまで開始中を維持する", () => {
+  const { socket } = renderStart();
+  fireEvent.click(screen.getByTestId("start-phase-button"));
+  act(() =>
+    socket.simulateServerMessage({
+      type: "phase:updated",
+      phaseRevision: 1,
+      phase: buildPhaseStep(1),
+    }),
+  );
+  expect(navigationMocks.replace).toHaveBeenCalled();
+  expect(screen.getByTestId("start-phase-button")).toBeDisabled();
+  expect(screen.getByTestId("start-phase-button")).toHaveTextContent("開始中…");
+});
+
+it("開始待ちの同じホストの更新通知では開始中を解除しない", () => {
+  vi.useFakeTimers();
+  try {
+    const { socket } = renderStart();
+    fireEvent.click(screen.getByTestId("start-phase-button"));
+    act(() =>
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: HOST_ID,
+        hostRevision: 0,
+      }),
+    );
+    expect(screen.getByTestId("start-phase-button")).toBeDisabled();
+    expect(screen.getByTestId("start-phase-button")).toHaveTextContent(
+      "開始中…",
+    );
+    act(() => vi.advanceTimersByTime(5000));
+    expect(screen.getByTestId("start-phase-button")).toBeEnabled();
+  } finally {
+    vi.useRealTimers();
+  }
+});

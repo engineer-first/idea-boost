@@ -23,13 +23,13 @@ export function RoomEntryPreview(props: RoomEntryPreviewProps) {
     <div
       inert
       aria-hidden="true"
-      className="h-full min-h-0 flex-1 overflow-hidden"
+      className={`h-full min-h-0 flex-1 overflow-hidden ${props.phase.kind === "lobby" ? "p-4" : ""}`}
       data-testid="room-entry-preview"
     >
       {props.phase.kind === "lobby" ? (
         <RoomLobbyView
           {...props}
-          connectionStatus="open"
+          connectionStatus="connecting"
           isStarting={false}
           isLeaving={false}
           onStart={noop}
@@ -51,7 +51,7 @@ export function RoomEntryPreview(props: RoomEntryPreviewProps) {
             </div>
           </div>
           <p className="absolute bottom-24 inset-x-4 text-center text-sm text-muted-foreground">
-            ログイン後に、このルームの付箋を読み込みます。
+            入室を確認してから、このルームの付箋を読み込みます。
           </p>
           <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-5 rounded-2xl border border-border bg-background px-5 py-3 text-muted-foreground">
             <MousePointer2 className="size-5" />

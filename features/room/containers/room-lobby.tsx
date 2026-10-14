@@ -192,8 +192,19 @@ export function RoomLobby({
       message.type === "phase:updated"
     ) {
       finishTransfer();
-      clearStartTimeout();
-      setIsStarting(false);
+      if (
+        (message.type === "phase:updated" || message.type === "snapshot") &&
+        !isLobby(message.phase)
+      ) {
+        clearStartTimeout();
+        setIsStarting(true);
+      } else if (
+        message.type === "host:updated" &&
+        message.hostUserId !== currentUserId
+      ) {
+        clearStartTimeout();
+        setIsStarting(false);
+      }
     }
     if (message.type === "error") {
       if (transferringRef.current) finishTransfer(message.message);
@@ -210,12 +221,23 @@ export function RoomLobby({
   }
 
   const handleStart = useCallback(() => {
-    if (!isHost || transferringRef.current || memberRemoval.isPending()) return;
+    if (
+      !isHost ||
+      isStarting ||
+      connectionStatus !== "open" ||
+      transferringRef.current ||
+      memberRemoval.isPending()
+    )
+      return;
     setIsStarting(true);
-    send({
+    const sent = send({
       type: "start_phase",
       expectedHostRevision: roomState.host.hostRevision ?? 0,
     });
+    if (!sent) {
+      setIsStarting(false);
+      return;
+    }
     // 成功時は phase:updated → router.replace で /rooms/[id] へ遷移。
     // 失敗時（forbidden / 接続断）は上記の error ハンドラで isStarting を解除。
     // 万一何も起きない場合は 5 秒でタイムアウトさせて再操作可能にする。
@@ -226,6 +248,8 @@ export function RoomLobby({
     }, 5000);
   }, [
     isHost,
+    isStarting,
+    connectionStatus,
     send,
     clearStartTimeout,
     roomState.host.hostRevision,

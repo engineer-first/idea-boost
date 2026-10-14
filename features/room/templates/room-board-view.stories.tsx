@@ -1272,3 +1272,7 @@ export const MoveHistorySharing: Story = {
 export const MoveHistoryMap: Story = {
   args: { ...MoveHistoryAvailable.args, phase: buildPhaseStep(3, 3) },
 };
+
+export const ConnectedEmpty: Story = {
+  args: { notes: [], connectionStatus: "open" },
+};

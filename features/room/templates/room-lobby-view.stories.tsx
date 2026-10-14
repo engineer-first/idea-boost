@@ -162,3 +162,21 @@ export const AllInteractionStates: Story = {
 export const DelayedConnection: Story = {
   args: { connectionStatus: "closed", connectionDelayed: true },
 };
+
+export const Connected: Story = { args: { connectionStatus: "open" } };
+
+export const AuthRequired: Story = {
+  args: { connectionStatus: "auth-required" },
+};
+
+export const Unavailable: Story = {
+  args: { connectionStatus: "unavailable" },
+};
+
+export const DelayedConnecting: Story = {
+  args: { connectionStatus: "connecting", connectionDelayed: true },
+};
+
+export const DelayedReconnecting: Story = {
+  args: { connectionStatus: "reconnecting", connectionDelayed: true },
+};
