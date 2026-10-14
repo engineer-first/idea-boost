@@ -603,8 +603,8 @@ export const phaseHandlers: MessageHandlers<
       next.phase === 3 &&
       next.step === 2 &&
       !(current.kind === "step" && current.phase === 3 && current.step === 2);
-    const completesVoting =
-      isVotingStep(current) && isResultStep(next) && completedVoting;
+    // 未投票者を待たずに進む場合も、ホストが投票を終了した時点の結果で整理する。
+    const completesVoting = isVotingStep(current) && isResultStep(next);
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
       crossesPhaseBoundary ||
