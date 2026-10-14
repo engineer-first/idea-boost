@@ -28,7 +28,7 @@ type Story = StoryObj<typeof meta>;
 
 export const HostCanAdjust: Story = {};
 
-export const ParticipantCannotAdjust: Story = {
+export const ParticipantControlsHidden: Story = {
   args: { isHost: false },
 };
 

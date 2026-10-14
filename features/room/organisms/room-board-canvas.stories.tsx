@@ -723,6 +723,15 @@ export const HostCanResizeIdeaMap: Story = {
   render: (args) => <HostIdeaMapResizePreview args={args} />,
 };
 
+export const ParticipantIdeaMap: Story = {
+  name: "2軸マップ / 参加者には広さ操作を表示しない",
+  args: {
+    ...HostCanResizeIdeaMap.args,
+    isHost: false,
+  },
+  decorators: IDEA_MAP_VIEWPORT,
+};
+
 export const IdeaMapZoom50: Story = {
   args: {
     ...fixedSizeMapArgs,

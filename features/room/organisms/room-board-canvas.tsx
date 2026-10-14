@@ -277,6 +277,7 @@ export function RoomBoardCanvas({
     phase.phase === 3 &&
     (phase.step >= 2 || notes.length > 0);
   const isIdeaMapSizeControlsVisible =
+    isHost &&
     phase.kind === "step" &&
     phase.phase === 3 &&
     (phase.step === 2 || phase.step === 3);

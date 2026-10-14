@@ -208,6 +208,23 @@ describe("RoomBoardCanvas", () => {
     }
   });
 
+  it.each([
+    2, 3,
+  ] as const)("非ホストの3-%iではマップを残して広さ操作を表示しない", (step) => {
+    const phase = buildPhaseStep(step, 3);
+    setup({ phase, permissions: getBoardPermissions(phase), isHost: false });
+
+    expect(
+      screen.getByTestId("idea-value-feasibility-map"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("idea-map-size-controls-hud"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "マップを広くする" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("マップの広さ操作を既存の左下操作群から分離して画面下中央に置く", () => {
     const phase = buildPhaseStep(3, 3);
     setup({

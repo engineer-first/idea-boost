@@ -4,9 +4,23 @@ import { IDEA_MAP_SIZE_LEVEL_RANGE } from "@/contracts/board";
 import { IdeaMapSizeControls } from "./idea-map-size-controls";
 
 describe("IdeaMapSizeControls", () => {
-  it("参加者も広さの説明を開き、共有範囲と変更できない理由を確認できる", () => {
+  it("非ホストには広さの操作も説明も表示しない", () => {
     const onResize = vi.fn();
-    render(
+    const { rerender } = render(
+      <IdeaMapSizeControls
+        sizeLevel={2}
+        initialized
+        isHost
+        isDisconnected={false}
+        isDragging={false}
+        onResize={onResize}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "マップの広さについて" }),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    rerender(
       <IdeaMapSizeControls
         sizeLevel={2}
         initialized
@@ -16,17 +30,12 @@ describe("IdeaMapSizeControls", () => {
         onResize={onResize}
       />,
     );
-    const help = screen.getByRole("button", { name: "マップの広さについて" });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(help);
-    const explanation = screen.getByRole("dialog", {
-      name: "マップの広さについて",
-    });
-    expect(explanation).toHaveTextContent("全員に反映");
-    expect(explanation).toHaveTextContent("表示倍率は自分だけ");
-    expect(explanation).toHaveTextContent("ホストだけ");
-    expect(explanation).toHaveTextContent("価値");
-    fireEvent.keyDown(explanation, { key: "Escape" });
+    expect(
+      screen.queryByRole("group", { name: "2軸マップの広さ操作" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "マップの広さについて" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(onResize).not.toHaveBeenCalled();
   });
@@ -55,7 +64,6 @@ describe("IdeaMapSizeControls", () => {
   });
 
   it.each([
-    ["非ホスト", { isHost: false }, "広さを変更できるのはホストだけです。"],
     ["ドラッグ中", { isDragging: true }, "付箋のドラッグ中は変更できません。"],
     ["切断中", { isDisconnected: true }, "接続が回復すると変更できます。"],
     ["未初期化", { initialized: false }, "初期サイズを準備しています。"],
