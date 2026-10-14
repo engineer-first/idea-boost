@@ -3740,6 +3740,7 @@ describe("RoomDO phase:next", () => {
       phase: buildPhaseStep(5, 3),
     });
 
+    await startTimerForTest(roomName);
     ws.send(JSON.stringify({ type: "note:decide", noteId: created.note.id }));
     expect(await nextJson(ws)).toMatchObject({
       type: "snapshot",

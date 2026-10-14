@@ -153,11 +153,9 @@ async function setup(test: Case) {
     }
     if (
       test.type.startsWith("note:") ||
-      [
-        "decision:clear",
-        "outcome:publish",
-        "adoption-focus:update",
-      ].includes(test.type)
+      ["decision:clear", "outcome:publish", "adoption-focus:update"].includes(
+        test.type,
+      )
     ) {
       saveTimerState(sql, {
         status: "running",
