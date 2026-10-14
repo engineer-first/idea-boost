@@ -2664,6 +2664,7 @@ describe("RoomDO phase:next", () => {
       );
     });
 
+    await arrangeSharingPresenter(roomName, USER_B);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     const hostDragging = nextJson(host);

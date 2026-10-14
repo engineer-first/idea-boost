@@ -58,13 +58,42 @@ describe("発表中の共有付箋返却許可", () => {
     expect(canReturnNoteToPrivateInTurn(phase, active, "listener")).toBe(false);
   });
 
-  it("共有の順番が有効でない場合は既存の工程権限に委ねる", () => {
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%iでは発表中以外に返却できない", (phase) => {
+    for (const sharing of [
+      null,
+      { ...active, status: "ready" as const, currentIndex: null },
+      { ...active, status: "inactive" as const, currentIndex: null },
+      { ...active, status: "complete" as const, currentIndex: null },
+      { ...active, currentIndex: null },
+      { ...active, currentIndex: 10 },
+      { ...active, startsAt: Date.now() + 2000 },
+    ]) {
+      expect(
+        canReturnNoteToPrivateInTurn(buildPhaseStep(2, phase), sharing, userId),
+      ).toBe(false);
+    }
+  });
+
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%iの発表中は本人だけ返却できる", (phase) => {
+    expect(
+      canReturnNoteToPrivateInTurn(buildPhaseStep(2, phase), active, userId),
+    ).toBe(true);
     expect(
       canReturnNoteToPrivateInTurn(
-        buildPhaseStep(2),
-        { ...active, status: "ready", currentIndex: null },
+        buildPhaseStep(2, phase),
+        active,
         "listener",
       ),
+    ).toBe(false);
+  });
+
+  it("共有以外では既存の工程権限に委ねる", () => {
+    expect(
+      canReturnNoteToPrivateInTurn(buildPhaseStep(3), null, "listener"),
     ).toBe(true);
   });
 });
