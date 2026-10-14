@@ -68,6 +68,8 @@ export const ACTIVE_PREVIEW_TIMER: TimerState = {
 type PreviewEvent = { data?: string; code?: number; reason?: string };
 export type HostPreviewMode = "success" | "refused" | "reconnect" | "timeout";
 export type HostPreviewServerEvent =
+  | "timer-tick"
+  | "transfer"
   | "aba"
   | "recipient-left"
   | "disconnect"
@@ -250,6 +252,19 @@ export function createHostTransferPreview(
       } else if (kind === "reconnect") {
         canReconnect = true;
         if (socket) open(socket);
+      } else if (kind === "timer-tick") {
+        socket?.message({
+          type: "timer:updated",
+          timer: options.timer ?? { status: "idle" },
+          serverNow: Date.now(),
+        });
+      } else if (kind === "transfer") {
+        hostUserId = PREVIEW_TARGET;
+        socket?.message({
+          type: "host:updated",
+          hostUserId,
+          hostRevision: ++hostRevision,
+        });
       } else if (kind === "recipient-left") {
         members = members.filter((member) => member.userId !== PREVIEW_TARGET);
         socket?.message({ type: "member_left", userId: PREVIEW_TARGET });
