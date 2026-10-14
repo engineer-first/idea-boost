@@ -636,10 +636,10 @@ export const phaseHandlers: MessageHandlers<
       );
       if (
         current.kind === "step" &&
-        current.step === 2 &&
+        (current.step === 1 || current.step === 2) &&
         next.kind === "step" &&
         next.phase === current.phase &&
-        next.step > 2
+        next.step > current.step
       ) {
         discardEmptyPrivateNotes(ctx.sql, current.phase);
       }
@@ -651,7 +651,7 @@ export const phaseHandlers: MessageHandlers<
           .exec("SELECT idea_map_size_initialized FROM room_state WHERE id = 1")
           .toArray()[0] as { idea_map_size_initialized: number } | undefined;
         if (initializedRow?.idea_map_size_initialized !== 1) {
-          // 空付箋は共有後の保存のため保持するが、初期マップの枚数には含めない。
+          // 空白を除いた本文付き下書きの枚数で初期マップを決める。
           const count = ctx.sql
             .exec(
               "SELECT content FROM notes WHERE phase = 3 AND visibility = 'private'",

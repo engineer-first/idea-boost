@@ -41,3 +41,9 @@ export const Opened: Story = {
     );
   },
 };
+
+// 個人作業から共有へ進む際の空白付箋の整理を説明する。
+export const LeavingPersonalWork: Story = {
+  args: { phase: STEP_1_1 },
+  play: Opened.play,
+};
