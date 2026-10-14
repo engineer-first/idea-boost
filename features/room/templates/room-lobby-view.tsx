@@ -121,7 +121,7 @@ export function RoomLobbyView({
                 : "ホストがセッションを開始するまで、この画面でお待ちください。"}
             </p>
           </div>
-          <div className="h-5">
+          <div className="min-h-5">
             <RoomConnectionNotice
               returnHref={loginReturnHref}
               status={connectionStatus}

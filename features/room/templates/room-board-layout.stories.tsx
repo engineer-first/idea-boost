@@ -410,3 +410,12 @@ export const LongReference: Story = {
     }),
   },
 };
+
+export const ReconnectingDock: Story = {
+  ...step(3, 2),
+  args: {
+    ...step(3, 2).args,
+    connectionStatus: "reconnecting",
+    connectionDelayed: true,
+  },
+};
