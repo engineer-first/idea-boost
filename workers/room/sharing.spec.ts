@@ -460,9 +460,9 @@ it.each([
   const inserted = await until(member, "note:inserted");
   const noteId = (inserted.note as { id: string }).id;
   const ready = await prepareLegacySharing(owner, roomId);
-  // このテストは発表者認可を検証するため、タイマー停止による拒否を除外する。
-  await startTimerForTest(roomId);
   const publish = async (socket: RoomSocket, id: string) => {
+    // 発表者認可の検証時は、タイマー停止による拒否を先に発生させない。
+    await startTimerForTest(roomId);
     const snapshot = await currentSnapshot(roomId);
     socket.ws.send(
       JSON.stringify({

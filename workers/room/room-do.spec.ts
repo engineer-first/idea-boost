@@ -2490,6 +2490,7 @@ describe("RoomDO phase:next", () => {
     const memberPublished = nextJson(member);
     const hostPublished = nextJson(host);
     await arrangeSharingPresenter(roomName, USER_B);
+    await startTimerForTest(roomName);
     member.send(
       JSON.stringify({
         type: "note:publish",
@@ -3426,6 +3427,7 @@ describe("RoomDO phase:next", () => {
       phase: buildPhaseStep(3, 2),
     });
 
+    await startTimerForTest(roomName);
     ws.send(
       JSON.stringify({
         type: "note:vote",
@@ -3695,6 +3697,7 @@ describe("RoomDO phase:next", () => {
       phase: buildPhaseStep(4, 3),
     });
 
+    await startTimerForTest(roomName);
     ws.send(
       JSON.stringify({
         type: "note:vote",
@@ -5922,6 +5925,7 @@ describe("RoomDO フェーズ1→2 の遷移と決定課題の持ち越し", () 
 
   // Step 1-5 で決定済みの状態から phase:next で Step 2-1 へ遷移させる。
   async function decideAndAdvance(roomName: string): Promise<void> {
+    await startTimerForTest(roomName);
     const ws = await connectDirectly(roomName, USER_A, USER_A);
     ws.send(JSON.stringify({ type: "note:decide", noteId: DECIDED_NOTE_ID }));
     await nextJson(ws); // decision:updated
@@ -7227,9 +7231,9 @@ describe("new move presence WS lifecycle", () => {
         updated_at: "now",
       });
     });
+    await startTimerForTest(name);
     const { ws: owner, firstMessage: snapshot } =
       await connectDirectlyWithFirstMessage(name, USER_A, USER_A);
-    await startTimerForTest(roomName);
     const peer = await connectDirectly(name, USER_B, USER_A);
     owner.send(
       JSON.stringify({
@@ -7505,6 +7509,7 @@ describe("new move group privacy WS", () => {
     );
     expect(JSON.stringify(next)).not.toContain(N2);
     expect(JSON.stringify(next)).not.toContain("hidden group name");
+    await startTimerForTest(name);
     expect(
       (
         await move(viewer, {

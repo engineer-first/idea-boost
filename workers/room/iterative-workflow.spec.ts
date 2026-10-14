@@ -264,7 +264,7 @@ for (const phase of [1, 2, 3] as const) {
         step: RESULT_STEP_BY_PHASE[phase],
       };
       const room = await setup(current);
-  await startTimerForTest(room.roomId);
+      await startTimerForTest(room.roomId);
       send(room.b, { type: "note:move", noteId: candidateId, x: 55, y: 60 });
       expect(await room.b.next()).toMatchObject({
         type: "note:updated",
@@ -299,7 +299,7 @@ for (const phase of [1, 2, 3] as const) {
         step: RESULT_STEP_BY_PHASE[phase],
       };
       const room = await setup(current);
-  await startTimerForTest(room.roomId);
+      await startTimerForTest(room.roomId);
       await runInRoomDO(room.roomId, (_room, state) => {
         state.storage.sql.exec(
           "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES(?,?,?,'subjective',0.2,0.3,'2026-09-22')",
