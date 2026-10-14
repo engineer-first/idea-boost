@@ -64,6 +64,9 @@ export function NextPhaseConfirmDialog({
                   : "本文のある共有付箋と下書きは残ります。"}
             このフェーズの空白だけの共有付箋は削除します。
             {phase.kind === "step" &&
+              phase.step === 1 &&
+              " この個人作業ステップの空白だけのマイ付箋も削除します。"}
+            {phase.kind === "step" &&
               phase.step === 2 &&
               " この共有ステップの空白だけのマイ付箋も削除します。"}
             タイマーは停止します。

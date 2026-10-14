@@ -250,7 +250,7 @@ describe("本文保存を待たない進行", () => {
     { phase: 1, name: "課題" },
     { phase: 2, name: "問い" },
     { phase: 3, name: "アイデア" },
-  ] as const)("$nameの個人作業から共有へ進むとき空白のマイ付箋を保持し共有を離れる際に整理する", async ({
+  ] as const)("$nameの個人作業から共有へ進むとき空白のマイ付箋だけを削除し本文のある下書きを保持する", async ({
     phase,
   }) => {
     const host = {
@@ -270,6 +270,7 @@ describe("本文保存を待たない進行", () => {
 
     const noteIds = {
       ownerEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1",
+      ownerBlank: "dddddddd-dddd-4ddd-8ddd-ddddddddddd5",
       ownerContent: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2",
       memberEmpty: "dddddddd-dddd-4ddd-8ddd-ddddddddddd3",
       memberContent: "dddddddd-dddd-4ddd-8ddd-ddddddddddd4",
@@ -277,6 +278,7 @@ describe("本文保存を待たない進行", () => {
     await runInRoomDO(roomId, (_room, state) => {
       for (const [id, authorId, content] of [
         [noteIds.ownerEmpty, hostId, " \t\u3000\n "],
+        [noteIds.ownerBlank, hostId, ""],
         [noteIds.ownerContent, hostId, "アイデア案"],
         [noteIds.memberEmpty, memberId, "\u3000\n"],
         [noteIds.memberContent, memberId, "別のアイデア案"],
@@ -298,6 +300,23 @@ describe("本文保存を待たない進行", () => {
     const memberSocket = await connectRoomAs(member, roomId);
     expect((await ownerSocket.next()).type).toBe("snapshot");
     expect((await memberSocket.next()).type).toBe("snapshot");
+    // 古い進行要求では空白の下書きも削除しない。
+    const before = await currentPhaseExpectation(roomId);
+    ownerSocket.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...before,
+        expectedRevision: before.expectedRevision + 1,
+      }),
+    );
+    expect(await untilType(ownerSocket, "error")).toMatchObject({
+      code: "forbidden",
+    });
+    expect(
+      await runInRoomDO(roomId, (_room, state) =>
+        state.storage.sql.exec("SELECT id FROM notes").toArray(),
+      ),
+    ).toHaveLength(5);
     ownerSocket.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -322,10 +341,13 @@ describe("本文保存を待たない進行", () => {
     expect(memberSnapshot.phase).toEqual(buildPhaseStep(2, phase));
     expect(
       ownerSnapshot.notes.some((note) => note.id === noteIds.ownerEmpty),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       memberSnapshot.notes.some((note) => note.id === noteIds.memberEmpty),
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      ownerSnapshot.notes.some(({ id }) => id === noteIds.ownerBlank),
+    ).toBe(false);
     expect(ownerSnapshot.notes).toContainEqual(
       expect.objectContaining({
         id: noteIds.ownerContent,
@@ -338,6 +360,19 @@ describe("本文保存を待たない進行", () => {
         content: "別のアイデア案",
       }),
     );
+    const persisted = await runInRoomDO(roomId, (_room, state) =>
+      state.storage.sql.exec("SELECT id FROM notes ORDER BY id").toArray(),
+    );
+    expect(persisted).toEqual([
+      { id: noteIds.ownerContent },
+      { id: noteIds.memberContent },
+    ]);
+    const reconnectedDuringSharing = await connectRoomAs(member, roomId);
+    expect(await reconnectedDuringSharing.next()).toMatchObject({
+      phase: buildPhaseStep(2, phase),
+      notes: [expect.objectContaining({ id: noteIds.memberContent })],
+    });
+    reconnectedDuringSharing.close();
     // 旧工程の要求は拒否し、5秒後の通信回復でも同じ共有工程の本人本文は保存できる。
     const current = await currentPhaseExpectation(roomId);
     const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 5000);
@@ -345,7 +380,7 @@ describe("本文保存を待たない進行", () => {
       memberSocket.ws.send(
         JSON.stringify({
           type: "note:update-content",
-          noteId: noteIds.memberEmpty,
+          noteId: noteIds.memberContent,
           operationId: crypto.randomUUID(),
           content: "遅れて届く本人本文",
           expectedContentRevision: 0,
@@ -358,7 +393,7 @@ describe("本文保存を待たない進行", () => {
       memberSocket.ws.send(
         JSON.stringify({
           type: "note:update-content",
-          noteId: noteIds.memberEmpty,
+          noteId: noteIds.memberContent,
           operationId: crypto.randomUUID(),
           content: "遅れて届く本人本文",
           expectedContentRevision: 0,
@@ -372,7 +407,7 @@ describe("本文保存を待たない進行", () => {
       ownerSocket.ws.send(
         JSON.stringify({
           type: "note:update-content",
-          noteId: noteIds.memberEmpty,
+          noteId: noteIds.memberContent,
           operationId: crypto.randomUUID(),
           content: "他人からの本文",
           expectedContentRevision: 1,
@@ -401,7 +436,7 @@ describe("本文保存を待たない進行", () => {
       expect(memberNext).toMatchObject({
         notes: expect.arrayContaining([
           expect.objectContaining({
-            id: noteIds.memberEmpty,
+            id: noteIds.memberContent,
             content: "遅れて届く本人本文",
           }),
         ]),
@@ -410,7 +445,7 @@ describe("本文保存を待たない進行", () => {
       memberSocket.ws.send(
         JSON.stringify({
           type: "note:update-content",
-          noteId: noteIds.memberEmpty,
+          noteId: noteIds.memberContent,
           operationId: crypto.randomUUID(),
           content: "非編集工程からの本文",
           expectedContentRevision: 1,

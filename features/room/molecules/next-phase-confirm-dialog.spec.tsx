@@ -60,6 +60,16 @@ describe("NextPhaseConfirmDialog", () => {
     );
   });
 
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%sの個人作業を離れるときは空白のマイ付箋を削除すると説明する", (phase) => {
+    setup({ phase: buildPhaseStep(1, phase) });
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "この個人作業ステップの空白だけのマイ付箋も削除します。",
+    );
+  });
+
   it("「移行する」で onConfirm を呼ぶ（確認前には呼ばない）", () => {
     const { onConfirm } = setup();
 
