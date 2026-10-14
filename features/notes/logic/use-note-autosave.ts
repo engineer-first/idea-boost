@@ -39,7 +39,7 @@ function editable(
   return note.visibility === "shared" || note.authorId === userId;
 }
 
-// 保存開始後に版が変わっても継続できるのは、本人の個人→同段階共有だけ。
+// 保存開始後に版が変わっても継続できるのは、本人の個人→直後の同段階共有だけ。
 function canContinueDraft(
   draft: NoteDraft,
   server: ServerState,
@@ -50,6 +50,8 @@ function canContinueDraft(
   const revision = draft.phaseRevision ?? draft.inFlight?.expectedPhaseRevision;
   if (revision === server.phaseRevision) return true;
   return (
+    revision !== undefined &&
+    server.phaseRevision === revision + 1 &&
     draft.phase?.kind === "step" &&
     draft.phase.step === 1 &&
     server.phase.kind === "step" &&

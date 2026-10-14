@@ -536,6 +536,58 @@ describe("useNoteAutosave", () => {
     );
   });
 
+  it.each([
+    [false, "snapshot"],
+    [true, "snapshot"],
+    [false, "phase:updated"],
+    [true, "phase:updated"],
+  ] as const)("書き直しを挟んだ再共有では古い本文を再送しない（送信済み:%s、通知:%s）", async (inFlight, messageType) => {
+    const { result } = setup();
+    act(() => result.current.applyMessage(snapshot()));
+    act(() => result.current.change(noteId, "最初の個人作業の古い本文"));
+    if (inFlight) act(() => vi.advanceTimersByTime(1000));
+    const request = send.mock.calls[0]?.[0];
+    act(() => result.current.setConnected(false));
+    // 切断中に個人(2)→共有(3)→書き直し(4)→再共有(5)まで進む。
+    act(() =>
+      result.current.applyMessage(
+        messageType === "snapshot"
+          ? { ...snapshot(), phase: buildPhaseStep(2), phaseRevision: 5 }
+          : {
+              type: "phase:updated",
+              phase: buildPhaseStep(2),
+              phaseRevision: 5,
+            },
+      ),
+    );
+    if (request?.type === "note:update-content")
+      act(() =>
+        result.current.applyMessage({
+          type: "note:content-status-result",
+          operationId: request.operationId,
+          status: "unknown",
+        }),
+      );
+    // phase更新だけでは接続復帰しないため、再接続snapshotも受け取る。
+    act(() =>
+      result.current.applyMessage({
+        ...snapshot(),
+        phase: buildPhaseStep(2),
+        phaseRevision: 5,
+      }),
+    );
+    await act(async () => {});
+    act(() => vi.advanceTimersByTime(1000));
+    expect(
+      send.mock.calls.filter(
+        ([message]) => message.type === "note:update-content",
+      ),
+    ).toHaveLength(inFlight ? 1 : 0);
+    expect(result.current.recoveries).toEqual([
+      expect.objectContaining({ noteId, text: "最初の個人作業の古い本文" }),
+    ]);
+  });
+
   it("共有前保存はAのACKで後続Bを共有せず、最新BのACK後に一度だけ実行する", async () => {
     const { result } = setup();
     const sharedSnapshot = { ...snapshot(), phase: buildPhaseStep(2) };
