@@ -64,33 +64,12 @@ describe("直前ステップへの復元", () => {
       notes: [expect.objectContaining({ id })],
     });
   });
-  it("通常進行の保存待ち中は、履歴があっても復元要求を拒否する", async () => {
+  it("即時進行後の古い更新番号による復元は拒否する", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, host.sub);
-    a.ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomId)),
-      }),
-    );
-    await Promise.all([
-      until(a, "phase:save-requested"),
-      until(b, "phase:save-requested"),
-    ]);
-    await runInRoomDO(roomId, async (room, state) => {
-      state.storage.sql.exec(
-        "UPDATE pending_phase_transition SET deadline_at=?",
-        Date.now() - 1,
-      );
-      await room.alarm();
-    });
-    await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
     const expected = await currentPhaseExpectation(roomId);
     a.ws.send(JSON.stringify({ type: "phase:next", ...expected }));
-    await Promise.all([
-      until(a, "phase:save-requested"),
-      until(b, "phase:save-requested"),
-    ]);
+    await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
     a.ws.send(
       JSON.stringify({
         type: "phase:rollback",
@@ -99,20 +78,11 @@ describe("直前ステップへの復元", () => {
       }),
     );
     expect(await a.next()).toMatchObject({ type: "error", code: "forbidden" });
-    expect(await stub.getPhase()).toEqual(expected.expectedPhase);
-    await runInRoomDO(roomId, (_room, state) => {
-      expect(
-        state.storage.sql
-          .exec("SELECT * FROM pending_phase_transition")
-          .toArray(),
-      ).toHaveLength(1);
-      expect(
-        state.storage.sql
-          .exec("SELECT * FROM phase_rollback_checkpoints")
-          .toArray(),
-      ).toHaveLength(1);
-    });
+    expect(await stub.getPhase()).toEqual({ kind: "step", phase: 1, step: 2 });
+    const [snapshot] = await rollback(roomId, a, b);
+    expect(snapshot).toMatchObject({ phase: expected.expectedPhase });
   });
+
   it("履歴がないホストの要求も拒否する", async () => {
     const { roomId, a } = await setup();
     a.ws.send(
@@ -327,17 +297,6 @@ describe("復元の競合と連続進行", () => {
         ...(await currentPhaseExpectation(roomId)),
       }),
     );
-    await Promise.all([
-      until(a, "phase:save-requested"),
-      until(b, "phase:save-requested"),
-    ]);
-    await runInRoomDO(roomId, async (room, state) => {
-      state.storage.sql.exec(
-        "UPDATE pending_phase_transition SET deadline_at=?",
-        Date.now() - 1,
-      );
-      await room.alarm();
-    });
     await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
     await runInRoomDO(roomId, (_room, state) => {
       const sql = state.storage.sql;
@@ -470,17 +429,6 @@ describe("復元後の会員情報と本文保存の世代", () => {
         ...(await currentPhaseExpectation(roomId)),
       }),
     );
-    await Promise.all([
-      until(a, "phase:save-requested"),
-      until(b, "phase:save-requested"),
-    ]);
-    await runInRoomDO(roomId, async (room, state) => {
-      state.storage.sql.exec(
-        "UPDATE pending_phase_transition SET deadline_at=?",
-        Date.now() - 1,
-      );
-      await room.alarm();
-    });
     await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
     const newcomer = crypto.randomUUID();
     await runInRoomDO(roomId, (_room, state) => {

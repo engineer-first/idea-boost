@@ -44,6 +44,16 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "AT-639 共有移行後も遅延保存された本人下書きは他者へ不可視",
+    viewerId: VIEWER,
+    note: note({
+      visibility: "private",
+      content: "通信回復後の本文",
+      contentRevision: 1,
+    }),
+    expected: false,
+  },
+  {
     name: "AT-538 連続作成したprivate付箋を他の参加者へ配信しない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

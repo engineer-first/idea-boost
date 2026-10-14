@@ -101,7 +101,6 @@ type MessageQueue = {
   waiters: Array<(message: Record<string, unknown>) => void>;
 };
 const messageQueues = new WeakMap<WebSocket, MessageQueue>();
-const advancedTransitions = new Set<string>();
 function queueFor(ws: WebSocket): MessageQueue {
   const existing = messageQueues.get(ws);
   if (existing) return existing;
@@ -109,21 +108,7 @@ function queueFor(ws: WebSocket): MessageQueue {
   messageQueues.set(ws, queue);
   ws.addEventListener("message", (event) => {
     const message = JSON.parse(String(event.data)) as Record<string, unknown>;
-    const roomName = roomNameBySocket.get(ws);
-    if (message.type === "phase:save-requested" && roomName) {
-      const transitionId = String(message.transitionId);
-      if (!advancedTransitions.has(transitionId)) {
-        advancedTransitions.add(transitionId);
-        void runInRoomDO(roomName, async (instance, state) => {
-          state.storage.sql.exec(
-            "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
-            Date.now() - 1,
-          );
-          await instance.alarm();
-        });
-      }
-      return;
-    }
+
     if (message.type === "note:content-saved") return;
     const waiter = queue.waiters.shift();
     if (waiter) waiter(message);
@@ -2236,6 +2221,15 @@ describe("RoomDO phase:next", () => {
            VALUES (?1, ?2, 'PRIVATE_NOTE_BODY', 'private', 'yellow', 0, 0, 3, ?3, ?3)`,
           crypto.randomUUID(),
           USER_A,
+          now,
+        );
+      }
+      for (let index = 0; index < 20; index++) {
+        state.storage.sql.exec(
+          "INSERT INTO notes(id,author_id,content,visibility,color,x,y,phase,created_at,updated_at) VALUES(?1,?2,?3,'private','yellow',0,0,3,?4,?4)",
+          crypto.randomUUID(),
+          USER_A,
+          "\t\n\u3000\u00a0",
           now,
         );
       }

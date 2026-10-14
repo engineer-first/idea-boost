@@ -23,7 +23,6 @@ type ServerState = {
   phase: RoomPhase;
   phaseRevision: number;
   notes: Map<string, ProtocolNote>;
-  pending: boolean;
 };
 
 export type RecoveryItem = { noteId: string; text: string; reason: string };
@@ -40,6 +39,29 @@ function editable(
   return note.visibility === "shared" || note.authorId === userId;
 }
 
+// 保存開始後に版が変わっても継続できるのは、本人の個人→直後の同段階共有だけ。
+function canContinueDraft(
+  draft: NoteDraft,
+  server: ServerState,
+  userId: string,
+): boolean {
+  const note = server.notes.get(draft.noteId);
+  if (!editable(note, server.phase, userId)) return false;
+  const revision = draft.phaseRevision ?? draft.inFlight?.expectedPhaseRevision;
+  if (revision === server.phaseRevision) return true;
+  return (
+    revision !== undefined &&
+    server.phaseRevision === revision + 1 &&
+    draft.phase?.kind === "step" &&
+    draft.phase.step === 1 &&
+    server.phase.kind === "step" &&
+    server.phase.step === 2 &&
+    draft.phase.phase === server.phase.phase &&
+    note?.visibility === "private" &&
+    note.authorId === userId
+  );
+}
+
 export function useNoteAutosave(options: {
   roomId: string;
   userId: string;
@@ -47,13 +69,17 @@ export function useNoteAutosave(options: {
 }) {
   const key = noteDraftStorageKey(options.roomId, options.userId);
   const draftsRef = useRef<Map<string, NoteDraft>>(new Map());
+  // このmountで続いている変換だけを追跡する。再読込したcomposing値は中断扱い。
+  const activeCompositionsRef = useRef(new Set<string>());
+  const shareWaitersRef = useRef(
+    new Map<string, { phaseRevision: number; onSaved: () => void }>(),
+  );
   const serverRef = useRef<ServerState>({
     ready: false,
     connected: false,
     phase: { kind: "lobby" },
     phaseRevision: 0,
     notes: new Map(),
-    pending: false,
   });
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
@@ -67,6 +93,8 @@ export function useNoteAutosave(options: {
       for (const timer of statusTimersRef.current.values()) clearTimeout(timer);
       timersRef.current.clear();
       statusTimersRef.current.clear();
+      shareWaitersRef.current.clear();
+      activeCompositionsRef.current.clear();
     },
     [],
   );
@@ -76,6 +104,7 @@ export function useNoteAutosave(options: {
 
   const repaint = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
+    activeCompositionsRef.current.clear();
     const loaded = loadNoteDrafts(key);
     draftsRef.current = new Map(
       loaded.drafts.map((draft) => [draft.noteId, draft]),
@@ -107,6 +136,9 @@ export function useNoteAutosave(options: {
     (draft: NoteDraft, reason: NonNullable<NoteDraft["recoveryReason"]>) => {
       clearTimer(draft.noteId);
       clearStatusTimer(draft.noteId);
+      shareWaitersRef.current.delete(draft.noteId);
+      if (reason !== "send-failed" && reason !== "result-unknown")
+        activeCompositionsRef.current.delete(draft.noteId);
       draft.recoveryReason = reason;
       draftsRef.current.set(draft.noteId, draft);
       persist();
@@ -149,6 +181,30 @@ export function useNoteAutosave(options: {
     [markRecovery, options.send, requestStatus],
   );
 
+  const completeShareWaiter = useCallback(
+    (noteId: string, content: string, contentRevision: number) => {
+      const waiter = shareWaitersRef.current.get(noteId);
+      if (!waiter) return;
+      shareWaitersRef.current.delete(noteId);
+      const server = serverRef.current;
+      const note = server.notes.get(noteId);
+      if (
+        server.ready &&
+        server.connected &&
+        waiter.phaseRevision === server.phaseRevision &&
+        server.phase.kind === "step" &&
+        server.phase.step === 2 &&
+        note?.visibility === "private" &&
+        note.authorId === options.userId &&
+        !note.excluded &&
+        note.content === content &&
+        note.contentRevision === contentRevision
+      )
+        waiter.onSaved();
+    },
+    [options.userId],
+  );
+
   const flush = useCallback(
     (noteId: string) => {
       clearTimer(noteId);
@@ -162,7 +218,7 @@ export function useNoteAutosave(options: {
         markRecovery(draft, "missing");
         return;
       }
-      if (!editable(note, server.phase, options.userId)) {
+      if (!canContinueDraft(draft, server, options.userId)) {
         markRecovery(draft, "not-editable");
         return;
       }
@@ -172,6 +228,7 @@ export function useNoteAutosave(options: {
       }
       if (draft.committedText === draft.baseContent) {
         draftsRef.current.delete(noteId);
+        completeShareWaiter(noteId, note.content, note.contentRevision);
         persist();
         repaint();
         return;
@@ -201,6 +258,7 @@ export function useNoteAutosave(options: {
     },
     [
       clearTimer,
+      completeShareWaiter,
       markRecovery,
       options.send,
       options.userId,
@@ -210,10 +268,42 @@ export function useNoteAutosave(options: {
     ],
   );
 
+  const saveBeforeShare = useCallback(
+    (noteId: string, onSaved: () => void): void => {
+      const server = serverRef.current;
+      const note = server.notes.get(noteId);
+      const draft = draftsRef.current.get(noteId);
+      if (
+        !server.ready ||
+        !server.connected ||
+        server.phase.kind !== "step" ||
+        server.phase.step !== 2 ||
+        note?.visibility !== "private" ||
+        note.authorId !== options.userId ||
+        note.excluded ||
+        draft?.composing ||
+        draft?.recoveryReason ||
+        shareWaitersRef.current.has(noteId)
+      )
+        return;
+      if (!draft) {
+        onSaved();
+        return;
+      }
+      shareWaitersRef.current.set(noteId, {
+        phaseRevision: server.phaseRevision,
+        onSaved,
+      });
+      flush(noteId);
+      repaint();
+    },
+    [flush, options.userId, repaint],
+  );
+
   const schedule = useCallback(
     (noteId: string, immediate = false) => {
       clearTimer(noteId);
-      if (immediate || serverRef.current.pending) {
+      if (immediate) {
         queueMicrotask(() => flush(noteId));
         return;
       }
@@ -237,6 +327,7 @@ export function useNoteAutosave(options: {
           baseContent: note.content,
           baseRevision: note.contentRevision,
           phaseRevision: serverRef.current.phaseRevision,
+          phase: server.phase,
           text: note.content,
           committedText: note.content,
           generation: 0,
@@ -268,6 +359,7 @@ export function useNoteAutosave(options: {
           baseContent: note.content,
           baseRevision: note.contentRevision,
           phaseRevision: serverRef.current.phaseRevision,
+          phase: serverRef.current.phase,
           text: note.content,
           committedText: note.content,
           generation: 0,
@@ -277,14 +369,19 @@ export function useNoteAutosave(options: {
         };
         draftsRef.current.set(noteId, draft);
       }
+      if (shareWaitersRef.current.delete(noteId)) repaint();
+      activeCompositionsRef.current.add(noteId);
       draft.composing = true;
       clearTimer(noteId);
       persist();
     },
-    [clearTimer, persist],
+    [clearTimer, persist, repaint],
   );
   const compositionEnd = useCallback(
     (noteId: string, text: string) => {
+      const wasActive = activeCompositionsRef.current.delete(noteId);
+      // 復元で破棄した変換の遅いイベントから、旧本文の下書きを作り直さない。
+      if (!wasActive && !draftsRef.current.has(noteId)) return;
       change(noteId, text);
       const draft = draftsRef.current.get(noteId);
       if (!draft) return;
@@ -306,9 +403,10 @@ export function useNoteAutosave(options: {
       clearStatusTimer(noteId);
       draft.inFlight = null;
       if (draft.recoveryReason === "result-unknown")
-        draft.recoveryReason = draft.composing
-          ? "interrupted-composition"
-          : null;
+        draft.recoveryReason =
+          draft.composing && !activeCompositionsRef.current.has(draft.noteId)
+            ? "interrupted-composition"
+            : null;
       draft.baseContent = sent.content;
       draft.baseRevision = contentRevision;
       const current = serverRef.current.notes.get(noteId);
@@ -326,13 +424,25 @@ export function useNoteAutosave(options: {
           content: sent.content,
           contentRevision,
         });
-      if (draft.text === sent.content && !draft.composing)
+      if (draft.text === sent.content && !draft.composing) {
         draftsRef.current.delete(noteId);
-      else if (!draft.composing) schedule(noteId, true);
+        completeShareWaiter(noteId, sent.content, contentRevision);
+      } else if (!canContinueDraft(draft, serverRef.current, options.userId))
+        markRecovery(draft, "not-editable");
+      else if (!draft.composing && !draft.recoveryReason)
+        schedule(noteId, true);
       persist();
       repaint();
     },
-    [clearStatusTimer, markRecovery, persist, repaint, schedule],
+    [
+      clearStatusTimer,
+      completeShareWaiter,
+      markRecovery,
+      options.userId,
+      persist,
+      repaint,
+      schedule,
+    ],
   );
 
   const stopRolledBackDrafts = useCallback(
@@ -347,6 +457,7 @@ export function useNoteAutosave(options: {
         clearTimer(draft.noteId);
         clearStatusTimer(draft.noteId);
         draftsRef.current.delete(draft.noteId);
+        activeCompositionsRef.current.delete(draft.noteId);
       }
       persist();
     },
@@ -357,40 +468,52 @@ export function useNoteAutosave(options: {
     (message: ServerMessage) => {
       const server = serverRef.current;
       if (message.type === "snapshot") {
+        for (const [noteId, waiter] of shareWaitersRef.current)
+          if (waiter.phaseRevision !== message.phaseRevision)
+            shareWaitersRef.current.delete(noteId);
         stopRolledBackDrafts(message.rollbackRevision);
         server.ready = true;
         server.connected = true;
         server.phase = message.phase;
         server.phaseRevision = message.phaseRevision;
         server.notes = new Map(message.notes.map((note) => [note.id, note]));
-        server.pending =
-          message.pendingPhaseTransition !== null &&
-          message.pendingPhaseTransition !== undefined;
         for (const draft of draftsRef.current.values()) {
-          // snapshotだけでは保存結果は分からない。照会中も文章を回収できるよう残す。
-          if (draft.recoveryReason === "result-unknown" && draft.inFlight) {
-            sendStatus(draft);
-            continue;
-          }
           if (draft.recoveryReason === "send-failed") {
             draft.recoveryReason = null;
             persist();
           }
-          if (draft.recoveryReason) continue;
-          if (draft.composing) {
-            markRecovery(draft, "interrupted-composition");
-          }
+          // snapshotだけでは保存結果は分からない。照会中も文章を回収できるよう残す。
           if (draft.inFlight) {
+            clearTimer(draft.noteId);
+            // 再読込で中断した変換は、送信済みAの結果とは別に回収する。
+            // Aだけ照会し、未確定の後続文字を自動で確定・送信しない。
+            if (
+              (draft.composing &&
+                !activeCompositionsRef.current.has(draft.noteId)) ||
+              !canContinueDraft(draft, server, options.userId)
+            )
+              markRecovery(
+                draft,
+                draft.composing ? "interrupted-composition" : "not-editable",
+              );
             sendStatus(draft);
             continue;
           }
-          if (draft.composing) continue;
+          if (draft.recoveryReason) continue;
+          if (draft.composing) {
+            if (
+              !activeCompositionsRef.current.has(draft.noteId) ||
+              !canContinueDraft(draft, server, options.userId)
+            )
+              markRecovery(draft, "interrupted-composition");
+            continue;
+          }
           const note = server.notes.get(draft.noteId);
           if (!note) {
             markRecovery(draft, "missing");
             continue;
           }
-          if (!editable(note, server.phase, options.userId)) {
+          if (!canContinueDraft(draft, server, options.userId)) {
             markRecovery(draft, "not-editable");
             continue;
           }
@@ -436,8 +559,14 @@ export function useNoteAutosave(options: {
           return;
         }
         const note = server.notes.get(draft.noteId);
-        if (!note || !editable(note, server.phase, options.userId)) {
-          markRecovery(draft, "not-editable");
+        if (
+          !note ||
+          !canContinueDraft(draft, server, options.userId) ||
+          (draft.recoveryReason !== null &&
+            draft.recoveryReason !== "result-unknown" &&
+            draft.recoveryReason !== "send-failed")
+        ) {
+          markRecovery(draft, draft.recoveryReason ?? "not-editable");
           return;
         }
         if (note.contentRevision !== draft.inFlight.expectedContentRevision) {
@@ -448,9 +577,11 @@ export function useNoteAutosave(options: {
           clearStatusTimer(draft.noteId);
           draft.inFlight = null;
           if (draft.recoveryReason === "result-unknown")
-            draft.recoveryReason = draft.composing
-              ? "interrupted-composition"
-              : null;
+            draft.recoveryReason =
+              draft.composing &&
+              !activeCompositionsRef.current.has(draft.noteId)
+                ? "interrupted-composition"
+                : null;
           persist();
           repaint();
           schedule(draft.noteId, true);
@@ -472,6 +603,27 @@ export function useNoteAutosave(options: {
         const draft = [...draftsRef.current.values()].find(
           (item) => item.inFlight?.operationId === message.operationId,
         );
+        // Workerは工程版と本文版の不一致を同じcontent-conflictで拒否する。
+        // 本人の個人→共有で本文版が同じなら、受理記録を先に照会する。
+        // forbiddenは認可の拒否なので、この継続経路へ入れない。
+        if (
+          draft &&
+          message.code === "content-conflict" &&
+          draft.inFlight &&
+          draft.inFlight.expectedPhaseRevision < server.phaseRevision &&
+          draft.phase?.kind === "step" &&
+          draft.phase.step === 1 &&
+          server.phase.kind === "step" &&
+          server.phase.step === 2 &&
+          draft.phase.phase === server.phase.phase &&
+          canContinueDraft(draft, server, options.userId) &&
+          server.notes.get(draft.noteId)?.contentRevision ===
+            draft.baseRevision &&
+          !draft.recoveryReason
+        ) {
+          sendStatus(draft);
+          return;
+        }
         if (draft)
           markRecovery(
             draft,
@@ -479,36 +631,30 @@ export function useNoteAutosave(options: {
           );
         return;
       }
-      if (message.type === "phase:save-requested") {
-        server.pending = true;
-        for (const draft of draftsRef.current.values())
-          schedule(draft.noteId, true);
-        return;
-      }
       if (message.type === "phase:updated") {
+        for (const [noteId, waiter] of shareWaitersRef.current)
+          if (waiter.phaseRevision !== message.phaseRevision)
+            shareWaitersRef.current.delete(noteId);
         stopRolledBackDrafts(message.rollbackRevision);
         server.phase = message.phase;
         server.phaseRevision = message.phaseRevision;
-        server.pending = false;
         for (const draft of draftsRef.current.values()) {
+          clearTimer(draft.noteId);
+          if (!canContinueDraft(draft, server, options.userId))
+            markRecovery(draft, "not-editable");
           if (draft.inFlight) {
             sendStatus(draft);
             continue;
           }
-          if (
-            !editable(
-              server.notes.get(draft.noteId),
-              server.phase,
-              options.userId,
-            )
-          )
-            markRecovery(draft, "not-editable");
+          if (!draft.recoveryReason && !draft.composing)
+            schedule(draft.noteId, true);
         }
         repaint();
       }
     },
     [
       accept,
+      clearTimer,
       clearStatusTimer,
       markRecovery,
       options.send,
@@ -522,14 +668,22 @@ export function useNoteAutosave(options: {
     ],
   );
 
-  const setConnected = useCallback((connected: boolean) => {
-    if (!connected) {
-      serverRef.current.connected = false;
-      serverRef.current.ready = false;
-      for (const timer of statusTimersRef.current.values()) clearTimeout(timer);
-      statusTimersRef.current.clear();
-    }
-  }, []);
+  const setConnected = useCallback(
+    (connected: boolean) => {
+      if (!connected) {
+        if (shareWaitersRef.current.size > 0) {
+          shareWaitersRef.current.clear();
+          repaint();
+        }
+        serverRef.current.connected = false;
+        serverRef.current.ready = false;
+        for (const timer of statusTimersRef.current.values())
+          clearTimeout(timer);
+        statusTimersRef.current.clear();
+      }
+    },
+    [repaint],
+  );
   const recoverDisconnected = useCallback(() => {
     setConnected(false);
     for (const draft of draftsRef.current.values())
@@ -572,6 +726,8 @@ export function useNoteAutosave(options: {
   return {
     change,
     blur,
+    saveBeforeShare,
+    sharingSavePending: shareWaitersRef.current.size > 0,
     compositionStart,
     compositionEnd,
     applyMessage,

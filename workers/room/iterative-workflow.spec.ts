@@ -113,18 +113,7 @@ async function until(
 ): Promise<ServerMessage> {
   for (let i = 0; i < 20; i++) {
     const message = await socket.next();
-    if (message.type === "phase:save-requested") {
-      const roomId = roomIdBySocket.get(socket);
-      if (roomId)
-        await runInRoomDO(roomId, async (instance, state) => {
-          state.storage.sql.exec(
-            "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
-            Date.now() - 1,
-          );
-          await instance.alarm();
-        });
-      continue;
-    }
+
     if (message.type === "error" || message.type === type) return message;
   }
   throw new Error("応答が見つかりません");

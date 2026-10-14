@@ -71,6 +71,7 @@ export type RoomBoardCanvasProps = {
   isHost: boolean;
   privateNotes: Note[];
   canPublishPrivateNote?: boolean;
+  isSavingBeforeShare?: boolean;
   selectedNoteId: string | null;
   selectedNoteIds?: string[];
   interactionTool?: CanvasTool;
@@ -176,6 +177,7 @@ export function RoomBoardCanvas({
   isHost,
   privateNotes,
   canPublishPrivateNote = false,
+  isSavingBeforeShare = false,
   selectedNoteId,
   selectedNoteIds,
   interactionTool = "select",
@@ -909,11 +911,13 @@ export function RoomBoardCanvas({
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               sharingHint={
-                phase.kind === "step" && phase.step === 2
-                  ? canPublishPrivateNote
-                    ? "あなたの番です。付箋をボードへドラッグして共有できます。"
-                    : "付箋の共有は、自分の番になるまでお待ちください。"
-                  : undefined
+                isSavingBeforeShare
+                  ? "本文の保存を確認してから共有します…"
+                  : phase.kind === "step" && phase.step === 2
+                    ? canPublishPrivateNote
+                      ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+                      : "付箋の共有は、自分の番になるまでお待ちください。"
+                    : undefined
               }
               presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
               editingDisabled={isResultStep(phase)}

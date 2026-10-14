@@ -171,7 +171,7 @@ it("投票ステップを離れる時点では現在フェーズの票を保存�
   });
 });
 
-it("編集ステップの延期と拒否では増えず、期限成立時の書き足し移行を一度だけ記録する", async () => {
+it("書き足しを即時記録し古い再要求と旧alarmで記録を増やさない", async () => {
   const room = await createRoomAs(owner);
   await runInRoomDO(room.roomId, async (instance, state) => {
     seed(state);
@@ -184,8 +184,7 @@ it("編集ステップの延期と拒否では増えず、期限成立時の書�
     };
     await phaseHandlers["phase:restart-writing"](ctx, message);
     await phaseHandlers["phase:restart-writing"](ctx, message);
-    expect((await instance.getProgressHistory())?.entries).toEqual([]);
-    state.storage.sql.exec("UPDATE pending_phase_transition SET deadline_at=0");
+    expect((await instance.getProgressHistory())?.entries).toHaveLength(2);
     await completeExpiredPhaseTransition(ctx);
     await completeExpiredPhaseTransition(ctx);
     expect((await instance.getProgressHistory())?.entries).toHaveLength(2);
@@ -525,8 +524,6 @@ it.each([
       expectedPhase: current,
       expectedRevision: getPhaseRevision(state.storage.sql),
     });
-    state.storage.sql.exec("UPDATE pending_phase_transition SET deadline_at=0");
-    await completeExpiredPhaseTransition(context(state));
     await instance.alarm();
     const rows = requireValue(await instance.getProgressHistory()).entries;
     expect(rows).toHaveLength(2);
@@ -584,17 +581,6 @@ it("同一ルームのWSで開始から14ステップ完了まで訪問順の13�
         expectedRevision: current.revision,
       }),
     );
-    if (current.phase.step <= 2) {
-      expect(await socket.next()).toMatchObject({
-        type: "phase:save-requested",
-      });
-      await runInRoomDO(room.roomId, async (instance, state) => {
-        state.storage.sql.exec(
-          "UPDATE pending_phase_transition SET deadline_at=0",
-        );
-        await instance.alarm();
-      });
-    }
     while ((await socket.next()).type !== "phase:updated") {}
   }
   await runInRoomDO(room.roomId, async (instance, state) => {

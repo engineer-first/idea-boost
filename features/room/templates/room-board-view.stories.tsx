@@ -707,6 +707,10 @@ export const Step1_2_Sharing: Story = {
   },
 };
 
+export const SharingWaitingForContentSave: Story = {
+  args: { ...Step1_2_Sharing.args, isSavingBeforeShare: true },
+};
+
 export const Step1_3_Grouping: Story = {
   args: {
     phase: STEP_1_3,

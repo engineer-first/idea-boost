@@ -18,6 +18,7 @@ import {
   needsHostRevision,
   type ServerMessage,
 } from "@/contracts/room-protocol";
+import { canPublishNoteInTurn } from "@/contracts/sharing";
 import type { DisplayNameResult } from "@/features/auth";
 import { submitFeedback, useFeedback } from "@/features/feedback";
 import { HMW_EXAMPLES } from "@/features/hmw";
@@ -163,6 +164,7 @@ export function RoomBoard({
     send,
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
+  const sharingGenerationRef = useRef(0);
   const handleUnknownNoteCreation = useCallback((): void => {
     notify.error("付箋を追加できたか確認できません。接続を確認しています。");
     resynchronize();
@@ -241,6 +243,7 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    if (message.type === "sharing:updated") sharingGenerationRef.current += 1;
     if (displayName.applyMessage(message)) return;
     moveHistory.applyMessage(message);
     if (memberRemoval.applyMessage(message)) return;
@@ -325,11 +328,8 @@ export function RoomBoard({
       return;
     }
 
-    if (message.type === "phase:save-requested") setIsNextPhasePending(true);
     if (message.type === "phase:updated" || message.type === "snapshot") {
-      setIsNextPhasePending(
-        message.type === "snapshot" && message.pendingPhaseTransition != null,
-      );
+      setIsNextPhasePending(false);
       // 進行が確定（別タブ等）・復元（再接続）されたら、開いていた
       // 強制進行の確認はフェーズ1・2の投票ステップのゲート前提が崩れているため閉じる。
       setIsForceNextPhaseDialogOpen(false);
@@ -570,6 +570,44 @@ export function RoomBoard({
   const boardPrivateNotes = notes.notes.filter(
     (note) => note.visibility === "private",
   );
+  const publishContextRef = useRef({
+    roomState,
+    connectionStatus,
+    isNextPhasePending,
+    isLeaving,
+    notes,
+  });
+  publishContextRef.current = {
+    roomState,
+    connectionStatus,
+    isNextPhasePending,
+    isLeaving,
+    notes,
+  };
+  const handlePrivateNotePublish = useCallback(
+    (noteId: string, x: number, y: number) => {
+      const sharingGeneration = sharingGenerationRef.current;
+      drafts.saveBeforeShare(noteId, () => {
+        if (sharingGeneration !== sharingGenerationRef.current) return;
+        const current = publishContextRef.current;
+        if (
+          current.connectionStatus !== "open" ||
+          current.isNextPhasePending ||
+          current.isLeaving ||
+          current.roomState.outcomePublished ||
+          current.roomState.decision !== null ||
+          !canPublishNoteInTurn(
+            current.roomState.phase,
+            current.roomState.sharing,
+            currentUserId,
+          )
+        )
+          return;
+        current.notes.publishNote(noteId, x, y);
+      });
+    },
+    [drafts.saveBeforeShare, currentUserId],
+  );
   const boardInteractions = useRoomBoardInteractions({
     movePending: notes.movePending || moveHistory.pending,
     onPendingMoveInterrupt: notes.cancelNoteDrag,
@@ -587,7 +625,7 @@ export function RoomBoard({
     onNoteDragMove: notes.moveNote,
     onNoteDragEnd: notes.endNoteDrag,
     onNoteDragCancel: notes.cancelNoteDrag,
-    onPrivateNotePublish: notes.publishNote,
+    onPrivateNotePublish: handlePrivateNotePublish,
     onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
@@ -705,6 +743,7 @@ export function RoomBoard({
         hostUserId={hostUserId}
         completedVoterIds={roomState.completedVoterIds}
         isNextPhasePending={isNextPhasePending}
+        isSavingBeforeShare={drafts.sharingSavePending}
         signOutAction={signOutAction}
         interactions={boardInteractions}
         help={help}
