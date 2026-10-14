@@ -13,7 +13,7 @@ import { ParticipationSwitchView } from "../templates/participation-switch-view"
 export function ParticipationSwitch({
   currentUserId,
   confirmation: initial,
-  pendingOperation,
+  pendingOperation: initialPendingOperation,
   failedOperation: initialFailure,
   onCancel,
   onReady,
@@ -28,6 +28,9 @@ export function ParticipationSwitch({
   const router = useRouter();
   const [failedOperation, setFailedOperation] = useState(initialFailure);
   const [confirmation, setConfirmation] = useState(initial);
+  const [pendingOperation, setPendingOperation] = useState(
+    initialPendingOperation,
+  );
   const [outcomeAccess, setOutcomeAccess] = useState<"retain" | "discard">(
     initial?.outcomeAccess ?? "discard",
   );
@@ -41,6 +44,7 @@ export function ParticipationSwitch({
   principal.current = currentUserId;
   async function apply(result: ParticipationActionResult) {
     if (result.kind === "confirmation") {
+      setPendingOperation(undefined);
       setConfirmation(result.confirmation);
       setStarted(false);
       setOutcomeAccess(result.confirmation.outcomeAccess ?? "discard");
@@ -48,7 +52,12 @@ export function ParticipationSwitch({
         "参加状況が変わりました。内容を確認して、もう一度決定してください。",
       );
     } else if (result.kind === "ready") {
-      if (onReady) await onReady(result.roomId);
+      const operationId =
+        pendingOperation?.operationId ?? confirmation?.operationId;
+      const originalId =
+        initial?.operationId ?? initialPendingOperation?.operationId;
+      // 別タブの移動結果を、呼出元が保持する作成要求へ保存しない。
+      if (onReady && operationId === originalId) await onReady(result.roomId);
       rememberLastRoom(currentUserId, result.roomId);
       router.push(
         await entryDestination(
@@ -59,6 +68,10 @@ export function ParticipationSwitch({
       );
       router.refresh();
     } else {
+      if (result.kind === "pending") {
+        setPendingOperation(result);
+        setConfirmation(undefined);
+      }
       if (result.kind === "rejected" && result.failure) {
         setFailedOperation(result);
         setStarted(false);

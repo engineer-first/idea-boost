@@ -6,12 +6,13 @@ import { switchConfirmation } from "../logic/participation.fixture";
 import { ParticipationSwitch } from "./participation-switch";
 
 const commit = vi.hoisted(() => vi.fn());
+const push = vi.hoisted(() => vi.fn());
 vi.mock("../logic/participation-actions", () => ({
   commitParticipation: commit,
   queryParticipation: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push, refresh: vi.fn() }),
 }));
 describe("参加先の確認", () => {
   it("確認を開くだけでは退出せず、既定の成果破棄を本人の確定で送る", async () => {
@@ -107,6 +108,83 @@ it("通信失敗後は取消を出さず、同じ操作を照会して再試行�
   expect(
     screen.getByRole("button", { name: "退出して参加する" }),
   ).toBeInTheDocument();
+});
+
+it("別タブの処理中操作を受け取ったら、その移動先とIDで結果確認を続ける", async () => {
+  const { queryParticipation } = await import("../logic/participation-actions");
+  commit.mockReset();
+  vi.mocked(queryParticipation).mockReset();
+  const other = {
+    kind: "pending" as const,
+    operationId: "55555555-5555-4555-8555-555555555555",
+    progress: "joining" as const,
+    targetName: "別タブで選んだルームC",
+    error: "別タブで移動中です",
+  };
+  commit.mockResolvedValueOnce(other);
+  vi.mocked(queryParticipation).mockResolvedValueOnce(other);
+  render(
+    <ParticipationSwitch
+      currentUserId="11111111-1111-4111-8111-111111111111"
+      confirmation={switchConfirmation("disband")}
+    />,
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "解散して参加する" }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "結果を確認・再試行" }),
+  );
+  expect(queryParticipation).toHaveBeenLastCalledWith(
+    other.operationId,
+    "11111111-1111-4111-8111-111111111111",
+  );
+  expect(screen.getByText(/移動先：別タブで選んだルームC/)).toBeInTheDocument();
+  expect(screen.queryByText(/切断中の人を含め全員/)).not.toBeInTheDocument();
+  expect(commit).toHaveBeenCalledTimes(1);
+});
+
+it.each([
+  false,
+  true,
+])("回復した操作の成功を元の作成結果へ誤って保存しない（同一操作: %s）", async (sameOperation) => {
+  const { queryParticipation } = await import("../logic/participation-actions");
+  commit.mockReset();
+  vi.mocked(queryParticipation).mockReset();
+  push.mockReset();
+  const original = switchConfirmation();
+  const operationId = sameOperation
+    ? original.operationId
+    : "55555555-5555-4555-8555-555555555555";
+  const roomId = "66666666-6666-4666-8666-666666666666";
+  const onReady = vi.fn().mockResolvedValue(undefined);
+  commit.mockResolvedValueOnce({
+    kind: "pending",
+    operationId,
+    progress: "joining",
+    error: "移動中です",
+  });
+  vi.mocked(queryParticipation).mockResolvedValueOnce({
+    kind: "ready",
+    roomId,
+  });
+  render(
+    <ParticipationSwitch
+      currentUserId="11111111-1111-4111-8111-111111111111"
+      confirmation={original}
+      onReady={onReady}
+    />,
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "退出して参加する" }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "結果を確認・再試行" }),
+  );
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledWith(`/rooms/${roomId}/start`),
+  );
+  expect(onReady).toHaveBeenCalledTimes(sameOperation ? 1 : 0);
 });
 
 it("送信中は確定・取消・成果選択を無効にする", async () => {
