@@ -19,6 +19,45 @@ async function open(page: Page, story: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
 }
 
+test("3-1の考えるヒントはデスクトップの残りの高さを使い、画面を高くすると下へ広がる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    reducedMotion: "reduce",
+  });
+  try {
+    await open(page, "room-roomboardlayout--phase-3-step-1");
+    await page
+      .getByRole("region", { name: "ファシリテーションガイド" })
+      .press("Escape");
+    const panel = page.getByTestId("board-help-panel").locator(":scope > div");
+    const heights: number[] = [];
+    for (const height of [720, 1030]) {
+      await page.setViewportSize({ width: 1280, height });
+      await vi.waitFor(async () => {
+        const box = await panel.boundingBox();
+        // 個人入力では左下のボード操作が非表示なので、画面下の余白まで使う。
+        expect(box).not.toBeNull();
+        expect((box?.y ?? 0) + (box?.height ?? 0)).toBeCloseTo(height - 12, 0);
+      });
+      const box = await panel.boundingBox();
+      heights.push(box?.height ?? 0);
+      await page
+        .getByRole("tab", { name: "発想を広げる", exact: true })
+        .click();
+      await page.getByRole("tab", { name: "書き出し", exact: true }).click();
+    }
+    expect(heights[1] - heights[0]).toBeCloseTo(310, 0);
+    await page.getByRole("button", { name: "考えるヒントを閉じる" }).click();
+    expect((await panel.boundingBox())?.height).toBeLessThanOrEqual(40);
+    await page.getByRole("button", { name: "考えるヒントを開く" }).click();
+    await vi.waitFor(async () =>
+      expect((await panel.boundingBox())?.height).toBeCloseTo(heights[1], 0),
+    );
+  } finally {
+    await page.close();
+  }
+});
+
 for (const width of [390, 1280]) {
   test(`${width}px: 書き出しの補足をキーボードで開閉し、例と操作が画面内に収まる`, async () => {
     const page = await browser.newPage({ viewport: { width, height: 844 } });
