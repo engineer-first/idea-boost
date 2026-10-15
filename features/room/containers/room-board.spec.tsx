@@ -4195,3 +4195,72 @@ it.each([
     }),
   );
 });
+
+it("採用後に移動した付箋を画面のUndoから元に戻せる", () => {
+  const note = protocolNote();
+  const { socket } = connectWithSnapshot([note], {
+    phase: buildPhaseStep(4, 2),
+    moveProtocolVersion: 1,
+    decision: { phase: 2, noteId: NOTE_ID, decidedBy: USER_ID },
+  });
+  const surface = within(screen.getByTestId("board-canvas")).getByRole(
+    "button",
+    { name: "付箋" },
+  );
+  fireEvent.pointerDown(surface, { pointerId: 7, clientX: 100, clientY: 100 });
+  fireEvent.pointerMove(surface, {
+    buttons: 1,
+    pointerId: 7,
+    clientX: 110,
+    clientY: 110,
+  });
+  const start = socket.sent
+    .map((raw) => JSON.parse(raw))
+    .find((message) => message.type === "note:move:start");
+  expect(start).toBeDefined();
+  fireEvent.pointerUp(screen.getByTestId("board-scroller"), {
+    pointerId: 7,
+    clientX: 150,
+    clientY: 150,
+  });
+  const before = {
+    noteId: NOTE_ID,
+    x: note.x,
+    y: note.y,
+    positionRevision: 0,
+    visibilityRevision: 0,
+  };
+  const after = { ...before, x: note.x + 50, positionRevision: 1 };
+  act(() =>
+    socket.simulateServerMessage({
+      type: "note:move:result",
+      operationId: start.operationId,
+      status: "accepted",
+      receipt: {
+        operationId: start.operationId,
+        phaseRevision: 0,
+        coordinateSpace: "canvas",
+        before: [before],
+        after: [after],
+        groupsBefore: [],
+        groupsAfter: [],
+        groupRevisionBefore: 0,
+        groupRevisionAfter: 0,
+        mapRevision: 0,
+        affected: [
+          { noteId: NOTE_ID, positionRevision: 1, visibilityRevision: 0 },
+        ],
+        changed: true,
+      },
+    }),
+  );
+  const undo = screen.getByRole("button", {
+    name: "移動を元に戻す",
+  });
+  expect(undo).toBeEnabled();
+  fireEvent.click(undo);
+  expectSent(socket, {
+    type: "note:move:inverse",
+    sourceOperationId: start.operationId,
+  });
+});

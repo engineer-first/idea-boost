@@ -196,8 +196,7 @@ export function RoomBoard({
       memberRemoval.pending ||
       isNextPhasePending ||
       isLeaving ||
-      roomState.outcomePublished ||
-      roomState.decision !== null,
+      roomState.outcomePublished,
   });
   historyObserverRef.current = moveHistory.observeOutgoing;
   useEffect(() => {

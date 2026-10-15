@@ -13,6 +13,7 @@ import { useRoomBoardInteractions } from "./use-room-board-interactions";
 function setup({
   phase = buildPhaseStep(2),
   withSharedDrag = false,
+  isDecided = false,
   withPrivateNote = false,
   privateNotes,
   sharing,
@@ -22,6 +23,7 @@ function setup({
 }: {
   phase?: RoomPhase;
   withSharedDrag?: boolean;
+  isDecided?: boolean;
   withPrivateNote?: boolean;
   privateNotes?: ReturnType<typeof buildNote>[];
   sharing?: SharingState | null;
@@ -57,6 +59,7 @@ function setup({
         currentUserId: "11111111-1111-4111-8111-111111111111",
         draggingNoteId,
         phase,
+        isDecided,
         sharing,
         ideaMapSizeLevel,
         ideaMapSizeInitialized,
@@ -959,4 +962,25 @@ it("AT-030: viewの複数選択drag入口を固定集合付き移動へ接続す
     "shared-2",
     "shared-3",
   ]);
+});
+
+it.each([
+  [1, 5],
+  [2, 4],
+  [3, 5],
+] as const)("%i-%iの採用後も共有付箋のドラッグを開始できる", (phase, step) => {
+  const { result, onNoteDragStart } = setup({
+    withSharedDrag: true,
+    isDecided: true,
+    phase: buildPhaseStep(step, phase),
+  });
+  act(() =>
+    result.current.onNoteDragStart("shared-1", {
+      pointerId: 33,
+      clientX: 140,
+      clientY: 150,
+      currentTarget: document.createElement("button"),
+    } as unknown as PointerEvent<HTMLButtonElement>),
+  );
+  expect(onNoteDragStart).toHaveBeenCalledWith("shared-1");
 });

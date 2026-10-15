@@ -207,7 +207,7 @@ export function useRoomBoardInteractions({
     fallbackPointFromClient: worldPointFromClient,
   });
   // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
-  // 既存のボード権限に従い、投票・結果ステップでは共有付箋を操作させない。
+  // 既存のボード権限に従い、投票中は移動を止め、結果ステップは採用後も移動できる。
   const canMoveSharedNotes =
     !movePending &&
     getBoardPermissions(phase, isDecided).canMoveNote &&

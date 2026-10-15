@@ -1188,7 +1188,19 @@ export class RoomDO extends DurableObject {
       phase.kind === "step" &&
       getDecision(this.sql, phase.phase) &&
       isBoardMutation(message) &&
-      message.type !== "decision:clear"
+      message.type !== "decision:clear" &&
+      // 採用結果は固定し、共有付箋の配置・重なり順だけは引き続き変更できる。
+      ![
+        "note:move",
+        "note:move:start",
+        "note:move:preview",
+        "note:move:commit",
+        "note:move:inverse",
+        "note:bring-to-front",
+        "note:drag:start",
+        "note:drag:move",
+        "note:drag:end",
+      ].includes(message.type)
         ? "採用確定後はボードを変更できません。"
         : getBoardMutationForbiddenMessage(phase, message);
     if (forbiddenMessage && message.type !== "note:move:inverse") {
