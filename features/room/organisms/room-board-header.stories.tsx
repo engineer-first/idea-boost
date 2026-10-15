@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildMembers,
@@ -263,5 +263,31 @@ export const PresenterDisconnected: Story = {
     ...PresentingMember.args,
     isDisconnected: true,
     connectionStatus: "closed",
+  },
+};
+
+// 常設の操作バーから招待を外し、既存メニュー項目と揃えた共有入口。
+export const ShareMenu: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "ルームメニューを開く",
+      }),
+    );
+    await expect(
+      within(document.body).getByRole("button", { name: "共有" }),
+    ).toBeVisible();
+  },
+};
+
+export const ShareInvite: Story = {
+  play: async (context) => {
+    await ShareMenu.play?.(context);
+    await userEvent.click(
+      within(document.body).getByRole("button", { name: "共有" }),
+    );
+    await expect(
+      within(document.body).getByRole("button", { name: "招待URLをコピー" }),
+    ).toBeVisible();
   },
 };

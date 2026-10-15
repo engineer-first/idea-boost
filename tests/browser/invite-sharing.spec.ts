@@ -60,21 +60,36 @@ for (const width of [390, 1280]) {
             ? "room-roomlobbyview--host-solo"
             : "room-roomboardheader--host";
         await page.goto(`${origin}/iframe.html?id=${story}&viewMode=story`);
-        if (surface === "popover")
-          await page.getByRole("button", { name: "招待", exact: true }).click();
+        if (surface === "popover") {
+          await page
+            .getByRole("button", { name: "ルームメニューを開く" })
+            .click();
+          await page
+            .getByRole("dialog", { name: "ルームメニュー", exact: true })
+            .evaluate(async (element) => {
+              await Promise.all(
+                element
+                  .getAnimations({ subtree: true })
+                  .map((animation) => animation.finished),
+              );
+            });
+          await page.getByRole("button", { name: "共有", exact: true }).click();
+        }
         const copy = page.getByRole("button", { name: "招待URLをコピー" });
         const code = page.getByRole("button", { name: "招待コードをコピー" });
         const share = page.getByRole("button", { name: "招待URLを共有" });
         await copy.waitFor();
-        await page
-          .getByTestId(
-            surface === "lobby"
-              ? "room-lobby-view-invite"
-              : "board-view-invite",
-          )
-          .scrollIntoViewIfNeeded();
-        const initialCopyBox = await copy.boundingBox();
-        const initialCodeBox = await code.boundingBox();
+        if (surface === "lobby") {
+          await page
+            .getByTestId("room-lobby-view-invite")
+            .scrollIntoViewIfNeeded();
+        }
+        await page.evaluate(async () => {
+          await document.fonts.ready;
+          await Promise.all(
+            document.getAnimations().map((animation) => animation.finished),
+          );
+        });
         expect(
           await page.getByText("URLを手動でコピー", { exact: true }).count(),
         ).toBe(0);
@@ -96,6 +111,8 @@ for (const width of [390, 1280]) {
         await page.screenshot({
           path: `test-results/board-layout/invite-copy-${surface}-${width}-idle.png`,
         });
+        const initialCopyBox = await copy.boundingBox();
+        const initialCodeBox = await code.boundingBox();
         // 表示テキストと右側アイコンの双方が同じボタン操作になる。
         await copy.locator("span").click();
         await expect
@@ -223,7 +240,7 @@ for (const width of [390, 1280]) {
           await expect
             .poll(() =>
               page
-                .getByRole("button", { name: "招待", exact: true })
+                .getByRole("button", { name: "共有", exact: true })
                 .evaluate((el) => el === document.activeElement),
             )
             .toBe(true);

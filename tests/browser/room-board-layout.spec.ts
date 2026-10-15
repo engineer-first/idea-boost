@@ -977,7 +977,8 @@ test.each([
   });
   const contextBox = await page.getByTestId("board-context-hud").boundingBox();
   expect(contextBox?.width).toBeLessThanOrEqual(360);
-  const invite = controls.getByRole("button", { name: "招待", exact: true });
+  await controls.getByRole("button", { name: "ルームメニューを開く" }).click();
+  const invite = page.getByRole("button", { name: "共有", exact: true });
   await invite.click();
   const panel = page.getByRole("dialog", { name: "ルームに招待" });
   await panel.waitFor();
@@ -992,6 +993,7 @@ test.each([
   await expect
     .poll(() => invite.evaluate((e) => document.activeElement === e))
     .toBe(true);
+  await page.keyboard.press("Escape");
   await timer.click();
   await page.getByTestId("room-timer-panel").waitFor();
   expect(
