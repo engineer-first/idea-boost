@@ -2988,7 +2988,11 @@ describe("保存待ちを伴わない工程進行", () => {
               decision: null,
               carryovers: [],
               completedVoterIds: [],
-              timer: { status: "idle" },
+              timer: {
+                status: "running",
+                endsAt: Date.now() + 60_000,
+                durationMs: 60_000,
+              },
               serverNow: Date.now(),
               pendingPhaseTransition: pending,
             },
@@ -4075,7 +4079,11 @@ it.each([
       decision: null,
       carryovers: [],
       completedVoterIds: [],
-      timer: { status: "idle" },
+      timer: {
+        status: "running",
+        endsAt: Date.now() + 60_000,
+        durationMs: 60_000,
+      },
       serverNow: Date.now(),
     });
   });
