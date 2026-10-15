@@ -69,6 +69,29 @@ const NOTE_TEXT_HORIZONTAL_SPACE = 16;
 const NOTE_TEXT_VERTICAL_SPACE = 56;
 const NOTE_TEXT_LINE_HEIGHT_RATIO = 1.5;
 
+function countNoteTextLines(line: string, charactersPerLine: number): number {
+  if (line.length === 0) return 1;
+  let count = 0;
+  let start = 0;
+  while (start < line.length) {
+    let end = Math.min(line.length, start + charactersPerLine);
+    if (end < line.length) {
+      // 句読点・閉じ括弧の行頭と、開き括弧の行末を避ける。
+      // フォントによって句読点が詰まらない場合も、必要な行数を確保する。
+      while (
+        end > start + 1 &&
+        (/[\p{Pe}\p{Pf}、。，．！？：；]/u.test(line[end]) ||
+          /[\p{Ps}\p{Pi}]/u.test(line[end - 1]))
+      ) {
+        end--;
+      }
+    }
+    start = end;
+    count++;
+  }
+  return count;
+}
+
 export function getNoteHeight(content: string, fontSize: number): number {
   const safeFontSize = Number.isFinite(fontSize)
     ? Math.min(
@@ -81,7 +104,7 @@ export function getNoteHeight(content: string, fontSize: number): number {
     Math.floor((NOTE_WIDTH - NOTE_TEXT_HORIZONTAL_SPACE) / safeFontSize),
   );
   const visualLineCount = content.split("\n").reduce((count, line) => {
-    return count + Math.max(1, Math.ceil(line.length / charactersPerLine));
+    return count + countNoteTextLines(line, charactersPerLine);
   }, 0);
   const lineHeight = Math.ceil(safeFontSize * NOTE_TEXT_LINE_HEIGHT_RATIO);
   const contentHeight = visualLineCount * lineHeight + NOTE_TEXT_VERTICAL_SPACE;
