@@ -16,11 +16,7 @@ export type BoardHelpControls = {
 export function useBoardHelp(phase: RoomPhase): BoardHelpControls {
   const phaseKey =
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
-  const kind: BoardHelpKind = isPhaseStep(phase, 3, 1)
-    ? "idea"
-    : isPhaseStep(phase, 3, 2)
-      ? "reference"
-      : null;
+  const kind: BoardHelpKind = isPhaseStep(phase, 3, 1) ? "idea" : null;
   const visited = useRef(new Set<string>());
   const activePhase = useRef(phaseKey);
   const initiallyOpen = kind === "idea" && !visited.current.has(phaseKey);
