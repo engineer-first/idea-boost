@@ -270,6 +270,10 @@ export function SharedOutcomesView({
                           <p className="font-mono text-xs text-muted-foreground">
                             {outcome.displayId}
                           </p>
+                          <p className="text-sm tabular-nums text-muted-foreground">
+                            参加人数：
+                            {formatParticipantCount(outcome.participantCount)}
+                          </p>
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 font-medium">
                               {outcome.status === "confirmed" && (
@@ -400,6 +404,9 @@ export function SharedOutcomesView({
               <p className="font-mono text-sm">{detail.displayId}</p>
               <OutcomeMetadata outcome={detail} />
               <p className="mt-3 text-xs text-muted-foreground">
+                参加人数は保存時点までの累計です。ホスト・途中退出者を含み、再参加は重複して数えません。人数を保存していない過去の成果は「未記録」と表示します。
+              </p>
+              <p className="mt-3 text-xs text-muted-foreground">
                 閲覧期限：{formatOutcomeTime(detail.expiresAt)}
               </p>
             </section>
@@ -514,7 +521,13 @@ export function SharedOutcomesView({
 }
 function OutcomeMetadata({ outcome }: { outcome: SharedOutcomeSummary }) {
   return (
-    <dl className="mt-4 grid grid-cols-2 gap-4 text-sm lg:grid-cols-4">
+    <dl className="mt-4 grid grid-cols-2 gap-4 text-sm lg:grid-cols-5">
+      <div className="min-w-0 space-y-1">
+        <dt className="text-muted-foreground">参加人数</dt>
+        <dd className="tabular-nums">
+          {formatParticipantCount(outcome.participantCount)}
+        </dd>
+      </div>
       <div className="min-w-0 space-y-1">
         <dt className="text-muted-foreground">到達点</dt>
         <dd className="break-words">{getRoomPhaseLabel(outcome.phase)}</dd>
@@ -542,4 +555,8 @@ function OutcomeMetadata({ outcome }: { outcome: SharedOutcomeSummary }) {
       </div>
     </dl>
   );
+}
+
+function formatParticipantCount(count: number | null): string {
+  return count === null ? "未記録" : `${count}人`;
 }
