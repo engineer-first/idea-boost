@@ -256,7 +256,7 @@ for (const phase of [1, 2, 3] as const) {
       reconnect.close();
       room.close();
     });
-    it("決定中は候補外も参加者が移動でき、確定後の変更は拒否する", async () => {
+    it("採用後も参加者が採用済みと候補外を移動でき、候補の変更は拒否する", async () => {
       const current: RoomPhase = {
         kind: "step",
         phase,
@@ -276,10 +276,36 @@ for (const phase of [1, 2, 3] as const) {
       await until(room.a, "note:updated");
       send(room.a, { type: "note:decide", noteId: candidateId });
       await until(room.a, "decision:updated");
+      await until(room.b, "decision:updated");
+      // 非作者の参加者でも共有付箋は動かせるが、未共有の付箋は動かせない。
+      send(room.b, { type: "note:move", noteId: draftId, x: 80, y: 90 });
+      expect(await room.b.next()).toMatchObject({ type: "error" });
+      for (const noteId of [candidateId, excludedId]) {
+        send(room.b, { type: "note:move", noteId, x: 80, y: 90 });
+        for (const socket of [room.a, room.b]) {
+          expect(await until(socket, "note:updated")).toMatchObject({
+            note: { id: noteId, x: 80, y: 90 },
+          });
+        }
+      }
+      const reconnect = await connectRoomAs(member, room.roomId);
+      expect(await reconnect.next()).toMatchObject({
+        type: "snapshot",
+        decision: { noteId: candidateId },
+        notes: expect.arrayContaining([
+          expect.objectContaining({ id: candidateId, x: 80, y: 90 }),
+          expect.objectContaining({
+            id: excludedId,
+            x: 80,
+            y: 90,
+            excluded: true,
+          }),
+        ]),
+      });
+      reconnect.close();
       for (const action of [
         { type: "note:restore", noteId: excludedId },
         { type: "note:exclude", noteId: candidateId },
-        { type: "note:move", noteId: candidateId, x: 1, y: 1 },
         transition("phase:revote", current),
       ]) {
         send(room.a, action);
