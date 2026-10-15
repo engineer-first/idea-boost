@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { getRoomPhaseLabel } from "@/contracts/phase";
+import { ROOM_CREATION_NAME_MAX } from "@/contracts/room-creation";
 import {
   VERIFICATION_CHECKPOINTS,
   type VerificationActive,
@@ -124,7 +125,7 @@ export function VerificationView({
               <input
                 className="block w-full rounded-md border bg-background px-3 py-2"
                 value={roomName}
-                maxLength={80}
+                maxLength={ROOM_CREATION_NAME_MAX}
                 disabled={pending}
                 onChange={(event) => onRoomNameChange(event.target.value)}
               />

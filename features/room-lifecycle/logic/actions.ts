@@ -31,6 +31,7 @@ import {
   type CreationStatus,
   CreationStatusInputSchema,
   CreationStatusSchema,
+  ROOM_CREATION_NAME_MAX,
 } from "@/contracts/room-creation";
 import type {
   ParticipationConfirmation,
@@ -138,7 +139,7 @@ export async function createRoom(
     return {
       ok: false,
       outcome: "rejected",
-      error: "作成要求IDと80文字以内のルーム名が必要です。",
+      error: `作成要求IDと${ROOM_CREATION_NAME_MAX}文字以内のルーム名が必要です。`,
     };
   if (parsedInput.data.expectedPrincipal !== user.sub)
     return {

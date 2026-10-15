@@ -31,6 +31,10 @@ describe("ルーム名の編集", () => {
     act(() => result.current.onConfirm());
     expect(send).not.toHaveBeenCalled();
     expect(result.current.error).toBeTruthy();
+    act(() => result.current.onDraftChange("あ".repeat(16)));
+    act(() => result.current.onConfirm());
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.error).toContain("15文字以内");
     act(() => result.current.onDraftChange("J05"));
     act(() => result.current.onOpenChange(false));
     expect(send).not.toHaveBeenCalled();

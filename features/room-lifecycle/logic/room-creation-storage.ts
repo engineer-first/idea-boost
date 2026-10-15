@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   CreationRequestIdSchema,
-  ROOM_CREATION_NAME_MAX,
+  ROOM_CREATION_STORED_NAME_MAX,
 } from "@/contracts/room-creation";
 
 export const ROOM_CREATION_STORAGE_PREFIX = "idea-boost:room-creation:";
@@ -14,7 +14,7 @@ function currentTabSource(): string {
 const IntentSchema = z.object({
   expectedPrincipal: z.string().uuid(),
   requestId: CreationRequestIdSchema,
-  name: z.string().trim().max(ROOM_CREATION_NAME_MAX),
+  name: z.string().trim().max(ROOM_CREATION_STORED_NAME_MAX),
   issuedAt: z.number().int(),
   expiresAt: z.number().int(),
   state: z.enum([
@@ -265,7 +265,7 @@ async function importLegacyIntent(userId: string): Promise<void> {
   const legacy = z
     .object({
       requestId: CreationRequestIdSchema,
-      name: z.string().trim().max(ROOM_CREATION_NAME_MAX).optional(),
+      name: z.string().trim().max(ROOM_CREATION_STORED_NAME_MAX).optional(),
     })
     .parse(JSON.parse(raw));
   // 旧控えには発行時刻がない。受付はserverへ照会し、送信済みとして扱う。

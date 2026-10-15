@@ -19,6 +19,7 @@ import {
   CreationPrincipalSchema,
   CreationStatusInputSchema,
   issueCreationId,
+  ROOM_CREATION_NAME_MAX,
 } from "../contracts/room-creation";
 import {
   ConsumeRoomTicketRequestSchema,
@@ -147,7 +148,10 @@ async function handleCreateRoom(
     (await readJsonBody(request)) ?? {},
   );
   if (!body.success)
-    return error(400, "ルーム名は80文字以内で入力してください。");
+    return error(
+      400,
+      `ルーム名は${ROOM_CREATION_NAME_MAX}文字以内で入力してください。`,
+    );
   if (body.data.expectedPrincipal !== session.sub)
     return json(
       {

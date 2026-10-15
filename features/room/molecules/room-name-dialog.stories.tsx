@@ -25,7 +25,7 @@ const controls = {
 };
 export const Editing: Story = { args: { controls } };
 export const LongName: Story = {
-  args: { controls: { ...controls, draft: "あ".repeat(80) } },
+  args: { controls: { ...controls, draft: "あ".repeat(15) } },
 };
 export const Saving: Story = {
   args: { controls: { ...controls, pending: true } },

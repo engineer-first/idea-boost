@@ -1,5 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { issueCreationId } from "../../contracts/room-creation";
 import { handleSharedOutcomes } from "../shared-outcomes-api";
 import {
   connectRoomAs,
@@ -118,7 +119,7 @@ describe("ルーム名の変更", () => {
     const before = await identity(roomId);
     for (const [name, extra] of [
       ["　 ", {}],
-      ["あ".repeat(81), {}],
+      ["あ".repeat(16), {}],
       ["J05", { roomId: crypto.randomUUID() }],
     ] as const) {
       rename(b, name, extra);
@@ -217,5 +218,46 @@ it("参加先確認の非同期待機中にセッション期限を越えた変�
       lookup.mockRestore();
       vi.useRealTimers();
     }
+  });
+});
+
+it("16文字のルーム名では新規作成できない", async () => {
+  const response = await SELF.fetch("https://api.test/api/rooms", {
+    method: "POST",
+    headers: {
+      Cookie: await sessionCookieFor(A),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      requestId: issueCreationId().requestId,
+      expectedPrincipal: A.sub,
+      name: "あ".repeat(16),
+    }),
+  });
+  expect(response.status).toBe(400);
+});
+it("15文字の名前で作成し、15文字の別名にも変更できる", async () => {
+  const name = "あ".repeat(15);
+  const response = await SELF.fetch("https://api.test/api/rooms", {
+    method: "POST",
+    headers: {
+      Cookie: await sessionCookieFor(A),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      requestId: issueCreationId().requestId,
+      expectedPrincipal: A.sub,
+      name,
+    }),
+  });
+  expect(response.status).toBe(200);
+  const { roomId } = await response.json<{ roomId: string }>();
+  const { socket, snapshot } = await connect(A, roomId);
+  expect(snapshot).toMatchObject({ roomName: name });
+  const nextName = "い".repeat(15);
+  rename(socket, nextName);
+  expect(await socket.next()).toMatchObject({
+    type: "room:renamed",
+    name: nextName,
   });
 });
