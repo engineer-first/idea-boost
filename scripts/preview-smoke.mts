@@ -85,6 +85,7 @@ export async function smokePreviewBundle(
     d1Databases: { DB: `preview-pr-${number}-lobby` },
     durableObjects: {
       ROOM_DO: { className: "PreviewRoomDO", useSQLite: true },
+      ACCOUNT_DO: { className: "PreviewAccountDO", useSQLite: true },
     },
     assets: {
       directory: resolve(root, ".open-next/assets"),

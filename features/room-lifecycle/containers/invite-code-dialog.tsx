@@ -2,12 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import type {
+  ParticipationConfirmation,
+  ParticipationResult,
+} from "@/contracts/room-participation";
 import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import { joinRoom } from "../logic/actions";
 import { entryDestination } from "../logic/entry-destination";
 import { lifecycleNotify } from "../logic/lifecycle-notify";
+import {
+  participationSwitchKey,
+  participationSwitchProps,
+} from "../logic/participation-switch-props";
 import { InviteCodeDialogView } from "../templates/invite-code-dialog-view";
+import { ParticipationSwitch } from "./participation-switch";
 // 招待URL (/invite/[code]) で開かれる確認画面のコンテナ。
 // 招待コードを Dialog で表示し、確定で joinRoom Server Action を呼ぶ。
 // 成功時は toast → スタート画面へ遷移（ホーム参加・作成と同じ経路）。
@@ -27,6 +36,10 @@ export function InviteCodeDialog({
   hostName,
 }: InviteCodeDialogProps) {
   const router = useRouter();
+  const [switching, setSwitching] = useState<
+    | ParticipationConfirmation
+    | Extract<ParticipationResult, { kind: "pending" | "rejected" }>
+  >();
   const [reauth, setReauth] = useState(false);
   const [open, setOpen] = useState(true);
   const [pending, startTransition] = useTransition();
@@ -45,6 +58,18 @@ export function InviteCodeDialog({
       formData.append("code", inviteCode);
       const result = await joinRoom(formData, currentUserId);
       if (!result.ok) {
+        if (result.failedOperation) {
+          setSwitching(result.failedOperation);
+          return;
+        }
+        if (result.pendingOperation) {
+          setSwitching(result.pendingOperation);
+          return;
+        }
+        if (result.confirmation) {
+          setSwitching(result.confirmation);
+          return;
+        }
         if (result.reason === "reauth_required") {
           setReauth(true);
           return;
@@ -71,6 +96,18 @@ export function InviteCodeDialog({
     });
   }
 
+  if (switching && currentUserId)
+    return (
+      <ParticipationSwitch
+        key={participationSwitchKey(switching)}
+        currentUserId={currentUserId}
+        {...participationSwitchProps(switching)}
+        onCancel={() => {
+          setSwitching(undefined);
+          setOpen(false);
+        }}
+      />
+    );
   if (reauth)
     return (
       <RoomReauthentication

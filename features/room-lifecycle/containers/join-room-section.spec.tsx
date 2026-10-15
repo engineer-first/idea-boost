@@ -261,3 +261,21 @@ it("共通表示名が未設定でも表示名の設定を要求せずホーム�
   await waitFor(() => expect(JOIN_ROOM).toHaveBeenCalledOnce());
   expect(loadDisplayName).not.toHaveBeenCalled();
 });
+
+it("他ルームへの参加はサーバーの退出確認を表示し、同意なしに移動しない", async () => {
+  PUSH.mockClear();
+  const { switchConfirmation } = await import("../logic/participation.fixture");
+  const user = userEvent.setup();
+  await openConfirmDialog(user);
+  JOIN_ROOM.mockResolvedValueOnce({
+    ok: false,
+    reason: "confirmation_required",
+    error: "確認が必要です",
+    confirmation: switchConfirmation(),
+  });
+  await user.click(screen.getByTestId("join-confirm-action"));
+  expect(
+    await screen.findByRole("button", { name: "退出して参加する" }),
+  ).toBeInTheDocument();
+  expect(PUSH).not.toHaveBeenCalled();
+});

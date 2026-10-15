@@ -278,7 +278,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
     });
 
     expect(rejected.status).toBe(409);
-    expect(await rejected.json()).toEqual({
+    expect(await rejected.json()).toMatchObject({
       error: "このルームは20人までです。",
     });
     expect(await listMemberIds(roomId)).toHaveLength(20);

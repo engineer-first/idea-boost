@@ -32,9 +32,17 @@ import {
   CreationStatusInputSchema,
   CreationStatusSchema,
 } from "@/contracts/room-creation";
+import type {
+  ParticipationConfirmation,
+  ParticipationResult,
+} from "@/contracts/room-participation";
 import { apiFetch, lookupRoomByInviteCode } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
+import {
+  participationActionFailure,
+  readParticipationRecovery,
+} from "./participation-recovery";
 
 const JoinRoomInputSchema = z.object({
   code: z
@@ -54,12 +62,22 @@ export type CreateRoomResult =
       ok: false;
       error: string;
       outcome: "unknown" | "rejected";
+      confirmation?: ParticipationConfirmation;
+      pendingOperation?: Extract<ParticipationResult, { kind: "pending" }>;
+      failedOperation?: Extract<ParticipationResult, { kind: "rejected" }>;
       reason?: string;
     };
 
 export type JoinRoomResult =
   | { ok: true; roomId: string; entryToken?: string }
-  | { ok: false; error: string; reason?: string };
+  | {
+      ok: false;
+      error: string;
+      reason?: string;
+      confirmation?: ParticipationConfirmation;
+      pendingOperation?: Extract<ParticipationResult, { kind: "pending" }>;
+      failedOperation?: Extract<ParticipationResult, { kind: "rejected" }>;
+    };
 
 // 参加確認 Dialog 用。ホスト名を先に解決し、存在しないコードは Dialog を開かない。
 export type LookupInviteResult =
@@ -142,10 +160,11 @@ export async function createRoom(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsedInput.data),
     });
+    const recovery = await readParticipationRecovery(res);
+    if (recovery) return participationActionFailure(recovery);
     if ([400, 401, 403, 409, 410].includes(res.status)) {
-      const failure = CreationFailureSchema.safeParse(
-        await res.json().catch(() => null),
-      );
+      const raw = await res.json().catch(() => null);
+      const failure = CreationFailureSchema.safeParse(raw);
       return {
         ok: false,
         outcome: "rejected",
@@ -287,6 +306,8 @@ export async function joinRoom(
     };
   }
 
+  const recovery = await readParticipationRecovery(res);
+  if (recovery) return participationActionFailure(recovery);
   // 404/400 はルーム不存在・入力不正。それ以外の非 2xx は一時障害扱い。
   if (res.status === 404 || res.status === 400) {
     return {
@@ -378,6 +399,8 @@ export async function returnToRoom(
     const response = await apiFetch(`/api/rooms/${roomId}`, {
       cache: "no-store",
     });
+    const recovery = await readParticipationRecovery(response);
+    if (recovery) return { kind: "ready", href: `/rooms/${roomId}` };
     if ([401, 403, 404].includes(response.status))
       return { kind: "unavailable_room" };
     if (!response.ok) return { kind: "retry" };

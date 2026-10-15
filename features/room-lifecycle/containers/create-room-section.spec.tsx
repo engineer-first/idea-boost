@@ -33,12 +33,17 @@ const m = vi.hoisted(() => ({
   list: vi.fn(),
   clear: vi.fn(),
   refresh: () => {},
+  participationQuery: vi.fn(),
 }));
 vi.mock("@/features/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/auth")>()),
   startRoomReauthentication: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push }) }));
+vi.mock("../logic/participation-actions", () => ({
+  queryParticipation: m.participationQuery,
+  commitParticipation: vi.fn(),
+}));
 vi.mock("../logic/actions", () => ({
   createRoom: m.create,
   issueRoomCreation: m.issue,
@@ -608,4 +613,105 @@ it("移動が完了しない場合は保存済みの同じルームへ再試行�
   } finally {
     vi.useRealTimers();
   }
+});
+
+it("参加中の新規作成では退出確認を表示し、取消で移動しない", async () => {
+  const { switchConfirmation } = await import("../logic/participation.fixture");
+  const confirmation = {
+    ...switchConfirmation(),
+    target: {
+      kind: "create" as const,
+      input: {
+        requestId: "55555555-5555-4555-8555-555555555555",
+        expectedPrincipal: USER,
+        name: "新サービスの相談",
+      },
+    },
+    targetName: "新サービスの相談",
+  };
+  m.create.mockResolvedValue({
+    ok: false,
+    reason: "confirmation_required",
+    outcome: "rejected",
+    confirmation,
+    error: "確認が必要です",
+  });
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click();
+  expect(
+    await screen.findByRole("button", { name: "退出して作成する" }),
+  ).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  expect(m.push).not.toHaveBeenCalled();
+  expect(m.receipt).not.toHaveBeenCalled();
+});
+
+it("旧作成K1の処理を再開しても新作成K2の控えへ結果を記録しない", async () => {
+  const k2 = intent();
+  const k1 = "55555555-5555-4555-8555-555555555555";
+  m.read.mockResolvedValue(k2);
+  m.create.mockResolvedValue({
+    ok: false,
+    outcome: "unknown",
+    error: "前の作成が進行中です",
+    pendingOperation: {
+      kind: "pending",
+      operationId: "22222222-2222-4222-8222-222222222222",
+      progress: "joining",
+      error: "前の作成が進行中です",
+      target: {
+        kind: "create",
+        input: { requestId: k1, expectedPrincipal: USER, name: "前のルーム" },
+      },
+      targetName: "前のルーム",
+    },
+  });
+  m.participationQuery.mockResolvedValue({ kind: "ready", roomId: ROOM });
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click("もう一度試す");
+  expect(await screen.findByText("移動先：前のルーム")).toBeInTheDocument();
+  await userEvent.click(
+    await screen.findByRole("button", { name: "結果を確認・再試行" }),
+  );
+  await waitFor(() => expect(m.push).toHaveBeenCalled());
+  expect(m.receipt).not.toHaveBeenCalled();
+});
+
+it("同じ作成要求の移動が成功した場合はその控えへ結果を記録する", async () => {
+  const saved = intent();
+  m.read.mockResolvedValue(saved);
+  m.create.mockResolvedValue({
+    ok: false,
+    outcome: "unknown",
+    error: "移動中",
+    pendingOperation: {
+      kind: "pending",
+      operationId: "22222222-2222-4222-8222-222222222222",
+      progress: "joining",
+      error: "移動中",
+      target: {
+        kind: "create",
+        input: {
+          requestId: saved.requestId,
+          expectedPrincipal: USER,
+          name: saved.name,
+        },
+      },
+      targetName: saved.name,
+    },
+  });
+  m.participationQuery.mockResolvedValue({ kind: "ready", roomId: ROOM });
+  render(<CreateRoomSection currentUserId={USER} />);
+  await click("もう一度試す");
+  await userEvent.click(
+    await screen.findByRole("button", { name: "結果を確認・再試行" }),
+  );
+  await waitFor(() =>
+    expect(m.receipt).toHaveBeenCalledWith(
+      USER,
+      expect.objectContaining({ requestId: saved.requestId }),
+      ROOM,
+    ),
+  );
 });
