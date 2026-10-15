@@ -2924,6 +2924,8 @@ describe("保存待ちを伴わない工程進行", () => {
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    expect(transitions()).toHaveLength(1);
     act(() =>
       socket.simulateServerMessage({
         type: "phase:updated",

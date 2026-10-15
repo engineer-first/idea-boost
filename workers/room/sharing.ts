@@ -30,14 +30,8 @@ function controllableState(
 ): SharingState | null {
   const phase = getPhase(ctx.sql);
   const state = getSharingState(ctx.sql);
-  const isPresenter =
-    allowPresenter &&
-    state?.status === "active" &&
-    state.currentIndex !== null &&
-    state.order[state.currentIndex]?.userId === ctx.userId;
   if (
     !isMember(ctx.sql, ctx.userId) ||
-    (!isHostUser(ctx.sql, ctx.userId) && !isPresenter) ||
     phase.kind !== "step" ||
     phase.step !== 2
   ) {
@@ -49,7 +43,7 @@ function controllableState(
     });
     return null;
   }
-  // 版が一致しない再送・別画面の古い操作は現在状態を返すだけ。
+  // 認証済みメンバーの古い要求は権限判定より先に現在状態へ収束させる。
   if (!state || state.revision !== revision || state.startsAt !== null) {
     if (state)
       ctx.reply({
@@ -58,6 +52,21 @@ function controllableState(
         timer: getTimerState(ctx.sql),
         serverNow: Date.now(),
       });
+    return null;
+  }
+  const currentIndex = state.currentIndex;
+  const isPresenter =
+    allowPresenter &&
+    state.status === "active" &&
+    currentIndex !== null &&
+    state.order[currentIndex]?.userId === ctx.userId;
+  if (!isHostUser(ctx.sql, ctx.userId) && !isPresenter) {
+    ctx.reply({
+      type: "error",
+      code: "forbidden",
+      message:
+        "共有の操作は共有ステップでホスト、発表完了は発表者本人も操作できます。",
+    });
     return null;
   }
   return state;
@@ -105,15 +114,18 @@ export const sharingHandlers: MessageHandlers<
     await commitTurn(ctx, state);
   },
   "sharing:advance": async (ctx, message) => {
-    const current = getSharingState(ctx.sql);
-    const currentIndex = current?.currentIndex;
-    const isFinalTurn =
-      current?.status === "active" &&
-      currentIndex !== null &&
-      currentIndex !== undefined &&
-      currentIndex === current.order.length - 1;
+    const state = controllableState(
+      ctx,
+      message.revision,
+      message.outcome === "done",
+    );
+    if (state?.status !== "active") return;
+    const currentIndex = state.currentIndex;
+    const isFinalTurn = currentIndex === state.order.length - 1;
     const isCurrentPresenter =
-      isFinalTurn && current?.order[currentIndex]?.userId === ctx.userId;
+      isFinalTurn &&
+      currentIndex !== null &&
+      state.order[currentIndex]?.userId === ctx.userId;
     if (isFinalTurn && !isCurrentPresenter) {
       ctx.reply({
         type: "error",
@@ -122,12 +134,6 @@ export const sharingHandlers: MessageHandlers<
       });
       return;
     }
-    const state = controllableState(
-      ctx,
-      message.revision,
-      message.outcome === "done",
-    );
-    if (state?.status !== "active") return;
     state.results.push(message.outcome);
     await commitTurn(ctx, state);
     await advanceAfterFinalPresenter(ctx, state);
