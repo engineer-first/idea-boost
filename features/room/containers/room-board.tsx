@@ -745,7 +745,6 @@ export function RoomBoard({
         connectionDelayed={connectionDelayed}
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
-        authorNames={roomState.authorNames}
         currentUserId={currentUserId}
         hostUserId={hostUserId}
         completedVoterIds={roomState.completedVoterIds}
