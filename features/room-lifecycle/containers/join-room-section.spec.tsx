@@ -165,14 +165,15 @@ describe("JoinRoomSection", () => {
     const user = userEvent.setup();
     LOOKUP_INVITE.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
     render(<JoinRoomSection />);
     await user.type(screen.getByLabelText("招待コード"), "AB12CD");
     await user.click(screen.getByRole("button", { name: "参加する" }));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
       );
     });
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
@@ -226,12 +227,13 @@ describe("JoinRoomSection", () => {
     await openConfirmDialog(user);
     JOIN_ROOM.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
     await user.click(screen.getByTestId("join-confirm-action"));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
       );
     });
     expect(PUSH).not.toHaveBeenCalled();

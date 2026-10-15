@@ -84,7 +84,11 @@ export async function lookupInviteRoom(
 
   const lookup = await lookupRoomByInviteCode(parsedInput.data.code);
   if (lookup.kind === "not_found") {
-    return { ok: false, error: "ルームが見つかりませんでした。" };
+    return {
+      ok: false,
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
+    };
   }
   if (lookup.kind === "unavailable") {
     return {
@@ -285,10 +289,38 @@ export async function joinRoom(
 
   // 404/400 はルーム不存在・入力不正。それ以外の非 2xx は一時障害扱い。
   if (res.status === 404 || res.status === 400) {
-    return { ok: false, error: "ルームが見つかりませんでした。" };
+    return {
+      ok: false,
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
+    };
   }
   if (res.status === 409) {
-    return { ok: false, error: "このルームは20人までです。" };
+    // 現行APIは終了と満員の両方に409を使う。既知の応答だけを案内し、
+    // 不正・未知のボディから満員だと推測しない。
+    const failure = z
+      .object({ error: z.string() })
+      .safeParse(await res.json().catch(() => null));
+    if (
+      failure.success &&
+      failure.data.error === "終了したルームには参加できません。"
+    ) {
+      return {
+        ok: false,
+        error:
+          "このルームは終了しているため参加できません。新しい招待コードをホストに確認してください。",
+      };
+    }
+    if (
+      failure.success &&
+      failure.data.error === "このルームは20人までです。"
+    ) {
+      return {
+        ok: false,
+        error:
+          "ルームが満員（上限20人）のため参加できません。ホストに確認してください。",
+      };
+    }
   }
   if (!res.ok) {
     return {
