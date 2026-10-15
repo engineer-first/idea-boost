@@ -8,6 +8,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pencil,
+  UserPlus,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -275,6 +276,7 @@ export function RoomBoardHeader({
     isDisconnected || isNextPhasePending || isTransferring || isLeaving;
   const roomMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const roomMenuContentRef = useRef<HTMLDivElement>(null);
+  const inviteContentRef = useRef<HTMLDivElement>(null);
   const feedbackOpening = useRef(false);
   useEffect(() => {
     if (!roomMenuOpen) return;
@@ -284,6 +286,7 @@ export function RoomBoardHeader({
         !(target instanceof Node) ||
         roomMenuTriggerRef.current?.contains(target) ||
         roomMenuContentRef.current?.contains(target) ||
+        inviteContentRef.current?.contains(target) ||
         (target instanceof Element &&
           target.closest("[data-phase-rollback-dialog]"))
       )
@@ -683,52 +686,6 @@ export function RoomBoardHeader({
                 </>
               )
             ) : null}
-            {!activeSharing ? (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 shrink-0 px-3 shadow-none"
-                  >
-                    招待
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="end"
-                  className="w-80"
-                  aria-label="ルームに招待"
-                >
-                  <p className="mb-1 text-sm font-semibold">ルームに招待</p>
-                  <p className="mb-4 text-xs leading-5 text-muted-foreground">
-                    リンクまたはコードを送って、参加してもらいましょう。
-                  </p>
-
-                  <div
-                    className="flex flex-col gap-4"
-                    data-testid="board-view-invite"
-                  >
-                    <div className="min-w-0">
-                      <span className="block text-xs text-muted-foreground">
-                        招待URL
-                      </span>
-                      <InviteUrlActions value={inviteUrl} />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="block text-xs text-muted-foreground">
-                        招待コード
-                      </span>
-                      <CopyInviteButton
-                        value={inviteCode}
-                        itemLabel="招待コード"
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            ) : null}
-
             {isResultStep(phase) ? (
               isFinalStep ? (
                 <div className="grid shrink-0 items-center justify-items-end">
@@ -873,6 +830,55 @@ export function RoomBoardHeader({
                 ) : null}
 
                 <div className="flex flex-col gap-1">
+                  {isHost && !activeSharing ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="min-h-11 w-full justify-start"
+                        >
+                          <UserPlus aria-hidden="true" className="size-4" />
+                          招待
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        ref={inviteContentRef}
+                        align="end"
+                        className="w-80"
+                        aria-label="ルームに招待"
+                      >
+                        <p className="mb-1 text-sm font-semibold">
+                          ルームに招待
+                        </p>
+                        <p className="mb-4 text-xs leading-5 text-muted-foreground">
+                          リンクまたはコードを送って、参加してもらいましょう。
+                        </p>
+
+                        <div
+                          className="flex flex-col gap-4"
+                          data-testid="board-view-invite"
+                        >
+                          <div className="min-w-0">
+                            <span className="block text-xs text-muted-foreground">
+                              招待URL
+                            </span>
+                            <InviteUrlActions value={inviteUrl} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block text-xs text-muted-foreground">
+                              招待コード
+                            </span>
+                            <CopyInviteButton
+                              value={inviteCode}
+                              itemLabel="招待コード"
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : null}
                   {onOpenFeedback ? (
                     <Button
                       type="button"

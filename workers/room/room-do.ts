@@ -1644,7 +1644,8 @@ export class RoomDO extends DurableObject {
       message.type !== "idea-map:resize" &&
       getTimerState(this.sql).status !== "running";
 
-    if (timerBlocked) {
+    // inverse の拒否は専用ハンドラで終端結果として保存する。
+    if (timerBlocked && message.type !== "note:move:inverse") {
       ctx.reply({
         type: "error",
         code: "forbidden",

@@ -56,7 +56,6 @@ test("右上の操作バーの開閉後は移動だけでパンせず、背景�
   const original = await canvasTransform();
   for (const name of [
     "参加者 3人",
-    "招待",
     "ルームメニューを開く",
     "タイマー 未開始 06:00。設定を開く",
   ]) {

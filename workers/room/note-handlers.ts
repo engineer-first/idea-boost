@@ -59,6 +59,7 @@ import {
 import { getPhase, getPhaseRevision } from "./phase";
 import { commitShare } from "./share-operations";
 import { getSharingState } from "./sharing-state";
+import { getTimerState } from "./timer";
 import {
   addUserNoteVote,
   addVoteSticker,
@@ -360,6 +361,15 @@ export const noteHandlers: MessageHandlers<
         type: "error",
         code: "content-conflict",
         message: "付箋の本文が先に更新されました。",
+      });
+      return;
+    }
+    // digest の待機中に一時停止・終了していたら、本文と保存記録を確定しない。
+    if (getTimerState(ctx.sql).status !== "running") {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "タイマーが動作していないため、ボードを操作できません。",
       });
       return;
     }

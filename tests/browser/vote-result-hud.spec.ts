@@ -61,11 +61,6 @@ it.each([
         const timer = page.getByTestId("room-timer");
         const read = async () => ({
           hudHeight: (await hud.boundingBox())?.height,
-          invite: scenario.isHost
-            ? await page
-                .getByRole("button", { name: "招待", exact: true })
-                .boundingBox()
-            : null,
           menu: await page
             .getByRole("button", { name: "ルームメニューを開く" })
             .boundingBox(),

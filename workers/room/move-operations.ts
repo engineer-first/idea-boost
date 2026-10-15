@@ -34,6 +34,7 @@ import {
   getPhase,
   getPhaseRevision,
 } from "./phase";
+import { getTimerState } from "./timer";
 
 type Start = Extract<ClientMessage, { type: "note:move:start" }>;
 type Result = Extract<ServerMessage, { type: "note:move:result" }>;
@@ -571,7 +572,9 @@ export const moveHandlers: MessageHandlers<
     const phase = getPhase(ctx.sql);
     const revisions = moveRevisions(ctx.sql);
     const currentGroupVersions = groupVersions(ctx.sql);
-    const denied = () => {
+    const denied = (
+      reason = "ほかの人の変更があるため、この移動は戻せません",
+    ) => {
       // 拒否も保存し、結果照会で同じ要求の終端を返す。本文/対象は返信しない。
       ctx.sql.exec(
         "INSERT INTO note_move_operations(operation_id,user_id,connection_id,request_json,state,lease_until,created_at) VALUES (?1,?2,?3,?4,'rejected',0,?5)",
@@ -585,11 +588,15 @@ export const moveHandlers: MessageHandlers<
         type: "note:move:result",
         operationId: message.operationId,
         status: "rejected",
-        reason: "ほかの人の変更があるため、この移動は戻せません",
+        reason,
       });
       const saved = readOperation(ctx.sql, message.operationId);
       if (saved) ctx.reply(resultFor(ctx, saved));
     };
+    if (getTimerState(ctx.sql).status !== "running") {
+      denied("タイマーが動作していないため、ボードを操作できません。");
+      return;
+    }
     const recent = Number(
       ctx.sql
         .exec(
