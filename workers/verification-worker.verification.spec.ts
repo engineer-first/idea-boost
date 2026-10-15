@@ -15,7 +15,7 @@ import { getCarryovers, getDecision } from "./room/decisions";
 import { getIdeaMapSizeState } from "./room/idea-map";
 import { listNotes, moveNote } from "./room/notes";
 import { countUserVotes } from "./room/votes";
-import { connectRoomAs, sessionCookieFor } from "./test-helpers";
+import { connectRoomAs, sessionCookieFor, startTimerForTest, } from "./test-helpers";
 import verificationWorker from "./verification-worker";
 
 const TOKEN = "verification-test-token-at-least-32-characters";
@@ -260,6 +260,7 @@ describe("検証用の初期状態", () => {
         noteIds.push(message.note.id);
       }
       if (index === 0) {
+        await startTimerForTest(active.roomId);
         owner.ws.send(
           JSON.stringify({ type: "note:delete", noteId: noteIds[0] }),
         );
