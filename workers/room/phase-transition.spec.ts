@@ -348,6 +348,7 @@ describe("本文保存を待たない進行", () => {
         );
       }
     });
+    await startTimerForTest(roomId);
     ownerSocket.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -456,7 +457,18 @@ describe("本文保存を待たない進行", () => {
           noteIds.ownerContent,
         ),
       );
-      ownerSocket.ws.send(JSON.stringify({ type: "phase:next", ...current }));
+      await runInRoomDO(roomId, (_room, state) =>
+        state.storage.sql.exec(
+          "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+        ),
+      );
+      await startTimerForTest(roomId);
+      ownerSocket.ws.send(
+        JSON.stringify({
+          type: "phase:next",
+          ...(await currentPhaseExpectation(roomId)),
+        }),
+      );
       const nextSnapshot = await untilType(ownerSocket, "snapshot");
       expect(nextSnapshot).toMatchObject({ phase: buildPhaseStep(3, phase) });
       if (nextSnapshot.type !== "snapshot") throw new Error("snapshot missing");
@@ -632,7 +644,23 @@ describe("整理・評価の自動タイマー", () => {
         "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
       ),
     );
-    socket.ws.send(JSON.stringify({ type: "phase:next", ...expectation }));
+    await runInRoomDO(roomId, (_room, state) => {
+      const revision = state.storage.sql
+        .exec("SELECT phase_revision FROM room_state WHERE id=1")
+        .one().phase_revision;
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
+        revision,
+        hostId,
+        Date.now(),
+      );
+    });
+    socket.ws.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomId)),
+      }),
+    );
     const snapshot = await untilType(socket, "snapshot");
     expect(snapshot).toMatchObject({
       phase: buildPhaseStep(3, phase),
@@ -658,6 +686,17 @@ describe("整理・評価の自動タイマー", () => {
       }),
     );
     await untilType(reconnected, "phase:updated");
+    await runInRoomDO(roomId, (_room, state) => {
+      const revision = state.storage.sql
+        .exec("SELECT phase_revision FROM room_state WHERE id=1")
+        .one().phase_revision;
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
+        revision,
+        hostId,
+        Date.now(),
+      );
+    });
     reconnected.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -665,6 +704,11 @@ describe("整理・評価の自動タイマー", () => {
       }),
     );
     await untilType(reconnected, "phase:updated");
+    await runInRoomDO(roomId, (_room, state) =>
+      state.storage.sql.exec(
+        "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+      ),
+    );
     reconnected.ws.send(
       JSON.stringify({
         type: "phase:next",

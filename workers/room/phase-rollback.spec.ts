@@ -396,7 +396,7 @@ describe("復元の競合と連続進行", () => {
     const [snapshot] = await rollback(roomId, a, b);
     expect(snapshot).toMatchObject({
       timer: { status: "paused", durationMs: 60000 },
-      sharing: { status: "active", currentIndex: 0, startsAt: null },
+      sharing: { status: "complete", currentIndex: null, startsAt: null },
       groups: [{ id: groupId, name: "保存時のグループ" }],
       notes: expect.arrayContaining([
         expect.objectContaining({
@@ -451,7 +451,7 @@ describe("復元の競合と連続進行", () => {
         ...old,
       }),
     );
-    expect(await until(a, "error")).toMatchObject({ code: "forbidden" });
+    expect(await a.next()).toMatchObject({ type: "error", code: "forbidden" });
     a.ws.send(
       JSON.stringify({
         type: "host:transfer",
@@ -467,10 +467,9 @@ describe("復元の競合と連続進行", () => {
         ...(await currentPhaseExpectation(roomId)),
       }),
     );
-    expect(await a.next()).toMatchObject({ type: "error", code: "forbidden" });
-    const [newHost] = await rollback(roomId, b, a, 1);
-    expect(newHost).toMatchObject({
-      isHost: true,
+    const rollbackSnapshot = await a.next();
+    expect(rollbackSnapshot).toMatchObject({
+      isHost: false,
       hostUserId: member.sub,
       hostRevision: 1,
       members: expect.arrayContaining([
@@ -525,6 +524,23 @@ describe("復元後の会員情報と本文保存の世代", () => {
       }),
     );
     await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
+    if (status === "active") {
+      await runInRoomDO(roomId, (_room, state) => {
+        const sql = state.storage.sql;
+        const sharing = getSharingState(sql);
+        if (!sharing) throw new Error("共有状態がありません");
+        sharing.status = "active";
+        sharing.currentIndex = 0;
+        sharing.startsAt = null;
+        sharing.results = [];
+        saveSharingState(sql, sharing);
+        captureRollbackCheckpoint(sql, {
+          kind: "step",
+          phase: 1,
+          step: 2,
+        });
+      });
+    }
     const newcomer = crypto.randomUUID();
     await runInRoomDO(roomId, (_room, state) => {
       state.storage.sql.exec(

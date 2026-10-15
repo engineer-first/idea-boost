@@ -1727,6 +1727,12 @@ export class RoomDO extends DurableObject {
         message.type === "note:move:commit" ||
         message.type === "note:move:inverse");
     const phaseBefore = getPhaseRevision(this.sql);
+    const votingProgressBefore = (() => {
+      const phase = getPhase(this.sql);
+      return phase.kind === "step" && isVotingStep(phase)
+        ? JSON.stringify(listCompletedVoterIds(this.sql, phase.phase).sort())
+        : null;
+    })();
     const before = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
       : null;
@@ -1749,6 +1755,16 @@ export class RoomDO extends DurableObject {
       sharedDragEnded = true;
     };
     await handler(ctx, message);
+    const votingProgressChanged = (() => {
+      if (rejected || votingProgressBefore === null) return false;
+      const phase = getPhase(this.sql);
+      return (
+        phase.kind === "step" &&
+        isVotingStep(phase) &&
+        JSON.stringify(listCompletedVoterIds(this.sql, phase.phase).sort()) !==
+          votingProgressBefore
+      );
+    })();
     const clearsReady =
       !rejected &&
       (message.type === "note:create" ||
@@ -1781,13 +1797,15 @@ export class RoomDO extends DurableObject {
       if (
         currentProgressPhase.kind === "step" &&
         isVotingStep(currentProgressPhase)
-      )
+      ) {
+        if (votingProgressChanged) bumpProgressRevision(this.sql);
         broadcastProgress(
           this.sql,
           this.broadcaster,
           currentProgressPhase,
           getPhaseRevision(this.sql),
         );
+      }
     }
     if (isBoardMutation(message) || message.type === "member:remove")
       syncMovePresence(this.sql, this.broadcaster);

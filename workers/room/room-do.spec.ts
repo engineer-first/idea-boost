@@ -27,6 +27,8 @@ import { saveTimerState } from "./timer";
 
 const USER_A = "11111111-1111-4111-8111-111111111111";
 const USER_B = "22222222-2222-4222-8222-222222222222";
+const USER_C = "33333333-3333-4333-8333-333333333333";
+const USER_D = "44444444-4444-4444-8444-444444444444";
 const NOTE_COLOR_PATTERN = new RegExp(`^(${NOTE_COLOR_PALETTE.join("|")})$`);
 const EXPECTED_MEMBER_COLOR_ASSIGNMENT_ORDER = [
   "yellow",
@@ -3115,6 +3117,80 @@ describe("RoomDO phase:next", () => {
       durationMs: 60_000,
     });
     ws.close();
+  });
+
+  it("投票完了者の変更で進行確認の世代を更新する", async () => {
+    const roomName = "room-vote-progress-revision-on-removal";
+    const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const stub = roomStub(roomName);
+    await initializeTestRoom(stub, USER_A, "Host");
+    for (const [userId, name] of [
+      [USER_B, "Member B"],
+      [USER_C, "Member C"],
+      [USER_D, "Member D"],
+    ] as const)
+      await stub.upsertMember(userId, name);
+    await stub.setPhase(buildPhaseStep(4), USER_A);
+    await runInRoomDO(roomName, (_room, state) => {
+      const now = new Date().toISOString();
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at)
+         VALUES (?1, ?2, '投票対象', 'shared', 'yellow', 0, 0, 1, ?3, ?3)`,
+        noteId,
+        USER_A,
+        now,
+      );
+      for (const userId of [USER_A, USER_B, USER_C]) {
+        insertVoteStickers(
+          state.storage.sql,
+          noteId,
+          userId,
+          "subjective",
+          1,
+          now,
+        );
+        insertVoteStickers(
+          state.storage.sql,
+          noteId,
+          userId,
+          "objective",
+          3,
+          now,
+        );
+      }
+    });
+    await startTimerForTest(roomName);
+    const sockets = await Promise.all(
+      [USER_A, USER_B, USER_C, USER_D].map((userId) =>
+        connectDirectly(roomName, userId, USER_A),
+      ),
+    );
+    const revisionBefore = Number(
+      (
+        (await runInRoomDO(roomName, (_room, state) =>
+          state.storage.sql
+            .exec("SELECT progress_revision FROM room_state WHERE id=1")
+            .one(),
+        )) as { progress_revision: number }
+      ).progress_revision,
+    );
+
+    sockets[2]?.send(
+      JSON.stringify({ type: "note:vote-remove", noteId, kind: "objective" }),
+    );
+    await nextJsonOfType(sockets[2] as WebSocket, "note:updated");
+    const revisionAfter = Number(
+      (
+        (await runInRoomDO(roomName, (_room, state) =>
+          state.storage.sql
+            .exec("SELECT progress_revision FROM room_state WHERE id=1")
+            .one(),
+        )) as { progress_revision: number }
+      ).progress_revision,
+    );
+    expect(revisionAfter).toBeGreaterThan(revisionBefore);
+    for (const socket of sockets) socket.close();
   });
 
   it("課題が未決定の Step 1-5 では phase:next を拒否し、フェーズを進めない", async () => {
