@@ -63,6 +63,12 @@ export function captureSharedOutcome(
   });
   return SharedOutcomeSnapshotSchema.parse({
     capturedAt: now,
+    // 色割当は退出後も残り、同じユーザーの再参加で増えない。
+    participantCount: sql
+      .exec<{ count: number }>(
+        "SELECT COUNT(*) AS count FROM member_color_assignments",
+      )
+      .one().count,
     phase: getPhase(sql),
     decisions: decisions.map((row) => {
       const note = notes.find((n) => n.id === row.note_id);
@@ -102,7 +108,11 @@ export function captureSharedOutcome(
   });
 }
 export function outcomeRecord(row: OutcomeState): SharedOutcomeRecord {
+  const snapshot = row.saved_json
+    ? SharedOutcomeSnapshotSchema.parse(JSON.parse(row.saved_json))
+    : null;
   return {
+    participantCount: snapshot?.participantCount ?? null,
     roomId: row.room_id,
     name: row.room_name,
     displayId: row.display_id,
@@ -112,8 +122,6 @@ export function outcomeRecord(row: OutcomeState): SharedOutcomeRecord {
     status: row.confirmed ? "confirmed" : "partial",
     saveStatus: row.save_status,
     lastSavedAt: row.last_saved_at,
-    snapshot: row.saved_json
-      ? SharedOutcomeSnapshotSchema.parse(JSON.parse(row.saved_json))
-      : null,
+    snapshot,
   };
 }

@@ -5,6 +5,7 @@ import worker from "./api-worker";
 import {
   createRoomAs,
   initializeTestRoom,
+  joinRoomAs,
   runInRoomDO,
   sessionCookieFor,
 } from "./test-helpers";
@@ -652,4 +653,57 @@ it.each([
   } finally {
     socket.close();
   }
+});
+
+describe("共有成果の参加人数", () => {
+  it("ホストと途中退出者を数え、再参加・再接続では重複せず、解散後も保存人数を保つ", async () => {
+    const room = await createRoomAs(owner);
+    const guest = {
+      sub: crypto.randomUUID(),
+      name: "Guest",
+      email: "count@test.invalid",
+    };
+    await joinRoomAs(guest, room.inviteCode);
+    await runInRoomDO(room.roomId, async (instance) => {
+      await instance.leave(guest.sub, "discard");
+    });
+    await joinRoomAs(guest, room.inviteCode);
+    await joinRoomAs(guest, room.inviteCode);
+    await runInRoomDO(room.roomId, async (instance) => {
+      await instance.leave(guest.sub, "discard");
+      const subject = instance as unknown as {
+        preserveSharedOutcome(confirmed?: boolean): Promise<void>;
+      };
+      await subject.preserveSharedOutcome(true);
+      await instance.alarm();
+      expect(await instance.getSharedOutcome()).toMatchObject({
+        participantCount: 2,
+        snapshot: { participantCount: 2 },
+      });
+      await instance.disband();
+      expect(await instance.getSharedOutcome()).toMatchObject({
+        participantCount: 2,
+      });
+    });
+    const detail = await worker.fetch(request(`/${room.roomId}`), env);
+    expect(await detail.json()).toMatchObject({ participantCount: 2 });
+    const list = await worker.fetch(request(), env);
+    expect(await list.json()).toMatchObject({
+      outcomes: expect.arrayContaining([
+        expect.objectContaining({ roomId: room.roomId, participantCount: 2 }),
+      ]),
+    });
+  });
+  it("人数未記録の旧成果を現在の人数から推測しない", async () => {
+    const room = await createRoomAs(owner);
+    await runInRoomDO(room.roomId, async (instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE shared_outcome_state SET saved_json=json_remove(saved_json, '$.participantCount')",
+      );
+      expect(await instance.getSharedOutcome()).toMatchObject({
+        participantCount: null,
+        snapshot: { participantCount: null },
+      });
+    });
+  });
 });

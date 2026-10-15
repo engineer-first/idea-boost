@@ -169,3 +169,40 @@ it("意見一覧からルーム指定で共有成果を直接開き、その進�
     expect.objectContaining({ cache: "no-store" }),
   );
 });
+
+it("一覧と詳細で各成果の参加人数を示し、未記録を0人と区別する", () => {
+  const props = {
+    loading: false,
+    error: null,
+    nextCursor: null,
+    onOpen: vi.fn(),
+    onBack: vi.fn(),
+    onRefresh: vi.fn(),
+    onMore: vi.fn(),
+  };
+  const record = { ...buildSharedOutcome(), participantCount: 3 };
+  const unknown = {
+    ...buildSharedOutcome({
+      roomId: "123e4567-e89b-42d3-a456-426614174001",
+      name: "旧ルーム",
+    }),
+    participantCount: null,
+  };
+  const { rerender } = render(
+    <SharedOutcomesView
+      {...props}
+      outcomes={[record, unknown]}
+      detail={null}
+    />,
+  );
+  expect(screen.getByRole("link", { name: /相談ルーム/ })).toHaveTextContent(
+    "参加人数：3人",
+  );
+  expect(screen.getByRole("link", { name: /旧ルーム/ })).toHaveTextContent(
+    "参加人数：未記録",
+  );
+  rerender(<SharedOutcomesView {...props} outcomes={[]} detail={record} />);
+  expect(screen.getByText("3人")).toBeInTheDocument();
+  rerender(<SharedOutcomesView {...props} outcomes={[]} detail={unknown} />);
+  expect(screen.getByText("未記録")).toBeInTheDocument();
+});
