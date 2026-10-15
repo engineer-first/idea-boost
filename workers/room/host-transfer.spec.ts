@@ -39,8 +39,11 @@ async function setup() {
   const b = await connect(B);
   return { stub, connect, a: a.ws, b: b.ws };
 }
-function transfer(ws: WebSocket, targetUserId = B, expectedHostRevision = 0) {
-  const response = next(ws);
+async function transfer(
+  ws: WebSocket,
+  targetUserId = B,
+  expectedHostRevision = 0,
+) {
   ws.send(
     JSON.stringify({
       type: "host:transfer",
@@ -48,7 +51,10 @@ function transfer(ws: WebSocket, targetUserId = B, expectedHostRevision = 0) {
       expectedHostRevision,
     }),
   );
-  return response;
+  for (;;) {
+    const response = await next(ws);
+    if (response.type !== "phase:progress") return response;
+  }
 }
 
 describe("開始前ホスト移譲", () => {
@@ -70,7 +76,7 @@ describe("開始前ホスト移譲", () => {
     a.close();
     b.close();
   });
-  it("全員へ現在ホストを配信し旧ホストの開始を拒否する", async () => {
+  it("全員へ現在ホストを配信し旧ホストも開始できる", async () => {
     const { a, b, stub, connect } = await setup();
     const other = next(b);
     expect(await transfer(a)).toMatchObject({
@@ -83,18 +89,15 @@ describe("開始前ホスト移譲", () => {
       hostUserId: B,
       hostRevision: 1,
     });
-    const denied = next(a);
+    const started = next(a);
     a.send(JSON.stringify({ type: "start_phase", expectedHostRevision: 0 }));
-    expect(await denied).toMatchObject({ type: "error", code: "forbidden" });
+    expect(await started).toMatchObject({ type: "phase:updated" });
     const again = await connect(A);
     expect(again.snapshot).toMatchObject({
       hostUserId: B,
       hostRevision: 1,
       isHost: false,
     });
-    const started = next(b);
-    b.send(JSON.stringify({ type: "start_phase", expectedHostRevision: 1 }));
-    expect(await started).toMatchObject({ type: "phase:updated" });
     expect(await stub.getPhase()).toMatchObject({ kind: "step" });
     a.close();
     b.close();
@@ -118,10 +121,7 @@ describe("開始前ホスト移譲", () => {
     });
     const staleStart = next(a);
     a.send(JSON.stringify({ type: "start_phase", expectedHostRevision: 0 }));
-    expect(await staleStart).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
+    expect(await staleStart).toMatchObject({ type: "phase:updated" });
     a.close();
     b.close();
   });

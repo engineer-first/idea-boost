@@ -7,7 +7,7 @@ import {
   replyForbidden,
   runAuthorizedMutationTransaction,
 } from "./handler-context";
-import { isCurrentHost, listMembers } from "./members";
+import { listMembers } from "./members";
 import { getPhase, getPhaseRevision, savePhase } from "./phase";
 import { recordProgressTransition } from "./progress-history";
 import { getSharingState, saveSharingState } from "./sharing-state";
@@ -101,7 +101,6 @@ export const rollbackHandlers: MessageHandlers<"phase:rollback"> = {
   "phase:rollback": async (ctx, message) => {
     const committed = await runAuthorizedMutationTransaction(ctx, async () => {
       if (
-        !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
         isRoomClosed(ctx.sql) ||
         getPhaseRevision(ctx.sql) !== message.expectedRevision ||
         JSON.stringify(getPhase(ctx.sql)) !==

@@ -24,12 +24,10 @@ export type IdeaMapSizeControlsProps = {
 export function IdeaMapSizeControls({
   sizeLevel,
   initialized,
-  isHost,
   isDisconnected,
   isDragging,
   onResize,
 }: IdeaMapSizeControlsProps): ReactElement | null {
-  if (!isHost) return null;
   const { min, max } = IDEA_MAP_SIZE_LEVEL_RANGE;
   const boundedLevel = Math.min(max, Math.max(min, sizeLevel));
   const disabledReason = !initialized

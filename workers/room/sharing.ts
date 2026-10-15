@@ -5,7 +5,7 @@ import {
   type MessageHandlers,
   runAuthorizedMutationTransaction,
 } from "./handler-context";
-import { getHostState, isHostUser, isMember } from "./members";
+import { isMember } from "./members";
 import { getPhase, getPhaseRevision, phaseHandlers } from "./phase";
 import { getSharingState, saveSharingState } from "./sharing-state";
 import { getTimerState, saveTimerState } from "./timer";
@@ -26,7 +26,6 @@ export function broadcastSharing(
 function controllableState(
   ctx: HandlerCtx,
   revision: string,
-  allowPresenter: boolean = false,
 ): SharingState | null {
   const phase = getPhase(ctx.sql);
   const state = getSharingState(ctx.sql);
@@ -38,8 +37,7 @@ function controllableState(
     ctx.reply({
       type: "error",
       code: "forbidden",
-      message:
-        "共有の操作は共有ステップでホスト、発表完了は発表者本人も操作できます。",
+      message: "共有の操作は共有ステップの参加者が行えます。",
     });
     return null;
   }
@@ -52,21 +50,6 @@ function controllableState(
         timer: getTimerState(ctx.sql),
         serverNow: Date.now(),
       });
-    return null;
-  }
-  const currentIndex = state.currentIndex;
-  const isPresenter =
-    allowPresenter &&
-    state.status === "active" &&
-    currentIndex !== null &&
-    state.order[currentIndex]?.userId === ctx.userId;
-  if (!isHostUser(ctx.sql, ctx.userId) && !isPresenter) {
-    ctx.reply({
-      type: "error",
-      code: "forbidden",
-      message:
-        "共有の操作は共有ステップでホスト、発表完了は発表者本人も操作できます。",
-    });
     return null;
   }
   return state;
@@ -100,7 +83,6 @@ async function advanceAfterFinalPresenter(
     type: "phase:next",
     expectedPhase: phase,
     expectedRevision: getPhaseRevision(ctx.sql),
-    expectedHostRevision: getHostState(ctx.sql).hostRevision,
   });
 }
 
@@ -114,26 +96,8 @@ export const sharingHandlers: MessageHandlers<
     await commitTurn(ctx, state);
   },
   "sharing:advance": async (ctx, message) => {
-    const state = controllableState(
-      ctx,
-      message.revision,
-      message.outcome === "done",
-    );
+    const state = controllableState(ctx, message.revision);
     if (state?.status !== "active") return;
-    const currentIndex = state.currentIndex;
-    const isFinalTurn = currentIndex === state.order.length - 1;
-    const isCurrentPresenter =
-      isFinalTurn &&
-      currentIndex !== null &&
-      state.order[currentIndex]?.userId === ctx.userId;
-    if (isFinalTurn && !isCurrentPresenter) {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message: "最後の発表者だけが共有を完了できます。",
-      });
-      return;
-    }
     state.results.push(message.outcome);
     await commitTurn(ctx, state);
     await advanceAfterFinalPresenter(ctx, state);

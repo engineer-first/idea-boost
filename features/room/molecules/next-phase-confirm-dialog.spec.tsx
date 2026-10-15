@@ -33,7 +33,7 @@ describe("NextPhaseConfirmDialog", () => {
     ).toBeDisabled();
   });
 
-  it("未完了メンバーがいる場合は確認内容を短く表示する", () => {
+  it("未完了メンバーがいる場合も工程終了の確認内容を表示する", () => {
     setup({ notReadyNames: ["Owner"] });
 
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
@@ -47,7 +47,7 @@ describe("NextPhaseConfirmDialog", () => {
     );
     expect(dialog).toHaveTextContent("Owner");
     expect(screen.getByRole("img", { name: "Owner" })).toBeInTheDocument();
-    expect(dialog).not.toHaveTextContent("本文のある共有付箋");
+    expect(dialog).toHaveTextContent("本文のある共有付箋と下書きは残ります。");
   });
 
   it("確認ダイアログで現在ステップと、空白の付箋を削除する範囲を説明する", () => {

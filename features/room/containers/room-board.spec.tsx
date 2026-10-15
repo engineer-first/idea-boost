@@ -69,7 +69,6 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
-import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
 import { RoomBoard } from "./room-board";
 
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -592,7 +591,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(socket.sent).toContain(JSON.stringify({ type: "timer:resume" }));
   });
 
-  it("非 host の snapshot idle 枠を表示し、phase:updated 後も表示を維持する", () => {
+  it("参加者の snapshot idle 枠を表示し、phase:updated 後も表示を維持する", () => {
     const { socket } = connectWithSnapshot([], {
       isHost: false,
       phase: buildPhaseStep(1),
@@ -601,9 +600,9 @@ describe("サーバーメッセージ → 画面反映", () => {
     const controls = screen.getByRole("group", { name: "ルームの操作" });
     const timer = within(controls).getByTestId("room-timer");
     expect(timer).toBeVisible();
-    expect(timer.tagName).toBe("SPAN");
+    expect(timer.tagName).toBe("BUTTON");
     expect(timer).toHaveTextContent("05:00");
-    expect(within(timer).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(timer).getByRole("timer")).toBeInTheDocument();
 
     act(() =>
       socket.simulateServerMessage({
@@ -634,156 +633,6 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
 
     expect(notifyMocks.error).toHaveBeenCalledWith("ホストのみ操作できます。");
-  });
-
-  it("投票未完了（voting-incomplete）を受信すると toast ではなく強制進行の確認を表示し、確認で force 付き phase:next を送信する", () => {
-    const { socket } = connectWithSnapshot([], {
-      isHost: true,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-
-    expect(notifyMocks.error).not.toHaveBeenCalled();
-    expect(screen.getByText(FORCE_NEXT_PHASE_COPY.title)).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: FORCE_NEXT_PHASE_COPY.confirm }),
-    );
-
-    expect(socket.sent).toContain(
-      JSON.stringify({
-        type: "phase:next",
-        force: true,
-        expectedPhase: buildPhaseStep(4),
-        expectedRevision: 0,
-      }),
-    );
-  });
-
-  it("非ホストに voting-incomplete が届いた場合はダイアログを開かず toast へフォールバックする", () => {
-    // サーバーの評価順では非ホストに届かないコードだが、UI 側はその暗黙の
-    // 保証に依存せず通常のエラー表示へ落とすことを固定する。
-    const { socket } = connectWithSnapshot([], {
-      isHost: false,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-
-    expect(notifyMocks.error).toHaveBeenCalledWith(
-      "全員の主観・客観投票が完了していません。",
-    );
-    expect(
-      screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
-    ).not.toBeInTheDocument();
-  });
-
-  it("強制進行の確認ダイアログは phase:updated の受信で閉じる", () => {
-    // 別タブなど他の経路で進行が確定したら、開いていた確認は根拠が古い。
-    const { socket } = connectWithSnapshot([], {
-      isHost: true,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-    expect(screen.getByText(FORCE_NEXT_PHASE_COPY.title)).toBeInTheDocument();
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "phase:updated",
-        phaseRevision: 0,
-        phase: buildPhaseStep(5),
-      }),
-    );
-
-    expect(
-      screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
-    ).not.toBeInTheDocument();
-  });
-
-  it("強制進行の確認ダイアログは再接続の snapshot 受信で閉じる", () => {
-    const { socket } = connectWithSnapshot([], {
-      isHost: true,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-    expect(screen.getByText(FORCE_NEXT_PHASE_COPY.title)).toBeInTheDocument();
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "snapshot",
-        phaseRevision: 0,
-        notes: [],
-        members: [],
-        phase: buildPhaseStep(5),
-        isHost: true,
-        decision: null,
-        carryovers: [],
-        completedVoterIds: [],
-        timer: { status: "idle" },
-        serverNow: Date.now(),
-      }),
-    );
-
-    expect(
-      screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
-    ).not.toBeInTheDocument();
-  });
-
-  it("強制進行の確認をキャンセルすると force 付き phase:next は送信されない", () => {
-    const { socket } = connectWithSnapshot([], {
-      isHost: true,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: FORCE_NEXT_PHASE_COPY.cancel }),
-    );
-
-    expect(socket.sent).not.toContain(
-      JSON.stringify({
-        type: "phase:next",
-        force: true,
-        expectedPhase: buildPhaseStep(4),
-        expectedRevision: 0,
-      }),
-    );
-    expect(
-      screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
-    ).not.toBeInTheDocument();
   });
 
   it("snapshot の付箋がボードに描画される", () => {
@@ -3989,7 +3838,6 @@ describe("直前のステップへの復元", () => {
       type: "phase:rollback",
       expectedPhase: buildPhaseStep(1, 2),
       expectedRevision: 7,
-      expectedHostRevision: 0,
     });
     expect(
       screen.queryByRole("button", { name: "直前のステップに戻る" }),

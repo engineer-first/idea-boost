@@ -93,7 +93,15 @@ async function connectDirectlyWithFirstMessage(
   ws.accept();
   roomNameBySocket.set(ws, roomName);
   queueFor(ws);
-  return { ws, firstMessage: await nextJson(ws) };
+  const firstMessage = await nextJson(ws);
+  await runInRoomDO(roomName, (_room, state) =>
+    state.storage.sql.exec(
+      "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
+      userId,
+      Date.now(),
+    ),
+  );
+  return { ws, firstMessage };
 }
 
 type MessageQueue = {
@@ -580,7 +588,7 @@ describe("RoomDO WebSocket の深層防御", () => {
     res.webSocket?.close();
   });
 
-  it("非ホストは自分を HOST_ID_HEADER に指定しても start_phase できない", async () => {
+  it("参加者は自分を HOST_ID_HEADER に指定しても start_phase できる", async () => {
     const roomId = "room-guard-forged-host-start";
     const stub = roomStub(roomId);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -590,14 +598,13 @@ describe("RoomDO WebSocket の深層防御", () => {
     ws.send(JSON.stringify({ type: "start_phase" }));
 
     await expect(nextJson(ws)).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "phase:updated",
     });
-    expect(await stub.getPhase()).toEqual(LOBBY);
+    expect(await stub.getPhase()).toEqual(buildPhaseStep(1));
     ws.close();
   });
 
-  it("非ホストは自分を HOST_ID_HEADER に指定しても phase:next できない", async () => {
+  it("参加者は自分を HOST_ID_HEADER に指定しても phase:next の認可を迂回できない", async () => {
     const roomId = "room-guard-forged-host-next";
     const stub = roomStub(roomId);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -613,10 +620,10 @@ describe("RoomDO WebSocket の深層防御", () => {
     );
 
     await expect(nextJson(ws)).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "snapshot",
+      phase: buildPhaseStep(2),
     });
-    expect(await stub.getPhase()).toEqual(buildPhaseStep(1));
+    expect(await stub.getPhase()).toEqual(buildPhaseStep(2));
     ws.close();
   });
 });
@@ -772,11 +779,10 @@ describe("RoomDO adoption-focus:update", () => {
     });
 
     host.close();
-    member.close();
     reconnectWs.close();
   });
 
-  it("非ホストからの更新を拒否し、他の接続へは配信しない", async () => {
+  it("参加者からの更新を全接続へ配信する", async () => {
     const roomName = "room-adoption-focus-non-host";
     await prepare(roomName);
     const host = await connectDirectly(roomName, USER_A, USER_A);
@@ -790,12 +796,14 @@ describe("RoomDO adoption-focus:update", () => {
     );
 
     await expect(nextJson(member)).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "adoption-focus:updated",
+      noteId: SHARED_NOTE_ID,
     });
-    await expect(nextJsonWithin(host, 100)).resolves.toBeUndefined();
+    await expect(nextJsonWithin(host, 100)).resolves.toMatchObject({
+      type: "adoption-focus:updated",
+      noteId: SHARED_NOTE_ID,
+    });
     host.close();
-    member.close();
   });
 
   it.each([
@@ -959,7 +967,7 @@ describe("RoomDO note:decide の認可", () => {
     });
   }
 
-  it("非ホストは共有付箋を決定できず forbidden で拒否される", async () => {
+  it("参加者は共有付箋を決定できる", async () => {
     const roomName = "room-decide-non-host";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -971,8 +979,7 @@ describe("RoomDO note:decide の認可", () => {
     ws.send(JSON.stringify({ type: "note:decide", noteId: SHARED_NOTE_ID }));
 
     expect(await nextJsonWithin(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "decision:updated",
     });
     ws.close();
   });
@@ -1191,6 +1198,7 @@ describe("RoomDO note:decide", () => {
       ),
     ).toBe(0);
     host.close();
+    member.close();
     member.close();
   });
 
@@ -2514,7 +2522,7 @@ describe("RoomDO phase:next", () => {
     reconnected.close();
   });
 
-  it("3-2では非ホストの直接resizeを拒否し、保存済みの広さを維持する", async () => {
+  it("3-2では参加者も直接resizeでき、保存済みの広さを更新する", async () => {
     const roomName = "room-idea-map-resize-non-host";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -2531,14 +2539,14 @@ describe("RoomDO phase:next", () => {
     const member = await connectDirectly(roomName, USER_B, USER_A);
     member.send(JSON.stringify({ type: "idea-map:resize", sizeLevel: 5 }));
     await expect(nextJson(member)).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "idea-map:state",
+      sizeLevel: 5,
     });
     await runInRoomDO(roomName, (_instance, state) => {
       const row = state.storage.sql
         .exec("SELECT idea_map_size_level FROM room_state WHERE id = 1")
         .toArray()[0] as { idea_map_size_level: number };
-      expect(row.idea_map_size_level).toBe(2);
+      expect(row.idea_map_size_level).toBe(5);
     });
     member.close();
   });
@@ -2774,12 +2782,25 @@ describe("RoomDO phase:next", () => {
     const member = await connectDirectly(roomName, USER_B, USER_A);
     const hostMessages = nextJson(host);
     const memberMessages = nextJson(member);
+    const progressRevision = incomplete
+      ? Number(
+          (
+            (await runInRoomDO(roomName, (_instance, state) =>
+              state.storage.sql
+                .exec("SELECT progress_revision FROM room_state WHERE id=1")
+                .one(),
+            )) as { progress_revision: number }
+          ).progress_revision,
+        )
+      : undefined;
 
     host.send(
       JSON.stringify({
         type: "phase:next",
-        force: incomplete,
         ...(await currentPhaseExpectation(roomName)),
+        ...(progressRevision === undefined
+          ? {}
+          : { confirmedProgressRevision: progressRevision }),
       }),
     );
 
@@ -2847,6 +2868,7 @@ describe("RoomDO phase:next", () => {
         USER_B,
       );
     });
+    const member = await connectDirectly(roomName, USER_B, USER_A);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const messages = nextJson(host);
 
@@ -2859,7 +2881,7 @@ describe("RoomDO phase:next", () => {
 
     expect(await messages).toMatchObject({
       type: "error",
-      code: "voting-incomplete",
+      code: "phase-not-ready",
     });
     expect(
       await runInRoomDO(
@@ -2871,6 +2893,7 @@ describe("RoomDO phase:next", () => {
       ),
     ).toBe(0);
     host.close();
+    member.close();
   });
 
   it.each([
@@ -2896,7 +2919,6 @@ describe("RoomDO phase:next", () => {
     host.send(
       JSON.stringify({
         type: "phase:next",
-        force: incomplete,
         ...(await currentPhaseExpectation(roomName)),
       }),
     );
@@ -3038,149 +3060,14 @@ describe("RoomDO phase:next", () => {
       ws.addEventListener("message", resolve, { once: true });
     });
 
-    // 投票未完了によるゲート拒否は voting-incomplete。クライアントは
-    // このコードでホストへ「強制的に進むか」の確認を出す。
+    // 投票未完了によるゲート拒否は、参加者全員に同じ状態を返す。
     expect(JSON.parse(String(message.data))).toMatchObject({
       type: "error",
-      code: "voting-incomplete",
+      code: "phase-not-ready",
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(4));
     expect(await stub.getTimerState()).toMatchObject({
       status: "running",
-      durationMs: 60_000,
-    });
-    ws.close();
-  });
-
-  it("未投票メンバーが残っていても、ホストは force で Step 1-5 へ進められる", async () => {
-    const roomName = "room-phase-force-next";
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(4), USER_A);
-
-    const ws = await connectDirectly(roomName, USER_A, USER_A);
-    ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomName)),
-        force: true,
-      }),
-    );
-
-    expect(await nextJson(ws)).toMatchObject({
-      type: "snapshot",
-      phase: buildPhaseStep(5),
-    });
-    expect(await nextJson(ws)).toMatchObject({
-      type: "phase:updated",
-      groupRevision: expect.any(Number),
-      mapRevision: expect.any(Number),
-      phaseRevision: expect.any(Number),
-      phase: buildPhaseStep(5),
-    });
-    expect(await stub.getPhase()).toEqual(buildPhaseStep(5));
-    ws.close();
-  });
-
-  it("Step 3-4 の未投票確認後、強制進行は全員へ同期され再接続でも保持される", async () => {
-    const roomName = "room-phase3-force-confirm";
-    const stub = roomStub(roomName);
-    const voting = buildPhaseStep(4, 3);
-    const result = buildPhaseStep(5, 3);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(voting, USER_A);
-    const owner = await connectDirectly(roomName, USER_A, USER_A);
-    const member = await connectDirectly(roomName, USER_B, USER_A);
-    const request = {
-      type: "phase:next",
-      ...(await currentPhaseExpectation(roomName)),
-    };
-    member.send(JSON.stringify({ ...request, force: true }));
-    expect(await nextJson(member)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    owner.send(JSON.stringify(request));
-    expect(await nextJson(owner)).toMatchObject({
-      type: "error",
-      code: "voting-incomplete",
-    });
-    expect(await stub.getPhase()).toEqual(voting);
-    owner.send(JSON.stringify({ ...request, force: true }));
-    expect(await nextJson(owner)).toMatchObject({
-      type: "snapshot",
-      phase: result,
-      timer: { status: "idle" },
-    });
-    expect(await nextJson(owner)).toMatchObject({
-      type: "phase:updated",
-      groupRevision: expect.any(Number),
-      mapRevision: expect.any(Number),
-      phase: result,
-    });
-    expect(await nextJson(member)).toMatchObject({
-      type: "snapshot",
-      phase: result,
-    });
-    expect(await nextJson(member)).toMatchObject({
-      type: "phase:updated",
-      groupRevision: expect.any(Number),
-      mapRevision: expect.any(Number),
-      phase: result,
-    });
-    const returned = await connectDirectlyWithFirstMessage(
-      roomName,
-      USER_B,
-      USER_A,
-    );
-    expect(returned.firstMessage).toMatchObject({
-      type: "snapshot",
-      phase: result,
-    });
-    owner.send(JSON.stringify({ ...request, force: true }));
-    expect(await nextJson(owner)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    expect(await stub.getPhase()).toEqual(result);
-    owner.close();
-    member.close();
-    returned.ws.close();
-  });
-
-  it("ホスト以外は force を付けても phase を進められない", async () => {
-    const roomName = "room-phase-force-non-host";
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(4), USER_A);
-    const endsAt = Date.now() + 60_000;
-    await runInRoomDO(roomName, (_instance, state) => {
-      state.storage.sql.exec(
-        "UPDATE timer_state SET status = 'running', ends_at = ?1, remaining_ms = NULL, duration_ms = 60000 WHERE id = 1",
-        endsAt,
-      );
-    });
-
-    const ws = await connectDirectly(roomName, USER_B, USER_A);
-    ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomName)),
-        force: true,
-      }),
-    );
-
-    expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    expect(await stub.getPhase()).toEqual(buildPhaseStep(4));
-    expect(await stub.getTimerState()).toEqual({
-      status: "running",
-      endsAt,
       durationMs: 60_000,
     });
     ws.close();
@@ -3214,29 +3101,7 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
-  it("lobby では force を付けても phase:next できない", async () => {
-    const roomName = "room-phase-force-lobby";
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-
-    const ws = await connectDirectly(roomName, USER_A, USER_A);
-    ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomName)),
-        force: true,
-      }),
-    );
-
-    expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    expect(await stub.getPhase()).toEqual(LOBBY);
-    ws.close();
-  });
-
-  it("全員の投票が完了していれば force なしで Step 1-5 へ進める", async () => {
+  it("全員の投票が完了していれば Step 1-5 へ進める", async () => {
     const roomName = "room-phase-voting-complete";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -3418,7 +3283,7 @@ describe("RoomDO phase:next", () => {
     );
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
-      code: "voting-incomplete",
+      code: "phase-not-ready",
     });
     expect(await stub.getPhase()).toEqual(buildPhaseStep(3, 2));
 
@@ -3745,16 +3610,9 @@ describe("RoomDO phase:next", () => {
     });
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    const forbidden = nextJson(member);
-    member.send(JSON.stringify({ type: "outcome:publish" }));
-    expect(await forbidden).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-
     const hostPublished = nextJson(host);
     const memberPublished = nextJson(member);
-    host.send(JSON.stringify({ type: "outcome:publish" }));
+    member.send(JSON.stringify({ type: "outcome:publish" }));
     expect(await hostPublished).toEqual({
       type: "outcome:published",
       published: true,
@@ -4397,6 +4255,13 @@ describe("RoomDO phase:next", () => {
 
     // snapshot を捨てる
     await nextJson(ws);
+    await runInRoomDO("room-phase-host", (_room, state) =>
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?)",
+        USER_A,
+        Date.now(),
+      ),
+    );
 
     ws.send(
       JSON.stringify({
@@ -4420,7 +4285,7 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
-  it("member は phase を進められない", async () => {
+  it("member も完了条件を満たせば phase を進められる", async () => {
     const stub = roomStub("room-phase-member");
 
     await initializeTestRoom(stub, USER_A, "Host");
@@ -4448,6 +4313,13 @@ describe("RoomDO phase:next", () => {
     await new Promise<MessageEvent>((resolve) => {
       ws.addEventListener("message", resolve, { once: true });
     });
+    await runInRoomDO("room-phase-member", (_room, state) =>
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?)",
+        USER_B,
+        Date.now(),
+      ),
+    );
 
     ws.send(
       JSON.stringify({
@@ -4460,10 +4332,9 @@ describe("RoomDO phase:next", () => {
       ws.addEventListener("message", resolve, { once: true });
     });
 
-    const error = JSON.parse(String(message.data));
-
-    expect(error.type).toBe("error");
-    expect(error.code).toBe("forbidden");
+    const messageBody = JSON.parse(String(message.data));
+    expect(messageBody.type).toBe("snapshot");
+    expect(messageBody.phase).toEqual(buildPhaseStep(2));
 
     ws.close();
   });
@@ -4515,6 +4386,15 @@ describe("RoomDO phase:next", () => {
 
     // snapshot を受け取る
     await Promise.all([nextJson(host), nextJson(member)]);
+    await runInRoomDO("room-phase-broadcast", (_room, state) => {
+      for (const userId of [USER_A, USER_B]) {
+        state.storage.sql.exec(
+          "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?)",
+          userId,
+          Date.now(),
+        );
+      }
+    });
 
     // 共有へ入ると順番を含む snapshot を全員へ届ける
     const collectOne = (ws: WebSocket) => nextJson(ws);
@@ -4547,11 +4427,7 @@ describe("RoomDO phase:next", () => {
 describe("RoomDO timer:* の認可", () => {
   it.each([
     { type: "timer:start", durationMs: 60_000 },
-    { type: "timer:pause" },
-    { type: "timer:resume" },
-    { type: "timer:extend" },
-    { type: "timer:stop" },
-  ])("非ホストの $type は forbidden で状態を変更できない", async (command) => {
+  ])("参加者の $type は共有タイマーを変更できる", async (command) => {
     const roomId = `room-timer-member-${command.type}`;
     const stub = roomStub(roomId);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -4581,13 +4457,13 @@ describe("RoomDO timer:* の認可", () => {
     });
 
     expect(JSON.parse(String(event.data))).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "timer:updated",
+      timer: { status: "running" },
     });
     ws.close();
   });
 
-  it("D1由来 hostId が本人でも RoomDO の所有者でなければ操作できない", async () => {
+  it("D1由来 hostId を偽装しても参加者のタイマー操作を妨げない", async () => {
     const stub = roomStub("room-timer-forged-host-header");
     await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
@@ -4612,8 +4488,8 @@ describe("RoomDO timer:* の認可", () => {
       ws.addEventListener("message", resolve, { once: true });
     });
     expect(JSON.parse(String(event.data))).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "timer:updated",
+      timer: { status: "running" },
     });
     ws.close();
   });
@@ -5766,7 +5642,7 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
     ws.close();
   });
 
-  it("Step 2-4 では非ホストの問い決定を forbidden で拒否する", async () => {
+  it("Step 2-4 では参加者が問いを決定できる", async () => {
     const roomName = "room-phase2-decide-non-host";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -5787,63 +5663,9 @@ describe("RoomDO フェーズ2の投票・決定ゲート", () => {
     const ws = await connectDirectly(roomName, USER_B, USER_A);
     ws.send(JSON.stringify({ type: "note:decide", noteId: HMW_NOTE_ID }));
     expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "decision:updated",
+      decision: { phase: 2, noteId: HMW_NOTE_ID },
     });
-    ws.close();
-  });
-
-  it("未投票メンバーが残っていても、ホストは force で Step 2-4 へ進められる", async () => {
-    const roomName = "room-phase2-voting-incomplete-force";
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(3, 2), USER_A);
-
-    const ws = await connectDirectly(roomName, USER_A, USER_A);
-    ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomName)),
-        force: true,
-      }),
-    );
-    expect(await nextJson(ws)).toMatchObject({
-      type: "snapshot",
-      phase: buildPhaseStep(4, 2),
-    });
-    expect(await nextJson(ws)).toMatchObject({
-      type: "phase:updated",
-      groupRevision: expect.any(Number),
-      mapRevision: expect.any(Number),
-      phaseRevision: expect.any(Number),
-      phase: buildPhaseStep(4, 2),
-    });
-    expect(await stub.getPhase()).toEqual(buildPhaseStep(4, 2));
-    ws.close();
-  });
-
-  it("Step 2-3ではホスト以外が force を付けても進められない", async () => {
-    const roomName = "room-phase2-force-non-host";
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(3, 2), USER_A);
-
-    const ws = await connectDirectly(roomName, USER_B, USER_A);
-    ws.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomName)),
-        force: true,
-      }),
-    );
-
-    expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    expect(await stub.getPhase()).toEqual(buildPhaseStep(3, 2));
     ws.close();
   });
 });
@@ -6693,7 +6515,7 @@ describe("RoomDO Step 3-1 の境界ゲート", () => {
 });
 
 describe("RoomDO タイマー終了", () => {
-  it("ホストの一時停止中の終了は ended を全員へ配信し、非ホストは操作できない", async () => {
+  it("参加者の一時停止中の終了は ended を全員へ配信する", async () => {
     const roomName = "room-timer-ended-and-host-only";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -6730,19 +6552,10 @@ describe("RoomDO タイマー終了", () => {
     const memberStopResponse = nextJson(memberWs);
     memberWs.send(JSON.stringify({ type: "timer:stop" }));
     await expect(memberStopResponse).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    expect(await stub.getTimerState()).toMatchObject({ status: "paused" });
-
-    const endedHost = nextJson(hostWs);
-    const endedMember = nextJson(memberWs);
-    hostWs.send(JSON.stringify({ type: "timer:stop" }));
-    await expect(endedHost).resolves.toMatchObject({
       type: "timer:updated",
       timer: { status: "ended", durationMs: 60_000 },
     });
-    await expect(endedMember).resolves.toMatchObject({
+    await expect(nextJson(hostWs)).resolves.toMatchObject({
       type: "timer:updated",
       timer: { status: "ended", durationMs: 60_000 },
     });
@@ -7108,6 +6921,15 @@ describe("new move group privacy WS", () => {
       }),
     );
     const writing = await nextJsonOfType(owner, "phase:updated");
+    const roomName = roomNameBySocket.get(owner);
+    if (!roomName) throw new Error("テスト用ルームがありません。");
+    await runInRoomDO(roomName, (_room, state) =>
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
+        USER_A,
+        Date.now(),
+      ),
+    );
     owner.send(
       JSON.stringify({
         type: "phase:next",
@@ -7116,8 +6938,6 @@ describe("new move group privacy WS", () => {
       }),
     );
     await nextJsonOfType(owner, "phase:updated");
-    const roomName = roomNameBySocket.get(owner);
-    if (!roomName) throw new Error("テスト用ルームがありません。");
     // 返却後のgroup可視性を調べるため、返却する作者の発表中を用意する。
     await arrangeSharingPresenter(roomName, USER_B);
     while (await nextJsonWithin(author, 10)) {

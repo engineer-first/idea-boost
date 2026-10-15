@@ -25,7 +25,6 @@ import {
   replyForbidden,
   runAuthorizedMutationTransaction,
 } from "./handler-context";
-import { getHostState, isCurrentHost } from "./members";
 import {
   deleteNote,
   excludeNotesForBulkOperation,
@@ -76,8 +75,6 @@ function canProceedWithProgress(
   current: RoomPhase,
   message: Extract<ClientMessage, { type: "phase:next" }>,
 ): boolean {
-  if (message.force === true)
-    return isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision);
   if (!isManualProgressStep(current) && !isVotingStep(current)) return true;
   const progress = getProgressState(
     ctx.sql,
@@ -501,26 +498,8 @@ export const phaseHandlers: MessageHandlers<
   | "phase:restart-writing"
   | "phase:revote"
 > = {
-  // ロビー → Step 1-1（ボード開始）。ホストのみ。
-  start_phase: (ctx, message) => {
-    const revision = getHostState(ctx.sql).hostRevision;
-    if ((message.expectedHostRevision ?? 0) !== revision) {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message:
-          "ホストが変更されています。画面を更新してから開始してください。",
-      });
-      return;
-    }
-    if (!isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision)) {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message: "進行状態を変更する権限がありません。",
-      });
-      return;
-    }
+  // ロビー → Step 1-1（ボード開始）。在籍メンバーが開始できる。
+  start_phase: (ctx, _message) => {
     if (!isLobby(getPhase(ctx.sql))) {
       ctx.reply({
         type: "error",
@@ -594,19 +573,8 @@ export const phaseHandlers: MessageHandlers<
     broadcastProgress(ctx.sql, ctx.broadcaster, current, revision);
   },
 
-  // 現在のステップ → 次のステップ。通常進行は参加者全員、force はホストのみ。
+  // 現在のステップ → 次のステップ。完了条件を満たした参加者が進める。
   "phase:next": async (ctx, message) => {
-    if (
-      message.force === true &&
-      !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision)
-    ) {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message: "ホストのみ操作できます。",
-      });
-      return;
-    }
     const current = getPhase(ctx.sql);
     if (!matchesExpectedPhase(ctx, message)) {
       replyForbidden(ctx);
@@ -624,23 +592,11 @@ export const phaseHandlers: MessageHandlers<
       current.kind === "step" && current.step === 2
         ? getSharingState(ctx.sql)
         : null;
-    if (sharing && sharing.status !== "complete" && message.force !== true) {
+    if (sharing && sharing.status !== "complete") {
       ctx.reply({
         type: "error",
         code: "forbidden",
         message: "発表順が一巡するまで次へ進めません。",
-      });
-      return;
-    }
-    if (
-      sharing?.status === "complete" &&
-      message.force !== true &&
-      sharing.order.at(-1)?.userId !== ctx.userId
-    ) {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message: "最後の発表者だけが共有を終了できます。",
       });
       return;
     }
@@ -650,10 +606,7 @@ export const phaseHandlers: MessageHandlers<
       current,
       getPhaseRevision(ctx.sql),
     );
-    if (
-      (isManualProgressStep(current) || isVotingStep(current)) &&
-      !message.force
-    ) {
+    if (isManualProgressStep(current) || isVotingStep(current)) {
       if (!progress.canAdvance) {
         ctx.reply({
           type: "error",
@@ -694,8 +647,6 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
-    // force は全フェーズの投票ステップで使える脱出ハッチ。離脱者などが
-    // 投票を完了できなくても、ホストは結果ステップへ進められる。
     const next = nextRoomPhase(current);
     if (isVotingStep(next) && !hasCandidateNotes(ctx.sql, current.phase)) {
       replyForbidden(ctx);
@@ -710,9 +661,7 @@ export const phaseHandlers: MessageHandlers<
     }
     const crossesPhaseBoundary = !isLobby(next) && current.phase !== next.phase;
     // フェーズ境界を越えるときは、現在フェーズの決定が確定していることを
-    // 要求する（fail-closed）。決定なしで次フェーズへ進むと、持ち越し表示の
-    // 前提が崩れたまま進行が続いてしまう。force は未投票メンバー向けの
-    // 脱出ハッチであり、このゲートは迂回できない。
+    // 要求する（fail-closed）。
     if (crossesPhaseBoundary && !getDecision(ctx.sql, current.phase)) {
       ctx.reply({
         type: "error",
@@ -734,7 +683,7 @@ export const phaseHandlers: MessageHandlers<
       next.phase === 3 &&
       next.step === 2 &&
       !(current.kind === "step" && current.phase === 3 && current.step === 2);
-    // 未投票者を待たずに進む場合も、ホストが投票を終了した時点の結果で整理する。
+    // 投票終了時点の結果で候補整理を行う。
     const completesVoting = isVotingStep(current) && isResultStep(next);
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
@@ -895,7 +844,6 @@ async function restartPhase(
 ): Promise<void> {
   const current = getPhase(ctx.sql);
   if (
-    !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
     !matchesExpectedPhase(ctx, message) ||
     current.kind !== "step" ||
     getDecision(ctx.sql, current.phase) ||
@@ -910,11 +858,7 @@ async function restartPhase(
     ...current,
     step: revote ? VOTING_STEP_BY_PHASE[current.phase] : 1,
   };
-  if (
-    !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
-    isRoomClosed(ctx.sql) ||
-    !matchesExpectedPhase(ctx, message)
-  ) {
+  if (isRoomClosed(ctx.sql) || !matchesExpectedPhase(ctx, message)) {
     replyForbidden(ctx);
     return;
   }

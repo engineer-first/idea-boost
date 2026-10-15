@@ -666,45 +666,15 @@ describe("ServerMessageSchema", () => {
     });
   });
 
-  it("phase:next は force フラグを受け入れ、パース結果に保持する", () => {
-    expect(
-      ClientMessageSchema.parse({
-        type: "phase:next",
-        expectedPhase: STEP_1_2,
-        expectedRevision: 3,
-        force: true,
-      }),
-    ).toEqual({
-      type: "phase:next",
-      expectedPhase: STEP_1_2,
-      expectedRevision: 3,
-      force: true,
-    });
-  });
-
-  it("phase:next の force に boolean 以外は拒否する", () => {
+  it("phase:next は強制進行フラグを受け付けない", () => {
     expect(
       ClientMessageSchema.safeParse({
         type: "phase:next",
         expectedPhase: STEP_1_2,
         expectedRevision: 3,
-        force: "yes",
+        force: true,
       }).success,
     ).toBe(false);
-  });
-
-  it("error は voting-incomplete コードを受け入れる", () => {
-    expect(
-      ServerMessageSchema.parse({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    ).toEqual({
-      type: "error",
-      code: "voting-incomplete",
-      message: "全員の主観・客観投票が完了していません。",
-    });
   });
 
   it("error の未知の code は拒否する", () => {

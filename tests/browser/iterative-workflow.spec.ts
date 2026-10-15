@@ -375,7 +375,7 @@ test.each(
   expect(await dialog.innerText()).toContain("未共有の下書き");
   await expectReadable(dialog);
   await expectReachable(
-    dialog.getByRole("button", { name: "移行する", exact: true }),
+    dialog.getByRole("button", { name: "次へ進む", exact: true }),
   );
   await page.screenshot({ path: `${output}/first-vote-${phase}.png` });
   await page.keyboard.press("Escape");

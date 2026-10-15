@@ -104,7 +104,6 @@ export type RoomBoardHeaderProps = {
   onPublishOutcome: () => void;
   onLeaveClick: () => void;
   onNextPhase: (confirmedProgressRevision?: number) => void;
-  onForceNextPhase?: () => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -169,7 +168,6 @@ export function RoomBoardHeader({
   onPublishOutcome,
   onLeaveClick,
   onNextPhase,
-  onForceNextPhase,
   onTimerStart,
   onTimerPause,
   onTimerResume,
@@ -253,15 +251,14 @@ export function RoomBoardHeader({
     activeSharing?.currentIndex != null
       ? activeSharing.order[activeSharing.currentIndex]
       : null;
-  const canStartSharing = isHost;
-  const canAdvanceSharing = presenter?.userId === currentUserId;
+  const canStartSharing =
+    presenter !== null || activeSharing?.status === "ready";
+  const canAdvanceSharing = presenter !== null;
   const isLastPresenter =
     activeSharing?.status === "active" &&
     activeSharing.currentIndex !== null &&
     activeSharing.currentIndex === activeSharing.order.length - 1;
-  const canCompleteSharing =
-    activeSharing?.status === "complete" &&
-    activeSharing.order.at(-1)?.userId === currentUserId;
+  const canCompleteSharing = activeSharing?.status === "complete";
   const [configuredDuration, setConfiguredDuration] = useState<{
     revision: string;
     durationMs: number;
@@ -612,8 +609,7 @@ export function RoomBoardHeader({
               </Popover>
             )}
 
-            {activeSharing?.status !== "complete" &&
-            (isHost || timer.status !== "idle") ? (
+            {activeSharing?.status !== "complete" && timer.status !== "idle" ? (
               <span
                 aria-hidden="true"
                 className="mx-1 h-6 w-px shrink-0 bg-border"
@@ -630,7 +626,7 @@ export function RoomBoardHeader({
                   timer={timer}
                   serverOffsetMs={timerServerOffsetMs}
                   soundControls={timerSoundControls}
-                  isHost={isHost}
+                  isHost
                   disabled={isDisconnected || transitioning || isTransferring}
                   configureOnly={activeSharing?.status === "ready"}
                   onConfigureDuration={(durationMs) => {
@@ -659,29 +655,23 @@ export function RoomBoardHeader({
               ? canStartSharing
               : canAdvanceSharing) ? (
               activeSharing.status === "ready" ? (
-                isHost ? (
-                  <Button
-                    className="h-10 shrink-0"
-                    disabled={isDisconnected || isTransferring}
-                    onClick={() => onSharingStart?.(sharingDuration)}
-                  >
-                    最初の人を開始
-                  </Button>
-                ) : null
+                <Button
+                  className="h-10 shrink-0"
+                  disabled={isDisconnected || isTransferring}
+                  onClick={() => onSharingStart?.(sharingDuration)}
+                >
+                  最初の人を開始
+                </Button>
               ) : (
                 <>
-                  {isHost ? (
-                    <Button
-                      variant="outline"
-                      className="h-10 shrink-0 px-3"
-                      disabled={
-                        isDisconnected || transitioning || isTransferring
-                      }
-                      onClick={() => onSharingAdvance?.("passed")}
-                    >
-                      今回はパス
-                    </Button>
-                  ) : null}
+                  <Button
+                    variant="outline"
+                    className="h-10 shrink-0 px-3"
+                    disabled={isDisconnected || transitioning || isTransferring}
+                    onClick={() => onSharingAdvance?.("passed")}
+                  >
+                    今回はパス
+                  </Button>
                   <Button
                     className="h-10 shrink-0 px-3"
                     data-testid="sharing-advance"
@@ -693,7 +683,7 @@ export function RoomBoardHeader({
                 </>
               )
             ) : null}
-            {isHost && !activeSharing ? (
+            {!activeSharing ? (
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -898,8 +888,7 @@ export function RoomBoardHeader({
                       フィードバック
                     </Button>
                   ) : null}
-                  {isHost &&
-                  rollbackTarget &&
+                  {rollbackTarget &&
                   onRollbackPhase &&
                   !isNextPhasePending &&
                   !outcomePublished ? (
@@ -917,22 +906,6 @@ export function RoomBoardHeader({
                       targetCount={bulkExclusionTargetCount}
                       disabled={isDisconnected || isTransferring}
                       onConfirm={onBulkCandidateExclude}
-                    />
-                  ) : null}
-                  {isHost &&
-                  activeSharing &&
-                  activeSharing.status !== "complete" ? (
-                    <NextPhaseConfirmDialog
-                      key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
-                      phase={phase}
-                      disabled={
-                        isDisconnected ||
-                        isNextPhasePending ||
-                        isNextPhaseBlocked ||
-                        isTransferring
-                      }
-                      onConfirm={onForceNextPhase ?? onNextPhase}
-                      notReadyMembers={notReadyMembers}
                     />
                   ) : null}
                   <Button

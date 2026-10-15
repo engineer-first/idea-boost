@@ -52,6 +52,17 @@ describe("本文保存を待たない進行", () => {
     await new Promise<void>((resolve) =>
       socket.addEventListener("message", () => resolve(), { once: true }),
     );
+    await runInRoomDO(name, (_room, state) => {
+      const revision = state.storage.sql
+        .exec("SELECT phase_revision FROM room_state WHERE id=1")
+        .one().phase_revision;
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
+        revision,
+        hostId,
+        Date.now(),
+      );
+    });
     const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now());
     try {
       const updated = new Promise<ServerMessage | null>((resolve) =>
@@ -177,6 +188,11 @@ describe("本文保存を待たない進行", () => {
     const memberSocket = await connectRoomAs(member, roomId);
     expect((await ownerSocket.next()).type).toBe("snapshot");
     expect((await memberSocket.next()).type).toBe("snapshot");
+    await runInRoomDO(roomId, (_room, state) => {
+      state.storage.sql.exec(
+        "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+      );
+    });
     const expectation = await currentPhaseExpectation(roomId);
 
     memberSocket.ws.send(
@@ -317,6 +333,19 @@ describe("本文保存を待たない進行", () => {
         state.storage.sql.exec("SELECT id FROM notes").toArray(),
       ),
     ).toHaveLength(5);
+    await runInRoomDO(roomId, (_room, state) => {
+      const revision = state.storage.sql
+        .exec("SELECT phase_revision FROM room_state WHERE id=1")
+        .one().phase_revision;
+      for (const userId of [hostId, memberId]) {
+        state.storage.sql.exec(
+          "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?)",
+          revision,
+          userId,
+          Date.now(),
+        );
+      }
+    });
     ownerSocket.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -595,6 +624,11 @@ describe("整理・評価の自動タイマー", () => {
       timer: { status: "idle" },
     });
     rejected.close();
+    await runInRoomDO(roomId, (_room, state) =>
+      state.storage.sql.exec(
+        "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+      ),
+    );
     socket.ws.send(JSON.stringify({ type: "phase:next", ...expectation }));
     const snapshot = await untilType(socket, "snapshot");
     expect(snapshot).toMatchObject({

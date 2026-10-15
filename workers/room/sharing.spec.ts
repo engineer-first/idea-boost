@@ -1,5 +1,6 @@
 import { env, SELF } from "cloudflare:test";
 import { describe, expect, it, vi } from "vitest";
+import type { SharingState } from "../../contracts/room-protocol";
 import {
   connectRoomAs,
   createRoomAs,
@@ -72,7 +73,7 @@ async function markReady(roomId: string) {
   });
 }
 describe("一人ずつの共有", () => {
-  it("非ホストの進行を拒否する", async () => {
+  it("開始前の共有進行を拒否する", async () => {
     const { owner, member } = await setup();
     member.ws.send(
       JSON.stringify({
@@ -114,8 +115,8 @@ describe("一人ずつの共有", () => {
     reconnect.close();
   });
 
-  it("最後の発表者以外は共有完了を送信できない", async () => {
-    const { owner, roomId } = await setup();
+  it("参加者全員が最後の発表を完了できる", async () => {
+    const { owner, member, roomId } = await setup();
     await runInRoomDO(roomId, async (_, state) => {
       const sharingPhase = {
         kind: "step" as const,
@@ -134,7 +135,7 @@ describe("一人ずつの共有", () => {
       });
     });
     const ready = (await sharingMessage(owner)).sharing;
-    owner.ws.send(
+    member.ws.send(
       JSON.stringify({
         type: "sharing:start",
         revision: ready.revision,
@@ -162,11 +163,21 @@ describe("一人ずつの共有", () => {
         outcome: "done",
       }),
     );
-    expect(await until(owner, "error")).toMatchObject({
-      type: "error",
-      code: "forbidden",
+    let completed = await until(member, "sharing:updated");
+    while (
+      completed.type === "sharing:updated" &&
+      (completed.sharing as SharingState).status !== "complete"
+    )
+      completed = await until(member, "sharing:updated");
+    if (completed.type !== "sharing:updated") {
+      throw new Error(`sharing:updatedを期待: ${completed.type}`);
+    }
+    expect(completed).toMatchObject({
+      type: "sharing:updated",
+      sharing: { status: "complete" },
     });
     owner.close();
+    member.close();
   });
 });
 
@@ -422,17 +433,31 @@ describe("共有の遷移と同期", () => {
     member.close();
   });
 
-  it("非ホストは有効な版でも開始・交代できず、非メンバーは接続できない", async () => {
+  it("参加者は有効な版で開始・交代でき、非メンバーは接続できない", async () => {
     const { owner, member, roomId } = await setup();
     const ready = await prepareLegacySharing(owner, roomId);
-    for (const message of [
-      { type: "sharing:start", durationMs: 30000 },
-      { type: "sharing:advance", outcome: "passed" },
-    ]) {
-      member.ws.send(JSON.stringify({ ...message, revision: ready.revision }));
-      expect(await until(member, "error")).toMatchObject({ code: "forbidden" });
+    member.ws.send(
+      JSON.stringify({
+        type: "sharing:start",
+        durationMs: 30000,
+        revision: ready.revision,
+      }),
+    );
+    const startedMessage = await until(member, "sharing:updated");
+    if (startedMessage.type !== "sharing:updated") {
+      throw new Error(`sharing:updatedを期待: ${startedMessage.type}`);
     }
-    expect((await currentSnapshot(roomId)).sharing).toEqual(ready);
+    const started = startedMessage.sharing as SharingState;
+    member.ws.send(
+      JSON.stringify({
+        type: "sharing:advance",
+        outcome: "passed",
+        revision: started.revision,
+      }),
+    );
+    expect(await until(member, "sharing:updated")).toMatchObject({
+      type: "sharing:updated",
+    });
     const outsider = {
       sub: "44444444-4444-4444-8444-444444444444",
       name: "外部",
@@ -790,127 +815,4 @@ it("共有への自動開始の予約に失敗したら遷移・共有状態・�
   });
   owner.close();
   member.close();
-});
-
-it("発表者本人は完了だけを進められ、同期・再接続・古い要求でも一度だけ交代する", async () => {
-  const { owner, member, roomId, inviteCode } = await setup();
-  const nextUser = {
-    sub: "33333333-3333-4333-8333-333333333333",
-    name: "次の人",
-    email: "next@example.test",
-  };
-  await enterSharing(owner, roomId);
-  await joinRoomAs(nextUser, inviteCode);
-  const ready = (await sharingMessage(owner)).sharing;
-  owner.ws.send(
-    JSON.stringify({
-      type: "sharing:start",
-      revision: ready.revision,
-      durationMs: 30000,
-    }),
-  );
-  let sharing = (await sharingMessage(owner)).sharing;
-  await makeTurnDue(roomId);
-  sharing = (await sharingMessage(owner)).sharing;
-  // 他の発表者・開始・パスを本人権限に含めない。
-  member.ws.send(
-    JSON.stringify({
-      type: "sharing:advance",
-      revision: sharing.revision,
-      outcome: "done",
-    }),
-  );
-  expect(await until(member, "error")).toMatchObject({ code: "forbidden" });
-  owner.ws.send(
-    JSON.stringify({
-      type: "sharing:advance",
-      revision: sharing.revision,
-      outcome: "done",
-    }),
-  );
-  sharing = (await sharingMessage(owner)).sharing;
-  const presenter = await connectRoomAs(guest, roomId);
-  await presenter.next();
-  presenter.ws.send(
-    JSON.stringify({
-      type: "sharing:advance",
-      revision: sharing.revision,
-      outcome: "done",
-    }),
-  );
-  expect(await presenter.next()).toMatchObject({
-    type: "sharing:updated",
-    sharing,
-  });
-  expect((await currentSnapshot(roomId)).sharing).toEqual(sharing);
-  await makeTurnDue(roomId);
-  sharing = (await sharingMessage(owner)).sharing;
-  await presenter.next();
-  presenter.ws.send(
-    JSON.stringify({
-      type: "sharing:advance",
-      revision: sharing.revision,
-      outcome: "done",
-    }),
-  );
-  expect(await presenter.next()).toMatchObject({
-    type: "sharing:updated",
-    sharing: { currentIndex: 2, results: ["done", "done"] },
-  });
-  sharing = (await sharingMessage(owner)).sharing;
-  presenter.ws.send(
-    JSON.stringify({
-      type: "sharing:advance",
-      revision: crypto.randomUUID(),
-      outcome: "done",
-    }),
-  );
-  expect(await presenter.next()).toMatchObject({
-    type: "sharing:updated",
-    sharing,
-  });
-  const finalPresenter = await connectRoomAs(nextUser, roomId);
-  await finalPresenter.next();
-  await finalPresenter.next();
-  const currentSharing = (await currentSnapshot(roomId)).sharing;
-  if (!currentSharing) throw new Error("共有状態がない");
-  const request = {
-    type: "sharing:advance",
-    revision: currentSharing.revision,
-    outcome: "done",
-  };
-  finalPresenter.ws.send(JSON.stringify(request));
-  let observed = await finalPresenter.next();
-  while (
-    observed.type === "sharing:updated" &&
-    observed.sharing.status !== "complete"
-  )
-    observed = await finalPresenter.next();
-  expect(observed).toMatchObject({
-    type: "sharing:updated",
-    sharing: {
-      status: "complete",
-      currentIndex: null,
-      results: ["done", "done", "done"],
-    },
-  });
-  if (observed.type !== "sharing:updated")
-    throw new Error("交代状態が返っていない");
-  let ownerCompleted = await sharingMessage(owner);
-  while (ownerCompleted.sharing.status !== "complete")
-    ownerCompleted = await sharingMessage(owner);
-  expect(ownerCompleted.sharing).toEqual(observed.sharing);
-  expect((await currentSnapshot(roomId)).phase).toEqual({
-    kind: "step",
-    phase: 1,
-    step: 3,
-  });
-  owner.ws.send(JSON.stringify(request));
-  expect(await until(owner, "error")).toMatchObject({ code: "forbidden" });
-  member.ws.send(JSON.stringify(request));
-  expect(await until(member, "error")).toMatchObject({ code: "forbidden" });
-  owner.close();
-  member.close();
-  finalPresenter.close();
-  presenter.close();
 });

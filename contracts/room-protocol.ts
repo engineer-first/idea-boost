@@ -630,7 +630,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid().nullable(),
   }),
-  // ロビーから課題整理 Step 1-1 へ。ホストのみ。
+  // ロビーから課題整理 Step 1-1 へ。参加者が開始できる。
   z.object({
     type: z.literal("start_phase"),
     expectedHostRevision: z.number().int().nonnegative().optional(),
@@ -651,18 +651,16 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       operationId: OptimisticOperationIdSchema,
     })
     .strict(),
-  // 課題整理の次ステップへ。ホストのみ。
-  // force は全フェーズの投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
-  // ホストが進行できる）。ホスト判定が先に評価されるため、非ホストが
-  // force を送っても効果はない。
-  z.object({
-    type: z.literal("phase:next"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
-    expectedPhase: RoomPhaseSchema,
-    expectedRevision: z.number().int().nonnegative(),
-    force: z.boolean().optional(),
-    confirmedProgressRevision: z.number().int().nonnegative().optional(),
-  }),
+  // 課題整理の次ステップへ。完了条件を満たした参加者が進める。
+  z
+    .object({
+      type: z.literal("phase:next"),
+      expectedHostRevision: z.number().int().nonnegative().optional(),
+      expectedPhase: RoomPhaseSchema,
+      expectedRevision: z.number().int().nonnegative(),
+      confirmedProgressRevision: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
   z.object({
     type: z.literal("phase:ready"),
     expectedPhase: RoomPhaseSchema,
@@ -672,7 +670,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("phase:rollback"),
-      expectedHostRevision: z.number().int().nonnegative(),
+      expectedHostRevision: z.number().int().nonnegative().optional(),
       expectedPhase: RoomPhaseSchema,
       expectedRevision: z.number().int().nonnegative(),
     })
@@ -721,22 +719,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
-// ホスト権限で送る操作の世代。省略は移譲導入前の世代0との互換用。
+// ルーム管理権限で送る操作の世代。省略は移譲導入前の世代0との互換用。
 export const HOST_REVISION_MESSAGE_TYPES = [
-  "start_phase",
   "host:transfer",
   "member:remove",
-  "sharing:start",
-  "sharing:advance",
-  "phase:rollback",
-  "phase:restart-writing",
-  "phase:revote",
-  "idea-map:resize",
-  "timer:start",
-  "timer:pause",
-  "timer:resume",
-  "timer:extend",
-  "timer:stop",
 ] as const satisfies readonly ClientMessage["type"][];
 
 export function needsHostRevision(
@@ -1053,13 +1039,10 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("error"),
-    // voting-incomplete: Step 1-4 の全員投票ゲートによる phase:next 拒否。
-    // クライアントがホストへ「強制的に進むか」の確認を出す判別に使う。
     code: z.enum([
       "invalid-message",
       "forbidden",
       "not-found",
-      "voting-incomplete",
       "phase-not-ready",
       "phase-confirmation-required",
       "phase-confirmation-stale",

@@ -97,15 +97,15 @@ describe("RoomBoardHeader", () => {
       ).toHaveClass("w-full", "text-left");
     });
 
-    it("非 host には招待情報を表示しない", () => {
+    it("参加者にも招待情報を表示する", () => {
       setup({ isHost: false });
 
-      expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "招待" }),
-      ).not.toBeInTheDocument();
-      openRoomMenu();
-      expect(screen.queryByText("招待コード")).not.toBeInTheDocument();
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "招待" }));
+      expect(screen.getByText("招待URL")).toBeInTheDocument();
+      expect(screen.getByText("招待URL")).toBeInTheDocument();
     });
   });
 
@@ -260,13 +260,13 @@ describe("RoomBoardHeader", () => {
       expect(shell).toHaveAttribute("data-state", "detail");
     });
 
-    it("参加者にはホスト限定の進行指示を表示しない", () => {
+    it("参加者にも進行補足を表示する", () => {
       setup({ isHost: false });
 
       expect(
         screen.getByRole("region", { name: "ファシリテーションガイド" }),
       ).toHaveTextContent("最近あった困ったこと");
-      expect(screen.queryByText("ホストへ")).not.toBeInTheDocument();
+      expect(screen.getByText("ホストへ")).toBeVisible();
     });
 
     it.each([
@@ -484,13 +484,13 @@ describe("RoomBoardHeader", () => {
     });
   });
 
-  it("非 host の idle タイマー枠を操作UIなしで操作グループ内に表示する", () => {
+  it("参加者の idle タイマー枠を操作グループ内に表示する", () => {
     setup({ isHost: false, timer: { status: "idle" } });
 
     const controls = screen.getByRole("group", { name: "ルームの操作" });
     const timer = within(controls).getByTestId("room-timer");
     expect(timer).toBeVisible();
-    expect(timer.tagName).toBe("SPAN");
+    expect(timer.tagName).toBe("BUTTON");
     expect(timer).toHaveClass("h-10", "w-28");
     expect(
       within(controls).queryByRole("button", { name: "開始" }),
@@ -798,7 +798,7 @@ it("一巡後は次ステップ操作を戻し、新しい持ち時間を表示�
     screen.queryByRole("button", { name: "次の人へ" }),
   ).not.toBeInTheDocument();
 });
-it("共有完了後も最後の発表者以外には通常の次ステップ操作を表示しない", () => {
+it("共有完了後は参加者全員に通常の次ステップ操作を表示する", () => {
   const sharing = buildSharingState({
     status: "complete",
     results: ["done", "passed", "done"],
@@ -806,11 +806,9 @@ it("共有完了後も最後の発表者以外には通常の次ステップ操�
   setup({ sharing, phase: buildPhaseStep(2) });
 
   expect(screen.queryByTestId("sharing-advance")).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "次のステップへ" }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "次のステップへ" })).toBeEnabled();
 });
-it("発表者以外の参加者は発表者を確認できるが進行操作を持たない", () => {
+it("発表者以外の参加者も発表者の進行操作を行える", () => {
   render(
     <RoomBoardHeader
       {...setupProps({
@@ -823,12 +821,8 @@ it("発表者以外の参加者は発表者を確認できるが進行操作を�
   expect(
     screen.getByRole("button", { name: "発表者と全体の順番を確認" }),
   ).toBeEnabled();
-  expect(
-    screen.queryByRole("button", { name: "次の人へ" }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "今回はパス" }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "今回はパス" })).toBeEnabled();
 });
 
 it.each([
@@ -843,8 +837,9 @@ it.each([
   });
   const { rerender } = render(<RoomBoardHeader {...props} />);
   openRoomMenu();
-  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-  expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "次のステップへ" }),
+  ).not.toBeInTheDocument();
   rerender(<RoomBoardHeader {...props} {...changed} />);
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   expect(props.onNextPhase).not.toHaveBeenCalled();
@@ -865,7 +860,7 @@ describe("U03 進行の役割", () => {
   });
 });
 
-it("発表者本人は次の人へを操作でき、開始・パス・次ステップは操作できない", () => {
+it("発表者本人は次の人へを操作でき、開始・パスも操作できる", () => {
   const props = setupProps({
     phase: buildPhaseStep(2),
     sharing: buildSharingState({ status: "active", currentIndex: 0 }),
@@ -874,9 +869,7 @@ it("発表者本人は次の人へを操作でき、開始・パス・次ステ�
   const { rerender } = render(<RoomBoardHeader {...props} />);
   fireEvent.click(screen.getByRole("button", { name: "次の人へ" }));
   expect(props.onSharingAdvance).toHaveBeenCalledExactlyOnceWith("done");
-  expect(
-    screen.queryByRole("button", { name: "今回はパス" }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "今回はパス" })).toBeEnabled();
   expect(
     screen.queryByRole("button", { name: "次のステップへ" }),
   ).not.toBeInTheDocument();
@@ -902,29 +895,28 @@ it("発表者本人は次の人へを操作でき、開始・パス・次ステ�
       sharing={buildSharingState({ status: "active", currentIndex: 1 })}
     />,
   );
-  expect(
-    screen.queryByRole("button", { name: "次の人へ" }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "次の人へ" })).toBeEnabled();
 });
 
-it("最後の発表中はホストにも通常の次ステップ操作を表示しない", () => {
-  const onForceNextPhase = vi.fn();
+it("最後の発表中は発表完了操作だけを表示する", () => {
+  const onNextPhase = vi.fn();
   setup({
     isHost: true,
     phase: buildPhaseStep(2),
     sharing: buildSharingState({ status: "active", currentIndex: 2 }),
-    onForceNextPhase,
+    onNextPhase,
   });
 
-  expect(screen.queryByTestId("sharing-advance")).not.toBeInTheDocument();
+  expect(screen.getByTestId("sharing-advance")).toBeInTheDocument();
 
   openRoomMenu();
   expect(
-    screen.getByRole("button", { name: "次のステップへ" }),
-  ).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-  fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
-  expect(onForceNextPhase).toHaveBeenCalledTimes(1);
+    within(screen.getByRole("dialog", { name: "ルームメニュー" })).queryByRole(
+      "button",
+      { name: "次のステップへ" },
+    ),
+  ).not.toBeInTheDocument();
+  expect(onNextPhase).not.toHaveBeenCalled();
 });
 
 it("招待PopoverからURLのみを共有する", async () => {
@@ -1020,7 +1012,7 @@ it("右上のルームメニューからフィードバックを開き、常設�
   ).not.toBeInTheDocument();
 });
 
-it("ホストに復元可能な戻り先がある時だけ戻る操作を提供する", () => {
+it("復元可能な戻り先がある参加者に戻る操作を提供する", () => {
   const props = setupProps({ isHost: true });
   const { rerender } = render(
     <RoomBoardHeader
@@ -1042,6 +1034,6 @@ it("ホストに復元可能な戻り先がある時だけ戻る操作を提供�
     />,
   );
   expect(
-    screen.queryByRole("button", { name: "直前のステップに戻る" }),
-  ).not.toBeInTheDocument();
+    screen.getByRole("button", { name: "直前のステップに戻る" }),
+  ).toBeVisible();
 });

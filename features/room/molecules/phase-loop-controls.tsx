@@ -36,7 +36,6 @@ export type PhaseLoopControlsProps = {
 
 export function PhaseLoopControls({
   phase,
-  isHost,
   isSelecting,
   decisionContent,
   candidateCount,
@@ -51,13 +50,13 @@ export function PhaseLoopControls({
   if (phase.kind !== "step") return null;
   const isResult = isResultStep(phase);
   const canRestart = isRestartWritingAllowedStep(phase);
-  if (!isResult && (!canRestart || !isHost)) return null;
+  if (!isResult && !canRestart) return null;
   if (decisionContent !== null)
     return (
       <AdoptNoteControl
         phaseNumber={phase.phase}
-        isHost={isHost}
-        canSelect={isHost}
+        isHost
+        canSelect
         isSelecting={false}
         decisionContent={decisionContent}
         disabled={disabled}
@@ -66,7 +65,6 @@ export function PhaseLoopControls({
         onClearDecision={isResult ? onClearDecision : undefined}
       />
     );
-  if (!isHost && !isResult) return null;
   return (
     <div className="flex max-w-full flex-col items-center gap-2">
       {isResult && candidateCount === 0 ? (
@@ -78,7 +76,7 @@ export function PhaseLoopControls({
         </p>
       ) : null}
       <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-2xl border border-border bg-background p-2 shadow-lg shadow-black/5">
-        {isHost && !isSelecting ? (
+        {!isSelecting ? (
           <AlertDialog
             open={dialog !== null}
             onOpenChange={(open) =>
@@ -124,7 +122,7 @@ export function PhaseLoopControls({
         {isResult ? (
           <AdoptNoteControl
             phaseNumber={phase.phase}
-            isHost={isHost}
+            isHost
             canSelect={isResult}
             isSelecting={isSelecting}
             decisionContent={null}

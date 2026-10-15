@@ -103,7 +103,6 @@ export function RoomTimer({
   timer,
   serverOffsetMs,
   soundControls,
-  isHost,
   disabled,
   onStart,
   onPause,
@@ -351,14 +350,10 @@ export function RoomTimer({
   const chipDuration = formatDuration(chipDurationMs);
   const chipLabel =
     timer.status === "idle"
-      ? `タイマー 未開始 ${chipDuration}${isHost ? "。設定を開く" : ""}`
-      : `タイマー${timer.status === "paused" ? " 一時停止中" : isEnded ? " 終了" : ""} ${chipDuration}${isHost ? "。設定を開く" : ""}`;
+      ? `タイマー 未開始 ${chipDuration}。設定を開く`
+      : `タイマー${timer.status === "paused" ? " 一時停止中" : isEnded ? " 終了" : ""} ${chipDuration}。設定を開く`;
   const chipContent = (
-    <span
-      role="timer"
-      aria-label={isHost ? undefined : chipLabel}
-      className="text-base"
-    >
+    <span role="timer" aria-label={chipLabel} className="text-base">
       {chipDuration}
     </span>
   );
@@ -378,20 +373,6 @@ export function RoomTimer({
       {chipContent}
     </Button>
   );
-  const memberChip = (
-    <span
-      data-testid="room-timer"
-      data-ended={String(isEnded)}
-      data-status={isEnded ? "ended" : timer.status}
-      className={cn(
-        "inline-flex items-center border border-border bg-background",
-        chipClassName,
-      )}
-    >
-      {chipContent}
-    </span>
-  );
-
   const panel = (
     <PopoverContent
       ref={panelRef}
@@ -558,14 +539,10 @@ export function RoomTimer({
 
   return (
     <div ref={timerControlsRef} className="relative h-10 w-28 shrink-0">
-      {isHost ? (
-        <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
-          <PopoverTrigger asChild>{hostChip}</PopoverTrigger>
-          {panel}
-        </Popover>
-      ) : (
-        memberChip
-      )}
+      <Popover open={panelOpen} onOpenChange={handlePanelOpenChange}>
+        <PopoverTrigger asChild>{hostChip}</PopoverTrigger>
+        {panel}
+      </Popover>
       <TimerSoundControl {...soundControls} />
       <span aria-live="polite" className="sr-only">
         {isEnded ? "タイマーが終了しました。時間になりました。" : null}

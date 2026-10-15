@@ -38,10 +38,9 @@ describe("RoomLobbyView", () => {
     );
   });
 
-  it("非ホストのときはボタンが非表示で「お待ちください」文言が出る", () => {
+  it("非ホストのときも開始ボタンが表示される", () => {
     renderView({ isHost: false });
-    expect(screen.queryByTestId("start-phase-button")).not.toBeInTheDocument();
-    expect(screen.getByTestId("room-lobby-view-waiting")).toBeInTheDocument();
+    expect(screen.getByTestId("start-phase-button")).toBeInTheDocument();
   });
 
   it("「開始する」クリックで onStart が呼ばれる", async () => {
@@ -151,18 +150,18 @@ describe("招待URL/コード（host 限定表示）", () => {
     ).toHaveTextContent("ZZ99XX");
   });
 
-  it("非 host のとき招待URL/コードが出ない", () => {
+  it("非 host のときも招待URL/コードが出る", () => {
     renderView({
       isHost: false,
       inviteCode: "ZZ99XX",
       inviteUrl: "https://example/invite/ZZ99XX",
     });
     expect(
-      screen.queryByRole("button", { name: "招待URLをコピー" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "招待URLをコピー" }),
+    ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "招待コードをコピー" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "招待コードをコピー" }),
+    ).toBeInTheDocument();
   });
 });
 

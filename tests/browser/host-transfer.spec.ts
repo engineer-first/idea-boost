@@ -113,10 +113,10 @@ async function expectTransferred(): Promise<void> {
   await vi.waitFor(async () => {
     expect(
       await page.getByRole("button", { name: "次のステップへ" }).count(),
-    ).toBe(0);
+    ).toBeGreaterThan(0);
     expect(
       await page.getByTestId("room-timer").evaluate((el) => el.tagName),
-    ).toBe("SPAN");
+    ).toBe("BUTTON");
   });
 }
 
@@ -134,8 +134,7 @@ test("ロビーでも参加者本人からホスト変更を確認し、取消�
   );
   await target.press("Enter");
   await page.getByRole("button", { name: confirmName }).click();
-  await page.getByText("ホストの開始を待機中", { exact: true }).waitFor();
-  expect(await page.getByTestId("start-phase-button").count()).toBe(0);
+  await page.getByTestId("start-phase-button").waitFor();
 });
 
 test.each(

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type { PhaseProgress } from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -34,6 +35,21 @@ const VOTED_NOTES = buildNotes(3).map((note) => ({
   },
 }));
 
+function allReadyProgress(
+  members: ReadonlyArray<{ userId: string }>,
+): PhaseProgress {
+  const userIds = members.map(({ userId }) => userId);
+  return {
+    phaseRevision: 1,
+    progressRevision: 1,
+    connectedUserIds: userIds,
+    readyUserIds: userIds,
+    notReadyUserIds: [],
+    canAdvance: true,
+    allReady: true,
+  };
+}
+
 const meta = {
   ...boardMeta,
   title: "Room/RoomBoardLayout",
@@ -51,6 +67,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 function step(phase: 1 | 2 | 3, value: number): Story {
+  const members = buildMembers(12, boardMeta.args.currentUserId);
   return {
     name: `${phase}-${value}`,
     args: {
@@ -77,7 +94,8 @@ function step(phase: 1 | 2 | 3, value: number): Story {
             })
           : null,
       decidedHmw: phase === 3 ? LONG_QUESTION : null,
-      members: buildMembers(12, boardMeta.args.currentUserId),
+      members,
+      progress: allReadyProgress(members),
       interactions: {
         ...boardMeta.args.interactions,
         privateNotes: PRIVATE_NOTES,

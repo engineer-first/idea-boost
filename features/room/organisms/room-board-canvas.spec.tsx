@@ -210,7 +210,7 @@ describe("RoomBoardCanvas", () => {
 
   it.each([
     2, 3,
-  ] as const)("非ホストの3-%iではマップを残して広さ操作を表示しない", (step) => {
+  ] as const)("参加者の3-%iでもマップの広さ操作を表示する", (step) => {
     const phase = buildPhaseStep(step, 3);
     setup({ phase, permissions: getBoardPermissions(phase), isHost: false });
 
@@ -218,11 +218,11 @@ describe("RoomBoardCanvas", () => {
       screen.getByTestId("idea-value-feasibility-map"),
     ).toBeInTheDocument();
     expect(
-      screen.queryByTestId("idea-map-size-controls-hud"),
-    ).not.toBeInTheDocument();
+      screen.getByTestId("idea-map-size-controls-hud"),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "マップを広くする" }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
   });
 
   it("マップの広さ操作を既存の左下操作群から分離して画面下中央に置く", () => {

@@ -188,7 +188,6 @@ describe("検証用の初期状態", () => {
     owner.ws.send(
       JSON.stringify({
         type: "phase:next",
-        force: true,
         expectedPhase: snapshot.phase,
         expectedRevision: snapshot.phaseRevision,
       }),

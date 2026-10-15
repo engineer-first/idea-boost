@@ -73,25 +73,22 @@ export function NextPhaseConfirmDialog({
               <span className="block">
                 全員の完了を待たずに、次のステップへ進みますか？
               </span>
-            ) : (
-              <>
-                {getPhaseLabel(phase)}から次のステップへ進みます。
-                {beginsVoting
-                  ? "投票へ進むと、このフェーズの個人作業・共有を終了します。未共有の下書きは残りますが、次フェーズへ進むとき（最終フェーズは採用時）に破棄されます。共有し忘れた付箋があれば、キャンセルして個人作業・共有へ戻ってください。"
-                  : isResultStep(phase)
-                    ? "決定内容を引き継ぎ、このフェーズの未共有の下書きを破棄します。"
-                    : isVotingStep(phase)
-                      ? "投票を終了し、今回の結果を全員に表示します。"
-                      : "本文のある共有付箋と下書きは残ります。"}
-                このフェーズの空白だけの共有付箋は削除します。
-                {phase.kind === "step" && phase.step === 1
-                  ? " この個人作業ステップの空白だけのマイ付箋も削除します。"
-                  : phase.kind === "step" && phase.step === 2
-                    ? " この共有ステップの空白だけのマイ付箋も削除します。"
-                    : null}
-                タイマーは停止します。
-              </>
-            )}
+            ) : null}
+            {getPhaseLabel(phase)}から次のステップへ進みます。
+            {beginsVoting
+              ? "投票へ進むと、このフェーズの個人作業・共有を終了します。未共有の下書きは残りますが、次フェーズへ進むとき（最終フェーズは採用時）に破棄されます。共有し忘れた付箋があれば、キャンセルして個人作業・共有へ戻ってください。"
+              : isResultStep(phase)
+                ? "決定内容を引き継ぎ、このフェーズの未共有の下書きを破棄します。"
+                : isVotingStep(phase)
+                  ? "投票を終了し、今回の結果を全員に表示します。"
+                  : "本文のある共有付箋と下書きは残ります。"}
+            このフェーズの空白だけの共有付箋は削除します。
+            {phase.kind === "step" && phase.step === 1
+              ? " この個人作業ステップの空白だけのマイ付箋も削除します。"
+              : phase.kind === "step" && phase.step === 2
+                ? " この共有ステップの空白だけのマイ付箋も削除します。"
+                : null}
+            タイマーは停止します。
           </AlertDialogDescription>
           {notReadyNames.length > 0 ? (
             <TooltipProvider>

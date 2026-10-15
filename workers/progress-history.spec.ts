@@ -160,7 +160,6 @@ it("投票ステップを離れる時点では現在フェーズの票を保存�
       type: "phase:next",
       expectedPhase: instance.getPhase(),
       expectedRevision: getPhaseRevision(state.storage.sql),
-      force: true,
     });
     await instance.alarm();
     const row = requireValue(await instance.getProgressHistory()).entries[0];
@@ -467,7 +466,6 @@ it("盤面outboxの書込だけ失敗した場合は欠落で進行し、WSで�
       type: "phase:next",
       expectedPhase: { kind: "step", phase: 1, step: 4 },
       expectedRevision: revision,
-      force: true,
     }),
   );
   expect(await socket.next()).toMatchObject({ type: "error" });

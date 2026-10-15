@@ -134,8 +134,8 @@ for (const phase of [1, 2, 3] as const) {
         const room = await setup(current);
         send(room.b, transition("phase:restart-writing", current));
         expect(await room.b.next()).toMatchObject({
-          type: "error",
-          code: "forbidden",
+          type: "snapshot",
+          phase: { kind: "step", phase, step: 1 },
         });
         await startTimer(room);
         send(room.a, transition("phase:restart-writing", current));
@@ -200,8 +200,8 @@ for (const phase of [1, 2, 3] as const) {
       });
       send(room.b, transition("phase:revote", current));
       expect(await room.b.next()).toMatchObject({
-        type: "error",
-        code: "forbidden",
+        type: "snapshot",
+        phase: { kind: "step", phase, step: VOTING_STEP_BY_PHASE[phase] },
       });
       expect(
         await runInRoomDO(
@@ -318,8 +318,7 @@ for (const phase of [1, 2, 3] as const) {
       await until(room.b, "decision:updated");
       send(room.b, { type: "decision:clear", noteId: candidateId });
       expect(await room.b.next()).toMatchObject({
-        type: "error",
-        code: "forbidden",
+        type: "decision:updated",
       });
       send(room.a, { type: "decision:clear", noteId: candidateId });
       expect(await until(room.a, "decision:updated")).toMatchObject({
@@ -671,7 +670,7 @@ it.each([
   // 編集可能ステップは猶予を確定後に次の操作を送る。
   send(room.a, transition(type, current));
   if (type === "phase:revote")
-    send(room.a, { ...transition("phase:next", middle, 3), force: true });
+    send(room.a, transition("phase:next", middle, 3));
   for (const socket of [room.a, room.b]) {
     expect(await until(socket, "phase:updated")).toEqual({
       type: "phase:updated",
@@ -683,7 +682,7 @@ it.each([
     });
   }
   if (type !== "phase:revote")
-    send(room.a, { ...transition("phase:next", middle, 3), force: true });
+    send(room.a, transition("phase:next", middle, 3));
   for (const socket of [room.a, room.b]) {
     expect(await until(socket, "phase:updated")).toEqual({
       type: "phase:updated",
