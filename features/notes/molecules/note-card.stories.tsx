@@ -53,7 +53,6 @@ export const Default: Story = {};
 
 export const RightEdgeContent: Story = {
   args: {
-    authorName: "mame",
     note: buildNote({
       content: "（例）どうすれば、買い物を忘れずに安くできるだろう？",
       color: "purple",
