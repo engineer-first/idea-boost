@@ -794,23 +794,26 @@ export function RoomBoardHeader({
                   feedbackOpening.current = false;
                 }}
               >
-                <div className="mb-3 grid gap-2 border-b border-border pb-3">
-                  <p className="text-sm font-medium break-all">
-                    {roomName ?? "ルーム名未設定"}
+                <div className="mb-3 flex items-start gap-1 border-b border-border pb-3">
+                  <p className="min-w-0 break-all text-sm leading-7">
+                    <span className="text-muted-foreground">ルーム名：</span>
+                    <span className="font-medium">{roomName ?? "未設定"}</span>
                   </p>
                   {!outcomePublished && onRenameRoom ? (
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      aria-label="ルーム名を変更"
+                      title="ルーム名を変更"
                       disabled={isDisconnected || isLeaving || roomNameDisabled}
                       onClick={() => {
                         setRoomMenuOpen(false);
                         onRenameRoom();
                       }}
                     >
-                      ルーム名を変更
+                      <Pencil className="size-3.5" aria-hidden="true" />
                     </Button>
                   ) : null}
                 </div>

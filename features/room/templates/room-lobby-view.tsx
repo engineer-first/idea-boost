@@ -1,6 +1,6 @@
 "use client";
 
-import { DoorOpen, Link2, Play, Users } from "lucide-react";
+import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -120,18 +120,24 @@ export function RoomLobbyView({
               "メンバーが揃ったら開始"
             </h1>
             {roomName ? (
-              <div className="flex min-w-0 w-full flex-wrap items-center justify-center gap-x-3 gap-y-1">
-                <p className="min-w-0 max-w-full break-all text-base font-medium">
-                  {roomName.name ?? "ルーム名未設定"}
+              <div className="flex min-w-0 max-w-full items-start justify-center gap-1">
+                <p className="min-w-0 break-all text-base leading-7">
+                  <span className="text-muted-foreground">ルーム名：</span>
+                  <span className="font-medium">
+                    {roomName.name ?? "未設定"}
+                  </span>
                 </p>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="ルーム名を変更"
+                  title="ルーム名を変更"
                   disabled={roomName.disabled || roomName.pending}
                   onClick={roomName.request}
                 >
-                  ルーム名を変更
+                  <Pencil className="size-3.5" aria-hidden="true" />
                 </Button>
               </div>
             ) : null}
