@@ -145,6 +145,13 @@ Google ログインを確認する場合は、Google Cloud Console で OAuth ク
 
 Node.js のバージョンは `mise.toml` で LTS に固定しています。CI でも同じ mise 設定を使用しています。
 
+### AIエージェントで開発する
+
+共有スキルは `.agents/skills/` に含まれています。Codex は直接読み、Claude Code は
+同梱の相対symlinkから読みます。`npm ci` の後、`npm run check:agent-harness` で配置と参照を
+確認できます。CIの失敗調査は `$ci-triage`、別セッションへの引き継ぎは `$handoff` を使えます。
+既存スキルの用途とhookの有効化は[チーム向けの使い方](docs/development/agent-maintenance.md#チームで使い始める)を参照してください。
+
 ### MCP サーバー (Claude Code などのエージェント向け)
 
 `.mcp.json` でプロジェクト共通の MCP サーバーを定義しています。
