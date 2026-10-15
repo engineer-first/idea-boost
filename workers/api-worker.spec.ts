@@ -278,7 +278,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
     });
 
     expect(rejected.status).toBe(409);
-    expect(await rejected.json()).toEqual({
+    expect(await rejected.json()).toMatchObject({
       error: "このルームは20人までです。",
     });
     expect(await listMemberIds(roomId)).toHaveLength(20);
@@ -900,6 +900,20 @@ it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メ�
   );
   expect(await currentStart).toMatchObject({ type: "phase:updated" });
   await oldStart;
+  const oldTimer = nextHostMessage(old.socket);
+  const currentTimer = nextHostMessage(current.socket);
+  current.socket.send(
+    JSON.stringify({
+      type: "timer:start",
+      durationMs: 60_000,
+      expectedHostRevision: 1,
+    }),
+  );
+  expect(await currentTimer).toMatchObject({
+    type: "timer:updated",
+    timer: { status: "running" },
+  });
+  await oldTimer;
   for (const [socket, content] of [
     [old.socket, "作成者だけの未共有メモ"],
     [current.socket, "新ホストだけの未共有メモ"],

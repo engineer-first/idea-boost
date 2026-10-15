@@ -9,10 +9,7 @@ import {
 } from "../contracts/access";
 import { CreateRoomInputSchema } from "../contracts/api";
 import { LeaveRoomRequestSchema } from "../contracts/completed-rooms";
-import {
-  defaultDisplayName,
-  SetDisplayNameInputSchema,
-} from "../contracts/display-name";
+import { SetDisplayNameInputSchema } from "../contracts/display-name";
 import { isUuid } from "../contracts/ids";
 import {
   isValidInviteCode,
@@ -36,6 +33,7 @@ import {
   type VerifiedSession,
 } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
+import { AccountDO } from "./account/account-do";
 import { handleCompletedRooms } from "./completed-rooms-api";
 import {
   acceptFeedback,
@@ -56,10 +54,7 @@ import {
   CreationExpired,
   CreationGone,
   CreationUpdateRequired,
-  completeRoomCreation,
-  creationIdentity,
   getCreationStatus,
-  reserveRoomCreation,
 } from "./lib/room-creation";
 import { cleanupRoomCreations } from "./lib/room-creation-cleanup";
 import { getSessionFromRequest } from "./lib/session";
@@ -70,9 +65,14 @@ import {
   SESSION_EXPIRES_AT_HEADER,
   USER_ID_HEADER,
 } from "./room/room-do";
+import {
+  accountStub,
+  handleRoomParticipation,
+  participationResponse,
+} from "./room-participation-api";
 import { handleSharedOutcomes } from "./shared-outcomes-api";
 
-export { RoomDO };
+export { AccountDO, RoomDO };
 
 // wrangler types の生成物は api-worker.ts を root 型検査から参照する一方、
 // secret binding は生成されないため、公開境界で SESSION_SECRET を明示する。
@@ -162,26 +162,16 @@ async function handleCreateRoom(
     name: session.name,
   });
   try {
-    const creation = await reserveRoomCreation(
-      env.DB,
+    const result = await accountStub(env, session.sub).prepare(
       session.sub,
-      body.data.requestId,
-      body.data.name,
+      { kind: "create", input: body.data },
+      true,
     );
-    await completeRoomCreation(env.DB, creation, async () => {
-      const result = await roomStub(env, creation.room_id).initializeCreation(
-        creationIdentity(creation),
-        (await findUserDisplayNameById(env.DB, session.sub)) ??
-          defaultDisplayName(session.sub),
-        creation.name,
+    if (result.kind === "ready")
+      await syncMemberAccountName(env, result.roomId, session.sub).catch(
+        () => {},
       );
-      if (result === "closed") throw new CreationGone();
-    });
-    // 初期登録は完了済み。補助同期の障害で作成成功を失敗へ変えない。
-    await syncMemberAccountName(env, creation.room_id, session.sub).catch(
-      () => {},
-    );
-    return json({ roomId: creation.room_id, inviteCode: creation.invite_code });
+    return participationResponse(result, true);
   } catch (cause) {
     if (cause instanceof CreationConflict)
       return json(
@@ -267,23 +257,16 @@ async function handleJoinRoom(
     email: session.email,
     name: session.name,
   });
-  const stub = roomStub(env, room.roomId);
-  const joined = await stub.upsertMember(
+  const result = await accountStub(env, session.sub).prepare(
     session.sub,
-    (await findUserDisplayNameById(env.DB, session.sub)) ??
-      defaultDisplayName(session.sub),
+    { kind: "join", code },
+    true,
   );
-  if (!joined.ok) {
-    return error(
-      409,
-      joined.reason === "room-closed"
-        ? "終了したルームには参加できません。"
-        : "このルームは20人までです。",
+  if (result.kind === "ready")
+    await syncMemberAccountName(env, result.roomId, session.sub).catch(
+      () => {},
     );
-  }
-  // 在籍登録は完了済み。補助同期の障害で参加成功を失敗へ変えない。
-  await syncMemberAccountName(env, room.roomId, session.sub).catch(() => {});
-  return json({ roomId: room.roomId });
+  return participationResponse(result, true);
 }
 
 // GET /api/rooms/:id — メンバーだけがルーム情報を取得できる。
@@ -306,6 +289,13 @@ async function handleGetRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  if (await stub.isJoinable()) {
+    const participation = await accountStub(env, session.sub).inspect(
+      session.sub,
+      roomId,
+    );
+    if (participation) return participationResponse(participation, true);
+  }
   const phase = await stub.getPhase();
   const host = await stub.getCurrentHost(room.hostId);
   if (!host.hostUserId) return error(409, "ホスト情報を取得できませんでした。");
@@ -446,6 +436,11 @@ async function handleRoomWebSocket(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  const participation = await accountStub(env, session.sub).inspect(
+    session.sub,
+    roomId,
+  );
+  if (participation) return participationResponse(participation, true);
   await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);
@@ -499,6 +494,9 @@ export function createApiWorker(
       if (!session) {
         return error(401, "ログインが必要です。");
       }
+
+      if (pathname.startsWith("/api/room-participation/"))
+        return handleRoomParticipation(request, env, session);
 
       if (pathname === "/api/me/display-name") {
         if (method === "GET")

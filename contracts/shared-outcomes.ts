@@ -15,6 +15,7 @@ export const SharedOutcomeNoteSchema = z.object({
 });
 export const SharedOutcomeSnapshotSchema = z.object({
   capturedAt: z.number(),
+  participantCount: z.number().int().nonnegative().nullable().default(null),
   phase: RoomPhaseSchema,
   decisions: z.array(
     z.object({
@@ -36,6 +37,7 @@ export const SharedOutcomeSnapshotSchema = z.object({
 });
 export const SharedOutcomeSummarySchema = z.object({
   roomId: z.string().uuid(),
+  participantCount: z.number().int().nonnegative().nullable().default(null),
   name: z.string().nullable(),
   displayId: z.string(),
   lastUsedAt: z.number(),

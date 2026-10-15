@@ -170,7 +170,7 @@ export function CreateRoomSectionView({
             <AlertDialogHeader>
               <AlertDialogTitle>新しいルームを作成しますか？</AlertDialogTitle>
               <AlertDialogDescription>
-                前のルームが作成されている場合は、両方のルームが残ります。前のルームの参加状態やデータは変わりません。
+                作成前に現在の参加状況を確認します。参加中のルームがあれば、退出・ホスト交代・解散の影響を次の確認画面で示します。
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

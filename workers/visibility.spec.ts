@@ -44,6 +44,12 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "AT-665 採用後の移動でも他者の未共有付箋を公開しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "AT-660 発表終了後に拒否した返却はsharedのまま他者に可視",
     viewerId: VIEWER,
     note: note({ visibility: "shared" }),

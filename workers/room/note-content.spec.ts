@@ -1,7 +1,11 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
-import { initializeTestRoom, runInRoomDO } from "../test-helpers";
+import {
+  initializeTestRoom,
+  runInRoomDO,
+  startTimerForTest,
+} from "../test-helpers";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
 
 const hostId = "11111111-1111-4111-8111-111111111111";
@@ -36,6 +40,7 @@ describe("本文の確定", () => {
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
     await initializeTestRoom(stub, hostId, "Host");
     await stub.setPhase(buildPhaseStep(1), hostId);
+    await startTimerForTest(roomName);
     await runInRoomDO(roomName, (_room, state) => {
       const now = new Date().toISOString();
       state.storage.sql.exec(
@@ -92,6 +97,7 @@ describe("本文の確定", () => {
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
     await initializeTestRoom(stub, hostId, "Host");
     await stub.setPhase(buildPhaseStep(1), hostId);
+    await startTimerForTest(roomName);
     await runInRoomDO(roomName, (_room, state) => {
       const now = new Date().toISOString();
       state.storage.sql.exec(

@@ -314,7 +314,7 @@ export function getBoardPermissions(
   return {
     ...getBaseBoardPermissions(phase),
     ...(isResultStep(phase)
-      ? { canMoveNote: !isDecided, canDecide: !isDecided }
+      ? { canMoveNote: true, canDecide: !isDecided }
       : {}),
     canExcludeNote: canManageExclusion,
     canRestoreNote: canManageExclusion,

@@ -960,7 +960,7 @@ test.each([
   1280, 1024, 768,
 ])("幅 %i の操作バーで招待とタイマーを開閉でき、寸法と主要操作を保つ", async (width) => {
   await page.setViewportSize({ width, height: 720 });
-  await openStory("room-roomboardlayout--phase-3-step-1");
+  await openStory("room-roomboardlayout--timer-paused");
   const controls = page.getByRole("group", { name: "ルームの操作" });
   await controls.waitFor();
   const initialBox = await controls.boundingBox();
@@ -1178,11 +1178,14 @@ test.each([
   await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
   await openStory("room-roomboardlayout--undo-notification-shared");
   const matrix = page.getByTestId("board-operation-matrix");
+  const board = page.getByTestId("room-board-view-root");
+  const boardBefore = await board.boundingBox();
   const before = await matrix.boundingBox();
   expect(before).not.toBeNull();
   await page.getByRole("button", { name: "除外通知を再現" }).click();
   await page.getByText(/投票完了により0票の付箋1件/).waitFor();
   await page.waitForTimeout(400);
+  const boardAfter = await board.boundingBox();
   const after = await matrix.boundingBox();
   const toast = await page
     .locator('[data-sonner-toast][data-visible="true"]')
@@ -1190,17 +1193,22 @@ test.each([
     .boundingBox();
   expect(after).not.toBeNull();
   expect(toast).not.toBeNull();
-  if (!before || !after || !toast)
+  if (!before || !after || !toast || !boardBefore || !boardAfter)
     throw new Error("案内または通知がありません");
   expect(after.x).toBeCloseTo(before.x, 0);
   expect(after.y).toBeCloseTo(before.y, 0);
   expect(after.width).toBeCloseTo(before.width, 0);
   expect(after.height).toBeCloseTo(before.height, 0);
-  const overlapLeft = Math.max(after.x, toast.x);
-  const overlapRight = Math.min(after.x + after.width, toast.x + toast.width);
-  const overlapTop = Math.max(after.y, toast.y);
+  expect(boardAfter).toEqual(boardBefore);
+  // 狭幅では操作帯と通知が離れる。盤面自体との重なりと最前面を確認する。
+  const overlapLeft = Math.max(boardAfter.x, toast.x);
+  const overlapRight = Math.min(
+    boardAfter.x + boardAfter.width,
+    toast.x + toast.width,
+  );
+  const overlapTop = Math.max(boardAfter.y, toast.y);
   const overlapBottom = Math.min(
-    after.y + after.height,
+    boardAfter.y + boardAfter.height,
     toast.y + toast.height,
   );
   // 390pxでは通知と操作欄が重ならない配置も正常。交差があるときは

@@ -11,7 +11,7 @@ import previewWorker from "./preview-worker";
 import { getDecision } from "./room/decisions";
 import { listNotes } from "./room/notes";
 import { getPhase } from "./room/phase";
-import { sessionCookieFor } from "./test-helpers";
+import { sessionCookieFor, startTimerForTest } from "./test-helpers";
 import { visibleTo } from "./visibility";
 
 const owner = {
@@ -181,6 +181,7 @@ it("別人のWSへ未共有サンプルを送らず、参加者の新規付箋�
     config(),
   );
   const room = (await created.json()) as { roomId: string; inviteCode: string };
+  await startTimerForTest(room.roomId);
   const a = await socketFor(owner, room.roomId);
   const first = await a.next();
   expect(first.type).toBe("snapshot");
@@ -216,4 +217,46 @@ it("別人のWSへ未共有サンプルを送らず、参加者の新規付箋�
     ]);
   a.ws.close();
   rejoined.ws.close();
+});
+it("同じ本人のサンプル切替は以前を閲覧専用にして活動中の参加を1つにする", async () => {
+  const cookie = await sessionCookieFor(owner);
+  const first = await (
+    await previewWorker.fetch(request({ checkpoint: "1-1" }, cookie), config())
+  ).json<{ roomId: string }>();
+  const second = await (
+    await previewWorker.fetch(request({ checkpoint: "2-1" }, cookie), config())
+  ).json<{ roomId: string }>();
+  const old = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
+  const current = env.ROOM_DO.get(env.ROOM_DO.idFromName(second.roomId));
+  expect(await old.isJoinable()).toBe(false);
+  expect(await current.isJoinable()).toBe(true);
+  expect(await old.isMember(owner.sub)).toBe(true);
+});
+it("通常ルームに参加中のサンプル作成は勝手に退出・終了させず拒否する", async () => {
+  const { issueCreationId } = await import("../contracts/room-creation");
+  const cookie = await sessionCookieFor(owner);
+  const response = await previewWorker.fetch(
+    new Request("https://preview.test/api/rooms", {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        expectedPrincipal: owner.sub,
+        requestId: issueCreationId().requestId,
+      }),
+    }),
+    config(),
+  );
+  const active = await response.json<{ roomId: string }>();
+  expect(response.status).toBe(200);
+  expect(
+    (
+      await previewWorker.fetch(
+        request({ checkpoint: "1-1" }, cookie),
+        config(),
+      )
+    ).status,
+  ).toBe(409);
+  const source = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
+  expect(await source.isMember(owner.sub)).toBe(true);
+  expect(await source.isJoinable()).toBe(true);
 });

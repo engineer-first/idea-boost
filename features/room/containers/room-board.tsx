@@ -192,8 +192,7 @@ export function RoomBoard({
       memberRemoval.pending ||
       isNextPhasePending ||
       isLeaving ||
-      roomState.outcomePublished ||
-      roomState.decision !== null,
+      roomState.outcomePublished,
   });
   historyObserverRef.current = moveHistory.observeOutgoing;
   useEffect(() => {
@@ -485,12 +484,18 @@ export function RoomBoard({
   const { addNote } = notes;
   const handleAddPrivateNote = notes.requestAddNote;
   const handleHmwTemplateSelect = useCallback(
-    (content: string) => addNote(content),
-    [addNote],
+    (content: string) => {
+      if (roomState.timer.status !== "running") return;
+      addNote(content);
+    },
+    [addNote, roomState.timer.status],
   );
   const handleIdeaHintSelect = useCallback(
-    (content: string) => addNote(content),
-    [addNote],
+    (content: string) => {
+      if (roomState.timer.status !== "running") return;
+      addNote(content);
+    },
+    [addNote, roomState.timer.status],
   );
 
   useEffect(() => {
@@ -499,6 +504,7 @@ export function RoomBoard({
       roomState.phase.phase === 2 &&
       roomState.phase.step === 1;
     if (
+      roomState.timer.status !== "running" ||
       !isHmwWritingStep ||
       connectionStatus !== "open" ||
       notes.snapshotVersion === 0 ||
@@ -521,6 +527,7 @@ export function RoomBoard({
     notes.notes,
     notes.snapshotVersion,
     roomState.phase,
+    roomState.timer.status,
   ]);
 
   // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。
@@ -707,7 +714,6 @@ export function RoomBoard({
         connectionDelayed={connectionDelayed}
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
-        authorNames={roomState.authorNames}
         currentUserId={currentUserId}
         hostUserId={hostUserId}
         completedVoterIds={roomState.completedVoterIds}

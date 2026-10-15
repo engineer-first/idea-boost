@@ -7,6 +7,7 @@ export function buildSharedOutcome(
 ): SharedOutcomeRecord {
   const timestamp = Date.UTC(2026, 8, 27, 10);
   return SharedOutcomeRecordSchema.parse({
+    participantCount: 4,
     roomId: "123e4567-e89b-42d3-a456-426614174000",
     name: "相談ルーム",
     displayId: "R-4829A1",
@@ -18,6 +19,7 @@ export function buildSharedOutcome(
     lastSavedAt: timestamp,
     snapshot: {
       capturedAt: timestamp,
+      participantCount: 4,
       phase: { kind: "step", phase: 3, step: 3 },
       decisions: [
         {

@@ -33,6 +33,39 @@ async function save(
 function members(roomId: string) {
   return env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).listMembers();
 }
+// 再参加先を残すため、ホスト交代済みの在籍をfixtureで準備して本人退出する。
+async function leaveKeepingRoom(
+  actor: ReturnType<typeof user>,
+  roomId: string,
+) {
+  const successor = user();
+  await env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId)).upsertMember(
+    successor.sub,
+    "後任",
+  );
+  await runInRoomDO(roomId, (_room, state) =>
+    state.storage.sql.exec(
+      "UPDATE room_owner SET host_id=?,host_revision=host_revision+1 WHERE id=1",
+      successor.sub,
+    ),
+  );
+  const response = await SELF.fetch(
+    `https://api.test/api/rooms/${roomId}/leave`,
+    {
+      method: "POST",
+      headers: {
+        Cookie: await sessionCookieFor(actor),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        intent: "self",
+        outcomeAccess: "discard",
+        expectedHostRevision: 1,
+      }),
+    },
+  );
+  expect(response.status).toBe(204);
+}
 describe("表示名を変更したルームと次の参加に反映する", () => {
   it("ホームの保存は在籍中のルームを変更せず、次の作成・再参加で使う", async () => {
     const actor = user();
@@ -44,26 +77,35 @@ describe("表示名を変更したルームと次の参加に反映する", () =
       { headers: { Cookie: await sessionCookieFor(actor) } },
     );
     expect(await lookup.json()).toMatchObject({ hostName: actor.name });
+    await leaveKeepingRoom(actor, room.roomId);
     const next = await createRoomAs(actor);
     expect(await members(next.roomId)).toMatchObject([
       { name: "ホームで変更" },
     ]);
+    await leaveKeepingRoom(actor, next.roomId);
     await joinRoomAs(actor, room.inviteCode);
-    expect(await members(room.roomId)).toMatchObject([
-      { name: "ホームで変更" },
-    ]);
+    expect(
+      (await members(room.roomId)).find(
+        (member) => member.userId === actor.sub,
+      ),
+    ).toMatchObject({ name: "ホームで変更" });
   });
-  it("指定したルームだけ変更し、別ルームの閲覧では同期せず、再参加で引き継ぐ", async () => {
+  it("指定した活動中のルームだけ変更し、完了ルームの閲覧では同期しない", async () => {
     const actor = user();
     const first = await createRoomAs(actor);
+    await runInRoomDO(first.roomId, (_room, state) =>
+      state.storage.sql.exec(
+        "UPDATE room_state SET outcome_published=1 WHERE id=1",
+      ),
+    );
     const second = await createRoomAs(actor);
-    expect((await save(actor, "変更後", first.roomId)).status).toBe(200);
-    expect(await members(first.roomId)).toMatchObject([{ name: "変更後" }]);
+    expect((await save(actor, "変更後", second.roomId)).status).toBe(200);
+    expect(await members(second.roomId)).toMatchObject([{ name: "変更後" }]);
     for (const suffix of ["", "/members"]) {
       expect(
         (
           await SELF.fetch(
-            `https://api.test/api/rooms/${second.roomId}${suffix}`,
+            `https://api.test/api/rooms/${first.roomId}${suffix}`,
             {
               headers: { Cookie: await sessionCookieFor(actor) },
             },
@@ -71,11 +113,7 @@ describe("表示名を変更したルームと次の参加に反映する", () =
         ).status,
       ).toBe(200);
     }
-    expect(await members(second.roomId)).toMatchObject([{ name: actor.name }]);
-    await joinRoomAs(actor, second.inviteCode);
-    expect(await members(second.roomId)).toMatchObject([{ name: "変更後" }]);
-    const next = await createRoomAs(actor);
-    expect(await members(next.roomId)).toMatchObject([{ name: "変更後" }]);
+    expect(await members(first.roomId)).toMatchObject([{ name: actor.name }]);
   });
   it("他人のルーム・存在しないルームを指定しても設定や参加者を変更できない", async () => {
     const actor = user();

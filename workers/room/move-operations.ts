@@ -11,7 +11,6 @@ import type {
 import { projectNoteForViewer } from "../visibility";
 import type { RoomBroadcaster, SocketAttachment } from "./broadcast";
 import { isRoomClosed } from "./completed-rooms";
-import { getDecision } from "./decisions";
 import {
   canViewBoardGroup,
   listBoardGroups,
@@ -172,7 +171,6 @@ function presenceOperation(
   const revisions = moveRevisions(sql);
   if (
     phase.kind !== "step" ||
-    getDecision(sql, phase.phase) ||
     request.start.expectedPhaseRevision !== getPhaseRevision(sql) ||
     request.start.expectedGroupRevision !== revisions.groupRevision ||
     request.start.expectedMapRevision !== revisions.mapRevision ||
@@ -445,8 +443,7 @@ function permitted(ctx: HandlerCtx): boolean {
       x: 0,
       y: 0,
     }) &&
-    phase.kind === "step" &&
-    !getDecision(ctx.sql, phase.phase)
+    phase.kind === "step"
   );
 }
 function position(row: NoteRow): MoveReceipt["before"][number] {

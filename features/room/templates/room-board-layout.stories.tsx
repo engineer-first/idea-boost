@@ -100,7 +100,11 @@ function step(phase: 1 | 2 | 3, value: number): Story {
         ...boardMeta.args.interactions,
         privateNotes: PRIVATE_NOTES,
       },
-      timer: { status: "paused", remainingMs: 138_000, durationMs: 180_000 },
+      timer: {
+        status: "running",
+        endsAt: Date.now() + 138_000,
+        durationMs: 180_000,
+      },
       initialGuideState: "detail",
     },
   };
@@ -120,7 +124,15 @@ export const Phase2Step2: Story = step(2, 2);
 export const Phase2Step3: Story = step(2, 3);
 export const Phase2Step4: Story = step(2, 4);
 export const Phase3Step1: Story = step(3, 1);
-export const Phase3Step2: Story = step(3, 2);
+export const Phase3Step2: Story = {
+  ...step(3, 2),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("complementary", { name: "考えるヒント" }),
+    ).not.toBeInTheDocument();
+  },
+};
 export const Phase3Step3: Story = step(3, 3);
 export const Phase3Step4: Story = step(3, 4);
 export const Phase3Step5: Story = step(3, 5);
@@ -229,6 +241,19 @@ export const TimerOpen: Story = {
   name: "操作バーからタイマー設定",
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId("room-timer"));
+  },
+};
+
+export const TimerPaused: Story = {
+  ...step(3, 1),
+  name: "タイマー一時停止中",
+  args: {
+    ...step(3, 1).args,
+    timer: {
+      status: "paused",
+      remainingMs: 138_000,
+      durationMs: 180_000,
+    },
   },
 };
 

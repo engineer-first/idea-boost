@@ -19,8 +19,25 @@ vi.mock("@/lib/session/room-entry", () => ({
   hasRoomEntryTime: mocks.enough,
   issueRoomEntry: vi.fn().mockResolvedValue("admission"),
 }));
-vi.mock("@/features/room-lifecycle", () => ({
+vi.mock("@/features/room-lifecycle", async () => ({
+  readParticipationRecovery: (
+    await import("@/features/room-lifecycle/logic/participation-recovery")
+  ).readParticipationRecovery,
   RoomAdmissionGate: () => <span>入室前の認証確認</span>,
+  ParticipationSwitch: ({
+    pendingOperation,
+    failedOperation,
+  }: {
+    pendingOperation?: { operationId: string };
+    failedOperation?: { failure?: { operationId: string } };
+  }) => (
+    <span>
+      既存参加先を整理
+      <span data-testid="recovery-operation">
+        {pendingOperation?.operationId ?? failedOperation?.failure?.operationId}
+      </span>
+    </span>
+  ),
 }));
 vi.mock("@/features/room", () => ({
   RoomEntryPreview: () => <span>ルームの背景</span>,
@@ -114,5 +131,64 @@ it("URLのentry指定だけで同じ入室として扱わずタブと一回消�
     }),
   );
   expect(screen.getByText("入室前の認証確認")).toBeInTheDocument();
+  expect(screen.queryByText("通常のボード")).not.toBeInTheDocument();
+});
+
+it("旧複数参加の直リンクは整理確認を表示しボードを描画しない", async () => {
+  const { switchConfirmation } = await import(
+    "@/features/room-lifecycle/logic/participation.fixture"
+  );
+  mocks.api.mockImplementation(async (path: string) =>
+    path.startsWith("/api/completed-rooms/")
+      ? Response.json({}, { status: 404 })
+      : Response.json({ confirmation: switchConfirmation() }, { status: 409 }),
+  );
+  render(await RoomPage({ params: Promise.resolve({ id }) }));
+  expect(screen.getByText("既存参加先を整理")).toBeInTheDocument();
+  expect(screen.queryByText("通常のボード")).not.toBeInTheDocument();
+});
+
+it.each([
+  "board",
+  "start",
+])("%sの直接再訪で503 pendingを404にせず回復画面へ渡す", async (kind) => {
+  const Page =
+    kind === "board" ? RoomPage : (await import("./start/page")).default;
+  mocks.api.mockImplementation(async (path: string) =>
+    path.startsWith("/api/completed-rooms/")
+      ? Response.json({}, { status: 404 })
+      : Response.json(
+          {
+            kind: "pending",
+            operationId: "22222222-2222-4222-8222-222222222222",
+            progress: "joining",
+            error: "結果を確認してください",
+          },
+          { status: 503 },
+        ),
+  );
+  render(await Page({ params: Promise.resolve({ id }) }));
+  expect(screen.getByText("既存参加先を整理")).toBeInTheDocument();
+  expect(screen.queryByText("通常のボード")).not.toBeInTheDocument();
+});
+
+it.each([
+  "board",
+  "start",
+])("%sの確定失敗は終了した操作のIDを結果画面へ渡す", async (kind) => {
+  const { failedParticipation } = await import(
+    "@/features/room-lifecycle/logic/participation.fixture"
+  );
+  const Page =
+    kind === "board" ? RoomPage : (await import("./start/page")).default;
+  mocks.api.mockImplementation(async (path: string) =>
+    path.startsWith("/api/completed-rooms/")
+      ? Response.json({}, { status: 404 })
+      : Response.json(failedParticipation(), { status: 409 }),
+  );
+  render(await Page({ params: Promise.resolve({ id }) }));
+  expect(screen.getByTestId("recovery-operation")).toHaveTextContent(
+    failedParticipation().failure.operationId,
+  );
   expect(screen.queryByText("通常のボード")).not.toBeInTheDocument();
 });

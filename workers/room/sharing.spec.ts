@@ -9,6 +9,7 @@ import {
   type RoomSocket,
   runInRoomDO,
   sessionCookieFor,
+  startTimerForTest,
 } from "../test-helpers";
 import { syncRoomAlarm } from "./alarms";
 import { RoomBroadcaster } from "./broadcast";
@@ -540,7 +541,7 @@ it.each([
 ] as const)("フェーズ%iの発表者だけが共有でき、交代・再接続でも同期する（receipt=%s）", async (phase, receipt) => {
   const { owner, member, roomId, stub } = await setup();
   await stub.setPhase({ kind: "step", phase, step: 1 }, host.sub);
-  await markReady(roomId);
+  await startTimerForTest(roomId);
   owner.ws.send(
     JSON.stringify({ type: "note:create", content: "ホストだけの下書き" }),
   );
@@ -553,6 +554,8 @@ it.each([
   const noteId = (inserted.note as { id: string }).id;
   const ready = await prepareLegacySharing(owner, roomId);
   const publish = async (socket: RoomSocket, id: string) => {
+    // 発表者認可の検証時は、タイマー停止による拒否を先に発生させない。
+    await startTimerForTest(roomId);
     const snapshot = await currentSnapshot(roomId);
     socket.ws.send(
       JSON.stringify({

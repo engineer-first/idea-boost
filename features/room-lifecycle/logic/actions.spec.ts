@@ -192,7 +192,8 @@ describe("lookupInviteRoom", () => {
     lookupRoomByInviteCodeMock.mockResolvedValueOnce({ kind: "not_found" });
     await expect(lookupInviteRoom("ABC123")).resolves.toEqual({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
   });
 
@@ -252,16 +253,45 @@ describe("joinRoom", () => {
 
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
   });
 
   it("API が 409 ならルームの参加上限エラーを返す", async () => {
-    apiFetchMock.mockResolvedValue(new Response("full", { status: 409 }));
+    apiFetchMock.mockResolvedValue(
+      Response.json({ error: "このルームは20人までです。" }, { status: 409 }),
+    );
 
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: false,
-      error: "このルームは20人までです。",
+      error:
+        "ルームが満員（上限20人）のため参加できません。ホストに確認してください。",
+    });
+  });
+
+  it("参加確認後に終了したルームを満員と誤案内しない", async () => {
+    apiFetchMock.mockResolvedValue(
+      Response.json(
+        { error: "終了したルームには参加できません。" },
+        { status: 409 },
+      ),
+    );
+    await expect(joinRoom(joinFormData("ABC123"))).resolves.toMatchObject({
+      ok: false,
+      error:
+        "このルームは終了しているため参加できません。新しい招待コードをホストに確認してください。",
+    });
+  });
+
+  it("原因不明の409を満員と断定しない", async () => {
+    apiFetchMock.mockResolvedValue(
+      new Response("gateway error", { status: 409 }),
+    );
+    await expect(joinRoom(joinFormData("ABC123"))).resolves.toMatchObject({
+      ok: false,
+      error:
+        "ルームに参加できませんでした。しばらくしてから再度お試しください。",
     });
   });
 
@@ -402,4 +432,178 @@ describe("入室前の認証準備", () => {
     });
     expect(apiFetchMock).not.toHaveBeenCalled();
   });
+});
+
+it("参加APIの確認要求を満員エラーへ変換せずUIへ渡す", async () => {
+  const { switchConfirmation } = await import("./participation.fixture");
+  apiFetchMock.mockResolvedValueOnce(
+    Response.json(
+      { reason: "confirmation_required", confirmation: switchConfirmation() },
+      { status: 409 },
+    ),
+  );
+  expect(await joinRoom(joinFormData("AB12CD"))).toMatchObject({
+    ok: false,
+    reason: "confirmation_required",
+    confirmation: switchConfirmation(),
+  });
+});
+it("作成APIの確認要求を既存の作成IDを保持してUIへ渡す", async () => {
+  const { switchConfirmation } = await import("./participation.fixture");
+  apiFetchMock.mockResolvedValueOnce(
+    Response.json(
+      { reason: "confirmation_required", confirmation: switchConfirmation() },
+      { status: 409 },
+    ),
+  );
+  expect(
+    await createRoom({
+      requestId: "55555555-5555-4555-8555-555555555555",
+      expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+      name: "相談",
+    }),
+  ).toMatchObject({
+    ok: false,
+    reason: "confirmation_required",
+    confirmation: switchConfirmation(),
+  });
+});
+
+it("再試行で発見した処理中の移動を満員エラーにせず保持する", async () => {
+  const pending = {
+    kind: "pending" as const,
+    operationId: "22222222-2222-4222-8222-222222222222",
+    progress: "joining" as const,
+    error: "移動の処理中です",
+  };
+  apiFetchMock.mockResolvedValueOnce(Response.json(pending, { status: 409 }));
+  expect(await joinRoom(joinFormData("AB12CD"))).toMatchObject({
+    ok: false,
+    pendingOperation: pending,
+  });
+  apiFetchMock.mockResolvedValueOnce(Response.json(pending, { status: 409 }));
+  expect(
+    await createRoom({
+      requestId: "55555555-5555-4555-8555-555555555555",
+      expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+    }),
+  ).toMatchObject({ ok: false, outcome: "unknown", pendingOperation: pending });
+});
+
+it("実APIの503 pendingを参加・作成・再訪の回復経路へ渡す", async () => {
+  const pending = {
+    kind: "pending" as const,
+    operationId: "22222222-2222-4222-8222-222222222222",
+    progress: "joining" as const,
+    error: "処理を再開してください",
+    targetName: "前のルーム",
+  };
+  apiFetchMock.mockResolvedValueOnce(Response.json(pending, { status: 503 }));
+  expect(await joinRoom(joinFormData("AB12CD"))).toMatchObject({
+    ok: false,
+    pendingOperation: pending,
+  });
+  apiFetchMock.mockResolvedValueOnce(Response.json(pending, { status: 503 }));
+  expect(
+    await createRoom({
+      requestId: "55555555-5555-4555-8555-555555555555",
+      expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+    }),
+  ).toMatchObject({ ok: false, pendingOperation: pending });
+  apiFetchMock.mockResolvedValueOnce(Response.json({}, { status: 404 }));
+  apiFetchMock.mockResolvedValueOnce(Response.json(pending, { status: 503 }));
+  expect(await returnToRoom("33333333-3333-4333-8333-333333333333")).toEqual({
+    kind: "ready",
+    href: "/rooms/33333333-3333-4333-8333-333333333333",
+  });
+});
+
+it("実APIの確定失敗は終了情報と残る参加状態を参加・作成へ渡す", async () => {
+  const { failedParticipation } = await import("./participation.fixture");
+  apiFetchMock.mockResolvedValueOnce(
+    Response.json(failedParticipation(), { status: 409 }),
+  );
+  expect(await joinRoom(joinFormData("AB12CD"))).toMatchObject({
+    ok: false,
+    failedOperation: failedParticipation(),
+  });
+  apiFetchMock.mockResolvedValueOnce(
+    Response.json(failedParticipation(), { status: 409 }),
+  );
+  expect(
+    await createRoom({
+      requestId: "55555555-5555-4555-8555-555555555555",
+      expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+    }),
+  ).toMatchObject({
+    ok: false,
+    failedOperation: failedParticipation(),
+    outcome: "rejected",
+  });
+});
+it("404のbodyがpendingでも非在籍を回復可能な参加として扱わない", async () => {
+  const pending = {
+    kind: "pending",
+    operationId: "22222222-2222-4222-8222-222222222222",
+    progress: "joining",
+    error: "処理中",
+  };
+  apiFetchMock.mockResolvedValueOnce(Response.json({}, { status: 404 }));
+  apiFetchMock.mockResolvedValueOnce(Response.json(pending, { status: 404 }));
+  expect(await returnToRoom("33333333-3333-4333-8333-333333333333")).toEqual({
+    kind: "unavailable_room",
+  });
+});
+
+it("確認versionのない公開bodyを有効な退出確認へ補填しない", async () => {
+  const { switchConfirmation } = await import("./participation.fixture");
+  const { readParticipationRecovery } = await import(
+    "./participation-recovery"
+  );
+  const confirmation = { ...switchConfirmation(), version: undefined };
+  expect(
+    await readParticipationRecovery(
+      Response.json(
+        { reason: "confirmation_required", confirmation },
+        { status: 409 },
+      ),
+    ),
+  ).toBeNull();
+});
+
+it("作成失効の410終端も退出済み・残る在籍を回復画面へ渡す", async () => {
+  const { failedParticipation } = await import("./participation.fixture");
+  const failure = { ...failedParticipation(), reason: "expired" };
+  apiFetchMock.mockResolvedValueOnce(Response.json(failure, { status: 410 }));
+  expect(
+    await createRoom({
+      requestId: "55555555-5555-4555-8555-555555555555",
+      expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
+    }),
+  ).toMatchObject({ ok: false, outcome: "rejected", failedOperation: failure });
+});
+
+it("通常の受付失効と認証拒否・不存在を参加操作の回復へ変換しない", async () => {
+  const { readParticipationRecovery } = await import(
+    "./participation-recovery"
+  );
+  const { failedParticipation } = await import("./participation.fixture");
+  expect(
+    await readParticipationRecovery(
+      Response.json(
+        {
+          reason: "expired",
+          error: "作成受付の期限が過ぎました。",
+        },
+        { status: 410 },
+      ),
+    ),
+  ).toBeNull();
+  for (const status of [401, 403, 404]) {
+    expect(
+      await readParticipationRecovery(
+        Response.json(failedParticipation(), { status }),
+      ),
+    ).toBeNull();
+  }
 });

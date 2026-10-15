@@ -318,7 +318,11 @@ it("履歴一覧は本文なしで訪問順に分割し、空盤面を正常保�
 
 it("未認証・権限なし・剥奪後・別ルームID・期限後を拒否し、解散後は期限まで保持する", async () => {
   const room = await createRoomAs(owner);
-  const other = await createRoomAs(owner);
+  const other = await createRoomAs({
+    ...owner,
+    sub: crypto.randomUUID(),
+    email: "other-history@test.invalid",
+  });
   const cookie = await sessionCookieFor(owner);
   const url = `https://api.test/api/shared-outcomes/${room.roomId}/history`;
   const request = (path = url, auth = true) =>
@@ -697,11 +701,15 @@ it("期限を過ぎてから参加者が操作を再開しても、削除前の�
     state.storage.sql.exec("UPDATE shared_outcome_state SET expires_at=0");
   });
   socket.ws.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
-  expect(await socket.next()).toMatchObject({ type: "timer:updated" });
+  // 期限切れの旧接続は参加先の再照合で拒否し、保存済み履歴も延命しない。
+  expect(await socket.next()).toMatchObject({
+    type: "error",
+    code: "forbidden",
+  });
   const data = await runInRoomDO(room.roomId, (instance) =>
     instance.getProgressHistory(),
   );
-  expect(data?.entries).toEqual([]);
+  expect(data).toBeNull();
   expect(
     await env.DB.prepare(
       "SELECT * FROM progress_history_snapshots WHERE room_id=?",

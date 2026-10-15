@@ -2,12 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import type {
+  ParticipationConfirmation,
+  ParticipationResult,
+} from "@/contracts/room-participation";
 import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import { joinRoom, lookupInviteRoom } from "../logic/actions";
 import { entryDestination } from "../logic/entry-destination";
 import { lifecycleNotify } from "../logic/lifecycle-notify";
+import {
+  participationSwitchKey,
+  participationSwitchProps,
+} from "../logic/participation-switch-props";
 import { JoinRoomSectionView } from "../templates/join-room-section-view";
+import { ParticipationSwitch } from "./participation-switch";
 // ホーム「ルームに参加」セクション（organism / コンテナ）。
 // 見た目は JoinRoomSectionView、フォームの副作用は JoinRoomForm 相当のロジックを内包。
 // JoinRoomForm は単体でも使えるため、ここでは View + コンテナの配線に寄せる。
@@ -15,6 +24,10 @@ import { RoomReauthentication } from "./room-reauthentication";
 
 export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
   const router = useRouter();
+  const [switching, setSwitching] = useState<
+    | ParticipationConfirmation
+    | Extract<ParticipationResult, { kind: "pending" | "rejected" }>
+  >();
   const [reauth, setReauth] = useState(false);
   const [code, setCode] = useState("");
   const [showCodeError, setShowCodeError] = useState(false);
@@ -56,6 +69,18 @@ export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
       formData.append("code", code);
       const result = await joinRoom(formData, currentUserId);
       if (!result.ok) {
+        if (result.failedOperation) {
+          setSwitching(result.failedOperation);
+          return;
+        }
+        if (result.pendingOperation) {
+          setSwitching(result.pendingOperation);
+          return;
+        }
+        if (result.confirmation) {
+          setSwitching(result.confirmation);
+          return;
+        }
         if (result.reason === "reauth_required") {
           setReauth(true);
           return;
@@ -92,12 +117,23 @@ export function JoinRoomSection({ currentUserId }: { currentUserId?: string }) {
         codeError={codeError}
         lookingUp={lookingUp}
         joining={joining}
-        dialogOpen={dialogOpen && !reauth}
+        dialogOpen={dialogOpen && !reauth && !switching}
         onDialogOpenChange={setDialogOpen}
         hostName={hostName}
         onSubmit={handleSubmit}
         onConfirm={joinConfirmed}
       />
+      {switching && currentUserId && (
+        <ParticipationSwitch
+          key={participationSwitchKey(switching)}
+          currentUserId={currentUserId}
+          {...participationSwitchProps(switching)}
+          onCancel={() => {
+            setSwitching(undefined);
+            setDialogOpen(false);
+          }}
+        />
+      )}
       {reauth && (
         <RoomReauthentication
           operation={{ kind: "join", inviteCode: code }}

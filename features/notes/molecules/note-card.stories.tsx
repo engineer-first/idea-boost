@@ -51,6 +51,15 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+export const RightEdgeContent: Story = {
+  args: {
+    note: buildNote({
+      content: "（例）どうすれば、買い物を忘れずに安くできるだろう？",
+      color: "purple",
+    }),
+  },
+};
+
 export const Empty: Story = {
   args: {
     note: buildNote({ content: "" }),
@@ -586,6 +595,36 @@ export const HeightBoundaryWithResults: Story = {
   args: {
     vote: { ...meta.args.vote, displayMode: "result" },
   },
+};
+
+// 右端まで本文を広げても、折り返しと下部の票・決定表示が干渉しない。
+export const TextWidthBoundary: Story = {
+  render: (args) => (
+    <div className="flex flex-wrap items-start gap-6">
+      {[12, 14, 24].flatMap((fontSize) =>
+        (["hidden", "voting", "result"] as const).map((displayMode) => (
+          <NoteCard
+            {...args}
+            key={`${fontSize}-${displayMode}`}
+            note={buildNote({
+              id: `width-${fontSize}-${displayMode}`,
+              content:
+                "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほ",
+              fontSize,
+              dotVotes: {
+                subjective: { count: 2, votedByMe: false, ownCount: 0 },
+                objective: { count: 7, votedByMe: false, ownCount: 0 },
+              },
+            })}
+            isDecided={displayMode === "result"}
+            vote={{ ...args.vote, displayMode }}
+            className="relative"
+            style={{}}
+          />
+        )),
+      )}
+    </div>
+  ),
 };
 
 export const SelectedCandidate: Story = {

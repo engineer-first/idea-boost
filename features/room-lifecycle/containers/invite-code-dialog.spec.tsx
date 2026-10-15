@@ -89,13 +89,14 @@ describe("InviteCodeDialog", () => {
     const user = userEvent.setup();
     JOIN_ROOM.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
     renderDialog();
     await user.click(screen.getByTestId("invite-join-action"));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
       );
     });
     expect(PUSH).not.toHaveBeenCalled();

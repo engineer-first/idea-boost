@@ -7,6 +7,7 @@ import {
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
+  startTimerForTest,
 } from "../test-helpers";
 import { captureRollbackCheckpoint } from "./phase-rollback";
 import {
@@ -589,6 +590,7 @@ describe("復元後の会員情報と本文保存の世代", () => {
       { kind: "step", phase: 1, step: 2 },
       host.sub,
     );
+    await startTimerForTest(roomId);
     a.ws.send(
       JSON.stringify({
         type: "note:update-content",
