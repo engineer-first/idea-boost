@@ -1545,7 +1545,7 @@ describe("RoomDO 候補外付箋", () => {
     }
   });
 
-  it("非ホストは自分の付箋でも候補外にできない", async () => {
+  it("参加者は共有付箋を候補外にできる", async () => {
     const roomName = "room-exclude-non-host";
     await prepare(roomName);
     const ws = await connectDirectly(roomName, USER_B, USER_A);
@@ -1553,13 +1553,13 @@ describe("RoomDO 候補外付箋", () => {
     ws.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
 
     expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: true },
     });
     ws.close();
   });
 
-  it("非ホストは自分の候補外付箋でも復帰できない", async () => {
+  it("参加者は候補外付箋を復帰できる", async () => {
     const roomName = "room-restore-non-host";
     await prepare(roomName, buildPhaseStep(5), true);
     const ws = await connectDirectly(roomName, USER_B, USER_A);
@@ -1567,8 +1567,8 @@ describe("RoomDO 候補外付箋", () => {
     ws.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
 
     expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "note:updated",
+      note: { id: NOTE_ID, excluded: false },
     });
     expect(
       await runInRoomDO(
@@ -1578,7 +1578,7 @@ describe("RoomDO 候補外付箋", () => {
             .exec("SELECT excluded FROM notes WHERE id = ?1", NOTE_ID)
             .one().excluded as number,
       ),
-    ).toBe(1);
+    ).toBe(0);
     ws.close();
   });
 
@@ -2182,14 +2182,14 @@ describe("RoomDO 候補外付箋", () => {
     host.close();
   });
 
-  it("非ホストの一括候補外・Undoを拒否し、対象0件はcount 0で確定する", async () => {
+  it("参加者の一括候補外・Undoを受理し、対象0件はcount 0で確定する", async () => {
     const roomName = "room-bulk-exclude-auth-empty";
     await prepare(roomName);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     member.send(JSON.stringify({ type: "note:bulk-exclude" }));
     expect(await nextJson(member)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "note:bulk-excluded",
+      count: 0,
     });
     member.send(
       JSON.stringify({
@@ -2198,19 +2198,11 @@ describe("RoomDO 候補外付箋", () => {
       }),
     );
     expect(await nextJson(member)).toMatchObject({
-      type: "error",
-      code: "forbidden",
+      type: "note:bulk-restored",
+      count: 0,
       operationId: "33333333-3333-4333-8333-333333333333",
     });
     member.close();
-
-    const host = await connectDirectly(roomName, USER_A, USER_A);
-    host.send(JSON.stringify({ type: "note:bulk-exclude" }));
-    expect(await nextJson(host)).toMatchObject({
-      type: "note:bulk-excluded",
-      count: 0,
-    });
-    host.close();
   });
 });
 

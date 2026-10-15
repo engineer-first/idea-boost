@@ -1117,14 +1117,14 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
   });
 
-  it("結果ステップの非ホストは候補外を読めるが復帰操作は見られない", () => {
+  it("結果ステップの参加者は候補外を復帰できる", () => {
     connectWithSnapshot([protocolNote({ excluded: true })], {
       phase: buildPhaseStep(5),
       isHost: false,
     });
 
     expect(screen.getByText("候補外")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
+    expect(screen.getByRole("button", { name: "候補に戻す" })).toBeVisible();
   });
 
   it("確認後に一括候補外を送り、サーバー確定の実件数とoperation IDでUndoする", () => {
@@ -1225,7 +1225,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("自動整理を全参加者へ案内し、まとめて戻す操作はホストだけに渡す", () => {
+  it("自動整理を全参加者へ案内し、全員にまとめて戻す操作を渡す", () => {
     const operationId = "33333333-3333-4333-8333-333333333333";
     const host = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
@@ -1268,7 +1268,7 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(notifyMocks.automaticallyExcludedCandidates).toHaveBeenCalledWith(
       1,
-      undefined,
+      expect.any(Function),
     );
   });
 

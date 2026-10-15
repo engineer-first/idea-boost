@@ -16,14 +16,10 @@ const commands = [
   ),
   { type: "sharing:start", revision: id, durationMs: 1000 },
   { type: "sharing:advance", revision: id, outcome: "done" },
-  ...[
-    "note:exclude",
-    "note:restore",
-    "note:decide",
-    "adoption-focus:update",
-  ].map((type) => ({ type, noteId: id })),
-  { type: "note:bulk-exclude" },
-  { type: "note:bulk-restore", operationId: id },
+  ...["note:decide", "adoption-focus:update"].map((type) => ({
+    type,
+    noteId: id,
+  })),
   { type: "outcome:publish" },
   { type: "idea-map:resize", sizeLevel: 1 },
 ];

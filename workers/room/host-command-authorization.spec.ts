@@ -69,13 +69,6 @@ const cases: Case[] = [
     phase: { kind: "step" as const, phase: 1 as const, step: 2 },
     success: "sharing:updated" as const,
   })),
-  ...(["note:exclude", "note:restore"] as const).map((type) => ({
-    type,
-    phase: result,
-    success: "note:updated" as const,
-  })),
-  { type: "note:bulk-exclude", phase: result, success: "note:updated" },
-  { type: "note:bulk-restore", phase: result, success: "note:updated" },
   { type: "note:decide", phase: result, success: "decision:updated" },
   {
     type: "outcome:publish",

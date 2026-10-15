@@ -424,7 +424,6 @@ export function RoomBoardCanvas({
         }
         canMoveNote={permissions.canMoveNote}
         canExcludeNote={
-          isHost &&
           !isAdoptMode &&
           !isMultiSelected &&
           interactionTool === "select" &&
@@ -432,7 +431,6 @@ export function RoomBoardCanvas({
           !note.excluded
         }
         canRestoreNote={
-          isHost &&
           !isAdoptMode &&
           !isMultiSelected &&
           interactionTool === "select" &&

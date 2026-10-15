@@ -254,7 +254,6 @@ export function RoomBoard({
     ) {
       setIsForceNextPhaseDialogOpen(false);
       setIsNextPhasePending(false);
-      clearCandidateNotices();
     }
     if (
       message.type === "snapshot" ||
@@ -283,12 +282,9 @@ export function RoomBoard({
             bulkUndoIdsRef.current.delete(message.operationId);
         };
         if (message.source === "phase-transition") {
-          if (isHost) bulkUndoIdsRef.current.add(message.operationId);
+          bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
-            roomNotify.automaticallyExcludedCandidates(
-              message.count,
-              isHost ? undo : undefined,
-            ),
+            roomNotify.automaticallyExcludedCandidates(message.count, undo),
             message.operationId,
           );
         } else {

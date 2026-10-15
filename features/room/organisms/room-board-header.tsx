@@ -911,7 +911,7 @@ export function RoomBoardHeader({
                       onConfirm={onRollbackPhase}
                     />
                   ) : null}
-                  {isHost && canManageCandidates ? (
+                  {canManageCandidates ? (
                     <BulkCandidateExclusion
                       key={hostRevision}
                       targetCount={bulkExclusionTargetCount}

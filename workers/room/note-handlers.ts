@@ -29,7 +29,7 @@ import {
   replyForbidden,
 } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
-import { getMemberColor, isHostUser } from "./members";
+import { getMemberColor } from "./members";
 import { hasMoveLock } from "./move-operations";
 import {
   bringNoteToFront,
@@ -699,7 +699,6 @@ export const noteHandlers: MessageHandlers<
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (
-      !isHostUser(ctx.sql, ctx.userId) ||
       row.visibility !== "shared" ||
       row.excluded ||
       getDecision(ctx.sql, row.phase)?.noteId === row.id
@@ -731,7 +730,6 @@ export const noteHandlers: MessageHandlers<
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (
-      !isHostUser(ctx.sql, ctx.userId) ||
       row.visibility !== "shared" ||
       !row.excluded ||
       (message.expectedExclusionOperationId !== undefined &&
@@ -756,10 +754,6 @@ export const noteHandlers: MessageHandlers<
   },
 
   "note:bulk-exclude": (ctx, message) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
     const phase = getPhase(ctx.sql);
     if (phase.kind !== "step") {
       replyForbidden(ctx);
@@ -801,10 +795,6 @@ export const noteHandlers: MessageHandlers<
   },
 
   "note:bulk-restore": (ctx, message) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
     const phase = getPhase(ctx.sql);
     if (phase.kind !== "step") {
       replyForbidden(ctx);

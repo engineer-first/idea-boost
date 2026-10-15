@@ -528,13 +528,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("note:exclude"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid(),
     operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:restore"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid(),
     operationId: OptimisticOperationIdSchema.optional(),
     expectedExclusionOperationId: z.string().uuid().optional(),
@@ -543,12 +541,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // note ID 群を送らない。
   z.object({
     type: z.literal("note:bulk-exclude"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
     operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:bulk-restore"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
     operationId: BulkExclusionOperationIdSchema,
   }),
   z.object({
@@ -732,10 +728,6 @@ export const HOST_REVISION_MESSAGE_TYPES = [
   "member:remove",
   "sharing:start",
   "sharing:advance",
-  "note:exclude",
-  "note:restore",
-  "note:bulk-exclude",
-  "note:bulk-restore",
   "phase:rollback",
   "phase:restart-writing",
   "phase:revote",
