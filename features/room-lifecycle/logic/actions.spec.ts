@@ -192,7 +192,8 @@ describe("lookupInviteRoom", () => {
     lookupRoomByInviteCodeMock.mockResolvedValueOnce({ kind: "not_found" });
     await expect(lookupInviteRoom("ABC123")).resolves.toEqual({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
   });
 
@@ -252,16 +253,45 @@ describe("joinRoom", () => {
 
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
   });
 
   it("API が 409 ならルームの参加上限エラーを返す", async () => {
-    apiFetchMock.mockResolvedValue(new Response("full", { status: 409 }));
+    apiFetchMock.mockResolvedValue(
+      Response.json({ error: "このルームは20人までです。" }, { status: 409 }),
+    );
 
     await expect(joinRoom(joinFormData("ABC123"))).resolves.toEqual({
       ok: false,
-      error: "このルームは20人までです。",
+      error:
+        "ルームが満員（上限20人）のため参加できません。ホストに確認してください。",
+    });
+  });
+
+  it("参加確認後に終了したルームを満員と誤案内しない", async () => {
+    apiFetchMock.mockResolvedValue(
+      Response.json(
+        { error: "終了したルームには参加できません。" },
+        { status: 409 },
+      ),
+    );
+    await expect(joinRoom(joinFormData("ABC123"))).resolves.toMatchObject({
+      ok: false,
+      error:
+        "このルームは終了しているため参加できません。新しい招待コードをホストに確認してください。",
+    });
+  });
+
+  it("原因不明の409を満員と断定しない", async () => {
+    apiFetchMock.mockResolvedValue(
+      new Response("gateway error", { status: 409 }),
+    );
+    await expect(joinRoom(joinFormData("ABC123"))).resolves.toMatchObject({
+      ok: false,
+      error:
+        "ルームに参加できませんでした。しばらくしてから再度お試しください。",
     });
   });
 

@@ -41,7 +41,8 @@ export const WithCreateError: Story = {
 // 参加失敗。
 export const WithJoinError: Story = {
   args: {
-    error: "ルームが見つかりませんでした。",
+    error:
+      "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
   },
 };
 
@@ -61,7 +62,10 @@ export const AllStates: Story = {
           ["Default", undefined],
           ["Recovering", undefined],
           ["WithCreateError", "ルームを作成できませんでした。"],
-          ["WithJoinError", "ルームが見つかりませんでした。"],
+          [
+            "WithJoinError",
+            "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
+          ],
           ["WithInvalidCodeError", "招待コードは英数字6桁で入力してください。"],
         ] as const
       ).map(([label, error]) => (
