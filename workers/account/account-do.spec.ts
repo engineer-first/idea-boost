@@ -205,6 +205,14 @@ it("legacy複数在籍を端末履歴なしで検出し、同意までは登録�
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(old.roomId));
   await initializeTestRoom(stub, A.sub, A.name, { roomId: old.roomId });
   const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+  // 配備前に作られた旧在籍を再現する（初回索引は未作成）。
+  await runInDurableObject(account, async (_account, state) => {
+    await state.storage.delete([
+      "participation-index",
+      "participation-index-ready",
+      "participation-index-cursor",
+    ]);
+  });
   expect(await account.mayOperate(A.sub, first.roomId)).toBe(false);
   const result = await account.inspect(A.sub, first.roomId);
   if (!result) throw new Error("legacy未検出");
@@ -517,6 +525,17 @@ it("部分退出のreceiptを照合して、予約失効の満員では残りの
     target = await createRoomAs(C);
   const survivor = env.ROOM_DO.get(env.ROOM_DO.idFromName(remaining.roomId));
   await survivor.upsertMember(A.sub, A.name);
+  // 旧APIで複数在籍になった状態から、初回の照合を行う。
+  await runInDurableObject(
+    env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub)),
+    async (_account, state) => {
+      await state.storage.delete([
+        "participation-index",
+        "participation-index-ready",
+        "participation-index-cursor",
+      ]);
+    },
+  );
   const prepared = confirmation(await prepare(target.inviteCode));
   const account = await suspendMove(prepared.operationId, "leaving");
   const original = env.ROOM_DO.get(env.ROOM_DO.idFromName(first.roomId));
@@ -808,4 +827,138 @@ it("公開commitは確認version欠落を現在versionで補わず拒否する",
       A.sub,
     ),
   ).toBe(true);
+});
+
+it("照合済みのアカウントは無関係なルームの障害に影響されず操作・切替できる", async () => {
+  const source = await createRoomAs(A);
+  const unrelated = await createRoomAs(B);
+  const target = await createRoomAs(C);
+  await runInRoomDO(unrelated.roomId, (_room, state) => {
+    state.storage.sql.exec("DROP TABLE completed_room");
+  });
+  const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+  await expect(account.mayOperate(A.sub, source.roomId)).resolves.toBe(true);
+  const prepared = confirmation(await prepare(target.inviteCode));
+  expect(prepared.sources.map((source) => source.roomId)).toEqual([
+    source.roomId,
+  ]);
+  expect(await commit(prepared.operationId)).toMatchObject({
+    kind: "ready",
+    roomId: target.roomId,
+  });
+  expect(await account.mayOperate(A.sub, source.roomId)).toBe(false);
+  expect(await account.mayOperate(A.sub, target.roomId)).toBe(true);
+});
+
+it("アカウント照会の通信障害はWS操作を拒否し、接続を壊さず再試行できる", async () => {
+  const source = await createRoomAs(A);
+  const socket = await connectRoomAs(A, source.roomId);
+  await socket.next();
+  await runInRoomDO(source.roomId, async (room, state) => {
+    const bindings = Reflect.get(room, "env") as Env;
+    const original = bindings.ACCOUNT_DO;
+    bindings.ACCOUNT_DO = {
+      idFromName: (name: string) => original.idFromName(name),
+      get: () => ({
+        mayOperate: async () => {
+          throw new Error("unavailable");
+        },
+      }),
+    } as unknown as Env["ACCOUNT_DO"];
+    try {
+      const server = state.getWebSockets()[0];
+      await expect(
+        room.webSocketMessage(
+          server,
+          JSON.stringify({
+            type: "timer:start",
+            durationMs: 60000,
+            expectedHostRevision: 0,
+          }),
+        ),
+      ).resolves.toBeUndefined();
+    } finally {
+      bindings.ACCOUNT_DO = original;
+    }
+  });
+  expect(await socket.next()).toMatchObject({
+    type: "error",
+    code: "forbidden",
+  });
+  socket.ws.send(
+    JSON.stringify({
+      type: "timer:start",
+      durationMs: 60000,
+      expectedHostRevision: 0,
+    }),
+  );
+  expect(await socket.next()).toMatchObject({ type: "timer:updated" });
+  socket.close();
+});
+
+it("初回の旧在籍照合が失敗したら操作を許可せず、再照合できる結果を返す", async () => {
+  const source = await createRoomAs(A);
+  const unrelated = await createRoomAs(B);
+  const schema = await runInRoomDO(unrelated.roomId, (_room, state) => {
+    const schema = state.storage.sql
+      .exec<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE name='completed_room'",
+      )
+      .one().sql;
+    state.storage.sql.exec("DROP TABLE completed_room");
+    return schema;
+  });
+  const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+  await runInDurableObject(account, async (_account, state) => {
+    await state.storage.delete([
+      "participation-index",
+      "participation-index-ready",
+      "participation-index-cursor",
+    ]);
+  });
+  await expect(
+    account.prepare(A.sub, { kind: "revisit", roomId: source.roomId }),
+  ).resolves.toMatchObject({
+    kind: "rejected",
+    reason: "participation_unavailable",
+  });
+  expect(await account.mayOperate(A.sub, source.roomId)).toBe(false);
+  await runInRoomDO(unrelated.roomId, (_room, state) => {
+    state.storage.sql.exec(schema);
+  });
+  expect(
+    await account.prepare(A.sub, { kind: "revisit", roomId: source.roomId }),
+  ).toMatchObject({ kind: "confirmation", confirmation: { sources: [] } });
+  expect(await account.mayOperate(A.sub, source.roomId)).toBe(true);
+});
+
+it("複数ページの旧在籍照合を同時に開始しても候補を重複させない", async () => {
+  const source = await createRoomAs(A);
+  await createRoomAs(B);
+  const { insertRoom } = await import("../lib/db");
+  const { initializeTestRoom } = await import("../test-helpers");
+  for (let i = 0; i < 17; i++) {
+    const room = await insertRoom(env.DB, B.sub);
+    await initializeTestRoom(
+      env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId)),
+      B.sub,
+      B.name,
+      { roomId: room.roomId },
+    );
+  }
+  const account = env.ACCOUNT_DO.get(env.ACCOUNT_DO.idFromName(A.sub));
+  await runInDurableObject(account, async (_account, state) => {
+    await state.storage.delete([
+      "participation-index",
+      "participation-index-ready",
+      "participation-index-cursor",
+    ]);
+  });
+  expect(
+    await Promise.all([
+      account.inspect(A.sub, source.roomId),
+      account.inspect(A.sub, source.roomId),
+    ]),
+  ).toEqual([null, null]);
+  expect(await account.mayOperate(A.sub, source.roomId)).toBe(true);
 });

@@ -216,6 +216,8 @@ export class RoomDO extends DurableObject {
   private readonly outcomes: SharedOutcomeStorage;
   private readonly history: ProgressHistoryStorage;
   private readonly completed: CompletedRoomStorage;
+  // ディレクトリに公開済みの同一roomIdがある事実のみ。操作権は毎回AccountDOで確認する。
+  private directoryRoomId?: string;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -1461,22 +1463,35 @@ export class RoomDO extends DurableObject {
       const identity = this.sql
         .exec("SELECT room_id FROM shared_outcome_identity WHERE id=1")
         .toArray()[0];
-      // 旧ルームを含むサーバー照合が終わるまで操作を拒否する。
-      if (
-        identity?.room_id &&
-        (await this.env.DB.prepare("SELECT 1 FROM rooms WHERE id=?")
-          .bind(String(identity.room_id))
-          .first())
-      ) {
-        const allowed = await this.env.ACCOUNT_DO.get(
-          this.env.ACCOUNT_DO.idFromName(attachment.userId),
-        ).mayOperate(attachment.userId, String(identity.room_id));
+      if (identity?.room_id) {
+        let allowed = false;
+        try {
+          const roomId = String(identity.room_id);
+          if (
+            this.directoryRoomId !== roomId &&
+            (await this.env.DB.prepare("SELECT 1 FROM rooms WHERE id=?")
+              .bind(roomId)
+              .first())
+          )
+            this.directoryRoomId = roomId;
+          // 直接構築する内部fixtureはディレクトリを持たない。
+          allowed =
+            this.directoryRoomId !== roomId ||
+            (await this.env.ACCOUNT_DO.get(
+              this.env.ACCOUNT_DO.idFromName(attachment.userId),
+            ).mayOperate(attachment.userId, roomId));
+        } catch {
+          // 通信不明では変更を拒否し、WSを維持して再試行できるようにする。
+        }
         if (!allowed) {
           this.broadcaster.sendTo(ws, {
             type: "error",
             code: "forbidden",
             message:
-              "参加先を1つに整理してください。ホームからルームを開き直して確認できます。",
+              "参加状況を確認できません。ホームからルームを開き直して確認できます。",
+            ...(optimisticOperationIdOf(message) === undefined
+              ? {}
+              : { operationId: optimisticOperationIdOf(message) }),
           });
           return;
         }

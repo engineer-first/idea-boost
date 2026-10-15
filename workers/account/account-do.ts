@@ -69,31 +69,106 @@ function creationFailure(cause: unknown): ParticipationResult | null {
       }
     : null;
 }
+function participationUnavailable(): ParticipationResult {
+  return {
+    kind: "rejected",
+    reason: "participation_unavailable",
+    error: "参加状況を確認できません。もう一度お試しください。",
+  };
+}
 // 各アカウントの要求を直列化する。途中の操作を永続化してから他DOを呼び、
 // source側receiptで応答消失と再起動を照合する。共有状態はRoomDOだけが持つ。
 export class AccountDO extends DurableObject<Env> {
   private stub(roomId: string) {
     return this.env.ROOM_DO.get(this.env.ROOM_DO.idFromName(roomId));
   }
+  // これは在籍の真実ではなく候補索引。解除通知では消さず、参加操作時にRoomDOを再照合する。
+  private async indexedRooms(): Promise<RoomRecord[]> {
+    return (
+      (await this.ctx.storage.get<RoomRecord[]>("participation-index")) ?? []
+    );
+  }
+
+  private async ensureIndex(userId: string): Promise<boolean> {
+    try {
+      // 初回だけ旧在籍を全走査する。外部RPCをゲートの外で行い、ページの進捗を保存する。
+      while (
+        !(await this.ctx.storage.get<boolean>("participation-index-ready"))
+      ) {
+        const cursor =
+          (await this.ctx.storage.get<string>("participation-index-cursor")) ??
+          "";
+        const rows = await this.env.DB.prepare(
+          "SELECT id,invite_code,host_id FROM rooms WHERE creation_visibility IN ('published','legacy') AND id>? ORDER BY id LIMIT 16",
+        )
+          .bind(cursor)
+          .all<{ id: string; invite_code: string; host_id: string }>();
+        const found = await Promise.all(
+          rows.results.map(async (row) => {
+            const source = await this.stub(row.id).participationPreview(
+              userId,
+              row.id,
+              row.invite_code,
+              row.host_id,
+            );
+            return source
+              ? {
+                  roomId: row.id,
+                  inviteCode: row.invite_code,
+                  hostId: row.host_id,
+                }
+              : null;
+          }),
+        );
+        await this.ctx.blockConcurrencyWhile(async () => {
+          // 同時の初回照合が先に進んだページを上書きしない。
+          if (await this.ctx.storage.get<boolean>("participation-index-ready"))
+            return;
+          const latest =
+            (await this.ctx.storage.get<string>(
+              "participation-index-cursor",
+            )) ?? "";
+          if (latest !== cursor) return;
+          const rooms = await this.indexedRooms();
+          for (const room of found) if (room) rooms.push(room);
+          await this.ctx.storage.put({
+            "participation-index": rooms,
+            "participation-index-cursor": rows.results.at(-1)?.id ?? cursor,
+            "participation-index-ready": rows.results.length < 16,
+          });
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private async sources(
     userId: string,
     except?: string,
   ): Promise<ParticipationSource[]> {
-    const rows = await this.env.DB.prepare(
-      "SELECT id,invite_code,host_id FROM rooms WHERE creation_visibility IN ('published','legacy') ORDER BY id",
-    ).all<{ id: string; invite_code: string; host_id: string }>();
+    const rooms = await this.indexedRooms();
     const result: ParticipationSource[] = [];
-    for (const row of rows.results) {
-      if (row.id === except) continue;
-      const preview = await this.stub(row.id).participationPreview(
+    const retained: RoomRecord[] = [];
+    for (const room of rooms) {
+      if (room.roomId === except) {
+        retained.push(room);
+        continue;
+      }
+      const preview = await this.stub(room.roomId).participationPreview(
         userId,
-        row.id,
-        row.invite_code,
-        row.host_id,
+        room.roomId,
+        room.inviteCode,
+        room.hostId,
       );
-      if (preview) result.push(preview);
+      if (preview) {
+        result.push(preview);
+        retained.push(room);
+      }
     }
-    return result;
+    await this.ctx.storage.put("participation-index", retained);
+    return result.sort((a, b) => a.roomId.localeCompare(b.roomId));
   }
   private async destination(
     userId: string,
@@ -128,6 +203,12 @@ export class AccountDO extends DurableObject<Env> {
     | { ok: true; room: PreviewRoom }
     | { ok: false; error: string; status: 409 | 503 }
   > {
+    if (!(await this.ensureIndex(creator.sub)))
+      return {
+        ok: false,
+        status: 503,
+        error: "参加状況を確認できません。同じステップを再試行してください。",
+      };
     return this.ctx.blockConcurrencyWhile(async () => {
       type Sample = {
         id: string;
@@ -215,6 +296,13 @@ export class AccountDO extends DurableObject<Env> {
           checkpoint,
         };
         await this.ctx.storage.transaction(async (tx) => {
+          await tx.put("participation-index", [
+            {
+              roomId: room.roomId,
+              inviteCode: room.inviteCode,
+              hostId: creator.sub,
+            },
+          ]);
           await tx.delete("preview-sample-pending");
           await tx.delete("active");
         });
@@ -248,42 +336,70 @@ export class AccountDO extends DurableObject<Env> {
     }
     return active;
   }
-  async mayOperate(userId: string, roomId: string): Promise<boolean> {
+  async mayOperate(_userId: string, roomId: string): Promise<boolean> {
+    // 未照合は拒否。初回の照合は参加・再訪の入口で完了させ、WSから逆RPCをしない。
     return this.ctx.blockConcurrencyWhile(async () => {
-      const active = await this.activeOperation();
-      if (active) return false;
-      const current = await this.sources(userId);
-      return current.length === 1 && current[0].roomId === roomId;
+      try {
+        if (!(await this.ctx.storage.get<boolean>("participation-index-ready")))
+          return false;
+        if (await this.activeOperation()) return false;
+        const current = await this.indexedRooms();
+        return current.length === 1 && current[0].roomId === roomId;
+      } catch {
+        return false;
+      }
     });
   }
   async inspect(
     userId: string,
     roomId: string,
   ): Promise<ParticipationResult | null> {
+    if (!(await this.ensureIndex(userId))) return participationUnavailable();
     return this.ctx.blockConcurrencyWhile(async () => {
-      const active = await this.activeOperation();
-      if (active) {
-        const op = await this.ctx.storage.get<Operation>(`op:${active}`);
-        if (!op)
-          return {
-            kind: "rejected",
-            reason: "busy",
-            error:
-              "検証ステップを準備しています。同じステップを再試行してください。",
-          };
-        await this.normalizeConfirmation(op);
-        if (op.userId === userId && op.phase !== "ready")
-          return op.phase === "confirmation"
-            ? {
-                kind: "confirmation",
-                confirmation: op.confirmation,
-                reason: "state_changed",
-              }
-            : this.pending(op);
+      try {
+        const active = await this.activeOperation();
+        if (active) {
+          const op = await this.ctx.storage.get<Operation>(`op:${active}`);
+          if (!op)
+            return {
+              kind: "rejected",
+              reason: "busy",
+              error:
+                "検証ステップを準備しています。同じステップを再試行してください。",
+            };
+          await this.normalizeConfirmation(op);
+          if (op.userId === userId && op.phase !== "ready")
+            return op.phase === "confirmation"
+              ? {
+                  kind: "confirmation",
+                  confirmation: op.confirmation,
+                  reason: "state_changed",
+                }
+              : this.pending(op);
+        }
+        // 検証サンプルなど、専用経路で準備された再訪先もRoomDOの事実を確認して候補に加える。
+        const rooms = await this.indexedRooms();
+        if (!rooms.some((room) => room.roomId === roomId)) {
+          const room = await findRoomById(this.env.DB, roomId);
+          if (
+            room &&
+            (await this.stub(roomId).isMember(userId)) &&
+            (await this.stub(roomId).isJoinable())
+          ) {
+            rooms.push(room);
+            await this.ctx.storage.put("participation-index", rooms);
+          }
+        }
+        const sources = await this.sources(userId, roomId);
+        if (!sources.length) return null;
+        return await this.prepareInside(
+          userId,
+          { kind: "revisit", roomId },
+          false,
+        );
+      } catch {
+        return participationUnavailable();
       }
-      const sources = await this.sources(userId, roomId);
-      if (!sources.length) return null;
-      return this.prepareInside(userId, { kind: "revisit", roomId }, false);
     });
   }
   async prepare(
@@ -291,6 +407,7 @@ export class AccountDO extends DurableObject<Env> {
     target: ParticipationTarget,
     automatic = false,
   ): Promise<ParticipationResult> {
+    if (!(await this.ensureIndex(userId))) return participationUnavailable();
     return this.ctx.blockConcurrencyWhile(() =>
       this.prepareInside(userId, target, automatic),
     );
@@ -405,6 +522,7 @@ export class AccountDO extends DurableObject<Env> {
     }
   }
   async status(userId: string, id: string): Promise<ParticipationResult> {
+    if (!(await this.ensureIndex(userId))) return participationUnavailable();
     return this.ctx.blockConcurrencyWhile(async () => {
       const op = await this.ctx.storage.get<Operation>(`op:${id}`);
       if (!op || op.userId !== userId)
@@ -435,6 +553,7 @@ export class AccountDO extends DurableObject<Env> {
     outcomeAccess: LeaveOutcomeAccess,
     confirmationVersion: number,
   ): Promise<ParticipationResult> {
+    if (!(await this.ensureIndex(userId))) return participationUnavailable();
     return this.ctx.blockConcurrencyWhile(() =>
       this.commitInside(userId, id, outcomeAccess, confirmationVersion),
     );
@@ -513,8 +632,18 @@ export class AccountDO extends DurableObject<Env> {
     op.result = result;
     op.phase = "ready";
     op.terminalFailure = undefined;
+    const destination =
+      op.destination ?? (await findRoomById(this.env.DB, result.roomId));
+    if (!destination) throw new Error("参加先を確認できません。");
     await this.ctx.storage.transaction(async (tx) => {
       await tx.put(`op:${op.confirmation.operationId}`, op);
+      const rooms = (await tx.get<RoomRecord[]>("participation-index")) ?? [];
+      const current = rooms.filter(
+        (room) =>
+          !op.left.includes(room.roomId) && room.roomId !== result.roomId,
+      );
+      current.push(destination);
+      await tx.put("participation-index", current);
       if ((await tx.get("active")) === op.confirmation.operationId)
         await tx.delete("active");
     });
@@ -984,10 +1113,7 @@ export class AccountDO extends DurableObject<Env> {
             );
           op.result = { kind: "ready", roomId: room.roomId };
         }
-        op.phase = "ready";
-        await save();
-        await this.ctx.storage.delete("active");
-        return op.result;
+        return await this.finishReady(userId, op, op.result);
       }
       return this.pending(op);
     } catch (cause) {

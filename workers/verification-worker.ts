@@ -66,6 +66,11 @@ const api = createApiWorker(async (request, baseEnv, session) => {
         inviteCode: room.inviteCode,
         checkpoint,
       };
+      const previous = await workspace.getActive();
+      if (previous && previous.roomId !== active.roomId)
+        await namespace
+          .get(namespace.idFromName(previous.roomId))
+          .archiveVerification();
       await workspace.setActive(active);
       return Response.json(active);
     } catch {
