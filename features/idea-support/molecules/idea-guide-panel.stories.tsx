@@ -5,7 +5,6 @@ import { IdeaGuidePanel } from "./idea-guide-panel";
 const meta = {
   title: "IdeaSupport/IdeaGuidePanel",
   component: IdeaGuidePanel,
-  parameters: { chromatic: { viewports: [390, 1280] } },
   args: {
     onHintSelect: fn(),
   },

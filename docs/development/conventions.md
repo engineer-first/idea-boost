@@ -91,7 +91,8 @@
   `npm ci` / `test:workers` / `dev:api` 等が再生成するため、migration は `.sql` だけコミットする。
 - D1 / RoomDO の `.sql` 変更は `npm run storybook` / `npm run build-storybook` により tbls で
   `Schema/SchemaDiagram`（ER 図）と `Schema/SchemaDetails`（カラム・インデックス・制約）に
-  自動反映される。Chromatic が develop との差分を検出し、手動生成・コミットは不要。
+  自動反映される。PR の Storybook Publish から対象コミットの図を目視で確認する。
+  手動生成・コミットは不要。画像比較は行わない（[テスト方針](testing.md#公開-storybook-で表示を確認する)）。
   両 DB は別ストレージで DB レベルの結合を持たないため、ER 図も分離する。
 - FK インデックス・カラム数等の構造ルールは [.tbls/](../../.tbls) の `lint` に追加し、
   `npm run db:schema:lint`（CI でも実行）で検査する。

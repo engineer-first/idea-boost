@@ -9,7 +9,6 @@ const meta = {
   component: IdeaSupportSidebarContent,
   parameters: {
     layout: "padded",
-    chromatic: { viewports: [390, 1280] },
   },
   decorators: [
     (Story) => (
