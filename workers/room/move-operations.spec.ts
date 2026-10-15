@@ -619,6 +619,54 @@ describe("atomic move projection", () => {
     }));
 });
 
+describe("問いの投票中の移動の認可", () => {
+  it.each([
+    "nonmember",
+    "own-private",
+    "other-private",
+    "past-phase",
+  ] as const)("2-3でも%sを含む移動は全件拒否する", (restriction) =>
+    setup(`move-question-voting-${restriction}`, (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase: 2, step: 3 });
+      ctx.sql.exec("UPDATE notes SET phase=2");
+      if (restriction === "own-private")
+        ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
+      if (restriction === "other-private")
+        ctx.sql.exec(
+          "UPDATE notes SET visibility='private',author_id=?1 WHERE id=?2",
+          B,
+          N2,
+        );
+      if (restriction === "past-phase")
+        ctx.sql.exec("UPDATE notes SET phase=1 WHERE id=?1", N2);
+
+      start(restriction === "nonmember" ? { ...ctx, userId: OP2 } : ctx);
+
+      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      expect(ctx.sql.exec("SELECT * FROM note_move_locks").toArray()).toEqual(
+        [],
+      );
+      expect(findNote(ctx.sql, N1)?.x).toBe(100);
+      expect(findNote(ctx.sql, N2)?.x).toBe(140);
+      expect(responses.at(-1)).not.toHaveProperty("receipt");
+    }));
+
+  it.each([
+    1, 3,
+  ] as const)("フェーズ%iの投票中は移動を引き続き拒否する", (phase) =>
+    setup(`move-other-voting-phase-${phase}`, (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase, step: 4 });
+      ctx.sql.exec("UPDATE notes SET phase=?1", phase);
+
+      start(ctx);
+
+      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      expect(ctx.sql.exec("SELECT * FROM note_move_locks").toArray()).toEqual(
+        [],
+      );
+    }));
+});
+
 describe("移動の失効と互換lock", () => {
   it("非memberと別phaseを混ぜた集合は拒否する", () =>
     setup("move-nonmember", (ctx, responses) => {

@@ -206,8 +206,7 @@ export function useRoomBoardInteractions({
     geometry: mapNoteGeometry,
     fallbackPointFromClient: worldPointFromClient,
   });
-  // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
-  // 既存のボード権限に従い、投票中は移動を止め、結果ステップは採用後も移動できる。
+  // 通常ボードは工程ごとの権限に従う。2軸マップでは付箋が収まる高さも必要。
   const canMoveSharedNotes =
     !movePending &&
     getBoardPermissions(phase, isDecided).canMoveNote &&
