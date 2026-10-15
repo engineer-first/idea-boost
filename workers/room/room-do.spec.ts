@@ -6559,6 +6559,7 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
         });
       }
     }
+    await startTimerForTest(roomName);
     const stickersBefore = await runInRoomDO(roomName, (_instance, state) => {
       for (const [id, userId, x] of [
         [hostStickerId, USER_A, 0.2],
