@@ -82,7 +82,11 @@ function step(phase: 1 | 2 | 3, value: number): Story {
         ...boardMeta.args.interactions,
         privateNotes: PRIVATE_NOTES,
       },
-      timer: { status: "paused", remainingMs: 138_000, durationMs: 180_000 },
+      timer: {
+        status: "running",
+        endsAt: Date.now() + 138_000,
+        durationMs: 180_000,
+      },
       initialGuideState: "detail",
     },
   };
@@ -211,6 +215,19 @@ export const TimerOpen: Story = {
   name: "操作バーからタイマー設定",
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId("room-timer"));
+  },
+};
+
+export const TimerPaused: Story = {
+  ...step(3, 1),
+  name: "タイマー一時停止中",
+  args: {
+    ...step(3, 1).args,
+    timer: {
+      status: "paused",
+      remainingMs: 138_000,
+      durationMs: 180_000,
+    },
   },
 };
 

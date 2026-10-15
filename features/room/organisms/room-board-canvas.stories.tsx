@@ -118,6 +118,7 @@ const meta = {
     selectedNoteId: null,
     draggingNoteId: null,
     isDisconnected: false,
+    boardInteractionBlocked: false,
     ideaMapSizeLevel: 0,
     ideaMapSizeInitialized: true,
     ideaMapIsDragging: false,

@@ -95,7 +95,11 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     decision: null,
     outcomePublished: false,
     adoptionFocusNoteId: null,
-    timer: { status: "idle" } as const,
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 60_000,
+      durationMs: 60_000,
+    } as const,
     timerServerOffsetMs: 0,
     isHost: false,
     isNextPhasePending: false,
@@ -1111,7 +1115,13 @@ describe("RoomBoardView", () => {
 
   it("ホストのタイマー開始操作を onTimerStart へ渡す", () => {
     const onTimerStart = vi.fn();
-    setup({ isHost: true, onTimerStart });
+
+    setup({
+      isHost: true,
+      timer: { status: "idle" },
+      onTimerStart,
+    });
+
     fireEvent.click(screen.getByTestId("room-timer"));
     fireEvent.change(screen.getByLabelText("タイマー時間（分）"), {
       target: { value: "1" },
@@ -1120,6 +1130,7 @@ describe("RoomBoardView", () => {
       target: { value: "30" },
     });
     fireEvent.click(screen.getByRole("button", { name: "開始" }));
+
     expect(onTimerStart).toHaveBeenCalledWith(90_000);
   });
 
@@ -1236,6 +1247,170 @@ describe("RoomBoardView", () => {
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
 
     expect(onAddPrivateNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("タイマー停止中は投票パレットを無効にする", () => {
+    setup({
+      phase: buildPhaseStep(4),
+      timer: { status: "idle" },
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: /主観シール 残り/,
+      }),
+    ).toBeDisabled();
+  });
+
+  it("投票シールのドラッグ中にタイマーが停止したら、ドラッグを解除して投票しない", () => {
+    const onNoteVote = vi.fn();
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(4),
+      timer: {
+        status: "running",
+        endsAt: Date.now() + 60_000,
+        durationMs: 60_000,
+      },
+      notes: buildNotes(1),
+      onNoteVote,
+    });
+
+    const note = screen.getByTestId("note-card");
+    vi.spyOn(note, "getBoundingClientRect").mockReturnValue({
+      x: 100,
+      y: 100,
+      top: 100,
+      right: 300,
+      bottom: 250,
+      left: 100,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    });
+
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: vi.fn(() => note),
+    });
+
+    const paletteSticker = screen.getByRole("button", {
+      name: "客観シール 残り3票",
+    });
+
+    const releasePointerCapture = vi.fn();
+
+    Object.defineProperty(paletteSticker, "setPointerCapture", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(paletteSticker, "hasPointerCapture", {
+      configurable: true,
+      value: vi.fn(() => true),
+    });
+    Object.defineProperty(paletteSticker, "releasePointerCapture", {
+      configurable: true,
+      value: releasePointerCapture,
+    });
+
+    const root = screen.getByTestId("room-board-view-root");
+
+    // シールを持ち上げ、ドラッグする。
+    fireEvent.pointerDown(paletteSticker, {
+      pointerId: 91,
+      clientX: 320,
+      clientY: 24,
+    });
+
+    fireEvent.pointerMove(root, {
+      buttons: 1,
+      pointerId: 91,
+      clientX: 280,
+      clientY: 80,
+    });
+
+    // ドラッグ中にタイマーが終了する。
+    rerender(
+      <TestBoardView
+        {...props}
+        timer={{ status: "ended", durationMs: 60_000 }}
+      />,
+    );
+
+    expect(releasePointerCapture).toHaveBeenCalledWith(91);
+
+    // その後にポインターを付箋上で解放しても、投票を確定しない。
+    fireEvent.pointerUp(root, {
+      pointerId: 91,
+      clientX: 150,
+      clientY: 175,
+    });
+
+    expect(onNoteVote).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", {
+        name: "客観シール 残り3票",
+      }),
+    ).toBeDisabled();
+  });
+
+  it("シール選択中にタイマーが停止したら、クリックしても投票しない", () => {
+    const onNoteVote = vi.fn();
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(4),
+      timer: {
+        status: "running",
+        endsAt: Date.now() + 60_000,
+        durationMs: 60_000,
+      },
+      notes: buildNotes(1),
+      onNoteVote,
+    });
+
+    const note = screen.getByTestId("note-card");
+    vi.spyOn(note, "getBoundingClientRect").mockReturnValue({
+      x: 100,
+      y: 100,
+      top: 100,
+      right: 300,
+      bottom: 250,
+      left: 100,
+      width: 200,
+      height: 150,
+      toJSON: () => ({}),
+    });
+
+    const paletteSticker = screen.getByRole("button", {
+      name: "客観シール 残り3票",
+    });
+
+    fireEvent.click(paletteSticker, {
+      clientX: 320,
+      clientY: 24,
+    });
+
+    expect(paletteSticker).toHaveAttribute("aria-pressed", "true");
+
+    rerender(
+      <TestBoardView
+        {...props}
+        timer={{ status: "paused", remainingMs: 30_000, durationMs: 60_000 }}
+      />,
+    );
+
+    // タイマー停止後に付箋をクリックしても票を送らない。
+    const noteSurface = within(note).getByRole("button", { name: /付箋/ });
+
+    fireEvent.click(noteSurface, {
+      clientX: 150,
+      clientY: 175,
+    });
+
+    expect(onNoteVote).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", {
+        name: "客観シール 残り3票",
+      }),
+    ).toBeDisabled();
   });
 
   it("投票パレットに残り投票可能数を表示する", () => {

@@ -5,15 +5,18 @@ import type { RoomPhase } from "../contracts/phase";
 import {
   parseServerMessage,
   type ServerMessage,
+  TIMER_MAX_DURATION_MS,
 } from "../contracts/room-protocol";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
+import { syncRoomAlarm } from "./room/alarms";
 import type { RoomDO } from "./room/room-do";
 import {
   getSharingState,
   resetSharingForPhase,
   saveSharingState,
 } from "./room/sharing-state";
+import { getTimerState, saveTimerState } from "./room/timer";
 
 // 共有以外の契約を検証するシナリオ用に、既存の発表順で指定者の発表中を用意する。
 // 発表の開始・交代そのものは sharing.spec.ts の実WS操作で検証する。
@@ -51,6 +54,22 @@ export function runInRoomDO<T>(
 ): Promise<T> {
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
   return runInDurableObject(stub, fn);
+}
+
+export async function startTimerForTest(roomId: string): Promise<void> {
+  await runInRoomDO(roomId, async (_instance, state) => {
+    const sql = state.storage.sql;
+    if (getTimerState(sql).status !== "running") {
+      const durationMs = TIMER_MAX_DURATION_MS;
+      saveTimerState(sql, {
+        status: "running",
+        endsAt: Date.now() + durationMs,
+        durationMs,
+      });
+    }
+
+    await syncRoomAlarm(state.storage, sql);
+  });
 }
 
 // members テーブルを参加順（joined_at 昇順）で直接読む。

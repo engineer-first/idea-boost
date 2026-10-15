@@ -7,6 +7,7 @@ import {
   initializeTestRoom,
   runInRoomDO,
   sessionCookieFor,
+  startTimerForTest,
 } from "./test-helpers";
 
 const owner = {
@@ -325,6 +326,7 @@ it("共有操作のない個人入力や成果閲覧は保持期限を延ばさ�
   await runInRoomDO(room.roomId, (instance) =>
     instance.setPhase({ kind: "step", phase: 1, step: 1 }, owner.sub),
   );
+  await startTimerForTest(room.roomId);
   const socket = await connectRoomAs(owner, room.roomId);
   await socket.next();
   const before = await runInRoomDO(room.roomId, (instance) =>
@@ -576,6 +578,7 @@ it.each([
     ).preserveSharedOutcome();
     await instance.alarm();
   });
+  await startTimerForTest(room.roomId);
   const socket = await connectRoomAs(owner, room.roomId);
   await socket.next();
   const before = await runInRoomDO(room.roomId, (instance) =>
