@@ -309,6 +309,147 @@ describe("問いの投票中の付箋移動", () => {
   it.each([
     true,
     false,
+  ])("ホスト権限%jでシールの貼付・付替・取消から付箋移動まで同じポインターで続けられる", (isHost) => {
+    const source = protocolNote();
+    const target = protocolNote({
+      id: TARGET_NOTE_ID,
+      content: "付け替え先",
+      x: 400,
+    });
+    const { socket } = connectWithSnapshot([source, target], {
+      phase: buildPhaseStep(3, 2),
+      isHost,
+      moveProtocolVersion: 1,
+    });
+    const viewport = screen.getByTestId("board-scroller");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 800);
+    const cards = screen.getAllByTestId("note-card");
+    cards[0].getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+    cards[1].getBoundingClientRect = () => new DOMRect(400, 100, 200, 150);
+    const palette = within(screen.getByTestId("vote-palette-hud")).getByRole(
+      "region",
+      { name: "投票パレット" },
+    );
+    const selectTool = within(
+      screen.getByTestId("canvas-zoom-controls"),
+    ).getByRole("button", { name: "選択ツール" });
+    let dropTarget: HTMLElement = cards[0];
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => dropTarget,
+    });
+    function drag(owner: HTMLElement, clientX: number, clientY: number): void {
+      fireEvent.pointerDown(owner, {
+        pointerId: 1,
+        button: 0,
+        buttons: 1,
+        clientX: 120,
+        clientY: 120,
+      });
+      fireEvent.pointerMove(owner, {
+        pointerId: 1,
+        buttons: 1,
+        clientX,
+        clientY,
+      });
+      fireEvent.pointerUp(owner, { pointerId: 1, clientX, clientY });
+    }
+    function latest(type: string) {
+      return socket.sent
+        .map((raw) => JSON.parse(raw))
+        .filter((message) => message.type === type)
+        .at(-1);
+    }
+    drag(
+      within(palette).getByRole("button", { name: "客観シール 残り3票" }),
+      150,
+      175,
+    );
+    const add = latest("note:vote-sticker:add");
+    expect(add).toMatchObject({ noteId: NOTE_ID, kind: "objective" });
+    const sticker = {
+      id: add.stickerId,
+      kind: "objective" as const,
+      x: 0.25,
+      y: 0.5,
+    };
+    const votedSource = {
+      ...source,
+      dotVoteStickers: [sticker],
+      dotVotes: {
+        ...source.dotVotes,
+        objective: { ownCount: 1, votedByMe: true },
+      },
+    };
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: add.operationId,
+        note: votedSource,
+      }),
+    );
+    dropTarget = cards[1];
+    drag(
+      within(cards[0]).getByRole("button", {
+        name: "客観シール 1票を1票取り消す",
+      }),
+      450,
+      175,
+    );
+    const move = latest("note:vote-sticker:move");
+    expect(move).toMatchObject({
+      stickerId: sticker.id,
+      noteId: TARGET_NOTE_ID,
+    });
+    const votedTarget = {
+      ...target,
+      dotVoteStickers: [sticker],
+      dotVotes: votedSource.dotVotes,
+    };
+    act(() => {
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: move.operationId,
+        note: source,
+      });
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: move.operationId,
+        note: votedTarget,
+      });
+    });
+    dropTarget = palette;
+    drag(
+      within(cards[1]).getByRole("button", {
+        name: "客観シール 1票を1票取り消す",
+      }),
+      320,
+      700,
+    );
+    const remove = latest("note:vote-sticker:remove");
+    expect(remove).toMatchObject({ stickerId: sticker.id });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: remove.operationId,
+        note: target,
+      }),
+    );
+    expect(selectTool).toBeEnabled();
+    dropTarget = cards[0];
+    drag(within(cards[0]).getByRole("button", { name: "付箋" }), 250, 225);
+    expect(latest("note:move:start")).toMatchObject({
+      targets: [expect.objectContaining({ noteId: NOTE_ID })],
+    });
+    expect(latest("note:move:commit")).toMatchObject({
+      delta: expect.not.objectContaining({ x: 0, y: 0 }),
+    });
+    expect(selectTool).toBeEnabled();
+  });
+
+  it.each([
+    true,
+    false,
   ])("新しい移動方式でもホスト権限%jでシール選択中だけ送信を止め、解除後に問いを移動できる", (isHost) => {
     const { socket } = connectWithSnapshot(
       [protocolNote({ authorId: OTHER_USER_ID })],

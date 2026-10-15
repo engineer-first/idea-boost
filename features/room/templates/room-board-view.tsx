@@ -755,13 +755,33 @@ export function RoomBoardView({
       cancelVoteDrag();
       cancelRootPress();
     }
+    function cancelOutsidePointer(event: PointerEvent): void {
+      if (
+        event.target instanceof Node &&
+        interactions.boardRootRef.current?.contains(event.target)
+      )
+        return;
+      // root外へ終端が抜けても、終了したpointerの所有だけを解放する。
+      const ownsPress = rootPressRef.current?.pointerId === event.pointerId;
+      if (voteStickerDragRef.current?.pointerId === event.pointerId)
+        cancelVoteDrag();
+      if (!ownsPress) return;
+      cancelRootPress();
+      selection.cancel();
+      interactions.cancelCurrentNoteDrag(true);
+      interactions.cancelPan?.();
+    }
     window.addEventListener("keydown", cancelOwnedGesture, true);
     window.addEventListener("keydown", handleKey);
     window.addEventListener("blur", blur);
+    window.addEventListener("pointerup", cancelOutsidePointer, true);
+    window.addEventListener("pointercancel", cancelOutsidePointer, true);
     return () => {
       window.removeEventListener("keydown", cancelOwnedGesture, true);
       window.removeEventListener("keydown", handleKey);
       window.removeEventListener("blur", blur);
+      window.removeEventListener("pointerup", cancelOutsidePointer, true);
+      window.removeEventListener("pointercancel", cancelOutsidePointer, true);
     };
   });
 
@@ -1608,8 +1628,9 @@ export function RoomBoardView({
         }}
         onPointerMoveCapture={(event) => {
           if (
-            cancelledRootPointerRef.current === event.pointerId ||
-            rejectedVotePointersRef.current.has(event.pointerId)
+            event.buttons !== 0 &&
+            (cancelledRootPointerRef.current === event.pointerId ||
+              rejectedVotePointersRef.current.has(event.pointerId))
           )
             event.stopPropagation();
         }}

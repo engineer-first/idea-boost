@@ -289,6 +289,190 @@ describe("問いの投票シールと付箋移動の排他", () => {
     expect(props.onNoteVote).toHaveBeenCalledTimes(1);
   });
 
+  it("参加者がシール選択中にブラウザ外のupを取りこぼして次のパレット押下を拒否されても、ボタンなしの移動で入力を回復する", () => {
+    const { props } = setup({
+      phase: buildPhaseStep(3, 2),
+      isHost: false,
+      notes: [buildNote()],
+    });
+    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const card = screen.getByTestId("note-card");
+    const surface = getNoteSurface(card);
+    const viewport = screen.getByTestId("board-scroller");
+    const selectTool = screen.getByRole("button", { name: "選択ツール" });
+    function clickPalette(): void {
+      fireEvent.pointerDown(palette, {
+        pointerId: 1,
+        pointerType: "mouse",
+        button: 0,
+        buttons: 1,
+        clientX: 320,
+        clientY: 24,
+      });
+      fireEvent.pointerUp(palette, {
+        pointerId: 1,
+        pointerType: "mouse",
+        buttons: 0,
+        clientX: 320,
+        clientY: 24,
+      });
+      fireEvent.click(palette, { detail: 1 });
+    }
+    clickPalette();
+    expect(palette).toHaveAttribute("aria-pressed", "true");
+    const captureNote = vi.fn();
+    surface.setPointerCapture = captureNote;
+    fireEvent.pointerDown(surface, {
+      pointerId: 1,
+      pointerType: "mouse",
+      button: 0,
+      buttons: 1,
+      clientX: 150,
+      clientY: 175,
+    });
+    // シール選択中の付箋押下にはcaptureがないため、ルーム外のupを受信しない。
+    expect(captureNote).not.toHaveBeenCalled();
+    fireEvent.pointerMove(document.body, {
+      pointerId: 1,
+      pointerType: "mouse",
+      buttons: 1,
+      clientX: -20,
+      clientY: -20,
+    });
+    // ブラウザ外で離し、up自体を受信し損ねた後の同じマウスポインターを再現する。
+    clickPalette();
+    beginNoteMove(surface, 1);
+    expect(selectTool).toBeDisabled();
+    expect(props.interactions.onNoteDragStart).not.toHaveBeenCalled();
+    expect(props.onNoteVote).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(viewport, {
+      pointerId: 1,
+      pointerType: "mouse",
+      buttons: 0,
+      clientX: 350,
+      clientY: 300,
+    });
+    expect(selectTool).toBeEnabled();
+    clickPalette();
+    expect(palette).toHaveAttribute("aria-pressed", "false");
+    beginNoteMove(surface, 1);
+    expect(props.interactions.onNoteDragStart).toHaveBeenCalledOnce();
+
+    card.getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+    const originalHitTest = document.elementFromPoint;
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => card,
+    });
+    fireEvent.pointerDown(palette, {
+      pointerId: 1,
+      pointerType: "mouse",
+      button: 0,
+      buttons: 1,
+      clientX: 320,
+      clientY: 24,
+    });
+    fireEvent.pointerMove(palette, {
+      pointerId: 1,
+      pointerType: "mouse",
+      buttons: 1,
+      clientX: 150,
+      clientY: 175,
+    });
+    fireEvent.pointerUp(palette, {
+      pointerId: 1,
+      pointerType: "mouse",
+      buttons: 0,
+      clientX: 150,
+      clientY: 175,
+    });
+    expect(props.onNoteVote).toHaveBeenCalledExactlyOnceWith(
+      props.notes[0].id,
+      "objective",
+      0.25,
+      0.5,
+    );
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: originalHitTest,
+    });
+  });
+
+  it.each([
+    ["付箋押下", "mouse", "pointerup"],
+    ["付箋押下", "mouse", "pointercancel"],
+    ["付箋押下", "touch", "pointerup"],
+    ["付箋押下", "touch", "pointercancel"],
+    ["パレット", "mouse", "pointerup"],
+    ["パレット", "mouse", "pointercancel"],
+    ["パレット", "touch", "pointerup"],
+    ["パレット", "touch", "pointercancel"],
+    ["配置済み", "mouse", "pointerup"],
+    ["配置済み", "mouse", "pointercancel"],
+    ["配置済み", "touch", "pointerup"],
+    ["配置済み", "touch", "pointercancel"],
+  ])("参加者の%sの所有は別pointerで奪わず、ルーム外の%s %sで解放する", (source, pointerType, ending) => {
+    const note = buildNote({
+      dotVoteStickers: [
+        { id: "outside-sticker", kind: "objective", x: 0.2, y: 0.3 },
+      ],
+      dotVotes: {
+        subjective: { ownCount: 0, votedByMe: false },
+        objective: { ownCount: 1, votedByMe: true },
+      },
+    });
+    const { props } = setup({
+      phase: buildPhaseStep(3, 2),
+      isHost: false,
+      notes: [note],
+    });
+    const surface = getNoteSurface(screen.getByTestId("note-card"));
+    const palette = screen.getByRole("button", { name: "客観シール 残り2票" });
+    const owner =
+      source === "付箋押下"
+        ? surface
+        : source === "パレット"
+          ? palette
+          : screen.getByRole("button", { name: "客観シール 1票を1票取り消す" });
+    if (source === "付箋押下") fireEvent.click(palette);
+    fireEvent.pointerDown(owner, {
+      pointerId: 1,
+      pointerType,
+      button: 0,
+      buttons: 1,
+      clientX: 120,
+      clientY: 120,
+    });
+    const selectTool = screen.getByRole("button", { name: "選択ツール" });
+    expect(selectTool).toBeDisabled();
+    fireEvent.pointerUp(document.body, {
+      pointerId: 2,
+      pointerType,
+      buttons: 0,
+    });
+    expect(selectTool).toBeDisabled();
+    if (ending === "pointerup")
+      fireEvent.pointerUp(document.body, {
+        pointerId: 1,
+        pointerType,
+        buttons: 0,
+      });
+    else
+      fireEvent.pointerCancel(document.body, {
+        pointerId: 1,
+        pointerType,
+        buttons: 0,
+      });
+    expect(selectTool).toBeEnabled();
+    expect(props.onNoteVote).not.toHaveBeenCalled();
+    expect(props.onNoteVoteStickerMove).not.toHaveBeenCalled();
+    expect(props.onNoteVoteStickerRemove).not.toHaveBeenCalled();
+    if (source === "付箋押下") fireEvent.click(palette);
+    beginNoteMove(surface, 3);
+    expect(props.interactions.onNoteDragStart).toHaveBeenCalledOnce();
+  });
+
   it.each([
     "input",
     "textarea",
