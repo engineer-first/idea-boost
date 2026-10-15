@@ -182,7 +182,6 @@ export type RoomBoardViewProps = {
   connectionDelayed?: boolean;
   draggingNoteId: string | null;
   members: Member[];
-  authorNames?: ReadonlyMap<string, string>;
   loginReturnHref?: string;
   currentUserId: string;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
@@ -314,7 +313,6 @@ export function RoomBoardView({
   connectionDelayed = false,
   draggingNoteId,
   members,
-  authorNames,
   loginReturnHref,
   currentUserId,
   hostUserId,
@@ -1794,10 +1792,6 @@ export function RoomBoardView({
         ) : null}
         <RoomBoardCanvas
           rollbackRevision={rollbackRevision}
-          authorName={(authorId) =>
-            members.find((m) => m.userId === authorId)?.name ??
-            authorNames?.get(authorId)
-          }
           moveHistory={moveHistory}
           notes={renderedNotes}
           groups={groups}

@@ -31,7 +31,6 @@ import { StickyNote } from "./sticky-note";
 
 export type NoteCardProps = {
   note: Note;
-  authorName?: string;
   // 自分自身が現在ドラッグ中かどうか。trueの間は影を深くして「持ち上げた」見た目にする。
   isOwnDrag: boolean;
   isSelected: boolean;
@@ -223,7 +222,6 @@ function getNextTabbableElement(current: HTMLElement): HTMLElement | null {
 
 export function NoteCard({
   note,
-  authorName,
   isOwnDrag,
   isSelected,
   editingDisabled = false,
@@ -1009,7 +1007,6 @@ export function NoteCard({
     <StickyNote
       ref={noteRef}
       noteId={note.id}
-      authorName={authorName}
       isLifted={isOwnDrag}
       isSelected={isSelected}
       isDecided={isDecided}

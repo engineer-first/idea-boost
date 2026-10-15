@@ -23,7 +23,6 @@ import { NoteCard } from "../molecules/note-card";
 
 export type PrivateNotesToolbarProps = {
   rollbackRevision?: number;
-  authorName?: (authorId: string) => string | undefined;
   notes: Note[];
   disabled: boolean;
   editingDisabled?: boolean;
@@ -62,7 +61,6 @@ export type PrivateNotesToolbarProps = {
 export function PrivateNotesToolbar({
   rollbackRevision = 0,
   notes,
-  authorName,
   disabled,
   editingDisabled = false,
   className,
@@ -438,7 +436,6 @@ export function PrivateNotesToolbar({
                 />
               ) : (
                 <NoteCard
-                  authorName={authorName?.(note.authorId)}
                   key={`${note.id}:${rollbackRevision}`}
                   note={note}
                   isOwnDrag={false}
