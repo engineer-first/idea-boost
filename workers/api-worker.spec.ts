@@ -627,7 +627,13 @@ describe("WebSocket 接続の認可", () => {
       isHost: false,
     });
 
-    ws.send(JSON.stringify({ type: "start_phase" }));
+    ws.send(
+      JSON.stringify({
+        type: "host:transfer",
+        targetUserId: MEMBER.sub,
+        expectedHostRevision: 0,
+      }),
+    );
     await expect(nextMessage()).resolves.toMatchObject({
       type: "error",
       code: "forbidden",
@@ -676,7 +682,13 @@ describe("WebSocket 接続の認可", () => {
       ).toEqual([{ host_id: OWNER.sub }]);
     });
 
-    ws.send(JSON.stringify({ type: "start_phase" }));
+    ws.send(
+      JSON.stringify({
+        type: "host:transfer",
+        targetUserId: MEMBER.sub,
+        expectedHostRevision: 0,
+      }),
+    );
     await expect(nextMessage()).resolves.toMatchObject({
       type: "error",
       code: "forbidden",
@@ -891,7 +903,13 @@ it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メ�
     hostRevision: 1,
   });
   const denied = nextHostMessage(old.socket);
-  old.socket.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
+  old.socket.send(
+    JSON.stringify({
+      type: "host:transfer",
+      targetUserId: OWNER.sub,
+      expectedHostRevision: 1,
+    }),
+  );
   expect(await denied).toMatchObject({ type: "error", code: "forbidden" });
   const oldStart = nextHostMessage(old.socket);
   const currentStart = nextHostMessage(current.socket);

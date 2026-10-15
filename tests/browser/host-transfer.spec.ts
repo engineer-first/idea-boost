@@ -112,7 +112,9 @@ async function expectTransferred(): Promise<void> {
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
   await vi.waitFor(async () => {
     expect(
-      await page.getByRole("button", { name: "次のステップへ" }).count(),
+      await page
+        .getByRole("button", { name: /^(次のステップへ|次の人へ)$/ })
+        .count(),
     ).toBeGreaterThan(0);
     expect(
       await page.getByTestId("room-timer").evaluate((el) => el.tagName),
@@ -430,7 +432,7 @@ for (const participant of [false, true]) {
         await page
           .getByRole("button", { name: "次のステップへ", exact: true })
           .count(),
-      ).toBe(participant ? 1 : 0);
+      ).toBe(1);
     });
     await page.evaluate(() =>
       window.dispatchEvent(

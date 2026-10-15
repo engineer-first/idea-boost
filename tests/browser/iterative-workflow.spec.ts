@@ -132,7 +132,7 @@ for (const { phase, count } of phases) {
 
         const canRestart =
           step === 2 || ((phase === 1 || phase === 3) && step === 3);
-        const expected = !isHost ? 0 : isResult || canRestart ? 2 : 1;
+        const expected = isResult || canRestart ? 2 : 1;
         const actions = page
           .getByRole("button", { name: progression })
           .and(page.locator("button:enabled"));
@@ -141,7 +141,7 @@ for (const { phase, count } of phases) {
         const next = page.getByRole("button", {
           name: /^次の(ステップ|フェーズ)へ$/,
         });
-        if (isHost && (!isResult || phase !== 3)) {
+        if (!isResult || phase !== 3) {
           expect(await next.count()).toBe(1);
           if (isResult) expect(await next.isDisabled()).toBe(true);
           const box = await next.boundingBox();
@@ -151,9 +151,9 @@ for (const { phase, count } of phases) {
         const loop = page.getByTestId("phase-loop-hud");
         const loopButtons = loop.getByRole("button");
         expect(await loopButtons.count()).toBe(
-          isHost ? (isResult ? 2 : canRestart ? 1 : 0) : 0,
+          isResult ? 2 : canRestart ? 1 : 0,
         );
-        if (isHost && (isResult || canRestart)) {
+        if (isResult || canRestart) {
           const boxes = await loopButtons.evaluateAll((elements) =>
             elements.map((element) => element.getBoundingClientRect().toJSON()),
           );

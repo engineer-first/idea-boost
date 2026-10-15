@@ -25,7 +25,7 @@ for (const width of [390, 1440]) {
           heading:
             (
               await page
-                .getByRole("heading", { name: "メンバーを集めて開始" })
+                .getByRole("heading", { name: "メンバーが揃ったら開始" })
                 .boundingBox()
             )?.y ?? -1,
           card:

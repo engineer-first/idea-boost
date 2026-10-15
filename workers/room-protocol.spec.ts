@@ -23,10 +23,12 @@ import {
 } from "../contracts/room-protocol";
 import { NOTE_DRAG_START_RATE_LIMIT_PER_MINUTE } from "./room/drag-operations";
 import {
+  arrangeSharingComplete,
   arrangeSharingPresenter,
   connectRoomAs,
   createRoomAs,
   currentPhaseExpectation,
+  currentProgressConfirmation,
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
@@ -563,7 +565,7 @@ describe("member_left（退出の Realtime 反映）", () => {
   });
 });
 
-describe("start_phase / phase:updated（ホストだけ進行状態を進められる）", () => {
+describe("start_phase / phase:updated（在籍メンバーが開始できる）", () => {
   it("ホストが start_phase を送ると、phase:updated が全員に届く", async () => {
     const { owner, member } = await setupRoom();
 
@@ -577,26 +579,28 @@ describe("start_phase / phase:updated（ホストだけ進行状態を進めら�
     member.close();
   });
 
-  it("非ホストが start_phase を送ると forbidden で拒否され、phase:updated は誰にも届かない", async () => {
+  it("非ホストが start_phase を送ると全員の進行状態が更新される", async () => {
     const { roomId, owner, member } = await setupRoom();
 
     send(member, { type: "start_phase" });
-    const error = await expectType(member, "error");
-    expect(error.code).toBe("forbidden");
+    expect(await expectType(member, "phase:updated")).toMatchObject({
+      phase: buildPhaseStep(1),
+    });
 
-    // phase が変わっていないことを /api/rooms/[id] で検証する。
+    await expectType(owner, "phase:updated");
+    // APIでも開始済みの進行を確認する。
     const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
       headers: { Cookie: await sessionCookieFor(OWNER) },
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { phase: unknown };
-    expect(body.phase).toEqual(LOBBY);
+    expect(body.phase).toEqual(buildPhaseStep(1));
 
     owner.close();
     member.close();
   });
 
-  it("room_owner が NULL でも非ホストは start_phase できない", async () => {
+  it("room_owner が NULL でも在籍メンバーは start_phase できる", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
     await runInRoomDO(roomId, (_instance, state) => {
@@ -610,8 +614,9 @@ describe("start_phase / phase:updated（ホストだけ進行状態を進めら�
     expect(snapshot.isHost).toBe(false);
 
     send(member, { type: "start_phase" });
-    const error = await expectType(member, "error");
-    expect(error.code).toBe("forbidden");
+    expect(await expectType(member, "phase:updated")).toMatchObject({
+      phase: buildPhaseStep(1),
+    });
 
     member.close();
   });
@@ -1490,6 +1495,30 @@ describe("note:update-content / note:move（pgTAP: メンバーの共同編集�
   });
 });
 
+async function completeMemberObjectiveVotes(
+  roomId: string,
+  noteId: string,
+): Promise<void> {
+  await runInRoomDO(roomId, (_room, state) => {
+    // 投票の秘匿性と結果復元を検証する。参加者は主観1票に加え客観3票を使い切る。
+    const count = Number(
+      state.storage.sql
+        .exec(
+          "SELECT COUNT(*) AS count FROM note_vote_stickers WHERE user_id=? AND kind='objective'",
+          MEMBER.sub,
+        )
+        .one().count,
+    );
+    for (let i = count; i < 3; i++)
+      state.storage.sql.exec(
+        "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES(?,?,?,'objective',0.2,0.3,'now')",
+        crypto.randomUUID(),
+        noteId,
+        MEMBER.sub,
+      );
+  });
+}
+
 describe("note:vote（課題ドット投票）", () => {
   it("Step 1-5 へ接続を維持したまま進むと、全参加者の集計を復元する", async () => {
     const { owner, member, roomId } = await setupStartedRoom();
@@ -1499,10 +1528,11 @@ describe("note:vote（課題ドット投票）", () => {
     send(member, { type: "note:vote", noteId, kind: "subjective" });
     await expectType(member, "note:updated");
 
+    await completeMemberObjectiveVotes(roomId, noteId);
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
-      force: true,
+      ...(await currentProgressConfirmation(roomId)),
     });
 
     const ownerSnapshot = await expectType(owner, "snapshot");
@@ -1563,10 +1593,11 @@ describe("note:vote（課題ドット投票）", () => {
 
     // 投票イベントが owner に届いていれば、ここで snapshot ではなく
     // note:updated を受け取るため失敗する。
+    await completeMemberObjectiveVotes(roomId, noteId);
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
-      force: true,
+      ...(await currentProgressConfirmation(roomId)),
     });
     const ownerResult = await expectType(owner, "snapshot");
     const memberResult = await expectType(reconnected, "snapshot");
@@ -1644,7 +1675,7 @@ describe("note:vote（課題ドット投票）", () => {
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
-      force: true,
+      ...(await currentProgressConfirmation(roomId)),
     });
     const resultSnapshot = await expectType(owner, "snapshot");
     expect(resultSnapshot.completedVoterIds).toEqual([]);
@@ -2776,6 +2807,7 @@ describe("note:drag（エフェメラル同期）", () => {
       dragId: "12121212-1212-4121-8121-121212121212",
     });
     await expectType(room.member, "note:drag:result");
+    await arrangeSharingComplete(room.roomId);
     send(room.owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(room.roomId)),
@@ -3321,6 +3353,7 @@ describe("グループ指向のグループ同期", () => {
     await expectType(owner, "note:updated");
     await expectType(member, "note:updated");
 
+    await arrangeSharingComplete(roomId);
     send(owner, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),

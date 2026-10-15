@@ -448,17 +448,13 @@ it("受理した共有タイマー操作だけ最終利用を更新し、保存�
   const before = await runInRoomDO(room.roomId, (instance) =>
     instance.getSharedOutcome(),
   );
+  // タイマーは在籍メンバー全員が操作できる。
   guest.ws.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
-  expect(await guest.next()).toMatchObject({ type: "error" });
-  expect(
-    (await runInRoomDO(room.roomId, (instance) => instance.getSharedOutcome()))
-      ?.lastUsedAt,
-  ).toBe(old);
-  host.ws.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
-  expect(await host.next()).toMatchObject({
+  expect(await guest.next()).toMatchObject({
     type: "timer:updated",
     timer: { status: "running" },
   });
+  expect(await host.next()).toMatchObject({ type: "timer:updated" });
   const after = await runInRoomDO(room.roomId, (instance) =>
     instance.getSharedOutcome(),
   );

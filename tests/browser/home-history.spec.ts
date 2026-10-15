@@ -640,13 +640,17 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
           url.origin === second.origin && url.pathname === second.pathname,
         { timeout: 5000 },
       );
-      await page.getByText("メンバーを集めて開始", { exact: true }).waitFor();
+      await page
+        .getByRole("heading", { name: "メンバーが揃ったら開始" })
+        .waitFor();
       expect(new URL(page.url()).pathname).toBe(second.pathname);
       // 前の単独ホストルームは同意して解散済み。保存URLで権限を復活させない。
       await page.goto(first.origin + first.pathname);
       await page.getByRole("heading", { name: "404", exact: true }).waitFor();
       expect(
-        await page.getByText("メンバーを集めて開始", { exact: true }).count(),
+        await page
+          .getByRole("heading", { name: "メンバーが揃ったら開始" })
+          .count(),
       ).toBe(0);
     } finally {
       await browser.close();

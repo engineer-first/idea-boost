@@ -259,3 +259,45 @@ export async function initializeTestRoom(
 import { issueCreationId } from "../contracts/room-creation";
 
 const TEST_CREATION_ISSUED = issueCreationId();
+
+// 進行条件そのものを検証しないシナリオ用。完了申告済みの作業を用意する。
+export async function arrangeMembersReady(
+  roomId: string,
+  userIds: readonly string[],
+): Promise<void> {
+  await runInRoomDO(roomId, (_room, state) => {
+    for (const userId of userIds)
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
+        userId,
+        Date.now(),
+      );
+  });
+}
+
+// 発表の交代は sharing.spec.ts で検証し、他の契約では一巡済みから始める。
+export async function arrangeSharingComplete(roomId: string): Promise<void> {
+  await runInRoomDO(roomId, (_room, state) => {
+    const sharing = getSharingState(state.storage.sql);
+    if (!sharing) throw new Error("共有状態がありません。");
+    saveSharingState(state.storage.sql, {
+      ...sharing,
+      status: "complete",
+      currentIndex: null,
+      startsAt: null,
+      results: sharing.order.map(() => "done"),
+    });
+  });
+}
+
+export function currentProgressConfirmation(
+  roomId: string,
+): Promise<{ confirmedProgressRevision: number }> {
+  return runInRoomDO(roomId, (_room, state) => ({
+    confirmedProgressRevision: Number(
+      state.storage.sql
+        .exec("SELECT progress_revision FROM room_state WHERE id=1")
+        .one().progress_revision,
+    ),
+  }));
+}

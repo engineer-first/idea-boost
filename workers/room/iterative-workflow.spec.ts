@@ -6,6 +6,8 @@ import {
 } from "../../contracts/phase";
 import type { ServerMessage } from "../../contracts/room-protocol";
 import {
+  arrangeMembersReady,
+  arrangeSharingComplete,
   connectRoomAs,
   createRoomAs,
   joinRoomAs,
@@ -130,20 +132,17 @@ function transition(type: string, phase: RoomPhase, revision = 2) {
 for (const phase of [1, 2, 3] as const) {
   describe(`フェーズ${phase} の反復`, () => {
     for (const step of phase === 2 ? [2] : [2, 3]) {
-      it(`${step} からホストだけ個人作業へ戻れ、下書き・配置・秘密・停止を再接続でも保持する`, async () => {
+      it(`${step} から参加者が個人作業へ戻れ、下書き・配置・秘密・停止を再接続でも保持する`, async () => {
         const current: RoomPhase = { kind: "step", phase, step };
         const room = await setup(current);
-        send(room.b, transition("phase:restart-writing", current));
-        expect(await room.b.next()).toMatchObject({
-          type: "snapshot",
-          phase: { kind: "step", phase, step: 1 },
-        });
         await startTimer(room);
-        send(room.a, transition("phase:restart-writing", current));
-        expect(await until(room.a, "phase:updated")).toMatchObject({
-          type: "phase:updated",
-          phase: { kind: "step", phase, step: 1 },
-        });
+        send(room.b, transition("phase:restart-writing", current));
+        for (const socket of [room.a, room.b]) {
+          expect(await until(socket, "phase:updated")).toMatchObject({
+            type: "phase:updated",
+            phase: { kind: "step", phase, step: 1 },
+          });
+        }
         const reconnect = await connectRoomAs(host, room.roomId);
         expect(await reconnect.next()).toMatchObject({
           type: "snapshot",
@@ -199,11 +198,6 @@ for (const phase of [1, 2, 3] as const) {
           }
         }
       });
-      send(room.b, transition("phase:revote", current));
-      expect(await room.b.next()).toMatchObject({
-        type: "snapshot",
-        phase: { kind: "step", phase, step: VOTING_STEP_BY_PHASE[phase] },
-      });
       expect(
         await runInRoomDO(
           room.roomId,
@@ -213,7 +207,7 @@ for (const phase of [1, 2, 3] as const) {
               .one().count,
         ),
       ).toBe(8);
-      send(room.a, transition("phase:revote", current));
+      send(room.b, transition("phase:revote", current));
       expect(await until(room.a, "snapshot")).toMatchObject({
         type: "snapshot",
         completedVoterIds: [],
@@ -318,7 +312,7 @@ for (const phase of [1, 2, 3] as const) {
       }
       room.close();
     });
-    it("ホストだけ確定を取り消せ、票・下書き・候補・過去決定を保って再採用を全員と再接続へ反映する", async () => {
+    it("参加者が確定を取り消せ、票・下書き・候補・過去決定を保って再採用を全員と再接続へ反映する", async () => {
       const current: RoomPhase = {
         kind: "step",
         phase,
@@ -346,17 +340,12 @@ for (const phase of [1, 2, 3] as const) {
       });
       await until(room.b, "decision:updated");
       send(room.b, { type: "decision:clear", noteId: candidateId });
-      expect(await room.b.next()).toMatchObject({
-        type: "decision:updated",
-      });
-      send(room.a, { type: "decision:clear", noteId: candidateId });
-      expect(await until(room.a, "decision:updated")).toMatchObject({
-        type: "decision:updated",
-        decision: null,
-      });
-      expect(await until(room.b, "decision:updated")).toMatchObject({
-        decision: null,
-      });
+      for (const socket of [room.a, room.b]) {
+        expect(await until(socket, "decision:updated")).toMatchObject({
+          type: "decision:updated",
+          decision: null,
+        });
+      }
       const reconnect = await connectRoomAs(host, room.roomId);
       const snapshot = await reconnect.next();
       expect(snapshot).toMatchObject({
@@ -432,6 +421,9 @@ for (const phase of [1, 2, 3] as const) {
           "UPDATE notes SET excluded = 1 WHERE visibility = 'shared'",
         );
       });
+      if (current.kind === "step" && current.step === 2)
+        await arrangeSharingComplete(room.roomId);
+      await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
       send(room.a, transition("phase:next", current));
       expect(await room.a.next()).toMatchObject({
         type: "error",
@@ -461,6 +453,7 @@ for (const phase of [1, 2, 3] as const) {
 it("重複・競合の前進とABA遷移を拒否する", async () => {
   const current: RoomPhase = { kind: "step", phase: 1, step: 2 };
   const room = await setup(current);
+  await arrangeSharingComplete(room.roomId);
   send(room.a, transition("phase:next", current));
   expect(await until(room.a, "phase:updated")).toMatchObject({
     phase: { kind: "step", phase: 1, step: 3 },
@@ -477,6 +470,7 @@ it("重複・競合の前進とABA遷移を拒否する", async () => {
   expect(await until(room.a, "phase:updated")).toMatchObject({
     type: "phase:updated",
   });
+  await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
   send(
     room.a,
     transition("phase:next", { kind: "step", phase: 1, step: 1 }, 4),
@@ -699,11 +693,10 @@ it.each([
   const final: RoomPhase = { kind: "step", phase: 1, step: to };
   const room = await setup(current);
   await startTimer(room);
-  // revote は保存猶予なしなので旧来の連続送信順序も検証する。
-  // 編集可能ステップは猶予を確定後に次の操作を送る。
+  if (type === "phase:next") await arrangeSharingComplete(room.roomId);
+  // 次の作業の完了条件を満たしてから後続の前進を送る。
   send(room.a, transition(type, current));
-  if (type === "phase:revote")
-    send(room.a, transition("phase:next", middle, 3));
+
   for (const socket of [room.a, room.b]) {
     expect(await until(socket, "phase:updated")).toEqual({
       type: "phase:updated",
@@ -714,8 +707,22 @@ it.each([
       rollbackTarget: type === "phase:next" ? current : null,
     });
   }
-  if (type !== "phase:revote")
-    send(room.a, transition("phase:next", middle, 3));
+  await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
+  if (type === "phase:revote") {
+    await runInRoomDO(room.roomId, (_room, state) => {
+      for (const user of [host, member])
+        for (const kind of ["subjective", "objective"])
+          for (let i = 0; i < (kind === "subjective" ? 1 : 3); i++)
+            state.storage.sql.exec(
+              "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES(?,?,?,?,0.2,0.3,'2026-09-22')",
+              crypto.randomUUID(),
+              candidateId,
+              user.sub,
+              kind,
+            );
+    });
+  }
+  send(room.a, transition("phase:next", middle, 3));
   for (const socket of [room.a, room.b]) {
     expect(await until(socket, "phase:updated")).toEqual({
       type: "phase:updated",
