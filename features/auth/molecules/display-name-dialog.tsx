@@ -80,7 +80,7 @@ export function DisplayNameDialog({
               }}
             />
             <p id={`${id}-hint`} className="text-sm text-muted-foreground">
-              {ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内。
+              {ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内
             </p>
             {controls.loading ? (
               <p role="status" className="text-sm text-muted-foreground">

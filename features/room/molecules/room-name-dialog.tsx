@@ -66,7 +66,7 @@ export function RoomNameDialog({ controls }: { controls: RoomNameControls }) {
             />
             <p id={`${id}-hint`} className="text-sm text-muted-foreground">
               {ROOM_NAME_MAX_LENGTH}
-              文字以内。
+              文字以内
             </p>
             {controls.error ? (
               <div>
