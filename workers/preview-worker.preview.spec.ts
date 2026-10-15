@@ -11,7 +11,7 @@ import previewWorker from "./preview-worker";
 import { getDecision } from "./room/decisions";
 import { listNotes } from "./room/notes";
 import { getPhase } from "./room/phase";
-import { sessionCookieFor } from "./test-helpers";
+import { sessionCookieFor, startTimerForTest } from "./test-helpers";
 import { visibleTo } from "./visibility";
 
 const owner = {
@@ -181,6 +181,7 @@ it("別人のWSへ未共有サンプルを送らず、参加者の新規付箋�
     config(),
   );
   const room = (await created.json()) as { roomId: string; inviteCode: string };
+  await startTimerForTest(room.roomId);
   const a = await socketFor(owner, room.roomId);
   const first = await a.next();
   expect(first.type).toBe("snapshot");
