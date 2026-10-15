@@ -595,6 +595,23 @@ describe("採用する付箋の選択モード", () => {
 });
 
 describe("考えるヒントの外部制御", () => {
+  it("3-1から3-2に進むとヒントの開閉操作ごと消え、戻ると再び表示される", () => {
+    const { props, rerender } = setup({ phase: buildPhaseStep(1, 3) });
+    expect(
+      screen.getByRole("button", { name: "考えるヒントを閉じる" }),
+    ).toBeInTheDocument();
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 3)} />);
+    expect(
+      screen.queryByRole("complementary", { name: "考えるヒント" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /考えるヒントを/ }),
+    ).not.toBeInTheDocument();
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(1, 3)} />);
+    expect(
+      screen.getByRole("button", { name: "考えるヒントを開く" }),
+    ).toBeInTheDocument();
+  });
   it.each([
     "connecting",
     "closed",
