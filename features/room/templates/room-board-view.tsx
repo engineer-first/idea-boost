@@ -1924,12 +1924,6 @@ export function RoomBoardView({
           privateToolbarRef={privateToolbarRef}
           camera={camera}
           displayZoom={interactions.displayZoom}
-          onZoomChange={interactions.onZoomChange}
-          onFitToSelection={
-            notes.some((note) => selectedNoteIds.includes(note.id))
-              ? interactions.onFitToSelection
-              : undefined
-          }
           gridStyle={gridStyle}
           isPanning={isPanning}
           onCanvasPointerDown={(event) => {

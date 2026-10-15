@@ -31,8 +31,7 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
     );
     await page.getByTestId("idea-value-feasibility-map").waitFor();
     await page.evaluate(() => document.fonts.ready);
-    await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
-    await page.getByRole("button", { name: "100%に戻す", exact: true }).click();
+    await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
     for (let i = 0; i < 7; i++)
       await page
         .getByRole("button", { name: "キャンバスを縮小", exact: true })

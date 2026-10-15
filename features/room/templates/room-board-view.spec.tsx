@@ -1259,7 +1259,7 @@ describe("RoomBoardView", () => {
     interactions.camera = { x: 40, y: -20, zoom: 1.25 };
     setup({ interactions });
 
-    const reset = screen.getByRole("button", { name: "ズーム倍率を変更" });
+    const reset = screen.getByRole("button", { name: "ズームを100%に戻す" });
     expect(reset).toHaveTextContent("125%");
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     expect(interactions.onZoomIn).toHaveBeenCalledOnce();
@@ -1272,7 +1272,6 @@ describe("RoomBoardView", () => {
     expect(interactions.onResetZoom).not.toHaveBeenCalled();
     expect(interactions.onFitToNotes).not.toHaveBeenCalled();
     fireEvent.click(reset);
-    fireEvent.click(screen.getByRole("button", { name: "100%に戻す" }));
     expect(interactions.onResetZoom).toHaveBeenCalledOnce();
     expect(interactions.onFitToNotes).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "付箋全体を表示" }));
@@ -1282,19 +1281,15 @@ describe("RoomBoardView", () => {
     expect(interactions.onFitToNotes).toHaveBeenCalledOnce();
   });
 
-  it("付箋の選択をカメラに伝え、選択表示の操作を配送する", () => {
+  it("付箋の選択をキーボードの選択表示に伝える", () => {
     const interactions = buildInteractions(buildNotes(3), []);
     const onSelectionChange = vi.fn();
-    const onFitToSelection = vi.fn();
-    Object.assign(interactions, { onSelectionChange, onFitToSelection });
+    Object.assign(interactions, { onSelectionChange });
     setup({ interactions });
     clickNote(screen.getAllByTestId("note-card")[0]);
     expect(onSelectionChange).toHaveBeenLastCalledWith([
       interactions.notes[0].id,
     ]);
-    fireEvent.click(screen.getByRole("button", { name: "ズーム倍率を変更" }));
-    fireEvent.click(screen.getByRole("button", { name: /選択した付箋を表示/ }));
-    expect(onFitToSelection).toHaveBeenCalledOnce();
   });
 
   it("ツールバーの付箋追加ボタンでonAddPrivateNoteを呼ぶ", () => {

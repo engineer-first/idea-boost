@@ -134,13 +134,12 @@ test.each([
     expect(await card.locator("textarea").inputValue()).toBe(content);
   }
   await page.getByRole("button", { name: "付箋全体を表示" }).click();
-  await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
-  await page.getByRole("button", { name: "100%に戻す", exact: true }).click();
+  await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
   await expect
     .poll(async () => (await card.boundingBox())?.width)
     .toBeCloseTo(150, 0);
   const board = page.getByTestId("board-scroller");
-  await page.getByRole("button", { name: "ズーム倍率を変更" }).focus();
+  await page.getByRole("button", { name: "ズームを100%に戻す" }).focus();
   const previous = await page.getByTestId("board-canvas").getAttribute("style");
   await page.keyboard.press("PageDown");
   await expect
@@ -189,8 +188,7 @@ test("2軸マップでも長文を全体表示し、先頭の本文へ通常poin
   expect(note.y + note.height).toBeLessThanOrEqual(
     viewport.y + viewport.height,
   );
-  await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
-  await page.getByRole("button", { name: "100%に戻す", exact: true }).click();
+  await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
   await expect
     .poll(async () => (await card.boundingBox())?.width)
     .toBeCloseTo(200, 0);

@@ -97,10 +97,7 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
       for (const page of [actor, peer]) {
         await page.goto(`${app}/rooms/${room.roomId}`);
         await page.getByTestId("board-canvas").waitFor();
-        await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
-        await page
-          .getByRole("button", { name: "100%に戻す", exact: true })
-          .click();
+        await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
       }
       await startWork(actor, peer);
       await actor.getByRole("button", { name: "マイ付箋を開く" }).click();

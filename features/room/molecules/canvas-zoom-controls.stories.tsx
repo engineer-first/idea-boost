@@ -12,7 +12,6 @@ const meta = {
     onResetZoom: fn(),
     onZoomIn: fn(),
     onFitToNotes: fn(),
-    onZoomChange: fn(),
   },
 } satisfies Meta<typeof CanvasZoomControls>;
 
@@ -71,19 +70,5 @@ export const MoveHistoryConflict: Story = {
         disabled: true,
       },
     },
-  },
-};
-
-export const ZoomOptions: Story = {
-  args: { ...Tools.args, onFitToSelection: fn() },
-  render: (args) => (
-    <div className="flex min-h-[calc(100dvh-2rem)] items-end p-3">
-      <CanvasZoomControls {...args} />
-    </div>
-  ),
-  play: async ({ canvas }) => {
-    await userEvent.click(
-      canvas.getByRole("button", { name: "ズーム倍率を変更" }),
-    );
   },
 };

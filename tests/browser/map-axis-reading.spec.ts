@@ -80,9 +80,8 @@ test.each([
 
     // 本人の表示操作のみで縮小し、共有のマップ寸法・文字サイズは変えない。
     await page
-      .getByRole("button", { name: "ズーム倍率を変更", exact: true })
+      .getByRole("button", { name: "ズームを100%に戻す", exact: true })
       .click();
-    await page.getByRole("button", { name: "100%に戻す", exact: true }).click();
     for (let i = 0; i < 3; i++) {
       await page
         .getByRole("button", { name: "キャンバスを縮小", exact: true })
@@ -91,7 +90,7 @@ test.each([
     await expect
       .poll(() =>
         page
-          .getByRole("button", { name: "ズーム倍率を変更", exact: true })
+          .getByRole("button", { name: "ズームを100%に戻す", exact: true })
           .innerText(),
       )
       .toBe("51%");

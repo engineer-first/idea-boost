@@ -90,7 +90,7 @@ test.each([
     "選択ツール",
     "手のひらツール",
     "キャンバスを縮小",
-    "ズーム倍率を変更",
+    "ズームを100%に戻す",
     "キャンバスを拡大",
     "付箋全体を表示",
   ]) {
@@ -368,8 +368,7 @@ test("AT-008/010: 選択付箋のSpaceはpanだけ、hは本文末尾の文字",
 test.each([
   25, 100, 200,
 ])("AT-003: zoom%s%%の描画矩形で付箋を対象にできる", async (zoom) => {
-  await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
-  await page.getByRole("button", { name: "100%に戻す", exact: true }).click();
+  await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
   await page.getByTestId("board-scroller").evaluate((viewport, zoom) => {
     viewport.dispatchEvent(
       new WheelEvent("wheel", {
@@ -384,7 +383,7 @@ test.each([
   }, zoom);
   await expect
     .poll(() =>
-      page.getByRole("button", { name: "ズーム倍率を変更" }).innerText(),
+      page.getByRole("button", { name: "ズームを100%に戻す" }).innerText(),
     )
     .toBe(`${zoom}%`);
   const note = page.getByTestId("note-card").nth(1);

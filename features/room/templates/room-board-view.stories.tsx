@@ -845,8 +845,6 @@ export const CanvasPanInteraction: Story = {
           boardScrollerRef,
           camera: camera.camera,
           displayZoom: camera.displayZoom,
-          onZoomChange: camera.setDisplayZoom,
-          onFitToSelection: camera.fitToSelection,
           onSelectionChange: camera.setSelectedNoteIds,
           gridStyle: camera.gridStyle,
           isPanning: camera.isPanning,

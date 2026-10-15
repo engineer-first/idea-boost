@@ -116,10 +116,7 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
       for (const page of [actor, peer]) {
         await page.goto(`${app}${href}`);
         await page.getByTestId("board-canvas").waitFor();
-        await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
-        await page
-          .getByRole("button", { name: "100%に戻す", exact: true })
-          .click();
+        await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
       }
       await startWork(actor, peer);
       const note = actor
@@ -205,10 +202,7 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
         await page.goto(`${app}${href}`);
         await page.getByTestId("board-canvas").waitFor();
         await page.evaluate(() => document.fonts.ready);
-        await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
-        await page
-          .getByRole("button", { name: "100%に戻す", exact: true })
-          .click();
+        await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
         await expect
           .poll(async () =>
             (
@@ -291,10 +285,7 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
         .toBeLessThan(0.5);
       await peer.reload();
       await peer.getByTestId("board-canvas").waitFor();
-      await peer.getByRole("button", { name: "ズーム倍率を変更" }).click();
-      await peer
-        .getByRole("button", { name: "100%に戻す", exact: true })
-        .click();
+      await peer.getByRole("button", { name: "ズームを100%に戻す" }).click();
       await expect
         .poll(async () => await position(peerNote))
         .toEqual(savedBefore);
@@ -313,10 +304,7 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
         .toBeLessThan(0.5);
       await peer.reload();
       await peer.getByTestId("board-canvas").waitFor();
-      await peer.getByRole("button", { name: "ズーム倍率を変更" }).click();
-      await peer
-        .getByRole("button", { name: "100%に戻す", exact: true })
-        .click();
+      await peer.getByRole("button", { name: "ズームを100%に戻す" }).click();
       await expect
         .poll(async () => Math.abs((await position(peerNote)).x - second.x))
         .toBeLessThan(0.5);

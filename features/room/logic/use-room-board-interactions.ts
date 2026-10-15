@@ -90,8 +90,6 @@ export type RoomBoardInteractions = {
   localDraggingNoteId?: string | null;
   camera: CanvasCamera;
   displayZoom?: number;
-  onZoomChange?: (zoom: number) => void;
-  onFitToSelection?: () => void;
   onSelectionChange?: (ids: readonly string[]) => void;
   gridStyle: CSSProperties;
   isPanning: boolean;
@@ -161,8 +159,6 @@ export function useRoomBoardInteractions({
   const {
     camera,
     displayZoom,
-    setDisplayZoom,
-    fitToSelection,
     setSelectedNoteIds,
     preserveCamera,
     gridStyle,
@@ -466,8 +462,6 @@ export function useRoomBoardInteractions({
     localDraggingNoteId: drag?.note.id ?? null,
     camera,
     displayZoom,
-    onZoomChange: setDisplayZoom,
-    onFitToSelection: !isIdeaMapCursorSurface ? fitToSelection : undefined,
     onSelectionChange: setSelectedNoteIds,
     gridStyle,
     isPanning,
