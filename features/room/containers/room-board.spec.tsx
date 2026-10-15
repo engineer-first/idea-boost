@@ -592,6 +592,7 @@ describe("サーバーメッセージ → 画面反映", () => {
       }),
     );
     expect(screen.getByRole("timer")).toHaveTextContent("00:30");
+    fireEvent.click(screen.getByTestId("room-timer"));
     fireEvent.click(screen.getByRole("button", { name: "再開" }));
     expect(socket.sent).toContain(JSON.stringify({ type: "timer:resume" }));
   });

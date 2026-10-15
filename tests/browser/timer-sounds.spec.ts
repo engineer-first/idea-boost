@@ -156,6 +156,8 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       });
       expect(await page.getByTestId("room-timer-panel").isVisible()).toBe(true);
       await page.getByRole("button", { name: "開始", exact: true }).click();
+      await page.getByTestId("room-timer-panel").waitFor({ state: "hidden" });
+      await page.getByTestId("room-timer").click();
       const pause = page.getByRole("button", { name: "一時停止", exact: true });
       await pause.focus();
       await page.keyboard.press("Enter");
@@ -210,7 +212,6 @@ describe("RoomTimer の実ブラウザ音声経路", () => {
       await page.getByLabel("タイマー時間（分）").fill("00");
       await page.getByLabel("タイマー時間（秒）").fill("08");
       await page.getByRole("button", { name: "開始", exact: true }).click();
-      await page.getByTestId("room-timer").click();
       await page.getByTestId("room-timer-panel").waitFor({ state: "hidden" });
       expect(
         await page.getByTestId("room-timer").getAttribute("data-status"),

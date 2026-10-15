@@ -466,8 +466,8 @@ export function RoomTimer({
               if (parsedDuration === null) return;
               if (configureOnly) {
                 onConfigureDuration?.(parsedDuration);
-                handlePanelOpenChange(false);
               } else onStart(parsedDuration);
+              handlePanelOpenChange(false);
             }}
           >
             {configureOnly ? "持ち時間を設定" : "開始"}
@@ -480,7 +480,10 @@ export function RoomTimer({
             size="sm"
             className="h-8 flex-1"
             disabled={disabled}
-            onClick={() => onStart(timer.durationMs)}
+            onClick={() => {
+              onStart(timer.durationMs);
+              handlePanelOpenChange(false);
+            }}
           >
             <RotateCcw aria-hidden="true" />
             もう一度

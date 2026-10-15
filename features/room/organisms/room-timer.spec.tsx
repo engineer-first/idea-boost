@@ -81,6 +81,52 @@ describe("RoomTimer", () => {
     expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
   };
 
+  it.each([
+    "開始",
+    "もう一度",
+    "設定し直して開始",
+  ])("%sの直後はサーバー応答前でも外側の最初のクリックが届く", (operation) => {
+    const onAddNote = vi.fn();
+    render(
+      <>
+        <RoomTimer
+          timer={operation === "開始" ? { status: "idle" } : buildEndedTimer()}
+          serverOffsetMs={0}
+          isHost
+          disabled={false}
+          defaultPanelOpen
+          {...handlers}
+        />
+        <button type="button" onClick={onAddNote}>
+          付箋を追加
+        </button>
+      </>,
+    );
+    if (operation === "設定し直して開始") {
+      fireEvent.click(screen.getByRole("button", { name: "設定し直す" }));
+    }
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: operation === "もう一度" ? "もう一度" : "開始",
+      }),
+    );
+
+    const addNote = screen.getByRole("button", { name: "付箋を追加" });
+    fireEvent.pointerDown(addNote, { button: 0, pointerId: 1 });
+    fireEvent.pointerUp(addNote, { button: 0, pointerId: 1 });
+    fireEvent.click(addNote);
+
+    expect(onAddNote).toHaveBeenCalledOnce();
+    expect(handlers.onStart).toHaveBeenCalledExactlyOnceWith(
+      operation === "もう一度" ? 60_000 : TIMER_DEFAULT_DURATION_MS,
+    );
+    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("room-timer")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
   it("最初の外側クリック全体を消費し、次の独立クリックは通す", () => {
     const onOutsidePointerDown = vi.fn();
     const onOutsidePointerUp = vi.fn();
