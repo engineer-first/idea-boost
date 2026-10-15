@@ -53,6 +53,7 @@ it.each([
     buildPhaseStep(1),
     owner.sub,
   );
+  await startTimerForTest(roomId);
   const connection = await connectRoomAs(peer, roomId);
   await connection.next();
   await runInRoomDO(roomId, async (instance, state) => {
@@ -96,6 +97,7 @@ it.each([
           expectedPhaseRevision: revision,
         }),
       );
+      expect(paused).toHaveBeenCalledOnce();
       expect(
         state.storage.sql
           .exec("SELECT content FROM notes WHERE id=?1", oldNote)

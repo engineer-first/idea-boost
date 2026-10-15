@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
 import {
   buildDecision,
@@ -19,6 +19,19 @@ import {
 } from "./room-board-view";
 
 beforeEach(() => {
+  // jsdom にない hit test を毎回用意し、テスト間で上書きを持ち越さない。
+  const original = Object.getOwnPropertyDescriptor(
+    document,
+    "elementFromPoint",
+  );
+  Object.defineProperty(document, "elementFromPoint", {
+    configurable: true,
+    value: vi.fn(() => null),
+  });
+  onTestFinished(() => {
+    if (original) Object.defineProperty(document, "elementFromPoint", original);
+    else delete (document as { elementFromPoint?: unknown }).elementFromPoint;
+  });
   sessionStorage.clear();
   // jsdomには寸法観測がない。通知との重なりはPlaywright側で検証する。
   vi.stubGlobal(
