@@ -376,6 +376,7 @@ describe("本文保存を待たない進行", () => {
     });
     reconnectedDuringSharing.close();
     // 旧工程の要求は拒否し、5秒後の通信回復でも同じ共有工程の本人本文は保存できる。
+    await startTimerForTest(roomId);
     const current = await currentPhaseExpectation(roomId);
     const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 5000);
     try {
