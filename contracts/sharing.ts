@@ -17,19 +17,16 @@ export function canPublishNoteInTurn(
   );
 }
 
-// 共有Step2で発表順が進行している間は、共有済み付箋の返却も発表者本人に限る。
-// 順番が有効でない状態では既存の工程権限に委ねる。
+// 共有Step2の返却は再共有できる発表者本人に限る。開始前・終了後も許可しない。
+// 共有以外のステップでは既存の工程権限に委ねる。
 export function canReturnNoteToPrivateInTurn(
   phase: RoomPhase,
   sharing: SharingState | null | undefined,
   userId: string,
 ): boolean {
-  const hasActivePresenterTurn =
-    phase.kind === "step" &&
-    phase.step === 2 &&
-    sharing?.status === "active" &&
-    sharing.currentIndex !== null;
   return (
-    !hasActivePresenterTurn || canPublishNoteInTurn(phase, sharing, userId)
+    phase.kind !== "step" ||
+    phase.step !== 2 ||
+    canPublishNoteInTurn(phase, sharing, userId)
   );
 }
