@@ -46,6 +46,12 @@ describe("idea map size", () => {
 });
 
 describe("note typography", () => {
+  it("左右8pxの本文余白で折り返し、不要な行数を高さへ加えない", () => {
+    // 24pxの全角7文字が1行に収まる本文幅を使う。
+    expect(getNoteHeight("あ".repeat(21), 24)).toBe(164);
+    expect(getNoteHeight("あ".repeat(22), 24)).toBe(200);
+  });
+
   it.each([
     14, 18, 24,
   ])("%ipxで改行を増やしても高さは1行ぶんを超えて急増しない", (fontSize) => {
