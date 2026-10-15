@@ -91,6 +91,9 @@ export type RoomBoardHeaderProps = {
   isNextPhasePending: boolean;
   hostRevision?: number;
   onEditSelf?: () => void;
+  roomName?: string | null;
+  onRenameRoom?: () => void;
+  roomNameDisabled?: boolean;
   onSelectHostTarget?: (userId: string) => void;
   isTransferring?: boolean;
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
@@ -158,6 +161,9 @@ export function RoomBoardHeader({
   hostRevision = 0,
   onSelectHostTarget,
   onEditSelf,
+  roomName,
+  onRenameRoom,
+  roomNameDisabled,
   isTransferring = false,
   isNextPhaseBlocked,
   initialGuideState,
@@ -788,6 +794,26 @@ export function RoomBoardHeader({
                   feedbackOpening.current = false;
                 }}
               >
+                <div className="mb-3 grid gap-2 border-b border-border pb-3">
+                  <p className="text-sm font-medium break-all">
+                    {roomName ?? "ルーム名未設定"}
+                  </p>
+                  {!outcomePublished && onRenameRoom ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={isDisconnected || isLeaving || roomNameDisabled}
+                      onClick={() => {
+                        setRoomMenuOpen(false);
+                        onRenameRoom();
+                      }}
+                    >
+                      ルーム名を変更
+                    </Button>
+                  ) : null}
+                </div>
                 {currentMember ? (
                   <MemberSelection
                     name={

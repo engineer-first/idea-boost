@@ -55,6 +55,7 @@ import {
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
+import type { RoomNameControls } from "../logic/use-room-name";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
@@ -62,6 +63,7 @@ import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
+import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
@@ -173,6 +175,7 @@ export type RoomBoardViewProps = {
   transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
+  roomName?: RoomNameControls;
   decision: Decision | null;
   outcomePublished: boolean;
   adoptionFocusNoteId?: string | null;
@@ -308,6 +311,7 @@ export function RoomBoardView({
   transferError = null,
   memberRemoval,
   displayName,
+  roomName,
   decision,
   outcomePublished,
   adoptionFocusNoteId = null,
@@ -1746,6 +1750,9 @@ export function RoomBoardView({
         onPointerLeave={() => setVoteStampPointer(null)}
       >
         <RoomBoardHeader
+          roomName={roomName?.name}
+          onRenameRoom={roomName?.request}
+          roomNameDisabled={roomName?.disabled || roomName?.pending}
           loginReturnHref={loginReturnHref}
           onEditSelf={displayName?.request}
           hasMoveHistory={hasMoveHistory}
@@ -2118,6 +2125,7 @@ export function RoomBoardView({
             }}
           />
         ) : null}
+        {roomName ? <RoomNameDialog controls={roomName} /> : null}
         {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
         {memberRemoval ? (
           <MemberRemoveDialog

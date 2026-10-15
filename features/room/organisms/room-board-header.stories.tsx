@@ -41,6 +41,8 @@ const meta = {
     layout: "fullscreen",
   },
   args: {
+    roomName: "J05",
+    onRenameRoom: fn(),
     hmwDecidedIssue: null,
     decidedHmw: null,
     inviteCode: "AB12CD",

@@ -1,9 +1,10 @@
 // スタート画面のプレゼンテーション層の単体テスト。
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { buildLobbyPhase } from "@/contracts/phase.fixture";
 import { buildMembers } from "@/contracts/room-protocol.fixture";
+import { buildRoomNameControls } from "../logic/room-name.fixture";
 import { RoomLobbyView } from "./room-lobby-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
@@ -207,4 +208,15 @@ it("参加者がロビーで選んだ成果の扱いを退出へ渡す", async (
   await user.click(screen.getByRole("radio", { name: "成果を残さず退出" }));
   await user.click(screen.getByRole("button", { name: "成果を残さず退出" }));
   expect(onLeave).toHaveBeenCalledWith("discard");
+});
+
+it.each([
+  true,
+  false,
+])("待機画面でホスト=%sも現在名を確認して変更を開ける", (isHost) => {
+  const request = vi.fn();
+  renderView({ isHost, roomName: buildRoomNameControls({ request }) });
+  expect(screen.getByText("J05")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "ルーム名を変更" }));
+  expect(request).toHaveBeenCalledOnce();
 });
