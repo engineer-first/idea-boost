@@ -23,6 +23,7 @@ import { findNote, insertNote, toProtocolNote } from "./notes";
 import { savePhase } from "./phase";
 import { presenceHandlers } from "./presence";
 import type { RoomDO } from "./room-do";
+import { saveTimerState } from "./timer";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -45,6 +46,11 @@ async function setup(
       B,
     );
     savePhase(state.storage.sql, { kind: "step", phase: 1, step: 3 });
+    saveTimerState(state.storage.sql, {
+      status: "running",
+      endsAt: Date.now() + 60_000,
+      durationMs: 60_000,
+    });
     for (const [id, x] of [
       [N1, 100],
       [N2, 140],
@@ -907,6 +913,52 @@ function inverse(
     moveHandlers["note:move:inverse"](ctx, message);
 }
 describe("atomic inverse", () => {
+  it.each([
+    "idle",
+    "paused",
+    "ended",
+  ] as const)("タイマー%sでは有効な移動も戻さず、拒否を再送と照会で維持する", (status) =>
+    setup(`inverse-timer-${status}`, (ctx, responses) => {
+      start(ctx);
+      commit(ctx);
+      saveTimerState(
+        ctx.sql,
+        status === "idle"
+          ? { status: "idle" }
+          : status === "paused"
+            ? { status: "paused", remainingMs: 30_000, durationMs: 60_000 }
+            : { status: "ended", durationMs: 60_000 },
+      );
+      inverse(ctx, responses);
+      const rejected = responses.at(-1);
+      expect(rejected).toMatchObject({
+        type: "note:move:result",
+        operationId: OP2,
+        status: "rejected",
+        reason: "タイマーが動作していないため、ボードを操作できません。",
+      });
+      expect(findNote(ctx.sql, N1)?.x).toBe(400);
+      expect(findNote(ctx.sql, N2)?.x).toBe(440);
+      moveHandlers["note:move:status"](ctx, {
+        type: "note:move:status",
+        operationId: OP2,
+      });
+      expect(responses.at(-1)).toEqual(rejected);
+      moveHandlers["note:move:status"](
+        { ...ctx, userId: B },
+        { type: "note:move:status", operationId: OP2 },
+      );
+      expect(responses.at(-1)).toMatchObject({ status: "unknown" });
+      saveTimerState(ctx.sql, {
+        status: "running",
+        endsAt: Date.now() + 60_000,
+        durationMs: 60_000,
+      });
+      inverse(ctx, responses);
+      expect(responses.at(-1)).toEqual(rejected);
+      expect(findNote(ctx.sql, N1)?.x).toBe(400);
+    }));
+
   it("他者の分類作成後に無関係な移動をしても元の移動のinverseを全拒否する", () =>
     setup("inverse-peer-group-unrelated-move", (ctx, responses) => {
       const n3 = "77777777-7777-4777-8777-777777777777";

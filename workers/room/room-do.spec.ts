@@ -6925,7 +6925,7 @@ describe("RoomDO タイマー終了", () => {
       ws.close();
     });
 
-    it("タイマー停止中は note:move:inverse も拒否する", async () => {
+    it("タイマー停止中の inverse 拒否を結果照会・再送で復元できる", async () => {
       const roomName = "room-board-timer-gate-move-inverse";
       const stub = roomStub(roomName);
 
@@ -6934,27 +6934,32 @@ describe("RoomDO タイマー終了", () => {
 
       const ws = await connectDirectly(roomName, USER_A, USER_A);
 
-      ws.send(
-        JSON.stringify({
-          type: "note:move:inverse",
-          operationId: crypto.randomUUID(),
-          sourceOperationId: crypto.randomUUID(),
-          expectedTargets: [
-            {
-              noteId: "99999999-9999-4999-8999-999999999999",
-              positionRevision: 0,
-              visibilityRevision: 0,
-            },
-          ],
-          expectedGroupRevision: 0,
-        }),
-      );
-
-      expect(await nextJson(ws)).toMatchObject({
-        type: "error",
-        code: "forbidden",
-        message: "タイマーが動作していないため、ボードを操作できません。",
+      const operationId = crypto.randomUUID();
+      const message = {
+        type: "note:move:inverse",
+        operationId,
+        sourceOperationId: crypto.randomUUID(),
+        expectedTargets: [
+          {
+            noteId: "99999999-9999-4999-8999-999999999999",
+            positionRevision: 0,
+            visibilityRevision: 0,
+          },
+        ],
+        expectedGroupRevision: 0,
+      } as const;
+      ws.send(JSON.stringify(message));
+      const rejected = await nextJson(ws);
+      expect(rejected).toMatchObject({
+        type: "note:move:result",
+        operationId,
+        status: "rejected",
       });
+      ws.send(JSON.stringify({ type: "note:move:status", operationId }));
+      expect(await nextJson(ws)).toEqual(rejected);
+      await startTimerForTest(roomName);
+      ws.send(JSON.stringify(message));
+      expect(await nextJson(ws)).toEqual(rejected);
 
       ws.close();
     });
