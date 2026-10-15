@@ -8,7 +8,11 @@ import { isLobby } from "@/contracts/phase";
 import type { ProtocolMember } from "@/contracts/room-protocol";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomEntryPreview, RoomLobby } from "@/features/room";
-import { RoomAdmissionGate } from "@/features/room-lifecycle";
+import {
+  ParticipationSwitch,
+  RoomAdmissionGate,
+  readParticipationRecovery,
+} from "@/features/room-lifecycle";
 import {
   isVerificationEnabled,
   VerificationFollower,
@@ -49,6 +53,28 @@ export default async function StartPage({
 
   // セッション必須・メンバー必須（api-worker 側で判定、404 なら notFound）。
   const res = await apiFetch(`/api/rooms/${id}`);
+  const recovery = await readParticipationRecovery(res);
+  if (recovery?.kind === "pending")
+    return (
+      <ParticipationSwitch
+        currentUserId={user.sub}
+        pendingOperation={recovery}
+      />
+    );
+  if (recovery?.kind === "rejected" && recovery.failure)
+    return (
+      <ParticipationSwitch
+        currentUserId={user.sub}
+        failedOperation={recovery}
+      />
+    );
+  if (recovery?.kind === "confirmation")
+    return (
+      <ParticipationSwitch
+        currentUserId={user.sub}
+        confirmation={recovery.confirmation}
+      />
+    );
   if (!res.ok) {
     notFound();
   }

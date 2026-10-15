@@ -24,6 +24,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
     selectedNoteId: null,
     draggingNoteId: null,
     isDisconnected: false,
+    boardInteractionBlocked: false,
     voteRemaining: { subjective: 5, objective: 10 },
     selectedVoteKind: null,
     pendingVoteOperations: [],
@@ -94,6 +95,57 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("タイマー停止中も選択した付箋の文字サイズを変更できる", () => {
+    const phase = buildPhaseStep(2);
+    const onNoteFontSizeChange = vi.fn();
+
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      boardInteractionBlocked: true,
+      notes: [
+        buildNote({
+          id: "font-note",
+          fontSize: 14,
+          visibility: "shared",
+        }),
+      ],
+      selectedNoteId: "font-note",
+      onNoteFontSizeChange,
+    });
+
+    const increaseButton = screen.getByRole("button", {
+      name: "付箋の文字を大きく",
+    });
+
+    expect(increaseButton).toBeEnabled();
+
+    fireEvent.click(increaseButton);
+
+    expect(onNoteFontSizeChange).toHaveBeenCalledWith("font-note", 15);
+  });
+  it("タイマー停止中は付箋の採用対象を表示しない", () => {
+    const phase = buildPhaseStep(5);
+
+    setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      boardInteractionBlocked: true,
+      isHost: true,
+      isAdoptMode: true,
+      notes: [
+        buildNote({
+          id: "note-1",
+          content: "採用候補",
+          visibility: "shared",
+        }),
+      ],
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /採用する.+:/ }),
+    ).not.toBeInTheDocument();
+  });
   it("自分の発表順を待っている間もマイ付箋をドラッグできる", () => {
     const onPrivateNoteDragStart = vi.fn();
     setup({
@@ -1403,19 +1455,17 @@ it("極端長文mapカードを平面より小さく表示し、短い付箋も�
   });
 });
 
-it("現在の作者名を共有付箋とマイ付箋へ渡し、表示名更新だけで表示を変える", () => {
+it("共有付箋とマイ付箋に作者名のホバーヒントを表示しない", () => {
   const note = buildNote({
     id: "author-note",
     authorId: "writer",
     content: "本文は変えない",
   });
-  const { props, rerender } = setup({
+  setup({
     notes: [note],
     privateNotes: [{ ...note, id: "private-author", visibility: "private" }],
-    authorName: () => "元の表示名",
   });
-  expect(screen.getAllByTitle("作者: 元の表示名")).toHaveLength(2);
-  rerender(<RoomBoardCanvas {...props} authorName={() => "現在の表示名"} />);
-  expect(screen.getAllByTitle("作者: 現在の表示名")).toHaveLength(2);
+  expect(screen.getAllByTestId("note-card")).toHaveLength(2);
+  expect(screen.queryAllByTitle(/^作者:/)).toHaveLength(0);
   expect(screen.getAllByText(note.content).length).toBeGreaterThan(0);
 });

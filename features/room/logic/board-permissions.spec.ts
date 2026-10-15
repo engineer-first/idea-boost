@@ -46,12 +46,12 @@ it.each([
   [1, 5],
   [2, 4],
   [3, 5],
-] as const)("%i-%iの候補は移動でき、採用後は凍結する", (phase, step) => {
+] as const)("%i-%iの候補は採用後も移動でき、候補と採用の変更は止める", (phase, step) => {
   expect(getBoardPermissions(buildPhaseStep(step, phase)).canMoveNote).toBe(
     true,
   );
   expect(getBoardPermissions(buildPhaseStep(step, phase), true)).toMatchObject({
-    canMoveNote: false,
+    canMoveNote: true,
     canExcludeNote: false,
     canRestoreNote: false,
     canDecide: false,

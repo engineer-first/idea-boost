@@ -11,6 +11,7 @@ import {
   type RoomSocket,
   runInRoomDO,
   sessionCookieFor,
+  startTimerForTest,
 } from "../test-helpers";
 
 const A = {
@@ -327,6 +328,7 @@ describe("ホストによるメンバー除外", () => {
   it("進行中も除外でき、再招待で同じ色・付箋・票を復元する", async () => {
     const { roomId, inviteCode, a, b, stub } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    await startTimerForTest(roomId);
     send(b, { type: "note:create", content: "再参加しても残る付箋" });
     const { note } = await receive(b, "note:inserted");
     await stub.setPhase({ kind: "step", phase: 1, step: 2 }, A.sub);
@@ -426,6 +428,7 @@ describe("ホストによるメンバー除外", () => {
   it("除外時にドラッグ権とカーソルを解放し、残った人が同じ付箋を動かせる", async () => {
     const { roomId, a, b, stub } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    await startTimerForTest(roomId);
     send(b, { type: "note:create", content: "移動途中の付箋" });
     const { note } = await receive(b, "note:inserted");
     await stub.setPhase({ kind: "step", phase: 1, step: 2 }, A.sub);

@@ -27,12 +27,14 @@ const meta = {
       buildSharedOutcome({
         roomId: "123e4567-e89b-42d3-a456-426614174001",
         name: null,
+        participantCount: 1,
         displayId: "R-9231B2",
       }),
       buildSharedOutcome({
         roomId: "123e4567-e89b-42d3-a456-426614174002",
         displayId: "R-9231B3",
         saveStatus: "failed",
+        participantCount: null,
       }),
     ],
     nextCursor: null,
@@ -121,4 +123,8 @@ export const DetailUnavailable: Story = {
     error: "この成果は存在しないか、保存期間が終了しました。",
     onRetry: fn(),
   },
+};
+
+export const UnrecordedParticipants: Story = {
+  args: { detail: buildSharedOutcome({ participantCount: null }) },
 };

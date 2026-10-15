@@ -120,6 +120,56 @@ async function expectFocused(editor: Locator): Promise<void> {
     .toBe("focused");
 }
 
+for (const width of [390, 1440]) {
+  test(`${width}px: 個人作業の追加ボタンは空の状態から追加を繰り返しても一覧の左上から動かない`, async () => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardcanvas--private-guidance-empty&viewMode=story`,
+    );
+    const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+    await add.waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    // 新規本文への自動スクロールと、一覧内の配置移動を区別する。
+    const positionInList = () =>
+      add.evaluate((element) => {
+        const list = element.parentElement;
+        if (!list) throw new Error("付箋一覧がありません");
+        const buttonBounds = element.getBoundingClientRect();
+        const listBounds = list.getBoundingClientRect();
+        return {
+          x: buttonBounds.x - listBounds.x,
+          y: buttonBounds.y - listBounds.y,
+        };
+      });
+    const initial = await positionInList();
+    expect(initial.y).toBe(0);
+    expect(initial.x).toBeGreaterThanOrEqual(0);
+    // デスクトップでは次の行への折り返しも含める。
+    const count = width === 390 ? 2 : 7;
+    for (let index = 0; index < count; index += 1) {
+      await add.click();
+      await expect
+        .poll(() => privateNoteIds().then((ids) => ids.length))
+        .toBe(index + 1);
+      const editor = page.locator("textarea:not([readonly])");
+      await expectFocused(editor);
+      await page.keyboard.insertText(`下書き ${index + 1}`);
+      await page.keyboard.press("Escape");
+      await expect.poll(positionInList).toEqual(initial);
+    }
+    // 視覚上の先頭とキーボードの順序を揃える。
+    await add.focus();
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(() =>
+        document.activeElement
+          ?.closest("[data-note-id]")
+          ?.getAttribute("data-note-id"),
+      ),
+    ).toBe((await privateNoteIds())[0]);
+  });
+}
+
 for (const { platform, key, width } of [
   { platform: "Linux x86_64", key: "Control+Enter", width: 390 },
   { platform: "MacIntel", key: "Meta+Enter", width: 1440 },

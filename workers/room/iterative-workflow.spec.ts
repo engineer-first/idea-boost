@@ -11,6 +11,7 @@ import {
   joinRoomAs,
   type RoomSocket,
   runInRoomDO,
+  startTimerForTest,
 } from "../test-helpers";
 
 const host = {
@@ -256,13 +257,14 @@ for (const phase of [1, 2, 3] as const) {
       reconnect.close();
       room.close();
     });
-    it("決定中は候補外も参加者が移動でき、確定後の変更は拒否する", async () => {
+    it("採用後も参加者が採用済みと候補外を移動でき、候補の変更は拒否する", async () => {
       const current: RoomPhase = {
         kind: "step",
         phase,
         step: RESULT_STEP_BY_PHASE[phase],
       };
       const room = await setup(current);
+      await startTimerForTest(room.roomId);
       send(room.b, { type: "note:move", noteId: candidateId, x: 55, y: 60 });
       expect(await room.b.next()).toMatchObject({
         type: "note:updated",
@@ -276,10 +278,36 @@ for (const phase of [1, 2, 3] as const) {
       await until(room.a, "note:updated");
       send(room.a, { type: "note:decide", noteId: candidateId });
       await until(room.a, "decision:updated");
+      await until(room.b, "decision:updated");
+      // 非作者の参加者でも共有付箋は動かせるが、未共有の付箋は動かせない。
+      send(room.b, { type: "note:move", noteId: draftId, x: 80, y: 90 });
+      expect(await room.b.next()).toMatchObject({ type: "error" });
+      for (const noteId of [candidateId, excludedId]) {
+        send(room.b, { type: "note:move", noteId, x: 80, y: 90 });
+        for (const socket of [room.a, room.b]) {
+          expect(await until(socket, "note:updated")).toMatchObject({
+            note: { id: noteId, x: 80, y: 90 },
+          });
+        }
+      }
+      const reconnect = await connectRoomAs(member, room.roomId);
+      expect(await reconnect.next()).toMatchObject({
+        type: "snapshot",
+        decision: { noteId: candidateId },
+        notes: expect.arrayContaining([
+          expect.objectContaining({ id: candidateId, x: 80, y: 90 }),
+          expect.objectContaining({
+            id: excludedId,
+            x: 80,
+            y: 90,
+            excluded: true,
+          }),
+        ]),
+      });
+      reconnect.close();
       for (const action of [
         { type: "note:restore", noteId: excludedId },
         { type: "note:exclude", noteId: candidateId },
-        { type: "note:move", noteId: candidateId, x: 1, y: 1 },
         transition("phase:revote", current),
       ]) {
         send(room.a, action);
@@ -297,6 +325,7 @@ for (const phase of [1, 2, 3] as const) {
         step: RESULT_STEP_BY_PHASE[phase],
       };
       const room = await setup(current);
+      await startTimerForTest(room.roomId);
       await runInRoomDO(room.roomId, (_room, state) => {
         state.storage.sql.exec(
           "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES(?,?,?,'subjective',0.2,0.3,'2026-09-22')",
@@ -501,6 +530,7 @@ it.each([
     step: RESULT_STEP_BY_PHASE[phase],
   };
   const room = await setup(result);
+  await startTimerForTest(room.roomId);
   send(room.a, { type: "note:decide", noteId: candidateId });
   expect(await until(room.a, "decision:updated")).toMatchObject({
     type: "decision:updated",
@@ -580,6 +610,7 @@ it.each([
     step: VOTING_STEP_BY_PHASE[phase],
   };
   const room = await setup(result);
+  await startTimerForTest(room.roomId);
   const secondHost = await connectRoomAs(host, room.roomId);
   await secondHost.next();
   for (let round = 0; round < 2; round++) {
@@ -594,6 +625,8 @@ it.each([
     expect(await until(secondHost, "phase:updated")).toMatchObject({
       type: "phase:updated",
     });
+    // phase:revote はタイマーをリセットするため、投票の振る舞いを検証する前に再開する。
+    await startTimerForTest(room.roomId);
     for (const socket of [room.a, room.b]) {
       for (const kind of [
         "subjective",

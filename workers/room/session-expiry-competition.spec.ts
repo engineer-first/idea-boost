@@ -7,6 +7,7 @@ import {
   createRoomAs,
   joinRoomAs,
   runInRoomDO,
+  startTimerForTest,
 } from "../test-helpers";
 
 import { getSharingState, saveSharingState } from "./sharing-state";
@@ -122,6 +123,7 @@ it.each([
     buildPhaseStep(2),
     owner.sub,
   );
+  await startTimerForTest(roomId);
   const old = await connectRoomAs(owner, roomId);
   await old.next();
   const fresh = await connectRoomAs(owner, roomId);

@@ -27,6 +27,7 @@ export type PhaseLoopControlsProps = {
   decisionContent: string | null;
   candidateCount: number;
   disabled: boolean;
+  selectionDisabled?: boolean;
   onRestartWriting: () => void;
   onRevote: () => void;
   onStartSelection: () => void;
@@ -41,6 +42,7 @@ export function PhaseLoopControls({
   decisionContent,
   candidateCount,
   disabled,
+  selectionDisabled = false,
   onRestartWriting,
   onRevote,
   onStartSelection,
@@ -59,7 +61,7 @@ export function PhaseLoopControls({
         isHost={isHost}
         isSelecting={false}
         decisionContent={decisionContent}
-        disabled={disabled}
+        disabled={disabled || selectionDisabled}
         onStartSelection={onStartSelection}
         onCancelSelection={onCancelSelection}
         onClearDecision={isResult ? onClearDecision : undefined}
@@ -136,7 +138,7 @@ export function PhaseLoopControls({
             isHost
             isSelecting={isSelecting}
             decisionContent={null}
-            disabled={disabled || candidateCount === 0}
+            disabled={disabled || selectionDisabled || candidateCount === 0}
             onStartSelection={onStartSelection}
             onCancelSelection={onCancelSelection}
           />

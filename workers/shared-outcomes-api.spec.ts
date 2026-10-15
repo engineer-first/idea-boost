@@ -11,7 +11,14 @@ it("一覧の各ルームは並行取得し、各ルーム内は初期化の後�
     name: "Owner",
     email: "owner@test.invalid",
   };
-  const rooms = await Promise.all([createRoomAs(owner), createRoomAs(owner)]);
+  const rooms = await Promise.all([
+    createRoomAs(owner),
+    createRoomAs({
+      ...owner,
+      sub: crypto.randomUUID(),
+      email: "second@test.invalid",
+    }),
+  ]);
   let release!: () => void;
   const barrier = new Promise<void>((resolve) => {
     release = resolve;

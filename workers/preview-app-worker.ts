@@ -3,5 +3,5 @@
 import nextHandler from "../.open-next/worker.js";
 import { createFullStackPreview } from "./preview-full-stack";
 
-export { PreviewRoomDO } from "./preview-worker";
+export { PreviewAccountDO, PreviewRoomDO } from "./preview-worker";
 export default createFullStackPreview(nextHandler);

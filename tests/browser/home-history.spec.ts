@@ -587,7 +587,7 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
     }
   });
 
-  it("成功後の新規作成と以前のルームへの移動は、自動確認の応答で取り消されない", async () => {
+  it("成功後の新規作成と現在ルームへの再訪は、自動確認の応答で取り消されない", async () => {
     const browser = await chromium.launch();
     try {
       const page = await browser.newPage({
@@ -619,21 +619,35 @@ describe("実Next/Workerでのホーム・完了一覧・成果の移動", () =>
       await page
         .getByRole("button", { name: "新しいルームを作成", exact: true })
         .click();
+      await page
+        .getByRole("heading", { name: "ルームを解散して移動しますか？" })
+        .waitFor();
+      await page
+        .getByRole("button", { name: "解散して作成する", exact: true })
+        .click();
       await page.waitForURL(/\/rooms\/[^/]+\/start/);
-      expect(new URL(page.url()).pathname).not.toBe(first.pathname);
+      const second = new URL(page.url());
+      expect(second.pathname).not.toBe(first.pathname);
       await page.goto(`${app}/home`);
       await page
         .getByRole("button", { name: "前のルームに戻る", exact: true })
         .waitFor();
-      await page.getByText("以前のルーム", { exact: true }).click();
       await page
-        .getByRole("button", { name: /以前のルームを開く/ })
-        .first()
+        .getByRole("button", { name: "前のルームに戻る", exact: true })
         .click();
       await page.waitForURL(
-        (url) => url.origin === first.origin && url.pathname === first.pathname,
+        (url) =>
+          url.origin === second.origin && url.pathname === second.pathname,
         { timeout: 5000 },
       );
+      await page.getByText("メンバーを集めて開始", { exact: true }).waitFor();
+      expect(new URL(page.url()).pathname).toBe(second.pathname);
+      // 前の単独ホストルームは同意して解散済み。保存URLで権限を復活させない。
+      await page.goto(first.origin + first.pathname);
+      await page.getByRole("heading", { name: "404", exact: true }).waitFor();
+      expect(
+        await page.getByText("メンバーを集めて開始", { exact: true }).count(),
+      ).toBe(0);
     } finally {
       await browser.close();
     }

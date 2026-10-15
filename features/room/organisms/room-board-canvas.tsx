@@ -62,7 +62,6 @@ const ADOPTION_TARGET_CLASS_NAME =
 
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;
-  authorName?: (authorId: string) => string | undefined;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
   groups: PersistentGroup[];
@@ -82,6 +81,7 @@ export type RoomBoardCanvasProps = {
   draggingNoteId: string | null;
   localDraggingNoteId?: string | null;
   isDisconnected: boolean;
+  boardInteractionBlocked: boolean;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
   ideaMapIsDragging?: boolean;
@@ -188,6 +188,7 @@ export function RoomBoardCanvas({
   draggingNoteId,
   localDraggingNoteId = null,
   isDisconnected,
+  boardInteractionBlocked,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = false,
   ideaMapIsDragging = false,
@@ -246,7 +247,6 @@ export function RoomBoardCanvas({
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
   remoteCursors,
-  authorName,
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
   privateNoteAddRef,
@@ -397,7 +397,6 @@ export function RoomBoardCanvas({
       <NoteCard
         key={`${note.id}:${rollbackRevision}`}
         note={note}
-        authorName={authorName?.(note.authorId)}
         maxDisplayHeight={
           isIdeaValueFeasibilityMapVisible
             ? mapNoteGeometry.noteHeightLimit
@@ -411,19 +410,22 @@ export function RoomBoardCanvas({
         interactionTool={interactionTool}
         editingDisabled={isResultStep(phase)}
         canDeleteNote={
+          !boardInteractionBlocked &&
           permissions.canDeleteNote &&
           phase.kind === "step" &&
           phase.step !== 1 &&
           !note.excluded
         }
         canEditNote={
+          !boardInteractionBlocked &&
           permissions.canEditNote &&
           phase.kind === "step" &&
           phase.step !== 1 &&
           !note.excluded
         }
-        canMoveNote={permissions.canMoveNote}
+        canMoveNote={!boardInteractionBlocked && permissions.canMoveNote}
         canExcludeNote={
+          !boardInteractionBlocked &&
           isHost &&
           !isAdoptMode &&
           !isMultiSelected &&
@@ -432,6 +434,7 @@ export function RoomBoardCanvas({
           !note.excluded
         }
         canRestoreNote={
+          !boardInteractionBlocked &&
           isHost &&
           !isAdoptMode &&
           !isMultiSelected &&
@@ -461,7 +464,8 @@ export function RoomBoardCanvas({
           displayMode: voteDisplayMode,
           selectedKind: selectedVoteKind,
           voteRemaining,
-          canVote: permissions.canVote && !note.excluded,
+          canVote:
+            !boardInteractionBlocked && permissions.canVote && !note.excluded,
           pendingOperations: pendingVoteOperations,
           // 通常のポインター投票は RoomBoardView がパレットからのドロップ座標を
           // 受けて送る。ここはキーボード互換の既存コールバックだけを残す。
@@ -490,6 +494,7 @@ export function RoomBoardCanvas({
         )
       : { left: note.x, top: note.y };
     const isAdoptTarget =
+      !boardInteractionBlocked &&
       isAdoptMode &&
       interactionTool === "select" &&
       isHost &&
@@ -781,7 +786,9 @@ export function RoomBoardCanvas({
                     key={rg.id}
                     group={rg}
                     name={rg.name}
-                    canGroupNote={permissions.canGroupNote}
+                    canGroupNote={
+                      !boardInteractionBlocked && permissions.canGroupNote
+                    }
                     onUpdateName={handleUpdateName}
                   />
                 );
@@ -901,16 +908,21 @@ export function RoomBoardCanvas({
           >
             <PrivateNotesToolbar
               rollbackRevision={rollbackRevision}
-              authorName={authorName}
               notes={privateNotes}
               disabled={isDisconnected}
-              canDeleteNote={permissions.canDeleteNote}
-              canCreateNote={permissions.canCreateNote && noteCreationSupported}
+              canDeleteNote={
+                !boardInteractionBlocked && permissions.canDeleteNote
+              }
+              canCreateNote={
+                !boardInteractionBlocked &&
+                permissions.canCreateNote &&
+                noteCreationSupported
+              }
               noteCreationPending={noteCreationPending}
               noteCreationReceipt={noteCreationReceipt}
               noteCreationFocusContext={noteCreationFocusContext}
-              canEditNote={permissions.canEditNote}
-              canMoveNote={permissions.canMoveNote}
+              canEditNote={!boardInteractionBlocked && permissions.canEditNote}
+              canMoveNote={!boardInteractionBlocked && permissions.canMoveNote}
               sharingHint={
                 isSavingBeforeShare
                   ? "本文の保存を確認してから共有します…"

@@ -133,13 +133,13 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
   it("他人の非公開付箋は新ホストにも配信せず、進行中タイマーも変更しない", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    send(a, { type: "timer:start", durationMs: 60_000 });
+    await receive(a, "timer:updated");
+    await receive(b, "timer:updated");
     send(a, { type: "note:create", content: "作成者だけの下書き" });
     const privateA = await receive(a, "note:inserted");
     send(b, { type: "note:create", content: "参加者だけの下書き" });
     const privateB = await receive(b, "note:inserted");
-    send(a, { type: "timer:start", durationMs: 60_000 });
-    await receive(a, "timer:updated");
-    await receive(b, "timer:updated");
     const before = await readProgress(roomId);
     await transfer(a, b, B.sub, 0);
     expect(await readProgress(roomId)).toEqual(before);
@@ -405,6 +405,9 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     send(a, { type: "start_phase" });
     await receive(a, "phase:updated");
     await receive(b, "phase:updated");
+    send(a, { type: "timer:start", durationMs: 60_000 });
+    await receive(a, "timer:updated");
+    await receive(b, "timer:updated");
     const noteIds: string[] = [];
     for (const content of ["共有の候補", "関連する候補"]) {
       send(a, { type: "note:create", content });

@@ -1,6 +1,10 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import type {
+  ParticipationConfirmation,
+  ParticipationResult,
+} from "@/contracts/room-participation";
 import { consumeRoomResume } from "@/features/auth";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import {
@@ -10,17 +14,25 @@ import {
   returnToRoom,
 } from "../logic/actions";
 import { entryDestination } from "../logic/entry-destination";
+import { participationSwitchProps } from "../logic/participation-switch-props";
 import {
   readRoomCreationIntent,
   saveRoomCreationResult,
 } from "../logic/room-creation-storage";
 import { getRoomEntryTabId } from "../logic/room-entry-tab";
+import { ParticipationSwitch } from "./participation-switch";
 export function RoomOperationResume({
   initialError,
 }: {
   initialError?: string;
 } = {}) {
   const router = useRouter();
+  const [switching, setSwitching] = useState<{
+    principal: string;
+    confirmation:
+      | ParticipationConfirmation
+      | Extract<ParticipationResult, { kind: "pending" | "rejected" }>;
+  }>();
   const started = useRef(false);
   const [message, setMessage] = useState(
     initialError === "account_changed"
@@ -59,6 +71,21 @@ export function RoomOperationResume({
         else {
           const result = await createRoom(operation.input);
           if (!result.ok) {
+            if (result.failedOperation) {
+              setSwitching({ principal, confirmation: result.failedOperation });
+              return;
+            }
+            if (result.pendingOperation) {
+              setSwitching({
+                principal,
+                confirmation: result.pendingOperation,
+              });
+              return;
+            }
+            if (result.confirmation) {
+              setSwitching({ principal, confirmation: result.confirmation });
+              return;
+            }
             setMessage(result.error);
             return;
           }
@@ -88,6 +115,18 @@ export function RoomOperationResume({
         form.set("code", operation.inviteCode);
         const result = await joinRoom(form, principal);
         if (!result.ok) {
+          if (result.failedOperation) {
+            setSwitching({ principal, confirmation: result.failedOperation });
+            return;
+          }
+          if (result.pendingOperation) {
+            setSwitching({ principal, confirmation: result.pendingOperation });
+            return;
+          }
+          if (result.confirmation) {
+            setSwitching({ principal, confirmation: result.confirmation });
+            return;
+          }
           setMessage(result.error);
           return;
         }
@@ -113,6 +152,13 @@ export function RoomOperationResume({
       ),
     );
   }, [router, initialError]);
+  if (switching)
+    return (
+      <ParticipationSwitch
+        currentUserId={switching.principal}
+        {...participationSwitchProps(switching.confirmation)}
+      />
+    );
   return (
     <section className="mx-auto w-full max-w-md space-y-4 p-6">
       <p role="status" className="leading-relaxed">

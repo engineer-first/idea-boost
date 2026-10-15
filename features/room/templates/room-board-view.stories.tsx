@@ -110,7 +110,11 @@ const meta = {
     inviteCode: "AB12CD",
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: STEP_1_1,
-    timer: { status: "idle" },
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 60_000,
+      durationMs: 60_000,
+    },
     timerServerOffsetMs: 0,
     isHost: true,
     hostRevision: 0,
@@ -807,7 +811,11 @@ export const IdeaMapInteraction: Story = {
 };
 
 export const CanvasPanInteraction: Story = {
-  args: { phase: STEP_1_2, notes: CANVAS_HUD_NOTES },
+  args: {
+    phase: STEP_1_2,
+    notes: CANVAS_HUD_NOTES,
+    timer: { status: "idle" },
+  },
   render: function Render(args) {
     const boardScrollerRef = useRef<HTMLDivElement>(null);
     const camera = useCanvasCamera({
@@ -1279,4 +1287,41 @@ export const MoveHistoryMap: Story = {
 
 export const ConnectedEmpty: Story = {
   args: { notes: [], connectionStatus: "open" },
+};
+
+// 採用済み・未採用・候補外を同じ画面で実際にドラッグできる。
+export const DecidedMoveInteraction: Story = {
+  render: CanvasInputInteraction.render,
+  args: {
+    ...Decided.args,
+    initialGuideState: "compact",
+    notes: Decided.args?.notes?.map((note, index) => ({
+      ...note,
+      excluded: index === 2,
+    })),
+  },
+};
+
+export const HmwDecidedMoveInteraction: Story = {
+  ...DecidedMoveInteraction,
+  args: {
+    ...DecidedMoveInteraction.args,
+    phase: buildPhaseStep(4, 2),
+    decision: buildDecision({ phase: 2, noteId: "note-1", decidedBy: ME }),
+    hmwDecidedIssue: GUIDE_ISSUE,
+  },
+};
+
+export const IdeaDecidedMoveInteraction: Story = {
+  ...DecidedMoveInteraction,
+  args: {
+    ...FinalDecisionPending.args,
+    initialGuideState: "compact",
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 20 + index * 30,
+      y: 25 + index * 20,
+      excluded: index === 2,
+    })),
+  },
 };
