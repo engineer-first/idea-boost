@@ -89,6 +89,10 @@ export type RoomBoardInteractions = {
   isNoteDragging: boolean;
   localDraggingNoteId?: string | null;
   camera: CanvasCamera;
+  displayZoom?: number;
+  onZoomChange?: (zoom: number) => void;
+  onFitToSelection?: () => void;
+  onSelectionChange?: (ids: readonly string[]) => void;
   gridStyle: CSSProperties;
   isPanning: boolean;
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -156,6 +160,10 @@ export function useRoomBoardInteractions({
 
   const {
     camera,
+    displayZoom,
+    setDisplayZoom,
+    fitToSelection,
+    setSelectedNoteIds,
     preserveCamera,
     gridStyle,
     isPanning,
@@ -181,6 +189,7 @@ export function useRoomBoardInteractions({
     ),
     getFitInsets,
     notes,
+    selectedNoteIds,
     fitViewport:
       phase.kind === "step" &&
       phase.phase === 3 &&
@@ -456,6 +465,10 @@ export function useRoomBoardInteractions({
     isNoteDragging: drag !== null,
     localDraggingNoteId: drag?.note.id ?? null,
     camera,
+    displayZoom,
+    onZoomChange: setDisplayZoom,
+    onFitToSelection: !isIdeaMapCursorSurface ? fitToSelection : undefined,
+    onSelectionChange: setSelectedNoteIds,
     gridStyle,
     isPanning,
     onCanvasPointerDown,

@@ -9,6 +9,26 @@ async function login(page: Page, email: string): Promise<void> {
   await page.getByRole("button", { name: "開発用ユーザーでログイン" }).click();
   await page.waitForURL(`${app}/dev/verify`);
 }
+async function startWork(actor: Page, peer: Page): Promise<void> {
+  const startSharing = actor.getByRole("button", {
+    name: "最初の人を開始",
+    exact: true,
+  });
+  if (await startSharing.count()) await startSharing.click();
+  else {
+    await actor.getByTestId("room-timer").click();
+    await actor.getByRole("button", { name: "開始", exact: true }).click();
+    await actor.keyboard.press("Escape");
+  }
+  // 発表開始のカウントダウンを含め、通常の操作可能な状態を待つ。
+  for (const page of [actor, peer])
+    await expect
+      .poll(() => page.getByTestId("room-timer").getAttribute("data-status"), {
+        timeout: 10000,
+      })
+      .toBe("running");
+}
+
 async function startDrag(page: Page, card: Locator): Promise<void> {
   const rect = await card.boundingBox();
   if (!rect) throw new Error("付箋の表示位置がありません。");
@@ -77,8 +97,12 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
       for (const page of [actor, peer]) {
         await page.goto(`${app}/rooms/${room.roomId}`);
         await page.getByTestId("board-canvas").waitFor();
-        await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
+        await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
+        await page
+          .getByRole("button", { name: "100%に戻す", exact: true })
+          .click();
       }
+      await startWork(actor, peer);
       await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
       const toolbar = actor.getByTestId("private-notes-toolbar");
       const privateCard = toolbar.getByTestId("note-card").first();
@@ -111,7 +135,11 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
       // HUDへのdropはパネル外でも無効。
       await startDrag(actor, privateCard);
       await actor.mouse.move(820, 360, { steps: 8 });
-      await actor.mouse.move(80, 85, { steps: 8 });
+      const hud = await actor.getByTestId("board-context-hud").boundingBox();
+      if (!hud) throw new Error("HUDが見つかりません。");
+      await actor.mouse.move(hud.x + hud.width / 2, hud.y + hud.height / 2, {
+        steps: 8,
+      });
       await actor.mouse.up();
       expect(publishCount()).toBe(0);
       expect(await peerCard.count()).toBe(0);

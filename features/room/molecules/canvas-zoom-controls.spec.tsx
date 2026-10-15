@@ -153,7 +153,8 @@ describe("CanvasZoomControls", () => {
 
     expect(screen.getByText("125%")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを縮小" }));
-    fireEvent.click(screen.getByRole("button", { name: "ズームを100%に戻す" }));
+    fireEvent.click(screen.getByRole("button", { name: "ズーム倍率を変更" }));
+    fireEvent.click(screen.getByRole("button", { name: "100%に戻す" }));
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     fireEvent.click(screen.getByRole("button", { name: "付箋全体を表示" }));
 
@@ -161,6 +162,35 @@ describe("CanvasZoomControls", () => {
     expect(handlers.onResetZoom).toHaveBeenCalledTimes(1);
     expect(handlers.onZoomIn).toHaveBeenCalledTimes(1);
     expect(handlers.onFitToNotes).toHaveBeenCalledTimes(1);
+  });
+
+  it("倍率を入力して適用し、不正値は適用せず選択全体へ移動できる", () => {
+    const onZoomChange = vi.fn();
+    const onFitToSelection = vi.fn();
+    render(
+      <CanvasZoomControls
+        zoom={1}
+        onZoomChange={onZoomChange}
+        onZoomIn={vi.fn()}
+        onZoomOut={vi.fn()}
+        onResetZoom={vi.fn()}
+        onFitToNotes={vi.fn()}
+        onFitToSelection={onFitToSelection}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "ズーム倍率を変更" }));
+    const input = screen.getByRole("textbox", { name: "ズーム倍率（%）" });
+    fireEvent.change(input, { target: { value: "175%" } });
+    fireEvent.submit(input.closest("form") as HTMLFormElement);
+    expect(onZoomChange).toHaveBeenLastCalledWith(1.75);
+    fireEvent.click(screen.getByRole("button", { name: "ズーム倍率を変更" }));
+    const reopened = screen.getByRole("textbox", { name: "ズーム倍率（%）" });
+    fireEvent.change(reopened, { target: { value: "NaN" } });
+    fireEvent.submit(reopened.closest("form") as HTMLFormElement);
+    expect(onZoomChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /選択した付箋を表示/ }));
+    expect(onFitToSelection).toHaveBeenCalledOnce();
   });
 });
 

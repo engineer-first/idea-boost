@@ -22,6 +22,7 @@ import {
   type CanvasFitInsets,
   type CanvasPoint,
   clampCanvasZoom,
+  DEFAULT_CANVAS_ZOOM,
   fitCanvasCamera,
   getCanvasGridStep,
   getDefaultCanvasCamera,
@@ -44,6 +45,7 @@ type ScheduledFrame =
 type UseCanvasCameraArgs = {
   viewportRef: RefObject<HTMLDivElement | null>;
   notes: Note[];
+  selectedNoteIds?: readonly string[];
   isViewportEnabled?: boolean;
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
   fitViewport?: boolean;
@@ -168,12 +170,14 @@ function fitIdeaMapCamera(
 export function useCanvasCamera({
   viewportRef,
   notes,
+  selectedNoteIds,
   isViewportEnabled = true,
   fitViewport = false,
   getFitInsets,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = true,
 }: UseCanvasCameraArgs) {
+  const baseZoom = fitViewport ? 1 : DEFAULT_CANVAS_ZOOM;
   const [camera, setCamera] = useState<CanvasCamera>({
     x: 0,
     y: 0,
@@ -182,6 +186,11 @@ export function useCanvasCamera({
   const [isPanning, setIsPanning] = useState(false);
   const cameraRef = useRef(camera);
   const notesRef = useRef(notes);
+  const selectedNoteIdsRef = useRef<readonly string[]>(selectedNoteIds ?? []);
+  if (selectedNoteIds) selectedNoteIdsRef.current = selectedNoteIds;
+  const setSelectedNoteIds = useCallback((ids: readonly string[]): void => {
+    selectedNoteIdsRef.current = ids;
+  }, []);
   const getFitInsetsRef = useRef(getFitInsets);
   getFitInsetsRef.current = getFitInsets;
   const panRef = useRef<CanvasPan | null>(null);
@@ -267,20 +276,58 @@ export function useCanvasCamera({
             safeInsets,
           )
         : bounds
-          ? fitCanvasCamera(bounds, size, undefined, safeInsets)
+          ? fitCanvasCamera(
+              bounds,
+              size,
+              undefined,
+              safeInsets,
+              baseZoom,
+              baseZoom,
+            )
           : getDefaultCanvasCamera(size);
       if (!next) return false;
       hasFitRef.current = true;
       setCameraImmediately(next);
       return true;
     },
-    [fitViewport, setCameraImmediately, viewportRef],
+    [baseZoom, fitViewport, setCameraImmediately, viewportRef],
   );
+
+  const fitToSelection = useCallback((): boolean => {
+    const element = viewportRef.current;
+    if (!element || fitViewport || gestureBlockedRef.current || panRef.current)
+      return false;
+    const size = viewportSize(element);
+    const bounds = notesBounds(
+      notesRef.current.filter((note) =>
+        selectedNoteIdsRef.current.includes(note.id),
+      ),
+    );
+    if (!size || !bounds) return false;
+    const next = fitCanvasCamera(
+      bounds,
+      size,
+      undefined,
+      getFitInsetsRef.current?.(element),
+      baseZoom * 2,
+      baseZoom,
+    );
+    if (!next) return false;
+    hasFitRef.current = true;
+    setCameraImmediately(next);
+    return true;
+  }, [baseZoom, fitViewport, setCameraImmediately, viewportRef]);
 
   const zoomTo = useCallback(
     (requestedZoom: number, point?: CanvasPoint) => {
       const element = viewportRef.current;
-      if (!element || gestureBlockedRef.current || panRef.current) return;
+      if (
+        !element ||
+        !Number.isFinite(requestedZoom) ||
+        gestureBlockedRef.current ||
+        panRef.current
+      )
+        return;
       const size = viewportSize(element);
       const insets = getFitInsetsRef.current?.(element);
       const anchor = point ?? {
@@ -291,10 +338,10 @@ export function useCanvasCamera({
           2,
       };
       scheduleCamera(
-        zoomAtScreenPoint(cameraRef.current, requestedZoom, anchor),
+        zoomAtScreenPoint(cameraRef.current, requestedZoom, anchor, baseZoom),
       );
     },
-    [scheduleCamera, viewportRef],
+    [baseZoom, scheduleCamera, viewportRef],
   );
 
   const endPan = useCallback(() => {
@@ -485,6 +532,45 @@ export function useCanvasCamera({
       if (event.defaultPrevented && !(event.code === "Space" && isCanvasTarget))
         return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const isHudTarget =
+        target instanceof HTMLElement &&
+        target.closest("[data-testid='canvas-zoom-controls']") &&
+        (
+          viewport?.closest("[data-testid='board-frame']") ??
+          viewport?.parentElement
+        )?.contains(target) &&
+        !target.closest("[data-canvas-help]");
+      // 文字キーで編集できる付箋表面では、本文入力の操作を優先する。
+      const isZoomTarget =
+        isViewportEnabled &&
+        (isHudTarget ||
+          (isCanvasTarget &&
+            target instanceof HTMLElement &&
+            target.dataset.canvasNoteSurface !== "true"));
+      if (isZoomTarget && !panRef.current) {
+        const fit =
+          event.shiftKey && (event.code === "Digit1" || event.key === "1");
+        const selection =
+          event.shiftKey && (event.code === "Digit2" || event.key === "2");
+        const reset =
+          event.shiftKey && (event.code === "Digit0" || event.key === "0");
+        if (fit || selection || reset || ["+", "=", "-"].includes(event.key)) {
+          if (
+            selection &&
+            (fitViewport || selectedNoteIdsRef.current.length === 0)
+          )
+            return;
+          event.preventDefault();
+          if (fit) fitToNotes();
+          else if (selection) fitToSelection();
+          else if (reset) zoomTo(baseZoom);
+          else
+            zoomTo(
+              cameraRef.current.zoom * (event.key === "-" ? 1 / 1.25 : 1.25),
+            );
+          return;
+        }
+      }
       if (event.code === "Space" && isCanvasTarget) {
         event.preventDefault();
         spacePressedRef.current = true;
@@ -552,7 +638,17 @@ export function useCanvasCamera({
         }
       }
     };
-  }, [endPan, scheduleCamera, viewportRef]);
+  }, [
+    baseZoom,
+    endPan,
+    fitToNotes,
+    fitToSelection,
+    fitViewport,
+    isViewportEnabled,
+    scheduleCamera,
+    viewportRef,
+    zoomTo,
+  ]);
 
   useEffect(() => {
     if (!isViewportEnabled || fitViewport) return;
@@ -568,6 +664,8 @@ export function useCanvasCamera({
           size,
           undefined,
           getFitInsetsRef.current?.(element),
+          baseZoom,
+          baseZoom,
         );
         if (next) {
           setCameraImmediately(next);
@@ -579,6 +677,7 @@ export function useCanvasCamera({
       hasDefaultedRef.current = true;
     }
   }, [
+    baseZoom,
     fitViewport,
     isViewportEnabled,
     notes,
@@ -602,6 +701,7 @@ export function useCanvasCamera({
 
   return {
     camera,
+    displayZoom: camera.zoom / baseZoom,
     cameraRef,
     preserveCamera: () => {
       hasFitRef.current = true;
@@ -610,10 +710,15 @@ export function useCanvasCamera({
     gridStyle,
     worldPointFromClient,
     fitToNotes,
+    fitToSelection,
+    setSelectedNoteIds,
+    setDisplayZoom: (zoom: number) => zoomTo(zoom * baseZoom),
     zoomTo,
-    zoomIn: () => zoomTo(clampCanvasZoom(cameraRef.current.zoom * 1.25)),
-    zoomOut: () => zoomTo(clampCanvasZoom(cameraRef.current.zoom / 1.25)),
-    resetZoom: () => zoomTo(1),
+    zoomIn: () =>
+      zoomTo(clampCanvasZoom(cameraRef.current.zoom * 1.25, baseZoom)),
+    zoomOut: () =>
+      zoomTo(clampCanvasZoom(cameraRef.current.zoom / 1.25, baseZoom)),
+    resetZoom: () => zoomTo(baseZoom),
     handlePointerDown,
     handlePointerMove,
     handlePointerEnd,

@@ -1,8 +1,21 @@
 "use client";
 
-import { Hand, Maximize2, Minus, MousePointer2, Plus } from "lucide-react";
-import { useEffect, useRef } from "react";
+import {
+  ChevronDown,
+  Hand,
+  Maximize2,
+  Minus,
+  MousePointer2,
+  Plus,
+} from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -25,6 +38,8 @@ export type CanvasZoomControlsProps = {
   onResetZoom: () => void;
   onZoomIn: () => void;
   onFitToNotes: () => void;
+  onZoomChange?: (zoom: number) => void;
+  onFitToSelection?: () => void;
 };
 
 export function CanvasZoomControls({
@@ -37,7 +52,23 @@ export function CanvasZoomControls({
   onResetZoom,
   onZoomIn,
   onFitToNotes,
+  onZoomChange,
+  onFitToSelection,
 }: CanvasZoomControlsProps) {
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const [zoomInput, setZoomInput] = useState("");
+  const [zoomError, setZoomError] = useState(false);
+  const zoomTriggerRef = useRef<HTMLButtonElement>(null);
+  const zoomOpenRef = useRef(zoomOpen);
+  zoomOpenRef.current = zoomOpen;
+  const restoreZoomFocusRef = useRef(false);
+  const zoomInputId = useId();
+  const zoomErrorId = useId();
+  function applyZoom(action: () => void): void {
+    action();
+    restoreZoomFocusRef.current = true;
+    setZoomOpen(false);
+  }
   const helpRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const help = helpRef.current;
@@ -123,7 +154,7 @@ export function CanvasZoomControls({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                disabled={toolDisabled}
+                disabled={toolDisabled || zoom <= 0.01}
                 aria-label="キャンバスを縮小"
                 onClick={onZoomOut}
               >
@@ -134,31 +165,178 @@ export function CanvasZoomControls({
               キャンバスを縮小（自分だけの表示）
             </TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="min-w-14 tabular-nums"
-                disabled={toolDisabled}
-                aria-label="ズームを100%に戻す"
-                onClick={onResetZoom}
+          <Popover
+            open={zoomOpen && !toolDisabled}
+            onOpenChange={(open) => {
+              setZoomOpen(open);
+              if (open) {
+                restoreZoomFocusRef.current = false;
+                setZoomInput(String(Math.round(zoom * 100)));
+                setZoomError(false);
+              }
+            }}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    ref={zoomTriggerRef}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="min-w-16 gap-1 px-2 tabular-nums"
+                    disabled={toolDisabled}
+                    aria-label="ズーム倍率を変更"
+                  >
+                    {Math.round(zoom * 100)}%
+                    <ChevronDown aria-hidden="true" className="size-3" />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                ズーム倍率を変更（自分だけの表示）
+              </TooltipContent>
+            </Tooltip>
+            <PopoverContent
+              side="top"
+              align="start"
+              aria-label="キャンバスのズーム"
+              data-board-native-control="true"
+              onEscapeKeyDown={() => {
+                restoreZoomFocusRef.current = true;
+              }}
+              onInteractOutside={() => {
+                restoreZoomFocusRef.current = false;
+              }}
+              onCloseAutoFocus={(event) => {
+                // 閉じるアニメーション中に再度開いても、古いfocus scopeに
+                // フォーカスを奪われない。外側クリックのfocusは通常どおり。
+                if (zoomOpenRef.current) event.preventDefault();
+                else if (restoreZoomFocusRef.current) {
+                  event.preventDefault();
+                  zoomTriggerRef.current?.focus();
+                }
+              }}
+              className="w-64 max-w-[calc(100vw-1.5rem)] space-y-3"
+            >
+              <form
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const value = zoomInput
+                    .trim()
+                    .replace(/[%％]$/, "")
+                    .trim();
+                  const percentage = /^\d+(?:\.\d+)?$/.test(value)
+                    ? Number(value)
+                    : Number.NaN;
+                  if (
+                    !Number.isFinite(percentage) ||
+                    percentage < 1 ||
+                    percentage > 400
+                  ) {
+                    setZoomError(true);
+                    return;
+                  }
+                  if (onZoomChange)
+                    applyZoom(() => onZoomChange(percentage / 100));
+                }}
               >
-                {Math.round(zoom * 100)}%
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              ズームを100%に戻す（自分だけの表示）
-            </TooltipContent>
-          </Tooltip>
+                <label
+                  htmlFor={zoomInputId}
+                  className="mb-2 block text-sm font-medium"
+                >
+                  ズーム倍率（%）
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id={zoomInputId}
+                    inputMode="decimal"
+                    value={zoomInput}
+                    disabled={!onZoomChange}
+                    aria-invalid={zoomError}
+                    aria-describedby={zoomError ? zoomErrorId : undefined}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) => {
+                      setZoomInput(event.target.value);
+                      setZoomError(false);
+                    }}
+                  />
+                  <Button type="submit" size="sm" disabled={!onZoomChange}>
+                    適用
+                  </Button>
+                </div>
+                {zoomError ? (
+                  <p
+                    id={zoomErrorId}
+                    role="alert"
+                    className="mt-2 text-sm text-destructive"
+                  >
+                    1〜400の数値を入力してください。
+                  </p>
+                ) : null}
+              </form>
+              <div className="flex gap-2">
+                {[50, 100, 200].map((percent) => (
+                  <Button
+                    key={percent}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 tabular-nums"
+                    aria-label={
+                      percent === 100 ? "100%に戻す" : `${percent}%で表示`
+                    }
+                    disabled={percent !== 100 && !onZoomChange}
+                    onClick={() =>
+                      applyZoom(() =>
+                        percent === 100
+                          ? onResetZoom()
+                          : onZoomChange?.(percent / 100),
+                      )
+                    }
+                  >
+                    {percent}%
+                  </Button>
+                ))}
+              </div>
+              <div className="border-t border-border pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-between"
+                  onClick={() => applyZoom(onFitToNotes)}
+                >
+                  付箋全体を表示{" "}
+                  <kbd className="text-xs text-muted-foreground">Shift+1</kbd>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-between"
+                  disabled={!onFitToSelection}
+                  onClick={() => {
+                    if (onFitToSelection) applyZoom(onFitToSelection);
+                  }}
+                >
+                  選択した付箋を表示{" "}
+                  <kbd className="text-xs text-muted-foreground">Shift+2</kbd>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                自分だけの表示です
+              </p>
+            </PopoverContent>
+          </Popover>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                disabled={toolDisabled}
+                disabled={toolDisabled || zoom >= 4}
                 aria-label="キャンバスを拡大"
                 onClick={onZoomIn}
               >
@@ -264,6 +442,21 @@ export function CanvasZoomControls({
                         Shift
                       </kbd>{" "}
                       ＋ クリックで追加・解除。
+                    </p>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold">拡大・縮小する</dt>
+                  <dd className="mt-1 space-y-1">
+                    <p>
+                      倍率を押すと数値入力と全体・選択表示。＋/−で拡大・縮小。
+                    </p>
+                    <p>
+                      Ctrl /
+                      ⌘＋ホイール、またはピンチ。通常のスクロールは画面移動。
+                    </p>
+                    <p>
+                      背景でShift＋0は100%、Shift＋1は全体、Shift＋2は選択。
                     </p>
                   </dd>
                 </div>

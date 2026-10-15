@@ -12,6 +12,26 @@ async function login(page: Page, email: string): Promise<void> {
   await page.waitForURL(`${app}/dev/verify`);
 }
 
+async function startWork(actor: Page, peer: Page): Promise<void> {
+  const startSharing = actor.getByRole("button", {
+    name: "最初の人を開始",
+    exact: true,
+  });
+  if (await startSharing.count()) await startSharing.click();
+  else {
+    await actor.getByTestId("room-timer").click();
+    await actor.getByRole("button", { name: "開始", exact: true }).click();
+    await actor.keyboard.press("Escape");
+  }
+  // 発表開始のカウントダウンを含め、通常の操作可能な状態を待つ。
+  for (const page of [actor, peer])
+    await expect
+      .poll(() => page.getByTestId("room-timer").getAttribute("data-status"), {
+        timeout: 10000,
+      })
+      .toBe("running");
+}
+
 async function bounds(note: Locator): Promise<Bounds> {
   const box = await note.boundingBox();
   if (!box) throw new Error("移動対象が表示されていません。");
@@ -96,8 +116,12 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
       for (const page of [actor, peer]) {
         await page.goto(`${app}${href}`);
         await page.getByTestId("board-canvas").waitFor();
-        await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
+        await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
+        await page
+          .getByRole("button", { name: "100%に戻す", exact: true })
+          .click();
       }
+      await startWork(actor, peer);
       const note = actor
         .getByTestId("board-canvas")
         .getByTestId("note-card")
@@ -106,6 +130,7 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
       expect(id).toBeTruthy();
       const peerNote = peer.locator(`[data-note-id="${id}"]`);
       await peerNote.waitFor();
+      await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
       await drag(actor, note);
       await expect
         .poll(() => sent.some((message) => message.type === "note:move:start"))
@@ -180,15 +205,21 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
         await page.goto(`${app}${href}`);
         await page.getByTestId("board-canvas").waitFor();
         await page.evaluate(() => document.fonts.ready);
-        await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
+        await page.getByRole("button", { name: "ズーム倍率を変更" }).click();
+        await page
+          .getByRole("button", { name: "100%に戻す", exact: true })
+          .click();
         await expect
           .poll(async () =>
             (
               await page.getByTestId("board-canvas").getAttribute("style")
-            )?.includes("scale(1)"),
+            )?.includes(
+              checkpoint.startsWith("3-") ? "scale(1)" : "scale(0.75)",
+            ),
           )
           .toBe(true);
       }
+      await startWork(actor, peer);
       const notes = actor.locator(
         '[data-testid="board-canvas"] [data-testid="note-card"]',
       );
@@ -260,7 +291,10 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
         .toBeLessThan(0.5);
       await peer.reload();
       await peer.getByTestId("board-canvas").waitFor();
-      await peer.getByRole("button", { name: "ズームを100%に戻す" }).click();
+      await peer.getByRole("button", { name: "ズーム倍率を変更" }).click();
+      await peer
+        .getByRole("button", { name: "100%に戻す", exact: true })
+        .click();
       await expect
         .poll(async () => await position(peerNote))
         .toEqual(savedBefore);
@@ -279,7 +313,10 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
         .toBeLessThan(0.5);
       await peer.reload();
       await peer.getByTestId("board-canvas").waitFor();
-      await peer.getByRole("button", { name: "ズームを100%に戻す" }).click();
+      await peer.getByRole("button", { name: "ズーム倍率を変更" }).click();
+      await peer
+        .getByRole("button", { name: "100%に戻す", exact: true })
+        .click();
       await expect
         .poll(async () => Math.abs((await position(peerNote)).x - second.x))
         .toBeLessThan(0.5);
