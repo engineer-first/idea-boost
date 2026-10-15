@@ -51,9 +51,12 @@ describe("HomeView", () => {
   });
 
   it("error があるとき role=alert で表示する", () => {
-    renderView({ error: "ルームが見つかりませんでした。" });
+    renderView({
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
+    });
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "ルームが見つかりませんでした。",
+      "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     );
   });
 

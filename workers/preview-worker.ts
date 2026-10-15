@@ -1,22 +1,15 @@
 import { defaultDisplayName } from "../contracts/display-name";
-import {
-  PreviewCreateRequestSchema,
-  type PreviewRoom,
-} from "../contracts/preview";
+import { PreviewCreateRequestSchema } from "../contracts/preview";
 import { LoginAssertionSchema, TOKEN_AUDIENCE } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
 import { type ApiWorkerEnv, createApiWorker } from "./api-worker";
-import {
-  deleteRoom,
-  ensureUser,
-  findUserDisplayNameById,
-  insertRoom,
-} from "./lib/db";
+import { ensureUser, findUserDisplayNameById } from "./lib/db";
 import { isPreviewEmailAllowed } from "./lib/preview-policy";
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
 import { PreviewRoomDO } from "./room/preview-room-do";
 
+export { AccountDO as PreviewAccountDO } from "./account/account-do";
 export { PreviewRoomDO };
 export type PreviewWorkerEnv = ApiWorkerEnv & {
   PREVIEW_ENABLED?: string;
@@ -41,34 +34,21 @@ const api = createApiWorker(async (request, baseEnv, session) => {
     email: session.email,
     name: session.name,
   });
-  const room = await insertRoom(baseEnv.DB, session.sub);
-  const namespace =
-    baseEnv.ROOM_DO as unknown as DurableObjectNamespace<PreviewRoomDO>;
-  const stub = namespace.get(namespace.idFromName(room.roomId));
-  try {
-    await stub.initializePreview(parsed.data.checkpoint, room.roomId, {
+  const result = await baseEnv.ACCOUNT_DO.get(
+    baseEnv.ACCOUNT_DO.idFromName(session.sub),
+  ).createPreviewSample(
+    {
       ...session,
       name:
         (await findUserDisplayNameById(baseEnv.DB, session.sub)) ??
         defaultDisplayName(session.sub),
-    });
-    const result: PreviewRoom = {
-      roomId: room.roomId,
-      inviteCode: room.inviteCode,
-      checkpoint: parsed.data.checkpoint,
-    };
-    return Response.json(result, {
-      status: 201,
-      headers: { "Cache-Control": "private, no-store" },
-    });
-  } catch {
-    await deleteRoom(baseEnv.DB, room.roomId);
-    await stub.disband();
-    return Response.json(
-      { error: "準備に失敗しました。新しいルームで再試行してください。" },
-      { status: 503 },
-    );
-  }
+    },
+    parsed.data.checkpoint,
+  );
+  return Response.json(result.ok ? result.room : { error: result.error }, {
+    status: result.ok ? 201 : result.status,
+    headers: { "Cache-Control": "private, no-store" },
+  });
 });
 export default {
   async fetch(request: Request, env: PreviewWorkerEnv): Promise<Response> {

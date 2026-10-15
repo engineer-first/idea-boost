@@ -173,10 +173,20 @@ describe("Google名を初期値にする共通の表示名", () => {
       roomId: string;
       inviteCode: string;
     }>();
-    const second = await (await create()).json<{
+    // 完了済みの別ルームの表示名は活動中ルームの更新・閲覧で書き換えない。
+    const second = await (await create(B)).json<{
       roomId: string;
       inviteCode: string;
     }>();
+    await env.ROOM_DO.get(env.ROOM_DO.idFromName(second.roomId)).upsertMember(
+      A.sub,
+      "たろう",
+    );
+    await runInRoomDO(second.roomId, (_room, state) =>
+      state.storage.sql.exec(
+        "UPDATE room_state SET outcome_published=1 WHERE id=1",
+      ),
+    );
     const a = await connectRoomAs(A, first.roomId);
     sockets.push(a);
     expect(JSON.stringify(await a.next())).toContain("たろう");

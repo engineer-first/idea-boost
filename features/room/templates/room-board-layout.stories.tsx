@@ -106,7 +106,15 @@ export const Phase2Step2: Story = step(2, 2);
 export const Phase2Step3: Story = step(2, 3);
 export const Phase2Step4: Story = step(2, 4);
 export const Phase3Step1: Story = step(3, 1);
-export const Phase3Step2: Story = step(3, 2);
+export const Phase3Step2: Story = {
+  ...step(3, 2),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("complementary", { name: "考えるヒント" }),
+    ).not.toBeInTheDocument();
+  },
+};
 export const Phase3Step3: Story = step(3, 3);
 export const Phase3Step4: Story = step(3, 4);
 export const Phase3Step5: Story = step(3, 5);

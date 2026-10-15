@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CANVAS_COORDINATE_LIMIT } from "../../contracts/board";
+import { RESULT_STEP_BY_PHASE } from "../../contracts/phase";
 import type {
   ClientMessage,
   ServerMessage,
@@ -20,7 +21,7 @@ import {
 } from "./move-operations";
 import { noteHandlers } from "./note-handlers";
 import { findNote, insertNote, toProtocolNote } from "./notes";
-import { savePhase } from "./phase";
+import { getPhase, savePhase } from "./phase";
 import { presenceHandlers } from "./presence";
 import type { RoomDO } from "./room-do";
 import { saveTimerState } from "./timer";
@@ -96,6 +97,7 @@ async function setup(
   });
 }
 function start(ctx: HandlerCtx, operationId = OP, ids = [N1, N2]) {
+  const phase = getPhase(ctx.sql);
   const row = ctx.sql
     .exec(
       "SELECT phase_revision, group_revision, map_revision FROM room_state WHERE id=1",
@@ -107,11 +109,12 @@ function start(ctx: HandlerCtx, operationId = OP, ids = [N1, N2]) {
     expectedPhaseRevision: Number(row.phase_revision),
     expectedGroupRevision: Number(row.group_revision),
     expectedMapRevision: Number(row.map_revision),
-    coordinateSpace: "canvas",
+    coordinateSpace:
+      phase.kind === "step" && phase.phase === 3 ? "map" : "canvas",
     targets: ids.map((noteId) => ({
       noteId,
-      positionRevision: 0,
-      visibilityRevision: 0,
+      positionRevision: findNote(ctx.sql, noteId)?.position_revision ?? 0,
+      visibilityRevision: findNote(ctx.sql, noteId)?.visibility_revision ?? 0,
     })),
   } as ClientMessage & { type: "note:move:start" });
 }
@@ -138,6 +141,75 @@ function peer(ctx: HandlerCtx, userId = B) {
   return messages;
 }
 describe("move transaction", () => {
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%iの採用後も非作者が採用済み・候補外を移動してUndoできる", (phase) =>
+    setup(`move-after-decision-${phase}`, (ctx, responses) => {
+      savePhase(ctx.sql, {
+        kind: "step",
+        phase,
+        step: RESULT_STEP_BY_PHASE[phase],
+      });
+      ctx.sql.exec("UPDATE notes SET phase=?1", phase);
+      if (phase === 3) {
+        ctx.sql.exec("UPDATE notes SET x=x/10,y=y/10");
+      }
+      ctx.sql.exec("UPDATE notes SET excluded=1 WHERE id=?1", N2);
+      ctx.sql.exec(
+        "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?1,?2,'test',?3,'now')",
+        phase,
+        N1,
+        A,
+      );
+      start({ ...ctx, userId: OP2 }, "77777777-7777-4777-8777-777777777777");
+      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      const member = { ...ctx, userId: B };
+      const messages = peer(member);
+      start(member);
+      expect(responses.at(-1)).toMatchObject({ status: "active" });
+      moveHandlers["note:move:preview"](member, {
+        type: "note:move:preview",
+        operationId: OP,
+        delta: { x: phase === 3 ? 30 : 300, y: 0 },
+      });
+      expect(
+        messages.find((message) => message.type === "notes:move-preview"),
+      ).toMatchObject({ operationId: OP });
+      moveHandlers["note:move:commit"](member, {
+        type: "note:move:commit",
+        operationId: OP,
+        delta: { x: phase === 3 ? 30 : 300, y: 0 },
+      });
+      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+      expect(findNote(ctx.sql, N1)?.x).toBe(phase === 3 ? 40 : 400);
+      expect(findNote(ctx.sql, N2)).toMatchObject({
+        x: phase === 3 ? 44 : 440,
+        excluded: true,
+      });
+      moveHandlers["note:move:inverse"](member, {
+        type: "note:move:inverse",
+        operationId: OP2,
+        sourceOperationId: OP,
+        expectedTargets: [N1, N2].map((noteId) => ({
+          noteId,
+          positionRevision: findNote(ctx.sql, noteId)?.position_revision ?? 0,
+          visibilityRevision:
+            findNote(ctx.sql, noteId)?.visibility_revision ?? 0,
+        })),
+        expectedGroupRevision: 0,
+      });
+      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+      expect(findNote(ctx.sql, N1)?.x).toBe(phase === 3 ? 10 : 100);
+      expect(findNote(ctx.sql, N2)?.x).toBe(phase === 3 ? 14 : 140);
+      expect(
+        ctx.sql
+          .exec(
+            "SELECT note_id,note_content FROM decisions WHERE phase=?1",
+            phase,
+          )
+          .one(),
+      ).toMatchObject({ note_id: N1, note_content: "test" });
+    }));
   it("非memberの旧接続へ不可視分類の版通知を配信しない", () =>
     setup("move-group-revision-nonmember", (ctx) => {
       const messages = peer(ctx, OP2);
@@ -208,7 +280,7 @@ describe("move transaction", () => {
     "visibility",
     "group",
     "map",
-    "adoption",
+    "closed",
   ])("peer previewを%s失効で全件解除する", (reason) =>
     setup(`move-peer-retire-${reason}`, (ctx) => {
       const messages = peer(ctx);
@@ -248,13 +320,8 @@ describe("move transaction", () => {
         ctx.sql.exec(
           "UPDATE room_state SET map_revision=map_revision+1 WHERE id=1",
         );
-      if (reason === "adoption")
-        ctx.sql.exec(
-          "INSERT INTO decisions(phase,note_id,decided_by,decided_at) VALUES(1,?1,?2,?3)",
-          N1,
-          A,
-          new Date().toISOString(),
-        );
+      if (reason === "closed")
+        ctx.sql.exec("UPDATE room_state SET outcome_published=1 WHERE id=1");
       syncMovePresence(ctx.sql, ctx.broadcaster);
       expect(messages.filter((m) => m.type === "notes:move-ended")).toEqual([
         { type: "notes:move-ended", operationId: OP },
@@ -1003,7 +1070,7 @@ describe("atomic inverse", () => {
     "phase",
     "group",
     "map",
-    "adoption",
+    "closed",
     "owner",
   ])("%s changes reject every target", (reason) =>
     setup(`inverse-reject-${reason}`, (ctx, responses) => {
@@ -1043,12 +1110,8 @@ describe("atomic inverse", () => {
         ctx.sql.exec(
           "UPDATE room_state SET map_revision=map_revision+1 WHERE id=1",
         );
-      if (reason === "adoption")
-        ctx.sql.exec(
-          "INSERT INTO decisions(phase,note_id,decided_by,decided_at) VALUES(1,?1,?2,'now')",
-          N1,
-          A,
-        );
+      if (reason === "closed")
+        ctx.sql.exec("UPDATE room_state SET outcome_published=1 WHERE id=1");
       const before = [findNote(ctx.sql, N1), findNote(ctx.sql, N2)];
       inverse(
         reason === "owner" ? { ...ctx, userId: B } : ctx,

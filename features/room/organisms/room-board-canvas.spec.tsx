@@ -1455,19 +1455,17 @@ it("極端長文mapカードを平面より小さく表示し、短い付箋も�
   });
 });
 
-it("現在の作者名を共有付箋とマイ付箋へ渡し、表示名更新だけで表示を変える", () => {
+it("共有付箋とマイ付箋に作者名のホバーヒントを表示しない", () => {
   const note = buildNote({
     id: "author-note",
     authorId: "writer",
     content: "本文は変えない",
   });
-  const { props, rerender } = setup({
+  setup({
     notes: [note],
     privateNotes: [{ ...note, id: "private-author", visibility: "private" }],
-    authorName: () => "元の表示名",
   });
-  expect(screen.getAllByTitle("作者: 元の表示名")).toHaveLength(2);
-  rerender(<RoomBoardCanvas {...props} authorName={() => "現在の表示名"} />);
-  expect(screen.getAllByTitle("作者: 現在の表示名")).toHaveLength(2);
+  expect(screen.getAllByTestId("note-card")).toHaveLength(2);
+  expect(screen.queryAllByTitle(/^作者:/)).toHaveLength(0);
   expect(screen.getAllByText(note.content).length).toBeGreaterThan(0);
 });

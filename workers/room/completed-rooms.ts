@@ -49,11 +49,13 @@ export function readCompletion(sql: SqlStorage): CompletionRow | null {
   );
 }
 export function isRoomClosed(sql: SqlStorage): boolean {
+  const outcome = readOutcomeState(sql);
   return (
     sql.exec("SELECT closed FROM room_creation_marker WHERE id=1").toArray()[0]
       ?.closed === 1 ||
     readCompletion(sql) !== null ||
-    readOutcomeState(sql)?.disbanded === 1 ||
+    outcome?.disbanded === 1 ||
+    Boolean(outcome && outcome.expires_at <= Date.now()) ||
     sql.exec("SELECT outcome_published FROM room_state WHERE id=1").toArray()[0]
       ?.outcome_published === 1
   );

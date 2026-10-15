@@ -2,6 +2,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { RoomEntryOperation } from "@/contracts/room-entry";
+import type {
+  ParticipationConfirmation,
+  ParticipationResult,
+} from "@/contracts/room-participation";
 import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import {
@@ -26,6 +30,11 @@ import {
 } from "./room-creation-storage";
 
 export type RoomCreationControls = {
+  switching?:
+    | ParticipationConfirmation
+    | Extract<ParticipationResult, { kind: "pending" | "rejected" }>;
+  onCancelSwitch: () => void;
+  onSwitchReady: (roomId: string) => Promise<void>;
   reauthentication?: RoomEntryOperation;
   onCancelReauthentication: () => void;
   pending: boolean;
@@ -42,6 +51,10 @@ export type RoomCreationControls = {
 };
 export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   const router = useRouter();
+  const [switching, setSwitching] = useState<
+    | ParticipationConfirmation
+    | Extract<ParticipationResult, { kind: "pending" | "rejected" }>
+  >();
   const [reauthentication, setReauthentication] =
     useState<RoomEntryOperation>();
   const [pending, startTransition] = useTransition();
@@ -312,6 +325,18 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
                 "entryToken" in result ? result.entryToken : undefined;
             } else {
               if (!(await selected())) return;
+              if (result.failedOperation) {
+                setSwitching(result.failedOperation);
+                return;
+              }
+              if (result.pendingOperation) {
+                setSwitching(result.pendingOperation);
+                return;
+              }
+              if (result.confirmation) {
+                setSwitching(result.confirmation);
+                return;
+              }
               if (result.reason === "reauth_required") {
                 setReauthentication({
                   kind: "create",
@@ -449,7 +474,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     if (
       !currentUserId ||
       !window.confirm(
-        "このブラウザの保存をリセットすると、前のルームを見つけられなくなる可能性があります。次に新しいルームを作ると両方が残ることがあります。リセットしますか？",
+        "保存をリセットしてもルームへの参加状態は変わりません。前の作成結果をこのブラウザから見つけにくくなります。リセットしますか？",
       )
     )
       return;
@@ -475,6 +500,30 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     });
   }
   return {
+    switching,
+    onCancelSwitch: () => setSwitching(undefined),
+    onSwitchReady: async (roomId) => {
+      const target =
+        switching && (!("kind" in switching) || switching.kind === "pending")
+          ? switching.target
+          : undefined;
+      if (
+        currentUserId &&
+        currentIntent &&
+        actor.current === currentUserId &&
+        target?.kind === "create" &&
+        target.input.requestId === currentIntent.requestId &&
+        target.input.expectedPrincipal === currentUserId &&
+        (await isRoomCreationSelected(
+          currentUserId,
+          currentIntent.requestId,
+          currentIntent.generation,
+        ))
+      ) {
+        await saveRoomCreationResult(currentUserId, currentIntent, roomId);
+        notifyRoomCreations(false);
+      }
+    },
     reauthentication,
     onCancelReauthentication: () => setReauthentication(undefined),
     pending:

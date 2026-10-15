@@ -4,9 +4,11 @@ import { HomeErrorAlert } from "./home-error-alert";
 
 describe("HomeErrorAlert", () => {
   it("role=alert でメッセージを表示する", () => {
-    render(<HomeErrorAlert message="ルームが見つかりませんでした。" />);
+    render(
+      <HomeErrorAlert message="参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。" />,
+    );
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "ルームが見つかりませんでした。",
+      "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     );
   });
 });

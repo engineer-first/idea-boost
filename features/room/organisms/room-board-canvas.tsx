@@ -62,7 +62,6 @@ const ADOPTION_TARGET_CLASS_NAME =
 
 export type RoomBoardCanvasProps = {
   rollbackRevision?: number;
-  authorName?: (authorId: string) => string | undefined;
   moveHistory?: MoveHistoryControlsProps;
   notes: Note[];
   groups: PersistentGroup[];
@@ -248,7 +247,6 @@ export function RoomBoardCanvas({
   onPrivateNoteDelete,
   onPrivateNoteDragStart,
   remoteCursors,
-  authorName,
   expandPrivateNotesRequest = 0,
   addPrivateNoteRequest = 0,
   privateNoteAddRef,
@@ -399,7 +397,6 @@ export function RoomBoardCanvas({
       <NoteCard
         key={`${note.id}:${rollbackRevision}`}
         note={note}
-        authorName={authorName?.(note.authorId)}
         maxDisplayHeight={
           isIdeaValueFeasibilityMapVisible
             ? mapNoteGeometry.noteHeightLimit
@@ -911,7 +908,6 @@ export function RoomBoardCanvas({
           >
             <PrivateNotesToolbar
               rollbackRevision={rollbackRevision}
-              authorName={authorName}
               notes={privateNotes}
               disabled={isDisconnected}
               canDeleteNote={

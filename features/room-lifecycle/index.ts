@@ -4,10 +4,12 @@
 export { CreateRoomSection } from "./containers/create-room-section";
 export { InviteCodeDialog } from "./containers/invite-code-dialog";
 export { JoinRoomSection } from "./containers/join-room-section";
+export { ParticipationSwitch } from "./containers/participation-switch";
 export { ReturnRoomSection } from "./containers/return-room-section";
 export { RoomAdmissionGate } from "./containers/room-admission-gate";
 export { RoomOperationResume } from "./containers/room-operation-resume";
 export { RoomReauthentication } from "./containers/room-reauthentication";
+export { readParticipationRecovery } from "./logic/participation-recovery";
 export { CreateRoomSectionView } from "./templates/create-room-section-view";
 export { JoinRoomSectionView } from "./templates/join-room-section-view";
 export { ReturnRoomSectionView } from "./templates/return-room-section-view";

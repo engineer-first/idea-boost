@@ -196,8 +196,7 @@ export function RoomBoard({
       memberRemoval.pending ||
       isNextPhasePending ||
       isLeaving ||
-      roomState.outcomePublished ||
-      roomState.decision !== null,
+      roomState.outcomePublished,
   });
   historyObserverRef.current = moveHistory.observeOutgoing;
   useEffect(() => {
@@ -746,7 +745,6 @@ export function RoomBoard({
         connectionDelayed={connectionDelayed}
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
-        authorNames={roomState.authorNames}
         currentUserId={currentUserId}
         hostUserId={hostUserId}
         completedVoterIds={roomState.completedVoterIds}

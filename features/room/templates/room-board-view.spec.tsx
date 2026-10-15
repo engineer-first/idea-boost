@@ -608,6 +608,23 @@ describe("採用する付箋の選択モード", () => {
 });
 
 describe("考えるヒントの外部制御", () => {
+  it("3-1から3-2に進むとヒントの開閉操作ごと消え、戻ると再び表示される", () => {
+    const { props, rerender } = setup({ phase: buildPhaseStep(1, 3) });
+    expect(
+      screen.getByRole("button", { name: "考えるヒントを閉じる" }),
+    ).toBeInTheDocument();
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(2, 3)} />);
+    expect(
+      screen.queryByRole("complementary", { name: "考えるヒント" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /考えるヒントを/ }),
+    ).not.toBeInTheDocument();
+    rerender(<TestBoardView {...props} phase={buildPhaseStep(1, 3)} />);
+    expect(
+      screen.getByRole("button", { name: "考えるヒントを開く" }),
+    ).toBeInTheDocument();
+  });
   it.each([
     "connecting",
     "closed",
@@ -3995,20 +4012,20 @@ describe("移動履歴の入口", () => {
   });
 });
 
-it("退出した作者の共有付箋に保持した表示名を表示し、在籍中は最新名を優先する", () => {
+it("作者の退出・表示名更新後も共有付箋に作者名のホバーヒントを表示しない", () => {
   const [author] = buildMembers(1);
   const note = buildNote({ authorId: author.userId, visibility: "shared" });
   const { props, rerender } = setup({
     notes: [note],
     members: [],
-    authorNames: new Map([[author.userId, "退出前の表示名"]]),
   });
-  expect(screen.getByTitle("作者: 退出前の表示名")).toBeInTheDocument();
+  expect(screen.getByTestId("note-card")).toBeInTheDocument();
+  expect(screen.queryByTitle(/^作者:/)).not.toBeInTheDocument();
   rerender(
     <TestBoardView
       {...props}
       members={[{ ...author, name: "現在の表示名" }]}
     />,
   );
-  expect(screen.getByTitle("作者: 現在の表示名")).toBeInTheDocument();
+  expect(screen.queryByTitle(/^作者:/)).not.toBeInTheDocument();
 });

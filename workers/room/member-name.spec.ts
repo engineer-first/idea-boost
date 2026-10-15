@@ -294,6 +294,8 @@ describe("ルーム内の表示名", () => {
       name: "はな",
       color: before[1].color,
     });
+    // 別ルーム作成は元の参加先から退出したうえで行う。
+    await stub.leave(B.sub, "discard");
     const other = await createRoomAs(B);
     expect((await memberNames(other.roomId))[0].name).toBe("はな");
     expect(
