@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -449,4 +449,38 @@ it("再確認後の決定には最新の確認versionを送り、古い同意を
     "discard",
     1,
   );
+});
+
+it("成功結果の保存中にアカウントが変わったら元のルームへ遷移しない", async () => {
+  commit.mockReset();
+  push.mockReset();
+  const roomId = "66666666-6666-4666-8666-666666666666";
+  commit.mockResolvedValueOnce({ kind: "ready", roomId });
+  let finish!: () => void;
+  const onReady = vi.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const view = render(
+    <ParticipationSwitch
+      currentUserId="11111111-1111-4111-8111-111111111111"
+      confirmation={switchConfirmation()}
+      onReady={onReady}
+    />,
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "退出して参加する" }),
+  );
+  await waitFor(() => expect(onReady).toHaveBeenCalledWith(roomId));
+  view.rerender(
+    <ParticipationSwitch
+      currentUserId="22222222-2222-4222-8222-222222222222"
+      confirmation={switchConfirmation()}
+      onReady={onReady}
+    />,
+  );
+  await act(async () => finish());
+  expect(push).not.toHaveBeenCalled();
 });

@@ -42,7 +42,10 @@ export function ParticipationSwitch({
   const submitting = useRef(false);
   const principal = useRef(currentUserId);
   principal.current = currentUserId;
-  async function apply(result: ParticipationActionResult) {
+  async function apply(
+    result: ParticipationActionResult,
+    actor: string,
+  ): Promise<void> {
     if (result.kind === "confirmation") {
       setPendingOperation(undefined);
       setConfirmation(result.confirmation);
@@ -58,14 +61,15 @@ export function ParticipationSwitch({
         initial?.operationId ?? initialPendingOperation?.operationId;
       // 別タブの移動結果を、呼出元が保持する作成要求へ保存しない。
       if (onReady && operationId === originalId) await onReady(result.roomId);
-      rememberLastRoom(currentUserId, result.roomId);
-      router.push(
-        await entryDestination(
-          `/rooms/${result.roomId}/start`,
-          result.roomId,
-          result.entryToken,
-        ),
+      if (principal.current !== actor) return;
+      const href = await entryDestination(
+        `/rooms/${result.roomId}/start`,
+        result.roomId,
+        result.entryToken,
       );
+      if (principal.current !== actor) return;
+      rememberLastRoom(actor, result.roomId);
+      router.push(href);
       router.refresh();
     } else {
       if (result.kind === "pending") {
@@ -104,7 +108,7 @@ export function ParticipationSwitch({
           : null;
       if (!result || principal.current !== actor) return;
 
-      if (principal.current === actor) await apply(result);
+      if (principal.current === actor) await apply(result, actor);
     } catch {
       if (principal.current === actor)
         setMessage(

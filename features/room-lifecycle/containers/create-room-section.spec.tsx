@@ -569,8 +569,7 @@ it("共通表示名が未設定でも設定ダイアログを出さず、作成�
   expect(loadDisplayName).not.toHaveBeenCalled();
 });
 
-it("通常の作成中は回復案内を出さず、成功後も移動まで名前と準備中を保持する", async () =>
-{
+it("通常の作成中は回復案内を出さず、成功後も移動まで名前と準備中を保持する", async () => {
   let resolveCreate!: (value: { ok: true; roomId: string }) => void;
   m.create.mockReturnValue(
     new Promise((resolve) => {
@@ -592,11 +591,9 @@ it("通常の作成中は回復案内を出さず、成功後も移動まで名�
   await waitFor(() => expect(m.push).toHaveBeenCalledOnce());
   expect(screen.getByRole("textbox")).toHaveValue("新サービスの相談");
   expect(screen.getByRole("button", { name: "準備中…" })).toBeDisabled();
-}
-)
+});
 
-it("移動が完了しない場合は保存済みの同じルームへ再試行できる", async () =>
-{
+it("移動が完了しない場合は保存済みの同じルームへ再試行できる", async () => {
   const { result } = renderHook(() => useRoomCreation(USER));
   await waitFor(() => expect(result.current.pending).toBe(false));
   vi.useFakeTimers();
