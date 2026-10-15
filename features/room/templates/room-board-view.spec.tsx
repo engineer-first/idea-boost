@@ -1176,7 +1176,7 @@ describe("RoomBoardView", () => {
     expect(onNoteDecide).not.toHaveBeenCalled();
   });
 
-  it("host の招待URLと招待コードはルームメニューの共有から表示する", () => {
+  it("host の招待URLと招待コードはルームメニューの招待から表示する", () => {
     setup({
       isHost: true,
       inviteCode: "ZZ99XX",
@@ -1187,7 +1187,7 @@ describe("RoomBoardView", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "ルームメニューを開く" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "共有" }));
+    fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
     expect(screen.getByText("招待URL")).toBeInTheDocument();
     expect(screen.getByText("招待コード")).toBeInTheDocument();

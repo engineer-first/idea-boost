@@ -266,7 +266,7 @@ export const PresenterDisconnected: Story = {
   },
 };
 
-// 常設の操作バーから招待を外し、既存メニュー項目と揃えた共有入口。
+// 常設の操作バーから招待を外し、既存メニュー項目と揃えた招待入口。
 export const ShareMenu: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(
@@ -275,7 +275,7 @@ export const ShareMenu: Story = {
       }),
     );
     await expect(
-      within(document.body).getByRole("button", { name: "共有" }),
+      within(document.body).getByRole("button", { name: "招待" }),
     ).toBeVisible();
   },
 };
@@ -284,7 +284,7 @@ export const ShareInvite: Story = {
   play: async (context) => {
     await ShareMenu.play?.(context);
     await userEvent.click(
-      within(document.body).getByRole("button", { name: "共有" }),
+      within(document.body).getByRole("button", { name: "招待" }),
     );
     await expect(
       within(document.body).getByRole("button", { name: "招待URLをコピー" }),

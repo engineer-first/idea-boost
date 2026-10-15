@@ -73,7 +73,7 @@ for (const width of [390, 1280]) {
                   .map((animation) => animation.finished),
               );
             });
-          await page.getByRole("button", { name: "共有", exact: true }).click();
+          await page.getByRole("button", { name: "招待", exact: true }).click();
         }
         const copy = page.getByRole("button", { name: "招待URLをコピー" });
         const code = page.getByRole("button", { name: "招待コードをコピー" });
@@ -240,7 +240,7 @@ for (const width of [390, 1280]) {
           await expect
             .poll(() =>
               page
-                .getByRole("button", { name: "共有", exact: true })
+                .getByRole("button", { name: "招待", exact: true })
                 .evaluate((el) => el === document.activeElement),
             )
             .toBe(true);

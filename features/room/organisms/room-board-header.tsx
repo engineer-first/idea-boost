@@ -8,7 +8,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Pencil,
-  Share2,
+  UserPlus,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -772,8 +772,8 @@ export function RoomBoardHeader({
                           variant="ghost"
                           className="min-h-11 w-full justify-start"
                         >
-                          <Share2 aria-hidden="true" className="size-4" />
-                          共有
+                          <UserPlus aria-hidden="true" className="size-4" />
+                          招待
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent

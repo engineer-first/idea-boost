@@ -59,7 +59,7 @@ test("外側クリックでルームメニューが閉じ、再表示・Escape�
 
 test.each([
   1440, 390,
-])("幅 %i で共有を開き、Escape でメニューへ戻れる", async (width) => {
+])("幅 %i で招待を開き、Escape でメニューへ戻れる", async (width) => {
   const context = await browser.newContext({
     viewport: { width, height: 900 },
   });
@@ -70,7 +70,7 @@ test.each([
     );
     await page.bringToFront();
     const trigger = page.getByRole("button", { name: "ルームメニューを開く" });
-    const share = page.getByRole("button", { name: "共有", exact: true });
+    const share = page.getByRole("button", { name: "招待", exact: true });
     expect(await share.count()).toBe(0);
     await trigger.click();
     await share.click();
