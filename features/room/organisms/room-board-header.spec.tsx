@@ -57,11 +57,15 @@ function openRoomMenu() {
 
 describe("RoomBoardHeader", () => {
   describe("招待情報（host 限定）", () => {
-    it("host は独立した招待ボタンからURLとコードを開く", () => {
+    it("host はルームメニューの招待からURLとコードを開く", () => {
       setup({ isHost: true });
 
       expect(screen.queryByText("招待URL")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "招待" }),
+      ).not.toBeInTheDocument();
 
+      openRoomMenu();
       fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
       expect(screen.getByText("招待URL")).toBeInTheDocument();
@@ -72,6 +76,7 @@ describe("RoomBoardHeader", () => {
 
     it("招待ラベルの下に値を配置する", () => {
       setup({ isHost: true });
+      openRoomMenu();
       fireEvent.click(screen.getByRole("button", { name: "招待" }));
 
       const invite = screen.getByTestId("board-view-invite");
@@ -93,13 +98,17 @@ describe("RoomBoardHeader", () => {
         screen.queryByRole("button", { name: "招待" }),
       ).not.toBeInTheDocument();
       openRoomMenu();
+      expect(
+        screen.queryByRole("button", { name: "招待" }),
+      ).not.toBeInTheDocument();
       expect(screen.queryByText("招待コード")).not.toBeInTheDocument();
     });
   });
 
-  it("ルームメニューは退出操作を残し、招待情報は独立させる", () => {
+  it("ルームメニューは招待と退出操作を表示する", () => {
     setup({ isHost: true });
     openRoomMenu();
+    expect(screen.getByRole("button", { name: "招待" })).toBeVisible();
     expect(
       screen.getByRole("button", { name: "ルームを解散" }),
     ).toBeInTheDocument();
@@ -325,7 +334,7 @@ describe("RoomBoardHeader", () => {
     );
   });
 
-  it("参加者・タイマー・招待・次への操作を同じ操作グループにまとめる", () => {
+  it("参加者・タイマー・メニュー・次への操作を同じ操作グループにまとめる", () => {
     setup({ isHost: true });
     const controls = screen.getByRole("group", { name: "ルームの操作" });
     expect(
@@ -333,7 +342,7 @@ describe("RoomBoardHeader", () => {
     ).toBeVisible();
     expect(within(controls).getByTestId("room-timer")).toBeVisible();
     expect(
-      within(controls).getByRole("button", { name: "招待" }),
+      within(controls).getByRole("button", { name: "ルームメニューを開く" }),
     ).toBeVisible();
     expect(
       within(controls).getByRole("button", { name: "次のステップへ" }),
@@ -839,6 +848,7 @@ it("招待PopoverからURLのみを共有する", async () => {
   });
   try {
     setup({ isHost: true, hmwDecidedIssue: "非公開内容をpayloadへ入れない" });
+    openRoomMenu();
     fireEvent.click(screen.getByRole("button", { name: "招待" }));
     expect(share).not.toHaveBeenCalled();
     fireEvent.click(

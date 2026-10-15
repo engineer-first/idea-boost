@@ -56,3 +56,43 @@ test("外側クリックでルームメニューが閉じ、再表示・Escape�
     await page.close();
   }
 });
+
+test.each([
+  1440, 390,
+])("幅 %i で招待を開き、Escape でメニューへ戻れる", async (width) => {
+  const context = await browser.newContext({
+    viewport: { width, height: 900 },
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardheader--host&viewMode=story`,
+    );
+    await page.bringToFront();
+    const trigger = page.getByRole("button", { name: "ルームメニューを開く" });
+    const share = page.getByRole("button", { name: "招待", exact: true });
+    expect(await share.count()).toBe(0);
+    await trigger.click();
+    await share.click();
+    const invite = page.getByRole("dialog", {
+      name: "ルームに招待",
+      exact: true,
+    });
+    await invite.waitFor();
+    const box = await invite.boundingBox();
+    if (!box) throw new Error("招待情報が表示されていません");
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => invite.isVisible()).toBe(false);
+    await expect
+      .poll(() => share.evaluate((el) => el === document.activeElement))
+      .toBe(true);
+    await page.keyboard.press("Escape");
+    await expect
+      .poll(() => trigger.evaluate((el) => el === document.activeElement))
+      .toBe(true);
+  } finally {
+    await context.close();
+  }
+});
