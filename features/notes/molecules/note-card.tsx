@@ -1114,7 +1114,7 @@ export function NoteCard({
             setIsEditing(false);
           }
         }}
-        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 pr-10 text-slate-900 outline-none ${
+        className={`min-h-0 flex-1 resize-none overflow-y-hidden bg-transparent px-2 pt-2 text-slate-900 outline-none ${
           vote.displayMode === "result" ? "pb-2" : "pb-12"
         } ${isEditing ? "" : "pointer-events-none select-none"}`}
         style={{
