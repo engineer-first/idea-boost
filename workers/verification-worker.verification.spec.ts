@@ -15,7 +15,11 @@ import { getCarryovers, getDecision } from "./room/decisions";
 import { getIdeaMapSizeState } from "./room/idea-map";
 import { listNotes, moveNote } from "./room/notes";
 import { countUserVotes } from "./room/votes";
-import { connectRoomAs, sessionCookieFor, startTimerForTest, } from "./test-helpers";
+import {
+  connectRoomAs,
+  sessionCookieFor,
+  startTimerForTest,
+} from "./test-helpers";
 import verificationWorker from "./verification-worker";
 
 const TOKEN = "verification-test-token-at-least-32-characters";
