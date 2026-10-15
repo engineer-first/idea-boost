@@ -611,7 +611,7 @@ describe("RoomBoardHeader", () => {
   describe("接続状態の表示（loading / error / success）", () => {
     it("接続確立中は接続中の表示を出す", () => {
       setup({ connectionStatus: "connecting" });
-      expect(screen.getByRole("status")).toHaveTextContent("再接続");
+      expect(screen.getByRole("status")).toHaveTextContent("接続しています");
     });
 
     it("切断中は再接続中の表示を出す", () => {
@@ -994,7 +994,7 @@ it("成果公開後は本人の編集案内と鉛筆を消し、編集を実行�
   fireEvent.click(screen.getByRole("button", { name: "参加者 2人" }));
   const row = screen.getByTestId(`member-row-${ME}`);
   expect(
-    within(row).getByRole("button", { name: /呼び名を変更/ }),
+    within(row).getByRole("button", { name: /表示名を変更/ }),
   ).toBeInTheDocument();
   expect(row.querySelector("svg.lucide-pencil")).not.toBeNull();
 

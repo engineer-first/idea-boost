@@ -101,7 +101,6 @@ type MessageQueue = {
   waiters: Array<(message: Record<string, unknown>) => void>;
 };
 const messageQueues = new WeakMap<WebSocket, MessageQueue>();
-const advancedTransitions = new Set<string>();
 function queueFor(ws: WebSocket): MessageQueue {
   const existing = messageQueues.get(ws);
   if (existing) return existing;
@@ -109,21 +108,7 @@ function queueFor(ws: WebSocket): MessageQueue {
   messageQueues.set(ws, queue);
   ws.addEventListener("message", (event) => {
     const message = JSON.parse(String(event.data)) as Record<string, unknown>;
-    const roomName = roomNameBySocket.get(ws);
-    if (message.type === "phase:save-requested" && roomName) {
-      const transitionId = String(message.transitionId);
-      if (!advancedTransitions.has(transitionId)) {
-        advancedTransitions.add(transitionId);
-        void runInRoomDO(roomName, async (instance, state) => {
-          state.storage.sql.exec(
-            "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
-            Date.now() - 1,
-          );
-          await instance.alarm();
-        });
-      }
-      return;
-    }
+
     if (message.type === "note:content-saved") return;
     if (message.type === "phase:progress") {
       queue.messages.push(message);
@@ -2251,6 +2236,15 @@ describe("RoomDO phase:next", () => {
       }
       for (let index = 0; index < 20; index++) {
         state.storage.sql.exec(
+          "INSERT INTO notes(id,author_id,content,visibility,color,x,y,phase,created_at,updated_at) VALUES(?1,?2,?3,'private','yellow',0,0,3,?4,?4)",
+          crypto.randomUUID(),
+          USER_A,
+          "\t\n\u3000\u00a0",
+          now,
+        );
+      }
+      for (let index = 0; index < 20; index++) {
+        state.storage.sql.exec(
           `INSERT INTO notes
              (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at)
            VALUES (?1, ?2, '共有付箋', 'shared', 'yellow', 0, 0, 3, ?3, ?3),
@@ -2680,6 +2674,7 @@ describe("RoomDO phase:next", () => {
       );
     });
 
+    await arrangeSharingPresenter(roomName, USER_B);
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
     const hostDragging = nextJson(host);
@@ -2766,26 +2761,41 @@ describe("RoomDO phase:next", () => {
   }
 
   it.each([
-    [1, 4, 5],
-    [2, 3, 4],
-    [3, 4, 5],
-  ] as const)("投票完了後の %i-%i → %i で0票候補だけを自動で候補外にし、全員へUndo対象を通知する", async (phase, votingStep, resultStep) => {
-    const roomName = `room-auto-exclude-${phase}`;
+    [1, 4, 5, false],
+    [2, 3, 4, false],
+    [3, 4, 5, false],
+    [1, 4, 5, true],
+    [2, 3, 4, true],
+    [3, 4, 5, true],
+  ] as const)("投票終了の %i-%i → %i（未完了者あり: %s）で0票候補だけを自動で候補外にし、全員へUndo対象を通知する", async (phase, votingStep, resultStep, incomplete) => {
+    const roomName = `room-auto-exclude-${phase}-${incomplete}`;
     await prepareCompletedVotingTransition(roomName, phase, votingStep);
+    if (incomplete) {
+      await runInRoomDO(roomName, (_instance, state) => {
+        state.storage.sql.exec(
+          "DELETE FROM note_vote_stickers WHERE user_id = ?1",
+          USER_B,
+        );
+      });
+    }
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const member = await connectDirectly(roomName, USER_B, USER_A);
-    const hostMessages = nextJsonMessages(host, 3);
-    const memberMessages = nextJsonMessages(member, 3);
+    const hostMessages = nextJson(host);
+    const memberMessages = nextJson(member);
 
     host.send(
       JSON.stringify({
         type: "phase:next",
+        force: incomplete,
         ...(await currentPhaseExpectation(roomName)),
       }),
     );
 
-    for (const messages of [await hostMessages, await memberMessages]) {
-      expect(messages[0]).toMatchObject({
+    for (const [socket, snapshot] of [
+      [host, await hostMessages],
+      [member, await memberMessages],
+    ] as const) {
+      expect(snapshot).toMatchObject({
         type: "snapshot",
         phase: buildPhaseStep(resultStep, phase),
         notes: expect.arrayContaining([
@@ -2796,13 +2806,13 @@ describe("RoomDO phase:next", () => {
           }),
         ]),
       });
-      expect(messages[1]).toMatchObject({
+      expect(await nextJson(socket)).toMatchObject({
         type: "note:bulk-excluded",
         operationId: expect.any(String),
         count: 1,
         source: "phase-transition",
       });
-      expect(messages[2]).toEqual({
+      expect(await nextJson(socket)).toEqual({
         type: "phase:updated",
         groupRevision: expect.any(Number),
         mapRevision: expect.any(Number),
@@ -2834,7 +2844,7 @@ describe("RoomDO phase:next", () => {
     member.close();
   });
 
-  it("投票未完了の強制進行では0票候補を自動で候補外にしない", async () => {
+  it("投票未完了の通常進行は拒否し、0票候補も変更しない", async () => {
     const roomName = "room-auto-exclude-force-skip";
     await prepareCompletedVotingTransition(roomName, 1, 4);
     await runInRoomDO(roomName, (_instance, state) => {
@@ -2846,27 +2856,19 @@ describe("RoomDO phase:next", () => {
       );
     });
     const host = await connectDirectly(roomName, USER_A, USER_A);
-    const messages = nextJsonMessages(host, 2);
+    const messages = nextJson(host);
 
     host.send(
       JSON.stringify({
         type: "phase:next",
         ...(await currentPhaseExpectation(roomName)),
-        force: true,
       }),
     );
 
-    expect(await messages).toEqual([
-      expect.objectContaining({ type: "snapshot", phase: buildPhaseStep(5) }),
-      {
-        type: "phase:updated",
-        groupRevision: expect.any(Number),
-        mapRevision: expect.any(Number),
-        phaseRevision: expect.any(Number),
-        phase: buildPhaseStep(5),
-        rollbackTarget: buildPhaseStep(4),
-      },
-    ]);
+    expect(await messages).toMatchObject({
+      type: "error",
+      code: "voting-incomplete",
+    });
     expect(
       await runInRoomDO(
         roomName,
@@ -2879,8 +2881,11 @@ describe("RoomDO phase:next", () => {
     host.close();
   });
 
-  it("現在の候補がすべて0票なら投票完了後も自動で候補外にしない", async () => {
-    const roomName = "room-auto-exclude-all-zero-skip";
+  it.each([
+    false,
+    true,
+  ])("現在の候補がすべて0票なら投票終了後も自動で候補外にしない（未完了者あり: %s）", async (incomplete) => {
+    const roomName = `room-auto-exclude-all-zero-skip-${incomplete}`;
     await prepareCompletedVotingTransition(roomName, 1, 4);
     await runInRoomDO(roomName, (_instance, state) => {
       state.storage.sql.exec(
@@ -2888,12 +2893,18 @@ describe("RoomDO phase:next", () => {
         AUTO_VOTED_NOTE_ID,
       );
     });
+    if (incomplete) {
+      await runInRoomDO(roomName, (_instance, state) => {
+        state.storage.sql.exec("DELETE FROM note_vote_stickers");
+      });
+    }
     const host = await connectDirectly(roomName, USER_A, USER_A);
     const messages = nextJsonMessages(host, 2);
 
     host.send(
       JSON.stringify({
         type: "phase:next",
+        force: incomplete,
         ...(await currentPhaseExpectation(roomName)),
       }),
     );

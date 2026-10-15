@@ -1873,7 +1873,7 @@ describe("RoomBoardView", () => {
     it("接続確立中は接続中の表示を出す（loading）", () => {
       setup({ connectionStatus: "connecting" });
 
-      expect(screen.getByRole("status")).toHaveTextContent("再接続");
+      expect(screen.getByRole("status")).toHaveTextContent("接続しています");
     });
 
     it("切断中は再接続中の表示を出す（error）", () => {
@@ -3820,20 +3820,20 @@ describe("移動履歴の入口", () => {
   });
 });
 
-it("退出した作者の共有付箋に保持した呼び名を表示し、在籍中は最新名を優先する", () => {
+it("退出した作者の共有付箋に保持した表示名を表示し、在籍中は最新名を優先する", () => {
   const [author] = buildMembers(1);
   const note = buildNote({ authorId: author.userId, visibility: "shared" });
   const { props, rerender } = setup({
     notes: [note],
     members: [],
-    authorNames: new Map([[author.userId, "退出前の呼び名"]]),
+    authorNames: new Map([[author.userId, "退出前の表示名"]]),
   });
-  expect(screen.getByTitle("作者: 退出前の呼び名")).toBeInTheDocument();
+  expect(screen.getByTitle("作者: 退出前の表示名")).toBeInTheDocument();
   rerender(
     <TestBoardView
       {...props}
-      members={[{ ...author, name: "現在の呼び名" }]}
+      members={[{ ...author, name: "現在の表示名" }]}
     />,
   );
-  expect(screen.getByTitle("作者: 現在の呼び名")).toBeInTheDocument();
+  expect(screen.getByTitle("作者: 現在の表示名")).toBeInTheDocument();
 });

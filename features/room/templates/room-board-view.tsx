@@ -192,6 +192,7 @@ export type RoomBoardViewProps = {
   progress?: import("../logic/room-reducer").PhaseProgressState;
   onToggleReady?: (ready: boolean) => void;
   isNextPhasePending: boolean;
+  isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
   initialGuideState?: StepGuideState;
@@ -332,6 +333,7 @@ export function RoomBoardView({
   },
   onToggleReady,
   isNextPhasePending,
+  isSavingBeforeShare = false,
   interactions,
   help,
   remoteCursors,
@@ -454,8 +456,7 @@ export function RoomBoardView({
   const [voteStampPointer, setVoteStampPointer] =
     useState<VoteStampPointer | null>(null);
   const suppressPaletteSelectRef = useRef(false);
-  const previousPhaseKey = useRef(phaseKey);
-  const previousRevision = useRef(phaseRevision);
+  const previousPhase = useRef({ phase, phaseRevision, rollbackRevision });
   const [isMounted, setIsMounted] = useState(false);
   const permissions = getBoardPermissions(phase, decision !== null);
 
@@ -481,19 +482,58 @@ export function RoomBoardView({
   }, []);
 
   useEffect(() => {
-    if (previousPhaseKey.current === phaseKey) return;
-    previousPhaseKey.current = phaseKey;
+    const previous = previousPhase.current;
+    const phaseChanged =
+      previous.phase.kind !== phase.kind ||
+      (previous.phase.kind === "step" &&
+        phase.kind === "step" &&
+        (previous.phase.phase !== phase.phase ||
+          previous.phase.step !== phase.step));
+    if (
+      !phaseChanged &&
+      previous.phaseRevision === phaseRevision &&
+      previous.rollbackRevision === rollbackRevision
+    )
+      return;
+    previousPhase.current = { phase, phaseRevision, rollbackRevision };
+    const selected = interactions.privateNotes.find(
+      (note) => note.id === selectedNoteId,
+    );
+    // 変換中の本人の個人付箋は、同段階の共有へ移っても入力要素と選択を保つ。
+    // 復元・別段階・共有付箋・編集できない工程では従来どおり解除する。
+    const continuePrivateEditing =
+      composingRef.current &&
+      previous.phase.kind === "step" &&
+      previous.phase.step === 1 &&
+      phase.kind === "step" &&
+      phase.step === 2 &&
+      previous.phase.phase === phase.phase &&
+      previous.rollbackRevision === rollbackRevision &&
+      connectionStatus === "open" &&
+      permissions.canEditNote &&
+      !outcomePublished &&
+      selected?.visibility === "private" &&
+      selected.authorId === currentUserId &&
+      !selected.excluded;
     setIsAdoptMode(false);
     cancelRootPress();
     selection.cancel();
     interactions.cancelCurrentNoteDrag(true);
     interactions.cancelPan?.();
     cancelVoteDrag();
-    setSelectedNoteId(null);
-    if (shouldExpandPrivateNotes)
+    if (!continuePrivateEditing) setSelectedNoteId(null);
+    if (phaseChanged && shouldExpandPrivateNotes)
       setExpandPrivateNotesRequest((request) => request + 1);
   }, [
-    phaseKey,
+    phase,
+    phaseRevision,
+    rollbackRevision,
+    connectionStatus,
+    permissions.canEditNote,
+    outcomePublished,
+    interactions.privateNotes,
+    currentUserId,
+    selectedNoteId,
     cancelRootPress,
     shouldExpandPrivateNotes,
     selection.cancel,
@@ -504,29 +544,9 @@ export function RoomBoardView({
   ]);
 
   useEffect(() => {
-    if (previousRevision.current === phaseRevision) return;
-    previousRevision.current = phaseRevision;
+    if (connectionStatus === "open" && isHost && decision === null) return;
     setIsAdoptMode(false);
-    cancelRootPress();
-    selection.cancel();
-    interactions.cancelCurrentNoteDrag(true);
-    interactions.cancelPan?.();
-    cancelVoteDrag();
-    setSelectedNoteId(null);
-  }, [
-    phaseRevision,
-    cancelRootPress,
-    selection.cancel,
-    interactions.cancelCurrentNoteDrag,
-    interactions.cancelPan,
-    cancelVoteDrag,
-    setSelectedNoteId,
-  ]);
-
-  useEffect(() => {
-    if (connectionStatus === "open" && decision === null) return;
-    setIsAdoptMode(false);
-  }, [connectionStatus, decision]);
+  }, [connectionStatus, decision, isHost]);
 
   useEffect(() => {
     if (connectionStatus !== "open") {
@@ -1244,7 +1264,7 @@ export function RoomBoardView({
     const workspaceTopSurfaces = [
       "board-context-hud",
       "board-control-hud",
-      "board-connection-status",
+      "board-connection-slot",
       "board-help-panel",
     ] as const;
     const isPersonalNoteEntryPhase =
@@ -1292,6 +1312,11 @@ export function RoomBoardView({
           }
           let top = stepGuideBottomInFrame;
           for (const testId of workspaceTopSurfaces) {
+            if (
+              window.innerWidth >= 640 &&
+              (testId === "board-context-hud" || testId === "board-help-panel")
+            )
+              continue;
             const selector =
               testId === "board-help-panel"
                 ? '[data-testid="board-help-panel"] > div'
@@ -1799,6 +1824,7 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
+          isSavingBeforeShare={isSavingBeforeShare}
           canPublishPrivateNote={canPublishNoteInTurn(
             phase,
             sharing,

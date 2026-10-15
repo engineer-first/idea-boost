@@ -707,6 +707,10 @@ export const Step1_2_Sharing: Story = {
   },
 };
 
+export const SharingWaitingForContentSave: Story = {
+  args: { ...Step1_2_Sharing.args, isSavingBeforeShare: true },
+};
+
 export const Step1_3_Grouping: Story = {
   args: {
     phase: STEP_1_3,
@@ -1271,4 +1275,8 @@ export const MoveHistorySharing: Story = {
 };
 export const MoveHistoryMap: Story = {
   args: { ...MoveHistoryAvailable.args, phase: buildPhaseStep(3, 3) },
+};
+
+export const ConnectedEmpty: Story = {
+  args: { notes: [], connectionStatus: "open" },
 };

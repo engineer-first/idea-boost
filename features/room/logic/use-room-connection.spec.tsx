@@ -888,3 +888,30 @@ it("offlineになると実行中の照会を中止し、online後の新snapshot�
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+it("初回同期と切断後の再同期を区別し、再同期中は送信を許可しない", () => {
+  vi.useFakeTimers();
+  try {
+    const { result } = renderHook(() =>
+      useRoomConnection({
+        roomId: ROOM_ID,
+        onMessage: vi.fn(),
+        webSocketFactory: factory,
+      }),
+    );
+    expect(result.current.connectionStatus).toBe("connecting");
+    act(() => {
+      lastSocket().simulateOpen();
+      lastSocket().simulateServerMessage(snapshot());
+    });
+    act(() => lastSocket().simulateUnexpectedClose());
+    act(() => vi.advanceTimersByTime(1100));
+    act(() => lastSocket().simulateOpen());
+    expect(result.current.connectionStatus).toBe("reconnecting");
+    expect(result.current.send({ type: "note:create" })).toBe(false);
+    act(() => lastSocket().simulateServerMessage(snapshot()));
+    expect(result.current.connectionStatus).toBe("open");
+  } finally {
+    vi.useRealTimers();
+  }
+});

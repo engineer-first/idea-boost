@@ -1,112 +1,94 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ClientMessage, ServerMessage } from "@/contracts/room-protocol";
-
-const snapshotMessage = (overrides: object) =>
-  ({
-    type: "snapshot",
-    notes: [],
-    members: [],
-    phase: { kind: "lobby" },
-    timer: { status: "idle" },
-    serverNow: 0,
-    isHost: true,
-    phaseRevision: 0,
-    decision: null,
-    carryovers: [],
-    completedVoterIds: [],
-    ...overrides,
-  }) as ServerMessage;
-
+import { describe, expect, it, vi } from "vitest";
+import type { DisplayNameResult } from "@/features/auth";
 import { useRoomDisplayName } from "./use-room-display-name";
 
-const currentUserId = "11111111-1111-4111-8111-111111111111";
-const members = [
-  { userId: currentUserId, name: "保存済み", color: "yellow" as const },
-];
-afterEach(() => vi.useRealTimers());
-function setup(send = vi.fn<(message: ClientMessage) => boolean>(() => true)) {
+const USER = "11111111-1111-4111-8111-111111111111";
+const members = [{ userId: USER, name: "保存済み", color: "yellow" as const }];
+function setup(
+  save = vi.fn(
+    async (): Promise<DisplayNameResult> => ({ ok: true, name: "変更後" }),
+  ),
+) {
+  const send = vi.fn(() => true);
   const hook = renderHook(
     ({ connected }) =>
       useRoomDisplayName({
-        currentUserId,
+        roomId: "33333333-3333-4333-8333-333333333333",
+        currentUserId: USER,
         members,
         connected,
         blocked: false,
         send,
+        save,
       }),
     { initialProps: { connected: true } },
   );
   act(() => hook.result.current.request());
-  return { ...hook, send };
+  return { ...hook, save, send };
 }
-describe("呼び名の編集", () => {
-  it("空白と上限超過を送らず取消で保存済み名を保つ", () => {
-    const { result, send } = setup();
-    for (const name of ["　 ", "あ".repeat(41)]) {
+describe("ルームからの共通表示名変更", () => {
+  it("空白・上限超過を保存せず、取消でも保存済み名を保つ", async () => {
+    const { result, save, send } = setup();
+    for (const name of ["　 ", "あ".repeat(16)]) {
       act(() => result.current.onDraftChange(name));
-      act(() => result.current.onConfirm());
+      await act(async () => result.current.onConfirm());
       expect(result.current.error).toBeTruthy();
     }
+    expect(save).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
     act(() => result.current.onOpenChange(false));
     act(() => result.current.request());
     expect(result.current.draft).toBe("保存済み");
   });
-  it("送信失敗・切断・タイムアウトで入力を保持し、無関係な応答で閉じない", () => {
-    vi.useFakeTimers();
-    const send = vi.fn<(message: ClientMessage) => boolean>(() => false);
-    const { result, rerender } = setup(send);
+  it("APIの失敗で入力を残し、切断中の保存を防ぎ、再試行成功で閉じる", async () => {
+    const save = vi.fn(
+      async (): Promise<DisplayNameResult> => ({ ok: true, name: "新しい名" }),
+    );
+    save.mockResolvedValueOnce({
+      ok: false,
+      error: "保存できません。もう一度保存してください。",
+    });
+    const { result, rerender, send } = setup(save);
     act(() => result.current.onDraftChange("新しい名"));
-    act(() => result.current.onConfirm());
-    expect(result.current.error).toBeTruthy();
+    await act(async () => result.current.onConfirm());
     expect(result.current.draft).toBe("新しい名");
-    send.mockReturnValue(true);
+    expect(result.current.open).toBe(true);
+    expect(result.current.error).toContain("保存できません");
+    rerender({ connected: false });
+    await act(async () => result.current.onConfirm());
+    expect(save).toHaveBeenCalledOnce();
+    rerender({ connected: true });
+    await act(async () => result.current.onConfirm());
+    expect(result.current.open).toBe(false);
+    expect(save).toHaveBeenLastCalledWith({
+      roomId: "33333333-3333-4333-8333-333333333333",
+      expectedPrincipal: USER,
+      name: "新しい名",
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+  it("保存中は旧名を保ち、関係のない共有通知で確定しない", async () => {
+    let finish!: (result: DisplayNameResult) => void;
+    const save = vi.fn(
+      () =>
+        new Promise<DisplayNameResult>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { result } = setup(save);
+    act(() => result.current.onDraftChange("変更後"));
     act(() => result.current.onConfirm());
-    act(() => result.current.onConfirm());
-    expect(send).toHaveBeenCalledTimes(2);
     expect(result.current.pending).toBe(true);
     act(() =>
       result.current.applyMessage({
-        type: "error",
-        code: "forbidden",
-        message: "別操作",
+        type: "member:renamed",
+        member: { ...members[0], name: "別の変更" },
         operationId: crypto.randomUUID(),
       }),
     );
-    expect(result.current.pending).toBe(true);
-    rerender({ connected: false });
-    expect(result.current.pending).toBe(false);
-    expect(result.current.error).toBeTruthy();
-    expect(result.current.draft).toBe("新しい名");
-    rerender({ connected: true });
-    act(() => result.current.onConfirm());
-    act(() => vi.advanceTimersByTime(10000));
-    expect(result.current.pending).toBe(false);
     expect(result.current.open).toBe(true);
-  });
-  it("サーバー応答と再接続snapshotだけで確定し、operationIdでエラーを対応付ける", () => {
-    const { result, send } = setup();
-    act(() => result.current.onDraftChange("変更後"));
-    act(() => result.current.onConfirm());
-    const operationId = (send.mock.calls[0][0] as { operationId: string })
-      .operationId;
-    act(() =>
-      result.current.applyMessage({
-        type: "error",
-        code: "forbidden",
-        message: "変更できません",
-        operationId,
-      }),
-    );
-    expect(result.current.error).toBe("変更できません");
-    expect(result.current.open).toBe(true);
-    act(() => result.current.onConfirm());
-    act(() =>
-      result.current.applyMessage(
-        snapshotMessage({ members: [{ ...members[0], name: "変更後" }] }),
-      ),
-    );
+    await act(async () => finish({ ok: true, name: "変更後" }));
     expect(result.current.open).toBe(false);
   });
 });

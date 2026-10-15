@@ -50,7 +50,7 @@ describe("NextPhaseConfirmDialog", () => {
     expect(dialog).not.toHaveTextContent("本文のある共有付箋");
   });
 
-  it("確認ダイアログで現在ステップと、空白の共有付箋だけを削除する範囲を説明する", () => {
+  it("確認ダイアログで現在ステップと、空白の付箋を削除する範囲を説明する", () => {
     setup({ phase: buildPhaseStep(2) });
 
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
@@ -67,13 +67,23 @@ describe("NextPhaseConfirmDialog", () => {
 
   it.each([
     1, 2, 3,
-  ] as const)("フェーズ%sの個人作業から進むときは空白のマイ付箋も削除すると説明する", (phase) => {
-    setup({ phase: buildPhaseStep(1, phase) });
+  ] as const)("フェーズ%sの共有を離れるときは空白のマイ付箋を整理すると説明する", (phase) => {
+    setup({ phase: buildPhaseStep(2, phase) });
 
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
     expect(screen.getByRole("alertdialog")).toHaveTextContent(
-      "個人で書き出すステップの空白だけのマイ付箋も削除します。",
+      "この共有ステップの空白だけのマイ付箋も削除します。",
+    );
+  });
+
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%sの個人作業を離れるときは空白のマイ付箋を削除すると説明する", (phase) => {
+    setup({ phase: buildPhaseStep(1, phase) });
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "この個人作業ステップの空白だけのマイ付箋も削除します。",
     );
   });
 

@@ -286,7 +286,7 @@ describe("ホストによるメンバー除外", () => {
     await removeAccepted(b, C.sub, 1);
     await receive(a, "member_left");
   });
-  it("保存待ち遷移中は除外を拒否し、参加を維持する", async () => {
+  it("即時進行後にメンバーを除外できる", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
     send(a, {
@@ -294,15 +294,14 @@ describe("ホストによるメンバー除外", () => {
       ...(await currentPhaseExpectation(roomId)),
       expectedHostRevision: 0,
     });
-    await receive(a, "phase:save-requested");
-    await receive(b, "phase:save-requested");
-    const operationId = remove(a);
-    expect(await receive(a, "error")).toMatchObject({
-      code: "forbidden",
-      operationId,
-    });
-    expect(await stub.isMember(B.sub)).toBe(true);
+    await receive(a, "snapshot");
+    await receive(a, "phase:updated");
+    await receive(b, "snapshot");
+    await receive(b, "phase:updated");
+    await removeAccepted(a, B.sub, 0);
+    expect(await stub.isMember(B.sub)).toBe(false);
   });
+
   it("完了したルームでは除外を拒否する", async () => {
     const { roomId, stub, a } = await setup();
     await runInRoomDO(roomId, (_room, state) =>

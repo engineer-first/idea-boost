@@ -27,6 +27,7 @@ const ALL_TABLES = [
   "group_history_versions",
   "groups",
   "legacy_note_drag_leases",
+  "member_account_name_revisions",
   "member_color_assignments",
   "member_display_names",
   "members",
@@ -59,6 +60,39 @@ const ALL_TABLES = [
 ];
 
 describe("ROOM_DO_MIGRATIONS", () => {
+  it("保存待ち予約がある既存ルームは工程を変えず予約だけを破棄する", async () => {
+    await runInRoomDO("mig-discard-pending-transition", (_instance, state) => {
+      dropAllTables(state.storage);
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS.filter(({ id }) => id < "20261013151322"),
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      state.storage.sql.exec(
+        "UPDATE room_state SET phase='phase1-step1',phase_revision=4 WHERE id=1",
+      );
+      state.storage.sql.exec(
+        "INSERT INTO pending_phase_transition(id,transition_id,requested_by,action,expected_phase,expected_revision,force,deadline_at) VALUES(1,'legacy',?1,'next',?2,4,0,0)",
+        USER_A,
+        JSON.stringify({ kind: "step", phase: 1, step: 1 }),
+      );
+      migrateRoomStorage(
+        state.storage,
+        ROOM_DO_MIGRATIONS,
+        LEGACY_ROOM_DO_MIGRATION_IDS,
+      );
+      expect(
+        state.storage.sql
+          .exec("SELECT * FROM pending_phase_transition")
+          .toArray(),
+      ).toEqual([]);
+      expect(
+        state.storage.sql
+          .exec("SELECT phase,phase_revision FROM room_state WHERE id=1")
+          .one(),
+      ).toMatchObject({ phase: "phase1-step1", phase_revision: 4 });
+    });
+  });
   it("既に自動保存を使ったルームも本文を保ったまま保存記録を更新する", async () => {
     await runInRoomDO("mig-existing-note-receipts", (_instance, state) => {
       dropAllTables(state.storage);

@@ -919,7 +919,7 @@ it("旧完了ルームもホスト本人が退出でき、未完了ホスト・�
   ).not.toBeNull();
 });
 
-it("完了期限を過ぎた退出の清掃でもルーム内の呼び名を消去する", async () => {
+it("完了期限を過ぎた退出の清掃でもルーム内の表示名を消去する", async () => {
   const room = await complete((_instance, state) => {
     state.storage.sql.exec(
       "INSERT INTO phase_rollback_checkpoints(phase_json,snapshot_json) VALUES(?,?)",
@@ -927,13 +927,13 @@ it("完了期限を過ぎた退出の清掃でもルーム内の呼び名を消�
       JSON.stringify({ privateContent: "下書きコピー" }),
     );
     state.storage.sql.exec(
-      "INSERT INTO member_display_names(user_id,name) VALUES(?,?)",
+      "INSERT INTO member_display_names(user_id,name) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name",
       host.sub,
-      "ルームの呼び名",
+      "ルームの表示名",
     );
     state.storage.sql.exec(
       "UPDATE members SET name=? WHERE user_id=?",
-      "ルームの呼び名",
+      "ルームの表示名",
       host.sub,
     );
   });

@@ -1,7 +1,6 @@
 import { isRoomClosed } from "./completed-rooms";
 import type { MessageHandlers } from "./handler-context";
 import { getHostState, isMember } from "./members";
-import { getPendingPhaseTransition } from "./phase";
 
 export const memberRemovalHandlers: MessageHandlers<"member:remove"> = {
   "member:remove": (ctx, message) => {
@@ -10,7 +9,6 @@ export const memberRemovalHandlers: MessageHandlers<"member:remove"> = {
       host.hostUserId !== ctx.userId ||
       host.hostRevision !== message.expectedHostRevision ||
       isRoomClosed(ctx.sql) ||
-      getPendingPhaseTransition(ctx.sql) !== null ||
       message.targetUserId === ctx.userId ||
       !isMember(ctx.sql, message.targetUserId) ||
       !ctx.leaveMember

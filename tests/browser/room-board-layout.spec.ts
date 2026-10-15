@@ -183,9 +183,8 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
     height: e.clientHeight,
     scroll: e.scrollHeight,
   }));
+  expect(size.height).toBeGreaterThan(150);
   expect(size.height).toBeLessThan(size.scroll);
-  const toolbarBox = await toolbar.boundingBox();
-  expect(size.height).toBeLessThan(toolbarBox?.height ?? 0);
   await scroll.evaluate((e) => {
     e.scrollTop = e.scrollHeight;
   });
@@ -684,9 +683,16 @@ test.each([
       .getByTestId("private-notes-toolbar")
       .getAttribute("data-presentation"),
   ).toBe("workspace");
+  const toolbarBox = await page
+    .getByTestId("private-notes-toolbar")
+    .boundingBox();
+  const contextBox = await hud.boundingBox();
+  expect(toolbarBox?.x).toBeGreaterThanOrEqual(
+    (contextBox?.x ?? 0) + (contextBox?.width ?? 0) + 8,
+  );
   expect(
-    (await page.getByTestId("private-notes-toolbar").boundingBox())?.width,
-  ).toBe(width - 24);
+    (toolbarBox?.x ?? Infinity) + (toolbarBox?.width ?? 0),
+  ).toBeLessThanOrEqual(width);
   await expectLayout();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     width,
@@ -1168,7 +1174,7 @@ test.each([
 
 test.each([
   1280, 390,
-])("U03: %ipxでUndo通知はボードの配置を変えず前面に重なる", async (width) => {
+])("U03: %ipxでUndo通知はボードの配置を変えず、通知とUndoへ到達できる", async (width) => {
   await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
   await openStory("room-roomboardlayout--undo-notification-shared");
   const matrix = page.getByTestId("board-operation-matrix");
@@ -1197,20 +1203,31 @@ test.each([
     after.y + after.height,
     toast.y + toast.height,
   );
-  expect(overlapRight).toBeGreaterThan(overlapLeft);
-  expect(overlapBottom).toBeGreaterThan(overlapTop);
+  // 390pxでは通知と操作欄が重ならない配置も正常。交差があるときは
+  // その点で前面を検査し、交差がなければ通知の中央で到達性を検査する。
+  const overlaps = overlapRight > overlapLeft && overlapBottom > overlapTop;
   const toastIsOnTop = await page.evaluate(
     ({ x, y }) =>
       Boolean(document.elementFromPoint(x, y)?.closest("[data-sonner-toast]")),
     {
-      x: overlapLeft + (overlapRight - overlapLeft) / 2,
-      y: overlapTop + (overlapBottom - overlapTop) / 2,
+      x: overlaps
+        ? overlapLeft + (overlapRight - overlapLeft) / 2
+        : toast.x + toast.width / 2,
+      y: overlaps
+        ? overlapTop + (overlapBottom - overlapTop) / 2
+        : toast.y + toast.height / 2,
     },
   );
   expect(toastIsOnTop).toBe(true);
   await page.screenshot({
     path: `${output}/u03-toast-shared-${width}.png`,
   });
+  await page
+    .getByRole("button", { name: "まとめて元に戻す", exact: true })
+    .click();
+  expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
+    true,
+  );
 });
 
 // 空のpointer-events-none wrapperではなく、clip内に見える実操作対象を調べる。

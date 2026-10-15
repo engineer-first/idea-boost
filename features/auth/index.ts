@@ -7,6 +7,11 @@ export {
   signInWithGoogle,
   signOut,
 } from "./logic/actions";
+export {
+  type DisplayNameResult,
+  loadDisplayName,
+  saveDisplayName,
+} from "./logic/display-name-actions";
 export { isEmailVerified } from "./logic/google-claims";
 export { getLoginPath, sanitizeNextPath } from "./logic/redirects";
 export { RoomAdmissionContext } from "./logic/room-admission-context";
@@ -16,4 +21,9 @@ export {
   consumeRoomResume,
   startRoomReauthentication,
 } from "./logic/room-reauthentication";
+export {
+  type DisplayNameControls,
+  useDisplayName,
+} from "./logic/use-display-name";
+export { DisplayNameDialog } from "./molecules/display-name-dialog";
 export { LoginCard } from "./molecules/login-card";

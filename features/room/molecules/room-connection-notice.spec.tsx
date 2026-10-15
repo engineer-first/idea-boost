@@ -24,3 +24,11 @@ it("期限切れのログイン案内は元ルームへ戻るURLを保つ", () =
     "/login?next=%2Frooms%2F11111111-1111-4111-8111-111111111111",
   );
 });
+
+it("初回接続と時間のかかる初回接続は再接続と表示しない", () => {
+  const { rerender } = render(<RoomConnectionNotice status="connecting" />);
+  expect(screen.queryByText(/再接続/)).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("接続しています");
+  rerender(<RoomConnectionNotice status="connecting" delayed />);
+  expect(screen.queryByText(/再接続|接続が戻って/)).not.toBeInTheDocument();
+});

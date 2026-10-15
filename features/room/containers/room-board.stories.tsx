@@ -40,7 +40,12 @@ function ActiveHostTransferPreview({
         phase,
         currentUserId,
         members: ACTIVE_PREVIEW_MEMBERS,
-        notes: ACTIVE_PREVIEW_NOTES,
+        notes:
+          phase.kind === "step" && phase.step === 1
+            ? ACTIVE_PREVIEW_NOTES.filter(
+                (note) => note.authorId === currentUserId,
+              ).map((note) => ({ ...note, visibility: "private" as const }))
+            : ACTIVE_PREVIEW_NOTES,
         timer: ACTIVE_PREVIEW_TIMER,
         sharing:
           phase.kind === "step" && phase.step === 2
@@ -61,6 +66,8 @@ function ActiveHostTransferPreview({
     const listener = (event: Event) => {
       const kind = (event as CustomEvent<unknown>).detail;
       if (
+        kind === "timer-tick" ||
+        kind === "transfer" ||
         kind === "aba" ||
         kind === "recipient-left" ||
         kind === "disconnect" ||
@@ -84,6 +91,7 @@ function ActiveHostTransferPreview({
         initialPhase={phase}
         initialMembers={ACTIVE_PREVIEW_MEMBERS}
         webSocketFactory={server.factory}
+        saveDisplayNameAction={server.saveDisplayName}
       />
       <Toaster />
     </div>
@@ -134,3 +142,7 @@ export const Phase3Step2: Story = phaseStory(3, 2);
 export const Phase3Step3: Story = phaseStory(3, 3);
 export const Phase3Step4: Story = phaseStory(3, 4);
 export const Phase3Step5: Story = phaseStory(3, 5);
+
+export const Phase1Step1Participant: Story = {
+  args: { phase: buildPhaseStep(1), participant: true },
+};

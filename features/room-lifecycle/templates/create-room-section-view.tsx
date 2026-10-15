@@ -106,7 +106,7 @@ export function CreateRoomSectionView({
                 : "新しいルームを作成"}
           </Button>
         </form>
-        {recovering && !message && (
+        {recovering && !pending && !message && (
           <p className="mt-3 text-sm leading-relaxed">
             {recoveryState === "prepared"
               ? "準備したルームの作成を続けられます。"
@@ -118,7 +118,7 @@ export function CreateRoomSectionView({
             {message}
           </p>
         )}
-        {recovering && onNewIntent && (
+        {recovering && !pending && onNewIntent && (
           <Button
             type="button"
             variant="outline"
@@ -129,7 +129,7 @@ export function CreateRoomSectionView({
             新しいルームを作成
           </Button>
         )}
-        {!recovering && requiresNewConfirmation && onRecover && (
+        {!pending && !recovering && requiresNewConfirmation && onRecover && (
           <Button
             type="button"
             variant="outline"

@@ -49,19 +49,19 @@ const LOBBY = buildLobbyPhase();
 const roomIdBySocket = new WeakMap<RoomSocket, string>();
 
 // 2ユーザーが同じルームに接続した状態を作る（snapshot 受信済み）。
-async function setupRoom(): Promise<{
+async function setupRoom(memberUser: TestUser = MEMBER): Promise<{
   roomId: string;
   owner: RoomSocket;
   member: RoomSocket;
 }> {
   const { roomId, inviteCode } = await createRoomAs(OWNER);
-  await joinRoomAs(MEMBER, inviteCode);
+  await joinRoomAs(memberUser, inviteCode);
 
   const owner = await connectRoomAs(OWNER, roomId);
   const ownerSnapshot = await owner.next();
   expect(ownerSnapshot.type).toBe("snapshot");
 
-  const member = await connectRoomAs(MEMBER, roomId);
+  const member = await connectRoomAs(memberUser, roomId);
   const memberSnapshot = await member.next();
   expect(memberSnapshot.type).toBe("snapshot");
 
@@ -139,27 +139,7 @@ async function expectType<T extends ServerMessage["type"]>(
   ) {
     message = await socket.next();
   }
-  if (
-    message.type === "phase:save-requested" &&
-    type !== "phase:save-requested"
-  ) {
-    const roomId = roomIdBySocket.get(socket);
-    if (!roomId) throw new Error("テスト用ルームIDが見つかりません。");
-    await runInRoomDO(roomId, async (instance, state) => {
-      state.storage.sql.exec(
-        "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
-        Date.now() - 1,
-      );
-      await instance.alarm();
-    });
-    message = await socket.next();
-    while (
-      message.type === "note:content-saved" &&
-      type !== "note:content-saved"
-    ) {
-      message = await socket.next();
-    }
-  }
+
   expect(message.type).toBe(type);
   return message as Extract<ServerMessage, { type: T }>;
 }
@@ -362,8 +342,8 @@ describe("member_joined（Realtime 反映）", () => {
     const { roomId, owner, member } = await setupRoom();
 
     const newcomer: TestUser = {
-      sub: "33333333-3333-4333-8333-333333333333",
-      email: "newcomer@example.test",
+      sub: crypto.randomUUID(),
+      email: `${crypto.randomUUID()}@example.test`,
       name: "Newcomer",
     };
     await joinRoomAs(newcomer, await getInviteCode(roomId, OWNER));
@@ -399,8 +379,8 @@ describe("member_joined（Realtime 反映）", () => {
     const { roomId, owner, member } = await setupRoom();
 
     const newcomer: TestUser = {
-      sub: "33333333-3333-4333-8333-333333333333",
-      email: "newcomer@example.test",
+      sub: crypto.randomUUID(),
+      email: `${crypto.randomUUID()}@example.test`,
       name: "Newcomer",
     };
     await joinRoomAs(newcomer, await getInviteCode(roomId, OWNER));
@@ -409,48 +389,67 @@ describe("member_joined（Realtime 反映）", () => {
     const newSocket = await connectRoomAs(newcomer, roomId);
     // 自分の snapshot.members には自分が含まれる
     const newcomerSnapshot = await expectType(newSocket, "snapshot");
-    expect(newcomerSnapshot.members).toEqual([
-      {
-        userId: OWNER.sub,
-        name: OWNER.name,
-        color: expect.stringMatching(NOTE_COLOR_PATTERN),
-      },
-      {
-        userId: MEMBER.sub,
-        name: MEMBER.name,
-        color: expect.stringMatching(NOTE_COLOR_PATTERN),
-      },
-      {
-        userId: newcomer.sub,
-        name: newcomer.name,
-        color: expect.stringMatching(NOTE_COLOR_PATTERN),
-      },
-    ]);
+    // 同じミリ秒の参加はID順になるため、ここでは全員が含まれることを検証する。
+    expect(newcomerSnapshot.members).toHaveLength(3);
+    expect(newcomerSnapshot.members).toEqual(
+      expect.arrayContaining([
+        {
+          userId: OWNER.sub,
+          name: OWNER.name,
+          color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        },
+        {
+          userId: MEMBER.sub,
+          name: MEMBER.name,
+          color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        },
+        {
+          userId: newcomer.sub,
+          name: newcomer.name,
+          color: expect.stringMatching(NOTE_COLOR_PATTERN),
+        },
+      ]),
+    );
 
     newSocket.close();
     owner.close();
     member.close();
   });
 
-  it("既存メンバーが表示名を変更して再 join すると他クライアントへ member_joined が届く", async () => {
-    const { roomId, owner, member } = await setupRoom();
-    const renamedMember = { ...MEMBER, name: "Renamed Member" };
-
+  it("変更済みの表示名は認証名による再参加で戻らず、通知へ混入しない", async () => {
+    const memberUser = {
+      ...MEMBER,
+      sub: crypto.randomUUID(),
+      email: `${crypto.randomUUID()}@example.test`,
+    };
+    const { roomId, owner, member } = await setupRoom(memberUser);
+    const saved = await SELF.fetch("https://api.test/api/me/display-name", {
+      method: "PUT",
+      headers: {
+        Cookie: await sessionCookieFor(memberUser),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        expectedPrincipal: memberUser.sub,
+        roomId,
+        name: "保存した表示名",
+      }),
+    });
+    expect(saved.status).toBe(200);
+    await expectType(owner, "member:renamed");
+    await expectType(member, "member:renamed");
+    const renamedMember = { ...memberUser, name: "Renamed Google Name" };
     await joinRoomAs(renamedMember, await getInviteCode(roomId, OWNER));
     const received = await Promise.race([
       owner.next(),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 50)),
     ]);
-
-    expect(received).toEqual({
-      type: "member_joined",
-      member: {
-        userId: MEMBER.sub,
-        name: renamedMember.name,
-        color: expect.stringMatching(NOTE_COLOR_PATTERN),
-      },
-    });
-
+    expect(received).toBeNull();
+    const reconnect = await connectRoomAs(renamedMember, roomId);
+    expect(JSON.stringify(await reconnect.next())).not.toContain(
+      renamedMember.name,
+    );
+    reconnect.close();
     owner.close();
     member.close();
   });
@@ -458,8 +457,8 @@ describe("member_joined（Realtime 反映）", () => {
   it("既存メンバーが同じ表示名で再 join しても member_joined は届かない", async () => {
     const { roomId, owner, member } = await setupRoom();
     const newcomer: TestUser = {
-      sub: "33333333-3333-4333-8333-333333333333",
-      email: "newcomer@example.test",
+      sub: crypto.randomUUID(),
+      email: `${crypto.randomUUID()}@example.test`,
       name: "Newcomer",
     };
     const inviteCode = await getInviteCode(roomId, OWNER);

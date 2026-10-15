@@ -39,11 +39,11 @@ export function InviteCodeDialog({
     }
   }, [open]);
 
-  function handleConfirm() {
+  function joinConfirmed() {
     startTransition(async () => {
       const formData = new FormData();
       formData.append("code", inviteCode);
-      const result = await joinRoom(formData);
+      const result = await joinRoom(formData, currentUserId);
       if (!result.ok) {
         if (result.reason === "reauth_required") {
           setReauth(true);
@@ -85,7 +85,7 @@ export function InviteCodeDialog({
       open={open}
       pending={pending}
       onOpenChange={setOpen}
-      onConfirm={handleConfirm}
+      onConfirm={joinConfirmed}
     />
   );
 }

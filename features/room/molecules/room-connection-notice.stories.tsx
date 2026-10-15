@@ -21,3 +21,6 @@ export const Connected: Story = { args: { status: "open" } };
 
 export const AuthRequired: Story = { args: { status: "auth-required" } };
 export const Unavailable: Story = { args: { status: "unavailable" } };
+
+export const InitialConnection: Story = { args: { status: "connecting" } };
+export const ReSynchronizing: Story = { args: { status: "reconnecting" } };

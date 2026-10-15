@@ -71,6 +71,7 @@ export type RoomBoardCanvasProps = {
   isHost: boolean;
   privateNotes: Note[];
   canPublishPrivateNote?: boolean;
+  isSavingBeforeShare?: boolean;
   selectedNoteId: string | null;
   selectedNoteIds?: string[];
   interactionTool?: CanvasTool;
@@ -176,6 +177,7 @@ export function RoomBoardCanvas({
   isHost,
   privateNotes,
   canPublishPrivateNote = false,
+  isSavingBeforeShare = false,
   selectedNoteId,
   selectedNoteIds,
   interactionTool = "select",
@@ -275,14 +277,15 @@ export function RoomBoardCanvas({
     phase.phase === 3 &&
     (phase.step >= 2 || notes.length > 0);
   const isIdeaMapSizeControlsVisible =
+    isHost &&
     phase.kind === "step" &&
     phase.phase === 3 &&
     (phase.step === 2 || phase.step === 3);
   const isPersonalNoteEntryPhase =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const privateNotesContainerClassName = isPersonalNoteEntryPhase
-    ? "absolute inset-x-0 top-[var(--board-private-workspace-top,12rem)] bottom-24 z-30 flex min-h-0 justify-center px-3 py-2 max-[639px]:bottom-8"
-    : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
+    ? "absolute inset-x-0 top-[min(var(--board-private-workspace-top,12rem),calc(100%-20rem))] bottom-24 z-30 flex min-h-0 justify-center px-3 py-2 min-[640px]:left-96 max-[639px]:top-[min(var(--board-private-workspace-top,12rem),calc(100%-8rem))] max-[639px]:bottom-8"
+    : `pointer-events-none absolute right-3 bottom-[5.25rem] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=reconnecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`;
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
   const selectedNote = [...notes, ...privateNotes].find(
@@ -906,11 +909,13 @@ export function RoomBoardCanvas({
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               sharingHint={
-                phase.kind === "step" && phase.step === 2
-                  ? canPublishPrivateNote
-                    ? "あなたの番です。付箋をボードへドラッグして共有できます。"
-                    : "付箋の共有は、自分の番になるまでお待ちください。"
-                  : undefined
+                isSavingBeforeShare
+                  ? "本文の保存を確認してから共有します…"
+                  : phase.kind === "step" && phase.step === 2
+                    ? canPublishPrivateNote
+                      ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+                      : "付箋の共有は、自分の番になるまでお待ちください。"
+                    : undefined
               }
               presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
               editingDisabled={isResultStep(phase)}

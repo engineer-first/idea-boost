@@ -6,7 +6,7 @@ import {
   ROOM_CREATION_WINDOW_MS,
 } from "../../contracts/room-creation";
 import { SessionExpiresAtSchema } from "../../contracts/session";
-import { memberNameHandlers } from "./member-name";
+import { applyAccountName, memberNameHandlers } from "./member-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
 // エントリポイント（RPC / WebSocket）と横断ガード（phase ゲート）だけを持ち、
 // ドメインロジックは workers/room/ の各モジュールに委譲する:
@@ -295,6 +295,30 @@ export class RoomDO extends DurableObject {
     if (member && appendSharingMember(this.sql, member))
       broadcastSharing({ sql: this.sql, broadcaster: this.broadcaster });
     return result;
+  }
+
+  syncAccountDisplayName(
+    userId: string,
+    name: string,
+    revision: number,
+  ): boolean {
+    if (
+      isRoomClosed(this.sql) ||
+      this.isCompleted() ||
+      (readOutcomeState(this.sql)?.expires_at ?? Infinity) <= Date.now()
+    )
+      return false;
+    if (!isMember(this.sql, userId)) return false;
+    const member = this.ctx.storage.transactionSync(() =>
+      applyAccountName(this.sql, userId, name, revision),
+    );
+    if (member)
+      this.broadcaster.broadcastToAll({
+        type: "member:renamed",
+        member,
+        operationId: crypto.randomUUID(),
+      });
+    return true;
   }
 
   // 旧callerは初回初期化できない。既存markerの照合だけに縮退。
@@ -654,6 +678,7 @@ export class RoomDO extends DurableObject {
         "note_share_operations",
         "member_color_assignments",
         "member_display_names",
+        "member_account_name_revisions",
         "pending_phase_transition",
         "sharing_state",
         "phase_rollback_checkpoints",

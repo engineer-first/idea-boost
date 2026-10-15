@@ -1,3 +1,4 @@
+import { defaultDisplayName } from "../contracts/display-name";
 import {
   PreviewCreateRequestSchema,
   type PreviewRoom,
@@ -5,7 +6,12 @@ import {
 import { LoginAssertionSchema, TOKEN_AUDIENCE } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
 import { type ApiWorkerEnv, createApiWorker } from "./api-worker";
-import { deleteRoom, ensureUser, insertRoom } from "./lib/db";
+import {
+  deleteRoom,
+  ensureUser,
+  findUserDisplayNameById,
+  insertRoom,
+} from "./lib/db";
 import { isPreviewEmailAllowed } from "./lib/preview-policy";
 import { getSessionFromRequest } from "./lib/session";
 import { requireSessionSecret } from "./lib/session-secret";
@@ -40,7 +46,12 @@ const api = createApiWorker(async (request, baseEnv, session) => {
     baseEnv.ROOM_DO as unknown as DurableObjectNamespace<PreviewRoomDO>;
   const stub = namespace.get(namespace.idFromName(room.roomId));
   try {
-    await stub.initializePreview(parsed.data.checkpoint, room.roomId, session);
+    await stub.initializePreview(parsed.data.checkpoint, room.roomId, {
+      ...session,
+      name:
+        (await findUserDisplayNameById(baseEnv.DB, session.sub)) ??
+        defaultDisplayName(session.sub),
+    });
     const result: PreviewRoom = {
       roomId: room.roomId,
       inviteCode: room.inviteCode,

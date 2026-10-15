@@ -1,7 +1,6 @@
 import { isRoomClosed } from "./completed-rooms";
 import type { MessageHandlers } from "./handler-context";
 import { getHostState, isMember } from "./members";
-import { getPendingPhaseTransition } from "./phase";
 
 // 認可・対象・改訂確認と更新の間にawaitを置かない。進行状態には触れない。
 export const hostHandlers: MessageHandlers<"host:transfer"> = {
@@ -12,7 +11,6 @@ export const hostHandlers: MessageHandlers<"host:transfer"> = {
         host.hostUserId !== ctx.userId ||
         host.hostRevision !== message.expectedHostRevision ||
         isRoomClosed(ctx.sql) ||
-        getPendingPhaseTransition(ctx.sql) !== null ||
         message.targetUserId === ctx.userId ||
         !isMember(ctx.sql, message.targetUserId) ||
         !ctx.broadcaster.isConnected(message.targetUserId)

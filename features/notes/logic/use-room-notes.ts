@@ -270,9 +270,15 @@ export function useRoomNotes({
     draggingNoteIdRef.current = draggingNoteId;
   }, [draggingNoteId]);
 
+  // ホスト世代の更新で send が変わっても、付箋・ドラッグ状態を維持する。
+  const sendRef = useRef(send);
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
+
   useEffect(() => {
     sendDragRef.current = createThrottled((payload: NoteDragPayload) => {
-      send({
+      sendRef.current({
         type: "note:drag:move",
         noteId: payload.noteId,
         dragId: payload.dragId,
@@ -291,7 +297,7 @@ export function useRoomNotes({
       pendingFontSizeOperationsRef.current = [];
       confirmedFontSizesRef.current.clear();
     };
-  }, [send]);
+  }, []);
 
   // 連続メッセージ・連続操作でも最新の notes を引けるよう、ref と state を
   // 同期して更新する。

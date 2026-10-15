@@ -33,18 +33,7 @@ async function until(
 ): Promise<Record<string, unknown>> {
   for (;;) {
     const message = await socket.next();
-    if (message.type === "phase:save-requested") {
-      const roomId = roomIdBySocket.get(socket);
-      if (roomId)
-        await runInRoomDO(roomId, async (instance, state) => {
-          state.storage.sql.exec(
-            "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
-            Date.now() - 1,
-          );
-          await instance.alarm();
-        });
-      continue;
-    }
+
     if (message.type === type) return message;
   }
 }
@@ -107,7 +96,11 @@ describe("一人ずつの共有", () => {
   it("最後の発表者以外は共有完了を送信できない", async () => {
     const { owner, roomId } = await setup();
     await runInRoomDO(roomId, async (_, state) => {
-      const sharingPhase = { kind: "step" as const, phase: 1, step: 2 };
+      const sharingPhase = {
+        kind: "step" as const,
+        phase: 1 as const,
+        step: 2 as const,
+      };
       await state.storage.transaction(async () => {
         savePhase(state.storage.sql, sharingPhase);
         resetSharingForPhase(state.storage.sql, sharingPhase);
@@ -642,7 +635,15 @@ it.each([
     const row = state.storage.sql
       .exec("SELECT retry_at, expires_at FROM shared_outcome_state WHERE id=1")
       .one();
-    expect(await state.storage.getAlarm()).toBe(row.retry_at ?? row.expires_at);
+    const deadline = row.retry_at ?? row.expires_at;
+    // 工程更新後の成果記録がexpires_atを数ms延長することがある。
+    // 発表開始予約は解除され、alarmは成果記録の期限を指す。
+    expect(await state.storage.getAlarm()).toBeLessThanOrEqual(
+      Number(deadline),
+    );
+    expect(await state.storage.getAlarm()).not.toBe(
+      Number(pending.sharing.startsAt),
+    );
     expect(
       state.storage.sql.exec("SELECT status FROM timer_state").one().status,
     ).toBe("idle");
@@ -742,11 +743,6 @@ it("共有への自動開始の予約に失敗したら遷移・共有状態・�
       refreshSnapshots: vi.fn(),
     };
     const request = { type: "phase:next" as const, ...expectation };
-    await phaseHandlers["phase:next"](ctx, request);
-    state.storage.sql.exec(
-      "UPDATE pending_phase_transition SET deadline_at = ?1 WHERE id = 1",
-      Date.now() - 1,
-    );
     const broadcast = vi.spyOn(broadcaster, "broadcastToAll");
     const storage = new Proxy(state.storage, {
       get(target, key) {
@@ -768,9 +764,9 @@ it("共有への自動開始の予約に失敗したら遷移・共有状態・�
     ).toBe("idle");
     expect(
       state.storage.sql
-        .exec("SELECT expected_revision FROM pending_phase_transition")
-        .one().expected_revision,
-    ).toBe(expectation.expectedRevision);
+        .exec("SELECT * FROM pending_phase_transition")
+        .toArray(),
+    ).toEqual([]);
     expect(broadcast).not.toHaveBeenCalled();
     expect(ctx.refreshSnapshots).not.toHaveBeenCalled();
   });

@@ -66,6 +66,7 @@ export function useRoomConnection({
     setConnectionStatus("connecting");
     setConnectionDelayed(false);
     let active = true;
+    let hasSynchronized = false;
     // snapshotで同期を確定するたびに照会世代を進める。socket openだけでは
     // 復旧していないため、切断中に始めた照会をまだ有効として扱う。
     let generation = synchronizationRequest;
@@ -181,6 +182,7 @@ export function useRoomConnection({
         }
         onMessageRef.current(message);
         if (message.type === "snapshot") {
+          hasSynchronized = true;
           synchronizedRef.current = true;
           stopDelay();
           setConnectionStatus("open");
@@ -224,7 +226,13 @@ export function useRoomConnection({
         }
         synchronizedRef.current = false;
         startDelay();
-        setConnectionStatus(status === "open" ? "connecting" : status);
+        setConnectionStatus(
+          status === "open" || status === "connecting"
+            ? hasSynchronized
+              ? "reconnecting"
+              : "connecting"
+            : status,
+        );
       },
       webSocketFactory,
     });

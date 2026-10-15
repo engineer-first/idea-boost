@@ -68,6 +68,65 @@ describe("useRoomNotes", () => {
     );
   }
 
+  it("ホスト世代による送信関数の変更後も、次の通知で既存付箋を失わない", () => {
+    const hook = renderHook(({ send }) => useRoomNotes({ send }), {
+      initialProps: { send: vi.fn(() => true) },
+    });
+    const notes = [
+      buildNote({ id: NOTE_ID, visibility: "private" }),
+      buildNote({ id: TARGET_NOTE_ID, visibility: "shared" }),
+    ];
+    act(() => hook.result.current.applyMessage(snapshotMessage(notes)));
+    hook.rerender({ send: vi.fn(() => true) });
+    act(() =>
+      hook.result.current.applyMessage({
+        type: "timer:updated",
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+    expect(hook.result.current.notes).toEqual(notes);
+    act(() => hook.result.current.changeNoteFontSize(NOTE_ID, 24));
+    expect(
+      hook.result.current.notes.find((note) => note.id === NOTE_ID)?.fontSize,
+    ).toBe(24);
+  });
+
+  it("送信関数の変更中もドラッグを維持し、間引いた座標は最新の送信関数へ届ける", () => {
+    const previousSend = vi.fn(() => true);
+    const nextSend = vi.fn(() => true);
+    const hook = renderHook(
+      ({ send }) => useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+      {
+        initialProps: { send: previousSend },
+      },
+    );
+    act(() => hook.result.current.applyMessage(snapshotMessage()));
+    act(() => {
+      hook.result.current.startNoteDrag(NOTE_ID);
+      hook.result.current.applyMessage({
+        type: "note:drag:result",
+        dragId: DRAG_ID,
+        accepted: true,
+      });
+      hook.result.current.moveNote(NOTE_ID, 200, 300);
+      hook.result.current.moveNote(NOTE_ID, 210, 310);
+    });
+    hook.rerender({ send: nextSend });
+    act(() => vi.advanceTimersByTime(DRAG_BROADCAST_THROTTLE_MS));
+    expect(hook.result.current.draggingNoteId).toBe(NOTE_ID);
+    expect(nextSend).toHaveBeenCalledWith({
+      type: "note:drag:move",
+      noteId: NOTE_ID,
+      dragId: DRAG_ID,
+      x: 210,
+      y: 310,
+    });
+    expect(previousSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({ x: 210, y: 310 }),
+    );
+  });
+
   describe("明示的なマイ付箋追加", () => {
     function setupCreation(connected = true) {
       const sendCreation = vi.fn(() => true);

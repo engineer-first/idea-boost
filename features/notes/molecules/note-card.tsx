@@ -1068,6 +1068,7 @@ export function NoteCard({
             return;
           }
           const composedText = event.currentTarget.value;
+          setLocalContent(composedText);
           onDraftCompositionEnd?.(note.id, composedText);
           if (blurDuringCompositionRef.current) {
             blurDuringCompositionRef.current = false;
