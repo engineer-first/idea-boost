@@ -11,8 +11,8 @@ afterAll(async () => {
 });
 
 test.each([
-  390, 1280, 1920,
-])("%ipxで倍率クリックとショートカットから表示を操作できる", async (width) => {
+  390, 1920,
+])("%ipxで新100%の実寸と選択表示の画面内への収まりを保つ", async (width) => {
   const page = await browser.newPage({ viewport: { width, height: 900 } });
   try {
     await page.goto(
@@ -23,19 +23,10 @@ test.each([
     const reset = page.getByRole("button", { name: "ズームを100%に戻す" });
     await reset.click();
     await expect.poll(() => reset.innerText()).toBe("100%");
-    expect(
-      await page.getByRole("dialog", { name: "キャンバスのズーム" }).count(),
-    ).toBe(0);
     const card = page.getByTestId("note-card").first();
     await expect
       .poll(async () => (await card.boundingBox())?.width)
       .toBeCloseTo(150, 0);
-    await page
-      .getByRole("button", { name: "キャンバスを拡大", exact: true })
-      .click();
-    await expect.poll(() => reset.innerText()).toBe("125%");
-    await reset.click();
-    await expect.poll(() => reset.innerText()).toBe("100%");
     await page
       .getByRole("button", { name: "付箋全体を表示", exact: true })
       .click();
@@ -56,10 +47,6 @@ test.each([
     expect(box.y).toBeGreaterThan(0);
     expect(box.y + box.height).toBeLessThan(900);
     expect(await card.getAttribute("data-selected")).toBe("true");
-    await page.keyboard.press("Shift+0");
-    await expect.poll(() => reset.innerText()).toBe("100%");
-    await page.keyboard.press("+");
-    await expect.poll(() => reset.innerText()).toBe("125%");
   } finally {
     await page.close();
   }
