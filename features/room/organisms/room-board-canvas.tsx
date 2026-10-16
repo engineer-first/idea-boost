@@ -109,6 +109,7 @@ export type RoomBoardCanvasProps = {
   privateToolbarRef: RefObject<HTMLDivElement | null>;
   permissions: BoardPermissions;
   camera: CanvasCamera;
+  displayZoom?: number;
   gridStyle: CSSProperties;
   isPanning: boolean;
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -205,6 +206,7 @@ export function RoomBoardCanvas({
   privateToolbarRef,
   permissions,
   camera,
+  displayZoom,
   gridStyle,
   isPanning,
   onCanvasPointerDown,
@@ -649,7 +651,7 @@ export function RoomBoardCanvas({
               interactionTool={interactionTool}
               onToolChange={onToolChange}
               toolDisabled={toolDisabled}
-              zoom={camera.zoom}
+              zoom={displayZoom ?? camera.zoom}
               onZoomOut={onZoomOut}
               onResetZoom={onResetZoom}
               onZoomIn={onZoomIn}

@@ -96,6 +96,19 @@ describe("canvas-camera", () => {
     expect(getCanvasGridStep(4)).toBeLessThan(40);
   });
 
+  it("新100%基準の1%まで安全領域にフィットできる", () => {
+    const camera = fitCanvasCamera(
+      { x: 0, y: 0, width: 45000, height: 300 },
+      { width: 500, height: 400 },
+      undefined,
+      { top: 0, right: 0, bottom: 0, left: 0 },
+      0.75,
+      0.75,
+    );
+    expect(camera).not.toBeNull();
+    expect(camera?.zoom).toBeCloseTo(372 / 45000);
+  });
+
   it("手のひらの空白dragでカメラを1:1にパンする", () => {
     const viewport = createViewport();
     const raf = vi
@@ -216,6 +229,7 @@ describe("canvas-camera", () => {
       useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
     );
     const pointer = { x: 250, y: 200 };
+    const zoomBefore = result.current.camera.zoom;
     const worldBefore = screenToWorld(pointer, result.current.camera);
     const wheelEvent = new WheelEvent("wheel", {
       cancelable: true,
@@ -238,7 +252,7 @@ describe("canvas-camera", () => {
       expect.any(Function),
       { passive: false },
     );
-    expect(result.current.camera.zoom).toBeGreaterThan(1);
+    expect(result.current.camera.zoom).toBeGreaterThan(zoomBefore);
     expect(screenToWorld(pointer, result.current.camera)).toEqual(worldBefore);
     expect(preventDefault).toHaveBeenCalledTimes(1);
     expect(wheelEvent.defaultPrevented).toBe(true);

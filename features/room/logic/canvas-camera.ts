@@ -8,7 +8,8 @@ import {
 
 export const MIN_CANVAS_ZOOM = 0.01;
 export const MAX_CANVAS_ZOOM = 4;
-export const DEFAULT_CANVAS_ZOOM = 1;
+// 通常ボードの100%は従来の75%。共有座標・付箋サイズは変えない。
+export const DEFAULT_CANVAS_ZOOM = 0.75;
 export const CANVAS_GRID_BASE_STEP = 40;
 export const CANVAS_FIT_PADDING = 64;
 
@@ -40,8 +41,11 @@ export const DEFAULT_CANVAS_CENTER: CanvasPoint = {
   y: NOTE_SPAWN_Y_MIN + NOTE_HEIGHT / 2,
 };
 
-export function clampCanvasZoom(zoom: number): number {
-  return Math.min(Math.max(zoom, MIN_CANVAS_ZOOM), MAX_CANVAS_ZOOM);
+export function clampCanvasZoom(zoom: number, baseZoom = 1): number {
+  return Math.min(
+    Math.max(zoom, MIN_CANVAS_ZOOM * baseZoom),
+    MAX_CANVAS_ZOOM * baseZoom,
+  );
 }
 
 export function clampCanvasCoordinate(value: number): number {
@@ -75,8 +79,9 @@ export function zoomAtScreenPoint(
   camera: CanvasCamera,
   requestedZoom: number,
   point: CanvasPoint,
+  baseZoom = 1,
 ): CanvasCamera {
-  const zoom = clampCanvasZoom(requestedZoom);
+  const zoom = clampCanvasZoom(requestedZoom, baseZoom);
   const worldPoint = screenToWorld(point, camera);
   return {
     x: point.x - worldPoint.x * zoom,
@@ -95,12 +100,16 @@ export function fitCanvasCamera(
   viewport: CanvasViewport,
   padding: number | undefined,
   insets: CanvasFitInsets | undefined,
+  maxZoom?: number,
+  baseZoom?: number,
 ): CanvasCamera | null;
 export function fitCanvasCamera(
   bounds: CanvasBounds,
   viewport: CanvasViewport,
   padding = CANVAS_FIT_PADDING,
   insets?: CanvasFitInsets,
+  maxZoom = 1,
+  baseZoom = 1,
 ): CanvasCamera | null {
   const left = insets?.left ?? 0;
   const top = insets?.top ?? 0;
@@ -120,10 +129,10 @@ export function fitCanvasCamera(
   const requestedZoom = Math.min(
     availableWidth / width,
     availableHeight / height,
-    1,
+    maxZoom,
   );
-  if (insets && requestedZoom < MIN_CANVAS_ZOOM) return null;
-  const zoom = clampCanvasZoom(requestedZoom);
+  if (insets && requestedZoom < MIN_CANVAS_ZOOM * baseZoom) return null;
+  const zoom = clampCanvasZoom(requestedZoom, baseZoom);
   return {
     x: left + (safeWidth - width * zoom) / 2 - bounds.x * zoom,
     y: top + (safeHeight - height * zoom) / 2 - bounds.y * zoom,
@@ -140,8 +149,8 @@ export function getCanvasGridStep(zoom: number): number {
 
 export function getDefaultCanvasCamera(viewport: CanvasViewport): CanvasCamera {
   return {
-    x: viewport.width / 2 - DEFAULT_CANVAS_CENTER.x,
-    y: viewport.height / 2 - DEFAULT_CANVAS_CENTER.y,
+    x: viewport.width / 2 - DEFAULT_CANVAS_CENTER.x * DEFAULT_CANVAS_ZOOM,
+    y: viewport.height / 2 - DEFAULT_CANVAS_CENTER.y * DEFAULT_CANVAS_ZOOM,
     zoom: DEFAULT_CANVAS_ZOOM,
   };
 }

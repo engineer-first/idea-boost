@@ -392,6 +392,10 @@ export function RoomBoardView({
     notes: [...notes, ...interactions.privateNotes],
   });
   const selectedNoteIds = selection.selectedNoteIds;
+  const onCameraSelectionChange = interactions.onSelectionChange;
+  useEffect(() => {
+    onCameraSelectionChange?.(selectedNoteIds);
+  }, [onCameraSelectionChange, selectedNoteIds]);
   const selectedNoteId =
     selectedNoteIds.length === 1 ? selectedNoteIds[0] : null;
   const setSelectedNoteId = selection.selectNote;
@@ -1973,6 +1977,7 @@ export function RoomBoardView({
           ideaMapPlaneRef={ideaMapPlaneRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
+          displayZoom={interactions.displayZoom}
           gridStyle={gridStyle}
           isPanning={isPanning}
           onCanvasPointerDown={(event) => {

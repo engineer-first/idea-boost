@@ -2588,12 +2588,17 @@ describe("RoomBoardView", () => {
       expect(onNoteBringToFront).not.toHaveBeenCalled();
     });
 
-    it("付箋をクリックすると選択され、ボード背景のクリックで解除される", () => {
-      setup();
+    it("付箋の選択・背景での解除を表示とカメラに伝える", () => {
+      const interactions = buildInteractions(buildNotes(3), []);
+      const onSelectionChange = vi.fn();
+      setup({ interactions: { ...interactions, onSelectionChange } });
 
       const [first] = screen.getAllByTestId("note-card");
       clickNote(first);
       expect(first).toHaveAttribute("data-selected", "true");
+      expect(onSelectionChange).toHaveBeenLastCalledWith([
+        interactions.notes[0].id,
+      ]);
 
       fireEvent.pointerDown(screen.getByTestId("board-canvas"), {
         pointerId: 1,
@@ -2609,6 +2614,7 @@ describe("RoomBoardView", () => {
         clientY: 20,
       });
       expect(first).not.toHaveAttribute("data-selected");
+      expect(onSelectionChange).toHaveBeenLastCalledWith([]);
     });
 
     it("別の付箋をクリックすると選択が移る（同時に選択されるのは1枚だけ）", () => {

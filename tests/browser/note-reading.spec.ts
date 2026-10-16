@@ -137,7 +137,7 @@ test.each([
   await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
   await expect
     .poll(async () => (await card.boundingBox())?.width)
-    .toBeCloseTo(200, 0);
+    .toBeCloseTo(150, 0);
   const board = page.getByTestId("board-scroller");
   await page.getByRole("button", { name: "ズームを100%に戻す" }).focus();
   const previous = await page.getByTestId("board-canvas").getAttribute("style");
