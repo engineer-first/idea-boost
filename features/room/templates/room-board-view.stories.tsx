@@ -57,11 +57,13 @@ const INTERACTIONS: RoomBoardInteractions = {
   boardRootRef: { current: null },
   boardScrollerRef: { current: null },
   ideaMapPlaneRef: { current: null },
+  ideaMapTrayRef: { current: null },
   privateToolbarRef: { current: null },
   notes: buildNotes(3),
   privateNotes: [],
   dragGhost: null,
   isReturnDropTarget: false,
+  isIdeaMapTrayDropTarget: false,
   isNoteDragging: false,
   camera: { x: 0, y: 0, zoom: 1 },
   gridStyle: {
@@ -972,9 +974,22 @@ export const CanvasInputInteraction: Story = {
       getFitInsets: getBoardFitInsets,
       onNoteDragStart: (id) => setDraggingNoteId(id),
       onNoteDragMove: () => undefined,
-      onNoteDragEnd: (id, x, y) => {
+      onNoteDragEnd: (id, x, y, ideaMapPlaced) => {
         setNotes((current) =>
-          current.map((note) => (note.id === id ? { ...note, x, y } : note)),
+          current.map((note) =>
+            note.id === id
+              ? {
+                  ...note,
+                  x,
+                  y,
+                  ...(args.phase.kind === "step" &&
+                  args.phase.phase === 3 &&
+                  args.phase.step === 3
+                    ? { ideaMapPlaced: ideaMapPlaced ?? true }
+                    : {}),
+                }
+              : note,
+          ),
         );
         setDraggingNoteId(null);
       },
@@ -1135,6 +1150,47 @@ export const CanvasInputInteraction: Story = {
         </output>
       </>
     );
+  },
+};
+
+export const IdeaMapWorkspace: Story = {
+  ...CanvasInputInteraction,
+  name: "2軸評価 / 右側の未配置一覧と配置操作",
+  args: {
+    phase: buildPhaseStep(3, 3),
+    moveHistory: {
+      undo: { label: "戻せる移動はありません", reason: null, disabled: true },
+      redo: {
+        label: "やり直せる移動はありません",
+        reason: null,
+        disabled: true,
+      },
+      pending: false,
+      onUndo: fn(),
+      onRedo: fn(),
+    },
+    decidedHmw: GUIDE_QUESTION,
+    hmwDecidedIssue: GUIDE_ISSUE,
+    issueReference: buildCarryover({ phase: 1, content: GUIDE_ISSUE }),
+    hmwReference: buildCarryover({ phase: 2, content: GUIDE_QUESTION }),
+    notes: [
+      buildNote({
+        id: "map-workspace-placed",
+        authorId: ME,
+        content: "最初の一歩を小さくする",
+        x: 70,
+        y: 75,
+        ideaMapPlaced: true,
+      }),
+      ...buildNotes(12).map((note, index) => ({
+        ...note,
+        id: `map-workspace-unplaced-${index + 1}`,
+        authorId: ME,
+        content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
+        ideaMapPlaced: false,
+      })),
+    ],
+    initialGuideState: "compact",
   },
 };
 

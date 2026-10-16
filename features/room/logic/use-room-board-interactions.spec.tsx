@@ -183,7 +183,7 @@ describe("useRoomBoardInteractions cursor input", () => {
   });
 
   it.each([
-    2, 3, 5,
+    3, 5,
   ])("3-%iのマップ四辺の外もcanvas上なら範囲を丸めず送信する", (step) => {
     const { result, onCursorMove, onCursorLeave, viewport } = setup({
       phase: buildPhaseStep(step, 3),
@@ -267,7 +267,7 @@ describe("useRoomBoardInteractions cursor input", () => {
   });
 
   it("2軸マップでは左下を原点にした百分率へ変換する", () => {
-    const { result, onCursorMove } = setup({ phase: buildPhaseStep(2, 3) });
+    const { result, onCursorMove } = setup({ phase: buildPhaseStep(3, 3) });
     const plane = document.createElement("div");
     plane.getBoundingClientRect = () => new DOMRect(100, 200, 400, 200);
     result.current.ideaMapPlaneRef.current = plane;
@@ -284,17 +284,18 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onCursorMove).toHaveBeenCalledWith({ x: 50, y: 75 }, null);
   });
 
-  it("全体表示操作で共有された2軸マップ寸法を使う", () => {
+  it("固定マップ表示中はカメラの全体表示操作を無効にする", () => {
     const { result, viewport } = setup({
-      phase: buildPhaseStep(2, 3),
+      phase: buildPhaseStep(3, 3),
       ideaMapSizeLevel: 1,
       ideaMapSizeInitialized: true,
     });
     result.current.boardScrollerRef.current = viewport;
+    const camera = result.current.camera;
 
-    act(() => result.current.onFitToNotes());
+    act(() => expect(result.current.onFitToNotes()).toBe(false));
 
-    expect(result.current.camera.zoom).toBeCloseTo(672 / 1760);
+    expect(result.current.camera).toEqual(camera);
   });
 
   it("3-2のprivate previewはpointerdownで他者配信されるlockを要求しない", () => {

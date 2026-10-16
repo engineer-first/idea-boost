@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getFixedIdeaMapNotePosition,
   getIdeaMapNoteGeometry,
   getIdeaMapNotePointFromClientPosition,
   getIdeaValueFeasibilityMapDimensions,
@@ -9,6 +10,15 @@ import {
 } from "./idea-value-feasibility-map";
 
 describe("getIdeaValueFeasibilityMapPosition", () => {
+  it("固定マップは座標を移動領域の割合にし、付箋の高さを上限内に収める", () => {
+    expect(
+      getFixedIdeaMapNotePosition({ feasibility: 0, value: 100 }, 150),
+    ).toEqual({ left: "0%", bottom: "calc(100% + 35px)" });
+    expect(
+      getFixedIdeaMapNotePosition({ feasibility: 100, value: 0 }, 320),
+    ).toEqual({ left: "100%", bottom: "0%" });
+  });
+
   it("サイズ段階でマップだけを10%ずつ拡張し、付箋寸法と座標範囲を保つ", () => {
     expect(getIdeaValueFeasibilityMapDimensions(0)).toEqual({
       width: 1600,

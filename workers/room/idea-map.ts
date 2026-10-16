@@ -1,6 +1,6 @@
 // 2軸マップのサイズと操作可否。永続サイズは room_state、進行中ドラッグは
 // WebSocket attachment を真実とし、共有する一時状態は匿名 boolean だけにする。
-import type { RoomPhase } from "../../contracts/phase";
+import { isPhaseStep, type RoomPhase } from "../../contracts/phase";
 import type {
   IdeaMapSizeLevel,
   ServerMessage,
@@ -17,11 +17,7 @@ export type IdeaMapSizeState = {
 };
 
 export function isIdeaMapVisiblePhase(phase: RoomPhase): boolean {
-  return (
-    phase.kind === "step" &&
-    phase.phase === 3 &&
-    (phase.step === 2 || phase.step === 3)
-  );
+  return phase.kind === "step" && phase.phase === 3 && phase.step >= 3;
 }
 
 export function getIdeaMapSizeState(sql: SqlStorage): IdeaMapSizeState {
@@ -74,11 +70,8 @@ function replyForbidden(ctx: HandlerCtx, message: string): void {
 export const ideaMapHandlers: MessageHandlers<"idea-map:resize"> = {
   "idea-map:resize": (ctx, message) => {
     const phase = getPhase(ctx.sql);
-    if (!isIdeaMapVisiblePhase(phase)) {
-      replyForbidden(
-        ctx,
-        "2軸マップを表示しているステップでのみ変更できます。",
-      );
+    if (!isPhaseStep(phase, 3, 3)) {
+      replyForbidden(ctx, "2軸マップを配置するステップでのみ変更できます。");
       return;
     }
     if (!isHostUser(ctx.sql, ctx.userId)) {

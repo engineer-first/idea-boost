@@ -764,6 +764,31 @@ export function RoomBoardView({
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
         "確定した内容");
+  const phaseLoopControls = (
+    <PhaseLoopControls
+      key={`${phaseKey}:${phaseRevision}:${hostRevision}:${connectionStatus}`}
+      phase={phase}
+      isHost={isHost}
+      isSelecting={isAdoptMode}
+      decisionContent={decisionContent}
+      candidateCount={candidateNotes.length}
+      disabled={
+        isDisconnected ||
+        isNextPhasePending ||
+        isCandidatePending ||
+        isTransferring
+      }
+      onRestartWriting={onRestartWriting}
+      onRevote={onRevote}
+      onStartSelection={() => {
+        setSelectedNoteId(null);
+        setAdoptHostRevision(hostRevision);
+        setIsAdoptMode(true);
+      }}
+      onCancelSelection={() => setIsAdoptMode(false)}
+      onClearDecision={outcomePublished ? undefined : onDecisionClear}
+    />
+  );
 
   function hasActiveCanvasGesture(): boolean {
     return Boolean(
@@ -1195,12 +1220,14 @@ export function RoomBoardView({
     boardRootRef,
     boardScrollerRef,
     ideaMapPlaneRef,
+    ideaMapTrayRef,
     privateToolbarRef,
     notes: renderedNotes,
     privateNotes: toolbarNotes,
     dragGhost,
     dragPreview,
     isReturnDropTarget,
+    isIdeaMapTrayDropTarget,
     privateDropPlaceholder,
     isNoteDragging,
     camera,
@@ -1708,6 +1735,9 @@ export function RoomBoardView({
           </p>
         ) : null}
         <RoomBoardCanvas
+          ideaMapTrayFooter={
+            isPhaseStep(phase, 3, 3) ? phaseLoopControls : undefined
+          }
           rollbackRevision={rollbackRevision}
           authorName={(authorId) =>
             members.find((m) => m.userId === authorId)?.name ??
@@ -1759,9 +1789,11 @@ export function RoomBoardView({
           dragGhost={dragGhost}
           dragPreview={dragPreview}
           isReturnDropTarget={isReturnDropTarget}
+          isIdeaMapTrayDropTarget={isIdeaMapTrayDropTarget}
           privateDropPlaceholder={privateDropPlaceholder}
           boardScrollerRef={boardScrollerRef}
           ideaMapPlaneRef={ideaMapPlaneRef}
+          ideaMapTrayRef={ideaMapTrayRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
           gridStyle={gridStyle}
@@ -1862,35 +1894,15 @@ export function RoomBoardView({
           </div>
         ) : null}
 
-        <div
-          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
-          data-testid="phase-loop-hud"
-          data-board-fit-edge="bottom"
-        >
-          <PhaseLoopControls
-            key={`${phaseKey}:${phaseRevision}:${hostRevision}:${connectionStatus}`}
-            phase={phase}
-            isHost={isHost}
-            isSelecting={isAdoptMode}
-            decisionContent={decisionContent}
-            candidateCount={candidateNotes.length}
-            disabled={
-              isDisconnected ||
-              isNextPhasePending ||
-              isCandidatePending ||
-              isTransferring
-            }
-            onRestartWriting={onRestartWriting}
-            onRevote={onRevote}
-            onStartSelection={() => {
-              setSelectedNoteId(null);
-              setAdoptHostRevision(hostRevision);
-              setIsAdoptMode(true);
-            }}
-            onCancelSelection={() => setIsAdoptMode(false)}
-            onClearDecision={outcomePublished ? undefined : onDecisionClear}
-          />
-        </div>
+        {!isPhaseStep(phase, 3, 3) ? (
+          <div
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
+            data-testid="phase-loop-hud"
+            data-board-fit-edge="bottom"
+          >
+            {phaseLoopControls}
+          </div>
+        ) : null}
 
         {voteStickerDrag !== null ? (
           <div

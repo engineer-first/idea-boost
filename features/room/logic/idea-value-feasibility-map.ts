@@ -13,6 +13,7 @@ export const IDEA_VALUE_FEASIBILITY_MAP_HEIGHT = 900;
 export const IDEA_MAP_AXIS_SIZE = 64;
 export const IDEA_MAP_GRID_GAP = 12;
 const IDEA_MAP_PLANE_INSET = IDEA_MAP_AXIS_SIZE + IDEA_MAP_GRID_GAP + 2;
+export const FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT = 220;
 
 export function getIdeaValueFeasibilityMapDimensions(level: number): {
   width: number;
@@ -117,6 +118,31 @@ export function getIdeaValueFeasibilityMapNotePosition(
   return {
     left: `${(feasibility * width) / 100}px`,
     bottom: `${(value * height) / 100 + (geometry.maxNoteHeight - Math.min(noteHeight, geometry.noteHeightLimit)) / 2}px`,
+  };
+}
+
+/**
+ * 固定マップ上で、付箋の左下を0〜100の移動領域へ対応させる。
+ * マップ自体はレスポンシブでも、付箋サイズはカメラ倍率に影響されない。
+ */
+export function getFixedIdeaMapNotePosition(
+  point: IdeaValueFeasibilityPoint,
+  noteHeight: number,
+): IdeaValueFeasibilityMapPosition {
+  const feasibility = clampIdeaValueFeasibilityMapCoordinate(point.feasibility);
+  const value = clampIdeaValueFeasibilityMapCoordinate(point.value);
+  const displayedHeight = Math.min(
+    FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT,
+    Math.max(0, noteHeight),
+  );
+  const verticalAlignment =
+    (FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT - displayedHeight) / 2;
+  return {
+    left: `${feasibility}%`,
+    bottom:
+      verticalAlignment === 0
+        ? `${value}%`
+        : `calc(${value}% + ${verticalAlignment}px)`,
   };
 }
 export function getIdeaMapNotePointFromClientPosition(

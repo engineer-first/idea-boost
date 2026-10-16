@@ -44,6 +44,8 @@ type ScheduledFrame =
 type UseCanvasCameraArgs = {
   viewportRef: RefObject<HTMLDivElement | null>;
   notes: Note[];
+  // 固定2軸マップ表示中はボードの視野を動かさない。
+  navigationDisabled?: boolean;
   // 画面サイズで配置されたマップでは、0〜100の付箋座標をpxとしてフィットしない。
   fitViewport?: boolean;
   getFitInsets?: (viewport: HTMLDivElement) => CanvasFitInsets;
@@ -87,47 +89,12 @@ function notesBounds(notes: Note[]) {
   };
 }
 
-// マップの百分率座標を通常ボードのpx座標として扱わず、描画済みの付箋を
-// 本人のカメラのワールド座標へ戻す。共有状態にはブラウザの計測を保存しない。
-function renderedNotesBounds(
-  viewport: HTMLDivElement,
-  camera: CanvasCamera,
-): CanvasBounds | null {
-  const viewportRect = viewport.getBoundingClientRect();
-  const rectangles = Array.from(
-    viewport.querySelectorAll<HTMLDivElement>("[data-testid='note-card']"),
-    (element) => element.getBoundingClientRect(),
-  ).filter((rect) => rect.width > 0 && rect.height > 0);
-  if (rectangles.length === 0) return null;
-  const topLeft = screenToWorld(
-    {
-      x: Math.min(...rectangles.map((rect) => rect.left)) - viewportRect.left,
-      y: Math.min(...rectangles.map((rect) => rect.top)) - viewportRect.top,
-    },
-    camera,
-  );
-  const bottomRight = screenToWorld(
-    {
-      x: Math.max(...rectangles.map((rect) => rect.right)) - viewportRect.left,
-      y: Math.max(...rectangles.map((rect) => rect.bottom)) - viewportRect.top,
-    },
-    camera,
-  );
-  return {
-    ...topLeft,
-    width: bottomRight.x - topLeft.x,
-    height: bottomRight.y - topLeft.y,
-  };
-}
-
 function fitIdeaMapCamera(
   viewport: {
     width: number;
     height: number;
   },
   sizeLevel: number,
-  noteBounds: CanvasBounds | null = null,
-  insets?: CanvasFitInsets,
 ): CanvasCamera | null {
   const dimensions = getIdeaValueFeasibilityMapDimensions(sizeLevel);
   const mapBounds: CanvasBounds = {
@@ -139,34 +106,16 @@ function fitIdeaMapCamera(
     width: dimensions.width,
     height: dimensions.height,
   };
-  if (!noteBounds)
-    return fitCanvasCamera(mapBounds, viewport, undefined, insets);
-  const x = Math.min(mapBounds.x, noteBounds.x);
-  const y = Math.min(mapBounds.y, noteBounds.y);
-  return fitCanvasCamera(
-    {
-      x,
-      y,
-      width:
-        Math.max(
-          mapBounds.x + mapBounds.width,
-          noteBounds.x + noteBounds.width,
-        ) - x,
-      height:
-        Math.max(
-          mapBounds.y + mapBounds.height,
-          noteBounds.y + noteBounds.height,
-        ) - y,
-    },
-    viewport,
-    undefined,
-    insets,
-  );
+  // 2軸マップと付箋は同じワールド座標にあり、付箋はマップ内へ制約されている。
+  // 画面端のガイドや操作HUDの高さを全幅の安全領域として差し引くと、マップが
+  // 極端に縮むため、マップ自体をキャンバスの表示領域へフィットする。
+  return fitCanvasCamera(mapBounds, viewport);
 }
 
 export function useCanvasCamera({
   viewportRef,
   notes,
+  navigationDisabled = false,
   fitViewport = false,
   getFitInsets,
   ideaMapSizeLevel = 0,
@@ -252,18 +201,19 @@ export function useCanvasCamera({
   const fitToNotes = useCallback(
     (insets?: CanvasFitInsets): boolean => {
       const element = viewportRef.current;
-      if (!element || gestureBlockedRef.current || panRef.current) return false;
+      if (
+        !element ||
+        navigationDisabled ||
+        gestureBlockedRef.current ||
+        panRef.current
+      )
+        return false;
       const size = viewportSize(element);
       if (!size) return false;
       const safeInsets = insets ?? getFitInsetsRef.current?.(element);
       const bounds = fitViewport ? null : notesBounds(notesRef.current);
       const next = fitViewport
-        ? fitIdeaMapCamera(
-            size,
-            ideaMapSizeLevelRef.current,
-            renderedNotesBounds(element, cameraRef.current),
-            safeInsets,
-          )
+        ? fitIdeaMapCamera(size, ideaMapSizeLevelRef.current)
         : bounds
           ? fitCanvasCamera(bounds, size, undefined, safeInsets)
           : getDefaultCanvasCamera(size);
@@ -272,13 +222,19 @@ export function useCanvasCamera({
       setCameraImmediately(next);
       return true;
     },
-    [fitViewport, setCameraImmediately, viewportRef],
+    [fitViewport, navigationDisabled, setCameraImmediately, viewportRef],
   );
 
   const zoomTo = useCallback(
     (requestedZoom: number, point?: CanvasPoint) => {
       const element = viewportRef.current;
-      if (!element || gestureBlockedRef.current || panRef.current) return;
+      if (
+        !element ||
+        navigationDisabled ||
+        gestureBlockedRef.current ||
+        panRef.current
+      )
+        return;
       const size = viewportSize(element);
       const insets = getFitInsetsRef.current?.(element);
       const anchor = point ?? {
@@ -292,7 +248,7 @@ export function useCanvasCamera({
         zoomAtScreenPoint(cameraRef.current, requestedZoom, anchor),
       );
     },
-    [scheduleCamera, viewportRef],
+    [navigationDisabled, scheduleCamera, viewportRef],
   );
 
   const endPan = useCallback(() => {
@@ -306,12 +262,19 @@ export function useCanvasCamera({
     }
   }, [viewportRef]);
 
+  useEffect(() => {
+    if (!navigationDisabled) return;
+    spacePressedRef.current = false;
+    endPan();
+  }, [endPan, navigationDisabled]);
+
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
       if (!panRef.current) suppressClickRef.current = false;
       if (
         panRef.current ||
+        navigationDisabled ||
         gestureBlockedRef.current ||
         isEditableTarget(target) ||
         target.closest("[data-board-native-control]")
@@ -348,7 +311,7 @@ export function useCanvasCamera({
       suppressClickRef.current = true;
       setIsPanning(true);
     },
-    [],
+    [navigationDisabled],
   );
 
   const handlePointerMove = useCallback(
@@ -380,6 +343,7 @@ export function useCanvasCamera({
   const handleWheel = useCallback(
     (event: WheelEvent) => {
       if (
+        navigationDisabled ||
         gestureBlockedRef.current ||
         panRef.current ||
         isEditableTarget(event.target)
@@ -419,28 +383,34 @@ export function useCanvasCamera({
         y: cameraRef.current.y - (event.shiftKey ? 0 : event.deltaY),
       });
     },
-    [getViewportPoint, scheduleCamera, zoomTo, viewportRef],
+    [getViewportPoint, navigationDisabled, scheduleCamera, zoomTo, viewportRef],
   );
 
   useEffect(() => {
-    if (!fitViewport || !ideaMapSizeInitialized || hasFitIdeaMapRef.current) {
+    if (
+      navigationDisabled ||
+      !fitViewport ||
+      !ideaMapSizeInitialized ||
+      hasFitIdeaMapRef.current
+    ) {
       return;
     }
     const element = viewportRef.current;
     const size = element ? viewportSize(element) : null;
     if (size) {
-      const next = fitIdeaMapCamera(
-        size,
-        ideaMapSizeLevelRef.current,
-        element ? renderedNotesBounds(element, cameraRef.current) : null,
-        element ? getFitInsetsRef.current?.(element) : undefined,
-      );
+      const next = fitIdeaMapCamera(size, ideaMapSizeLevelRef.current);
       if (next) {
         setCameraImmediately(next);
         hasFitIdeaMapRef.current = true;
       }
     }
-  }, [fitViewport, ideaMapSizeInitialized, setCameraImmediately, viewportRef]);
+  }, [
+    fitViewport,
+    ideaMapSizeInitialized,
+    navigationDisabled,
+    setCameraImmediately,
+    viewportRef,
+  ]);
 
   useEffect(() => {
     const element = viewportRef.current;
@@ -454,6 +424,7 @@ export function useCanvasCamera({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
+        navigationDisabled ||
         event.isComposing ||
         event.keyCode === 229 ||
         isEditableTarget(event.target) ||
@@ -535,10 +506,10 @@ export function useCanvasCamera({
         }
       }
     };
-  }, [endPan, scheduleCamera, viewportRef]);
+  }, [endPan, navigationDisabled, scheduleCamera, viewportRef]);
 
   useEffect(() => {
-    if (fitViewport) return;
+    if (fitViewport || navigationDisabled) return;
     const element = viewportRef.current;
     if (!element) return;
     const size = viewportSize(element);
@@ -561,7 +532,13 @@ export function useCanvasCamera({
       setCameraImmediately(getDefaultCanvasCamera(size));
       hasDefaultedRef.current = true;
     }
-  }, [fitViewport, notes, setCameraImmediately, viewportRef]);
+  }, [
+    fitViewport,
+    navigationDisabled,
+    notes,
+    setCameraImmediately,
+    viewportRef,
+  ]);
 
   const gridStyle = useMemo(() => {
     const step = getCanvasGridStep(camera.zoom);

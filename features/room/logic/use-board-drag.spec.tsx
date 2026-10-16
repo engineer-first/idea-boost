@@ -9,12 +9,12 @@ const ME = "11111111-1111-4111-8111-111111111111";
 
 // jsdom は getBoundingClientRect が常に 0 を返すため、rect を持つ疑似要素を
 // ref として注入する（hook はビューポートの矩形しか参照しない）。
-function fakeElementRef(rect: {
+function fakeElementRef<T extends HTMLElement = HTMLDivElement>(rect: {
   left: number;
   top: number;
   right: number;
   bottom: number;
-}): RefObject<HTMLDivElement | null> {
+}): RefObject<T | null> {
   return {
     current: {
       getBoundingClientRect: () => rect,
@@ -22,7 +22,7 @@ function fakeElementRef(rect: {
       scrollTop: 0,
       setPointerCapture: vi.fn(),
       releasePointerCapture: vi.fn(),
-    } as unknown as HTMLDivElement,
+    } as unknown as T,
   };
 }
 
@@ -1167,6 +1167,31 @@ describe("useBoardDrag", () => {
     });
 
     expect(args.onNoteDragEnd).toHaveBeenCalledWith("shared-1", 250, 180);
+    expect(result.current.drag).toBeNull();
+  });
+
+  it("3-3のマップ付箋を下部の未配置トレイへドロップすると配置を解除する", () => {
+    const { args, result } = setup({
+      notes: [buildNote({ id: "shared-1", authorId: ME, x: 50, y: 50 })],
+      canReturnToIdeaMapTray: true,
+      ideaMapTrayRef: fakeElementRef<HTMLElementTagNameMap["section"]>({
+        left: 0,
+        top: 500,
+        right: 800,
+        bottom: 600,
+      }),
+    });
+
+    act(() => {
+      result.current.handleSharedNoteDragStart(
+        "shared-1",
+        pointerEvent(1, 100, 100),
+      );
+      result.current.handlePointerMove(pointerEvent(1, 700, 550));
+      result.current.handlePointerEnd(pointerEvent(1, 700, 550));
+    });
+
+    expect(args.onNoteDragEnd).toHaveBeenCalledWith("shared-1", 50, 50, false);
     expect(result.current.drag).toBeNull();
   });
 

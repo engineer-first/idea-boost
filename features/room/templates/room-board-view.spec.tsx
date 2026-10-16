@@ -41,11 +41,13 @@ function buildInteractions(
     boardRootRef: { current: null },
     boardScrollerRef: { current: null },
     ideaMapPlaneRef: { current: null },
+    ideaMapTrayRef: { current: null },
     privateToolbarRef: { current: null },
     notes,
     privateNotes,
     dragGhost: null,
     isReturnDropTarget: false,
+    isIdeaMapTrayDropTarget: false,
     isNoteDragging: false,
     camera: { x: 0, y: 0, zoom: 1 },
     gridStyle: {

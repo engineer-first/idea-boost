@@ -197,6 +197,7 @@ function protocolNote(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    ideaMapPlaced: overrides?.ideaMapPlaced ?? true,
     fontSize: overrides?.fontSize ?? 14,
     stackOrder: overrides?.stackOrder ?? 0,
     dotVoteStickers: overrides?.dotVoteStickers ?? [],
@@ -319,12 +320,6 @@ it.each([
   Object.defineProperty(scroller, "getBoundingClientRect", {
     value: () => new DOMRect(0, 0, 500, 400),
   });
-  if (phase === 3) {
-    const plane = screen.getByTestId("idea-value-feasibility-map-plane");
-    Object.defineProperty(plane, "getBoundingClientRect", {
-      value: () => new DOMRect(0, 0, 500, 400),
-    });
-  }
   mockPrivateToolbarLayout(toolbar);
   function dragPrivate() {
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
@@ -785,7 +780,7 @@ describe("サーバーメッセージ → 画面反映", () => {
 
   it("snapshotのマップ寸法を描画し、広さ変更をRoomDOへ送る", () => {
     const { socket } = connectWithSnapshot([], {
-      phase: buildPhaseStep(2, 3),
+      phase: buildPhaseStep(3, 3),
       ideaMapSizeLevel: 2,
       ideaMapSizeInitialized: true,
     });
@@ -2944,11 +2939,9 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         ),
     ).toEqual([]);
   });
-  it.each([
-    2, 3,
-  ])("Step 3-%iでは付箋だけを移動し、カメラを動かさない", (step) => {
+  it("Step 3-3では付箋だけを移動し、カメラを動かさない", () => {
     const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
-      phase: buildPhaseStep(step, 3),
+      phase: buildPhaseStep(3, 3),
     });
     const canvas = screen.getByTestId("board-canvas");
     const cameraBefore = canvas.style.transform;
@@ -3021,7 +3014,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     expect(canvas.style.transform).toBe(cameraBefore);
   });
 
-  it("Step 3-2でマイ付箋を2軸マップへ共有し、正規化した位置で公開する", () => {
+  it("Step 3-2でマイ付箋を通常の共有ボードへ公開する", () => {
     const privateNote = protocolNote({ visibility: "private" });
     const { socket } = connectWithSnapshot([privateNote], {
       phase: buildPhaseStep(2, 3),
@@ -3039,17 +3032,9 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         height: 600,
       }),
     });
-    const plane = screen.getByTestId("idea-value-feasibility-map-plane");
-    Object.defineProperty(plane, "getBoundingClientRect", {
-      value: () => ({
-        left: 100,
-        top: 100,
-        right: 500,
-        bottom: 500,
-        width: 400,
-        height: 400,
-      }),
-    });
+    expect(
+      screen.queryByTestId("idea-value-feasibility-map-plane"),
+    ).not.toBeInTheDocument();
 
     const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
@@ -3093,8 +3078,9 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       .map((message) => JSON.parse(message))
       .find((message) => message.type === "note:publish");
     expect(publish.noteId).toBe(NOTE_ID);
-    expect(publish.x).toBeCloseTo(50);
-    expect(publish.y).toBeCloseTo(50);
+    // 3-2は通常の無限キャンバスなので、座標は2軸マップの0〜100ではない。
+    expect(publish.x).toBeGreaterThan(100);
+    expect(publish.y).toBeGreaterThan(100);
   });
 
   it.each([

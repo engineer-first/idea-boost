@@ -161,6 +161,7 @@ export function RoomBoardHeader({
   onTimerStop,
 }: RoomBoardHeaderProps) {
   const controlsAreaRef = useRef<HTMLDivElement>(null);
+  const isMapWorkspace = isPhaseStep(phase, 3, 3);
   useEffect(() => {
     const area = controlsAreaRef.current;
     const header = area?.closest<HTMLElement>(
@@ -178,6 +179,19 @@ export function RoomBoardHeader({
               '[data-testid="board-connection-status"]',
             );
       if (!header) return;
+      if (isMapWorkspace && board) {
+        const headerBottom =
+          header.getBoundingClientRect().bottom -
+          board.getBoundingClientRect().top;
+        board.style.setProperty("--board-map-top", `${headerBottom + 22}px`);
+        board.style.setProperty(
+          "--board-map-tray-top",
+          `${headerBottom + 4}px`,
+        );
+      } else {
+        board?.style.removeProperty("--board-map-top");
+        board?.style.removeProperty("--board-map-tray-top");
+      }
       const bottom = notice
         ? notice.getBoundingClientRect().bottom -
           header.getBoundingClientRect().top +
@@ -216,6 +230,7 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateGuideTop);
     observer?.observe(area);
+    observer?.observe(header);
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
@@ -228,8 +243,10 @@ export function RoomBoardHeader({
       header.style.removeProperty("--board-location-top");
       header.style.removeProperty("--board-location-height");
       board?.style.removeProperty("--board-connection-notice-bottom");
+      board?.style.removeProperty("--board-map-top");
+      board?.style.removeProperty("--board-map-tray-top");
     };
-  }, [connectionStatus]);
+  }, [connectionStatus, isMapWorkspace]);
   const activeSharing =
     phase.kind === "step" && phase.step === 2 ? sharing : null;
   const transitioning = activeSharing?.startsAt != null;
@@ -313,19 +330,42 @@ export function RoomBoardHeader({
         ? "退出中…"
         : "退出する";
 
+  const stepGuide =
+    transitioning && presenter ? (
+      <SharingAnnouncement member={presenter} />
+    ) : guide ? (
+      <StepGuide
+        key={`${inviteCode}:${currentUserId}`}
+        sessionKey={`${inviteCode}:${currentUserId}`}
+        placement={isMapWorkspace ? "inline" : "floating"}
+        phaseKey={
+          phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
+        }
+        guide={guide}
+        isHost={isHost}
+        isReady={!isDisconnected}
+        timer={timer}
+        initialState={initialGuideState}
+      />
+    ) : null;
+
   return (
     <TooltipProvider delayDuration={300}>
       <div
         data-testid="board-header-row"
-        className={`pointer-events-none absolute inset-x-3 top-3 bottom-[7.5rem] z-40 max-[639px]:z-[41] has-[[data-location-open=true]]:z-[60] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[16rem]" : "max-[639px]:bottom-[11rem]"}`}
+        data-map-workspace={isMapWorkspace || undefined}
+        className={`pointer-events-none absolute z-40 has-[[data-location-open=true]]:z-[60] ${isMapWorkspace ? "inset-x-3 top-2 grid grid-cols-[minmax(0,1fr)_auto_auto] grid-rows-[56px_auto_auto] items-start gap-x-3 gap-y-1 max-[900px]:grid-cols-[minmax(0,1fr)_auto] max-[900px]:grid-rows-[56px_auto_auto] max-[639px]:inset-x-2 max-[639px]:top-2 max-[639px]:z-[41] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_auto_auto] max-[639px]:gap-2" : `inset-x-3 top-3 bottom-[7.5rem] max-[639px]:z-[41] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[16rem]" : "max-[639px]:bottom-[11rem]"}`}`}
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[900px]:max-[1200px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:relative max-[639px]:grid max-[639px]:grid-cols-[200px_minmax(0,1fr)] max-[639px]:grid-rows-[calc(var(--board-location-height,80px)+50px)_auto] max-[639px]:items-start max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
+          className={`pointer-events-none min-w-0 ${isMapWorkspace ? "col-start-1 row-start-1 row-span-2 flex w-full flex-col items-stretch gap-1 max-[900px]:row-start-2 max-[900px]:row-span-1 max-[639px]:col-start-1 max-[639px]:row-start-2" : "flex h-full w-full max-w-[360px] min-h-0 flex-col items-start gap-3 min-[900px]:max-[1200px]:max-w-[306px] max-[900px]:min-w-[306px] max-[639px]:relative max-[639px]:grid max-[639px]:grid-cols-[200px_minmax(0,1fr)] max-[639px]:grid-rows-[calc(var(--board-location-height,80px)+50px)_auto] max-[639px]:items-start max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"}`}
           data-testid="board-context-column"
           data-board-fit-edge="top"
         >
-          <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px] max-[639px]:col-start-1 max-[639px]:row-start-1 max-[639px]:row-span-2 max-[639px]:w-[min(306px,calc(100vw-24px))]">
+          <div
+            className={`w-full min-w-0 shrink-0 ${isMapWorkspace ? "" : "max-[640px]:max-w-[306px] max-[639px]:col-start-1 max-[639px]:row-start-1 max-[639px]:row-span-2 max-[639px]:w-[min(306px,calc(100vw-24px))]"}`}
+          >
             <BoardContext
+              layout={isMapWorkspace ? "map-workspace" : "default"}
               phase={phase}
               outcomePublished={outcomePublished}
               hmwDecidedIssue={hmwDecidedIssue}
@@ -334,35 +374,29 @@ export function RoomBoardHeader({
               hmwReference={hmwReference}
             />
           </div>
-          {transitioning && presenter ? (
-            <SharingAnnouncement member={presenter} />
-          ) : (
-            guide && (
-              <StepGuide
-                key={`${inviteCode}:${currentUserId}`}
-                sessionKey={`${inviteCode}:${currentUserId}`}
-                phaseKey={
-                  phase.kind === "step"
-                    ? `${phase.phase}-${phase.step}`
-                    : "lobby"
-                }
-                guide={guide}
-                isHost={isHost}
-                isReady={!isDisconnected}
-                timer={timer}
-                initialState={initialGuideState}
-              />
-            )
-          )}
-          <div className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:col-start-2 max-[639px]:row-start-2 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9">
+          {!isMapWorkspace ? stepGuide : null}
+          {!isMapWorkspace ? (
+            <div className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:col-start-2 max-[639px]:row-start-2 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9">
+              {children}
+            </div>
+          ) : null}
+        </div>
+
+        {isMapWorkspace ? (
+          <div className="pointer-events-auto col-start-2 row-start-1 flex h-14 min-w-0 items-center justify-center max-[900px]:col-start-1 max-[900px]:row-start-3 max-[639px]:col-start-1 max-[639px]:row-start-3">
+            {stepGuide}
+          </div>
+        ) : null}
+        {isMapWorkspace && children ? (
+          <div className="pointer-events-none col-start-1 row-start-3 min-w-0 max-[900px]:col-start-1 max-[900px]:row-start-4 max-[639px]:row-start-4">
             {children}
           </div>
-        </div>
+        ) : null}
 
         {/* 狭幅の完了表示は操作行の外へ置く。結果でも同じ縦余白を保ち、現在地表示を動かさない。 */}
         <div
           ref={controlsAreaRef}
-          className={`pointer-events-none flex min-w-0 flex-col items-end gap-2 max-[900px]:max-w-[426px] max-[639px]:order-first max-[639px]:w-full ${isCurrentVotingStep || isResultStep(phase) ? "max-[900px]:pb-6" : ""}`}
+          className={`pointer-events-none flex min-w-0 flex-col items-end gap-2 max-[900px]:max-w-[426px] max-[639px]:order-first max-[639px]:w-full ${isMapWorkspace ? "col-start-3 row-start-1 row-span-2 justify-self-end max-[900px]:col-start-2 max-[900px]:row-start-1 max-[900px]:row-span-2 max-[639px]:col-start-1 max-[639px]:row-start-1 max-[639px]:row-span-1 max-[639px]:order-none max-[639px]:max-w-full" : ""} ${isCurrentVotingStep || isResultStep(phase) ? "max-[900px]:pb-6" : ""}`}
         >
           <fieldset
             className="board-hud pointer-events-auto relative flex h-14 min-w-0 shrink-0 items-center justify-end gap-1 rounded-2xl border border-border bg-background p-1.5 shadow-lg shadow-black/5 max-[900px]:h-auto max-[900px]:max-w-[426px] max-[900px]:flex-wrap max-[639px]:order-first max-[639px]:w-full max-[639px]:justify-start max-[639px]:gap-0 max-[639px]:p-1 max-[639px]:[&>button]:px-2"

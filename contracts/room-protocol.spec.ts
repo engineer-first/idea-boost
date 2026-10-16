@@ -257,6 +257,19 @@ describe("NoteSchema", () => {
     );
   });
 
+  it("2軸マップの未配置状態を受け入れ、既存付箋は配置済みとして補完する", () => {
+    expect(
+      NoteSchema.parse({ ...note, visibility: "shared" }).ideaMapPlaced,
+    ).toBe(true);
+    expect(
+      NoteSchema.parse({
+        ...note,
+        visibility: "shared",
+        ideaMapPlaced: false,
+      }).ideaMapPlaced,
+    ).toBe(false);
+  });
+
   it("文字サイズを付箋ごとに受け入れ、旧形式は14pxとして補完する", () => {
     expect(
       NoteSchema.parse({
@@ -1463,6 +1476,23 @@ describe("共有進行の境界", () => {
         type: "sharing:advance",
         outcome: "done",
       }).success,
+    ).toBe(false);
+  });
+});
+
+describe("2軸マップの未配置操作契約", () => {
+  const commit = {
+    type: "note:move:commit",
+    operationId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    delta: { x: 0, y: 0 },
+  };
+
+  it("未配置へ戻す操作を表現し、配置済み指定はクライアントから受け付けない", () => {
+    expect(
+      ClientMessageSchema.parse({ ...commit, ideaMapPlaced: false }),
+    ).toEqual({ ...commit, ideaMapPlaced: false });
+    expect(
+      ClientMessageSchema.safeParse({ ...commit, ideaMapPlaced: true }).success,
     ).toBe(false);
   });
 });

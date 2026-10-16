@@ -124,6 +124,41 @@ function peer(ctx: HandlerCtx, userId = B) {
   return messages;
 }
 describe("share commit", () => {
+  it("Step 3-2の通常共有はボード座標が100を超えても公開できる", () =>
+    setup("share-phase-3-step-2-canvas-coordinates", (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step: 2 });
+      ctx.sql.exec(
+        "UPDATE notes SET visibility='private',phase=3 WHERE id=?1",
+        N1,
+      );
+      const row = findNote(ctx.sql, N1);
+      const phaseRevision = Number(
+        ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
+          .phase_revision,
+      );
+
+      noteHandlers["note:publish"](ctx, {
+        type: "note:publish",
+        operationId: OP,
+        noteId: N1,
+        x: 200,
+        y: 210,
+        expectedPhaseRevision: phaseRevision,
+        expectedPositionRevision: row?.position_revision ?? 0,
+        expectedVisibilityRevision: row?.visibility_revision ?? 0,
+      });
+
+      expect(responses.at(-1)).toMatchObject({
+        type: "note:share:result",
+        status: "committed",
+        receipt: { after: { visibility: "shared", x: 200, y: 210 } },
+      });
+      expect(findNote(ctx.sql, N1)).toMatchObject({
+        visibility: "shared",
+        idea_map_placed: false,
+      });
+    }));
+
   it("非author・古い版・他工程は公開せず、作者の有効確定のみ他者へ初回配信する", () =>
     setup("share-private-boundary", (ctx) => {
       const messages = peer(ctx);

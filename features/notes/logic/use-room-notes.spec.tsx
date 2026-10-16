@@ -1399,6 +1399,36 @@ describe("transaction move", () => {
       delta: { x: 5, y: 20 },
     });
   });
+  it("2軸マップの未配置トレイへ戻す操作をcommit中も楽観表示する", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage([buildNote({ id: NOTE_ID, x: 50, y: 50 })]),
+        phase: { kind: "step", phase: 3, step: 3 },
+        moveProtocolVersion: 1,
+        groupRevision: 0,
+        mapRevision: 0,
+      } as ServerMessage),
+    );
+    act(() => result.current.startNoteDrag(NOTE_ID));
+    const endMapMove = result.current.endNoteDrag as unknown as (
+      noteId: string,
+      x: number,
+      y: number,
+      ideaMapPlaced?: false,
+    ) => void;
+    act(() => endMapMove(NOTE_ID, 50, 50, false));
+
+    expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
+      type: "note:move:commit",
+      operationId: DRAG_ID,
+      ideaMapPlaced: false,
+    });
+    expect(result.current.notes[0]?.ideaMapPlaced).toBe(false);
+  });
   it("cancelで最新確定位置へ戻り遅延start ACKでcommitしない", () => {
     const send = vi.fn();
     const { result } = renderHook(() =>

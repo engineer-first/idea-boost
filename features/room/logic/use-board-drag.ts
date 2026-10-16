@@ -72,6 +72,7 @@ export type UseBoardDragArgs = {
   privateNotes: Note[];
   currentUserId: string;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
+  ideaMapTrayRef?: RefObject<HTMLElementTagNameMap["section"] | null>;
   worldPointFromClient: (
     clientX: number,
     clientY: number,
@@ -86,6 +87,7 @@ export type UseBoardDragArgs = {
   // 共有済み付箋の移動を許可するか。公開（publish）の可否とは別に、
   // フェーズごとの既存付箋の移動権限を指定する。
   canMoveSharedNotes?: boolean;
+  canReturnToIdeaMapTray?: boolean;
   canPublish?: boolean;
   canReturnToPrivate?: boolean;
   onPublishBlocked?: () => void;
@@ -95,7 +97,12 @@ export type UseBoardDragArgs = {
     selectedNoteIds?: readonly string[],
   ) => void;
   onNoteDragMove: (noteId: string, x: number, y: number) => void;
-  onNoteDragEnd: (noteId: string, x: number, y: number) => void;
+  onNoteDragEnd: (
+    noteId: string,
+    x: number,
+    y: number,
+    ideaMapPlaced?: false,
+  ) => void;
   onNoteDragCancel: (noteId: string) => void;
   onPrivateNotePublish: (noteId: string, x: number, y: number) => void;
   onPrivateNoteUnpublish: (
@@ -172,11 +179,13 @@ export function useBoardDrag({
   privateNotes,
   currentUserId,
   boardScrollerRef,
+  ideaMapTrayRef,
   worldPointFromClient,
   privateToolbarRef,
   preservePrivateGrabOffset = true,
   clampCoordinate = clampCanvasCoordinate,
   canMoveSharedNotes = true,
+  canReturnToIdeaMapTray = false,
   canPublish = true,
   canReturnToPrivate = canPublish,
   onPublishBlocked,
@@ -300,6 +309,21 @@ export function useBoardDrag({
       );
     },
     [privateToolbarRef],
+  );
+
+  const isPointerInIdeaMapTray = useCallback(
+    (clientX: number, clientY: number) => {
+      if (!canReturnToIdeaMapTray) return false;
+      const rect = ideaMapTrayRef?.current?.getBoundingClientRect();
+      return Boolean(
+        rect &&
+          clientX >= rect.left &&
+          clientX <= rect.right &&
+          clientY >= rect.top &&
+          clientY <= rect.bottom,
+      );
+    },
+    [canReturnToIdeaMapTray, ideaMapTrayRef],
   );
 
   const boardPositionFromPointer = useCallback(
@@ -626,6 +650,9 @@ export function useBoardDrag({
           updateDrag({ ...currentAtPointer, privateDropIndex: null });
         } else if (current.status === "private") {
           updateDrag({ ...currentAtPointer, privateDropIndex: null });
+        } else {
+          // 盤面外では座標を変えず、トレイへのドロップ候補表示だけ追従する。
+          updateDrag(currentAtPointer);
         }
         return;
       }
@@ -689,6 +716,17 @@ export function useBoardDrag({
       const current = dragRef.current;
       if (!current || current.pointerId !== event.pointerId) return;
       if (
+        current.status === "shared" &&
+        current.note.ideaMapPlaced !== false &&
+        isPointerInIdeaMapTray(event.clientX, event.clientY)
+      ) {
+        stopPrivateListAutoScroll();
+        onNoteDragEnd(current.note.id, current.x, current.y, false);
+        updateDrag(null);
+        boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
+        return;
+      }
+      if (
         (current.status === "private" || current.status === "returning") &&
         !isPrivatePanelExpanded(privateToolbarRef.current)
       ) {
@@ -736,6 +774,14 @@ export function useBoardDrag({
             event.clientX,
             event.clientY,
           );
+          // 下部トレイから持ち上げた未配置付箋は、マップ外で離しても
+          // 配置済みにしない。元のトレイ項目へ戻す。
+          if (current.note.ideaMapPlaced === false && !pointerPosition) {
+            onNoteDragCancel(current.note.id);
+            updateDrag(null);
+            boardScrollerRef.current?.releasePointerCapture?.(event.pointerId);
+            return;
+          }
           const position = pointerPosition
             ? getPositionFromPointer({
                 pointerPosition,
@@ -785,6 +831,7 @@ export function useBoardDrag({
       boardPositionFromPointer,
       boardScrollerRef,
       canMoveSharedNotes,
+      isPointerInIdeaMapTray,
       clampCoordinate,
       isPointerInPrivateDropArea,
       onNoteDragEnd,
@@ -888,6 +935,11 @@ export function useBoardDrag({
     const current = dragRef.current;
     return current === null || current.pointerId === pointerId;
   }, []);
+  const isIdeaMapTrayDropTarget = Boolean(
+    drag?.status === "shared" &&
+      drag.note.ideaMapPlaced !== false &&
+      isPointerInIdeaMapTray(drag.clientX, drag.clientY),
+  );
 
   return {
     drag,
@@ -901,5 +953,6 @@ export function useBoardDrag({
     cancelCurrentNoteDrag,
     isCurrentDragPointer,
     isPointerInPrivateDropArea,
+    isIdeaMapTrayDropTarget,
   };
 }

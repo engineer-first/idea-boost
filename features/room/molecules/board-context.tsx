@@ -11,6 +11,7 @@ import styles from "./board-context.module.css";
 import { BoardLocation } from "./board-location";
 
 export type BoardContextProps = {
+  layout?: "default" | "map-workspace";
   phase: RoomPhase;
   outcomePublished?: boolean;
   hmwDecidedIssue: string | null;
@@ -20,6 +21,7 @@ export type BoardContextProps = {
 };
 
 export function BoardContext({
+  layout = "default",
   phase,
   outcomePublished,
   hmwDecidedIssue,
@@ -28,9 +30,15 @@ export function BoardContext({
   hmwReference,
 }: BoardContextProps) {
   const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
+  const isMapWorkspace =
+    layout === "map-workspace" && phase.kind === "step" && phase.phase === 3;
+  const referencePhaseKey =
+    isMapWorkspace && phase.kind === "step" && phase.step === 3
+      ? `${phase.phase}-${phase.step}`
+      : phaseKey;
   const initialId =
     phase.kind === "step"
-      ? phase.phase === 3
+      ? phase.phase === 3 && !(isMapWorkspace && phase.step === 3)
         ? "hmw"
         : phase.phase === 2
           ? "issue"
@@ -39,12 +47,12 @@ export function BoardContext({
   const [openState, setOpenState] = useState<{
     phaseKey: string;
     id: string | null;
-  }>({ phaseKey, id: initialId });
-  if (openState.phaseKey !== phaseKey) {
-    setOpenState({ phaseKey, id: initialId });
+  }>({ phaseKey: referencePhaseKey, id: initialId });
+  if (openState.phaseKey !== referencePhaseKey) {
+    setOpenState({ phaseKey: referencePhaseKey, id: initialId });
   }
   const openDisclosureId =
-    openState.phaseKey === phaseKey ? openState.id : initialId;
+    openState.phaseKey === referencePhaseKey ? openState.id : initialId;
   const id = useId();
   const disclosures = [
     {
@@ -69,7 +77,7 @@ export function BoardContext({
       <BoardLocation phase={phase} outcomePublished={outcomePublished} />
       {disclosures.length > 0 ? (
         <div
-          className={`${styles.references} board-hud pointer-events-auto w-[200px] space-y-2 pt-2`}
+          className={`${styles.references} board-hud pointer-events-auto ${isMapWorkspace ? "flex w-full min-w-0 items-start gap-2 pt-1" : "w-[200px] space-y-2 pt-2"}`}
         >
           {disclosures.map((disclosure) => {
             const isOpen = openDisclosureId === disclosure.id;
@@ -79,7 +87,7 @@ export function BoardContext({
             return (
               <section
                 key={disclosure.id}
-                className="w-[200px]"
+                className={`${isMapWorkspace ? "relative min-w-0 flex-1" : "w-[200px]"}`}
                 data-testid={
                   disclosure.id === "hmw" || disclosure.id === "issue"
                     ? `board-reference-${disclosure.id}`
@@ -92,10 +100,10 @@ export function BoardContext({
                   type="button"
                   aria-expanded={isOpen}
                   aria-controls={contentId}
-                  className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-2 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  className={`flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-2 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${isMapWorkspace ? "min-w-0" : ""}`}
                   onClick={() =>
                     setOpenState({
-                      phaseKey,
+                      phaseKey: referencePhaseKey,
                       id: isOpen ? null : disclosure.id,
                     })
                   }
@@ -106,7 +114,17 @@ export function BoardContext({
                       className="size-3.5 shrink-0 text-muted-foreground"
                     />
                   ) : null}
-                  <span className="flex-1">{disclosure.label}</span>
+                  <span className="flex min-w-0 flex-1 items-center gap-1">
+                    <span className="shrink-0">{disclosure.label}</span>
+                    {isMapWorkspace ? (
+                      <span
+                        className="min-w-0 truncate font-normal text-muted-foreground"
+                        title={disclosure.content ?? undefined}
+                      >
+                        {disclosure.content}
+                      </span>
+                    ) : null}
+                  </span>
                   <ChevronDown
                     aria-hidden="true"
                     className={`size-3.5 shrink-0 text-muted-foreground ${isOpen ? "rotate-180" : ""}`}
@@ -119,7 +137,7 @@ export function BoardContext({
                   inert={!isOpen}
                   hidden={!isOpen}
                   data-open={isOpen}
-                  className={styles.disclosure}
+                  className={`${styles.disclosure} ${isMapWorkspace ? styles.workspaceDisclosure : ""}`}
                 >
                   <div className={`${styles.disclosureInner} p-2 -mx-2`}>
                     <StickyNote

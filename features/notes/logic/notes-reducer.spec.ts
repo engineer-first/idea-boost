@@ -17,6 +17,7 @@ const note: Note = {
   content: "hello",
   contentRevision: 0,
   visibility: "shared",
+  ideaMapPlaced: true,
   excluded: false,
   color: "yellow",
   fontSize: 14,

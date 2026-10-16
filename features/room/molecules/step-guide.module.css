@@ -154,6 +154,14 @@
   }
 }
 
+.guide[data-placement="inline"][data-state="compact"] {
+  position: relative;
+  top: auto;
+  left: auto;
+  margin: 0;
+  transform: none;
+}
+
 .introLink {
   min-height: 32px;
   font-size: 13px;

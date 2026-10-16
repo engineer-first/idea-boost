@@ -5,6 +5,7 @@ import {
   CANVAS_COORDINATE_LIMIT,
   DRAG_BROADCAST_THROTTLE_MS,
 } from "@/contracts/board";
+import { isPhaseStep } from "@/contracts/phase";
 import type {
   ClientMessage,
   MoveReceipt,
@@ -20,6 +21,7 @@ type Operation = {
   anchorId: string;
   before: ProtocolNote[];
   delta: { x: number; y: number };
+  ideaMapPlaced?: false;
   phaseRevision: number;
   space: "canvas" | "map";
   status: "preview" | "pending";
@@ -207,7 +209,7 @@ export function useNoteMove({
     [previewSender, publish],
   );
   const end = useCallback(
-    (noteId: string, x: number, y: number) => {
+    (noteId: string, x: number, y: number, ideaMapPlaced?: false) => {
       move(noteId, x, y);
       const current = operationRef.current;
       if (
@@ -217,12 +219,17 @@ export function useNoteMove({
       )
         return;
       previewSender.cancel();
-      const next: Operation = { ...current, status: "pending" };
+      const next: Operation = {
+        ...current,
+        status: "pending",
+        ...(ideaMapPlaced === false ? { ideaMapPlaced: false } : {}),
+      };
       publish(next, true);
       send({
         type: "note:move:commit",
         operationId: current.id,
         delta: current.delta,
+        ...(ideaMapPlaced === false ? { ideaMapPlaced: false } : {}),
       });
     },
     [move, previewSender, publish, send],
@@ -257,7 +264,7 @@ export function useNoteMove({
           groupRevision: message.groupRevision ?? 0,
           mapRevision: message.mapRevision ?? 0,
           space:
-            message.phase.kind === "step" && message.phase.phase === 3
+            isPhaseStep(message.phase, 3, 3) || isPhaseStep(message.phase, 3, 5)
               ? "map"
               : "canvas",
         };
@@ -285,7 +292,7 @@ export function useNoteMove({
       if (message.type === "phase:updated") {
         capability.current.phaseRevision = message.phaseRevision;
         capability.current.space =
-          message.phase.kind === "step" && message.phase.phase === 3
+          isPhaseStep(message.phase, 3, 3) || isPhaseStep(message.phase, 3, 5)
             ? "map"
             : "canvas";
       }
@@ -365,6 +372,7 @@ export function useNoteMove({
                     x: position.x,
                     y: position.y,
                     positionRevision: position.positionRevision,
+                    ideaMapPlaced: position.ideaMapPlaced ?? note.ideaMapPlaced,
                   }
                 : note;
             }),
@@ -394,6 +402,12 @@ export function useNoteMove({
             ...note,
             x: origin.x + operation.delta.x,
             y: origin.y + operation.delta.y,
+            // 配置完了の応答を待つ間も、トレイへ戻ってちらつかないよう
+            // map移動のcommit待ちだけ配置済みとして投影する。
+            ideaMapPlaced:
+              operation.space === "map" && operation.status === "pending"
+                ? operation.ideaMapPlaced !== false
+                : note.ideaMapPlaced,
           }
         : note;
     });

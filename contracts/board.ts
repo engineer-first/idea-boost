@@ -7,7 +7,7 @@ export const CANVAS_COORDINATE_LIMIT = 1_000_000;
 export const IDEA_VALUE_FEASIBILITY_MAP_RANGE = { min: 0, max: 100 } as const;
 
 // 2軸マップは付箋サイズを変えず、段階ごとに縦横を10%ずつ広げる。
-// 初期段階はフェーズ3の個人付箋総数から選び、個別の内容や作者別の枚数は使わない。
+// 初期段階はフェーズ3で共有された付箋総数から選び、個別の内容や作者別の枚数は使わない。
 export const IDEA_MAP_BASE_DIMENSIONS = { width: 1600, height: 900 } as const;
 export const IDEA_MAP_SIZE_LEVEL_RANGE = { min: 0, max: 15 } as const;
 export const IDEA_MAP_SIZE_GROWTH = 1.1;
@@ -30,16 +30,16 @@ export function getIdeaMapDimensions(level: number): {
   };
 }
 
-export function getInitialIdeaMapSizeLevel(privateNoteCount: number): number {
+export function getInitialIdeaMapSizeLevel(sharedNoteCount: number): number {
   if (
-    !Number.isFinite(privateNoteCount) ||
-    privateNoteCount <= IDEA_MAP_BASE_NOTE_CAPACITY
+    !Number.isFinite(sharedNoteCount) ||
+    sharedNoteCount <= IDEA_MAP_BASE_NOTE_CAPACITY
   ) {
     return IDEA_MAP_SIZE_LEVEL_RANGE.min;
   }
   const notesPerLevel = IDEA_MAP_SIZE_GROWTH ** 2;
   const level = Math.ceil(
-    Math.log(privateNoteCount / IDEA_MAP_BASE_NOTE_CAPACITY) /
+    Math.log(sharedNoteCount / IDEA_MAP_BASE_NOTE_CAPACITY) /
       Math.log(notesPerLevel),
   );
   return Math.min(IDEA_MAP_SIZE_LEVEL_RANGE.max, level);
