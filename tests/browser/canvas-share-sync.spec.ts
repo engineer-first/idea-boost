@@ -175,10 +175,31 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
       await boardCard.waitFor();
       expect(publishCount()).toBe(1);
       // 作者hoverの戻しpreviewは他者の確定表示を消さない。
-      await startDrag(actor, boardCard);
-      await actor.mouse.move(tray.x + tray.width / 2, tray.y + 150, {
-        steps: 8,
-      });
+      const sharedRect = await boardCard
+        .getByRole("button", { name: "付箋", exact: true })
+        .boundingBox();
+      if (!sharedRect) throw new Error("共有した付箋が見つかりません。");
+      await actor.mouse.move(
+        sharedRect.x + sharedRect.width * 0.4,
+        sharedRect.y + sharedRect.height * 0.4,
+      );
+      await actor.mouse.down();
+      // パネル端のpreview収容補正に当たらない位置で、掴み位置そのものを検証する。
+      const fastReturnPoint = {
+        x: tray.x + tray.width / 2 - 20,
+        y: tray.y + 150,
+      };
+      await actor.mouse.move(fastReturnPoint.x, fastReturnPoint.y);
+      await preview.waitFor();
+      const returnPreview = await preview.boundingBox();
+      expect(returnPreview?.x).toBeCloseTo(
+        fastReturnPoint.x - sharedRect.width * 0.4,
+        0,
+      );
+      expect(returnPreview?.y).toBeCloseTo(
+        fastReturnPoint.y - sharedRect.height * 0.4,
+        0,
+      );
       expect(unpublishCount()).toBe(0);
       expect(await peerCard.count()).toBe(1);
       await actor.keyboard.press("Escape");

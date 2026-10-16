@@ -1226,6 +1226,33 @@ describe("useBoardDrag", () => {
     );
   });
 
+  it("共有付箋を素早くマイ付箋へ戻すpreviewも押下位置を保つ", () => {
+    const { result } = setup();
+    const event = pointerEvent(1, 250, 140);
+    Object.defineProperty(event, "currentTarget", {
+      value: {
+        getBoundingClientRect: () => ({
+          left: 100,
+          top: 100,
+          width: 200,
+          height: 150,
+        }),
+      },
+    });
+    act(() =>
+      result.current.handleSharedNoteDragStart("shared-1", event, {
+        clientX: 150,
+        clientY: 140,
+      }),
+    );
+    act(() => result.current.handlePointerMove(pointerEvent(1, 400, 560)));
+    expect(result.current.drag).toMatchObject({
+      status: "returning",
+      previewOffsetX: 50,
+      previewOffsetY: 40,
+    });
+  });
+
   it("canPublish が false の場合、マイ付箋をボードへ運ぶと onPublishBlocked を1回だけ呼び通信を遮断する", () => {
     const onPublishBlocked = vi.fn();
     const { args, result } = setup({ canPublish: false, onPublishBlocked });

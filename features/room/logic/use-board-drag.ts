@@ -492,8 +492,12 @@ export function useBoardDrag({
         grabOffsetY: pointerPosition ? pointerPosition.y - note.y : 0,
         clientX: event.clientX,
         clientY: event.clientY,
-        previewOffsetX: rect ? event.clientX - rect.left : 0,
-        previewOffsetY: rect ? event.clientY - rect.top : 0,
+        previewOffsetX: rect
+          ? (origin?.clientX ?? event.clientX) - rect.left
+          : 0,
+        previewOffsetY: rect
+          ? (origin?.clientY ?? event.clientY) - rect.top
+          : 0,
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });
