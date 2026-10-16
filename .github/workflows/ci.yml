@@ -53,6 +53,9 @@ jobs:
       - name: Check feature directory layout
         run: npm run check:feature-layout
 
+      - name: Check shared agent skills
+        run: npm run check:agent-harness
+
       - name: Type check
         run: npm run typecheck
 

@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
-# Codex はファイル編集を apply_patch（shellツール経由）で行うため、
-# Claude Codeの tool_input.file_path のような単一ファイルパスをフックへ
-# 直接受け取れない。そのため対象ファイルの特定は git の作業ツリー差分
-# （追跡ファイルの変更 + 未追跡の新規ファイル）から行う。
+# shell / apply_patch の編集対象を git の差分から集める。
+# stage済みも含む作業ツリーを整形するが、indexを更新するgit addは行わない。
 set -uo pipefail
 
 PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 cd "$PROJECT_DIR" || exit 0
 
-{
-  git diff --name-only --diff-filter=ACMR -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' '*.json' '*.css' '*.scss' '*.md'
-  git ls-files --others --exclude-standard -- '*.ts' '*.tsx' '*.js' '*.mjs' '*.cjs' '*.json' '*.css' '*.scss' '*.md'
-} | sort -u | while IFS= read -r file; do
-  # 1ファイルの整形失敗 (構文エラーや、フォーマット中に削除されたなど) で
-  # バッチ全体を失敗させない。pipefail 下では while ループ内の最後のコマンドの
-  # 終了コードがそのままこのスクリプト全体の終了コードになるため、個々の失敗を
-  # 握りつぶして残りのファイルの整形を継続する。
-  if [[ -f "$file" ]]; then
-    bash "$PROJECT_DIR/scripts/format-file.sh" "$file" || true
-  fi
-done
+patterns=('*.ts' '*.tsx' '*.mts' '*.cts' '*.js' '*.mjs' '*.cjs' '*.json' '*.css' '*.scss' '*.md')
+# NUL区切りで日本語・空白・改行を保持する。macOS標準のBash 3でも動かす。
+seen=()
+while IFS= read -r -d '' file; do
+  [[ -f "$file" && ! -L "$file" ]] || continue
+  duplicate=false
+  for previous in "${seen[@]+"${seen[@]}"}"; do
+    [[ "$previous" == "$file" ]] && duplicate=true && break
+  done
+  [[ "$duplicate" == true ]] && continue
+  seen+=("$file")
+  # 構文エラー等があっても残りを整形する。lintの成否は通常の検査で判断する。
+  bash "$PROJECT_DIR/scripts/format-file.sh" "$file" || true
+done < <(
+  git diff --name-only -z --diff-filter=ACMR -- "${patterns[@]}"
+  git diff --cached --name-only -z --diff-filter=ACMR -- "${patterns[@]}"
+  git ls-files --others --exclude-standard -z -- "${patterns[@]}"
+)
+exit 0

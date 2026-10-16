@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash scripts/format-changed-files.sh",
+            "command": "bash \"$(git rev-parse --show-toplevel)/scripts/format-changed-files.sh\"",
             "timeout": 60
           }
         ]

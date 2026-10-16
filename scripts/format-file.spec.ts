@@ -62,9 +62,9 @@ describe("scripts/format-file.sh", () => {
     expect(formatted).not.toContain("* item one");
   });
 
-  it("formats a TypeScript file with biome", () => {
+  it.each(["ts", "mts", "cts"])("formats a %s file with biome", (extension) => {
     const dir = createScratchDir();
-    const file = join(dir, "sample.ts");
+    const file = join(dir, `sample.${extension}`);
     writeFileSync(file, "export const greeting = 'hello';\n");
 
     const result = runScript(file);
