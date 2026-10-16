@@ -38,6 +38,7 @@ it.each([
       },
     ]) {
       let reference: unknown;
+      let referenceHeight = 0;
       let nextReference: unknown;
       const result = scenario.stories[2];
       for (const story of scenario.stories) {
@@ -113,8 +114,34 @@ it.each([
           if (!nextReference) nextReference = nextBox;
           else expect(nextBox).toEqual(nextReference);
         }
-        if (!reference) reference = await read();
-        else await expect.poll(read).toEqual(reference);
+        if (!reference) {
+          reference = await read();
+          referenceHeight = (await hud.boundingBox())?.height ?? 0;
+        } else if (story === "idea-result-awaiting-decision") {
+          // 最終ステップの決定待ちでは次へ進む操作がなく、空の操作枠も予約しない。
+          // 投票前・全員完了の配置一致は上記の比較で引き続き保証する。
+          const hudBox = await hud.boundingBox();
+          const menuBox = await page
+            .getByRole("button", { name: "ルームメニューを開く" })
+            .boundingBox();
+          const timerBox = await timer.boundingBox();
+          if (!hudBox || !menuBox || !timerBox)
+            throw new Error("操作バーがありません");
+          expect(hudBox.height).toBeLessThanOrEqual(referenceHeight);
+          expect(menuBox.x - timerBox.x - timerBox.width).toBeLessThanOrEqual(
+            8,
+          );
+          expect(await next.count()).toBe(0);
+          await page
+            .getByRole("button", { name: "ルームメニューを開く" })
+            .click();
+          await page.getByRole("button", { name: "招待", exact: true }).click();
+          expect(
+            await page
+              .getByRole("dialog", { name: "ルームに招待" })
+              .isVisible(),
+          ).toBe(true);
+        } else await expect.poll(read).toEqual(reference);
         expect(
           await page.evaluate(
             () => document.documentElement.scrollWidth <= innerWidth,
