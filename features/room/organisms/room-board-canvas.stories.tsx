@@ -771,6 +771,7 @@ function NoteReadingPreview({ args }: { args: RoomBoardCanvasStoryProps }) {
       ideaMapPlaneRef={ideaMapPlaneRef}
       privateToolbarRef={privateToolbarRef}
       camera={camera.camera}
+      displayZoom={camera.displayZoom}
       gridStyle={camera.gridStyle}
       isPanning={camera.isPanning}
       onCanvasPointerDown={camera.handlePointerDown}

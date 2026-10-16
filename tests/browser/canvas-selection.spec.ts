@@ -389,12 +389,33 @@ test.each([
   const note = page.getByTestId("note-card").nth(1);
   const box = await note.boundingBox();
   if (!box) throw new Error("付箋が見つかりません");
-  // 矩形の始点は対象の右下の空白。小さな交差でも対象に含まれる。
-  await page.mouse.move(box.x + box.width + 10, box.y + box.height + 10);
+  // 新25%では付箋間の隙間も狭い。別の付箋を掴まない空白の角から囲む。
+  const corner = await page.evaluate((box) => {
+    for (const [dx, dy] of [
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ]) {
+      const x = dx > 0 ? box.x + box.width : box.x;
+      const y = dy > 0 ? box.y + box.height : box.y;
+      const target = document.elementFromPoint(x + dx * 10, y + dy * 10);
+      if (
+        target?.closest("[data-testid='board-scroller']") &&
+        !target.closest("[data-testid='note-card']")
+      )
+        return {
+          startX: x + dx * 10,
+          startY: y + dy * 10,
+          endX: x - dx * 10,
+          endY: y - dy * 10,
+        };
+    }
+    throw new Error("矩形選択を開始する空白がありません");
+  }, box);
+  await page.mouse.move(corner.startX, corner.startY);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width - 10, box.y + box.height - 10, {
-    steps: 4,
-  });
+  await page.mouse.move(corner.endX, corner.endY, { steps: 4 });
   await page.mouse.up();
   expect(await note.getAttribute("data-selected")).toBe("true");
 });

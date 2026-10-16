@@ -4,8 +4,7 @@ import { DependencyDiagram } from "./dependency-diagram";
 // features / app の実測依存図。npm run deps:diagrams（storybook 起動時に
 // 自動実行）が import 文の解析から生成した mermaid テキストを表示する。
 // ディレクトリ構造では読めない「誰が誰を使うか」（データフロー）が見える。
-// Chromatic が develop との見た目の差分を検出するため、依存の追加・削除を
-// PR 上でビジュアルに確認できる。
+// PRのStorybook Publishから、そのコミットの依存関係を確認できる。
 const meta: Meta<typeof DependencyDiagram> = {
   title: "Dependencies/DependencyDiagram",
   component: DependencyDiagram,

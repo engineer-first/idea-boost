@@ -54,7 +54,7 @@ const meta = {
   ...boardMeta,
   title: "Room/RoomBoardLayout",
   component: RoomBoardView,
-  parameters: { layout: "fullscreen", chromatic: { viewports: [1280] } },
+  parameters: { layout: "fullscreen" },
   decorators: [
     (Story) => (
       <div style={{ height: "100dvh", overflow: "hidden" }}>
@@ -186,16 +186,14 @@ export const FinalDecisionPending: Story = {
   args: { ...Completed.args, outcomePublished: false },
 };
 
-// 各1幅だけを追加するため、全件撮影時の増分は2スナップショット。
+// browserテストがstory名に対応する1024px / 768pxの幅で操作・配置を検査する。
 export const LaptopWidth: Story = {
   ...ReferenceAndNotes,
   name: "1024pxの上部と左右パネル",
-  parameters: { chromatic: { viewports: [1024] } },
 };
 export const NarrowWidth: Story = {
   ...ReferenceAndNotes,
   name: "768pxの現在地と主要操作",
-  parameters: { chromatic: { viewports: [768] } },
 };
 
 export const DecisionsAndNotes: Story = {
@@ -405,7 +403,6 @@ export const Unavailable: Story = {
 export const AuthRequiredLocationExpanded: Story = {
   ...AuthRequired,
   args: { ...AuthRequired.args, initialGuideState: "compact" },
-  parameters: { chromatic: { viewports: [320, 390, 1280] } },
   play: async ({ canvasElement }) => {
     await userEvent.click(
       within(canvasElement).getByRole("button", { name: /現在地/ }),

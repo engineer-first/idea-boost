@@ -360,6 +360,11 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:add",
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
     4: [
       "note:exclude",

@@ -1444,7 +1444,7 @@ describe("RoomDO 候補外付箋", () => {
     [1, 5, true],
     [2, 1, false],
     [2, 2, true],
-    [2, 3, false],
+    [2, 3, true],
     [2, 4, true],
     [3, 1, false],
     [3, 2, true],
@@ -6519,7 +6519,171 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
     memberWs.close();
   });
 
-  it("Step 2-2 では投票、Step 2-3 では付箋作成・移動を forbidden にする", async () => {
+  it.each([
+    { label: "初回投票でホスト", mover: USER_A, revote: false },
+    { label: "再投票で参加者", mover: USER_B, revote: true },
+  ])("Step 2-3 の$labelが他者の問いを移動し、票と秘密を保って再接続で位置を復元する", async ({
+    mover,
+    revote,
+  }) => {
+    const roomName = `room-question-voting-move-${revote}`;
+    const noteId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef";
+    const hostStickerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const memberStickerId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const operationId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const stub = roomStub(roomName);
+    await initializeTestRoom(stub, USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
+    await stub.setPhase(buildPhaseStep(revote ? 4 : 3, 2), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        `INSERT INTO notes
+           (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
+         VALUES (?1, ?2, '移動しても問いを保つ', 'shared', 'blue', 100, 100, 'now', 'now', 2)`,
+        noteId,
+        mover === USER_A ? USER_B : USER_A,
+      );
+    });
+    const hostWs = await connectDirectly(roomName, USER_A, USER_A);
+    const memberWs = await connectDirectly(roomName, USER_B, USER_A);
+    if (revote) {
+      hostWs.send(
+        JSON.stringify({
+          type: "phase:revote",
+          ...(await currentPhaseExpectation(roomName)),
+        }),
+      );
+      for (const ws of [hostWs, memberWs]) {
+        expect(await nextJsonOfType(ws, "phase:updated")).toMatchObject({
+          phase: buildPhaseStep(3, 2),
+        });
+      }
+    }
+    await startTimerForTest(roomName);
+    const stickersBefore = await runInRoomDO(roomName, (_instance, state) => {
+      for (const [id, userId, x] of [
+        [hostStickerId, USER_A, 0.2],
+        [memberStickerId, USER_B, 0.8],
+      ] as const)
+        state.storage.sql.exec(
+          `INSERT INTO note_vote_stickers
+             (id, note_id, user_id, kind, x, y, created_at)
+           VALUES (?1, ?2, ?3, 'subjective', ?4, 0.3, 'now')`,
+          id,
+          noteId,
+          userId,
+          x,
+        );
+      return state.storage.sql
+        .exec("SELECT * FROM note_vote_stickers ORDER BY id")
+        .toArray();
+    });
+    const revision = await runInRoomDO(roomName, (_instance, state) =>
+      state.storage.sql
+        .exec(
+          "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
+        )
+        .one(),
+    );
+    const moverWs = mover === USER_A ? hostWs : memberWs;
+    const peerWs = mover === USER_A ? memberWs : hostWs;
+    moverWs.send(
+      JSON.stringify({
+        type: "note:move:start",
+        operationId,
+        expectedPhaseRevision: revision.phase_revision,
+        expectedGroupRevision: revision.group_revision,
+        expectedMapRevision: revision.map_revision,
+        coordinateSpace: "canvas",
+        targets: [{ noteId, positionRevision: 0, visibilityRevision: 0 }],
+      }),
+    );
+    expect(await nextJson(moverWs)).toMatchObject({
+      type: "note:move:result",
+      operationId,
+      status: "active",
+    });
+    moverWs.send(
+      JSON.stringify({
+        type: "note:move:preview",
+        operationId,
+        delta: { x: 120, y: 80 },
+      }),
+    );
+    const preview = await nextJson(peerWs);
+    expect(preview).toMatchObject({
+      type: "notes:move-preview",
+      positions: [{ noteId, x: 220, y: 180 }],
+    });
+    expect(JSON.stringify(preview)).not.toMatch(
+      /content|dotVotes|stickers|cursor/,
+    );
+    moverWs.send(
+      JSON.stringify({
+        type: "cursor:update",
+        x: 999,
+        y: 888,
+        draggingNoteId: noteId,
+      }),
+    );
+    moverWs.send(
+      JSON.stringify({
+        type: "note:move:commit",
+        operationId,
+        delta: { x: 120, y: 80 },
+      }),
+    );
+    const batch = await nextJson(peerWs);
+    expect(batch).toMatchObject({
+      type: "notes:moved",
+      operationId,
+      groups: [],
+      notes: [
+        {
+          id: noteId,
+          content: "移動しても問いを保つ",
+          x: 220,
+          y: 180,
+          dotVotes: {
+            subjective: { votedByMe: true, ownCount: 1 },
+            objective: { votedByMe: false, ownCount: 0 },
+          },
+          dotVoteStickers: [
+            { id: mover === USER_A ? memberStickerId : hostStickerId },
+          ],
+        },
+      ],
+    });
+    const notes = batch.notes as Array<Record<string, unknown>>;
+    expect(notes[0].dotVotes).toEqual({
+      subjective: { votedByMe: true, ownCount: 1 },
+      objective: { votedByMe: false, ownCount: 0 },
+    });
+    expect(await nextJsonOfType(moverWs, "note:move:result")).toMatchObject({
+      status: "accepted",
+    });
+    expect(
+      await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql
+          .exec("SELECT * FROM note_vote_stickers ORDER BY id")
+          .toArray(),
+      ),
+    ).toEqual(stickersBefore);
+    const reconnect = await connectDirectlyWithFirstMessage(
+      roomName,
+      mover,
+      USER_A,
+    );
+    expect(reconnect.firstMessage).toMatchObject({
+      phase: buildPhaseStep(3, 2),
+      notes: [{ id: noteId, content: "移動しても問いを保つ", x: 220, y: 180 }],
+    });
+    reconnect.ws.close();
+    hostWs.close();
+    memberWs.close();
+  });
+
+  it("Step 2-2 では投票、Step 2-3 では付箋作成を forbidden にする", async () => {
     const roomName = "room-step2-operation-gates";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -6540,18 +6704,6 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
 
     await stub.setPhase(buildPhaseStep(3, 2), USER_A);
     ws.send(JSON.stringify({ type: "note:create", content: "禁止" }));
-    expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    ws.send(
-      JSON.stringify({
-        type: "note:move",
-        noteId: "99999999-9999-4999-8999-999999999999",
-        x: 100,
-        y: 100,
-      }),
-    );
     expect(await nextJson(ws)).toMatchObject({
       type: "error",
       code: "forbidden",

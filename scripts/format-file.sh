@@ -49,7 +49,7 @@ run_with_timeout() {
 }
 
 case "$FILE" in
-  *.ts|*.tsx|*.js|*.mjs|*.cjs|*.json|*.css|*.scss)
+  *.ts|*.tsx|*.mts|*.cts|*.js|*.mjs|*.cjs|*.json|*.css|*.scss)
     run_with_timeout 20 npx --no-install biome check --write "$FILE"
     ;;
   *.md)

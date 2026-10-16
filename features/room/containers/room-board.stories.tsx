@@ -103,7 +103,6 @@ const meta = {
   component: ActiveHostTransferPreview,
   parameters: {
     layout: "fullscreen",
-    chromatic: { viewports: [390, 1280] },
     activeRoomConnection: true,
   },
   args: {

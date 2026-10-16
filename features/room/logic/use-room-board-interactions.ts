@@ -89,6 +89,8 @@ export type RoomBoardInteractions = {
   isNoteDragging: boolean;
   localDraggingNoteId?: string | null;
   camera: CanvasCamera;
+  displayZoom?: number;
+  onSelectionChange?: (ids: readonly string[]) => void;
   gridStyle: CSSProperties;
   isPanning: boolean;
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -156,6 +158,8 @@ export function useRoomBoardInteractions({
 
   const {
     camera,
+    displayZoom,
+    setSelectedNoteIds,
     preserveCamera,
     gridStyle,
     isPanning,
@@ -181,6 +185,7 @@ export function useRoomBoardInteractions({
     ),
     getFitInsets,
     notes,
+    selectedNoteIds,
     fitViewport:
       phase.kind === "step" &&
       phase.phase === 3 &&
@@ -206,8 +211,7 @@ export function useRoomBoardInteractions({
     geometry: mapNoteGeometry,
     fallbackPointFromClient: worldPointFromClient,
   });
-  // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
-  // 既存のボード権限に従い、投票中は移動を止め、結果ステップは採用後も移動できる。
+  // 通常ボードは工程ごとの権限に従う。2軸マップでは付箋が収まる高さも必要。
   const canMoveSharedNotes =
     !movePending &&
     getBoardPermissions(phase, isDecided).canMoveNote &&
@@ -456,6 +460,8 @@ export function useRoomBoardInteractions({
     isNoteDragging: drag !== null,
     localDraggingNoteId: drag?.note.id ?? null,
     camera,
+    displayZoom,
+    onSelectionChange: setSelectedNoteIds,
     gridStyle,
     isPanning,
     onCanvasPointerDown,

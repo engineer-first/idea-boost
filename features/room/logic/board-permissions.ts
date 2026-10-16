@@ -185,7 +185,7 @@ function getBaseBoardPermissions(phase: RoomPhase): BaseBoardPermissions {
       canCreateNote: false,
       canEditNote: false,
       canDeleteNote: false,
-      canMoveNote: false,
+      canMoveNote: true,
 
       canGroupNote: false,
 

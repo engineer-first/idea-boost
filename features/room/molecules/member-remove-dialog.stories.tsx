@@ -19,7 +19,6 @@ const meta = {
     onConfirm: fn(),
     onOpenChange: fn(),
   },
-  parameters: { chromatic: { viewports: [390, 1280] } },
 } satisfies Meta<typeof MemberRemoveDialog>;
 export default meta;
 type Story = StoryObj<typeof meta>;

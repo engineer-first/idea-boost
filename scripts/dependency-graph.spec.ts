@@ -1,7 +1,7 @@
 // features/ の import 依存を mermaid flowchart に変換するロジックのテスト。
 // 実ファイルシステムには依存させず、import 抽出・実装ファイル判定・
-// 図のレンダリングをそれぞれ検証する。出力は Chromatic の差分検出を安定させる
-// ため決定的（ソート済み・全文一致で固定）であることも仕様に含める。
+// 図のレンダリングをそれぞれ検証する。生成図を安定して確認できるよう、
+// 決定的（ソート済み・全文一致で固定）な出力も仕様に含める。
 import { describe, expect, it } from "vitest";
 import {
   buildFeatureDiagram,

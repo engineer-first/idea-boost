@@ -1,6 +1,37 @@
 # エージェント指示の保守
 
-通常の実装では読む必要はない。指示・skill・hookを変更するときに使う。入口は[AGENTS.md](../../AGENTS.md)、作業別規範は[開発規約](conventions.md)、検証の選択は[テスト方針](testing.md)。採用理由と実走結果は[2026年9月以降の保守記録](../archive/agent-guidance-maintenance-2026-09.md)に残す。
+チームでの導入と、指示・skill・hookを変更するときに使う。通常の実装では毎回読む必要はない。入口は[AGENTS.md](../../AGENTS.md)、作業別規範は[開発規約](conventions.md)、検証の選択は[テスト方針](testing.md)。採用理由と実走結果は[2026年9月以降の保守記録](../archive/agent-guidance-maintenance-2026-09.md)に残す。
+
+## チームで使い始める
+
+1. Gitのsymlinkを保持してcloneし、`mise install` と `npm ci` で開発環境を揃える。
+2. `npm run check:agent-harness` で共有スキルの正本・Claude用symlink・frontmatter・本文の相対リンクを確認する。CIでも同じ検査を行う。
+3. リポジトリを作業ディレクトリとしてCodex / Claude Codeを起動し、スキル一覧に対象が1件ずつ現れることを確認する。Codexは `$ci-triage`、Claude Codeは `/ci-triage` のように呼び出す。
+4. Codexの `/hooks` で [.codex/hooks.json](../../.codex/hooks.json) の内容を確認して信頼する。定義が変わった場合も再確認する。ユーザー設定に同じ整形hookがある場合は、重複実行を避けるためどちらを使うか選ぶ。
+
+| 作業                           | 共有する入口                                                                                                                                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI失敗の原因・保証範囲を調べる | [ci-triage](../../.agents/skills/ci-triage/SKILL.md)                                                                                                                                               |
+| PBIを一緒に考える              | [pbi](../../.agents/skills/pbi/SKILL.md)                                                                                                                                                           |
+| UI部品・境界・migrationを作る  | [new-component](../../.agents/skills/new-component/SKILL.md)、[contract-change](../../.agents/skills/contract-change/SKILL.md)、[create-migration](../../.agents/skills/create-migration/SKILL.md) |
+| ローカル起動で確認する         | [verify](../../.agents/skills/verify/SKILL.md)、[サーバーの期限と停止](dev-server-lifecycle.md)                                                                                                    |
+| PR・リリース・貢献記録を作る   | [write-pr](../../.agents/skills/write-pr/SKILL.md)、[release](../../.agents/skills/release/SKILL.md)、[sprint-contribution](../../.agents/skills/sprint-contribution/SKILL.md)                     |
+
+Codexのhookは、stage済み・未stage・未追跡の対象ファイルの作業ツリーを整形する。
+indexの自動更新はしないため、stage後に整形された差分は確認してからstageし直す。
+`.mts` / `.cts` も対象で、ファイル自体がsymlinkならスキップする。
+対象の選択と実際の整形は `scripts/format-changed-files.spec.ts` と
+`scripts/format-file.spec.ts`、下位ディレクトリからの呼出しは
+`scripts/codex-hooks.spec.ts` で検証する。
+
+構造検査はhookの発火やモデルの判断品質を保証しない。hookを利用しない環境でも
+手動のlint・テストとCIを実行する。Codexには毎ターン全テストを走らせるStop hookを追加しない。
+Claudeの既存hooksは [.claude/settings.json](../../.claude/settings.json) で別途管理する。
+プロジェクト層とhook定義の信頼、実行時のcwdについては
+[Codex公式Hooks](https://learn.chatgpt.com/docs/hooks) を参照する。
+
+個人のCodex履歴、認証情報、ユーザースキル、実行中の引き継ぎ文書は配布物に含めない。
+履歴から採用した判断と検証結果だけを保守記録へ残す。
 
 ## 保守する場所
 
@@ -26,7 +57,9 @@ Codex の `agents/openai.yaml` の `policy.allow_implicit_invocation: false` で
 ツール固有の hooks・設定は従来の場所で管理し、`akapen` などのユーザースキルと
 作業成果物は共有しない。採用理由と公式仕様は [ADR 0005](../adr/0005-shared-skills.md)を参照する。
 
-移動・追加後は、両ランタイムのスキル一覧で対象が1件ずつ読み込まれること、
+移動・追加後は `npm run check:agent-harness` を実行する。この検査はinline Markdownリンクの
+ファイル存在までを扱い、URLの到達性・アンカー・reference形式のリンクは読み合わせで確認する。
+両ランタイムのスキル一覧で対象が1件ずつ読み込まれること、
 symlink にリンク切れがないこと、付属ファイルと文書リンクが両経路から解決できることを確認する。
 Issue 作成は `--dry-run`、リリース操作は fake operator を使い、検証のための公開操作は行わない。
 

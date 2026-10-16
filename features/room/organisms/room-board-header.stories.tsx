@@ -193,7 +193,7 @@ export const Leaving: Story = {
   },
 };
 
-// タイマーが一時停止中（決定的な残り時間表示。Chromatic の差分を安定させる）。
+// タイマーが一時停止中（公開Storybookで残り時間を固定して確認できる）。
 export const TimerPaused: Story = {
   args: {
     timer: buildPausedTimer(),

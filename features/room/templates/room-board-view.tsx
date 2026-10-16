@@ -396,6 +396,10 @@ export function RoomBoardView({
     notes: [...notes, ...interactions.privateNotes],
   });
   const selectedNoteIds = selection.selectedNoteIds;
+  const onCameraSelectionChange = interactions.onSelectionChange;
+  useEffect(() => {
+    onCameraSelectionChange?.(selectedNoteIds);
+  }, [onCameraSelectionChange, selectedNoteIds]);
   const selectedNoteId =
     selectedNoteIds.length === 1 ? selectedNoteIds[0] : null;
   const setSelectedNoteId = selection.selectNote;
@@ -458,7 +462,31 @@ export function RoomBoardView({
   const suppressPaletteSelectRef = useRef(false);
   const previousPhase = useRef({ phase, phaseRevision, rollbackRevision });
   const [isMounted, setIsMounted] = useState(false);
-  const permissions = getBoardPermissions(phase, decision !== null);
+  const phasePermissions = getBoardPermissions(phase, decision !== null);
+  // 選択して貼る間も、ドラッグの閾値に達する前の押下中も、共有付箋の移動を止める。
+  const isVoteStickerHeld =
+    selectedVoteKind !== null || voteStickerDrag !== null;
+  const permissions = {
+    ...phasePermissions,
+    canMoveNote: phasePermissions.canMoveNote && !isVoteStickerHeld,
+  };
+  const moveHistoryControls = moveHistory && {
+    ...moveHistory,
+    undo: {
+      ...moveHistory.undo,
+      disabled: moveHistory.undo.disabled || isVoteStickerHeld,
+      reason: isVoteStickerHeld
+        ? "投票シールを離すか、選択を解除すると移動を元に戻せます。"
+        : moveHistory.undo.reason,
+    },
+    redo: {
+      ...moveHistory.redo,
+      disabled: moveHistory.redo.disabled || isVoteStickerHeld,
+      reason: isVoteStickerHeld
+        ? "投票シールを離すか、選択を解除すると移動をやり直せます。"
+        : moveHistory.redo.reason,
+    },
+  };
   const boardInteractionBlocked = timer.status !== "running";
 
   const cancelVoteDrag = useCallback((): boolean => {
@@ -685,7 +713,12 @@ export function RoomBoardView({
       )
         return;
       const root = interactions.boardRootRef.current;
-      if (!root?.contains(target)) return;
+      // 投票後にコントロールがフォーカスを失っても、bodyからシール選択を解除できる。
+      const canReleaseVoteSelection =
+        target === document.body &&
+        event.key === "Escape" &&
+        selectedVoteKind !== null;
+      if (!root?.contains(target) && !canReleaseVoteSelection) return;
       if (event.key === "Escape") {
         if (selectedVoteKind !== null) {
           setSelectedVoteKind(null);
@@ -730,13 +763,33 @@ export function RoomBoardView({
       cancelVoteDrag();
       cancelRootPress();
     }
+    function cancelOutsidePointer(event: PointerEvent): void {
+      if (
+        event.target instanceof Node &&
+        interactions.boardRootRef.current?.contains(event.target)
+      )
+        return;
+      // root外へ終端が抜けても、終了したpointerの所有だけを解放する。
+      const ownsPress = rootPressRef.current?.pointerId === event.pointerId;
+      if (voteStickerDragRef.current?.pointerId === event.pointerId)
+        cancelVoteDrag();
+      if (!ownsPress) return;
+      cancelRootPress();
+      selection.cancel();
+      interactions.cancelCurrentNoteDrag(true);
+      interactions.cancelPan?.();
+    }
     window.addEventListener("keydown", cancelOwnedGesture, true);
     window.addEventListener("keydown", handleKey);
     window.addEventListener("blur", blur);
+    window.addEventListener("pointerup", cancelOutsidePointer, true);
+    window.addEventListener("pointercancel", cancelOutsidePointer, true);
     return () => {
       window.removeEventListener("keydown", cancelOwnedGesture, true);
       window.removeEventListener("keydown", handleKey);
       window.removeEventListener("blur", blur);
+      window.removeEventListener("pointerup", cancelOutsidePointer, true);
+      window.removeEventListener("pointercancel", cancelOutsidePointer, true);
     };
   });
 
@@ -1583,8 +1636,9 @@ export function RoomBoardView({
         }}
         onPointerMoveCapture={(event) => {
           if (
-            cancelledRootPointerRef.current === event.pointerId ||
-            rejectedVotePointersRef.current.has(event.pointerId)
+            event.buttons !== 0 &&
+            (cancelledRootPointerRef.current === event.pointerId ||
+              rejectedVotePointersRef.current.has(event.pointerId))
           )
             event.stopPropagation();
         }}
@@ -1678,7 +1732,9 @@ export function RoomBoardView({
             }
           }
           if (
-            moveHistory &&
+            moveHistoryControls &&
+            !isVoteStickerHeld &&
+            voteStickerDragRef.current === null &&
             target instanceof HTMLElement &&
             (event.ctrlKey || event.metaKey) &&
             !event.altKey &&
@@ -1694,12 +1750,14 @@ export function RoomBoardView({
             ) &&
             !hasActiveCanvasGesture()
           ) {
-            const action = event.shiftKey ? moveHistory.redo : moveHistory.undo;
-            if (!moveHistory.pending && !action.disabled) {
+            const action = event.shiftKey
+              ? moveHistoryControls.redo
+              : moveHistoryControls.undo;
+            if (!moveHistoryControls.pending && !action.disabled) {
               event.preventDefault();
               event.stopPropagation();
-              if (event.shiftKey) moveHistory.onRedo();
-              else moveHistory.onUndo();
+              if (event.shiftKey) moveHistoryControls.onRedo();
+              else moveHistoryControls.onUndo();
             }
             return;
           }
@@ -1874,7 +1932,7 @@ export function RoomBoardView({
         ) : null}
         <RoomBoardCanvas
           rollbackRevision={rollbackRevision}
-          moveHistory={moveHistory}
+          moveHistory={moveHistoryControls}
           notes={renderedNotes}
           groups={groups}
           phase={phase}
@@ -1926,6 +1984,7 @@ export function RoomBoardView({
           ideaMapPlaneRef={ideaMapPlaneRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
+          displayZoom={interactions.displayZoom}
           gridStyle={gridStyle}
           isPanning={isPanning}
           onCanvasPointerDown={(event) => {
@@ -1966,6 +2025,8 @@ export function RoomBoardView({
           }}
           onSelect={handleNoteSelect}
           onNoteDragStart={(noteId, event, origin) => {
+            if (!permissions.canMoveNote || voteStickerDragRef.current !== null)
+              return;
             const ids = selection.selectionRef.current;
             if (ids.length > 1 && ids.includes(noteId)) {
               if (interactions.onSharedNotesDragIntent)

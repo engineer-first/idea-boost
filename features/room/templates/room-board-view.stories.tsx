@@ -844,6 +844,8 @@ export const CanvasPanInteraction: Story = {
           notes: args.notes,
           boardScrollerRef,
           camera: camera.camera,
+          displayZoom: camera.displayZoom,
+          onSelectionChange: camera.setSelectedNoteIds,
           gridStyle: camera.gridStyle,
           isPanning: camera.isPanning,
           onToolChange: camera.setInteractionTool,
@@ -1238,6 +1240,48 @@ export const CanvasInputVoting: Story = {
           }
         : note,
     ),
+  },
+};
+
+export const CanvasInputQuestionVoting: Story = {
+  ...CanvasInputVoting,
+  args: {
+    ...CanvasInputVoting.args,
+    phase: buildPhaseStep(3, 2),
+    isHost: false,
+    hmwDecidedIssue: GUIDE_ISSUE,
+    notes: CANVAS_HUD_NOTES.slice(0, 3).map((note, index) => ({
+      ...note,
+      x: index < 2 ? 180 + index * 48 : 580,
+      y: index < 2 ? 180 + index * 32 : 320,
+      dotVoteStickers:
+        index === 1
+          ? [
+              {
+                id: "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa",
+                kind: "objective",
+                x: 0.2,
+                y: 0.3,
+              },
+            ]
+          : [],
+      dotVotes: {
+        subjective: { ownCount: 0, votedByMe: false },
+        objective: { ownCount: index === 1 ? 1 : 0, votedByMe: index === 1 },
+      },
+    })),
+  },
+};
+
+export const QuestionVotingStickerSelected: Story = {
+  ...CanvasInputQuestionVoting,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "客観シール 残り2票" }),
+    );
+    await expect(
+      within(canvasElement).getByRole("img", { name: "付箋の移動：不可" }),
+    ).toBeVisible();
   },
 };
 

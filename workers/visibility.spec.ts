@@ -50,6 +50,18 @@ const TABLE: Array<{
     expected: false,
   },
   {
+    name: "AT-662 問いの投票中の移動でも他者の未共有付箋は不可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "private", x: 200, y: 300 }),
+    expected: false,
+  },
+  {
+    name: "AT-662 問いの投票中に移動した共有付箋は他の参加者にも可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared", x: 200, y: 300 }),
+    expected: true,
+  },
+  {
     name: "AT-665 採用後の移動でも他者の未共有付箋を公開しない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),
