@@ -649,7 +649,7 @@ describe("RoomBoardCanvas", () => {
       screen.getByRole("img", { name: "付箋の編集：不可" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "付箋の移動：不可" }),
+      screen.getByRole("img", { name: "付箋の移動：可能" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("img", { name: "付箋の削除：不可" }),

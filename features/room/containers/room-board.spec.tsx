@@ -305,6 +305,287 @@ function openPrivateNotesToolbar() {
   return toolbar;
 }
 
+describe("問いの投票中の付箋移動", () => {
+  it.each([
+    true,
+    false,
+  ])("ホスト権限%jでシールの貼付・付替・取消から付箋移動まで同じポインターで続けられる", (isHost) => {
+    const source = protocolNote();
+    const target = protocolNote({
+      id: TARGET_NOTE_ID,
+      content: "付け替え先",
+      x: 400,
+    });
+    const { socket } = connectWithSnapshot([source, target], {
+      phase: buildPhaseStep(3, 2),
+      isHost,
+      moveProtocolVersion: 1,
+    });
+    const viewport = screen.getByTestId("board-scroller");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 800);
+    const cards = screen.getAllByTestId("note-card");
+    cards[0].getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+    cards[1].getBoundingClientRect = () => new DOMRect(400, 100, 200, 150);
+    const palette = within(screen.getByTestId("vote-palette-hud")).getByRole(
+      "region",
+      { name: "投票パレット" },
+    );
+    const selectTool = within(
+      screen.getByTestId("canvas-zoom-controls"),
+    ).getByRole("button", { name: "選択ツール" });
+    let dropTarget: HTMLElement = cards[0];
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => dropTarget,
+    });
+    function drag(owner: HTMLElement, clientX: number, clientY: number): void {
+      fireEvent.pointerDown(owner, {
+        pointerId: 1,
+        button: 0,
+        buttons: 1,
+        clientX: 120,
+        clientY: 120,
+      });
+      fireEvent.pointerMove(owner, {
+        pointerId: 1,
+        buttons: 1,
+        clientX,
+        clientY,
+      });
+      fireEvent.pointerUp(owner, { pointerId: 1, clientX, clientY });
+    }
+    function latest(type: string) {
+      return socket.sent
+        .map((raw) => JSON.parse(raw))
+        .filter((message) => message.type === type)
+        .at(-1);
+    }
+    drag(
+      within(palette).getByRole("button", { name: "客観シール 残り3票" }),
+      150,
+      175,
+    );
+    const add = latest("note:vote-sticker:add");
+    expect(add).toMatchObject({ noteId: NOTE_ID, kind: "objective" });
+    const sticker = {
+      id: add.stickerId,
+      kind: "objective" as const,
+      x: 0.25,
+      y: 0.5,
+    };
+    const votedSource = {
+      ...source,
+      dotVoteStickers: [sticker],
+      dotVotes: {
+        ...source.dotVotes,
+        objective: { ownCount: 1, votedByMe: true },
+      },
+    };
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: add.operationId,
+        note: votedSource,
+      }),
+    );
+    dropTarget = cards[1];
+    drag(
+      within(cards[0]).getByRole("button", {
+        name: "客観シール 1票を1票取り消す",
+      }),
+      450,
+      175,
+    );
+    const move = latest("note:vote-sticker:move");
+    expect(move).toMatchObject({
+      stickerId: sticker.id,
+      noteId: TARGET_NOTE_ID,
+    });
+    const votedTarget = {
+      ...target,
+      dotVoteStickers: [sticker],
+      dotVotes: votedSource.dotVotes,
+    };
+    act(() => {
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: move.operationId,
+        note: source,
+      });
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: move.operationId,
+        note: votedTarget,
+      });
+    });
+    dropTarget = palette;
+    drag(
+      within(cards[1]).getByRole("button", {
+        name: "客観シール 1票を1票取り消す",
+      }),
+      320,
+      700,
+    );
+    const remove = latest("note:vote-sticker:remove");
+    expect(remove).toMatchObject({ stickerId: sticker.id });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:updated",
+        operationId: remove.operationId,
+        note: target,
+      }),
+    );
+    expect(selectTool).toBeEnabled();
+    dropTarget = cards[0];
+    drag(within(cards[0]).getByRole("button", { name: "付箋" }), 250, 225);
+    expect(latest("note:move:start")).toMatchObject({
+      targets: [expect.objectContaining({ noteId: NOTE_ID })],
+    });
+    expect(latest("note:move:commit")).toMatchObject({
+      delta: expect.not.objectContaining({ x: 0, y: 0 }),
+    });
+    expect(selectTool).toBeEnabled();
+  });
+
+  it.each([
+    true,
+    false,
+  ])("新しい移動方式でもホスト権限%jでシール選択中だけ送信を止め、解除後に問いを移動できる", (isHost) => {
+    const { socket } = connectWithSnapshot(
+      [protocolNote({ authorId: OTHER_USER_ID })],
+      { phase: buildPhaseStep(3, 2), isHost, moveProtocolVersion: 1 },
+    );
+    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const surface = screen.getByRole("button", { name: "付箋" });
+    const viewport = screen.getByTestId("board-scroller");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    function move(pointerId: number): void {
+      fireEvent.pointerDown(surface, {
+        pointerId,
+        button: 0,
+        buttons: 1,
+        clientX: 100,
+        clientY: 100,
+      });
+      fireEvent.pointerMove(surface, {
+        pointerId,
+        buttons: 1,
+        clientX: 130,
+        clientY: 130,
+      });
+      fireEvent.pointerUp(viewport, { pointerId, clientX: 250, clientY: 200 });
+    }
+    fireEvent.click(palette);
+    move(81);
+    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+      expect.objectContaining({ type: expect.stringMatching(/^note:move:/) }),
+    );
+    fireEvent.click(palette);
+    move(82);
+    expectSent(socket, {
+      type: "note:move:start",
+      coordinateSpace: "canvas",
+      expectedPhaseRevision: 0,
+      targets: [expect.objectContaining({ noteId: NOTE_ID })],
+    });
+    expectSent(socket, {
+      type: "note:move:commit",
+      delta: expect.not.objectContaining({ x: 0, y: 0 }),
+    });
+    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+      expect.objectContaining({ type: expect.stringMatching(/vote/) }),
+    );
+  });
+
+  it.each([
+    true,
+    false,
+  ])("2-3でホスト権限%jでも共有済みの他者の問いを移動し、再投票でも再開できる", (isHost) => {
+    const note = protocolNote({
+      authorId: OTHER_USER_ID,
+      content: "重なりを解消する問い",
+      x: 100,
+      y: 100,
+      dotVotes: {
+        subjective: { ownCount: 0, votedByMe: false },
+        objective: { ownCount: 1, votedByMe: true },
+      },
+      dotVoteStickers: [{ id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 }],
+    });
+    const { socket } = connectWithSnapshot([note], {
+      phase: buildPhaseStep(3, 2),
+      isHost,
+    });
+    const viewport = screen.getByTestId("board-canvas").parentElement;
+    if (!viewport) throw new Error("ボードスクローラーがありません");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    const root = screen.getByTestId("room-board-view-root");
+    const surface = screen.getByRole("button", { name: "付箋" });
+    function move(pointerId: number) {
+      fireEvent.pointerDown(surface, {
+        pointerId,
+        button: 0,
+        buttons: 1,
+        clientX: 110,
+        clientY: 110,
+      });
+      fireEvent.pointerMove(surface, {
+        pointerId,
+        buttons: 1,
+        clientX: 130,
+        clientY: 130,
+      });
+      fireEvent.pointerMove(root, {
+        pointerId,
+        buttons: 1,
+        clientX: 260,
+        clientY: 220,
+      });
+      fireEvent.pointerUp(root, { pointerId, clientX: 260, clientY: 220 });
+    }
+    move(81);
+    const firstMove = socket.sent
+      .map((raw) => JSON.parse(raw))
+      .find((message) => message.type === "note:drag:end");
+    expect(firstMove).toMatchObject({
+      type: "note:drag:end",
+      noteId: NOTE_ID,
+      position: expect.not.objectContaining({ x: 100, y: 100 }),
+    });
+    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+      expect.objectContaining({ type: expect.stringMatching(/vote/) }),
+    );
+    expect(screen.getByDisplayValue(note.content)).toHaveAttribute("readonly");
+    expect(
+      document.querySelector(`[data-vote-sticker-id="${STICKER_ID}"]`),
+    ).toHaveStyle({ left: "20%", top: "30%" });
+    act(() => {
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: { ...note, ...firstMove.position },
+      });
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(4, 2),
+        phaseRevision: 1,
+        decision: null,
+      });
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(3, 2),
+        phaseRevision: 2,
+        decision: null,
+      });
+    });
+    move(82);
+    expect(
+      socket.sent
+        .map((raw) => JSON.parse(raw))
+        .filter((message) => message.type === "note:drag:end"),
+    ).toHaveLength(2);
+  });
+});
+
 it.each([
   1, 2, 3,
 ] as const)("フェーズ%iで共有許可が発表順に追従し、交代中のドラッグは公開しない", (phase) => {
