@@ -121,6 +121,13 @@ import {
 } from "./phase";
 import { getRollbackTarget, rollbackHandlers } from "./phase-rollback";
 import { presenceHandlers } from "./presence";
+import {
+  broadcastProgress,
+  bumpProgressRevision,
+  getProgressState,
+  isManualProgressStep,
+  syncProgressConnectedUsers,
+} from "./progress";
 import { ProgressHistoryStorage } from "./progress-history";
 import { replyShareStatus } from "./share-operations";
 import { SharedOutcomeStorage } from "./shared-outcome-storage";
@@ -941,6 +948,10 @@ export class RoomDO extends DurableObject {
       beforeRemove?.();
       removeMember(this.sql, userId);
     });
+    const progressConnectionsChanged = syncProgressConnectedUsers(
+      this.sql,
+      this.broadcaster,
+    );
     syncMovePresence(this.sql, this.broadcaster);
     const retiredSharedNotes = new Set<string>();
     let hadPresence = false;
@@ -963,6 +974,13 @@ export class RoomDO extends DurableObject {
       { type: "member_left", userId },
       userId,
     );
+    if (progressConnectionsChanged)
+      broadcastProgress(
+        this.sql,
+        this.broadcaster,
+        getPhase(this.sql),
+        getPhaseRevision(this.sql),
+      );
     for (const noteId of retiredSharedNotes) {
       const row = findNote(this.sql, noteId);
       if (row?.visibility === "shared")
@@ -1209,7 +1227,24 @@ export class RoomDO extends DurableObject {
     };
     server.serializeAttachment(attachment);
 
+    const progressConnectionsChanged = syncProgressConnectedUsers(
+      this.sql,
+      this.broadcaster,
+    );
     this.sendSnapshot(server, userId);
+    if (progressConnectionsChanged)
+      this.broadcaster.broadcastToAllExceptSocket(
+        {
+          type: "phase:progress",
+          progress: getProgressState(
+            this.sql,
+            this.broadcaster,
+            getPhase(this.sql),
+            getPhaseRevision(this.sql),
+          ),
+        },
+        server,
+      );
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -1319,6 +1354,10 @@ export class RoomDO extends DurableObject {
         noteId: this.broadcaster.currentAdoptionFocusNoteId(),
       });
     }
+    const progressConnectionsChanged = syncProgressConnectedUsers(
+      this.sql,
+      this.broadcaster,
+    );
     if (previousAttachment?.moveConnectionId || previousAttachment?.activeDrag)
       this.ctx.waitUntil(syncRoomAlarm(this.ctx.storage, this.sql));
     if (previousAttachment?.hasCursor || previousAttachment?.activeDrag) {
@@ -1354,6 +1393,13 @@ export class RoomDO extends DurableObject {
         attachment.userId,
       );
     }
+    if (progressConnectionsChanged)
+      broadcastProgress(
+        this.sql,
+        this.broadcaster,
+        getPhase(this.sql),
+        getPhaseRevision(this.sql),
+      );
   }
 
   override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
@@ -1645,7 +1691,6 @@ export class RoomDO extends DurableObject {
     // 完了の成功通知より先に、同じ瞬間の盤面と再試行情報を永続化する。
     if (
       message.type === "outcome:publish" &&
-      isHostUser(this.sql, attachment.userId) &&
       isPhaseStep(phase, 3, 5) &&
       getDecision(this.sql, 3)
     ) {
@@ -1682,6 +1727,12 @@ export class RoomDO extends DurableObject {
         message.type === "note:move:commit" ||
         message.type === "note:move:inverse");
     const phaseBefore = getPhaseRevision(this.sql);
+    const votingProgressBefore = (() => {
+      const phase = getPhase(this.sql);
+      return phase.kind === "step" && isVotingStep(phase)
+        ? JSON.stringify(listCompletedVoterIds(this.sql, phase.phase).sort())
+        : null;
+    })();
     const before = affectsOutcome
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
       : null;
@@ -1704,6 +1755,58 @@ export class RoomDO extends DurableObject {
       sharedDragEnded = true;
     };
     await handler(ctx, message);
+    const votingProgressChanged = (() => {
+      if (rejected || votingProgressBefore === null) return false;
+      const phase = getPhase(this.sql);
+      return (
+        phase.kind === "step" &&
+        isVotingStep(phase) &&
+        JSON.stringify(listCompletedVoterIds(this.sql, phase.phase).sort()) !==
+          votingProgressBefore
+      );
+    })();
+    const clearsReady =
+      !rejected &&
+      (message.type === "note:create" ||
+        message.type === "note:delete" ||
+        message.type === "note:update-content" ||
+        message.type === "note:update-font-size" ||
+        message.type.startsWith("note:vote"));
+    if (clearsReady) {
+      const currentProgressPhase = getPhase(this.sql);
+      const currentProgressRevision = getPhaseRevision(this.sql);
+      if (
+        isManualProgressStep(currentProgressPhase) &&
+        this.sql.exec(
+          "DELETE FROM phase_progress_ready WHERE phase_revision = ?1 AND user_id = ?2",
+          currentProgressRevision,
+          attachment.userId,
+        ).rowsWritten > 0
+      ) {
+        bumpProgressRevision(this.sql);
+        broadcastProgress(
+          this.sql,
+          this.broadcaster,
+          currentProgressPhase,
+          currentProgressRevision,
+        );
+      }
+    }
+    if (!rejected && message.type.startsWith("note:vote")) {
+      const currentProgressPhase = getPhase(this.sql);
+      if (
+        currentProgressPhase.kind === "step" &&
+        isVotingStep(currentProgressPhase)
+      ) {
+        if (votingProgressChanged) bumpProgressRevision(this.sql);
+        broadcastProgress(
+          this.sql,
+          this.broadcaster,
+          currentProgressPhase,
+          getPhaseRevision(this.sql),
+        );
+      }
+    }
     if (isBoardMutation(message) || message.type === "member:remove")
       syncMovePresence(this.sql, this.broadcaster);
     if (
@@ -1845,6 +1948,12 @@ export class RoomDO extends DurableObject {
         phase.kind === "step" && isVotingStep(phase)
           ? listCompletedVoterIds(this.sql, phase.phase)
           : [],
+      progress: getProgressState(
+        this.sql,
+        this.broadcaster,
+        phase,
+        getPhaseRevision(this.sql),
+      ),
       timer: getTimerState(this.sql),
       serverNow: Date.now(),
     });

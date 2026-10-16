@@ -37,7 +37,6 @@ export type PhaseLoopControlsProps = {
 
 export function PhaseLoopControls({
   phase,
-  isHost,
   isSelecting,
   decisionContent,
   candidateCount,
@@ -53,12 +52,13 @@ export function PhaseLoopControls({
   if (phase.kind !== "step") return null;
   const isResult = isResultStep(phase);
   const canRestart = isRestartWritingAllowedStep(phase);
-  if (!isResult && (!canRestart || !isHost)) return null;
+  if (!isResult && !canRestart) return null;
   if (decisionContent !== null)
     return (
       <AdoptNoteControl
         phaseNumber={phase.phase}
-        isHost={isHost}
+        isHost
+        canSelect
         isSelecting={false}
         decisionContent={decisionContent}
         disabled={disabled || selectionDisabled}
@@ -67,17 +67,6 @@ export function PhaseLoopControls({
         onClearDecision={isResult ? onClearDecision : undefined}
       />
     );
-  if (!isHost)
-    return isResult ? (
-      <p
-        role="status"
-        className="pointer-events-auto max-w-lg rounded-xl border bg-background px-4 py-3 text-sm shadow-sm"
-      >
-        {candidateCount === 0
-          ? "候補がありません。ホストが付箋を候補に戻すまでお待ちください。"
-          : "候補を動かして話し合いましょう。採用はホストが確定します。"}
-      </p>
-    ) : null;
   return (
     <div className="flex max-w-full flex-col items-center gap-2">
       {isResult && candidateCount === 0 ? (
@@ -136,6 +125,7 @@ export function PhaseLoopControls({
           <AdoptNoteControl
             phaseNumber={phase.phase}
             isHost
+            canSelect={isResult}
             isSelecting={isSelecting}
             decisionContent={null}
             disabled={disabled || selectionDisabled || candidateCount === 0}

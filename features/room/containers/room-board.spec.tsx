@@ -59,6 +59,7 @@ import { buildPhaseStep } from "@/contracts/phase.fixture";
 import type {
   Carryover,
   Decision,
+  PhaseProgress,
   ProtocolNote,
   SharingState,
   TimerState,
@@ -69,7 +70,6 @@ import {
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
 import { DECIDED_ISSUE_LABEL } from "@/features/hmw";
-import { FORCE_NEXT_PHASE_COPY } from "../molecules/force-next-phase-dialog";
 import { RoomBoard } from "./room-board";
 
 const ROOM_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -246,6 +246,8 @@ function connectWithSnapshot(
     moveProtocolVersion?: 1;
     noteCreateProtocolVersion?: 1 | null;
     sharing?: SharingState | null;
+    members?: Array<{ userId: string; name: string; color: "yellow" | "blue" }>;
+    progress?: PhaseProgress;
   },
 ) {
   const { view, socket } = renderBoard({ isHost: options?.isHost ?? true });
@@ -258,7 +260,7 @@ function connectWithSnapshot(
         options?.noteCreateProtocolVersion === null ? undefined : 1,
       phaseRevision: 0,
       notes,
-      members: [],
+      members: options?.members ?? [],
       phase: options?.phase ?? buildPhaseStep(1),
       sharing:
         options?.sharing !== undefined
@@ -277,6 +279,7 @@ function connectWithSnapshot(
       adoptionFocusNoteId: options?.adoptionFocusNoteId ?? null,
       carryovers: options?.carryovers ?? [],
       completedVoterIds: [],
+      progress: options?.progress,
       groups: options?.groups,
       timer: options?.timer ?? {
         status: "running",
@@ -334,7 +337,11 @@ it.each([
   mockPrivateToolbarLayout(toolbar);
   function dragPrivate() {
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
-    fireEvent.pointerDown(handle, { pointerId: 1, clientX: 650, clientY: 120 });
+    fireEvent.pointerDown(handle, {
+      pointerId: 1,
+      clientX: 650,
+      clientY: 120,
+    });
     fireEvent.pointerMove(handle, {
       buttons: 1,
       pointerId: 1,
@@ -596,7 +603,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(socket.sent).toContain(JSON.stringify({ type: "timer:resume" }));
   });
 
-  it("非 host の snapshot idle 枠を表示し、phase:updated 後も表示を維持する", () => {
+  it("参加者の snapshot idle 枠を表示し、phase:updated 後も表示を維持する", () => {
     const { socket } = connectWithSnapshot([], {
       isHost: false,
       phase: buildPhaseStep(1),
@@ -606,9 +613,9 @@ describe("サーバーメッセージ → 画面反映", () => {
     const controls = screen.getByRole("group", { name: "ルームの操作" });
     const timer = within(controls).getByTestId("room-timer");
     expect(timer).toBeVisible();
-    expect(timer.tagName).toBe("SPAN");
+    expect(timer.tagName).toBe("BUTTON");
     expect(timer).toHaveTextContent("05:00");
-    expect(within(timer).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(timer).getByRole("timer")).toBeInTheDocument();
 
     act(() =>
       socket.simulateServerMessage({
@@ -639,156 +646,6 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
 
     expect(notifyMocks.error).toHaveBeenCalledWith("ホストのみ操作できます。");
-  });
-
-  it("投票未完了（voting-incomplete）を受信すると toast ではなく強制進行の確認を表示し、確認で force 付き phase:next を送信する", () => {
-    const { socket } = connectWithSnapshot([], {
-      isHost: true,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-
-    expect(notifyMocks.error).not.toHaveBeenCalled();
-    expect(screen.getByText(FORCE_NEXT_PHASE_COPY.title)).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: FORCE_NEXT_PHASE_COPY.confirm }),
-    );
-
-    expect(socket.sent).toContain(
-      JSON.stringify({
-        type: "phase:next",
-        force: true,
-        expectedPhase: buildPhaseStep(4),
-        expectedRevision: 0,
-      }),
-    );
-  });
-
-  it("非ホストに voting-incomplete が届いた場合はダイアログを開かず toast へフォールバックする", () => {
-    // サーバーの評価順では非ホストに届かないコードだが、UI 側はその暗黙の
-    // 保証に依存せず通常のエラー表示へ落とすことを固定する。
-    const { socket } = connectWithSnapshot([], {
-      isHost: false,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-
-    expect(notifyMocks.error).toHaveBeenCalledWith(
-      "全員の主観・客観投票が完了していません。",
-    );
-    expect(
-      screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
-    ).not.toBeInTheDocument();
-  });
-
-  it("強制進行の確認ダイアログは phase:updated の受信で閉じる", () => {
-    // 別タブなど他の経路で進行が確定したら、開いていた確認は根拠が古い。
-    const { socket } = connectWithSnapshot([], {
-      isHost: true,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-    expect(screen.getByText(FORCE_NEXT_PHASE_COPY.title)).toBeInTheDocument();
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "phase:updated",
-        phaseRevision: 0,
-        phase: buildPhaseStep(5),
-      }),
-    );
-
-    expect(
-      screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
-    ).not.toBeInTheDocument();
-  });
-
-  it("強制進行の確認ダイアログは再接続の snapshot 受信で閉じる", () => {
-    const { socket } = connectWithSnapshot([], {
-      isHost: true,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-    expect(screen.getByText(FORCE_NEXT_PHASE_COPY.title)).toBeInTheDocument();
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "snapshot",
-        phaseRevision: 0,
-        notes: [],
-        members: [],
-        phase: buildPhaseStep(5),
-        isHost: true,
-        decision: null,
-        carryovers: [],
-        completedVoterIds: [],
-        timer: { status: "idle" },
-        serverNow: Date.now(),
-      }),
-    );
-
-    expect(
-      screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
-    ).not.toBeInTheDocument();
-  });
-
-  it("強制進行の確認をキャンセルすると force 付き phase:next は送信されない", () => {
-    const { socket } = connectWithSnapshot([], {
-      isHost: true,
-      phase: buildPhaseStep(4),
-    });
-
-    act(() =>
-      socket.simulateServerMessage({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: FORCE_NEXT_PHASE_COPY.cancel }),
-    );
-
-    expect(socket.sent).not.toContain(
-      JSON.stringify({
-        type: "phase:next",
-        force: true,
-        expectedPhase: buildPhaseStep(4),
-        expectedRevision: 0,
-      }),
-    );
-    expect(
-      screen.queryByText(FORCE_NEXT_PHASE_COPY.title),
-    ).not.toBeInTheDocument();
   });
 
   it("snapshot の付箋がボードに描画される", () => {
@@ -1154,14 +1011,14 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(notifyMocks.noteExcluded).not.toHaveBeenCalled();
   });
 
-  it("結果ステップの非ホストは候補外を読めるが復帰操作は見られない", () => {
+  it("結果ステップの参加者は候補外を復帰できる", () => {
     connectWithSnapshot([protocolNote({ excluded: true })], {
       phase: buildPhaseStep(5),
       isHost: false,
     });
 
     expect(screen.getByText("候補外")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "候補に戻す" })).toBeNull();
+    expect(screen.getByRole("button", { name: "候補に戻す" })).toBeVisible();
   });
 
   it("確認後に一括候補外を送り、サーバー確定の実件数とoperation IDでUndoする", () => {
@@ -1262,7 +1119,7 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it("自動整理を全参加者へ案内し、まとめて戻す操作はホストだけに渡す", () => {
+  it("自動整理を全参加者へ案内し、全員にまとめて戻す操作を渡す", () => {
     const operationId = "33333333-3333-4333-8333-333333333333";
     const host = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
@@ -1305,7 +1162,7 @@ describe("サーバーメッセージ → 画面反映", () => {
 
     expect(notifyMocks.automaticallyExcludedCandidates).toHaveBeenCalledWith(
       1,
-      undefined,
+      expect.any(Function),
     );
   });
 
@@ -2802,11 +2659,26 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     const { socket } = connectWithSnapshot([], {
       isHost: true,
       phase: buildPhaseStep(1),
+      members: [
+        { userId: USER_ID, name: "Yuki Tanaka", color: "yellow" },
+        { userId: OTHER_USER_ID, name: "Hana Sato", color: "blue" },
+      ],
+      progress: {
+        phaseRevision: 1,
+        progressRevision: 2,
+        connectedUserIds: [USER_ID, OTHER_USER_ID],
+        readyUserIds: [USER_ID],
+        notReadyUserIds: [OTHER_USER_ID],
+        canAdvance: true,
+        allReady: false,
+      },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
 
-    expect(screen.getByText("次のステップへ進みますか？")).toBeInTheDocument();
+    expect(
+      screen.getByText("完了していないメンバーがいます"),
+    ).toBeInTheDocument();
 
     expect(socket.sent).not.toContain(
       JSON.stringify({
@@ -2816,13 +2688,14 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
+    fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
 
     expect(socket.sent).toContain(
       JSON.stringify({
         type: "phase:next",
         expectedPhase: buildPhaseStep(1),
         expectedRevision: 0,
+        confirmedProgressRevision: 2,
       }),
     );
   });
@@ -2838,7 +2711,11 @@ it.each([
   );
   const toolbar = openPrivateNotesToolbar();
   const surface = within(toolbar).getByRole("button", { name: "付箋" });
-  fireEvent.pointerDown(surface, { pointerId: 1, clientX: 610, clientY: 110 });
+  fireEvent.pointerDown(surface, {
+    pointerId: 1,
+    clientX: 610,
+    clientY: 110,
+  });
   fireEvent.pointerUp(surface, { pointerId: 1, clientX: 610, clientY: 110 });
   fireEvent.keyDown(surface, { key: "Enter" });
   const editor = screen.getByDisplayValue("最初の付箋");
@@ -2921,11 +2798,18 @@ describe("保存待ちを伴わない工程進行", () => {
   it("移行送信中は二重操作を防ぎ、サーバー確定で現在地・次工程の操作領域・次の進行を表示する", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(1),
+      members: [{ userId: USER_ID, name: "Yuki Tanaka", color: "yellow" }],
+      progress: {
+        phaseRevision: 0,
+        progressRevision: 1,
+        connectedUserIds: [USER_ID],
+        readyUserIds: [USER_ID],
+        notReadyUserIds: [],
+        canAdvance: true,
+        allReady: true,
+      },
     });
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    const confirm = screen.getByRole("button", { name: "移行する" });
-    fireEvent.click(confirm);
-    fireEvent.click(confirm);
     const transitions = () =>
       socket.sent
         .map((raw) => JSON.parse(raw))
@@ -2934,6 +2818,8 @@ describe("保存待ちを伴わない工程進行", () => {
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+    expect(transitions()).toHaveLength(1);
     act(() =>
       socket.simulateServerMessage({
         type: "phase:updated",
@@ -2953,7 +2839,6 @@ describe("保存待ちを伴わない工程進行", () => {
       screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
     expect(transitions()).toHaveLength(2);
     expect(transitions()[1]).toMatchObject({
       expectedPhase: buildPhaseStep(2),
@@ -2965,7 +2850,19 @@ describe("保存待ちを伴わない工程進行", () => {
     "phase:save-requested",
     "snapshot",
   ] as const)("旧%sの保存予約で付箋追加・工程進行を停止しない", (delivery) => {
-    const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(1) });
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(1),
+      members: [{ userId: USER_ID, name: "Yuki Tanaka", color: "yellow" }],
+      progress: {
+        phaseRevision: 0,
+        progressRevision: 1,
+        connectedUserIds: [USER_ID],
+        readyUserIds: [USER_ID],
+        notReadyUserIds: [],
+        canAdvance: true,
+        allReady: true,
+      },
+    });
     const pending = {
       transitionId: crypto.randomUUID(),
       expectedPhase: buildPhaseStep(1),
@@ -2982,12 +2879,23 @@ describe("保存待ちを伴わない工程進行", () => {
               phase: buildPhaseStep(1),
               phaseRevision: 0,
               notes: [],
-              members: [],
+              members: [
+                { userId: USER_ID, name: "Yuki Tanaka", color: "yellow" },
+              ],
               noteCreateProtocolVersion: 1,
               isHost: true,
               decision: null,
               carryovers: [],
               completedVoterIds: [],
+              progress: {
+                phaseRevision: 0,
+                progressRevision: 1,
+                connectedUserIds: [USER_ID],
+                readyUserIds: [USER_ID],
+                notReadyUserIds: [],
+                canAdvance: true,
+                allReady: true,
+              },
               timer: {
                 status: "running",
                 endsAt: Date.now() + 60_000,
@@ -3004,7 +2912,6 @@ describe("保存待ちを伴わない工程進行", () => {
     fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
     expectSent(socket, { type: "note:create" });
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
     expectSent(socket, {
       type: "phase:next",
       expectedPhase: buildPhaseStep(1),
@@ -3013,9 +2920,20 @@ describe("保存待ちを伴わない工程進行", () => {
   });
 
   it("工程進行が拒否されたら送信中を解除し、同じ工程から再試行できる", () => {
-    const { socket } = connectWithSnapshot([], { phase: buildPhaseStep(1) });
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(1),
+      members: [{ userId: USER_ID, name: "Yuki Tanaka", color: "yellow" }],
+      progress: {
+        phaseRevision: 0,
+        progressRevision: 1,
+        connectedUserIds: [USER_ID],
+        readyUserIds: [USER_ID],
+        notReadyUserIds: [],
+        canAdvance: true,
+        allReady: true,
+      },
+    });
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
     expect(
       screen.getByRole("button", { name: "次のステップへ" }),
     ).toBeDisabled();
@@ -3031,7 +2949,6 @@ describe("保存待ちを伴わない工程進行", () => {
     ).toBeEnabled();
     expect(notifyMocks.error).toHaveBeenCalledWith("工程を進められません");
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
     expect(
       socket.sent
         .map((raw) => JSON.parse(raw))
@@ -3515,6 +3432,15 @@ describe("作業中のホスト交代", () => {
         outcomePublished: false,
         carryovers: [],
         completedVoterIds: [],
+        progress: {
+          phaseRevision: 1,
+          progressRevision: 2,
+          connectedUserIds: [USER_ID, OTHER_USER_ID],
+          readyUserIds: [USER_ID],
+          notReadyUserIds: [OTHER_USER_ID],
+          canAdvance: true,
+          allReady: false,
+        },
         timer: { status: "idle" },
         serverNow: Date.now(),
       }),
@@ -3525,7 +3451,7 @@ describe("作業中のホスト交代", () => {
     const { socket } = connectTransferBoard(OTHER_USER_ID);
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     act(() =>
       socket.simulateServerMessage({
         type: "host:updated",
@@ -3534,8 +3460,11 @@ describe("作業中のホスト交代", () => {
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    fireEvent.click(screen.getByRole("button", { name: "移行する" }));
-    expectSent(socket, { type: "phase:next", expectedHostRevision: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "次へ進む" }));
+    expectSent(socket, {
+      type: "phase:next",
+      confirmedProgressRevision: 2,
+    });
   });
   it("古い解散確認は往復移譲後に残らない", () => {
     const { socket } = connectTransferBoard();
@@ -3594,7 +3523,7 @@ describe("作業中のホスト交代", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "次のステップへ" }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
   });
   it("同じ描画前の往復移譲で古い確認を破棄し、盤面を維持する", () => {
     const { socket } = connectTransferBoard();
@@ -3715,7 +3644,11 @@ describe("transaction interruption DOM", () => {
     if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
     else if (reason === "blur") fireEvent.blur(window);
     else fireEvent.lostPointerCapture(scroller, { pointerId: 7 });
-    fireEvent.pointerUp(scroller, { pointerId: 7, clientX: 150, clientY: 150 });
+    fireEvent.pointerUp(scroller, {
+      pointerId: 7,
+      clientX: 150,
+      clientY: 150,
+    });
     expectSent(socket, { type: "note:move:cancel" });
     expect(
       socket.sent
@@ -3788,7 +3721,11 @@ describe("pointer origin interruption DOM", () => {
       clientX: 130,
       clientY: 130,
     });
-    fireEvent.pointerUp(surface, { pointerId: 7, clientX: 150, clientY: 150 });
+    fireEvent.pointerUp(surface, {
+      pointerId: 7,
+      clientX: 150,
+      clientY: 150,
+    });
     expect(
       socket.sent
         .map((v) => JSON.parse(v))
@@ -3954,7 +3891,6 @@ describe("直前のステップへの復元", () => {
       type: "phase:rollback",
       expectedPhase: buildPhaseStep(1, 2),
       expectedRevision: 7,
-      expectedHostRevision: 0,
     });
     expect(
       screen.queryByRole("button", { name: "直前のステップに戻る" }),
@@ -4185,7 +4121,9 @@ it.each([
     }),
   );
   expect(editor.isConnected && !editor.hasAttribute("readonly")).toBe(false);
-  fireEvent.compositionEnd(editor, { target: { value: "取り消された確定値" } });
+  fireEvent.compositionEnd(editor, {
+    target: { value: "取り消された確定値" },
+  });
   fireEvent.blur(editor);
   await act(async () => {});
   expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(

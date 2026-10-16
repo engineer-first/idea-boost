@@ -44,7 +44,7 @@ async function setup() {
   return { roomId, stub, a, b };
 }
 describe("直前ステップへの復元", () => {
-  it("非ホストの復元要求を拒否する", async () => {
+  it("参加者の復元要求を受け付ける", async () => {
     const { roomId, stub, a, b } = await setup();
     const id = await seed(roomId);
     await next(roomId, a, b);
@@ -52,22 +52,21 @@ describe("直前ステップへの復元", () => {
     b.ws.send(
       JSON.stringify({
         type: "phase:rollback",
-        expectedHostRevision: 0,
         ...expected,
       }),
     );
-    expect(await b.next()).toMatchObject({ type: "error", code: "forbidden" });
-    expect(await stub.getPhase()).toEqual(expected.expectedPhase);
-    // 拒否が復元履歴を消費せず、正規のホストは同じ履歴へ戻れる。
-    const [snapshot] = await rollback(roomId, a, b);
+    const snapshot = await b.next();
     expect(snapshot).toMatchObject({
+      type: "snapshot",
       phase: { kind: "step", phase: 1, step: 3 },
       notes: [expect.objectContaining({ id })],
     });
+    expect(await stub.getPhase()).toEqual({ kind: "step", phase: 1, step: 3 });
   });
   it("即時進行後の古い更新番号による復元は拒否する", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, host.sub);
+    await markReady(roomId);
     const expected = await currentPhaseExpectation(roomId);
     a.ws.send(JSON.stringify({ type: "phase:next", ...expected }));
     await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
@@ -122,6 +121,7 @@ describe("直前ステップへの復元", () => {
       });
       state.storage.sql.exec("DELETE FROM phase_rollback_checkpoints");
     });
+    await markReady(roomId);
     a.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -188,14 +188,88 @@ async function until(socket: RoomSocket, type: string) {
   throw new Error(`missing ${type}`);
 }
 async function next(roomId: string, a: RoomSocket, b: RoomSocket) {
+  const expected = await currentPhaseExpectation(roomId);
+  await runInRoomDO(roomId, (_room, state) => {
+    if (expected.expectedPhase.kind === "step") {
+      const { phase, step } = expected.expectedPhase;
+      if ([1, 2, 3].includes(phase) && step === [4, 3, 4][phase - 1]) {
+        const note = state.storage.sql
+          .exec(
+            "SELECT id FROM notes WHERE phase=?1 AND visibility='shared' LIMIT 1",
+            phase,
+          )
+          .toArray()[0] as { id: string } | undefined;
+        const noteId = note?.id ?? crypto.randomUUID();
+        if (!note) {
+          state.storage.sql.exec(
+            "INSERT INTO notes (id,author_id,content,x,y,created_at,updated_at,visibility,phase) VALUES (?,?,?,0,0,'now','now','shared',?)",
+            noteId,
+            host.sub,
+            "投票候補",
+            phase,
+          );
+        }
+        for (const userId of [host.sub, member.sub]) {
+          const count = Number(
+            state.storage.sql
+              .exec(
+                "SELECT COUNT(*) AS count FROM note_vote_stickers WHERE user_id=?1 AND note_id=?2",
+                userId,
+                noteId,
+              )
+              .one().count,
+          );
+          if (count === 0) {
+            for (const kind of ["subjective", "objective"] as const) {
+              const amount = kind === "subjective" ? 1 : 3;
+              for (let index = 0; index < amount; index++) {
+                state.storage.sql.exec(
+                  "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES (?,?,?,?,'0.5','0.5','now')",
+                  crypto.randomUUID(),
+                  noteId,
+                  userId,
+                  kind,
+                );
+              }
+            }
+          }
+        }
+      }
+      if ([2].includes(step)) {
+        state.storage.sql.exec(
+          "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+        );
+      }
+    }
+    for (const userId of [host.sub, member.sub]) {
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
+        expected.expectedRevision,
+        userId,
+        Date.now(),
+      );
+    }
+  });
   a.ws.send(
     JSON.stringify({
       type: "phase:next",
-      force: true,
-      ...(await currentPhaseExpectation(roomId)),
+      ...expected,
     }),
   );
   await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
+}
+async function markReady(roomId: string, userIds = [host.sub, member.sub]) {
+  const { expectedRevision } = await currentPhaseExpectation(roomId);
+  await runInRoomDO(roomId, (_room, state) => {
+    for (const userId of userIds) {
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES (?1,?2,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
+        expectedRevision,
+        userId,
+        Date.now(),
+      );
+    }
+  });
 }
 async function rollback(
   roomId: string,
@@ -291,7 +365,16 @@ describe("復元の競合と連続進行", () => {
       sql.exec(
         "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','active','$.currentIndex',0,'$.startsAt',NULL) WHERE id=1",
       );
+      captureRollbackCheckpoint(sql, {
+        kind: "step",
+        phase: 1,
+        step: 2,
+      });
+      sql.exec(
+        "UPDATE sharing_state SET state_json=json_set(state_json,'$.status','complete','$.currentIndex',NULL) WHERE id=1",
+      );
     });
+    await markReady(roomId);
     a.ws.send(
       JSON.stringify({
         type: "phase:next",
@@ -313,7 +396,7 @@ describe("復元の競合と連続進行", () => {
     const [snapshot] = await rollback(roomId, a, b);
     expect(snapshot).toMatchObject({
       timer: { status: "paused", durationMs: 60000 },
-      sharing: { status: "active", currentIndex: 0, startsAt: null },
+      sharing: { status: "complete", currentIndex: null, startsAt: null },
       groups: [{ id: groupId, name: "保存時のグループ" }],
       notes: expect.arrayContaining([
         expect.objectContaining({
@@ -384,10 +467,9 @@ describe("復元の競合と連続進行", () => {
         ...(await currentPhaseExpectation(roomId)),
       }),
     );
-    expect(await a.next()).toMatchObject({ type: "error", code: "forbidden" });
-    const [newHost] = await rollback(roomId, b, a, 1);
-    expect(newHost).toMatchObject({
-      isHost: true,
+    const rollbackSnapshot = await a.next();
+    expect(rollbackSnapshot).toMatchObject({
+      isHost: false,
       hostUserId: member.sub,
       hostRevision: 1,
       members: expect.arrayContaining([
@@ -423,6 +505,17 @@ describe("復元後の会員情報と本文保存の世代", () => {
         sharing.results = sharing.order.map(() => "done");
       }
       saveSharingState(sql, sharing);
+      if (status === "active") {
+        captureRollbackCheckpoint(sql, {
+          kind: "step",
+          phase: 1,
+          step: 2,
+        });
+        sharing.status = "complete";
+        sharing.currentIndex = null;
+        sharing.results = sharing.order.map(() => "done");
+        saveSharingState(sql, sharing);
+      }
     });
     a.ws.send(
       JSON.stringify({
@@ -431,6 +524,23 @@ describe("復元後の会員情報と本文保存の世代", () => {
       }),
     );
     await Promise.all([until(a, "phase:updated"), until(b, "phase:updated")]);
+    if (status === "active") {
+      await runInRoomDO(roomId, (_room, state) => {
+        const sql = state.storage.sql;
+        const sharing = getSharingState(sql);
+        if (!sharing) throw new Error("共有状態がありません");
+        sharing.status = "active";
+        sharing.currentIndex = 0;
+        sharing.startsAt = null;
+        sharing.results = [];
+        saveSharingState(sql, sharing);
+        captureRollbackCheckpoint(sql, {
+          kind: "step",
+          phase: 1,
+          step: 2,
+        });
+      });
+    }
     const newcomer = crypto.randomUUID();
     await runInRoomDO(roomId, (_room, state) => {
       state.storage.sql.exec(

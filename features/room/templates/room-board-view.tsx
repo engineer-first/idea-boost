@@ -188,6 +188,8 @@ export type RoomBoardViewProps = {
   hostUserId: string;
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
+  progress?: import("../logic/room-reducer").PhaseProgressState;
+  onToggleReady?: (ready: boolean) => void;
   isNextPhasePending: boolean;
   isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
@@ -248,8 +250,8 @@ export type RoomBoardViewProps = {
   onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
   isLeaving: boolean;
-  // 次フェーズへ。ホストのみ UI 表示。
-  onNextPhase: () => void;
+  // 次フェーズへ。完了条件を満たした参加者が操作する。
+  onNextPhase: (confirmedProgressRevision?: number) => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -317,6 +319,16 @@ export function RoomBoardView({
   currentUserId,
   hostUserId,
   completedVoterIds = [],
+  progress = {
+    phaseRevision: 0,
+    progressRevision: 0,
+    connectedUserIds: [],
+    readyUserIds: [],
+    notReadyUserIds: [],
+    canAdvance: false,
+    allReady: false,
+  },
+  onToggleReady,
   isNextPhasePending,
   isSavingBeforeShare = false,
   interactions,
@@ -409,8 +421,7 @@ export function RoomBoardView({
     return true;
   }, []);
   const [isAdoptRequested, setIsAdoptMode] = useState(false);
-  const [adoptHostRevision, setAdoptHostRevision] = useState(hostRevision);
-  const isAdoptMode = isAdoptRequested && adoptHostRevision === hostRevision;
+  const isAdoptMode = isAdoptRequested;
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const privateNoteAddRef = useRef<(() => void) | null>(null);
   const composingRef = useRef(false);
@@ -432,8 +443,9 @@ export function RoomBoardView({
   const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
   const cancelledCanvasKeyClicksRef = useRef(new Set<HTMLElement>());
   const sharedAdoptionFocusRef = useRef<string | null>(null);
-  const adoptionHostRevisionRef = useRef(hostRevision);
   const adoptionFocusCallbackRef = useRef(notifyAdoptionFocusChange);
+  const suppressAdoptionFocusClearRef = useRef(false);
+  const previousHostRevisionRef = useRef(hostRevision);
   const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
     null,
   );
@@ -543,12 +555,17 @@ export function RoomBoardView({
     if (boardInteractionBlocked) {
       setIsAdoptMode(false);
     }
-  }, [boardInteractionBlocked]);
+    if (connectionStatus === "open" && decision === null) return;
+    setIsAdoptMode(false);
+  }, [boardInteractionBlocked, connectionStatus, decision]);
 
   useEffect(() => {
-    if (connectionStatus === "open" && isHost && decision === null) return;
+    if (previousHostRevisionRef.current === hostRevision) return;
+    previousHostRevisionRef.current = hostRevision;
+    suppressAdoptionFocusClearRef.current =
+      isAdoptMode || sharedAdoptionFocusRef.current !== null;
     setIsAdoptMode(false);
-  }, [connectionStatus, decision, isHost]);
+  }, [hostRevision, isAdoptMode]);
 
   useEffect(() => {
     if (connectionStatus !== "open") {
@@ -572,16 +589,14 @@ export function RoomBoardView({
 
   useEffect(() => {
     adoptionFocusCallbackRef.current = notifyAdoptionFocusChange;
-    if (adoptionHostRevisionRef.current !== hostRevision) {
-      adoptionHostRevisionRef.current = hostRevision;
-      // 移譲時はRoomDOが共有フォーカスを消す。旧ホスト権限で解除を送り直さない。
-      sharedAdoptionFocusRef.current = null;
-      return;
-    }
     if (isAdoptMode || sharedAdoptionFocusRef.current === null) return;
     sharedAdoptionFocusRef.current = null;
+    if (suppressAdoptionFocusClearRef.current) {
+      suppressAdoptionFocusClearRef.current = false;
+      return;
+    }
     notifyAdoptionFocusChange?.(null);
-  }, [hostRevision, isAdoptMode, notifyAdoptionFocusChange]);
+  }, [isAdoptMode, notifyAdoptionFocusChange]);
 
   useEffect(
     () => () => {
@@ -1783,6 +1798,8 @@ export function RoomBoardView({
           currentUserId={currentUserId}
           hostUserId={hostUserId}
           completedVoterIds={completedVoterIds}
+          progress={progress}
+          onToggleReady={onToggleReady}
           isNextPhasePending={isNextPhasePending}
           isNextPhaseBlocked={isNextPhaseBlocked}
           initialGuideState={initialGuideState}
@@ -2023,7 +2040,6 @@ export function RoomBoardView({
             onRevote={onRevote}
             onStartSelection={() => {
               setSelectedNoteId(null);
-              setAdoptHostRevision(hostRevision);
               setIsAdoptMode(true);
             }}
             onCancelSelection={() => setIsAdoptMode(false)}

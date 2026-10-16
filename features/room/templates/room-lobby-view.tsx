@@ -113,12 +113,10 @@ export function RoomLobbyView({
         <header className="space-y-3 text-center">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              {isHost ? "メンバーを集めて開始" : "ホストの開始を待機中"}
+              "メンバーが揃ったら開始"
             </h1>
             <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-              {isHost
-                ? "招待を共有してメンバーが揃ったらセッションを開始します。"
-                : "ホストがセッションを開始するまで、この画面でお待ちください。"}
+              "招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。"
             </p>
           </div>
           <div className="min-h-5">
@@ -143,11 +141,7 @@ export function RoomLobbyView({
           </Link>
         </p>
 
-        <div
-          className={`grid grid-cols-1 gap-4 sm:items-stretch ${
-            isHost ? "sm:grid-cols-2" : "sm:grid-cols-1"
-          }`}
-        >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-stretch">
           {/* メンバー一覧カード */}
           <Card className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md">
             <CardHeader className="gap-3">
@@ -241,8 +235,8 @@ export function RoomLobbyView({
             </CardFooter>
           </Card>
 
-          {/* 招待カード（ホストのみ） */}
-          {isHost ? (
+          {/* 招待カード */}
+          {
             <Card
               className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
               data-testid="room-lobby-view-invite"
@@ -272,32 +266,23 @@ export function RoomLobbyView({
                 </div>
               </CardContent>
             </Card>
-          ) : null}
+          }
         </div>
 
         {/* メインアクション */}
         <Card className="border-border/80 shadow-sm">
           <CardFooter className="flex flex-col gap-2 p-4 sm:p-6">
-            {isHost ? (
-              <Button
-                type="button"
-                onClick={onStart}
-                disabled={isDisconnected || isStarting || isTransferring}
-                data-testid="start-phase-button"
-                size="lg"
-                className="w-full"
-              >
-                <Play className="size-4" aria-hidden />
-                {isStarting ? "開始中…" : "開始する"}
-              </Button>
-            ) : (
-              <p
-                data-testid="room-lobby-view-waiting"
-                className="w-full rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 text-center text-sm text-muted-foreground"
-              >
-                ホストが開始するのをお待ちください
-              </p>
-            )}
+            <Button
+              type="button"
+              onClick={onStart}
+              disabled={isDisconnected || isStarting || isTransferring}
+              data-testid="start-phase-button"
+              size="lg"
+              className="w-full"
+            >
+              <Play className="size-4" aria-hidden />
+              {isStarting ? "開始中…" : "開始する"}
+            </Button>
             <Button
               type="button"
               variant="outline"

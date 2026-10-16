@@ -277,7 +277,6 @@ export function RoomBoardCanvas({
     phase.phase === 3 &&
     (phase.step >= 2 || notes.length > 0);
   const isIdeaMapSizeControlsVisible =
-    isHost &&
     phase.kind === "step" &&
     phase.phase === 3 &&
     (phase.step === 2 || phase.step === 3);
@@ -426,7 +425,6 @@ export function RoomBoardCanvas({
         canMoveNote={!boardInteractionBlocked && permissions.canMoveNote}
         canExcludeNote={
           !boardInteractionBlocked &&
-          isHost &&
           !isAdoptMode &&
           !isMultiSelected &&
           interactionTool === "select" &&
@@ -435,7 +433,6 @@ export function RoomBoardCanvas({
         }
         canRestoreNote={
           !boardInteractionBlocked &&
-          isHost &&
           !isAdoptMode &&
           !isMultiSelected &&
           interactionTool === "select" &&
@@ -445,9 +442,7 @@ export function RoomBoardCanvas({
         candidatePending={pendingCandidateNoteIds.includes(note.id)}
         isDecided={decision?.noteId === note.id}
         isAdoptionFocused={
-          !isHost &&
-          adoptionFocusNoteId === note.id &&
-          decision?.noteId !== note.id
+          adoptionFocusNoteId === note.id && decision?.noteId !== note.id
         }
         disabled={isDisconnected}
         onSelect={onSelect}
@@ -497,7 +492,6 @@ export function RoomBoardCanvas({
       !boardInteractionBlocked &&
       isAdoptMode &&
       interactionTool === "select" &&
-      isHost &&
       !isDisconnected &&
       isResultStep(phase) &&
       note.visibility === "shared" &&

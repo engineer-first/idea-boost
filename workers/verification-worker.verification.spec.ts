@@ -192,15 +192,15 @@ describe("検証用の初期状態", () => {
     owner.ws.send(
       JSON.stringify({
         type: "phase:next",
-        force: true,
         expectedPhase: snapshot.phase,
         expectedRevision: snapshot.phaseRevision,
       }),
     );
+    // 投票未完了の進行は拒否するが、応答できる接続を維持する。
     const next = await Promise.race([closed, owner.next()]);
     expect(next).toMatchObject({
-      type: "snapshot",
-      phase: { kind: "step", phase: 2, step: 4 },
+      type: "error",
+      code: "phase-not-ready",
     });
     owner.close();
   });

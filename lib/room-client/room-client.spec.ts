@@ -365,7 +365,7 @@ describe("createRoomClient", () => {
 });
 
 describe("ホストの世代を送信境界で固定する", () => {
-  it("ホスト更新を受信すると進行操作に付け、古い通知では巻き戻さない", () => {
+  it("ホスト更新を受信しても共同タイマー操作には世代を付けない", () => {
     const client = createRoomClient({
       url: "ws://test",
       onMessage: () => {},
@@ -390,7 +390,6 @@ describe("ホストの世代を送信境界で固定する", () => {
     client.send({ type: "timer:pause" });
     expect(JSON.parse(socket.sent.at(-1) ?? "null")).toEqual({
       type: "timer:pause",
-      expectedHostRevision: 2,
     });
     client.close();
   });

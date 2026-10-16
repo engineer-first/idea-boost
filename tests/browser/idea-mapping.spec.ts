@@ -113,17 +113,17 @@ test.each([
 
 test.each([
   390, 1440,
-])("%spxの参加者はマップを閲覧でき、広さ操作は表示されない", async (width) => {
+])("%spxの参加者もマップを閲覧して広さを変更できる", async (width) => {
   page = await browser.newPage({ viewport: { width, height: 844 } });
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardcanvas--participant-idea-map&viewMode=story`,
   );
   await page.getByTestId("idea-value-feasibility-map").waitFor();
-  expect(await page.getByTestId("idea-map-size-controls-hud").count()).toBe(0);
+  expect(await page.getByTestId("idea-map-size-controls-hud").count()).toBe(1);
   expect(
     await page.getByRole("group", { name: "2軸マップの広さ操作" }).count(),
-  ).toBe(0);
+  ).toBe(1);
   expect(
     await page.getByRole("button", { name: "マップの広さについて" }).count(),
-  ).toBe(0);
+  ).toBe(1);
 });

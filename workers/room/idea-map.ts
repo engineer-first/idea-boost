@@ -7,7 +7,6 @@ import type {
 } from "../../contracts/room-protocol";
 import type { RoomBroadcaster } from "./broadcast";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
-import { isHostUser } from "./members";
 import { hasMoveLock } from "./move-operations";
 import { getPhase } from "./phase";
 
@@ -79,10 +78,6 @@ export const ideaMapHandlers: MessageHandlers<"idea-map:resize"> = {
         ctx,
         "2軸マップを表示しているステップでのみ変更できます。",
       );
-      return;
-    }
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx, "2軸マップの広さを変更できるのはホストだけです。");
       return;
     }
     if (ctx.broadcaster.hasActiveDrag() || hasMoveLock(ctx.sql)) {

@@ -1,11 +1,30 @@
-import { describe, expect, it } from "vitest";
-import { connectRoomAs, createRoomAs, runInRoomDO } from "./test-helpers";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  arrangeMembersReady,
+  arrangeSharingComplete,
+  connectRoomAs,
+  createRoomAs,
+  type RoomSocket,
+  runInRoomDO,
+} from "./test-helpers";
 
 const owner = {
   sub: "11111111-1111-4111-8111-111111111111",
   name: "Owner",
   email: "owner@test.invalid",
 };
+const historySockets: RoomSocket[] = [];
+afterEach(() => {
+  for (const socket of historySockets.splice(0)) socket.close();
+});
+async function createHistoryRoom() {
+  const room = await createRoomAs(owner);
+  const socket = await connectRoomAs(owner, room.roomId);
+  await socket.next();
+  historySockets.push(socket);
+  return room;
+}
+
 describe("節目の不変履歴", () => {
   it("受理した開始だけ開区間を作り、二重開始では増えない", async () => {
     const room = await createRoomAs(owner);
@@ -43,9 +62,16 @@ import {
   phaseHandlers,
 } from "./room/phase";
 import { recordProgressTransition } from "./room/progress-history";
+import { getSharingState, saveSharingState } from "./room/sharing-state";
 import { sessionCookieFor } from "./test-helpers";
 
 function context(state: DurableObjectState) {
+  // 履歴の原子性を検証するため、手動作業は完了申告済みから始める。
+  state.storage.sql.exec(
+    "INSERT INTO phase_progress_ready(phase_revision,user_id,ready,updated_at) VALUES((SELECT phase_revision FROM room_state WHERE id=1),?,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
+    owner.sub,
+    Date.now(),
+  );
   return {
     sql: state.storage.sql,
     storage: state.storage,
@@ -146,21 +172,22 @@ it("再投票直前の公開票を未採用でも固定し、消去・移動・�
 });
 
 it("投票ステップを離れる時点では現在フェーズの票を保存しない", async () => {
-  const room = await createRoomAs(owner);
+  const room = await createHistoryRoom();
   await runInRoomDO(room.roomId, async (instance, state) => {
     const id = seed(state);
     await instance.setPhase({ kind: "step", phase: 1, step: 4 }, owner.sub);
-    addVoteSticker(
-      state.storage.sql,
-      { id: crypto.randomUUID(), kind: "subjective", x: 0.2, y: 0.2 },
-      id,
-      owner.sub,
-    );
+    for (const kind of ["subjective", "objective"] as const)
+      for (let i = 0; i < DOT_VOTE_LIMITS[kind]; i++)
+        addVoteSticker(
+          state.storage.sql,
+          { id: crypto.randomUUID(), kind, x: 0.2, y: 0.2 },
+          id,
+          owner.sub,
+        );
     await phaseHandlers["phase:next"](context(state), {
       type: "phase:next",
       expectedPhase: instance.getPhase(),
       expectedRevision: getPhaseRevision(state.storage.sql),
-      force: true,
     });
     await instance.alarm();
     const row = requireValue(await instance.getProgressHistory()).entries[0];
@@ -197,7 +224,7 @@ it("書き足しを即時記録し古い再要求と旧alarmで記録を増や�
 });
 
 it("盤面抽出失敗は欠落として時刻を保全し、時刻自体の保存失敗はステップと同時にrollbackする", async () => {
-  const room = await createRoomAs(owner);
+  const room = await createHistoryRoom();
   await runInRoomDO(room.roomId, async (instance, state) => {
     const current: RoomPhase = { kind: "step", phase: 1, step: 3 };
     const next: RoomPhase = { kind: "step", phase: 1, step: 4 };
@@ -445,6 +472,7 @@ it("盤面outboxの書込だけ失敗した場合は欠落で進行し、WSで�
   });
   const socket = await connectRoomAs(owner, room.roomId);
   const initial = await socket.next();
+  await arrangeMembersReady(room.roomId, [owner.sub]);
   if (initial.type !== "snapshot") throw new Error("snapshot required");
   socket.ws.send(
     JSON.stringify({
@@ -459,6 +487,17 @@ it("盤面outboxの書込だけ失敗した場合は欠落で進行し、WSで�
     expect((await instance.getProgressHistory())?.entries[0].saveStatus).toBe(
       "missing",
     );
+    const noteId = String(
+      state.storage.sql.exec("SELECT id FROM notes LIMIT 1").one().id,
+    );
+    for (const kind of ["subjective", "objective"] as const)
+      for (let i = 0; i < DOT_VOTE_LIMITS[kind]; i++)
+        addVoteSticker(
+          state.storage.sql,
+          { id: crypto.randomUUID(), kind, x: 0.2, y: 0.2 },
+          noteId,
+          owner.sub,
+        );
     state.storage.sql.exec(
       "CREATE TRIGGER reject_timestamps BEFORE UPDATE ON progress_history BEGIN SELECT RAISE(ABORT,'time unavailable'); END",
     );
@@ -471,10 +510,12 @@ it("盤面outboxの書込だけ失敗した場合は欠落で進行し、WSで�
       type: "phase:next",
       expectedPhase: { kind: "step", phase: 1, step: 4 },
       expectedRevision: revision,
-      force: true,
     }),
   );
-  expect(await socket.next()).toMatchObject({ type: "error" });
+  expect(await socket.next()).toMatchObject({
+    type: "error",
+    code: "invalid-message",
+  });
   await runInRoomDO(room.roomId, async (instance) => {
     expect(instance.getPhase()).toEqual({ kind: "step", phase: 1, step: 4 });
     expect((await instance.getProgressHistory())?.entries).toHaveLength(2);
@@ -501,11 +542,21 @@ it.each([
   [3, 3],
   [3, 4],
 ])("全通常移行 %i-%i の移行直前盤面を記録する", async (phase, step) => {
-  const room = await createRoomAs(owner);
+  const room = await createHistoryRoom();
   await runInRoomDO(room.roomId, async (instance, state) => {
     const current = { kind: "step", phase, step } as RoomPhase;
     await instance.setPhase(current, owner.sub);
     const id = seed(state, phase);
+    if (step === 2) {
+      const sharing = getSharingState(state.storage.sql);
+      if (sharing)
+        saveSharingState(state.storage.sql, {
+          ...sharing,
+          status: "complete",
+          currentIndex: null,
+          startsAt: null,
+        });
+    }
     if (isVotingStep(current))
       for (const kind of ["subjective", "objective"] as const)
         for (let i = 0; i < DOT_VOTE_LIMITS[kind]; i++)
@@ -578,6 +629,9 @@ it("同一ルームのWSで開始から14ステップ完了まで訪問順の13�
       expect(await socket.next()).toMatchObject({ type: "outcome:published" });
       break;
     }
+    await arrangeMembersReady(room.roomId, [owner.sub]);
+    if (current.phase.kind === "step" && current.phase.step === 2)
+      await arrangeSharingComplete(room.roomId);
     socket.ws.send(
       JSON.stringify({
         type: "phase:next",

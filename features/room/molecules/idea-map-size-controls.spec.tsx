@@ -4,9 +4,9 @@ import { IDEA_MAP_SIZE_LEVEL_RANGE } from "@/contracts/board";
 import { IdeaMapSizeControls } from "./idea-map-size-controls";
 
 describe("IdeaMapSizeControls", () => {
-  it("非ホストには広さの操作も説明も表示しない", () => {
+  it("参加者にも広さの操作と説明を表示する", () => {
     const onResize = vi.fn();
-    const { rerender } = render(
+    render(
       <IdeaMapSizeControls
         sizeLevel={2}
         initialized
@@ -20,24 +20,11 @@ describe("IdeaMapSizeControls", () => {
       screen.getByRole("button", { name: "マップの広さについて" }),
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    rerender(
-      <IdeaMapSizeControls
-        sizeLevel={2}
-        initialized
-        isHost={false}
-        isDisconnected={false}
-        isDragging={false}
-        onResize={onResize}
-      />,
-    );
     expect(
-      screen.queryByRole("group", { name: "2軸マップの広さ操作" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "マップの広さについて" }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(onResize).not.toHaveBeenCalled();
+      screen.getByRole("group", { name: "2軸マップの広さ操作" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
+    expect(onResize).toHaveBeenCalledWith(3);
   });
 
   it("ホストは現在の段階から隣の段階へ変更できる", () => {

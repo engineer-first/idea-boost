@@ -124,6 +124,15 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardView>[0]> = {}) {
     members: buildMembers(2, ME),
     currentUserId: ME,
     hostUserId: ME,
+    progress: {
+      phaseRevision: 0,
+      progressRevision: 1,
+      connectedUserIds: [ME, "22222222-2222-4222-8222-222222222222"],
+      readyUserIds: [ME, "22222222-2222-4222-8222-222222222222"],
+      notReadyUserIds: [],
+      canAdvance: true,
+      allReady: true,
+    },
     onNextPhase: vi.fn(),
     onTimerStart: vi.fn(),
     onTimerPause: vi.fn(),
@@ -582,11 +591,11 @@ describe("採用する付箋の選択モード", () => {
 
     rerender(<TestBoardView {...props} isHost={false} />);
     expect(
-      screen.queryByRole("button", { name: "採用する付箋を選ぶ" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "採用する付箋を選ぶ" }),
+    ).toBeDisabled();
   });
 
-  it("決定済みの内容を全員に示し、ホストだけが取り消せる", () => {
+  it("決定済みの内容を全員に示し、参加者全員が取り消せる", () => {
     const notes = [buildNote({ id: "note-1", content: "決定した課題" })];
     const decision = buildDecision({ noteId: "note-1" });
     const { rerender, props } = setup({
@@ -601,9 +610,8 @@ describe("採用する付箋の選択モード", () => {
 
     rerender(<TestBoardView {...props} isHost={false} />);
     expect(screen.getAllByText("決定した課題")).toHaveLength(2);
-    expect(
-      screen.queryByRole("button", { name: "確定を取り消す" }),
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "確定を取り消す" }));
+    expect(props.onDecisionClear).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -2351,19 +2359,11 @@ describe("RoomBoardView", () => {
       ).toBeInTheDocument();
     });
 
-    it("ステップ移行前に確認ダイアログを表示し、確認後にonNextPhaseを呼ぶ", () => {
+    it("全員完了済みなら確認なしでonNextPhaseを呼ぶ", () => {
       const onNextPhase = vi.fn();
       setup({ isHost: true, onNextPhase });
 
       fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-
-      expect(
-        screen.getByText("次のステップへ進みますか？"),
-      ).toBeInTheDocument();
-
-      expect(onNextPhase).not.toHaveBeenCalled();
-
-      fireEvent.click(screen.getByRole("button", { name: "移行する" }));
 
       expect(onNextPhase).toHaveBeenCalledTimes(1);
     });
@@ -3475,7 +3475,9 @@ describe("AT-004: 所有gestureの取消経路", () => {
     expect(
       screen.getByRole("button", { name: "客観シール 1票を1票取り消す" }),
     ).toBeInTheDocument();
-    const palette = screen.getByRole("button", { name: "客観シール 残り2票" });
+    const palette = screen.getByRole("button", {
+      name: "客観シール 残り2票",
+    });
     fireEvent.pointerDown(palette, { pointerId: 53, button: 0, buttons: 1 });
     fireEvent.pointerUp(palette, { pointerId: 53 });
     fireEvent.click(palette);
@@ -3648,10 +3650,15 @@ describe("AT-002: 第一note所有中の第二palette入力", () => {
     "first",
     "second",
   ])("%sを先にreleaseしても棄却paletteのcapture/ghost/投票/旧clickは0", (releaseFirst) => {
-    const { props } = setup({ phase: buildPhaseStep(4), notes: buildNotes(3) });
+    const { props } = setup({
+      phase: buildPhaseStep(4),
+      notes: buildNotes(3),
+    });
     const cards = screen.getAllByTestId("note-card");
     const surface = getNoteSurface(cards[0]);
-    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
+    const palette = screen.getByRole("button", {
+      name: "客観シール 残り3票",
+    });
     const capture = vi.fn();
     palette.setPointerCapture = capture;
     cards[2].getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
@@ -3841,7 +3848,11 @@ describe("CI-IN002: active gesture中のnote custom semantic key", () => {
     expect(
       screen.getByRole("button", { name: "手のひらツール" }),
     ).toBeDisabled();
-    fireEvent.pointerUp(owner, { pointerId: 301, clientX: 200, clientY: 175 });
+    fireEvent.pointerUp(owner, {
+      pointerId: 301,
+      clientX: 200,
+      clientY: 175,
+    });
     expect(props.onNoteVoteStickerMove).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(surface, { key });
     expect(props.onNoteVote).toHaveBeenCalledTimes(1);
@@ -3916,7 +3927,9 @@ describe("CI-PHASE002: 採用semantic activationとgesture所有", () => {
       notes: buildNotes(3),
     });
     fireEvent.click(screen.getByRole("button", { name: "採用する付箋を選ぶ" }));
-    const target = screen.getByRole("button", { name: "採用する付箋: 付箋 2" });
+    const target = screen.getByRole("button", {
+      name: "採用する付箋: 付箋 2",
+    });
     let active = true;
     props.interactions.hasPan = () => owner === "pan" && active;
     props.interactions.isNoteDragging = owner === "note-drag";

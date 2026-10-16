@@ -605,7 +605,7 @@ describe("RoomTimer", () => {
     expect(screen.getByLabelText("タイマー時間（秒）")).toHaveValue("59");
   });
 
-  it("非ホストは状態だけを表示し操作UIを出さない", () => {
+  it("参加者もタイマーを操作できる", () => {
     render(
       <RoomTimer
         timer={buildPausedTimer({ remainingMs: 30_000, durationMs: 60_000 })}
@@ -619,21 +619,16 @@ describe("RoomTimer", () => {
     const chip = screen.getByTestId("room-timer");
     expect(screen.getByRole("timer")).toHaveTextContent("00:30");
     expect(chip).toHaveTextContent("00:30");
-    expect(chip).not.toHaveTextContent("Ⅱ");
-    expect(chip.tagName).toBe("SPAN");
-    expect(chip).not.toHaveClass("disabled:opacity-50");
     expect(screen.getByRole("timer")).toHaveAttribute(
       "aria-label",
-      "タイマー 一時停止中 00:30",
+      "タイマー 一時停止中 00:30。設定を開く",
     );
     fireEvent.click(chip);
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText("タイマー時間（分）"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "再開" })).toBeInTheDocument();
   });
 
-  it("非ホストの未設定状態もタイマー枠を表示し、操作UIを出さない", () => {
+  it("参加者も未設定タイマーを開いて開始できる", () => {
     render(
       <RoomTimer
         timer={{ status: "idle" }}
@@ -647,15 +642,15 @@ describe("RoomTimer", () => {
     expect(chip).toHaveTextContent("03:00");
     expect(screen.getByRole("timer")).toHaveAttribute(
       "aria-label",
-      "タイマー 未開始 03:00",
+      "タイマー 未開始 03:00。設定を開く",
     );
     expect(chip).toHaveClass("h-10", "w-28");
-    expect(chip.tagName).toBe("SPAN");
-    expect(screen.queryByTestId("room-timer-panel")).not.toBeInTheDocument();
+    fireEvent.click(chip);
+    expect(screen.getByTestId("room-timer-panel")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "タイマー通知音" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "開始" })).toBeInTheDocument();
   });
 
   it("実行中は補正済みサーバー時刻を基準に減り、ホスト操作を送る", () => {

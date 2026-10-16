@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type { PhaseProgress } from "@/contracts/room-protocol";
 import {
   buildMembers,
   buildSharingState,
@@ -17,6 +18,21 @@ const STEP_3_4 = buildPhaseStep(4, 3);
 const STEP_3_5 = buildPhaseStep(5, 3);
 const VOTING_MEMBERS = buildMembers(3, ME);
 const HUD_MEMBERS = buildMembers(12, ME);
+
+function completedProgress(
+  members: readonly { userId: string }[],
+): PhaseProgress {
+  const ids = members.map(({ userId }) => userId);
+  return {
+    phaseRevision: 1,
+    progressRevision: 1,
+    connectedUserIds: ids,
+    readyUserIds: ids,
+    notReadyUserIds: [],
+    canAdvance: true,
+    allReady: true,
+  };
+}
 
 const meta = {
   title: "Room/RoomBoardHeader",
@@ -164,6 +180,7 @@ export const VotingComplete: Story = {
     phase: STEP_1_4,
     members: VOTING_MEMBERS,
     completedVoterIds: VOTING_MEMBERS.map(({ userId }) => userId),
+    progress: completedProgress(VOTING_MEMBERS),
   },
 };
 
@@ -196,6 +213,7 @@ export const IdeaVotingComplete: Story = {
     phase: STEP_3_4,
     members: HUD_MEMBERS,
     completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
+    progress: completedProgress(HUD_MEMBERS),
   },
 };
 
@@ -207,6 +225,7 @@ export const VotingCompleteHud: Story = {
     phase: STEP_1_4,
     members: HUD_MEMBERS,
     completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
+    progress: completedProgress(HUD_MEMBERS),
   },
 };
 
@@ -223,6 +242,7 @@ export const VotingCompleteNonHostPaused: Story = {
   args: {
     ...VotingNonHostPaused.args,
     completedVoterIds: VOTING_MEMBERS.map(({ userId }) => userId),
+    progress: completedProgress(VOTING_MEMBERS),
   },
 };
 export const VoteResultNonHostPaused: Story = {

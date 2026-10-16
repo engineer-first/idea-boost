@@ -10,7 +10,7 @@ import type { DisplayNameResult } from "@/features/auth";
 //   - WebSocket 接続と切断時の遷移: use-room-connection
 //   - members / phase の適用と入退出通知: use-room-state
 //   - 退出 / 解散フロー: use-leave-room
-// このファイルに残るのは「ホスト判定付きの start_phase 送信」と
+// このファイルに残るのは start_phase 送信と
 // 「phase が lobby を離れたらボードへ遷移する」というロビー固有の配線だけ。
 // ノートは扱わない。
 import {
@@ -222,7 +222,6 @@ export function RoomLobby({
 
   const handleStart = useCallback(() => {
     if (
-      !isHost ||
       isStarting ||
       connectionStatus !== "open" ||
       transferringRef.current ||
@@ -232,7 +231,6 @@ export function RoomLobby({
     setIsStarting(true);
     const sent = send({
       type: "start_phase",
-      expectedHostRevision: roomState.host.hostRevision ?? 0,
     });
     if (!sent) {
       setIsStarting(false);
@@ -247,12 +245,10 @@ export function RoomLobby({
       setIsStarting(false);
     }, 5000);
   }, [
-    isHost,
     isStarting,
     connectionStatus,
     send,
     clearStartTimeout,
-    roomState.host.hostRevision,
     memberRemoval.isPending,
   ]);
 

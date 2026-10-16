@@ -3,6 +3,7 @@ import { expect, it, vi } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
 import { parseServerMessage } from "../../contracts/room-protocol";
 import {
+  arrangeMembersReady,
   connectRoomAs,
   createRoomAs,
   joinRoomAs,
@@ -378,6 +379,7 @@ it("期限前に即時確定済みの進行は元接続の失効とalarmで二�
   );
   const connection = await connectRoomAs(owner, roomId);
   await connection.next();
+  await arrangeMembersReady(roomId, [owner.sub]);
   await runInRoomDO(roomId, async (instance, state) => {
     const revision = Number(
       state.storage.sql

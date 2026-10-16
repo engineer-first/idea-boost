@@ -223,10 +223,9 @@ describe("RoomLobby の初期表示", () => {
     );
   });
 
-  it("isHost=false なら「開始する」ボタンは出ない", () => {
+  it("isHost=false でも「開始する」ボタンを表示する", () => {
     renderStart({ isHost: false });
-    expect(screen.queryByTestId("start-phase-button")).not.toBeInTheDocument();
-    expect(screen.getByTestId("room-lobby-view-waiting")).toBeInTheDocument();
+    expect(screen.getByTestId("start-phase-button")).toBeInTheDocument();
   });
 });
 
@@ -301,8 +300,6 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() => socket.simulateDisbandedClose());
     expect(notifyMocks.roomDisbanded).toHaveBeenCalledTimes(1);
     expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
-    // 再接続メッセージは出さない
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("phase:updated: Step 1-1 を受信すると /rooms/[id] へ router.replace する", () => {
@@ -339,9 +336,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   it("「開始する」クリックで start_phase が WS に送られる", () => {
     const { socket } = renderStart();
     fireEvent.click(screen.getByTestId("start-phase-button"));
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "start_phase", expectedHostRevision: 0 }),
-    );
+    expect(socket.sent).toContain(JSON.stringify({ type: "start_phase" }));
   });
 
   it("「開始する」クリック直後は isStarting=true でボタンが disabled になる", () => {
@@ -366,11 +361,10 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     expect(screen.getByTestId("start-phase-button")).not.toBeDisabled();
   });
 
-  it("非ホストが handleStart を呼んでも何も送らない（ボタン非表示で多重防御）", () => {
-    // ボタン非表示のテストは上で実施済み。
-    // ここでは「isHost=false でレンダーし、ボタンがないので何も送られない」を確認。
+  it("非ホストも handleStart で start_phase を送る", () => {
     const { socket } = renderStart({ isHost: false });
-    expect(socket.sent).toHaveLength(0);
+    fireEvent.click(screen.getByTestId("start-phase-button"));
+    expect(socket.sent).toContain(JSON.stringify({ type: "start_phase" }));
   });
 });
 
@@ -389,7 +383,7 @@ describe("開始前のホスト引き継ぎ", () => {
     { userId: HOST_ID, name: "作成者", color: "yellow" },
     { userId: MEMBER_ID, name: "Hana Sato", color: "blue" },
   ];
-  it("移譲通知で旧ホストの開始操作をなくす", () => {
+  it("移譲通知後も参加者の開始操作を表示する", () => {
     const { socket } = renderStart({ initialMembers: members });
     act(() =>
       socket.simulateServerMessage({
@@ -398,7 +392,7 @@ describe("開始前のホスト引き継ぎ", () => {
         hostRevision: 1,
       }),
     );
-    expect(screen.queryByTestId("start-phase-button")).not.toBeInTheDocument();
+    expect(screen.getByTestId("start-phase-button")).toBeInTheDocument();
     expect(
       screen.getByTestId(`member-host-label-${MEMBER_ID}`),
     ).toBeInTheDocument();
@@ -462,7 +456,6 @@ it("ホスト変更時に古い解散確認を閉じ、戻った後も古い確�
   fireEvent.click(screen.getByTestId("start-phase-button"));
   expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({
     type: "start_phase",
-    expectedHostRevision: 2,
   });
 });
 

@@ -39,8 +39,9 @@ export type MemberAvatarProps = {
   size?: number;
   // 自分自身かどうか。true で青いリング（"あなた" マーカー）。
   isMe?: boolean;
-  // 全票を使い切ったメンバーかどうか。投票先は表示しない。
+  // 現在の工程を完了したメンバーかどうか。投票先は表示しない。
   isVotingComplete?: boolean;
+  completionLabel?: string;
 };
 
 export function MemberAvatar({
@@ -49,6 +50,7 @@ export function MemberAvatar({
   size = 36,
   isMe = false,
   isVotingComplete = false,
+  completionLabel = "投票完了",
 }: MemberAvatarProps) {
   const initials = initialsOf(name);
   // 自分は ring（枠）で識別する。文言の「（あなた）」は付けない。
@@ -59,7 +61,7 @@ export function MemberAvatar({
       <TooltipTrigger asChild>
         <div
           role="img"
-          aria-label={`${tooltipText}${isVotingComplete ? "（投票完了）" : ""}`}
+          aria-label={`${tooltipText}${isVotingComplete ? `（${completionLabel}）` : ""}`}
           data-testid="avatar"
           data-self={isMe ? "true" : undefined}
           className={`relative inline-flex shrink-0 items-center justify-center rounded-full border font-semibold text-slate-900 ${NOTE_COLOR_STYLES[color].avatarClassName} ${

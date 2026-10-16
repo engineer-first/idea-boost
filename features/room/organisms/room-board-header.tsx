@@ -19,10 +19,12 @@ import {
 } from "@/components/ui/popover";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
+  isPersonalWritingStep,
   isPhaseStep,
   isResultStep,
   isVotingStep,
   type RoomPhase,
+  VOTING_STEP_BY_PHASE,
 } from "@/contracts/phase";
 import type {
   Carryover,
@@ -38,7 +40,7 @@ import {
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
-import type { Member } from "../logic/room-reducer";
+import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
@@ -84,6 +86,8 @@ export type RoomBoardHeaderProps = {
   currentUserId: string;
   hostUserId: string;
   completedVoterIds?: ReadonlyArray<string>;
+  progress?: PhaseProgressState;
+  onToggleReady?: (ready: boolean) => void;
   isNextPhasePending: boolean;
   hostRevision?: number;
   onEditSelf?: () => void;
@@ -100,7 +104,7 @@ export type RoomBoardHeaderProps = {
   onShowOutcome?: () => void;
   onPublishOutcome: () => void;
   onLeaveClick: () => void;
-  onNextPhase: () => void;
+  onNextPhase: (confirmedProgressRevision?: number) => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -140,6 +144,16 @@ export function RoomBoardHeader({
   currentUserId,
   hostUserId,
   completedVoterIds = [],
+  progress = {
+    phaseRevision: 0,
+    progressRevision: 0,
+    connectedUserIds: [],
+    readyUserIds: [],
+    notReadyUserIds: [],
+    canAdvance: false,
+    allReady: false,
+  },
+  onToggleReady,
   isNextPhasePending,
   hostRevision = 0,
   onSelectHostTarget,
@@ -238,7 +252,14 @@ export function RoomBoardHeader({
     activeSharing?.currentIndex != null
       ? activeSharing.order[activeSharing.currentIndex]
       : null;
-  const canAdvanceSharing = isHost || presenter?.userId === currentUserId;
+  const canStartSharing =
+    presenter !== null || activeSharing?.status === "ready";
+  const canAdvanceSharing = presenter !== null;
+  const isLastPresenter =
+    activeSharing?.status === "active" &&
+    activeSharing.currentIndex !== null &&
+    activeSharing.currentIndex === activeSharing.order.length - 1;
+  const canCompleteSharing = activeSharing?.status === "complete";
   const [configuredDuration, setConfiguredDuration] = useState<{
     revision: string;
     durationMs: number;
@@ -283,12 +304,35 @@ export function RoomBoardHeader({
       );
   }, [roomMenuOpen]);
   const isCurrentVotingStep = isVotingStep(phase);
-  const completedVoterIdSet = new Set(completedVoterIds);
-  const haveAllMembersCompletedVoting =
+  const isManualProgressStep =
+    isPersonalWritingStep(phase) ||
+    (phase.kind === "step" &&
+      ((phase.phase === 1 && phase.step === 3) ||
+        (phase.phase === 3 && phase.step === 3)));
+  const isCurrentUserReady = progress.readyUserIds.includes(currentUserId);
+  const notReadyNames = members
+    .filter((member) => progress.notReadyUserIds.includes(member.userId))
+    .map((member) => member.name);
+  const notReadyMembers = members.filter((member) =>
+    progress.notReadyUserIds.includes(member.userId),
+  );
+  const requireProgressConfirmation =
+    ((isManualProgressStep || isCurrentVotingStep) && !progress.allReady) ||
+    (phase.kind === "step" &&
+      phase.step === VOTING_STEP_BY_PHASE[phase.phase] - 1) ||
+    isResultStep(phase);
+  const showVotingCompletion =
     isCurrentVotingStep &&
     members.length > 0 &&
-    members.every(({ userId }) => completedVoterIdSet.has(userId));
-  const showVotingCompletion = haveAllMembersCompletedVoting && !isDisconnected;
+    progress.connectedUserIds.length > 0 &&
+    progress.allReady &&
+    !isDisconnected;
+  const completedMemberIds = isCurrentVotingStep
+    ? completedVoterIds
+    : isManualProgressStep
+      ? progress.readyUserIds
+      : [];
+  const completionLabel = isCurrentVotingStep ? "投票完了" : "作業完了";
   const timerSoundControls = useRoomTimerSounds({
     timer,
     serverOffsetMs: timerServerOffsetMs,
@@ -298,7 +342,7 @@ export function RoomBoardHeader({
         isCurrentVotingStep && phase.kind === "step"
           ? `phase-${phase.phase}`
           : null,
-      isComplete: haveAllMembersCompletedVoting,
+      isComplete: isCurrentVotingStep && progress.allReady,
       isDisconnected,
     },
   });
@@ -375,7 +419,18 @@ export function RoomBoardHeader({
             data-testid="board-control-hud"
             data-board-fit-edge="top"
           >
-            {showVotingCompletion ? (
+            {isManualProgressStep && onToggleReady ? (
+              <Button
+                type="button"
+                variant={isCurrentUserReady ? "secondary" : "outline"}
+                className="h-10 shrink-0 px-3"
+                disabled={isDisconnected || isNextPhasePending}
+                aria-pressed={isCurrentUserReady}
+                onClick={() => onToggleReady(!isCurrentUserReady)}
+              >
+                {isCurrentUserReady ? "完了を取り消す" : "完了"}
+              </Button>
+            ) : showVotingCompletion ? (
               <span
                 className="shrink-0 max-[900px]:absolute max-[900px]:right-0 max-[900px]:top-full max-[900px]:mt-1 max-[900px]:rounded-md max-[900px]:bg-background max-[900px]:px-2"
                 data-testid="vote-completion-indicator"
@@ -437,9 +492,10 @@ export function RoomBoardHeader({
                             color={member.color}
                             size={28}
                             isMe={member.userId === currentUserId}
-                            isVotingComplete={completedVoterIds.includes(
+                            isVotingComplete={completedMemberIds.includes(
                               member.userId,
                             )}
+                            completionLabel={completionLabel}
                           />
                         </span>
                       ))}
@@ -513,9 +569,10 @@ export function RoomBoardHeader({
                             color={member.color}
                             size={32}
                             isMe={member.userId === currentUserId}
-                            isVotingComplete={completedVoterIds.includes(
+                            isVotingComplete={completedMemberIds.includes(
                               member.userId,
                             )}
+                            completionLabel={completionLabel}
                           />
                           <span className="min-w-0 flex-1 truncate text-sm">
                             {member.name}
@@ -555,8 +612,7 @@ export function RoomBoardHeader({
               </Popover>
             )}
 
-            {activeSharing?.status !== "complete" &&
-            (isHost || timer.status !== "idle") ? (
+            {activeSharing?.status !== "complete" && timer.status !== "idle" ? (
               <span
                 aria-hidden="true"
                 className="mx-1 h-6 w-px shrink-0 bg-border"
@@ -573,7 +629,7 @@ export function RoomBoardHeader({
                   timer={timer}
                   serverOffsetMs={timerServerOffsetMs}
                   soundControls={timerSoundControls}
-                  isHost={isHost}
+                  isHost
                   disabled={isDisconnected || transitioning || isTransferring}
                   configureOnly={activeSharing?.status === "ready"}
                   onConfigureDuration={(durationMs) => {
@@ -597,81 +653,75 @@ export function RoomBoardHeader({
               </div>
             )}
             {activeSharing &&
-            canAdvanceSharing &&
-            activeSharing.status !== "complete" ? (
+            activeSharing.status !== "complete" &&
+            (activeSharing.status === "ready"
+              ? canStartSharing
+              : canAdvanceSharing) ? (
               activeSharing.status === "ready" ? (
-                isHost ? (
-                  <Button
-                    className="h-10 shrink-0"
-                    disabled={isDisconnected || isTransferring}
-                    onClick={() => onSharingStart?.(sharingDuration)}
-                  >
-                    最初の人を開始
-                  </Button>
-                ) : null
+                <Button
+                  className="h-10 shrink-0"
+                  disabled={isDisconnected || isTransferring}
+                  onClick={() => onSharingStart?.(sharingDuration)}
+                >
+                  最初の人を開始
+                </Button>
               ) : (
                 <>
-                  {isHost ? (
-                    <Button
-                      variant="outline"
-                      className="h-10 shrink-0 px-3"
-                      disabled={
-                        isDisconnected || transitioning || isTransferring
-                      }
-                      onClick={() => onSharingAdvance?.("passed")}
-                    >
-                      今回はパス
-                    </Button>
-                  ) : null}
+                  <Button
+                    variant="outline"
+                    className="h-10 shrink-0 px-3"
+                    disabled={isDisconnected || transitioning || isTransferring}
+                    onClick={() => onSharingAdvance?.("passed")}
+                  >
+                    今回はパス
+                  </Button>
                   <Button
                     className="h-10 shrink-0 px-3"
+                    data-testid="sharing-advance"
                     disabled={isDisconnected || transitioning || isTransferring}
                     onClick={() => onSharingAdvance?.("done")}
                   >
-                    次の人へ
+                    {isLastPresenter ? "次のステップへ" : "次の人へ"}
                   </Button>
                 </>
               )
             ) : null}
-
             {isResultStep(phase) ? (
               isFinalStep ? (
-                isHost || outcomePublished ? (
-                  <div className="grid shrink-0 items-center justify-items-end">
-                    <span
-                      aria-hidden="true"
-                      className="invisible col-start-1 row-start-1 inline-flex h-10 items-center rounded-lg border border-transparent px-4 text-sm font-medium whitespace-nowrap max-[900px]:px-2 max-[900px]:text-xs"
-                    >
-                      次のステップへ
-                    </span>
-                    <div className="col-start-1 row-start-1">
-                      {hasFinalDecision ? (
-                        outcomePublished ? (
-                          <Button
-                            type="button"
-                            className="h-10 shrink-0 px-3"
-                            onClick={onShowOutcome}
-                          >
-                            成果を見る
-                          </Button>
-                        ) : isHost ? (
-                          <Button
-                            type="button"
-                            size="icon"
-                            className="size-10 shrink-0"
-                            aria-label="完了して成果を表示"
-                            title="完了して成果を表示"
-                            disabled={isDisconnected || isTransferring}
-                            onClick={onPublishOutcome}
-                          >
-                            <Check aria-hidden="true" className="size-5" />
-                          </Button>
-                        ) : null
-                      ) : null}
-                    </div>
+                <div className="grid shrink-0 items-center justify-items-end">
+                  <span
+                    aria-hidden="true"
+                    className="invisible col-start-1 row-start-1 inline-flex h-10 items-center rounded-lg border border-transparent px-4 text-sm font-medium whitespace-nowrap max-[900px]:px-2 max-[900px]:text-xs"
+                  >
+                    次のステップへ
+                  </span>
+                  <div className="col-start-1 row-start-1">
+                    {hasFinalDecision ? (
+                      outcomePublished ? (
+                        <Button
+                          type="button"
+                          className="h-10 shrink-0 px-3"
+                          onClick={onShowOutcome}
+                        >
+                          成果を見る
+                        </Button>
+                      ) : !outcomePublished ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          className="size-10 shrink-0"
+                          aria-label="完了して成果を表示"
+                          title="完了して成果を表示"
+                          disabled={isDisconnected || isTransferring}
+                          onClick={onPublishOutcome}
+                        >
+                          <Check aria-hidden="true" className="size-5" />
+                        </Button>
+                      ) : null
+                    ) : null}
                   </div>
-                ) : null
-              ) : isHost ? (
+                </div>
+              ) : !isFinalStep ? (
                 <NextPhaseConfirmDialog
                   key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
                   phase={phase}
@@ -681,11 +731,18 @@ export function RoomBoardHeader({
                     isNextPhaseBlocked ||
                     isTransferring
                   }
-                  onConfirm={onNextPhase}
+                  requireConfirmation={requireProgressConfirmation}
+                  notReadyNames={notReadyNames}
+                  notReadyMembers={notReadyMembers}
+                  onConfirm={() =>
+                    onNextPhase(
+                      progress.allReady ? undefined : progress.progressRevision,
+                    )
+                  }
                 />
               ) : null
-            ) : isHost &&
-              (!activeSharing || activeSharing.status === "complete") ? (
+            ) : !activeSharing ||
+              (activeSharing.status === "complete" && canCompleteSharing) ? (
               <NextPhaseConfirmDialog
                 key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
                 phase={phase}
@@ -693,9 +750,18 @@ export function RoomBoardHeader({
                   isDisconnected ||
                   isNextPhasePending ||
                   isNextPhaseBlocked ||
+                  ((isManualProgressStep || isCurrentVotingStep) &&
+                    !progress.canAdvance) ||
                   isTransferring
                 }
-                onConfirm={onNextPhase}
+                requireConfirmation={requireProgressConfirmation}
+                notReadyNames={notReadyNames}
+                notReadyMembers={notReadyMembers}
+                onConfirm={() =>
+                  onNextPhase(
+                    progress.allReady ? undefined : progress.progressRevision,
+                  )
+                }
               />
             ) : null}
 
@@ -828,8 +894,7 @@ export function RoomBoardHeader({
                       フィードバック
                     </Button>
                   ) : null}
-                  {isHost &&
-                  rollbackTarget &&
+                  {rollbackTarget &&
                   onRollbackPhase &&
                   !isNextPhasePending &&
                   !outcomePublished ? (
@@ -841,27 +906,12 @@ export function RoomBoardHeader({
                       onConfirm={onRollbackPhase}
                     />
                   ) : null}
-                  {isHost && canManageCandidates ? (
+                  {canManageCandidates ? (
                     <BulkCandidateExclusion
                       key={hostRevision}
                       targetCount={bulkExclusionTargetCount}
                       disabled={isDisconnected || isTransferring}
                       onConfirm={onBulkCandidateExclude}
-                    />
-                  ) : null}
-                  {isHost &&
-                  activeSharing &&
-                  activeSharing.status !== "complete" ? (
-                    <NextPhaseConfirmDialog
-                      key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
-                      phase={phase}
-                      disabled={
-                        isDisconnected ||
-                        isNextPhasePending ||
-                        isNextPhaseBlocked ||
-                        isTransferring
-                      }
-                      onConfirm={onNextPhase}
                     />
                   ) : null}
                   <Button

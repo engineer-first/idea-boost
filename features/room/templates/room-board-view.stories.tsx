@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type { Decision } from "@/contracts/room-protocol";
+import type { Decision, PhaseProgress } from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -88,6 +88,17 @@ const INTERACTIONS: RoomBoardInteractions = {
   onPrivateNoteDragStart: fn(),
 };
 
+const STORY_MEMBERS = buildMembers(3, ME);
+const STORY_PROGRESS: PhaseProgress = {
+  phaseRevision: 1,
+  progressRevision: 1,
+  connectedUserIds: STORY_MEMBERS.map(({ userId }) => userId),
+  readyUserIds: STORY_MEMBERS.map(({ userId }) => userId),
+  notReadyUserIds: [],
+  canAdvance: true,
+  allReady: true,
+};
+
 const meta = {
   title: "Room/RoomBoardView",
   component: RoomBoardView,
@@ -123,7 +134,8 @@ const meta = {
     outcomePublished: false,
     connectionStatus: "open",
     draggingNoteId: null,
-    members: buildMembers(3, ME),
+    members: STORY_MEMBERS,
+    progress: STORY_PROGRESS,
     currentUserId: ME,
     hostUserId: ME,
     isNextPhasePending: false,
