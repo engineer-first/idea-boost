@@ -60,7 +60,7 @@ export const ServiceUnavailable: Story = {
   },
 };
 
-// 全状態の一覧（VRT / カタログ用）。
+// 全状態の一覧（公開Storybookのカタログ用）。
 export const AllStates: Story = {
   render: () => (
     <div className="flex w-[360px] flex-col gap-6">

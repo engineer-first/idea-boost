@@ -135,7 +135,7 @@
 <div><dt>migration / SQL</dt><dd>migrationはデータの保存形式を作成・変更する手順、SQLはデータベースを操作する言葉です。最初に9件を適用し、共通APIの初回公開で10件目もPreview用D1へ適用しました。</dd></div>
 <div><dt>unit / Workerテスト / Vitest</dt><dd>unitは小さな処理単位を調べるテストです。WorkerテストはCloudflareに近い実行環境でWorkerを調べます。Vitestは今回使うテスト実行ツールです。</dd></div>
 <div><dt>typecheck / lint / dry-run</dt><dd>typecheckはデータの型が合っているか、lintはコードのルール違反がないかを調べます。dry-runは実環境へ反映せず、公開用の準備処理を試すことです。</dd></div>
-<div><dt>Storybook / Chromatic / UI Tests</dt><dd>Storybookは画面の部品を単独で試す場所、Chromaticはその画面の公開や比較を行うサービスです。UI Testsは画面を比較する検査の表示名です。</dd></div>
+<div><dt>Storybook / Chromatic / UI Tests</dt><dd>Storybookは画面の部品を単独で試す場所、Chromaticはその画面を公開するサービスです。UI Testsは画面比較の検査名ですが、現在はUI Reviewとともに無効にして公開を続けます（2026-10-15確認）。<a href="../vrt-operations/">現在の公開・確認手順</a>を参照してください。</dd></div>
 <div><dt>リポジトリ / fork / close / reopen</dt><dd>リポジトリはコードの保存場所で、forkは別の保存場所へコードを複製することです。closeはPRを閉じること、reopenは開き直すことです。今回の自動公開は同じリポジトリ内のPRを対象にします。</dd></div>
 <div><dt>通常URL / 固定版URL / 部分wildcard</dt><dd>通常URLは更新で内容が変わるPR用のURL、固定版URLは1回の公開版を開くURLです。自動確認が成功し、PRの現在の版と一致するかも確かめます。部分wildcardは名前の一部を「どの文字列でもよい」とする指定で、複数のPreview URLをまとめて保護します。</dd></div>
 <div><dt>Next.js / OpenNext / Wrangler / draw.io</dt><dd>Next.jsは画面を作る仕組み、OpenNextはそのアプリをCloudflare向けにまとめるための道具、WranglerはCloudflareの設定や公開を行う道具です。draw.ioは構成図を編集する道具です。</dd></div>

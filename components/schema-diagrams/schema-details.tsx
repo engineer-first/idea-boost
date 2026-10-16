@@ -7,9 +7,9 @@ type SchemaDetailsProps = {
 };
 
 // ER 図（SchemaDiagram）が関係の全体像を見せるのに対し、こちらは ER 図に
-// 現れないインデックス・制約・デフォルト値を Chromatic の差分レビュー対象に
-// 載せるための一覧。生成データをそのまま並べ、加工は最小限にする。
-// 背景を白に固定する理由は schema-diagram.tsx と同じ（Schema/* を同条件で撮る）。
+// 現れないインデックス・制約・デフォルト値を公開Storybookで確認するための一覧。
+// 生成データをそのまま並べ、加工は最小限にする。
+// 背景を白に固定する理由はschema-diagram.tsxと同じ（図の文字の可読性）。
 
 const cellStyle = {
   border: "1px solid #ddd",
