@@ -63,6 +63,43 @@ const ALL_TABLES = [
 ];
 
 describe("ROOM_DO_MIGRATIONS", () => {
+  it.each([
+    ["あ".repeat(80), "あ".repeat(15)],
+    [`${"あ".repeat(14)}😀続き`, "あ".repeat(14)],
+    ["😀".repeat(8), "😀".repeat(7)],
+    ["短い名前", "短い名前"],
+    ["あ".repeat(15), "あ".repeat(15)],
+    [null, null],
+  ])("既存ルーム名 %s を上限内の先頭に短縮し他の情報を保つ", async (name, expected) => {
+    await runInRoomDO(
+      `mig-room-name-${crypto.randomUUID()}`,
+      (_instance, state) => {
+        dropAllTables(state.storage);
+        const old = ROOM_DO_MIGRATIONS.filter(
+          (m) => !m.sql.includes("truncate-room-name"),
+        );
+        migrateRoomStorage(state.storage, old, LEGACY_ROOM_DO_MIGRATION_IDS);
+        state.storage.sql.exec(
+          "INSERT INTO shared_outcome_identity(id,room_id,room_name,display_id,disbanded) VALUES(1,'room',?,'CODE',1)",
+          name,
+        );
+        migrateRoomStorage(
+          state.storage,
+          ROOM_DO_MIGRATIONS,
+          LEGACY_ROOM_DO_MIGRATION_IDS,
+        );
+        expect(
+          state.storage.sql.exec("SELECT * FROM shared_outcome_identity").one(),
+        ).toEqual({
+          id: 1,
+          room_id: "room",
+          room_name: expected,
+          display_id: "CODE",
+          disbanded: 1,
+        });
+      },
+    );
+  });
   it("保存待ち予約がある既存ルームは工程を変えず予約だけを破棄する", async () => {
     await runInRoomDO("mig-discard-pending-transition", (_instance, state) => {
       dropAllTables(state.storage);

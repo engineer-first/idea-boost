@@ -283,13 +283,13 @@ it.each([
   "prepared",
   "submitted",
   "legacy",
-] as const)("旧上限80文字の%s控えも名前を保って復元・一覧取得できる", async (kind) => {
+] as const)("旧上限80文字の%s控えは先頭15文字に短縮して復元・一覧取得できる", async (kind) => {
   const p = await tab();
   const user = crypto.randomUUID();
   const value = {
     ...record(),
     expectedPrincipal: user,
-    name: "あ".repeat(80),
+    name: `${"あ".repeat(14)}😀${"あ".repeat(64)}`,
     state: kind === "prepared" ? ("prepared" as const) : ("submitted" as const),
   };
   await p.evaluate(
@@ -326,12 +326,19 @@ it.each([
       (user) => window.creationStore.readRoomCreationIntent(user),
       user,
     ),
-  ).toMatchObject({ name: value.name, requestId: value.requestId });
+  ).toMatchObject({
+    name: value.name.slice(0, 15).replace(/[\uD800-\uDBFF]$/, ""),
+    requestId: value.requestId,
+  });
   expect(
     await p.evaluate(
       (user) => window.creationStore.listRoomCreationIntents(user),
       user,
     ),
-  ).toEqual([expect.objectContaining({ name: value.name })]);
+  ).toEqual([
+    expect.objectContaining({
+      name: value.name.slice(0, 15).replace(/[\uD800-\uDBFF]$/, ""),
+    }),
+  ]);
   await p.close();
 });

@@ -4,8 +4,6 @@ export const ROOM_CREATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const ROOM_CREATION_FUTURE_MS = 60_000;
 export const ROOM_CREATION_GC_GRACE_MS = 5 * 60_000;
 export const ROOM_CREATION_NAME_MAX = 15;
-// 保存済みの作成控えは、旧上限の名前も復元・再照会できるよう読み取る。
-export const ROOM_CREATION_STORED_NAME_MAX = 80;
 export const CreationRequestIdSchema = z
   .string()
   .uuid()
