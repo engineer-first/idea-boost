@@ -173,7 +173,6 @@ function presenceOperation(
   if (
     phase.kind !== "step" ||
     request.start.expectedPhaseRevision !== getPhaseRevision(sql) ||
-    request.start.expectedGroupRevision !== revisions.groupRevision ||
     request.start.expectedMapRevision !== revisions.mapRevision ||
     getBoardMutationForbiddenMessage(phase, {
       type: "note:move",
@@ -464,7 +463,6 @@ function validate(ctx: HandlerCtx, request: StoredRequest): NoteRow[] | null {
     !permitted(ctx) ||
     phase.kind !== "step" ||
     start.expectedPhaseRevision !== getPhaseRevision(ctx.sql) ||
-    start.expectedGroupRevision !== revisions.groupRevision ||
     start.expectedMapRevision !== revisions.mapRevision ||
     start.coordinateSpace !== (phase.phase === 3 ? "map" : "canvas")
   )
@@ -1008,6 +1006,8 @@ export const moveHandlers: MessageHandlers<
       request.start.coordinateSpace === "map",
     );
     const changed = delta.x !== 0 || delta.y !== 0;
+    // 分類は他の付箋の移動でも変わる。ドロップ時の最新分類を同じtransactionで再編する。
+    const groupRevisionBefore = moveRevisions(ctx.sql).groupRevision;
     const groupsBefore = listGroups(ctx.sql);
     const groupVersionsBefore = groupVersions(ctx.sql);
     const movedBefore = new Map(rows.map((row) => [row.id, position(row)]));
@@ -1067,7 +1067,7 @@ export const moveHandlers: MessageHandlers<
           after,
           groupsBefore: changes.before,
           groupsAfter: changes.after,
-          groupRevisionBefore: request.start.expectedGroupRevision,
+          groupRevisionBefore,
           groupRevisionAfter: moveRevisions(ctx.sql).groupRevision,
           mapRevision: request.start.expectedMapRevision,
           affected: [...affectedIds].flatMap((id) => {

@@ -126,6 +126,7 @@ export type RoomBoardInteractions = {
   onPrivateNoteDragStart: (
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
+    origin?: { clientX: number; clientY: number },
   ) => void;
 };
 
@@ -493,11 +494,11 @@ export function useRoomBoardInteractions({
       if (id) handleSharedNoteDragStart(id, event, origin, ids);
     },
     onNoteDragStart: handleSharedNoteDragStart,
-    onPrivateNoteDragStart: (noteId, event) => {
+    onPrivateNoteDragStart: (noteId, event, origin) => {
       // マイ付箋はviewport外にあるためcameraのpointerdownを通らない。
       // 最初のdrop後の自動fitで本人の指定位置と視野を動かさない。
       preserveCamera();
-      handlePrivateDragStart(noteId, event);
+      handlePrivateDragStart(noteId, event, origin);
     },
   };
 }

@@ -96,6 +96,25 @@ function setup({
 }
 
 describe("useRoomBoardInteractions cursor input", () => {
+  it("マイ付箋から素早く出したpreviewは押下した場所をポインターに合わせる", () => {
+    const { result } = setup({ withPrivateNote: true });
+    act(() =>
+      result.current.onPrivateNoteDragStart(
+        "private-1",
+        {
+          pointerId: 1,
+          clientX: 470,
+          clientY: 180,
+          currentTarget: {
+            getBoundingClientRect: () => new DOMRect(600, 100, 200, 150),
+          },
+        } as unknown as PointerEvent<HTMLButtonElement>,
+        { clientX: 650, clientY: 180 },
+      ),
+    );
+    expect(result.current.dragPreview).toMatchObject({ left: 420, top: 100 });
+  });
+
   it("空のボードへ最初のマイ付箋をdropした後も本人のカメラを保つ", () => {
     const note = buildNote({ id: "private-first", visibility: "private" });
     const viewport = document.createElement("div");
