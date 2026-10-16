@@ -112,6 +112,23 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
         sent.filter((message) => message.type === "note:publish").length;
       const unpublishCount = () =>
         sent.filter((message) => message.type === "note:unpublish").length;
+      // 最初のpointermoveでパネルを飛び出しても、押下位置がpreview内でずれない。
+      const privateRect = await privateCard.boundingBox();
+      if (!privateRect) throw new Error("マイ付箋が見つかりません。");
+      const grabX = privateRect.width * 0.4;
+      const grabY = privateRect.height * 0.4;
+      await actor.mouse.move(privateRect.x + grabX, privateRect.y + grabY);
+      await actor.mouse.down();
+      await actor.mouse.move(820, 360);
+      const preview = actor.getByTestId("private-note-drag-preview");
+      await preview.waitFor();
+      const previewRect = await preview.boundingBox();
+      expect(previewRect?.x).toBeCloseTo(820 - grabX, 0);
+      expect(previewRect?.y).toBeCloseTo(360 - grabY, 0);
+      expect(publishCount()).toBe(0);
+      expect(await peerCard.count()).toBe(0);
+      await actor.keyboard.press("Escape");
+      await actor.mouse.up();
       await startDrag(actor, privateCard);
       await actor.mouse.move(820, 360, { steps: 8 });
       await actor.getByTestId("private-note-drag-preview").waitFor();

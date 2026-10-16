@@ -512,7 +512,11 @@ export function useBoardDrag({
   );
 
   const handlePrivateDragStart = useCallback(
-    (noteId: string, event: ReactPointerEvent<HTMLButtonElement>) => {
+    (
+      noteId: string,
+      event: ReactPointerEvent<HTMLButtonElement>,
+      origin?: { clientX: number; clientY: number },
+    ) => {
       if (dragRef.current || !isPrivatePanelExpanded(privateToolbarRef.current))
         return;
       // RoomDO の応答前でも、楽観表示中の付箋をそのまま掴み直せるようにする。
@@ -521,11 +525,14 @@ export function useBoardDrag({
       hasNotifiedBlockedRef.current = false;
       boardScrollerRef.current?.setPointerCapture?.(event.pointerId);
       const rect = event.currentTarget?.getBoundingClientRect?.();
+      // 閾値を越えた最初のmoveはカードの外まで進むことがある。掴み位置は押下時で固定する。
+      const originX = origin?.clientX ?? event.clientX;
+      const originY = origin?.clientY ?? event.clientY;
       const grabOffsetX = rect?.width
-        ? ((event.clientX - rect.left) / rect.width) * NOTE_WIDTH
+        ? ((originX - rect.left) / rect.width) * NOTE_WIDTH
         : 0;
       const grabOffsetY = rect?.height
-        ? ((event.clientY - rect.top) / rect.height) *
+        ? ((originY - rect.top) / rect.height) *
           getNoteHeight(note.content, note.fontSize)
         : 0;
       updateDrag({
@@ -542,8 +549,8 @@ export function useBoardDrag({
         grabOffsetY,
         clientX: event.clientX,
         clientY: event.clientY,
-        previewOffsetX: rect ? event.clientX - rect.left : 0,
-        previewOffsetY: rect ? event.clientY - rect.top : 0,
+        previewOffsetX: rect ? originX - rect.left : 0,
+        previewOffsetY: rect ? originY - rect.top : 0,
         previewWidth: rect?.width || NOTE_WIDTH,
         previewHeight: rect?.height || NOTE_HEIGHT,
       });

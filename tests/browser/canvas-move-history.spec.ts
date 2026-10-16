@@ -39,6 +39,22 @@ async function prepare(
     await page.getByTestId("board-canvas").waitFor();
     await page.evaluate(() => document.fonts.ready);
   }
+  const startSharing = actor.getByRole("button", {
+    name: "最初の人を開始",
+    exact: true,
+  });
+  if (await startSharing.count()) await startSharing.click();
+  else {
+    await actor.getByTestId("room-timer").click();
+    await actor.getByRole("button", { name: "開始", exact: true }).click();
+    await actor.keyboard.press("Escape");
+  }
+  for (const page of [actor, peer])
+    await expect
+      .poll(() => page.getByTestId("room-timer").getAttribute("data-status"), {
+        timeout: 10_000,
+      })
+      .toBe("running");
 }
 
 async function position(note: Locator): Promise<{ x: number; y: number }> {
@@ -145,10 +161,13 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
       const twice = await Promise.all(notes.map(position));
       await actor.keyboard.press("ControlOrMeta+z");
       await expect.poll(() => Promise.all(notes.map(position))).toEqual(moved);
+      await expect.poll(() => undo(actor).isEnabled()).toBe(true);
       await actor.keyboard.press("ControlOrMeta+z");
       await expect.poll(() => Promise.all(notes.map(position))).toEqual(before);
+      await expect.poll(() => redo(actor).isEnabled()).toBe(true);
       await actor.keyboard.press("ControlOrMeta+Shift+z");
       await expect.poll(() => Promise.all(notes.map(position))).toEqual(moved);
+      await expect.poll(() => redo(actor).isEnabled()).toBe(true);
       await actor.keyboard.press("ControlOrMeta+Shift+z");
       await expect.poll(() => Promise.all(notes.map(position))).toEqual(twice);
       const id = await notes[0].getAttribute("data-note-id");
@@ -342,6 +361,7 @@ describe.skipIf(!app)("共有移動Undo/Redoの実RoomDO統合", () => {
       const id = await original.getAttribute("data-note-id");
       await drag(actor, original, 35, 20);
       await expect.poll(() => undo(actor).isEnabled()).toBe(true);
+      await actor.getByRole("button", { name: "マイ付箋を開く" }).click();
       const start = await original.boundingBox();
       if (!start) throw new Error("戻す付箋がありません");
       await actor.mouse.move(
@@ -425,7 +445,7 @@ describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
         ).toBe(true);
         const room = (await created.json()) as { roomId: string };
         await actor.goto(`${app}/rooms/${room.roomId}`);
-        await actor.getByTestId("board-canvas").waitFor();
+        await actor.getByTestId("room-board-view-root").waitFor();
         await actor.evaluate(() => document.fonts.ready);
         // Next.js開発用インジケータが左下の本番ツールバーを覆うため検証から除く。
         await actor.addStyleTag({
@@ -467,17 +487,26 @@ describe.skipIf(!app)("移動履歴のmobile HUD配置", () => {
             )
             .toBeNull();
           const toolbar = actor.getByTestId("canvas-zoom-controls");
-          expect(
-            await toolbar
-              .getByRole("button", { name: "移動を元に戻す" })
-              .count(),
-          ).toBe(1);
-          expect(
-            await toolbar
-              .getByRole("button", { name: "移動をやり直す" })
-              .count(),
-          ).toBe(1);
+          if (checkpoint === "1-1") {
+            // 個人記入はマイ付箋の専用画面で、共有キャンバスの履歴UIを出さない。
+            expect(await actor.getByTestId("board-canvas").isVisible()).toBe(
+              false,
+            );
+            await actor.getByTestId("private-notes-toolbar").waitFor();
+          } else {
+            expect(
+              await toolbar
+                .getByRole("button", { name: "移動を元に戻す" })
+                .count(),
+            ).toBe(1);
+            expect(
+              await toolbar
+                .getByRole("button", { name: "移動をやり直す" })
+                .count(),
+            ).toBe(1);
+          }
           for (const button of await toolbar.getByRole("button").all()) {
+            if (!(await button.isVisible())) continue;
             const box = await button.boundingBox();
             expect(box).not.toBeNull();
             if (!box) throw new Error("ツールバーの操作が見えません");

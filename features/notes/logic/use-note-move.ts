@@ -233,21 +233,15 @@ export function useNoteMove({
       const activePreview = operationRef.current;
       if (
         activePreview?.status === "preview" &&
-        (((message.type === "idea-map:state" ||
+        (message.type === "idea-map:state" ||
           message.type === "phase:updated") &&
-          message.mapRevision !== undefined &&
-          message.mapRevision !== capability.current.mapRevision) ||
-          ((message.type === "group:updated" ||
-            message.type === "group:deleted" ||
-            message.type === "group:revision") &&
-            message.groupRevision !== undefined &&
-            message.groupRevision !== capability.current.groupRevision))
+        message.mapRevision !== undefined &&
+        message.mapRevision !== capability.current.mapRevision
       ) {
         cancel();
         setFeedback({
           operationId: activePreview.id,
-          message:
-            "盤面の分類や広さが変更されました。もう一度操作してください。",
+          message: "盤面の広さが変更されました。もう一度操作してください。",
         });
       }
       if (message.type === "snapshot") {

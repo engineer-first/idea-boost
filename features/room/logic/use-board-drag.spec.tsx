@@ -1323,6 +1323,35 @@ describe("useBoardDrag", () => {
     );
   });
 
+  it.each([
+    8, 180,
+  ])("マイ付箋の最初の移動が%ipxでも押下時の掴み位置で配置する", (distance) => {
+    const { args, result } = setup();
+    const event = pointerEvent(1, 650 - distance, 180);
+    Object.defineProperty(event, "currentTarget", {
+      value: {
+        getBoundingClientRect: () => ({
+          left: 600,
+          top: 100,
+          width: 200,
+          height: 150,
+        }),
+      },
+    });
+    act(() =>
+      result.current.handlePrivateDragStart("private-1", event, {
+        clientX: 650,
+        clientY: 180,
+      }),
+    );
+    act(() => result.current.handlePointerEnd(pointerEvent(1, 300, 250)));
+    expect(args.onPrivateNotePublish).toHaveBeenCalledWith(
+      "private-1",
+      250,
+      170,
+    );
+  });
+
   it("異なる pointerId のイベントは無視する（マルチタッチの混線防止）", () => {
     const { args, result } = setup();
 

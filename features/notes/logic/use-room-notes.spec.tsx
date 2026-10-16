@@ -1390,7 +1390,7 @@ describe("transaction move", () => {
     act(() => vi.advanceTimersByTime(2_000));
     expect(send).toHaveBeenCalledTimes(2);
   });
-  it("分類の内容を含まない版通知でpreviewを取消し次の移動を最新の版で開始する", () => {
+  it("分類の版通知で別の付箋のpreviewを取り消さず次の移動には最新の版を使う", () => {
     const send = vi.fn();
     const { result } = renderHook(() => useRoomNotes({ send }));
     act(() =>
@@ -1408,7 +1408,11 @@ describe("transaction move", () => {
         groupRevision: 3,
       }),
     );
-    expect(result.current.draggingNoteId).toBeNull();
+    expect(result.current.draggingNoteId).toBe(NOTE_ID);
+    expect(send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "note:move:cancel" }),
+    );
+    act(() => result.current.cancelNoteDrag(NOTE_ID));
     act(() => result.current.startNoteDrag(NOTE_ID));
     expect(send.mock.calls.at(-1)?.[0]).toMatchObject({
       type: "note:move:start",
