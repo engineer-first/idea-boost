@@ -210,6 +210,14 @@ export const IdeaResultAwaitingDecision: Story = {
   args: { phase: STEP_3_5, isNextPhaseBlocked: true, members: HUD_MEMBERS },
 };
 
+export const IdeaResultDecided: Story = {
+  args: {
+    ...IdeaResultAwaitingDecision.args,
+    hasFinalDecision: true,
+    isNextPhaseBlocked: false,
+  },
+};
+
 export const IdeaVotingComplete: Story = {
   args: {
     phase: STEP_3_4,

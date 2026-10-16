@@ -1402,8 +1402,8 @@ describe("RoomBoardView", () => {
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "完了して成果を表示" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "完了して成果を表示" }),
+    ).toBeDisabled();
 
     rerender(
       <TestBoardView

@@ -544,6 +544,32 @@ describe("RoomBoardHeader", () => {
     it.each([
       true,
       false,
+    ])("最終案の決定前も完了ボタンを表示し、決定後に有効にする（host=%s）", (isHost) => {
+      const onPublishOutcome = vi.fn();
+      const props = setupProps({
+        isHost,
+        phase: buildPhaseStep(5, 3),
+        hasFinalDecision: false,
+        onPublishOutcome,
+      });
+      const { rerender } = render(<RoomBoardHeader {...props} />);
+      const completion = screen.getByRole("button", {
+        name: "完了して成果を表示",
+      });
+      expect(completion).toBeDisabled();
+      fireEvent.click(completion);
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(onPublishOutcome).not.toHaveBeenCalled();
+      rerender(<RoomBoardHeader {...props} hasFinalDecision />);
+      expect(completion).toBeEnabled();
+      fireEvent.click(completion);
+      expect(screen.getByRole("alertdialog")).toBeVisible();
+      expect(onPublishOutcome).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      true,
+      false,
     ])("最終完了はホスト・参加者とも確認と取消ができる（host=%s）", (isHost) => {
       const onPublishOutcome = vi.fn();
       setup({
