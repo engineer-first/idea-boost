@@ -759,7 +759,6 @@ export function RoomBoard({
         onNoteBringToFront={notes.bringNoteToFront}
         onNoteExclude={candidates.exclude}
         onNoteRestore={candidates.restore}
-        onBulkCandidateExclude={candidates.bulkExclude}
         onGroupCreate={noteGroups.createGroup}
         onGroupUpdateName={noteGroups.renameGroup}
         onNoteVote={notes.voteNote}
