@@ -12,7 +12,6 @@ export type CandidateOperations = {
   isPending: boolean;
   exclude: (noteId: string) => void;
   restore: (noteId: string) => void;
-  bulkExclude: () => void;
   bulkRestore: (operationId: string) => boolean;
   applyMessage: (message: ServerMessage) => boolean;
 };
@@ -221,16 +220,6 @@ export function useCandidateOperations({
     [change, clear, drainRestores],
   );
 
-  const bulkExclude = useCallback(() => {
-    if (!connectedRef.current || pendingRef.current.length || bulkRef.current)
-      return;
-    const id = crypto.randomUUID();
-    issuedIds.current.add(id);
-    bulkRef.current = id;
-    setBulkPending(true);
-    send({ type: "note:bulk-exclude", operationId: id });
-  }, [send]);
-
   const bulkRestore = useCallback(
     (operationId: string): boolean => {
       if (
@@ -260,7 +249,6 @@ export function useCandidateOperations({
     isPending: pending.length > 0 || bulkPending || hasQueuedRestores,
     exclude: (noteId: string) => change(noteId, true),
     restore: (noteId: string) => change(noteId, false),
-    bulkExclude,
     bulkRestore,
     applyMessage,
   };

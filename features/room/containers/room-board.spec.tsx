@@ -1302,28 +1302,12 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByRole("button", { name: "候補に戻す" })).toBeVisible();
   });
 
-  it("確認後に一括候補外を送り、サーバー確定の実件数とoperation IDでUndoする", () => {
+  it("一括候補外の通知を受け取り、サーバー確定の実件数とoperation IDでUndoする", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
       isHost: true,
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "ルームメニューを開く" }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "投票なしをまとめて候補から外す（1件）",
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "1件を候補から外す" }));
-    expect(socket.sent.map((item) => JSON.parse(item))).toContainEqual(
-      expect.objectContaining({ type: "note:bulk-exclude" }),
-    );
-    const operationId = JSON.parse(
-      socket.sent.find(
-        (item) => JSON.parse(item).type === "note:bulk-exclude",
-      ) ?? "{}",
-    ).operationId;
+    const operationId = "33333333-3333-4333-8333-333333333333";
     act(() =>
       socket.simulateServerMessage({
         type: "note:bulk-excluded",
