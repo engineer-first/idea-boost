@@ -541,10 +541,13 @@ describe("RoomBoardHeader", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("最終案の決定後は参加者にも完了チェックを表示する", () => {
+    it.each([
+      true,
+      false,
+    ])("最終完了はホスト・参加者とも確認と取消ができる（host=%s）", (isHost) => {
       const onPublishOutcome = vi.fn();
       setup({
-        isHost: false,
+        isHost,
         phase: buildPhaseStep(5, 3),
         hasFinalDecision: true,
         onPublishOutcome,
@@ -552,21 +555,14 @@ describe("RoomBoardHeader", () => {
       fireEvent.click(
         screen.getByRole("button", { name: "完了して成果を表示" }),
       );
-      expect(onPublishOutcome).toHaveBeenCalledTimes(1);
-      expect(screen.queryByText("スプリント完了")).not.toBeInTheDocument();
-    });
-
-    it("成果公開前の参加者にも完了操作を表示する", () => {
-      const onPublishOutcome = vi.fn();
-      setup({
-        isHost: false,
-        phase: buildPhaseStep(5, 3),
-        hasFinalDecision: true,
-        onPublishOutcome,
-      });
+      expect(onPublishOutcome).not.toHaveBeenCalled();
+      expect(screen.getByRole("alertdialog")).toBeVisible();
+      fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+      expect(onPublishOutcome).not.toHaveBeenCalled();
       fireEvent.click(
         screen.getByRole("button", { name: "完了して成果を表示" }),
       );
+      fireEvent.click(screen.getByRole("button", { name: "完了する" }));
       expect(onPublishOutcome).toHaveBeenCalledOnce();
     });
 

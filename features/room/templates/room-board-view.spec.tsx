@@ -1418,6 +1418,8 @@ describe("RoomBoardView", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "完了して成果を表示" }),
     );
+    expect(onPublishOutcome).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "完了する" }));
     expect(onPublishOutcome).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("room-board-view-root")).toBeVisible();
     expect(

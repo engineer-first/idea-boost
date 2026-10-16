@@ -313,3 +313,22 @@ export const ShareInvite: Story = {
     ).toBeVisible();
   },
 };
+
+export const FinalCompletionConfirmation: Story = {
+  args: { ...FinalDecisionPending.args },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "完了して成果を表示" }),
+    );
+    await expect(
+      within(canvasElement.ownerDocument.body).getByRole("alertdialog"),
+    ).toBeVisible();
+  },
+};
+export const FinalCompletionDisconnected: Story = {
+  args: {
+    ...FinalDecisionPending.args,
+    isDisconnected: true,
+    connectionStatus: "reconnecting",
+  },
+};

@@ -13,6 +13,17 @@ import {
   UserPlus,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -696,39 +707,59 @@ export function RoomBoardHeader({
             ) : null}
             {isResultStep(phase) ? (
               isFinalStep ? (
-                <div className="grid shrink-0 items-center justify-items-end">
-                  <span
-                    aria-hidden="true"
-                    className="invisible col-start-1 row-start-1 inline-flex h-10 items-center rounded-lg border border-transparent px-4 text-sm font-medium whitespace-nowrap max-[900px]:px-2 max-[900px]:text-xs"
-                  >
-                    次のステップへ
-                  </span>
-                  <div className="col-start-1 row-start-1">
-                    {hasFinalDecision ? (
-                      outcomePublished ? (
+                hasFinalDecision ? (
+                  outcomePublished ? (
+                    <Button
+                      type="button"
+                      className="h-10 shrink-0 px-3"
+                      onClick={onShowOutcome}
+                    >
+                      成果を見る
+                    </Button>
+                  ) : (
+                    <AlertDialog
+                      key={`${phaseRevision}:${isDisconnected}:${isTransferring}`}
+                    >
+                      <AlertDialogTrigger asChild>
                         <Button
                           type="button"
-                          className="h-10 shrink-0 px-3"
-                          onClick={onShowOutcome}
+                          className="h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-xs"
+                          disabled={
+                            isDisconnected ||
+                            isTransferring ||
+                            isNextPhasePending
+                          }
                         >
-                          成果を見る
+                          <Check aria-hidden="true" className="size-4" />
+                          完了して成果を表示
                         </Button>
-                      ) : !outcomePublished ? (
-                        <Button
-                          type="button"
-                          size="icon"
-                          className="size-10 shrink-0"
-                          aria-label="完了して成果を表示"
-                          title="完了して成果を表示"
-                          disabled={isDisconnected || isTransferring}
-                          onClick={onPublishOutcome}
-                        >
-                          <Check aria-hidden="true" className="size-5" />
-                        </Button>
-                      ) : null
-                    ) : null}
-                  </div>
-                </div>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            スプリントを完了しますか？
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            全員に成果を表示します。完了後は作業ボードに戻って編集できません。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                          <AlertDialogAction
+                            disabled={
+                              isDisconnected ||
+                              isTransferring ||
+                              isNextPhasePending
+                            }
+                            onClick={onPublishOutcome}
+                          >
+                            完了する
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )
+                ) : null
               ) : !isFinalStep ? (
                 <NextPhaseConfirmDialog
                   key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
