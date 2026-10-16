@@ -3579,6 +3579,46 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
 
 describe("候補Undoの結果工程内の寿命", () => {
   it.each([
+    [1, 5, 2, 1],
+    [2, 4, 3, 1],
+    [3, 5, 3, 4],
+  ] as const)("%i-%iから%i-%iへ移ると自動除外通知とUndoを破棄する", (phase, step, nextPhase, nextStep) => {
+    notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
+      "result-only-toast",
+    );
+    const { socket } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(step, phase),
+    });
+    const operationId = "33333333-3333-4333-8333-333333333333";
+    act(() =>
+      socket.simulateServerMessage({
+        type: "note:bulk-excluded",
+        operationId,
+        count: 1,
+        source: "phase-transition",
+      }),
+    );
+    const undo =
+      notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
+    expect(undo).toBeTypeOf("function");
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(nextStep, nextPhase),
+        phaseRevision: 1,
+        timer: { status: "idle" },
+      }),
+    );
+    expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
+      "result-only-toast",
+    );
+    if (typeof undo !== "function") throw new Error("Undoがありません");
+    act(() => undo());
+    expect(
+      socket.sent.map((payload) => JSON.parse(payload).type),
+    ).not.toContain("note:bulk-restore");
+  });
+  it.each([
     true,
     false,
   ])("採用後は旧Undo/ホストが戻せる通知を消しcallbackも送信しない host=%s", (isHost) => {

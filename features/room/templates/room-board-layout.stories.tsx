@@ -351,9 +351,9 @@ export const MapControls: Story = {
 };
 
 export const UndoNotification: Story = {
-  ...step(2, 1),
-  name: "自動除外の通知を残して次工程へ",
-  args: { ...step(2, 1).args, initialGuideState: "compact" },
+  ...step(1, 5),
+  name: "1-5 決定中の自動除外通知",
+  args: { ...step(1, 5).args, initialGuideState: "compact" },
   render: function Render(args) {
     const help = useBoardHelp(args.phase);
     const [undone, setUndone] = useState(false);
@@ -380,10 +380,16 @@ export const UndoNotification: Story = {
   },
 };
 
-export const UndoNotificationShared: Story = {
+export const UndoNotificationHmw: Story = {
   ...UndoNotification,
-  name: "共有中の自動除外通知",
-  args: { ...step(2, 2).args, initialGuideState: "compact" },
+  name: "2-4 決定中の自動除外通知",
+  args: { ...step(2, 4).args, initialGuideState: "compact" },
+};
+
+export const UndoNotificationIdea: Story = {
+  ...UndoNotification,
+  name: "3-5 決定中の自動除外通知",
+  args: { ...step(3, 5).args, initialGuideState: "compact" },
 };
 
 export const DelayedConnection: Story = {
