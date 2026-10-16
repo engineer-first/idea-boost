@@ -28,6 +28,7 @@ import { useLeaveRoom } from "../logic/use-leave-room";
 import { useMemberRemoval } from "../logic/use-member-removal";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
+import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
 import { RoomLobbyView } from "../templates/room-lobby-view";
 
@@ -111,6 +112,11 @@ export function RoomLobby({
     webSocketFactory,
     isLeavingRef,
   });
+  const roomName = useRoomName({
+    connected: connectionStatus === "open",
+    blocked: isStarting || isLeaving || isTransferring,
+    send,
+  });
   const displayName = useRoomDisplayName({
     roomId,
     save: saveDisplayNameAction,
@@ -184,6 +190,7 @@ export function RoomLobby({
   }
 
   function handleServerMessage(message: ServerMessage) {
+    if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
     if (memberRemoval.applyMessage(message)) return;
     if (
@@ -284,6 +291,7 @@ export function RoomLobby({
       loginReturnHref={`/rooms/${roomId}`}
       key={`${hostUserId}:${roomState.host.hostRevision ?? 0}`}
       displayName={displayName}
+      roomName={roomName}
       memberRemoval={memberRemoval}
       members={roomState.members}
       currentUserId={currentUserId}

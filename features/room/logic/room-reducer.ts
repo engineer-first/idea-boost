@@ -141,6 +141,7 @@ export function applyMemberServerMessage(
     case "cursor:drag-ended":
     case "cursor:left":
     case "member:removed":
+    case "room:renamed":
     case "host:updated":
     case "error":
       return members;
@@ -218,6 +219,7 @@ export function applyVotingCompletionServerMessage(
     case "member:renamed":
     case "member:removed":
     case "phase:progress":
+    case "room:renamed":
     case "host:updated":
     case "error":
       return completedVoterIds;
@@ -299,6 +301,7 @@ export function applyDecisionServerMessage(
     case "member:renamed":
     case "member:removed":
     case "phase:progress":
+    case "room:renamed":
     case "host:updated":
     case "error":
       return decision;
@@ -394,6 +397,7 @@ export function applyPhaseServerMessage(
     case "member:renamed":
     case "member:removed":
     case "phase:progress":
+    case "room:renamed":
     case "host:updated":
     case "error":
       return phase;

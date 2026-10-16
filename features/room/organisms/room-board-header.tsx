@@ -4,10 +4,12 @@
 
 import {
   Check,
+  DoorOpen,
   LogOut,
   MessageSquare,
   MoreHorizontal,
   Pencil,
+  Trash2,
   UserPlus,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -91,6 +93,9 @@ export type RoomBoardHeaderProps = {
   isNextPhasePending: boolean;
   hostRevision?: number;
   onEditSelf?: () => void;
+  roomName?: string | null;
+  onRenameRoom?: () => void;
+  roomNameDisabled?: boolean;
   onSelectHostTarget?: (userId: string) => void;
   isTransferring?: boolean;
   // 「次のステップへ」を進められない状態（決定待ち・次ステップ未実装など）。
@@ -158,6 +163,9 @@ export function RoomBoardHeader({
   hostRevision = 0,
   onSelectHostTarget,
   onEditSelf,
+  roomName,
+  onRenameRoom,
+  roomNameDisabled,
   isTransferring = false,
   isNextPhaseBlocked,
   initialGuideState,
@@ -780,7 +788,7 @@ export function RoomBoardHeader({
               </PopoverTrigger>
               <PopoverContent
                 ref={roomMenuContentRef}
-                className="w-80"
+                className="w-80 p-2"
                 aria-label="ルームメニュー"
                 onCloseAutoFocus={(event) => {
                   if (!feedbackOpening.current) return;
@@ -788,6 +796,29 @@ export function RoomBoardHeader({
                   feedbackOpening.current = false;
                 }}
               >
+                <div className="mb-1 flex items-start gap-1 px-2">
+                  <p className="min-w-0 break-all text-sm leading-7">
+                    <span className="text-muted-foreground">ルーム名：</span>
+                    <span className="font-medium">{roomName ?? "未設定"}</span>
+                  </p>
+                  {!outcomePublished && onRenameRoom ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      aria-label="ルーム名を変更"
+                      title="ルーム名を変更"
+                      disabled={isDisconnected || isLeaving || roomNameDisabled}
+                      onClick={() => {
+                        setRoomMenuOpen(false);
+                        onRenameRoom();
+                      }}
+                    >
+                      <Pencil className="size-3.5" aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </div>
                 {currentMember ? (
                   <MemberSelection
                     name={
@@ -804,7 +835,7 @@ export function RoomBoardHeader({
                         : undefined
                     }
                     disabled={isDisconnected || isLeaving}
-                    className="mb-3 flex w-full min-w-0 items-center gap-2 border-b border-border pb-3 text-left"
+                    className="mb-1 flex w-full min-w-0 items-center gap-2 border-b border-border px-2 pt-1 pb-3 text-left"
                   >
                     <MemberAvatar
                       name={currentMember.name}
@@ -836,7 +867,7 @@ export function RoomBoardHeader({
                         <Button
                           type="button"
                           variant="ghost"
-                          className="min-h-11 w-full justify-start"
+                          className="h-10 w-full justify-start gap-3 px-2 font-normal"
                         >
                           <UserPlus aria-hidden="true" className="size-4" />
                           招待
@@ -883,7 +914,7 @@ export function RoomBoardHeader({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="min-h-11 justify-start"
+                      className="h-10 w-full justify-start gap-3 px-2 font-normal"
                       onClick={() => {
                         feedbackOpening.current = true;
                         setRoomMenuOpen(false);
@@ -916,8 +947,8 @@ export function RoomBoardHeader({
                   ) : null}
                   <Button
                     type="button"
-                    variant="destructive"
-                    className="h-10 justify-start"
+                    variant="ghost"
+                    className="h-10 w-full justify-start gap-3 px-2 font-normal text-destructive hover:bg-destructive/10 hover:text-destructive"
                     disabled={isLeaving || isTransferring}
                     data-testid="leave-button"
                     onClick={() => {
@@ -925,6 +956,11 @@ export function RoomBoardHeader({
                       onLeaveClick();
                     }}
                   >
+                    {isHost ? (
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    ) : (
+                      <DoorOpen className="size-4" aria-hidden="true" />
+                    )}
                     {leaveLabel}
                   </Button>
                   {signOutAction ? (
@@ -935,9 +971,9 @@ export function RoomBoardHeader({
                       <Button
                         type="submit"
                         variant="ghost"
-                        className="h-10 w-full justify-start"
+                        className="h-10 w-full justify-start gap-3 px-2 font-normal"
                       >
-                        <LogOut aria-hidden="true" />
+                        <LogOut className="size-4" aria-hidden="true" />
                         ログアウト
                       </Button>
                     </form>

@@ -11,6 +11,7 @@ import {
 } from "../../contracts/room-participation";
 import { SessionExpiresAtSchema } from "../../contracts/session";
 import { applyAccountName, memberNameHandlers } from "./member-name";
+import { getRoomName, roomNameHandlers } from "./room-name";
 // 1ルーム = 1 Durable Object の権威サーバー（façade）。
 // エントリポイント（RPC / WebSocket）と横断ガード（phase ゲート）だけを持ち、
 // ドメインロジックは workers/room/ の各モジュールに委譲する:
@@ -164,6 +165,7 @@ const clientMessageHandlers: MessageHandlers<ClientMessage["type"]> = {
   ...hostHandlers,
   ...memberRemovalHandlers,
   ...memberNameHandlers,
+  ...roomNameHandlers,
   ...adoptionFocusHandlers,
   ...noteHandlers,
   ...moveHandlers,
@@ -189,6 +191,7 @@ function optimisticOperationIdOf(message: ClientMessage): string | undefined {
   switch (message.type) {
     case "host:transfer":
     case "member:remove":
+    case "room:rename":
     case "member:rename":
     case "note:create":
     case "note:exclude":
@@ -1737,11 +1740,14 @@ export class RoomDO extends DurableObject {
       ? JSON.stringify(captureSharedOutcome(this.sql, 0))
       : null;
     const affectsSharedActivity =
-      message.type.startsWith("timer:") || message.type.startsWith("sharing:");
+      message.type === "room:rename" ||
+      message.type.startsWith("timer:") ||
+      message.type.startsWith("sharing:");
     const activityBefore = affectsSharedActivity
       ? JSON.stringify({
           timer: getTimerState(this.sql),
           sharing: getSharingState(this.sql),
+          roomName: getRoomName(this.sql),
         })
       : null;
     let rejected = false;
@@ -1838,6 +1844,7 @@ export class RoomDO extends DurableObject {
       const activityAfter = JSON.stringify({
         timer: getTimerState(this.sql),
         sharing: getSharingState(this.sql),
+        roomName: getRoomName(this.sql),
       });
       if (activityBefore !== activityAfter)
         await this.outcomes.recordSharedActivity();
@@ -1912,6 +1919,7 @@ export class RoomDO extends DurableObject {
 
     this.broadcaster.sendTo(ws, {
       type: "snapshot",
+      roomName: getRoomName(this.sql),
       moveProtocolVersion: 1,
       shareProtocolVersion: 1,
       noteCreateProtocolVersion: 1,

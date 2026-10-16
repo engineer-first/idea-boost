@@ -44,6 +44,12 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "AT-678 ルーム名を全員共有しても他者の非共有付箋は公開しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
     name: "AT-662 問いの投票中の移動でも他者の未共有付箋は不可視",
     viewerId: VIEWER,
     note: note({ visibility: "private", x: 200, y: 300 }),

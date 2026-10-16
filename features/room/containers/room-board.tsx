@@ -42,6 +42,7 @@ import { useMemberRemoval } from "../logic/use-member-removal";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
+import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
 import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
 
@@ -135,6 +136,11 @@ export function RoomBoard({
     hostRevision: roomState.host.hostRevision,
     connected: connectionStatus === "open",
     blocked: isNextPhasePending || isLeaving || roomState.outcomePublished,
+    send,
+  });
+  const roomName = useRoomName({
+    connected: connectionStatus === "open",
+    blocked: isLeaving || roomState.outcomePublished,
     send,
   });
   const displayName = useRoomDisplayName({
@@ -239,6 +245,7 @@ export function RoomBoard({
 
   function handleServerMessage(message: ServerMessage) {
     if (message.type === "sharing:updated") sharingGenerationRef.current += 1;
+    if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
     moveHistory.applyMessage(message);
     if (memberRemoval.applyMessage(message)) return;
@@ -705,6 +712,7 @@ export function RoomBoard({
         }
         isTransferring={hostTransfer.pending}
         displayName={displayName}
+        roomName={roomName}
         memberRemoval={memberRemoval}
         transferError={hostTransfer.error}
         decision={roomState.decision}

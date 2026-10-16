@@ -1046,3 +1046,19 @@ it("復元可能な戻り先がある参加者に戻る操作を提供する", (
     screen.getByRole("button", { name: "直前のステップに戻る" }),
   ).toBeVisible();
 });
+
+it("参加者はルームメニューで現在名と変更入口を確認でき、完了後は変更できない", () => {
+  const onRenameRoom = vi.fn();
+  const props = setupProps({ roomName: "J05", onRenameRoom });
+  const { rerender } = render(<RoomBoardHeader {...props} />);
+  expect(screen.queryByText("J05")).not.toBeInTheDocument();
+  openRoomMenu();
+  expect(screen.getByText("J05")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "ルーム名を変更" }));
+  expect(onRenameRoom).toHaveBeenCalledOnce();
+  rerender(<RoomBoardHeader {...props} outcomePublished />);
+  openRoomMenu();
+  expect(
+    screen.queryByRole("button", { name: "ルーム名を変更" }),
+  ).not.toBeInTheDocument();
+});

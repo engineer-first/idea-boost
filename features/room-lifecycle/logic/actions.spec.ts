@@ -140,7 +140,7 @@ describe("createRoom", () => {
       await createRoom({
         requestId: "11111111-1111-4111-8111-111111111111",
         expectedPrincipal: "123e4567-e89b-12d3-a456-426614174000",
-        name: "あ".repeat(81),
+        name: "あ".repeat(16),
       }),
     ).toMatchObject({ ok: false });
     expect(apiFetchMock).not.toHaveBeenCalled();

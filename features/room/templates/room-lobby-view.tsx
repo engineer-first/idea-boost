@@ -1,6 +1,6 @@
 "use client";
 
-import { DoorOpen, Link2, Play, Users } from "lucide-react";
+import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,13 @@ import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
+import type { RoomNameControls } from "../logic/use-room-name";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
+import { RoomNameDialog } from "../molecules/room-name-dialog";
 
 export type RoomLobbyViewProps = {
   members: Member[];
@@ -54,6 +56,7 @@ export type RoomLobbyViewProps = {
   transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
+  roomName?: RoomNameControls;
 };
 
 export function RoomLobbyView({
@@ -76,6 +79,7 @@ export function RoomLobbyView({
   transferError = null,
   memberRemoval,
   displayName,
+  roomName,
 }: RoomLobbyViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const isDisconnected = connectionStatus !== "open";
@@ -115,6 +119,28 @@ export function RoomLobbyView({
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
               "メンバーが揃ったら開始"
             </h1>
+            {roomName ? (
+              <div className="flex min-w-0 max-w-full items-start justify-center gap-1">
+                <p className="min-w-0 break-all text-base leading-7">
+                  <span className="text-muted-foreground">ルーム名：</span>
+                  <span className="font-medium">
+                    {roomName.name ?? "未設定"}
+                  </span>
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="ルーム名を変更"
+                  title="ルーム名を変更"
+                  disabled={roomName.disabled || roomName.pending}
+                  onClick={roomName.request}
+                >
+                  <Pencil className="size-3.5" aria-hidden="true" />
+                </Button>
+              </div>
+            ) : null}
             <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
               "招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。"
             </p>
@@ -305,6 +331,7 @@ export function RoomLobbyView({
         </Card>
       </div>
 
+      {roomName ? <RoomNameDialog controls={roomName} /> : null}
       {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
       {memberRemoval ? (
         <MemberRemoveDialog

@@ -105,6 +105,7 @@ export function applyServerMessage(
     case "phase:progress":
     case "member:renamed":
     case "member:removed":
+    case "room:renamed":
     case "host:updated":
     case "error": {
       // ノート以外の状態は別リデューサが担当する（room-reducer.ts）。

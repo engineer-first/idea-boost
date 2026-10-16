@@ -19,6 +19,7 @@ import {
 } from "./board";
 import { UUID_PATTERN } from "./ids";
 import { RoomPhaseSchema } from "./phase";
+import { RoomNameSchema } from "./room-name";
 
 // 既存 ID の受理範囲を Zod のバージョンに依存させない。
 const HostUserIdSchema = z.string().regex(UUID_PATTERN);
@@ -351,6 +352,13 @@ export const RoomDisplayNameSchema = z
   );
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("room:rename"),
+      name: RoomNameSchema,
+      operationId: z.string().uuid(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("member:rename"),
@@ -783,6 +791,11 @@ export const ShareReceiptSchema = z.object({
 export type ShareReceipt = z.infer<typeof ShareReceiptSchema>;
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("room:renamed"),
+    name: RoomNameSchema,
+    operationId: z.string().uuid(),
+  }),
   z
     .object({
       type: z.literal("note:share:result"),
@@ -813,6 +826,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("snapshot"),
+    roomName: z.string().nullable().optional(),
     moveProtocolVersion: z.literal(1).optional(),
     shareProtocolVersion: z.literal(1).optional(),
     noteCreateProtocolVersion: z.literal(1).optional(),

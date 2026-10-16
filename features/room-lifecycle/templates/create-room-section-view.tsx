@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/dialog";
+import { ROOM_CREATION_NAME_MAX } from "@/contracts/room-creation";
 import { RoomEntryField } from "../molecules/room-entry-field";
 
 export type CreateRoomSectionViewProps = {
@@ -83,7 +84,7 @@ export function CreateRoomSectionView({
             id="room-name"
             label="ルーム名（任意）"
             name="name"
-            maxLength={80}
+            maxLength={ROOM_CREATION_NAME_MAX}
             disabled={pending || recovering || storageError}
             defaultValue={intentName}
             key={intentName ?? "new"}
