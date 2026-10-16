@@ -149,7 +149,7 @@ Node.js のバージョンは `mise.toml` で LTS に固定しています。CI 
 
 共有スキルは `.agents/skills/` に含まれています。Codex は直接読み、Claude Code は
 同梱の相対symlinkから読みます。`npm ci` の後、`npm run check:agent-harness` で配置と参照を
-確認できます。CIの失敗調査は `$ci-triage`、別セッションへの引き継ぎは `$handoff` を使えます。
+確認できます。CIの失敗調査は `$ci-triage` を使えます。
 既存スキルの用途とhookの有効化は[チーム向けの使い方](docs/development/agent-maintenance.md#チームで使い始める)を参照してください。
 
 ### MCP サーバー (Claude Code などのエージェント向け)

@@ -9,14 +9,13 @@
 3. リポジトリを作業ディレクトリとしてCodex / Claude Codeを起動し、スキル一覧に対象が1件ずつ現れることを確認する。Codexは `$ci-triage`、Claude Codeは `/ci-triage` のように呼び出す。
 4. Codexの `/hooks` で [.codex/hooks.json](../../.codex/hooks.json) の内容を確認して信頼する。定義が変わった場合も再確認する。ユーザー設定に同じ整形hookがある場合は、重複実行を避けるためどちらを使うか選ぶ。
 
-| 作業                             | 共有する入口                                                                                                                                                                                       |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI失敗の原因・保証範囲を調べる   | [ci-triage](../../.agents/skills/ci-triage/SKILL.md)                                                                                                                                               |
-| 別セッション・worktreeへ引き継ぐ | [handoff](../../.agents/skills/handoff/SKILL.md)                                                                                                                                                   |
-| PBIを一緒に考える                | [pbi](../../.agents/skills/pbi/SKILL.md)                                                                                                                                                           |
-| UI部品・境界・migrationを作る    | [new-component](../../.agents/skills/new-component/SKILL.md)、[contract-change](../../.agents/skills/contract-change/SKILL.md)、[create-migration](../../.agents/skills/create-migration/SKILL.md) |
-| ローカル起動で確認する           | [verify](../../.agents/skills/verify/SKILL.md)、[サーバーの期限と停止](dev-server-lifecycle.md)                                                                                                    |
-| PR・リリース・貢献記録を作る     | [write-pr](../../.agents/skills/write-pr/SKILL.md)、[release](../../.agents/skills/release/SKILL.md)、[sprint-contribution](../../.agents/skills/sprint-contribution/SKILL.md)                     |
+| 作業                           | 共有する入口                                                                                                                                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI失敗の原因・保証範囲を調べる | [ci-triage](../../.agents/skills/ci-triage/SKILL.md)                                                                                                                                               |
+| PBIを一緒に考える              | [pbi](../../.agents/skills/pbi/SKILL.md)                                                                                                                                                           |
+| UI部品・境界・migrationを作る  | [new-component](../../.agents/skills/new-component/SKILL.md)、[contract-change](../../.agents/skills/contract-change/SKILL.md)、[create-migration](../../.agents/skills/create-migration/SKILL.md) |
+| ローカル起動で確認する         | [verify](../../.agents/skills/verify/SKILL.md)、[サーバーの期限と停止](dev-server-lifecycle.md)                                                                                                    |
+| PR・リリース・貢献記録を作る   | [write-pr](../../.agents/skills/write-pr/SKILL.md)、[release](../../.agents/skills/release/SKILL.md)、[sprint-contribution](../../.agents/skills/sprint-contribution/SKILL.md)                     |
 
 Codexのhookは、stage済み・未stage・未追跡の対象ファイルの作業ツリーを整形する。
 indexの自動更新はしないため、stage後に整形された差分は確認してからstageし直す。
