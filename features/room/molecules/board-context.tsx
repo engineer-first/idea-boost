@@ -8,10 +8,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
-import { isPhaseStep, type RoomPhase } from "@/contracts/phase";
+import type { RoomPhase } from "@/contracts/phase";
 import type { Carryover } from "@/contracts/room-protocol";
 import { DotVoteSticker } from "@/features/dot-vote";
 import { StickyNote } from "@/features/notes";
+import { isFixedIdeaMapStep } from "../logic/idea-value-feasibility-map";
 import styles from "./board-context.module.css";
 import { BoardLocation } from "./board-location";
 
@@ -35,7 +36,7 @@ export function BoardContext({
   hmwReference,
 }: BoardContextProps) {
   const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
-  const isMapWorkspace = isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const isMapWorkspace = isFixedIdeaMapStep(phase);
   const defaultInitialId =
     phase.kind === "step"
       ? phase.phase === 3

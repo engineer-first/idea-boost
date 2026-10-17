@@ -42,6 +42,7 @@ import {
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
+import { isFixedIdeaMapStep } from "../logic/idea-value-feasibility-map";
 import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import type { StepGuideState } from "../logic/use-step-guide";
@@ -187,6 +188,7 @@ export function RoomBoardHeader({
 }: RoomBoardHeaderProps) {
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isMapWorkspace = isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const isFixedIdeaMap = isFixedIdeaMapStep(phase);
   useEffect(() => {
     const area = controlsAreaRef.current;
     const header = area?.closest<HTMLElement>(
@@ -204,7 +206,7 @@ export function RoomBoardHeader({
               '[data-testid="board-connection-status"]',
             );
       if (!header) return;
-      if (isMapWorkspace && board) {
+      if (isFixedIdeaMap && board) {
         const boardTop = board.getBoundingClientRect().top;
         const location = header.querySelector<HTMLElement>(
           '[data-testid="board-location-card"]',
@@ -212,9 +214,11 @@ export function RoomBoardHeader({
         const guide = header.querySelector<HTMLElement>(
           '[data-testid="step-guide"]',
         );
-        const helpToggle = header
-          .querySelector<HTMLElement>('[data-testid="board-help-panel"]')
-          ?.querySelector<HTMLElement>("[data-help-toggle]");
+        const helpToggle = isMapWorkspace
+          ? header
+              .querySelector<HTMLElement>('[data-testid="board-help-panel"]')
+              ?.querySelector<HTMLElement>("[data-help-toggle]")
+          : null;
         const contextColumn = header.querySelector<HTMLElement>(
           '[data-testid="board-context-column"]',
         );
@@ -247,7 +251,15 @@ export function RoomBoardHeader({
                 boardTop +
                 25
               : compactGuideBottom - boardTop + 24;
-        board.style.setProperty("--board-map-top", `${mapTop}px`);
+        // 投票完了表示用のモバイル余白は周辺UIに残し、マップ位置には足さない。
+        const votingStatusPadding =
+          !isMapWorkspace && window.innerWidth <= 639 && area
+            ? Number.parseFloat(getComputedStyle(area).paddingBottom) || 0
+            : 0;
+        board.style.setProperty(
+          "--board-map-top",
+          `${mapTop - votingStatusPadding}px`,
+        );
         if (window.innerWidth >= 900) {
           const context = header.querySelector<HTMLElement>(
             '[data-testid="board-context-hud"]',
@@ -320,7 +332,7 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateGuideTop);
     observer?.observe(area);
-    if (isMapWorkspace) observer?.observe(header);
+    if (isFixedIdeaMap) observer?.observe(header);
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
@@ -337,7 +349,7 @@ export function RoomBoardHeader({
       board?.style.removeProperty("--board-map-shift-y");
       board?.style.removeProperty("--board-map-tray-top");
     };
-  }, [connectionStatus, isMapWorkspace]);
+  }, [connectionStatus, isMapWorkspace, isFixedIdeaMap]);
   const activeSharing =
     phase.kind === "step" && phase.step === 2 ? sharing : null;
   const transitioning = activeSharing?.startsAt != null;
@@ -488,7 +500,7 @@ export function RoomBoardHeader({
         >
           <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px] max-[639px]:col-start-1 max-[639px]:row-start-1 max-[639px]:row-span-2 max-[639px]:w-[min(306px,calc(100vw-24px))]">
             <BoardContext
-              initialDisclosureId={isMapWorkspace ? null : undefined}
+              initialDisclosureId={isFixedIdeaMap ? null : undefined}
               phase={phase}
               outcomePublished={outcomePublished}
               hmwDecidedIssue={hmwDecidedIssue}

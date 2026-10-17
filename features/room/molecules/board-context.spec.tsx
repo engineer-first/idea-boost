@@ -225,7 +225,9 @@ describe("現在地と補足情報", () => {
     expect(screen.getByText("解決したい課題")).toBeVisible();
   });
 
-  it.each([2, 3])("3-%iでは問いと課題をマップ用レイアウトにする", (step) => {
+  it.each([
+    2, 3, 4, 5,
+  ])("3-%iでは問いと課題をマップ用レイアウトにする", (step) => {
     render(
       <BoardContext
         initialDisclosureId={null}
@@ -251,7 +253,7 @@ describe("現在地と補足情報", () => {
     expect(issue).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("3-2・3-3以外では問いと課題の従来レイアウトを保つ", () => {
+  it("固定2軸マップ以外では問いと課題の従来レイアウトを保つ", () => {
     render(
       <BoardContext
         phase={buildPhaseStep(1, 3)}
@@ -266,7 +268,9 @@ describe("現在地と補足情報", () => {
     );
   });
 
-  it.each([2, 3])("3-%iの展開した付箋をレイアウト外に表示する", (step) => {
+  it.each([
+    2, 3, 4, 5,
+  ])("3-%iの展開した付箋をレイアウト外に表示する", (step) => {
     render(
       <BoardContext
         initialDisclosureId={null}

@@ -9,7 +9,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   DRAG_THRESHOLD_PX,
@@ -55,6 +55,7 @@ import {
   getIdeaMapNoteDisplayMetrics,
   getIdeaMapNoteGeometry,
   getIdeaValueFeasibilityMapNotePosition,
+  isFixedIdeaMapStep,
 } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
 import type {
@@ -275,10 +276,6 @@ export function RoomBoardCanvas({
   privateNoteAddRef,
 }: RoomBoardCanvasProps) {
   const [fixedIdeaMapZoom, setFixedIdeaMapZoom] = useState(1);
-  const [horizontalLowEndpointOffset, setHorizontalLowEndpointOffset] =
-    useState(0);
-  const horizontalLowEndpointOffsetRef = useRef(0);
-  const boardFrameRef = useRef<HTMLDivElement>(null);
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
   const isMultiSelected = selectionIds.length > 1;
@@ -298,7 +295,7 @@ export function RoomBoardCanvas({
   const adoptionTargetLabel = getAdoptionTargetLabel(
     phase.kind === "step" ? phase.phase : 1,
   );
-  // 3-2から固定2軸マップで共有・配置し、3-3でも同じ配置を引き継ぐ。
+  // 3-2から固定2軸マップで共有・配置し、投票・決定まで同じ表示を引き継ぐ。
   // 配置済みの付箋がある3-1再訪時は従来どおり閲覧のみできる。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
@@ -306,6 +303,7 @@ export function RoomBoardCanvas({
     (phase.step >= 2 || notes.length > 0);
   const isIdeaMapWorkspace =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const isFixedIdeaMap = isFixedIdeaMapStep(phase);
   const isIdeaMapSharingStep = isPhaseStep(phase, 3, 2);
   const ideaMapDisplayScale = getIdeaMapDisplayScale(ideaMapSizeLevel);
   const isPersonalNoteEntryPhase =
@@ -322,139 +320,38 @@ export function RoomBoardCanvas({
     ideaMapSizeLevel,
     notes.map((note) => getNoteHeight(note.content, note.fontSize)),
   );
-  const canvasZoom = isIdeaMapWorkspace
+  const canvasZoom = isFixedIdeaMap
     ? fixedIdeaMapZoom
     : (displayZoom ?? camera.zoom);
   const zoomOut = () => {
-    if (isIdeaMapWorkspace) {
+    if (isFixedIdeaMap) {
       setFixedIdeaMapZoom((zoom) => clampCanvasZoom(zoom / 1.25));
       return;
     }
     onZoomOut();
   };
   const resetZoom = () => {
-    if (isIdeaMapWorkspace) {
+    if (isFixedIdeaMap) {
       setFixedIdeaMapZoom(1);
       return;
     }
     onResetZoom();
   };
   const zoomIn = () => {
-    if (isIdeaMapWorkspace) {
+    if (isFixedIdeaMap) {
       setFixedIdeaMapZoom((zoom) => clampCanvasZoom(zoom * 1.25));
       return;
     }
     onZoomIn();
   };
   const fitToNotes = () => {
-    if (isIdeaMapWorkspace) {
+    if (isFixedIdeaMap) {
       // 固定マップは既定で表示領域にフィットするため、全体表示は等倍へ戻す。
       setFixedIdeaMapZoom(1);
       return;
     }
     onFitToNotes();
   };
-
-  useLayoutEffect(() => {
-    if (
-      !isIdeaMapSharingStep ||
-      !isIdeaValueFeasibilityMapVisible ||
-      !permissions.canEditNote
-    ) {
-      horizontalLowEndpointOffsetRef.current = 0;
-      setHorizontalLowEndpointOffset((current) =>
-        current === 0 ? current : 0,
-      );
-      return;
-    }
-
-    const frame = boardFrameRef.current;
-    const controls = frame?.querySelector<HTMLElement>(
-      '[data-testid="note-font-size-controls"]',
-    );
-    const zoomControls = frame?.querySelector<HTMLElement>(
-      '[data-testid="canvas-zoom-hud"]',
-    );
-    const endpoint = frame?.querySelector<HTMLElement>(
-      '[data-testid="idea-map-x-low-endpoint"]',
-    );
-    const operationControls = [controls, zoomControls].filter(
-      (element): element is HTMLElement =>
-        element !== null && element !== undefined,
-    );
-    if (!frame || operationControls.length === 0 || !endpoint) {
-      horizontalLowEndpointOffsetRef.current = 0;
-      setHorizontalLowEndpointOffset((current) =>
-        current === 0 ? current : 0,
-      );
-      return;
-    }
-
-    const updateOffset = () => {
-      const endpointBounds = endpoint.getBoundingClientRect();
-      const fontControlBounds = controls?.getBoundingClientRect();
-      const zoomControlBounds = zoomControls?.getBoundingClientRect();
-      if (
-        operationControls.length === 0 ||
-        endpointBounds.width === 0 ||
-        (!fontControlBounds?.width && !zoomControlBounds?.width)
-      ) {
-        setHorizontalLowEndpointOffset((current) =>
-          current === 0 ? current : 0,
-        );
-        return;
-      }
-
-      const zoomVerticalGap = zoomControlBounds
-        ? Math.max(
-            zoomControlBounds.top - endpointBounds.bottom,
-            endpointBounds.top - zoomControlBounds.bottom,
-            0,
-          )
-        : Number.POSITIVE_INFINITY;
-      const mapZoom = fixedIdeaMapZoom;
-      const baselineLeft =
-        endpointBounds.left - horizontalLowEndpointOffsetRef.current * mapZoom;
-      const previousTargetLeft = Math.max(
-        baselineLeft,
-        zoomControlBounds?.width && zoomVerticalGap < 16
-          ? zoomControlBounds.right + 14
-          : baselineLeft,
-      );
-      const targetLeft = Math.max(
-        previousTargetLeft + 70,
-        fontControlBounds?.width ? fontControlBounds.right + 24 : baselineLeft,
-      );
-      const requiredOffset = Math.max(0, targetLeft - baselineLeft) / mapZoom;
-      const nextOffset = Math.round(requiredOffset * 100) / 100;
-
-      if (
-        Math.abs(horizontalLowEndpointOffsetRef.current - nextOffset) >= 0.25
-      ) {
-        horizontalLowEndpointOffsetRef.current = nextOffset;
-        setHorizontalLowEndpointOffset(nextOffset);
-      }
-    };
-
-    updateOffset();
-    const observer =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(updateOffset);
-    observer?.observe(frame);
-    for (const element of operationControls) observer?.observe(element);
-    window.addEventListener("resize", updateOffset);
-
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", updateOffset);
-    };
-  }, [
-    fixedIdeaMapZoom,
-    isIdeaMapSharingStep,
-    isIdeaValueFeasibilityMapVisible,
-    permissions.canEditNote,
-  ]);
 
   useEffect(() => {
     if (isAdoptMode) return;
@@ -567,7 +464,7 @@ export function RoomBoardCanvas({
         note={note}
         maxDisplayHeight={
           maxDisplayHeight ??
-          (isIdeaMapWorkspace
+          (isFixedIdeaMap
             ? FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT
             : isIdeaValueFeasibilityMapVisible
               ? mapNoteGeometry.noteHeightLimit
@@ -676,7 +573,7 @@ export function RoomBoardCanvas({
   );
 
   function renderPositionedNote(note: Note) {
-    const ideaMapNoteMetrics = isIdeaMapWorkspace
+    const ideaMapNoteMetrics = isFixedIdeaMap
       ? getIdeaMapNoteDisplayMetrics(note, ideaMapSizeLevel)
       : null;
     const ideaMapPositionProfiles = ideaMapNoteMetrics
@@ -686,7 +583,7 @@ export function RoomBoardCanvas({
           ideaMapNoteMetrics.scale,
         )
       : null;
-    const position = isIdeaMapWorkspace
+    const position = isFixedIdeaMap
       ? { left: "0%", bottom: "0%" }
       : isIdeaValueFeasibilityMapVisible
         ? getIdeaValueFeasibilityMapNotePosition(
@@ -725,21 +622,21 @@ export function RoomBoardCanvas({
     return (
       <div
         key={note.id}
-        className={`isolate pointer-events-auto absolute ${isIdeaMapWorkspace ? `${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none` : ""}`}
+        className={`isolate pointer-events-auto absolute ${isFixedIdeaMap ? `${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none` : ""}`}
         data-testid={
           isIdeaValueFeasibilityMapVisible
             ? `idea-value-feasibility-map-note-${note.id}`
             : `board-note-${note.id}`
         }
         style={{
-          ...(!isIdeaMapWorkspace ? position : {}),
+          ...(!isFixedIdeaMap ? position : {}),
           ...ideaMapPositionVariables,
           zIndex: isTemporarilyFront
             ? TEMPORARY_FRONT_Z_INDEX
             : note.excluded
               ? 0
               : note.stackOrder,
-          ...(isIdeaMapWorkspace
+          ...(isFixedIdeaMap
             ? {
                 transform: `scale(${ideaMapNoteMetrics?.scale ?? ideaMapDisplayScale})`,
                 transformOrigin:
@@ -751,7 +648,7 @@ export function RoomBoardCanvas({
         {renderNoteCard(
           note,
           ideaMapNoteMetrics?.noteHeight,
-          isIdeaMapWorkspace ? "responsive-map" : 1,
+          isFixedIdeaMap ? "responsive-map" : 1,
         )}
         {isAdoptTarget ? (
           <button
@@ -809,7 +706,7 @@ export function RoomBoardCanvas({
 
   function renderIdeaMapDragGhost() {
     if (!dragGhost) return null;
-    if (!isIdeaMapWorkspace) {
+    if (!isFixedIdeaMap) {
       const position = getIdeaValueFeasibilityMapNotePosition(
         { value: dragGhost.y, feasibility: dragGhost.x },
         getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
@@ -898,14 +795,13 @@ export function RoomBoardCanvas({
   return (
     <div className="min-h-0 flex-1">
       <div
-        ref={boardFrameRef}
         className={
-          isIdeaMapWorkspace
+          isFixedIdeaMap
             ? "relative flex h-full min-h-0 flex-row max-[639px]:flex-col"
             : "relative h-full min-h-80"
         }
         data-testid="board-frame"
-        data-map-workspace={isIdeaMapWorkspace || undefined}
+        data-map-workspace={isFixedIdeaMap || undefined}
       >
         <div
           className="pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
@@ -949,7 +845,7 @@ export function RoomBoardCanvas({
         </div>
         <div
           className={
-            isIdeaMapWorkspace
+            isFixedIdeaMap
               ? "relative min-h-0 min-w-0 flex-1"
               : "absolute inset-0"
           }
@@ -958,7 +854,7 @@ export function RoomBoardCanvas({
           <div
             ref={boardScrollerRef}
             // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
-            className={`relative h-full overflow-clip ${isIdeaMapWorkspace ? "bg-background" : "bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
+            className={`relative h-full overflow-clip ${isFixedIdeaMap ? "bg-background" : "bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
               isIdeaMapWorkspace
                 ? "cursor-default"
                 : isAdoptMode
@@ -983,7 +879,7 @@ export function RoomBoardCanvas({
             }
             data-selection-count={selectionIds.length}
             data-adopt-mode={isAdoptMode || undefined}
-            style={isIdeaMapWorkspace ? { backgroundImage: "none" } : gridStyle}
+            style={isFixedIdeaMap ? { backgroundImage: "none" } : gridStyle}
             onPointerDownCapture={handleViewportPointerDown}
             onPointerUp={(event) => {
               finishAdoptionPointer(event);
@@ -1027,27 +923,26 @@ export function RoomBoardCanvas({
                 style={marquee}
               />
             ) : null}
-            {isIdeaMapWorkspace ? (
+            {isFixedIdeaMap ? (
               <FixedIdeaMap
                 positionAreaRef={ideaMapPlaneRef}
-                workspace={isIdeaMapWorkspace}
+                workspace
                 workspaceControls={
-                  ideaMapWorkspaceControls ?? {
-                    phaseLoop: null,
-                    mapSize: (
-                      <IdeaMapSizeControls
-                        sizeLevel={ideaMapSizeLevel}
-                        initialized={ideaMapSizeInitialized}
-                        isHost={isHost}
-                        isDisconnected={isDisconnected}
-                        isDragging={ideaMapIsDragging}
-                        onResize={onIdeaMapResize}
-                      />
-                    ),
-                  }
-                }
-                horizontalLowEndpointOffset={
-                  isIdeaMapSharingStep ? horizontalLowEndpointOffset : 0
+                  isIdeaMapWorkspace
+                    ? (ideaMapWorkspaceControls ?? {
+                        phaseLoop: null,
+                        mapSize: (
+                          <IdeaMapSizeControls
+                            sizeLevel={ideaMapSizeLevel}
+                            initialized={ideaMapSizeInitialized}
+                            isHost={isHost}
+                            isDisconnected={isDisconnected}
+                            isDragging={ideaMapIsDragging}
+                            onResize={onIdeaMapResize}
+                          />
+                        ),
+                      })
+                    : undefined
                 }
                 groupHorizontalLowEndpoint={isIdeaMapSharingStep}
                 zoom={fixedIdeaMapZoom}
@@ -1078,14 +973,14 @@ export function RoomBoardCanvas({
                   : "absolute top-0 left-0 min-h-full min-w-full"
               }
               style={{
-                transform: isIdeaMapWorkspace
+                transform: isFixedIdeaMap
                   ? "none"
                   : `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`,
                 transformOrigin: "0 0",
-                willChange: isIdeaMapWorkspace ? "auto" : "transform",
+                willChange: isFixedIdeaMap ? "auto" : "transform",
               }}
             >
-              {isIdeaValueFeasibilityMapVisible && !isIdeaMapWorkspace ? (
+              {isIdeaValueFeasibilityMapVisible && !isFixedIdeaMap ? (
                 <IdeaValueFeasibilityMap
                   planeRef={ideaMapPlaneRef}
                   sizeLevel={ideaMapSizeLevel}
@@ -1184,7 +1079,7 @@ export function RoomBoardCanvas({
               : null}
           </div>
         </div>
-        {isIdeaMapWorkspace ? (
+        {isFixedIdeaMap ? (
           <div
             className="relative z-30 w-56 shrink-0 -translate-x-3 max-[639px]:hidden"
             data-testid="idea-map-workspace-rail"

@@ -41,11 +41,114 @@ async function openStory(page: Page, storyId: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
 }
 
+async function openVotingMap(page: Page): Promise<void> {
+  await openStory(page, "room-roomboardview--idea-map-voting");
+}
+
+async function openResultMap(page: Page): Promise<void> {
+  await openStory(page, "room-roomboardview--idea-map-result");
+}
+
 async function readBounds(page: Page, testId: string) {
   const bounds = await page.getByTestId(testId).boundingBox();
   if (!bounds) throw new Error(`${testId} が表示されていません`);
   return bounds;
 }
+
+test.each([
+  768, 1280, 1440,
+])("%dpxで3-2〜3-5の決定事項を同じ幅・余白の横並びにする", async (width) => {
+  const page = await browser.newPage({ viewport: { width, height: 900 } });
+  try {
+    const measurements = [];
+    for (const open of [
+      openWorkspace,
+      openMapOnly,
+      openVotingMap,
+      openResultMap,
+    ]) {
+      await open(page);
+      const question = page.getByRole("button", {
+        name: "決定した問い",
+        exact: true,
+      });
+      const issue = page.getByRole("button", {
+        name: "決定した課題",
+        exact: true,
+      });
+      expect(await question.getAttribute("aria-expanded")).toBe("false");
+      expect(await issue.getAttribute("aria-expanded")).toBe("false");
+      const questionBounds = await readBounds(page, "board-reference-hmw");
+      const issueBounds = await readBounds(page, "board-reference-issue");
+      expect(questionBounds.y).toBe(issueBounds.y);
+      expect(questionBounds.height).toBe(issueBounds.height);
+      expect(issueBounds.x - questionBounds.x - questionBounds.width).toBe(8);
+      measurements.push({ question: questionBounds, issue: issueBounds });
+    }
+    for (const actual of measurements.slice(1))
+      expect(actual).toEqual(measurements[0]);
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
+  { width: 1280, height: 720 },
+  { width: 1440, height: 900 },
+  { width: 768, height: 844 },
+  { width: 390, height: 844 },
+])("$width×$heightで評価・投票・決定のマップと付箋の表示位置が一致する", async (viewport) => {
+  const page = await browser.newPage({ viewport });
+  try {
+    const measurements = [];
+    for (const story of [
+      "idea-map-only",
+      "idea-map-voting",
+      "idea-map-result",
+    ]) {
+      await openStory(page, `room-roomboardview--${story}`);
+      const plane = page.getByTestId("idea-value-feasibility-map-plane");
+      await plane.waitFor();
+      await expect
+        .poll(async () => (await plane.boundingBox())?.y)
+        .toBeGreaterThan(0);
+      // ヘッダーのResizeObserverによるマップ位置補正が完了したフレームを測る。
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+          ),
+      );
+      const bounds = {} as Record<
+        string,
+        Awaited<ReturnType<typeof readBounds>>
+      >;
+      for (const testId of [
+        "idea-value-feasibility-map-plane",
+        "idea-value-feasibility-map-x-axis-label",
+        "idea-value-feasibility-map-y-axis-label",
+        "idea-value-feasibility-map-note-map-workspace-placed",
+      ])
+        bounds[testId] = await readBounds(page, testId);
+      measurements.push(bounds);
+      await page.screenshot({
+        path: `${output}/${story}-${viewport.width}.png`,
+      });
+    }
+    for (const actual of measurements.slice(1)) {
+      for (const [testId, reference] of Object.entries(measurements[0])) {
+        for (const dimension of ["x", "y", "width", "height"] as const) {
+          expect(
+            actual[testId][dimension],
+            `${testId}.${dimension}`,
+          ).toBeCloseTo(reference[dimension], 1);
+        }
+      }
+    }
+  } finally {
+    await page.close();
+  }
+});
 
 test.each([
   1280, 1440,
@@ -62,6 +165,91 @@ test.each([
       Math.min(guide.y + guide.height, controls.y + controls.height) -
       Math.max(guide.y, controls.y);
     expect(overlapWidth > 0 && overlapHeight > 0).toBe(false);
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
+  { label: "主観", kind: "subjective", remaining: 1 },
+  { label: "客観", kind: "objective", remaining: 3 },
+])("3-4の固定マップで$label票を貼り付け・取り消しできる", async ({
+  label,
+  kind,
+  remaining,
+}) => {
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+  });
+  try {
+    await openStory(page, "room-roomboardview--idea-map-voting");
+    const note = page.getByTestId(
+      "idea-value-feasibility-map-note-map-workspace-shared-5",
+    );
+    const before = await note.boundingBox();
+    await page
+      .getByRole("button", {
+        name: `${label}シール 残り${remaining}票`,
+        exact: true,
+      })
+      .click();
+    await note
+      .getByRole("button", {
+        name: `付箋（${label}シールを貼る）`,
+        exact: true,
+      })
+      .click();
+    await expect
+      .poll(() => note.getByTestId(`dot-vote-sticker-image-${kind}`).count())
+      .toBe(1);
+    await expect
+      .poll(() =>
+        page
+          .getByRole("button", {
+            name: `${label}シール 残り${remaining - 1}票`,
+            exact: true,
+          })
+          .count(),
+      )
+      .toBe(1);
+    await note
+      .getByRole("button", {
+        name: `${label}シール 1票を1票取り消す`,
+        exact: true,
+      })
+      .click();
+    await expect
+      .poll(() => note.getByTestId(`dot-vote-sticker-image-${kind}`).count())
+      .toBe(0);
+    expect(await note.boundingBox()).toEqual(before);
+    await page.screenshot({ path: `${output}/voting-${kind}.png` });
+  } finally {
+    await page.close();
+  }
+});
+
+test("3-5の固定マップで投票結果を表示し、採用する付箋を選べる", async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+  });
+  try {
+    await openStory(page, "room-roomboardview--idea-map-result");
+    const note = page.getByTestId(
+      "idea-value-feasibility-map-note-map-workspace-shared-5",
+    );
+    const before = await note.boundingBox();
+    expect(
+      await note.getByTestId("dot-vote-result-count-objective").innerText(),
+    ).toBe("6");
+    await page
+      .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
+      .click();
+    await note.getByRole("button", { name: /採用するアイデア:/ }).click();
+    await expect
+      .poll(() => page.getByTestId("canvas-input-adoption-count").textContent())
+      .toBe("1");
+    expect(await note.boundingBox()).toEqual(before);
+    await page.screenshot({ path: `${output}/result-selected.png` });
   } finally {
     await page.close();
   }
@@ -650,6 +838,7 @@ test.each([
   width,
   height,
   open,
+  phase,
 }) => {
   const page = await browser.newPage({ viewport: { width, height } });
   try {
@@ -685,10 +874,30 @@ test.each([
       first.y < second.y + second.height &&
       first.y + first.height > second.y;
 
-    expect(
-      overlaps(feasibilityLow, zoomControls),
-      `${width}×${height}で横軸の「低」とズームUIが重ならない`,
-    ).toBe(false);
+    if (phase === "3-2") {
+      // 3-2は文字サイズUIの右を基準にする。行ボックスの余白ではなく、
+      // 文字そのものとズームボタンの操作領域が重ならないことを確認する。
+      const textBounds = await feasibilityScale
+        .getByText("低", { exact: true })
+        .evaluate((label) => {
+          const range = document.createRange();
+          range.selectNodeContents(label);
+          return range.getBoundingClientRect().toJSON();
+        });
+      for (const button of await page
+        .getByTestId("canvas-zoom-hud")
+        .getByRole("button")
+        .all()) {
+        const buttonBounds = await button.boundingBox();
+        if (buttonBounds)
+          expect(overlaps(textBounds, buttonBounds)).toBe(false);
+      }
+    } else {
+      expect(
+        overlaps(feasibilityLow, zoomControls),
+        `${width}×${height}で横軸の「低」とズームUIが重ならない`,
+      ).toBe(false);
+    }
     expect(
       overlaps(valueLow, zoomControls),
       `${width}×${height}で縦軸の「低」とズームUIが重ならない`,
@@ -787,33 +996,6 @@ test.each([
       const verticalCenterGap = Math.abs(
         low.y + low.height / 2 - (arrow.y + arrow.height / 2),
       );
-      const baselineLeft = groupedEndpoint
-        ? await page.evaluate(() => {
-            const endpoint = document.querySelector(
-              '[data-testid="idea-map-x-low-endpoint"]',
-            );
-            const axis = endpoint?.parentElement;
-            if (
-              !(endpoint instanceof HTMLElement) ||
-              !(axis instanceof HTMLElement)
-            )
-              throw new Error("横軸の左端が表示されていません");
-            const previousOffset = axis.style.getPropertyValue(
-              "--horizontal-low-endpoint-offset",
-            );
-            axis.style.setProperty("--horizontal-low-endpoint-offset", "0px");
-            const baseline = endpoint.getBoundingClientRect().left;
-            if (previousOffset) {
-              axis.style.setProperty(
-                "--horizontal-low-endpoint-offset",
-                previousOffset,
-              );
-            } else {
-              axis.style.removeProperty("--horizontal-low-endpoint-offset");
-            }
-            return baseline;
-          })
-        : null;
       const controlsLocator = page.getByTestId("note-font-size-controls");
       const controls = (await controlsLocator.count())
         ? await controlsLocator.boundingBox()
@@ -826,7 +1008,6 @@ test.each([
         arrowAfterLabelGap,
         verticalCenterGap,
         groupedEndpoint,
-        baselineLeft,
         scaleBounds,
         endpoint: {
           left: groupBounds?.x ?? Math.min(low.x, arrow.x),
@@ -858,7 +1039,7 @@ test.each([
     const mapOnly = await readEndpoint(mapOnlyPage);
     const controls = sharing.controls;
     const zoomControls = sharing.zoomControls;
-    if (!controls || !zoomControls || sharing.baselineLeft === null)
+    if (!controls || !zoomControls)
       throw new Error("左下の操作UIが表示されていません");
 
     expect(sharing.groupedEndpoint).toBe(1);
@@ -870,41 +1051,10 @@ test.each([
     expect(sharing.verticalCenterGap).toBeLessThanOrEqual(4);
     expect(mapOnly.groupedEndpoint).toBe(0);
 
-    const nearbyControls = [controls, zoomControls].filter((control) => {
-      const verticalGap = Math.max(
-        control.y - sharing.endpoint.bottom,
-        sharing.endpoint.top - (control.y + control.height),
-        0,
-      );
-      return verticalGap < 16;
-    });
-    if (nearbyControls.length > 0) {
-      const rightmostControlEdge = Math.max(
-        ...nearbyControls.map((control) => control.x + control.width),
-      );
-      const horizontalGap = sharing.endpoint.left - rightmostControlEdge;
-      expect(
-        horizontalGap,
-        "3-2では横軸の矢印とラベルを近接する左下操作UIから12px以上離す",
-      ).toBeGreaterThanOrEqual(12);
-    }
-
-    const zoomVerticalGap = Math.max(
-      zoomControls.y - sharing.endpoint.bottom,
-      sharing.endpoint.top - (zoomControls.y + zoomControls.height),
-      0,
-    );
-    const previousEndpointLeft = Math.max(
-      sharing.baselineLeft,
-      ...(zoomVerticalGap < 16
-        ? [zoomControls.x + zoomControls.width + 14]
-        : []),
-    );
-    const expectedEndpointLeft = Math.max(
-      previousEndpointLeft + 70,
-      controls.x + controls.width + 24,
-    );
-    expect(sharing.endpoint.left).toBeCloseTo(expectedEndpointLeft, 0);
+    expect(
+      sharing.endpoint.left - (controls.x + controls.width),
+      "3-2では高さにかかわらず文字サイズUIの24px右に左端を揃える",
+    ).toBeCloseTo(24, 1);
     const connectionGap = await sharingPage
       .getByTestId("idea-value-feasibility-map-x-scale-bar")
       .evaluate((element) => {
@@ -975,6 +1125,107 @@ test.each([
     });
   } finally {
     await Promise.all([sharingPage.close(), mapOnlyPage.close()]);
+  }
+});
+
+test.each([
+  { width: 1280, height: 720 },
+  { width: 1440, height: 900 },
+])("3-2の横軸左端は初回・リロード・タイマー変更・工程遷移で一致する（$width×$height）", async (viewport) => {
+  const page = await browser.newPage({ viewport });
+  try {
+    const readLayout = async () => {
+      await page.getByTestId("idea-map-x-low-endpoint").waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          }),
+      );
+      const layout: Record<string, Awaited<ReturnType<typeof readBounds>>> = {};
+      for (const testId of [
+        "idea-map-x-low-endpoint",
+        "idea-value-feasibility-map-x-low-label",
+        "idea-value-feasibility-map-x-low-arrow",
+        "idea-value-feasibility-map-plane",
+        "idea-value-feasibility-map-x-axis-label",
+        "idea-value-feasibility-map-y-axis-label",
+        "idea-value-feasibility-map-note-map-workspace-placed",
+        "note-font-size-controls",
+        "canvas-zoom-hud",
+      ])
+        layout[testId] = await readBounds(page, testId);
+      return layout;
+    };
+    const expectSameLayout = (
+      actual: Awaited<ReturnType<typeof readLayout>>,
+      expected: Awaited<ReturnType<typeof readLayout>>,
+    ) => {
+      for (const [testId, reference] of Object.entries(expected))
+        for (const dimension of ["x", "y", "width", "height"] as const)
+          expect(
+            actual[testId][dimension],
+            `${testId}.${dimension}`,
+          ).toBeCloseTo(reference[dimension], 1);
+    };
+
+    await openWorkspace(page);
+    const initial = await readLayout();
+    await page.screenshot({
+      path: `${output}/endpoint-initial-${viewport.width}.png`,
+    });
+    await page.reload();
+    expectSameLayout(await readLayout(), initial);
+    await page.screenshot({
+      path: `${output}/endpoint-reloaded-${viewport.width}.png`,
+    });
+
+    await openStory(page, "room-roomboardview--idea-map-phase-transitions");
+    const phase = page.getByRole("combobox", { name: "検証用の工程切り替え" });
+    await phase.selectOption("2");
+    expectSameLayout(await readLayout(), initial);
+
+    const timer = page.getByTestId("room-timer");
+    await timer.click();
+    await page.getByRole("button", { name: "一時停止", exact: true }).click();
+    await expect.poll(() => timer.getAttribute("data-status")).toBe("paused");
+    expectSameLayout(await readLayout(), initial);
+    await page.getByRole("button", { name: "再開", exact: true }).click();
+    await expect.poll(() => timer.getAttribute("data-status")).toBe("running");
+    await timer.click();
+    expectSameLayout(await readLayout(), initial);
+
+    // ラベルを左へ戻しても、ズーム操作を妨げない。
+    await page
+      .getByRole("button", { name: "キャンバスを拡大", exact: true })
+      .click();
+    expect(
+      await page
+        .getByRole("button", { name: "ズームを100%に戻す", exact: true })
+        .textContent(),
+    ).toBe("125%");
+    await page
+      .getByRole("button", { name: "付箋全体を表示", exact: true })
+      .click();
+    expectSameLayout(await readLayout(), initial);
+    await phase.selectOption("3");
+    expect(await page.getByTestId("idea-map-x-low-endpoint").count()).toBe(0);
+    await phase.selectOption("2");
+    expectSameLayout(await readLayout(), initial);
+    await page.screenshot({
+      path: `${output}/endpoint-transitioned-${viewport.width}.png`,
+    });
+
+    await page.setViewportSize({
+      width: viewport.width - 100,
+      height: viewport.height,
+    });
+    await readLayout();
+    await page.setViewportSize(viewport);
+    expectSameLayout(await readLayout(), initial);
+  } finally {
+    await page.close();
   }
 });
 
@@ -1108,8 +1359,12 @@ test("狭い画面では決定事項を縦並びにし、展開時も重ねな�
 test.each([
   { phase: "3-2", width: 1280, height: 720, open: openWorkspace },
   { phase: "3-3", width: 1280, height: 720, open: openMapOnly },
+  { phase: "3-4", width: 1280, height: 720, open: openVotingMap },
+  { phase: "3-5", width: 1280, height: 720, open: openResultMap },
   { phase: "3-2", width: 390, height: 844, open: openWorkspace },
   { phase: "3-3", width: 390, height: 844, open: openMapOnly },
+  { phase: "3-4", width: 390, height: 844, open: openVotingMap },
+  { phase: "3-5", width: 390, height: 844, open: openResultMap },
 ])("$phase / $width×$heightで展開した決定事項の付箋を切らずに表示する", async ({
   width,
   height,

@@ -68,6 +68,31 @@ function openRoomMenu() {
 }
 
 describe("RoomBoardHeader", () => {
+  it.each([
+    4, 5,
+  ])("3-%iも問いと課題を畳んだ共通のマップ用参照欄を使う", (step) => {
+    setup({
+      phase: buildPhaseStep(step, 3),
+      decidedHmw: "どうすれば全員が参加できるだろうか？",
+      hmwDecidedIssue: "発言する人が偏る",
+      initialGuideState: "compact",
+    });
+
+    const question = screen.getByRole("button", { name: "決定した問い" });
+    const issue = screen.getByRole("button", { name: "決定した課題" });
+    expect(question).toHaveAttribute("aria-expanded", "false");
+    expect(issue).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(question);
+    expect(screen.getByTestId("board-reference-hmw-popover")).toHaveTextContent(
+      "どうすれば全員が参加できるだろうか？",
+    );
+    fireEvent.click(issue);
+    expect(question).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByTestId("board-reference-issue-popover"),
+    ).toHaveTextContent("発言する人が偏る");
+  });
+
   it("3-2と3-3で同じマップ用ヘッダー配置を使う", () => {
     setup({ phase: buildPhaseStep(2, 3) });
     expect(screen.getByTestId("board-header-row")).toHaveAttribute(

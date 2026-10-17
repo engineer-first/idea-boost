@@ -1274,6 +1274,76 @@ export const IdeaMapOnly: Story = {
   },
 };
 
+export const IdeaMapPhaseTransitions: Story = {
+  ...IdeaMapWorkspace,
+  name: "2軸マップ / 再読み込みしない工程切り替え",
+  render: function Render(args) {
+    const [step, setStep] = useState(1);
+    const [timer, setTimer] = useState(args.timer);
+    const phase = buildPhaseStep(step, 3);
+    const help = useBoardHelp(phase);
+    return (
+      <>
+        <RoomBoardView
+          {...args}
+          phase={phase}
+          help={help}
+          timer={timer}
+          onTimerPause={() => {
+            if (timer.status !== "running") return;
+            setTimer({
+              status: "paused",
+              remainingMs: Math.max(0, timer.endsAt - Date.now()),
+              durationMs: timer.durationMs,
+            });
+          }}
+          onTimerResume={() => {
+            if (timer.status !== "paused") return;
+            setTimer({
+              status: "running",
+              endsAt: Date.now() + timer.remainingMs,
+              durationMs: timer.durationMs,
+            });
+          }}
+          interactions={{ ...args.interactions, notes: args.notes }}
+        />
+        <select
+          aria-label="検証用の工程切り替え"
+          className="fixed right-3 bottom-24 z-50 border bg-background"
+          value={step}
+          onChange={(event) => setStep(Number(event.target.value))}
+        >
+          <option value={1}>3-1 個人</option>
+          <option value={2}>3-2 共有</option>
+          <option value={3}>3-3 評価</option>
+        </select>
+      </>
+    );
+  },
+};
+
+export const IdeaMapVoting: Story = {
+  ...IdeaMapOnly,
+  name: "3-4 投票 / 評価と同じマップ",
+  args: { ...IdeaMapOnly.args, phase: buildPhaseStep(4, 3) },
+};
+
+export const IdeaMapResult: Story = {
+  ...IdeaMapOnly,
+  name: "3-5 決定 / 評価と同じマップ",
+  args: {
+    ...IdeaMapOnly.args,
+    phase: buildPhaseStep(5, 3),
+    notes: IdeaMapOnly.args?.notes?.map((note, index) => ({
+      ...note,
+      dotVotes: {
+        subjective: { count: index % 2, ownCount: 0, votedByMe: false },
+        objective: { count: index + 1, ownCount: 0, votedByMe: false },
+      },
+    })),
+  },
+};
+
 export const CanvasInputSharing: Story = {
   ...CanvasInputInteraction,
   args: {

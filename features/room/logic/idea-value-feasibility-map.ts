@@ -6,6 +6,7 @@ import {
   NOTE_HEIGHT,
   NOTE_WIDTH,
 } from "@/contracts/board";
+import type { RoomPhase } from "@/contracts/phase";
 
 export { IDEA_VALUE_FEASIBILITY_MAP_RANGE } from "@/contracts/board";
 
@@ -16,6 +17,10 @@ export const IDEA_MAP_AXIS_SIZE = 64;
 export const IDEA_MAP_GRID_GAP = 12;
 const IDEA_MAP_PLANE_INSET = IDEA_MAP_AXIS_SIZE + IDEA_MAP_GRID_GAP + 2;
 export const FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT = 220;
+
+export function isFixedIdeaMapStep(phase: RoomPhase): boolean {
+  return phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+}
 
 export function getIdeaValueFeasibilityMapDimensions(level: number): {
   width: number;

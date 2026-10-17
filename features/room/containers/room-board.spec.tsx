@@ -3368,9 +3368,11 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         ),
     ).toEqual([]);
   });
-  it("Step 3-3では付箋だけを移動し、カメラを動かさない", () => {
+  it.each([
+    3, 5,
+  ])("Step 3-%iでは付箋だけを移動し、カメラを動かさない", (step) => {
     const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
-      phase: buildPhaseStep(3, 3),
+      phase: buildPhaseStep(step, 3),
     });
     const canvas = screen.getByTestId("board-canvas");
     const plane = screen.getByTestId("idea-value-feasibility-map-plane");

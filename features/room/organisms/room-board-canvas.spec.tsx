@@ -1,4 +1,11 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  type RenderOptions,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
@@ -16,7 +23,10 @@ import {
 } from "../logic/idea-value-feasibility-map";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
-function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
+function setup(
+  overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {},
+  renderOptions?: RenderOptions,
+) {
   const props = {
     notes: buildNotes(2),
     groups: [],
@@ -73,6 +83,7 @@ function setup(overrides: Partial<Parameters<typeof RoomBoardCanvas>[0]> = {}) {
   };
   const { rerender: rerenderView, unmount } = render(
     <RoomBoardCanvas {...props} />,
+    renderOptions,
   );
   return {
     props,
@@ -99,6 +110,109 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
+  it("3-2の横軸左端を文字サイズUIの24px右に揃え、再描画でも移動しない", () => {
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.dataset.testid === "idea-map-x-low-endpoint") {
+          const offset =
+            Number.parseFloat(
+              this.parentElement?.style.getPropertyValue(
+                "--horizontal-low-endpoint-offset",
+              ) ||
+                this.style.getPropertyValue("--horizontal-low-endpoint-offset"),
+            ) || 0;
+          return new DOMRect(82 + offset, 500, 800 - offset, 24);
+        }
+        if (this.dataset.testid === "note-font-size-controls")
+          return new DOMRect(12, 624, 122, 38);
+        if (this.dataset.testid === "canvas-zoom-hud")
+          return new DOMRect(12, 670, 280, 38);
+        return new DOMRect();
+      });
+    try {
+      const phase = buildPhaseStep(2, 3);
+      const { rerender } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+      });
+      const endpoint = screen.getByTestId("idea-map-x-low-endpoint");
+      expect(endpoint.getBoundingClientRect().left).toBe(158);
+      rerender();
+      fireEvent.resize(window);
+      expect(endpoint.getBoundingClientRect().left).toBe(158);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
+  it("3-2の横軸左端はズームUIの幅やマップの高さが変わっても文字サイズUIの右にとどまる", async () => {
+    let measurable = true;
+    let zoomControlWidth = 280;
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: HTMLElement) {
+        if (this.dataset.testid === "idea-map-x-low-endpoint") {
+          if (!measurable) return new DOMRect();
+          const offset =
+            Number.parseFloat(
+              this.parentElement?.style.getPropertyValue(
+                "--horizontal-low-endpoint-offset",
+              ) ||
+                this.style.getPropertyValue("--horizontal-low-endpoint-offset"),
+            ) || 0;
+          const root = this.closest<HTMLElement>(
+            '[data-testid="room-board-view-root"]',
+          );
+          const shift = Number.parseFloat(
+            root?.style.getPropertyValue("--board-map-shift-y") || "0",
+          );
+          return new DOMRect(82 + offset, 653 + shift, 800 - offset, 24);
+        }
+        if (this.dataset.testid === "note-font-size-controls")
+          return new DOMRect(12, 624, 122, 38);
+        if (this.dataset.testid === "canvas-zoom-hud")
+          return new DOMRect(12, 670, zoomControlWidth, 38);
+        return new DOMRect();
+      });
+    try {
+      const phase = buildPhaseStep(2, 3);
+      setup(
+        { phase, permissions: getBoardPermissions(phase) },
+        {
+          wrapper: ({ children }) => (
+            <div data-testid="room-board-view-root">{children}</div>
+          ),
+        },
+      );
+      const endpoint = screen.getByTestId("idea-map-x-low-endpoint");
+      const positionedLeft = endpoint.getBoundingClientRect().left;
+      expect(positionedLeft).toBe(158);
+
+      zoomControlWidth = 360;
+      fireEvent.resize(window);
+      expect(endpoint.getBoundingClientRect().left).toBe(positionedLeft);
+
+      // 計測不可になってから戻っても、以前のref値を二重に差し引かない。
+      measurable = false;
+      fireEvent.resize(window);
+      measurable = true;
+      fireEvent.resize(window);
+      fireEvent.resize(window);
+      expect(endpoint.getBoundingClientRect().left).toBe(positionedLeft);
+
+      // ヘッダーのeffectは、子のlayout effectより後にこのCSS変数を確定する。
+      screen
+        .getByTestId("room-board-view-root")
+        .style.setProperty("--board-map-shift-y", "-153px");
+      await waitFor(() => {
+        expect(endpoint.getBoundingClientRect().left).toBe(positionedLeft);
+      });
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
   it("タイマー停止中も選択した付箋の文字サイズを変更できる", () => {
     const phase = buildPhaseStep(2);
     const onNoteFontSizeChange = vi.fn();
@@ -1236,27 +1350,28 @@ describe("RoomBoardCanvas", () => {
 
   it.each([
     4, 5,
-  ])("3-%iはdevelopのカメラ付きマップと付箋座標を維持する", (step) => {
+  ])("3-%iでも固定マップを表示し、周辺ツールの構成を維持する", (step) => {
     const phase = buildPhaseStep(step, 3);
     setup({
       phase,
       permissions: getBoardPermissions(phase),
       camera: { x: 30, y: -20, zoom: 0.75 },
-      notes: [buildNote({ id: "legacy-map-note", x: 72, y: 28 })],
+      notes: [buildNote({ id: "mapped-note", x: 72, y: 28 })],
     });
-    expect(
-      screen.queryByTestId("idea-map-fixed-board"),
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("idea-map-fixed-board")).toBeInTheDocument();
     expect(screen.getByTestId("board-canvas")).toHaveStyle({
-      transform: "translate3d(30px, -20px, 0) scale(0.75)",
+      transform: "none",
     });
-    expect(screen.getByTestId("board-canvas")).toContainElement(
-      screen.getByTestId("idea-value-feasibility-map-note-legacy-map-note"),
+    expect(screen.getByTestId("idea-map-fixed-board")).toContainElement(
+      screen.getByTestId("idea-value-feasibility-map-note-mapped-note"),
     );
     expect(
       screen.getByRole("button", { name: "手のひらツール" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("75%")).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("idea-map-size-controls-hud"),
+    ).not.toBeInTheDocument();
   });
 
   it.each([
@@ -1752,7 +1867,49 @@ it("共有付箋とマイ付箋に作者名のホバーヒントを表示しな�
   expect(screen.getAllByText(note.content).length).toBeGreaterThan(0);
 });
 
-describe("Step 3-2 / 3-3（共有と2軸マップ）", () => {
+describe("Step 3-2〜3-5（固定2軸マップ）", () => {
+  it.each([
+    4, 5,
+  ])("3-3から3-%iへ進んでも固定マップと付箋の表示を引き継ぐ", (step) => {
+    const note = buildNote({ id: "mapped-idea", x: 72, y: 64 });
+    const { props, rerender } = setup({
+      phase: buildPhaseStep(3, 3),
+      permissions: getBoardPermissions(buildPhaseStep(3, 3)),
+      notes: [note],
+      ideaMapSizeLevel: 4,
+      camera: { x: -300, y: -200, zoom: 0.2 },
+    });
+    const map = screen.getByTestId("idea-map-fixed-board");
+    fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
+    const mapStyle = map.getAttribute("style");
+    const mappedNote = screen.getByTestId(
+      "idea-value-feasibility-map-note-mapped-idea",
+    );
+    const noteStyle = mappedNote.getAttribute("style");
+
+    const phase = buildPhaseStep(step, 3);
+    rerender(
+      <RoomBoardCanvas
+        {...props}
+        phase={phase}
+        permissions={getBoardPermissions(phase)}
+      />,
+    );
+
+    expect(screen.getByTestId("idea-map-fixed-board")).toBe(map);
+    expect(map.getAttribute("style")).toBe(mapStyle);
+    expect(
+      screen.getByTestId("idea-value-feasibility-map-note-mapped-idea"),
+    ).toBe(mappedNote);
+    expect(mappedNote.getAttribute("style")).toBe(noteStyle);
+    expect(screen.getByTestId("board-canvas")).toHaveStyle({
+      transform: "none",
+    });
+    expect(
+      screen.queryByTestId("private-notes-toolbar"),
+    ).not.toBeInTheDocument();
+  });
+
   it("Step 3-2 はマイ付箋エリアを開いて表示する", () => {
     const phase = buildPhaseStep(2, 3);
     setup({

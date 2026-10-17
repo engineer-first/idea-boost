@@ -367,9 +367,11 @@ describe("useRoomBoardInteractions cursor input", () => {
     expect(onNoteDragEnd).toHaveBeenCalledWith("shared-1", 100, 100);
   });
 
-  it("固定マップ表示中はカメラの全体表示操作を無効にする", () => {
+  it.each([
+    3, 4, 5,
+  ])("3-%iの固定マップ表示中はカメラの全体表示操作を無効にする", (step) => {
     const { result, viewport } = setup({
-      phase: buildPhaseStep(3, 3),
+      phase: buildPhaseStep(step, 3),
       ideaMapSizeLevel: 1,
       ideaMapSizeInitialized: true,
     });

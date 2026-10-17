@@ -31,6 +31,7 @@ import {
   getIdeaMapNoteDisplayMetrics,
   getIdeaMapNoteGeometry,
   getIdeaValueFeasibilityMapPointFromClientPosition,
+  isFixedIdeaMapStep,
 } from "./idea-value-feasibility-map";
 import { roomNotify } from "./room-notify";
 import { type BoardDrag, useBoardDrag } from "./use-board-drag";
@@ -167,6 +168,7 @@ export function useRoomBoardInteractions({
   const privateToolbarRef = useRef<HTMLDivElement>(null);
   const isIdeaMapWorkspace =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const isFixedIdeaMap = isFixedIdeaMapStep(phase);
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
     phase.phase === 3 &&
@@ -206,13 +208,13 @@ export function useRoomBoardInteractions({
       phase.kind === "step" &&
       phase.phase === 3 &&
       (phase.step >= 2 || notes.length > 0),
-    navigationDisabled: isIdeaMapWorkspace,
+    navigationDisabled: isFixedIdeaMap,
     ideaMapSizeLevel,
     ideaMapSizeInitialized,
   });
   useEffect(() => {
-    if (isIdeaMapWorkspace) preserveCamera();
-  }, [isIdeaMapWorkspace, preserveCamera]);
+    if (isFixedIdeaMap) preserveCamera();
+  }, [isFixedIdeaMap, preserveCamera]);
   const mapNoteGeometry = useMemo(
     () =>
       getIdeaMapNoteGeometry(
@@ -227,12 +229,12 @@ export function useRoomBoardInteractions({
     pointFromClient,
   } = useIdeaValueFeasibilityMapInput({
     phase,
-    geometry: isIdeaMapWorkspace ? undefined : mapNoteGeometry,
+    geometry: isFixedIdeaMap ? undefined : mapNoteGeometry,
     fallbackPointFromClient: worldPointFromClient,
   });
   const positionFromClient = useCallback(
     (clientX: number, clientY: number, drag: BoardDrag): CanvasPoint | null => {
-      if (!isIdeaMapWorkspace) return null;
+      if (!isFixedIdeaMap) return null;
       const plane = ideaMapPlaneRef.current;
       if (!plane) return null;
       const rect = plane.getBoundingClientRect();
@@ -281,13 +283,13 @@ export function useRoomBoardInteractions({
       );
       return point ? { x: point.feasibility, y: point.value } : null;
     },
-    [ideaMapSizeLevel, isIdeaMapWorkspace, ideaMapPlaneRef.current],
+    [ideaMapSizeLevel, isFixedIdeaMap, ideaMapPlaneRef.current],
   );
   // 固定マップ以外はdevelopの移動権限と、付箋が収まる高さの制約を維持する。
   const canMoveSharedNotes =
     !movePending &&
     getBoardPermissions(phase, isDecided).canMoveNote &&
-    (isIdeaMapWorkspace ||
+    (isFixedIdeaMap ||
       !isIdeaValueFeasibilityMappingStep ||
       mapNoteGeometry.height > mapNoteGeometry.maxNoteHeight);
   const canPublish = canPublishNoteInTurn(phase, sharing, currentUserId);
@@ -320,7 +322,7 @@ export function useRoomBoardInteractions({
     clampCoordinate: isIdeaValueFeasibilityMappingStep
       ? clampIdeaValueFeasibilityMapCoordinate
       : undefined,
-    positionFromClient: isIdeaMapWorkspace ? positionFromClient : undefined,
+    positionFromClient: isFixedIdeaMap ? positionFromClient : undefined,
     canMoveSharedNotes,
     canPublish,
     canReturnToPrivate,

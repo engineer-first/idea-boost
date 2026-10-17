@@ -1,5 +1,12 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { type CSSProperties, type ReactNode, type Ref, useId } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { IDEA_VALUE_FEASIBILITY_MAP_LABELS } from "../logic/idea-value-feasibility-map";
 import styles from "./fixed-idea-map.module.css";
 
@@ -104,7 +111,6 @@ export type FixedIdeaMapProps = {
   children?: ReactNode;
   overlay?: ReactNode;
   workspaceControls?: { phaseLoop: ReactNode; mapSize: ReactNode };
-  horizontalLowEndpointOffset?: number;
   groupHorizontalLowEndpoint?: boolean;
   positionAreaRef?: Ref<HTMLDivElement>;
   workspace?: boolean;
@@ -120,17 +126,83 @@ export function FixedIdeaMap({
   children,
   overlay,
   workspaceControls,
-  horizontalLowEndpointOffset = 0,
   groupHorizontalLowEndpoint = false,
   positionAreaRef,
   workspace = false,
   zoom = 1,
 }: FixedIdeaMapProps) {
+  const horizontalAxisRef = useRef<HTMLFieldSetElement>(null);
+  const horizontalEndpointRef = useRef<HTMLDivElement>(null);
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
   const transforms = [
     workspace ? "translateY(var(--board-map-shift-y, 0px))" : null,
     zoom === 1 ? null : `scale(${zoom})`,
   ].filter((transform) => transform !== null);
+
+  useLayoutEffect(() => {
+    const axis = horizontalAxisRef.current;
+    const endpoint = horizontalEndpointRef.current;
+    const frame = axis?.closest<HTMLElement>('[data-testid="board-frame"]');
+    if (
+      !workspace ||
+      !groupHorizontalLowEndpoint ||
+      !axis ||
+      !endpoint ||
+      !frame
+    )
+      return;
+
+    const fontControls = frame.querySelector<HTMLElement>(
+      '[data-testid="note-font-size-controls"]',
+    );
+    const offsetProperty = "--horizontal-low-endpoint-offset";
+    const updateOffset = (): void => {
+      const bounds = endpoint.getBoundingClientRect();
+      // Reactの未反映state/refではなく、実際にDOMへ適用済みの補正だけを戻す。
+      const appliedOffset =
+        Number.parseFloat(endpoint.style.getPropertyValue(offsetProperty)) || 0;
+      const baselineLeft = bounds.left - appliedOffset * zoom;
+      const control = fontControls?.getBoundingClientRect();
+      // 3-2の左端は常に文字サイズUIの少し右へ置く。マップの高さや
+      // ズームツールバーの幅に応じた回避をすると、再入場時に横位置が変わる。
+      const targetLeft =
+        bounds.width > 0 && control?.width
+          ? Math.max(baselineLeft, control.right + 24)
+          : baselineLeft;
+      const offset =
+        Math.round(((targetLeft - baselineLeft) / zoom) * 100) / 100;
+      if (offset === 0) endpoint.style.removeProperty(offsetProperty);
+      else if (offset !== appliedOffset)
+        endpoint.style.setProperty(offsetProperty, `${offset}px`);
+    };
+    updateOffset();
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateOffset);
+    resizeObserver?.observe(frame);
+    resizeObserver?.observe(axis);
+    if (fontControls) resizeObserver?.observe(fontControls);
+
+    // ヘッダーはマップをCSS変数で移動する。transformだけの変化は
+    // ResizeObserverでは通知されないため、位置確定も同じ計算へ反映する。
+    const board = frame.closest<HTMLElement>(
+      '[data-testid="room-board-view-root"]',
+    );
+    const layoutObserver = board ? new MutationObserver(updateOffset) : null;
+    if (board)
+      layoutObserver?.observe(board, {
+        attributes: true,
+        attributeFilter: ["style"],
+      });
+    window.addEventListener("resize", updateOffset);
+    return () => {
+      resizeObserver?.disconnect();
+      layoutObserver?.disconnect();
+      window.removeEventListener("resize", updateOffset);
+      endpoint.style.removeProperty(offsetProperty);
+    };
+  }, [workspace, groupHorizontalLowEndpoint, zoom]);
 
   return (
     <section
@@ -289,18 +361,13 @@ export function FixedIdeaMap({
         </div>
 
         <fieldset
+          ref={horizontalAxisRef}
           aria-label={labels.feasibilityScaleAriaLabel}
           className={`relative m-0 shrink-0 border-0 p-0 text-muted-foreground ${groupHorizontalLowEndpoint ? styles.workspaceSharingFeasibilityAxis : ""} ${workspace ? "ml-10 h-10 sm:ml-15" : "ml-10 h-14 sm:ml-16"}`}
-          style={
-            horizontalLowEndpointOffset === 0
-              ? undefined
-              : ({
-                  "--horizontal-low-endpoint-offset": `${horizontalLowEndpointOffset}px`,
-                } as CSSProperties)
-          }
         >
           {groupHorizontalLowEndpoint ? (
             <div
+              ref={horizontalEndpointRef}
               className={`${styles.horizontalLowEndpointGroup} absolute flex whitespace-nowrap text-sm font-medium sm:text-base`}
               data-testid="idea-map-x-low-endpoint"
             >
