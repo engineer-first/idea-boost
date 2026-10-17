@@ -110,7 +110,9 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
-  it("3-2の横軸左端を文字サイズUIの24px右に揃え、再描画でも移動しない", () => {
+  it.each([
+    2, 3, 4, 5,
+  ])("3-%iの横軸左端を共通アンカーから配置し、再描画でも移動しない", (step) => {
     const rect = vi
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockImplementation(function (this: HTMLElement) {
@@ -124,6 +126,8 @@ describe("RoomBoardCanvas", () => {
             ) || 0;
           return new DOMRect(82 + offset, 500, 800 - offset, 24);
         }
+        if (this.dataset.testid === "idea-map-axis-low-anchor")
+          return new DOMRect(12, 624, 122, 0);
         if (this.dataset.testid === "note-font-size-controls")
           return new DOMRect(12, 624, 122, 38);
         if (this.dataset.testid === "canvas-zoom-hud")
@@ -131,11 +135,14 @@ describe("RoomBoardCanvas", () => {
         return new DOMRect();
       });
     try {
-      const phase = buildPhaseStep(2, 3);
+      const phase = buildPhaseStep(step, 3);
       const { rerender } = setup({
         phase,
         permissions: getBoardPermissions(phase),
       });
+      expect(
+        screen.getByTestId("idea-map-axis-low-anchor"),
+      ).toBeInTheDocument();
       const endpoint = screen.getByTestId("idea-map-x-low-endpoint");
       expect(endpoint.getBoundingClientRect().left).toBe(158);
       rerender();
@@ -171,6 +178,8 @@ describe("RoomBoardCanvas", () => {
         }
         if (this.dataset.testid === "note-font-size-controls")
           return new DOMRect(12, 624, 122, 38);
+        if (this.dataset.testid === "idea-map-axis-low-anchor")
+          return new DOMRect(12, 624, 122, 0);
         if (this.dataset.testid === "canvas-zoom-hud")
           return new DOMRect(12, 670, zoomControlWidth, 38);
         return new DOMRect();

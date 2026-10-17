@@ -56,6 +56,230 @@ async function readBounds(page: Page, testId: string) {
 }
 
 test.each([
+  { width: 768, height: 844 },
+  { width: 900, height: 720 },
+  { width: 1280, height: 720 },
+  { width: 1440, height: 900 },
+])("3-2の横軸名は左右の線の間に同じ高さで収まる（$width×$height）", async (viewport) => {
+  const page = await browser.newPage({ viewport });
+  try {
+    await openWorkspace(page);
+    const title = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-axis-label",
+    );
+    const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+    const lowArrow = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-low-arrow",
+    );
+    const highArrow = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-high-arrow",
+    );
+    expect(title.x + title.width / 2, "軸名はマップ横幅の中央").toBeCloseTo(
+      plane.x + plane.width / 2,
+      0,
+    );
+    expect(
+      title.y + title.height / 2,
+      "軸名と軸線の中心を同じ高さにする",
+    ).toBeCloseTo(lowArrow.y + lowArrow.height / 2, 1);
+    expect(highArrow.y + highArrow.height / 2).toBeCloseTo(
+      lowArrow.y + lowArrow.height / 2,
+      1,
+    );
+    expect(
+      title.x - (lowArrow.x + lowArrow.width),
+      "左の線を軸名の前に確保する",
+    ).toBeGreaterThanOrEqual(12);
+    expect(
+      highArrow.x - (title.x + title.width),
+      "右の線を軸名の後に確保する",
+    ).toBeGreaterThanOrEqual(12);
+    expect(title.y, "ラベルがマップ本体を覆わない").toBeGreaterThanOrEqual(
+      plane.y + plane.height,
+    );
+    const labelPaint = await page
+      .getByTestId("idea-value-feasibility-map-x-axis-label")
+      .evaluate((label) => ({
+        background: getComputedStyle(label).backgroundColor,
+        paddingLeft: Number.parseFloat(getComputedStyle(label).paddingLeft),
+        paddingRight: Number.parseFloat(getComputedStyle(label).paddingRight),
+      }));
+    const valuePaint = await page
+      .getByTestId("idea-value-feasibility-map-y-axis-label")
+      .evaluate((label) => ({
+        paddingTop: Number.parseFloat(getComputedStyle(label).paddingTop),
+        paddingBottom: Number.parseFloat(getComputedStyle(label).paddingBottom),
+      }));
+    expect(labelPaint.background).not.toBe("rgba(0, 0, 0, 0)");
+    expect(labelPaint.paddingLeft).toBe(valuePaint.paddingTop);
+    expect(labelPaint.paddingRight).toBe(valuePaint.paddingBottom);
+    await page.screenshot({
+      path: `${output}/inline-axis-title-${viewport.width}.png`,
+    });
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
+  { phase: "3-2", open: openWorkspace },
+  { phase: "3-3", open: openMapOnly },
+  { phase: "3-4", open: openVotingMap },
+  { phase: "3-5", open: openResultMap },
+])("$phaseで横軸の線・矢印・ラベルを同じ配置ルールで表示する", async ({
+  phase,
+  open,
+}) => {
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+  });
+  try {
+    const readRelativeGeometry = async () => {
+      const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+      const planeBottom = plane.y + plane.height;
+      const result: Record<
+        string,
+        { x: number; y: number; width: number; height: number }
+      > = {};
+      for (const testId of [
+        "idea-map-x-low-endpoint",
+        "idea-value-feasibility-map-x-low-label",
+        "idea-value-feasibility-map-x-low-arrow",
+        "idea-value-feasibility-map-x-axis-label",
+        "idea-value-feasibility-map-x-high-arrow",
+      ]) {
+        const bounds = await readBounds(page, testId);
+        result[testId] = {
+          x: bounds.x - plane.x,
+          y: bounds.y - planeBottom,
+          width: bounds.width,
+          height: bounds.height,
+        };
+      }
+      const high = await page
+        .getByRole("group", { name: "実現のしやすさ: 低から高" })
+        .getByText("高", { exact: true })
+        .boundingBox();
+      if (!high) throw new Error("横軸の高ラベルが表示されていません");
+      result.high = {
+        x: high.x - plane.x,
+        y: high.y - planeBottom,
+        width: high.width,
+        height: high.height,
+      };
+      return result;
+    };
+
+    await openWorkspace(page);
+    const reference = await readRelativeGeometry();
+    if (phase !== "3-2") await open(page);
+    const phaseGeometry = await readRelativeGeometry();
+    for (const [testId, expected] of Object.entries(reference))
+      for (const dimension of ["x", "y", "width", "height"] as const)
+        expect(
+          phaseGeometry[testId][dimension],
+          `${phase}の${testId}.${dimension}が3-2と一致`,
+        ).toBeCloseTo(expected[dimension], 1);
+
+    const endpoint = page.getByTestId("idea-map-x-low-endpoint");
+    expect(await endpoint.count()).toBe(1);
+    const endpointBounds = await endpoint.boundingBox();
+    if (!endpointBounds) throw new Error("左端のグループが表示されていません");
+    const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+    const title = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-axis-label",
+    );
+    const low = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-low-label",
+    );
+    const lowArrow = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-low-arrow",
+    );
+    const highArrow = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-high-arrow",
+    );
+    const high = await page
+      .getByRole("group", { name: "実現のしやすさ: 低から高" })
+      .getByText("高", { exact: true })
+      .boundingBox();
+    if (!high) throw new Error("横軸の高ラベルが表示されていません");
+
+    expect(low.x + low.width).toBeLessThan(lowArrow.x);
+    expect(lowArrow.x - (low.x + low.width)).toBeGreaterThanOrEqual(8);
+    expect(title.x + title.width / 2).toBeCloseTo(plane.x + plane.width / 2, 0);
+    expect(title.y + title.height / 2).toBeCloseTo(
+      lowArrow.y + lowArrow.height / 2,
+      1,
+    );
+    expect(highArrow.y + highArrow.height / 2).toBeCloseTo(
+      lowArrow.y + lowArrow.height / 2,
+      1,
+    );
+    expect(highArrow.x + highArrow.width).toBeLessThan(high.x);
+    expect(high.x - (highArrow.x + highArrow.width)).toBeGreaterThanOrEqual(8);
+    expect(title.y).toBeGreaterThanOrEqual(plane.y + plane.height);
+
+    const initial = {
+      endpoint: endpointBounds,
+      low,
+      lowArrow,
+      title,
+      highArrow,
+      high,
+    };
+    await page.screenshot({ path: `${output}/horizontal-axis-${phase}.png` });
+    await page.reload();
+    await page.getByTestId("idea-map-fixed-position-area").waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    const reloaded = {
+      endpoint: await endpoint.boundingBox(),
+      low: await readBounds(page, "idea-value-feasibility-map-x-low-label"),
+      lowArrow: await readBounds(
+        page,
+        "idea-value-feasibility-map-x-low-arrow",
+      ),
+      title: await readBounds(page, "idea-value-feasibility-map-x-axis-label"),
+      highArrow: await readBounds(
+        page,
+        "idea-value-feasibility-map-x-high-arrow",
+      ),
+      high: await page
+        .getByRole("group", { name: "実現のしやすさ: 低から高" })
+        .getByText("高", { exact: true })
+        .boundingBox(),
+    };
+    expect(reloaded.endpoint).not.toBeNull();
+    expect(reloaded.high).not.toBeNull();
+    for (const key of [
+      "endpoint",
+      "low",
+      "lowArrow",
+      "title",
+      "highArrow",
+      "high",
+    ] as const) {
+      const actual = reloaded[key];
+      const expected = initial[key];
+      if (!actual || !expected) throw new Error(`${key} が表示されていません`);
+      for (const dimension of ["x", "y", "width", "height"] as const)
+        expect(
+          actual[dimension],
+          `${key}.${dimension} はリロード後も維持`,
+        ).toBeCloseTo(expected[dimension], 1);
+    }
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
   768, 1280, 1440,
 ])("%dpxで3-2〜3-5の決定事項を同じ幅・余白の横並びにする", async (width) => {
   const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -937,7 +1161,7 @@ test.each([
   { width: 1440, height: 800 },
   { width: 900, height: 720 },
   { width: 390, height: 720 },
-])("3-2の横軸端点は操作UIから離し、両ステップで低を矢印の外側に置く（$width×$height）", async ({
+])("3-2と3-3で横軸端点を揃え、操作UIと重ねない（$width×$height）", async ({
   width,
   height,
 }) => {
@@ -1049,7 +1273,7 @@ test.each([
     ).toBeGreaterThanOrEqual(8);
     expect(sharing.arrowAfterLabelGap).toBeLessThanOrEqual(16);
     expect(sharing.verticalCenterGap).toBeLessThanOrEqual(4);
-    expect(mapOnly.groupedEndpoint).toBe(0);
+    expect(mapOnly.groupedEndpoint).toBe(1);
 
     expect(
       sharing.endpoint.left - (controls.x + controls.width),
@@ -1108,10 +1332,21 @@ test.each([
     ).toBe(true);
     expect(
       sharing.axisFromPlaneBottom - mapOnly.axisFromPlaneBottom,
-    ).toBeCloseTo(-12, 1);
-    expect(
-      sharing.titleFromPlaneBottom - mapOnly.titleFromPlaneBottom,
-    ).toBeCloseTo(-12, 1);
+    ).toBeCloseTo(0, 1);
+    expect(sharing.endpoint.left - sharing.mapPlane.x).toBeCloseTo(
+      mapOnly.endpoint.left - mapOnly.mapPlane.x,
+      1,
+    );
+    if (width >= 768) {
+      expect(sharing.axisTitle.y + sharing.axisTitle.height / 2).toBeCloseTo(
+        sharing.arrow.y + sharing.arrow.height / 2,
+        1,
+      );
+    } else {
+      expect(
+        sharing.titleFromPlaneBottom - mapOnly.titleFromPlaneBottom,
+      ).toBeCloseTo(0, 1);
+    }
     expect(sharing.mapPlane.x).toBe(mapOnly.mapPlane.x);
     expect(sharing.mapPlane.width).toBe(mapOnly.mapPlane.width);
     expect(sharing.mapPlane.height).toBe(mapOnly.mapPlane.height);
@@ -1210,7 +1445,7 @@ test.each([
       .click();
     expectSameLayout(await readLayout(), initial);
     await phase.selectOption("3");
-    expect(await page.getByTestId("idea-map-x-low-endpoint").count()).toBe(0);
+    expect(await page.getByTestId("idea-map-x-low-endpoint").count()).toBe(1);
     await phase.selectOption("2");
     expectSameLayout(await readLayout(), initial);
     await page.screenshot({

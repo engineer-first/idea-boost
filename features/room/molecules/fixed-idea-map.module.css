@@ -63,8 +63,20 @@
   flex: 1;
 }
 
-.workspaceSharingFeasibilityAxis {
+.workspaceFeasibilityAxis {
   top: -12px;
+}
+
+@container (min-width: 32rem) {
+  .workspaceInlineFeasibilityLabel {
+    /* 縦軸と同様、背景と左右のpaddingで軸線を区切る。 */
+    top: 13px;
+    z-index: 1;
+    padding-block: 0;
+    padding-inline: 0.5rem;
+    line-height: 1.25;
+    transform: translateY(-50%);
+  }
 }
 
 @media (min-width: 640px) {

@@ -304,7 +304,6 @@ export function RoomBoardCanvas({
   const isIdeaMapWorkspace =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   const isFixedIdeaMap = isFixedIdeaMapStep(phase);
-  const isIdeaMapSharingStep = isPhaseStep(phase, 3, 2);
   const ideaMapDisplayScale = getIdeaMapDisplayScale(ideaMapSizeLevel);
   const isPersonalNoteEntryPhase =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
@@ -809,7 +808,12 @@ export function RoomBoardCanvas({
           data-board-fit-edge="bottom"
           hidden={isPersonalNoteEntryPhase}
         >
-          <div className="flex items-center gap-2">
+          <div
+            className={`flex items-center gap-2 ${isFixedIdeaMap ? "min-w-[122px]" : ""}`}
+            data-testid={
+              isFixedIdeaMap ? "idea-map-axis-low-anchor" : undefined
+            }
+          >
             {permissions.canEditNote ? (
               <NoteFontSizeControls
                 fontSize={
@@ -944,7 +948,7 @@ export function RoomBoardCanvas({
                       })
                     : undefined
                 }
-                groupHorizontalLowEndpoint={isIdeaMapSharingStep}
+                workspaceHorizontalAxisLayout={isFixedIdeaMap}
                 zoom={fixedIdeaMapZoom}
                 overlay={remoteCursors.map((cursor) => (
                   <RemoteCursor
