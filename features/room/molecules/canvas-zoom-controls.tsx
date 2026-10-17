@@ -135,7 +135,7 @@ export function CanvasZoomControls({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  disabled={toolDisabled}
+                  disabled={toolDisabled || zoom <= 0.01}
                   aria-label="キャンバスを縮小"
                   onClick={onZoomOut}
                 >
@@ -170,7 +170,7 @@ export function CanvasZoomControls({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  disabled={toolDisabled}
+                  disabled={toolDisabled || zoom >= 4}
                   aria-label="キャンバスを拡大"
                   onClick={onZoomIn}
                 >
@@ -279,6 +279,19 @@ export function CanvasZoomControls({
                       </p>
                     </dd>
                   </div>
+                  <div>
+                    <dt className="font-semibold">拡大・縮小する</dt>
+                    <dd className="mt-1 space-y-1">
+                      <p>＋/−で拡大・縮小。倍率を押すと100%に戻ります。</p>
+                      <p>
+                        Ctrl /
+                        ⌘＋ホイール、またはピンチ。通常のスクロールは画面移動。
+                      </p>
+                      <p>
+                        背景でShift＋0は100%、Shift＋1は全体、Shift＋2は選択。
+                      </p>
+                    </dd>
+                  </div>
                   {onToolChange ? (
                     <div>
                       <dt className="font-semibold">画面を動かす</dt>
@@ -330,13 +343,14 @@ export function CanvasZoomControls({
                         <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
                           Delete
                         </kbd>{" "}
-                        で削除。
-                      </p>
-                      <p className="text-muted-foreground">
+                        または{" "}
                         <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
                           Backspace
                         </kbd>{" "}
-                        では削除しません。
+                        で削除。
+                      </p>
+                      <p className="text-muted-foreground">
+                        編集中は本文の文字を削除します。
                       </p>
                     </dd>
                   </div>

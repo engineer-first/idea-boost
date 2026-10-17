@@ -1,6 +1,10 @@
 import { mkdir } from "node:fs/promises";
 import { type Browser, chromium, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import {
+  getIdeaMapDimensions,
+  IDEA_MAP_BASE_DIMENSIONS,
+} from "../../contracts/board";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 const output = "test-results/idea-map-workspace";
@@ -42,6 +46,26 @@ async function readBounds(page: Page, testId: string) {
   if (!bounds) throw new Error(`${testId} が表示されていません`);
   return bounds;
 }
+
+test.each([
+  1280, 1440,
+])("%dpxで3-2の進め方が最新の発表者HUDを遮らない", async (width) => {
+  const page = await browser.newPage({ viewport: { width, height: 800 } });
+  try {
+    await openWorkspace(page);
+    const guide = await readBounds(page, "step-guide");
+    const controls = await readBounds(page, "board-control-hud");
+    const overlapWidth =
+      Math.min(guide.x + guide.width, controls.x + controls.width) -
+      Math.max(guide.x, controls.x);
+    const overlapHeight =
+      Math.min(guide.y + guide.height, controls.y + controls.height) -
+      Math.max(guide.y, controls.y);
+    expect(overlapWidth > 0 && overlapHeight > 0).toBe(false);
+  } finally {
+    await page.close();
+  }
+});
 
 test.each([
   { phase: "3-2", width: 1280, height: 720, open: openWorkspace },
@@ -196,7 +220,7 @@ test.each([
     width: 390,
     height: 844,
     x: 56,
-    y: 441.671875,
+    y: 440.171875,
     widthPx: 318,
     heightPx: 176.65625,
   },
@@ -259,7 +283,10 @@ test.each([
 test.each([
   { phase: "3-2", open: openWorkspace },
   { phase: "3-3", open: openMapOnly },
-])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({ open }) => {
+])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({
+  phase,
+  open,
+}) => {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
   });
@@ -285,7 +312,7 @@ test.each([
       1,
     );
     expect(feasibilityAxis.y - (plane.y + plane.height)).toBeCloseTo(
-      38.671875,
+      phase === "3-2" ? 26.671875 : 38.671875,
       1,
     );
   } finally {
@@ -467,16 +494,26 @@ test.each([
 
     const expectNoteScale = async (
       note: (typeof notes)[number],
-      scale: RegExp,
+      sizeLevel: number,
     ) => {
       await expect
         .poll(() =>
-          note.evaluate((element) => (element as HTMLElement).style.transform),
+          note.evaluate((element) =>
+            Number(
+              (element as HTMLElement).style.transform.match(
+                /scale\(([^)]+)/,
+              )?.[1],
+            ),
+          ),
         )
-        .toMatch(scale);
+        .toBeCloseTo(
+          IDEA_MAP_BASE_DIMENSIONS.width /
+            getIdeaMapDimensions(sizeLevel).width,
+          5,
+        );
     };
     await page.getByRole("button", { name: "マップを広くする" }).click();
-    await expectNoteScale(notes[0], /scale\(0\.909/);
+    await expectNoteScale(notes[0], 5);
     const expectCentersUnchanged = async (
       expectedCenters: ReturnType<typeof centers>,
     ) => {
@@ -534,18 +571,18 @@ test.each([
     );
 
     await page.getByRole("button", { name: "マップを広くする" }).click();
-    await expectNoteScale(notes[0], /scale\(0\.826/);
+    await expectNoteScale(notes[0], 6);
     await expectNotesSmallerThan(firstInitialNote.width * 0.91);
     await expectCentersUnchanged(initialCenters);
     await page.getByRole("button", { name: "マップを狭くする" }).click();
-    await expectNoteScale(notes[0], /scale\(0\.909/);
+    await expectNoteScale(notes[0], 5);
     await expectCentersUnchanged(initialCenters);
     await page.getByRole("button", { name: "マップを狭くする" }).click();
-    await expectNoteScale(notes[0], /scale\(1\)/);
+    await expectNoteScale(notes[0], 4);
     await expectCentersUnchanged(initialCenters);
 
     await page.getByRole("button", { name: "マップを広くする" }).click();
-    await expectNoteScale(notes[0], /scale\(0\.909/);
+    await expectNoteScale(notes[0], 5);
     await expectCentersUnchanged(initialCenters);
 
     const note = notes[0];
@@ -581,7 +618,7 @@ test.each([
     expect(Number.parseFloat(movedLogicalPosition.left)).toBeLessThan(21);
 
     await page.getByRole("button", { name: "マップを狭くする" }).click();
-    await expectNoteScale(note, /scale\(1\)/);
+    await expectNoteScale(note, 4);
     await expect
       .poll(async () => (await noteCards[0].boundingBox())?.width ?? 0)
       .toBeGreaterThan(0);
@@ -1018,7 +1055,9 @@ test("上部は共通HUDを使い、決定事項を横並びにしてもマッ�
     expect(Math.abs(controls.y - location.y)).toBeLessThanOrEqual(2);
 
     await page.getByRole("button", { name: /決定した問い/ }).click();
-    await expect(page.getByTestId("board-reference-hmw-content")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("board-reference-hmw-content").isVisible())
+      .toBe(true);
     expect(await plane.boundingBox()).toEqual(initialPlane);
     const expandedQuestion = await page
       .getByTestId("board-reference-hmw")
@@ -1032,9 +1071,9 @@ test("上部は共通HUDを使い、決定事項を横並びにしてもマッ�
       expandedIssue.x,
     );
     await page.getByRole("button", { name: /決定した課題/ }).click();
-    await expect(
-      page.getByTestId("board-reference-issue-content"),
-    ).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("board-reference-issue-content").isVisible())
+      .toBe(true);
     expect(await plane.boundingBox()).toEqual(initialPlane);
     await page.getByRole("button", { name: "進め方", exact: true }).click();
     expect(await plane.boundingBox()).toEqual(initialPlane);
@@ -1053,7 +1092,9 @@ test("狭い画面では決定事項を縦並びにし、展開時も重ねな�
     expect(issue.y).toBeGreaterThanOrEqual(question.y + question.height);
 
     await page.getByRole("button", { name: /決定した問い/ }).click();
-    await expect(page.getByTestId("board-reference-hmw-content")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("board-reference-hmw-content").isVisible())
+      .toBe(true);
     const expandedQuestion = await readBounds(page, "board-reference-hmw");
     const expandedIssue = await readBounds(page, "board-reference-issue");
     expect(expandedIssue.y).toBeGreaterThanOrEqual(

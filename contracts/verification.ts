@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getRoomPhaseLabel, type RoomPhase, RoomPhaseSchema } from "./phase";
+import { ROOM_CREATION_NAME_MAX } from "./room-creation";
 
 export const VerificationCheckpointSchema = z.enum([
   "lobby",
@@ -75,7 +76,7 @@ export type VerificationOutcomeScenario = z.infer<
 export const VerificationOutcomeRequestSchema = z
   .object({
     scenario: VerificationOutcomeScenarioSchema,
-    roomName: z.string().trim().max(80).optional(),
+    roomName: z.string().trim().max(ROOM_CREATION_NAME_MAX).optional(),
   })
   .strict();
 export const VerificationOutcomeRecoverySchema = z.object({

@@ -3,10 +3,15 @@
 import { useCallback, useRef } from "react";
 import { isPhaseStep, type RoomPhase } from "@/contracts/phase";
 import type { CanvasPoint } from "./canvas-camera";
-import { getIdeaValueFeasibilityMapPointFromClientPosition } from "./idea-value-feasibility-map";
+import {
+  getIdeaMapNotePointFromClientPosition,
+  getIdeaValueFeasibilityMapPointFromClientPosition,
+  type IdeaMapNoteGeometry,
+} from "./idea-value-feasibility-map";
 
 export type UseIdeaValueFeasibilityMapInputArgs = {
   phase: RoomPhase;
+  geometry?: IdeaMapNoteGeometry;
   fallbackPointFromClient: (
     clientX: number,
     clientY: number,
@@ -18,6 +23,7 @@ export type UseIdeaValueFeasibilityMapInputArgs = {
  */
 export function useIdeaValueFeasibilityMapInput({
   phase,
+  geometry,
   fallbackPointFromClient,
 }: UseIdeaValueFeasibilityMapInputArgs) {
   const ideaMapPlaneRef = useRef<HTMLDivElement>(null);
@@ -33,17 +39,24 @@ export function useIdeaValueFeasibilityMapInput({
       }
       const plane = ideaMapPlaneRef.current;
       if (!plane) return null;
-      const point = getIdeaValueFeasibilityMapPointFromClientPosition(
-        clientX,
-        clientY,
-        // FixedIdeaMapの内部レイヤーを拡縮するため、この参照のrectも表示倍率を含む。
-        plane.getBoundingClientRect(),
-        // つかみ位置補正後の最終座標だけをuseBoardDragで0〜100に制限する。
-        false,
-      );
+      const point = geometry
+        ? getIdeaMapNotePointFromClientPosition(
+            clientX,
+            clientY,
+            plane.getBoundingClientRect(),
+            geometry,
+          )
+        : getIdeaValueFeasibilityMapPointFromClientPosition(
+            clientX,
+            clientY,
+            // FixedIdeaMapの内部レイヤーを拡縮するため、この参照のrectも表示倍率を含む。
+            plane.getBoundingClientRect(),
+            // つかみ位置補正後の最終座標だけをuseBoardDragで0〜100に制限する。
+            false,
+          );
       return point ? { x: point.feasibility, y: point.value } : null;
     },
-    [fallbackPointFromClient, isIdeaValueFeasibilityMappingStep],
+    [fallbackPointFromClient, isIdeaValueFeasibilityMappingStep, geometry],
   );
 
   return {

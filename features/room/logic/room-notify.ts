@@ -66,7 +66,7 @@ export const roomNotify = {
     return toast(
       onUndo
         ? `投票完了により0票の付箋${count}件を候補から外しました。必要なら戻せます`
-        : `投票完了により0票の付箋${count}件を候補から外しました。ホストが戻せます`,
+        : `投票完了により0票の付箋${count}件を候補から外しました`,
       onUndo
         ? {
             action: { label: "まとめて元に戻す", onClick: onUndo },

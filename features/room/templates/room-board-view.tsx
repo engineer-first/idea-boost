@@ -55,6 +55,7 @@ import {
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomBoardInteractions } from "../logic/use-room-board-interactions";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
+import type { RoomNameControls } from "../logic/use-room-name";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
@@ -63,6 +64,7 @@ import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { PhaseLoopControls } from "../molecules/phase-loop-controls";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
+import { RoomNameDialog } from "../molecules/room-name-dialog";
 import { RoomOutcomeView } from "../molecules/room-outcome-view";
 import { BoardHelpPanel } from "../organisms/board-help-panel";
 import { RoomBoardCanvas } from "../organisms/room-board-canvas";
@@ -174,6 +176,7 @@ export type RoomBoardViewProps = {
   transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
+  roomName?: RoomNameControls;
   decision: Decision | null;
   outcomePublished: boolean;
   adoptionFocusNoteId?: string | null;
@@ -183,14 +186,16 @@ export type RoomBoardViewProps = {
   connectionDelayed?: boolean;
   draggingNoteId: string | null;
   members: Member[];
-  authorNames?: ReadonlyMap<string, string>;
   loginReturnHref?: string;
   currentUserId: string;
   // ホストの userId（メンバー一覧の「ホスト」ラベル表示用）。
   hostUserId: string;
   // 全票を使い切ったメンバーの userId。投票先は含まない。
   completedVoterIds?: ReadonlyArray<string>;
+  progress?: import("../logic/room-reducer").PhaseProgressState;
+  onToggleReady?: (ready: boolean) => void;
   isNextPhasePending: boolean;
+  isSavingBeforeShare?: boolean;
   interactions: RoomBoardInteractions;
   help: BoardHelpControls;
   initialGuideState?: StepGuideState;
@@ -249,8 +254,8 @@ export type RoomBoardViewProps = {
   onLeave: (outcomeAccess?: LeaveOutcomeAccess) => void;
   // 退出処理中（多重押下防止）。true の間「退出する」ボタンは disabled。
   isLeaving: boolean;
-  // 次フェーズへ。ホストのみ UI 表示。
-  onNextPhase: () => void;
+  // 次フェーズへ。完了条件を満たした参加者が操作する。
+  onNextPhase: (confirmedProgressRevision?: number) => void;
   onTimerStart: (durationMs: number) => void;
   onTimerPause: () => void;
   onTimerResume: () => void;
@@ -307,6 +312,7 @@ export function RoomBoardView({
   transferError = null,
   memberRemoval,
   displayName,
+  roomName,
   decision,
   outcomePublished,
   adoptionFocusNoteId = null,
@@ -314,12 +320,22 @@ export function RoomBoardView({
   connectionDelayed = false,
   draggingNoteId,
   members,
-  authorNames,
   loginReturnHref,
   currentUserId,
   hostUserId,
   completedVoterIds = [],
+  progress = {
+    phaseRevision: 0,
+    progressRevision: 0,
+    connectedUserIds: [],
+    readyUserIds: [],
+    notReadyUserIds: [],
+    canAdvance: false,
+    allReady: false,
+  },
+  onToggleReady,
   isNextPhasePending,
+  isSavingBeforeShare = false,
   interactions,
   help,
   remoteCursors,
@@ -381,6 +397,10 @@ export function RoomBoardView({
     notes: [...notes, ...interactions.privateNotes],
   });
   const selectedNoteIds = selection.selectedNoteIds;
+  const onCameraSelectionChange = interactions.onSelectionChange;
+  useEffect(() => {
+    onCameraSelectionChange?.(selectedNoteIds);
+  }, [onCameraSelectionChange, selectedNoteIds]);
   const selectedNoteId =
     selectedNoteIds.length === 1 ? selectedNoteIds[0] : null;
   const setSelectedNoteId = selection.selectNote;
@@ -410,8 +430,7 @@ export function RoomBoardView({
     return true;
   }, []);
   const [isAdoptRequested, setIsAdoptMode] = useState(false);
-  const [adoptHostRevision, setAdoptHostRevision] = useState(hostRevision);
-  const isAdoptMode = isAdoptRequested && adoptHostRevision === hostRevision;
+  const isAdoptMode = isAdoptRequested;
   const [expandPrivateNotesRequest, setExpandPrivateNotesRequest] = useState(0);
   const privateNoteAddRef = useRef<(() => void) | null>(null);
   const composingRef = useRef(false);
@@ -433,18 +452,43 @@ export function RoomBoardView({
   const voteStickerDragRef = useRef<VoteStickerDrag | null>(null);
   const cancelledCanvasKeyClicksRef = useRef(new Set<HTMLElement>());
   const sharedAdoptionFocusRef = useRef<string | null>(null);
-  const adoptionHostRevisionRef = useRef(hostRevision);
   const adoptionFocusCallbackRef = useRef(notifyAdoptionFocusChange);
+  const suppressAdoptionFocusClearRef = useRef(false);
+  const previousHostRevisionRef = useRef(hostRevision);
   const [selectedVoteKind, setSelectedVoteKind] = useState<DotVoteKind | null>(
     null,
   );
   const [voteStampPointer, setVoteStampPointer] =
     useState<VoteStampPointer | null>(null);
   const suppressPaletteSelectRef = useRef(false);
-  const previousPhaseKey = useRef(phaseKey);
-  const previousRevision = useRef(phaseRevision);
+  const previousPhase = useRef({ phase, phaseRevision, rollbackRevision });
   const [isMounted, setIsMounted] = useState(false);
-  const permissions = getBoardPermissions(phase, decision !== null);
+  const phasePermissions = getBoardPermissions(phase, decision !== null);
+  // 選択して貼る間も、ドラッグの閾値に達する前の押下中も、共有付箋の移動を止める。
+  const isVoteStickerHeld =
+    selectedVoteKind !== null || voteStickerDrag !== null;
+  const permissions = {
+    ...phasePermissions,
+    canMoveNote: phasePermissions.canMoveNote && !isVoteStickerHeld,
+  };
+  const moveHistoryControls = moveHistory && {
+    ...moveHistory,
+    undo: {
+      ...moveHistory.undo,
+      disabled: moveHistory.undo.disabled || isVoteStickerHeld,
+      reason: isVoteStickerHeld
+        ? "投票シールを離すか、選択を解除すると移動を元に戻せます。"
+        : moveHistory.undo.reason,
+    },
+    redo: {
+      ...moveHistory.redo,
+      disabled: moveHistory.redo.disabled || isVoteStickerHeld,
+      reason: isVoteStickerHeld
+        ? "投票シールを離すか、選択を解除すると移動をやり直せます。"
+        : moveHistory.redo.reason,
+    },
+  };
+  const boardInteractionBlocked = timer.status !== "running";
 
   const cancelVoteDrag = useCallback((): boolean => {
     const current = voteStickerDragRef.current;
@@ -464,23 +508,73 @@ export function RoomBoardView({
   }, []);
 
   useEffect(() => {
+    if (!boardInteractionBlocked) return;
+
+    // ドラッグ中のシールとポインターキャプチャを解除する。
+    cancelVoteDrag();
+
+    // パレットで選択中のシールも解除する。
+    setSelectedVoteKind(null);
+    setVoteStampPointer(null);
+  }, [boardInteractionBlocked, cancelVoteDrag]);
+
+  useEffect(() => {
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    if (previousPhaseKey.current === phaseKey) return;
-    previousPhaseKey.current = phaseKey;
+    const previous = previousPhase.current;
+    const phaseChanged =
+      previous.phase.kind !== phase.kind ||
+      (previous.phase.kind === "step" &&
+        phase.kind === "step" &&
+        (previous.phase.phase !== phase.phase ||
+          previous.phase.step !== phase.step));
+    if (
+      !phaseChanged &&
+      previous.phaseRevision === phaseRevision &&
+      previous.rollbackRevision === rollbackRevision
+    )
+      return;
+    previousPhase.current = { phase, phaseRevision, rollbackRevision };
+    const selected = interactions.privateNotes.find(
+      (note) => note.id === selectedNoteId,
+    );
+    // 変換中の本人の個人付箋は、同段階の共有へ移っても入力要素と選択を保つ。
+    // 復元・別段階・共有付箋・編集できない工程では従来どおり解除する。
+    const continuePrivateEditing =
+      composingRef.current &&
+      previous.phase.kind === "step" &&
+      previous.phase.step === 1 &&
+      phase.kind === "step" &&
+      phase.step === 2 &&
+      previous.phase.phase === phase.phase &&
+      previous.rollbackRevision === rollbackRevision &&
+      connectionStatus === "open" &&
+      permissions.canEditNote &&
+      !outcomePublished &&
+      selected?.visibility === "private" &&
+      selected.authorId === currentUserId &&
+      !selected.excluded;
     setIsAdoptMode(false);
     cancelRootPress();
     selection.cancel();
     interactions.cancelCurrentNoteDrag(true);
     interactions.cancelPan?.();
     cancelVoteDrag();
-    setSelectedNoteId(null);
-    if (shouldExpandPrivateNotes)
+    if (!continuePrivateEditing) setSelectedNoteId(null);
+    if (phaseChanged && shouldExpandPrivateNotes)
       setExpandPrivateNotesRequest((request) => request + 1);
   }, [
-    phaseKey,
+    phase,
+    phaseRevision,
+    rollbackRevision,
+    connectionStatus,
+    permissions.canEditNote,
+    outcomePublished,
+    interactions.privateNotes,
+    currentUserId,
+    selectedNoteId,
     cancelRootPress,
     shouldExpandPrivateNotes,
     selection.cancel,
@@ -491,29 +585,20 @@ export function RoomBoardView({
   ]);
 
   useEffect(() => {
-    if (previousRevision.current === phaseRevision) return;
-    previousRevision.current = phaseRevision;
+    if (boardInteractionBlocked) {
+      setIsAdoptMode(false);
+    }
+    if (connectionStatus === "open" && decision === null) return;
     setIsAdoptMode(false);
-    cancelRootPress();
-    selection.cancel();
-    interactions.cancelCurrentNoteDrag(true);
-    interactions.cancelPan?.();
-    cancelVoteDrag();
-    setSelectedNoteId(null);
-  }, [
-    phaseRevision,
-    cancelRootPress,
-    selection.cancel,
-    interactions.cancelCurrentNoteDrag,
-    interactions.cancelPan,
-    cancelVoteDrag,
-    setSelectedNoteId,
-  ]);
+  }, [boardInteractionBlocked, connectionStatus, decision]);
 
   useEffect(() => {
-    if (connectionStatus === "open" && isHost && decision === null) return;
+    if (previousHostRevisionRef.current === hostRevision) return;
+    previousHostRevisionRef.current = hostRevision;
+    suppressAdoptionFocusClearRef.current =
+      isAdoptMode || sharedAdoptionFocusRef.current !== null;
     setIsAdoptMode(false);
-  }, [connectionStatus, decision, isHost]);
+  }, [hostRevision, isAdoptMode]);
 
   useEffect(() => {
     if (connectionStatus !== "open") {
@@ -537,16 +622,14 @@ export function RoomBoardView({
 
   useEffect(() => {
     adoptionFocusCallbackRef.current = notifyAdoptionFocusChange;
-    if (adoptionHostRevisionRef.current !== hostRevision) {
-      adoptionHostRevisionRef.current = hostRevision;
-      // 移譲時はRoomDOが共有フォーカスを消す。旧ホスト権限で解除を送り直さない。
-      sharedAdoptionFocusRef.current = null;
-      return;
-    }
     if (isAdoptMode || sharedAdoptionFocusRef.current === null) return;
     sharedAdoptionFocusRef.current = null;
+    if (suppressAdoptionFocusClearRef.current) {
+      suppressAdoptionFocusClearRef.current = false;
+      return;
+    }
     notifyAdoptionFocusChange?.(null);
-  }, [hostRevision, isAdoptMode, notifyAdoptionFocusChange]);
+  }, [isAdoptMode, notifyAdoptionFocusChange]);
 
   useEffect(
     () => () => {
@@ -631,7 +714,12 @@ export function RoomBoardView({
       )
         return;
       const root = interactions.boardRootRef.current;
-      if (!root?.contains(target)) return;
+      // 投票後にコントロールがフォーカスを失っても、bodyからシール選択を解除できる。
+      const canReleaseVoteSelection =
+        target === document.body &&
+        event.key === "Escape" &&
+        selectedVoteKind !== null;
+      if (!root?.contains(target) && !canReleaseVoteSelection) return;
       if (event.key === "Escape") {
         if (selectedVoteKind !== null) {
           setSelectedVoteKind(null);
@@ -676,13 +764,33 @@ export function RoomBoardView({
       cancelVoteDrag();
       cancelRootPress();
     }
+    function cancelOutsidePointer(event: PointerEvent): void {
+      if (
+        event.target instanceof Node &&
+        interactions.boardRootRef.current?.contains(event.target)
+      )
+        return;
+      // root外へ終端が抜けても、終了したpointerの所有だけを解放する。
+      const ownsPress = rootPressRef.current?.pointerId === event.pointerId;
+      if (voteStickerDragRef.current?.pointerId === event.pointerId)
+        cancelVoteDrag();
+      if (!ownsPress) return;
+      cancelRootPress();
+      selection.cancel();
+      interactions.cancelCurrentNoteDrag(true);
+      interactions.cancelPan?.();
+    }
     window.addEventListener("keydown", cancelOwnedGesture, true);
     window.addEventListener("keydown", handleKey);
     window.addEventListener("blur", blur);
+    window.addEventListener("pointerup", cancelOutsidePointer, true);
+    window.addEventListener("pointercancel", cancelOutsidePointer, true);
     return () => {
       window.removeEventListener("keydown", cancelOwnedGesture, true);
       window.removeEventListener("keydown", handleKey);
       window.removeEventListener("blur", blur);
+      window.removeEventListener("pointerup", cancelOutsidePointer, true);
+      window.removeEventListener("pointercancel", cancelOutsidePointer, true);
     };
   });
 
@@ -779,11 +887,11 @@ export function RoomBoardView({
         isCandidatePending ||
         isTransferring
       }
+      selectionDisabled={boardInteractionBlocked}
       onRestartWriting={onRestartWriting}
       onRevote={onRevote}
       onStartSelection={() => {
         setSelectedNoteId(null);
-        setAdoptHostRevision(hostRevision);
         setIsAdoptMode(true);
       }}
       onCancelSelection={() => setIsAdoptMode(false)}
@@ -804,6 +912,7 @@ export function RoomBoardView({
 
   function handleAdoptNote(noteId: string) {
     if (
+      boardInteractionBlocked ||
       !isAdoptMode ||
       hasActiveCanvasGesture() ||
       isCandidatePending ||
@@ -950,6 +1059,11 @@ export function RoomBoardView({
   }
 
   function handleRootPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (boardInteractionBlocked && voteStickerDragRef.current) {
+      cancelVoteDrag();
+      return;
+    }
+
     const pressed = rootPressRef.current;
     if (event.buttons === 0 && pressed?.pointerId === event.pointerId) {
       cancelRootPress();
@@ -1021,7 +1135,12 @@ export function RoomBoardView({
       setIsVoteStickerReturnDropTarget(false);
       if (current.owner?.hasPointerCapture?.(event.pointerId))
         current.owner.releasePointerCapture(event.pointerId);
-      if (current.didDrag && !isDisconnected && isVotingStep(phase)) {
+      if (
+        current.didDrag &&
+        !isDisconnected &&
+        !boardInteractionBlocked &&
+        isVotingStep(phase)
+      ) {
         event.preventDefault();
         const stickerId = current.stickerId;
         const isReturnDrop =
@@ -1078,6 +1197,7 @@ export function RoomBoardView({
     if (event.detail === 0) suppressPaletteSelectRef.current = false;
     if (
       isDisconnected ||
+      boardInteractionBlocked ||
       !isVotingStep(phase) ||
       voteRemaining[kind] <= 0 ||
       voteStickerDragRef.current ||
@@ -1165,6 +1285,7 @@ export function RoomBoardView({
     if (
       selectedVoteKind === null ||
       isDisconnected ||
+      boardInteractionBlocked ||
       !isVotingStep(phase) ||
       voteRemaining[selectedVoteKind] <= 0
     ) {
@@ -1255,6 +1376,15 @@ export function RoomBoardView({
   useEffect(() => {
     const root = boardRootRef.current;
     if (!root) return;
+    const workspaceTopSurfaces = [
+      "board-context-hud",
+      "board-control-hud",
+      "board-connection-slot",
+      "board-help-panel",
+    ] as const;
+    const isPersonalNoteEntryPhase =
+      phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
+    let stepGuideBottomInFrame: number | null = null;
     const surfaces = [
       ["board-tools-hud", "--board-tools-height"],
       ["board-operation-matrix", "--board-operation-height"],
@@ -1288,10 +1418,60 @@ export function RoomBoardView({
           `${element?.getBoundingClientRect().height ?? 0}px`,
         );
       }
+      if (isPersonalNoteEntryPhase) {
+        const frame = root.querySelector<HTMLElement>(
+          '[data-testid="board-frame"]',
+        );
+        if (frame) {
+          const frameTop = frame.getBoundingClientRect().top;
+          if (stepGuideBottomInFrame === null) {
+            const stepGuide = root.querySelector<HTMLElement>(
+              '[data-testid="step-guide"]',
+            );
+            stepGuideBottomInFrame =
+              stepGuide && stepGuide.getClientRects().length > 0
+                ? stepGuide.getBoundingClientRect().bottom - frameTop
+                : 0;
+          }
+          let top = stepGuideBottomInFrame;
+          for (const testId of workspaceTopSurfaces) {
+            if (
+              window.innerWidth >= 640 &&
+              (testId === "board-context-hud" || testId === "board-help-panel")
+            )
+              continue;
+            const selector =
+              testId === "board-help-panel"
+                ? '[data-testid="board-help-panel"] > div'
+                : `[data-testid="${testId}"]`;
+            const element = root.querySelector<HTMLElement>(selector);
+            if (
+              !element ||
+              element.getClientRects().length === 0 ||
+              getComputedStyle(element).visibility === "hidden"
+            )
+              continue;
+            top = Math.max(
+              top,
+              element.getBoundingClientRect().bottom - frameTop,
+            );
+          }
+          root.style.setProperty(
+            "--board-private-workspace-top",
+            `${Math.max(192, Math.ceil(top + 16))}px`,
+          );
+        }
+      }
     };
     const observer =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
     for (const [testId] of surfaces) {
+      const element = root.querySelector<HTMLElement>(
+        `[data-testid="${testId}"]`,
+      );
+      if (element) observer?.observe(element);
+    }
+    for (const testId of workspaceTopSurfaces) {
       const element = root.querySelector<HTMLElement>(
         `[data-testid="${testId}"]`,
       );
@@ -1322,7 +1502,8 @@ export function RoomBoardView({
       isSharedNote &&
       permissions.canMoveNote &&
       !pendingCandidateNoteIds.includes(noteId) &&
-      !isDisconnected
+      !isDisconnected &&
+      !boardInteractionBlocked
     ) {
       onNoteBringToFront(noteId);
     }
@@ -1491,8 +1672,9 @@ export function RoomBoardView({
         }}
         onPointerMoveCapture={(event) => {
           if (
-            cancelledRootPointerRef.current === event.pointerId ||
-            rejectedVotePointersRef.current.has(event.pointerId)
+            event.buttons !== 0 &&
+            (cancelledRootPointerRef.current === event.pointerId ||
+              rejectedVotePointersRef.current.has(event.pointerId))
           )
             event.stopPropagation();
         }}
@@ -1545,6 +1727,9 @@ export function RoomBoardView({
           ) {
             const inPrivateToolbar =
               target.closest('[data-testid="private-notes-toolbar"]') !== null;
+            const isPrivateWorkspace =
+              inPrivateToolbar &&
+              privateToolbarRef.current?.dataset.presentation === "workspace";
             const isPrivateSurface =
               inPrivateToolbar && target.dataset.canvasNoteSurface === "true";
             const isPrivateEditor =
@@ -1555,7 +1740,10 @@ export function RoomBoardView({
               target === interactions.boardScrollerRef.current ||
               target.dataset.canvasBackground === "true";
             if (
-              (isBackground || isPrivateSurface || isPrivateEditor) &&
+              (isBackground ||
+                isPrivateSurface ||
+                isPrivateEditor ||
+                isPrivateWorkspace) &&
               !target.closest(
                 '[data-board-native-control], [role="menu"], [role="dialog"]',
               )
@@ -1580,7 +1768,9 @@ export function RoomBoardView({
             }
           }
           if (
-            moveHistory &&
+            moveHistoryControls &&
+            !isVoteStickerHeld &&
+            voteStickerDragRef.current === null &&
             target instanceof HTMLElement &&
             (event.ctrlKey || event.metaKey) &&
             !event.altKey &&
@@ -1596,12 +1786,14 @@ export function RoomBoardView({
             ) &&
             !hasActiveCanvasGesture()
           ) {
-            const action = event.shiftKey ? moveHistory.redo : moveHistory.undo;
-            if (!moveHistory.pending && !action.disabled) {
+            const action = event.shiftKey
+              ? moveHistoryControls.redo
+              : moveHistoryControls.undo;
+            if (!moveHistoryControls.pending && !action.disabled) {
               event.preventDefault();
               event.stopPropagation();
-              if (event.shiftKey) moveHistory.onRedo();
-              else moveHistory.onUndo();
+              if (event.shiftKey) moveHistoryControls.onRedo();
+              else moveHistoryControls.onUndo();
             }
             return;
           }
@@ -1652,6 +1844,9 @@ export function RoomBoardView({
         onPointerLeave={() => setVoteStampPointer(null)}
       >
         <RoomBoardHeader
+          roomName={roomName?.name}
+          onRenameRoom={roomName?.request}
+          roomNameDisabled={roomName?.disabled || roomName?.pending}
           loginReturnHref={loginReturnHref}
           onEditSelf={displayName?.request}
           hasMoveHistory={hasMoveHistory}
@@ -1704,6 +1899,8 @@ export function RoomBoardView({
           currentUserId={currentUserId}
           hostUserId={hostUserId}
           completedVoterIds={completedVoterIds}
+          progress={progress}
+          onToggleReady={onToggleReady}
           isNextPhasePending={isNextPhasePending}
           isNextPhaseBlocked={isNextPhaseBlocked}
           initialGuideState={initialGuideState}
@@ -1724,7 +1921,7 @@ export function RoomBoardView({
           {!isIdeaMapWorkspace ? (
             <BoardHelpPanel
               {...help}
-              disabled={isDisconnected}
+              disabled={isDisconnected || boardInteractionBlocked}
               onHmwTemplateSelect={(content) => {
                 onHmwTemplateSelect(content);
                 setExpandPrivateNotesRequest((request) => request + 1);
@@ -1736,7 +1933,33 @@ export function RoomBoardView({
             />
           ) : null}
         </RoomBoardHeader>
+        {boardInteractionBlocked &&
+        phase.kind === "step" &&
+        !isDisconnected &&
+        decision === null ? (
+          <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="timer-work-hint"
+              className="w-full max-w-md rounded-xl border border-border/40 bg-background/75 px-6 py-5 text-center shadow-xl backdrop-blur-[2px]"
+            >
+              <p className="text-lg font-semibold">
+                {timer.status === "paused"
+                  ? "タイマーが一時停止中です"
+                  : timer.status === "ended"
+                    ? "タイマーが終了しました"
+                    : "タイマーが開始されていません"}
+              </p>
 
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {timer.status === "paused"
+                  ? "タイマーを再開すると、ボードで作業できます。"
+                  : "タイマーを設定して開始すると、ボードで作業できます。"}
+              </p>
+            </div>
+          </div>
+        ) : null}
         {isAdoptMode && interactionTool === "hand" ? (
           <p
             role="status"
@@ -1747,11 +1970,7 @@ export function RoomBoardView({
         ) : null}
         <RoomBoardCanvas
           rollbackRevision={rollbackRevision}
-          authorName={(authorId) =>
-            members.find((m) => m.userId === authorId)?.name ??
-            authorNames?.get(authorId)
-          }
-          moveHistory={moveHistory}
+          moveHistory={moveHistoryControls}
           notes={renderedNotes}
           groups={groups}
           phase={phase}
@@ -1760,11 +1979,11 @@ export function RoomBoardView({
           adoptionFocusNoteId={adoptionFocusNoteId}
           isHost={isHost}
           privateNotes={toolbarNotes}
-          canPublishPrivateNote={canPublishNoteInTurn(
-            phase,
-            sharing,
-            currentUserId,
-          )}
+          isSavingBeforeShare={isSavingBeforeShare}
+          canPublishPrivateNote={
+            !boardInteractionBlocked &&
+            canPublishNoteInTurn(phase, sharing, currentUserId)
+          }
           expandPrivateNotesRequest={expandPrivateNotesRequest}
           privateNoteAddRef={privateNoteAddRef}
           noteCreationPending={noteCreationPending}
@@ -1787,6 +2006,7 @@ export function RoomBoardView({
           draggingNoteId={draggingNoteId}
           localDraggingNoteId={interactions.localDraggingNoteId}
           isDisconnected={isDisconnected}
+          boardInteractionBlocked={boardInteractionBlocked}
           ideaMapSizeLevel={ideaMapSizeLevel}
           ideaMapSizeInitialized={ideaMapSizeInitialized}
           ideaMapWorkspaceControls={
@@ -1799,7 +2019,7 @@ export function RoomBoardView({
                       initialized={ideaMapSizeInitialized}
                       isHost={isHost}
                       isDisconnected={isDisconnected}
-                      isDragging={ideaMapIsDragging}
+                      isDragging={ideaMapIsDragging || isNoteDragging}
                       onResize={onIdeaMapResize}
                     />
                   ),
@@ -1819,6 +2039,7 @@ export function RoomBoardView({
           ideaMapPlaneRef={ideaMapPlaneRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
+          displayZoom={interactions.displayZoom}
           gridStyle={gridStyle}
           isPanning={isPanning}
           onCanvasPointerDown={(event) => {
@@ -1859,6 +2080,8 @@ export function RoomBoardView({
           }}
           onSelect={handleNoteSelect}
           onNoteDragStart={(noteId, event, origin) => {
+            if (!permissions.canMoveNote || voteStickerDragRef.current !== null)
+              return;
             const ids = selection.selectionRef.current;
             if (ids.length > 1 && ids.includes(noteId)) {
               if (interactions.onSharedNotesDragIntent)
@@ -1908,7 +2131,7 @@ export function RoomBoardView({
               voteRemaining={voteRemaining}
               pendingOperationCount={pendingVoteOperations.length}
               feedback={voteFeedback}
-              disabled={isDisconnected}
+              disabled={isDisconnected || boardInteractionBlocked}
               selectedKind={selectedVoteKind}
               isReturnDropTarget={isVoteStickerReturnDropTarget}
               onStickerSelect={handlePaletteStickerSelect}
@@ -1919,7 +2142,7 @@ export function RoomBoardView({
 
         {!isIdeaMapWorkspace ? (
           <div
-            className="pointer-events-none absolute bottom-3 left-1/2 z-40 flex -translate-x-1/2 justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)] min-[640px]:left-[calc(50%_-_6rem)] md:left-[calc(50%_-_7rem)]"
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
             data-testid="phase-loop-hud"
             data-board-fit-edge="bottom"
           >
@@ -1998,6 +2221,7 @@ export function RoomBoardView({
             }}
           />
         ) : null}
+        {roomName ? <RoomNameDialog controls={roomName} /> : null}
         {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
         {memberRemoval ? (
           <MemberRemoveDialog

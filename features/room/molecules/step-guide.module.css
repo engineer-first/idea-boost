@@ -2,8 +2,7 @@
   --guide-width: min(470px, calc(100vw - 40px));
   position: absolute;
   left: 50%;
-  /* ヘッダー左右の常設コントロールの中間に中心を合わせる。 */
-  top: 4px;
+  top: 12px;
   z-index: 41;
   transform: translateX(-50%);
   width: 126px;
@@ -85,10 +84,15 @@
     opacity 130ms 100ms ease,
     visibility 0s;
 }
-/* 横幅が足りない範囲では、操作バーと干渉しない第2段へ退避する。 */
-@media (max-width: 1279px) {
+@media (max-width: 1439px) {
   .guide {
     top: 84px;
+  }
+}
+/* 固定マップも、狭幅ではdevelopの退避位置で発表者HUDとの重なりを避ける。 */
+@media (min-width: 1440px) {
+  [data-map-workspace="true"] .guide {
+    top: 4px;
   }
 }
 @media (min-width: 901px) and (max-width: 1199px) {
@@ -231,5 +235,23 @@
   [data-testid="board-context-column"]:has(.guide[data-state="detail"])
     [data-testid="board-help-panel"] {
     visibility: hidden;
+  }
+}
+
+@media (min-width: 640px) {
+  [data-testid="room-board-view-root"]:has(
+      [data-testid="private-notes-toolbar"][data-presentation="workspace"]
+    )
+    .guide[data-state="detail"] {
+    height: min(300px, calc(100dvh - 200px));
+  }
+}
+
+@media (min-width: 640px) and (max-width: 900px) {
+  [data-testid="room-board-view-root"]:has(
+      [data-testid="private-notes-toolbar"][data-presentation="workspace"]
+    )
+    .guide[data-state="detail"] {
+    height: min(228px, calc(100dvh - 200px));
   }
 }

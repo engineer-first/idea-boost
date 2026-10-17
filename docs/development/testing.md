@@ -14,7 +14,7 @@
 | 受け取ったデータが表示されない、別人の値や古い値が出る             | DOM テスト                                   | 入力データと表示結果の対応。招待コード・投稿本文・集計値等は文言で照合してよい     |
 | 権限や状態に応じた説明・操作の表示が切り替わらない                 | DOM テストと、条件を持つ純関数・hook         | 表示する場合と隠す場合、状態変更後の表示。説明文の全文一致は必須ではない           |
 | 不正な操作を受理する、非公開データを配信する                       | Worker / RoomDO テスト                       | 認証認可・可視性・永続化・配信。ボタンを隠す DOM テストでは認可を保証できない      |
-| 色・余白・文章の折り返しなどの見た目が変わる                       | stories と Chromatic の差分レビュー          | 対象状態を story で再現し、変更後の表示を確認する                                  |
+| 色・余白・文章の折り返しなどの見た目が変わる                       | stories と公開 Storybook の表示レビュー      | 対象状態を story で再現し、変更後の表示を確認する                                  |
 | 重なって押せない、画面外へ出る、スクロールやフォーカス移動が壊れる | Vitest から Playwright を使う browser テスト | 実ブラウザの寸法・到達性・キーボード操作。CSS クラスの一致だけでは保証できない     |
 | 説明の意味や手順が伝わらない                                       | 文面と実画面を人がレビュー                   | 意味の正確さ・読みやすさ・実際の操作との対応。スナップショットだけでは判断できない |
 
@@ -33,7 +33,7 @@
   全文を固定する場合は要件や過去の不具合を根拠として示す。
   クラスが操作可否等の仕組みに関わる場合も、可能なら結果の振る舞いを検証する。
 - すべての UI コンポーネントの stories は [UI 規約](conventions.md#ui) に従って作る。
-  story の存在や Chromatic の成功だけで、操作・認可・説明の分かりやすさを保証したとしない。
+  story の存在や Storybook 公開の成功だけで、操作・認可・説明の分かりやすさを保証したとしない。
   振る舞いを保証するには、操作と結果を検査するテストを実際に実行する。
 - データに依存する UI は、適用される loading / empty / success / error の振る舞いを検証する。
   例として、送信中の二重操作防止、空状態の案内と操作、取得データの表示、失敗時の通知や再試行を扱う。
@@ -58,5 +58,26 @@
   配信先は `STORYBOOK_TEST_URL`、既定は `http://127.0.0.1:6006`。
 
 [CI](../../.github/workflows/ci.yml) は unit・Worker・browser 等を実行する。
-[Chromatic](../../.github/workflows/chromatic.yml) の workflow 成功はアップロード完了を示し、
-見た目の差分は別の UI Tests / UI Review ステータスと差分画面で確認する。
+
+## 公開 Storybook で表示を確認する
+
+[Chromatic の workflow](../../.github/workflows/chromatic.yml) は push ごとに Storybook を公開する。
+依存更新 bot（`renovate/**`・`dependabot/**`）のブランチは従来どおり公開をスキップする。
+PR のチェック欄の **Storybook Publish** から対象コミットの版を開き、
+loading / empty / success / error などの状態を確認する。
+`Schema/*` と `Dependencies/*` の生成図も同じ版に含まれる。
+実アプリの動作確認には [PR Preview](../operations/preview.md) を使う。
+
+Chromatic のプロジェクト設定は **UI Tests と UI Review の両方を OFF** にする。
+[公式のよくある質問](https://www.chromatic.com/docs/faq/disable-ui-tests-and-or-review/)のとおり、
+片方でも ON なら撮影が続き、両方 OFF なら撮影・画像比較を止めて公開を続けられる。
+撮影対象の追跡、差分の Accept / Deny、ベースラインの自動承認は行わない。
+公開全体を止める `skip: true` は指定しない。
+
+workflow と Storybook Publish の成功は公開完了を示し、画面比較の合格を示さない。
+ビルド・アップロードの失敗は公開失敗として workflow のログから調べる。
+過去コミットの UI Tests が pending のまま残る場合は、そのコミットの検査状況として扱い、
+新コミットの公開結果・撮影実績とは区別する。新コミットでも撮影や UI Tests / UI Review の
+保留が発生したら、両設定が OFF になっているかを確認し、対象コミットのビルドも調べる。
+Vitest・Worker・browser の操作・レイアウト検査は [CI](../../.github/workflows/ci.yml) で継続する。
+図解と確認例は [公開 Storybook の運用ガイド](../site/vrt-operations/index.html) を参照する。

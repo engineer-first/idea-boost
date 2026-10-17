@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { fn } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type { PhaseProgress } from "@/contracts/room-protocol";
 import {
   buildMembers,
   buildSharingState,
@@ -18,6 +19,21 @@ const STEP_3_5 = buildPhaseStep(5, 3);
 const VOTING_MEMBERS = buildMembers(3, ME);
 const HUD_MEMBERS = buildMembers(12, ME);
 
+function completedProgress(
+  members: readonly { userId: string }[],
+): PhaseProgress {
+  const ids = members.map(({ userId }) => userId);
+  return {
+    phaseRevision: 1,
+    progressRevision: 1,
+    connectedUserIds: ids,
+    readyUserIds: ids,
+    notReadyUserIds: [],
+    canAdvance: true,
+    allReady: true,
+  };
+}
+
 const meta = {
   title: "Room/RoomBoardHeader",
   component: RoomBoardHeader,
@@ -25,6 +41,8 @@ const meta = {
     layout: "fullscreen",
   },
   args: {
+    roomName: "J05",
+    onRenameRoom: fn(),
     hmwDecidedIssue: null,
     decidedHmw: null,
     inviteCode: "AB12CD",
@@ -164,6 +182,7 @@ export const VotingComplete: Story = {
     phase: STEP_1_4,
     members: VOTING_MEMBERS,
     completedVoterIds: VOTING_MEMBERS.map(({ userId }) => userId),
+    progress: completedProgress(VOTING_MEMBERS),
   },
 };
 
@@ -174,7 +193,7 @@ export const Leaving: Story = {
   },
 };
 
-// タイマーが一時停止中（決定的な残り時間表示。Chromatic の差分を安定させる）。
+// タイマーが一時停止中（公開Storybookで残り時間を固定して確認できる）。
 export const TimerPaused: Story = {
   args: {
     timer: buildPausedTimer(),
@@ -196,6 +215,7 @@ export const IdeaVotingComplete: Story = {
     phase: STEP_3_4,
     members: HUD_MEMBERS,
     completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
+    progress: completedProgress(HUD_MEMBERS),
   },
 };
 
@@ -207,6 +227,7 @@ export const VotingCompleteHud: Story = {
     phase: STEP_1_4,
     members: HUD_MEMBERS,
     completedVoterIds: HUD_MEMBERS.map(({ userId }) => userId),
+    progress: completedProgress(HUD_MEMBERS),
   },
 };
 
@@ -223,6 +244,7 @@ export const VotingCompleteNonHostPaused: Story = {
   args: {
     ...VotingNonHostPaused.args,
     completedVoterIds: VOTING_MEMBERS.map(({ userId }) => userId),
+    progress: completedProgress(VOTING_MEMBERS),
   },
 };
 export const VoteResultNonHostPaused: Story = {
@@ -263,5 +285,31 @@ export const PresenterDisconnected: Story = {
     ...PresentingMember.args,
     isDisconnected: true,
     connectionStatus: "closed",
+  },
+};
+
+// 常設の操作バーから招待を外し、既存メニュー項目と揃えた招待入口。
+export const ShareMenu: Story = {
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "ルームメニューを開く",
+      }),
+    );
+    await expect(
+      within(document.body).getByRole("button", { name: "招待" }),
+    ).toBeVisible();
+  },
+};
+
+export const ShareInvite: Story = {
+  play: async (context) => {
+    await ShareMenu.play?.(context);
+    await userEvent.click(
+      within(document.body).getByRole("button", { name: "招待" }),
+    );
+    await expect(
+      within(document.body).getByRole("button", { name: "招待URLをコピー" }),
+    ).toBeVisible();
   },
 };

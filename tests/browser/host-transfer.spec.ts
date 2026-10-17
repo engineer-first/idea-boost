@@ -112,11 +112,13 @@ async function expectTransferred(): Promise<void> {
   await page.getByRole("alertdialog").waitFor({ state: "hidden" });
   await vi.waitFor(async () => {
     expect(
-      await page.getByRole("button", { name: "次のステップへ" }).count(),
-    ).toBe(0);
+      await page
+        .getByRole("button", { name: /^(次のステップへ|次の人へ)$/ })
+        .count(),
+    ).toBeGreaterThan(0);
     expect(
       await page.getByTestId("room-timer").evaluate((el) => el.tagName),
-    ).toBe("SPAN");
+    ).toBe("BUTTON");
   });
 }
 
@@ -134,8 +136,7 @@ test("ロビーでも参加者本人からホスト変更を確認し、取消�
   );
   await target.press("Enter");
   await page.getByRole("button", { name: confirmName }).click();
-  await page.getByText("ホストの開始を待機中", { exact: true }).waitFor();
-  expect(await page.getByTestId("start-phase-button").count()).toBe(0);
+  await page.getByTestId("start-phase-button").waitFor();
 });
 
 test.each(
@@ -409,3 +410,42 @@ test.each(
     path: `${output}/508-after-view-step-1-3-${viewport.name}.png`,
   });
 });
+
+for (const participant of [false, true]) {
+  test(`1-1のホスト交代後もマイ付箋を表示する（新ホスト=${participant}）`, async () => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openStory(
+      `room-activehosttransferflow--phase-1-step-1${participant ? "-participant" : ""}`,
+    );
+    const notes = page.getByTestId("private-notes-toolbar").locator("textarea");
+    await notes.first().waitFor();
+    const before = await notes.evaluateAll((elements) =>
+      elements.map((element) => (element as HTMLTextAreaElement).value),
+    );
+    await page.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent("host-transfer-preview", { detail: "transfer" }),
+      ),
+    );
+    await vi.waitFor(async () => {
+      expect(
+        await page
+          .getByRole("button", { name: "次のステップへ", exact: true })
+          .count(),
+      ).toBe(1);
+    });
+    await page.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent("host-transfer-preview", { detail: "timer-tick" }),
+      ),
+    );
+    expect(
+      await notes.evaluateAll((elements) =>
+        elements.map((element) => (element as HTMLTextAreaElement).value),
+      ),
+    ).toEqual(before);
+    await page.screenshot({
+      path: `${output}/host-transfer-writing-${participant ? "new" : "old"}-host.png`,
+    });
+  });
+}

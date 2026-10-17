@@ -2,9 +2,8 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { SchemaDiagram } from "./schema-diagram";
 
 // D1 / RoomDO のER図。npm run db:schema:diagrams（storybook 起動時に自動実行）
-// が tbls でマイグレーションから生成した SVG を表示する。Chromatic が
-// develop ブランチとの見た目の差分を検出するため、スキーマ変更を
-// PR 上でビジュアルに確認できる。
+// がtblsでマイグレーションから生成したSVGを表示する。
+// PRのStorybook Publishから、そのコミットのスキーマを確認できる。
 const meta: Meta<typeof SchemaDiagram> = {
   title: "Schema/SchemaDiagram",
   component: SchemaDiagram,

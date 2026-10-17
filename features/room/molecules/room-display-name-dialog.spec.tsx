@@ -13,12 +13,12 @@ const controls = {
   onOpenChange: vi.fn(),
   onConfirm: vi.fn(),
 };
-it("呼び名入力から保存・取消へ接続し失敗した入力も表示する", () => {
+it("表示名入力から保存・取消へ接続し失敗した入力も表示する", () => {
   const { rerender } = render(<RoomDisplayNameDialog controls={controls} />);
-  fireEvent.change(screen.getByRole("textbox", { name: "呼び名" }), {
-    target: { value: "別の呼び名" },
+  fireEvent.change(screen.getByRole("textbox", { name: "表示名" }), {
+    target: { value: "別の表示名" },
   });
-  expect(controls.onDraftChange).toHaveBeenCalledWith("別の呼び名");
+  expect(controls.onDraftChange).toHaveBeenCalledWith("別の表示名");
   fireEvent.click(screen.getByRole("button", { name: "保存する" }));
   expect(controls.onConfirm).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));

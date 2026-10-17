@@ -3,12 +3,14 @@ import { fn } from "storybook/test";
 import { buildLobbyPhase } from "@/contracts/phase.fixture";
 import { buildMembers } from "@/contracts/room-protocol.fixture";
 import { ROOM_MEMBERS_MAX_VISIBLE } from "@/features/room-members";
+import { buildRoomNameControls } from "../logic/room-name.fixture";
 import { RoomLobbyView, type RoomLobbyViewProps } from "./room-lobby-view";
 
 const ME = "11111111-1111-4111-8111-111111111111";
 const LOBBY_PHASE = buildLobbyPhase();
 
 const baseArgs: RoomLobbyViewProps = {
+  roomName: buildRoomNameControls(),
   members: buildMembers(3, ME),
   currentUserId: ME,
   isHost: true,
@@ -161,4 +163,26 @@ export const AllInteractionStates: Story = {
 
 export const DelayedConnection: Story = {
   args: { connectionStatus: "closed", connectionDelayed: true },
+};
+
+export const Connected: Story = { args: { connectionStatus: "open" } };
+
+export const AuthRequired: Story = {
+  args: { connectionStatus: "auth-required" },
+};
+
+export const Unavailable: Story = {
+  args: { connectionStatus: "unavailable" },
+};
+
+export const DelayedConnecting: Story = {
+  args: { connectionStatus: "connecting", connectionDelayed: true },
+};
+
+export const DelayedReconnecting: Story = {
+  args: { connectionStatus: "reconnecting", connectionDelayed: true },
+};
+
+export const UnnamedRoom: Story = {
+  args: { roomName: buildRoomNameControls({ name: null, draft: "" }) },
 };

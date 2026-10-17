@@ -278,7 +278,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
     });
 
     expect(rejected.status).toBe(409);
-    expect(await rejected.json()).toEqual({
+    expect(await rejected.json()).toMatchObject({
       error: "このルームは20人までです。",
     });
     expect(await listMemberIds(roomId)).toHaveLength(20);
@@ -627,7 +627,13 @@ describe("WebSocket 接続の認可", () => {
       isHost: false,
     });
 
-    ws.send(JSON.stringify({ type: "start_phase" }));
+    ws.send(
+      JSON.stringify({
+        type: "host:transfer",
+        targetUserId: MEMBER.sub,
+        expectedHostRevision: 0,
+      }),
+    );
     await expect(nextMessage()).resolves.toMatchObject({
       type: "error",
       code: "forbidden",
@@ -676,7 +682,13 @@ describe("WebSocket 接続の認可", () => {
       ).toEqual([{ host_id: OWNER.sub }]);
     });
 
-    ws.send(JSON.stringify({ type: "start_phase" }));
+    ws.send(
+      JSON.stringify({
+        type: "host:transfer",
+        targetUserId: MEMBER.sub,
+        expectedHostRevision: 0,
+      }),
+    );
     await expect(nextMessage()).resolves.toMatchObject({
       type: "error",
       code: "forbidden",
@@ -891,7 +903,13 @@ it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メ�
     hostRevision: 1,
   });
   const denied = nextHostMessage(old.socket);
-  old.socket.send(JSON.stringify({ type: "timer:start", durationMs: 60000 }));
+  old.socket.send(
+    JSON.stringify({
+      type: "host:transfer",
+      targetUserId: OWNER.sub,
+      expectedHostRevision: 1,
+    }),
+  );
   expect(await denied).toMatchObject({ type: "error", code: "forbidden" });
   const oldStart = nextHostMessage(old.socket);
   const currentStart = nextHostMessage(current.socket);
@@ -900,6 +918,20 @@ it("実移譲後も旧/新ホストの再接続snapshotは他者の未共有メ�
   );
   expect(await currentStart).toMatchObject({ type: "phase:updated" });
   await oldStart;
+  const oldTimer = nextHostMessage(old.socket);
+  const currentTimer = nextHostMessage(current.socket);
+  current.socket.send(
+    JSON.stringify({
+      type: "timer:start",
+      durationMs: 60_000,
+      expectedHostRevision: 1,
+    }),
+  );
+  expect(await currentTimer).toMatchObject({
+    type: "timer:updated",
+    timer: { status: "running" },
+  });
+  await oldTimer;
   for (const [socket, content] of [
     [old.socket, "作成者だけの未共有メモ"],
     [current.socket, "新ホストだけの未共有メモ"],

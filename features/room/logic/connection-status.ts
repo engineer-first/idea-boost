@@ -6,5 +6,6 @@ import type { RoomConnectionStatus } from "@/lib/room-client/room-client";
 
 export type RoomScreenConnectionStatus =
   | Exclude<RoomConnectionStatus, "ended" | "disbanded">
+  | "reconnecting"
   | "auth-required"
   | "unavailable";

@@ -4,13 +4,13 @@ import { IDEA_MAP_SIZE_LEVEL_RANGE } from "@/contracts/board";
 import { IdeaMapSizeControls } from "./idea-map-size-controls";
 
 describe("IdeaMapSizeControls", () => {
-  it("参加者も広さの説明を開き、共有範囲と変更できない理由を確認できる", () => {
+  it("参加者にも広さの操作と説明を表示する", () => {
     const onResize = vi.fn();
     render(
       <IdeaMapSizeControls
         sizeLevel={2}
         initialized
-        isHost={false}
+        isHost
         isDisconnected={false}
         isDragging={false}
         onResize={onResize}
@@ -28,11 +28,26 @@ describe("IdeaMapSizeControls", () => {
     );
     expect(explanation).toHaveTextContent("個人用ズーム");
     expect(explanation).toHaveTextContent("付箋は小さく");
-    expect(explanation).toHaveTextContent("ホストだけ");
     expect(explanation).toHaveTextContent("価値");
     fireEvent.keyDown(explanation, { key: "Escape" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(onResize).not.toHaveBeenCalled();
+  });
+
+  it("ホスト以外の参加者も広さを変更できる", () => {
+    const onResize = vi.fn();
+    render(
+      <IdeaMapSizeControls
+        sizeLevel={2}
+        initialized
+        isHost={false}
+        isDisconnected={false}
+        isDragging={false}
+        onResize={onResize}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
+    expect(onResize).toHaveBeenCalledWith(3);
   });
 
   it("ホストは現在の段階から隣の段階へ変更できる", () => {
@@ -59,7 +74,6 @@ describe("IdeaMapSizeControls", () => {
   });
 
   it.each([
-    ["非ホスト", { isHost: false }, "広さを変更できるのはホストだけです。"],
     ["ドラッグ中", { isDragging: true }, "付箋のドラッグ中は変更できません。"],
     ["切断中", { isDisconnected: true }, "接続が回復すると変更できます。"],
     ["未初期化", { initialized: false }, "初期サイズを準備しています。"],

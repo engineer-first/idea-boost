@@ -185,7 +185,7 @@ function getBaseBoardPermissions(phase: RoomPhase): BaseBoardPermissions {
       canCreateNote: false,
       canEditNote: false,
       canDeleteNote: false,
-      canMoveNote: false,
+      canMoveNote: true,
 
       canGroupNote: false,
 
@@ -314,7 +314,7 @@ export function getBoardPermissions(
   return {
     ...getBaseBoardPermissions(phase),
     ...(isResultStep(phase)
-      ? { canMoveNote: !isDecided, canDecide: !isDecided }
+      ? { canMoveNote: true, canDecide: !isDecided }
       : {}),
     canExcludeNote: canManageExclusion,
     canRestoreNote: canManageExclusion,

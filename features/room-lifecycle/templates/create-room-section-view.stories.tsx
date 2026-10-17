@@ -113,3 +113,13 @@ export const ConfirmNew: Story = {
     );
   },
 };
+
+export const CreatingPreparedIntent: Story = {
+  args: {
+    pending: true,
+    recovering: true,
+    recoveryState: "prepared",
+    intentName: "サービスの相談",
+    onNewIntent: fn(),
+  },
+};

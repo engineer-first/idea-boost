@@ -11,7 +11,6 @@ import type {
 import { projectNoteForViewer } from "../visibility";
 import type { RoomBroadcaster, SocketAttachment } from "./broadcast";
 import { isRoomClosed } from "./completed-rooms";
-import { getDecision } from "./decisions";
 import {
   canViewBoardGroup,
   listBoardGroups,
@@ -35,6 +34,7 @@ import {
   getPhase,
   getPhaseRevision,
 } from "./phase";
+import { getTimerState } from "./timer";
 
 type Start = Extract<ClientMessage, { type: "note:move:start" }>;
 type Result = Extract<ServerMessage, { type: "note:move:result" }>;
@@ -172,7 +172,6 @@ function presenceOperation(
   const revisions = moveRevisions(sql);
   if (
     phase.kind !== "step" ||
-    getDecision(sql, phase.phase) ||
     request.start.expectedPhaseRevision !== getPhaseRevision(sql) ||
     request.start.expectedGroupRevision !== revisions.groupRevision ||
     request.start.expectedMapRevision !== revisions.mapRevision ||
@@ -445,8 +444,7 @@ function permitted(ctx: HandlerCtx): boolean {
       x: 0,
       y: 0,
     }) &&
-    phase.kind === "step" &&
-    !getDecision(ctx.sql, phase.phase)
+    phase.kind === "step"
   );
 }
 function position(row: NoteRow): MoveReceipt["before"][number] {
@@ -584,7 +582,9 @@ export const moveHandlers: MessageHandlers<
     const phase = getPhase(ctx.sql);
     const revisions = moveRevisions(ctx.sql);
     const currentGroupVersions = groupVersions(ctx.sql);
-    const denied = () => {
+    const denied = (
+      reason = "ほかの人の変更があるため、この移動は戻せません",
+    ) => {
       // 拒否も保存し、結果照会で同じ要求の終端を返す。本文/対象は返信しない。
       ctx.sql.exec(
         "INSERT INTO note_move_operations(operation_id,user_id,connection_id,request_json,state,lease_until,created_at) VALUES (?1,?2,?3,?4,'rejected',0,?5)",
@@ -598,11 +598,15 @@ export const moveHandlers: MessageHandlers<
         type: "note:move:result",
         operationId: message.operationId,
         status: "rejected",
-        reason: "ほかの人の変更があるため、この移動は戻せません",
+        reason,
       });
       const saved = readOperation(ctx.sql, message.operationId);
       if (saved) ctx.reply(resultFor(ctx, saved));
     };
+    if (getTimerState(ctx.sql).status !== "running") {
+      denied("タイマーが動作していないため、ボードを操作できません。");
+      return;
+    }
     const recent = Number(
       ctx.sql
         .exec(
@@ -957,9 +961,11 @@ export const moveHandlers: MessageHandlers<
         sequence,
         leaseMs: MOVE_LEASE_MS,
         positions: active.rows.map((row) => ({
-          ...position(row),
+          noteId: row.id,
           x: row.x + delta.x,
           y: row.y + delta.y,
+          positionRevision: row.position_revision ?? 0,
+          visibilityRevision: row.visibility_revision ?? 0,
         })),
       },
       active.rows.map((row) => toProtocolNote(ctx.sql, row, ctx.userId)),

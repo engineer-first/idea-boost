@@ -6,6 +6,10 @@ const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 let browser: Browser;
 let page: Page;
 
+function withoutExportDate(value: string): string {
+  return value.replace(/^\uFEFF/, "").replace(/^出力日: .*$/m, "出力日");
+}
+
 beforeAll(async () => {
   await vi.waitFor(
     async () => {
@@ -110,8 +114,6 @@ test("テキスト保存と全文コピーには同じ3項目が入り、操作�
     expect(saved).toContain(part);
     expect(copied).toContain(part);
   }
-  const withoutExportDate = (value: string) =>
-    value.replace(/^\uFEFF/, "").replace(/^出力日: .*$/m, "出力日");
   expect(withoutExportDate(saved)).toBe(withoutExportDate(copied));
   expect(
     await page.getByRole("heading", { name: "チームで決めた成果" }).isVisible(),
@@ -180,45 +182,60 @@ test("再コピー中は前の成功を消して二重操作を防ぎ、完了�
 });
 
 test("コピー拒否時の全文をキーボードで選択でき、再試行で回復する", async () => {
-  await page.goto(
-    `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
-  );
-  await page.getByTestId("room-outcome-view").waitFor();
-  await page.evaluate(() => {
-    const original = navigator.clipboard.writeText.bind(navigator.clipboard);
-    navigator.clipboard.writeText = async () => {
-      navigator.clipboard.writeText = original;
-      throw new Error("Permission denied");
-    };
+  const retryPage = await browser.newPage({
+    permissions: ["clipboard-read", "clipboard-write"],
+    timezoneId: "Asia/Tokyo",
   });
-  await page.getByRole("button", { name: "全文をコピー" }).click();
-  const manual = page.getByRole("textbox", {
-    name: "手動でコピーする成果全文",
-  });
-  await manual.waitFor();
-  const text = await manual.inputValue();
-  for (const section of await page
-    .getByTestId("room-outcome-view")
-    .locator("section")
-    .all()) {
-    if (await section.getByRole("heading", { name: "次に試すこと" }).count())
-      continue;
-    expect(text).toContain(await section.locator("p").innerText());
+  try {
+    await retryPage.clock.setFixedTime(new Date("2026-10-15T02:34:59Z"));
+    await retryPage.goto(
+      `${origin}/iframe.html?id=room-roomoutcomeview--complete&viewMode=story`,
+    );
+    await retryPage.getByTestId("room-outcome-view").waitFor();
+    await retryPage.evaluate(() => {
+      const original = navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText = async () => {
+        navigator.clipboard.writeText = original;
+        throw new Error("Permission denied");
+      };
+    });
+    await retryPage.getByRole("button", { name: "全文をコピー" }).click();
+    const manual = retryPage.getByRole("textbox", {
+      name: "手動でコピーする成果全文",
+    });
+    await manual.waitFor();
+    const text = await manual.inputValue();
+    expect(text).toContain("出力日: 2026/10/15 11:34");
+    for (const section of await retryPage
+      .getByTestId("room-outcome-view")
+      .locator("section")
+      .all()) {
+      if (await section.getByRole("heading", { name: "次に試すこと" }).count())
+        continue;
+      expect(text).toContain(await section.locator("p").innerText());
+    }
+    await retryPage.keyboard.press("Tab");
+    expect(
+      await manual.evaluate((element) => element === document.activeElement),
+    ).toBe(true);
+    expect(
+      await manual.evaluate(
+        (element: HTMLTextAreaElement) =>
+          element.selectionEnd - element.selectionStart,
+      ),
+    ).toBe(text.length);
+    await retryPage.clock.setFixedTime(new Date("2026-10-15T02:35:00Z"));
+    await retryPage.getByRole("button", { name: "全文をコピー" }).click();
+    await retryPage.getByRole("status").waitFor();
+    expect(await manual.count()).toBe(0);
+    const copied = await retryPage.evaluate(() =>
+      navigator.clipboard.readText(),
+    );
+    expect(copied).toContain("出力日: 2026/10/15 11:35");
+    expect(withoutExportDate(copied)).toBe(withoutExportDate(text));
+  } finally {
+    await retryPage.close();
   }
-  await page.keyboard.press("Tab");
-  expect(
-    await manual.evaluate((element) => element === document.activeElement),
-  ).toBe(true);
-  expect(
-    await manual.evaluate(
-      (element: HTMLTextAreaElement) =>
-        element.selectionEnd - element.selectionStart,
-    ),
-  ).toBe(text.length);
-  await page.getByRole("button", { name: "全文をコピー" }).click();
-  await page.getByRole("status").waitFor();
-  expect(await manual.count()).toBe(0);
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
 });
 
 test("保存失敗からコピーに回復し、成功通知の500ms後に感想を案内する", async () => {

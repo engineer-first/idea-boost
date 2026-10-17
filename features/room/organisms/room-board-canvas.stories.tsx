@@ -118,6 +118,7 @@ const meta = {
     selectedNoteId: null,
     draggingNoteId: null,
     isDisconnected: false,
+    boardInteractionBlocked: false,
     ideaMapSizeLevel: 0,
     ideaMapSizeInitialized: true,
     ideaMapIsDragging: false,
@@ -773,6 +774,15 @@ export const HostCanResizeIdeaMap: Story = {
   render: (args) => <HostIdeaMapResizePreview args={args} />,
 };
 
+export const ParticipantIdeaMap: Story = {
+  name: "2軸マップ / 参加者には広さ操作を表示しない",
+  args: {
+    ...HostCanResizeIdeaMap.args,
+    isHost: false,
+  },
+  decorators: IDEA_MAP_VIEWPORT,
+};
+
 export const IdeaMapZoom50: Story = {
   args: {
     ...fixedSizeMapArgs,
@@ -811,6 +821,7 @@ function NoteReadingPreview({ args }: { args: RoomBoardCanvasStoryProps }) {
       ideaMapPlaneRef={ideaMapPlaneRef}
       privateToolbarRef={privateToolbarRef}
       camera={camera.camera}
+      displayZoom={camera.displayZoom}
       gridStyle={camera.gridStyle}
       isPanning={camera.isPanning}
       onCanvasPointerDown={camera.handlePointerDown}

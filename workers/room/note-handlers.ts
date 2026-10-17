@@ -29,7 +29,7 @@ import {
   replyForbidden,
 } from "./handler-context";
 import { broadcastIdeaMapState, isIdeaMapVisiblePhase } from "./idea-map";
-import { getMemberColor, isHostUser } from "./members";
+import { getMemberColor } from "./members";
 import { hasMoveLock } from "./move-operations";
 import {
   bringNoteToFront,
@@ -59,6 +59,7 @@ import {
 import { getPhase, getPhaseRevision } from "./phase";
 import { commitShare } from "./share-operations";
 import { getSharingState } from "./sharing-state";
+import { getTimerState } from "./timer";
 import {
   addUserNoteVote,
   addVoteSticker,
@@ -363,6 +364,15 @@ export const noteHandlers: MessageHandlers<
         type: "error",
         code: "content-conflict",
         message: "付箋の本文が先に更新されました。",
+      });
+      return;
+    }
+    // digest の待機中に一時停止・終了していたら、本文と保存記録を確定しない。
+    if (getTimerState(ctx.sql).status !== "running") {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "タイマーが動作していないため、ボードを操作できません。",
       });
       return;
     }
@@ -729,7 +739,6 @@ export const noteHandlers: MessageHandlers<
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (
-      !isHostUser(ctx.sql, ctx.userId) ||
       row.visibility !== "shared" ||
       row.excluded ||
       getDecision(ctx.sql, row.phase)?.noteId === row.id
@@ -761,7 +770,6 @@ export const noteHandlers: MessageHandlers<
     const row = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!row) return;
     if (
-      !isHostUser(ctx.sql, ctx.userId) ||
       row.visibility !== "shared" ||
       !row.excluded ||
       (message.expectedExclusionOperationId !== undefined &&
@@ -786,10 +794,6 @@ export const noteHandlers: MessageHandlers<
   },
 
   "note:bulk-exclude": (ctx, message) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
     const phase = getPhase(ctx.sql);
     if (phase.kind !== "step") {
       replyForbidden(ctx);
@@ -831,10 +835,6 @@ export const noteHandlers: MessageHandlers<
   },
 
   "note:bulk-restore": (ctx, message) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
     const phase = getPhase(ctx.sql);
     if (phase.kind !== "step") {
       replyForbidden(ctx);

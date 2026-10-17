@@ -27,7 +27,24 @@ export const CreateFailed: Story = {
 
 // 参加失敗（ルームなし）。
 export const JoinNotFound: Story = {
-  args: { message: "ルームが見つかりませんでした。" },
+  args: {
+    message:
+      "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
+  },
+};
+
+export const RoomClosed: Story = {
+  args: {
+    message:
+      "このルームは終了しているため参加できません。新しい招待コードをホストに確認してください。",
+  },
+};
+
+export const RoomFull: Story = {
+  args: {
+    message:
+      "ルームが満員（上限20人）のため参加できません。ホストに確認してください。",
+  },
 };
 
 // 招待コード形式不正。
@@ -43,14 +60,17 @@ export const ServiceUnavailable: Story = {
   },
 };
 
-// 全状態の一覧（VRT / カタログ用）。
+// 全状態の一覧（公開Storybookのカタログ用）。
 export const AllStates: Story = {
   render: () => (
     <div className="flex w-[360px] flex-col gap-6">
       {(
         [
           ["作成失敗", "ルームを作成できませんでした。"],
-          ["参加失敗", "ルームが見つかりませんでした。"],
+          [
+            "参加失敗",
+            "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
+          ],
           ["形式不正", "招待コードは英数字6桁で入力してください。"],
           [
             "サービス障害",

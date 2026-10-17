@@ -31,10 +31,19 @@ import {
   type CreationStatus,
   CreationStatusInputSchema,
   CreationStatusSchema,
+  ROOM_CREATION_NAME_MAX,
 } from "@/contracts/room-creation";
+import type {
+  ParticipationConfirmation,
+  ParticipationResult,
+} from "@/contracts/room-participation";
 import { apiFetch, lookupRoomByInviteCode } from "@/lib/api-client";
 import { getCurrentUser } from "@/lib/session/current-user";
 import { hasRoomEntryTime, issueRoomEntry } from "@/lib/session/room-entry";
+import {
+  participationActionFailure,
+  readParticipationRecovery,
+} from "./participation-recovery";
 
 const JoinRoomInputSchema = z.object({
   code: z
@@ -54,12 +63,22 @@ export type CreateRoomResult =
       ok: false;
       error: string;
       outcome: "unknown" | "rejected";
+      confirmation?: ParticipationConfirmation;
+      pendingOperation?: Extract<ParticipationResult, { kind: "pending" }>;
+      failedOperation?: Extract<ParticipationResult, { kind: "rejected" }>;
       reason?: string;
     };
 
 export type JoinRoomResult =
   | { ok: true; roomId: string; entryToken?: string }
-  | { ok: false; error: string; reason?: string };
+  | {
+      ok: false;
+      error: string;
+      reason?: string;
+      confirmation?: ParticipationConfirmation;
+      pendingOperation?: Extract<ParticipationResult, { kind: "pending" }>;
+      failedOperation?: Extract<ParticipationResult, { kind: "rejected" }>;
+    };
 
 // 参加確認 Dialog 用。ホスト名を先に解決し、存在しないコードは Dialog を開かない。
 export type LookupInviteResult =
@@ -84,7 +103,11 @@ export async function lookupInviteRoom(
 
   const lookup = await lookupRoomByInviteCode(parsedInput.data.code);
   if (lookup.kind === "not_found") {
-    return { ok: false, error: "ルームが見つかりませんでした。" };
+    return {
+      ok: false,
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
+    };
   }
   if (lookup.kind === "unavailable") {
     return {
@@ -116,7 +139,7 @@ export async function createRoom(
     return {
       ok: false,
       outcome: "rejected",
-      error: "作成要求IDと80文字以内のルーム名が必要です。",
+      error: `作成要求IDと${ROOM_CREATION_NAME_MAX}文字以内のルーム名が必要です。`,
     };
   if (parsedInput.data.expectedPrincipal !== user.sub)
     return {
@@ -138,10 +161,11 @@ export async function createRoom(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsedInput.data),
     });
+    const recovery = await readParticipationRecovery(res);
+    if (recovery) return participationActionFailure(recovery);
     if ([400, 401, 403, 409, 410].includes(res.status)) {
-      const failure = CreationFailureSchema.safeParse(
-        await res.json().catch(() => null),
-      );
+      const raw = await res.json().catch(() => null);
+      const failure = CreationFailureSchema.safeParse(raw);
       return {
         ok: false,
         outcome: "rejected",
@@ -283,12 +307,42 @@ export async function joinRoom(
     };
   }
 
+  const recovery = await readParticipationRecovery(res);
+  if (recovery) return participationActionFailure(recovery);
   // 404/400 はルーム不存在・入力不正。それ以外の非 2xx は一時障害扱い。
   if (res.status === 404 || res.status === 400) {
-    return { ok: false, error: "ルームが見つかりませんでした。" };
+    return {
+      ok: false,
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
+    };
   }
   if (res.status === 409) {
-    return { ok: false, error: "このルームは20人までです。" };
+    // 現行APIは終了と満員の両方に409を使う。既知の応答だけを案内し、
+    // 不正・未知のボディから満員だと推測しない。
+    const failure = z
+      .object({ error: z.string() })
+      .safeParse(await res.json().catch(() => null));
+    if (
+      failure.success &&
+      failure.data.error === "終了したルームには参加できません。"
+    ) {
+      return {
+        ok: false,
+        error:
+          "このルームは終了しているため参加できません。新しい招待コードをホストに確認してください。",
+      };
+    }
+    if (
+      failure.success &&
+      failure.data.error === "このルームは20人までです。"
+    ) {
+      return {
+        ok: false,
+        error:
+          "ルームが満員（上限20人）のため参加できません。ホストに確認してください。",
+      };
+    }
   }
   if (!res.ok) {
     return {
@@ -346,6 +400,8 @@ export async function returnToRoom(
     const response = await apiFetch(`/api/rooms/${roomId}`, {
       cache: "no-store",
     });
+    const recovery = await readParticipationRecovery(response);
+    if (recovery) return { kind: "ready", href: `/rooms/${roomId}` };
     if ([401, 403, 404].includes(response.status))
       return { kind: "unavailable_room" };
     if (!response.ok) return { kind: "retry" };

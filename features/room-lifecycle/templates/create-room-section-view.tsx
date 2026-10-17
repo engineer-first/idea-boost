@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/dialog";
+import { ROOM_CREATION_NAME_MAX } from "@/contracts/room-creation";
 import { RoomEntryField } from "../molecules/room-entry-field";
 
 export type CreateRoomSectionViewProps = {
@@ -83,7 +84,7 @@ export function CreateRoomSectionView({
             id="room-name"
             label="ルーム名（任意）"
             name="name"
-            maxLength={80}
+            maxLength={ROOM_CREATION_NAME_MAX}
             disabled={pending || recovering || storageError}
             defaultValue={intentName}
             key={intentName ?? "new"}
@@ -106,7 +107,7 @@ export function CreateRoomSectionView({
                 : "新しいルームを作成"}
           </Button>
         </form>
-        {recovering && !message && (
+        {recovering && !pending && !message && (
           <p className="mt-3 text-sm leading-relaxed">
             {recoveryState === "prepared"
               ? "準備したルームの作成を続けられます。"
@@ -118,7 +119,7 @@ export function CreateRoomSectionView({
             {message}
           </p>
         )}
-        {recovering && onNewIntent && (
+        {recovering && !pending && onNewIntent && (
           <Button
             type="button"
             variant="outline"
@@ -129,7 +130,7 @@ export function CreateRoomSectionView({
             新しいルームを作成
           </Button>
         )}
-        {!recovering && requiresNewConfirmation && onRecover && (
+        {!pending && !recovering && requiresNewConfirmation && onRecover && (
           <Button
             type="button"
             variant="outline"
@@ -170,7 +171,7 @@ export function CreateRoomSectionView({
             <AlertDialogHeader>
               <AlertDialogTitle>新しいルームを作成しますか？</AlertDialogTitle>
               <AlertDialogDescription>
-                前のルームが作成されている場合は、両方のルームが残ります。前のルームの参加状態やデータは変わりません。
+                作成前に現在の参加状況を確認します。参加中のルームがあれば、退出・ホスト交代・解散の影響を次の確認画面で示します。
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

@@ -2,13 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import type { SetDisplayNameInput } from "@/contracts/display-name";
 import { isLobby, type RoomPhase } from "@/contracts/phase";
 import type { ServerMessage } from "@/contracts/room-protocol";
+import type { DisplayNameResult } from "@/features/auth";
 // スタート画面（ロビー）のコンテナ。関心ごとの hook を束ねて view に渡す。
 //   - WebSocket 接続と切断時の遷移: use-room-connection
 //   - members / phase の適用と入退出通知: use-room-state
 //   - 退出 / 解散フロー: use-leave-room
-// このファイルに残るのは「ホスト判定付きの start_phase 送信」と
+// このファイルに残るのは start_phase 送信と
 // 「phase が lobby を離れたらボードへ遷移する」というロビー固有の配線だけ。
 // ノートは扱わない。
 import {
@@ -26,6 +28,7 @@ import { useLeaveRoom } from "../logic/use-leave-room";
 import { useMemberRemoval } from "../logic/use-member-removal";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
+import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
 import { RoomLobbyView } from "../templates/room-lobby-view";
 
@@ -44,6 +47,9 @@ export type RoomLobbyProps = {
   initialMembers: Member[];
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
+  saveDisplayNameAction?: (
+    input: SetDisplayNameInput,
+  ) => Promise<DisplayNameResult>;
 };
 
 export function RoomLobby({
@@ -58,6 +64,7 @@ export function RoomLobby({
   initialPhase,
   initialMembers,
   webSocketFactory,
+  saveDisplayNameAction,
 }: RoomLobbyProps) {
   const router = useRouter();
   const inheritedAdmission = useContext(RoomAdmissionContext);
@@ -105,7 +112,14 @@ export function RoomLobby({
     webSocketFactory,
     isLeavingRef,
   });
+  const roomName = useRoomName({
+    connected: connectionStatus === "open",
+    blocked: isStarting || isLeaving || isTransferring,
+    send,
+  });
   const displayName = useRoomDisplayName({
+    roomId,
+    save: saveDisplayNameAction,
     currentUserId,
     members: roomState.members,
     connected: connectionStatus === "open",
@@ -176,6 +190,7 @@ export function RoomLobby({
   }
 
   function handleServerMessage(message: ServerMessage) {
+    if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
     if (memberRemoval.applyMessage(message)) return;
     if (
@@ -184,8 +199,19 @@ export function RoomLobby({
       message.type === "phase:updated"
     ) {
       finishTransfer();
-      clearStartTimeout();
-      setIsStarting(false);
+      if (
+        (message.type === "phase:updated" || message.type === "snapshot") &&
+        !isLobby(message.phase)
+      ) {
+        clearStartTimeout();
+        setIsStarting(true);
+      } else if (
+        message.type === "host:updated" &&
+        message.hostUserId !== currentUserId
+      ) {
+        clearStartTimeout();
+        setIsStarting(false);
+      }
     }
     if (message.type === "error") {
       if (transferringRef.current) finishTransfer(message.message);
@@ -202,12 +228,21 @@ export function RoomLobby({
   }
 
   const handleStart = useCallback(() => {
-    if (!isHost || transferringRef.current || memberRemoval.isPending()) return;
+    if (
+      isStarting ||
+      connectionStatus !== "open" ||
+      transferringRef.current ||
+      memberRemoval.isPending()
+    )
+      return;
     setIsStarting(true);
-    send({
+    const sent = send({
       type: "start_phase",
-      expectedHostRevision: roomState.host.hostRevision ?? 0,
     });
+    if (!sent) {
+      setIsStarting(false);
+      return;
+    }
     // 成功時は phase:updated → router.replace で /rooms/[id] へ遷移。
     // 失敗時（forbidden / 接続断）は上記の error ハンドラで isStarting を解除。
     // 万一何も起きない場合は 5 秒でタイムアウトさせて再操作可能にする。
@@ -217,10 +252,10 @@ export function RoomLobby({
       setIsStarting(false);
     }, 5000);
   }, [
-    isHost,
+    isStarting,
+    connectionStatus,
     send,
     clearStartTimeout,
-    roomState.host.hostRevision,
     memberRemoval.isPending,
   ]);
 
@@ -256,6 +291,7 @@ export function RoomLobby({
       loginReturnHref={`/rooms/${roomId}`}
       key={`${hostUserId}:${roomState.host.hostRevision ?? 0}`}
       displayName={displayName}
+      roomName={roomName}
       memberRemoval={memberRemoval}
       members={roomState.members}
       currentUserId={currentUserId}

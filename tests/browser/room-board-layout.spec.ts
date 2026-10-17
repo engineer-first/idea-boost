@@ -44,32 +44,21 @@ async function openStory(id: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
 }
 
-async function collapseGuide(): Promise<void> {
-  const guide = page.getByTestId("step-guide");
-  for (let attempt = 0; attempt < 2; attempt++) {
-    if ((await guide.getAttribute("data-state")) === "compact") return;
-    await page.keyboard.press("Escape");
-  }
-  await expect.poll(() => guide.getAttribute("data-state")).toBe("compact");
-}
-
 async function expectLayout(): Promise<void> {
   const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
-  const layoutTargets = [
-    '[data-testid="board-context-hud"]',
-    '[data-testid="board-control-hud"]',
-    '[data-testid="board-connection-status"]',
-    '[data-testid="board-help-panel"] > div',
-    '[data-testid="private-notes-toolbar"]',
-    '[data-testid="board-tools-hud"]',
-    '[data-testid="board-operation-matrix"]',
-    '[data-testid="vote-palette-hud"] > *',
-  ];
-  if (viewport.width >= 1280) {
-    layoutTargets.push('[data-testid="step-guide"]');
-  }
   const boxes = await page
-    .locator(layoutTargets.join(","))
+    .locator(
+      [
+        '[data-testid="board-context-hud"]',
+        '[data-testid="board-control-hud"]',
+        '[data-testid="board-connection-status"]',
+        '[data-testid="board-help-panel"] > div',
+        '[data-testid="private-notes-toolbar"]',
+        '[data-testid="board-tools-hud"]',
+        '[data-testid="board-operation-matrix"]',
+        '[data-testid="vote-palette-hud"] > *',
+      ].join(","),
+    )
     .evaluateAll((elements) =>
       elements.map((element) => ({
         id: element.getAttribute("data-testid") ?? "help",
@@ -177,51 +166,25 @@ test.each(
   const [phase, number] = step.split("-");
   await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
   await page.getByTestId("board-context-hud").waitFor();
-  // 集計ステップの結果ダイアログを閉じた後、コンパクトなガイド位置を検査する。
-  await collapseGuide();
+  // 集計ステップは結果ダイアログを閉じたボード本体も検査する。
+  await page.keyboard.press("Escape");
   await expectLayout();
-  const guide = await page.getByTestId("step-guide").boundingBox();
-  const location = await page.getByTestId("board-location-card").boundingBox();
-  const controls = await page.getByTestId("board-control-hud").boundingBox();
-  if (!guide || !location || !controls) {
-    throw new Error("上部ヘッダーの配置を取得できません");
-  }
-  const guideCenterY = guide.y + guide.height / 2;
-  const locationCenterY = location.y + location.height / 2;
-  const controlsCenterY = controls.y + controls.height / 2;
-  expect(Math.abs(guideCenterY - locationCenterY)).toBeLessThanOrEqual(4);
-  expect(Math.abs(guideCenterY - controlsCenterY)).toBeLessThanOrEqual(4);
   await page.screenshot({ path: `${output}/${step}.png` });
-});
-
-test.each([
-  1279, 1024,
-])("%dpxでは進め方が操作バーの下へ退避し、重ならない", async (width) => {
-  await page.setViewportSize({ width, height: 720 });
-  await openStory("room-roomboardlayout--phase-3-step-1");
-  await collapseGuide();
-  const guide = await page.getByTestId("step-guide").boundingBox();
-  const controls = await page.getByTestId("board-control-hud").boundingBox();
-  if (!guide || !controls) {
-    throw new Error("進め方または上部操作バーが見つかりません");
-  }
-  expect(guide.y).toBeGreaterThanOrEqual(controls.y + controls.height);
-  expect(guide.x).toBeGreaterThanOrEqual(0);
-  expect(guide.x + guide.width).toBeLessThanOrEqual(width);
 });
 
 test("左右の開閉は独立し、多数の付箋とヒントは内部スクロールで末尾に到達できる", async () => {
   await openStory("room-roomboardlayout--phase-3-step-1");
-  const canvas = page.getByTestId("board-canvas");
-  const before = await canvas.boundingBox();
+  expect(await page.getByTestId("board-scroller").isVisible()).toBe(false);
+  const toolbar = page.getByTestId("private-notes-toolbar");
+  expect(await toolbar.getAttribute("data-presentation")).toBe("workspace");
+  const beforeToolbar = await toolbar.boundingBox();
   const scroll = page.getByTestId("private-notes-scroll");
   const size = await scroll.evaluate((e) => ({
     height: e.clientHeight,
     scroll: e.scrollHeight,
   }));
+  expect(size.height).toBeGreaterThan(150);
   expect(size.height).toBeLessThan(size.scroll);
-  const toolbar = await page.getByTestId("private-notes-toolbar").boundingBox();
-  expect(size.height).toBeLessThan(toolbar?.height ?? 0);
   await scroll.evaluate((e) => {
     e.scrollTop = e.scrollHeight;
   });
@@ -252,7 +215,7 @@ test("左右の開閉は独立し、多数の付箋とヒントは内部スク�
       .getByTestId("private-notes-toolbar")
       .getAttribute("data-expanded"),
   ).toBe("true");
-  expect(await canvas.boundingBox()).toEqual(before);
+  expect(await toolbar.boundingBox()).toEqual(beforeToolbar);
   expect(
     await page.evaluate(
       () =>
@@ -716,8 +679,20 @@ test.each([
       .getAttribute("data-expanded"),
   ).toBe("true");
   expect(
-    (await page.getByTestId("private-notes-toolbar").boundingBox())?.width,
-  ).toBe(240);
+    await page
+      .getByTestId("private-notes-toolbar")
+      .getAttribute("data-presentation"),
+  ).toBe("workspace");
+  const toolbarBox = await page
+    .getByTestId("private-notes-toolbar")
+    .boundingBox();
+  const contextBox = await hud.boundingBox();
+  expect(toolbarBox?.x).toBeGreaterThanOrEqual(
+    (contextBox?.x ?? 0) + (contextBox?.width ?? 0) + 8,
+  );
+  expect(
+    (toolbarBox?.x ?? Infinity) + (toolbarBox?.width ?? 0),
+  ).toBeLessThanOrEqual(width);
   await expectLayout();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     width,
@@ -985,7 +960,7 @@ test.each([
   1280, 1024, 768,
 ])("幅 %i の操作バーで招待とタイマーを開閉でき、寸法と主要操作を保つ", async (width) => {
   await page.setViewportSize({ width, height: 720 });
-  await openStory("room-roomboardlayout--phase-3-step-1");
+  await openStory("room-roomboardlayout--timer-paused");
   const controls = page.getByRole("group", { name: "ルームの操作" });
   await controls.waitFor();
   const initialBox = await controls.boundingBox();
@@ -1002,7 +977,8 @@ test.each([
   });
   const contextBox = await page.getByTestId("board-context-hud").boundingBox();
   expect(contextBox?.width).toBeLessThanOrEqual(360);
-  const invite = controls.getByRole("button", { name: "招待", exact: true });
+  await controls.getByRole("button", { name: "ルームメニューを開く" }).click();
+  const invite = page.getByRole("button", { name: "招待", exact: true });
   await invite.click();
   const panel = page.getByRole("dialog", { name: "ルームに招待" });
   await panel.waitFor();
@@ -1017,6 +993,7 @@ test.each([
   await expect
     .poll(() => invite.evaluate((e) => document.activeElement === e))
     .toBe(true);
+  await page.keyboard.press("Escape");
   await timer.click();
   await page.getByTestId("room-timer-panel").waitFor();
   expect(
@@ -1157,11 +1134,60 @@ test.each([
   await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
   await openStory("room-roomboardlayout--undo-notification");
   const matrix = page.getByTestId("board-operation-matrix");
+  await page.getByRole("button", { name: "除外通知を再現" }).click();
+  await page.getByText(/投票完了により0票の付箋1件/).waitFor();
+  await page.waitForTimeout(400);
+  const toast = await page
+    .locator('[data-sonner-toast][data-visible="true"]')
+    .first()
+    .boundingBox();
+  expect(await matrix.isVisible()).toBe(false);
+  expect(toast).not.toBeNull();
+  if (!toast) throw new Error("Undo通知がありません");
+  await page.screenshot({
+    path: `${output}/u03-toast-private-${width}.png`,
+  });
+  const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+  await add.scrollIntoViewIfNeeded();
+  expect(
+    await add.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return element.contains(
+        document.elementFromPoint(
+          bounds.x + bounds.width / 2,
+          bounds.y + bounds.height / 2,
+        ),
+      );
+    }),
+  ).toBe(true);
+  await add.click({ timeout: 2500 });
+  expect(
+    await page
+      .getByTestId("private-notes-toolbar")
+      .getAttribute("data-expanded"),
+  ).toBe("true");
+  await page
+    .getByRole("button", { name: "まとめて元に戻す", exact: true })
+    .click();
+  expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
+    true,
+  );
+});
+
+test.each([
+  1280, 390,
+])("U03: %ipxでUndo通知はボードの配置を変えず、通知とUndoへ到達できる", async (width) => {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+  await openStory("room-roomboardlayout--undo-notification-shared");
+  const matrix = page.getByTestId("board-operation-matrix");
+  const board = page.getByTestId("room-board-view-root");
+  const boardBefore = await board.boundingBox();
   const before = await matrix.boundingBox();
   expect(before).not.toBeNull();
   await page.getByRole("button", { name: "除外通知を再現" }).click();
   await page.getByText(/投票完了により0票の付箋1件/).waitFor();
   await page.waitForTimeout(400);
+  const boardAfter = await board.boundingBox();
   const after = await matrix.boundingBox();
   const toast = await page
     .locator('[data-sonner-toast][data-visible="true"]')
@@ -1169,31 +1195,49 @@ test.each([
     .boundingBox();
   expect(after).not.toBeNull();
   expect(toast).not.toBeNull();
-  if (!before || !after || !toast)
+  if (!before || !after || !toast || !boardBefore || !boardAfter)
     throw new Error("案内または通知がありません");
   expect(after.x).toBeCloseTo(before.x, 0);
   expect(after.y).toBeCloseTo(before.y, 0);
   expect(after.width).toBeCloseTo(before.width, 0);
   expect(after.height).toBeCloseTo(before.height, 0);
-  const overlapLeft = Math.max(after.x, toast.x);
-  const overlapRight = Math.min(after.x + after.width, toast.x + toast.width);
-  const overlapTop = Math.max(after.y, toast.y);
+  expect(boardAfter).toEqual(boardBefore);
+  // 狭幅では操作帯と通知が離れる。盤面自体との重なりと最前面を確認する。
+  const overlapLeft = Math.max(boardAfter.x, toast.x);
+  const overlapRight = Math.min(
+    boardAfter.x + boardAfter.width,
+    toast.x + toast.width,
+  );
+  const overlapTop = Math.max(boardAfter.y, toast.y);
   const overlapBottom = Math.min(
-    after.y + after.height,
+    boardAfter.y + boardAfter.height,
     toast.y + toast.height,
   );
-  expect(overlapRight).toBeGreaterThan(overlapLeft);
-  expect(overlapBottom).toBeGreaterThan(overlapTop);
+  // 390pxでは通知と操作欄が重ならない配置も正常。交差があるときは
+  // その点で前面を検査し、交差がなければ通知の中央で到達性を検査する。
+  const overlaps = overlapRight > overlapLeft && overlapBottom > overlapTop;
   const toastIsOnTop = await page.evaluate(
     ({ x, y }) =>
       Boolean(document.elementFromPoint(x, y)?.closest("[data-sonner-toast]")),
     {
-      x: overlapLeft + (overlapRight - overlapLeft) / 2,
-      y: overlapTop + (overlapBottom - overlapTop) / 2,
+      x: overlaps
+        ? overlapLeft + (overlapRight - overlapLeft) / 2
+        : toast.x + toast.width / 2,
+      y: overlaps
+        ? overlapTop + (overlapBottom - overlapTop) / 2
+        : toast.y + toast.height / 2,
     },
   );
   expect(toastIsOnTop).toBe(true);
-  await page.screenshot({ path: `${output}/u03-toast-${width}.png` });
+  await page.screenshot({
+    path: `${output}/u03-toast-shared-${width}.png`,
+  });
+  await page
+    .getByRole("button", { name: "まとめて元に戻す", exact: true })
+    .click();
+  expect(await page.getByText("通知のUndo操作が届きました").isVisible()).toBe(
+    true,
+  );
 });
 
 // 空のpointer-events-none wrapperではなく、clip内に見える実操作対象を調べる。

@@ -10,6 +10,7 @@
     "lint": "biome check",
     "lint:boundaries": "ast-grep scan",
     "check:feature-layout": "node --no-warnings scripts/check-feature-layout.mts",
+    "check:agent-harness": "node --no-warnings scripts/check-agent-harness.mts",
     "check:migrations": "bash scripts/check-migration-numbers.sh",
     "check:room-do-migrations:immutable": "node scripts/check-room-do-migration-immutability.mjs",
     "fix": "biome check --write",

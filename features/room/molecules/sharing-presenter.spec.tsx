@@ -32,7 +32,11 @@ describe("SharingPresenter", () => {
     expect(trigger).toHaveAccessibleDescription(
       `${expected}：${sharing.order[1].name}`,
     );
-    expect(trigger).toHaveTextContent("2/3");
+    expect(screen.getByTestId("sharing-order")).toBeInTheDocument();
+    expect(screen.getAllByTestId("avatar")).toHaveLength(3);
+    expect(screen.getAllByTestId("member-voting-complete")).toHaveLength(1);
+    expect(screen.getByText(expected)).toBeVisible();
+    expect(screen.getByText(sharing.order[1].name)).toBeVisible();
   });
 });
 

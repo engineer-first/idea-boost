@@ -46,6 +46,18 @@ describe("idea map size", () => {
 });
 
 describe("note typography", () => {
+  it("句点が行頭に来ないよう折り返すと増える行数も高さへ反映する", () => {
+    expect(getNoteHeight(`${"あ".repeat(15)}。`.repeat(15), 12)).toBe(362);
+    const maximumContent = `${"全文を順に読む。".repeat(250).slice(0, 1998)}末尾`;
+    expect(getNoteHeight(maximumContent, 12)).toBe(2486);
+  });
+
+  it("左右8pxの本文余白で折り返し、不要な行数を高さへ加えない", () => {
+    // 24pxの全角7文字が1行に収まる本文幅を使う。
+    expect(getNoteHeight("あ".repeat(21), 24)).toBe(164);
+    expect(getNoteHeight("あ".repeat(22), 24)).toBe(200);
+  });
+
   it.each([
     14, 18, 24,
   ])("%ipxで改行を増やしても高さは1行ぶんを超えて急増しない", (fontSize) => {

@@ -10,6 +10,7 @@ import {
   listMemberIds,
   runInRoomDO,
   sessionCookieFor,
+  startTimerForTest,
 } from "../test-helpers";
 import { RoomBroadcaster } from "./broadcast";
 import type { HandlerCtx } from "./handler-context";
@@ -270,6 +271,7 @@ it("保存確定後に期限切れで結果不明になっても、新接続の�
   const { roomId } = await createRoomAs(USER);
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
   await stub.setPhase(buildPhaseStep(1), USER.sub);
+  await startTimerForTest(roomId);
   const old = await connectRoomAs(USER, roomId);
   await old.next();
   const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";

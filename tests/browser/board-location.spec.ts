@@ -254,12 +254,13 @@ test.each([
     name: width < 640 ? "考えるヒントを開く" : "考えるヒントを閉じる",
   });
   await reachable(hint);
-  const notes = page.getByRole("button", { name: "マイ付箋を閉じる" });
-  await reachable(notes);
+  const notes = page.getByTestId("private-notes-toolbar");
+  expect(await notes.getAttribute("data-presentation")).toBe("workspace");
+  expect(await notes.isVisible()).toBe(true);
   await page.getByRole("button", { name: /現在地/ }).click();
   await page.getByRole("button", { name: /現在地/ }).click();
   await reachable(hint);
-  await reachable(notes);
+  expect(await notes.isVisible()).toBe(true);
 });
 
 test("実際の付箋を押すと手順を畳むと同時に選択し、カメラと参照欄を保持する", async () => {
@@ -392,7 +393,11 @@ test.each([
   });
   await page.keyboard.press("Escape");
   await reachable(trigger);
-  await reachable(page.getByRole("button", { name: "マイ付箋を閉じる" }));
+  if ((await notes.getAttribute("data-presentation")) === "workspace") {
+    expect(await notes.isVisible()).toBe(true);
+  } else {
+    await reachable(page.getByRole("button", { name: "マイ付箋を閉じる" }));
+  }
   expect(await scroll.evaluate((el) => el.scrollTop)).toBe(scrollTop);
   const link = notice.getByRole("link");
   if (await link.count()) await reachable(link);

@@ -11,10 +11,17 @@ function currentTabSource(): string {
   tabSource ??= crypto.randomUUID();
   return tabSource;
 }
+// 保存済みの名前も現在の入力上限に揃える。末尾のサロゲートは分断しない。
+const StoredNameSchema = z
+  .string()
+  .trim()
+  .transform((name) =>
+    name.slice(0, ROOM_CREATION_NAME_MAX).replace(/[\uD800-\uDBFF]$/, ""),
+  );
 const IntentSchema = z.object({
   expectedPrincipal: z.string().uuid(),
   requestId: CreationRequestIdSchema,
-  name: z.string().trim().max(ROOM_CREATION_NAME_MAX),
+  name: StoredNameSchema,
   issuedAt: z.number().int(),
   expiresAt: z.number().int(),
   state: z.enum([
@@ -265,7 +272,7 @@ async function importLegacyIntent(userId: string): Promise<void> {
   const legacy = z
     .object({
       requestId: CreationRequestIdSchema,
-      name: z.string().trim().max(ROOM_CREATION_NAME_MAX).optional(),
+      name: StoredNameSchema.optional(),
     })
     .parse(JSON.parse(raw));
   // 旧控えには発行時刻がない。受付はserverへ照会し、送信済みとして扱う。

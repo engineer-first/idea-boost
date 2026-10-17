@@ -4,7 +4,10 @@ import {
 } from "../../contracts/board";
 import { isResultStep } from "../../contracts/phase";
 import type { PreviewCheckpoint } from "../../contracts/preview";
-import { issueCreationId } from "../../contracts/room-creation";
+import {
+  type CreationIdentity,
+  issueCreationId,
+} from "../../contracts/room-creation";
 import { DOT_VOTE_LIMITS } from "../../contracts/room-protocol";
 import type { SessionPayload } from "../../contracts/session";
 import { VERIFICATION_CHECKPOINTS } from "../../contracts/verification";
@@ -18,98 +21,143 @@ import { addVoteSticker } from "./votes";
 
 // Preview専用namespaceだけで公開。本番RoomDOとローカル固定ユーザー検証を変えない。
 export class PreviewRoomDO extends RoomDO {
+  async isPreviewSample(userId: string): Promise<boolean> {
+    return (
+      Boolean(await this.ctx.storage.get("preview-initialized")) &&
+      this.getCurrentHost().hostUserId === userId &&
+      this.listMembers().length === 1
+    );
+  }
+  async archivePreviewSample(userId: string): Promise<boolean> {
+    if (!this.isJoinable()) return true;
+    if (!(await this.isPreviewSample(userId))) return false;
+    this.ctx.storage.transactionSync(() =>
+      this.ctx.storage.sql.exec(
+        "UPDATE room_state SET outcome_published=1 WHERE id=1",
+      ),
+    );
+    await this.ctx.storage.sync();
+    return true;
+  }
   async initializePreview(
     checkpoint: PreviewCheckpoint,
     roomId: string,
     creator: SessionPayload,
+    identity?: CreationIdentity,
   ): Promise<void> {
     await this.ctx.blockConcurrencyWhile(async () => {
+      const previous = await this.ctx.storage.get<{
+        checkpoint: PreviewCheckpoint;
+        creator: string;
+        identity: CreationIdentity;
+      }>("preview-identity");
       if (
-        this.listMembers().length ||
-        (await this.ctx.storage.get("preview-initialized"))
+        previous &&
+        (previous.creator !== creator.sub ||
+          previous.checkpoint !== checkpoint ||
+          previous.identity.roomId !== roomId)
       )
         throw new Error("既存ルームには投入できません。");
+      if (await this.ctx.storage.get("preview-initialized")) {
+        if (!previous || !this.isJoinable())
+          throw new Error("既存ルームには投入できません。");
+        return;
+      }
+      if (!previous && this.listMembers().length)
+        throw new Error("既存ルームには投入できません。");
       const issued = issueCreationId();
-      await this.initializeCreation(
-        {
+      const accepted = previous?.identity ??
+        identity ?? {
           creator: creator.sub,
           roomId,
           requestId: issued.requestId,
           expiresAt: issued.expiresAt,
-        },
-        creator.name,
-      );
+        };
+      await this.ctx.storage.put("preview-identity", {
+        checkpoint,
+        creator: creator.sub,
+        identity: accepted,
+      });
+      const initialized = await this.initializeCreation(accepted, creator.name);
+      if (initialized === "closed")
+        throw new Error("終了したサンプルは復活できません。");
       const target = VERIFICATION_CHECKPOINTS.find(
         (c) => c.id === checkpoint,
       )?.phase;
       if (target?.kind !== "step") throw new Error("ステップが不正です。");
-      this.ctx.storage.transactionSync(() => {
-        for (let phase = 1; phase <= target.phase; phase++) {
-          const completed = phase < target.phase;
-          const noteIds: string[] = [];
-          for (const [index, content] of VERIFICATION_NOTES[phase].entries()) {
-            const shared =
-              completed || target.step > 2 || (target.step === 2 && index >= 3);
-            const now = new Date().toISOString();
-            const order = this.ctx.storage.sql
-              .exec<{ value: number }>(
-                "UPDATE room_state SET next_note_stack_order = next_note_stack_order + 1 WHERE id = 1 RETURNING next_note_stack_order - 1 AS value",
-              )
-              .one();
-            const note: NoteRow = {
-              id: crypto.randomUUID(),
-              author_id: creator.sub,
-              content,
-              visibility: shared ? "shared" : "private",
-              color:
-                getMemberColor(this.ctx.storage.sql, creator.sub) ?? "yellow",
-              font_size: NOTE_DEFAULT_FONT_SIZE,
-              x: phase === 3 ? 15 + (index % 4) * 23 : 380 + (index % 4) * 280,
-              y:
-                phase === 3
-                  ? 20 + Math.floor(index / 4) * 30
-                  : 380 + Math.floor(index / 4) * 240,
-              stack_order: order.value,
-              created_at: now,
-              updated_at: now,
-              phase,
-              excluded: false,
-              idea_map_placed: true,
-            };
-            insertNote(this.ctx.storage.sql, note);
-            noteIds.push(note.id);
-          }
-          if (completed || isResultStep(target))
-            for (const kind of ["subjective", "objective"] as const) {
-              for (let count = 0; count < DOT_VOTE_LIMITS[kind]; count++)
-                addVoteSticker(
-                  this.ctx.storage.sql,
-                  {
-                    id: crypto.randomUUID(),
-                    kind,
-                    x: 0.2 + count * 0.25,
-                    y: kind === "subjective" ? 0.25 : 0.65,
-                  },
-                  noteIds[kind === "subjective" ? 0 : count + 1],
-                  creator.sub,
-                );
+      if (this.getPhase().kind === "lobby")
+        this.ctx.storage.transactionSync(() => {
+          for (let phase = 1; phase <= target.phase; phase++) {
+            const completed = phase < target.phase;
+            const noteIds: string[] = [];
+            for (const [index, content] of VERIFICATION_NOTES[
+              phase
+            ].entries()) {
+              const shared =
+                completed ||
+                target.step > 2 ||
+                (target.step === 2 && index >= 3);
+              const now = new Date().toISOString();
+              const order = this.ctx.storage.sql
+                .exec<{ value: number }>(
+                  "UPDATE room_state SET next_note_stack_order = next_note_stack_order + 1 WHERE id = 1 RETURNING next_note_stack_order - 1 AS value",
+                )
+                .one();
+              const note: NoteRow = {
+                id: crypto.randomUUID(),
+                author_id: creator.sub,
+                content,
+                visibility: shared ? "shared" : "private",
+                color:
+                  getMemberColor(this.ctx.storage.sql, creator.sub) ?? "yellow",
+                font_size: NOTE_DEFAULT_FONT_SIZE,
+                x:
+                  phase === 3 ? 15 + (index % 4) * 23 : 380 + (index % 4) * 280,
+                y:
+                  phase === 3
+                    ? 20 + Math.floor(index / 4) * 30
+                    : 380 + Math.floor(index / 4) * 240,
+                stack_order: order.value,
+                created_at: now,
+                updated_at: now,
+                phase,
+                excluded: false,
+                idea_map_placed: true,
+              };
+              insertNote(this.ctx.storage.sql, note);
+              noteIds.push(note.id);
             }
-          if (completed)
-            setDecision(
-              this.ctx.storage.sql,
-              phase,
-              noteIds[0],
-              creator.sub,
-              VERIFICATION_NOTES[phase][0],
+            if (completed || isResultStep(target))
+              for (const kind of ["subjective", "objective"] as const) {
+                for (let count = 0; count < DOT_VOTE_LIMITS[kind]; count++)
+                  addVoteSticker(
+                    this.ctx.storage.sql,
+                    {
+                      id: crypto.randomUUID(),
+                      kind,
+                      x: 0.2 + count * 0.25,
+                      y: kind === "subjective" ? 0.25 : 0.65,
+                    },
+                    noteIds[kind === "subjective" ? 0 : count + 1],
+                    creator.sub,
+                  );
+              }
+            if (completed)
+              setDecision(
+                this.ctx.storage.sql,
+                phase,
+                noteIds[0],
+                creator.sub,
+                VERIFICATION_NOTES[phase][0],
+              );
+          }
+          if (target.phase === 3 && target.step >= 2)
+            this.ctx.storage.sql.exec(
+              "UPDATE room_state SET idea_map_size_level = ?, idea_map_size_initialized = 1 WHERE id = 1",
+              getInitialIdeaMapSizeLevel(VERIFICATION_NOTES[3].length),
             );
-        }
-        if (target.phase === 3 && target.step >= 2)
-          this.ctx.storage.sql.exec(
-            "UPDATE room_state SET idea_map_size_level = ?, idea_map_size_initialized = 1 WHERE id = 1",
-            getInitialIdeaMapSizeLevel(VERIFICATION_NOTES[3].length),
-          );
-        savePhase(this.ctx.storage.sql, target);
-      });
+          savePhase(this.ctx.storage.sql, target);
+        });
       await this.ctx.storage.put("preview-initialized", true);
       await this.initializeSharedOutcome(roomId);
       await this.preserveSharedOutcome();

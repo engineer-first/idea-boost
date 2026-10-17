@@ -122,7 +122,13 @@ export function commitShare(
     message.expectedPositionRevision === (row.position_revision ?? 0) &&
     message.expectedVisibilityRevision === (row.visibility_revision ?? 0) &&
     !hasMoveLock(ctx.sql, message.noteId) &&
-    (!owner || owner.socket === ctx.ws);
+    (!owner || owner.socket === ctx.ws) &&
+    (message.type !== "note:publish" ||
+      phase.phase !== 3 ||
+      (message.x >= 0 &&
+        message.x <= 100 &&
+        message.y >= 0 &&
+        message.y <= 100));
   let result: Result = {
     type: "note:share:result",
     operationId,

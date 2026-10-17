@@ -1,3 +1,10 @@
+import { loadDisplayName } from "@/features/auth";
+
+vi.mock("@/features/auth/logic/display-name-actions", () => ({
+  loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
+  saveDisplayName: vi.fn(),
+}));
+
 // InviteCodeDialog（コンテナ）の配線テスト。表示は
 // templates/invite-code-dialog-view に分離済みで、ここでは joinRoom・
 // 遷移・toast・キャンセル時の /home 復帰の配線を検証する。
@@ -82,13 +89,14 @@ describe("InviteCodeDialog", () => {
     const user = userEvent.setup();
     JOIN_ROOM.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
     renderDialog();
     await user.click(screen.getByTestId("invite-join-action"));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
       );
     });
     expect(PUSH).not.toHaveBeenCalled();
@@ -111,4 +119,16 @@ describe("InviteCodeDialog", () => {
       configurable: true,
     });
   });
+});
+
+it("共通表示名が未設定でも表示名の設定を要求せず招待に参加する", async () => {
+  vi.mocked(loadDisplayName).mockResolvedValueOnce({ ok: true, name: null });
+  JOIN_ROOM.mockResolvedValueOnce({
+    ok: true,
+    roomId: "123e4567-e89b-42d3-a456-426614174000",
+  });
+  renderDialog();
+  await userEvent.click(screen.getByTestId("invite-join-action"));
+  await waitFor(() => expect(JOIN_ROOM).toHaveBeenCalledOnce());
+  expect(loadDisplayName).not.toHaveBeenCalled();
 });

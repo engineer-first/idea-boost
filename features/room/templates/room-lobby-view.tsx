@@ -1,6 +1,6 @@
 "use client";
 
-import { DoorOpen, Link2, Play, Users } from "lucide-react";
+import { DoorOpen, Link2, Pencil, Play, Users } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,13 @@ import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import type { Member } from "../logic/room-reducer";
 import type { MemberRemovalControls } from "../logic/use-member-removal";
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
+import type { RoomNameControls } from "../logic/use-room-name";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
 import { RoomDisplayNameDialog } from "../molecules/room-display-name-dialog";
+import { RoomNameDialog } from "../molecules/room-name-dialog";
 
 export type RoomLobbyViewProps = {
   members: Member[];
@@ -54,6 +56,7 @@ export type RoomLobbyViewProps = {
   transferError?: string | null;
   memberRemoval?: MemberRemovalControls;
   displayName?: RoomDisplayNameControls;
+  roomName?: RoomNameControls;
 };
 
 export function RoomLobbyView({
@@ -76,6 +79,7 @@ export function RoomLobbyView({
   transferError = null,
   memberRemoval,
   displayName,
+  roomName,
 }: RoomLobbyViewProps) {
   const isTransferring = transferringHost || (memberRemoval?.pending ?? false);
   const isDisconnected = connectionStatus !== "open";
@@ -113,20 +117,42 @@ export function RoomLobbyView({
         <header className="space-y-3 text-center">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-              {isHost ? "メンバーを集めて開始" : "ホストの開始を待機中"}
+              "メンバーが揃ったら開始"
             </h1>
+            {roomName ? (
+              <div className="flex min-w-0 max-w-full items-start justify-center gap-1">
+                <p className="min-w-0 break-all text-base leading-7">
+                  <span className="text-muted-foreground">ルーム名：</span>
+                  <span className="font-medium">
+                    {roomName.name ?? "未設定"}
+                  </span>
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="ルーム名を変更"
+                  title="ルーム名を変更"
+                  disabled={roomName.disabled || roomName.pending}
+                  onClick={roomName.request}
+                >
+                  <Pencil className="size-3.5" aria-hidden="true" />
+                </Button>
+              </div>
+            ) : null}
             <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
-              {isHost
-                ? "招待を共有してメンバーが揃ったらセッションを開始します。"
-                : "ホストがセッションを開始するまで、この画面でお待ちください。"}
+              "招待を共有してメンバーが揃ったら、参加者の誰でもセッションを開始できます。"
             </p>
           </div>
-          <RoomConnectionNotice
-            returnHref={loginReturnHref}
-            status={connectionStatus}
-            delayed={connectionDelayed}
-            className="text-sm text-muted-foreground"
-          />
+          <div className="min-h-5">
+            <RoomConnectionNotice
+              returnHref={loginReturnHref}
+              status={connectionStatus}
+              delayed={connectionDelayed}
+              className="relative z-20 mx-auto w-fit rounded-lg bg-background px-3 text-sm text-muted-foreground"
+            />
+          </div>
         </header>
 
         <p className="text-center text-sm text-muted-foreground">
@@ -141,11 +167,7 @@ export function RoomLobbyView({
           </Link>
         </p>
 
-        <div
-          className={`grid grid-cols-1 gap-4 sm:items-stretch ${
-            isHost ? "sm:grid-cols-2" : "sm:grid-cols-1"
-          }`}
-        >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-stretch">
           {/* メンバー一覧カード */}
           <Card className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md">
             <CardHeader className="gap-3">
@@ -239,8 +261,8 @@ export function RoomLobbyView({
             </CardFooter>
           </Card>
 
-          {/* 招待カード（ホストのみ） */}
-          {isHost ? (
+          {/* 招待カード */}
+          {
             <Card
               className="flex h-full flex-col border-border/80 shadow-sm transition-shadow hover:shadow-md"
               data-testid="room-lobby-view-invite"
@@ -270,32 +292,23 @@ export function RoomLobbyView({
                 </div>
               </CardContent>
             </Card>
-          ) : null}
+          }
         </div>
 
         {/* メインアクション */}
         <Card className="border-border/80 shadow-sm">
           <CardFooter className="flex flex-col gap-2 p-4 sm:p-6">
-            {isHost ? (
-              <Button
-                type="button"
-                onClick={onStart}
-                disabled={isDisconnected || isStarting || isTransferring}
-                data-testid="start-phase-button"
-                size="lg"
-                className="w-full"
-              >
-                <Play className="size-4" aria-hidden />
-                {isStarting ? "開始中…" : "開始する"}
-              </Button>
-            ) : (
-              <p
-                data-testid="room-lobby-view-waiting"
-                className="w-full rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 text-center text-sm text-muted-foreground"
-              >
-                ホストが開始するのをお待ちください
-              </p>
-            )}
+            <Button
+              type="button"
+              onClick={onStart}
+              disabled={isDisconnected || isStarting || isTransferring}
+              data-testid="start-phase-button"
+              size="lg"
+              className="w-full"
+            >
+              <Play className="size-4" aria-hidden />
+              {isStarting ? "開始中…" : "開始する"}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -318,6 +331,7 @@ export function RoomLobbyView({
         </Card>
       </div>
 
+      {roomName ? <RoomNameDialog controls={roomName} /> : null}
       {displayName ? <RoomDisplayNameDialog controls={displayName} /> : null}
       {memberRemoval ? (
         <MemberRemoveDialog

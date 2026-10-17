@@ -68,6 +68,8 @@ export const ACTIVE_PREVIEW_TIMER: TimerState = {
 type PreviewEvent = { data?: string; code?: number; reason?: string };
 export type HostPreviewMode = "success" | "refused" | "reconnect" | "timeout";
 export type HostPreviewServerEvent =
+  | "timer-tick"
+  | "transfer"
   | "aba"
   | "recipient-left"
   | "disconnect"
@@ -157,43 +159,6 @@ export function createHostTransferPreview(
   }
   const factory: RoomSocketFactory = () => {
     const created = new PreviewSocket((message, active) => {
-      if (message.type === "member:rename") {
-        setTimeout(() => {
-          if (active.readyState !== 1) return;
-          if (mode === "timeout") {
-            mode = "success";
-            return;
-          }
-          if (mode === "refused") {
-            mode = "success";
-            active.message({
-              type: "error",
-              code: "forbidden",
-              operationId: message.operationId,
-              message: "呼び名を保存できませんでした。もう一度お試しください。",
-            });
-            return;
-          }
-          const member = members.find(
-            (m) => m.userId === (options.currentUserId ?? PREVIEW_HOST),
-          );
-          if (!member) return;
-          const updated = { ...member, name: message.name };
-          members = members.map((m) =>
-            m.userId === updated.userId ? updated : m,
-          );
-          if (mode === "reconnect") {
-            active.disconnect();
-            return;
-          }
-          active.message({
-            type: "member:renamed",
-            member: updated,
-            operationId: message.operationId,
-          });
-        }, 100);
-        return;
-      }
       if (message.type === "member:remove") {
         setTimeout(() => {
           if (active.readyState !== 1) return;
@@ -256,6 +221,28 @@ export function createHostTransferPreview(
     return created as unknown as WebSocket;
   };
   return {
+    async saveDisplayName(
+      input: import("@/contracts/display-name").SetDisplayNameInput,
+    ): Promise<import("@/features/auth").DisplayNameResult> {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      if (mode === "refused" || mode === "timeout") {
+        mode = "success";
+        return {
+          ok: false,
+          error: "表示名を保存できませんでした。もう一度保存してください。",
+        };
+      }
+      const member = members.find((m) => m.userId === input.expectedPrincipal);
+      if (!member) return { ok: false, error: "本人を確認できません。" };
+      const updated = { ...member, name: input.name };
+      members = members.map((m) => (m.userId === updated.userId ? updated : m));
+      socket?.message({
+        type: "member:renamed",
+        member: updated,
+        operationId: crypto.randomUUID(),
+      });
+      return { ok: true, name: input.name };
+    },
     factory,
     // テストはサーバーからの非同期イベントをこのfixture専用境界へ送る。
     serverEvent(kind: HostPreviewServerEvent) {
@@ -265,6 +252,19 @@ export function createHostTransferPreview(
       } else if (kind === "reconnect") {
         canReconnect = true;
         if (socket) open(socket);
+      } else if (kind === "timer-tick") {
+        socket?.message({
+          type: "timer:updated",
+          timer: options.timer ?? { status: "idle" },
+          serverNow: Date.now(),
+        });
+      } else if (kind === "transfer") {
+        hostUserId = PREVIEW_TARGET;
+        socket?.message({
+          type: "host:updated",
+          hostUserId,
+          hostRevision: ++hostRevision,
+        });
       } else if (kind === "recipient-left") {
         members = members.filter((member) => member.userId !== PREVIEW_TARGET);
         socket?.message({ type: "member_left", userId: PREVIEW_TARGET });

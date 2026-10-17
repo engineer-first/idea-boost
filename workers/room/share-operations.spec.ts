@@ -124,6 +124,40 @@ function peer(ctx: HandlerCtx, userId = B) {
   return messages;
 }
 describe("share commit", () => {
+  it.each([
+    { x: -1, y: 50 },
+    { x: 101, y: 50 },
+    { x: 50, y: -1 },
+    { x: 50, y: 101 },
+  ])("3-2でマップ範囲外の公開座標$x,$yを拒否する", ({ x, y }) =>
+    setup(`share-map-coordinate-boundary-${x}-${y}`, (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step: 2 });
+      ctx.sql.exec(
+        "UPDATE notes SET visibility='private',phase=3 WHERE id=?1",
+        N1,
+      );
+      const row = findNote(ctx.sql, N1);
+      const phaseRevision = Number(
+        ctx.sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
+          .phase_revision,
+      );
+      noteHandlers["note:publish"](ctx, {
+        type: "note:publish",
+        operationId: OP,
+        noteId: N1,
+        x,
+        y,
+        expectedPhaseRevision: phaseRevision,
+        expectedPositionRevision: row?.position_revision ?? 0,
+        expectedVisibilityRevision: row?.visibility_revision ?? 0,
+      });
+      expect(responses.at(-1)).toMatchObject({
+        type: "note:share:result",
+        status: "rejected",
+      });
+      expect(findNote(ctx.sql, N1)?.visibility).toBe("private");
+    }));
+
   it("Step 3-2の共有はマップ座標で公開済み配置として確定する", () =>
     setup("share-phase-3-step-2-map-coordinates", (ctx, responses) => {
       savePhase(ctx.sql, { kind: "step", phase: 3, step: 2 });
@@ -343,6 +377,53 @@ describe("share commit", () => {
       });
       expect(findNote(ctx.sql, N1)?.visibility).toBe("shared");
       expect(messages.some((item) => item.type === "note:deleted")).toBe(false);
+    }));
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%iの共有開始前・終了後は作者の返却も拒否し他者表示を保つ", (phase) =>
+    setup(`share-return-outside-presentation-${phase}`, (ctx, responses) => {
+      const messages = peer(ctx);
+      savePhase(ctx.sql, { kind: "step", phase, step: 2 });
+      ctx.sql.exec("UPDATE notes SET phase=?1", phase);
+      for (const status of ["ready", "inactive", "complete"] as const) {
+        saveSharingState(ctx.sql, {
+          revision: crypto.randomUUID(),
+          order: [{ userId: A, name: "作者", color: "yellow" }],
+          status,
+          currentIndex: null,
+          results: [],
+          durationMs: 180000,
+          startsAt: null,
+        });
+        noteHandlers["note:unpublish"](ctx, {
+          type: "note:unpublish",
+          noteId: N1,
+        });
+        expect(responses.at(-1)).toMatchObject({
+          type: "error",
+          code: "forbidden",
+        });
+        noteHandlers["note:unpublish"](ctx, {
+          type: "note:unpublish",
+          noteId: N1,
+          operationId: crypto.randomUUID(),
+          expectedPhaseRevision: Number(
+            ctx.sql
+              .exec("SELECT phase_revision FROM room_state WHERE id=1")
+              .one().phase_revision,
+          ),
+          expectedPositionRevision: 0,
+          expectedVisibilityRevision: 0,
+        });
+        expect(responses.at(-1)).toMatchObject({
+          type: "note:share:result",
+          status: "rejected",
+        });
+        expect(findNote(ctx.sql, N1)?.visibility).toBe("shared");
+        expect(messages.some((item) => item.type === "note:deleted")).toBe(
+          false,
+        );
+      }
     }));
   it("他接続の移動lockがあるshared付箋は0件戻し、他者表示を消さない", () =>
     setup("share-return-lock", (ctx, responses) => {

@@ -188,6 +188,9 @@ describe("CanvasZoomControls", () => {
     expect(screen.getByText("125%")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを縮小" }));
     fireEvent.click(screen.getByRole("button", { name: "ズームを100%に戻す" }));
+    expect(
+      screen.queryByRole("dialog", { name: "キャンバスのズーム" }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     fireEvent.click(screen.getByRole("button", { name: "付箋全体を表示" }));
 

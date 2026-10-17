@@ -11,7 +11,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-// DOMの描画だけではplayの失敗を検出できない。Chromaticと同じ操作を最後まで実行する。
+// DOMの描画だけではplayの失敗を検出できない。storyの操作を最後まで実行する。
 test.each([
   "notes-notecard--excluded-for-host",
   "notes-notecard--excluded-for-participant",

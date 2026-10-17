@@ -1,13 +1,12 @@
 // ルーム共有タイマーの状態と終了時刻の真実。
 // 遷移計算は純粋関数 transitionTimer に分離し、ハンドラは
-// 「ホスト確認 → 遷移 → 保存 → 全員配信」の定型だけを持つ。
+// 「状態遷移 → 保存 → 全員配信」の定型だけを持つ。
 import {
   TIMER_MAX_DURATION_MS,
   type TimerState,
 } from "../../contracts/room-protocol";
 import { syncRoomAlarm } from "./alarms";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
-import { isHostUser } from "./members";
 import { getSharingState } from "./sharing-state";
 
 export type TimerAction =
@@ -213,18 +212,6 @@ export function expireTimer(current: TimerState, now: number): TimerTransition {
   };
 }
 
-function canControlTimer(sql: SqlStorage, userId: string): boolean {
-  return isHostUser(sql, userId);
-}
-
-function replyTimerForbidden(ctx: HandlerCtx): void {
-  ctx.reply({
-    type: "error",
-    code: "forbidden",
-    message: "タイマーはホストのみ操作できます。",
-  });
-}
-
 function replyTimerInvalidState(ctx: HandlerCtx): void {
   ctx.reply({
     type: "error",
@@ -237,10 +224,6 @@ async function applyTimerAction(
   ctx: HandlerCtx,
   action: TimerAction,
 ): Promise<void> {
-  if (!canControlTimer(ctx.sql, ctx.userId)) {
-    replyTimerForbidden(ctx);
-    return;
-  }
   const sharing = getSharingState(ctx.sql);
   if (
     sharing &&

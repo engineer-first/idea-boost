@@ -43,6 +43,166 @@ describe("useCanvasCamera", () => {
     expect(preventDefault).not.toHaveBeenCalled();
   });
 
+  it("通常ボードは旧75%を100%の基準にし、倍率指定・リセットで視野の中心を保つ", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
+    const { result } = renderHook(() =>
+      useCanvasCamera({ viewportRef: { current: viewport }, notes: [] }),
+    );
+    expect(result.current.camera.zoom).toBe(0.75);
+    expect(result.current.displayZoom).toBe(1);
+    const center = result.current.worldPointFromClient(640, 360);
+    act(() => result.current.setDisplayZoom(2));
+    expect(result.current.cameraRef.current.zoom).toBe(1.5);
+    expect(result.current.worldPointFromClient(640, 360)).toEqual(center);
+    act(() => result.current.resetZoom());
+    expect(result.current.cameraRef.current.zoom).toBe(0.75);
+    expect(result.current.worldPointFromClient(640, 360)).toEqual(center);
+  });
+
+  it("初期フィットは新100%を超えて拡大せず、選択フィットは指定した付箋だけを収める", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
+    const notes = buildNotes(2).map((note, i) => ({
+      ...note,
+      x: i * 4000,
+      y: 0,
+    }));
+    const original = structuredClone(notes);
+    const { result } = renderHook(() =>
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes,
+        selectedNoteIds: [notes[0].id],
+      }),
+    );
+    const initialZoom = result.current.camera.zoom;
+    act(() => result.current.fitToSelection());
+    expect(result.current.cameraRef.current.zoom).toBe(1.5);
+    expect(result.current.cameraRef.current.zoom).toBeGreaterThan(initialZoom);
+    expect(notes).toEqual(original);
+    act(() => result.current.setDisplayZoom(0));
+    expect(result.current.cameraRef.current.zoom).toBe(0.0075);
+    act(() => result.current.setDisplayZoom(10));
+    expect(result.current.cameraRef.current.zoom).toBe(3);
+  });
+
+  it("背景のShift+1/2/0と±で表示を変え、本文・IME・他の画面では奪わない", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
+    viewport.tabIndex = 0;
+    document.body.append(viewport);
+    const notes = buildNotes(2).map((note, i) => ({
+      ...note,
+      x: i * 4000,
+      y: 0,
+    }));
+    const { result, unmount } = renderHook(() =>
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes,
+        selectedNoteIds: [notes[0].id],
+      }),
+    );
+    const key = (options: KeyboardEventInit) =>
+      act(() => {
+        viewport.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            bubbles: true,
+            cancelable: true,
+            ...options,
+          }),
+        );
+      });
+    try {
+      key({ key: "@", code: "Digit2", shiftKey: true });
+      expect(result.current.cameraRef.current.zoom).toBe(1.5);
+      key({ key: "+", code: "Equal" });
+      expect(result.current.cameraRef.current.zoom).toBe(1.875);
+      key({ key: "-", code: "Minus" });
+      expect(result.current.cameraRef.current.zoom).toBe(1.5);
+      key({ key: "!", code: "Digit1", shiftKey: true });
+      expect(result.current.cameraRef.current.zoom).toBeLessThan(0.75);
+      key({ key: ")", code: "Digit0", shiftKey: true });
+      expect(result.current.cameraRef.current.zoom).toBe(0.75);
+      key({ key: "+", isComposing: true });
+      const input = document.createElement("textarea");
+      viewport.append(input);
+      act(() =>
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "+", bubbles: true }),
+        ),
+      );
+      act(() =>
+        window.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "+", bubbles: true }),
+        ),
+      );
+      expect(result.current.cameraRef.current.zoom).toBe(0.75);
+      act(() => result.current.setGestureBlocked(true));
+      key({ key: "+" });
+      expect(result.current.cameraRef.current.zoom).toBe(0.75);
+    } finally {
+      unmount();
+      viewport.remove();
+    }
+  });
+
+  it("2軸マップの100%基準は実寸のまま維持する", () => {
+    const viewport = document.createElement("div");
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
+    const { result } = renderHook(() =>
+      useCanvasCamera({
+        viewportRef: { current: viewport },
+        notes: [],
+        fitViewport: true,
+      }),
+    );
+    act(() => result.current.setDisplayZoom(2));
+    expect(result.current.cameraRef.current.zoom).toBe(2);
+    act(() => result.current.resetZoom());
+    expect(result.current.cameraRef.current.zoom).toBe(1);
+  });
+
+  it("非表示の間はviewport操作を登録せず、再表示時にwheel操作を有効にする", () => {
+    const viewport = document.createElement("div");
+    viewport.hidden = true;
+    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
+    const viewportRef = { current: viewport };
+    const { result, rerender } = renderHook(
+      ({ isViewportEnabled }) =>
+        useCanvasCamera({ viewportRef, notes: [], isViewportEnabled }),
+      { initialProps: { isViewportEnabled: false } },
+    );
+
+    const hiddenCamera = result.current.cameraRef.current;
+    act(() =>
+      viewport.dispatchEvent(
+        new WheelEvent("wheel", {
+          deltaY: 80,
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    );
+    expect(result.current.cameraRef.current).toEqual(hiddenCamera);
+
+    viewport.hidden = false;
+    rerender({ isViewportEnabled: true });
+    const visibleCamera = result.current.cameraRef.current;
+    act(() =>
+      viewport.dispatchEvent(
+        new WheelEvent("wheel", {
+          deltaY: 80,
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    );
+
+    expect(result.current.cameraRef.current.y).toBe(visibleCamera.y - 80);
+  });
+
   it("pointerupが届かなくてもボタンを離した移動でパンを終了する", () => {
     const viewport = document.createElement("div");
     const { result } = renderHook(() =>
@@ -110,11 +270,14 @@ describe("useCanvasCamera", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 600, 400);
     const frame = document.createElement("div");
+    frame.dataset.testid = "board-frame";
+    const canvasLayer = document.createElement("div");
     const controls = document.createElement("fieldset");
     controls.dataset.testid = "canvas-zoom-controls";
     const button = document.createElement("button");
     controls.append(button);
-    frame.append(viewport, controls);
+    canvasLayer.append(viewport);
+    frame.append(canvasLayer, controls);
     document.body.append(frame);
     const input = document.createElement("textarea");
     viewport.append(input);
@@ -180,7 +343,7 @@ describe("useCanvasCamera", () => {
     expect(result.current.camera.y).toBeCloseTo(182);
   });
 
-  it("2軸マップの初期表示は周辺UIの高さで過度に縮小しない", () => {
+  it("通常のカメラ付きマップではdevelopの周辺UI用の安全領域を維持する", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1454, 900);
     const { result } = renderHook(() =>
@@ -192,9 +355,13 @@ describe("useCanvasCamera", () => {
       }),
     );
 
-    expect(result.current.camera.zoom).toBeCloseTo(1326 / 1600);
+    expect(result.current.camera.zoom).toBeCloseTo(
+      (900 - 350 - 100 - 128) / 900,
+    );
     act(() => result.current.fitToNotes());
-    expect(result.current.camera.zoom).toBeCloseTo(1326 / 1600);
+    expect(result.current.camera.zoom).toBeCloseTo(
+      (900 - 350 - 100 - 128) / 900,
+    );
   });
 
   it("初期表示後にユーザーが付箋を動かした場合、最初の共有付箋でカメラを自動移動しない", () => {

@@ -78,6 +78,7 @@ export async function prepareVerificationRuntime(
     durable_objects: {
       bindings: [
         { name: "ROOM_DO", class_name: "VerificationRoomDO" },
+        { name: "ACCOUNT_DO", class_name: "VerificationAccountDO" },
         { name: "VERIFICATION_WORKSPACE", class_name: "VerificationWorkspace" },
       ],
     },
@@ -86,6 +87,7 @@ export async function prepareVerificationRuntime(
         tag: "v1",
         new_sqlite_classes: ["VerificationRoomDO", "VerificationWorkspace"],
       },
+      { tag: "v2", new_sqlite_classes: ["VerificationAccountDO"] },
     ],
     d1_databases: [
       {

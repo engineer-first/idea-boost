@@ -19,6 +19,7 @@ export function getAdoptionTargetLabel(phaseNumber: AdoptionPhaseNumber) {
 export type AdoptNoteControlProps = {
   phaseNumber: AdoptionPhaseNumber;
   isHost: boolean;
+  canSelect?: boolean;
   isSelecting: boolean;
   decisionContent: string | null;
   disabled: boolean;
@@ -30,6 +31,7 @@ export type AdoptNoteControlProps = {
 export function AdoptNoteControl({
   phaseNumber,
   isHost,
+  canSelect = isHost,
   isSelecting,
   decisionContent,
   disabled,
@@ -57,7 +59,7 @@ export function AdoptNoteControl({
             {decisionContent}
           </p>
         </div>
-        {isHost && onClearDecision ? (
+        {onClearDecision ? (
           <Button
             type="button"
             variant="outline"
@@ -73,7 +75,7 @@ export function AdoptNoteControl({
     );
   }
 
-  if (!isHost) return null;
+  if (!canSelect) return null;
 
   if (isSelecting) {
     return (

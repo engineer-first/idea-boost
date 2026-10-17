@@ -23,7 +23,7 @@ const controls = {
 };
 export const Editing: Story = { args: { controls } };
 export const LongName: Story = {
-  args: { controls: { ...controls, draft: "あ".repeat(40) } },
+  args: { controls: { ...controls, draft: "あ".repeat(15) } },
 };
 export const Saving: Story = {
   args: { controls: { ...controls, pending: true } },
@@ -46,7 +46,7 @@ export const Interactive: Story = {
     const [draft, setDraft] = useState("はな");
     return (
       <>
-        <Button onClick={() => setOpen(true)}>呼び名を変更</Button>
+        <Button onClick={() => setOpen(true)}>表示名を変更</Button>
         <RoomDisplayNameDialog
           controls={{
             ...controls,

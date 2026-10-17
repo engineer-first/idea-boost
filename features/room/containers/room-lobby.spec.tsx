@@ -71,8 +71,8 @@ it("一覧に隠れた本人の編集を取消した後は、一覧の展開ボ�
   renderStart({ initialMembers });
   const overflow = screen.getByRole("button", { name: "他 2 名" });
   fireEvent.click(overflow);
-  fireEvent.click(screen.getByRole("button", { name: "本人：呼び名を変更" }));
-  expect(screen.getByRole("textbox", { name: "呼び名" })).toHaveValue("本人");
+  fireEvent.click(screen.getByRole("button", { name: "本人：表示名を変更" }));
+  expect(screen.getByRole("textbox", { name: "表示名" })).toHaveValue("本人");
   fireEvent.click(screen.getByRole("button", { name: "キャンセル" }));
   await waitFor(() => expect(overflow).toHaveFocus());
 });
@@ -149,6 +149,7 @@ function renderStart(
     initialPhase?: RoomPhase;
     boardHref?: string;
     entryAdmission?: string;
+    saveDisplayNameAction?: import("./room-lobby").RoomLobbyProps["saveDisplayNameAction"];
   } = {},
 ) {
   FakeWebSocket.instances = [];
@@ -167,6 +168,7 @@ function renderStart(
       webSocketFactory={factory}
       boardHref={options.boardHref}
       entryAdmission={options.entryAdmission}
+      saveDisplayNameAction={options.saveDisplayNameAction}
     />,
   );
   const socket = FakeWebSocket.instances.at(-1);
@@ -221,10 +223,9 @@ describe("RoomLobby の初期表示", () => {
     );
   });
 
-  it("isHost=false なら「開始する」ボタンは出ない", () => {
+  it("isHost=false でも「開始する」ボタンを表示する", () => {
     renderStart({ isHost: false });
-    expect(screen.queryByTestId("start-phase-button")).not.toBeInTheDocument();
-    expect(screen.getByTestId("room-lobby-view-waiting")).toBeInTheDocument();
+    expect(screen.getByTestId("start-phase-button")).toBeInTheDocument();
   });
 });
 
@@ -299,8 +300,6 @@ describe("サーバーメッセージ → 画面反映", () => {
     act(() => socket.simulateDisbandedClose());
     expect(notifyMocks.roomDisbanded).toHaveBeenCalledTimes(1);
     expect(navigationMocks.replace).toHaveBeenCalledWith("/home");
-    // 再接続メッセージは出さない
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("phase:updated: Step 1-1 を受信すると /rooms/[id] へ router.replace する", () => {
@@ -337,9 +336,7 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   it("「開始する」クリックで start_phase が WS に送られる", () => {
     const { socket } = renderStart();
     fireEvent.click(screen.getByTestId("start-phase-button"));
-    expect(socket.sent).toContain(
-      JSON.stringify({ type: "start_phase", expectedHostRevision: 0 }),
-    );
+    expect(socket.sent).toContain(JSON.stringify({ type: "start_phase" }));
   });
 
   it("「開始する」クリック直後は isStarting=true でボタンが disabled になる", () => {
@@ -364,11 +361,10 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
     expect(screen.getByTestId("start-phase-button")).not.toBeDisabled();
   });
 
-  it("非ホストが handleStart を呼んでも何も送らない（ボタン非表示で多重防御）", () => {
-    // ボタン非表示のテストは上で実施済み。
-    // ここでは「isHost=false でレンダーし、ボタンがないので何も送られない」を確認。
+  it("非ホストも handleStart で start_phase を送る", () => {
     const { socket } = renderStart({ isHost: false });
-    expect(socket.sent).toHaveLength(0);
+    fireEvent.click(screen.getByTestId("start-phase-button"));
+    expect(socket.sent).toContain(JSON.stringify({ type: "start_phase" }));
   });
 });
 
@@ -387,7 +383,7 @@ describe("開始前のホスト引き継ぎ", () => {
     { userId: HOST_ID, name: "作成者", color: "yellow" },
     { userId: MEMBER_ID, name: "Hana Sato", color: "blue" },
   ];
-  it("移譲通知で旧ホストの開始操作をなくす", () => {
+  it("移譲通知後も参加者の開始操作を表示する", () => {
     const { socket } = renderStart({ initialMembers: members });
     act(() =>
       socket.simulateServerMessage({
@@ -396,7 +392,7 @@ describe("開始前のホスト引き継ぎ", () => {
         hostRevision: 1,
       }),
     );
-    expect(screen.queryByTestId("start-phase-button")).not.toBeInTheDocument();
+    expect(screen.getByTestId("start-phase-button")).toBeInTheDocument();
     expect(
       screen.getByTestId(`member-host-label-${MEMBER_ID}`),
     ).toBeInTheDocument();
@@ -460,7 +456,6 @@ it("ホスト変更時に古い解散確認を閉じ、戻った後も古い確�
   fireEvent.click(screen.getByTestId("start-phase-button"));
   expect(JSON.parse(socket.sent.at(-1) ?? "{}")).toEqual({
     type: "start_phase",
-    expectedHostRevision: 2,
   });
 });
 
@@ -532,42 +527,49 @@ describe("ホストによる参加者退出", () => {
   });
 });
 
-it("本人表示から改名し、サーバー確定まで旧名を維持して全員の現在名を畳み込む", () => {
+it("本人表示から共通の改名APIを呼び、共有通知で全員の現在名を畳み込む", async () => {
   const member = {
     userId: HOST_ID,
     name: "元の名前",
     color: "yellow" as const,
   };
-  const { socket } = renderStart({ initialMembers: [member] });
-  fireEvent.click(
-    screen.getByRole("button", { name: "元の名前：呼び名を変更" }),
+  let finish!: (value: { ok: true; name: string }) => void;
+  const saveDisplayNameAction = vi.fn(
+    () =>
+      new Promise<{ ok: true; name: string }>((resolve) => {
+        finish = resolve;
+      }),
   );
-  fireEvent.change(screen.getByRole("textbox", { name: "呼び名" }), {
-    target: { value: "新しい呼び名" },
+  const { socket } = renderStart({
+    initialMembers: [member],
+    saveDisplayNameAction,
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "元の名前：表示名を変更" }),
+  );
+  fireEvent.change(screen.getByRole("textbox", { name: "表示名" }), {
+    target: { value: "新しい表示名" },
   });
   fireEvent.click(screen.getByRole("button", { name: "保存する" }));
   expect(screen.getByTestId(`member-row-${HOST_ID}`)).toHaveTextContent(
     "元の名前",
   );
-  expect(screen.getByTestId(`member-row-${HOST_ID}`)).not.toHaveTextContent(
-    "新しい呼び名",
-  );
-  const message = JSON.parse(socket.sent.at(-1) ?? "{}");
-  expect(message).toMatchObject({
-    type: "member:rename",
-    name: "新しい呼び名",
+  expect(saveDisplayNameAction).toHaveBeenCalledWith({
+    roomId: ROOM_ID,
+    expectedPrincipal: HOST_ID,
+    name: "新しい表示名",
   });
-  expect(message).not.toHaveProperty("userId");
   act(() =>
     socket.simulateServerMessage({
       type: "member:renamed",
-      member: { ...member, name: message.name },
-      operationId: message.operationId,
+      member: { ...member, name: "新しい表示名" },
+      operationId: crypto.randomUUID(),
     }),
   );
+  await act(async () => finish({ ok: true, name: "新しい表示名" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(
-    screen.getByRole("button", { name: "新しい呼び名：呼び名を変更" }),
+    screen.getByRole("button", { name: "新しい表示名：表示名を変更" }),
   ).toBeInTheDocument();
 });
 
@@ -589,4 +591,42 @@ it.each([
   await waitFor(() =>
     expect(navigationMocks.replace).toHaveBeenCalledWith(`/rooms/${ROOM_ID}`),
   );
+});
+
+it("開始成功後は移動が完了するまで開始中を維持する", () => {
+  const { socket } = renderStart();
+  fireEvent.click(screen.getByTestId("start-phase-button"));
+  act(() =>
+    socket.simulateServerMessage({
+      type: "phase:updated",
+      phaseRevision: 1,
+      phase: buildPhaseStep(1),
+    }),
+  );
+  expect(navigationMocks.replace).toHaveBeenCalled();
+  expect(screen.getByTestId("start-phase-button")).toBeDisabled();
+  expect(screen.getByTestId("start-phase-button")).toHaveTextContent("開始中…");
+});
+
+it("開始待ちの同じホストの更新通知では開始中を解除しない", () => {
+  vi.useFakeTimers();
+  try {
+    const { socket } = renderStart();
+    fireEvent.click(screen.getByTestId("start-phase-button"));
+    act(() =>
+      socket.simulateServerMessage({
+        type: "host:updated",
+        hostUserId: HOST_ID,
+        hostRevision: 0,
+      }),
+    );
+    expect(screen.getByTestId("start-phase-button")).toBeDisabled();
+    expect(screen.getByTestId("start-phase-button")).toHaveTextContent(
+      "開始中…",
+    );
+    act(() => vi.advanceTimersByTime(5000));
+    expect(screen.getByTestId("start-phase-button")).toBeEnabled();
+  } finally {
+    vi.useRealTimers();
+  }
 });

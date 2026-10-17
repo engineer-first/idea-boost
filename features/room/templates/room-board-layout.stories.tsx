@@ -3,6 +3,7 @@ import { useState } from "react";
 import { expect, userEvent, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
+import type { PhaseProgress } from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -34,11 +35,26 @@ const VOTED_NOTES = buildNotes(3).map((note) => ({
   },
 }));
 
+function allReadyProgress(
+  members: ReadonlyArray<{ userId: string }>,
+): PhaseProgress {
+  const userIds = members.map(({ userId }) => userId);
+  return {
+    phaseRevision: 1,
+    progressRevision: 1,
+    connectedUserIds: userIds,
+    readyUserIds: userIds,
+    notReadyUserIds: [],
+    canAdvance: true,
+    allReady: true,
+  };
+}
+
 const meta = {
   ...boardMeta,
   title: "Room/RoomBoardLayout",
   component: RoomBoardView,
-  parameters: { layout: "fullscreen", chromatic: { viewports: [1280] } },
+  parameters: { layout: "fullscreen" },
   decorators: [
     (Story) => (
       <div style={{ height: "100dvh", overflow: "hidden" }}>
@@ -51,6 +67,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 function step(phase: 1 | 2 | 3, value: number): Story {
+  const members = buildMembers(12, boardMeta.args.currentUserId);
   return {
     name: `${phase}-${value}`,
     args: {
@@ -77,12 +94,17 @@ function step(phase: 1 | 2 | 3, value: number): Story {
             })
           : null,
       decidedHmw: phase === 3 ? LONG_QUESTION : null,
-      members: buildMembers(12, boardMeta.args.currentUserId),
+      members,
+      progress: allReadyProgress(members),
       interactions: {
         ...boardMeta.args.interactions,
         privateNotes: PRIVATE_NOTES,
       },
-      timer: { status: "paused", remainingMs: 138_000, durationMs: 180_000 },
+      timer: {
+        status: "running",
+        endsAt: Date.now() + 138_000,
+        durationMs: 180_000,
+      },
       initialGuideState: "detail",
     },
   };
@@ -102,7 +124,15 @@ export const Phase2Step2: Story = step(2, 2);
 export const Phase2Step3: Story = step(2, 3);
 export const Phase2Step4: Story = step(2, 4);
 export const Phase3Step1: Story = step(3, 1);
-export const Phase3Step2: Story = step(3, 2);
+export const Phase3Step2: Story = {
+  ...step(3, 2),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("complementary", { name: "考えるヒント" }),
+    ).not.toBeInTheDocument();
+  },
+};
 export const Phase3Step3: Story = step(3, 3);
 export const Phase3Step4: Story = step(3, 4);
 export const Phase3Step5: Story = step(3, 5);
@@ -111,16 +141,11 @@ export const ReferenceAndNotes: Story = {
   name: "支援とマイ付箋を同時表示",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "マイ付箋を閉じる" }),
-    );
-    await userEvent.click(
-      canvas.getByRole("button", { name: "マイ付箋を開く" }),
+    await expect(canvas.getByTestId("private-notes-toolbar")).toHaveAttribute(
+      "data-presentation",
+      "workspace",
     );
     await expect(canvas.getByTestId("board-help-panel")).toBeVisible();
-    await expect(
-      canvas.getByRole("button", { name: "マイ付箋を閉じる" }),
-    ).toHaveAttribute("aria-expanded", "true");
   },
 };
 export const Focused: Story = {
@@ -161,16 +186,14 @@ export const FinalDecisionPending: Story = {
   args: { ...Completed.args, outcomePublished: false },
 };
 
-// 各1幅だけを追加するため、全件撮影時の増分は2スナップショット。
+// browserテストがstory名に対応する1024px / 768pxの幅で操作・配置を検査する。
 export const LaptopWidth: Story = {
   ...ReferenceAndNotes,
   name: "1024pxの上部と左右パネル",
-  parameters: { chromatic: { viewports: [1024] } },
 };
 export const NarrowWidth: Story = {
   ...ReferenceAndNotes,
   name: "768pxの現在地と主要操作",
-  parameters: { chromatic: { viewports: [768] } },
 };
 
 export const DecisionsAndNotes: Story = {
@@ -216,6 +239,19 @@ export const TimerOpen: Story = {
   name: "操作バーからタイマー設定",
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByTestId("room-timer"));
+  },
+};
+
+export const TimerPaused: Story = {
+  ...step(3, 1),
+  name: "タイマー一時停止中",
+  args: {
+    ...step(3, 1).args,
+    timer: {
+      status: "paused",
+      remainingMs: 138_000,
+      durationMs: 180_000,
+    },
   },
 };
 
@@ -344,6 +380,12 @@ export const UndoNotification: Story = {
   },
 };
 
+export const UndoNotificationShared: Story = {
+  ...UndoNotification,
+  name: "共有中の自動除外通知",
+  args: { ...step(2, 2).args, initialGuideState: "compact" },
+};
+
 export const DelayedConnection: Story = {
   ...Reconnecting,
   name: "接続不調が10秒継続",
@@ -361,7 +403,6 @@ export const Unavailable: Story = {
 export const AuthRequiredLocationExpanded: Story = {
   ...AuthRequired,
   args: { ...AuthRequired.args, initialGuideState: "compact" },
-  parameters: { chromatic: { viewports: [320, 390, 1280] } },
   play: async ({ canvasElement }) => {
     await userEvent.click(
       within(canvasElement).getByRole("button", { name: /現在地/ }),
@@ -407,5 +448,14 @@ export const LongReference: Story = {
       color: "green",
       dotVotes: { subjective: 8, objective: 6 },
     }),
+  },
+};
+
+export const ReconnectingDock: Story = {
+  ...step(3, 2),
+  args: {
+    ...step(3, 2).args,
+    connectionStatus: "reconnecting",
+    connectionDelayed: true,
   },
 };

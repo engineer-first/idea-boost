@@ -211,8 +211,9 @@ export class VerificationRoomDO extends RoomDO {
     ws: WebSocket,
     raw: ArrayBuffer | string,
   ): Promise<void> {
+    // アカウント照合は同じRoomDOへread RPCを返すため、outer gateの外で行う。
+    await super.webSocketMessage(ws, raw);
     await this.ctx.blockConcurrencyWhile(async () => {
-      await super.webSocketMessage(ws, raw);
       const phase = getPhase(this.ctx.storage.sql);
       if (
         phase.kind !== "step" ||
@@ -238,6 +239,15 @@ export class VerificationRoomDO extends RoomDO {
           note: toProtocolNote(this.ctx.storage.sql, note, viewerId),
         }));
     });
+  }
+
+  archiveVerification(): void {
+    // 検証ステップの切替は以前のサンプルを閲覧専用にする。データと閲覧者は保つ。
+    this.ctx.storage.transactionSync(() =>
+      this.ctx.storage.sql.exec(
+        "UPDATE room_state SET outcome_published=1 WHERE id=1",
+      ),
+    );
   }
 
   async verificationStatus(userId: string): Promise<VerificationStatus | null> {

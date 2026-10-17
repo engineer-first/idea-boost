@@ -9,7 +9,11 @@ import type { ProtocolMember } from "@/contracts/room-protocol";
 import { signOut } from "@/features/auth";
 import { buildInviteUrl } from "@/features/invite";
 import { RoomBoard, RoomEntryPreview } from "@/features/room";
-import { RoomAdmissionGate } from "@/features/room-lifecycle";
+import {
+  ParticipationSwitch,
+  RoomAdmissionGate,
+  readParticipationRecovery,
+} from "@/features/room-lifecycle";
 import {
   isVerificationEnabled,
   VerificationFollower,
@@ -66,6 +70,28 @@ export default async function RoomPage({
   // メンバーシップは api-worker（の先の RoomDO）が判定する。
   // 非メンバー・存在しないルームはどちらも 404 で返るため、そのまま notFound() へ。
   const res = await apiFetch(`/api/rooms/${id}`);
+  const recovery = await readParticipationRecovery(res);
+  if (recovery?.kind === "pending")
+    return (
+      <ParticipationSwitch
+        currentUserId={user.sub}
+        pendingOperation={recovery}
+      />
+    );
+  if (recovery?.kind === "rejected" && recovery.failure)
+    return (
+      <ParticipationSwitch
+        currentUserId={user.sub}
+        failedOperation={recovery}
+      />
+    );
+  if (recovery?.kind === "confirmation")
+    return (
+      <ParticipationSwitch
+        currentUserId={user.sub}
+        confirmation={recovery.confirmation}
+      />
+    );
   if (!res.ok) {
     notFound();
   }

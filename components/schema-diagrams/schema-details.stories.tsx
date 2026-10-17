@@ -4,10 +4,9 @@ import type { TblsTable } from "./tbls-schema";
 import { TblsSchemaJson } from "./tbls-schema";
 
 // SchemaDiagram（ER図）がテーブル間の関係を、こちらが ER 図に現れない
-// インデックス・制約・デフォルト値を Chromatic のレビュー面に載せる。
+// インデックス・制約・デフォルト値を公開Storybookで確認できる。
 // schema.json は npm run db:schema:diagrams（storybook 起動時に自動実行）が
-// tbls で生成し、staticDirs 経由で配信される。Vite の依存グラフに乗らない
-// 入力なので、migration 変更時の再撮影は chromatic.yml の externals が保証する。
+// tblsで生成し、staticDirs経由でそのコミットのデータを配信する。
 async function loadTables(db: "d1" | "room-do") {
   const res = await fetch(`/schema-diagrams/${db}/schema.json`);
   if (!res.ok) {

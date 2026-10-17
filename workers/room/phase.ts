@@ -6,7 +6,6 @@ import {
 import {
   getRoomPhaseLabel,
   isLobby,
-  isPersonalWritingStep,
   isRestartWritingAllowedStep,
   isResultStep,
   isVotingStep,
@@ -26,7 +25,6 @@ import {
   replyForbidden,
   runAuthorizedMutationTransaction,
 } from "./handler-context";
-import { getHostState, isCurrentHost, isHostUser, isMember } from "./members";
 import {
   deleteNote,
   excludeNotesForBulkOperation,
@@ -39,10 +37,17 @@ import {
   clearRollbackHistory,
   getRollbackTarget,
 } from "./phase-rollback";
+import {
+  broadcastProgress,
+  bumpProgressRevision,
+  clearProgressReady,
+  getProgressState,
+  isManualProgressStep,
+} from "./progress";
 import { recordProgressTransition } from "./progress-history";
-import { resetSharingForPhase } from "./sharing-state";
+import { getSharingState, resetSharingForPhase } from "./sharing-state";
 import { getTimerState, resetTimerState, saveTimerState } from "./timer";
-import { deleteNoteVotes, haveAllMembersCompletedVoting } from "./votes";
+import { deleteNoteVotes, hasCompletedVoting } from "./votes";
 
 export function getPhase(sql: SqlStorage): RoomPhase {
   const rows = sql.exec("SELECT phase FROM room_state WHERE id = 1").toArray();
@@ -55,6 +60,7 @@ export function savePhase(sql: SqlStorage, phase: RoomPhase): void {
     "UPDATE room_state SET phase = ?1, phase_revision = phase_revision + 1 WHERE id = 1",
     encodePhase(phase),
   );
+  clearProgressReady(sql);
 }
 
 export function getPhaseRevision(sql: SqlStorage): number {
@@ -64,146 +70,36 @@ export function getPhaseRevision(sql: SqlStorage): number {
   );
 }
 
-type PendingTransitionRow = {
-  transition_id: string;
-  requested_by: string;
-  action: "next" | "restart-writing";
-  expected_phase: string;
-  expected_revision: number;
-  force: number;
-  deadline_at: number;
-};
-
-function getPendingRow(sql: SqlStorage): PendingTransitionRow | null {
+function canProceedWithProgress(
+  ctx: HandlerCtx,
+  current: RoomPhase,
+  message: Extract<ClientMessage, { type: "phase:next" }>,
+): boolean {
+  if (!isManualProgressStep(current) && !isVotingStep(current)) return true;
+  const progress = getProgressState(
+    ctx.sql,
+    ctx.broadcaster,
+    current,
+    getPhaseRevision(ctx.sql),
+  );
   return (
-    (sql
-      .exec("SELECT * FROM pending_phase_transition WHERE id = 1")
-      .toArray()[0] as PendingTransitionRow | undefined) ?? null
+    progress.canAdvance &&
+    (progress.allReady ||
+      message.confirmedProgressRevision === progress.progressRevision)
   );
 }
 
-export function getPendingPhaseTransition(sql: SqlStorage) {
-  const row = getPendingRow(sql);
-  if (!row) return null;
-  return {
-    transitionId: row.transition_id,
-    expectedPhase: RoomPhaseSchema.parse(JSON.parse(row.expected_phase)),
-    expectedRevision: row.expected_revision,
-    deadlineAt: row.deadline_at,
-    serverNow: Date.now(),
-  };
-}
-
-async function deferEditableTransition(
-  ctx: HandlerCtx,
-  action: PendingTransitionRow["action"],
-  message: {
-    expectedPhase: RoomPhase;
-    expectedRevision: number;
-    force?: boolean;
-    expectedHostRevision?: number;
-  },
-): Promise<boolean> {
-  const current = getPhase(ctx.sql);
-  if (current.kind !== "step" || current.step > 2) return false;
-  const pending = getPendingRow(ctx.sql);
-  if (pending) {
-    if (
-      pending.action === action &&
-      pending.requested_by === ctx.userId &&
-      pending.expected_revision === message.expectedRevision &&
-      pending.expected_phase === JSON.stringify(message.expectedPhase) &&
-      Boolean(pending.force) === Boolean(message.force)
-    ) {
-      if (pending.deadline_at <= Date.now()) return false;
-      const existing = getPendingPhaseTransition(ctx.sql);
-      if (existing) ctx.reply({ type: "phase:save-requested", ...existing });
-      return true;
-    }
-    replyForbidden(ctx);
-    return true;
-  }
-  const deadlineAt = Date.now() + 2_000;
-  const transitionId = crypto.randomUUID();
-  const reserved = await runAuthorizedMutationTransaction(ctx, async () => {
-    if (
-      !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
-      isRoomClosed(ctx.sql) ||
-      !matchesExpectedPhase(ctx, message)
-    ) {
-      replyForbidden(ctx);
-      return false;
-    }
-    ctx.sql.exec(
-      "INSERT INTO pending_phase_transition (id, transition_id, requested_by, action, expected_phase, expected_revision, force, deadline_at) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-      transitionId,
-      ctx.userId,
-      action,
-      JSON.stringify(message.expectedPhase),
-      message.expectedRevision,
-      message.force ? 1 : 0,
-      deadlineAt,
-    );
-    await syncRoomAlarm(ctx.storage, ctx.sql);
-    return true;
-  });
-  if (!reserved) return true;
-  ctx.broadcaster.broadcastToAll({
-    type: "phase:save-requested",
-    transitionId,
-    expectedPhase: message.expectedPhase,
-    expectedRevision: message.expectedRevision,
-    deadlineAt,
-    serverNow: Date.now(),
-  });
-  return true;
+// 旧デプロイで保存待ちを予約したルームにも待機や二重進行を復活させない。
+// snapshot の互換フィールドは維持するが、新規予約は作らない。
+export function getPendingPhaseTransition(_sql: SqlStorage): null {
+  return null;
 }
 
 export async function completeExpiredPhaseTransition(
   ctx: HandlerCtx,
 ): Promise<void> {
-  const row = getPendingRow(ctx.sql);
-  if (!row || row.deadline_at > Date.now()) return;
-  const expectedPhase = RoomPhaseSchema.parse(JSON.parse(row.expected_phase));
-  if (
-    !isMember(ctx.sql, row.requested_by) ||
-    !isHostUser(ctx.sql, row.requested_by) ||
-    JSON.stringify(getPhase(ctx.sql)) !== row.expected_phase ||
-    getPhaseRevision(ctx.sql) !== row.expected_revision
-  ) {
-    ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
-    await syncRoomAlarm(ctx.storage, ctx.sql);
-    ctx.refreshSnapshots();
-    return;
-  }
-  // host:transferはこの予約がある間拒否されるため、予約中にホスト世代は変わらない。
-  // 通常WSと同じ世代ガードを通し、新ホストが作った予約も正しく実行する。
-  const deferredCtx = {
-    ...ctx,
-    userId: row.requested_by,
-    authorizeMutation: undefined,
-    reply: () => {},
-  };
-  if (row.action === "next") {
-    await phaseHandlers["phase:next"](deferredCtx, {
-      type: "phase:next",
-      expectedPhase,
-      expectedRevision: row.expected_revision,
-      expectedHostRevision: getHostState(ctx.sql).hostRevision,
-      force: Boolean(row.force),
-    });
-  } else {
-    await phaseHandlers["phase:restart-writing"](deferredCtx, {
-      type: "phase:restart-writing",
-      expectedPhase,
-      expectedRevision: row.expected_revision,
-      expectedHostRevision: getHostState(ctx.sql).hostRevision,
-    });
-  }
-  if (getPendingRow(ctx.sql)?.transition_id === row.transition_id) {
-    ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
-    await syncRoomAlarm(ctx.storage, ctx.sql);
-  }
+  ctx.sql.exec("DELETE FROM pending_phase_transition WHERE id = 1");
+  await syncRoomAlarm(ctx.storage, ctx.sql);
 }
 
 function matchesExpectedPhase(
@@ -361,10 +257,12 @@ export function isBoardMutation(message: ClientMessage): boolean {
     case "adoption-focus:update":
     case "host:transfer":
     case "member:remove":
+    case "room:rename":
     case "member:rename":
     case "start_phase":
     case "phase:rollback":
     case "phase:next":
+    case "phase:ready":
     case "outcome:publish":
     case "phase:restart-writing":
     case "phase:revote":
@@ -462,6 +360,11 @@ const allowedBoardMutationsByPhase: {
       "note:vote-sticker:add",
       "note:vote-sticker:move",
       "note:vote-sticker:remove",
+      "note:move",
+      "note:bring-to-front",
+      "note:drag:start",
+      "note:drag:move",
+      "note:drag:end",
     ],
     4: [
       "note:exclude",
@@ -548,7 +451,7 @@ function isIdeaValueFeasibilityMappingStep(phase: RoomPhase): boolean {
   return (
     !isLobby(phase) &&
     phase.phase === 3 &&
-    (phase.step === 3 || phase.step === 5)
+    (phase.step === 2 || phase.step === 3 || phase.step === 5)
   );
 }
 
@@ -595,28 +498,14 @@ export function getBoardMutationForbiddenMessage(
 // D1 由来の hostId ヘッダーを認可ソースに加えない（旧ルームのバックフィル
 // シードにすぎない。room-do.ts の HOST_ID_HEADER 参照）。
 export const phaseHandlers: MessageHandlers<
-  "start_phase" | "phase:next" | "phase:restart-writing" | "phase:revote"
+  | "start_phase"
+  | "phase:next"
+  | "phase:ready"
+  | "phase:restart-writing"
+  | "phase:revote"
 > = {
-  // ロビー → Step 1-1（ボード開始）。ホストのみ。
-  start_phase: (ctx, message) => {
-    const revision = getHostState(ctx.sql).hostRevision;
-    if ((message.expectedHostRevision ?? 0) !== revision) {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message:
-          "ホストが変更されています。画面を更新してから開始してください。",
-      });
-      return;
-    }
-    if (!isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision)) {
-      ctx.reply({
-        type: "error",
-        code: "forbidden",
-        message: "進行状態を変更する権限がありません。",
-      });
-      return;
-    }
+  // ロビー → Step 1-1（ボード開始）。在籍メンバーが開始できる。
+  start_phase: (ctx, _message) => {
     if (!isLobby(getPhase(ctx.sql))) {
       ctx.reply({
         type: "error",
@@ -646,16 +535,52 @@ export const phaseHandlers: MessageHandlers<
     });
   },
 
-  // 現在のステップ → 次のステップ。ホストのみ。lobby では不可。
-  "phase:next": async (ctx, message) => {
-    if (!isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision)) {
+  "phase:ready": (ctx, message) => {
+    const current = getPhase(ctx.sql);
+    const revision = getPhaseRevision(ctx.sql);
+    if (
+      !isManualProgressStep(current) ||
+      JSON.stringify(current) !== JSON.stringify(message.expectedPhase) ||
+      revision !== message.expectedRevision
+    ) {
+      replyForbidden(ctx);
+      return;
+    }
+    if (
+      message.ready &&
+      isVotingStep(current) &&
+      current.kind === "step" &&
+      !hasCompletedVoting(ctx.sql, ctx.userId, current.phase)
+    ) {
       ctx.reply({
         type: "error",
         code: "forbidden",
-        message: "ホストのみ操作できます。",
+        message: "投票をすべて受理してから完了してください。",
       });
       return;
     }
+    ctx.storage.transactionSync(() => {
+      if (message.ready) {
+        ctx.sql.exec(
+          "INSERT INTO phase_progress_ready (phase_revision, user_id, ready, updated_at) VALUES (?1, ?2, 1, ?3) ON CONFLICT(phase_revision, user_id) DO UPDATE SET ready=1, updated_at=excluded.updated_at",
+          revision,
+          ctx.userId,
+          Date.now(),
+        );
+      } else {
+        ctx.sql.exec(
+          "DELETE FROM phase_progress_ready WHERE phase_revision = ?1 AND user_id = ?2",
+          revision,
+          ctx.userId,
+        );
+      }
+      bumpProgressRevision(ctx.sql);
+    });
+    broadcastProgress(ctx.sql, ctx.broadcaster, current, revision);
+  },
+
+  // 現在のステップ → 次のステップ。完了条件を満たした参加者が進める。
+  "phase:next": async (ctx, message) => {
     const current = getPhase(ctx.sql);
     if (!matchesExpectedPhase(ctx, message)) {
       replyForbidden(ctx);
@@ -669,29 +594,62 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
+    const sharing =
+      current.kind === "step" && current.step === 2
+        ? getSharingState(ctx.sql)
+        : null;
+    if (sharing && sharing.status !== "complete") {
+      ctx.reply({
+        type: "error",
+        code: "forbidden",
+        message: "発表順が一巡するまで次へ進めません。",
+      });
+      return;
+    }
+    const progress = getProgressState(
+      ctx.sql,
+      ctx.broadcaster,
+      current,
+      getPhaseRevision(ctx.sql),
+    );
+    if (isManualProgressStep(current) || isVotingStep(current)) {
+      if (!progress.canAdvance) {
+        ctx.reply({
+          type: "error",
+          code: "phase-not-ready",
+          message: "参加者の過半数が完了するまで進めません。",
+        });
+        broadcastProgress(
+          ctx.sql,
+          ctx.broadcaster,
+          current,
+          getPhaseRevision(ctx.sql),
+        );
+        return;
+      }
+      if (
+        !progress.allReady &&
+        message.confirmedProgressRevision !== progress.progressRevision
+      ) {
+        ctx.reply({
+          type: "error",
+          code: "phase-confirmation-required",
+          message: "完了していない参加者を確認してください。",
+        });
+        broadcastProgress(
+          ctx.sql,
+          ctx.broadcaster,
+          current,
+          getPhaseRevision(ctx.sql),
+        );
+        return;
+      }
+    }
     if (isResultStep(current) && !hasCandidateNotes(ctx.sql, current.phase)) {
       ctx.reply({
         type: "error",
         code: "forbidden",
         message: "候補がないため次のフェーズへ進めません。",
-      });
-      return;
-    }
-    // force は全フェーズの投票ステップで使える脱出ハッチ。離脱者などが
-    // 投票を完了できなくても、ホストは結果ステップへ進められる。
-    const completedVoting =
-      !isVotingStep(current) ||
-      haveAllMembersCompletedVoting(ctx.sql, current.phase);
-    const canForceIncompleteVoting = message.force === true;
-    if (
-      isVotingStep(current) &&
-      !completedVoting &&
-      !canForceIncompleteVoting
-    ) {
-      ctx.reply({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
       });
       return;
     }
@@ -709,9 +667,7 @@ export const phaseHandlers: MessageHandlers<
     }
     const crossesPhaseBoundary = !isLobby(next) && current.phase !== next.phase;
     // フェーズ境界を越えるときは、現在フェーズの決定が確定していることを
-    // 要求する（fail-closed）。決定なしで次フェーズへ進むと、持ち越し表示の
-    // 前提が崩れたまま進行が続いてしまう。force は未投票メンバー向けの
-    // 脱出ハッチであり、このゲートは迂回できない。
+    // 要求する（fail-closed）。
     if (crossesPhaseBoundary && !getDecision(ctx.sql, current.phase)) {
       ctx.reply({
         type: "error",
@@ -720,7 +676,6 @@ export const phaseHandlers: MessageHandlers<
       });
       return;
     }
-    if (await deferEditableTransition(ctx, "next", message)) return;
     const entersVotingStep = !isVotingStep(current) && isVotingStep(next);
     const initializesIdeaMapSize =
       current.kind === "step" &&
@@ -732,10 +687,10 @@ export const phaseHandlers: MessageHandlers<
     const entersIdeaMapStep =
       next.kind === "step" &&
       next.phase === 3 &&
-      next.step === 3 &&
-      !(current.kind === "step" && current.phase === 3 && current.step === 3);
-    const completesVoting =
-      isVotingStep(current) && isResultStep(next) && completedVoting;
+      next.step === 2 &&
+      !(current.kind === "step" && current.phase === 3 && current.step === 2);
+    // 投票終了時点の結果で候補整理を行う。
+    const completesVoting = isVotingStep(current) && isResultStep(next);
     const refreshesSnapshot =
       (!isResultStep(current) && isResultStep(next)) ||
       crossesPhaseBoundary ||
@@ -752,7 +707,7 @@ export const phaseHandlers: MessageHandlers<
     // 確定する。途中失敗時に一部だけが次ステップの状態にならないようにする。
     const committed = await runAuthorizedMutationTransaction(ctx, async () => {
       if (
-        !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
+        !canProceedWithProgress(ctx, current, message) ||
         isRoomClosed(ctx.sql) ||
         !matchesExpectedPhase(ctx, message)
       ) {
@@ -767,10 +722,10 @@ export const phaseHandlers: MessageHandlers<
       );
       if (
         current.kind === "step" &&
-        isPersonalWritingStep(current) &&
+        (current.step === 1 || current.step === 2) &&
         next.kind === "step" &&
         next.phase === current.phase &&
-        next.step === 2
+        next.step > current.step
       ) {
         discardEmptyPrivateNotes(ctx.sql, current.phase);
       }
@@ -782,12 +737,15 @@ export const phaseHandlers: MessageHandlers<
           .exec("SELECT idea_map_size_initialized FROM room_state WHERE id = 1")
           .toArray()[0] as { idea_map_size_initialized: number } | undefined;
         if (initializedRow?.idea_map_size_initialized !== 1) {
-          const countRow = ctx.sql
+          // 初回共有は本文付き下書き、旧ルームの未初期化評価は共有済み案を基準にする。
+          const count = ctx.sql
             .exec(
-              "SELECT COUNT(*) AS count FROM notes WHERE phase = 3 AND visibility = 'shared'",
+              "SELECT content FROM notes WHERE phase = 3 AND visibility = ?1",
+              current.step === 1 ? "private" : "shared",
             )
-            .toArray()[0] as { count: number } | undefined;
-          const sizeLevel = getInitialIdeaMapSizeLevel(countRow?.count ?? 0);
+            .toArray()
+            .filter(({ content }) => String(content).trim() !== "").length;
+          const sizeLevel = getInitialIdeaMapSizeLevel(count);
           ctx.sql.exec(
             "UPDATE room_state SET idea_map_size_level = ?1, idea_map_size_initialized = 1 WHERE id = 1",
             sizeLevel,
@@ -893,7 +851,6 @@ async function restartPhase(
 ): Promise<void> {
   const current = getPhase(ctx.sql);
   if (
-    !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
     !matchesExpectedPhase(ctx, message) ||
     current.kind !== "step" ||
     getDecision(ctx.sql, current.phase) ||
@@ -908,16 +865,7 @@ async function restartPhase(
     ...current,
     step: revote ? VOTING_STEP_BY_PHASE[current.phase] : 1,
   };
-  if (
-    !revote &&
-    (await deferEditableTransition(ctx, "restart-writing", message))
-  )
-    return;
-  if (
-    !isCurrentHost(ctx.sql, ctx.userId, message.expectedHostRevision) ||
-    isRoomClosed(ctx.sql) ||
-    !matchesExpectedPhase(ctx, message)
-  ) {
+  if (isRoomClosed(ctx.sql) || !matchesExpectedPhase(ctx, message)) {
     replyForbidden(ctx);
     return;
   }

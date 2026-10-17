@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { Toaster } from "@/components/ui/sonner";
 import { buildPhaseStep } from "@/contracts/phase.fixture";
-import type { Decision } from "@/contracts/room-protocol";
+import type { Decision, PhaseProgress } from "@/contracts/room-protocol";
 import {
   buildCarryover,
   buildDecision,
@@ -88,6 +88,17 @@ const INTERACTIONS: RoomBoardInteractions = {
   onPrivateNoteDragStart: fn(),
 };
 
+const STORY_MEMBERS = buildMembers(3, ME);
+const STORY_PROGRESS: PhaseProgress = {
+  phaseRevision: 1,
+  progressRevision: 1,
+  connectedUserIds: STORY_MEMBERS.map(({ userId }) => userId),
+  readyUserIds: STORY_MEMBERS.map(({ userId }) => userId),
+  notReadyUserIds: [],
+  canAdvance: true,
+  allReady: true,
+};
+
 const meta = {
   title: "Room/RoomBoardView",
   component: RoomBoardView,
@@ -110,7 +121,11 @@ const meta = {
     inviteCode: "AB12CD",
     inviteUrl: "https://idea-flow.example/invite/AB12CD",
     phase: STEP_1_1,
-    timer: { status: "idle" },
+    timer: {
+      status: "running",
+      endsAt: Date.now() + 60_000,
+      durationMs: 60_000,
+    },
     timerServerOffsetMs: 0,
     isHost: true,
     hostRevision: 0,
@@ -119,7 +134,8 @@ const meta = {
     outcomePublished: false,
     connectionStatus: "open",
     draggingNoteId: null,
-    members: buildMembers(3, ME),
+    members: STORY_MEMBERS,
+    progress: STORY_PROGRESS,
     currentUserId: ME,
     hostUserId: ME,
     isNextPhasePending: false,
@@ -666,6 +682,31 @@ export const Step1_1_PersonalWriting: Story = {
       })),
     },
   },
+  render: function Render(args) {
+    const [privateNotes, setPrivateNotes] = useState(
+      args.interactions.privateNotes,
+    );
+    return (
+      <RoomBoardView
+        {...args}
+        interactions={{ ...args.interactions, privateNotes }}
+        onPrivateNoteContentChange={(id, content) => {
+          args.onPrivateNoteContentChange(id, content);
+          setPrivateNotes((current) =>
+            current.map((note) =>
+              note.id === id ? { ...note, content } : note,
+            ),
+          );
+        }}
+        onPrivateNoteDelete={(id) => {
+          args.onPrivateNoteDelete(id);
+          setPrivateNotes((current) =>
+            current.filter((note) => note.id !== id),
+          );
+        }}
+      />
+    );
+  },
 };
 
 export const Step1_2_Sharing: Story = {
@@ -680,6 +721,10 @@ export const Step1_2_Sharing: Story = {
       })),
     },
   },
+};
+
+export const SharingWaitingForContentSave: Story = {
+  args: { ...Step1_2_Sharing.args, isSavingBeforeShare: true },
 };
 
 export const Step1_3_Grouping: Story = {
@@ -778,7 +823,11 @@ export const IdeaMapInteraction: Story = {
 };
 
 export const CanvasPanInteraction: Story = {
-  args: { phase: STEP_1_2, notes: CANVAS_HUD_NOTES },
+  args: {
+    phase: STEP_1_2,
+    notes: CANVAS_HUD_NOTES,
+    timer: { status: "idle" },
+  },
   render: function Render(args) {
     const boardScrollerRef = useRef<HTMLDivElement>(null);
     const camera = useCanvasCamera({
@@ -795,6 +844,8 @@ export const CanvasPanInteraction: Story = {
           notes: args.notes,
           boardScrollerRef,
           camera: camera.camera,
+          displayZoom: camera.displayZoom,
+          onSelectionChange: camera.setSelectedNoteIds,
           gridStyle: camera.gridStyle,
           isPanning: camera.isPanning,
           onToolChange: camera.setInteractionTool,
@@ -1277,6 +1328,48 @@ export const CanvasInputVoting: Story = {
   },
 };
 
+export const CanvasInputQuestionVoting: Story = {
+  ...CanvasInputVoting,
+  args: {
+    ...CanvasInputVoting.args,
+    phase: buildPhaseStep(3, 2),
+    isHost: false,
+    hmwDecidedIssue: GUIDE_ISSUE,
+    notes: CANVAS_HUD_NOTES.slice(0, 3).map((note, index) => ({
+      ...note,
+      x: index < 2 ? 180 + index * 48 : 580,
+      y: index < 2 ? 180 + index * 32 : 320,
+      dotVoteStickers:
+        index === 1
+          ? [
+              {
+                id: "cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa",
+                kind: "objective",
+                x: 0.2,
+                y: 0.3,
+              },
+            ]
+          : [],
+      dotVotes: {
+        subjective: { ownCount: 0, votedByMe: false },
+        objective: { ownCount: index === 1 ? 1 : 0, votedByMe: index === 1 },
+      },
+    })),
+  },
+};
+
+export const QuestionVotingStickerSelected: Story = {
+  ...CanvasInputQuestionVoting,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "客観シール 残り2票" }),
+    );
+    await expect(
+      within(canvasElement).getByRole("img", { name: "付箋の移動：不可" }),
+    ).toBeVisible();
+  },
+};
+
 export const CanvasInputAdoption: Story = {
   ...CanvasInputInteraction,
   args: { ...CanvasInputInteraction.args, phase: STEP_1_5, isHost: true },
@@ -1331,4 +1424,45 @@ export const MoveHistorySharing: Story = {
 };
 export const MoveHistoryMap: Story = {
   args: { ...MoveHistoryAvailable.args, phase: buildPhaseStep(3, 3) },
+};
+
+export const ConnectedEmpty: Story = {
+  args: { notes: [], connectionStatus: "open" },
+};
+
+// 採用済み・未採用・候補外を同じ画面で実際にドラッグできる。
+export const DecidedMoveInteraction: Story = {
+  render: CanvasInputInteraction.render,
+  args: {
+    ...Decided.args,
+    initialGuideState: "compact",
+    notes: Decided.args?.notes?.map((note, index) => ({
+      ...note,
+      excluded: index === 2,
+    })),
+  },
+};
+
+export const HmwDecidedMoveInteraction: Story = {
+  ...DecidedMoveInteraction,
+  args: {
+    ...DecidedMoveInteraction.args,
+    phase: buildPhaseStep(4, 2),
+    decision: buildDecision({ phase: 2, noteId: "note-1", decidedBy: ME }),
+    hmwDecidedIssue: GUIDE_ISSUE,
+  },
+};
+
+export const IdeaDecidedMoveInteraction: Story = {
+  ...DecidedMoveInteraction,
+  args: {
+    ...FinalDecisionPending.args,
+    initialGuideState: "compact",
+    notes: buildNotes(3).map((note, index) => ({
+      ...note,
+      x: 20 + index * 30,
+      y: 25 + index * 20,
+      excluded: index === 2,
+    })),
+  },
 };

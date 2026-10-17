@@ -43,7 +43,7 @@ describe("AdoptNoteControl", () => {
     expect(onCancelSelection).toHaveBeenCalledTimes(1);
   });
 
-  it("ホストだけ確定を取り消せ、切断中は無効で参加者には出さない", () => {
+  it("確定を取り消せ、切断中は無効にする", () => {
     const onClearDecision = vi.fn();
     const { rerender } = render(
       <AdoptNoteControl
@@ -77,21 +77,6 @@ describe("AdoptNoteControl", () => {
       screen.getByRole("button", { name: "確定を取り消す" }),
     ).toBeDisabled();
 
-    rerender(
-      <AdoptNoteControl
-        phaseNumber={3}
-        isHost={false}
-        isSelecting={false}
-        onClearDecision={onClearDecision}
-        decisionContent="採用するアイデア"
-        disabled={false}
-        onStartSelection={vi.fn()}
-        onCancelSelection={vi.fn()}
-      />,
-    );
     expect(screen.getByText("採用するアイデア")).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "確定を取り消す" }),
-    ).not.toBeInTheDocument();
   });
 });

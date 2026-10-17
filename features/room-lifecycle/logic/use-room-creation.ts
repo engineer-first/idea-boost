@@ -2,6 +2,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { RoomEntryOperation } from "@/contracts/room-entry";
+import type {
+  ParticipationConfirmation,
+  ParticipationResult,
+} from "@/contracts/room-participation";
 import { notify } from "@/lib/notify";
 import { rememberLastRoom } from "@/lib/room-client/last-room-storage";
 import {
@@ -26,6 +30,11 @@ import {
 } from "./room-creation-storage";
 
 export type RoomCreationControls = {
+  switching?:
+    | ParticipationConfirmation
+    | Extract<ParticipationResult, { kind: "pending" | "rejected" }>;
+  onCancelSwitch: () => void;
+  onSwitchReady: (roomId: string) => Promise<void>;
   reauthentication?: RoomEntryOperation;
   onCancelReauthentication: () => void;
   pending: boolean;
@@ -42,9 +51,22 @@ export type RoomCreationControls = {
 };
 export function useRoomCreation(currentUserId?: string): RoomCreationControls {
   const router = useRouter();
+  const [switching, setSwitching] = useState<
+    | ParticipationConfirmation
+    | Extract<ParticipationResult, { kind: "pending" | "rejected" }>
+  >();
   const [reauthentication, setReauthentication] =
     useState<RoomEntryOperation>();
   const [pending, startTransition] = useTransition();
+  const [navigating, setNavigating] = useState(false);
+  const [submittedName, setSubmittedName] = useState<string>();
+  const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (navigationTimer.current) clearTimeout(navigationTimer.current);
+    },
+    [],
+  );
   const [intent, setIntent] = useState<RoomCreationIntent | null>(null);
   const [newIntent, setNewIntent] = useState(false);
   const [retryDestination, setRetryDestination] = useState(false);
@@ -60,6 +82,9 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     let live = true;
     generation.current++;
     setInitialized(false);
+    setNavigating(false);
+    setSubmittedName(undefined);
+    if (navigationTimer.current) clearTimeout(navigationTimer.current);
     setReauthentication(undefined);
     setMessage(undefined);
     setNewIntent(false);
@@ -186,12 +211,15 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
         currentIntent?.state === "closed"));
   const recovering = Boolean(currentIntent) && !startsNew;
   function handleSubmit(name: string, resume = false) {
-    if (submitting.current || storageError || !currentUserId) return;
+    if (submitting.current || navigating || storageError || !currentUserId)
+      return;
     const principal = currentUserId,
       turn = generation.current;
     const sameActor = () =>
       actor.current === principal && generation.current === turn;
     submitting.current = true;
+    setSubmittedName(resume || recovering ? currentIntent?.name : name);
+    setMessage(undefined);
     startTransition(async () => {
       let next = !resume && startsNew ? null : currentIntent;
       let storageFailed = false;
@@ -297,6 +325,18 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
                 "entryToken" in result ? result.entryToken : undefined;
             } else {
               if (!(await selected())) return;
+              if (result.failedOperation) {
+                setSwitching(result.failedOperation);
+                return;
+              }
+              if (result.pendingOperation) {
+                setSwitching(result.pendingOperation);
+                return;
+              }
+              if (result.confirmation) {
+                setSwitching(result.confirmation);
+                return;
+              }
               if (result.reason === "reauth_required") {
                 setReauthentication({
                   kind: "create",
@@ -374,14 +414,23 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
           return;
         }
         setRetryDestination(false);
-        lifecycleNotify.roomCreated();
-        router.push(
-          await entryDestination(
-            destination.href,
-            roomId,
-            destination.entryToken,
-          ),
+        const href = await entryDestination(
+          destination.href,
+          roomId,
+          destination.entryToken,
         );
+        if (!(await selected())) return;
+        setNavigating(true);
+        lifecycleNotify.roomCreated();
+        router.push(href);
+        navigationTimer.current = setTimeout(() => {
+          if (!sameActor()) return;
+          setNavigating(false);
+          setRetryDestination(true);
+          setMessage(
+            "ルームへの移動を完了できませんでした。もう一度お試しください。",
+          );
+        }, 15_000);
         // 同タブのServer Actionによる自動確認で、開始した移動を取り消さない。
         notifyRoomCreations(false);
       } catch {
@@ -394,6 +443,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
             next.generation,
           ).catch(() => true));
         if (sameActor() && stillSelected) {
+          setNavigating(false);
           if (next?.roomId) {
             setIntent(next);
             setRetryDestination(true);
@@ -424,7 +474,7 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     if (
       !currentUserId ||
       !window.confirm(
-        "このブラウザの保存をリセットすると、前のルームを見つけられなくなる可能性があります。次に新しいルームを作ると両方が残ることがあります。リセットしますか？",
+        "保存をリセットしてもルームへの参加状態は変わりません。前の作成結果をこのブラウザから見つけにくくなります。リセットしますか？",
       )
     )
       return;
@@ -450,11 +500,44 @@ export function useRoomCreation(currentUserId?: string): RoomCreationControls {
     });
   }
   return {
+    switching,
+    onCancelSwitch: () => setSwitching(undefined),
+    onSwitchReady: async (roomId) => {
+      const target =
+        switching && (!("kind" in switching) || switching.kind === "pending")
+          ? switching.target
+          : undefined;
+      if (
+        currentUserId &&
+        currentIntent &&
+        actor.current === currentUserId &&
+        target?.kind === "create" &&
+        target.input.requestId === currentIntent.requestId &&
+        target.input.expectedPrincipal === currentUserId &&
+        (await isRoomCreationSelected(
+          currentUserId,
+          currentIntent.requestId,
+          currentIntent.generation,
+        ))
+      ) {
+        await saveRoomCreationResult(currentUserId, currentIntent, roomId);
+        notifyRoomCreations(false);
+      }
+    },
     reauthentication,
     onCancelReauthentication: () => setReauthentication(undefined),
-    pending: pending || !initialized || loadedPrincipal !== currentUserId,
+    pending:
+      pending ||
+      navigating ||
+      !initialized ||
+      loadedPrincipal !== currentUserId,
     onSubmit: handleSubmit,
-    intentName: recovering ? currentIntent?.name : undefined,
+    intentName:
+      pending || navigating
+        ? submittedName
+        : recovering
+          ? currentIntent?.name
+          : undefined,
     recovering,
     recoveryState: currentIntent?.state,
     message: loadedPrincipal === currentUserId ? message : undefined,

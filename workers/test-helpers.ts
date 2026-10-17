@@ -5,15 +5,18 @@ import type { RoomPhase } from "../contracts/phase";
 import {
   parseServerMessage,
   type ServerMessage,
+  TIMER_MAX_DURATION_MS,
 } from "../contracts/room-protocol";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
+import { syncRoomAlarm } from "./room/alarms";
 import type { RoomDO } from "./room/room-do";
 import {
   getSharingState,
   resetSharingForPhase,
   saveSharingState,
 } from "./room/sharing-state";
+import { getTimerState, saveTimerState } from "./room/timer";
 
 // 共有以外の契約を検証するシナリオ用に、既存の発表順で指定者の発表中を用意する。
 // 発表の開始・交代そのものは sharing.spec.ts の実WS操作で検証する。
@@ -51,6 +54,22 @@ export function runInRoomDO<T>(
 ): Promise<T> {
   const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomId));
   return runInDurableObject(stub, fn);
+}
+
+export async function startTimerForTest(roomId: string): Promise<void> {
+  await runInRoomDO(roomId, async (_instance, state) => {
+    const sql = state.storage.sql;
+    if (getTimerState(sql).status !== "running") {
+      const durationMs = TIMER_MAX_DURATION_MS;
+      saveTimerState(sql, {
+        status: "running",
+        endsAt: Date.now() + durationMs,
+        durationMs,
+      });
+    }
+
+    await syncRoomAlarm(state.storage, sql);
+  });
 }
 
 // members テーブルを参加順（joined_at 昇順）で直接読む。
@@ -146,10 +165,18 @@ export async function connectRoomAs(
 
   return {
     ws,
-    next() {
-      const queued = queue.shift();
-      if (queued) return Promise.resolve(queued);
-      return new Promise((resolve) => waiters.push(resolve));
+    async next() {
+      for (;;) {
+        const queued = queue.shift();
+        if (queued) {
+          if (queued.type === "phase:progress") continue;
+          return queued;
+        }
+        const message = await new Promise<ServerMessage>((resolve) =>
+          waiters.push(resolve),
+        );
+        if (message.type !== "phase:progress") return message;
+      }
     },
     close() {
       ws.close();
@@ -232,3 +259,45 @@ export async function initializeTestRoom(
 import { issueCreationId } from "../contracts/room-creation";
 
 const TEST_CREATION_ISSUED = issueCreationId();
+
+// 進行条件そのものを検証しないシナリオ用。完了申告済みの作業を用意する。
+export async function arrangeMembersReady(
+  roomId: string,
+  userIds: readonly string[],
+): Promise<void> {
+  await runInRoomDO(roomId, (_room, state) => {
+    for (const userId of userIds)
+      state.storage.sql.exec(
+        "INSERT INTO phase_progress_ready (phase_revision,user_id,ready,updated_at) VALUES ((SELECT phase_revision FROM room_state WHERE id=1),?,1,?) ON CONFLICT(phase_revision,user_id) DO UPDATE SET ready=1",
+        userId,
+        Date.now(),
+      );
+  });
+}
+
+// 発表の交代は sharing.spec.ts で検証し、他の契約では一巡済みから始める。
+export async function arrangeSharingComplete(roomId: string): Promise<void> {
+  await runInRoomDO(roomId, (_room, state) => {
+    const sharing = getSharingState(state.storage.sql);
+    if (!sharing) throw new Error("共有状態がありません。");
+    saveSharingState(state.storage.sql, {
+      ...sharing,
+      status: "complete",
+      currentIndex: null,
+      startsAt: null,
+      results: sharing.order.map(() => "done"),
+    });
+  });
+}
+
+export function currentProgressConfirmation(
+  roomId: string,
+): Promise<{ confirmedProgressRevision: number }> {
+  return runInRoomDO(roomId, (_room, state) => ({
+    confirmedProgressRevision: Number(
+      state.storage.sql
+        .exec("SELECT progress_revision FROM room_state WHERE id=1")
+        .one().progress_revision,
+    ),
+  }));
+}

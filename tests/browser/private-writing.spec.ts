@@ -120,6 +120,56 @@ async function expectFocused(editor: Locator): Promise<void> {
     .toBe("focused");
 }
 
+for (const width of [390, 1440]) {
+  test(`${width}px: 個人作業の追加ボタンは空の状態から追加を繰り返しても一覧の左上から動かない`, async () => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(
+      `${origin}/iframe.html?id=room-roomboardcanvas--private-guidance-empty&viewMode=story`,
+    );
+    const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+    await add.waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    // 新規本文への自動スクロールと、一覧内の配置移動を区別する。
+    const positionInList = () =>
+      add.evaluate((element) => {
+        const list = element.parentElement;
+        if (!list) throw new Error("付箋一覧がありません");
+        const buttonBounds = element.getBoundingClientRect();
+        const listBounds = list.getBoundingClientRect();
+        return {
+          x: buttonBounds.x - listBounds.x,
+          y: buttonBounds.y - listBounds.y,
+        };
+      });
+    const initial = await positionInList();
+    expect(initial.y).toBe(0);
+    expect(initial.x).toBeGreaterThanOrEqual(0);
+    // デスクトップでは次の行への折り返しも含める。
+    const count = width === 390 ? 2 : 7;
+    for (let index = 0; index < count; index += 1) {
+      await add.click();
+      await expect
+        .poll(() => privateNoteIds().then((ids) => ids.length))
+        .toBe(index + 1);
+      const editor = page.locator("textarea:not([readonly])");
+      await expectFocused(editor);
+      await page.keyboard.insertText(`下書き ${index + 1}`);
+      await page.keyboard.press("Escape");
+      await expect.poll(positionInList).toEqual(initial);
+    }
+    // 視覚上の先頭とキーボードの順序を揃える。
+    await add.focus();
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(() =>
+        document.activeElement
+          ?.closest("[data-note-id]")
+          ?.getAttribute("data-note-id"),
+      ),
+    ).toBe((await privateNoteIds())[0]);
+  });
+}
+
 for (const { platform, key, width } of [
   { platform: "Linux x86_64", key: "Control+Enter", width: 390 },
   { platform: "MacIntel", key: "Meta+Enter", width: 1440 },
@@ -196,12 +246,11 @@ test("本文から追加した後に再入力すると、応答が来ても元�
   ).toBe(scrollBefore);
 });
 
-test("マイ付箋表面のCtrl+Enterは一枚だけ追加し、閉じたパネルは背景からの追加で開く", async () => {
+test("マイ付箋表面のCtrl+Enterは一枚だけ追加し、入力画面を保つ", async () => {
   await openShortcutAddition(1440);
   const toolbar = page.getByTestId("private-notes-toolbar");
   const cards = toolbar.locator("[data-note-id]");
-  const initialIds = await privateNoteIds();
-  const initialCount = initialIds.length;
+  const initialCount = await cards.count();
   await cards
     .first()
     .getByRole("button", { name: "付箋", exact: true })
@@ -209,23 +258,14 @@ test("マイ付箋表面のCtrl+Enterは一枚だけ追加し、閉じたパネ�
   await expect
     .poll(() => cards.count(), { timeout: 5000 })
     .toBe(initialCount + 1);
-  const firstAddedNote = await addedPrivateNote(initialIds);
-  await expectFocused(firstAddedNote.locator("textarea:not([readonly])"));
-  await page.getByRole("button", { name: "マイ付箋を閉じる" }).click();
-  expect(await toolbar.getAttribute("data-expanded")).toBe("false");
-  const background = page.getByTestId("board-scroller");
-  await background.focus();
-  const idsBeforeBackgroundAdd = await privateNoteIds();
-  await page.keyboard.press("Control+Enter");
-  await expect.poll(() => toolbar.getAttribute("data-expanded")).toBe("true");
-  await expect
-    .poll(() => cards.count(), { timeout: 5000 })
-    .toBe(initialCount + 2);
-  const backgroundAddedNote = await addedPrivateNote(idsBeforeBackgroundAdd);
-  await expectFocused(backgroundAddedNote.locator("textarea:not([readonly])"));
+  expect(await toolbar.getAttribute("data-presentation")).toBe("workspace");
+  expect(await toolbar.getAttribute("data-expanded")).toBe("true");
+  expect(
+    await page.getByRole("button", { name: "マイ付箋を閉じる" }).count(),
+  ).toBe(0);
 });
 
-test("Shift・Alt・キーリピート・別OSの修飾キーとネイティブボタンは追加ショートカットを実行しない", async () => {
+test("Shift・Alt・キーリピート・別OSの修飾キーは追加せず、追加ボタンのCtrl+Enterで一枚追加する", async () => {
   await openShortcutAddition(1440);
   const cards = page
     .getByTestId("private-notes-toolbar")
@@ -253,23 +293,17 @@ test("Shift・Alt・キーリピート・別OSの修飾キーとネイティブ�
       .getByRole("button", { name: "付箋を追加", exact: true })
       .isDisabled(),
   ).toBe(false);
-  const close = page.getByRole("button", { name: "マイ付箋を閉じる" });
-  await close.focus();
-  await expectFocused(close);
+  const add = page.getByRole("button", { name: "付箋を追加", exact: true });
+  await add.focus();
   await page.keyboard.press("Control+Enter");
-  expect(await cards.count()).toBe(initialCount);
+  await expect
+    .poll(() => cards.count(), { timeout: 5000 })
+    .toBe(initialCount + 1);
   expect(
     await page
       .getByTestId("private-notes-toolbar")
       .getAttribute("data-expanded"),
   ).toBe("true");
-  // 通常Enterはネイティブbuttonの既定操作に任せ、追加と二重処理しない。
-  await page.keyboard.press("Enter");
-  expect(
-    await page
-      .getByTestId("private-notes-toolbar")
-      .getAttribute("data-expanded"),
-  ).toBe("false");
 });
 
 for (const width of [390, 1440]) {

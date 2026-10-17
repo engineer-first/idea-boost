@@ -5,7 +5,8 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { getNoteHeight } from "@/contracts/board";
 import {
   isPhaseStep,
   isPublishAllowedStep,
@@ -28,6 +29,7 @@ import {
   clampIdeaValueFeasibilityMapCoordinate,
   getFixedIdeaMapNotePointFromClientPosition,
   getIdeaMapNoteDisplayMetrics,
+  getIdeaMapNoteGeometry,
   getIdeaValueFeasibilityMapPointFromClientPosition,
 } from "./idea-value-feasibility-map";
 import { roomNotify } from "./room-notify";
@@ -97,6 +99,8 @@ export type RoomBoardInteractions = {
   isNoteDragging: boolean;
   localDraggingNoteId?: string | null;
   camera: CanvasCamera;
+  displayZoom?: number;
+  onSelectionChange?: (ids: readonly string[]) => void;
   gridStyle: CSSProperties;
   isPanning: boolean;
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -161,14 +165,17 @@ export function useRoomBoardInteractions({
   const boardRootRef = useRef<HTMLDivElement>(null);
   const boardScrollerRef = useRef<HTMLDivElement>(null);
   const privateToolbarRef = useRef<HTMLDivElement>(null);
+  const isIdeaMapWorkspace =
+    isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
     phase.phase === 3 &&
-    (phase.step >= 2 ||
-      (phase.step === 1 && ideaMapSizeInitialized && notes.length > 0));
+    (phase.step >= 2 || notes.length > 0);
 
   const {
     camera,
+    displayZoom,
+    setSelectedNoteIds,
     preserveCamera,
     gridStyle,
     isPanning,
@@ -187,27 +194,45 @@ export function useRoomBoardInteractions({
     handlePointerEnd: onCanvasPointerEnd,
   } = useCanvasCamera({
     viewportRef: boardScrollerRef,
+    isViewportEnabled: !(
+      phase.kind === "step" &&
+      phase.step === 1 &&
+      phase.phase <= 3
+    ),
     getFitInsets,
     notes,
-    navigationDisabled: isIdeaValueFeasibilityMapVisible,
-    fitViewport: isIdeaValueFeasibilityMapVisible,
+    selectedNoteIds,
+    fitViewport:
+      phase.kind === "step" &&
+      phase.phase === 3 &&
+      (phase.step >= 2 || notes.length > 0),
+    navigationDisabled: isIdeaMapWorkspace,
     ideaMapSizeLevel,
     ideaMapSizeInitialized,
   });
   useEffect(() => {
-    if (isIdeaValueFeasibilityMapVisible) preserveCamera();
-  }, [isIdeaValueFeasibilityMapVisible, preserveCamera]);
+    if (isIdeaMapWorkspace) preserveCamera();
+  }, [isIdeaMapWorkspace, preserveCamera]);
+  const mapNoteGeometry = useMemo(
+    () =>
+      getIdeaMapNoteGeometry(
+        ideaMapSizeLevel,
+        notes.map((note) => getNoteHeight(note.content, note.fontSize)),
+      ),
+    [ideaMapSizeLevel, notes],
+  );
   const {
     ideaMapPlaneRef,
     isIdeaValueFeasibilityMappingStep,
     pointFromClient,
   } = useIdeaValueFeasibilityMapInput({
     phase,
+    geometry: isIdeaMapWorkspace ? undefined : mapNoteGeometry,
     fallbackPointFromClient: worldPointFromClient,
   });
   const positionFromClient = useCallback(
     (clientX: number, clientY: number, drag: BoardDrag): CanvasPoint | null => {
-      if (!isIdeaValueFeasibilityMappingStep) return null;
+      if (!isIdeaMapWorkspace) return null;
       const plane = ideaMapPlaneRef.current;
       if (!plane) return null;
       const rect = plane.getBoundingClientRect();
@@ -256,16 +281,15 @@ export function useRoomBoardInteractions({
       );
       return point ? { x: point.feasibility, y: point.value } : null;
     },
-    [
-      ideaMapSizeLevel,
-      isIdeaValueFeasibilityMappingStep,
-      ideaMapPlaneRef.current,
-    ],
+    [ideaMapSizeLevel, isIdeaMapWorkspace, ideaMapPlaneRef.current],
   );
-  // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
-  // 既存のボード権限に従い、投票・結果ステップでは共有付箋を操作させない。
+  // 固定マップ以外はdevelopの移動権限と、付箋が収まる高さの制約を維持する。
   const canMoveSharedNotes =
-    !movePending && getBoardPermissions(phase, isDecided).canMoveNote;
+    !movePending &&
+    getBoardPermissions(phase, isDecided).canMoveNote &&
+    (isIdeaMapWorkspace ||
+      !isIdeaValueFeasibilityMappingStep ||
+      mapNoteGeometry.height > mapNoteGeometry.maxNoteHeight);
   const canPublish = canPublishNoteInTurn(phase, sharing, currentUserId);
   const canReturnToPrivate =
     isPublishAllowedStep(phase) &&
@@ -296,9 +320,7 @@ export function useRoomBoardInteractions({
     clampCoordinate: isIdeaValueFeasibilityMappingStep
       ? clampIdeaValueFeasibilityMapCoordinate
       : undefined,
-    positionFromClient: isIdeaValueFeasibilityMappingStep
-      ? positionFromClient
-      : undefined,
+    positionFromClient: isIdeaMapWorkspace ? positionFromClient : undefined,
     canMoveSharedNotes,
     canPublish,
     canReturnToPrivate,
@@ -337,7 +359,7 @@ export function useRoomBoardInteractions({
   const dragGhost =
     drag?.status === "shared" &&
     (!notes.some((note) => note.id === drag.note.id) ||
-      (isIdeaValueFeasibilityMappingStep && drag.note.ideaMapPlaced === false))
+      (isIdeaMapWorkspace && drag.note.ideaMapPlaced === false))
       ? { note: drag.note, x: drag.x, y: drag.y }
       : null;
   const dragPreview =
@@ -555,6 +577,8 @@ export function useRoomBoardInteractions({
     isNoteDragging: drag !== null,
     localDraggingNoteId: drag?.note.id ?? null,
     camera,
+    displayZoom,
+    onSelectionChange: setSelectedNoteIds,
     gridStyle,
     isPanning,
     onCanvasPointerDown,

@@ -79,7 +79,6 @@ test.each([
 });
 
 test.each([
-  ["participant-cannot-adjust", "ホストだけ"],
   ["initializing", "準備"],
   ["disconnected", "接続が回復"],
   ["dragging-blocked", "ドラッグ中"],
@@ -110,4 +109,21 @@ test.each([
   await expect
     .poll(() => help.evaluate((element) => element === document.activeElement))
     .toBe(true);
+});
+
+test.each([
+  390, 1440,
+])("%spxの参加者もマップを閲覧して広さを変更できる", async (width) => {
+  page = await browser.newPage({ viewport: { width, height: 844 } });
+  await page.goto(
+    `${origin}/iframe.html?id=room-roomboardcanvas--participant-idea-map&viewMode=story`,
+  );
+  await page.getByTestId("idea-value-feasibility-map").waitFor();
+  expect(await page.getByTestId("idea-map-size-controls-hud").count()).toBe(1);
+  expect(
+    await page.getByRole("group", { name: "2軸マップの広さ操作" }).count(),
+  ).toBe(1);
+  expect(
+    await page.getByRole("button", { name: "マップの広さについて" }).count(),
+  ).toBe(1);
 });

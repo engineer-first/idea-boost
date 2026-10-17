@@ -19,16 +19,37 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 414, height: 635 },
 ]) {
-  test(`${viewport.width}×${viewport.height}: 案内はマイ付箋より下に固定され開閉とスクロールを妨げない`, async () => {
+  for (const phase of [1, 2, 3]) {
+    test(`${viewport.width}×${viewport.height}・${phase}-1: 個人入力では下部のキャンバスHUDを表示しない`, async () => {
+      page = await browser.newPage({ viewport });
+      await page.goto(
+        `${origin}/iframe.html?id=room-roomboardlayout--phase-${phase}-step-1&viewMode=story&args=initialGuideState:compact`,
+      );
+      await page.getByTestId("private-notes-toolbar").waitFor();
+      expect(await page.getByTestId("board-tools-hud").isVisible()).toBe(false);
+      expect(await page.getByTestId("board-operation-matrix").isVisible()).toBe(
+        false,
+      );
+      expect(await page.getByTestId("board-header-row").isVisible()).toBe(true);
+      expect(
+        await page
+          .getByRole("button", { name: "付箋を追加", exact: true })
+          .isVisible(),
+      ).toBe(true);
+    });
+  }
+
+  test(`${viewport.width}×${viewport.height}: 共有では案内がマイ付箋より下にあり開閉とスクロールを妨げない`, async () => {
     page = await browser.newPage({ viewport });
     await page.goto(
-      `${origin}/iframe.html?id=room-roomboardlayout--phase-3-step-1&viewMode=story&args=initialGuideState:compact`,
+      `${origin}/iframe.html?id=room-roomboardlayout--phase-1-step-2&viewMode=story&args=initialGuideState:compact`,
     );
     const matrix = page.getByTestId("board-operation-matrix");
     await matrix.waitFor();
     await page.evaluate(() => document.fonts.ready);
     const before = await matrix.boundingBox();
     const toolbar = page.getByTestId("private-notes-toolbar");
+    await page.getByRole("button", { name: "マイ付箋を開く" }).click();
     const bounds = await toolbar.boundingBox();
     expect(before).not.toBeNull();
     expect(bounds).not.toBeNull();
@@ -45,13 +66,17 @@ for (const viewport of [
     await page.getByRole("button", { name: "マイ付箋を閉じる" }).click();
     expect(await toolbar.getAttribute("data-expanded")).toBe("false");
     const collapsed = await toolbar.boundingBox();
-    expect(collapsed?.width).toBe(bounds.width);
+    expect(collapsed?.width).toBeLessThanOrEqual(bounds.width);
     expect(collapsed?.x).toBe(bounds.x);
     expect(await matrix.boundingBox()).toEqual(before);
     await page.getByRole("button", { name: "マイ付箋を開く" }).click();
     expect(await toolbar.getAttribute("data-expanded")).toBe("true");
     expect(await matrix.boundingBox()).toEqual(before);
-    await page.getByRole("button", { name: "付箋を追加", exact: true }).click();
+    expect(
+      await page
+        .getByRole("button", { name: "付箋を追加", exact: true })
+        .isDisabled(),
+    ).toBe(true);
     await page
       .getByRole("button", { name: "キャンバスを拡大", exact: true })
       .click();

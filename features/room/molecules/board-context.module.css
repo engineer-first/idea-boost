@@ -48,6 +48,6 @@
       [data-testid="board-help-panel"][data-open="true"]
     )
     :is(.references, .references *) {
-    visibility: hidden;
+    display: none;
   }
 }

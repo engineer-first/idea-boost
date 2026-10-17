@@ -263,7 +263,7 @@ export function StepGuide({
             </div>
           )}
         </dl>
-        {isHost && (guide.hostMessage || guide.hostTimerGuide) && (
+        {(guide.hostMessage || guide.hostTimerGuide) && (
           <div className="mt-4 border-t border-border pt-3 text-xs leading-5">
             <p className="font-semibold">ホストへ</p>
             {guide.hostTimerGuide && (

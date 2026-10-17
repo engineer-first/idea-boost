@@ -45,6 +45,46 @@ const TABLE: Array<{
   expected: boolean;
 }> = [
   {
+    name: "AT-678 ルーム名を全員共有しても他者の非共有付箋は公開しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "AT-662 問いの投票中の移動でも他者の未共有付箋は不可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "private", x: 200, y: 300 }),
+    expected: false,
+  },
+  {
+    name: "AT-662 問いの投票中に移動した共有付箋は他の参加者にも可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared", x: 200, y: 300 }),
+    expected: true,
+  },
+  {
+    name: "AT-665 採用後の移動でも他者の未共有付箋を公開しない",
+    viewerId: VIEWER,
+    note: note({ visibility: "private" }),
+    expected: false,
+  },
+  {
+    name: "AT-660 発表終了後に拒否した返却はsharedのまま他者に可視",
+    viewerId: VIEWER,
+    note: note({ visibility: "shared" }),
+    expected: true,
+  },
+  {
+    name: "AT-639 共有移行後も遅延保存された本人下書きは他者へ不可視",
+    viewerId: VIEWER,
+    note: note({
+      visibility: "private",
+      content: "通信回復後の本文",
+      contentRevision: 1,
+    }),
+    expected: false,
+  },
+  {
     name: "AT-538 連続作成したprivate付箋を他の参加者へ配信しない",
     viewerId: VIEWER,
     note: note({ visibility: "private" }),

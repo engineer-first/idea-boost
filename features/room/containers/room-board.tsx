@@ -6,17 +6,19 @@
 //   - グループの状態とプロトコル化: use-note-groups
 //   - members / phase / timer の適用と入退出通知: use-room-state
 //   - 退出 / 解散フロー: use-leave-room
-// このファイルに残るのは「フェーズ進行の operation 化」と「エラー応答の
-// 画面反応（強制進行ダイアログ）」というボード画面固有の配線だけ。
+// このファイルに残るのはフェーズ進行の操作と画面反応だけ。
 //
 // 確定状態の真実はサーバー（RoomDO）側にあり、再接続時は snapshot で復元される。
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { SetDisplayNameInput } from "@/contracts/display-name";
 import { isResultStep, type RoomPhase } from "@/contracts/phase";
 import {
   type ClientMessage,
   needsHostRevision,
   type ServerMessage,
 } from "@/contracts/room-protocol";
+import { canPublishNoteInTurn } from "@/contracts/sharing";
+import type { DisplayNameResult } from "@/features/auth";
 import { submitFeedback, useFeedback } from "@/features/feedback";
 import { HMW_EXAMPLES } from "@/features/hmw";
 import {
@@ -40,8 +42,8 @@ import { useMemberRemoval } from "../logic/use-member-removal";
 import { useRoomBoardInteractions } from "../logic/use-room-board-interactions";
 import { useRoomConnection } from "../logic/use-room-connection";
 import { useRoomDisplayName } from "../logic/use-room-display-name";
+import { useRoomName } from "../logic/use-room-name";
 import { useRoomState } from "../logic/use-room-state";
-import { ForceNextPhaseDialog } from "../molecules/force-next-phase-dialog";
 import { getBoardFitInsets, RoomBoardView } from "../templates/room-board-view";
 
 export type RoomBoardProps = {
@@ -59,6 +61,9 @@ export type RoomBoardProps = {
   signOutAction?: () => Promise<void>;
   // テストからフェイク WebSocket を注入するための口。本番では未指定。
   webSocketFactory?: RoomSocketFactory;
+  saveDisplayNameAction?: (
+    input: SetDisplayNameInput,
+  ) => Promise<DisplayNameResult>;
   // テストでボード操作を単体検証するときは案内モーダルを無効化する。
 };
 
@@ -73,11 +78,10 @@ export function RoomBoard({
   initialPhase,
   signOutAction,
   webSocketFactory,
+  saveDisplayNameAction,
 }: RoomBoardProps) {
   const feedback = useFeedback(roomId, submitFeedback);
   const [isNextPhasePending, setIsNextPhasePending] = useState(false);
-  const [isForceNextPhaseDialogOpen, setIsForceNextPhaseDialogOpen] =
-    useState(false);
   const hmwExamplesInitializedVersionRef = useRef(0);
   const candidateNoticeIdsRef = useRef(new Set<string | number>());
   const bulkUndoIdsRef = useRef(new Set<string>());
@@ -134,7 +138,14 @@ export function RoomBoard({
     blocked: isNextPhasePending || isLeaving || roomState.outcomePublished,
     send,
   });
+  const roomName = useRoomName({
+    connected: connectionStatus === "open",
+    blocked: isLeaving || roomState.outcomePublished,
+    send,
+  });
   const displayName = useRoomDisplayName({
+    roomId,
+    save: saveDisplayNameAction,
     currentUserId,
     members: roomState.members,
     connected: connectionStatus === "open",
@@ -155,6 +166,7 @@ export function RoomBoard({
     send,
   });
   const drafts = useNoteAutosave({ roomId, userId: currentUserId, send });
+  const sharingGenerationRef = useRef(0);
   const handleUnknownNoteCreation = useCallback((): void => {
     notify.error("付箋を追加できたか確認できません。接続を確認しています。");
     resynchronize();
@@ -186,8 +198,7 @@ export function RoomBoard({
       memberRemoval.pending ||
       isNextPhasePending ||
       isLeaving ||
-      roomState.outcomePublished ||
-      roomState.decision !== null,
+      roomState.outcomePublished,
   });
   historyObserverRef.current = moveHistory.observeOutgoing;
   useEffect(() => {
@@ -233,6 +244,8 @@ export function RoomBoard({
   );
 
   function handleServerMessage(message: ServerMessage) {
+    if (message.type === "sharing:updated") sharingGenerationRef.current += 1;
+    if (roomName.applyMessage(message)) return;
     if (displayName.applyMessage(message)) return;
     moveHistory.applyMessage(message);
     if (memberRemoval.applyMessage(message)) return;
@@ -241,9 +254,7 @@ export function RoomBoard({
       message.type === "host:updated" &&
       message.hostRevision > (roomState.host.hostRevision ?? -1)
     ) {
-      setIsForceNextPhaseDialogOpen(false);
       setIsNextPhasePending(false);
-      clearCandidateNotices();
     }
     if (
       message.type === "snapshot" ||
@@ -272,12 +283,9 @@ export function RoomBoard({
             bulkUndoIdsRef.current.delete(message.operationId);
         };
         if (message.source === "phase-transition") {
-          if (isHost) bulkUndoIdsRef.current.add(message.operationId);
+          bulkUndoIdsRef.current.add(message.operationId);
           rememberCandidateNotice(
-            roomNotify.automaticallyExcludedCandidates(
-              message.count,
-              isHost ? undo : undefined,
-            ),
+            roomNotify.automaticallyExcludedCandidates(message.count, undo),
             message.operationId,
           );
         } else {
@@ -303,12 +311,9 @@ export function RoomBoard({
       if (message.operationId !== undefined) {
         return;
       }
-      // 投票未完了によるゲート拒否はホストの phase:next 起点なので、toast
-      // ではなく「強制的に進むか」の確認ダイアログで案内する。サーバーの
-      // 評価順が変わって非ホストに届いた場合は通常のエラー表示へ落とす。
-      if (message.code === "voting-incomplete" && isHost) {
+      if (message.code === "phase-confirmation-required") {
         setIsNextPhasePending(false);
-        setIsForceNextPhaseDialogOpen(true);
+        notify.error(message.message);
         return;
       }
       console.warn(`ルーム操作エラー (${message.code}): ${message.message}`);
@@ -317,14 +322,8 @@ export function RoomBoard({
       return;
     }
 
-    if (message.type === "phase:save-requested") setIsNextPhasePending(true);
     if (message.type === "phase:updated" || message.type === "snapshot") {
-      setIsNextPhasePending(
-        message.type === "snapshot" && message.pendingPhaseTransition != null,
-      );
-      // 進行が確定（別タブ等）・復元（再接続）されたら、開いていた
-      // 強制進行の確認はフェーズ1・2の投票ステップのゲート前提が崩れているため閉じる。
-      setIsForceNextPhaseDialogOpen(false);
+      setIsNextPhasePending(false);
     }
 
     notes.applyMessage(message);
@@ -340,33 +339,56 @@ export function RoomBoard({
     cursorPresence.applyMessage(message, receivedAt);
   }
 
-  const handleNextPhase = useCallback(() => {
-    if (
-      !isHost ||
-      hostTransfer.isPending() ||
-      memberRemoval.isPending() ||
-      isNextPhasePending
-    )
-      return;
-    setIsNextPhasePending(true);
-    send({
-      type: "phase:next",
-      expectedPhase: roomState.phase,
-      expectedRevision: roomState.phaseRevision,
-    });
-  }, [
-    isHost,
-    hostTransfer.isPending,
-    memberRemoval.isPending,
-    isNextPhasePending,
-    send,
-    roomState.phase,
-    roomState.phaseRevision,
-  ]);
+  const handleNextPhase = useCallback(
+    (confirmedProgressRevision?: number) => {
+      if (
+        connectionStatus !== "open" ||
+        hostTransfer.isPending() ||
+        memberRemoval.isPending() ||
+        isNextPhasePending
+      )
+        return;
+      setIsNextPhasePending(true);
+      const sent = send({
+        type: "phase:next",
+        expectedPhase: roomState.phase,
+        expectedRevision: roomState.phaseRevision,
+        confirmedProgressRevision,
+      });
+      if (sent === false) setIsNextPhasePending(false);
+    },
+    [
+      connectionStatus,
+      hostTransfer.isPending,
+      memberRemoval.isPending,
+      isNextPhasePending,
+      send,
+      roomState.phase,
+      roomState.phaseRevision,
+    ],
+  );
+
+  const handleToggleReady = useCallback(
+    (ready: boolean) => {
+      if (connectionStatus !== "open" || roomState.outcomePublished) return;
+      send({
+        type: "phase:ready",
+        expectedPhase: roomState.phase,
+        expectedRevision: roomState.phaseRevision,
+        ready,
+      });
+    },
+    [
+      connectionStatus,
+      roomState.outcomePublished,
+      roomState.phase,
+      roomState.phaseRevision,
+      send,
+    ],
+  );
 
   const handleRollbackPhase = useCallback(() => {
     if (
-      !isHost ||
       !roomState.rollbackTarget ||
       roomState.outcomePublished ||
       connectionStatus !== "open" ||
@@ -381,11 +403,9 @@ export function RoomBoard({
       type: "phase:rollback",
       expectedPhase: roomState.phase,
       expectedRevision: roomState.phaseRevision,
-      expectedHostRevision: roomState.host.hostRevision ?? 0,
     });
     if (sent === false) setIsNextPhasePending(false);
   }, [
-    isHost,
     roomState.rollbackTarget,
     roomState.outcomePublished,
     connectionStatus,
@@ -393,35 +413,6 @@ export function RoomBoard({
     memberRemoval.isPending,
     isNextPhasePending,
     isLeaving,
-    send,
-    roomState.phase,
-    roomState.phaseRevision,
-    roomState.host.hostRevision,
-  ]);
-
-  // 投票未完了ゲートの脱出ハッチ。ForceNextPhaseDialog の確認後に
-  // force 付きで再送する（ホスト以外はサーバー側で拒否される）。
-  const handleForceNextPhase = useCallback(() => {
-    setIsForceNextPhaseDialogOpen(false);
-    if (
-      !isHost ||
-      hostTransfer.isPending() ||
-      memberRemoval.isPending() ||
-      isNextPhasePending
-    )
-      return;
-    setIsNextPhasePending(true);
-    send({
-      type: "phase:next",
-      force: true,
-      expectedPhase: roomState.phase,
-      expectedRevision: roomState.phaseRevision,
-    });
-  }, [
-    isHost,
-    hostTransfer.isPending,
-    memberRemoval.isPending,
-    isNextPhasePending,
     send,
     roomState.phase,
     roomState.phaseRevision,
@@ -433,22 +424,20 @@ export function RoomBoard({
   );
 
   const handleDecisionClear = useCallback(() => {
-    if (!isHost || !roomState.decision || roomState.outcomePublished) return;
+    if (!roomState.decision || roomState.outcomePublished) return;
     send({ type: "decision:clear", noteId: roomState.decision.noteId });
-  }, [isHost, roomState.decision, roomState.outcomePublished, send]);
+  }, [roomState.decision, roomState.outcomePublished, send]);
 
   const handleAdoptionFocusChange = useCallback(
     (noteId: string | null) => {
-      if (!isHost) return;
       send({ type: "adoption-focus:update", noteId });
     },
-    [isHost, send],
+    [send],
   );
 
   const handleLoopPhase = useCallback(
     (type: "phase:restart-writing" | "phase:revote") => {
       if (
-        !isHost ||
         hostTransfer.isPending() ||
         memberRemoval.isPending() ||
         isNextPhasePending
@@ -462,7 +451,6 @@ export function RoomBoard({
       });
     },
     [
-      isHost,
       hostTransfer.isPending,
       memberRemoval.isPending,
       isNextPhasePending,
@@ -503,12 +491,18 @@ export function RoomBoard({
   const { addNote } = notes;
   const handleAddPrivateNote = notes.requestAddNote;
   const handleHmwTemplateSelect = useCallback(
-    (content: string) => addNote(content),
-    [addNote],
+    (content: string) => {
+      if (roomState.timer.status !== "running") return;
+      addNote(content);
+    },
+    [addNote, roomState.timer.status],
   );
   const handleIdeaHintSelect = useCallback(
-    (content: string) => addNote(content),
-    [addNote],
+    (content: string) => {
+      if (roomState.timer.status !== "running") return;
+      addNote(content);
+    },
+    [addNote, roomState.timer.status],
   );
 
   useEffect(() => {
@@ -517,6 +511,7 @@ export function RoomBoard({
       roomState.phase.phase === 2 &&
       roomState.phase.step === 1;
     if (
+      roomState.timer.status !== "running" ||
       !isHmwWritingStep ||
       connectionStatus !== "open" ||
       notes.snapshotVersion === 0 ||
@@ -539,6 +534,7 @@ export function RoomBoard({
     notes.notes,
     notes.snapshotVersion,
     roomState.phase,
+    roomState.timer.status,
   ]);
 
   // フェーズ2では決定課題を、フェーズ3では決定課題と決定した問いを掲示する。
@@ -562,6 +558,44 @@ export function RoomBoard({
   const boardPrivateNotes = notes.notes.filter(
     (note) => note.visibility === "private",
   );
+  const publishContextRef = useRef({
+    roomState,
+    connectionStatus,
+    isNextPhasePending,
+    isLeaving,
+    notes,
+  });
+  publishContextRef.current = {
+    roomState,
+    connectionStatus,
+    isNextPhasePending,
+    isLeaving,
+    notes,
+  };
+  const handlePrivateNotePublish = useCallback(
+    (noteId: string, x: number, y: number) => {
+      const sharingGeneration = sharingGenerationRef.current;
+      drafts.saveBeforeShare(noteId, () => {
+        if (sharingGeneration !== sharingGenerationRef.current) return;
+        const current = publishContextRef.current;
+        if (
+          current.connectionStatus !== "open" ||
+          current.isNextPhasePending ||
+          current.isLeaving ||
+          current.roomState.outcomePublished ||
+          current.roomState.decision !== null ||
+          !canPublishNoteInTurn(
+            current.roomState.phase,
+            current.roomState.sharing,
+            currentUserId,
+          )
+        )
+          return;
+        current.notes.publishNote(noteId, x, y);
+      });
+    },
+    [drafts.saveBeforeShare, currentUserId],
+  );
   const boardInteractions = useRoomBoardInteractions({
     movePending: notes.movePending || moveHistory.pending,
     onPendingMoveInterrupt: notes.cancelNoteDrag,
@@ -579,7 +613,7 @@ export function RoomBoard({
     onNoteDragMove: notes.moveNote,
     onNoteDragEnd: notes.endNoteDrag,
     onNoteDragCancel: notes.cancelNoteDrag,
-    onPrivateNotePublish: notes.publishNote,
+    onPrivateNotePublish: handlePrivateNotePublish,
     onPrivateNoteUnpublish: notes.unpublishNote,
     onCursorMove: cursorPresence.updateCursor,
     onCursorLeave: cursorPresence.leaveCanvas,
@@ -609,11 +643,6 @@ export function RoomBoard({
 
   return (
     <>
-      <ForceNextPhaseDialog
-        open={isForceNextPhaseDialogOpen}
-        onOpenChange={setIsForceNextPhaseDialogOpen}
-        onConfirm={handleForceNextPhase}
-      />
       <RoomBoardView
         loginReturnHref={`/rooms/${roomId}`}
         moveHistory={{
@@ -683,6 +712,7 @@ export function RoomBoard({
         }
         isTransferring={hostTransfer.pending}
         displayName={displayName}
+        roomName={roomName}
         memberRemoval={memberRemoval}
         transferError={hostTransfer.error}
         decision={roomState.decision}
@@ -692,11 +722,13 @@ export function RoomBoard({
         connectionDelayed={connectionDelayed}
         draggingNoteId={notes.frontNoteId}
         members={roomState.members}
-        authorNames={roomState.authorNames}
         currentUserId={currentUserId}
         hostUserId={hostUserId}
         completedVoterIds={roomState.completedVoterIds}
+        progress={roomState.progress}
+        onToggleReady={handleToggleReady}
         isNextPhasePending={isNextPhasePending}
+        isSavingBeforeShare={drafts.sharingSavePending}
         signOutAction={signOutAction}
         interactions={boardInteractions}
         help={help}

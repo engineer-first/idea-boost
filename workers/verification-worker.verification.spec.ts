@@ -15,7 +15,11 @@ import { getCarryovers, getDecision } from "./room/decisions";
 import { getIdeaMapSizeState } from "./room/idea-map";
 import { listNotes, moveNote } from "./room/notes";
 import { countUserVotes } from "./room/votes";
-import { connectRoomAs, sessionCookieFor } from "./test-helpers";
+import {
+  connectRoomAs,
+  sessionCookieFor,
+  startTimerForTest,
+} from "./test-helpers";
 import verificationWorker from "./verification-worker";
 
 const TOKEN = "verification-test-token-at-least-32-characters";
@@ -188,15 +192,15 @@ describe("検証用の初期状態", () => {
     owner.ws.send(
       JSON.stringify({
         type: "phase:next",
-        force: true,
         expectedPhase: snapshot.phase,
         expectedRevision: snapshot.phaseRevision,
       }),
     );
+    // 投票未完了の進行は拒否するが、応答できる接続を維持する。
     const next = await Promise.race([closed, owner.next()]);
     expect(next).toMatchObject({
-      type: "snapshot",
-      phase: { kind: "step", phase: 2, step: 4 },
+      type: "error",
+      code: "phase-not-ready",
     });
     owner.close();
   });
@@ -260,6 +264,7 @@ describe("検証用の初期状態", () => {
         noteIds.push(message.note.id);
       }
       if (index === 0) {
+        await startTimerForTest(active.roomId);
         owner.ws.send(
           JSON.stringify({ type: "note:delete", noteId: noteIds[0] }),
         );
@@ -535,6 +540,7 @@ it.each([
   const workspace = {
     idFromName: () => "active",
     get: () => ({
+      getActive: async () => null,
       setActive: async () => {
         throw new Error("activation failed");
       },
@@ -582,4 +588,34 @@ it.each([
     headers: await headers(),
   });
   expect(await active.json()).toEqual({ active: previous });
+});
+
+it("成果検証への切替後は旧ルームを閲覧できるが操作できない", async () => {
+  const previous = await create("1-2");
+  const socket = await connectRoomAs(users[0], previous.roomId);
+  await socket.next();
+  const response = await SELF.fetch(
+    "http://localhost/api/verification/outcomes",
+    {
+      method: "POST",
+      headers: await headers(),
+      body: JSON.stringify({ scenario: "empty" }),
+    },
+  );
+  expect(response.status).toBe(200);
+  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(previous.roomId));
+  expect(await stub.isMember(users[0].sub)).toBe(true);
+  expect(await stub.isJoinable()).toBe(false);
+  socket.ws.send(
+    JSON.stringify({
+      type: "timer:start",
+      durationMs: 60000,
+      expectedHostRevision: 0,
+    }),
+  );
+  expect(await socket.next()).toMatchObject({
+    type: "error",
+    code: "forbidden",
+  });
+  socket.close();
 });

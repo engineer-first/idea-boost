@@ -664,45 +664,30 @@ describe("ServerMessageSchema", () => {
     });
   });
 
-  it("phase:next は force フラグを受け入れ、パース結果に保持する", () => {
-    expect(
-      ClientMessageSchema.parse({
-        type: "phase:next",
-        expectedPhase: STEP_1_2,
-        expectedRevision: 3,
-        force: true,
-      }),
-    ).toEqual({
-      type: "phase:next",
-      expectedPhase: STEP_1_2,
-      expectedRevision: 3,
-      force: true,
+  it("phase:ready は本人の完了状態だけを受け入れる", () => {
+    const parsed = ClientMessageSchema.parse({
+      type: "phase:ready",
+      expectedPhase: { kind: "step", phase: 1, step: 1 },
+      expectedRevision: 4,
+      ready: true,
+    });
+    expect(parsed).toEqual({
+      type: "phase:ready",
+      expectedPhase: { kind: "step", phase: 1, step: 1 },
+      expectedRevision: 4,
+      ready: true,
     });
   });
 
-  it("phase:next の force に boolean 以外は拒否する", () => {
+  it("phase:next は強制進行フラグを受け付けない", () => {
     expect(
       ClientMessageSchema.safeParse({
         type: "phase:next",
         expectedPhase: STEP_1_2,
         expectedRevision: 3,
-        force: "yes",
+        force: true,
       }).success,
     ).toBe(false);
-  });
-
-  it("error は voting-incomplete コードを受け入れる", () => {
-    expect(
-      ServerMessageSchema.parse({
-        type: "error",
-        code: "voting-incomplete",
-        message: "全員の主観・客観投票が完了していません。",
-      }),
-    ).toEqual({
-      type: "error",
-      code: "voting-incomplete",
-      message: "全員の主観・客観投票が完了していません。",
-    });
   });
 
   it("error の未知の code は拒否する", () => {
@@ -1571,11 +1556,11 @@ describe("メンバー除外の契約", () => {
   });
 });
 
-describe("呼び名の変更境界", () => {
-  it("他人のIDを含む形を受理せず、空白・上限超過を拒否し、40文字を受理する", () => {
+describe("表示名の変更境界", () => {
+  it("他人のIDを含む形を受理せず、空白・上限超過を拒否し、15文字を受理する", () => {
     const message = {
       type: "member:rename",
-      name: "あ".repeat(40),
+      name: "あ".repeat(15),
       operationId: "11111111-1111-4111-8111-111111111111",
     };
     expect(ClientMessageSchema.safeParse(message).success).toBe(true);
@@ -1583,7 +1568,7 @@ describe("呼び名の変更境界", () => {
       { ...message, targetUserId: message.operationId },
       { ...message, userId: message.operationId },
       { ...message, name: "　 " },
-      { ...message, name: "あ".repeat(41) },
+      { ...message, name: "あ".repeat(16) },
     ])
       expect(ClientMessageSchema.safeParse(invalid).success).toBe(false);
   });

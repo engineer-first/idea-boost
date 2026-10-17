@@ -9,6 +9,7 @@ import {
 } from "../contracts/access";
 import { CreateRoomInputSchema } from "../contracts/api";
 import { LeaveRoomRequestSchema } from "../contracts/completed-rooms";
+import { SetDisplayNameInputSchema } from "../contracts/display-name";
 import { isUuid } from "../contracts/ids";
 import {
   isValidInviteCode,
@@ -18,6 +19,7 @@ import {
   CreationPrincipalSchema,
   CreationStatusInputSchema,
   issueCreationId,
+  ROOM_CREATION_NAME_MAX,
 } from "../contracts/room-creation";
 import {
   ConsumeRoomTicketRequestSchema,
@@ -32,6 +34,7 @@ import {
   type VerifiedSession,
 } from "../contracts/session";
 import { verifyToken } from "../lib/session/token";
+import { AccountDO } from "./account/account-do";
 import { handleCompletedRooms } from "./completed-rooms-api";
 import {
   acceptFeedback,
@@ -44,7 +47,7 @@ import {
   ensureUser,
   findRoomByCode,
   findRoomById,
-  findUserNameById,
+  findUserDisplayNameById,
   upsertUserFromAssertion,
 } from "./lib/db";
 import {
@@ -52,10 +55,7 @@ import {
   CreationExpired,
   CreationGone,
   CreationUpdateRequired,
-  completeRoomCreation,
-  creationIdentity,
   getCreationStatus,
-  reserveRoomCreation,
 } from "./lib/room-creation";
 import { cleanupRoomCreations } from "./lib/room-creation-cleanup";
 import { getSessionFromRequest } from "./lib/session";
@@ -66,9 +66,14 @@ import {
   SESSION_EXPIRES_AT_HEADER,
   USER_ID_HEADER,
 } from "./room/room-do";
+import {
+  accountStub,
+  handleRoomParticipation,
+  participationResponse,
+} from "./room-participation-api";
 import { handleSharedOutcomes } from "./shared-outcomes-api";
 
-export { RoomDO };
+export { AccountDO, RoomDO };
 
 // wrangler types の生成物は api-worker.ts を root 型検査から参照する一方、
 // secret binding は生成されないため、公開境界で SESSION_SECRET を明示する。
@@ -143,7 +148,10 @@ async function handleCreateRoom(
     (await readJsonBody(request)) ?? {},
   );
   if (!body.success)
-    return error(400, "ルーム名は80文字以内で入力してください。");
+    return error(
+      400,
+      `ルーム名は${ROOM_CREATION_NAME_MAX}文字以内で入力してください。`,
+    );
   if (body.data.expectedPrincipal !== session.sub)
     return json(
       {
@@ -158,21 +166,16 @@ async function handleCreateRoom(
     name: session.name,
   });
   try {
-    const creation = await reserveRoomCreation(
-      env.DB,
+    const result = await accountStub(env, session.sub).prepare(
       session.sub,
-      body.data.requestId,
-      body.data.name,
+      { kind: "create", input: body.data },
+      true,
     );
-    await completeRoomCreation(env.DB, creation, async () => {
-      const result = await roomStub(env, creation.room_id).initializeCreation(
-        creationIdentity(creation),
-        session.name,
-        creation.name,
+    if (result.kind === "ready")
+      await syncMemberAccountName(env, result.roomId, session.sub).catch(
+        () => {},
       );
-      if (result === "closed") throw new CreationGone();
-    });
-    return json({ roomId: creation.room_id, inviteCode: creation.invite_code });
+    return participationResponse(result, true);
   } catch (cause) {
     if (cause instanceof CreationConflict)
       return json(
@@ -213,6 +216,25 @@ async function handleCreateRoom(
   }
 }
 
+async function syncMemberAccountName(
+  env: ApiWorkerEnv,
+  roomId: string,
+  userId: string,
+): Promise<void> {
+  const profile = await env.DB.prepare(
+    "SELECT display_name AS name, display_name_revision AS revision FROM users WHERE id=?",
+  )
+    .bind(userId)
+    .first<{ name: string | null; revision: number }>();
+  // 旧ルームで本人が選んだ名前は、共通名を設定するまで保つ。
+  if (profile?.name)
+    await roomStub(env, roomId).syncAccountDisplayName(
+      userId,
+      profile.name,
+      profile.revision,
+    );
+}
+
 // POST /api/rooms/join — 招待コードで参加（冪等）。
 async function handleJoinRoom(
   request: Request,
@@ -234,17 +256,21 @@ async function handleJoinRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
 
-  const stub = roomStub(env, room.roomId);
-  const joined = await stub.upsertMember(session.sub, session.name);
-  if (!joined.ok) {
-    return error(
-      409,
-      joined.reason === "room-closed"
-        ? "終了したルームには参加できません。"
-        : "このルームは20人までです。",
+  await ensureUser(env.DB, {
+    id: session.sub,
+    email: session.email,
+    name: session.name,
+  });
+  const result = await accountStub(env, session.sub).prepare(
+    session.sub,
+    { kind: "join", code },
+    true,
+  );
+  if (result.kind === "ready")
+    await syncMemberAccountName(env, result.roomId, session.sub).catch(
+      () => {},
     );
-  }
-  return json({ roomId: room.roomId });
+  return participationResponse(result, true);
 }
 
 // GET /api/rooms/:id — メンバーだけがルーム情報を取得できる。
@@ -267,6 +293,13 @@ async function handleGetRoom(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  if (await stub.isJoinable()) {
+    const participation = await accountStub(env, session.sub).inspect(
+      session.sub,
+      roomId,
+    );
+    if (participation) return participationResponse(participation, true);
+  }
   const phase = await stub.getPhase();
   const host = await stub.getCurrentHost(room.hostId);
   if (!host.hostUserId) return error(409, "ホスト情報を取得できませんでした。");
@@ -367,9 +400,14 @@ async function handleLookupRoom(
   if (!room) {
     return error(404, "ルームが見つかりませんでした。");
   }
-  if (!(await roomStub(env, room.roomId).isJoinable()))
+  const stub = roomStub(env, room.roomId);
+  if (!(await stub.isJoinable()))
     return error(404, "ルームが見つかりませんでした。");
-  const hostName = await findUserNameById(env.DB, room.hostId);
+  const creator = (await stub.listMembers()).find(
+    (member) => member.userId === room.hostId,
+  );
+  const hostName =
+    creator?.name ?? (await findUserDisplayNameById(env.DB, room.hostId));
   return json({
     roomId: room.roomId,
     inviteCode: room.inviteCode,
@@ -402,6 +440,11 @@ async function handleRoomWebSocket(
     return error(404, "ルームが見つかりませんでした。");
   }
 
+  const participation = await accountStub(env, session.sub).inspect(
+    session.sub,
+    roomId,
+  );
+  if (participation) return participationResponse(participation, true);
   await stub.ensureSharedOutcome(roomId, room.createdAt);
   const headers = new Headers(request.headers);
   headers.set(USER_ID_HEADER, session.sub);
@@ -454,6 +497,73 @@ export function createApiWorker(
       const session = await getSessionFromRequest(request, env.SESSION_SECRET);
       if (!session) {
         return error(401, "ログインが必要です。");
+      }
+
+      if (pathname.startsWith("/api/room-participation/"))
+        return handleRoomParticipation(request, env, session);
+
+      if (pathname === "/api/me/display-name") {
+        if (method === "GET")
+          return json({
+            name:
+              (await findUserDisplayNameById(env.DB, session.sub)) ??
+              (session.name?.trim() || null),
+          });
+        if (method === "PUT") {
+          const input = SetDisplayNameInputSchema.safeParse(
+            await readJsonBody(request),
+          );
+          if (!input.success)
+            return error(400, "表示名は1〜15文字で入力してください。");
+          if (input.data.expectedPrincipal !== session.sub)
+            return error(
+              403,
+              "アカウントが変わりました。再読み込みしてから設定してください。",
+            );
+          // 対象は操作中のルームだけ。在籍の権威はRoomDOが持つ。
+          const target = input.data.roomId
+            ? await findRoomById(env.DB, input.data.roomId)
+            : null;
+          const stub = target ? roomStub(env, target.roomId) : null;
+          if (
+            input.data.roomId &&
+            (!stub || !(await stub.isMember(session.sub)))
+          )
+            return error(404, "ルームが見つかりませんでした。");
+          await ensureUser(env.DB, {
+            id: session.sub,
+            email: session.email,
+            name: session.name,
+          });
+          const profile = await env.DB.prepare(
+            "UPDATE users SET display_name=?, display_name_revision=display_name_revision+1 WHERE id=? RETURNING display_name_revision AS revision",
+          )
+            .bind(input.data.name, session.sub)
+            .first<{ revision: number }>();
+          if (!profile)
+            return error(503, "保存できませんでした。もう一度お試しください。");
+          if (stub) {
+            try {
+              const applied = await stub.syncAccountDisplayName(
+                session.sub,
+                input.data.name,
+                profile.revision,
+              );
+              if (!applied)
+                return error(
+                  409,
+                  "表示名は保存しましたが、このルームには反映できません。再読み込みしてください。",
+                );
+            } catch {
+              return error(
+                503,
+                "表示名は保存しましたが、このルームに反映できませんでした。もう一度保存してください。",
+              );
+            }
+          }
+          return json({ name: input.data.name });
+        }
+        return error(405, "この操作は利用できません。");
       }
 
       if (method === "POST" && pathname === "/api/auth/consume-ticket") {

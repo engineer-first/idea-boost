@@ -1,37 +1,53 @@
-// 呼び名は在籍者全員の共有情報。識別・権限・付箋・保存済み記録を変更しない。
+// 共通の表示名はAPIで本人確認・保存した後、在籍者の現在名へ反映する。
 import type { MessageHandlers } from "./handler-context";
 import { findMember } from "./members";
 import { getSharingState, saveSharingState } from "./sharing-state";
 
 export const memberNameHandlers: MessageHandlers<"member:rename"> = {
   "member:rename": (ctx, message) => {
-    const previous = findMember(ctx.sql, ctx.userId);
-    if (!previous) return;
-    const member = { ...previous, name: message.name };
-    ctx.storage.transactionSync(() => {
-      ctx.sql.exec(
-        "INSERT INTO member_display_names(user_id,name) VALUES(?1,?2) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name",
-        ctx.userId,
-        message.name,
-      );
-      ctx.sql.exec(
-        "UPDATE members SET name=?2 WHERE user_id=?1",
-        ctx.userId,
-        message.name,
-      );
-      const sharing = getSharingState(ctx.sql);
-      if (sharing)
-        saveSharingState(ctx.sql, {
-          ...sharing,
-          order: sharing.order.map((entry) =>
-            entry.userId === ctx.userId ? member : entry,
-          ),
-        });
-    });
-    ctx.broadcaster.broadcastToAll({
-      type: "member:renamed",
-      member,
+    ctx.broadcaster.sendTo(ctx.ws, {
+      type: "error",
+      code: "invalid-message",
+      message: "表示名の変更方法が変わりました。画面を再読み込みしてください。",
       operationId: message.operationId,
     });
   },
 };
+
+export function applyAccountName(
+  sql: SqlStorage,
+  userId: string,
+  name: string,
+  revision: number,
+): ReturnType<typeof findMember> {
+  const previous = findMember(sql, userId);
+  if (!previous) return null;
+  const applied = sql
+    .exec(
+      "SELECT revision FROM member_account_name_revisions WHERE user_id=?",
+      userId,
+    )
+    .toArray()[0];
+  if (applied && Number(applied.revision) >= revision) return null;
+  const member = { ...previous, name };
+  sql.exec(
+    "INSERT INTO member_account_name_revisions(user_id,revision) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET revision=excluded.revision",
+    userId,
+    revision,
+  );
+  sql.exec(
+    "INSERT INTO member_display_names(user_id,name) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name=excluded.name",
+    userId,
+    name,
+  );
+  sql.exec("UPDATE members SET name=? WHERE user_id=?", name, userId);
+  const sharing = getSharingState(sql);
+  if (sharing)
+    saveSharingState(sql, {
+      ...sharing,
+      order: sharing.order.map((entry) =>
+        entry.userId === userId ? member : entry,
+      ),
+    });
+  return previous.name === name ? null : member;
+}

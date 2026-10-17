@@ -1,8 +1,9 @@
-import { env, runDurableObjectAlarm, SELF } from "cloudflare:test";
+import { env, SELF } from "cloudflare:test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PHASE_STEP_COUNTS, type RoomPhase } from "../../contracts/phase";
 import type { ServerMessage } from "../../contracts/room-protocol";
 import {
+  arrangeMembersReady,
   arrangeSharingPresenter,
   connectRoomAs,
   createRoomAs,
@@ -133,13 +134,13 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
   it("他人の非公開付箋は新ホストにも配信せず、進行中タイマーも変更しない", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    send(a, { type: "timer:start", durationMs: 60_000 });
+    await receive(a, "timer:updated");
+    await receive(b, "timer:updated");
     send(a, { type: "note:create", content: "作成者だけの下書き" });
     const privateA = await receive(a, "note:inserted");
     send(b, { type: "note:create", content: "参加者だけの下書き" });
     const privateB = await receive(b, "note:inserted");
-    send(a, { type: "timer:start", durationMs: 60_000 });
-    await receive(a, "timer:updated");
-    await receive(b, "timer:updated");
     const before = await readProgress(roomId);
     await transfer(a, b, B.sub, 0);
     expect(await readProgress(roomId)).toEqual(before);
@@ -188,60 +189,35 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     });
   });
 
-  it("A→B→A後に古いタイマー操作を適用せず、最新世代の要求だけ受理する", async () => {
+  it("A→B→A後も旧ホストの世代に依存せず参加者がタイマーを操作できる", async () => {
     const { stub, a, b } = await setup();
     await transfer(a, b, B.sub, 0);
     await transfer(b, a, A.sub, 1);
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
-    for (const expectedHostRevision of [undefined, 0, 1]) {
-      send(a, {
-        type: "timer:start",
-        durationMs: 60_000,
-        expectedHostRevision,
-      });
-      expect(await receive(a, "error")).toMatchObject({ code: "forbidden" });
-      expect(await stub.getTimerState()).toEqual({ status: "idle" });
-    }
-    send(a, {
+    send(b, {
       type: "timer:start",
       durationMs: 60_000,
-      expectedHostRevision: 2,
+      expectedHostRevision: 0,
     });
     await receive(a, "timer:updated");
     await receive(b, "timer:updated");
     expect(await stub.getTimerState()).toMatchObject({ status: "running" });
   });
 
-  it("保存待ちの移譲は拒否して予約を維持し、進行完了後の再試行を受理する", async () => {
+  it("即時進行後は保存待ちによる制約なしに移譲できる", async () => {
     const { roomId, stub, a, b } = await setup();
-    const phase = { kind: "step", phase: 1, step: 1 } as const;
-    await stub.setPhase(phase, A.sub);
+    await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    await arrangeMembersReady(roomId, [A.sub, B.sub]);
     send(a, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
       expectedHostRevision: 0,
     });
-    const pending = await receive(a, "phase:save-requested");
-    await receive(b, "phase:save-requested");
-    const before = await readProgress(roomId);
-    send(a, {
-      type: "host:transfer",
-      targetUserId: B.sub,
-      expectedHostRevision: 0,
-    });
-    expect(await receive(a, "error")).toMatchObject({ code: "forbidden" });
-    expect(await readProgress(roomId)).toEqual(before);
-    expect(await stub.getCurrentHost()).toMatchObject({
-      hostUserId: A.sub,
-      hostRevision: 0,
-    });
-    vi.spyOn(Date, "now").mockReturnValue(pending.deadlineAt + 1);
-    await runDurableObjectAlarm(stub);
-    expect(await stub.getPhase()).toEqual({ kind: "step", phase: 1, step: 2 });
     for (const socket of [a, b]) {
       await receive(socket, "snapshot");
       await receive(socket, "phase:updated");
     }
+    expect(await stub.getPhase()).toEqual({ kind: "step", phase: 1, step: 2 });
     await transfer(a, b, B.sub, 0);
     await transfer(b, a, A.sub, 1);
     expect(
@@ -328,13 +304,6 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     send(a, {
       type: "sharing:advance",
       revision: sharing.revision,
-      outcome: "passed",
-      expectedHostRevision: 0,
-    });
-    expect(await receive(a, "error")).toMatchObject({ code: "forbidden" });
-    send(a, {
-      type: "sharing:advance",
-      revision: sharing.revision,
       outcome: "done",
       expectedHostRevision: 0,
     });
@@ -344,19 +313,20 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     await receive(b, "sharing:updated");
   });
 
-  it("移譲した新ホストが作った保存待ち進行は正しい世代のまま実行される", async () => {
+  it("移譲した新ホストの進行は正しい世代で即時確定する", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 2, step: 1 }, A.sub);
     await transfer(a, b, B.sub, 0);
+    await arrangeMembersReady(roomId, [A.sub, B.sub]);
     send(b, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
       expectedHostRevision: 1,
     });
-    const pending = await receive(b, "phase:save-requested");
-    await receive(a, "phase:save-requested");
-    vi.spyOn(Date, "now").mockReturnValue(pending.deadlineAt + 1);
-    await runDurableObjectAlarm(stub);
+    await receive(b, "snapshot");
+    await receive(b, "phase:updated");
+    await receive(a, "snapshot");
+    await receive(a, "phase:updated");
     expect(await stub.getPhase()).toEqual({ kind: "step", phase: 2, step: 2 });
   });
 
@@ -422,6 +392,9 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     send(a, { type: "start_phase" });
     await receive(a, "phase:updated");
     await receive(b, "phase:updated");
+    send(a, { type: "timer:start", durationMs: 60_000 });
+    await receive(a, "timer:updated");
+    await receive(b, "timer:updated");
     const noteIds: string[] = [];
     for (const content of ["共有の候補", "関連する候補"]) {
       send(a, { type: "note:create", content });
@@ -467,7 +440,7 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     expect(current.notes[0].dotVoteStickers).toEqual([]);
   });
 
-  it("同じ接続から移譲と旧ホスト操作を連送しても旧操作を実行しない", async () => {
+  it("移譲直後も参加者のタイマー操作を受理し、旧ホストからの再移譲は拒否する", async () => {
     const { stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
     send(a, {
@@ -487,12 +460,12 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     });
     await receive(a, "host:updated");
     await receive(b, "host:updated");
+    await receive(a, "timer:updated");
+    await receive(b, "timer:updated");
     expect(await receive(a, "error")).toMatchObject({ code: "forbidden" });
-    expect(await receive(a, "error")).toMatchObject({ code: "forbidden" });
-    expect(await stub.getTimerState()).toEqual({ status: "idle" });
+    expect(await stub.getTimerState()).toMatchObject({ status: "running" });
     send(b, {
-      type: "timer:start",
-      durationMs: 60_000,
+      type: "timer:pause",
       expectedHostRevision: 1,
     });
     await receive(a, "timer:updated");

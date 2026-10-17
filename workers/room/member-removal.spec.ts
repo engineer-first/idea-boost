@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ServerMessage } from "../../contracts/room-protocol";
 import worker from "../api-worker";
 import {
+  arrangeMembersReady,
   arrangeSharingPresenter,
   connectRoomAs,
   createRoomAs,
@@ -11,6 +12,7 @@ import {
   type RoomSocket,
   runInRoomDO,
   sessionCookieFor,
+  startTimerForTest,
 } from "../test-helpers";
 
 const A = {
@@ -286,23 +288,23 @@ describe("ホストによるメンバー除外", () => {
     await removeAccepted(b, C.sub, 1);
     await receive(a, "member_left");
   });
-  it("保存待ち遷移中は除外を拒否し、参加を維持する", async () => {
+  it("即時進行後にメンバーを除外できる", async () => {
     const { roomId, stub, a, b } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    await arrangeMembersReady(roomId, [A.sub, B.sub]);
     send(a, {
       type: "phase:next",
       ...(await currentPhaseExpectation(roomId)),
       expectedHostRevision: 0,
     });
-    await receive(a, "phase:save-requested");
-    await receive(b, "phase:save-requested");
-    const operationId = remove(a);
-    expect(await receive(a, "error")).toMatchObject({
-      code: "forbidden",
-      operationId,
-    });
-    expect(await stub.isMember(B.sub)).toBe(true);
+    await receive(a, "snapshot");
+    await receive(a, "phase:updated");
+    await receive(b, "snapshot");
+    await receive(b, "phase:updated");
+    await removeAccepted(a, B.sub, 0);
+    expect(await stub.isMember(B.sub)).toBe(false);
   });
+
   it("完了したルームでは除外を拒否する", async () => {
     const { roomId, stub, a } = await setup();
     await runInRoomDO(roomId, (_room, state) =>
@@ -328,6 +330,7 @@ describe("ホストによるメンバー除外", () => {
   it("進行中も除外でき、再招待で同じ色・付箋・票を復元する", async () => {
     const { roomId, inviteCode, a, b, stub } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    await startTimerForTest(roomId);
     send(b, { type: "note:create", content: "再参加しても残る付箋" });
     const { note } = await receive(b, "note:inserted");
     await stub.setPhase({ kind: "step", phase: 1, step: 2 }, A.sub);
@@ -427,6 +430,7 @@ describe("ホストによるメンバー除外", () => {
   it("除外時にドラッグ権とカーソルを解放し、残った人が同じ付箋を動かせる", async () => {
     const { roomId, a, b, stub } = await setup();
     await stub.setPhase({ kind: "step", phase: 1, step: 1 }, A.sub);
+    await startTimerForTest(roomId);
     send(b, { type: "note:create", content: "移動途中の付箋" });
     const { note } = await receive(b, "note:inserted");
     await stub.setPhase({ kind: "step", phase: 1, step: 2 }, A.sub);

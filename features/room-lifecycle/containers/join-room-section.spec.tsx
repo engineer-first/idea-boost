@@ -1,3 +1,10 @@
+import { loadDisplayName } from "@/features/auth";
+
+vi.mock("@/features/auth/logic/display-name-actions", () => ({
+  loadDisplayName: vi.fn(async () => ({ ok: true, name: "保存済み" })),
+  saveDisplayName: vi.fn(),
+}));
+
 // JoinRoomSection（ホーム「ルームに参加」セクション）の単体テスト。
 // 招待コードを入力 → lookup でホスト名解決 → 確認 Dialog → joinRoom → toast / 遷移。
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -158,14 +165,15 @@ describe("JoinRoomSection", () => {
     const user = userEvent.setup();
     LOOKUP_INVITE.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
     render(<JoinRoomSection />);
     await user.type(screen.getByLabelText("招待コード"), "AB12CD");
     await user.click(screen.getByRole("button", { name: "参加する" }));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
       );
     });
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
@@ -219,12 +227,13 @@ describe("JoinRoomSection", () => {
     await openConfirmDialog(user);
     JOIN_ROOM.mockResolvedValueOnce({
       ok: false,
-      error: "ルームが見つかりませんでした。",
+      error:
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
     });
     await user.click(screen.getByTestId("join-confirm-action"));
     await waitFor(() => {
       expect(notifyMocks.error).toHaveBeenCalledWith(
-        "ルームが見つかりませんでした。",
+        "参加できるルームが見つかりません。ルームが終了したか、招待コードが無効な可能性があります。招待元に確認してください。",
       );
     });
     expect(PUSH).not.toHaveBeenCalled();
@@ -238,4 +247,35 @@ describe("JoinRoomSection", () => {
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(JOIN_ROOM).not.toHaveBeenCalled();
   });
+});
+
+it("共通表示名が未設定でも表示名の設定を要求せずホームから参加する", async () => {
+  vi.mocked(loadDisplayName).mockResolvedValueOnce({ ok: true, name: null });
+  JOIN_ROOM.mockResolvedValueOnce({
+    ok: true,
+    roomId: "123e4567-e89b-42d3-a456-426614174000",
+  });
+  const user = userEvent.setup();
+  await openConfirmDialog(user);
+  await user.click(screen.getByTestId("join-confirm-action"));
+  await waitFor(() => expect(JOIN_ROOM).toHaveBeenCalledOnce());
+  expect(loadDisplayName).not.toHaveBeenCalled();
+});
+
+it("他ルームへの参加はサーバーの退出確認を表示し、同意なしに移動しない", async () => {
+  PUSH.mockClear();
+  const { switchConfirmation } = await import("../logic/participation.fixture");
+  const user = userEvent.setup();
+  await openConfirmDialog(user);
+  JOIN_ROOM.mockResolvedValueOnce({
+    ok: false,
+    reason: "confirmation_required",
+    error: "確認が必要です",
+    confirmation: switchConfirmation(),
+  });
+  await user.click(screen.getByTestId("join-confirm-action"));
+  expect(
+    await screen.findByRole("button", { name: "退出して参加する" }),
+  ).toBeInTheDocument();
+  expect(PUSH).not.toHaveBeenCalled();
 });

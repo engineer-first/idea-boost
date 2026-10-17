@@ -1,13 +1,12 @@
 // 2軸マップのサイズと操作可否。永続サイズは room_state、進行中ドラッグは
 // WebSocket attachment を真実とし、共有する一時状態は匿名 boolean だけにする。
-import { isPhaseStep, type RoomPhase } from "../../contracts/phase";
+import type { RoomPhase } from "../../contracts/phase";
 import type {
   IdeaMapSizeLevel,
   ServerMessage,
 } from "../../contracts/room-protocol";
 import type { RoomBroadcaster } from "./broadcast";
 import type { HandlerCtx, MessageHandlers } from "./handler-context";
-import { isHostUser } from "./members";
 import { hasMoveLock } from "./move-operations";
 import { getPhase } from "./phase";
 
@@ -17,7 +16,11 @@ export type IdeaMapSizeState = {
 };
 
 export function isIdeaMapVisiblePhase(phase: RoomPhase): boolean {
-  return phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
+  return (
+    phase.kind === "step" &&
+    phase.phase === 3 &&
+    (phase.step === 2 || phase.step === 3)
+  );
 }
 
 export function getIdeaMapSizeState(sql: SqlStorage): IdeaMapSizeState {
@@ -70,15 +73,11 @@ function replyForbidden(ctx: HandlerCtx, message: string): void {
 export const ideaMapHandlers: MessageHandlers<"idea-map:resize"> = {
   "idea-map:resize": (ctx, message) => {
     const phase = getPhase(ctx.sql);
-    if (!isPhaseStep(phase, 3, 2) && !isPhaseStep(phase, 3, 3)) {
+    if (!isIdeaMapVisiblePhase(phase)) {
       replyForbidden(
         ctx,
-        "2軸マップを共有・評価するステップでのみ変更できます。",
+        "2軸マップを表示しているステップでのみ変更できます。",
       );
-      return;
-    }
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx, "2軸マップの広さを変更できるのはホストだけです。");
       return;
     }
     if (ctx.broadcaster.hasActiveDrag() || hasMoveLock(ctx.sql)) {

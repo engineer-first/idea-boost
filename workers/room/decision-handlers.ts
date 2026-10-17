@@ -2,7 +2,7 @@
 import { isPhaseStep, isResultStep } from "../../contracts/phase";
 import { clearDecision, getDecision, setDecision } from "./decisions";
 import { type MessageHandlers, replyForbidden } from "./handler-context";
-import { isHostUser } from "./members";
+import { isMember } from "./members";
 import { requireNoteInCurrentPhase } from "./notes";
 import { discardPrivateNotes, getPhase } from "./phase";
 
@@ -10,11 +10,6 @@ export const decisionHandlers: MessageHandlers<
   "note:decide" | "decision:clear" | "outcome:publish"
 > = {
   "note:decide": (ctx, message) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
-
     const note = requireNoteInCurrentPhase(ctx, message.noteId);
     if (!note) return;
     if (note.visibility !== "shared" || note.excluded) {
@@ -59,7 +54,7 @@ export const decisionHandlers: MessageHandlers<
   "decision:clear": (ctx, message) => {
     const phase = getPhase(ctx.sql);
     if (
-      !isHostUser(ctx.sql, ctx.userId) ||
+      !isMember(ctx.sql, ctx.userId) ||
       phase.kind !== "step" ||
       !isResultStep(phase)
     ) {
@@ -83,10 +78,6 @@ export const decisionHandlers: MessageHandlers<
     });
   },
   "outcome:publish": (ctx) => {
-    if (!isHostUser(ctx.sql, ctx.userId)) {
-      replyForbidden(ctx);
-      return;
-    }
     const phase = getPhase(ctx.sql);
     if (!isPhaseStep(phase, 3, 5) || !getDecision(ctx.sql, 3)) {
       replyForbidden(ctx);

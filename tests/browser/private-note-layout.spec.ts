@@ -22,7 +22,7 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 1280, height: 720 },
 ]) {
-  test(`${viewport.width}×${viewport.height}: 展開トレイとヒントをスクロールして操作できる`, async () => {
+  test(`${viewport.width}×${viewport.height}: 個人付箋ワークスペースとガイドを操作できる`, async () => {
     page = await browser.newPage({ viewport });
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardlayout--phase-3-step-1&viewMode=story&args=initialGuideState:compact`,
@@ -34,11 +34,24 @@ for (const viewport of [
     ).toEqual(viewport);
     const toolbar = page.getByTestId("private-notes-toolbar");
     expect(await toolbar.getAttribute("data-expanded")).toBe("true");
-    const header = await page.getByTestId("board-header-row").boundingBox();
-    const dock = await toolbar.boundingBox();
-    if (viewport.width < 640) {
-      expect((header?.y ?? 0) + (header?.height ?? 0)).toBeLessThanOrEqual(
-        dock?.y ?? 0,
+    expect(await toolbar.getAttribute("data-presentation")).toBe("workspace");
+    expect(await page.getByTestId("board-scroller").isVisible()).toBe(false);
+    const toolbarBox = await toolbar.boundingBox();
+    const topHudIds =
+      viewport.width < 640
+        ? ["board-context-hud", "board-control-hud", "step-guide"]
+        : ["board-control-hud", "step-guide"];
+    const topHudBoxes = await Promise.all(
+      topHudIds.map((testId) => page.getByTestId(testId).boundingBox()),
+    );
+    const topHudBottom = Math.max(
+      ...topHudBoxes.flatMap((box) => (box ? [box.y + box.height] : [])),
+    );
+    expect(toolbarBox?.y).toBeGreaterThanOrEqual(topHudBottom + 8);
+    if (viewport.width >= 640) {
+      const context = await page.getByTestId("board-context-hud").boundingBox();
+      expect(toolbarBox?.x).toBeGreaterThanOrEqual(
+        (context?.x ?? 0) + (context?.width ?? 0) + 8,
       );
     }
     if (viewport.width < 640) {
@@ -85,12 +98,11 @@ for (const viewport of [
     await page.screenshot({
       path: `${output}/${viewport.width}x${viewport.height}-expanded.png`,
     });
-    await page.getByRole("button", { name: "マイ付箋を閉じる" }).click();
-    expect(await toolbar.getAttribute("data-expanded")).toBe("false");
+    expect(await toolbar.getAttribute("data-expanded")).toBe("true");
     await expand.click();
     expect(await expand.getAttribute("aria-selected")).toBe("true");
     await page.screenshot({
-      path: `${output}/${viewport.width}x${viewport.height}-collapsed.png`,
+      path: `${output}/${viewport.width}x${viewport.height}-workspace.png`,
     });
   });
 }

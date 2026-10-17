@@ -24,11 +24,10 @@ export type IdeaMapSizeControlsProps = {
 export function IdeaMapSizeControls({
   sizeLevel,
   initialized,
-  isHost,
   isDisconnected,
   isDragging,
   onResize,
-}: IdeaMapSizeControlsProps): ReactElement {
+}: IdeaMapSizeControlsProps): ReactElement | null {
   const { min, max } = IDEA_MAP_SIZE_LEVEL_RANGE;
   const boundedLevel = Math.min(max, Math.max(min, sizeLevel));
   const disabledReason = !initialized
@@ -37,9 +36,7 @@ export function IdeaMapSizeControls({
       ? "接続が回復すると変更できます。"
       : isDragging
         ? "付箋のドラッグ中は変更できません。"
-        : !isHost
-          ? "広さを変更できるのはホストだけです。"
-          : null;
+        : null;
 
   const sizeDescription = `現在の広さは${boundedLevel - min + 1}段階目です（全${max - min + 1}段階）。`;
   const limitDescription =

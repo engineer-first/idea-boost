@@ -3,7 +3,7 @@ import { z } from "zod";
 export const ROOM_CREATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const ROOM_CREATION_FUTURE_MS = 60_000;
 export const ROOM_CREATION_GC_GRACE_MS = 5 * 60_000;
-export const ROOM_CREATION_NAME_MAX = 80;
+export const ROOM_CREATION_NAME_MAX = 15;
 export const CreationRequestIdSchema = z
   .string()
   .uuid()

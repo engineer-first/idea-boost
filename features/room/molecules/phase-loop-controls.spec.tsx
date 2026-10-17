@@ -48,8 +48,12 @@ describe("PhaseLoopControls", () => {
   });
   it("参加者へ操作を出さず、候補0件の待機を案内する", () => {
     setup({ isHost: false, candidateCount: 0 });
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("お待ちください");
+    expect(
+      screen
+        .getAllByRole("button")
+        .every((button) => button.hasAttribute("disabled")),
+    ).toBe(true);
+    expect(screen.getByRole("status")).toHaveTextContent("候補がありません");
   });
   it("採用後は確定の取消だけを出し再投票は出さない", () => {
     const { props } = setup({ decisionContent: "確定した課題" });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RoomPhaseSchema } from "@/contracts/phase";
 
 const InFlightSchema = z.object({
   operationId: z.string().uuid(),
@@ -13,6 +14,7 @@ export const NoteDraftSchema = z.object({
   baseContent: z.string(),
   baseRevision: z.number().int().nonnegative(),
   phaseRevision: z.number().int().nonnegative().optional(),
+  phase: RoomPhaseSchema.optional(),
   text: z.string(),
   committedText: z.string(),
   generation: z.number().int().nonnegative(),

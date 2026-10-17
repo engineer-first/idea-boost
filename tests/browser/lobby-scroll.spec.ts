@@ -24,7 +24,9 @@ test.each([
     const lobby = page.getByTestId("room-lobby-view");
     await lobby.waitFor();
     await page.evaluate(() => document.fonts.ready);
-    const heading = page.getByRole("heading", { name: "メンバーを集めて開始" });
+    const heading = page.getByRole("heading", {
+      name: "メンバーが揃ったら開始",
+    });
     expect(
       await heading.evaluate((el) => el.getBoundingClientRect().top),
     ).toBeGreaterThanOrEqual(0);

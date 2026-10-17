@@ -5,8 +5,8 @@ import {
   type MessageHandlers,
   runAuthorizedMutationTransaction,
 } from "./handler-context";
-import { isHostUser, isMember } from "./members";
-import { getPhase } from "./phase";
+import { isMember } from "./members";
+import { getPhase, getPhaseRevision, phaseHandlers } from "./phase";
 import { getSharingState, saveSharingState } from "./sharing-state";
 import { getTimerState, saveTimerState } from "./timer";
 
@@ -26,30 +26,22 @@ export function broadcastSharing(
 function controllableState(
   ctx: HandlerCtx,
   revision: string,
-  allowPresenter: boolean = false,
 ): SharingState | null {
   const phase = getPhase(ctx.sql);
   const state = getSharingState(ctx.sql);
-  const isPresenter =
-    allowPresenter &&
-    state?.status === "active" &&
-    state.currentIndex !== null &&
-    state.order[state.currentIndex]?.userId === ctx.userId;
   if (
     !isMember(ctx.sql, ctx.userId) ||
-    (!isHostUser(ctx.sql, ctx.userId) && !isPresenter) ||
     phase.kind !== "step" ||
     phase.step !== 2
   ) {
     ctx.reply({
       type: "error",
       code: "forbidden",
-      message:
-        "共有の操作は共有ステップでホスト、発表完了は発表者本人も操作できます。",
+      message: "共有の操作は共有ステップの参加者が行えます。",
     });
     return null;
   }
-  // 版が一致しない再送・別画面の古い操作は現在状態を返すだけ。
+  // 認証済みメンバーの古い要求は権限判定より先に現在状態へ収束させる。
   if (!state || state.revision !== revision || state.startsAt !== null) {
     if (state)
       ctx.reply({
@@ -80,6 +72,20 @@ async function commitTurn(ctx: HandlerCtx, state: SharingState): Promise<void> {
   if (committed) broadcastSharing(ctx);
 }
 
+async function advanceAfterFinalPresenter(
+  ctx: HandlerCtx,
+  state: SharingState,
+): Promise<void> {
+  if (state.status !== "complete") return;
+  const phase = getPhase(ctx.sql);
+  if (phase.kind !== "step" || phase.step !== 2) return;
+  await phaseHandlers["phase:next"](ctx, {
+    type: "phase:next",
+    expectedPhase: phase,
+    expectedRevision: getPhaseRevision(ctx.sql),
+  });
+}
+
 export const sharingHandlers: MessageHandlers<
   "sharing:start" | "sharing:advance"
 > = {
@@ -90,14 +96,11 @@ export const sharingHandlers: MessageHandlers<
     await commitTurn(ctx, state);
   },
   "sharing:advance": async (ctx, message) => {
-    const state = controllableState(
-      ctx,
-      message.revision,
-      message.outcome === "done",
-    );
+    const state = controllableState(ctx, message.revision);
     if (state?.status !== "active") return;
     state.results.push(message.outcome);
     await commitTurn(ctx, state);
+    await advanceAfterFinalPresenter(ctx, state);
   },
 };
 

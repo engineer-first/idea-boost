@@ -1,8 +1,13 @@
 import { env } from "cloudflare:test";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildPhaseStep } from "../../contracts/phase.fixture";
-import { initializeTestRoom, runInRoomDO } from "../test-helpers";
+import {
+  initializeTestRoom,
+  runInRoomDO,
+  startTimerForTest,
+} from "../test-helpers";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";
+import { saveTimerState } from "./timer";
 
 const hostId = "11111111-1111-4111-8111-111111111111";
 const noteId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -31,11 +36,97 @@ async function connect(roomName: string): Promise<WebSocket> {
 }
 
 describe("本文の確定", () => {
+  it.each([
+    "paused",
+    "ended",
+    "expired",
+  ] as const)("本文digestの待機中にタイマーが%sになったら保存を拒否する", async (status) => {
+    const roomName = `note-content-timer-${status}`;
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
+    await initializeTestRoom(stub, hostId, "Host");
+    await stub.setPhase(buildPhaseStep(1), hostId);
+    await startTimerForTest(roomName);
+    const socket = await connect(roomName);
+    await runInRoomDO(roomName, async (room, state) => {
+      const sql = state.storage.sql;
+      const now = new Date().toISOString();
+      sql.exec(
+        "INSERT INTO notes (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at) VALUES (?1, ?2, '最初', 'private', 'yellow', 0, 0, 1, ?3, ?3)",
+        noteId,
+        hostId,
+        now,
+      );
+      const revision = Number(
+        sql.exec("SELECT phase_revision FROM room_state WHERE id=1").one()
+          .phase_revision,
+      );
+      const digest = crypto.subtle.digest.bind(crypto.subtle);
+      const delayed = vi
+        .spyOn(crypto.subtle, "digest")
+        .mockImplementation(async (...args) => {
+          const result = await digest(...args);
+          saveTimerState(
+            sql,
+            status === "paused"
+              ? { status: "paused", remainingMs: 30_000, durationMs: 60_000 }
+              : status === "ended"
+                ? { status: "ended", durationMs: 60_000 }
+                : {
+                    status: "running",
+                    endsAt: Date.now() - 1,
+                    durationMs: 60_000,
+                  },
+          );
+          return result;
+        });
+      const replies: unknown[] = [];
+      const serverSocket = state.getWebSockets()[0];
+      const send = vi.spyOn(serverSocket, "send").mockImplementation((data) => {
+        replies.push(JSON.parse(String(data)));
+      });
+      try {
+        await room.webSocketMessage(
+          serverSocket,
+          JSON.stringify({
+            type: "note:update-content",
+            noteId,
+            content: "停止後の本文",
+            operationId: crypto.randomUUID(),
+            expectedContentRevision: 0,
+            expectedPhaseRevision: revision,
+          }),
+        );
+        expect(delayed).toHaveBeenCalledOnce();
+        expect(
+          sql.exec("SELECT content FROM notes WHERE id=?1", noteId).one()
+            .content,
+        ).toBe("最初");
+        expect(
+          sql.exec("SELECT * FROM note_content_receipts").toArray(),
+        ).toEqual([]);
+        expect(replies).toContainEqual(
+          expect.objectContaining({ type: "error", code: "forbidden" }),
+        );
+        expect(
+          replies.some(
+            (reply) =>
+              (reply as { type: string }).type === "note:content-saved",
+          ),
+        ).toBe(false);
+      } finally {
+        delayed.mockRestore();
+        send.mockRestore();
+      }
+    });
+    socket.close();
+  });
+
   it("保存確認用の記録に過去の付箋本文を残さない", async () => {
     const roomName = "note-content-receipt-privacy";
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
     await initializeTestRoom(stub, hostId, "Host");
     await stub.setPhase(buildPhaseStep(1), hostId);
+    await startTimerForTest(roomName);
     await runInRoomDO(roomName, (_room, state) => {
       const now = new Date().toISOString();
       state.storage.sql.exec(
@@ -92,6 +183,7 @@ describe("本文の確定", () => {
     const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(roomName));
     await initializeTestRoom(stub, hostId, "Host");
     await stub.setPhase(buildPhaseStep(1), hostId);
+    await startTimerForTest(roomName);
     await runInRoomDO(roomName, (_room, state) => {
       const now = new Date().toISOString();
       state.storage.sql.exec(

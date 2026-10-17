@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdirSync,
@@ -7,135 +8,99 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-// git の作業ツリー差分 (追跡ファイルの変更 + 未追跡の新規ファイル) から対象を
-// 検出するスクリプトのため、テストは実プロジェクトの git リポジトリ内で行う
-// (scripts/format-file.sh 自身も自分の設置場所からプロジェクトルートを導出する
-// ため、隔離した一時 git リポジトリでは biome/remark に到達できない)。
-//
-// このスクリプトはリポジトリ全体を git diff/ls-files でスキャンするため、
-// フルスイート実行時は他の spec が並行して作る一時ファイルも巻き込んで
-// bash -> git -> npx biome/remark と実プロセスを何度も spawn する。CI の
-// 並列負荷が高いとデフォルトの 5000ms を超えることがある (ロジックの不具合
-// ではなく、実プロセス起動のオーバーヘッドによるもの) ため、余裕を持たせる。
-// さらに、多数の spec ファイルが並行して実プロセスを spawn する環境では
-// まれに transient な spawn 失敗が起きうる (単独実行では再現しない) ため retry する。
-vi.setConfig({ testTimeout: 20000, retry: 2 });
+const script = join(process.cwd(), "scripts/format-changed-files.sh");
+const roots: string[] = [];
 
-const projectDir = process.cwd();
-const scriptPath = join(projectDir, "scripts/format-changed-files.sh");
-const tmpRoot = join(projectDir, "tmp");
-
-const createdDirs: string[] = [];
-const stagedPaths: string[] = [];
-
-function createScratchDir() {
-  mkdirSync(tmpRoot, { recursive: true });
-  const dir = mkdtempSync(join(tmpRoot, "format-changed-spec-"));
-  createdDirs.push(dir);
-  return dir;
+function git(root: string, ...args: string[]): void {
+  execFileSync("git", args, { cwd: root, stdio: "pipe" });
 }
 
-function runScript() {
-  return spawnSync("bash", [scriptPath], {
-    cwd: projectDir,
-    encoding: "utf8",
-  });
+function fixture(): string {
+  const root = mkdtempSync(join(tmpdir(), "format changed "));
+  roots.push(root);
+  git(root, "init", "-q");
+  git(root, "config", "user.name", "Test");
+  git(root, "config", "user.email", "test@example.test");
+  mkdirSync(join(root, "scripts"));
+  // 対象選択だけを観測する。実際のBiome/remark整形はformat-file.spec.tsで検証する。
+  writeFileSync(
+    join(root, "scripts/format-file.sh"),
+    'printf "%s\\0" "$1" >> .git/format-calls\n[[ "$1" != "bad.json" ]]\n',
+  );
+  writeFileSync(join(root, ".git/format-calls"), "");
+  writeFileSync(join(root, ".gitignore"), "ignored.md\n");
+  writeFileSync(join(root, "tracked.md"), "original\n");
+  git(root, "add", ".");
+  git(root, "-c", "core.hooksPath=/dev/null", "commit", "-qm", "fixture");
+  return root;
+}
+
+function run(root: string): string[] {
+  const result = spawnSync("bash", [script], { cwd: root, encoding: "utf8" });
+  expect(result.status, result.stderr).toBe(0);
+  return readFileSync(join(root, ".git/format-calls"), "utf8")
+    .split("\0")
+    .filter(Boolean);
 }
 
 afterEach(() => {
-  for (const relPath of stagedPaths.splice(0)) {
-    // 一時的に git add したパスをインデックスから外し、リポジトリの状態を戻す。
-    try {
-      execFileSync("git", ["reset", "--", relPath], { cwd: projectDir });
-    } catch {
-      // すでに未追跡に戻っている場合は無視する。
-    }
-  }
-  for (const dir of createdDirs.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  for (const root of roots.splice(0))
+    rmSync(root, { recursive: true, force: true });
 });
 
-describe("scripts/format-changed-files.sh", () => {
-  it("formats an untracked new Markdown file", () => {
-    const dir = createScratchDir();
-    const file = join(dir, "note.md");
-    writeFileSync(file, "* item one\n");
-
-    const result = runScript();
-
-    expect(result.status).toBe(0);
-    expect(readFileSync(file, "utf8")).toContain("- item one");
+describe("Codex整形対象の検出", () => {
+  it("追跡ファイルの未stage変更と未追跡ファイルを整形する", () => {
+    const root = fixture();
+    writeFileSync(join(root, "tracked.md"), "changed\n");
+    writeFileSync(join(root, "new.ts"), "new\n");
+    expect(run(root).sort()).toEqual(["new.ts", "tracked.md"]);
   });
 
-  it("formats an untracked new TypeScript file", () => {
-    const dir = createScratchDir();
-    const file = join(dir, "sample.ts");
-    writeFileSync(file, "export const greeting = 'hello';\n");
-
-    const result = runScript();
-
-    expect(result.status).toBe(0);
-    expect(readFileSync(file, "utf8")).toContain('"hello"');
+  it("stage済みの変更・追加も整形する", () => {
+    const root = fixture();
+    writeFileSync(join(root, "tracked.md"), "changed\n");
+    writeFileSync(join(root, "new.mts"), "new\n");
+    git(root, "add", "tracked.md", "new.mts");
+    expect(run(root).sort()).toEqual(["new.mts", "tracked.md"]);
   });
 
-  it("leaves untracked files with a non-target extension untouched", () => {
-    const dir = createScratchDir();
-    const file = join(dir, "notes.txt");
-    const original = "* item one\n";
-    writeFileSync(file, original);
-
-    const result = runScript();
-
-    expect(result.status).toBe(0);
-    expect(readFileSync(file, "utf8")).toBe(original);
+  it("stage後に再編集したファイルを一度だけ処理する", () => {
+    const root = fixture();
+    writeFileSync(join(root, "tracked.md"), "staged\n");
+    git(root, "add", "tracked.md");
+    writeFileSync(join(root, "tracked.md"), "unstaged\n");
+    expect(run(root)).toEqual(["tracked.md"]);
   });
 
-  it("exits 0 when a detected file disappears before formatting", () => {
-    const dir = createScratchDir();
-    const file = join(dir, "disappeared.md");
-    symlinkSync(join(dir, "missing.md"), file);
-
-    const result = runScript();
-
-    expect(result.status).toBe(0);
+  it("日本語・空白・改行のあるファイル名を壊さず渡す", () => {
+    const root = fixture();
+    const names = ["作業 メモ.md", "line\nbreak.ts", "script.cts"];
+    for (const name of names) writeFileSync(join(root, name), "new\n");
+    expect(run(root).sort()).toEqual(names.sort());
   });
 
-  it("formats a tracked file that was modified after staging", () => {
-    const dir = createScratchDir();
-    const file = join(dir, "tracked.md");
-    const relPath = file.slice(projectDir.length + 1);
-    writeFileSync(file, "already tidy\n");
-    execFileSync("git", ["add", relPath], { cwd: projectDir });
-    stagedPaths.push(relPath);
-    writeFileSync(file, "* item one\n");
-
-    const result = runScript();
-
-    expect(result.status).toBe(0);
-    expect(readFileSync(file, "utf8")).toContain("- item one");
+  it("変更なし・対象外拡張子・gitignore・削除ファイルは整形しない", () => {
+    const root = fixture();
+    rmSync(join(root, "tracked.md"));
+    writeFileSync(join(root, "notes.txt"), "new\n");
+    writeFileSync(join(root, "ignored.md"), "new\n");
+    expect(run(root)).toEqual([]);
   });
 
-  it("exits 0 and keeps earlier successful formatting even when the last file fails (invalid JSON)", () => {
-    // 一つのファイルの整形失敗をスクリプト全体の失敗にしない (== 一つの失敗が
-    // バッチ内の他ファイルの整形結果を覆さない) ことを確認する。
-    // ソート順で最後に処理されるファイル名にしているのは、while ループの
-    // 終了コードは最後に実行したコマンドの結果になる (bash の一般的な挙動)
-    // ため、"最後のファイルが失敗しても全体は成功扱いになる" ことこそが
-    // scripts/format-changed-files.sh 側の || true の効果を検証できるケース
-    // だから。
-    const dir = createScratchDir();
-    const goodFile = join(dir, "a-good.md");
-    const badFile = join(dir, "z-bad.json");
-    writeFileSync(goodFile, "* item one\n");
-    writeFileSync(badFile, "{ invalid json");
+  it("symlinkの参照先を整形しない", () => {
+    const root = fixture();
+    symlinkSync("tracked.md", join(root, "alias.md"));
+    expect(run(root)).toEqual([]);
+  });
 
-    const result = runScript();
-
-    expect(result.status).toBe(0);
-    expect(readFileSync(goodFile, "utf8")).toContain("- item one");
+  it("一つの整形失敗後も残りを処理する", () => {
+    const root = fixture();
+    writeFileSync(join(root, "bad.json"), "bad\n");
+    writeFileSync(join(root, "good.md"), "good\n");
+    expect(run(root).sort()).toEqual(["bad.json", "good.md"]);
   });
 });

@@ -88,7 +88,7 @@
     <p class="lede">PRの画面・API・ルームの保存処理を、本番とは別のURLで試せるようにしました。これまでの会話を引き継がずに、コード・仕様・設計をレビューし、見つかった問題を修正しました。公開した#587と#621では、それぞれの変更が反映され、保存済み付箋も残ることを確認しました。2人がそれぞれのGoogleアカウントで共同操作できるかは、まだ確認していません。</p>
     <p class="meta">対象：<a href="https://github.com/engineer-first/idea-boost/issues/362">Issue #362</a> ／ 今回の確認日：2026-10-12（日本時間） ／ <a href="https://github.com/engineer-first/idea-boost/pull/628">独立レビューの修正PR #628</a> ／ <a href="https://github.com/engineer-first/idea-boost/pull/628#issuecomment-6110555975">画像付きのレビュー・検証結果</a></p>
     <p class="note">この報告は確認した時点の記録です。PRの現在の公開状態は<a href="https://github.com/engineer-first/idea-boost/pull/587#issuecomment-6105045152">PR #587の「PR Preview」コメント</a>で確認してください。「このPRの最新公開版を開く」からGoogleでログインできます。</p>
-    <p class="note">レビューには「このPRの最新公開版を開く」を使います。8回公開しても、同じPRの保存先を8組作ることはありません。通常のコード更新ではデータを残し、migrationを変更したときは、そのPRのルーム・付箋・呼び名をリセットして作り直します。PRを閉じて開き直したときや、保存先の片方だけ残ったときも、新しく作り直します。PRをマージまたは閉じると、環境とデータは削除されます。</p>
+    <p class="note">レビューには「このPRの最新公開版を開く」を使います。8回公開しても、同じPRの保存先を8組作ることはありません。通常のコード更新ではデータを残し、migrationを変更したときは、そのPRのルーム・付箋・表示名をリセットして作り直します。PRを閉じて開き直したときや、保存先の片方だけ残ったときも、新しく作り直します。PRをマージまたは閉じると、環境とデータは削除されます。</p>
     <nav aria-label="報告の目次"><a href="#dictionary">用語辞典</a><a href="#review">独立レビュー</a><a href="#full-stack">PR全体の反映</a><a href="#pr-isolation">PRごとの確認</a><a href="#state">確認状況</a><a href="#architecture">構成図</a><a href="#configuration">設定したこと</a><a href="#verification">確認結果</a><a href="#release">PRとrelease</a></nav>
   </header>
   <section class="dictionary" id="dictionary" aria-labelledby="dictionary-title"><h2 id="dictionary-title">この報告を読むための用語辞典</h2><p class="dictionary-intro">まず「何を用意しているか」を読むための言葉です。ログインや公開の用語は、下のまとまりを開くと読めます。説明は、このPreviewでの使い方に合わせています。</p>
@@ -135,7 +135,7 @@
 <div><dt>migration / SQL</dt><dd>migrationはデータの保存形式を作成・変更する手順、SQLはデータベースを操作する言葉です。最初に9件を適用し、共通APIの初回公開で10件目もPreview用D1へ適用しました。</dd></div>
 <div><dt>unit / Workerテスト / Vitest</dt><dd>unitは小さな処理単位を調べるテストです。WorkerテストはCloudflareに近い実行環境でWorkerを調べます。Vitestは今回使うテスト実行ツールです。</dd></div>
 <div><dt>typecheck / lint / dry-run</dt><dd>typecheckはデータの型が合っているか、lintはコードのルール違反がないかを調べます。dry-runは実環境へ反映せず、公開用の準備処理を試すことです。</dd></div>
-<div><dt>Storybook / Chromatic / UI Tests</dt><dd>Storybookは画面の部品を単独で試す場所、Chromaticはその画面の公開や比較を行うサービスです。UI Testsは画面を比較する検査の表示名です。</dd></div>
+<div><dt>Storybook / Chromatic / UI Tests</dt><dd>Storybookは画面の部品を単独で試す場所、Chromaticはその画面を公開するサービスです。UI Testsは画面比較の検査名ですが、現在はUI Reviewとともに無効にして公開を続けます（2026-10-15確認）。<a href="../vrt-operations/">現在の公開・確認手順</a>を参照してください。</dd></div>
 <div><dt>リポジトリ / fork / close / reopen</dt><dd>リポジトリはコードの保存場所で、forkは別の保存場所へコードを複製することです。closeはPRを閉じること、reopenは開き直すことです。今回の自動公開は同じリポジトリ内のPRを対象にします。</dd></div>
 <div><dt>通常URL / 固定版URL / 部分wildcard</dt><dd>通常URLは更新で内容が変わるPR用のURL、固定版URLは1回の公開版を開くURLです。自動確認が成功し、PRの現在の版と一致するかも確かめます。部分wildcardは名前の一部を「どの文字列でもよい」とする指定で、複数のPreview URLをまとめて保護します。</dd></div>
 <div><dt>Next.js / OpenNext / Wrangler / draw.io</dt><dd>Next.jsは画面を作る仕組み、OpenNextはそのアプリをCloudflare向けにまとめるための道具、WranglerはCloudflareの設定や公開を行う道具です。draw.ioは構成図を編集する道具です。</dd></div>
@@ -163,15 +163,16 @@
     <details class="evidence"><summary>担当者向け：新方式の公開記録</summary><p>PR #591をdevelopへ取り込み、PR #587にも最新のdevelopを取り込みました。AppとAPIの版は両方とも<code>b75edf4d</code>です。<a href="https://github.com/engineer-first/idea-boost/actions/runs/38124268809">公開処理</a>は2026-10-11 17:18（日本時間）に成功しました。PR専用D1の作成、migration適用、RoomDOを含む公開、通常URLと新しい固定版URLのhealthが成功しています。Google連携・許可一覧・管理tokenの期限と権限・契約は変更していません。</p></details>
   </section>
   <section id="pr-isolation" aria-labelledby="pr-isolation-title">
-    <h2 id="pr-isolation-title">#587と#621で、それぞれの変更と保存内容を確認しました</h2>
+    <h2 id="pr-isolation-title">2026-10-12時点の確認記録：#587と#621の変更と保存内容</h2>
+    <p class="note">以下は初期案時点の過去の確認記録です。2026-10-13に現行仕様との差を確認しました。現在の#621はGoogleプロフィール名を初期表示に使い、作成・参加前に表示名の入力を求めません。ホームでの変更はアカウントへの保存だけを行い、ルーム内での変更は操作中の1ルームにも即時反映します。保存した名前は次回の作成・参加に使い、他の在籍ルームへは即時反映しません。<a href="https://github.com/engineer-first/idea-boost/blob/develop/docs/prd.md">現行の要求の正本</a>を参照してください。</p>
     <p>同じGoogleアカウントで2つのPRを開きました。共通の土台に、それぞれのPRの変更が反映されています。両方で1-1から1-2へ実際に進めて、機能の違いを確認しました。</p>
     <div class="table-scroll" tabindex="0" role="region" aria-label="PRごとの機能と保存内容の比較、横スクロールできます"><table><thead><tr><th scope="col">確認したこと</th><th scope="col">PR #587</th><th scope="col">PR #621</th></tr></thead><tbody>
       <tr><td>直前のステップに戻るボタン</td><td>表示されます。戻る操作も確認済みです。</td><td>表示されません。#587の変更は入っていません。</td></tr>
-      <tr><td>#621で呼び名を変えた後</td><td>名前は変わりませんでした。</td><td>既存の2ルームと、その後の新規ルームに反映されました。</td></tr>
+      <tr><td>#621で表示名を変えた後</td><td>名前は変わりませんでした。</td><td>既存の2ルームと、その後の新規ルームに反映されました。</td></tr>
       <tr><td>保存した付箋</td><td>「Preview確認：前進前に保存した付箋」が残りました。</td><td>「621だけに保存した付箋」が残りました。</td></tr>
       <tr><td>相手PRのルームを自分のPRのURLで開く</td><td>見つからないことを示す404の画面になりました。</td><td>見つからないことを示す404の画面になりました。</td></tr>
     </tbody></table></div>
-    <p>#621では、初回の呼び名は空欄でした。「入力せずに進む」で「参加者＋番号」を使えました。ルームとホームの両方から名前を変更し、通常URLと固定版URLで、再読み込み後も名前と付箋を確認しました。</p>
+    <p>#621では、初回の表示名は空欄でした。「入力せずに進む」で「参加者＋番号」を使えました。ルームとホームの両方から名前を変更し、通常URLと固定版URLで、再読み込み後も名前と付箋を確認しました。</p>
     <p>2026-10-12にPR #628の修正を取り込んだ後も、この表の付箋と機能の違いを確認しました。AppとAPIのcommitは、#587では<code>0d81c00a</code>、#621では<code>9ba89a24</code>です。どちらもPRのcommitと一致し、相手PRのルームは双方向に404になりました。</p>
     <p><a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6110893665">更新後の画像付き確認結果</a>と、<a href="https://github.com/engineer-first/idea-boost/pull/621#issuecomment-6107199469">#621の最新の公開リンク</a>をPRに残しました。両PRはマージせずに確認しています。別のGoogleアカウントとの共同操作、古いルームを定期的に更新する処理、保存済みの成果・履歴の名前が変わらないことは未確認です。</p>
   </section>

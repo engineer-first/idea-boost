@@ -19,6 +19,7 @@ import {
 } from "./board";
 import { UUID_PATTERN } from "./ids";
 import { RoomPhaseSchema } from "./phase";
+import { RoomNameSchema } from "./room-name";
 
 // 既存 ID の受理範囲を Zod のバージョンに依存させない。
 const HostUserIdSchema = z.string().regex(UUID_PATTERN);
@@ -48,6 +49,22 @@ export const BulkExclusionOperationIdSchema = z.string().uuid();
 export type BulkExclusionOperationId = z.infer<
   typeof BulkExclusionOperationIdSchema
 >;
+
+export const PhaseProgressSchema = z.object({
+  phaseRevision: z.number().int().nonnegative(),
+  progressRevision: z.number().int().nonnegative(),
+  connectedUserIds: z.array(z.string().uuid()),
+  readyUserIds: z.array(z.string().uuid()),
+  notReadyUserIds: z.array(z.string().uuid()),
+  canAdvance: z.boolean(),
+  allReady: z.boolean(),
+});
+export type PhaseProgress = z.infer<typeof PhaseProgressSchema>;
+
+export const PhaseProgressMessageSchema = z.object({
+  type: z.literal("phase:progress"),
+  progress: PhaseProgressSchema,
+});
 
 // シールは付箋内の相対座標で保存する。画面のズームや付箋サイズが変わっても
 // 同じ位置に復元でき、クライアントがボード座標を推測する必要もない。
@@ -327,18 +344,25 @@ export const NoteDragIdSchema = z.string().uuid();
 // クライアント → サーバー
 // ---------------------------------------------------------------
 
-// ルーム内の呼び名は前後空白を除いて40 UTF-16コード単位まで。
-export const ROOM_DISPLAY_NAME_MAX_LENGTH = 40;
+// 表示名の入力は前後空白を除いて15 UTF-16コード単位まで。
+export const ROOM_DISPLAY_NAME_MAX_LENGTH = 15;
 export const RoomDisplayNameSchema = z
   .string()
   .trim()
-  .min(1, "呼び名を入力してください。")
+  .min(1, "表示名を入力してください。")
   .max(
     ROOM_DISPLAY_NAME_MAX_LENGTH,
-    `呼び名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`,
+    `表示名は${ROOM_DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。`,
   );
 
 export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("room:rename"),
+      name: RoomNameSchema,
+      operationId: z.string().uuid(),
+    })
+    .strict(),
   z
     .object({
       type: z.literal("member:rename"),
@@ -517,13 +541,11 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("note:exclude"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid(),
     operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:restore"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid(),
     operationId: OptimisticOperationIdSchema.optional(),
     expectedExclusionOperationId: z.string().uuid().optional(),
@@ -532,12 +554,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // note ID 群を送らない。
   z.object({
     type: z.literal("note:bulk-exclude"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
     operationId: OptimisticOperationIdSchema.optional(),
   }),
   z.object({
     type: z.literal("note:bulk-restore"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
     operationId: BulkExclusionOperationIdSchema,
   }),
   z.object({
@@ -623,7 +643,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     expectedHostRevision: z.number().int().nonnegative().optional(),
     noteId: z.string().uuid().nullable(),
   }),
-  // ロビーから課題整理 Step 1-1 へ。ホストのみ。
+  // ロビーから課題整理 Step 1-1 へ。参加者が開始できる。
   z.object({
     type: z.literal("start_phase"),
     expectedHostRevision: z.number().int().nonnegative().optional(),
@@ -644,21 +664,26 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       operationId: OptimisticOperationIdSchema,
     })
     .strict(),
-  // 課題整理の次ステップへ。ホストのみ。
-  // force は全フェーズの投票ステップの全員投票ゲートを迂回する脱出ハッチ（離脱者がいても
-  // ホストが進行できる）。ホスト判定が先に評価されるため、非ホストが
-  // force を送っても効果はない。
+  // 課題整理の次ステップへ。完了条件を満たした参加者が進める。
+  z
+    .object({
+      type: z.literal("phase:next"),
+      expectedHostRevision: z.number().int().nonnegative().optional(),
+      expectedPhase: RoomPhaseSchema,
+      expectedRevision: z.number().int().nonnegative(),
+      confirmedProgressRevision: z.number().int().nonnegative().optional(),
+    })
+    .strict(),
   z.object({
-    type: z.literal("phase:next"),
-    expectedHostRevision: z.number().int().nonnegative().optional(),
+    type: z.literal("phase:ready"),
     expectedPhase: RoomPhaseSchema,
     expectedRevision: z.number().int().nonnegative(),
-    force: z.boolean().optional(),
+    ready: z.boolean(),
   }),
   z
     .object({
       type: z.literal("phase:rollback"),
-      expectedHostRevision: z.number().int().nonnegative(),
+      expectedHostRevision: z.number().int().nonnegative().optional(),
       expectedPhase: RoomPhaseSchema,
       expectedRevision: z.number().int().nonnegative(),
     })
@@ -707,31 +732,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 
-// ホスト権限で送る操作の世代。省略は移譲導入前の世代0との互換用。
+// ルーム管理権限で送る操作の世代。省略は移譲導入前の世代0との互換用。
 export const HOST_REVISION_MESSAGE_TYPES = [
-  "start_phase",
   "host:transfer",
   "member:remove",
-  "sharing:start",
-  "sharing:advance",
-  "note:exclude",
-  "note:restore",
-  "note:bulk-exclude",
-  "note:bulk-restore",
-  "note:decide",
-  "outcome:publish",
-  "decision:clear",
-  "adoption-focus:update",
-  "phase:next",
-  "phase:rollback",
-  "phase:restart-writing",
-  "phase:revote",
-  "idea-map:resize",
-  "timer:start",
-  "timer:pause",
-  "timer:resume",
-  "timer:extend",
-  "timer:stop",
 ] as const satisfies readonly ClientMessage["type"][];
 
 export function needsHostRevision(
@@ -760,6 +764,12 @@ export const PendingPhaseTransitionSchema = z.object({
   expectedRevision: z.number().int().nonnegative(),
   deadlineAt: TimerMillisecondsSchema,
   serverNow: TimerMillisecondsSchema,
+  confirmedProgressRevision: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullable()
+    .optional(),
 });
 export type PendingPhaseTransition = z.infer<
   typeof PendingPhaseTransitionSchema
@@ -786,6 +796,11 @@ export const ShareReceiptSchema = z.object({
 export type ShareReceipt = z.infer<typeof ShareReceiptSchema>;
 
 export const ServerMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("room:renamed"),
+    name: RoomNameSchema,
+    operationId: z.string().uuid(),
+  }),
   z
     .object({
       type: z.literal("note:share:result"),
@@ -816,6 +831,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("snapshot"),
+    roomName: z.string().nullable().optional(),
     moveProtocolVersion: z.literal(1).optional(),
     shareProtocolVersion: z.literal(1).optional(),
     noteCreateProtocolVersion: z.literal(1).optional(),
@@ -846,6 +862,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
     // 投票中に全票を使い切ったメンバーの userId だけを共有する。
     // 投票先・票種別ごとの残数・カーソル位置は含めない。
     completedVoterIds: z.array(z.string().uuid()),
+    progress: PhaseProgressSchema.optional(),
     timer: TimerStateSchema,
     serverNow: TimerMillisecondsSchema,
   }),
@@ -862,6 +879,7 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
       contentRevision: z.number().int().nonnegative(),
     })
     .strict(),
+  PhaseProgressMessageSchema,
   z
     .object({
       type: z.literal("note:content-status-result"),
@@ -1040,13 +1058,13 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("error"),
-    // voting-incomplete: Step 1-4 の全員投票ゲートによる phase:next 拒否。
-    // クライアントがホストへ「強制的に進むか」の確認を出す判別に使う。
     code: z.enum([
       "invalid-message",
       "forbidden",
       "not-found",
-      "voting-incomplete",
+      "phase-not-ready",
+      "phase-confirmation-required",
+      "phase-confirmation-stale",
       "content-conflict",
     ]),
     message: z.string(),

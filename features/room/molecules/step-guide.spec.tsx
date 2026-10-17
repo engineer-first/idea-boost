@@ -279,18 +279,16 @@ describe("工程ガイド", () => {
     tick(5000);
     expect(frame()).toHaveAttribute("data-state", "compact");
   });
-  it("ホストの補足はホストだけに表示する", () => {
+  it("進行補足は参加者全員に表示する", () => {
     const { rerender, props } = setup({ initialState: "detail" });
     const hostMessage = guide.hostMessage;
-    expect(screen.queryByText(guide.hostTimerGuide)).not.toBeInTheDocument();
-    expect(screen.queryByText("ホストへ")).not.toBeInTheDocument();
-    expect(screen.queryByText(hostMessage)).not.toBeInTheDocument();
+    expect(screen.getByText("ホストへ")).toBeVisible();
+    expect(screen.getByText(guide.hostTimerGuide)).toBeVisible();
+    expect(screen.getByText(hostMessage)).toBeVisible();
     rerender(<StepGuide {...props} isHost />);
     expect(screen.getByText("ホストへ")).toBeVisible();
     expect(screen.getByText(guide.hostTimerGuide)).toBeVisible();
     expect(screen.getByText(hostMessage)).toBeVisible();
-    rerender(<StepGuide {...props} isHost={false} />);
-    expect(screen.queryByText(hostMessage)).not.toBeInTheDocument();
   });
   it("ホスト向けの補足がない工程では空の補足欄を出さない", () => {
     setup({

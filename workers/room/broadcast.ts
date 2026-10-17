@@ -95,6 +95,17 @@ export class RoomBroadcaster {
       );
   }
 
+  connectedUserIds(isMember: (userId: string) => boolean): string[] {
+    const userIds = new Set<string>();
+    for (const socket of this.connections.getWebSockets()) {
+      if (!this.isAuthorized(socket)) continue;
+      const userId = (socket.deserializeAttachment() as SocketAttachment | null)
+        ?.userId;
+      if (userId && isMember(userId)) userIds.add(userId);
+    }
+    return [...userIds].sort();
+  }
+
   sendTo(ws: WebSocket, message: ServerMessage): void {
     this.trySend(ws, JSON.stringify(message));
   }
@@ -229,6 +240,14 @@ export class RoomBroadcaster {
   broadcastToAll(message: ServerMessage): void {
     const payload = JSON.stringify(message);
     for (const socket of this.connections.getWebSockets()) {
+      this.trySend(socket, payload);
+    }
+  }
+
+  broadcastToAllExceptSocket(message: ServerMessage, except: WebSocket): void {
+    const payload = JSON.stringify(message);
+    for (const socket of this.connections.getWebSockets()) {
+      if (socket === except) continue;
       this.trySend(socket, payload);
     }
   }
