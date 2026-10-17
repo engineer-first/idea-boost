@@ -55,6 +55,8 @@ import { SharingPresenter } from "../molecules/sharing-presenter";
 import { StepGuide } from "../molecules/step-guide";
 import { RoomTimer } from "./room-timer";
 
+const MAP_WORKSPACE_CONTEXT_GAP = 18;
+
 export type RoomBoardHeaderProps = {
   children?: ReactNode;
   hasMoveHistory?: boolean;
@@ -184,6 +186,7 @@ export function RoomBoardHeader({
   onTimerStop,
 }: RoomBoardHeaderProps) {
   const controlsAreaRef = useRef<HTMLDivElement>(null);
+  const isMapWorkspace = isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   useEffect(() => {
     const area = controlsAreaRef.current;
     const header = area?.closest<HTMLElement>(
@@ -201,6 +204,84 @@ export function RoomBoardHeader({
               '[data-testid="board-connection-status"]',
             );
       if (!header) return;
+      if (isMapWorkspace && board) {
+        const boardTop = board.getBoundingClientRect().top;
+        const location = header.querySelector<HTMLElement>(
+          '[data-testid="board-location-card"]',
+        );
+        const guide = header.querySelector<HTMLElement>(
+          '[data-testid="step-guide"]',
+        );
+        const helpToggle = header
+          .querySelector<HTMLElement>('[data-testid="board-help-panel"]')
+          ?.querySelector<HTMLElement>("[data-help-toggle]");
+        const contextColumn = header.querySelector<HTMLElement>(
+          '[data-testid="board-context-column"]',
+        );
+        const compactGuideBottom =
+          (guide?.getBoundingClientRect().top ?? boardTop) + 42;
+        const locationBottom =
+          location?.getBoundingClientRect().bottom ?? boardTop;
+        const controlsBottom = area?.getBoundingClientRect().bottom ?? boardTop;
+        // 3-2/3-3ではヒントを描画しないが、マップ位置は従来の閉じたヒント行
+        // を含む位置で固定する。行自体はDOMに残さず、既存のモバイルgrid寸法から算出する。
+        const helpRowBottom =
+          helpToggle?.getBoundingClientRect().bottom ??
+          (window.innerWidth <= 639
+            ? (contextColumn?.getBoundingClientRect().top ?? boardTop) +
+              (location?.parentElement?.getBoundingClientRect().height ?? 80) +
+              50 +
+              8 +
+              36
+            : boardTop);
+        const mapTop =
+          window.innerWidth >= 900
+            ? Math.max(controlsBottom, locationBottom) - boardTop + 50
+            : window.innerWidth <= 639
+              ? Math.max(
+                  compactGuideBottom,
+                  locationBottom,
+                  controlsBottom,
+                  helpRowBottom,
+                ) -
+                boardTop +
+                25
+              : compactGuideBottom - boardTop + 24;
+        board.style.setProperty("--board-map-top", `${mapTop}px`);
+        if (window.innerWidth >= 900) {
+          const context = header.querySelector<HTMLElement>(
+            '[data-testid="board-context-hud"]',
+          );
+          const mapPlane = board.querySelector<HTMLElement>(
+            '[data-testid="idea-value-feasibility-map-plane"]',
+          );
+          if (context && mapPlane) {
+            const currentShift =
+              Number.parseFloat(
+                board.style.getPropertyValue("--board-map-shift-y"),
+              ) || 0;
+            const targetTop =
+              context.getBoundingClientRect().bottom +
+              MAP_WORKSPACE_CONTEXT_GAP;
+            const correction = targetTop - mapPlane.getBoundingClientRect().top;
+            board.style.setProperty(
+              "--board-map-shift-y",
+              `${currentShift + correction}px`,
+            );
+          }
+        } else {
+          board.style.removeProperty("--board-map-shift-y");
+        }
+        const noticeBottom =
+          notice && board
+            ? notice.getBoundingClientRect().bottom - boardTop + 8
+            : 72;
+        board.style.setProperty("--board-map-tray-top", `${noticeBottom}px`);
+      } else {
+        board?.style.removeProperty("--board-map-top");
+        board?.style.removeProperty("--board-map-shift-y");
+        board?.style.removeProperty("--board-map-tray-top");
+      }
       const bottom = notice
         ? notice.getBoundingClientRect().bottom -
           header.getBoundingClientRect().top +
@@ -239,6 +320,7 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateGuideTop);
     observer?.observe(area);
+    if (isMapWorkspace) observer?.observe(header);
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
@@ -251,8 +333,11 @@ export function RoomBoardHeader({
       header.style.removeProperty("--board-location-top");
       header.style.removeProperty("--board-location-height");
       board?.style.removeProperty("--board-connection-notice-bottom");
+      board?.style.removeProperty("--board-map-top");
+      board?.style.removeProperty("--board-map-shift-y");
+      board?.style.removeProperty("--board-map-tray-top");
     };
-  }, [connectionStatus]);
+  }, [connectionStatus, isMapWorkspace]);
   const activeSharing =
     phase.kind === "step" && phase.step === 2 ? sharing : null;
   const transitioning = activeSharing?.startsAt != null;
@@ -370,19 +455,40 @@ export function RoomBoardHeader({
         ? "退出中…"
         : "退出する";
 
+  const stepGuide =
+    transitioning && presenter ? (
+      <SharingAnnouncement member={presenter} />
+    ) : guide ? (
+      <StepGuide
+        key={`${inviteCode}:${currentUserId}`}
+        sessionKey={`${inviteCode}:${currentUserId}`}
+        placement={isMapWorkspace ? "floating" : undefined}
+        phaseKey={
+          phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"
+        }
+        guide={guide}
+        isHost={isHost}
+        isReady={!isDisconnected}
+        timer={timer}
+        initialState={initialGuideState}
+      />
+    ) : null;
+
   return (
     <TooltipProvider delayDuration={300}>
       <div
         data-testid="board-header-row"
+        data-map-workspace={isMapWorkspace || undefined}
         className={`pointer-events-none absolute inset-x-3 top-3 bottom-[7.5rem] z-40 max-[639px]:z-[41] has-[[data-location-open=true]]:z-[60] grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 max-[900px]:grid-cols-[306px_minmax(0,1fr)] max-[639px]:grid-cols-1 max-[639px]:grid-rows-[auto_minmax(0,1fr)] max-[639px]:group-has-[[data-expanded=true]]/board:bottom-[calc(var(--board-private-dock-bottom,7.5rem)+var(--board-private-dock-height,20rem)+0.75rem)] max-[639px]:gap-2 ${isPhaseThreePrivateNoteEntry ? "min-[640px]:bottom-3" : ""} ${hasMoveHistory ? "max-[639px]:bottom-[var(--board-mobile-header-bottom)]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[16rem]" : "max-[639px]:bottom-[11rem]"}`}
       >
         <div
-          className="pointer-events-none flex h-full min-h-0 w-full max-w-[360px] min-w-0 flex-col min-[900px]:max-[1200px]:max-w-[306px] items-start gap-3 max-[900px]:min-w-[306px] max-[639px]:relative max-[639px]:grid max-[639px]:grid-cols-[200px_minmax(0,1fr)] max-[639px]:grid-rows-[calc(var(--board-location-height,80px)+50px)_auto] max-[639px]:items-start max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
+          className="pointer-events-none flex h-full w-full max-w-[360px] min-h-0 min-w-0 flex-col items-start gap-3 min-[900px]:max-[1200px]:max-w-[306px] max-[900px]:min-w-[306px] max-[639px]:relative max-[639px]:grid max-[639px]:grid-cols-[200px_minmax(0,1fr)] max-[639px]:grid-rows-[calc(var(--board-location-height,80px)+50px)_auto] max-[639px]:items-start max-[639px]:max-w-none max-[639px]:min-w-0 max-[639px]:h-auto max-[639px]:max-h-full max-[639px]:gap-2 max-[639px]:overflow-y-auto max-[639px]:has-[[data-location-open=true]]:overflow-visible max-[639px]:overscroll-contain max-[639px]:pointer-events-auto"
           data-testid="board-context-column"
           data-board-fit-edge="top"
         >
           <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px] max-[639px]:col-start-1 max-[639px]:row-start-1 max-[639px]:row-span-2 max-[639px]:w-[min(306px,calc(100vw-24px))]">
             <BoardContext
+              initialDisclosureId={isMapWorkspace ? null : undefined}
               phase={phase}
               outcomePublished={outcomePublished}
               hmwDecidedIssue={hmwDecidedIssue}
@@ -391,29 +497,15 @@ export function RoomBoardHeader({
               hmwReference={hmwReference}
             />
           </div>
-          {transitioning && presenter ? (
-            <SharingAnnouncement member={presenter} />
-          ) : (
-            guide && (
-              <StepGuide
-                key={`${inviteCode}:${currentUserId}`}
-                sessionKey={`${inviteCode}:${currentUserId}`}
-                phaseKey={
-                  phase.kind === "step"
-                    ? `${phase.phase}-${phase.step}`
-                    : "lobby"
-                }
-                guide={guide}
-                isHost={isHost}
-                isReady={!isDisconnected}
-                timer={timer}
-                initialState={initialGuideState}
-              />
-            )
-          )}
-          <div className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:col-start-2 max-[639px]:row-start-2 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9">
-            {children}
-          </div>
+          {stepGuide}
+          {!isMapWorkspace || (children !== null && children !== undefined) ? (
+            <div
+              className="pointer-events-none flex min-h-0 w-full flex-1 max-[639px]:col-start-2 max-[639px]:row-start-2 max-[639px]:max-h-[140px] max-[639px]:has-[[data-open=true]]:min-h-[140px] max-[639px]:has-[[data-open=false]]:min-h-9"
+              data-testid="board-help-slot"
+            >
+              {children}
+            </div>
+          ) : null}
         </div>
 
         {/* 狭幅の完了表示は操作行の外へ置く。結果でも同じ縦余白を保ち、現在地表示を動かさない。 */}

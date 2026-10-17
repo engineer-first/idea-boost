@@ -23,13 +23,13 @@ describe("IDEA_VALUE_FEASIBILITY_MAP_RANGE", () => {
 });
 
 describe("idea map size", () => {
-  it("付箋総数から初期サイズ段階を決め、上限を守る", () => {
-    expect(getInitialIdeaMapSizeLevel(0)).toBe(0);
-    expect(getInitialIdeaMapSizeLevel(12)).toBe(0);
-    expect(getInitialIdeaMapSizeLevel(13)).toBe(1);
-    expect(getInitialIdeaMapSizeLevel(18)).toBe(3);
-    expect(getInitialIdeaMapSizeLevel(56)).toBe(9);
-    expect(getInitialIdeaMapSizeLevel(Number.NaN)).toBe(0);
+  it("従来の初期サイズから4段階広げ、上限を守る", () => {
+    expect(getInitialIdeaMapSizeLevel(0)).toBe(4);
+    expect(getInitialIdeaMapSizeLevel(12)).toBe(4);
+    expect(getInitialIdeaMapSizeLevel(13)).toBe(5);
+    expect(getInitialIdeaMapSizeLevel(18)).toBe(7);
+    expect(getInitialIdeaMapSizeLevel(56)).toBe(13);
+    expect(getInitialIdeaMapSizeLevel(Number.NaN)).toBe(4);
     expect(getInitialIdeaMapSizeLevel(1_000_000)).toBe(
       IDEA_MAP_SIZE_LEVEL_RANGE.max,
     );

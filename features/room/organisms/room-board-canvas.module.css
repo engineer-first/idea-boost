@@ -1,0 +1,18 @@
+.ideaMapNotePosition {
+  left: var(--idea-map-note-left-compact);
+  bottom: var(--idea-map-note-bottom-compact);
+}
+
+@media (min-width: 40rem) {
+  .ideaMapNotePosition {
+    left: var(--idea-map-note-left-tablet);
+    bottom: var(--idea-map-note-bottom-tablet);
+  }
+}
+
+@media (min-width: 64rem) {
+  .ideaMapNotePosition {
+    left: var(--idea-map-note-left-desktop);
+    bottom: var(--idea-map-note-bottom-desktop);
+  }
+}

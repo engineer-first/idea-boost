@@ -198,16 +198,19 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
+    const isMapSharingStep = isPhaseStep(getPhase(ctx.sql), 3, 2);
     const stackOrder = publishNote(
       ctx.sql,
       message.noteId,
       message.x,
       message.y,
       updatedAt,
+      isMapSharingStep,
     );
     broadcastNoteInserted(ctx.sql, ctx.broadcaster, {
       ...row,
       visibility: "shared",
+      idea_map_placed: isMapSharingStep,
       x: message.x,
       y: message.y,
       stack_order: stackOrder,
@@ -484,6 +487,11 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
+    const phase = getPhase(ctx.sql);
+    const markIdeaMapPlaced =
+      isPhaseStep(phase, 3, 2) ||
+      isPhaseStep(phase, 3, 3) ||
+      isPhaseStep(phase, 3, 5);
     const positionChanged = row.x !== message.x || row.y !== message.y;
     const stackOrder = moveNote(
       ctx.sql,
@@ -491,14 +499,19 @@ export const noteHandlers: MessageHandlers<
       message.x,
       message.y,
       updatedAt,
+      markIdeaMapPlaced,
     );
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      x: message.x,
-      y: message.y,
-      stack_order: stackOrder,
-      updated_at: updatedAt,
-    });
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      findNote(ctx.sql, message.noteId) ?? {
+        ...row,
+        x: message.x,
+        y: message.y,
+        stack_order: stackOrder,
+        updated_at: updatedAt,
+      },
+    );
     if (positionChanged) {
       autoReorganizeAtGroupingStep(ctx);
     }
@@ -629,20 +642,29 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
+    const markIdeaMapPlaced =
+      isPhaseStep(phase, 3, 2) ||
+      isPhaseStep(phase, 3, 3) ||
+      isPhaseStep(phase, 3, 5);
     const stackOrder = moveNote(
       ctx.sql,
       message.noteId,
       message.x,
       message.y,
       updatedAt,
+      markIdeaMapPlaced,
     );
-    broadcastNoteUpdated(ctx.sql, ctx.broadcaster, {
-      ...row,
-      x: message.x,
-      y: message.y,
-      stack_order: stackOrder,
-      updated_at: updatedAt,
-    });
+    broadcastNoteUpdated(
+      ctx.sql,
+      ctx.broadcaster,
+      findNote(ctx.sql, message.noteId) ?? {
+        ...row,
+        x: message.x,
+        y: message.y,
+        stack_order: stackOrder,
+        updated_at: updatedAt,
+      },
+    );
   },
 
   "note:drag:end": (ctx, message) => {
@@ -679,6 +701,10 @@ export const noteHandlers: MessageHandlers<
     }
     const updatedAt = new Date().toISOString();
     let stackOrder = row.stack_order;
+    const markIdeaMapPlaced =
+      isPhaseStep(phase, 3, 2) ||
+      isPhaseStep(phase, 3, 3) ||
+      isPhaseStep(phase, 3, 5);
     if (message.position) {
       stackOrder = moveNote(
         ctx.sql,
@@ -686,17 +712,21 @@ export const noteHandlers: MessageHandlers<
         message.position.x,
         message.position.y,
         updatedAt,
+        markIdeaMapPlaced,
       );
     }
-    const current = message.position
-      ? {
-          ...row,
-          x: message.position.x,
-          y: message.position.y,
-          stack_order: stackOrder,
-          updated_at: updatedAt,
-        }
-      : (findNote(ctx.sql, message.noteId) ?? row);
+    const current =
+      findNote(ctx.sql, message.noteId) ??
+      (message.position
+        ? {
+            ...row,
+            x: message.position.x,
+            y: message.position.y,
+            stack_order: stackOrder,
+            updated_at: updatedAt,
+            ...(markIdeaMapPlaced ? { idea_map_placed: true } : {}),
+          }
+        : row);
     broadcastNoteUpdated(ctx.sql, ctx.broadcaster, current);
     if (isIdeaMapVisiblePhase(phase)) {
       broadcastIdeaMapState(ctx.sql, ctx.broadcaster);

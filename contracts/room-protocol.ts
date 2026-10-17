@@ -156,6 +156,8 @@ export const NoteSchema = z.object({
   positionRevision: z.number().int().nonnegative().optional(),
   visibilityRevision: z.number().int().nonnegative().optional(),
   visibility: z.enum(["private", "shared"]),
+  // フェーズ3の共有後、2軸マップへ配置済みか。旧付箋は従来どおり配置済みとする。
+  ideaMapPlaced: z.boolean().default(true),
   color: NoteColorSchema,
   // 旧 Worker / 保存データにフィールドがなくても従来相当の14pxで復元する。
   fontSize: NoteFontSizeSchema.default(NOTE_DEFAULT_FONT_SIZE),
@@ -214,6 +216,7 @@ export const MoveReceiptSchema = z.object({
       ...MoveTargetSchema.shape,
       x: CanvasCoordinateSchema,
       y: CanvasCoordinateSchema,
+      ideaMapPlaced: z.boolean().optional(),
     }),
   ),
   after: z.array(
@@ -221,6 +224,7 @@ export const MoveReceiptSchema = z.object({
       ...MoveTargetSchema.shape,
       x: CanvasCoordinateSchema,
       y: CanvasCoordinateSchema,
+      ideaMapPlaced: z.boolean().optional(),
     }),
   ),
   groupsBefore: z.array(GroupSchema),
@@ -480,6 +484,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       type: z.literal("note:move:commit"),
       operationId: OptimisticOperationIdSchema,
       delta: MoveDeltaSchema,
+      ideaMapPlaced: z.literal(false).optional(),
     })
     .strict(),
   z

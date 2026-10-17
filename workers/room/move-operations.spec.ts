@@ -858,9 +858,11 @@ describe("move recovery entry", () => {
       presenceHandlers["cursor:update"](ctx, cursor);
       expect(sent).toHaveLength(0);
     }));
-  it("map start/cancelで全lock表示とpeer drag解除を配信する", () =>
-    setup("move-map-presence", (ctx) => {
-      savePhase(ctx.sql, { kind: "step", phase: 3, step: 3 });
+  it.each([
+    2, 3,
+  ])("3-%iのmap start/cancelで全lock表示とpeer drag解除を配信する", (step) =>
+    setup(`move-map-presence-step-${step}`, (ctx) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step });
       ctx.sql.exec("UPDATE notes SET phase=3,x=10,y=20");
       const sent: ServerMessage[] = [];
       ctx.ws.send = (data) =>
@@ -1028,6 +1030,94 @@ function inverse(
     moveHandlers["note:move:inverse"](ctx, message);
 }
 describe("atomic inverse", () => {
+  it("3-3で未配置に戻した付箋を移動履歴から再配置できる", () =>
+    setup("inverse-map-unplace", (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step: 3 });
+      ctx.sql.exec(
+        "UPDATE notes SET phase=3, idea_map_placed=1, x=50, y=50 WHERE id=?1",
+        N1,
+      );
+      const revisions = ctx.sql
+        .exec(
+          "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
+        )
+        .one();
+      const note = findNote(ctx.sql, N1);
+      moveHandlers["note:move:start"](ctx, {
+        type: "note:move:start",
+        operationId: OP,
+        expectedPhaseRevision: Number(revisions.phase_revision),
+        expectedGroupRevision: Number(revisions.group_revision),
+        expectedMapRevision: Number(revisions.map_revision),
+        coordinateSpace: "map",
+        targets: [
+          {
+            noteId: N1,
+            positionRevision: note?.position_revision ?? 0,
+            visibilityRevision: note?.visibility_revision ?? 0,
+          },
+        ],
+      });
+      moveHandlers["note:move:commit"](ctx, {
+        type: "note:move:commit",
+        operationId: OP,
+        delta: { x: 0, y: 0 },
+        ideaMapPlaced: false,
+      });
+
+      expect(findNote(ctx.sql, N1)?.idea_map_placed).toBe(false);
+      expect(responses.at(-1)).toMatchObject({
+        status: "accepted",
+        receipt: {
+          changed: true,
+          before: [{ ideaMapPlaced: true }],
+          after: [{ ideaMapPlaced: false }],
+        },
+      });
+      inverse(ctx, responses, OP, OP2);
+      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+      expect(findNote(ctx.sql, N1)?.idea_map_placed).toBe(true);
+    }));
+
+  it("3-5では未配置トレイへの返却を拒否する", () =>
+    setup("map-unplace-only-step-3-3", (ctx, responses) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step: 5 });
+      ctx.sql.exec(
+        "UPDATE notes SET phase=3, idea_map_placed=1, x=50, y=50 WHERE id=?1",
+        N1,
+      );
+      const revisions = ctx.sql
+        .exec(
+          "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
+        )
+        .one();
+      const note = findNote(ctx.sql, N1);
+      moveHandlers["note:move:start"](ctx, {
+        type: "note:move:start",
+        operationId: OP,
+        expectedPhaseRevision: Number(revisions.phase_revision),
+        expectedGroupRevision: Number(revisions.group_revision),
+        expectedMapRevision: Number(revisions.map_revision),
+        coordinateSpace: "map",
+        targets: [
+          {
+            noteId: N1,
+            positionRevision: note?.position_revision ?? 0,
+            visibilityRevision: note?.visibility_revision ?? 0,
+          },
+        ],
+      });
+      moveHandlers["note:move:commit"](ctx, {
+        type: "note:move:commit",
+        operationId: OP,
+        delta: { x: 0, y: 0 },
+        ideaMapPlaced: false,
+      });
+
+      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      expect(findNote(ctx.sql, N1)?.idea_map_placed).toBe(true);
+    }));
+
   it.each([
     "idle",
     "paused",

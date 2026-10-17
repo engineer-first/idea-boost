@@ -601,12 +601,62 @@ export const Step1Result: Story = {
   },
 };
 
-// Step3-2: 共有する段階から表示する連続的な2軸マップを確認する状態。
-export const Step3IdeaMap: Story = {
+// Step3-2: 共有済みアイデアを2軸マップへ配置し、マイ付箋から追加共有する。
+export const Step3SharingBoard: Story = {
   args: {
     phase: STEP_3_2,
     permissions: getBoardPermissions(STEP_3_2),
-    notes: [],
+    privateNotes: [
+      buildNote({
+        id: "private-sharing-idea",
+        visibility: "private",
+        content: "共有前のアイデア",
+      }),
+    ],
+    notes: [
+      buildNote({
+        id: "shared-idea-a",
+        content: "問い合わせを簡単にする",
+        x: 35,
+        y: 72,
+      }),
+      buildNote({
+        id: "shared-idea-b",
+        content: "申請状況を見えるようにする",
+        x: 68,
+        y: 35,
+      }),
+    ],
+  },
+};
+
+// Step3-3: 3-2の配置を引き継いだ2軸マップだけを表示する。
+export const Step3IdeaMap: Story = {
+  args: {
+    phase: buildPhaseStep(3, 3),
+    permissions: getBoardPermissions(buildPhaseStep(3, 3)),
+    notes: [
+      buildNote({
+        id: "idea-map-a",
+        content: "問い合わせを簡単にする",
+        x: 35,
+        y: 72,
+      }),
+      buildNote({
+        id: "idea-map-b",
+        content: "申請状況を見えるようにする",
+        x: 68,
+        y: 35,
+      }),
+      buildNote({
+        id: "idea-map-placed",
+        content: "自動で通知する",
+        x: 68,
+        y: 74,
+      }),
+    ],
+    ideaMapSizeLevel: 1,
+    ideaMapSizeInitialized: true,
   },
 };
 
@@ -671,14 +721,14 @@ function HostIdeaMapResizePreview({
 export const IdeaMapFewNotes: Story = {
   name: "2軸マップ / 少数の付箋",
   args: {
-    phase: STEP_3_2,
-    permissions: getBoardPermissions(STEP_3_2),
+    phase: buildPhaseStep(3, 3),
+    permissions: getBoardPermissions(buildPhaseStep(3, 3)),
     notes: [
       buildNote({ id: "idea-left", content: "小さく試す", x: 8, y: 12 }),
       buildNote({ id: "idea-center", content: "使い方を教える", x: 50, y: 52 }),
       buildNote({ id: "idea-right", content: "自動化する", x: 92, y: 88 }),
     ],
-    ideaMapSizeLevel: 0,
+    ideaMapSizeLevel: 4,
     camera: IDEA_MAP_CAMERA,
   },
   decorators: IDEA_MAP_VIEWPORT,
@@ -687,8 +737,8 @@ export const IdeaMapFewNotes: Story = {
 export const IdeaMapManyNotes: Story = {
   name: "2軸マップ / 多数の分散付箋",
   args: {
-    phase: STEP_3_2,
-    permissions: getBoardPermissions(STEP_3_2),
+    phase: buildPhaseStep(3, 3),
+    permissions: getBoardPermissions(buildPhaseStep(3, 3)),
     notes: buildIdeaMapPreviewNotes(40, "spread"),
     ideaMapSizeLevel: 4,
     camera: IDEA_MAP_CAMERA,
@@ -699,8 +749,8 @@ export const IdeaMapManyNotes: Story = {
 export const IdeaMapConcentratedNotes: Story = {
   name: "2軸マップ / 多数の集中付箋",
   args: {
-    phase: STEP_3_2,
-    permissions: getBoardPermissions(STEP_3_2),
+    phase: buildPhaseStep(3, 3),
+    permissions: getBoardPermissions(buildPhaseStep(3, 3)),
     notes: buildIdeaMapPreviewNotes(40, "concentrated"),
     ideaMapSizeLevel: 4,
     camera: IDEA_MAP_CAMERA,
@@ -711,8 +761,8 @@ export const IdeaMapConcentratedNotes: Story = {
 export const HostCanResizeIdeaMap: Story = {
   name: "2軸マップ / ホストが広さを調整",
   args: {
-    phase: STEP_3_2,
-    permissions: getBoardPermissions(STEP_3_2),
+    phase: buildPhaseStep(3, 3),
+    permissions: getBoardPermissions(buildPhaseStep(3, 3)),
     notes: [
       buildNote({ id: "resize-a", content: "価値を広げる", x: 20, y: 30 }),
       buildNote({ id: "resize-b", content: "早く試す", x: 76, y: 72 }),

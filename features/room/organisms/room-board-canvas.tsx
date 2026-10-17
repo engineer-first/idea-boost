@@ -5,18 +5,25 @@
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
 import type {
   CSSProperties,
+  ReactNode,
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { DRAG_THRESHOLD_PX, getNoteHeight } from "@/contracts/board";
+import {
+  DRAG_THRESHOLD_PX,
+  getNoteHeight,
+  NOTE_DEFAULT_FONT_SIZE,
+  NOTE_WIDTH,
+} from "@/contracts/board";
 import {
   calculateRenderGroups,
   type PersistentGroup,
 } from "@/contracts/grouping";
 import {
   isAtOrAfterGroupingStep,
+  isPhaseStep,
   isResultStep,
   isVotingStep,
   type RoomPhase,
@@ -32,12 +39,20 @@ import {
 } from "@/features/notes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { BoardPermissions } from "../logic/board-permissions";
-import { type CanvasCamera, worldToScreen } from "../logic/canvas-camera";
+import {
+  type CanvasCamera,
+  clampCanvasZoom,
+  worldToScreen,
+} from "../logic/canvas-camera";
 import {
   getCursorLabelOffset,
   type RenderedRemoteCursorPresence,
 } from "../logic/cursor-presence";
 import {
+  FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT,
+  getFixedIdeaMapNotePositionProfiles,
+  getIdeaMapDisplayScale,
+  getIdeaMapNoteDisplayMetrics,
   getIdeaMapNoteGeometry,
   getIdeaValueFeasibilityMapNotePosition,
 } from "../logic/idea-value-feasibility-map";
@@ -50,11 +65,13 @@ import type {
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
+import { FixedIdeaMap } from "../molecules/fixed-idea-map";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { NoteFontSizeControls } from "../molecules/note-font-size-controls";
 import { RemoteCursor } from "../molecules/remote-cursor";
+import styles from "./room-board-canvas.module.css";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
 const ADOPTION_TARGET_CLASS_NAME =
@@ -84,6 +101,7 @@ export type RoomBoardCanvasProps = {
   boardInteractionBlocked: boolean;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
+  ideaMapWorkspaceControls?: { phaseLoop: ReactNode; mapSize: ReactNode };
   ideaMapIsDragging?: boolean;
   onIdeaMapResize?: (sizeLevel: number) => void;
   voteRemaining: DotVoteRemaining;
@@ -101,6 +119,8 @@ export type RoomBoardCanvasProps = {
     top: number;
     width: number;
     height: number;
+    noteScale?: number;
+    noteHeight?: number;
   } | null;
   isReturnDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
@@ -192,6 +212,7 @@ export function RoomBoardCanvas({
   boardInteractionBlocked,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = false,
+  ideaMapWorkspaceControls,
   ideaMapIsDragging = false,
   onIdeaMapResize = () => undefined,
   voteRemaining,
@@ -253,6 +274,11 @@ export function RoomBoardCanvas({
   addPrivateNoteRequest = 0,
   privateNoteAddRef,
 }: RoomBoardCanvasProps) {
+  const [fixedIdeaMapZoom, setFixedIdeaMapZoom] = useState(1);
+  const [horizontalLowEndpointOffset, setHorizontalLowEndpointOffset] =
+    useState(0);
+  const horizontalLowEndpointOffsetRef = useRef(0);
+  const boardFrameRef = useRef<HTMLDivElement>(null);
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
   const isMultiSelected = selectionIds.length > 1;
@@ -272,16 +298,16 @@ export function RoomBoardCanvas({
   const adoptionTargetLabel = getAdoptionTargetLabel(
     phase.kind === "step" ? phase.phase : 1,
   );
-  // 初回は共有から2軸マップを表示し、個人作業へ再訪しても共有済みの配置を閲覧できる。
-  // 付箋の共有・操作可否は引き続き permissions と RoomDO が権威。
+  // 3-2から固定2軸マップで共有・配置し、3-3でも同じ配置を引き継ぐ。
+  // 配置済みの付箋がある3-1再訪時は従来どおり閲覧のみできる。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
     phase.phase === 3 &&
     (phase.step >= 2 || notes.length > 0);
-  const isIdeaMapSizeControlsVisible =
-    phase.kind === "step" &&
-    phase.phase === 3 &&
-    (phase.step === 2 || phase.step === 3);
+  const isIdeaMapWorkspace =
+    isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const isIdeaMapSharingStep = isPhaseStep(phase, 3, 2);
+  const ideaMapDisplayScale = getIdeaMapDisplayScale(ideaMapSizeLevel);
   const isPersonalNoteEntryPhase =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const privateNotesContainerClassName = isPersonalNoteEntryPhase
@@ -292,6 +318,143 @@ export function RoomBoardCanvas({
   const selectedNote = [...notes, ...privateNotes].find(
     (note) => note.id === selectedNoteId,
   );
+  const mapNoteGeometry = getIdeaMapNoteGeometry(
+    ideaMapSizeLevel,
+    notes.map((note) => getNoteHeight(note.content, note.fontSize)),
+  );
+  const canvasZoom = isIdeaMapWorkspace
+    ? fixedIdeaMapZoom
+    : (displayZoom ?? camera.zoom);
+  const zoomOut = () => {
+    if (isIdeaMapWorkspace) {
+      setFixedIdeaMapZoom((zoom) => clampCanvasZoom(zoom / 1.25));
+      return;
+    }
+    onZoomOut();
+  };
+  const resetZoom = () => {
+    if (isIdeaMapWorkspace) {
+      setFixedIdeaMapZoom(1);
+      return;
+    }
+    onResetZoom();
+  };
+  const zoomIn = () => {
+    if (isIdeaMapWorkspace) {
+      setFixedIdeaMapZoom((zoom) => clampCanvasZoom(zoom * 1.25));
+      return;
+    }
+    onZoomIn();
+  };
+  const fitToNotes = () => {
+    if (isIdeaMapWorkspace) {
+      // 固定マップは既定で表示領域にフィットするため、全体表示は等倍へ戻す。
+      setFixedIdeaMapZoom(1);
+      return;
+    }
+    onFitToNotes();
+  };
+
+  useLayoutEffect(() => {
+    if (
+      !isIdeaMapSharingStep ||
+      !isIdeaValueFeasibilityMapVisible ||
+      !permissions.canEditNote
+    ) {
+      horizontalLowEndpointOffsetRef.current = 0;
+      setHorizontalLowEndpointOffset((current) =>
+        current === 0 ? current : 0,
+      );
+      return;
+    }
+
+    const frame = boardFrameRef.current;
+    const controls = frame?.querySelector<HTMLElement>(
+      '[data-testid="note-font-size-controls"]',
+    );
+    const zoomControls = frame?.querySelector<HTMLElement>(
+      '[data-testid="canvas-zoom-hud"]',
+    );
+    const endpoint = frame?.querySelector<HTMLElement>(
+      '[data-testid="idea-map-x-low-endpoint"]',
+    );
+    const operationControls = [controls, zoomControls].filter(
+      (element): element is HTMLElement =>
+        element !== null && element !== undefined,
+    );
+    if (!frame || operationControls.length === 0 || !endpoint) {
+      horizontalLowEndpointOffsetRef.current = 0;
+      setHorizontalLowEndpointOffset((current) =>
+        current === 0 ? current : 0,
+      );
+      return;
+    }
+
+    const updateOffset = () => {
+      const endpointBounds = endpoint.getBoundingClientRect();
+      const fontControlBounds = controls?.getBoundingClientRect();
+      const zoomControlBounds = zoomControls?.getBoundingClientRect();
+      if (
+        operationControls.length === 0 ||
+        endpointBounds.width === 0 ||
+        (!fontControlBounds?.width && !zoomControlBounds?.width)
+      ) {
+        setHorizontalLowEndpointOffset((current) =>
+          current === 0 ? current : 0,
+        );
+        return;
+      }
+
+      const zoomVerticalGap = zoomControlBounds
+        ? Math.max(
+            zoomControlBounds.top - endpointBounds.bottom,
+            endpointBounds.top - zoomControlBounds.bottom,
+            0,
+          )
+        : Number.POSITIVE_INFINITY;
+      const mapZoom = fixedIdeaMapZoom;
+      const baselineLeft =
+        endpointBounds.left - horizontalLowEndpointOffsetRef.current * mapZoom;
+      const previousTargetLeft = Math.max(
+        baselineLeft,
+        zoomControlBounds?.width && zoomVerticalGap < 16
+          ? zoomControlBounds.right + 14
+          : baselineLeft,
+      );
+      const targetLeft = Math.max(
+        previousTargetLeft + 70,
+        fontControlBounds?.width ? fontControlBounds.right + 24 : baselineLeft,
+      );
+      const requiredOffset = Math.max(0, targetLeft - baselineLeft) / mapZoom;
+      const nextOffset = Math.round(requiredOffset * 100) / 100;
+
+      if (
+        Math.abs(horizontalLowEndpointOffsetRef.current - nextOffset) >= 0.25
+      ) {
+        horizontalLowEndpointOffsetRef.current = nextOffset;
+        setHorizontalLowEndpointOffset(nextOffset);
+      }
+    };
+
+    updateOffset();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateOffset);
+    observer?.observe(frame);
+    for (const element of operationControls) observer?.observe(element);
+    window.addEventListener("resize", updateOffset);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateOffset);
+    };
+  }, [
+    fixedIdeaMapZoom,
+    isIdeaMapSharingStep,
+    isIdeaValueFeasibilityMapVisible,
+    permissions.canEditNote,
+  ]);
 
   useEffect(() => {
     if (isAdoptMode) return;
@@ -393,15 +556,22 @@ export function RoomBoardCanvas({
     onNoteDelete(noteId);
   }
 
-  function renderNoteCard(note: Note) {
+  function renderNoteCard(
+    note: Note,
+    maxDisplayHeight?: number,
+    displayScale: number | "responsive-map" = 1,
+  ) {
     return (
       <NoteCard
         key={`${note.id}:${rollbackRevision}`}
         note={note}
         maxDisplayHeight={
-          isIdeaValueFeasibilityMapVisible
-            ? mapNoteGeometry.noteHeightLimit
-            : undefined
+          maxDisplayHeight ??
+          (isIdeaMapWorkspace
+            ? FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT
+            : isIdeaValueFeasibilityMapVisible
+              ? mapNoteGeometry.noteHeightLimit
+              : undefined)
         }
         isOwnDrag={
           draggingNoteId === note.id || localDraggingNoteId === note.id
@@ -472,24 +642,72 @@ export function RoomBoardCanvas({
           onStickerDragStart: onNoteVoteStickerDragStart,
         }}
         className="relative pointer-events-auto"
-        style={{}}
+        style={
+          displayScale === 1
+            ? {}
+            : {
+                transform:
+                  displayScale === "responsive-map"
+                    ? "scale(var(--idea-map-note-scale, 1))"
+                    : `scale(${displayScale})`,
+                transformOrigin:
+                  displayScale === "responsive-map"
+                    ? "bottom left"
+                    : "top left",
+              }
+        }
       />
     );
   }
 
-  const mapNoteGeometry = getIdeaMapNoteGeometry(
-    ideaMapSizeLevel,
-    notes.map((note) => getNoteHeight(note.content, note.fontSize)),
+  const canvasZoomControls = (
+    <CanvasZoomControls
+      moveHistory={moveHistory}
+      showNavigationControls
+      interactionTool={interactionTool}
+      onToolChange={isIdeaMapWorkspace ? undefined : onToolChange}
+      toolDisabled={toolDisabled}
+      zoom={canvasZoom}
+      onZoomOut={zoomOut}
+      onResetZoom={resetZoom}
+      onZoomIn={zoomIn}
+      onFitToNotes={fitToNotes}
+    />
   );
 
   function renderPositionedNote(note: Note) {
-    const position = isIdeaValueFeasibilityMapVisible
-      ? getIdeaValueFeasibilityMapNotePosition(
+    const ideaMapNoteMetrics = isIdeaMapWorkspace
+      ? getIdeaMapNoteDisplayMetrics(note, ideaMapSizeLevel)
+      : null;
+    const ideaMapPositionProfiles = ideaMapNoteMetrics
+      ? getFixedIdeaMapNotePositionProfiles(
           { value: note.y, feasibility: note.x },
-          getNoteHeight(note.content, note.fontSize),
-          mapNoteGeometry,
+          ideaMapNoteMetrics.noteHeight,
+          ideaMapNoteMetrics.scale,
         )
-      : { left: note.x, top: note.y };
+      : null;
+    const position = isIdeaMapWorkspace
+      ? { left: "0%", bottom: "0%" }
+      : isIdeaValueFeasibilityMapVisible
+        ? getIdeaValueFeasibilityMapNotePosition(
+            { value: note.y, feasibility: note.x },
+            getNoteHeight(note.content, note.fontSize),
+            mapNoteGeometry,
+          )
+        : { left: note.x, top: note.y };
+    const ideaMapPositionVariables = ideaMapPositionProfiles
+      ? ({
+          "--idea-map-note-left-compact": ideaMapPositionProfiles.compact.left,
+          "--idea-map-note-bottom-compact":
+            ideaMapPositionProfiles.compact.bottom,
+          "--idea-map-note-left-tablet": ideaMapPositionProfiles.tablet.left,
+          "--idea-map-note-bottom-tablet":
+            ideaMapPositionProfiles.tablet.bottom,
+          "--idea-map-note-left-desktop": ideaMapPositionProfiles.desktop.left,
+          "--idea-map-note-bottom-desktop":
+            ideaMapPositionProfiles.desktop.bottom,
+        } as CSSProperties)
+      : {};
     const isAdoptTarget =
       !boardInteractionBlocked &&
       isAdoptMode &&
@@ -507,22 +725,34 @@ export function RoomBoardCanvas({
     return (
       <div
         key={note.id}
-        className="isolate pointer-events-auto absolute"
+        className={`isolate pointer-events-auto absolute ${isIdeaMapWorkspace ? `${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none` : ""}`}
         data-testid={
           isIdeaValueFeasibilityMapVisible
             ? `idea-value-feasibility-map-note-${note.id}`
             : `board-note-${note.id}`
         }
         style={{
-          ...position,
+          ...(!isIdeaMapWorkspace ? position : {}),
+          ...ideaMapPositionVariables,
           zIndex: isTemporarilyFront
             ? TEMPORARY_FRONT_Z_INDEX
             : note.excluded
               ? 0
               : note.stackOrder,
+          ...(isIdeaMapWorkspace
+            ? {
+                transform: `scale(${ideaMapNoteMetrics?.scale ?? ideaMapDisplayScale})`,
+                transformOrigin:
+                  "var(--idea-map-note-transform-origin, 50% 50%)",
+              }
+            : {}),
         }}
       >
-        {renderNoteCard(note)}
+        {renderNoteCard(
+          note,
+          ideaMapNoteMetrics?.noteHeight,
+          isIdeaMapWorkspace ? "responsive-map" : 1,
+        )}
         {isAdoptTarget ? (
           <button
             type="button"
@@ -579,44 +809,104 @@ export function RoomBoardCanvas({
 
   function renderIdeaMapDragGhost() {
     if (!dragGhost) return null;
-    const position = getIdeaValueFeasibilityMapNotePosition(
-      {
-        value: dragGhost.y,
-        feasibility: dragGhost.x,
-      },
-      getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
-      mapNoteGeometry,
+    if (!isIdeaMapWorkspace) {
+      const position = getIdeaValueFeasibilityMapNotePosition(
+        { value: dragGhost.y, feasibility: dragGhost.x },
+        getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
+        mapNoteGeometry,
+      );
+      return (
+        <StickyNote
+          noteId={dragGhost.note.id}
+          isLifted
+          color={dragGhost.note.color}
+          height={Math.min(
+            mapNoteGeometry.noteHeightLimit,
+            getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
+          )}
+          className="pointer-events-none absolute"
+          style={{ ...position, zIndex: TEMPORARY_FRONT_Z_INDEX }}
+        >
+          <p
+            className="min-h-0 flex-1 overflow-hidden p-2"
+            style={{
+              color: NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
+              fontSize: `${dragGhost.note.fontSize}px`,
+              lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
+            }}
+          >
+            {dragGhost.note.content || "メモを入力..."}
+          </p>
+        </StickyNote>
+      );
+    }
+    const ghostMetrics = getIdeaMapNoteDisplayMetrics(
+      dragGhost.note,
+      ideaMapSizeLevel,
     );
+    const positionProfiles = getFixedIdeaMapNotePositionProfiles(
+      { value: dragGhost.y, feasibility: dragGhost.x },
+      ghostMetrics.noteHeight,
+      ghostMetrics.scale,
+    );
+    const positionVariables = {
+      "--idea-map-note-left-compact": positionProfiles.compact.left,
+      "--idea-map-note-bottom-compact": positionProfiles.compact.bottom,
+      "--idea-map-note-left-tablet": positionProfiles.tablet.left,
+      "--idea-map-note-bottom-tablet": positionProfiles.tablet.bottom,
+      "--idea-map-note-left-desktop": positionProfiles.desktop.left,
+      "--idea-map-note-bottom-desktop": positionProfiles.desktop.bottom,
+    } as CSSProperties;
 
     return (
-      <StickyNote
-        noteId={dragGhost.note.id}
-        isLifted
-        color={dragGhost.note.color}
-        height={Math.min(
-          mapNoteGeometry.noteHeightLimit,
-          getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
-        )}
-        className="pointer-events-none absolute"
-        style={{ ...position, zIndex: TEMPORARY_FRONT_Z_INDEX }}
+      <div
+        className={`pointer-events-none absolute ${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none`}
+        data-testid="idea-map-drag-ghost"
+        style={{
+          ...positionVariables,
+          zIndex: TEMPORARY_FRONT_Z_INDEX,
+          transform: `scale(${ghostMetrics.scale})`,
+          transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
+        }}
       >
-        <p
-          className="min-h-0 flex-1 overflow-hidden p-2"
+        <StickyNote
+          noteId={dragGhost.note.id}
+          isLifted
+          color={dragGhost.note.color}
+          height={ghostMetrics.noteHeight}
+          className="pointer-events-none relative"
           style={{
-            color: NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
-            fontSize: `${dragGhost.note.fontSize}px`,
-            lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
+            transform: "scale(var(--idea-map-note-scale, 1))",
+            transformOrigin: "bottom left",
           }}
         >
-          {dragGhost.note.content || "メモを入力..."}
-        </p>
-      </StickyNote>
+          <p
+            className="min-h-0 flex-1 overflow-hidden p-2"
+            style={{
+              color: NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
+              fontSize: `${dragGhost.note.fontSize}px`,
+              lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
+            }}
+          >
+            {dragGhost.note.content || "メモを入力..."}
+          </p>
+        </StickyNote>
+      </div>
     );
   }
 
   return (
     <div className="min-h-0 flex-1">
-      <div className="relative h-full min-h-80" data-testid="board-frame">
+      <div
+        ref={boardFrameRef}
+        className={
+          isIdeaMapWorkspace
+            ? "relative flex h-full min-h-0 flex-row max-[639px]:flex-col"
+            : "relative h-full min-h-80"
+        }
+        data-testid="board-frame"
+        data-map-workspace={isIdeaMapWorkspace || undefined}
+      >
         <div
           className="pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
           data-testid="board-tools-hud"
@@ -626,7 +916,10 @@ export function RoomBoardCanvas({
           <div className="flex items-center gap-2">
             {permissions.canEditNote ? (
               <NoteFontSizeControls
-                fontSize={selectedNote?.fontSize ?? null}
+                fontSize={
+                  selectedNote?.fontSize ??
+                  (isIdeaMapWorkspace ? NOTE_DEFAULT_FONT_SIZE : null)
+                }
                 disabled={
                   isDisconnected ||
                   selectedNote === undefined ||
@@ -646,17 +939,7 @@ export function RoomBoardCanvas({
             data-testid="canvas-zoom-hud"
             className="flex max-w-full items-center gap-2"
           >
-            <CanvasZoomControls
-              moveHistory={moveHistory}
-              interactionTool={interactionTool}
-              onToolChange={onToolChange}
-              toolDisabled={toolDisabled}
-              zoom={displayZoom ?? camera.zoom}
-              onZoomOut={onZoomOut}
-              onResetZoom={onResetZoom}
-              onZoomIn={onZoomIn}
-              onFitToNotes={onFitToNotes}
-            />
+            {canvasZoomControls}
             <span aria-live="polite" className="sr-only">
               {selectionIds.length > 0
                 ? `選択した付箋：${selectionIds.length}枚`
@@ -664,30 +947,43 @@ export function RoomBoardCanvas({
             </span>
           </div>
         </div>
-        <div className="absolute inset-0" hidden={isPersonalNoteEntryPhase}>
+        <div
+          className={
+            isIdeaMapWorkspace
+              ? "relative min-h-0 min-w-0 flex-1"
+              : "absolute inset-0"
+          }
+          hidden={isPersonalNoteEntryPhase}
+        >
           <div
             ref={boardScrollerRef}
             // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
-            className={`relative h-full overflow-clip bg-muted/20 [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
-              isAdoptMode
-                ? "cursor-crosshair"
-                : selectedVoteKind !== null
-                  ? "cursor-none"
-                  : isPanning
-                    ? "cursor-grabbing"
-                    : interactionTool === "hand"
-                      ? "cursor-grab"
-                      : "cursor-default"
+            className={`relative h-full overflow-clip ${isIdeaMapWorkspace ? "bg-background" : "bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
+              isIdeaMapWorkspace
+                ? "cursor-default"
+                : isAdoptMode
+                  ? "cursor-crosshair"
+                  : selectedVoteKind !== null
+                    ? "cursor-none"
+                    : isPanning
+                      ? "cursor-grabbing"
+                      : interactionTool === "hand"
+                        ? "cursor-grab"
+                        : "cursor-default"
             }`}
             data-testid="board-scroller"
             data-interaction-tool={interactionTool}
             tabIndex={-1}
             role="application"
             aria-label="共有キャンバス"
-            aria-description="背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動"
+            aria-description={
+              isIdeaMapWorkspace
+                ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"
+                : "背景でVは選択、Hは手のひら。Spaceとドラッグで画面移動"
+            }
             data-selection-count={selectionIds.length}
             data-adopt-mode={isAdoptMode || undefined}
-            style={gridStyle}
+            style={isIdeaMapWorkspace ? { backgroundImage: "none" } : gridStyle}
             onPointerDownCapture={handleViewportPointerDown}
             onPointerUp={(event) => {
               finishAdoptionPointer(event);
@@ -731,6 +1027,48 @@ export function RoomBoardCanvas({
                 style={marquee}
               />
             ) : null}
+            {isIdeaMapWorkspace ? (
+              <FixedIdeaMap
+                positionAreaRef={ideaMapPlaneRef}
+                workspace={isIdeaMapWorkspace}
+                workspaceControls={
+                  ideaMapWorkspaceControls ?? {
+                    phaseLoop: null,
+                    mapSize: (
+                      <IdeaMapSizeControls
+                        sizeLevel={ideaMapSizeLevel}
+                        initialized={ideaMapSizeInitialized}
+                        isHost={isHost}
+                        isDisconnected={isDisconnected}
+                        isDragging={ideaMapIsDragging}
+                        onResize={onIdeaMapResize}
+                      />
+                    ),
+                  }
+                }
+                horizontalLowEndpointOffset={
+                  isIdeaMapSharingStep ? horizontalLowEndpointOffset : 0
+                }
+                groupHorizontalLowEndpoint={isIdeaMapSharingStep}
+                zoom={fixedIdeaMapZoom}
+                overlay={remoteCursors.map((cursor) => (
+                  <RemoteCursor
+                    key={cursor.userId}
+                    cursor={cursor}
+                    isIdle={cursor.isIdle}
+                    labelOffset={getCursorLabelOffset(cursor.userId)}
+                    style={{
+                      left: `${cursor.x}%`,
+                      bottom: `${cursor.y}%`,
+                      transform: "none",
+                    }}
+                  />
+                ))}
+              >
+                {orderedNotes.map(renderPositionedNote)}
+                {renderIdeaMapDragGhost()}
+              </FixedIdeaMap>
+            ) : null}
             <div
               data-testid="board-canvas"
               data-canvas-background="true"
@@ -740,12 +1078,14 @@ export function RoomBoardCanvas({
                   : "absolute top-0 left-0 min-h-full min-w-full"
               }
               style={{
-                transform: `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`,
+                transform: isIdeaMapWorkspace
+                  ? "none"
+                  : `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`,
                 transformOrigin: "0 0",
-                willChange: "transform",
+                willChange: isIdeaMapWorkspace ? "auto" : "transform",
               }}
             >
-              {isIdeaValueFeasibilityMapVisible ? (
+              {isIdeaValueFeasibilityMapVisible && !isIdeaMapWorkspace ? (
                 <IdeaValueFeasibilityMap
                   planeRef={ideaMapPlaneRef}
                   sizeLevel={ideaMapSizeLevel}
@@ -844,6 +1184,13 @@ export function RoomBoardCanvas({
               : null}
           </div>
         </div>
+        {isIdeaMapWorkspace ? (
+          <div
+            className="relative z-30 w-56 shrink-0 -translate-x-3 max-[639px]:hidden"
+            data-testid="idea-map-workspace-rail"
+            aria-hidden="true"
+          />
+        ) : null}
         {dragPreview && typeof document !== "undefined"
           ? createPortal(
               <StickyNote
@@ -855,33 +1202,36 @@ export function RoomBoardCanvas({
                 style={{
                   left: dragPreview.left,
                   top: dragPreview.top,
-                  width: dragPreview.width,
-                  height: dragPreview.height,
+                  width:
+                    dragPreview.noteScale === undefined
+                      ? dragPreview.width
+                      : NOTE_WIDTH,
+                  height: dragPreview.noteHeight ?? dragPreview.height,
+                  ...(dragPreview.noteScale === undefined
+                    ? {}
+                    : {
+                        transform: `scale(${dragPreview.noteScale})`,
+                        transformOrigin: "top left",
+                      }),
                 }}
               >
-                <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900">
+                <p
+                  className={`min-h-0 flex-1 overflow-hidden p-2 text-slate-900 ${dragPreview.noteScale === undefined ? "text-sm" : ""}`}
+                  style={
+                    dragPreview.noteScale === undefined
+                      ? undefined
+                      : {
+                          fontSize: `${dragPreview.note.fontSize}px`,
+                          lineHeight: `${Math.ceil(dragPreview.note.fontSize * 1.5)}px`,
+                        }
+                  }
+                >
                   {dragPreview.note.content || "メモを入力..."}
                 </p>
               </StickyNote>,
               document.body,
             )
           : null}
-        {isIdeaMapSizeControlsVisible ? (
-          <div
-            className="pointer-events-auto absolute bottom-[4.5rem] left-1/2 z-40 -translate-x-1/2 max-[639px]:right-3 max-[639px]:left-auto max-[639px]:translate-x-0 max-[639px]:bottom-[var(--board-mobile-controls-bottom,11rem)]"
-            data-testid="idea-map-size-controls-hud"
-            data-board-fit-edge="bottom"
-          >
-            <IdeaMapSizeControls
-              sizeLevel={ideaMapSizeLevel}
-              initialized={ideaMapSizeInitialized}
-              isHost={isHost}
-              isDisconnected={isDisconnected}
-              isDragging={ideaMapIsDragging}
-              onResize={onIdeaMapResize}
-            />
-          </div>
-        ) : null}
         <div
           className="pointer-events-auto absolute right-3 bottom-3 z-40 max-[639px]:bottom-[var(--board-operation-bottom,4.5rem)]"
           data-testid="board-operation-matrix"
@@ -892,7 +1242,7 @@ export function RoomBoardCanvas({
         </div>
         {permissions.showPrivateToolbar ? (
           <div
-            className={privateNotesContainerClassName}
+            className={`${privateNotesContainerClassName} ${isIdeaMapWorkspace ? "min-[640px]:w-56" : ""}`}
             data-testid={
               isPersonalNoteEntryPhase
                 ? "private-notes-workspace"
@@ -922,16 +1272,23 @@ export function RoomBoardCanvas({
               sharingHint={
                 isSavingBeforeShare
                   ? "本文の保存を確認してから共有します…"
-                  : phase.kind === "step" && phase.step === 2
+                  : isPhaseStep(phase, 3, 2)
                     ? canPublishPrivateNote
-                      ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+                      ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
                       : "付箋の共有は、自分の番になるまでお待ちください。"
-                    : undefined
+                    : phase.kind === "step" && phase.step === 2
+                      ? canPublishPrivateNote
+                        ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+                        : "付箋の共有は、自分の番になるまでお待ちください。"
+                      : undefined
               }
               presentation={isPersonalNoteEntryPhase ? "workspace" : "dock"}
               editingDisabled={isResultStep(phase)}
               defaultExpanded={
-                phase.kind === "step" && phase.step === 1 && phase.phase <= 3
+                (phase.kind === "step" &&
+                  phase.step === 1 &&
+                  phase.phase <= 3) ||
+                isPhaseStep(phase, 3, 2)
               }
               expandRequest={expandPrivateNotesRequest}
               addRequest={addPrivateNoteRequest}
@@ -939,7 +1296,7 @@ export function RoomBoardCanvas({
               className={
                 isPersonalNoteEntryPhase
                   ? "pointer-events-auto h-full w-full"
-                  : "pointer-events-auto max-h-full"
+                  : `pointer-events-auto max-h-full ${isIdeaMapWorkspace ? "min-[640px]:w-56" : ""}`
               }
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}

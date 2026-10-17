@@ -309,7 +309,7 @@ describe("検証用の初期状態", () => {
 
     await runInDurableObject(stub, (_instance, state) => {
       expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
-        sizeLevel: 0,
+        sizeLevel: 4,
         initialized: true,
       });
     });

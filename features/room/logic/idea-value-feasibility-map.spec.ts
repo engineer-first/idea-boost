@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  getFixedIdeaMapNotePointFromClientPosition,
+  getFixedIdeaMapNotePosition,
+  getIdeaMapDisplayScale,
   getIdeaMapNoteGeometry,
   getIdeaMapNotePointFromClientPosition,
   getIdeaValueFeasibilityMapDimensions,
@@ -9,6 +12,72 @@ import {
 } from "./idea-value-feasibility-map";
 
 describe("getIdeaValueFeasibilityMapPosition", () => {
+  it("固定マップは付箋の表示寸法に合わせて移動範囲を端まで使う", () => {
+    expect(
+      getFixedIdeaMapNotePosition({ feasibility: 0, value: 100 }, 150),
+    ).toEqual({ left: "0%", bottom: "calc(100% - 150px)" });
+    expect(
+      getFixedIdeaMapNotePosition({ feasibility: 100, value: 0 }, 320),
+    ).toEqual({ left: "calc(100% - 200px)", bottom: "0%" });
+  });
+
+  it("縮小倍率と実際の付箋サイズを使い、四辺で付箋の外側をマップ枠へ合わせる", () => {
+    const size = { width: 100, height: 75 };
+    const bounds = { left: 100, top: 100, right: 500, bottom: 300 };
+    const grabOffset = { x: 50, y: 37.5 };
+
+    expect(
+      getFixedIdeaMapNotePointFromClientPosition(
+        100,
+        200,
+        bounds,
+        size,
+        grabOffset,
+      ),
+    ).toEqual({ feasibility: 0, value: 50 });
+    expect(
+      getFixedIdeaMapNotePointFromClientPosition(
+        500,
+        200,
+        bounds,
+        size,
+        grabOffset,
+      ),
+    ).toEqual({ feasibility: 100, value: 50 });
+    expect(
+      getFixedIdeaMapNotePointFromClientPosition(
+        300,
+        100,
+        bounds,
+        size,
+        grabOffset,
+      ),
+    ).toEqual({ feasibility: 50, value: 100 });
+    expect(
+      getFixedIdeaMapNotePointFromClientPosition(
+        300,
+        300,
+        bounds,
+        size,
+        grabOffset,
+      ),
+    ).toEqual({ feasibility: 50, value: 0 });
+  });
+
+  it("縮小表示した付箋は表示倍率と各viewportのtransform originを反映する", () => {
+    expect(
+      getFixedIdeaMapNotePosition({ feasibility: 100, value: 100 }, 150, {
+        displayScale: 0.5,
+        responsiveScale: 0.6,
+        transformOriginX: 0.3,
+        transformOriginY: 0.7,
+      }),
+    ).toEqual({
+      left: "calc(100% - 90px)",
+      bottom: "calc(100% - 67.5px)",
+    });
+  });
+
   it("サイズ段階でマップだけを10%ずつ拡張し、付箋寸法と座標範囲を保つ", () => {
     expect(getIdeaValueFeasibilityMapDimensions(0)).toEqual({
       width: 1600,
@@ -28,6 +97,13 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       left: "1322px",
       bottom: "0px",
     });
+  });
+
+  it("共有範囲が広がるほど固定マップ内部の表示倍率を下げる", () => {
+    expect(getIdeaMapDisplayScale(0)).toBe(1);
+    expect(getIdeaMapDisplayScale(1)).toBeCloseTo(1 / 1.1);
+    expect(getIdeaMapDisplayScale(2)).toBeCloseTo(1 / 1.21);
+    expect(getIdeaMapDisplayScale(15)).toBeLessThan(getIdeaMapDisplayScale(2));
   });
 
   it.each([

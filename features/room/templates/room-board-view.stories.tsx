@@ -1005,6 +1005,9 @@ export const CanvasInputInteraction: Story = {
   },
   render: function Render(args) {
     const [notes, setNotes] = useState(args.notes);
+    const [ideaMapSizeLevel, setIdeaMapSizeLevel] = useState(
+      args.ideaMapSizeLevel ?? 0,
+    );
     const [adoptionCount, setAdoptionCount] = useState(0);
     const [privateNotes, setPrivateNotes] = useState(
       args.interactions.privateNotes,
@@ -1018,14 +1021,27 @@ export const CanvasInputInteraction: Story = {
       phase: args.phase,
       isDecided: args.decision !== null,
       sharing: args.sharing,
-      ideaMapSizeLevel: args.ideaMapSizeLevel,
+      ideaMapSizeLevel,
       ideaMapSizeInitialized: args.ideaMapSizeInitialized,
       getFitInsets: getBoardFitInsets,
       onNoteDragStart: (id) => setDraggingNoteId(id),
       onNoteDragMove: () => undefined,
-      onNoteDragEnd: (id, x, y) => {
+      onNoteDragEnd: (id, x, y, ideaMapPlaced) => {
         setNotes((current) =>
-          current.map((note) => (note.id === id ? { ...note, x, y } : note)),
+          current.map((note) =>
+            note.id === id
+              ? {
+                  ...note,
+                  x,
+                  y,
+                  ...(args.phase.kind === "step" &&
+                  args.phase.phase === 3 &&
+                  (args.phase.step === 2 || args.phase.step === 3)
+                    ? { ideaMapPlaced: ideaMapPlaced ?? true }
+                    : {}),
+                }
+              : note,
+          ),
         );
         setDraggingNoteId(null);
       },
@@ -1036,7 +1052,7 @@ export const CanvasInputInteraction: Story = {
         setPrivateNotes((current) => current.filter((item) => item.id !== id));
         setNotes((current) => [
           ...current,
-          { ...note, visibility: "shared", x, y },
+          { ...note, visibility: "shared", x, y, ideaMapPlaced: true },
         ]);
       },
       onPrivateNoteUnpublish: (id) => {
@@ -1056,6 +1072,8 @@ export const CanvasInputInteraction: Story = {
       <>
         <RoomBoardView
           {...args}
+          ideaMapSizeLevel={ideaMapSizeLevel}
+          onIdeaMapResize={setIdeaMapSizeLevel}
           notes={notes}
           interactions={interactions}
           help={help}
@@ -1186,6 +1204,73 @@ export const CanvasInputInteraction: Story = {
         </output>
       </>
     );
+  },
+};
+
+export const IdeaMapWorkspace: Story = {
+  ...CanvasInputInteraction,
+  name: "3-2 共有 / 2軸マップとマイ付箋",
+  args: {
+    phase: buildPhaseStep(2, 3),
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
+    moveHistory: {
+      undo: { label: "戻せる移動はありません", reason: null, disabled: true },
+      redo: {
+        label: "やり直せる移動はありません",
+        reason: null,
+        disabled: true,
+      },
+      pending: false,
+      onUndo: fn(),
+      onRedo: fn(),
+    },
+    decidedHmw: GUIDE_QUESTION,
+    hmwDecidedIssue: GUIDE_ISSUE,
+    issueReference: buildCarryover({ phase: 1, content: GUIDE_ISSUE }),
+    hmwReference: buildCarryover({ phase: 2, content: GUIDE_QUESTION }),
+    notes: [
+      buildNote({
+        id: "map-workspace-placed",
+        authorId: ME,
+        content: "最初の一歩を小さくする",
+        x: 70,
+        y: 75,
+        ideaMapPlaced: true,
+      }),
+      ...buildNotes(8).map((note, index) => ({
+        ...note,
+        id: `map-workspace-shared-${index + 1}`,
+        authorId: ME,
+        content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
+        x: 10 + ((index * 29) % 80),
+        y: 12 + ((index * 37) % 76),
+      })),
+    ],
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(12).map((note, index) => ({
+        ...note,
+        id: `map-workspace-private-${index + 1}`,
+        authorId: ME,
+        visibility: "private" as const,
+        content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
+      })),
+    },
+    isHost: true,
+    ideaMapSizeLevel: 4,
+    ideaMapSizeInitialized: true,
+    initialGuideState: "compact",
+  },
+};
+
+export const IdeaMapOnly: Story = {
+  ...IdeaMapWorkspace,
+  name: "3-3 評価 / マップのみ",
+  args: {
+    ...IdeaMapWorkspace.args,
+    phase: buildPhaseStep(3, 3),
+    sharing: null,
+    interactions: { ...INTERACTIONS, privateNotes: [] },
   },
 };
 

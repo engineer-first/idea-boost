@@ -73,7 +73,12 @@ export class VerificationRoomDO extends RoomDO {
                 completed ||
                 target.step > 2 ||
                 (target.step === 2 && index >= 3);
-              this.seedNote(phase, index, shared);
+              this.seedNote(
+                phase,
+                index,
+                shared,
+                !(phase === 3 && target.step === 3),
+              );
             }
             if (completed || isResultStep(target)) {
               for (const user of DEV_USERS) this.seedVotes(phase, user.id);
@@ -328,7 +333,12 @@ export class VerificationRoomDO extends RoomDO {
     return result;
   }
 
-  private seedNote(phase: number, index: number, shared: boolean): NoteRow {
+  private seedNote(
+    phase: number,
+    index: number,
+    shared: boolean,
+    ideaMapPlaced = true,
+  ): NoteRow {
     const user = DEV_USERS[index % DEV_USERS.length];
     const now = new Date().toISOString();
     const order = this.ctx.storage.sql
@@ -353,6 +363,7 @@ export class VerificationRoomDO extends RoomDO {
       updated_at: now,
       phase,
       excluded: false,
+      idea_map_placed: ideaMapPlaced,
     };
     insertNote(this.ctx.storage.sql, note);
     return note;

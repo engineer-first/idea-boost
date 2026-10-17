@@ -2,8 +2,13 @@
 
 import { Check, ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { getNoteHeight, NOTE_DEFAULT_FONT_SIZE } from "@/contracts/board";
-import type { RoomPhase } from "@/contracts/phase";
+import { isPhaseStep, type RoomPhase } from "@/contracts/phase";
 import type { Carryover } from "@/contracts/room-protocol";
 import { DotVoteSticker } from "@/features/dot-vote";
 import { StickyNote } from "@/features/notes";
@@ -11,6 +16,7 @@ import styles from "./board-context.module.css";
 import { BoardLocation } from "./board-location";
 
 export type BoardContextProps = {
+  initialDisclosureId?: "hmw" | "issue" | null;
   phase: RoomPhase;
   outcomePublished?: boolean;
   hmwDecidedIssue: string | null;
@@ -20,6 +26,7 @@ export type BoardContextProps = {
 };
 
 export function BoardContext({
+  initialDisclosureId,
   phase,
   outcomePublished,
   hmwDecidedIssue,
@@ -28,7 +35,8 @@ export function BoardContext({
   hmwReference,
 }: BoardContextProps) {
   const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
-  const initialId =
+  const isMapWorkspace = isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const defaultInitialId =
     phase.kind === "step"
       ? phase.phase === 3
         ? "hmw"
@@ -36,6 +44,8 @@ export function BoardContext({
           ? "issue"
           : null
       : null;
+  const initialId =
+    initialDisclosureId === undefined ? defaultInitialId : initialDisclosureId;
   const [openState, setOpenState] = useState<{
     phaseKey: string;
     id: string | null;
@@ -69,17 +79,120 @@ export function BoardContext({
       <BoardLocation phase={phase} outcomePublished={outcomePublished} />
       {disclosures.length > 0 ? (
         <div
-          className={`${styles.references} board-hud pointer-events-auto w-[200px] space-y-2 pt-2`}
+          className={`${styles.references} board-hud pointer-events-auto pt-2 ${isMapWorkspace ? "grid w-full grid-cols-2 items-stretch gap-2 max-[639px]:grid-cols-1" : "w-[200px] space-y-2"}`}
+          data-layout={isMapWorkspace ? "map-workspace" : "stacked"}
+          data-testid="board-context-references"
         >
           {disclosures.map((disclosure) => {
             const isOpen = openDisclosureId === disclosure.id;
             const triggerId = `${id}-${disclosure.id}-trigger`;
             const contentId = `${id}-${disclosure.id}-content`;
+            const note = (
+              <StickyNote
+                noteId={
+                  disclosure.reference?.noteId ?? `reference-${disclosure.id}`
+                }
+                color={disclosure.reference?.color ?? null}
+                isDecided
+                height={Math.min(
+                  240,
+                  getNoteHeight(
+                    disclosure.content ?? "",
+                    disclosure.reference?.fontSize ?? NOTE_DEFAULT_FONT_SIZE,
+                  ),
+                )}
+                className={styles.referenceNote}
+              >
+                <section
+                  data-testid={`board-reference-${disclosure.id}-content`}
+                  tabIndex={isOpen ? 0 : -1}
+                  aria-label={`${disclosure.label}の本文`}
+                  className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  style={{
+                    fontSize:
+                      disclosure.reference?.fontSize ?? NOTE_DEFAULT_FONT_SIZE,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <p className="whitespace-pre-wrap break-words">
+                    {disclosure.content}
+                  </p>
+                </section>
+                <div className="flex h-10 shrink-0 items-center gap-2 px-2 pb-2">
+                  {disclosure.reference?.dotVotes ? (
+                    <>
+                      <DotVoteSticker
+                        kind="subjective"
+                        state="result"
+                        count={disclosure.reference.dotVotes.subjective}
+                      />
+                      <DotVoteSticker
+                        kind="objective"
+                        state="result"
+                        count={disclosure.reference.dotVotes.objective}
+                      />
+                    </>
+                  ) : null}
+                  <span
+                    role="status"
+                    aria-label="採用済み"
+                    className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
+                  >
+                    <Check
+                      aria-hidden="true"
+                      className="size-5"
+                      strokeWidth={3}
+                    />
+                  </span>
+                </div>
+              </StickyNote>
+            );
+            const trigger = (
+              <button
+                id={triggerId}
+                type="button"
+                aria-label={isMapWorkspace ? disclosure.label : undefined}
+                aria-expanded={isOpen}
+                aria-controls={contentId}
+                className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-2 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                onClick={
+                  isMapWorkspace
+                    ? undefined
+                    : () =>
+                        setOpenState({
+                          phaseKey,
+                          id: isOpen ? null : disclosure.id,
+                        })
+                }
+              >
+                {disclosure.id === "hmw" || disclosure.id === "issue" ? (
+                  <Check
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                  />
+                ) : null}
+                <span className="flex min-w-0 flex-1 items-center gap-1">
+                  <span className="shrink-0">{disclosure.label}</span>
+                  {isMapWorkspace ? (
+                    <span
+                      className="min-w-0 truncate font-normal text-muted-foreground"
+                      title={disclosure.content ?? undefined}
+                    >
+                      {disclosure.content}
+                    </span>
+                  ) : null}
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={`size-3.5 shrink-0 text-muted-foreground ${isOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+            );
 
             return (
               <section
                 key={disclosure.id}
-                className="w-[200px]"
+                className={isMapWorkspace ? "relative min-w-0" : "w-[200px]"}
                 data-testid={
                   disclosure.id === "hmw" || disclosure.id === "issue"
                     ? `board-reference-${disclosure.id}`
@@ -87,104 +200,48 @@ export function BoardContext({
                 }
                 data-open={isOpen}
               >
-                <button
-                  id={triggerId}
-                  type="button"
-                  aria-expanded={isOpen}
-                  aria-controls={contentId}
-                  className="flex min-h-9 w-full cursor-pointer items-center gap-1.5 rounded-md bg-background px-2 py-1.5 text-left text-xs font-medium outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                  onClick={() =>
-                    setOpenState({
-                      phaseKey,
-                      id: isOpen ? null : disclosure.id,
-                    })
-                  }
-                >
-                  {disclosure.id === "hmw" || disclosure.id === "issue" ? (
-                    <Check
-                      aria-hidden="true"
-                      className="size-3.5 shrink-0 text-muted-foreground"
-                    />
-                  ) : null}
-                  <span className="flex-1">{disclosure.label}</span>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={`size-3.5 shrink-0 text-muted-foreground ${isOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                <section
-                  id={contentId}
-                  aria-labelledby={triggerId}
-                  aria-hidden={!isOpen}
-                  inert={!isOpen}
-                  hidden={!isOpen}
-                  data-open={isOpen}
-                  className={styles.disclosure}
-                >
-                  <div className={`${styles.disclosureInner} p-2 -mx-2`}>
-                    <StickyNote
-                      noteId={
-                        disclosure.reference?.noteId ??
-                        `reference-${disclosure.id}`
-                      }
-                      color={disclosure.reference?.color ?? null}
-                      isDecided
-                      height={Math.min(
-                        240,
-                        getNoteHeight(
-                          disclosure.content ?? "",
-                          disclosure.reference?.fontSize ??
-                            NOTE_DEFAULT_FONT_SIZE,
-                        ),
-                      )}
-                      className={styles.referenceNote}
+                {isMapWorkspace ? (
+                  <Popover
+                    open={isOpen}
+                    onOpenChange={(open) =>
+                      setOpenState({
+                        phaseKey,
+                        id: open ? disclosure.id : null,
+                      })
+                    }
+                  >
+                    <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+                    <PopoverContent
+                      id={contentId}
+                      aria-labelledby={triggerId}
+                      side="bottom"
+                      align="start"
+                      sideOffset={8}
+                      collisionPadding={8}
+                      className="z-[60] w-[216px] max-w-[calc(100vw-1rem)] border-0 bg-transparent p-2 shadow-none"
+                      data-testid={`board-reference-${disclosure.id}-popover`}
                     >
-                      <section
-                        data-testid={`board-reference-${disclosure.id}-content`}
-                        tabIndex={isOpen ? 0 : -1}
-                        aria-label={`${disclosure.label}の本文`}
-                        className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                        style={{
-                          fontSize:
-                            disclosure.reference?.fontSize ??
-                            NOTE_DEFAULT_FONT_SIZE,
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        <p className="whitespace-pre-wrap break-words">
-                          {disclosure.content}
-                        </p>
-                      </section>
-                      <div className="flex h-10 shrink-0 items-center gap-2 px-2 pb-2">
-                        {disclosure.reference?.dotVotes ? (
-                          <>
-                            <DotVoteSticker
-                              kind="subjective"
-                              state="result"
-                              count={disclosure.reference.dotVotes.subjective}
-                            />
-                            <DotVoteSticker
-                              kind="objective"
-                              state="result"
-                              count={disclosure.reference.dotVotes.objective}
-                            />
-                          </>
-                        ) : null}
-                        <span
-                          role="status"
-                          aria-label="採用済み"
-                          className="ml-auto flex size-9 shrink-0 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-lg"
-                        >
-                          <Check
-                            aria-hidden="true"
-                            className="size-5"
-                            strokeWidth={3}
-                          />
-                        </span>
+                      {note}
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <>
+                    {trigger}
+                    <section
+                      id={contentId}
+                      aria-labelledby={triggerId}
+                      aria-hidden={!isOpen}
+                      inert={!isOpen}
+                      hidden={!isOpen}
+                      data-open={isOpen}
+                      className={styles.disclosure}
+                    >
+                      <div className={`${styles.disclosureInner} p-2 -mx-2`}>
+                        {note}
                       </div>
-                    </StickyNote>
-                  </div>
-                </section>
+                    </section>
+                  </>
+                )}
               </section>
             );
           })}

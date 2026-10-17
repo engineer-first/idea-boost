@@ -1,0 +1,119 @@
+.axisStroke {
+  display: block;
+  overflow: visible;
+}
+
+.verticalAxisTrack {
+  position: absolute;
+  top: 2.25rem;
+  left: 50%;
+  width: 1rem;
+  height: calc(100% - 4.5rem);
+  transform: translateX(-50%);
+}
+
+.horizontalAxisTrack {
+  position: absolute;
+  top: 13px;
+  right: 2rem;
+  left: var(--horizontal-axis-start, 1rem);
+  height: 1rem;
+  width: calc(100% - var(--horizontal-axis-start, 1rem) - 2rem);
+  transform: translateY(-50%);
+}
+
+.workspaceUngroupedAxisTrack {
+  --horizontal-axis-start: 2rem;
+}
+
+@media (min-width: 1120px) and (max-height: 820px) {
+  .workspaceCompactValueLow {
+    bottom: 1.75rem;
+    left: calc(50% - 1.5rem);
+  }
+
+  .workspaceCompactFeasibilityLow {
+    top: -1.25rem;
+    left: 1.5rem;
+  }
+
+  .workspaceCompactFeasibilityHigh {
+    top: -1.25rem;
+  }
+
+  .workspaceUngroupedAxisTrack {
+    --horizontal-axis-start: 3.5rem;
+
+    top: -8px;
+  }
+}
+
+.horizontalLowEndpointGroup {
+  top: 1px;
+  right: 2rem;
+  left: calc(1rem - 0.5rem + var(--horizontal-low-endpoint-offset, 0px));
+  height: 1.5rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.horizontalLowEndpointTrack {
+  min-width: 0;
+  height: 1rem;
+  flex: 1;
+}
+
+.workspaceSharingFeasibilityAxis {
+  top: -12px;
+}
+
+@media (min-width: 640px) {
+  .horizontalLowEndpointGroup {
+    left: calc(1rem - 0.625rem + var(--horizontal-low-endpoint-offset, 0px));
+  }
+}
+
+.workspaceControls {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  inset: 0;
+}
+
+.workspacePhaseLoopHud,
+.workspaceMapSizeHud {
+  position: absolute;
+  bottom: 20px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.workspacePhaseLoopHud {
+  left: min(31%, calc(50% - 11.5rem));
+  transform: translateX(-50%);
+}
+
+.workspaceMapSizeHud {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.workspaceControlsContent {
+  pointer-events: auto;
+  transform-origin: center;
+}
+
+@container map-plane (max-width: 25rem) {
+  .workspacePhaseLoopHud {
+    left: 26%;
+  }
+
+  .workspaceMapSizeHud {
+    left: 70%;
+  }
+
+  .workspaceMapSizeHud [data-map-size-label] {
+    display: none;
+  }
+}

@@ -27,6 +27,7 @@ function note(overrides?: Partial<ProtocolNote>): ProtocolNote {
       objective: { count: 0, votedByMe: false, ownCount: 0 },
     },
     ...overrides,
+    ideaMapPlaced: overrides?.ideaMapPlaced ?? true,
     fontSize: overrides?.fontSize ?? 14,
     stackOrder: overrides?.stackOrder ?? 0,
     dotVoteStickers: overrides?.dotVoteStickers ?? [],

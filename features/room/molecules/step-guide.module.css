@@ -89,6 +89,12 @@
     top: 84px;
   }
 }
+/* 固定マップも、狭幅ではdevelopの退避位置で発表者HUDとの重なりを避ける。 */
+@media (min-width: 1440px) {
+  [data-map-workspace="true"] .guide {
+    top: 4px;
+  }
+}
 @media (min-width: 901px) and (max-width: 1199px) {
   .guide {
     --guide-width: min(470px, calc(100vw - 660px));
@@ -152,6 +158,14 @@
   .guide[data-state] .layer {
     transition: none;
   }
+}
+
+.guide[data-placement="inline"][data-state="compact"] {
+  position: relative;
+  top: auto;
+  left: auto;
+  margin: 0;
+  transform: none;
 }
 
 .introLink {

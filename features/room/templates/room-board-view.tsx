@@ -58,6 +58,7 @@ import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { RoomNameControls } from "../logic/use-room-name";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
+import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
@@ -872,6 +873,31 @@ export function RoomBoardView({
       ? null
       : (notes.find((note) => note.id === decision.noteId)?.content ??
         "確定した内容");
+  const phaseLoopControls = (
+    <PhaseLoopControls
+      key={`${phaseKey}:${phaseRevision}:${hostRevision}:${connectionStatus}`}
+      phase={phase}
+      isHost={isHost}
+      isSelecting={isAdoptMode}
+      decisionContent={decisionContent}
+      candidateCount={candidateNotes.length}
+      disabled={
+        isDisconnected ||
+        isNextPhasePending ||
+        isCandidatePending ||
+        isTransferring
+      }
+      selectionDisabled={boardInteractionBlocked}
+      onRestartWriting={onRestartWriting}
+      onRevote={onRevote}
+      onStartSelection={() => {
+        setSelectedNoteId(null);
+        setIsAdoptMode(true);
+      }}
+      onCancelSelection={() => setIsAdoptMode(false)}
+      onClearDecision={outcomePublished ? undefined : onDecisionClear}
+    />
+  );
 
   function hasActiveCanvasGesture(): boolean {
     return Boolean(
@@ -1344,7 +1370,9 @@ export function RoomBoardView({
   } = interactions;
 
   const hasMoveHistory = moveHistory !== undefined;
-  // mobileはHUDの実高を使って積む。fit用の占有領域・desktopの配置はそのまま保つ。
+  const isIdeaMapWorkspace =
+    isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  // モバイルで画面下に積むHUDの実高を記録する。固定マップ上の操作UIは画面下を占有しない。
   useEffect(() => {
     const root = boardRootRef.current;
     if (!root) return;
@@ -1367,6 +1395,14 @@ export function RoomBoardView({
     ] as const;
     const update = () => {
       for (const [testId, property] of surfaces) {
+        if (
+          isIdeaMapWorkspace &&
+          (testId === "phase-loop-hud" ||
+            testId === "idea-map-size-controls-hud")
+        ) {
+          root.style.setProperty(property, "0px");
+          continue;
+        }
         if (
           testId === "idea-map-size-controls-hud" &&
           (phase.kind !== "step" || phase.phase !== 3)
@@ -1447,7 +1483,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, phase]);
+  }, [boardRootRef, phase, isIdeaMapWorkspace]);
 
   const handleNoteSelect = (
     noteId: string | null,
@@ -1882,18 +1918,20 @@ export function RoomBoardView({
           onTimerExtend={onTimerExtend}
           onTimerStop={onTimerStop}
         >
-          <BoardHelpPanel
-            {...help}
-            disabled={isDisconnected || boardInteractionBlocked}
-            onHmwTemplateSelect={(content) => {
-              onHmwTemplateSelect(content);
-              setExpandPrivateNotesRequest((request) => request + 1);
-            }}
-            onIdeaHintSelect={(content) => {
-              onIdeaHintSelect(content);
-              setExpandPrivateNotesRequest((request) => request + 1);
-            }}
-          />
+          {!isIdeaMapWorkspace ? (
+            <BoardHelpPanel
+              {...help}
+              disabled={isDisconnected || boardInteractionBlocked}
+              onHmwTemplateSelect={(content) => {
+                onHmwTemplateSelect(content);
+                setExpandPrivateNotesRequest((request) => request + 1);
+              }}
+              onIdeaHintSelect={(content) => {
+                onIdeaHintSelect(content);
+                setExpandPrivateNotesRequest((request) => request + 1);
+              }}
+            />
+          ) : null}
         </RoomBoardHeader>
         {boardInteractionBlocked &&
         phase.kind === "step" &&
@@ -1971,6 +2009,23 @@ export function RoomBoardView({
           boardInteractionBlocked={boardInteractionBlocked}
           ideaMapSizeLevel={ideaMapSizeLevel}
           ideaMapSizeInitialized={ideaMapSizeInitialized}
+          ideaMapWorkspaceControls={
+            isIdeaMapWorkspace
+              ? {
+                  phaseLoop: phaseLoopControls,
+                  mapSize: (
+                    <IdeaMapSizeControls
+                      sizeLevel={ideaMapSizeLevel}
+                      initialized={ideaMapSizeInitialized}
+                      isHost={isHost}
+                      isDisconnected={isDisconnected}
+                      isDragging={ideaMapIsDragging || isNoteDragging}
+                      onResize={onIdeaMapResize}
+                    />
+                  ),
+                }
+              : undefined
+          }
           ideaMapIsDragging={ideaMapIsDragging || isNoteDragging}
           onIdeaMapResize={onIdeaMapResize}
           voteRemaining={voteRemaining}
@@ -2085,35 +2140,15 @@ export function RoomBoardView({
           </div>
         ) : null}
 
-        <div
-          className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
-          data-testid="phase-loop-hud"
-          data-board-fit-edge="bottom"
-        >
-          <PhaseLoopControls
-            key={`${phaseKey}:${phaseRevision}:${hostRevision}:${connectionStatus}`}
-            phase={phase}
-            isHost={isHost}
-            isSelecting={isAdoptMode}
-            decisionContent={decisionContent}
-            candidateCount={candidateNotes.length}
-            disabled={
-              isDisconnected ||
-              isNextPhasePending ||
-              isCandidatePending ||
-              isTransferring
-            }
-            selectionDisabled={boardInteractionBlocked}
-            onRestartWriting={onRestartWriting}
-            onRevote={onRevote}
-            onStartSelection={() => {
-              setSelectedNoteId(null);
-              setIsAdoptMode(true);
-            }}
-            onCancelSelection={() => setIsAdoptMode(false)}
-            onClearDecision={outcomePublished ? undefined : onDecisionClear}
-          />
-        </div>
+        {!isIdeaMapWorkspace ? (
+          <div
+            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
+            data-testid="phase-loop-hud"
+            data-board-fit-edge="bottom"
+          >
+            {phaseLoopControls}
+          </div>
+        ) : null}
 
         {voteStickerDrag !== null ? (
           <div

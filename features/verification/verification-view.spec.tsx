@@ -26,6 +26,15 @@ describe("検証の操作ページ", () => {
     ).toHaveAttribute("target", "idea-boost-verification");
     expect(screen.getByText(/まだ検証ルーム/)).toBeInTheDocument();
   });
+  it("3-2はマイ付箋からマップへ共有し、3-3はマップだけで評価する状態として案内する", () => {
+    render(<VerificationView {...props} />);
+    expect(
+      screen.getByRole("button", { name: /3-2 共有・分類/ }),
+    ).toHaveTextContent("2軸マップとマイ付箋");
+    expect(screen.getByRole("button", { name: /3-3 価値/ })).toHaveTextContent(
+      "同じ2軸マップ",
+    );
+  });
   it("成果ケースと名前を準備操作に渡し、Ownerだけ一覧導線を表示する", () => {
     const { rerender } = render(<VerificationView {...props} />);
     fireEvent.change(screen.getByLabelText("成果検証のルーム名（任意）"), {
