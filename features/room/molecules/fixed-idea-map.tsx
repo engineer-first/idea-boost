@@ -1,5 +1,5 @@
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
-import type { CSSProperties, ReactNode, Ref } from "react";
+import { ArrowDown, ArrowUp } from "lucide-react";
+import { type CSSProperties, type ReactNode, type Ref, useId } from "react";
 import { IDEA_VALUE_FEASIBILITY_MAP_LABELS } from "../logic/idea-value-feasibility-map";
 import styles from "./fixed-idea-map.module.css";
 
@@ -8,9 +8,97 @@ const GRID_STYLE = {
     "linear-gradient(to right, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px)",
   backgroundSize: "10% 10%",
 } satisfies CSSProperties;
-const AXIS_GRADIENT_STOPS =
-  "from-muted-foreground/20 via-muted-foreground/45 to-primary/75";
 const AXIS_ARROW_SIZE = "size-4 sm:size-5";
+const AXIS_ARROW_PATH = "M -6 -6 L 0 0 L -6 6";
+const AXIS_COLORS = {
+  low: "color-mix(in srgb, var(--muted-foreground) 55%, var(--background))",
+  middle: "color-mix(in srgb, var(--muted-foreground) 80%, var(--background))",
+  high: "color-mix(in srgb, var(--primary) 85%, var(--background))",
+};
+
+function AxisStroke({
+  axis,
+  className,
+}: {
+  axis: "x" | "y";
+  className: string;
+}) {
+  const gradientId = useId();
+  const vertical = axis === "y";
+  const low = {
+    x: vertical ? "50%" : "0%",
+    y: vertical ? "100%" : "50%",
+  };
+  const high = {
+    x: vertical ? "50%" : "100%",
+    y: vertical ? "0%" : "50%",
+  };
+
+  return (
+    <svg
+      aria-hidden="true"
+      className={`${styles.axisStroke} ${className}`}
+      fill="none"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      data-testid={`idea-value-feasibility-map-${axis}-scale-bar`}
+    >
+      <defs>
+        <linearGradient
+          id={gradientId}
+          gradientUnits="userSpaceOnUse"
+          x1={low.x}
+          y1={low.y}
+          x2={high.x}
+          y2={high.y}
+        >
+          <stop offset="0%" stopColor={AXIS_COLORS.low} />
+          <stop offset="50%" stopColor={AXIS_COLORS.middle} />
+          <stop offset="100%" stopColor={AXIS_COLORS.high} />
+        </linearGradient>
+      </defs>
+      <line
+        x1={low.x}
+        y1={low.y}
+        x2={high.x}
+        y2={high.y}
+        stroke={`url(#${gradientId})`}
+      />
+      {/* 線の端点を矢印の先端にも使い、レスポンシブでも線が突き抜けないようにする。 */}
+      <svg
+        aria-hidden="true"
+        x={low.x}
+        y={low.y}
+        width={1}
+        height={1}
+        overflow="visible"
+      >
+        <path
+          d={AXIS_ARROW_PATH}
+          transform={`rotate(${vertical ? 90 : 180})`}
+          stroke={AXIS_COLORS.low}
+          data-testid={`idea-value-feasibility-map-${axis}-low-arrow`}
+        />
+      </svg>
+      <svg
+        aria-hidden="true"
+        x={high.x}
+        y={high.y}
+        width={1}
+        height={1}
+        overflow="visible"
+      >
+        <path
+          d={AXIS_ARROW_PATH}
+          transform={vertical ? "rotate(-90)" : undefined}
+          stroke={AXIS_COLORS.high}
+          data-testid={`idea-value-feasibility-map-${axis}-high-arrow`}
+        />
+      </svg>
+    </svg>
+  );
+}
 
 export type FixedIdeaMapProps = {
   children?: ReactNode;
@@ -75,17 +163,7 @@ export function FixedIdeaMap({
               {labels.high}
             </span>
             {workspace ? (
-              <div
-                aria-hidden="true"
-                className={`absolute top-7 bottom-7 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-linear-to-t ${AXIS_GRADIENT_STOPS}`}
-              >
-                <ArrowUp
-                  className={`absolute top-0 left-1/2 ${AXIS_ARROW_SIZE} -translate-x-1/2 text-primary`}
-                />
-                <ArrowDown
-                  className={`absolute bottom-0 left-1/2 ${AXIS_ARROW_SIZE} -translate-x-1/2 text-muted-foreground`}
-                />
-              </div>
+              <AxisStroke axis="y" className={styles.verticalAxisTrack} />
             ) : (
               <>
                 <ArrowUp
@@ -226,46 +304,40 @@ export function FixedIdeaMap({
               className={`${styles.horizontalLowEndpointGroup} absolute flex whitespace-nowrap text-sm font-medium sm:text-base`}
               data-testid="idea-map-x-low-endpoint"
             >
-              <ArrowLeft
-                aria-hidden="true"
-                className={`${AXIS_ARROW_SIZE} shrink-0 text-muted-foreground`}
-                data-testid="idea-value-feasibility-map-x-low-arrow"
-              />
-              <span data-testid="idea-value-feasibility-map-x-low-label">
+              <span
+                className="shrink-0"
+                data-testid="idea-value-feasibility-map-x-low-label"
+              >
                 {labels.low}
               </span>
+              <AxisStroke
+                axis="x"
+                className={styles.horizontalLowEndpointTrack}
+              />
             </div>
           ) : (
-            <span
-              className={`absolute top-0 left-0 text-sm font-medium sm:text-base ${workspace ? styles.workspaceCompactFeasibilityLow : ""}`}
-              data-testid="idea-value-feasibility-map-x-low-label"
-            >
-              {labels.low}
-            </span>
-          )}
-          <div
-            aria-hidden="true"
-            className={`absolute top-3 right-4 h-0.5 rounded-full bg-linear-to-r ${AXIS_GRADIENT_STOPS} ${groupHorizontalLowEndpoint ? styles.horizontalLowEndpointTrack : "left-4"}`}
-          >
-            {groupHorizontalLowEndpoint ? null : (
-              <ArrowLeft
-                aria-hidden="true"
-                className={`absolute top-1/2 left-0 ${AXIS_ARROW_SIZE} -translate-x-1/2 -translate-y-1/2 text-muted-foreground`}
-                data-testid="idea-value-feasibility-map-x-low-arrow"
+            <>
+              <span
+                className={`absolute top-0 left-0 flex h-6 items-center text-sm font-medium sm:text-base ${workspace ? styles.workspaceCompactFeasibilityLow : ""}`}
+                data-testid="idea-value-feasibility-map-x-low-label"
+              >
+                {labels.low}
+              </span>
+              <AxisStroke
+                axis="x"
+                className={`${styles.horizontalAxisTrack} ${workspace ? styles.workspaceUngroupedAxisTrack : ""}`}
               />
-            )}
-            <ArrowRight
-              aria-hidden="true"
-              className={`absolute top-1/2 right-0 ${AXIS_ARROW_SIZE} translate-x-1/2 -translate-y-1/2 text-primary`}
-            />
-          </div>
+            </>
+          )}
           <span
             className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-background px-3 py-1 font-bold tracking-wide text-foreground ${workspace ? "top-3 text-base sm:text-lg" : "top-7 rounded-full border border-border text-lg shadow-sm sm:text-2xl"}`}
             data-testid="idea-value-feasibility-map-x-axis-label"
           >
             {labels.feasibility}
           </span>
-          <span className="absolute top-0 right-0 text-sm font-medium sm:text-base">
+          <span
+            className={`absolute top-0 right-0 flex h-6 items-center text-sm font-medium sm:text-base ${workspace && !groupHorizontalLowEndpoint ? styles.workspaceCompactFeasibilityHigh : ""}`}
+          >
             {labels.high}
           </span>
         </fieldset>

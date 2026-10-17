@@ -44,6 +44,77 @@ async function readBounds(page: Page, testId: string) {
 }
 
 test.each([
+  { phase: "3-2", width: 1280, height: 720, open: openWorkspace },
+  { phase: "3-3", width: 1280, height: 720, open: openMapOnly },
+  { phase: "3-2", width: 1440, height: 800, open: openWorkspace },
+  { phase: "3-3", width: 1440, height: 800, open: openMapOnly },
+  { phase: "3-2", width: 1440, height: 1000, open: openWorkspace },
+  { phase: "3-3", width: 1440, height: 1000, open: openMapOnly },
+  { phase: "3-2", width: 390, height: 720, open: openWorkspace },
+  { phase: "3-3", width: 390, height: 720, open: openMapOnly },
+])("$phase / $width×$heightで軸の高低ラベルと矢印の間隔を確保する", async ({
+  phase,
+  width,
+  height,
+  open,
+}) => {
+  const page = await browser.newPage({ viewport: { width, height } });
+  try {
+    await open(page);
+    for (const { axis, name } of [
+      { axis: "x", name: "実現のしやすさ: 低から高" },
+      { axis: "y", name: "価値: 低から高" },
+    ]) {
+      const scale = page.getByRole("group", { name });
+      for (const { endpoint, label } of [
+        { endpoint: "low", label: "低" },
+        { endpoint: "high", label: "高" },
+      ]) {
+        const text = await scale
+          .getByText(label, { exact: true })
+          .boundingBox();
+        const arrow = await scale
+          .getByTestId(`idea-value-feasibility-map-${axis}-${endpoint}-arrow`)
+          .boundingBox();
+        if (!text || !arrow) throw new Error(`${name}の${label}がありません`);
+        const horizontalGap = Math.max(
+          text.x - (arrow.x + arrow.width),
+          arrow.x - (text.x + text.width),
+          0,
+        );
+        const verticalGap = Math.max(
+          text.y - (arrow.y + arrow.height),
+          arrow.y - (text.y + text.height),
+          0,
+        );
+        expect(
+          Math.hypot(horizontalGap, verticalGap),
+          `${name}の${label}と矢印に8px以上の余白を保つ`,
+        ).toBeGreaterThanOrEqual(8);
+        if (axis === "x") {
+          if (endpoint === "low") {
+            expect(
+              arrow.x - (text.x + text.width),
+              "横軸は「低」、左矢印、軸線の順に並べる",
+            ).toBeGreaterThanOrEqual(8);
+          }
+          expect(
+            Math.abs(text.y + text.height / 2 - (arrow.y + arrow.height / 2)),
+            `横軸の${label}と矢印の高さを揃える`,
+          ).toBeLessThanOrEqual(2);
+        }
+      }
+    }
+
+    await page.screenshot({
+      path: `${output}/axis-design-${phase}-${width}x${height}.png`,
+    });
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
   { width: 1280, height: 720 },
   { width: 1440, height: 1000 },
 ])("$width×$heightで3-2のマップとマイ付箋を収め、操作UIと重ねない", async (viewport) => {
@@ -620,7 +691,7 @@ test.each([
   { width: 1440, height: 800 },
   { width: 900, height: 720 },
   { width: 390, height: 720 },
-])("3-2の横軸端点は文字サイズUIから離し、3-3の位置は維持する（$width×$height）", async ({
+])("3-2の横軸端点は操作UIから離し、両ステップで低を矢印の外側に置く（$width×$height）", async ({
   width,
   height,
 }) => {
@@ -648,60 +719,37 @@ test.each([
         "idea-value-feasibility-map-x-low-arrow",
       );
       const arrow = await arrowElement.boundingBox();
-      const arrowTrack = await arrowElement.locator("..").boundingBox();
       const scaleBounds = await scale.boundingBox();
       const axisTitle = await page
         .getByTestId("idea-value-feasibility-map-x-axis-label")
         .boundingBox();
       const high = await scale.getByText("高", { exact: true }).boundingBox();
       const horizontalTrack = await scale
-        .locator("div.absolute:has(svg)")
-        .last()
+        .getByTestId("idea-value-feasibility-map-x-scale-bar")
         .boundingBox();
-      const highArrow = await scale.locator("svg").last().boundingBox();
       const mapPlane = await page
         .getByTestId("idea-value-feasibility-map-plane")
         .boundingBox();
       if (
         !low ||
         !arrow ||
-        !arrowTrack ||
         !scaleBounds ||
         !axisTitle ||
         !high ||
         !horizontalTrack ||
-        !highArrow ||
         !mapPlane
       )
         throw new Error("横軸の左端が表示されていません");
       const groupedEndpoint = await page
         .getByTestId("idea-map-x-low-endpoint")
         .count();
-      const labelAfterArrowGap = low.x - (arrow.x + arrow.width);
+      const groupBounds = groupedEndpoint
+        ? await page.getByTestId("idea-map-x-low-endpoint").boundingBox()
+        : null;
+      const arrowAfterLabelGap = arrow.x - (low.x + low.width);
       const verticalCenterGap = Math.abs(
         low.y + low.height / 2 - (arrow.y + arrow.height / 2),
       );
-      const baselineGap = await page.evaluate(() => {
-        const lowLabel = document
-          .querySelector('[aria-label="実現のしやすさ: 低から高"]')
-          ?.querySelector("span");
-        const arrow = document.querySelector(
-          '[data-testid="idea-value-feasibility-map-x-low-arrow"]',
-        );
-        if (
-          !(lowLabel instanceof HTMLElement) ||
-          !(arrow instanceof SVGElement)
-        )
-          throw new Error("横軸の左端が表示されていません");
-        lowLabel.style.translate = "none";
-        arrow.style.left = "0px";
-        const baseGap =
-          arrow.getBoundingClientRect().left -
-          lowLabel.getBoundingClientRect().left;
-        lowLabel.style.removeProperty("translate");
-        arrow.style.removeProperty("left");
-        return baseGap;
-      });
       const baselineLeft = groupedEndpoint
         ? await page.evaluate(() => {
             const endpoint = document.querySelector(
@@ -738,32 +786,30 @@ test.each([
         .boundingBox();
       const planeBottom = mapPlane.y + mapPlane.height;
       return {
-        labelOffset: low.x - scaleBounds.x,
-        arrowOffset: arrow.x - arrowTrack.x,
-        labelAfterArrowGap,
+        arrowAfterLabelGap,
         verticalCenterGap,
-        baselineGap,
         groupedEndpoint,
         baselineLeft,
         scaleBounds,
         endpoint: {
-          left: Math.min(low.x, arrow.x),
-          right: Math.max(low.x + low.width, arrow.x + arrow.width),
-          top: Math.min(low.y, arrow.y),
-          bottom: Math.max(low.y + low.height, arrow.y + arrow.height),
+          left: groupBounds?.x ?? Math.min(low.x, arrow.x),
+          right: groupBounds
+            ? groupBounds.x + groupBounds.width
+            : Math.max(low.x + low.width, arrow.x + arrow.width),
+          top: groupBounds?.y ?? Math.min(low.y, arrow.y),
+          bottom: groupBounds
+            ? groupBounds.y + groupBounds.height
+            : Math.max(low.y + low.height, arrow.y + arrow.height),
         },
         label: low,
         arrow,
         axisTitle,
         high,
         horizontalTrack,
-        highArrow,
         mapPlane,
         axisFromPlaneBottom: scaleBounds.y - planeBottom,
         titleFromPlaneBottom: axisTitle.y - planeBottom,
         highFromPlaneBottom: high.y - planeBottom,
-        trackFromPlaneBottom: horizontalTrack.y - planeBottom,
-        arrowFromPlaneBottom: highArrow.y - planeBottom,
         controls,
         zoomControls,
       };
@@ -780,10 +826,10 @@ test.each([
 
     expect(sharing.groupedEndpoint).toBe(1);
     expect(
-      sharing.labelAfterArrowGap,
-      "3-2では矢印のすぐ右に「低」をまとめて表示する",
-    ).toBeGreaterThanOrEqual(0);
-    expect(sharing.labelAfterArrowGap).toBeLessThanOrEqual(8);
+      sharing.arrowAfterLabelGap,
+      "3-2では「低」の右に左向き矢印を表示する",
+    ).toBeGreaterThanOrEqual(8);
+    expect(sharing.arrowAfterLabelGap).toBeLessThanOrEqual(16);
     expect(sharing.verticalCenterGap).toBeLessThanOrEqual(4);
     expect(mapOnly.groupedEndpoint).toBe(0);
 
@@ -822,34 +868,62 @@ test.each([
       controls.x + controls.width + 24,
     );
     expect(sharing.endpoint.left).toBeCloseTo(expectedEndpointLeft, 0);
-    const endpointToTrackGap =
-      sharing.horizontalTrack.x - sharing.endpoint.right;
-    expect(endpointToTrackGap).toBeGreaterThanOrEqual(-2);
-    expect(endpointToTrackGap).toBeLessThanOrEqual(8);
-
-    expect(mapOnly.labelOffset).toBeCloseTo(
-      width >= 1120 && height <= 820 ? 80 : 0,
-      0,
-    );
-    expect(mapOnly.arrowOffset).toBeCloseTo(-(mapOnly.arrow.width / 2), 1);
-    expect(mapOnly.arrow.x - mapOnly.label.x).toBeCloseTo(
-      mapOnly.baselineGap,
-      1,
-    );
+    const connectionGap = await sharingPage
+      .getByTestId("idea-value-feasibility-map-x-scale-bar")
+      .evaluate((element) => {
+        const line = element.querySelector("line");
+        const arrow = element.querySelector(
+          '[data-testid="idea-value-feasibility-map-x-low-arrow"]',
+        );
+        if (
+          !(line instanceof SVGLineElement) ||
+          !(arrow instanceof SVGPathElement)
+        )
+          throw new Error("軸線と左矢印が同じSVGにありません");
+        const lineMatrix = line.getScreenCTM();
+        const arrowMatrix = arrow.getScreenCTM();
+        if (!lineMatrix || !arrowMatrix)
+          throw new Error("軸線が表示されていません");
+        const lineStart = new DOMPoint(
+          line.x1.baseVal.value,
+          line.y1.baseVal.value,
+        ).matrixTransform(lineMatrix);
+        const arrowTip = arrow
+          .getPointAtLength(arrow.getTotalLength() / 2)
+          .matrixTransform(arrowMatrix);
+        return Math.hypot(lineStart.x - arrowTip.x, lineStart.y - arrowTip.y);
+      });
+    expect(connectionGap, "矢印の先端を軸線の始点に接続する").toBeLessThan(0.1);
+    expect(
+      mapOnly.arrowAfterLabelGap,
+      "3-3でも「低」は矢印の外側に表示する",
+    ).toBeGreaterThanOrEqual(8);
+    expect(
+      await sharingPage
+        .getByTestId("idea-map-x-low-endpoint")
+        .evaluate((group) => {
+          const label = group.querySelector(
+            '[data-testid="idea-value-feasibility-map-x-low-label"]',
+          );
+          const arrow = group.querySelector(
+            '[data-testid="idea-value-feasibility-map-x-low-arrow"]',
+          );
+          return (
+            !!label &&
+            !!arrow &&
+            !!(
+              label.compareDocumentPosition(arrow) &
+              Node.DOCUMENT_POSITION_FOLLOWING
+            )
+          );
+        }),
+      "DOMでも「低」の後に矢印を配置する",
+    ).toBe(true);
     expect(
       sharing.axisFromPlaneBottom - mapOnly.axisFromPlaneBottom,
     ).toBeCloseTo(-12, 1);
     expect(
       sharing.titleFromPlaneBottom - mapOnly.titleFromPlaneBottom,
-    ).toBeCloseTo(-12, 1);
-    expect(
-      sharing.highFromPlaneBottom - mapOnly.highFromPlaneBottom,
-    ).toBeCloseTo(-12, 1);
-    expect(
-      sharing.trackFromPlaneBottom - mapOnly.trackFromPlaneBottom,
-    ).toBeCloseTo(-12, 1);
-    expect(
-      sharing.arrowFromPlaneBottom - mapOnly.arrowFromPlaneBottom,
     ).toBeCloseTo(-12, 1);
     expect(sharing.mapPlane.x).toBe(mapOnly.mapPlane.x);
     expect(sharing.mapPlane.width).toBe(mapOnly.mapPlane.width);
