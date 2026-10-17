@@ -57,13 +57,11 @@ const INTERACTIONS: RoomBoardInteractions = {
   boardRootRef: { current: null },
   boardScrollerRef: { current: null },
   ideaMapPlaneRef: { current: null },
-  ideaMapTrayRef: { current: null },
   privateToolbarRef: { current: null },
   notes: buildNotes(3),
   privateNotes: [],
   dragGhost: null,
   isReturnDropTarget: false,
-  isIdeaMapTrayDropTarget: false,
   isNoteDragging: false,
   camera: { x: 0, y: 0, zoom: 1 },
   gridStyle: {
@@ -956,6 +954,9 @@ export const CanvasInputInteraction: Story = {
   },
   render: function Render(args) {
     const [notes, setNotes] = useState(args.notes);
+    const [ideaMapSizeLevel, setIdeaMapSizeLevel] = useState(
+      args.ideaMapSizeLevel ?? 0,
+    );
     const [adoptionCount, setAdoptionCount] = useState(0);
     const [privateNotes, setPrivateNotes] = useState(
       args.interactions.privateNotes,
@@ -969,7 +970,7 @@ export const CanvasInputInteraction: Story = {
       phase: args.phase,
       isDecided: args.decision !== null,
       sharing: args.sharing,
-      ideaMapSizeLevel: args.ideaMapSizeLevel,
+      ideaMapSizeLevel,
       ideaMapSizeInitialized: args.ideaMapSizeInitialized,
       getFitInsets: getBoardFitInsets,
       onNoteDragStart: (id) => setDraggingNoteId(id),
@@ -984,7 +985,7 @@ export const CanvasInputInteraction: Story = {
                   y,
                   ...(args.phase.kind === "step" &&
                   args.phase.phase === 3 &&
-                  args.phase.step === 3
+                  (args.phase.step === 2 || args.phase.step === 3)
                     ? { ideaMapPlaced: ideaMapPlaced ?? true }
                     : {}),
                 }
@@ -1000,7 +1001,7 @@ export const CanvasInputInteraction: Story = {
         setPrivateNotes((current) => current.filter((item) => item.id !== id));
         setNotes((current) => [
           ...current,
-          { ...note, visibility: "shared", x, y },
+          { ...note, visibility: "shared", x, y, ideaMapPlaced: true },
         ]);
       },
       onPrivateNoteUnpublish: (id) => {
@@ -1020,6 +1021,8 @@ export const CanvasInputInteraction: Story = {
       <>
         <RoomBoardView
           {...args}
+          ideaMapSizeLevel={ideaMapSizeLevel}
+          onIdeaMapResize={setIdeaMapSizeLevel}
           notes={notes}
           interactions={interactions}
           help={help}
@@ -1155,9 +1158,10 @@ export const CanvasInputInteraction: Story = {
 
 export const IdeaMapWorkspace: Story = {
   ...CanvasInputInteraction,
-  name: "2軸評価 / 右側の未配置一覧と配置操作",
+  name: "3-2 共有 / 2軸マップとマイ付箋",
   args: {
-    phase: buildPhaseStep(3, 3),
+    phase: buildPhaseStep(2, 3),
+    sharing: buildSharingState({ status: "active", currentIndex: 0 }),
     moveHistory: {
       undo: { label: "戻せる移動はありません", reason: null, disabled: true },
       redo: {
@@ -1182,15 +1186,40 @@ export const IdeaMapWorkspace: Story = {
         y: 75,
         ideaMapPlaced: true,
       }),
-      ...buildNotes(12).map((note, index) => ({
+      ...buildNotes(8).map((note, index) => ({
         ...note,
-        id: `map-workspace-unplaced-${index + 1}`,
+        id: `map-workspace-shared-${index + 1}`,
         authorId: ME,
         content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
-        ideaMapPlaced: false,
+        x: 10 + ((index * 29) % 80),
+        y: 12 + ((index * 37) % 76),
       })),
     ],
+    interactions: {
+      ...INTERACTIONS,
+      privateNotes: buildNotes(12).map((note, index) => ({
+        ...note,
+        id: `map-workspace-private-${index + 1}`,
+        authorId: ME,
+        visibility: "private" as const,
+        content: CANVAS_HUD_CONTENTS[index % CANVAS_HUD_CONTENTS.length],
+      })),
+    },
+    isHost: true,
+    ideaMapSizeLevel: 4,
+    ideaMapSizeInitialized: true,
     initialGuideState: "compact",
+  },
+};
+
+export const IdeaMapOnly: Story = {
+  ...IdeaMapWorkspace,
+  name: "3-3 評価 / マップのみ",
+  args: {
+    ...IdeaMapWorkspace.args,
+    phase: buildPhaseStep(3, 3),
+    sharing: null,
+    interactions: { ...INTERACTIONS, privateNotes: [] },
   },
 };
 

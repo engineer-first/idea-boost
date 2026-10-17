@@ -28,14 +28,6 @@
   display: grid;
 }
 
-.workspaceDisclosure {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 70;
-  width: min(320px, calc(100vw - 24px));
-}
-
 @media (prefers-reduced-motion: reduce) {
   .disclosure,
   .disclosure[data-open="true"] {

@@ -33,7 +33,7 @@ describe("useBoardHelp", () => {
     [2, 4, null, false],
     [3, 1, "idea", true],
     [3, 2, "reference", false],
-    [3, 3, null, false],
+    [3, 3, "reference", false],
     [3, 4, null, false],
     [3, 5, null, false],
   ] as const)("Step %i-%i の補助パネルを必要な状態だけにする", (phase, step, kind, isOpen) => {

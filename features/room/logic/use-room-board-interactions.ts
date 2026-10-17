@@ -5,7 +5,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   isPhaseStep,
   isPublishAllowedStep,
@@ -21,14 +21,17 @@ import { getBoardPermissions } from "./board-permissions";
 import {
   type CanvasCamera,
   type CanvasFitInsets,
+  type CanvasPoint,
   clampCanvasCoordinate,
 } from "./canvas-camera";
 import {
   clampIdeaValueFeasibilityMapCoordinate,
+  getFixedIdeaMapNotePointFromClientPosition,
+  getIdeaMapNoteDisplayMetrics,
   getIdeaValueFeasibilityMapPointFromClientPosition,
 } from "./idea-value-feasibility-map";
 import { roomNotify } from "./room-notify";
-import { useBoardDrag } from "./use-board-drag";
+import { type BoardDrag, useBoardDrag } from "./use-board-drag";
 import { useCanvasCamera } from "./use-canvas-camera";
 import { useIdeaValueFeasibilityMapInput } from "./use-idea-value-feasibility-map-input";
 
@@ -76,7 +79,6 @@ export type RoomBoardInteractions = {
   boardRootRef: RefObject<HTMLDivElement | null>;
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   ideaMapPlaneRef: RefObject<HTMLDivElement | null>;
-  ideaMapTrayRef: RefObject<HTMLElementTagNameMap["section"] | null>;
   privateToolbarRef: RefObject<HTMLDivElement | null>;
   notes: Note[];
   privateNotes: Note[];
@@ -87,9 +89,10 @@ export type RoomBoardInteractions = {
     top: number;
     width: number;
     height: number;
+    noteScale?: number;
+    noteHeight?: number;
   } | null;
   isReturnDropTarget: boolean;
-  isIdeaMapTrayDropTarget: boolean;
   privateDropPlaceholder?: { noteId: string };
   isNoteDragging: boolean;
   localDraggingNoteId?: string | null;
@@ -157,12 +160,11 @@ export function useRoomBoardInteractions({
 }: UseRoomBoardInteractionsArgs): RoomBoardInteractions {
   const boardRootRef = useRef<HTMLDivElement>(null);
   const boardScrollerRef = useRef<HTMLDivElement>(null);
-  const ideaMapTrayRef = useRef<HTMLElementTagNameMap["section"]>(null);
   const privateToolbarRef = useRef<HTMLDivElement>(null);
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
     phase.phase === 3 &&
-    (phase.step >= 3 ||
+    (phase.step >= 2 ||
       (phase.step === 1 && ideaMapSizeInitialized && notes.length > 0));
 
   const {
@@ -203,6 +205,63 @@ export function useRoomBoardInteractions({
     phase,
     fallbackPointFromClient: worldPointFromClient,
   });
+  const positionFromClient = useCallback(
+    (clientX: number, clientY: number, drag: BoardDrag): CanvasPoint | null => {
+      if (!isIdeaValueFeasibilityMappingStep) return null;
+      const plane = ideaMapPlaneRef.current;
+      if (!plane) return null;
+      const rect = plane.getBoundingClientRect();
+      const responsiveScaleValue = window
+        .getComputedStyle(plane)
+        .getPropertyValue("--idea-map-note-scale");
+      const parsedResponsiveScale = Number.parseFloat(responsiveScaleValue);
+      const responsiveScale =
+        Number.isFinite(parsedResponsiveScale) && parsedResponsiveScale > 0
+          ? parsedResponsiveScale
+          : 1;
+      const mapZoom =
+        plane.clientWidth > 0 ? rect.width / plane.clientWidth : 1;
+      const metrics = getIdeaMapNoteDisplayMetrics(
+        drag.note,
+        ideaMapSizeLevel,
+        responsiveScale,
+      );
+      const useMapPreviewSize = drag.status === "private";
+      const noteWidth = useMapPreviewSize
+        ? metrics.width * mapZoom
+        : drag.previewWidth;
+      const noteHeight = useMapPreviewSize
+        ? metrics.height * mapZoom
+        : drag.previewHeight;
+      const point = getFixedIdeaMapNotePointFromClientPosition(
+        clientX,
+        clientY,
+        {
+          left: rect.left,
+          top: rect.top,
+          right: rect.right,
+          bottom: rect.bottom,
+        },
+        { width: noteWidth, height: noteHeight },
+        {
+          x:
+            drag.previewWidth > 0
+              ? (drag.previewOffsetX / drag.previewWidth) * noteWidth
+              : 0,
+          y:
+            drag.previewHeight > 0
+              ? (drag.previewOffsetY / drag.previewHeight) * noteHeight
+              : 0,
+        },
+      );
+      return point ? { x: point.feasibility, y: point.value } : null;
+    },
+    [
+      ideaMapSizeLevel,
+      isIdeaValueFeasibilityMappingStep,
+      ideaMapPlaneRef.current,
+    ],
+  );
   // 2軸マップの配置ステップは明示的に移動を許可する。その他の通常ボードは
   // 既存のボード権限に従い、投票・結果ステップでは共有付箋を操作させない。
   const canMoveSharedNotes =
@@ -211,7 +270,6 @@ export function useRoomBoardInteractions({
   const canReturnToPrivate =
     isPublishAllowedStep(phase) &&
     canReturnNoteToPrivateInTurn(phase, sharing, currentUserId);
-  const canReturnToIdeaMapTray = isPhaseStep(phase, 3, 3) && canMoveSharedNotes;
   const isIdeaMapCursorSurface = isIdeaValueFeasibilityMapVisible;
 
   const {
@@ -226,22 +284,22 @@ export function useRoomBoardInteractions({
     cancelCurrentNoteDrag,
     isCurrentDragPointer,
     isPointerInPrivateDropArea,
-    isIdeaMapTrayDropTarget,
   } = useBoardDrag({
     notes,
     selectedNoteIds,
     privateNotes,
     currentUserId,
     boardScrollerRef,
-    ideaMapTrayRef,
     worldPointFromClient: pointFromClient,
     privateToolbarRef,
     preservePrivateGrabOffset: !isIdeaValueFeasibilityMappingStep,
     clampCoordinate: isIdeaValueFeasibilityMappingStep
       ? clampIdeaValueFeasibilityMapCoordinate
       : undefined,
+    positionFromClient: isIdeaValueFeasibilityMappingStep
+      ? positionFromClient
+      : undefined,
     canMoveSharedNotes,
-    canReturnToIdeaMapTray,
     canPublish,
     canReturnToPrivate,
     lockPrivateMapDrag: isPhaseStep(phase, 3, 2) && isPublishAllowedStep(phase),
@@ -285,7 +343,7 @@ export function useRoomBoardInteractions({
   const dragPreview =
     drag?.status === "private" || drag?.status === "returning"
       ? (() => {
-          const preview = {
+          const preview: NonNullable<RoomBoardInteractions["dragPreview"]> = {
             note: drag.note,
             left: drag.clientX - drag.previewOffsetX,
             top: drag.clientY - drag.previewOffsetY,
@@ -300,6 +358,50 @@ export function useRoomBoardInteractions({
             drag.clientX <= toolbarBounds.right &&
             drag.clientY >= toolbarBounds.top &&
             drag.clientY <= toolbarBounds.bottom;
+          if (
+            isPhaseStep(phase, 3, 2) &&
+            !isPointerOverToolbar &&
+            typeof window !== "undefined"
+          ) {
+            const responsiveScaleValue = ideaMapPlaneRef.current
+              ? window
+                  .getComputedStyle(ideaMapPlaneRef.current)
+                  .getPropertyValue("--idea-map-note-scale")
+              : "";
+            const parsedResponsiveScale =
+              Number.parseFloat(responsiveScaleValue);
+            const responsiveScale =
+              Number.isFinite(parsedResponsiveScale) &&
+              parsedResponsiveScale > 0
+                ? parsedResponsiveScale
+                : 1;
+            const {
+              height,
+              noteHeight,
+              scale: noteScale,
+              width,
+            } = getIdeaMapNoteDisplayMetrics(
+              drag.note,
+              ideaMapSizeLevel,
+              responsiveScale,
+            );
+            const horizontalGrabRatio = drag.previewWidth
+              ? drag.previewOffsetX / drag.previewWidth
+              : 0;
+            const verticalGrabRatio = drag.previewHeight
+              ? drag.previewOffsetY / drag.previewHeight
+              : 0;
+
+            return {
+              ...preview,
+              left: drag.clientX - horizontalGrabRatio * width,
+              top: drag.clientY - verticalGrabRatio * height,
+              width,
+              height,
+              noteScale,
+              noteHeight,
+            };
+          }
           if (!toolbarBounds || !isPointerOverToolbar) return preview;
 
           const listBounds = privateToolbarRef.current
@@ -436,7 +538,6 @@ export function useRoomBoardInteractions({
     boardRootRef,
     boardScrollerRef,
     ideaMapPlaneRef,
-    ideaMapTrayRef,
     privateToolbarRef,
     notes: renderedNotes,
     privateNotes: toolbarNotes,
@@ -446,7 +547,6 @@ export function useRoomBoardInteractions({
       (drag?.status === "shared" || drag?.status === "returning") &&
       drag.note.authorId === currentUserId &&
       canReturnToPrivate,
-    isIdeaMapTrayDropTarget,
     privateDropPlaceholder:
       (drag?.status === "private" || drag?.status === "returning") &&
       drag.privateDropIndex !== null

@@ -197,18 +197,19 @@ export const noteHandlers: MessageHandlers<
       return;
     }
     const updatedAt = new Date().toISOString();
+    const isMapSharingStep = isPhaseStep(getPhase(ctx.sql), 3, 2);
     const stackOrder = publishNote(
       ctx.sql,
       message.noteId,
       message.x,
       message.y,
       updatedAt,
-      !isPhaseStep(getPhase(ctx.sql), 3, 2),
+      isMapSharingStep,
     );
     broadcastNoteInserted(ctx.sql, ctx.broadcaster, {
       ...row,
       visibility: "shared",
-      idea_map_placed: !isPhaseStep(getPhase(ctx.sql), 3, 2),
+      idea_map_placed: isMapSharingStep,
       x: message.x,
       y: message.y,
       stack_order: stackOrder,
@@ -478,7 +479,9 @@ export const noteHandlers: MessageHandlers<
     const updatedAt = new Date().toISOString();
     const phase = getPhase(ctx.sql);
     const markIdeaMapPlaced =
-      isPhaseStep(phase, 3, 3) || isPhaseStep(phase, 3, 5);
+      isPhaseStep(phase, 3, 2) ||
+      isPhaseStep(phase, 3, 3) ||
+      isPhaseStep(phase, 3, 5);
     const positionChanged = row.x !== message.x || row.y !== message.y;
     const stackOrder = moveNote(
       ctx.sql,
@@ -630,7 +633,9 @@ export const noteHandlers: MessageHandlers<
     }
     const updatedAt = new Date().toISOString();
     const markIdeaMapPlaced =
-      isPhaseStep(phase, 3, 3) || isPhaseStep(phase, 3, 5);
+      isPhaseStep(phase, 3, 2) ||
+      isPhaseStep(phase, 3, 3) ||
+      isPhaseStep(phase, 3, 5);
     const stackOrder = moveNote(
       ctx.sql,
       message.noteId,
@@ -687,7 +692,9 @@ export const noteHandlers: MessageHandlers<
     const updatedAt = new Date().toISOString();
     let stackOrder = row.stack_order;
     const markIdeaMapPlaced =
-      isPhaseStep(phase, 3, 3) || isPhaseStep(phase, 3, 5);
+      isPhaseStep(phase, 3, 2) ||
+      isPhaseStep(phase, 3, 3) ||
+      isPhaseStep(phase, 3, 5);
     if (message.position) {
       stackOrder = moveNote(
         ctx.sql,

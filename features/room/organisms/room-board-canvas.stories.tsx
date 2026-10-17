@@ -600,7 +600,7 @@ export const Step1Result: Story = {
   },
 };
 
-// Step3-2: マップを表示せず、共有アイデアを通常のホワイトボードに並べる。
+// Step3-2: 共有済みアイデアを2軸マップへ配置し、マイ付箋から追加共有する。
 export const Step3SharingBoard: Story = {
   args: {
     phase: STEP_3_2,
@@ -616,34 +616,36 @@ export const Step3SharingBoard: Story = {
       buildNote({
         id: "shared-idea-a",
         content: "問い合わせを簡単にする",
-        x: 240,
-        y: 180,
+        x: 35,
+        y: 72,
       }),
       buildNote({
         id: "shared-idea-b",
         content: "申請状況を見えるようにする",
-        x: 500,
-        y: 360,
+        x: 68,
+        y: 35,
       }),
     ],
   },
 };
 
-// Step3-3: 未配置の共有アイデアは右側の一覧から2軸マップへ動かす。
+// Step3-3: 3-2の配置を引き継いだ2軸マップだけを表示する。
 export const Step3IdeaMap: Story = {
   args: {
     phase: buildPhaseStep(3, 3),
     permissions: getBoardPermissions(buildPhaseStep(3, 3)),
     notes: [
       buildNote({
-        id: "idea-tray-a",
+        id: "idea-map-a",
         content: "問い合わせを簡単にする",
-        ideaMapPlaced: false,
+        x: 35,
+        y: 72,
       }),
       buildNote({
-        id: "idea-tray-b",
+        id: "idea-map-b",
         content: "申請状況を見えるようにする",
-        ideaMapPlaced: false,
+        x: 68,
+        y: 35,
       }),
       buildNote({
         id: "idea-map-placed",
@@ -725,7 +727,7 @@ export const IdeaMapFewNotes: Story = {
       buildNote({ id: "idea-center", content: "使い方を教える", x: 50, y: 52 }),
       buildNote({ id: "idea-right", content: "自動化する", x: 92, y: 88 }),
     ],
-    ideaMapSizeLevel: 0,
+    ideaMapSizeLevel: 4,
     camera: IDEA_MAP_CAMERA,
   },
   decorators: IDEA_MAP_VIEWPORT,

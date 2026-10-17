@@ -73,7 +73,9 @@ export function CanvasZoomControls({
         }
         aria-description={
           showNavigationControls
-            ? "方向キーで視野を移動、PageUp・PageDownで上下に読む。視野とズームの変更は自分だけの表示です"
+            ? onToolChange
+              ? "方向キーで視野を移動、PageUp・PageDownで上下に読む。視野とズームの変更は自分だけの表示です"
+              : "ズームの変更は自分だけの表示です"
             : undefined
         }
       >
@@ -277,28 +279,30 @@ export function CanvasZoomControls({
                       </p>
                     </dd>
                   </div>
-                  <div>
-                    <dt className="font-semibold">画面を動かす</dt>
-                    <dd className="mt-1 space-y-1">
-                      <p>
-                        背景で{" "}
-                        <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                          V
-                        </kbd>{" "}
-                        は選択、
-                        <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                          H
-                        </kbd>{" "}
-                        は手のひら。
-                      </p>
-                      <p>
-                        <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
-                          Space
-                        </kbd>{" "}
-                        を押しながらドラッグで画面移動。
-                      </p>
-                    </dd>
-                  </div>
+                  {onToolChange ? (
+                    <div>
+                      <dt className="font-semibold">画面を動かす</dt>
+                      <dd className="mt-1 space-y-1">
+                        <p>
+                          背景で{" "}
+                          <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                            V
+                          </kbd>{" "}
+                          は選択、
+                          <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                            H
+                          </kbd>{" "}
+                          は手のひら。
+                        </p>
+                        <p>
+                          <kbd className="rounded border border-border bg-muted px-1 font-mono text-sm">
+                            Space
+                          </kbd>{" "}
+                          を押しながらドラッグで画面移動。
+                        </p>
+                      </dd>
+                    </div>
+                  ) : null}
                   <div>
                     <dt className="font-semibold">付箋を編集する</dt>
                     <dd className="mt-1">

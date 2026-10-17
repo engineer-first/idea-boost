@@ -2,7 +2,8 @@
   --guide-width: min(470px, calc(100vw - 40px));
   position: absolute;
   left: 50%;
-  top: 12px;
+  /* ヘッダー左右の常設コントロールの中間に中心を合わせる。 */
+  top: 4px;
   z-index: 41;
   transform: translateX(-50%);
   width: 126px;
@@ -84,7 +85,8 @@
     opacity 130ms 100ms ease,
     visibility 0s;
 }
-@media (max-width: 1439px) {
+/* 横幅が足りない範囲では、操作バーと干渉しない第2段へ退避する。 */
+@media (max-width: 1279px) {
   .guide {
     top: 84px;
   }

@@ -124,8 +124,8 @@ function peer(ctx: HandlerCtx, userId = B) {
   return messages;
 }
 describe("share commit", () => {
-  it("Step 3-2の通常共有はボード座標が100を超えても公開できる", () =>
-    setup("share-phase-3-step-2-canvas-coordinates", (ctx, responses) => {
+  it("Step 3-2の共有はマップ座標で公開済み配置として確定する", () =>
+    setup("share-phase-3-step-2-map-coordinates", (ctx, responses) => {
       savePhase(ctx.sql, { kind: "step", phase: 3, step: 2 });
       ctx.sql.exec(
         "UPDATE notes SET visibility='private',phase=3 WHERE id=?1",
@@ -141,8 +141,8 @@ describe("share commit", () => {
         type: "note:publish",
         operationId: OP,
         noteId: N1,
-        x: 200,
-        y: 210,
+        x: 72,
+        y: 31,
         expectedPhaseRevision: phaseRevision,
         expectedPositionRevision: row?.position_revision ?? 0,
         expectedVisibilityRevision: row?.visibility_revision ?? 0,
@@ -151,11 +151,11 @@ describe("share commit", () => {
       expect(responses.at(-1)).toMatchObject({
         type: "note:share:result",
         status: "committed",
-        receipt: { after: { visibility: "shared", x: 200, y: 210 } },
+        receipt: { after: { visibility: "shared", x: 72, y: 31 } },
       });
       expect(findNote(ctx.sql, N1)).toMatchObject({
         visibility: "shared",
-        idea_map_placed: false,
+        idea_map_placed: true,
       });
     }));
 

@@ -23,7 +23,11 @@ describe("IdeaMapSizeControls", () => {
       name: "マップの広さについて",
     });
     expect(explanation).toHaveTextContent("全員に反映");
-    expect(explanation).toHaveTextContent("表示倍率は自分だけ");
+    expect(explanation).toHaveTextContent(
+      "付箋の配置位置と評価値は変わりません",
+    );
+    expect(explanation).toHaveTextContent("個人用ズーム");
+    expect(explanation).toHaveTextContent("付箋は小さく");
     expect(explanation).toHaveTextContent("ホストだけ");
     expect(explanation).toHaveTextContent("価値");
     fireEvent.keyDown(explanation, { key: "Escape" });

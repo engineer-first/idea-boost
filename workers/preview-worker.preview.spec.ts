@@ -9,6 +9,7 @@ import { VERIFICATION_CHECKPOINTS } from "../contracts/verification";
 import { signToken } from "../lib/session/token";
 import previewWorker from "./preview-worker";
 import { getDecision } from "./room/decisions";
+import { getIdeaMapSizeState } from "./room/idea-map";
 import { listNotes } from "./room/notes";
 import { getPhase } from "./room/phase";
 import { sessionCookieFor } from "./test-helpers";
@@ -104,6 +105,11 @@ it.each(
     const notes = listNotes(state.storage.sql, owner.sub);
     expect(notes.length).toBeGreaterThan(0);
     expect(notes.every((n) => n.authorId === owner.sub)).toBe(true);
+    if (phase.kind === "step" && phase.phase === 3 && phase.step >= 2)
+      expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
+        sizeLevel: 4,
+        initialized: true,
+      });
     for (const note of notes.filter((n) => n.visibility === "private")) {
       expect(
         visibleTo(

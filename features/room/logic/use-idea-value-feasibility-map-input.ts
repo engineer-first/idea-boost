@@ -22,7 +22,9 @@ export function useIdeaValueFeasibilityMapInput({
 }: UseIdeaValueFeasibilityMapInputArgs) {
   const ideaMapPlaneRef = useRef<HTMLDivElement>(null);
   const isIdeaValueFeasibilityMappingStep =
-    isPhaseStep(phase, 3, 3) || isPhaseStep(phase, 3, 5);
+    isPhaseStep(phase, 3, 2) ||
+    isPhaseStep(phase, 3, 3) ||
+    isPhaseStep(phase, 3, 5);
 
   const pointFromClient = useCallback(
     (clientX: number, clientY: number): CanvasPoint | null => {
@@ -34,6 +36,7 @@ export function useIdeaValueFeasibilityMapInput({
       const point = getIdeaValueFeasibilityMapPointFromClientPosition(
         clientX,
         clientY,
+        // FixedIdeaMapの内部レイヤーを拡縮するため、この参照のrectも表示倍率を含む。
         plane.getBoundingClientRect(),
         // つかみ位置補正後の最終座標だけをuseBoardDragで0〜100に制限する。
         false,

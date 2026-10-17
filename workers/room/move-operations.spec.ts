@@ -737,9 +737,11 @@ describe("move recovery entry", () => {
       presenceHandlers["cursor:update"](ctx, cursor);
       expect(sent).toHaveLength(0);
     }));
-  it("map start/cancelで全lock表示とpeer drag解除を配信する", () =>
-    setup("move-map-presence", (ctx) => {
-      savePhase(ctx.sql, { kind: "step", phase: 3, step: 3 });
+  it.each([
+    2, 3,
+  ])("3-%iのmap start/cancelで全lock表示とpeer drag解除を配信する", (step) =>
+    setup(`move-map-presence-step-${step}`, (ctx) => {
+      savePhase(ctx.sql, { kind: "step", phase: 3, step });
       ctx.sql.exec("UPDATE notes SET phase=3,x=10,y=20");
       const sent: ServerMessage[] = [];
       ctx.ws.send = (data) =>

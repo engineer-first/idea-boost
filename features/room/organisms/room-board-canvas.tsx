@@ -1,23 +1,19 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 // ボード面。カメラで移動・拡大縮小する世界レイヤーに共有付箋・グループ枠・
 // ドラッグ中のゴーストを描き、下端にマイ付箋ドックを重ねる。
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
 import type {
   CSSProperties,
-  ReactNode,
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
 import {
   DRAG_THRESHOLD_PX,
   getNoteHeight,
-  NOTE_HEIGHT,
+  NOTE_DEFAULT_FONT_SIZE,
   NOTE_WIDTH,
 } from "@/contracts/board";
 import {
@@ -42,14 +38,20 @@ import {
 } from "@/features/notes";
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import type { BoardPermissions } from "../logic/board-permissions";
-import { type CanvasCamera, worldToScreen } from "../logic/canvas-camera";
+import {
+  type CanvasCamera,
+  clampCanvasZoom,
+  worldToScreen,
+} from "../logic/canvas-camera";
 import {
   getCursorLabelOffset,
   type RenderedRemoteCursorPresence,
 } from "../logic/cursor-presence";
 import {
   FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT,
-  getFixedIdeaMapNotePosition,
+  getFixedIdeaMapNotePositionProfiles,
+  getIdeaMapDisplayScale,
+  getIdeaMapNoteDisplayMetrics,
 } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
 import type {
@@ -64,15 +66,9 @@ import { FixedIdeaMap } from "../molecules/fixed-idea-map";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { NoteFontSizeControls } from "../molecules/note-font-size-controls";
 import { RemoteCursor } from "../molecules/remote-cursor";
+import styles from "./room-board-canvas.module.css";
 
 const TEMPORARY_FRONT_Z_INDEX = 2_147_483_647;
-const IDEA_MAP_TRAY_NOTE_SCALE = 0.85;
-const IDEA_MAP_TRAY_NOTE_WIDTH = Math.round(
-  NOTE_WIDTH * IDEA_MAP_TRAY_NOTE_SCALE,
-);
-const IDEA_MAP_TRAY_NOTE_HEIGHT = Math.round(
-  NOTE_HEIGHT * IDEA_MAP_TRAY_NOTE_SCALE,
-);
 const ADOPTION_TARGET_CLASS_NAME =
   "absolute inset-0 z-20 cursor-pointer rounded-sm border-4 border-transparent bg-transparent outline-none transition-[border-color,background-color,box-shadow] hover:border-emerald-600 hover:bg-emerald-500/10 focus-visible:border-emerald-600 focus-visible:bg-emerald-500/10 focus-visible:ring-4 focus-visible:ring-emerald-300/70 focus-visible:ring-offset-2";
 
@@ -116,14 +112,13 @@ export type RoomBoardCanvasProps = {
     top: number;
     width: number;
     height: number;
+    noteScale?: number;
+    noteHeight?: number;
   } | null;
   isReturnDropTarget: boolean;
-  isIdeaMapTrayDropTarget?: boolean;
   privateDropPlaceholder?: { noteId: string };
   boardScrollerRef: RefObject<HTMLDivElement | null>;
   ideaMapPlaneRef: RefObject<HTMLDivElement | null>;
-  ideaMapTrayRef?: RefObject<HTMLElementTagNameMap["section"] | null>;
-  ideaMapTrayFooter?: ReactNode;
   privateToolbarRef: RefObject<HTMLDivElement | null>;
   permissions: BoardPermissions;
   camera: CanvasCamera;
@@ -205,6 +200,7 @@ export function RoomBoardCanvas({
   draggingNoteId,
   localDraggingNoteId = null,
   isDisconnected,
+  ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = false,
   voteRemaining,
   selectedVoteKind,
@@ -212,12 +208,9 @@ export function RoomBoardCanvas({
   dragGhost,
   dragPreview = null,
   isReturnDropTarget,
-  isIdeaMapTrayDropTarget = false,
   privateDropPlaceholder,
   boardScrollerRef,
   ideaMapPlaneRef,
-  ideaMapTrayRef,
-  ideaMapTrayFooter,
   privateToolbarRef,
   permissions,
   camera,
@@ -268,6 +261,7 @@ export function RoomBoardCanvas({
   addPrivateNoteRequest = 0,
   privateNoteAddRef,
 }: RoomBoardCanvasProps) {
+  const [fixedIdeaMapZoom, setFixedIdeaMapZoom] = useState(1);
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
   const isMultiSelected = selectionIds.length > 1;
@@ -287,18 +281,53 @@ export function RoomBoardCanvas({
   const adoptionTargetLabel = getAdoptionTargetLabel(
     phase.kind === "step" ? phase.phase : 1,
   );
-  // 3-3以降は配置マップを使い、配置済みの付箋がある3-1再訪時は閲覧だけできる。
-  // 3-2は通常の共有ボード。操作可否は引き続き permissions と RoomDO が権威。
+  // 3-2から固定2軸マップで共有・配置し、3-3でも同じ配置を引き継ぐ。
+  // 配置済みの付箋がある3-1再訪時は従来どおり閲覧のみできる。
   const isIdeaValueFeasibilityMapVisible =
     phase.kind === "step" &&
     phase.phase === 3 &&
-    (phase.step >= 3 ||
+    (phase.step >= 2 ||
       (phase.step === 1 && ideaMapSizeInitialized && notes.length > 0));
+  const isIdeaMapWorkspace =
+    isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const ideaMapDisplayScale = getIdeaMapDisplayScale(ideaMapSizeLevel);
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
   const selectedNote = [...notes, ...privateNotes].find(
     (note) => note.id === selectedNoteId,
   );
+  const canvasZoom = isIdeaValueFeasibilityMapVisible
+    ? fixedIdeaMapZoom
+    : camera.zoom;
+  const zoomOut = () => {
+    if (isIdeaValueFeasibilityMapVisible) {
+      setFixedIdeaMapZoom((zoom) => clampCanvasZoom(zoom / 1.25));
+      return;
+    }
+    onZoomOut();
+  };
+  const resetZoom = () => {
+    if (isIdeaValueFeasibilityMapVisible) {
+      setFixedIdeaMapZoom(1);
+      return;
+    }
+    onResetZoom();
+  };
+  const zoomIn = () => {
+    if (isIdeaValueFeasibilityMapVisible) {
+      setFixedIdeaMapZoom((zoom) => clampCanvasZoom(zoom * 1.25));
+      return;
+    }
+    onZoomIn();
+  };
+  const fitToNotes = () => {
+    if (isIdeaValueFeasibilityMapVisible) {
+      // 固定マップは既定で表示領域にフィットするため、全体表示は等倍へ戻す。
+      setFixedIdeaMapZoom(1);
+      return;
+    }
+    onFitToNotes();
+  };
 
   useEffect(() => {
     if (isAdoptMode) return;
@@ -502,36 +531,48 @@ export function RoomBoardCanvas({
     );
   }
 
-  const unplacedMapNotes = isIdeaValueFeasibilityMapVisible
-    ? orderedNotes.filter(
-        (note) => note.visibility === "shared" && note.ideaMapPlaced === false,
-      )
-    : [];
-  const shouldShowMapTray = isPhaseStep(phase, 3, 3);
-  const [isMapTrayOpen, setMapTrayOpen] = useState(false);
-  const mapTrayListId = useId();
   const canvasZoomControls = (
     <CanvasZoomControls
       moveHistory={moveHistory}
-      showNavigationControls={!isIdeaValueFeasibilityMapVisible}
+      showNavigationControls
       interactionTool={interactionTool}
-      onToolChange={onToolChange}
+      onToolChange={isIdeaValueFeasibilityMapVisible ? undefined : onToolChange}
       toolDisabled={toolDisabled}
-      zoom={camera.zoom}
-      onZoomOut={onZoomOut}
-      onResetZoom={onResetZoom}
-      onZoomIn={onZoomIn}
-      onFitToNotes={onFitToNotes}
+      zoom={canvasZoom}
+      onZoomOut={zoomOut}
+      onResetZoom={resetZoom}
+      onZoomIn={zoomIn}
+      onFitToNotes={fitToNotes}
     />
   );
 
   function renderPositionedNote(note: Note) {
-    const position = isIdeaValueFeasibilityMapVisible
-      ? getFixedIdeaMapNotePosition(
+    const ideaMapNoteMetrics = isIdeaValueFeasibilityMapVisible
+      ? getIdeaMapNoteDisplayMetrics(note, ideaMapSizeLevel)
+      : null;
+    const ideaMapPositionProfiles = ideaMapNoteMetrics
+      ? getFixedIdeaMapNotePositionProfiles(
           { value: note.y, feasibility: note.x },
-          getNoteHeight(note.content, note.fontSize),
+          ideaMapNoteMetrics.noteHeight,
+          ideaMapNoteMetrics.scale,
         )
+      : null;
+    const position = isIdeaValueFeasibilityMapVisible
+      ? { left: "0%", bottom: "0%" }
       : { left: note.x, top: note.y };
+    const ideaMapPositionVariables = ideaMapPositionProfiles
+      ? ({
+          "--idea-map-note-left-compact": ideaMapPositionProfiles.compact.left,
+          "--idea-map-note-bottom-compact":
+            ideaMapPositionProfiles.compact.bottom,
+          "--idea-map-note-left-tablet": ideaMapPositionProfiles.tablet.left,
+          "--idea-map-note-bottom-tablet":
+            ideaMapPositionProfiles.tablet.bottom,
+          "--idea-map-note-left-desktop": ideaMapPositionProfiles.desktop.left,
+          "--idea-map-note-bottom-desktop":
+            ideaMapPositionProfiles.desktop.bottom,
+        } as CSSProperties)
+      : {};
     const isAdoptTarget =
       isAdoptMode &&
       interactionTool === "select" &&
@@ -549,24 +590,32 @@ export function RoomBoardCanvas({
     return (
       <div
         key={note.id}
-        className="isolate pointer-events-auto absolute"
+        className={`isolate pointer-events-auto absolute ${isIdeaValueFeasibilityMapVisible ? `${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none` : ""}`}
         data-testid={
           isIdeaValueFeasibilityMapVisible
             ? `idea-value-feasibility-map-note-${note.id}`
             : `board-note-${note.id}`
         }
         style={{
-          ...position,
+          ...(!isIdeaValueFeasibilityMapVisible ? position : {}),
+          ...ideaMapPositionVariables,
           zIndex: isTemporarilyFront
             ? TEMPORARY_FRONT_Z_INDEX
             : note.excluded
               ? 0
               : note.stackOrder,
+          ...(isIdeaValueFeasibilityMapVisible
+            ? {
+                transform: `scale(${ideaMapNoteMetrics?.scale ?? ideaMapDisplayScale})`,
+                transformOrigin:
+                  "var(--idea-map-note-transform-origin, 50% 50%)",
+              }
+            : {}),
         }}
       >
         {renderNoteCard(
           note,
-          undefined,
+          ideaMapNoteMetrics?.noteHeight,
           isIdeaValueFeasibilityMapVisible ? "responsive-map" : 1,
         )}
         {isAdoptTarget ? (
@@ -625,51 +674,67 @@ export function RoomBoardCanvas({
 
   function renderIdeaMapDragGhost() {
     if (!dragGhost) return null;
-    const ghostHeight = Math.min(
-      FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT,
-      getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
+    const ghostMetrics = getIdeaMapNoteDisplayMetrics(
+      dragGhost.note,
+      ideaMapSizeLevel,
     );
-    const position = getFixedIdeaMapNotePosition(
-      {
-        value: dragGhost.y,
-        feasibility: dragGhost.x,
-      },
-      ghostHeight,
+    const positionProfiles = getFixedIdeaMapNotePositionProfiles(
+      { value: dragGhost.y, feasibility: dragGhost.x },
+      ghostMetrics.noteHeight,
+      ghostMetrics.scale,
     );
+    const positionVariables = {
+      "--idea-map-note-left-compact": positionProfiles.compact.left,
+      "--idea-map-note-bottom-compact": positionProfiles.compact.bottom,
+      "--idea-map-note-left-tablet": positionProfiles.tablet.left,
+      "--idea-map-note-bottom-tablet": positionProfiles.tablet.bottom,
+      "--idea-map-note-left-desktop": positionProfiles.desktop.left,
+      "--idea-map-note-bottom-desktop": positionProfiles.desktop.bottom,
+    } as CSSProperties;
 
     return (
-      <StickyNote
-        noteId={dragGhost.note.id}
-        isLifted
-        color={dragGhost.note.color}
-        height={ghostHeight}
-        className="pointer-events-none absolute"
+      <div
+        className={`pointer-events-none absolute ${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none`}
+        data-testid="idea-map-drag-ghost"
         style={{
-          ...position,
+          ...positionVariables,
           zIndex: TEMPORARY_FRONT_Z_INDEX,
-          transform: "scale(var(--idea-map-note-scale, 1))",
-          transformOrigin: "bottom left",
+          transform: `scale(${ghostMetrics.scale})`,
+          transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
         }}
       >
-        <p
-          className="min-h-0 flex-1 overflow-hidden p-2"
+        <StickyNote
+          noteId={dragGhost.note.id}
+          isLifted
+          color={dragGhost.note.color}
+          height={ghostMetrics.noteHeight}
+          className="pointer-events-none relative"
           style={{
-            color: NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
-            fontSize: `${dragGhost.note.fontSize}px`,
-            lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
+            transform: "scale(var(--idea-map-note-scale, 1))",
+            transformOrigin: "bottom left",
           }}
         >
-          {dragGhost.note.content || "メモを入力..."}
-        </p>
-      </StickyNote>
+          <p
+            className="min-h-0 flex-1 overflow-hidden p-2"
+            style={{
+              color: NOTE_COLOR_STYLES[dragGhost.note.color].foregroundColor,
+              fontSize: `${dragGhost.note.fontSize}px`,
+              lineHeight: `${Math.ceil(dragGhost.note.fontSize * 1.5)}px`,
+            }}
+          >
+            {dragGhost.note.content || "メモを入力..."}
+          </p>
+        </StickyNote>
+      </div>
     );
   }
 
   return (
     <div className="min-h-0 flex-1">
       <div
-        className={`relative flex h-full min-h-0 ${shouldShowMapTray ? "flex-row" : "min-h-80 flex-col"}`}
+        className={`relative flex h-full min-h-0 ${isIdeaMapWorkspace ? "flex-row max-[639px]:flex-col" : "min-h-80 flex-col"}`}
         data-testid="board-frame"
+        data-map-workspace={isIdeaMapWorkspace || undefined}
       >
         <div
           className="pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
@@ -679,7 +744,7 @@ export function RoomBoardCanvas({
           <div className="flex items-center gap-2">
             {permissions.canEditNote ? (
               <NoteFontSizeControls
-                fontSize={selectedNote?.fontSize ?? null}
+                fontSize={selectedNote?.fontSize ?? NOTE_DEFAULT_FONT_SIZE}
                 disabled={
                   isDisconnected ||
                   selectedNote === undefined ||
@@ -695,14 +760,12 @@ export function RoomBoardCanvas({
               />
             ) : null}
           </div>
-          {!shouldShowMapTray ? (
-            <div
-              data-testid="canvas-zoom-hud"
-              className="flex max-w-full items-center gap-2"
-            >
-              {canvasZoomControls}
-            </div>
-          ) : null}
+          <div
+            data-testid="canvas-zoom-hud"
+            className="flex max-w-full items-center gap-2"
+          >
+            {canvasZoomControls}
+          </div>
         </div>
         <span aria-live="polite" className="sr-only">
           {selectionIds.length > 0
@@ -787,7 +850,8 @@ export function RoomBoardCanvas({
           {isIdeaValueFeasibilityMapVisible ? (
             <FixedIdeaMap
               positionAreaRef={ideaMapPlaneRef}
-              workspace={shouldShowMapTray}
+              workspace={isIdeaMapWorkspace}
+              zoom={fixedIdeaMapZoom}
               overlay={remoteCursors.map((cursor) => (
                 <RemoteCursor
                   key={cursor.userId}
@@ -802,9 +866,7 @@ export function RoomBoardCanvas({
                 />
               ))}
             >
-              {orderedNotes
-                .filter((note) => note.ideaMapPlaced !== false)
-                .map(renderPositionedNote)}
+              {orderedNotes.map(renderPositionedNote)}
               {renderIdeaMapDragGhost()}
             </FixedIdeaMap>
           ) : null}
@@ -902,113 +964,12 @@ export function RoomBoardCanvas({
               ))
             : null}
         </div>
-        {shouldShowMapTray ? (
+        {isIdeaMapWorkspace ? (
           <div
-            className="relative z-30 flex h-[calc(100%-var(--board-map-tray-top,6.25rem))] min-h-0 w-48 shrink-0 flex-col justify-end gap-2 self-end p-3 md:w-56 max-[639px]:pointer-events-none max-[639px]:absolute max-[639px]:top-[var(--board-map-tray-top,7rem)] max-[639px]:right-0 max-[639px]:bottom-0 max-[639px]:z-[60] max-[639px]:h-auto max-[639px]:w-[min(15rem,calc(100vw-1.5rem))]"
-            data-testid="idea-map-tray-space"
-          >
-            <Card
-              className={`pointer-events-auto flex w-full max-h-full min-h-0 flex-col overflow-hidden transition-[box-shadow,background-color] duration-150 ${isMapTrayOpen ? "flex-1" : "h-14 shrink-0"} ${isIdeaMapTrayDropTarget ? "bg-primary/5 ring-2 ring-primary/40" : ""}`}
-            >
-              <section
-                aria-label="未配置のアイデア"
-                className="flex h-full min-h-0 flex-col"
-                data-testid="idea-map-unplaced-tray"
-                data-expanded={isMapTrayOpen}
-                data-drop-target={isIdeaMapTrayDropTarget || undefined}
-                ref={ideaMapTrayRef}
-              >
-                <CardContent
-                  id={mapTrayListId}
-                  hidden={!isMapTrayOpen}
-                  className="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
-                >
-                  <div
-                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-3"
-                    data-testid="idea-map-unplaced-scroll"
-                  >
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      {isIdeaMapTrayDropTarget
-                        ? "ここにドロップして未配置に戻す"
-                        : "共有済みの付箋をマップへドラッグして配置できます。"}
-                    </p>
-                    <div className="grid grid-cols-1 justify-items-center gap-3">
-                      {unplacedMapNotes.map((note) => (
-                        <div
-                          key={note.id}
-                          className="relative shrink-0 self-center"
-                          data-testid={`idea-map-tray-note-${note.id}`}
-                          style={{
-                            height: `${IDEA_MAP_TRAY_NOTE_HEIGHT}px`,
-                            width: `${IDEA_MAP_TRAY_NOTE_WIDTH}px`,
-                          }}
-                        >
-                          {localDraggingNoteId === note.id ? (
-                            <div className="flex h-full items-center justify-center rounded-md border border-dashed bg-muted/40 text-xs text-muted-foreground">
-                              マップへ移動中
-                            </div>
-                          ) : (
-                            renderNoteCard(
-                              note,
-                              NOTE_HEIGHT,
-                              IDEA_MAP_TRAY_NOTE_SCALE,
-                            )
-                          )}
-                        </div>
-                      ))}
-                      {unplacedMapNotes.length === 0 ? (
-                        <p className="py-8 text-center text-sm text-muted-foreground">
-                          配置済みの付箋をここへドラッグすると未配置に戻せます
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter
-                  className={`relative z-20 flex h-14 shrink-0 items-center bg-card p-3 ${isMapTrayOpen ? "border-t border-border" : ""}`}
-                >
-                  <div className="flex w-full items-center justify-between gap-2">
-                    <CardTitle className="min-w-0 truncate text-sm">
-                      未配置の案
-                    </CardTitle>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        disabled
-                        aria-label="付箋を追加"
-                      >
-                        <Plus aria-hidden="true" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={
-                          isMapTrayOpen
-                            ? "未配置の案を閉じる"
-                            : "未配置の案を開く"
-                        }
-                        aria-expanded={isMapTrayOpen}
-                        aria-controls={mapTrayListId}
-                        onClick={() => setMapTrayOpen((open) => !open)}
-                      >
-                        {isMapTrayOpen ? (
-                          <ChevronDown aria-hidden="true" />
-                        ) : (
-                          <ChevronUp aria-hidden="true" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </CardFooter>
-              </section>
-            </Card>
-            <footer className="pointer-events-auto flex shrink-0 flex-col items-center gap-2">
-              {canvasZoomControls}
-              {ideaMapTrayFooter}
-            </footer>
-          </div>
+            className="relative z-30 w-56 shrink-0 -translate-x-3 max-[639px]:hidden"
+            data-testid="idea-map-workspace-rail"
+            aria-hidden="true"
+          />
         ) : null}
         {dragPreview && typeof document !== "undefined"
           ? createPortal(
@@ -1021,11 +982,30 @@ export function RoomBoardCanvas({
                 style={{
                   left: dragPreview.left,
                   top: dragPreview.top,
-                  width: dragPreview.width,
-                  height: dragPreview.height,
+                  width:
+                    dragPreview.noteScale === undefined
+                      ? dragPreview.width
+                      : NOTE_WIDTH,
+                  height: dragPreview.noteHeight ?? dragPreview.height,
+                  ...(dragPreview.noteScale === undefined
+                    ? {}
+                    : {
+                        transform: `scale(${dragPreview.noteScale})`,
+                        transformOrigin: "top left",
+                      }),
                 }}
               >
-                <p className="min-h-0 flex-1 overflow-hidden p-2 text-sm text-slate-900">
+                <p
+                  className={`min-h-0 flex-1 overflow-hidden p-2 text-slate-900 ${dragPreview.noteScale === undefined ? "text-sm" : ""}`}
+                  style={
+                    dragPreview.noteScale === undefined
+                      ? undefined
+                      : {
+                          fontSize: `${dragPreview.note.fontSize}px`,
+                          lineHeight: `${Math.ceil(dragPreview.note.fontSize * 1.5)}px`,
+                        }
+                  }
+                >
                   {dragPreview.note.content || "メモを入力..."}
                 </p>
               </StickyNote>,
@@ -1033,7 +1013,7 @@ export function RoomBoardCanvas({
             )
           : null}
         <div
-          className={`pointer-events-auto absolute bottom-3 z-40 max-[639px]:bottom-[var(--board-operation-bottom,4.5rem)] ${shouldShowMapTray ? "right-[calc(12rem+0.75rem)] md:right-[calc(14rem+0.75rem)] max-[639px]:hidden" : "right-3"}`}
+          className="pointer-events-auto absolute right-3 bottom-3 z-40 max-[639px]:bottom-[var(--board-operation-bottom,4.5rem)]"
           data-testid="board-operation-matrix"
           data-board-fit-edge="bottom"
         >
@@ -1041,7 +1021,7 @@ export function RoomBoardCanvas({
         </div>
         {permissions.showPrivateToolbar ? (
           <div
-            className={`pointer-events-none absolute right-3 bottom-[5.25rem] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`}
+            className={`pointer-events-none absolute right-3 bottom-[5.25rem] top-[4.5rem] min-[640px]:group-data-[connection-status=closed]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=connecting]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=auth-required]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] min-[640px]:group-data-[connection-status=unavailable]/board:top-[max(7.5rem,var(--board-connection-notice-bottom,0px))] z-30 flex w-[min(15rem,calc(100vw-1.5rem))] items-end ${isIdeaMapWorkspace ? "min-[640px]:w-56" : ""} max-[639px]:top-auto max-[639px]:h-[var(--board-private-dock-height,20rem)] ${moveHistory ? "max-[639px]:bottom-[var(--board-private-dock-bottom)] max-[639px]:max-h-[max(0px,calc(100%-var(--board-private-dock-bottom)-16.5rem))]" : isHost && phase.kind === "step" && phase.step === 2 ? "max-[639px]:bottom-[var(--board-private-dock-bottom,11.5rem)] max-[639px]:max-h-[calc(100%-16rem)]" : "max-[639px]:bottom-[var(--board-private-dock-bottom,7.5rem)] max-[639px]:max-h-[calc(100%-12rem)]"}`}
             data-testid="private-notes-dock"
             data-board-fit-edge="bottom"
           >
@@ -1058,20 +1038,27 @@ export function RoomBoardCanvas({
               canEditNote={permissions.canEditNote}
               canMoveNote={permissions.canMoveNote}
               sharingHint={
-                phase.kind === "step" && phase.step === 2
+                isPhaseStep(phase, 3, 2)
                   ? canPublishPrivateNote
-                    ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+                    ? "あなたの番です。付箋を2軸マップへドラッグして共有できます。"
                     : "付箋の共有は、自分の番になるまでお待ちください。"
-                  : undefined
+                  : phase.kind === "step" && phase.step === 2
+                    ? canPublishPrivateNote
+                      ? "あなたの番です。付箋をボードへドラッグして共有できます。"
+                      : "付箋の共有は、自分の番になるまでお待ちください。"
+                    : undefined
               }
               editingDisabled={isResultStep(phase)}
               defaultExpanded={
-                phase.kind === "step" && phase.step === 1 && phase.phase <= 3
+                (phase.kind === "step" &&
+                  phase.step === 1 &&
+                  phase.phase <= 3) ||
+                isPhaseStep(phase, 3, 2)
               }
               expandRequest={expandPrivateNotesRequest}
               addRequest={addPrivateNoteRequest}
               addActionRef={privateNoteAddRef}
-              className="pointer-events-auto max-h-full"
+              className={`pointer-events-auto max-h-full ${isIdeaMapWorkspace ? "min-[640px]:w-56" : ""}`}
               toolbarRef={privateToolbarRef}
               isReturnDropTarget={isReturnDropTarget}
               dropPlaceholder={privateDropPlaceholder}

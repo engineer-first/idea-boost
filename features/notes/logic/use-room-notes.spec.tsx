@@ -1331,6 +1331,28 @@ describe("transaction move", () => {
     act(() => vi.advanceTimersByTime(2_000));
     expect(send).toHaveBeenCalledTimes(2);
   });
+  it("3-2の共有付箋の移動開始はマップ座標を指定する", () => {
+    const send = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomNotes({ send, createNoteDragId: () => DRAG_ID }),
+    );
+    act(() =>
+      result.current.applyMessage({
+        ...snapshotMessage(),
+        phase: { kind: "step", phase: 3, step: 2 },
+        moveProtocolVersion: 1,
+      } as ServerMessage),
+    );
+
+    act(() => result.current.startNoteDrag(NOTE_ID));
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "note:move:start",
+        coordinateSpace: "map",
+      }),
+    );
+  });
   it("分類の内容を含まない版通知でpreviewを取消し次の移動を最新の版で開始する", () => {
     const send = vi.fn();
     const { result } = renderHook(() => useRoomNotes({ send }));

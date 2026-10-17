@@ -1170,16 +1170,17 @@ describe("useBoardDrag", () => {
     expect(result.current.drag).toBeNull();
   });
 
-  it("3-3のマップ付箋を下部の未配置トレイへドロップすると配置を解除する", () => {
+  it("マップ上の共有付箋は未配置フラグに関係なく移動できる", () => {
     const { args, result } = setup({
-      notes: [buildNote({ id: "shared-1", authorId: ME, x: 50, y: 50 })],
-      canReturnToIdeaMapTray: true,
-      ideaMapTrayRef: fakeElementRef<HTMLElementTagNameMap["section"]>({
-        left: 0,
-        top: 500,
-        right: 800,
-        bottom: 600,
-      }),
+      notes: [
+        buildNote({
+          id: "shared-1",
+          authorId: ME,
+          x: 50,
+          y: 50,
+          ideaMapPlaced: false,
+        }),
+      ],
     });
 
     act(() => {
@@ -1187,11 +1188,11 @@ describe("useBoardDrag", () => {
         "shared-1",
         pointerEvent(1, 100, 100),
       );
-      result.current.handlePointerMove(pointerEvent(1, 700, 550));
-      result.current.handlePointerEnd(pointerEvent(1, 700, 550));
+      result.current.handlePointerMove(pointerEvent(1, 250, 180));
+      result.current.handlePointerEnd(pointerEvent(1, 250, 180));
     });
 
-    expect(args.onNoteDragEnd).toHaveBeenCalledWith("shared-1", 50, 50, false);
+    expect(args.onNoteDragEnd).toHaveBeenCalledWith("shared-1", 200, 130);
     expect(result.current.drag).toBeNull();
   });
 

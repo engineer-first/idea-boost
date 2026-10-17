@@ -1,0 +1,11 @@
+@media (min-width: 1120px) and (max-height: 820px) {
+  .workspaceCompactValueLow {
+    bottom: 1.75rem;
+    left: calc(50% - 1.25rem);
+  }
+
+  .workspaceCompactFeasibilityLow {
+    top: -1.25rem;
+    left: 4.25rem;
+  }
+}

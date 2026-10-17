@@ -56,6 +56,14 @@ function openRoomMenu() {
 }
 
 describe("RoomBoardHeader", () => {
+  it("3-2と3-3で同じマップ用ヘッダー配置を使う", () => {
+    setup({ phase: buildPhaseStep(2, 3) });
+    expect(screen.getByTestId("board-header-row")).toHaveAttribute(
+      "data-map-workspace",
+      "true",
+    );
+  });
+
   it("3-3でも共通の現在地・参照情報・進め方・ルーム操作を表示する", () => {
     setup({
       phase: buildPhaseStep(3, 3),
@@ -70,17 +78,22 @@ describe("RoomBoardHeader", () => {
     expect(screen.getByTestId("board-control-hud")).toBeVisible();
     expect(screen.getByTestId("step-guide")).toHaveAttribute(
       "data-placement",
-      "inline",
+      "floating",
     );
     expect(screen.getByRole("button", { name: "進め方" })).toBeVisible();
     const question = screen.getByRole("button", { name: /決定した問い/ });
     expect(question).toHaveAttribute("aria-expanded", "false");
-    expect(question).toHaveTextContent(
+    expect(question).toHaveTextContent("決定した問い");
+    fireEvent.click(question);
+    expect(screen.getByLabelText("決定した問いの本文")).toHaveTextContent(
       "どうすれば最初の一歩を踏み出せるだろうか？",
     );
-    expect(
-      screen.getByRole("button", { name: /決定した課題/ }),
-    ).toHaveTextContent("作業を後回しにしてしまう");
+    const issue = screen.getByRole("button", { name: /決定した課題/ });
+    expect(issue).toHaveTextContent("決定した課題");
+    fireEvent.click(issue);
+    expect(screen.getByLabelText("決定した課題の本文")).toHaveTextContent(
+      "作業を後回しにしてしまう",
+    );
   });
 
   describe("招待情報（host 限定）", () => {

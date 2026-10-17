@@ -26,13 +26,13 @@ describe("検証の操作ページ", () => {
     ).toHaveAttribute("target", "idea-boost-verification");
     expect(screen.getByText(/まだ検証ルーム/)).toBeInTheDocument();
   });
-  it("3-2は共有ボード、3-3は未配置アイデアをマップへ置く状態として案内する", () => {
+  it("3-2はマイ付箋からマップへ共有し、3-3はマップだけで評価する状態として案内する", () => {
     render(<VerificationView {...props} />);
     expect(
       screen.getByRole("button", { name: /3-2 共有・分類/ }),
-    ).toHaveTextContent("通常の共有ボード");
+    ).toHaveTextContent("2軸マップとマイ付箋");
     expect(screen.getByRole("button", { name: /3-3 価値/ })).toHaveTextContent(
-      "下部トレイから2軸マップへ配置",
+      "同じ2軸マップ",
     );
   });
   it("成果ケースと名前を準備操作に渡し、Ownerだけ一覧導線を表示する", () => {

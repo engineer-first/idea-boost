@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from "lucide-react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import { IDEA_VALUE_FEASIBILITY_MAP_LABELS } from "../logic/idea-value-feasibility-map";
+import styles from "./fixed-idea-map.module.css";
 
 const GRID_STYLE = {
   backgroundImage:
@@ -13,17 +14,20 @@ export type FixedIdeaMapProps = {
   overlay?: ReactNode;
   positionAreaRef?: Ref<HTMLDivElement>;
   workspace?: boolean;
+  zoom?: number;
 };
 
 /**
- * アイデア配置用の固定マップ。キャンバスカメラとは独立し、軸と付箋を
- * ボード領域内に固定表示する。座標領域は付箋が外枠からはみ出さない寸法。
+ * アイデア配置用の固定マップ。ボードカメラとは独立し、既定では軸と付箋を
+ * ボード領域内に固定表示する。zoomは個人用の表示倍率。
+ * 付箋の移動範囲は表示後の寸法に合わせてマップの内枠いっぱいに取る。
  */
 export function FixedIdeaMap({
   children,
   overlay,
   positionAreaRef,
   workspace = false,
+  zoom = 1,
 }: FixedIdeaMapProps) {
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
 
@@ -32,6 +36,12 @@ export function FixedIdeaMap({
       aria-label={labels.ariaLabel}
       className={`pointer-events-none absolute inset-0 z-10 flex items-center justify-center ${workspace ? "[container-type:size] px-4 pt-[var(--board-map-top,7rem)] pb-4" : "p-3 pt-20 sm:p-6 sm:pt-24"}`}
       data-testid="idea-map-fixed-board"
+      data-map-workspace={workspace || undefined}
+      style={
+        zoom === 1
+          ? undefined
+          : { transform: `scale(${zoom})`, transformOrigin: "center center" }
+      }
     >
       <div
         className={`flex w-full flex-col gap-2 sm:gap-3 ${workspace ? "h-[min(100%,calc(55.5556cqw+3rem))]" : "h-full"}`}
@@ -69,7 +79,9 @@ export function FixedIdeaMap({
               aria-hidden="true"
               className="absolute bottom-7 left-1/2 size-4 -translate-x-1/2 text-muted-foreground sm:size-5"
             />
-            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-sm font-medium sm:text-base">
+            <span
+              className={`absolute bottom-0 left-1/2 -translate-x-1/2 text-sm font-medium sm:text-base ${workspace ? styles.workspaceCompactValueLow : ""}`}
+            >
               {labels.low}
             </span>
           </fieldset>
@@ -80,7 +92,7 @@ export function FixedIdeaMap({
           >
             <section
               aria-label={labels.title}
-              className="relative min-h-0 min-w-0 overflow-hidden rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [--idea-map-note-scale:0.6] [--idea-map-note-inset:120px] [--idea-map-note-top-inset:132px] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-inset:150px] sm:[--idea-map-note-top-inset:165px] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-inset:200px] lg:[--idea-map-note-top-inset:220px]"
+              className="relative min-h-0 min-w-0 overflow-hidden rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]"
               data-testid="idea-value-feasibility-map-plane"
               style={
                 workspace
@@ -111,18 +123,23 @@ export function FixedIdeaMap({
                 </>
               ) : null}
               <div
-                ref={positionAreaRef}
-                className="pointer-events-auto absolute top-[var(--idea-map-note-top-inset)] right-[var(--idea-map-note-inset)] bottom-0 left-0"
-                data-canvas-background="true"
-                data-coordinate-range="0-100"
-                data-testid="idea-map-fixed-position-area"
+                className="pointer-events-none absolute inset-0"
+                data-testid="idea-map-note-layer"
               >
-                {children}
-                {overlay ? (
-                  <div className="pointer-events-none absolute inset-0 z-20">
-                    {overlay}
-                  </div>
-                ) : null}
+                <div
+                  ref={positionAreaRef}
+                  className="pointer-events-auto absolute inset-0"
+                  data-canvas-background="true"
+                  data-coordinate-range="0-100"
+                  data-testid="idea-map-fixed-position-area"
+                >
+                  {children}
+                  {overlay ? (
+                    <div className="pointer-events-none absolute inset-0 z-20">
+                      {overlay}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </section>
           </div>
@@ -132,7 +149,9 @@ export function FixedIdeaMap({
           aria-label={labels.feasibilityScaleAriaLabel}
           className={`relative m-0 shrink-0 border-0 p-0 text-muted-foreground ${workspace ? "ml-10 h-10 sm:ml-15" : "ml-10 h-14 sm:ml-16"}`}
         >
-          <span className="absolute top-0 left-0 text-sm font-medium sm:text-base">
+          <span
+            className={`absolute top-0 left-0 text-sm font-medium sm:text-base ${workspace ? styles.workspaceCompactFeasibilityLow : ""}`}
+          >
             {labels.low}
           </span>
           <div

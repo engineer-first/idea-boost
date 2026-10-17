@@ -57,6 +57,7 @@ import type { RoomBoardInteractions } from "../logic/use-room-board-interactions
 import type { RoomDisplayNameControls } from "../logic/use-room-display-name";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { HostTransferDialog } from "../molecules/host-transfer-dialog";
+import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
 import { LeaveConfirmDialog } from "../molecules/leave-confirm-dialog";
 import { MemberRemoveDialog } from "../molecules/member-remove-dialog";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
@@ -1220,14 +1221,12 @@ export function RoomBoardView({
     boardRootRef,
     boardScrollerRef,
     ideaMapPlaneRef,
-    ideaMapTrayRef,
     privateToolbarRef,
     notes: renderedNotes,
     privateNotes: toolbarNotes,
     dragGhost,
     dragPreview,
     isReturnDropTarget,
-    isIdeaMapTrayDropTarget,
     privateDropPlaceholder,
     isNoteDragging,
     camera,
@@ -1250,6 +1249,8 @@ export function RoomBoardView({
   } = interactions;
 
   const hasMoveHistory = moveHistory !== undefined;
+  const isIdeaMapWorkspace =
+    isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
   // mobileはHUDの実高を使って積む。fit用の占有領域・desktopの配置はそのまま保つ。
   useEffect(() => {
     const root = boardRootRef.current;
@@ -1712,18 +1713,20 @@ export function RoomBoardView({
           onTimerExtend={onTimerExtend}
           onTimerStop={onTimerStop}
         >
-          <BoardHelpPanel
-            {...help}
-            disabled={isDisconnected}
-            onHmwTemplateSelect={(content) => {
-              onHmwTemplateSelect(content);
-              setExpandPrivateNotesRequest((request) => request + 1);
-            }}
-            onIdeaHintSelect={(content) => {
-              onIdeaHintSelect(content);
-              setExpandPrivateNotesRequest((request) => request + 1);
-            }}
-          />
+          {!isIdeaMapWorkspace ? (
+            <BoardHelpPanel
+              {...help}
+              disabled={isDisconnected}
+              onHmwTemplateSelect={(content) => {
+                onHmwTemplateSelect(content);
+                setExpandPrivateNotesRequest((request) => request + 1);
+              }}
+              onIdeaHintSelect={(content) => {
+                onIdeaHintSelect(content);
+                setExpandPrivateNotesRequest((request) => request + 1);
+              }}
+            />
+          ) : null}
         </RoomBoardHeader>
 
         {isAdoptMode && interactionTool === "hand" ? (
@@ -1735,9 +1738,6 @@ export function RoomBoardView({
           </p>
         ) : null}
         <RoomBoardCanvas
-          ideaMapTrayFooter={
-            isPhaseStep(phase, 3, 3) ? phaseLoopControls : undefined
-          }
           rollbackRevision={rollbackRevision}
           authorName={(authorId) =>
             members.find((m) => m.userId === authorId)?.name ??
@@ -1789,11 +1789,9 @@ export function RoomBoardView({
           dragGhost={dragGhost}
           dragPreview={dragPreview}
           isReturnDropTarget={isReturnDropTarget}
-          isIdeaMapTrayDropTarget={isIdeaMapTrayDropTarget}
           privateDropPlaceholder={privateDropPlaceholder}
           boardScrollerRef={boardScrollerRef}
           ideaMapPlaneRef={ideaMapPlaneRef}
-          ideaMapTrayRef={ideaMapTrayRef}
           privateToolbarRef={privateToolbarRef}
           camera={camera}
           gridStyle={gridStyle}
@@ -1894,15 +1892,30 @@ export function RoomBoardView({
           </div>
         ) : null}
 
-        {!isPhaseStep(phase, 3, 3) ? (
+        {isIdeaMapWorkspace ? (
           <div
-            className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)]"
-            data-testid="phase-loop-hud"
+            className="pointer-events-none absolute bottom-[calc(var(--board-phase-hud-height,0px)_+_3rem)] left-1/2 z-40 flex -translate-x-1/2 justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)] min-[640px]:left-[calc(50%_-_6rem)] md:left-[calc(50%_-_7rem)]"
+            data-testid="idea-map-size-controls-hud"
             data-board-fit-edge="bottom"
           >
-            {phaseLoopControls}
+            <IdeaMapSizeControls
+              sizeLevel={ideaMapSizeLevel}
+              initialized={ideaMapSizeInitialized}
+              isHost={isHost}
+              isDisconnected={isDisconnected}
+              isDragging={ideaMapIsDragging}
+              onResize={onIdeaMapResize}
+            />
           </div>
         ) : null}
+
+        <div
+          className={`pointer-events-none absolute z-40 flex justify-center ${isIdeaMapWorkspace ? "bottom-[calc(var(--board-tools-height,46px)+1.5rem)] left-16 translate-x-0 max-[639px]:bottom-[calc(var(--board-tools-height,46px)+1.5rem)] max-[639px]:left-3" : "bottom-3 left-1/2 -translate-x-1/2 max-[639px]:bottom-[var(--board-mobile-phase-bottom)] min-[640px]:left-[calc(50%_-_6rem)] md:left-[calc(50%_-_7rem)]"}`}
+          data-testid="phase-loop-hud"
+          data-board-fit-edge="bottom"
+        >
+          {phaseLoopControls}
+        </div>
 
         {voteStickerDrag !== null ? (
           <div

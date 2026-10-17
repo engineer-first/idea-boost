@@ -494,6 +494,7 @@ const allowedBoardMutationsByPhase: {
       "note:drag:start",
       "note:drag:move",
       "note:drag:end",
+      "idea-map:resize",
     ],
     3: [
       "note:move",
@@ -724,10 +725,10 @@ export const phaseHandlers: MessageHandlers<
     const initializesIdeaMapSize =
       current.kind === "step" &&
       current.phase === 3 &&
-      current.step === 2 &&
       next.kind === "step" &&
       next.phase === 3 &&
-      next.step === 3;
+      ((current.step === 1 && next.step === 2) ||
+        (current.step === 2 && next.step === 3));
     const entersIdeaMapStep =
       next.kind === "step" &&
       next.phase === 3 &&
@@ -790,16 +791,6 @@ export const phaseHandlers: MessageHandlers<
           ctx.sql.exec(
             "UPDATE room_state SET idea_map_size_level = ?1, idea_map_size_initialized = 1 WHERE id = 1",
             sizeLevel,
-          );
-          // 初回だけ共有ボード座標を破棄し、すべて未配置としてトレイへ送る。
-          ctx.sql.exec(
-            "UPDATE notes SET x = 50, y = 50, idea_map_placed = 0 WHERE phase = 3 AND visibility = 'shared'",
-          );
-        } else {
-          // 再訪時は既配置の評価座標を保ち、新しく共有された付箋だけを
-          // 未配置トレイの基準位置へ戻す。
-          ctx.sql.exec(
-            "UPDATE notes SET x = 50, y = 50 WHERE phase = 3 AND visibility = 'shared' AND idea_map_placed = 0",
           );
         }
       }

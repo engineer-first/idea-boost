@@ -224,6 +224,79 @@ describe("現在地と補足情報", () => {
     ).not.toBeVisible();
     expect(screen.getByText("解決したい課題")).toBeVisible();
   });
+
+  it.each([2, 3])("3-%iでは問いと課題をマップ用レイアウトにする", (step) => {
+    render(
+      <BoardContext
+        initialDisclosureId={null}
+        phase={buildPhaseStep(step, 3)}
+        hmwDecidedIssue="決定した課題"
+        decidedHmw="決定した問い"
+      />,
+    );
+
+    const references = screen.getByTestId("board-context-references");
+    expect(references).toHaveAttribute("data-layout", "map-workspace");
+    const question = screen.getByRole("button", { name: "決定した問い" });
+    const issue = screen.getByRole("button", { name: "決定した課題" });
+    expect(references).toContainElement(question);
+    expect(references).toContainElement(issue);
+    expect(question).toHaveAttribute("aria-expanded", "false");
+    expect(issue).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(question);
+    expect(question).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(issue);
+    expect(question).toHaveAttribute("aria-expanded", "false");
+    expect(issue).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("3-2・3-3以外では問いと課題の従来レイアウトを保つ", () => {
+    render(
+      <BoardContext
+        phase={buildPhaseStep(1, 3)}
+        hmwDecidedIssue="決定した課題"
+        decidedHmw="決定した問い"
+      />,
+    );
+
+    expect(screen.getByTestId("board-context-references")).toHaveAttribute(
+      "data-layout",
+      "stacked",
+    );
+  });
+
+  it.each([2, 3])("3-%iの展開した付箋をレイアウト外に表示する", (step) => {
+    render(
+      <BoardContext
+        initialDisclosureId={null}
+        phase={buildPhaseStep(step, 3)}
+        hmwDecidedIssue="決定した課題"
+        decidedHmw="決定した問い"
+      />,
+    );
+
+    const hud = screen.getByTestId("board-context-hud");
+    for (const id of ["hmw", "issue"] as const) {
+      const trigger = screen.getByRole("button", {
+        name: id === "hmw" ? "決定した問い" : "決定した課題",
+      });
+      fireEvent.click(trigger);
+
+      const content = screen.getByTestId(`board-reference-${id}-content`);
+      const popover = screen.getByTestId(`board-reference-${id}-popover`);
+      const note = popover.querySelector<HTMLElement>(
+        '[data-slot="sticky-note"]',
+      );
+      expect(popover).toBeInTheDocument();
+      expect(hud).not.toContainElement(popover);
+      expect(popover).toContainElement(content);
+      expect(note).not.toBeNull();
+      expect(note).toHaveStyle({ width: "200px" });
+      expect(content).toBeVisible();
+      fireEvent.click(trigger);
+    }
+  });
 });
 
 it("全14工程の現在地と次の予告を保ち、閲覧タブでは変えず、成果公開後は予告を消す", () => {

@@ -74,7 +74,7 @@ export class PreviewRoomDO extends RoomDO {
               updated_at: now,
               phase,
               excluded: false,
-              idea_map_placed: !(phase === 3 && target.step === 3),
+              idea_map_placed: true,
             };
             insertNote(this.ctx.storage.sql, note);
             noteIds.push(note.id);
@@ -103,7 +103,7 @@ export class PreviewRoomDO extends RoomDO {
               VERIFICATION_NOTES[phase][0],
             );
         }
-        if (target.phase === 3 && target.step >= 3)
+        if (target.phase === 3 && target.step >= 2)
           this.ctx.storage.sql.exec(
             "UPDATE room_state SET idea_map_size_level = ?, idea_map_size_initialized = 1 WHERE id = 1",
             getInitialIdeaMapSizeLevel(VERIFICATION_NOTES[3].length),

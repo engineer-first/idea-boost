@@ -6,12 +6,14 @@ export const CANVAS_COORDINATE_LIMIT = 1_000_000;
 // 表し、どちらも低=0・高=100 として保存・同期する。
 export const IDEA_VALUE_FEASIBILITY_MAP_RANGE = { min: 0, max: 100 } as const;
 
-// 2軸マップは付箋サイズを変えず、段階ごとに縦横を10%ずつ広げる。
-// 初期段階はフェーズ3で共有された付箋総数から選び、個別の内容や作者別の枚数は使わない。
+// 2軸マップの共有表示範囲。段階ごとに論理範囲を縦横10%ずつ広げる。
+// 固定マップでは逆倍率を付箋レイヤーに適用し、外枠・座標・評価値を保ったまま表示する。
+// 初期段階は共有付箋総数から算出した基準に4段階分の余裕を加え、個別内容や作者別枚数は使わない。
 export const IDEA_MAP_BASE_DIMENSIONS = { width: 1600, height: 900 } as const;
 export const IDEA_MAP_SIZE_LEVEL_RANGE = { min: 0, max: 15 } as const;
 export const IDEA_MAP_SIZE_GROWTH = 1.1;
 export const IDEA_MAP_BASE_NOTE_CAPACITY = 12;
+export const IDEA_MAP_DEFAULT_EXTRA_SIZE_LEVELS = 4;
 
 export function getIdeaMapDimensions(level: number): {
   width: number;
@@ -31,18 +33,18 @@ export function getIdeaMapDimensions(level: number): {
 }
 
 export function getInitialIdeaMapSizeLevel(sharedNoteCount: number): number {
-  if (
-    !Number.isFinite(sharedNoteCount) ||
-    sharedNoteCount <= IDEA_MAP_BASE_NOTE_CAPACITY
-  ) {
-    return IDEA_MAP_SIZE_LEVEL_RANGE.min;
-  }
-  const notesPerLevel = IDEA_MAP_SIZE_GROWTH ** 2;
-  const level = Math.ceil(
-    Math.log(sharedNoteCount / IDEA_MAP_BASE_NOTE_CAPACITY) /
-      Math.log(notesPerLevel),
+  const capacityLevel =
+    Number.isFinite(sharedNoteCount) &&
+    sharedNoteCount > IDEA_MAP_BASE_NOTE_CAPACITY
+      ? Math.ceil(
+          Math.log(sharedNoteCount / IDEA_MAP_BASE_NOTE_CAPACITY) /
+            Math.log(IDEA_MAP_SIZE_GROWTH ** 2),
+        )
+      : IDEA_MAP_SIZE_LEVEL_RANGE.min;
+  return Math.min(
+    IDEA_MAP_SIZE_LEVEL_RANGE.max,
+    capacityLevel + IDEA_MAP_DEFAULT_EXTRA_SIZE_LEVELS,
   );
-  return Math.min(IDEA_MAP_SIZE_LEVEL_RANGE.max, level);
 }
 
 export function isIdeaValueFeasibilityMapCoordinate(

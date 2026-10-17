@@ -264,7 +264,9 @@ export function useNoteMove({
           groupRevision: message.groupRevision ?? 0,
           mapRevision: message.mapRevision ?? 0,
           space:
-            isPhaseStep(message.phase, 3, 3) || isPhaseStep(message.phase, 3, 5)
+            isPhaseStep(message.phase, 3, 2) ||
+            isPhaseStep(message.phase, 3, 3) ||
+            isPhaseStep(message.phase, 3, 5)
               ? "map"
               : "canvas",
         };
@@ -292,7 +294,9 @@ export function useNoteMove({
       if (message.type === "phase:updated") {
         capability.current.phaseRevision = message.phaseRevision;
         capability.current.space =
-          isPhaseStep(message.phase, 3, 3) || isPhaseStep(message.phase, 3, 5)
+          isPhaseStep(message.phase, 3, 2) ||
+          isPhaseStep(message.phase, 3, 3) ||
+          isPhaseStep(message.phase, 3, 5)
             ? "map"
             : "canvas";
       }

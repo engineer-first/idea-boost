@@ -44,21 +44,32 @@ async function openStory(id: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
 }
 
+async function collapseGuide(): Promise<void> {
+  const guide = page.getByTestId("step-guide");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if ((await guide.getAttribute("data-state")) === "compact") return;
+    await page.keyboard.press("Escape");
+  }
+  await expect.poll(() => guide.getAttribute("data-state")).toBe("compact");
+}
+
 async function expectLayout(): Promise<void> {
   const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+  const layoutTargets = [
+    '[data-testid="board-context-hud"]',
+    '[data-testid="board-control-hud"]',
+    '[data-testid="board-connection-status"]',
+    '[data-testid="board-help-panel"] > div',
+    '[data-testid="private-notes-toolbar"]',
+    '[data-testid="board-tools-hud"]',
+    '[data-testid="board-operation-matrix"]',
+    '[data-testid="vote-palette-hud"] > *',
+  ];
+  if (viewport.width >= 1280) {
+    layoutTargets.push('[data-testid="step-guide"]');
+  }
   const boxes = await page
-    .locator(
-      [
-        '[data-testid="board-context-hud"]',
-        '[data-testid="board-control-hud"]',
-        '[data-testid="board-connection-status"]',
-        '[data-testid="board-help-panel"] > div',
-        '[data-testid="private-notes-toolbar"]',
-        '[data-testid="board-tools-hud"]',
-        '[data-testid="board-operation-matrix"]',
-        '[data-testid="vote-palette-hud"] > *',
-      ].join(","),
-    )
+    .locator(layoutTargets.join(","))
     .evaluateAll((elements) =>
       elements.map((element) => ({
         id: element.getAttribute("data-testid") ?? "help",
@@ -166,10 +177,37 @@ test.each(
   const [phase, number] = step.split("-");
   await openStory(`room-roomboardlayout--phase-${phase}-step-${number}`);
   await page.getByTestId("board-context-hud").waitFor();
-  // 集計ステップは結果ダイアログを閉じたボード本体も検査する。
-  await page.keyboard.press("Escape");
+  // 集計ステップの結果ダイアログを閉じた後、コンパクトなガイド位置を検査する。
+  await collapseGuide();
   await expectLayout();
+  const guide = await page.getByTestId("step-guide").boundingBox();
+  const location = await page.getByTestId("board-location-card").boundingBox();
+  const controls = await page.getByTestId("board-control-hud").boundingBox();
+  if (!guide || !location || !controls) {
+    throw new Error("上部ヘッダーの配置を取得できません");
+  }
+  const guideCenterY = guide.y + guide.height / 2;
+  const locationCenterY = location.y + location.height / 2;
+  const controlsCenterY = controls.y + controls.height / 2;
+  expect(Math.abs(guideCenterY - locationCenterY)).toBeLessThanOrEqual(4);
+  expect(Math.abs(guideCenterY - controlsCenterY)).toBeLessThanOrEqual(4);
   await page.screenshot({ path: `${output}/${step}.png` });
+});
+
+test.each([
+  1279, 1024,
+])("%dpxでは進め方が操作バーの下へ退避し、重ならない", async (width) => {
+  await page.setViewportSize({ width, height: 720 });
+  await openStory("room-roomboardlayout--phase-3-step-1");
+  await collapseGuide();
+  const guide = await page.getByTestId("step-guide").boundingBox();
+  const controls = await page.getByTestId("board-control-hud").boundingBox();
+  if (!guide || !controls) {
+    throw new Error("進め方または上部操作バーが見つかりません");
+  }
+  expect(guide.y).toBeGreaterThanOrEqual(controls.y + controls.height);
+  expect(guide.x).toBeGreaterThanOrEqual(0);
+  expect(guide.x + guide.width).toBeLessThanOrEqual(width);
 });
 
 test("左右の開閉は独立し、多数の付箋とヒントは内部スクロールで末尾に到達できる", async () => {

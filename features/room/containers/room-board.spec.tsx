@@ -320,6 +320,12 @@ it.each([
   Object.defineProperty(scroller, "getBoundingClientRect", {
     value: () => new DOMRect(0, 0, 500, 400),
   });
+  if (phase === 3) {
+    const mapPositionArea = screen.getByTestId("idea-map-fixed-position-area");
+    Object.defineProperty(mapPositionArea, "getBoundingClientRect", {
+      value: () => new DOMRect(0, 0, 400, 400),
+    });
+  }
   mockPrivateToolbarLayout(toolbar);
   function dragPrivate() {
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
@@ -778,17 +784,16 @@ describe("サーバーメッセージ → 画面反映", () => {
     expect(screen.getByDisplayValue("最初の付箋")).toBeInTheDocument();
   });
 
-  it("snapshotのマップ寸法を描画し、広さ変更をRoomDOへ送る", () => {
+  it("snapshotの2軸マップを固定比率で描画し、広さ変更をRoomDOへ送る", () => {
     const { socket } = connectWithSnapshot([], {
       phase: buildPhaseStep(3, 3),
       ideaMapSizeLevel: 2,
       ideaMapSizeInitialized: true,
     });
 
-    expect(screen.getByTestId("idea-value-feasibility-map")).toHaveStyle({
-      width: "1936px",
-      height: "1109px",
-    });
+    expect(screen.getByTestId("idea-map-layout")).toBeInTheDocument();
+    const map = screen.getByTestId("idea-value-feasibility-map-plane");
+    expect(map.style.aspectRatio).toBe("9 / 5");
     fireEvent.click(screen.getByRole("button", { name: "マップを広くする" }));
     expectSent(socket, { type: "idea-map:resize", sizeLevel: 3 });
   });
@@ -2889,48 +2894,16 @@ describe("Step 3-1（アイデア個人執筆）", () => {
 });
 
 describe("Step 3-2〜3-5（2軸マッピング）", () => {
-  it("Step3-3のパン・ズームはカメラだけを変更し、付箋座標を送信しない", async () => {
+  it("Step 3-3は固定マップを表示し、MyNotes非表示でもマップ領域を維持する", () => {
     const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
       phase: buildPhaseStep(3, 3),
     });
     const plane = screen.getByTestId("idea-value-feasibility-map-plane");
     const world = screen.getByTestId("board-canvas");
-    expect(world).toContainElement(plane);
-    fireEvent.click(screen.getByRole("button", { name: "手のひらツール" }));
-    fireEvent.pointerDown(plane, {
-      button: 0,
-      pointerId: 7,
-      clientX: 100,
-      clientY: 100,
-    });
-    fireEvent.pointerMove(screen.getByTestId("board-scroller"), {
-      pointerId: 7,
-      buttons: 1,
-      clientX: 160,
-      clientY: 130,
-    });
-    fireEvent.pointerUp(screen.getByTestId("board-scroller"), { pointerId: 7 });
-    await waitFor(() =>
-      expect(world.style.transform).toBe("translate3d(60px, 30px, 0) scale(1)"),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
-    await waitFor(() => expect(world.style.transform).toContain("scale(1.25)"));
-    const surface = within(plane).getByRole("button", { name: "付箋" });
-    fireEvent.keyDown(surface, { code: "Space", key: " " });
-    fireEvent.pointerDown(surface, {
-      button: 0,
-      pointerId: 8,
-      clientX: 100,
-      clientY: 100,
-    });
-    fireEvent.pointerMove(surface, {
-      pointerId: 8,
-      buttons: 1,
-      clientX: 160,
-      clientY: 130,
-    });
-    fireEvent.pointerUp(surface, { pointerId: 8 });
-    fireEvent.keyUp(window, { code: "Space" });
+    expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
+    expect(screen.getByTestId("idea-map-workspace-rail")).toBeInTheDocument();
+    expect(plane).toHaveStyle({ aspectRatio: "9 / 5" });
+    expect(world).toHaveStyle({ transform: "none" });
     expect(
       socket.sent
         .map((raw) => JSON.parse(raw))
@@ -2944,6 +2917,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       phase: buildPhaseStep(3, 3),
     });
     const canvas = screen.getByTestId("board-canvas");
+    const plane = screen.getByTestId("idea-value-feasibility-map-plane");
     const cameraBefore = canvas.style.transform;
     const scroller = canvas.parentElement;
     if (!scroller) throw new Error("ボードスクローラーがありません");
@@ -2957,8 +2931,8 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         height: 600,
       }),
     });
-    const plane = screen.getByTestId("idea-value-feasibility-map-plane");
-    Object.defineProperty(plane, "getBoundingClientRect", {
+    const positionArea = screen.getByTestId("idea-map-fixed-position-area");
+    Object.defineProperty(positionArea, "getBoundingClientRect", {
       value: () => ({
         left: 100,
         top: 100,
@@ -3007,14 +2981,12 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       .find((message) => message.type === "note:drag:end");
     // 400pxに縮尺されたplane内の共通中心域で110pxを移動する。
     expect(end.noteId).toBe(NOTE_ID);
-    expect(end.position.x).toBeCloseTo(
-      25 + (110 / (400 * (1322 / 1522))) * 100,
-    );
-    expect(end.position.y).toBeCloseTo(75 - (110 / (400 * (672 / 822))) * 100);
+    expect(end.position.x).toBeCloseTo(25 + (110 / 400) * 100);
+    expect(end.position.y).toBeCloseTo(75 - (110 / 400) * 100);
     expect(canvas.style.transform).toBe(cameraBefore);
   });
 
-  it("Step 3-2でマイ付箋を通常の共有ボードへ公開する", () => {
+  it("Step 3-2でマイ付箋を2軸マップ上へ公開する", () => {
     const privateNote = protocolNote({ visibility: "private" });
     const { socket } = connectWithSnapshot([privateNote], {
       phase: buildPhaseStep(2, 3),
@@ -3032,9 +3004,17 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         height: 600,
       }),
     });
-    expect(
-      screen.queryByTestId("idea-value-feasibility-map-plane"),
-    ).not.toBeInTheDocument();
+    const positionArea = screen.getByTestId("idea-map-fixed-position-area");
+    Object.defineProperty(positionArea, "getBoundingClientRect", {
+      value: () => ({
+        left: 100,
+        top: 100,
+        right: 500,
+        bottom: 500,
+        width: 400,
+        height: 400,
+      }),
+    });
 
     const toolbar = openPrivateNotesToolbar();
     const handle = within(toolbar).getByRole("button", { name: "付箋" });
@@ -3078,9 +3058,8 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
       .map((message) => JSON.parse(message))
       .find((message) => message.type === "note:publish");
     expect(publish.noteId).toBe(NOTE_ID);
-    // 3-2は通常の無限キャンバスなので、座標は2軸マップの0〜100ではない。
-    expect(publish.x).toBeGreaterThan(100);
-    expect(publish.y).toBeGreaterThan(100);
+    expect(publish.x).toBeCloseTo(50);
+    expect(publish.y).toBeCloseTo(50);
   });
 
   it.each([

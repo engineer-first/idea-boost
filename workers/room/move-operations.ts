@@ -461,7 +461,11 @@ function position(row: NoteRow): MoveReceipt["before"][number] {
 }
 
 function usesIdeaMapCoordinates(phase: ReturnType<typeof getPhase>): boolean {
-  return isPhaseStep(phase, 3, 3) || isPhaseStep(phase, 3, 5);
+  return (
+    isPhaseStep(phase, 3, 2) ||
+    isPhaseStep(phase, 3, 3) ||
+    isPhaseStep(phase, 3, 5)
+  );
 }
 
 function validate(ctx: HandlerCtx, request: StoredRequest): NoteRow[] | null {

@@ -17,7 +17,7 @@ export type IdeaMapSizeState = {
 };
 
 export function isIdeaMapVisiblePhase(phase: RoomPhase): boolean {
-  return phase.kind === "step" && phase.phase === 3 && phase.step >= 3;
+  return phase.kind === "step" && phase.phase === 3 && phase.step >= 2;
 }
 
 export function getIdeaMapSizeState(sql: SqlStorage): IdeaMapSizeState {
@@ -70,8 +70,11 @@ function replyForbidden(ctx: HandlerCtx, message: string): void {
 export const ideaMapHandlers: MessageHandlers<"idea-map:resize"> = {
   "idea-map:resize": (ctx, message) => {
     const phase = getPhase(ctx.sql);
-    if (!isPhaseStep(phase, 3, 3)) {
-      replyForbidden(ctx, "2軸マップを配置するステップでのみ変更できます。");
+    if (!isPhaseStep(phase, 3, 2) && !isPhaseStep(phase, 3, 3)) {
+      replyForbidden(
+        ctx,
+        "2軸マップを共有・評価するステップでのみ変更できます。",
+      );
       return;
     }
     if (!isHostUser(ctx.sql, ctx.userId)) {

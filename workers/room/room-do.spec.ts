@@ -2220,7 +2220,74 @@ describe("RoomDO 候補外付箋", () => {
 });
 
 describe("RoomDO phase:next", () => {
-  it("3-2から3-3への初回遷移で共有付箋総数からサイズを決め、他者へ個人付箋を送らない", async () => {
+  it("3-1から3-2へ入ると付箋数に応じて初期広さを4段階広げる", async () => {
+    const roomName = "room-idea-map-default-size-on-step-2";
+    const stub = roomStub(roomName);
+    await initializeTestRoom(stub, USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(1, 3), USER_A);
+
+    await runInRoomDO(roomName, (_instance, state) => {
+      const now = new Date().toISOString();
+      for (let index = 0; index < 20; index++) {
+        state.storage.sql.exec(
+          `INSERT INTO notes
+             (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at)
+           VALUES (?1, ?2, '共有アイデア', 'shared', 'yellow', 50, 50, 3, ?3, ?3)`,
+          crypto.randomUUID(),
+          USER_A,
+          now,
+        );
+      }
+    });
+
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const transition = nextJson(host);
+    host.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomName)),
+      }),
+    );
+
+    await expect(transition).resolves.toMatchObject({
+      type: "snapshot",
+      phase: buildPhaseStep(2, 3),
+      ideaMapSizeLevel: 7,
+      ideaMapSizeInitialized: true,
+    });
+    host.close();
+  });
+
+  it("3-1から3-2へ進むとき保存済みの広さは初期値で上書きしない", async () => {
+    const roomName = "room-idea-map-preserve-saved-size-on-step-2";
+    const stub = roomStub(roomName);
+    await initializeTestRoom(stub, USER_A, "Host");
+    await stub.setPhase(buildPhaseStep(1, 3), USER_A);
+    await runInRoomDO(roomName, (_instance, state) => {
+      state.storage.sql.exec(
+        "UPDATE room_state SET idea_map_size_level = 8, idea_map_size_initialized = 1 WHERE id = 1",
+      );
+    });
+
+    const host = await connectDirectly(roomName, USER_A, USER_A);
+    const transition = nextJson(host);
+    host.send(
+      JSON.stringify({
+        type: "phase:next",
+        ...(await currentPhaseExpectation(roomName)),
+      }),
+    );
+
+    await expect(transition).resolves.toMatchObject({
+      type: "snapshot",
+      phase: buildPhaseStep(2, 3),
+      ideaMapSizeLevel: 8,
+      ideaMapSizeInitialized: true,
+    });
+    host.close();
+  });
+
+  it("3-2から3-3への未初期化遷移では共有付箋数に4段階分を加え、他者へ個人付箋を送らない", async () => {
     const roomName = "room-idea-map-initial-size-from-shared-notes";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -2271,13 +2338,13 @@ describe("RoomDO phase:next", () => {
     expect(hostSnapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(3, 3),
-      ideaMapSizeLevel: 3,
+      ideaMapSizeLevel: 7,
       ideaMapSizeInitialized: true,
     });
     expect(memberSnapshot).toMatchObject({
       type: "snapshot",
       phase: buildPhaseStep(3, 3),
-      ideaMapSizeLevel: 3,
+      ideaMapSizeLevel: 7,
       ideaMapSizeInitialized: true,
     });
     expect(JSON.stringify(memberSnapshot)).not.toContain("PRIVATE_NOTE_BODY");
@@ -2287,10 +2354,11 @@ describe("RoomDO phase:next", () => {
     member.close();
   });
 
-  it("2軸マップ再訪時は保存済みサイズと配置済み付箋を維持し、未配置だけトレイへ戻す", async () => {
+  it("3-2から3-3への移行では保存済みサイズと共有付箋の座標を維持する", async () => {
     const roomName = "room-idea-map-reentry-preserves-layout";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
+    await stub.upsertMember(USER_B, "Member");
     await stub.setPhase(buildPhaseStep(2, 3), USER_A);
 
     const noteIds = {
@@ -2300,13 +2368,13 @@ describe("RoomDO phase:next", () => {
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
       state.storage.sql.exec(
-        "UPDATE room_state SET idea_map_size_level = 4, idea_map_size_initialized = 1 WHERE id = 1",
+        "UPDATE room_state SET idea_map_size_level = 0, idea_map_size_initialized = 1 WHERE id = 1",
       );
       state.storage.sql.exec(
         `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, phase, created_at, updated_at, idea_map_placed)
          VALUES (?1, ?2, '配置済み', 'shared', 'yellow', 72, 28, 3, ?3, ?3, 1),
-                (?4, ?2, '未配置', 'shared', 'yellow', 840, 520, 3, ?3, ?3, 0)`,
+                (?4, ?2, '共有中', 'shared', 'yellow', 40, 60, 3, ?3, ?3, 0)`,
         noteIds.placed,
         USER_A,
         now,
@@ -2315,6 +2383,24 @@ describe("RoomDO phase:next", () => {
     });
 
     const host = await connectDirectly(roomName, USER_A, USER_A);
+    const member = await connectDirectly(roomName, USER_B, USER_A);
+    const resized = nextJson(host);
+    const memberResized = nextJson(member);
+    host.send(JSON.stringify({ type: "idea-map:resize", sizeLevel: 4 }));
+    await Promise.all([
+      expect(resized).resolves.toMatchObject({
+        type: "idea-map:state",
+        sizeLevel: 4,
+        initialized: true,
+      }),
+      expect(memberResized).resolves.toMatchObject({
+        type: "idea-map:state",
+        sizeLevel: 4,
+        initialized: true,
+      }),
+    ]);
+    member.close();
+
     const snapshot = nextJson(host);
     host.send(
       JSON.stringify({
@@ -2337,8 +2423,8 @@ describe("RoomDO phase:next", () => {
         }),
         expect.objectContaining({
           id: noteIds.unplaced,
-          x: 50,
-          y: 50,
+          x: 40,
+          y: 60,
           ideaMapPlaced: false,
         }),
       ]),
@@ -2525,12 +2611,14 @@ describe("RoomDO phase:next", () => {
     reconnected.close();
   });
 
-  it("3-3では非ホストの直接resizeを拒否し、保存済みの広さを維持する", async () => {
-    const roomName = "room-idea-map-resize-non-host";
+  it.each([
+    2, 3,
+  ])("3-%sでは非ホストの直接resizeを拒否し、保存済みの広さを維持する", async (step) => {
+    const roomName = `room-idea-map-resize-non-host-${step}`;
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(3, 3), USER_A);
+    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       state.storage.sql.exec(
         `UPDATE room_state
@@ -2555,7 +2643,7 @@ describe("RoomDO phase:next", () => {
   });
 
   it.each([
-    1, 2, 4, 5,
+    1, 4, 5,
   ])("3-%sではホストの直接resizeを拒否し、保存済みの広さを維持する", async (step) => {
     const roomName = `room-idea-map-resize-step-${step}`;
     const stub = roomStub(roomName);
@@ -3565,7 +3653,7 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
-  it("フェーズ3を共有・未配置トレイ・2軸配置・投票まで順に進められる", async () => {
+  it("フェーズ3を2軸マップ上で共有・配置し、その位置をStep3-3へ引き継ぐ", async () => {
     const roomName = "room-phase3-provisional-flow";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -3609,7 +3697,7 @@ describe("RoomDO phase:next", () => {
         id: created.note.id,
         x: 16,
         y: 12,
-        ideaMapPlaced: false,
+        ideaMapPlaced: true,
       },
     });
 
@@ -3625,9 +3713,9 @@ describe("RoomDO phase:next", () => {
       notes: [
         expect.objectContaining({
           id: created.note.id,
-          x: 50,
-          y: 50,
-          ideaMapPlaced: false,
+          x: 16,
+          y: 12,
+          ideaMapPlaced: true,
         }),
       ],
     });
@@ -4113,13 +4201,15 @@ describe("RoomDO phase:next", () => {
     ws.close();
   });
 
-  it("フェーズ3の2軸マップ配置を別セッションへリアルタイム配信する", async () => {
-    const roomName = "room-phase3-map-realtime";
+  it.each([
+    2, 3,
+  ])("フェーズ3 Step3-%iの2軸マップ配置を別セッションへリアルタイム配信する", async (step) => {
+    const roomName = `room-phase3-map-realtime-step-${step}`;
     const noteId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
     await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(3, 3), USER_A);
+    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
     await runInRoomDO(roomName, (_instance, state) => {
       const now = new Date().toISOString();
       state.storage.sql.exec(

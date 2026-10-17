@@ -18,7 +18,7 @@ export function useBoardHelp(phase: RoomPhase): BoardHelpControls {
     phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby";
   const kind: BoardHelpKind = isPhaseStep(phase, 3, 1)
     ? "idea"
-    : isPhaseStep(phase, 3, 2)
+    : isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3)
       ? "reference"
       : null;
   const visited = useRef(new Set<string>());

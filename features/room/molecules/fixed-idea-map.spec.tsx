@@ -48,9 +48,8 @@ describe("FixedIdeaMap", () => {
       "0-100",
     );
     expect(screen.getByTestId("idea-map-fixed-position-area")).toHaveClass(
-      "top-[var(--idea-map-note-top-inset)]",
-      "right-[var(--idea-map-note-inset)]",
-      "bottom-0",
+      "absolute",
+      "inset-0",
     );
     expect(screen.getByTestId("map-note")).toBeInTheDocument();
     expect(
