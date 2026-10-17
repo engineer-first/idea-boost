@@ -5,10 +5,11 @@
 // ドラッグの状態機械は持たない（logic/use-board-drag が view で束ねる）。
 import type {
   CSSProperties,
+  ReactNode,
   PointerEvent as ReactPointerEvent,
   RefObject,
 } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   DRAG_THRESHOLD_PX,
@@ -95,6 +96,7 @@ export type RoomBoardCanvasProps = {
   isDisconnected: boolean;
   ideaMapSizeLevel?: number;
   ideaMapSizeInitialized?: boolean;
+  ideaMapWorkspaceControls?: { phaseLoop: ReactNode; mapSize: ReactNode };
   ideaMapIsDragging?: boolean;
   onIdeaMapResize?: (sizeLevel: number) => void;
   voteRemaining: DotVoteRemaining;
@@ -202,6 +204,7 @@ export function RoomBoardCanvas({
   isDisconnected,
   ideaMapSizeLevel = 0,
   ideaMapSizeInitialized = false,
+  ideaMapWorkspaceControls,
   voteRemaining,
   selectedVoteKind,
   pendingVoteOperations,
@@ -262,6 +265,10 @@ export function RoomBoardCanvas({
   privateNoteAddRef,
 }: RoomBoardCanvasProps) {
   const [fixedIdeaMapZoom, setFixedIdeaMapZoom] = useState(1);
+  const [horizontalLowEndpointOffset, setHorizontalLowEndpointOffset] =
+    useState(0);
+  const horizontalLowEndpointOffsetRef = useRef(0);
+  const boardFrameRef = useRef<HTMLDivElement>(null);
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
   const isMultiSelected = selectionIds.length > 1;
@@ -290,6 +297,7 @@ export function RoomBoardCanvas({
       (phase.step === 1 && ideaMapSizeInitialized && notes.length > 0));
   const isIdeaMapWorkspace =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
+  const isIdeaMapSharingStep = isPhaseStep(phase, 3, 2);
   const ideaMapDisplayScale = getIdeaMapDisplayScale(ideaMapSizeLevel);
   const adoptionPointerNoteIdRef = useRef<string | null>(null);
   const adoptionKeyboardNoteIdRef = useRef<string | null>(null);
@@ -328,6 +336,107 @@ export function RoomBoardCanvas({
     }
     onFitToNotes();
   };
+
+  useLayoutEffect(() => {
+    if (
+      !isIdeaMapSharingStep ||
+      !isIdeaValueFeasibilityMapVisible ||
+      !permissions.canEditNote
+    ) {
+      horizontalLowEndpointOffsetRef.current = 0;
+      setHorizontalLowEndpointOffset((current) =>
+        current === 0 ? current : 0,
+      );
+      return;
+    }
+
+    const frame = boardFrameRef.current;
+    const controls = frame?.querySelector<HTMLElement>(
+      '[data-testid="note-font-size-controls"]',
+    );
+    const zoomControls = frame?.querySelector<HTMLElement>(
+      '[data-testid="canvas-zoom-hud"]',
+    );
+    const endpoint = frame?.querySelector<HTMLElement>(
+      '[data-testid="idea-map-x-low-endpoint"]',
+    );
+    const operationControls = [controls, zoomControls].filter(
+      (element): element is HTMLElement =>
+        element !== null && element !== undefined,
+    );
+    if (!frame || operationControls.length === 0 || !endpoint) {
+      horizontalLowEndpointOffsetRef.current = 0;
+      setHorizontalLowEndpointOffset((current) =>
+        current === 0 ? current : 0,
+      );
+      return;
+    }
+
+    const updateOffset = () => {
+      const endpointBounds = endpoint.getBoundingClientRect();
+      const fontControlBounds = controls?.getBoundingClientRect();
+      const zoomControlBounds = zoomControls?.getBoundingClientRect();
+      if (
+        operationControls.length === 0 ||
+        endpointBounds.width === 0 ||
+        (!fontControlBounds?.width && !zoomControlBounds?.width)
+      ) {
+        setHorizontalLowEndpointOffset((current) =>
+          current === 0 ? current : 0,
+        );
+        return;
+      }
+
+      const zoomVerticalGap = zoomControlBounds
+        ? Math.max(
+            zoomControlBounds.top - endpointBounds.bottom,
+            endpointBounds.top - zoomControlBounds.bottom,
+            0,
+          )
+        : Number.POSITIVE_INFINITY;
+      const mapZoom = fixedIdeaMapZoom;
+      const baselineLeft =
+        endpointBounds.left - horizontalLowEndpointOffsetRef.current * mapZoom;
+      const previousTargetLeft = Math.max(
+        baselineLeft,
+        zoomControlBounds?.width && zoomVerticalGap < 16
+          ? zoomControlBounds.right + 14
+          : baselineLeft,
+      );
+      const targetLeft = Math.max(
+        previousTargetLeft + 70,
+        fontControlBounds?.width ? fontControlBounds.right + 24 : baselineLeft,
+      );
+      const requiredOffset = Math.max(0, targetLeft - baselineLeft) / mapZoom;
+      const nextOffset = Math.round(requiredOffset * 100) / 100;
+
+      if (
+        Math.abs(horizontalLowEndpointOffsetRef.current - nextOffset) >= 0.25
+      ) {
+        horizontalLowEndpointOffsetRef.current = nextOffset;
+        setHorizontalLowEndpointOffset(nextOffset);
+      }
+    };
+
+    updateOffset();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(updateOffset);
+    observer?.observe(frame);
+    for (const element of operationControls) observer?.observe(element);
+    window.addEventListener("resize", updateOffset);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateOffset);
+    };
+  }, [
+    fixedIdeaMapZoom,
+    isIdeaMapSharingStep,
+    isIdeaValueFeasibilityMapVisible,
+    permissions.canEditNote,
+  ]);
 
   useEffect(() => {
     if (isAdoptMode) return;
@@ -732,6 +841,7 @@ export function RoomBoardCanvas({
   return (
     <div className="min-h-0 flex-1">
       <div
+        ref={boardFrameRef}
         className={`relative flex h-full min-h-0 ${isIdeaMapWorkspace ? "flex-row max-[639px]:flex-col" : "min-h-80 flex-col"}`}
         data-testid="board-frame"
         data-map-workspace={isIdeaMapWorkspace || undefined}
@@ -851,6 +961,11 @@ export function RoomBoardCanvas({
             <FixedIdeaMap
               positionAreaRef={ideaMapPlaneRef}
               workspace={isIdeaMapWorkspace}
+              workspaceControls={ideaMapWorkspaceControls}
+              horizontalLowEndpointOffset={
+                isIdeaMapSharingStep ? horizontalLowEndpointOffset : 0
+              }
+              groupHorizontalLowEndpoint={isIdeaMapSharingStep}
               zoom={fixedIdeaMapZoom}
               overlay={remoteCursors.map((cursor) => (
                 <RemoteCursor

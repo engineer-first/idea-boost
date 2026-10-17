@@ -6,6 +6,77 @@
 
   .workspaceCompactFeasibilityLow {
     top: -1.25rem;
-    left: 4.25rem;
+    left: 5rem;
+  }
+}
+
+.horizontalLowEndpointGroup {
+  top: 1px;
+  left: calc(1rem - 0.5rem + var(--horizontal-low-endpoint-offset, 0px));
+  height: 1.5rem;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.horizontalLowEndpointTrack {
+  left: calc(2.5rem + var(--horizontal-low-endpoint-offset, 0px));
+}
+
+.workspaceSharingFeasibilityAxis {
+  top: -12px;
+}
+
+@media (min-width: 640px) {
+  .horizontalLowEndpointGroup {
+    left: calc(1rem - 0.625rem + var(--horizontal-low-endpoint-offset, 0px));
+  }
+
+  .horizontalLowEndpointTrack {
+    left: calc(2.875rem + var(--horizontal-low-endpoint-offset, 0px));
+  }
+}
+
+.workspaceControls {
+  position: absolute;
+  z-index: 30;
+  pointer-events: none;
+  inset: 0;
+}
+
+.workspacePhaseLoopHud,
+.workspaceMapSizeHud {
+  position: absolute;
+  bottom: 20px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.workspacePhaseLoopHud {
+  left: min(31%, calc(50% - 11.5rem));
+  transform: translateX(-50%);
+}
+
+.workspaceMapSizeHud {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.workspaceControlsContent {
+  pointer-events: auto;
+  transform-origin: center;
+}
+
+@container map-plane (max-width: 25rem) {
+  .workspacePhaseLoopHud {
+    left: 26%;
+  }
+
+  .workspaceMapSizeHud {
+    left: 70%;
+  }
+
+  .workspaceMapSizeHud [data-map-size-label] {
+    display: none;
   }
 }

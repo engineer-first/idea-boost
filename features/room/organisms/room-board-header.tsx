@@ -50,6 +50,8 @@ import { SharingPresenter } from "../molecules/sharing-presenter";
 import { StepGuide } from "../molecules/step-guide";
 import { RoomTimer } from "./room-timer";
 
+const MAP_WORKSPACE_CONTEXT_GAP = 18;
+
 export type RoomBoardHeaderProps = {
   children?: ReactNode;
   hasMoveHistory?: boolean;
@@ -223,6 +225,30 @@ export function RoomBoardHeader({
                 25
               : compactGuideBottom - boardTop + 24;
         board.style.setProperty("--board-map-top", `${mapTop}px`);
+        if (window.innerWidth >= 900) {
+          const context = header.querySelector<HTMLElement>(
+            '[data-testid="board-context-hud"]',
+          );
+          const mapPlane = board.querySelector<HTMLElement>(
+            '[data-testid="idea-value-feasibility-map-plane"]',
+          );
+          if (context && mapPlane) {
+            const currentShift =
+              Number.parseFloat(
+                board.style.getPropertyValue("--board-map-shift-y"),
+              ) || 0;
+            const targetTop =
+              context.getBoundingClientRect().bottom +
+              MAP_WORKSPACE_CONTEXT_GAP;
+            const correction = targetTop - mapPlane.getBoundingClientRect().top;
+            board.style.setProperty(
+              "--board-map-shift-y",
+              `${currentShift + correction}px`,
+            );
+          }
+        } else {
+          board.style.removeProperty("--board-map-shift-y");
+        }
         const noticeBottom =
           notice && board
             ? notice.getBoundingClientRect().bottom - boardTop + 8
@@ -230,6 +256,7 @@ export function RoomBoardHeader({
         board.style.setProperty("--board-map-tray-top", `${noticeBottom}px`);
       } else {
         board?.style.removeProperty("--board-map-top");
+        board?.style.removeProperty("--board-map-shift-y");
         board?.style.removeProperty("--board-map-tray-top");
       }
       const bottom = notice
@@ -284,6 +311,7 @@ export function RoomBoardHeader({
       header.style.removeProperty("--board-location-height");
       board?.style.removeProperty("--board-connection-notice-bottom");
       board?.style.removeProperty("--board-map-top");
+      board?.style.removeProperty("--board-map-shift-y");
       board?.style.removeProperty("--board-map-tray-top");
     };
   }, [connectionStatus, isMapWorkspace]);

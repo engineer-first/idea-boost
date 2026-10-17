@@ -1251,7 +1251,7 @@ export function RoomBoardView({
   const hasMoveHistory = moveHistory !== undefined;
   const isIdeaMapWorkspace =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
-  // mobileはHUDの実高を使って積む。fit用の占有領域・desktopの配置はそのまま保つ。
+  // モバイルで画面下に積むHUDの実高を記録する。固定マップ上の操作UIは画面下を占有しない。
   useEffect(() => {
     const root = boardRootRef.current;
     if (!root) return;
@@ -1265,6 +1265,14 @@ export function RoomBoardView({
     ] as const;
     const update = () => {
       for (const [testId, property] of surfaces) {
+        if (
+          isIdeaMapWorkspace &&
+          (testId === "phase-loop-hud" ||
+            testId === "idea-map-size-controls-hud")
+        ) {
+          root.style.setProperty(property, "0px");
+          continue;
+        }
         if (
           testId === "idea-map-size-controls-hud" &&
           (phase.kind !== "step" || phase.phase !== 3)
@@ -1295,7 +1303,7 @@ export function RoomBoardView({
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [boardRootRef, phase]);
+  }, [boardRootRef, phase, isIdeaMapWorkspace]);
 
   const handleNoteSelect = (
     noteId: string | null,
@@ -1781,6 +1789,23 @@ export function RoomBoardView({
           isDisconnected={isDisconnected}
           ideaMapSizeLevel={ideaMapSizeLevel}
           ideaMapSizeInitialized={ideaMapSizeInitialized}
+          ideaMapWorkspaceControls={
+            isIdeaMapWorkspace
+              ? {
+                  phaseLoop: phaseLoopControls,
+                  mapSize: (
+                    <IdeaMapSizeControls
+                      sizeLevel={ideaMapSizeLevel}
+                      initialized={ideaMapSizeInitialized}
+                      isHost={isHost}
+                      isDisconnected={isDisconnected}
+                      isDragging={ideaMapIsDragging}
+                      onResize={onIdeaMapResize}
+                    />
+                  ),
+                }
+              : undefined
+          }
           ideaMapIsDragging={ideaMapIsDragging || isNoteDragging}
           onIdeaMapResize={onIdeaMapResize}
           voteRemaining={voteRemaining}
@@ -1892,30 +1917,15 @@ export function RoomBoardView({
           </div>
         ) : null}
 
-        {isIdeaMapWorkspace ? (
+        {!isIdeaMapWorkspace ? (
           <div
-            className="pointer-events-none absolute bottom-[calc(var(--board-phase-hud-height,0px)_+_3rem)] left-1/2 z-40 flex -translate-x-1/2 justify-center max-[639px]:bottom-[var(--board-mobile-controls-bottom)] min-[640px]:left-[calc(50%_-_6rem)] md:left-[calc(50%_-_7rem)]"
-            data-testid="idea-map-size-controls-hud"
+            className="pointer-events-none absolute bottom-3 left-1/2 z-40 flex -translate-x-1/2 justify-center max-[639px]:bottom-[var(--board-mobile-phase-bottom)] min-[640px]:left-[calc(50%_-_6rem)] md:left-[calc(50%_-_7rem)]"
+            data-testid="phase-loop-hud"
             data-board-fit-edge="bottom"
           >
-            <IdeaMapSizeControls
-              sizeLevel={ideaMapSizeLevel}
-              initialized={ideaMapSizeInitialized}
-              isHost={isHost}
-              isDisconnected={isDisconnected}
-              isDragging={ideaMapIsDragging}
-              onResize={onIdeaMapResize}
-            />
+            {phaseLoopControls}
           </div>
         ) : null}
-
-        <div
-          className={`pointer-events-none absolute z-40 flex justify-center ${isIdeaMapWorkspace ? "bottom-[calc(var(--board-tools-height,46px)+1.5rem)] left-16 translate-x-0 max-[639px]:bottom-[calc(var(--board-tools-height,46px)+1.5rem)] max-[639px]:left-3" : "bottom-3 left-1/2 -translate-x-1/2 max-[639px]:bottom-[var(--board-mobile-phase-bottom)] min-[640px]:left-[calc(50%_-_6rem)] md:left-[calc(50%_-_7rem)]"}`}
-          data-testid="phase-loop-hud"
-          data-board-fit-edge="bottom"
-        >
-          {phaseLoopControls}
-        </div>
 
         {voteStickerDrag !== null ? (
           <div

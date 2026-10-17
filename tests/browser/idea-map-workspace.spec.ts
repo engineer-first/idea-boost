@@ -141,7 +141,7 @@ test.each([
     width: 900,
     height: 720,
     x: 76,
-    y: 222.765625,
+    y: 118,
     widthPx: 584,
     heightPx: 324.4375,
   },
@@ -149,7 +149,7 @@ test.each([
     width: 901,
     height: 720,
     x: 76,
-    y: 222.484375,
+    y: 118,
     widthPx: 585,
     heightPx: 325,
   },
@@ -165,7 +165,7 @@ test.each([
     width: 1440,
     height: 1000,
     x: 76,
-    y: 212.765625,
+    y: 118,
     widthPx: 1124,
     heightPx: 624.4375,
   },
@@ -180,6 +180,111 @@ test.each([
     expect(plane.y).toBeCloseTo(expected.y, 1);
     expect(plane.width).toBeCloseTo(expected.widthPx, 1);
     expect(plane.height).toBeCloseTo(expected.heightPx, 1);
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
+  { phase: "3-2", open: openWorkspace },
+  { phase: "3-3", open: openMapOnly },
+])("$phaseでは上部情報パネルと2軸マップの間隔を保つ", async ({ open }) => {
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 1000 },
+  });
+  try {
+    await open(page);
+    const context = await readBounds(page, "board-context-hud");
+    const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+    const valueAxis = await readBounds(
+      page,
+      "idea-value-feasibility-map-y-axis-label",
+    );
+    const feasibilityAxis = await readBounds(
+      page,
+      "idea-value-feasibility-map-x-axis-label",
+    );
+
+    expect(plane.y - (context.y + context.height)).toBeGreaterThanOrEqual(16);
+    expect(plane.y - (context.y + context.height)).toBeLessThanOrEqual(24);
+    expect(plane.width).toBeCloseTo(1124, 1);
+    expect(plane.height).toBeCloseTo(624.4375, 1);
+    expect(valueAxis.y + valueAxis.height / 2).toBeCloseTo(
+      plane.y + plane.height / 2,
+      1,
+    );
+    expect(feasibilityAxis.y - (plane.y + plane.height)).toBeCloseTo(
+      38.671875,
+      1,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test.each([
+  {
+    phase: "3-2",
+    open: openWorkspace,
+    viewport: { width: 1440, height: 1000 },
+    retryCenterRatio: 0.3,
+  },
+  {
+    phase: "3-3",
+    open: openMapOnly,
+    viewport: { width: 1440, height: 1000 },
+    retryCenterRatio: 0.3,
+  },
+  {
+    phase: "3-2 narrow",
+    open: openWorkspace,
+    viewport: { width: 900, height: 720 },
+    retryCenterRatio: null,
+  },
+  {
+    phase: "3-2 compact",
+    open: openWorkspace,
+    viewport: { width: 640, height: 900 },
+    retryCenterRatio: null,
+  },
+])("$phaseでは下部操作をマップ内に配置し、同じ高さで重ねない", async ({
+  open,
+  viewport,
+  retryCenterRatio,
+}) => {
+  const page = await browser.newPage({ viewport });
+  try {
+    await open(page);
+    const plane = await readBounds(page, "idea-value-feasibility-map-plane");
+    const retry = await readBounds(page, "phase-loop-hud");
+    const mapSize = await readBounds(page, "idea-map-size-controls-hud");
+    const planeBottom = plane.y + plane.height;
+    const mapSizeBottom = mapSize.y + mapSize.height;
+    const retryCenterX = retry.x + retry.width / 2;
+
+    expect(mapSize.y).toBeGreaterThanOrEqual(plane.y);
+    expect(mapSize.x).toBeGreaterThanOrEqual(plane.x);
+    expect(mapSize.x + mapSize.width).toBeLessThanOrEqual(
+      plane.x + plane.width,
+    );
+    expect(planeBottom - mapSizeBottom).toBeGreaterThanOrEqual(16);
+    expect(planeBottom - mapSizeBottom).toBeLessThanOrEqual(24);
+    expect(retry.y + retry.height).toBeCloseTo(mapSizeBottom, 0);
+    expect(retry.x).toBeGreaterThanOrEqual(plane.x);
+    expect(retry.x + retry.width).toBeLessThanOrEqual(plane.x + plane.width);
+
+    const overlaps =
+      retry.x < mapSize.x + mapSize.width &&
+      retry.x + retry.width > mapSize.x &&
+      retry.y < mapSizeBottom &&
+      retry.y + retry.height > mapSize.y;
+    expect(overlaps, "下部操作UI同士を重ねない").toBe(false);
+
+    if (retryCenterRatio !== null) {
+      expect(
+        Math.abs(retryCenterX - plane.x - plane.width * retryCenterRatio),
+      ).toBeLessThanOrEqual(12);
+    }
   } finally {
     await page.close();
   }
@@ -427,6 +532,10 @@ test.each([
   { phase: "3-3", width: 1280, height: 720, open: openMapOnly },
   { phase: "3-2", width: 1440, height: 800, open: openWorkspace },
   { phase: "3-3", width: 1440, height: 800, open: openMapOnly },
+  { phase: "3-2", width: 900, height: 720, open: openWorkspace },
+  { phase: "3-3", width: 900, height: 720, open: openMapOnly },
+  { phase: "3-2", width: 640, height: 900, open: openWorkspace },
+  { phase: "3-3", width: 640, height: 900, open: openMapOnly },
   { phase: "3-2", width: 390, height: 720, open: openWorkspace },
   { phase: "3-3", width: 390, height: 720, open: openMapOnly },
 ])("$phase / $width×$heightで低い軸ラベルを操作UIと重ねない", async ({
@@ -485,9 +594,276 @@ test.each([
         overlaps(feasibilityLow, fontSizeControls),
         `${width}×${height}で横軸の「低」と文字サイズUIが重ならない`,
       ).toBe(false);
+
+      const horizontalGap = Math.max(
+        fontSizeControls.x - (feasibilityLow.x + feasibilityLow.width),
+        feasibilityLow.x - (fontSizeControls.x + fontSizeControls.width),
+        0,
+      );
+      const verticalGap = Math.max(
+        fontSizeControls.y - (feasibilityLow.y + feasibilityLow.height),
+        feasibilityLow.y - (fontSizeControls.y + fontSizeControls.height),
+        0,
+      );
+      expect(
+        Math.hypot(horizontalGap, verticalGap),
+        `${width}×${height}で横軸の「低」と文字サイズUIの間に16px以上の余白を保つ`,
+      ).toBeGreaterThanOrEqual(16);
     }
   } finally {
     await page.close();
+  }
+});
+
+test.each([
+  { width: 1280, height: 720 },
+  { width: 1440, height: 800 },
+  { width: 900, height: 720 },
+  { width: 390, height: 720 },
+])("3-2の横軸端点は文字サイズUIから離し、3-3の位置は維持する（$width×$height）", async ({
+  width,
+  height,
+}) => {
+  const sharingPage = await browser.newPage({ viewport: { width, height } });
+  const mapOnlyPage = await browser.newPage({ viewport: { width, height } });
+  const runtimeErrors: string[] = [];
+  for (const page of [sharingPage, mapOnlyPage]) {
+    page.on("pageerror", (error) => runtimeErrors.push(error.message));
+    page.on("console", (message) => {
+      if (
+        message.type() === "error" &&
+        message.text().includes("Maximum update depth")
+      ) {
+        runtimeErrors.push(message.text());
+      }
+    });
+  }
+  try {
+    const readEndpoint = async (page: Page) => {
+      const scale = page.getByRole("group", {
+        name: "実現のしやすさ: 低から高",
+      });
+      const low = await scale.getByText("低", { exact: true }).boundingBox();
+      const arrowElement = page.getByTestId(
+        "idea-value-feasibility-map-x-low-arrow",
+      );
+      const arrow = await arrowElement.boundingBox();
+      const arrowTrack = await arrowElement.locator("..").boundingBox();
+      const scaleBounds = await scale.boundingBox();
+      const axisTitle = await page
+        .getByTestId("idea-value-feasibility-map-x-axis-label")
+        .boundingBox();
+      const high = await scale.getByText("高", { exact: true }).boundingBox();
+      const horizontalTrack = await scale
+        .locator("div.absolute:has(svg)")
+        .last()
+        .boundingBox();
+      const highArrow = await scale.locator("svg").last().boundingBox();
+      const mapPlane = await page
+        .getByTestId("idea-value-feasibility-map-plane")
+        .boundingBox();
+      if (
+        !low ||
+        !arrow ||
+        !arrowTrack ||
+        !scaleBounds ||
+        !axisTitle ||
+        !high ||
+        !horizontalTrack ||
+        !highArrow ||
+        !mapPlane
+      )
+        throw new Error("横軸の左端が表示されていません");
+      const groupedEndpoint = await page
+        .getByTestId("idea-map-x-low-endpoint")
+        .count();
+      const labelAfterArrowGap = low.x - (arrow.x + arrow.width);
+      const verticalCenterGap = Math.abs(
+        low.y + low.height / 2 - (arrow.y + arrow.height / 2),
+      );
+      const baselineGap = await page.evaluate(() => {
+        const lowLabel = document
+          .querySelector('[aria-label="実現のしやすさ: 低から高"]')
+          ?.querySelector("span");
+        const arrow = document.querySelector(
+          '[data-testid="idea-value-feasibility-map-x-low-arrow"]',
+        );
+        if (
+          !(lowLabel instanceof HTMLElement) ||
+          !(arrow instanceof SVGElement)
+        )
+          throw new Error("横軸の左端が表示されていません");
+        lowLabel.style.translate = "none";
+        arrow.style.left = "0px";
+        const baseGap =
+          arrow.getBoundingClientRect().left -
+          lowLabel.getBoundingClientRect().left;
+        lowLabel.style.removeProperty("translate");
+        arrow.style.removeProperty("left");
+        return baseGap;
+      });
+      const baselineLeft = groupedEndpoint
+        ? await page.evaluate(() => {
+            const endpoint = document.querySelector(
+              '[data-testid="idea-map-x-low-endpoint"]',
+            );
+            const axis = endpoint?.parentElement;
+            if (
+              !(endpoint instanceof HTMLElement) ||
+              !(axis instanceof HTMLElement)
+            )
+              throw new Error("横軸の左端が表示されていません");
+            const previousOffset = axis.style.getPropertyValue(
+              "--horizontal-low-endpoint-offset",
+            );
+            axis.style.setProperty("--horizontal-low-endpoint-offset", "0px");
+            const baseline = endpoint.getBoundingClientRect().left;
+            if (previousOffset) {
+              axis.style.setProperty(
+                "--horizontal-low-endpoint-offset",
+                previousOffset,
+              );
+            } else {
+              axis.style.removeProperty("--horizontal-low-endpoint-offset");
+            }
+            return baseline;
+          })
+        : null;
+      const controlsLocator = page.getByTestId("note-font-size-controls");
+      const controls = (await controlsLocator.count())
+        ? await controlsLocator.boundingBox()
+        : null;
+      const zoomControls = await page
+        .getByTestId("canvas-zoom-hud")
+        .boundingBox();
+      const planeBottom = mapPlane.y + mapPlane.height;
+      return {
+        labelOffset: low.x - scaleBounds.x,
+        arrowOffset: arrow.x - arrowTrack.x,
+        labelAfterArrowGap,
+        verticalCenterGap,
+        baselineGap,
+        groupedEndpoint,
+        baselineLeft,
+        scaleBounds,
+        endpoint: {
+          left: Math.min(low.x, arrow.x),
+          right: Math.max(low.x + low.width, arrow.x + arrow.width),
+          top: Math.min(low.y, arrow.y),
+          bottom: Math.max(low.y + low.height, arrow.y + arrow.height),
+        },
+        label: low,
+        arrow,
+        axisTitle,
+        high,
+        horizontalTrack,
+        highArrow,
+        mapPlane,
+        axisFromPlaneBottom: scaleBounds.y - planeBottom,
+        titleFromPlaneBottom: axisTitle.y - planeBottom,
+        highFromPlaneBottom: high.y - planeBottom,
+        trackFromPlaneBottom: horizontalTrack.y - planeBottom,
+        arrowFromPlaneBottom: highArrow.y - planeBottom,
+        controls,
+        zoomControls,
+      };
+    };
+
+    await openWorkspace(sharingPage);
+    await openMapOnly(mapOnlyPage);
+    const sharing = await readEndpoint(sharingPage);
+    const mapOnly = await readEndpoint(mapOnlyPage);
+    const controls = sharing.controls;
+    const zoomControls = sharing.zoomControls;
+    if (!controls || !zoomControls || sharing.baselineLeft === null)
+      throw new Error("左下の操作UIが表示されていません");
+
+    expect(sharing.groupedEndpoint).toBe(1);
+    expect(
+      sharing.labelAfterArrowGap,
+      "3-2では矢印のすぐ右に「低」をまとめて表示する",
+    ).toBeGreaterThanOrEqual(0);
+    expect(sharing.labelAfterArrowGap).toBeLessThanOrEqual(8);
+    expect(sharing.verticalCenterGap).toBeLessThanOrEqual(4);
+    expect(mapOnly.groupedEndpoint).toBe(0);
+
+    const nearbyControls = [controls, zoomControls].filter((control) => {
+      const verticalGap = Math.max(
+        control.y - sharing.endpoint.bottom,
+        sharing.endpoint.top - (control.y + control.height),
+        0,
+      );
+      return verticalGap < 16;
+    });
+    if (nearbyControls.length > 0) {
+      const rightmostControlEdge = Math.max(
+        ...nearbyControls.map((control) => control.x + control.width),
+      );
+      const horizontalGap = sharing.endpoint.left - rightmostControlEdge;
+      expect(
+        horizontalGap,
+        "3-2では横軸の矢印とラベルを近接する左下操作UIから12px以上離す",
+      ).toBeGreaterThanOrEqual(12);
+    }
+
+    const zoomVerticalGap = Math.max(
+      zoomControls.y - sharing.endpoint.bottom,
+      sharing.endpoint.top - (zoomControls.y + zoomControls.height),
+      0,
+    );
+    const previousEndpointLeft = Math.max(
+      sharing.baselineLeft,
+      ...(zoomVerticalGap < 16
+        ? [zoomControls.x + zoomControls.width + 14]
+        : []),
+    );
+    const expectedEndpointLeft = Math.max(
+      previousEndpointLeft + 70,
+      controls.x + controls.width + 24,
+    );
+    expect(sharing.endpoint.left).toBeCloseTo(expectedEndpointLeft, 0);
+    const endpointToTrackGap =
+      sharing.horizontalTrack.x - sharing.endpoint.right;
+    expect(endpointToTrackGap).toBeGreaterThanOrEqual(-2);
+    expect(endpointToTrackGap).toBeLessThanOrEqual(8);
+
+    expect(mapOnly.labelOffset).toBeCloseTo(
+      width >= 1120 && height <= 820 ? 80 : 0,
+      0,
+    );
+    expect(mapOnly.arrowOffset).toBeCloseTo(-(mapOnly.arrow.width / 2), 1);
+    expect(mapOnly.arrow.x - mapOnly.label.x).toBeCloseTo(
+      mapOnly.baselineGap,
+      1,
+    );
+    expect(
+      sharing.axisFromPlaneBottom - mapOnly.axisFromPlaneBottom,
+    ).toBeCloseTo(-12, 1);
+    expect(
+      sharing.titleFromPlaneBottom - mapOnly.titleFromPlaneBottom,
+    ).toBeCloseTo(-12, 1);
+    expect(
+      sharing.highFromPlaneBottom - mapOnly.highFromPlaneBottom,
+    ).toBeCloseTo(-12, 1);
+    expect(
+      sharing.trackFromPlaneBottom - mapOnly.trackFromPlaneBottom,
+    ).toBeCloseTo(-12, 1);
+    expect(
+      sharing.arrowFromPlaneBottom - mapOnly.arrowFromPlaneBottom,
+    ).toBeCloseTo(-12, 1);
+    expect(sharing.mapPlane.x).toBe(mapOnly.mapPlane.x);
+    expect(sharing.mapPlane.width).toBe(mapOnly.mapPlane.width);
+    expect(sharing.mapPlane.height).toBe(mapOnly.mapPlane.height);
+    if (width >= 900) expect(sharing.mapPlane.y).toBe(mapOnly.mapPlane.y);
+    expect(runtimeErrors).toEqual([]);
+    await sharingPage.screenshot({
+      path: `${output}/low-endpoint-sharing-${width}x${height}.png`,
+    });
+    await mapOnlyPage.screenshot({
+      path: `${output}/low-endpoint-map-only-${width}x${height}.png`,
+    });
+  } finally {
+    await Promise.all([sharingPage.close(), mapOnlyPage.close()]);
   }
 });
 
@@ -741,11 +1117,6 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
     expect(workspaceAnchors.privateNotes.x).toBeCloseTo(rail.x, 0);
     expect(workspaceAnchors.privateNotes.width).toBeCloseTo(rail.width, 0);
     expect(rail.x).toBeGreaterThanOrEqual(plane.x + plane.width);
-    expect(
-      workspaceAnchors.tools.y -
-        (workspaceAnchors.phaseLoop.y + workspaceAnchors.phaseLoop.height),
-    ).toBe(12);
-
     const axis = await readBounds(
       page,
       "idea-value-feasibility-map-x-axis-label",
@@ -769,6 +1140,18 @@ test("周辺HUDは他フェーズと同じ基準位置に揃え、軸ラベル�
         axis.y + axis.height > control.y;
       expect(overlaps, "軸ラベルと下部操作UIを重ねない").toBe(false);
     }
+    const phaseOverlapsTools =
+      workspaceAnchors.phaseLoop.x <
+        workspaceAnchors.tools.x + workspaceAnchors.tools.width &&
+      workspaceAnchors.phaseLoop.x + workspaceAnchors.phaseLoop.width >
+        workspaceAnchors.tools.x &&
+      workspaceAnchors.phaseLoop.y <
+        workspaceAnchors.tools.y + workspaceAnchors.tools.height &&
+      workspaceAnchors.phaseLoop.y + workspaceAnchors.phaseLoop.height >
+        workspaceAnchors.tools.y;
+    expect(phaseOverlapsTools, "マップ操作が左下ツールバーを妨げない").toBe(
+      false,
+    );
     const overlapsLowValue =
       lowValue.x < phaseLoop.x + phaseLoop.width &&
       lowValue.x + lowValue.width > phaseLoop.x &&

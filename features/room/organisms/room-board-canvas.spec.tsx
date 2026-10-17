@@ -241,16 +241,18 @@ describe("RoomBoardCanvas", () => {
     const fixedMap = screen.getByTestId("idea-map-fixed-board");
     const mapPlane = screen.getByTestId("idea-value-feasibility-map-plane");
     const initialPlaneStyle = mapPlane.getAttribute("style");
-    expect(fixedMap.style.transform).toBe("");
-    expect(fixedMap).not.toHaveStyle({ transform: "scale(1.25)" });
+    const initialMapTransform = fixedMap.style.transform;
+    expect(initialMapTransform).toContain(
+      "translateY(var(--board-map-shift-y, 0px))",
+    );
+    expect(initialMapTransform).not.toContain("scale(1.25)");
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     expect(screen.getByText("125%")).toBeInTheDocument();
-    expect(fixedMap).toHaveStyle({ transform: "scale(1.25)" });
+    expect(fixedMap.style.transform).toContain("scale(1.25)");
     expect(mapPlane.getAttribute("style")).toBe(initialPlaneStyle);
     fireEvent.click(screen.getByRole("button", { name: "付箋全体を表示" }));
     expect(screen.getByText("100%")).toBeInTheDocument();
-    expect(fixedMap).not.toHaveStyle({ transform: "scale(1.25)" });
-    expect(fixedMap.style.transform).toBe("");
+    expect(fixedMap.style.transform).toBe(initialMapTransform);
   });
 
   it("3-3にも共通ズーム・履歴操作を表示し、編集不可の文字サイズ操作は出さない", () => {
@@ -286,13 +288,16 @@ describe("RoomBoardCanvas", () => {
     expect(screen.queryByText("画面を動かす")).not.toBeInTheDocument();
 
     const fixedMap = screen.getByTestId("idea-map-fixed-board");
-    expect(fixedMap.style.transform).toBe("");
+    const initialMapTransform = fixedMap.style.transform;
+    expect(initialMapTransform).toContain(
+      "translateY(var(--board-map-shift-y, 0px))",
+    );
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     expect(screen.getByText("125%")).toBeInTheDocument();
-    expect(fixedMap).toHaveStyle({ transform: "scale(1.25)" });
+    expect(fixedMap.style.transform).toContain("scale(1.25)");
     fireEvent.click(screen.getByRole("button", { name: "ズームを100%に戻す" }));
     expect(screen.getByText("100%")).toBeInTheDocument();
-    expect(fixedMap).not.toHaveStyle({ transform: "scale(1.25)" });
+    expect(fixedMap.style.transform).toBe(initialMapTransform);
   });
 
   it("採用選択モードは候補だけを明示し、対象ボタンの操作を通知する", () => {

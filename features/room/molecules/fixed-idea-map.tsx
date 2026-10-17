@@ -8,10 +8,16 @@ const GRID_STYLE = {
     "linear-gradient(to right, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--muted-foreground) 18%, transparent) 1px, transparent 1px)",
   backgroundSize: "10% 10%",
 } satisfies CSSProperties;
+const AXIS_GRADIENT_STOPS =
+  "from-muted-foreground/20 via-muted-foreground/45 to-primary/75";
+const AXIS_ARROW_SIZE = "size-4 sm:size-5";
 
 export type FixedIdeaMapProps = {
   children?: ReactNode;
   overlay?: ReactNode;
+  workspaceControls?: { phaseLoop: ReactNode; mapSize: ReactNode };
+  horizontalLowEndpointOffset?: number;
+  groupHorizontalLowEndpoint?: boolean;
   positionAreaRef?: Ref<HTMLDivElement>;
   workspace?: boolean;
   zoom?: number;
@@ -25,11 +31,18 @@ export type FixedIdeaMapProps = {
 export function FixedIdeaMap({
   children,
   overlay,
+  workspaceControls,
+  horizontalLowEndpointOffset = 0,
+  groupHorizontalLowEndpoint = false,
   positionAreaRef,
   workspace = false,
   zoom = 1,
 }: FixedIdeaMapProps) {
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
+  const transforms = [
+    workspace ? "translateY(var(--board-map-shift-y, 0px))" : null,
+    zoom === 1 ? null : `scale(${zoom})`,
+  ].filter((transform) => transform !== null);
 
   return (
     <section
@@ -38,9 +51,12 @@ export function FixedIdeaMap({
       data-testid="idea-map-fixed-board"
       data-map-workspace={workspace || undefined}
       style={
-        zoom === 1
+        transforms.length === 0
           ? undefined
-          : { transform: `scale(${zoom})`, transformOrigin: "center center" }
+          : {
+              transform: transforms.join(" "),
+              transformOrigin: "center center",
+            }
       }
     >
       <div
@@ -61,13 +77,27 @@ export function FixedIdeaMap({
             {workspace ? (
               <div
                 aria-hidden="true"
-                className="absolute top-7 bottom-7 left-1/2 w-px bg-border"
-              />
-            ) : null}
-            <ArrowUp
-              aria-hidden="true"
-              className="absolute top-7 left-1/2 size-4 -translate-x-1/2 text-primary sm:size-5"
-            />
+                className={`absolute top-7 bottom-7 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-linear-to-t ${AXIS_GRADIENT_STOPS}`}
+              >
+                <ArrowUp
+                  className={`absolute top-0 left-1/2 ${AXIS_ARROW_SIZE} -translate-x-1/2 text-primary`}
+                />
+                <ArrowDown
+                  className={`absolute bottom-0 left-1/2 ${AXIS_ARROW_SIZE} -translate-x-1/2 text-muted-foreground`}
+                />
+              </div>
+            ) : (
+              <>
+                <ArrowUp
+                  aria-hidden="true"
+                  className={`absolute top-7 left-1/2 ${AXIS_ARROW_SIZE} -translate-x-1/2 text-primary`}
+                />
+                <ArrowDown
+                  aria-hidden="true"
+                  className={`absolute bottom-7 left-1/2 ${AXIS_ARROW_SIZE} -translate-x-1/2 text-muted-foreground`}
+                />
+              </>
+            )}
             <span
               className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-background px-2 py-2 text-xl font-bold tracking-wide text-foreground sm:text-2xl ${workspace ? "" : "rounded-full border border-border shadow-sm sm:px-3"}`}
               data-testid="idea-value-feasibility-map-y-axis-label"
@@ -75,10 +105,6 @@ export function FixedIdeaMap({
             >
               {labels.value}
             </span>
-            <ArrowDown
-              aria-hidden="true"
-              className="absolute bottom-7 left-1/2 size-4 -translate-x-1/2 text-muted-foreground sm:size-5"
-            />
             <span
               className={`absolute bottom-0 left-1/2 -translate-x-1/2 text-sm font-medium sm:text-base ${workspace ? styles.workspaceCompactValueLow : ""}`}
             >
@@ -92,7 +118,7 @@ export function FixedIdeaMap({
           >
             <section
               aria-label={labels.title}
-              className="relative min-h-0 min-w-0 overflow-hidden rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]"
+              className="relative min-h-0 min-w-0 overflow-hidden rounded-2xl border border-sky-200 bg-sky-50 shadow-inner [container-type:inline-size] [container-name:map-plane] [--idea-map-note-scale:0.6] [--idea-map-note-transform-origin:30%_70%] sm:[--idea-map-note-scale:0.75] sm:[--idea-map-note-transform-origin:37.5%_62.5%] lg:[--idea-map-note-scale:1] lg:[--idea-map-note-transform-origin:50%_50%]"
               data-testid="idea-value-feasibility-map-plane"
               style={
                 workspace
@@ -141,25 +167,97 @@ export function FixedIdeaMap({
                   ) : null}
                 </div>
               </div>
+              {workspace && workspaceControls ? (
+                <div
+                  className={styles.workspaceControls}
+                  data-testid="idea-map-workspace-controls"
+                >
+                  <div
+                    className={styles.workspacePhaseLoopHud}
+                    data-testid="phase-loop-hud"
+                    style={{ bottom: `${20 / zoom}px` }}
+                  >
+                    <div
+                      className={styles.workspaceControlsContent}
+                      style={
+                        zoom === 1
+                          ? undefined
+                          : { transform: `scale(${1 / zoom})` }
+                      }
+                    >
+                      {workspaceControls.phaseLoop}
+                    </div>
+                  </div>
+                  <div
+                    className={styles.workspaceMapSizeHud}
+                    data-testid="idea-map-size-controls-hud"
+                    style={{ bottom: `${20 / zoom}px` }}
+                  >
+                    <div
+                      className={styles.workspaceControlsContent}
+                      style={
+                        zoom === 1
+                          ? undefined
+                          : { transform: `scale(${1 / zoom})` }
+                      }
+                    >
+                      {workspaceControls.mapSize}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </section>
           </div>
         </div>
 
         <fieldset
           aria-label={labels.feasibilityScaleAriaLabel}
-          className={`relative m-0 shrink-0 border-0 p-0 text-muted-foreground ${workspace ? "ml-10 h-10 sm:ml-15" : "ml-10 h-14 sm:ml-16"}`}
+          className={`relative m-0 shrink-0 border-0 p-0 text-muted-foreground ${groupHorizontalLowEndpoint ? styles.workspaceSharingFeasibilityAxis : ""} ${workspace ? "ml-10 h-10 sm:ml-15" : "ml-10 h-14 sm:ml-16"}`}
+          style={
+            horizontalLowEndpointOffset === 0
+              ? undefined
+              : ({
+                  "--horizontal-low-endpoint-offset": `${horizontalLowEndpointOffset}px`,
+                } as CSSProperties)
+          }
         >
-          <span
-            className={`absolute top-0 left-0 text-sm font-medium sm:text-base ${workspace ? styles.workspaceCompactFeasibilityLow : ""}`}
-          >
-            {labels.low}
-          </span>
+          {groupHorizontalLowEndpoint ? (
+            <div
+              className={`${styles.horizontalLowEndpointGroup} absolute flex whitespace-nowrap text-sm font-medium sm:text-base`}
+              data-testid="idea-map-x-low-endpoint"
+            >
+              <ArrowLeft
+                aria-hidden="true"
+                className={`${AXIS_ARROW_SIZE} shrink-0 text-muted-foreground`}
+                data-testid="idea-value-feasibility-map-x-low-arrow"
+              />
+              <span data-testid="idea-value-feasibility-map-x-low-label">
+                {labels.low}
+              </span>
+            </div>
+          ) : (
+            <span
+              className={`absolute top-0 left-0 text-sm font-medium sm:text-base ${workspace ? styles.workspaceCompactFeasibilityLow : ""}`}
+              data-testid="idea-value-feasibility-map-x-low-label"
+            >
+              {labels.low}
+            </span>
+          )}
           <div
             aria-hidden="true"
-            className="absolute top-3 right-4 left-4 h-0.5 rounded-full bg-linear-to-r from-muted-foreground/25 via-muted-foreground/50 to-primary"
+            className={`absolute top-3 right-4 h-0.5 rounded-full bg-linear-to-r ${AXIS_GRADIENT_STOPS} ${groupHorizontalLowEndpoint ? styles.horizontalLowEndpointTrack : "left-4"}`}
           >
-            <ArrowLeft className="absolute top-1/2 left-0 size-4 -translate-x-1/2 -translate-y-1/2 text-muted-foreground sm:size-5" />
-            <ArrowRight className="absolute top-1/2 right-0 size-4 translate-x-1/2 -translate-y-1/2 text-primary sm:size-5" />
+            {groupHorizontalLowEndpoint ? null : (
+              <ArrowLeft
+                aria-hidden="true"
+                className={`absolute top-1/2 left-0 ${AXIS_ARROW_SIZE} -translate-x-1/2 -translate-y-1/2 text-muted-foreground`}
+                data-testid="idea-value-feasibility-map-x-low-arrow"
+              />
+            )}
+            <ArrowRight
+              aria-hidden="true"
+              className={`absolute top-1/2 right-0 ${AXIS_ARROW_SIZE} translate-x-1/2 -translate-y-1/2 text-primary`}
+            />
           </div>
           <span
             className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-background px-3 py-1 font-bold tracking-wide text-foreground ${workspace ? "top-3 text-base sm:text-lg" : "top-7 rounded-full border border-border text-lg shadow-sm sm:text-2xl"}`}
