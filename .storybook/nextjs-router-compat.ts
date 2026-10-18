@@ -2,7 +2,7 @@ import type { Plugin } from "vite";
 
 // Storybook 10.6.2 の App Router mock に Next.js 16.4 の必須値を補う。
 // 上流と同じ修正: https://github.com/storybookjs/storybook/pull/36732
-// この修正を含む Storybook 10.6.3 以降へ更新したら、この plugin を削除する。
+// この修正を含む Storybook の安定版へ更新したら、この plugin を削除する。
 export function nextjsRouterCompat(): Plugin {
   return {
     name: "storybook-nextjs-router-compat",
