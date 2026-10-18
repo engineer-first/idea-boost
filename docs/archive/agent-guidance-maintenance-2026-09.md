@@ -180,7 +180,7 @@ Markdown のローカルリンク・アンカー、YAML、整形、lint、`git d
 
 ## 2026-10-04: 全open Issueのsprint割当
 
-- 未着手・全Typeを含むopen Issueを現在sprintへ移し、closedは最後の割当を保つ合意を、Issue運用と定期workflowへ反映した。Project/Appには依存せず、workflowのGITHUB\_TOKENだけでIssueを更新する。
+- 未着手・全Typeを含むopen Issueを現在sprintへ移し、closedは最後の割当を保つ合意を、Issue運用と定期workflowへ反映した。Project/Appには依存せず、workflowのGITHUB_TOKENだけでIssueを更新する。
 - Milestone説明の登録済み `idea-boost-sprint:v1` JSONを読み、JSTの明示期間を使う。空白日・未登録・重複・不正は保留する。履歴はGitHub標準のMilestone変更履歴に残す。
 - 外部書込なしのテストで全Type、繰越し、PR除外、closed保持、dry-run、期間境界・再読取競合・API失敗を検証した。実データは読み取りとdry-runだけで確認し、merge前のIssue割当は変更しない。
 
@@ -273,7 +273,7 @@ Issue #579 に合わせ、人の確認前に CodeRabbit のトークンを消費
 - 共通実体と既存Claude用symlinkを維持。[Codex](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills)、[OpenCode](https://opencode.ai/docs/skills/)、[Claude Code](https://code.claude.com/docs/en/skills#choose-where-skills-load)の公式仕様を確認し、新しいコピーや設定は増やしていない。
 - 自動採番はジャンルとIssue番号を組み合わせ、並行作成の競合回避を維持。明示した既存コードは保持する。旧形式も明示入力の互換性を保ち、ジャンル未指定・コード形式不正・IDとジャンルの不一致は作成前に拒否する。6ジャンルは基本とし、目的が直接合わない場合は理由を示して追加できる。JSON入力の変更点は[作成spec](../../.agents/skills/pbi/references/creation-spec.md)へ示した。
 - 既存Pythonテストで変更前の失敗を確認した後、実装し17件成功。基本6ジャンルと追加ジャンルのCLI dry-runで仮IDと入力不変を確認した。実際のIssue作成・変更は検証に使っていない。
-- skill-creatorのquick\_validate、YAML FormとUIメタデータの構文・既存必須欄の維持、両経路の文書/付属ファイル参照、Markdown再整形の差分ゼロ、git diff --checkを確認。OpenCode 1.18.34のdebug skillでpbiが1件、正本から読み込まれることを確認した。
+- skill-creatorのquick_validate、YAML FormとUIメタデータの構文・既存必須欄の維持、両経路の文書/付属ファイル参照、Markdown再整形の差分ゼロ、git diff --checkを確認。OpenCode 1.18.34のdebug skillでpbiが1件、正本から読み込まれることを確認した。
 - Codex 0.162.0のdebug prompt-inputとClaude Code 2.1.295の通常モードの/skillsで、pbiが一覧に1件現れることを追加確認。独立レビューで全差分と公式読込仕様を照合した。
 - フォーム名はGitHub公式の3文字を超える[表示条件](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository#creating-issue-forms)へ合わせて「PBIを作る」に変更し、正式TypeはPBIを保持。GitHub上の変更後フォーム描画はdefault branchへ反映前のため未確認。形式・一覧検証は、モデルが実際の相談で良い判断をすることを保証しない。
 
@@ -320,3 +320,10 @@ Issue #579 に合わせ、人の確認前に CodeRabbit のトークンを消費
 - 関連Vitest 36件、`npm run typecheck`、`npm run lint`、`npm run lint:boundaries`、`npm run check:agent-harness`、shell構文、変更文書のリンク・Markdown整形を確認した。
 - Codex 0.162.1の`debug prompt-input`とClaude CodeのSDK初期化で、`ci-triage`が1件読み込まれることを確認した。初期化だけを使い、モデル呼出し・公開操作・個人設定の変更は行っていない。skill-creatorの`quick_validate.py`も`ci-triage`で成功した。
 - hookは設定の実コマンドを空白のある一時リポジトリの下位ディレクトリから実行して確認した。新定義を信頼した後のCodex UI上の自動発火、他のチームメンバーの環境、スキルを使った実案件の判断品質は未検証。構造検査とランタイムの実走を区別する。
+
+## 2026-10-18: Workersテスト統合の改称に追従
+
+Cloudflare公式の[移行ガイド](https://developers.cloudflare.com/workers/testing/vitest-integration/migration-guides/migrate-to-vitest-plugin/)に従い、
+更新が終了した `@cloudflare/vitest-pool-workers` を `@cloudflare/vitest-plugin` へ移行した。
+AGENTSとテスト方針のパッケージ名も実装と揃え、Worker / Durable Objectを実ランタイムで検証する方針は維持した。
+`npm run check:agent-harness` で共有スキルの正本・symlink・文書リンクが成功することを確認した。

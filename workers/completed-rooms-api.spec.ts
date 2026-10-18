@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { expect, it, vi } from "vitest";
 import type { CompletedRoomsResponse } from "../contracts/completed-rooms";
 import { completedRoomFixture } from "../contracts/completed-rooms.fixture";

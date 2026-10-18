@@ -243,7 +243,7 @@
 @media (max-width: 639px) {
   /* 全幅の詳細を開く間は、その下のヒント入口を操作対象にしない。 */
   [data-testid="board-context-column"]:has(.guide[data-state="detail"])
-    [data-testid="board-help-panel"] {
+  [data-testid="board-help-panel"] {
     visibility: hidden;
   }
 }

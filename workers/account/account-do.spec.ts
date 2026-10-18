@@ -1,4 +1,5 @@
-import { env, runInDurableObject, SELF } from "cloudflare:test";
+import { runInDurableObject } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { issueCreationId } from "../../contracts/room-creation";
 import type { ParticipationResult } from "../../contracts/room-participation";
@@ -28,17 +29,20 @@ const C = {
 };
 async function prepare(code: string): Promise<ParticipationResult> {
   return (
-    await SELF.fetch("https://api.test/api/room-participation/prepare", {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookieFor(A),
-        "Content-Type": "application/json",
+    await exports.default.fetch(
+      "https://api.test/api/room-participation/prepare",
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookieFor(A),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          target: { kind: "join", code },
+          expectedPrincipal: A.sub,
+        }),
       },
-      body: JSON.stringify({
-        target: { kind: "join", code },
-        expectedPrincipal: A.sub,
-      }),
-    })
+    )
   ).json();
 }
 async function commit(
@@ -47,19 +51,22 @@ async function commit(
   confirmationVersion = 0,
 ): Promise<ParticipationResult> {
   return (
-    await SELF.fetch("https://api.test/api/room-participation/commit", {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookieFor(A),
-        "Content-Type": "application/json",
+    await exports.default.fetch(
+      "https://api.test/api/room-participation/commit",
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookieFor(A),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          operationId,
+          expectedPrincipal: A.sub,
+          outcomeAccess,
+          confirmationVersion,
+        }),
       },
-      body: JSON.stringify({
-        operationId,
-        expectedPrincipal: A.sub,
-        outcomeAccess,
-        confirmationVersion,
-      }),
-    })
+    )
   ).json();
 }
 function confirmation(result: ParticipationResult) {
@@ -80,7 +87,7 @@ describe("アカウントの参加切替", () => {
     expect(await listMemberIds(source.roomId)).not.toContain(A.sub);
     expect(await listMemberIds(target.roomId)).toContain(A.sub);
     expect(await commit(prepared.operationId)).toEqual(result);
-    const old = await SELF.fetch(
+    const old = await exports.default.fetch(
       `https://api.test/api/rooms/${source.roomId}/ws`,
       { headers: { Cookie: await sessionCookieFor(A), Upgrade: "websocket" } },
     );
@@ -343,17 +350,20 @@ it("再訪の不存在と非メンバーを同じ応答にして存在を漏ら�
   const room = await createRoomAs(C);
   async function lookup(roomId: string) {
     return (
-      await SELF.fetch("https://api.test/api/room-participation/prepare", {
-        method: "POST",
-        headers: {
-          Cookie: await sessionCookieFor(A),
-          "Content-Type": "application/json",
+      await exports.default.fetch(
+        "https://api.test/api/room-participation/prepare",
+        {
+          method: "POST",
+          headers: {
+            Cookie: await sessionCookieFor(A),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            expectedPrincipal: A.sub,
+            target: { kind: "revisit", roomId },
+          }),
         },
-        body: JSON.stringify({
-          expectedPrincipal: A.sub,
-          target: { kind: "revisit", roomId },
-        }),
-      })
+      )
     ).json();
   }
   expect(await lookup(room.roomId)).toEqual(await lookup(crypto.randomUUID()));
@@ -433,43 +443,43 @@ async function expireAndFill(roomId: string, operationId: string) {
     });
   return stub;
 }
-it.each([
-  "full",
-  "closed",
-] as const)("停止中に予約が失効して移動先が%sなら、再開しても元ホスト・在籍・招待URLを保つ", async (reason) => {
-  const source = await createRoomAs(A),
-    target = await createRoomAs(C);
-  const prepared = confirmation(await prepare(target.inviteCode));
-  const account = await suspendMove(prepared.operationId, "leaving");
-  if (reason === "full")
-    await expireAndFill(target.roomId, prepared.operationId);
-  else {
-    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(target.roomId));
-    expect(
-      await stub.reserveParticipation(A.sub, prepared.operationId, 1),
-    ).toBe("ok");
-    await stub.disband(C.sub);
-  }
-  const result = await account.status(A.sub, prepared.operationId);
-  const original = env.ROOM_DO.get(env.ROOM_DO.idFromName(source.roomId));
-  expect(await original.isMember(A.sub)).toBe(true);
-  expect(await original.isJoinable()).toBe(true);
-  expect((await original.getCurrentHost()).hostUserId).toBe(A.sub);
-  expect(result).toMatchObject({
-    kind: "rejected",
-    failure: {
-      operationId: prepared.operationId,
-      exitedSources: [],
-      remainingSources: [{ roomId: source.roomId }],
-      currentRoomId: source.roomId,
-    },
-  });
-  const lookup = await SELF.fetch(
-    `https://api.test/api/rooms/lookup?code=${source.inviteCode}`,
-    { headers: { Cookie: await sessionCookieFor(A) } },
-  );
-  expect(lookup.status).toBe(200);
-});
+it.each(["full", "closed"] as const)(
+  "停止中に予約が失効して移動先が%sなら、再開しても元ホスト・在籍・招待URLを保つ",
+  async (reason) => {
+    const source = await createRoomAs(A),
+      target = await createRoomAs(C);
+    const prepared = confirmation(await prepare(target.inviteCode));
+    const account = await suspendMove(prepared.operationId, "leaving");
+    if (reason === "full")
+      await expireAndFill(target.roomId, prepared.operationId);
+    else {
+      const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(target.roomId));
+      expect(
+        await stub.reserveParticipation(A.sub, prepared.operationId, 1),
+      ).toBe("ok");
+      await stub.disband(C.sub);
+    }
+    const result = await account.status(A.sub, prepared.operationId);
+    const original = env.ROOM_DO.get(env.ROOM_DO.idFromName(source.roomId));
+    expect(await original.isMember(A.sub)).toBe(true);
+    expect(await original.isJoinable()).toBe(true);
+    expect((await original.getCurrentHost()).hostUserId).toBe(A.sub);
+    expect(result).toMatchObject({
+      kind: "rejected",
+      failure: {
+        operationId: prepared.operationId,
+        exitedSources: [],
+        remainingSources: [{ roomId: source.roomId }],
+        currentRoomId: source.roomId,
+      },
+    });
+    const lookup = await exports.default.fetch(
+      `https://api.test/api/rooms/lookup?code=${source.inviteCode}`,
+      { headers: { Cookie: await sessionCookieFor(A) } },
+    );
+    expect(lookup.status).toBe(200);
+  },
+);
 it("source退出後の確定満員は終端となり、同ID・遅延RPCで復活せず別移動を許す", async () => {
   const source = await createRoomAs(A),
     target = await createRoomAs(C);
@@ -806,7 +816,7 @@ it("公開commitは確認version欠落を現在versionで補わず拒否する",
   const source = await createRoomAs(A),
     target = await createRoomAs(C);
   const prepared = confirmation(await prepare(target.inviteCode));
-  const response = await SELF.fetch(
+  const response = await exports.default.fetch(
     "https://api.test/api/room-participation/commit",
     {
       method: "POST",

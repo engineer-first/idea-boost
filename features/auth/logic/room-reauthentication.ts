@@ -29,7 +29,7 @@ export async function startRoomReauthentication(
   tabId: string,
 ): Promise<void> {
   const parsed = RoomEntryOperationSchema.safeParse(operation);
-  const tab = z.string().uuid().safeParse(tabId);
+  const tab = z.guid().safeParse(tabId);
   const user = await getCurrentUser();
   if (
     !parsed.success ||
@@ -77,7 +77,7 @@ export async function consumeRoomResume(
 ): Promise<RoomResumeResult> {
   const store = await cookies();
   const token = store.get(ROOM_RESUME_COOKIE)?.value;
-  if (!token || !z.string().uuid().safeParse(tabId).success)
+  if (!token || !z.guid().safeParse(tabId).success)
     return { ok: false, reason: "unavailable" };
   const context = await verifyToken(token, RoomOAuthResumeSchema, {
     secret: getSessionSecret(),
@@ -115,8 +115,7 @@ export async function consumeRoomEntry(
   stage: RoomEntryStage = "board",
 ): Promise<ConsumeRoomEntryResult> {
   const user = await getCurrentUser();
-  if (!user || !z.string().uuid().safeParse(tabId).success)
-    return { ok: false };
+  if (!user || !z.guid().safeParse(tabId).success) return { ok: false };
   return verifyRoomEntry(token, roomId, user, tabId, stage);
 }
 export async function bindRoomEntryContinuation(
@@ -125,6 +124,6 @@ export async function bindRoomEntryContinuation(
   tabId: string,
 ): Promise<string | null> {
   const user = await getCurrentUser();
-  if (!user || !z.string().uuid().safeParse(tabId).success) return null;
+  if (!user || !z.guid().safeParse(tabId).success) return null;
   return bindRoomEntry(admission, roomId, user, tabId);
 }

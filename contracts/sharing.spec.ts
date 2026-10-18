@@ -11,16 +11,17 @@ describe("発表中の付箋共有許可", () => {
     startsAt: null,
     order: [{ userId, name: "発表者", color: "yellow" }],
   });
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%iの共有中は発表者本人だけ公開できる", (phase) => {
-    expect(canPublishNoteInTurn(buildPhaseStep(2, phase), active, userId)).toBe(
-      true,
-    );
-    expect(
-      canPublishNoteInTurn(buildPhaseStep(2, phase), active, "listener"),
-    ).toBe(false);
-  });
+  it.each([1, 2, 3] as const)(
+    "フェーズ%iの共有中は発表者本人だけ公開できる",
+    (phase) => {
+      expect(
+        canPublishNoteInTurn(buildPhaseStep(2, phase), active, userId),
+      ).toBe(true);
+      expect(
+        canPublishNoteInTurn(buildPhaseStep(2, phase), active, "listener"),
+      ).toBe(false);
+    },
+  );
   it.each([
     null,
     { ...active, status: "ready" as const, currentIndex: null },
@@ -58,38 +59,44 @@ describe("発表中の共有付箋返却許可", () => {
     expect(canReturnNoteToPrivateInTurn(phase, active, "listener")).toBe(false);
   });
 
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%iでは発表中以外に返却できない", (phase) => {
-    for (const sharing of [
-      null,
-      { ...active, status: "ready" as const, currentIndex: null },
-      { ...active, status: "inactive" as const, currentIndex: null },
-      { ...active, status: "complete" as const, currentIndex: null },
-      { ...active, currentIndex: null },
-      { ...active, currentIndex: 10 },
-      { ...active, startsAt: Date.now() + 2000 },
-    ]) {
-      expect(
-        canReturnNoteToPrivateInTurn(buildPhaseStep(2, phase), sharing, userId),
-      ).toBe(false);
-    }
-  });
+  it.each([1, 2, 3] as const)(
+    "フェーズ%iでは発表中以外に返却できない",
+    (phase) => {
+      for (const sharing of [
+        null,
+        { ...active, status: "ready" as const, currentIndex: null },
+        { ...active, status: "inactive" as const, currentIndex: null },
+        { ...active, status: "complete" as const, currentIndex: null },
+        { ...active, currentIndex: null },
+        { ...active, currentIndex: 10 },
+        { ...active, startsAt: Date.now() + 2000 },
+      ]) {
+        expect(
+          canReturnNoteToPrivateInTurn(
+            buildPhaseStep(2, phase),
+            sharing,
+            userId,
+          ),
+        ).toBe(false);
+      }
+    },
+  );
 
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%iの発表中は本人だけ返却できる", (phase) => {
-    expect(
-      canReturnNoteToPrivateInTurn(buildPhaseStep(2, phase), active, userId),
-    ).toBe(true);
-    expect(
-      canReturnNoteToPrivateInTurn(
-        buildPhaseStep(2, phase),
-        active,
-        "listener",
-      ),
-    ).toBe(false);
-  });
+  it.each([1, 2, 3] as const)(
+    "フェーズ%iの発表中は本人だけ返却できる",
+    (phase) => {
+      expect(
+        canReturnNoteToPrivateInTurn(buildPhaseStep(2, phase), active, userId),
+      ).toBe(true);
+      expect(
+        canReturnNoteToPrivateInTurn(
+          buildPhaseStep(2, phase),
+          active,
+          "listener",
+        ),
+      ).toBe(false);
+    },
+  );
 
   it("共有以外では既存の工程権限に委ねる", () => {
     expect(

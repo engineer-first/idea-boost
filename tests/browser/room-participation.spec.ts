@@ -31,35 +31,36 @@ async function open(story: string) {
   );
   await page.getByRole("alertdialog").waitFor();
 }
-test.each([
-  390, 1280,
-])("%ipx: 長い名称の確認は画面内で読め、キーボードで取消と決定へ到達する", async (width) => {
-  await page.setViewportSize({ width, height: 667 });
-  await open("long-room-names");
-  const dialog = page.getByRole("alertdialog");
-  const box = await dialog.boundingBox();
-  if (!box) throw new Error("dialogなし");
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(width);
-  expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.y + box.height).toBeLessThanOrEqual(667);
-  expect(
-    await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
-  ).toBe(true);
-  const cancel = page.getByRole("button", { name: "キャンセル" }),
-    confirm = page.getByRole("button", { name: "退出して参加する" });
-  expect(await cancel.evaluate((node) => node === document.activeElement)).toBe(
-    true,
-  );
-  await page.keyboard.press("Tab");
-  expect(
-    await confirm.evaluate((node) => node === document.activeElement),
-  ).toBe(true);
-  expect(await confirm.isEnabled()).toBe(true);
-  await page.screenshot({
-    path: `test-results/room-participation/long-names-${width}.png`,
-  });
-});
+test.each([390, 1280])(
+  "%ipx: 長い名称の確認は画面内で読め、キーボードで取消と決定へ到達する",
+  async (width) => {
+    await page.setViewportSize({ width, height: 667 });
+    await open("long-room-names");
+    const dialog = page.getByRole("alertdialog");
+    const box = await dialog.boundingBox();
+    if (!box) throw new Error("dialogなし");
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(667);
+    expect(
+      await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+    const cancel = page.getByRole("button", { name: "キャンセル" }),
+      confirm = page.getByRole("button", { name: "退出して参加する" });
+    expect(
+      await cancel.evaluate((node) => node === document.activeElement),
+    ).toBe(true);
+    await page.keyboard.press("Tab");
+    expect(
+      await confirm.evaluate((node) => node === document.activeElement),
+    ).toBe(true);
+    expect(await confirm.isEnabled()).toBe(true);
+    await page.screenshot({
+      path: `test-results/room-participation/long-names-${width}.png`,
+    });
+  },
+);
 test("一部退出後の再確認は取消と成果の変更を提供せず、続行の決定へ到達する", async () => {
   await page.setViewportSize({ width: 390, height: 667 });
   await open("partially-left");
@@ -111,23 +112,23 @@ test("取消で元の参加確認操作へフォーカスが戻り、再度開�
   );
 });
 
-test.each([
-  "terminal-failure",
-  "source-maintained-failure",
-])("%s: 終了結果で元へ戻ったと案内せず、安全なホーム操作に自然focusする", async (story) => {
-  await open(story);
-  expect(await page.getByRole("button", { name: "キャンセル" }).count()).toBe(
-    0,
-  );
-  expect(
-    await page.getByRole("button", { name: "結果を確認・再試行" }).count(),
-  ).toBe(0);
-  const home = page.getByRole("link", { name: "ホームで別のルームを選ぶ" });
-  expect(await home.evaluate((node) => node === document.activeElement)).toBe(
-    true,
-  );
-  expect(await home.getAttribute("href")).toBe("/home");
-  if (story === "terminal-failure")
-    expect(await page.getByText("元のルーム：解散済み").count()).toBe(1);
-  else expect(await page.getByText("ルームA：参加中").count()).toBe(1);
-});
+test.each(["terminal-failure", "source-maintained-failure"])(
+  "%s: 終了結果で元へ戻ったと案内せず、安全なホーム操作に自然focusする",
+  async (story) => {
+    await open(story);
+    expect(await page.getByRole("button", { name: "キャンセル" }).count()).toBe(
+      0,
+    );
+    expect(
+      await page.getByRole("button", { name: "結果を確認・再試行" }).count(),
+    ).toBe(0);
+    const home = page.getByRole("link", { name: "ホームで別のルームを選ぶ" });
+    expect(await home.evaluate((node) => node === document.activeElement)).toBe(
+      true,
+    );
+    expect(await home.getAttribute("href")).toBe("/home");
+    if (story === "terminal-failure")
+      expect(await page.getByText("元のルーム：解散済み").count()).toBe(1);
+    else expect(await page.getByText("ルームA：参加中").count()).toBe(1);
+  },
+);

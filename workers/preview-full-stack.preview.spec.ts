@@ -1,4 +1,5 @@
-import { createExecutionContext, env } from "cloudflare:test";
+import { createExecutionContext } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, expect, it, vi } from "vitest";
 import { createFullStackPreview } from "./preview-full-stack";

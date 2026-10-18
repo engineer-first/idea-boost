@@ -486,49 +486,82 @@ it("重複・競合の前進とABA遷移を拒否する", async () => {
   room.close();
 });
 
-it.each([
-  1, 2, 3,
-] as const)("フェーズ%i の投票中は保持された本人の下書きにも投票できない", async (phase) => {
-  const room = await setup({
-    kind: "step",
-    phase,
-    step: VOTING_STEP_BY_PHASE[phase],
-  });
-  for (const action of [
-    { type: "note:vote", noteId: draftId, kind: "subjective" },
-    {
-      type: "note:vote-sticker:add",
-      noteId: draftId,
-      kind: "subjective",
-      stickerId: crypto.randomUUID(),
-      x: 0.3,
-      y: 0.4,
-    },
-  ]) {
-    send(room.a, action);
-    expect(await room.a.next()).toMatchObject({
-      type: "error",
-      code: "forbidden",
+it.each([1, 2, 3] as const)(
+  "フェーズ%i の投票中は保持された本人の下書きにも投票できない",
+  async (phase) => {
+    const room = await setup({
+      kind: "step",
+      phase,
+      step: VOTING_STEP_BY_PHASE[phase],
     });
-  }
-  room.close();
-});
+    for (const action of [
+      { type: "note:vote", noteId: draftId, kind: "subjective" },
+      {
+        type: "note:vote-sticker:add",
+        noteId: draftId,
+        kind: "subjective",
+        stickerId: crypto.randomUUID(),
+        x: 0.3,
+        y: 0.4,
+      },
+    ]) {
+      send(room.a, action);
+      expect(await room.a.next()).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+    }
+    room.close();
+  },
+);
 
-it.each([
-  1, 2, 3,
-] as const)("フェーズ%i の下書きは同フェーズ内に残り、次フェーズ・最終完了で破棄される", async (phase) => {
-  const result: RoomPhase = {
-    kind: "step",
-    phase,
-    step: RESULT_STEP_BY_PHASE[phase],
-  };
-  const room = await setup(result);
-  await startTimerForTest(room.roomId);
-  send(room.a, { type: "note:decide", noteId: candidateId });
-  expect(await until(room.a, "decision:updated")).toMatchObject({
-    type: "decision:updated",
-  });
-  if (phase !== 3) {
+it.each([1, 2, 3] as const)(
+  "フェーズ%i の下書きは同フェーズ内に残り、次フェーズ・最終完了で破棄される",
+  async (phase) => {
+    const result: RoomPhase = {
+      kind: "step",
+      phase,
+      step: RESULT_STEP_BY_PHASE[phase],
+    };
+    const room = await setup(result);
+    await startTimerForTest(room.roomId);
+    send(room.a, { type: "note:decide", noteId: candidateId });
+    expect(await until(room.a, "decision:updated")).toMatchObject({
+      type: "decision:updated",
+    });
+    if (phase !== 3) {
+      expect(
+        await runInRoomDO(
+          room.roomId,
+          (_room, state) =>
+            state.storage.sql
+              .exec(
+                "SELECT COUNT(*) AS count FROM notes WHERE visibility = 'private'",
+              )
+              .one().count,
+        ),
+      ).toBe(1);
+      send(room.a, transition("phase:next", result));
+      expect(await until(room.a, "phase:updated")).toMatchObject({
+        type: "phase:updated",
+      });
+    }
+    if (phase === 3) {
+      await runInRoomDO(room.roomId, (_room, state) => {
+        for (const prior of [1, 2])
+          state.storage.sql.exec(
+            "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,'2026-09-22')",
+            prior,
+            crypto.randomUUID(),
+            `決定${prior}`,
+            host.sub,
+          );
+      });
+      send(room.a, { type: "outcome:publish" });
+      expect(await until(room.a, "outcome:published")).toMatchObject({
+        type: "outcome:published",
+      });
+    }
     expect(
       await runInRoomDO(
         room.roomId,
@@ -539,206 +572,174 @@ it.each([
             )
             .one().count,
       ),
-    ).toBe(1);
-    send(room.a, transition("phase:next", result));
-    expect(await until(room.a, "phase:updated")).toMatchObject({
-      type: "phase:updated",
-    });
-  }
-  if (phase === 3) {
-    await runInRoomDO(room.roomId, (_room, state) => {
-      for (const prior of [1, 2])
-        state.storage.sql.exec(
-          "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?,?,?,?,'2026-09-22')",
-          prior,
-          crypto.randomUUID(),
-          `決定${prior}`,
-          host.sub,
-        );
-    });
-    send(room.a, { type: "outcome:publish" });
-    expect(await until(room.a, "outcome:published")).toMatchObject({
-      type: "outcome:published",
-    });
-  }
-  expect(
-    await runInRoomDO(
-      room.roomId,
-      (_room, state) =>
-        state.storage.sql
-          .exec(
-            "SELECT COUNT(*) AS count FROM notes WHERE visibility = 'private'",
-          )
-          .one().count,
-    ),
-  ).toBe(0);
-  if (phase === 3) {
-    room.close();
-    return;
-  }
-  const reconnect = await connectRoomAs(member, room.roomId);
-  const snapshot = await reconnect.next();
-  expect(snapshot.type).toBe("snapshot");
-  if (snapshot.type === "snapshot") {
-    expect(snapshot.notes.some((note) => note.id === draftId)).toBe(false);
-    expect(
-      snapshot.carryovers.some((value) => value.noteId === candidateId),
-    ).toBe(true);
-  }
-  reconnect.close();
-  room.close();
-});
-
-it.each([
-  1, 2, 3,
-] as const)("フェーズ%i は再投票を繰り返せ、別タブの古い再投票は今回票を消さない", async (phase) => {
-  const result: RoomPhase = {
-    kind: "step",
-    phase,
-    step: RESULT_STEP_BY_PHASE[phase],
-  };
-  const voting: RoomPhase = {
-    kind: "step",
-    phase,
-    step: VOTING_STEP_BY_PHASE[phase],
-  };
-  const room = await setup(result);
-  await startTimerForTest(room.roomId);
-  const secondHost = await connectRoomAs(host, room.roomId);
-  await secondHost.next();
-  for (let round = 0; round < 2; round++) {
-    const revision = 2 + round * 2;
-    send(room.a, transition("phase:revote", result, revision));
-    expect(await until(room.a, "phase:updated")).toMatchObject({
-      type: "phase:updated",
-    });
-    expect(await until(room.b, "phase:updated")).toMatchObject({
-      type: "phase:updated",
-    });
-    expect(await until(secondHost, "phase:updated")).toMatchObject({
-      type: "phase:updated",
-    });
-    // phase:revote はタイマーをリセットするため、投票の振る舞いを検証する前に再開する。
-    await startTimerForTest(room.roomId);
-    for (const socket of [room.a, room.b]) {
-      for (const kind of [
-        "subjective",
-        "objective",
-        "objective",
-        "objective",
-      ]) {
-        send(socket, { type: "note:vote", noteId: candidateId, kind });
-        expect(await until(socket, "note:updated")).toMatchObject({
-          type: "note:updated",
-        });
-      }
+    ).toBe(0);
+    if (phase === 3) {
+      room.close();
+      return;
     }
-    send(secondHost, transition("phase:revote", result, 2));
-    expect(await until(secondHost, "error")).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    expect(
-      await runInRoomDO(
-        room.roomId,
-        (_room, state) =>
-          state.storage.sql
-            .exec("SELECT COUNT(*) AS count FROM note_vote_stickers")
-            .one().count,
-      ),
-    ).toBe(8);
-    send(room.a, transition("phase:next", voting, revision + 1));
-    expect(await until(room.a, "phase:updated")).toMatchObject({
-      type: "phase:updated",
-      phase: result,
-    });
-    expect(await until(room.b, "phase:updated")).toMatchObject({
-      type: "phase:updated",
-    });
-    expect(await until(secondHost, "phase:updated")).toMatchObject({
-      type: "phase:updated",
-    });
-    const reconnect = await connectRoomAs(host, room.roomId);
+    const reconnect = await connectRoomAs(member, room.roomId);
     const snapshot = await reconnect.next();
-    expect(
-      snapshot.type === "snapshot" &&
-        snapshot.notes.find((note) => note.id === candidateId),
-    ).toMatchObject({
-      x: 40,
-      y: 50,
-      content: candidateId,
-      authorId: host.sub,
-      color: "yellow",
-      excluded: false,
-      dotVotes: { subjective: { count: 2 }, objective: { count: 6 } },
-    });
+    expect(snapshot.type).toBe("snapshot");
+    if (snapshot.type === "snapshot") {
+      expect(snapshot.notes.some((note) => note.id === draftId)).toBe(false);
+      expect(
+        snapshot.carryovers.some((value) => value.noteId === candidateId),
+      ).toBe(true);
+    }
     reconnect.close();
-  }
-  secondHost.close();
-  room.close();
-});
+    room.close();
+  },
+);
+
+it.each([1, 2, 3] as const)(
+  "フェーズ%i は再投票を繰り返せ、別タブの古い再投票は今回票を消さない",
+  async (phase) => {
+    const result: RoomPhase = {
+      kind: "step",
+      phase,
+      step: RESULT_STEP_BY_PHASE[phase],
+    };
+    const voting: RoomPhase = {
+      kind: "step",
+      phase,
+      step: VOTING_STEP_BY_PHASE[phase],
+    };
+    const room = await setup(result);
+    await startTimerForTest(room.roomId);
+    const secondHost = await connectRoomAs(host, room.roomId);
+    await secondHost.next();
+    for (let round = 0; round < 2; round++) {
+      const revision = 2 + round * 2;
+      send(room.a, transition("phase:revote", result, revision));
+      expect(await until(room.a, "phase:updated")).toMatchObject({
+        type: "phase:updated",
+      });
+      expect(await until(room.b, "phase:updated")).toMatchObject({
+        type: "phase:updated",
+      });
+      expect(await until(secondHost, "phase:updated")).toMatchObject({
+        type: "phase:updated",
+      });
+      // phase:revote はタイマーをリセットするため、投票の振る舞いを検証する前に再開する。
+      await startTimerForTest(room.roomId);
+      for (const socket of [room.a, room.b]) {
+        for (const kind of [
+          "subjective",
+          "objective",
+          "objective",
+          "objective",
+        ]) {
+          send(socket, { type: "note:vote", noteId: candidateId, kind });
+          expect(await until(socket, "note:updated")).toMatchObject({
+            type: "note:updated",
+          });
+        }
+      }
+      send(secondHost, transition("phase:revote", result, 2));
+      expect(await until(secondHost, "error")).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      expect(
+        await runInRoomDO(
+          room.roomId,
+          (_room, state) =>
+            state.storage.sql
+              .exec("SELECT COUNT(*) AS count FROM note_vote_stickers")
+              .one().count,
+        ),
+      ).toBe(8);
+      send(room.a, transition("phase:next", voting, revision + 1));
+      expect(await until(room.a, "phase:updated")).toMatchObject({
+        type: "phase:updated",
+        phase: result,
+      });
+      expect(await until(room.b, "phase:updated")).toMatchObject({
+        type: "phase:updated",
+      });
+      expect(await until(secondHost, "phase:updated")).toMatchObject({
+        type: "phase:updated",
+      });
+      const reconnect = await connectRoomAs(host, room.roomId);
+      const snapshot = await reconnect.next();
+      expect(
+        snapshot.type === "snapshot" &&
+          snapshot.notes.find((note) => note.id === candidateId),
+      ).toMatchObject({
+        x: 40,
+        y: 50,
+        content: candidateId,
+        authorId: host.sub,
+        color: "yellow",
+        excluded: false,
+        dotVotes: { subjective: { count: 2 }, objective: { count: 6 } },
+      });
+      reconnect.close();
+    }
+    secondHost.close();
+    room.close();
+  },
+);
 
 it.each([
   { type: "phase:next", from: 2, intermediate: 3, to: 4 },
   { type: "phase:restart-writing", from: 2, intermediate: 1, to: 2 },
   { type: "phase:revote", from: 5, intermediate: 4, to: 5 },
-])("タイマー停止中の $type と後続遷移はphaseとrevisionを順番どおり全員に届ける", async ({
-  type,
-  from,
-  intermediate,
-  to,
-}) => {
-  const current: RoomPhase = { kind: "step", phase: 1, step: from };
-  const middle: RoomPhase = { kind: "step", phase: 1, step: intermediate };
-  const final: RoomPhase = { kind: "step", phase: 1, step: to };
-  const room = await setup(current);
-  await startTimer(room);
-  if (type === "phase:next") await arrangeSharingComplete(room.roomId);
-  // 次の作業の完了条件を満たしてから後続の前進を送る。
-  send(room.a, transition(type, current));
+])(
+  "タイマー停止中の $type と後続遷移はphaseとrevisionを順番どおり全員に届ける",
+  async ({ type, from, intermediate, to }) => {
+    const current: RoomPhase = { kind: "step", phase: 1, step: from };
+    const middle: RoomPhase = { kind: "step", phase: 1, step: intermediate };
+    const final: RoomPhase = { kind: "step", phase: 1, step: to };
+    const room = await setup(current);
+    await startTimer(room);
+    if (type === "phase:next") await arrangeSharingComplete(room.roomId);
+    // 次の作業の完了条件を満たしてから後続の前進を送る。
+    send(room.a, transition(type, current));
 
-  for (const socket of [room.a, room.b]) {
-    expect(await until(socket, "phase:updated")).toEqual({
-      type: "phase:updated",
-      groupRevision: expect.any(Number),
-      mapRevision: expect.any(Number),
-      phase: middle,
-      phaseRevision: 3,
-      rollbackTarget: type === "phase:next" ? current : null,
-    });
-  }
-  await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
-  if (type === "phase:revote") {
-    await runInRoomDO(room.roomId, (_room, state) => {
-      for (const user of [host, member])
-        for (const kind of ["subjective", "objective"])
-          for (let i = 0; i < (kind === "subjective" ? 1 : 3); i++)
-            state.storage.sql.exec(
-              "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES(?,?,?,?,0.2,0.3,'2026-09-22')",
-              crypto.randomUUID(),
-              candidateId,
-              user.sub,
-              kind,
-            );
-    });
-  }
-  send(room.a, transition("phase:next", middle, 3));
-  for (const socket of [room.a, room.b]) {
-    expect(await until(socket, "phase:updated")).toEqual({
-      type: "phase:updated",
-      groupRevision: expect.any(Number),
-      mapRevision: expect.any(Number),
+    for (const socket of [room.a, room.b]) {
+      expect(await until(socket, "phase:updated")).toEqual({
+        type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
+        phase: middle,
+        phaseRevision: 3,
+        rollbackTarget: type === "phase:next" ? current : null,
+      });
+    }
+    await arrangeMembersReady(room.roomId, [host.sub, member.sub]);
+    if (type === "phase:revote") {
+      await runInRoomDO(room.roomId, (_room, state) => {
+        for (const user of [host, member])
+          for (const kind of ["subjective", "objective"])
+            for (let i = 0; i < (kind === "subjective" ? 1 : 3); i++)
+              state.storage.sql.exec(
+                "INSERT INTO note_vote_stickers(id,note_id,user_id,kind,x,y,created_at) VALUES(?,?,?,?,0.2,0.3,'2026-09-22')",
+                crypto.randomUUID(),
+                candidateId,
+                user.sub,
+                kind,
+              );
+      });
+    }
+    send(room.a, transition("phase:next", middle, 3));
+    for (const socket of [room.a, room.b]) {
+      expect(await until(socket, "phase:updated")).toEqual({
+        type: "phase:updated",
+        groupRevision: expect.any(Number),
+        mapRevision: expect.any(Number),
+        phase: final,
+        phaseRevision: 4,
+        rollbackTarget: middle,
+      });
+    }
+    const reconnect = await connectRoomAs(host, room.roomId);
+    expect(await reconnect.next()).toMatchObject({
       phase: final,
       phaseRevision: 4,
-      rollbackTarget: middle,
+      timer: { status: "idle" },
     });
-  }
-  const reconnect = await connectRoomAs(host, room.roomId);
-  expect(await reconnect.next()).toMatchObject({
-    phase: final,
-    phaseRevision: 4,
-    timer: { status: "idle" },
-  });
-  reconnect.close();
-  room.close();
-});
+    reconnect.close();
+    room.close();
+  },
+);

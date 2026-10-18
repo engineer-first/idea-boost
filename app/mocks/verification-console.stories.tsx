@@ -10,7 +10,7 @@ const meta = {
   parameters: { layout: "fullscreen" },
   beforeEach: async () => {
     worker.use(...verificationHandlers());
-    await worker.start({ quiet: true, onUnhandledRequest: "bypass" });
+    await worker.start({ quiet: true, onUnhandledFrame: "bypass" });
     return () => worker.resetHandlers();
   },
 } satisfies Meta<typeof VerificationConsole>;

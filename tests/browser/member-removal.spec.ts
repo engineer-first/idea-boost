@@ -50,38 +50,43 @@ async function select(lobby = false) {
 test.each([
   { name: "mobile", width: 390, height: 844 },
   { name: "desktop", width: 1280, height: 720 },
-])("$name: 確認は画面内に収まり取消で参加者入口へ戻る、確定時だけ一覧から除く", async (viewport) => {
-  await page.setViewportSize(viewport);
-  await open();
-  await select();
-  const box = await page.getByRole("alertdialog").boundingBox();
-  expect(box?.x).toBeGreaterThanOrEqual(0);
-  expect(box?.y).toBeGreaterThanOrEqual(0);
-  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(viewport.width);
-  expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(
-    viewport.height,
-  );
-  await page.screenshot({
-    path: `test-results/board-layout/441-confirm-${viewport.name}.png`,
-  });
-  await page.keyboard.press("Escape");
-  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
-  await expect
-    .poll(() =>
-      page
-        .getByRole("button", { name: "参加者 2人" })
-        .evaluate((node) => node === document.activeElement),
-    )
-    .toBe(true);
-  await select();
-  await page
-    .getByRole("button", { name: "ルームから外す", exact: true })
-    .click();
-  await page.getByRole("alertdialog").waitFor({ state: "hidden" });
-  await page.getByRole("button", { name: "参加者 1人" }).click();
-  expect(await page.getByText("Hana Sato", { exact: true }).count()).toBe(0);
-  expect(await page.getByTestId("room-timer").innerText()).toContain("02:18");
-});
+])(
+  "$name: 確認は画面内に収まり取消で参加者入口へ戻る、確定時だけ一覧から除く",
+  async (viewport) => {
+    await page.setViewportSize(viewport);
+    await open();
+    await select();
+    const box = await page.getByRole("alertdialog").boundingBox();
+    expect(box?.x).toBeGreaterThanOrEqual(0);
+    expect(box?.y).toBeGreaterThanOrEqual(0);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(
+      viewport.width,
+    );
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(
+      viewport.height,
+    );
+    await page.screenshot({
+      path: `test-results/board-layout/441-confirm-${viewport.name}.png`,
+    });
+    await page.keyboard.press("Escape");
+    await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+    await expect
+      .poll(() =>
+        page
+          .getByRole("button", { name: "参加者 2人" })
+          .evaluate((node) => node === document.activeElement),
+      )
+      .toBe(true);
+    await select();
+    await page
+      .getByRole("button", { name: "ルームから外す", exact: true })
+      .click();
+    await page.getByRole("alertdialog").waitFor({ state: "hidden" });
+    await page.getByRole("button", { name: "参加者 1人" }).click();
+    expect(await page.getByText("Hana Sato", { exact: true }).count()).toBe(0);
+    expect(await page.getByTestId("room-timer").innerText()).toContain("02:18");
+  },
+);
 test("ロビーでも確認・拒否・再試行を通して退出できる", async () => {
   await open("refused", true);
   await select(true);

@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { expect, it } from "vitest";
 import { issueCreationId } from "../contracts/room-creation";
 import { TOKEN_AUDIENCE } from "../contracts/session";
@@ -15,7 +15,7 @@ it("旧APIから別ルームを作成しても活動中の参加先を増やせ�
     },
   );
   const create = () =>
-    SELF.fetch("https://api.test/api/rooms", {
+    exports.default.fetch("https://api.test/api/rooms", {
       method: "POST",
       headers: {
         Cookie: `idea_boost_session=${token}`,

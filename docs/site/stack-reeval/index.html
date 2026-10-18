@@ -507,7 +507,7 @@
       <dl class="kv">
         <dt>コスト</dt><dd><span class="m m-best">◎</span> WebSocket Hibernation でアイドル課金ゼロ。受信メッセージは 20:1 換算で課金、<strong>送信（fan-out）は無料</strong>。バースト利用 + 高頻度配信 + 長いアイドルというこのアプリの負荷特性に、課金モデルが唯一完全一致する。定常運用でも $0〜5/月（§04）。非商用制限もない。</dd>
         <dt>ユーザビリティ</dt><dd><span class="m m-best">◎</span> 再接続 = DO が持つ現在状態のスナップショット送信、という最も素直な復帰パス。無料枠でもプロジェクトの自動停止がなく、「久しぶりに開いたら止まっていた」が起きない。</dd>
-        <dt>R3 適合</dt><dd><span class="m m-best">◎</span> push 型。ただし保証は手続き的コード＋テスト（<code>@cloudflare/vitest-pool-workers</code>）に依り、RLS のような宣言的な仕様書は残らない。</dd>
+        <dt>R3 適合</dt><dd><span class="m m-best">◎</span> push 型。ただし保証は手続き的コード＋テスト（<code>@cloudflare/vitest-plugin</code>）に依り、RLS のような宣言的な仕様書は残らない。</dd>
         <dt>継続性</dt><dd><span class="m m-good">○</span> Cloudflare 本体は堅牢。DO 自体は独自機構でロックインは強め。ただし「ルーム = アクター」というモデル自体は移植可能な設計知識。</dd>
         <dt>認証</dt><dd>Clerk（1万 MAU まで無料・マネージド）か Better Auth（OSS・D1 上に自前ホスト）。リスクを取らないなら Clerk。</dd>
       </dl>
@@ -722,7 +722,7 @@ D1: アカウント・ルーム一覧などルーム横断のデータ</pre>
     <li><strong>Next.js は使わない。</strong>認証必須のツールで SEO が不要、ページはほぼ1枚のボード画面。SSR の便益がなく、SPA + 静的配信のほうがランタイムが単純で無料枠にも収まる。フレームワークの都合ではなく要件から導かれる結論で、これも「実装負荷を無視するなら」の帰結のひとつ。</li>
     <li><strong>ボード UI は引き続き自前実装。</strong>tldraw を使わない判断（<code>docs/site</code> の why-not-tldraw）はこの構成でも有効。tldraw SDK は無償利用だとウォーターマーク表示が条件で、外すには商用ライセンスが要る——コスト軸でも自前実装が正しい。</li>
     <li><strong>React + Storybook + MSW + zod + Vitest はそのまま活きる。</strong>変わるのはデータ層と認可層だけで、コンポーネント駆動の開発文化は構成に依存しない。</li>
-    <li><strong>pgTAP の代替は「認可の否定系テスト」を DO に対して書くこと。</strong><code>@cloudflare/vitest-pool-workers</code> で「member が他人の票を要求しても届かない」を回帰テストとして固定する。宣言的な RLS より仕様の見通しは落ちるため、可視性ルールを1つの純関数（<code>visibleTo(state, userId)</code>）に集約し、配信コードはそれ以外を経由できない構造にするのが要点。そうしないと、フィルタ漏れが即「他人の票が見える」事故になる。</li>
+    <li><strong>pgTAP の代替は「認可の否定系テスト」を DO に対して書くこと。</strong><code>@cloudflare/vitest-plugin</code> で「member が他人の票を要求しても届かない」を回帰テストとして固定する。宣言的な RLS より仕様の見通しは落ちるため、可視性ルールを1つの純関数（<code>visibleTo(state, userId)</code>）に集約し、配信コードはそれ以外を経由できない構造にするのが要点。そうしないと、フィルタ漏れが即「他人の票が見える」事故になる。</li>
   </ul>
 
   <h2><span class="sec-no">08</span>この判断が反転する条件</h2>

@@ -176,67 +176,67 @@ test.each(
     { phase: "3-4", story: "idea-map-voting" },
     { phase: "3-5", story: "idea-map-result" },
   ].flatMap((phase) => [390, 1280, 1440].map((width) => ({ ...phase, width }))),
-)("$phase / $width pxで軸名のサイズと中央配置を初回・リロード後で維持する", async ({
-  story,
-  width,
-}) => {
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage({ viewport: { width, height: 900 } });
-    const readLayout = async () => {
-      const map = page.getByTestId("idea-value-feasibility-map-plane");
-      await map.waitFor();
-      await page.evaluate(() => document.fonts.ready);
-      const plane = await map.boundingBox();
-      if (!plane) throw new Error("マップがありません");
-      const labels = await Promise.all(
-        ["x", "y"].map(async (axis) => {
-          const label = page.getByTestId(
-            `idea-value-feasibility-map-${axis}-axis-label`,
-          );
-          const bounds = await label.boundingBox();
-          if (!bounds) throw new Error("軸名がありません");
-          const fontSize = await label.evaluate((element) =>
-            Number.parseFloat(getComputedStyle(element).fontSize),
-          );
-          expect(fontSize).toBe(
-            axis === "y" ? (width < 640 ? 20 : 24) : width < 640 ? 16 : 18,
-          );
-          const center = {
-            x: bounds.x + bounds.width / 2,
-            y: bounds.y + bounds.height / 2,
-          };
-          if (axis === "y") {
-            const line = await page
-              .getByTestId("idea-value-feasibility-map-y-scale-bar")
-              .boundingBox();
-            if (!line) throw new Error("縦軸の線がありません");
-            expect(center.y).toBeCloseTo(line.y + line.height / 2, 0);
-            expect(bounds.x + bounds.width).toBeLessThan(plane.x);
-          } else {
-            expect(center.x).toBeCloseTo(plane.x + plane.width / 2, 0);
-            expect(bounds.y).toBeGreaterThanOrEqual(plane.y + plane.height);
-            if (width >= 768) {
+)(
+  "$phase / $width pxで軸名のサイズと中央配置を初回・リロード後で維持する",
+  async ({ story, width }) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      const readLayout = async () => {
+        const map = page.getByTestId("idea-value-feasibility-map-plane");
+        await map.waitFor();
+        await page.evaluate(() => document.fonts.ready);
+        const plane = await map.boundingBox();
+        if (!plane) throw new Error("マップがありません");
+        const labels = await Promise.all(
+          ["x", "y"].map(async (axis) => {
+            const label = page.getByTestId(
+              `idea-value-feasibility-map-${axis}-axis-label`,
+            );
+            const bounds = await label.boundingBox();
+            if (!bounds) throw new Error("軸名がありません");
+            const fontSize = await label.evaluate((element) =>
+              Number.parseFloat(getComputedStyle(element).fontSize),
+            );
+            expect(fontSize).toBe(
+              axis === "y" ? (width < 640 ? 20 : 24) : width < 640 ? 16 : 18,
+            );
+            const center = {
+              x: bounds.x + bounds.width / 2,
+              y: bounds.y + bounds.height / 2,
+            };
+            if (axis === "y") {
               const line = await page
-                .getByTestId("idea-value-feasibility-map-x-scale-bar")
+                .getByTestId("idea-value-feasibility-map-y-scale-bar")
                 .boundingBox();
-              if (!line) throw new Error("横軸の線がありません");
+              if (!line) throw new Error("縦軸の線がありません");
               expect(center.y).toBeCloseTo(line.y + line.height / 2, 0);
+              expect(bounds.x + bounds.width).toBeLessThan(plane.x);
+            } else {
+              expect(center.x).toBeCloseTo(plane.x + plane.width / 2, 0);
+              expect(bounds.y).toBeGreaterThanOrEqual(plane.y + plane.height);
+              if (width >= 768) {
+                const line = await page
+                  .getByTestId("idea-value-feasibility-map-x-scale-bar")
+                  .boundingBox();
+                if (!line) throw new Error("横軸の線がありません");
+                expect(center.y).toBeCloseTo(line.y + line.height / 2, 0);
+              }
             }
-          }
-          return { bounds, fontSize };
-        }),
+            return { bounds, fontSize };
+          }),
+        );
+        return { plane, labels };
+      };
+      await page.goto(
+        `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story`,
       );
-      return { plane, labels };
-    };
-    await page.goto(
-      `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story`,
-    );
-    const initial = await readLayout();
-    await page.reload();
-    const reloaded = await readLayout();
-    expect(reloaded).toEqual(initial);
-  } finally {
-    await browser.close();
-  }
-});
+      const initial = await readLayout();
+      await page.reload();
+      const reloaded = await readLayout();
+      expect(reloaded).toEqual(initial);
+    } finally {
+      await browser.close();
+    }
+  },
+);

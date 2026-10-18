@@ -29,25 +29,27 @@ afterEach(() => {
 });
 
 describe("CopyInviteButton", () => {
-  it.each([
-    "text",
-    "icon",
-  ])("%s のクリックで表示した値をコピーし、文字列を置き換えない", async (target) => {
-    const writeText = stubClipboard(() => Promise.resolve());
-    render(<CopyInviteButton value={url} />);
-    expect(writeText).not.toHaveBeenCalled();
-    const control = button();
-    const clicked =
-      target === "text" ? screen.getByText(url) : control.querySelector("svg");
-    expect(clicked).not.toBeNull();
-    await act(async () => fireEvent.click(clicked as Element));
-    expect(writeText).toHaveBeenCalledExactlyOnceWith(url);
-    expect(control).toHaveTextContent(url);
-    expect(control).toHaveAttribute("data-copy-state", "success");
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "招待URLをコピーしました",
-    );
-  });
+  it.each(["text", "icon"])(
+    "%s のクリックで表示した値をコピーし、文字列を置き換えない",
+    async (target) => {
+      const writeText = stubClipboard(() => Promise.resolve());
+      render(<CopyInviteButton value={url} />);
+      expect(writeText).not.toHaveBeenCalled();
+      const control = button();
+      const clicked =
+        target === "text"
+          ? screen.getByText(url)
+          : control.querySelector("svg");
+      expect(clicked).not.toBeNull();
+      await act(async () => fireEvent.click(clicked as Element));
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(url);
+      expect(control).toHaveTextContent(url);
+      expect(control).toHaveAttribute("data-copy-state", "success");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "招待URLをコピーしました",
+      );
+    },
+  );
 
   it("招待コードにも独立したコピー操作と結果がある", async () => {
     const writeText = stubClipboard(() => Promise.resolve());
@@ -65,28 +67,28 @@ describe("CopyInviteButton", () => {
     expect(button()).toHaveAttribute("data-copy-state", "idle");
   });
 
-  it.each([
-    "success",
-    "error",
-  ] as const)("%s の結果を2秒だけ表示し、コピーアイコンへ戻す", async (result) => {
-    stubClipboard(() =>
-      result === "success"
-        ? Promise.resolve()
-        : Promise.reject(new Error("denied")),
-    );
-    render(<CopyInviteButton value={url} />);
-    await clickCopy();
-    expect(button()).toHaveAttribute("data-copy-state", result);
-    expect(button()).toHaveTextContent(url);
-    expect(screen.getByRole("status")).toHaveTextContent(
-      result === "success" ? "コピーしました" : "コピーできませんでした",
-    );
-    act(() => vi.advanceTimersByTime(1999));
-    expect(button()).toHaveAttribute("data-copy-state", result);
-    act(() => vi.advanceTimersByTime(1));
-    expect(button()).toHaveAttribute("data-copy-state", "idle");
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
-  });
+  it.each(["success", "error"] as const)(
+    "%s の結果を2秒だけ表示し、コピーアイコンへ戻す",
+    async (result) => {
+      stubClipboard(() =>
+        result === "success"
+          ? Promise.resolve()
+          : Promise.reject(new Error("denied")),
+      );
+      render(<CopyInviteButton value={url} />);
+      await clickCopy();
+      expect(button()).toHaveAttribute("data-copy-state", result);
+      expect(button()).toHaveTextContent(url);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        result === "success" ? "コピーしました" : "コピーできませんでした",
+      );
+      act(() => vi.advanceTimersByTime(1999));
+      expect(button()).toHaveAttribute("data-copy-state", result);
+      act(() => vi.advanceTimersByTime(1));
+      expect(button()).toHaveAttribute("data-copy-state", "idle");
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    },
+  );
 
   it("API非対応でも失敗を伝え、成功に見せない", async () => {
     Object.defineProperty(navigator, "clipboard", {

@@ -1,4 +1,4 @@
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { initializeTestRoom } from "../test-helpers";
 import { HOST_ID_HEADER, USER_ID_HEADER } from "./room-do";

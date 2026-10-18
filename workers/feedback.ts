@@ -114,7 +114,7 @@ export async function acceptFeedback(
   return json({ ok: true, id: input.id });
 }
 const QuerySchema = z
-  .object({
+  .strictObject({
     kind: FeedbackKindSchema.optional(),
     target: FeedbackTargetSchema.optional(),
     from: z.coerce
@@ -126,11 +126,11 @@ const QuerySchema = z
     to: z.coerce.number().int().nonnegative().max(8640000000000000).optional(),
     cursor: z.string().max(120).optional(),
   })
-  .strict()
   .refine((q) => q.from === undefined || q.to === undefined || q.from <= q.to);
-const CursorSchema = z
-  .object({ at: z.number().int().nonnegative(), id: z.string().uuid() })
-  .strict();
+const CursorSchema = z.strictObject({
+  at: z.int().nonnegative(),
+  id: z.guid(),
+});
 export async function listFeedback(
   request: Request,
   env: ApiWorkerEnv,

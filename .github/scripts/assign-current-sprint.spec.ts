@@ -130,15 +130,14 @@ describe("MilestoneのJST割当期間を使う", () => {
       resolveCurrentSprint([{ ...milestone(), description }], now()).reason,
     ).toBe("invalid-sprint-period");
   });
-  it.each([
-    "2026-02-30T00:00:00Z",
-    "invalid",
-    "2026-10-05T00:00:00Z",
-  ])("不正due・開始日以前のdueを使わない %s", (due) => {
-    expect(
-      resolveCurrentSprint([milestone(7, "2026-10-05", due)], now()).reason,
-    ).toBe("invalid-sprint-period");
-  });
+  it.each(["2026-02-30T00:00:00Z", "invalid", "2026-10-05T00:00:00Z"])(
+    "不正due・開始日以前のdueを使わない %s",
+    (due) => {
+      expect(
+        resolveCurrentSprint([milestone(7, "2026-10-05", due)], now()).reason,
+      ).toBe("invalid-sprint-period");
+    },
+  );
   it("後続未登録ならreview/demo日からskipし、次を捏造しない", () => {
     expect(
       resolveCurrentSprint(
@@ -185,14 +184,15 @@ describe("全open Issueを現在sprintへ付け替える", () => {
       milestone: 7,
     });
   });
-  it.each([
-    6, 8, 99,
-  ])("以前・将来・非sprintの割当#%sも現在sprintへ移す", async (assigned) => {
-    const input = fixture([issue(42, assigned)]);
-    expect((await assignCurrentSprint(input)).updated).toEqual([
-      { number: 42, from: assigned, to: 7 },
-    ]);
-  });
+  it.each([6, 8, 99])(
+    "以前・将来・非sprintの割当#%sも現在sprintへ移す",
+    async (assigned) => {
+      const input = fixture([issue(42, assigned)]);
+      expect((await assignCurrentSprint(input)).updated).toEqual([
+        { number: 42, from: assigned, to: 7 },
+      ]);
+    },
+  );
   it("現在sprintへの既存割当は保持し、再実行は冪等", async () => {
     const input = fixture([issue(42, 7), issue(43, 6)]);
     await assignCurrentSprint(input);

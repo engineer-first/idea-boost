@@ -83,28 +83,29 @@ describe("InviteUrlActions", () => {
     await waitFor(() => expect(share).toHaveBeenCalledTimes(2));
   });
 
-  it.each([
-    "NotAllowedError",
-    "DataError",
-    "TypeError",
-  ])("%s失敗後もコピーでき、成功表示を出さない", async (name) => {
-    stubShare(vi.fn().mockRejectedValue(new DOMException("failure", name)));
-    render(<InviteUrlActions value={url} />);
-    fireEvent.click(screen.getByRole("button", { name: "招待URLを共有" }));
-    await waitFor(() =>
+  it.each(["NotAllowedError", "DataError", "TypeError"])(
+    "%s失敗後もコピーでき、成功表示を出さない",
+    async (name) => {
+      stubShare(vi.fn().mockRejectedValue(new DOMException("failure", name)));
+      render(<InviteUrlActions value={url} />);
+      fireEvent.click(screen.getByRole("button", { name: "招待URLを共有" }));
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "招待URLを共有" }),
+        ).toHaveAttribute("data-share-state", "error"),
+      );
       expect(
-        screen.getByRole("button", { name: "招待URLを共有" }),
-      ).toHaveAttribute("data-share-state", "error"),
-    );
-    expect(
-      screen.getByText("共有できませんでした。URLをコピーして送ってください。"),
-    ).toHaveClass("sr-only");
-    expect(
-      screen.getByRole("button", { name: "招待URLをコピー" }),
-    ).toBeEnabled();
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByText("共有しました")).not.toBeInTheDocument();
-  });
+        screen.getByText(
+          "共有できませんでした。URLをコピーして送ってください。",
+        ),
+      ).toHaveClass("sr-only");
+      expect(
+        screen.getByRole("button", { name: "招待URLをコピー" }),
+      ).toBeEnabled();
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+      expect(screen.queryByText("共有しました")).not.toBeInTheDocument();
+    },
+  );
 
   it("共有待ちの連打を抑制する", async () => {
     let resolve!: () => void;

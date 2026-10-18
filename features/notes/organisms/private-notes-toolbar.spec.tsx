@@ -944,32 +944,32 @@ describe("PrivateNotesToolbar", () => {
     expect(screen.getByRole("button", { name: "付箋を追加" })).toBeDisabled();
   });
 
-  it.each([
-    "dock",
-    "workspace",
-  ] as const)("%sでは作成権限を失うと追加ショートカットの案内を隠す", (presentation) => {
-    const props = {
-      notes: [],
-      disabled: false,
-      selectedNoteId: null,
-      canCreateNote: true,
-      canEditNote: false,
-      canDeleteNote: false,
-      canMoveNote: false,
-      onSelect: vi.fn(),
-      onAdd: vi.fn(),
-      onContentChange: vi.fn(),
-      onDelete: vi.fn(),
-      onDragStart: vi.fn(),
-      presentation,
-    };
-    const view = render(<PrivateNotesToolbar {...props} />);
-    expect(screen.getByText(/付箋追加ショートカットキー/)).toBeVisible();
-    view.rerender(<PrivateNotesToolbar {...props} canCreateNote={false} />);
-    expect(
-      screen.queryByText(/付箋追加ショートカットキー/),
-    ).not.toBeInTheDocument();
-  });
+  it.each(["dock", "workspace"] as const)(
+    "%sでは作成権限を失うと追加ショートカットの案内を隠す",
+    (presentation) => {
+      const props = {
+        notes: [],
+        disabled: false,
+        selectedNoteId: null,
+        canCreateNote: true,
+        canEditNote: false,
+        canDeleteNote: false,
+        canMoveNote: false,
+        onSelect: vi.fn(),
+        onAdd: vi.fn(),
+        onContentChange: vi.fn(),
+        onDelete: vi.fn(),
+        onDragStart: vi.fn(),
+        presentation,
+      };
+      const view = render(<PrivateNotesToolbar {...props} />);
+      expect(screen.getByText(/付箋追加ショートカットキー/)).toBeVisible();
+      view.rerender(<PrivateNotesToolbar {...props} canCreateNote={false} />);
+      expect(
+        screen.queryByText(/付箋追加ショートカットキー/),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("canEditNoteがfalseの場合は編集できない", () => {
     render(

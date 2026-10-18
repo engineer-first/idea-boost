@@ -573,25 +573,25 @@ it("本人表示から共通の改名APIを呼び、共有通知で全員の現�
   ).toBeInTheDocument();
 });
 
-it.each([
-  "rejected",
-  "unavailable",
-])("盤面遷移の認証引継ぎが%sなら通常の入室入口で判断をやり直す", async (outcome) => {
-  if (outcome === "rejected")
-    bindEntry.mockRejectedValueOnce(new Error("offline"));
-  else bindEntry.mockResolvedValueOnce(null);
-  const { socket } = renderStart({ entryAdmission: "signed-admission" });
-  act(() =>
-    socket.simulateServerMessage({
-      type: "phase:updated",
-      phaseRevision: 1,
-      phase: buildPhaseStep(1),
-    }),
-  );
-  await waitFor(() =>
-    expect(navigationMocks.replace).toHaveBeenCalledWith(`/rooms/${ROOM_ID}`),
-  );
-});
+it.each(["rejected", "unavailable"])(
+  "盤面遷移の認証引継ぎが%sなら通常の入室入口で判断をやり直す",
+  async (outcome) => {
+    if (outcome === "rejected")
+      bindEntry.mockRejectedValueOnce(new Error("offline"));
+    else bindEntry.mockResolvedValueOnce(null);
+    const { socket } = renderStart({ entryAdmission: "signed-admission" });
+    act(() =>
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phaseRevision: 1,
+        phase: buildPhaseStep(1),
+      }),
+    );
+    await waitFor(() =>
+      expect(navigationMocks.replace).toHaveBeenCalledWith(`/rooms/${ROOM_ID}`),
+    );
+  },
+);
 
 it("開始成功後は移動が完了するまで開始中を維持する", () => {
   const { socket } = renderStart();

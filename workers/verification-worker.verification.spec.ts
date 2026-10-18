@@ -1,4 +1,5 @@
-import { env, runInDurableObject, SELF } from "cloudflare:test";
+import { runInDurableObject } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { PERMISSIONS } from "../contracts/access";
 import { isResultStep } from "../contracts/phase";
@@ -36,7 +37,7 @@ it("検証用ログイン後にOwnerだけが成果閲覧と管理を利用で�
   );
   expect(
     (
-      await SELF.fetch("http://localhost/api/auth/sync", {
+      await exports.default.fetch("http://localhost/api/auth/sync", {
         method: "POST",
         body: JSON.stringify({ assertion }),
       })
@@ -46,28 +47,28 @@ it("検証用ログイン後にOwnerだけが成果閲覧と管理を利用で�
   const memberCookie = await sessionCookieFor(users[1]);
   expect(
     (
-      await SELF.fetch("http://localhost/api/shared-outcomes", {
+      await exports.default.fetch("http://localhost/api/shared-outcomes", {
         headers: { Cookie: ownerCookie },
       })
     ).status,
   ).toBe(200);
   expect(
     (
-      await SELF.fetch("http://localhost/api/admin/access", {
+      await exports.default.fetch("http://localhost/api/admin/access", {
         headers: { Cookie: ownerCookie },
       })
     ).status,
   ).toBe(200);
   expect(
     (
-      await SELF.fetch("http://localhost/api/shared-outcomes", {
+      await exports.default.fetch("http://localhost/api/shared-outcomes", {
         headers: { Cookie: memberCookie },
       })
     ).status,
   ).toBe(403);
   expect(
     (
-      await SELF.fetch("http://localhost/api/admin/access", {
+      await exports.default.fetch("http://localhost/api/admin/access", {
         headers: { Cookie: memberCookie },
       })
     ).status,
@@ -90,11 +91,14 @@ async function headers(index = 0): Promise<Record<string, string>> {
   };
 }
 async function create(checkpoint: string) {
-  const res = await SELF.fetch("http://localhost/api/verification/rooms", {
-    method: "POST",
-    headers: await headers(),
-    body: JSON.stringify({ checkpoint }),
-  });
+  const res = await exports.default.fetch(
+    "http://localhost/api/verification/rooms",
+    {
+      method: "POST",
+      headers: await headers(),
+      body: JSON.stringify({ checkpoint }),
+    },
+  );
   expect(res.status).toBe(200);
   return VerificationActiveSchema.parse(await res.json());
 }
@@ -117,38 +121,45 @@ describe("検証環境の拒否境界", () => {
       ).status,
     ).toBe(404);
     expect(
-      (await SELF.fetch("http://localhost/api/verification/active")).status,
+      (await exports.default.fetch("http://localhost/api/verification/active"))
+        .status,
     ).toBe(404);
     expect(
       (
-        await SELF.fetch("https://example.com/api/verification/active", {
-          headers: await headers(),
-        })
+        await exports.default.fetch(
+          "https://example.com/api/verification/active",
+          {
+            headers: await headers(),
+          },
+        )
       ).status,
     ).toBe(404);
-    expect((await SELF.fetch(request())).status).toBe(401);
+    expect((await exports.default.fetch(request())).status).toBe(401);
   });
   it("member・viewerは閲覧できるが作成できず、通常ルームには代理操作できない", async () => {
     for (const index of [1, 2]) {
       expect(
         (
-          await SELF.fetch("http://localhost/api/verification/rooms", {
-            method: "POST",
-            headers: await headers(index),
-            body: JSON.stringify({ checkpoint: "3-1" }),
-          })
+          await exports.default.fetch(
+            "http://localhost/api/verification/rooms",
+            {
+              method: "POST",
+              headers: await headers(index),
+              body: JSON.stringify({ checkpoint: "3-1" }),
+            },
+          )
         ).status,
       ).toBe(403);
     }
     const active = await create("2-3");
     for (const index of [1, 2]) {
-      const response = await SELF.fetch(
+      const response = await exports.default.fetch(
         "http://localhost/api/verification/active",
         { headers: await headers(index) },
       );
       expect(await response.json()).toEqual({ active });
     }
-    const normal = await SELF.fetch("http://localhost/api/rooms", {
+    const normal = await exports.default.fetch("http://localhost/api/rooms", {
       method: "POST",
       headers: { ...(await headers()), "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -159,7 +170,7 @@ describe("検証環境の拒否境界", () => {
     const room = await normal.json<{ roomId: string }>();
     expect(
       (
-        await SELF.fetch(
+        await exports.default.fetch(
           `http://localhost/api/verification/rooms/${room.roomId}/vote`,
           {
             method: "POST",
@@ -180,7 +191,7 @@ describe("検証用の初期状態", () => {
     const closed = new Promise<{ type: "closed" }>((resolve) => {
       owner.ws.addEventListener("close", () => resolve({ type: "closed" }));
     });
-    const response = await SELF.fetch(
+    const response = await exports.default.fetch(
       `http://localhost/api/verification/rooms/${active.roomId}/vote`,
       {
         method: "POST",
@@ -208,7 +219,7 @@ describe("検証用の初期状態", () => {
     const active = await create("2-3");
     const url = `http://localhost/api/verification/rooms/${active.roomId}/vote`;
     for (let attempt = 0; attempt < 2; attempt++) {
-      const response = await SELF.fetch(url, {
+      const response = await exports.default.fetch(url, {
         method: "POST",
         headers: await headers(),
         body: JSON.stringify({ phase: 2, step: 3 }),
@@ -231,7 +242,7 @@ describe("検証用の初期状態", () => {
     });
     expect(
       (
-        await SELF.fetch(url, {
+        await exports.default.fetch(url, {
           method: "POST",
           headers: await headers(),
           body: JSON.stringify({ phase: 3, step: 4 }),
@@ -240,7 +251,7 @@ describe("検証用の初期状態", () => {
     ).toBe(409);
     expect(
       (
-        await SELF.fetch(url, {
+        await exports.default.fetch(url, {
           method: "POST",
           headers: await headers(1),
           body: JSON.stringify({ phase: 2, step: 3 }),
@@ -323,20 +334,20 @@ describe("検証用の初期状態", () => {
     }
   });
 
-  it.each([
-    "3-2",
-    "3-3",
-  ])("%sの検証ルームはOwnerがマップの広さを変更できる状態で始まる", async (checkpoint) => {
-    const active = await create(checkpoint);
-    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
+  it.each(["3-2", "3-3"])(
+    "%sの検証ルームはOwnerがマップの広さを変更できる状態で始まる",
+    async (checkpoint) => {
+      const active = await create(checkpoint);
+      const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(active.roomId));
 
-    await runInDurableObject(stub, (_instance, state) => {
-      expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
-        sizeLevel: 4,
-        initialized: true,
+      await runInDurableObject(stub, (_instance, state) => {
+        expect(getIdeaMapSizeState(state.storage.sql)).toEqual({
+          sizeLevel: 4,
+          initialized: true,
+        });
       });
-    });
-  });
+    },
+  );
   it.each([
     "lobby",
     "1-1",
@@ -395,7 +406,7 @@ describe("検証用の初期状態", () => {
     const next = await create("3-1");
     expect(previous.roomId).not.toBe(next.roomId);
     for (const index of [0, 1, 2]) {
-      const response = await SELF.fetch(
+      const response = await exports.default.fetch(
         "http://localhost/api/verification/active",
         { headers: await headers(index) },
       );
@@ -416,9 +427,12 @@ describe("検証用の初期状態", () => {
     }
     expect(
       (
-        await SELF.fetch(`http://localhost/api/rooms/${previous.roomId}`, {
-          headers: await headers(),
-        })
+        await exports.default.fetch(
+          `http://localhost/api/rooms/${previous.roomId}`,
+          {
+            headers: await headers(),
+          },
+        )
       ).status,
     ).toBe(200);
   });
@@ -447,7 +461,7 @@ it("チェックポイント投入直後の成果とD1投影に工程・付箋�
 
 describe("成果の検証入口", () => {
   it("セッションのない呼び出しでは状態準備できない", async () => {
-    const viewer = await SELF.fetch(
+    const viewer = await exports.default.fetch(
       "http://localhost/api/verification/outcomes",
       {
         method: "POST",
@@ -461,7 +475,7 @@ describe("成果の検証入口", () => {
 
 it("成果ケースは実保存を通り、失敗から同じ完了記録をアラームで復旧する", async () => {
   async function outcome(scenario: string, roomName = "同名の検証") {
-    const response = await SELF.fetch(
+    const response = await exports.default.fetch(
       "http://localhost/api/verification/outcomes",
       {
         method: "POST",
@@ -488,7 +502,7 @@ it("成果ケースは実保存を通り、失敗から同じ完了記録をア�
   expect(failedRecord?.saveStatus).toBe("failed");
   expect(failedRecord?.lastSavedAt).not.toBeNull();
   expect(failedRecord?.snapshot?.decisions).toHaveLength(2);
-  const recovered = await SELF.fetch(
+  const recovered = await exports.default.fetch(
     `http://localhost/api/verification/outcomes/${failed.active.roomId}/recover`,
     { method: "POST", headers: await headers(), body: "{}" },
   );
@@ -520,104 +534,108 @@ it("成果ケースは実保存を通り、失敗から同じ完了記録をア�
   );
 });
 
-it.each([
-  "before-initialize",
-  "initialize",
-  "prepare",
-  "activate",
-])("成果準備の%s失敗では失敗ルームを残さず、元の検証先を維持する", async (stage) => {
-  const previous = await create("1-2");
-  let failedId = "";
-  const namespace = {
-    idFromName: (name: string) => env.ROOM_DO.idFromName(name),
-    get: (id: DurableObjectId) => {
-      const stub = env.ROOM_DO.get(id) as unknown as {
-        initializeVerification(
-          checkpoint: string,
-          roomId: string,
-          name?: string,
-        ): Promise<void>;
-        prepareVerificationOutcome(scenario: string): Promise<void>;
-        discardVerificationRoom(): Promise<void>;
-      };
-      return {
-        async initializeVerification(
-          checkpoint: string,
-          roomId: string,
-          name?: string,
-        ) {
-          failedId = roomId;
-          if (stage === "before-initialize")
-            throw new Error("before initialization");
-          await stub.initializeVerification(checkpoint, roomId, name);
-          if (stage === "initialize") throw new Error("initialization failed");
-        },
-        async prepareVerificationOutcome(scenario: string) {
-          await stub.prepareVerificationOutcome(scenario);
-          if (stage === "prepare") throw new Error("preparation failed");
-        },
-        discardVerificationRoom: () => stub.discardVerificationRoom(),
-      };
-    },
-  } as unknown as typeof env.ROOM_DO;
-  const workspace = {
-    idFromName: () => "active",
-    get: () => ({
-      getActive: async () => null,
-      setActive: async () => {
-        throw new Error("activation failed");
+it.each(["before-initialize", "initialize", "prepare", "activate"])(
+  "成果準備の%s失敗では失敗ルームを残さず、元の検証先を維持する",
+  async (stage) => {
+    const previous = await create("1-2");
+    let failedId = "";
+    const namespace = {
+      idFromName: (name: string) => env.ROOM_DO.idFromName(name),
+      get: (id: DurableObjectId) => {
+        const stub = env.ROOM_DO.get(id) as unknown as {
+          initializeVerification(
+            checkpoint: string,
+            roomId: string,
+            name?: string,
+          ): Promise<void>;
+          prepareVerificationOutcome(scenario: string): Promise<void>;
+          discardVerificationRoom(): Promise<void>;
+        };
+        return {
+          async initializeVerification(
+            checkpoint: string,
+            roomId: string,
+            name?: string,
+          ) {
+            failedId = roomId;
+            if (stage === "before-initialize")
+              throw new Error("before initialization");
+            await stub.initializeVerification(checkpoint, roomId, name);
+            if (stage === "initialize")
+              throw new Error("initialization failed");
+          },
+          async prepareVerificationOutcome(scenario: string) {
+            await stub.prepareVerificationOutcome(scenario);
+            if (stage === "prepare") throw new Error("preparation failed");
+          },
+          discardVerificationRoom: () => stub.discardVerificationRoom(),
+        };
       },
-    }),
-  } as unknown as import("./verification-worker").VerificationWorkerEnv["VERIFICATION_WORKSPACE"];
-  const response = await verificationWorker.fetch(
-    new Request("http://localhost/api/verification/outcomes", {
-      method: "POST",
-      headers: await headers(),
-      body: JSON.stringify({ scenario: "failure" }),
-    }),
-    {
-      ...env,
-      ROOM_DO: namespace,
-      IDEA_BOOST_VERIFY: "true",
-      VERIFICATION_CONTROL_TOKEN: TOKEN,
-      ...(stage === "activate" ? { VERIFICATION_WORKSPACE: workspace } : {}),
-    },
-  );
-  expect(response.status).toBe(503);
-  expect(await response.json()).toEqual({
-    error: "検証状態の準備に失敗しました。",
-  });
-  expect(
-    await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
-      .bind(failedId)
-      .first(),
-  ).toBeNull();
-  const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(failedId));
-  await runInDurableObject(stub, async (instance, state) => {
-    if (stage !== "before-initialize") {
-      await instance.alarm();
-      expect(await instance.getSharedOutcome()).toBeNull();
-    } else {
-      expect((await state.storage.list()).size).toBe(0);
-    }
-    expect(await state.storage.getAlarm()).toBeNull();
-  });
-  expect(
-    await env.DB.prepare("SELECT room_id FROM shared_outcomes WHERE room_id=?")
-      .bind(failedId)
-      .first(),
-  ).toBeNull();
-  const active = await SELF.fetch("http://localhost/api/verification/active", {
-    headers: await headers(),
-  });
-  expect(await active.json()).toEqual({ active: previous });
-});
+    } as unknown as typeof env.ROOM_DO;
+    const workspace = {
+      idFromName: () => "active",
+      get: () => ({
+        getActive: async () => null,
+        setActive: async () => {
+          throw new Error("activation failed");
+        },
+      }),
+    } as unknown as import("./verification-worker").VerificationWorkerEnv["VERIFICATION_WORKSPACE"];
+    const response = await verificationWorker.fetch(
+      new Request("http://localhost/api/verification/outcomes", {
+        method: "POST",
+        headers: await headers(),
+        body: JSON.stringify({ scenario: "failure" }),
+      }),
+      {
+        ...env,
+        ROOM_DO: namespace,
+        IDEA_BOOST_VERIFY: "true",
+        VERIFICATION_CONTROL_TOKEN: TOKEN,
+        ...(stage === "activate" ? { VERIFICATION_WORKSPACE: workspace } : {}),
+      },
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "検証状態の準備に失敗しました。",
+    });
+    expect(
+      await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
+        .bind(failedId)
+        .first(),
+    ).toBeNull();
+    const stub = env.ROOM_DO.get(env.ROOM_DO.idFromName(failedId));
+    await runInDurableObject(stub, async (instance, state) => {
+      if (stage !== "before-initialize") {
+        await instance.alarm();
+        expect(await instance.getSharedOutcome()).toBeNull();
+      } else {
+        expect((await state.storage.list()).size).toBe(0);
+      }
+      expect(await state.storage.getAlarm()).toBeNull();
+    });
+    expect(
+      await env.DB.prepare(
+        "SELECT room_id FROM shared_outcomes WHERE room_id=?",
+      )
+        .bind(failedId)
+        .first(),
+    ).toBeNull();
+    const active = await exports.default.fetch(
+      "http://localhost/api/verification/active",
+      {
+        headers: await headers(),
+      },
+    );
+    expect(await active.json()).toEqual({ active: previous });
+  },
+);
 
 it("成果検証への切替後は旧ルームを閲覧できるが操作できない", async () => {
   const previous = await create("1-2");
   const socket = await connectRoomAs(users[0], previous.roomId);
   await socket.next();
-  const response = await SELF.fetch(
+  const response = await exports.default.fetch(
     "http://localhost/api/verification/outcomes",
     {
       method: "POST",

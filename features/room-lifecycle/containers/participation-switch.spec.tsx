@@ -144,48 +144,50 @@ it("別タブの処理中操作を受け取ったら、その移動先とIDで�
   expect(commit).toHaveBeenCalledTimes(1);
 });
 
-it.each([
-  false,
-  true,
-])("回復した操作の成功を元の作成結果へ誤って保存しない（同一操作: %s）", async (sameOperation) => {
-  const { queryParticipation } = await import("../logic/participation-actions");
-  commit.mockReset();
-  vi.mocked(queryParticipation).mockReset();
-  push.mockReset();
-  const original = switchConfirmation();
-  const operationId = sameOperation
-    ? original.operationId
-    : "55555555-5555-4555-8555-555555555555";
-  const roomId = "66666666-6666-4666-8666-666666666666";
-  const onReady = vi.fn().mockResolvedValue(undefined);
-  commit.mockResolvedValueOnce({
-    kind: "pending",
-    operationId,
-    progress: "joining",
-    error: "移動中です",
-  });
-  vi.mocked(queryParticipation).mockResolvedValueOnce({
-    kind: "ready",
-    roomId,
-  });
-  render(
-    <ParticipationSwitch
-      currentUserId="11111111-1111-4111-8111-111111111111"
-      confirmation={original}
-      onReady={onReady}
-    />,
-  );
-  await userEvent.click(
-    screen.getByRole("button", { name: "退出して参加する" }),
-  );
-  await userEvent.click(
-    screen.getByRole("button", { name: "結果を確認・再試行" }),
-  );
-  await waitFor(() =>
-    expect(push).toHaveBeenCalledWith(`/rooms/${roomId}/start`),
-  );
-  expect(onReady).toHaveBeenCalledTimes(sameOperation ? 1 : 0);
-});
+it.each([false, true])(
+  "回復した操作の成功を元の作成結果へ誤って保存しない（同一操作: %s）",
+  async (sameOperation) => {
+    const { queryParticipation } = await import(
+      "../logic/participation-actions"
+    );
+    commit.mockReset();
+    vi.mocked(queryParticipation).mockReset();
+    push.mockReset();
+    const original = switchConfirmation();
+    const operationId = sameOperation
+      ? original.operationId
+      : "55555555-5555-4555-8555-555555555555";
+    const roomId = "66666666-6666-4666-8666-666666666666";
+    const onReady = vi.fn().mockResolvedValue(undefined);
+    commit.mockResolvedValueOnce({
+      kind: "pending",
+      operationId,
+      progress: "joining",
+      error: "移動中です",
+    });
+    vi.mocked(queryParticipation).mockResolvedValueOnce({
+      kind: "ready",
+      roomId,
+    });
+    render(
+      <ParticipationSwitch
+        currentUserId="11111111-1111-4111-8111-111111111111"
+        confirmation={original}
+        onReady={onReady}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "退出して参加する" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "結果を確認・再試行" }),
+    );
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith(`/rooms/${roomId}/start`),
+    );
+    expect(onReady).toHaveBeenCalledTimes(sameOperation ? 1 : 0);
+  },
+);
 
 it("送信中は確定・取消・成果選択を無効にする", async () => {
   commit.mockReset();

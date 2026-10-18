@@ -11,37 +11,36 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
 });
 describe("共有成果閲覧", () => {
-  it.each([
-    "pending",
-    "failed",
-    "saved",
-  ] as const)("確定記録の反映状態 %s に応じて表示盤面の時点を区別する", (saveStatus) => {
-    render(
-      <SharedOutcomesView
-        loading={false}
-        error={null}
-        outcomes={[]}
-        detail={buildSharedOutcome({ status: "confirmed", saveStatus })}
-        nextCursor={null}
-        onOpen={vi.fn()}
-        onBack={vi.fn()}
-        onRefresh={vi.fn()}
-        onMore={vi.fn()}
-      />,
-    );
-    expect(
-      screen.getByRole("heading", {
-        name:
-          saveStatus === "saved"
-            ? "完了時点の共有ボード"
-            : "最後に正常保存した共有ボード",
-      }),
-    ).toBeInTheDocument();
-    if (saveStatus !== "saved")
+  it.each(["pending", "failed", "saved"] as const)(
+    "確定記録の反映状態 %s に応じて表示盤面の時点を区別する",
+    (saveStatus) => {
+      render(
+        <SharedOutcomesView
+          loading={false}
+          error={null}
+          outcomes={[]}
+          detail={buildSharedOutcome({ status: "confirmed", saveStatus })}
+          nextCursor={null}
+          onOpen={vi.fn()}
+          onBack={vi.fn()}
+          onRefresh={vi.fn()}
+          onMore={vi.fn()}
+        />,
+      );
       expect(
-        screen.queryByRole("heading", { name: "完了時点の共有ボード" }),
-      ).not.toBeInTheDocument();
-  });
+        screen.getByRole("heading", {
+          name:
+            saveStatus === "saved"
+              ? "完了時点の共有ボード"
+              : "最後に正常保存した共有ボード",
+        }),
+      ).toBeInTheDocument();
+      if (saveStatus !== "saved")
+        expect(
+          screen.queryByRole("heading", { name: "完了時点の共有ボード" }),
+        ).not.toBeInTheDocument();
+    },
+  );
   it("取得ごとに認可し、剥奪時に前の内容を隠す", async () => {
     const fetchMock = vi
       .fn()

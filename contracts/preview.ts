@@ -17,11 +17,11 @@ export const PreviewCheckpointSchema = z.enum([
   "3-5",
 ]);
 export type PreviewCheckpoint = z.infer<typeof PreviewCheckpointSchema>;
-export const PreviewCreateRequestSchema = z
-  .object({ checkpoint: PreviewCheckpointSchema })
-  .strict();
+export const PreviewCreateRequestSchema = z.strictObject({
+  checkpoint: PreviewCheckpointSchema,
+});
 export const PreviewRoomSchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   inviteCode: z.string().min(1),
   checkpoint: PreviewCheckpointSchema,
 });
@@ -29,7 +29,7 @@ export type PreviewRoom = z.infer<typeof PreviewRoomSchema>;
 
 export const PreviewAccessClaimsSchema = z.object({
   sub: z.string().min(1),
-  email: z.string().email(),
-  exp: z.number().int().positive(),
+  email: z.email(),
+  exp: z.int().positive(),
 });
 export type PreviewAccessClaims = z.infer<typeof PreviewAccessClaimsSchema>;

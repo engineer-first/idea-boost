@@ -132,11 +132,14 @@ describe("transitionTimer: start", () => {
   it.each<[string, TimerState]>([
     ["running", running(NOW + 1_000, 60_000)],
     ["paused", paused(1_000, 60_000)],
-  ])("%s からの start は invalid（リセットは stop 経由）", (_label, current) => {
-    expect(
-      transitionTimer(current, { kind: "start", durationMs: 60_000 }, NOW),
-    ).toEqual({ type: "invalid" });
-  });
+  ])(
+    "%s からの start は invalid（リセットは stop 経由）",
+    (_label, current) => {
+      expect(
+        transitionTimer(current, { kind: "start", durationMs: 60_000 }, NOW),
+      ).toEqual({ type: "invalid" });
+    },
+  );
 });
 
 describe("transitionTimer: pause / resume", () => {
@@ -250,14 +253,15 @@ describe("transitionTimer: extend", () => {
 });
 
 describe("transitionTimer: stop", () => {
-  it.each<[string, TimerState]>([
-    ["paused", paused(1_000, 60_000)],
-  ])("%s の stop は ended への更新", (_label, current) => {
-    expect(transitionTimer(current, { kind: "stop" }, NOW)).toEqual({
-      type: "updated",
-      timer: { status: "ended", durationMs: 60_000 },
-    });
-  });
+  it.each<[string, TimerState]>([["paused", paused(1_000, 60_000)]])(
+    "%s の stop は ended への更新",
+    (_label, current) => {
+      expect(transitionTimer(current, { kind: "stop" }, NOW)).toEqual({
+        type: "updated",
+        timer: { status: "ended", durationMs: 60_000 },
+      });
+    },
+  );
 
   it("running の stop は invalid", () => {
     expect(

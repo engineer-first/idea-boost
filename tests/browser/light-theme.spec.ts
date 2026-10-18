@@ -113,33 +113,36 @@ test.each([
   ["room-sharingpresenter--complete", "発表者と全体の順番を確認"],
   ["room-ideamapsizecontrols--host-can-adjust", "2軸マップの広さ操作"],
   ["room-roomboardheader--voting-complete", "全員OK"],
-])("%s はOS・themeのdark設定でもライト設定と同じ色で表示する", async (id, label) => {
-  await page.emulateMedia({ colorScheme: "light" });
-  await openStory(id);
-  const target =
-    label === "2軸マップの広さ操作"
-      ? page.getByRole("group", { name: label })
-      : label === "全員OK"
-        ? page.getByText(label, { exact: true })
-        : page.getByRole("button", { name: label });
-  await target.waitFor();
-  const readColors = () =>
-    target.evaluate((element) =>
-      [element, ...element.querySelectorAll("*")].map((node) => {
-        const style = getComputedStyle(node);
-        return {
-          background: style.backgroundColor,
-          color: style.color,
-          border: style.borderTopColor,
-        };
-      }),
-    );
-  const light = await readColors();
-  await page.emulateMedia({ colorScheme: "dark" });
-  await expect.poll(readColors).toEqual(light);
-  await page.evaluate(() => document.documentElement.classList.add("dark"));
-  await expect.poll(readColors).toEqual(light);
-});
+])(
+  "%s はOS・themeのdark設定でもライト設定と同じ色で表示する",
+  async (id, label) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openStory(id);
+    const target =
+      label === "2軸マップの広さ操作"
+        ? page.getByRole("group", { name: label })
+        : label === "全員OK"
+          ? page.getByText(label, { exact: true })
+          : page.getByRole("button", { name: label });
+    await target.waitFor();
+    const readColors = () =>
+      target.evaluate((element) =>
+        [element, ...element.querySelectorAll("*")].map((node) => {
+          const style = getComputedStyle(node);
+          return {
+            background: style.backgroundColor,
+            color: style.color,
+            border: style.borderTopColor,
+          };
+        }),
+      );
+    const light = await readColors();
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect.poll(readColors).toEqual(light);
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await expect.poll(readColors).toEqual(light);
+  },
+);
 
 test("候補外の付箋は破線と影なしで状態を示す", async () => {
   await openStory("notes-stickynote--excluded");
@@ -302,40 +305,40 @@ test("タッチ端末では最後にタップした付箋だけ候補操作を�
   ).toBe("1");
 });
 
-test.each([
-  "host",
-  "participant",
-])("候補外の付箋は%sの実タッチで本文を読みやすくし、復帰操作はホストだけに出す", async (role) => {
-  await page.close();
-  page = await browser.newPage({
-    hasTouch: true,
-    viewport: { width: 480, height: 640 },
-  });
-  await openStory(`notes-notecard--excluded-for-${role}`);
-  await page.waitForFunction(
-    () =>
-      (
-        window as unknown as {
-          __STORYBOOK_PREVIEW__: { currentRender?: { phase: string } };
-        }
-      ).__STORYBOOK_PREVIEW__.currentRender?.phase === "finished",
-  );
-  const surface = page.getByRole("button", { name: "候補外の付箋" });
-  const card = page.getByTestId("note-card");
-  await surface.evaluate((element) => element.blur());
-  await expect
-    .poll(() => card.evaluate((element) => getComputedStyle(element).opacity))
-    .toBe("0.45");
-  await surface.tap();
-  await expect
-    .poll(() => card.evaluate((element) => getComputedStyle(element).opacity))
-    .toBe("0.9");
-  const restore = page.getByRole("button", { name: "候補に戻す" });
-  if (role === "host") {
+test.each(["host", "participant"])(
+  "候補外の付箋は%sの実タッチで本文を読みやすくし、復帰操作はホストだけに出す",
+  async (role) => {
+    await page.close();
+    page = await browser.newPage({
+      hasTouch: true,
+      viewport: { width: 480, height: 640 },
+    });
+    await openStory(`notes-notecard--excluded-for-${role}`);
+    await page.waitForFunction(
+      () =>
+        (
+          window as unknown as {
+            __STORYBOOK_PREVIEW__: { currentRender?: { phase: string } };
+          }
+        ).__STORYBOOK_PREVIEW__.currentRender?.phase === "finished",
+    );
+    const surface = page.getByRole("button", { name: "候補外の付箋" });
+    const card = page.getByTestId("note-card");
+    await surface.evaluate((element) => element.blur());
     await expect
-      .poll(() =>
-        restore.evaluate((element) => getComputedStyle(element).opacity),
-      )
-      .toBe("1");
-  } else expect(await restore.count()).toBe(0);
-});
+      .poll(() => card.evaluate((element) => getComputedStyle(element).opacity))
+      .toBe("0.45");
+    await surface.tap();
+    await expect
+      .poll(() => card.evaluate((element) => getComputedStyle(element).opacity))
+      .toBe("0.9");
+    const restore = page.getByRole("button", { name: "候補に戻す" });
+    if (role === "host") {
+      await expect
+        .poll(() =>
+          restore.evaluate((element) => getComputedStyle(element).opacity),
+        )
+        .toBe("1");
+    } else expect(await restore.count()).toBe(0);
+  },
+);

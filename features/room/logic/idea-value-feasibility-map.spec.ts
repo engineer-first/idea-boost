@@ -60,9 +60,12 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     [2, 58],
     [4, 70],
     [15, 87],
-  ])("マップの広さ%iで軸ラベルを適切なサイズへ拡縮する", (sizeLevel, expected) => {
-    expect(getIdeaMapAxisLabelFontSize(sizeLevel)).toBe(expected);
-  });
+  ])(
+    "マップの広さ%iで軸ラベルを適切なサイズへ拡縮する",
+    (sizeLevel, expected) => {
+      expect(getIdeaMapAxisLabelFontSize(sizeLevel)).toBe(expected);
+    },
+  );
 
   it("固定マップは付箋の表示寸法に合わせて移動範囲を端まで使う", () => {
     expect(
@@ -172,22 +175,23 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     );
   });
 
-  it.each([
-    0.5, 2,
-  ])("倍率%sでもパン後のポインターを同じ相対座標に変換する", (zoom) => {
-    expect(
-      getIdeaValueFeasibilityMapPointFromClientPosition(
-        80 + 300 * zoom,
-        40 + 100 * zoom,
-        {
-          left: 80,
-          top: 40,
-          right: 80 + 400 * zoom,
-          bottom: 40 + 400 * zoom,
-        },
-      ),
-    ).toEqual({ feasibility: 75, value: 75 });
-  });
+  it.each([0.5, 2])(
+    "倍率%sでもパン後のポインターを同じ相対座標に変換する",
+    (zoom) => {
+      expect(
+        getIdeaValueFeasibilityMapPointFromClientPosition(
+          80 + 300 * zoom,
+          40 + 100 * zoom,
+          {
+            left: 80,
+            top: 40,
+            right: 80 + 400 * zoom,
+            bottom: 40 + 400 * zoom,
+          },
+        ),
+      ).toEqual({ feasibility: 75, value: 75 });
+    },
+  );
   it("端付近でも付箋全体の寸法を考慮して表示位置を制限する", () => {
     expect(
       getIdeaValueFeasibilityMapNotePosition({ feasibility: 1, value: 99 }),
@@ -245,45 +249,47 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
   });
 });
 
-it.each([
-  0.25, 1, 2,
-])("共通投影をzoom%s/サイズ変更/長文高さでも入力へ逆変換する", (zoom) => {
-  for (const level of [0, 3]) {
-    const geometry = getIdeaMapNoteGeometry(level, [150, 450]);
-    const bounds = {
-      left: 80,
-      top: 40,
-      right: 80 + geometry.width * zoom,
-      bottom: 40 + geometry.height * zoom,
-    };
-    for (const point of [
-      { feasibility: 0, value: 0 },
-      { feasibility: 5, value: 5 },
-      { feasibility: 95, value: 95 },
-      { feasibility: 100, value: 100 },
-    ]) {
-      for (const noteHeight of [150, 450]) {
-        const position = getIdeaValueFeasibilityMapNotePosition(
-          point,
-          noteHeight,
-          geometry,
-        );
-        const x = bounds.left + (Number.parseFloat(position.left) + 100) * zoom;
-        const y =
-          bounds.bottom -
-          (Number.parseFloat(position.bottom) + noteHeight / 2) * zoom;
-        const restored = getIdeaMapNotePointFromClientPosition(
-          x,
-          y,
-          bounds,
-          geometry,
-        );
-        expect(restored?.feasibility).toBeCloseTo(point.feasibility);
-        expect(restored?.value).toBeCloseTo(point.value);
+it.each([0.25, 1, 2])(
+  "共通投影をzoom%s/サイズ変更/長文高さでも入力へ逆変換する",
+  (zoom) => {
+    for (const level of [0, 3]) {
+      const geometry = getIdeaMapNoteGeometry(level, [150, 450]);
+      const bounds = {
+        left: 80,
+        top: 40,
+        right: 80 + geometry.width * zoom,
+        bottom: 40 + geometry.height * zoom,
+      };
+      for (const point of [
+        { feasibility: 0, value: 0 },
+        { feasibility: 5, value: 5 },
+        { feasibility: 95, value: 95 },
+        { feasibility: 100, value: 100 },
+      ]) {
+        for (const noteHeight of [150, 450]) {
+          const position = getIdeaValueFeasibilityMapNotePosition(
+            point,
+            noteHeight,
+            geometry,
+          );
+          const x =
+            bounds.left + (Number.parseFloat(position.left) + 100) * zoom;
+          const y =
+            bounds.bottom -
+            (Number.parseFloat(position.bottom) + noteHeight / 2) * zoom;
+          const restored = getIdeaMapNotePointFromClientPosition(
+            x,
+            y,
+            bounds,
+            geometry,
+          );
+          expect(restored?.feasibility).toBeCloseTo(point.feasibility);
+          expect(restored?.value).toBeCloseTo(point.value);
+        }
       }
     }
-  }
-});
+  },
+);
 it("極端長文があっても短い付箋の移動域を残し、有限な入力を受理する", () => {
   const geometry = getIdeaMapNoteGeometry(0, [10000, 150]);
   expect(geometry.maxNoteHeight).toBeLessThan(geometry.height);

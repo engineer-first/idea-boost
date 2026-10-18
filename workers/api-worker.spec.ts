@@ -3,7 +3,7 @@
 // - anon（セッションなし）は何もできない
 // - 非メンバーにはルームの存在自体を見せない (404)
 // - join は冪等（複数回呼んでもメンバーは重複しない）
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { buildLobbyPhase } from "../contracts/phase.fixture";
 import { issueCreationId } from "../contracts/room-creation";
@@ -43,7 +43,7 @@ async function sessionCookie(user: typeof OWNER): Promise<string> {
 async function createRoomAs(
   user: typeof OWNER,
 ): Promise<{ roomId: string; inviteCode: string }> {
-  const res = await SELF.fetch("https://api.test/api/rooms", {
+  const res = await exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
       Cookie: await sessionCookie(user),
@@ -60,14 +60,14 @@ async function createRoomAs(
 
 describe("認証ゲート（pgTAP: anon の視点）", () => {
   it("セッションなしではルームを作成できない", async () => {
-    const res = await SELF.fetch("https://api.test/api/rooms", {
+    const res = await exports.default.fetch("https://api.test/api/rooms", {
       method: "POST",
     });
     expect(res.status).toBe(401);
   });
 
   it("セッションなしではルーム参加できない", async () => {
-    const res = await SELF.fetch("https://api.test/api/rooms/join", {
+    const res = await exports.default.fetch("https://api.test/api/rooms/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: "ABC234" }),
@@ -76,7 +76,7 @@ describe("認証ゲート（pgTAP: anon の視点）", () => {
   });
 
   it("セッションなしではルーム情報を取得できない", async () => {
-    const res = await SELF.fetch(
+    const res = await exports.default.fetch(
       "https://api.test/api/rooms/11111111-1111-4111-8111-111111111111",
     );
     expect(res.status).toBe(401);
@@ -84,7 +84,7 @@ describe("認証ゲート（pgTAP: anon の視点）", () => {
 
   it("改ざんされたセッションは拒否される", async () => {
     const cookie = await sessionCookie(OWNER);
-    const res = await SELF.fetch("https://api.test/api/rooms", {
+    const res = await exports.default.fetch("https://api.test/api/rooms", {
       method: "POST",
       headers: { Cookie: `${cookie.slice(0, -3)}xxx` },
     });
@@ -105,9 +105,12 @@ describe("ルーム作成", () => {
 
   it("作成した host はルーム情報を取得できる（isHost=true, phase=lobby）", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookie(OWNER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookie(OWNER) },
+      },
+    );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       roomId,
@@ -123,9 +126,12 @@ describe("ルーム情報（isHost / hostUserId / phase）", () => {
   it("参加者は isHost=false と hostUserId（作成者）を取得できる", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookie(MEMBER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookie(MEMBER) },
+      },
+    );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       roomId,
@@ -141,7 +147,7 @@ describe("メンバー一覧（GET /api/rooms/:id/members）", () => {
   it("メンバーは name 付きの参加者一覧を取得できる", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
-    const res = await SELF.fetch(
+    const res = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/members`,
       { headers: { Cookie: await sessionCookie(OWNER) } },
     );
@@ -164,7 +170,7 @@ describe("メンバー一覧（GET /api/rooms/:id/members）", () => {
 
   it("非メンバーは 404（ルームの存在自体を見せない）", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(
+    const res = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/members`,
       { headers: { Cookie: await sessionCookie(OUTSIDER) } },
     );
@@ -173,7 +179,7 @@ describe("メンバー一覧（GET /api/rooms/:id/members）", () => {
 
   it("セッションなしでは 401", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(
+    const res = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/members`,
     );
     expect(res.status).toBe(401);
@@ -183,14 +189,17 @@ describe("メンバー一覧（GET /api/rooms/:id/members）", () => {
 describe("可視性（pgTAP: 非メンバーの視点）", () => {
   it("非メンバーにはルームの存在自体を見せない (404)", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookie(OUTSIDER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookie(OUTSIDER) },
+      },
+    );
     expect(res.status).toBe(404);
   });
 
   it("存在しないルームも同じ 404 を返す（存在の推測をさせない）", async () => {
-    const res = await SELF.fetch(
+    const res = await exports.default.fetch(
       "https://api.test/api/rooms/99999999-9999-4999-8999-999999999999",
       { headers: { Cookie: await sessionCookie(OUTSIDER) } },
     );
@@ -202,25 +211,34 @@ describe("ルーム参加（pgTAP: join_room）", () => {
   it("招待コードで参加すると、ルーム情報を取得できるようになる", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
 
-    const before = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookie(MEMBER) },
-    });
+    const before = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookie(MEMBER) },
+      },
+    );
     expect(before.status).toBe(404);
 
-    const join = await SELF.fetch("https://api.test/api/rooms/join", {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookie(MEMBER),
-        "Content-Type": "application/json",
+    const join = await exports.default.fetch(
+      "https://api.test/api/rooms/join",
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookie(MEMBER),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code: inviteCode }),
       },
-      body: JSON.stringify({ code: inviteCode }),
-    });
+    );
     expect(join.status).toBe(200);
     expect(await join.json()).toEqual({ roomId });
 
-    const after = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookie(MEMBER) },
-    });
+    const after = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookie(MEMBER) },
+      },
+    );
     expect(after.status).toBe(200);
   });
 
@@ -228,14 +246,17 @@ describe("ルーム参加（pgTAP: join_room）", () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
 
     for (let i = 0; i < 3; i++) {
-      const res = await SELF.fetch("https://api.test/api/rooms/join", {
-        method: "POST",
-        headers: {
-          Cookie: await sessionCookie(MEMBER),
-          "Content-Type": "application/json",
+      const res = await exports.default.fetch(
+        "https://api.test/api/rooms/join",
+        {
+          method: "POST",
+          headers: {
+            Cookie: await sessionCookie(MEMBER),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ code: inviteCode }),
         },
-        body: JSON.stringify({ code: inviteCode }),
-      });
+      );
       expect(res.status).toBe(200);
     }
 
@@ -252,14 +273,17 @@ describe("ルーム参加（pgTAP: join_room）", () => {
         email: `member-${index}@example.test`,
         name: `Member ${index}`,
       };
-      const joined = await SELF.fetch("https://api.test/api/rooms/join", {
-        method: "POST",
-        headers: {
-          Cookie: await sessionCookie(user),
-          "Content-Type": "application/json",
+      const joined = await exports.default.fetch(
+        "https://api.test/api/rooms/join",
+        {
+          method: "POST",
+          headers: {
+            Cookie: await sessionCookie(user),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ code: inviteCode }),
         },
-        body: JSON.stringify({ code: inviteCode }),
-      });
+      );
       expect(joined.status).toBe(200);
     }
 
@@ -268,14 +292,17 @@ describe("ルーム参加（pgTAP: join_room）", () => {
       email: "member-20@example.test",
       name: "Member 20",
     };
-    const rejected = await SELF.fetch("https://api.test/api/rooms/join", {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookie(overflowUser),
-        "Content-Type": "application/json",
+    const rejected = await exports.default.fetch(
+      "https://api.test/api/rooms/join",
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookie(overflowUser),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code: inviteCode }),
       },
-      body: JSON.stringify({ code: inviteCode }),
-    });
+    );
 
     expect(rejected.status).toBe(409);
     expect(await rejected.json()).toMatchObject({
@@ -286,7 +313,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
 
   it("小文字や空白まじりの招待コードも補正して受け付ける", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
-    const res = await SELF.fetch("https://api.test/api/rooms/join", {
+    const res = await exports.default.fetch("https://api.test/api/rooms/join", {
       method: "POST",
       headers: {
         Cookie: await sessionCookie(MEMBER),
@@ -299,7 +326,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
   });
 
   it("存在しない招待コードは 404", async () => {
-    const res = await SELF.fetch("https://api.test/api/rooms/join", {
+    const res = await exports.default.fetch("https://api.test/api/rooms/join", {
       method: "POST",
       headers: {
         Cookie: await sessionCookie(MEMBER),
@@ -311,7 +338,7 @@ describe("ルーム参加（pgTAP: join_room）", () => {
   });
 
   it("形式が不正な招待コードは 400", async () => {
-    const res = await SELF.fetch("https://api.test/api/rooms/join", {
+    const res = await exports.default.fetch("https://api.test/api/rooms/join", {
       method: "POST",
       headers: {
         Cookie: await sessionCookie(MEMBER),
@@ -343,11 +370,14 @@ describe("ユーザー同期（ログイン時の upsert）", () => {
     });
 
     for (let i = 0; i < 2; i++) {
-      const res = await SELF.fetch("https://api.test/api/auth/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assertion }),
-      });
+      const res = await exports.default.fetch(
+        "https://api.test/api/auth/sync",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assertion }),
+        },
+      );
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ userId: OWNER.sub });
     }
@@ -361,18 +391,24 @@ describe("ユーザー同期（ログイン時の upsert）", () => {
       name: "Taro",
     });
 
-    const first = await SELF.fetch("https://api.test/api/auth/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assertion }),
-    });
+    const first = await exports.default.fetch(
+      "https://api.test/api/auth/sync",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assertion }),
+      },
+    );
     const { userId: firstId } = await first.json<{ userId: string }>();
 
-    const second = await SELF.fetch("https://api.test/api/auth/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assertion }),
-    });
+    const second = await exports.default.fetch(
+      "https://api.test/api/auth/sync",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assertion }),
+      },
+    );
     const { userId: secondId } = await second.json<{ userId: string }>();
 
     expect(first.status).toBe(200);
@@ -388,7 +424,7 @@ describe("ユーザー同期（ログイン時の upsert）", () => {
         expiresInSeconds: 60,
       },
     );
-    const res = await SELF.fetch("https://api.test/api/auth/sync", {
+    const res = await exports.default.fetch("https://api.test/api/auth/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assertion: sessionToken }),
@@ -411,7 +447,7 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
       [OUTSIDER, 404],
       [MEMBER, 204],
     ] as const) {
-      const res = await SELF.fetch(
+      const res = await exports.default.fetch(
         `https://api.test/api/rooms/${roomId}/leave`,
         {
           method: "POST",
@@ -445,13 +481,16 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
         "UPDATE room_owner SET host_id = NULL WHERE id = 1",
       );
     });
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookie(OWNER),
-        [HOST_ID_HEADER]: OUTSIDER.sub,
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/leave`,
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookie(OWNER),
+          [HOST_ID_HEADER]: OUTSIDER.sub,
+        },
       },
-    });
+    );
     expect(res.status).toBe(204);
     expect(
       await env.DB.prepare("SELECT id FROM rooms WHERE id=?")
@@ -465,14 +504,17 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
 
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
-      method: "POST",
-      headers: { Cookie: await sessionCookie(MEMBER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/leave`,
+      {
+        method: "POST",
+        headers: { Cookie: await sessionCookie(MEMBER) },
+      },
+    );
     expect(res.status).toBe(204);
 
     // 退出後のメンバー一覧には Member が居ない
-    const membersRes = await SELF.fetch(
+    const membersRes = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/members`,
       { headers: { Cookie: await sessionCookie(OWNER) } },
     );
@@ -484,14 +526,14 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
 
-    const first = await SELF.fetch(
+    const first = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/leave`,
       { method: "POST", headers: { Cookie: await sessionCookie(MEMBER) } },
     );
     expect(first.status).toBe(204);
 
     // 2 回目は既に非メンバー → 404（存在秘匿）
-    const second = await SELF.fetch(
+    const second = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/leave`,
       { method: "POST", headers: { Cookie: await sessionCookie(MEMBER) } },
     );
@@ -502,44 +544,59 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
 
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
-      method: "POST",
-      headers: { Cookie: await sessionCookie(OWNER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/leave`,
+      {
+        method: "POST",
+        headers: { Cookie: await sessionCookie(OWNER) },
+      },
+    );
     expect(res.status).toBe(204);
 
     // ルーム行が消えている → GET は 404
-    const getRes = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookie(MEMBER) },
-    });
+    const getRes = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookie(MEMBER) },
+      },
+    );
     expect(getRes.status).toBe(404);
 
     // 招待コードでも解決できない
-    const joinRes = await SELF.fetch("https://api.test/api/rooms/join", {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookie(MEMBER),
-        "Content-Type": "application/json",
+    const joinRes = await exports.default.fetch(
+      "https://api.test/api/rooms/join",
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookie(MEMBER),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code: inviteCode }),
       },
-      body: JSON.stringify({ code: inviteCode }),
-    });
+    );
     expect(joinRes.status).toBe(404);
   });
 
   it("非メンバーは 404（ルームの存在自体を見せない）", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
-      method: "POST",
-      headers: { Cookie: await sessionCookie(OUTSIDER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/leave`,
+      {
+        method: "POST",
+        headers: { Cookie: await sessionCookie(OUTSIDER) },
+      },
+    );
     expect(res.status).toBe(404);
   });
 
   it("未ログインは 401", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
-      method: "POST",
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/leave`,
+      {
+        method: "POST",
+      },
+    );
     expect(res.status).toBe(401);
   });
 
@@ -548,20 +605,23 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
     await joinRoomAs(MEMBER, inviteCode);
 
     // 退出
-    await SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
+    await exports.default.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
       method: "POST",
       headers: { Cookie: await sessionCookie(MEMBER) },
     });
 
     // 再 join
-    const rejoin = await SELF.fetch("https://api.test/api/rooms/join", {
-      method: "POST",
-      headers: {
-        Cookie: await sessionCookie(MEMBER),
-        "Content-Type": "application/json",
+    const rejoin = await exports.default.fetch(
+      "https://api.test/api/rooms/join",
+      {
+        method: "POST",
+        headers: {
+          Cookie: await sessionCookie(MEMBER),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code: inviteCode }),
       },
-      body: JSON.stringify({ code: inviteCode }),
-    });
+    );
     expect(rejoin.status).toBe(200);
   });
 });
@@ -569,31 +629,40 @@ describe("退出（POST /api/rooms/:id/leave）", () => {
 describe("WebSocket 接続の認可", () => {
   it("セッションなしの WS 接続は 401", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
-      headers: { Upgrade: "websocket" },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      {
+        headers: { Upgrade: "websocket" },
+      },
+    );
     expect(res.status).toBe(401);
   });
 
   it("非メンバーの WS 接続は 404", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
-      headers: {
-        Upgrade: "websocket",
-        Cookie: await sessionCookie(OUTSIDER),
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Cookie: await sessionCookie(OUTSIDER),
+        },
       },
-    });
+    );
     expect(res.status).toBe(404);
   });
 
   it("メンバーの WS 接続は 101 で確立する", async () => {
     const { roomId } = await createRoomAs(OWNER);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
-      headers: {
-        Upgrade: "websocket",
-        Cookie: await sessionCookie(OWNER),
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Cookie: await sessionCookie(OWNER),
+        },
       },
-    });
+    );
     expect(res.status).toBe(101);
     res.webSocket?.accept();
     res.webSocket?.close();
@@ -602,13 +671,16 @@ describe("WebSocket 接続の認可", () => {
   it("クライアントが HOST_ID_HEADER を偽装しても api-worker が D1 の値で上書きする", async () => {
     const { roomId, inviteCode } = await createRoomAs(OWNER);
     await joinRoomAs(MEMBER, inviteCode);
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
-      headers: {
-        Upgrade: "websocket",
-        Cookie: await sessionCookie(MEMBER),
-        [HOST_ID_HEADER]: MEMBER.sub,
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Cookie: await sessionCookie(MEMBER),
+          [HOST_ID_HEADER]: MEMBER.sub,
+        },
       },
-    });
+    );
     expect(res.status).toBe(101);
     const ws = res.webSocket;
     if (!ws) throw new Error("WebSocket 接続を確立できませんでした。");
@@ -650,13 +722,16 @@ describe("WebSocket 接続の認可", () => {
       );
     });
 
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
-      headers: {
-        Upgrade: "websocket",
-        Cookie: await sessionCookie(MEMBER),
-        [HOST_ID_HEADER]: MEMBER.sub,
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}/ws`,
+      {
+        headers: {
+          Upgrade: "websocket",
+          Cookie: await sessionCookie(MEMBER),
+          [HOST_ID_HEADER]: MEMBER.sub,
+        },
       },
-    });
+    );
     expect(res.status).toBe(101);
     const ws = res.webSocket;
     if (!ws) throw new Error("WebSocket 接続を確立できませんでした。");
@@ -699,7 +774,7 @@ describe("WebSocket 接続の認可", () => {
 
 describe("GET /api/health（疎通確認用、認可不要）", () => {
   it("セッションなしでも 200 で ok:true を返す", async () => {
-    const res = await SELF.fetch("https://api.test/api/health");
+    const res = await exports.default.fetch("https://api.test/api/health");
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
   });
@@ -715,9 +790,12 @@ function nextHostMessage(socket: WebSocket): Promise<Record<string, unknown>> {
   );
 }
 async function connectHostTest(user: typeof OWNER, roomId: string) {
-  const response = await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
-    headers: { Upgrade: "websocket", Cookie: await sessionCookie(user) },
-  });
+  const response = await exports.default.fetch(
+    `https://api.test/api/rooms/${roomId}/ws`,
+    {
+      headers: { Upgrade: "websocket", Cookie: await sessionCookie(user) },
+    },
+  );
   expect(response.status).toBe(101);
   const socket = response.webSocket;
   if (!socket) throw new Error("WSが接続できませんでした");
@@ -757,9 +835,12 @@ async function transferred() {
 describe("移譲後のREST権限", () => {
   it("D1作成者ではなくDOの現在ホストを返す", async () => {
     const { roomId } = await transferred();
-    const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookie(MEMBER) },
-    });
+    const res = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookie(MEMBER) },
+      },
+    );
     expect(await res.json()).toMatchObject({
       isHost: true,
       hostUserId: MEMBER.sub,
@@ -767,7 +848,7 @@ describe("移譲後のREST権限", () => {
   });
   it("旧ホストの本人退出はルームを解散せず、新ホストが解散できる", async () => {
     const { roomId } = await transferred();
-    const oldLeave = await SELF.fetch(
+    const oldLeave = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/leave`,
       {
         method: "POST",
@@ -780,7 +861,7 @@ describe("移譲後のREST権限", () => {
     );
     expect(oldLeave.status).toBe(204);
     expect(await listMemberIds(roomId)).toContain(MEMBER.sub);
-    const newDisband = await SELF.fetch(
+    const newDisband = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/leave`,
       {
         method: "POST",
@@ -815,7 +896,7 @@ describe("移譲改訂と退出要求の境界", () => {
       [MEMBER, { intent: "self", expectedHostRevision: 0 }, 409],
       [OUTSIDER, { intent: "disband", expectedHostRevision: 1 }, 404],
     ] as const) {
-      const result = await SELF.fetch(
+      const result = await exports.default.fetch(
         `https://api.test/api/rooms/${roomId}/leave`,
         {
           method: "POST",
@@ -842,9 +923,12 @@ describe("移譲改訂と退出要求の境界", () => {
         "UPDATE room_owner SET host_id=NULL, host_revision=1 WHERE id=1",
       ),
     );
-    const response = await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
-      headers: { Cookie: await sessionCookie(OWNER) },
-    });
+    const response = await exports.default.fetch(
+      `https://api.test/api/rooms/${roomId}`,
+      {
+        headers: { Cookie: await sessionCookie(OWNER) },
+      },
+    );
     expect(response.status).toBe(409);
     const host = await env.ROOM_DO.get(
       env.ROOM_DO.idFromName(roomId),
@@ -868,7 +952,7 @@ describe("移譲改訂と退出要求の境界", () => {
     expect(await stub.leaveOrDisband(OWNER.sub, OWNER.sub, "disband", 1)).toBe(
       "not-member",
     );
-    const response = await SELF.fetch(
+    const response = await exports.default.fetch(
       `https://api.test/api/rooms/${roomId}/leave`,
       {
         method: "POST",
@@ -970,7 +1054,7 @@ describe("作成要求の再送", () => {
   it("同IDの入力衝突を拒否する", async () => {
     const requestId = issueCreationId().requestId;
     const send = (name: string) =>
-      SELF.fetch("https://api.test/api/rooms", {
+      exports.default.fetch("https://api.test/api/rooms", {
         method: "POST",
         headers: { Cookie: cookie, "Content-Type": "application/json" },
         body: JSON.stringify({ requestId, name, expectedPrincipal: OWNER.sub }),
@@ -983,7 +1067,7 @@ describe("作成要求の再送", () => {
     const requestId = issueCreationId().requestId;
     const cookie = await sessionCookie(OWNER);
     const send = () =>
-      SELF.fetch("https://api.test/api/rooms", {
+      exports.default.fetch("https://api.test/api/rooms", {
         method: "POST",
         headers: { Cookie: cookie, "Content-Type": "application/json" },
         body: JSON.stringify({

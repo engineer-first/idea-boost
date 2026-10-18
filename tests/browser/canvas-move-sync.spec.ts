@@ -165,166 +165,175 @@ describe.skipIf(!app)("実RoomDOの他者移動同期", () => {
       await browser.close();
     }
   });
-  test.each([
-    "1-2",
-    "1-3",
-    "3-3",
-  ])("%sで他者preview・取消・確定・切断が一致する", async (checkpoint) => {
-    const browser = await chromium.launch();
-    try {
-      const actorContext = await browser.newContext({
-        viewport: { width: 1280, height: 720 },
-      });
-      const peerContext = await browser.newContext({
-        viewport: { width: 1280, height: 720 },
-      });
-      const actor = await actorContext.newPage();
-      const peer = await peerContext.newPage();
-      await login(actor, "owner@example.test");
-      await login(peer, "member@example.test");
-      await Promise.all([
-        actor.waitForResponse(
-          (response) =>
-            response.url().endsWith("/api/verification/rooms") &&
-            response.request().method() === "POST",
-        ),
-        actor
-          .getByRole("button", { name: new RegExp(`^${checkpoint} `) })
-          .click(),
-      ]);
-      const fixed = actor.getByRole("link", {
-        name: "このルームを固定して開く（追従なし）",
-      });
-      await fixed.waitFor();
-      const href = await fixed.getAttribute("href");
-      if (!href) throw new Error("検証ルームURLがありません。");
-      for (const page of [actor, peer]) {
-        await page.goto(`${app}${href}`);
-        await page.getByTestId("board-canvas").waitFor();
-        await page.evaluate(() => document.fonts.ready);
-        await page.getByRole("button", { name: "ズームを100%に戻す" }).click();
+  test.each(["1-2", "1-3", "3-3"])(
+    "%sで他者preview・取消・確定・切断が一致する",
+    async (checkpoint) => {
+      const browser = await chromium.launch();
+      try {
+        const actorContext = await browser.newContext({
+          viewport: { width: 1280, height: 720 },
+        });
+        const peerContext = await browser.newContext({
+          viewport: { width: 1280, height: 720 },
+        });
+        const actor = await actorContext.newPage();
+        const peer = await peerContext.newPage();
+        await login(actor, "owner@example.test");
+        await login(peer, "member@example.test");
+        await Promise.all([
+          actor.waitForResponse(
+            (response) =>
+              response.url().endsWith("/api/verification/rooms") &&
+              response.request().method() === "POST",
+          ),
+          actor
+            .getByRole("button", { name: new RegExp(`^${checkpoint} `) })
+            .click(),
+        ]);
+        const fixed = actor.getByRole("link", {
+          name: "このルームを固定して開く（追従なし）",
+        });
+        await fixed.waitFor();
+        const href = await fixed.getAttribute("href");
+        if (!href) throw new Error("検証ルームURLがありません。");
+        for (const page of [actor, peer]) {
+          await page.goto(`${app}${href}`);
+          await page.getByTestId("board-canvas").waitFor();
+          await page.evaluate(() => document.fonts.ready);
+          await page
+            .getByRole("button", { name: "ズームを100%に戻す" })
+            .click();
+          await expect
+            .poll(async () =>
+              (
+                await page.getByTestId("board-canvas").getAttribute("style")
+              )?.includes(
+                checkpoint.startsWith("3-") ? "scale(1)" : "scale(0.75)",
+              ),
+            )
+            .toBe(true);
+        }
+        await startWork(actor, peer);
+        const notes = actor.locator(
+          '[data-testid="board-canvas"] [data-testid="note-card"]',
+        );
+        let note: Locator | undefined;
+        for (let i = 0; i < (await notes.count()); i++) {
+          const candidate = notes.nth(i),
+            box = await bounds(candidate);
+          if (
+            box.x > 380 &&
+            box.y > 230 &&
+            box.x + box.width < 1180 &&
+            box.y + box.height < 590
+          ) {
+            note = candidate;
+            break;
+          }
+        }
+        if (!note) throw new Error("操作可能な付箋がありません。");
+        const id = await note.getAttribute("data-note-id");
+        const peerNote = peer.locator(`[data-note-id="${id}"]`).first();
+        const before = await bounds(peerNote);
+        const actorBefore = await bounds(note);
+        const savedBefore = await position(peerNote);
+        const actorCamera = await actor
+          .getByTestId("board-canvas")
+          .getAttribute("style");
+        const pointer = await drag(actor, note);
+        await expect
+          .poll(async () => (await bounds(note)).x - actorBefore.x)
+          .toBeGreaterThan(15);
+        const preview = await bounds(note);
+        expect(
+          await actor.getByTestId("board-canvas").getAttribute("style"),
+        ).toBe(actorCamera);
         await expect
           .poll(async () =>
-            (
-              await page.getByTestId("board-canvas").getAttribute("style")
-            )?.includes(
-              checkpoint.startsWith("3-") ? "scale(1)" : "scale(0.75)",
+            Math.abs(
+              (await bounds(peerNote)).x -
+                before.x -
+                (preview.x - actorBefore.x),
             ),
           )
-          .toBe(true);
+          .toBeLessThan(0.5);
+        await expect
+          .poll(async () =>
+            Math.abs(
+              (await bounds(peerNote)).y -
+                before.y -
+                (preview.y - actorBefore.y),
+            ),
+          )
+          .toBeLessThan(0.5);
+        // 同じdragを保持したまま再度動かし、最初の通知だけでなく追従を確認する。
+        await actor.mouse.move(pointer.x + 44, pointer.y + 22, { steps: 4 });
+        await expect
+          .poll(async () => (await bounds(note)).x - preview.x)
+          .toBeGreaterThan(10);
+        const continued = await position(note);
+        await expect
+          .poll(async () =>
+            Math.abs((await position(peerNote)).x - continued.x),
+          )
+          .toBeLessThan(0.5);
+        await expect
+          .poll(async () =>
+            Math.abs((await position(peerNote)).y - continued.y),
+          )
+          .toBeLessThan(0.5);
+        // pointerup前の取消で他者のoverlayも消し、確定座標へ戻す。
+        await actor.keyboard.press("Escape");
+        await actor.mouse.up();
+        await expect
+          .poll(async () => Math.abs((await bounds(peerNote)).x - before.x))
+          .toBeLessThan(0.5);
+        await expect
+          .poll(async () => Math.abs((await bounds(peerNote)).y - before.y))
+          .toBeLessThan(0.5);
+        await peer.reload();
+        await peer.getByTestId("board-canvas").waitFor();
+        await peer.getByRole("button", { name: "ズームを100%に戻す" }).click();
+        await expect
+          .poll(async () => await position(peerNote))
+          .toEqual(savedBefore);
+        // 次のoperationは前回の終了通知に消されず、pointerup後の確定に揃う。
+        await drag(actor, note);
+        await expect
+          .poll(async () => (await position(note)).x - savedBefore.x)
+          .toBeGreaterThan(10);
+        const second = await position(note);
+        await expect
+          .poll(async () => Math.abs((await position(peerNote)).x - second.x))
+          .toBeLessThan(0.5);
+        await actor.mouse.up();
+        await expect
+          .poll(async () => Math.abs((await position(peerNote)).x - second.x))
+          .toBeLessThan(0.5);
+        await peer.reload();
+        await peer.getByTestId("board-canvas").waitFor();
+        await peer.getByRole("button", { name: "ズームを100%に戻す" }).click();
+        await expect
+          .poll(async () => Math.abs((await position(peerNote)).x - second.x))
+          .toBeLessThan(0.5);
+        await expect
+          .poll(async () => Math.abs((await position(peerNote)).y - second.y))
+          .toBeLessThan(0.5);
+        // 実ブラウザを閉じると相手の未確定表示は即時消え、保存済み位置に戻る。
+        await drag(actor, note);
+        await expect
+          .poll(async () => (await position(peerNote)).x - second.x)
+          .toBeGreaterThan(10);
+        await actorContext.close();
+        await expect
+          .poll(async () => Math.abs((await position(peerNote)).x - second.x))
+          .toBeLessThan(0.5);
+        await expect
+          .poll(async () => Math.abs((await position(peerNote)).y - second.y))
+          .toBeLessThan(0.5);
+      } finally {
+        await browser.close();
       }
-      await startWork(actor, peer);
-      const notes = actor.locator(
-        '[data-testid="board-canvas"] [data-testid="note-card"]',
-      );
-      let note: Locator | undefined;
-      for (let i = 0; i < (await notes.count()); i++) {
-        const candidate = notes.nth(i),
-          box = await bounds(candidate);
-        if (
-          box.x > 380 &&
-          box.y > 230 &&
-          box.x + box.width < 1180 &&
-          box.y + box.height < 590
-        ) {
-          note = candidate;
-          break;
-        }
-      }
-      if (!note) throw new Error("操作可能な付箋がありません。");
-      const id = await note.getAttribute("data-note-id");
-      const peerNote = peer.locator(`[data-note-id="${id}"]`).first();
-      const before = await bounds(peerNote);
-      const actorBefore = await bounds(note);
-      const savedBefore = await position(peerNote);
-      const actorCamera = await actor
-        .getByTestId("board-canvas")
-        .getAttribute("style");
-      const pointer = await drag(actor, note);
-      await expect
-        .poll(async () => (await bounds(note)).x - actorBefore.x)
-        .toBeGreaterThan(15);
-      const preview = await bounds(note);
-      expect(
-        await actor.getByTestId("board-canvas").getAttribute("style"),
-      ).toBe(actorCamera);
-      await expect
-        .poll(async () =>
-          Math.abs(
-            (await bounds(peerNote)).x - before.x - (preview.x - actorBefore.x),
-          ),
-        )
-        .toBeLessThan(0.5);
-      await expect
-        .poll(async () =>
-          Math.abs(
-            (await bounds(peerNote)).y - before.y - (preview.y - actorBefore.y),
-          ),
-        )
-        .toBeLessThan(0.5);
-      // 同じdragを保持したまま再度動かし、最初の通知だけでなく追従を確認する。
-      await actor.mouse.move(pointer.x + 44, pointer.y + 22, { steps: 4 });
-      await expect
-        .poll(async () => (await bounds(note)).x - preview.x)
-        .toBeGreaterThan(10);
-      const continued = await position(note);
-      await expect
-        .poll(async () => Math.abs((await position(peerNote)).x - continued.x))
-        .toBeLessThan(0.5);
-      await expect
-        .poll(async () => Math.abs((await position(peerNote)).y - continued.y))
-        .toBeLessThan(0.5);
-      // pointerup前の取消で他者のoverlayも消し、確定座標へ戻す。
-      await actor.keyboard.press("Escape");
-      await actor.mouse.up();
-      await expect
-        .poll(async () => Math.abs((await bounds(peerNote)).x - before.x))
-        .toBeLessThan(0.5);
-      await expect
-        .poll(async () => Math.abs((await bounds(peerNote)).y - before.y))
-        .toBeLessThan(0.5);
-      await peer.reload();
-      await peer.getByTestId("board-canvas").waitFor();
-      await peer.getByRole("button", { name: "ズームを100%に戻す" }).click();
-      await expect
-        .poll(async () => await position(peerNote))
-        .toEqual(savedBefore);
-      // 次のoperationは前回の終了通知に消されず、pointerup後の確定に揃う。
-      await drag(actor, note);
-      await expect
-        .poll(async () => (await position(note)).x - savedBefore.x)
-        .toBeGreaterThan(10);
-      const second = await position(note);
-      await expect
-        .poll(async () => Math.abs((await position(peerNote)).x - second.x))
-        .toBeLessThan(0.5);
-      await actor.mouse.up();
-      await expect
-        .poll(async () => Math.abs((await position(peerNote)).x - second.x))
-        .toBeLessThan(0.5);
-      await peer.reload();
-      await peer.getByTestId("board-canvas").waitFor();
-      await peer.getByRole("button", { name: "ズームを100%に戻す" }).click();
-      await expect
-        .poll(async () => Math.abs((await position(peerNote)).x - second.x))
-        .toBeLessThan(0.5);
-      await expect
-        .poll(async () => Math.abs((await position(peerNote)).y - second.y))
-        .toBeLessThan(0.5);
-      // 実ブラウザを閉じると相手の未確定表示は即時消え、保存済み位置に戻る。
-      await drag(actor, note);
-      await expect
-        .poll(async () => (await position(peerNote)).x - second.x)
-        .toBeGreaterThan(10);
-      await actorContext.close();
-      await expect
-        .poll(async () => Math.abs((await position(peerNote)).x - second.x))
-        .toBeLessThan(0.5);
-      await expect
-        .poll(async () => Math.abs((await position(peerNote)).y - second.y))
-        .toBeLessThan(0.5);
-    } finally {
-      await browser.close();
-    }
-  });
+    },
+  );
 });

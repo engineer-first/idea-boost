@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PHASE_STEP_COUNTS, type RoomPhase } from "../../contracts/phase";
 import type { ServerMessage } from "../../contracts/room-protocol";
@@ -111,25 +111,28 @@ async function readProgress(roomId: string) {
 }
 
 describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
-  it.each(
-    activePhases,
-  )("全ての進行中ステップ $phase-$step で状態を維持して移譲する", async (phase) => {
-    const { roomId, stub, a, b } = await setup();
-    await stub.setPhase(phase, A.sub);
-    const before = await readProgress(roomId);
-    await transfer(a, b, B.sub, 0);
-    expect(await readProgress(roomId)).toEqual(before);
-    expect((await connect(B, roomId)).snapshot).toMatchObject({
-      phase,
-      hostUserId: B.sub,
-      hostRevision: 1,
-      isHost: true,
-    });
-    const creator = await env.DB.prepare("SELECT host_id FROM rooms WHERE id=?")
-      .bind(roomId)
-      .first<{ host_id: string }>();
-    expect(creator?.host_id).toBe(A.sub);
-  });
+  it.each(activePhases)(
+    "全ての進行中ステップ $phase-$step で状態を維持して移譲する",
+    async (phase) => {
+      const { roomId, stub, a, b } = await setup();
+      await stub.setPhase(phase, A.sub);
+      const before = await readProgress(roomId);
+      await transfer(a, b, B.sub, 0);
+      expect(await readProgress(roomId)).toEqual(before);
+      expect((await connect(B, roomId)).snapshot).toMatchObject({
+        phase,
+        hostUserId: B.sub,
+        hostRevision: 1,
+        isHost: true,
+      });
+      const creator = await env.DB.prepare(
+        "SELECT host_id FROM rooms WHERE id=?",
+      )
+        .bind(roomId)
+        .first<{ host_id: string }>();
+      expect(creator?.host_id).toBe(A.sub);
+    },
+  );
 
   it("他人の非公開付箋は新ホストにも配信せず、進行中タイマーも変更しない", async () => {
     const { roomId, stub, a, b } = await setup();
@@ -254,14 +257,17 @@ describe("進行中のホスト移譲（Workerと複数WebSocket）", () => {
     await stub.setPhase({ kind: "step", phase: 2, step: 3 }, A.sub);
     await transfer(a, b, B.sub, 0);
     async function leave(user: typeof A, body: object) {
-      return SELF.fetch(`https://api.test/api/rooms/${roomId}/leave`, {
-        method: "POST",
-        headers: {
-          Cookie: await sessionCookieFor(user),
-          "Content-Type": "application/json",
+      return exports.default.fetch(
+        `https://api.test/api/rooms/${roomId}/leave`,
+        {
+          method: "POST",
+          headers: {
+            Cookie: await sessionCookieFor(user),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      });
+      );
     }
     expect(
       (await leave(A, { intent: "disband", expectedHostRevision: 0 })).status,

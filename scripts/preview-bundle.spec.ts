@@ -94,20 +94,22 @@ it("artifact内の親ディレクトリをsymlinkで差し替えたら拒否す�
   );
 });
 
-it.each(
-  sqlFiles,
-)("artifactのSQLが参照コミットと違う場合は拒否する: %s", (path) => {
-  const candidate = fixture();
-  writeFileSync(resolve(candidate, path), "SELECT 1;");
-  expect(() => assertPreviewArtifact(candidate, sha, schemaHash)).toThrow();
-});
-it.each(
-  sqlFiles,
-)("参照コミットのSQLがartifactから欠けていたら拒否する: %s", (path) => {
-  const candidate = fixture();
-  rmSync(resolve(candidate, path));
-  expect(() => assertPreviewArtifact(candidate, sha, schemaHash)).toThrow();
-});
+it.each(sqlFiles)(
+  "artifactのSQLが参照コミットと違う場合は拒否する: %s",
+  (path) => {
+    const candidate = fixture();
+    writeFileSync(resolve(candidate, path), "SELECT 1;");
+    expect(() => assertPreviewArtifact(candidate, sha, schemaHash)).toThrow();
+  },
+);
+it.each(sqlFiles)(
+  "参照コミットのSQLがartifactから欠けていたら拒否する: %s",
+  (path) => {
+    const candidate = fixture();
+    rmSync(resolve(candidate, path));
+    expect(() => assertPreviewArtifact(candidate, sha, schemaHash)).toThrow();
+  },
+);
 it("artifactに参照コミット外のSQLを追加したら拒否する", () => {
   const candidate = fixture();
   writeFileSync(

@@ -3,36 +3,37 @@ import { expect, it } from "vitest";
 
 const origin = process.env.STORYBOOK_TEST_URL ?? "http://127.0.0.1:6006";
 
-it.each([
-  390, 1280,
-])("閲覧者管理の入力・削除操作が%ipxで画面内に収まる", async (width) => {
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage({ viewport: { width, height: 800 } });
-    await page.goto(
-      `${origin}/iframe.html?id=access-accessview--default&viewMode=story`,
-    );
-    const input = page.getByRole("textbox", { name: "メールアドレス" });
-    await input.waitFor();
-    for (const element of [
-      input,
-      page.getByRole("button", {
-        name: "owner@example.test の閲覧権限を取り消す",
-      }),
-    ]) {
-      const bounds = await element.boundingBox();
-      if (!bounds) throw new Error("管理操作が表示されていません。");
-      expect(bounds.x).toBeGreaterThanOrEqual(0);
-      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+it.each([390, 1280])(
+  "閲覧者管理の入力・削除操作が%ipxで画面内に収まる",
+  async (width) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width, height: 800 } });
+      await page.goto(
+        `${origin}/iframe.html?id=access-accessview--default&viewMode=story`,
+      );
+      const input = page.getByRole("textbox", { name: "メールアドレス" });
+      await input.waitFor();
+      for (const element of [
+        input,
+        page.getByRole("button", {
+          name: "owner@example.test の閲覧権限を取り消す",
+        }),
+      ]) {
+        const bounds = await element.boundingBox();
+        if (!bounds) throw new Error("管理操作が表示されていません。");
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      }
+      await input.click();
+      expect(
+        await input.evaluate((element) => element === document.activeElement),
+      ).toBe(true);
+    } finally {
+      await browser.close();
     }
-    await input.click();
-    expect(
-      await input.evaluate((element) => element === document.activeElement),
-    ).toBe(true);
-  } finally {
-    await browser.close();
-  }
-});
+  },
+);
 
 it("キーボードで入力・追加へ移動でき、不正メールとpendingで送信を止める", async () => {
   const browser = await chromium.launch();
@@ -156,131 +157,135 @@ it("実containerで一覧失敗を空と混同せず、追加・取消の通信�
   }
 });
 
-it.each([
-  401, 403,
-])("成功一覧の次GETが%iなら操作を隠し、拒否後の再試行はGETだけを送る", async (status) => {
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage();
-    let reads = 0;
-    let writes = 0;
-    await page.route("**/api/admin/access", async (route) => {
-      if (route.request().method() === "GET") {
-        reads += 1;
-        await route.fulfill({
-          status: reads === 1 ? 200 : status,
-          json:
-            reads === 1
-              ? {
-                  users: [
-                    {
-                      id: "reader",
-                      name: "Reader",
-                      email: "reader@example.test",
-                    },
-                  ],
-                }
-              : { error: "denied" },
-        });
-      } else {
-        writes += 1;
-        await route.fulfill({ json: { ok: true } });
-      }
-    });
-    await page.goto(
-      `${origin}/iframe.html?id=access-accessconsole--default&viewMode=story`,
-    );
-    await page.getByText("Reader", { exact: true }).waitFor();
-    await page
-      .getByRole("textbox", { name: "メールアドレス" })
-      .fill("next@example.test");
-    await page.getByRole("button", { name: "追加", exact: true }).click();
-    await page.getByRole("alert").waitFor();
-    expect(await page.getByText("Reader", { exact: true }).count()).toBe(0);
-    expect(await page.getByRole("textbox").count()).toBe(0);
-    expect(
-      await page.getByRole("button", { name: /閲覧権限を取り消す/ }).count(),
-    ).toBe(0);
-    if (status === 401)
-      expect(
-        await page
-          .getByRole("link", { name: "ログインする" })
-          .getAttribute("href"),
-      ).toBe("/login?next=%2Fadmin%2Faccess");
-    const retryResponse = page.waitForResponse((response) =>
-      response.url().endsWith("/api/admin/access"),
-    );
-    await page.getByRole("button", { name: "再試行" }).click();
-    expect((await retryResponse).status()).toBe(status);
-    expect(reads).toBe(3);
-    expect(writes).toBe(1);
-  } finally {
-    await browser.close();
-  }
-});
-
-it.each([
-  390, 1280,
-])("成果と意見の付与・取消を%ipxで別々に操作できる", async (width) => {
-  const browser = await chromium.launch();
-  try {
-    const page = await browser.newPage({ viewport: { width, height: 900 } });
-    const reader = {
-      id: "reader",
-      name: "Reader",
-      email: "reader@example.test",
-    };
-    const users = { shared: [reader], feedback: [] as (typeof reader)[] };
-    const writes: string[] = [];
-    await page.route("**/api/admin/access**", async (route) => {
-      const url = new URL(route.request().url());
-      const permission = url.searchParams.get("permission");
-      const key = permission === "feedback:read" ? "feedback" : "shared";
-      const method = route.request().method();
-      if (method !== "GET") {
-        expect(route.request().postDataJSON()).toEqual({ email: reader.email });
-        writes.push(`${method}:${key}`);
-        users[key] = method === "POST" ? [reader] : [];
-      }
-      await route.fulfill({
-        json: method === "GET" ? { users: users[key] } : { ok: true },
+it.each([401, 403])(
+  "成功一覧の次GETが%iなら操作を隠し、拒否後の再試行はGETだけを送る",
+  async (status) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage();
+      let reads = 0;
+      let writes = 0;
+      await page.route("**/api/admin/access", async (route) => {
+        if (route.request().method() === "GET") {
+          reads += 1;
+          await route.fulfill({
+            status: reads === 1 ? 200 : status,
+            json:
+              reads === 1
+                ? {
+                    users: [
+                      {
+                        id: "reader",
+                        name: "Reader",
+                        email: "reader@example.test",
+                      },
+                    ],
+                  }
+                : { error: "denied" },
+          });
+        } else {
+          writes += 1;
+          await route.fulfill({ json: { ok: true } });
+        }
       });
-    });
-    await page.goto(
-      `${origin}/iframe.html?id=access-accessmanagement--default&viewMode=story`,
-    );
-    const shared = page.getByRole("region", {
-      name: "成果閲覧権限",
-      exact: true,
-    });
-    const feedback = page.getByRole("region", {
-      name: "意見閲覧権限",
-      exact: true,
-    });
-    await shared.getByText(reader.email, { exact: true }).waitFor();
-    await feedback.getByText("閲覧者はいません。").waitFor();
-    const input = feedback.getByRole("textbox", { name: "メールアドレス" });
-    await input.fill(reader.email);
-    await feedback.getByRole("button", { name: "追加", exact: true }).click();
-    await feedback.getByText(reader.email, { exact: true }).waitFor();
-    expect(await shared.getByText(reader.email, { exact: true }).count()).toBe(
-      1,
-    );
-    const remove = feedback.getByRole("button", {
-      name: `${reader.email} の閲覧権限を取り消す`,
-    });
-    await remove.click();
-    await feedback.getByText("閲覧者はいません。").waitFor();
-    expect(await shared.getByText(reader.email, { exact: true }).count()).toBe(
-      1,
-    );
-    expect(writes).toEqual(["POST:feedback", "DELETE:feedback"]);
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    ).toBe(true);
-  } finally {
-    await browser.close();
-  }
-});
+      await page.goto(
+        `${origin}/iframe.html?id=access-accessconsole--default&viewMode=story`,
+      );
+      await page.getByText("Reader", { exact: true }).waitFor();
+      await page
+        .getByRole("textbox", { name: "メールアドレス" })
+        .fill("next@example.test");
+      await page.getByRole("button", { name: "追加", exact: true }).click();
+      await page.getByRole("alert").waitFor();
+      expect(await page.getByText("Reader", { exact: true }).count()).toBe(0);
+      expect(await page.getByRole("textbox").count()).toBe(0);
+      expect(
+        await page.getByRole("button", { name: /閲覧権限を取り消す/ }).count(),
+      ).toBe(0);
+      if (status === 401)
+        expect(
+          await page
+            .getByRole("link", { name: "ログインする" })
+            .getAttribute("href"),
+        ).toBe("/login?next=%2Fadmin%2Faccess");
+      const retryResponse = page.waitForResponse((response) =>
+        response.url().endsWith("/api/admin/access"),
+      );
+      await page.getByRole("button", { name: "再試行" }).click();
+      expect((await retryResponse).status()).toBe(status);
+      expect(reads).toBe(3);
+      expect(writes).toBe(1);
+    } finally {
+      await browser.close();
+    }
+  },
+);
+
+it.each([390, 1280])(
+  "成果と意見の付与・取消を%ipxで別々に操作できる",
+  async (width) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      const reader = {
+        id: "reader",
+        name: "Reader",
+        email: "reader@example.test",
+      };
+      const users = { shared: [reader], feedback: [] as (typeof reader)[] };
+      const writes: string[] = [];
+      await page.route("**/api/admin/access**", async (route) => {
+        const url = new URL(route.request().url());
+        const permission = url.searchParams.get("permission");
+        const key = permission === "feedback:read" ? "feedback" : "shared";
+        const method = route.request().method();
+        if (method !== "GET") {
+          expect(route.request().postDataJSON()).toEqual({
+            email: reader.email,
+          });
+          writes.push(`${method}:${key}`);
+          users[key] = method === "POST" ? [reader] : [];
+        }
+        await route.fulfill({
+          json: method === "GET" ? { users: users[key] } : { ok: true },
+        });
+      });
+      await page.goto(
+        `${origin}/iframe.html?id=access-accessmanagement--default&viewMode=story`,
+      );
+      const shared = page.getByRole("region", {
+        name: "成果閲覧権限",
+        exact: true,
+      });
+      const feedback = page.getByRole("region", {
+        name: "意見閲覧権限",
+        exact: true,
+      });
+      await shared.getByText(reader.email, { exact: true }).waitFor();
+      await feedback.getByText("閲覧者はいません。").waitFor();
+      const input = feedback.getByRole("textbox", { name: "メールアドレス" });
+      await input.fill(reader.email);
+      await feedback.getByRole("button", { name: "追加", exact: true }).click();
+      await feedback.getByText(reader.email, { exact: true }).waitFor();
+      expect(
+        await shared.getByText(reader.email, { exact: true }).count(),
+      ).toBe(1);
+      const remove = feedback.getByRole("button", {
+        name: `${reader.email} の閲覧権限を取り消す`,
+      });
+      await remove.click();
+      await feedback.getByText("閲覧者はいません。").waitFor();
+      expect(
+        await shared.getByText(reader.email, { exact: true }).count(),
+      ).toBe(1);
+      expect(writes).toEqual(["POST:feedback", "DELETE:feedback"]);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+    } finally {
+      await browser.close();
+    }
+  },
+);

@@ -27,14 +27,15 @@ describe("IdeaGuidePanel", () => {
     expect(onHintSelect).not.toHaveBeenCalled();
   });
 
-  it.each(
-    IDEA_GUIDE_HINTS,
-  )("%sを選ぶと同じ書き出しを一枚分だけ返す", async (hint) => {
-    const onHintSelect = vi.fn();
-    render(<IdeaGuidePanel onHintSelect={onHintSelect} />);
-    await userEvent.click(screen.getByRole("button", { name: hint }));
-    expect(onHintSelect).toHaveBeenCalledExactlyOnceWith(hint);
-  });
+  it.each(IDEA_GUIDE_HINTS)(
+    "%sを選ぶと同じ書き出しを一枚分だけ返す",
+    async (hint) => {
+      const onHintSelect = vi.fn();
+      render(<IdeaGuidePanel onHintSelect={onHintSelect} />);
+      await userEvent.click(screen.getByRole("button", { name: hint }));
+      expect(onHintSelect).toHaveBeenCalledExactlyOnceWith(hint);
+    },
+  );
 
   it("作成できないときも補足は読めるが、どの書き出しも選べない", async () => {
     const onHintSelect = vi.fn();

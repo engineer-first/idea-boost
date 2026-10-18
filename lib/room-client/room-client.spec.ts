@@ -451,27 +451,28 @@ it("offline中の接続とtimerを止め、onlineで一度だけ再開しclose�
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it.each([
-  0, 1,
-])("jitter %sの連続失敗でも待ち時間は8秒以内に収まる", (random) => {
-  const client = createRoomClient({
-    url: "ws://test",
-    onMessage: () => {},
-    webSocketFactory: factory,
-    random: () => random,
-  });
-  for (const ceiling of [1000, 2000, 4000, 8000, 8000, 8000]) {
-    const count = FakeWebSocket.instances.length;
-    latestSocket().simulateUnexpectedClose();
-    const delay = ceiling * (0.5 + random * 0.5);
-    vi.advanceTimersByTime(delay - 1);
-    expect(FakeWebSocket.instances).toHaveLength(count);
-    vi.advanceTimersByTime(1);
-    expect(FakeWebSocket.instances).toHaveLength(count + 1);
-  }
-  client.close();
-  expect(vi.getTimerCount()).toBe(0);
-});
+it.each([0, 1])(
+  "jitter %sの連続失敗でも待ち時間は8秒以内に収まる",
+  (random) => {
+    const client = createRoomClient({
+      url: "ws://test",
+      onMessage: () => {},
+      webSocketFactory: factory,
+      random: () => random,
+    });
+    for (const ceiling of [1000, 2000, 4000, 8000, 8000, 8000]) {
+      const count = FakeWebSocket.instances.length;
+      latestSocket().simulateUnexpectedClose();
+      const delay = ceiling * (0.5 + random * 0.5);
+      vi.advanceTimersByTime(delay - 1);
+      expect(FakeWebSocket.instances).toHaveLength(count);
+      vi.advanceTimersByTime(1);
+      expect(FakeWebSocket.instances).toHaveLength(count + 1);
+    }
+    client.close();
+    expect(vi.getTimerCount()).toBe(0);
+  },
+);
 it("offlineで既存socketを閉じ、古いopen/message/closeは配送せずonlineで新接続だけを使う", () => {
   const messages = vi.fn();
   const statuses = vi.fn();

@@ -50,7 +50,7 @@ describe("節目の不変履歴", () => {
   });
 });
 
-import { env } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { PERMISSIONS } from "../contracts/access";
 import type { RoomPhase } from "../contracts/phase";
 import type { ProgressHistoryResponse } from "../contracts/shared-outcomes";

@@ -37,17 +37,17 @@ export const RoomPhaseSchema = z.union([
   z.object({
     kind: z.literal("step"),
     phase: z.literal(1),
-    step: z.number().int().min(1).max(PHASE_STEP_COUNTS[1]),
+    step: z.int().min(1).max(PHASE_STEP_COUNTS[1]),
   }),
   z.object({
     kind: z.literal("step"),
     phase: z.literal(2),
-    step: z.number().int().min(1).max(PHASE_STEP_COUNTS[2]),
+    step: z.int().min(1).max(PHASE_STEP_COUNTS[2]),
   }),
   z.object({
     kind: z.literal("step"),
     phase: z.literal(3),
-    step: z.number().int().min(1).max(PHASE_STEP_COUNTS[3]),
+    step: z.int().min(1).max(PHASE_STEP_COUNTS[3]),
   }),
 ]);
 

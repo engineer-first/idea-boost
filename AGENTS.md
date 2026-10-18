@@ -43,7 +43,7 @@
   **失敗を確認する前に本番コードを変更しない**。
   境界の形を変える場合も、失敗確認後に `contracts/`、次に実装の順で変更する。
   同じテストが green になったことを確認し、その後にリファクタリングする。
-- Worker / Durable Object は `@cloudflare/vitest-pool-workers`
+- Worker / Durable Object は `@cloudflare/vitest-plugin`
   （`npm run test:workers`）でテストする。
 - 完了前に変更範囲に必要なテスト・型・lint を実行する。
   コマンドの正本は [package.json](package.json)、CI の検査は

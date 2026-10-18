@@ -26,21 +26,20 @@ it("レビューの入口は最新公開版の1つだけにし、固定版URLは
   expect(body).toContain("<details>");
 });
 
-it.each([
-  "pending",
-  "failed",
-  "closed",
-] as const)("%sでは前の版のURLを最新の入口として表示しない", (state) => {
-  const body = previewComment({
-    state,
-    appCommit: sha,
-    updatedAt: "2026-10-11T00:00:00.000Z",
-    url: "https://pr-12.preview.test",
-    deploymentUrl: "https://fixed.preview.test",
-  });
-  expect(body).not.toContain("https://pr-12.preview.test");
-  expect(body).not.toContain("https://fixed.preview.test");
-});
+it.each(["pending", "failed", "closed"] as const)(
+  "%sでは前の版のURLを最新の入口として表示しない",
+  (state) => {
+    const body = previewComment({
+      state,
+      appCommit: sha,
+      updatedAt: "2026-10-11T00:00:00.000Z",
+      url: "https://pr-12.preview.test",
+      deploymentUrl: "https://fixed.preview.test",
+    });
+    expect(body).not.toContain("https://pr-12.preview.test");
+    expect(body).not.toContain("https://fixed.preview.test");
+  },
+);
 function runtime(): PreviewRuntime {
   return {
     current: vi.fn(async () => ({
@@ -102,28 +101,28 @@ it("閉じたPRは対象Appだけ削除し、成功は疎通後にAPIcommitと�
   expect(r.remove).toHaveBeenCalledWith(12);
 });
 
-it.each([
-  "normal",
-  "fixed",
-])("%s URLのAPIがPRと違う版なら疎通済みでも利用可能にしない", async (mismatch) => {
-  const r = runtime();
-  r.probe = vi.fn(async (url) => ({
-    ok: true,
-    apiCommit:
-      url.includes("v1-") === (mismatch === "fixed") ? "b".repeat(40) : sha,
-  }));
-  await expect(
-    reconcilePreview({ number: 12, sha, state: "success" }, r),
-  ).rejects.toThrow("Preview");
-  expect(r.comment).not.toHaveBeenCalledWith(
-    12,
-    expect.objectContaining({ state: "ready" }),
-  );
-  expect(r.comment).toHaveBeenLastCalledWith(
-    12,
-    expect.objectContaining({ state: "failed" }),
-  );
-});
+it.each(["normal", "fixed"])(
+  "%s URLのAPIがPRと違う版なら疎通済みでも利用可能にしない",
+  async (mismatch) => {
+    const r = runtime();
+    r.probe = vi.fn(async (url) => ({
+      ok: true,
+      apiCommit:
+        url.includes("v1-") === (mismatch === "fixed") ? "b".repeat(40) : sha,
+    }));
+    await expect(
+      reconcilePreview({ number: 12, sha, state: "success" }, r),
+    ).rejects.toThrow("Preview");
+    expect(r.comment).not.toHaveBeenCalledWith(
+      12,
+      expect.objectContaining({ state: "ready" }),
+    );
+    expect(r.comment).toHaveBeenLastCalledWith(
+      12,
+      expect.objectContaining({ state: "failed" }),
+    );
+  },
+);
 it("デプロイ中にPRが閉じられたら削除し、利用可能コメントを出さない", async () => {
   const r = runtime();
   r.current = vi

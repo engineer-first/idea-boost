@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { issueCreationId } from "../contracts/room-creation";
 import { TOKEN_AUDIENCE } from "../contracts/session";
@@ -38,7 +38,7 @@ afterEach(() => {
   for (const socket of sockets.splice(0)) socket.close();
 });
 async function profile(user = A, body?: unknown) {
-  return SELF.fetch("https://api.test/api/me/display-name", {
+  return exports.default.fetch("https://api.test/api/me/display-name", {
     method: body === undefined ? "GET" : "PUT",
     headers: {
       Cookie: await sessionCookieFor(user),
@@ -48,7 +48,7 @@ async function profile(user = A, body?: unknown) {
   });
 }
 async function create(user = A) {
-  return SELF.fetch("https://api.test/api/rooms", {
+  return exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
       Cookie: await sessionCookieFor(user),
@@ -61,7 +61,7 @@ async function create(user = A) {
   });
 }
 async function join(code: string, user = B) {
-  return SELF.fetch("https://api.test/api/rooms/join", {
+  return exports.default.fetch("https://api.test/api/rooms/join", {
     method: "POST",
     headers: {
       Cookie: await sessionCookieFor(user),
@@ -73,7 +73,7 @@ async function join(code: string, user = B) {
 describe("Google名を初期値にする共通の表示名", () => {
   it("未認証は本人設定を読めず、変更できない", async () => {
     for (const method of ["GET", "PUT"]) {
-      const response = await SELF.fetch(
+      const response = await exports.default.fetch(
         "https://api.test/api/me/display-name",
         {
           method,
@@ -117,7 +117,7 @@ describe("Google名を初期値にする共通の表示名", () => {
       type: "member_joined",
       member: { userId: B.sub, name: B.name },
     });
-    const lookup = await SELF.fetch(
+    const lookup = await exports.default.fetch(
       `https://api.test/api/rooms/lookup?code=${room.inviteCode}`,
       { headers: { Cookie: await sessionCookieFor(B) } },
     );
@@ -135,7 +135,7 @@ describe("Google名を初期値にする共通の表示名", () => {
     expect(JSON.stringify(await a.next())).not.toContain(A.name);
     await join(room.inviteCode);
     expect(JSON.stringify(await a.next())).not.toContain(B.name);
-    const lookup = await SELF.fetch(
+    const lookup = await exports.default.fetch(
       `https://api.test/api/rooms/lookup?code=${room.inviteCode}`,
       { headers: { Cookie: await sessionCookieFor(B) } },
     );
@@ -158,7 +158,7 @@ describe("Google名を初期値にする共通の表示名", () => {
         expiresInSeconds: 60,
       },
     );
-    const sync = await SELF.fetch("https://api.test/api/auth/sync", {
+    const sync = await exports.default.fetch("https://api.test/api/auth/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assertion }),
@@ -213,7 +213,7 @@ describe("Google名を初期値にする共通の表示名", () => {
       },
     });
     for (const room of [first, second]) {
-      const members = await SELF.fetch(
+      const members = await exports.default.fetch(
         `https://api.test/api/rooms/${room.roomId}/members`,
         { headers: { Cookie: await sessionCookieFor(A) } },
       );
@@ -226,7 +226,7 @@ describe("Google名を初期値にする共通の表示名", () => {
         ]),
       });
     }
-    const lookup = await SELF.fetch(
+    const lookup = await exports.default.fetch(
       `https://api.test/api/rooms/lookup?code=${first.inviteCode}`,
       { headers: { Cookie: await sessionCookieFor(B) } },
     );
@@ -235,64 +235,69 @@ describe("Google名を初期値にする共通の表示名", () => {
 });
 
 describe("共通表示名の配信先と移行", () => {
-  it.each([
-    "create",
-    "join",
-  ] as const)("%sが完了した後の補助同期が失敗しても成功を返し、保存名で在籍する", async (operation) => {
-    await profile(A, { name: "保存した名", expectedPrincipal: A.sub });
-    const existing =
-      operation === "join"
-        ? await (await create(B)).json<{ roomId: string; inviteCode: string }>()
-        : null;
-    const sync = vi.fn(async () => {
-      throw new Error("補助同期の一時障害");
-    });
-    const namespace = {
-      idFromName: (name: string) => env.ROOM_DO.idFromName(name),
-      get: (id: DurableObjectId) => {
-        const stub = env.ROOM_DO.get(id);
-        return {
-          initializeCreation: (
-            ...args: Parameters<typeof stub.initializeCreation>
-          ) => stub.initializeCreation(...args),
-          upsertMember: (...args: Parameters<typeof stub.upsertMember>) =>
-            stub.upsertMember(...args),
-          syncAccountDisplayName: sync,
-        };
-      },
-    } as unknown as typeof env.ROOM_DO;
-    const response = await createApiWorker().fetch(
-      new Request(
-        `https://api.test/api/rooms${operation === "join" ? "/join" : ""}`,
-        {
-          method: "POST",
-          headers: {
-            Cookie: await sessionCookieFor(A),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(
-            existing
-              ? { code: existing.inviteCode }
-              : {
-                  requestId: issueCreationId().requestId,
-                  expectedPrincipal: A.sub,
-                },
-          ),
+  it.each(["create", "join"] as const)(
+    "%sが完了した後の補助同期が失敗しても成功を返し、保存名で在籍する",
+    async (operation) => {
+      await profile(A, { name: "保存した名", expectedPrincipal: A.sub });
+      const existing =
+        operation === "join"
+          ? await (await create(B)).json<{
+              roomId: string;
+              inviteCode: string;
+            }>()
+          : null;
+      const sync = vi.fn(async () => {
+        throw new Error("補助同期の一時障害");
+      });
+      const namespace = {
+        idFromName: (name: string) => env.ROOM_DO.idFromName(name),
+        get: (id: DurableObjectId) => {
+          const stub = env.ROOM_DO.get(id);
+          return {
+            initializeCreation: (
+              ...args: Parameters<typeof stub.initializeCreation>
+            ) => stub.initializeCreation(...args),
+            upsertMember: (...args: Parameters<typeof stub.upsertMember>) =>
+              stub.upsertMember(...args),
+            syncAccountDisplayName: sync,
+          };
         },
-      ),
-      { ...env, ROOM_DO: namespace },
-    );
-    expect(sync).toHaveBeenCalledOnce();
-    expect(response.status).toBe(200);
-    const room = await response.json<{ roomId: string }>();
-    expect(
-      await env.ROOM_DO.get(env.ROOM_DO.idFromName(room.roomId)).listMembers(),
-    ).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ userId: A.sub, name: "保存した名" }),
-      ]),
-    );
-  });
+      } as unknown as typeof env.ROOM_DO;
+      const response = await createApiWorker().fetch(
+        new Request(
+          `https://api.test/api/rooms${operation === "join" ? "/join" : ""}`,
+          {
+            method: "POST",
+            headers: {
+              Cookie: await sessionCookieFor(A),
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(
+              existing
+                ? { code: existing.inviteCode }
+                : {
+                    requestId: issueCreationId().requestId,
+                    expectedPrincipal: A.sub,
+                  },
+            ),
+          },
+        ),
+        { ...env, ROOM_DO: namespace },
+      );
+      expect(sync).toHaveBeenCalledOnce();
+      expect(response.status).toBe(200);
+      const room = await response.json<{ roomId: string }>();
+      expect(
+        await env.ROOM_DO.get(
+          env.ROOM_DO.idFromName(room.roomId),
+        ).listMembers(),
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ userId: A.sub, name: "保存した名" }),
+        ]),
+      );
+    },
+  );
   it("新旧の更新が逆順に届いても戻さず、非メンバー・完了済みルームを改名しない", async () => {
     const room = await (await create()).json<{
       roomId: string;

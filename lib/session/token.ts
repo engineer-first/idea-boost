@@ -44,7 +44,7 @@ export async function signToken(
     .sign(secretKey(options.secret));
 }
 
-export async function verifyToken<Schema extends z.ZodTypeAny>(
+export async function verifyToken<Schema extends z.ZodType>(
   token: string,
   schema: Schema,
   options: VerifyTokenOptions,

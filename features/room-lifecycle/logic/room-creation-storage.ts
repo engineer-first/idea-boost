@@ -19,11 +19,11 @@ const StoredNameSchema = z
     name.slice(0, ROOM_CREATION_NAME_MAX).replace(/[\uD800-\uDBFF]$/, ""),
   );
 const IntentSchema = z.object({
-  expectedPrincipal: z.string().uuid(),
+  expectedPrincipal: z.guid(),
   requestId: CreationRequestIdSchema,
   name: StoredNameSchema,
-  issuedAt: z.number().int(),
-  expiresAt: z.number().int(),
+  issuedAt: z.int(),
+  expiresAt: z.int(),
   state: z.enum([
     "prepared",
     "submitted",
@@ -33,7 +33,7 @@ const IntentSchema = z.object({
     "actor_mismatch",
     "conflict",
   ]),
-  roomId: z.string().uuid().optional(),
+  roomId: z.guid().optional(),
   generation: z.string(),
 });
 export type RoomCreationIntent = z.infer<typeof IntentSchema>;

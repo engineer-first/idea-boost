@@ -84,16 +84,16 @@ describe("共有スキルの配布検査", () => {
     );
   });
 
-  it.each([
-    ".codex/skills",
-    ".opencode/skills",
-  ])("%sへの重複登録を検知する", (path) => {
-    const root = fixture();
-    write(root, `${path}/example/SKILL.md`, "duplicate");
-    expect(checkAgentHarness(root)).toContainEqual(
-      expect.stringContaining(path),
-    );
-  });
+  it.each([".codex/skills", ".opencode/skills"])(
+    "%sへの重複登録を検知する",
+    (path) => {
+      const root = fixture();
+      write(root, `${path}/example/SKILL.md`, "duplicate");
+      expect(checkAgentHarness(root)).toContainEqual(
+        expect.stringContaining(path),
+      );
+    },
+  );
 
   it.each([
     "---\nname: wrong\ndescription: Example\n---\n",

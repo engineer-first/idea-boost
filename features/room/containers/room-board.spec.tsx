@@ -307,380 +307,395 @@ function openPrivateNotesToolbar() {
 }
 
 describe("問いの投票中の付箋移動", () => {
-  it.each([
-    true,
-    false,
-  ])("ホスト権限%jでシールの貼付・付替・取消から付箋移動まで同じポインターで続けられる", (isHost) => {
-    const source = protocolNote();
-    const target = protocolNote({
-      id: TARGET_NOTE_ID,
-      content: "付け替え先",
-      x: 400,
-    });
-    const { socket } = connectWithSnapshot([source, target], {
-      phase: buildPhaseStep(3, 2),
-      isHost,
-      moveProtocolVersion: 1,
-    });
-    const viewport = screen.getByTestId("board-scroller");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 800);
-    const cards = screen.getAllByTestId("note-card");
-    cards[0].getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
-    cards[1].getBoundingClientRect = () => new DOMRect(400, 100, 200, 150);
-    const palette = within(screen.getByTestId("vote-palette-hud")).getByRole(
-      "region",
-      { name: "投票パレット" },
-    );
-    const selectTool = within(
-      screen.getByTestId("canvas-zoom-controls"),
-    ).getByRole("button", { name: "選択ツール" });
-    let dropTarget: HTMLElement = cards[0];
-    Object.defineProperty(document, "elementFromPoint", {
-      configurable: true,
-      value: () => dropTarget,
-    });
-    function drag(owner: HTMLElement, clientX: number, clientY: number): void {
-      fireEvent.pointerDown(owner, {
-        pointerId: 1,
-        button: 0,
-        buttons: 1,
-        clientX: 120,
-        clientY: 120,
+  it.each([true, false])(
+    "ホスト権限%jでシールの貼付・付替・取消から付箋移動まで同じポインターで続けられる",
+    (isHost) => {
+      const source = protocolNote();
+      const target = protocolNote({
+        id: TARGET_NOTE_ID,
+        content: "付け替え先",
+        x: 400,
       });
-      fireEvent.pointerMove(owner, {
-        pointerId: 1,
-        buttons: 1,
-        clientX,
-        clientY,
-      });
-      fireEvent.pointerUp(owner, { pointerId: 1, clientX, clientY });
-    }
-    function latest(type: string) {
-      return socket.sent
-        .map((raw) => JSON.parse(raw))
-        .filter((message) => message.type === type)
-        .at(-1);
-    }
-    drag(
-      within(palette).getByRole("button", { name: "客観シール 残り3票" }),
-      150,
-      175,
-    );
-    const add = latest("note:vote-sticker:add");
-    expect(add).toMatchObject({ noteId: NOTE_ID, kind: "objective" });
-    const sticker = {
-      id: add.stickerId,
-      kind: "objective" as const,
-      x: 0.25,
-      y: 0.5,
-    };
-    const votedSource = {
-      ...source,
-      dotVoteStickers: [sticker],
-      dotVotes: {
-        ...source.dotVotes,
-        objective: { ownCount: 1, votedByMe: true },
-      },
-    };
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:updated",
-        operationId: add.operationId,
-        note: votedSource,
-      }),
-    );
-    dropTarget = cards[1];
-    drag(
-      within(cards[0]).getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
-      }),
-      450,
-      175,
-    );
-    const move = latest("note:vote-sticker:move");
-    expect(move).toMatchObject({
-      stickerId: sticker.id,
-      noteId: TARGET_NOTE_ID,
-    });
-    const votedTarget = {
-      ...target,
-      dotVoteStickers: [sticker],
-      dotVotes: votedSource.dotVotes,
-    };
-    act(() => {
-      socket.simulateServerMessage({
-        type: "note:updated",
-        operationId: move.operationId,
-        note: source,
-      });
-      socket.simulateServerMessage({
-        type: "note:updated",
-        operationId: move.operationId,
-        note: votedTarget,
-      });
-    });
-    dropTarget = palette;
-    drag(
-      within(cards[1]).getByRole("button", {
-        name: "客観シール 1票を1票取り消す",
-      }),
-      320,
-      700,
-    );
-    const remove = latest("note:vote-sticker:remove");
-    expect(remove).toMatchObject({ stickerId: sticker.id });
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:updated",
-        operationId: remove.operationId,
-        note: target,
-      }),
-    );
-    expect(selectTool).toBeEnabled();
-    dropTarget = cards[0];
-    drag(within(cards[0]).getByRole("button", { name: "付箋" }), 250, 225);
-    expect(latest("note:move:start")).toMatchObject({
-      targets: [expect.objectContaining({ noteId: NOTE_ID })],
-    });
-    expect(latest("note:move:commit")).toMatchObject({
-      delta: expect.not.objectContaining({ x: 0, y: 0 }),
-    });
-    expect(selectTool).toBeEnabled();
-  });
-
-  it.each([
-    true,
-    false,
-  ])("ホスト権限%jでシール選択中だけ移動を送信せず、解除後に問いを移動できる", (isHost) => {
-    const { socket } = connectWithSnapshot(
-      [protocolNote({ authorId: OTHER_USER_ID })],
-      { phase: buildPhaseStep(3, 2), isHost, moveProtocolVersion: 1 },
-    );
-    const palette = screen.getByRole("button", { name: "客観シール 残り3票" });
-    const surface = screen.getByRole("button", { name: "付箋" });
-    const viewport = screen.getByTestId("board-scroller");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
-    function move(pointerId: number): void {
-      fireEvent.pointerDown(surface, {
-        pointerId,
-        button: 0,
-        buttons: 1,
-        clientX: 100,
-        clientY: 100,
-      });
-      fireEvent.pointerMove(surface, {
-        pointerId,
-        buttons: 1,
-        clientX: 130,
-        clientY: 130,
-      });
-      fireEvent.pointerUp(viewport, { pointerId, clientX: 250, clientY: 200 });
-    }
-    fireEvent.click(palette);
-    move(81);
-    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
-      expect.objectContaining({ type: expect.stringMatching(/^note:move:/) }),
-    );
-    fireEvent.click(palette);
-    move(82);
-    expectSent(socket, {
-      type: "note:move:start",
-      coordinateSpace: "canvas",
-      expectedPhaseRevision: 0,
-      targets: [expect.objectContaining({ noteId: NOTE_ID })],
-    });
-    expectSent(socket, {
-      type: "note:move:commit",
-      delta: expect.not.objectContaining({ x: 0, y: 0 }),
-    });
-    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
-      expect.objectContaining({ type: expect.stringMatching(/vote/) }),
-    );
-  });
-
-  it.each([
-    true,
-    false,
-  ])("2-3でホスト権限%jでも共有済みの他者の問いを移動し、再投票でも再開できる", (isHost) => {
-    const note = protocolNote({
-      authorId: OTHER_USER_ID,
-      content: "重なりを解消する問い",
-      x: 100,
-      y: 100,
-      dotVotes: {
-        subjective: { ownCount: 0, votedByMe: false },
-        objective: { ownCount: 1, votedByMe: true },
-      },
-      dotVoteStickers: [{ id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 }],
-    });
-    const { socket } = connectWithSnapshot([note], {
-      phase: buildPhaseStep(3, 2),
-      isHost,
-    });
-    const viewport = screen.getByTestId("board-canvas").parentElement;
-    if (!viewport) throw new Error("ボードスクローラーがありません");
-    viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
-    const root = screen.getByTestId("room-board-view-root");
-    const surface = screen.getByRole("button", { name: "付箋" });
-    function move(pointerId: number) {
-      fireEvent.pointerDown(surface, {
-        pointerId,
-        button: 0,
-        buttons: 1,
-        clientX: 110,
-        clientY: 110,
-      });
-      fireEvent.pointerMove(surface, {
-        pointerId,
-        buttons: 1,
-        clientX: 130,
-        clientY: 130,
-      });
-      fireEvent.pointerMove(root, {
-        pointerId,
-        buttons: 1,
-        clientX: 260,
-        clientY: 220,
-      });
-      fireEvent.pointerUp(root, { pointerId, clientX: 260, clientY: 220 });
-    }
-    move(81);
-    const firstMove = socket.sent
-      .map((raw) => JSON.parse(raw))
-      .find((message) => message.type === "note:drag:end");
-    expect(firstMove).toMatchObject({
-      type: "note:drag:end",
-      noteId: NOTE_ID,
-      position: expect.not.objectContaining({ x: 100, y: 100 }),
-    });
-    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
-      expect.objectContaining({ type: expect.stringMatching(/vote/) }),
-    );
-    expect(screen.getByDisplayValue(note.content)).toHaveAttribute("readonly");
-    expect(
-      document.querySelector(`[data-vote-sticker-id="${STICKER_ID}"]`),
-    ).toHaveStyle({ left: "20%", top: "30%" });
-    act(() => {
-      socket.simulateServerMessage({
-        type: "note:updated",
-        note: { ...note, ...firstMove.position },
-      });
-      socket.simulateServerMessage({
-        type: "phase:updated",
-        phase: buildPhaseStep(4, 2),
-        phaseRevision: 1,
-        decision: null,
-      });
-      socket.simulateServerMessage({
-        type: "phase:updated",
+      const { socket } = connectWithSnapshot([source, target], {
         phase: buildPhaseStep(3, 2),
-        phaseRevision: 2,
-        decision: null,
+        isHost,
+        moveProtocolVersion: 1,
       });
-    });
-    move(82);
-    expect(
-      socket.sent
-        .map((raw) => JSON.parse(raw))
-        .filter((message) => message.type === "note:drag:end"),
-    ).toHaveLength(2);
-  });
-});
-
-it.each([
-  1, 2, 3,
-] as const)("フェーズ%iで共有許可が発表順に追従し、交代中のドラッグは公開しない", (phase) => {
-  const sharing = buildSharingState({
-    order: sharingOrder,
-    status: "active",
-    currentIndex: 1,
-    results: ["done"],
-  });
-  const { socket } = connectWithSnapshot(
-    [protocolNote({ visibility: "private" })],
-    {
-      phase: buildPhaseStep(2, phase),
-      sharing,
+      const viewport = screen.getByTestId("board-scroller");
+      viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 800);
+      const cards = screen.getAllByTestId("note-card");
+      cards[0].getBoundingClientRect = () => new DOMRect(100, 100, 200, 150);
+      cards[1].getBoundingClientRect = () => new DOMRect(400, 100, 200, 150);
+      const palette = within(screen.getByTestId("vote-palette-hud")).getByRole(
+        "region",
+        { name: "投票パレット" },
+      );
+      const selectTool = within(
+        screen.getByTestId("canvas-zoom-controls"),
+      ).getByRole("button", { name: "選択ツール" });
+      let dropTarget: HTMLElement = cards[0];
+      Object.defineProperty(document, "elementFromPoint", {
+        configurable: true,
+        value: () => dropTarget,
+      });
+      function drag(
+        owner: HTMLElement,
+        clientX: number,
+        clientY: number,
+      ): void {
+        fireEvent.pointerDown(owner, {
+          pointerId: 1,
+          button: 0,
+          buttons: 1,
+          clientX: 120,
+          clientY: 120,
+        });
+        fireEvent.pointerMove(owner, {
+          pointerId: 1,
+          buttons: 1,
+          clientX,
+          clientY,
+        });
+        fireEvent.pointerUp(owner, { pointerId: 1, clientX, clientY });
+      }
+      function latest(type: string) {
+        return socket.sent
+          .map((raw) => JSON.parse(raw))
+          .filter((message) => message.type === type)
+          .at(-1);
+      }
+      drag(
+        within(palette).getByRole("button", { name: "客観シール 残り3票" }),
+        150,
+        175,
+      );
+      const add = latest("note:vote-sticker:add");
+      expect(add).toMatchObject({ noteId: NOTE_ID, kind: "objective" });
+      const sticker = {
+        id: add.stickerId,
+        kind: "objective" as const,
+        x: 0.25,
+        y: 0.5,
+      };
+      const votedSource = {
+        ...source,
+        dotVoteStickers: [sticker],
+        dotVotes: {
+          ...source.dotVotes,
+          objective: { ownCount: 1, votedByMe: true },
+        },
+      };
+      act(() =>
+        socket.simulateServerMessage({
+          type: "note:updated",
+          operationId: add.operationId,
+          note: votedSource,
+        }),
+      );
+      dropTarget = cards[1];
+      drag(
+        within(cards[0]).getByRole("button", {
+          name: "客観シール 1票を1票取り消す",
+        }),
+        450,
+        175,
+      );
+      const move = latest("note:vote-sticker:move");
+      expect(move).toMatchObject({
+        stickerId: sticker.id,
+        noteId: TARGET_NOTE_ID,
+      });
+      const votedTarget = {
+        ...target,
+        dotVoteStickers: [sticker],
+        dotVotes: votedSource.dotVotes,
+      };
+      act(() => {
+        socket.simulateServerMessage({
+          type: "note:updated",
+          operationId: move.operationId,
+          note: source,
+        });
+        socket.simulateServerMessage({
+          type: "note:updated",
+          operationId: move.operationId,
+          note: votedTarget,
+        });
+      });
+      dropTarget = palette;
+      drag(
+        within(cards[1]).getByRole("button", {
+          name: "客観シール 1票を1票取り消す",
+        }),
+        320,
+        700,
+      );
+      const remove = latest("note:vote-sticker:remove");
+      expect(remove).toMatchObject({ stickerId: sticker.id });
+      act(() =>
+        socket.simulateServerMessage({
+          type: "note:updated",
+          operationId: remove.operationId,
+          note: target,
+        }),
+      );
+      expect(selectTool).toBeEnabled();
+      dropTarget = cards[0];
+      drag(within(cards[0]).getByRole("button", { name: "付箋" }), 250, 225);
+      expect(latest("note:move:start")).toMatchObject({
+        targets: [expect.objectContaining({ noteId: NOTE_ID })],
+      });
+      expect(latest("note:move:commit")).toMatchObject({
+        delta: expect.not.objectContaining({ x: 0, y: 0 }),
+      });
+      expect(selectTool).toBeEnabled();
     },
   );
-  const toolbar = openPrivateNotesToolbar();
-  const root = screen.getByTestId("room-board-view-root");
-  const scroller = screen.getByTestId("board-canvas").parentElement;
-  if (!scroller) throw new Error("ボードスクローラーがありません");
-  Object.defineProperty(scroller, "getBoundingClientRect", {
-    value: () => new DOMRect(0, 0, 500, 400),
-  });
-  if (phase === 3) {
-    const mapPositionArea = screen.getByTestId("idea-map-viewport-plane");
-    Object.defineProperty(mapPositionArea, "getBoundingClientRect", {
-      value: () => new DOMRect(0, 0, 400, 400),
-    });
-  }
-  mockPrivateToolbarLayout(toolbar);
-  function dragPrivate() {
-    const handle = within(toolbar).getByRole("button", { name: "付箋" });
-    fireEvent.pointerDown(handle, {
-      pointerId: 1,
-      clientX: 650,
-      clientY: 120,
-    });
-    fireEvent.pointerMove(handle, {
-      buttons: 1,
-      pointerId: 1,
-      clientX: 655,
-      clientY: 125,
-    });
-    fireEvent.pointerMove(root, {
-      buttons: 1,
-      pointerId: 1,
-      clientX: 140,
-      clientY: 160,
-    });
-  }
-  function receive(next: SharingState) {
-    act(() =>
-      socket.simulateServerMessage({
-        type: "sharing:updated",
-        sharing: next,
-        timer: {
-          status: "running",
-          endsAt: Date.now() + 60_000,
-          durationMs: 60_000,
+
+  it.each([true, false])(
+    "ホスト権限%jでシール選択中だけ移動を送信せず、解除後に問いを移動できる",
+    (isHost) => {
+      const { socket } = connectWithSnapshot(
+        [protocolNote({ authorId: OTHER_USER_ID })],
+        { phase: buildPhaseStep(3, 2), isHost, moveProtocolVersion: 1 },
+      );
+      const palette = screen.getByRole("button", {
+        name: "客観シール 残り3票",
+      });
+      const surface = screen.getByRole("button", { name: "付箋" });
+      const viewport = screen.getByTestId("board-scroller");
+      viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+      function move(pointerId: number): void {
+        fireEvent.pointerDown(surface, {
+          pointerId,
+          button: 0,
+          buttons: 1,
+          clientX: 100,
+          clientY: 100,
+        });
+        fireEvent.pointerMove(surface, {
+          pointerId,
+          buttons: 1,
+          clientX: 130,
+          clientY: 130,
+        });
+        fireEvent.pointerUp(viewport, {
+          pointerId,
+          clientX: 250,
+          clientY: 200,
+        });
+      }
+      fireEvent.click(palette);
+      move(81);
+      expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+        expect.objectContaining({ type: expect.stringMatching(/^note:move:/) }),
+      );
+      fireEvent.click(palette);
+      move(82);
+      expectSent(socket, {
+        type: "note:move:start",
+        coordinateSpace: "canvas",
+        expectedPhaseRevision: 0,
+        targets: [expect.objectContaining({ noteId: NOTE_ID })],
+      });
+      expectSent(socket, {
+        type: "note:move:commit",
+        delta: expect.not.objectContaining({ x: 0, y: 0 }),
+      });
+      expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+        expect.objectContaining({ type: expect.stringMatching(/vote/) }),
+      );
+    },
+  );
+
+  it.each([true, false])(
+    "2-3でホスト権限%jでも共有済みの他者の問いを移動し、再投票でも再開できる",
+    (isHost) => {
+      const note = protocolNote({
+        authorId: OTHER_USER_ID,
+        content: "重なりを解消する問い",
+        x: 100,
+        y: 100,
+        dotVotes: {
+          subjective: { ownCount: 0, votedByMe: false },
+          objective: { ownCount: 1, votedByMe: true },
         },
-        serverNow: Date.now(),
-      }),
-    );
-  }
-  const publishes = () =>
-    socket.sent.filter(
-      (payload) => JSON.parse(payload).type === "note:publish",
-    );
-  dragPrivate();
-  fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
-  expect(publishes()).toHaveLength(0);
-
-  const myTurn = {
-    ...sharing,
-    currentIndex: 0,
-    results: [],
-    revision: crypto.randomUUID(),
-  };
-  receive(myTurn);
-  expect(toolbar).toHaveTextContent("あなたの番です");
-  dragPrivate();
-  expect(screen.getByTestId("private-note-drag-preview")).toBeInTheDocument();
-  receive({ ...sharing, revision: crypto.randomUUID() });
-  expect(
-    screen.queryByTestId("private-note-drag-preview"),
-  ).not.toBeInTheDocument();
-  fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
-  expect(publishes()).toHaveLength(0);
-
-  receive(myTurn);
-  dragPrivate();
-  fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
-  expect(publishes()).toHaveLength(1);
+        dotVoteStickers: [
+          { id: STICKER_ID, kind: "objective", x: 0.2, y: 0.3 },
+        ],
+      });
+      const { socket } = connectWithSnapshot([note], {
+        phase: buildPhaseStep(3, 2),
+        isHost,
+      });
+      const viewport = screen.getByTestId("board-canvas").parentElement;
+      if (!viewport) throw new Error("ボードスクローラーがありません");
+      viewport.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+      const root = screen.getByTestId("room-board-view-root");
+      const surface = screen.getByRole("button", { name: "付箋" });
+      function move(pointerId: number) {
+        fireEvent.pointerDown(surface, {
+          pointerId,
+          button: 0,
+          buttons: 1,
+          clientX: 110,
+          clientY: 110,
+        });
+        fireEvent.pointerMove(surface, {
+          pointerId,
+          buttons: 1,
+          clientX: 130,
+          clientY: 130,
+        });
+        fireEvent.pointerMove(root, {
+          pointerId,
+          buttons: 1,
+          clientX: 260,
+          clientY: 220,
+        });
+        fireEvent.pointerUp(root, { pointerId, clientX: 260, clientY: 220 });
+      }
+      move(81);
+      const firstMove = socket.sent
+        .map((raw) => JSON.parse(raw))
+        .find((message) => message.type === "note:drag:end");
+      expect(firstMove).toMatchObject({
+        type: "note:drag:end",
+        noteId: NOTE_ID,
+        position: expect.not.objectContaining({ x: 100, y: 100 }),
+      });
+      expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+        expect.objectContaining({ type: expect.stringMatching(/vote/) }),
+      );
+      expect(screen.getByDisplayValue(note.content)).toHaveAttribute(
+        "readonly",
+      );
+      expect(
+        document.querySelector(`[data-vote-sticker-id="${STICKER_ID}"]`),
+      ).toHaveStyle({ left: "20%", top: "30%" });
+      act(() => {
+        socket.simulateServerMessage({
+          type: "note:updated",
+          note: { ...note, ...firstMove.position },
+        });
+        socket.simulateServerMessage({
+          type: "phase:updated",
+          phase: buildPhaseStep(4, 2),
+          phaseRevision: 1,
+          decision: null,
+        });
+        socket.simulateServerMessage({
+          type: "phase:updated",
+          phase: buildPhaseStep(3, 2),
+          phaseRevision: 2,
+          decision: null,
+        });
+      });
+      move(82);
+      expect(
+        socket.sent
+          .map((raw) => JSON.parse(raw))
+          .filter((message) => message.type === "note:drag:end"),
+      ).toHaveLength(2);
+    },
+  );
 });
+
+it.each([1, 2, 3] as const)(
+  "フェーズ%iで共有許可が発表順に追従し、交代中のドラッグは公開しない",
+  (phase) => {
+    const sharing = buildSharingState({
+      order: sharingOrder,
+      status: "active",
+      currentIndex: 1,
+      results: ["done"],
+    });
+    const { socket } = connectWithSnapshot(
+      [protocolNote({ visibility: "private" })],
+      {
+        phase: buildPhaseStep(2, phase),
+        sharing,
+      },
+    );
+    const toolbar = openPrivateNotesToolbar();
+    const root = screen.getByTestId("room-board-view-root");
+    const scroller = screen.getByTestId("board-canvas").parentElement;
+    if (!scroller) throw new Error("ボードスクローラーがありません");
+    Object.defineProperty(scroller, "getBoundingClientRect", {
+      value: () => new DOMRect(0, 0, 500, 400),
+    });
+    if (phase === 3) {
+      const mapPositionArea = screen.getByTestId("idea-map-viewport-plane");
+      Object.defineProperty(mapPositionArea, "getBoundingClientRect", {
+        value: () => new DOMRect(0, 0, 400, 400),
+      });
+    }
+    mockPrivateToolbarLayout(toolbar);
+    function dragPrivate() {
+      const handle = within(toolbar).getByRole("button", { name: "付箋" });
+      fireEvent.pointerDown(handle, {
+        pointerId: 1,
+        clientX: 650,
+        clientY: 120,
+      });
+      fireEvent.pointerMove(handle, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: 655,
+        clientY: 125,
+      });
+      fireEvent.pointerMove(root, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: 140,
+        clientY: 160,
+      });
+    }
+    function receive(next: SharingState) {
+      act(() =>
+        socket.simulateServerMessage({
+          type: "sharing:updated",
+          sharing: next,
+          timer: {
+            status: "running",
+            endsAt: Date.now() + 60_000,
+            durationMs: 60_000,
+          },
+          serverNow: Date.now(),
+        }),
+      );
+    }
+    const publishes = () =>
+      socket.sent.filter(
+        (payload) => JSON.parse(payload).type === "note:publish",
+      );
+    dragPrivate();
+    fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
+    expect(publishes()).toHaveLength(0);
+
+    const myTurn = {
+      ...sharing,
+      currentIndex: 0,
+      results: [],
+      revision: crypto.randomUUID(),
+    };
+    receive(myTurn);
+    expect(toolbar).toHaveTextContent("あなたの番です");
+    dragPrivate();
+    expect(screen.getByTestId("private-note-drag-preview")).toBeInTheDocument();
+    receive({ ...sharing, revision: crypto.randomUUID() });
+    expect(
+      screen.queryByTestId("private-note-drag-preview"),
+    ).not.toBeInTheDocument();
+    fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
+    expect(publishes()).toHaveLength(0);
+
+    receive(myTurn);
+    dragPrivate();
+    fireEvent.pointerUp(root, { pointerId: 1, clientX: 140, clientY: 160 });
+    expect(publishes()).toHaveLength(1);
+  },
+);
 
 function mockPrivateToolbarLayout(toolbar: HTMLElement): void {
   Object.defineProperty(toolbar, "getBoundingClientRect", {
@@ -1029,30 +1044,30 @@ describe("サーバーメッセージ → 画面反映", () => {
     );
   });
 
-  it.each([
-    "private",
-    "shared",
-  ] as const)("%sの共有・戻すボタンを置かず、Enterやクリックで可視性を変えない", (visibility) => {
-    const { socket } = connectWithSnapshot([protocolNote({ visibility })], {
-      phase: buildPhaseStep(2),
-    });
-    openPrivateNotesToolbar();
-    expect(
-      screen.queryByRole("button", { name: "ボードに共有" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "マイ付箋へ戻す" }),
-    ).not.toBeInTheDocument();
-    const note = screen.getByRole("button", { name: "付箋" });
-    fireEvent.click(note);
-    fireEvent.keyDown(note, { key: "Enter" });
-    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
-    expect(
-      socket.sent.some((message) =>
-        /"type":"note:(publish|unpublish)"/.test(message),
-      ),
-    ).toBe(false);
-  });
+  it.each(["private", "shared"] as const)(
+    "%sの共有・戻すボタンを置かず、Enterやクリックで可視性を変えない",
+    (visibility) => {
+      const { socket } = connectWithSnapshot([protocolNote({ visibility })], {
+        phase: buildPhaseStep(2),
+      });
+      openPrivateNotesToolbar();
+      expect(
+        screen.queryByRole("button", { name: "ボードに共有" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "マイ付箋へ戻す" }),
+      ).not.toBeInTheDocument();
+      const note = screen.getByRole("button", { name: "付箋" });
+      fireEvent.click(note);
+      fireEvent.keyDown(note, { key: "Enter" });
+      fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+      expect(
+        socket.sent.some((message) =>
+          /"type":"note:(publish|unpublish)"/.test(message),
+        ),
+      ).toBe(false);
+    },
+  );
 
   it("HMWのサンプル付箋はタイマー開始まで自動作成しない", () => {
     const { socket } = connectWithSnapshot([], {
@@ -1932,82 +1947,82 @@ describe("サーバーメッセージ → 画面反映", () => {
       clientY: 570,
       expected: [TARGET_NOTE_ID, STICKER_ID, THIRD_PRIVATE_NOTE_ID, NOTE_ID],
     },
-  ])("実際のマイ付箋UIで共有付箋を縦方向の$positionへ戻すと表示順を維持する", ({
-    clientY,
-    expected,
-  }) => {
-    const { socket } = connectWithSnapshot(
-      [
-        protocolNote({
-          id: NOTE_ID,
-          content: "戻す付箋",
-          visibility: "shared",
-          createdAt: "2026-01-04T00:00:00.000Z",
-        }),
-        protocolNote({
-          id: TARGET_NOTE_ID,
-          content: "マイ付箋1",
-          visibility: "private",
-          createdAt: "2026-01-01T00:00:00.000Z",
-        }),
-        protocolNote({
-          id: STICKER_ID,
-          content: "マイ付箋2",
-          visibility: "private",
-          createdAt: "2026-01-02T00:00:00.000Z",
-        }),
-        protocolNote({
-          id: THIRD_PRIVATE_NOTE_ID,
-          content: "マイ付箋3",
-          visibility: "private",
-          createdAt: "2026-01-03T00:00:00.000Z",
-        }),
-      ],
-      { phase: buildPhaseStep(2, 1) },
-    );
-    const toolbar = openPrivateNotesToolbar();
-    mockPrivateToolbarLayout(toolbar);
+  ])(
+    "実際のマイ付箋UIで共有付箋を縦方向の$positionへ戻すと表示順を維持する",
+    ({ clientY, expected }) => {
+      const { socket } = connectWithSnapshot(
+        [
+          protocolNote({
+            id: NOTE_ID,
+            content: "戻す付箋",
+            visibility: "shared",
+            createdAt: "2026-01-04T00:00:00.000Z",
+          }),
+          protocolNote({
+            id: TARGET_NOTE_ID,
+            content: "マイ付箋1",
+            visibility: "private",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          }),
+          protocolNote({
+            id: STICKER_ID,
+            content: "マイ付箋2",
+            visibility: "private",
+            createdAt: "2026-01-02T00:00:00.000Z",
+          }),
+          protocolNote({
+            id: THIRD_PRIVATE_NOTE_ID,
+            content: "マイ付箋3",
+            visibility: "private",
+            createdAt: "2026-01-03T00:00:00.000Z",
+          }),
+        ],
+        { phase: buildPhaseStep(2, 1) },
+      );
+      const toolbar = openPrivateNotesToolbar();
+      mockPrivateToolbarLayout(toolbar);
 
-    const canvas = screen.getByTestId("board-canvas");
-    const note = within(canvas).getByTestId("note-card");
-    const surface = within(note).getByRole("button", { name: "付箋" });
-    fireEvent.pointerDown(surface, {
-      pointerId: 1,
-      clientX: 100,
-      clientY: 100,
-    });
-    fireEvent.pointerMove(surface, {
-      buttons: 1,
-      pointerId: 1,
-      clientX: 110,
-      clientY: 110,
-    });
-    const root = screen.getByTestId("room-board-view-root");
-    fireEvent.pointerMove(root, {
-      buttons: 1,
-      pointerId: 1,
-      clientX: 750,
-      clientY,
-    });
-    fireEvent.pointerUp(root, {
-      pointerId: 1,
-      clientX: 750,
-      clientY,
-    });
+      const canvas = screen.getByTestId("board-canvas");
+      const note = within(canvas).getByTestId("note-card");
+      const surface = within(note).getByRole("button", { name: "付箋" });
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        clientX: 100,
+        clientY: 100,
+      });
+      fireEvent.pointerMove(surface, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: 110,
+        clientY: 110,
+      });
+      const root = screen.getByTestId("room-board-view-root");
+      fireEvent.pointerMove(root, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: 750,
+        clientY,
+      });
+      fireEvent.pointerUp(root, {
+        pointerId: 1,
+        clientX: 750,
+        clientY,
+      });
 
-    expectSent(socket, {
-      type: "note:unpublish",
-      noteId: NOTE_ID,
-      privateIndex: expected.indexOf(NOTE_ID),
-    });
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:inserted",
-        note: protocolNote({ id: NOTE_ID, visibility: "private" }),
-      }),
-    );
-    expect(privateNoteIds(toolbar)).toEqual(expected);
-  });
+      expectSent(socket, {
+        type: "note:unpublish",
+        noteId: NOTE_ID,
+        privateIndex: expected.indexOf(NOTE_ID),
+      });
+      act(() =>
+        socket.simulateServerMessage({
+          type: "note:inserted",
+          note: protocolNote({ id: NOTE_ID, visibility: "private" }),
+        }),
+      );
+      expect(privateNoteIds(toolbar)).toEqual(expected);
+    },
+  );
 
   it("受理済みの共有 drag を toolbar へ戻すと unpublish 後にカーソルを解除し、別付箋の drag を開始できる", () => {
     const { socket } = connectWithSnapshot(
@@ -2973,98 +2988,98 @@ describe("ユーザー操作 → プロトコルメッセージ送信", () => {
   });
 });
 
-it.each([
-  false,
-  true,
-])("未保存の個人付箋の共有は最新本文のACKまで待ち、二重dropでも一度だけ共有する（ACKと同時に発表交代:%s）", (turnChanged) => {
-  const { socket } = connectWithSnapshot(
-    [protocolNote({ visibility: "private" })],
-    { phase: buildPhaseStep(2) },
-  );
-  const toolbar = openPrivateNotesToolbar();
-  const surface = within(toolbar).getByRole("button", { name: "付箋" });
-  fireEvent.pointerDown(surface, {
-    pointerId: 1,
-    clientX: 610,
-    clientY: 110,
-  });
-  fireEvent.pointerUp(surface, { pointerId: 1, clientX: 610, clientY: 110 });
-  fireEvent.keyDown(surface, { key: "Enter" });
-  const editor = screen.getByDisplayValue("最初の付箋");
-  fireEvent.change(editor, { target: { value: "共有前に保存する最新本文" } });
-  fireEvent.blur(editor);
-  const request = socket.sent
-    .map((raw) => JSON.parse(raw))
-    .find((message) => message.type === "note:update-content");
-  const scroller = screen.getByTestId("board-canvas").parentElement;
-  if (!scroller) throw new Error("scroller missing");
-  Object.defineProperty(scroller, "getBoundingClientRect", {
-    value: () => new DOMRect(0, 0, 500, 400),
-  });
-  mockPrivateToolbarLayout(toolbar);
-  const root = screen.getByTestId("room-board-view-root");
-  function drop() {
+it.each([false, true])(
+  "未保存の個人付箋の共有は最新本文のACKまで待ち、二重dropでも一度だけ共有する（ACKと同時に発表交代:%s）",
+  (turnChanged) => {
+    const { socket } = connectWithSnapshot(
+      [protocolNote({ visibility: "private" })],
+      { phase: buildPhaseStep(2) },
+    );
+    const toolbar = openPrivateNotesToolbar();
     const surface = within(toolbar).getByRole("button", { name: "付箋" });
     fireEvent.pointerDown(surface, {
-      pointerId: 2,
-      clientX: 650,
-      clientY: 120,
+      pointerId: 1,
+      clientX: 610,
+      clientY: 110,
     });
-    fireEvent.pointerMove(surface, {
-      pointerId: 2,
-      buttons: 1,
-      clientX: 655,
-      clientY: 125,
-    });
-    fireEvent.pointerMove(root, {
-      pointerId: 2,
-      buttons: 1,
-      clientX: 140,
-      clientY: 160,
-    });
-    fireEvent.pointerUp(root, { pointerId: 2, clientX: 140, clientY: 160 });
-  }
-  drop();
-  drop();
-  const publishes = () =>
-    socket.sent
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 610, clientY: 110 });
+    fireEvent.keyDown(surface, { key: "Enter" });
+    const editor = screen.getByDisplayValue("最初の付箋");
+    fireEvent.change(editor, { target: { value: "共有前に保存する最新本文" } });
+    fireEvent.blur(editor);
+    const request = socket.sent
       .map((raw) => JSON.parse(raw))
-      .filter((message) => message.type === "note:publish");
-  expect(publishes()).toHaveLength(0);
-  expect(screen.getByRole("status")).toHaveTextContent(
-    "本文の保存を確認してから共有します",
-  );
-  act(() => {
-    if (turnChanged)
-      socket.simulateServerMessage({
-        type: "sharing:updated",
-        sharing: buildSharingState({
-          order: sharingOrder,
-          status: "active",
-          currentIndex: 1,
-          results: ["done"],
-        }),
-        timer: { status: "idle" },
-        serverNow: Date.now(),
+      .find((message) => message.type === "note:update-content");
+    const scroller = screen.getByTestId("board-canvas").parentElement;
+    if (!scroller) throw new Error("scroller missing");
+    Object.defineProperty(scroller, "getBoundingClientRect", {
+      value: () => new DOMRect(0, 0, 500, 400),
+    });
+    mockPrivateToolbarLayout(toolbar);
+    const root = screen.getByTestId("room-board-view-root");
+    function drop() {
+      const surface = within(toolbar).getByRole("button", { name: "付箋" });
+      fireEvent.pointerDown(surface, {
+        pointerId: 2,
+        clientX: 650,
+        clientY: 120,
       });
-    socket.simulateServerMessage({
-      type: "note:content-saved",
-      operationId: request.operationId,
-      noteId: NOTE_ID,
-      contentRevision: 1,
+      fireEvent.pointerMove(surface, {
+        pointerId: 2,
+        buttons: 1,
+        clientX: 655,
+        clientY: 125,
+      });
+      fireEvent.pointerMove(root, {
+        pointerId: 2,
+        buttons: 1,
+        clientX: 140,
+        clientY: 160,
+      });
+      fireEvent.pointerUp(root, { pointerId: 2, clientX: 140, clientY: 160 });
+    }
+    drop();
+    drop();
+    const publishes = () =>
+      socket.sent
+        .map((raw) => JSON.parse(raw))
+        .filter((message) => message.type === "note:publish");
+    expect(publishes()).toHaveLength(0);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "本文の保存を確認してから共有します",
+    );
+    act(() => {
+      if (turnChanged)
+        socket.simulateServerMessage({
+          type: "sharing:updated",
+          sharing: buildSharingState({
+            order: sharingOrder,
+            status: "active",
+            currentIndex: 1,
+            results: ["done"],
+          }),
+          timer: { status: "idle" },
+          serverNow: Date.now(),
+        });
+      socket.simulateServerMessage({
+        type: "note:content-saved",
+        operationId: request.operationId,
+        noteId: NOTE_ID,
+        contentRevision: 1,
+      });
     });
-  });
-  expect(publishes()).toHaveLength(turnChanged ? 0 : 1);
-  expect(
-    screen.queryByText("本文の保存を確認してから共有します…"),
-  ).not.toBeInTheDocument();
-  if (!turnChanged)
-    expect(publishes()[0]).toMatchObject({
-      noteId: NOTE_ID,
-      x: expect.any(Number),
-      y: expect.any(Number),
-    });
-});
+    expect(publishes()).toHaveLength(turnChanged ? 0 : 1);
+    expect(
+      screen.queryByText("本文の保存を確認してから共有します…"),
+    ).not.toBeInTheDocument();
+    if (!turnChanged)
+      expect(publishes()[0]).toMatchObject({
+        noteId: NOTE_ID,
+        x: expect.any(Number),
+        y: expect.any(Number),
+      });
+  },
+);
 
 describe("保存待ちを伴わない工程進行", () => {
   it("移行送信中は二重操作を防ぎ、サーバー確定で現在地・次工程の操作領域・次の進行を表示する", () => {
@@ -3118,78 +3133,78 @@ describe("保存待ちを伴わない工程進行", () => {
     });
   });
 
-  it.each([
-    "phase:save-requested",
-    "snapshot",
-  ] as const)("旧%sの保存予約で付箋追加・工程進行を停止しない", (delivery) => {
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(1),
-      members: [{ userId: USER_ID, name: "Yuki Tanaka", color: "yellow" }],
-      progress: {
-        phaseRevision: 0,
-        progressRevision: 1,
-        connectedUserIds: [USER_ID],
-        readyUserIds: [USER_ID],
-        notReadyUserIds: [],
-        canAdvance: true,
-        allReady: true,
-      },
-    });
-    const pending = {
-      transitionId: crypto.randomUUID(),
-      expectedPhase: buildPhaseStep(1),
-      expectedRevision: 0,
-      deadlineAt: Date.now() + 2000,
-      serverNow: Date.now(),
-    };
-    act(() =>
-      socket.simulateServerMessage(
-        delivery === "phase:save-requested"
-          ? { type: delivery, ...pending }
-          : {
-              type: "snapshot",
-              phase: buildPhaseStep(1),
-              phaseRevision: 0,
-              notes: [],
-              members: [
-                { userId: USER_ID, name: "Yuki Tanaka", color: "yellow" },
-              ],
-              noteCreateProtocolVersion: 1,
-              isHost: true,
-              decision: null,
-              carryovers: [],
-              completedVoterIds: [],
-              progress: {
+  it.each(["phase:save-requested", "snapshot"] as const)(
+    "旧%sの保存予約で付箋追加・工程進行を停止しない",
+    (delivery) => {
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(1),
+        members: [{ userId: USER_ID, name: "Yuki Tanaka", color: "yellow" }],
+        progress: {
+          phaseRevision: 0,
+          progressRevision: 1,
+          connectedUserIds: [USER_ID],
+          readyUserIds: [USER_ID],
+          notReadyUserIds: [],
+          canAdvance: true,
+          allReady: true,
+        },
+      });
+      const pending = {
+        transitionId: crypto.randomUUID(),
+        expectedPhase: buildPhaseStep(1),
+        expectedRevision: 0,
+        deadlineAt: Date.now() + 2000,
+        serverNow: Date.now(),
+      };
+      act(() =>
+        socket.simulateServerMessage(
+          delivery === "phase:save-requested"
+            ? { type: delivery, ...pending }
+            : {
+                type: "snapshot",
+                phase: buildPhaseStep(1),
                 phaseRevision: 0,
-                progressRevision: 1,
-                connectedUserIds: [USER_ID],
-                readyUserIds: [USER_ID],
-                notReadyUserIds: [],
-                canAdvance: true,
-                allReady: true,
+                notes: [],
+                members: [
+                  { userId: USER_ID, name: "Yuki Tanaka", color: "yellow" },
+                ],
+                noteCreateProtocolVersion: 1,
+                isHost: true,
+                decision: null,
+                carryovers: [],
+                completedVoterIds: [],
+                progress: {
+                  phaseRevision: 0,
+                  progressRevision: 1,
+                  connectedUserIds: [USER_ID],
+                  readyUserIds: [USER_ID],
+                  notReadyUserIds: [],
+                  canAdvance: true,
+                  allReady: true,
+                },
+                timer: {
+                  status: "running",
+                  endsAt: Date.now() + 60_000,
+                  durationMs: 60_000,
+                },
+                serverNow: Date.now(),
+                pendingPhaseTransition: pending,
               },
-              timer: {
-                status: "running",
-                endsAt: Date.now() + 60_000,
-                durationMs: 60_000,
-              },
-              serverNow: Date.now(),
-              pendingPhaseTransition: pending,
-            },
-      ),
-    );
-    expect(
-      screen.getByRole("button", { name: "次のステップへ" }),
-    ).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
-    expectSent(socket, { type: "note:create" });
-    fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
-    expectSent(socket, {
-      type: "phase:next",
-      expectedPhase: buildPhaseStep(1),
-      expectedRevision: 0,
-    });
-  });
+        ),
+      );
+      expect(
+        screen.getByRole("button", { name: "次のステップへ" }),
+      ).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "付箋を追加" }));
+      expectSent(socket, { type: "note:create" });
+      fireEvent.click(screen.getByRole("button", { name: "次のステップへ" }));
+      expectSent(socket, {
+        type: "phase:next",
+        expectedPhase: buildPhaseStep(1),
+        expectedRevision: 0,
+      });
+    },
+  );
 
   it("工程進行が拒否されたら送信中を解除し、同じ工程から再試行できる", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
@@ -3361,83 +3376,84 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         ),
     ).toEqual([]);
   });
-  it.each([
-    3, 5,
-  ])("Step 3-%iでは付箋だけを移動し、カメラを動かさない", (step) => {
-    const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
-      phase: buildPhaseStep(step, 3),
-    });
-    const canvas = screen.getByTestId("board-canvas");
-    const plane = screen.getByTestId("idea-value-feasibility-map-plane");
-    const cameraBefore = canvas.style.transform;
-    const scroller = canvas.parentElement;
-    if (!scroller) throw new Error("ボードスクローラーがありません");
-    Object.defineProperty(scroller, "getBoundingClientRect", {
-      value: () => ({
-        left: 0,
-        top: 0,
-        right: 600,
-        bottom: 600,
-        width: 600,
-        height: 600,
-      }),
-    });
-    const positionArea = screen.getByTestId("idea-map-viewport-plane");
-    Object.defineProperty(positionArea, "getBoundingClientRect", {
-      value: () => ({
-        left: 100,
-        top: 100,
-        right: 500,
-        bottom: 500,
-        width: 400,
-        height: 400,
-      }),
-    });
+  it.each([3, 5])(
+    "Step 3-%iでは付箋だけを移動し、カメラを動かさない",
+    (step) => {
+      const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
+        phase: buildPhaseStep(step, 3),
+      });
+      const canvas = screen.getByTestId("board-canvas");
+      const plane = screen.getByTestId("idea-value-feasibility-map-plane");
+      const cameraBefore = canvas.style.transform;
+      const scroller = canvas.parentElement;
+      if (!scroller) throw new Error("ボードスクローラーがありません");
+      Object.defineProperty(scroller, "getBoundingClientRect", {
+        value: () => ({
+          left: 0,
+          top: 0,
+          right: 600,
+          bottom: 600,
+          width: 600,
+          height: 600,
+        }),
+      });
+      const positionArea = screen.getByTestId("idea-map-viewport-plane");
+      Object.defineProperty(positionArea, "getBoundingClientRect", {
+        value: () => ({
+          left: 100,
+          top: 100,
+          right: 500,
+          bottom: 500,
+          width: 400,
+          height: 400,
+        }),
+      });
 
-    const mappedNote = within(plane).getByTestId(
-      "idea-value-feasibility-map-note-cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-    );
-    expect(mappedNote).toHaveStyle({
-      transform: "scale(1)",
-    });
-    const note = within(mappedNote).getByTestId("note-card");
+      const mappedNote = within(plane).getByTestId(
+        "idea-value-feasibility-map-note-cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      );
+      expect(mappedNote).toHaveStyle({
+        transform: "scale(1)",
+      });
+      const note = within(mappedNote).getByTestId("note-card");
 
-    const surface = within(note).getByRole("button", { name: "付箋" });
-    surface.getBoundingClientRect = () => new DOMRect(100, 125, 200, 150);
-    fireEvent.pointerDown(surface, {
-      pointerId: 1,
-      clientX: 200,
-      clientY: 200,
-    });
-    fireEvent.pointerMove(surface, {
-      buttons: 1,
-      pointerId: 1,
-      clientX: 210,
-      clientY: 210,
-    });
-    const root = screen.getByTestId("room-board-view-root");
-    fireEvent.pointerMove(root, {
-      buttons: 1,
-      pointerId: 1,
-      clientX: 310,
-      clientY: 310,
-    });
-    fireEvent.pointerUp(root, {
-      pointerId: 1,
-      clientX: 310,
-      clientY: 310,
-    });
+      const surface = within(note).getByRole("button", { name: "付箋" });
+      surface.getBoundingClientRect = () => new DOMRect(100, 125, 200, 150);
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      });
+      fireEvent.pointerMove(surface, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: 210,
+        clientY: 210,
+      });
+      const root = screen.getByTestId("room-board-view-root");
+      fireEvent.pointerMove(root, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: 310,
+        clientY: 310,
+      });
+      fireEvent.pointerUp(root, {
+        pointerId: 1,
+        clientX: 310,
+        clientY: 310,
+      });
 
-    const end = socket.sent
-      .map((raw) => JSON.parse(raw))
-      .find((message) => message.type === "note:drag:end");
-    // 閾値を越える移動もpointerdownからの実移動量に含め、
-    // 400×400pxのマップ全体に対して最終的な110pxの移動を反映する。
-    expect(end.noteId).toBe(NOTE_ID);
-    expect(end.position.x).toBeCloseTo(25 + (110 / 400) * 100);
-    expect(end.position.y).toBeCloseTo(75 - (110 / 400) * 100);
-    expect(canvas.style.transform).toBe(cameraBefore);
-  });
+      const end = socket.sent
+        .map((raw) => JSON.parse(raw))
+        .find((message) => message.type === "note:drag:end");
+      // 閾値を越える移動もpointerdownからの実移動量に含め、
+      // 400×400pxのマップ全体に対して最終的な110pxの移動を反映する。
+      expect(end.noteId).toBe(NOTE_ID);
+      expect(end.position.x).toBeCloseTo(25 + (110 / 400) * 100);
+      expect(end.position.y).toBeCloseTo(75 - (110 / 400) * 100);
+      expect(canvas.style.transform).toBe(cameraBefore);
+    },
+  );
 
   it("Step 3-2でマイ付箋を2軸マップ上へ公開する", () => {
     const privateNote = protocolNote({ visibility: "private" });
@@ -3531,44 +3547,45 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     );
   });
 
-  it.each([
-    4,
-  ])("Step 3-%iではマップ上の付箋をドラッグしても移動メッセージを送らない", (step) => {
-    const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
-      phase: buildPhaseStep(step, 3),
-    });
-    const note = within(
-      screen.getByTestId("idea-value-feasibility-map-plane"),
-    ).getByTestId("note-card");
-    const surface = within(note).getByRole("button", {
-      name: "付箋",
-      hidden: true,
-    });
+  it.each([4])(
+    "Step 3-%iではマップ上の付箋をドラッグしても移動メッセージを送らない",
+    (step) => {
+      const { socket } = connectWithSnapshot([protocolNote({ x: 25, y: 75 })], {
+        phase: buildPhaseStep(step, 3),
+      });
+      const note = within(
+        screen.getByTestId("idea-value-feasibility-map-plane"),
+      ).getByTestId("note-card");
+      const surface = within(note).getByRole("button", {
+        name: "付箋",
+        hidden: true,
+      });
 
-    fireEvent.pointerDown(surface, {
-      pointerId: 1,
-      clientX: 200,
-      clientY: 200,
-    });
-    fireEvent.pointerMove(surface, {
-      buttons: 1,
-      pointerId: 1,
-      clientX: 210,
-      clientY: 210,
-    });
-    fireEvent.pointerUp(surface, {
-      pointerId: 1,
-      clientX: 210,
-      clientY: 210,
-    });
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      });
+      fireEvent.pointerMove(surface, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: 210,
+        clientY: 210,
+      });
+      fireEvent.pointerUp(surface, {
+        pointerId: 1,
+        clientX: 210,
+        clientY: 210,
+      });
 
-    expect(
-      socket.sent.map((payload) => JSON.parse(payload).type),
-    ).not.toContain("note:drag:move");
-    expect(
-      socket.sent.map((payload) => JSON.parse(payload).type),
-    ).not.toContain("note:drag:end");
-  });
+      expect(
+        socket.sent.map((payload) => JSON.parse(payload).type),
+      ).not.toContain("note:drag:move");
+      expect(
+        socket.sent.map((payload) => JSON.parse(payload).type),
+      ).not.toContain("note:drag:end");
+    },
+  );
 });
 
 describe("候補Undoの結果工程内の寿命", () => {
@@ -3576,78 +3593,81 @@ describe("候補Undoの結果工程内の寿命", () => {
     [1, 5, 2, 1],
     [2, 4, 3, 1],
     [3, 5, 3, 4],
-  ] as const)("%i-%iから%i-%iへ移ると自動除外通知とUndoを破棄する", (phase, step, nextPhase, nextStep) => {
-    notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
-      "result-only-toast",
-    );
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(step, phase),
-    });
-    const operationId = "33333333-3333-4333-8333-333333333333";
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId,
-        count: 1,
-        source: "phase-transition",
-      }),
-    );
-    const undo =
-      notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
-    expect(undo).toBeTypeOf("function");
-    act(() =>
-      socket.simulateServerMessage({
-        type: "phase:updated",
-        phase: buildPhaseStep(nextStep, nextPhase),
-        phaseRevision: 1,
-        timer: { status: "idle" },
-      }),
-    );
-    expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
-      "result-only-toast",
-    );
-    if (typeof undo !== "function") throw new Error("Undoがありません");
-    act(() => undo());
-    expect(
-      socket.sent.map((payload) => JSON.parse(payload).type),
-    ).not.toContain("note:bulk-restore");
-  });
-  it.each([
-    true,
-    false,
-  ])("採用後は旧Undo/ホストが戻せる通知を消しcallbackも送信しない host=%s", (isHost) => {
-    notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
-      "u13-candidate-toast",
-    );
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(5),
-      isHost,
-    });
-    const operationId = "33333333-3333-4333-8333-333333333333";
-    act(() =>
-      socket.simulateServerMessage({
-        type: "note:bulk-excluded",
-        operationId,
-        count: 1,
-        source: "phase-transition",
-      }),
-    );
-    const undo =
-      notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
-    act(() =>
-      socket.simulateServerMessage({
-        type: "decision:updated",
-        decision: { phase: 1, noteId: NOTE_ID, decidedBy: USER_ID },
-      }),
-    );
-    expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
-      "u13-candidate-toast",
-    );
-    if (typeof undo === "function") undo();
-    expect(socket.sent).not.toContain(
-      JSON.stringify({ type: "note:bulk-restore", operationId }),
-    );
-  });
+  ] as const)(
+    "%i-%iから%i-%iへ移ると自動除外通知とUndoを破棄する",
+    (phase, step, nextPhase, nextStep) => {
+      notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
+        "result-only-toast",
+      );
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(step, phase),
+      });
+      const operationId = "33333333-3333-4333-8333-333333333333";
+      act(() =>
+        socket.simulateServerMessage({
+          type: "note:bulk-excluded",
+          operationId,
+          count: 1,
+          source: "phase-transition",
+        }),
+      );
+      const undo =
+        notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
+      expect(undo).toBeTypeOf("function");
+      act(() =>
+        socket.simulateServerMessage({
+          type: "phase:updated",
+          phase: buildPhaseStep(nextStep, nextPhase),
+          phaseRevision: 1,
+          timer: { status: "idle" },
+        }),
+      );
+      expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
+        "result-only-toast",
+      );
+      if (typeof undo !== "function") throw new Error("Undoがありません");
+      act(() => undo());
+      expect(
+        socket.sent.map((payload) => JSON.parse(payload).type),
+      ).not.toContain("note:bulk-restore");
+    },
+  );
+  it.each([true, false])(
+    "採用後は旧Undo/ホストが戻せる通知を消しcallbackも送信しない host=%s",
+    (isHost) => {
+      notifyMocks.automaticallyExcludedCandidates.mockReturnValue(
+        "u13-candidate-toast",
+      );
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(5),
+        isHost,
+      });
+      const operationId = "33333333-3333-4333-8333-333333333333";
+      act(() =>
+        socket.simulateServerMessage({
+          type: "note:bulk-excluded",
+          operationId,
+          count: 1,
+          source: "phase-transition",
+        }),
+      );
+      const undo =
+        notifyMocks.automaticallyExcludedCandidates.mock.calls.at(-1)?.[1];
+      act(() =>
+        socket.simulateServerMessage({
+          type: "decision:updated",
+          decision: { phase: 1, noteId: NOTE_ID, decidedBy: USER_ID },
+        }),
+      );
+      expect(notifyMocks.dismissCandidateNotice).toHaveBeenCalledWith(
+        "u13-candidate-toast",
+      );
+      if (typeof undo === "function") undo();
+      expect(socket.sent).not.toContain(
+        JSON.stringify({ type: "note:bulk-restore", operationId }),
+      );
+    },
+  );
   it("結果工程を離れたら旧Undo送信を止めるが、結果工程内では有効", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(5),
@@ -3684,33 +3704,37 @@ describe("候補Undoの結果工程内の寿命", () => {
 });
 
 describe("作業中のホスト交代", () => {
-  it.each([
-    true,
-    false,
-  ])("1-1でホスト交代後の通知でもマイ付箋を表示し続ける（旧ホスト=%s）", (isHost) => {
-    const note = protocolNote({
-      visibility: "private",
-      content: "交代しても残る下書き",
-    });
-    const { socket } = connectWithSnapshot([note], { isHost });
-    const toolbar = openPrivateNotesToolbar();
-    expect(within(toolbar).getByDisplayValue(note.content)).toBeInTheDocument();
-    act(() =>
-      socket.simulateServerMessage({
-        type: "host:updated",
-        hostUserId: isHost ? OTHER_USER_ID : USER_ID,
-        hostRevision: 1,
-      }),
-    );
-    act(() =>
-      socket.simulateServerMessage({
-        type: "timer:updated",
-        timer: { status: "idle" },
-        serverNow: Date.now(),
-      }),
-    );
-    expect(within(toolbar).getByDisplayValue(note.content)).toBeInTheDocument();
-  });
+  it.each([true, false])(
+    "1-1でホスト交代後の通知でもマイ付箋を表示し続ける（旧ホスト=%s）",
+    (isHost) => {
+      const note = protocolNote({
+        visibility: "private",
+        content: "交代しても残る下書き",
+      });
+      const { socket } = connectWithSnapshot([note], { isHost });
+      const toolbar = openPrivateNotesToolbar();
+      expect(
+        within(toolbar).getByDisplayValue(note.content),
+      ).toBeInTheDocument();
+      act(() =>
+        socket.simulateServerMessage({
+          type: "host:updated",
+          hostUserId: isHost ? OTHER_USER_ID : USER_ID,
+          hostRevision: 1,
+        }),
+      );
+      act(() =>
+        socket.simulateServerMessage({
+          type: "timer:updated",
+          timer: { status: "idle" },
+          serverNow: Date.now(),
+        }),
+      );
+      expect(
+        within(toolbar).getByDisplayValue(note.content),
+      ).toBeInTheDocument();
+    },
+  );
 
   function connectTransferBoard(hostUserId = USER_ID) {
     const result = connectWithSnapshot();
@@ -3914,47 +3938,46 @@ describe("ボードの参加者退出", () => {
 });
 
 describe("transaction interruption DOM", () => {
-  it.each([
-    "Escape",
-    "blur",
-    "lostpointercapture",
-  ])("%sでpreviewを取消し復帰pointerupでcommitしない", (reason) => {
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(2, 1),
-      moveProtocolVersion: 1,
-    });
-    const scroller = screen.getByTestId("board-scroller");
-    const surface = within(screen.getByTestId("board-canvas")).getByRole(
-      "button",
-      { name: "付箋" },
-    );
-    fireEvent.pointerDown(surface, {
-      pointerId: 7,
-      clientX: 100,
-      clientY: 100,
-    });
-    fireEvent.pointerMove(surface, {
-      buttons: 1,
-      pointerId: 7,
-      clientX: 110,
-      clientY: 110,
-    });
-    expectSent(socket, { type: "note:move:start" });
-    if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
-    else if (reason === "blur") fireEvent.blur(window);
-    else fireEvent.lostPointerCapture(scroller, { pointerId: 7 });
-    fireEvent.pointerUp(scroller, {
-      pointerId: 7,
-      clientX: 150,
-      clientY: 150,
-    });
-    expectSent(socket, { type: "note:move:cancel" });
-    expect(
-      socket.sent
-        .map((v) => JSON.parse(v))
-        .filter((m) => m.type === "note:move:commit"),
-    ).toHaveLength(0);
-  });
+  it.each(["Escape", "blur", "lostpointercapture"])(
+    "%sでpreviewを取消し復帰pointerupでcommitしない",
+    (reason) => {
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(2, 1),
+        moveProtocolVersion: 1,
+      });
+      const scroller = screen.getByTestId("board-scroller");
+      const surface = within(screen.getByTestId("board-canvas")).getByRole(
+        "button",
+        { name: "付箋" },
+      );
+      fireEvent.pointerDown(surface, {
+        pointerId: 7,
+        clientX: 100,
+        clientY: 100,
+      });
+      fireEvent.pointerMove(surface, {
+        buttons: 1,
+        pointerId: 7,
+        clientX: 110,
+        clientY: 110,
+      });
+      expectSent(socket, { type: "note:move:start" });
+      if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
+      else if (reason === "blur") fireEvent.blur(window);
+      else fireEvent.lostPointerCapture(scroller, { pointerId: 7 });
+      fireEvent.pointerUp(scroller, {
+        pointerId: 7,
+        clientX: 150,
+        clientY: 150,
+      });
+      expectSent(socket, { type: "note:move:cancel" });
+      expect(
+        socket.sent
+          .map((v) => JSON.parse(v))
+          .filter((m) => m.type === "note:move:commit"),
+      ).toHaveLength(0);
+    },
+  );
   it("NoteCardからscrollerへのcapture移管ではpreviewを取消さない", () => {
     const { socket } = connectWithSnapshot([protocolNote()], {
       phase: buildPhaseStep(2, 1),
@@ -3995,168 +4018,169 @@ describe("transaction interruption DOM", () => {
 });
 
 describe("pointer origin interruption DOM", () => {
-  it.each([
-    "Escape",
-    "blur",
-  ])("閾値前の%sでgestureを破棄し復帰move/upで開始しない", (reason) => {
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(2, 1),
-      moveProtocolVersion: 1,
-    });
-    const surface = within(screen.getByTestId("board-canvas")).getByRole(
-      "button",
-      { name: "付箋" },
-    );
-    fireEvent.pointerDown(surface, {
-      pointerId: 7,
-      clientX: 100,
-      clientY: 100,
-    });
-    if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
-    else fireEvent.blur(window);
-    fireEvent.pointerMove(surface, {
-      buttons: 1,
-      pointerId: 7,
-      clientX: 130,
-      clientY: 130,
-    });
-    fireEvent.pointerUp(surface, {
-      pointerId: 7,
-      clientX: 150,
-      clientY: 150,
-    });
-    expect(
-      socket.sent
-        .map((v) => JSON.parse(v))
-        .filter((m) => m.type.startsWith("note:move:")),
-    ).toHaveLength(0);
-  });
+  it.each(["Escape", "blur"])(
+    "閾値前の%sでgestureを破棄し復帰move/upで開始しない",
+    (reason) => {
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(2, 1),
+        moveProtocolVersion: 1,
+      });
+      const surface = within(screen.getByTestId("board-canvas")).getByRole(
+        "button",
+        { name: "付箋" },
+      );
+      fireEvent.pointerDown(surface, {
+        pointerId: 7,
+        clientX: 100,
+        clientY: 100,
+      });
+      if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
+      else fireEvent.blur(window);
+      fireEvent.pointerMove(surface, {
+        buttons: 1,
+        pointerId: 7,
+        clientX: 130,
+        clientY: 130,
+      });
+      fireEvent.pointerUp(surface, {
+        pointerId: 7,
+        clientX: 150,
+        clientY: 150,
+      });
+      expect(
+        socket.sent
+          .map((v) => JSON.parse(v))
+          .filter((m) => m.type.startsWith("note:move:")),
+      ).toHaveLength(0);
+    },
+  );
 });
 
 describe("pending interruption DOM", () => {
-  it.each([
-    "Escape",
-    "blur",
-  ])("送信後の%sでは取消成功扱いせず照会だけ送る", (reason) => {
-    const { socket } = connectWithSnapshot([protocolNote()], {
-      phase: buildPhaseStep(2, 1),
-      moveProtocolVersion: 1,
-    });
-    const surface = within(screen.getByTestId("board-canvas")).getByRole(
-      "button",
-      { name: "付箋" },
-    );
-    fireEvent.pointerDown(surface, {
-      pointerId: 7,
-      clientX: 100,
-      clientY: 100,
-    });
-    fireEvent.pointerMove(surface, {
-      buttons: 1,
-      pointerId: 7,
-      clientX: 110,
-      clientY: 110,
-    });
-    fireEvent.pointerUp(screen.getByTestId("board-scroller"), {
-      pointerId: 7,
-      clientX: 150,
-      clientY: 150,
-    });
-    if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
-    else fireEvent.blur(window);
-    const messages = socket.sent.map((v) => JSON.parse(v));
-    expect(messages.filter((m) => m.type === "note:move:commit")).toHaveLength(
-      1,
-    );
-    expect(messages.filter((m) => m.type === "note:move:cancel")).toHaveLength(
-      0,
-    );
-    expect(messages.filter((m) => m.type === "note:move:status")).toHaveLength(
-      1,
-    );
-  });
+  it.each(["Escape", "blur"])(
+    "送信後の%sでは取消成功扱いせず照会だけ送る",
+    (reason) => {
+      const { socket } = connectWithSnapshot([protocolNote()], {
+        phase: buildPhaseStep(2, 1),
+        moveProtocolVersion: 1,
+      });
+      const surface = within(screen.getByTestId("board-canvas")).getByRole(
+        "button",
+        { name: "付箋" },
+      );
+      fireEvent.pointerDown(surface, {
+        pointerId: 7,
+        clientX: 100,
+        clientY: 100,
+      });
+      fireEvent.pointerMove(surface, {
+        buttons: 1,
+        pointerId: 7,
+        clientX: 110,
+        clientY: 110,
+      });
+      fireEvent.pointerUp(screen.getByTestId("board-scroller"), {
+        pointerId: 7,
+        clientX: 150,
+        clientY: 150,
+      });
+      if (reason === "Escape") fireEvent.keyDown(window, { key: "Escape" });
+      else fireEvent.blur(window);
+      const messages = socket.sent.map((v) => JSON.parse(v));
+      expect(
+        messages.filter((m) => m.type === "note:move:commit"),
+      ).toHaveLength(1);
+      expect(
+        messages.filter((m) => m.type === "note:move:cancel"),
+      ).toHaveLength(0);
+      expect(
+        messages.filter((m) => m.type === "note:move:status"),
+      ).toHaveLength(1);
+    },
+  );
 });
 
-it.each([
-  401, 404,
-])("再接続の終端%sで入力中の本文を消さず回収欄へ渡す", async (status) => {
-  sessionStorage.clear();
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(new Response(null, { status })),
-  );
-  const { socket, view } = connectWithSnapshot([protocolNote()], {
-    phase: buildPhaseStep(2),
-  });
-  fireEvent.change(screen.getByDisplayValue("最初の付箋"), {
-    target: { value: "保存前に切れた文章" },
-  });
-  await act(async () => socket.simulateUnexpectedClose());
-  expect(
-    screen.getByRole("link", {
-      name: status === 401 ? "ログインする" : "ホームへ戻る",
-    }),
-  ).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
-  expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
-    "保存前に切れた文章",
-  );
-  expect(socket.sent.map((s) => JSON.parse(s))).not.toContainEqual(
-    expect.objectContaining({ type: "note:update-content" }),
-  );
-  view.unmount();
-  vi.unstubAllGlobals();
-  sessionStorage.clear();
-});
+it.each([401, 404])(
+  "再接続の終端%sで入力中の本文を消さず回収欄へ渡す",
+  async (status) => {
+    sessionStorage.clear();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status })),
+    );
+    const { socket, view } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2),
+    });
+    fireEvent.change(screen.getByDisplayValue("最初の付箋"), {
+      target: { value: "保存前に切れた文章" },
+    });
+    await act(async () => socket.simulateUnexpectedClose());
+    expect(
+      screen.getByRole("link", {
+        name: status === 401 ? "ログインする" : "ホームへ戻る",
+      }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
+    expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
+      "保存前に切れた文章",
+    );
+    expect(socket.sent.map((s) => JSON.parse(s))).not.toContainEqual(
+      expect.objectContaining({ type: "note:update-content" }),
+    );
+    view.unmount();
+    vi.unstubAllGlobals();
+    sessionStorage.clear();
+  },
+);
 
-it.each([
-  "blur",
-  "compositionEnd",
-  "change",
-] as const)("認証期限の専用close後の%sで回収文を失わず確認・コピーできる", async (lateEvent) => {
-  const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText },
-  });
-  vi.stubGlobal("fetch", vi.fn());
-  const { socket, view } = connectWithSnapshot([protocolNote()], {
-    phase: buildPhaseStep(2),
-  });
-  fireEvent.change(screen.getByDisplayValue("最初の付箋"), {
-    target: { value: "期限切れでも残す入力文" },
-  });
-  await act(async () => socket.simulateAuthRequiredClose());
-  expect(screen.getByRole("link", { name: "ログインする" })).toHaveAttribute(
-    "href",
-    `/login?next=${encodeURIComponent(`/rooms/${ROOM_ID}`)}`,
-  );
-  expect(navigationMocks.replace).not.toHaveBeenCalled();
-  expect(fetch).not.toHaveBeenCalled();
-  expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
-  // 回収UIへフォーカスを移すと、盤面に残ったtextareaの遅延blurが届く。
-  const staleEditor = screen.getByDisplayValue("最初の付箋");
-  if (lateEvent === "blur") fireEvent.blur(staleEditor);
-  else if (lateEvent === "compositionEnd")
-    fireEvent.compositionEnd(staleEditor);
-  else fireEvent.change(staleEditor, { target: { value: "遅延した古い本文" } });
-  fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
-  expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
-    "期限切れでも残す入力文",
-  );
-  fireEvent.click(screen.getByRole("button", { name: "コピー" }));
-  await waitFor(() =>
-    expect(writeText).toHaveBeenCalledWith("期限切れでも残す入力文"),
-  );
-  expect(socket.sent.map((s) => JSON.parse(s))).not.toContainEqual(
-    expect.objectContaining({ type: "note:update-content" }),
-  );
-  expect(
-    sessionStorage.getItem(`idea-boost:note-drafts:v1:${USER_ID}:${ROOM_ID}`),
-  ).toContain("期限切れでも残す入力文");
-  view.unmount();
-  vi.unstubAllGlobals();
-});
+it.each(["blur", "compositionEnd", "change"] as const)(
+  "認証期限の専用close後の%sで回収文を失わず確認・コピーできる",
+  async (lateEvent) => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    vi.stubGlobal("fetch", vi.fn());
+    const { socket, view } = connectWithSnapshot([protocolNote()], {
+      phase: buildPhaseStep(2),
+    });
+    fireEvent.change(screen.getByDisplayValue("最初の付箋"), {
+      target: { value: "期限切れでも残す入力文" },
+    });
+    await act(async () => socket.simulateAuthRequiredClose());
+    expect(screen.getByRole("link", { name: "ログインする" })).toHaveAttribute(
+      "href",
+      `/login?next=${encodeURIComponent(`/rooms/${ROOM_ID}`)}`,
+    );
+    expect(navigationMocks.replace).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "次の人へ" })).toBeDisabled();
+    // 回収UIへフォーカスを移すと、盤面に残ったtextareaの遅延blurが届く。
+    const staleEditor = screen.getByDisplayValue("最初の付箋");
+    if (lateEvent === "blur") fireEvent.blur(staleEditor);
+    else if (lateEvent === "compositionEnd")
+      fireEvent.compositionEnd(staleEditor);
+    else
+      fireEvent.change(staleEditor, { target: { value: "遅延した古い本文" } });
+    fireEvent.click(screen.getByRole("button", { name: "確認・コピー" }));
+    expect(screen.getByRole("textbox", { name: "未反映の文章 1" })).toHaveValue(
+      "期限切れでも残す入力文",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "コピー" }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("期限切れでも残す入力文"),
+    );
+    expect(socket.sent.map((s) => JSON.parse(s))).not.toContainEqual(
+      expect.objectContaining({ type: "note:update-content" }),
+    );
+    expect(
+      sessionStorage.getItem(`idea-boost:note-drafts:v1:${USER_ID}:${ROOM_ID}`),
+    ).toContain("期限切れでも残す入力文");
+    view.unmount();
+    vi.unstubAllGlobals();
+  },
+);
 
 describe("直前のステップへの復元", () => {
   it("2段階の確認後だけ現在の世代を付けて送信し、送信中は重複操作を止める", () => {
@@ -4283,155 +4307,153 @@ it("他のホストが戻した後、参加者の古いIME確定・blurで復元
   ).toBeNull();
 });
 
-it.each([
-  1, 2, 3,
-] as const)("同段階%iの個人→共有snapshotと工程更新でも本人のIME入力要素と編集を維持する", async (phase) => {
-  const original = protocolNote({
-    visibility: "private",
-    content: "個人工程の本文",
-  });
-  const { socket } = connectWithSnapshot([original], {
-    isHost: false,
-    phase: buildPhaseStep(1, phase),
-  });
-  const toolbar = openPrivateNotesToolbar();
-  const surface = within(toolbar).getByRole("button", { name: "付箋" });
-  fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
-  fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
-  fireEvent.keyDown(surface, { key: "Enter" });
-  const editor = screen.getByDisplayValue("個人工程の本文");
-  expect(editor).not.toHaveAttribute("readonly");
-  fireEvent.compositionStart(editor);
-  fireEvent.change(editor, { target: { value: "かんじへんかん" } });
-  act(() => {
-    socket.simulateServerMessage({
-      type: "snapshot",
-      notes: [original],
-      members: [],
-      phase: buildPhaseStep(2, phase),
-      phaseRevision: 1,
+it.each([1, 2, 3] as const)(
+  "同段階%iの個人→共有snapshotと工程更新でも本人のIME入力要素と編集を維持する",
+  async (phase) => {
+    const original = protocolNote({
+      visibility: "private",
+      content: "個人工程の本文",
+    });
+    const { socket } = connectWithSnapshot([original], {
       isHost: false,
-      decision: null,
-      carryovers: [],
-      completedVoterIds: [],
-      timer: {
-        status: "running",
-        endsAt: Date.now() + 60_000,
-        durationMs: 60_000,
-      },
-      serverNow: Date.now(),
+      phase: buildPhaseStep(1, phase),
     });
-  });
-  expect(editor).not.toHaveAttribute("readonly");
-  act(() => {
-    socket.simulateServerMessage({
-      type: "phase:updated",
-      phase: buildPhaseStep(2, phase),
-      phaseRevision: 1,
+    const toolbar = openPrivateNotesToolbar();
+    const surface = within(toolbar).getByRole("button", { name: "付箋" });
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.keyDown(surface, { key: "Enter" });
+    const editor = screen.getByDisplayValue("個人工程の本文");
+    expect(editor).not.toHaveAttribute("readonly");
+    fireEvent.compositionStart(editor);
+    fireEvent.change(editor, { target: { value: "かんじへんかん" } });
+    act(() => {
+      socket.simulateServerMessage({
+        type: "snapshot",
+        notes: [original],
+        members: [],
+        phase: buildPhaseStep(2, phase),
+        phaseRevision: 1,
+        isHost: false,
+        decision: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: {
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        },
+        serverNow: Date.now(),
+      });
     });
-  });
-  expect(screen.getByDisplayValue("かんじへんかん")).toBe(editor);
-  expect(editor).not.toHaveAttribute("readonly");
-  expect(editor).toHaveFocus();
-  expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
-    expect.objectContaining({ type: "note:update-content" }),
-  );
-  fireEvent.compositionEnd(editor, { target: { value: "漢字変換" } });
-  fireEvent.blur(editor);
-  await act(async () => {});
-  const saves = socket.sent
-    .map((raw) => JSON.parse(raw))
-    .filter((message) => message.type === "note:update-content");
-  expect(saves).toHaveLength(1);
-  expect(saves[0]).toMatchObject({
-    content: "漢字変換",
-    expectedPhaseRevision: 1,
-  });
-  act(() => {
-    socket.simulateServerMessage({
-      type: "note:updated",
-      note: { ...original, content: "漢字変換", contentRevision: 1 },
+    expect(editor).not.toHaveAttribute("readonly");
+    act(() => {
+      socket.simulateServerMessage({
+        type: "phase:updated",
+        phase: buildPhaseStep(2, phase),
+        phaseRevision: 1,
+      });
     });
-    socket.simulateServerMessage({
-      type: "note:content-saved",
-      operationId: saves[0].operationId,
-      noteId: NOTE_ID,
-      contentRevision: 1,
+    expect(screen.getByDisplayValue("かんじへんかん")).toBe(editor);
+    expect(editor).not.toHaveAttribute("readonly");
+    expect(editor).toHaveFocus();
+    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+      expect.objectContaining({ type: "note:update-content" }),
+    );
+    fireEvent.compositionEnd(editor, { target: { value: "漢字変換" } });
+    fireEvent.blur(editor);
+    await act(async () => {});
+    const saves = socket.sent
+      .map((raw) => JSON.parse(raw))
+      .filter((message) => message.type === "note:update-content");
+    expect(saves).toHaveLength(1);
+    expect(saves[0]).toMatchObject({
+      content: "漢字変換",
+      expectedPhaseRevision: 1,
     });
-  });
-  expect(screen.getByDisplayValue("漢字変換")).toBeVisible();
-  expect(
-    sessionStorage.getItem(`idea-boost:note-drafts:v1:${USER_ID}:${ROOM_ID}`),
-  ).toBeNull();
-});
+    act(() => {
+      socket.simulateServerMessage({
+        type: "note:updated",
+        note: { ...original, content: "漢字変換", contentRevision: 1 },
+      });
+      socket.simulateServerMessage({
+        type: "note:content-saved",
+        operationId: saves[0].operationId,
+        noteId: NOTE_ID,
+        contentRevision: 1,
+      });
+    });
+    expect(screen.getByDisplayValue("漢字変換")).toBeVisible();
+    expect(
+      sessionStorage.getItem(`idea-boost:note-drafts:v1:${USER_ID}:${ROOM_ID}`),
+    ).toBeNull();
+  },
+);
 
-it.each([
-  "別段階",
-  "非編集",
-  "復元",
-  "削除",
-  "共有済み",
-] as const)("IME入力中でも%sでは個人→共有の編集継続を許可せず古い確定を送らない", async (stop) => {
-  const original = protocolNote({
-    visibility: "private",
-    content: "停止前の本文",
-  });
-  const { socket } = connectWithSnapshot([original], {
-    isHost: false,
-    phase: buildPhaseStep(1),
-  });
-  const surface = within(openPrivateNotesToolbar()).getByRole("button", {
-    name: "付箋",
-  });
-  fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
-  fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
-  fireEvent.keyDown(surface, { key: "Enter" });
-  const editor = screen.getByDisplayValue("停止前の本文");
-  fireEvent.compositionStart(editor);
-  fireEvent.change(editor, { target: { value: "取り消す変換" } });
-  const phase =
-    stop === "別段階"
-      ? buildPhaseStep(2, 2)
-      : stop === "非編集"
-        ? buildPhaseStep(3)
-        : buildPhaseStep(2);
-  act(() =>
-    socket.simulateServerMessage({
-      type: "snapshot",
-      notes:
-        stop === "削除"
-          ? []
-          : [
-              {
-                ...original,
-                ...(stop === "共有済み" ? { visibility: "shared" } : {}),
-              },
-            ],
-      members: [],
-      phase,
-      phaseRevision: 1,
-      ...(stop === "復元" ? { rollbackRevision: 1 } : {}),
+it.each(["別段階", "非編集", "復元", "削除", "共有済み"] as const)(
+  "IME入力中でも%sでは個人→共有の編集継続を許可せず古い確定を送らない",
+  async (stop) => {
+    const original = protocolNote({
+      visibility: "private",
+      content: "停止前の本文",
+    });
+    const { socket } = connectWithSnapshot([original], {
       isHost: false,
-      decision: null,
-      carryovers: [],
-      completedVoterIds: [],
-      timer: { status: "idle" },
-      serverNow: Date.now(),
-    }),
-  );
-  expect(editor.isConnected && !editor.hasAttribute("readonly")).toBe(false);
-  fireEvent.compositionEnd(editor, {
-    target: { value: "取り消された確定値" },
-  });
-  fireEvent.blur(editor);
-  await act(async () => {});
-  expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
-    expect.objectContaining({
-      type: "note:update-content",
-      content: "取り消された確定値",
-    }),
-  );
-});
+      phase: buildPhaseStep(1),
+    });
+    const surface = within(openPrivateNotesToolbar()).getByRole("button", {
+      name: "付箋",
+    });
+    fireEvent.pointerDown(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.pointerUp(surface, { pointerId: 1, clientX: 10, clientY: 10 });
+    fireEvent.keyDown(surface, { key: "Enter" });
+    const editor = screen.getByDisplayValue("停止前の本文");
+    fireEvent.compositionStart(editor);
+    fireEvent.change(editor, { target: { value: "取り消す変換" } });
+    const phase =
+      stop === "別段階"
+        ? buildPhaseStep(2, 2)
+        : stop === "非編集"
+          ? buildPhaseStep(3)
+          : buildPhaseStep(2);
+    act(() =>
+      socket.simulateServerMessage({
+        type: "snapshot",
+        notes:
+          stop === "削除"
+            ? []
+            : [
+                {
+                  ...original,
+                  ...(stop === "共有済み" ? { visibility: "shared" } : {}),
+                },
+              ],
+        members: [],
+        phase,
+        phaseRevision: 1,
+        ...(stop === "復元" ? { rollbackRevision: 1 } : {}),
+        isHost: false,
+        decision: null,
+        carryovers: [],
+        completedVoterIds: [],
+        timer: { status: "idle" },
+        serverNow: Date.now(),
+      }),
+    );
+    expect(editor.isConnected && !editor.hasAttribute("readonly")).toBe(false);
+    fireEvent.compositionEnd(editor, {
+      target: { value: "取り消された確定値" },
+    });
+    fireEvent.blur(editor);
+    await act(async () => {});
+    expect(socket.sent.map((raw) => JSON.parse(raw))).not.toContainEqual(
+      expect.objectContaining({
+        type: "note:update-content",
+        content: "取り消された確定値",
+      }),
+    );
+  },
+);
 
 it("採用後に移動した付箋を画面のUndoから元に戻せる", () => {
   const note = protocolNote();

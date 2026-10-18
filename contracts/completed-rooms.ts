@@ -10,7 +10,7 @@ export const CompletedSceneKindSchema = z.enum([
 ]);
 export type CompletedSceneKind = z.infer<typeof CompletedSceneKindSchema>;
 export const CompletedDecisionSchema = z.object({
-  phase: z.number().int().min(1).max(3),
+  phase: z.int().min(1).max(3),
   noteId: z.string(),
   content: z.string(),
 });
@@ -20,7 +20,7 @@ export const CompletedSceneSchema = z.object({
   status: z.enum(["saved", "pending", "failed", "missing", "before-recording"]),
 });
 export const CompletedRoomSummarySchema = z.object({
-  roomId: z.string().uuid(),
+  roomId: z.guid(),
   idea: z.string(),
   completedAt: z.number(),
   expiresAt: z.number(),
@@ -45,7 +45,7 @@ export const CompletedRoomsResponseSchema = z.object({
 export const CompletedBoardSchema = z.object({
   kind: CompletedSceneKindSchema,
   recordedAt: z.number(),
-  phase: z.number().int().min(1).max(3),
+  phase: z.int().min(1).max(3),
   notes: z.array(
     z.object({
       id: z.string(),
@@ -83,13 +83,13 @@ export type CompletedBoardResponse = z.infer<
   typeof CompletedBoardResponseSchema
 >;
 export const CompletedRoomsCursorSchema = z.object({
-  completedAt: z.number().int().nonnegative(),
-  roomId: z.string().uuid(),
+  completedAt: z.int().nonnegative(),
+  roomId: z.guid(),
 });
 export const LeaveOutcomeAccessSchema = z.enum(["retain", "discard"]);
 export type LeaveOutcomeAccess = z.infer<typeof LeaveOutcomeAccessSchema>;
 export const LeaveRoomRequestSchema = z.object({
   outcomeAccess: LeaveOutcomeAccessSchema.optional(),
   intent: z.enum(["self", "disband"]).optional(),
-  expectedHostRevision: z.number().int().nonnegative().optional(),
+  expectedHostRevision: z.int().nonnegative().optional(),
 });

@@ -196,75 +196,76 @@ describe("move transaction", () => {
       expect(listGroups(ctx.sql)).toEqual([]);
     }));
 
-  it.each([
-    1, 2, 3,
-  ] as const)("フェーズ%iの採用後も非作者が採用済み・候補外を移動してUndoできる", (phase) =>
-    setup(`move-after-decision-${phase}`, (ctx, responses) => {
-      savePhase(ctx.sql, {
-        kind: "step",
-        phase,
-        step: RESULT_STEP_BY_PHASE[phase],
-      });
-      ctx.sql.exec("UPDATE notes SET phase=?1", phase);
-      if (phase === 3) {
-        ctx.sql.exec("UPDATE notes SET x=x/10,y=y/10");
-      }
-      ctx.sql.exec("UPDATE notes SET excluded=1 WHERE id=?1", N2);
-      ctx.sql.exec(
-        "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?1,?2,'test',?3,'now')",
-        phase,
-        N1,
-        A,
-      );
-      start({ ...ctx, userId: OP2 }, "77777777-7777-4777-8777-777777777777");
-      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
-      const member = { ...ctx, userId: B };
-      const messages = peer(member);
-      start(member);
-      expect(responses.at(-1)).toMatchObject({ status: "active" });
-      moveHandlers["note:move:preview"](member, {
-        type: "note:move:preview",
-        operationId: OP,
-        delta: { x: phase === 3 ? 30 : 300, y: 0 },
-      });
-      expect(
-        messages.find((message) => message.type === "notes:move-preview"),
-      ).toMatchObject({ operationId: OP });
-      moveHandlers["note:move:commit"](member, {
-        type: "note:move:commit",
-        operationId: OP,
-        delta: { x: phase === 3 ? 30 : 300, y: 0 },
-      });
-      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
-      expect(findNote(ctx.sql, N1)?.x).toBe(phase === 3 ? 40 : 400);
-      expect(findNote(ctx.sql, N2)).toMatchObject({
-        x: phase === 3 ? 44 : 440,
-        excluded: true,
-      });
-      moveHandlers["note:move:inverse"](member, {
-        type: "note:move:inverse",
-        operationId: OP2,
-        sourceOperationId: OP,
-        expectedTargets: [N1, N2].map((noteId) => ({
-          noteId,
-          positionRevision: findNote(ctx.sql, noteId)?.position_revision ?? 0,
-          visibilityRevision:
-            findNote(ctx.sql, noteId)?.visibility_revision ?? 0,
-        })),
-        expectedGroupRevision: 0,
-      });
-      expect(responses.at(-1)).toMatchObject({ status: "accepted" });
-      expect(findNote(ctx.sql, N1)?.x).toBe(phase === 3 ? 10 : 100);
-      expect(findNote(ctx.sql, N2)?.x).toBe(phase === 3 ? 14 : 140);
-      expect(
-        ctx.sql
-          .exec(
-            "SELECT note_id,note_content FROM decisions WHERE phase=?1",
-            phase,
-          )
-          .one(),
-      ).toMatchObject({ note_id: N1, note_content: "test" });
-    }));
+  it.each([1, 2, 3] as const)(
+    "フェーズ%iの採用後も非作者が採用済み・候補外を移動してUndoできる",
+    (phase) =>
+      setup(`move-after-decision-${phase}`, (ctx, responses) => {
+        savePhase(ctx.sql, {
+          kind: "step",
+          phase,
+          step: RESULT_STEP_BY_PHASE[phase],
+        });
+        ctx.sql.exec("UPDATE notes SET phase=?1", phase);
+        if (phase === 3) {
+          ctx.sql.exec("UPDATE notes SET x=x/10,y=y/10");
+        }
+        ctx.sql.exec("UPDATE notes SET excluded=1 WHERE id=?1", N2);
+        ctx.sql.exec(
+          "INSERT INTO decisions(phase,note_id,note_content,decided_by,decided_at) VALUES(?1,?2,'test',?3,'now')",
+          phase,
+          N1,
+          A,
+        );
+        start({ ...ctx, userId: OP2 }, "77777777-7777-4777-8777-777777777777");
+        expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+        const member = { ...ctx, userId: B };
+        const messages = peer(member);
+        start(member);
+        expect(responses.at(-1)).toMatchObject({ status: "active" });
+        moveHandlers["note:move:preview"](member, {
+          type: "note:move:preview",
+          operationId: OP,
+          delta: { x: phase === 3 ? 30 : 300, y: 0 },
+        });
+        expect(
+          messages.find((message) => message.type === "notes:move-preview"),
+        ).toMatchObject({ operationId: OP });
+        moveHandlers["note:move:commit"](member, {
+          type: "note:move:commit",
+          operationId: OP,
+          delta: { x: phase === 3 ? 30 : 300, y: 0 },
+        });
+        expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+        expect(findNote(ctx.sql, N1)?.x).toBe(phase === 3 ? 40 : 400);
+        expect(findNote(ctx.sql, N2)).toMatchObject({
+          x: phase === 3 ? 44 : 440,
+          excluded: true,
+        });
+        moveHandlers["note:move:inverse"](member, {
+          type: "note:move:inverse",
+          operationId: OP2,
+          sourceOperationId: OP,
+          expectedTargets: [N1, N2].map((noteId) => ({
+            noteId,
+            positionRevision: findNote(ctx.sql, noteId)?.position_revision ?? 0,
+            visibilityRevision:
+              findNote(ctx.sql, noteId)?.visibility_revision ?? 0,
+          })),
+          expectedGroupRevision: 0,
+        });
+        expect(responses.at(-1)).toMatchObject({ status: "accepted" });
+        expect(findNote(ctx.sql, N1)?.x).toBe(phase === 3 ? 10 : 100);
+        expect(findNote(ctx.sql, N2)?.x).toBe(phase === 3 ? 14 : 140);
+        expect(
+          ctx.sql
+            .exec(
+              "SELECT note_id,note_content FROM decisions WHERE phase=?1",
+              phase,
+            )
+            .one(),
+        ).toMatchObject({ note_id: N1, note_content: "test" });
+      }),
+  );
   it("非memberの旧接続へ不可視分類の版通知を配信しない", () =>
     setup("move-group-revision-nonmember", (ctx) => {
       const messages = peer(ctx, OP2);
@@ -382,7 +383,8 @@ describe("move transaction", () => {
       expect(
         messages.filter((m) => m.type === "notes:move-preview"),
       ).toHaveLength(1);
-    }));
+    }),
+  );
   it("確定batchが終了通知より先に届き途中本文・票・分類を送らない", () =>
     setup("move-peer-commit-order", (ctx) => {
       const messages = peer(ctx);
@@ -444,55 +446,54 @@ describe("move transaction", () => {
           .one().state,
       ).toBe("active");
     }));
-  it.each([
-    "single",
-    "map",
-    "same-user",
-  ])("%sでもdrag中全件を同期し版を保存しない", (mode) =>
-    setup(`move-peer-${mode}`, (ctx) => {
-      const messages = peer(ctx, mode === "same-user" ? A : B);
-      if (mode === "map") {
-        savePhase(ctx.sql, { kind: "step", phase: 3, step: 3 });
-        ctx.sql.exec(
-          "UPDATE notes SET phase=3,x=CASE WHEN id=?1 THEN 20 ELSE 60 END,y=30",
-          N1,
-        );
-      }
-      const revision = ctx.sql
-        .exec(
-          "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
-        )
-        .one();
-      const ids = mode === "single" ? [N1] : [N1, N2];
-      const before = ids.map((id) => findNote(ctx.sql, id));
-      moveHandlers["note:move:start"](ctx, {
-        type: "note:move:start",
-        operationId: OP,
-        expectedPhaseRevision: Number(revision.phase_revision),
-        expectedGroupRevision: Number(revision.group_revision),
-        expectedMapRevision: Number(revision.map_revision),
-        coordinateSpace: mode === "map" ? "map" : "canvas",
-        targets: before.map((note) => ({
-          noteId: note?.id ?? N1,
-          positionRevision: note?.position_revision ?? 0,
-          visibilityRevision: note?.visibility_revision ?? 0,
-        })),
-      });
-      moveHandlers["note:move:preview"](ctx, {
-        type: "note:move:preview",
-        operationId: OP,
-        delta: { x: 50, y: 10 },
-      });
-      const preview = messages.find((m) => m.type === "notes:move-preview");
-      expect(preview).toMatchObject({
-        positions: before.map((note) => ({
-          noteId: note?.id,
-          x: (note?.x ?? 0) + (mode === "map" ? 40 : 50),
-          y: (note?.y ?? 0) + 10,
-        })),
-      });
-      expect(ids.map((id) => findNote(ctx.sql, id))).toEqual(before);
-    }));
+  it.each(["single", "map", "same-user"])(
+    "%sでもdrag中全件を同期し版を保存しない",
+    (mode) =>
+      setup(`move-peer-${mode}`, (ctx) => {
+        const messages = peer(ctx, mode === "same-user" ? A : B);
+        if (mode === "map") {
+          savePhase(ctx.sql, { kind: "step", phase: 3, step: 3 });
+          ctx.sql.exec(
+            "UPDATE notes SET phase=3,x=CASE WHEN id=?1 THEN 20 ELSE 60 END,y=30",
+            N1,
+          );
+        }
+        const revision = ctx.sql
+          .exec(
+            "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
+          )
+          .one();
+        const ids = mode === "single" ? [N1] : [N1, N2];
+        const before = ids.map((id) => findNote(ctx.sql, id));
+        moveHandlers["note:move:start"](ctx, {
+          type: "note:move:start",
+          operationId: OP,
+          expectedPhaseRevision: Number(revision.phase_revision),
+          expectedGroupRevision: Number(revision.group_revision),
+          expectedMapRevision: Number(revision.map_revision),
+          coordinateSpace: mode === "map" ? "map" : "canvas",
+          targets: before.map((note) => ({
+            noteId: note?.id ?? N1,
+            positionRevision: note?.position_revision ?? 0,
+            visibilityRevision: note?.visibility_revision ?? 0,
+          })),
+        });
+        moveHandlers["note:move:preview"](ctx, {
+          type: "note:move:preview",
+          operationId: OP,
+          delta: { x: 50, y: 10 },
+        });
+        const preview = messages.find((m) => m.type === "notes:move-preview");
+        expect(preview).toMatchObject({
+          positions: before.map((note) => ({
+            noteId: note?.id,
+            x: (note?.x ?? 0) + (mode === "map" ? 40 : 50),
+            y: (note?.y ?? 0) + 10,
+          })),
+        });
+        expect(ids.map((id) => findNote(ctx.sql, id))).toEqual(before);
+      }),
+  );
   it("start/preview/cancelで確定位置・group・版を変更しない", () =>
     setup("move-preview", (ctx, responses) => {
       start(ctx);
@@ -668,36 +669,34 @@ describe("atomic move projection", () => {
 });
 
 describe("問いの投票中の移動の認可", () => {
-  it.each([
-    "nonmember",
-    "own-private",
-    "other-private",
-    "past-phase",
-  ] as const)("2-3でも%sを含む移動は全件拒否する", (restriction) =>
-    setup(`move-question-voting-${restriction}`, (ctx, responses) => {
-      savePhase(ctx.sql, { kind: "step", phase: 2, step: 3 });
-      ctx.sql.exec("UPDATE notes SET phase=2");
-      if (restriction === "own-private")
-        ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
-      if (restriction === "other-private")
-        ctx.sql.exec(
-          "UPDATE notes SET visibility='private',author_id=?1 WHERE id=?2",
-          B,
-          N2,
+  it.each(["nonmember", "own-private", "other-private", "past-phase"] as const)(
+    "2-3でも%sを含む移動は全件拒否する",
+    (restriction) =>
+      setup(`move-question-voting-${restriction}`, (ctx, responses) => {
+        savePhase(ctx.sql, { kind: "step", phase: 2, step: 3 });
+        ctx.sql.exec("UPDATE notes SET phase=2");
+        if (restriction === "own-private")
+          ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
+        if (restriction === "other-private")
+          ctx.sql.exec(
+            "UPDATE notes SET visibility='private',author_id=?1 WHERE id=?2",
+            B,
+            N2,
+          );
+        if (restriction === "past-phase")
+          ctx.sql.exec("UPDATE notes SET phase=1 WHERE id=?1", N2);
+
+        start(restriction === "nonmember" ? { ...ctx, userId: OP2 } : ctx);
+
+        expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+        expect(ctx.sql.exec("SELECT * FROM note_move_locks").toArray()).toEqual(
+          [],
         );
-      if (restriction === "past-phase")
-        ctx.sql.exec("UPDATE notes SET phase=1 WHERE id=?1", N2);
-
-      start(restriction === "nonmember" ? { ...ctx, userId: OP2 } : ctx);
-
-      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
-      expect(ctx.sql.exec("SELECT * FROM note_move_locks").toArray()).toEqual(
-        [],
-      );
-      expect(findNote(ctx.sql, N1)?.x).toBe(100);
-      expect(findNote(ctx.sql, N2)?.x).toBe(140);
-      expect(responses.at(-1)).not.toHaveProperty("receipt");
-    }));
+        expect(findNote(ctx.sql, N1)?.x).toBe(100);
+        expect(findNote(ctx.sql, N2)?.x).toBe(140);
+        expect(responses.at(-1)).not.toHaveProperty("receipt");
+      }),
+  );
 
   it.each([1, 3] as const)("フェーズ%iの投票中は移動開始を拒否する", (phase) =>
     setup(`move-other-voting-phase-${phase}`, (ctx, responses) => {
@@ -710,7 +709,8 @@ describe("問いの投票中の移動の認可", () => {
       expect(ctx.sql.exec("SELECT * FROM note_move_locks").toArray()).toEqual(
         [],
       );
-    }));
+    }),
+  );
 });
 
 describe("移動の失効と互換lock", () => {
@@ -725,27 +725,26 @@ describe("移動の失効と互換lock", () => {
         ctx.sql.exec("SELECT * FROM note_move_locks").toArray(),
       ).toHaveLength(0);
     }));
-  it.each([
-    "delete",
-    "visibility",
-    "map",
-  ] as const)("%s変更でcommitを全拒否する", (change) =>
-    setup(`move-invalid-${change}`, (ctx, responses) => {
-      start(ctx);
-      if (change === "delete")
-        ctx.sql.exec("DELETE FROM notes WHERE id=?1", N2);
-      if (change === "visibility") {
-        ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
-        ctx.sql.exec("UPDATE notes SET visibility='shared' WHERE id=?1", N2);
-      }
-      if (change === "map")
-        ctx.sql.exec(
-          "UPDATE room_state SET idea_map_size_level=idea_map_size_level+1 WHERE id=1",
-        );
-      commit(ctx);
-      expect(findNote(ctx.sql, N1)?.x).toBe(100);
-      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
-    }));
+  it.each(["delete", "visibility", "map"] as const)(
+    "%s変更でcommitを全拒否する",
+    (change) =>
+      setup(`move-invalid-${change}`, (ctx, responses) => {
+        start(ctx);
+        if (change === "delete")
+          ctx.sql.exec("DELETE FROM notes WHERE id=?1", N2);
+        if (change === "visibility") {
+          ctx.sql.exec("UPDATE notes SET visibility='private' WHERE id=?1", N2);
+          ctx.sql.exec("UPDATE notes SET visibility='shared' WHERE id=?1", N2);
+        }
+        if (change === "map")
+          ctx.sql.exec(
+            "UPDATE room_state SET idea_map_size_level=idea_map_size_level+1 WHERE id=1",
+          );
+        commit(ctx);
+        expect(findNote(ctx.sql, N1)?.x).toBe(100);
+        expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      }),
+  );
   it("工程の受理はlockを即時破棄し旧pointerupを保存しない", () =>
     setup("move-phase-boundary", (ctx, responses) => {
       start(ctx);
@@ -897,48 +896,52 @@ describe("move recovery entry", () => {
       presenceHandlers["cursor:update"](ctx, cursor);
       expect(sent).toHaveLength(0);
     }));
-  it.each([
-    2, 3,
-  ])("3-%iのmap start/cancelで全lock表示とpeer drag解除を配信する", (step) =>
-    setup(`move-map-presence-step-${step}`, (ctx) => {
-      savePhase(ctx.sql, { kind: "step", phase: 3, step });
-      ctx.sql.exec("UPDATE notes SET phase=3,x=10,y=20");
-      const sent: ServerMessage[] = [];
-      ctx.ws.send = (data) =>
-        sent.push(JSON.parse(String(data)) as ServerMessage);
-      const row = ctx.sql
-        .exec(
-          "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
-        )
-        .one();
-      moveHandlers["note:move:start"](ctx, {
-        type: "note:move:start",
-        operationId: OP,
-        expectedPhaseRevision: Number(row.phase_revision),
-        expectedGroupRevision: Number(row.group_revision),
-        expectedMapRevision: Number(row.map_revision),
-        coordinateSpace: "map",
-        targets: [N1, N2].map((noteId) => {
-          const note = findNote(ctx.sql, noteId);
-          return {
-            noteId,
-            positionRevision: note?.position_revision ?? 0,
-            visibilityRevision: note?.visibility_revision ?? 0,
-          };
-        }),
-      });
-      expect(sent).toContainEqual(
-        expect.objectContaining({ type: "idea-map:state", isDragging: true }),
-      );
-      moveHandlers["note:move:cancel"](ctx, {
-        type: "note:move:cancel",
-        operationId: OP,
-      });
-      expect(sent).toContainEqual(
-        expect.objectContaining({ type: "idea-map:state", isDragging: false }),
-      );
-      expect(sent).toContainEqual({ type: "cursor:drag-ended", userId: A });
-    }));
+  it.each([2, 3])(
+    "3-%iのmap start/cancelで全lock表示とpeer drag解除を配信する",
+    (step) =>
+      setup(`move-map-presence-step-${step}`, (ctx) => {
+        savePhase(ctx.sql, { kind: "step", phase: 3, step });
+        ctx.sql.exec("UPDATE notes SET phase=3,x=10,y=20");
+        const sent: ServerMessage[] = [];
+        ctx.ws.send = (data) =>
+          sent.push(JSON.parse(String(data)) as ServerMessage);
+        const row = ctx.sql
+          .exec(
+            "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
+          )
+          .one();
+        moveHandlers["note:move:start"](ctx, {
+          type: "note:move:start",
+          operationId: OP,
+          expectedPhaseRevision: Number(row.phase_revision),
+          expectedGroupRevision: Number(row.group_revision),
+          expectedMapRevision: Number(row.map_revision),
+          coordinateSpace: "map",
+          targets: [N1, N2].map((noteId) => {
+            const note = findNote(ctx.sql, noteId);
+            return {
+              noteId,
+              positionRevision: note?.position_revision ?? 0,
+              visibilityRevision: note?.visibility_revision ?? 0,
+            };
+          }),
+        });
+        expect(sent).toContainEqual(
+          expect.objectContaining({ type: "idea-map:state", isDragging: true }),
+        );
+        moveHandlers["note:move:cancel"](ctx, {
+          type: "note:move:cancel",
+          operationId: OP,
+        });
+        expect(sent).toContainEqual(
+          expect.objectContaining({
+            type: "idea-map:state",
+            isDragging: false,
+          }),
+        );
+        expect(sent).toContainEqual({ type: "cursor:drag-ended", userId: A });
+      }),
+  );
 });
 
 it("canvas両端の集合移動deltaを受理し全対象を端まで同じdeltaでclampする", () =>
@@ -1082,51 +1085,50 @@ describe("atomic inverse", () => {
     ).toBeNull();
   });
 
-  it.each([
-    "idle",
-    "paused",
-    "ended",
-  ] as const)("タイマー%sでは有効な移動も戻さず、拒否を再送と照会で維持する", (status) =>
-    setup(`inverse-timer-${status}`, (ctx, responses) => {
-      start(ctx);
-      commit(ctx);
-      saveTimerState(
-        ctx.sql,
-        status === "idle"
-          ? { status: "idle" }
-          : status === "paused"
-            ? { status: "paused", remainingMs: 30_000, durationMs: 60_000 }
-            : { status: "ended", durationMs: 60_000 },
-      );
-      inverse(ctx, responses);
-      const rejected = responses.at(-1);
-      expect(rejected).toMatchObject({
-        type: "note:move:result",
-        operationId: OP2,
-        status: "rejected",
-        reason: "タイマーが動作していないため、ボードを操作できません。",
-      });
-      expect(findNote(ctx.sql, N1)?.x).toBe(400);
-      expect(findNote(ctx.sql, N2)?.x).toBe(440);
-      moveHandlers["note:move:status"](ctx, {
-        type: "note:move:status",
-        operationId: OP2,
-      });
-      expect(responses.at(-1)).toEqual(rejected);
-      moveHandlers["note:move:status"](
-        { ...ctx, userId: B },
-        { type: "note:move:status", operationId: OP2 },
-      );
-      expect(responses.at(-1)).toMatchObject({ status: "unknown" });
-      saveTimerState(ctx.sql, {
-        status: "running",
-        endsAt: Date.now() + 60_000,
-        durationMs: 60_000,
-      });
-      inverse(ctx, responses);
-      expect(responses.at(-1)).toEqual(rejected);
-      expect(findNote(ctx.sql, N1)?.x).toBe(400);
-    }));
+  it.each(["idle", "paused", "ended"] as const)(
+    "タイマー%sでは有効な移動も戻さず、拒否を再送と照会で維持する",
+    (status) =>
+      setup(`inverse-timer-${status}`, (ctx, responses) => {
+        start(ctx);
+        commit(ctx);
+        saveTimerState(
+          ctx.sql,
+          status === "idle"
+            ? { status: "idle" }
+            : status === "paused"
+              ? { status: "paused", remainingMs: 30_000, durationMs: 60_000 }
+              : { status: "ended", durationMs: 60_000 },
+        );
+        inverse(ctx, responses);
+        const rejected = responses.at(-1);
+        expect(rejected).toMatchObject({
+          type: "note:move:result",
+          operationId: OP2,
+          status: "rejected",
+          reason: "タイマーが動作していないため、ボードを操作できません。",
+        });
+        expect(findNote(ctx.sql, N1)?.x).toBe(400);
+        expect(findNote(ctx.sql, N2)?.x).toBe(440);
+        moveHandlers["note:move:status"](ctx, {
+          type: "note:move:status",
+          operationId: OP2,
+        });
+        expect(responses.at(-1)).toEqual(rejected);
+        moveHandlers["note:move:status"](
+          { ...ctx, userId: B },
+          { type: "note:move:status", operationId: OP2 },
+        );
+        expect(responses.at(-1)).toMatchObject({ status: "unknown" });
+        saveTimerState(ctx.sql, {
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        });
+        inverse(ctx, responses);
+        expect(responses.at(-1)).toEqual(rejected);
+        expect(findNote(ctx.sql, N1)?.x).toBe(400);
+      }),
+  );
 
   it("他者の分類作成後に無関係な移動をしても元の移動のinverseを全拒否する", () =>
     setup("inverse-peer-group-unrelated-move", (ctx, responses) => {
@@ -1224,7 +1226,8 @@ describe("atomic inverse", () => {
       expect(responses.at(-1)).toMatchObject({ status: "rejected" });
       expect([findNote(ctx.sql, N1), findNote(ctx.sql, N2)]).toEqual(before);
       expect(JSON.stringify(responses.at(-1))).not.toContain(N2);
-    }));
+    }),
+  );
   it("restores positions atomically and preserves latest stack/content; retry and status are idempotent", () =>
     setup("inverse-success", (ctx, responses) => {
       start(ctx);
@@ -1362,59 +1365,60 @@ it("two consecutive moves undo and redo twice with server-proven rebased revisio
     invert(undo2, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     expect(findNote(ctx.sql, N1)?.x).toBe(700);
   }));
-it.each([
-  "aba",
-  "outsider-lock",
-  "forged-position",
-])("related %s rejects atomic inverse", (reason) =>
-  setup(`inverse-extra-${reason}`, (ctx, responses) => {
-    ctx.sql.exec(
-      "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'original',?2,'now','now')",
-      OP2,
-      JSON.stringify([N1, N2]),
-    );
-    start(ctx, OP, [N1]);
-    moveHandlers["note:move:commit"](ctx, {
-      type: "note:move:commit",
-      operationId: OP,
-      delta: { x: 600, y: 0 },
-    });
-    if (reason === "aba") {
+it.each(["aba", "outsider-lock", "forged-position"])(
+  "related %s rejects atomic inverse",
+  (reason) =>
+    setup(`inverse-extra-${reason}`, (ctx, responses) => {
       ctx.sql.exec(
-        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'peer',?2,'now','now')",
+        "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'original',?2,'now','now')",
         OP2,
         JSON.stringify([N1, N2]),
       );
-      ctx.sql.exec("DELETE FROM groups WHERE id=?1", OP2);
-    }
-    if (reason === "outsider-lock")
-      ctx.sql.exec(
-        "INSERT INTO note_move_locks(note_id,operation_id) VALUES (?1,?2)",
-        N2,
-        OP,
-      );
-    const before = [findNote(ctx.sql, N1), findNote(ctx.sql, N2)];
-    if (reason === "forged-position") {
-      ctx.sql.exec("UPDATE notes SET x=x+1 WHERE id=?1", N1);
-      ctx.sql.exec("UPDATE notes SET x=x-1 WHERE id=?1", N1);
-      const result = responses.at(-1);
-      if (result?.type !== "note:move:result" || !result.receipt)
-        throw new Error("missing");
-      moveHandlers["note:move:inverse"](ctx, {
-        type: "note:move:inverse",
-        operationId: "77777777-7777-4777-8777-777777777777",
-        sourceOperationId: OP,
-        expectedGroupRevision: result.receipt.groupRevisionAfter,
-        expectedTargets: result.receipt.affected.map((t) => ({
-          ...t,
-          positionRevision: findNote(ctx.sql, t.noteId)?.position_revision ?? 0,
-        })),
+      start(ctx, OP, [N1]);
+      moveHandlers["note:move:commit"](ctx, {
+        type: "note:move:commit",
+        operationId: OP,
+        delta: { x: 600, y: 0 },
       });
-    } else inverse(ctx, responses, OP, "77777777-7777-4777-8777-777777777777");
-    expect(responses.at(-1)).toMatchObject({ status: "rejected" });
-    expect(findNote(ctx.sql, N1)?.x).toBe(before[0]?.x);
-    expect(findNote(ctx.sql, N2)).toEqual(before[1]);
-  }));
+      if (reason === "aba") {
+        ctx.sql.exec(
+          "INSERT INTO groups(id,name,note_ids,created_at,updated_at) VALUES (?1,'peer',?2,'now','now')",
+          OP2,
+          JSON.stringify([N1, N2]),
+        );
+        ctx.sql.exec("DELETE FROM groups WHERE id=?1", OP2);
+      }
+      if (reason === "outsider-lock")
+        ctx.sql.exec(
+          "INSERT INTO note_move_locks(note_id,operation_id) VALUES (?1,?2)",
+          N2,
+          OP,
+        );
+      const before = [findNote(ctx.sql, N1), findNote(ctx.sql, N2)];
+      if (reason === "forged-position") {
+        ctx.sql.exec("UPDATE notes SET x=x+1 WHERE id=?1", N1);
+        ctx.sql.exec("UPDATE notes SET x=x-1 WHERE id=?1", N1);
+        const result = responses.at(-1);
+        if (result?.type !== "note:move:result" || !result.receipt)
+          throw new Error("missing");
+        moveHandlers["note:move:inverse"](ctx, {
+          type: "note:move:inverse",
+          operationId: "77777777-7777-4777-8777-777777777777",
+          sourceOperationId: OP,
+          expectedGroupRevision: result.receipt.groupRevisionAfter,
+          expectedTargets: result.receipt.affected.map((t) => ({
+            ...t,
+            positionRevision:
+              findNote(ctx.sql, t.noteId)?.position_revision ?? 0,
+          })),
+        });
+      } else
+        inverse(ctx, responses, OP, "77777777-7777-4777-8777-777777777777");
+      expect(responses.at(-1)).toMatchObject({ status: "rejected" });
+      expect(findNote(ctx.sql, N1)?.x).toBe(before[0]?.x);
+      expect(findNote(ctx.sql, N2)).toEqual(before[1]);
+    }),
+);
 
 it("unrelated regrouping preserves the related group revision", () =>
   setup("inverse-group-diff", (ctx, responses) => {

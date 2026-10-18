@@ -250,20 +250,17 @@ describe("shouldMoveIssueToReview", () => {
     ).toBe(false);
   });
 
-  it.each([
-    "未整理",
-    "壁打ち中",
-    "着手可能",
-    "完了",
-    "見送り",
-  ])("%s をレビュー依頼で上書きしない", (status) => {
-    expect(
-      shouldMoveIssueToReview({
-        ...baseInput,
-        projectItem: { ...baseInput.projectItem, status },
-      }).allowed,
-    ).toBe(false);
-  });
+  it.each(["未整理", "壁打ち中", "着手可能", "完了", "見送り"])(
+    "%s をレビュー依頼で上書きしない",
+    (status) => {
+      expect(
+        shouldMoveIssueToReview({
+          ...baseInput,
+          projectItem: { ...baseInput.projectItem, status },
+        }).allowed,
+      ).toBe(false);
+    },
+  );
 
   it("閉じたIssue、Project未登録、アーカイブ済みIssue、Project権限不足は成功扱いにしない", () => {
     expect(
@@ -395,63 +392,63 @@ describe("syncIssueProjectStatus", () => {
     };
   }
 
-  it.each([
-    "write",
-    "maintain",
-    "admin",
-  ])("権限 %s で直接リンクIssueだけをレビュー中へ更新する", async (permission) => {
-    const github = makeGithub();
-    github.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
-      data: { permission },
-    });
-    const core = { info: vi.fn() };
+  it.each(["write", "maintain", "admin"])(
+    "権限 %s で直接リンクIssueだけをレビュー中へ更新する",
+    async (permission) => {
+      const github = makeGithub();
+      github.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+        data: { permission },
+      });
+      const core = { info: vi.fn() };
 
-    const result = await syncIssueProjectStatus({ github, context, core });
+      const result = await syncIssueProjectStatus({ github, context, core });
 
-    expect(result).toEqual({
-      updated: true,
-      issueNumber: 42,
-      from: "作業中",
-      to: "レビュー中",
-    });
-    expect(
-      github.rest.repos.getCollaboratorPermissionLevel,
-    ).toHaveBeenCalledWith({
-      owner: "engineer-first",
-      repo: "idea-boost",
-      username: "maintainer",
-    });
-    expect(github.graphql).toHaveBeenCalledTimes(5);
-    expect(github.graphql.mock.calls[3]?.[1]).toEqual({
-      projectId: "project-3",
-      itemId: "project-item-42",
-      fieldId: "status-field",
-      optionId: "review-option",
-      statusFieldName: "Status",
-    });
-  });
+      expect(result).toEqual({
+        updated: true,
+        issueNumber: 42,
+        from: "作業中",
+        to: "レビュー中",
+      });
+      expect(
+        github.rest.repos.getCollaboratorPermissionLevel,
+      ).toHaveBeenCalledWith({
+        owner: "engineer-first",
+        repo: "idea-boost",
+        username: "maintainer",
+      });
+      expect(github.graphql).toHaveBeenCalledTimes(5);
+      expect(github.graphql.mock.calls[3]?.[1]).toEqual({
+        projectId: "project-3",
+        itemId: "project-item-42",
+        fieldId: "status-field",
+        optionId: "review-option",
+        statusFieldName: "Status",
+      });
+    },
+  );
 
-  it.each([
-    "read",
-    "none",
-    "triage",
-    undefined,
-  ])("権限 %s の実行者による Draft 解除では Project を更新しない", async (permission) => {
-    const github = makeGithub();
-    github.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
-      data: { permission },
-    });
-    const result = await syncIssueProjectStatus({
-      github,
-      context: {
-        ...context,
-        payload: { ...context.payload, action: "ready_for_review" },
-      },
-      core: { info: vi.fn() },
-    });
-    expect(result).toEqual({ updated: false, reason: "actor-not-authorized" });
-    expect(github.graphql).not.toHaveBeenCalled();
-  });
+  it.each(["read", "none", "triage", undefined])(
+    "権限 %s の実行者による Draft 解除では Project を更新しない",
+    async (permission) => {
+      const github = makeGithub();
+      github.rest.repos.getCollaboratorPermissionLevel.mockResolvedValue({
+        data: { permission },
+      });
+      const result = await syncIssueProjectStatus({
+        github,
+        context: {
+          ...context,
+          payload: { ...context.payload, action: "ready_for_review" },
+        },
+        core: { info: vi.fn() },
+      });
+      expect(result).toEqual({
+        updated: false,
+        reason: "actor-not-authorized",
+      });
+      expect(github.graphql).not.toHaveBeenCalled();
+    },
+  );
 
   it("sender 不明時は権限を推測しない", async () => {
     const github = makeGithub();

@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   connectRoomAs,
@@ -25,7 +25,7 @@ const sockets: RoomSocket[] = [];
 const users = new WeakMap<RoomSocket, typeof A>();
 const rooms = new WeakMap<RoomSocket, string>();
 async function setName(user: typeof A, name: string, roomId?: string) {
-  return SELF.fetch("https://api.test/api/me/display-name", {
+  return exports.default.fetch("https://api.test/api/me/display-name", {
     method: "PUT",
     headers: {
       Cookie: await sessionCookieFor(user),
@@ -237,7 +237,7 @@ describe("ルーム内の表示名", () => {
     });
     expect(
       (
-        await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
+        await exports.default.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
           headers: { Upgrade: "websocket" },
         })
       ).status,
@@ -300,7 +300,7 @@ describe("ルーム内の表示名", () => {
     expect((await memberNames(other.roomId))[0].name).toBe("はな");
     expect(
       (
-        await SELF.fetch(`https://api.test/api/rooms/${roomId}`, {
+        await exports.default.fetch(`https://api.test/api/rooms/${roomId}`, {
           headers: { Cookie: await sessionCookieFor(A) },
         })
       ).status,

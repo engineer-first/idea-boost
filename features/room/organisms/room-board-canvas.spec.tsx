@@ -132,48 +132,51 @@ function hexColorToRgb(hexColor: string): string {
 }
 
 describe("RoomBoardCanvas", () => {
-  it.each([
-    2, 3, 4, 5,
-  ])("3-%iの横軸左端は重なる操作UIだけを避け、再描画でも移動しない", (step) => {
-    const rect = vi
-      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
-      .mockImplementation(function (this: HTMLElement) {
-        if (this.dataset.testid === "idea-map-x-low-endpoint") {
-          const offset =
-            Number.parseFloat(
-              this.parentElement?.style.getPropertyValue(
-                "--horizontal-low-endpoint-offset",
-              ) ||
-                this.style.getPropertyValue("--horizontal-low-endpoint-offset"),
-            ) || 0;
-          return new DOMRect(82 + offset, 500, 800 - offset, 24);
-        }
-        if (this.dataset.testid === "idea-map-axis-low-anchor")
-          return new DOMRect(12, 624, 122, 0);
-        if (this.dataset.testid === "note-font-size-controls")
-          return new DOMRect(12, 624, 122, 38);
-        if (this.dataset.testid === "canvas-zoom-hud")
-          return new DOMRect(12, 670, 280, 38);
-        return new DOMRect();
-      });
-    try {
-      const phase = buildPhaseStep(step, 3);
-      const { rerender } = setup({
-        phase,
-        permissions: getBoardPermissions(phase),
-      });
-      expect(
-        screen.getByTestId("idea-map-axis-low-anchor"),
-      ).toBeInTheDocument();
-      const endpoint = screen.getByTestId("idea-map-x-low-endpoint");
-      expect(endpoint.getBoundingClientRect().left).toBe(82);
-      rerender();
-      fireEvent.resize(window);
-      expect(endpoint.getBoundingClientRect().left).toBe(82);
-    } finally {
-      rect.mockRestore();
-    }
-  });
+  it.each([2, 3, 4, 5])(
+    "3-%iの横軸左端は重なる操作UIだけを避け、再描画でも移動しない",
+    (step) => {
+      const rect = vi
+        .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+        .mockImplementation(function (this: HTMLElement) {
+          if (this.dataset.testid === "idea-map-x-low-endpoint") {
+            const offset =
+              Number.parseFloat(
+                this.parentElement?.style.getPropertyValue(
+                  "--horizontal-low-endpoint-offset",
+                ) ||
+                  this.style.getPropertyValue(
+                    "--horizontal-low-endpoint-offset",
+                  ),
+              ) || 0;
+            return new DOMRect(82 + offset, 500, 800 - offset, 24);
+          }
+          if (this.dataset.testid === "idea-map-axis-low-anchor")
+            return new DOMRect(12, 624, 122, 0);
+          if (this.dataset.testid === "note-font-size-controls")
+            return new DOMRect(12, 624, 122, 38);
+          if (this.dataset.testid === "canvas-zoom-hud")
+            return new DOMRect(12, 670, 280, 38);
+          return new DOMRect();
+        });
+      try {
+        const phase = buildPhaseStep(step, 3);
+        const { rerender } = setup({
+          phase,
+          permissions: getBoardPermissions(phase),
+        });
+        expect(
+          screen.getByTestId("idea-map-axis-low-anchor"),
+        ).toBeInTheDocument();
+        const endpoint = screen.getByTestId("idea-map-x-low-endpoint");
+        expect(endpoint.getBoundingClientRect().left).toBe(82);
+        rerender();
+        fireEvent.resize(window);
+        expect(endpoint.getBoundingClientRect().left).toBe(82);
+      } finally {
+        rect.mockRestore();
+      }
+    },
+  );
 
   it("3-2の横軸左端は実際に重なる文字サイズ・ズームUIを避ける", async () => {
     let measurable = true;
@@ -530,47 +533,45 @@ describe("RoomBoardCanvas", () => {
     );
   });
 
-  it.each([
-    buildPhaseStep(5),
-    buildPhaseStep(4, 2),
-    buildPhaseStep(5, 3),
-  ])("%j の決定済み状態では別の候補も再採用できない", (phase) => {
-    setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-      isHost: true,
-      isAdoptMode: true,
-      decision: buildDecision({ noteId: "note-1", phase: phase.phase }),
-      notes: buildNotes(2),
-    });
-    expect(
-      screen.queryByRole("button", { name: /採用する.+:/ }),
-    ).not.toBeInTheDocument();
-  });
+  it.each([buildPhaseStep(5), buildPhaseStep(4, 2), buildPhaseStep(5, 3)])(
+    "%j の決定済み状態では別の候補も再採用できない",
+    (phase) => {
+      setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        isHost: true,
+        isAdoptMode: true,
+        decision: buildDecision({ noteId: "note-1", phase: phase.phase }),
+        notes: buildNotes(2),
+      });
+      expect(
+        screen.queryByRole("button", { name: /採用する.+:/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
-  it.each([
-    buildPhaseStep(5),
-    buildPhaseStep(4, 2),
-    buildPhaseStep(5, 3),
-  ])("%j の採用選択中も切断・非共有の候補には採用領域を出さない", (phase) => {
-    const { props, rerender } = setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-      isHost: true,
-      isAdoptMode: true,
-      notes: [buildNote({ visibility: "private" })],
-    });
-    const targets = () =>
-      screen.queryAllByRole("button", { name: /採用する.+:/ });
-    expect(targets()).toHaveLength(0);
-    const notes = buildNotes(2);
-    rerender(<RoomBoardCanvas {...props} notes={notes} isDisconnected />);
-    expect(targets()).toHaveLength(0);
-    rerender(<RoomBoardCanvas {...props} notes={notes} isHost={false} />);
-    expect(targets()).toHaveLength(2);
-    rerender(<RoomBoardCanvas {...props} notes={notes} />);
-    expect(targets()).toHaveLength(2);
-  });
+  it.each([buildPhaseStep(5), buildPhaseStep(4, 2), buildPhaseStep(5, 3)])(
+    "%j の採用選択中も切断・非共有の候補には採用領域を出さない",
+    (phase) => {
+      const { props, rerender } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        isHost: true,
+        isAdoptMode: true,
+        notes: [buildNote({ visibility: "private" })],
+      });
+      const targets = () =>
+        screen.queryAllByRole("button", { name: /採用する.+:/ });
+      expect(targets()).toHaveLength(0);
+      const notes = buildNotes(2);
+      rerender(<RoomBoardCanvas {...props} notes={notes} isDisconnected />);
+      expect(targets()).toHaveLength(0);
+      rerender(<RoomBoardCanvas {...props} notes={notes} isHost={false} />);
+      expect(targets()).toHaveLength(2);
+      rerender(<RoomBoardCanvas {...props} notes={notes} />);
+      expect(targets()).toHaveLength(2);
+    },
+  );
 
   it("通常キャンバスの採用候補は通常時の枠を透明にし、hoverとfocus-visibleで緑枠を示す", () => {
     setup({
@@ -1035,26 +1036,27 @@ describe("RoomBoardCanvas", () => {
     expect(screen.getByTestId("note-group-card")).toBeInTheDocument();
   });
 
-  it.each([
-    2, 3, 4, 5,
-  ])("フェーズ3 Step3-%i では近接付箋や既存グループを描画しない", (step) => {
-    setup({
-      phase: buildPhaseStep(step, 3),
-      notes: [
-        buildNote({ id: "note-1", x: 100, y: 100 }),
-        buildNote({ id: "note-2", x: 350, y: 100 }),
-      ],
-      groups: [
-        {
-          id: "group-1",
-          name: "フェーズ1の残存グループ",
-          noteIds: ["note-1", "note-2"],
-        },
-      ],
-    });
+  it.each([2, 3, 4, 5])(
+    "フェーズ3 Step3-%i では近接付箋や既存グループを描画しない",
+    (step) => {
+      setup({
+        phase: buildPhaseStep(step, 3),
+        notes: [
+          buildNote({ id: "note-1", x: 100, y: 100 }),
+          buildNote({ id: "note-2", x: 350, y: 100 }),
+        ],
+        groups: [
+          {
+            id: "group-1",
+            name: "フェーズ1の残存グループ",
+            noteIds: ["note-1", "note-2"],
+          },
+        ],
+      });
 
-    expect(screen.queryByTestId("note-group-card")).not.toBeInTheDocument();
-  });
+      expect(screen.queryByTestId("note-group-card")).not.toBeInTheDocument();
+    },
+  );
 
   it("ドラッグ中のゴースト付箋を描画する", () => {
     const ghost = buildNote({ id: "ghost-note", content: "運んでいる付箋" });
@@ -1120,32 +1122,33 @@ describe("RoomBoardCanvas", () => {
     });
   });
 
-  it.each(
-    NOTE_COLOR_PALETTE,
-  )("%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う", (color) => {
-    const normalPhase = buildPhaseStep(2);
-    const mapPhase = buildPhaseStep(2, 3);
-    const ghost = buildNote({
-      id: `ghost-${color}`,
-      color,
-      content: `運んでいる付箋 ${color}`,
-    });
-
-    for (const phase of [normalPhase, mapPhase]) {
-      const { unmount } = setup({
-        phase,
-        permissions: getBoardPermissions(phase),
-        dragGhost: { note: ghost, x: 120, y: 80 },
+  it.each(NOTE_COLOR_PALETTE)(
+    "%s のドラッグゴースト本文は両キャンバスで対応色の前景を使う",
+    (color) => {
+      const normalPhase = buildPhaseStep(2);
+      const mapPhase = buildPhaseStep(2, 3);
+      const ghost = buildNote({
+        id: `ghost-${color}`,
+        color,
+        content: `運んでいる付箋 ${color}`,
       });
 
-      const ghostText = screen.getByText(`運んでいる付箋 ${color}`);
-      expect(ghostText.style.color).toBe(
-        hexColorToRgb(NOTE_COLOR_STYLES[color].foregroundColor),
-      );
-      expect(ghostText).not.toHaveClass("dark:text-slate-50");
-      unmount();
-    }
-  });
+      for (const phase of [normalPhase, mapPhase]) {
+        const { unmount } = setup({
+          phase,
+          permissions: getBoardPermissions(phase),
+          dragGhost: { note: ghost, x: 120, y: 80 },
+        });
+
+        const ghostText = screen.getByText(`運んでいる付箋 ${color}`);
+        expect(ghostText.style.color).toBe(
+          hexColorToRgb(NOTE_COLOR_STYLES[color].foregroundColor),
+        );
+        expect(ghostText).not.toHaveClass("dark:text-slate-50");
+        unmount();
+      }
+    },
+  );
 
   it("通常ボードでは永続順序を描画し own・名前付きカーソルの drag と ghost だけを一時最前面にする", () => {
     const notes = [
@@ -1343,126 +1346,130 @@ describe("RoomBoardCanvas", () => {
     ).not.toBeInTheDocument();
   });
 
-  it.each([
-    3, 4, 5,
-  ])("Step3-%iでも価値×実現のしやすさの2軸マップを表示する", (step) => {
-    const phase = buildPhaseStep(step, 3);
+  it.each([3, 4, 5])(
+    "Step3-%iでも価値×実現のしやすさの2軸マップを表示する",
+    (step) => {
+      const phase = buildPhaseStep(step, 3);
 
-    setup({ phase, permissions: getBoardPermissions(phase) });
+      setup({ phase, permissions: getBoardPermissions(phase) });
 
-    expect(
-      screen.getByRole("region", {
-        name: "価値と実現のしやすさの2軸マップ",
-      }),
-    ).toBeInTheDocument();
-  });
+      expect(
+        screen.getByRole("region", {
+          name: "価値と実現のしやすさの2軸マップ",
+        }),
+      ).toBeInTheDocument();
+    },
+  );
 
-  it.each([
-    2, 3,
-  ])("Step3-%iでは無限キャンバスと分離した固定マップを表示する", (step) => {
-    const phase = buildPhaseStep(step, 3);
+  it.each([2, 3])(
+    "Step3-%iでは無限キャンバスと分離した固定マップを表示する",
+    (step) => {
+      const phase = buildPhaseStep(step, 3);
 
-    setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-      camera: { x: 30, y: -20, zoom: 0.11 },
-    });
+      setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        camera: { x: 30, y: -20, zoom: 0.11 },
+      });
 
-    const mapViewport = screen.getByTestId("idea-map-viewport");
-    expect(mapViewport).toBeInTheDocument();
-    expect(screen.getByTestId("board-canvas")).not.toContainElement(
-      mapViewport,
-    );
-    expect(screen.getByTestId("board-canvas")).toHaveStyle({
-      transform: "none",
-    });
-    expect(
-      screen.getByTestId("idea-map-size-controls-hud"),
-    ).toBeInTheDocument();
-  });
+      const mapViewport = screen.getByTestId("idea-map-viewport");
+      expect(mapViewport).toBeInTheDocument();
+      expect(screen.getByTestId("board-canvas")).not.toContainElement(
+        mapViewport,
+      );
+      expect(screen.getByTestId("board-canvas")).toHaveStyle({
+        transform: "none",
+      });
+      expect(
+        screen.getByTestId("idea-map-size-controls-hud"),
+      ).toBeInTheDocument();
+    },
+  );
 
-  it.each([
-    4, 5,
-  ])("3-%iでも固定マップを表示し、周辺ツールの構成を維持する", (step) => {
-    const phase = buildPhaseStep(step, 3);
-    setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-      camera: { x: 30, y: -20, zoom: 0.75 },
-      notes: [buildNote({ id: "mapped-note", x: 72, y: 28 })],
-    });
-    expect(
-      screen.getByRole("application", { name: "共有キャンバス" }),
-    ).toHaveAttribute(
-      "aria-description",
-      "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。",
-    );
-    expect(screen.getByTestId("idea-map-viewport")).toBeInTheDocument();
-    expect(screen.getByTestId("board-canvas")).toHaveStyle({
-      transform: "none",
-    });
-    expect(screen.getByTestId("idea-map-viewport")).toContainElement(
-      screen.getByTestId("idea-value-feasibility-map-note-mapped-note"),
-    );
-    expect(
-      screen.getByRole("button", { name: "手のひらツール" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("100%")).toBeInTheDocument();
-    expect(
-      screen.queryByTestId("idea-map-size-controls-hud"),
-    ).not.toBeInTheDocument();
-  });
+  it.each([4, 5])(
+    "3-%iでも固定マップを表示し、周辺ツールの構成を維持する",
+    (step) => {
+      const phase = buildPhaseStep(step, 3);
+      setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        camera: { x: 30, y: -20, zoom: 0.75 },
+        notes: [buildNote({ id: "mapped-note", x: 72, y: 28 })],
+      });
+      expect(
+        screen.getByRole("application", { name: "共有キャンバス" }),
+      ).toHaveAttribute(
+        "aria-description",
+        "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。",
+      );
+      expect(screen.getByTestId("idea-map-viewport")).toBeInTheDocument();
+      expect(screen.getByTestId("board-canvas")).toHaveStyle({
+        transform: "none",
+      });
+      expect(screen.getByTestId("idea-map-viewport")).toContainElement(
+        screen.getByTestId("idea-value-feasibility-map-note-mapped-note"),
+      );
+      expect(
+        screen.getByRole("button", { name: "手のひらツール" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("100%")).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("idea-map-size-controls-hud"),
+      ).not.toBeInTheDocument();
+    },
+  );
 
-  it.each([
-    0.5, 2,
-  ])("カメラ倍率%sでも固定マップと付箋の表示位置を変えない", (zoom) => {
-    setup({
-      phase: buildPhaseStep(3, 3),
-      camera: { x: 80, y: -40, zoom },
-      notes: [buildNote({ id: "fixed-size", x: 25, y: 75 })],
-      dragGhost: {
-        note: buildNote({ id: "fixed-ghost", content: "固定サイズゴースト" }),
-        x: 75,
-        y: 25,
-      },
-    });
-    const mapViewport = screen.getByTestId("idea-map-viewport");
-    const note = screen.getByTestId(
-      "idea-value-feasibility-map-note-fixed-size",
-    );
-    expect(mapViewport).not.toHaveStyle({ transform: `scale(${zoom})` });
-    const noteProfiles = getIdeaMapViewportNoteResponsivePositions(
-      { feasibility: 25, value: 75 },
-      150,
-      1,
-    );
-    const ghostProfiles = getIdeaMapViewportNoteResponsivePositions(
-      { feasibility: 75, value: 25 },
-      150,
-      1,
-    );
-    expect(note).toHaveStyle({
-      "--idea-map-note-left-desktop": noteProfiles.desktop.left,
-      "--idea-map-note-bottom-desktop": noteProfiles.desktop.bottom,
-    });
-    expect(screen.getByTestId("idea-map-drag-ghost")).toHaveStyle({
-      "--idea-map-note-left-desktop": ghostProfiles.desktop.left,
-      "--idea-map-note-bottom-desktop": ghostProfiles.desktop.bottom,
-      transform: "scale(1)",
-      transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
-    });
-    expect(
-      screen
-        .getByText("固定サイズゴースト")
-        .closest("[data-slot='sticky-note']"),
-    ).toHaveStyle({
-      transform: "scale(var(--idea-map-note-scale, 1))",
-      transformOrigin: "bottom left",
-    });
-    expect(screen.getByTestId("board-canvas")).toHaveStyle({
-      transform: "none",
-    });
-  });
+  it.each([0.5, 2])(
+    "カメラ倍率%sでも固定マップと付箋の表示位置を変えない",
+    (zoom) => {
+      setup({
+        phase: buildPhaseStep(3, 3),
+        camera: { x: 80, y: -40, zoom },
+        notes: [buildNote({ id: "fixed-size", x: 25, y: 75 })],
+        dragGhost: {
+          note: buildNote({ id: "fixed-ghost", content: "固定サイズゴースト" }),
+          x: 75,
+          y: 25,
+        },
+      });
+      const mapViewport = screen.getByTestId("idea-map-viewport");
+      const note = screen.getByTestId(
+        "idea-value-feasibility-map-note-fixed-size",
+      );
+      expect(mapViewport).not.toHaveStyle({ transform: `scale(${zoom})` });
+      const noteProfiles = getIdeaMapViewportNoteResponsivePositions(
+        { feasibility: 25, value: 75 },
+        150,
+        1,
+      );
+      const ghostProfiles = getIdeaMapViewportNoteResponsivePositions(
+        { feasibility: 75, value: 25 },
+        150,
+        1,
+      );
+      expect(note).toHaveStyle({
+        "--idea-map-note-left-desktop": noteProfiles.desktop.left,
+        "--idea-map-note-bottom-desktop": noteProfiles.desktop.bottom,
+      });
+      expect(screen.getByTestId("idea-map-drag-ghost")).toHaveStyle({
+        "--idea-map-note-left-desktop": ghostProfiles.desktop.left,
+        "--idea-map-note-bottom-desktop": ghostProfiles.desktop.bottom,
+        transform: "scale(1)",
+        transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
+      });
+      expect(
+        screen
+          .getByText("固定サイズゴースト")
+          .closest("[data-slot='sticky-note']"),
+      ).toHaveStyle({
+        transform: "scale(var(--idea-map-note-scale, 1))",
+        transformOrigin: "bottom left",
+      });
+      expect(screen.getByTestId("board-canvas")).toHaveStyle({
+        transform: "none",
+      });
+    },
+  );
 
   it.each([
     [2, 0, 1],
@@ -1471,75 +1478,80 @@ describe("RoomBoardCanvas", () => {
     [3, 0, 1],
     [3, 1, 1 / 1.1],
     [3, 2, 1 / 1.21],
-  ])("3-%iの広さ段階%iは各付箋の中心を基準に%s倍し、論理位置を保つ", (step, sizeLevel, scale) => {
-    const { props, rerender } = setup({
-      phase: buildPhaseStep(step, 3),
-      ideaMapSizeLevel: sizeLevel,
-      notes: [
-        buildNote({ id: "scaled-note-a", x: 25, y: 75 }),
-        buildNote({ id: "scaled-note-b", x: 68, y: 36 }),
-      ],
-    });
+  ])(
+    "3-%iの広さ段階%iは各付箋の中心を基準に%s倍し、論理位置を保つ",
+    (step, sizeLevel, scale) => {
+      const { props, rerender } = setup({
+        phase: buildPhaseStep(step, 3),
+        ideaMapSizeLevel: sizeLevel,
+        notes: [
+          buildNote({ id: "scaled-note-a", x: 25, y: 75 }),
+          buildNote({ id: "scaled-note-b", x: 68, y: 36 }),
+        ],
+      });
 
-    const plane = screen.getByTestId("idea-value-feasibility-map-plane");
-    const grid = screen.getByTestId("idea-value-feasibility-map-plane-grid");
-    const noteLayer = screen.getByTestId("idea-map-note-layer");
-    const planeStyle = plane.getAttribute("style");
+      const plane = screen.getByTestId("idea-value-feasibility-map-plane");
+      const grid = screen.getByTestId("idea-value-feasibility-map-plane-grid");
+      const noteLayer = screen.getByTestId("idea-map-note-layer");
+      const planeStyle = plane.getAttribute("style");
 
-    expect(screen.getByTestId("idea-map-viewport")).toHaveAttribute(
-      "data-map-workspace",
-      "true",
-    );
-    expect(plane).toContainElement(grid);
-    expect(noteLayer).not.toContainElement(grid);
-    expect(noteLayer).not.toHaveStyle({
-      transform: `scale(${scale})`,
-      transformOrigin: "center center",
-    });
-
-    const notePositions = [
-      { id: "scaled-note-a", feasibility: 25, value: 75 },
-      { id: "scaled-note-b", feasibility: 68, value: 36 },
-    ] as const;
-    for (const point of notePositions) {
-      const profiles = getIdeaMapViewportNoteResponsivePositions(
-        point,
-        150,
-        scale,
+      expect(screen.getByTestId("idea-map-viewport")).toHaveAttribute(
+        "data-map-workspace",
+        "true",
       );
-      const { id } = point;
-      const note = screen.getByTestId(`idea-value-feasibility-map-note-${id}`);
-      expect(note).toHaveStyle({
-        "--idea-map-note-left-desktop": profiles.desktop.left,
-        "--idea-map-note-bottom-desktop": profiles.desktop.bottom,
+      expect(plane).toContainElement(grid);
+      expect(noteLayer).not.toContainElement(grid);
+      expect(noteLayer).not.toHaveStyle({
         transform: `scale(${scale})`,
-        transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
+        transformOrigin: "center center",
       });
-      expect(noteLayer).toContainElement(note);
-      expect(within(note).getByTestId("note-card")).toHaveStyle({
-        transform: "scale(var(--idea-map-note-scale, 1))",
-        transformOrigin: "bottom left",
-      });
-    }
 
-    rerender(<RoomBoardCanvas {...props} ideaMapSizeLevel={sizeLevel + 1} />);
-    expect(plane.getAttribute("style")).toBe(planeStyle);
-    for (const point of notePositions) {
-      const profiles = getIdeaMapViewportNoteResponsivePositions(
-        point,
-        150,
-        getIdeaMapNoteDisplayScale(sizeLevel + 1),
-      );
-      expect(
-        screen.getByTestId(`idea-value-feasibility-map-note-${point.id}`),
-      ).toHaveStyle({
-        "--idea-map-note-left-desktop": profiles.desktop.left,
-        "--idea-map-note-bottom-desktop": profiles.desktop.bottom,
-        transform: `scale(${getIdeaMapNoteDisplayScale(sizeLevel + 1)})`,
-        transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
-      });
-    }
-  });
+      const notePositions = [
+        { id: "scaled-note-a", feasibility: 25, value: 75 },
+        { id: "scaled-note-b", feasibility: 68, value: 36 },
+      ] as const;
+      for (const point of notePositions) {
+        const profiles = getIdeaMapViewportNoteResponsivePositions(
+          point,
+          150,
+          scale,
+        );
+        const { id } = point;
+        const note = screen.getByTestId(
+          `idea-value-feasibility-map-note-${id}`,
+        );
+        expect(note).toHaveStyle({
+          "--idea-map-note-left-desktop": profiles.desktop.left,
+          "--idea-map-note-bottom-desktop": profiles.desktop.bottom,
+          transform: `scale(${scale})`,
+          transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
+        });
+        expect(noteLayer).toContainElement(note);
+        expect(within(note).getByTestId("note-card")).toHaveStyle({
+          transform: "scale(var(--idea-map-note-scale, 1))",
+          transformOrigin: "bottom left",
+        });
+      }
+
+      rerender(<RoomBoardCanvas {...props} ideaMapSizeLevel={sizeLevel + 1} />);
+      expect(plane.getAttribute("style")).toBe(planeStyle);
+      for (const point of notePositions) {
+        const profiles = getIdeaMapViewportNoteResponsivePositions(
+          point,
+          150,
+          getIdeaMapNoteDisplayScale(sizeLevel + 1),
+        );
+        expect(
+          screen.getByTestId(`idea-value-feasibility-map-note-${point.id}`),
+        ).toHaveStyle({
+          "--idea-map-note-left-desktop": profiles.desktop.left,
+          "--idea-map-note-bottom-desktop": profiles.desktop.bottom,
+          transform: `scale(${getIdeaMapNoteDisplayScale(sizeLevel + 1)})`,
+          transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
+        });
+      }
+    },
+  );
 
   it("軸と付箋をカメラ変換レイヤーの外に固定する", () => {
     setup({
@@ -1588,46 +1600,45 @@ describe("RoomBoardCanvas", () => {
     { id: "bottom-right", x: 100, y: 0 },
     { id: "top-left", x: 0, y: 100 },
     { id: "top-right", x: 100, y: 100 },
-  ])("2軸マップの四隅（$id）でも共有付箋を平面内に完全表示し、操作できる", ({
-    id,
-    x,
-    y,
-  }) => {
-    const phase = buildPhaseStep(3, 3);
-    const onNoteDragStart = vi.fn();
-    setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-      notes: [buildNote({ id, x, y })],
-      onNoteDragStart,
-    });
+  ])(
+    "2軸マップの四隅（$id）でも共有付箋を平面内に完全表示し、操作できる",
+    ({ id, x, y }) => {
+      const phase = buildPhaseStep(3, 3);
+      const onNoteDragStart = vi.fn();
+      setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        notes: [buildNote({ id, x, y })],
+        onNoteDragStart,
+      });
 
-    const mappedNote = screen.getByTestId(
-      `idea-value-feasibility-map-note-${id}`,
-    );
-    expect(mappedNote).toHaveStyle({
-      // clampの複合式はjsdomで未対応。範囲補正の式は純関数のspecで検証する。
-      transform: "scale(1)",
-      transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
-    });
+      const mappedNote = screen.getByTestId(
+        `idea-value-feasibility-map-note-${id}`,
+      );
+      expect(mappedNote).toHaveStyle({
+        // clampの複合式はjsdomで未対応。範囲補正の式は純関数のspecで検証する。
+        transform: "scale(1)",
+        transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
+      });
 
-    const surface = within(mappedNote).getByRole("button", { name: "付箋" });
-    fireEvent.pointerDown(surface, {
-      pointerId: 1,
-      clientX: 200,
-      clientY: 200,
-    });
-    fireEvent.pointerMove(surface, {
-      buttons: 1,
-      pointerId: 1,
-      clientX: 210,
-      clientY: 210,
-    });
-    expect(onNoteDragStart).toHaveBeenCalledWith(id, expect.anything(), {
-      clientX: 200,
-      clientY: 200,
-    });
-  });
+      const surface = within(mappedNote).getByRole("button", { name: "付箋" });
+      fireEvent.pointerDown(surface, {
+        pointerId: 1,
+        clientX: 200,
+        clientY: 200,
+      });
+      fireEvent.pointerMove(surface, {
+        buttons: 1,
+        pointerId: 1,
+        clientX: 210,
+        clientY: 210,
+      });
+      expect(onNoteDragStart).toHaveBeenCalledWith(id, expect.anything(), {
+        clientX: 200,
+        clientY: 200,
+      });
+    },
+  );
 
   it("2軸マップの端でもドラッグゴーストを平面内に完全表示する", () => {
     const phase = buildPhaseStep(3, 3);
@@ -1712,54 +1723,57 @@ describe("RoomBoardCanvas", () => {
     { label: "Step1-1", phase: buildPhaseStep(1, 1) },
     { label: "Step2-1", phase: buildPhaseStep(1, 2) },
     { label: "Step3-1", phase: buildPhaseStep(1, 3) },
-  ])("$labelでは共有キャンバスを隠し、既存付箋の入力グリッドを表示する", ({
-    phase,
-  }) => {
-    const { props, rerender } = setup({
-      phase,
-      permissions: getBoardPermissions(phase),
-      privateNotes: [
-        buildNote({
-          id: "private-note",
-          visibility: "private",
-          content: "個人の考え",
-        }),
-      ],
-    });
+  ])(
+    "$labelでは共有キャンバスを隠し、既存付箋の入力グリッドを表示する",
+    ({ phase }) => {
+      const { props, rerender } = setup({
+        phase,
+        permissions: getBoardPermissions(phase),
+        privateNotes: [
+          buildNote({
+            id: "private-note",
+            visibility: "private",
+            content: "個人の考え",
+          }),
+        ],
+      });
 
-    const workspace = screen.getByTestId("private-notes-workspace");
-    const note = within(workspace).getByTestId("note-card");
-    const editor = within(note).getByPlaceholderText("メモを入力...");
-    const addButton = within(workspace).getByRole("button", {
-      name: "付箋を追加",
-    });
+      const workspace = screen.getByTestId("private-notes-workspace");
+      const note = within(workspace).getByTestId("note-card");
+      const editor = within(note).getByPlaceholderText("メモを入力...");
+      const addButton = within(workspace).getByRole("button", {
+        name: "付箋を追加",
+      });
 
-    expect(screen.getByTestId("board-scroller").parentElement).toHaveAttribute(
-      "hidden",
-    );
-    expect(screen.getByTestId("board-canvas")).not.toBeVisible();
-    expect(screen.getByTestId("board-tools-hud")).not.toBeVisible();
-    expect(screen.getByTestId("board-operation-matrix")).not.toBeVisible();
-    expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
-    expect(note).toHaveStyle({ width: "200px", height: "150px" });
-    expect(editor).toHaveStyle({ fontSize: "14px", lineHeight: "21px" });
-    expect(addButton).toBeEnabled();
-    expect(addButton).toHaveStyle({ width: "200px", height: "150px" });
+      expect(
+        screen.getByTestId("board-scroller").parentElement,
+      ).toHaveAttribute("hidden");
+      expect(screen.getByTestId("board-canvas")).not.toBeVisible();
+      expect(screen.getByTestId("board-tools-hud")).not.toBeVisible();
+      expect(screen.getByTestId("board-operation-matrix")).not.toBeVisible();
+      expect(
+        screen.queryByTestId("private-notes-dock"),
+      ).not.toBeInTheDocument();
+      expect(note).toHaveStyle({ width: "200px", height: "150px" });
+      expect(editor).toHaveStyle({ fontSize: "14px", lineHeight: "21px" });
+      expect(addButton).toBeEnabled();
+      expect(addButton).toHaveStyle({ width: "200px", height: "150px" });
 
-    fireEvent.click(addButton);
-    expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
+      fireEvent.click(addButton);
+      expect(props.onAddPrivateNote).toHaveBeenCalledOnce();
 
-    const sharingPhase = buildPhaseStep(2, phase.phase);
-    rerender(
-      <RoomBoardCanvas
-        {...props}
-        phase={sharingPhase}
-        permissions={getBoardPermissions(sharingPhase)}
-      />,
-    );
-    expect(screen.getByTestId("board-tools-hud")).toBeVisible();
-    expect(screen.getByTestId("board-operation-matrix")).toBeVisible();
-  });
+      const sharingPhase = buildPhaseStep(2, phase.phase);
+      rerender(
+        <RoomBoardCanvas
+          {...props}
+          phase={sharingPhase}
+          permissions={getBoardPermissions(sharingPhase)}
+        />,
+      );
+      expect(screen.getByTestId("board-tools-hud")).toBeVisible();
+      expect(screen.getByTestId("board-operation-matrix")).toBeVisible();
+    },
+  );
 
   it("Step1-3ではマイ付箋ツールバーを表示しない", () => {
     setup({
@@ -1831,36 +1845,35 @@ it("採用選択中も候補をドラッグでき、ドラッグでは採用し�
   expect(props.onAdoptNote).not.toHaveBeenCalled();
 });
 
-it.each([
-  "secondary",
-  "released",
-  "cancelled",
-])("採用overlayの%s pointerはhover移動からドラッグを開始しない", (kind) => {
-  const phase = buildPhaseStep(5);
-  const { props } = setup({
-    phase,
-    permissions: getBoardPermissions(phase),
-    isHost: true,
-    isAdoptMode: true,
-  });
-  const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];
-  fireEvent.pointerDown(target, {
-    pointerId: 1,
-    button: kind === "secondary" ? 2 : 0,
-    isPrimary: true,
-    clientX: 10,
-    clientY: 10,
-  });
-  if (kind === "cancelled") fireEvent.pointerCancel(target, { pointerId: 1 });
-  else fireEvent.pointerUp(target, { pointerId: 1 });
-  fireEvent.pointerMove(target, {
-    pointerId: 1,
-    buttons: 0,
-    clientX: 100,
-    clientY: 100,
-  });
-  expect(props.onNoteDragStart).not.toHaveBeenCalled();
-});
+it.each(["secondary", "released", "cancelled"])(
+  "採用overlayの%s pointerはhover移動からドラッグを開始しない",
+  (kind) => {
+    const phase = buildPhaseStep(5);
+    const { props } = setup({
+      phase,
+      permissions: getBoardPermissions(phase),
+      isHost: true,
+      isAdoptMode: true,
+    });
+    const target = screen.getAllByRole("button", { name: /採用する付箋:/ })[0];
+    fireEvent.pointerDown(target, {
+      pointerId: 1,
+      button: kind === "secondary" ? 2 : 0,
+      isPrimary: true,
+      clientX: 10,
+      clientY: 10,
+    });
+    if (kind === "cancelled") fireEvent.pointerCancel(target, { pointerId: 1 });
+    else fireEvent.pointerUp(target, { pointerId: 1 });
+    fireEvent.pointerMove(target, {
+      pointerId: 1,
+      buttons: 0,
+      clientX: 100,
+      clientY: 100,
+    });
+    expect(props.onNoteDragStart).not.toHaveBeenCalled();
+  },
+);
 
 it("極端長文mapカードを平面より小さく表示し、短い付箋も操作できる", () => {
   const phase = buildPhaseStep(3, 3);
@@ -1910,47 +1923,48 @@ it("共有付箋とマイ付箋に作者名のホバーヒントを表示しな�
 });
 
 describe("Step 3-2〜3-5（固定2軸マップ）", () => {
-  it.each([
-    4, 5,
-  ])("3-3から3-%iへ進んでも固定マップと付箋の表示を引き継ぐ", (step) => {
-    const note = buildNote({ id: "mapped-idea", x: 72, y: 64 });
-    const { props, rerender } = setup({
-      phase: buildPhaseStep(3, 3),
-      permissions: getBoardPermissions(buildPhaseStep(3, 3)),
-      notes: [note],
-      ideaMapSizeLevel: 4,
-      camera: { x: -300, y: -200, zoom: 0.2 },
-    });
-    const map = screen.getByTestId("idea-map-viewport");
-    fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
-    const mapStyle = map.getAttribute("style");
-    const mappedNote = screen.getByTestId(
-      "idea-value-feasibility-map-note-mapped-idea",
-    );
-    const noteStyle = mappedNote.getAttribute("style");
+  it.each([4, 5])(
+    "3-3から3-%iへ進んでも固定マップと付箋の表示を引き継ぐ",
+    (step) => {
+      const note = buildNote({ id: "mapped-idea", x: 72, y: 64 });
+      const { props, rerender } = setup({
+        phase: buildPhaseStep(3, 3),
+        permissions: getBoardPermissions(buildPhaseStep(3, 3)),
+        notes: [note],
+        ideaMapSizeLevel: 4,
+        camera: { x: -300, y: -200, zoom: 0.2 },
+      });
+      const map = screen.getByTestId("idea-map-viewport");
+      fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
+      const mapStyle = map.getAttribute("style");
+      const mappedNote = screen.getByTestId(
+        "idea-value-feasibility-map-note-mapped-idea",
+      );
+      const noteStyle = mappedNote.getAttribute("style");
 
-    const phase = buildPhaseStep(step, 3);
-    rerender(
-      <RoomBoardCanvas
-        {...props}
-        phase={phase}
-        permissions={getBoardPermissions(phase)}
-      />,
-    );
+      const phase = buildPhaseStep(step, 3);
+      rerender(
+        <RoomBoardCanvas
+          {...props}
+          phase={phase}
+          permissions={getBoardPermissions(phase)}
+        />,
+      );
 
-    expect(screen.getByTestId("idea-map-viewport")).toBe(map);
-    expect(map.getAttribute("style")).toBe(mapStyle);
-    expect(
-      screen.getByTestId("idea-value-feasibility-map-note-mapped-idea"),
-    ).toBe(mappedNote);
-    expect(mappedNote.getAttribute("style")).toBe(noteStyle);
-    expect(screen.getByTestId("board-canvas")).toHaveStyle({
-      transform: "none",
-    });
-    expect(
-      screen.queryByTestId("private-notes-toolbar"),
-    ).not.toBeInTheDocument();
-  });
+      expect(screen.getByTestId("idea-map-viewport")).toBe(map);
+      expect(map.getAttribute("style")).toBe(mapStyle);
+      expect(
+        screen.getByTestId("idea-value-feasibility-map-note-mapped-idea"),
+      ).toBe(mappedNote);
+      expect(mappedNote.getAttribute("style")).toBe(noteStyle);
+      expect(screen.getByTestId("board-canvas")).toHaveStyle({
+        transform: "none",
+      });
+      expect(
+        screen.queryByTestId("private-notes-toolbar"),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("Step 3-2 はマイ付箋エリアを開いて表示する", () => {
     const phase = buildPhaseStep(2, 3);

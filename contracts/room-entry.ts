@@ -13,25 +13,21 @@ export const ROOM_ENTRY_AUDIENCE = {
   admission: "idea-boost:room-admission",
 } as const;
 export const RoomEntryOperationSchema = z.discriminatedUnion("kind", [
-  z
-    .object({ kind: z.literal("create"), input: CreateRoomInputSchema })
-    .strict(),
-  z
-    .object({
-      kind: z.literal("join"),
-      inviteCode: z.string().regex(/^[A-Z0-9]{6}$/),
-    })
-    .strict(),
-  z.object({ kind: z.literal("return"), roomId: z.string().uuid() }).strict(),
+  z.strictObject({ kind: z.literal("create"), input: CreateRoomInputSchema }),
+  z.strictObject({
+    kind: z.literal("join"),
+    inviteCode: z.string().regex(/^[A-Z0-9]{6}$/),
+  }),
+  z.strictObject({ kind: z.literal("return"), roomId: z.guid() }),
 ]);
 export type RoomEntryOperation = z.infer<typeof RoomEntryOperationSchema>;
 export const RoomOAuthResumeSchema = z
   .object({
-    ticketId: z.string().uuid(),
-    principal: z.string().uuid(),
-    tabId: z.string().uuid(),
-    state: z.string().uuid(),
-    nonce: z.string().uuid(),
+    ticketId: z.guid(),
+    principal: z.guid(),
+    tabId: z.guid(),
+    state: z.guid(),
+    nonce: z.guid(),
     operation: RoomEntryOperationSchema,
     exp: SessionExpiresAtSchema,
   })
@@ -41,24 +37,24 @@ export const RoomOAuthResumeSchema = z
       v.operation.input.expectedPrincipal === v.principal,
   );
 export const RoomAdmissionSchema = z.object({
-  ticketId: z.string().uuid(),
-  principal: z.string().uuid(),
-  roomId: z.string().uuid(),
+  ticketId: z.guid(),
+  principal: z.guid(),
+  roomId: z.guid(),
   sessionExp: SessionExpiresAtSchema,
   stage: z.enum(["lobby", "board"]),
   exp: SessionExpiresAtSchema,
 });
 export const RoomEntryTicketSchema = RoomAdmissionSchema.extend({
-  tabId: z.string().uuid(),
+  tabId: z.guid(),
 });
-export const ConsumeRoomTicketRequestSchema = z
-  .object({ ticket: z.string().min(1).max(8192) })
-  .strict();
+export const ConsumeRoomTicketRequestSchema = z.strictObject({
+  ticket: z.string().min(1).max(8192),
+});
 export const RoomResumeResultSchema = z.discriminatedUnion("ok", [
   z.object({
     ok: z.literal(true),
     operation: RoomEntryOperationSchema,
-    principal: z.string().uuid(),
+    principal: z.guid(),
   }),
   z.object({
     ok: z.literal(false),

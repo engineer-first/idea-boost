@@ -158,16 +158,15 @@ describe("Issue 状態の操作連携", () => {
     await fork.fire("opened");
     expect(fork.state.changes).toEqual([]);
   });
-  it.each([
-    "Task",
-    "Bug",
-    "Spike",
-  ])("%s の自己アサインで着手し、再実行では更新しない", async (type) => {
-    const f = fixture({ type });
-    expect((await f.fire("assigned")).updated).toBe(true);
-    await f.fire("assigned");
-    expect(f.state.changes).toEqual(["作業中"]);
-  });
+  it.each(["Task", "Bug", "Spike"])(
+    "%s の自己アサインで着手し、再実行では更新しない",
+    async (type) => {
+      const f = fixture({ type });
+      expect((await f.fire("assigned")).updated).toBe(true);
+      await f.fire("assigned");
+      expect(f.state.changes).toEqual(["作業中"]);
+    },
+  );
   it("他人への割当てと割当て解除後の遅延イベントでは開始しない", async () => {
     const f = fixture();
     await f.fire("assigned", { sender: { login: "bob" } });
@@ -175,27 +174,22 @@ describe("Issue 状態の操作連携", () => {
     await f.fire("assigned");
     expect(f.state.changes).toEqual([]);
   });
-  it.each([
-    "未整理",
-    "壁打ち中",
-    "作業中",
-    "レビュー中",
-    "完了",
-    "見送り",
-  ])("自己アサインは %s を上書きしない", async (status) => {
-    const f = fixture({ status });
-    await f.fire("assigned");
-    expect(f.state.changes).toEqual([]);
-  });
-  it.each([
-    "PBI",
-    "DemoGoal",
-    "相談・要望",
-  ])("%s の担当者を開始とみなさない", async (type) => {
-    const f = fixture({ type });
-    await f.fire("assigned");
-    expect(f.state.changes).toEqual([]);
-  });
+  it.each(["未整理", "壁打ち中", "作業中", "レビュー中", "完了", "見送り"])(
+    "自己アサインは %s を上書きしない",
+    async (status) => {
+      const f = fixture({ status });
+      await f.fire("assigned");
+      expect(f.state.changes).toEqual([]);
+    },
+  );
+  it.each(["PBI", "DemoGoal", "相談・要望"])(
+    "%s の担当者を開始とみなさない",
+    async (type) => {
+      const f = fixture({ type });
+      await f.fire("assigned");
+      expect(f.state.changes).toEqual([]);
+    },
+  );
   it("番号付きブランチの Draft PR 作成はリンク追記を待たずに開始できる", async () => {
     const f = fixture();
     f.pr.body = "説明のみ";

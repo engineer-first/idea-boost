@@ -57,25 +57,25 @@ afterEach(() => {
 });
 
 describe("工程ガイド", () => {
-  it.each([
-    undefined,
-    "intro",
-  ] as const)("639px以下では初めての工程も説明を閉じ、入口から開ける（初期状態: %s）", (initialState) => {
-    vi.spyOn(window, "innerWidth", "get").mockReturnValue(639);
-    const { props, rerender } = setup({ initialState });
-    expect(
-      screen.queryByRole("status", { name: "最初の一歩" }),
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "進め方" }));
-    expect(
-      screen.getByRole("region", { name: "ファシリテーションガイド" }),
-    ).toHaveFocus();
-    rerender(<StepGuide {...props} phaseKey="1-2" />);
-    expect(screen.getByRole("button", { name: "進め方" })).toBeVisible();
-    expect(
-      screen.queryByRole("status", { name: "最初の一歩" }),
-    ).not.toBeInTheDocument();
-  });
+  it.each([undefined, "intro"] as const)(
+    "639px以下では初めての工程も説明を閉じ、入口から開ける（初期状態: %s）",
+    (initialState) => {
+      vi.spyOn(window, "innerWidth", "get").mockReturnValue(639);
+      const { props, rerender } = setup({ initialState });
+      expect(
+        screen.queryByRole("status", { name: "最初の一歩" }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "進め方" }));
+      expect(
+        screen.getByRole("region", { name: "ファシリテーションガイド" }),
+      ).toHaveFocus();
+      rerender(<StepGuide {...props} phaseKey="1-2" />);
+      expect(screen.getByRole("button", { name: "進め方" })).toBeVisible();
+      expect(
+        screen.queryByRole("status", { name: "最初の一歩" }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("畳んだ入口は進め方だけを示し、現在の作業を併記しない", () => {
     setup({ initialState: "compact" });
@@ -190,34 +190,34 @@ describe("工程ガイド", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
-  it.each([
-    "intro",
-    "detail",
-  ] as const)("%sを外側クリックで畳み、その1回で元の操作も実行する", (initialState) => {
-    const { onAction } = setup({ initialState });
-    outsideClick();
-    expect(frame()).toHaveAttribute("data-state", "compact");
-    expect(onAction).toHaveBeenCalledOnce();
-  });
-  it.each([
-    "{Enter}",
-    " ",
-  ])("%sで開き、Escapeで入口に戻し、Tabでは移動先に留める", async (key) => {
-    const user = userEvent.setup();
-    setup({ initialState: "compact" });
-    const button = screen.getByRole("button", { name: "進め方" });
-    act(() => button.focus());
-    await user.keyboard(key);
-    expect(
-      screen.getByRole("region", { name: "ファシリテーションガイド" }),
-    ).toHaveFocus();
-    await user.keyboard("{Escape}");
-    expect(button).toHaveFocus();
-    await user.keyboard(key);
-    await user.tab();
-    expect(screen.getByRole("button", { name: "付箋を追加" })).toHaveFocus();
-    expect(frame()).toHaveAttribute("data-state", "compact");
-  });
+  it.each(["intro", "detail"] as const)(
+    "%sを外側クリックで畳み、その1回で元の操作も実行する",
+    (initialState) => {
+      const { onAction } = setup({ initialState });
+      outsideClick();
+      expect(frame()).toHaveAttribute("data-state", "compact");
+      expect(onAction).toHaveBeenCalledOnce();
+    },
+  );
+  it.each(["{Enter}", " "])(
+    "%sで開き、Escapeで入口に戻し、Tabでは移動先に留める",
+    async (key) => {
+      const user = userEvent.setup();
+      setup({ initialState: "compact" });
+      const button = screen.getByRole("button", { name: "進め方" });
+      act(() => button.focus());
+      await user.keyboard(key);
+      expect(
+        screen.getByRole("region", { name: "ファシリテーションガイド" }),
+      ).toHaveFocus();
+      await user.keyboard("{Escape}");
+      expect(button).toHaveFocus();
+      await user.keyboard(key);
+      await user.tab();
+      expect(screen.getByRole("button", { name: "付箋を追加" })).toHaveFocus();
+      expect(frame()).toHaveAttribute("data-state", "compact");
+    },
+  );
   it("初めての工程だけ案内し、戻る・再マウントでは畳んで始める", () => {
     const { rerender, unmount, props } = setup();
     outsideClick();

@@ -65,37 +65,37 @@ function setup() {
   return { ...hook, send, accept };
 }
 describe("移動履歴", () => {
-  it.each([
-    "undo",
-    "redo",
-  ] as const)("%sの未送信が確定したらpendingを解除し同じ履歴を再試行できる", (direction) => {
-    const { result, send, accept } = setup();
-    accept(receipt("move", 0, 1));
-    if (direction === "redo") {
-      act(() => result.current.undo());
-      act(() =>
-        result.current.applyMessage({
-          type: "note:move:result",
-          operationId: "inverse",
-          status: "accepted",
-          receipt: receipt("inverse", 1, 2),
-        }),
-      );
-    }
-    send.mockClear();
-    send.mockReturnValueOnce(false);
-    act(() => result.current[direction]());
-    const unsent = send.mock.calls[0][0];
-    expect(result.current.pending).toBe(false);
-    expect(result.current[`${direction}State`].disabled).toBe(false);
-    act(() => result.current[direction]());
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls[1][0]).toMatchObject({
-      sourceOperationId: unsent.sourceOperationId,
-      expectedTargets: unsent.expectedTargets,
-    });
-    expect(result.current.pending).toBe(true);
-  });
+  it.each(["undo", "redo"] as const)(
+    "%sの未送信が確定したらpendingを解除し同じ履歴を再試行できる",
+    (direction) => {
+      const { result, send, accept } = setup();
+      accept(receipt("move", 0, 1));
+      if (direction === "redo") {
+        act(() => result.current.undo());
+        act(() =>
+          result.current.applyMessage({
+            type: "note:move:result",
+            operationId: "inverse",
+            status: "accepted",
+            receipt: receipt("inverse", 1, 2),
+          }),
+        );
+      }
+      send.mockClear();
+      send.mockReturnValueOnce(false);
+      act(() => result.current[direction]());
+      const unsent = send.mock.calls[0][0];
+      expect(result.current.pending).toBe(false);
+      expect(result.current[`${direction}State`].disabled).toBe(false);
+      act(() => result.current[direction]());
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(send.mock.calls[1][0]).toMatchObject({
+        sourceOperationId: unsent.sourceOperationId,
+        expectedTargets: unsent.expectedTargets,
+      });
+      expect(result.current.pending).toBe(true);
+    },
+  );
   it("本人の成功移動だけを記録し、pending連打と拒否時の別履歴実行を防ぐ", () => {
     const { result, send, accept } = setup();
     accept(receipt("first", 0, 1));
@@ -452,106 +452,106 @@ it("共有成功note:insertedだけで移動履歴を区切る", () => {
   });
   expect(result.current.undoState.disabled).toBe(true);
 });
-it.each([
-  "note:publish",
-  "note:unpublish",
-] as const)("%sは共有結果の確定成功でだけ移動履歴を区切る", (type) => {
-  const { result, accept } = setup();
-  accept(receipt("move", 0, 1));
-  act(() => {
-    result.current.observeOutgoing({
-      type,
-      operationId: "share",
-      noteId: "other",
-      x: 10,
-      y: 20,
+it.each(["note:publish", "note:unpublish"] as const)(
+  "%sは共有結果の確定成功でだけ移動履歴を区切る",
+  (type) => {
+    const { result, accept } = setup();
+    accept(receipt("move", 0, 1));
+    act(() => {
+      result.current.observeOutgoing({
+        type,
+        operationId: "share",
+        noteId: "other",
+        x: 10,
+        y: 20,
+      });
+      result.current.applyMessage({
+        type: "note:share:result",
+        operationId: "share",
+        status: "unknown",
+      });
     });
-    result.current.applyMessage({
-      type: "note:share:result",
-      operationId: "share",
-      status: "unknown",
-    });
-  });
-  expect(result.current.undoState.disabled).toBe(false);
-  act(() =>
-    result.current.applyMessage({
-      type: "note:share:result",
-      operationId: "another-operation",
-      status: "committed",
-    }),
-  );
-  expect(result.current.undoState.disabled).toBe(false);
-  act(() =>
-    result.current.applyMessage({
-      type: "note:share:result",
-      operationId: "share",
-      status: "committed",
-    }),
-  );
-  expect(result.current.undoState.disabled).toBe(true);
-});
-it.each([
-  "note:publish",
-  "note:unpublish",
-] as const)("%sの操作ID付き要求は付箋通知で確定と誤認しない", (type) => {
-  const { result, accept } = setup();
-  accept(receipt("move", 0, 1));
-  act(() =>
-    result.current.observeOutgoing({
-      type,
-      operationId: "share",
-      noteId: "other",
-      x: 10,
-      y: 20,
-    }),
-  );
-  for (const operationId of [undefined, "other-share", "share"]) {
+    expect(result.current.undoState.disabled).toBe(false);
     act(() =>
       result.current.applyMessage({
-        type: "note:updated",
-        operationId,
-        note: buildNote({
-          id: "other",
-          visibility: type === "note:publish" ? "shared" : "private",
-        }),
+        type: "note:share:result",
+        operationId: "another-operation",
+        status: "committed",
       }),
     );
     expect(result.current.undoState.disabled).toBe(false);
-  }
-  act(() =>
-    result.current.applyMessage({
-      type: "note:share:result",
-      operationId: "share",
-      status: "committed",
-    }),
-  );
-  expect(result.current.undoState.disabled).toBe(true);
-});
-it.each([
-  "rejected",
-  "expired",
-] as const)("共有結果%sの後は遅延成功でも移動履歴を区切らない", (status) => {
-  const { result, accept } = setup();
-  accept(receipt("move", 0, 1));
-  act(() => {
-    result.current.observeOutgoing({
-      type: "note:unpublish",
-      operationId: "share",
-      noteId: "other",
+    act(() =>
+      result.current.applyMessage({
+        type: "note:share:result",
+        operationId: "share",
+        status: "committed",
+      }),
+    );
+    expect(result.current.undoState.disabled).toBe(true);
+  },
+);
+it.each(["note:publish", "note:unpublish"] as const)(
+  "%sの操作ID付き要求は付箋通知で確定と誤認しない",
+  (type) => {
+    const { result, accept } = setup();
+    accept(receipt("move", 0, 1));
+    act(() =>
+      result.current.observeOutgoing({
+        type,
+        operationId: "share",
+        noteId: "other",
+        x: 10,
+        y: 20,
+      }),
+    );
+    for (const operationId of [undefined, "other-share", "share"]) {
+      act(() =>
+        result.current.applyMessage({
+          type: "note:updated",
+          operationId,
+          note: buildNote({
+            id: "other",
+            visibility: type === "note:publish" ? "shared" : "private",
+          }),
+        }),
+      );
+      expect(result.current.undoState.disabled).toBe(false);
+    }
+    act(() =>
+      result.current.applyMessage({
+        type: "note:share:result",
+        operationId: "share",
+        status: "committed",
+      }),
+    );
+    expect(result.current.undoState.disabled).toBe(true);
+  },
+);
+it.each(["rejected", "expired"] as const)(
+  "共有結果%sの後は遅延成功でも移動履歴を区切らない",
+  (status) => {
+    const { result, accept } = setup();
+    accept(receipt("move", 0, 1));
+    act(() => {
+      result.current.observeOutgoing({
+        type: "note:unpublish",
+        operationId: "share",
+        noteId: "other",
+      });
+      result.current.applyMessage({
+        type: "note:share:result",
+        operationId: "share",
+        status,
+      });
+      result.current.applyMessage({
+        type: "note:share:result",
+        operationId: "share",
+        status: "committed",
+      });
     });
-    result.current.applyMessage({
-      type: "note:share:result",
-      operationId: "share",
-      status,
-    });
-    result.current.applyMessage({
-      type: "note:share:result",
-      operationId: "share",
-      status: "committed",
-    });
-  });
-  expect(result.current.undoState.disabled).toBe(false);
-});
+    expect(result.current.undoState.disabled).toBe(false);
+  },
+);
 it("相関errorだけでは終端にせずstatus unknownで不存在を確認する", () => {
   const { result, accept } = setup();
   accept(receipt("old", 0, 1));

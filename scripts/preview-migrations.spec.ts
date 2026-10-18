@@ -27,27 +27,31 @@ it("通常のコード変更と一覧の順序では保存先を作り直さな�
     ]),
   ).toBe(hash());
 });
-it.each([
-  0, 1,
-])("D1またはRoomDOのSQLの編集・追加・削除・名前変更を検出する: %i", (index) => {
-  const other = 1 - index;
-  const entry = entries[index];
-  for (const changed of [
-    [entries[other], { ...entry, sha: "c".repeat(40) }],
-    [
-      ...entries,
-      { ...entry, path: entry.path.replace("test.sql", "added.sql") },
-    ],
-    [
-      entries[other],
-      { ...entry, path: entry.path.replace("test.sql", "renamed.sql") },
-    ],
-  ])
-    expect(hash(changed)).not.toBe(hash());
-  const extra = { ...entry, path: entry.path.replace("test.sql", "extra.sql") };
-  expect(hash([entries[other], extra])).not.toBe(hash([...entries, extra]));
-  expect(() => hash([entries[other]])).toThrow();
-});
+it.each([0, 1])(
+  "D1またはRoomDOのSQLの編集・追加・削除・名前変更を検出する: %i",
+  (index) => {
+    const other = 1 - index;
+    const entry = entries[index];
+    for (const changed of [
+      [entries[other], { ...entry, sha: "c".repeat(40) }],
+      [
+        ...entries,
+        { ...entry, path: entry.path.replace("test.sql", "added.sql") },
+      ],
+      [
+        entries[other],
+        { ...entry, path: entry.path.replace("test.sql", "renamed.sql") },
+      ],
+    ])
+      expect(hash(changed)).not.toBe(hash());
+    const extra = {
+      ...entry,
+      path: entry.path.replace("test.sql", "extra.sql"),
+    };
+    expect(hash([entries[other], extra])).not.toBe(hash([...entries, extra]));
+    expect(() => hash([entries[other]])).toThrow();
+  },
+);
 it("一覧の省略やSQLのsymlinkでは、リセットを判断しない", () => {
   expect(() =>
     previewMigrationHash({ truncated: true, tree: entries }),

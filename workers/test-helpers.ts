@@ -1,5 +1,6 @@
 // workers テスト共通のヘルパー。
-import { env, runInDurableObject, SELF } from "cloudflare:test";
+import { runInDurableObject } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { expect } from "vitest";
 import type { RoomPhase } from "../contracts/phase";
 import {
@@ -97,7 +98,7 @@ export async function sessionCookieFor(user: TestUser): Promise<string> {
 export async function createRoomAs(
   user: TestUser,
 ): Promise<{ roomId: string; inviteCode: string }> {
-  const res = await SELF.fetch("https://api.test/api/rooms", {
+  const res = await exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
       Cookie: await sessionCookieFor(user),
@@ -113,7 +114,7 @@ export async function createRoomAs(
 }
 
 export async function joinRoomAs(user: TestUser, code: string): Promise<void> {
-  const res = await SELF.fetch("https://api.test/api/rooms/join", {
+  const res = await exports.default.fetch("https://api.test/api/rooms/join", {
     method: "POST",
     headers: {
       Cookie: await sessionCookieFor(user),
@@ -136,12 +137,15 @@ export async function connectRoomAs(
   user: TestUser,
   roomId: string,
 ): Promise<RoomSocket> {
-  const res = await SELF.fetch(`https://api.test/api/rooms/${roomId}/ws`, {
-    headers: {
-      Upgrade: "websocket",
-      Cookie: await sessionCookieFor(user),
+  const res = await exports.default.fetch(
+    `https://api.test/api/rooms/${roomId}/ws`,
+    {
+      headers: {
+        Upgrade: "websocket",
+        Cookie: await sessionCookieFor(user),
+      },
     },
-  });
+  );
   expect(res.status).toBe(101);
   const ws = res.webSocket;
   if (!ws) throw new Error("webSocket missing on 101 response");

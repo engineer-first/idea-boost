@@ -11,7 +11,7 @@ const preview: Preview = {
     const { activeRoomConnectionHandlers } = await import(
       "../app/mocks/active-room-connection"
     );
-    await worker.start({ onUnhandledRequest: "bypass", quiet: true });
+    await worker.start({ onUnhandledFrame: "bypass", quiet: true });
     worker.use(...activeRoomConnectionHandlers);
     return () => worker.resetHandlers();
   },
@@ -21,9 +21,8 @@ const preview: Preview = {
     try {
       const { worker } = await import("../app/mocks/browser");
       await worker.start({
-        onUnhandledRequest: "warn",
+        onUnhandledFrame: "warn",
         quiet: true,
-        waitUntilReady: true,
       });
     } catch (error) {
       console.error("[MSW] Failed to start the mock service worker:", error);

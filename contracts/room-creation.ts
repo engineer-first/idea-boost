@@ -5,22 +5,20 @@ export const ROOM_CREATION_FUTURE_MS = 60_000;
 export const ROOM_CREATION_GC_GRACE_MS = 5 * 60_000;
 export const ROOM_CREATION_NAME_MAX = 15;
 export const CreationRequestIdSchema = z
-  .string()
-  .uuid()
+  .guid()
   .transform((id) => id.toLowerCase());
-export const CreationPrincipalSchema = z
-  .object({ expectedPrincipal: z.string().uuid() })
-  .strict();
+export const CreationPrincipalSchema = z.strictObject({
+  expectedPrincipal: z.guid(),
+});
 export const CreationStatusInputSchema = CreationPrincipalSchema.extend({
   requestId: CreationRequestIdSchema,
 });
 export const CreationIssuedSchema = z
-  .object({
+  .strictObject({
     requestId: CreationRequestIdSchema.refine((id) => id[14] === "7"),
-    issuedAt: z.number().int().nonnegative(),
-    expiresAt: z.number().int().nonnegative(),
+    issuedAt: z.int().nonnegative(),
+    expiresAt: z.int().nonnegative(),
   })
-  .strict()
   .refine(
     (v) =>
       creationIssuedAt(v.requestId) === v.issuedAt &&
@@ -47,7 +45,7 @@ export function issueCreationId(now = Date.now()): CreationIssued {
 export const CreationStatusSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("ready"),
-    roomId: z.string().uuid(),
+    roomId: z.guid(),
     inviteCode: z.string(),
     acceptance: z.enum(["open", "expired"]),
   }),

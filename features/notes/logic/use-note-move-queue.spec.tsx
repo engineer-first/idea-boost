@@ -229,65 +229,61 @@ describe("保存待ち中の連続移動", () => {
     ).toHaveLength(2);
     expect(h.result.current.movePending).toBe(false);
   });
-  it.each([
-    "rejected",
-    "unknown",
-  ] as const)("先の結果が%sなら未送信分を保存しない", (status) => {
-    const h = setup();
-    h.start();
-    h.end(150);
-    h.start();
-    h.end(220);
-    expect(h.x()).toBe(220);
-    h.apply({ type: "note:move:result", operationId: ids[0], status });
-    expect(h.x()).toBe(100);
-    expect(
-      h.send.mock.calls.filter(([m]) => m.type === "note:move:start"),
-    ).toHaveLength(1);
-    expect(h.result.current.movePending).toBe(false);
-    expect(h.result.current.moveFeedback).not.toBeNull();
-  });
-  it.each([
-    "cancel",
-    "snapshot",
-    "phase",
-    "peer",
-    "disconnect",
-    "pause",
-  ])("%sで未送信分を破棄し、遅延成功で再開しない", (reason) => {
-    const h = setup();
-    h.start();
-    h.end(150);
-    h.start();
-    h.end(220);
-    expect(h.x()).toBe(220);
-    if (reason === "disconnect") h.rerender({ connected: false });
-    if (reason === "pause")
-      h.apply({
-        type: "timer:updated",
-        timer: { status: "paused", remainingMs: 30000, durationMs: 60000 },
-        serverNow: 0,
-      });
-    if (reason === "cancel") act(() => h.result.current.cancelNoteDrag());
-    if (reason === "snapshot") h.apply(snapshot);
-    if (reason === "phase")
-      h.apply({
-        type: "phase:updated",
-        phase: { kind: "step", phase: 1, step: 3 },
-        phaseRevision: 1,
-      });
-    if (reason === "peer")
-      h.apply({
-        type: "notes:moved",
-        operationId: ids[2],
-        notes: [buildNote({ id: N, x: 300, y: 100, positionRevision: 2 })],
-        groups: [],
-        groupRevision: 0,
-      });
-    h.accept(0, 100, 150);
-    expect(
-      h.send.mock.calls.filter(([m]) => m.type === "note:move:start"),
-    ).toHaveLength(1);
-    if (reason === "peer") expect(h.x()).toBe(300);
-  });
+  it.each(["rejected", "unknown"] as const)(
+    "先の結果が%sなら未送信分を保存しない",
+    (status) => {
+      const h = setup();
+      h.start();
+      h.end(150);
+      h.start();
+      h.end(220);
+      expect(h.x()).toBe(220);
+      h.apply({ type: "note:move:result", operationId: ids[0], status });
+      expect(h.x()).toBe(100);
+      expect(
+        h.send.mock.calls.filter(([m]) => m.type === "note:move:start"),
+      ).toHaveLength(1);
+      expect(h.result.current.movePending).toBe(false);
+      expect(h.result.current.moveFeedback).not.toBeNull();
+    },
+  );
+  it.each(["cancel", "snapshot", "phase", "peer", "disconnect", "pause"])(
+    "%sで未送信分を破棄し、遅延成功で再開しない",
+    (reason) => {
+      const h = setup();
+      h.start();
+      h.end(150);
+      h.start();
+      h.end(220);
+      expect(h.x()).toBe(220);
+      if (reason === "disconnect") h.rerender({ connected: false });
+      if (reason === "pause")
+        h.apply({
+          type: "timer:updated",
+          timer: { status: "paused", remainingMs: 30000, durationMs: 60000 },
+          serverNow: 0,
+        });
+      if (reason === "cancel") act(() => h.result.current.cancelNoteDrag());
+      if (reason === "snapshot") h.apply(snapshot);
+      if (reason === "phase")
+        h.apply({
+          type: "phase:updated",
+          phase: { kind: "step", phase: 1, step: 3 },
+          phaseRevision: 1,
+        });
+      if (reason === "peer")
+        h.apply({
+          type: "notes:moved",
+          operationId: ids[2],
+          notes: [buildNote({ id: N, x: 300, y: 100, positionRevision: 2 })],
+          groups: [],
+          groupRevision: 0,
+        });
+      h.accept(0, 100, 150);
+      expect(
+        h.send.mock.calls.filter(([m]) => m.type === "note:move:start"),
+      ).toHaveLength(1);
+      if (reason === "peer") expect(h.x()).toBe(300);
+    },
+  );
 });

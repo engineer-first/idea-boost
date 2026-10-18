@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { TOKEN_AUDIENCE } from "../contracts/session";
 import { signToken } from "../lib/session/token";
@@ -13,7 +13,7 @@ async function send(ticket: string, sub = principal) {
       expiresInSeconds: 600,
     },
   );
-  return SELF.fetch("https://api.test/api/auth/consume-ticket", {
+  return exports.default.fetch("https://api.test/api/auth/consume-ticket", {
     method: "POST",
     headers: {
       Cookie: `idea_boost_session=${session}`,

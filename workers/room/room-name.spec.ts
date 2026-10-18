@@ -1,4 +1,4 @@
-import { env, SELF } from "cloudflare:test";
+import { env, exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { issueCreationId } from "../../contracts/room-creation";
 import { handleSharedOutcomes } from "../shared-outcomes-api";
@@ -80,7 +80,7 @@ describe("ルーム名の変更", () => {
         sub: "33333333-3333-4333-8333-333333333333",
       }),
     ]) {
-      const response = await SELF.fetch(
+      const response = await exports.default.fetch(
         `https://api.test/api/rooms/${roomId}/ws`,
         {
           headers: {
@@ -92,28 +92,29 @@ describe("ルーム名の変更", () => {
       expect(response.status).toBe(cookie ? 404 : 401);
     }
   });
-  it.each([
-    false,
-    true,
-  ])("退出済みソケットの遅延要求・期限切れを拒否する expired=%s", async (expired) => {
-    const { roomId, b } = await setup();
-    const before = await identity(roomId);
-    await runInRoomDO(roomId, (_room, state) => {
-      if (expired)
-        state.storage.sql.exec(
-          "UPDATE shared_outcome_state SET expires_at=? WHERE id=1",
-          Date.now() - 1,
-        );
-      else state.storage.sql.exec("DELETE FROM members WHERE user_id=?", B.sub);
-    });
-    const operationId = rename(b, "J05");
-    expect(await b.next()).toMatchObject({
-      type: "error",
-      code: "forbidden",
-      operationId,
-    });
-    expect(await identity(roomId)).toEqual(before);
-  });
+  it.each([false, true])(
+    "退出済みソケットの遅延要求・期限切れを拒否する expired=%s",
+    async (expired) => {
+      const { roomId, b } = await setup();
+      const before = await identity(roomId);
+      await runInRoomDO(roomId, (_room, state) => {
+        if (expired)
+          state.storage.sql.exec(
+            "UPDATE shared_outcome_state SET expires_at=? WHERE id=1",
+            Date.now() - 1,
+          );
+        else
+          state.storage.sql.exec("DELETE FROM members WHERE user_id=?", B.sub);
+      });
+      const operationId = rename(b, "J05");
+      expect(await b.next()).toMatchObject({
+        type: "error",
+        code: "forbidden",
+        operationId,
+      });
+      expect(await identity(roomId)).toEqual(before);
+    },
+  );
   it("空欄・文字数超過・別ルーム指定を拒否して保存しない", async () => {
     const { roomId, b } = await setup();
     const before = await identity(roomId);
@@ -159,7 +160,7 @@ describe("ルーム名の変更", () => {
           phase: state.storage.sql.exec("SELECT phase FROM room_state").one(),
         })),
       ).toEqual(before);
-      const response = await SELF.fetch(
+      const response = await exports.default.fetch(
         `https://api.test/api/rooms/${roomId}`,
         { headers: { Cookie: await sessionCookieFor(B) } },
       );
@@ -222,7 +223,7 @@ it("参加先確認の非同期待機中にセッション期限を越えた変�
 });
 
 it("16文字のルーム名では新規作成できない", async () => {
-  const response = await SELF.fetch("https://api.test/api/rooms", {
+  const response = await exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
       Cookie: await sessionCookieFor(A),
@@ -238,7 +239,7 @@ it("16文字のルーム名では新規作成できない", async () => {
 });
 it("15文字の名前で作成し、15文字の別名にも変更できる", async () => {
   const name = "あ".repeat(15);
-  const response = await SELF.fetch("https://api.test/api/rooms", {
+  const response = await exports.default.fetch("https://api.test/api/rooms", {
     method: "POST",
     headers: {
       Cookie: await sessionCookieFor(A),

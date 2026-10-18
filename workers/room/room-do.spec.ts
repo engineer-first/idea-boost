@@ -3,7 +3,8 @@
 // api-worker を経由しない到達への深層防御を検証する。
 // Realtime 配信（新規メンバーの member_joined broadcast）は
 // room-protocol.spec.ts の E2E テスト（実 WS 接続）で検証する。
-import { env, runDurableObjectAlarm } from "cloudflare:test";
+import { runDurableObjectAlarm } from "cloudflare:test";
+import { env } from "cloudflare:workers";
 import { describe, expect, it, vi } from "vitest";
 import {
   getInitialIdeaMapSizeLevel,
@@ -407,16 +408,18 @@ describe("RoomDO 進行状態", () => {
     expect(await stub.getPhase()).toEqual(buildPhaseStep(1));
   });
 
-  it.each([
-    buildPhaseStep(3, 2),
-    buildPhaseStep(5, 3),
-  ])("フェーズ2・3の保存済み進行状態を復元する: %o", async (phase) => {
-    const stub = roomStub(`room-phase-roundtrip-${phase.phase}-${phase.step}`);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.setPhase(phase, USER_A);
+  it.each([buildPhaseStep(3, 2), buildPhaseStep(5, 3)])(
+    "フェーズ2・3の保存済み進行状態を復元する: %o",
+    async (phase) => {
+      const stub = roomStub(
+        `room-phase-roundtrip-${phase.phase}-${phase.step}`,
+      );
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(phase, USER_A);
 
-    expect(await stub.getPhase()).toEqual(phase);
-  });
+      expect(await stub.getPhase()).toEqual(phase);
+    },
+  );
 
   it("setPhase は room_owner のホスト以外なら reject（二重防御）", async () => {
     // setPhase は async 関数で throw するため、rejects で受ける。
@@ -437,19 +440,22 @@ describe("RoomDO 進行状態", () => {
     ["phase2-step1", buildPhaseStep(1, 2)],
     ["phase2-step3", buildPhaseStep(3, 2)],
     ["phase3-step5", buildPhaseStep(5, 3)],
-  ])("保存済みの有効な phase=%s を %o として復元する", async (raw, expected) => {
-    const roomId = `room-phase-decode-${raw}`;
-    const stub = roomStub(roomId);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await runInRoomDO(roomId, (_instance, state) => {
-      state.storage.sql.exec(
-        "UPDATE room_state SET phase = ?1 WHERE id = 1",
-        raw,
-      );
-    });
+  ])(
+    "保存済みの有効な phase=%s を %o として復元する",
+    async (raw, expected) => {
+      const roomId = `room-phase-decode-${raw}`;
+      const stub = roomStub(roomId);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await runInRoomDO(roomId, (_instance, state) => {
+        state.storage.sql.exec(
+          "UPDATE room_state SET phase = ?1 WHERE id = 1",
+          raw,
+        );
+      });
 
-    expect(await stub.getPhase()).toEqual(expected);
-  });
+      expect(await stub.getPhase()).toEqual(expected);
+    },
+  );
 
   // 旧フラット形式（writing / phase1..4）は migration
   // normalize-legacy-phase-values が保存形式ごと正規化する。decode は
@@ -462,44 +468,47 @@ describe("RoomDO 進行状態", () => {
     ["phase2-step5", buildLobbyPhase()],
     ["phase3-step6", buildLobbyPhase()],
     ["phase4-step1", buildLobbyPhase()],
-  ])("保存済みの無効な phase=%s を %o として復元する", async (raw, expected) => {
-    const roomId = `room-phase-decode-${raw}`;
-    const stub = roomStub(roomId);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await runInRoomDO(roomId, (_instance, state) => {
-      state.storage.sql.exec(
-        "UPDATE room_state SET phase = ?1 WHERE id = 1",
-        raw,
-      );
-    });
+  ])(
+    "保存済みの無効な phase=%s を %o として復元する",
+    async (raw, expected) => {
+      const roomId = `room-phase-decode-${raw}`;
+      const stub = roomStub(roomId);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await runInRoomDO(roomId, (_instance, state) => {
+        state.storage.sql.exec(
+          "UPDATE room_state SET phase = ?1 WHERE id = 1",
+          raw,
+        );
+      });
 
-    expect(await stub.getPhase()).toEqual(expected);
-  });
+      expect(await stub.getPhase()).toEqual(expected);
+    },
+  );
 });
 
 describe("RoomDO 解散", () => {
-  it.each([
-    true,
-    false,
-  ])("成果未初期化の解散後も作成再送と参加を拒否する（マーカー=%s）", async (hasMarker) => {
-    const roomId = `room-disband-creation-retry-${hasMarker}`;
-    const stub = roomStub(roomId);
-    await initializeTestRoom(stub, USER_A, "Host");
-    if (!hasMarker)
-      await runInRoomDO(roomId, (_instance, state) => {
-        state.storage.sql.exec("DELETE FROM room_creation_marker");
-      });
-    await stub.disband();
+  it.each([true, false])(
+    "成果未初期化の解散後も作成再送と参加を拒否する（マーカー=%s）",
+    async (hasMarker) => {
+      const roomId = `room-disband-creation-retry-${hasMarker}`;
+      const stub = roomStub(roomId);
+      await initializeTestRoom(stub, USER_A, "Host");
+      if (!hasMarker)
+        await runInRoomDO(roomId, (_instance, state) => {
+          state.storage.sql.exec("DELETE FROM room_creation_marker");
+        });
+      await stub.disband();
 
-    expect(await stub.resumeRoomCreation(USER_A, "Host", { roomId })).toBe(
-      "closed",
-    );
-    expect(await stub.isJoinable()).toBe(false);
-    expect(await stub.upsertMember(USER_B, "Member")).toEqual({
-      ok: false,
-      reason: "room-closed",
-    });
-  });
+      expect(await stub.resumeRoomCreation(USER_A, "Host", { roomId })).toBe(
+        "closed",
+      );
+      expect(await stub.isJoinable()).toBe(false);
+      expect(await stub.upsertMember(USER_B, "Member")).toEqual({
+        ok: false,
+        reason: "room-closed",
+      });
+    },
+  );
 
   it("disband は参加状態を消去し作成墓標を残す", async () => {
     const roomId = "room-disband-empty";
@@ -835,19 +844,22 @@ describe("RoomDO adoption-focus:update", () => {
     ["非公開付箋", PRIVATE_NOTE_ID, buildPhaseStep(5), false],
     ["候補外付箋", SHARED_NOTE_ID, buildPhaseStep(5), true],
     ["結果ステップ外", SHARED_NOTE_ID, buildPhaseStep(4), false],
-  ] as const)("%s へのフォーカスを拒否する", async (_label, noteId, phase, excluded) => {
-    const roomName = `room-adoption-focus-invalid-${phase.step}-${Number(excluded)}-${noteId[0]}`;
-    await prepare(roomName, { phase, excluded });
-    const host = await connectDirectly(roomName, USER_A, USER_A);
+  ] as const)(
+    "%s へのフォーカスを拒否する",
+    async (_label, noteId, phase, excluded) => {
+      const roomName = `room-adoption-focus-invalid-${phase.step}-${Number(excluded)}-${noteId[0]}`;
+      await prepare(roomName, { phase, excluded });
+      const host = await connectDirectly(roomName, USER_A, USER_A);
 
-    host.send(JSON.stringify({ type: "adoption-focus:update", noteId }));
+      host.send(JSON.stringify({ type: "adoption-focus:update", noteId }));
 
-    await expect(nextJson(host)).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    host.close();
-  });
+      await expect(nextJson(host)).resolves.toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      host.close();
+    },
+  );
 
   it("null の明示更新で全参加者の共有フォーカスを解除する", async () => {
     const roomName = "room-adoption-focus-explicit-clear";
@@ -1372,20 +1384,23 @@ describe("RoomDO 候補外付箋", () => {
     [3, 2],
     [3, 3],
     [3, 5],
-  ] as const)("参加者は %i-%i で候補外を動かし、復帰しても現在位置を保持する", async (phase, step) => {
-    const name = `candidate-move-${phase}-${step}`;
-    await prepare(name, buildPhaseStep(step, phase), true);
-    await startTimerForTest(name);
-    const member = await connectDirectly(name, USER_B, USER_A);
-    member.send(
-      JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 60, y: 70 }),
-    );
-    expect(await nextJson(member)).toMatchObject({
-      type: "note:updated",
-      note: { excluded: true, x: 60, y: 70, content: "保持する本文" },
-    });
-    member.close();
-  });
+  ] as const)(
+    "参加者は %i-%i で候補外を動かし、復帰しても現在位置を保持する",
+    async (phase, step) => {
+      const name = `candidate-move-${phase}-${step}`;
+      await prepare(name, buildPhaseStep(step, phase), true);
+      await startTimerForTest(name);
+      const member = await connectDirectly(name, USER_B, USER_A);
+      member.send(
+        JSON.stringify({ type: "note:move", noteId: NOTE_ID, x: 60, y: 70 }),
+      );
+      expect(await nextJson(member)).toMatchObject({
+        type: "note:updated",
+        note: { excluded: true, x: 60, y: 70, content: "保持する本文" },
+      });
+      member.close();
+    },
+  );
 
   it("別タブの再除外を古い個別Undoで復帰させない", async () => {
     const name = "candidate-stale-undo";
@@ -1454,120 +1469,130 @@ describe("RoomDO 候補外付箋", () => {
     [3, 3, true],
     [3, 4, false],
     [3, 5, true],
-  ] as const)("全14ステップ %i-%i の通常候補と候補外の移動認可が全員で一致する", async (phase, step, allowed) => {
-    for (const userId of [USER_A, USER_B])
-      for (const excluded of [false, true]) {
-        const name = `move-matrix-${phase}-${step}-${userId}-${excluded}`;
-        await prepare(name, buildPhaseStep(step, phase), excluded);
-        await startTimerForTest(name);
-        const ws = await connectDirectly(name, userId, USER_A);
-        ws.send(
-          JSON.stringify({
-            type: "note:move",
-            noteId: NOTE_ID,
-            x: 55,
-            y: 60,
-          }),
-        );
-        expect(await nextJson(ws)).toMatchObject(
-          allowed
-            ? { type: "note:updated", note: { x: 55, y: 60, excluded } }
-            : { type: "error", code: "forbidden" },
-        );
-        const dragId = crypto.randomUUID();
-        ws.send(
-          JSON.stringify({
-            type: "note:drag:start",
-            noteId: NOTE_ID,
-            dragId,
-          }),
-        );
-        expect(await nextJson(ws)).toMatchObject(
-          allowed
-            ? { type: "note:drag:result", accepted: true }
-            : { type: "error", code: "forbidden" },
-        );
-        if (!allowed)
-          await runInRoomDO(name, (_instance, state) => {
-            expect(
-              state.storage.sql
-                .exec("SELECT x, y, excluded FROM notes WHERE id = ?", NOTE_ID)
-                .one(),
-            ).toMatchObject({ x: 123, y: 456, excluded: excluded ? 1 : 0 });
-            for (const socket of state.getWebSockets())
-              expect(
-                (socket.deserializeAttachment() as SocketAttachment).activeDrag,
-              ).toBeUndefined();
-          });
-        if (allowed)
+  ] as const)(
+    "全14ステップ %i-%i の通常候補と候補外の移動認可が全員で一致する",
+    async (phase, step, allowed) => {
+      for (const userId of [USER_A, USER_B])
+        for (const excluded of [false, true]) {
+          const name = `move-matrix-${phase}-${step}-${userId}-${excluded}`;
+          await prepare(name, buildPhaseStep(step, phase), excluded);
+          await startTimerForTest(name);
+          const ws = await connectDirectly(name, userId, USER_A);
           ws.send(
             JSON.stringify({
-              type: "note:drag:cancel",
+              type: "note:move",
+              noteId: NOTE_ID,
+              x: 55,
+              y: 60,
+            }),
+          );
+          expect(await nextJson(ws)).toMatchObject(
+            allowed
+              ? { type: "note:updated", note: { x: 55, y: 60, excluded } }
+              : { type: "error", code: "forbidden" },
+          );
+          const dragId = crypto.randomUUID();
+          ws.send(
+            JSON.stringify({
+              type: "note:drag:start",
               noteId: NOTE_ID,
               dragId,
             }),
           );
-        ws.close();
-      }
-  });
+          expect(await nextJson(ws)).toMatchObject(
+            allowed
+              ? { type: "note:drag:result", accepted: true }
+              : { type: "error", code: "forbidden" },
+          );
+          if (!allowed)
+            await runInRoomDO(name, (_instance, state) => {
+              expect(
+                state.storage.sql
+                  .exec(
+                    "SELECT x, y, excluded FROM notes WHERE id = ?",
+                    NOTE_ID,
+                  )
+                  .one(),
+              ).toMatchObject({ x: 123, y: 456, excluded: excluded ? 1 : 0 });
+              for (const socket of state.getWebSockets())
+                expect(
+                  (socket.deserializeAttachment() as SocketAttachment)
+                    .activeDrag,
+                ).toBeUndefined();
+            });
+          if (allowed)
+            ws.send(
+              JSON.stringify({
+                type: "note:drag:cancel",
+                noteId: NOTE_ID,
+                dragId,
+              }),
+            );
+          ws.close();
+        }
+    },
+  );
 
   it.each([
     [1, 5],
     [2, 4],
     [3, 5],
-  ] as const)("%i-%i ではドラッグ中の候補整理と移動を独立させる", async (phase, step) => {
-    const name = `exclude-active-drag-${phase}`;
-    await prepare(name, buildPhaseStep(step, phase));
-    await startTimerForTest(name);
-    const host = await connectDirectly(name, USER_A, USER_A);
-    const member = await connectDirectly(name, USER_B, USER_A);
-    const dragId = crypto.randomUUID();
-    member.send(
-      JSON.stringify({ type: "note:drag:start", noteId: NOTE_ID, dragId }),
-    );
-    expect(await nextJsonOfType(member, "note:drag:result")).toMatchObject({
-      accepted: true,
-    });
-    host.send(
-      JSON.stringify({
-        type: "note:exclude",
-        noteId: NOTE_ID,
-        operationId: crypto.randomUUID(),
-      }),
-    );
-    expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
-      note: { excluded: true },
-    });
-    member.send(
-      JSON.stringify({
-        type: "note:drag:move",
-        noteId: NOTE_ID,
-        dragId,
-        x: 60,
-        y: 70,
-      }),
-    );
-    expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
-      note: { excluded: true, x: 60, y: 70 },
-    });
-    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
-    expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
-      note: { excluded: false, x: 60, y: 70 },
-    });
-    member.send(
-      JSON.stringify({
-        type: "note:drag:end",
-        noteId: NOTE_ID,
-        dragId,
-        position: { x: 65, y: 75 },
-      }),
-    );
-    expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
-      note: { excluded: false, x: 65, y: 75 },
-    });
-    host.close();
-    member.close();
-  });
+  ] as const)(
+    "%i-%i ではドラッグ中の候補整理と移動を独立させる",
+    async (phase, step) => {
+      const name = `exclude-active-drag-${phase}`;
+      await prepare(name, buildPhaseStep(step, phase));
+      await startTimerForTest(name);
+      const host = await connectDirectly(name, USER_A, USER_A);
+      const member = await connectDirectly(name, USER_B, USER_A);
+      const dragId = crypto.randomUUID();
+      member.send(
+        JSON.stringify({ type: "note:drag:start", noteId: NOTE_ID, dragId }),
+      );
+      expect(await nextJsonOfType(member, "note:drag:result")).toMatchObject({
+        accepted: true,
+      });
+      host.send(
+        JSON.stringify({
+          type: "note:exclude",
+          noteId: NOTE_ID,
+          operationId: crypto.randomUUID(),
+        }),
+      );
+      expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+        note: { excluded: true },
+      });
+      member.send(
+        JSON.stringify({
+          type: "note:drag:move",
+          noteId: NOTE_ID,
+          dragId,
+          x: 60,
+          y: 70,
+        }),
+      );
+      expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+        note: { excluded: true, x: 60, y: 70 },
+      });
+      host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+      expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+        note: { excluded: false, x: 60, y: 70 },
+      });
+      member.send(
+        JSON.stringify({
+          type: "note:drag:end",
+          noteId: NOTE_ID,
+          dragId,
+          position: { x: 65, y: 75 },
+        }),
+      );
+      expect(await nextJsonOfType(member, "note:updated")).toMatchObject({
+        note: { excluded: false, x: 65, y: 75 },
+      });
+      host.close();
+      member.close();
+    },
+  );
 
   it("移動で未共有の付箋を変更・共有せず、過去フェーズも拒否する", async () => {
     for (const source of ["private", "past"] as const) {
@@ -1636,39 +1661,42 @@ describe("RoomDO 候補外付箋", () => {
     [1, 5],
     [2, 4],
     [3, 5],
-  ] as const)("ホストは Phase %i Step %i で候補外と復帰を全員へ同期し、座標・本文・票を保持する", async (phase, step) => {
-    const roomName = `room-exclude-${phase}-${step}`;
-    await prepare(roomName, buildPhaseStep(step, phase));
-    await startTimerForTest(roomName);
-    const host = await connectDirectly(roomName, USER_A, USER_A);
-    const member = await connectDirectly(roomName, USER_B, USER_A);
+  ] as const)(
+    "ホストは Phase %i Step %i で候補外と復帰を全員へ同期し、座標・本文・票を保持する",
+    async (phase, step) => {
+      const roomName = `room-exclude-${phase}-${step}`;
+      await prepare(roomName, buildPhaseStep(step, phase));
+      await startTimerForTest(roomName);
+      const host = await connectDirectly(roomName, USER_A, USER_A);
+      const member = await connectDirectly(roomName, USER_B, USER_A);
 
-    const memberUpdate = nextJson(member);
-    host.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
-    expect(await nextJson(host)).toMatchObject({
-      type: "note:updated",
-      note: {
-        id: NOTE_ID,
-        content: "保持する本文",
-        x: 123,
-        y: 456,
-        excluded: true,
-        dotVotes: { objective: { count: 1 } },
-      },
-    });
-    await expect(memberUpdate).resolves.toMatchObject({
-      type: "note:updated",
-      note: { id: NOTE_ID, excluded: true, x: 123, y: 456 },
-    });
+      const memberUpdate = nextJson(member);
+      host.send(JSON.stringify({ type: "note:exclude", noteId: NOTE_ID }));
+      expect(await nextJson(host)).toMatchObject({
+        type: "note:updated",
+        note: {
+          id: NOTE_ID,
+          content: "保持する本文",
+          x: 123,
+          y: 456,
+          excluded: true,
+          dotVotes: { objective: { count: 1 } },
+        },
+      });
+      await expect(memberUpdate).resolves.toMatchObject({
+        type: "note:updated",
+        note: { id: NOTE_ID, excluded: true, x: 123, y: 456 },
+      });
 
-    host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
-    expect(await nextJson(host)).toMatchObject({
-      type: "note:updated",
-      note: { id: NOTE_ID, excluded: false, x: 123, y: 456 },
-    });
-    host.close();
-    member.close();
-  });
+      host.send(JSON.stringify({ type: "note:restore", noteId: NOTE_ID }));
+      expect(await nextJson(host)).toMatchObject({
+        type: "note:updated",
+        note: { id: NOTE_ID, excluded: false, x: 123, y: 456 },
+      });
+      host.close();
+      member.close();
+    },
+  );
 
   it("候補外状態は再接続 snapshot に残り、全員が本文を読める", async () => {
     const roomName = "room-exclude-reconnect";
@@ -2097,28 +2125,31 @@ describe("RoomDO 候補外付箋", () => {
   it.each([
     [2, 4],
     [3, 5],
-  ] as const)("Phase %i Step %i でも一括候補外を実行できる", async (phase, step) => {
-    const roomName = `room-bulk-exclude-${phase}-${step}`;
-    await prepare(roomName, buildPhaseStep(step, phase));
-    await runInRoomDO(roomName, (_instance, state) => {
-      state.storage.sql.exec(
-        "DELETE FROM note_vote_stickers WHERE note_id = ?1",
-        NOTE_ID,
-      );
-    });
-    await startTimerForTest(roomName);
-    const host = await connectDirectly(roomName, USER_A, USER_A);
-    host.send(JSON.stringify({ type: "note:bulk-exclude" }));
-    expect(await nextJson(host)).toMatchObject({
-      type: "note:updated",
-      note: { id: NOTE_ID, excluded: true },
-    });
-    expect(await nextJson(host)).toMatchObject({
-      type: "note:bulk-excluded",
-      count: 1,
-    });
-    host.close();
-  });
+  ] as const)(
+    "Phase %i Step %i でも一括候補外を実行できる",
+    async (phase, step) => {
+      const roomName = `room-bulk-exclude-${phase}-${step}`;
+      await prepare(roomName, buildPhaseStep(step, phase));
+      await runInRoomDO(roomName, (_instance, state) => {
+        state.storage.sql.exec(
+          "DELETE FROM note_vote_stickers WHERE note_id = ?1",
+          NOTE_ID,
+        );
+      });
+      await startTimerForTest(roomName);
+      const host = await connectDirectly(roomName, USER_A, USER_A);
+      host.send(JSON.stringify({ type: "note:bulk-exclude" }));
+      expect(await nextJson(host)).toMatchObject({
+        type: "note:updated",
+        note: { id: NOTE_ID, excluded: true },
+      });
+      expect(await nextJson(host)).toMatchObject({
+        type: "note:bulk-excluded",
+        count: 1,
+      });
+      host.close();
+    },
+  );
 
   it("結果ステップ以外では一括候補外と一括Undoを拒否する", async () => {
     const roomName = "room-bulk-exclude-wrong-step";
@@ -2873,66 +2904,68 @@ describe("RoomDO phase:next", () => {
     reconnected.close();
   });
 
-  it.each([
-    2, 3,
-  ])("3-%sでは参加者も直接resizeでき、保存済みの広さを更新する", async (step) => {
-    const roomName = `room-idea-map-resize-non-host-${step}`;
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
-    await runInRoomDO(roomName, (_instance, state) => {
-      state.storage.sql.exec(
-        `UPDATE room_state
+  it.each([2, 3])(
+    "3-%sでは参加者も直接resizeでき、保存済みの広さを更新する",
+    async (step) => {
+      const roomName = `room-idea-map-resize-non-host-${step}`;
+      const stub = roomStub(roomName);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.upsertMember(USER_B, "Member");
+      await stub.setPhase(buildPhaseStep(step, 3), USER_A);
+      await runInRoomDO(roomName, (_instance, state) => {
+        state.storage.sql.exec(
+          `UPDATE room_state
          SET idea_map_size_level = 2, idea_map_size_initialized = 1
          WHERE id = 1`,
-      );
-    });
+        );
+      });
 
-    const member = await connectDirectly(roomName, USER_B, USER_A);
-    member.send(JSON.stringify({ type: "idea-map:resize", sizeLevel: 5 }));
-    await expect(nextJson(member)).resolves.toMatchObject({
-      type: "idea-map:state",
-      sizeLevel: 5,
-    });
-    await runInRoomDO(roomName, (_instance, state) => {
-      const row = state.storage.sql
-        .exec("SELECT idea_map_size_level FROM room_state WHERE id = 1")
-        .toArray()[0] as { idea_map_size_level: number };
-      expect(row.idea_map_size_level).toBe(5);
-    });
-    member.close();
-  });
+      const member = await connectDirectly(roomName, USER_B, USER_A);
+      member.send(JSON.stringify({ type: "idea-map:resize", sizeLevel: 5 }));
+      await expect(nextJson(member)).resolves.toMatchObject({
+        type: "idea-map:state",
+        sizeLevel: 5,
+      });
+      await runInRoomDO(roomName, (_instance, state) => {
+        const row = state.storage.sql
+          .exec("SELECT idea_map_size_level FROM room_state WHERE id = 1")
+          .toArray()[0] as { idea_map_size_level: number };
+        expect(row.idea_map_size_level).toBe(5);
+      });
+      member.close();
+    },
+  );
 
-  it.each([
-    1, 4, 5,
-  ])("3-%sではホストの直接resizeを拒否し、保存済みの広さを維持する", async (step) => {
-    const roomName = `room-idea-map-resize-step-${step}`;
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
-    await runInRoomDO(roomName, (_instance, state) => {
-      state.storage.sql.exec(
-        `UPDATE room_state
+  it.each([1, 4, 5])(
+    "3-%sではホストの直接resizeを拒否し、保存済みの広さを維持する",
+    async (step) => {
+      const roomName = `room-idea-map-resize-step-${step}`;
+      const stub = roomStub(roomName);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(step, 3), USER_A);
+      await runInRoomDO(roomName, (_instance, state) => {
+        state.storage.sql.exec(
+          `UPDATE room_state
            SET idea_map_size_level = 2, idea_map_size_initialized = 1
            WHERE id = 1`,
-      );
-    });
+        );
+      });
 
-    const host = await connectDirectly(roomName, USER_A, USER_A);
-    host.send(JSON.stringify({ type: "idea-map:resize", sizeLevel: 5 }));
-    await expect(nextJson(host)).resolves.toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    await runInRoomDO(roomName, (_instance, state) => {
-      const row = state.storage.sql
-        .exec("SELECT idea_map_size_level FROM room_state WHERE id = 1")
-        .toArray()[0] as { idea_map_size_level: number };
-      expect(row.idea_map_size_level).toBe(2);
-    });
-    host.close();
-  });
+      const host = await connectDirectly(roomName, USER_A, USER_A);
+      host.send(JSON.stringify({ type: "idea-map:resize", sizeLevel: 5 }));
+      await expect(nextJson(host)).resolves.toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      await runInRoomDO(roomName, (_instance, state) => {
+        const row = state.storage.sql
+          .exec("SELECT idea_map_size_level FROM room_state WHERE id = 1")
+          .toArray()[0] as { idea_map_size_level: number };
+        expect(row.idea_map_size_level).toBe(2);
+      });
+      host.close();
+    },
+  );
 
   it("3-3では付箋のドラッグ中に広さを変えられず、解除後はホストが変更できる", async () => {
     const roomName = "room-idea-map-resize-drag-lock";
@@ -3120,95 +3153,98 @@ describe("RoomDO phase:next", () => {
     [1, 4, 5, true],
     [2, 3, 4, true],
     [3, 4, 5, true],
-  ] as const)("投票終了の %i-%i → %i（未完了者あり: %s）で0票候補だけを自動で候補外にし、全員へUndo対象を通知する", async (phase, votingStep, resultStep, incomplete) => {
-    const roomName = `room-auto-exclude-${phase}-${incomplete}`;
-    await prepareCompletedVotingTransition(roomName, phase, votingStep);
-    if (incomplete) {
-      await runInRoomDO(roomName, (_instance, state) => {
-        state.storage.sql.exec(
-          "DELETE FROM note_vote_stickers WHERE user_id = ?1",
-          USER_B,
-        );
-      });
-    }
-    const host = await connectDirectly(roomName, USER_A, USER_A);
-    const member = await connectDirectly(roomName, USER_B, USER_A);
-    const hostMessages = nextJson(host);
-    const memberMessages = nextJson(member);
-    const progressRevision = incomplete
-      ? Number(
-          (
-            (await runInRoomDO(roomName, (_instance, state) =>
-              state.storage.sql
-                .exec("SELECT progress_revision FROM room_state WHERE id=1")
-                .one(),
-            )) as { progress_revision: number }
-          ).progress_revision,
-        )
-      : undefined;
+  ] as const)(
+    "投票終了の %i-%i → %i（未完了者あり: %s）で0票候補だけを自動で候補外にし、全員へUndo対象を通知する",
+    async (phase, votingStep, resultStep, incomplete) => {
+      const roomName = `room-auto-exclude-${phase}-${incomplete}`;
+      await prepareCompletedVotingTransition(roomName, phase, votingStep);
+      if (incomplete) {
+        await runInRoomDO(roomName, (_instance, state) => {
+          state.storage.sql.exec(
+            "DELETE FROM note_vote_stickers WHERE user_id = ?1",
+            USER_B,
+          );
+        });
+      }
+      const host = await connectDirectly(roomName, USER_A, USER_A);
+      const member = await connectDirectly(roomName, USER_B, USER_A);
+      const hostMessages = nextJson(host);
+      const memberMessages = nextJson(member);
+      const progressRevision = incomplete
+        ? Number(
+            (
+              (await runInRoomDO(roomName, (_instance, state) =>
+                state.storage.sql
+                  .exec("SELECT progress_revision FROM room_state WHERE id=1")
+                  .one(),
+              )) as { progress_revision: number }
+            ).progress_revision,
+          )
+        : undefined;
 
-    host.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomName)),
-        ...(progressRevision === undefined
-          ? {}
-          : { confirmedProgressRevision: progressRevision }),
-      }),
-    );
+      host.send(
+        JSON.stringify({
+          type: "phase:next",
+          ...(await currentPhaseExpectation(roomName)),
+          ...(progressRevision === undefined
+            ? {}
+            : { confirmedProgressRevision: progressRevision }),
+        }),
+      );
 
-    for (const [socket, snapshot] of [
-      [host, await hostMessages],
-      [member, await memberMessages],
-    ] as const) {
-      expect(snapshot).toMatchObject({
-        type: "snapshot",
-        phase: buildPhaseStep(resultStep, phase),
-        notes: expect.arrayContaining([
-          expect.objectContaining({ id: AUTO_ZERO_NOTE_ID, excluded: true }),
-          expect.objectContaining({
-            id: AUTO_VOTED_NOTE_ID,
-            excluded: false,
-          }),
-        ]),
-      });
-      expect(await nextJson(socket)).toMatchObject({
-        type: "note:bulk-excluded",
-        operationId: expect.any(String),
-        count: 1,
-        source: "phase-transition",
-      });
-      expect(await nextJson(socket)).toEqual({
-        type: "phase:updated",
-        groupRevision: expect.any(Number),
-        mapRevision: expect.any(Number),
-        phaseRevision: expect.any(Number),
-        phase: buildPhaseStep(resultStep, phase),
-        rollbackTarget: buildPhaseStep(votingStep, phase),
-      });
-    }
+      for (const [socket, snapshot] of [
+        [host, await hostMessages],
+        [member, await memberMessages],
+      ] as const) {
+        expect(snapshot).toMatchObject({
+          type: "snapshot",
+          phase: buildPhaseStep(resultStep, phase),
+          notes: expect.arrayContaining([
+            expect.objectContaining({ id: AUTO_ZERO_NOTE_ID, excluded: true }),
+            expect.objectContaining({
+              id: AUTO_VOTED_NOTE_ID,
+              excluded: false,
+            }),
+          ]),
+        });
+        expect(await nextJson(socket)).toMatchObject({
+          type: "note:bulk-excluded",
+          operationId: expect.any(String),
+          count: 1,
+          source: "phase-transition",
+        });
+        expect(await nextJson(socket)).toEqual({
+          type: "phase:updated",
+          groupRevision: expect.any(Number),
+          mapRevision: expect.any(Number),
+          phaseRevision: expect.any(Number),
+          phase: buildPhaseStep(resultStep, phase),
+          rollbackTarget: buildPhaseStep(votingStep, phase),
+        });
+      }
 
-    const persisted = await runInRoomDO(roomName, (_instance, state) =>
-      state.storage.sql
-        .exec(
-          `SELECT n.id, n.excluded, b.operation_id
+      const persisted = await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql
+          .exec(
+            `SELECT n.id, n.excluded, b.operation_id
              FROM notes n
              LEFT JOIN note_bulk_exclusions b ON b.note_id = n.id
              ORDER BY n.id`,
-        )
-        .toArray(),
-    );
-    expect(persisted).toEqual([
-      {
-        id: AUTO_ZERO_NOTE_ID,
-        excluded: 1,
-        operation_id: expect.any(String),
-      },
-      { id: AUTO_VOTED_NOTE_ID, excluded: 0, operation_id: null },
-    ]);
-    host.close();
-    member.close();
-  });
+          )
+          .toArray(),
+      );
+      expect(persisted).toEqual([
+        {
+          id: AUTO_ZERO_NOTE_ID,
+          excluded: 1,
+          operation_id: expect.any(String),
+        },
+        { id: AUTO_VOTED_NOTE_ID, excluded: 0, operation_id: null },
+      ]);
+      host.close();
+      member.close();
+    },
+  );
 
   it("未完了者の確認なしの通常進行は拒否し、0票候補も変更しない", async () => {
     const roomName = "room-auto-exclude-force-skip";
@@ -3249,61 +3285,67 @@ describe("RoomDO phase:next", () => {
     member.close();
   });
 
-  it.each([
-    false,
-    true,
-  ])("現在の候補がすべて0票なら投票終了後も自動で候補外にしない（未完了者あり: %s）", async (incomplete) => {
-    const roomName = `room-auto-exclude-all-zero-skip-${incomplete}`;
-    await prepareCompletedVotingTransition(roomName, 1, 4);
-    await runInRoomDO(roomName, (_instance, state) => {
-      state.storage.sql.exec(
-        "UPDATE notes SET excluded = 1 WHERE id = ?1",
-        AUTO_VOTED_NOTE_ID,
-      );
-    });
-    if (incomplete) {
+  it.each([false, true])(
+    "現在の候補がすべて0票なら投票終了後も自動で候補外にしない（未完了者あり: %s）",
+    async (incomplete) => {
+      const roomName = `room-auto-exclude-all-zero-skip-${incomplete}`;
+      await prepareCompletedVotingTransition(roomName, 1, 4);
       await runInRoomDO(roomName, (_instance, state) => {
-        state.storage.sql.exec("DELETE FROM note_vote_stickers");
+        state.storage.sql.exec(
+          "UPDATE notes SET excluded = 1 WHERE id = ?1",
+          AUTO_VOTED_NOTE_ID,
+        );
       });
-    }
-    const host = await connectDirectly(roomName, USER_A, USER_A);
-    const messages = nextJsonMessages(host, incomplete ? 1 : 2);
+      if (incomplete) {
+        await runInRoomDO(roomName, (_instance, state) => {
+          state.storage.sql.exec("DELETE FROM note_vote_stickers");
+        });
+      }
+      const host = await connectDirectly(roomName, USER_A, USER_A);
+      const messages = nextJsonMessages(host, incomplete ? 1 : 2);
 
-    host.send(
-      JSON.stringify({
-        type: "phase:next",
-        ...(await currentPhaseExpectation(roomName)),
-      }),
-    );
+      host.send(
+        JSON.stringify({
+          type: "phase:next",
+          ...(await currentPhaseExpectation(roomName)),
+        }),
+      );
 
-    if (incomplete) {
-      expect(await messages).toEqual([
-        expect.objectContaining({ type: "error", code: "phase-not-ready" }),
-      ]);
-      expect(await roomStub(roomName).getPhase()).toEqual(buildPhaseStep(4));
-    } else
-      expect(await messages).toEqual([
-        expect.objectContaining({ type: "snapshot", phase: buildPhaseStep(5) }),
-        {
-          type: "phase:updated",
-          groupRevision: expect.any(Number),
-          mapRevision: expect.any(Number),
-          phaseRevision: expect.any(Number),
-          phase: buildPhaseStep(5),
-          rollbackTarget: buildPhaseStep(4),
-        },
-      ]);
-    expect(
-      await runInRoomDO(
-        roomName,
-        (_instance, state) =>
-          state.storage.sql
-            .exec("SELECT excluded FROM notes WHERE id = ?1", AUTO_ZERO_NOTE_ID)
-            .one().excluded,
-      ),
-    ).toBe(0);
-    host.close();
-  });
+      if (incomplete) {
+        expect(await messages).toEqual([
+          expect.objectContaining({ type: "error", code: "phase-not-ready" }),
+        ]);
+        expect(await roomStub(roomName).getPhase()).toEqual(buildPhaseStep(4));
+      } else
+        expect(await messages).toEqual([
+          expect.objectContaining({
+            type: "snapshot",
+            phase: buildPhaseStep(5),
+          }),
+          {
+            type: "phase:updated",
+            groupRevision: expect.any(Number),
+            mapRevision: expect.any(Number),
+            phaseRevision: expect.any(Number),
+            phase: buildPhaseStep(5),
+            rollbackTarget: buildPhaseStep(4),
+          },
+        ]);
+      expect(
+        await runInRoomDO(
+          roomName,
+          (_instance, state) =>
+            state.storage.sql
+              .exec(
+                "SELECT excluded FROM notes WHERE id = ?1",
+                AUTO_ZERO_NOTE_ID,
+              )
+              .one().excluded,
+        ),
+      ).toBe(0);
+      host.close();
+    },
+  );
 
   it("成功した通常のステップ移行で実行中タイマーを idle に戻して配信する", async () => {
     const roomName = "room-phase-next-resets-running-timer";
@@ -4238,60 +4280,61 @@ describe("RoomDO phase:next", () => {
     memberWs.close();
   });
 
-  it.each([
-    2, 3, 4, 5,
-  ])("フェーズ3 Step3-%i ではグループ操作を拒否し、グループを保存しない", async (step) => {
-    const roomName = `room-phase3-group-operation-gate-${step}`;
-    const noteIds = [
-      "77777777-7777-4777-8777-777777777777",
-      "66666666-6666-4666-8666-666666666666",
-    ];
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
-    await runInRoomDO(roomName, (_instance, state) => {
-      const now = new Date().toISOString();
-      for (const noteId of noteIds) {
-        state.storage.sql.exec(
-          `INSERT INTO notes
+  it.each([2, 3, 4, 5])(
+    "フェーズ3 Step3-%i ではグループ操作を拒否し、グループを保存しない",
+    async (step) => {
+      const roomName = `room-phase3-group-operation-gate-${step}`;
+      const noteIds = [
+        "77777777-7777-4777-8777-777777777777",
+        "66666666-6666-4666-8666-666666666666",
+      ];
+      const stub = roomStub(roomName);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(step, 3), USER_A);
+      await runInRoomDO(roomName, (_instance, state) => {
+        const now = new Date().toISOString();
+        for (const noteId of noteIds) {
+          state.storage.sql.exec(
+            `INSERT INTO notes
                (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
              VALUES (?1, ?2, '共有アイデア', 'shared', 'yellow', 40, 40, ?3, ?3, 3)`,
-          noteId,
-          USER_A,
-          now,
-        );
-      }
-    });
+            noteId,
+            USER_A,
+            now,
+          );
+        }
+      });
 
-    const ws = await connectDirectly(roomName, USER_A, USER_A);
-    const now = new Date().toISOString();
-    ws.send(
-      JSON.stringify({
-        type: "group:create",
-        group: {
-          id: "88888888-8888-4888-8888-888888888888",
-          name: "フェーズ3のグループ",
-          noteIds,
-          createdAt: now,
-          updatedAt: now,
-        },
-      }),
-    );
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+      const now = new Date().toISOString();
+      ws.send(
+        JSON.stringify({
+          type: "group:create",
+          group: {
+            id: "88888888-8888-4888-8888-888888888888",
+            name: "フェーズ3のグループ",
+            noteIds,
+            createdAt: now,
+            updatedAt: now,
+          },
+        }),
+      );
 
-    expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    expect(
-      await runInRoomDO(
-        roomName,
-        (_instance, state) =>
-          state.storage.sql.exec("SELECT COUNT(*) AS count FROM groups").one()
-            .count as number,
-      ),
-    ).toBe(0);
-    ws.close();
-  });
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+      });
+      expect(
+        await runInRoomDO(
+          roomName,
+          (_instance, state) =>
+            state.storage.sql.exec("SELECT COUNT(*) AS count FROM groups").one()
+              .count as number,
+        ),
+      ).toBe(0);
+      ws.close();
+    },
+  );
 
   it("Step 3-3 で付箋を近づけても自動グルーピングしない", async () => {
     const roomName = "room-phase3-map-no-auto-grouping";
@@ -4379,151 +4422,157 @@ describe("RoomDO phase:next", () => {
         position: { x: 101, y: 50 },
       },
     },
-  ])("フェーズ3 Step3-$stepでは2軸マップ外の配置を拒否する", async ({
-    step,
-    message,
-  }) => {
-    const roomName = `room-phase3-map-range-${step}-${message.type}`;
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
+  ])(
+    "フェーズ3 Step3-$stepでは2軸マップ外の配置を拒否する",
+    async ({ step, message }) => {
+      const roomName = `room-phase3-map-range-${step}-${message.type}`;
+      const stub = roomStub(roomName);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(step, 3), USER_A);
 
-    const ws = await connectDirectly(roomName, USER_A, USER_A);
-    ws.send(JSON.stringify(message));
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+      ws.send(JSON.stringify(message));
 
-    expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-    });
-    ws.close();
-  });
-
-  it.each([
-    4,
-  ])("フェーズ3 Step3-%iでは直接送られた配置移動を拒否する", async (step) => {
-    const roomName = `room-phase3-map-move-forbidden-${step}`;
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
-
-    const ws = await connectDirectly(roomName, USER_A, USER_A);
-    for (const type of ["note:move", "note:drag:move"] as const) {
-      ws.send(
-        JSON.stringify({
-          type,
-          noteId: "99999999-9999-4999-8999-999999999999",
-          dragId: "88888888-8888-4888-8888-888888888888",
-          x: 50,
-          y: 50,
-        }),
-      );
       expect(await nextJson(ws)).toMatchObject({
         type: "error",
         code: "forbidden",
       });
-    }
-    ws.close();
-  });
+      ws.close();
+    },
+  );
 
-  it.each([
-    2, 3,
-  ])("フェーズ3 Step3-%iの2軸マップ配置を別セッションへリアルタイム配信する", async (step) => {
-    const roomName = `room-phase3-map-realtime-step-${step}`;
-    const noteId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(step, 3), USER_A);
-    await runInRoomDO(roomName, (_instance, state) => {
-      const now = new Date().toISOString();
-      state.storage.sql.exec(
-        `INSERT INTO notes
+  it.each([4])(
+    "フェーズ3 Step3-%iでは直接送られた配置移動を拒否する",
+    async (step) => {
+      const roomName = `room-phase3-map-move-forbidden-${step}`;
+      const stub = roomStub(roomName);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(step, 3), USER_A);
+
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+      for (const type of ["note:move", "note:drag:move"] as const) {
+        ws.send(
+          JSON.stringify({
+            type,
+            noteId: "99999999-9999-4999-8999-999999999999",
+            dragId: "88888888-8888-4888-8888-888888888888",
+            x: 50,
+            y: 50,
+          }),
+        );
+        expect(await nextJson(ws)).toMatchObject({
+          type: "error",
+          code: "forbidden",
+        });
+      }
+      ws.close();
+    },
+  );
+
+  it.each([2, 3])(
+    "フェーズ3 Step3-%iの2軸マップ配置を別セッションへリアルタイム配信する",
+    async (step) => {
+      const roomName = `room-phase3-map-realtime-step-${step}`;
+      const noteId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+      const stub = roomStub(roomName);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.upsertMember(USER_B, "Member");
+      await stub.setPhase(buildPhaseStep(step, 3), USER_A);
+      await runInRoomDO(roomName, (_instance, state) => {
+        const now = new Date().toISOString();
+        state.storage.sql.exec(
+          `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
          VALUES (?1, ?2, '共有アイデア', 'shared', 'yellow', 25, 75, ?3, ?3, 3)`,
-        noteId,
-        USER_A,
-        now,
+          noteId,
+          USER_A,
+          now,
+        );
+      });
+
+      await startTimerForTest(roomName);
+      const authorWs = await connectDirectly(roomName, USER_A, USER_A);
+      const memberWs = await connectDirectly(roomName, USER_B, USER_A);
+      const dragId = "88888888-8888-4888-8888-888888888888";
+      const authorStartMessages = nextJsonMessages(authorWs, 2);
+      const memberStartMessage = nextJson(memberWs);
+      authorWs.send(
+        JSON.stringify({ type: "note:drag:start", noteId, dragId }),
       );
-    });
+      const [authorDragResult, authorDraggingState] = await authorStartMessages;
+      expect(authorDragResult).toMatchObject({
+        type: "note:drag:result",
+        accepted: true,
+      });
+      expect(authorDraggingState).toMatchObject({
+        type: "idea-map:state",
+        isDragging: true,
+      });
+      expect(await memberStartMessage).toMatchObject({
+        type: "idea-map:state",
+        isDragging: true,
+      });
+      const memberMoveMessage = nextJson(memberWs);
+      const authorMoveMessage = nextJson(authorWs);
+      authorWs.send(
+        JSON.stringify({
+          type: "note:drag:move",
+          noteId,
+          dragId,
+          x: 40,
+          y: 60,
+        }),
+      );
+      expect(await memberMoveMessage).toMatchObject({
+        type: "note:updated",
+        note: { id: noteId, x: 40, y: 60 },
+      });
+      expect(await authorMoveMessage).toMatchObject({
+        type: "note:updated",
+        note: { id: noteId, x: 40, y: 60 },
+      });
 
-    await startTimerForTest(roomName);
-    const authorWs = await connectDirectly(roomName, USER_A, USER_A);
-    const memberWs = await connectDirectly(roomName, USER_B, USER_A);
-    const dragId = "88888888-8888-4888-8888-888888888888";
-    const authorStartMessages = nextJsonMessages(authorWs, 2);
-    const memberStartMessage = nextJson(memberWs);
-    authorWs.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
-    const [authorDragResult, authorDraggingState] = await authorStartMessages;
-    expect(authorDragResult).toMatchObject({
-      type: "note:drag:result",
-      accepted: true,
-    });
-    expect(authorDraggingState).toMatchObject({
-      type: "idea-map:state",
-      isDragging: true,
-    });
-    expect(await memberStartMessage).toMatchObject({
-      type: "idea-map:state",
-      isDragging: true,
-    });
-    const memberMoveMessage = nextJson(memberWs);
-    const authorMoveMessage = nextJson(authorWs);
-    authorWs.send(
-      JSON.stringify({
-        type: "note:drag:move",
-        noteId,
+      const memberEndMessages = nextJsonMessages(memberWs, 2);
+      const authorEndMessages = nextJsonMessages(authorWs, 2);
+      authorWs.send(
+        JSON.stringify({
+          type: "note:drag:end",
+          noteId,
+          dragId,
+          position: { x: 50, y: 50 },
+        }),
+      );
+      const [memberEndUpdate, memberIdleState] = await memberEndMessages;
+      const [authorEndUpdate, authorIdleState] = await authorEndMessages;
+      expect(memberEndUpdate).toMatchObject({
+        type: "note:updated",
+        note: { id: noteId, x: 50, y: 50 },
+      });
+      expect(authorEndUpdate).toMatchObject({
+        type: "note:updated",
+        note: { id: noteId, x: 50, y: 50 },
+      });
+      expect(authorIdleState).toMatchObject({
+        type: "idea-map:state",
+        isDragging: false,
+      });
+      expect(memberIdleState).toMatchObject({
+        type: "idea-map:state",
+        isDragging: false,
+      });
+      const rejectedDragStart = nextJson(authorWs);
+      authorWs.send(
+        JSON.stringify({ type: "note:drag:start", noteId, dragId }),
+      );
+      expect(await rejectedDragStart).toMatchObject({
+        type: "note:drag:result",
         dragId,
-        x: 40,
-        y: 60,
-      }),
-    );
-    expect(await memberMoveMessage).toMatchObject({
-      type: "note:updated",
-      note: { id: noteId, x: 40, y: 60 },
-    });
-    expect(await authorMoveMessage).toMatchObject({
-      type: "note:updated",
-      note: { id: noteId, x: 40, y: 60 },
-    });
-
-    const memberEndMessages = nextJsonMessages(memberWs, 2);
-    const authorEndMessages = nextJsonMessages(authorWs, 2);
-    authorWs.send(
-      JSON.stringify({
-        type: "note:drag:end",
-        noteId,
-        dragId,
-        position: { x: 50, y: 50 },
-      }),
-    );
-    const [memberEndUpdate, memberIdleState] = await memberEndMessages;
-    const [authorEndUpdate, authorIdleState] = await authorEndMessages;
-    expect(memberEndUpdate).toMatchObject({
-      type: "note:updated",
-      note: { id: noteId, x: 50, y: 50 },
-    });
-    expect(authorEndUpdate).toMatchObject({
-      type: "note:updated",
-      note: { id: noteId, x: 50, y: 50 },
-    });
-    expect(authorIdleState).toMatchObject({
-      type: "idea-map:state",
-      isDragging: false,
-    });
-    expect(memberIdleState).toMatchObject({
-      type: "idea-map:state",
-      isDragging: false,
-    });
-    const rejectedDragStart = nextJson(authorWs);
-    authorWs.send(JSON.stringify({ type: "note:drag:start", noteId, dragId }));
-    expect(await rejectedDragStart).toMatchObject({
-      type: "note:drag:result",
-      dragId,
-      accepted: false,
-    });
-    authorWs.close();
-    memberWs.close();
-  });
+        accepted: false,
+      });
+      authorWs.close();
+      memberWs.close();
+    },
+  );
 
   it("再接続後は終了済み dragId を再受理せず、新しい dragId を受理する", async () => {
     const roomName = "room-drag-reconnect-replay";
@@ -4897,43 +4946,44 @@ describe("RoomDO phase:next", () => {
 });
 
 describe("RoomDO timer:* の認可", () => {
-  it.each([
-    { type: "timer:start", durationMs: 60_000 },
-  ])("参加者の $type は共有タイマーを変更できる", async (command) => {
-    const roomId = `room-timer-member-${command.type}`;
-    const stub = roomStub(roomId);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
+  it.each([{ type: "timer:start", durationMs: 60_000 }])(
+    "参加者の $type は共有タイマーを変更できる",
+    async (command) => {
+      const roomId = `room-timer-member-${command.type}`;
+      const stub = roomStub(roomId);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.upsertMember(USER_B, "Member");
 
-    const res = await stub.fetch("https://do/ws", {
-      headers: {
-        Upgrade: "websocket",
-        "X-Idea-Boost-Session-Expires-At": String(
-          Math.floor(Date.now() / 1000) + 600,
-        ),
-        [USER_ID_HEADER]: USER_B,
-        [HOST_ID_HEADER]: USER_A,
-      },
-    });
-    expect(res.status).toBe(101);
-    const ws = res.webSocket;
-    if (!ws) throw new Error("WebSocket 接続を確立できませんでした。");
-    ws.accept();
-    await new Promise<MessageEvent>((resolve) => {
-      ws.addEventListener("message", resolve, { once: true });
-    });
+      const res = await stub.fetch("https://do/ws", {
+        headers: {
+          Upgrade: "websocket",
+          "X-Idea-Boost-Session-Expires-At": String(
+            Math.floor(Date.now() / 1000) + 600,
+          ),
+          [USER_ID_HEADER]: USER_B,
+          [HOST_ID_HEADER]: USER_A,
+        },
+      });
+      expect(res.status).toBe(101);
+      const ws = res.webSocket;
+      if (!ws) throw new Error("WebSocket 接続を確立できませんでした。");
+      ws.accept();
+      await new Promise<MessageEvent>((resolve) => {
+        ws.addEventListener("message", resolve, { once: true });
+      });
 
-    ws.send(JSON.stringify(command));
-    const event = await new Promise<MessageEvent>((resolve) => {
-      ws.addEventListener("message", resolve, { once: true });
-    });
+      ws.send(JSON.stringify(command));
+      const event = await new Promise<MessageEvent>((resolve) => {
+        ws.addEventListener("message", resolve, { once: true });
+      });
 
-    expect(JSON.parse(String(event.data))).toMatchObject({
-      type: "timer:updated",
-      timer: { status: "running" },
-    });
-    ws.close();
-  });
+      expect(JSON.parse(String(event.data))).toMatchObject({
+        type: "timer:updated",
+        timer: { status: "running" },
+      });
+      ws.close();
+    },
+  );
 
   it("D1由来 hostId を偽装しても参加者のタイマー操作を妨げない", async () => {
     const stub = roomStub("room-timer-forged-host-header");
@@ -5437,28 +5487,26 @@ describe("RoomDO 課題整理ステップの境界ゲート", () => {
         },
       },
     },
-  ])("Step 1-$step では $operation を個別ハンドラより前に拒否する", async ({
-    step,
-    label,
-    operation,
-    message,
-  }) => {
-    const roomName = `room-step-gate-${step}-${operation}`;
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.setPhase(buildPhaseStep(step), USER_A);
+  ])(
+    "Step 1-$step では $operation を個別ハンドラより前に拒否する",
+    async ({ step, label, operation, message }) => {
+      const roomName = `room-step-gate-${step}-${operation}`;
+      const stub = roomStub(roomName);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.setPhase(buildPhaseStep(step), USER_A);
 
-    await startTimerForTest(roomName);
-    const ws = await connectDirectly(roomName, USER_A, USER_A);
-    ws.send(JSON.stringify(message));
+      await startTimerForTest(roomName);
+      const ws = await connectDirectly(roomName, USER_A, USER_A);
+      ws.send(JSON.stringify(message));
 
-    expect(await nextJson(ws)).toMatchObject({
-      type: "error",
-      code: "forbidden",
-      message: expect.stringContaining(label),
-    });
-    ws.close();
-  });
+      expect(await nextJson(ws)).toMatchObject({
+        type: "error",
+        code: "forbidden",
+        message: expect.stringContaining(label),
+      });
+      ws.close();
+    },
+  );
 
   it.each([
     { type: "note:create" },
@@ -6835,166 +6883,168 @@ describe("RoomDO Step 2-1 の境界ゲート", () => {
   it.each([
     { label: "初回投票でホスト", mover: USER_A, revote: false },
     { label: "再投票で参加者", mover: USER_B, revote: true },
-  ])("Step 2-3 の$labelが他者の問いを移動し、票と秘密を保って再接続で位置を復元する", async ({
-    mover,
-    revote,
-  }) => {
-    const roomName = `room-question-voting-move-${revote}`;
-    const noteId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef";
-    const hostStickerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-    const memberStickerId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-    const operationId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-    const stub = roomStub(roomName);
-    await initializeTestRoom(stub, USER_A, "Host");
-    await stub.upsertMember(USER_B, "Member");
-    await stub.setPhase(buildPhaseStep(revote ? 4 : 3, 2), USER_A);
-    await runInRoomDO(roomName, (_instance, state) => {
-      state.storage.sql.exec(
-        `INSERT INTO notes
+  ])(
+    "Step 2-3 の$labelが他者の問いを移動し、票と秘密を保って再接続で位置を復元する",
+    async ({ mover, revote }) => {
+      const roomName = `room-question-voting-move-${revote}`;
+      const noteId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef";
+      const hostStickerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+      const memberStickerId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+      const operationId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+      const stub = roomStub(roomName);
+      await initializeTestRoom(stub, USER_A, "Host");
+      await stub.upsertMember(USER_B, "Member");
+      await stub.setPhase(buildPhaseStep(revote ? 4 : 3, 2), USER_A);
+      await runInRoomDO(roomName, (_instance, state) => {
+        state.storage.sql.exec(
+          `INSERT INTO notes
            (id, author_id, content, visibility, color, x, y, created_at, updated_at, phase)
          VALUES (?1, ?2, '移動しても問いを保つ', 'shared', 'blue', 100, 100, 'now', 'now', 2)`,
-        noteId,
-        mover === USER_A ? USER_B : USER_A,
-      );
-    });
-    const hostWs = await connectDirectly(roomName, USER_A, USER_A);
-    const memberWs = await connectDirectly(roomName, USER_B, USER_A);
-    if (revote) {
-      hostWs.send(
-        JSON.stringify({
-          type: "phase:revote",
-          ...(await currentPhaseExpectation(roomName)),
-        }),
-      );
-      for (const ws of [hostWs, memberWs]) {
-        expect(await nextJsonOfType(ws, "phase:updated")).toMatchObject({
-          phase: buildPhaseStep(3, 2),
-        });
+          noteId,
+          mover === USER_A ? USER_B : USER_A,
+        );
+      });
+      const hostWs = await connectDirectly(roomName, USER_A, USER_A);
+      const memberWs = await connectDirectly(roomName, USER_B, USER_A);
+      if (revote) {
+        hostWs.send(
+          JSON.stringify({
+            type: "phase:revote",
+            ...(await currentPhaseExpectation(roomName)),
+          }),
+        );
+        for (const ws of [hostWs, memberWs]) {
+          expect(await nextJsonOfType(ws, "phase:updated")).toMatchObject({
+            phase: buildPhaseStep(3, 2),
+          });
+        }
       }
-    }
-    await startTimerForTest(roomName);
-    const stickersBefore = await runInRoomDO(roomName, (_instance, state) => {
-      for (const [id, userId, x] of [
-        [hostStickerId, USER_A, 0.2],
-        [memberStickerId, USER_B, 0.8],
-      ] as const)
-        state.storage.sql.exec(
-          `INSERT INTO note_vote_stickers
+      await startTimerForTest(roomName);
+      const stickersBefore = await runInRoomDO(roomName, (_instance, state) => {
+        for (const [id, userId, x] of [
+          [hostStickerId, USER_A, 0.2],
+          [memberStickerId, USER_B, 0.8],
+        ] as const)
+          state.storage.sql.exec(
+            `INSERT INTO note_vote_stickers
              (id, note_id, user_id, kind, x, y, created_at)
            VALUES (?1, ?2, ?3, 'subjective', ?4, 0.3, 'now')`,
-          id,
-          noteId,
-          userId,
-          x,
-        );
-      return state.storage.sql
-        .exec("SELECT * FROM note_vote_stickers ORDER BY id")
-        .toArray();
-    });
-    const revision = await runInRoomDO(roomName, (_instance, state) =>
-      state.storage.sql
-        .exec(
-          "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
-        )
-        .one(),
-    );
-    const moverWs = mover === USER_A ? hostWs : memberWs;
-    const peerWs = mover === USER_A ? memberWs : hostWs;
-    moverWs.send(
-      JSON.stringify({
-        type: "note:move:start",
-        operationId,
-        expectedPhaseRevision: revision.phase_revision,
-        expectedGroupRevision: revision.group_revision,
-        expectedMapRevision: revision.map_revision,
-        coordinateSpace: "canvas",
-        targets: [{ noteId, positionRevision: 0, visibilityRevision: 0 }],
-      }),
-    );
-    expect(await nextJson(moverWs)).toMatchObject({
-      type: "note:move:result",
-      operationId,
-      status: "active",
-    });
-    moverWs.send(
-      JSON.stringify({
-        type: "note:move:preview",
-        operationId,
-        delta: { x: 120, y: 80 },
-      }),
-    );
-    const preview = await nextJson(peerWs);
-    expect(preview).toMatchObject({
-      type: "notes:move-preview",
-      positions: [{ noteId, x: 220, y: 180 }],
-    });
-    expect(JSON.stringify(preview)).not.toMatch(
-      /content|dotVotes|stickers|cursor/,
-    );
-    moverWs.send(
-      JSON.stringify({
-        type: "cursor:update",
-        x: 999,
-        y: 888,
-        draggingNoteId: noteId,
-      }),
-    );
-    moverWs.send(
-      JSON.stringify({
-        type: "note:move:commit",
-        operationId,
-        delta: { x: 120, y: 80 },
-      }),
-    );
-    const batch = await nextJson(peerWs);
-    expect(batch).toMatchObject({
-      type: "notes:moved",
-      operationId,
-      groups: [],
-      notes: [
-        {
-          id: noteId,
-          content: "移動しても問いを保つ",
-          x: 220,
-          y: 180,
-          dotVotes: {
-            subjective: { votedByMe: true, ownCount: 1 },
-            objective: { votedByMe: false, ownCount: 0 },
-          },
-          dotVoteStickers: [
-            { id: mover === USER_A ? memberStickerId : hostStickerId },
-          ],
-        },
-      ],
-    });
-    const notes = batch.notes as Array<Record<string, unknown>>;
-    expect(notes[0].dotVotes).toEqual({
-      subjective: { votedByMe: true, ownCount: 1 },
-      objective: { votedByMe: false, ownCount: 0 },
-    });
-    expect(await nextJsonOfType(moverWs, "note:move:result")).toMatchObject({
-      status: "accepted",
-    });
-    expect(
-      await runInRoomDO(roomName, (_instance, state) =>
-        state.storage.sql
+            id,
+            noteId,
+            userId,
+            x,
+          );
+        return state.storage.sql
           .exec("SELECT * FROM note_vote_stickers ORDER BY id")
-          .toArray(),
-      ),
-    ).toEqual(stickersBefore);
-    const reconnect = await connectDirectlyWithFirstMessage(
-      roomName,
-      mover,
-      USER_A,
-    );
-    expect(reconnect.firstMessage).toMatchObject({
-      phase: buildPhaseStep(3, 2),
-      notes: [{ id: noteId, content: "移動しても問いを保つ", x: 220, y: 180 }],
-    });
-    reconnect.ws.close();
-    hostWs.close();
-    memberWs.close();
-  });
+          .toArray();
+      });
+      const revision = await runInRoomDO(roomName, (_instance, state) =>
+        state.storage.sql
+          .exec(
+            "SELECT phase_revision,group_revision,map_revision FROM room_state WHERE id=1",
+          )
+          .one(),
+      );
+      const moverWs = mover === USER_A ? hostWs : memberWs;
+      const peerWs = mover === USER_A ? memberWs : hostWs;
+      moverWs.send(
+        JSON.stringify({
+          type: "note:move:start",
+          operationId,
+          expectedPhaseRevision: revision.phase_revision,
+          expectedGroupRevision: revision.group_revision,
+          expectedMapRevision: revision.map_revision,
+          coordinateSpace: "canvas",
+          targets: [{ noteId, positionRevision: 0, visibilityRevision: 0 }],
+        }),
+      );
+      expect(await nextJson(moverWs)).toMatchObject({
+        type: "note:move:result",
+        operationId,
+        status: "active",
+      });
+      moverWs.send(
+        JSON.stringify({
+          type: "note:move:preview",
+          operationId,
+          delta: { x: 120, y: 80 },
+        }),
+      );
+      const preview = await nextJson(peerWs);
+      expect(preview).toMatchObject({
+        type: "notes:move-preview",
+        positions: [{ noteId, x: 220, y: 180 }],
+      });
+      expect(JSON.stringify(preview)).not.toMatch(
+        /content|dotVotes|stickers|cursor/,
+      );
+      moverWs.send(
+        JSON.stringify({
+          type: "cursor:update",
+          x: 999,
+          y: 888,
+          draggingNoteId: noteId,
+        }),
+      );
+      moverWs.send(
+        JSON.stringify({
+          type: "note:move:commit",
+          operationId,
+          delta: { x: 120, y: 80 },
+        }),
+      );
+      const batch = await nextJson(peerWs);
+      expect(batch).toMatchObject({
+        type: "notes:moved",
+        operationId,
+        groups: [],
+        notes: [
+          {
+            id: noteId,
+            content: "移動しても問いを保つ",
+            x: 220,
+            y: 180,
+            dotVotes: {
+              subjective: { votedByMe: true, ownCount: 1 },
+              objective: { votedByMe: false, ownCount: 0 },
+            },
+            dotVoteStickers: [
+              { id: mover === USER_A ? memberStickerId : hostStickerId },
+            ],
+          },
+        ],
+      });
+      const notes = batch.notes as Array<Record<string, unknown>>;
+      expect(notes[0].dotVotes).toEqual({
+        subjective: { votedByMe: true, ownCount: 1 },
+        objective: { votedByMe: false, ownCount: 0 },
+      });
+      expect(await nextJsonOfType(moverWs, "note:move:result")).toMatchObject({
+        status: "accepted",
+      });
+      expect(
+        await runInRoomDO(roomName, (_instance, state) =>
+          state.storage.sql
+            .exec("SELECT * FROM note_vote_stickers ORDER BY id")
+            .toArray(),
+        ),
+      ).toEqual(stickersBefore);
+      const reconnect = await connectDirectlyWithFirstMessage(
+        roomName,
+        mover,
+        USER_A,
+      );
+      expect(reconnect.firstMessage).toMatchObject({
+        phase: buildPhaseStep(3, 2),
+        notes: [
+          { id: noteId, content: "移動しても問いを保つ", x: 220, y: 180 },
+        ],
+      });
+      reconnect.ws.close();
+      hostWs.close();
+      memberWs.close();
+    },
+  );
 
   it("Step 2-2 では投票、Step 2-3 では付箋作成を forbidden にする", async () => {
     const roomName = "room-step2-operation-gates";
@@ -7219,68 +7269,67 @@ describe("RoomDO タイマー終了", () => {
   });
 
   describe("RoomDO ボード操作のタイマーゲート", () => {
-    it.each([
-      "idle",
-      "paused",
-      "ended",
-    ] as const)("タイマーが %s のとき note:create を拒否する", async (status) => {
-      const roomName = `room-board-timer-gate-${status}`;
-      const stub = roomStub(roomName);
+    it.each(["idle", "paused", "ended"] as const)(
+      "タイマーが %s のとき note:create を拒否する",
+      async (status) => {
+        const roomName = `room-board-timer-gate-${status}`;
+        const stub = roomStub(roomName);
 
-      await initializeTestRoom(stub, USER_A, "Host");
+        await initializeTestRoom(stub, USER_A, "Host");
 
-      // note:create がフェーズ上は許可される状態にしておく。
-      // タイマーによる拒否を独立して検証するため。
-      await stub.setPhase(buildPhaseStep(1, 2), USER_A);
+        // note:create がフェーズ上は許可される状態にしておく。
+        // タイマーによる拒否を独立して検証するため。
+        await stub.setPhase(buildPhaseStep(1, 2), USER_A);
 
-      if (status === "paused" || status === "ended") {
-        await runInRoomDO(roomName, (_instance, state) => {
-          saveTimerState(
-            state.storage.sql,
-            status === "paused"
-              ? {
-                  status: "paused",
-                  remainingMs: 60_000,
-                  durationMs: 60_000,
-                }
-              : {
-                  status: "ended",
-                  durationMs: 60_000,
-                },
-          );
+        if (status === "paused" || status === "ended") {
+          await runInRoomDO(roomName, (_instance, state) => {
+            saveTimerState(
+              state.storage.sql,
+              status === "paused"
+                ? {
+                    status: "paused",
+                    remainingMs: 60_000,
+                    durationMs: 60_000,
+                  }
+                : {
+                    status: "ended",
+                    durationMs: 60_000,
+                  },
+            );
+          });
+        }
+
+        const ws = await connectDirectly(roomName, USER_A, USER_A);
+
+        ws.send(
+          JSON.stringify({
+            type: "note:create",
+            content: "タイマー停止中に作成してはいけない付箋",
+          }),
+        );
+
+        expect(await nextJson(ws)).toMatchObject({
+          type: "error",
+          code: "forbidden",
+          message: "タイマーが動作していないため、ボードを操作できません。",
         });
-      }
 
-      const ws = await connectDirectly(roomName, USER_A, USER_A);
+        const noteCount = await runInRoomDO(roomName, (_instance, state) =>
+          Number(
+            state.storage.sql
+              .exec(
+                "SELECT COUNT(*) AS count FROM notes WHERE author_id = ?1",
+                USER_A,
+              )
+              .one().count,
+          ),
+        );
 
-      ws.send(
-        JSON.stringify({
-          type: "note:create",
-          content: "タイマー停止中に作成してはいけない付箋",
-        }),
-      );
+        expect(noteCount).toBe(0);
 
-      expect(await nextJson(ws)).toMatchObject({
-        type: "error",
-        code: "forbidden",
-        message: "タイマーが動作していないため、ボードを操作できません。",
-      });
-
-      const noteCount = await runInRoomDO(roomName, (_instance, state) =>
-        Number(
-          state.storage.sql
-            .exec(
-              "SELECT COUNT(*) AS count FROM notes WHERE author_id = ?1",
-              USER_A,
-            )
-            .one().count,
-        ),
-      );
-
-      expect(noteCount).toBe(0);
-
-      ws.close();
-    });
+        ws.close();
+      },
+    );
 
     it("タイマー実行中はフェーズで許可された note:create を受け付ける", async () => {
       const roomName = "room-board-timer-gate-running";
@@ -7509,262 +7558,267 @@ describe("RoomDO タイマー終了", () => {
 });
 
 describe("new move presence WS lifecycle", () => {
-  it.each([
-    false,
-    true,
-  ])("close socket一覧除外と別operation同時失効でも両peer previewを即時解除する（同一user別タブ=%s）", async (sameUser) => {
-    const name = `new-move-close-omitted-concurrent-expiry-${sameUser}`;
-    const stub = roomStub(name);
-    const viewerId = "77777777-7777-4777-8777-777777777777";
-    const noteIds = [
-      "33333333-3333-4333-8333-333333333333",
-      "44444444-4444-4444-8444-444444444444",
-    ];
-    const operationIds = [
-      "55555555-5555-4555-8555-555555555555",
-      "66666666-6666-4666-8666-666666666666",
-    ];
-    await stub.upsertMember(USER_A, "Alpha");
-    await stub.upsertMember(USER_B, "Beta");
-    await stub.upsertMember(viewerId, "Viewer");
-    await runInRoomDO(name, (_instance, state) => {
-      savePhase(state.storage.sql, { kind: "step", phase: 3, step: 3 });
-      for (const [index, id] of noteIds.entries())
+  it.each([false, true])(
+    "close socket一覧除外と別operation同時失効でも両peer previewを即時解除する（同一user別タブ=%s）",
+    async (sameUser) => {
+      const name = `new-move-close-omitted-concurrent-expiry-${sameUser}`;
+      const stub = roomStub(name);
+      const viewerId = "77777777-7777-4777-8777-777777777777";
+      const noteIds = [
+        "33333333-3333-4333-8333-333333333333",
+        "44444444-4444-4444-8444-444444444444",
+      ];
+      const operationIds = [
+        "55555555-5555-4555-8555-555555555555",
+        "66666666-6666-4666-8666-666666666666",
+      ];
+      await stub.upsertMember(USER_A, "Alpha");
+      await stub.upsertMember(USER_B, "Beta");
+      await stub.upsertMember(viewerId, "Viewer");
+      await runInRoomDO(name, (_instance, state) => {
+        savePhase(state.storage.sql, { kind: "step", phase: 3, step: 3 });
+        for (const [index, id] of noteIds.entries())
+          insertNote(state.storage.sql, {
+            id,
+            author_id: USER_A,
+            content: "test",
+            visibility: "shared",
+            color: "yellow",
+            font_size: 14,
+            x: 10 + index * 20,
+            y: 20,
+            stack_order: index,
+            phase: 3,
+            excluded: false,
+            created_at: "now",
+            updated_at: "now",
+          });
+      });
+      const { ws: closing, firstMessage: snapshot } =
+        await connectDirectlyWithFirstMessage(name, USER_A, USER_A);
+      await startTimerForTest(name);
+      const expiring = await connectDirectly(
+        name,
+        sameUser ? USER_A : USER_B,
+        USER_A,
+      );
+      const viewer = await connectDirectly(name, viewerId, USER_A);
+      try {
+        for (const [index, socket] of [closing, expiring].entries()) {
+          socket.send(
+            JSON.stringify({
+              type: "note:move:start",
+              operationId: operationIds[index],
+              expectedPhaseRevision: snapshot.phaseRevision,
+              expectedGroupRevision: snapshot.groupRevision,
+              expectedMapRevision: snapshot.mapRevision,
+              coordinateSpace: "map",
+              targets: [
+                {
+                  noteId: noteIds[index],
+                  positionRevision: 0,
+                  visibilityRevision: 0,
+                },
+              ],
+            }),
+          );
+          expect(
+            await nextJsonOfType(socket, "note:move:result"),
+          ).toMatchObject({
+            status: "active",
+          });
+          socket.send(
+            JSON.stringify({
+              type: "note:move:preview",
+              operationId: operationIds[index],
+              delta: { x: 5, y: 0 },
+            }),
+          );
+          expect(
+            await nextJsonOfType(viewer, "notes:move-preview"),
+          ).toMatchObject({ operationId: operationIds[index] });
+        }
+        await runInRoomDO(name, async (instance, state) => {
+          const connections = state.getWebSockets();
+          const closedSocket = connections.find(
+            (socket) =>
+              (socket.deserializeAttachment() as SocketAttachment)
+                ?.activeMoveOperationId === operationIds[0],
+          );
+          if (!closedSocket)
+            throw new Error("close対象の実WS接続がありません。");
+          // 実際のclose callbackで接続一覧から既に消える競合順序だけを固定する。
+          const socketList = vi
+            .spyOn(state, "getWebSockets")
+            .mockReturnValue(
+              connections.filter((socket) => socket !== closedSocket),
+            );
+          try {
+            expect(state.getWebSockets()).not.toContain(closedSocket);
+            state.storage.sql.exec(
+              "UPDATE note_move_operations SET lease_until=0 WHERE operation_id=?1",
+              operationIds[1],
+            );
+            await instance.webSocketClose(
+              closedSocket,
+              1000,
+              "test close",
+              true,
+            );
+            expect(
+              state.storage.sql.exec("SELECT * FROM note_move_locks").toArray(),
+            ).toEqual([]);
+            expect(
+              state.storage.sql
+                .exec("SELECT x,y FROM notes ORDER BY stack_order")
+                .toArray(),
+            ).toEqual([
+              { x: 10, y: 20 },
+              { x: 30, y: 20 },
+            ]);
+          } finally {
+            socketList.mockRestore();
+          }
+        });
+        const received: Record<string, unknown>[] = [];
+        for (let index = 0; index < 12; index++) {
+          const message = await nextJsonWithin(viewer, 100);
+          if (!message) break;
+          received.push(message);
+        }
+        for (const operationId of operationIds)
+          expect(received).toContainEqual({
+            type: "notes:move-ended",
+            operationId,
+          });
+        expect(received).toContainEqual(
+          expect.objectContaining({
+            type: "cursor:drag-ended",
+            userId: USER_A,
+          }),
+        );
+        if (!sameUser)
+          expect(received).toContainEqual(
+            expect.objectContaining({
+              type: "cursor:drag-ended",
+              userId: USER_B,
+            }),
+          );
+        expect(received).toContainEqual(
+          expect.objectContaining({
+            type: "idea-map:state",
+            isDragging: false,
+          }),
+        );
+      } finally {
+        closing.close();
+        expiring.close();
+        viewer.close();
+      }
+    },
+  );
+
+  it.each(["cancel", "commit", "expiry", "close", "phase", "member"])(
+    "%sでpeerの移動表示とmap lock表示を解除する",
+    async (end) => {
+      const name = `new-move-presence-${end}`;
+      const stub = roomStub(name);
+      await stub.upsertMember(USER_A, "Alpha");
+      await stub.upsertMember(USER_B, "Beta");
+      const noteId = "33333333-3333-4333-8333-333333333333";
+      const operationId = "55555555-5555-4555-8555-555555555555";
+      await runInRoomDO(name, (_instance, state) => {
+        savePhase(state.storage.sql, { kind: "step", phase: 3, step: 3 });
         insertNote(state.storage.sql, {
-          id,
+          id: noteId,
           author_id: USER_A,
           content: "test",
           visibility: "shared",
           color: "yellow",
           font_size: 14,
-          x: 10 + index * 20,
+          x: 10,
           y: 20,
-          stack_order: index,
+          stack_order: 0,
           phase: 3,
           excluded: false,
           created_at: "now",
           updated_at: "now",
         });
-    });
-    const { ws: closing, firstMessage: snapshot } =
-      await connectDirectlyWithFirstMessage(name, USER_A, USER_A);
-    await startTimerForTest(name);
-    const expiring = await connectDirectly(
-      name,
-      sameUser ? USER_A : USER_B,
-      USER_A,
-    );
-    const viewer = await connectDirectly(name, viewerId, USER_A);
-    try {
-      for (const [index, socket] of [closing, expiring].entries()) {
-        socket.send(
-          JSON.stringify({
-            type: "note:move:start",
-            operationId: operationIds[index],
-            expectedPhaseRevision: snapshot.phaseRevision,
-            expectedGroupRevision: snapshot.groupRevision,
-            expectedMapRevision: snapshot.mapRevision,
-            coordinateSpace: "map",
-            targets: [
-              {
-                noteId: noteIds[index],
-                positionRevision: 0,
-                visibilityRevision: 0,
-              },
-            ],
-          }),
-        );
-        expect(await nextJsonOfType(socket, "note:move:result")).toMatchObject({
-          status: "active",
-        });
-        socket.send(
-          JSON.stringify({
-            type: "note:move:preview",
-            operationId: operationIds[index],
-            delta: { x: 5, y: 0 },
-          }),
-        );
-        expect(
-          await nextJsonOfType(viewer, "notes:move-preview"),
-        ).toMatchObject({ operationId: operationIds[index] });
-      }
-      await runInRoomDO(name, async (instance, state) => {
-        const connections = state.getWebSockets();
-        const closedSocket = connections.find(
-          (socket) =>
-            (socket.deserializeAttachment() as SocketAttachment)
-              ?.activeMoveOperationId === operationIds[0],
-        );
-        if (!closedSocket) throw new Error("close対象の実WS接続がありません。");
-        // 実際のclose callbackで接続一覧から既に消える競合順序だけを固定する。
-        const socketList = vi
-          .spyOn(state, "getWebSockets")
-          .mockReturnValue(
-            connections.filter((socket) => socket !== closedSocket),
-          );
-        try {
-          expect(state.getWebSockets()).not.toContain(closedSocket);
-          state.storage.sql.exec(
-            "UPDATE note_move_operations SET lease_until=0 WHERE operation_id=?1",
-            operationIds[1],
-          );
-          await instance.webSocketClose(closedSocket, 1000, "test close", true);
-          expect(
-            state.storage.sql.exec("SELECT * FROM note_move_locks").toArray(),
-          ).toEqual([]);
-          expect(
-            state.storage.sql
-              .exec("SELECT x,y FROM notes ORDER BY stack_order")
-              .toArray(),
-          ).toEqual([
-            { x: 10, y: 20 },
-            { x: 30, y: 20 },
-          ]);
-        } finally {
-          socketList.mockRestore();
-        }
       });
-      const received: Record<string, unknown>[] = [];
-      for (let index = 0; index < 12; index++) {
-        const message = await nextJsonWithin(viewer, 100);
-        if (!message) break;
-        received.push(message);
-      }
-      for (const operationId of operationIds)
-        expect(received).toContainEqual({
-          type: "notes:move-ended",
-          operationId,
-        });
-      expect(received).toContainEqual(
-        expect.objectContaining({
-          type: "cursor:drag-ended",
-          userId: USER_A,
-        }),
-      );
-      if (!sameUser)
-        expect(received).toContainEqual(
-          expect.objectContaining({
-            type: "cursor:drag-ended",
-            userId: USER_B,
-          }),
-        );
-      expect(received).toContainEqual(
-        expect.objectContaining({
-          type: "idea-map:state",
-          isDragging: false,
-        }),
-      );
-    } finally {
-      closing.close();
-      expiring.close();
-      viewer.close();
-    }
-  });
-
-  it.each([
-    "cancel",
-    "commit",
-    "expiry",
-    "close",
-    "phase",
-    "member",
-  ])("%sでpeerの移動表示とmap lock表示を解除する", async (end) => {
-    const name = `new-move-presence-${end}`;
-    const stub = roomStub(name);
-    await stub.upsertMember(USER_A, "Alpha");
-    await stub.upsertMember(USER_B, "Beta");
-    const noteId = "33333333-3333-4333-8333-333333333333";
-    const operationId = "55555555-5555-4555-8555-555555555555";
-    await runInRoomDO(name, (_instance, state) => {
-      savePhase(state.storage.sql, { kind: "step", phase: 3, step: 3 });
-      insertNote(state.storage.sql, {
-        id: noteId,
-        author_id: USER_A,
-        content: "test",
-        visibility: "shared",
-        color: "yellow",
-        font_size: 14,
-        x: 10,
-        y: 20,
-        stack_order: 0,
-        phase: 3,
-        excluded: false,
-        created_at: "now",
-        updated_at: "now",
-      });
-    });
-    await startTimerForTest(name);
-    const { ws: owner, firstMessage: snapshot } =
-      await connectDirectlyWithFirstMessage(name, USER_A, USER_A);
-    const peer = await connectDirectly(name, USER_B, USER_A);
-    owner.send(
-      JSON.stringify({
-        type: "note:move:start",
-        operationId,
-        expectedPhaseRevision: snapshot.phaseRevision,
-        expectedGroupRevision: snapshot.groupRevision,
-        expectedMapRevision: snapshot.mapRevision,
-        coordinateSpace: "map",
-        targets: [{ noteId, positionRevision: 0, visibilityRevision: 0 }],
-      }),
-    );
-    expect(await nextJsonOfType(owner, "note:move:result")).toMatchObject({
-      status: "active",
-    });
-    expect(await nextJsonOfType(peer, "idea-map:state")).toMatchObject({
-      isDragging: true,
-    });
-    owner.send(
-      JSON.stringify({
-        type: "cursor:update",
-        x: 10,
-        y: 20,
-        draggingNoteId: noteId,
-      }),
-    );
-    expect(await nextJsonOfType(peer, "cursor:updated")).toMatchObject({
-      cursor: { draggingNoteId: noteId },
-    });
-    if (end === "cancel" || end === "commit")
+      await startTimerForTest(name);
+      const { ws: owner, firstMessage: snapshot } =
+        await connectDirectlyWithFirstMessage(name, USER_A, USER_A);
+      const peer = await connectDirectly(name, USER_B, USER_A);
       owner.send(
         JSON.stringify({
-          type: `note:move:${end}`,
+          type: "note:move:start",
           operationId,
-          ...(end === "commit" ? { delta: { x: 5, y: 5 } } : {}),
+          expectedPhaseRevision: snapshot.phaseRevision,
+          expectedGroupRevision: snapshot.groupRevision,
+          expectedMapRevision: snapshot.mapRevision,
+          coordinateSpace: "map",
+          targets: [{ noteId, positionRevision: 0, visibilityRevision: 0 }],
         }),
       );
-    else if (end === "close") owner.close();
-    else if (end === "member") await stub.leave(USER_A);
-    else
-      await runInRoomDO(name, async (instance, state) => {
-        if (end === "expiry")
-          state.storage.sql.exec(
-            "UPDATE note_move_operations SET lease_until=0",
-          );
-        else savePhase(state.storage.sql, { kind: "step", phase: 3, step: 4 });
-        await instance.alarm();
+      expect(await nextJsonOfType(owner, "note:move:result")).toMatchObject({
+        status: "active",
       });
-    const received: Record<string, unknown>[] = [];
-    for (let i = 0; i < 12; i++) {
-      const message = await nextJsonWithin(peer);
-      if (!message) break;
-      received.push(message);
-      if (message.type === "idea-map:state" && message.isDragging === false)
-        break;
-    }
-    expect(
-      received.some(
-        (message) =>
-          message.type === "cursor:drag-ended" ||
-          message.type === "cursor:left",
-      ),
-    ).toBe(true);
-    expect(received).toContainEqual(
-      expect.objectContaining({ type: "idea-map:state", isDragging: false }),
-    );
-    peer.close();
-    if (end !== "close" && end !== "member") owner.close();
-  });
+      expect(await nextJsonOfType(peer, "idea-map:state")).toMatchObject({
+        isDragging: true,
+      });
+      owner.send(
+        JSON.stringify({
+          type: "cursor:update",
+          x: 10,
+          y: 20,
+          draggingNoteId: noteId,
+        }),
+      );
+      expect(await nextJsonOfType(peer, "cursor:updated")).toMatchObject({
+        cursor: { draggingNoteId: noteId },
+      });
+      if (end === "cancel" || end === "commit")
+        owner.send(
+          JSON.stringify({
+            type: `note:move:${end}`,
+            operationId,
+            ...(end === "commit" ? { delta: { x: 5, y: 5 } } : {}),
+          }),
+        );
+      else if (end === "close") owner.close();
+      else if (end === "member") await stub.leave(USER_A);
+      else
+        await runInRoomDO(name, async (instance, state) => {
+          if (end === "expiry")
+            state.storage.sql.exec(
+              "UPDATE note_move_operations SET lease_until=0",
+            );
+          else
+            savePhase(state.storage.sql, { kind: "step", phase: 3, step: 4 });
+          await instance.alarm();
+        });
+      const received: Record<string, unknown>[] = [];
+      for (let i = 0; i < 12; i++) {
+        const message = await nextJsonWithin(peer);
+        if (!message) break;
+        received.push(message);
+        if (message.type === "idea-map:state" && message.isDragging === false)
+          break;
+      }
+      expect(
+        received.some(
+          (message) =>
+            message.type === "cursor:drag-ended" ||
+            message.type === "cursor:left",
+        ),
+      ).toBe(true);
+      expect(received).toContainEqual(
+        expect.objectContaining({ type: "idea-map:state", isDragging: false }),
+      );
+      peer.close();
+      if (end !== "close" && end !== "member") owner.close();
+    },
+  );
 });
 
 describe("new move group privacy WS", () => {
@@ -8054,65 +8108,65 @@ describe("new move group privacy WS", () => {
     author.close();
     viewer.close();
   });
-  it.each([
-    "note:unpublish",
-    "note:delete",
-  ] as const)("1-3の%sは工程gateで拒否され分類ID/名前/全所属を維持する", async (type) => {
-    const name = `move-group-name-preserved-${type}`;
-    const { owner, author } = await prepare(name);
-    const N3 = "88888888-8888-4888-8888-888888888888";
-    await runInRoomDO(name, (_instance, state) =>
-      insertNote(state.storage.sql, {
-        id: N3,
-        author_id: USER_A,
-        content: "third",
-        visibility: "shared",
-        color: "yellow",
-        font_size: 14,
-        x: 180,
-        y: 100,
-        stack_order: 180,
-        phase: 1,
-        excluded: false,
-        created_at: "now",
-        updated_at: "now",
-      }),
-    );
-    owner.send(
-      JSON.stringify({
-        type: "group:create",
-        group: {
+  it.each(["note:unpublish", "note:delete"] as const)(
+    "1-3の%sは工程gateで拒否され分類ID/名前/全所属を維持する",
+    async (type) => {
+      const name = `move-group-name-preserved-${type}`;
+      const { owner, author } = await prepare(name);
+      const N3 = "88888888-8888-4888-8888-888888888888";
+      await runInRoomDO(name, (_instance, state) =>
+        insertNote(state.storage.sql, {
+          id: N3,
+          author_id: USER_A,
+          content: "third",
+          visibility: "shared",
+          color: "yellow",
+          font_size: 14,
+          x: 180,
+          y: 100,
+          stack_order: 180,
+          phase: 1,
+          excluded: false,
+          created_at: "now",
+          updated_at: "now",
+        }),
+      );
+      owner.send(
+        JSON.stringify({
+          type: "group:create",
+          group: {
+            id: G,
+            name: "分類名を保持",
+            noteIds: [N1, N2, N3],
+            createdAt: "now",
+            updatedAt: "now",
+          },
+        }),
+      );
+      expect(await nextJsonOfType(owner, "group:updated")).toMatchObject({
+        group: { id: G, name: "分類名を保持", noteIds: [N1, N2, N3] },
+      });
+      expect(await nextJsonOfType(author, "group:updated")).toMatchObject({
+        group: { id: G, name: "分類名を保持", noteIds: [N1, N2, N3] },
+      });
+      author.send(JSON.stringify({ type, noteId: N2 }));
+      expect(await nextJsonOfType(author, "error")).toMatchObject({
+        code: "forbidden",
+      });
+      await runInRoomDO(name, (_instance, state) => {
+        const group = state.storage.sql
+          .exec("SELECT id,name,note_ids FROM groups WHERE id=?1", G)
+          .one();
+        expect(group).toMatchObject({
           id: G,
           name: "分類名を保持",
-          noteIds: [N1, N2, N3],
-          createdAt: "now",
-          updatedAt: "now",
-        },
-      }),
-    );
-    expect(await nextJsonOfType(owner, "group:updated")).toMatchObject({
-      group: { id: G, name: "分類名を保持", noteIds: [N1, N2, N3] },
-    });
-    expect(await nextJsonOfType(author, "group:updated")).toMatchObject({
-      group: { id: G, name: "分類名を保持", noteIds: [N1, N2, N3] },
-    });
-    author.send(JSON.stringify({ type, noteId: N2 }));
-    expect(await nextJsonOfType(author, "error")).toMatchObject({
-      code: "forbidden",
-    });
-    await runInRoomDO(name, (_instance, state) => {
-      const group = state.storage.sql
-        .exec("SELECT id,name,note_ids FROM groups WHERE id=?1", G)
-        .one();
-      expect(group).toMatchObject({
-        id: G,
-        name: "分類名を保持",
-        note_ids: JSON.stringify([N1, N2, N3]),
+          note_ids: JSON.stringify([N1, N2, N3]),
+        });
       });
-    });
-    owner.close();
-    author.close();
-  });
+      owner.close();
+      author.close();
+    },
+  );
   it("phase2のsnapshotとbatchが旧phase1の分類を再投入しない", async () => {
     const name = "move-phase2-group-projection";
     const { stub, owner, author } = await prepare(name);
@@ -8213,114 +8267,112 @@ describe("new move group privacy WS", () => {
 });
 
 describe("inverse rejection facade result", () => {
-  it.each([
-    "phase",
-    "adoption",
-    "closed",
-    "member",
-  ])("%s gate returns a terminal inverse result without leaking history", (reason) =>
-    runInRoomDO(`inverse-facade-${reason}`, async (instance, state) => {
-      const sql = state.storage.sql;
-      sql.exec("INSERT INTO members(user_id) VALUES (?1)", USER_A);
-      savePhase(sql, {
-        kind: "step",
-        phase: 1,
-        step: reason === "phase" ? 1 : 3,
-      });
-      saveTimerState(sql, {
-        status: "running",
-        endsAt: Date.now() + 60_000,
-        durationMs: 60_000,
-      });
-      if (reason === "closed")
-        sql.exec("UPDATE room_state SET outcome_published=1 WHERE id=1");
-      if (reason === "member")
-        sql.exec("DELETE FROM members WHERE user_id=?1", USER_A);
-      if (reason === "adoption") {
-        const noteId = "33333333-3333-4333-8333-333333333333";
-        insertNote(sql, {
-          id: noteId,
-          author_id: USER_A,
-          content: "secret",
-          visibility: "shared",
-          color: "yellow",
-          font_size: 14,
-          x: 10,
-          y: 10,
-          stack_order: 0,
+  it.each(["phase", "adoption", "closed", "member"])(
+    "%s gate returns a terminal inverse result without leaking history",
+    (reason) =>
+      runInRoomDO(`inverse-facade-${reason}`, async (instance, state) => {
+        const sql = state.storage.sql;
+        sql.exec("INSERT INTO members(user_id) VALUES (?1)", USER_A);
+        savePhase(sql, {
+          kind: "step",
           phase: 1,
-          excluded: false,
-          created_at: "now",
-          updated_at: "now",
+          step: reason === "phase" ? 1 : 3,
         });
-        sql.exec(
-          "INSERT INTO decisions(phase,note_id,decided_by,decided_at) VALUES(1,?1,?2,'now')",
-          noteId,
-          USER_A,
-        );
-      }
-      let attachment: SocketAttachment = {
-        userId: USER_A,
-        sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
-      };
-      const messages: Record<string, unknown>[] = [];
-      const ws = {
-        readyState: 1,
-        deserializeAttachment: () => attachment,
-        serializeAttachment: (next: SocketAttachment) => {
-          attachment = next;
-        },
-        send: (raw: string) => messages.push(JSON.parse(raw)),
-      } as unknown as WebSocket;
-      const operationId = "55555555-5555-4555-8555-555555555555";
-      const inverse = {
-        type: "note:move:inverse",
-        operationId,
-        sourceOperationId: "66666666-6666-4666-8666-666666666666",
-        expectedTargets: [
-          {
-            noteId: "33333333-3333-4333-8333-333333333333",
-            positionRevision: 0,
-            visibilityRevision: 0,
+        saveTimerState(sql, {
+          status: "running",
+          endsAt: Date.now() + 60_000,
+          durationMs: 60_000,
+        });
+        if (reason === "closed")
+          sql.exec("UPDATE room_state SET outcome_published=1 WHERE id=1");
+        if (reason === "member")
+          sql.exec("DELETE FROM members WHERE user_id=?1", USER_A);
+        if (reason === "adoption") {
+          const noteId = "33333333-3333-4333-8333-333333333333";
+          insertNote(sql, {
+            id: noteId,
+            author_id: USER_A,
+            content: "secret",
+            visibility: "shared",
+            color: "yellow",
+            font_size: 14,
+            x: 10,
+            y: 10,
+            stack_order: 0,
+            phase: 1,
+            excluded: false,
+            created_at: "now",
+            updated_at: "now",
+          });
+          sql.exec(
+            "INSERT INTO decisions(phase,note_id,decided_by,decided_at) VALUES(1,?1,?2,'now')",
+            noteId,
+            USER_A,
+          );
+        }
+        let attachment: SocketAttachment = {
+          userId: USER_A,
+          sessionExpiresAt: Math.floor(Date.now() / 1000) + 600,
+        };
+        const messages: Record<string, unknown>[] = [];
+        const ws = {
+          readyState: 1,
+          deserializeAttachment: () => attachment,
+          serializeAttachment: (next: SocketAttachment) => {
+            attachment = next;
           },
-        ],
-        expectedGroupRevision: 0,
-      };
-      await instance.webSocketMessage(ws, JSON.stringify(inverse));
-      expect(messages.at(-1)).toMatchObject({
-        type: "note:move:result",
-        operationId,
-        status: "rejected",
-      });
-      expect(JSON.stringify(messages.at(-1))).not.toContain(
-        inverse.expectedTargets[0].noteId,
-      );
-      await instance.webSocketMessage(
-        ws,
-        JSON.stringify({ type: "note:move:status", operationId }),
-      );
-      expect(messages.at(-1)).toMatchObject({
-        type: "note:move:result",
-        operationId,
-        status: reason === "member" ? "unknown" : "rejected",
-      });
-      if (reason !== "member") {
-        // 確定済み結果を現在の拒否へ書き換えない（receiptは可視性で伏せ得る）。
-        sql.exec(
-          "UPDATE note_move_operations SET state='accepted',result_json=?2 WHERE operation_id=?1",
+          send: (raw: string) => messages.push(JSON.parse(raw)),
+        } as unknown as WebSocket;
+        const operationId = "55555555-5555-4555-8555-555555555555";
+        const inverse = {
+          type: "note:move:inverse",
           operationId,
-          JSON.stringify({
-            type: "note:move:result",
-            operationId,
-            status: "accepted",
-          }),
-        );
+          sourceOperationId: "66666666-6666-4666-8666-666666666666",
+          expectedTargets: [
+            {
+              noteId: "33333333-3333-4333-8333-333333333333",
+              positionRevision: 0,
+              visibilityRevision: 0,
+            },
+          ],
+          expectedGroupRevision: 0,
+        };
         await instance.webSocketMessage(ws, JSON.stringify(inverse));
         expect(messages.at(-1)).toMatchObject({
           type: "note:move:result",
           operationId,
-          status: "accepted",
+          status: "rejected",
         });
-      }
-    }));
+        expect(JSON.stringify(messages.at(-1))).not.toContain(
+          inverse.expectedTargets[0].noteId,
+        );
+        await instance.webSocketMessage(
+          ws,
+          JSON.stringify({ type: "note:move:status", operationId }),
+        );
+        expect(messages.at(-1)).toMatchObject({
+          type: "note:move:result",
+          operationId,
+          status: reason === "member" ? "unknown" : "rejected",
+        });
+        if (reason !== "member") {
+          // 確定済み結果を現在の拒否へ書き換えない（receiptは可視性で伏せ得る）。
+          sql.exec(
+            "UPDATE note_move_operations SET state='accepted',result_json=?2 WHERE operation_id=?1",
+            operationId,
+            JSON.stringify({
+              type: "note:move:result",
+              operationId,
+              status: "accepted",
+            }),
+          );
+          await instance.webSocketMessage(ws, JSON.stringify(inverse));
+          expect(messages.at(-1)).toMatchObject({
+            type: "note:move:result",
+            operationId,
+            status: "accepted",
+          });
+        }
+      }),
+  );
 });
