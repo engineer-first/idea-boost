@@ -160,13 +160,13 @@ for (const { phase, count } of phases) {
           const left = Math.min(...boxes.map((box) => box.left));
           const right = Math.max(...boxes.map((box) => box.right));
           const hudCenter = (left + right) / 2;
-          const isFixedIdeaMap = phase === 3 && step <= 3;
-          const mapBounds = isFixedIdeaMap
+          const usesIdeaMapViewport = phase === 3 && step <= 3;
+          const mapBounds = usesIdeaMapViewport
             ? await page
                 .getByTestId("idea-value-feasibility-map-plane")
                 .boundingBox()
             : null;
-          if (isFixedIdeaMap) {
+          if (usesIdeaMapViewport) {
             if (!mapBounds) throw new Error("固定マップが見つかりません");
             expect(
               Math.abs(hudCenter - (mapBounds.x + mapBounds.width * 0.3)),

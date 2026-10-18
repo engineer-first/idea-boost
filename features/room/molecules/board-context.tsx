@@ -12,7 +12,7 @@ import type { RoomPhase } from "@/contracts/phase";
 import type { Carryover } from "@/contracts/room-protocol";
 import { DotVoteSticker } from "@/features/dot-vote";
 import { StickyNote } from "@/features/notes";
-import { isFixedIdeaMapStep } from "../logic/idea-value-feasibility-map";
+import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import styles from "./board-context.module.css";
 import { BoardLocation } from "./board-location";
 
@@ -36,7 +36,7 @@ export function BoardContext({
   hmwReference,
 }: BoardContextProps) {
   const phaseKey = phase.kind === "step" ? String(phase.phase) : "lobby";
-  const isMapWorkspace = isFixedIdeaMapStep(phase);
+  const isMapWorkspace = isIdeaMapViewportStep(phase);
   const defaultInitialId =
     phase.kind === "step"
       ? phase.phase === 3

@@ -18,8 +18,8 @@ import {
 import { NOTE_COLOR_STYLES } from "@/features/room-members";
 import { getBoardPermissions } from "../logic/board-permissions";
 import {
-  getFixedIdeaMapNotePositionProfiles,
-  getIdeaMapDisplayScale,
+  getIdeaMapNoteDisplayScale,
+  getIdeaMapViewportNoteResponsivePositions,
 } from "../logic/idea-value-feasibility-map";
 import { RoomBoardCanvas } from "./room-board-canvas";
 
@@ -415,21 +415,21 @@ describe("RoomBoardCanvas", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText("キャンバス操作のヒント")).toBeInTheDocument();
 
-    const fixedMap = screen.getByTestId("idea-map-fixed-board");
+    const mapViewport = screen.getByTestId("idea-map-viewport");
     const mapPlane = screen.getByTestId("idea-value-feasibility-map-plane");
     const initialPlaneStyle = mapPlane.getAttribute("style");
-    const initialMapTransform = fixedMap.style.transform;
+    const initialMapTransform = mapViewport.style.transform;
     expect(initialMapTransform).toContain(
       "translateY(var(--board-map-shift-y, 0px))",
     );
     expect(initialMapTransform).not.toContain("scale(1.25)");
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     expect(screen.getByText("125%")).toBeInTheDocument();
-    expect(fixedMap.style.transform).toContain("scale(1.25)");
+    expect(mapViewport.style.transform).toContain("scale(1.25)");
     expect(mapPlane.getAttribute("style")).toBe(initialPlaneStyle);
     fireEvent.click(screen.getByRole("button", { name: "付箋全体を表示" }));
     expect(screen.getByText("100%")).toBeInTheDocument();
-    expect(fixedMap.style.transform).toBe(initialMapTransform);
+    expect(mapViewport.style.transform).toBe(initialMapTransform);
   });
 
   it("3-3にも共通ズーム・履歴操作を表示し、編集不可の文字サイズ操作は出さない", () => {
@@ -464,17 +464,17 @@ describe("RoomBoardCanvas", () => {
     fireEvent.click(screen.getByLabelText("キャンバス操作のヒント"));
     expect(screen.queryByText("画面を動かす")).not.toBeInTheDocument();
 
-    const fixedMap = screen.getByTestId("idea-map-fixed-board");
-    const initialMapTransform = fixedMap.style.transform;
+    const mapViewport = screen.getByTestId("idea-map-viewport");
+    const initialMapTransform = mapViewport.style.transform;
     expect(initialMapTransform).toContain(
       "translateY(var(--board-map-shift-y, 0px))",
     );
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     expect(screen.getByText("125%")).toBeInTheDocument();
-    expect(fixedMap.style.transform).toContain("scale(1.25)");
+    expect(mapViewport.style.transform).toContain("scale(1.25)");
     fireEvent.click(screen.getByRole("button", { name: "ズームを100%に戻す" }));
     expect(screen.getByText("100%")).toBeInTheDocument();
-    expect(fixedMap.style.transform).toBe(initialMapTransform);
+    expect(mapViewport.style.transform).toBe(initialMapTransform);
   });
 
   it("採用選択モードは候補だけを明示し、対象ボタンの操作を通知する", () => {
@@ -885,7 +885,7 @@ describe("RoomBoardCanvas", () => {
       onIdeaMapResize,
     });
 
-    expect(screen.getByTestId("idea-map-fixed-board")).toHaveClass("inset-0");
+    expect(screen.getByTestId("idea-map-viewport")).toHaveClass("inset-0");
     expect(screen.getByTestId("board-canvas")).toHaveStyle({
       transform: "none",
     });
@@ -1346,9 +1346,11 @@ describe("RoomBoardCanvas", () => {
       camera: { x: 30, y: -20, zoom: 0.11 },
     });
 
-    const fixedMap = screen.getByTestId("idea-map-fixed-board");
-    expect(fixedMap).toBeInTheDocument();
-    expect(screen.getByTestId("board-canvas")).not.toContainElement(fixedMap);
+    const mapViewport = screen.getByTestId("idea-map-viewport");
+    expect(mapViewport).toBeInTheDocument();
+    expect(screen.getByTestId("board-canvas")).not.toContainElement(
+      mapViewport,
+    );
     expect(screen.getByTestId("board-canvas")).toHaveStyle({
       transform: "none",
     });
@@ -1373,11 +1375,11 @@ describe("RoomBoardCanvas", () => {
       "aria-description",
       "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。",
     );
-    expect(screen.getByTestId("idea-map-fixed-board")).toBeInTheDocument();
+    expect(screen.getByTestId("idea-map-viewport")).toBeInTheDocument();
     expect(screen.getByTestId("board-canvas")).toHaveStyle({
       transform: "none",
     });
-    expect(screen.getByTestId("idea-map-fixed-board")).toContainElement(
+    expect(screen.getByTestId("idea-map-viewport")).toContainElement(
       screen.getByTestId("idea-value-feasibility-map-note-mapped-note"),
     );
     expect(
@@ -1402,17 +1404,17 @@ describe("RoomBoardCanvas", () => {
         y: 25,
       },
     });
-    const fixedMap = screen.getByTestId("idea-map-fixed-board");
+    const mapViewport = screen.getByTestId("idea-map-viewport");
     const note = screen.getByTestId(
       "idea-value-feasibility-map-note-fixed-size",
     );
-    expect(fixedMap).not.toHaveStyle({ transform: `scale(${zoom})` });
-    const noteProfiles = getFixedIdeaMapNotePositionProfiles(
+    expect(mapViewport).not.toHaveStyle({ transform: `scale(${zoom})` });
+    const noteProfiles = getIdeaMapViewportNoteResponsivePositions(
       { feasibility: 25, value: 75 },
       150,
       1,
     );
-    const ghostProfiles = getFixedIdeaMapNotePositionProfiles(
+    const ghostProfiles = getIdeaMapViewportNoteResponsivePositions(
       { feasibility: 75, value: 25 },
       150,
       1,
@@ -1462,7 +1464,7 @@ describe("RoomBoardCanvas", () => {
     const noteLayer = screen.getByTestId("idea-map-note-layer");
     const planeStyle = plane.getAttribute("style");
 
-    expect(screen.getByTestId("idea-map-fixed-board")).toHaveAttribute(
+    expect(screen.getByTestId("idea-map-viewport")).toHaveAttribute(
       "data-map-workspace",
       "true",
     );
@@ -1478,7 +1480,11 @@ describe("RoomBoardCanvas", () => {
       { id: "scaled-note-b", feasibility: 68, value: 36 },
     ] as const;
     for (const point of notePositions) {
-      const profiles = getFixedIdeaMapNotePositionProfiles(point, 150, scale);
+      const profiles = getIdeaMapViewportNoteResponsivePositions(
+        point,
+        150,
+        scale,
+      );
       const { id } = point;
       const note = screen.getByTestId(`idea-value-feasibility-map-note-${id}`);
       expect(note).toHaveStyle({
@@ -1497,17 +1503,17 @@ describe("RoomBoardCanvas", () => {
     rerender(<RoomBoardCanvas {...props} ideaMapSizeLevel={sizeLevel + 1} />);
     expect(plane.getAttribute("style")).toBe(planeStyle);
     for (const point of notePositions) {
-      const profiles = getFixedIdeaMapNotePositionProfiles(
+      const profiles = getIdeaMapViewportNoteResponsivePositions(
         point,
         150,
-        getIdeaMapDisplayScale(sizeLevel + 1),
+        getIdeaMapNoteDisplayScale(sizeLevel + 1),
       );
       expect(
         screen.getByTestId(`idea-value-feasibility-map-note-${point.id}`),
       ).toHaveStyle({
         "--idea-map-note-left-desktop": profiles.desktop.left,
         "--idea-map-note-bottom-desktop": profiles.desktop.bottom,
-        transform: `scale(${getIdeaMapDisplayScale(sizeLevel + 1)})`,
+        transform: `scale(${getIdeaMapNoteDisplayScale(sizeLevel + 1)})`,
         transformOrigin: "var(--idea-map-note-transform-origin, 50% 50%)",
       });
     }
@@ -1520,9 +1526,9 @@ describe("RoomBoardCanvas", () => {
       notes: [buildNote({ id: "fixed-size" })],
     });
     const boardCanvas = screen.getByTestId("board-canvas");
-    const fixedMap = screen.getByTestId("idea-map-fixed-board");
-    expect(boardCanvas).not.toContainElement(fixedMap);
-    expect(fixedMap).toContainElement(
+    const mapViewport = screen.getByTestId("idea-map-viewport");
+    expect(boardCanvas).not.toContainElement(mapViewport);
+    expect(mapViewport).toContainElement(
       screen.getByTestId("idea-value-feasibility-map-note-fixed-size"),
     );
     expect(boardCanvas).toHaveStyle({ transform: "none" });
@@ -1540,7 +1546,7 @@ describe("RoomBoardCanvas", () => {
       "sm:[--idea-map-note-scale:0.75]",
       "lg:[--idea-map-note-scale:1]",
     );
-    expect(screen.getByTestId("idea-map-fixed-position-area")).toHaveClass(
+    expect(screen.getByTestId("idea-map-viewport-plane")).toHaveClass(
       "inset-0",
     );
     expect(
@@ -1893,7 +1899,7 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
       ideaMapSizeLevel: 4,
       camera: { x: -300, y: -200, zoom: 0.2 },
     });
-    const map = screen.getByTestId("idea-map-fixed-board");
+    const map = screen.getByTestId("idea-map-viewport");
     fireEvent.click(screen.getByRole("button", { name: "キャンバスを拡大" }));
     const mapStyle = map.getAttribute("style");
     const mappedNote = screen.getByTestId(
@@ -1910,7 +1916,7 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
       />,
     );
 
-    expect(screen.getByTestId("idea-map-fixed-board")).toBe(map);
+    expect(screen.getByTestId("idea-map-viewport")).toBe(map);
     expect(map.getAttribute("style")).toBe(mapStyle);
     expect(
       screen.getByTestId("idea-value-feasibility-map-note-mapped-idea"),
@@ -2054,7 +2060,7 @@ describe("Step 3-2〜3-5（固定2軸マップ）", () => {
     const boardScroller = screen.getByTestId("board-scroller");
     expect(boardScroller).toHaveStyle({ backgroundImage: "none" });
 
-    expect(screen.getByTestId("idea-map-fixed-board")).toHaveAttribute(
+    expect(screen.getByTestId("idea-map-viewport")).toHaveAttribute(
       "data-map-workspace",
       "true",
     );

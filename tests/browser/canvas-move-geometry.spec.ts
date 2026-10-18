@@ -38,7 +38,7 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
         .click();
     await page.waitForFunction(() =>
       document
-        .querySelector<HTMLElement>('[data-testid="idea-map-fixed-board"]')
+        .querySelector<HTMLElement>('[data-testid="idea-map-viewport"]')
         ?.style.transform.includes("scale(0.209715"),
     );
     const note = page
@@ -50,7 +50,7 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
     if (!box) throw new Error("fixture note missing");
     const before = await centers(page);
     const camera = await page
-      .getByTestId("idea-map-fixed-board")
+      .getByTestId("idea-map-viewport")
       .getAttribute("style");
     const dragStart = {
       x: box.x + box.width * 0.05,
@@ -64,7 +64,7 @@ test("map端の固定3枚を同じ画面deltaでpreview/確定し相対距離を
       .toBeGreaterThan(10);
     const preview = await centers(page);
     expect(
-      await page.getByTestId("idea-map-fixed-board").getAttribute("style"),
+      await page.getByTestId("idea-map-viewport").getAttribute("style"),
     ).toBe(camera);
     for (const [index, center] of preview.entries()) {
       expect(center.x - before[index].x).toBeCloseTo(

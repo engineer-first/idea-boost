@@ -660,7 +660,7 @@ export const Step3IdeaMap: Story = {
   },
 };
 
-const fixedSizeMapArgs = {
+const ideaMapViewportArgs = {
   phase: buildPhaseStep(3, 3),
   permissions: getBoardPermissions(buildPhaseStep(3, 3)),
   notes: [
@@ -785,14 +785,14 @@ export const ParticipantIdeaMap: Story = {
 
 export const IdeaMapZoom50: Story = {
   args: {
-    ...fixedSizeMapArgs,
+    ...ideaMapViewportArgs,
     camera: { x: 0, y: 0, zoom: 0.5 },
   },
 };
 
 export const IdeaMapZoom200: Story = {
   args: {
-    ...fixedSizeMapArgs,
+    ...ideaMapViewportArgs,
     camera: { x: -400, y: -300, zoom: 2 },
   },
 };
@@ -879,7 +879,7 @@ export const InteractiveIdeaMapReading: Story = {
 export const SmallMapAxisReading: Story = {
   name: "価値 × 実現のしやすさ / 小さいマップの軸を読む",
   args: {
-    ...fixedSizeMapArgs,
+    ...ideaMapViewportArgs,
     ideaMapSizeLevel: 0,
   },
   render: (args) => <NoteReadingPreview args={args} />,
@@ -985,7 +985,7 @@ export const MapAdoptionAfterRepeatedOperations: Story = {
 export const IdeaMapInitialAxes: Story = {
   name: "2軸マップ / 初期82%の軸ラベル",
   args: {
-    ...fixedSizeMapArgs,
+    ...ideaMapViewportArgs,
     camera: { x: 128, y: 40, zoom: 0.82 },
   },
   decorators: [
@@ -999,7 +999,7 @@ export const IdeaMapInitialAxes: Story = {
 
 export const IdeaMapMarginCursors: Story = {
   args: {
-    ...fixedSizeMapArgs,
+    ...ideaMapViewportArgs,
     camera: IDEA_MAP_CAMERA,
     remoteCursors: [
       { x: -10, y: 50, name: "左余白" },
@@ -1048,7 +1048,7 @@ const LAYERING_CURSOR: RenderedRemoteCursorPresence = {
 // 実際の付箋とカーソルを重ね、操作履歴と一時前面化による描画順を確認する。
 export const IdeaMapCursorAboveHighStackNotes: Story = {
   args: {
-    ...fixedSizeMapArgs,
+    ...ideaMapViewportArgs,
     phase: STEP_3_2,
     permissions: getBoardPermissions(STEP_3_2),
     notes: CURSOR_LAYERING_NOTES,

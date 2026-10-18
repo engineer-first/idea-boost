@@ -53,7 +53,7 @@ import {
 import { clearLastRoom } from "@/lib/room-client/last-room-storage";
 import type { RoomScreenConnectionStatus } from "../logic/connection-status";
 import { getFacilitationGuide } from "../logic/facilitation-guide";
-import { isFixedIdeaMapStep } from "../logic/idea-value-feasibility-map";
+import { isIdeaMapViewportStep } from "../logic/idea-value-feasibility-map";
 import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import type { StepGuideState } from "../logic/use-step-guide";
@@ -192,7 +192,7 @@ export function RoomBoardHeader({
 }: RoomBoardHeaderProps) {
   const controlsAreaRef = useRef<HTMLDivElement>(null);
   const isMapWorkspace = isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
-  const isFixedIdeaMap = isFixedIdeaMapStep(phase);
+  const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
   useEffect(() => {
     const area = controlsAreaRef.current;
     const header = area?.closest<HTMLElement>(
@@ -210,7 +210,7 @@ export function RoomBoardHeader({
               '[data-testid="board-connection-status"]',
             );
       if (!header) return;
-      if (isFixedIdeaMap && board) {
+      if (usesIdeaMapViewport && board) {
         const boardTop = board.getBoundingClientRect().top;
         const location = header.querySelector<HTMLElement>(
           '[data-testid="board-location-card"]',
@@ -247,7 +247,7 @@ export function RoomBoardHeader({
             ? Math.max(controlsBottom, locationBottom) - boardTop + 50
             : window.innerWidth <= 639
               ? Math.max(
-                  ...(isFixedIdeaMap ? [] : [compactGuideBottom]),
+                  ...(usesIdeaMapViewport ? [] : [compactGuideBottom]),
                   locationBottom,
                   controlsBottom,
                   helpRowBottom,
@@ -336,7 +336,7 @@ export function RoomBoardHeader({
         ? null
         : new ResizeObserver(updateGuideTop);
     observer?.observe(area);
-    if (isFixedIdeaMap) observer?.observe(header);
+    if (usesIdeaMapViewport) observer?.observe(header);
     const location = header.querySelector<HTMLElement>(
       '[data-testid="board-location-card"]',
     );
@@ -353,7 +353,7 @@ export function RoomBoardHeader({
       board?.style.removeProperty("--board-map-shift-y");
       board?.style.removeProperty("--board-map-tray-top");
     };
-  }, [connectionStatus, isMapWorkspace, isFixedIdeaMap]);
+  }, [connectionStatus, isMapWorkspace, usesIdeaMapViewport]);
   const activeSharing =
     phase.kind === "step" && phase.step === 2 ? sharing : null;
   const transitioning = activeSharing?.startsAt != null;
@@ -504,7 +504,7 @@ export function RoomBoardHeader({
         >
           <div className="w-full min-w-0 shrink-0 max-[640px]:max-w-[306px] max-[639px]:col-start-1 max-[639px]:row-start-1 max-[639px]:row-span-2 max-[639px]:w-[min(306px,calc(100vw-24px))]">
             <BoardContext
-              initialDisclosureId={isFixedIdeaMap ? null : undefined}
+              initialDisclosureId={usesIdeaMapViewport ? null : undefined}
               phase={phase}
               outcomePublished={outcomePublished}
               hmwDecidedIssue={hmwDecidedIssue}

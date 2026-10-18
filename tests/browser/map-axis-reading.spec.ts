@@ -12,7 +12,7 @@ test("初期82%でも軸名が14px以上相当で読め、平面や目盛りに�
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardcanvas--idea-map-initial-axes&viewMode=story`,
     );
-    const map = page.getByTestId("idea-map-fixed-board");
+    const map = page.getByTestId("idea-map-viewport");
     await map.waitFor();
     await page.evaluate(() => document.fonts.ready);
     const bounds = await map.boundingBox();

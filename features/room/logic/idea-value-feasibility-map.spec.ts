@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  getFixedIdeaMapNotePointFromClientPosition,
-  getFixedIdeaMapNotePosition,
   getIdeaMapAxisLabelFontSize,
-  getIdeaMapDisplayScale,
   getIdeaMapNoteDisplayMetrics,
+  getIdeaMapNoteDisplayScale,
   getIdeaMapNoteGeometry,
   getIdeaMapNotePointFromClientPosition,
+  getIdeaMapViewportNotePointFromClientPosition,
+  getIdeaMapViewportNotePosition,
   getIdeaValueFeasibilityMapDimensions,
   getIdeaValueFeasibilityMapNotePosition,
   getIdeaValueFeasibilityMapPointFromClientPosition,
@@ -16,7 +16,7 @@ import {
 describe("getIdeaValueFeasibilityMapPosition", () => {
   it("縮小した付箋を左上へ置くと、実表示の中心をマップ全体の百分率へ保存する", () => {
     expect(
-      getFixedIdeaMapNotePointFromClientPosition(
+      getIdeaMapViewportNotePointFromClientPosition(
         115,
         125,
         { left: 100, top: 100, right: 500, bottom: 400 },
@@ -36,11 +36,11 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       responsiveScale,
     );
     expect(baseMetrics.scale).toBe(1);
-    expect(smallerMetrics.scale).toBe(getIdeaMapDisplayScale(4));
+    expect(smallerMetrics.scale).toBe(getIdeaMapNoteDisplayScale(4));
 
     for (const metrics of [baseMetrics, smallerMetrics]) {
       const grabOffset = { x: metrics.width * 0.35, y: metrics.height * 0.3 };
-      const point = getFixedIdeaMapNotePointFromClientPosition(
+      const point = getIdeaMapViewportNotePointFromClientPosition(
         250 - metrics.width / 2 + grabOffset.x,
         150 - metrics.height / 2 + grabOffset.y,
         { left: 0, top: 0, right: 1000, bottom: 600 },
@@ -63,10 +63,10 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
 
   it("固定マップは付箋の表示寸法に合わせて移動範囲を端まで使う", () => {
     expect(
-      getFixedIdeaMapNotePosition({ feasibility: 0, value: 100 }, 150),
+      getIdeaMapViewportNotePosition({ feasibility: 0, value: 100 }, 150),
     ).toEqual({ left: "0%", bottom: "calc(100% - 150px)" });
     expect(
-      getFixedIdeaMapNotePosition({ feasibility: 100, value: 0 }, 320),
+      getIdeaMapViewportNotePosition({ feasibility: 100, value: 0 }, 320),
     ).toEqual({ left: "calc(100% - 200px)", bottom: "0%" });
   });
 
@@ -76,7 +76,7 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
     const grabOffset = { x: 50, y: 37.5 };
 
     expect(
-      getFixedIdeaMapNotePointFromClientPosition(
+      getIdeaMapViewportNotePointFromClientPosition(
         100,
         200,
         bounds,
@@ -85,7 +85,7 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       ),
     ).toEqual({ feasibility: 12.5, value: 50 });
     expect(
-      getFixedIdeaMapNotePointFromClientPosition(
+      getIdeaMapViewportNotePointFromClientPosition(
         500,
         200,
         bounds,
@@ -94,7 +94,7 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       ),
     ).toEqual({ feasibility: 87.5, value: 50 });
     expect(
-      getFixedIdeaMapNotePointFromClientPosition(
+      getIdeaMapViewportNotePointFromClientPosition(
         300,
         100,
         bounds,
@@ -103,7 +103,7 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
       ),
     ).toEqual({ feasibility: 50, value: 81.25 });
     expect(
-      getFixedIdeaMapNotePointFromClientPosition(
+      getIdeaMapViewportNotePointFromClientPosition(
         300,
         300,
         bounds,
@@ -115,7 +115,7 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
 
   it("表示サイズが変わっても、マップ内の中心位置から同じ評価値へ戻す", () => {
     expect(
-      getFixedIdeaMapNotePointFromClientPosition(
+      getIdeaMapViewportNotePointFromClientPosition(
         300,
         200,
         { left: 100, top: 100, right: 500, bottom: 300 },
@@ -127,7 +127,7 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
 
   it("縮小表示した付箋は表示倍率と各viewportのtransform originを反映する", () => {
     expect(
-      getFixedIdeaMapNotePosition({ feasibility: 100, value: 100 }, 150, {
+      getIdeaMapViewportNotePosition({ feasibility: 100, value: 100 }, 150, {
         displayScale: 0.5,
         responsiveScale: 0.6,
         transformOriginX: 0.3,
@@ -161,10 +161,12 @@ describe("getIdeaValueFeasibilityMapPosition", () => {
   });
 
   it("共有範囲が広がるほど固定マップ内部の表示倍率を下げる", () => {
-    expect(getIdeaMapDisplayScale(0)).toBe(1);
-    expect(getIdeaMapDisplayScale(1)).toBeCloseTo(1 / 1.1);
-    expect(getIdeaMapDisplayScale(2)).toBeCloseTo(1 / 1.21);
-    expect(getIdeaMapDisplayScale(15)).toBeLessThan(getIdeaMapDisplayScale(2));
+    expect(getIdeaMapNoteDisplayScale(0)).toBe(1);
+    expect(getIdeaMapNoteDisplayScale(1)).toBeCloseTo(1 / 1.1);
+    expect(getIdeaMapNoteDisplayScale(2)).toBeCloseTo(1 / 1.21);
+    expect(getIdeaMapNoteDisplayScale(15)).toBeLessThan(
+      getIdeaMapNoteDisplayScale(2),
+    );
   });
 
   it.each([

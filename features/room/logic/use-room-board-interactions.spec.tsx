@@ -9,7 +9,7 @@ import {
   buildNote,
   buildSharingState,
 } from "@/contracts/room-protocol.fixture";
-import { getIdeaMapDisplayScale } from "./idea-value-feasibility-map";
+import { getIdeaMapNoteDisplayScale } from "./idea-value-feasibility-map";
 import { useRoomBoardInteractions } from "./use-room-board-interactions";
 
 function setup({
@@ -377,7 +377,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     plane.getBoundingClientRect = () => new DOMRect(100, 100, 400, 200);
     plane.style.setProperty(
       "--idea-map-note-scale",
-      String(100 / (NOTE_WIDTH * getIdeaMapDisplayScale(2))),
+      String(100 / (NOTE_WIDTH * getIdeaMapNoteDisplayScale(2))),
     );
     result.current.ideaMapPlaneRef.current = plane;
 
@@ -425,7 +425,7 @@ describe("useRoomBoardInteractions cursor input", () => {
       sharedNotePosition: { x: 40, y: 40 },
       ideaMapSizeLevel: 2,
     });
-    const scale = getIdeaMapDisplayScale(2);
+    const scale = getIdeaMapNoteDisplayScale(2);
     const width = NOTE_WIDTH * scale;
     const height =
       getNoteHeight(buildNote().content, buildNote().fontSize) * scale;
@@ -556,7 +556,7 @@ describe("useRoomBoardInteractions cursor input", () => {
 
       const preview = result.current.dragPreview;
       if (!preview) throw new Error("マイ付箋のドラッグプレビューがありません");
-      const scale = getIdeaMapDisplayScale(2) * 0.75;
+      const scale = getIdeaMapNoteDisplayScale(2) * 0.75;
       const displayedHeight =
         getNoteHeight(note.content, note.fontSize) * scale;
       expect(preview.width).toBeCloseTo(NOTE_WIDTH * scale);
@@ -617,7 +617,7 @@ describe("useRoomBoardInteractions cursor input", () => {
     );
 
     const [publishedId, x, y] = onPrivateNotePublish.mock.calls[0];
-    const scale = getIdeaMapDisplayScale(2) * 0.75;
+    const scale = getIdeaMapNoteDisplayScale(2) * 0.75;
     expect(publishedId).toBe(note.id);
     expect(x).toBeCloseTo(100 - ((NOTE_WIDTH * scale) / 2 / 400) * 100);
     expect(y).toBeCloseTo(

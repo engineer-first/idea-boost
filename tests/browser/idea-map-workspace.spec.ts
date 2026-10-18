@@ -23,7 +23,7 @@ async function openWorkspace(page: Page): Promise<void> {
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--idea-map-workspace&viewMode=story`,
   );
-  await page.getByTestId("idea-map-fixed-position-area").waitFor();
+  await page.getByTestId("idea-map-viewport-plane").waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -31,7 +31,7 @@ async function openMapOnly(page: Page): Promise<void> {
   await page.goto(
     `${origin}/iframe.html?id=room-roomboardview--idea-map-only&viewMode=story`,
   );
-  await page.getByTestId("idea-map-fixed-position-area").waitFor();
+  await page.getByTestId("idea-map-viewport-plane").waitFor();
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -128,7 +128,7 @@ test.each(
     const zoom = await readBounds(page, "canvas-zoom-hud");
     expect(zoom.y + zoom.height).toBeCloseTo(height - 12, 1);
     const notes = page
-      .getByTestId("idea-map-fixed-position-area")
+      .getByTestId("idea-map-viewport-plane")
       .getByTestId("note-card");
     const first = await notes.first().boundingBox();
     if (!first) throw new Error("マップ上の付箋がありません");
@@ -138,7 +138,7 @@ test.each(
       path: `${output}/expanded-bottom-${phase}-${width}x${height}.png`,
     });
     await page.reload();
-    await page.getByTestId("idea-map-fixed-position-area").waitFor();
+    await page.getByTestId("idea-map-viewport-plane").waitFor();
     await page.evaluate(() => document.fonts.ready);
     await expect
       .poll(() => readBounds(page, "idea-value-feasibility-map-plane"))
@@ -353,7 +353,7 @@ test.each([
     };
     await page.screenshot({ path: `${output}/horizontal-axis-${phase}.png` });
     await page.reload();
-    await page.getByTestId("idea-map-fixed-position-area").waitFor();
+    await page.getByTestId("idea-map-viewport-plane").waitFor();
     await page.evaluate(() => document.fonts.ready);
     const reloaded = {
       endpoint: await endpoint.boundingBox(),
@@ -1161,7 +1161,7 @@ test.each([
     });
     const dragBounds = await dragHandle.boundingBox();
     const positionArea = await page
-      .getByTestId("idea-map-fixed-position-area")
+      .getByTestId("idea-map-viewport-plane")
       .boundingBox();
     if (!dragBounds || !positionArea)
       throw new Error("倍率変更後の付箋を移動できません");
@@ -1688,7 +1688,7 @@ test("中間幅でも通常位置の中心と評価値を保ち、端の付箋�
       ),
     ).toBeLessThan(1);
     expect(await plane.boundingBox()).toEqual(initialPlane);
-    const area = await readBounds(page, "idea-map-fixed-position-area");
+    const area = await readBounds(page, "idea-map-viewport-plane");
     await expect
       .poll(async () => {
         const rect = await edge.getByTestId("note-card").boundingBox();
@@ -1989,7 +1989,7 @@ test("3-2でマイ付箋をマップへ共有でき、画面幅を変えても�
       .getByTestId("private-notes-toolbar")
       .locator(`[data-note-id="${id}"]`);
     const area = await page
-      .getByTestId("idea-map-fixed-position-area")
+      .getByTestId("idea-map-viewport-plane")
       .boundingBox();
     const start = await source
       .getByRole("button", { name: "付箋", exact: true })

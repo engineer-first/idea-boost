@@ -28,7 +28,7 @@ test.each([
     await page.goto(
       `${origin}/iframe.html?id=room-roomboardview--idea-map-decision-edges&viewMode=story`,
     );
-    await page.getByTestId("idea-map-fixed-position-area").waitFor();
+    await page.getByTestId("idea-map-viewport-plane").waitFor();
     await page.evaluate(() => document.fonts.ready);
     await page
       .getByRole("button", { name: "採用する付箋を選ぶ", exact: true })
@@ -39,7 +39,7 @@ test.each([
     const note = wrapper.getByTestId("note-card");
     const before = await note.boundingBox();
     if (!before) throw new Error("移動する付箋がありません");
-    const plane = await bounds(page, "idea-map-fixed-position-area");
+    const plane = await bounds(page, "idea-map-viewport-plane");
     await page.mouse.move(
       before.x + before.width / 2,
       before.y + before.height / 2,
@@ -92,13 +92,13 @@ test.each(
         await page.goto(
           `${origin}/iframe.html?id=room-roomboardview--${story}&viewMode=story&args=ideaMapSizeLevel:${level}`,
         );
-        await page.getByTestId("idea-map-fixed-position-area").waitFor();
+        await page.getByTestId("idea-map-viewport-plane").waitFor();
         await page.evaluate(() => document.fonts.ready);
         if (phase === "3-2")
           await page
             .getByRole("button", { name: "マイ付箋を閉じる", exact: true })
             .click();
-        const plane = await bounds(page, "idea-map-fixed-position-area");
+        const plane = await bounds(page, "idea-map-viewport-plane");
         const note = page
           .getByTestId("idea-value-feasibility-map-note-map-edge-movable")
           .getByTestId("note-card");
@@ -137,9 +137,7 @@ test.each(
         const preview = await note.boundingBox();
         await page.mouse.up();
         await expect.poll(() => note.boundingBox()).toEqual(preview);
-        expect(await bounds(page, "idea-map-fixed-position-area")).toEqual(
-          plane,
-        );
+        expect(await bounds(page, "idea-map-viewport-plane")).toEqual(plane);
         if (level === 4 && corner === "bottom-right" && phase !== "3-5") {
           const edge = await note.boundingBox();
           if (!edge) throw new Error("端に置いた付箋がありません");
@@ -187,8 +185,8 @@ test("3-4では四隅の付箋を同じ座標で表示し、投票中の移動�
       await page.goto(
         `${origin}/iframe.html?id=room-roomboardview--idea-map-voting-edges&viewMode=story&args=ideaMapSizeLevel:${level}`,
       );
-      await page.getByTestId("idea-map-fixed-position-area").waitFor();
-      const plane = await bounds(page, "idea-map-fixed-position-area");
+      await page.getByTestId("idea-map-viewport-plane").waitFor();
+      const plane = await bounds(page, "idea-map-viewport-plane");
       for (let index = 0; index < 4; index++) {
         const note = page
           .getByTestId(`idea-value-feasibility-map-note-map-edge-${index}`)

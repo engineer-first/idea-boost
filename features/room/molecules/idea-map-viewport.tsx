@@ -8,7 +8,7 @@ import {
   useRef,
 } from "react";
 import { IDEA_VALUE_FEASIBILITY_MAP_LABELS } from "../logic/idea-value-feasibility-map";
-import styles from "./fixed-idea-map.module.css";
+import styles from "./idea-map-viewport.module.css";
 
 const GRID_STYLE = {
   backgroundImage:
@@ -107,12 +107,12 @@ function AxisStroke({
   );
 }
 
-export type FixedIdeaMapProps = {
+export type IdeaMapViewportProps = {
   children?: ReactNode;
   overlay?: ReactNode;
   workspaceControls?: { phaseLoop: ReactNode; mapSize: ReactNode };
-  workspaceHorizontalAxisLayout?: boolean;
-  positionAreaRef?: Ref<HTMLDivElement>;
+  groupHorizontalAxisEndpoint?: boolean;
+  planeRef?: Ref<HTMLDivElement>;
   workspace?: boolean;
   zoom?: number;
 };
@@ -122,15 +122,15 @@ export type FixedIdeaMapProps = {
  * ボード領域内に固定表示する。zoomは個人用の表示倍率。
  * 付箋の移動範囲は表示後の寸法に合わせてマップの内枠いっぱいに取る。
  */
-export function FixedIdeaMap({
+export function IdeaMapViewport({
   children,
   overlay,
   workspaceControls,
-  workspaceHorizontalAxisLayout = false,
-  positionAreaRef,
+  groupHorizontalAxisEndpoint = false,
+  planeRef,
   workspace = false,
   zoom = 1,
-}: FixedIdeaMapProps) {
+}: IdeaMapViewportProps) {
   const horizontalAxisRef = useRef<HTMLFieldSetElement>(null);
   const horizontalEndpointRef = useRef<HTMLDivElement>(null);
   const labels = IDEA_VALUE_FEASIBILITY_MAP_LABELS;
@@ -145,7 +145,7 @@ export function FixedIdeaMap({
     const frame = axis?.closest<HTMLElement>('[data-testid="board-frame"]');
     if (
       !workspace ||
-      !workspaceHorizontalAxisLayout ||
+      !groupHorizontalAxisEndpoint ||
       !axis ||
       !endpoint ||
       !frame
@@ -218,13 +218,13 @@ export function FixedIdeaMap({
       window.removeEventListener("resize", updateOffset);
       endpoint.style.removeProperty(offsetProperty);
     };
-  }, [workspace, workspaceHorizontalAxisLayout, zoom]);
+  }, [workspace, groupHorizontalAxisEndpoint, zoom]);
 
   return (
     <section
       aria-label={labels.ariaLabel}
       className={`pointer-events-none absolute inset-0 z-10 flex items-center justify-center ${workspace ? "[container-type:size] px-4 pt-[var(--board-map-top,7rem)] pb-4" : "p-3 pt-20 sm:p-6 sm:pt-24"}`}
-      data-testid="idea-map-fixed-board"
+      data-testid="idea-map-viewport"
       data-map-workspace={workspace || undefined}
       style={
         transforms.length === 0
@@ -329,11 +329,11 @@ export function FixedIdeaMap({
                   data-testid="idea-map-note-layer"
                 >
                   <div
-                    ref={positionAreaRef}
+                    ref={planeRef}
                     className="pointer-events-auto absolute inset-0"
                     data-canvas-background="true"
                     data-coordinate-range="0-100"
-                    data-testid="idea-map-fixed-position-area"
+                    data-testid="idea-map-viewport-plane"
                   >
                     {children}
                     {overlay ? (
@@ -386,9 +386,9 @@ export function FixedIdeaMap({
         <fieldset
           ref={horizontalAxisRef}
           aria-label={labels.feasibilityScaleAriaLabel}
-          className={`relative m-0 shrink-0 border-0 p-0 text-muted-foreground ${workspaceHorizontalAxisLayout ? styles.workspaceFeasibilityAxis : ""} ${workspace ? "ml-10 h-10 sm:ml-15" : "ml-10 h-14 sm:ml-16"}`}
+          className={`relative m-0 shrink-0 border-0 p-0 text-muted-foreground ${groupHorizontalAxisEndpoint ? styles.workspaceFeasibilityAxis : ""} ${workspace ? "ml-10 h-10 sm:ml-15" : "ml-10 h-14 sm:ml-16"}`}
         >
-          {workspaceHorizontalAxisLayout ? (
+          {groupHorizontalAxisEndpoint ? (
             <div
               ref={horizontalEndpointRef}
               className={`${styles.horizontalLowEndpointGroup} absolute flex whitespace-nowrap text-sm font-medium sm:text-base`}
@@ -420,13 +420,13 @@ export function FixedIdeaMap({
             </>
           )}
           <span
-            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-background px-3 py-1 font-bold tracking-wide text-foreground ${workspace ? `top-3 text-base sm:text-lg ${workspaceHorizontalAxisLayout ? styles.workspaceInlineFeasibilityLabel : ""}` : "top-7 rounded-full border border-border text-lg shadow-sm sm:text-2xl"}`}
+            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-background px-3 py-1 font-bold tracking-wide text-foreground ${workspace ? `top-3 text-base sm:text-lg ${groupHorizontalAxisEndpoint ? styles.workspaceInlineFeasibilityLabel : ""}` : "top-7 rounded-full border border-border text-lg shadow-sm sm:text-2xl"}`}
             data-testid="idea-value-feasibility-map-x-axis-label"
           >
             {labels.feasibility}
           </span>
           <span
-            className={`absolute top-0 right-0 flex h-6 items-center text-sm font-medium sm:text-base ${workspace && !workspaceHorizontalAxisLayout ? styles.workspaceCompactFeasibilityHigh : ""}`}
+            className={`absolute top-0 right-0 flex h-6 items-center text-sm font-medium sm:text-base ${workspace && !groupHorizontalAxisEndpoint ? styles.workspaceCompactFeasibilityHigh : ""}`}
           >
             {labels.high}
           </span>

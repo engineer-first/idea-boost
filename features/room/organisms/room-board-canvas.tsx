@@ -49,13 +49,13 @@ import {
   type RenderedRemoteCursorPresence,
 } from "../logic/cursor-presence";
 import {
-  FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT,
-  getFixedIdeaMapNotePositionProfiles,
-  getIdeaMapDisplayScale,
   getIdeaMapNoteDisplayMetrics,
+  getIdeaMapNoteDisplayScale,
   getIdeaMapNoteGeometry,
+  getIdeaMapViewportNoteResponsivePositions,
   getIdeaValueFeasibilityMapNotePosition,
-  isFixedIdeaMapStep,
+  IDEA_MAP_VIEWPORT_NOTE_HEIGHT_LIMIT,
+  isIdeaMapViewportStep,
 } from "../logic/idea-value-feasibility-map";
 import type { Decision } from "../logic/room-reducer";
 import type {
@@ -66,8 +66,8 @@ import type {
 import { getAdoptionTargetLabel } from "../molecules/adopt-note-control";
 import { BoardOperationMatrix } from "../molecules/board-operation-matrix";
 import { CanvasZoomControls } from "../molecules/canvas-zoom-controls";
-import { FixedIdeaMap } from "../molecules/fixed-idea-map";
 import { IdeaMapSizeControls } from "../molecules/idea-map-size-controls";
+import { IdeaMapViewport } from "../molecules/idea-map-viewport";
 import { IdeaValueFeasibilityMap } from "../molecules/idea-value-feasibility-map";
 import type { MoveHistoryControlsProps } from "../molecules/move-history-controls";
 import { NoteFontSizeControls } from "../molecules/note-font-size-controls";
@@ -275,7 +275,7 @@ export function RoomBoardCanvas({
   addPrivateNoteRequest = 0,
   privateNoteAddRef,
 }: RoomBoardCanvasProps) {
-  const [fixedIdeaMapZoom, setFixedIdeaMapZoom] = useState(1);
+  const [ideaMapViewportZoom, setIdeaMapViewportZoom] = useState(1);
   const selectionIds =
     selectedNoteIds ?? (selectedNoteId ? [selectedNoteId] : []);
   const isMultiSelected = selectionIds.length > 1;
@@ -303,8 +303,8 @@ export function RoomBoardCanvas({
     (phase.step >= 2 || notes.length > 0);
   const isIdeaMapWorkspace =
     isPhaseStep(phase, 3, 2) || isPhaseStep(phase, 3, 3);
-  const isFixedIdeaMap = isFixedIdeaMapStep(phase);
-  const ideaMapDisplayScale = getIdeaMapDisplayScale(ideaMapSizeLevel);
+  const usesIdeaMapViewport = isIdeaMapViewportStep(phase);
+  const ideaMapNoteDisplayScale = getIdeaMapNoteDisplayScale(ideaMapSizeLevel);
   const isPersonalNoteEntryPhase =
     phase.kind === "step" && phase.step === 1 && phase.phase <= 3;
   const privateNotesContainerClassName = isPersonalNoteEntryPhase
@@ -319,34 +319,34 @@ export function RoomBoardCanvas({
     ideaMapSizeLevel,
     notes.map((note) => getNoteHeight(note.content, note.fontSize)),
   );
-  const canvasZoom = isFixedIdeaMap
-    ? fixedIdeaMapZoom
+  const canvasZoom = usesIdeaMapViewport
+    ? ideaMapViewportZoom
     : (displayZoom ?? camera.zoom);
   const zoomOut = () => {
-    if (isFixedIdeaMap) {
-      setFixedIdeaMapZoom((zoom) => clampCanvasZoom(zoom / 1.25));
+    if (usesIdeaMapViewport) {
+      setIdeaMapViewportZoom((zoom) => clampCanvasZoom(zoom / 1.25));
       return;
     }
     onZoomOut();
   };
   const resetZoom = () => {
-    if (isFixedIdeaMap) {
-      setFixedIdeaMapZoom(1);
+    if (usesIdeaMapViewport) {
+      setIdeaMapViewportZoom(1);
       return;
     }
     onResetZoom();
   };
   const zoomIn = () => {
-    if (isFixedIdeaMap) {
-      setFixedIdeaMapZoom((zoom) => clampCanvasZoom(zoom * 1.25));
+    if (usesIdeaMapViewport) {
+      setIdeaMapViewportZoom((zoom) => clampCanvasZoom(zoom * 1.25));
       return;
     }
     onZoomIn();
   };
   const fitToNotes = () => {
-    if (isFixedIdeaMap) {
+    if (usesIdeaMapViewport) {
       // 固定マップは既定で表示領域にフィットするため、全体表示は等倍へ戻す。
-      setFixedIdeaMapZoom(1);
+      setIdeaMapViewportZoom(1);
       return;
     }
     onFitToNotes();
@@ -463,8 +463,8 @@ export function RoomBoardCanvas({
         note={note}
         maxDisplayHeight={
           maxDisplayHeight ??
-          (isFixedIdeaMap
-            ? FIXED_IDEA_MAP_NOTE_HEIGHT_LIMIT
+          (usesIdeaMapViewport
+            ? IDEA_MAP_VIEWPORT_NOTE_HEIGHT_LIMIT
             : isIdeaValueFeasibilityMapVisible
               ? mapNoteGeometry.noteHeightLimit
               : undefined)
@@ -572,17 +572,17 @@ export function RoomBoardCanvas({
   );
 
   function renderPositionedNote(note: Note) {
-    const ideaMapNoteMetrics = isFixedIdeaMap
+    const ideaMapNoteMetrics = usesIdeaMapViewport
       ? getIdeaMapNoteDisplayMetrics(note, ideaMapSizeLevel)
       : null;
     const ideaMapPositionProfiles = ideaMapNoteMetrics
-      ? getFixedIdeaMapNotePositionProfiles(
+      ? getIdeaMapViewportNoteResponsivePositions(
           { value: note.y, feasibility: note.x },
           ideaMapNoteMetrics.noteHeight,
           ideaMapNoteMetrics.scale,
         )
       : null;
-    const position = isFixedIdeaMap
+    const position = usesIdeaMapViewport
       ? { left: "0%", bottom: "0%" }
       : isIdeaValueFeasibilityMapVisible
         ? getIdeaValueFeasibilityMapNotePosition(
@@ -621,25 +621,25 @@ export function RoomBoardCanvas({
     return (
       <div
         key={note.id}
-        className={`isolate pointer-events-auto absolute ${isFixedIdeaMap ? `${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none` : ""}`}
+        className={`isolate pointer-events-auto absolute ${usesIdeaMapViewport ? `${styles.ideaMapNotePosition} transition-transform duration-200 ease-out motion-reduce:transition-none` : ""}`}
         data-testid={
           isIdeaValueFeasibilityMapVisible
             ? `idea-value-feasibility-map-note-${note.id}`
             : `board-note-${note.id}`
         }
-        data-map-x={isFixedIdeaMap ? note.x : undefined}
-        data-map-y={isFixedIdeaMap ? note.y : undefined}
+        data-map-x={usesIdeaMapViewport ? note.x : undefined}
+        data-map-y={usesIdeaMapViewport ? note.y : undefined}
         style={{
-          ...(!isFixedIdeaMap ? position : {}),
+          ...(!usesIdeaMapViewport ? position : {}),
           ...ideaMapPositionVariables,
           zIndex: isTemporarilyFront
             ? TEMPORARY_FRONT_Z_INDEX
             : note.excluded
               ? 0
               : note.stackOrder,
-          ...(isFixedIdeaMap
+          ...(usesIdeaMapViewport
             ? {
-                transform: `scale(${ideaMapNoteMetrics?.scale ?? ideaMapDisplayScale})`,
+                transform: `scale(${ideaMapNoteMetrics?.scale ?? ideaMapNoteDisplayScale})`,
                 transformOrigin:
                   "var(--idea-map-note-transform-origin, 50% 50%)",
               }
@@ -649,7 +649,7 @@ export function RoomBoardCanvas({
         {renderNoteCard(
           note,
           ideaMapNoteMetrics?.noteHeight,
-          isFixedIdeaMap ? "responsive-map" : 1,
+          usesIdeaMapViewport ? "responsive-map" : 1,
         )}
         {isAdoptTarget ? (
           <button
@@ -707,7 +707,7 @@ export function RoomBoardCanvas({
 
   function renderIdeaMapDragGhost() {
     if (!dragGhost) return null;
-    if (!isFixedIdeaMap) {
+    if (!usesIdeaMapViewport) {
       const position = getIdeaValueFeasibilityMapNotePosition(
         { value: dragGhost.y, feasibility: dragGhost.x },
         getNoteHeight(dragGhost.note.content, dragGhost.note.fontSize),
@@ -742,7 +742,7 @@ export function RoomBoardCanvas({
       dragGhost.note,
       ideaMapSizeLevel,
     );
-    const positionProfiles = getFixedIdeaMapNotePositionProfiles(
+    const positionProfiles = getIdeaMapViewportNoteResponsivePositions(
       { value: dragGhost.y, feasibility: dragGhost.x },
       ghostMetrics.noteHeight,
       ghostMetrics.scale,
@@ -797,12 +797,12 @@ export function RoomBoardCanvas({
     <div className="min-h-0 flex-1">
       <div
         className={
-          isFixedIdeaMap
+          usesIdeaMapViewport
             ? "relative flex h-full min-h-0 flex-row max-[639px]:flex-col"
             : "relative h-full min-h-80"
         }
         data-testid="board-frame"
-        data-map-workspace={isFixedIdeaMap || undefined}
+        data-map-workspace={usesIdeaMapViewport || undefined}
       >
         <div
           className="pointer-events-none absolute bottom-3 left-3 z-40 flex has-[[data-canvas-help][open]]:z-50 max-w-[calc(100%-1.5rem)] flex-col items-start gap-2"
@@ -811,9 +811,9 @@ export function RoomBoardCanvas({
           hidden={isPersonalNoteEntryPhase}
         >
           <div
-            className={`flex items-center gap-2 ${isFixedIdeaMap ? "min-w-[122px]" : ""}`}
+            className={`flex items-center gap-2 ${usesIdeaMapViewport ? "min-w-[122px]" : ""}`}
             data-testid={
-              isFixedIdeaMap ? "idea-map-axis-low-anchor" : undefined
+              usesIdeaMapViewport ? "idea-map-axis-low-anchor" : undefined
             }
           >
             {permissions.canEditNote ? (
@@ -851,7 +851,7 @@ export function RoomBoardCanvas({
         </div>
         <div
           className={
-            isFixedIdeaMap
+            usesIdeaMapViewport
               ? "relative min-h-0 min-w-0 flex-1"
               : "absolute inset-0"
           }
@@ -860,7 +860,7 @@ export function RoomBoardCanvas({
           <div
             ref={boardScrollerRef}
             // マップより長い付箋も読む。マップ平面の外へ出た本文はカメラ側で視野を切る。
-            className={`relative h-full ${isFixedIdeaMap ? "overflow-visible bg-background" : "overflow-clip bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
+            className={`relative h-full ${usesIdeaMapViewport ? "overflow-visible bg-background" : "overflow-clip bg-muted/20"} [container-type:size] [&_[data-coordinate-range='0-100']]:overflow-visible ${
               isIdeaMapWorkspace
                 ? "cursor-default"
                 : isAdoptMode
@@ -879,7 +879,7 @@ export function RoomBoardCanvas({
             role="application"
             aria-label="共有キャンバス"
             aria-description={
-              isFixedIdeaMap
+              usesIdeaMapViewport
                 ? isIdeaMapWorkspace
                   ? "付箋を2軸マップ内でドラッグして配置します。マップの位置と大きさは固定です。"
                   : "マップの位置と大きさは固定です。手のひらツールではマップを移動できません。"
@@ -887,7 +887,9 @@ export function RoomBoardCanvas({
             }
             data-selection-count={selectionIds.length}
             data-adopt-mode={isAdoptMode || undefined}
-            style={isFixedIdeaMap ? { backgroundImage: "none" } : gridStyle}
+            style={
+              usesIdeaMapViewport ? { backgroundImage: "none" } : gridStyle
+            }
             onPointerDownCapture={handleViewportPointerDown}
             onPointerUp={(event) => {
               finishAdoptionPointer(event);
@@ -931,9 +933,9 @@ export function RoomBoardCanvas({
                 style={marquee}
               />
             ) : null}
-            {isFixedIdeaMap ? (
-              <FixedIdeaMap
-                positionAreaRef={ideaMapPlaneRef}
+            {usesIdeaMapViewport ? (
+              <IdeaMapViewport
+                planeRef={ideaMapPlaneRef}
                 workspace
                 workspaceControls={
                   isIdeaMapWorkspace
@@ -952,8 +954,8 @@ export function RoomBoardCanvas({
                       })
                     : undefined
                 }
-                workspaceHorizontalAxisLayout={isFixedIdeaMap}
-                zoom={fixedIdeaMapZoom}
+                groupHorizontalAxisEndpoint={usesIdeaMapViewport}
+                zoom={ideaMapViewportZoom}
                 overlay={remoteCursors.map((cursor) => (
                   <RemoteCursor
                     key={cursor.userId}
@@ -971,7 +973,7 @@ export function RoomBoardCanvas({
               >
                 {orderedNotes.map(renderPositionedNote)}
                 {renderIdeaMapDragGhost()}
-              </FixedIdeaMap>
+              </IdeaMapViewport>
             ) : null}
             <div
               data-testid="board-canvas"
@@ -982,14 +984,14 @@ export function RoomBoardCanvas({
                   : "absolute top-0 left-0 min-h-full min-w-full"
               }
               style={{
-                transform: isFixedIdeaMap
+                transform: usesIdeaMapViewport
                   ? "none"
                   : `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.zoom})`,
                 transformOrigin: "0 0",
-                willChange: isFixedIdeaMap ? "auto" : "transform",
+                willChange: usesIdeaMapViewport ? "auto" : "transform",
               }}
             >
-              {isIdeaValueFeasibilityMapVisible && !isFixedIdeaMap ? (
+              {isIdeaValueFeasibilityMapVisible && !usesIdeaMapViewport ? (
                 <IdeaValueFeasibilityMap
                   planeRef={ideaMapPlaneRef}
                   sizeLevel={ideaMapSizeLevel}
@@ -1089,7 +1091,7 @@ export function RoomBoardCanvas({
               : null}
           </div>
         </div>
-        {isFixedIdeaMap ? (
+        {usesIdeaMapViewport ? (
           <div
             className="relative z-30 w-56 shrink-0 -translate-x-3 max-[639px]:hidden"
             data-testid="idea-map-workspace-rail"

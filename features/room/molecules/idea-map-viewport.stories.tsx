@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { FixedIdeaMap } from "./fixed-idea-map";
+import { IdeaMapViewport } from "./idea-map-viewport";
 
 const meta = {
-  title: "Room/FixedIdeaMap",
-  component: FixedIdeaMap,
+  title: "Room/IdeaMapViewport",
+  component: IdeaMapViewport,
   parameters: { layout: "fullscreen" },
   decorators: [
     (Story) => (
@@ -12,7 +12,7 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof FixedIdeaMap>;
+} satisfies Meta<typeof IdeaMapViewport>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -23,7 +23,7 @@ export const Default: Story = {
     children: (
       <div
         className="absolute bottom-[45%] left-[35%] flex h-[150px] w-[200px] rounded-sm bg-amber-200 p-3 text-sm shadow-md"
-        data-testid="fixed-map-story-note"
+        data-testid="idea-map-viewport-story-note"
       >
         アイデアをここに配置
       </div>

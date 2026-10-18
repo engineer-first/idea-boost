@@ -611,7 +611,7 @@ it.each([
     value: () => new DOMRect(0, 0, 500, 400),
   });
   if (phase === 3) {
-    const mapPositionArea = screen.getByTestId("idea-map-fixed-position-area");
+    const mapPositionArea = screen.getByTestId("idea-map-viewport-plane");
     Object.defineProperty(mapPositionArea, "getBoundingClientRect", {
       value: () => new DOMRect(0, 0, 400, 400),
     });
@@ -3350,7 +3350,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
     expect(screen.queryByTestId("private-notes-dock")).not.toBeInTheDocument();
     expect(screen.getByTestId("idea-map-workspace-rail")).toBeInTheDocument();
     expect(plane).toContainElement(
-      screen.getByTestId("idea-map-fixed-position-area"),
+      screen.getByTestId("idea-map-viewport-plane"),
     );
     expect(world).toHaveStyle({ transform: "none" });
     expect(
@@ -3382,7 +3382,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         height: 600,
       }),
     });
-    const positionArea = screen.getByTestId("idea-map-fixed-position-area");
+    const positionArea = screen.getByTestId("idea-map-viewport-plane");
     Object.defineProperty(positionArea, "getBoundingClientRect", {
       value: () => ({
         left: 100,
@@ -3457,7 +3457,7 @@ describe("Step 3-2〜3-5（2軸マッピング）", () => {
         height: 600,
       }),
     });
-    const positionArea = screen.getByTestId("idea-map-fixed-position-area");
+    const positionArea = screen.getByTestId("idea-map-viewport-plane");
     Object.defineProperty(positionArea, "getBoundingClientRect", {
       value: () => ({
         left: 100,
