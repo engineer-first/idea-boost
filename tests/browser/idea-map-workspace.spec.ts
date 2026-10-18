@@ -1,5 +1,5 @@
 import { mkdir } from "node:fs/promises";
-import { type Browser, chromium, type Page } from "playwright";
+import { type Browser, chromium, type Locator, type Page } from "playwright";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   getIdeaMapDimensions,
@@ -53,6 +53,28 @@ async function readBounds(page: Page, testId: string) {
   const bounds = await page.getByTestId(testId).boundingBox();
   if (!bounds) throw new Error(`${testId} が表示されていません`);
   return bounds;
+}
+
+async function waitForLayoutAnimations(locator: Locator): Promise<void> {
+  await expect
+    .poll(() =>
+      locator.evaluate((element) => {
+        const animations = new Set(element.getAnimations({ subtree: true }));
+        for (
+          let parent = element.parentElement;
+          parent;
+          parent = parent.parentElement
+        )
+          for (const animation of parent.getAnimations())
+            animations.add(animation);
+        return [...animations].filter(
+          (animation) =>
+            (animation.playState === "running" || animation.pending) &&
+            animation.effect?.getTiming().iterations !== Infinity,
+        ).length;
+      }),
+    )
+    .toBe(0);
 }
 
 test.each(
@@ -477,7 +499,7 @@ test.each([
   { width: 768, height: 844 },
   { width: 390, height: 844 },
 ])(
-  "$width×$heightで評価・投票・決定のマップと付箋の表示位置が一致する",
+  "（$width×$height）で評価・投票・決定のマップと付箋の表示位置が一致する",
   async (viewport) => {
     const page = await browser.newPage({ viewport });
     try {
@@ -662,7 +684,7 @@ test.each([
   { phase: "3-2", width: 390, height: 720, open: openWorkspace },
   { phase: "3-3", width: 390, height: 720, open: openMapOnly },
 ])(
-  "$phase / $width×$heightで軸の高低ラベルと矢印の間隔を確保する",
+  "$phase / （$width×$height）で軸の高低ラベルと矢印の間隔を確保する",
   async ({ phase, width, height, open }) => {
     const page = await browser.newPage({ viewport: { width, height } });
     try {
@@ -725,7 +747,7 @@ test.each([
   { width: 1280, height: 720 },
   { width: 1440, height: 1000 },
 ])(
-  "$width×$heightで3-2のマップとマイ付箋を収め、操作UIと重ねない",
+  "（$width×$height）で3-2のマップとマイ付箋を収め、操作UIと重ねない",
   async (viewport) => {
     const page = await browser.newPage({ viewport });
     try {
@@ -860,7 +882,7 @@ test.each([
     heightPx: 639.09375,
   },
 ])(
-  "$width×$heightでも2軸マップ本体の位置とサイズを維持する",
+  "（$width×$height）でも2軸マップ本体の位置とサイズを維持する",
   async (expected) => {
     const page = await browser.newPage({
       viewport: { width: expected.width, height: expected.height },
@@ -1265,7 +1287,7 @@ test.each([
   { phase: "3-2", width: 390, height: 720, open: openWorkspace },
   { phase: "3-3", width: 390, height: 720, open: openMapOnly },
 ])(
-  "$phase / $width×$heightで低い軸ラベルを操作UIと重ねない",
+  "$phase / （$width×$height）で低い軸ラベルを操作UIと重ねない",
   async ({ width, height, open, phase }) => {
     const page = await browser.newPage({ viewport: { width, height } });
     try {
@@ -1609,23 +1631,38 @@ test.each([
               );
             }),
         );
-        const layout: Record<
-          string,
-          Awaited<ReturnType<typeof readBounds>>
-        > = {};
-        for (const testId of [
-          "idea-map-x-low-endpoint",
-          "idea-value-feasibility-map-x-low-label",
-          "idea-value-feasibility-map-x-low-arrow",
-          "idea-value-feasibility-map-plane",
-          "idea-value-feasibility-map-x-axis-label",
-          "idea-value-feasibility-map-y-axis-label",
-          "idea-value-feasibility-map-note-map-workspace-placed",
-          "note-font-size-controls",
-          "canvas-zoom-hud",
-        ])
-          layout[testId] = await readBounds(page, testId);
-        return layout;
+        // 工程切替はwidthを360ms補間する。2フレームの描画完了だけでは
+        // 最終寸法にならないため、有限のCSS遷移が終わってから同時に読む。
+        await waitForLayoutAnimations(page.getByTestId("room-board-view-root"));
+        return page.evaluate(
+          (testIds) => {
+            const layout: Record<
+              string,
+              { x: number; y: number; width: number; height: number }
+            > = {};
+            for (const testId of testIds) {
+              const element = document.querySelector(
+                `[data-testid="${testId}"]`,
+              );
+              if (!element?.checkVisibility({ checkVisibilityCSS: true }))
+                throw new Error(`${testId} が表示されていません`);
+              const { x, y, width, height } = element.getBoundingClientRect();
+              layout[testId] = { x, y, width, height };
+            }
+            return layout;
+          },
+          [
+            "idea-map-x-low-endpoint",
+            "idea-value-feasibility-map-x-low-label",
+            "idea-value-feasibility-map-x-low-arrow",
+            "idea-value-feasibility-map-plane",
+            "idea-value-feasibility-map-x-axis-label",
+            "idea-value-feasibility-map-y-axis-label",
+            "idea-value-feasibility-map-note-map-workspace-placed",
+            "note-font-size-controls",
+            "canvas-zoom-hud",
+          ],
+        );
       };
       const expectSameLayout = (
         actual: Awaited<ReturnType<typeof readLayout>>,
@@ -1880,7 +1917,7 @@ test.each([
   { phase: "3-4", width: 390, height: 844, open: openVotingMap },
   { phase: "3-5", width: 390, height: 844, open: openResultMap },
 ])(
-  "$phase / $width×$heightで展開した決定事項の付箋を切らずに表示する",
+  "$phase / （$width×$height）で展開した決定事項の付箋を切らずに表示する",
   async ({ width, height, open }) => {
     const page = await browser.newPage({ viewport: { width, height } });
     try {
@@ -1912,8 +1949,21 @@ test.each([
           await note.evaluate((element) => getComputedStyle(element).width),
         ).toBe("200px");
 
-        const popupBounds = await popover.boundingBox();
-        const noteBounds = await note.boundingBox();
+        // 開く際のscale補間中に別フレームの矩形を引くと余白が縮んで見える。
+        await waitForLayoutAnimations(popover);
+        const { popupBounds, noteBounds } = await popover.evaluate(
+          (element) => {
+            const note = element.querySelector('[data-slot="sticky-note"]');
+            if (!note) throw new Error("決定事項の付箋がありません");
+            const bounds = (target: Element) => {
+              if (!target.checkVisibility({ checkVisibilityCSS: true }))
+                throw new Error("決定事項の展開内容が表示されていません");
+              const { x, y, width, height } = target.getBoundingClientRect();
+              return { x, y, width, height };
+            };
+            return { popupBounds: bounds(element), noteBounds: bounds(note) };
+          },
+        );
         const triggerBounds = await trigger.boundingBox();
         if (!popupBounds || !noteBounds || !triggerBounds)
           throw new Error(`${id}の展開内容が表示されていません`);
