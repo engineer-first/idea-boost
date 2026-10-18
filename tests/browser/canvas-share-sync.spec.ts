@@ -49,6 +49,40 @@ async function startDrag(page: Page, card: Locator): Promise<void> {
   await page.mouse.move(x - 12, y, { steps: 2 });
 }
 
+async function releaseWithoutMove(
+  page: Page,
+  card: Locator,
+  destination: { x: number; y: number },
+): Promise<void> {
+  const rect = await card.boundingBox();
+  if (!rect) throw new Error("付箋の表示位置がありません。");
+  const x = rect.x + rect.width * 0.4;
+  const y = rect.y + rect.height * 0.4;
+  await page.mouse.move(x, y);
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await Promise.all([
+      cdp.send("Input.dispatchMouseEvent", {
+        type: "mousePressed",
+        x,
+        y,
+        button: "left",
+        buttons: 1,
+        clickCount: 1,
+      }),
+      cdp.send("Input.dispatchMouseEvent", {
+        type: "mouseReleased",
+        ...destination,
+        button: "left",
+        buttons: 0,
+        clickCount: 1,
+      }),
+    ]);
+  } finally {
+    await cdp.detach();
+  }
+}
+
 // 実RoomDO/別認証接続で、公開前の本文・枚数・previewの非配信を観測する。
 // Storybookのfake transportは、この保証の代わりにしない。
 describe.skipIf(!app)("共有境界の二者同期", () => {
@@ -112,6 +146,23 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
         sent.filter((message) => message.type === "note:publish").length;
       const unpublishCount = () =>
         sent.filter((message) => message.type === "note:unpublish").length;
+      // 最初のpointermoveでパネルを飛び出しても、押下位置がpreview内でずれない。
+      const privateRect = await privateCard.boundingBox();
+      if (!privateRect) throw new Error("マイ付箋が見つかりません。");
+      const grabX = privateRect.width * 0.4;
+      const grabY = privateRect.height * 0.4;
+      await actor.mouse.move(privateRect.x + grabX, privateRect.y + grabY);
+      await actor.mouse.down();
+      await actor.mouse.move(820, 360);
+      const preview = actor.getByTestId("private-note-drag-preview");
+      await preview.waitFor();
+      const previewRect = await preview.boundingBox();
+      expect(previewRect?.x).toBeCloseTo(820 - grabX, 0);
+      expect(previewRect?.y).toBeCloseTo(360 - grabY, 0);
+      expect(publishCount()).toBe(0);
+      expect(await peerCard.count()).toBe(0);
+      await actor.keyboard.press("Escape");
+      await actor.mouse.up();
       await startDrag(actor, privateCard);
       await actor.mouse.move(820, 360, { steps: 8 });
       await actor.getByTestId("private-note-drag-preview").waitFor();
@@ -158,10 +209,31 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
       await boardCard.waitFor();
       expect(publishCount()).toBe(1);
       // 作者hoverの戻しpreviewは他者の確定表示を消さない。
-      await startDrag(actor, boardCard);
-      await actor.mouse.move(tray.x + tray.width / 2, tray.y + 150, {
-        steps: 8,
-      });
+      const sharedRect = await boardCard
+        .getByRole("button", { name: "付箋", exact: true })
+        .boundingBox();
+      if (!sharedRect) throw new Error("共有した付箋が見つかりません。");
+      await actor.mouse.move(
+        sharedRect.x + sharedRect.width * 0.4,
+        sharedRect.y + sharedRect.height * 0.4,
+      );
+      await actor.mouse.down();
+      // パネル端のpreview収容補正に当たらない位置で、掴み位置そのものを検証する。
+      const fastReturnPoint = {
+        x: tray.x + tray.width / 2 - 20,
+        y: tray.y + 150,
+      };
+      await actor.mouse.move(fastReturnPoint.x, fastReturnPoint.y);
+      await preview.waitFor();
+      const returnPreview = await preview.boundingBox();
+      expect(returnPreview?.x).toBeCloseTo(
+        fastReturnPoint.x - sharedRect.width * 0.4,
+        0,
+      );
+      expect(returnPreview?.y).toBeCloseTo(
+        fastReturnPoint.y - sharedRect.height * 0.4,
+        0,
+      );
       expect(unpublishCount()).toBe(0);
       expect(await peerCard.count()).toBe(1);
       await actor.keyboard.press("Escape");
@@ -208,6 +280,21 @@ describe.skipIf(!app)("共有境界の二者同期", () => {
       await peer.reload();
       await peer.getByTestId("board-canvas").waitFor();
       expect(await peerCard.count()).toBe(0);
+      // 途中moveが1回も届かない出し入れも、有効な最終dropだけを確定する。
+      await releaseWithoutMove(
+        actor,
+        toolbar.locator(`[data-note-id="${id}"]`),
+        { x: 820, y: 360 },
+      );
+      await expect.poll(publishCount, { timeout: 5_000 }).toBe(2);
+      await peerCard.waitFor();
+      await boardCard.waitFor();
+      await releaseWithoutMove(actor, boardCard, returnPoint);
+      await expect.poll(unpublishCount, { timeout: 5_000 }).toBe(2);
+      await expect.poll(() => peerCard.count(), { timeout: 5_000 }).toBe(0);
+      await expect
+        .poll(() => toolbar.locator(`[data-note-id="${id}"]`).count())
+        .toBe(1);
     } finally {
       await browser.close();
     }

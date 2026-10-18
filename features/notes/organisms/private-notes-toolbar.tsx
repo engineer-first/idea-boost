@@ -55,6 +55,7 @@ export type PrivateNotesToolbarProps = {
   onDragStart: (
     noteId: string,
     event: React.PointerEvent<HTMLButtonElement>,
+    origin?: { clientX: number; clientY: number },
   ) => void;
 };
 

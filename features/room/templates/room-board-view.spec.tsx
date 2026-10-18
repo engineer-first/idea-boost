@@ -1248,41 +1248,22 @@ describe("考えるヒントの外部制御", () => {
   });
 });
 
-describe("0票候補の一括整理", () => {
-  it("結果ステップのホストだけに、未決定かつ主観・客観とも0票の件数を表示する", () => {
+describe("決定フェーズのルームメニュー", () => {
+  it.each([
+    1, 2, 3,
+  ] as const)("フェーズ%iの決定ステップでは一括整理の操作を表示しない", (phase) => {
     setup({
-      phase: buildPhaseStep(5),
+      phase: buildPhaseStep(phase === 2 ? 4 : 5, phase),
       isHost: true,
-      notes: [
-        buildNote({ id: "note-1" }),
-        buildNote({
-          id: "note-2",
-          dotVotes: {
-            subjective: { count: 1, votedByMe: false, ownCount: 0 },
-            objective: { count: 0, votedByMe: false, ownCount: 0 },
-          },
-        }),
-        buildNote({ id: "note-3", excluded: true }),
-        buildNote({ id: "note-4" }),
-      ],
+      notes: [buildNote({ id: "note-1" })],
       decision: null,
     });
     openRoomMenu();
+    expect(screen.getByTestId("leave-button")).toBeVisible();
     expect(
-      screen.getByRole("button", {
-        name: "投票なしをまとめて候補から外す（2件）",
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it("非ホストと結果ステップ以外には一括整理を表示しない", () => {
-    const { rerender, props } = setup({
-      phase: buildPhaseStep(5),
-      isHost: false,
-    });
-    expect(screen.queryByText("候補を整理")).toBeNull();
-    rerender(<TestBoardView {...props} isHost phase={buildPhaseStep(4)} />);
-    expect(screen.queryByText("候補を整理")).toBeNull();
+      screen.queryByRole("button", { name: /投票なしをまとめて候補から外す/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("候補を整理")).not.toBeInTheDocument();
   });
 });
 
@@ -1540,8 +1521,8 @@ describe("RoomBoardView", () => {
       screen.queryByRole("button", { name: "次のステップへ" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "完了して成果を表示" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "完了して成果を表示" }),
+    ).toBeDisabled();
 
     rerender(
       <TestBoardView
@@ -1556,6 +1537,8 @@ describe("RoomBoardView", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "完了して成果を表示" }),
     );
+    expect(onPublishOutcome).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "完了する" }));
     expect(onPublishOutcome).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("room-board-view-root")).toBeVisible();
     expect(
@@ -4149,7 +4132,8 @@ describe("AT-002: private pressedの単一pointer所有", () => {
   ])("%sでprivate所有を解放し取消後の古いmove/upでdragを再開しない", (ending) => {
     const { interactions, hand, surface, props, rerender } = pressPrivate();
     expect(hand).toBeDisabled();
-    if (ending === "up") fireEvent.pointerUp(surface, { pointerId: 71 });
+    if (ending === "up")
+      fireEvent.pointerUp(surface, { pointerId: 71, clientX: 20, clientY: 20 });
     else if (ending === "cancel")
       fireEvent.pointerCancel(surface, { pointerId: 71 });
     else if (ending === "lost") {

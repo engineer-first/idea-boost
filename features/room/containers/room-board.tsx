@@ -598,6 +598,8 @@ export function RoomBoard({
   );
   const boardInteractions = useRoomBoardInteractions({
     movePending: notes.movePending || moveHistory.pending,
+    // 通常移動は先の保存待ちでも入力を保持する。共有境界・逆操作とは重ねない。
+    moveBlocked: notes.sharePending || moveHistory.pending,
     onPendingMoveInterrupt: notes.cancelNoteDrag,
     getFitInsets: getBoardFitInsets,
     notes: boardNotes,
@@ -759,7 +761,6 @@ export function RoomBoard({
         onNoteBringToFront={notes.bringNoteToFront}
         onNoteExclude={candidates.exclude}
         onNoteRestore={candidates.restore}
-        onBulkCandidateExclude={candidates.bulkExclude}
         onGroupCreate={noteGroups.createGroup}
         onGroupUpdateName={noteGroups.renameGroup}
         onNoteVote={notes.voteNote}

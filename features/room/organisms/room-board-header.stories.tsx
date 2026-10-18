@@ -210,6 +210,14 @@ export const IdeaResultAwaitingDecision: Story = {
   args: { phase: STEP_3_5, isNextPhaseBlocked: true, members: HUD_MEMBERS },
 };
 
+export const IdeaResultDecided: Story = {
+  args: {
+    ...IdeaResultAwaitingDecision.args,
+    hasFinalDecision: true,
+    isNextPhaseBlocked: false,
+  },
+};
+
 export const IdeaVotingComplete: Story = {
   args: {
     phase: STEP_3_4,
@@ -311,5 +319,24 @@ export const ShareInvite: Story = {
     await expect(
       within(document.body).getByRole("button", { name: "招待URLをコピー" }),
     ).toBeVisible();
+  },
+};
+
+export const FinalCompletionConfirmation: Story = {
+  args: { ...FinalDecisionPending.args },
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "完了して成果を表示" }),
+    );
+    await expect(
+      within(canvasElement.ownerDocument.body).getByRole("alertdialog"),
+    ).toBeVisible();
+  },
+};
+export const FinalCompletionDisconnected: Story = {
+  args: {
+    ...FinalDecisionPending.args,
+    isDisconnected: true,
+    connectionStatus: "reconnecting",
   },
 };

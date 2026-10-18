@@ -318,12 +318,17 @@ export function useRoomNotes({
     send,
     createId: createNoteDragId,
   });
+  const getNotes = useCallback(() => notesRef.current, []);
   const transactionMove = useNoteMove({
     notes,
+    getNotes,
     send,
     createId: createNoteDragId,
     updateNotes,
   });
+  useEffect(() => {
+    if (!connected) transactionMove.cancel();
+  }, [connected, transactionMove.cancel]);
 
   const updatePendingVoteOperations = useCallback(
     (update: (current: PendingVoteOperation[]) => PendingVoteOperation[]) => {

@@ -43,6 +43,7 @@ export type UseRoomBoardInteractionsArgs = {
   notes: Note[];
   selectedNoteIds?: readonly string[];
   movePending?: boolean;
+  moveBlocked?: boolean;
   onPendingMoveInterrupt?: () => void;
   privateNotes: Note[];
   currentUserId: string;
@@ -137,6 +138,7 @@ export type RoomBoardInteractions = {
   onPrivateNoteDragStart: (
     noteId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
+    origin?: { clientX: number; clientY: number },
   ) => void;
 };
 
@@ -145,6 +147,7 @@ export function useRoomBoardInteractions({
   notes,
   selectedNoteIds,
   movePending = false,
+  moveBlocked = movePending,
   onPendingMoveInterrupt,
   privateNotes,
   currentUserId,
@@ -287,13 +290,14 @@ export function useRoomBoardInteractions({
   );
   // 固定マップ以外はdevelopの移動権限と、付箋が収まる高さの制約を維持する。
   const canMoveSharedNotes =
-    !movePending &&
+    !moveBlocked &&
     getBoardPermissions(phase, isDecided).canMoveNote &&
     (isFixedIdeaMap ||
       !isIdeaValueFeasibilityMappingStep ||
       mapNoteGeometry.height > mapNoteGeometry.maxNoteHeight);
   const canPublish = canPublishNoteInTurn(phase, sharing, currentUserId);
   const canReturnToPrivate =
+    !movePending &&
     isPublishAllowedStep(phase) &&
     canReturnNoteToPrivateInTurn(phase, sharing, currentUserId);
   const isIdeaMapCursorSurface = isIdeaValueFeasibilityMapVisible;
@@ -612,11 +616,11 @@ export function useRoomBoardInteractions({
       if (id) handleSharedNoteDragStart(id, event, origin, ids);
     },
     onNoteDragStart: handleSharedNoteDragStart,
-    onPrivateNoteDragStart: (noteId, event) => {
+    onPrivateNoteDragStart: (noteId, event, origin) => {
       // マイ付箋はviewport外にあるためcameraのpointerdownを通らない。
       // 最初のdrop後の自動fitで本人の指定位置と視野を動かさない。
       preserveCamera();
-      handlePrivateDragStart(noteId, event);
+      handlePrivateDragStart(noteId, event, origin);
     },
   };
 }

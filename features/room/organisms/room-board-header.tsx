@@ -13,6 +13,17 @@ import {
   UserPlus,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -47,7 +58,6 @@ import type { Member, PhaseProgressState } from "../logic/room-reducer";
 import { useRoomTimerSounds } from "../logic/use-room-timer-sounds";
 import type { StepGuideState } from "../logic/use-step-guide";
 import { BoardContext } from "../molecules/board-context";
-import { BulkCandidateExclusion } from "../molecules/bulk-candidate-exclusion";
 import { NextPhaseConfirmDialog } from "../molecules/next-phase-confirm-dialog";
 import { PhaseRollbackDialog } from "../molecules/phase-rollback-dialog";
 import { RoomConnectionNotice } from "../molecules/room-connection-notice";
@@ -73,9 +83,6 @@ export type RoomBoardHeaderProps = {
   phaseRevision?: number;
   rollbackTarget?: RoomPhase | null;
   onRollbackPhase?: () => void;
-  bulkExclusionTargetCount?: number;
-  canManageCandidates?: boolean;
-  onBulkCandidateExclude?: () => void;
   sharing?: SharingState | null;
   onSharingStart?: (durationMs: number) => void;
   onSharingAdvance?: (outcome: "done" | "passed") => void;
@@ -135,9 +142,6 @@ export function RoomBoardHeader({
   phaseRevision = 0,
   rollbackTarget = null,
   onRollbackPhase,
-  bulkExclusionTargetCount = 0,
-  canManageCandidates = false,
-  onBulkCandidateExclude = () => undefined,
   sharing = null,
   onSharingStart,
   onSharingAdvance,
@@ -800,39 +804,62 @@ export function RoomBoardHeader({
             ) : null}
             {isResultStep(phase) ? (
               isFinalStep ? (
-                <div className="grid shrink-0 items-center justify-items-end">
-                  <span
-                    aria-hidden="true"
-                    className="invisible col-start-1 row-start-1 inline-flex h-10 items-center rounded-lg border border-transparent px-4 text-sm font-medium whitespace-nowrap max-[900px]:px-2 max-[900px]:text-xs"
+                outcomePublished && hasFinalDecision ? (
+                  <Button
+                    type="button"
+                    className="h-10 shrink-0 px-3"
+                    onClick={onShowOutcome}
                   >
-                    次のステップへ
-                  </span>
-                  <div className="col-start-1 row-start-1">
-                    {hasFinalDecision ? (
-                      outcomePublished ? (
-                        <Button
-                          type="button"
-                          className="h-10 shrink-0 px-3"
-                          onClick={onShowOutcome}
-                        >
-                          成果を見る
-                        </Button>
-                      ) : !outcomePublished ? (
-                        <Button
-                          type="button"
-                          size="icon"
-                          className="size-10 shrink-0"
-                          aria-label="完了して成果を表示"
-                          title="完了して成果を表示"
-                          disabled={isDisconnected || isTransferring}
+                    成果を見る
+                  </Button>
+                ) : (
+                  <AlertDialog
+                    key={`${phaseRevision}:${isDisconnected}:${isTransferring}`}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        className="h-10 shrink-0 px-3 max-[900px]:px-2 max-[900px]:text-xs"
+                        disabled={
+                          isDisconnected ||
+                          isTransferring ||
+                          isNextPhasePending ||
+                          !hasFinalDecision
+                        }
+                      >
+                        <Check
+                          aria-hidden="true"
+                          className="size-4 max-[639px]:hidden"
+                        />
+                        完了して成果を表示
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          スプリントを完了しますか？
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          全員に成果を表示します。完了後は作業ボードに戻って編集できません。
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={
+                            isDisconnected ||
+                            isTransferring ||
+                            isNextPhasePending ||
+                            !hasFinalDecision
+                          }
                           onClick={onPublishOutcome}
                         >
-                          <Check aria-hidden="true" className="size-5" />
-                        </Button>
-                      ) : null
-                    ) : null}
-                  </div>
-                </div>
+                          完了する
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )
               ) : !isFinalStep ? (
                 <NextPhaseConfirmDialog
                   key={`${phase.kind === "step" ? `${phase.phase}-${phase.step}` : "lobby"}:${phaseRevision}:${hostRevision}:${isDisconnected}`}
@@ -1039,14 +1066,6 @@ export function RoomBoardHeader({
                       target={rollbackTarget}
                       disabled={isDisconnected || isTransferring || isLeaving}
                       onConfirm={onRollbackPhase}
-                    />
-                  ) : null}
-                  {canManageCandidates ? (
-                    <BulkCandidateExclusion
-                      key={hostRevision}
-                      targetCount={bulkExclusionTargetCount}
-                      disabled={isDisconnected || isTransferring}
-                      onConfirm={onBulkCandidateExclude}
                     />
                   ) : null}
                   <Button

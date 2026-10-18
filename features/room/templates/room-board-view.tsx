@@ -226,7 +226,6 @@ export type RoomBoardViewProps = {
   onNoteBringToFront: (noteId: string) => void;
   onNoteExclude?: (noteId: string) => void;
   onNoteRestore?: (noteId: string) => void;
-  onBulkCandidateExclude?: () => void;
   onGroupCreate?: (name: string, noteIds: string[]) => void;
   onGroupUpdateName?: (groupId: string, name: string) => void;
   onNoteVote: (noteId: string, kind: DotVoteKind, x: number, y: number) => void;
@@ -361,7 +360,6 @@ export function RoomBoardView({
   onNoteDelete,
   onNoteExclude = () => undefined,
   onNoteRestore = () => undefined,
-  onBulkCandidateExclude = () => undefined,
   onGroupCreate,
   onGroupUpdateName,
   onNoteVote,
@@ -843,14 +841,6 @@ export function RoomBoardView({
   const candidateNotes = confirmedNotes.filter(
     (note) => note.visibility === "shared" && !note.excluded,
   );
-  const bulkExclusionTargetCount = confirmedNotes.filter(
-    (note) =>
-      note.visibility === "shared" &&
-      !note.excluded &&
-      note.id !== decision?.noteId &&
-      note.dotVotes.subjective.count === 0 &&
-      note.dotVotes.objective.count === 0,
-  ).length;
   const isNextPhaseBlocked =
     isCandidatePending ||
     (isResultStep(phase) &&
@@ -1871,11 +1861,6 @@ export function RoomBoardView({
           phaseRevision={phaseRevision}
           rollbackTarget={rollbackTarget}
           onRollbackPhase={onRollbackPhase}
-          bulkExclusionTargetCount={bulkExclusionTargetCount}
-          canManageCandidates={
-            isResultStep(phase) && decision === null && !isCandidatePending
-          }
-          onBulkCandidateExclude={onBulkCandidateExclude}
           sharing={sharing}
           onSharingStart={onSharingStart}
           onSharingAdvance={onSharingAdvance}
