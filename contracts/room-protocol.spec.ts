@@ -247,7 +247,7 @@ describe("NoteSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("候補外状態を受け入れ、旧形式の付箋は候補として補完する", () => {
+  it("候補外状態を受け入れ、excludedを省略した付箋は候補として補完する", () => {
     expect(
       NoteSchema.parse({ ...note, visibility: "shared", excluded: true })
         .excluded,
@@ -263,7 +263,7 @@ describe("NoteSchema", () => {
     ).not.toHaveProperty("ideaMapPlaced");
   });
 
-  it("文字サイズを付箋ごとに受け入れ、旧形式は14pxとして補完する", () => {
+  it("文字サイズを付箋ごとに受け入れ、fontSize省略時は14pxとして補完する", () => {
     expect(
       NoteSchema.parse({
         ...note,
@@ -293,7 +293,7 @@ describe("NoteSchema", () => {
 });
 
 describe("ServerMessageSchema", () => {
-  it("note:inserted は作成操作IDを保持し、旧応答と不正なIDを区別する", () => {
+  it("note:inserted はoperationIdを保持し、省略を受け入れ、不正なIDを拒否する", () => {
     const note = buildNote({ id: USER_B, authorId: USER_A });
     expect(
       ServerMessageSchema.parse({
@@ -315,7 +315,7 @@ describe("ServerMessageSchema", () => {
     ).toBe(false);
   });
 
-  it("snapshot は作成相関対応を宣言でき、省略された旧Workerも受け入れる", () => {
+  it("snapshot はnoteCreateProtocolVersionの1と省略を受け入れ、2を拒否する", () => {
     const snapshot = {
       type: "snapshot",
       notes: [],
@@ -700,7 +700,7 @@ describe("ServerMessageSchema", () => {
     ).toBe(false);
   });
 
-  it("旧 phase_changed は受け付けない", () => {
+  it("phase_changed は未対応のメッセージとして拒否する", () => {
     expect(
       ServerMessageSchema.safeParse({
         type: "phase_changed",
@@ -1010,7 +1010,7 @@ describe("ClientMessageSchema", () => {
     ).toMatchObject({ type: "note:publish", x: 400, y: 300 });
   });
 
-  it("note:publish は旧ボード範囲外を含む負の座標を受け入れる", () => {
+  it("note:publish は負のx座標と正のy座標を受け入れる", () => {
     expect(
       ClientMessageSchema.parse({
         type: "note:publish",
@@ -1214,7 +1214,7 @@ describe("一括候補外のサーバー確定通知", () => {
     expect(ServerMessageSchema.parse(message)).toEqual(message);
   });
 
-  it("旧Workerの一括候補外通知は手動操作として補完する", () => {
+  it("一括候補外通知のsource省略時はmanualとして補完する", () => {
     expect(
       ServerMessageSchema.parse({
         type: "note:bulk-excluded",

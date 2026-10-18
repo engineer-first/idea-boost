@@ -1735,7 +1735,7 @@ it("成功receiptを伏せた新操作が古い成功receiptを最後の逆操�
   expect(result.current.lastMoveReceipt).toBe(null);
   expect(result.current.moveFeedback).toBe(null);
 });
-it("旧serverで固定複数集合を開始せず新旧commitも送らない", () => {
+it("moveProtocolVersion省略時は複数付箋の移動を開始せず、要求を送信しない", () => {
   const send = vi.fn();
   const { result } = renderHook(() => useRoomNotes({ send }));
   act(() =>

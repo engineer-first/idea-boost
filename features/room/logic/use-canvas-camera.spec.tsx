@@ -43,7 +43,7 @@ describe("useCanvasCamera", () => {
     expect(preventDefault).not.toHaveBeenCalled();
   });
 
-  it("通常ボードは旧75%を100%の基準にし、倍率指定・リセットで視野の中心を保つ", () => {
+  it("通常ボードはカメラ倍率0.75を表示倍率100%とし、倍率指定・リセットで視野の中心を保つ", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
     const { result } = renderHook(() =>
@@ -60,7 +60,7 @@ describe("useCanvasCamera", () => {
     expect(result.current.worldPointFromClient(640, 360)).toEqual(center);
   });
 
-  it("初期フィットは新100%を超えて拡大せず、選択フィットは指定した付箋だけを収める", () => {
+  it("初期フィットより選択フィットで拡大でき、表示倍率を1%〜400%に制限する", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1280, 720);
     const notes = buildNotes(2).map((note, i) => ({
@@ -343,7 +343,7 @@ describe("useCanvasCamera", () => {
     expect(result.current.camera.y).toBeCloseTo(182);
   });
 
-  it("通常のカメラ付きマップではdevelopの周辺UI用の安全領域を維持する", () => {
+  it("通常のカメラ付きマップでは初期表示と全体フィットで周辺UIの余白を確保する", () => {
     const viewport = document.createElement("div");
     viewport.getBoundingClientRect = () => new DOMRect(0, 0, 1454, 900);
     const { result } = renderHook(() =>

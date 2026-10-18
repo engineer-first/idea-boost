@@ -274,7 +274,7 @@ describe("現在地と補足情報", () => {
     expect(issue).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("固定2軸マップ以外では問いと課題の従来レイアウトを保つ", () => {
+  it("3-1では問いと課題を縦積みのレイアウトで表示する", () => {
     render(
       <BoardContext
         phase={buildPhaseStep(1, 3)}

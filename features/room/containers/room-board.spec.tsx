@@ -451,7 +451,7 @@ describe("問いの投票中の付箋移動", () => {
   it.each([
     true,
     false,
-  ])("新しい移動方式でもホスト権限%jでシール選択中だけ送信を止め、解除後に問いを移動できる", (isHost) => {
+  ])("ホスト権限%jでシール選択中だけ移動を送信せず、解除後に問いを移動できる", (isHost) => {
     const { socket } = connectWithSnapshot(
       [protocolNote({ authorId: OTHER_USER_ID })],
       { phase: buildPhaseStep(3, 2), isHost, moveProtocolVersion: 1 },

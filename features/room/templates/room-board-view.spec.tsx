@@ -225,7 +225,7 @@ describe("2軸評価画面の周辺操作", () => {
     ).toBeInTheDocument();
   });
 
-  it("3-1では考えるヒントを引き続き表示する", () => {
+  it("3-1では考えるヒントを表示する", () => {
     setup({ phase: buildPhaseStep(1, 3) });
 
     expect(screen.getByTestId("board-help-panel")).toBeInTheDocument();
@@ -2473,7 +2473,7 @@ describe("RoomBoardView", () => {
     notify.mockRestore();
   });
 
-  it("自分のシールを投票パレットへ戻すと、既存のシール削除経路を呼ぶ", () => {
+  it("自分のシールを投票パレットへ戻すと、そのシールIDで削除を1回要求する", () => {
     const onNoteVoteStickerRemove = vi.fn();
     const stickerId = "33333333-3333-4333-8333-333333333333";
     const notes = [

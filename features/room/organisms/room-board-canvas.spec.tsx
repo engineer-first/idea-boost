@@ -1337,7 +1337,7 @@ describe("RoomBoardCanvas", () => {
 
   it.each([
     2, 3,
-  ])("Step3-%iでは無限キャンバスと分離した新しい固定マップを表示する", (step) => {
+  ])("Step3-%iでは無限キャンバスと分離した固定マップを表示する", (step) => {
     const phase = buildPhaseStep(step, 3);
 
     setup({

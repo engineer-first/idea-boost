@@ -263,7 +263,7 @@ describe("工程ガイド", () => {
       expect(detail.getByText(text)).toBeVisible();
     }
   });
-  it("図のない工程では従来の具体例を表示する", () => {
+  it("図のない工程では詳細に文章の具体例を表示する", () => {
     setup({
       guide: { ...guide, visualExample: undefined },
       initialState: "detail",

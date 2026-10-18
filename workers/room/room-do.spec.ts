@@ -2264,7 +2264,7 @@ describe("RoomDO 候補外付箋", () => {
 });
 
 describe("RoomDO phase:next", () => {
-  it("3-1から3-2へ入ると付箋数に応じて初期広さを4段階広げる", async () => {
+  it("3-1から3-2へ進むと本文のある個人付箋20枚に対して広さを7段階で初期化する", async () => {
     const roomName = "room-idea-map-default-size-on-step-2";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
@@ -2333,7 +2333,7 @@ describe("RoomDO phase:next", () => {
     host.close();
   });
 
-  it("3-2から3-3への未初期化遷移では共有付箋数に4段階分を加え、他者へ個人付箋を送らない", async () => {
+  it("広さ未初期化で3-2から3-3へ進むと共有付箋20枚から7段階に設定し、他者へ個人付箋を送らない", async () => {
     const roomName = "room-idea-map-initial-size-from-shared-notes";
     const stub = roomStub(roomName);
     await initializeTestRoom(stub, USER_A, "Host");
